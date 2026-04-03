@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { Suspense } from 'react';
 import { Analytics } from '@vercel/analytics/next';
 import {
   IBM_Plex_Mono,
@@ -30,7 +31,7 @@ const notoSansSC = Noto_Sans_SC({
 });
 
 const fusionPixel = localFont({
-  src: '../public/fonts/fusion-pixel-12px-proportional-zh_hans.ttf.woff2',
+  src: '../../public/fonts/fusion-pixel-12px-proportional-zh_hans.ttf.woff2',
   variable: '--font-fusion-pixel',
   display: 'swap',
 });
@@ -64,7 +65,9 @@ export default function RootLayout({
           跳到主要内容
         </a>
         <TooltipProvider>
-          {children}
+          <Suspense>
+            {children}
+          </Suspense>
           <Toaster />
         </TooltipProvider>
         <Analytics />
