@@ -83,7 +83,7 @@ export function InterviewQuotaNotice() {
       }}
       open={open}
     >
-      <DialogContent className='max-w-md rounded-2xl'>
+      <DialogContent className='max-w-md rounded-lg'>
         <DialogHeader className='space-y-3'>
           <DialogTitle className='flex items-center gap-2'>
             <AlertTriangleIcon className='size-5 text-amber-500' />

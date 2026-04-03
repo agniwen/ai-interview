@@ -175,14 +175,14 @@ export default function ChatSidebar() {
   let expandedUserSection: ReactNode;
 
   if (showSessionLoadingState) {
-    expandedUserSection = <div className='h-9 w-full animate-pulse rounded-full bg-muted' />;
+    expandedUserSection = <div className='h-9 w-full animate-pulse  bg-muted' />;
   }
   else if (session?.user) {
     expandedUserSection = (
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button
-            className='w-full justify-start gap-2 p-1! rounded-full'
+            className='w-full justify-start gap-2 p-1! '
             type='button'
             variant='ghost'
           >
@@ -348,16 +348,16 @@ export default function ChatSidebar() {
                       <li key={conversation.id}>
                         <div
                           className={cn(
-                            'group flex items-center gap-1 rounded-xl border border-transparent px-1 py-1 transition-colors',
-                            isActive ? 'border-border/75 bg-accent/60' : 'hover:bg-accent/40',
+                            'group flex items-center gap-1 rounded-lg border border-transparent px-1  transition-all',
+                            isActive ? 'border-accent bg-accent/60' : 'border-transparent hover:bg-accent/40',
                           )}
                         >
                           <Link
-                            className='min-w-0 flex-1 rounded-md px-2 py-1.5 text-left'
+                            className='min-w-0 flex-1 rounded-md px-1 py-1 text-left'
                             href={`/chat/${conversation.id}`}
                           >
-                            <p className='truncate font-medium text-sm'>{visibleTitle}</p>
-                            <p className='mt-1 truncate text-muted-foreground text-xs'>
+                            <p className='truncate font-medium text-xs'>{visibleTitle}</p>
+                            <p className='mt-1 truncate text-muted-foreground text-[10px]'>
                               {sidebarTimeFormatter.format(new Date(conversation.updatedAt))}
                             </p>
                           </Link>

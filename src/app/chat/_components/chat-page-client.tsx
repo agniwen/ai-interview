@@ -23,6 +23,7 @@ import {
   UploadIcon,
   UserIcon,
 } from 'lucide-react';
+import { useParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import {
@@ -428,11 +429,9 @@ function ComposerFooter({
   );
 }
 
-export default function ChatPageClient({
-  initialSessionId,
-}: {
-  initialSessionId: string | null
-}) {
+export default function ChatPageClient() {
+  const { sessionId } = useParams<{ sessionId?: string }>();
+  const initialSessionId = sessionId ?? null;
   const { data: session, isPending: isSessionPending } = authClient.useSession();
   const isHydrated = useHydrated();
   const isMobileSidebarOpen = useAtomValue(isMobileSidebarOpenAtom);
@@ -959,7 +958,7 @@ export default function ChatPageClient({
         <Suggestions className='gap-2.5 pb-1'>
           {QUICK_SUGGESTIONS.map(suggestion => (
             <Suggestion
-              className='h-auto rounded-2xl border-border/70 bg-card/70 px-4 py-2 text-left text-xs leading-relaxed whitespace-normal hover:bg-accent'
+              className='h-auto rounded-lg border-border/70 bg-card/70 px-4 py-2 text-left text-xs leading-relaxed whitespace-normal hover:bg-accent'
               disabled={isStreaming}
               key={suggestion}
               onClick={(text) => {
@@ -977,7 +976,7 @@ export default function ChatPageClient({
             {messages.length === 0
               ? (
                   <ConversationEmptyState
-                    className='my-10 rounded-2xl border border-dashed border-border/70 bg-background/70'
+                    className='my-10 rounded-lg border border-dashed border-border/70 bg-background/70'
                     description='上传候选人简历（最多 8 份）或输入筛选要求，助手会给出评分与推荐结论。'
                     icon={<SparklesIcon className='size-5' />}
                     title='开始筛选简历'
@@ -1215,7 +1214,7 @@ export default function ChatPageClient({
 
       <PromptInput
         accept='application/pdf'
-        className='mt-4  **:data-[slot=input-group]:cursor-text **:data-[slot=input-group]:rounded-[1.3rem] **:data-[slot=input-group]:border-border/65 **:data-[slot=input-group]:bg-white **:data-[slot=input-group]:shadow-[0_8px_18px_-20px_rgba(60,44,23,0.5)]'
+        className='mt-1  **:data-[slot=input-group]:cursor-text **:data-[slot=input-group]:rounded-lg **:data-[slot=input-group]:border-border/65 **:data-[slot=input-group]:bg-white **:data-[slot=input-group]:shadow-[0_8px_18px_-20px_rgba(60,44,23,0.5)]'
         onClick={(event) => {
           const target = event.target as HTMLElement;
 
@@ -1235,7 +1234,7 @@ export default function ChatPageClient({
             </div>
           </div>
         )}
-        dragOverlayClassName='bg-white rounded-[1.3rem]'
+        dragOverlayClassName='bg-white rounded-lg'
         globalDrop
         maxFiles={8}
         maxFileSize={10 * 1024 * 1024}
@@ -1319,7 +1318,7 @@ export default function ChatPageClient({
             </label>
             <textarea
               autoComplete='off'
-              className='min-h-40 w-full rounded-xl border border-border/70 bg-background p-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring'
+              className='min-h-40 w-full mt-2 rounded-lg border border-border/70 bg-background p-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring'
               id='job-description'
               name='jobDescription'
               onChange={event =>

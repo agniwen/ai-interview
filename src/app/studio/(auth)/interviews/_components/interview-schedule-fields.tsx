@@ -30,7 +30,7 @@ export function InterviewScheduleFields({
         const rootErrors = toFieldErrors(scheduleEntriesField.state.meta.errors);
 
         return (
-          <div className='space-y-4 rounded-2xl border border-border/60 bg-background p-4'>
+          <div className='space-y-4 rounded-lg border border-border/60 bg-background p-4'>
             <div className='flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between'>
               <div className='min-w-0'>
                 <h3 className='font-medium text-sm'>面试安排</h3>
@@ -50,7 +50,7 @@ export function InterviewScheduleFields({
 
             <div className='space-y-4'>
               {scheduleEntriesField.state.value.map((entry, index) => (
-                <div className='rounded-xl border border-border/60 bg-muted/20 p-4' key={entry.id || `schedule-${index}`}>
+                <div className='rounded-lg border border-border/60 bg-muted/20 p-4' key={entry.id || `schedule-${index}`}>
                   <div className='mb-3 flex items-center justify-between gap-3'>
                     <p className='font-medium text-sm'>
                       第

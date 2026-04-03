@@ -19,7 +19,8 @@ const roleRows = [
   },
 ];
 
-export default function StudioUsersPage() {
+export default async function StudioUsersPage() {
+  'use cache';
   return (
     <div className='space-y-6'>
       <section className='rounded-[1.5rem] border border-border/60 bg-background px-6 py-6 shadow-sm'>
@@ -37,7 +38,7 @@ export default function StudioUsersPage() {
         </CardHeader>
         <CardContent className='grid gap-4'>
           {roleRows.map(item => (
-            <div className='rounded-2xl border border-border/60 bg-muted/35 p-4' key={item.role}>
+            <div className='rounded-lg border border-border/60 bg-muted/35 p-4' key={item.role}>
               <div className='flex items-center gap-3'>
                 <Badge className='rounded-full' variant={item.role === 'admin' ? 'default' : 'secondary'}>
                   {item.role}

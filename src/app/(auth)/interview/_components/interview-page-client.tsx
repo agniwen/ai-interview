@@ -16,6 +16,7 @@ import {
   SparklesIcon,
 } from 'lucide-react';
 import Link from 'next/link';
+import { useParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import {
@@ -299,7 +300,8 @@ function pickMessage(event: unknown): Omit<Turn, 'id' | 'createdAt'> | null {
   return null;
 }
 
-export default function InterviewPageClient({ interviewId }: { interviewId: string }) {
+export default function InterviewPageClient() {
+  const { id: interviewId } = useParams<{ id: string }>();
   const conversationRef = useRef<ElevenConversationType | null>(null);
   const rafRef = useRef<number | null>(null);
   const activeConversationIdRef = useRef<string | null>(null);
@@ -1104,7 +1106,7 @@ export default function InterviewPageClient({ interviewId }: { interviewId: stri
 
             <div className='mt-4 px-1'>
               <PromptInput
-                className='**:data-[slot=input-group]:rounded-[1.3rem] **:data-[slot=input-group]:border-border/65 **:data-[slot=input-group]:bg-white **:data-[slot=input-group]:shadow-[0_8px_18px_-20px_rgba(60,44,23,0.5)]'
+                className='**:data-[slot=input-group]:rounded-lg **:data-[slot=input-group]:border-border/65 **:data-[slot=input-group]:bg-white **:data-[slot=input-group]:shadow-[0_8px_18px_-20px_rgba(60,44,23,0.5)]'
                 onSubmit={() => undefined}
               >
                 <PromptInputBody>

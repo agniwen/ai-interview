@@ -73,7 +73,7 @@ export default async function StudioLoginPage() {
 
             {session?.user
               ? (
-                  <div className='space-y-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-amber-950'>
+                  <div className='space-y-3 rounded-lg border border-amber-200 bg-amber-50 p-4 text-amber-950'>
                     <p className='font-medium text-sm'>当前已登录，但该账号不是管理员</p>
                     <p className='text-sm leading-relaxed'>
                       当前账号为

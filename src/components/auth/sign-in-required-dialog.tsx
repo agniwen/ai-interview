@@ -18,6 +18,7 @@ interface SignInRequiredDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   title?: string
+  closable?: boolean
 }
 
 export function SignInRequiredDialog({
@@ -25,12 +26,13 @@ export function SignInRequiredDialog({
   open,
   onOpenChange,
   title = '先登录后继续',
+  closable = true,
 }: SignInRequiredDialogProps) {
   const [activeTab, setActiveTab] = useState('sign-in');
 
   return (
     <Dialog onOpenChange={onOpenChange} open={open}>
-      <DialogContent className='max-w-md rounded-3xl border-border/70 bg-card/95 p-7 shadow-[0_30px_90px_-42px_rgba(30,72,132,0.55)] backdrop-blur-xl'>
+      <DialogContent className='max-w-md rounded-3xl border-border/70 bg-card/95 p-7 shadow-[0_30px_90px_-42px_rgba(30,72,132,0.55)] backdrop-blur-xl' showCloseButton={closable}>
         <DialogHeader className='space-y-3 text-left'>
           <DialogTitle className='pixel-title text-xl text-foreground'>
             {title}

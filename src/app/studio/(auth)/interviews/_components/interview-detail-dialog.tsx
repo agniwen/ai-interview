@@ -129,7 +129,7 @@ function renderKeyValueEntries(entries: Record<string, unknown>) {
   return (
     <div className='space-y-2'>
       {items.map(([key, value]) => (
-        <div className='rounded-xl border border-border/60 bg-muted/20 px-3 py-2 text-sm' key={key}>
+        <div className='rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-sm' key={key}>
           <p className='font-medium'>{key}</p>
           <p className='mt-1 break-words text-muted-foreground leading-relaxed'>{typeof value === 'string' ? value : JSON.stringify(value)}</p>
         </div>
@@ -292,7 +292,7 @@ export function InterviewDetailDialog({
 
                     <TabsContent value='overview'>
                       <div className='space-y-6'>
-                        <div className='rounded-2xl border border-border/60 bg-muted/30 p-5'>
+                        <div className='rounded-lg border border-border/60 bg-muted/30 p-5'>
                           <h3 className='font-medium text-sm'>基础信息</h3>
                           <div className='mt-4 grid gap-3 text-sm'>
                             <DetailRow label='邮箱' value={formatValue(record.candidateEmail)} />
@@ -303,7 +303,7 @@ export function InterviewDetailDialog({
                           </div>
                         </div>
 
-                        <div className='rounded-2xl border border-border/60 bg-background p-5'>
+                        <div className='rounded-lg border border-border/60 bg-background p-5'>
                           <div className='flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between'>
                             <h3 className='font-medium text-sm'>面试链接</h3>
                             <Button onClick={() => void handleCopy(new URL(record.interviewLink, window.location.origin).toString())} size='sm' type='button' variant='outline'>
@@ -311,7 +311,7 @@ export function InterviewDetailDialog({
                               复制链接
                             </Button>
                           </div>
-                          <div className='mt-3 rounded-xl border border-border/60 bg-muted/30 px-3 py-3 text-sm'>
+                          <div className='mt-3 rounded-lg border border-border/60 bg-muted/30 px-3 py-3 text-sm'>
                             <p className='flex items-start gap-2 font-medium leading-relaxed'>
                               <LinkIcon className='mt-0.5 size-4 shrink-0 text-muted-foreground' />
                               <span className='break-all'>{record.interviewLink}</span>
@@ -319,12 +319,12 @@ export function InterviewDetailDialog({
                           </div>
                         </div>
 
-                        <div className='rounded-2xl border border-border/60 bg-background p-5'>
+                        <div className='rounded-lg border border-border/60 bg-background p-5'>
                           <h3 className='font-medium text-sm'>面试安排</h3>
                           <div className='mt-4 space-y-3'>
                             {scheduleEntries.length > 0
                               ? scheduleEntries.map(entry => (
-                                  <div className='rounded-xl border border-border/60 bg-muted/30 p-3' key={entry.id}>
+                                  <div className='rounded-lg border border-border/60 bg-muted/30 p-3' key={entry.id}>
                                     <div className='flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between sm:gap-3'>
                                       <span className='break-words font-medium text-sm'>{entry.roundLabel}</span>
                                       <span className='shrink-0 text-muted-foreground text-xs'>{formatDateTime(entry.scheduledAt)}</span>
@@ -338,7 +338,7 @@ export function InterviewDetailDialog({
                           </div>
                         </div>
 
-                        <div className='rounded-2xl border border-border/60 bg-background p-5'>
+                        <div className='rounded-lg border border-border/60 bg-background p-5'>
                           <h3 className='font-medium text-sm'>技能与优势</h3>
                           <p className='mt-3 text-muted-foreground text-sm leading-relaxed'>
                             技能：
@@ -354,14 +354,14 @@ export function InterviewDetailDialog({
                           </p>
                         </div>
 
-                        <div className='rounded-2xl border border-border/60 bg-background p-5'>
+                        <div className='rounded-lg border border-border/60 bg-background p-5'>
                           <h3 className='font-medium text-sm'>备注</h3>
                           <p className='mt-3 text-muted-foreground text-sm leading-relaxed'>
                             {truncateText(record.notes, 600) || '暂无备注'}
                           </p>
                         </div>
 
-                        <div className='rounded-2xl border border-border/60 bg-background p-5'>
+                        <div className='rounded-lg border border-border/60 bg-background p-5'>
                           <div className='flex items-center justify-between gap-3'>
                             <h3 className='font-medium text-sm'>最近一次面试结果</h3>
                             <Badge variant={latestReport ? getReportBadgeVariant(latestReport.status) : 'outline'}>
@@ -378,19 +378,19 @@ export function InterviewDetailDialog({
                     <TabsContent value='reports'>
                       <div className='space-y-6'>
                         <div className='grid gap-4 md:grid-cols-4'>
-                          <div className='rounded-2xl border border-border/60 bg-background p-4'>
+                          <div className='rounded-lg border border-border/60 bg-background p-4'>
                             <p className='text-muted-foreground text-xs'>面试次数</p>
                             <p className='mt-2 font-semibold text-2xl'>{reports.length}</p>
                           </div>
-                          <div className='rounded-2xl border border-border/60 bg-background p-4'>
+                          <div className='rounded-lg border border-border/60 bg-background p-4'>
                             <p className='text-muted-foreground text-xs'>已完成</p>
                             <p className='mt-2 font-semibold text-2xl'>{reports.filter(report => report.status === 'done').length}</p>
                           </div>
-                          <div className='rounded-2xl border border-border/60 bg-background p-4'>
+                          <div className='rounded-lg border border-border/60 bg-background p-4'>
                             <p className='text-muted-foreground text-xs'>失败</p>
                             <p className='mt-2 font-semibold text-2xl'>{reports.filter(report => report.status === 'failed').length}</p>
                           </div>
-                          <div className='rounded-2xl border border-border/60 bg-background p-4'>
+                          <div className='rounded-lg border border-border/60 bg-background p-4'>
                             <p className='text-muted-foreground text-xs'>累计对话轮次</p>
                             <p className='mt-2 font-semibold text-2xl'>{reports.reduce((sum, report) => sum + report.turnCount, 0)}</p>
                           </div>
@@ -398,7 +398,7 @@ export function InterviewDetailDialog({
 
                         {reports.length === 0
                           ? (
-                              <div className='flex min-h-[240px] flex-col items-center justify-center rounded-2xl border border-dashed border-border/70 bg-muted/20 px-6 py-10 text-center'>
+                              <div className='flex min-h-[240px] flex-col items-center justify-center rounded-lg border border-dashed border-border/70 bg-muted/20 px-6 py-10 text-center'>
                                 <MessageSquareTextIcon className='size-8 text-muted-foreground' />
                                 <p className='mt-4 font-medium text-sm'>暂无面试报告</p>
                                 <p className='mt-2 max-w-xl text-muted-foreground text-sm leading-relaxed'>
@@ -413,7 +413,7 @@ export function InterviewDetailDialog({
                                   const endedAt = formatDateTime(report.endedAt ?? report.updatedAt);
 
                                   return (
-                                    <AccordionItem className='overflow-hidden rounded-2xl border border-border/60 bg-background px-0' key={report.conversationId} value={report.conversationId}>
+                                    <AccordionItem className='overflow-hidden rounded-lg border border-border/60 bg-background px-0' key={report.conversationId} value={report.conversationId}>
                                       <AccordionTrigger className='px-5 py-4 hover:no-underline'>
                                         <div className='min-w-0 flex-1 text-left'>
                                           <div className='flex flex-wrap items-center gap-2'>
@@ -431,7 +431,7 @@ export function InterviewDetailDialog({
                                       <AccordionContent className='px-5 pb-5'>
                                         <div className='grid gap-4 lg:grid-cols-[minmax(0,0.95fr)_minmax(320px,0.75fr)]'>
                                           <div className='space-y-4'>
-                                            <div className='rounded-2xl border border-border/60 bg-muted/20 p-4'>
+                                            <div className='rounded-lg border border-border/60 bg-muted/20 p-4'>
                                               <h4 className='font-medium text-sm'>会话概览</h4>
                                               <div className='mt-3 grid gap-2 text-sm'>
                                                 <DetailRow label='会话 ID' value={<span className='break-all'>{report.conversationId}</span>} />
@@ -443,21 +443,21 @@ export function InterviewDetailDialog({
                                               </div>
                                             </div>
 
-                                            <div className='rounded-2xl border border-border/60 bg-background p-4'>
+                                            <div className='rounded-lg border border-border/60 bg-background p-4'>
                                               <h4 className='font-medium text-sm'>最终总结</h4>
                                               <p className='mt-3 text-muted-foreground text-sm leading-relaxed'>
                                                 {report.transcriptSummary ?? '暂无总结。'}
                                               </p>
                                               {report.latestError
                                                 ? (
-                                                    <div className='mt-3 rounded-xl border border-destructive/30 bg-destructive/5 px-3 py-2 text-destructive text-sm'>
+                                                    <div className='mt-3 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-destructive text-sm'>
                                                       {report.latestError}
                                                     </div>
                                                   )
                                                 : null}
                                             </div>
 
-                                            <div className='rounded-2xl border border-border/60 bg-background p-4'>
+                                            <div className='rounded-lg border border-border/60 bg-background p-4'>
                                               <h4 className='font-medium text-sm'>结构化结果</h4>
                                               <div className='mt-4 grid gap-4 xl:grid-cols-2'>
                                                 <div>
@@ -472,12 +472,12 @@ export function InterviewDetailDialog({
                                             </div>
                                           </div>
 
-                                          <div className='rounded-2xl border border-border/60 bg-background p-4'>
+                                          <div className='rounded-lg border border-border/60 bg-background p-4'>
                                             <h4 className='font-medium text-sm'>对话记录</h4>
                                             <div className='mt-4 space-y-3'>
                                               {report.turns.length > 0
                                                 ? report.turns.map(turn => (
-                                                    <div className='rounded-xl border border-border/60 bg-muted/20 p-3' key={turn.id}>
+                                                    <div className='rounded-lg border border-border/60 bg-muted/20 p-3' key={turn.id}>
                                                       <div className='flex flex-wrap items-center gap-2 text-xs'>
                                                         <Badge variant={turn.role === 'user' ? 'outline' : 'secondary'}>
                                                           {turn.role === 'user' ? '候选人' : '面试官'}
@@ -510,12 +510,12 @@ export function InterviewDetailDialog({
                     </TabsContent>
 
                     <TabsContent value='questions'>
-                      <div className='rounded-2xl border border-border/60 bg-background p-4'>
+                      <div className='rounded-lg border border-border/60 bg-background p-4'>
                         <h3 className='font-medium text-sm'>AI 面试题</h3>
                         <div className='mt-4 space-y-3'>
                           {visibleInterviewQuestions.length > 0
                             ? visibleInterviewQuestions.map(question => (
-                                <div className='rounded-xl border border-border/60 bg-muted/30 p-3' key={question.order}>
+                                <div className='rounded-lg border border-border/60 bg-muted/30 p-3' key={question.order}>
                                   <div className='flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between sm:gap-3'>
                                     <span className='font-medium text-sm'>
                                       第
@@ -535,7 +535,7 @@ export function InterviewDetailDialog({
 
                     <TabsContent value='experience'>
                       <div className='space-y-6'>
-                        <div className='rounded-2xl border border-border/60 bg-muted/30 p-5'>
+                        <div className='rounded-lg border border-border/60 bg-muted/30 p-5'>
                           <h3 className='font-medium text-sm'>工作经历</h3>
                           <div className='mt-4 space-y-4'>
                             {visibleWorkExperiences.length > 0
@@ -555,7 +555,7 @@ export function InterviewDetailDialog({
                           </div>
                         </div>
 
-                        <div className='rounded-2xl border border-border/60 bg-background p-5'>
+                        <div className='rounded-lg border border-border/60 bg-background p-5'>
                           <h3 className='font-medium text-sm'>项目经历</h3>
                           <div className='mt-4 space-y-4'>
                             {visibleProjectExperiences.length > 0

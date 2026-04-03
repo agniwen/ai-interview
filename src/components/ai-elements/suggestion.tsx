@@ -53,7 +53,7 @@ export function Suggestion({
 
   return (
     <Button
-      className={cn('cursor-pointer rounded-full px-4', className)}
+      className={cn('cursor-pointer rounded-lg px-4', className)}
       onClick={handleClick}
       size={size}
       type='button'
