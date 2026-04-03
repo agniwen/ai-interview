@@ -7,7 +7,6 @@ import {
   Source_Serif_4,
 } from 'next/font/google';
 import localFont from 'next/font/local';
-import { ViewTransition } from 'react';
 import { Toaster } from '@/components/ui/sonner';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import './globals.css';
@@ -64,12 +63,10 @@ export default function RootLayout({
         >
           跳到主要内容
         </a>
-        <ViewTransition>
-          <TooltipProvider>
-            {children}
-            <Toaster />
-          </TooltipProvider>
-        </ViewTransition>
+        <TooltipProvider>
+          {children}
+          <Toaster />
+        </TooltipProvider>
         <Analytics />
       </body>
     </html>

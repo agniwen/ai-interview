@@ -19,8 +19,7 @@ const roleRows = [
   },
 ];
 
-export default async function StudioUsersPage() {
-  'use cache';
+export default function StudioUsersPage() {
   return (
     <div className='space-y-6'>
       <section className='rounded-[1.5rem] border border-border/60 bg-background px-6 py-6 shadow-sm'>

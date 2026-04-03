@@ -36,8 +36,7 @@ const summaryCards = [
   },
 ];
 
-export default async function StudioDashboardPage() {
-  'use cache';
+export default function StudioDashboardPage() {
   return (
     <div className='space-y-6'>
       <section className='rounded-[1.75rem] border border-border/60 bg-background px-6 py-6 shadow-sm lg:px-8 lg:py-8'>

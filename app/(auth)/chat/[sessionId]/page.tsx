@@ -1,7 +1,6 @@
-import { Suspense } from 'react';
 import ChatPageClient from '@/app/chat/_components/chat-page-client';
 
-async function ChatSessionContent({
+export default async function ChatSessionPage({
   params,
 }: {
   params: Promise<{ sessionId: string }>
@@ -9,16 +8,4 @@ async function ChatSessionContent({
   const { sessionId } = await params;
 
   return <ChatPageClient initialSessionId={sessionId} key={sessionId} />;
-}
-
-export default function ChatSessionPage({
-  params,
-}: {
-  params: Promise<{ sessionId: string }>
-}) {
-  return (
-    <Suspense>
-      <ChatSessionContent params={params} />
-    </Suspense>
-  );
 }

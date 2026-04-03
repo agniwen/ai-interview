@@ -1,5 +1,4 @@
 import type { CSSProperties, ReactNode } from 'react';
-import { Suspense } from 'react';
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { StudioHeader } from '@/app/studio/_components/studio-header';
@@ -8,7 +7,11 @@ import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import { auth } from '@/lib/auth';
 import { isAdminRole } from '@/lib/auth-roles';
 
-async function StudioGuardedShell({ children }: { children: ReactNode }) {
+export default async function StudioProtectedLayout({
+  children,
+}: {
+  children: ReactNode
+}) {
   const session = await auth.api.getSession({
     headers: await headers(),
   });
@@ -34,17 +37,5 @@ async function StudioGuardedShell({ children }: { children: ReactNode }) {
         </div>
       </SidebarInset>
     </SidebarProvider>
-  );
-}
-
-export default function StudioProtectedLayout({
-  children,
-}: {
-  children: ReactNode
-}) {
-  return (
-    <Suspense>
-      <StudioGuardedShell>{children}</StudioGuardedShell>
-    </Suspense>
   );
 }

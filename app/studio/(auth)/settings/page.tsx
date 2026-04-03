@@ -5,8 +5,7 @@ export const metadata: Metadata = {
   title: '后台设置',
 };
 
-export default async function StudioSettingsPage() {
-  'use cache';
+export default function StudioSettingsPage() {
   return (
     <div className='grid gap-4 lg:grid-cols-2'>
       <Card className='border-border/60 bg-background/92'>

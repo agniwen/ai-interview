@@ -10,10 +10,6 @@ const nextConfig: NextConfig = {
     ],
   },
   serverExternalPackages: ['@napi-rs/canvas', 'pdf-parse'],
-  cacheComponents: true,
-  experimental: {
-    viewTransition: true,
-  },
 };
 
 export default nextConfig;

@@ -1,5 +1,4 @@
 import type { Metadata } from 'next';
-import { cacheLife, cacheTag } from 'next/cache';
 import { InterviewManagementPage } from '@/app/studio/(auth)/interviews/_components/interview-management-page';
 import { listStudioInterviewRecords } from '@/server/queries/studio-interviews';
 
@@ -8,14 +7,6 @@ export const metadata: Metadata = {
 };
 
 export default async function StudioInterviewsPage() {
-  'use cache';
-  cacheLife({
-    stale: 60,
-    revalidate: 120,
-    expire: 300,
-  });
-  cacheTag('studio-interviews');
-
   const initialRecords = await listStudioInterviewRecords();
 
   return <InterviewManagementPage initialRecords={initialRecords} />;

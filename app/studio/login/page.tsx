@@ -1,6 +1,5 @@
 import type { Metadata } from 'next';
 import { LockKeyholeIcon, ShieldCheckIcon } from 'lucide-react';
-import { Suspense } from 'react';
 import { headers } from 'next/headers';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
@@ -15,7 +14,7 @@ export const metadata: Metadata = {
   title: 'Studio 登录',
 };
 
-async function SessionWarning() {
+export default async function StudioLoginPage() {
   const session = await auth.api.getSession({
     headers: await headers(),
   });
@@ -24,25 +23,6 @@ async function SessionWarning() {
     redirect('/studio');
   }
 
-  if (!session?.user) {
-    return null;
-  }
-
-  return (
-    <div className='space-y-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-amber-950'>
-      <p className='font-medium text-sm'>当前已登录，但该账号不是管理员</p>
-      <p className='text-sm leading-relaxed'>
-        当前账号为
-        {' '}
-        {session.user.email}
-        。如果需要进入 Studio，请切换到拥有 `admin` 角色的账号。
-      </p>
-      <StudioSwitchAccountButton />
-    </div>
-  );
-}
-
-export default function StudioLoginPage() {
   return (
     <main className='relative flex min-h-dvh items-center justify-center overflow-hidden bg-[radial-gradient(circle_at_top,rgba(59,130,246,0.12),transparent_32%),linear-gradient(180deg,rgba(248,250,252,1),rgba(241,245,249,0.96))] px-6 py-10' id='main-content'>
       <div className='grid w-full max-w-5xl gap-6 lg:grid-cols-[1.15fr_minmax(0,420px)]'>
@@ -89,9 +69,20 @@ export default function StudioLoginPage() {
           <CardContent className='space-y-4'>
             <GoogleSignInButton callbackURL='/studio/login' label='使用 Google 进入 Studio' />
 
-            <Suspense>
-              <SessionWarning />
-            </Suspense>
+            {session?.user
+              ? (
+                  <div className='space-y-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-amber-950'>
+                    <p className='font-medium text-sm'>当前已登录，但该账号不是管理员</p>
+                    <p className='text-sm leading-relaxed'>
+                      当前账号为
+                      {' '}
+                      {session.user.email}
+                      。如果需要进入 Studio，请切换到拥有 `admin` 角色的账号。
+                    </p>
+                    <StudioSwitchAccountButton />
+                  </div>
+                )
+              : null}
 
             <p className='text-muted-foreground text-xs leading-relaxed'>
               没有权限的用户即使已登录，也无法访问后台页面。你也可以先回到

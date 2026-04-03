@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { useParams, usePathname, useRouter } from 'next/navigation';
-import { useCallback, useEffect, useMemo, useState, useSyncExternalStore, useTransition } from 'react';
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import { GoogleSignInButton } from '@/components/auth/google-sign-in-button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -66,11 +66,10 @@ const sidebarTimeFormatter = new Intl.DateTimeFormat('zh-CN', {
   hour12: false,
 });
 
-export default function ChatSidebar({ ref }: { ref?: React.Ref<HTMLElement> }) {
+export default function ChatSidebar() {
   const pathname = usePathname();
   const params = useParams<{ sessionId?: string | string[] }>();
   const router = useRouter();
-  const [, startViewTransition] = useTransition();
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useAtom(isSidebarCollapsedAtom);
   const isMobileSidebarOpen = useAtomValue(isMobileSidebarOpenAtom);
   const closeMobileSidebar = useSetAtom(isMobileSidebarOpenAtom);
@@ -132,10 +131,8 @@ export default function ChatSidebar({ ref }: { ref?: React.Ref<HTMLElement> }) {
   const handleStartNewConversation = useCallback(() => {
     closeMobileSidebar(false);
     window.dispatchEvent(new CustomEvent('chat:start-new-conversation'));
-    startViewTransition(() => {
-      router.replace('/chat');
-    });
-  }, [closeMobileSidebar, router, startViewTransition]);
+    router.replace('/chat');
+  }, [closeMobileSidebar, router]);
 
   useEffect(() => {
     const initialTimerId = window.setTimeout(() => {
@@ -158,9 +155,7 @@ export default function ChatSidebar({ ref }: { ref?: React.Ref<HTMLElement> }) {
       await refreshConversationList();
 
       if (activeSessionId === id) {
-        startViewTransition(() => {
-          router.replace('/chat');
-        });
+        router.replace('/chat');
       }
     },
     [activeSessionId, refreshConversationList, router],
@@ -169,10 +164,8 @@ export default function ChatSidebar({ ref }: { ref?: React.Ref<HTMLElement> }) {
   const handleSignOut = useCallback(async () => {
     await authClient.signOut();
     closeMobileSidebar(false);
-    startViewTransition(() => {
-      router.replace('/');
-    });
-  }, [closeMobileSidebar, router, startViewTransition]);
+    router.replace('/');
+  }, [closeMobileSidebar, router]);
 
   const showExpandedSidebar = !isSidebarCollapsed || isMobileSidebarOpen;
   const userName = session?.user?.name ?? '用户';
@@ -280,7 +273,6 @@ export default function ChatSidebar({ ref }: { ref?: React.Ref<HTMLElement> }) {
 
   return (
     <aside
-      ref={ref}
       className={cn(
         'fixed inset-y-0 left-0 z-40 flex w-[min(82vw,20rem)] shrink-0 flex-col overflow-hidden border-r border-border/75 bg-card/95 shadow-[0_14px_36px_-32px_rgba(52,96,168,0.6)] transition-transform duration-200 sm:static sm:z-auto sm:bg-card/80 sm:transition-[width]',
         isMobileSidebarOpen ? 'translate-x-0' : '-translate-x-full sm:translate-x-0',
