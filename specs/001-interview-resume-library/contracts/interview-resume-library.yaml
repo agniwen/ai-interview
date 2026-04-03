@@ -1,0 +1,300 @@
+openapi: 3.1.0
+info:
+  title: Interview Resume Library Contract
+  version: 0.1.0
+paths:
+  /api/studio/interviews:
+    get:
+      summary: List resume library records
+      parameters:
+        - in: query
+          name: search
+          schema:
+            type: string
+        - in: query
+          name: status
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Resume library records returned
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/StudioInterviewRecord'
+    post:
+      summary: Create a resume library record
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/StudioInterviewUpsertForm'
+      responses:
+        '201':
+          description: Record created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StudioInterviewRecord'
+  /api/studio/interviews/{id}:
+    get:
+      summary: Get one resume library record
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Record returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StudioInterviewRecord'
+        '404':
+          description: Record not found
+    patch:
+      summary: Update a resume library record, optionally with a replacement resume PDF
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/StudioInterviewUpsertForm'
+      responses:
+        '200':
+          description: Record updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StudioInterviewRecord'
+        '404':
+          description: Record not found
+    delete:
+      summary: Delete a resume library record
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Record deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+  /api/interview/{id}:
+    get:
+      summary: Load candidate-facing interview data by unique interview link id
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Candidate-facing interview payload returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CandidateInterviewView'
+        '404':
+          description: Interview link not available
+  /api/interview/{id}/token:
+    get:
+      summary: Create a conversation token for a candidate interview session
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Conversation token returned
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [token]
+                properties:
+                  token:
+                    type: string
+        '404':
+          description: Interview link not available
+
+components:
+  parameters:
+    Id:
+      in: path
+      name: id
+      required: true
+      schema:
+        type: string
+  schemas:
+    ResumeProfile:
+      type: object
+      properties:
+        name:
+          type: string
+        age:
+          type:
+            - integer
+            - 'null'
+        gender:
+          type:
+            - string
+            - 'null'
+        targetRoles:
+          type: array
+          items:
+            type: string
+        workYears:
+          type:
+            - integer
+            - 'null'
+        skills:
+          type: array
+          items:
+            type: string
+        schools:
+          type: array
+          items:
+            type: string
+        workExperiences:
+          type: array
+          items:
+            type: object
+        projectExperiences:
+          type: array
+          items:
+            type: object
+        personalStrengths:
+          type: array
+          items:
+            type: string
+    InterviewQuestion:
+      type: object
+      required: [order, difficulty, question]
+      properties:
+        order:
+          type: integer
+        difficulty:
+          type: string
+          enum: [easy, medium, hard]
+        question:
+          type: string
+    InterviewScheduleEntry:
+      type: object
+      required: [roundLabel, sortOrder]
+      properties:
+        id:
+          type: string
+        roundLabel:
+          type: string
+        scheduledAt:
+          type:
+            - string
+            - 'null'
+          format: date-time
+        notes:
+          type:
+            - string
+            - 'null'
+        sortOrder:
+          type: integer
+    StudioInterviewUpsertForm:
+      type: object
+      required: [candidateName, status]
+      properties:
+        candidateName:
+          type: string
+        candidateEmail:
+          type: string
+        targetRole:
+          type: string
+        status:
+          type: string
+          enum: [draft, ready, in_progress, completed, archived]
+        notes:
+          type: string
+        resume:
+          type: string
+          format: binary
+        scheduleEntries:
+          type: string
+          description: Serialized array of interview schedule entries submitted with the form
+    StudioInterviewRecord:
+      type: object
+      required: [id, candidateName, status, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+        candidateName:
+          type: string
+        candidateEmail:
+          type:
+            - string
+            - 'null'
+        targetRole:
+          type:
+            - string
+            - 'null'
+        status:
+          type: string
+          enum: [draft, ready, in_progress, completed, archived]
+        resumeFileName:
+          type:
+            - string
+            - 'null'
+        resumeProfile:
+          oneOf:
+            - $ref: '#/components/schemas/ResumeProfile'
+            - type: 'null'
+        interviewQuestions:
+          type: array
+          items:
+            $ref: '#/components/schemas/InterviewQuestion'
+        scheduleEntries:
+          type: array
+          items:
+            $ref: '#/components/schemas/InterviewScheduleEntry'
+        interviewLink:
+          type: string
+        notes:
+          type:
+            - string
+            - 'null'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    CandidateInterviewView:
+      type: object
+      required: [id, candidateName, status, interviewQuestions]
+      properties:
+        id:
+          type: string
+        candidateName:
+          type: string
+        targetRole:
+          type:
+            - string
+            - 'null'
+        status:
+          type: string
+        currentRoundLabel:
+          type:
+            - string
+            - 'null'
+        currentRoundTime:
+          type:
+            - string
+            - 'null'
+          format: date-time
+        resumeProfile:
+          oneOf:
+            - $ref: '#/components/schemas/ResumeProfile'
+            - type: 'null'
+        interviewQuestions:
+          type: array
+          items:
+            $ref: '#/components/schemas/InterviewQuestion'
