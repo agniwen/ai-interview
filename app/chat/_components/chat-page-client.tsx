@@ -1217,7 +1217,7 @@ export default function ChatPageClient({
           )
         : null}
 
-      <div ref={composerRef} style={{ visibility: 'hidden' }}>
+      <div ref={composerRef}>
       <PromptInput
         accept='application/pdf'
         className='mt-4  **:data-[slot=input-group]:cursor-text **:data-[slot=input-group]:rounded-[1.3rem] **:data-[slot=input-group]:border-border/65 **:data-[slot=input-group]:bg-white **:data-[slot=input-group]:shadow-[0_8px_18px_-20px_rgba(60,44,23,0.5)]'

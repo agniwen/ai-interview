@@ -1,7 +1,7 @@
 'use client';
 
 import type { RefObject } from 'react';
-import { createContext, use } from 'react';
+import { createContext, use, useLayoutEffect } from 'react';
 import { useGSAP } from '@gsap/react';
 import gsap from 'gsap';
 import { useViewTransitionReady } from './use-view-transition-ready';
@@ -21,9 +21,6 @@ export function useChatLayoutSidebarRef() {
 /**
  * Animates sidebar (slide from left) and composer (slide from bottom)
  * after the View Transition animation finishes.
- *
- * Target elements must have `style={{ visibility: 'hidden' }}` in JSX
- * to prevent flash before hydration.
  */
 export function usePageEnterAnimation(
   sidebarRef: RefObject<HTMLElement | null>,
@@ -31,6 +28,17 @@ export function usePageEnterAnimation(
 ) {
   const ready = useViewTransitionReady();
 
+  // Hide elements immediately on mount, before browser paints.
+  useLayoutEffect(() => {
+    if (sidebarRef.current) {
+      gsap.set(sidebarRef.current, { x: -40, autoAlpha: 0 });
+    }
+    if (composerRef.current) {
+      gsap.set(composerRef.current, { y: 30, autoAlpha: 0 });
+    }
+  }, [sidebarRef, composerRef]);
+
+  // Animate in after the view transition finishes.
   useGSAP(() => {
     if (!ready) return;
 
@@ -46,12 +54,10 @@ export function usePageEnterAnimation(
     });
 
     if (sidebarRef.current) {
-      gsap.set(sidebarRef.current, { x: -40 });
       tl.to(sidebarRef.current, { x: 0, autoAlpha: 1, duration: 0.5 }, 0);
     }
 
     if (composerRef.current) {
-      gsap.set(composerRef.current, { y: 30 });
       tl.to(composerRef.current, { y: 0, autoAlpha: 1, duration: 0.5 }, 0.08);
     }
   }, { dependencies: [ready] });

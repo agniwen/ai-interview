@@ -124,7 +124,6 @@ export default function InterviewQuickStartClient() {
       <div className='grid min-h-0 flex-1 overflow-hidden bg-transparent sm:grid-cols-[auto_minmax(0,1fr)]'>
         <aside
           ref={sidebarRef}
-          style={{ visibility: 'hidden' }}
           className={cn(
             'fixed inset-y-0 left-0 z-40 flex w-[min(82vw,20rem)] shrink-0 flex-col overflow-hidden border-r border-border/75 bg-card/95 shadow-[0_14px_36px_-32px_rgba(52,96,168,0.6)] backdrop-blur-sm transition-transform duration-200 sm:static sm:z-auto sm:bg-card/80 sm:transition-[width]',
             isMobileSidebarOpen ? 'translate-x-0' : '-translate-x-full sm:translate-x-0',
@@ -317,7 +316,7 @@ export default function InterviewQuickStartClient() {
               </Conversation>
             </div>
 
-            <div ref={composerRef} style={{ visibility: 'hidden' }} className='mt-4 px-1'>
+            <div ref={composerRef} className='mt-4 px-1'>
               <PromptInput
                 className='**:data-[slot=input-group]:rounded-[1.3rem] **:data-[slot=input-group]:border-border/65 **:data-[slot=input-group]:bg-white **:data-[slot=input-group]:shadow-[0_8px_18px_-20px_rgba(60,44,23,0.5)]'
                 onSubmit={() => undefined}
