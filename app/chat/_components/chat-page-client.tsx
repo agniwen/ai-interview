@@ -23,7 +23,7 @@ import {
   UploadIcon,
   UserIcon,
 } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import {
   Attachment,
@@ -106,6 +106,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { useHydrated } from '@/hooks/use-hydrated';
+import { useChatLayoutSidebarRef, usePageEnterAnimation } from '@/hooks/use-page-enter-animation';
 import { authClient } from '@/lib/auth-client';
 import {
   chatHistoryDB,
@@ -435,6 +436,9 @@ export default function ChatPageClient({
 }) {
   const { data: session, isPending: isSessionPending } = authClient.useSession();
   const isHydrated = useHydrated();
+  const composerRef = useRef<HTMLDivElement>(null);
+  const sidebarRef = useChatLayoutSidebarRef();
+  usePageEnterAnimation(sidebarRef ?? { current: null }, composerRef);
   const isMobileSidebarOpen = useAtomValue(isMobileSidebarOpenAtom);
   const setIsMobileSidebarOpen = useSetAtom(isMobileSidebarOpenAtom);
   const [input, setInput] = useState('');
@@ -1213,6 +1217,7 @@ export default function ChatPageClient({
           )
         : null}
 
+      <div ref={composerRef}>
       <PromptInput
         accept='application/pdf'
         className='mt-4  **:data-[slot=input-group]:cursor-text **:data-[slot=input-group]:rounded-[1.3rem] **:data-[slot=input-group]:border-border/65 **:data-[slot=input-group]:bg-white **:data-[slot=input-group]:shadow-[0_8px_18px_-20px_rgba(60,44,23,0.5)]'
@@ -1351,6 +1356,7 @@ export default function ChatPageClient({
         <SparklesIcon className='size-3' />
         受限于当前服务器资源，目前连接仅能持续300秒，注意上传简历的文件大小。
       </p>
+      </div>
 
       <ResourceNoticeDialog />
     </div>

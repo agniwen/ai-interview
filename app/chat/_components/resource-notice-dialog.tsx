@@ -11,11 +11,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { useViewTransitionReady } from '@/hooks/use-view-transition-ready';
 import { hasSeenResourceNoticeAtom } from '../atoms/notice';
 
 export function ResourceNoticeDialog() {
   const [hasSeen, setHasSeen] = useAtom(hasSeenResourceNoticeAtom);
-  const open = !hasSeen;
+  const transitionReady = useViewTransitionReady();
+  const open = transitionReady && !hasSeen;
 
   return (
     <Dialog
@@ -26,7 +28,7 @@ export function ResourceNoticeDialog() {
       }}
       open={open}
     >
-      <DialogContent className='max-w-md rounded-2xl'>
+      <DialogContent className='max-w-md rounded-2xl' overlayClassName='!bg-white/50'>
         <DialogHeader className='space-y-3'>
           <DialogTitle className='flex items-center gap-2'>
             <AlertTriangleIcon className='size-5 text-amber-500' />

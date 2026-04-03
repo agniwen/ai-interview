@@ -9,7 +9,7 @@ import {
   SparklesIcon,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useTransition } from 'react';
 import { SignInRequiredDialog } from '@/components/auth/sign-in-required-dialog';
 import { FadeContent } from '@/components/react-bits/fade-content';
 import Prism from '@/components/react-bits/prism';
@@ -45,6 +45,7 @@ export default function HomePageClient() {
   const router = useRouter();
   const { data: session, isPending } = authClient.useSession();
   const [pendingPath, setPendingPath] = useState<string | null>(null);
+  const [, startTransition] = useTransition();
 
   const callbackURL = useMemo(() => pendingPath ?? '/chat', [pendingPath]);
 
@@ -54,7 +55,9 @@ export default function HomePageClient() {
     }
 
     if (session?.user) {
-      router.push(href);
+      startTransition(() => {
+        router.push(href);
+      });
       return;
     }
 

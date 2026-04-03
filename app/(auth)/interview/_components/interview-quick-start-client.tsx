@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useRef, useState, useTransition } from 'react';
 import {
   Conversation,
   ConversationContent,
@@ -21,6 +21,7 @@ import { PromptInput, PromptInputBody, PromptInputFooter } from '@/components/ai
 import { ElevenLabsQuota } from '@/components/interview/elevenlabs-quota';
 import { InterviewQuotaNotice } from '@/components/interview/interview-quota-notice';
 import { Button } from '@/components/ui/button';
+import { usePageEnterAnimation } from '@/hooks/use-page-enter-animation';
 import { cn } from '@/lib/utils';
 
 type UploadStage = 'idle' | 'uploading' | 'error';
@@ -29,7 +30,11 @@ const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
 export default function InterviewQuickStartClient() {
   const router = useRouter();
+  const [, startViewTransition] = useTransition();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const sidebarRef = useRef<HTMLElement>(null);
+  const composerRef = useRef<HTMLDivElement>(null);
+  usePageEnterAnimation(sidebarRef, composerRef);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [uploadStage, setUploadStage] = useState<UploadStage>('idle');
@@ -72,7 +77,9 @@ export default function InterviewQuickStartClient() {
 
       const data = (await response.json()) as { interviewId: string };
       setUploadProgress('解析完成，正在跳转...');
-      router.push(`/interview/${data.interviewId}`);
+      startViewTransition(() => {
+        router.push(`/interview/${data.interviewId}`);
+      });
     }
     catch (error) {
       setUploadStage('error');
@@ -116,6 +123,7 @@ export default function InterviewQuickStartClient() {
     <div className='flex h-screen min-h-screen w-full min-w-0 flex-col overflow-hidden bg-transparent'>
       <div className='grid min-h-0 flex-1 overflow-hidden bg-transparent sm:grid-cols-[auto_minmax(0,1fr)]'>
         <aside
+          ref={sidebarRef}
           className={cn(
             'fixed inset-y-0 left-0 z-40 flex w-[min(82vw,20rem)] shrink-0 flex-col overflow-hidden border-r border-border/75 bg-card/95 shadow-[0_14px_36px_-32px_rgba(52,96,168,0.6)] backdrop-blur-sm transition-transform duration-200 sm:static sm:z-auto sm:bg-card/80 sm:transition-[width]',
             isMobileSidebarOpen ? 'translate-x-0' : '-translate-x-full sm:translate-x-0',
@@ -308,7 +316,7 @@ export default function InterviewQuickStartClient() {
               </Conversation>
             </div>
 
-            <div className='mt-4 px-1'>
+            <div ref={composerRef} className='mt-4 px-1'>
               <PromptInput
                 className='**:data-[slot=input-group]:rounded-[1.3rem] **:data-[slot=input-group]:border-border/65 **:data-[slot=input-group]:bg-white **:data-[slot=input-group]:shadow-[0_8px_18px_-20px_rgba(60,44,23,0.5)]'
                 onSubmit={() => undefined}

@@ -13,6 +13,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { useViewTransitionReady } from '@/hooks/use-view-transition-ready';
 import { cn } from '@/lib/utils';
 
 interface QuotaInfo {
@@ -39,6 +40,7 @@ export function InterviewQuotaNotice() {
   const [hasSeen, setHasSeen] = useAtom(hasSeenInterviewNoticeAtom);
   const [quota, setQuota] = useState<QuotaInfo | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const transitionReady = useViewTransitionReady();
 
   useEffect(() => {
     if (hasSeen) {
@@ -66,7 +68,7 @@ export function InterviewQuotaNotice() {
     return null;
   }
 
-  const open = isAdmin && !hasSeen;
+  const open = transitionReady && isAdmin && !hasSeen;
   const usagePercent = quota
     ? Math.round((quota.characterCount / quota.characterLimit) * 100)
     : null;
@@ -83,7 +85,7 @@ export function InterviewQuotaNotice() {
       }}
       open={open}
     >
-      <DialogContent className='max-w-md rounded-2xl'>
+      <DialogContent className='max-w-md rounded-2xl' overlayClassName='!bg-white/50'>
         <DialogHeader className='space-y-3'>
           <DialogTitle className='flex items-center gap-2'>
             <AlertTriangleIcon className='size-5 text-amber-500' />
