@@ -287,6 +287,7 @@ export default function ChatSidebar({ ref }: { ref?: React.Ref<HTMLElement> }) {
         isSidebarCollapsed ? 'sm:w-14' : 'sm:w-72',
       )}
       id='chat-history-sidebar'
+      style={ref ? { visibility: 'hidden' } : undefined}
     >
       <div className='flex items-center gap-1 border-border/65 border-b px-2 py-2'>
         <Button
