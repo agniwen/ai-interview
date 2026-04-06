@@ -16,7 +16,6 @@ import {
   Loader2Icon,
   MoreHorizontalIcon,
   PencilIcon,
-  RefreshCwIcon,
   SearchIcon,
   Trash2Icon,
 } from 'lucide-react';
@@ -87,8 +86,8 @@ function formatDateTime(value: string | Date) {
   }).format(new Date(value));
 }
 
-export function InterviewManagementPage() {
-  const [records, replaceRecords] = useReducer((_previous: StudioInterviewListRecord[], nextRecords: StudioInterviewListRecord[]) => nextRecords, []);
+export function InterviewManagementPage({ initialRecords }: { initialRecords: StudioInterviewListRecord[] }) {
+  const [records, replaceRecords] = useReducer((_previous: StudioInterviewListRecord[], nextRecords: StudioInterviewListRecord[]) => nextRecords, initialRecords);
   const [sorting, setSorting] = useState<SortingState>([{ id: 'createdAt', desc: true }]);
   const [globalFilter, setGlobalFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | (typeof studioInterviewStatusValues)[number]>('all');
@@ -97,6 +96,7 @@ export function InterviewManagementPage() {
   const [editRecordId, setEditRecordId] = useState<string | null>(null);
   const [deleteRecord, setDeleteRecord] = useState<StudioInterviewListRecord | null>(null);
   const deferredSearch = useDeferredValue(globalFilter);
+  const hasSkippedInitialFetchRef = useRef(false);
   const activeRequestRef = useRef<{ id: number, controller: AbortController } | null>(null);
   const requestSequenceRef = useRef(0);
   const isFilterLoading = requestState === 'filter';
@@ -168,8 +168,18 @@ export function InterviewManagementPage() {
   }, []);
 
   useEffect(() => {
+    const search = deferredSearch.trim();
+
+    if (!hasSkippedInitialFetchRef.current) {
+      hasSkippedInitialFetchRef.current = true;
+
+      if (!search && statusFilter === 'all') {
+        return;
+      }
+    }
+
     void reloadRecords({
-      search: deferredSearch.trim(),
+      search,
       status: statusFilter,
       source: 'filter',
     });
@@ -441,21 +451,12 @@ export function InterviewManagementPage() {
                   ))}
                 </SelectContent>
               </Select>
-              <Button
-                disabled={isFilterLoading || isMutationRefreshing}
-                onClick={() => reloadRecords({ search: deferredSearch.trim(), status: statusFilter, source: 'mutation' })}
-                size='icon'
-                variant='outline'
-              >
-                <RefreshCwIcon className={`size-4 ${isMutationRefreshing ? 'animate-spin' : ''}`} />
-                <span className='sr-only'>刷新</span>
-              </Button>
             </div>
           </CardHeader>
           <CardContent>
             {table.getRowModel().rows.length > 0
               ? (
-                  <div className='rounded-lg border border-border/60'>
+                  <div className='rounded-2xl border border-border/60'>
                     <Table>
                       <TableHeader>
                         {table.getHeaderGroups().map(headerGroup => (

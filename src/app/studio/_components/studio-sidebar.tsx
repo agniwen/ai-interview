@@ -133,7 +133,7 @@ export function StudioSidebar({ user }: StudioSidebarProps) {
         <SidebarGroup className='group-data-[collapsible=icon]:hidden'>
           <SidebarGroupLabel>权限状态</SidebarGroupLabel>
           <SidebarGroupContent>
-            <div className='rounded-lg border border-sidebar-border/70 bg-sidebar-accent/35 p-3 text-sidebar-foreground'>
+            <div className='rounded-xl border border-sidebar-border/70 bg-sidebar-accent/35 p-3 text-sidebar-foreground'>
               <p className='font-medium text-sm'>当前访问已受 layout 鉴权保护</p>
               <p className='mt-1 text-sidebar-foreground/75 text-xs leading-relaxed'>
                 仅 `admin` 角色可进入 `studio/(auth)` 下的页面，非管理员会直接跳转到首页。
@@ -144,7 +144,7 @@ export function StudioSidebar({ user }: StudioSidebarProps) {
       </SidebarContent>
 
       <SidebarFooter>
-        <div className='rounded-lg border border-sidebar-border/70 bg-sidebar/70 p-3 group-data-[collapsible=icon]:hidden'>
+        <div className='rounded-xl border border-sidebar-border/70 bg-sidebar/70 p-3 group-data-[collapsible=icon]:hidden'>
           <div className='flex items-center gap-3'>
             <Avatar className='size-9 rounded-lg'>
               <AvatarImage alt={user?.name ?? 'Admin'} src={user?.image ?? undefined} />

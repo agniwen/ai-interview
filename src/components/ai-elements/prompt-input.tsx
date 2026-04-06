@@ -1049,7 +1049,7 @@ export function PromptInputTextarea({
   return (
     <InputGroupTextarea
       className={cn(
-        'field-sizing-content text-base! min-h-10 max-h-28 overflow-y-auto',
+        'field-sizing-content min-h-10 max-h-28 overflow-y-auto',
         className,
       )}
       name='message'

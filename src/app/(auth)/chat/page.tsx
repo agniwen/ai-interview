@@ -7,5 +7,5 @@ export const metadata: Metadata = {
 };
 
 export default function ChatPage() {
-  return <ChatPageClient />;
+  return <ChatPageClient initialSessionId={null} key='new-chat' />;
 }

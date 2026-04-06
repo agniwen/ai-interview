@@ -36,8 +36,7 @@ const summaryCards = [
   },
 ];
 
-export default async function StudioDashboardPage() {
-  'use cache';
+export default function StudioDashboardPage() {
   return (
     <div className='space-y-6'>
       <section className='rounded-[1.75rem] border border-border/60 bg-background px-6 py-6 shadow-sm lg:px-8 lg:py-8'>
@@ -98,7 +97,7 @@ export default async function StudioDashboardPage() {
               '面试记录、聊天会话与运营数据面板',
               '后台配置项、开关和环境检查',
             ].map(item => (
-              <div className='rounded-lg border border-border/60 bg-muted/40 px-4 py-3 text-sm' key={item}>
+              <div className='rounded-xl border border-border/60 bg-muted/40 px-4 py-3 text-sm' key={item}>
                 {item}
               </div>
             ))}
@@ -116,12 +115,12 @@ export default async function StudioDashboardPage() {
               ['Guard', 'Server layout redirect'],
               ['Access', 'Only admin can enter'],
             ].map(([label, value]) => (
-              <div className='flex items-center justify-between rounded-lg border border-border/60 px-4 py-3' key={label}>
+              <div className='flex items-center justify-between rounded-xl border border-border/60 px-4 py-3' key={label}>
                 <span className='text-muted-foreground text-sm'>{label}</span>
                 <span className='font-medium text-sm'>{value}</span>
               </div>
             ))}
-            <div className='rounded-lg border border-dashed border-border px-4 py-4 text-muted-foreground text-sm leading-relaxed'>
+            <div className='rounded-xl border border-dashed border-border px-4 py-4 text-muted-foreground text-sm leading-relaxed'>
               这里后面可以替换成真实统计卡、任务流或者审计日志。
             </div>
           </CardContent>
@@ -139,7 +138,7 @@ export default async function StudioDashboardPage() {
             '新的 Studio 页面建议继续挂在 `app/studio/(auth)` 下。',
             '如果需要真正管理用户，可直接接 Better Auth 的 admin API。',
           ].map(item => (
-            <div className='flex min-h-32 flex-col justify-between rounded-lg border border-border/60 bg-muted/35 p-4' key={item}>
+            <div className='flex min-h-32 flex-col justify-between rounded-2xl border border-border/60 bg-muted/35 p-4' key={item}>
               <ActivityIcon className='size-4 text-primary' />
               <p className='text-sm leading-relaxed'>{item}</p>
             </div>

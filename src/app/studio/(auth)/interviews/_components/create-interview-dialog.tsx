@@ -143,7 +143,7 @@ export function CreateInterviewDialog({
           新建简历记录
         </Button>
       </DialogTrigger>
-      <DialogContent className='max-h-[90vh] max-w-5xl min-w-4xl overflow-y-auto'>
+      <DialogContent className='max-h-[90vh] max-w-5xl overflow-y-auto'>
         <DialogHeader>
           <DialogTitle>新建简历记录</DialogTitle>
           <DialogDescription>支持手动录入候选人资料，也可以先上传 PDF 简历自动分析并回填表单。</DialogDescription>
@@ -157,7 +157,7 @@ export function CreateInterviewDialog({
             void form.handleSubmit();
           }}
         >
-          <div className='grid gap-4 rounded-lg border border-dashed border-border/70 bg-muted/25 p-5'>
+          <div className='grid gap-4 rounded-2xl border border-dashed border-border/70 bg-muted/25 p-5'>
             <FieldGroup className='gap-2'>
               <FieldLabel htmlFor='resume-upload'>简历 PDF</FieldLabel>
               <Input
@@ -171,7 +171,7 @@ export function CreateInterviewDialog({
               {resumeFile ? <p className='break-all text-muted-foreground text-sm'>{resumeFile.name}</p> : null}
               {resumePayload
                 ? (
-                    <div className='rounded-lg border border-border/60 bg-background/80 px-4 py-3 text-sm'>
+                    <div className='rounded-xl border border-border/60 bg-background/80 px-4 py-3 text-sm'>
                       <p className='flex items-center gap-2 font-medium'>
                         <SparklesIcon className='size-4 text-amber-500' />
                         已完成简历分析

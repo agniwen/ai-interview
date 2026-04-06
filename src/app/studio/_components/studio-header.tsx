@@ -51,8 +51,8 @@ export function StudioHeader() {
   const meta = getRouteMeta(pathname);
 
   return (
-    <header className='sticky top-0 z-20 border-b border-border/60 bg-background/92 overflow-hidden  backdrop-blur'>
-      <div className='flex min-h-16 items-center overflow-hidden justify-between gap-4 px-4 py-3 lg:px-6'>
+    <header className='sticky top-0 z-20 border-b border-border/60 bg-background/92 backdrop-blur'>
+      <div className='flex min-h-16 items-center justify-between gap-4 px-4 py-3 lg:px-6'>
         <div className='flex min-w-0 items-center gap-3'>
           <SidebarTrigger className='-ml-1' />
           <Separator className='h-4' orientation='vertical' />

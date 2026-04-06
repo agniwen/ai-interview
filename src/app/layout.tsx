@@ -1,23 +1,16 @@
 import type { Metadata } from 'next';
+import { Suspense } from 'react';
 import { Analytics } from '@vercel/analytics/next';
 import {
-  Geist,
   IBM_Plex_Mono,
-  JetBrains_Mono,
   Noto_Sans_SC,
   Source_Sans_3,
   Source_Serif_4,
 } from 'next/font/google';
 import localFont from 'next/font/local';
-import { Suspense } from 'react';
 import { Toaster } from '@/components/ui/sonner';
 import { TooltipProvider } from '@/components/ui/tooltip';
-import { cn } from '@/lib/utils';
 import './globals.css';
-
-const jetbrainsMono = JetBrains_Mono({ subsets: ['latin'], variable: '--font-mono' });
-
-const geist = Geist({ subsets: ['latin'], variable: '--font-sans' });
 
 const sourceSans = Source_Sans_3({
   variable: '--font-source-sans',
@@ -61,7 +54,7 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang='zh-CN' className={cn('font-sans dark', geist.variable, 'font-mono', jetbrainsMono.variable)}>
+    <html lang='zh-CN'>
       <body
         className={`${sourceSans.variable} ${notoSansSC.variable} ${sourceSerif.variable} ${fusionPixel.variable} ${ibmPlexMono.variable} min-h-dvh antialiased`}
       >

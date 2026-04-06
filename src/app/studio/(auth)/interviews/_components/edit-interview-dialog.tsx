@@ -212,7 +212,7 @@ export function EditInterviewDialog({
                   void form.handleSubmit();
                 }}
               >
-                <div className='grid gap-4 rounded-lg border border-dashed border-border/70 bg-muted/25 p-5'>
+                <div className='grid gap-4 rounded-2xl border border-dashed border-border/70 bg-muted/25 p-5'>
                   <FieldGroup className='gap-2'>
                     <FieldLabel htmlFor='edit-resume-upload'>替换简历 PDF</FieldLabel>
                     <Input
@@ -226,7 +226,7 @@ export function EditInterviewDialog({
                     {resumeFile ? <p className='break-all text-muted-foreground text-sm'>{resumeFile.name}</p> : null}
                     {resumePayload
                       ? (
-                          <div className='rounded-lg border border-border/60 bg-background/80 px-4 py-3 text-sm'>
+                          <div className='rounded-xl border border-border/60 bg-background/80 px-4 py-3 text-sm'>
                             <p className='flex items-center gap-2 font-medium'>
                               <SparklesIcon className='size-4 text-amber-500' />
                               已完成新简历分析

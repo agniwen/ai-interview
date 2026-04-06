@@ -317,7 +317,7 @@ export function CodeBlockContainer({
   return (
     <div
       className={cn(
-        'group relative w-full overflow-hidden rounded-lg border bg-background text-foreground',
+        'group relative w-full overflow-hidden rounded-md border bg-background text-foreground',
         className,
       )}
       data-language={language}
