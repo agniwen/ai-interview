@@ -3,7 +3,6 @@ import { LockKeyholeIcon, ShieldCheckIcon } from 'lucide-react';
 import { headers } from 'next/headers';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { connection } from 'next/server';
 import { GoogleSignInButton } from '@/components/auth/google-sign-in-button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -16,7 +15,6 @@ export const metadata: Metadata = {
 };
 
 export default async function StudioLoginPage() {
-  await connection();
   const session = await auth.api.getSession({
     headers: await headers(),
   });

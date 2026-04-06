@@ -1,7 +1,6 @@
 import type { CSSProperties, ReactNode } from 'react';
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
-import { connection } from 'next/server';
 import { StudioHeader } from '@/app/studio/_components/studio-header';
 import { StudioSidebar } from '@/app/studio/_components/studio-sidebar';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
@@ -13,7 +12,6 @@ export default async function StudioProtectedLayout({
 }: {
   children: ReactNode
 }) {
-  await connection();
   const session = await auth.api.getSession({
     headers: await headers(),
   });
