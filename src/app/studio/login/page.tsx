@@ -4,9 +4,13 @@ import { headers } from 'next/headers';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { connection } from 'next/server';
+import { AuthSignInForm } from '@/components/auth/auth-sign-in-form';
+import { AuthSignUpForm } from '@/components/auth/auth-sign-up-form';
 import { GoogleSignInButton } from '@/components/auth/google-sign-in-button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Separator } from '@/components/ui/separator';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { auth } from '@/lib/auth';
 import { isAdminRole } from '@/lib/auth-roles';
 import { StudioSwitchAccountButton } from '../_components/studio-switch-account-button';
@@ -65,11 +69,31 @@ export default async function StudioLoginPage() {
           <CardHeader>
             <CardTitle>管理员登录</CardTitle>
             <CardDescription>
-              使用 Google 账号登录。登录成功后，只有拥有 `admin` 角色的用户会进入 Studio 首页。
+              登录成功后，只有拥有 admin 角色的用户会进入 Studio 首页。
             </CardDescription>
           </CardHeader>
           <CardContent className='space-y-4'>
-            <GoogleSignInButton callbackURL='/studio/login' label='使用 Google 进入 Studio' />
+            <Tabs defaultValue='sign-in'>
+              <TabsList className='w-full'>
+                <TabsTrigger className='flex-1' value='sign-in'>登录</TabsTrigger>
+                <TabsTrigger className='flex-1' value='sign-up'>注册</TabsTrigger>
+              </TabsList>
+              <TabsContent className='mt-4' value='sign-in'>
+                <AuthSignInForm callbackURL='/studio/login' />
+              </TabsContent>
+              <TabsContent className='mt-4' value='sign-up'>
+                <AuthSignUpForm callbackURL='/studio/login' />
+              </TabsContent>
+            </Tabs>
+
+            <div className='relative'>
+              <Separator />
+              <span className='absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-card px-2 text-muted-foreground text-xs'>
+                或
+              </span>
+            </div>
+
+            <GoogleSignInButton callbackURL='/studio/login' label='使用 Google 登录' />
 
             {session?.user
               ? (
@@ -79,7 +103,7 @@ export default async function StudioLoginPage() {
                       当前账号为
                       {' '}
                       {session.user.email}
-                      。如果需要进入 Studio，请切换到拥有 `admin` 角色的账号。
+                      。如果需要进入 Studio，请切换到拥有 admin 角色的账号。
                     </p>
                     <StudioSwitchAccountButton />
                   </div>
