@@ -6,7 +6,6 @@ import type { CandidateInterviewView } from '@/lib/interview/interview-record';
 import { Conversation as VoiceConversation } from '@elevenlabs/client';
 import {
   AudioLinesIcon,
-  CalendarDaysIcon,
   HouseIcon,
   LoaderCircleIcon,
   MicIcon,
@@ -25,13 +24,14 @@ import {
   ConversationEmptyState,
   ConversationScrollButton,
 } from '@/components/ai-elements/conversation';
-import { Message, MessageContent, MessageResponse } from '@/components/ai-elements/message';
-import { PromptInput, PromptInputBody, PromptInputFooter } from '@/components/ai-elements/prompt-input';
 import { ElevenLabsQuota } from '@/components/interview/elevenlabs-quota';
 import { InterviewQuotaNotice } from '@/components/interview/interview-quota-notice';
 import { SidebarUserSection } from '@/components/sidebar-user-section';
+import { type AgentState, BarVisualizer } from '@/components/ui/bar-visualizer';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { ElevenLabsMessage, ElevenLabsMessageContent } from '@/components/ui/elevenlabs-message';
+import { MicSelector } from '@/components/ui/mic-selector';
 import {
   Select,
   SelectContent,
@@ -145,33 +145,6 @@ function formatDateTime(value: string | Date | null | undefined) {
     minute: '2-digit',
     hour12: false,
   }).format(new Date(value));
-}
-
-function LevelBar({
-  label,
-  value,
-  colorClassName,
-  isActive,
-}: {
-  label: string
-  value: number
-  colorClassName: string
-  isActive: boolean
-}) {
-  return (
-    <div className='space-y-2'>
-      <div className='flex items-center justify-between text-muted-foreground text-xs'>
-        <span>{label}</span>
-        <span>{isActive ? `${Math.round(value * 100)}%` : '--'}</span>
-      </div>
-      <div className='h-2 overflow-hidden rounded-full bg-muted/70'>
-        <div
-          className={cn('h-full rounded-full transition-[width] duration-150', colorClassName)}
-          style={{ width: isActive ? `${Math.max(6, value * 100)}%` : '0%' }}
-        />
-      </div>
-    </div>
-  );
 }
 
 function formatMessageTime(createdAt: number) {
@@ -362,6 +335,14 @@ export default function InterviewPageClient({ interviewId }: { interviewId: stri
 
     return audioDevices.find(device => device.deviceId === selectedInputDeviceId)?.label ?? '已选设备';
   }, [audioDevices, selectedInputDeviceId]);
+
+  const agentState = useMemo<AgentState>(() => {
+    if (statusText === 'connecting') return 'connecting';
+    if (statusText === 'connected') {
+      return modeText === 'speaking' ? 'speaking' : 'listening';
+    }
+    return 'listening';
+  }, [statusText, modeText]);
 
   const orderedTurns = useMemo(
     () => turns.toSorted(compareTurns),
@@ -839,6 +820,15 @@ export default function InterviewPageClient({ interviewId }: { interviewId: stri
     }
   }
 
+  function toggleInterview() {
+    if (isConnected || statusText === 'connecting') {
+      void stopInterview();
+    }
+    else {
+      void startInterview();
+    }
+  }
+
   return (
     <div className='flex h-dvh w-full overflow-hidden bg-transparent'>
         {isMobileSidebarOpen
@@ -1103,11 +1093,11 @@ export default function InterviewPageClient({ interviewId }: { interviewId: stri
                             {formatMessageTime(turn.createdAt)}
                           </p>
 
-                          <Message from={turn.role === 'agent' ? 'assistant' : 'user'}>
-                            <MessageContent>
-                              <MessageResponse>{turn.text}</MessageResponse>
-                            </MessageContent>
-                          </Message>
+                          <ElevenLabsMessage from={turn.role === 'agent' ? 'assistant' : 'user'}>
+                            <ElevenLabsMessageContent variant='contained'>
+                              {turn.text}
+                            </ElevenLabsMessageContent>
+                          </ElevenLabsMessage>
                         </div>
                       ))}
                 </ConversationContent>
@@ -1115,66 +1105,50 @@ export default function InterviewPageClient({ interviewId }: { interviewId: stri
               </Conversation>
             </div>
 
-            <div className='mt-4 px-1'>
-              <PromptInput
-                className='**:data-[slot=input-group]:rounded-[1.3rem] **:data-[slot=input-group]:border-border/65 **:data-[slot=input-group]:bg-white **:data-[slot=input-group]:shadow-[0_8px_18px_-20px_rgba(60,44,23,0.5)]'
-                onSubmit={() => undefined}
-              >
-                <PromptInputBody>
-                  <div className='w-full px-3 pb-2 pt-3'>
-                    <div className='grid gap-3 rounded-2xl border border-border/60 bg-muted/20 px-4 py-3 text-sm sm:grid-cols-3'>
-                      <div>
-                        <p className='text-muted-foreground text-xs'>候选人</p>
-                        <p className='mt-1 font-medium'>{interviewRecord?.candidateName ?? '加载中'}</p>
-                      </div>
-                      <div>
-                        <p className='text-muted-foreground text-xs'>岗位方向</p>
-                        <p className='mt-1 font-medium'>{interviewRecord?.targetRole ?? '待识别岗位'}</p>
-                      </div>
-                      <div>
-                        <p className='flex items-center gap-1 text-muted-foreground text-xs'>
-                          <CalendarDaysIcon className='size-3.5' />
-                          当前轮次时间
-                        </p>
-                        <p className='mt-1 font-medium'>{formatDateTime(interviewRecord?.currentRoundTime)}</p>
-                      </div>
-                    </div>
+            <div className='mt-4 space-y-3 px-1 pb-2'>
+              <BarVisualizer
+                barCount={20}
+                centerAlign
+                className='h-16 rounded-2xl border border-border/60 bg-background/70 p-3'
+                demo
+                state={agentState}
+              />
 
-                    <div className='mt-3 grid gap-3 sm:grid-cols-2'>
-                      <LevelBar colorClassName='bg-sky-500' isActive={isConnected} label='候选人音量' value={inputLevel} />
-                      <LevelBar colorClassName='bg-amber-500' isActive={isConnected} label='面试官音量' value={outputLevel} />
-                    </div>
-                  </div>
-                </PromptInputBody>
+              <div className='flex flex-wrap items-center gap-2'>
+                <MicSelector
+                  className='w-auto max-w-48'
+                  disabled={isConnected || statusText === 'connecting'}
+                />
 
-                <PromptInputFooter className='px-3 pb-3 pt-1'>
-                  <p className='text-muted-foreground text-xs'>开始后系统会自动监听发言节奏，并把内容同步整理到上方记录区。</p>
-
-                  <div className='flex items-center gap-2'>
-                    <Button
-                      disabled={!interviewRecord || isConnected || statusText === 'connecting' || isLoadingRecord}
-                      onClick={startInterview}
-                      type='button'
-                    >
-                      <MicIcon className='size-4' />
-                      开始面试
-                    </Button>
-                    <Button
-                      disabled={!isConnected}
-                      onClick={stopInterview}
-                      type='button'
-                      variant='outline'
-                    >
-                      <PhoneOffIcon className='size-4' />
-                      结束面试
-                    </Button>
-                  </div>
-                </PromptInputFooter>
-              </PromptInput>
+                <div className='ml-auto flex items-center gap-2'>
+                  {isConnected || statusText === 'connecting' || statusText === 'disconnecting'
+                    ? (
+                        <Button
+                          disabled={statusText === 'disconnecting'}
+                          onClick={toggleInterview}
+                          type='button'
+                          variant='destructive'
+                        >
+                          <PhoneOffIcon className='size-4' />
+                          {statusText === 'disconnecting' ? '结束中...' : statusText === 'connecting' ? '连接中...' : '结束面试'}
+                        </Button>
+                      )
+                    : (
+                        <Button
+                          disabled={!interviewRecord || isLoadingRecord}
+                          onClick={toggleInterview}
+                          type='button'
+                        >
+                          <MicIcon className='size-4' />
+                          开始面试
+                        </Button>
+                      )}
+                </div>
+              </div>
 
               {errorText
                 ? (
-                    <p aria-live='polite' className='mt-2 px-1 text-destructive text-sm'>
+                    <p aria-live='polite' className='text-destructive text-sm'>
                       {errorText}
                     </p>
                   )

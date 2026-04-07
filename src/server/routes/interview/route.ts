@@ -2,7 +2,16 @@ import type { InterviewConversationSnapshot, InterviewTranscriptTurn, PersistedI
 import { ElevenLabsClient } from '@elevenlabs/elevenlabs-js';
 import { zValidator } from '@hono/zod-validator';
 import { and, asc, eq } from 'drizzle-orm';
-import { revalidateTag } from 'next/cache';
+import { updateTag } from 'next/cache';
+
+function safeUpdateTag(tag: string) {
+  try {
+    updateTag(tag);
+  }
+  catch {
+    // updateTag may throw in certain route handler contexts — non-critical
+  }
+}
 import { db } from '@/lib/db';
 import {
   interviewConversation,
@@ -274,8 +283,8 @@ async function upsertConversation(options: {
     await syncInterviewStatus(resolvedInterviewRecordId, 'completed', now);
   }
 
-  revalidateTag('interview-conversations');
-  revalidateTag('studio-interviews');
+  safeUpdateTag('interview-conversations');
+  safeUpdateTag('studio-interviews');
 }
 
 export const interviewRouter = factory.createApp()
@@ -582,24 +591,45 @@ export const interviewRouter = factory.createApp()
       return c.json(buildTokenErrorResponse(), 500);
     }
 
-    const response = await fetch(
-      `https://api.elevenlabs.io/v1/convai/conversation/token?agent_id=${encodeURIComponent(agentId)}`,
-      {
-        headers: {
-          'xi-api-key': apiKey,
-        },
-        method: 'GET',
-      },
-    );
+    let response: Response | null = null;
+    const maxRetries = 3;
 
-    if (!response.ok) {
-      const bodyText = await response.text();
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      try {
+        response = await fetch(
+          `https://api.elevenlabs.io/v1/convai/conversation/token?agent_id=${encodeURIComponent(agentId)}`,
+          {
+            headers: {
+              'xi-api-key': apiKey,
+            },
+            method: 'GET',
+          },
+        );
+        break;
+      }
+      catch (error) {
+        if (attempt === maxRetries - 1) {
+          return c.json(
+            {
+              error: 'Failed to generate conversation token.',
+              detail: error instanceof Error ? error.message : 'Network error',
+            },
+            500,
+          );
+        }
+
+        await new Promise(resolve => setTimeout(resolve, 500 * (attempt + 1)));
+      }
+    }
+
+    if (!response || !response.ok) {
+      const bodyText = response ? await response.text() : 'No response';
 
       return c.json(
         {
           error: 'Failed to generate conversation token.',
           detail: bodyText,
-          upstreamStatus: response.status,
+          upstreamStatus: response?.status,
         },
         500,
       );
