@@ -1,6 +1,6 @@
 import type { StudioInterviewRecord } from '@/lib/studio-interviews';
 import { eq, inArray } from 'drizzle-orm';
-import { updateTag } from 'next/cache';
+import { revalidateTag } from 'next/cache';
 import { db } from '@/lib/db';
 import { studioInterview, studioInterviewSchedule } from '@/lib/db/schema';
 import { buildInterviewLink, sortScheduleEntries } from '@/lib/interview/interview-record';
@@ -134,7 +134,7 @@ export const studioInterviewsRouter = factory.createApp()
         await tx.insert(studioInterviewSchedule).values(scheduleRows);
       });
 
-      updateTag('studio-interviews');
+      revalidateTag('studio-interviews');
       return c.json(serializeRecord(record, scheduleRows), 201);
     }
     catch (error) {
@@ -212,7 +212,7 @@ export const studioInterviewsRouter = factory.createApp()
         await tx.insert(studioInterviewSchedule).values(scheduleRows);
       });
 
-      updateTag('studio-interviews');
+      revalidateTag('studio-interviews');
       const updatedRecord = await loadRecordById(id);
       return c.json(updatedRecord);
     }
@@ -230,6 +230,6 @@ export const studioInterviewsRouter = factory.createApp()
     }
 
     await db.delete(studioInterview).where(eq(studioInterview.id, id));
-    updateTag('studio-interviews');
+    revalidateTag('studio-interviews');
     return c.json({ success: true });
   });

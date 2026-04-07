@@ -2,7 +2,7 @@ import type { InterviewConversationSnapshot, InterviewTranscriptTurn, PersistedI
 import { ElevenLabsClient } from '@elevenlabs/elevenlabs-js';
 import { zValidator } from '@hono/zod-validator';
 import { and, asc, eq } from 'drizzle-orm';
-import { updateTag } from 'next/cache';
+import { revalidateTag } from 'next/cache';
 import { db } from '@/lib/db';
 import {
   interviewConversation,
@@ -274,8 +274,8 @@ async function upsertConversation(options: {
     await syncInterviewStatus(resolvedInterviewRecordId, 'completed', now);
   }
 
-  updateTag('interview-conversations');
-  updateTag('studio-interviews');
+  revalidateTag('interview-conversations');
+  revalidateTag('studio-interviews');
 }
 
 export const interviewRouter = factory.createApp()
