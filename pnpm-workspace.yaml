@@ -1,7 +1,8 @@
-shellEmulator: true
-trustPolicy: no-downgrade
-
 ignoredBuiltDependencies:
   - msw
   - sharp
   - unrs-resolver
+
+shellEmulator: true
+
+trustPolicy: accept
