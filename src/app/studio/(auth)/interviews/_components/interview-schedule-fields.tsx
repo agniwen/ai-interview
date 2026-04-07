@@ -1,7 +1,9 @@
 'use client';
 
+import type { ScheduleEntryStatus } from '@/lib/studio-interviews';
 import type { InterviewFormApi } from './interview-form';
-import { CalendarDaysIcon, PlusIcon, Trash2Icon } from 'lucide-react';
+import { CalendarDaysIcon, LockIcon, PlusIcon, Trash2Icon } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
   Field,
@@ -13,7 +15,7 @@ import {
 } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { createDefaultScheduleEntry } from '@/lib/studio-interviews';
+import { createDefaultScheduleEntry, scheduleEntryStatusMeta } from '@/lib/studio-interviews';
 import {
   hasFieldErrors,
   toFieldErrors,
@@ -21,8 +23,10 @@ import {
 
 export function InterviewScheduleFields({
   form,
+  roundStatuses,
 }: {
   form: InterviewFormApi
+  roundStatuses?: Record<string, ScheduleEntryStatus>
 }) {
   return (
     <form.Field mode='array' name='scheduleEntries'>
@@ -49,17 +53,35 @@ export function InterviewScheduleFields({
             </div>
 
             <div className='space-y-4'>
-              {scheduleEntriesField.state.value.map((entry, index) => (
+              {scheduleEntriesField.state.value.map((entry, index) => {
+                const entryStatus = entry.id ? roundStatuses?.[entry.id] : undefined;
+                const isLocked = entryStatus === 'completed' || entryStatus === 'in_progress';
+                const statusMeta = entryStatus ? scheduleEntryStatusMeta[entryStatus] : undefined;
+
+                return (
                 <div className='rounded-xl border border-border/60 bg-muted/20 p-4' key={entry.id || `schedule-${index}`}>
                   <div className='mb-3 flex items-center justify-between gap-3'>
-                    <p className='font-medium text-sm'>
-                      第
-                      {index + 1}
-                      {' '}
-                      轮
-                    </p>
+                    <div className='flex items-center gap-2'>
+                      <p className='font-medium text-sm'>
+                        第
+                        {index + 1}
+                        {' '}
+                        轮
+                      </p>
+                      {statusMeta
+                        ? <Badge variant={statusMeta.tone}>{statusMeta.label}</Badge>
+                        : null}
+                      {isLocked
+                        ? (
+                            <span className='flex items-center gap-1 text-muted-foreground text-xs'>
+                              <LockIcon className='size-3' />
+                              不可编辑
+                            </span>
+                          )
+                        : null}
+                    </div>
                     <Button
-                      disabled={scheduleEntriesField.state.value.length <= 1}
+                      disabled={scheduleEntriesField.state.value.length <= 1 || isLocked}
                       onClick={() => void scheduleEntriesField.removeValue(index)}
                       size='icon'
                       type='button'
@@ -81,6 +103,7 @@ export function InterviewScheduleFields({
                               <Input
                                 aria-invalid={!!errors?.length}
                                 className='w-full'
+                                disabled={isLocked}
                                 id={field.name}
                                 onBlur={field.handleBlur}
                                 onChange={event => field.handleChange(event.target.value)}
@@ -107,6 +130,7 @@ export function InterviewScheduleFields({
                                 <Input
                                   aria-invalid={!!errors?.length}
                                   className='w-full pl-9'
+                                  disabled={isLocked}
                                   id={field.name}
                                   onBlur={field.handleBlur}
                                   onChange={event => field.handleChange(event.target.value)}
@@ -114,7 +138,7 @@ export function InterviewScheduleFields({
                                   value={field.state.value}
                                 />
                               </div>
-                              <FieldDescription>可留空，表示轮次已创建但时间待定。</FieldDescription>
+                              <FieldDescription>{isLocked ? '该轮次已开始或已结束，时间不可修改。' : '可留空，表示轮次已创建但时间待定。'}</FieldDescription>
                               <FieldError errors={errors} />
                             </FieldContent>
                           </Field>
@@ -147,7 +171,8 @@ export function InterviewScheduleFields({
                     }}
                   </form.Field>
                 </div>
-              ))}
+                );
+              })}
 
               <FieldError errors={rootErrors} />
             </div>

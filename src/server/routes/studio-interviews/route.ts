@@ -2,7 +2,7 @@ import type { StudioInterviewRecord } from '@/lib/studio-interviews';
 import { eq, inArray } from 'drizzle-orm';
 import { updateTag } from 'next/cache';
 import { db } from '@/lib/db';
-import { studioInterview, studioInterviewSchedule } from '@/lib/db/schema';
+import { interviewAuditLog, studioInterview, studioInterviewSchedule } from '@/lib/db/schema';
 import { buildInterviewLink, sortScheduleEntries } from '@/lib/interview/interview-record';
 import {
   parseResumePayloadInput,
@@ -12,8 +12,8 @@ import {
   toNullableString,
 } from '@/lib/studio-interviews';
 import { factory } from '@/server/factory';
-import { listInterviewConversationReports } from '@/server/queries/interview-conversations';
-import { listStudioInterviewRecords } from '@/server/queries/studio-interviews';
+import { queryInterviewConversationReports } from '@/server/queries/interview-conversations';
+import { queryStudioInterviewRecords } from '@/server/queries/studio-interviews';
 import { analyzeResumeFile, ResumeAnalysisError } from '../interview/analysis';
 
 function safeUpdateTag(tag: string) {
@@ -32,17 +32,30 @@ function normalizeResumeFile(value: FormDataEntryValue | null) {
   return value instanceof File && value.size > 0 ? value : null;
 }
 
-function buildScheduleRows(interviewRecordId: string, entries: ReturnType<typeof parseScheduleEntriesInput>, now: Date) {
-  return entries.map((entry, index) => ({
-    id: entry.id?.trim() || crypto.randomUUID(),
-    interviewRecordId,
-    roundLabel: entry.roundLabel.trim(),
-    scheduledAt: entry.scheduledAt ? new Date(entry.scheduledAt) : null,
-    notes: entry.notes?.trim() || null,
-    sortOrder: typeof entry.sortOrder === 'number' ? entry.sortOrder : index,
-    createdAt: now,
-    updatedAt: now,
-  }));
+function buildScheduleRows(
+  interviewRecordId: string,
+  entries: ReturnType<typeof parseScheduleEntriesInput>,
+  now: Date,
+  existingRows?: StudioInterviewScheduleRow[],
+) {
+  const existingMap = new Map((existingRows ?? []).map(row => [row.id, row]));
+
+  return entries.map((entry, index) => {
+    const existing = entry.id ? existingMap.get(entry.id.trim()) : undefined;
+
+    return {
+      id: entry.id?.trim() || crypto.randomUUID(),
+      interviewRecordId,
+      roundLabel: entry.roundLabel.trim(),
+      status: existing?.status ?? ('pending' as const),
+      scheduledAt: entry.scheduledAt ? new Date(entry.scheduledAt) : null,
+      notes: entry.notes?.trim() || null,
+      sortOrder: typeof entry.sortOrder === 'number' ? entry.sortOrder : index,
+      conversationId: existing?.conversationId ?? null,
+      createdAt: existing?.createdAt ?? now,
+      updatedAt: now,
+    };
+  });
 }
 
 async function loadScheduleEntries(interviewIds: string[]) {
@@ -92,7 +105,7 @@ function toBadRequest(error: unknown) {
 
 export const studioInterviewsRouter = factory.createApp()
   .get('/', async (c) => {
-    const records = await listStudioInterviewRecords({
+    const records = await queryStudioInterviewRecords({
       search: c.req.query('search'),
       status: c.req.query('status'),
     });
@@ -169,7 +182,7 @@ export const studioInterviewsRouter = factory.createApp()
       return c.json({ error: '记录不存在。' }, 404);
     }
 
-    const reports = await listInterviewConversationReports(id);
+    const reports = await queryInterviewConversationReports(id);
     return c.json(reports);
   })
   .patch('/:id', async (c) => {
@@ -202,18 +215,33 @@ export const studioInterviewsRouter = factory.createApp()
 
       const analysis = parsedResumePayload ?? (resume ? await analyzeResumeFile(resume) : null);
       const now = new Date();
+
+      // Preserve existing round statuses when rebuilding schedule rows
+      const existingScheduleRows = await db
+        .select()
+        .from(studioInterviewSchedule)
+        .where(eq(studioInterviewSchedule.interviewRecordId, id));
+      const scheduleRows = buildScheduleRows(id, input.data.scheduleEntries, now, existingScheduleRows);
+
+      // If interview was completed but new pending rounds exist, revert to in_progress
+      const hasPendingRounds = scheduleRows.some(r => r.status === 'pending');
+      let resolvedStatus = input.data.status;
+
+      if (resolvedStatus === 'completed' && hasPendingRounds) {
+        resolvedStatus = 'in_progress';
+      }
+
       const nextRecord = {
         candidateName: input.data.candidateName || analysis?.resumeProfile.name || existing.candidateName,
         candidateEmail: input.data.candidateEmail || null,
         targetRole: input.data.targetRole || analysis?.resumeProfile.targetRoles[0] || null,
-        status: input.data.status,
+        status: resolvedStatus,
         resumeFileName: analysis?.fileName ?? existing.resumeFileName,
         resumeProfile: analysis?.resumeProfile ?? existing.resumeProfile,
         interviewQuestions: analysis?.interviewQuestions ?? existing.interviewQuestions,
         notes: input.data.notes || null,
         updatedAt: now,
       } satisfies Partial<typeof studioInterview.$inferInsert>;
-      const scheduleRows = buildScheduleRows(id, input.data.scheduleEntries, now);
 
       await db.transaction(async (tx) => {
         await tx.update(studioInterview).set(nextRecord).where(eq(studioInterview.id, id));
@@ -229,6 +257,66 @@ export const studioInterviewsRouter = factory.createApp()
       const result = toBadRequest(error);
       return c.json({ error: result.error }, { status: result.status as any });
     }
+  })
+  .post('/:id/rounds/:roundId/reset', async (c) => {
+    const id = c.req.param('id');
+    const roundId = c.req.param('roundId');
+    const operatorId = c.var.user?.id ?? null;
+
+    const existing = await loadRecordById(id);
+
+    if (!existing) {
+      return c.json({ error: '记录不存在。' }, 404);
+    }
+
+    const targetEntry = existing.scheduleEntries.find(e => e.id === roundId);
+
+    if (!targetEntry) {
+      return c.json({ error: '轮次不存在。' }, 404);
+    }
+
+    if (targetEntry.status !== 'completed') {
+      return c.json({ error: '只能重置已结束的轮次。' }, 400);
+    }
+
+    const now = new Date();
+
+    await db.transaction(async (tx) => {
+      // Reset round status to pending, clear conversationId
+      await tx.update(studioInterviewSchedule).set({
+        status: 'pending',
+        conversationId: null,
+        updatedAt: now,
+      }).where(eq(studioInterviewSchedule.id, roundId));
+
+      // If interview was completed, revert to in_progress since there is now a pending round
+      if (existing.status === 'completed') {
+        await tx.update(studioInterview).set({
+          status: 'in_progress',
+          updatedAt: now,
+        }).where(eq(studioInterview.id, id));
+      }
+
+      // Write audit log
+      await tx.insert(interviewAuditLog).values({
+        id: crypto.randomUUID(),
+        interviewRecordId: id,
+        scheduleEntryId: roundId,
+        action: 'round_reset',
+        detail: {
+          roundLabel: targetEntry.roundLabel,
+          previousStatus: targetEntry.status,
+          previousConversationId: targetEntry.conversationId,
+        },
+        operatorId,
+        createdAt: now,
+      });
+    });
+
+    safeUpdateTag('studio-interviews');
+    safeUpdateTag('interview-conversations');
+    const updatedRecord = await loadRecordById(id);
+    return c.json(updatedRecord);
   })
   .delete('/:id', async (c) => {
     const id = c.req.param('id');

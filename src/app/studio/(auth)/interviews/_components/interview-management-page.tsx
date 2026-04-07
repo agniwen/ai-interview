@@ -68,6 +68,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import {
+  scheduleEntryStatusMeta,
   studioInterviewStatusMeta,
   studioInterviewStatusValues,
 } from '@/lib/studio-interviews';
@@ -265,9 +266,15 @@ export function InterviewManagementPage({ initialRecords }: { initialRecords: St
           return '未安排';
         }
 
+        const statusKey = (currentEntry.status ?? 'pending') as keyof typeof scheduleEntryStatusMeta;
+        const statusMeta = scheduleEntryStatusMeta[statusKey] ?? scheduleEntryStatusMeta.pending;
+
         return (
           <div className='min-w-0'>
-            <p className='truncate text-sm font-medium'>{currentEntry.roundLabel}</p>
+            <div className='flex items-center gap-1.5'>
+              <p className='truncate text-sm font-medium'>{currentEntry.roundLabel}</p>
+              <Badge variant={statusMeta.tone} className='text-[10px] px-1.5 py-0'>{statusMeta.label}</Badge>
+            </div>
             <p className='truncate text-muted-foreground text-xs'>
               {currentEntry.scheduledAt ? formatDateTime(currentEntry.scheduledAt) : '时间待定'}
             </p>
@@ -516,7 +523,18 @@ export function InterviewManagementPage({ initialRecords }: { initialRecords: St
         </Card>
       </div>
 
-      <InterviewDetailDialog onOpenChange={open => !open && setDetailRecordId(null)} open={detailRecordId !== null} recordId={detailRecordId} />
+      <InterviewDetailDialog
+        onOpenChange={open => !open && setDetailRecordId(null)}
+        onUpdated={async () => {
+          await reloadRecords({
+            search: deferredSearch.trim(),
+            status: statusFilter,
+            source: 'mutation',
+          });
+        }}
+        open={detailRecordId !== null}
+        recordId={detailRecordId}
+      />
 
       <EditInterviewDialog
         onOpenChange={open => !open && setEditRecordId(null)}

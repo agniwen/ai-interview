@@ -92,14 +92,10 @@ function toStudioInterviewListRecord(record: StudioInterviewListRow, scheduleEnt
   };
 }
 
-export async function listStudioInterviewRecords(filters?: {
+async function queryStudioInterviewRecords(filters?: {
   search?: string | null
   status?: string | null
 }) {
-  'use cache';
-  cacheTag('studio-interviews');
-  cacheLife('minutes');
-
   const parsed = studioInterviewListFiltersSchema.safeParse(filters ?? {});
 
   if (!parsed.success) {
@@ -115,3 +111,18 @@ export async function listStudioInterviewRecords(filters?: {
 
   return records.map(record => toStudioInterviewListRecord(record, scheduleEntries));
 }
+
+/** Cached version for Server Components */
+export async function listStudioInterviewRecords(filters?: {
+  search?: string | null
+  status?: string | null
+}) {
+  'use cache';
+  cacheTag('studio-interviews');
+  cacheLife('minutes');
+
+  return queryStudioInterviewRecords(filters);
+}
+
+/** Uncached version for API route handlers */
+export { queryStudioInterviewRecords };

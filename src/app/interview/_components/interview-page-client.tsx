@@ -275,12 +275,12 @@ function pickMessage(event: unknown): Omit<Turn, 'id' | 'createdAt'> | null {
   return null;
 }
 
-export default function InterviewPageClient({ interviewId }: { interviewId: string }) {
+export default function InterviewPageClient({ interviewId, roundId }: { interviewId: string, roundId: string }) {
   const conversationRef = useRef<ElevenConversationType | null>(null);
   const rafRef = useRef<number | null>(null);
   const activeConversationIdRef = useRef<string | null>(null);
   const seenEventKeysRef = useRef<Set<string>>(new Set());
-  const sessionStorageKey = `interview-session:${interviewId}`;
+  const sessionStorageKey = `interview-session:${interviewId}:${roundId}`;
   const [interviewRecord, setInterviewRecord] = useState<CandidateInterviewView | null>(null);
   const [isLoadingRecord, setIsLoadingRecord] = useState(true);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
@@ -439,7 +439,7 @@ export default function InterviewPageClient({ interviewId }: { interviewId: stri
     }
 
     try {
-      const response = await fetch(`/api/interview/${interviewId}/session-sync`, {
+      const response = await fetch(`/api/interview/${interviewId}/${roundId}/session-sync`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -469,7 +469,7 @@ export default function InterviewPageClient({ interviewId }: { interviewId: stri
       console.error(error);
       return null;
     }
-  }, [interviewId]);
+  }, [interviewId, roundId]);
 
   const stopMeterLoop = useCallback(() => {
     if (rafRef.current != null) {
@@ -528,6 +528,20 @@ export default function InterviewPageClient({ interviewId }: { interviewId: stri
     }
   }, [selectedInputDeviceId]);
 
+  const refreshInterviewRecord = useCallback(async () => {
+    try {
+      const response = await fetch(`/api/interview/${interviewId}/${roundId}`, { cache: 'no-store' });
+      const payload = (await response.json().catch(() => null)) as (CandidateInterviewView & { error?: string }) | null;
+
+      if (response.ok && payload && !('error' in payload)) {
+        setInterviewRecord(payload);
+      }
+    }
+    catch {
+      // non-critical refresh — keep existing record
+    }
+  }, [interviewId, roundId]);
+
   useEffect(() => {
     let isMounted = true;
 
@@ -536,7 +550,7 @@ export default function InterviewPageClient({ interviewId }: { interviewId: stri
       setErrorText(null);
 
       try {
-        const response = await fetch(`/api/interview/${interviewId}`, { cache: 'no-store' });
+        const response = await fetch(`/api/interview/${interviewId}/${roundId}`, { cache: 'no-store' });
         const payload = (await response.json().catch(() => null)) as (CandidateInterviewView & { error?: string }) | null;
 
         if (!response.ok || !payload || 'error' in payload) {
@@ -564,7 +578,7 @@ export default function InterviewPageClient({ interviewId }: { interviewId: stri
     return () => {
       isMounted = false;
     };
-  }, [interviewId]);
+  }, [interviewId, roundId]);
 
   useEffect(() => {
     activeConversationIdRef.current = activeConversationId;
@@ -680,7 +694,7 @@ export default function InterviewPageClient({ interviewId }: { interviewId: stri
       stream.getTracks().forEach(track => track.stop());
       await loadAudioDevices(false);
 
-      const tokenResponse = await fetch(`/api/interview/${interviewId}/token`, { cache: 'no-store' });
+      const tokenResponse = await fetch(`/api/interview/${interviewId}/${roundId}/token`, { cache: 'no-store' });
 
       if (!tokenResponse.ok) {
         const payload = (await tokenResponse.json().catch(() => null)) as { error?: string } | null;
@@ -715,7 +729,7 @@ export default function InterviewPageClient({ interviewId }: { interviewId: stri
           stopMeterLoop();
           setInputLevel(0.08);
           setOutputLevel(0.08);
-          void syncSession({ status: 'disconnected' });
+          void syncSession({ status: 'disconnected' }).then(() => refreshInterviewRecord());
         },
         onError: (error) => {
           const message = typeof error === 'string' ? error : '会话异常';
@@ -817,7 +831,7 @@ export default function InterviewPageClient({ interviewId }: { interviewId: stri
       stopMeterLoop();
       setInputLevel(0.08);
       setOutputLevel(0.08);
-      void syncSession({ status: 'disconnected' });
+      void syncSession({ status: 'disconnected' }).then(() => refreshInterviewRecord());
     }
   }
 
@@ -921,7 +935,10 @@ export default function InterviewPageClient({ interviewId }: { interviewId: stri
                               </div>
                               <div className='rounded-lg border border-border/60 bg-background/60 px-3 py-2'>
                                 <p className='text-muted-foreground'>当前轮次</p>
-                                <p className='mt-1 font-medium text-sm'>{interviewRecord.currentRoundLabel ?? '待安排'}</p>
+                                <p className='mt-1 font-medium text-sm'>
+                                  {interviewRecord.currentRoundLabel ?? '待安排'}
+                                  {interviewRecord.currentRoundStatus === 'completed' ? ' · 已结束' : interviewRecord.currentRoundStatus === 'in_progress' ? ' · 进行中' : ''}
+                                </p>
                                 <p className='mt-1 text-muted-foreground'>{formatDateTime(interviewRecord.currentRoundTime)}</p>
                               </div>
                               <div className='rounded-lg border border-border/60 bg-background/60 px-3 py-2'>
@@ -1076,9 +1093,23 @@ export default function InterviewPageClient({ interviewId }: { interviewId: stri
                   ? (
                       <ConversationEmptyState
                         className='my-10 rounded-2xl border border-dashed border-border/70 bg-background/70'
-                        description={interviewRecord ? '点击下方“开始面试”后，这里会依次显示面试官追问与候选人回答。' : '当前链接不可用时无法开始面试。'}
+                        description={
+                          interviewRecord?.currentRoundStatus === 'completed'
+                            ? '当前面试轮次已结束，如需重新面试请联系管理员。'
+                            : interviewRecord
+                              ? '点击下方”开始面试”后，这里会依次显示面试官追问与候选人回答。'
+                              : '当前链接不可用时无法开始面试。'
+                        }
                         icon={isLoadingRecord ? <LoaderCircleIcon className='size-5 animate-spin' /> : <SparklesIcon className='size-5' />}
-                        title={interviewRecord ? '准备开始一轮面试' : isLoadingRecord ? '正在加载面试信息' : '面试链接不可用'}
+                        title={
+                          interviewRecord?.currentRoundStatus === 'completed'
+                            ? '本轮面试已结束'
+                            : interviewRecord
+                              ? '准备开始一轮面试'
+                              : isLoadingRecord
+                                ? '正在加载面试信息'
+                                : '面试链接不可用'
+                        }
                       />
                     )
                   : orderedTurns.map(turn => (
@@ -1141,12 +1172,12 @@ export default function InterviewPageClient({ interviewId }: { interviewId: stri
                     : (
                         <Button
                           className='rounded-xl'
-                          disabled={!interviewRecord || isLoadingRecord}
+                          disabled={!interviewRecord || isLoadingRecord || interviewRecord?.currentRoundStatus === 'completed'}
                           onClick={toggleInterview}
                           type='button'
                         >
                           <MicIcon className='size-4' />
-                          开始面试
+                          {interviewRecord?.currentRoundStatus === 'completed' ? '本轮已结束' : '开始面试'}
                         </Button>
                       )}
                 </div>

@@ -61,6 +61,7 @@ export function EditInterviewDialog({
   const [resumePayload, setResumePayload] = useState<ResumeAnalysisResult | null>(null);
   const [isAnalyzingResume, setIsAnalyzingResume] = useState(false);
   const [isLoadingRecord, setIsLoadingRecord] = useState(false);
+  const [roundStatuses, setRoundStatuses] = useState<Record<string, import('@/lib/studio-interviews').ScheduleEntryStatus>>({});
   const form = useInterviewForm({
     defaultValues: createInterviewFormValues(),
     onSubmit: async (values) => {
@@ -113,6 +114,14 @@ export function EditInterviewDialog({
     form.setFieldValue('notes', values.notes);
     form.setFieldValue('status', values.status);
     form.setFieldValue('scheduleEntries', values.scheduleEntries);
+
+    const statuses: Record<string, import('@/lib/studio-interviews').ScheduleEntryStatus> = {};
+    for (const entry of record.scheduleEntries) {
+      if (entry.id && entry.status) {
+        statuses[entry.id] = entry.status;
+      }
+    }
+    setRoundStatuses(statuses);
   });
 
   useEffect(() => {
@@ -357,7 +366,7 @@ export function EditInterviewDialog({
                   </form.Field>
                 </FieldGroup>
 
-                <InterviewScheduleFields form={form} />
+                <InterviewScheduleFields form={form} roundStatuses={roundStatuses} />
 
                 <form.Field name='notes'>
                   {(field) => {

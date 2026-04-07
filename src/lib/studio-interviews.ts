@@ -6,6 +6,18 @@ export const studioInterviewStatusValues = ['draft', 'ready', 'in_progress', 'co
 
 export const studioInterviewStatusSchema = z.enum(studioInterviewStatusValues);
 
+export const scheduleEntryStatusValues = ['pending', 'in_progress', 'completed'] as const;
+
+export const scheduleEntryStatusSchema = z.enum(scheduleEntryStatusValues);
+
+export type ScheduleEntryStatus = z.infer<typeof scheduleEntryStatusSchema>;
+
+export const scheduleEntryStatusMeta: Record<ScheduleEntryStatus, { label: string, tone: 'default' | 'secondary' | 'outline' }> = {
+  pending: { label: '待开始', tone: 'outline' },
+  in_progress: { label: '进行中', tone: 'secondary' },
+  completed: { label: '已结束', tone: 'default' },
+};
+
 export const studioInterviewScheduleEntrySchema = z.object({
   id: z.string().trim().optional(),
   roundLabel: z.string().trim().min(1, '请输入面试轮次').max(100, '面试轮次不能超过 100 个字符'),

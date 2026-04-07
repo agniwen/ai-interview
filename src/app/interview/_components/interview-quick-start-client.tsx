@@ -77,9 +77,9 @@ export default function InterviewQuickStartClient() {
         throw new Error(payload?.error ?? '简历解析失败，请重试。');
       }
 
-      const data = (await response.json()) as { interviewId: string };
+      const data = (await response.json()) as { interviewId: string, roundId: string };
       setUploadProgress('解析完成，正在跳转...');
-      router.push(`/interview/${data.interviewId}`);
+      router.push(`/interview/${data.interviewId}/${data.roundId}`);
     }
     catch (error) {
       setUploadStage('error');

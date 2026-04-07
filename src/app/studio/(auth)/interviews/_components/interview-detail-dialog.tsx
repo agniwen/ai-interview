@@ -2,7 +2,7 @@
 
 import type { StudioInterviewConversationReport } from '@/lib/interview-session';
 import type { StudioInterviewRecord } from '@/lib/studio-interviews';
-import { CopyIcon, LinkIcon, MessageSquareTextIcon } from 'lucide-react';
+import { CopyIcon, LinkIcon, MessageSquareTextIcon, RotateCcwIcon, Share2Icon } from 'lucide-react';
 import { useEffect, useEffectEvent, useState } from 'react';
 import { toast } from 'sonner';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { scheduleEntryStatusMeta } from '@/lib/studio-interviews';
 import { InterviewStatusBadge } from './interview-status-badge';
 
 function formatValue(value: string | number | null | undefined) {
@@ -158,15 +159,18 @@ function DetailRow({
 export function InterviewDetailDialog({
   open,
   onOpenChange,
+  onUpdated,
   recordId,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
+  onUpdated?: () => void
   recordId: string | null
 }) {
   const [record, setRecord] = useState<StudioInterviewRecord | null>(null);
   const [reports, setReports] = useState<StudioInterviewConversationReport[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [resettingRoundId, setResettingRoundId] = useState<string | null>(null);
   const closeDialog = useEffectEvent(() => onOpenChange(false));
 
   useEffect(() => {
@@ -232,6 +236,35 @@ export function InterviewDetailDialog({
     }
     catch {
       toast.error('复制失败，请手动复制');
+    }
+  }
+
+  async function handleResetRound(roundId: string) {
+    if (!recordId || resettingRoundId) {
+      return;
+    }
+
+    setResettingRoundId(roundId);
+
+    try {
+      const response = await fetch(`/api/studio/interviews/${recordId}/rounds/${roundId}/reset`, {
+        method: 'POST',
+      });
+      const payload = (await response.json().catch(() => null)) as StudioInterviewRecord | { error?: string } | null;
+
+      if (!response.ok || !payload || 'error' in payload) {
+        throw new Error(payload && 'error' in payload ? payload.error ?? '重置失败' : '重置失败');
+      }
+
+      setRecord(payload as StudioInterviewRecord);
+      toast.success('轮次已重置为待开始');
+      onUpdated?.();
+    }
+    catch (error) {
+      toast.error(error instanceof Error ? error.message : '重置失败');
+    }
+    finally {
+      setResettingRoundId(null);
     }
   }
 
@@ -323,17 +356,50 @@ export function InterviewDetailDialog({
                           <h3 className='font-medium text-sm'>面试安排</h3>
                           <div className='mt-4 space-y-3'>
                             {scheduleEntries.length > 0
-                              ? scheduleEntries.map(entry => (
-                                  <div className='rounded-xl border border-border/60 bg-muted/30 p-3' key={entry.id}>
-                                    <div className='flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between sm:gap-3'>
-                                      <span className='break-words font-medium text-sm'>{entry.roundLabel}</span>
-                                      <span className='shrink-0 text-muted-foreground text-xs'>{formatDateTime(entry.scheduledAt)}</span>
+                              ? scheduleEntries.map((entry) => {
+                                  const statusKey = (entry.status ?? 'pending') as keyof typeof scheduleEntryStatusMeta;
+                                  const statusMeta = scheduleEntryStatusMeta[statusKey] ?? scheduleEntryStatusMeta.pending;
+
+                                  return (
+                                    <div className='rounded-xl border border-border/60 bg-muted/30 p-3' key={entry.id}>
+                                      <div className='flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between sm:gap-3'>
+                                        <div className='flex items-center gap-2'>
+                                          <span className='break-words font-medium text-sm'>{entry.roundLabel}</span>
+                                          <Badge variant={statusMeta.tone}>{statusMeta.label}</Badge>
+                                        </div>
+                                        <div className='flex items-center gap-2'>
+                                          <span className='shrink-0 text-muted-foreground text-xs'>{formatDateTime(entry.scheduledAt)}</span>
+                                          <Button
+                                            onClick={() => void handleCopy(new URL(`/interview/${record.id}/${entry.id}`, window.location.origin).toString())}
+                                            size='sm'
+                                            type='button'
+                                            variant='ghost'
+                                          >
+                                            <Share2Icon className='size-3.5' />
+                                            复制链接
+                                          </Button>
+                                          {entry.status === 'completed'
+                                            ? (
+                                                <Button
+                                                  disabled={resettingRoundId === entry.id}
+                                                  onClick={() => void handleResetRound(entry.id)}
+                                                  size='sm'
+                                                  type='button'
+                                                  variant='outline'
+                                                >
+                                                  <RotateCcwIcon className='size-3.5' />
+                                                  {resettingRoundId === entry.id ? '重置中...' : '重置轮次'}
+                                                </Button>
+                                              )
+                                            : null}
+                                        </div>
+                                      </div>
+                                      <p className='mt-2 text-muted-foreground text-sm leading-relaxed'>
+                                        {truncateText(entry.notes, 180) || '暂无轮次备注'}
+                                      </p>
                                     </div>
-                                    <p className='mt-2 text-muted-foreground text-sm leading-relaxed'>
-                                      {truncateText(entry.notes, 180) || '暂无轮次备注'}
-                                    </p>
-                                  </div>
-                                ))
+                                  );
+                                })
                               : <p className='text-muted-foreground text-sm'>暂无面试安排。</p>}
                           </div>
                         </div>

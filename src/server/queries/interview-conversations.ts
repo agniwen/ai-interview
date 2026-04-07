@@ -57,11 +57,7 @@ function serializeConversationReport(
   };
 }
 
-export async function listInterviewConversationReports(interviewRecordId: string) {
-  'use cache';
-  cacheTag('interview-conversations', `interview-conversations-${interviewRecordId}`);
-  cacheLife('minutes');
-
+async function queryInterviewConversationReports(interviewRecordId: string) {
   const conversations = await db
     .select()
     .from(interviewConversation)
@@ -84,3 +80,15 @@ export async function listInterviewConversationReports(interviewRecordId: string
     return serializeConversationReport(conversation, turns);
   });
 }
+
+/** Cached version for Server Components */
+export async function listInterviewConversationReports(interviewRecordId: string) {
+  'use cache';
+  cacheTag('interview-conversations', `interview-conversations-${interviewRecordId}`);
+  cacheLife('minutes');
+
+  return queryInterviewConversationReports(interviewRecordId);
+}
+
+/** Uncached version for API route handlers */
+export { queryInterviewConversationReports };

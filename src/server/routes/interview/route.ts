@@ -1,7 +1,8 @@
 import type { InterviewConversationSnapshot, InterviewTranscriptTurn, PersistedInterviewTurn } from '@/lib/interview-session';
+import type { ScheduleEntryStatus } from '@/lib/studio-interviews';
 import { ElevenLabsClient } from '@elevenlabs/elevenlabs-js';
 import { zValidator } from '@hono/zod-validator';
-import { and, asc, eq } from 'drizzle-orm';
+import { and, asc, eq, or } from 'drizzle-orm';
 import { updateTag } from 'next/cache';
 import { db } from '@/lib/db';
 import {
@@ -10,7 +11,7 @@ import {
   studioInterview,
   studioInterviewSchedule,
 } from '@/lib/db/schema';
-import { buildCandidateInterviewView, sortScheduleEntries } from '@/lib/interview/interview-record';
+import { buildCandidateInterviewView, pickCurrentScheduleEntry, sortScheduleEntries } from '@/lib/interview/interview-record';
 import { factory } from '@/server/factory';
 import { analyzeResumeFile, ResumeAnalysisError } from './analysis';
 import { interviewSessionSyncSchema } from './session-schema';
@@ -31,7 +32,7 @@ const elevenlabs = new ElevenLabsClient({
 type InterviewConversationRow = typeof interviewConversation.$inferSelect;
 type InterviewConversationTurnRow = typeof interviewConversationTurn.$inferSelect;
 
-async function loadCandidateInterviewRecord(id: string) {
+async function loadCandidateInterviewRecord(id: string, roundId: string) {
   const [record] = await db.select().from(studioInterview).where(eq(studioInterview.id, id)).limit(1);
 
   if (!record || record.status === 'archived') {
@@ -43,7 +44,24 @@ async function loadCandidateInterviewRecord(id: string) {
     .from(studioInterviewSchedule)
     .where(eq(studioInterviewSchedule.interviewRecordId, id));
 
-  return buildCandidateInterviewView(record, sortScheduleEntries(scheduleEntries));
+  return buildCandidateInterviewView(record, sortScheduleEntries(scheduleEntries), roundId);
+}
+
+async function loadScheduleEntriesForRedirect(id: string) {
+  const [record] = await db.select({ id: studioInterview.id, status: studioInterview.status }).from(studioInterview).where(eq(studioInterview.id, id)).limit(1);
+
+  if (!record || record.status === 'archived') {
+    return null;
+  }
+
+  const entries = await db
+    .select()
+    .from(studioInterviewSchedule)
+    .where(eq(studioInterviewSchedule.interviewRecordId, id));
+
+  const sorted = sortScheduleEntries(entries);
+  const active = pickCurrentScheduleEntry(sorted);
+  return active;
 }
 
 function buildTokenErrorResponse() {
@@ -154,7 +172,7 @@ function deriveEndedAt(metadata: Record<string, unknown> | null | undefined) {
   return null;
 }
 
-async function syncInterviewStatus(interviewRecordId: string | null, status: 'in_progress' | 'completed', now: Date) {
+async function syncInterviewStatus(interviewRecordId: string | null, now: Date) {
   if (!interviewRecordId) {
     return;
   }
@@ -165,20 +183,63 @@ async function syncInterviewStatus(interviewRecordId: string | null, status: 'in
     return;
   }
 
-  if (status === 'in_progress' && (record.status === 'in_progress' || record.status === 'completed')) {
+  const scheduleEntries = await db
+    .select({ status: studioInterviewSchedule.status })
+    .from(studioInterviewSchedule)
+    .where(eq(studioInterviewSchedule.interviewRecordId, interviewRecordId));
+
+  const allCompleted = scheduleEntries.length > 0 && scheduleEntries.every(e => e.status === 'completed');
+  const anyInProgress = scheduleEntries.some(e => e.status === 'in_progress');
+
+  let nextStatus: 'in_progress' | 'completed' | null = null;
+
+  if (allCompleted) {
+    nextStatus = 'completed';
+  }
+  else if (anyInProgress || scheduleEntries.some(e => e.status === 'completed')) {
+    nextStatus = 'in_progress';
+  }
+
+  if (!nextStatus || nextStatus === record.status) {
     return;
   }
 
-  if (status === 'completed' && record.status === 'completed') {
+  // Don't transition backward from in_progress to null, only forward or to in_progress if was ready/draft
+  if (nextStatus === 'in_progress' && record.status !== 'ready' && record.status !== 'draft' && record.status !== 'completed') {
     return;
   }
 
-  await db.update(studioInterview).set({ status, updatedAt: now }).where(eq(studioInterview.id, interviewRecordId));
+  await db.update(studioInterview).set({ status: nextStatus, updatedAt: now }).where(eq(studioInterview.id, interviewRecordId));
+}
+
+async function updateScheduleEntryStatus(
+  scheduleEntryId: string,
+  nextStatus: ScheduleEntryStatus,
+  conversationId: string | null,
+  now: Date,
+) {
+  await db
+    .update(studioInterviewSchedule)
+    .set({
+      status: nextStatus,
+      ...(conversationId ? { conversationId } : {}),
+      updatedAt: now,
+    })
+    .where(and(
+      eq(studioInterviewSchedule.id, scheduleEntryId),
+      // Only allow forward: pending(0) → in_progress(1) → completed(2)
+      nextStatus === 'in_progress'
+        ? eq(studioInterviewSchedule.status, 'pending')
+        : nextStatus === 'completed'
+          ? or(eq(studioInterviewSchedule.status, 'pending'), eq(studioInterviewSchedule.status, 'in_progress'))
+          : eq(studioInterviewSchedule.status, studioInterviewSchedule.status), // noop for 'pending'
+    ));
 }
 
 async function upsertConversation(options: {
   conversationId: string
   interviewRecordId?: string | null
+  scheduleEntryId?: string | null
   agentId?: string | null
   status?: string
   mode?: string | null
@@ -206,6 +267,7 @@ async function upsertConversation(options: {
 }) {
   const now = new Date();
   let resolvedInterviewRecordId: string | null = options.interviewRecordId ?? null;
+  let resolvedScheduleEntryId: string | null = options.scheduleEntryId ?? null;
 
   await db.transaction(async (tx) => {
     const [existing] = await tx
@@ -215,10 +277,13 @@ async function upsertConversation(options: {
       .limit(1);
 
     const nextInterviewRecordId = options.interviewRecordId ?? existing?.interviewRecordId ?? null;
+    const nextScheduleEntryId = options.scheduleEntryId ?? existing?.scheduleEntryId ?? null;
     resolvedInterviewRecordId = nextInterviewRecordId;
+    resolvedScheduleEntryId = nextScheduleEntryId;
     const nextRow = {
       conversationId: options.conversationId,
       interviewRecordId: nextInterviewRecordId,
+      scheduleEntryId: nextScheduleEntryId,
       agentId: options.agentId ?? existing?.agentId ?? null,
       status: options.status ?? existing?.status ?? 'initiated',
       mode: options.mode ?? existing?.mode ?? null,
@@ -275,13 +340,19 @@ async function upsertConversation(options: {
     }
   });
 
-  if (options.status === 'connected' || options.markStarted) {
-    await syncInterviewStatus(resolvedInterviewRecordId, 'in_progress', now);
+  // Sync schedule entry status
+  if (resolvedScheduleEntryId) {
+    if (options.status === 'connected' || options.markStarted) {
+      await updateScheduleEntryStatus(resolvedScheduleEntryId, 'in_progress', options.conversationId, now);
+    }
+
+    if (options.markEnded || options.status === 'done' || options.webhookReceivedAt) {
+      await updateScheduleEntryStatus(resolvedScheduleEntryId, 'completed', options.conversationId, now);
+    }
   }
 
-  if (options.status === 'done' || options.webhookReceivedAt) {
-    await syncInterviewStatus(resolvedInterviewRecordId, 'completed', now);
-  }
+  // Sync overall interview status based on all round statuses
+  await syncInterviewStatus(resolvedInterviewRecordId, now);
 
   safeUpdateTag('interview-conversations');
   safeUpdateTag('studio-interviews');
@@ -320,9 +391,11 @@ export const interviewRouter = factory.createApp()
         id: crypto.randomUUID(),
         interviewRecordId,
         roundLabel: '快速面试',
+        status: 'pending' as const,
         scheduledAt: now,
         notes: null,
         sortOrder: 0,
+        conversationId: null,
         createdAt: now,
         updatedAt: now,
       } satisfies typeof studioInterviewSchedule.$inferInsert;
@@ -332,7 +405,7 @@ export const interviewRouter = factory.createApp()
         await tx.insert(studioInterviewSchedule).values(scheduleRow);
       });
 
-      return c.json({ interviewId: interviewRecordId }, 201);
+      return c.json({ interviewId: interviewRecordId, roundId: scheduleRow.id }, 201);
     }
     catch (error) {
       if (error instanceof ResumeAnalysisError) {
@@ -393,12 +466,17 @@ export const interviewRouter = factory.createApp()
       );
     }
   })
-  .post('/:id/session-sync', zValidator('json', interviewSessionSyncSchema), async (c) => {
+  .post('/:id/:roundId/session-sync', zValidator('json', interviewSessionSyncSchema), async (c) => {
     const id = c.req.param('id');
-    const interviewRecord = await loadCandidateInterviewRecord(id);
+    const roundId = c.req.param('roundId');
+    const interviewRecord = await loadCandidateInterviewRecord(id, roundId);
 
     if (!interviewRecord) {
       return c.json({ error: 'Interview not available.' }, 404);
+    }
+
+    if (!interviewRecord.currentRoundId) {
+      return c.json({ error: 'Round not found.' }, 404);
     }
 
     const payload = c.req.valid('json');
@@ -406,6 +484,7 @@ export const interviewRouter = factory.createApp()
     await upsertConversation({
       conversationId: payload.conversationId,
       interviewRecordId: id,
+      scheduleEntryId: roundId,
       status: payload.status,
       mode: payload.mode,
       latestError: payload.error,
@@ -576,12 +655,21 @@ export const interviewRouter = factory.createApp()
       );
     }
   })
-  .get('/:id/token', async (c) => {
+  .get('/:id/:roundId/token', async (c) => {
     const id = c.req.param('id');
-    const interviewRecord = await loadCandidateInterviewRecord(id);
+    const roundId = c.req.param('roundId');
+    const interviewRecord = await loadCandidateInterviewRecord(id, roundId);
 
     if (!interviewRecord) {
       return c.json({ error: 'Interview not available.' }, 404);
+    }
+
+    if (!interviewRecord.currentRoundId) {
+      return c.json({ error: 'Round not found.' }, 404);
+    }
+
+    if (interviewRecord.currentRoundStatus === 'completed') {
+      return c.json({ error: '当前面试轮次已结束，如需重新面试请联系管理员。' }, 403);
     }
 
     const agentId = process.env.ELEVENLABS_AGENT_ID || process.env.NEXT_PUBLIC_ELEVENLABS_AGENT_ID;
@@ -607,9 +695,20 @@ export const interviewRouter = factory.createApp()
       );
     }
   })
-  .get('/:id', async (c) => {
+  .get('/:id/resolve', async (c) => {
     const id = c.req.param('id');
-    const interviewRecord = await loadCandidateInterviewRecord(id);
+    const entry = await loadScheduleEntriesForRedirect(id);
+
+    if (!entry) {
+      return c.json({ error: 'Interview not available.' }, 404);
+    }
+
+    return c.json({ interviewId: id, roundId: entry.id });
+  })
+  .get('/:id/:roundId', async (c) => {
+    const id = c.req.param('id');
+    const roundId = c.req.param('roundId');
+    const interviewRecord = await loadCandidateInterviewRecord(id, roundId);
 
     if (!interviewRecord) {
       return c.json({ error: 'Interview not available.' }, 404);

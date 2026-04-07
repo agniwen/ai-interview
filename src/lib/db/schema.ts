@@ -1,5 +1,5 @@
 import type { InterviewQuestion, ResumeProfile } from '@/lib/interview/types';
-import type { StudioInterviewStatus } from '@/lib/studio-interviews';
+import type { ScheduleEntryStatus, StudioInterviewStatus } from '@/lib/studio-interviews';
 import {
   boolean,
   index,
@@ -121,9 +121,11 @@ export const studioInterviewSchedule = pgTable(
       .notNull()
       .references(() => studioInterview.id, { onDelete: 'cascade' }),
     roundLabel: text('round_label').notNull(),
+    status: text('status').$type<ScheduleEntryStatus>().notNull().default('pending'),
     scheduledAt: timestamp('scheduled_at'),
     notes: text('notes'),
     sortOrder: integer('sort_order').notNull(),
+    conversationId: text('conversation_id'),
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at')
       .defaultNow()
@@ -141,6 +143,7 @@ export const interviewConversation = pgTable(
   {
     conversationId: text('conversation_id').primaryKey(),
     interviewRecordId: text('interview_record_id').references(() => studioInterview.id, { onDelete: 'set null' }),
+    scheduleEntryId: text('schedule_entry_id').references(() => studioInterviewSchedule.id, { onDelete: 'set null' }),
     agentId: text('agent_id'),
     status: text('status').notNull().default('initiated'),
     mode: text('mode'),
@@ -187,5 +190,24 @@ export const interviewConversationTurn = pgTable(
   table => [
     index('interview_conversation_turn_conversation_idx').on(table.conversationId, table.createdAt),
     index('interview_conversation_turn_record_idx').on(table.interviewRecordId, table.createdAt),
+  ],
+);
+
+export const interviewAuditLog = pgTable(
+  'interview_audit_log',
+  {
+    id: text('id').primaryKey(),
+    interviewRecordId: text('interview_record_id')
+      .notNull()
+      .references(() => studioInterview.id, { onDelete: 'cascade' }),
+    scheduleEntryId: text('schedule_entry_id').references(() => studioInterviewSchedule.id, { onDelete: 'set null' }),
+    action: text('action').notNull(),
+    detail: jsonb('detail').$type<Record<string, unknown>>().notNull().default({}),
+    operatorId: text('operator_id').references(() => user.id, { onDelete: 'set null' }),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  table => [
+    index('interview_audit_log_record_idx').on(table.interviewRecordId),
+    index('interview_audit_log_created_at_idx').on(table.createdAt),
   ],
 );

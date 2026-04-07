@@ -1,21 +1,37 @@
-import type { Metadata } from 'next';
-import { cacheLife } from 'next/cache';
-import InterviewPageClient from '@/app/interview/_components/interview-page-client';
-
-export const metadata: Metadata = {
-  title: 'AI 面试',
-  description: '根据候选人专属链接发起语音面试，并实时查看追问过程与作答记录。',
-};
+import { redirect } from 'next/navigation';
 
 export default async function InterviewByIdPage({
   params,
 }: {
   params: Promise<{ id: string }>
 }) {
-  'use cache';
-  cacheLife('max');
-
   const { id } = await params;
 
-  return <InterviewPageClient interviewId={id} />;
+  // Resolve the current active round and redirect
+  let roundId: string | null = null;
+
+  try {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/interview/${id}/resolve`, {
+      cache: 'no-store',
+    });
+
+    if (response.ok) {
+      const data = (await response.json()) as { roundId?: string };
+      roundId = data.roundId ?? null;
+    }
+  }
+  catch {
+    // fall through
+  }
+
+  if (roundId) {
+    redirect(`/interview/${id}/${roundId}`);
+  }
+
+  // If no round found, show a simple error
+  return (
+    <div className='flex min-h-dvh items-center justify-center'>
+      <p className='text-muted-foreground'>当前面试链接不可用。</p>
+    </div>
+  );
 }
