@@ -1105,50 +1105,56 @@ export default function InterviewPageClient({ interviewId }: { interviewId: stri
               </Conversation>
             </div>
 
-            <div className='mt-4 space-y-3 px-1 pb-2'>
-              <BarVisualizer
-                barCount={20}
-                centerAlign
-                className='h-16 rounded-2xl border border-border/60 bg-background/70 p-3'
-                demo
-                state={agentState}
-              />
+            <div className='mt-4 px-1 pb-2'>
+              <div className='rounded-[1.3rem] border border-border/65 bg-white shadow-[0_8px_18px_-20px_rgba(60,44,23,0.5)]'>
+                <div className='px-4 pt-4 pb-2'>
+                  <BarVisualizer
+                    barCount={20}
+                    centerAlign
+                    className='h-14 rounded-xl bg-muted/30 p-3'
+                    demo
+                    state={agentState}
+                  />
+                </div>
 
-              <div className='flex flex-wrap items-center gap-2'>
-                <MicSelector
-                  className='w-auto max-w-48'
-                  disabled={isConnected || statusText === 'connecting'}
-                />
+                <div className='flex items-center gap-2 px-4 pb-3'>
+                  <MicSelector
+                    className='w-auto max-w-48'
+                    disabled={isConnected || statusText === 'connecting'}
+                  />
 
-                <div className='ml-auto flex items-center gap-2'>
-                  {isConnected || statusText === 'connecting' || statusText === 'disconnecting'
-                    ? (
-                        <Button
-                          disabled={statusText === 'disconnecting'}
-                          onClick={toggleInterview}
-                          type='button'
-                          variant='destructive'
-                        >
-                          <PhoneOffIcon className='size-4' />
-                          {statusText === 'disconnecting' ? '结束中...' : statusText === 'connecting' ? '连接中...' : '结束面试'}
-                        </Button>
-                      )
-                    : (
-                        <Button
-                          disabled={!interviewRecord || isLoadingRecord}
-                          onClick={toggleInterview}
-                          type='button'
-                        >
-                          <MicIcon className='size-4' />
-                          开始面试
-                        </Button>
-                      )}
+                  <div className='ml-auto'>
+                    {isConnected || statusText === 'connecting' || statusText === 'disconnecting'
+                      ? (
+                          <Button
+                            className='rounded-xl'
+                            disabled={statusText === 'disconnecting'}
+                            onClick={toggleInterview}
+                            type='button'
+                            variant='destructive'
+                          >
+                            <PhoneOffIcon className='size-4' />
+                            {statusText === 'disconnecting' ? '结束中...' : statusText === 'connecting' ? '连接中...' : '结束面试'}
+                          </Button>
+                        )
+                      : (
+                          <Button
+                            className='rounded-xl'
+                            disabled={!interviewRecord || isLoadingRecord}
+                            onClick={toggleInterview}
+                            type='button'
+                          >
+                            <MicIcon className='size-4' />
+                            开始面试
+                          </Button>
+                        )}
+                  </div>
                 </div>
               </div>
 
               {errorText
                 ? (
-                    <p aria-live='polite' className='text-destructive text-sm'>
+                    <p aria-live='polite' className='mt-2 px-1 text-destructive text-sm'>
                       {errorText}
                     </p>
                   )
