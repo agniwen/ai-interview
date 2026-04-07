@@ -1,33 +1,19 @@
 'use client';
 
-import type { ReactNode } from 'react';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import {
-  ChevronsUpDownIcon,
   HouseIcon,
-  LogOutIcon,
   PanelLeftCloseIcon,
   PanelLeftOpenIcon,
   PlusIcon,
   Trash2Icon,
-  UserIcon,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useParams, usePathname, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react';
-import { GoogleSignInButton } from '@/components/auth/google-sign-in-button';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { useHotkeys } from 'react-hotkeys-hook';
+import { SidebarUserSection } from '@/components/sidebar-user-section';
 import { Button } from '@/components/ui/button';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { useHydrated } from '@/hooks/use-hydrated';
-import { authClient } from '@/lib/auth-client';
 import { chatHistoryDB } from '@/lib/chat-history-db';
 import { cn } from '@/lib/utils';
 import { isMobileSidebarOpenAtom, isSidebarCollapsedAtom } from '../atoms/sidebar';
@@ -40,23 +26,6 @@ interface ConversationListItem {
 }
 
 const GENERATING_CHAT_TITLE = '生成中...';
-const WHITESPACE_REGEX = /\s+/;
-
-function getInitials(name?: string | null, email?: string | null) {
-  const source = (name ?? email ?? '').trim();
-
-  if (!source) {
-    return 'U';
-  }
-
-  const words = source.split(WHITESPACE_REGEX).filter(Boolean);
-
-  if (words.length >= 2) {
-    return `${words[0]![0]}${words[1]![0]}`.toUpperCase();
-  }
-
-  return source.slice(0, 2).toUpperCase();
-}
 
 const sidebarTimeFormatter = new Intl.DateTimeFormat('zh-CN', {
   month: '2-digit',
@@ -74,7 +43,12 @@ export default function ChatSidebar() {
   const isMobileSidebarOpen = useAtomValue(isMobileSidebarOpenAtom);
   const closeMobileSidebar = useSetAtom(isMobileSidebarOpenAtom);
   const [conversations, setConversations] = useState<ConversationListItem[]>([]);
-  const isHydrated = useHydrated();
+
+  useHotkeys('meta+b', (event) => {
+    event.preventDefault();
+    setIsSidebarCollapsed(value => !value);
+  });
+
   const currentPathname = useSyncExternalStore(
     useCallback((onStoreChange: () => void) => {
       window.addEventListener('popstate', onStoreChange);
@@ -88,9 +62,6 @@ export default function ChatSidebar() {
     () => window.location.pathname,
     () => pathname,
   );
-
-  // Better auth session
-  const { data: session, isPending } = authClient.useSession();
 
   const activeSessionId = useMemo(() => {
     const routeSessionId = params.sessionId;
@@ -161,115 +132,7 @@ export default function ChatSidebar() {
     [activeSessionId, refreshConversationList, router],
   );
 
-  const handleSignOut = useCallback(async () => {
-    await authClient.signOut();
-    closeMobileSidebar(false);
-    router.replace('/');
-  }, [closeMobileSidebar, router]);
-
   const showExpandedSidebar = !isSidebarCollapsed || isMobileSidebarOpen;
-  const userName = session?.user?.name ?? '用户';
-  const userEmail = session?.user?.email ?? '';
-  const userInitials = getInitials(session?.user?.name, session?.user?.email);
-  const showSessionLoadingState = !isHydrated || isPending;
-  let expandedUserSection: ReactNode;
-
-  if (showSessionLoadingState) {
-    expandedUserSection = <div className='h-9 w-full animate-pulse rounded-full bg-muted' />;
-  }
-  else if (session?.user) {
-    expandedUserSection = (
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            className='w-full justify-start gap-2 p-1! rounded-full'
-            type='button'
-            variant='ghost'
-          >
-            <Avatar size='default'>
-              <AvatarImage alt={userName} src={session.user.image ?? undefined} />
-              <AvatarFallback>{userInitials}</AvatarFallback>
-            </Avatar>
-            <div className='min-w-0 flex-1 text-left'>
-              <p className='truncate font-medium text-sm'>{userName}</p>
-              <p className='truncate text-muted-foreground text-xs'>{userEmail}</p>
-            </div>
-            <ChevronsUpDownIcon className='size-4 text-muted-foreground' />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align='end' className='w-56'>
-          <DropdownMenuLabel className='space-y-0.5'>
-            <p className='truncate font-medium text-sm'>{userName}</p>
-            <p className='truncate text-muted-foreground text-xs'>{userEmail}</p>
-          </DropdownMenuLabel>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={handleSignOut} variant='destructive'>
-            <LogOutIcon className='mr-2 size-4' />
-            退出登录
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-    );
-  }
-  else {
-    expandedUserSection = <GoogleSignInButton callbackURL='/chat' />;
-  }
-
-  let collapsedUserSection: ReactNode;
-
-  if (showSessionLoadingState) {
-    collapsedUserSection = <div className='h-9 w-full animate-pulse rounded-md bg-muted' />;
-  }
-  else if (session?.user) {
-    collapsedUserSection = (
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            aria-label='用户菜单'
-            className='w-full'
-            size='icon'
-            type='button'
-            variant='ghost'
-          >
-            <Avatar size='sm'>
-              <AvatarImage alt={userName} src={session.user.image ?? undefined} />
-              <AvatarFallback>{userInitials}</AvatarFallback>
-            </Avatar>
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align='end' className='w-56'>
-          <DropdownMenuLabel className='space-y-0.5'>
-            <p className='truncate font-medium text-sm'>{userName}</p>
-            <p className='truncate text-muted-foreground text-xs'>{userEmail}</p>
-          </DropdownMenuLabel>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={handleSignOut} variant='destructive'>
-            <LogOutIcon className='mr-2 size-4' />
-            退出登录
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-    );
-  }
-  else {
-    collapsedUserSection = (
-      <Button
-        aria-label='登录'
-        className='w-full'
-        onClick={() => {
-          authClient.signIn.social({
-            provider: 'google',
-            callbackURL: '/chat',
-          });
-        }}
-        size='icon'
-        type='button'
-        variant='ghost'
-      >
-        <UserIcon className='size-4' />
-      </Button>
-    );
-  }
 
   return (
     <aside
@@ -381,12 +244,7 @@ export default function ChatSidebar() {
               )}
       </div>
 
-      {/* User Section */}
-      <div className='border-border/65 border-t px-2 py-2'>
-        {showExpandedSidebar
-          ? <div className='flex items-center gap-2'>{expandedUserSection}</div>
-          : collapsedUserSection}
-      </div>
+      <SidebarUserSection callbackURL='/chat' collapsed={isSidebarCollapsed && !isMobileSidebarOpen} />
     </aside>
   );
 }

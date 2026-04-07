@@ -12,6 +12,7 @@ import {
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useRef, useState } from 'react';
+import { useHotkeys } from 'react-hotkeys-hook';
 import {
   Conversation,
   ConversationContent,
@@ -20,6 +21,7 @@ import {
 import { PromptInput, PromptInputBody, PromptInputFooter } from '@/components/ai-elements/prompt-input';
 import { ElevenLabsQuota } from '@/components/interview/elevenlabs-quota';
 import { InterviewQuotaNotice } from '@/components/interview/interview-quota-notice';
+import { SidebarUserSection } from '@/components/sidebar-user-section';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
@@ -37,6 +39,11 @@ export default function InterviewQuickStartClient() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
+
+  useHotkeys('meta+b', (event) => {
+    event.preventDefault();
+    setIsSidebarCollapsed(value => !value);
+  });
 
   const showExpandedSidebar = !isSidebarCollapsed || isMobileSidebarOpen;
 
@@ -113,8 +120,18 @@ export default function InterviewQuickStartClient() {
   const isUploading = uploadStage === 'uploading';
 
   return (
-    <div className='flex h-screen min-h-screen w-full min-w-0 flex-col overflow-hidden bg-transparent'>
-      <div className='grid min-h-0 flex-1 overflow-hidden bg-transparent sm:grid-cols-[auto_minmax(0,1fr)]'>
+    <div className='flex h-dvh w-full overflow-hidden bg-transparent'>
+        {isMobileSidebarOpen
+          ? (
+              <button
+                aria-label='关闭侧边栏'
+                className='fixed inset-0 z-30 bg-black/18 backdrop-blur-[1px] sm:hidden'
+                onClick={() => setIsMobileSidebarOpen(false)}
+                type='button'
+              />
+            )
+          : null}
+
         <aside
           className={cn(
             'fixed inset-y-0 left-0 z-40 flex w-[min(82vw,20rem)] shrink-0 flex-col overflow-hidden border-r border-border/75 bg-card/95 shadow-[0_14px_36px_-32px_rgba(52,96,168,0.6)] backdrop-blur-sm transition-transform duration-200 sm:static sm:z-auto sm:bg-card/80 sm:transition-[width]',
@@ -255,14 +272,10 @@ export default function InterviewQuickStartClient() {
                 )}
           </div>
 
-          <div className='border-border/65 border-t px-3 py-3'>
-            {showExpandedSidebar
-              ? <p className='text-muted-foreground text-xs leading-relaxed'>上传简历后系统会自动创建面试记录并跳转。</p>
-              : null}
-          </div>
+          <SidebarUserSection callbackURL='/interview' collapsed={isSidebarCollapsed && !isMobileSidebarOpen} />
         </aside>
 
-        <section className='flex min-h-0 flex-col bg-transparent'>
+        <section className='flex min-w-0 flex-1 flex-col bg-transparent'>
           <div className='mx-auto flex h-full w-full max-w-5xl min-w-0 flex-col px-1 pb-2 pt-4 sm:px-2 sm:pb-4 sm:pt-6'>
             <header className='px-1'>
               <div className='mb-2 flex items-center gap-2 sm:hidden'>
@@ -367,9 +380,8 @@ export default function InterviewQuickStartClient() {
             </div>
           </div>
         </section>
-      </div>
 
-      <InterviewQuotaNotice />
-    </div>
+        <InterviewQuotaNotice />
+      </div>
   );
 }

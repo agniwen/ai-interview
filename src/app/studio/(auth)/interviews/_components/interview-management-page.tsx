@@ -202,15 +202,11 @@ export function InterviewManagementPage({ initialRecords }: { initialRecords: St
   }
 
   function openDetail(recordId: string) {
-    requestAnimationFrame(() => {
-      setDetailRecordId(recordId);
-    });
+    setDetailRecordId(recordId);
   }
 
   function openEdit(recordId: string) {
-    requestAnimationFrame(() => {
-      setEditRecordId(recordId);
-    });
+    setEditRecordId(recordId);
   }
 
   const columns = useMemo<ColumnDef<StudioInterviewListRecord>[]>(() => [

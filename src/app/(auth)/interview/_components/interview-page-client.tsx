@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useHotkeys } from 'react-hotkeys-hook';
 import { toast } from 'sonner';
 import {
   Conversation,
@@ -28,6 +29,7 @@ import { Message, MessageContent, MessageResponse } from '@/components/ai-elemen
 import { PromptInput, PromptInputBody, PromptInputFooter } from '@/components/ai-elements/prompt-input';
 import { ElevenLabsQuota } from '@/components/interview/elevenlabs-quota';
 import { InterviewQuotaNotice } from '@/components/interview/interview-quota-notice';
+import { SidebarUserSection } from '@/components/sidebar-user-section';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -329,6 +331,11 @@ export default function InterviewPageClient({ interviewId }: { interviewId: stri
   const [outputLevel, setOutputLevel] = useState(0.08);
 
   const isConnected = statusText === 'connected';
+  useHotkeys('meta+b', (event) => {
+    event.preventDefault();
+    setIsSidebarCollapsed(value => !value);
+  });
+
   const showExpandedSidebar = !isSidebarCollapsed || isMobileSidebarOpen;
   const interviewStage = formatInterviewStage(statusText, modeText);
   const connectionSummary = formatStatusSummary(statusText);
@@ -833,8 +840,18 @@ export default function InterviewPageClient({ interviewId }: { interviewId: stri
   }
 
   return (
-    <div className='flex h-screen min-h-screen w-full min-w-0 flex-col overflow-hidden bg-transparent'>
-      <div className='grid min-h-0 flex-1 overflow-hidden bg-transparent sm:grid-cols-[auto_minmax(0,1fr)]'>
+    <div className='flex h-dvh w-full overflow-hidden bg-transparent'>
+        {isMobileSidebarOpen
+          ? (
+              <button
+                aria-label='关闭侧边栏'
+                className='fixed inset-0 z-30 bg-black/18 backdrop-blur-[1px] sm:hidden'
+                onClick={() => setIsMobileSidebarOpen(false)}
+                type='button'
+              />
+            )
+          : null}
+
         <aside
           className={cn(
             'fixed inset-y-0 left-0 z-40 flex w-[min(82vw,20rem)] shrink-0 flex-col overflow-hidden border-r border-border/75 bg-card/95 shadow-[0_14px_36px_-32px_rgba(52,96,168,0.6)] backdrop-blur-sm transition-transform duration-200 sm:static sm:z-auto sm:bg-card/80 sm:transition-[width]',
@@ -1028,14 +1045,10 @@ export default function InterviewPageClient({ interviewId }: { interviewId: stri
                 )}
           </div>
 
-          <div className='border-border/65 border-t px-3 py-3'>
-            {showExpandedSidebar
-              ? <p className='text-muted-foreground text-xs leading-relaxed'>本页面已直接加载后台维护的候选人信息，无需重新上传简历。</p>
-              : null}
-          </div>
+          <SidebarUserSection callbackURL='/interview' collapsed={isSidebarCollapsed && !isMobileSidebarOpen} />
         </aside>
 
-        <section className='flex min-h-0 flex-col bg-transparent'>
+        <section className='flex min-w-0 flex-1 flex-col bg-transparent'>
           <div className='mx-auto flex h-full w-full max-w-5xl min-w-0 flex-col px-1 pb-2 pt-4 sm:px-2 sm:pb-4 sm:pt-6'>
             <header className='px-1'>
               <div className='mb-2 flex items-center gap-2 sm:hidden'>
@@ -1169,9 +1182,8 @@ export default function InterviewPageClient({ interviewId }: { interviewId: stri
             </div>
           </div>
         </section>
-      </div>
 
-      <InterviewQuotaNotice />
-    </div>
+        <InterviewQuotaNotice />
+      </div>
   );
 }

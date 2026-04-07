@@ -1219,7 +1219,7 @@ export default function ChatPageClient({
         onClick={(event) => {
           const target = event.target as HTMLElement;
 
-          if (target.closest('button, a, input[type="file"], [role="menuitem"], [data-slot="select"]')) {
+          if (target.closest('button, a, input[type="file"], [role="menuitem"], [role="dialog"], [data-slot="select"]')) {
             return;
           }
 
