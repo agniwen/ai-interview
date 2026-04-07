@@ -88,9 +88,11 @@ function formatDateTime(value: string | Date) {
 
 export function InterviewManagementPage({ initialRecords }: { initialRecords: StudioInterviewListRecord[] }) {
   const [records, dispatchRecords] = useReducer(
-    (previous: StudioInterviewListRecord[], action: { type: 'replace'; records: StudioInterviewListRecord[] } | { type: 'remove'; id: string }) => {
-      if (action.type === 'replace') return action.records;
-      if (action.type === 'remove') return previous.filter(r => r.id !== action.id);
+    (previous: StudioInterviewListRecord[], action: { type: 'replace', records: StudioInterviewListRecord[] } | { type: 'remove', id: string }) => {
+      if (action.type === 'replace')
+        return action.records;
+      if (action.type === 'remove')
+        return previous.filter(r => r.id !== action.id);
       return previous;
     },
     initialRecords,
