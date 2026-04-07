@@ -503,12 +503,23 @@ export const interviewRouter = factory.createApp()
         : undefined,
     });
 
-    const snapshot = await loadConversationSnapshot({
-      conversationId: payload.conversationId,
-      interviewRecordId: id,
-    });
+    const [snapshot, scheduleEntry] = await Promise.all([
+      loadConversationSnapshot({
+        conversationId: payload.conversationId,
+        interviewRecordId: id,
+      }),
+      db.select({ status: studioInterviewSchedule.status })
+        .from(studioInterviewSchedule)
+        .where(eq(studioInterviewSchedule.id, roundId))
+        .limit(1)
+        .then(rows => rows[0] ?? null),
+    ]);
 
-    return c.json({ received: true, snapshot });
+    return c.json({
+      received: true,
+      snapshot,
+      currentRoundStatus: (scheduleEntry?.status as ScheduleEntryStatus) ?? null,
+    });
   })
   .post('/webhook', async (c) => {
     const rawBody = await c.req.raw.text();

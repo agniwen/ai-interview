@@ -74,6 +74,10 @@ async function listStudioInterviewRows({
   }).from(studioInterview).where(whereConditions.length > 0 ? and(...whereConditions) : undefined).orderBy(desc(studioInterview.createdAt));
 }
 
+function serializeDate(value: string | Date): string {
+  return value instanceof Date ? value.toISOString() : value;
+}
+
 function toStudioInterviewListRecord(record: StudioInterviewListRow, scheduleEntries: StudioInterviewScheduleRow[]): StudioInterviewListRecord {
   return {
     id: record.id,
@@ -82,12 +86,21 @@ function toStudioInterviewListRecord(record: StudioInterviewListRow, scheduleEnt
     targetRole: record.targetRole,
     status: record.status,
     resumeFileName: record.resumeFileName,
-    scheduleEntries: sortScheduleEntries(scheduleEntries.filter(entry => entry.interviewRecordId === record.id)),
+    scheduleEntries: sortScheduleEntries(
+      scheduleEntries
+        .filter(entry => entry.interviewRecordId === record.id)
+        .map(entry => ({
+          ...entry,
+          scheduledAt: entry.scheduledAt ? serializeDate(entry.scheduledAt) : null,
+          createdAt: serializeDate(entry.createdAt),
+          updatedAt: serializeDate(entry.updatedAt),
+        })),
+    ),
     interviewLink: buildInterviewLink(record.id),
     notes: record.notes,
     createdBy: record.createdBy,
-    createdAt: record.createdAt,
-    updatedAt: record.updatedAt,
+    createdAt: serializeDate(record.createdAt),
+    updatedAt: serializeDate(record.updatedAt),
     questionCount: record.interviewQuestions?.length ?? 0,
   };
 }

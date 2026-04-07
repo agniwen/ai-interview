@@ -16,6 +16,7 @@ import {
   Loader2Icon,
   MoreHorizontalIcon,
   PencilIcon,
+  RefreshCwIcon,
   SearchIcon,
   Trash2Icon,
 } from 'lucide-react';
@@ -203,7 +204,11 @@ export function InterviewManagementPage({ initialRecords }: { initialRecords: St
 
   async function copyInterviewLink(record: StudioInterviewListRecord) {
     try {
-      await navigator.clipboard.writeText(new URL(record.interviewLink, window.location.origin).toString());
+      const lastEntry = record.scheduleEntries[record.scheduleEntries.length - 1];
+      const link = lastEntry
+        ? `/interview/${record.id}/${lastEntry.id}`
+        : record.interviewLink;
+      await navigator.clipboard.writeText(new URL(link, window.location.origin).toString());
       toast.success('面试链接已复制');
     }
     catch {
@@ -444,6 +449,15 @@ export function InterviewManagementPage({ initialRecords }: { initialRecords: St
               </CardDescription>
             </div>
             <div className='flex flex-col gap-3 sm:flex-row'>
+              <Button
+                disabled={requestState !== 'idle'}
+                onClick={() => void reloadRecords({ search: deferredSearch.trim(), status: statusFilter, source: 'mutation' })}
+                size='icon'
+                variant='outline'
+              >
+                <RefreshCwIcon className={`size-4 ${isMutationRefreshing ? 'animate-spin' : ''}`} />
+                <span className='sr-only'>刷新</span>
+              </Button>
               <div className='relative min-w-[240px]'>
                 <SearchIcon className='pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground' />
                 <Input className='pr-9 pl-9' onChange={event => setGlobalFilter(event.target.value)} placeholder='搜索候选人、岗位、轮次或简历名' value={globalFilter} />

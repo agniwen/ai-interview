@@ -2,7 +2,7 @@
 
 import type { StudioInterviewConversationReport } from '@/lib/interview-session';
 import type { StudioInterviewRecord } from '@/lib/studio-interviews';
-import { CopyIcon, LinkIcon, MessageSquareTextIcon, RotateCcwIcon, Share2Icon } from 'lucide-react';
+import { MessageSquareTextIcon, RotateCcwIcon, Share2Icon } from 'lucide-react';
 import { useEffect, useEffectEvent, useState } from 'react';
 import { toast } from 'sonner';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
@@ -337,28 +337,13 @@ export function InterviewDetailDialog({
                         </div>
 
                         <div className='rounded-2xl border border-border/60 bg-background p-5'>
-                          <div className='flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between'>
-                            <h3 className='font-medium text-sm'>面试链接</h3>
-                            <Button onClick={() => void handleCopy(new URL(record.interviewLink, window.location.origin).toString())} size='sm' type='button' variant='outline'>
-                              <CopyIcon className='size-4' />
-                              复制链接
-                            </Button>
-                          </div>
-                          <div className='mt-3 rounded-xl border border-border/60 bg-muted/30 px-3 py-3 text-sm'>
-                            <p className='flex items-start gap-2 font-medium leading-relaxed'>
-                              <LinkIcon className='mt-0.5 size-4 shrink-0 text-muted-foreground' />
-                              <span className='break-all'>{record.interviewLink}</span>
-                            </p>
-                          </div>
-                        </div>
-
-                        <div className='rounded-2xl border border-border/60 bg-background p-5'>
                           <h3 className='font-medium text-sm'>面试安排</h3>
                           <div className='mt-4 space-y-3'>
                             {scheduleEntries.length > 0
-                              ? scheduleEntries.map((entry) => {
+                              ? scheduleEntries.map((entry, index) => {
                                   const statusKey = (entry.status ?? 'pending') as keyof typeof scheduleEntryStatusMeta;
                                   const statusMeta = scheduleEntryStatusMeta[statusKey] ?? scheduleEntryStatusMeta.pending;
+                                  const isLastEntry = index === scheduleEntries.length - 1;
 
                                   return (
                                     <div className='rounded-xl border border-border/60 bg-muted/30 p-3' key={entry.id}>
@@ -378,7 +363,7 @@ export function InterviewDetailDialog({
                                             <Share2Icon className='size-3.5' />
                                             复制链接
                                           </Button>
-                                          {entry.status === 'completed'
+                                          {isLastEntry && entry.status === 'completed'
                                             ? (
                                                 <Button
                                                   disabled={resettingRoundId === entry.id}

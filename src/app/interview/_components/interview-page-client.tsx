@@ -280,7 +280,6 @@ export default function InterviewPageClient({ interviewId, roundId }: { intervie
   const rafRef = useRef<number | null>(null);
   const activeConversationIdRef = useRef<string | null>(null);
   const seenEventKeysRef = useRef<Set<string>>(new Set());
-  const sessionStorageKey = `interview-session:${interviewId}:${roundId}`;
   const [interviewRecord, setInterviewRecord] = useState<CandidateInterviewView | null>(null);
   const [isLoadingRecord, setIsLoadingRecord] = useState(true);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
@@ -288,19 +287,14 @@ export default function InterviewPageClient({ interviewId, roundId }: { intervie
   const [statusText, setStatusText] = useState('disconnected');
   const [modeText, setModeText] = useState('listening');
   const [turns, setTurns] = useState<Turn[]>([]);
-  const [activeConversationId, setActiveConversationId] = useState<string | null>(() => {
-    if (typeof window === 'undefined') {
-      return null;
-    }
-
-    return window.sessionStorage.getItem(sessionStorageKey);
-  });
+  const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const [sessionSnapshot, setSessionSnapshot] = useState<InterviewConversationSnapshot | null>(null);
   const [isPollingSessionSnapshot, setIsPollingSessionSnapshot] = useState(false);
   const [errorText, setErrorText] = useState<string | null>(null);
   const [audioDevices, setAudioDevices] = useState<AudioDeviceOption[]>([]);
   const [selectedInputDeviceId, setSelectedInputDeviceId] = useState('default');
   const [hasMicPermission, setHasMicPermission] = useState(false);
+  const [isRoundEnded, setIsRoundEnded] = useState(false);
   const [_inputLevel, setInputLevel] = useState(0.08);
   const [_outputLevel, setOutputLevel] = useState(0.08);
 
@@ -374,18 +368,7 @@ export default function InterviewPageClient({ interviewId, roundId }: { intervie
   const setPersistedConversationId = useCallback((conversationId: string | null) => {
     activeConversationIdRef.current = conversationId;
     setActiveConversationId(conversationId);
-
-    if (typeof window === 'undefined') {
-      return;
-    }
-
-    if (conversationId) {
-      window.sessionStorage.setItem(sessionStorageKey, conversationId);
-    }
-    else {
-      window.sessionStorage.removeItem(sessionStorageKey);
-    }
-  }, [sessionStorageKey]);
+  }, []);
 
   const applySessionSnapshot = useCallback((snapshot: InterviewConversationSnapshot | null) => {
     setSessionSnapshot(snapshot);
@@ -457,10 +440,22 @@ export default function InterviewPageClient({ interviewId, roundId }: { intervie
         throw new Error('会话同步失败');
       }
 
-      const body = (await response.json().catch(() => null)) as { snapshot?: InterviewConversationSnapshot | null } | null;
+      const body = (await response.json().catch(() => null)) as {
+        snapshot?: InterviewConversationSnapshot | null
+        currentRoundStatus?: string | null
+      } | null;
 
       if (body?.snapshot) {
         setSessionSnapshot(body.snapshot);
+      }
+
+      const roundStatus = body?.currentRoundStatus ?? (payload.status === 'disconnected' ? 'completed' : null);
+
+      if (roundStatus) {
+        setInterviewRecord(previous => previous
+          ? { ...previous, currentRoundStatus: roundStatus as CandidateInterviewView['currentRoundStatus'] }
+          : previous,
+        );
       }
 
       return body?.snapshot ?? null;
@@ -583,17 +578,6 @@ export default function InterviewPageClient({ interviewId, roundId }: { intervie
   useEffect(() => {
     activeConversationIdRef.current = activeConversationId;
   }, [activeConversationId]);
-
-  useEffect(() => {
-    if (!activeConversationId || sessionSnapshot || turns.length > 0) {
-      return;
-    }
-
-    void fetchSessionSnapshot(activeConversationId).catch(() => {
-      setPersistedConversationId(null);
-      applySessionSnapshot(null);
-    });
-  }, [activeConversationId, applySessionSnapshot, fetchSessionSnapshot, sessionSnapshot, setPersistedConversationId, turns.length]);
 
   useEffect(() => {
     void loadAudioDevices(false);
@@ -725,6 +709,7 @@ export default function InterviewPageClient({ interviewId, roundId }: { intervie
         },
         onDisconnect: () => {
           setStatusText('disconnected');
+          setIsRoundEnded(true);
           conversationRef.current = null;
           stopMeterLoop();
           setInputLevel(0.08);
@@ -828,6 +813,7 @@ export default function InterviewPageClient({ interviewId, roundId }: { intervie
     finally {
       conversationRef.current = null;
       setStatusText('disconnected');
+      setIsRoundEnded(true);
       stopMeterLoop();
       setInputLevel(0.08);
       setOutputLevel(0.08);
@@ -937,7 +923,7 @@ export default function InterviewPageClient({ interviewId, roundId }: { intervie
                                 <p className='text-muted-foreground'>当前轮次</p>
                                 <p className='mt-1 font-medium text-sm'>
                                   {interviewRecord.currentRoundLabel ?? '待安排'}
-                                  {interviewRecord.currentRoundStatus === 'completed' ? ' · 已结束' : interviewRecord.currentRoundStatus === 'in_progress' ? ' · 进行中' : ''}
+                                  {isRoundEnded || interviewRecord.currentRoundStatus === 'completed' ? ' · 已结束' : interviewRecord.currentRoundStatus === 'in_progress' ? ' · 进行中' : ''}
                                 </p>
                                 <p className='mt-1 text-muted-foreground'>{formatDateTime(interviewRecord.currentRoundTime)}</p>
                               </div>
@@ -1094,7 +1080,7 @@ export default function InterviewPageClient({ interviewId, roundId }: { intervie
                       <ConversationEmptyState
                         className='my-10 rounded-2xl border border-dashed border-border/70 bg-background/70'
                         description={
-                          interviewRecord?.currentRoundStatus === 'completed'
+                          isRoundEnded || interviewRecord?.currentRoundStatus === 'completed'
                             ? '当前面试轮次已结束，如需重新面试请联系管理员。'
                             : interviewRecord
                               ? '点击下方”开始面试”后，这里会依次显示面试官追问与候选人回答。'
@@ -1102,7 +1088,7 @@ export default function InterviewPageClient({ interviewId, roundId }: { intervie
                         }
                         icon={isLoadingRecord ? <LoaderCircleIcon className='size-5 animate-spin' /> : <SparklesIcon className='size-5' />}
                         title={
-                          interviewRecord?.currentRoundStatus === 'completed'
+                          isRoundEnded || interviewRecord?.currentRoundStatus === 'completed'
                             ? '本轮面试已结束'
                             : interviewRecord
                               ? '准备开始一轮面试'
@@ -1172,12 +1158,12 @@ export default function InterviewPageClient({ interviewId, roundId }: { intervie
                     : (
                         <Button
                           className='rounded-xl'
-                          disabled={!interviewRecord || isLoadingRecord || interviewRecord?.currentRoundStatus === 'completed'}
+                          disabled={!interviewRecord || isLoadingRecord || isRoundEnded || interviewRecord?.currentRoundStatus === 'completed'}
                           onClick={toggleInterview}
                           type='button'
                         >
                           <MicIcon className='size-4' />
-                          {interviewRecord?.currentRoundStatus === 'completed' ? '本轮已结束' : '开始面试'}
+                          {isRoundEnded || interviewRecord?.currentRoundStatus === 'completed' ? '本轮已结束' : '开始面试'}
                         </Button>
                       )}
                 </div>
