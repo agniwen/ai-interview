@@ -18,7 +18,7 @@
     "@ai-sdk/google": "^3.0.43",
     "@ai-sdk/react": "^3.0.118",
     "@base-ui/react": "^1.2.0",
-    "@elevenlabs/client": "^0.15.0",
+    "@elevenlabs/client": "^1.1.2",
     "@elevenlabs/elevenlabs-js": "^2.38.1",
     "@hookform/resolvers": "^5.2.2",
     "@napi-rs/canvas": "^0.1.96",

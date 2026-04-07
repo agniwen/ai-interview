@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import InterviewQuickStartClient from '@/app/(auth)/interview/_components/interview-quick-start-client';
+import InterviewQuickStartClient from '@/app/interview/_components/interview-quick-start-client';
 
 export const metadata: Metadata = {
   title: 'AI 面试 · 快速开始',

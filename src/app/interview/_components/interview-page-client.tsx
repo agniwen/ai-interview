@@ -687,14 +687,13 @@ export default function InterviewPageClient({ interviewId }: { interviewId: stri
         throw new Error(payload?.error ?? '无法开始面试');
       }
 
-      const tokenPayload = (await tokenResponse.json()) as { token: string };
+      const tokenPayload = (await tokenResponse.json()) as { signedUrl: string };
       let connectedDuringSetup = false;
       const candidateProfileVariable = buildCandidateProfileVariable(interviewRecord);
       const interviewQuestionsVariable = buildInterviewQuestionsVariable(interviewRecord);
 
       const session = await VoiceConversation.startSession({
-        connectionType: 'webrtc',
-        conversationToken: tokenPayload.token,
+        signedUrl: tokenPayload.signedUrl,
         dynamicVariables: {
           user_name: interviewRecord.candidateName,
           interview_record_id: interviewRecord.id,

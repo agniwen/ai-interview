@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { cacheLife } from 'next/cache';
-import InterviewPageClient from '@/app/(auth)/interview/_components/interview-page-client';
+import InterviewPageClient from '@/app/interview/_components/interview-page-client';
 
 export const metadata: Metadata = {
   title: 'AI 面试',

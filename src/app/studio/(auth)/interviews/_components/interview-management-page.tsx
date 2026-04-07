@@ -87,7 +87,14 @@ function formatDateTime(value: string | Date) {
 }
 
 export function InterviewManagementPage({ initialRecords }: { initialRecords: StudioInterviewListRecord[] }) {
-  const [records, replaceRecords] = useReducer((_previous: StudioInterviewListRecord[], nextRecords: StudioInterviewListRecord[]) => nextRecords, initialRecords);
+  const [records, dispatchRecords] = useReducer(
+    (previous: StudioInterviewListRecord[], action: { type: 'replace'; records: StudioInterviewListRecord[] } | { type: 'remove'; id: string }) => {
+      if (action.type === 'replace') return action.records;
+      if (action.type === 'remove') return previous.filter(r => r.id !== action.id);
+      return previous;
+    },
+    initialRecords,
+  );
   const [sorting, setSorting] = useState<SortingState>([{ id: 'createdAt', desc: true }]);
   const [globalFilter, setGlobalFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | (typeof studioInterviewStatusValues)[number]>('all');
@@ -149,7 +156,7 @@ export function InterviewManagementPage({ initialRecords }: { initialRecords: St
       }
 
       startTransition(() => {
-        replaceRecords(payload);
+        dispatchRecords({ type: 'replace', records: payload });
       });
     }
     catch (error) {
@@ -355,13 +362,14 @@ export function InterviewManagementPage({ initialRecords }: { initialRecords: St
       return;
     }
 
+    dispatchRecords({ type: 'remove', id: deleteRecord.id });
     setDeleteRecord(null);
-    await reloadRecords({
+    toast.success('面试记录已删除');
+    reloadRecords({
       search: deferredSearch.trim(),
       status: statusFilter,
       source: 'mutation',
     });
-    toast.success('面试记录已删除');
   }
 
   return (

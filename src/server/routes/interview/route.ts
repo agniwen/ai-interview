@@ -584,62 +584,28 @@ export const interviewRouter = factory.createApp()
       return c.json({ error: 'Interview not available.' }, 404);
     }
 
-    const apiKey = process.env.ELEVENLABS_API_KEY;
     const agentId = process.env.ELEVENLABS_AGENT_ID || process.env.NEXT_PUBLIC_ELEVENLABS_AGENT_ID;
 
-    if (!apiKey || !agentId) {
+    if (!agentId) {
       return c.json(buildTokenErrorResponse(), 500);
     }
 
-    let response: Response | null = null;
-    const maxRetries = 3;
+    try {
+      const result = await elevenlabs.conversationalAi.conversations.getSignedUrl({
+        agentId,
+      });
 
-    for (let attempt = 0; attempt < maxRetries; attempt++) {
-      try {
-        response = await fetch(
-          `https://api.elevenlabs.io/v1/convai/conversation/token?agent_id=${encodeURIComponent(agentId)}`,
-          {
-            headers: {
-              'xi-api-key': apiKey,
-            },
-            method: 'GET',
-          },
-        );
-        break;
-      }
-      catch (error) {
-        if (attempt === maxRetries - 1) {
-          return c.json(
-            {
-              error: 'Failed to generate conversation token.',
-              detail: error instanceof Error ? error.message : 'Network error',
-            },
-            500,
-          );
-        }
-
-        await new Promise(resolve => setTimeout(resolve, 500 * (attempt + 1)));
-      }
+      return c.json({ signedUrl: result.signedUrl });
     }
-
-    if (!response || !response.ok) {
-      const bodyText = response ? await response.text() : 'No response';
-
+    catch (error) {
       return c.json(
         {
-          error: 'Failed to generate conversation token.',
-          detail: bodyText,
-          upstreamStatus: response?.status,
+          error: 'Failed to generate signed URL.',
+          detail: error instanceof Error ? error.message : 'Unknown error',
         },
         500,
       );
     }
-
-    const data = (await response.json()) as {
-      token: string
-    };
-
-    return c.json({ token: data.token });
   })
   .get('/:id', async (c) => {
     const id = c.req.param('id');

@@ -1,6 +1,11 @@
 {
   "version": 1,
   "skills": {
+    "agents": {
+      "source": "elevenlabs/skills",
+      "sourceType": "github",
+      "computedHash": "18ddb1893c48233e73674aa00a28c62f75b55901ac7d24190575e72397a2b27a"
+    },
     "better-auth-best-practices": {
       "source": "better-auth/skills",
       "sourceType": "github",
