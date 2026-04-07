@@ -1,7 +1,7 @@
 'use client';
 
-import type { RoleValue } from '@/lib/auth-roles';
 import type { ComponentProps } from 'react';
+import type { RoleValue } from '@/lib/auth-roles';
 import {
   ArrowLeftIcon,
   BotIcon,
@@ -96,18 +96,18 @@ export function AppSidebar({ user, ...props }: AppSidebarProps) {
   };
 
   return (
-    <Sidebar collapsible="icon" {...props}>
+    <Sidebar collapsible='icon' {...props}>
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton asChild size="lg">
-              <Link href="/studio">
-                <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-                  <ShieldCheckIcon className="size-4" />
+            <SidebarMenuButton asChild size='lg'>
+              <Link href='/studio'>
+                <div className='flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground'>
+                  <ShieldCheckIcon className='size-4' />
                 </div>
-                <div className="grid flex-1 text-left text-sm leading-tight">
-                  <span className="truncate font-semibold">Studio</span>
-                  <span className="truncate text-muted-foreground text-xs">管理后台</span>
+                <div className='grid flex-1 text-left text-sm leading-tight'>
+                  <span className='truncate font-semibold'>Studio</span>
+                  <span className='truncate text-muted-foreground text-xs'>管理后台</span>
                 </div>
               </Link>
             </SidebarMenuButton>
@@ -145,54 +145,55 @@ export function AppSidebar({ user, ...props }: AppSidebarProps) {
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <SidebarMenuButton
-                  className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
-                  size="lg"
+                  className='data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground'
+                  size='lg'
                 >
-                  <Avatar className="size-8 rounded-lg">
+                  <Avatar className='size-8 rounded-lg'>
                     <AvatarImage alt={user?.name ?? 'Admin'} src={user?.image ?? undefined} />
-                    <AvatarFallback className="rounded-lg">
+                    <AvatarFallback className='rounded-lg'>
                       {getInitials(user?.name, user?.email)}
                     </AvatarFallback>
                   </Avatar>
-                  <div className="grid flex-1 text-left text-sm leading-tight">
-                    <span className="truncate font-semibold">{user?.name ?? '管理员'}</span>
-                    <span className="truncate text-xs">{user?.email ?? ''}</span>
+                  <div className='grid flex-1 text-left text-sm leading-tight'>
+                    <span className='truncate font-semibold'>{user?.name ?? '管理员'}</span>
+                    <span className='truncate text-xs'>{user?.email ?? ''}</span>
                   </div>
-                  <ChevronsUpDownIcon className="ml-auto size-4" />
+                  <ChevronsUpDownIcon className='ml-auto size-4' />
                 </SidebarMenuButton>
               </DropdownMenuTrigger>
               <DropdownMenuContent
-                align="end"
-                className="w-[--radix-dropdown-menu-trigger-width] min-w-56 rounded-lg"
-                side="bottom"
+                align='end'
+                className='w-[--radix-dropdown-menu-trigger-width] min-w-56 rounded-lg'
+                side='bottom'
                 sideOffset={4}
               >
-                <DropdownMenuLabel className="p-0 font-normal">
-                  <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
-                    <Avatar className="size-8 rounded-lg">
+                <DropdownMenuLabel className='p-0 font-normal'>
+                  <div className='flex items-center gap-2 px-1 py-1.5 text-left text-sm'>
+                    <Avatar className='size-8 rounded-lg'>
                       <AvatarImage alt={user?.name ?? 'Admin'} src={user?.image ?? undefined} />
-                      <AvatarFallback className="rounded-lg">
+                      <AvatarFallback className='rounded-lg'>
                         {getInitials(user?.name, user?.email)}
                       </AvatarFallback>
                     </Avatar>
-                    <div className="grid flex-1 text-left text-sm leading-tight">
-                      <span className="truncate font-semibold">{user?.name ?? '管理员'}</span>
-                      <span className="truncate text-xs">{user?.email ?? ''}</span>
+                    <div className='grid flex-1 text-left text-sm leading-tight'>
+                      <span className='truncate font-semibold'>{user?.name ?? '管理员'}</span>
+                      <span className='truncate text-xs'>{user?.email ?? ''}</span>
                     </div>
                   </div>
                 </DropdownMenuLabel>
                 {roles.length > 0 && (
                   <>
                     <DropdownMenuSeparator />
-                    <DropdownMenuLabel className="text-muted-foreground text-xs">
-                      角色：{roles.join(', ')}
+                    <DropdownMenuLabel className='text-muted-foreground text-xs'>
+                      角色：
+                      {roles.join(', ')}
                     </DropdownMenuLabel>
                   </>
                 )}
                 <DropdownMenuSeparator />
                 <DropdownMenuGroup>
                   <DropdownMenuItem asChild>
-                    <Link href="/">
+                    <Link href='/'>
                       <ArrowLeftIcon />
                       返回首页
                     </Link>

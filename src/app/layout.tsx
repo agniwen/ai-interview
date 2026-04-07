@@ -1,5 +1,4 @@
 import type { Metadata } from 'next';
-import { Suspense } from 'react';
 import { Analytics } from '@vercel/analytics/next';
 import {
   IBM_Plex_Mono,
@@ -8,6 +7,7 @@ import {
   Source_Serif_4,
 } from 'next/font/google';
 import localFont from 'next/font/local';
+import { Suspense } from 'react';
 import { Toaster } from '@/components/ui/sonner';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import './globals.css';

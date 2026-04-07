@@ -96,9 +96,9 @@ export async function listStudioInterviewRecords(filters?: {
   search?: string | null
   status?: string | null
 }) {
-  'use cache'
-  cacheTag('studio-interviews')
-  cacheLife('minutes')
+  'use cache';
+  cacheTag('studio-interviews');
+  cacheLife('minutes');
 
   const parsed = studioInterviewListFiltersSchema.safeParse(filters ?? {});
 

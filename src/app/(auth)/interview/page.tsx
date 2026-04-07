@@ -7,6 +7,6 @@ export const metadata: Metadata = {
 };
 
 export default async function InterviewQuickStartPage() {
-  'use cache'
+  'use cache';
   return <InterviewQuickStartClient />;
 }

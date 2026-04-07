@@ -7,6 +7,6 @@ export const metadata: Metadata = {
 };
 
 export default async function ChatPage() {
-  'use cache'
+  'use cache';
   return <ChatPageClient initialSessionId={null} key='new-chat' />;
 }

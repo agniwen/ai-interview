@@ -1,18 +1,19 @@
-"use client"
+'use client';
 
-import { useCallback, useEffect, useState } from "react"
-import { Check, ChevronsUpDown, Mic, MicOff } from "lucide-react"
-
-import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
+import { Check, ChevronsUpDown, Mic, MicOff } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
+import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import { LiveWaveform } from "@/components/ui/live-waveform"
+} from '@/components/ui/dropdown-menu';
+import { LiveWaveform } from '@/components/ui/live-waveform';
+import { cn } from '@/lib/utils';
+
+const PAREN_SUFFIX_RE = /\s*\([^)]*\)/g;
 
 export interface AudioDevice {
   deviceId: string
@@ -37,126 +38,137 @@ export function MicSelector({
   disabled,
   className,
 }: MicSelectorProps) {
-  const { devices, loading, error, hasPermission, loadDevices } =
-    useAudioDevices()
-  const [selectedDevice, setSelectedDevice] = useState<string>(value || "")
-  const [internalMuted, setInternalMuted] = useState(false)
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false)
+  const { devices, loading, error, hasPermission, loadDevices }
+    = useAudioDevices();
+  const [selectedDevice, setSelectedDevice] = useState<string>(value || '');
+  const [internalMuted, setInternalMuted] = useState(false);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
-  const isMuted = muted !== undefined ? muted : internalMuted
+  const isMuted = muted !== undefined ? muted : internalMuted;
 
   useEffect(() => {
     if (value !== undefined) {
-      setSelectedDevice(value)
+      setSelectedDevice(value);
     }
-  }, [value])
+  }, [value]);
 
-  const defaultDeviceId = devices[0]?.deviceId || ""
+  const defaultDeviceId = devices[0]?.deviceId || '';
   useEffect(() => {
     if (!selectedDevice && defaultDeviceId) {
-      const newDevice = defaultDeviceId
-      setSelectedDevice(newDevice)
-      onValueChange?.(newDevice)
+      const newDevice = defaultDeviceId;
+      setSelectedDevice(newDevice);
+      onValueChange?.(newDevice);
     }
-  }, [defaultDeviceId, selectedDevice, onValueChange])
+  }, [defaultDeviceId, selectedDevice, onValueChange]);
 
-  const currentDevice = devices.find((d) => d.deviceId === selectedDevice) ||
-    devices[0] || {
-      label: loading ? "加载中..." : "未检测到麦克风",
-      deviceId: "",
-    }
+  const currentDevice = devices.find(d => d.deviceId === selectedDevice)
+    || devices[0] || {
+    label: loading ? '加载中...' : '未检测到麦克风',
+    deviceId: '',
+  };
 
   const handleDeviceSelect = (deviceId: string, e?: React.MouseEvent) => {
-    e?.preventDefault()
-    setSelectedDevice(deviceId)
-    onValueChange?.(deviceId)
-  }
+    e?.preventDefault();
+    setSelectedDevice(deviceId);
+    onValueChange?.(deviceId);
+  };
 
   const handleDropdownOpenChange = async (open: boolean) => {
-    setIsDropdownOpen(open)
+    setIsDropdownOpen(open);
     if (open && !hasPermission && !loading) {
-      await loadDevices()
+      await loadDevices();
     }
-  }
+  };
 
   const toggleMute = () => {
-    const newMuted = !isMuted
+    const newMuted = !isMuted;
     if (muted === undefined) {
-      setInternalMuted(newMuted)
+      setInternalMuted(newMuted);
     }
-    onMutedChange?.(newMuted)
-  }
+    onMutedChange?.(newMuted);
+  };
 
-  const isPreviewActive = isDropdownOpen && !isMuted
+  const isPreviewActive = isDropdownOpen && !isMuted;
 
   return (
     <DropdownMenu onOpenChange={handleDropdownOpenChange}>
       <DropdownMenuTrigger asChild>
         <Button
-          variant="ghost"
-          size="sm"
+          variant='ghost'
+          size='sm'
           className={cn(
-            "hover:bg-accent flex w-48 cursor-pointer items-center gap-1.5",
-            className
+            'hover:bg-accent flex w-48 cursor-pointer items-center gap-1.5',
+            className,
           )}
           disabled={loading || disabled}
         >
-          {isMuted ? (
-            <MicOff className="h-4 w-4 flex-shrink-0" />
-          ) : (
-            <Mic className="h-4 w-4 flex-shrink-0" />
-          )}
-          <span className="flex-1 truncate text-left">
+          {isMuted
+            ? (
+                <MicOff className='h-4 w-4 flex-shrink-0' />
+              )
+            : (
+                <Mic className='h-4 w-4 flex-shrink-0' />
+              )}
+          <span className='flex-1 truncate text-left'>
             {currentDevice.label}
           </span>
-          <ChevronsUpDown className="h-3 w-3 flex-shrink-0" />
+          <ChevronsUpDown className='h-3 w-3 flex-shrink-0' />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="center" side="top" className="w-72">
-        {loading ? (
-          <DropdownMenuItem disabled>加载设备中...</DropdownMenuItem>
-        ) : error ? (
-          <DropdownMenuItem disabled>错误: {error}</DropdownMenuItem>
-        ) : (
-          devices.map((device) => (
-            <DropdownMenuItem
-              key={device.deviceId}
-              onClick={(e) => handleDeviceSelect(device.deviceId, e)}
-              onSelect={(e) => e.preventDefault()}
-              className="flex items-center justify-between"
-            >
-              <span className="truncate">{device.label}</span>
-              {selectedDevice === device.deviceId && (
-                <Check className="h-4 w-4 flex-shrink-0" />
+      <DropdownMenuContent align='center' side='top' className='w-72'>
+        {loading
+          ? (
+              <DropdownMenuItem disabled>加载设备中...</DropdownMenuItem>
+            )
+          : error
+            ? (
+                <DropdownMenuItem disabled>
+                  错误:
+                  {error}
+                </DropdownMenuItem>
+              )
+            : (
+                devices.map(device => (
+                  <DropdownMenuItem
+                    key={device.deviceId}
+                    onClick={e => handleDeviceSelect(device.deviceId, e)}
+                    onSelect={e => e.preventDefault()}
+                    className='flex items-center justify-between'
+                  >
+                    <span className='truncate'>{device.label}</span>
+                    {selectedDevice === device.deviceId && (
+                      <Check className='h-4 w-4 flex-shrink-0' />
+                    )}
+                  </DropdownMenuItem>
+                ))
               )}
-            </DropdownMenuItem>
-          ))
-        )}
         {devices.length > 0 && (
           <>
             <DropdownMenuSeparator />
-            <div className="flex items-center gap-2 p-2">
+            <div className='flex items-center gap-2 p-2'>
               <Button
-                variant="ghost"
-                size="sm"
+                variant='ghost'
+                size='sm'
                 onClick={(e) => {
-                  e.preventDefault()
-                  toggleMute()
+                  e.preventDefault();
+                  toggleMute();
                 }}
-                className="h-8 gap-2"
+                className='h-8 gap-2'
               >
-                {isMuted ? (
-                  <MicOff className="h-4 w-4" />
-                ) : (
-                  <Mic className="h-4 w-4" />
-                )}
-                <span className="text-sm">{isMuted ? "取消静音" : "静音"}</span>
+                {isMuted
+                  ? (
+                      <MicOff className='h-4 w-4' />
+                    )
+                  : (
+                      <Mic className='h-4 w-4' />
+                    )}
+                <span className='text-sm'>{isMuted ? '取消静音' : '静音'}</span>
               </Button>
-              <div className="bg-accent ml-auto w-16 overflow-hidden rounded-md p-1.5">
+              <div className='bg-accent ml-auto w-16 overflow-hidden rounded-md p-1.5'>
                 <LiveWaveform
                   active={isPreviewActive}
                   deviceId={selectedDevice || defaultDeviceId}
-                  mode="static"
+                  mode='static'
                   height={15}
                   barWidth={3}
                   barGap={1}
@@ -167,107 +179,113 @@ export function MicSelector({
         )}
       </DropdownMenuContent>
     </DropdownMenu>
-  )
+  );
 }
 
 export function useAudioDevices() {
-  const [devices, setDevices] = useState<AudioDevice[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [hasPermission, setHasPermission] = useState(false)
+  const [devices, setDevices] = useState<AudioDevice[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [hasPermission, setHasPermission] = useState(false);
 
   const loadDevicesWithoutPermission = useCallback(async () => {
     try {
-      setLoading(true)
-      setError(null)
+      setLoading(true);
+      setError(null);
 
-      const deviceList = await navigator.mediaDevices.enumerateDevices()
+      const deviceList = await navigator.mediaDevices.enumerateDevices();
 
       const audioInputs = deviceList
-        .filter((device) => device.kind === "audioinput")
+        .filter(device => device.kind === 'audioinput')
         .map((device) => {
-          let cleanLabel =
-            device.label || `麦克风 ${device.deviceId.slice(0, 8)}`
-          cleanLabel = cleanLabel.replace(/\s*\([^)]*\)/g, "").trim()
+          let cleanLabel
+            = device.label || `麦克风 ${device.deviceId.slice(0, 8)}`;
+          cleanLabel = cleanLabel.replace(PAREN_SUFFIX_RE, '').trim();
 
           return {
             deviceId: device.deviceId,
             label: cleanLabel,
             groupId: device.groupId,
-          }
-        })
+          };
+        });
 
-      setDevices(audioInputs)
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "无法获取音频设备"
-      )
-    } finally {
-      setLoading(false)
+      setDevices(audioInputs);
     }
-  }, [])
+    catch (err) {
+      setError(
+        err instanceof Error ? err.message : '无法获取音频设备',
+      );
+    }
+    finally {
+      setLoading(false);
+    }
+  }, []);
 
   const loadDevicesWithPermission = useCallback(async () => {
-    if (loading) return
+    if (loading)
+      return;
 
     try {
-      setLoading(true)
-      setError(null)
+      setLoading(true);
+      setError(null);
 
       const tempStream = await navigator.mediaDevices.getUserMedia({
         audio: true,
-      })
-      tempStream.getTracks().forEach((track) => track.stop())
+      });
+      tempStream.getTracks().forEach(track => track.stop());
 
-      const deviceList = await navigator.mediaDevices.enumerateDevices()
+      const deviceList = await navigator.mediaDevices.enumerateDevices();
 
       const audioInputs = deviceList
-        .filter((device) => device.kind === "audioinput")
+        .filter(device => device.kind === 'audioinput')
         .map((device) => {
-          let cleanLabel =
-            device.label || `麦克风 ${device.deviceId.slice(0, 8)}`
-          cleanLabel = cleanLabel.replace(/\s*\([^)]*\)/g, "").trim()
+          let cleanLabel
+            = device.label || `麦克风 ${device.deviceId.slice(0, 8)}`;
+          cleanLabel = cleanLabel.replace(PAREN_SUFFIX_RE, '').trim();
 
           return {
             deviceId: device.deviceId,
             label: cleanLabel,
             groupId: device.groupId,
-          }
-        })
+          };
+        });
 
-      setDevices(audioInputs)
-      setHasPermission(true)
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "无法获取音频设备"
-      )
-    } finally {
-      setLoading(false)
+      setDevices(audioInputs);
+      setHasPermission(true);
     }
-  }, [loading])
+    catch (err) {
+      setError(
+        err instanceof Error ? err.message : '无法获取音频设备',
+      );
+    }
+    finally {
+      setLoading(false);
+    }
+  }, [loading]);
 
   useEffect(() => {
-    loadDevicesWithoutPermission()
-  }, [loadDevicesWithoutPermission])
+    loadDevicesWithoutPermission();
+  }, [loadDevicesWithoutPermission]);
 
   useEffect(() => {
     const handleDeviceChange = () => {
       if (hasPermission) {
-        loadDevicesWithPermission()
-      } else {
-        loadDevicesWithoutPermission()
+        loadDevicesWithPermission();
       }
-    }
+      else {
+        loadDevicesWithoutPermission();
+      }
+    };
 
-    navigator.mediaDevices.addEventListener("devicechange", handleDeviceChange)
+    navigator.mediaDevices.addEventListener('devicechange', handleDeviceChange);
 
     return () => {
       navigator.mediaDevices.removeEventListener(
-        "devicechange",
-        handleDeviceChange
-      )
-    }
-  }, [hasPermission, loadDevicesWithPermission, loadDevicesWithoutPermission])
+        'devicechange',
+        handleDeviceChange,
+      );
+    };
+  }, [hasPermission, loadDevicesWithPermission, loadDevicesWithoutPermission]);
 
   return {
     devices,
@@ -275,5 +293,5 @@ export function useAudioDevices() {
     error,
     hasPermission,
     loadDevices: loadDevicesWithPermission,
-  }
+  };
 }

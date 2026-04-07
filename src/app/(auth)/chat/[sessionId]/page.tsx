@@ -6,8 +6,8 @@ export default async function ChatSessionPage({
 }: {
   params: Promise<{ sessionId: string }>
 }) {
-  'use cache'
-  cacheLife('max')
+  'use cache';
+  cacheLife('max');
 
   const { sessionId } = await params;
 

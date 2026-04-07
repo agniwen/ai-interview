@@ -58,9 +58,9 @@ function serializeConversationReport(
 }
 
 export async function listInterviewConversationReports(interviewRecordId: string) {
-  'use cache'
-  cacheTag('interview-conversations', `interview-conversations-${interviewRecordId}`)
-  cacheLife('minutes')
+  'use cache';
+  cacheTag('interview-conversations', `interview-conversations-${interviewRecordId}`);
+  cacheLife('minutes');
 
   const conversations = await db
     .select()

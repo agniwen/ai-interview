@@ -3,15 +3,6 @@ import { ElevenLabsClient } from '@elevenlabs/elevenlabs-js';
 import { zValidator } from '@hono/zod-validator';
 import { and, asc, eq } from 'drizzle-orm';
 import { updateTag } from 'next/cache';
-
-function safeUpdateTag(tag: string) {
-  try {
-    updateTag(tag);
-  }
-  catch {
-    // updateTag may throw in certain route handler contexts — non-critical
-  }
-}
 import { db } from '@/lib/db';
 import {
   interviewConversation,
@@ -23,6 +14,15 @@ import { buildCandidateInterviewView, sortScheduleEntries } from '@/lib/intervie
 import { factory } from '@/server/factory';
 import { analyzeResumeFile, ResumeAnalysisError } from './analysis';
 import { interviewSessionSyncSchema } from './session-schema';
+
+function safeUpdateTag(tag: string) {
+  try {
+    updateTag(tag);
+  }
+  catch {
+    // updateTag may throw in certain route handler contexts — non-critical
+  }
+}
 
 const elevenlabs = new ElevenLabsClient({
   apiKey: process.env.ELEVENLABS_API_KEY,

@@ -12,8 +12,8 @@ export default async function InterviewByIdPage({
 }: {
   params: Promise<{ id: string }>
 }) {
-  'use cache'
-  cacheLife('max')
+  'use cache';
+  cacheLife('max');
 
   const { id } = await params;
 

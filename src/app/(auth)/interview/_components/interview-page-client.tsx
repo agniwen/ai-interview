@@ -1,6 +1,7 @@
 'use client';
 
 import type { Conversation as ElevenConversationType } from '@elevenlabs/client';
+import type { AgentState } from '@/components/ui/bar-visualizer';
 import type { InterviewConversationSnapshot } from '@/lib/interview-session';
 import type { CandidateInterviewView } from '@/lib/interview/interview-record';
 import { Conversation as VoiceConversation } from '@elevenlabs/client';
@@ -27,8 +28,8 @@ import {
 import { ElevenLabsQuota } from '@/components/interview/elevenlabs-quota';
 import { InterviewQuotaNotice } from '@/components/interview/interview-quota-notice';
 import { SidebarUserSection } from '@/components/sidebar-user-section';
-import { type AgentState, BarVisualizer } from '@/components/ui/bar-visualizer';
 import { Badge } from '@/components/ui/badge';
+import { BarVisualizer } from '@/components/ui/bar-visualizer';
 import { Button } from '@/components/ui/button';
 import { ElevenLabsMessage, ElevenLabsMessageContent } from '@/components/ui/elevenlabs-message';
 import { MicSelector } from '@/components/ui/mic-selector';
@@ -300,8 +301,8 @@ export default function InterviewPageClient({ interviewId }: { interviewId: stri
   const [audioDevices, setAudioDevices] = useState<AudioDeviceOption[]>([]);
   const [selectedInputDeviceId, setSelectedInputDeviceId] = useState('default');
   const [hasMicPermission, setHasMicPermission] = useState(false);
-  const [inputLevel, setInputLevel] = useState(0.08);
-  const [outputLevel, setOutputLevel] = useState(0.08);
+  const [_inputLevel, setInputLevel] = useState(0.08);
+  const [_outputLevel, setOutputLevel] = useState(0.08);
 
   const isConnected = statusText === 'connected';
   useHotkeys('meta+b', (event) => {
@@ -337,7 +338,8 @@ export default function InterviewPageClient({ interviewId }: { interviewId: stri
   }, [audioDevices, selectedInputDeviceId]);
 
   const agentState = useMemo<AgentState>(() => {
-    if (statusText === 'connecting') return 'connecting';
+    if (statusText === 'connecting')
+      return 'connecting';
     if (statusText === 'connected') {
       return modeText === 'speaking' ? 'speaking' : 'listening';
     }
@@ -831,339 +833,339 @@ export default function InterviewPageClient({ interviewId }: { interviewId: stri
 
   return (
     <div className='flex h-dvh w-full overflow-hidden bg-transparent'>
-        {isMobileSidebarOpen
-          ? (
-              <button
-                aria-label='关闭侧边栏'
-                className='fixed inset-0 z-30 bg-black/18 backdrop-blur-[1px] sm:hidden'
-                onClick={() => setIsMobileSidebarOpen(false)}
-                type='button'
-              />
-            )
-          : null}
-
-        <aside
-          className={cn(
-            'fixed inset-y-0 left-0 z-40 flex w-[min(82vw,20rem)] shrink-0 flex-col overflow-hidden border-r border-border/75 bg-card/95 shadow-[0_14px_36px_-32px_rgba(52,96,168,0.6)] backdrop-blur-sm transition-transform duration-200 sm:static sm:z-auto sm:bg-card/80 sm:transition-[width]',
-            isMobileSidebarOpen ? 'translate-x-0' : '-translate-x-full sm:translate-x-0',
-            isSidebarCollapsed ? 'sm:w-14' : 'sm:w-72',
-          )}
-          id='interview-sidebar'
-        >
-          <div className='flex items-center gap-1 border-border/65 border-b px-2 py-2'>
-            <Button
-              aria-label={isSidebarCollapsed ? '展开侧边栏' : '收起侧边栏'}
-              className='hidden sm:inline-flex'
-              onClick={() => setIsSidebarCollapsed(value => !value)}
-              size='icon'
+      {isMobileSidebarOpen
+        ? (
+            <button
+              aria-label='关闭侧边栏'
+              className='fixed inset-0 z-30 bg-black/18 backdrop-blur-[1px] sm:hidden'
+              onClick={() => setIsMobileSidebarOpen(false)}
               type='button'
-              variant='ghost'
-            >
-              {isSidebarCollapsed
-                ? <PanelLeftOpenIcon className='size-4' />
-                : <PanelLeftCloseIcon className='size-4' />}
-            </Button>
+            />
+          )
+        : null}
 
-            {showExpandedSidebar
+      <aside
+        className={cn(
+          'fixed inset-y-0 left-0 z-40 flex w-[min(82vw,20rem)] shrink-0 flex-col overflow-hidden border-r border-border/75 bg-card/95 shadow-[0_14px_36px_-32px_rgba(52,96,168,0.6)] backdrop-blur-sm transition-transform duration-200 sm:static sm:z-auto sm:bg-card/80 sm:transition-[width]',
+          isMobileSidebarOpen ? 'translate-x-0' : '-translate-x-full sm:translate-x-0',
+          isSidebarCollapsed ? 'sm:w-14' : 'sm:w-72',
+        )}
+        id='interview-sidebar'
+      >
+        <div className='flex items-center gap-1 border-border/65 border-b px-2 py-2'>
+          <Button
+            aria-label={isSidebarCollapsed ? '展开侧边栏' : '收起侧边栏'}
+            className='hidden sm:inline-flex'
+            onClick={() => setIsSidebarCollapsed(value => !value)}
+            size='icon'
+            type='button'
+            variant='ghost'
+          >
+            {isSidebarCollapsed
+              ? <PanelLeftOpenIcon className='size-4' />
+              : <PanelLeftCloseIcon className='size-4' />}
+          </Button>
+
+          {showExpandedSidebar
+            ? (
+                <>
+                  <p className='truncate font-medium text-sm'>候选人信息</p>
+                  <Button asChild className='ml-auto' size='icon' type='button' variant='ghost'>
+                    <Link aria-label='返回首页' href='/'>
+                      <HouseIcon className='size-4' />
+                    </Link>
+                  </Button>
+                  <Button
+                    className='hidden sm:flex'
+                    onClick={() => void loadAudioDevices(true)}
+                    size='sm'
+                    type='button'
+                    variant='outline'
+                  >
+                    <AudioLinesIcon className='mr-1 size-3.5' />
+                    检测
+                  </Button>
+                </>
+              )
+            : null}
+
+          <Button
+            aria-label='关闭侧边栏'
+            className={cn(showExpandedSidebar ? 'sm:hidden' : 'ml-auto sm:hidden')}
+            onClick={() => setIsMobileSidebarOpen(false)}
+            size='icon'
+            type='button'
+            variant='ghost'
+          >
+            <PanelLeftCloseIcon className='size-4' />
+          </Button>
+        </div>
+
+        <div className='min-h-0 flex-1 overflow-y-auto px-3 py-3'>
+          {!showExpandedSidebar
+            ? null
+            : (
+                <>
+                  <section className='border-border/60 border-b py-3'>
+                    <p className='mb-3 font-medium text-sm'>候选人概览</p>
+
+                    {isLoadingRecord
+                      ? <div className='h-28 animate-pulse rounded-xl bg-muted' />
+                      : interviewRecord
+                        ? (
+                            <div className='grid gap-2 text-xs'>
+                              <div className='rounded-lg border border-border/60 bg-background/60 px-3 py-2'>
+                                <p className='truncate font-medium text-sm'>{interviewRecord.candidateName}</p>
+                                <p className='mt-1 text-muted-foreground'>
+                                  {interviewRecord.targetRole ?? '待识别岗位'}
+                                </p>
+                              </div>
+                              <div className='rounded-lg border border-border/60 bg-background/60 px-3 py-2'>
+                                <p className='text-muted-foreground'>当前轮次</p>
+                                <p className='mt-1 font-medium text-sm'>{interviewRecord.currentRoundLabel ?? '待安排'}</p>
+                                <p className='mt-1 text-muted-foreground'>{formatDateTime(interviewRecord.currentRoundTime)}</p>
+                              </div>
+                              <div className='rounded-lg border border-border/60 bg-background/60 px-3 py-2'>
+                                <p className='text-muted-foreground'>候选人摘要</p>
+                                <p className='mt-1 text-sm leading-relaxed'>{resumeSummary}</p>
+                              </div>
+                            </div>
+                          )
+                        : (
+                            <div className='rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-3 text-sm text-destructive'>
+                              当前链接对应的面试记录不可用。
+                            </div>
+                          )}
+                  </section>
+
+                  <section className='border-border/60 border-b py-3'>
+                    <p className='mb-3 font-medium text-sm'>音频设备</p>
+
+                    <Select onValueChange={setSelectedInputDeviceId} value={selectedInputDeviceId}>
+                      <SelectTrigger className='w-full'>
+                        <SelectValue placeholder='选择麦克风' />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value='default'>系统默认麦克风</SelectItem>
+                        {audioDevices.map(device => (
+                          <SelectItem key={device.deviceId} value={device.deviceId}>
+                            {device.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+
+                    <p className='mt-3 text-muted-foreground text-xs leading-relaxed'>
+                      开始面试时会自动请求麦克风权限；如果设备名没有刷新出来，重新点一次“检测”即可。
+                    </p>
+                  </section>
+
+                  <ElevenLabsQuota />
+
+                  <section className='border-border/60 border-b py-3'>
+                    <p className='mb-3 font-medium text-sm'>当前状态</p>
+                    <div className='grid gap-2'>
+                      <div className='px-1 py-1'>
+                        <p className='text-muted-foreground text-[11px]'>面试阶段</p>
+                        <p className='mt-1 font-medium text-sm'>{interviewStage}</p>
+                      </div>
+                      <div className='px-1 py-1'>
+                        <p className='text-muted-foreground text-[11px]'>通话状态</p>
+                        <p className='mt-1 font-medium text-sm'>{connectionSummary}</p>
+                      </div>
+                      <div className='px-1 py-1'>
+                        <p className='text-muted-foreground text-[11px]'>分析状态</p>
+                        <p className='mt-1 font-medium text-sm'>{analysisStatusText}</p>
+                      </div>
+                      <div className='px-1 py-1'>
+                        <p className='text-muted-foreground text-[11px]'>当前设备</p>
+                        <p className='mt-1 truncate font-medium text-sm'>{selectedDeviceLabel}</p>
+                      </div>
+                      <div className='px-1 py-1'>
+                        <p className='text-muted-foreground text-[11px]'>权限状态</p>
+                        <p className='mt-1 font-medium text-sm'>{hasMicPermission ? '已获取麦克风权限' : '开始时请求权限'}</p>
+                      </div>
+                      <div className='px-1 py-1'>
+                        <p className='text-muted-foreground text-[11px]'>记录条数</p>
+                        <p className='mt-1 font-medium text-sm'>
+                          {turns.length}
+                          {' '}
+                          条
+                        </p>
+                      </div>
+                    </div>
+                  </section>
+
+                  <section className='py-3'>
+                    <p className='mb-3 font-medium text-sm'>对话摘要</p>
+                    <div className='space-y-3'>
+                      <div>
+                        <p className='text-muted-foreground text-[11px]'>会话编号</p>
+                        <p className='mt-1 break-all text-sm leading-6'>
+                          {activeConversationId ?? '开始面试后自动生成'}
+                        </p>
+                      </div>
+                      <div>
+                        <p className='text-muted-foreground text-[11px]'>最终总结</p>
+                        <p className='mt-1 text-sm leading-6'>
+                          {latestSummaryText}
+                        </p>
+                      </div>
+                      {sessionSnapshot?.callSuccessful
+                        ? (
+                            <div>
+                              <p className='text-muted-foreground text-[11px]'>通话判定</p>
+                              <p className='mt-1 text-sm leading-6'>{sessionSnapshot.callSuccessful}</p>
+                            </div>
+                          )
+                        : null}
+                      <div>
+                        <p className='text-muted-foreground text-[11px]'>最近一条追问</p>
+                        <p className='mt-1 text-sm leading-6'>
+                          {latestAgentTurn?.text ?? '开始后这里会显示最近一条面试官追问。'}
+                        </p>
+                      </div>
+                      <div>
+                        <p className='text-muted-foreground text-[11px]'>最近一条作答</p>
+                        <p className='mt-1 text-sm leading-6'>
+                          {latestUserTurn?.text ?? '候选人开口后，这里会显示最近一条回答。'}
+                        </p>
+                      </div>
+                    </div>
+                  </section>
+                </>
+              )}
+        </div>
+
+        <SidebarUserSection callbackURL='/interview' collapsed={isSidebarCollapsed && !isMobileSidebarOpen} />
+      </aside>
+
+      <section className='flex min-w-0 flex-1 flex-col bg-transparent'>
+        <div className='mx-auto flex h-full w-full max-w-5xl min-w-0 flex-col px-1 pb-2 pt-4 sm:px-2 sm:pb-4 sm:pt-6'>
+          <header className='px-1'>
+            <div className='mb-2 flex items-center gap-2 sm:hidden'>
+              <Button
+                aria-controls='interview-sidebar'
+                aria-expanded={isMobileSidebarOpen}
+                onClick={() => setIsMobileSidebarOpen(true)}
+                size='sm'
+                type='button'
+                variant='outline'
+              >
+                <PanelLeftOpenIcon className='mr-1 size-4' />
+                设置
+              </Button>
+            </div>
+
+            <div className='flex flex-wrap items-center gap-3'>
+              <h1 className='pixel-title text-balance font-bold tracking-tight text-2xl sm:text-3xl'>AI 面试</h1>
+              {interviewRecord ? <Badge variant='secondary'>{interviewRecord.currentRoundLabel ?? '待安排轮次'}</Badge> : null}
+            </div>
+            <p className='mt-2 max-w-3xl font-serif! text-xs text-muted-foreground sm:text-sm'>
+              {interviewRecord
+                ? `${interviewRecord.candidateName} · ${interviewRecord.targetRole ?? '待识别岗位'} · ${formatDateTime(interviewRecord.currentRoundTime)}`
+                : isLoadingRecord
+                  ? '系统正在确认当前面试链接对应的候选人信息。'
+                  : '当前链接对应的面试记录不可用。'}
+            </p>
+          </header>
+
+          <div className='relative mt-4 min-h-0 flex-1 overflow-hidden'>
+            <Conversation className='h-full'>
+              <ConversationContent className='gap-6 px-0 py-4 sm:py-6'>
+                {turns.length === 0
+                  ? (
+                      <ConversationEmptyState
+                        className='my-10 rounded-2xl border border-dashed border-border/70 bg-background/70'
+                        description={interviewRecord ? '点击下方“开始面试”后，这里会依次显示面试官追问与候选人回答。' : '当前链接不可用时无法开始面试。'}
+                        icon={isLoadingRecord ? <LoaderCircleIcon className='size-5 animate-spin' /> : <SparklesIcon className='size-5' />}
+                        title={interviewRecord ? '准备开始一轮面试' : isLoadingRecord ? '正在加载面试信息' : '面试链接不可用'}
+                      />
+                    )
+                  : orderedTurns.map(turn => (
+                      <div key={turn.id}>
+                        <p
+                          className={cn(
+                            'mb-1 text-muted-foreground text-xs',
+                            turn.role === 'user' ? 'text-right' : 'text-left',
+                          )}
+                        >
+                          {turn.role === 'agent' ? '面试官' : '候选人'}
+                          {' · '}
+                          {formatMessageTime(turn.createdAt)}
+                        </p>
+
+                        <ElevenLabsMessage from={turn.role === 'agent' ? 'assistant' : 'user'}>
+                          <ElevenLabsMessageContent variant='contained'>
+                            {turn.text}
+                          </ElevenLabsMessageContent>
+                        </ElevenLabsMessage>
+                      </div>
+                    ))}
+              </ConversationContent>
+              <ConversationScrollButton />
+            </Conversation>
+          </div>
+
+          <div className='mt-4 px-1 pb-2'>
+            <div className='rounded-[1.3rem] border border-border/65 bg-white shadow-[0_8px_18px_-20px_rgba(60,44,23,0.5)]'>
+              <div className='px-4 pt-4 pb-2'>
+                <BarVisualizer
+                  barCount={20}
+                  centerAlign
+                  className='h-14 rounded-xl bg-muted/30 p-3'
+                  demo
+                  state={agentState}
+                />
+              </div>
+
+              <div className='flex items-center gap-2 px-4 pb-3'>
+                <MicSelector
+                  className='w-auto max-w-48'
+                  disabled={isConnected || statusText === 'connecting'}
+                />
+
+                <div className='ml-auto'>
+                  {isConnected || statusText === 'connecting' || statusText === 'disconnecting'
+                    ? (
+                        <Button
+                          className='rounded-xl'
+                          disabled={statusText === 'disconnecting'}
+                          onClick={toggleInterview}
+                          type='button'
+                          variant='destructive'
+                        >
+                          <PhoneOffIcon className='size-4' />
+                          {statusText === 'disconnecting' ? '结束中...' : statusText === 'connecting' ? '连接中...' : '结束面试'}
+                        </Button>
+                      )
+                    : (
+                        <Button
+                          className='rounded-xl'
+                          disabled={!interviewRecord || isLoadingRecord}
+                          onClick={toggleInterview}
+                          type='button'
+                        >
+                          <MicIcon className='size-4' />
+                          开始面试
+                        </Button>
+                      )}
+                </div>
+              </div>
+            </div>
+
+            {errorText
               ? (
-                  <>
-                    <p className='truncate font-medium text-sm'>候选人信息</p>
-                    <Button asChild className='ml-auto' size='icon' type='button' variant='ghost'>
-                      <Link aria-label='返回首页' href='/'>
-                        <HouseIcon className='size-4' />
-                      </Link>
-                    </Button>
-                    <Button
-                      className='hidden sm:flex'
-                      onClick={() => void loadAudioDevices(true)}
-                      size='sm'
-                      type='button'
-                      variant='outline'
-                    >
-                      <AudioLinesIcon className='mr-1 size-3.5' />
-                      检测
-                    </Button>
-                  </>
+                  <p aria-live='polite' className='mt-2 px-1 text-destructive text-sm'>
+                    {errorText}
+                  </p>
                 )
               : null}
-
-            <Button
-              aria-label='关闭侧边栏'
-              className={cn(showExpandedSidebar ? 'sm:hidden' : 'ml-auto sm:hidden')}
-              onClick={() => setIsMobileSidebarOpen(false)}
-              size='icon'
-              type='button'
-              variant='ghost'
-            >
-              <PanelLeftCloseIcon className='size-4' />
-            </Button>
           </div>
+        </div>
+      </section>
 
-          <div className='min-h-0 flex-1 overflow-y-auto px-3 py-3'>
-            {!showExpandedSidebar
-              ? null
-              : (
-                  <>
-                    <section className='border-border/60 border-b py-3'>
-                      <p className='mb-3 font-medium text-sm'>候选人概览</p>
-
-                      {isLoadingRecord
-                        ? <div className='h-28 animate-pulse rounded-xl bg-muted' />
-                        : interviewRecord
-                          ? (
-                              <div className='grid gap-2 text-xs'>
-                                <div className='rounded-lg border border-border/60 bg-background/60 px-3 py-2'>
-                                  <p className='truncate font-medium text-sm'>{interviewRecord.candidateName}</p>
-                                  <p className='mt-1 text-muted-foreground'>
-                                    {interviewRecord.targetRole ?? '待识别岗位'}
-                                  </p>
-                                </div>
-                                <div className='rounded-lg border border-border/60 bg-background/60 px-3 py-2'>
-                                  <p className='text-muted-foreground'>当前轮次</p>
-                                  <p className='mt-1 font-medium text-sm'>{interviewRecord.currentRoundLabel ?? '待安排'}</p>
-                                  <p className='mt-1 text-muted-foreground'>{formatDateTime(interviewRecord.currentRoundTime)}</p>
-                                </div>
-                                <div className='rounded-lg border border-border/60 bg-background/60 px-3 py-2'>
-                                  <p className='text-muted-foreground'>候选人摘要</p>
-                                  <p className='mt-1 text-sm leading-relaxed'>{resumeSummary}</p>
-                                </div>
-                              </div>
-                            )
-                          : (
-                              <div className='rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-3 text-sm text-destructive'>
-                                当前链接对应的面试记录不可用。
-                              </div>
-                            )}
-                    </section>
-
-                    <section className='border-border/60 border-b py-3'>
-                      <p className='mb-3 font-medium text-sm'>音频设备</p>
-
-                      <Select onValueChange={setSelectedInputDeviceId} value={selectedInputDeviceId}>
-                        <SelectTrigger className='w-full'>
-                          <SelectValue placeholder='选择麦克风' />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value='default'>系统默认麦克风</SelectItem>
-                          {audioDevices.map(device => (
-                            <SelectItem key={device.deviceId} value={device.deviceId}>
-                              {device.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-
-                      <p className='mt-3 text-muted-foreground text-xs leading-relaxed'>
-                        开始面试时会自动请求麦克风权限；如果设备名没有刷新出来，重新点一次“检测”即可。
-                      </p>
-                    </section>
-
-                    <ElevenLabsQuota />
-
-                    <section className='border-border/60 border-b py-3'>
-                      <p className='mb-3 font-medium text-sm'>当前状态</p>
-                      <div className='grid gap-2'>
-                        <div className='px-1 py-1'>
-                          <p className='text-muted-foreground text-[11px]'>面试阶段</p>
-                          <p className='mt-1 font-medium text-sm'>{interviewStage}</p>
-                        </div>
-                        <div className='px-1 py-1'>
-                          <p className='text-muted-foreground text-[11px]'>通话状态</p>
-                          <p className='mt-1 font-medium text-sm'>{connectionSummary}</p>
-                        </div>
-                        <div className='px-1 py-1'>
-                          <p className='text-muted-foreground text-[11px]'>分析状态</p>
-                          <p className='mt-1 font-medium text-sm'>{analysisStatusText}</p>
-                        </div>
-                        <div className='px-1 py-1'>
-                          <p className='text-muted-foreground text-[11px]'>当前设备</p>
-                          <p className='mt-1 truncate font-medium text-sm'>{selectedDeviceLabel}</p>
-                        </div>
-                        <div className='px-1 py-1'>
-                          <p className='text-muted-foreground text-[11px]'>权限状态</p>
-                          <p className='mt-1 font-medium text-sm'>{hasMicPermission ? '已获取麦克风权限' : '开始时请求权限'}</p>
-                        </div>
-                        <div className='px-1 py-1'>
-                          <p className='text-muted-foreground text-[11px]'>记录条数</p>
-                          <p className='mt-1 font-medium text-sm'>
-                            {turns.length}
-                            {' '}
-                            条
-                          </p>
-                        </div>
-                      </div>
-                    </section>
-
-                    <section className='py-3'>
-                      <p className='mb-3 font-medium text-sm'>对话摘要</p>
-                      <div className='space-y-3'>
-                        <div>
-                          <p className='text-muted-foreground text-[11px]'>会话编号</p>
-                          <p className='mt-1 break-all text-sm leading-6'>
-                            {activeConversationId ?? '开始面试后自动生成'}
-                          </p>
-                        </div>
-                        <div>
-                          <p className='text-muted-foreground text-[11px]'>最终总结</p>
-                          <p className='mt-1 text-sm leading-6'>
-                            {latestSummaryText}
-                          </p>
-                        </div>
-                        {sessionSnapshot?.callSuccessful
-                          ? (
-                              <div>
-                                <p className='text-muted-foreground text-[11px]'>通话判定</p>
-                                <p className='mt-1 text-sm leading-6'>{sessionSnapshot.callSuccessful}</p>
-                              </div>
-                            )
-                          : null}
-                        <div>
-                          <p className='text-muted-foreground text-[11px]'>最近一条追问</p>
-                          <p className='mt-1 text-sm leading-6'>
-                            {latestAgentTurn?.text ?? '开始后这里会显示最近一条面试官追问。'}
-                          </p>
-                        </div>
-                        <div>
-                          <p className='text-muted-foreground text-[11px]'>最近一条作答</p>
-                          <p className='mt-1 text-sm leading-6'>
-                            {latestUserTurn?.text ?? '候选人开口后，这里会显示最近一条回答。'}
-                          </p>
-                        </div>
-                      </div>
-                    </section>
-                  </>
-                )}
-          </div>
-
-          <SidebarUserSection callbackURL='/interview' collapsed={isSidebarCollapsed && !isMobileSidebarOpen} />
-        </aside>
-
-        <section className='flex min-w-0 flex-1 flex-col bg-transparent'>
-          <div className='mx-auto flex h-full w-full max-w-5xl min-w-0 flex-col px-1 pb-2 pt-4 sm:px-2 sm:pb-4 sm:pt-6'>
-            <header className='px-1'>
-              <div className='mb-2 flex items-center gap-2 sm:hidden'>
-                <Button
-                  aria-controls='interview-sidebar'
-                  aria-expanded={isMobileSidebarOpen}
-                  onClick={() => setIsMobileSidebarOpen(true)}
-                  size='sm'
-                  type='button'
-                  variant='outline'
-                >
-                  <PanelLeftOpenIcon className='mr-1 size-4' />
-                  设置
-                </Button>
-              </div>
-
-              <div className='flex flex-wrap items-center gap-3'>
-                <h1 className='pixel-title text-balance font-bold tracking-tight text-2xl sm:text-3xl'>AI 面试</h1>
-                {interviewRecord ? <Badge variant='secondary'>{interviewRecord.currentRoundLabel ?? '待安排轮次'}</Badge> : null}
-              </div>
-              <p className='mt-2 max-w-3xl font-serif! text-xs text-muted-foreground sm:text-sm'>
-                {interviewRecord
-                  ? `${interviewRecord.candidateName} · ${interviewRecord.targetRole ?? '待识别岗位'} · ${formatDateTime(interviewRecord.currentRoundTime)}`
-                  : isLoadingRecord
-                    ? '系统正在确认当前面试链接对应的候选人信息。'
-                    : '当前链接对应的面试记录不可用。'}
-              </p>
-            </header>
-
-            <div className='relative mt-4 min-h-0 flex-1 overflow-hidden'>
-              <Conversation className='h-full'>
-                <ConversationContent className='gap-6 px-0 py-4 sm:py-6'>
-                  {turns.length === 0
-                    ? (
-                        <ConversationEmptyState
-                          className='my-10 rounded-2xl border border-dashed border-border/70 bg-background/70'
-                          description={interviewRecord ? '点击下方“开始面试”后，这里会依次显示面试官追问与候选人回答。' : '当前链接不可用时无法开始面试。'}
-                          icon={isLoadingRecord ? <LoaderCircleIcon className='size-5 animate-spin' /> : <SparklesIcon className='size-5' />}
-                          title={interviewRecord ? '准备开始一轮面试' : isLoadingRecord ? '正在加载面试信息' : '面试链接不可用'}
-                        />
-                      )
-                    : orderedTurns.map(turn => (
-                        <div key={turn.id}>
-                          <p
-                            className={cn(
-                              'mb-1 text-muted-foreground text-xs',
-                              turn.role === 'user' ? 'text-right' : 'text-left',
-                            )}
-                          >
-                            {turn.role === 'agent' ? '面试官' : '候选人'}
-                            {' · '}
-                            {formatMessageTime(turn.createdAt)}
-                          </p>
-
-                          <ElevenLabsMessage from={turn.role === 'agent' ? 'assistant' : 'user'}>
-                            <ElevenLabsMessageContent variant='contained'>
-                              {turn.text}
-                            </ElevenLabsMessageContent>
-                          </ElevenLabsMessage>
-                        </div>
-                      ))}
-                </ConversationContent>
-                <ConversationScrollButton />
-              </Conversation>
-            </div>
-
-            <div className='mt-4 px-1 pb-2'>
-              <div className='rounded-[1.3rem] border border-border/65 bg-white shadow-[0_8px_18px_-20px_rgba(60,44,23,0.5)]'>
-                <div className='px-4 pt-4 pb-2'>
-                  <BarVisualizer
-                    barCount={20}
-                    centerAlign
-                    className='h-14 rounded-xl bg-muted/30 p-3'
-                    demo
-                    state={agentState}
-                  />
-                </div>
-
-                <div className='flex items-center gap-2 px-4 pb-3'>
-                  <MicSelector
-                    className='w-auto max-w-48'
-                    disabled={isConnected || statusText === 'connecting'}
-                  />
-
-                  <div className='ml-auto'>
-                    {isConnected || statusText === 'connecting' || statusText === 'disconnecting'
-                      ? (
-                          <Button
-                            className='rounded-xl'
-                            disabled={statusText === 'disconnecting'}
-                            onClick={toggleInterview}
-                            type='button'
-                            variant='destructive'
-                          >
-                            <PhoneOffIcon className='size-4' />
-                            {statusText === 'disconnecting' ? '结束中...' : statusText === 'connecting' ? '连接中...' : '结束面试'}
-                          </Button>
-                        )
-                      : (
-                          <Button
-                            className='rounded-xl'
-                            disabled={!interviewRecord || isLoadingRecord}
-                            onClick={toggleInterview}
-                            type='button'
-                          >
-                            <MicIcon className='size-4' />
-                            开始面试
-                          </Button>
-                        )}
-                  </div>
-                </div>
-              </div>
-
-              {errorText
-                ? (
-                    <p aria-live='polite' className='mt-2 px-1 text-destructive text-sm'>
-                      {errorText}
-                    </p>
-                  )
-                : null}
-            </div>
-          </div>
-        </section>
-
-        <InterviewQuotaNotice />
-      </div>
+      <InterviewQuotaNotice />
+    </div>
   );
 }

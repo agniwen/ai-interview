@@ -1,5 +1,6 @@
+import type { VariantProps } from 'class-variance-authority';
 import type { HTMLAttributes } from 'react';
-import { cva, type VariantProps } from 'class-variance-authority';
+import { cva } from 'class-variance-authority';
 import { cn } from '@/lib/utils';
 
 export type ElevenLabsMessageProps = HTMLAttributes<HTMLDivElement> & {
@@ -41,8 +42,8 @@ const messageContentVariants = cva(
   },
 );
 
-export type ElevenLabsMessageContentProps = HTMLAttributes<HTMLDivElement> &
-  VariantProps<typeof messageContentVariants>;
+export type ElevenLabsMessageContentProps = HTMLAttributes<HTMLDivElement>
+  & VariantProps<typeof messageContentVariants>;
 
 export function ElevenLabsMessageContent({
   children,

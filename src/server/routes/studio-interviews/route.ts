@@ -1,15 +1,6 @@
 import type { StudioInterviewRecord } from '@/lib/studio-interviews';
 import { eq, inArray } from 'drizzle-orm';
 import { updateTag } from 'next/cache';
-
-function safeUpdateTag(tag: string) {
-  try {
-    updateTag(tag);
-  }
-  catch {
-    // updateTag may throw in certain route handler contexts — non-critical
-  }
-}
 import { db } from '@/lib/db';
 import { studioInterview, studioInterviewSchedule } from '@/lib/db/schema';
 import { buildInterviewLink, sortScheduleEntries } from '@/lib/interview/interview-record';
@@ -24,6 +15,15 @@ import { factory } from '@/server/factory';
 import { listInterviewConversationReports } from '@/server/queries/interview-conversations';
 import { listStudioInterviewRecords } from '@/server/queries/studio-interviews';
 import { analyzeResumeFile, ResumeAnalysisError } from '../interview/analysis';
+
+function safeUpdateTag(tag: string) {
+  try {
+    updateTag(tag);
+  }
+  catch {
+    // updateTag may throw in certain route handler contexts — non-critical
+  }
+}
 
 type StudioInterviewRow = typeof studioInterview.$inferSelect;
 type StudioInterviewScheduleRow = typeof studioInterviewSchedule.$inferSelect;
