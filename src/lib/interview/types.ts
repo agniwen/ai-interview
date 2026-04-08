@@ -4,24 +4,24 @@ const nonEmptyStringSchema = z.string().trim().min(1);
 const nullableStringSchema = z.string().trim().nullable();
 
 export const resumeWorkExperienceSchema = z.object({
-  company: nullableStringSchema.describe('工作单位名称；无法从简历中确认时，优先返回“未发现信息”'),
-  role: nullableStringSchema.describe('岗位名称；无法从简历中确认时，优先返回“未发现信息”'),
-  period: nullableStringSchema.describe('在职时间范围；无法从简历中确认时，优先返回“未发现信息”'),
-  summary: nullableStringSchema.describe('该段工作经历的简要描述；无法从简历中确认时，优先返回“未发现信息”'),
+  company: nullableStringSchema.describe('工作单位名称；无法从简历中确认时，优先返回"未发现信息"'),
+  role: nullableStringSchema.describe('岗位名称；无法从简历中确认时，优先返回"未发现信息"'),
+  period: nullableStringSchema.describe('在职时间范围；无法从简历中确认时，优先返回"未发现信息"'),
+  summary: nullableStringSchema.describe('该段工作经历的简要描述；无法从简历中确认时，优先返回"未发现信息"'),
 });
 
 export const resumeProjectExperienceSchema = z.object({
-  name: nullableStringSchema.describe('项目名称；无法从简历中确认时，优先返回“未发现信息”'),
-  role: nullableStringSchema.describe('在项目中的角色；无法从简历中确认时，优先返回“未发现信息”'),
-  period: nullableStringSchema.describe('项目时间范围；无法从简历中确认时，优先返回“未发现信息”'),
+  name: nullableStringSchema.describe('项目名称；无法从简历中确认时，优先返回"未发现信息"'),
+  role: nullableStringSchema.describe('在项目中的角色；无法从简历中确认时，优先返回"未发现信息"'),
+  period: nullableStringSchema.describe('项目时间范围；无法从简历中确认时，优先返回"未发现信息"'),
   techStack: z.array(nonEmptyStringSchema).describe('项目使用的技术栈，未知时返回空数组'),
-  summary: nullableStringSchema.describe('项目简要描述；无法从简历中确认时，优先返回“未发现信息”'),
+  summary: nullableStringSchema.describe('项目简要描述；无法从简历中确认时，优先返回"未发现信息"'),
 });
 
 export const resumeProfileSchema = z.object({
-  name: nonEmptyStringSchema.describe('候选人姓名，必须非空；如果简历中无法确认姓名，返回“未发现信息”'),
+  name: nonEmptyStringSchema.describe('候选人姓名，必须非空；如果简历中无法确认姓名，返回"未发现信息"'),
   age: z.number().nullable().describe('候选人年龄，只有简历明确给出时才填写，否则为 null'),
-  gender: nullableStringSchema.describe('候选人性别；无法从简历中确认时，优先返回“未发现信息”'),
+  gender: nullableStringSchema.describe('候选人性别；无法从简历中确认时，优先返回"未发现信息"'),
   targetRoles: z.array(nonEmptyStringSchema).describe('求职岗位列表，可能为多个，未知时返回空数组'),
   workYears: z.number().nullable().describe('工作年限，能明确判断时返回数字，否则为 null'),
   skills: z.array(nonEmptyStringSchema).describe('掌握技能列表，未知时返回空数组'),

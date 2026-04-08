@@ -199,6 +199,8 @@ export const studioInterviewsRouter = factory.createApp()
       const resume = normalizeResumeFile(formData.get('resume'));
       const parsedScheduleEntries = parseScheduleEntriesInput(formData.get('scheduleEntries'));
       const parsedResumePayload = parseResumePayloadInput(formData.get('resumePayload'));
+      const editedQuestionsRaw = toNullableString(formData.get('editedQuestions'));
+      const editedQuestions = editedQuestionsRaw ? (JSON.parse(editedQuestionsRaw) as typeof existing.interviewQuestions) : null;
 
       const input = studioInterviewUpdateSchema.safeParse({
         candidateName: toNullableString(formData.get('candidateName')) ?? '',
@@ -238,7 +240,7 @@ export const studioInterviewsRouter = factory.createApp()
         status: resolvedStatus,
         resumeFileName: analysis?.fileName ?? existing.resumeFileName,
         resumeProfile: analysis?.resumeProfile ?? existing.resumeProfile,
-        interviewQuestions: analysis?.interviewQuestions ?? existing.interviewQuestions,
+        interviewQuestions: analysis?.interviewQuestions ?? editedQuestions ?? existing.interviewQuestions,
         notes: input.data.notes || null,
         updatedAt: now,
       } satisfies Partial<typeof studioInterview.$inferInsert>;

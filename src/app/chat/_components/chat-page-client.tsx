@@ -1025,7 +1025,7 @@ export default function ChatPageClient({
                           {isChatRole
                             ? (
                                 <p
-                                  className={`mb-1 text-muted-foreground text-xs ${message.role === 'user' ? 'text-right' : 'text-left'}`}
+                                  className={`mb-2.5 text-muted-foreground text-xs ${message.role === 'user' ? 'text-right' : 'text-left'}`}
                                 >
                                   {messageAuthor}
                                   {messageTime
@@ -1167,7 +1167,7 @@ export default function ChatPageClient({
                     {showAssistantThinkingBubble
                       ? (
                           <div>
-                            <p className='mb-1 text-left text-muted-foreground text-xs'>
+                            <p className='mb-2 text-left text-muted-foreground text-xs'>
                               简历筛选助手 ·
                               {' '}
                               <TimeDisplay as='span' options={TIME_DISPLAY_OPTIONS} value={Date.now()} />

@@ -1,4 +1,4 @@
-import { createGoogleGenerativeAI } from '@ai-sdk/google';
+import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
 import { zValidator } from '@hono/zod-validator';
 import { generateText } from 'ai';
 import { factory } from '@/server/factory';
@@ -8,25 +8,32 @@ export const chatTitleRouter = factory.createApp()
   .post('/', zValidator('json', chatTitleRequestSchema), async (c) => {
     const { hasFiles, text } = c.req.valid('json');
 
-    const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
+    const apiKey = process.env.ALIBABA_API_KEY;
 
     if (!apiKey) {
       return c.json(
         {
           error:
-            'Missing GOOGLE_GENERATIVE_AI_API_KEY. Please configure your environment variables.',
+            'Missing ALIBABA_API_KEY. Please configure your environment variables.',
         },
         500,
       );
     }
 
-    const baseURL = process.env.GOOGLE_GENERATIVE_AI_BASE_URL?.trim();
-    const provider = createGoogleGenerativeAI({
+    const baseURL = process.env.ALIBABA_BASE_URL?.trim()
+      || 'https://dashscope.aliyuncs.com/compatible-mode/v1';
+
+    const provider = createOpenAICompatible({
+      name: 'alibaba',
+      baseURL,
       apiKey,
-      ...(baseURL ? { baseURL } : {}),
+      transformRequestBody: body => ({
+        ...body,
+        enable_thinking: false,
+      }),
     });
 
-    const modelId = process.env.GOOGLE_MODEL ?? 'gemini-3-flash-preview';
+    const modelId = process.env.ALIBABA_FAST_MODEL ?? 'qwen-turbo';
 
     try {
       const { text: titleText } = await generateText({

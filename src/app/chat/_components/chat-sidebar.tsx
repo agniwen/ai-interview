@@ -14,6 +14,16 @@ import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 
 import { useHotkeys } from 'react-hotkeys-hook';
 import { SidebarUserSection } from '@/components/sidebar-user-section';
 import { DATE_TIME_DISPLAY_OPTIONS, TimeDisplay } from '@/components/time-display';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { chatHistoryDB } from '@/lib/chat-history-db';
 import { cn } from '@/lib/utils';
@@ -36,6 +46,7 @@ export default function ChatSidebar() {
   const isMobileSidebarOpen = useAtomValue(isMobileSidebarOpenAtom);
   const closeMobileSidebar = useSetAtom(isMobileSidebarOpenAtom);
   const [conversations, setConversations] = useState<ConversationListItem[]>([]);
+  const [deleteTarget, setDeleteTarget] = useState<ConversationListItem | null>(null);
 
   useHotkeys('meta+b', (event) => {
     event.preventDefault();
@@ -113,8 +124,12 @@ export default function ChatSidebar() {
     };
   }, [refreshConversationList]);
 
-  const handleDelete = useCallback(
-    async (id: string) => {
+  const confirmDelete = useCallback(
+    async () => {
+      if (!deleteTarget) return;
+
+      const id = deleteTarget.id;
+      setDeleteTarget(null);
       await chatHistoryDB.conversations.delete(id);
       await refreshConversationList();
 
@@ -122,7 +137,7 @@ export default function ChatSidebar() {
         router.replace('/chat');
       }
     },
-    [activeSessionId, refreshConversationList, router],
+    [activeSessionId, deleteTarget, refreshConversationList, router],
   );
 
   const showExpandedSidebar = !isSidebarCollapsed || isMobileSidebarOpen;
@@ -223,7 +238,7 @@ export default function ChatSidebar() {
                             className='rounded-md p-1 text-muted-foreground opacity-0 transition-opacity hover:bg-accent hover:text-destructive group-hover:opacity-100'
                             onClick={(event) => {
                               event.stopPropagation();
-                              void handleDelete(conversation.id);
+                              setDeleteTarget(conversation);
                             }}
                             type='button'
                           >
@@ -238,6 +253,23 @@ export default function ChatSidebar() {
       </div>
 
       <SidebarUserSection callbackURL='/chat' collapsed={isSidebarCollapsed && !isMobileSidebarOpen} />
+
+      <AlertDialog onOpenChange={open => !open && setDeleteTarget(null)} open={deleteTarget !== null}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>确认删除这条聊天记录？</AlertDialogTitle>
+            <AlertDialogDescription>
+              删除后将无法恢复。当前记录：{deleteTarget?.title ?? '未知对话'}。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction onClick={() => void confirmDelete()} variant='destructive'>
+              删除
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </aside>
   );
 }

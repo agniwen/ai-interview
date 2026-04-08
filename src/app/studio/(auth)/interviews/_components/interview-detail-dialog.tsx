@@ -280,8 +280,8 @@ export function InterviewDetailDialog({
 
   return (
     <Dialog onOpenChange={onOpenChange} open={open}>
-      <DialogContent className='max-h-[90vh] gap-0! w-[min(96vw,1440px)] max-w-none overflow-hidden p-0 sm:min-w-275'>
-        <Tabs defaultValue='overview' key={recordId ?? 'empty'}>
+      <DialogContent className='flex max-h-[90vh] flex-col gap-0! w-[min(96vw,1440px)] max-w-none overflow-hidden p-0 sm:min-w-275'>
+        <Tabs className='flex min-h-0 flex-1 flex-col' defaultValue='overview' key={recordId ?? 'empty'}>
           <DialogHeader className='border-b px-6 pt-5 pb-2'>
             <DialogTitle className='flex flex-wrap items-center gap-3'>
               <span className='break-words'>{record?.candidateName ?? '候选人详情'}</span>
@@ -320,7 +320,7 @@ export function InterviewDetailDialog({
               )
             : record
               ? (
-                  <div className='max-h-[calc(90vh-88px)] overflow-y-auto px-6 pt-4 pb-6'>
+                  <div className='min-h-0 flex-1 overflow-y-auto px-6 pt-4 pb-6'>
 
                     <TabsContent value='overview'>
                       <div className='space-y-6'>

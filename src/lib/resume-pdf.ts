@@ -452,6 +452,21 @@ export function selectUploadedResumePdfs(files: UploadedResumePdf[], resumeName?
   return files.filter(file => file.filename.toLowerCase().includes(lowerSelector));
 }
 
+export async function extractPdfText(data: Uint8Array | Buffer): Promise<string> {
+  const { PDFParse } = await loadPdfParseModule();
+  await ensurePdfWorker(PDFParse);
+
+  const parser = new PDFParse({ data });
+
+  try {
+    const result = await parser.getText();
+    return normalizeText(result.text ?? '');
+  }
+  finally {
+    await parser.destroy().catch(() => undefined);
+  }
+}
+
 export async function parseResumePdf(file: UploadedResumePdf): Promise<ParsedResumePdf> {
   const { PDFParse } = await loadPdfParseModule();
   await ensurePdfWorker(PDFParse);

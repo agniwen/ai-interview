@@ -3,7 +3,7 @@
 import type { ComponentProps } from 'react';
 
 import { ArrowDownIcon, DownloadIcon } from 'lucide-react';
-import { useCallback } from 'react';
+import { forwardRef, useCallback } from 'react';
 import { StickToBottom, useStickToBottomContext } from 'use-stick-to-bottom';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -133,14 +133,17 @@ export function messagesToMarkdown(messages: ConversationMessage[], formatMessag
   return messages.map((msg, i) => formatMessage(msg, i)).join('\n\n');
 }
 
-export function ConversationDownload({
+export const ConversationDownload = forwardRef<
+  HTMLButtonElement,
+  ConversationDownloadProps
+>(({
   messages,
   filename = 'conversation.md',
   formatMessage = defaultFormatMessage,
   className,
   children,
   ...props
-}: ConversationDownloadProps) {
+}, ref) => {
   const handleDownload = useCallback(() => {
     const markdown = messagesToMarkdown(messages, formatMessage);
     const blob = new Blob([markdown], { type: 'text/markdown' });
@@ -156,6 +159,8 @@ export function ConversationDownload({
 
   return (
     <Button
+      {...props}
+      ref={ref}
       className={cn(
         'absolute top-4 right-4 rounded-full border-border/70 bg-background/85 shadow-xs backdrop-blur-sm hover:bg-accent/60',
         className,
@@ -164,9 +169,10 @@ export function ConversationDownload({
       size='icon'
       type='button'
       variant='outline'
-      {...props}
     >
       {children ?? <DownloadIcon className='size-4' />}
     </Button>
   );
-}
+});
+
+ConversationDownload.displayName = 'ConversationDownload';

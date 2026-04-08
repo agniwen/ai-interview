@@ -1,6 +1,6 @@
 'use client';
 
-import type { ColumnDef, SortingState } from '@tanstack/react-table';
+import type { ColumnDef, Header, Cell, SortingState } from '@tanstack/react-table';
 import type { StudioInterviewListRecord } from '@/lib/studio-interviews';
 import {
   flexRender,
@@ -79,6 +79,21 @@ import { CreateInterviewDialog } from './create-interview-dialog';
 import { EditInterviewDialog } from './edit-interview-dialog';
 import { InterviewDetailDialog } from './interview-detail-dialog';
 import { InterviewStatusBadge } from './interview-status-badge';
+
+function getPinningStyles(column: Header<StudioInterviewListRecord, unknown>['column'] | Cell<StudioInterviewListRecord, unknown>['column']): React.CSSProperties {
+  const isPinned = column.getIsPinned();
+
+  if (!isPinned) {
+    return {};
+  }
+
+  return {
+    position: 'sticky',
+    left: isPinned === 'left' ? `${column.getStart('left')}px` : undefined,
+    right: isPinned === 'right' ? `${column.getAfter('right')}px` : undefined,
+    zIndex: 1,
+  };
+}
 
 export function InterviewManagementPage({ initialRecords }: { initialRecords: StudioInterviewListRecord[] }) {
   const [records, dispatchRecords] = useReducer(
@@ -234,6 +249,7 @@ export function InterviewManagementPage({ initialRecords }: { initialRecords: St
   const columns = useMemo<ColumnDef<StudioInterviewListRecord>[]>(() => [
     {
       accessorKey: 'candidateName',
+      size: 180,
       header: ({ column }) => (
         <Button className='px-0' onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')} variant='ghost'>
           候选人
@@ -313,6 +329,7 @@ export function InterviewManagementPage({ initialRecords }: { initialRecords: St
     },
     {
       id: 'actions',
+      size: 60,
       enableHiding: false,
       cell: ({ row }) => {
         const record = row.original;
@@ -356,6 +373,10 @@ export function InterviewManagementPage({ initialRecords }: { initialRecords: St
     columns,
     state: {
       sorting,
+      columnPinning: {
+        left: ['candidateName'],
+        right: ['actions'],
+      },
     },
     onSortingChange: setSorting,
     getCoreRowModel: getCoreRowModel(),
@@ -493,22 +514,38 @@ export function InterviewManagementPage({ initialRecords }: { initialRecords: St
                       <TableHeader>
                         {table.getHeaderGroups().map(headerGroup => (
                           <TableRow key={headerGroup.id}>
-                            {headerGroup.headers.map(header => (
-                              <TableHead key={header.id}>
-                                {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
-                              </TableHead>
-                            ))}
+                            {headerGroup.headers.map((header) => {
+                              const isPinned = header.column.getIsPinned();
+
+                              return (
+                                <TableHead
+                                  className={isPinned ? 'bg-background' : undefined}
+                                  key={header.id}
+                                  style={getPinningStyles(header.column)}
+                                >
+                                  {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
+                                </TableHead>
+                              );
+                            })}
                           </TableRow>
                         ))}
                       </TableHeader>
                       <TableBody>
                         {table.getRowModel().rows.map(row => (
                           <TableRow key={row.id}>
-                            {row.getVisibleCells().map(cell => (
-                              <TableCell key={cell.id}>
-                                {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                              </TableCell>
-                            ))}
+                            {row.getVisibleCells().map((cell) => {
+                              const isPinned = cell.column.getIsPinned();
+
+                              return (
+                                <TableCell
+                                  className={isPinned ? 'bg-background' : undefined}
+                                  key={cell.id}
+                                  style={getPinningStyles(cell.column)}
+                                >
+                                  {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                                </TableCell>
+                              );
+                            })}
                           </TableRow>
                         ))}
                       </TableBody>
