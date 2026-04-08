@@ -46,7 +46,7 @@ export function pickCurrentScheduleEntry<T extends { sortOrder: number, status: 
   }
 
   // All rounds are completed — return the last completed round
-  return sorted[sorted.length - 1] ?? null;
+  return sorted.at(-1) ?? null;
 }
 
 export function buildCandidateInterviewView(record: {

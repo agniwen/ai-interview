@@ -204,7 +204,7 @@ export function InterviewManagementPage({ initialRecords }: { initialRecords: St
 
   async function copyInterviewLink(record: StudioInterviewListRecord) {
     try {
-      const lastEntry = record.scheduleEntries[record.scheduleEntries.length - 1];
+      const lastEntry = record.scheduleEntries.at(-1);
       const link = lastEntry
         ? `/interview/${record.id}/${lastEntry.id}`
         : record.interviewLink;
