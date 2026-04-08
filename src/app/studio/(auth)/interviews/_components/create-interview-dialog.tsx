@@ -4,8 +4,10 @@ import type { ResumeAnalysisResult } from '@/lib/interview/types';
 import type { StudioInterviewRecord } from '@/lib/studio-interviews';
 import { useStore } from '@tanstack/react-form';
 import { FileUpIcon, LoaderCircleIcon, SparklesIcon } from 'lucide-react';
-import { useState } from 'react';
+import { motion } from 'motion/react';
+import { useCallback, useRef, useState } from 'react';
 import { toast } from 'sonner';
+import { TextFlip } from '@/components/text-flip';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -57,6 +59,7 @@ export function CreateInterviewDialog({
   const [resumeFile, setResumeFile] = useState<File | null>(null);
   const [resumePayload, setResumePayload] = useState<ResumeAnalysisResult | null>(null);
   const [isAnalyzingResume, setIsAnalyzingResume] = useState(false);
+  const abortControllerRef = useRef<AbortController | null>(null);
   const form = useInterviewForm({
     defaultValues: createInterviewFormValues(),
     onSubmit: async (values) => {
@@ -106,6 +109,8 @@ export function CreateInterviewDialog({
       return;
     }
 
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
     setIsAnalyzingResume(true);
 
     try {
@@ -115,6 +120,7 @@ export function CreateInterviewDialog({
       const response = await fetch('/api/interview/parse-resume', {
         method: 'POST',
         body: formData,
+        signal: abortController.signal,
       });
       const payload = (await response.json().catch(() => null)) as (ResumeAnalysisResult & { error?: string }) | null;
 
@@ -128,24 +134,56 @@ export function CreateInterviewDialog({
       toast.success('简历分析完成，已回填候选人信息');
     }
     catch (error) {
+      if (abortController.signal.aborted) {
+        return;
+      }
       setResumeFile(null);
       setResumePayload(null);
       toast.error(error instanceof Error ? error.message : '简历分析失败');
     }
     finally {
+      abortControllerRef.current = null;
       setIsAnalyzingResume(false);
     }
   }
 
+  const handleCancelAnalysis = useCallback(() => {
+    abortControllerRef.current?.abort();
+    setResumeFile(null);
+    setResumePayload(null);
+    setIsAnalyzingResume(false);
+    const fileInput = document.getElementById('resume-upload') as HTMLInputElement | null;
+    if (fileInput)
+      fileInput.value = '';
+    toast.info('已取消简历分析');
+  }, []);
+
   return (
-    <Dialog onOpenChange={setOpen} open={open}>
+    <Dialog
+      onOpenChange={(value) => {
+        if (!isAnalyzingResume)
+          setOpen(value);
+      }}
+      open={open}
+    >
       <DialogTrigger asChild>
         <Button>
           <FileUpIcon className='size-4' />
           新建简历记录
         </Button>
       </DialogTrigger>
-      <DialogContent className='max-h-[90vh] sm:max-w-5xl gap-0 overflow-hidden p-0'>
+      <DialogContent
+        className='max-h-[90vh] sm:max-w-5xl gap-0 overflow-hidden p-0'
+        onPointerDownOutside={(e) => {
+          if (isAnalyzingResume)
+            e.preventDefault();
+        }}
+        onEscapeKeyDown={(e) => {
+          if (isAnalyzingResume)
+            e.preventDefault();
+        }}
+        showCloseButton={!isAnalyzingResume}
+      >
         <form
           className='flex max-h-[90vh] flex-col'
           onSubmit={(event) => {
@@ -351,6 +389,31 @@ export function CreateInterviewDialog({
             </Button>
           </DialogFooter>
         </form>
+
+        {isAnalyzingResume && (
+          <motion.div
+            className='absolute inset-0 z-50 flex flex-col items-center justify-center gap-6 rounded-lg bg-white/60 backdrop-blur-sm dark:bg-black/40'
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.2 }}
+          >
+            <LoaderCircleIcon className='size-7 animate-spin text-muted-foreground' />
+            <motion.div layout className='flex items-center  text-lg font-medium text-foreground'>
+              <span>正在</span>
+              <TextFlip as={motion.span} interval={2.5} layout>
+                <span>解析简历</span>
+                <span>提取信息</span>
+                <span>生成面试题</span>
+                <span>分析简历</span>
+                <span>生成面试链接</span>
+                <span>评估技能</span>
+              </TextFlip>
+            </motion.div>
+            <Button variant='outline' size='sm' onClick={handleCancelAnalysis}>
+              取消
+            </Button>
+          </motion.div>
+        )}
       </DialogContent>
     </Dialog>
   );
