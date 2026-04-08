@@ -13,6 +13,7 @@ import { useParams, usePathname, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import { useHotkeys } from 'react-hotkeys-hook';
 import { SidebarUserSection } from '@/components/sidebar-user-section';
+import { DATE_TIME_DISPLAY_OPTIONS, TimeDisplay } from '@/components/time-display';
 import { Button } from '@/components/ui/button';
 import { chatHistoryDB } from '@/lib/chat-history-db';
 import { cn } from '@/lib/utils';
@@ -26,14 +27,6 @@ interface ConversationListItem {
 }
 
 const GENERATING_CHAT_TITLE = '生成中...';
-
-const sidebarTimeFormatter = new Intl.DateTimeFormat('zh-CN', {
-  month: '2-digit',
-  day: '2-digit',
-  hour: '2-digit',
-  minute: '2-digit',
-  hour12: false,
-});
 
 export default function ChatSidebar() {
   const pathname = usePathname();
@@ -221,7 +214,7 @@ export default function ChatSidebar() {
                           >
                             <p className='truncate font-medium text-sm'>{visibleTitle}</p>
                             <p className='mt-1 truncate text-muted-foreground text-xs'>
-                              {sidebarTimeFormatter.format(new Date(conversation.updatedAt))}
+                              <TimeDisplay as='span' options={DATE_TIME_DISPLAY_OPTIONS} value={conversation.updatedAt} />
                             </p>
                           </Link>
 

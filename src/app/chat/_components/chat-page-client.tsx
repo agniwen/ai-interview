@@ -82,6 +82,10 @@ import {
   ToolInput,
   ToolOutput,
 } from '@/components/ai-elements/tool';
+import {
+  TIME_DISPLAY_OPTIONS,
+  TimeDisplay,
+} from '@/components/time-display';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import {
@@ -114,12 +118,6 @@ import { isMobileSidebarOpenAtom } from '../atoms/sidebar';
 import { ResourceNoticeDialog } from './resource-notice-dialog';
 
 type MessagePart = UIMessage['parts'][number];
-
-const timeFormatter = new Intl.DateTimeFormat('zh-CN', {
-  hour: '2-digit',
-  minute: '2-digit',
-  hour12: false,
-});
 
 const CHAT_REQUEST_TIMEOUT_MS = 8 * 60 * 1000;
 
@@ -212,7 +210,7 @@ function toDownloadMessage(message: UIMessage) {
   };
 }
 
-function getMessageTimeText(message: UIMessage): string | null {
+function getMessageTimeValue(message: UIMessage): Date | null {
   const createdAt = (message as UIMessage & {
     createdAt?: Date | string | number
   }).createdAt;
@@ -228,7 +226,7 @@ function getMessageTimeText(message: UIMessage): string | null {
     return null;
   }
 
-  return timeFormatter.format(parsed);
+  return parsed;
 }
 
 function getConversationTitleFromMessages(messages: UIMessage[], fallbackTitle: string = NEW_CHAT_TITLE) {
@@ -952,7 +950,7 @@ export default function ChatPageClient({
         </p>
       </header>
 
-      <section className='mb-3'>
+      <section className='mb-0.5'>
         <p className='mb-2 px-1 font-medium text-muted-foreground text-xs'>
           快速提问
         </p>
@@ -1020,7 +1018,7 @@ export default function ChatPageClient({
                         = message.role === 'user' || message.role === 'assistant';
                       const messageAuthor
                         = message.role === 'assistant' ? '简历筛选助手' : '你';
-                      const messageTime = getMessageTimeText(message);
+                      const messageTime = getMessageTimeValue(message);
 
                       return (
                         <div key={message.id}>
@@ -1030,7 +1028,14 @@ export default function ChatPageClient({
                                   className={`mb-1 text-muted-foreground text-xs ${message.role === 'user' ? 'text-right' : 'text-left'}`}
                                 >
                                   {messageAuthor}
-                                  {messageTime ? ` · ${messageTime}` : ''}
+                                  {messageTime
+                                    ? (
+                                        <>
+                                          {' · '}
+                                          <TimeDisplay as='span' options={TIME_DISPLAY_OPTIONS} value={messageTime} />
+                                        </>
+                                      )
+                                    : null}
                                 </p>
                               )
                             : null}
@@ -1165,7 +1170,7 @@ export default function ChatPageClient({
                             <p className='mb-1 text-left text-muted-foreground text-xs'>
                               简历筛选助手 ·
                               {' '}
-                              {timeFormatter.format(new Date())}
+                              <TimeDisplay as='span' options={TIME_DISPLAY_OPTIONS} value={Date.now()} />
                             </p>
                             <Message from='assistant'>
                               <MessageContent className='px-0 py-1'>
@@ -1215,7 +1220,7 @@ export default function ChatPageClient({
 
       <PromptInput
         accept='application/pdf'
-        className='mt-4  **:data-[slot=input-group]:cursor-text **:data-[slot=input-group]:rounded-[1.3rem] **:data-[slot=input-group]:border-border/65 **:data-[slot=input-group]:bg-white **:data-[slot=input-group]:shadow-[0_8px_18px_-20px_rgba(60,44,23,0.5)]'
+        className=' **:data-[slot=input-group]:cursor-text **:data-[slot=input-group]:rounded-[1.3rem] **:data-[slot=input-group]:border-border/65 **:data-[slot=input-group]:bg-white **:data-[slot=input-group]:shadow-[0_8px_18px_-20px_rgba(60,44,23,0.5)]'
         onClick={(event) => {
           const target = event.target as HTMLElement;
 

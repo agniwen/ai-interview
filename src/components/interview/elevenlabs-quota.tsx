@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { DATE_TIME_DISPLAY_OPTIONS, TimeDisplay } from '@/components/time-display';
 import { CardDescription, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 
@@ -12,14 +13,6 @@ interface QuotaInfo {
   nextResetUnix: number | null
   status: string
 }
-
-const resetDateFormatter = new Intl.DateTimeFormat('zh-CN', {
-  month: '2-digit',
-  day: '2-digit',
-  hour: '2-digit',
-  minute: '2-digit',
-  hour12: false,
-});
 
 export function ElevenLabsQuota({
   className,
@@ -85,11 +78,13 @@ export function ElevenLabsQuota({
                 </div>
                 <div className='flex items-center justify-between rounded-lg border border-border/60 bg-background/60 px-3 py-2 text-muted-foreground'>
                   <span>下次重置</span>
-                  <span className='font-medium text-foreground'>
-                    {quota.nextResetUnix
-                      ? resetDateFormatter.format(new Date(quota.nextResetUnix * 1000))
-                      : '暂无信息'}
-                  </span>
+                  <TimeDisplay
+                    className='font-medium text-foreground'
+                    options={DATE_TIME_DISPLAY_OPTIONS}
+                    value={quota.nextResetUnix ? quota.nextResetUnix * 1000 : null}
+                    as='span'
+                    emptyText='暂无信息'
+                  />
                 </div>
               </div>
             )
@@ -135,11 +130,13 @@ export function ElevenLabsQuota({
               </div>
               <div className='rounded-lg border border-border/60 bg-background/60 px-3 py-2'>
                 <p className='text-muted-foreground'>下次重置</p>
-                <p className='mt-1 font-medium text-sm'>
-                  {quota.nextResetUnix
-                    ? resetDateFormatter.format(new Date(quota.nextResetUnix * 1000))
-                    : '暂无信息'}
-                </p>
+                <TimeDisplay
+                  className='mt-1 font-medium text-sm'
+                  options={DATE_TIME_DISPLAY_OPTIONS}
+                  value={quota.nextResetUnix ? quota.nextResetUnix * 1000 : null}
+                  as='span'
+                  emptyText='暂无信息'
+                />
               </div>
             </div>
           )

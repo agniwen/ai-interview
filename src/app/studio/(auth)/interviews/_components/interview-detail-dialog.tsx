@@ -5,6 +5,7 @@ import type { StudioInterviewRecord } from '@/lib/studio-interviews';
 import { MessageSquareTextIcon, RotateCcwIcon, Share2Icon } from 'lucide-react';
 import { useEffect, useEffectEvent, useState } from 'react';
 import { toast } from 'sonner';
+import { DATE_TIME_DISPLAY_OPTIONS, TimeDisplay } from '@/components/time-display';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -21,26 +22,6 @@ function formatValue(value: string | number | null | undefined) {
   }
 
   return String(value);
-}
-
-function formatDateTime(value: string | Date | null | undefined) {
-  if (!value) {
-    return '待定';
-  }
-
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return '待定';
-  }
-
-  return new Intl.DateTimeFormat('zh-CN', {
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-  }).format(date);
 }
 
 function ensureStringArray(value: unknown) {
@@ -299,43 +280,47 @@ export function InterviewDetailDialog({
 
   return (
     <Dialog onOpenChange={onOpenChange} open={open}>
-      <DialogContent className='max-h-[90vh] w-[min(96vw,1440px)] max-w-none overflow-hidden p-0 sm:min-w-[1100px]'>
-        <DialogHeader className='border-b px-6 py-5'>
-          <DialogTitle className='flex flex-wrap items-center gap-3'>
-            <span className='break-words'>{record?.candidateName ?? '候选人详情'}</span>
-            {record ? <InterviewStatusBadge status={record.status} /> : null}
-          </DialogTitle>
-          <DialogDescription className='break-words leading-relaxed'>
+      <DialogContent className='max-h-[90vh] gap-0! w-[min(96vw,1440px)] max-w-none overflow-hidden p-0 sm:min-w-275'>
+        <Tabs defaultValue='overview' key={recordId ?? 'empty'}>
+          <DialogHeader className='border-b px-6 pt-5 pb-2'>
+            <DialogTitle className='flex flex-wrap items-center gap-3'>
+              <span className='break-words'>{record?.candidateName ?? '候选人详情'}</span>
+              {record ? <InterviewStatusBadge status={record.status} /> : null}
+            </DialogTitle>
+            <DialogDescription className='wrap-break-word leading-relaxed'>
+              {record
+                ? (
+                    <>
+                      {record.targetRole ?? '待识别岗位'}
+                      {' · '}
+                      {record.resumeFileName ?? '未上传简历'}
+                    </>
+                  )
+                : isLoading
+                  ? '正在加载候选人详情...'
+                  : '暂无可展示的候选人详情。'}
+            </DialogDescription>
             {record
               ? (
-                  <>
-                    {record.targetRole ?? '待识别岗位'}
-                    {' · '}
-                    {record.resumeFileName ?? '未上传简历'}
-                  </>
+                  <TabsList className='mt-0'>
+                    <TabsTrigger className='min-w-[6em]' value='overview'>概览</TabsTrigger>
+                    <TabsTrigger className='min-w-[6em]' value='reports'>面试报告</TabsTrigger>
+                    <TabsTrigger className='min-w-[6em]' value='questions'>AI 题目</TabsTrigger>
+                    <TabsTrigger className='min-w-[6em]' value='experience'>经历</TabsTrigger>
+                  </TabsList>
                 )
-              : isLoading
-                ? '正在加载候选人详情...'
-                : '暂无可展示的候选人详情。'}
-          </DialogDescription>
-        </DialogHeader>
+              : null}
+          </DialogHeader>
 
-        {isLoading
-          ? (
-              <div className='flex min-h-[320px] items-center justify-center px-6 py-10 text-muted-foreground text-sm'>
-                正在加载候选人详情...
-              </div>
-            )
-          : record
+          {isLoading
             ? (
-                <div className='max-h-[calc(90vh-88px)] overflow-y-auto px-6 pt-6 pb-24'>
-                  <Tabs className='space-y-6' defaultValue='overview' key={recordId ?? 'empty'}>
-                    <TabsList>
-                      <TabsTrigger value='overview'>概览</TabsTrigger>
-                      <TabsTrigger value='reports'>面试报告</TabsTrigger>
-                      <TabsTrigger value='questions'>AI 题目</TabsTrigger>
-                      <TabsTrigger value='experience'>经历</TabsTrigger>
-                    </TabsList>
+                <div className='flex min-h-80 items-center justify-center px-6 py-10 text-muted-foreground text-sm'>
+                  正在加载候选人详情...
+                </div>
+              )
+            : record
+              ? (
+                  <div className='max-h-[calc(90vh-88px)] overflow-y-auto px-6 pt-4 pb-6'>
 
                     <TabsContent value='overview'>
                       <div className='space-y-6'>
@@ -364,11 +349,11 @@ export function InterviewDetailDialog({
                                     <div className='rounded-xl border border-border/60 bg-muted/30 p-3' key={entry.id}>
                                       <div className='flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between sm:gap-3'>
                                         <div className='flex items-center gap-2'>
-                                          <span className='break-words font-medium text-sm'>{entry.roundLabel}</span>
+                                          <span className='wrap-break-word font-medium text-sm'>{entry.roundLabel}</span>
                                           <Badge variant={statusMeta.tone}>{statusMeta.label}</Badge>
                                         </div>
                                         <div className='flex items-center gap-2'>
-                                          <span className='shrink-0 text-muted-foreground text-xs'>{formatDateTime(entry.scheduledAt)}</span>
+                                          <TimeDisplay className='shrink-0 text-muted-foreground text-xs' options={DATE_TIME_DISPLAY_OPTIONS} value={entry.scheduledAt} />
                                           <Button
                                             onClick={() => void handleCopy(interviewLink)}
                                             size='sm'
@@ -414,15 +399,15 @@ export function InterviewDetailDialog({
                           <h3 className='font-medium text-sm'>技能与优势</h3>
                           <p className='mt-3 text-muted-foreground text-sm leading-relaxed'>
                             技能：
-                            <span className='break-words'>{visibleSkills.join('、') || '未发现信息'}</span>
+                            <span className='wrap-break-word'>{visibleSkills.join('、') || '未发现信息'}</span>
                           </p>
                           <p className='mt-2 text-muted-foreground text-sm leading-relaxed'>
                             优势：
-                            <span className='break-words'>{visiblePersonalStrengths.join('、') || '未发现信息'}</span>
+                            <span className='wrap-break-word'>{visiblePersonalStrengths.join('、') || '未发现信息'}</span>
                           </p>
                           <p className='mt-2 text-muted-foreground text-sm leading-relaxed'>
                             学校：
-                            <span className='break-words'>{visibleSchools.join('、') || '未发现信息'}</span>
+                            <span className='wrap-break-word'>{visibleSchools.join('、') || '未发现信息'}</span>
                           </p>
                         </div>
 
@@ -470,7 +455,7 @@ export function InterviewDetailDialog({
 
                         {reports.length === 0
                           ? (
-                              <div className='flex min-h-[240px] flex-col items-center justify-center rounded-2xl border border-dashed border-border/70 bg-muted/20 px-6 py-10 text-center'>
+                              <div className='flex min-h-60 flex-col items-center justify-center rounded-2xl border border-dashed border-border/70 bg-muted/20 px-6 py-10 text-center'>
                                 <MessageSquareTextIcon className='size-8 text-muted-foreground' />
                                 <p className='mt-4 font-medium text-sm'>暂无面试报告</p>
                                 <p className='mt-2 max-w-xl text-muted-foreground text-sm leading-relaxed'>
@@ -481,15 +466,15 @@ export function InterviewDetailDialog({
                           : (
                               <Accordion className='space-y-4' collapsible type='single'>
                                 {reports.map((report) => {
-                                  const startedAt = formatDateTime(report.startedAt ?? report.createdAt);
-                                  const endedAt = formatDateTime(report.endedAt ?? report.updatedAt);
+                                  const startedAt = report.startedAt ?? report.createdAt;
+                                  const endedAt = report.endedAt ?? report.updatedAt;
 
                                   return (
                                     <AccordionItem className='overflow-hidden rounded-2xl border border-border/60 bg-background px-0 last:border-b' key={report.conversationId} value={report.conversationId}>
                                       <AccordionTrigger className='px-5 py-4 hover:no-underline'>
                                         <div className='min-w-0 flex-1 text-left'>
                                           <div className='flex flex-wrap items-center gap-2'>
-                                            <p className='font-medium text-sm'>{startedAt}</p>
+                                            <TimeDisplay className='font-medium text-sm' options={DATE_TIME_DISPLAY_OPTIONS} value={startedAt} />
                                             <Badge variant={getReportBadgeVariant(report.status)}>{formatReportStatus(report.status)}</Badge>
                                             {report.callSuccessful
                                               ? <Badge variant='outline'>{report.callSuccessful}</Badge>
@@ -507,11 +492,11 @@ export function InterviewDetailDialog({
                                               <h4 className='font-medium text-sm'>会话概览</h4>
                                               <div className='mt-3 grid gap-2 text-sm'>
                                                 <DetailRow label='会话 ID' value={<span className='break-all'>{report.conversationId}</span>} />
-                                                <DetailRow label='开始时间' value={startedAt} />
-                                                <DetailRow label='结束时间' value={endedAt} />
+                                                <DetailRow label='开始时间' value={<TimeDisplay options={DATE_TIME_DISPLAY_OPTIONS} value={startedAt} />} />
+                                                <DetailRow label='结束时间' value={<TimeDisplay options={DATE_TIME_DISPLAY_OPTIONS} value={endedAt} />} />
                                                 <DetailRow label='消息统计' value={`共 ${report.turnCount} 条 · 候选人 ${report.userTurnCount} 条 · 面试官 ${report.agentTurnCount} 条`} />
-                                                <DetailRow label='同步时间' value={formatDateTime(report.lastSyncedAt)} />
-                                                <DetailRow label='Webhook' value={report.webhookReceivedAt ? formatDateTime(report.webhookReceivedAt) : '未收到'} />
+                                                <DetailRow label='同步时间' value={<TimeDisplay options={DATE_TIME_DISPLAY_OPTIONS} value={report.lastSyncedAt} />} />
+                                                <DetailRow label='Webhook' value={report.webhookReceivedAt ? <TimeDisplay options={DATE_TIME_DISPLAY_OPTIONS} value={report.webhookReceivedAt} /> : '未收到'} />
                                               </div>
                                             </div>
 
@@ -554,7 +539,7 @@ export function InterviewDetailDialog({
                                                         <Badge variant={turn.role === 'user' ? 'outline' : 'secondary'}>
                                                           {turn.role === 'user' ? '候选人' : '面试官'}
                                                         </Badge>
-                                                        <span className='text-muted-foreground'>{formatDateTime(turn.createdAt)}</span>
+                                                        <TimeDisplay className='text-muted-foreground' options={DATE_TIME_DISPLAY_OPTIONS} value={turn.createdAt} />
                                                         {typeof turn.timeInCallSecs === 'number'
                                                           ? (
                                                               <span className='text-muted-foreground'>
@@ -652,14 +637,14 @@ export function InterviewDetailDialog({
                         </div>
                       </div>
                     </TabsContent>
-                  </Tabs>
-                </div>
-              )
-            : (
-                <div className='flex min-h-[240px] items-center justify-center px-6 py-10 text-muted-foreground text-sm'>
-                  暂无可展示的候选人详情。
-                </div>
-              )}
+                  </div>
+                )
+              : (
+                  <div className='flex min-h-[240px] items-center justify-center px-6 py-10 text-muted-foreground text-sm'>
+                    暂无可展示的候选人详情。
+                  </div>
+                )}
+        </Tabs>
       </DialogContent>
     </Dialog>
   );

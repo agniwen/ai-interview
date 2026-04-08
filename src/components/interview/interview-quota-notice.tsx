@@ -4,6 +4,7 @@ import { useAtom } from 'jotai';
 import { atomWithStorage, createJSONStorage } from 'jotai/utils';
 import { AlertTriangleIcon } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { DATE_TIME_DISPLAY_OPTIONS, TimeDisplay } from '@/components/time-display';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -26,14 +27,6 @@ interface QuotaInfo {
 
 const sessionStore = createJSONStorage<boolean>(() => sessionStorage);
 const hasSeenInterviewNoticeAtom = atomWithStorage('interview-quota-notice-seen', false, sessionStore);
-
-const resetDateFormatter = new Intl.DateTimeFormat('zh-CN', {
-  month: '2-digit',
-  day: '2-digit',
-  hour: '2-digit',
-  minute: '2-digit',
-  hour12: false,
-});
 
 export function InterviewQuotaNotice() {
   const [hasSeen, setHasSeen] = useAtom(hasSeenInterviewNoticeAtom);
@@ -126,7 +119,13 @@ export function InterviewQuotaNotice() {
                   </span>
                   <span>
                     {quota.nextResetUnix
-                      ? `重置于 ${resetDateFormatter.format(new Date(quota.nextResetUnix * 1000))}`
+                      ? (
+                          <>
+                            重置于
+                            {' '}
+                            <TimeDisplay as='span' options={DATE_TIME_DISPLAY_OPTIONS} value={quota.nextResetUnix * 1000} />
+                          </>
+                        )
                       : ''}
                   </span>
                 </div>

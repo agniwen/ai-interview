@@ -23,6 +23,7 @@ import {
 import { startTransition, useCallback, useDeferredValue, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { ElevenLabsQuota } from '@/components/interview/elevenlabs-quota';
+import { DATE_TIME_DISPLAY_OPTIONS, TimeDisplay } from '@/components/time-display';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -78,16 +79,6 @@ import { CreateInterviewDialog } from './create-interview-dialog';
 import { EditInterviewDialog } from './edit-interview-dialog';
 import { InterviewDetailDialog } from './interview-detail-dialog';
 import { InterviewStatusBadge } from './interview-status-badge';
-
-function formatDateTime(value: string | Date) {
-  return new Intl.DateTimeFormat('zh-CN', {
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-  }).format(new Date(value));
-}
 
 export function InterviewManagementPage({ initialRecords }: { initialRecords: StudioInterviewListRecord[] }) {
   const [records, dispatchRecords] = useReducer(
@@ -297,7 +288,9 @@ export function InterviewManagementPage({ initialRecords }: { initialRecords: St
               <Badge variant={statusMeta.tone} className='text-[10px] px-1.5 py-0'>{statusMeta.label}</Badge>
             </div>
             <p className='truncate text-muted-foreground text-xs'>
-              {currentEntry.scheduledAt ? formatDateTime(currentEntry.scheduledAt) : '时间待定'}
+              {currentEntry.scheduledAt
+                ? <TimeDisplay options={DATE_TIME_DISPLAY_OPTIONS} value={currentEntry.scheduledAt} />
+                : '时间待定'}
             </p>
           </div>
         );
@@ -316,7 +309,7 @@ export function InterviewManagementPage({ initialRecords }: { initialRecords: St
           <ArrowUpDownIcon className='size-4' />
         </Button>
       ),
-      cell: ({ row }) => formatDateTime(row.original.createdAt),
+      cell: ({ row }) => <TimeDisplay options={DATE_TIME_DISPLAY_OPTIONS} value={row.original.createdAt} />,
     },
     {
       id: 'actions',

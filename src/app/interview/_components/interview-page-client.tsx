@@ -28,6 +28,7 @@ import {
 import { ElevenLabsQuota } from '@/components/interview/elevenlabs-quota';
 import { InterviewQuotaNotice } from '@/components/interview/interview-quota-notice';
 import { SidebarUserSection } from '@/components/sidebar-user-section';
+import { DATE_TIME_DISPLAY_OPTIONS, TIME_DISPLAY_OPTIONS, TimeDisplay } from '@/components/time-display';
 import { Badge } from '@/components/ui/badge';
 import { BarVisualizer } from '@/components/ui/bar-visualizer';
 import { Button } from '@/components/ui/button';
@@ -56,12 +57,6 @@ interface AudioDeviceOption {
   deviceId: string
   label: string
 }
-
-const timeFormatter = new Intl.DateTimeFormat('zh-CN', {
-  hour: '2-digit',
-  minute: '2-digit',
-  hour12: false,
-});
 
 const persistedEventIdPattern = /:event:(\d+)$/;
 
@@ -132,24 +127,6 @@ function formatStatusSummary(statusText: string) {
     default:
       return '尚未开始';
   }
-}
-
-function formatDateTime(value: string | Date | null | undefined) {
-  if (!value) {
-    return '待定';
-  }
-
-  return new Intl.DateTimeFormat('zh-CN', {
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-  }).format(new Date(value));
-}
-
-function formatMessageTime(createdAt: number) {
-  return timeFormatter.format(new Date(createdAt));
 }
 
 function formatResumeText(value: string | null | undefined) {
@@ -925,7 +902,7 @@ export default function InterviewPageClient({ interviewId, roundId }: { intervie
                                   {interviewRecord.currentRoundLabel ?? '待安排'}
                                   {isRoundEnded || interviewRecord.currentRoundStatus === 'completed' ? ' · 已结束' : interviewRecord.currentRoundStatus === 'in_progress' ? ' · 进行中' : ''}
                                 </p>
-                                <p className='mt-1 text-muted-foreground'>{formatDateTime(interviewRecord.currentRoundTime)}</p>
+                                <TimeDisplay className='mt-1 text-muted-foreground' options={DATE_TIME_DISPLAY_OPTIONS} value={interviewRecord.currentRoundTime} />
                               </div>
                               <div className='rounded-lg border border-border/60 bg-background/60 px-3 py-2'>
                                 <p className='text-muted-foreground'>候选人摘要</p>
@@ -1065,7 +1042,15 @@ export default function InterviewPageClient({ interviewId, roundId }: { intervie
             </div>
             <p className='mt-2 max-w-3xl font-serif! text-xs text-muted-foreground sm:text-sm'>
               {interviewRecord
-                ? `${interviewRecord.candidateName} · ${interviewRecord.targetRole ?? '待识别岗位'} · ${formatDateTime(interviewRecord.currentRoundTime)}`
+                ? (
+                    <>
+                      {interviewRecord.candidateName}
+                      {' · '}
+                      {interviewRecord.targetRole ?? '待识别岗位'}
+                      {' · '}
+                      <TimeDisplay as='span' options={DATE_TIME_DISPLAY_OPTIONS} value={interviewRecord.currentRoundTime} />
+                    </>
+                  )
                 : isLoadingRecord
                   ? '系统正在确认当前面试链接对应的候选人信息。'
                   : '当前链接对应的面试记录不可用。'}
@@ -1108,7 +1093,7 @@ export default function InterviewPageClient({ interviewId, roundId }: { intervie
                         >
                           {turn.role === 'agent' ? '面试官' : '候选人'}
                           {' · '}
-                          {formatMessageTime(turn.createdAt)}
+                          <TimeDisplay as='span' options={TIME_DISPLAY_OPTIONS} value={turn.createdAt} />
                         </p>
 
                         <ElevenLabsMessage from={turn.role === 'agent' ? 'assistant' : 'user'}>
