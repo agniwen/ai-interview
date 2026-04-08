@@ -425,7 +425,7 @@ export function InterviewManagementPage({ initialRecords }: { initialRecords: St
           </div>
         </section>
 
-        <section className='grid gap-4 md:grid-cols-3'>
+        <section className='grid gap-4 md:grid-cols-2 xl:grid-cols-4'>
           {[
             { label: '总记录数', value: `${summary.total}`, hint: '所有候选人简历与流程记录' },
             { label: '待面试', value: `${summary.ready}`, hint: '流程已准备好，可发送链接开始面试' },
@@ -441,16 +441,12 @@ export function InterviewManagementPage({ initialRecords }: { initialRecords: St
               </CardContent>
             </Card>
           ))}
+          <Card className='border-border/60 bg-background/92'>
+            <CardContent className='pt-0'>
+              <ElevenLabsQuota compact />
+            </CardContent>
+          </Card>
         </section>
-
-        <Card className='border-border/60 bg-background/92'>
-          <CardHeader className='pb-2'>
-            <CardDescription>AI 面试通话额度</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ElevenLabsQuota className='border-0 py-0' />
-          </CardContent>
-        </Card>
 
         <Card className='border-border/60 bg-background/95'>
           <CardHeader className='gap-4 lg:flex-row lg:items-end lg:justify-between'>
@@ -474,7 +470,7 @@ export function InterviewManagementPage({ initialRecords }: { initialRecords: St
                 <RefreshCwIcon className={`size-4 ${isMutationRefreshing ? 'animate-spin' : ''}`} />
                 <span className='sr-only'>刷新</span>
               </Button>
-              <div className='relative min-w-[240px]'>
+              <div className='relative min-w-60'>
                 <SearchIcon className='pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground' />
                 <Input className='pr-9 pl-9' onChange={event => setGlobalFilter(event.target.value)} placeholder='搜索候选人、岗位、轮次或简历名' value={globalFilter} />
                 {isFilterLoading
@@ -482,7 +478,7 @@ export function InterviewManagementPage({ initialRecords }: { initialRecords: St
                   : null}
               </div>
               <Select onValueChange={value => setStatusFilter(value as typeof statusFilter)} value={statusFilter}>
-                <SelectTrigger className='min-w-[180px]'>
+                <SelectTrigger className='min-w-45'>
                   <SelectValue placeholder='按状态筛选' />
                 </SelectTrigger>
                 <SelectContent>

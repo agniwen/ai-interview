@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import InterviewQuickStartClient from '@/app/interview/_components/interview-quick-start-client';
+import { redirect } from 'next/navigation';
 
 export const metadata: Metadata = {
   title: 'AI 面试 · 快速开始',
@@ -7,6 +7,5 @@ export const metadata: Metadata = {
 };
 
 export default async function InterviewQuickStartPage() {
-  'use cache';
-  return <InterviewQuickStartClient />;
+  redirect('/studio/interviews');
 }

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { CardDescription, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 
 interface QuotaInfo {
@@ -20,7 +21,13 @@ const resetDateFormatter = new Intl.DateTimeFormat('zh-CN', {
   hour12: false,
 });
 
-export function ElevenLabsQuota({ className }: { className?: string }) {
+export function ElevenLabsQuota({
+  className,
+  compact = false,
+}: {
+  className?: string
+  compact?: boolean
+}) {
   const [quota, setQuota] = useState<QuotaInfo | null>(null);
   const [failed, setFailed] = useState(false);
 
@@ -44,6 +51,56 @@ export function ElevenLabsQuota({ className }: { className?: string }) {
 
   if (failed) {
     return null;
+  }
+
+  if (compact) {
+    return (
+      <section className={cn('min-h-[132px]', className)}>
+        <div className='mb-3'>
+          <CardDescription>AI 面试通话额度</CardDescription>
+          <CardTitle className='mt-2 text-3xl'>
+            {quota
+              ? quota.characterRemaining.toLocaleString()
+              : '...'}
+          </CardTitle>
+        </div>
+        {quota
+          ? (
+              <div className='space-y-2 text-xs'>
+                <div className='rounded-lg border border-border/60 bg-background/60 px-3 py-2'>
+                  <p className='text-muted-foreground'>剩余 / 总额</p>
+                  <p className='mt-1 font-medium text-sm'>
+                    {quota.characterLimit.toLocaleString()}
+                    {' tokens'}
+                  </p>
+                  <div className='mt-2 h-2 overflow-hidden rounded-full bg-muted/70'>
+                    <div
+                      className={cn(
+                        'h-full rounded-full transition-[width] duration-300',
+                        quota.characterRemaining / quota.characterLimit > 0.2 ? 'bg-primary' : 'bg-destructive',
+                      )}
+                      style={{ width: `${Math.max(2, (quota.characterRemaining / quota.characterLimit) * 100)}%` }}
+                    />
+                  </div>
+                </div>
+                <div className='flex items-center justify-between rounded-lg border border-border/60 bg-background/60 px-3 py-2 text-muted-foreground'>
+                  <span>下次重置</span>
+                  <span className='font-medium text-foreground'>
+                    {quota.nextResetUnix
+                      ? resetDateFormatter.format(new Date(quota.nextResetUnix * 1000))
+                      : '暂无信息'}
+                  </span>
+                </div>
+              </div>
+            )
+          : (
+              <div className='space-y-2'>
+                <div className='h-[74px] rounded-lg border border-border/60 bg-muted/35' />
+                <div className='h-[38px] rounded-lg border border-border/60 bg-muted/25' />
+              </div>
+            )}
+      </section>
+    );
   }
 
   return (

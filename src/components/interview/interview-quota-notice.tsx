@@ -39,6 +39,7 @@ export function InterviewQuotaNotice() {
   const [hasSeen, setHasSeen] = useAtom(hasSeenInterviewNoticeAtom);
   const [quota, setQuota] = useState<QuotaInfo | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [hasResolved, setHasResolved] = useState(hasSeen);
 
   useEffect(() => {
     if (hasSeen) {
@@ -51,18 +52,19 @@ export function InterviewQuotaNotice() {
           return null;
         }
 
-        setIsAdmin(true);
         return response.json() as Promise<QuotaInfo>;
       })
       .then((data) => {
         if (data) {
+          setIsAdmin(true);
           setQuota(data);
         }
       })
-      .catch(() => undefined);
+      .catch(() => undefined)
+      .finally(() => setHasResolved(true));
   }, [hasSeen]);
 
-  if (!isAdmin || hasSeen) {
+  if (!hasResolved || !isAdmin || !quota || hasSeen) {
     return null;
   }
 

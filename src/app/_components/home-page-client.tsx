@@ -62,7 +62,7 @@ export default function HomePageClient() {
   };
 
   const handleInterviewClick = () => {
-    handleProtectedNavigation('/interview');
+    handleProtectedNavigation('/studio/interviews');
   };
 
   return (
@@ -165,7 +165,7 @@ export default function HomePageClient() {
         callbackURL={callbackURL}
         onOpenChange={open => !open && setPendingPath(null)}
         open={pendingPath !== null}
-        title={pendingPath === '/interview' ? '登录后即可进入模拟面试' : '登录后即可进入简历筛选'}
+        title={pendingPath === '/studio/interviews' ? '登录后即可进入模拟面试管理' : '登录后即可进入简历筛选'}
       />
     </>
   );
