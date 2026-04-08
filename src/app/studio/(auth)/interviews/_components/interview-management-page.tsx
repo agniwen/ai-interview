@@ -211,13 +211,21 @@ export function InterviewManagementPage({ initialRecords }: { initialRecords: St
     const fullLink = toAbsoluteUrl(link);
 
     try {
-      const copied = await copyTextToClipboard(fullLink);
+      const result = await copyTextToClipboard(fullLink);
 
-      if (!copied) {
-        throw new Error('copy-failed');
+      if (result === 'copied') {
+        toast.success('面试链接已复制');
+        return;
       }
 
-      toast.success('面试链接已复制');
+      if (result === 'manual') {
+        toast.info('已弹出链接，请手动复制');
+        return;
+      }
+
+      if (result === 'failed') {
+        throw new Error('copy-failed');
+      }
     }
     catch {
       toast.error('复制失败，请手动复制');

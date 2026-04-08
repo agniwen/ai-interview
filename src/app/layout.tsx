@@ -48,6 +48,8 @@ export const metadata: Metadata = {
     '面向招聘场景的聊天式简历初筛应用，支持上传简历并生成筛选建议。',
 };
 
+const isVercelAnalyticsEnabled = process.env.NEXT_PUBLIC_ENABLE_VERCEL_ANALYTICS === 'true';
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -68,7 +70,7 @@ export default function RootLayout({
           <Suspense>{children}</Suspense>
           <Toaster />
         </TooltipProvider>
-        <Analytics />
+        {isVercelAnalyticsEnabled ? <Analytics /> : null}
       </body>
     </html>
   );

@@ -232,13 +232,21 @@ export function InterviewDetailDialog({
 
   async function handleCopy(link: string) {
     try {
-      const copied = await copyTextToClipboard(link);
+      const result = await copyTextToClipboard(link);
 
-      if (!copied) {
-        throw new Error('copy-failed');
+      if (result === 'copied') {
+        toast.success('面试链接已复制');
+        return;
       }
 
-      toast.success('面试链接已复制');
+      if (result === 'manual') {
+        toast.info('已弹出链接，请手动复制');
+        return;
+      }
+
+      if (result === 'failed') {
+        throw new Error('copy-failed');
+      }
     }
     catch {
       toast.error('复制失败，请手动复制');
