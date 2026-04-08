@@ -68,6 +68,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { copyTextToClipboard, toAbsoluteUrl } from '@/lib/clipboard';
 import {
   scheduleEntryStatusMeta,
   studioInterviewStatusMeta,
@@ -203,12 +204,19 @@ export function InterviewManagementPage({ initialRecords }: { initialRecords: St
   }, []);
 
   async function copyInterviewLink(record: StudioInterviewListRecord) {
+    const lastEntry = record.scheduleEntries.at(-1);
+    const link = lastEntry
+      ? `/interview/${record.id}/${lastEntry.id}`
+      : record.interviewLink;
+    const fullLink = toAbsoluteUrl(link);
+
     try {
-      const lastEntry = record.scheduleEntries[record.scheduleEntries.length - 1];
-      const link = lastEntry
-        ? `/interview/${record.id}/${lastEntry.id}`
-        : record.interviewLink;
-      await navigator.clipboard.writeText(new URL(link, window.location.origin).toString());
+      const copied = await copyTextToClipboard(fullLink);
+
+      if (!copied) {
+        throw new Error('copy-failed');
+      }
+
       toast.success('面试链接已复制');
     }
     catch {

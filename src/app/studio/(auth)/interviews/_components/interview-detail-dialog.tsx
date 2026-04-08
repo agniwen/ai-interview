@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { copyTextToClipboard, toAbsoluteUrl } from '@/lib/clipboard';
 import { scheduleEntryStatusMeta } from '@/lib/studio-interviews';
 import { InterviewStatusBadge } from './interview-status-badge';
 
@@ -231,7 +232,12 @@ export function InterviewDetailDialog({
 
   async function handleCopy(link: string) {
     try {
-      await navigator.clipboard.writeText(link);
+      const copied = await copyTextToClipboard(link);
+
+      if (!copied) {
+        throw new Error('copy-failed');
+      }
+
       toast.success('面试链接已复制');
     }
     catch {
@@ -344,6 +350,7 @@ export function InterviewDetailDialog({
                                   const statusKey = (entry.status ?? 'pending') as keyof typeof scheduleEntryStatusMeta;
                                   const statusMeta = scheduleEntryStatusMeta[statusKey] ?? scheduleEntryStatusMeta.pending;
                                   const isLastEntry = index === scheduleEntries.length - 1;
+                                  const interviewLink = toAbsoluteUrl(`/interview/${record.id}/${entry.id}`);
 
                                   return (
                                     <div className='rounded-xl border border-border/60 bg-muted/30 p-3' key={entry.id}>
@@ -355,7 +362,7 @@ export function InterviewDetailDialog({
                                         <div className='flex items-center gap-2'>
                                           <span className='shrink-0 text-muted-foreground text-xs'>{formatDateTime(entry.scheduledAt)}</span>
                                           <Button
-                                            onClick={() => void handleCopy(new URL(`/interview/${record.id}/${entry.id}`, window.location.origin).toString())}
+                                            onClick={() => void handleCopy(interviewLink)}
                                             size='sm'
                                             type='button'
                                             variant='ghost'
@@ -382,6 +389,12 @@ export function InterviewDetailDialog({
                                       <p className='mt-2 text-muted-foreground text-sm leading-relaxed'>
                                         {truncateText(entry.notes, 180) || '暂无轮次备注'}
                                       </p>
+                                      <div className='mt-3 rounded-lg border border-border/50 bg-background/80 px-3 py-2'>
+                                        <p className='text-muted-foreground text-xs'>完整面试链接</p>
+                                        <p className='mt-1 break-all font-mono text-xs leading-relaxed'>
+                                          {interviewLink}
+                                        </p>
+                                      </div>
                                     </div>
                                   );
                                 })
