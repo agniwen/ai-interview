@@ -334,7 +334,7 @@ function extractTimelineSummary(resumeText: string): ResumeTimelineSummary {
   };
 }
 
-async function readPdfBytes(url: string): Promise<Uint8Array> {
+export async function readPdfBytes(url: string): Promise<Uint8Array> {
   if (url.startsWith('data:')) {
     return decodeDataUrl(url).data;
   }

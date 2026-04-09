@@ -11,6 +11,7 @@ import {
 import { factory } from '@/server/factory';
 import { chatRequestSchema } from './schema';
 import {
+  createAnalyzeResumePdfWithVisionTool,
   createExtractResumePdfStructuredInfoTool,
   createExtractResumePdfTextTool,
   createListUploadedResumePdfsTool,
@@ -211,6 +212,7 @@ export const chatRouter = factory.createApp().post(
 - 如果上传的 PDF 中已经包含简历信息，不要要求用户手动粘贴这些内容。
 - 只分析能够识别为候选人简历的有效 PDF 内容；如果某个 PDF 明显不是简历（例如合同、报价单、试卷、论文、产品文档、说明书、发票等），忽略该文件，不要把它纳入候选人分析、排序或对比。
 - 如果上传文件里同时包含简历 PDF 和非简历 PDF，仅基于简历 PDF 继续分析，并在必要时简短说明已忽略非简历文件。
+- 如果 extract_resume_pdf_text 返回的文本质量明显很差（大量乱码、几乎空白、有效文字极少），说明该 PDF 可能是图片格式的简历，此时应调用 analyze_resume_pdf_with_vision 使用视觉模型重新提取内容。
 
 【工具调用】
 当用户询问当前时间时，调用 get_server_time。
@@ -239,6 +241,11 @@ ${autoJdContext}
         extract_resume_pdf_structured_info: createExtractResumePdfStructuredInfoTool({
           availableResumeNames,
           parseUploadedResume,
+          selectResumeFiles,
+          uploadedResumePdfs,
+        }),
+        analyze_resume_pdf_with_vision: createAnalyzeResumePdfWithVisionTool({
+          availableResumeNames,
           selectResumeFiles,
           uploadedResumePdfs,
         }),

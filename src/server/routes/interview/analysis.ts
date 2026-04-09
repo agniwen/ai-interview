@@ -4,7 +4,8 @@ import type {
   ResumeProfile,
 } from '@/lib/interview/types';
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
-import { generateText, NoObjectGeneratedError, Output } from 'ai';
+import { generateText, NoObjectGeneratedError, Output, stepCountIs, tool } from 'ai';
+import { z } from 'zod';
 import {
   generatedInterviewQuestionsSchema,
   resumeProfileSchema,
@@ -121,7 +122,70 @@ export async function analyzeResumeFile(file: File): Promise<ResumeAnalysisResul
     }),
   });
   const pdfBytes = Buffer.from(await file.arrayBuffer());
-  const resumeText = await extractPdfText(pdfBytes);
+  const pdfParseText = await extractPdfText(pdfBytes);
+
+  let resumeText = pdfParseText;
+
+  if (process.env.AI_GATEWAY_API_KEY) {
+    const base64PdfData = pdfBytes.toString('base64');
+
+    try {
+      const { steps } = await generateText({
+        model: provider(process.env.ALIBABA_FAST_MODEL ?? 'qwen-turbo'),
+        temperature: 0,
+        stopWhen: stepCountIs(2),
+        tools: {
+          analyze_pdf_with_vision: tool({
+            description: '当提供的简历文本质量差（乱码、空白、内容过少、信息不完整）或明显是从图片 PDF 提取导致丢失大量信息时，调用此工具使用视觉模型重新解析原始 PDF，获取更完整的简历内容。',
+            inputSchema: z.object({}),
+            execute: async () => {
+              const visionModelId = process.env.GOOGLE_VISION_MODEL ?? 'google/gemini-2.5-flash';
+
+              const { text } = await generateText({
+                model: visionModelId,
+                messages: [
+                  {
+                    role: 'user',
+                    content: [
+                      {
+                        type: 'file',
+                        data: base64PdfData,
+                        mediaType: 'application/pdf',
+                      },
+                      {
+                        type: 'text',
+                        text: '请完整提取这份 PDF 简历中的所有文字内容，包括图片中的文字。保持原始结构和排版顺序，不要遗漏任何信息。如果存在表格，用文字形式还原。只输出提取的内容，不要添加任何分析或评论。',
+                      },
+                    ],
+                  },
+                ],
+              });
+
+              return { resumeText: text };
+            },
+          }),
+        },
+        system: '你是一名简历文本质量评估助手。请评估用户提供的从 PDF 中提取的简历文本质量。如果文本包含完整的候选人信息（姓名、教育、技能、经历等），质量良好，请直接原样输出该文本，不做任何修改。如果文本存在以下问题：大量乱码、几乎空白、有效内容极少、关键信息明显缺失、文字断裂不成句，说明 PDF 可能是图片格式，请调用 analyze_pdf_with_vision 工具重新提取，然后输出工具返回的文本。',
+        messages: [
+          {
+            role: 'user',
+            content: `请评估以下简历文本质量：\n\n${pdfParseText}`,
+          },
+        ],
+      });
+
+      const toolResult = steps
+        .flatMap(step => step.toolResults)
+        .find(result => result.toolName === 'analyze_pdf_with_vision');
+
+      if (toolResult && 'output' in toolResult && typeof toolResult.output === 'object' && toolResult.output !== null && 'resumeText' in toolResult.output) {
+        resumeText = (toolResult.output as { resumeText: string }).resumeText;
+      }
+    }
+    catch (error) {
+      console.error('[resume-vision-eval] Quality evaluation failed, using pdf-parse text:', error instanceof Error ? error.message : error);
+    }
+  }
 
   let resumeProfile: ResumeProfile;
 

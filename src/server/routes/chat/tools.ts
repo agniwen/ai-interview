@@ -1,7 +1,7 @@
 import type { ParsedResumePdf, UploadedResumePdf } from '@/lib/resume-pdf';
-import { tool } from 'ai';
+import { generateText, tool } from 'ai';
 import { z } from 'zod';
-import { clipResumeText, extractResumeStructuredInfo } from '@/lib/resume-pdf';
+import { clipResumeText, extractResumeStructuredInfo, readPdfBytes } from '@/lib/resume-pdf';
 
 interface PdfToolDependencies {
   availableResumeNames: string[]
@@ -183,6 +183,86 @@ export function createExtractResumePdfTextTool({
               pageCount: parsed.pageCount,
               textChars: parsed.totalTextChars,
               truncated: clipped.truncated,
+            };
+          }
+          catch (error) {
+            return toPdfParseError(error, file.filename);
+          }
+        }),
+      );
+
+      return {
+        count: resumes.length,
+        resumes,
+      };
+    },
+  });
+}
+
+export function createAnalyzeResumePdfWithVisionTool({
+  availableResumeNames,
+  selectResumeFiles,
+  uploadedResumePdfs,
+}: Pick<PdfToolDependencies, 'availableResumeNames' | 'selectResumeFiles' | 'uploadedResumePdfs'>) {
+  return tool({
+    description:
+      '视觉分析工具：当 extract_resume_pdf_text 返回的文本质量差（乱码、空白、内容过少）或 PDF 简历内容主要为图片时，调用此工具使用视觉模型直接分析 PDF 内容。返回视觉模型提取的简历文本。',
+    inputSchema: z.object({
+      resumeName: z.string().optional().describe('简历文件名关键词或从 1 开始的序号'),
+    }),
+    execute: async ({ resumeName }) => {
+      if (uploadedResumePdfs.length === 0) {
+        return buildNoResumeResult();
+      }
+
+      const selected = selectResumeFiles(resumeName);
+
+      if (selected.length === 0) {
+        return buildResumeSelectorMissResult(availableResumeNames, resumeName);
+      }
+
+      const apiKey = process.env.AI_GATEWAY_API_KEY;
+
+      if (!apiKey) {
+        return {
+          count: 0,
+          error: '未配置 AI_GATEWAY_API_KEY，无法使用视觉分析。',
+          resumes: [],
+        };
+      }
+
+      const modelId = process.env.GOOGLE_VISION_MODEL ?? 'google/gemini-2.5-flash';
+
+      const resumes = await Promise.all(
+        selected.map(async (file) => {
+          try {
+            const pdfBytes = await readPdfBytes(file.url);
+            const base64Data = Buffer.from(pdfBytes).toString('base64');
+
+            const { text } = await generateText({
+              model: modelId,
+              messages: [
+                {
+                  role: 'user',
+                  content: [
+                    {
+                      type: 'file',
+                      data: base64Data,
+                      mediaType: 'application/pdf',
+                    },
+                    {
+                      type: 'text',
+                      text: '请完整提取这份 PDF 简历中的所有文字内容，包括图片中的文字。保持原始结构和排版顺序，不要遗漏任何信息。如果存在表格，用文字形式还原。只输出提取的内容，不要添加任何分析或评论。',
+                    },
+                  ],
+                },
+              ],
+            });
+
+            return {
+              excerpt: text,
+              filename: file.filename,
+              source: 'gemini-vision',
             };
           }
           catch (error) {
