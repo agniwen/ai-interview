@@ -6,6 +6,7 @@ import {
   PanelLeftCloseIcon,
   PanelLeftOpenIcon,
   SparklesIcon,
+  UploadCloudIcon,
   UploadIcon,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
@@ -21,6 +22,7 @@ import { ElevenLabsQuota } from '@/components/interview/elevenlabs-quota';
 import { InterviewQuotaNotice } from '@/components/interview/interview-quota-notice';
 import { SidebarUserSection } from '@/components/sidebar-user-section';
 import { Button } from '@/components/ui/button';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 
 type UploadStage = 'idle' | 'uploading' | 'error';
@@ -169,9 +171,8 @@ export default function InterviewQuickStartClient() {
         </div>
 
         <div className='min-h-0 flex-1 overflow-y-auto px-3 py-3'>
-          {!showExpandedSidebar
-            ? null
-            : (
+          {showExpandedSidebar
+            ? (
                 <>
                   <section className='border-border/60 border-b py-3'>
                     <p className='mb-3 font-medium text-sm'>上传候选人简历</p>
@@ -258,6 +259,29 @@ export default function InterviewQuickStartClient() {
 
                   <ElevenLabsQuota />
                 </>
+              )
+            : (
+                <TooltipProvider>
+                  <div className='flex flex-col items-center px-0.5 pt-1'>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          className='flex size-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-accent/40'
+                          disabled={isUploading}
+                          onClick={() => fileInputRef.current?.click()}
+                          type='button'
+                        >
+                          {isUploading
+                            ? <LoaderCircleIcon className='size-4 animate-spin text-primary/70' />
+                            : <UploadCloudIcon className='size-4' />}
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent side='right'>
+                        {isUploading ? uploadProgress : '上传简历开始面试'}
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
+                </TooltipProvider>
               )}
         </div>
 

@@ -8,11 +8,13 @@ import { Conversation as VoiceConversation } from '@elevenlabs/client';
 import {
   AudioLinesIcon,
   LoaderCircleIcon,
+  MessageSquareTextIcon,
   MicIcon,
   PanelLeftCloseIcon,
   PanelLeftOpenIcon,
   PhoneOffIcon,
   SparklesIcon,
+  UserIcon,
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useHotkeys } from 'react-hotkeys-hook';
@@ -39,6 +41,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 
 interface Turn {
@@ -871,9 +875,8 @@ export default function InterviewPageClient({ interviewId, roundId }: { intervie
         </div>
 
         <div className='min-h-0 flex-1 overflow-y-auto px-3 py-3'>
-          {!showExpandedSidebar
-            ? null
-            : (
+          {showExpandedSidebar
+            ? (
                 <>
                   <section className='border-border/60 border-b py-3'>
                     <p className='mb-3 font-medium text-sm'>候选人概览</p>
@@ -928,7 +931,7 @@ export default function InterviewPageClient({ interviewId, roundId }: { intervie
                     </Select>
 
                     <p className='mt-3 text-muted-foreground text-xs leading-relaxed'>
-                      开始面试时会自动请求麦克风权限；如果设备名没有刷新出来，重新点一次“检测”即可。
+                      开始面试时会自动请求麦克风权限；如果设备名没有刷新出来，重新点一次”检测”即可。
                     </p>
                   </section>
 
@@ -1006,6 +1009,127 @@ export default function InterviewPageClient({ interviewId, roundId }: { intervie
                     </div>
                   </section>
                 </>
+              )
+            : (
+                <TooltipProvider>
+                  <div className='flex flex-col items-center gap-2 px-0.5'>
+                    <HoverCard openDelay={200}>
+                      <HoverCardTrigger asChild>
+                        <button
+                          className={cn(
+                            'flex size-9 items-center justify-center rounded-lg transition-colors hover:bg-accent/40',
+                            interviewRecord ? 'text-foreground' : 'text-muted-foreground/50',
+                          )}
+                          type='button'
+                        >
+                          <UserIcon className='size-4' />
+                        </button>
+                      </HoverCardTrigger>
+                      <HoverCardContent side='right' className='w-64 text-xs'>
+                        <p className='mb-2 font-medium text-sm'>候选人概览</p>
+                        {interviewRecord
+                          ? (
+                              <div className='grid gap-1.5'>
+                                <div>
+                                  <p className='text-muted-foreground text-[11px]'>姓名</p>
+                                  <p className='font-medium'>{interviewRecord.candidateName}</p>
+                                </div>
+                                <div>
+                                  <p className='text-muted-foreground text-[11px]'>目标岗位</p>
+                                  <p>{interviewRecord.targetRole ?? '待识别岗位'}</p>
+                                </div>
+                                <div>
+                                  <p className='text-muted-foreground text-[11px]'>当前轮次</p>
+                                  <p>
+                                    {interviewRecord.currentRoundLabel ?? '待安排'}
+                                    {isRoundEnded || interviewRecord.currentRoundStatus === 'completed' ? ' · 已结束' : interviewRecord.currentRoundStatus === 'in_progress' ? ' · 进行中' : ''}
+                                  </p>
+                                </div>
+                                <div>
+                                  <p className='text-muted-foreground text-[11px]'>摘要</p>
+                                  <p className='line-clamp-3 leading-relaxed'>{resumeSummary}</p>
+                                </div>
+                              </div>
+                            )
+                          : <p className='text-muted-foreground'>暂无候选人信息</p>}
+                      </HoverCardContent>
+                    </HoverCard>
+
+                    <MicSelector
+                      className='size-9 w-9 p-0! [&>span]:hidden [&>svg:last-child]:hidden'
+                      value={selectedInputDeviceId}
+                      onValueChange={setSelectedInputDeviceId}
+                    />
+
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          className='relative flex size-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-accent/40'
+                          onClick={() => setIsSidebarCollapsed(false)}
+                          type='button'
+                        >
+                          <span className={cn(
+                            'size-2.5 rounded-full',
+                            isConnected ? 'bg-emerald-500' : statusText === 'connecting' ? 'bg-amber-400 animate-pulse' : 'bg-muted-foreground/30',
+                          )}
+                          />
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent side='right'>
+                        {interviewStage}
+                        {' · '}
+                        {connectionSummary}
+                      </TooltipContent>
+                    </Tooltip>
+
+                    <HoverCard openDelay={200}>
+                      <HoverCardTrigger asChild>
+                        <button
+                          className='relative flex size-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-accent/40'
+                          type='button'
+                        >
+                          <MessageSquareTextIcon className='size-4' />
+                          {turns.length > 0
+                            ? (
+                                <span className='absolute -right-0.5 -top-0.5 flex size-4 items-center justify-center rounded-full bg-primary text-[9px] text-primary-foreground'>
+                                  {turns.length > 99 ? '99+' : turns.length}
+                                </span>
+                              )
+                            : null}
+                        </button>
+                      </HoverCardTrigger>
+                      <HoverCardContent side='right' className='w-64 text-xs'>
+                        <p className='mb-2 font-medium text-sm'>对话摘要</p>
+                        <div className='grid gap-1.5'>
+                          <div>
+                            <p className='text-muted-foreground text-[11px]'>记录条数</p>
+                            <p>{turns.length} 条</p>
+                          </div>
+                          <div>
+                            <p className='text-muted-foreground text-[11px]'>最终总结</p>
+                            <p className='line-clamp-3 leading-relaxed'>{latestSummaryText}</p>
+                          </div>
+                          {latestAgentTurn
+                            ? (
+                                <div>
+                                  <p className='text-muted-foreground text-[11px]'>最近追问</p>
+                                  <p className='line-clamp-2 leading-relaxed'>{latestAgentTurn.text}</p>
+                                </div>
+                              )
+                            : null}
+                          {latestUserTurn
+                            ? (
+                                <div>
+                                  <p className='text-muted-foreground text-[11px]'>最近作答</p>
+                                  <p className='line-clamp-2 leading-relaxed'>{latestUserTurn.text}</p>
+                                </div>
+                              )
+                            : null}
+                        </div>
+                      </HoverCardContent>
+                    </HoverCard>
+                  </div>
+                </TooltipProvider>
               )}
         </div>
 

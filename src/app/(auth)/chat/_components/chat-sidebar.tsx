@@ -24,6 +24,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { chatHistoryDB } from '@/lib/chat-history-db';
 import { cn } from '@/lib/utils';
 import { isMobileSidebarOpenAtom, isSidebarCollapsedAtom } from '../atoms/sidebar';
@@ -193,9 +194,8 @@ export default function ChatSidebar() {
       </div>
 
       <div className='min-h-0 flex-1 overflow-y-auto px-1.5 py-2'>
-        {!showExpandedSidebar
-          ? null
-          : conversations.length === 0
+        {showExpandedSidebar
+          ? conversations.length === 0
             ? (
                 <p className='px-2 py-3 text-muted-foreground text-xs'>
                   暂无本地聊天记录
@@ -243,7 +243,42 @@ export default function ChatSidebar() {
                     );
                   })}
                 </ul>
-              )}
+              )
+          : conversations.length > 0
+            ? (
+                <TooltipProvider>
+                  <ul className='space-y-1.5 px-1'>
+                    {conversations.map((conversation) => {
+                      const isActive = activeSessionId === conversation.id;
+                      const visibleTitle = conversation.isTitleGenerating
+                        ? GENERATING_CHAT_TITLE
+                        : conversation.title;
+
+                      return (
+                        <li key={conversation.id}>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Link
+                                className={cn(
+                                  'block rounded-md px-1.5 py-1.5 transition-colors',
+                                  isActive ? 'bg-accent/60' : 'hover:bg-accent/40',
+                                )}
+                                href={`/chat/${conversation.id}`}
+                              >
+                                <div className={cn('h-1.5 rounded-full', isActive ? 'bg-foreground/40 w-full' : 'bg-muted-foreground/12 w-3/4')} />
+                              </Link>
+                            </TooltipTrigger>
+                            <TooltipContent side='right'>
+                              {visibleTitle}
+                            </TooltipContent>
+                          </Tooltip>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </TooltipProvider>
+              )
+            : null}
       </div>
 
       <SidebarUserSection callbackURL='/chat' collapsed={isSidebarCollapsed && !isMobileSidebarOpen} />
