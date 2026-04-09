@@ -2,14 +2,12 @@
 
 import {
   FileTextIcon,
-  HouseIcon,
   LoaderCircleIcon,
   PanelLeftCloseIcon,
   PanelLeftOpenIcon,
   SparklesIcon,
   UploadIcon,
 } from 'lucide-react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useRef, useState } from 'react';
 import { useHotkeys } from 'react-hotkeys-hook';
@@ -155,16 +153,7 @@ export default function InterviewQuickStartClient() {
           </Button>
 
           {showExpandedSidebar
-            ? (
-                <>
-                  <p className='truncate font-medium text-sm'>快速开始面试</p>
-                  <Button asChild className='ml-auto' size='icon' type='button' variant='ghost'>
-                    <Link aria-label='返回首页' href='/'>
-                      <HouseIcon className='size-4' />
-                    </Link>
-                  </Button>
-                </>
-              )
+            ? <p className='truncate font-medium text-sm'>快速开始面试</p>
             : null}
 
           <Button

@@ -8,7 +8,7 @@ import {
   DefaultChatTransport,
 
 } from 'ai';
-import { useAtomValue, useSetAtom } from 'jotai';
+import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import {
   CheckIcon,
   CopyIcon,
@@ -104,6 +104,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 import {
   Tooltip,
   TooltipContent,
@@ -115,6 +117,7 @@ import {
   chatHistoryDB,
 } from '@/lib/chat-history-db';
 import { isMobileSidebarOpenAtom } from '../atoms/sidebar';
+import { thinkingModeAtom } from '../atoms/thinking';
 import { ResourceNoticeDialog } from './resource-notice-dialog';
 
 type MessagePart = UIMessage['parts'][number];
@@ -316,6 +319,27 @@ function ToolPartView({ part }: { part: ToolUIPart | DynamicToolUIPart }) {
   );
 }
 
+function ThinkingModeSwitch() {
+  const [enabled, setEnabled] = useAtom(thinkingModeAtom);
+
+  return (
+    <div className='hidden items-center gap-1.5 sm:flex'>
+      <Switch
+        checked={enabled}
+        id='thinking-mode'
+        onCheckedChange={setEnabled}
+        className='scale-75'
+      />
+      <Label
+        className='cursor-pointer text-muted-foreground text-xs select-none'
+        htmlFor='thinking-mode'
+      >
+        深度思考
+      </Label>
+    </div>
+  );
+}
+
 function ComposerFooter({
   downloadableMessages,
   input,
@@ -409,6 +433,7 @@ function ComposerFooter({
       </PromptInputTools>
 
       <div className='flex items-center gap-2'>
+        <ThinkingModeSwitch />
         <span className='hidden text-muted-foreground text-xs sm:inline'>
           {status === 'streaming'
             ? '正在分析简历内容…'
@@ -435,6 +460,7 @@ export default function ChatPageClient({
   const isHydrated = useHydrated();
   const isMobileSidebarOpen = useAtomValue(isMobileSidebarOpenAtom);
   const setIsMobileSidebarOpen = useSetAtom(isMobileSidebarOpenAtom);
+  const thinkingMode = useAtomValue(thinkingModeAtom);
   const [input, setInput] = useState('');
   const [activeConversationId, setActiveConversationId] = useState<string | null>(
     null,
@@ -709,13 +735,12 @@ export default function ChatPageClient({
         files,
         text,
       },
-      hasJobDescription
-        ? {
-            body: {
-              jobDescription: normalizedJobDescription,
-            },
-          }
-        : undefined,
+      {
+        body: {
+          ...(hasJobDescription && { jobDescription: normalizedJobDescription }),
+          enableThinking: thinkingMode,
+        },
+      },
     );
   };
 
@@ -864,13 +889,12 @@ export default function ChatPageClient({
 
   const regenerateLastReply = () => {
     regenerate(
-      hasJobDescription
-        ? {
-            body: {
-              jobDescription: normalizedJobDescription,
-            },
-          }
-        : undefined,
+      {
+        body: {
+          ...(hasJobDescription && { jobDescription: normalizedJobDescription }),
+          enableThinking: thinkingMode,
+        },
+      },
     );
   };
 
@@ -1319,12 +1343,12 @@ export default function ChatPageClient({
           </DialogHeader>
 
           <div className='space-y-2'>
-            <label className='font-medium text-sm' htmlFor='job-description'>
+            <label className='font-medium  text-sm' htmlFor='job-description'>
               岗位描述内容
             </label>
             <textarea
               autoComplete='off'
-              className='min-h-40 w-full rounded-xl border border-border/70 bg-background p-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring'
+              className='min-h-40 mt-2 w-full rounded-xl border border-border/70 bg-background p-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring'
               id='job-description'
               name='jobDescription'
               onChange={event =>

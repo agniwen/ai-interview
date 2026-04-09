@@ -3,9 +3,11 @@
 import type { ReactNode } from 'react';
 import {
   ChevronsUpDownIcon,
+  HouseIcon,
   LogOutIcon,
   UserIcon,
 } from 'lucide-react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback } from 'react';
 import { GoogleSignInButton } from '@/components/auth/google-sign-in-button';
@@ -92,6 +94,12 @@ export function SidebarUserSection({
                 <p className='truncate text-muted-foreground text-xs'>{userEmail}</p>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
+              <DropdownMenuItem asChild>
+                <Link href='/'>
+                  <HouseIcon className='mr-2 size-4' />
+                  返回首页
+                </Link>
+              </DropdownMenuItem>
               <DropdownMenuItem onClick={handleSignOut} variant='destructive'>
                 <LogOutIcon className='mr-2 size-4' />
                 退出登录
@@ -124,6 +132,12 @@ export function SidebarUserSection({
                 <p className='truncate text-muted-foreground text-xs'>{userEmail}</p>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
+              <DropdownMenuItem asChild>
+                <Link href='/'>
+                  <HouseIcon className='mr-2 size-4' />
+                  返回首页
+                </Link>
+              </DropdownMenuItem>
               <DropdownMenuItem onClick={handleSignOut} variant='destructive'>
                 <LogOutIcon className='mr-2 size-4' />
                 退出登录

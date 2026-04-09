@@ -7,7 +7,6 @@ import type { CandidateInterviewView } from '@/lib/interview/interview-record';
 import { Conversation as VoiceConversation } from '@elevenlabs/client';
 import {
   AudioLinesIcon,
-  HouseIcon,
   LoaderCircleIcon,
   MicIcon,
   PanelLeftCloseIcon,
@@ -15,7 +14,6 @@ import {
   PhoneOffIcon,
   SparklesIcon,
 } from 'lucide-react';
-import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useHotkeys } from 'react-hotkeys-hook';
 import { toast } from 'sonner';
@@ -846,13 +844,8 @@ export default function InterviewPageClient({ interviewId, roundId }: { intervie
             ? (
                 <>
                   <p className='truncate font-medium text-sm'>候选人信息</p>
-                  <Button asChild className='ml-auto' size='icon' type='button' variant='ghost'>
-                    <Link aria-label='返回首页' href='/'>
-                      <HouseIcon className='size-4' />
-                    </Link>
-                  </Button>
                   <Button
-                    className='hidden sm:flex'
+                    className='ml-auto hidden sm:flex'
                     onClick={() => void loadAudioDevices(true)}
                     size='sm'
                     type='button'

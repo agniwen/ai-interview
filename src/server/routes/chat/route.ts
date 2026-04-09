@@ -100,7 +100,7 @@ export const chatRouter = factory.createApp().post(
   '/',
   zValidator('json', chatRequestSchema),
   async (c) => {
-    const { jobDescription, messages } = c.req.valid('json');
+    const { enableThinking, jobDescription, messages } = c.req.valid('json');
 
     const apiKey = process.env.ALIBABA_API_KEY;
 
@@ -117,10 +117,18 @@ export const chatRouter = factory.createApp().post(
     const baseURL = process.env.ALIBABA_BASE_URL?.trim()
       || 'https://dashscope.aliyuncs.com/compatible-mode/v1';
 
+    const thinkingEnabled = enableThinking !== false;
+
     const provider = createOpenAICompatible({
       name: 'alibaba',
       baseURL,
       apiKey,
+      ...(!thinkingEnabled && {
+        transformRequestBody: body => ({
+          ...body,
+          enable_thinking: false,
+        }),
+      }),
     });
 
     const modelId = process.env.ALIBABA_MODEL ?? 'qwen3.6-plus';
@@ -253,7 +261,7 @@ ${autoJdContext}
     });
 
     return result.toUIMessageStreamResponse({
-      sendReasoning: true,
+      sendReasoning: thinkingEnabled,
       sendSources: true,
     });
   },
