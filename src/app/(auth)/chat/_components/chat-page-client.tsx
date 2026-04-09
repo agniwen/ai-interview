@@ -11,6 +11,7 @@ import {
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import {
   CheckIcon,
+  CircleHelpIcon,
   CopyIcon,
   FileTextIcon,
   LogOutIcon,
@@ -118,6 +119,9 @@ import {
 } from '@/lib/chat-history-db';
 import { isMobileSidebarOpenAtom } from '../atoms/sidebar';
 import { thinkingModeAtom } from '../atoms/thinking';
+import { tutorialStepAtom } from '../atoms/tutorial';
+import { TUTORIAL_MOCK_ATTACHMENTS, TUTORIAL_MOCK_INPUT_TEXT } from '../constants/tutorial-mock';
+import { useChatTutorial } from './chat-tutorial';
 import { ResourceNoticeDialog } from './resource-notice-dialog';
 
 type MessagePart = UIMessage['parts'][number];
@@ -259,22 +263,26 @@ function getConversationTitleFromMessages(messages: UIMessage[], fallbackTitle: 
 
 function ComposerAttachments() {
   const attachments = usePromptInputAttachments();
+  const tutorialStep = useAtomValue(tutorialStepAtom);
+  const showMock = tutorialStep !== null && tutorialStep >= 3 && attachments.files.length === 0;
 
-  if (attachments.files.length === 0) {
+  const files = showMock ? TUTORIAL_MOCK_ATTACHMENTS : attachments.files;
+
+  if (files.length === 0) {
     return null;
   }
 
   return (
     <Attachments className='w-full' variant='inline'>
-      {attachments.files.map(file => (
+      {files.map(file => (
         <Attachment
           data={file}
           key={file.id}
-          onRemove={() => attachments.remove(file.id)}
+          onRemove={showMock ? undefined : () => attachments.remove(file.id)}
         >
           <AttachmentPreview />
           <AttachmentInfo />
-          <AttachmentRemove />
+          {!showMock && <AttachmentRemove />}
         </Attachment>
       ))}
     </Attachments>
@@ -321,11 +329,13 @@ function ToolPartView({ part }: { part: ToolUIPart | DynamicToolUIPart }) {
 
 function ThinkingModeSwitch() {
   const [enabled, setEnabled] = useAtom(thinkingModeAtom);
+  const tutorialStep = useAtomValue(tutorialStepAtom);
+  const displayEnabled = enabled || tutorialStep === 5;
 
   return (
-    <div className='hidden items-center gap-1.5 sm:flex'>
+    <div className='hidden items-center gap-1.5 sm:flex' data-tour='thinking-toggle'>
       <Switch
-        checked={enabled}
+        checked={displayEnabled}
         id='thinking-mode'
         onCheckedChange={setEnabled}
         className='scale-75'
@@ -358,18 +368,28 @@ function ComposerFooter({
   stop: () => void
 }) {
   const attachments = usePromptInputAttachments();
+  const tutorialStep = useAtomValue(tutorialStepAtom);
   const canSubmit
     = input.trim().length > 0 || attachments.files.length > 0;
+  const displayHasJD = hasJobDescription || tutorialStep === 4;
+  const forceUploadMenuOpen = tutorialStep === 3;
+  const forceJDMenuOpen = tutorialStep === 4;
+  const noopOpenChange = () => {};
 
   return (
     <PromptInputFooter>
       <PromptInputTools>
-        <PromptInputActionMenu>
+        <PromptInputActionMenu
+          {...(forceUploadMenuOpen && { open: true, onOpenChange: noopOpenChange })}
+        >
           <PromptInputActionMenuTrigger
+            data-tour='file-upload'
             id='prompt-actions-menu-trigger'
             tooltip='更多输入操作'
           />
-          <PromptInputActionMenuContent>
+          <PromptInputActionMenuContent
+            {...(forceUploadMenuOpen && { className: 'tutorial-forced-menu' })}
+          >
             <PromptInputActionAddAttachments label='上传 PDF 简历' />
 
             <PromptInputActionMenuItem
@@ -384,14 +404,19 @@ function ComposerFooter({
           </PromptInputActionMenuContent>
         </PromptInputActionMenu>
 
-        <PromptInputActionMenu>
+        <PromptInputActionMenu
+          {...(forceJDMenuOpen && { open: true, onOpenChange: noopOpenChange })}
+        >
           <PromptInputActionMenuTrigger
+            data-tour='jd-settings'
             id='prompt-job-settings-menu-trigger'
             tooltip='岗位设置'
           >
             <SettingsIcon className='size-4' />
           </PromptInputActionMenuTrigger>
-          <PromptInputActionMenuContent>
+          <PromptInputActionMenuContent
+            {...(forceJDMenuOpen && { className: 'tutorial-forced-menu' })}
+          >
             <PromptInputActionMenuItem
               onSelect={(event) => {
                 event.preventDefault();
@@ -437,11 +462,12 @@ function ComposerFooter({
         <span className='hidden text-muted-foreground text-xs sm:inline'>
           {status === 'streaming'
             ? '正在分析简历内容…'
-            : hasJobDescription
+            : displayHasJD
               ? '已配置岗位描述（JD）'
               : '未配置岗位描述（可在岗位设置中配置）'}
         </span>
         <PromptInputSubmit
+          data-tour='send-button'
           disabled={status === 'ready' ? !canSubmit : false}
           onStop={stop}
           status={status}
@@ -456,11 +482,16 @@ export default function ChatPageClient({
 }: {
   initialSessionId: string | null
 }) {
+  const [isTutorialPending, setIsTutorialPending] = useState(true);
+  const { startTutorial } = useChatTutorial({
+    onComplete: () => setIsTutorialPending(false),
+  });
   const { data: session, isPending: isSessionPending } = authClient.useSession();
   const isHydrated = useHydrated();
   const isMobileSidebarOpen = useAtomValue(isMobileSidebarOpenAtom);
   const setIsMobileSidebarOpen = useSetAtom(isMobileSidebarOpenAtom);
   const thinkingMode = useAtomValue(thinkingModeAtom);
+  const tutorialStep = useAtomValue(tutorialStepAtom);
   const [input, setInput] = useState('');
   const [activeConversationId, setActiveConversationId] = useState<string | null>(
     null,
@@ -543,6 +574,9 @@ export default function ChatPageClient({
     [messages],
   );
 
+  const displayInput = tutorialStep !== null && tutorialStep >= 2 && input === ''
+    ? TUTORIAL_MOCK_INPUT_TEXT
+    : input;
   const normalizedJobDescription = jobDescription.trim();
   const hasJobDescription = normalizedJobDescription.length > 0;
 
@@ -834,6 +868,16 @@ export default function ChatPageClient({
   }, [startNewConversation]);
 
   useEffect(() => {
+    const handleStartTutorial = () => startTutorial();
+
+    window.addEventListener('chat:start-tutorial', handleStartTutorial);
+
+    return () => {
+      window.removeEventListener('chat:start-tutorial', handleStartTutorial);
+    };
+  }, [startTutorial]);
+
+  useEffect(() => {
     if (!shouldNormalizeSessionPath || activeConversationId) {
       return;
     }
@@ -966,15 +1010,32 @@ export default function ChatPageClient({
             新建
           </Button>
         </div>
-        <h1 className='pixel-title text-balance font-bold tracking-tight text-2xl sm:text-3xl'>
-          简历筛选助手
-        </h1>
+        <div className='flex items-center gap-2'>
+          <h1 className='pixel-title text-balance font-bold tracking-tight text-2xl sm:text-3xl'>
+            简历筛选助手
+          </h1>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                aria-label='使用教程'
+                className='size-7 rounded-full text-muted-foreground'
+                onClick={startTutorial}
+                size='icon'
+                type='button'
+                variant='ghost'
+              >
+                <CircleHelpIcon className='size-4' />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>使用教程</TooltipContent>
+          </Tooltip>
+        </div>
         <p className='mt-2 max-w-3xl font-serif!  text-xs text-muted-foreground sm:text-sm'>
           支持多份简历上传、初筛评分、风险识别与面试推进建议
         </p>
       </header>
 
-      <section className='mb-0.5'>
+      <section className='mb-0.5' data-tour='suggestions'>
         <p className='mb-2 px-1 font-medium text-muted-foreground text-xs'>
           快速提问
         </p>
@@ -1243,6 +1304,7 @@ export default function ChatPageClient({
         : null}
 
       <PromptInput
+        data-tour='prompt-input'
         accept='application/pdf'
         className=' **:data-[slot=input-group]:cursor-text **:data-[slot=input-group]:rounded-[1.3rem] **:data-[slot=input-group]:border-border/65 **:data-[slot=input-group]:bg-white **:data-[slot=input-group]:shadow-[0_8px_18px_-20px_rgba(60,44,23,0.5)]'
         onClick={(event) => {
@@ -1315,7 +1377,7 @@ export default function ChatPageClient({
             className='min-h-20'
             onChange={event => setInput(event.currentTarget.value)}
             placeholder='输入岗位与筛选要求，或上传候选人 PDF 简历（支持多文件）…'
-            value={input}
+            value={displayInput}
           />
         </PromptInputBody>
 
@@ -1381,7 +1443,7 @@ export default function ChatPageClient({
         受限于当前服务器资源，目前连接仅能持续300秒，注意上传简历的文件大小。
       </p>
 
-      <ResourceNoticeDialog />
+      <ResourceNoticeDialog deferred={isTutorialPending} />
     </div>
   );
 }

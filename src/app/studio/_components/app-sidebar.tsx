@@ -6,11 +6,8 @@ import {
   ArrowLeftIcon,
   BotIcon,
   ChevronsUpDownIcon,
-  LayoutDashboardIcon,
   LogOutIcon,
-  Settings2Icon,
   ShieldCheckIcon,
-  UsersIcon,
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
@@ -51,24 +48,9 @@ interface AppSidebarProps extends ComponentProps<typeof Sidebar> {
 
 const navItems = [
   {
-    title: '概览',
-    href: '/studio',
-    icon: LayoutDashboardIcon,
-  },
-  {
     title: 'AI 面试管理',
     href: '/studio/interviews',
     icon: BotIcon,
-  },
-  {
-    title: '用户与角色',
-    href: '/studio/users',
-    icon: UsersIcon,
-  },
-  {
-    title: '后台设置',
-    href: '/studio/settings',
-    icon: Settings2Icon,
   },
 ];
 
@@ -88,10 +70,6 @@ export function AppSidebar({ user, ...props }: AppSidebarProps) {
   const roles = getRoleList(user?.role);
 
   const isActive = (href: string) => {
-    if (href === '/studio') {
-      return pathname === href;
-    }
-
     return pathname === href || pathname.startsWith(`${href}/`);
   };
 
@@ -101,7 +79,7 @@ export function AppSidebar({ user, ...props }: AppSidebarProps) {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton asChild size='lg'>
-              <Link href='/studio'>
+              <Link href='/studio/interviews'>
                 <div className='flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground'>
                   <ShieldCheckIcon className='size-4' />
                 </div>

@@ -28,6 +28,8 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { chatHistoryDB } from '@/lib/chat-history-db';
 import { cn } from '@/lib/utils';
 import { isMobileSidebarOpenAtom, isSidebarCollapsedAtom } from '../atoms/sidebar';
+import { tutorialStepAtom } from '../atoms/tutorial';
+import { TUTORIAL_MOCK_CONVERSATIONS } from '../constants/tutorial-mock';
 
 interface ConversationListItem {
   id: string
@@ -45,8 +47,13 @@ export default function ChatSidebar() {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useAtom(isSidebarCollapsedAtom);
   const isMobileSidebarOpen = useAtomValue(isMobileSidebarOpenAtom);
   const closeMobileSidebar = useSetAtom(isMobileSidebarOpenAtom);
+  const tutorialStep = useAtomValue(tutorialStepAtom);
   const [conversations, setConversations] = useState<ConversationListItem[]>([]);
   const [deleteTarget, setDeleteTarget] = useState<ConversationListItem | null>(null);
+
+  const displayConversations = tutorialStep !== null && conversations.length === 0
+    ? TUTORIAL_MOCK_CONVERSATIONS
+    : conversations;
 
   useHotkeys('meta+b', (event) => {
     event.preventDefault();
@@ -149,6 +156,7 @@ export default function ChatSidebar() {
         isMobileSidebarOpen ? 'translate-x-0' : '-translate-x-full sm:translate-x-0',
         isSidebarCollapsed ? 'sm:w-14' : 'sm:w-72',
       )}
+      data-tour='sidebar'
       id='chat-history-sidebar'
     >
       <div className='flex items-center gap-1 border-border/65 border-b px-2 py-2'>
@@ -195,7 +203,7 @@ export default function ChatSidebar() {
 
       <div className='min-h-0 flex-1 overflow-y-auto px-1.5 py-2'>
         {showExpandedSidebar
-          ? conversations.length === 0
+          ? displayConversations.length === 0
             ? (
                 <p className='px-2 py-3 text-muted-foreground text-xs'>
                   暂无本地聊天记录
@@ -203,7 +211,8 @@ export default function ChatSidebar() {
               )
             : (
                 <ul className='space-y-1'>
-                  {conversations.map((conversation) => {
+                  {displayConversations.map((conversation) => {
+                    const isMock = conversation.id.startsWith('tutorial-');
                     const isActive = activeSessionId === conversation.id;
                     const visibleTitle = conversation.isTitleGenerating
                       ? GENERATING_CHAT_TITLE
@@ -217,38 +226,51 @@ export default function ChatSidebar() {
                             isActive ? 'border-border/75 bg-accent/60' : 'hover:bg-accent/40',
                           )}
                         >
-                          <Link
-                            className='min-w-0 flex-1 rounded-md px-2 py-1.5 text-left'
-                            href={`/chat/${conversation.id}`}
-                          >
-                            <p className='truncate font-medium text-sm'>{visibleTitle}</p>
-                            <p className='mt-1 truncate text-muted-foreground text-xs'>
-                              <TimeDisplay as='span' options={DATE_TIME_DISPLAY_OPTIONS} value={conversation.updatedAt} />
-                            </p>
-                          </Link>
+                          {isMock
+                            ? (
+                                <div className='min-w-0 flex-1 rounded-md px-2 py-1.5 text-left'>
+                                  <p className='truncate font-medium text-sm'>{visibleTitle}</p>
+                                  <p className='mt-1 truncate text-muted-foreground text-xs'>
+                                    <TimeDisplay as='span' options={DATE_TIME_DISPLAY_OPTIONS} value={conversation.updatedAt} />
+                                  </p>
+                                </div>
+                              )
+                            : (
+                                <>
+                                  <Link
+                                    className='min-w-0 flex-1 rounded-md px-2 py-1.5 text-left'
+                                    href={`/chat/${conversation.id}`}
+                                  >
+                                    <p className='truncate font-medium text-sm'>{visibleTitle}</p>
+                                    <p className='mt-1 truncate text-muted-foreground text-xs'>
+                                      <TimeDisplay as='span' options={DATE_TIME_DISPLAY_OPTIONS} value={conversation.updatedAt} />
+                                    </p>
+                                  </Link>
 
-                          <button
-                            aria-label='删除聊天记录'
-                            className='rounded-md p-1 text-muted-foreground opacity-0 transition-opacity hover:bg-accent hover:text-destructive group-hover:opacity-100'
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              setDeleteTarget(conversation);
-                            }}
-                            type='button'
-                          >
-                            <Trash2Icon className='size-3.5' />
-                          </button>
+                                  <button
+                                    aria-label='删除聊天记录'
+                                    className='rounded-md p-1 text-muted-foreground opacity-0 transition-opacity hover:bg-accent hover:text-destructive group-hover:opacity-100'
+                                    onClick={(event) => {
+                                      event.stopPropagation();
+                                      setDeleteTarget(conversation);
+                                    }}
+                                    type='button'
+                                  >
+                                    <Trash2Icon className='size-3.5' />
+                                  </button>
+                                </>
+                              )}
                         </div>
                       </li>
                     );
                   })}
                 </ul>
               )
-          : conversations.length > 0
+          : displayConversations.length > 0
             ? (
                 <TooltipProvider>
                   <ul className='space-y-1.5 px-1'>
-                    {conversations.map((conversation) => {
+                    {displayConversations.map((conversation) => {
                       const isActive = activeSessionId === conversation.id;
                       const visibleTitle = conversation.isTitleGenerating
                         ? GENERATING_CHAT_TITLE
@@ -281,7 +303,14 @@ export default function ChatSidebar() {
             : null}
       </div>
 
-      <SidebarUserSection callbackURL='/chat' collapsed={isSidebarCollapsed && !isMobileSidebarOpen} />
+      <SidebarUserSection
+        callbackURL='/chat'
+        collapsed={isSidebarCollapsed && !isMobileSidebarOpen}
+        onStartTutorial={useCallback(() => {
+          closeMobileSidebar(false);
+          window.dispatchEvent(new CustomEvent('chat:start-tutorial'));
+        }, [closeMobileSidebar])}
+      />
 
       <AlertDialog onOpenChange={open => !open && setDeleteTarget(null)} open={deleteTarget !== null}>
         <AlertDialogContent>

@@ -13,9 +13,9 @@ import {
 } from '@/components/ui/dialog';
 import { hasSeenResourceNoticeAtom } from '../atoms/notice';
 
-export function ResourceNoticeDialog() {
+export function ResourceNoticeDialog({ deferred }: { deferred?: boolean }) {
   const [hasSeen, setHasSeen] = useAtom(hasSeenResourceNoticeAtom);
-  const open = !hasSeen;
+  const open = !hasSeen && !deferred;
 
   return (
     <Dialog

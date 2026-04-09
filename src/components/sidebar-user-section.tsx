@@ -3,6 +3,7 @@
 import type { ReactNode } from 'react';
 import {
   ChevronsUpDownIcon,
+  CircleHelpIcon,
   HouseIcon,
   LogOutIcon,
   UserIcon,
@@ -45,9 +46,11 @@ function getInitials(name?: string | null, email?: string | null) {
 export function SidebarUserSection({
   collapsed,
   callbackURL = '/',
+  onStartTutorial,
 }: {
   collapsed: boolean
   callbackURL?: string
+  onStartTutorial?: () => void
 }) {
   const router = useRouter();
   const isHydrated = useHydrated();
@@ -94,6 +97,14 @@ export function SidebarUserSection({
                 <p className='truncate text-muted-foreground text-xs'>{userEmail}</p>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
+              {onStartTutorial
+                ? (
+                    <DropdownMenuItem onClick={onStartTutorial}>
+                      <CircleHelpIcon className='mr-2 size-4' />
+                      使用教程
+                    </DropdownMenuItem>
+                  )
+                : null}
               <DropdownMenuItem asChild>
                 <Link href='/'>
                   <HouseIcon className='mr-2 size-4' />
@@ -132,6 +143,14 @@ export function SidebarUserSection({
                 <p className='truncate text-muted-foreground text-xs'>{userEmail}</p>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
+              {onStartTutorial
+                ? (
+                    <DropdownMenuItem onClick={onStartTutorial}>
+                      <CircleHelpIcon className='mr-2 size-4' />
+                      使用教程
+                    </DropdownMenuItem>
+                  )
+                : null}
               <DropdownMenuItem asChild>
                 <Link href='/'>
                   <HouseIcon className='mr-2 size-4' />

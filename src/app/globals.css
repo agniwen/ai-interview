@@ -213,6 +213,142 @@
   }
 }
 
+/* driver.js tour — block interaction on highlighted elements so mock state is preserved */
+.driver-active .driver-active-element,
+.driver-active .driver-active-element * {
+  pointer-events: none !important;
+}
+
+/* driver.js tour — shadcn/ui aligned overrides */
+.chat-tour-popover.driver-popover {
+  background-color: var(--popover);
+  color: var(--popover-foreground);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow:
+    0 4px 6px -1px oklch(0.25 0.02 240 / 8%),
+    0 10px 22px -4px oklch(0.25 0.02 240 / 14%);
+  padding: 1rem 1.25rem;
+  max-width: 22rem;
+}
+
+.chat-tour-popover .driver-popover-title {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--popover-foreground);
+  font-family: inherit;
+}
+
+.chat-tour-popover .driver-popover-description {
+  font-size: 0.8125rem;
+  color: var(--muted-foreground);
+  line-height: 1.625;
+  font-family: inherit;
+}
+
+.chat-tour-popover .driver-popover-progress-text {
+  font-size: 0.75rem;
+  color: var(--muted-foreground);
+  font-family: inherit;
+}
+
+.chat-tour-popover.driver-popover .driver-popover-footer button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  white-space: nowrap;
+  border-radius: calc(var(--radius) - 2px);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  font-family: inherit;
+  height: 2rem;
+  padding: 0 0.75rem;
+  text-shadow: none;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.chat-tour-popover.driver-popover .driver-popover-prev-btn {
+  border: 1px solid var(--border);
+  background: var(--background);
+  color: var(--foreground);
+  box-shadow: 0 1px 2px 0 oklch(0 0 0 / 5%);
+  transition: background-color 0.15s, color 0.15s;
+}
+
+.chat-tour-popover.driver-popover .driver-popover-prev-btn:hover {
+  background: var(--accent);
+  color: var(--accent-foreground);
+}
+
+.chat-tour-popover.driver-popover .driver-popover-next-btn {
+  border: 1px solid transparent;
+  background: var(--primary);
+  color: var(--primary-foreground);
+  transition: background-color 0.15s;
+}
+
+.chat-tour-popover.driver-popover .driver-popover-next-btn:hover {
+  background: oklch(from var(--primary) calc(l * 0.9) c h);
+}
+
+.chat-tour-popover .driver-popover-close-btn {
+  color: var(--muted-foreground);
+  font-size: 1.125rem;
+  width: 1.5rem;
+  height: 1.5rem;
+  top: 0.75rem;
+  right: 0.75rem;
+}
+
+.chat-tour-popover .driver-popover-close-btn:hover {
+  color: var(--foreground);
+}
+
+/* Arrow: base color matches popover background; directional transparent sides come from driver.js defaults */
+.chat-tour-popover .driver-popover-arrow {
+  border: 10px solid var(--popover);
+}
+
+.chat-tour-popover .driver-popover-arrow-side-left {
+  border-right-color: transparent;
+  border-bottom-color: transparent;
+  border-top-color: transparent;
+}
+
+.chat-tour-popover .driver-popover-arrow-side-right {
+  border-left-color: transparent;
+  border-bottom-color: transparent;
+  border-top-color: transparent;
+}
+
+.chat-tour-popover .driver-popover-arrow-side-top {
+  border-right-color: transparent;
+  border-bottom-color: transparent;
+  border-left-color: transparent;
+}
+
+.chat-tour-popover .driver-popover-arrow-side-bottom {
+  border-left-color: transparent;
+  border-top-color: transparent;
+  border-right-color: transparent;
+}
+
+.chat-tour-popover .driver-popover-footer {
+  margin-top: 0.75rem;
+}
+
+/* Force-open menus during tutorial: above overlay (1e9-1) but below popover (1e9) */
+.driver-active [data-radix-popper-content-wrapper]:has(.tutorial-forced-menu) {
+  z-index: 999999999 !important;
+}
+
+.driver-active .tutorial-forced-menu,
+.driver-active .tutorial-forced-menu * {
+  pointer-events: none !important;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

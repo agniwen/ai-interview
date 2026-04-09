@@ -12,24 +12,17 @@ import { Separator } from '@/components/ui/separator';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 
 const routeTitles: Record<string, string> = {
-  '/studio': '概览',
-  '/studio/users': '用户与角色',
   '/studio/interviews': 'AI 面试管理',
-  '/studio/settings': '后台设置',
 };
 
 function getRouteTitle(pathname: string) {
   for (const [prefix, title] of Object.entries(routeTitles)) {
-    if (prefix !== '/studio' && pathname.startsWith(prefix)) {
+    if (pathname.startsWith(prefix)) {
       return title;
     }
   }
 
-  if (pathname === '/studio') {
-    return routeTitles['/studio'];
-  }
-
-  return '概览';
+  return 'AI 面试管理';
 }
 
 export function SiteHeader() {
