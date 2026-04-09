@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import ChatPageClient from '@/app/chat/_components/chat-page-client';
+import ChatPageClient from '@/app/(auth)/chat/_components/chat-page-client';
 
 export const metadata: Metadata = {
   title: '简历筛选助手',

@@ -1,5 +1,5 @@
 import { cacheLife } from 'next/cache';
-import ChatPageClient from '@/app/chat/_components/chat-page-client';
+import ChatPageClient from '@/app/(auth)/chat/_components/chat-page-client';
 
 export default async function ChatSessionPage({
   params,

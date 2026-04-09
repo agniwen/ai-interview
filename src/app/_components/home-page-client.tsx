@@ -167,6 +167,7 @@ export default function HomePageClient() {
         open={pendingPath !== null}
         title={pendingPath === '/studio/interviews' ? '登录后即可进入模拟面试管理' : '登录后即可进入简历筛选'}
       />
+
     </>
   );
 }
