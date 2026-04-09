@@ -20,6 +20,7 @@ import {
   SearchIcon,
   Trash2Icon,
 } from 'lucide-react';
+import { useAtomValue } from 'jotai';
 import { startTransition, useCallback, useDeferredValue, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { ElevenLabsQuota } from '@/components/interview/elevenlabs-quota';
@@ -78,6 +79,8 @@ import {
 import { CreateInterviewDialog } from './create-interview-dialog';
 import { EditInterviewDialog } from './edit-interview-dialog';
 import { InterviewDetailDialog } from './interview-detail-dialog';
+import { studioTutorialStepAtom } from '@/app/studio/_hooks/use-studio-tutorial';
+import { STUDIO_TUTORIAL_MOCK_RECORDS, STUDIO_TUTORIAL_MOCK_SEARCH } from '@/app/studio/_hooks/studio-tutorial-mock';
 import { InterviewStatusBadge } from './interview-status-badge';
 
 function getPinningStyles(column: Header<StudioInterviewListRecord, unknown>['column'] | Cell<StudioInterviewListRecord, unknown>['column']): React.CSSProperties {
@@ -96,6 +99,7 @@ function getPinningStyles(column: Header<StudioInterviewListRecord, unknown>['co
 }
 
 export function InterviewManagementPage({ initialRecords }: { initialRecords: StudioInterviewListRecord[] }) {
+  const tutorialStep = useAtomValue(studioTutorialStepAtom);
   const [records, dispatchRecords] = useReducer(
     (previous: StudioInterviewListRecord[], action: { type: 'replace', records: StudioInterviewListRecord[] } | { type: 'remove', id: string }) => {
       if (action.type === 'replace')
@@ -119,6 +123,13 @@ export function InterviewManagementPage({ initialRecords }: { initialRecords: St
   const requestSequenceRef = useRef(0);
   const isFilterLoading = requestState === 'filter';
   const isMutationRefreshing = requestState === 'mutation';
+  const isTutorialActive = tutorialStep !== null;
+  const displayRecords = isTutorialActive && records.length === 0
+    ? STUDIO_TUTORIAL_MOCK_RECORDS
+    : records;
+  const displaySearch = isTutorialActive && tutorialStep >= 3 && globalFilter === ''
+    ? STUDIO_TUTORIAL_MOCK_SEARCH
+    : globalFilter;
 
   const reloadRecords = useCallback(async ({
     search,
@@ -369,7 +380,7 @@ export function InterviewManagementPage({ initialRecords }: { initialRecords: St
   ], []);
 
   const table = useReactTable({
-    data: records,
+    data: displayRecords,
     columns,
     state: {
       sorting,
@@ -384,11 +395,11 @@ export function InterviewManagementPage({ initialRecords }: { initialRecords: St
   });
 
   const summary = useMemo(() => ({
-    total: records.length,
-    ready: records.filter(item => item.status === 'ready').length,
-    completed: records.filter(item => item.status === 'completed').length,
-    rounds: records.reduce((count, item) => count + item.scheduleEntries.length, 0),
-  }), [records]);
+    total: displayRecords.length,
+    ready: displayRecords.filter(item => item.status === 'ready').length,
+    completed: displayRecords.filter(item => item.status === 'completed').length,
+    rounds: displayRecords.reduce((count, item) => count + item.scheduleEntries.length, 0),
+  }), [displayRecords]);
 
   async function handleDelete() {
     if (!deleteRecord) {
@@ -428,18 +439,20 @@ export function InterviewManagementPage({ initialRecords }: { initialRecords: St
                 管理候选人简历、面试流程与多轮时间安排，并为每位候选人生成唯一的面试入口链接。
               </p>
             </div>
-            <CreateInterviewDialog onCreated={async () => {
-              await reloadRecords({
-                search: deferredSearch.trim(),
-                status: statusFilter,
-                source: 'mutation',
-              });
-            }}
-            />
+            <div data-tour='studio-create-btn'>
+              <CreateInterviewDialog onCreated={async () => {
+                await reloadRecords({
+                  search: deferredSearch.trim(),
+                  status: statusFilter,
+                  source: 'mutation',
+                });
+              }}
+              />
+            </div>
           </div>
         </section>
 
-        <section className='grid gap-4 md:grid-cols-2 xl:grid-cols-4'>
+        <section className='grid gap-4 md:grid-cols-2 xl:grid-cols-4' data-tour='studio-stats'>
           {[
             { label: '总记录数', value: `${summary.total}`, hint: '所有候选人简历与流程记录' },
             { label: '待面试', value: `${summary.ready}`, hint: '流程已准备好，可发送链接开始面试' },
@@ -484,15 +497,15 @@ export function InterviewManagementPage({ initialRecords }: { initialRecords: St
                 <RefreshCwIcon className={`size-4 ${isMutationRefreshing ? 'animate-spin' : ''}`} />
                 <span className='sr-only'>刷新</span>
               </Button>
-              <div className='relative min-w-60'>
+              <div className='relative min-w-60' data-tour='studio-search'>
                 <SearchIcon className='pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground' />
-                <Input className='pr-9 pl-9' onChange={event => setGlobalFilter(event.target.value)} placeholder='搜索候选人、岗位、轮次或简历名' value={globalFilter} />
+                <Input className='pr-9 pl-9' onChange={event => setGlobalFilter(event.target.value)} placeholder='搜索候选人、岗位、轮次或简历名' value={displaySearch} />
                 {isFilterLoading
                   ? <Loader2Icon className='pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 animate-spin text-muted-foreground' />
                   : null}
               </div>
               <Select onValueChange={value => setStatusFilter(value as typeof statusFilter)} value={statusFilter}>
-                <SelectTrigger className='min-w-45'>
+                <SelectTrigger className='min-w-45' data-tour='studio-status-filter'>
                   <SelectValue placeholder='按状态筛选' />
                 </SelectTrigger>
                 <SelectContent>
@@ -509,7 +522,7 @@ export function InterviewManagementPage({ initialRecords }: { initialRecords: St
           <CardContent>
             {table.getRowModel().rows.length > 0
               ? (
-                  <div className='rounded-2xl border border-border/60'>
+                  <div className='rounded-2xl border border-border/60' data-tour='studio-table'>
                     <Table>
                       <TableHeader>
                         {table.getHeaderGroups().map(headerGroup => (

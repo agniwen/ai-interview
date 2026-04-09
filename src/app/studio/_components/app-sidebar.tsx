@@ -6,6 +6,7 @@ import {
   ArrowLeftIcon,
   BotIcon,
   ChevronsUpDownIcon,
+  CircleHelpIcon,
   LogOutIcon,
   ShieldCheckIcon,
 } from 'lucide-react';
@@ -44,6 +45,7 @@ interface AppSidebarProps extends ComponentProps<typeof Sidebar> {
     image?: string | null
     role?: RoleValue
   } | null
+  onStartTutorial?: () => void
 }
 
 const navItems = [
@@ -64,7 +66,7 @@ function getInitials(name?: string | null, email?: string | null) {
   return source.slice(0, 2).toUpperCase();
 }
 
-export function AppSidebar({ user, ...props }: AppSidebarProps) {
+export function AppSidebar({ user, onStartTutorial, ...props }: AppSidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const roles = getRoleList(user?.role);
@@ -170,6 +172,14 @@ export function AppSidebar({ user, ...props }: AppSidebarProps) {
                 )}
                 <DropdownMenuSeparator />
                 <DropdownMenuGroup>
+                  {onStartTutorial
+                    ? (
+                        <DropdownMenuItem onClick={onStartTutorial}>
+                          <CircleHelpIcon />
+                          使用教程
+                        </DropdownMenuItem>
+                      )
+                    : null}
                   <DropdownMenuItem asChild>
                     <Link href='/'>
                       <ArrowLeftIcon />

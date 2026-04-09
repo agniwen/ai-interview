@@ -349,6 +349,15 @@
   pointer-events: none !important;
 }
 
+/* Dialog visible during tutorial: above overlay but below popover */
+.driver-active [data-slot="dialog-overlay"] {
+  z-index: 999999998 !important;
+}
+
+.driver-active [data-slot="dialog-content"] {
+  z-index: 999999999 !important;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

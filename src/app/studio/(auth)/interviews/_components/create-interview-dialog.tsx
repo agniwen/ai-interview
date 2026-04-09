@@ -3,10 +3,21 @@
 import type { ResumeAnalysisResult } from '@/lib/interview/types';
 import type { StudioInterviewRecord } from '@/lib/studio-interviews';
 import { useStore } from '@tanstack/react-form';
+import { useAtomValue } from 'jotai';
 import { FileUpIcon, LoaderCircleIcon, SparklesIcon } from 'lucide-react';
 import { motion } from 'motion/react';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
+import {
+  STUDIO_DIALOG_FIRST_STEP,
+  STUDIO_DIALOG_LAST_STEP,
+  STUDIO_QUESTIONS_TAB_STEP,
+  studioTutorialStepAtom,
+} from '@/app/studio/_hooks/use-studio-tutorial';
+import {
+  STUDIO_TUTORIAL_MOCK_FORM,
+  STUDIO_TUTORIAL_MOCK_QUESTIONS,
+} from '@/app/studio/_hooks/studio-tutorial-mock';
 import { TextFlip } from '@/components/text-flip';
 import { Button } from '@/components/ui/button';
 import {
@@ -55,11 +66,14 @@ export function CreateInterviewDialog({
 }: {
   onCreated: (record: StudioInterviewRecord) => void
 }) {
+  const tutorialStep = useAtomValue(studioTutorialStepAtom);
   const [open, setOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<string>('basic');
   const [resumeFile, setResumeFile] = useState<File | null>(null);
   const [resumePayload, setResumePayload] = useState<ResumeAnalysisResult | null>(null);
   const [isAnalyzingResume, setIsAnalyzingResume] = useState(false);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const tutorialMockedRef = useRef(false);
   const form = useInterviewForm({
     defaultValues: createInterviewFormValues(),
     onSubmit: async (values) => {
@@ -100,6 +114,47 @@ export function CreateInterviewDialog({
     },
   });
   const isSubmitting = useStore(form.store, state => state.isSubmitting);
+
+  // Tutorial: control dialog open state, tab, and mock form values
+  const isTutorialDialog = tutorialStep !== null
+    && tutorialStep >= STUDIO_DIALOG_FIRST_STEP
+    && tutorialStep <= STUDIO_DIALOG_LAST_STEP;
+
+  useEffect(() => {
+    if (isTutorialDialog) {
+      setOpen(true);
+
+      // Mock form values once when dialog opens for tutorial
+      if (!tutorialMockedRef.current) {
+        tutorialMockedRef.current = true;
+        form.setFieldValue('candidateName', STUDIO_TUTORIAL_MOCK_FORM.candidateName);
+        form.setFieldValue('candidateEmail', STUDIO_TUTORIAL_MOCK_FORM.candidateEmail);
+        form.setFieldValue('targetRole', STUDIO_TUTORIAL_MOCK_FORM.targetRole);
+        form.setFieldValue('status', STUDIO_TUTORIAL_MOCK_FORM.status);
+        form.setFieldValue('notes', STUDIO_TUTORIAL_MOCK_FORM.notes);
+      }
+
+      // Switch tab based on step
+      if (tutorialStep >= STUDIO_QUESTIONS_TAB_STEP) {
+        setActiveTab('questions');
+      }
+      else {
+        setActiveTab('basic');
+      }
+    }
+    else if (tutorialStep === null && tutorialMockedRef.current) {
+      // Tutorial ended — close dialog and reset mock
+      tutorialMockedRef.current = false;
+      setOpen(false);
+      setActiveTab('basic');
+      form.reset(createInterviewFormValues());
+    }
+  }, [tutorialStep, isTutorialDialog, form]);
+
+  // Tutorial: mock questions for the questions tab
+  const displayQuestions = isTutorialDialog
+    ? STUDIO_TUTORIAL_MOCK_QUESTIONS
+    : (resumePayload?.interviewQuestions ?? []);
 
   async function handleResumeChange(file: File | null) {
     setResumeFile(file);
@@ -161,6 +216,7 @@ export function CreateInterviewDialog({
   return (
     <Dialog
       onOpenChange={(value) => {
+        if (isTutorialDialog) return;
         if (!isAnalyzingResume)
           setOpen(value);
       }}
@@ -175,24 +231,26 @@ export function CreateInterviewDialog({
       <DialogContent
         className='max-h-[90vh] sm:max-w-5xl gap-0 overflow-hidden p-0'
         onPointerDownOutside={(e) => {
-          if (isAnalyzingResume)
+          if (isAnalyzingResume || isTutorialDialog)
             e.preventDefault();
         }}
         onEscapeKeyDown={(e) => {
-          if (isAnalyzingResume)
+          if (isAnalyzingResume || isTutorialDialog)
             e.preventDefault();
         }}
-        showCloseButton={!isAnalyzingResume}
+        showCloseButton={!isAnalyzingResume && !isTutorialDialog}
       >
         <form
           className='flex max-h-[90vh] flex-col'
           onSubmit={(event) => {
             event.preventDefault();
             event.stopPropagation();
-            void form.handleSubmit();
+            if (!isTutorialDialog) {
+              void form.handleSubmit();
+            }
           }}
         >
-          <Tabs className='flex min-h-0 flex-1 flex-col' defaultValue='basic'>
+          <Tabs className='flex min-h-0 flex-1 flex-col' value={activeTab} onValueChange={isTutorialDialog ? undefined : setActiveTab}>
             <DialogHeader className='border-b px-6 pt-5 pb-2'>
               <DialogTitle>新建简历记录</DialogTitle>
               <DialogDescription>支持手动录入候选人资料，也可以先上传 PDF 简历自动分析并回填表单。</DialogDescription>
@@ -200,7 +258,9 @@ export function CreateInterviewDialog({
                 <TabsTrigger className='min-w-[6em]' value='basic'>基础信息</TabsTrigger>
                 <TabsTrigger className='min-w-[6em]' value='questions'>
                   面试题目
-                  {resumePayload ? ` (${resumePayload.interviewQuestions.length})` : ''}
+                  {isTutorialDialog
+                    ? ` (${STUDIO_TUTORIAL_MOCK_QUESTIONS.length})`
+                    : resumePayload ? ` (${resumePayload.interviewQuestions.length})` : ''}
                 </TabsTrigger>
               </TabsList>
             </DialogHeader>
@@ -242,7 +302,7 @@ export function CreateInterviewDialog({
                     </FieldGroup>
                   </div>
 
-                  <FieldGroup className='grid gap-5 md:grid-cols-2 md:items-start'>
+                  <FieldGroup className='grid gap-5 md:grid-cols-2 md:items-start' data-tour='studio-dialog-basic'>
                     <form.Field name='candidateName'>
                       {(field) => {
                         const errors = toFieldErrors(field.state.meta.errors);
@@ -344,7 +404,9 @@ export function CreateInterviewDialog({
                     </form.Field>
                   </FieldGroup>
 
-                  <InterviewScheduleFields form={form} />
+                  <div data-tour='studio-dialog-schedule'>
+                    <InterviewScheduleFields form={form} />
+                  </div>
 
                   <form.Field name='notes'>
                     {(field) => {
@@ -372,17 +434,17 @@ export function CreateInterviewDialog({
                 </div>
               </TabsContent>
 
-              <TabsContent className='mt-0' value='questions'>
+              <TabsContent className='mt-0' value='questions' data-tour='studio-dialog-questions'>
                 <InterviewQuestionsFields
                   disabled={isSubmitting || isAnalyzingResume}
                   onChange={questions => setResumePayload(prev => prev ? { ...prev, interviewQuestions: questions } : null)}
-                  questions={resumePayload?.interviewQuestions ?? []}
+                  questions={displayQuestions}
                 />
               </TabsContent>
             </div>
           </Tabs>
 
-          <DialogFooter className='border-t px-6 py-4'>
+          <DialogFooter className='border-t px-6 py-4' data-tour='studio-dialog-submit'>
             <Button disabled={isSubmitting || isAnalyzingResume} type='submit'>
               {isSubmitting || isAnalyzingResume ? <LoaderCircleIcon className='size-4 animate-spin' /> : null}
               保存简历记录
