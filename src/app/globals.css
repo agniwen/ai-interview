@@ -136,19 +136,6 @@
 
   body {
     @apply text-foreground;
-    background-color: var(--background);
-    background-image:
-      linear-gradient(
-        to bottom,
-        oklch(0.955 0.022 232.8) 0%,
-        oklch(0.973 0.014 234.1) 24%,
-        oklch(0.986 0.008 236.2) 46%,
-        oklch(0.994 0.003 238) 66%,
-        oklch(0.998 0.001 240) 100%
-      ),
-      radial-gradient(circle at 18% -12%, oklch(0.89 0.05 228.8 / 26%) 0%, transparent 34%),
-      radial-gradient(circle at 76% -14%, oklch(0.9 0.042 236.7 / 22%) 0%, transparent 32%),
-      radial-gradient(circle at 50% -20%, oklch(0.92 0.032 220.6 / 18%) 0%, transparent 30%);
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
     touch-action: manipulation;

@@ -2,7 +2,7 @@
 
 import type { ReactNode } from 'react';
 import { useAtomValue, useSetAtom } from 'jotai';
-import { isMobileSidebarOpenAtom } from '../atoms/sidebar';
+import { isMobileSidebarOpenAtom } from '../_atoms/sidebar';
 import ChatSidebar from './chat-sidebar';
 
 export default function ChatLayoutShell({

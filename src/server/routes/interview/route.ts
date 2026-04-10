@@ -1,362 +1,40 @@
-import type { InterviewConversationSnapshot, InterviewTranscriptTurn, PersistedInterviewTurn } from '@/lib/interview-session';
 import type { ScheduleEntryStatus } from '@/lib/studio-interviews';
 import { ElevenLabsClient } from '@elevenlabs/elevenlabs-js';
 import { zValidator } from '@hono/zod-validator';
-import { and, asc, eq, or } from 'drizzle-orm';
-import { updateTag } from 'next/cache';
+import { eq } from 'drizzle-orm';
 import { db } from '@/lib/db';
+import { interviewAuditLog, studioInterview, studioInterviewSchedule } from '@/lib/db/schema';
 import {
-  interviewConversation,
-  interviewConversationTurn,
-  studioInterview,
-  studioInterviewSchedule,
-} from '@/lib/db/schema';
-import { buildCandidateInterviewView, pickCurrentScheduleEntry, sortScheduleEntries } from '@/lib/interview/interview-record';
+  parseResumePayloadInput,
+  parseScheduleEntriesInput,
+  studioInterviewFormSchema,
+  studioInterviewUpdateSchema,
+  toNullableString,
+} from '@/lib/studio-interviews';
+import { analyzeResumeFile, ResumeAnalysisError } from '@/server/agents/resume-analysis-agent';
 import { factory } from '@/server/factory';
-import { analyzeResumeFile, ResumeAnalysisError } from './analysis';
-import { interviewSessionSyncSchema } from './session-schema';
-
-function safeUpdateTag(tag: string) {
-  try {
-    updateTag(tag);
-  }
-  catch {
-    // updateTag may throw in certain route handler contexts — non-critical
-  }
-}
+import { queryInterviewConversationReports } from '@/server/queries/interview-conversations';
+import { queryStudioInterviewRecords } from '@/server/queries/studio-interviews';
+import { interviewSessionSyncSchema } from './schema';
+import {
+  buildScheduleRows,
+  buildTokenErrorResponse,
+  deriveEndedAt,
+  loadCandidateInterviewRecord,
+  loadConversationSnapshot,
+  loadRecordById,
+  loadScheduleEntriesForRedirect,
+  normalizeResumeFile,
+  normalizeTranscript,
+  safeUpdateTag,
+  serializeRecord,
+  toBadRequest,
+  upsertConversation,
+} from './utils';
 
 const elevenlabs = new ElevenLabsClient({
   apiKey: process.env.ELEVENLABS_API_KEY,
 });
-
-type InterviewConversationRow = typeof interviewConversation.$inferSelect;
-type InterviewConversationTurnRow = typeof interviewConversationTurn.$inferSelect;
-
-async function loadCandidateInterviewRecord(id: string, roundId: string) {
-  const [record] = await db.select().from(studioInterview).where(eq(studioInterview.id, id)).limit(1);
-
-  if (!record || record.status === 'archived') {
-    return null;
-  }
-
-  const scheduleEntries = await db
-    .select()
-    .from(studioInterviewSchedule)
-    .where(eq(studioInterviewSchedule.interviewRecordId, id));
-
-  return buildCandidateInterviewView(record, sortScheduleEntries(scheduleEntries), roundId);
-}
-
-async function loadScheduleEntriesForRedirect(id: string) {
-  const [record] = await db.select({ id: studioInterview.id, status: studioInterview.status }).from(studioInterview).where(eq(studioInterview.id, id)).limit(1);
-
-  if (!record || record.status === 'archived') {
-    return null;
-  }
-
-  const entries = await db
-    .select()
-    .from(studioInterviewSchedule)
-    .where(eq(studioInterviewSchedule.interviewRecordId, id));
-
-  const sorted = sortScheduleEntries(entries);
-  const active = pickCurrentScheduleEntry(sorted);
-  return active;
-}
-
-function buildTokenErrorResponse() {
-  return {
-    error: '语音通话服务配置缺失，请联系管理员检查环境变量。',
-  };
-}
-
-function normalizeTranscript(value: unknown): InterviewTranscriptTurn[] {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-
-  return value
-    .filter((turn): turn is Record<string, unknown> => Boolean(turn) && typeof turn === 'object')
-    .filter(turn => turn.role === 'agent' || turn.role === 'user')
-    .map(turn => ({
-      role: turn.role as 'agent' | 'user',
-      message: typeof turn.message === 'string' ? turn.message : '',
-      timeInCallSecs: typeof turn.time_in_call_secs === 'number' ? turn.time_in_call_secs : undefined,
-    }))
-    .filter(turn => turn.message.trim().length > 0);
-}
-
-function buildFallbackTurns(conversation: InterviewConversationRow): PersistedInterviewTurn[] {
-  const turns = conversation.transcript ?? [];
-  const fallbackCreatedAt = conversation.webhookReceivedAt ?? conversation.updatedAt;
-  const fallbackReceivedAt = conversation.webhookReceivedAt ?? conversation.updatedAt;
-
-  return turns.map((turn, index) => ({
-    id: `${conversation.conversationId}:webhook:${index}`,
-    conversationId: conversation.conversationId,
-    interviewRecordId: conversation.interviewRecordId,
-    role: turn.role,
-    message: turn.message,
-    source: 'post_call_transcription',
-    timeInCallSecs: turn.timeInCallSecs ?? null,
-    createdAt: fallbackCreatedAt,
-    receivedAt: fallbackReceivedAt,
-  }));
-}
-
-function serializeConversationSnapshot(
-  conversation: InterviewConversationRow,
-  turnRows: InterviewConversationTurnRow[],
-): InterviewConversationSnapshot {
-  return {
-    conversationId: conversation.conversationId,
-    interviewRecordId: conversation.interviewRecordId,
-    agentId: conversation.agentId,
-    status: conversation.status,
-    mode: conversation.mode,
-    callSuccessful: conversation.callSuccessful,
-    transcriptSummary: conversation.transcriptSummary,
-    evaluationCriteriaResults: conversation.evaluationCriteriaResults ?? {},
-    dataCollectionResults: conversation.dataCollectionResults ?? {},
-    metadata: conversation.metadata ?? {},
-    dynamicVariables: conversation.dynamicVariables ?? {},
-    latestError: conversation.latestError,
-    startedAt: conversation.startedAt,
-    endedAt: conversation.endedAt,
-    webhookReceivedAt: conversation.webhookReceivedAt,
-    lastSyncedAt: conversation.lastSyncedAt,
-    createdAt: conversation.createdAt,
-    updatedAt: conversation.updatedAt,
-    turns: turnRows.length > 0 ? turnRows : buildFallbackTurns(conversation),
-  };
-}
-
-async function loadConversationSnapshot(options: { conversationId: string, interviewRecordId?: string }) {
-  const filters = options.interviewRecordId
-    ? and(
-        eq(interviewConversation.conversationId, options.conversationId),
-        eq(interviewConversation.interviewRecordId, options.interviewRecordId),
-      )
-    : eq(interviewConversation.conversationId, options.conversationId);
-  const [conversation] = await db.select().from(interviewConversation).where(filters).limit(1);
-
-  if (!conversation) {
-    return null;
-  }
-
-  const turnRows = await db
-    .select()
-    .from(interviewConversationTurn)
-    .where(eq(interviewConversationTurn.conversationId, options.conversationId))
-    .orderBy(asc(interviewConversationTurn.createdAt), asc(interviewConversationTurn.receivedAt));
-
-  return serializeConversationSnapshot(conversation, turnRows);
-}
-
-function deriveEndedAt(metadata: Record<string, unknown> | null | undefined) {
-  if (!metadata || typeof metadata !== 'object') {
-    return null;
-  }
-
-  const startTime = typeof metadata.start_time_unix_secs === 'number'
-    ? metadata.start_time_unix_secs * 1000
-    : null;
-  const durationMs = typeof metadata.call_duration_secs === 'number'
-    ? metadata.call_duration_secs * 1000
-    : null;
-
-  if (startTime != null && durationMs != null) {
-    return new Date(startTime + durationMs);
-  }
-
-  return null;
-}
-
-async function syncInterviewStatus(interviewRecordId: string | null, now: Date) {
-  if (!interviewRecordId) {
-    return;
-  }
-
-  const [record] = await db.select({ status: studioInterview.status }).from(studioInterview).where(eq(studioInterview.id, interviewRecordId)).limit(1);
-
-  if (!record || record.status === 'archived') {
-    return;
-  }
-
-  const scheduleEntries = await db
-    .select({ status: studioInterviewSchedule.status })
-    .from(studioInterviewSchedule)
-    .where(eq(studioInterviewSchedule.interviewRecordId, interviewRecordId));
-
-  const allCompleted = scheduleEntries.length > 0 && scheduleEntries.every(e => e.status === 'completed');
-  const anyInProgress = scheduleEntries.some(e => e.status === 'in_progress');
-
-  let nextStatus: 'in_progress' | 'completed' | null = null;
-
-  if (allCompleted) {
-    nextStatus = 'completed';
-  }
-  else if (anyInProgress || scheduleEntries.some(e => e.status === 'completed')) {
-    nextStatus = 'in_progress';
-  }
-
-  if (!nextStatus || nextStatus === record.status) {
-    return;
-  }
-
-  // Don't transition backward from in_progress to null, only forward or to in_progress if was ready/draft
-  if (nextStatus === 'in_progress' && record.status !== 'ready' && record.status !== 'draft' && record.status !== 'completed') {
-    return;
-  }
-
-  await db.update(studioInterview).set({ status: nextStatus, updatedAt: now }).where(eq(studioInterview.id, interviewRecordId));
-}
-
-async function updateScheduleEntryStatus(
-  scheduleEntryId: string,
-  nextStatus: ScheduleEntryStatus,
-  conversationId: string | null,
-  now: Date,
-) {
-  await db
-    .update(studioInterviewSchedule)
-    .set({
-      status: nextStatus,
-      ...(conversationId ? { conversationId } : {}),
-      updatedAt: now,
-    })
-    .where(and(
-      eq(studioInterviewSchedule.id, scheduleEntryId),
-      // Only allow forward: pending(0) → in_progress(1) → completed(2)
-      nextStatus === 'in_progress'
-        ? eq(studioInterviewSchedule.status, 'pending')
-        : nextStatus === 'completed'
-          ? or(eq(studioInterviewSchedule.status, 'pending'), eq(studioInterviewSchedule.status, 'in_progress'))
-          : eq(studioInterviewSchedule.status, studioInterviewSchedule.status), // noop for 'pending'
-    ));
-}
-
-async function upsertConversation(options: {
-  conversationId: string
-  interviewRecordId?: string | null
-  scheduleEntryId?: string | null
-  agentId?: string | null
-  status?: string
-  mode?: string | null
-  transcript?: InterviewTranscriptTurn[]
-  transcriptSummary?: string | null
-  callSuccessful?: string | null
-  evaluationCriteriaResults?: Record<string, unknown>
-  dataCollectionResults?: Record<string, unknown>
-  metadata?: Record<string, unknown>
-  dynamicVariables?: Record<string, unknown>
-  latestError?: string | null
-  turn?: {
-    id: string
-    eventId?: number
-    role: 'agent' | 'user'
-    text: string
-    source: string
-    createdAt: number
-    timeInCallSecs?: number
-  }
-  webhookReceivedAt?: Date | null
-  endedAt?: Date | null
-  markStarted?: boolean
-  markEnded?: boolean
-}) {
-  const now = new Date();
-  let resolvedInterviewRecordId: string | null = options.interviewRecordId ?? null;
-  let resolvedScheduleEntryId: string | null = options.scheduleEntryId ?? null;
-
-  await db.transaction(async (tx) => {
-    const [existing] = await tx
-      .select()
-      .from(interviewConversation)
-      .where(eq(interviewConversation.conversationId, options.conversationId))
-      .limit(1);
-
-    const nextInterviewRecordId = options.interviewRecordId ?? existing?.interviewRecordId ?? null;
-    const nextScheduleEntryId = options.scheduleEntryId ?? existing?.scheduleEntryId ?? null;
-    resolvedInterviewRecordId = nextInterviewRecordId;
-    resolvedScheduleEntryId = nextScheduleEntryId;
-    const nextRow = {
-      conversationId: options.conversationId,
-      interviewRecordId: nextInterviewRecordId,
-      scheduleEntryId: nextScheduleEntryId,
-      agentId: options.agentId ?? existing?.agentId ?? null,
-      status: options.status ?? existing?.status ?? 'initiated',
-      mode: options.mode ?? existing?.mode ?? null,
-      transcript: options.transcript ?? existing?.transcript ?? [],
-      transcriptSummary: options.transcriptSummary ?? existing?.transcriptSummary ?? null,
-      callSuccessful: options.callSuccessful ?? existing?.callSuccessful ?? null,
-      evaluationCriteriaResults: options.evaluationCriteriaResults ?? existing?.evaluationCriteriaResults ?? {},
-      dataCollectionResults: options.dataCollectionResults ?? existing?.dataCollectionResults ?? {},
-      metadata: {
-        ...(existing?.metadata ?? {}),
-        ...(options.metadata ?? {}),
-      },
-      dynamicVariables: {
-        ...(existing?.dynamicVariables ?? {}),
-        ...(options.dynamicVariables ?? {}),
-      },
-      latestError: options.latestError ?? existing?.latestError ?? null,
-      startedAt: existing?.startedAt ?? (options.markStarted ? now : null),
-      endedAt: options.endedAt ?? existing?.endedAt ?? (options.markEnded ? now : null),
-      webhookReceivedAt: options.webhookReceivedAt ?? existing?.webhookReceivedAt ?? null,
-      lastSyncedAt: now,
-      updatedAt: now,
-    } satisfies typeof interviewConversation.$inferInsert;
-
-    if (existing) {
-      await tx
-        .update(interviewConversation)
-        .set(nextRow)
-        .where(eq(interviewConversation.conversationId, options.conversationId));
-    }
-    else {
-      await tx.insert(interviewConversation).values({
-        ...nextRow,
-        createdAt: now,
-      });
-    }
-
-    if (options.turn) {
-      const persistedTurnId = typeof options.turn.eventId === 'number'
-        ? `${options.conversationId}:${options.turn.role}:${options.turn.source}:event:${options.turn.eventId}`
-        : options.turn.id;
-
-      await tx.insert(interviewConversationTurn).values({
-        id: persistedTurnId,
-        conversationId: options.conversationId,
-        interviewRecordId: nextInterviewRecordId,
-        role: options.turn.role,
-        message: options.turn.text,
-        source: options.turn.source,
-        timeInCallSecs: options.turn.timeInCallSecs,
-        createdAt: new Date(options.turn.createdAt),
-        receivedAt: now,
-      }).onConflictDoNothing();
-    }
-  });
-
-  // Sync schedule entry status
-  if (resolvedScheduleEntryId) {
-    if (options.status === 'connected' || options.markStarted) {
-      await updateScheduleEntryStatus(resolvedScheduleEntryId, 'in_progress', options.conversationId, now);
-    }
-
-    if (options.markEnded || options.status === 'done' || options.webhookReceivedAt) {
-      await updateScheduleEntryStatus(resolvedScheduleEntryId, 'completed', options.conversationId, now);
-    }
-  }
-
-  // Sync overall interview status based on all round statuses
-  await syncInterviewStatus(resolvedInterviewRecordId, now);
-
-  safeUpdateTag('interview-conversations');
-  safeUpdateTag('studio-interviews');
-}
 
 export const interviewRouter = factory.createApp()
   .post('/quick-start', async (c) => {
@@ -726,4 +404,229 @@ export const interviewRouter = factory.createApp()
     }
 
     return c.json(interviewRecord);
+  });
+
+export const studioInterviewsRouter = factory.createApp()
+  .get('/', async (c) => {
+    const records = await queryStudioInterviewRecords({
+      search: c.req.query('search'),
+      status: c.req.query('status'),
+    });
+
+    return c.json(records);
+  })
+  .post('/', async (c) => {
+    try {
+      const formData = await c.req.formData();
+      const resume = normalizeResumeFile(formData.get('resume'));
+      const parsedScheduleEntries = parseScheduleEntriesInput(formData.get('scheduleEntries'));
+      const parsedResumePayload = parseResumePayloadInput(formData.get('resumePayload'));
+
+      const input = studioInterviewFormSchema.safeParse({
+        candidateName: toNullableString(formData.get('candidateName')) ?? '',
+        candidateEmail: toNullableString(formData.get('candidateEmail')) ?? '',
+        targetRole: toNullableString(formData.get('targetRole')) ?? '',
+        notes: toNullableString(formData.get('notes')) ?? '',
+        status: toNullableString(formData.get('status')) ?? 'ready',
+        scheduleEntries: parsedScheduleEntries,
+      });
+
+      if (!input.success) {
+        return c.json({ error: input.error.issues[0]?.message ?? '表单校验失败。' }, 400);
+      }
+
+      const analysis = parsedResumePayload ?? (resume ? await analyzeResumeFile(resume) : null);
+      const now = new Date();
+      const interviewRecordId = crypto.randomUUID();
+      const record = {
+        id: interviewRecordId,
+        candidateName: input.data.candidateName || analysis?.resumeProfile.name || '未命名候选人',
+        candidateEmail: input.data.candidateEmail || null,
+        targetRole: input.data.targetRole || analysis?.resumeProfile.targetRoles[0] || null,
+        status: input.data.status,
+        resumeFileName: analysis?.fileName ?? null,
+        resumeProfile: analysis?.resumeProfile ?? null,
+        interviewQuestions: analysis?.interviewQuestions ?? [],
+        notes: input.data.notes || null,
+        createdBy: c.var.user?.id ?? null,
+        createdAt: now,
+        updatedAt: now,
+      } satisfies typeof studioInterview.$inferInsert;
+      const scheduleRows = buildScheduleRows(interviewRecordId, input.data.scheduleEntries, now);
+
+      await db.transaction(async (tx) => {
+        await tx.insert(studioInterview).values(record);
+        await tx.insert(studioInterviewSchedule).values(scheduleRows);
+      });
+
+      safeUpdateTag('studio-interviews');
+      return c.json(serializeRecord(record, scheduleRows), 201);
+    }
+    catch (error) {
+      const result = toBadRequest(error);
+      return c.json({ error: result.error }, { status: result.status as any });
+    }
+  })
+  .get('/:id', async (c) => {
+    const id = c.req.param('id');
+    const record = await loadRecordById(id);
+
+    if (!record) {
+      return c.json({ error: '记录不存在。' }, 404);
+    }
+
+    return c.json(record);
+  })
+  .get('/:id/reports', async (c) => {
+    const id = c.req.param('id');
+    const existing = await loadRecordById(id);
+
+    if (!existing) {
+      return c.json({ error: '记录不存在。' }, 404);
+    }
+
+    const reports = await queryInterviewConversationReports(id);
+    return c.json(reports);
+  })
+  .patch('/:id', async (c) => {
+    const id = c.req.param('id');
+
+    try {
+      const existing = await loadRecordById(id);
+
+      if (!existing) {
+        return c.json({ error: '记录不存在。' }, 404);
+      }
+
+      const formData = await c.req.formData();
+      const resume = normalizeResumeFile(formData.get('resume'));
+      const parsedScheduleEntries = parseScheduleEntriesInput(formData.get('scheduleEntries'));
+      const parsedResumePayload = parseResumePayloadInput(formData.get('resumePayload'));
+      const editedQuestionsRaw = toNullableString(formData.get('editedQuestions'));
+      const editedQuestions = editedQuestionsRaw ? (JSON.parse(editedQuestionsRaw) as typeof existing.interviewQuestions) : null;
+
+      const input = studioInterviewUpdateSchema.safeParse({
+        candidateName: toNullableString(formData.get('candidateName')) ?? '',
+        candidateEmail: toNullableString(formData.get('candidateEmail')) ?? '',
+        targetRole: toNullableString(formData.get('targetRole')) ?? '',
+        notes: toNullableString(formData.get('notes')) ?? '',
+        status: toNullableString(formData.get('status')) ?? existing.status,
+        scheduleEntries: parsedScheduleEntries,
+      });
+
+      if (!input.success) {
+        return c.json({ error: input.error.issues[0]?.message ?? '表单校验失败。' }, 400);
+      }
+
+      const analysis = parsedResumePayload ?? (resume ? await analyzeResumeFile(resume) : null);
+      const now = new Date();
+
+      const existingScheduleRows = await db
+        .select()
+        .from(studioInterviewSchedule)
+        .where(eq(studioInterviewSchedule.interviewRecordId, id));
+      const scheduleRows = buildScheduleRows(id, input.data.scheduleEntries, now, existingScheduleRows);
+
+      const hasPendingRounds = scheduleRows.some(r => r.status === 'pending');
+      let resolvedStatus = input.data.status;
+
+      if (resolvedStatus === 'completed' && hasPendingRounds) {
+        resolvedStatus = 'in_progress';
+      }
+
+      const nextRecord = {
+        candidateName: input.data.candidateName || analysis?.resumeProfile.name || existing.candidateName,
+        candidateEmail: input.data.candidateEmail || null,
+        targetRole: input.data.targetRole || analysis?.resumeProfile.targetRoles[0] || null,
+        status: resolvedStatus,
+        resumeFileName: analysis?.fileName ?? existing.resumeFileName,
+        resumeProfile: analysis?.resumeProfile ?? existing.resumeProfile,
+        interviewQuestions: analysis?.interviewQuestions ?? editedQuestions ?? existing.interviewQuestions,
+        notes: input.data.notes || null,
+        updatedAt: now,
+      } satisfies Partial<typeof studioInterview.$inferInsert>;
+
+      await db.transaction(async (tx) => {
+        await tx.update(studioInterview).set(nextRecord).where(eq(studioInterview.id, id));
+        await tx.delete(studioInterviewSchedule).where(eq(studioInterviewSchedule.interviewRecordId, id));
+        await tx.insert(studioInterviewSchedule).values(scheduleRows);
+      });
+
+      safeUpdateTag('studio-interviews');
+      const updatedRecord = await loadRecordById(id);
+      return c.json(updatedRecord);
+    }
+    catch (error) {
+      const result = toBadRequest(error);
+      return c.json({ error: result.error }, { status: result.status as any });
+    }
+  })
+  .post('/:id/rounds/:roundId/reset', async (c) => {
+    const id = c.req.param('id');
+    const roundId = c.req.param('roundId');
+    const operatorId = c.var.user?.id ?? null;
+
+    const existing = await loadRecordById(id);
+
+    if (!existing) {
+      return c.json({ error: '记录不存在。' }, 404);
+    }
+
+    const targetEntry = existing.scheduleEntries.find(e => e.id === roundId);
+
+    if (!targetEntry) {
+      return c.json({ error: '轮次不存在。' }, 404);
+    }
+
+    if (targetEntry.status !== 'completed') {
+      return c.json({ error: '只能重置已结束的轮次。' }, 400);
+    }
+
+    const now = new Date();
+
+    await db.transaction(async (tx) => {
+      await tx.update(studioInterviewSchedule).set({
+        status: 'pending',
+        conversationId: null,
+        updatedAt: now,
+      }).where(eq(studioInterviewSchedule.id, roundId));
+
+      if (existing.status === 'completed') {
+        await tx.update(studioInterview).set({
+          status: 'in_progress',
+          updatedAt: now,
+        }).where(eq(studioInterview.id, id));
+      }
+
+      await tx.insert(interviewAuditLog).values({
+        id: crypto.randomUUID(),
+        interviewRecordId: id,
+        scheduleEntryId: roundId,
+        action: 'round_reset',
+        detail: {
+          roundLabel: targetEntry.roundLabel,
+          previousStatus: targetEntry.status,
+          previousConversationId: targetEntry.conversationId,
+        },
+        operatorId,
+        createdAt: now,
+      });
+    });
+
+    safeUpdateTag('studio-interviews');
+    safeUpdateTag('interview-conversations');
+    const updatedRecord = await loadRecordById(id);
+    return c.json(updatedRecord);
+  })
+  .delete('/:id', async (c) => {
+    const id = c.req.param('id');
+    const existing = await loadRecordById(id);
+
+    if (!existing) {
+      return c.json({ error: '记录不存在。' }, 404);
+    }
+
+    await db.delete(studioInterview).where(eq(studioInterview.id, id));
+    safeUpdateTag('studio-interviews');
+    return c.json({ success: true });
   });

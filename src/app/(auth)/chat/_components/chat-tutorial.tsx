@@ -1,11 +1,10 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
 import { driver } from 'driver.js';
 import { getDefaultStore } from 'jotai';
+import { useEffect, useRef } from 'react';
+import { tutorialStepAtom } from '../_atoms/tutorial';
 import 'driver.js/dist/driver.css';
-
-import { tutorialStepAtom } from '../atoms/tutorial';
 
 const STORAGE_KEY = 'chat-tutorial-done';
 
@@ -63,7 +62,7 @@ const TOUR_STEPS = [
   },
 ];
 
-function createDriverInstance(options?: { doneBtnText?: string; onDestroyed?: () => void }) {
+function createDriverInstance(options?: { doneBtnText?: string, onDestroyed?: () => void }) {
   return driver({
     showProgress: true,
     progressText: '{{current}} / {{total}}',

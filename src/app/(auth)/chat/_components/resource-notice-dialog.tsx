@@ -11,7 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { hasSeenResourceNoticeAtom } from '../atoms/notice';
+import { hasSeenResourceNoticeAtom } from '../_atoms/notice';
 
 export function ResourceNoticeDialog({ deferred }: { deferred?: boolean }) {
   const [hasSeen, setHasSeen] = useAtom(hasSeenResourceNoticeAtom);

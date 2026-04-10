@@ -27,8 +27,8 @@ import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { chatHistoryDB } from '@/lib/chat-history-db';
 import { cn } from '@/lib/utils';
-import { isMobileSidebarOpenAtom, isSidebarCollapsedAtom } from '../atoms/sidebar';
-import { tutorialStepAtom } from '../atoms/tutorial';
+import { isMobileSidebarOpenAtom, isSidebarCollapsedAtom } from '../_atoms/sidebar';
+import { tutorialStepAtom } from '../_atoms/tutorial';
 import { TUTORIAL_MOCK_CONVERSATIONS } from '../constants/tutorial-mock';
 
 interface ConversationListItem {
@@ -133,7 +133,8 @@ export default function ChatSidebar() {
 
   const confirmDelete = useCallback(
     async () => {
-      if (!deleteTarget) return;
+      if (!deleteTarget)
+        return;
 
       const id = deleteTarget.id;
       setDeleteTarget(null);
@@ -317,7 +318,9 @@ export default function ChatSidebar() {
           <AlertDialogHeader>
             <AlertDialogTitle>确认删除这条聊天记录？</AlertDialogTitle>
             <AlertDialogDescription>
-              删除后将无法恢复。当前记录：{deleteTarget?.title ?? '未知对话'}。
+              删除后将无法恢复。当前记录：
+              {deleteTarget?.title ?? '未知对话'}
+              。
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

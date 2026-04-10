@@ -117,9 +117,9 @@ import { authClient } from '@/lib/auth-client';
 import {
   chatHistoryDB,
 } from '@/lib/chat-history-db';
-import { isMobileSidebarOpenAtom } from '../atoms/sidebar';
-import { thinkingModeAtom } from '../atoms/thinking';
-import { tutorialStepAtom } from '../atoms/tutorial';
+import { isMobileSidebarOpenAtom } from '../_atoms/sidebar';
+import { thinkingModeAtom } from '../_atoms/thinking';
+import { tutorialStepAtom } from '../_atoms/tutorial';
 import { TUTORIAL_MOCK_ATTACHMENTS, TUTORIAL_MOCK_INPUT_TEXT } from '../constants/tutorial-mock';
 import { useChatTutorial } from './chat-tutorial';
 import { ResourceNoticeDialog } from './resource-notice-dialog';
@@ -536,7 +536,7 @@ export default function ChatPageClient({
     regenerate,
   } = useChat({
     transport: new DefaultChatTransport({
-      api: '/api/chat',
+      api: '/api/resume',
       fetch: async (input, init) => {
         const timeoutController = new AbortController();
         const timeoutId = window.setTimeout(() => {
@@ -728,7 +728,7 @@ export default function ChatPageClient({
       const firstMessageText = text.trim();
 
       if (firstMessageText.length > 0) {
-        void fetch('/api/chat-title', {
+        void fetch('/api/resume/title', {
           body: JSON.stringify({
             hasFiles: Boolean(files?.length),
             text: firstMessageText,
@@ -1438,11 +1438,6 @@ export default function ChatPageClient({
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      <p className='mt-2  hidden sm:flex items-center gap-1 px-1 text-muted-foreground text-xs'>
-        <SparklesIcon className='size-3' />
-        受限于当前服务器资源，目前连接仅能持续300秒，注意上传简历的文件大小。
-      </p>
-
       <ResourceNoticeDialog deferred={isTutorialPending} />
     </div>
   );

@@ -15,7 +15,7 @@ export default async function AuthenticatedLayout({
   });
 
   if (!session) {
-    redirect('/');
+    redirect('/login');
   }
 
   return children;

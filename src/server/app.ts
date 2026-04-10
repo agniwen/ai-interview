@@ -5,10 +5,8 @@ import { auth } from '@/lib/auth';
 import { adminMiddleware } from './middlewares/admin';
 import { authMiddleware } from './middlewares/auth';
 import { betterAuthMiddleware } from './middlewares/better-auth';
-import { chatTitleRouter } from './routes/chat-title/route';
-import { chatRouter } from './routes/chat/route';
-import { interviewRouter } from './routes/interview/route';
-import { studioInterviewsRouter } from './routes/studio-interviews/route';
+import { interviewRouter, studioInterviewsRouter } from './routes/interview/route';
+import { resumeRouter } from './routes/resume/route';
 
 export const app = new Hono<Env>()
   .use(
@@ -26,19 +24,15 @@ export const app = new Hono<Env>()
     return auth.handler(c.req.raw);
   })
   .use(betterAuthMiddleware)
-  .use('/api/chat', authMiddleware)
-  .use('/api/chat-title', authMiddleware)
+  .use('/api/resume', authMiddleware)
+  .use('/api/resume/*', authMiddleware)
   .use('/api/interview/parse-resume', authMiddleware)
-  .use('/api/interview/quota', authMiddleware)
-  .use('/api/interview/quota', adminMiddleware)
   .use('/api/interview/report/*', authMiddleware)
-  .use('/api/studio/interviews', authMiddleware)
-  .use('/api/studio/interviews/*', authMiddleware)
-  .use('/api/studio/interviews', adminMiddleware)
-  .use('/api/studio/interviews/*', adminMiddleware)
+  .use('/api/interview/quota', authMiddleware, adminMiddleware)
+  .use('/api/studio/interviews', authMiddleware, adminMiddleware)
+  .use('/api/studio/interviews/*', authMiddleware, adminMiddleware)
   .basePath('/api')
-  .route('/chat', chatRouter)
-  .route('/chat-title', chatTitleRouter)
+  .route('/resume', resumeRouter)
   .route('/interview', interviewRouter)
   .route('/studio/interviews', studioInterviewsRouter);
 
