@@ -1,8 +1,8 @@
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
 
-export type CreateAlibabaProviderOptions = {
-  enableThinking?: boolean;
-};
+export interface CreateAlibabaProviderOptions {
+  enableThinking?: boolean
+}
 
 export function createAlibabaProvider({ enableThinking = true }: CreateAlibabaProviderOptions = {}) {
   const apiKey = process.env.ALIBABA_API_KEY;

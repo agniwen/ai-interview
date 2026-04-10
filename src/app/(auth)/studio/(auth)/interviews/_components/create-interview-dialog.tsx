@@ -9,15 +9,15 @@ import { motion } from 'motion/react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import {
+  STUDIO_TUTORIAL_MOCK_FORM,
+  STUDIO_TUTORIAL_MOCK_QUESTIONS,
+} from '@/app/(auth)/studio/_hooks/studio-tutorial-mock';
+import {
   STUDIO_DIALOG_FIRST_STEP,
   STUDIO_DIALOG_LAST_STEP,
   STUDIO_QUESTIONS_TAB_STEP,
   studioTutorialStepAtom,
 } from '@/app/(auth)/studio/_hooks/use-studio-tutorial';
-import {
-  STUDIO_TUTORIAL_MOCK_FORM,
-  STUDIO_TUTORIAL_MOCK_QUESTIONS,
-} from '@/app/(auth)/studio/_hooks/studio-tutorial-mock';
 import { TextFlip } from '@/components/text-flip';
 import { Button } from '@/components/ui/button';
 import {
@@ -216,7 +216,8 @@ export function CreateInterviewDialog({
   return (
     <Dialog
       onOpenChange={(value) => {
-        if (isTutorialDialog) return;
+        if (isTutorialDialog)
+          return;
         if (!isAnalyzingResume)
           setOpen(value);
       }}

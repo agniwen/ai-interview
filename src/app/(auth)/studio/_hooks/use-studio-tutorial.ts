@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
 import { driver } from 'driver.js';
 import { atom, getDefaultStore } from 'jotai';
+import { useEffect, useRef } from 'react';
 import 'driver.js/dist/driver.css';
 
 const STORAGE_KEY = 'studio-tutorial-done';
@@ -83,7 +83,7 @@ const TOUR_STEPS = [
   },
 ];
 
-function createDriverInstance(options?: { doneBtnText?: string; onDestroyed?: () => void }) {
+function createDriverInstance(options?: { doneBtnText?: string, onDestroyed?: () => void }) {
   return driver({
     showProgress: true,
     progressText: '{{current}} / {{total}}',
@@ -114,7 +114,8 @@ export function useStudioTutorial() {
   const driverRef = useRef<ReturnType<typeof driver> | null>(null);
 
   useEffect(() => {
-    if (hasSeenTutorial()) return;
+    if (hasSeenTutorial())
+      return;
 
     const timer = window.setTimeout(() => {
       const d = createDriverInstance({

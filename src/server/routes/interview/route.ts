@@ -1,7 +1,6 @@
-import type { ScheduleEntryStatus } from '@/lib/studio-interviews';
-import { ElevenLabsClient } from '@elevenlabs/elevenlabs-js';
-import { zValidator } from '@hono/zod-validator';
+import { RoomAgentDispatch, RoomConfiguration } from '@livekit/protocol';
 import { eq } from 'drizzle-orm';
+import { AccessToken } from 'livekit-server-sdk';
 import { db } from '@/lib/db';
 import { interviewAuditLog, studioInterview, studioInterviewSchedule } from '@/lib/db/schema';
 import {
@@ -15,26 +14,17 @@ import { analyzeResumeFile, ResumeAnalysisError } from '@/server/agents/resume-a
 import { factory } from '@/server/factory';
 import { queryInterviewConversationReports } from '@/server/queries/interview-conversations';
 import { queryStudioInterviewRecords } from '@/server/queries/studio-interviews';
-import { interviewSessionSyncSchema } from './schema';
 import {
   buildScheduleRows,
   buildTokenErrorResponse,
-  deriveEndedAt,
   loadCandidateInterviewRecord,
-  loadConversationSnapshot,
   loadRecordById,
   loadScheduleEntriesForRedirect,
   normalizeResumeFile,
-  normalizeTranscript,
   safeUpdateTag,
   serializeRecord,
   toBadRequest,
-  upsertConversation,
 } from './utils';
-
-const elevenlabs = new ElevenLabsClient({
-  apiKey: process.env.ELEVENLABS_API_KEY,
-});
 
 export const interviewRouter = factory.createApp()
   .post('/quick-start', async (c) => {
@@ -144,207 +134,7 @@ export const interviewRouter = factory.createApp()
       );
     }
   })
-  .post('/:id/:roundId/session-sync', zValidator('json', interviewSessionSyncSchema), async (c) => {
-    const id = c.req.param('id');
-    const roundId = c.req.param('roundId');
-    const interviewRecord = await loadCandidateInterviewRecord(id, roundId);
-
-    if (!interviewRecord) {
-      return c.json({ error: 'Interview not available.' }, 404);
-    }
-
-    if (!interviewRecord.currentRoundId) {
-      return c.json({ error: 'Round not found.' }, 404);
-    }
-
-    const payload = c.req.valid('json');
-
-    await upsertConversation({
-      conversationId: payload.conversationId,
-      interviewRecordId: id,
-      scheduleEntryId: roundId,
-      status: payload.status,
-      mode: payload.mode,
-      latestError: payload.error,
-      markStarted: payload.status === 'connected',
-      markEnded: payload.status === 'disconnected',
-      turn: payload.turn
-        ? {
-            id: payload.turn.id,
-            eventId: payload.turn.eventId,
-            role: payload.turn.role,
-            text: payload.turn.text,
-            source: payload.turn.source,
-            createdAt: payload.turn.createdAt,
-            timeInCallSecs: payload.turn.timeInCallSecs,
-          }
-        : undefined,
-    });
-
-    const [snapshot, scheduleEntry] = await Promise.all([
-      loadConversationSnapshot({
-        conversationId: payload.conversationId,
-        interviewRecordId: id,
-      }),
-      db.select({ status: studioInterviewSchedule.status })
-        .from(studioInterviewSchedule)
-        .where(eq(studioInterviewSchedule.id, roundId))
-        .limit(1)
-        .then(rows => rows[0] ?? null),
-    ]);
-
-    return c.json({
-      received: true,
-      snapshot,
-      currentRoundStatus: (scheduleEntry?.status as ScheduleEntryStatus) ?? null,
-    });
-  })
-  .post('/webhook', async (c) => {
-    const rawBody = await c.req.raw.text();
-    const signature = c.req.header('elevenlabs-signature') ?? '';
-    const webhookSecret = process.env.ELEVENLABS_WEBHOOK_SECRET;
-
-    let event: any;
-
-    try {
-      if (webhookSecret) {
-        event = await elevenlabs.webhooks.constructEvent(rawBody, signature, webhookSecret);
-      }
-      else {
-        event = JSON.parse(rawBody);
-      }
-    }
-    catch {
-      return c.json({ error: 'Invalid webhook payload or signature.' }, 401);
-    }
-
-    if (!event?.data?.conversation_id) {
-      return c.json({ received: true });
-    }
-
-    const dynamicVariables = event.data.conversation_initiation_client_data?.dynamic_variables;
-    const interviewRecordId = typeof dynamicVariables?.interview_record_id === 'string'
-      ? dynamicVariables.interview_record_id
-      : null;
-    const webhookReceivedAt = new Date();
-
-    if (event.type === 'post_call_transcription') {
-      const metadata = event.data.metadata && typeof event.data.metadata === 'object'
-        ? event.data.metadata as Record<string, unknown>
-        : {};
-
-      await upsertConversation({
-        conversationId: event.data.conversation_id,
-        interviewRecordId,
-        agentId: typeof event.data.agent_id === 'string' ? event.data.agent_id : null,
-        status: typeof event.data.status === 'string' ? event.data.status : 'done',
-        transcript: normalizeTranscript(event.data.transcript),
-        transcriptSummary: typeof event.data.analysis?.transcript_summary === 'string' ? event.data.analysis.transcript_summary : null,
-        callSuccessful: typeof event.data.analysis?.call_successful === 'string' ? event.data.analysis.call_successful : null,
-        evaluationCriteriaResults: event.data.analysis?.evaluation_criteria_results ?? {},
-        dataCollectionResults: event.data.analysis?.data_collection_results ?? {},
-        metadata: {
-          ...metadata,
-          lastWebhookEventType: event.type,
-          eventTimestamp: event.event_timestamp ?? null,
-        },
-        dynamicVariables: dynamicVariables && typeof dynamicVariables === 'object'
-          ? dynamicVariables as Record<string, unknown>
-          : {},
-        webhookReceivedAt,
-        endedAt: deriveEndedAt(metadata) ?? webhookReceivedAt,
-        markEnded: true,
-      });
-
-      return c.json({ received: true });
-    }
-
-    if (event.type === 'call_initiation_failure') {
-      await upsertConversation({
-        conversationId: event.data.conversation_id,
-        interviewRecordId,
-        agentId: typeof event.data.agent_id === 'string' ? event.data.agent_id : null,
-        status: 'failed',
-        latestError: typeof event.data.failure_reason === 'string' ? event.data.failure_reason : 'call_initiation_failure',
-        metadata: {
-          failureReason: event.data.failure_reason ?? null,
-          providerMetadata: event.data.metadata ?? {},
-          lastWebhookEventType: event.type,
-          eventTimestamp: event.event_timestamp ?? null,
-        },
-        dynamicVariables: dynamicVariables && typeof dynamicVariables === 'object'
-          ? dynamicVariables as Record<string, unknown>
-          : {},
-        endedAt: webhookReceivedAt,
-        markEnded: true,
-      });
-
-      return c.json({ received: true });
-    }
-
-    if (event.type === 'post_call_audio') {
-      await upsertConversation({
-        conversationId: event.data.conversation_id,
-        interviewRecordId,
-        agentId: typeof event.data.agent_id === 'string' ? event.data.agent_id : null,
-        metadata: {
-          audioWebhookReceivedAt: webhookReceivedAt.toISOString(),
-          hasAudioWebhook: true,
-          lastWebhookEventType: event.type,
-          eventTimestamp: event.event_timestamp ?? null,
-        },
-        dynamicVariables: dynamicVariables && typeof dynamicVariables === 'object'
-          ? dynamicVariables as Record<string, unknown>
-          : {},
-      });
-    }
-
-    return c.json({ received: true });
-  })
-  .get('/report/:conversationId', async (c) => {
-    const conversationId = c.req.param('conversationId');
-    const snapshot = await loadConversationSnapshot({ conversationId });
-
-    if (!snapshot) {
-      return c.json({ error: 'Report not ready.' }, 404);
-    }
-
-    return c.json(snapshot);
-  })
-  .get('/:id/session/:conversationId', async (c) => {
-    const id = c.req.param('id');
-    const snapshot = await loadConversationSnapshot({
-      conversationId: c.req.param('conversationId'),
-      interviewRecordId: id,
-    });
-
-    if (!snapshot) {
-      return c.json({ error: 'Session not found.' }, 404);
-    }
-
-    return c.json(snapshot);
-  })
-  .get('/quota', async (c) => {
-    try {
-      const subscription = await elevenlabs.user.subscription.get();
-
-      return c.json({
-        tier: subscription.tier,
-        characterCount: subscription.characterCount,
-        characterLimit: subscription.characterLimit,
-        characterRemaining: subscription.characterLimit - subscription.characterCount,
-        nextResetUnix: subscription.nextCharacterCountResetUnix ?? null,
-        status: subscription.status,
-      });
-    }
-    catch (error) {
-      return c.json(
-        { error: error instanceof Error ? error.message : '无法获取额度信息。' },
-        500,
-      );
-    }
-  })
-  .get('/:id/:roundId/token', async (c) => {
+  .post('/:id/:roundId/livekit-token', async (c) => {
     const id = c.req.param('id');
     const roundId = c.req.param('roundId');
     const interviewRecord = await loadCandidateInterviewRecord(id, roundId);
@@ -361,23 +151,65 @@ export const interviewRouter = factory.createApp()
       return c.json({ error: '当前面试轮次已结束，如需重新面试请联系管理员。' }, 403);
     }
 
-    const agentId = process.env.ELEVENLABS_AGENT_ID || process.env.NEXT_PUBLIC_ELEVENLABS_AGENT_ID;
+    const apiKey = process.env.LIVEKIT_API_KEY;
+    const apiSecret = process.env.LIVEKIT_API_SECRET;
+    const serverUrl = process.env.LIVEKIT_URL;
+    const agentName = process.env.AGENT_NAME;
 
-    if (!agentId) {
+    if (!apiKey || !apiSecret || !serverUrl) {
       return c.json(buildTokenErrorResponse(), 500);
     }
 
+    const roomName = `interview_${id}_${roundId}_${Math.floor(Math.random() * 10_000)}`;
+    const participantName = interviewRecord.candidateName || 'candidate';
+    const participantIdentity = `candidate_${id}_${roundId}_${Math.floor(Math.random() * 10_000)}`;
+
+    // Interview context is surfaced to the Python agent worker via participant metadata.
+    // Python: `ctx.wait_for_participant()` → `participant.metadata` → JSON.parse.
+    const participantMetadata = JSON.stringify({
+      interview_record_id: id,
+      round_id: roundId,
+      candidate_name: interviewRecord.candidateName,
+      target_role: interviewRecord.targetRole,
+      candidate_profile: interviewRecord.resumeProfile,
+      interview_questions: interviewRecord.interviewQuestions,
+    });
+
     try {
-      const result = await elevenlabs.conversationalAi.conversations.getSignedUrl({
-        agentId,
+      const at = new AccessToken(apiKey, apiSecret, {
+        identity: participantIdentity,
+        name: participantName,
+        ttl: '15m',
+        metadata: participantMetadata,
       });
 
-      return c.json({ signedUrl: result.signedUrl });
+      at.addGrant({
+        room: roomName,
+        roomJoin: true,
+        canPublish: true,
+        canPublishData: true,
+        canSubscribe: true,
+      });
+
+      if (agentName) {
+        at.roomConfig = new RoomConfiguration({
+          agents: [new RoomAgentDispatch({ agentName })],
+        });
+      }
+
+      const participantToken = await at.toJwt();
+
+      return c.json({
+        serverUrl,
+        roomName,
+        participantName,
+        participantToken,
+      });
     }
     catch (error) {
       return c.json(
         {
-          error: 'Failed to generate signed URL.',
+          error: 'Failed to sign LiveKit token.',
           detail: error instanceof Error ? error.message : 'Unknown error',
         },
         500,

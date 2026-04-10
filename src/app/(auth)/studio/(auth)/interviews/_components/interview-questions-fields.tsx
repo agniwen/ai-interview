@@ -2,6 +2,7 @@
 
 import type { InterviewQuestion } from '@/lib/interview/types';
 import { GripVerticalIcon, Trash2Icon } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
   Select,
@@ -10,7 +11,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Button } from '@/components/ui/button';
 
 const DIFFICULTY_OPTIONS = [
   { value: 'easy', label: '简单' },

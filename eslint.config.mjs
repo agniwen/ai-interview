@@ -63,4 +63,20 @@ export default antfu({
     // Node.js globals are fine in Next.js
     'node/prefer-global/buffer': 'off',
   },
+}, {
+  // LiveKit agents-ui starter code — follow upstream style to ease future syncs.
+  files: [
+    'src/components/agents-ui/**',
+    'src/hooks/agents-ui/**',
+  ],
+  rules: {
+    'react-hooks-extra/no-direct-set-state-in-use-effect': 'off',
+    'react-hooks/exhaustive-deps': 'off',
+    'react/no-children-map': 'off',
+    'react/no-children-only': 'off',
+    'react/no-clone-element': 'off',
+    'react/no-unstable-default-props': 'off',
+    'react-naming-convention/ref-name': 'off',
+    'unused-imports/no-unused-vars': 'off',
+  },
 });

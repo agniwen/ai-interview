@@ -14,7 +14,7 @@ const defaultVariants: Variants = {
 
 type MotionElement = typeof motion.p | typeof motion.span | typeof motion.code;
 
-export type TextFlipProps = {
+export interface TextFlipProps {
   as?: MotionElement
   className?: string
   children: React.ReactNode[]
@@ -23,7 +23,7 @@ export type TextFlipProps = {
   variants?: Variants
   layout?: boolean | 'position' | 'size' | 'preserve-aspect'
   onIndexChange?: (index: number) => void
-};
+}
 
 export function TextFlip({
   as: Component = motion.p,
@@ -52,13 +52,13 @@ export function TextFlip({
   }, [items.length, interval, onIndexChange]);
 
   return (
-    <AnimatePresence mode="wait" initial={false}>
+    <AnimatePresence mode='wait' initial={false}>
       <Component
         key={currentIndex}
         className={cn('inline-block', className)}
-        initial="initial"
-        animate="animate"
-        exit="exit"
+        initial='initial'
+        animate='animate'
+        exit='exit'
         transition={transition}
         variants={variants}
         layout={layout}

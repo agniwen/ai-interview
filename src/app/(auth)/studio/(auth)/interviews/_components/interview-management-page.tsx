@@ -1,6 +1,6 @@
 'use client';
 
-import type { ColumnDef, Header, Cell, SortingState } from '@tanstack/react-table';
+import type { Cell, ColumnDef, Header, SortingState } from '@tanstack/react-table';
 import type { StudioInterviewListRecord } from '@/lib/studio-interviews';
 import {
   flexRender,
@@ -8,6 +8,7 @@ import {
   getSortedRowModel,
   useReactTable,
 } from '@tanstack/react-table';
+import { useAtomValue } from 'jotai';
 import {
   ArrowUpDownIcon,
   BotIcon,
@@ -20,10 +21,10 @@ import {
   SearchIcon,
   Trash2Icon,
 } from 'lucide-react';
-import { useAtomValue } from 'jotai';
 import { startTransition, useCallback, useDeferredValue, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { toast } from 'sonner';
-import { ElevenLabsQuota } from '@/components/interview/elevenlabs-quota';
+import { STUDIO_TUTORIAL_MOCK_RECORDS, STUDIO_TUTORIAL_MOCK_SEARCH } from '@/app/(auth)/studio/_hooks/studio-tutorial-mock';
+import { studioTutorialStepAtom } from '@/app/(auth)/studio/_hooks/use-studio-tutorial';
 import { DATE_TIME_DISPLAY_OPTIONS, TimeDisplay } from '@/components/time-display';
 import {
   AlertDialog,
@@ -79,8 +80,6 @@ import {
 import { CreateInterviewDialog } from './create-interview-dialog';
 import { EditInterviewDialog } from './edit-interview-dialog';
 import { InterviewDetailDialog } from './interview-detail-dialog';
-import { studioTutorialStepAtom } from '@/app/(auth)/studio/_hooks/use-studio-tutorial';
-import { STUDIO_TUTORIAL_MOCK_RECORDS, STUDIO_TUTORIAL_MOCK_SEARCH } from '@/app/(auth)/studio/_hooks/studio-tutorial-mock';
 import { InterviewStatusBadge } from './interview-status-badge';
 
 function getPinningStyles(column: Header<StudioInterviewListRecord, unknown>['column'] | Cell<StudioInterviewListRecord, unknown>['column']): React.CSSProperties {
@@ -456,6 +455,7 @@ export function InterviewManagementPage({ initialRecords }: { initialRecords: St
           {[
             { label: '总记录数', value: `${summary.total}`, hint: '所有候选人简历与流程记录' },
             { label: '待面试', value: `${summary.ready}`, hint: '流程已准备好，可发送链接开始面试' },
+            { label: '已完成', value: `${summary.completed}`, hint: '全部轮次结束、已产出面试报告' },
             { label: '面试轮次数', value: `${summary.rounds}`, hint: '所有候选人累计安排的轮次总数' },
           ].map(item => (
             <Card className='border-border/60 bg-background/92' key={item.label}>
@@ -468,11 +468,6 @@ export function InterviewManagementPage({ initialRecords }: { initialRecords: St
               </CardContent>
             </Card>
           ))}
-          <Card className='border-border/60 bg-background/92'>
-            <CardContent className='pt-0'>
-              <ElevenLabsQuota compact />
-            </CardContent>
-          </Card>
         </section>
 
         <Card className='border-border/60 bg-background/95'>
