@@ -470,6 +470,7 @@ function ComposerFooter({
           data-tour='send-button'
           disabled={status === 'ready' ? !canSubmit : false}
           onStop={stop}
+          variant='outline'
           status={status}
         />
       </div>
