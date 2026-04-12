@@ -5,6 +5,7 @@ import { auth } from '@/lib/auth';
 import { adminMiddleware } from './middlewares/admin';
 import { authMiddleware } from './middlewares/auth';
 import { betterAuthMiddleware } from './middlewares/better-auth';
+import { agentRouter } from './routes/agent/route';
 import { interviewRouter, studioInterviewsRouter } from './routes/interview/route';
 import { resumeRouter } from './routes/resume/route';
 
@@ -30,6 +31,7 @@ export const app = new Hono<Env>()
   .use('/api/studio/interviews', authMiddleware, adminMiddleware)
   .use('/api/studio/interviews/*', authMiddleware, adminMiddleware)
   .basePath('/api')
+  .route('/agent', agentRouter)
   .route('/resume', resumeRouter)
   .route('/interview', interviewRouter)
   .route('/studio/interviews', studioInterviewsRouter);

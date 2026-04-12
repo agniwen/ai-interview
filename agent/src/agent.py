@@ -2,9 +2,12 @@ import json
 import logging
 import os
 import re
+import time
 from collections.abc import AsyncIterable
 from typing import Optional
 
+import httpx
+import openai as openai_sdk
 from dotenv import load_dotenv
 from livekit import rtc
 from livekit.agents import (
@@ -85,7 +88,7 @@ class InterviewAgent(Agent):
         end_call_tool = EndCallTool(
             extra_description="当面试结束、候选人要求结束、候选人连续三次答非所问、或候选人态度恶劣时，调用此工具结束面试。",
             delete_room=True,
-            end_instructions="感谢候选人参加本次面试，祝他一切顺利。",
+            end_instructions="感谢候选人参加本次面试，祝你一切顺利。",
         )
 
         super().__init__(
@@ -117,7 +120,9 @@ class InterviewAgent(Agent):
         async def _filter():
             async for event in Agent.default.stt_node(self, audio, model_settings):
                 if event.type == stt.SpeechEventType.FINAL_TRANSCRIPT:
-                    text = event.alternatives[0].text.strip() if event.alternatives else ""
+                    text = (
+                        event.alternatives[0].text.strip() if event.alternatives else ""
+                    )
                     if not text or noise_pattern.match(text):
                         logger.debug("filtered noise transcript: %r", text)
                         continue
@@ -125,6 +130,199 @@ class InterviewAgent(Agent):
 
         return _filter()
 
+
+# ---------------------------------------------------------------------------
+# Report generation helpers
+# ---------------------------------------------------------------------------
+
+SUMMARY_PROMPT = """你是一位面试报告撰写助手。请根据以下面试对话记录，用中文撰写一段 200-300 字的面试摘要。
+摘要需包括：面试涉及的主要话题、候选人的整体表现、值得关注的亮点或不足。
+
+## 面试对话记录
+{transcript}"""
+
+EVALUATION_PROMPT = """你是一位专业的面试评估专家。请根据以下面试对话记录和面试题目，对候选人的表现进行结构化评估。
+
+## 面试题目
+{questions}
+
+## 面试对话记录
+{transcript}
+
+请严格按照以下 JSON 格式输出评估结果，不要输出任何其他内容：
+{{
+  "questions": [
+    {{
+      "order": 1,
+      "question": "题目内容",
+      "score": 7,
+      "maxScore": 10,
+      "assessment": "对候选人该题回答的评价"
+    }}
+  ],
+  "overallScore": 72,
+  "overallAssessment": "候选人整体表现的综合评价，2-3句话",
+  "recommendation": "建议进入下一轮 / 不建议进入下一轮 / 待定"
+}}
+
+注意：
+- 只评估面试中实际提问到的题目
+- score 范围 0-10，overallScore 范围 0-100
+- 评价要客观具体，引用候选人的实际回答"""
+
+
+def _format_transcript(turns: list[dict]) -> str:
+    lines = []
+    for t in turns:
+        role = "面试官" if t["role"] == "agent" else "候选人"
+        lines.append(f"{role}: {t['message']}")
+    return "\n".join(lines)
+
+
+def _format_questions(questions: list[dict]) -> str:
+    lines = []
+    for q in questions:
+        lines.append(
+            f"{q.get('order', '')}. [{q.get('difficulty', '')}] {q.get('question', '')}"
+        )
+    return "\n".join(lines)
+
+
+async def generate_report(
+    turns: list[dict],
+    interview_questions: list[dict],
+) -> tuple[str | None, dict]:
+    """Generate transcript summary and evaluation using LLM.
+
+    Returns (summary, evaluation_dict). On failure returns (None, {}).
+    """
+    api_key = os.environ.get("DASHSCOPE_API_KEY")
+    base_url = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+
+    if not api_key or not turns:
+        return None, {}
+
+    transcript_text = _format_transcript(turns)
+    questions_text = _format_questions(interview_questions)
+
+    client = openai_sdk.AsyncOpenAI(
+        base_url=base_url,
+        api_key=api_key,
+    )
+
+    summary: str | None = None
+    evaluation: dict = {}
+
+    # Generate summary
+    try:
+        summary_resp = await client.chat.completions.create(
+            model="qwen-turbo-latest",
+            messages=[
+                {
+                    "role": "user",
+                    "content": SUMMARY_PROMPT.format(transcript=transcript_text),
+                }
+            ],
+            extra_body={"enable_thinking": False},
+        )
+        summary = summary_resp.choices[0].message.content
+    except Exception:
+        logger.exception("failed to generate transcript summary")
+
+    # Generate evaluation
+    try:
+        eval_resp = await client.chat.completions.create(
+            model="qwen-turbo-latest",
+            messages=[
+                {
+                    "role": "user",
+                    "content": EVALUATION_PROMPT.format(
+                        questions=questions_text,
+                        transcript=transcript_text,
+                    ),
+                }
+            ],
+            extra_body={"enable_thinking": False},
+        )
+        eval_text = eval_resp.choices[0].message.content or ""
+        # Extract JSON from response (may have markdown code fences)
+        json_match = re.search(r"\{[\s\S]*\}", eval_text)
+        if json_match:
+            evaluation = json.loads(json_match.group())
+    except Exception:
+        logger.exception("failed to generate evaluation")
+
+    return summary, evaluation
+
+
+async def send_report(
+    interview_context: dict,
+    room_name: str,
+    turns: list[dict],
+    summary: str | None,
+    evaluation: dict,
+    call_successful: str,
+    started_at: float,
+    ended_at: float,
+    close_reason: str,
+) -> None:
+    """POST the interview report to the backend API."""
+    base_url = os.environ.get("CALLBACK_BASE_URL")
+    secret = os.environ.get("AGENT_CALLBACK_SECRET")
+
+    if not base_url:
+        logger.warning("CALLBACK_BASE_URL not set, skipping report")
+        return
+
+    payload = {
+        "conversationId": room_name,
+        "interviewRecordId": interview_context.get("interview_record_id", ""),
+        "scheduleEntryId": interview_context.get("round_id", ""),
+        "agentId": "giaogiao",
+        "status": "done",
+        "callSuccessful": call_successful,
+        "transcript": turns,
+        "transcriptSummary": summary,
+        "evaluationCriteriaResults": evaluation,
+        "startedAt": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(started_at)),
+        "endedAt": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(ended_at)),
+        "metadata": {
+            "roomName": room_name,
+            "closeReason": close_reason,
+        },
+    }
+
+    headers = {"Content-Type": "application/json"}
+    if secret:
+        headers["X-Agent-Secret"] = secret
+
+    url = f"{base_url.rstrip('/')}/api/agent/report"
+
+    for attempt in range(2):
+        try:
+            async with httpx.AsyncClient(timeout=30) as client:
+                resp = await client.post(url, json=payload, headers=headers)
+                if resp.status_code < 300:
+                    logger.info("report sent successfully: %s", resp.json())
+                    return
+                logger.error("report API returned %d: %s", resp.status_code, resp.text)
+        except Exception:
+            logger.exception("failed to send report (attempt %d)", attempt + 1)
+
+        if attempt == 0:
+            import asyncio
+
+            await asyncio.sleep(2)
+
+    logger.error(
+        "report send failed after retries, payload: %s",
+        json.dumps(payload, ensure_ascii=False)[:2000],
+    )
+
+
+# ---------------------------------------------------------------------------
+# Agent server setup
+# ---------------------------------------------------------------------------
 
 server = AgentServer()
 
@@ -161,7 +359,7 @@ async def my_agent(ctx: JobContext):
         ),
         # Large Language Model (LLM) - Qwen via DashScope (OpenAI-compatible)
         llm=openai.LLM(
-            model="qwen3.6-plus",
+            model="qwen-turbo-latest",
             base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
             api_key=os.environ.get("DASHSCOPE_API_KEY"),  # type: ignore
             extra_body={"enable_thinking": False},
@@ -199,6 +397,94 @@ async def my_agent(ctx: JobContext):
             )
         except json.JSONDecodeError:
             logger.warning("failed to parse participant metadata")
+
+    # ---------------------------------------------------------------------------
+    # Conversation tracking
+    # ---------------------------------------------------------------------------
+    collected_turns: list[dict] = []
+    session_start_time = time.time()
+
+    @session.on("conversation_item_added")
+    def _on_conversation_item(event):
+        from livekit.agents.voice.events import ChatMessage as VoiceChatMessage
+
+        item = event.item
+        if not isinstance(item, VoiceChatMessage):
+            return
+
+        text = item.text_content
+        if not text or not text.strip():
+            return
+
+        role_str = item.role
+        # Map SDK roles to our schema
+        if role_str == "assistant":
+            role_str = "agent"
+        elif role_str != "user":
+            return  # skip system/developer messages
+
+        elapsed = max(0, item.created_at - session_start_time)
+        collected_turns.append(
+            {
+                "role": role_str,
+                "message": text.strip(),
+                "timeInCallSecs": round(elapsed),
+            }
+        )
+        logger.debug("turn collected: %s (%.0fs)", role_str, elapsed)
+
+    # Store close event info so the shutdown callback can use it
+    close_info: dict = {}
+
+    @session.on("close")
+    def _on_close(event):
+        close_info["ended_at"] = time.time()
+        close_info["reason_value"] = event.reason.value if event.reason else "unknown"
+        close_info["reason_name"] = event.reason.name if event.reason else "UNKNOWN"
+        logger.info(
+            "session closed: reason=%s, turns=%d",
+            close_info["reason_value"],
+            len(collected_turns),
+        )
+
+    # Use shutdown callback to guarantee report is sent before process exits.
+    # Unlike the close event handler, shutdown callbacks are awaited by the
+    # framework before the job process terminates.
+    async def _on_shutdown():
+        ended_at = close_info.get("ended_at", time.time())
+        close_reason = close_info.get("reason_value", "unknown")
+        reason_name = close_info.get("reason_name", "UNKNOWN")
+
+        # Align with ElevenLabs convention: "success" / "failed"
+        if reason_name in (
+            "TASK_COMPLETED",
+            "USER_INITIATED",
+            "PARTICIPANT_DISCONNECTED",
+        ):
+            call_successful = "success"
+        else:
+            call_successful = "failed"
+
+        # Generate report (summary + evaluation) via LLM
+        interview_questions = interview_context.get("interview_questions", [])
+        summary, evaluation = await generate_report(
+            collected_turns, interview_questions
+        )
+
+        # Send report to backend
+        await send_report(
+            interview_context=interview_context,
+            room_name=ctx.room.name,
+            turns=collected_turns,
+            summary=summary,
+            evaluation=evaluation,
+            call_successful=call_successful,
+            started_at=session_start_time,
+            ended_at=ended_at,
+            close_reason=close_reason,
+        )
+
+    ctx.add_shutdown_callback(_on_shutdown)
 
     # Start the session
     await session.start(

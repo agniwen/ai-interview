@@ -121,6 +121,71 @@ function renderKeyValueEntries(entries: Record<string, unknown>) {
   );
 }
 
+interface EvaluationQuestion {
+  order?: number
+  question?: string
+  score?: number
+  maxScore?: number
+  assessment?: string
+}
+
+function isAgentEvaluation(data: Record<string, unknown>): data is {
+  questions: EvaluationQuestion[]
+  overallScore?: number
+  overallAssessment?: string
+  recommendation?: string
+} {
+  return Array.isArray(data.questions);
+}
+
+function renderEvaluationResults(data: Record<string, unknown>) {
+  if (!data || Object.keys(data).length === 0) {
+    return <p className='text-muted-foreground text-sm'>暂无结构化结果。</p>;
+  }
+
+  if (!isAgentEvaluation(data)) {
+    return renderKeyValueEntries(data);
+  }
+
+  return (
+    <div className='space-y-3'>
+      {typeof data.overallScore === 'number' && (
+        <div className='flex items-center gap-3 rounded-xl border border-border/60 bg-muted/20 px-3 py-2.5'>
+          <span className='font-semibold text-2xl'>{data.overallScore}</span>
+          <span className='text-muted-foreground text-sm'>/ 100</span>
+          {data.recommendation && (
+            <Badge variant={data.recommendation.includes('不建议') ? 'destructive' : data.recommendation.includes('待定') ? 'secondary' : 'default'} className='ml-auto'>
+              {data.recommendation}
+            </Badge>
+          )}
+        </div>
+      )}
+      {data.overallAssessment && (
+        <p className='text-muted-foreground text-sm leading-relaxed'>{data.overallAssessment}</p>
+      )}
+      {data.questions.length > 0 && (
+        <div className='space-y-2'>
+          {data.questions.map((q, i) => (
+            <div className='rounded-xl border border-border/60 bg-muted/20 px-3 py-2.5 text-sm' key={q.order ?? i}>
+              <div className='flex items-start justify-between gap-2'>
+                <p className='min-w-0 font-medium leading-relaxed'>
+                  {q.order != null ? `${q.order}. ` : ''}{q.question ?? '未知题目'}
+                </p>
+                <span className='shrink-0 font-semibold'>
+                  {q.score ?? '-'}<span className='font-normal text-muted-foreground'>/{q.maxScore ?? 10}</span>
+                </span>
+              </div>
+              {q.assessment && (
+                <p className='mt-1.5 text-muted-foreground leading-relaxed'>{q.assessment}</p>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function DetailRow({
   label,
   value,
@@ -515,16 +580,9 @@ export function InterviewDetailDialog({
                                             </div>
 
                                             <div className='rounded-2xl border border-border/60 bg-background p-4'>
-                                              <h4 className='font-medium text-sm'>结构化结果</h4>
-                                              <div className='mt-4 grid gap-4 xl:grid-cols-2'>
-                                                <div>
-                                                  <p className='mb-2 text-muted-foreground text-xs'>评估指标</p>
-                                                  {renderKeyValueEntries(report.evaluationCriteriaResults)}
-                                                </div>
-                                                <div>
-                                                  <p className='mb-2 text-muted-foreground text-xs'>数据采集</p>
-                                                  {renderKeyValueEntries(report.dataCollectionResults)}
-                                                </div>
+                                              <h4 className='font-medium text-sm'>评估指标</h4>
+                                              <div className='mt-4'>
+                                                {renderEvaluationResults(report.evaluationCriteriaResults)}
                                               </div>
                                             </div>
                                           </div>

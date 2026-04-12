@@ -313,11 +313,11 @@ export function InterviewManagementPage({ initialRecords }: { initialRecords: St
               <p className='truncate text-sm font-medium'>{currentEntry.roundLabel}</p>
               <Badge variant={statusMeta.tone} className='text-[10px] px-1.5 py-0'>{statusMeta.label}</Badge>
             </div>
-            <p className='truncate text-muted-foreground text-xs'>
+            {/* <p className='truncate text-muted-foreground text-xs'>
               {currentEntry.scheduledAt
                 ? <TimeDisplay options={DATE_TIME_DISPLAY_OPTIONS} value={currentEntry.scheduledAt} />
                 : '时间待定'}
-            </p>
+            </p> */}
           </div>
         );
       },
