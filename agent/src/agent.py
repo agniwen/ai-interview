@@ -11,13 +11,13 @@ from livekit.agents import (
     JobContext,
     JobProcess,
     cli,
-    inference,  # noqa: F401
     room_io,
 )
 from livekit.agents.beta.tools import EndCallTool
 from livekit.plugins import (
     ai_coustics,
     elevenlabs,
+    google,
     minimax,
     noise_cancellation,
     openai,
@@ -29,41 +29,33 @@ logger = logging.getLogger("agent")
 
 load_dotenv(".env.local")
 
+# Toggle between realtime (Gemini) and pipeline (STT+LLM+TTS) mode
+USE_REALTIME = os.environ.get("USE_REALTIME", "false").lower() == "true"
 
-class InterviewAgent(Agent):
-    def __init__(self, interview_context: dict) -> None:
-        candidate_name = interview_context.get("candidate_name", "候选人")
-        target_role = interview_context.get("target_role", "未指定岗位")
-        candidate_profile = interview_context.get("candidate_profile", {})
-        interview_questions = interview_context.get("interview_questions", [])
 
-        # Format skills
-        skills = candidate_profile.get("skills", [])
-        skills_text = "、".join(skills) if skills else "未提供"
+def build_instructions(interview_context: dict) -> str:
+    candidate_name = interview_context.get("candidate_name", "候选人")
+    target_role = interview_context.get("target_role", "未指定岗位")
+    candidate_profile = interview_context.get("candidate_profile", {})
+    interview_questions = interview_context.get("interview_questions", [])
 
-        # Format work experiences
-        work_experiences = candidate_profile.get("workExperiences", [])
-        experience_text = ""
-        for exp in work_experiences:
-            experience_text += f"\n  - {exp.get('company', '')}｜{exp.get('role', '')}（{exp.get('period', '')}）：{exp.get('summary', '')}"
-        if not experience_text:
-            experience_text = "\n  未提供"
+    skills = candidate_profile.get("skills", [])
+    skills_text = "、".join(skills) if skills else "未提供"
 
-        # Format interview questions
-        questions_text = ""
-        for q in interview_questions:
-            questions_text += f"\n  {q.get('order', '')}. [{q.get('difficulty', '')}] {q.get('question', '')}"
-        if not questions_text:
-            questions_text = "\n  未提供"
+    work_experiences = candidate_profile.get("workExperiences", [])
+    experience_text = ""
+    for exp in work_experiences:
+        experience_text += f"\n  - {exp.get('company', '')}｜{exp.get('role', '')}（{exp.get('period', '')}）：{exp.get('summary', '')}"
+    if not experience_text:
+        experience_text = "\n  未提供"
 
-        end_call_tool = EndCallTool(
-            extra_description="当面试结束、候选人要求结束、候选人连续三次答非所问、或候选人态度恶劣时，调用此工具结束面试。",
-            delete_room=True,
-            end_instructions="感谢候选人参加本次面试，祝他一切顺利。",
-        )
+    questions_text = ""
+    for q in interview_questions:
+        questions_text += f"\n  {q.get('order', '')}. [{q.get('difficulty', '')}] {q.get('question', '')}"
+    if not questions_text:
+        questions_text = "\n  未提供"
 
-        super().__init__(
-            instructions=f"""你是一位专业的AI面试官，负责公司的招聘工作。你通过语音与候选人交流。
+    return f"""你是一位专业的AI面试官，负责公司的招聘工作。你通过语音与候选人交流。
 你需要要求应聘者严肃对待面试，如果应聘者有不尊重面试的行为，你需要提醒他。
 
 ## 候选人信息
@@ -84,12 +76,24 @@ class InterviewAgent(Agent):
 5. 语言简洁专业，不使用 emoji 或特殊符号。
 6. 全程使用中文交流。
 7. 如果候选人连续三次答非所问，或态度恶劣不端正，提醒一次后仍不改正，直接调用 end_call 工具结束面试。
-8. 所有题目问完后，或候选人要求结束面试时，调用 end_call 工具结束面试。""",
+8. 所有题目问完后，或候选人要求结束面试时，调用 end_call 工具结束面试。"""
+
+
+class InterviewAgent(Agent):
+    def __init__(self, interview_context: dict) -> None:
+        end_call_tool = EndCallTool(
+            extra_description="当面试结束、候选人要求结束、候选人连续三次答非所问、或候选人态度恶劣时，调用此工具结束面试。",
+            delete_room=True,
+            end_instructions="感谢候选人参加本次面试，祝他一切顺利。",
+        )
+
+        super().__init__(
+            instructions=build_instructions(interview_context),
             tools=end_call_tool.tools,  # type: ignore
         )
 
-        self._candidate_name = candidate_name
-        self._target_role = target_role
+        self._candidate_name = interview_context.get("candidate_name", "候选人")
+        self._target_role = interview_context.get("target_role", "未指定岗位")
 
     async def on_enter(self):
         await self.session.generate_reply(
@@ -113,69 +117,61 @@ server.setup_fnc = prewarm
 
 @server.rtc_session(agent_name="giaogiao")
 async def my_agent(ctx: JobContext):
-    # Logging setup
-    # Add any other context you want in all log entries here
     ctx.log_context_fields = {
         "room": ctx.room.name,
     }
 
-    # Set up a voice AI pipeline using Deepgram (STT), Qwen (LLM), MiniMax (TTS)
-    session = AgentSession(
-        # Speech-to-text (STT) - ElevenLabs Scribe v2 with server-side VAD
-        stt=elevenlabs.STT(
-            model_id="scribe_v2_realtime",
-            language_code="zh",
-            tag_audio_events=False,
-            server_vad={
-                "vad_threshold": 0.6,
-                "min_speech_duration_ms": 300,
-                "min_silence_duration_ms": 2000,
-                "vad_silence_threshold_secs": 1.5,
+    if USE_REALTIME:
+        # Realtime mode: Gemini handles STT + LLM + TTS in one model
+        session = AgentSession(
+            llm=google.realtime.RealtimeModel(
+                model="gemini-2.5-flash",
+                voice="Puck",
+                temperature=0.0,
+            ),
+        )
+    else:
+        # Pipeline mode: separate STT + LLM + TTS
+        session = AgentSession(
+            # Speech-to-text (STT) - ElevenLabs Scribe v2 with server-side VAD
+            stt=elevenlabs.STT(
+                model_id="scribe_v2_realtime",
+                language_code="zh",
+                tag_audio_events=False,
+                server_vad={
+                    "vad_threshold": 0.6,
+                    "min_speech_duration_ms": 300,
+                    "min_silence_duration_ms": 2000,
+                    "vad_silence_threshold_secs": 1.5,
+                },
+            ),
+            # Large Language Model (LLM) - Qwen via DashScope (OpenAI-compatible)
+            llm=openai.LLM(
+                model="qwen-plus",
+                base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
+                api_key=os.environ.get("DASHSCOPE_API_KEY"),  # type: ignore
+            ),
+            # Text-to-speech (TTS) - MiniMax China
+            tts=minimax.TTS(
+                base_url="https://api.minimax.chat",
+                voice="voice_agent_Male_Phone_1",
+            ),
+            # VAD and turn detection
+            turn_detection=MultilingualModel(),
+            vad=ctx.proc.userdata["vad"],
+            preemptive_generation=True,
+            # Interruption handling - prevent false triggers from ambient noise
+            turn_handling={
+                "interruption": {
+                    "min_duration": 0.8,
+                    "min_words": 2,
+                    "false_interruption_timeout": 2.0,
+                    "resume_false_interruption": True,
+                },
             },
-        ),
-        # Large Language Model (LLM) - Qwen via DashScope (OpenAI-compatible)
-        llm=openai.LLM(
-            model="qwen-plus",
-            base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
-            api_key=os.environ.get("DASHSCOPE_API_KEY"),  # type: ignore
-        ),
-        # Text-to-speech (TTS) - MiniMax China
-        tts=minimax.TTS(
-            base_url="https://api.minimax.chat",
-            voice="voice_agent_Male_Phone_1",
-        ),
-        # VAD and turn detection
-        turn_detection=MultilingualModel(),
-        vad=ctx.proc.userdata["vad"],
-        preemptive_generation=True,
-        # Interruption handling - prevent false triggers from ambient noise
-        turn_handling={
-            "interruption": {
-                "min_duration": 0.8,
-                "min_words": 2,
-                "false_interruption_timeout": 2.0,
-                "resume_false_interruption": True,
-            },
-        },
-    )
+        )
 
-    # To use a realtime model instead of a voice pipeline, use the following session setup instead.
-    # (Note: This is for the OpenAI Realtime API. For other providers, see https://docs.livekit.io/agents/models/realtime/))
-    # 1. Install livekit-agents[openai]
-    # 2. Set OPENAI_API_KEY in .env.local
-    # 3. Add `from livekit.plugins import openai` to the top of this file
-    # 4. Use the following session setup instead of the version above
-    # session = AgentSession(
-    #     llm=openai.realtime.RealtimeModel(voice="marin")
-    # )
-
-    # # Add a virtual avatar to the session, if desired
-    # # For other providers, see https://docs.livekit.io/agents/models/avatar/
-    # avatar = hedra.AvatarSession(
-    #   avatar_id="...",  # See https://docs.livekit.io/agents/models/avatar/plugins/hedra
-    # )
-    # # Start the avatar and wait for it to join
-    # await avatar.start(session, room=ctx.room)
+    logger.info("using %s mode", "realtime" if USE_REALTIME else "pipeline")
 
     # Wait for the candidate to join and read interview context from participant metadata
     participant = await ctx.wait_for_participant()
@@ -190,7 +186,7 @@ async def my_agent(ctx: JobContext):
         except json.JSONDecodeError:
             logger.warning("failed to parse participant metadata")
 
-    # Start the session, which initializes the voice pipeline and warms up the models
+    # Start the session
     await session.start(
         agent=InterviewAgent(interview_context),
         room=ctx.room,
@@ -208,7 +204,6 @@ async def my_agent(ctx: JobContext):
         ),
     )
 
-    # Join the room and connect to the user
     await ctx.connect()
 
 
