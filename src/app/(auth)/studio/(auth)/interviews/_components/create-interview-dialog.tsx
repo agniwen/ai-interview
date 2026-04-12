@@ -224,7 +224,7 @@ export function CreateInterviewDialog({
       open={open}
     >
       <DialogTrigger asChild>
-        <Button>
+        <Button variant='outline'>
           <FileUpIcon className='size-4' />
           新建简历记录
         </Button>

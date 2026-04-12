@@ -11,6 +11,7 @@ from livekit.agents import (
     JobContext,
     JobProcess,
     cli,
+    inference,  # noqa: F401
     room_io,
 )
 from livekit.agents.beta.tools import EndCallTool
@@ -100,7 +101,11 @@ server = AgentServer()
 
 
 def prewarm(proc: JobProcess):
-    proc.userdata["vad"] = silero.VAD.load()
+    proc.userdata["vad"] = silero.VAD.load(
+        activation_threshold=0.65,
+        min_speech_duration=0.15,
+        min_silence_duration=0.7,
+    )
 
 
 server.setup_fnc = prewarm
@@ -114,10 +119,14 @@ async def my_agent(ctx: JobContext):
         "room": ctx.room.name,
     }
 
-    # Set up a voice AI pipeline using Qwen (DashScope), MiniMax (China), ElevenLabs
+    # Set up a voice AI pipeline using Deepgram (STT), Qwen (LLM), MiniMax (TTS)
     session = AgentSession(
         # Speech-to-text (STT) - ElevenLabs Scribe v2
-        stt=elevenlabs.STT(model_id="scribe_v2_realtime"),
+        stt=elevenlabs.STT(
+            model_id="scribe_v2_realtime",
+            language_code="zh",
+            tag_audio_events=False,
+        ),
         # Large Language Model (LLM) - Qwen via DashScope (OpenAI-compatible)
         llm=openai.LLM(
             model="qwen-plus",
@@ -129,13 +138,19 @@ async def my_agent(ctx: JobContext):
             base_url="https://api.minimax.chat",
             voice="voice_agent_Male_Phone_1",
         ),
-        # VAD and turn detection are used to determine when the user is speaking and when the agent should respond
-        # See more at https://docs.livekit.io/agents/build/turns
+        # VAD and turn detection
         turn_detection=MultilingualModel(),
         vad=ctx.proc.userdata["vad"],
-        # allow the LLM to generate a response while waiting for the end of turn
-        # See more at https://docs.livekit.io/agents/build/audio/#preemptive-generation
         preemptive_generation=True,
+        # Interruption handling - prevent false triggers from ambient noise
+        turn_handling={
+            "interruption": {
+                "min_duration": 0.5,
+                "min_words": 1,
+                "false_interruption_timeout": 2.0,
+                "resume_false_interruption": True,
+            },
+        },
     )
 
     # To use a realtime model instead of a voice pipeline, use the following session setup instead.

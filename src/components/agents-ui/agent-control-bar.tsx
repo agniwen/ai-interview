@@ -9,6 +9,17 @@ import { Loader, MessageSquareTextIcon, SendHorizontal } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useEffect, useRef, useState } from 'react';
 import { AgentDisconnectButton } from '@/components/agents-ui/agent-disconnect-button';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { AgentTrackControl } from '@/components/agents-ui/agent-track-control';
 import {
   AgentTrackToggle,
@@ -396,17 +407,32 @@ export function AgentControlBar({
 
         {/* Disconnect */}
         {visibleControls.leave && (
-          <AgentDisconnectButton
-            onClick={onDisconnect}
-            disabled={!isConnected}
-            className={cn(
-              variant === 'livekit'
-              && 'bg-destructive/10 dark:bg-destructive/10 text-destructive hover:bg-destructive/20 dark:hover:bg-destructive/20 focus:bg-destructive/20 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/4 rounded-full font-mono text-xs font-bold tracking-wider',
-            )}
-          >
-            <span className='hidden md:inline'>结束面试</span>
-            <span className='inline md:hidden'>结束</span>
-          </AgentDisconnectButton>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <AgentDisconnectButton
+                disabled={!isConnected}
+                className={cn(
+                  variant === 'livekit'
+                  && 'bg-destructive/10 dark:bg-destructive/10 text-destructive hover:bg-destructive/20 dark:hover:bg-destructive/20 focus:bg-destructive/20 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/4 rounded-full font-mono text-xs font-bold tracking-wider',
+                )}
+              >
+                <span className='hidden md:inline'>结束面试</span>
+                <span className='inline md:hidden'>结束</span>
+              </AgentDisconnectButton>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>确认结束面试</AlertDialogTitle>
+                <AlertDialogDescription>
+                  面试结束后将无法继续对话，确定要结束本次面试吗？
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>继续面试</AlertDialogCancel>
+                <AlertDialogAction onClick={onDisconnect}>确认结束</AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         )}
       </div>
     </div>

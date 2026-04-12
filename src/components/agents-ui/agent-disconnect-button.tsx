@@ -59,14 +59,17 @@ export function AgentDisconnectButton({
 }: AgentDisconnectButtonProps) {
   const { end } = useSessionContext();
   const handleClick = (event: React.MouseEvent<HTMLButtonElement>) => {
-    onClick?.(event);
+    if (onClick) {
+      onClick(event);
+      return;
+    }
     if (typeof end === 'function') {
       end();
     }
   };
 
   return (
-    <Button size={size} variant={variant} onClick={handleClick} {...props}>
+    <Button size={size} variant={variant} onClick={handleClick} type='button' {...props}>
       {icon ?? <PhoneOffIcon />}
       {children ?? <span className={cn(size?.includes('icon') && 'sr-only')}>结束面试</span>}
     </Button>
