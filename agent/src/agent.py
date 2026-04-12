@@ -149,7 +149,7 @@ async def my_agent(ctx: JobContext):
     session = AgentSession(
         # Speech-to-text (STT) - ElevenLabs Scribe v2 with server-side VAD
         stt=elevenlabs.STT(
-            model_id="scribe_v2_realtime",
+            model_id="scribe_v2",
             language_code="zh",
             tag_audio_events=False,
             server_vad={

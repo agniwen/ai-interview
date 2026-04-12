@@ -34,7 +34,20 @@ export default function InterviewPageClient({
   const isConnecting = session.connectionState === ConnectionState.Connecting;
 
   const handleStart = useCallback(() => {
-    session.start({ tracks: { microphone: { enabled: true } } });
+    session.start({
+      tracks: {
+        microphone: {
+          enabled: true,
+          publishOptions: {
+            audioCaptureOptions: {
+              noiseSuppression: true,
+              echoCancellation: true,
+              autoGainControl: true,
+            },
+          },
+        },
+      },
+    });
   }, [session]);
 
   if (isDisconnected || isConnecting) {
