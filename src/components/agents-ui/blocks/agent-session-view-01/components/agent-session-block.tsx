@@ -207,20 +207,20 @@ export function AgentSessionView_01({
       className={cn('bg-background relative z-10 h-full w-full overflow-hidden', className)}
       {...props}
     >
-      <Fade top className='absolute inset-x-4 top-0 z-10 h-40' />
+      <Fade top className={cn('absolute inset-x-4 top-0 z-10', chatOpen ? 'h-0' : 'h-40')} />
       {/* transcript */}
 
-      <div className='absolute top-0 bottom-[135px] z-20 flex w-full flex-col md:bottom-[170px]'>
+      <div className={cn('absolute inset-x-0 bottom-[135px] z-20 flex flex-col md:bottom-[170px]', chatOpen ? 'top-[72px]' : 'top-0')}>
         <AnimatePresence>
           {chatOpen && (
             <motion.div
               {...CHAT_MOTION_PROPS}
-              className='flex h-full w-full flex-col gap-4 space-y-3 overflow-y-auto transition-opacity duration-300 ease-out'
+              className='relative h-full w-full'
             >
               <AgentChatTranscript
                 agentState={agentState}
                 messages={messages}
-                className='mx-auto w-full max-w-2xl [&_.is-user>div]:rounded-[22px] [&>div>div]:px-4 [&>div>div]:pt-40 md:[&>div>div]:px-6'
+                className='absolute inset-0 mx-auto w-full max-w-2xl [&_.is-user>div]:rounded-[22px] [&>div>div]:px-4 [&>div>div]:pt-4 md:[&>div>div]:px-6'
               />
             </motion.div>
           )}

@@ -114,7 +114,7 @@ export function AudioVisualizer({
             audioTrack={audioTrack}
             radius={audioVisualizerRadialRadius}
             barCount={audioVisualizerRadialBarCount}
-            className='size-[450px]'
+            className='size-12'
           />
         </motion.div>
       );
@@ -125,11 +125,11 @@ export function AudioVisualizer({
 
       if (audioVisualizerBarCount <= 5) {
         size = 'xl';
-        sizedClassName = cn('size-[450px] *:min-h-[64px] *:w-[64px] gap-4', className);
+        sizedClassName = cn('size-[280px] *:min-h-[64px] *:w-[64px] gap-4', className);
       }
       else if (audioVisualizerBarCount <= 10) {
         size = 'lg';
-        sizedClassName = cn('size-[450px]', className);
+        sizedClassName = cn('size-[280px]', className);
       }
       else if (audioVisualizerBarCount <= 15) {
         size = 'md';

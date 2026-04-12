@@ -109,16 +109,21 @@ export function TileLayout({
   const videoHeight = agentVideoTrack?.publication.dimensions?.height ?? 0;
 
   return (
-    <div className='absolute inset-x-0 top-8 bottom-32 z-50 md:top-12 md:bottom-40'>
-      <div className='relative mx-auto h-full max-w-2xl px-4 md:px-0'>
-        <div className={cn(tileViewClassNames.grid)}>
+    <div className={cn(
+      'absolute inset-x-0',
+      chatOpen
+        ? 'top-0 h-18 z-30 pointer-events-none flex items-center justify-center'
+        : 'top-8 bottom-32 z-50 md:top-12 md:bottom-40',
+    )}
+    >
+      <div className={cn(chatOpen ? 'flex items-center justify-center h-full' : 'relative mx-auto h-full max-w-2xl px-4 md:px-0')}>
+        <div className={cn(!chatOpen && tileViewClassNames.grid)}>
           {/* Agent */}
           <div
             className={cn([
-              'grid',
+              !chatOpen && 'grid',
               !chatOpen && tileViewClassNames.agentChatClosed,
-              chatOpen && hasSecondTile && tileViewClassNames.agentChatOpenWithSecondTile,
-              chatOpen && !hasSecondTile && tileViewClassNames.agentChatOpenWithoutSecondTile,
+              chatOpen && 'flex items-center justify-center',
             ])}
           >
             <AnimatePresence mode='popLayout'>
@@ -133,12 +138,12 @@ export function TileLayout({
                     ...ANIMATION_TRANSITION,
                     delay: animationDelay,
                   }}
-                  className={cn('relative aspect-square h-[90px]')}
+                  className={cn(chatOpen ? 'relative size-4 bg-transparent!' : 'relative aspect-square h-22.5')}
                 >
                   <AudioVisualizer
                     key='audio-visualizer'
                     initial={{ scale: 1 }}
-                    animate={{ scale: chatOpen ? 0.2 : 1 }}
+                    animate={{ scale: chatOpen ? 0.25 : 1 }}
                     transition={{
                       ...ANIMATION_TRANSITION,
                       delay: animationDelay,
@@ -156,7 +161,7 @@ export function TileLayout({
                     className={cn(
                       'absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2',
                       'bg-background rounded-[50px] border border-transparent transition-[border,drop-shadow]',
-                      chatOpen && 'border-input shadow-2xl/10 delay-200',
+                      chatOpen && '',
                     )}
                     style={{ color: audioVisualizerColor }}
                   />

@@ -102,9 +102,9 @@ server = AgentServer()
 
 def prewarm(proc: JobProcess):
     proc.userdata["vad"] = silero.VAD.load(
-        activation_threshold=0.65,
-        min_speech_duration=0.15,
-        min_silence_duration=0.7,
+        activation_threshold=0.75,
+        min_speech_duration=0.3,
+        min_silence_duration=0.8,
     )
 
 
@@ -121,11 +121,17 @@ async def my_agent(ctx: JobContext):
 
     # Set up a voice AI pipeline using Deepgram (STT), Qwen (LLM), MiniMax (TTS)
     session = AgentSession(
-        # Speech-to-text (STT) - ElevenLabs Scribe v2
+        # Speech-to-text (STT) - ElevenLabs Scribe v2 with server-side VAD
         stt=elevenlabs.STT(
             model_id="scribe_v2_realtime",
             language_code="zh",
             tag_audio_events=False,
+            server_vad={
+                "vad_threshold": 0.6,
+                "min_speech_duration_ms": 300,
+                "min_silence_duration_ms": 2000,
+                "vad_silence_threshold_secs": 1.5,
+            },
         ),
         # Large Language Model (LLM) - Qwen via DashScope (OpenAI-compatible)
         llm=openai.LLM(
@@ -145,8 +151,8 @@ async def my_agent(ctx: JobContext):
         # Interruption handling - prevent false triggers from ambient noise
         turn_handling={
             "interruption": {
-                "min_duration": 0.5,
-                "min_words": 1,
+                "min_duration": 0.8,
+                "min_words": 2,
                 "false_interruption_timeout": 2.0,
                 "resume_false_interruption": True,
             },
