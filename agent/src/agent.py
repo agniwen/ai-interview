@@ -86,6 +86,7 @@ async def my_agent(ctx: JobContext):
         # Text-to-speech (TTS) - MiniMax China
         tts=minimax.TTS(
             base_url="https://api.minimax.chat",
+            voice="voice_agent_Male_Phone_1",
         ),
         # VAD and turn detection are used to determine when the user is speaking and when the agent should respond
         # See more at https://docs.livekit.io/agents/build/turns
