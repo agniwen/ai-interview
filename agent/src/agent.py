@@ -11,9 +11,9 @@ from livekit.agents import (
     JobContext,
     JobProcess,
     cli,
-    inference,  # noqa: F401
     room_io,
 )
+from livekit.agents.beta.tools import EndCallTool
 from livekit.plugins import (
     ai_coustics,
     elevenlabs,
@@ -55,8 +55,15 @@ class InterviewAgent(Agent):
         if not questions_text:
             questions_text = "\n  未提供"
 
+        end_call_tool = EndCallTool(
+            extra_description="当面试结束、候选人要求结束、候选人连续三次答非所问、或候选人态度恶劣时，调用此工具结束面试。",
+            delete_room=True,
+            end_instructions="感谢候选人参加本次面试，祝他一切顺利。",
+        )
+
         super().__init__(
-            instructions=f"""你是一位专业的AI面试官，正在对候选人进行模拟面试。你通过语音与候选人交流。
+            instructions=f"""你是一位专业的AI面试官，负责公司的招聘工作。你通过语音与候选人交流。
+你需要要求应聘者严肃对待面试，如果应聘者有不尊重面试的行为，你需要提醒他。
 
 ## 候选人信息
 - 姓名：{candidate_name}
@@ -64,16 +71,20 @@ class InterviewAgent(Agent):
 - 技术栈：{skills_text}
 - 工作经历：{experience_text}
 
-## 面试题目（按顺序提问）
+## 面试题目
+从以下题目中，抽取三到五道题目，由简入深地提问候选人：
 {questions_text}
 
 ## 面试规则
-1. 按照面试题目的顺序逐题提问，不要跳题。
+1. 面试时间控制在 10 分钟以内，合理分配每道题的时间。
 2. 每次只问一个问题，等候选人回答完毕后再进行下一题。
 3. 针对候选人的回答可以适当追问，深入了解细节。
-4. 语言简洁专业，不使用 emoji 或特殊符号。
-5. 全程使用中文交流。
-6. 所有题目问完后，感谢候选人并结束面试。""",
+4. 候选人的回答可能包含环境音或不标准的表述，不必太严苛。
+5. 语言简洁专业，不使用 emoji 或特殊符号。
+6. 全程使用中文交流。
+7. 如果候选人连续三次答非所问，或态度恶劣不端正，提醒一次后仍不改正，直接调用 end_call 工具结束面试。
+8. 所有题目问完后，或候选人要求结束面试时，调用 end_call 工具结束面试。""",
+            tools=end_call_tool.tools,  # type: ignore
         )
 
         self._candidate_name = candidate_name
