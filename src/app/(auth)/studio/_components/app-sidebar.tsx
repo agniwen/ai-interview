@@ -82,7 +82,7 @@ export function AppSidebar({ user, onStartTutorial, ...props }: AppSidebarProps)
           <SidebarMenuItem>
             <SidebarMenuButton asChild size='lg'>
               <Link href='/studio/interviews'>
-                <div className='flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground'>
+                <div className='flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/80 text-primary-foreground'>
                   <ShieldCheckIcon className='size-4' />
                 </div>
                 <div className='grid flex-1 text-left text-sm leading-tight'>

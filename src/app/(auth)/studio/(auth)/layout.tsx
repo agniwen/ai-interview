@@ -42,8 +42,8 @@ export default async function StudioProtectedLayout({
         <AppSidebarWithTutorial user={session.user} variant='inset' />
         <SidebarInset className='studio-surface bg-background'>
           <SiteHeader />
-          <div className='flex flex-1 flex-col bg-background'>
-            <div className='@container/main flex flex-1 flex-col gap-2 bg-background'>
+          <div className='flex flex-1 flex-col '>
+            <div className='@container/main   rounded-lg flex flex-1 flex-col gap-2 bg-background'>
               <div className='flex flex-col gap-4 bg-background px-4 py-4 md:gap-6 md:px-6 md:py-6'>
                 {children}
               </div>
