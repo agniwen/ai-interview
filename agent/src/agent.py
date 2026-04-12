@@ -17,7 +17,6 @@ from livekit.agents.beta.tools import EndCallTool
 from livekit.plugins import (
     ai_coustics,
     elevenlabs,
-    google,
     minimax,
     noise_cancellation,
     openai,
@@ -28,9 +27,6 @@ from livekit.plugins.turn_detector.multilingual import MultilingualModel
 logger = logging.getLogger("agent")
 
 load_dotenv(".env.local")
-
-# Toggle between realtime (Gemini) and pipeline (STT+LLM+TTS) mode
-USE_REALTIME = os.environ.get("USE_REALTIME", "false").lower() == "true"
 
 
 def build_instructions(interview_context: dict) -> str:
@@ -121,57 +117,44 @@ async def my_agent(ctx: JobContext):
         "room": ctx.room.name,
     }
 
-    if USE_REALTIME:
-        # Realtime mode: Gemini handles STT + LLM + TTS in one model
-        session = AgentSession(
-            llm=google.realtime.RealtimeModel(
-                model="gemini-2.5-flash",
-                voice="Puck",
-                temperature=0.0,
-            ),
-        )
-    else:
-        # Pipeline mode: separate STT + LLM + TTS
-        session = AgentSession(
-            # Speech-to-text (STT) - ElevenLabs Scribe v2 with server-side VAD
-            stt=elevenlabs.STT(
-                model_id="scribe_v2_realtime",
-                language_code="zh",
-                tag_audio_events=False,
-                server_vad={
-                    "vad_threshold": 0.6,
-                    "min_speech_duration_ms": 300,
-                    "min_silence_duration_ms": 2000,
-                    "vad_silence_threshold_secs": 1.5,
-                },
-            ),
-            # Large Language Model (LLM) - Qwen via DashScope (OpenAI-compatible)
-            llm=openai.LLM(
-                model="qwen-plus",
-                base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
-                api_key=os.environ.get("DASHSCOPE_API_KEY"),  # type: ignore
-            ),
-            # Text-to-speech (TTS) - MiniMax China
-            tts=minimax.TTS(
-                base_url="https://api.minimax.chat",
-                voice="voice_agent_Male_Phone_1",
-            ),
-            # VAD and turn detection
-            turn_detection=MultilingualModel(),
-            vad=ctx.proc.userdata["vad"],
-            preemptive_generation=True,
-            # Interruption handling - prevent false triggers from ambient noise
-            turn_handling={
-                "interruption": {
-                    "min_duration": 0.8,
-                    "min_words": 2,
-                    "false_interruption_timeout": 2.0,
-                    "resume_false_interruption": True,
-                },
+    session = AgentSession(
+        # Speech-to-text (STT) - ElevenLabs Scribe v2 with server-side VAD
+        stt=elevenlabs.STT(
+            model_id="scribe_v2_realtime",
+            language_code="zh",
+            tag_audio_events=False,
+            server_vad={
+                "vad_threshold": 0.6,
+                "min_speech_duration_ms": 300,
+                "min_silence_duration_ms": 2000,
+                "vad_silence_threshold_secs": 1.5,
             },
-        )
-
-    logger.info("using %s mode", "realtime" if USE_REALTIME else "pipeline")
+        ),
+        # Large Language Model (LLM) - Qwen via DashScope (OpenAI-compatible)
+        llm=openai.LLM(
+            model="qwen-plus",
+            base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
+            api_key=os.environ.get("DASHSCOPE_API_KEY"),  # type: ignore
+        ),
+        # Text-to-speech (TTS) - MiniMax China
+        tts=minimax.TTS(
+            base_url="https://api.minimax.chat",
+            voice="voice_agent_Male_Phone_1",
+        ),
+        # VAD and turn detection
+        turn_detection=MultilingualModel(),
+        vad=ctx.proc.userdata["vad"],
+        preemptive_generation=True,
+        # Interruption handling - prevent false triggers from ambient noise
+        turn_handling={
+            "interruption": {
+                "min_duration": 0.8,
+                "min_words": 2,
+                "false_interruption_timeout": 2.0,
+                "resume_false_interruption": True,
+            },
+        },
+    )
 
     # Wait for the candidate to join and read interview context from participant metadata
     participant = await ctx.wait_for_participant()
