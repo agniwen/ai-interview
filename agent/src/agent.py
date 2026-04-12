@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 
@@ -10,7 +11,7 @@ from livekit.agents import (
     JobContext,
     JobProcess,
     cli,
-    inference,
+    inference,  # noqa: F401
     room_io,
 )
 from livekit.plugins import (
@@ -28,31 +29,60 @@ logger = logging.getLogger("agent")
 load_dotenv(".env.local")
 
 
-class Assistant(Agent):
-    def __init__(self) -> None:
+class InterviewAgent(Agent):
+    def __init__(self, interview_context: dict) -> None:
+        candidate_name = interview_context.get("candidate_name", "候选人")
+        target_role = interview_context.get("target_role", "未指定岗位")
+        candidate_profile = interview_context.get("candidate_profile", {})
+        interview_questions = interview_context.get("interview_questions", [])
+
+        # Format skills
+        skills = candidate_profile.get("skills", [])
+        skills_text = "、".join(skills) if skills else "未提供"
+
+        # Format work experiences
+        work_experiences = candidate_profile.get("workExperiences", [])
+        experience_text = ""
+        for exp in work_experiences:
+            experience_text += f"\n  - {exp.get('company', '')}｜{exp.get('role', '')}（{exp.get('period', '')}）：{exp.get('summary', '')}"
+        if not experience_text:
+            experience_text = "\n  未提供"
+
+        # Format interview questions
+        questions_text = ""
+        for q in interview_questions:
+            questions_text += f"\n  {q.get('order', '')}. [{q.get('difficulty', '')}] {q.get('question', '')}"
+        if not questions_text:
+            questions_text = "\n  未提供"
+
         super().__init__(
-            instructions="""You are a helpful voice AI assistant. The user is interacting with you via voice, even if you perceive the conversation as text.
-            You eagerly assist users with their questions by providing information from your extensive knowledge.
-            Your responses are concise, to the point, and without any complex formatting or punctuation including emojis, asterisks, or other symbols.
-            You are curious, friendly, and have a sense of humor.""",
+            instructions=f"""你是一位专业的AI面试官，正在对候选人进行模拟面试。你通过语音与候选人交流。
+
+## 候选人信息
+- 姓名：{candidate_name}
+- 目标岗位：{target_role}
+- 技术栈：{skills_text}
+- 工作经历：{experience_text}
+
+## 面试题目（按顺序提问）
+{questions_text}
+
+## 面试规则
+1. 按照面试题目的顺序逐题提问，不要跳题。
+2. 每次只问一个问题，等候选人回答完毕后再进行下一题。
+3. 针对候选人的回答可以适当追问，深入了解细节。
+4. 语言简洁专业，不使用 emoji 或特殊符号。
+5. 全程使用中文交流。
+6. 所有题目问完后，感谢候选人并结束面试。""",
         )
 
-    # To add tools, use the @function_tool decorator.
-    # Here's an example that adds a simple weather tool.
-    # You also have to add `from livekit.agents import function_tool, RunContext` to the top of this file
-    # @function_tool
-    # async def lookup_weather(self, context: RunContext, location: str):
-    #     """Use this tool to look up current weather information in the given location.
-    #
-    #     If the location is not supported by the weather service, the tool will indicate this. You must tell the user the location's weather is unavailable.
-    #
-    #     Args:
-    #         location: The location to look up weather information for (e.g. city name)
-    #     """
-    #
-    #     logger.info(f"Looking up weather for {location}")
-    #
-    #     return "sunny with a temperature of 70 degrees."
+        self._candidate_name = candidate_name
+        self._target_role = target_role
+
+    async def on_enter(self):
+        await self.session.generate_reply(
+            instructions=f'用候选人的名字"{self._candidate_name}"打招呼，简短介绍你是今天"{self._target_role}"岗位的面试官，告知面试即将开始。语气友好专业，一两句话即可。',
+        )
 
 
 server = AgentServer()
@@ -115,9 +145,22 @@ async def my_agent(ctx: JobContext):
     # # Start the avatar and wait for it to join
     # await avatar.start(session, room=ctx.room)
 
+    # Wait for the candidate to join and read interview context from participant metadata
+    participant = await ctx.wait_for_participant()
+    interview_context = {}
+    if participant.metadata:
+        try:
+            interview_context = json.loads(participant.metadata)
+            logger.info(
+                "loaded interview context for %s",
+                interview_context.get("candidate_name", "unknown"),
+            )
+        except json.JSONDecodeError:
+            logger.warning("failed to parse participant metadata")
+
     # Start the session, which initializes the voice pipeline and warms up the models
     await session.start(
-        agent=Assistant(),
+        agent=InterviewAgent(interview_context),
         room=ctx.room,
         room_options=room_io.RoomOptions(
             audio_input=room_io.AudioInputOptions(

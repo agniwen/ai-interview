@@ -54,7 +54,7 @@ select = [
   "SIM",
   "RUF"
 ]
-ignore = [ "E501" ] # Line too long (handled by formatter)
+ignore = [ "E501", "RUF001" ] # Line too long (handled by formatter); allow fullwidth chars in Chinese prompts
 
 [tool.ruff.format]
 quote-style = "double"
