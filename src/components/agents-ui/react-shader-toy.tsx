@@ -851,6 +851,21 @@ export function ReactShaderToy({
     const gl = glRef.current;
     if (!gl)
       return;
+
+    // Auto-fix canvas buffer size if it doesn't match the display size
+    const canvas = gl.canvas as HTMLCanvasElement;
+    const dpr = devicePixelRatio;
+    const displayWidth = Math.floor(canvas.clientWidth * dpr);
+    const displayHeight = Math.floor(canvas.clientHeight * dpr);
+    if (canvas.width !== displayWidth || canvas.height !== displayHeight) {
+      canvas.width = displayWidth;
+      canvas.height = displayHeight;
+      if (uniformsRef.current.iResolution?.isNeeded && shaderProgramRef.current) {
+        const rUniform = gl.getUniformLocation(shaderProgramRef.current, UNIFORM_RESOLUTION);
+        gl.uniform2fv(rUniform, [canvas.width, canvas.height]);
+      }
+    }
+
     gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     gl.bindBuffer(gl.ARRAY_BUFFER, squareVerticesBufferRef.current);

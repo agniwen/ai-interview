@@ -1,6 +1,9 @@
 import json
 import logging
 import os
+import re
+from collections.abc import AsyncIterable
+from typing import Optional
 
 from dotenv import load_dotenv
 from livekit import rtc
@@ -10,8 +13,10 @@ from livekit.agents import (
     AgentSession,
     JobContext,
     JobProcess,
+    ModelSettings,
     cli,
     room_io,
+    stt,
 )
 from livekit.agents.beta.tools import EndCallTool
 from livekit.plugins import (
@@ -96,6 +101,30 @@ class InterviewAgent(Agent):
             instructions=f'用候选人的名字"{self._candidate_name}"打招呼，简短介绍你是今天"{self._target_role}"岗位的面试官，告知面试即将开始。语气友好专业，一两句话即可。',
         )
 
+    async def stt_node(
+        self,
+        audio: AsyncIterable[rtc.AudioFrame],
+        model_settings: ModelSettings,
+    ) -> Optional[AsyncIterable[stt.SpeechEvent]]:
+        # Filter out noise/filler words from STT output
+        noise_pattern = re.compile(
+            r"^[\s，。、？！,.?!]*"
+            r"(嗯+|哦+|啊+|呃+|唔+|哎+|噢+|嘶+|哼+|呵+|额+|emmm*|hmm*|uh+|um+|oh+|ah+)"
+            r"[\s，。、？！,.?!]*$",
+            re.IGNORECASE,
+        )
+
+        async def _filter():
+            async for event in Agent.default.stt_node(self, audio, model_settings):
+                if event.type == stt.SpeechEventType.FINAL_TRANSCRIPT:
+                    text = event.alternatives[0].text.strip() if event.alternatives else ""
+                    if not text or noise_pattern.match(text):
+                        logger.debug("filtered noise transcript: %r", text)
+                        continue
+                yield event
+
+        return _filter()
+
 
 server = AgentServer()
 
@@ -132,9 +161,10 @@ async def my_agent(ctx: JobContext):
         ),
         # Large Language Model (LLM) - Qwen via DashScope (OpenAI-compatible)
         llm=openai.LLM(
-            model="qwen-plus",
+            model="qwen3.6-plus",
             base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
             api_key=os.environ.get("DASHSCOPE_API_KEY"),  # type: ignore
+            extra_body={"enable_thinking": False},
         ),
         # Text-to-speech (TTS) - MiniMax China
         tts=minimax.TTS(
@@ -145,9 +175,10 @@ async def my_agent(ctx: JobContext):
         turn_detection=MultilingualModel(),
         vad=ctx.proc.userdata["vad"],
         preemptive_generation=True,
-        # Interruption handling - prevent false triggers from ambient noise
+        # Interruption handling - adaptive mode filters backchanneling & noise
         turn_handling={
             "interruption": {
+                "mode": "adaptive",
                 "min_duration": 0.8,
                 "min_words": 2,
                 "false_interruption_timeout": 2.0,

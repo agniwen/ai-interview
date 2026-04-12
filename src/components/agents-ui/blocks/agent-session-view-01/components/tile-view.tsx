@@ -1,7 +1,7 @@
 import type { TrackReference } from '@livekit/components-react';
 import type { MotionProps } from 'motion/react';
 import {
-
+  useAgent,
   useLocalParticipant,
   useTracks,
   useVoiceAssistant,
@@ -9,10 +9,11 @@ import {
 } from '@livekit/components-react';
 import { Track } from 'livekit-client';
 import { AnimatePresence, motion } from 'motion/react';
+import { useTheme } from 'next-themes';
 import * as React from 'react';
 import { useMemo } from 'react';
+import { AgentAudioVisualizerAura } from '@/components/agents-ui/agent-audio-visualizer-aura';
 import { cn } from '@/lib/utils';
-import { AudioVisualizer } from './audio-visualizer';
 
 const ANIMATION_TRANSITION: MotionProps['transition'] = {
   type: 'spring',
@@ -22,41 +23,15 @@ const ANIMATION_TRANSITION: MotionProps['transition'] = {
 };
 
 const tileViewClassNames = {
-  // GRID
-  // 2 Columns x 3 Rows
   grid: [
     'h-full w-full',
     'grid gap-x-2 place-content-center',
     'grid-cols-[1fr_1fr] grid-rows-[90px_1fr_90px]',
   ],
-  // Agent
-  // chatOpen: true,
-  // hasSecondTile: true
-  // layout: Column 1 / Row 1
-  // align: x-end y-center
   agentChatOpenWithSecondTile: ['col-start-1 row-start-1', 'self-center justify-self-end'],
-  // Agent
-  // chatOpen: true,
-  // hasSecondTile: false
-  // layout: Column 1 / Row 1 / Column-Span 2
-  // align: x-center y-center
   agentChatOpenWithoutSecondTile: ['col-start-1 row-start-1', 'col-span-2', 'place-content-center'],
-  // Agent
-  // chatOpen: false
-  // layout: Column 1 / Row 1 / Column-Span 2 / Row-Span 3
-  // align: x-center y-center
   agentChatClosed: ['col-start-1 row-start-1', 'col-span-2 row-span-3', 'place-content-center'],
-  // Second tile
-  // chatOpen: true,
-  // hasSecondTile: true
-  // layout: Column 2 / Row 1
-  // align: x-start y-center
   secondTileChatOpen: ['col-start-2 row-start-1', 'self-center justify-self-start'],
-  // Second tile
-  // chatOpen: false,
-  // hasSecondTile: false
-  // layout: Column 2 / Row 2
-  // align: x-end y-end
   secondTileChatClosed: ['col-start-2 row-start-3', 'place-content-end'],
 };
 
@@ -72,30 +47,12 @@ export function useLocalTrackRef(source: Track.Source) {
 
 interface TileLayoutProps {
   chatOpen: boolean
-  audioVisualizerType?: 'bar' | 'wave' | 'grid' | 'radial' | 'aura'
-  audioVisualizerColor?: `#${string}`
-  audioVisualizerColorShift?: number
-  audioVisualizerWaveLineWidth?: number
-  audioVisualizerGridRowCount?: number
-  audioVisualizerGridColumnCount?: number
-  audioVisualizerRadialBarCount?: number
-  audioVisualizerRadialRadius?: number
-  audioVisualizerBarCount?: number
 }
 
-export function TileLayout({
-  chatOpen,
-  audioVisualizerType,
-  audioVisualizerColor,
-  audioVisualizerColorShift,
-  audioVisualizerBarCount,
-  audioVisualizerRadialBarCount,
-  audioVisualizerRadialRadius,
-  audioVisualizerGridRowCount,
-  audioVisualizerGridColumnCount,
-  audioVisualizerWaveLineWidth,
-}: TileLayoutProps) {
-  const { videoTrack: agentVideoTrack } = useVoiceAssistant();
+export function TileLayout({ chatOpen }: TileLayoutProps) {
+  const { videoTrack: agentVideoTrack, audioTrack } = useVoiceAssistant();
+  const { state: agentState } = useAgent();
+  const { resolvedTheme } = useTheme();
   const [screenShareTrack] = useTracks([Track.Source.ScreenShare]);
   const cameraTrack: TrackReference | undefined = useLocalTrackRef(Track.Source.Camera);
 
@@ -128,7 +85,6 @@ export function TileLayout({
           >
             <AnimatePresence mode='popLayout'>
               {!isAvatar && (
-                // Audio Agent
                 <motion.div
                   key='agent'
                   layoutId='agent'
@@ -138,38 +94,19 @@ export function TileLayout({
                     ...ANIMATION_TRANSITION,
                     delay: animationDelay,
                   }}
-                  className={cn(chatOpen ? 'relative size-4 bg-transparent!' : 'relative aspect-square h-22.5')}
                 >
-                  <AudioVisualizer
-                    key='audio-visualizer'
-                    initial={{ scale: 1 }}
-                    animate={{ scale: chatOpen ? 0.25 : 1 }}
-                    transition={{
-                      ...ANIMATION_TRANSITION,
-                      delay: animationDelay,
-                    }}
-                    audioVisualizerType={audioVisualizerType}
-                    audioVisualizerColor={audioVisualizerColor}
-                    audioVisualizerColorShift={audioVisualizerColorShift}
-                    audioVisualizerBarCount={audioVisualizerBarCount}
-                    audioVisualizerRadialBarCount={audioVisualizerRadialBarCount}
-                    audioVisualizerRadialRadius={audioVisualizerRadialRadius}
-                    audioVisualizerGridRowCount={audioVisualizerGridRowCount}
-                    audioVisualizerGridColumnCount={audioVisualizerGridColumnCount}
-                    audioVisualizerWaveLineWidth={audioVisualizerWaveLineWidth}
-                    isChatOpen={chatOpen}
-                    className={cn(
-                      'absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2',
-                      'bg-background rounded-[50px] border border-transparent transition-[border,drop-shadow]',
-                      chatOpen && '',
-                    )}
-                    style={{ color: audioVisualizerColor }}
+                  <AgentAudioVisualizerAura
+                    size={chatOpen ? 'sm' : 'lg'}
+                    state={agentState}
+                    color={resolvedTheme === 'dark' ? '#7C8CFF' : '#4680ae'}
+                    colorShift={0.06}
+                    themeMode={resolvedTheme as 'light' | 'dark'}
+                    audioTrack={audioTrack}
                   />
                 </motion.div>
               )}
 
               {isAvatar && (
-                // Avatar Agent
                 <motion.div
                   key='avatar'
                   layoutId='avatar'
@@ -189,12 +126,8 @@ export function TileLayout({
                   transition={{
                     ...ANIMATION_TRANSITION,
                     delay: animationDelay,
-                    maskImage: {
-                      duration: 1,
-                    },
-                    filter: {
-                      duration: 1,
-                    },
+                    maskImage: { duration: 1 },
+                    filter: { duration: 1 },
                   }}
                   className={cn(
                     'overflow-hidden bg-black drop-shadow-xl/80',
@@ -219,25 +152,15 @@ export function TileLayout({
               !chatOpen && tileViewClassNames.secondTileChatClosed,
             ])}
           >
-            {/* Camera & Screen Share */}
             <AnimatePresence>
               {((cameraTrack && isCameraEnabled) || (screenShareTrack && isScreenShareEnabled)) && (
                 <motion.div
                   key='camera'
                   layout='position'
                   layoutId='camera'
-                  initial={{
-                    opacity: 0,
-                    scale: 0,
-                  }}
-                  animate={{
-                    opacity: 1,
-                    scale: 1,
-                  }}
-                  exit={{
-                    opacity: 0,
-                    scale: 0,
-                  }}
+                  initial={{ opacity: 0, scale: 0 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0 }}
                   transition={{
                     ...ANIMATION_TRANSITION,
                     delay: animationDelay,
