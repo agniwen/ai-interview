@@ -329,9 +329,9 @@ server = AgentServer()
 
 def prewarm(proc: JobProcess):
     proc.userdata["vad"] = silero.VAD.load(
-        activation_threshold=0.85,
-        min_speech_duration=0.5,
-        min_silence_duration=0.8,
+        activation_threshold=0.6,
+        min_speech_duration=0.3,
+        min_silence_duration=0.55,
     )
 
 
@@ -499,11 +499,7 @@ async def my_agent(ctx: JobContext):
                     else ai_coustics.audio_enhancement(
                         model=ai_coustics.EnhancerModel.QUAIL_VF_L,
                         model_parameters=ai_coustics.ModelParameters(
-                            enhancement_level=0.85,
-                        ),
-                        vad_settings=ai_coustics.VadSettings(
-                            sensitivity=0.6,
-                            minimum_speech_duration=0.5,
+                            enhancement_level=0.7,
                         ),
                     )
                 ),
