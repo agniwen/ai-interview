@@ -329,8 +329,8 @@ server = AgentServer()
 
 def prewarm(proc: JobProcess):
     proc.userdata["vad"] = silero.VAD.load(
-        activation_threshold=0.75,
-        min_speech_duration=0.3,
+        activation_threshold=0.85,
+        min_speech_duration=0.5,
         min_silence_duration=0.8,
     )
 
@@ -345,17 +345,12 @@ async def my_agent(ctx: JobContext):
     }
 
     session = AgentSession(
-        # Speech-to-text (STT) - ElevenLabs Scribe v2 with server-side VAD
+        # Speech-to-text (STT) - ElevenLabs Scribe v2
+        # Note: no server_vad here — let AgentSession's VAD handle speech detection
         stt=elevenlabs.STT(
             model_id="scribe_v2",
             language_code="zh",
             tag_audio_events=False,
-            server_vad={
-                "vad_threshold": 0.6,
-                "min_speech_duration_ms": 300,
-                "min_silence_duration_ms": 2000,
-                "vad_silence_threshold_secs": 1.5,
-            },
         ),
         # Large Language Model (LLM) - Qwen via DashScope (OpenAI-compatible)
         llm=openai.LLM(
@@ -369,16 +364,21 @@ async def my_agent(ctx: JobContext):
             base_url="https://api.minimax.chat",
             voice="voice_agent_Male_Phone_1",
         ),
-        # VAD and turn detection
-        turn_detection=MultilingualModel(),
+        # VAD - Silero (prewarmed)
         vad=ctx.proc.userdata["vad"],
         preemptive_generation=True,
-        # Interruption handling - adaptive mode filters backchanneling & noise
+        # Turn detection & interruption handling (unified config)
         turn_handling={
+            "turn_detection": MultilingualModel(),
+            "endpointing": {
+                "mode": "dynamic",
+                "min_delay": 0.5,
+                "max_delay": 3.0,
+            },
             "interruption": {
                 "mode": "adaptive",
                 "min_duration": 0.8,
-                "min_words": 2,
+                "min_words": 1,
                 "false_interruption_timeout": 2.0,
                 "resume_false_interruption": True,
             },
@@ -497,7 +497,14 @@ async def my_agent(ctx: JobContext):
                     if params.participant.kind
                     == rtc.ParticipantKind.PARTICIPANT_KIND_SIP
                     else ai_coustics.audio_enhancement(
-                        model=ai_coustics.EnhancerModel.QUAIL_VF_L
+                        model=ai_coustics.EnhancerModel.QUAIL_VF_L,
+                        model_parameters=ai_coustics.ModelParameters(
+                            enhancement_level=0.85,
+                        ),
+                        vad_settings=ai_coustics.VadSettings(
+                            sensitivity=0.6,
+                            minimum_speech_duration=0.5,
+                        ),
                     )
                 ),
             ),
