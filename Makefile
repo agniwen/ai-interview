@@ -7,7 +7,7 @@ AGENT_SCRIPT := src/agent.py
 
 .PHONY: help install web-install agent-install agent-download \
         dev web-dev agent-dev agent-console agent-start agent-shell \
-        agent-clean clean
+        agent-deploy agent-update-secrets agent-clean clean
 
 help: ## 显示所有可用命令
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -45,6 +45,14 @@ agent-start: ## 启动 LiveKit agent worker (生产模式，不热重载)
 agent-shell: ## 进入激活了 venv 的子 shell (手动调 python/pytest 等)
 	@echo "Entering venv shell for $(AGENT_DIR). Type 'exit' to leave."
 	@cd $(AGENT_DIR) && $$SHELL -c '. .venv/bin/activate && exec $$SHELL'
+
+# ---------- deploy ----------
+
+agent-deploy: ## 构建并部署 agent 到 LiveKit Cloud (代码+环境变量)
+	cd $(AGENT_DIR) && lk agent deploy --secrets-file .env.secrets --project resume
+
+agent-update-secrets: ## 仅更新 agent 环境变量并重启 (不重新构建)
+	cd $(AGENT_DIR) && lk agent update-secrets --secrets-file .env.secrets --project resume
 
 # ---------- clean ----------
 
