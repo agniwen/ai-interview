@@ -169,10 +169,15 @@ function renderEvaluationResults(data: Record<string, unknown>) {
             <div className='rounded-xl border border-border/60 bg-muted/20 px-3 py-2.5 text-sm' key={q.order ?? i}>
               <div className='flex items-start justify-between gap-2'>
                 <p className='min-w-0 font-medium leading-relaxed'>
-                  {q.order != null ? `${q.order}. ` : ''}{q.question ?? '未知题目'}
+                  {q.order != null ? `${q.order}. ` : ''}
+                  {q.question ?? '未知题目'}
                 </p>
                 <span className='shrink-0 font-semibold'>
-                  {q.score ?? '-'}<span className='font-normal text-muted-foreground'>/{q.maxScore ?? 10}</span>
+                  {q.score ?? '-'}
+                  <span className='font-normal text-muted-foreground'>
+                    /
+                    {q.maxScore ?? 10}
+                  </span>
                 </span>
               </div>
               {q.assessment && (

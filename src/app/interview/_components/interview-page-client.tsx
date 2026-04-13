@@ -3,7 +3,7 @@
 import type { CandidateInterviewView } from '@/lib/interview/interview-record';
 import { useSession } from '@livekit/components-react';
 import { ConnectionState, TokenSource } from 'livekit-client';
-import { CheckCircle2Icon, MicIcon, TriangleAlertIcon } from 'lucide-react';
+import { MicIcon, TriangleAlertIcon } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AgentSessionProvider } from '@/components/agents-ui/agent-session-provider';
 import { AgentSessionView_01 } from '@/components/agents-ui/blocks/agent-session-view-01';

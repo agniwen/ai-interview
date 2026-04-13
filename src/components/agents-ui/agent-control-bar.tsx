@@ -9,6 +9,11 @@ import { Loader, MessageSquareTextIcon, SendHorizontal } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useEffect, useRef, useState } from 'react';
 import { AgentDisconnectButton } from '@/components/agents-ui/agent-disconnect-button';
+import { AgentTrackControl } from '@/components/agents-ui/agent-track-control';
+import {
+  AgentTrackToggle,
+  agentTrackToggleVariants,
+} from '@/components/agents-ui/agent-track-toggle';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -20,11 +25,6 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { AgentTrackControl } from '@/components/agents-ui/agent-track-control';
-import {
-  AgentTrackToggle,
-  agentTrackToggleVariants,
-} from '@/components/agents-ui/agent-track-toggle';
 import { Button } from '@/components/ui/button';
 import { Toggle } from '@/components/ui/toggle';
 import {
