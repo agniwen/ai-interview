@@ -13,6 +13,7 @@ import {
 } from '@/components/agents-ui/agent-control-bar';
 import { Shimmer } from '@/components/ai-elements/shimmer';
 import { cn } from '@/lib/utils';
+import { AgentStateIndicator } from './agent-state-indicator';
 import { TileLayout } from './tile-view';
 
 const MotionMessage = motion.create(Shimmer);
@@ -210,7 +211,7 @@ export function AgentSessionView_01({
       <Fade top className={cn('absolute inset-x-4 top-0 z-10', chatOpen ? 'h-0' : 'h-40')} />
       {/* transcript */}
 
-      <div className={cn('absolute inset-x-0 bottom-[135px] z-20 flex flex-col md:bottom-[170px]', chatOpen ? 'top-[72px]' : 'top-0')}>
+      <div className={cn('absolute inset-x-0 bottom-[135px] z-20 flex flex-col md:bottom-[170px]', chatOpen ? 'top-[88px]' : 'top-0')}>
         <AnimatePresence>
           {chatOpen && (
             <motion.div
@@ -228,6 +229,14 @@ export function AgentSessionView_01({
       </div>
       {/* Tile layout */}
       <TileLayout chatOpen={chatOpen} />
+      {/* State indicator */}
+      <div className={cn(
+        'absolute inset-x-0 z-30',
+        chatOpen ? 'top-[62px]   flex justify-center' : 'bottom-[170px] md:bottom-[210px]',
+      )}
+      >
+        <AgentStateIndicator state={agentState} className={cn([chatOpen ? 'rounded-full px-2 bg-secondary border border-primary/20' : ''])} />
+      </div>
       {/* Bottom */}
       <motion.div
         {...BOTTOM_VIEW_MOTION_PROPS}

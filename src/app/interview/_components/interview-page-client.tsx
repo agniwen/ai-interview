@@ -140,7 +140,7 @@ export default function InterviewPageClient({
         <AgentSessionView_01
           supportsVideoInput={false}
           supportsScreenShare={false}
-          preConnectMessage='面试已开始，请开始作答'
+          preConnectMessage='正在连线面试官...'
         />
       </main>
       <StartAudioButton label='开始通话' />
