@@ -34,7 +34,13 @@ export const app = new Hono<Env>()
   .basePath('/api')
   .post('/feishu/webhook', async (c) => {
     const bot = getFeishuBot();
-    return bot.webhooks.feishu(c.req.raw);
+    const body = await c.req.text();
+    const rebuilt = new Request(c.req.raw.url, {
+      method: 'POST',
+      headers: c.req.raw.headers,
+      body,
+    });
+    return bot.webhooks.feishu(rebuilt);
   })
   .route('/agent', agentRouter)
   .route('/resume', resumeRouter)
