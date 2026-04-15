@@ -33,27 +33,14 @@ export const app = new Hono<Env>()
   .use('/api/studio/interviews/*', authMiddleware, adminMiddleware)
   .basePath('/api')
   .post('/feishu/webhook', async (c) => {
-    try {
-      const bot = getFeishuBot();
-      const body = await c.req.text();
-      const rebuilt = new Request(c.req.raw.url, {
-        method: 'POST',
-        headers: c.req.raw.headers,
-        body,
-      });
-      const res = await bot.webhooks.feishu(rebuilt);
-      const responseBody = await res.text();
-      console.log('[feishu-webhook]', res.status, responseBody);
-      return new Response(responseBody, {
-        status: res.status,
-        headers: res.headers,
-      });
-    }
-    catch (error) {
-      const stack = error instanceof Error ? error.stack : String(error);
-      console.error('[feishu-webhook] failed:', stack);
-      return c.json({ error: 'feishu-webhook failed', detail: String(error) }, 500);
-    }
+    const bot = getFeishuBot();
+    const body = await c.req.text();
+    const rebuilt = new Request(c.req.raw.url, {
+      method: 'POST',
+      headers: c.req.raw.headers,
+      body,
+    });
+    return bot.webhooks.feishu(rebuilt);
   })
   .route('/agent', agentRouter)
   .route('/resume', resumeRouter)

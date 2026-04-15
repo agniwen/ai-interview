@@ -145,24 +145,29 @@ export class FeishuAdapter implements Adapter<FeishuThreadId, unknown> {
       }
     }
 
-    // Verify event signature if encryptKey is configured
-    // Headers: X-Lark-Request-Timestamp, X-Lark-Request-Nonce, X-Lark-Signature
+    // Verify event signature when present.
+    // Feishu only includes x-lark-* signature headers for some events;
+    // URL-verification challenges and many v2 event payloads ship encrypted
+    // without signature headers, relying on the verification token inside
+    // the decrypted payload for authenticity. Treat signature headers as
+    // optional: verify when present, otherwise fall through to the token
+    // check below.
     if (this.encryptKey) {
       const timestamp = request.headers.get('x-lark-request-timestamp');
       const nonce = request.headers.get('x-lark-request-nonce');
       const signature = request.headers.get('x-lark-signature');
 
-      if (!(timestamp && nonce && signature)) {
-        this.logger.warn(
-          'Feishu event missing signature headers while encryptKey is configured',
-        );
-        return new Response('Missing signature headers', { status: 401 });
+      if (timestamp && nonce && signature) {
+        const isValid = this.verifySignature(timestamp, nonce, body, signature);
+        if (!isValid) {
+          this.logger.warn('Feishu event signature verification failed');
+          return new Response('Invalid signature', { status: 401 });
+        }
       }
-
-      const isValid = this.verifySignature(timestamp, nonce, body, signature);
-      if (!isValid) {
-        this.logger.warn('Feishu event signature verification failed');
-        return new Response('Invalid signature', { status: 401 });
+      else {
+        this.logger.debug(
+          'Feishu event has no signature headers; relying on encryption + verification token',
+        );
       }
     }
 

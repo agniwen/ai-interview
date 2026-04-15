@@ -555,7 +555,11 @@ describe('handleWebhook - signature verification', () => {
     expect(await response.text()).toBe('Invalid signature');
   });
 
-  it('returns 401 when signature headers are absent but encryptKey is configured', async () => {
+  it('accepts plaintext events without signature headers, relying on token verification', async () => {
+    // Feishu does not always send x-lark-* signature headers (e.g. URL
+    // verification challenges and v2 message events arrive without them).
+    // The adapter should still process the request when the verification
+    // token matches.
     const encryptKey = 'test-encrypt-key';
     const adapter = createTestAdapter({
       verificationToken: 'test-token',
@@ -570,9 +574,7 @@ describe('handleWebhook - signature verification', () => {
 
     const response = await adapter.handleWebhook(request);
 
-    // Should reject — missing signature headers when encryptKey is configured
-    expect(response.status).toBe(401);
-    expect(await response.text()).toBe('Missing signature headers');
+    expect(response.status).toBe(200);
   });
 
   it('uses timing-safe comparison for signature verification', async () => {
