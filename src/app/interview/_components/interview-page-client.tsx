@@ -46,6 +46,7 @@ export default function InterviewPageClient({
     }
 
     void fetchStatus();
+    // eslint-disable-next-line style/max-statements-per-line
     return () => { cancelled = true; };
   }, [interviewId, roundId]);
 

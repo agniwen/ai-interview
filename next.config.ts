@@ -12,6 +12,7 @@ const nextConfig: NextConfig = {
     ],
   },
   serverExternalPackages: ['@napi-rs/canvas', 'pdf-parse'],
+  transpilePackages: ['@repo/adapter-feishu'],
 };
 
 export default nextConfig;

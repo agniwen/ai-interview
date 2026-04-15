@@ -2,6 +2,9 @@ shellEmulator: true
 
 trustPolicy: no-downgrade
 
+packages:
+  - 'packages/*'
+
 ignoredBuiltDependencies:
   - msw
   - sharp
