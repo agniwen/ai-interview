@@ -223,8 +223,18 @@ export class FeishuAdapter implements Adapter<FeishuThreadId, unknown> {
     }
 
     const chatId = msg.chat_id;
-    // Use root_id if available (threaded reply), otherwise message_id itself is the root
-    const rootMessageId = msg.root_id ?? msg.message_id;
+    // For p2p (direct message) chats, encode the thread with the 'dm'
+    // sentinel so chat-sdk's `isDM` check returns true and the
+    // `onDirectMessage` handler fires. Replies in DM threads use
+    // `client.im.message.create` (see sendToChat) which is correct for DMs.
+    //
+    // For group messages, use root_id when present (so replies in the same
+    // thread share a threadId) or fall back to the message id itself as
+    // the thread root.
+    const isP2P = msg.chat_type === 'p2p';
+    const rootMessageId = isP2P
+      ? 'dm'
+      : (msg.root_id ?? msg.message_id);
 
     const threadId = this.encodeThreadId({ chatId, messageId: rootMessageId });
 
@@ -667,23 +677,33 @@ export class FeishuAdapter implements Adapter<FeishuThreadId, unknown> {
     threadId: string,
     options: FetchOptions = {},
   ): Promise<FetchResult<unknown>> {
-    const { messageId: rootMessageId } = this.decodeThreadId(threadId);
+    const { chatId, messageId: rootMessageId } = this.decodeThreadId(threadId);
     const limit = options.limit ?? 50;
+    const isDM = rootMessageId === 'dm';
 
     this.logger.debug('Feishu API: GET messages', {
+      chatId,
       rootMessageId,
+      isDM,
       limit,
       cursor: options.cursor,
     });
 
     try {
       const response = await this.client.im.message.list({
-        params: {
-          container_id_type: 'thread',
-          container_id: rootMessageId,
-          page_size: limit,
-          page_token: options.cursor,
-        },
+        params: isDM
+          ? {
+              container_id_type: 'chat',
+              container_id: chatId,
+              page_size: limit,
+              page_token: options.cursor,
+            }
+          : {
+              container_id_type: 'thread',
+              container_id: rootMessageId,
+              page_size: limit,
+              page_token: options.cursor,
+            },
       });
 
       const data = response as {
