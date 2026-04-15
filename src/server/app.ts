@@ -5,6 +5,7 @@ import { auth } from '@/lib/auth';
 import { adminMiddleware } from './middlewares/admin';
 import { authMiddleware } from './middlewares/auth';
 import { betterAuthMiddleware } from './middlewares/better-auth';
+import { getFeishuBot } from './feishu/bot';
 import { agentRouter } from './routes/agent/route';
 import { interviewRouter, studioInterviewsRouter } from './routes/interview/route';
 import { resumeRouter } from './routes/resume/route';
@@ -31,6 +32,10 @@ export const app = new Hono<Env>()
   .use('/api/studio/interviews', authMiddleware, adminMiddleware)
   .use('/api/studio/interviews/*', authMiddleware, adminMiddleware)
   .basePath('/api')
+  .post('/feishu/webhook', async (c) => {
+    const bot = getFeishuBot();
+    return bot.webhooks.feishu(c.req.raw);
+  })
   .route('/agent', agentRouter)
   .route('/resume', resumeRouter)
   .route('/interview', interviewRouter)

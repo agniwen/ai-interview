@@ -10,6 +10,7 @@
 import type {
   Adapter,
   AdapterPostableMessage,
+  Attachment,
   ChatInstance,
   EmojiValue,
   FetchOptions,
@@ -236,6 +237,12 @@ export class FeishuAdapter implements Adapter<FeishuThreadId, unknown> {
       });
     }
 
+    const attachments = this.extractAttachmentsFromContent(
+      msg.message_id,
+      msg.message_type,
+      msg.content,
+    );
+
     // Check if bot is mentioned
     const isMentioned
       = msg.mentions?.some(m => m.id.open_id === this.botUserId) ?? false;
@@ -264,7 +271,7 @@ export class FeishuAdapter implements Adapter<FeishuThreadId, unknown> {
         dateSent: new Date(Number(msg.create_time)),
         edited: false,
       },
-      attachments: [],
+      attachments,
       raw: payload,
       isMention: isMentioned,
     });
@@ -726,7 +733,11 @@ export class FeishuAdapter implements Adapter<FeishuThreadId, unknown> {
               ? new Date(Number(item.update_time))
               : undefined,
           },
-          attachments: [],
+          attachments: this.extractAttachmentsFromContent(
+            item.message_id,
+            item.msg_type,
+            item.content,
+          ),
         });
       });
 
@@ -915,7 +926,11 @@ export class FeishuAdapter implements Adapter<FeishuThreadId, unknown> {
           ? new Date(Number(msg.update_time))
           : undefined,
       },
-      attachments: [],
+      attachments: this.extractAttachmentsFromContent(
+        msg.message_id,
+        msg.msg_type,
+        msg.content,
+      ),
     });
   }
 
@@ -924,6 +939,109 @@ export class FeishuAdapter implements Adapter<FeishuThreadId, unknown> {
    */
   renderFormatted(content: FormattedContent): string {
     return this.formatConverter.fromAst(content);
+  }
+
+  /**
+   * Extract attachments from a Feishu message content JSON string.
+   * Supports `file` and `image` message types. Returns an empty array
+   * for unsupported types or if parsing fails.
+   *
+   * The returned attachments use a lazy `fetchData` callback that downloads
+   * the binary via the message resource API on demand.
+   */
+  private extractAttachmentsFromContent(
+    messageId: string,
+    messageType: string,
+    rawContent: string,
+  ): Attachment[] {
+    if (messageType !== 'file' && messageType !== 'image') {
+      return [];
+    }
+
+    let parsed: {
+      file_key?: string
+      file_name?: string
+      image_key?: string
+      file_size?: number | string
+    };
+    try {
+      parsed = JSON.parse(rawContent);
+    }
+    catch {
+      this.logger.debug('Failed to parse Feishu file/image content', {
+        messageId,
+        messageType,
+      });
+      return [];
+    }
+
+    if (messageType === 'file') {
+      const fileKey = parsed.file_key;
+      if (!fileKey) {
+        return [];
+      }
+      return [{
+        type: 'file',
+        name: parsed.file_name,
+        size: typeof parsed.file_size === 'number'
+          ? parsed.file_size
+          : parsed.file_size
+            ? Number(parsed.file_size) || undefined
+            : undefined,
+        mimeType: this.guessMimeType(parsed.file_name),
+        fetchData: () => this.downloadMessageResource(messageId, fileKey, 'file'),
+      }];
+    }
+
+    // image
+    const imageKey = parsed.image_key;
+    if (!imageKey) {
+      return [];
+    }
+    return [{
+      type: 'image',
+      mimeType: 'image/png',
+      fetchData: () => this.downloadMessageResource(messageId, imageKey, 'image'),
+    }];
+  }
+
+  /**
+   * Best-effort MIME type guess from filename extension.
+   */
+  private guessMimeType(filename?: string): string | undefined {
+    if (!filename) {
+      return undefined;
+    }
+    const ext = filename.toLowerCase().split('.').pop();
+    switch (ext) {
+      case 'pdf': return 'application/pdf';
+      case 'doc': return 'application/msword';
+      case 'docx': return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+      case 'xls': return 'application/vnd.ms-excel';
+      case 'xlsx': return 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+      case 'png': return 'image/png';
+      case 'jpg':
+      case 'jpeg': return 'image/jpeg';
+      case 'txt': return 'text/plain';
+      default: return undefined;
+    }
+  }
+
+  /**
+   * Download the binary payload for a message resource (file or image)
+   * via the Feishu Open Platform API.
+   *
+   * @see https://open.feishu.cn/document/server-docs/im-v1/message/get-2
+   */
+  private async downloadMessageResource(
+    messageId: string,
+    fileKey: string,
+    type: 'file' | 'image',
+  ): Promise<Buffer> {
+    const path = `/im/v1/messages/${encodeURIComponent(messageId)}/resources/${encodeURIComponent(fileKey)}?type=${type}`;
+    const response = await this.feishuFetch(path, 'GET');
+    const buffer = Buffer.from(await response.arrayBuffer());
+    return buffer;
   }
 
   /**
