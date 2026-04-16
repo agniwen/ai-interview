@@ -5,9 +5,7 @@ import { redirect } from 'next/navigation';
 import { connection } from 'next/server';
 import { AuthSignInForm } from '@/components/auth/auth-sign-in-form';
 import { AuthSignUpForm } from '@/components/auth/auth-sign-up-form';
-import { GoogleSignInButton } from '@/components/auth/google-sign-in-button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { auth } from '@/lib/auth';
 import { isAdminRole } from '@/lib/auth-roles';
@@ -46,15 +44,6 @@ export default async function LoginPage() {
                   <AuthSignUpForm callbackURL='/login' />
                 </TabsContent>
               </Tabs>
-
-              <div className='relative'>
-                <Separator />
-                <span className='absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-card px-2 text-muted-foreground text-xs'>
-                  或
-                </span>
-              </div>
-
-              <GoogleSignInButton callbackURL='/login' label='使用 Google 登录' />
             </CardContent>
           </Card>
 

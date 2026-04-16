@@ -224,7 +224,7 @@ export function AuthSignUpForm({ callbackURL }: AuthSignUpFormProps) {
         ? <p className='text-destructive text-sm'>{serverError}</p>
         : null}
 
-      <Button className='w-full' disabled={isSubmitting} type='submit'>
+      <Button className='w-full mt-4' disabled={isSubmitting} type='submit'>
         {isSubmitting ? '注册中...' : '注册'}
       </Button>
     </form>

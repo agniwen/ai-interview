@@ -152,7 +152,7 @@ export function AuthSignInForm({ callbackURL }: AuthSignInFormProps) {
         ? <p className='text-destructive text-sm'>{serverError}</p>
         : null}
 
-      <Button className='w-full' disabled={isSubmitting} type='submit'>
+      <Button className='w-full mt-4!' disabled={isSubmitting} type='submit'>
         {isSubmitting ? '登录中...' : '登录'}
       </Button>
     </form>

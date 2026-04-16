@@ -11,7 +11,6 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AuthSignInForm } from './auth-sign-in-form';
 import { AuthSignUpForm } from './auth-sign-up-form';
-import { GoogleSignInButton } from './google-sign-in-button';
 
 interface SignInRequiredDialogProps {
   callbackURL: string
@@ -47,37 +46,11 @@ export function SignInRequiredDialog({
           </TabsList>
 
           <TabsContent className='mt-4' value='sign-in'>
-            <div className='space-y-4'>
-              <AuthSignInForm callbackURL={callbackURL} />
-
-              <div className='relative'>
-                <div className='absolute inset-0 flex items-center'>
-                  <span className='w-full border-t border-border/60' />
-                </div>
-                <div className='relative flex justify-center text-xs'>
-                  <span className='bg-card/95 px-2 text-muted-foreground'>或</span>
-                </div>
-              </div>
-
-              <GoogleSignInButton callbackURL={callbackURL} />
-            </div>
+            <AuthSignInForm callbackURL={callbackURL} />
           </TabsContent>
 
           <TabsContent className='mt-4' value='sign-up'>
-            <div className='space-y-4'>
-              <AuthSignUpForm callbackURL={callbackURL} />
-
-              <div className='relative'>
-                <div className='absolute inset-0 flex items-center'>
-                  <span className='w-full border-t border-border/60' />
-                </div>
-                <div className='relative flex justify-center text-xs'>
-                  <span className='bg-card/95 px-2 text-muted-foreground'>或</span>
-                </div>
-              </div>
-
-              <GoogleSignInButton callbackURL={callbackURL} label='使用 Google 注册' />
-            </div>
+            <AuthSignUpForm callbackURL={callbackURL} />
           </TabsContent>
         </Tabs>
       </DialogContent>

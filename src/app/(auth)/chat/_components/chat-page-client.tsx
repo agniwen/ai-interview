@@ -988,7 +988,7 @@ export default function ChatPageClient({
                     </DropdownMenu>
                   )
                 : (
-                    <Button onClick={handleSignIn} size='sm' type='button' variant='outline'>
+                    <Button onClick={handleSignIn} size='sm' type='button' variant='outline' className='mt-4'>
                       <UserIcon className='mr-1 size-4' />
                       登录
                     </Button>
