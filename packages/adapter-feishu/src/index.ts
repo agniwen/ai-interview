@@ -99,6 +99,7 @@ export class FeishuAdapter implements Adapter<FeishuThreadId, unknown> {
 
     this.logger.info('Feishu adapter initialized', {
       appId: this.appId,
+      botUserId: this.botUserId ?? '(not available)',
     });
   }
 
@@ -236,21 +237,12 @@ export class FeishuAdapter implements Adapter<FeishuThreadId, unknown> {
       ? 'dm'
       : (msg.root_id ?? msg.message_id);
 
-    const threadId = this.encodeThreadId({ chatId, messageId: rootMessageId });
+    // Capture Feishu topic thread_id (omt_xxx) for fetching thread messages later
+    const feishuThreadId = isP2P ? undefined : msg.thread_id;
+    const threadId = this.encodeThreadId({ chatId, messageId: rootMessageId, threadId: feishuThreadId });
 
     // Parse content
-    let textContent = '';
-    try {
-      if (msg.message_type === 'text') {
-        const content = JSON.parse(msg.content) as { text?: string };
-        textContent = content.text ?? '';
-      }
-    }
-    catch {
-      this.logger.debug('Failed to parse message content', {
-        messageId: msg.message_id,
-      });
-    }
+    const textContent = this.extractTextFromContent(msg.message_type, msg.content);
 
     const attachments = this.extractAttachmentsFromContent(
       msg.message_id,
@@ -677,33 +669,43 @@ export class FeishuAdapter implements Adapter<FeishuThreadId, unknown> {
     threadId: string,
     options: FetchOptions = {},
   ): Promise<FetchResult<unknown>> {
-    const { chatId, messageId: rootMessageId } = this.decodeThreadId(threadId);
+    const { chatId, messageId: rootMessageId, threadId: feishuThreadId } = this.decodeThreadId(threadId);
     const limit = options.limit ?? 50;
     const isDM = rootMessageId === 'dm';
+    // For group threads: use omt_ thread ID with container_id_type 'thread' if available,
+    // otherwise fall back to chat-level fetch and filter client-side by root_id
+    const useThreadContainer = !isDM && !!feishuThreadId;
 
     this.logger.debug('Feishu API: GET messages', {
       chatId,
       rootMessageId,
+      feishuThreadId,
       isDM,
+      useThreadContainer,
       limit,
       cursor: options.cursor,
     });
 
     try {
+      let containerIdType: string;
+      let containerId: string;
+      if (useThreadContainer) {
+        containerIdType = 'thread';
+        containerId = feishuThreadId;
+      }
+      else {
+        containerIdType = 'chat';
+        containerId = chatId;
+      }
+
       const response = await this.client.im.message.list({
-        params: isDM
-          ? {
-              container_id_type: 'chat',
-              container_id: chatId,
-              page_size: limit,
-              page_token: options.cursor,
-            }
-          : {
-              container_id_type: 'thread',
-              container_id: rootMessageId,
-              page_size: limit,
-              page_token: options.cursor,
-            },
+        params: {
+          container_id_type: containerIdType,
+          container_id: containerId,
+          sort_type: 'ByCreateTimeDesc',
+          page_size: limit,
+          page_token: options.cursor,
+        },
       });
 
       const data = response as {
@@ -716,7 +718,7 @@ export class FeishuAdapter implements Adapter<FeishuThreadId, unknown> {
             update_time?: string
             chat_id: string
             msg_type: string
-            content: string
+            body?: { content?: string }
             sender: { id: string, sender_type: string }
           }>
           page_token?: string
@@ -724,19 +726,25 @@ export class FeishuAdapter implements Adapter<FeishuThreadId, unknown> {
         }
       };
 
-      const items = data.data?.items ?? [];
+      let items = data.data?.items ?? [];
+
+      // Sort by create_time ascending (chronological order) regardless of API sort_type
+      items.sort((a, b) => Number(a.create_time) - Number(b.create_time));
+
+      // When fetching at chat level for a group thread (no omt_ thread ID),
+      // filter to only messages belonging to the same root thread
+      if (!isDM && !useThreadContainer && rootMessageId) {
+        items = items.filter(item =>
+          item.message_id === rootMessageId
+          || item.root_id === rootMessageId,
+        );
+      }
 
       const messages = items.map((item) => {
-        let text = '';
-        try {
-          if (item.msg_type === 'text') {
-            const content = JSON.parse(item.content) as { text?: string };
-            text = content.text ?? '';
-          }
-        }
-        catch {
-          // Content parsing failure is non-fatal
-        }
+        const content = item.body?.content ?? '';
+        const text = this.extractTextFromContent(item.msg_type, content);
+        // Bot sender uses app_id (cli_xxx) in API responses, not open_id (ou_xxx)
+        const isMe = item.sender.sender_type === 'app' && item.sender.id === this.appId;
 
         return new Message({
           id: item.message_id,
@@ -749,7 +757,7 @@ export class FeishuAdapter implements Adapter<FeishuThreadId, unknown> {
             userName: item.sender.id,
             fullName: item.sender.id,
             isBot: item.sender.sender_type === 'app',
-            isMe: item.sender.id === this.botUserId,
+            isMe,
           },
           metadata: {
             dateSent: new Date(Number(item.create_time)),
@@ -761,7 +769,7 @@ export class FeishuAdapter implements Adapter<FeishuThreadId, unknown> {
           attachments: this.extractAttachmentsFromContent(
             item.message_id,
             item.msg_type,
-            item.content,
+            content,
           ),
         });
       });
@@ -867,11 +875,52 @@ export class FeishuAdapter implements Adapter<FeishuThreadId, unknown> {
   }
 
   /**
+   * Extract plain text from a Feishu message content string.
+   * Supports `text` and `post` (rich text) message types.
+   */
+  private extractTextFromContent(msgType: string, content: string): string {
+    try {
+      if (msgType === 'text') {
+        const parsed = JSON.parse(content) as { text?: string };
+        return parsed.text ?? '';
+      }
+      if (msgType === 'post') {
+        const parsed = JSON.parse(content) as Record<string, {
+          title?: string
+          content?: Array<Array<{ tag: string, text?: string }>>
+        }>;
+        // post content is keyed by locale (zh_cn, en_us, etc.), pick the first available
+        const locale = Object.values(parsed)[0];
+        if (!locale?.content)
+          return locale?.title ?? '';
+        const segments: string[] = [];
+        if (locale.title)
+          segments.push(locale.title);
+        for (const line of locale.content) {
+          const lineText = line
+            .filter(node => node.text)
+            .map(node => node.text)
+            .join('');
+          if (lineText)
+            segments.push(lineText);
+        }
+        return segments.join('\n');
+      }
+    }
+    catch {
+      // Content parsing failure is non-fatal
+    }
+    return '';
+  }
+
+  /**
    * Encode platform data into a thread ID string.
    * Format: feishu:{chatId}:{messageId}
    */
   encodeThreadId(platformData: FeishuThreadId): string {
-    return `feishu:${platformData.chatId}:${platformData.messageId}`;
+    const base = `feishu:${platformData.chatId}:${platformData.messageId}`;
+    // Append omt_ thread ID as 4th segment when available
+    return platformData.threadId ? `${base}:${platformData.threadId}` : base;
   }
 
   /**
@@ -889,6 +938,7 @@ export class FeishuAdapter implements Adapter<FeishuThreadId, unknown> {
     return {
       chatId: parts[1] as string,
       messageId: parts[2] as string,
+      threadId: parts[3] || undefined,
     };
   }
 
@@ -920,16 +970,7 @@ export class FeishuAdapter implements Adapter<FeishuThreadId, unknown> {
     const rootMessageId = msg.root_id ?? msg.message_id;
     const threadId = this.encodeThreadId({ chatId, messageId: rootMessageId });
 
-    let text = '';
-    try {
-      if (msg.msg_type === 'text') {
-        const content = JSON.parse(msg.content) as { text?: string };
-        text = content.text ?? '';
-      }
-    }
-    catch {
-      // Content parsing failure is non-fatal
-    }
+    const text = this.extractTextFromContent(msg.msg_type, msg.content);
 
     return new Message({
       id: msg.message_id,

@@ -2,8 +2,8 @@ import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
 import { zValidator } from '@hono/zod-validator';
 import { generateText } from 'ai';
 import { factory } from '@/server/factory';
-import { runResumeScreening } from './screening';
 import { resumeChatRequestSchema, resumeTitleRequestSchema } from './schema';
+import { runResumeScreening } from './screening';
 import { sanitizeTitle } from './utils';
 
 export const resumeRouter = factory.createApp()

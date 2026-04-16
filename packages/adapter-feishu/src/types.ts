@@ -23,8 +23,10 @@ export interface FeishuAdapterConfig {
 export interface FeishuThreadId {
   /** Chat (group) ID, e.g. "oc_xxx" */
   chatId: string
-  /** Root message ID for thread, e.g. "om_xxx" */
+  /** Root message ID for thread, e.g. "om_xxx", or "dm" for direct messages */
   messageId: string
+  /** Feishu topic/thread ID (omt_xxx format), used for fetching thread messages */
+  threadId?: string
 }
 
 // ============================================================================
@@ -102,6 +104,8 @@ export interface FeishuEventMessage {
   parent_id?: string
   /** Root message ID (for thread root) */
   root_id?: string
+  /** Thread/topic ID (omt_xxx format, absent for non-topic messages) */
+  thread_id?: string
   /** Update time */
   update_time?: string
 }

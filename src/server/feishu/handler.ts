@@ -1,5 +1,5 @@
-import type { Message, Thread } from 'chat';
 import type { UIMessage } from 'ai';
+import type { Message, Thread } from 'chat';
 import { runResumeScreening } from '@/server/routes/resume/screening';
 import { ResumeReportCard } from './card';
 import { extractResumeReport } from './extract-report';
@@ -71,20 +71,22 @@ async function buildHistory(thread: Thread, latest: Message): Promise<UIMessage[
     const result = await thread.adapter.fetchMessages(thread.id, { limit: HISTORY_LIMIT });
     history = result.messages;
   }
-  catch {
+  catch (error) {
+    console.error('[feishu-handler] fetchMessages failed, proceeding without history:', error);
     history = [];
   }
 
-  // Ensure the latest message is included and last
-  const seen = new Set(history.map(m => m.id));
-  const merged = seen.has(latest.id) ? history : [...history, latest];
+  // Always use the webhook version of the latest message (it carries full
+  // attachment data including fetchData callbacks) instead of the API-fetched
+  // version which may be incomplete for newly-sent file messages.
+  const filtered = history.filter(m => m.id !== latest.id);
+  const merged = [...filtered, latest];
 
-  // fetchMessages returns oldest-first per docs; the latest event message
-  // may not yet be in the list, so we appended it above.
   const ui: UIMessage[] = [];
   for (const m of merged) {
     ui.push(await toUIMessage(m));
   }
+
   return ui;
 }
 
@@ -103,12 +105,6 @@ export async function handleResumeMessage(thread: Thread, message: Message): Pro
       m.parts.some(part => part.type === 'file' && part.mediaType === 'application/pdf'),
     );
 
-    if (!hasResumePdf && !message.text?.trim()) {
-      console.log('[feishu-handler] empty input -> prompt');
-      await thread.post('请发送一份候选人简历 PDF，我会立即开始筛选分析。');
-      return;
-    }
-
     console.log('[feishu-handler] running screening', { hasResumePdf });
     const stream = await runResumeScreening({ messages, enableThinking: true });
 
@@ -122,19 +118,22 @@ export async function handleResumeMessage(thread: Thread, message: Message): Pro
     await thread.post(finalText || '（无内容）');
     console.log('[feishu-handler] text posted');
 
-    try {
-      console.log('[feishu-handler] extracting report');
-      const report = await extractResumeReport(finalText);
-      const resumeCount = messages.reduce((acc, m) =>
-        acc + m.parts.filter(p => p.type === 'file' && p.mediaType === 'application/pdf').length, 0);
+    // Only extract and post a structured report card when resumes were analyzed
+    if (hasResumePdf) {
+      try {
+        console.log('[feishu-handler] extracting report');
+        const report = await extractResumeReport(finalText);
+        const resumeCount = messages.reduce((acc, m) =>
+          acc + m.parts.filter(p => p.type === 'file' && p.mediaType === 'application/pdf').length, 0);
 
-      await thread.post(
-        ResumeReportCard({ ...report, resumeCount }) as never,
-      );
-      console.log('[feishu-handler] card posted');
-    }
-    catch (cardError) {
-      console.error('[feishu-handler] card extraction failed:', cardError);
+        await thread.post(
+          ResumeReportCard({ ...report, resumeCount }) as never,
+        );
+        console.log('[feishu-handler] card posted');
+      }
+      catch (cardError) {
+        console.error('[feishu-handler] card extraction failed:', cardError);
+      }
     }
   }
   catch (error) {

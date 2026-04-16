@@ -53,10 +53,10 @@ export function ResumeReportCard(props: ResumeReportCardProps) {
     <Card title={titleParts.join(' · ')}>
       <Section>
         <Fields>
-          <Field label="建议" value={recommendation || '待核实'} />
-          <Field label="评分" value={score != null ? `${score} / 100` : '待核实'} />
-          <Field label="建议定级" value={level || '待核实'} />
-          <Field label="团队定位" value={team || '待核实'} />
+          <Field label='建议' value={recommendation || '待核实'} />
+          <Field label='评分' value={score != null ? `${score} / 100` : '待核实'} />
+          <Field label='建议定级' value={level || '待核实'} />
+          <Field label='团队定位' value={team || '待核实'} />
         </Fields>
       </Section>
       <Divider />
