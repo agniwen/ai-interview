@@ -30,21 +30,15 @@ export function getFeishuBot() {
     },
     state: createPostgresState({ url: databaseUrl }),
     dedupeTtlMs: 600_000,
+    concurrency: 'queue',
   });
 
-  bot.onDirectMessage(async (thread, message) => {
+  bot.onDirectMessage(async (thread, message, context) => {
     await thread.subscribe();
-    await handleResumeMessage(thread, message);
+    await handleResumeMessage(thread, message, context);
   });
 
-  bot.onNewMention(async (thread, message) => {
-    await thread.subscribe();
-    await handleResumeMessage(thread, message);
-  });
-
-  bot.onSubscribedMessage(async (thread, message) => {
-    await handleResumeMessage(thread, message);
-  });
+  // Group chat handlers disabled for now — only DM is active
 
   cached = bot;
   return bot;

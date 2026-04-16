@@ -95,8 +95,10 @@ async function buildHistory(thread: Thread, latest: Message): Promise<UIMessage[
  * natural-language analysis to the thread, then post a structured
  * summary card extracted from the result.
  */
-export async function handleResumeMessage(thread: Thread, message: Message): Promise<void> {
-  console.log('[feishu-handler] start', { threadId: thread.id, text: message.text, attachments: message.attachments?.length ?? 0 });
+export async function handleResumeMessage(thread: Thread, message: Message, context?: MessageContext): Promise<void> {
+  const skipped = context?.skipped?.length ?? 0;
+  console.log('[feishu-handler] start', { threadId: thread.id, text: message.text, attachments: message.attachments?.length ?? 0, skipped });
+
   try {
     const messages = await buildHistory(thread, message);
     console.log('[feishu-handler] history built', { count: messages.length });
