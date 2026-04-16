@@ -9,7 +9,6 @@ export interface CreateResumeAgentOptions<TOOLS extends ToolSet> {
   enableThinking?: boolean
   stopWhen?: StopCondition<TOOLS> | Array<StopCondition<TOOLS>>
   temperature?: number
-  output?: unknown
 }
 
 export function createResumeAgent<TOOLS extends ToolSet>({
@@ -17,9 +16,8 @@ export function createResumeAgent<TOOLS extends ToolSet>({
   tools,
   modelId = process.env.ALIBABA_MODEL ?? 'qwen3.6-plus',
   enableThinking = true,
-  stopWhen = stepCountIs(8),
+  stopWhen = stepCountIs(1),
   temperature,
-  output,
 }: CreateResumeAgentOptions<TOOLS>) {
   const provider = createAlibabaProvider({ enableThinking });
 
@@ -29,6 +27,5 @@ export function createResumeAgent<TOOLS extends ToolSet>({
     tools,
     stopWhen,
     temperature,
-    output: output as never,
   });
 }

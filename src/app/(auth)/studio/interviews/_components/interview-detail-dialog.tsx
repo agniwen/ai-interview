@@ -2,8 +2,9 @@
 
 import type { StudioInterviewConversationReport } from '@/lib/interview-session';
 import type { StudioInterviewRecord } from '@/lib/studio-interviews';
+import { useQuery } from '@tanstack/react-query';
 import { MessageSquareTextIcon, RotateCcwIcon, Share2Icon } from 'lucide-react';
-import { useEffect, useEffectEvent, useState } from 'react';
+import { useState } from 'react';
 import { toast } from 'sonner';
 import { DATE_TIME_DISPLAY_OPTIONS, TimeDisplay } from '@/components/time-display';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
@@ -219,67 +220,35 @@ export function InterviewDetailDialog({
   onUpdated?: () => void
   recordId: string | null
 }) {
-  const [record, setRecord] = useState<StudioInterviewRecord | null>(null);
-  const [reports, setReports] = useState<StudioInterviewConversationReport[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
   const [resettingRoundId, setResettingRoundId] = useState<string | null>(null);
-  const closeDialog = useEffectEvent(() => onOpenChange(false));
 
-  useEffect(() => {
-    if (!open || !recordId) {
-      return;
-    }
-
-    const controller = new AbortController();
-
-    async function loadRecord() {
-      setIsLoading(true);
-      setRecord(null);
-      setReports([]);
-
-      try {
-        const [recordResponse, reportsResponse] = await Promise.all([
-          fetch(`/api/studio/interviews/${recordId}`, {
-            signal: controller.signal,
-          }),
-          fetch(`/api/studio/interviews/${recordId}/reports`, {
-            signal: controller.signal,
-          }),
-        ]);
-        const recordPayload = (await recordResponse.json().catch(() => null)) as StudioInterviewRecord | { error?: string } | null;
-        const reportsPayload = (await reportsResponse.json().catch(() => null)) as StudioInterviewConversationReport[] | { error?: string } | null;
-
-        if (!recordResponse.ok || !recordPayload || 'error' in recordPayload) {
-          throw new Error(recordPayload && 'error' in recordPayload ? recordPayload.error ?? '加载详情失败' : '加载详情失败');
-        }
-
-        if (!reportsResponse.ok || !reportsPayload || !Array.isArray(reportsPayload)) {
-          throw new Error(reportsPayload && !Array.isArray(reportsPayload) ? reportsPayload.error ?? '加载面试报告失败' : '加载面试报告失败');
-        }
-
-        setRecord(recordPayload as StudioInterviewRecord);
-        setReports(reportsPayload);
+  const { data: record, isLoading: isRecordLoading } = useQuery({
+    queryKey: ['studio-interview', recordId],
+    queryFn: async () => {
+      const response = await fetch(`/api/studio/interviews/${recordId}`);
+      const payload = await response.json() as StudioInterviewRecord | { error?: string };
+      if (!response.ok || 'error' in payload) {
+        throw new Error('error' in payload ? payload.error ?? '加载详情失败' : '加载详情失败');
       }
-      catch (error) {
-        if (controller.signal.aborted) {
-          return;
-        }
+      return payload as StudioInterviewRecord;
+    },
+    enabled: open && !!recordId,
+  });
 
-        setRecord(null);
-        toast.error(error instanceof Error ? error.message : '加载详情失败');
-        closeDialog();
+  const { data: reports = [] } = useQuery({
+    queryKey: ['studio-interview-reports', recordId],
+    queryFn: async () => {
+      const response = await fetch(`/api/studio/interviews/${recordId}/reports`);
+      const payload = await response.json() as StudioInterviewConversationReport[] | { error?: string };
+      if (!response.ok || !Array.isArray(payload)) {
+        throw new Error(!Array.isArray(payload) ? payload.error ?? '加载面试报告失败' : '加载面试报告失败');
       }
-      finally {
-        if (!controller.signal.aborted) {
-          setIsLoading(false);
-        }
-      }
-    }
+      return payload;
+    },
+    enabled: open && !!recordId,
+  });
 
-    void loadRecord();
-
-    return () => controller.abort();
-  }, [open, recordId]);
+  const isLoading = isRecordLoading;
 
   async function handleCopy(link: string) {
     try {
@@ -321,7 +290,6 @@ export function InterviewDetailDialog({
         throw new Error(payload && 'error' in payload ? payload.error ?? '重置失败' : '重置失败');
       }
 
-      setRecord(payload as StudioInterviewRecord);
       toast.success('轮次已重置为待开始');
       onUpdated?.();
     }

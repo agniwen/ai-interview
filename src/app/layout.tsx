@@ -8,6 +8,7 @@ import {
 } from 'next/font/google';
 import localFont from 'next/font/local';
 import { Suspense } from 'react';
+import { QueryProvider } from '@/components/query-provider';
 import { Toaster } from '@/components/ui/sonner';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import './globals.css';
@@ -66,10 +67,12 @@ export default function RootLayout({
         >
           跳到主要内容
         </a>
-        <TooltipProvider>
-          <Suspense>{children}</Suspense>
-          <Toaster />
-        </TooltipProvider>
+        <QueryProvider>
+          <TooltipProvider>
+            <Suspense>{children}</Suspense>
+            <Toaster />
+          </TooltipProvider>
+        </QueryProvider>
         {isVercelAnalyticsEnabled ? <Analytics /> : null}
       </body>
     </html>

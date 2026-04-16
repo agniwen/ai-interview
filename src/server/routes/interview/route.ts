@@ -10,10 +10,15 @@ import {
   studioInterviewUpdateSchema,
   toNullableString,
 } from '@/lib/studio-interviews';
-import { analyzeResumeFile, ResumeAnalysisError } from '@/server/agents/resume-analysis-agent';
+import {
+  analyzeResumeFile,
+  ResumeAnalysisError,
+  streamGenerateInterviewQuestions,
+  streamParseResumeProfile,
+} from '@/server/agents/resume-analysis-agent';
 import { factory } from '@/server/factory';
 import { queryInterviewConversationReports } from '@/server/queries/interview-conversations';
-import { queryStudioInterviewRecords } from '@/server/queries/studio-interviews';
+import { queryPaginatedStudioInterviewRecords } from '@/server/queries/studio-interviews';
 import {
   buildScheduleRows,
   buildTokenErrorResponse,
@@ -97,42 +102,42 @@ export const interviewRouter = factory.createApp()
     }
 
     try {
-      const analysis = await analyzeResumeFile(resume);
-
-      return c.json(analysis);
+      const stream = streamParseResumeProfile(resume);
+      return new Response(stream, {
+        headers: {
+          'Content-Type': 'application/x-ndjson',
+          'Cache-Control': 'no-cache',
+          'Transfer-Encoding': 'chunked',
+        },
+      });
     }
     catch (error) {
-      if (error instanceof ResumeAnalysisError) {
-        return c.json(
-          {
-            error: error.message,
-            stage: error.stage,
-            ...(error.resumeProfile ? { resumeProfile: error.resumeProfile } : {}),
-          },
-          500,
-        );
-      }
-
       if (error instanceof Error) {
         const status = error.message.includes('PDF') || error.message.includes('10 MB') ? 400 : 500;
-
-        return c.json(
-          {
-            error: error.message,
-            stage: 'resume-parsing',
-          },
-          status as any,
-        );
+        return c.json({ error: error.message, stage: 'resume-parsing' }, status as any);
       }
 
-      return c.json(
-        {
-          error: 'Failed to analyze resume.',
-          stage: 'resume-parsing',
-        },
-        500,
-      );
+      return c.json({ error: 'Failed to parse resume.', stage: 'resume-parsing' }, 500);
     }
+  })
+  .post('/generate-questions', async (c) => {
+    const body = await c.req.json<{ resumeProfile?: unknown }>().catch(() => ({}) as { resumeProfile?: unknown });
+
+    if (!body.resumeProfile || typeof body.resumeProfile !== 'object') {
+      return c.json({ error: '缺少候选人信息 (resumeProfile)。' }, 400);
+    }
+
+    const stream = streamGenerateInterviewQuestions(
+      body.resumeProfile as import('@/lib/interview/types').ResumeProfile,
+    );
+
+    return new Response(stream, {
+      headers: {
+        'Content-Type': 'application/x-ndjson',
+        'Cache-Control': 'no-cache',
+        'Transfer-Encoding': 'chunked',
+      },
+    });
   })
   .post('/:id/:roundId/livekit-token', async (c) => {
     const id = c.req.param('id');
@@ -291,12 +296,20 @@ export const interviewRouter = factory.createApp()
 
 export const studioInterviewsRouter = factory.createApp()
   .get('/', async (c) => {
-    const records = await queryStudioInterviewRecords({
-      search: c.req.query('search'),
-      status: c.req.query('status'),
-    });
+    const result = await queryPaginatedStudioInterviewRecords(
+      {
+        search: c.req.query('search'),
+        status: c.req.query('status'),
+      },
+      {
+        page: c.req.query('page'),
+        pageSize: c.req.query('pageSize'),
+        sortBy: c.req.query('sortBy'),
+        sortOrder: c.req.query('sortOrder'),
+      },
+    );
 
-    return c.json(records);
+    return c.json(result);
   })
   .post('/', async (c) => {
     try {

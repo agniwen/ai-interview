@@ -2,16 +2,21 @@
 
 import type { Cell, ColumnDef, Header, SortingState } from '@tanstack/react-table';
 import type { StudioInterviewListRecord } from '@/lib/studio-interviews';
+import type { PaginatedStudioInterviewResult } from '@/server/queries/studio-interviews';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   flexRender,
   getCoreRowModel,
-  getSortedRowModel,
   useReactTable,
 } from '@tanstack/react-table';
 import { useAtomValue } from 'jotai';
 import {
   ArrowUpDownIcon,
   BotIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  ChevronsLeftIcon,
+  ChevronsRightIcon,
   CopyIcon,
   EyeIcon,
   Loader2Icon,
@@ -21,7 +26,7 @@ import {
   SearchIcon,
   Trash2Icon,
 } from 'lucide-react';
-import { startTransition, useCallback, useDeferredValue, useEffect, useMemo, useReducer, useRef, useState } from 'react';
+import { useDeferredValue, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { STUDIO_TUTORIAL_MOCK_RECORDS, STUDIO_TUTORIAL_MOCK_SEARCH } from '@/app/(auth)/studio/_hooks/studio-tutorial-mock';
 import { studioTutorialStepAtom } from '@/app/(auth)/studio/_hooks/use-studio-tutorial';
@@ -82,6 +87,8 @@ import { EditInterviewDialog } from './edit-interview-dialog';
 import { InterviewDetailDialog } from './interview-detail-dialog';
 import { InterviewStatusBadge } from './interview-status-badge';
 
+const PAGE_SIZE_OPTIONS = [5, 10, 20, 50, 100] as const;
+
 function getPinningStyles(column: Header<StudioInterviewListRecord, unknown>['column'] | Cell<StudioInterviewListRecord, unknown>['column']): React.CSSProperties {
   const isPinned = column.getIsPinned();
 
@@ -97,31 +104,80 @@ function getPinningStyles(column: Header<StudioInterviewListRecord, unknown>['co
   };
 }
 
-export function InterviewManagementPage({ initialRecords }: { initialRecords: StudioInterviewListRecord[] }) {
+async function fetchInterviews(params: {
+  search: string
+  status: string
+  page: number
+  pageSize: number
+  sortBy: string
+  sortOrder: string
+}): Promise<PaginatedStudioInterviewResult> {
+  const qs = new URLSearchParams();
+  if (params.search)
+    qs.set('search', params.search);
+  if (params.status !== 'all')
+    qs.set('status', params.status);
+  qs.set('page', String(params.page));
+  qs.set('pageSize', String(params.pageSize));
+  qs.set('sortBy', params.sortBy);
+  qs.set('sortOrder', params.sortOrder);
+
+  const response = await fetch(`/api/studio/interviews?${qs.toString()}`);
+  const payload = await response.json();
+
+  if (!response.ok || !payload?.records) {
+    throw new Error(payload?.error ?? '加载列表失败');
+  }
+
+  return payload as PaginatedStudioInterviewResult;
+}
+
+export function InterviewManagementPage({ initialData }: { initialData: PaginatedStudioInterviewResult }) {
   const tutorialStep = useAtomValue(studioTutorialStepAtom);
-  const [records, dispatchRecords] = useReducer(
-    (previous: StudioInterviewListRecord[], action: { type: 'replace', records: StudioInterviewListRecord[] } | { type: 'remove', id: string }) => {
-      if (action.type === 'replace')
-        return action.records;
-      if (action.type === 'remove')
-        return previous.filter(r => r.id !== action.id);
-      return previous;
-    },
-    initialRecords,
-  );
-  const [sorting, setSorting] = useState<SortingState>([{ id: 'createdAt', desc: true }]);
+  const queryClient = useQueryClient();
+
+  // Filter / pagination / sorting state — drives the query key
   const [globalFilter, setGlobalFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | (typeof studioInterviewStatusValues)[number]>('all');
-  const [requestState, setRequestState] = useState<'idle' | 'filter' | 'mutation'>('idle');
+  const [page, setPage] = useState(initialData.page);
+  const [pageSize, setPageSize] = useState(initialData.pageSize);
+  const [sorting, setSorting] = useState<SortingState>([{ id: 'createdAt', desc: true }]);
+
+  // Dialogs
   const [detailRecordId, setDetailRecordId] = useState<string | null>(null);
   const [editRecordId, setEditRecordId] = useState<string | null>(null);
   const [deleteRecord, setDeleteRecord] = useState<StudioInterviewListRecord | null>(null);
+
   const deferredSearch = useDeferredValue(globalFilter);
-  const hasSkippedInitialFetchRef = useRef(false);
-  const activeRequestRef = useRef<{ id: number, controller: AbortController } | null>(null);
-  const requestSequenceRef = useRef(0);
-  const isFilterLoading = requestState === 'filter';
-  const isMutationRefreshing = requestState === 'mutation';
+  const currentSortBy = sorting[0]?.id ?? 'createdAt';
+  const currentSortOrder = sorting[0]?.desc ? 'desc' : 'asc';
+
+  const queryKey = ['studio-interviews', deferredSearch.trim(), statusFilter, page, pageSize, currentSortBy, currentSortOrder] as const;
+
+  // Seed cache with SSR data only once on mount
+  const seededRef = useRef(false);
+  if (!seededRef.current) {
+    seededRef.current = true;
+    queryClient.setQueryData(queryKey, initialData);
+  }
+
+  const { data = initialData, isFetching, isRefetching } = useQuery({
+    queryKey,
+    queryFn: () => fetchInterviews({
+      search: deferredSearch.trim(),
+      status: statusFilter,
+      page,
+      pageSize,
+      sortBy: currentSortBy,
+      sortOrder: currentSortOrder,
+    }),
+    placeholderData: prev => prev,
+  });
+
+  const records = data.records;
+  const total = data.total;
+  const totalPages = data.totalPages;
+
   const isTutorialActive = tutorialStep !== null;
   const displayRecords = isTutorialActive && records.length === 0
     ? STUDIO_TUTORIAL_MOCK_RECORDS
@@ -129,95 +185,36 @@ export function InterviewManagementPage({ initialRecords }: { initialRecords: St
   const displaySearch = isTutorialActive && tutorialStep >= 3 && globalFilter === ''
     ? STUDIO_TUTORIAL_MOCK_SEARCH
     : globalFilter;
+  const isFilterLoading = isFetching && !isRefetching;
+  const isMutationRefreshing = isRefetching;
 
-  const reloadRecords = useCallback(async ({
-    search,
-    status,
-    source,
-  }: {
-    search: string
-    status: 'all' | (typeof studioInterviewStatusValues)[number]
-    source: 'filter' | 'mutation'
-  }) => {
-    activeRequestRef.current?.controller.abort();
+  function invalidateList() {
+    void queryClient.invalidateQueries({ queryKey: ['studio-interviews'] });
+  }
 
-    const controller = new AbortController();
-    const requestId = requestSequenceRef.current + 1;
-    activeRequestRef.current = { id: requestId, controller };
-    requestSequenceRef.current = requestId;
-    setRequestState(source);
+  // Reset to page 1 when search/status changes
+  const prevSearchRef = useMemo(() => ({ search: deferredSearch.trim(), status: statusFilter }), [deferredSearch, statusFilter]);
+  const [lastFilterKey, setLastFilterKey] = useState(prevSearchRef);
+  if (prevSearchRef !== lastFilterKey) {
+    setLastFilterKey(prevSearchRef);
+    if (page !== 1)
+      setPage(1);
+  }
 
-    function isCurrentRequest() {
-      return activeRequestRef.current?.id === requestId;
-    }
+  function goToPage(targetPage: number) {
+    setPage(targetPage);
+  }
 
-    try {
-      const params = new URLSearchParams();
+  function handlePageSizeChange(newSize: string) {
+    setPageSize(Number(newSize));
+    setPage(1);
+  }
 
-      if (search) {
-        params.set('search', search);
-      }
-
-      if (status !== 'all') {
-        params.set('status', status);
-      }
-
-      const query = params.toString();
-      const response = await fetch(query ? `/api/studio/interviews?${query}` : '/api/studio/interviews', {
-        signal: controller.signal,
-      });
-      const payload = (await response.json().catch(() => null)) as StudioInterviewListRecord[] | { error?: string } | null;
-
-      if (!response.ok || !payload || !Array.isArray(payload)) {
-        throw new Error(payload && !Array.isArray(payload) ? payload.error ?? '加载列表失败' : '加载列表失败');
-      }
-
-      if (!isCurrentRequest()) {
-        return;
-      }
-
-      startTransition(() => {
-        dispatchRecords({ type: 'replace', records: payload });
-      });
-    }
-    catch (error) {
-      if (controller.signal.aborted || !isCurrentRequest()) {
-        return;
-      }
-
-      toast.error(error instanceof Error ? error.message : '加载列表失败');
-    }
-    finally {
-      if (isCurrentRequest()) {
-        activeRequestRef.current = null;
-        setRequestState('idle');
-      }
-    }
-  }, []);
-
-  useEffect(() => {
-    const search = deferredSearch.trim();
-
-    if (!hasSkippedInitialFetchRef.current) {
-      hasSkippedInitialFetchRef.current = true;
-
-      if (!search && statusFilter === 'all') {
-        return;
-      }
-    }
-
-    void reloadRecords({
-      search,
-      status: statusFilter,
-      source: 'filter',
-    });
-  }, [deferredSearch, reloadRecords, statusFilter]);
-
-  useEffect(() => {
-    return () => {
-      activeRequestRef.current?.controller.abort();
-    };
-  }, []);
+  function handleSortingChange(updater: SortingState | ((prev: SortingState) => SortingState)) {
+    const newSorting = typeof updater === 'function' ? updater(sorting) : updater;
+    setSorting(newSorting);
+    setPage(1);
+  }
 
   async function copyInterviewLink(record: StudioInterviewListRecord) {
     const lastEntry = record.scheduleEntries.at(-1);
@@ -246,14 +243,6 @@ export function InterviewManagementPage({ initialRecords }: { initialRecords: St
     catch {
       toast.error('复制失败，请手动复制');
     }
-  }
-
-  function openDetail(recordId: string) {
-    setDetailRecordId(recordId);
-  }
-
-  function openEdit(recordId: string) {
-    setEditRecordId(recordId);
   }
 
   const columns = useMemo<ColumnDef<StudioInterviewListRecord>[]>(() => [
@@ -313,11 +302,6 @@ export function InterviewManagementPage({ initialRecords }: { initialRecords: St
               <p className='truncate text-sm font-medium'>{currentEntry.roundLabel}</p>
               <Badge variant={statusMeta.tone} className='text-[10px] px-1.5 py-0'>{statusMeta.label}</Badge>
             </div>
-            {/* <p className='truncate text-muted-foreground text-xs'>
-              {currentEntry.scheduledAt
-                ? <TimeDisplay options={DATE_TIME_DISPLAY_OPTIONS} value={currentEntry.scheduledAt} />
-                : '时间待定'}
-            </p> */}
           </div>
         );
       },
@@ -359,11 +343,11 @@ export function InterviewManagementPage({ initialRecords }: { initialRecords: St
                 <CopyIcon className='size-4' />
                 复制面试链接
               </DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => openDetail(record.id)}>
+              <DropdownMenuItem onSelect={() => setDetailRecordId(record.id)}>
                 <EyeIcon className='size-4' />
                 查看详情
               </DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => openEdit(record.id)}>
+              <DropdownMenuItem onSelect={() => setEditRecordId(record.id)}>
                 <PencilIcon className='size-4' />
                 编辑记录
               </DropdownMenuItem>
@@ -388,17 +372,17 @@ export function InterviewManagementPage({ initialRecords }: { initialRecords: St
         right: ['actions'],
       },
     },
-    onSortingChange: setSorting,
+    onSortingChange: handleSortingChange,
     getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
+    manualSorting: true,
   });
 
   const summary = useMemo(() => ({
-    total: displayRecords.length,
+    total,
     ready: displayRecords.filter(item => item.status === 'ready').length,
     completed: displayRecords.filter(item => item.status === 'completed').length,
     rounds: displayRecords.reduce((count, item) => count + item.scheduleEntries.length, 0),
-  }), [displayRecords]);
+  }), [displayRecords, total]);
 
   async function handleDelete() {
     if (!deleteRecord) {
@@ -416,41 +400,18 @@ export function InterviewManagementPage({ initialRecords }: { initialRecords: St
       return;
     }
 
-    dispatchRecords({ type: 'remove', id: deleteRecord.id });
     setDeleteRecord(null);
     toast.success('面试记录已删除');
-    reloadRecords({
-      search: deferredSearch.trim(),
-      status: statusFilter,
-      source: 'mutation',
-    });
+    invalidateList();
   }
+
+  // Pagination info
+  const startRow = total > 0 ? (page - 1) * pageSize + 1 : 0;
+  const endRow = Math.min(page * pageSize, total);
 
   return (
     <>
       <div className='space-y-6'>
-        <section className='rounded-[1.75rem] border border-border/60 bg-background px-6 py-6 shadow-sm lg:px-8 lg:py-8'>
-          <div className='flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between'>
-            <div className='max-w-2xl space-y-3'>
-              <Badge variant='secondary'>Studio / 简历库</Badge>
-              <h1 className='text-balance font-semibold text-3xl tracking-tight'>候选人面试简历库</h1>
-              <p className='text-muted-foreground leading-relaxed'>
-                管理候选人简历、面试流程与多轮时间安排，并为每位候选人生成唯一的面试入口链接。
-              </p>
-            </div>
-            <div data-tour='studio-create-btn'>
-              <CreateInterviewDialog onCreated={async () => {
-                await reloadRecords({
-                  search: deferredSearch.trim(),
-                  status: statusFilter,
-                  source: 'mutation',
-                });
-              }}
-              />
-            </div>
-          </div>
-        </section>
-
         <section className='grid gap-4 md:grid-cols-2 xl:grid-cols-4' data-tour='studio-stats'>
           {[
             { label: '总记录数', value: `${summary.total}`, hint: '所有候选人简历与流程记录' },
@@ -474,18 +435,11 @@ export function InterviewManagementPage({ initialRecords }: { initialRecords: St
           <CardHeader className='gap-4 lg:flex-row lg:items-end lg:justify-between'>
             <div>
               <CardTitle>简历库记录</CardTitle>
-              <CardDescription>
-                {isFilterLoading
-                  ? '正在搜索并更新结果...'
-                  : isMutationRefreshing
-                    ? '正在刷新列表结果...'
-                    : '支持搜索、状态筛选、复制链接、查看详情、编辑和删除。'}
-              </CardDescription>
             </div>
             <div className='flex flex-col gap-3 sm:flex-row'>
               <Button
-                disabled={requestState !== 'idle'}
-                onClick={() => void reloadRecords({ search: deferredSearch.trim(), status: statusFilter, source: 'mutation' })}
+                disabled={isFetching}
+                onClick={() => invalidateList()}
                 size='icon'
                 variant='outline'
               >
@@ -512,9 +466,12 @@ export function InterviewManagementPage({ initialRecords }: { initialRecords: St
                   ))}
                 </SelectContent>
               </Select>
+              <div data-tour='studio-create-btn'>
+                <CreateInterviewDialog onCreated={() => { invalidateList(); }} />
+              </div>
             </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className='space-y-4'>
             {table.getRowModel().rows.length > 0
               ? (
                   <div className='rounded-2xl border border-border/60' data-tour='studio-table'>
@@ -572,43 +529,117 @@ export function InterviewManagementPage({ initialRecords }: { initialRecords: St
                       </EmptyDescription>
                     </EmptyHeader>
                     <EmptyContent>
-                      <CreateInterviewDialog onCreated={async () => {
-                        await reloadRecords({
-                          search: deferredSearch.trim(),
-                          status: statusFilter,
-                          source: 'mutation',
-                        });
-                      }}
-                      />
+                      <CreateInterviewDialog onCreated={async () => { invalidateList(); }} />
                     </EmptyContent>
                   </Empty>
                 )}
+
+            {/* Pagination bar */}
+            {total > 0 && (
+              <div className='flex flex-col items-center justify-between gap-4 px-2 sm:flex-row'>
+                <p className='text-muted-foreground text-sm tabular-nums'>
+                  显示第
+                  {' '}
+                  {startRow}
+                  –
+                  {endRow}
+                  {' '}
+                  条，共
+                  {' '}
+                  {total}
+                  {' '}
+                  条记录
+                </p>
+                <div className='flex items-center gap-4'>
+                  <div className='flex items-center gap-2'>
+                    <span className='text-muted-foreground text-sm'>每页</span>
+                    <Select value={String(pageSize)} onValueChange={handlePageSizeChange}>
+                      <SelectTrigger className='h-8 w-[5.5rem]'>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {PAGE_SIZE_OPTIONS.map(size => (
+                          <SelectItem key={size} value={String(size)}>
+                            {size}
+                            {' '}
+                            条
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <span className='text-muted-foreground text-sm tabular-nums'>
+                    第
+                    {' '}
+                    {page}
+                    {' '}
+                    /
+                    {' '}
+                    {totalPages}
+                    {' '}
+                    页
+                  </span>
+
+                  <div className='flex items-center gap-1'>
+                    <Button
+                      variant='outline'
+                      size='icon'
+                      className='size-8'
+                      onClick={() => goToPage(1)}
+                      disabled={page <= 1 || isFetching}
+                      aria-label='第一页'
+                    >
+                      <ChevronsLeftIcon className='size-4' />
+                    </Button>
+                    <Button
+                      variant='outline'
+                      size='icon'
+                      className='size-8'
+                      onClick={() => goToPage(page - 1)}
+                      disabled={page <= 1 || isFetching}
+                      aria-label='上一页'
+                    >
+                      <ChevronLeftIcon className='size-4' />
+                    </Button>
+                    <Button
+                      variant='outline'
+                      size='icon'
+                      className='size-8'
+                      onClick={() => goToPage(page + 1)}
+                      disabled={page >= totalPages || isFetching}
+                      aria-label='下一页'
+                    >
+                      <ChevronRightIcon className='size-4' />
+                    </Button>
+                    <Button
+                      variant='outline'
+                      size='icon'
+                      className='size-8'
+                      onClick={() => goToPage(totalPages)}
+                      disabled={page >= totalPages || isFetching}
+                      aria-label='最后一页'
+                    >
+                      <ChevronsRightIcon className='size-4' />
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
 
       <InterviewDetailDialog
         onOpenChange={open => !open && setDetailRecordId(null)}
-        onUpdated={async () => {
-          await reloadRecords({
-            search: deferredSearch.trim(),
-            status: statusFilter,
-            source: 'mutation',
-          });
-        }}
+        onUpdated={async () => { invalidateList(); }}
         open={detailRecordId !== null}
         recordId={detailRecordId}
       />
 
       <EditInterviewDialog
         onOpenChange={open => !open && setEditRecordId(null)}
-        onUpdated={async () => {
-          await reloadRecords({
-            search: deferredSearch.trim(),
-            status: statusFilter,
-            source: 'mutation',
-          });
-        }}
+        onUpdated={async () => { invalidateList(); }}
         open={editRecordId !== null}
         recordId={editRecordId}
       />

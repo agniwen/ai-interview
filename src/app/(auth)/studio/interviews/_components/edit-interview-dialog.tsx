@@ -1,10 +1,12 @@
 'use client';
 
-import type { InterviewQuestion, ResumeAnalysisResult } from '@/lib/interview/types';
+import type { InterviewQuestion, ResumeAnalysisResult, ResumeProfile } from '@/lib/interview/types';
 import type { StudioInterviewRecord } from '@/lib/studio-interviews';
+import type { AnalysisStreamEvent } from '@/server/agents/resume-analysis-agent';
 import { useStore } from '@tanstack/react-form';
+import { useQuery } from '@tanstack/react-query';
 import { LoaderCircleIcon, SparklesIcon } from 'lucide-react';
-import { useEffect, useEffectEvent, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import {
@@ -33,6 +35,7 @@ import {
 } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
+import { readNdjsonStream } from '@/lib/ndjson-stream';
 import {
   studioInterviewStatusMeta,
   studioInterviewStatusValues,
@@ -62,7 +65,6 @@ export function EditInterviewDialog({
   const [resumeFile, setResumeFile] = useState<File | null>(null);
   const [resumePayload, setResumePayload] = useState<ResumeAnalysisResult | null>(null);
   const [isAnalyzingResume, setIsAnalyzingResume] = useState(false);
-  const [isLoadingRecord, setIsLoadingRecord] = useState(false);
   const [editedQuestions, setEditedQuestions] = useState<InterviewQuestion[]>([]);
   const [roundStatuses, setRoundStatuses] = useState<Record<string, import('@/lib/studio-interviews').ScheduleEntryStatus>>({});
   const form = useInterviewForm({
@@ -111,8 +113,10 @@ export function EditInterviewDialog({
     },
   });
   const isSubmitting = useStore(form.store, state => state.isSubmitting);
-  const closeDialog = useEffectEvent(() => onOpenChange(false));
-  const resetForm = useEffectEvent((record: StudioInterviewRecord) => {
+  const onOpenChangeRef = useRef(onOpenChange);
+  onOpenChangeRef.current = onOpenChange;
+  const closeDialog = useCallback(() => onOpenChangeRef.current(false), []);
+  const resetForm = useCallback((record: StudioInterviewRecord) => {
     const values = toInterviewFormValues(record);
     form.setFieldValue('candidateName', values.candidateName);
     form.setFieldValue('candidateEmail', values.candidateEmail);
@@ -130,51 +134,33 @@ export function EditInterviewDialog({
       }
     }
     setRoundStatuses(statuses);
-  });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- form instance is stable
+  }, []);
 
-  useEffect(() => {
-    if (!open || !recordId) {
-      return;
-    }
-
-    const controller = new AbortController();
-
-    async function loadRecord() {
-      setIsLoadingRecord(true);
+  const { isLoading: isLoadingRecord } = useQuery({
+    queryKey: ['studio-interview-edit', recordId],
+    queryFn: async () => {
       setResumeFile(null);
       setResumePayload(null);
 
-      try {
-        const response = await fetch(`/api/studio/interviews/${recordId}`, {
-          signal: controller.signal,
-        });
-        const payload = (await response.json().catch(() => null)) as StudioInterviewRecord | { error?: string } | null;
+      const response = await fetch(`/api/studio/interviews/${recordId}`);
+      const payload = await response.json() as StudioInterviewRecord | { error?: string };
 
-        if (!response.ok || !payload || 'error' in payload) {
-          throw new Error(payload && 'error' in payload ? payload.error ?? '加载编辑数据失败' : '加载编辑数据失败');
-        }
-
-        resetForm(payload as StudioInterviewRecord);
+      if (!response.ok || 'error' in payload) {
+        throw new Error('error' in payload ? payload.error ?? '加载编辑数据失败' : '加载编辑数据失败');
       }
-      catch (error) {
-        if (controller.signal.aborted) {
-          return;
-        }
 
-        toast.error(error instanceof Error ? error.message : '加载编辑数据失败');
+      resetForm(payload as StudioInterviewRecord);
+      return payload as StudioInterviewRecord;
+    },
+    enabled: open && !!recordId,
+    meta: {
+      onError: (error: Error) => {
+        toast.error(error.message);
         closeDialog();
-      }
-      finally {
-        if (!controller.signal.aborted) {
-          setIsLoadingRecord(false);
-        }
-      }
-    }
-
-    void loadRecord();
-
-    return () => controller.abort();
-  }, [open, recordId]);
+      },
+    },
+  });
 
   async function handleResumeChange(file: File | null) {
     setResumeFile(file);
@@ -187,27 +173,94 @@ export function EditInterviewDialog({
     setIsAnalyzingResume(true);
 
     try {
+      // Step 1: stream parse resume profile
       const formData = new FormData();
       formData.append('resume', file);
 
-      const response = await fetch('/api/interview/parse-resume', {
+      const parseResponse = await fetch('/api/interview/parse-resume', {
         method: 'POST',
         body: formData,
       });
-      const payload = (await response.json().catch(() => null)) as (ResumeAnalysisResult & { error?: string }) | null;
 
-      if (!response.ok || !payload?.resumeProfile || !payload?.interviewQuestions || !payload.fileName) {
-        throw new Error(payload?.error ?? '简历分析失败');
+      if (!parseResponse.ok) {
+        const errBody = await parseResponse.json().catch(() => null) as { error?: string } | null;
+        throw new Error(errBody?.error ?? '简历解析失败');
       }
 
-      setResumePayload(payload);
-      form.setFieldValue('candidateName', payload.resumeProfile.name);
-      form.setFieldValue('targetRole', payload.resumeProfile.targetRoles[0] ?? '');
-      toast.success('已根据新简历回填候选人信息，面试安排和备注保持不变');
+      interface ParseResult { fileName: string, resumeProfile: ResumeProfile }
+      let parseResult: ParseResult | null = null;
+      let streamError: string | null = null;
+
+      await readNdjsonStream<AnalysisStreamEvent>(parseResponse, (event) => {
+        if (event.type === 'result') {
+          parseResult = event.data as ParseResult;
+        }
+        if (event.type === 'error') {
+          streamError = event.message;
+        }
+      });
+
+      if (streamError)
+        throw new Error(streamError);
+
+      if (!parseResult) {
+        throw new Error('简历解析未返回有效结果');
+      }
+
+      const { fileName, resumeProfile } = parseResult as ParseResult;
+
+      form.setFieldValue('candidateName', resumeProfile.name);
+      form.setFieldValue('targetRole', resumeProfile.targetRoles[0] ?? '');
+      setResumePayload({
+        fileName,
+        resumeProfile,
+        interviewQuestions: [],
+      });
+      setIsAnalyzingResume(false);
+      toast.success('已回填候选人信息，正在生成面试题…');
+
+      // Step 2: stream generate interview questions
+      const qResponse = await fetch('/api/interview/generate-questions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ resumeProfile }),
+      });
+
+      if (!qResponse.ok) {
+        const errBody = await qResponse.json().catch(() => null) as { error?: string } | null;
+        throw new Error(errBody?.error ?? '面试题生成失败');
+      }
+
+      let questions: InterviewQuestion[] | null = null;
+      streamError = null;
+
+      await readNdjsonStream<AnalysisStreamEvent>(qResponse, (event) => {
+        if (event.type === 'result') {
+          const data = event.data as { interviewQuestions?: InterviewQuestion[] };
+          questions = data.interviewQuestions ?? null;
+        }
+        if (event.type === 'error') {
+          streamError = event.message;
+        }
+      });
+
+      if (streamError)
+        throw new Error(streamError);
+
+      if (questions) {
+        setResumePayload(prev => prev ? { ...prev, interviewQuestions: questions! } : null);
+        toast.success('面试题生成完成');
+      }
     }
     catch (error) {
-      setResumeFile(null);
-      setResumePayload(null);
+      setResumePayload((prev) => {
+        if (prev?.resumeProfile)
+          return prev;
+        return null;
+      });
+      if (!resumePayload?.resumeProfile) {
+        setResumeFile(null);
+      }
       toast.error(error instanceof Error ? error.message : '简历分析失败');
     }
     finally {

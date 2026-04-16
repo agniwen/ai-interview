@@ -27,6 +27,40 @@ export interface ResumeScreeningInput {
   enableThinking?: boolean
 }
 
+// ---------------------------------------------------------------------------
+// Module-level PDF parse cache — persists across auto-submit steps so the
+// same PDF is not re-parsed on every round-trip.
+// Entries expire after 10 minutes to avoid unbounded memory growth.
+// ---------------------------------------------------------------------------
+const PDF_CACHE_TTL_MS = 10 * 60 * 1000;
+
+interface CachedParsedResume {
+  promise: Promise<ParsedResumePdf>
+  createdAt: number
+}
+
+const globalParsedResumeCache = new Map<string, CachedParsedResume>();
+
+function getCachedParseResume(file: UploadedResumePdf): Promise<ParsedResumePdf> {
+  const now = Date.now();
+  const existing = globalParsedResumeCache.get(file.id);
+  if (existing && now - existing.createdAt < PDF_CACHE_TTL_MS) {
+    return existing.promise;
+  }
+  const promise = parseResumePdf(file);
+  globalParsedResumeCache.set(file.id, { promise, createdAt: now });
+  return promise;
+}
+
+function pruneExpiredCacheEntries() {
+  const now = Date.now();
+  for (const [key, entry] of globalParsedResumeCache) {
+    if (now - entry.createdAt >= PDF_CACHE_TTL_MS) {
+      globalParsedResumeCache.delete(key);
+    }
+  }
+}
+
 /**
  * Build and run the resume-screening agent. Returns the raw AI SDK
  * stream result so callers can choose how to consume it (HTTP UI stream,
@@ -48,16 +82,10 @@ export async function runResumeScreening(input: ResumeScreeningInput) {
     timeZone: SERVER_TIME_ZONE,
   }).format(serverNow);
 
-  const parsedResumeCache = new Map<string, Promise<ParsedResumePdf>>();
-  const parseUploadedResume = (file: UploadedResumePdf) => {
-    const cached = parsedResumeCache.get(file.id);
-    if (cached) {
-      return cached;
-    }
-    const task = parseResumePdf(file);
-    parsedResumeCache.set(file.id, task);
-    return task;
-  };
+  // Use module-level cache; prune stale entries on each request.
+  pruneExpiredCacheEntries();
+  const parseUploadedResume = (file: UploadedResumePdf) =>
+    getCachedParseResume(file);
 
   const availableResumeNames = uploadedResumePdfs.map(
     (file, index) => `${index + 1}. ${file.filename}`,

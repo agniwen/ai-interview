@@ -61,5 +61,5 @@ export default async function LoginPage() {
     redirect('/studio');
   }
 
-  redirect('/studio/unauthorized');
+  redirect('/studio-unauthorized');
 }

@@ -1,10 +1,11 @@
 'use client';
 
-import type { ResumeAnalysisResult } from '@/lib/interview/types';
+import type { InterviewQuestion, ResumeAnalysisResult, ResumeProfile } from '@/lib/interview/types';
 import type { StudioInterviewRecord } from '@/lib/studio-interviews';
+import type { AnalysisStreamEvent } from '@/server/agents/resume-analysis-agent';
 import { useStore } from '@tanstack/react-form';
 import { useAtomValue } from 'jotai';
-import { FileUpIcon, LoaderCircleIcon, SparklesIcon } from 'lucide-react';
+import { CheckIcon, FileUpIcon, LoaderCircleIcon, SparklesIcon, WrenchIcon } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
@@ -47,6 +48,7 @@ import {
 } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
+import { readNdjsonStream } from '@/lib/ndjson-stream';
 import {
   studioInterviewStatusMeta,
   studioInterviewStatusValues,
@@ -58,8 +60,12 @@ import {
   toFieldErrors,
   useInterviewForm,
 } from './interview-form';
+
 import { InterviewQuestionsFields } from './interview-questions-fields';
 import { InterviewScheduleFields } from './interview-schedule-fields';
+
+const LEADING_DIGIT_RE = /^\d/;
+const LEADING_DIGITS_RE = /^(\d+)/;
 
 export function CreateInterviewDialog({
   onCreated,
@@ -72,6 +78,11 @@ export function CreateInterviewDialog({
   const [resumeFile, setResumeFile] = useState<File | null>(null);
   const [resumePayload, setResumePayload] = useState<ResumeAnalysisResult | null>(null);
   const [isAnalyzingResume, setIsAnalyzingResume] = useState(false);
+  const [isGeneratingQuestions, setIsGeneratingQuestions] = useState(false);
+  const [progressStatus, setProgressStatus] = useState<string>('');
+  const [progressTools, setProgressTools] = useState<Array<{ name: string, done: boolean }>>([]);
+  const [partialFields, setPartialFields] = useState<Array<{ label: string, value: string }>>([]);
+  const accumulatedTextRef = useRef('');
   const abortControllerRef = useRef<AbortController | null>(null);
   const tutorialMockedRef = useRef(false);
   const form = useInterviewForm({
@@ -156,9 +167,91 @@ export function CreateInterviewDialog({
     ? STUDIO_TUTORIAL_MOCK_QUESTIONS
     : (resumePayload?.interviewQuestions ?? []);
 
+  function tryExtractPartialFields(text: string) {
+    const fields: Array<{ label: string, value: string }> = [];
+    const FIELD_MAP: Array<{ key: string, label: string }> = [
+      { key: '"name"', label: '姓名' },
+      { key: '"gender"', label: '性别' },
+      { key: '"age"', label: '年龄' },
+      { key: '"workYears"', label: '工作年限' },
+      { key: '"targetRoles"', label: '目标岗位' },
+      { key: '"skills"', label: '技能' },
+      { key: '"schools"', label: '院校' },
+    ];
+
+    for (const { key, label } of FIELD_MAP) {
+      const idx = text.indexOf(key);
+      if (idx === -1)
+        continue;
+
+      const afterColon = text.indexOf(':', idx + key.length);
+      if (afterColon === -1)
+        continue;
+
+      const rest = text.slice(afterColon + 1).trimStart();
+      if (!rest)
+        continue;
+
+      // Extract string value: "value"
+      if (rest.startsWith('"')) {
+        const endQuote = rest.indexOf('"', 1);
+        if (endQuote > 1) {
+          const val = rest.slice(1, endQuote);
+          if (val && val !== '未发现信息')
+            fields.push({ label, value: val });
+        }
+      }
+      // Extract number: 5
+      else if (LEADING_DIGIT_RE.test(rest)) {
+        const match = rest.match(LEADING_DIGITS_RE);
+        if (match)
+          fields.push({ label, value: match[1] });
+      }
+      // Extract array: ["a", "b"]
+      else if (rest.startsWith('[')) {
+        const endBracket = rest.indexOf(']');
+        if (endBracket > 1) {
+          try {
+            const arr = JSON.parse(rest.slice(0, endBracket + 1)) as string[];
+            if (arr.length > 0)
+              fields.push({ label, value: arr.slice(0, 5).join('、') });
+          }
+          catch { /* partial array, skip */ }
+        }
+      }
+    }
+
+    return fields;
+  }
+
+  function handleStreamEvent(event: AnalysisStreamEvent) {
+    if (event.type === 'status') {
+      setProgressStatus(event.message);
+    }
+    else if (event.type === 'tool-start') {
+      setProgressTools(prev => [...prev, { name: event.name, done: false }]);
+    }
+    else if (event.type === 'tool-end') {
+      setProgressTools(prev =>
+        prev.map(t => t.name === event.name ? { ...t, done: true } : t),
+      );
+    }
+    else if (event.type === 'text-delta') {
+      accumulatedTextRef.current += event.text;
+      const fields = tryExtractPartialFields(accumulatedTextRef.current);
+      if (fields.length > 0) {
+        setPartialFields(fields);
+      }
+    }
+  }
+
   async function handleResumeChange(file: File | null) {
     setResumeFile(file);
     setResumePayload(null);
+    setProgressStatus('');
+    setProgressTools([]);
+    setPartialFields([]);
+    accumulatedTextRef.current = '';
 
     if (!file) {
       return;
@@ -169,36 +262,120 @@ export function CreateInterviewDialog({
     setIsAnalyzingResume(true);
 
     try {
+      // Step 1: stream parse resume profile
       const formData = new FormData();
       formData.append('resume', file);
 
-      const response = await fetch('/api/interview/parse-resume', {
+      const parseResponse = await fetch('/api/interview/parse-resume', {
         method: 'POST',
         body: formData,
         signal: abortController.signal,
       });
-      const payload = (await response.json().catch(() => null)) as (ResumeAnalysisResult & { error?: string }) | null;
 
-      if (!response.ok || !payload?.resumeProfile || !payload?.interviewQuestions || !payload.fileName) {
-        throw new Error(payload?.error ?? '简历分析失败');
+      if (!parseResponse.ok) {
+        const errBody = await parseResponse.json().catch(() => null) as { error?: string } | null;
+        throw new Error(errBody?.error ?? '简历解析失败');
       }
 
-      setResumePayload(payload);
-      form.setFieldValue('candidateName', payload.resumeProfile.name);
-      form.setFieldValue('targetRole', payload.resumeProfile.targetRoles[0] ?? '');
-      toast.success('简历分析完成，已回填候选人信息');
+      interface ParseResult { fileName: string, resumeProfile: ResumeProfile }
+      let parseResult: ParseResult | null = null;
+      let streamError: string | null = null;
+
+      await readNdjsonStream<AnalysisStreamEvent>(parseResponse, (event) => {
+        handleStreamEvent(event);
+        if (event.type === 'result') {
+          parseResult = event.data as ParseResult;
+        }
+        if (event.type === 'error') {
+          streamError = event.message;
+        }
+      }, abortController.signal);
+
+      if (streamError) {
+        throw new Error(streamError);
+      }
+
+      if (!parseResult) {
+        throw new Error('简历解析未返回有效结果');
+      }
+
+      const { fileName, resumeProfile } = parseResult as ParseResult;
+
+      // Fill form immediately with profile
+      form.setFieldValue('candidateName', resumeProfile.name);
+      form.setFieldValue('targetRole', resumeProfile.targetRoles[0] ?? '');
+      setResumePayload({
+        fileName,
+        resumeProfile,
+        interviewQuestions: [],
+      });
+      setIsAnalyzingResume(false);
+      setProgressTools([]);
+      setPartialFields([]);
+      accumulatedTextRef.current = '';
+      toast.success('简历解析完成，已回填候选人信息');
+
+      // Step 2: stream generate interview questions
+      setIsGeneratingQuestions(true);
+      setProgressStatus('正在生成面试题…');
+
+      const qResponse = await fetch('/api/interview/generate-questions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ resumeProfile }),
+        signal: abortController.signal,
+      });
+
+      if (!qResponse.ok) {
+        const errBody = await qResponse.json().catch(() => null) as { error?: string } | null;
+        throw new Error(errBody?.error ?? '面试题生成失败');
+      }
+
+      let questions: InterviewQuestion[] | null = null;
+      streamError = null;
+
+      await readNdjsonStream<AnalysisStreamEvent>(qResponse, (event) => {
+        handleStreamEvent(event);
+        if (event.type === 'result') {
+          const data = event.data as { interviewQuestions?: InterviewQuestion[] };
+          questions = data.interviewQuestions ?? null;
+        }
+        if (event.type === 'error') {
+          streamError = event.message;
+        }
+      }, abortController.signal);
+
+      if (streamError) {
+        throw new Error(streamError);
+      }
+
+      if (questions) {
+        setResumePayload(prev => prev ? { ...prev, interviewQuestions: questions! } : null);
+        toast.success('面试题生成完成');
+      }
     }
     catch (error) {
       if (abortController.signal.aborted) {
         return;
       }
-      setResumeFile(null);
-      setResumePayload(null);
+      setResumePayload((prev) => {
+        if (prev?.resumeProfile)
+          return prev;
+        return null;
+      });
+      if (!resumePayload?.resumeProfile) {
+        setResumeFile(null);
+      }
       toast.error(error instanceof Error ? error.message : '简历分析失败');
     }
     finally {
       abortControllerRef.current = null;
       setIsAnalyzingResume(false);
+      setIsGeneratingQuestions(false);
+      setProgressStatus('');
+      setProgressTools([]);
+      setPartialFields([]);
+      accumulatedTextRef.current = '';
     }
   }
 
@@ -207,6 +384,11 @@ export function CreateInterviewDialog({
     setResumeFile(null);
     setResumePayload(null);
     setIsAnalyzingResume(false);
+    setIsGeneratingQuestions(false);
+    setProgressStatus('');
+    setProgressTools([]);
+    setPartialFields([]);
+    accumulatedTextRef.current = '';
     const fileInput = document.getElementById('resume-upload') as HTMLInputElement | null;
     if (fileInput)
       fileInput.value = '';
@@ -218,7 +400,7 @@ export function CreateInterviewDialog({
       onOpenChange={(value) => {
         if (isTutorialDialog)
           return;
-        if (!isAnalyzingResume)
+        if (!isAnalyzingResume && !isGeneratingQuestions)
           setOpen(value);
       }}
       open={open}
@@ -232,14 +414,14 @@ export function CreateInterviewDialog({
       <DialogContent
         className='max-h-[90vh] sm:max-w-5xl gap-0 overflow-hidden p-0'
         onPointerDownOutside={(e) => {
-          if (isAnalyzingResume || isTutorialDialog)
+          if (isAnalyzingResume || isGeneratingQuestions || isTutorialDialog)
             e.preventDefault();
         }}
         onEscapeKeyDown={(e) => {
-          if (isAnalyzingResume || isTutorialDialog)
+          if (isAnalyzingResume || isGeneratingQuestions || isTutorialDialog)
             e.preventDefault();
         }}
-        showCloseButton={!isAnalyzingResume && !isTutorialDialog}
+        showCloseButton={!isAnalyzingResume && !isGeneratingQuestions && !isTutorialDialog}
       >
         <form
           className='flex max-h-[90vh] flex-col'
@@ -437,7 +619,7 @@ export function CreateInterviewDialog({
 
               <TabsContent className='mt-0' value='questions' data-tour='studio-dialog-questions'>
                 <InterviewQuestionsFields
-                  disabled={isSubmitting || isAnalyzingResume}
+                  disabled={isSubmitting || isAnalyzingResume || isGeneratingQuestions}
                   onChange={questions => setResumePayload(prev => prev ? { ...prev, interviewQuestions: questions } : null)}
                   questions={displayQuestions}
                 />
@@ -446,32 +628,58 @@ export function CreateInterviewDialog({
           </Tabs>
 
           <DialogFooter className='border-t px-6 py-4' data-tour='studio-dialog-submit'>
-            <Button disabled={isSubmitting || isAnalyzingResume} type='submit'>
-              {isSubmitting || isAnalyzingResume ? <LoaderCircleIcon className='size-4 animate-spin' /> : null}
+            <Button disabled={isSubmitting || isAnalyzingResume || isGeneratingQuestions} type='submit'>
+              {isSubmitting || isAnalyzingResume || isGeneratingQuestions ? <LoaderCircleIcon className='size-4 animate-spin' /> : null}
               保存简历记录
             </Button>
           </DialogFooter>
         </form>
 
-        {isAnalyzingResume && (
+        {(isAnalyzingResume || isGeneratingQuestions) && (
           <motion.div
-            className='absolute inset-0 z-50 flex flex-col items-center justify-center gap-6 rounded-lg bg-white/60 backdrop-blur-sm dark:bg-black/40'
+            className='absolute inset-0 z-50 flex flex-col items-center justify-center gap-5 rounded-lg bg-white/60 backdrop-blur-sm dark:bg-black/40'
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.2 }}
           >
             <LoaderCircleIcon className='size-7 animate-spin text-muted-foreground' />
-            <motion.div layout className='flex items-center  text-lg font-medium text-foreground'>
-              <span>正在</span>
-              <TextFlip as={motion.span} interval={2.5} layout>
-                <span>解析简历</span>
-                <span>提取信息</span>
-                <span>生成面试题</span>
-                <span>分析简历</span>
-                <span>生成面试链接</span>
-                <span>评估技能</span>
-              </TextFlip>
-            </motion.div>
+            {progressStatus
+              ? (
+                  <p className='text-sm font-medium text-foreground'>{progressStatus}</p>
+                )
+              : (
+                  <motion.div layout className='flex items-center text-lg font-medium text-foreground'>
+                    <span>正在</span>
+                    <TextFlip as={motion.span} interval={2.5} layout>
+                      <span>解析简历</span>
+                      <span>提取信息</span>
+                      <span>分析简历</span>
+                      <span>评估技能</span>
+                    </TextFlip>
+                  </motion.div>
+                )}
+            {progressTools.length > 0 && (
+              <div className='flex flex-col gap-1.5 text-xs text-muted-foreground'>
+                {progressTools.map(t => (
+                  <div key={t.name} className='flex items-center gap-1.5'>
+                    {t.done
+                      ? <CheckIcon className='size-3 text-green-500' />
+                      : <WrenchIcon className='size-3 animate-pulse' />}
+                    <span>{t.name}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+            {partialFields.length > 0 && (
+              <div className='mx-auto grid w-full max-w-xs grid-cols-[auto_1fr] gap-x-3 gap-y-1 rounded-lg border bg-background/80 px-4 py-3 text-xs'>
+                {partialFields.map(f => (
+                  <div key={f.label} className='contents'>
+                    <span className='text-muted-foreground'>{f.label}</span>
+                    <span className='truncate font-medium text-foreground'>{f.value}</span>
+                  </div>
+                ))}
+              </div>
+            )}
             <Button variant='outline' size='sm' onClick={handleCancelAnalysis}>
               取消
             </Button>

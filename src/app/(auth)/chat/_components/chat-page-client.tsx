@@ -6,6 +6,7 @@ import { useChat } from '@ai-sdk/react';
 import {
 
   DefaultChatTransport,
+  isToolUIPart,
 
 } from 'ai';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
@@ -24,7 +25,7 @@ import {
   UploadIcon,
   UserIcon,
 } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import {
   Attachment,
@@ -63,11 +64,6 @@ import {
   PromptInputTools,
   usePromptInputAttachments,
 } from '@/components/ai-elements/prompt-input';
-import {
-  Reasoning,
-  ReasoningContent,
-  ReasoningTrigger,
-} from '@/components/ai-elements/reasoning';
 import { Shimmer } from '@/components/ai-elements/shimmer';
 import {
   Source,
@@ -76,17 +72,13 @@ import {
   SourcesTrigger,
 } from '@/components/ai-elements/sources';
 import { Suggestion, Suggestions } from '@/components/ai-elements/suggestion';
-import {
-  Tool,
-  ToolContent,
-  ToolHeader,
-  ToolInput,
-  ToolOutput,
-} from '@/components/ai-elements/tool';
+import { AssistantMessageGroups } from '@/components/assistant-message-groups';
+import { ThinkingBlock } from '@/components/thinking-block';
 import {
   TIME_DISPLAY_OPTIONS,
   TimeDisplay,
 } from '@/components/time-display';
+import { ToolCall } from '@/components/tool-call/tool-call';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import {
@@ -261,6 +253,47 @@ function getConversationTitleFromMessages(messages: UIMessage[], fallbackTitle: 
   return fallbackTitle;
 }
 
+/**
+ * Auto-submit predicate for the agent loop.
+ * When the server runs one step at a time (stepCountIs(1)),
+ * the client auto-submits to continue the loop when all tools
+ * in the current step reach terminal state.
+ */
+function shouldAutoSubmit({
+  messages,
+}: {
+  messages: UIMessage[]
+}): boolean {
+  const lastMessage = messages.at(-1);
+  if (!lastMessage || lastMessage.role !== 'assistant')
+    return false;
+
+  // Find the last step-start to get tools from the current step only
+  const lastStepStartIndex = lastMessage.parts.reduce(
+    (lastIndex, part, index) =>
+      part.type === 'step-start' ? index : lastIndex,
+    -1,
+  );
+
+  // Get tool invocations from the last step (non-provider-executed)
+  const lastStepToolInvocations = lastMessage.parts
+    .slice(lastStepStartIndex + 1)
+    .filter(isToolUIPart)
+    .filter(part => !part.providerExecuted);
+
+  // If no tool invocations, don't auto-submit
+  if (lastStepToolInvocations.length === 0)
+    return false;
+
+  // Auto-submit only if ALL tools are in terminal state
+  return lastStepToolInvocations.every(
+    part =>
+      part.state === 'output-available'
+      || part.state === 'output-error'
+      || part.state === 'approval-responded',
+  );
+}
+
 function ComposerAttachments() {
   const attachments = usePromptInputAttachments();
   const tutorialStep = useAtomValue(tutorialStepAtom);
@@ -301,32 +334,6 @@ function UploadErrorReset({ onReset }: { onReset: () => void }) {
   return null;
 }
 
-function ToolPartView({ part }: { part: ToolUIPart | DynamicToolUIPart }) {
-  const defaultOpen
-    = part.state === 'output-available' || part.state === 'output-error';
-
-  return (
-    <Tool defaultOpen={defaultOpen}>
-      {part.type === 'dynamic-tool'
-        ? (
-            <ToolHeader
-              state={part.state}
-              toolName={part.toolName}
-              type='dynamic-tool'
-            />
-          )
-        : (
-            <ToolHeader state={part.state} type={part.type} />
-          )}
-
-      <ToolContent>
-        <ToolInput input={part.input} />
-        <ToolOutput errorText={part.errorText} output={part.output} />
-      </ToolContent>
-    </Tool>
-  );
-}
-
 function ThinkingModeSwitch() {
   const [enabled, setEnabled] = useAtom(thinkingModeAtom);
   const tutorialStep = useAtomValue(tutorialStepAtom);
@@ -338,6 +345,7 @@ function ThinkingModeSwitch() {
         checked={displayEnabled}
         id='thinking-mode'
         onCheckedChange={setEnabled}
+        onMouseDown={e => e.preventDefault()}
         className='scale-75'
       />
       <Label
@@ -527,6 +535,61 @@ export default function ChatPageClient({
     authClient.signOut();
   }, []);
 
+  // Refs for dynamic body values — the transport body function reads these
+  // so that auto-submit requests always carry the latest values.
+  const jobDescriptionRef = useRef(jobDescription);
+  const thinkingModeRef = useRef(thinkingMode);
+  useEffect(() => {
+    jobDescriptionRef.current = jobDescription;
+  }, [jobDescription]);
+  useEffect(() => {
+    thinkingModeRef.current = thinkingMode;
+  }, [thinkingMode]);
+
+  const transport = useMemo(
+    () =>
+      new DefaultChatTransport({
+        api: '/api/resume',
+        body: () => {
+          const jd = jobDescriptionRef.current.trim();
+          return {
+            ...(jd && { jobDescription: jd }),
+            enableThinking: thinkingModeRef.current,
+          };
+        },
+        fetch: async (input, init) => {
+          const timeoutController = new AbortController();
+          const timeoutId = window.setTimeout(() => {
+            timeoutController.abort('Chat request timed out after 8 minutes.');
+          }, CHAT_REQUEST_TIMEOUT_MS);
+
+          if (init?.signal) {
+            if (init.signal.aborted) {
+              timeoutController.abort(init.signal.reason);
+            }
+            else {
+              init.signal.addEventListener(
+                'abort',
+                () => timeoutController.abort(init.signal?.reason),
+                { once: true },
+              );
+            }
+          }
+
+          try {
+            return await fetch(input, {
+              ...init,
+              signal: timeoutController.signal,
+            });
+          }
+          finally {
+            window.clearTimeout(timeoutId);
+          }
+        },
+      }),
+    [],
+  );
+
   const {
     messages,
     sendMessage,
@@ -536,38 +599,8 @@ export default function ChatPageClient({
     error,
     regenerate,
   } = useChat({
-    transport: new DefaultChatTransport({
-      api: '/api/resume',
-      fetch: async (input, init) => {
-        const timeoutController = new AbortController();
-        const timeoutId = window.setTimeout(() => {
-          timeoutController.abort('Chat request timed out after 8 minutes.');
-        }, CHAT_REQUEST_TIMEOUT_MS);
-
-        if (init?.signal) {
-          if (init.signal.aborted) {
-            timeoutController.abort(init.signal.reason);
-          }
-          else {
-            init.signal.addEventListener(
-              'abort',
-              () => timeoutController.abort(init.signal?.reason),
-              { once: true },
-            );
-          }
-        }
-
-        try {
-          return await fetch(input, {
-            ...init,
-            signal: timeoutController.signal,
-          });
-        }
-        finally {
-          window.clearTimeout(timeoutId);
-        }
-      },
-    }),
+    transport,
+    sendAutomaticallyWhen: shouldAutoSubmit,
   });
 
   const downloadableMessages = useMemo(
@@ -765,18 +798,10 @@ export default function ChatPageClient({
       }
     }
 
-    sendMessage(
-      {
-        files,
-        text,
-      },
-      {
-        body: {
-          ...(hasJobDescription && { jobDescription: normalizedJobDescription }),
-          enableThinking: thinkingMode,
-        },
-      },
-    );
+    sendMessage({
+      files,
+      text,
+    });
   };
 
   const openConversation = useCallback(
@@ -933,14 +958,7 @@ export default function ChatPageClient({
   };
 
   const regenerateLastReply = () => {
-    regenerate(
-      {
-        body: {
-          ...(hasJobDescription && { jobDescription: normalizedJobDescription }),
-          enableThinking: thinkingMode,
-        },
-      },
-    );
+    regenerate();
   };
 
   const handleCopy = async (messageId: string, content: string) => {
@@ -1086,16 +1104,8 @@ export default function ChatPageClient({
                           Boolean(part),
                         );
                       const sourceParts = message.parts.filter(isSourceUrlPart);
-                      const reasoningParts = message.parts.filter(isReasoningPart);
-                      const reasoningText = reasoningParts
-                        .map(part => part.text)
-                        .join('\n\n')
-                        .trim();
                       const isLastMessage = messageIndex === messages.length - 1;
-                      const isReasoningStreaming
-                        = isLastMessage
-                          && isStreaming
-                          && message.parts.at(-1)?.type === 'reasoning';
+                      const isMessageStreaming = isLastMessage && isStreaming;
                       const assistantText = textParts
                         .map(part => part.text)
                         .join('\n\n')
@@ -1105,6 +1115,14 @@ export default function ChatPageClient({
                       const messageAuthor
                         = message.role === 'assistant' ? '简历筛选助手' : '你';
                       const messageTime = getMessageTimeValue(message);
+
+                      // Compute startedAt for summary bar timer
+                      const prevUserMessage = messageIndex > 0
+                        ? messages.slice(0, messageIndex).reverse().find(m => m.role === 'user')
+                        : null;
+                      const startedAt = prevUserMessage
+                        ? (getMessageTimeValue(prevUserMessage)?.toISOString() ?? null)
+                        : null;
 
                       return (
                         <div key={message.id}>
@@ -1152,18 +1170,6 @@ export default function ChatPageClient({
 
                           <Message from={message.role}>
                             <MessageContent>
-                              {reasoningText
-                                ? (
-                                    <Reasoning
-                                      className='w-full'
-                                      isStreaming={isReasoningStreaming}
-                                    >
-                                      <ReasoningTrigger />
-                                      <ReasoningContent>{reasoningText}</ReasoningContent>
-                                    </Reasoning>
-                                  )
-                                : null}
-
                               {fileParts.length > 0
                                 ? (
                                     <Attachments
@@ -1184,35 +1190,77 @@ export default function ChatPageClient({
                                   )
                                 : null}
 
-                              {message.parts.map((part, index) => {
-                                if (part.type === 'text') {
-                                  return (
-                                    <MessageResponse key={`${message.id}-${index}`}>
-                                      {part.text}
-                                    </MessageResponse>
-                                  );
-                                }
+                              {message.role === 'assistant'
+                                ? (
+                                    <AssistantMessageGroups
+                                      message={message}
+                                      isStreaming={isMessageStreaming}
+                                      durationMs={null}
+                                      startedAt={startedAt}
+                                    >
+                                      {isExpanded => (
+                                        <>
+                                          {message.parts.map((part, index) => {
+                                            if (part.type === 'text') {
+                                              return (
+                                                <MessageResponse key={`${message.id}-${index}`}>
+                                                  {part.text}
+                                                </MessageResponse>
+                                              );
+                                            }
 
-                                if (isToolPart(part)) {
-                                  return (
-                                    <ToolPartView
-                                      key={`${message.id}-${part.type}-${index}`}
-                                      part={part}
-                                    />
-                                  );
-                                }
+                                            if (isToolPart(part) && isExpanded) {
+                                              return (
+                                                <ToolCall
+                                                  key={`${message.id}-${part.type}-${index}`}
+                                                  part={part}
+                                                  isStreaming={isMessageStreaming}
+                                                />
+                                              );
+                                            }
 
-                                if (part.type === 'step-start') {
-                                  return (
-                                    <div
-                                      className='my-3 border-border border-t opacity-50'
-                                      key={`${message.id}-step-${index}`}
-                                    />
-                                  );
-                                }
+                                            if (part.type === 'reasoning' && isExpanded) {
+                                              const isReasoningStreaming
+                                                = isMessageStreaming
+                                                  && message.parts.at(-1)?.type === 'reasoning'
+                                                  && index === message.parts.length - 1;
 
-                                return null;
-                              })}
+                                              return (
+                                                <ThinkingBlock
+                                                  key={`${message.id}-reasoning-${index}`}
+                                                  text={part.text}
+                                                  isStreaming={isReasoningStreaming}
+                                                />
+                                              );
+                                            }
+
+                                            if (part.type === 'step-start' && isExpanded) {
+                                              return (
+                                                <div
+                                                  className='my-3 border-border border-t opacity-50'
+                                                  key={`${message.id}-step-${index}`}
+                                                />
+                                              );
+                                            }
+
+                                            return null;
+                                          })}
+                                        </>
+                                      )}
+                                    </AssistantMessageGroups>
+                                  )
+                                : (
+                                    message.parts.map((part, index) => {
+                                      if (part.type === 'text') {
+                                        return (
+                                          <MessageResponse key={`${message.id}-${index}`}>
+                                            {part.text}
+                                          </MessageResponse>
+                                        );
+                                      }
+                                      return null;
+                                    })
+                                  )}
                             </MessageContent>
                           </Message>
 
