@@ -113,7 +113,6 @@ export default function HomePageClient() {
 
           <FadeContent className='mt-7 flex flex-wrap items-center justify-center gap-3' delay={0.2}>
             <Button
-              className='group rounded-xl px-5 py-3 font-semibold text-sm transition-transform duration-300 ease-out hover:-translate-y-0.5'
               disabled={isPending}
               onClick={() => handleProtectedNavigation('/chat')}
               type='button'
@@ -125,7 +124,6 @@ export default function HomePageClient() {
               />
             </Button>
             <Button
-              className='rounded-xl bg-card/70 px-5 py-3 ring-1 ring-border/70 font-medium text-foreground text-sm transition-colors transition-transform duration-300 ease-out hover:-translate-y-0.5 hover:bg-card'
               disabled={isPending}
               onClick={handleInterviewClick}
               type='button'
@@ -145,9 +143,9 @@ export default function HomePageClient() {
                   delay={0.34 + index * 0.1}
                   key={item.title}
                 >
-                  <div className='relative inline-flex size-10 items-center justify-center rounded-full border border-white/50 bg-white/40 text-primary shadow-[inset_0_1px_0_rgba(255,255,255,0.75)] transition-transform duration-300 ease-out group-hover:-translate-y-0.5'>
+                  <Button variant='ghost' size='icon-lg' className='mx-auto rounded-full p-0 data-[state=open]:bg-transparent mb-3'>
                     <Icon aria-hidden='true' className='size-5' />
-                  </div>
+                  </Button>
                   <h3 className='relative mt-3 font-semibold text-xs text-foreground sm:text-sm'>
                     {item.title}
                   </h3>

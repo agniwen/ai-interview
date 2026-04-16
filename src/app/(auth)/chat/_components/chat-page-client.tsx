@@ -973,8 +973,8 @@ export default function ChatPageClient({
   };
 
   return (
-    <div className='mx-auto flex h-full w-full max-w-5xl flex-col px-1 pt-4 pb-2 sm:pb-4 sm:px-2 sm:pt-6'>
-      <header className='mb-4 px-1 '>
+    <div className='flex h-full w-full flex-col pt-4 pb-2 sm:pb-4 sm:pt-6'>
+      <header className='mx-auto w-full max-w-5xl mb-4 px-2 sm:px-3'>
         <div className='mb-2 flex items-center justify-between gap-2 sm:hidden'>
           <div className='flex items-center gap-2'>
             {showSessionLoadingState
@@ -1024,7 +1024,7 @@ export default function ChatPageClient({
               聊天记录
             </Button>
           </div>
-          <Button onClick={startNewConversation} size='sm' type='button' variant='ghost'>
+          <Button onClick={startNewConversation} size='sm' type='button' variant='outline'>
             <PlusIcon className='mr-1 size-4' />
             新建
           </Button>
@@ -1054,7 +1054,7 @@ export default function ChatPageClient({
         </p>
       </header>
 
-      <section className='mb-0.5' data-tour='suggestions'>
+      <section className='mx-auto w-full max-w-5xl mb-0.5 px-2 sm:px-3' data-tour='suggestions'>
         <p className='mb-2 px-1 font-medium text-muted-foreground text-xs'>
           快速提问
         </p>
@@ -1075,7 +1075,7 @@ export default function ChatPageClient({
 
       <div className='relative min-h-0 flex-1 overflow-hidden'>
         <Conversation className='h-full'>
-          <ConversationContent className='py-4 px-0 sm:py-6'>
+          <ConversationContent className='mx-auto w-full max-w-5xl py-4 px-2 sm:px-3 sm:py-6'>
             {messages.length === 0
               ? (
                   <ConversationEmptyState
@@ -1330,7 +1330,7 @@ export default function ChatPageClient({
 
       {error
         ? (
-            <p aria-live='polite' className='mt-3 text-destructive text-sm'>
+            <p aria-live='polite' className='mx-auto w-full max-w-5xl px-2 sm:px-3 mt-3 text-destructive text-sm'>
               请求失败。请检查 API 配置后重试。
             </p>
           )
@@ -1338,7 +1338,7 @@ export default function ChatPageClient({
 
       {uploadErrorMessage
         ? (
-            <p aria-live='polite' className='mt-2 text-destructive text-sm'>
+            <p aria-live='polite' className='mx-auto w-full max-w-5xl px-2 sm:px-3 mt-2 text-destructive text-sm'>
               {uploadErrorMessage}
             </p>
           )
@@ -1346,7 +1346,7 @@ export default function ChatPageClient({
 
       {historyErrorMessage
         ? (
-            <p aria-live='polite' className='mt-2 text-destructive text-sm'>
+            <p aria-live='polite' className='mx-auto w-full max-w-5xl px-2 sm:px-3 mt-2 text-destructive text-sm'>
               {historyErrorMessage}
             </p>
           )
@@ -1355,7 +1355,7 @@ export default function ChatPageClient({
       <PromptInput
         data-tour='prompt-input'
         accept='application/pdf'
-        className=' **:data-[slot=input-group]:cursor-text **:data-[slot=input-group]:rounded-[1.3rem] **:data-[slot=input-group]:border-border/65 **:data-[slot=input-group]:bg-white **:data-[slot=input-group]:shadow-[0_8px_18px_-20px_rgba(60,44,23,0.5)]'
+        className='mx-auto w-full max-w-5xl px-2 sm:px-3 **:data-[slot=input-group]:cursor-text **:data-[slot=input-group]:rounded-[1.3rem] **:data-[slot=input-group]:border-border/65 **:data-[slot=input-group]:bg-white **:data-[slot=input-group]:shadow-[0_8px_18px_-20px_rgba(60,44,23,0.5)]'
         onClick={(event) => {
           const target = event.target as HTMLElement;
 

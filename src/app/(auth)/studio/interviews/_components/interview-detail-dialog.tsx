@@ -2,7 +2,7 @@
 
 import type { StudioInterviewConversationReport } from '@/lib/interview-session';
 import type { StudioInterviewRecord } from '@/lib/studio-interviews';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { MessageSquareTextIcon, RotateCcwIcon, Share2Icon } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
@@ -221,6 +221,7 @@ export function InterviewDetailDialog({
   recordId: string | null
 }) {
   const [resettingRoundId, setResettingRoundId] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
   const { data: record, isLoading: isRecordLoading } = useQuery({
     queryKey: ['studio-interview', recordId],
@@ -291,6 +292,8 @@ export function InterviewDetailDialog({
       }
 
       toast.success('轮次已重置为待开始');
+      await queryClient.invalidateQueries({ queryKey: ['studio-interview', recordId] });
+      await queryClient.invalidateQueries({ queryKey: ['studio-interview-reports', recordId] });
       onUpdated?.();
     }
     catch (error) {

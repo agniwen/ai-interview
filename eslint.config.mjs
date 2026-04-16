@@ -79,18 +79,4 @@ export default antfu({
     'react-naming-convention/ref-name': 'off',
     'unused-imports/no-unused-vars': 'off',
   },
-}, {
-  // shadcn/ui upstream components — follow upstream style to ease future syncs.
-  files: [
-    'src/components/ui/**',
-    'src/hooks/use-mobile.ts',
-  ],
-  rules: {
-    'react-hooks-extra/no-direct-set-state-in-use-effect': 'off',
-    'react/no-nested-component-definitions': 'off',
-    'react-dom/no-dangerously-set-innerhtml': 'off',
-    'react-naming-convention/use-state': 'off',
-    'e18e/prefer-static-regex': 'off',
-    'eqeqeq': 'off',
-  },
 });

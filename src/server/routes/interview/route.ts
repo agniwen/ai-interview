@@ -317,6 +317,10 @@ export const studioInterviewsRouter = factory.createApp()
       const resume = normalizeResumeFile(formData.get('resume'));
       const parsedScheduleEntries = parseScheduleEntriesInput(formData.get('scheduleEntries'));
       const parsedResumePayload = parseResumePayloadInput(formData.get('resumePayload'));
+      const manualQuestionsRaw = toNullableString(formData.get('manualInterviewQuestions'));
+      const manualInterviewQuestions = manualQuestionsRaw
+        ? (JSON.parse(manualQuestionsRaw) as typeof studioInterview.$inferSelect['interviewQuestions'])
+        : null;
 
       const input = studioInterviewFormSchema.safeParse({
         candidateName: toNullableString(formData.get('candidateName')) ?? '',
@@ -342,7 +346,7 @@ export const studioInterviewsRouter = factory.createApp()
         status: input.data.status,
         resumeFileName: analysis?.fileName ?? null,
         resumeProfile: analysis?.resumeProfile ?? null,
-        interviewQuestions: analysis?.interviewQuestions ?? [],
+        interviewQuestions: analysis?.interviewQuestions ?? manualInterviewQuestions ?? [],
         notes: input.data.notes || null,
         createdBy: c.var.user?.id ?? null,
         createdAt: now,

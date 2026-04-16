@@ -77,6 +77,7 @@ export function CreateInterviewDialog({
   const [activeTab, setActiveTab] = useState<string>('basic');
   const [resumeFile, setResumeFile] = useState<File | null>(null);
   const [resumePayload, setResumePayload] = useState<ResumeAnalysisResult | null>(null);
+  const [manualQuestions, setManualQuestions] = useState<InterviewQuestion[]>([]);
   const [isAnalyzingResume, setIsAnalyzingResume] = useState(false);
   const [isGeneratingQuestions, setIsGeneratingQuestions] = useState(false);
   const [progressStatus, setProgressStatus] = useState<string>('');
@@ -103,6 +104,9 @@ export function CreateInterviewDialog({
       if (resumePayload) {
         formData.append('resumePayload', JSON.stringify(resumePayload));
       }
+      else if (manualQuestions.length > 0) {
+        formData.append('manualInterviewQuestions', JSON.stringify(manualQuestions));
+      }
 
       const response = await fetch('/api/studio/interviews', {
         method: 'POST',
@@ -120,6 +124,7 @@ export function CreateInterviewDialog({
       setOpen(false);
       setResumeFile(null);
       setResumePayload(null);
+      setManualQuestions([]);
       form.reset(createInterviewFormValues());
       toast.success('简历库记录已创建');
     },
@@ -165,7 +170,7 @@ export function CreateInterviewDialog({
   // Tutorial: mock questions for the questions tab
   const displayQuestions = isTutorialDialog
     ? STUDIO_TUTORIAL_MOCK_QUESTIONS
-    : (resumePayload?.interviewQuestions ?? []);
+    : (resumePayload ? resumePayload.interviewQuestions : manualQuestions);
 
   function tryExtractPartialFields(text: string) {
     const fields: Array<{ label: string, value: string }> = [];
@@ -248,6 +253,7 @@ export function CreateInterviewDialog({
   async function handleResumeChange(file: File | null) {
     setResumeFile(file);
     setResumePayload(null);
+    setManualQuestions([]);
     setProgressStatus('');
     setProgressTools([]);
     setPartialFields([]);
@@ -443,7 +449,7 @@ export function CreateInterviewDialog({
                   面试题目
                   {isTutorialDialog
                     ? ` (${STUDIO_TUTORIAL_MOCK_QUESTIONS.length})`
-                    : resumePayload ? ` (${resumePayload.interviewQuestions.length})` : ''}
+                    : displayQuestions.length > 0 ? ` (${displayQuestions.length})` : ''}
                 </TabsTrigger>
               </TabsList>
             </DialogHeader>
@@ -620,7 +626,14 @@ export function CreateInterviewDialog({
               <TabsContent className='mt-0' value='questions' data-tour='studio-dialog-questions'>
                 <InterviewQuestionsFields
                   disabled={isSubmitting || isAnalyzingResume || isGeneratingQuestions}
-                  onChange={questions => setResumePayload(prev => prev ? { ...prev, interviewQuestions: questions } : null)}
+                  onChange={(questions) => {
+                    if (resumePayload) {
+                      setResumePayload(prev => prev ? { ...prev, interviewQuestions: questions } : prev);
+                    }
+                    else {
+                      setManualQuestions(questions);
+                    }
+                  }}
                   questions={displayQuestions}
                 />
               </TabsContent>
