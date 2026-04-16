@@ -33,7 +33,6 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-
 } from '@/components/ui/sidebar';
 import { authClient } from '@/lib/auth-client';
 import { getRoleList } from '@/lib/auth-roles';
@@ -83,7 +82,7 @@ export function AppSidebar({ user, onStartTutorial, ...props }: AppSidebarProps)
             <SidebarMenuButton asChild size='lg'>
               <Link href='/studio/interviews'>
                 <div className='flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/80 text-primary-foreground'>
-                  <ShieldCheckIcon className='size-4' />
+                  <BotIcon className='size-4' />
                 </div>
                 <div className='grid flex-1 text-left text-sm leading-tight'>
                   <span className='truncate font-semibold'>Studio</span>
