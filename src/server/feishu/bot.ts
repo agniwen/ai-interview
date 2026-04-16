@@ -33,7 +33,7 @@ export function getFeishuBot() {
     concurrency: 'queue',
   });
 
-  bot.onDirectMessage(async (thread, message, context) => {
+  bot.onDirectMessage(async (thread, message, _channel, context) => {
     await thread.subscribe();
     await handleResumeMessage(thread, message, context);
   });

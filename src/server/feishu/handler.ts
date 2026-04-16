@@ -1,5 +1,5 @@
 import type { UIMessage } from 'ai';
-import type { Message, Thread } from 'chat';
+import type { Message, MessageContext, Thread } from 'chat';
 import { runResumeScreening } from '@/server/routes/resume/screening';
 import { ResumeReportCard } from './card';
 import { extractResumeReport } from './extract-report';
