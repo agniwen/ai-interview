@@ -1,6 +1,14 @@
 import type { ReactNode } from "react";
-import ChatLayoutShell from "@/app/(auth)/chat/_components/chat-layout-shell";
+import { SidebarInset } from "@/components/ui/sidebar";
+import { ChatSidebarSlots } from "./_components/chat-sidebar-slots";
 
 export default function ChatLayout({ children }: { children: ReactNode }) {
-  return <ChatLayoutShell>{children}</ChatLayoutShell>;
+  return (
+    <>
+      <ChatSidebarSlots />
+      <SidebarInset className="h-dvh overflow-hidden md:h-[calc(100dvh-1rem)]">
+        {children}
+      </SidebarInset>
+    </>
+  );
 }

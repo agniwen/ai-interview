@@ -4,14 +4,14 @@ import type { ChatStatus, DynamicToolUIPart, FileUIPart, ToolUIPart, UIMessage }
 import type { ConversationMessage } from "@/components/ai-elements/conversation";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, isToolUIPart } from "ai";
-import { useAtom, useAtomValue, useSetAtom } from "jotai";
+import { useAtom, useAtomValue } from "jotai";
 import {
+  AlertCircleIcon,
   CheckIcon,
   CircleHelpIcon,
   CopyIcon,
   FileTextIcon,
   LogOutIcon,
-  PanelLeftOpenIcon,
   PlusIcon,
   RefreshCcwIcon,
   SettingsIcon,
@@ -85,13 +85,13 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Label } from "@/components/ui/label";
+import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useHydrated } from "@/hooks/use-hydrated";
 import { authClient } from "@/lib/auth-client";
 import { chatHistoryDB } from "@/lib/chat-history-db";
 import type { StoredConversation } from "@/lib/chat-history-db";
-import { isMobileSidebarOpenAtom } from "../_atoms/sidebar";
 import { thinkingModeAtom } from "../_atoms/thinking";
 import { tutorialStepAtom } from "../_atoms/tutorial";
 import { TUTORIAL_MOCK_ATTACHMENTS, TUTORIAL_MOCK_INPUT_TEXT } from "../constants/tutorial-mock";
@@ -532,10 +532,11 @@ function ComposerFooter({
           </TooltipTrigger>
           <TooltipContent side="top">导出聊天记录</TooltipContent>
         </Tooltip>
+
+        <ThinkingModeSwitch />
       </PromptInputTools>
 
       <div className="flex items-center gap-2">
-        <ThinkingModeSwitch />
         <span className="hidden text-muted-foreground text-xs sm:inline">
           {getComposerStatusLabel(status, displayHasJD)}
         </span>
@@ -556,8 +557,6 @@ export default function ChatPageClient({ initialSessionId }: { initialSessionId:
   const { startTutorial } = useChatTutorial();
   const { data: session, isPending: isSessionPending } = authClient.useSession();
   const isHydrated = useHydrated();
-  const isMobileSidebarOpen = useAtomValue(isMobileSidebarOpenAtom);
-  const setIsMobileSidebarOpen = useSetAtom(isMobileSidebarOpenAtom);
   const thinkingMode = useAtomValue(thinkingModeAtom);
   const tutorialStep = useAtomValue(tutorialStepAtom);
   const [input, setInput] = useState("");
@@ -1119,17 +1118,7 @@ export default function ChatPageClient({ initialSessionId }: { initialSessionId:
               userName,
             })}
 
-            <Button
-              aria-controls="chat-history-sidebar"
-              aria-expanded={isMobileSidebarOpen}
-              onClick={() => setIsMobileSidebarOpen(true)}
-              size="sm"
-              type="button"
-              variant="outline"
-            >
-              <PanelLeftOpenIcon className="mr-1 size-4" />
-              聊天记录
-            </Button>
+            <SidebarTrigger aria-label="打开聊天记录侧边栏" />
           </div>
           <Button onClick={startNewConversation} size="sm" type="button" variant="outline">
             <PlusIcon className="mr-1 size-4" />
@@ -1425,39 +1414,52 @@ export default function ChatPageClient({ initialSessionId }: { initialSessionId:
         </Conversation>
       </div>
 
-      {error ? (
-        <div
-          aria-live="polite"
-          className="mx-auto mt-3 flex w-full max-w-5xl flex-wrap items-center gap-2 px-2 text-sm sm:px-3"
-        >
-          <span className="text-destructive">
-            请求失败，这一步没有完成。可以继续跑完剩下的步骤，或从头重新生成。
-          </span>
-          <div className="ml-auto flex items-center gap-2">
-            <Button onClick={handleContinueAfterError} size="sm" type="button" variant="outline">
-              <RefreshCcwIcon className="size-3.5" />
-              继续
-            </Button>
-          </div>
+      {error || uploadErrorMessage || historyErrorMessage ? (
+        <div className="mx-auto flex w-full max-w-5xl flex-col gap-2 px-2 pt-3 sm:px-3">
+          {error ? (
+            <div
+              aria-live="polite"
+              className="flex flex-col gap-2 rounded-xl border border-destructive/25 bg-destructive/6 px-3 py-2 text-destructive text-sm sm:flex-row sm:items-center sm:gap-3 sm:px-4"
+            >
+              <div className="flex min-w-0 items-start gap-2">
+                <AlertCircleIcon className="mt-0.5 size-4 shrink-0" />
+                <span className="leading-relaxed">
+                  请求失败，这一步没有完成。可以继续跑完剩下的步骤，或从头重新生成。
+                </span>
+              </div>
+              <Button
+                className="shrink-0 sm:ml-auto"
+                onClick={handleContinueAfterError}
+                size="sm"
+                type="button"
+                variant="outline"
+              >
+                <RefreshCcwIcon className="size-3.5" />
+                继续
+              </Button>
+            </div>
+          ) : null}
+
+          {uploadErrorMessage ? (
+            <div
+              aria-live="polite"
+              className="flex  gap-2 rounded-md items-center mb-2 border border-destructive/25 bg-destructive/6 px-3 py-2 text-destructive text-sm sm:px-4"
+            >
+              <AlertCircleIcon className="mt-0.5 size-4 shrink-0" />
+              <p className="leading-relaxed">{uploadErrorMessage}</p>
+            </div>
+          ) : null}
+
+          {historyErrorMessage ? (
+            <div
+              aria-live="polite"
+              className="flex  gap-2 rounded-md items-center mb-2 border border-destructive/25 bg-destructive/6 px-3 py-2 text-destructive text-sm sm:px-4"
+            >
+              <AlertCircleIcon className="mt-0.5 size-4 shrink-0" />
+              <p className="leading-relaxed">{historyErrorMessage}</p>
+            </div>
+          ) : null}
         </div>
-      ) : null}
-
-      {uploadErrorMessage ? (
-        <p
-          aria-live="polite"
-          className="mx-auto w-full max-w-5xl px-2 sm:px-3 mt-2 text-destructive text-sm"
-        >
-          {uploadErrorMessage}
-        </p>
-      ) : null}
-
-      {historyErrorMessage ? (
-        <p
-          aria-live="polite"
-          className="mx-auto w-full max-w-5xl px-2 sm:px-3 mt-2 text-destructive text-sm"
-        >
-          {historyErrorMessage}
-        </p>
       ) : null}
 
       <PromptInput

@@ -81,13 +81,20 @@ const TOUR_STEPS = [
   },
 ];
 
+let currentDriverInstance: ReturnType<typeof driver> | null = null;
+
+export function refreshStudioTutorialHighlight() {
+  currentDriverInstance?.refresh();
+}
+
 function createDriverInstance() {
-  return driver({
+  const instance = driver({
     allowClose: true,
     doneBtnText: "完成",
     nextBtnText: "下一步",
     onDestroyed: () => {
       store.set(studioTutorialStepAtom, null);
+      currentDriverInstance = null;
     },
     overlayClickBehavior: () => {
       // block overlay click from advancing the tour
@@ -103,6 +110,9 @@ function createDriverInstance() {
       },
     })),
   });
+
+  currentDriverInstance = instance;
+  return instance;
 }
 
 // eslint-disable-next-line react/no-unnecessary-use-prefix

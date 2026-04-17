@@ -392,10 +392,7 @@ export function InterviewManagementPage({
                   <PencilIcon className="size-4" />
                   编辑记录
                 </DropdownMenuItem>
-                <DropdownMenuItem
-                  className="text-destructive focus:text-destructive"
-                  onSelect={() => setDeleteRecord(record)}
-                >
+                <DropdownMenuItem onSelect={() => setDeleteRecord(record)} variant="destructive">
                   <Trash2Icon className="size-4" />
                   删除
                 </DropdownMenuItem>
@@ -483,7 +480,7 @@ export function InterviewManagementPage({
               value: `${summary.rounds}`,
             },
           ].map((item) => (
-            <Card className="border-border/60 bg-background/92" key={item.label}>
+            <Card key={item.label}>
               <CardHeader className="pb-2">
                 <CardDescription>{item.label}</CardDescription>
                 <CardTitle className="text-3xl">{item.value}</CardTitle>
@@ -495,21 +492,10 @@ export function InterviewManagementPage({
           ))}
         </section>
 
-        <Card className="border-border/60 bg-background/95">
-          <CardHeader className="gap-4 lg:flex-row lg:items-end lg:justify-between">
-            <div>
-              <CardTitle>简历库记录</CardTitle>
-            </div>
+        <section className="space-y-4">
+          <h2 className="font-semibold text-lg">简历库记录</h2>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
             <div className="flex flex-col gap-3 sm:flex-row">
-              <Button
-                disabled={isFetching}
-                onClick={() => invalidateList()}
-                size="icon"
-                variant="outline"
-              >
-                <RefreshCwIcon className={`size-4 ${isMutationRefreshing ? "animate-spin" : ""}`} />
-                <span className="sr-only">刷新</span>
-              </Button>
               <div className="relative min-w-60" data-tour="studio-search">
                 <SearchIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
@@ -538,18 +524,27 @@ export function InterviewManagementPage({
                   ))}
                 </SelectContent>
               </Select>
-              <div data-tour="studio-create-btn">
-                <CreateInterviewDialog
-                  onCreated={() => {
-                    invalidateList();
-                  }}
-                />
-              </div>
             </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
+            <Button
+              disabled={isFetching}
+              onClick={() => invalidateList()}
+              size="icon"
+              variant="outline"
+            >
+              <RefreshCwIcon className={`size-4 ${isMutationRefreshing ? "animate-spin" : ""}`} />
+              <span className="sr-only">刷新</span>
+            </Button>
+            <div data-tour="studio-create-btn">
+              <CreateInterviewDialog
+                onCreated={() => {
+                  invalidateList();
+                }}
+              />
+            </div>
+          </div>
+          <div className="space-y-4">
             {table.getRowModel().rows.length > 0 ? (
-              <div className="rounded-2xl border border-border/60" data-tour="studio-table">
+              <Card className="overflow-hidden py-0" data-tour="studio-table">
                 <Table>
                   <TableHeader>
                     {table.getHeaderGroups().map((headerGroup) => (
@@ -559,7 +554,11 @@ export function InterviewManagementPage({
 
                           return (
                             <TableHead
-                              className={isPinned ? "bg-background" : undefined}
+                              className={
+                                isPinned
+                                  ? "bg-background transition-colors [tr:hover_&]:bg-muted [tr[data-state=selected]_&]:bg-muted"
+                                  : undefined
+                              }
                               key={header.id}
                               style={getPinningStyles(header.column)}
                             >
@@ -580,7 +579,11 @@ export function InterviewManagementPage({
 
                           return (
                             <TableCell
-                              className={isPinned ? "bg-background" : undefined}
+                              className={
+                                isPinned
+                                  ? "bg-background transition-colors [tr:hover_&]:bg-muted [tr[data-state=selected]_&]:bg-muted"
+                                  : undefined
+                              }
                               key={cell.id}
                               style={getPinningStyles(cell.column)}
                             >
@@ -592,7 +595,7 @@ export function InterviewManagementPage({
                     ))}
                   </TableBody>
                 </Table>
-              </div>
+              </Card>
             ) : (
               <Empty className="border-border/60">
                 <EmptyHeader>
@@ -687,8 +690,8 @@ export function InterviewManagementPage({
                 </div>
               </div>
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </section>
       </div>
 
       <InterviewDetailDialog

@@ -1,27 +1,23 @@
 "use client";
 
-import type { ComponentProps } from "react";
 import { BotIcon } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import {
+  SidebarBodyPortalContent,
+  SidebarFooterPortalContent,
+} from "@/components/app-sidebar/portals";
 import { SidebarUserSection } from "@/components/sidebar-user-section";
 import {
-  Sidebar,
-  SidebarContent,
-  SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
   SidebarGroupLabel,
-  SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar";
-
-interface AppSidebarProps extends ComponentProps<typeof Sidebar> {
-  onStartTutorial?: () => void;
-}
+import { useStudioTutorialContext } from "./studio-tutorial-provider";
 
 const navItems = [
   {
@@ -31,35 +27,18 @@ const navItems = [
   },
 ];
 
-export function AppSidebar({ onStartTutorial, ...props }: AppSidebarProps) {
+export function StudioSidebarSlots() {
   const pathname = usePathname();
   const { state } = useSidebar();
+  const { startTutorial } = useStudioTutorialContext();
 
   const isActive = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
 
   return (
-    <Sidebar collapsible="icon" {...props}>
-      <SidebarHeader>
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton asChild size="lg">
-              <Link href="/studio/interviews">
-                <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/80 text-primary-foreground">
-                  <BotIcon className="size-4" />
-                </div>
-                <div className="grid flex-1 text-left text-sm leading-tight">
-                  <span className="truncate font-semibold">Studio</span>
-                  <span className="truncate text-muted-foreground text-xs">管理后台</span>
-                </div>
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        </SidebarMenu>
-      </SidebarHeader>
-
-      <SidebarContent>
+    <>
+      <SidebarBodyPortalContent>
         <SidebarGroup>
-          <SidebarGroupLabel>导航</SidebarGroupLabel>
+          <SidebarGroupLabel>AI 面试</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {navItems.map((item) => {
@@ -79,15 +58,15 @@ export function AppSidebar({ onStartTutorial, ...props }: AppSidebarProps) {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
-      </SidebarContent>
+      </SidebarBodyPortalContent>
 
-      <SidebarFooter className="p-0">
+      <SidebarFooterPortalContent>
         <SidebarUserSection
           callbackURL="/studio"
           collapsed={state === "collapsed"}
-          onStartTutorial={onStartTutorial}
+          onStartTutorial={startTutorial}
         />
-      </SidebarFooter>
-    </Sidebar>
+      </SidebarFooterPortalContent>
+    </>
   );
 }

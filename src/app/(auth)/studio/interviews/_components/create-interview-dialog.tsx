@@ -14,6 +14,7 @@ import {
   STUDIO_TUTORIAL_MOCK_QUESTIONS,
 } from "@/app/(auth)/studio/_hooks/studio-tutorial-mock";
 import {
+  refreshStudioTutorialHighlight,
   STUDIO_DIALOG_FIRST_STEP,
   STUDIO_DIALOG_LAST_STEP,
   STUDIO_QUESTIONS_TAB_STEP,
@@ -158,6 +159,7 @@ export function CreateInterviewDialog({
 
   useEffect(() => {
     if (isTutorialDialog) {
+      const wasOpen = open;
       setOpen(true);
 
       // Mock form values once when dialog opens for tutorial
@@ -176,6 +178,17 @@ export function CreateInterviewDialog({
       } else {
         setActiveTab("basic");
       }
+
+      // Dialog entrance animation ends before driver.js re-samples the
+      // highlighted element; refresh once after it settles so step 6's
+      // popover lines up with the basic-info FieldGroup.
+      if (!wasOpen) {
+        const id = window.setTimeout(() => {
+          refreshStudioTutorialHighlight();
+        }, 320);
+
+        return () => window.clearTimeout(id);
+      }
     } else if (tutorialStep === null && tutorialMockedRef.current) {
       // Tutorial ended — close dialog and reset mock
       tutorialMockedRef.current = false;
@@ -183,7 +196,7 @@ export function CreateInterviewDialog({
       setActiveTab("basic");
       form.reset(createInterviewFormValues());
     }
-  }, [tutorialStep, isTutorialDialog, form]);
+  }, [tutorialStep, isTutorialDialog, form, open]);
 
   // Tutorial: mock questions for the questions tab
   let displayQuestions: InterviewQuestion[];
