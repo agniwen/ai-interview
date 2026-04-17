@@ -73,6 +73,7 @@ import {
 } from '@/components/ai-elements/sources';
 import { Suggestion, Suggestions } from '@/components/ai-elements/suggestion';
 import { AssistantMessageGroups } from '@/components/assistant-message-groups';
+import { ResumeImportButton } from '@/components/resume-import-button';
 import { ThinkingBlock } from '@/components/thinking-block';
 import {
   TIME_DISPLAY_OPTIONS,
@@ -518,6 +519,7 @@ export default function ChatPageClient({
   const [uploadErrorMessage, setUploadErrorMessage] = useState<string | null>(
     null,
   );
+  const [resumeImports, setResumeImports] = useState<Record<string, string>>({});
   const userName = session?.user?.name ?? '用户';
   const userEmail = session?.user?.email ?? '';
   const userInitials = getInitials(session?.user?.name, session?.user?.email);
@@ -645,6 +647,7 @@ export default function ChatPageClient({
     id,
     nextMessages,
     nextJobDescription,
+    nextResumeImports,
     createdAt,
     forcedTitle,
     forcedIsTitleGenerating,
@@ -652,6 +655,7 @@ export default function ChatPageClient({
     id: string
     nextMessages: UIMessage[]
     nextJobDescription: string
+    nextResumeImports: Record<string, string>
     createdAt?: number
     forcedTitle?: string
     forcedIsTitleGenerating?: boolean
@@ -684,6 +688,7 @@ export default function ChatPageClient({
       isTitleGenerating,
       messages: nextMessages,
       jobDescription: nextJobDescription.trim(),
+      resumeImports: nextResumeImports,
     });
   }, []);
 
@@ -726,6 +731,7 @@ export default function ChatPageClient({
       id,
       nextMessages: messages,
       nextJobDescription: jobDescription,
+      nextResumeImports: resumeImports,
       createdAt: now,
       forcedTitle: withGeneratingTitle ? GENERATING_CHAT_TITLE : undefined,
       forcedIsTitleGenerating: withGeneratingTitle,
@@ -835,6 +841,7 @@ export default function ChatPageClient({
       setHistoryErrorMessage(null);
       setJobDescription(conversation.jobDescription);
       setJobDescriptionDraft(conversation.jobDescription);
+      setResumeImports(conversation.resumeImports ?? {});
       setUploadErrorMessage(null);
       setIsJobDescriptionDialogOpen(false);
       return true;
@@ -849,6 +856,7 @@ export default function ChatPageClient({
     setInput('');
     setJobDescription('');
     setJobDescriptionDraft('');
+    setResumeImports({});
     setUploadErrorMessage(null);
     setHistoryErrorMessage(null);
     setIsJobDescriptionDialogOpen(false);
@@ -927,6 +935,7 @@ export default function ChatPageClient({
         id: activeConversationId,
         nextMessages: messages,
         nextJobDescription: jobDescription,
+        nextResumeImports: resumeImports,
       }).catch(() => {
         setHistoryErrorMessage('聊天已继续，但本地记录更新失败。');
       });
@@ -939,6 +948,7 @@ export default function ChatPageClient({
     jobDescription,
     messages,
     persistConversation,
+    resumeImports,
   ]);
 
   const openJobDescriptionDialog = () => {
@@ -959,6 +969,20 @@ export default function ChatPageClient({
   const regenerateLastReply = () => {
     regenerate();
   };
+
+  const handleResumeImported = useCallback((partId: string, interviewId: string) => {
+    setResumeImports(prev => ({ ...prev, [partId]: interviewId }));
+  }, []);
+
+  const handleResumeImportMissing = useCallback((partId: string) => {
+    setResumeImports((prev) => {
+      if (!(partId in prev)) {
+        return prev;
+      }
+      const { [partId]: _removed, ...rest } = prev;
+      return rest;
+    });
+  }, []);
 
   const handleCopy = async (messageId: string, content: string) => {
     try {
@@ -1172,19 +1196,32 @@ export default function ChatPageClient({
                               {fileParts.length > 0
                                 ? (
                                     <Attachments
-                                      className='mb-2'
-                                      variant={message.role === 'user' ? 'inline' : 'grid'}
+                                      className='mb-2 min-w-[260px]'
+                                      variant='list'
                                     >
-                                      {fileParts.map(part => (
-                                        <Attachment data={part} key={part.id}>
-                                          <AttachmentPreview />
-                                          {message.role === 'user'
-                                            ? (
-                                                <AttachmentInfo />
-                                              )
-                                            : null}
-                                        </Attachment>
-                                      ))}
+                                      {fileParts.map((part) => {
+                                        const isPdf = part.mediaType === 'application/pdf'
+                                          || part.filename?.toLowerCase().endsWith('.pdf');
+                                        const showImportButton = message.role === 'user' && isPdf;
+                                        const importedId = resumeImports[part.id] ?? null;
+
+                                        return (
+                                          <Attachment data={part} key={part.id}>
+                                            <AttachmentPreview />
+                                            <AttachmentInfo showMediaType />
+                                            {showImportButton
+                                              ? (
+                                                  <ResumeImportButton
+                                                    filePart={part}
+                                                    importedInterviewId={importedId}
+                                                    onImported={handleResumeImported}
+                                                    onMissing={handleResumeImportMissing}
+                                                  />
+                                                )
+                                              : null}
+                                          </Attachment>
+                                        );
+                                      })}
                                     </Attachments>
                                   )
                                 : null}

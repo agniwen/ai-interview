@@ -10,6 +10,8 @@ export interface StoredConversation {
   updatedAt: number
   jobDescription: string
   messages: UIMessage[]
+  /** Maps file part id (e.g. `${message.id}-file-${index}`) to imported studio interview record id. */
+  resumeImports?: Record<string, string>
 }
 
 class ChatHistoryDB extends Dexie {
