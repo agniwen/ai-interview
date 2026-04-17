@@ -125,8 +125,8 @@ export function InterviewQuestionsFields({
         className='w-full'
         disabled={disabled}
         onClick={addQuestion}
-        // size='sm'
-        // type='button'
+        size='sm'
+        type='button'
         variant='outline'
       >
         添加题目
