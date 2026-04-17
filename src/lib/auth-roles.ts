@@ -1,26 +1,16 @@
-export type RoleValue = string | string[] | null | undefined;
+/**
+ * Access gating is driven by the user's Feishu organization (tenant_key).
+ * Only users whose `organizationId` matches `ADMIN_ORGANIZATION_ID` are
+ * allowed into the Studio / admin API routes.
+ *
+ * Configure via the `ADMIN_ORGANIZATION_ID` env var — see `.env.example`.
+ */
 
-export function getRoleList(value: RoleValue) {
-  if (Array.isArray(value)) {
-    return value
-      .map(role => role.trim())
-      .filter(Boolean);
+export const ADMIN_ORGANIZATION_ID = process.env.ADMIN_ORGANIZATION_ID ?? '';
+
+export function canAccessAdmin(user: { organizationId?: string | null } | null | undefined) {
+  if (!ADMIN_ORGANIZATION_ID) {
+    return false;
   }
-
-  if (typeof value !== 'string') {
-    return [];
-  }
-
-  return value
-    .split(',')
-    .map(role => role.trim())
-    .filter(Boolean);
-}
-
-export function hasRole(value: RoleValue, role: string) {
-  return getRoleList(value).includes(role);
-}
-
-export function isAdminRole(value: RoleValue) {
-  return hasRole(value, 'admin');
+  return user?.organizationId === ADMIN_ORGANIZATION_ID;
 }

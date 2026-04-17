@@ -1,7 +1,6 @@
 'use client';
 
 import type { ComponentProps } from 'react';
-import type { RoleValue } from '@/lib/auth-roles';
 import {
   ArrowLeftIcon,
   BotIcon,
@@ -34,14 +33,13 @@ import {
   SidebarMenuItem,
 } from '@/components/ui/sidebar';
 import { authClient } from '@/lib/auth-client';
-import { getRoleList } from '@/lib/auth-roles';
 
 interface AppSidebarProps extends ComponentProps<typeof Sidebar> {
   user: {
     name?: string | null
     email?: string | null
     image?: string | null
-    role?: RoleValue
+    organizationName?: string | null
   } | null
   onStartTutorial?: () => void
 }
@@ -67,7 +65,6 @@ function getInitials(name?: string | null, email?: string | null) {
 export function AppSidebar({ user, onStartTutorial, ...props }: AppSidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const roles = getRoleList(user?.role);
 
   const isActive = (href: string) => {
     return pathname === href || pathname.startsWith(`${href}/`);
@@ -159,15 +156,17 @@ export function AppSidebar({ user, onStartTutorial, ...props }: AppSidebarProps)
                     </div>
                   </div>
                 </DropdownMenuLabel>
-                {roles.length > 0 && (
-                  <>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuLabel className='text-muted-foreground text-xs'>
-                      角色：
-                      {roles.join(', ')}
-                    </DropdownMenuLabel>
-                  </>
-                )}
+                {user?.organizationName
+                  ? (
+                      <>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuLabel className='text-muted-foreground text-xs'>
+                          组织：
+                          {user.organizationName}
+                        </DropdownMenuLabel>
+                      </>
+                    )
+                  : null}
                 <DropdownMenuSeparator />
                 <DropdownMenuGroup>
                   {onStartTutorial

@@ -86,7 +86,7 @@ export function ThinkingBlock({
 
   const expandedContent = hasContent
     ? (
-        <div className='rounded-md border border-border bg-muted/40 px-3 py-2'>
+        <div className=' border-t border-b border-border bg-muted/40 px-3 py-2'>
           <p className='whitespace-pre-wrap break-words text-xs text-muted-foreground'>
             {text}
           </p>

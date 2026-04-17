@@ -1,6 +1,5 @@
 'use client';
 
-import { useState } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -8,9 +7,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { AuthSignInForm } from './auth-sign-in-form';
-import { AuthSignUpForm } from './auth-sign-up-form';
+import { FeishuSignInButton } from './feishu-sign-in-button';
 
 interface SignInRequiredDialogProps {
   callbackURL: string
@@ -25,8 +22,6 @@ export function SignInRequiredDialog({
   onOpenChange,
   title = '先登录后继续',
 }: SignInRequiredDialogProps) {
-  const [activeTab, setActiveTab] = useState('sign-in');
-
   return (
     <Dialog onOpenChange={onOpenChange} open={open}>
       <DialogContent className='max-w-md rounded-3xl border-border/70 bg-card/95 p-7 shadow-[0_30px_90px_-42px_rgba(30,72,132,0.55)] backdrop-blur-xl'>
@@ -35,24 +30,11 @@ export function SignInRequiredDialog({
             {title}
           </DialogTitle>
           <DialogDescription className='font-serif text-sm leading-relaxed text-muted-foreground'>
-            为了保存你的会话、同步简历分析记录和面试结果，请先登录或注册账号。
+            为了保存你的会话、同步简历分析记录和面试结果，请先使用飞书账号登录。
           </DialogDescription>
         </DialogHeader>
 
-        <Tabs onValueChange={setActiveTab} value={activeTab}>
-          <TabsList className='grid w-full grid-cols-2'>
-            <TabsTrigger value='sign-in'>登录</TabsTrigger>
-            <TabsTrigger value='sign-up'>注册</TabsTrigger>
-          </TabsList>
-
-          <TabsContent className='mt-4' value='sign-in'>
-            <AuthSignInForm callbackURL={callbackURL} />
-          </TabsContent>
-
-          <TabsContent className='mt-4' value='sign-up'>
-            <AuthSignUpForm callbackURL={callbackURL} />
-          </TabsContent>
-        </Tabs>
+        <FeishuSignInButton callbackURL={callbackURL} />
       </DialogContent>
     </Dialog>
   );

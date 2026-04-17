@@ -114,7 +114,6 @@ import { thinkingModeAtom } from '../_atoms/thinking';
 import { tutorialStepAtom } from '../_atoms/tutorial';
 import { TUTORIAL_MOCK_ATTACHMENTS, TUTORIAL_MOCK_INPUT_TEXT } from '../constants/tutorial-mock';
 import { useChatTutorial } from './chat-tutorial';
-import { ResourceNoticeDialog } from './resource-notice-dialog';
 
 type MessagePart = UIMessage['parts'][number];
 
@@ -337,7 +336,10 @@ function UploadErrorReset({ onReset }: { onReset: () => void }) {
 function ThinkingModeSwitch() {
   const [enabled, setEnabled] = useAtom(thinkingModeAtom);
   const tutorialStep = useAtomValue(tutorialStepAtom);
-  const displayEnabled = enabled || tutorialStep === 5;
+  const isHydrated = useHydrated();
+  // Atom is persisted in localStorage; before hydration the client has no
+  // access to it, so always render the fallback (false) to match SSR output.
+  const displayEnabled = isHydrated ? (enabled || tutorialStep === 5) : false;
 
   return (
     <div className='hidden items-center gap-1.5 sm:flex' data-tour='thinking-toggle'>
@@ -491,10 +493,7 @@ export default function ChatPageClient({
 }: {
   initialSessionId: string | null
 }) {
-  const [isTutorialPending, setIsTutorialPending] = useState(true);
-  const { startTutorial } = useChatTutorial({
-    onComplete: () => setIsTutorialPending(false),
-  });
+  const { startTutorial } = useChatTutorial();
   const { data: session, isPending: isSessionPending } = authClient.useSession();
   const isHydrated = useHydrated();
   const isMobileSidebarOpen = useAtomValue(isMobileSidebarOpenAtom);
@@ -525,8 +524,8 @@ export default function ChatPageClient({
   const showSessionLoadingState = !isHydrated || isSessionPending;
 
   const handleSignIn = useCallback(() => {
-    authClient.signIn.social({
-      provider: 'google',
+    authClient.signIn.oauth2({
+      providerId: 'feishu',
       callbackURL: '/chat',
     });
   }, []);
@@ -1237,7 +1236,7 @@ export default function ChatPageClient({
                                             if (part.type === 'step-start' && isExpanded) {
                                               return (
                                                 <div
-                                                  className='my-3 border-border border-t opacity-50'
+                                                  className=' border-border border-t opacity-50'
                                                   key={`${message.id}-step-${index}`}
                                                 />
                                               );
@@ -1487,7 +1486,6 @@ export default function ChatPageClient({
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      <ResourceNoticeDialog deferred={isTutorialPending} />
     </div>
   );
 }

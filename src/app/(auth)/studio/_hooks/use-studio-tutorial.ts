@@ -2,10 +2,7 @@
 
 import { driver } from 'driver.js';
 import { atom, getDefaultStore } from 'jotai';
-import { useEffect, useRef } from 'react';
 import 'driver.js/dist/driver.css';
-
-const STORAGE_KEY = 'studio-tutorial-done';
 
 export const studioTutorialStepAtom = atom<number | null>(null);
 
@@ -83,13 +80,13 @@ const TOUR_STEPS = [
   },
 ];
 
-function createDriverInstance(options?: { doneBtnText?: string, onDestroyed?: () => void }) {
+function createDriverInstance() {
   return driver({
     showProgress: true,
     progressText: '{{current}} / {{total}}',
     nextBtnText: '下一步',
     prevBtnText: '上一步',
-    doneBtnText: options?.doneBtnText ?? '完成',
+    doneBtnText: '完成',
     popoverClass: 'chat-tour-popover',
     allowClose: true,
     overlayClickBehavior: () => {},
@@ -101,39 +98,12 @@ function createDriverInstance(options?: { doneBtnText?: string, onDestroyed?: ()
     })),
     onDestroyed: () => {
       store.set(studioTutorialStepAtom, null);
-      options?.onDestroyed?.();
     },
   });
 }
 
-function hasSeenTutorial() {
-  return localStorage.getItem(STORAGE_KEY) === '1';
-}
-
+// eslint-disable-next-line react/no-unnecessary-use-prefix
 export function useStudioTutorial() {
-  const driverRef = useRef<ReturnType<typeof driver> | null>(null);
-
-  useEffect(() => {
-    if (hasSeenTutorial())
-      return;
-
-    const timer = window.setTimeout(() => {
-      const d = createDriverInstance({
-        doneBtnText: '开始使用',
-        onDestroyed: () => {
-          localStorage.setItem(STORAGE_KEY, '1');
-        },
-      });
-      driverRef.current = d;
-      d.drive();
-    }, 600);
-
-    return () => {
-      window.clearTimeout(timer);
-      driverRef.current?.destroy();
-    };
-  }, []);
-
   return {
     startTutorial: () => {
       const d = createDriverInstance();

@@ -9,7 +9,7 @@ import { StudioThemeScope } from '@/app/(auth)/studio/_components/studio-theme-s
 import { StudioTutorialProvider } from '@/app/(auth)/studio/_components/studio-tutorial-provider';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import { auth } from '@/lib/auth';
-import { isAdminRole } from '@/lib/auth-roles';
+import { canAccessAdmin } from '@/lib/auth-roles';
 
 export const metadata: Metadata = {
   title: {
@@ -33,7 +33,7 @@ export default async function StudioLayout({
     redirect('/login');
   }
 
-  if (!isAdminRole(session.user.role)) {
+  if (!canAccessAdmin(session.user)) {
     redirect('/studio-unauthorized');
   }
 

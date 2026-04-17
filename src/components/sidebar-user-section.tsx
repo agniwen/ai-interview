@@ -11,7 +11,7 @@ import {
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback } from 'react';
-import { GoogleSignInButton } from '@/components/auth/google-sign-in-button';
+import { FeishuSignInButton } from '@/components/auth/feishu-sign-in-button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import {
@@ -64,6 +64,7 @@ export function SidebarUserSection({
   const showLoading = !isHydrated || isPending;
   const userName = session?.user?.name ?? '用户';
   const userEmail = session?.user?.email ?? '';
+  const organizationName = session?.user?.organizationName ?? null;
   const userInitials = getInitials(session?.user?.name, session?.user?.email);
 
   let content: ReactNode;
@@ -95,6 +96,9 @@ export function SidebarUserSection({
               <DropdownMenuLabel className='space-y-0.5'>
                 <p className='truncate font-medium text-sm'>{userName}</p>
                 <p className='truncate text-muted-foreground text-xs'>{userEmail}</p>
+                {organizationName
+                  ? <p className='truncate text-muted-foreground text-xs'>{organizationName}</p>
+                  : null}
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
               {onStartTutorial
@@ -132,7 +136,9 @@ export function SidebarUserSection({
                 </Avatar>
                 <div className='min-w-0 flex-1 text-left'>
                   <p className='truncate font-medium text-sm'>{userName}</p>
-                  <p className='truncate text-muted-foreground text-xs'>{userEmail}</p>
+                  <p className='truncate text-muted-foreground text-xs'>
+                    {organizationName ?? userEmail}
+                  </p>
                 </div>
                 <ChevronsUpDownIcon className='size-4 text-muted-foreground' />
               </Button>
@@ -141,6 +147,9 @@ export function SidebarUserSection({
               <DropdownMenuLabel className='space-y-0.5'>
                 <p className='truncate font-medium text-sm'>{userName}</p>
                 <p className='truncate text-muted-foreground text-xs'>{userEmail}</p>
+                {organizationName
+                  ? <p className='truncate text-muted-foreground text-xs'>{organizationName}</p>
+                  : null}
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
               {onStartTutorial
@@ -170,21 +179,18 @@ export function SidebarUserSection({
       ? (
           <Button
             aria-label='登录'
+            asChild
             className='w-full'
-            onClick={() => {
-              authClient.signIn.social({
-                provider: 'google',
-                callbackURL,
-              });
-            }}
             size='icon'
             type='button'
             variant='ghost'
           >
-            <UserIcon className='size-4' />
+            <Link href={`/login?callbackURL=${encodeURIComponent(callbackURL)}`}>
+              <UserIcon className='size-4' />
+            </Link>
           </Button>
         )
-      : <GoogleSignInButton callbackURL={callbackURL} />;
+      : <FeishuSignInButton callbackURL={callbackURL} />;
   }
 
   return (

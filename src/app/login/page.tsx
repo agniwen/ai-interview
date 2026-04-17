@@ -3,12 +3,10 @@ import { headers } from 'next/headers';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { connection } from 'next/server';
-import { AuthSignInForm } from '@/components/auth/auth-sign-in-form';
-import { AuthSignUpForm } from '@/components/auth/auth-sign-up-form';
+import { FeishuSignInButton } from '@/components/auth/feishu-sign-in-button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { auth } from '@/lib/auth';
-import { isAdminRole } from '@/lib/auth-roles';
+import { canAccessAdmin } from '@/lib/auth-roles';
 
 export const metadata: Metadata = {
   title: '登录',
@@ -28,22 +26,11 @@ export default async function LoginPage() {
             <CardHeader>
               <CardTitle>登录</CardTitle>
               <CardDescription>
-                登录后即可使用完整功能。
+                使用飞书账号登录，登录后即可使用完整功能。
               </CardDescription>
             </CardHeader>
-            <CardContent className='space-y-4'>
-              <Tabs defaultValue='sign-in'>
-                <TabsList className='w-full'>
-                  <TabsTrigger className='flex-1' value='sign-in'>登录</TabsTrigger>
-                  <TabsTrigger className='flex-1' value='sign-up'>注册</TabsTrigger>
-                </TabsList>
-                <TabsContent className='mt-4' value='sign-in'>
-                  <AuthSignInForm callbackURL='/login' />
-                </TabsContent>
-                <TabsContent className='mt-4' value='sign-up'>
-                  <AuthSignUpForm callbackURL='/login' />
-                </TabsContent>
-              </Tabs>
+            <CardContent>
+              <FeishuSignInButton callbackURL='/login' />
             </CardContent>
           </Card>
 
@@ -57,7 +44,7 @@ export default async function LoginPage() {
     );
   }
 
-  if (isAdminRole(session.user.role)) {
+  if (canAccessAdmin(session.user)) {
     redirect('/studio');
   }
 
