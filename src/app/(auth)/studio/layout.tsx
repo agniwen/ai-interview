@@ -48,7 +48,7 @@ export default async function StudioLayout({
         }
       >
         <StudioThemeScope />
-        <AppSidebarWithTutorial user={session.user} variant='inset' />
+        <AppSidebarWithTutorial variant='inset' />
         <SidebarInset className='studio-surface bg-background'>
           <SiteHeader />
           <div className='flex flex-1 flex-col '>
