@@ -1,3 +1,5 @@
+/* oxlint-disable class-methods-use-this -- Adapter methods implement an interface; some don't need `this`. */
+
 /**
  * Feishu (Lark) adapter for chat-sdk.
  *
@@ -20,34 +22,35 @@ import type {
   RawMessage,
   ThreadInfo,
   WebhookOptions,
-} from 'chat';
-import type {
-  FeishuAdapterConfig,
-  FeishuEventCallback,
-  FeishuThreadId,
-} from './types';
-import crypto from 'node:crypto';
+} from "chat";
+import type { FeishuAdapterConfig, FeishuEventCallback, FeishuThreadId } from "./types";
+import crypto from "node:crypto";
 import {
   extractCard,
   extractFiles,
   NetworkError,
   toBuffer,
   ValidationError,
-} from '@chat-adapter/shared';
-import { AppType, Client, Domain } from '@larksuiteoapi/node-sdk';
-import {
-  ConsoleLogger,
-  convertEmojiPlaceholders,
-  defaultEmojiResolver,
-  Message,
-} from 'chat';
-import { cardToFeishuPayload } from './cards';
-import { FeishuFormatConverter } from './markdown';
+} from "@chat-adapter/shared";
+import { AppType, Client, Domain } from "@larksuiteoapi/node-sdk";
+import { ConsoleLogger, convertEmojiPlaceholders, defaultEmojiResolver, Message } from "chat";
+import { cardToFeishuPayload } from "./cards";
+import { FeishuFormatConverter } from "./markdown";
 
-const FEISHU_API_BASE = 'https://open.feishu.cn/open-apis';
+const FEISHU_API_BASE = "https://open.feishu.cn/open-apis";
+
+function normalizeFileSize(rawSize: unknown): number | undefined {
+  if (typeof rawSize === "number") {
+    return rawSize;
+  }
+  if (rawSize) {
+    return Number(rawSize) || undefined;
+  }
+  return undefined;
+}
 
 export class FeishuAdapter implements Adapter<FeishuThreadId, unknown> {
-  readonly name = 'feishu';
+  readonly name = "feishu";
   readonly userName: string;
   readonly botUserId?: string;
 
@@ -60,15 +63,13 @@ export class FeishuAdapter implements Adapter<FeishuThreadId, unknown> {
   private readonly formatConverter = new FeishuFormatConverter();
   private readonly client: Client;
 
-  constructor(
-    config: FeishuAdapterConfig & { logger: Logger, userName?: string },
-  ) {
+  constructor(config: FeishuAdapterConfig & { logger: Logger; userName?: string }) {
     this.appId = config.appId;
     this.appSecret = config.appSecret;
     this.encryptKey = config.encryptKey;
     this.verificationToken = config.verificationToken;
     this.logger = config.logger;
-    this.userName = config.userName ?? 'bot';
+    this.userName = config.userName ?? "bot";
 
     this.client = new Client({
       appId: this.appId,
@@ -83,66 +84,55 @@ export class FeishuAdapter implements Adapter<FeishuThreadId, unknown> {
 
     // Attempt to fetch bot info to get the bot's open_id
     try {
-      const response = await this.feishuFetch('/bot/v3/info', 'GET');
+      const response = await this.feishuFetch("/bot/v3/info", "GET");
       const data = (await response.json()) as {
-        bot?: { open_id?: string }
+        bot?: { open_id?: string };
       };
       if (data.bot?.open_id) {
         (this as { botUserId?: string }).botUserId = data.bot.open_id;
       }
-    }
-    catch {
-      this.logger.debug(
-        'Could not fetch bot info (bot user ID will not be available)',
-      );
+    } catch {
+      this.logger.debug("Could not fetch bot info (bot user ID will not be available)");
     }
 
-    this.logger.info('Feishu adapter initialized', {
+    this.logger.info("Feishu adapter initialized", {
       appId: this.appId,
-      botUserId: this.botUserId ?? '(not available)',
+      botUserId: this.botUserId ?? "(not available)",
     });
   }
 
   /**
    * Handle incoming Feishu webhook (event callback or URL verification challenge).
    */
-  async handleWebhook(
-    request: Request,
-    _options?: WebhookOptions,
-  ): Promise<Response> {
+  async handleWebhook(request: Request, _options?: WebhookOptions): Promise<Response> {
     let body: string;
     try {
       body = await request.text();
-    }
-    catch {
-      return new Response('Failed to read body', { status: 400 });
+    } catch {
+      return new Response("Failed to read body", { status: 400 });
     }
 
     let payload: FeishuEventCallback;
     try {
       payload = JSON.parse(body);
-    }
-    catch {
-      return new Response('Invalid JSON', { status: 400 });
+    } catch {
+      return new Response("Invalid JSON", { status: 400 });
     }
 
     // Decrypt event payload if encrypted
     if (payload.encrypt) {
       if (!this.encryptKey) {
-        this.logger.warn(
-          'Received encrypted event but no encryptKey is configured',
-        );
-        return new Response('Encryption key not configured', { status: 400 });
+        this.logger.warn("Received encrypted event but no encryptKey is configured");
+        return new Response("Encryption key not configured", { status: 400 });
       }
       try {
         const decryptedJson = this.decryptEvent(payload.encrypt);
         payload = JSON.parse(decryptedJson);
-      }
-      catch (error) {
-        this.logger.error('Failed to decrypt Feishu event', {
+      } catch (error) {
+        this.logger.error("Failed to decrypt Feishu event", {
           error: String(error),
         });
-        return new Response('Decryption failed', { status: 400 });
+        return new Response("Decryption failed", { status: 400 });
       }
     }
 
@@ -154,20 +144,19 @@ export class FeishuAdapter implements Adapter<FeishuThreadId, unknown> {
     // optional: verify when present, otherwise fall through to the token
     // check below.
     if (this.encryptKey) {
-      const timestamp = request.headers.get('x-lark-request-timestamp');
-      const nonce = request.headers.get('x-lark-request-nonce');
-      const signature = request.headers.get('x-lark-signature');
+      const timestamp = request.headers.get("x-lark-request-timestamp");
+      const nonce = request.headers.get("x-lark-request-nonce");
+      const signature = request.headers.get("x-lark-signature");
 
       if (timestamp && nonce && signature) {
         const isValid = this.verifySignature(timestamp, nonce, body, signature);
         if (!isValid) {
-          this.logger.warn('Feishu event signature verification failed');
-          return new Response('Invalid signature', { status: 401 });
+          this.logger.warn("Feishu event signature verification failed");
+          return new Response("Invalid signature", { status: 401 });
         }
-      }
-      else {
+      } else {
         this.logger.debug(
-          'Feishu event has no signature headers; relying on encryption + verification token',
+          "Feishu event has no signature headers; relying on encryption + verification token",
         );
       }
     }
@@ -176,25 +165,25 @@ export class FeishuAdapter implements Adapter<FeishuThreadId, unknown> {
     // Note: challenge is checked after signature verification for security,
     // but challenge requests may arrive before encryptKey is configured.
     if (payload.challenge) {
-      this.logger.info('Feishu URL verification challenge received');
+      this.logger.info("Feishu URL verification challenge received");
       return Response.json({ challenge: payload.challenge });
     }
 
     // Verify token if configured (v1 and v2 events include a token)
     const eventToken = payload.header?.token ?? payload.token;
     if (this.verificationToken && eventToken !== this.verificationToken) {
-      this.logger.warn('Feishu verification token mismatch');
-      return new Response('Invalid token', { status: 401 });
+      this.logger.warn("Feishu verification token mismatch");
+      return new Response("Invalid token", { status: 401 });
     }
 
     // Handle v2 events (schema "2.0")
     const eventType = payload.header?.event_type ?? payload.type;
-    this.logger.info('Feishu webhook received', {
+    this.logger.info("Feishu webhook received", {
       eventType,
       schema: payload.schema,
     });
 
-    if (eventType === 'im.message.receive_v1' && payload.event) {
+    if (eventType === "im.message.receive_v1" && payload.event) {
       await this.handleMessageEvent(payload);
     }
 
@@ -204,20 +193,18 @@ export class FeishuAdapter implements Adapter<FeishuThreadId, unknown> {
   /**
    * Handle an incoming message event.
    */
-  private async handleMessageEvent(
-    payload: FeishuEventCallback,
-  ): Promise<void> {
+  private async handleMessageEvent(payload: FeishuEventCallback): Promise<void> {
     if (!(this.chat && payload.event)) {
       return;
     }
 
-    const event = payload.event;
+    const { event } = payload;
     const msg = event.message;
-    const sender = event.sender;
+    const { sender } = event;
 
     // Skip messages from bots
-    if (sender.sender_type === 'app') {
-      this.logger.debug('Ignoring message from app/bot', {
+    if (sender.sender_type === "app") {
+      this.logger.debug("Ignoring message from app/bot", {
         senderId: sender.sender_id.open_id,
       });
       return;
@@ -232,14 +219,16 @@ export class FeishuAdapter implements Adapter<FeishuThreadId, unknown> {
     // For group messages, use root_id when present (so replies in the same
     // thread share a threadId) or fall back to the message id itself as
     // the thread root.
-    const isP2P = msg.chat_type === 'p2p';
-    const rootMessageId = isP2P
-      ? 'dm'
-      : (msg.root_id ?? msg.message_id);
+    const isP2P = msg.chat_type === "p2p";
+    const rootMessageId = isP2P ? "dm" : (msg.root_id ?? msg.message_id);
 
     // Capture Feishu topic thread_id (omt_xxx) for fetching thread messages later
     const feishuThreadId = isP2P ? undefined : msg.thread_id;
-    const threadId = this.encodeThreadId({ chatId, messageId: rootMessageId, threadId: feishuThreadId });
+    const threadId = this.encodeThreadId({
+      chatId,
+      messageId: rootMessageId,
+      threadId: feishuThreadId,
+    });
 
     // Parse content
     const textContent = this.extractTextFromContent(msg.message_type, msg.content);
@@ -251,8 +240,7 @@ export class FeishuAdapter implements Adapter<FeishuThreadId, unknown> {
     );
 
     // Check if bot is mentioned
-    const isMentioned
-      = msg.mentions?.some(m => m.id.open_id === this.botUserId) ?? false;
+    const isMentioned = msg.mentions?.some((m) => m.id.open_id === this.botUserId) ?? false;
 
     // Strip mention tags from text for clean display
     let cleanText = textContent;
@@ -263,31 +251,30 @@ export class FeishuAdapter implements Adapter<FeishuThreadId, unknown> {
     }
 
     const chatMessage = new Message({
-      id: msg.message_id,
-      threadId,
-      text: cleanText,
-      formatted: this.formatConverter.toAst(cleanText),
+      attachments,
       author: {
-        userId: sender.sender_id.open_id,
-        userName: sender.sender_id.open_id,
         fullName: sender.sender_id.open_id,
         isBot: false,
         isMe: sender.sender_id.open_id === this.botUserId,
+        userId: sender.sender_id.open_id,
+        userName: sender.sender_id.open_id,
       },
+      formatted: this.formatConverter.toAst(cleanText),
+      id: msg.message_id,
+      isMention: isMentioned,
       metadata: {
         dateSent: new Date(Number(msg.create_time)),
         edited: false,
       },
-      attachments,
       raw: payload,
-      isMention: isMentioned,
+      text: cleanText,
+      threadId,
     });
 
     try {
       await this.chat.handleIncomingMessage(this, threadId, chatMessage);
-    }
-    catch (error) {
-      this.logger.error('Error handling Feishu message', {
+    } catch (error) {
+      this.logger.error("Error handling Feishu message", {
         error: String(error),
         messageId: msg.message_id,
       });
@@ -312,42 +299,32 @@ export class FeishuAdapter implements Adapter<FeishuThreadId, unknown> {
       return this.postMessageWithFiles(threadId, chatId, rootMessageId, files);
     }
 
-    this.logger.debug('Feishu API: POST message', {
+    this.logger.debug("Feishu API: POST message", {
       chatId,
-      rootMessageId,
       msgType,
+      rootMessageId,
     });
 
     try {
-      const response = await this.sendToChat(
-        chatId,
-        rootMessageId,
-        content,
-        msgType,
-      );
+      const response = await this.sendToChat(chatId, rootMessageId, content, msgType);
 
-      const messageId
-        = (response as { data?: { message_id?: string } }).data?.message_id
-          ?? 'unknown';
+      const messageId =
+        (response as { data?: { message_id?: string } }).data?.message_id ?? "unknown";
 
-      this.logger.debug('Feishu API: POST message response', {
+      this.logger.debug("Feishu API: POST message response", {
         messageId,
       });
 
       return {
         id: messageId,
-        threadId,
         raw: response,
+        threadId,
       };
-    }
-    catch (error) {
-      this.logger.error('Feishu API: POST message error', {
+    } catch (error) {
+      this.logger.error("Feishu API: POST message error", {
         error: String(error),
       });
-      throw new NetworkError(
-        'feishu',
-        `Failed to post message: ${String(error)}`,
-      );
+      throw new NetworkError("feishu", `Failed to post message: ${String(error)}`);
     }
   }
 
@@ -355,8 +332,8 @@ export class FeishuAdapter implements Adapter<FeishuThreadId, unknown> {
    * Build message payload from an AdapterPostableMessage.
    */
   private buildMessagePayload(message: AdapterPostableMessage): {
-    content: string
-    msgType: string
+    content: string;
+    msgType: string;
   } {
     // Check for card
     const card = extractCard(message);
@@ -364,19 +341,16 @@ export class FeishuAdapter implements Adapter<FeishuThreadId, unknown> {
       const cardPayload = cardToFeishuPayload(card);
       return {
         content: JSON.stringify(cardPayload),
-        msgType: 'interactive',
+        msgType: "interactive",
       };
     }
 
     // Regular text message
-    const text = convertEmojiPlaceholders(
-      this.formatConverter.renderPostable(message),
-      'gchat',
-    );
+    const text = convertEmojiPlaceholders(this.formatConverter.renderPostable(message), "gchat");
 
     return {
       content: JSON.stringify({ text }),
-      msgType: 'text',
+      msgType: "text",
     };
   }
 
@@ -384,29 +358,29 @@ export class FeishuAdapter implements Adapter<FeishuThreadId, unknown> {
    * Send a message to a chat — uses `create` for DM threads (messageId === "dm")
    * and `reply` for regular threads.
    */
-  private async sendToChat(
+  private sendToChat(
     chatId: string,
     rootMessageId: string,
     content: string,
     msgType: string,
   ): Promise<unknown> {
-    if (rootMessageId === 'dm') {
+    if (rootMessageId === "dm") {
       return this.client.im.message.create({
-        params: { receive_id_type: 'chat_id' },
         data: {
-          receive_id: chatId,
           content,
           msg_type: msgType,
+          receive_id: chatId,
         },
+        params: { receive_id_type: "chat_id" },
       });
     }
 
     return this.client.im.message.reply({
-      path: { message_id: rootMessageId },
       data: {
         content,
         msg_type: msgType,
       },
+      path: { message_id: rootMessageId },
     });
   }
 
@@ -418,15 +392,15 @@ export class FeishuAdapter implements Adapter<FeishuThreadId, unknown> {
     threadId: string,
     chatId: string,
     rootMessageId: string,
-    files: Array<{
-      filename: string
-      data: Buffer | Blob | ArrayBuffer
-      mimeType?: string
-    }>,
+    files: {
+      filename: string;
+      data: Buffer | Blob | ArrayBuffer;
+      mimeType?: string;
+    }[],
   ): Promise<RawMessage<unknown>> {
-    const file = files[0];
+    const [file] = files;
     if (!file) {
-      throw new NetworkError('feishu', 'No files to upload');
+      throw new NetworkError("feishu", "No files to upload");
     }
 
     // Warn if multiple files were provided since Feishu only supports one attachment per message
@@ -434,19 +408,19 @@ export class FeishuAdapter implements Adapter<FeishuThreadId, unknown> {
       this.logger.warn(
         `Feishu only supports one attachment per message. Sending first file only, ${files.length - 1} file(s) dropped: ${files
           .slice(1)
-          .map(f => f.filename)
-          .join(', ')}`,
+          .map((f) => f.filename)
+          .join(", ")}`,
       );
     }
 
     const buffer = await toBuffer(file.data, {
-      platform: 'feishu' as 'slack',
+      platform: "feishu" as "slack",
     });
     if (!buffer) {
-      throw new NetworkError('feishu', 'Failed to convert file to buffer');
+      throw new NetworkError("feishu", "Failed to convert file to buffer");
     }
 
-    const isImage = file.mimeType?.startsWith('image/') ?? false;
+    const isImage = file.mimeType?.startsWith("image/") ?? false;
 
     try {
       // Upload the file/image first
@@ -454,43 +428,33 @@ export class FeishuAdapter implements Adapter<FeishuThreadId, unknown> {
       if (isImage) {
         const uploadResponse = await this.client.im.image.create({
           data: {
-            image_type: 'message',
             image: Buffer.from(buffer),
+            image_type: "message",
           },
         });
         imageKey = (uploadResponse as { data?: { image_key?: string } }).data?.image_key;
       }
 
       // Send message with the uploaded content
-      const content
-        = isImage && imageKey
+      const content =
+        isImage && imageKey
           ? JSON.stringify({ image_key: imageKey })
           : JSON.stringify({ text: `[File: ${file.filename}]` });
 
-      const msgType = isImage && imageKey ? 'image' : 'text';
+      const msgType = isImage && imageKey ? "image" : "text";
 
-      const response = await this.sendToChat(
-        chatId,
-        rootMessageId,
-        content,
-        msgType,
-      );
+      const response = await this.sendToChat(chatId, rootMessageId, content, msgType);
 
-      const messageId
-        = (response as { data?: { message_id?: string } }).data?.message_id
-          ?? 'unknown';
+      const messageId =
+        (response as { data?: { message_id?: string } }).data?.message_id ?? "unknown";
 
       return {
         id: messageId,
-        threadId,
         raw: response,
+        threadId,
       };
-    }
-    catch (error) {
-      throw new NetworkError(
-        'feishu',
-        `Failed to upload file: ${String(error)}`,
-      );
+    } catch (error) {
+      throw new NetworkError("feishu", `Failed to upload file: ${String(error)}`);
     }
   }
 
@@ -504,32 +468,28 @@ export class FeishuAdapter implements Adapter<FeishuThreadId, unknown> {
   ): Promise<RawMessage<unknown>> {
     const { content, msgType } = this.buildMessagePayload(message);
 
-    this.logger.debug('Feishu API: PATCH message', {
+    this.logger.debug("Feishu API: PATCH message", {
       messageId,
       msgType,
     });
 
     try {
       const response = await this.client.im.message.patch({
-        path: { message_id: messageId },
         data: { content },
+        path: { message_id: messageId },
       });
 
-      this.logger.debug('Feishu API: PATCH message response', {
+      this.logger.debug("Feishu API: PATCH message response", {
         messageId,
       });
 
       return {
         id: messageId,
-        threadId,
         raw: response,
+        threadId,
       };
-    }
-    catch (error) {
-      throw new NetworkError(
-        'feishu',
-        `Failed to edit message: ${String(error)}`,
-      );
+    } catch (error) {
+      throw new NetworkError("feishu", `Failed to edit message: ${String(error)}`);
     }
   }
 
@@ -537,19 +497,15 @@ export class FeishuAdapter implements Adapter<FeishuThreadId, unknown> {
    * Delete a Feishu message.
    */
   async deleteMessage(_threadId: string, messageId: string): Promise<void> {
-    this.logger.debug('Feishu API: DELETE message', { messageId });
+    this.logger.debug("Feishu API: DELETE message", { messageId });
 
     try {
       await this.client.im.message.delete({
         path: { message_id: messageId },
       });
-      this.logger.debug('Feishu API: DELETE message response', { ok: true });
-    }
-    catch (error) {
-      throw new NetworkError(
-        'feishu',
-        `Failed to delete message: ${String(error)}`,
-      );
+      this.logger.debug("Feishu API: DELETE message response", { ok: true });
+    } catch (error) {
+      throw new NetworkError("feishu", `Failed to delete message: ${String(error)}`);
     }
   }
 
@@ -563,28 +519,24 @@ export class FeishuAdapter implements Adapter<FeishuThreadId, unknown> {
   ): Promise<void> {
     const emojiType = this.resolveEmojiType(emoji);
 
-    this.logger.debug('Feishu API: POST reaction', {
-      messageId,
+    this.logger.debug("Feishu API: POST reaction", {
       emojiType,
+      messageId,
     });
 
     try {
       await this.client.im.messageReaction.create({
-        path: { message_id: messageId },
         data: {
           reaction_type: { emoji_type: emojiType },
         },
+        path: { message_id: messageId },
       });
-      this.logger.debug('Feishu API: POST reaction response', { ok: true });
-    }
-    catch (error) {
-      this.logger.error('Feishu API: POST reaction error', {
+      this.logger.debug("Feishu API: POST reaction response", { ok: true });
+    } catch (error) {
+      this.logger.error("Feishu API: POST reaction error", {
         error: String(error),
       });
-      throw new NetworkError(
-        'feishu',
-        `Failed to add reaction: ${String(error)}`,
-      );
+      throw new NetworkError("feishu", `Failed to add reaction: ${String(error)}`);
     }
   }
 
@@ -598,40 +550,38 @@ export class FeishuAdapter implements Adapter<FeishuThreadId, unknown> {
   ): Promise<void> {
     const emojiType = this.resolveEmojiType(emoji);
 
-    this.logger.debug('Feishu API: DELETE reaction', {
-      messageId,
+    this.logger.debug("Feishu API: DELETE reaction", {
       emojiType,
+      messageId,
     });
 
     try {
       // List reactions on the message to find the correct reaction_id (UUID)
       // Feishu API requires a UUID reaction_id for deletion, not the emoji type string
       const listResponse = await this.client.im.messageReaction.list({
-        path: { message_id: messageId },
         params: { reaction_type: emojiType },
+        path: { message_id: messageId },
       });
 
-      const items
-        = (
+      const items =
+        (
           listResponse as {
             data?: {
-              items?: Array<{
-                reaction_id?: string
-                reaction_type?: { emoji_type?: string }
-              }>
-            }
+              items?: {
+                reaction_id?: string;
+                reaction_type?: { emoji_type?: string };
+              }[];
+            };
           }
         ).data?.items ?? [];
 
       // Find a reaction matching the emoji type (prefer our bot's reaction)
-      const match = items.find(
-        item => item.reaction_type?.emoji_type === emojiType,
-      );
+      const match = items.find((item) => item.reaction_type?.emoji_type === emojiType);
 
       if (!match?.reaction_id) {
-        this.logger.warn('Feishu API: No matching reaction found to remove', {
-          messageId,
+        this.logger.warn("Feishu API: No matching reaction found to remove", {
           emojiType,
+          messageId,
         });
         return;
       }
@@ -642,16 +592,12 @@ export class FeishuAdapter implements Adapter<FeishuThreadId, unknown> {
           reaction_id: match.reaction_id,
         },
       });
-      this.logger.debug('Feishu API: DELETE reaction response', { ok: true });
-    }
-    catch (error) {
-      this.logger.error('Feishu API: DELETE reaction error', {
+      this.logger.debug("Feishu API: DELETE reaction response", { ok: true });
+    } catch (error) {
+      this.logger.error("Feishu API: DELETE reaction error", {
         error: String(error),
       });
-      throw new NetworkError(
-        'feishu',
-        `Failed to remove reaction: ${String(error)}`,
-      );
+      throw new NetworkError("feishu", `Failed to remove reaction: ${String(error)}`);
     }
   }
 
@@ -665,65 +611,65 @@ export class FeishuAdapter implements Adapter<FeishuThreadId, unknown> {
   /**
    * Fetch messages from a Feishu thread.
    */
-  async fetchMessages(
-    threadId: string,
-    options: FetchOptions = {},
-  ): Promise<FetchResult<unknown>> {
-    const { chatId, messageId: rootMessageId, threadId: feishuThreadId } = this.decodeThreadId(threadId);
+  async fetchMessages(threadId: string, options: FetchOptions = {}): Promise<FetchResult<unknown>> {
+    const {
+      chatId,
+      messageId: rootMessageId,
+      threadId: feishuThreadId,
+    } = this.decodeThreadId(threadId);
     const limit = options.limit ?? 50;
-    const isDM = rootMessageId === 'dm';
+    const isDM = rootMessageId === "dm";
     // For group threads: use omt_ thread ID with container_id_type 'thread' if available,
     // otherwise fall back to chat-level fetch and filter client-side by root_id
     const useThreadContainer = !isDM && !!feishuThreadId;
 
-    this.logger.debug('Feishu API: GET messages', {
+    this.logger.debug("Feishu API: GET messages", {
       chatId,
-      rootMessageId,
+      cursor: options.cursor,
       feishuThreadId,
       isDM,
-      useThreadContainer,
       limit,
-      cursor: options.cursor,
+      rootMessageId,
+      useThreadContainer,
     });
 
     try {
       let containerIdType: string;
       let containerId: string;
       if (useThreadContainer) {
-        containerIdType = 'thread';
+        containerIdType = "thread";
         containerId = feishuThreadId;
-      }
-      else {
-        containerIdType = 'chat';
+      } else {
+        containerIdType = "chat";
         containerId = chatId;
       }
 
       const response = await this.client.im.message.list({
         params: {
-          container_id_type: containerIdType,
           container_id: containerId,
-          sort_type: 'ByCreateTimeDesc',
+          container_id_type: containerIdType,
           page_size: limit,
           page_token: options.cursor,
+          sort_type: "ByCreateTimeDesc",
         },
       });
 
       const data = response as {
         data?: {
-          items?: Array<{
-            message_id: string
-            root_id?: string
-            parent_id?: string
-            create_time: string
-            update_time?: string
-            chat_id: string
-            msg_type: string
-            body?: { content?: string }
-            sender: { id: string, sender_type: string }
-          }>
-          page_token?: string
-          has_more?: boolean
-        }
+          items?: {
+            message_id: string;
+            root_id?: string;
+            parent_id?: string;
+            create_time: string;
+            update_time?: string;
+            chat_id: string;
+            msg_type: string;
+            body?: { content?: string };
+            sender: { id: string; sender_type: string };
+          }[];
+          page_token?: string;
+          has_more?: boolean;
+        };
       };
 
       let items = data.data?.items ?? [];
@@ -734,43 +680,36 @@ export class FeishuAdapter implements Adapter<FeishuThreadId, unknown> {
       // When fetching at chat level for a group thread (no omt_ thread ID),
       // filter to only messages belonging to the same root thread
       if (!isDM && !useThreadContainer && rootMessageId) {
-        items = items.filter(item =>
-          item.message_id === rootMessageId
-          || item.root_id === rootMessageId,
+        items = items.filter(
+          (item) => item.message_id === rootMessageId || item.root_id === rootMessageId,
         );
       }
 
       const messages = items.map((item) => {
-        const content = item.body?.content ?? '';
+        const content = item.body?.content ?? "";
         const text = this.extractTextFromContent(item.msg_type, content);
         // Bot sender uses app_id (cli_xxx) in API responses, not open_id (ou_xxx)
-        const isMe = item.sender.sender_type === 'app' && item.sender.id === this.appId;
+        const isMe = item.sender.sender_type === "app" && item.sender.id === this.appId;
 
         return new Message({
-          id: item.message_id,
-          threadId,
-          text,
-          formatted: this.formatConverter.toAst(text),
-          raw: item,
+          attachments: this.extractAttachmentsFromContent(item.message_id, item.msg_type, content),
           author: {
+            fullName: item.sender.id,
+            isBot: item.sender.sender_type === "app",
+            isMe,
             userId: item.sender.id,
             userName: item.sender.id,
-            fullName: item.sender.id,
-            isBot: item.sender.sender_type === 'app',
-            isMe,
           },
+          formatted: this.formatConverter.toAst(text),
+          id: item.message_id,
           metadata: {
             dateSent: new Date(Number(item.create_time)),
             edited: !!item.update_time,
-            editedAt: item.update_time
-              ? new Date(Number(item.update_time))
-              : undefined,
+            editedAt: item.update_time ? new Date(Number(item.update_time)) : undefined,
           },
-          attachments: this.extractAttachmentsFromContent(
-            item.message_id,
-            item.msg_type,
-            content,
-          ),
+          raw: item,
+          text,
+          threadId,
         });
       });
 
@@ -778,15 +717,11 @@ export class FeishuAdapter implements Adapter<FeishuThreadId, unknown> {
         messages,
         nextCursor: data.data?.has_more ? data.data.page_token : undefined,
       };
-    }
-    catch (error) {
-      this.logger.error('Feishu API: GET messages error', {
+    } catch (error) {
+      this.logger.error("Feishu API: GET messages error", {
         error: String(error),
       });
-      throw new NetworkError(
-        'feishu',
-        `Failed to fetch messages: ${String(error)}`,
-      );
+      throw new NetworkError("feishu", `Failed to fetch messages: ${String(error)}`);
     }
   }
 
@@ -796,7 +731,7 @@ export class FeishuAdapter implements Adapter<FeishuThreadId, unknown> {
   async fetchThread(threadId: string): Promise<ThreadInfo> {
     const { chatId } = this.decodeThreadId(threadId);
 
-    this.logger.debug('Feishu API: GET chat info', { chatId });
+    this.logger.debug("Feishu API: GET chat info", { chatId });
 
     try {
       const response = await this.client.im.chat.get({
@@ -805,29 +740,25 @@ export class FeishuAdapter implements Adapter<FeishuThreadId, unknown> {
 
       const data = response as {
         data?: {
-          name?: string
-          chat_mode?: string
-        }
+          name?: string;
+          chat_mode?: string;
+        };
       };
 
       return {
-        id: threadId,
         channelId: chatId,
         channelName: data.data?.name,
-        isDM: data.data?.chat_mode === 'p2p',
+        id: threadId,
+        isDM: data.data?.chat_mode === "p2p",
         metadata: {
           raw: response,
         },
       };
-    }
-    catch (error) {
-      this.logger.error('Feishu API: GET chat info error', {
+    } catch (error) {
+      this.logger.error("Feishu API: GET chat info error", {
         error: String(error),
       });
-      throw new NetworkError(
-        'feishu',
-        `Failed to fetch thread info: ${String(error)}`,
-      );
+      throw new NetworkError("feishu", `Failed to fetch thread info: ${String(error)}`);
     }
   }
 
@@ -835,34 +766,33 @@ export class FeishuAdapter implements Adapter<FeishuThreadId, unknown> {
    * Open a DM with a user.
    */
   async openDM(userId: string): Promise<string> {
-    this.logger.debug('Feishu API: POST create p2p chat', { userId });
+    this.logger.debug("Feishu API: POST create p2p chat", { userId });
 
     try {
       const response = await this.client.im.chat.create({
-        params: { user_id_type: 'open_id' },
         data: {
-          chat_mode: 'p2p',
+          chat_mode: "p2p",
           user_id_list: [userId],
         },
+        params: { user_id_type: "open_id" },
       });
 
       const chatId = (response as { data?: { chat_id?: string } }).data?.chat_id;
       if (!chatId) {
-        throw new NetworkError('feishu', 'Failed to create DM: no chat_id');
+        throw new NetworkError("feishu", "Failed to create DM: no chat_id");
       }
 
-      this.logger.debug('Feishu API: POST create p2p chat response', {
+      this.logger.debug("Feishu API: POST create p2p chat response", {
         chatId,
       });
 
       // For DM, the thread ID uses the chat_id and a placeholder message_id
       return this.encodeThreadId({
         chatId,
-        messageId: 'dm',
+        messageId: "dm",
       });
-    }
-    catch (error) {
-      throw new NetworkError('feishu', `Failed to open DM: ${String(error)}`);
+    } catch (error) {
+      throw new NetworkError("feishu", `Failed to open DM: ${String(error)}`);
     }
   }
 
@@ -871,7 +801,7 @@ export class FeishuAdapter implements Adapter<FeishuThreadId, unknown> {
    */
   isDM(threadId: string): boolean {
     const { messageId } = this.decodeThreadId(threadId);
-    return messageId === 'dm';
+    return messageId === "dm";
   }
 
   /**
@@ -880,37 +810,42 @@ export class FeishuAdapter implements Adapter<FeishuThreadId, unknown> {
    */
   private extractTextFromContent(msgType: string, content: string): string {
     try {
-      if (msgType === 'text') {
+      if (msgType === "text") {
         const parsed = JSON.parse(content) as { text?: string };
-        return parsed.text ?? '';
+        return parsed.text ?? "";
       }
-      if (msgType === 'post') {
-        const parsed = JSON.parse(content) as Record<string, {
-          title?: string
-          content?: Array<Array<{ tag: string, text?: string }>>
-        }>;
+      if (msgType === "post") {
+        const parsed = JSON.parse(content) as Record<
+          string,
+          {
+            title?: string;
+            content?: { tag: string; text?: string }[][];
+          }
+        >;
         // post content is keyed by locale (zh_cn, en_us, etc.), pick the first available
-        const locale = Object.values(parsed)[0];
-        if (!locale?.content)
-          return locale?.title ?? '';
+        const [locale] = Object.values(parsed);
+        if (!locale?.content) {
+          return locale?.title ?? "";
+        }
         const segments: string[] = [];
-        if (locale.title)
+        if (locale.title) {
           segments.push(locale.title);
+        }
         for (const line of locale.content) {
           const lineText = line
-            .filter(node => node.text)
-            .map(node => node.text)
-            .join('');
-          if (lineText)
+            .filter((node) => node.text)
+            .map((node) => node.text)
+            .join("");
+          if (lineText) {
             segments.push(lineText);
+          }
         }
-        return segments.join('\n');
+        return segments.join("\n");
       }
-    }
-    catch {
+    } catch {
       // Content parsing failure is non-fatal
     }
-    return '';
+    return "";
   }
 
   /**
@@ -927,12 +862,9 @@ export class FeishuAdapter implements Adapter<FeishuThreadId, unknown> {
    * Decode thread ID string back to platform data.
    */
   decodeThreadId(threadId: string): FeishuThreadId {
-    const parts = threadId.split(':');
-    if (parts.length < 3 || parts[0] !== 'feishu') {
-      throw new ValidationError(
-        'feishu',
-        `Invalid Feishu thread ID: ${threadId}`,
-      );
+    const parts = threadId.split(":");
+    if (parts.length < 3 || parts[0] !== "feishu") {
+      throw new ValidationError("feishu", `Invalid Feishu thread ID: ${threadId}`);
     }
 
     return {
@@ -947,8 +879,8 @@ export class FeishuAdapter implements Adapter<FeishuThreadId, unknown> {
    * feishu:{chatId}:{messageId} -> feishu:{chatId}
    */
   channelIdFromThreadId(threadId: string): string {
-    const parts = threadId.split(':');
-    return parts.slice(0, 2).join(':');
+    const parts = threadId.split(":");
+    return parts.slice(0, 2).join(":");
   }
 
   /**
@@ -956,14 +888,14 @@ export class FeishuAdapter implements Adapter<FeishuThreadId, unknown> {
    */
   parseMessage(raw: unknown): Message<unknown> {
     const msg = raw as {
-      message_id: string
-      chat_id: string
-      root_id?: string
-      content: string
-      msg_type: string
-      create_time: string
-      update_time?: string
-      sender: { id: string, sender_type: string }
+      message_id: string;
+      chat_id: string;
+      root_id?: string;
+      content: string;
+      msg_type: string;
+      create_time: string;
+      update_time?: string;
+      sender: { id: string; sender_type: string };
     };
 
     const chatId = msg.chat_id;
@@ -973,30 +905,24 @@ export class FeishuAdapter implements Adapter<FeishuThreadId, unknown> {
     const text = this.extractTextFromContent(msg.msg_type, msg.content);
 
     return new Message({
-      id: msg.message_id,
-      threadId,
-      text,
-      formatted: this.formatConverter.toAst(text),
-      raw,
+      attachments: this.extractAttachmentsFromContent(msg.message_id, msg.msg_type, msg.content),
       author: {
+        fullName: msg.sender.id,
+        isBot: msg.sender.sender_type === "app",
+        isMe: msg.sender.id === this.botUserId,
         userId: msg.sender.id,
         userName: msg.sender.id,
-        fullName: msg.sender.id,
-        isBot: msg.sender.sender_type === 'app',
-        isMe: msg.sender.id === this.botUserId,
       },
+      formatted: this.formatConverter.toAst(text),
+      id: msg.message_id,
       metadata: {
         dateSent: new Date(Number(msg.create_time)),
         edited: !!msg.update_time,
-        editedAt: msg.update_time
-          ? new Date(Number(msg.update_time))
-          : undefined,
+        editedAt: msg.update_time ? new Date(Number(msg.update_time)) : undefined,
       },
-      attachments: this.extractAttachmentsFromContent(
-        msg.message_id,
-        msg.msg_type,
-        msg.content,
-      ),
+      raw,
+      text,
+      threadId,
     });
   }
 
@@ -1020,43 +946,40 @@ export class FeishuAdapter implements Adapter<FeishuThreadId, unknown> {
     messageType: string,
     rawContent: string,
   ): Attachment[] {
-    if (messageType !== 'file' && messageType !== 'image') {
+    if (messageType !== "file" && messageType !== "image") {
       return [];
     }
 
     let parsed: {
-      file_key?: string
-      file_name?: string
-      image_key?: string
-      file_size?: number | string
+      file_key?: string;
+      file_name?: string;
+      image_key?: string;
+      file_size?: number | string;
     };
     try {
       parsed = JSON.parse(rawContent);
-    }
-    catch {
-      this.logger.debug('Failed to parse Feishu file/image content', {
+    } catch {
+      this.logger.debug("Failed to parse Feishu file/image content", {
         messageId,
         messageType,
       });
       return [];
     }
 
-    if (messageType === 'file') {
+    if (messageType === "file") {
       const fileKey = parsed.file_key;
       if (!fileKey) {
         return [];
       }
-      return [{
-        type: 'file',
-        name: parsed.file_name,
-        size: typeof parsed.file_size === 'number'
-          ? parsed.file_size
-          : parsed.file_size
-            ? Number(parsed.file_size) || undefined
-            : undefined,
-        mimeType: this.guessMimeType(parsed.file_name),
-        fetchData: () => this.downloadMessageResource(messageId, fileKey, 'file'),
-      }];
+      return [
+        {
+          fetchData: () => this.downloadMessageResource(messageId, fileKey, "file"),
+          mimeType: this.guessMimeType(parsed.file_name),
+          name: parsed.file_name,
+          size: normalizeFileSize(parsed.file_size),
+          type: "file",
+        },
+      ];
     }
 
     // image
@@ -1064,11 +987,13 @@ export class FeishuAdapter implements Adapter<FeishuThreadId, unknown> {
     if (!imageKey) {
       return [];
     }
-    return [{
-      type: 'image',
-      mimeType: 'image/png',
-      fetchData: () => this.downloadMessageResource(messageId, imageKey, 'image'),
-    }];
+    return [
+      {
+        fetchData: () => this.downloadMessageResource(messageId, imageKey, "image"),
+        mimeType: "image/png",
+        type: "image",
+      },
+    ];
   }
 
   /**
@@ -1078,18 +1003,36 @@ export class FeishuAdapter implements Adapter<FeishuThreadId, unknown> {
     if (!filename) {
       return undefined;
     }
-    const ext = filename.toLowerCase().split('.').pop();
+    const ext = filename.toLowerCase().split(".").pop();
     switch (ext) {
-      case 'pdf': return 'application/pdf';
-      case 'doc': return 'application/msword';
-      case 'docx': return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
-      case 'xls': return 'application/vnd.ms-excel';
-      case 'xlsx': return 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
-      case 'png': return 'image/png';
-      case 'jpg':
-      case 'jpeg': return 'image/jpeg';
-      case 'txt': return 'text/plain';
-      default: return undefined;
+      case "pdf": {
+        return "application/pdf";
+      }
+      case "doc": {
+        return "application/msword";
+      }
+      case "docx": {
+        return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+      }
+      case "xls": {
+        return "application/vnd.ms-excel";
+      }
+      case "xlsx": {
+        return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+      }
+      case "png": {
+        return "image/png";
+      }
+      case "jpg":
+      case "jpeg": {
+        return "image/jpeg";
+      }
+      case "txt": {
+        return "text/plain";
+      }
+      default: {
+        return undefined;
+      }
     }
   }
 
@@ -1102,10 +1045,10 @@ export class FeishuAdapter implements Adapter<FeishuThreadId, unknown> {
   private async downloadMessageResource(
     messageId: string,
     fileKey: string,
-    type: 'file' | 'image',
+    type: "file" | "image",
   ): Promise<Buffer> {
     const path = `/im/v1/messages/${encodeURIComponent(messageId)}/resources/${encodeURIComponent(fileKey)}?type=${type}`;
-    const response = await this.feishuFetch(path, 'GET');
+    const response = await this.feishuFetch(path, "GET");
     const buffer = Buffer.from(await response.arrayBuffer());
     return buffer;
   }
@@ -1122,20 +1065,20 @@ export class FeishuAdapter implements Adapter<FeishuThreadId, unknown> {
    */
   private decryptEvent(encryptedString: string): string {
     if (!this.encryptKey) {
-      throw new Error('encryptKey is required for decryption');
+      throw new Error("encryptKey is required for decryption");
     }
 
-    const hash = crypto.createHash('sha256');
+    const hash = crypto.createHash("sha256");
     hash.update(this.encryptKey);
     const key = hash.digest();
 
-    const encryptBuffer = Buffer.from(encryptedString, 'base64');
+    const encryptBuffer = Buffer.from(encryptedString, "base64");
     const iv = encryptBuffer.subarray(0, 16);
     const ciphertext = encryptBuffer.subarray(16);
 
-    const decipher = crypto.createDecipheriv('aes-256-cbc', key, iv);
-    let decrypted = decipher.update(ciphertext.toString('hex'), 'hex', 'utf8');
-    decrypted += decipher.final('utf8');
+    const decipher = crypto.createDecipheriv("aes-256-cbc", key, iv);
+    let decrypted = decipher.update(ciphertext.toString("hex"), "hex", "utf-8");
+    decrypted += decipher.final("utf-8");
     return decrypted;
   }
 
@@ -1156,18 +1099,11 @@ export class FeishuAdapter implements Adapter<FeishuThreadId, unknown> {
     }
 
     const content = timestamp + nonce + this.encryptKey + body;
-    const computedSignature = crypto
-      .createHash('sha256')
-      .update(content)
-      .digest('hex');
+    const computedSignature = crypto.createHash("sha256").update(content).digest("hex");
 
     try {
-      return crypto.timingSafeEqual(
-        Buffer.from(computedSignature),
-        Buffer.from(expectedSignature),
-      );
-    }
-    catch {
+      return crypto.timingSafeEqual(Buffer.from(computedSignature), Buffer.from(expectedSignature));
+    } catch {
       return false;
     }
   }
@@ -1183,30 +1119,23 @@ export class FeishuAdapter implements Adapter<FeishuThreadId, unknown> {
   /**
    * Make authenticated requests to Feishu API.
    */
-  private async feishuFetch(
-    path: string,
-    method: string,
-    body?: unknown,
-  ): Promise<Response> {
+  private async feishuFetch(path: string, method: string, body?: unknown): Promise<Response> {
     // Get tenant access token
-    const tokenResponse = await fetch(
-      `${FEISHU_API_BASE}/auth/v3/tenant_access_token/internal`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          app_id: this.appId,
-          app_secret: this.appSecret,
-        }),
-      },
-    );
+    const tokenResponse = await fetch(`${FEISHU_API_BASE}/auth/v3/tenant_access_token/internal`, {
+      body: JSON.stringify({
+        app_id: this.appId,
+        app_secret: this.appSecret,
+      }),
+      headers: { "Content-Type": "application/json" },
+      method: "POST",
+    });
 
     const tokenData = (await tokenResponse.json()) as {
-      tenant_access_token?: string
+      tenant_access_token?: string;
     };
     const token = tokenData.tenant_access_token;
     if (!token) {
-      throw new NetworkError('feishu', 'Failed to obtain tenant access token');
+      throw new NetworkError("feishu", "Failed to obtain tenant access token");
     }
 
     const url = `${FEISHU_API_BASE}${path}`;
@@ -1215,27 +1144,24 @@ export class FeishuAdapter implements Adapter<FeishuThreadId, unknown> {
     };
 
     if (body) {
-      headers['Content-Type'] = 'application/json';
+      headers["Content-Type"] = "application/json";
     }
 
     const response = await fetch(url, {
-      method,
-      headers,
       body: body ? JSON.stringify(body) : undefined,
+      headers,
+      method,
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      this.logger.error('Feishu API error', {
-        path,
-        method,
-        status: response.status,
+      this.logger.error("Feishu API error", {
         error: errorText,
+        method,
+        path,
+        status: response.status,
       });
-      throw new NetworkError(
-        'feishu',
-        `Feishu API error: ${response.status} ${errorText}`,
-      );
+      throw new NetworkError("feishu", `Feishu API error: ${response.status} ${errorText}`);
     }
 
     return response;
@@ -1246,48 +1172,47 @@ export class FeishuAdapter implements Adapter<FeishuThreadId, unknown> {
  * Create a Feishu adapter instance.
  */
 export function createFeishuAdapter(
-  config?: Partial<FeishuAdapterConfig & { logger: Logger, userName?: string }>,
+  config?: Partial<FeishuAdapterConfig & { logger: Logger; userName?: string }>,
 ): FeishuAdapter {
   const appId = config?.appId ?? process.env.FEISHU_APP_ID;
   if (!appId) {
     throw new ValidationError(
-      'feishu',
-      'appId is required. Set FEISHU_APP_ID or provide it in config.',
+      "feishu",
+      "appId is required. Set FEISHU_APP_ID or provide it in config.",
     );
   }
   const appSecret = config?.appSecret ?? process.env.FEISHU_APP_SECRET;
   if (!appSecret) {
     throw new ValidationError(
-      'feishu',
-      'appSecret is required. Set FEISHU_APP_SECRET or provide it in config.',
+      "feishu",
+      "appSecret is required. Set FEISHU_APP_SECRET or provide it in config.",
     );
   }
   const encryptKey = config?.encryptKey ?? process.env.FEISHU_ENCRYPT_KEY;
-  const verificationToken
-    = config?.verificationToken ?? process.env.FEISHU_VERIFICATION_TOKEN;
+  const verificationToken = config?.verificationToken ?? process.env.FEISHU_VERIFICATION_TOKEN;
 
   const resolved: FeishuAdapterConfig & {
-    logger: Logger
-    userName?: string
+    logger: Logger;
+    userName?: string;
   } = {
     appId,
     appSecret,
     encryptKey,
-    verificationToken,
-    logger: config?.logger ?? new ConsoleLogger('info').child('feishu'),
+    logger: config?.logger ?? new ConsoleLogger("info").child("feishu"),
     userName: config?.userName,
+    verificationToken,
   };
   return new FeishuAdapter(resolved);
 }
 
 // Re-export card converter for advanced use
-export { cardToFallbackText, cardToFeishuPayload } from './cards';
+export { cardToFallbackText, cardToFeishuPayload } from "./cards";
 
 // Re-export format converter for advanced use
 export {
   FeishuFormatConverter,
   FeishuFormatConverter as FeishuMarkdownConverter,
-} from './markdown';
+} from "./markdown";
 
 // Re-export types
-export type { FeishuAdapterConfig, FeishuThreadId } from './types';
+export type { FeishuAdapterConfig, FeishuThreadId } from "./types";

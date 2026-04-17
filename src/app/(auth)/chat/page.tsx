@@ -1,12 +1,13 @@
-import type { Metadata } from 'next';
-import ChatPageClient from '@/app/(auth)/chat/_components/chat-page-client';
+import type { Metadata } from "next";
+import ChatPageClient from "@/app/(auth)/chat/_components/chat-page-client";
 
 export const metadata: Metadata = {
-  title: '简历筛选助手',
-  description: '支持上传候选人简历、整理筛选要求，并生成聊天式初筛建议。',
+  description: "支持上传候选人简历、整理筛选要求，并生成聊天式初筛建议。",
+  title: "简历筛选助手",
 };
 
+// oxlint-disable-next-line require-await -- "use cache" requires the function be async.
 export default async function ChatPage() {
-  'use cache';
-  return <ChatPageClient initialSessionId={null} key='new-chat' />;
+  "use cache";
+  return <ChatPageClient initialSessionId={null} key="new-chat" />;
 }

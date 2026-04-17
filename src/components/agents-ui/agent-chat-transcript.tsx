@@ -1,33 +1,33 @@
-'use client';
+"use client";
 
-import type { AgentState, ReceivedMessage } from '@livekit/components-react';
-import type { ComponentProps } from 'react';
-import { AnimatePresence } from 'motion/react';
-import { AgentChatIndicator } from '@/components/agents-ui/agent-chat-indicator';
+import type { AgentState, ReceivedMessage } from "@livekit/components-react";
+import type { ComponentProps } from "react";
+import { AnimatePresence } from "motion/react";
+import { AgentChatIndicator } from "@/components/agents-ui/agent-chat-indicator";
 import {
   Conversation,
   ConversationContent,
   ConversationScrollButton,
-} from '@/components/ai-elements/conversation';
-import { Message, MessageContent, MessageResponse } from '@/components/ai-elements/message';
+} from "@/components/ai-elements/conversation";
+import { Message, MessageContent, MessageResponse } from "@/components/ai-elements/message";
 
 /**
  * Props for the AgentChatTranscript component.
  */
-export interface AgentChatTranscriptProps extends ComponentProps<'div'> {
+export interface AgentChatTranscriptProps extends ComponentProps<"div"> {
   /**
    * The current state of the agent. When 'thinking', displays a loading indicator.
    */
-  agentState?: AgentState
+  agentState?: AgentState;
   /**
    * Array of messages to display in the transcript.
    * @defaultValue []
    */
-  messages?: ReceivedMessage[]
+  messages?: ReceivedMessage[];
   /**
    * Additional CSS class names to apply to the conversation container.
    */
-  className?: string
+  className?: string;
 }
 
 /**
@@ -56,10 +56,10 @@ export function AgentChatTranscript({
       <ConversationContent>
         {messages.map((receivedMessage) => {
           const { id, timestamp, from, message } = receivedMessage;
-          const locale = navigator?.language ?? 'en-US';
-          const messageOrigin = from?.isLocal ? 'user' : 'assistant';
+          const locale = navigator?.language ?? "en-US";
+          const messageOrigin = from?.isLocal ? "user" : "assistant";
           const time = new Date(timestamp);
-          const title = time.toLocaleTimeString(locale, { timeStyle: 'full' });
+          const title = time.toLocaleTimeString(locale, { timeStyle: "full" });
 
           return (
             <Message key={id} title={title} from={messageOrigin}>
@@ -70,7 +70,7 @@ export function AgentChatTranscript({
           );
         })}
         <AnimatePresence>
-          {agentState === 'thinking' && <AgentChatIndicator size='sm' />}
+          {agentState === "thinking" && <AgentChatIndicator size="sm" />}
         </AnimatePresence>
       </ConversationContent>
       <ConversationScrollButton />

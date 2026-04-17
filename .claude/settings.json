@@ -17,6 +17,15 @@
             "statusMessage": "Linting TypeScript..."
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "command": "pnpm fix",
+            "type": "command"
+          }
+        ],
+        "matcher": "Write|Edit"
       }
     ]
   }

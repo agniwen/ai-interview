@@ -1,4 +1,4 @@
-import type { ComponentProps, ReactNode } from 'react';
+import type { ComponentProps, ReactNode } from "react";
 
 import {
   Command,
@@ -10,14 +10,9 @@ import {
   CommandList,
   CommandSeparator,
   CommandShortcut,
-} from '@/components/ui/command';
-import {
-  Dialog,
-  DialogContent,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog';
-import { cn } from '@/lib/utils';
+} from "@/components/ui/command";
+import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { cn } from "@/lib/utils";
 
 export type ModelSelectorProps = ComponentProps<typeof Dialog>;
 
@@ -32,28 +27,23 @@ export function ModelSelectorTrigger(props: ModelSelectorTriggerProps) {
 }
 
 export type ModelSelectorContentProps = ComponentProps<typeof DialogContent> & {
-  title?: ReactNode
+  title?: ReactNode;
 };
 
 export function ModelSelectorContent({
   className,
   children,
-  title = 'Model Selector',
+  title = "Model Selector",
   ...props
 }: ModelSelectorContentProps) {
   return (
     <DialogContent
       aria-describedby={undefined}
-      className={cn(
-        'outline! border-none! p-0 outline-border! outline-solid!',
-        className,
-      )}
+      className={cn("outline! border-none! p-0 outline-border! outline-solid!", className)}
       {...props}
     >
-      <DialogTitle className='sr-only'>{title}</DialogTitle>
-      <Command className='**:data-[slot=command-input-wrapper]:h-auto'>
-        {children}
-      </Command>
+      <DialogTitle className="sr-only">{title}</DialogTitle>
+      <Command className="**:data-[slot=command-input-wrapper]:h-auto">{children}</Command>
     </DialogContent>
   );
 }
@@ -66,11 +56,8 @@ export function ModelSelectorDialog(props: ModelSelectorDialogProps) {
 
 export type ModelSelectorInputProps = ComponentProps<typeof CommandInput>;
 
-export function ModelSelectorInput({
-  className,
-  ...props
-}: ModelSelectorInputProps) {
-  return <CommandInput className={cn('h-auto py-3.5', className)} {...props} />;
+export function ModelSelectorInput({ className, ...props }: ModelSelectorInputProps) {
+  return <CommandInput className={cn("h-auto py-3.5", className)} {...props} />;
 }
 
 export type ModelSelectorListProps = ComponentProps<typeof CommandList>;
@@ -103,89 +90,81 @@ export function ModelSelectorShortcut(props: ModelSelectorShortcutProps) {
   return <CommandShortcut {...props} />;
 }
 
-export type ModelSelectorSeparatorProps = ComponentProps<
-  typeof CommandSeparator
->;
+export type ModelSelectorSeparatorProps = ComponentProps<typeof CommandSeparator>;
 
 export function ModelSelectorSeparator(props: ModelSelectorSeparatorProps) {
   return <CommandSeparator {...props} />;
 }
 
-export type ModelSelectorLogoProps = Omit<
-  ComponentProps<'img'>,
-  'src' | 'alt'
-> & {
+export type ModelSelectorLogoProps = Omit<ComponentProps<"img">, "src" | "alt"> & {
   provider:
-    | 'moonshotai-cn'
-    | 'lucidquery'
-    | 'moonshotai'
-    | 'zai-coding-plan'
-    | 'alibaba'
-    | 'xai'
-    | 'vultr'
-    | 'nvidia'
-    | 'upstage'
-    | 'groq'
-    | 'github-copilot'
-    | 'mistral'
-    | 'vercel'
-    | 'nebius'
-    | 'deepseek'
-    | 'alibaba-cn'
-    | 'google-vertex-anthropic'
-    | 'venice'
-    | 'chutes'
-    | 'cortecs'
-    | 'github-models'
-    | 'togetherai'
-    | 'azure'
-    | 'baseten'
-    | 'huggingface'
-    | 'opencode'
-    | 'fastrouter'
-    | 'google'
-    | 'google-vertex'
-    | 'cloudflare-workers-ai'
-    | 'inception'
-    | 'wandb'
-    | 'openai'
-    | 'zhipuai-coding-plan'
-    | 'perplexity'
-    | 'openrouter'
-    | 'zenmux'
-    | 'v0'
-    | 'iflowcn'
-    | 'synthetic'
-    | 'deepinfra'
-    | 'zhipuai'
-    | 'submodel'
-    | 'zai'
-    | 'inference'
-    | 'requesty'
-    | 'morph'
-    | 'lmstudio'
-    | 'anthropic'
-    | 'aihubmix'
-    | 'fireworks-ai'
-    | 'modelscope'
-    | 'llama'
-    | 'scaleway'
-    | 'amazon-bedrock'
-    | 'cerebras'
+    | "moonshotai-cn"
+    | "lucidquery"
+    | "moonshotai"
+    | "zai-coding-plan"
+    | "alibaba"
+    | "xai"
+    | "vultr"
+    | "nvidia"
+    | "upstage"
+    | "groq"
+    | "github-copilot"
+    | "mistral"
+    | "vercel"
+    | "nebius"
+    | "deepseek"
+    | "alibaba-cn"
+    | "google-vertex-anthropic"
+    | "venice"
+    | "chutes"
+    | "cortecs"
+    | "github-models"
+    | "togetherai"
+    | "azure"
+    | "baseten"
+    | "huggingface"
+    | "opencode"
+    | "fastrouter"
+    | "google"
+    | "google-vertex"
+    | "cloudflare-workers-ai"
+    | "inception"
+    | "wandb"
+    | "openai"
+    | "zhipuai-coding-plan"
+    | "perplexity"
+    | "openrouter"
+    | "zenmux"
+    | "v0"
+    | "iflowcn"
+    | "synthetic"
+    | "deepinfra"
+    | "zhipuai"
+    | "submodel"
+    | "zai"
+    | "inference"
+    | "requesty"
+    | "morph"
+    | "lmstudio"
+    | "anthropic"
+    | "aihubmix"
+    | "fireworks-ai"
+    | "modelscope"
+    | "llama"
+    | "scaleway"
+    | "amazon-bedrock"
+    | "cerebras"
     // oxlint-disable-next-line typescript-eslint(ban-types) -- intentional pattern for autocomplete-friendly string union
-    | (string & {})
+    | (string & {});
 };
 
-export function ModelSelectorLogo({
-  provider,
-  className,
-  ...props
-}: ModelSelectorLogoProps) {
+export function ModelSelectorLogo({ provider, className, ...props }: ModelSelectorLogoProps) {
   return (
+    // oxlint-disable-next-line next/no-img-element -- External SVG; next/image adds no value here and would require whitelisting models.dev.
     <img
       {...props}
       alt={`${provider} logo`}
-      className={cn('size-3 dark:invert', className)}
+      className={cn("size-3 dark:invert", className)}
       height={12}
       src={`https://models.dev/logos/${provider}.svg`}
       width={12}
@@ -193,16 +172,13 @@ export function ModelSelectorLogo({
   );
 }
 
-export type ModelSelectorLogoGroupProps = ComponentProps<'div'>;
+export type ModelSelectorLogoGroupProps = ComponentProps<"div">;
 
-export function ModelSelectorLogoGroup({
-  className,
-  ...props
-}: ModelSelectorLogoGroupProps) {
+export function ModelSelectorLogoGroup({ className, ...props }: ModelSelectorLogoGroupProps) {
   return (
     <div
       className={cn(
-        'flex shrink-0 items-center -space-x-1 [&>img]:rounded-full [&>img]:bg-background [&>img]:p-px [&>img]:ring-1 dark:[&>img]:bg-foreground',
+        "flex shrink-0 items-center -space-x-1 [&>img]:rounded-full [&>img]:bg-background [&>img]:p-px [&>img]:ring-1 dark:[&>img]:bg-foreground",
         className,
       )}
       {...props}
@@ -210,11 +186,8 @@ export function ModelSelectorLogoGroup({
   );
 }
 
-export type ModelSelectorNameProps = ComponentProps<'span'>;
+export type ModelSelectorNameProps = ComponentProps<"span">;
 
-export function ModelSelectorName({
-  className,
-  ...props
-}: ModelSelectorNameProps) {
-  return <span className={cn('flex-1 truncate text-left', className)} {...props} />;
+export function ModelSelectorName({ className, ...props }: ModelSelectorNameProps) {
+  return <span className={cn("flex-1 truncate text-left", className)} {...props} />;
 }

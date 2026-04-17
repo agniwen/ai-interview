@@ -14,14 +14,14 @@ See the [main agents skill](../SKILL.md#outbound-calls) for basic Python, JavaSc
 
 ## Request Parameters
 
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `agent_id` | string | Yes | The ID of your ElevenLabs agent |
-| `agent_phone_number_id` | string | Yes | The ID of the Twilio phone number linked to your agent |
-| `to_number` | string | Yes | The destination phone number (E.164 format) |
-| `conversation_initiation_client_data` | object | No | Override conversation settings for this call |
-| `call_recording_enabled` | boolean | No | Whether to let Twilio record the call |
-| `telephony_call_config` | object | No | Telephony call settings like ringing timeout |
+| Parameter                             | Type    | Required | Description                                            |
+| ------------------------------------- | ------- | -------- | ------------------------------------------------------ |
+| `agent_id`                            | string  | Yes      | The ID of your ElevenLabs agent                        |
+| `agent_phone_number_id`               | string  | Yes      | The ID of the Twilio phone number linked to your agent |
+| `to_number`                           | string  | Yes      | The destination phone number (E.164 format)            |
+| `conversation_initiation_client_data` | object  | No       | Override conversation settings for this call           |
+| `call_recording_enabled`              | boolean | No       | Whether to let Twilio record the call                  |
+| `telephony_call_config`               | object  | No       | Telephony call settings like ringing timeout           |
 
 ## Response
 
@@ -34,12 +34,12 @@ See the [main agents skill](../SKILL.md#outbound-calls) for basic Python, JavaSc
 }
 ```
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `success` | boolean | Whether the call was initiated successfully |
-| `message` | string | Status message |
-| `conversation_id` | string | ElevenLabs conversation ID for tracking |
-| `callSid` | string | Twilio Call SID for reference |
+| Field             | Type    | Description                                 |
+| ----------------- | ------- | ------------------------------------------- |
+| `success`         | boolean | Whether the call was initiated successfully |
+| `message`         | string  | Status message                              |
+| `conversation_id` | string  | ElevenLabs conversation ID for tracking     |
+| `callSid`         | string  | Twilio Call SID for reference               |
 
 ## Customizing the Call
 
@@ -101,25 +101,25 @@ const response = await client.conversationalAi.twilio.outboundCall({
 
 ### Agent Settings
 
-| Option | Type | Description |
-|--------|------|-------------|
-| `first_message` | string | Custom greeting for this call |
-| `language` | string | Language code (e.g., "en", "es", "fr") |
-| `prompt` | object | Override agent prompt and LLM settings |
+| Option          | Type   | Description                            |
+| --------------- | ------ | -------------------------------------- |
+| `first_message` | string | Custom greeting for this call          |
+| `language`      | string | Language code (e.g., "en", "es", "fr") |
+| `prompt`        | object | Override agent prompt and LLM settings |
 
 ### TTS Settings
 
-| Option | Type | Description |
-|--------|------|-------------|
-| `voice_id` | string | Voice ID to use for this call |
-| `stability` | number | Voice stability (0.0-1.0) |
+| Option             | Type   | Description                      |
+| ------------------ | ------ | -------------------------------- |
+| `voice_id`         | string | Voice ID to use for this call    |
+| `stability`        | number | Voice stability (0.0-1.0)        |
 | `similarity_boost` | number | Voice similarity boost (0.0-1.0) |
-| `speed` | number | Speech speed multiplier |
+| `speed`            | number | Speech speed multiplier          |
 
 ### Telephony Call Configuration
 
-| Option | Type | Description |
-|--------|------|-------------|
+| Option                 | Type    | Description                                                     |
+| ---------------------- | ------- | --------------------------------------------------------------- |
 | `ringing_timeout_secs` | integer | How long to ring the recipient before giving up (default: `60`) |
 
 ### Dynamic Variables
@@ -128,8 +128,8 @@ Pass custom data to your agent's prompt using `dynamic_variables`. Reference the
 
 When assigning dynamic variables, you can use the `sanitize` option to remove sensitive values from tool responses before they are sent to the LLM and transcript, while still allowing variable assignment:
 
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
+| Field      | Type    | Default | Description                                                                                                                                 |
+| ---------- | ------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
 | `sanitize` | boolean | `false` | If true, the assignment's value is removed from tool responses before sending to LLM/transcript but still processed for variable assignment |
 
 ## Complete Example

@@ -16,6 +16,7 @@ Two separate package managers: **pnpm** for web, **uv** for Python agent. Do not
 ## Commands
 
 ### Web (from project root)
+
 - `pnpm dev` — dev server
 - `pnpm build` — production build
 - `pnpm typecheck` — TypeScript type checking
@@ -25,6 +26,7 @@ Two separate package managers: **pnpm** for web, **uv** for Python agent. Do not
 - `npm run db:studio` — Drizzle Studio UI
 
 ### Agent (from `agent/`)
+
 - `uv sync` — install dependencies
 - `uv run src/agent.py download-files` — download VAD + turn-detector models (required before first run)
 - `uv run src/agent.py dev` — dev mode with hot reload
@@ -34,6 +36,7 @@ Two separate package managers: **pnpm** for web, **uv** for Python agent. Do not
 - `uv run ruff check` — lint Python code
 
 ### Unified (Makefile)
+
 - `make install` — full setup: web deps + agent + model downloads
 - `make dev` — run web + agent in parallel
 - `make agent-console` — terminal chat without web
@@ -48,6 +51,7 @@ Two separate package managers: **pnpm** for web, **uv** for Python agent. Do not
 ## Environment Setup
 
 Copy `.env.example` to `.env` and populate required keys. See `.env.example` for the full list. Key requirements:
+
 - LiveKit Cloud credentials (`LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`)
 - Google OAuth (`GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`)
 - Database (`DATABASE_URL`)

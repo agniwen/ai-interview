@@ -1,9 +1,9 @@
-import type { AgentState } from '@livekit/components-react';
-import { useEffect, useState } from 'react';
+import type { AgentState } from "@livekit/components-react";
+import { useEffect, useState } from "react";
 
 export interface Coordinate {
-  x: number
-  y: number
+  x: number;
+  y: number;
 }
 
 export function generateConnectingSequence(rows: number, columns: number, radius: number) {
@@ -21,7 +21,7 @@ export function generateConnectingSequence(rows: number, columns: number, radius
   };
 
   // Top edge
-  for (let x = topLeft.x; x <= bottomRight.x; x++) {
+  for (let { x } = topLeft; x <= bottomRight.x; x++) {
     seq.push({ x, y: topLeft.y });
   }
 
@@ -83,31 +83,26 @@ export function useAgentAudioVisualizerGridAnimator(
       ? Math.min(radius, Math.floor(Math.max(rows, columns) / 2))
       : Math.floor(Math.max(rows, columns) / 2);
 
-    if (state === 'thinking') {
+    if (state === "thinking") {
       setSequence(generateThinkingSequence(rows, columns));
-    }
-    else if (state === 'connecting' || state === 'initializing') {
+    } else if (state === "connecting" || state === "initializing") {
       const sequence = [...generateConnectingSequence(rows, columns, clampedRadius)];
       setSequence(sequence);
-    }
-    else if (state === 'listening') {
+    } else if (state === "listening") {
       setSequence(generateListeningSequence(rows, columns));
-    }
-    else {
+    } else {
       setSequence([{ x: Math.floor(columns / 2), y: Math.floor(rows / 2) }]);
     }
     setIndex(0);
   }, [state, rows, columns, radius]);
 
   useEffect(() => {
-    if (state === 'speaking') {
+    if (state === "speaking") {
       return;
     }
 
     const indexInterval = setInterval(() => {
-      setIndex((prev) => {
-        return prev + 1;
-      });
+      setIndex((prev) => prev + 1);
     }, interval);
 
     return () => clearInterval(indexInterval);

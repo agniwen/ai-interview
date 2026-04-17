@@ -1,3 +1,5 @@
+/* oxlint-disable class-methods-use-this -- Converter methods implement an interface; some don't need `this`. */
+
 /**
  * Feishu-specific format conversion using AST-based parsing.
  *
@@ -11,11 +13,9 @@
  * - Code blocks: ```lang\ncode\n``` (standard)
  */
 
-import type { AdapterPostableMessage, Content, Root } from 'chat';
+import type { AdapterPostableMessage, Content, Root } from "chat";
 import {
-
   BaseFormatConverter,
-
   getNodeChildren,
   getNodeValue,
   isBlockquoteNode,
@@ -30,8 +30,7 @@ import {
   isStrongNode,
   isTextNode,
   parseMarkdown,
-
-} from 'chat';
+} from "chat";
 
 export class FeishuFormatConverter extends BaseFormatConverter {
   /**
@@ -40,34 +39,33 @@ export class FeishuFormatConverter extends BaseFormatConverter {
    */
   private convertMentionsToFeishu(text: string): string {
     // eslint-disable-next-line e18e/prefer-static-regex
-    return text.replace(/@([\w.-]+)/g, '<at user_id="$1">$1</at>');
+    return text.replaceAll(/@([\w.-]+)/g, '<at user_id="$1">$1</at>');
   }
 
   /**
    * Override renderPostable to convert @mentions in plain strings.
    */
   override renderPostable(message: AdapterPostableMessage): string {
-    if (typeof message === 'string') {
+    if (typeof message === "string") {
       return this.convertMentionsToFeishu(message);
     }
-    if ('raw' in message) {
+    if ("raw" in message) {
       return this.convertMentionsToFeishu(message.raw);
     }
-    if ('markdown' in message) {
+    if ("markdown" in message) {
       return this.fromAst(parseMarkdown(message.markdown));
     }
-    if ('ast' in message) {
+    if ("ast" in message) {
       return this.fromAst(message.ast);
     }
-    return '';
+    return "";
   }
 
   /**
    * Render an AST to Feishu markdown format.
    */
   fromAst(ast: Root): string {
-    return this.fromAstWithNodeConverter(ast, node =>
-      this.nodeToFeishuMarkdown(node));
+    return this.fromAstWithNodeConverter(ast, (node) => this.nodeToFeishuMarkdown(node));
   }
 
   /**
@@ -79,7 +77,7 @@ export class FeishuFormatConverter extends BaseFormatConverter {
 
     // User mentions: <at user_id="xxx">name</at> -> @name
     // eslint-disable-next-line e18e/prefer-static-regex
-    markdown = markdown.replace(/<at user_id="[^"]*">([^<]*)<\/at>/g, '@$1');
+    markdown = markdown.replaceAll(/<at user_id="[^"]*">([^<]*)<\/at>/g, "@$1");
 
     return parseMarkdown(markdown);
   }
@@ -88,37 +86,37 @@ export class FeishuFormatConverter extends BaseFormatConverter {
     // Use type guards for type-safe node handling
     if (isParagraphNode(node)) {
       return getNodeChildren(node)
-        .map(child => this.nodeToFeishuMarkdown(child))
-        .join('');
+        .map((child) => this.nodeToFeishuMarkdown(child))
+        .join("");
     }
 
     if (isTextNode(node)) {
       // Convert @mentions to Feishu format
       // eslint-disable-next-line e18e/prefer-static-regex
-      return node.value.replace(/@([\w.-]+)/g, '<at user_id="$1">$1</at>');
+      return node.value.replaceAll(/@([\w.-]+)/g, '<at user_id="$1">$1</at>');
     }
 
     if (isStrongNode(node)) {
       // Standard markdown **text**
       const content = getNodeChildren(node)
-        .map(child => this.nodeToFeishuMarkdown(child))
-        .join('');
+        .map((child) => this.nodeToFeishuMarkdown(child))
+        .join("");
       return `**${content}**`;
     }
 
     if (isEmphasisNode(node)) {
       // Standard markdown *text*
       const content = getNodeChildren(node)
-        .map(child => this.nodeToFeishuMarkdown(child))
-        .join('');
+        .map((child) => this.nodeToFeishuMarkdown(child))
+        .join("");
       return `*${content}*`;
     }
 
     if (isDeleteNode(node)) {
       // Standard GFM ~~text~~
       const content = getNodeChildren(node)
-        .map(child => this.nodeToFeishuMarkdown(child))
-        .join('');
+        .map((child) => this.nodeToFeishuMarkdown(child))
+        .join("");
       return `~~${content}~~`;
     }
 
@@ -127,53 +125,53 @@ export class FeishuFormatConverter extends BaseFormatConverter {
     }
 
     if (isCodeNode(node)) {
-      return `\`\`\`${node.lang || ''}\n${node.value}\n\`\`\``;
+      return `\`\`\`${node.lang || ""}\n${node.value}\n\`\`\``;
     }
 
     if (isLinkNode(node)) {
       const linkText = getNodeChildren(node)
-        .map(child => this.nodeToFeishuMarkdown(child))
-        .join('');
+        .map((child) => this.nodeToFeishuMarkdown(child))
+        .join("");
       // Standard markdown [text](url)
       return `[${linkText}](${node.url})`;
     }
 
     if (isBlockquoteNode(node)) {
       return getNodeChildren(node)
-        .map(child => `> ${this.nodeToFeishuMarkdown(child)}`)
-        .join('\n');
+        .map((child) => `> ${this.nodeToFeishuMarkdown(child)}`)
+        .join("\n");
     }
 
     if (isListNode(node)) {
       return getNodeChildren(node)
         .map((item, i) => {
-          const prefix = node.ordered ? `${i + 1}.` : '-';
+          const prefix = node.ordered ? `${i + 1}.` : "-";
           const content = getNodeChildren(item)
-            .map(child => this.nodeToFeishuMarkdown(child))
-            .join('');
+            .map((child) => this.nodeToFeishuMarkdown(child))
+            .join("");
           return `${prefix} ${content}`;
         })
-        .join('\n');
+        .join("\n");
     }
 
     if (isListItemNode(node)) {
       return getNodeChildren(node)
-        .map(child => this.nodeToFeishuMarkdown(child))
-        .join('');
+        .map((child) => this.nodeToFeishuMarkdown(child))
+        .join("");
     }
 
-    if (node.type === 'break') {
-      return '\n';
+    if (node.type === "break") {
+      return "\n";
     }
 
-    if (node.type === 'thematicBreak') {
-      return '---';
+    if (node.type === "thematicBreak") {
+      return "---";
     }
 
     // For unsupported nodes, try to extract text
     const children = getNodeChildren(node);
     if (children.length > 0) {
-      return children.map(child => this.nodeToFeishuMarkdown(child)).join('');
+      return children.map((child) => this.nodeToFeishuMarkdown(child)).join("");
     }
     return getNodeValue(node);
   }

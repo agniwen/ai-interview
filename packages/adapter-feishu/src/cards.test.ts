@@ -1,49 +1,39 @@
-import {
-  Actions,
-  Button,
-  Card,
-  CardText,
-  Divider,
-  Field,
-  Fields,
-  LinkButton,
-  Section,
-} from 'chat';
-import { describe, expect, it } from 'vitest';
-import { cardToFallbackText, cardToFeishuPayload } from './cards';
+import { Actions, Button, Card, CardText, Divider, Field, Fields, LinkButton, Section } from "chat";
+import { describe, expect, it } from "vitest";
+import { cardToFallbackText, cardToFeishuPayload } from "./cards";
 
-describe('cardToFeishuPayload', () => {
-  it('converts a simple card with title', () => {
-    const card = Card({ title: 'Welcome' });
+describe("cardToFeishuPayload", () => {
+  it("converts a simple card with title", () => {
+    const card = Card({ title: "Welcome" });
     const result = cardToFeishuPayload(card);
 
-    expect(result.header?.title.content).toBe('Welcome');
-    expect(result.header?.title.tag).toBe('plain_text');
-    expect(result.header?.template).toBe('blue');
+    expect(result.header?.title.content).toBe("Welcome");
+    expect(result.header?.title.tag).toBe("plain_text");
+    expect(result.header?.template).toBe("blue");
     expect(result.config?.wide_screen_mode).toBe(true);
   });
 
-  it('converts a card with title and subtitle', () => {
+  it("converts a card with title and subtitle", () => {
     const card = Card({
-      title: 'Order Update',
-      subtitle: 'Your order is on its way',
+      subtitle: "Your order is on its way",
+      title: "Order Update",
     });
     const result = cardToFeishuPayload(card);
 
-    expect(result.header?.title.content).toBe('Order Update');
+    expect(result.header?.title.content).toBe("Order Update");
     expect(result.elements).toHaveLength(1);
     expect(result.elements[0]).toEqual({
-      tag: 'div',
+      tag: "div",
       text: {
-        tag: 'lark_md',
-        content: 'Your order is on its way',
+        content: "Your order is on its way",
+        tag: "lark_md",
       },
     });
   });
 
-  it('converts a card with no title', () => {
+  it("converts a card with no title", () => {
     const card = Card({
-      children: [CardText('Hello')],
+      children: [CardText("Hello")],
     });
     const result = cardToFeishuPayload(card);
 
@@ -51,105 +41,103 @@ describe('cardToFeishuPayload', () => {
     expect(result.elements).toHaveLength(1);
   });
 
-  it('converts text elements', () => {
+  it("converts text elements", () => {
     const card = Card({
-      children: [CardText('Hello world')],
+      children: [CardText("Hello world")],
     });
     const result = cardToFeishuPayload(card);
 
     expect(result.elements).toHaveLength(1);
     expect(result.elements[0]).toEqual({
-      tag: 'div',
-      text: { tag: 'lark_md', content: 'Hello world' },
+      tag: "div",
+      text: { content: "Hello world", tag: "lark_md" },
     });
   });
 
-  it('converts bold text elements', () => {
+  it("converts bold text elements", () => {
     const card = Card({
-      children: [CardText('Important', { style: 'bold' })],
+      children: [CardText("Important", { style: "bold" })],
     });
     const result = cardToFeishuPayload(card);
 
     expect(result.elements[0]).toEqual({
-      tag: 'div',
-      text: { tag: 'lark_md', content: '**Important**' },
+      tag: "div",
+      text: { content: "**Important**", tag: "lark_md" },
     });
   });
 
-  it('converts muted text to italic', () => {
+  it("converts muted text to italic", () => {
     const card = Card({
-      children: [CardText('Note', { style: 'muted' })],
+      children: [CardText("Note", { style: "muted" })],
     });
     const result = cardToFeishuPayload(card);
 
     expect(result.elements[0]).toEqual({
-      tag: 'div',
-      text: { tag: 'lark_md', content: '*Note*' },
+      tag: "div",
+      text: { content: "*Note*", tag: "lark_md" },
     });
   });
 
-  it('converts divider elements', () => {
+  it("converts divider elements", () => {
     const card = Card({
       children: [Divider()],
     });
     const result = cardToFeishuPayload(card);
 
     expect(result.elements).toHaveLength(1);
-    expect(result.elements[0]).toEqual({ tag: 'hr' });
+    expect(result.elements[0]).toEqual({ tag: "hr" });
   });
 
-  it('converts button actions', () => {
+  it("converts button actions", () => {
     const card = Card({
       children: [
         Actions([
-          Button({ id: 'btn-1', label: 'Click me', style: 'primary' }),
-          Button({ id: 'btn-2', label: 'Delete', style: 'danger' }),
+          Button({ id: "btn-1", label: "Click me", style: "primary" }),
+          Button({ id: "btn-2", label: "Delete", style: "danger" }),
         ]),
       ],
     });
     const result = cardToFeishuPayload(card);
 
     expect(result.elements).toHaveLength(1);
-    const action = result.elements[0] as { tag: string, actions: unknown[] };
-    expect(action.tag).toBe('action');
+    const action = result.elements[0] as { tag: string; actions: unknown[] };
+    expect(action.tag).toBe("action");
     expect(action.actions).toHaveLength(2);
     expect(action.actions[0]).toEqual({
-      tag: 'button',
-      text: { tag: 'plain_text', content: 'Click me' },
-      type: 'primary',
-      value: { action_id: 'btn-1' },
+      tag: "button",
+      text: { content: "Click me", tag: "plain_text" },
+      type: "primary",
+      value: { action_id: "btn-1" },
     });
     expect(action.actions[1]).toEqual({
-      tag: 'button',
-      text: { tag: 'plain_text', content: 'Delete' },
-      type: 'danger',
-      value: { action_id: 'btn-2' },
+      tag: "button",
+      text: { content: "Delete", tag: "plain_text" },
+      type: "danger",
+      value: { action_id: "btn-2" },
     });
   });
 
-  it('converts link buttons', () => {
+  it("converts link buttons", () => {
     const card = Card({
-      children: [
-        Actions([LinkButton({ label: 'Visit', url: 'https://example.com' })]),
-      ],
+      children: [Actions([LinkButton({ label: "Visit", url: "https://example.com" })])],
     });
     const result = cardToFeishuPayload(card);
 
-    const action = result.elements[0] as { tag: string, actions: unknown[] };
+    const action = result.elements[0] as { tag: string; actions: unknown[] };
     expect(action.actions[0]).toEqual({
-      tag: 'button',
-      text: { tag: 'plain_text', content: 'Visit' },
-      url: 'https://example.com',
-      type: 'default',
+      tag: "button",
+      text: { content: "Visit", tag: "plain_text" },
+      type: "default",
+      url: "https://example.com",
     });
   });
 
-  it('converts fields elements', () => {
+  it("converts fields elements", () => {
     const card = Card({
       children: [
         Fields([
-          Field({ label: 'Status', value: 'Active' }),
-          Field({ label: 'Priority', value: 'High' }),
+          Field({ label: "Status", value: "Active" }),
+          Field({ label: "Priority", value: "High" }),
         ]),
       ],
     });
@@ -157,26 +145,26 @@ describe('cardToFeishuPayload', () => {
 
     expect(result.elements).toHaveLength(1);
     expect(result.elements[0]).toEqual({
-      tag: 'div',
+      tag: "div",
       text: {
-        tag: 'lark_md',
-        content: '**Status**: Active\n**Priority**: High',
+        content: "**Status**: Active\n**Priority**: High",
+        tag: "lark_md",
       },
     });
   });
 
-  it('converts section elements by flattening children', () => {
+  it("converts section elements by flattening children", () => {
     const card = Card({
-      children: [Section([CardText('First'), CardText('Second')])],
+      children: [Section([CardText("First"), CardText("Second")])],
     });
     const result = cardToFeishuPayload(card);
 
     expect(result.elements).toHaveLength(2);
   });
 
-  it('skips image elements', () => {
+  it("skips image elements", () => {
     const card = Card({
-      children: [CardText('Before')],
+      children: [CardText("Before")],
     });
     const result = cardToFeishuPayload(card);
 
@@ -185,56 +173,56 @@ describe('cardToFeishuPayload', () => {
   });
 });
 
-describe('cardToFallbackText', () => {
-  it('renders title in bold', () => {
-    const card = Card({ title: 'Hello' });
+describe("cardToFallbackText", () => {
+  it("renders title in bold", () => {
+    const card = Card({ title: "Hello" });
     const result = cardToFallbackText(card);
 
-    expect(result).toBe('**Hello**');
+    expect(result).toBe("**Hello**");
   });
 
-  it('renders title and subtitle', () => {
-    const card = Card({ title: 'Title', subtitle: 'Subtitle' });
+  it("renders title and subtitle", () => {
+    const card = Card({ subtitle: "Subtitle", title: "Title" });
     const result = cardToFallbackText(card);
 
-    expect(result).toContain('**Title**');
-    expect(result).toContain('Subtitle');
+    expect(result).toContain("**Title**");
+    expect(result).toContain("Subtitle");
   });
 
-  it('renders text content', () => {
+  it("renders text content", () => {
     const card = Card({
-      children: [CardText('Body text')],
+      children: [CardText("Body text")],
     });
     const result = cardToFallbackText(card);
 
-    expect(result).toContain('Body text');
+    expect(result).toContain("Body text");
   });
 
-  it('renders dividers as ---', () => {
+  it("renders dividers as ---", () => {
     const card = Card({
       children: [Divider()],
     });
     const result = cardToFallbackText(card);
 
-    expect(result).toContain('---');
+    expect(result).toContain("---");
   });
 
-  it('renders fields as label-value pairs', () => {
+  it("renders fields as label-value pairs", () => {
     const card = Card({
-      children: [Fields([Field({ label: 'Name', value: 'John' })])],
+      children: [Fields([Field({ label: "Name", value: "John" })])],
     });
     const result = cardToFallbackText(card);
 
-    expect(result).toContain('**Name**: John');
+    expect(result).toContain("**Name**: John");
   });
 
-  it('excludes actions from fallback text', () => {
+  it("excludes actions from fallback text", () => {
     const card = Card({
-      title: 'Test',
-      children: [Actions([Button({ id: 'btn', label: 'Click' })])],
+      children: [Actions([Button({ id: "btn", label: "Click" })])],
+      title: "Test",
     });
     const result = cardToFallbackText(card);
 
-    expect(result).toBe('**Test**');
+    expect(result).toBe("**Test**");
   });
 });

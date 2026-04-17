@@ -1,13 +1,13 @@
-import { cacheLife } from 'next/cache';
-import ChatPageClient from '@/app/(auth)/chat/_components/chat-page-client';
+import { cacheLife } from "next/cache";
+import ChatPageClient from "@/app/(auth)/chat/_components/chat-page-client";
 
 export default async function ChatSessionPage({
   params,
 }: {
-  params: Promise<{ sessionId: string }>
+  params: Promise<{ sessionId: string }>;
 }) {
-  'use cache';
-  cacheLife('max');
+  "use cache";
+  cacheLife("max");
 
   const { sessionId } = await params;
 

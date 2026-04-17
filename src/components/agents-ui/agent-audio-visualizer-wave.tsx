@@ -1,16 +1,16 @@
-'use client';
+"use client";
 
-import type { AgentState, TrackReferenceOrPlaceholder } from '@livekit/components-react';
-import type { VariantProps } from 'class-variance-authority';
-import type { LocalAudioTrack, RemoteAudioTrack } from 'livekit-client';
-import type { ComponentProps } from 'react';
-import { cva } from 'class-variance-authority';
-import { useMemo } from 'react';
-import { ReactShaderToy } from '@/components/agents-ui/react-shader-toy';
-import { useAgentAudioVisualizerWave } from '@/hooks/agents-ui/use-agent-audio-visualizer-wave';
-import { cn } from '@/lib/utils';
+import type { AgentState, TrackReferenceOrPlaceholder } from "@livekit/components-react";
+import type { VariantProps } from "class-variance-authority";
+import type { LocalAudioTrack, RemoteAudioTrack } from "livekit-client";
+import type { ComponentProps } from "react";
+import { cva } from "class-variance-authority";
+import { useMemo } from "react";
+import { ReactShaderToy } from "@/components/agents-ui/react-shader-toy";
+import { useAgentAudioVisualizerWave } from "@/hooks/agents-ui/use-agent-audio-visualizer-wave";
+import { cn } from "@/lib/utils";
 
-const DEFAULT_COLOR = '#1FD5F9';
+const DEFAULT_COLOR = "#1FD5F9";
 const HEX_COLOR_REGEX = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i;
 
 function hexToRgb(hexColor: string) {
@@ -19,12 +19,11 @@ function hexToRgb(hexColor: string) {
 
     if (rgbColor) {
       const [, r, g, b] = rgbColor;
-      const color = [r, g, b].map((c = '00') => Number.parseInt(c, 16) / 255);
+      const color = [r, g, b].map((c = "00") => Number.parseInt(c, 16) / 255);
 
       return color;
     }
-  }
-  catch {
+  } catch {
     console.error(
       `Invalid hex color '${hexColor}'.\nFalling back to default color '${DEFAULT_COLOR}'.`,
     );
@@ -155,62 +154,62 @@ interface WaveShaderProps {
    * Class name
    * @default ''
    */
-  className?: string
+  className?: string;
   /**
    * Speed of the oscilloscope
    * @default 10
    */
-  speed?: number
+  speed?: number;
   /**
    * Amplitude of the oscilloscope
    * @default 0.02
    */
-  amplitude?: number
+  amplitude?: number;
   /**
    * Frequency of the oscilloscope
    * @default 20.0
    */
-  frequency?: number
+  frequency?: number;
   /**
    * Color of the oscilloscope in hexidecimal format.
    * @default '#1FD5F9'
    */
-  color?: `#${string}`
+  color?: `#${string}`;
   /**
    * Hue shift amount applied toward the outside of the wave. Center remains at the base color.
    * @default 0.05
    */
-  colorShift?: number
+  colorShift?: number;
   /**
    * Mix of the oscilloscope
    * @default 1.0
    */
-  mix?: number
+  mix?: number;
   /**
    * Line width of the oscilloscope in pixels
    * @default 2.0
    */
-  lineWidth?: number
+  lineWidth?: number;
   /**
    * Blur of the oscilloscope in pixels
    * @default 0.5
    */
-  blur?: number
+  blur?: number;
 }
 
 function WaveShader({
   speed = 10,
-  color = '#1FD5F9',
+  color = "#1FD5F9",
   colorShift = 0.05,
-  mix = 1.0,
+  mix = 1,
   amplitude = 0.02,
-  frequency = 20.0,
-  lineWidth = 2.0,
+  frequency = 20,
+  lineWidth = 2,
   blur = 0.5,
   ref,
   className,
   ...props
-}: WaveShaderProps & ComponentProps<'div'>) {
+}: WaveShaderProps & ComponentProps<"div">) {
   const rgbColor = useMemo(() => hexToRgb(color), [color]);
 
   return (
@@ -219,41 +218,41 @@ function WaveShader({
         fs={shaderSource}
         devicePixelRatio={globalThis.devicePixelRatio ?? 1}
         uniforms={{
-          uSpeed: { type: '1f', value: speed },
-          uAmplitude: { type: '1f', value: amplitude },
-          uFrequency: { type: '1f', value: frequency },
-          uMix: { type: '1f', value: mix },
-          uLineWidth: { type: '1f', value: lineWidth },
-          uSmoothing: { type: '1f', value: blur },
-          uColor: { type: '3fv', value: rgbColor },
-          uColorShift: { type: '1f', value: colorShift },
+          uAmplitude: { type: "1f", value: amplitude },
+          uColor: { type: "3fv", value: rgbColor },
+          uColorShift: { type: "1f", value: colorShift },
+          uFrequency: { type: "1f", value: frequency },
+          uLineWidth: { type: "1f", value: lineWidth },
+          uMix: { type: "1f", value: mix },
+          uSmoothing: { type: "1f", value: blur },
+          uSpeed: { type: "1f", value: speed },
         }}
         onError={(error) => {
-          console.error('Shader error:', error);
+          console.error("Shader error:", error);
         }}
         onWarning={(warning) => {
-          console.warn('Shader warning:', warning);
+          console.warn("Shader warning:", warning);
         }}
-        style={{ width: '100%', height: '100%' }}
+        style={{ height: "100%", width: "100%" }}
       />
     </div>
   );
 }
 
-WaveShader.displayName = 'WaveShader';
+WaveShader.displayName = "WaveShader";
 
-export const AgentAudioVisualizerWaveVariants = cva(['aspect-square'], {
+export const AgentAudioVisualizerWaveVariants = cva(["aspect-square"], {
+  defaultVariants: {
+    size: "lg",
+  },
   variants: {
     size: {
-      icon: 'h-[24px]',
-      sm: 'h-[56px]',
-      md: 'h-[112px]',
-      lg: 'h-[224px]',
-      xl: 'h-[448px]',
+      icon: "h-[24px]",
+      lg: "h-[224px]",
+      md: "h-[112px]",
+      sm: "h-[56px]",
+      xl: "h-[448px]",
     },
-  },
-  defaultVariants: {
-    size: 'lg',
   },
 });
 
@@ -262,40 +261,40 @@ export interface AgentAudioVisualizerWaveProps {
    * The size of the visualizer.
    * @defaultValue 'lg'
    */
-  size?: 'icon' | 'sm' | 'md' | 'lg' | 'xl'
+  size?: "icon" | "sm" | "md" | "lg" | "xl";
   /**
    * The agent state.
    * @defaultValue 'speaking'
    */
-  state?: AgentState
+  state?: AgentState;
   /**
    * The color of the wave in hexidecimal format.
    * @defaultValue '#1FD5F9'
    */
-  color?: `#${string}`
+  color?: `#${string}`;
   /**
    * The color shift of the wave. Higher values increase hue variation toward the edges.
    * @defaultValue 0.05
    */
-  colorShift?: number
+  colorShift?: number;
   /**
    * The line width of the wave in pixels.
    * @defaultValue 2.0
    */
-  lineWidth?: number
+  lineWidth?: number;
   /**
    * The blur of the wave in pixels.
    * @defaultValue 0.5
    */
-  blur?: number
+  blur?: number;
   /**
    * The audio track to visualize. Can be a local/remote audio track or a track reference.
    */
-  audioTrack?: LocalAudioTrack | RemoteAudioTrack | TrackReferenceOrPlaceholder
+  audioTrack?: LocalAudioTrack | RemoteAudioTrack | TrackReferenceOrPlaceholder;
   /**
    * Additional CSS class names to apply to the container.
    */
-  className?: string
+  className?: string;
 }
 
 /**
@@ -318,8 +317,8 @@ export interface AgentAudioVisualizerWaveProps {
  * ```
  */
 export function AgentAudioVisualizerWave({
-  size = 'lg',
-  state = 'speaking',
+  size = "lg",
+  state = "speaking",
   color,
   colorShift = 0.05,
   lineWidth,
@@ -328,25 +327,27 @@ export function AgentAudioVisualizerWave({
   className,
   ref,
   ...props
-}: AgentAudioVisualizerWaveProps
-  & ComponentProps<'div'>
-  & VariantProps<typeof AgentAudioVisualizerWaveVariants>) {
+}: AgentAudioVisualizerWaveProps &
+  ComponentProps<"div"> &
+  VariantProps<typeof AgentAudioVisualizerWaveVariants>) {
   const _lineWidth = useMemo(() => {
     if (lineWidth !== undefined) {
       return lineWidth;
     }
     switch (size) {
-      case 'icon':
-      case 'sm':
+      case "icon":
+      case "sm": {
         return 2;
-      default:
+      }
+      default: {
         return 1;
+      }
     }
   }, [lineWidth, size]);
 
   const { speed, amplitude, frequency, opacity } = useAgentAudioVisualizerWave({
-    state,
     audioTrack,
+    state,
   });
 
   return (
@@ -363,7 +364,7 @@ export function AgentAudioVisualizerWave({
       blur={blur}
       className={cn(
         AgentAudioVisualizerWaveVariants({ size }),
-        'mask-[linear-gradient(90deg,transparent_0%,black_20%,black_80%,transparent_100%)]',
+        "mask-[linear-gradient(90deg,transparent_0%,black_20%,black_80%,transparent_100%)]",
         className,
       )}
       {...props}

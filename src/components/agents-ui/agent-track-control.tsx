@@ -1,72 +1,68 @@
-'use client';
+"use client";
 
-import type { TrackReferenceOrPlaceholder } from '@livekit/components-react';
-import type { VariantProps } from 'class-variance-authority';
-import type { LocalAudioTrack, LocalVideoTrack } from 'livekit-client';
-import type { toggleVariants } from '@/components/ui/toggle';
-import {
-
-  useMaybeRoomContext,
-  useMediaDeviceSelect,
-} from '@livekit/components-react';
-import { cva } from 'class-variance-authority';
-import { useEffect, useMemo, useState } from 'react';
-import { AgentAudioVisualizerBar } from '@/components/agents-ui/agent-audio-visualizer-bar';
-import { AgentTrackToggle } from '@/components/agents-ui/agent-track-toggle';
+import type { TrackReferenceOrPlaceholder } from "@livekit/components-react";
+import type { VariantProps } from "class-variance-authority";
+import type { LocalAudioTrack, LocalVideoTrack } from "livekit-client";
+import type { toggleVariants } from "@/components/ui/toggle";
+import { useMaybeRoomContext, useMediaDeviceSelect } from "@livekit/components-react";
+import { cva } from "class-variance-authority";
+import { useEffect, useMemo, useState } from "react";
+import { AgentAudioVisualizerBar } from "@/components/agents-ui/agent-audio-visualizer-bar";
+import { AgentTrackToggle } from "@/components/agents-ui/agent-track-toggle";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
-import { cn } from '@/lib/utils';
+} from "@/components/ui/select";
+import { cn } from "@/lib/utils";
 
 const selectVariants = cva(
   [
-    'rounded-l-none shadow-none pl-2 ',
-    'text-foreground hover:text-muted-foreground',
-    'peer-data-[state=on]/track:bg-muted peer-data-[state=on]/track:hover:bg-foreground/10',
-    'peer-data-[state=off]/track:text-destructive',
-    'peer-data-[state=off]/track:focus-visible:border-destructive peer-data-[state=off]/track:focus-visible:ring-destructive/30',
-    '[&_svg]:opacity-100',
+    "rounded-l-none shadow-none pl-2 ",
+    "text-foreground hover:text-muted-foreground",
+    "peer-data-[state=on]/track:bg-muted peer-data-[state=on]/track:hover:bg-foreground/10",
+    "peer-data-[state=off]/track:text-destructive",
+    "peer-data-[state=off]/track:focus-visible:border-destructive peer-data-[state=off]/track:focus-visible:ring-destructive/30",
+    "[&_svg]:opacity-100",
   ],
   {
+    defaultVariants: {
+      size: "default",
+      variant: "default",
+    },
     variants: {
+      size: {
+        default: "w-[180px]",
+        sm: "w-auto",
+      },
       variant: {
         default: [
-          'border-none',
-          'peer-data-[state=off]/track:bg-destructive/10',
-          'peer-data-[state=off]/track:hover:bg-destructive/15',
-          'peer-data-[state=off]/track:[&_svg]:text-destructive!',
+          "border-none",
+          "peer-data-[state=off]/track:bg-destructive/10",
+          "peer-data-[state=off]/track:hover:bg-destructive/15",
+          "peer-data-[state=off]/track:[&_svg]:text-destructive!",
 
-          'dark:peer-data-[state=on]/track:bg-accent',
-          'dark:peer-data-[state=on]/track:hover:bg-foreground/10',
-          'dark:peer-data-[state=off]/track:bg-destructive/10',
-          'dark:peer-data-[state=off]/track:hover:bg-destructive/15',
+          "dark:peer-data-[state=on]/track:bg-accent",
+          "dark:peer-data-[state=on]/track:hover:bg-foreground/10",
+          "dark:peer-data-[state=off]/track:bg-destructive/10",
+          "dark:peer-data-[state=off]/track:hover:bg-destructive/15",
         ],
         outline: [
-          'border border-l-0',
-          'peer-data-[state=off]/track:border-destructive/20',
-          'peer-data-[state=off]/track:bg-destructive/10',
-          'peer-data-[state=off]/track:hover:bg-destructive/15',
-          'peer-data-[state=off]/track:[&_svg]:text-destructive!',
-          'peer-data-[state=on]/track:hover:border-foreground/12',
+          "border border-l-0",
+          "peer-data-[state=off]/track:border-destructive/20",
+          "peer-data-[state=off]/track:bg-destructive/10",
+          "peer-data-[state=off]/track:hover:bg-destructive/15",
+          "peer-data-[state=off]/track:[&_svg]:text-destructive!",
+          "peer-data-[state=on]/track:hover:border-foreground/12",
 
-          'dark:peer-data-[state=off]/track:bg-destructive/10',
-          'dark:peer-data-[state=off]/track:hover:bg-destructive/15',
-          'dark:peer-data-[state=on]/track:bg-accent',
-          'dark:peer-data-[state=on]/track:hover:bg-foreground/10',
+          "dark:peer-data-[state=off]/track:bg-destructive/10",
+          "dark:peer-data-[state=off]/track:hover:bg-destructive/15",
+          "dark:peer-data-[state=on]/track:bg-accent",
+          "dark:peer-data-[state=on]/track:hover:bg-foreground/10",
         ],
       },
-      size: {
-        default: 'w-[180px]',
-        sm: 'w-auto',
-      },
-    },
-    defaultVariants: {
-      variant: 'default',
-      size: 'default',
     },
   },
 );
@@ -74,42 +70,42 @@ const selectVariants = cva(
 /**
  * Props for the TrackDeviceSelect component.
  */
-type TrackDeviceSelectProps = React.ComponentProps<typeof SelectTrigger>
-  & VariantProps<typeof selectVariants> & {
+type TrackDeviceSelectProps = React.ComponentProps<typeof SelectTrigger> &
+  VariantProps<typeof selectVariants> & {
     /**
      * The size of the select.
      * @defaultValue 'default'
      */
-    size?: 'default' | 'sm'
+    size?: "default" | "sm";
     /**
      * The variant of the select.
      * @defaultValue 'default'
      */
-    variant?: 'default' | 'outline' | null
+    variant?: "default" | "outline" | null;
     /**
      * The type of media device (audioinput or videoinput).
      */
-    kind: MediaDeviceKind
+    kind: MediaDeviceKind;
     /**
      * The track source to control (Microphone, Camera, or ScreenShare).
      */
-    track?: LocalAudioTrack | LocalVideoTrack | undefined
+    track?: LocalAudioTrack | LocalVideoTrack | undefined;
     /**
      * Whether to request permissions for the media device.
      */
-    requestPermissions?: boolean
+    requestPermissions?: boolean;
     /**
      * Callback when a media device error occurs.
      */
-    onMediaDeviceError?: (error: Error) => void
+    onMediaDeviceError?: (error: Error) => void;
     /**
      * Callback when the device list changes.
      */
-    onDeviceListChange?: (devices: MediaDeviceInfo[]) => void
+    onDeviceListChange?: (devices: MediaDeviceInfo[]) => void;
     /**
      * Callback when the active device changes.
      */
-    onActiveDeviceChange?: (deviceId: string) => void
+    onActiveDeviceChange?: (deviceId: string) => void;
   };
 
 /**
@@ -130,8 +126,8 @@ type TrackDeviceSelectProps = React.ComponentProps<typeof SelectTrigger>
 function TrackDeviceSelect({
   kind,
   track,
-  size = 'default',
-  variant = 'default',
+  size = "default",
+  variant = "default",
   className,
   requestPermissions = false,
   onMediaDeviceError,
@@ -143,11 +139,11 @@ function TrackDeviceSelect({
   const [open, setOpen] = useState(false);
   const [requestPermissionsState, setRequestPermissionsState] = useState(requestPermissions);
   const { devices, activeDeviceId, setActiveMediaDevice } = useMediaDeviceSelect({
-    room,
     kind,
-    track,
-    requestPermissions: requestPermissionsState,
     onError: onMediaDeviceError,
+    requestPermissions: requestPermissionsState,
+    room,
+    track,
   });
 
   useEffect(() => {
@@ -166,7 +162,7 @@ function TrackDeviceSelect({
     onActiveDeviceChange?.(deviceId);
   };
 
-  const filteredDevices = useMemo(() => devices.filter(d => d.deviceId !== ''), [devices]);
+  const filteredDevices = useMemo(() => devices.filter((d) => d.deviceId !== ""), [devices]);
 
   if (filteredDevices.length < 2) {
     return null;
@@ -180,13 +176,13 @@ function TrackDeviceSelect({
       onValueChange={handleActiveDeviceChange}
     >
       <SelectTrigger className={cn(selectVariants({ size, variant }), className)} {...props}>
-        {size !== 'sm' && (
-          <SelectValue className='font-mono text-sm' placeholder={`Select a ${kind}`} />
+        {size !== "sm" && (
+          <SelectValue className="font-mono text-sm" placeholder={`Select a ${kind}`} />
         )}
       </SelectTrigger>
-      <SelectContent position='popper'>
-        {filteredDevices.map(device => (
-          <SelectItem key={device.deviceId} value={device.deviceId} className='font-mono text-xs'>
+      <SelectContent position="popper">
+        {filteredDevices.map((device) => (
+          <SelectItem key={device.deviceId} value={device.deviceId} className="font-mono text-xs">
             {device.label}
           </SelectItem>
         ))}
@@ -202,43 +198,43 @@ export type AgentTrackControlProps = VariantProps<typeof toggleVariants> & {
   /**
    * The type of media device (audioinput or videoinput).
    */
-  kind: MediaDeviceKind
+  kind: MediaDeviceKind;
   /**
    * The track source to control (Microphone, Camera, or ScreenShare).
    */
-  source: 'camera' | 'microphone' | 'screen_share'
+  source: "camera" | "microphone" | "screen_share";
   /**
    * Whether the track is currently enabled/published.
    */
-  pressed?: boolean
+  pressed?: boolean;
   /**
    * Whether the control is in a pending/loading state.
    */
-  pending?: boolean
+  pending?: boolean;
   /**
    * Whether the control is disabled.
    */
-  disabled?: boolean
+  disabled?: boolean;
   /**
    * Additional CSS class names to apply to the container.
    */
-  className?: string
+  className?: string;
   /**
    * The audio track reference for visualization (only for microphone).
    */
-  audioTrack?: TrackReferenceOrPlaceholder
+  audioTrack?: TrackReferenceOrPlaceholder;
   /**
    * Callback when the pressed state changes.
    */
-  onPressedChange?: (pressed: boolean) => void
+  onPressedChange?: (pressed: boolean) => void;
   /**
    * Callback when a media device error occurs.
    */
-  onMediaDeviceError?: (error: Error) => void
+  onMediaDeviceError?: (error: Error) => void;
   /**
    * Callback when the active device changes.
    */
-  onActiveDeviceChange?: (deviceId: string) => void
+  onActiveDeviceChange?: (deviceId: string) => void;
 };
 
 /**
@@ -260,7 +256,7 @@ export type AgentTrackControlProps = VariantProps<typeof toggleVariants> & {
  */
 export function AgentTrackControl({
   kind,
-  variant = 'default',
+  variant = "default",
   source,
   pressed,
   pending,
@@ -274,33 +270,33 @@ export function AgentTrackControl({
   return (
     <div
       className={cn(
-        'flex items-center gap-0 rounded-md',
-        variant === 'outline' && 'shadow-xs [&_button]:shadow-none',
+        "flex items-center gap-0 rounded-md",
+        variant === "outline" && "shadow-xs [&_button]:shadow-none",
         className,
       )}
     >
       <AgentTrackToggle
-        variant={variant ?? 'default'}
+        variant={variant ?? "default"}
         source={source}
         pressed={pressed}
         pending={pending}
         disabled={disabled}
         onPressedChange={onPressedChange}
-        className='peer/track group/track focus:z-10 has-[.audiovisualizer]:w-auto has-[.audiovisualizer]:px-3 has-[~_button]:rounded-r-none has-[~_button]:border-r-0 has-[~_button]:pr-2 has-[~_button]:pl-3'
+        className="peer/track group/track focus:z-10 has-[.audiovisualizer]:w-auto has-[.audiovisualizer]:px-3 has-[~_button]:rounded-r-none has-[~_button]:border-r-0 has-[~_button]:pr-2 has-[~_button]:pl-3"
       >
         {audioTrack && (
           <AgentAudioVisualizerBar
-            size='icon'
+            size="icon"
             barCount={3}
-            state={pressed ? 'speaking' : 'disconnected'}
+            state={pressed ? "speaking" : "disconnected"}
             audioTrack={pressed ? audioTrack : undefined}
-            className='audiovisualizer flex h-6 w-auto items-center justify-center gap-0.5'
+            className="audiovisualizer flex h-6 w-auto items-center justify-center gap-0.5"
           >
             <span
               className={cn([
-                'h-full min-h-0.5 w-0.5 origin-center',
-                'group-data-[state=on]/track:bg-foreground group-data-[state=off]/track:bg-destructive',
-                'data-lk-muted:bg-muted',
+                "h-full min-h-0.5 w-0.5 origin-center",
+                "group-data-[state=on]/track:bg-foreground group-data-[state=off]/track:bg-destructive",
+                "data-lk-muted:bg-muted",
               ])}
             />
           </AgentAudioVisualizerBar>
@@ -308,16 +304,16 @@ export function AgentTrackControl({
       </AgentTrackToggle>
       {kind && (
         <TrackDeviceSelect
-          size='sm'
+          size="sm"
           kind={kind}
           variant={variant}
           requestPermissions={false}
           onMediaDeviceError={onMediaDeviceError}
           onActiveDeviceChange={onActiveDeviceChange}
           className={cn([
-            'relative',
+            "relative",
             'before:bg-border before:absolute before:inset-y-0 before:left-0 before:my-2.5 before:w-px has-[~_button]:before:content-[""]',
-            !pressed && 'before:bg-destructive/20',
+            !pressed && "before:bg-destructive/20",
           ])}
         />
       )}

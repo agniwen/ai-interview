@@ -9,34 +9,36 @@ export async function readNdjsonStream<T = unknown>(
 ): Promise<void> {
   const reader = response.body?.getReader();
   if (!reader) {
-    throw new Error('Response body is empty');
+    throw new Error("Response body is empty");
   }
 
   const decoder = new TextDecoder();
-  let buffer = '';
+  let buffer = "";
 
   try {
     while (true) {
-      if (signal?.aborted)
+      if (signal?.aborted) {
         break;
+      }
       const { done, value } = await reader.read();
-      if (done)
+      if (done) {
         break;
+      }
 
       buffer += decoder.decode(value, { stream: true });
 
-      const lines = buffer.split('\n');
+      const lines = buffer.split("\n");
       // Keep the last (potentially incomplete) line in the buffer
-      buffer = lines.pop() ?? '';
+      buffer = lines.pop() ?? "";
 
       for (const line of lines) {
         const trimmed = line.trim();
-        if (!trimmed)
+        if (!trimmed) {
           continue;
+        }
         try {
           onEvent(JSON.parse(trimmed) as T);
-        }
-        catch {
+        } catch {
           // skip malformed lines
         }
       }
@@ -46,13 +48,11 @@ export async function readNdjsonStream<T = unknown>(
     if (buffer.trim()) {
       try {
         onEvent(JSON.parse(buffer.trim()) as T);
-      }
-      catch {
+      } catch {
         // skip
       }
     }
-  }
-  finally {
+  } finally {
     reader.releaseLock();
   }
 }

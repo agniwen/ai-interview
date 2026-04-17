@@ -1,18 +1,15 @@
-import type { parseScheduleEntriesInput, StudioInterviewRecord } from '@/lib/studio-interviews';
-import { eq, inArray } from 'drizzle-orm';
-import { updateTag } from 'next/cache';
-import { db } from '@/lib/db';
-import {
-  studioInterview,
-  studioInterviewSchedule,
-} from '@/lib/db/schema';
+import type { parseScheduleEntriesInput, StudioInterviewRecord } from "@/lib/studio-interviews";
+import { eq, inArray } from "drizzle-orm";
+import { updateTag } from "next/cache";
+import { db } from "@/lib/db";
+import { studioInterview, studioInterviewSchedule } from "@/lib/db/schema";
 import {
   buildCandidateInterviewView,
   buildInterviewLink,
   pickCurrentScheduleEntry,
   sortScheduleEntries,
-} from '@/lib/interview/interview-record';
-import { ResumeAnalysisError } from '@/server/agents/resume-analysis-agent';
+} from "@/lib/interview/interview-record";
+import { ResumeAnalysisError } from "@/server/agents/resume-analysis-agent";
 
 export type StudioInterviewRow = typeof studioInterview.$inferSelect;
 export type StudioInterviewScheduleRow = typeof studioInterviewSchedule.$inferSelect;
@@ -24,8 +21,7 @@ export type StudioInterviewScheduleRow = typeof studioInterviewSchedule.$inferSe
 export function safeUpdateTag(tag: string) {
   try {
     updateTag(tag);
-  }
-  catch {
+  } catch {
     // updateTag may throw in certain route handler contexts — non-critical
   }
 }
@@ -35,9 +31,13 @@ export function safeUpdateTag(tag: string) {
 // =====================================================================
 
 export async function loadCandidateInterviewRecord(id: string, roundId: string) {
-  const [record] = await db.select().from(studioInterview).where(eq(studioInterview.id, id)).limit(1);
+  const [record] = await db
+    .select()
+    .from(studioInterview)
+    .where(eq(studioInterview.id, id))
+    .limit(1);
 
-  if (!record || record.status === 'archived') {
+  if (!record || record.status === "archived") {
     return null;
   }
 
@@ -56,7 +56,7 @@ export async function loadScheduleEntriesForRedirect(id: string) {
     .where(eq(studioInterview.id, id))
     .limit(1);
 
-  if (!record || record.status === 'archived') {
+  if (!record || record.status === "archived") {
     return null;
   }
 
@@ -72,7 +72,7 @@ export async function loadScheduleEntriesForRedirect(id: string) {
 
 export function buildTokenErrorResponse() {
   return {
-    error: '语音通话服务配置缺失，请联系管理员检查环境变量。',
+    error: "语音通话服务配置缺失，请联系管理员检查环境变量。",
   };
 }
 
@@ -90,29 +90,29 @@ export function buildScheduleRows(
   now: Date,
   existingRows?: StudioInterviewScheduleRow[],
 ) {
-  const existingMap = new Map((existingRows ?? []).map(row => [row.id, row]));
+  const existingMap = new Map((existingRows ?? []).map((row) => [row.id, row]));
 
   return entries.map((entry, index) => {
     const existing = entry.id ? existingMap.get(entry.id.trim()) : undefined;
 
     return {
-      id: entry.id?.trim() || crypto.randomUUID(),
-      interviewRecordId,
-      roundLabel: entry.roundLabel.trim(),
-      status: existing?.status ?? ('pending' as const),
-      scheduledAt: entry.scheduledAt ? new Date(entry.scheduledAt) : null,
-      notes: entry.notes?.trim() || null,
-      sortOrder: typeof entry.sortOrder === 'number' ? entry.sortOrder : index,
       conversationId: existing?.conversationId ?? null,
       createdAt: existing?.createdAt ?? now,
+      id: entry.id?.trim() || crypto.randomUUID(),
+      interviewRecordId,
+      notes: entry.notes?.trim() || null,
+      roundLabel: entry.roundLabel.trim(),
+      scheduledAt: entry.scheduledAt ? new Date(entry.scheduledAt) : null,
+      sortOrder: typeof entry.sortOrder === "number" ? entry.sortOrder : index,
+      status: existing?.status ?? ("pending" as const),
       updatedAt: now,
     };
   });
 }
 
-export async function loadScheduleEntries(interviewIds: string[]) {
+export function loadScheduleEntries(interviewIds: string[]): Promise<StudioInterviewScheduleRow[]> {
   if (interviewIds.length === 0) {
-    return [] as StudioInterviewScheduleRow[];
+    return Promise.resolve([]);
   }
 
   return db
@@ -126,19 +126,23 @@ export function serializeRecord(
   scheduleRows: StudioInterviewScheduleRow[],
 ): StudioInterviewRecord {
   const scheduleEntries = sortScheduleEntries(
-    scheduleRows.filter(schedule => schedule.interviewRecordId === record.id),
+    scheduleRows.filter((schedule) => schedule.interviewRecordId === record.id),
   );
 
   return {
     ...record,
+    interviewLink: buildInterviewLink(record.id),
     interviewQuestions: record.interviewQuestions ?? [],
     scheduleEntries,
-    interviewLink: buildInterviewLink(record.id),
   };
 }
 
 export async function loadRecordById(id: string) {
-  const [record] = await db.select().from(studioInterview).where(eq(studioInterview.id, id)).limit(1);
+  const [record] = await db
+    .select()
+    .from(studioInterview)
+    .where(eq(studioInterview.id, id))
+    .limit(1);
 
   if (!record) {
     return null;
@@ -154,9 +158,9 @@ export function toBadRequest(error: unknown) {
   }
 
   if (error instanceof Error) {
-    const status = error.message.includes('PDF') || error.message.includes('10 MB') ? 400 : 400;
+    const status = error.message.includes("PDF") || error.message.includes("10 MB") ? 400 : 400;
     return { error: error.message, status };
   }
 
-  return { error: '表单校验失败。', status: 400 };
+  return { error: "表单校验失败。", status: 400 };
 }

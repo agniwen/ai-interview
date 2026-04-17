@@ -1,7 +1,7 @@
-import { createPostgresState } from '@chat-adapter/state-pg';
-import { createFeishuAdapter } from '@repo/adapter-feishu';
-import { Chat } from 'chat';
-import { handleResumeMessage } from './handler';
+import { createPostgresState } from "@chat-adapter/state-pg";
+import { createFeishuAdapter } from "@repo/adapter-feishu";
+import { Chat } from "chat";
+import { handleResumeMessage } from "./handler";
 
 let cached: Chat<{ feishu: ReturnType<typeof createFeishuAdapter> }> | null = null;
 
@@ -20,17 +20,17 @@ export function getFeishuBot() {
 
   const databaseUrl = process.env.DATABASE_URL;
   if (!databaseUrl) {
-    throw new Error('DATABASE_URL is required for the Feishu bot state adapter');
+    throw new Error("DATABASE_URL is required for the Feishu bot state adapter");
   }
 
   const bot = new Chat({
-    userName: 'resume-bot',
     adapters: {
-      feishu: createFeishuAdapter({ userName: 'resume-bot' }),
+      feishu: createFeishuAdapter({ userName: "resume-bot" }),
     },
-    state: createPostgresState({ url: databaseUrl }),
+    concurrency: "queue",
     dedupeTtlMs: 600_000,
-    concurrency: 'queue',
+    state: createPostgresState({ url: databaseUrl }),
+    userName: "resume-bot",
   });
 
   bot.onDirectMessage(async (thread, message, _channel, context) => {

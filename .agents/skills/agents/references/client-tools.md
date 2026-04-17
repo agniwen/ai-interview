@@ -4,11 +4,11 @@ Extend your agent with custom capabilities. Tools let the agent take actions bey
 
 ## Tool Types
 
-| Type | Execution | Use Case |
-|------|-----------|----------|
-| **Webhook** | Server-side via HTTP | Database queries, API calls, secure operations |
-| **Client** | Browser-side JavaScript | UI updates, local storage, navigation |
-| **System** | Built-in ElevenLabs | End call, transfer, standard actions |
+| Type        | Execution               | Use Case                                       |
+| ----------- | ----------------------- | ---------------------------------------------- |
+| **Webhook** | Server-side via HTTP    | Database queries, API calls, secure operations |
+| **Client**  | Browser-side JavaScript | UI updates, local storage, navigation          |
+| **System**  | Built-in ElevenLabs     | End call, transfer, standard actions           |
 
 ## Where Tools Live
 
@@ -171,14 +171,14 @@ context as a lazily evaluated JSON history object with user, agent, and tool ent
 
 ### Webhook Tool Options
 
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `response_timeout_secs` | int | `20` | Timeout in seconds (5-120) |
-| `disable_interruptions` | bool | `false` | Prevent user interruptions during tool execution |
-| `execution_mode` | string | `"immediate"` | `immediate`, `post_tool_speech`, or `async` |
-| `tool_call_sound` | string | - | Sound during execution: `typing`, `elevator1`-`elevator4` |
-| `force_pre_tool_speech` | bool | `false` | Force agent to speak before executing tool |
-| `tool_error_handling_mode` | string | `"auto"` | `auto`, `summarized`, `passthrough`, or `hide` |
+| Field                      | Type   | Default       | Description                                               |
+| -------------------------- | ------ | ------------- | --------------------------------------------------------- |
+| `response_timeout_secs`    | int    | `20`          | Timeout in seconds (5-120)                                |
+| `disable_interruptions`    | bool   | `false`       | Prevent user interruptions during tool execution          |
+| `execution_mode`           | string | `"immediate"` | `immediate`, `post_tool_speech`, or `async`               |
+| `tool_call_sound`          | string | -             | Sound during execution: `typing`, `elevator1`-`elevator4` |
+| `force_pre_tool_speech`    | bool   | `false`       | Force agent to speak before executing tool                |
+| `tool_error_handling_mode` | string | `"auto"`      | `auto`, `summarized`, `passthrough`, or `hide`            |
 
 **Note:** The default `api_schema.method` is `GET`. Always set `"method": "POST"` explicitly for webhook tools that send request bodies.
 
@@ -308,8 +308,8 @@ When users want to go somewhere, use navigate_to.""",
 
 ### Client Tool Options
 
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
+| Field              | Type | Default | Description                                |
+| ------------------ | ---- | ------- | ------------------------------------------ |
 | `expects_response` | bool | `false` | Whether the tool returns data to the agent |
 
 ### Client Tool Return Values
@@ -429,12 +429,12 @@ Help the LLM extract correct values:
 
 Configure how tool errors are shared with the agent using `tool_error_handling_mode`:
 
-| Mode | Behavior |
-|------|----------|
-| `auto` | ElevenLabs automatically decides how to handle errors |
-| `summarized` | Errors are summarized before being sent to the agent |
-| `passthrough` | Full error details are passed to the agent |
-| `hide` | Errors are hidden from the agent |
+| Mode          | Behavior                                              |
+| ------------- | ----------------------------------------------------- |
+| `auto`        | ElevenLabs automatically decides how to handle errors |
+| `summarized`  | Errors are summarized before being sent to the agent  |
+| `passthrough` | Full error details are passed to the agent            |
+| `hide`        | Errors are hidden from the agent                      |
 
 Return helpful error messages:
 

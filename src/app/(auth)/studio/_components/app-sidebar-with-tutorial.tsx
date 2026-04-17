@@ -1,8 +1,8 @@
-'use client';
+"use client";
 
-import type { ComponentProps } from 'react';
-import { AppSidebar } from './app-sidebar';
-import { useStudioTutorialContext } from './studio-tutorial-provider';
+import type { ComponentProps } from "react";
+import { AppSidebar } from "./app-sidebar";
+import { useStudioTutorialContext } from "./studio-tutorial-provider";
 
 export function AppSidebarWithTutorial(props: ComponentProps<typeof AppSidebar>) {
   const { startTutorial } = useStudioTutorialContext();

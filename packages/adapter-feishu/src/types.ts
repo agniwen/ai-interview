@@ -7,13 +7,13 @@
  */
 export interface FeishuAdapterConfig {
   /** Feishu application ID */
-  appId: string
+  appId: string;
   /** Feishu application secret */
-  appSecret: string
+  appSecret: string;
   /** Encryption key for event subscription verification */
-  encryptKey?: string
+  encryptKey?: string;
   /** Verification token for event subscription verification */
-  verificationToken?: string
+  verificationToken?: string;
 }
 
 /**
@@ -22,11 +22,11 @@ export interface FeishuAdapterConfig {
  */
 export interface FeishuThreadId {
   /** Chat (group) ID, e.g. "oc_xxx" */
-  chatId: string
+  chatId: string;
   /** Root message ID for thread, e.g. "om_xxx", or "dm" for direct messages */
-  messageId: string
+  messageId: string;
   /** Feishu topic/thread ID (omt_xxx format), used for fetching thread messages */
-  threadId?: string
+  threadId?: string;
 }
 
 // ============================================================================
@@ -39,19 +39,19 @@ export interface FeishuThreadId {
  */
 export interface FeishuEventCallback {
   /** Challenge token for URL verification */
-  challenge?: string
+  challenge?: string;
   /** Encrypted event payload (base64 AES-256-CBC) — present when encryptKey is configured */
-  encrypt?: string
+  encrypt?: string;
   /** Event data */
-  event?: FeishuEvent
+  event?: FeishuEvent;
   /** Event header */
-  header?: FeishuEventHeader
+  header?: FeishuEventHeader;
   /** Schema version */
-  schema?: string
+  schema?: string;
   /** Token for verification (v1 events) */
-  token?: string
+  token?: string;
   /** Event type (v1 events) */
-  type?: string
+  type?: string;
 }
 
 /**
@@ -59,17 +59,17 @@ export interface FeishuEventCallback {
  */
 export interface FeishuEventHeader {
   /** Application ID */
-  app_id: string
+  app_id: string;
   /** Timestamp string */
-  create_time: string
+  create_time: string;
   /** Unique event ID */
-  event_id: string
+  event_id: string;
   /** Event type, e.g. "im.message.receive_v1" */
-  event_type: string
+  event_type: string;
   /** Tenant key */
-  tenant_key: string
+  tenant_key: string;
   /** Token */
-  token: string
+  token: string;
 }
 
 /**
@@ -77,9 +77,9 @@ export interface FeishuEventHeader {
  */
 export interface FeishuEvent {
   /** Message data */
-  message: FeishuEventMessage
+  message: FeishuEventMessage;
   /** Sender data */
-  sender: FeishuEventSender
+  sender: FeishuEventSender;
 }
 
 /**
@@ -87,27 +87,27 @@ export interface FeishuEvent {
  */
 export interface FeishuEventMessage {
   /** Chat ID where the message was sent */
-  chat_id: string
+  chat_id: string;
   /** Chat type: "group" or "p2p" */
-  chat_type: string
+  chat_type: string;
   /** Message content (JSON string) */
-  content: string
+  content: string;
   /** ISO timestamp when the message was created */
-  create_time: string
+  create_time: string;
   /** Mentions in the message */
-  mentions?: FeishuMention[]
+  mentions?: FeishuMention[];
   /** Unique message ID */
-  message_id: string
+  message_id: string;
   /** Message type: "text", "post", "interactive", "image", etc. */
-  message_type: string
+  message_type: string;
   /** Parent message ID (for replies in thread) */
-  parent_id?: string
+  parent_id?: string;
   /** Root message ID (for thread root) */
-  root_id?: string
+  root_id?: string;
   /** Thread/topic ID (omt_xxx format, absent for non-topic messages) */
-  thread_id?: string
+  thread_id?: string;
   /** Update time */
-  update_time?: string
+  update_time?: string;
 }
 
 /**
@@ -116,16 +116,16 @@ export interface FeishuEventMessage {
 export interface FeishuMention {
   /** Mention ID (user open_id or chat_id) */
   id: {
-    open_id?: string
-    union_id?: string
-    user_id?: string
-  }
+    open_id?: string;
+    union_id?: string;
+    user_id?: string;
+  };
   /** Key used in content, e.g. "@_user_1" */
-  key: string
+  key: string;
   /** Display name */
-  name: string
+  name: string;
   /** Tenant key */
-  tenant_key?: string
+  tenant_key?: string;
 }
 
 /**
@@ -134,14 +134,14 @@ export interface FeishuMention {
 export interface FeishuEventSender {
   /** Sender ID */
   sender_id: {
-    open_id: string
-    union_id?: string
-    user_id?: string
-  }
+    open_id: string;
+    union_id?: string;
+    user_id?: string;
+  };
   /** Sender type: "user" or "app" */
-  sender_type: string
+  sender_type: string;
   /** Tenant key */
-  tenant_key?: string
+  tenant_key?: string;
 }
 
 // ============================================================================
@@ -154,62 +154,62 @@ export interface FeishuEventSender {
  */
 export interface FeishuInteractiveCard {
   config?: {
-    wide_screen_mode?: boolean
-  }
-  elements: FeishuCardElement[]
+    wide_screen_mode?: boolean;
+  };
+  elements: FeishuCardElement[];
   header?: {
-    template?: string
+    template?: string;
     title: {
-      content: string
-      tag: 'plain_text' | 'lark_md'
-    }
-  }
+      content: string;
+      tag: "plain_text" | "lark_md";
+    };
+  };
 }
 
 /**
  * Feishu card element (simplified).
  */
-export type FeishuCardElement
-  = | FeishuCardDivElement
-    | FeishuCardHrElement
-    | FeishuCardActionElement;
+export type FeishuCardElement =
+  | FeishuCardDivElement
+  | FeishuCardHrElement
+  | FeishuCardActionElement;
 
 /**
  * Feishu card div element (text block).
  */
 interface FeishuCardDivElement {
-  tag: 'div'
+  tag: "div";
   text: {
-    content: string
-    tag: 'plain_text' | 'lark_md'
-  }
+    content: string;
+    tag: "plain_text" | "lark_md";
+  };
 }
 
 /**
  * Feishu card hr (divider) element.
  */
 interface FeishuCardHrElement {
-  tag: 'hr'
+  tag: "hr";
 }
 
 /**
  * Feishu card action element (buttons).
  */
 export interface FeishuCardActionElement {
-  actions: FeishuCardButtonElement[]
-  tag: 'action'
+  actions: FeishuCardButtonElement[];
+  tag: "action";
 }
 
 /**
  * Feishu card button element.
  */
 export interface FeishuCardButtonElement {
-  tag: 'button'
+  tag: "button";
   text: {
-    content: string
-    tag: 'plain_text'
-  }
-  type?: 'default' | 'primary' | 'danger'
-  url?: string
-  value?: Record<string, string>
+    content: string;
+    tag: "plain_text";
+  };
+  type?: "default" | "primary" | "danger";
+  url?: string;
+  value?: Record<string, string>;
 }

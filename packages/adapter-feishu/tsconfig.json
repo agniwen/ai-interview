@@ -4,7 +4,8 @@
   "compilerOptions": {
     "rootDir": "./src",
     "types": ["node"],
-    "noEmit": true
+    "noEmit": true,
+    "strictNullChecks": true
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "**/*.test.ts"]

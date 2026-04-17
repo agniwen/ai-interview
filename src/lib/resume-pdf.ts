@@ -1,54 +1,60 @@
-import type { UIMessage } from 'ai';
-import { decodeDataUrl } from '@/lib/data-url';
+import type { UIMessage } from "ai";
+import type * as PdfParseModuleNs from "pdf-parse";
+import type * as PdfParseWorkerModuleNs from "pdf-parse/worker";
+import { decodeDataUrl } from "@/lib/data-url";
+
+type PdfParseModule = typeof PdfParseModuleNs;
+type PdfParseWorkerModule = typeof PdfParseWorkerModuleNs;
 
 export interface UploadedResumePdf {
-  id: string
-  filename: string
-  mediaType: string
-  url: string
+  id: string;
+  filename: string;
+  mediaType: string;
+  url: string;
 }
 
 export interface ParsedResumePdf {
-  filename: string
-  id: string
-  pageCount: number
-  text: string
-  totalTextChars: number
+  filename: string;
+  id: string;
+  pageCount: number;
+  text: string;
+  totalTextChars: number;
 }
 
 export interface ResumeStructuredInfo {
-  candidateName: string | null
-  degree: string | null
-  education: string | null
-  email: string | null
-  graduationYear: string | null
-  internshipHighlights: string[]
-  links: string[]
-  major: string | null
-  phone: string | null
-  projectHighlights: string[]
-  school: string | null
-  skills: string[]
-  timelineSummary: ResumeTimelineSummary
+  candidateName: string | null;
+  degree: string | null;
+  education: string | null;
+  email: string | null;
+  graduationYear: string | null;
+  internshipHighlights: string[];
+  links: string[];
+  major: string | null;
+  phone: string | null;
+  projectHighlights: string[];
+  school: string | null;
+  skills: string[];
+  timelineSummary: ResumeTimelineSummary;
 }
 
 export interface ResumeTimelineSummary {
-  currentStatus: string | null
-  dateRanges: string[]
-  estimatedExperienceYears: number | null
-  riskSignals: string[]
+  currentStatus: string | null;
+  dateRanges: string[];
+  estimatedExperienceYears: number | null;
+  riskSignals: string[];
 }
 
 let workerConfigured = false;
-let pdfParseModulePromise: Promise<typeof import('pdf-parse')> | null = null;
-let pdfParseWorkerModulePromise: Promise<typeof import('pdf-parse/worker')> | null
-  = null;
+let pdfParseModulePromise: Promise<PdfParseModule> | null = null;
+let pdfParseWorkerModulePromise: Promise<PdfParseWorkerModule> | null = null;
 
+// oxlint-disable-next-line no-control-regex -- intentionally strips NUL bytes from PDF extracts
 const NULL_BYTE_REGEX = /\0/g;
 const WINDOWS_LINE_BREAK_REGEX = /\r\n/g;
 const CARRIAGE_RETURN_REGEX = /\r/g;
 const EXCESSIVE_NEWLINES_REGEX = /\n{3,}/g;
-const SECTION_BREAK_HEADING_REGEX = /教育|技能|项目|实习|经历|工作|荣誉|证书|自我评价|objective|education|skills|projects|experience/i;
+const SECTION_BREAK_HEADING_REGEX =
+  /教育|技能|项目|实习|经历|工作|荣誉|证书|自我评价|objective|education|skills|projects|experience/i;
 const CJK_NAME_REGEX = /^[\u4E00-\u9FA5]{2,4}$/;
 const LATIN_NAME_REGEX = /^[A-Z]+(?:\s+[A-Z]+){1,2}$/i;
 const EMAIL_REGEX = /([\w.%+-]+@[a-z0-9.-]+\.[a-z]{2,})/i;
@@ -66,10 +72,12 @@ const SKILL_SPLIT_REGEX = /[、,，;；/|·]/;
 const PROJECT_SECTION_HEADING_REGEX = /项目|projects?/i;
 const INTERNSHIP_SECTION_HEADING_REGEX = /实习|工作经历|experience|intern/i;
 const URL_REGEX = /(https?:\/\/[^\s)]+)/g;
-const DATE_RANGE_REGEX = /(20\d{2}(?:[./-]\d{1,2}|年\d{1,2}月?)?)\s*[至到\-~—–－]\s*(至今|现在|目前|present|current|20\d{2}(?:[./-]\d{1,2}|年\d{1,2}月?)?)/gi;
+const DATE_RANGE_REGEX =
+  /(20\d{2}(?:[./-]\d{1,2}|年\d{1,2}月?)?)\s*[至到\-~—–－]\s*(至今|现在|目前|present|current|20\d{2}(?:[./-]\d{1,2}|年\d{1,2}月?)?)/gi;
 const DATE_TOKEN_REGEX = /(20\d{2})(?:[./-](\d{1,2})|年(\d{1,2})月?)?/;
 const PRESENT_TOKEN_REGEX = /^(?:至今|现在|目前|present|current)$/i;
-const PROJECT_OR_WORK_SECTION_HEADING_REGEX = /工作经历|实习经历|职业经历|项目经历|experience|intern|project/i;
+const PROJECT_OR_WORK_SECTION_HEADING_REGEX =
+  /工作经历|实习经历|职业经历|项目经历|experience|intern|project/i;
 const WORK_CONTEXT_REGEX = /公司|任职|岗位|负责|实习|工作|项目|研发|产品|运营/;
 const CURRENT_STATUS_MARKER_REGEX = /至今|现在|目前|present|current/i;
 const MAX_TIMELINE_RANGES = 12;
@@ -78,14 +86,14 @@ async function ensureDomPolyfills() {
   const globalWithPdfPolyfills = globalThis as Record<string, unknown>;
 
   if (
-    globalWithPdfPolyfills.DOMMatrix
-    && globalWithPdfPolyfills.ImageData
-    && globalWithPdfPolyfills.Path2D
+    globalWithPdfPolyfills.DOMMatrix &&
+    globalWithPdfPolyfills.ImageData &&
+    globalWithPdfPolyfills.Path2D
   ) {
     return;
   }
 
-  const canvas = await import('@napi-rs/canvas').catch(() => null);
+  const canvas = await import("@napi-rs/canvas").catch(() => null);
 
   if (!canvas) {
     return;
@@ -104,29 +112,27 @@ async function ensureDomPolyfills() {
   }
 }
 
-async function loadPdfParseWorkerModule(): Promise<
-  typeof import('pdf-parse/worker')
-> {
+function loadPdfParseWorkerModule(): Promise<PdfParseWorkerModule> {
   if (!pdfParseWorkerModulePromise) {
-    pdfParseWorkerModulePromise = import('pdf-parse/worker');
+    pdfParseWorkerModulePromise = import("pdf-parse/worker");
   }
 
   return pdfParseWorkerModulePromise;
 }
 
-async function loadPdfParseModule(): Promise<typeof import('pdf-parse')> {
+function loadPdfParseModule(): Promise<PdfParseModule> {
   if (!pdfParseModulePromise) {
     pdfParseModulePromise = (async () => {
       await ensureDomPolyfills();
       await loadPdfParseWorkerModule();
-      return import('pdf-parse');
+      return import("pdf-parse");
     })();
   }
 
   return pdfParseModulePromise;
 }
 
-async function ensurePdfWorker(PDFParse: (typeof import('pdf-parse'))['PDFParse']) {
+async function ensurePdfWorker(PDFParse: PdfParseModule["PDFParse"]) {
   if (workerConfigured) {
     return;
   }
@@ -138,10 +144,10 @@ async function ensurePdfWorker(PDFParse: (typeof import('pdf-parse'))['PDFParse'
 
 function normalizeText(text: string): string {
   return text
-    .replace(NULL_BYTE_REGEX, '')
-    .replace(WINDOWS_LINE_BREAK_REGEX, '\n')
-    .replace(CARRIAGE_RETURN_REGEX, '\n')
-    .replace(EXCESSIVE_NEWLINES_REGEX, '\n\n')
+    .replace(NULL_BYTE_REGEX, "")
+    .replace(WINDOWS_LINE_BREAK_REGEX, "\n")
+    .replace(CARRIAGE_RETURN_REGEX, "\n")
+    .replace(EXCESSIVE_NEWLINES_REGEX, "\n\n")
     .trim();
 }
 
@@ -198,37 +204,51 @@ function parseDateToken(token: string, now: Date) {
   return { month, year };
 }
 
-function toMonthIndex(date: { year: number, month: number }) {
+function toMonthIndex(date: { year: number; month: number }) {
   return date.year * 12 + (date.month - 1);
 }
 
+function resolveCurrentStatus(
+  latestRange: { raw: string } | undefined,
+  rangeCount: number,
+): string | null {
+  if (latestRange?.raw && CURRENT_STATUS_MARKER_REGEX.test(latestRange.raw)) {
+    return "最近一段经历显示候选人可能仍在职";
+  }
+  if (rangeCount > 0) {
+    return "最近一段经历未明确显示为在职状态";
+  }
+  return null;
+}
+
+// oxlint-disable-next-line complexity -- Timeline heuristics branch on many resume patterns; splitting further hurts readability.
 function extractTimelineSummary(resumeText: string): ResumeTimelineSummary {
   const lines = resumeText
-    .split('\n')
-    .map(line => line.trim())
+    .split("\n")
+    .map((line) => line.trim())
     .filter(Boolean);
   const now = new Date();
   const dateRanges: string[] = [];
-  const parsedRanges: Array<{
-    end: number
-    isWorkLike: boolean
-    raw: string
-    start: number
-  }> = [];
+  const parsedRanges: {
+    end: number;
+    isWorkLike: boolean;
+    raw: string;
+    start: number;
+  }[] = [];
 
-  lines.forEach((line) => {
+  for (const line of lines) {
     const matches = [...line.matchAll(DATE_RANGE_REGEX)];
 
     if (matches.length === 0) {
-      return;
+      continue;
     }
 
-    const isWorkLike = PROJECT_OR_WORK_SECTION_HEADING_REGEX.test(line)
-      || WORK_CONTEXT_REGEX.test(line);
+    const isWorkLike =
+      PROJECT_OR_WORK_SECTION_HEADING_REGEX.test(line) || WORK_CONTEXT_REGEX.test(line);
 
-    matches.forEach((match) => {
+    for (const match of matches) {
       if (dateRanges.length >= MAX_TIMELINE_RANGES) {
-        return;
+        break;
       }
 
       const startToken = match[1]?.trim();
@@ -236,7 +256,7 @@ function extractTimelineSummary(resumeText: string): ResumeTimelineSummary {
       const raw = match[0]?.trim();
 
       if (!startToken || !endToken || !raw || dateRanges.includes(raw)) {
-        return;
+        continue;
       }
 
       dateRanges.push(raw);
@@ -245,7 +265,7 @@ function extractTimelineSummary(resumeText: string): ResumeTimelineSummary {
       const end = parseDateToken(endToken, now);
 
       if (!start || !end) {
-        return;
+        continue;
       }
 
       parsedRanges.push({
@@ -254,19 +274,19 @@ function extractTimelineSummary(resumeText: string): ResumeTimelineSummary {
         raw,
         start: toMonthIndex(start),
       });
-    });
-  });
+    }
+  }
 
   const sortedRanges = parsedRanges
-    .filter(range => range.isWorkLike)
-    .sort((a, b) => a.start - b.start);
+    .filter((range) => range.isWorkLike)
+    .toSorted((a, b) => a.start - b.start);
   const riskSignals: string[] = [];
 
-  sortedRanges.forEach((range) => {
+  for (const range of sortedRanges) {
     if (range.end < range.start) {
       riskSignals.push(`时间区间可能有误：${range.raw}`);
     }
-  });
+  }
 
   for (let i = 1; i < sortedRanges.length; i += 1) {
     const previous = sortedRanges[i - 1];
@@ -284,47 +304,49 @@ function extractTimelineSummary(resumeText: string): ResumeTimelineSummary {
     }
 
     if (overlapMonths >= 2) {
-      riskSignals.push(`时间线存在重叠，需核实是否为兼职/并行项目：${previous.raw} 与 ${current.raw}`);
+      riskSignals.push(
+        `时间线存在重叠，需核实是否为兼职/并行项目：${previous.raw} 与 ${current.raw}`,
+      );
     }
   }
 
-  const shortStints = sortedRanges.filter(range => range.end >= range.start && (range.end - range.start + 1) <= 8);
+  const shortStints = sortedRanges.filter(
+    (range) => range.end >= range.start && range.end - range.start + 1 <= 8,
+  );
 
   if (shortStints.length >= 2) {
     riskSignals.push(`检测到 ${shortStints.length} 段较短经历（8 个月内），需关注稳定性`);
   }
 
-  const futureRanges = sortedRanges.filter(range => range.start > toMonthIndex({ month: now.getMonth() + 1, year: now.getFullYear() }) + 1);
+  const futureRanges = sortedRanges.filter(
+    (range) =>
+      range.start > toMonthIndex({ month: now.getMonth() + 1, year: now.getFullYear() }) + 1,
+  );
 
   if (futureRanges.length > 0) {
-    riskSignals.push('检测到未来时间段，需核实简历时间填写是否准确');
+    riskSignals.push("检测到未来时间段，需核实简历时间填写是否准确");
   }
 
-  const mergedRanges: Array<{ end: number, start: number }> = [];
+  const mergedRanges: { end: number; start: number }[] = [];
 
-  sortedRanges
-    .filter(range => range.end >= range.start)
-    .forEach((range) => {
-      const last = mergedRanges.at(-1);
+  for (const range of sortedRanges) {
+    if (range.end < range.start) {
+      continue;
+    }
+    const last = mergedRanges.at(-1);
 
-      if (!last || range.start > last.end + 1) {
-        mergedRanges.push({ end: range.end, start: range.start });
-        return;
-      }
+    if (!last || range.start > last.end + 1) {
+      mergedRanges.push({ end: range.end, start: range.start });
+      continue;
+    }
 
-      last.end = Math.max(last.end, range.end);
-    });
+    last.end = Math.max(last.end, range.end);
+  }
 
   const totalMonths = mergedRanges.reduce((sum, range) => sum + (range.end - range.start + 1), 0);
-  const estimatedExperienceYears = totalMonths > 0
-    ? Number((totalMonths / 12).toFixed(1))
-    : null;
+  const estimatedExperienceYears = totalMonths > 0 ? Number((totalMonths / 12).toFixed(1)) : null;
   const latestRange = sortedRanges.at(-1);
-  const currentStatus = latestRange?.raw && CURRENT_STATUS_MARKER_REGEX.test(latestRange.raw)
-    ? '最近一段经历显示候选人可能仍在职'
-    : sortedRanges.length > 0
-      ? '最近一段经历未明确显示为在职状态'
-      : null;
+  const currentStatus = resolveCurrentStatus(latestRange, sortedRanges.length);
 
   return {
     currentStatus,
@@ -335,11 +357,11 @@ function extractTimelineSummary(resumeText: string): ResumeTimelineSummary {
 }
 
 export async function readPdfBytes(url: string): Promise<Uint8Array> {
-  if (url.startsWith('data:')) {
+  if (url.startsWith("data:")) {
     return decodeDataUrl(url).data;
   }
 
-  if (url.startsWith('https://') || url.startsWith('http://')) {
+  if (url.startsWith("https://") || url.startsWith("http://")) {
     const response = await fetch(url);
 
     if (!response.ok) {
@@ -350,10 +372,10 @@ export async function readPdfBytes(url: string): Promise<Uint8Array> {
     return new Uint8Array(bytes);
   }
 
-  throw new Error('Unsupported PDF url format.');
+  throw new Error("Unsupported PDF url format.");
 }
 
-function clip(text: string, maxChars: number): { text: string, truncated: boolean } {
+function clip(text: string, maxChars: number): { text: string; truncated: boolean } {
   if (text.length <= maxChars) {
     return { text, truncated: false };
   }
@@ -365,16 +387,16 @@ function clip(text: string, maxChars: number): { text: string, truncated: boolea
 }
 
 function extractSectionLines(lines: string[], headingPattern: RegExp): string[] {
-  const startIndex = lines.findIndex(line => headingPattern.test(line));
+  const startIndex = lines.findIndex((line) => headingPattern.test(line));
 
-  if (startIndex < 0) {
+  if (startIndex === -1) {
     return [];
   }
 
   const section: string[] = [];
 
   for (let i = startIndex + 1; i < lines.length; i += 1) {
-    const line = lines[i]?.trim() ?? '';
+    const line = lines[i]?.trim() ?? "";
 
     if (!line) {
       if (section.length > 0) {
@@ -383,11 +405,7 @@ function extractSectionLines(lines: string[], headingPattern: RegExp): string[] 
       continue;
     }
 
-    if (
-      section.length > 1
-      && SECTION_BREAK_HEADING_REGEX.test(line)
-      && line.length <= 20
-    ) {
+    if (section.length > 1 && SECTION_BREAK_HEADING_REGEX.test(line) && line.length <= 20) {
       break;
     }
 
@@ -406,20 +424,20 @@ export function collectUploadedResumePdfs(messages: UIMessage[]): UploadedResume
   const seen = new Set<string>();
 
   for (const message of messages) {
-    if (message.role !== 'user') {
+    if (message.role !== "user") {
       continue;
     }
 
-    message.parts.forEach((part, index) => {
-      if (part.type !== 'file' || part.mediaType !== 'application/pdf') {
-        return;
+    for (const [index, part] of message.parts.entries()) {
+      if (part.type !== "file" || part.mediaType !== "application/pdf") {
+        continue;
       }
 
       const filename = part.filename?.trim() || toDefaultFilename(results.length);
       const dedupeKey = `${filename}|${part.url}`;
 
       if (seen.has(dedupeKey)) {
-        return;
+        continue;
       }
 
       seen.add(dedupeKey);
@@ -429,13 +447,16 @@ export function collectUploadedResumePdfs(messages: UIMessage[]): UploadedResume
         mediaType: part.mediaType,
         url: part.url,
       });
-    });
+    }
   }
 
   return results;
 }
 
-export function selectUploadedResumePdfs(files: UploadedResumePdf[], resumeName?: string): UploadedResumePdf[] {
+export function selectUploadedResumePdfs(
+  files: UploadedResumePdf[],
+  resumeName?: string,
+): UploadedResumePdf[] {
   const selector = resumeName?.trim();
 
   if (!selector) {
@@ -449,7 +470,7 @@ export function selectUploadedResumePdfs(files: UploadedResumePdf[], resumeName?
   }
 
   const lowerSelector = selector.toLowerCase();
-  return files.filter(file => file.filename.toLowerCase().includes(lowerSelector));
+  return files.filter((file) => file.filename.toLowerCase().includes(lowerSelector));
 }
 
 export async function extractPdfText(data: Uint8Array | Buffer): Promise<string> {
@@ -460,10 +481,11 @@ export async function extractPdfText(data: Uint8Array | Buffer): Promise<string>
 
   try {
     const result = await parser.getText();
-    return normalizeText(result.text ?? '');
-  }
-  finally {
-    await parser.destroy().catch(() => undefined);
+    return normalizeText(result.text ?? "");
+  } finally {
+    await parser.destroy().catch(() => {
+      // ignore destroy errors — parser is going out of scope
+    });
   }
 }
 
@@ -476,9 +498,9 @@ export async function parseResumePdf(file: UploadedResumePdf): Promise<ParsedRes
 
   try {
     const textResult = await parser.getText();
-    const normalized = normalizeText(textResult.text ?? '');
-    const pageCount
-      = typeof textResult.total === 'number' && textResult.total > 0
+    const normalized = normalizeText(textResult.text ?? "");
+    const pageCount =
+      typeof textResult.total === "number" && textResult.total > 0
         ? textResult.total
         : textResult.pages.length;
 
@@ -489,74 +511,57 @@ export async function parseResumePdf(file: UploadedResumePdf): Promise<ParsedRes
       text: normalized,
       totalTextChars: normalized.length,
     };
-  }
-  finally {
-    await parser.destroy().catch(() => undefined);
+  } finally {
+    await parser.destroy().catch(() => {
+      // ignore destroy errors — parser is going out of scope
+    });
   }
 }
 
 export function extractResumeStructuredInfo(resumeText: string): ResumeStructuredInfo {
   const lines = resumeText
-    .split('\n')
-    .map(line => line.trim())
+    .split("\n")
+    .map((line) => line.trim())
     .filter(Boolean);
 
   const topLines = lines.slice(0, 8);
-  const candidateName
-    = topLines.find(line => CJK_NAME_REGEX.test(line))
-      ?? topLines.find(line => LATIN_NAME_REGEX.test(line))
-      ?? null;
+  const candidateName =
+    topLines.find((line) => CJK_NAME_REGEX.test(line)) ??
+    topLines.find((line) => LATIN_NAME_REGEX.test(line)) ??
+    null;
 
-  const email = firstRegexMatch(
-    resumeText,
-    EMAIL_REGEX,
-  );
-  const phone
-    = firstRegexMatch(resumeText, MOBILE_PHONE_REGEX)
-      ?? firstRegexMatch(resumeText, GENERIC_PHONE_REGEX);
-  const school
-    = lines.find(line => SCHOOL_LINE_REGEX.test(line))
-      ?? null;
-  const education
-    = lines.find(line => EDUCATION_LINE_REGEX.test(line))
-      ?? null;
-  const degree
-    = firstRegexMatch(
-      resumeText,
-      DEGREE_REGEX,
-      1,
-    ) ?? null;
-  const major
-    = firstRegexMatch(resumeText, MAJOR_CAPTURE_REGEX)
-      ?? lines.find(line => MAJOR_LINE_REGEX.test(line))
-      ?? null;
-  const graduationYear
-    = firstRegexMatch(resumeText, GRADUATION_YEAR_REGEX)
-      ?? firstRegexMatch(resumeText, GRADUATION_COHORT_REGEX);
+  const email = firstRegexMatch(resumeText, EMAIL_REGEX);
+  const phone =
+    firstRegexMatch(resumeText, MOBILE_PHONE_REGEX) ??
+    firstRegexMatch(resumeText, GENERIC_PHONE_REGEX);
+  const school = lines.find((line) => SCHOOL_LINE_REGEX.test(line)) ?? null;
+  const education = lines.find((line) => EDUCATION_LINE_REGEX.test(line)) ?? null;
+  const degree = firstRegexMatch(resumeText, DEGREE_REGEX, 1) ?? null;
+  const major =
+    firstRegexMatch(resumeText, MAJOR_CAPTURE_REGEX) ??
+    lines.find((line) => MAJOR_LINE_REGEX.test(line)) ??
+    null;
+  const graduationYear =
+    firstRegexMatch(resumeText, GRADUATION_YEAR_REGEX) ??
+    firstRegexMatch(resumeText, GRADUATION_COHORT_REGEX);
 
-  const skillSection = extractSectionLines(
-    lines,
-    SKILL_SECTION_HEADING_REGEX,
-  );
+  const skillSection = extractSectionLines(lines, SKILL_SECTION_HEADING_REGEX);
   const skills = uniqueStrings(
     skillSection
-      .join(' ')
+      .join(" ")
       .split(SKILL_SPLIT_REGEX)
-      .map(skill => skill.trim())
-      .filter(skill => skill.length >= 2 && skill.length <= 30)
+      .map((skill) => skill.trim())
+      .filter((skill) => skill.length >= 2 && skill.length <= 30)
       .slice(0, 18),
   );
 
   const projectSection = extractSectionLines(lines, PROJECT_SECTION_HEADING_REGEX);
-  const internshipSection = extractSectionLines(
-    lines,
-    INTERNSHIP_SECTION_HEADING_REGEX,
-  );
+  const internshipSection = extractSectionLines(lines, INTERNSHIP_SECTION_HEADING_REGEX);
 
   const projectHighlights = uniqueStrings(projectSection).slice(0, 6);
   const internshipHighlights = uniqueStrings(internshipSection).slice(0, 6);
   const links = uniqueStrings(
-    Array.from(resumeText.matchAll(URL_REGEX), match => match[1] ?? ''),
+    Array.from(resumeText.matchAll(URL_REGEX), (match) => match[1] ?? ""),
   ).slice(0, 6);
   const timelineSummary = extractTimelineSummary(resumeText);
 
@@ -577,6 +582,6 @@ export function extractResumeStructuredInfo(resumeText: string): ResumeStructure
   };
 }
 
-export function clipResumeText(text: string, maxChars = 12000) {
+export function clipResumeText(text: string, maxChars = 12_000) {
   return clip(text, maxChars);
 }

@@ -1,8 +1,8 @@
-'use client';
+"use client";
 
-import { LoaderCircleIcon } from 'lucide-react';
-import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { LoaderCircleIcon } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -11,8 +11,8 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
-import { authClient } from '@/lib/auth-client';
+} from "@/components/ui/alert-dialog";
+import { authClient } from "@/lib/auth-client";
 
 export default function StudioUnauthorizedPage() {
   const router = useRouter();
@@ -25,18 +25,19 @@ export default function StudioUnauthorizedPage() {
 
     try {
       await authClient.signOut();
-    }
-    catch {
+    } catch {
       // Ignore sign-out failures and continue redirecting.
-    }
-    finally {
-      router.replace('/');
+    } finally {
+      router.replace("/");
       router.refresh();
     }
   };
 
   return (
-    <main className='flex min-h-dvh flex-col items-center justify-center gap-3 px-6 text-center' id='main-content'>
+    <main
+      className="flex min-h-dvh flex-col items-center justify-center gap-3 px-6 text-center"
+      id="main-content"
+    >
       <AlertDialog open={open}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -46,17 +47,15 @@ export default function StudioUnauthorizedPage() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogAction onClick={handleConfirm}>
-              确认
-            </AlertDialogAction>
+            <AlertDialogAction onClick={handleConfirm}>确认</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
       {isRedirecting && (
         <>
-          <LoaderCircleIcon className='size-6 animate-spin text-muted-foreground' />
-          <p className='text-muted-foreground text-sm'>正在退出当前账号并返回首页...</p>
+          <LoaderCircleIcon className="size-6 animate-spin text-muted-foreground" />
+          <p className="text-muted-foreground text-sm">正在退出当前账号并返回首页...</p>
         </>
       )}
     </main>

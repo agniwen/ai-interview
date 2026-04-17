@@ -1,15 +1,10 @@
-'use client';
+"use client";
 
-import type { ChatStatus, DynamicToolUIPart, FileUIPart, ToolUIPart, UIMessage } from 'ai';
-import type { ConversationMessage } from '@/components/ai-elements/conversation';
-import { useChat } from '@ai-sdk/react';
-import {
-
-  DefaultChatTransport,
-  isToolUIPart,
-
-} from 'ai';
-import { useAtom, useAtomValue, useSetAtom } from 'jotai';
+import type { ChatStatus, DynamicToolUIPart, FileUIPart, ToolUIPart, UIMessage } from "ai";
+import type { ConversationMessage } from "@/components/ai-elements/conversation";
+import { useChat } from "@ai-sdk/react";
+import { DefaultChatTransport, isToolUIPart } from "ai";
+import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import {
   CheckIcon,
   CircleHelpIcon,
@@ -24,31 +19,30 @@ import {
   Trash2Icon,
   UploadIcon,
   UserIcon,
-} from 'lucide-react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { toast } from 'sonner';
+} from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { toast } from "sonner";
 import {
   Attachment,
   AttachmentInfo,
   AttachmentPreview,
   AttachmentRemove,
   Attachments,
-} from '@/components/ai-elements/attachments';
+} from "@/components/ai-elements/attachments";
 import {
   Conversation,
   ConversationContent,
   ConversationDownload,
   ConversationEmptyState,
-
   ConversationScrollButton,
-} from '@/components/ai-elements/conversation';
+} from "@/components/ai-elements/conversation";
 import {
   Message,
   MessageAction,
   MessageActions,
   MessageContent,
   MessageResponse,
-} from '@/components/ai-elements/message';
+} from "@/components/ai-elements/message";
 import {
   PromptInput,
   PromptInputActionAddAttachments,
@@ -63,25 +57,17 @@ import {
   PromptInputTextarea,
   PromptInputTools,
   usePromptInputAttachments,
-} from '@/components/ai-elements/prompt-input';
-import { Shimmer } from '@/components/ai-elements/shimmer';
-import {
-  Source,
-  Sources,
-  SourcesContent,
-  SourcesTrigger,
-} from '@/components/ai-elements/sources';
-import { Suggestion, Suggestions } from '@/components/ai-elements/suggestion';
-import { AssistantMessageGroups } from '@/components/assistant-message-groups';
-import { ResumeImportButton } from '@/components/resume-import-button';
-import { ThinkingBlock } from '@/components/thinking-block';
-import {
-  TIME_DISPLAY_OPTIONS,
-  TimeDisplay,
-} from '@/components/time-display';
-import { ToolCall } from '@/components/tool-call/tool-call';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Button } from '@/components/ui/button';
+} from "@/components/ai-elements/prompt-input";
+import { Shimmer } from "@/components/ai-elements/shimmer";
+import { Source, Sources, SourcesContent, SourcesTrigger } from "@/components/ai-elements/sources";
+import { Suggestion, Suggestions } from "@/components/ai-elements/suggestion";
+import { AssistantMessageGroups } from "@/components/assistant-message-groups";
+import { ResumeImportButton } from "@/components/resume-import-button";
+import { ThinkingBlock } from "@/components/thinking-block";
+import { TIME_DISPLAY_OPTIONS, TimeDisplay } from "@/components/time-display";
+import { ToolCall } from "@/components/tool-call/tool-call";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -89,7 +75,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
+} from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -97,54 +83,60 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
-import { useHydrated } from '@/hooks/use-hydrated';
-import { authClient } from '@/lib/auth-client';
-import {
-  chatHistoryDB,
-} from '@/lib/chat-history-db';
-import { isMobileSidebarOpenAtom } from '../_atoms/sidebar';
-import { thinkingModeAtom } from '../_atoms/thinking';
-import { tutorialStepAtom } from '../_atoms/tutorial';
-import { TUTORIAL_MOCK_ATTACHMENTS, TUTORIAL_MOCK_INPUT_TEXT } from '../constants/tutorial-mock';
-import { useChatTutorial } from './chat-tutorial';
+} from "@/components/ui/dropdown-menu";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { useHydrated } from "@/hooks/use-hydrated";
+import { authClient } from "@/lib/auth-client";
+import { chatHistoryDB } from "@/lib/chat-history-db";
+import type { StoredConversation } from "@/lib/chat-history-db";
+import { isMobileSidebarOpenAtom } from "../_atoms/sidebar";
+import { thinkingModeAtom } from "../_atoms/thinking";
+import { tutorialStepAtom } from "../_atoms/tutorial";
+import { TUTORIAL_MOCK_ATTACHMENTS, TUTORIAL_MOCK_INPUT_TEXT } from "../constants/tutorial-mock";
+import { useChatTutorial } from "./chat-tutorial";
 
-type MessagePart = UIMessage['parts'][number];
+type MessagePart = UIMessage["parts"][number];
 
 const CHAT_REQUEST_TIMEOUT_MS = 8 * 60 * 1000;
 
 const QUICK_SUGGESTIONS = [
-  '列出候选人的优点、缺点、风险关键项，团队定位、职级定级。',
-  '这份简历是否建议进入面试？请给出理由和建议的面试重点。',
-  '针对这份简历，生成一组面试追问问题，侧重验证项目真实性。',
-  '帮我提炼候选人的核心竞争力和岗位匹配度分析。',
-  '对比这几份简历，按综合匹配度排序并说明推荐理由。',
+  "列出候选人的优点、缺点、风险关键项，团队定位、职级定级。",
+  "这份简历是否建议进入面试？请给出理由和建议的面试重点。",
+  "针对这份简历，生成一组面试追问问题，侧重验证项目真实性。",
+  "帮我提炼候选人的核心竞争力和岗位匹配度分析。",
+  "对比这几份简历，按综合匹配度排序并说明推荐理由。",
 ];
 
-const NEW_CHAT_TITLE = '新对话';
-const GENERATING_CHAT_TITLE = '生成中...';
+const NEW_CHAT_TITLE = "新对话";
+const GENERATING_CHAT_TITLE = "生成中...";
 const MAX_CHAT_TITLE_LENGTH = 28;
 const WHITESPACE_REGEX = /\s+/;
 const INPUT_APPEND_PUNCTUATION_REGEX = /[，。,.]$/;
 
+const noop = () => {
+  // intentionally empty — used to force controlled-open menus
+};
+
+function getComposerStatusLabel(status: ChatStatus, hasJobDescription: boolean) {
+  if (status === "streaming") {
+    return "正在分析简历内容…";
+  }
+  return hasJobDescription ? "已配置岗位描述（JD）" : "未配置岗位描述（可在岗位设置中配置）";
+}
+
 function getInitials(name?: string | null, email?: string | null) {
-  const source = (name ?? email ?? '').trim();
+  const source = (name ?? email ?? "").trim();
 
   if (!source) {
-    return 'U';
+    return "U";
   }
 
   const words = source.split(WHITESPACE_REGEX).filter(Boolean);
 
   if (words.length >= 2) {
-    return `${words[0]![0]}${words[1]![0]}`.toUpperCase();
+    return `${words[0]?.[0] ?? ""}${words[1]?.[0] ?? ""}`.toUpperCase();
   }
 
   return source.slice(0, 2).toUpperCase();
@@ -157,38 +149,32 @@ function appendSuggestionToInput(currentInput: string, suggestion: string) {
     return suggestion;
   }
 
-  const separator = INPUT_APPEND_PUNCTUATION_REGEX.test(normalizedInput)
-    ? ''
-    : '，';
+  const separator = INPUT_APPEND_PUNCTUATION_REGEX.test(normalizedInput) ? "" : "，";
 
   return `${normalizedInput}${separator}${suggestion}`;
 }
 
-function isTextPart(part: MessagePart): part is Extract<MessagePart, { type: 'text' }> {
-  return part.type === 'text';
+function isTextPart(part: MessagePart): part is Extract<MessagePart, { type: "text" }> {
+  return part.type === "text";
 }
 
-function isFilePart(part: MessagePart): part is Extract<MessagePart, { type: 'file' }> {
-  return part.type === 'file';
+function isFilePart(part: MessagePart): part is Extract<MessagePart, { type: "file" }> {
+  return part.type === "file";
 }
 
-function isReasoningPart(part: MessagePart): part is Extract<MessagePart, { type: 'reasoning' }> {
-  return part.type === 'reasoning';
-}
-
-function isSourceUrlPart(part: MessagePart): part is Extract<MessagePart, { type: 'source-url' }> {
-  return part.type === 'source-url';
+function isSourceUrlPart(part: MessagePart): part is Extract<MessagePart, { type: "source-url" }> {
+  return part.type === "source-url";
 }
 
 function isToolPart(part: MessagePart): part is ToolUIPart | DynamicToolUIPart {
-  return part.type === 'dynamic-tool' || part.type.startsWith('tool-');
+  return part.type === "dynamic-tool" || part.type.startsWith("tool-");
 }
 
 function toDownloadMessage(message: UIMessage) {
   const text = message.parts
     .filter(isTextPart)
-    .map(part => part.text)
-    .join('\n\n')
+    .map((part) => part.text)
+    .join("\n\n")
     .trim();
 
   if (text) {
@@ -197,11 +183,12 @@ function toDownloadMessage(message: UIMessage) {
 
   const hasFiles = message.parts.some(isFilePart);
   const hasTools = message.parts.some(isToolPart);
-  const fallback = hasFiles
-    ? '[Attachment]'
-    : hasTools
-      ? '[Tool Call]'
-      : '[Empty Message]';
+  let fallback = "[Empty Message]";
+  if (hasFiles) {
+    fallback = "[Attachment]";
+  } else if (hasTools) {
+    fallback = "[Tool Call]";
+  }
 
   return {
     content: fallback,
@@ -210,16 +197,15 @@ function toDownloadMessage(message: UIMessage) {
 }
 
 function getMessageTimeValue(message: UIMessage): Date | null {
-  const createdAt = (message as UIMessage & {
-    createdAt?: Date | string | number
-  }).createdAt;
+  const { createdAt } = message as UIMessage & {
+    createdAt?: Date | string | number;
+  };
 
   if (!createdAt) {
     return null;
   }
 
-  const parsed
-    = createdAt instanceof Date ? createdAt : new Date(createdAt);
+  const parsed = createdAt instanceof Date ? createdAt : new Date(createdAt);
 
   if (Number.isNaN(parsed.getTime())) {
     return null;
@@ -228,8 +214,11 @@ function getMessageTimeValue(message: UIMessage): Date | null {
   return parsed;
 }
 
-function getConversationTitleFromMessages(messages: UIMessage[], fallbackTitle: string = NEW_CHAT_TITLE) {
-  const firstUserMessage = messages.find(message => message.role === 'user');
+function getConversationTitleFromMessages(
+  messages: UIMessage[],
+  fallbackTitle: string = NEW_CHAT_TITLE,
+) {
+  const firstUserMessage = messages.find((message) => message.role === "user");
 
   if (!firstUserMessage) {
     return fallbackTitle;
@@ -237,9 +226,9 @@ function getConversationTitleFromMessages(messages: UIMessage[], fallbackTitle: 
 
   const text = firstUserMessage.parts
     .filter(isTextPart)
-    .map(part => part.text.trim())
+    .map((part) => part.text.trim())
     .filter(Boolean)
-    .join(' ')
+    .join(" ")
     .trim();
 
   if (text.length > 0) {
@@ -247,7 +236,7 @@ function getConversationTitleFromMessages(messages: UIMessage[], fallbackTitle: 
   }
 
   if (firstUserMessage.parts.some(isFilePart)) {
-    return '含附件对话';
+    return "含附件对话";
   }
 
   return fallbackTitle;
@@ -259,39 +248,124 @@ function getConversationTitleFromMessages(messages: UIMessage[], fallbackTitle: 
  * the client auto-submits to continue the loop when all tools
  * in the current step reach terminal state.
  */
-function shouldAutoSubmit({
-  messages,
-}: {
-  messages: UIMessage[]
-}): boolean {
+function shouldAutoSubmit({ messages }: { messages: UIMessage[] }): boolean {
   const lastMessage = messages.at(-1);
-  if (!lastMessage || lastMessage.role !== 'assistant')
+  if (!lastMessage || lastMessage.role !== "assistant") {
     return false;
+  }
 
-  // Find the last step-start to get tools from the current step only
-  const lastStepStartIndex = lastMessage.parts.reduce(
-    (lastIndex, part, index) =>
-      part.type === 'step-start' ? index : lastIndex,
-    -1,
-  );
+  let lastStepStartIndex = -1;
+  for (let index = 0; index < lastMessage.parts.length; index += 1) {
+    if (lastMessage.parts[index]?.type === "step-start") {
+      lastStepStartIndex = index;
+    }
+  }
 
   // Get tool invocations from the last step (non-provider-executed)
   const lastStepToolInvocations = lastMessage.parts
     .slice(lastStepStartIndex + 1)
     .filter(isToolUIPart)
-    .filter(part => !part.providerExecuted);
+    .filter((part) => !part.providerExecuted);
 
   // If no tool invocations, don't auto-submit
-  if (lastStepToolInvocations.length === 0)
+  if (lastStepToolInvocations.length === 0) {
     return false;
+  }
 
   // Auto-submit only if ALL tools are in terminal state
   return lastStepToolInvocations.every(
-    part =>
-      part.state === 'output-available'
-      || part.state === 'output-error'
-      || part.state === 'approval-responded',
+    (part) =>
+      part.state === "output-available" ||
+      part.state === "output-error" ||
+      part.state === "approval-responded",
   );
+}
+
+type SessionData = ReturnType<typeof authClient.useSession>["data"];
+
+interface MobileUserMenuArgs {
+  handleSignIn: () => void;
+  handleSignOut: () => void;
+  session: SessionData;
+  showSessionLoadingState: boolean;
+  userEmail: string;
+  userInitials: string;
+  userName: string;
+}
+
+function renderMobileUserMenu({
+  handleSignIn,
+  handleSignOut,
+  session,
+  showSessionLoadingState,
+  userEmail,
+  userInitials,
+  userName,
+}: MobileUserMenuArgs) {
+  if (showSessionLoadingState) {
+    return <div className="h-9 w-9 animate-pulse rounded-md bg-muted" />;
+  }
+
+  if (!session?.user) {
+    return (
+      <Button className="mt-4" onClick={handleSignIn} size="sm" type="button" variant="outline">
+        <UserIcon className="mr-1 size-4" />
+        登录
+      </Button>
+    );
+  }
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          aria-label="用户菜单"
+          className="rounded-full"
+          size="icon-sm"
+          type="button"
+          variant="outline"
+        >
+          <Avatar size="sm">
+            <AvatarImage alt={userName} src={session.user.image ?? undefined} />
+            <AvatarFallback>{userInitials}</AvatarFallback>
+          </Avatar>
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="w-56">
+        <DropdownMenuLabel className="space-y-0.5">
+          <p className="truncate font-medium text-sm">{userName}</p>
+          <p className="truncate text-muted-foreground text-xs">{userEmail}</p>
+        </DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={handleSignOut} variant="destructive">
+          <LogOutIcon className="mr-2 size-4" />
+          退出登录
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+interface ResolvePersistedTitleArgs {
+  derivedTitle: string;
+  existing: StoredConversation | undefined;
+  shouldKeepExistingTitle: boolean;
+  shouldKeepGeneratingTitle: boolean;
+}
+
+function resolvePersistedTitle({
+  derivedTitle,
+  existing,
+  shouldKeepExistingTitle,
+  shouldKeepGeneratingTitle,
+}: ResolvePersistedTitleArgs): string {
+  if (shouldKeepGeneratingTitle) {
+    return existing?.title ?? GENERATING_CHAT_TITLE;
+  }
+  if (shouldKeepExistingTitle && existing?.title) {
+    return existing.title;
+  }
+  return derivedTitle;
 }
 
 function ComposerAttachments() {
@@ -306,8 +380,8 @@ function ComposerAttachments() {
   }
 
   return (
-    <Attachments className='w-full' variant='inline'>
-      {files.map(file => (
+    <Attachments className="w-full" variant="inline">
+      {files.map((file) => (
         <Attachment
           data={file}
           key={file.id}
@@ -340,20 +414,20 @@ function ThinkingModeSwitch() {
   const isHydrated = useHydrated();
   // Atom is persisted in localStorage; before hydration the client has no
   // access to it, so always render the fallback (false) to match SSR output.
-  const displayEnabled = isHydrated ? (enabled || tutorialStep === 5) : false;
+  const displayEnabled = isHydrated ? enabled || tutorialStep === 5 : false;
 
   return (
-    <div className='hidden items-center gap-1.5 sm:flex' data-tour='thinking-toggle'>
+    <div className="hidden items-center gap-1.5 sm:flex" data-tour="thinking-toggle">
       <Switch
         checked={displayEnabled}
-        id='thinking-mode'
+        id="thinking-mode"
         onCheckedChange={setEnabled}
-        onMouseDown={e => e.preventDefault()}
-        className='scale-75'
+        onMouseDown={(e) => e.preventDefault()}
+        className="scale-75"
       />
       <Label
-        className='cursor-pointer text-muted-foreground text-xs select-none'
-        htmlFor='thinking-mode'
+        className="cursor-pointer text-muted-foreground text-xs select-none"
+        htmlFor="thinking-mode"
       >
         深度思考
       </Label>
@@ -370,38 +444,34 @@ function ComposerFooter({
   status,
   stop,
 }: {
-  downloadableMessages: ConversationMessage[]
-  input: string
-  hasJobDescription: boolean
-  onClearJobDescription: () => void
-  onOpenJobDescriptionSettings: () => void
-  status: ChatStatus
-  stop: () => void
+  downloadableMessages: ConversationMessage[];
+  input: string;
+  hasJobDescription: boolean;
+  onClearJobDescription: () => void;
+  onOpenJobDescriptionSettings: () => void;
+  status: ChatStatus;
+  stop: () => void;
 }) {
   const attachments = usePromptInputAttachments();
   const tutorialStep = useAtomValue(tutorialStepAtom);
-  const canSubmit
-    = input.trim().length > 0 || attachments.files.length > 0;
+  const canSubmit = input.trim().length > 0 || attachments.files.length > 0;
   const displayHasJD = hasJobDescription || tutorialStep === 4;
   const forceUploadMenuOpen = tutorialStep === 3;
   const forceJDMenuOpen = tutorialStep === 4;
-  const noopOpenChange = () => {};
 
   return (
     <PromptInputFooter>
       <PromptInputTools>
-        <PromptInputActionMenu
-          {...(forceUploadMenuOpen && { open: true, onOpenChange: noopOpenChange })}
-        >
+        <PromptInputActionMenu {...(forceUploadMenuOpen && { onOpenChange: noop, open: true })}>
           <PromptInputActionMenuTrigger
-            data-tour='file-upload'
-            id='prompt-actions-menu-trigger'
-            tooltip='更多输入操作'
+            data-tour="file-upload"
+            id="prompt-actions-menu-trigger"
+            tooltip="更多输入操作"
           />
           <PromptInputActionMenuContent
-            {...(forceUploadMenuOpen && { className: 'tutorial-forced-menu' })}
+            {...(forceUploadMenuOpen && { className: "tutorial-forced-menu" })}
           >
-            <PromptInputActionAddAttachments label='上传 PDF 简历' />
+            <PromptInputActionAddAttachments label="上传 PDF 简历" />
 
             <PromptInputActionMenuItem
               onSelect={(event) => {
@@ -409,24 +479,22 @@ function ComposerFooter({
                 attachments.clear();
               }}
             >
-              <Trash2Icon className='mr-2 size-4' />
+              <Trash2Icon className="mr-2 size-4" />
               清空附件
             </PromptInputActionMenuItem>
           </PromptInputActionMenuContent>
         </PromptInputActionMenu>
 
-        <PromptInputActionMenu
-          {...(forceJDMenuOpen && { open: true, onOpenChange: noopOpenChange })}
-        >
+        <PromptInputActionMenu {...(forceJDMenuOpen && { onOpenChange: noop, open: true })}>
           <PromptInputActionMenuTrigger
-            data-tour='jd-settings'
-            id='prompt-job-settings-menu-trigger'
-            tooltip='岗位设置'
+            data-tour="jd-settings"
+            id="prompt-job-settings-menu-trigger"
+            tooltip="岗位设置"
           >
-            <SettingsIcon className='size-4' />
+            <SettingsIcon className="size-4" />
           </PromptInputActionMenuTrigger>
           <PromptInputActionMenuContent
-            {...(forceJDMenuOpen && { className: 'tutorial-forced-menu' })}
+            {...(forceJDMenuOpen && { className: "tutorial-forced-menu" })}
           >
             <PromptInputActionMenuItem
               onSelect={(event) => {
@@ -434,7 +502,7 @@ function ComposerFooter({
                 onOpenJobDescriptionSettings();
               }}
             >
-              <FileTextIcon className='mr-2 size-4' />
+              <FileTextIcon className="mr-2 size-4" />
               设置岗位描述（JD）
             </PromptInputActionMenuItem>
 
@@ -445,7 +513,7 @@ function ComposerFooter({
                 onClearJobDescription();
               }}
             >
-              <Trash2Icon className='mr-2 size-4' />
+              <Trash2Icon className="mr-2 size-4" />
               清空岗位描述
             </PromptInputActionMenuItem>
           </PromptInputActionMenuContent>
@@ -454,34 +522,28 @@ function ComposerFooter({
         <Tooltip>
           <TooltipTrigger asChild>
             <ConversationDownload
-              aria-label='导出聊天记录'
-              className='static rounded-md border-0 bg-transparent shadow-none hover:bg-accent'
+              aria-label="导出聊天记录"
+              className="static rounded-md border-0 bg-transparent shadow-none hover:bg-accent"
               disabled={downloadableMessages.length === 0}
               messages={downloadableMessages}
-              size='icon-sm'
-              variant='ghost'
+              size="icon-sm"
+              variant="ghost"
             />
           </TooltipTrigger>
-          <TooltipContent side='top'>
-            导出聊天记录
-          </TooltipContent>
+          <TooltipContent side="top">导出聊天记录</TooltipContent>
         </Tooltip>
       </PromptInputTools>
 
-      <div className='flex items-center gap-2'>
+      <div className="flex items-center gap-2">
         <ThinkingModeSwitch />
-        <span className='hidden text-muted-foreground text-xs sm:inline'>
-          {status === 'streaming'
-            ? '正在分析简历内容…'
-            : displayHasJD
-              ? '已配置岗位描述（JD）'
-              : '未配置岗位描述（可在岗位设置中配置）'}
+        <span className="hidden text-muted-foreground text-xs sm:inline">
+          {getComposerStatusLabel(status, displayHasJD)}
         </span>
         <PromptInputSubmit
-          data-tour='send-button'
-          disabled={status === 'ready' ? !canSubmit : false}
+          data-tour="send-button"
+          disabled={status === "ready" ? !canSubmit : false}
           onStop={stop}
-          variant='outline'
+          variant="outline"
           status={status}
         />
       </div>
@@ -489,11 +551,8 @@ function ComposerFooter({
   );
 }
 
-export default function ChatPageClient({
-  initialSessionId,
-}: {
-  initialSessionId: string | null
-}) {
+// eslint-disable-next-line complexity -- Top-level page component owns many pieces of UI state that belong together.
+export default function ChatPageClient({ initialSessionId }: { initialSessionId: string | null }) {
   const { startTutorial } = useChatTutorial();
   const { data: session, isPending: isSessionPending } = authClient.useSession();
   const isHydrated = useHydrated();
@@ -501,24 +560,16 @@ export default function ChatPageClient({
   const setIsMobileSidebarOpen = useSetAtom(isMobileSidebarOpenAtom);
   const thinkingMode = useAtomValue(thinkingModeAtom);
   const tutorialStep = useAtomValue(tutorialStepAtom);
-  const [input, setInput] = useState('');
-  const [activeConversationId, setActiveConversationId] = useState<string | null>(
-    null,
-  );
+  const [input, setInput] = useState("");
+  const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const [isHistoryReady, setIsHistoryReady] = useState(false);
-  const [shouldNormalizeSessionPath, setShouldNormalizeSessionPath]
-    = useState(false);
-  const [historyErrorMessage, setHistoryErrorMessage] = useState<string | null>(
-    null,
-  );
+  const [shouldNormalizeSessionPath, setShouldNormalizeSessionPath] = useState(false);
+  const [historyErrorMessage, setHistoryErrorMessage] = useState<string | null>(null);
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
-  const [isJobDescriptionDialogOpen, setIsJobDescriptionDialogOpen]
-    = useState(false);
-  const [jobDescription, setJobDescription] = useState('');
-  const [jobDescriptionDraft, setJobDescriptionDraft] = useState('');
-  const [uploadErrorMessage, setUploadErrorMessage] = useState<string | null>(
-    null,
-  );
+  const [isJobDescriptionDialogOpen, setIsJobDescriptionDialogOpen] = useState(false);
+  const [jobDescription, setJobDescription] = useState("");
+  const [jobDescriptionDraft, setJobDescriptionDraft] = useState("");
+  const [uploadErrorMessage, setUploadErrorMessage] = useState<string | null>(null);
   const [resumeImports, setResumeImports] = useState<Record<string, string>>({});
   // Tracks whether we expect a model response right now. Set optimistically in
   // the submit path (before the SDK status transitions) and kept in sync via
@@ -528,15 +579,15 @@ export default function ChatPageClient({
   // Explicit user stop — lets us force the UI back to idle even if the SDK
   // status gets stuck (some abort paths on iOS/Safari leave it on `streaming`).
   const [userStopped, setUserStopped] = useState(false);
-  const userName = session?.user?.name ?? '用户';
-  const userEmail = session?.user?.email ?? '';
+  const userName = session?.user?.name ?? "用户";
+  const userEmail = session?.user?.email ?? "";
   const userInitials = getInitials(session?.user?.name, session?.user?.email);
   const showSessionLoadingState = !isHydrated || isSessionPending;
 
   const handleSignIn = useCallback(() => {
     authClient.signIn.oauth2({
-      providerId: 'feishu',
-      callbackURL: '/chat',
+      callbackURL: "/chat",
+      providerId: "feishu",
     });
   }, []);
 
@@ -558,7 +609,7 @@ export default function ChatPageClient({
   const transport = useMemo(
     () =>
       new DefaultChatTransport({
-        api: '/api/resume',
+        api: "/api/resume",
         body: () => {
           const jd = jobDescriptionRef.current.trim();
           return {
@@ -566,19 +617,18 @@ export default function ChatPageClient({
             enableThinking: thinkingModeRef.current,
           };
         },
-        fetch: async (input, init) => {
+        fetch: async (fetchInput, init) => {
           const timeoutController = new AbortController();
           const timeoutId = window.setTimeout(() => {
-            timeoutController.abort('Chat request timed out after 8 minutes.');
+            timeoutController.abort("Chat request timed out after 8 minutes.");
           }, CHAT_REQUEST_TIMEOUT_MS);
 
           if (init?.signal) {
             if (init.signal.aborted) {
               timeoutController.abort(init.signal.reason);
-            }
-            else {
+            } else {
               init.signal.addEventListener(
-                'abort',
+                "abort",
                 () => timeoutController.abort(init.signal?.reason),
                 { once: true },
               );
@@ -586,12 +636,11 @@ export default function ChatPageClient({
           }
 
           try {
-            return await fetch(input, {
+            return await fetch(fetchInput, {
               ...init,
               signal: timeoutController.signal,
             });
-          }
-          finally {
+          } finally {
             window.clearTimeout(timeoutId);
           }
         },
@@ -599,45 +648,31 @@ export default function ChatPageClient({
     [],
   );
 
-  const {
-    messages,
-    sendMessage,
-    setMessages,
-    status,
-    stop,
-    error,
-    regenerate,
-    clearError,
-  } = useChat({
-    transport,
-    sendAutomaticallyWhen: shouldAutoSubmit,
-  });
+  const { messages, sendMessage, setMessages, status, stop, error, regenerate, clearError } =
+    useChat({
+      sendAutomaticallyWhen: shouldAutoSubmit,
+      transport,
+    });
 
-  const downloadableMessages = useMemo(
-    () => messages.map(toDownloadMessage),
-    [messages],
-  );
+  const downloadableMessages = useMemo(() => messages.map(toDownloadMessage), [messages]);
 
-  const displayInput = tutorialStep !== null && tutorialStep >= 2 && input === ''
-    ? TUTORIAL_MOCK_INPUT_TEXT
-    : input;
+  const displayInput =
+    tutorialStep !== null && tutorialStep >= 2 && input === "" ? TUTORIAL_MOCK_INPUT_TEXT : input;
   const normalizedJobDescription = jobDescription.trim();
   const hasJobDescription = normalizedJobDescription.length > 0;
 
-  const isChatInFlight
-    = (status === 'submitted' || status === 'streaming') && !userStopped;
+  const isChatInFlight = (status === "submitted" || status === "streaming") && !userStopped;
   // Treat the loop as still running while `hasPendingResponse` is true so that
   // the brief `ready` between auto-submitted steps doesn't flip UI state.
-  const effectiveStatus: ChatStatus = userStopped
-    ? 'ready'
-    : hasPendingResponse
-      ? 'streaming'
-      : status;
-  const isStreaming
-    = effectiveStatus === 'submitted' || effectiveStatus === 'streaming';
-  const lastMessage = messages.at(-1);
-  const showAssistantThinkingBubble
-    = isStreaming && lastMessage?.role === 'user';
+  let effectiveStatus: ChatStatus = status;
+  if (userStopped) {
+    effectiveStatus = "ready";
+  } else if (hasPendingResponse) {
+    effectiveStatus = "streaming";
+  }
+  const isStreaming = effectiveStatus === "submitted" || effectiveStatus === "streaming";
+  const latestMessage = messages.at(-1);
+  const showAssistantThinkingBubble = isStreaming && latestMessage?.role === "user";
 
   // Sync `hasPendingResponse` with the SDK status. Intentionally omitted from
   // deps: the submit handler sets it to true optimistically while status is
@@ -648,7 +683,7 @@ export default function ChatPageClient({
       setHasPendingResponse(true);
       return;
     }
-    if (status === 'ready' || status === 'error') {
+    if (status === "ready" || status === "error") {
       setHasPendingResponse(false);
       setUserStopped(false);
     }
@@ -660,105 +695,102 @@ export default function ChatPageClient({
     setUserStopped(true);
   }, [stop]);
 
-  const updateSessionInUrl = useCallback(
-    (sessionId: string | null) => {
-      const nextUrl = sessionId
-        ? `/chat/${encodeURIComponent(sessionId)}`
-        : '/chat';
+  const updateSessionInUrl = useCallback((sessionId: string | null) => {
+    const nextUrl = sessionId ? `/chat/${encodeURIComponent(sessionId)}` : "/chat";
 
-      if (window.location.pathname === nextUrl) {
-        return;
-      }
+    if (window.location.pathname === nextUrl) {
+      return;
+    }
 
-      window.history.replaceState(window.history.state, '', nextUrl);
-      window.dispatchEvent(
-        new CustomEvent('chat:session-path-updated', {
-          detail: {
-            pathname: nextUrl,
-            sessionId,
-          },
-        }),
-      );
-    },
-    [],
-  );
-
-  const persistConversation = useCallback(async ({
-    id,
-    nextMessages,
-    nextJobDescription,
-    nextResumeImports,
-    createdAt,
-    forcedTitle,
-    forcedIsTitleGenerating,
-  }: {
-    id: string
-    nextMessages: UIMessage[]
-    nextJobDescription: string
-    nextResumeImports: Record<string, string>
-    createdAt?: number
-    forcedTitle?: string
-    forcedIsTitleGenerating?: boolean
-  }) => {
-    const existing = await chatHistoryDB.conversations.get(id);
-    const now = Date.now();
-    const derivedTitle = getConversationTitleFromMessages(
-      nextMessages,
-      existing?.title ?? NEW_CHAT_TITLE,
+    window.history.replaceState(window.history.state, "", nextUrl);
+    window.dispatchEvent(
+      new CustomEvent("chat:session-path-updated", {
+        detail: {
+          pathname: nextUrl,
+          sessionId,
+        },
+      }),
     );
-    const shouldKeepExistingTitle
-      = typeof existing?.title === 'string' && existing.title !== NEW_CHAT_TITLE;
-    const shouldKeepGeneratingTitle
-      = existing?.isTitleGenerating === true && !forcedTitle;
-    const resolvedTitle = forcedTitle || (shouldKeepGeneratingTitle
-      ? existing?.title ?? GENERATING_CHAT_TITLE
-      : shouldKeepExistingTitle
-        ? existing.title
-        : derivedTitle);
-    const isTitleGenerating
-      = typeof forcedIsTitleGenerating === 'boolean'
-        ? forcedIsTitleGenerating
-        : existing?.isTitleGenerating ?? false;
-
-    await chatHistoryDB.conversations.put({
-      id,
-      createdAt: createdAt ?? existing?.createdAt ?? now,
-      updatedAt: now,
-      title: resolvedTitle,
-      isTitleGenerating,
-      messages: nextMessages,
-      jobDescription: nextJobDescription.trim(),
-      resumeImports: nextResumeImports,
-    });
   }, []);
 
-  const updateConversationTitle = useCallback(
-    async (id: string, title: string) => {
-      const conversation = await chatHistoryDB.conversations.get(id);
-
-      if (!conversation) {
-        return;
-      }
-
-      const normalizedTitle = title.trim().slice(0, MAX_CHAT_TITLE_LENGTH);
-
-      if (!normalizedTitle) {
-        return;
-      }
+  const persistConversation = useCallback(
+    async ({
+      id,
+      nextMessages,
+      nextJobDescription,
+      nextResumeImports,
+      createdAt,
+      forcedTitle,
+      forcedIsTitleGenerating,
+    }: {
+      id: string;
+      nextMessages: UIMessage[];
+      nextJobDescription: string;
+      nextResumeImports: Record<string, string>;
+      createdAt?: number;
+      forcedTitle?: string;
+      forcedIsTitleGenerating?: boolean;
+    }) => {
+      const existing = await chatHistoryDB.conversations.get(id);
+      const now = Date.now();
+      const derivedTitle = getConversationTitleFromMessages(
+        nextMessages,
+        existing?.title ?? NEW_CHAT_TITLE,
+      );
+      const shouldKeepExistingTitle =
+        typeof existing?.title === "string" && existing.title !== NEW_CHAT_TITLE;
+      const shouldKeepGeneratingTitle = existing?.isTitleGenerating === true && !forcedTitle;
+      const resolvedTitle =
+        forcedTitle ||
+        resolvePersistedTitle({
+          derivedTitle,
+          existing,
+          shouldKeepExistingTitle,
+          shouldKeepGeneratingTitle,
+        });
+      const isTitleGenerating =
+        typeof forcedIsTitleGenerating === "boolean"
+          ? forcedIsTitleGenerating
+          : (existing?.isTitleGenerating ?? false);
 
       await chatHistoryDB.conversations.put({
-        ...conversation,
-        title: normalizedTitle,
-        isTitleGenerating: false,
+        createdAt: createdAt ?? existing?.createdAt ?? now,
+        id,
+        isTitleGenerating,
+        jobDescription: nextJobDescription.trim(),
+        messages: nextMessages,
+        resumeImports: nextResumeImports,
+        title: resolvedTitle,
+        updatedAt: now,
       });
     },
     [],
   );
 
+  const updateConversationTitle = useCallback(async (id: string, title: string) => {
+    const conversation = await chatHistoryDB.conversations.get(id);
+
+    if (!conversation) {
+      return;
+    }
+
+    const normalizedTitle = title.trim().slice(0, MAX_CHAT_TITLE_LENGTH);
+
+    if (!normalizedTitle) {
+      return;
+    }
+
+    await chatHistoryDB.conversations.put({
+      ...conversation,
+      isTitleGenerating: false,
+      title: normalizedTitle,
+    });
+  }, []);
+
   const ensureConversation = async ({
     withGeneratingTitle,
   }: {
-    withGeneratingTitle?: boolean
+    withGeneratingTitle?: boolean;
   } = {}) => {
     if (activeConversationId) {
       return activeConversationId;
@@ -768,13 +800,13 @@ export default function ChatPageClient({
     const now = Date.now();
 
     await persistConversation({
-      id,
-      nextMessages: messages,
-      nextJobDescription: jobDescription,
-      nextResumeImports: resumeImports,
       createdAt: now,
-      forcedTitle: withGeneratingTitle ? GENERATING_CHAT_TITLE : undefined,
       forcedIsTitleGenerating: withGeneratingTitle,
+      forcedTitle: withGeneratingTitle ? GENERATING_CHAT_TITLE : undefined,
+      id,
+      nextJobDescription: jobDescription,
+      nextMessages: messages,
+      nextResumeImports: resumeImports,
     });
 
     updateSessionInUrl(id);
@@ -782,15 +814,8 @@ export default function ChatPageClient({
     return id;
   };
 
-  const sendMessageToChat = async ({
-    files,
-    text,
-  }: {
-    text: string
-    files?: FileUIPart[]
-  }) => {
-    const isFirstMessageForNewConversation
-      = !activeConversationId && messages.length === 0;
+  const sendMessageToChat = async ({ files, text }: { text: string; files?: FileUIPart[] }) => {
+    const isFirstMessageForNewConversation = !activeConversationId && messages.length === 0;
     let conversationId: string | null = activeConversationId;
 
     try {
@@ -798,48 +823,40 @@ export default function ChatPageClient({
         withGeneratingTitle: isFirstMessageForNewConversation,
       });
       setHistoryErrorMessage(null);
-    }
-    catch {
-      setHistoryErrorMessage('本地聊天记录保存失败，请检查浏览器存储权限。');
+    } catch {
+      setHistoryErrorMessage("本地聊天记录保存失败，请检查浏览器存储权限。");
     }
 
     if (isFirstMessageForNewConversation && conversationId) {
       const firstMessageText = text.trim();
+      const titleConversationId = conversationId;
 
       if (firstMessageText.length > 0) {
-        void fetch('/api/resume/title', {
-          body: JSON.stringify({
-            hasFiles: Boolean(files?.length),
-            text: firstMessageText,
-          }),
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          method: 'POST',
-        })
-          .then(async (response) => {
-            if (!response.ok) {
-              return null;
+        void (async () => {
+          try {
+            const response = await fetch("/api/resume/title", {
+              body: JSON.stringify({
+                hasFiles: Boolean(files?.length),
+                text: firstMessageText,
+              }),
+              headers: {
+                "Content-Type": "application/json",
+              },
+              method: "POST",
+            });
+
+            let title: string | null = null;
+            if (response.ok) {
+              const payload = (await response.json()) as { title?: string };
+              title = payload.title?.trim() ?? null;
             }
 
-            const payload = (await response.json()) as {
-              title?: string
-            };
-
-            return payload.title?.trim() ?? null;
-          })
-          .then(async (title) => {
-            if (title) {
-              await updateConversationTitle(conversationId, title);
-              return;
-            }
-
-            await updateConversationTitle(conversationId, NEW_CHAT_TITLE);
-          })
-          .catch(() => {
-            void updateConversationTitle(conversationId, NEW_CHAT_TITLE);
-            setHistoryErrorMessage('会话已创建，但智能标题生成失败。已使用默认标题。');
-          });
+            await updateConversationTitle(titleConversationId, title || NEW_CHAT_TITLE);
+          } catch {
+            await updateConversationTitle(titleConversationId, NEW_CHAT_TITLE);
+            setHistoryErrorMessage("会话已创建，但智能标题生成失败。已使用默认标题。");
+          }
+        })();
       }
     }
 
@@ -860,7 +877,7 @@ export default function ChatPageClient({
       {
         shouldSyncUrl = true,
       }: {
-        shouldSyncUrl?: boolean
+        shouldSyncUrl?: boolean;
       } = {},
     ) => {
       const conversation = await chatHistoryDB.conversations.get(id);
@@ -868,11 +885,10 @@ export default function ChatPageClient({
       if (!conversation) {
         if (shouldSyncUrl) {
           updateSessionInUrl(null);
-        }
-        else {
+        } else {
           setShouldNormalizeSessionPath(true);
         }
-        setHistoryErrorMessage('未找到对应的会话记录，已回到新对话。');
+        setHistoryErrorMessage("未找到对应的会话记录，已回到新对话。");
         return false;
       }
 
@@ -882,7 +898,7 @@ export default function ChatPageClient({
       }
       setActiveConversationId(id);
       setMessages(conversation.messages);
-      setInput('');
+      setInput("");
       setHistoryErrorMessage(null);
       setJobDescription(conversation.jobDescription);
       setJobDescriptionDraft(conversation.jobDescription);
@@ -898,9 +914,9 @@ export default function ChatPageClient({
     stop();
     setActiveConversationId(null);
     setMessages([]);
-    setInput('');
-    setJobDescription('');
-    setJobDescriptionDraft('');
+    setInput("");
+    setJobDescription("");
+    setJobDescriptionDraft("");
     setResumeImports({});
     setUploadErrorMessage(null);
     setHistoryErrorMessage(null);
@@ -921,11 +937,9 @@ export default function ChatPageClient({
         }
 
         resetToNewConversation();
-      }
-      catch {
-        setHistoryErrorMessage('本地聊天记录不可用，侧边栏将不显示历史记录。');
-      }
-      finally {
+      } catch {
+        setHistoryErrorMessage("本地聊天记录不可用，侧边栏将不显示历史记录。");
+      } finally {
         setIsHistoryReady(true);
       }
     };
@@ -938,20 +952,20 @@ export default function ChatPageClient({
       startNewConversation();
     };
 
-    window.addEventListener('chat:start-new-conversation', handleStartNewConversation);
+    window.addEventListener("chat:start-new-conversation", handleStartNewConversation);
 
     return () => {
-      window.removeEventListener('chat:start-new-conversation', handleStartNewConversation);
+      window.removeEventListener("chat:start-new-conversation", handleStartNewConversation);
     };
   }, [startNewConversation]);
 
   useEffect(() => {
     const handleStartTutorial = () => startTutorial();
 
-    window.addEventListener('chat:start-tutorial', handleStartTutorial);
+    window.addEventListener("chat:start-tutorial", handleStartTutorial);
 
     return () => {
-      window.removeEventListener('chat:start-tutorial', handleStartTutorial);
+      window.removeEventListener("chat:start-tutorial", handleStartTutorial);
     };
   }, [startTutorial]);
 
@@ -976,14 +990,18 @@ export default function ChatPageClient({
     }
 
     const saveTimer = window.setTimeout(() => {
-      void persistConversation({
-        id: activeConversationId,
-        nextMessages: messages,
-        nextJobDescription: jobDescription,
-        nextResumeImports: resumeImports,
-      }).catch(() => {
-        setHistoryErrorMessage('聊天已继续，但本地记录更新失败。');
-      });
+      void (async () => {
+        try {
+          await persistConversation({
+            id: activeConversationId,
+            nextJobDescription: jobDescription,
+            nextMessages: messages,
+            nextResumeImports: resumeImports,
+          });
+        } catch {
+          setHistoryErrorMessage("聊天已继续，但本地记录更新失败。");
+        }
+      })();
     }, 250);
 
     return () => window.clearTimeout(saveTimer);
@@ -1007,8 +1025,8 @@ export default function ChatPageClient({
   };
 
   const clearJobDescription = () => {
-    setJobDescription('');
-    setJobDescriptionDraft('');
+    setJobDescription("");
+    setJobDescriptionDraft("");
   };
 
   const regenerateLastReply = () => {
@@ -1016,7 +1034,7 @@ export default function ChatPageClient({
   };
 
   const handleResumeImported = useCallback((partId: string, interviewId: string) => {
-    setResumeImports(prev => ({ ...prev, [partId]: interviewId }));
+    setResumeImports((prev) => ({ ...prev, [partId]: interviewId }));
   }, []);
 
   const handleResumeImportMissing = useCallback((partId: string) => {
@@ -1037,15 +1055,15 @@ export default function ChatPageClient({
     const lastMessage = messages.at(-1);
 
     // No assistant message to trim — just retry from the last user message.
-    if (!lastMessage || lastMessage.role !== 'assistant') {
+    if (!lastMessage || lastMessage.role !== "assistant") {
       clearError();
       void regenerate();
       return;
     }
 
     let lastStepStartIndex = -1;
-    for (let i = lastMessage.parts.length - 1; i >= 0; i--) {
-      if (lastMessage.parts[i]!.type === 'step-start') {
+    for (let i = lastMessage.parts.length - 1; i >= 0; i -= 1) {
+      if (lastMessage.parts[i]?.type === "step-start") {
         lastStepStartIndex = i;
         break;
       }
@@ -1064,9 +1082,13 @@ export default function ChatPageClient({
       if (prev.length === 0) {
         return prev;
       }
-      const next = prev.slice();
+      const next = [...prev];
       const lastIndex = next.length - 1;
-      next[lastIndex] = { ...next[lastIndex]!, parts: trimmedParts };
+      const lastEntry = next[lastIndex];
+      if (!lastEntry) {
+        return prev;
+      }
+      next[lastIndex] = { ...lastEntry, parts: trimmedParts };
       return next;
     });
     clearError();
@@ -1077,106 +1099,78 @@ export default function ChatPageClient({
       await navigator.clipboard.writeText(content);
       setCopiedMessageId(messageId);
       setTimeout(setCopiedMessageId, 1200, null);
-    }
-    catch {
+    } catch {
       setCopiedMessageId(null);
     }
   };
 
   return (
-    <div className='flex h-full w-full flex-col pt-4 pb-2 sm:pb-4 sm:pt-6'>
-      <header className='mx-auto w-full max-w-5xl mb-4 px-2 sm:px-3'>
-        <div className='mb-2 flex items-center justify-between gap-2 sm:hidden'>
-          <div className='flex items-center gap-2'>
-            {showSessionLoadingState
-              ? (
-                  <div className='h-9 w-9 animate-pulse rounded-md bg-muted' />
-                )
-              : session?.user
-                ? (
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button aria-label='用户菜单' size='icon-sm' className='rounded-full' type='button' variant='outline'>
-                          <Avatar size='sm'>
-                            <AvatarImage alt={userName} src={session.user.image ?? undefined} />
-                            <AvatarFallback>{userInitials}</AvatarFallback>
-                          </Avatar>
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align='start' className='w-56'>
-                        <DropdownMenuLabel className='space-y-0.5'>
-                          <p className='truncate font-medium text-sm'>{userName}</p>
-                          <p className='truncate text-muted-foreground text-xs'>{userEmail}</p>
-                        </DropdownMenuLabel>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem onClick={handleSignOut} variant='destructive'>
-                          <LogOutIcon className='mr-2 size-4' />
-                          退出登录
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  )
-                : (
-                    <Button onClick={handleSignIn} size='sm' type='button' variant='outline' className='mt-4'>
-                      <UserIcon className='mr-1 size-4' />
-                      登录
-                    </Button>
-                  )}
+    <div className="flex h-full w-full flex-col pt-4 pb-2 sm:pb-4 sm:pt-6">
+      <header className="mx-auto w-full max-w-5xl mb-4 px-2 sm:px-3">
+        <div className="mb-2 flex items-center justify-between gap-2 sm:hidden">
+          <div className="flex items-center gap-2">
+            {renderMobileUserMenu({
+              handleSignIn,
+              handleSignOut,
+              session,
+              showSessionLoadingState,
+              userEmail,
+              userInitials,
+              userName,
+            })}
 
             <Button
-              aria-controls='chat-history-sidebar'
+              aria-controls="chat-history-sidebar"
               aria-expanded={isMobileSidebarOpen}
               onClick={() => setIsMobileSidebarOpen(true)}
-              size='sm'
-              type='button'
-              variant='outline'
+              size="sm"
+              type="button"
+              variant="outline"
             >
-              <PanelLeftOpenIcon className='mr-1 size-4' />
+              <PanelLeftOpenIcon className="mr-1 size-4" />
               聊天记录
             </Button>
           </div>
-          <Button onClick={startNewConversation} size='sm' type='button' variant='outline'>
-            <PlusIcon className='mr-1 size-4' />
+          <Button onClick={startNewConversation} size="sm" type="button" variant="outline">
+            <PlusIcon className="mr-1 size-4" />
             新建
           </Button>
         </div>
-        <div className='flex items-center gap-2'>
-          <h1 className='pixel-title text-balance font-bold tracking-tight text-2xl sm:text-3xl'>
+        <div className="flex items-center gap-2">
+          <h1 className="pixel-title text-balance font-bold tracking-tight text-2xl sm:text-3xl">
             简历筛选助手
           </h1>
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
-                aria-label='使用教程'
-                className='size-7 rounded-full text-muted-foreground'
+                aria-label="使用教程"
+                className="size-7 rounded-full text-muted-foreground"
                 onClick={startTutorial}
-                size='icon'
-                type='button'
-                variant='ghost'
+                size="icon"
+                type="button"
+                variant="ghost"
               >
-                <CircleHelpIcon className='size-4' />
+                <CircleHelpIcon className="size-4" />
               </Button>
             </TooltipTrigger>
             <TooltipContent>使用教程</TooltipContent>
           </Tooltip>
         </div>
-        <p className='mt-2 max-w-3xl font-serif!  text-xs text-muted-foreground sm:text-sm'>
+        <p className="mt-2 max-w-3xl font-serif!  text-xs text-muted-foreground sm:text-sm">
           支持多份简历上传、初筛评分、风险识别与面试推进建议
         </p>
       </header>
 
-      <section className='mx-auto w-full max-w-5xl mb-0.5 px-2 sm:px-3' data-tour='suggestions'>
-        <p className='mb-2 px-1 font-medium text-muted-foreground text-xs'>
-          快速提问
-        </p>
-        <Suggestions className='gap-2.5 pb-1'>
-          {QUICK_SUGGESTIONS.map(suggestion => (
+      <section className="mx-auto w-full max-w-5xl mb-0.5 px-2 sm:px-3" data-tour="suggestions">
+        <p className="mb-2 px-1 font-medium text-muted-foreground text-xs">快速提问</p>
+        <Suggestions className="gap-2.5 pb-1">
+          {QUICK_SUGGESTIONS.map((suggestion) => (
             <Suggestion
-              className='h-auto rounded-2xl border-border/70 bg-card/70 px-4 py-2 text-left text-xs leading-relaxed whitespace-normal hover:bg-accent'
+              className="h-auto rounded-2xl border-border/70 bg-card/70 px-4 py-2 text-left text-xs leading-relaxed whitespace-normal hover:bg-accent"
               disabled={isStreaming}
               key={suggestion}
               onClick={(text) => {
-                setInput(currentInput => appendSuggestionToInput(currentInput, text));
+                setInput((currentInput) => appendSuggestionToInput(currentInput, text));
               }}
               suggestion={suggestion}
             />
@@ -1184,357 +1178,337 @@ export default function ChatPageClient({
         </Suggestions>
       </section>
 
-      <div className='relative min-h-0 flex-1 overflow-hidden'>
-        <Conversation className='h-full'>
-          <ConversationContent className='mx-auto w-full max-w-5xl py-4 px-2 sm:px-3 sm:py-6'>
-            {messages.length === 0
-              ? (
-                  <ConversationEmptyState
-                    className='my-10 rounded-2xl border border-dashed border-border/70 bg-background/70'
-                    description='上传候选人简历（最多 8 份）或输入筛选要求，助手会给出评分与推荐结论。'
-                    icon={<SparklesIcon className='size-5' />}
-                    title='开始筛选简历'
-                  />
-                )
-              : (
-                  <>
-                    {messages.map((message, messageIndex) => {
-                      const textParts = message.parts.filter(isTextPart);
-                      const fileParts = message.parts
-                        .map((part, index) => {
-                          if (!isFilePart(part)) {
-                            return null;
-                          }
+      <div className="relative min-h-0 flex-1 overflow-hidden">
+        <Conversation className="h-full">
+          <ConversationContent className="mx-auto w-full max-w-5xl py-4 px-2 sm:px-3 sm:py-6">
+            {messages.length === 0 ? (
+              <ConversationEmptyState
+                className="my-10 rounded-2xl border border-dashed border-border/70 bg-background/70"
+                description="上传候选人简历（最多 8 份）或输入筛选要求，助手会给出评分与推荐结论。"
+                icon={<SparklesIcon className="size-5" />}
+                title="开始筛选简历"
+              />
+            ) : (
+              <>
+                {messages.map((message, messageIndex) => {
+                  const textParts = message.parts.filter(isTextPart);
+                  const fileParts = message.parts
+                    .map((part, index) => {
+                      if (!isFilePart(part)) {
+                        return null;
+                      }
 
-                          return {
-                            ...part,
-                            id: `${message.id}-file-${index}`,
-                          };
-                        })
-                        .filter((part): part is FileUIPart & { id: string } =>
-                          Boolean(part),
-                        );
-                      const sourceParts = message.parts.filter(isSourceUrlPart);
-                      const isLastMessage = messageIndex === messages.length - 1;
-                      const isMessageStreaming = isLastMessage && isStreaming;
-                      const assistantText = textParts
-                        .map(part => part.text)
-                        .join('\n\n')
-                        .trim();
-                      const isChatRole
-                        = message.role === 'user' || message.role === 'assistant';
-                      const messageAuthor
-                        = message.role === 'assistant' ? '简历筛选助手' : '你';
-                      const messageTime = getMessageTimeValue(message);
+                      return {
+                        ...part,
+                        id: `${message.id}-file-${index}`,
+                      };
+                    })
+                    .filter((part): part is FileUIPart & { id: string } => part !== null);
+                  const sourceParts = message.parts.filter(isSourceUrlPart);
+                  const isLastMessage = messageIndex === messages.length - 1;
+                  const isMessageStreaming = isLastMessage && isStreaming;
+                  const assistantText = textParts
+                    .map((part) => part.text)
+                    .join("\n\n")
+                    .trim();
+                  const isChatRole = message.role === "user" || message.role === "assistant";
+                  const messageAuthor = message.role === "assistant" ? "简历筛选助手" : "你";
+                  const messageTime = getMessageTimeValue(message);
 
-                      // Compute startedAt for summary bar timer
-                      const prevUserMessage = messageIndex > 0
-                        ? messages.slice(0, messageIndex).reverse().find(m => m.role === 'user')
-                        : null;
-                      const startedAt = prevUserMessage
-                        ? (getMessageTimeValue(prevUserMessage)?.toISOString() ?? null)
-                        : null;
+                  // Compute startedAt for summary bar timer
+                  const prevUserMessage =
+                    messageIndex > 0
+                      ? messages
+                          .slice(0, messageIndex)
+                          .toReversed()
+                          .find((m) => m.role === "user")
+                      : null;
+                  const startedAt = prevUserMessage
+                    ? (getMessageTimeValue(prevUserMessage)?.toISOString() ?? null)
+                    : null;
 
-                      return (
-                        <div key={message.id}>
-                          {isChatRole
-                            ? (
-                                <p
-                                  className={`mb-2.5 text-muted-foreground text-xs ${message.role === 'user' ? 'text-right' : 'text-left'}`}
-                                >
-                                  {messageAuthor}
-                                  {messageTime
-                                    ? (
-                                        <>
-                                          {' · '}
-                                          <TimeDisplay as='span' options={TIME_DISPLAY_OPTIONS} value={messageTime} />
-                                        </>
-                                      )
-                                    : null}
-                                </p>
-                              )
-                            : null}
+                  return (
+                    <div key={message.id}>
+                      {isChatRole ? (
+                        <p
+                          className={`mb-2.5 text-muted-foreground text-xs ${message.role === "user" ? "text-right" : "text-left"}`}
+                        >
+                          {messageAuthor}
+                          {messageTime ? (
+                            <>
+                              {" · "}
+                              <TimeDisplay
+                                as="span"
+                                options={TIME_DISPLAY_OPTIONS}
+                                value={messageTime}
+                              />
+                            </>
+                          ) : null}
+                        </p>
+                      ) : null}
 
-                          {message.role === 'assistant' && sourceParts.length > 0
-                            ? (
-                                <Sources className='mb-2'>
-                                  <SourcesTrigger count={sourceParts.length} />
-                                  <SourcesContent>
-                                    {sourceParts.map((part, index) => {
-                                      const title
-                                        = 'title' in part && typeof part.title === 'string'
-                                          ? part.title
-                                          : part.url;
+                      {message.role === "assistant" && sourceParts.length > 0 ? (
+                        <Sources className="mb-2">
+                          <SourcesTrigger count={sourceParts.length} />
+                          <SourcesContent>
+                            {sourceParts.map((part, index) => {
+                              const title =
+                                "title" in part && typeof part.title === "string"
+                                  ? part.title
+                                  : part.url;
 
+                              return (
+                                <Source
+                                  href={part.url}
+                                  key={`${message.id}-source-${index}`}
+                                  title={title}
+                                />
+                              );
+                            })}
+                          </SourcesContent>
+                        </Sources>
+                      ) : null}
+
+                      <Message from={message.role}>
+                        <MessageContent>
+                          {fileParts.length > 0 ? (
+                            <Attachments className="mb-2 min-w-[260px]" variant="list">
+                              {fileParts.map((part) => {
+                                const isPdf =
+                                  part.mediaType === "application/pdf" ||
+                                  part.filename?.toLowerCase().endsWith(".pdf");
+                                const showImportButton = message.role === "user" && isPdf;
+                                const importedId = resumeImports[part.id] ?? null;
+
+                                return (
+                                  <Attachment data={part} key={part.id}>
+                                    <AttachmentPreview />
+                                    <AttachmentInfo showMediaType />
+                                    {showImportButton ? (
+                                      <ResumeImportButton
+                                        filePart={part}
+                                        importedInterviewId={importedId}
+                                        onImported={handleResumeImported}
+                                        onMissing={handleResumeImportMissing}
+                                      />
+                                    ) : null}
+                                  </Attachment>
+                                );
+                              })}
+                            </Attachments>
+                          ) : null}
+
+                          {message.role === "assistant" ? (
+                            <AssistantMessageGroups
+                              message={message}
+                              isStreaming={isMessageStreaming}
+                              durationMs={null}
+                              startedAt={startedAt}
+                            >
+                              {(isExpanded) => (
+                                <>
+                                  {message.parts.map((part, index) => {
+                                    if (part.type === "text") {
                                       return (
-                                        <Source
-                                          href={part.url}
-                                          key={`${message.id}-source-${index}`}
-                                          title={title}
+                                        <MessageResponse key={`${message.id}-${index}`}>
+                                          {part.text}
+                                        </MessageResponse>
+                                      );
+                                    }
+
+                                    if (isToolPart(part) && isExpanded) {
+                                      return (
+                                        <ToolCall
+                                          key={`${message.id}-${part.type}-${index}`}
+                                          part={part}
+                                          isStreaming={isMessageStreaming}
                                         />
                                       );
-                                    })}
-                                  </SourcesContent>
-                                </Sources>
-                              )
-                            : null}
+                                    }
 
-                          <Message from={message.role}>
-                            <MessageContent>
-                              {fileParts.length > 0
-                                ? (
-                                    <Attachments
-                                      className='mb-2 min-w-[260px]'
-                                      variant='list'
-                                    >
-                                      {fileParts.map((part) => {
-                                        const isPdf = part.mediaType === 'application/pdf'
-                                          || part.filename?.toLowerCase().endsWith('.pdf');
-                                        const showImportButton = message.role === 'user' && isPdf;
-                                        const importedId = resumeImports[part.id] ?? null;
+                                    if (part.type === "reasoning" && isExpanded) {
+                                      const isReasoningStreaming =
+                                        isMessageStreaming &&
+                                        message.parts.at(-1)?.type === "reasoning" &&
+                                        index === message.parts.length - 1;
 
-                                        return (
-                                          <Attachment data={part} key={part.id}>
-                                            <AttachmentPreview />
-                                            <AttachmentInfo showMediaType />
-                                            {showImportButton
-                                              ? (
-                                                  <ResumeImportButton
-                                                    filePart={part}
-                                                    importedInterviewId={importedId}
-                                                    onImported={handleResumeImported}
-                                                    onMissing={handleResumeImportMissing}
-                                                  />
-                                                )
-                                              : null}
-                                          </Attachment>
-                                        );
-                                      })}
-                                    </Attachments>
-                                  )
-                                : null}
+                                      return (
+                                        <ThinkingBlock
+                                          key={`${message.id}-reasoning-${index}`}
+                                          text={part.text}
+                                          isStreaming={isReasoningStreaming}
+                                        />
+                                      );
+                                    }
 
-                              {message.role === 'assistant'
-                                ? (
-                                    <AssistantMessageGroups
-                                      message={message}
-                                      isStreaming={isMessageStreaming}
-                                      durationMs={null}
-                                      startedAt={startedAt}
-                                    >
-                                      {isExpanded => (
-                                        <>
-                                          {message.parts.map((part, index) => {
-                                            if (part.type === 'text') {
-                                              return (
-                                                <MessageResponse key={`${message.id}-${index}`}>
-                                                  {part.text}
-                                                </MessageResponse>
-                                              );
-                                            }
+                                    if (part.type === "step-start" && isExpanded) {
+                                      return (
+                                        <div
+                                          className=" border-border border-t opacity-50"
+                                          key={`${message.id}-step-${index}`}
+                                        />
+                                      );
+                                    }
 
-                                            if (isToolPart(part) && isExpanded) {
-                                              return (
-                                                <ToolCall
-                                                  key={`${message.id}-${part.type}-${index}`}
-                                                  part={part}
-                                                  isStreaming={isMessageStreaming}
-                                                />
-                                              );
-                                            }
+                                    return null;
+                                  })}
+                                </>
+                              )}
+                            </AssistantMessageGroups>
+                          ) : (
+                            message.parts.map((part, index) => {
+                              if (part.type === "text") {
+                                return (
+                                  <MessageResponse key={`${message.id}-${index}`}>
+                                    {part.text}
+                                  </MessageResponse>
+                                );
+                              }
+                              return null;
+                            })
+                          )}
+                        </MessageContent>
+                      </Message>
 
-                                            if (part.type === 'reasoning' && isExpanded) {
-                                              const isReasoningStreaming
-                                                = isMessageStreaming
-                                                  && message.parts.at(-1)?.type === 'reasoning'
-                                                  && index === message.parts.length - 1;
+                      {message.role === "assistant" && isLastMessage && assistantText ? (
+                        <MessageActions className="mt-2">
+                          <MessageAction
+                            disabled={isStreaming}
+                            label="重新生成"
+                            onClick={regenerateLastReply}
+                            tooltip="重新生成"
+                          >
+                            <RefreshCcwIcon className="size-3" />
+                          </MessageAction>
 
-                                              return (
-                                                <ThinkingBlock
-                                                  key={`${message.id}-reasoning-${index}`}
-                                                  text={part.text}
-                                                  isStreaming={isReasoningStreaming}
-                                                />
-                                              );
-                                            }
+                          <MessageAction
+                            label="复制内容"
+                            onClick={() => handleCopy(message.id, assistantText)}
+                            tooltip="复制"
+                          >
+                            {copiedMessageId === message.id ? (
+                              <CheckIcon className="size-3" />
+                            ) : (
+                              <CopyIcon className="size-3" />
+                            )}
+                          </MessageAction>
+                        </MessageActions>
+                      ) : null}
+                    </div>
+                  );
+                })}
 
-                                            if (part.type === 'step-start' && isExpanded) {
-                                              return (
-                                                <div
-                                                  className=' border-border border-t opacity-50'
-                                                  key={`${message.id}-step-${index}`}
-                                                />
-                                              );
-                                            }
-
-                                            return null;
-                                          })}
-                                        </>
-                                      )}
-                                    </AssistantMessageGroups>
-                                  )
-                                : (
-                                    message.parts.map((part, index) => {
-                                      if (part.type === 'text') {
-                                        return (
-                                          <MessageResponse key={`${message.id}-${index}`}>
-                                            {part.text}
-                                          </MessageResponse>
-                                        );
-                                      }
-                                      return null;
-                                    })
-                                  )}
-                            </MessageContent>
-                          </Message>
-
-                          {message.role === 'assistant'
-                            && isLastMessage
-                            && assistantText
-                            ? (
-                                <MessageActions className='mt-2'>
-                                  <MessageAction
-                                    disabled={isStreaming}
-                                    label='重新生成'
-                                    onClick={regenerateLastReply}
-                                    tooltip='重新生成'
-                                  >
-                                    <RefreshCcwIcon className='size-3' />
-                                  </MessageAction>
-
-                                  <MessageAction
-                                    label='复制内容'
-                                    onClick={() => handleCopy(message.id, assistantText)}
-                                    tooltip='复制'
-                                  >
-                                    {copiedMessageId === message.id
-                                      ? (
-                                          <CheckIcon className='size-3' />
-                                        )
-                                      : (
-                                          <CopyIcon className='size-3' />
-                                        )}
-                                  </MessageAction>
-                                </MessageActions>
-                              )
-                            : null}
+                {showAssistantThinkingBubble ? (
+                  <div>
+                    <p className="mb-2 text-left text-muted-foreground text-xs">
+                      简历筛选助手 ·{" "}
+                      <TimeDisplay as="span" options={TIME_DISPLAY_OPTIONS} value={Date.now()} />
+                    </p>
+                    <Message from="assistant">
+                      <MessageContent className="px-0 py-1">
+                        <div
+                          aria-label="简历筛选助手正在思考"
+                          className="text-muted-foreground/80"
+                          role="status"
+                        >
+                          <Shimmer duration={1.2}>思考中...</Shimmer>
                         </div>
-                      );
-                    })}
-
-                    {showAssistantThinkingBubble
-                      ? (
-                          <div>
-                            <p className='mb-2 text-left text-muted-foreground text-xs'>
-                              简历筛选助手 ·
-                              {' '}
-                              <TimeDisplay as='span' options={TIME_DISPLAY_OPTIONS} value={Date.now()} />
-                            </p>
-                            <Message from='assistant'>
-                              <MessageContent className='px-0 py-1'>
-                                <div
-                                  aria-label='简历筛选助手正在思考'
-                                  className='text-muted-foreground/80'
-                                  role='status'
-                                >
-                                  <Shimmer duration={1.2}>思考中...</Shimmer>
-                                </div>
-                              </MessageContent>
-                            </Message>
-                          </div>
-                        )
-                      : null}
-                  </>
-                )}
+                      </MessageContent>
+                    </Message>
+                  </div>
+                ) : null}
+              </>
+            )}
           </ConversationContent>
 
           <ConversationScrollButton />
         </Conversation>
       </div>
 
-      {error
-        ? (
-            <div
-              aria-live='polite'
-              className='mx-auto mt-3 flex w-full max-w-5xl flex-wrap items-center gap-2 px-2 text-sm sm:px-3'
-            >
-              <span className='text-destructive'>
-                请求失败，这一步没有完成。可以继续跑完剩下的步骤，或从头重新生成。
-              </span>
-              <div className='ml-auto flex items-center gap-2'>
-                <Button
-                  onClick={handleContinueAfterError}
-                  size='sm'
-                  type='button'
-                  variant='outline'
-                >
-                  <RefreshCcwIcon className='size-3.5' />
-                  继续
-                </Button>
-              </div>
-            </div>
-          )
-        : null}
+      {error ? (
+        <div
+          aria-live="polite"
+          className="mx-auto mt-3 flex w-full max-w-5xl flex-wrap items-center gap-2 px-2 text-sm sm:px-3"
+        >
+          <span className="text-destructive">
+            请求失败，这一步没有完成。可以继续跑完剩下的步骤，或从头重新生成。
+          </span>
+          <div className="ml-auto flex items-center gap-2">
+            <Button onClick={handleContinueAfterError} size="sm" type="button" variant="outline">
+              <RefreshCcwIcon className="size-3.5" />
+              继续
+            </Button>
+          </div>
+        </div>
+      ) : null}
 
-      {uploadErrorMessage
-        ? (
-            <p aria-live='polite' className='mx-auto w-full max-w-5xl px-2 sm:px-3 mt-2 text-destructive text-sm'>
-              {uploadErrorMessage}
-            </p>
-          )
-        : null}
+      {uploadErrorMessage ? (
+        <p
+          aria-live="polite"
+          className="mx-auto w-full max-w-5xl px-2 sm:px-3 mt-2 text-destructive text-sm"
+        >
+          {uploadErrorMessage}
+        </p>
+      ) : null}
 
-      {historyErrorMessage
-        ? (
-            <p aria-live='polite' className='mx-auto w-full max-w-5xl px-2 sm:px-3 mt-2 text-destructive text-sm'>
-              {historyErrorMessage}
-            </p>
-          )
-        : null}
+      {historyErrorMessage ? (
+        <p
+          aria-live="polite"
+          className="mx-auto w-full max-w-5xl px-2 sm:px-3 mt-2 text-destructive text-sm"
+        >
+          {historyErrorMessage}
+        </p>
+      ) : null}
 
       <PromptInput
-        data-tour='prompt-input'
-        accept='application/pdf'
-        className='mx-auto w-full max-w-5xl px-2 sm:px-3 **:data-[slot=input-group]:cursor-text **:data-[slot=input-group]:rounded-[1.3rem] **:data-[slot=input-group]:border-border/65 **:data-[slot=input-group]:bg-white **:data-[slot=input-group]:shadow-[0_8px_18px_-20px_rgba(60,44,23,0.5)]'
+        data-tour="prompt-input"
+        accept="application/pdf"
+        className="mx-auto w-full max-w-5xl px-2 sm:px-3 **:data-[slot=input-group]:cursor-text **:data-[slot=input-group]:rounded-[1.3rem] **:data-[slot=input-group]:border-border/65 **:data-[slot=input-group]:bg-white **:data-[slot=input-group]:shadow-[0_8px_18px_-20px_rgba(60,44,23,0.5)]"
         onClick={(event) => {
           const target = event.target as HTMLElement;
 
-          if (target.closest('button, a, input[type="file"], [role="menuitem"], [role="dialog"], [data-slot="select"]')) {
+          if (
+            target.closest(
+              'button, a, input[type="file"], [role="menuitem"], [role="dialog"], [data-slot="select"]',
+            )
+          ) {
             return;
           }
 
-          const textarea = event.currentTarget.querySelector('textarea');
+          const textarea = event.currentTarget.querySelector("textarea");
           textarea?.focus();
         }}
-        dragOverlay={(
-          <div className='flex h-full w-full items-center justify-center rounded-[1.15rem] border-2 border-dashed border-primary/60 bg-white px-6 py-8 text-center transition-colors'>
-            <div className='flex flex-col items-center gap-2'>
-              <UploadIcon className='size-8 text-primary/50' />
-              <p className='font-medium text-sm'>拖拽 PDF 简历到这里</p>
-              <p className='text-muted-foreground text-xs'>支持多个文件，系统只会加入 PDF 格式的文件</p>
+        dragOverlay={
+          <div className="flex h-full w-full items-center justify-center rounded-[1.15rem] border-2 border-dashed border-primary/60 bg-white px-6 py-8 text-center transition-colors">
+            <div className="flex flex-col items-center gap-2">
+              <UploadIcon className="size-8 text-primary/50" />
+              <p className="font-medium text-sm">拖拽 PDF 简历到这里</p>
+              <p className="text-muted-foreground text-xs">
+                支持多个文件，系统只会加入 PDF 格式的文件
+              </p>
             </div>
           </div>
-        )}
-        dragOverlayClassName='bg-white rounded-[1.3rem]'
+        }
+        dragOverlayClassName="bg-white rounded-[1.3rem]"
         globalDrop
         maxFiles={8}
         maxFileSize={10 * 1024 * 1024}
         multiple
         onGlobalDropOutside={() => {
-          toast.warning('请将简历拖拽到上传区域后再松开。');
+          toast.warning("请将简历拖拽到上传区域后再松开。");
         }}
         onError={({ code }) => {
-          if (code === 'accept') {
-            setUploadErrorMessage('仅支持上传 PDF 文件。');
+          if (code === "accept") {
+            setUploadErrorMessage("仅支持上传 PDF 文件。");
             return;
           }
 
-          if (code === 'max_file_size') {
-            setUploadErrorMessage('单个 PDF 文件不能超过 10 MB。');
+          if (code === "max_file_size") {
+            setUploadErrorMessage("单个 PDF 文件不能超过 10 MB。");
             return;
           }
 
-          setUploadErrorMessage('最多上传 8 个 PDF 文件。');
+          setUploadErrorMessage("最多上传 8 个 PDF 文件。");
         }}
         onSubmit={({ files, text }) => {
           const trimmed = text.trim();
@@ -1549,9 +1523,9 @@ export default function ChatPageClient({
 
           void sendMessageToChat({
             files,
-            text: hasText ? trimmed : '请结合岗位要求分析这份简历并给出筛选建议。',
+            text: hasText ? trimmed : "请结合岗位要求分析这份简历并给出筛选建议。",
           });
-          setInput('');
+          setInput("");
         }}
       >
         <UploadErrorReset onReset={() => setUploadErrorMessage(null)} />
@@ -1562,10 +1536,10 @@ export default function ChatPageClient({
 
         <PromptInputBody>
           <PromptInputTextarea
-            autoComplete='off'
-            className='min-h-20'
-            onChange={event => setInput(event.currentTarget.value)}
-            placeholder='输入岗位与筛选要求，或上传候选人 PDF 简历（支持多文件）…'
+            autoComplete="off"
+            className="min-h-20"
+            onChange={(event) => setInput(event.currentTarget.value)}
+            placeholder="输入岗位与筛选要求，或上传候选人 PDF 简历（支持多文件）…"
             value={displayInput}
           />
         </PromptInputBody>
@@ -1581,30 +1555,27 @@ export default function ChatPageClient({
         />
       </PromptInput>
 
-      <Dialog
-        onOpenChange={setIsJobDescriptionDialogOpen}
-        open={isJobDescriptionDialogOpen}
-      >
+      <Dialog onOpenChange={setIsJobDescriptionDialogOpen} open={isJobDescriptionDialogOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>岗位描述（JD）设置</DialogTitle>
             <DialogDescription>
-              这里填写的 JD 会作为简历评估的辅助上下文；若你在对话中明确给出 JD，模型会优先使用你在对话中提供的版本。
+              这里填写的 JD 会作为简历评估的辅助上下文；若你在对话中明确给出
+              JD，模型会优先使用你在对话中提供的版本。
             </DialogDescription>
           </DialogHeader>
 
-          <div className='space-y-2'>
-            <label className='font-medium  text-sm' htmlFor='job-description'>
+          <div className="space-y-2">
+            <label className="font-medium  text-sm" htmlFor="job-description">
               岗位描述内容
             </label>
             <textarea
-              autoComplete='off'
-              className='min-h-40 mt-2 w-full rounded-xl border border-border/70 bg-background p-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring'
-              id='job-description'
-              name='jobDescription'
-              onChange={event =>
-                setJobDescriptionDraft(event.currentTarget.value)}
-              placeholder='例如：前端开发岗位，要求 React/TypeScript 基础，有完整项目经历或相关工作/实习经验…'
+              autoComplete="off"
+              className="min-h-40 mt-2 w-full rounded-xl border border-border/70 bg-background p-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              id="job-description"
+              name="jobDescription"
+              onChange={(event) => setJobDescriptionDraft(event.currentTarget.value)}
+              placeholder="例如：前端开发岗位，要求 React/TypeScript 基础，有完整项目经历或相关工作/实习经验…"
               spellCheck={false}
               value={jobDescriptionDraft}
             />
@@ -1616,12 +1587,12 @@ export default function ChatPageClient({
                 clearJobDescription();
                 setIsJobDescriptionDialogOpen(false);
               }}
-              type='button'
-              variant='outline'
+              type="button"
+              variant="outline"
             >
               清空
             </Button>
-            <Button onClick={saveJobDescription} type='button'>
+            <Button onClick={saveJobDescription} type="button">
               保存 JD
             </Button>
           </DialogFooter>

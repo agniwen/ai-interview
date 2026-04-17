@@ -1,16 +1,16 @@
-import type { ResumeReportCardProps } from './card';
-import { z } from 'zod';
-import { createResumeAgent } from '@/server/agents/resume-agent';
+import type { ResumeReportCardProps } from "./card";
+import { z } from "zod";
+import { createResumeAgent } from "@/server/agents/resume-agent";
 
 const reportSchema = z.object({
   candidateName: z.string().nullable(),
-  recommendation: z.string().nullable(),
-  score: z.number().int().min(0).max(100).nullable(),
-  level: z.string().nullable(),
-  team: z.string().nullable(),
-  strengths: z.array(z.string()).max(6),
-  risks: z.array(z.string()).max(6),
   followUps: z.array(z.string()).max(4),
+  level: z.string().nullable(),
+  recommendation: z.string().nullable(),
+  risks: z.array(z.string()).max(6),
+  score: z.number().int().min(0).max(100).nullable(),
+  strengths: z.array(z.string()).max(6),
+  team: z.string().nullable(),
 });
 
 const PROMPT_TEMPLATE = `你需要从下面的简历筛选分析文本中提取结构化要点，并严格输出一个 JSON 对象。
@@ -44,7 +44,7 @@ function extractJsonFromText(text: string): unknown {
   // Find the outermost { ... } block
   const match = candidate.match(JSON_BLOCK_REGEX);
   if (!match) {
-    throw new Error('no json object found in model output');
+    throw new Error("no json object found in model output");
   }
   return JSON.parse(match[0]);
 }
@@ -63,13 +63,13 @@ export async function extractResumeReport(
     return {};
   }
 
-  const modelId = process.env.ALIBABA_STRUCTURED_MODEL ?? 'qwen3-max';
+  const modelId = process.env.ALIBABA_STRUCTURED_MODEL ?? "qwen3-max";
 
   try {
     const agent = createResumeAgent({
-      instructions: '你是结构化信息提取助手，按用户要求只输出 JSON。',
-      modelId,
       enableThinking: false,
+      instructions: "你是结构化信息提取助手，按用户要求只输出 JSON。",
+      modelId,
       temperature: 0,
     });
 
@@ -80,7 +80,7 @@ export async function extractResumeReport(
     const parsed = extractJsonFromText(text);
     const validated = reportSchema.safeParse(parsed);
     if (!validated.success) {
-      console.error('[feishu-extract-report] schema validation failed', {
+      console.error("[feishu-extract-report] schema validation failed", {
         issues: validated.error.issues,
         raw: text.slice(0, 500),
       });
@@ -88,11 +88,10 @@ export async function extractResumeReport(
       return parsed as Partial<ResumeReportCardProps>;
     }
 
-    console.log('[feishu-extract-report] extracted', validated.data);
+    console.log("[feishu-extract-report] extracted", validated.data);
     return validated.data;
-  }
-  catch (error) {
-    console.error('[feishu-extract-report] FAILED:', error);
+  } catch (error) {
+    console.error("[feishu-extract-report] FAILED:", error);
     return {};
   }
 }

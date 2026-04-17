@@ -1,9 +1,9 @@
 {
   "name": "@repo/adapter-feishu",
-  "type": "module",
   "version": "0.0.0",
   "private": true,
   "description": "Feishu (Lark) adapter for chat",
+  "type": "module",
   "exports": {
     ".": "./src/index.ts"
   },

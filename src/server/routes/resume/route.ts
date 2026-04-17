@@ -1,14 +1,15 @@
-import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
-import { zValidator } from '@hono/zod-validator';
-import { generateText } from 'ai';
-import { factory } from '@/server/factory';
-import { resumeChatRequestSchema, resumeTitleRequestSchema } from './schema';
-import { runResumeScreening } from './screening';
-import { sanitizeTitle } from './utils';
+import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
+import { zValidator } from "@hono/zod-validator";
+import { generateText } from "ai";
+import { factory } from "@/server/factory";
+import { resumeChatRequestSchema, resumeTitleRequestSchema } from "./schema";
+import { runResumeScreening } from "./screening";
+import { sanitizeTitle } from "./utils";
 
-export const resumeRouter = factory.createApp()
-  .post('/', zValidator('json', resumeChatRequestSchema), async (c) => {
-    const { enableThinking, jobDescription, messages } = c.req.valid('json');
+export const resumeRouter = factory
+  .createApp()
+  .post("/", zValidator("json", resumeChatRequestSchema), async (c) => {
+    const { enableThinking, jobDescription, messages } = c.req.valid("json");
 
     const result = await runResumeScreening({
       enableThinking,
@@ -21,35 +22,34 @@ export const resumeRouter = factory.createApp()
       sendSources: true,
     });
   })
-  .post('/title', zValidator('json', resumeTitleRequestSchema), async (c) => {
-    const { hasFiles, text } = c.req.valid('json');
+  .post("/title", zValidator("json", resumeTitleRequestSchema), async (c) => {
+    const { hasFiles, text } = c.req.valid("json");
 
     const apiKey = process.env.ALIBABA_API_KEY;
 
     if (!apiKey) {
       return c.json(
         {
-          error:
-            'Missing ALIBABA_API_KEY. Please configure your environment variables.',
+          error: "Missing ALIBABA_API_KEY. Please configure your environment variables.",
         },
         500,
       );
     }
 
-    const baseURL = process.env.ALIBABA_BASE_URL?.trim()
-      || 'https://dashscope.aliyuncs.com/compatible-mode/v1';
+    const baseURL =
+      process.env.ALIBABA_BASE_URL?.trim() || "https://dashscope.aliyuncs.com/compatible-mode/v1";
 
     const provider = createOpenAICompatible({
-      name: 'alibaba',
-      baseURL,
       apiKey,
-      transformRequestBody: body => ({
+      baseURL,
+      name: "alibaba",
+      transformRequestBody: (body) => ({
         ...body,
         enable_thinking: false,
       }),
     });
 
-    const modelId = process.env.ALIBABA_FAST_MODEL ?? 'qwen-turbo';
+    const modelId = process.env.ALIBABA_FAST_MODEL ?? "qwen-turbo";
 
     try {
       const { text: titleText } = await generateText({
@@ -63,7 +63,7 @@ export const resumeRouter = factory.createApp()
 - 若消息中提到候选人简历筛选、评分、对比、面试建议等，请体现关键动作
 - 若包含上传文件语境（hasFiles=true），可体现"简历"或"附件"语义
 
-hasFiles=${hasFiles ? 'true' : 'false'}
+hasFiles=${hasFiles ? "true" : "false"}
 用户消息:
 ${text}`,
         temperature: 0.2,
@@ -72,12 +72,11 @@ ${text}`,
       const safeTitle = sanitizeTitle(titleText);
 
       if (!safeTitle) {
-        return c.json({ title: '新对话' });
+        return c.json({ title: "新对话" });
       }
 
       return c.json({ title: safeTitle });
-    }
-    catch {
-      return c.json({ title: '新对话' });
+    } catch {
+      return c.json({ title: "新对话" });
     }
   });

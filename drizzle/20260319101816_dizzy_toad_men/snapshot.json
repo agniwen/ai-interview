@@ -2,9 +2,7 @@
   "version": "8",
   "dialect": "postgres",
   "id": "6e5b6981-2b91-42f9-ae94-1f1ca842478f",
-  "prevIds": [
-    "cb5b0c1e-4a3f-4837-a6e9-bb86a08557d7"
-  ],
+  "prevIds": ["cb5b0c1e-4a3f-4837-a6e9-bb86a08557d7"],
   "ddl": [
     {
       "isRlsEnabled": false,
@@ -1481,14 +1479,10 @@
     },
     {
       "nameExplicit": false,
-      "columns": [
-        "user_id"
-      ],
+      "columns": ["user_id"],
       "schemaTo": "public",
       "tableTo": "user",
-      "columnsTo": [
-        "id"
-      ],
+      "columnsTo": ["id"],
       "onUpdate": "NO ACTION",
       "onDelete": "CASCADE",
       "name": "account_user_id_user_id_fkey",
@@ -1498,14 +1492,10 @@
     },
     {
       "nameExplicit": false,
-      "columns": [
-        "interview_record_id"
-      ],
+      "columns": ["interview_record_id"],
       "schemaTo": "public",
       "tableTo": "studio_interview",
-      "columnsTo": [
-        "id"
-      ],
+      "columnsTo": ["id"],
       "onUpdate": "NO ACTION",
       "onDelete": "SET NULL",
       "name": "interview_conversation_7E79ZtgKWejQ_fkey",
@@ -1515,14 +1505,10 @@
     },
     {
       "nameExplicit": false,
-      "columns": [
-        "conversation_id"
-      ],
+      "columns": ["conversation_id"],
       "schemaTo": "public",
       "tableTo": "interview_conversation",
-      "columnsTo": [
-        "conversation_id"
-      ],
+      "columnsTo": ["conversation_id"],
       "onUpdate": "NO ACTION",
       "onDelete": "CASCADE",
       "name": "interview_conversation_turn_jhqV2eUQdApp_fkey",
@@ -1532,14 +1518,10 @@
     },
     {
       "nameExplicit": false,
-      "columns": [
-        "interview_record_id"
-      ],
+      "columns": ["interview_record_id"],
       "schemaTo": "public",
       "tableTo": "studio_interview",
-      "columnsTo": [
-        "id"
-      ],
+      "columnsTo": ["id"],
       "onUpdate": "NO ACTION",
       "onDelete": "SET NULL",
       "name": "interview_conversation_turn_N6s6mXUvShiW_fkey",
@@ -1549,14 +1531,10 @@
     },
     {
       "nameExplicit": false,
-      "columns": [
-        "user_id"
-      ],
+      "columns": ["user_id"],
       "schemaTo": "public",
       "tableTo": "user",
-      "columnsTo": [
-        "id"
-      ],
+      "columnsTo": ["id"],
       "onUpdate": "NO ACTION",
       "onDelete": "CASCADE",
       "name": "session_user_id_user_id_fkey",
@@ -1566,14 +1544,10 @@
     },
     {
       "nameExplicit": false,
-      "columns": [
-        "created_by"
-      ],
+      "columns": ["created_by"],
       "schemaTo": "public",
       "tableTo": "user",
-      "columnsTo": [
-        "id"
-      ],
+      "columnsTo": ["id"],
       "onUpdate": "NO ACTION",
       "onDelete": "SET NULL",
       "name": "studio_interview_created_by_user_id_fkey",
@@ -1583,14 +1557,10 @@
     },
     {
       "nameExplicit": false,
-      "columns": [
-        "interview_record_id"
-      ],
+      "columns": ["interview_record_id"],
       "schemaTo": "public",
       "tableTo": "studio_interview",
-      "columnsTo": [
-        "id"
-      ],
+      "columnsTo": ["id"],
       "onUpdate": "NO ACTION",
       "onDelete": "CASCADE",
       "name": "studio_interview_schedule_OvJYIg2SsCtN_fkey",
@@ -1599,9 +1569,7 @@
       "table": "studio_interview_schedule"
     },
     {
-      "columns": [
-        "id"
-      ],
+      "columns": ["id"],
       "nameExplicit": false,
       "name": "account_pkey",
       "schema": "public",
@@ -1609,9 +1577,7 @@
       "entityType": "pks"
     },
     {
-      "columns": [
-        "conversation_id"
-      ],
+      "columns": ["conversation_id"],
       "nameExplicit": false,
       "name": "interview_conversation_pkey",
       "schema": "public",
@@ -1619,9 +1585,7 @@
       "entityType": "pks"
     },
     {
-      "columns": [
-        "id"
-      ],
+      "columns": ["id"],
       "nameExplicit": false,
       "name": "interview_conversation_turn_pkey",
       "schema": "public",
@@ -1629,9 +1593,7 @@
       "entityType": "pks"
     },
     {
-      "columns": [
-        "id"
-      ],
+      "columns": ["id"],
       "nameExplicit": false,
       "name": "session_pkey",
       "schema": "public",
@@ -1639,9 +1601,7 @@
       "entityType": "pks"
     },
     {
-      "columns": [
-        "id"
-      ],
+      "columns": ["id"],
       "nameExplicit": false,
       "name": "studio_interview_pkey",
       "schema": "public",
@@ -1649,9 +1609,7 @@
       "entityType": "pks"
     },
     {
-      "columns": [
-        "id"
-      ],
+      "columns": ["id"],
       "nameExplicit": false,
       "name": "studio_interview_schedule_pkey",
       "schema": "public",
@@ -1659,9 +1617,7 @@
       "entityType": "pks"
     },
     {
-      "columns": [
-        "id"
-      ],
+      "columns": ["id"],
       "nameExplicit": false,
       "name": "user_pkey",
       "schema": "public",
@@ -1669,9 +1625,7 @@
       "entityType": "pks"
     },
     {
-      "columns": [
-        "id"
-      ],
+      "columns": ["id"],
       "nameExplicit": false,
       "name": "verification_pkey",
       "schema": "public",
@@ -1680,9 +1634,7 @@
     },
     {
       "nameExplicit": false,
-      "columns": [
-        "token"
-      ],
+      "columns": ["token"],
       "nullsNotDistinct": false,
       "name": "session_token_key",
       "schema": "public",
@@ -1691,9 +1643,7 @@
     },
     {
       "nameExplicit": false,
-      "columns": [
-        "email"
-      ],
+      "columns": ["email"],
       "nullsNotDistinct": false,
       "name": "user_email_key",
       "schema": "public",

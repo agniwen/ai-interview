@@ -9,7 +9,7 @@ metadata:
 
 # LiveKit Agents Development for LiveKit Cloud
 
-This skill provides opinionated guidance for building voice AI agents with LiveKit Cloud. It assumes you are using LiveKit Cloud (the recommended path) and encodes *how to approach* agent development, not API specifics. All factual information about APIs, methods, and configurations must come from live documentation.
+This skill provides opinionated guidance for building voice AI agents with LiveKit Cloud. It assumes you are using LiveKit Cloud (the recommended path) and encodes _how to approach_ agent development, not API specifics. All factual information about APIs, methods, and configurations must come from live documentation.
 
 **This skill is for LiveKit Cloud developers.** If you're self-hosting LiveKit, some recommendations (particularly around LiveKit Inference) won't apply directly.
 
@@ -28,6 +28,7 @@ This checklist applies regardless of whether MCP is available. MCP provides docu
 ## LiveKit Cloud Setup
 
 LiveKit Cloud is the fastest way to get a voice agent running. It provides:
+
 - Managed infrastructure (no servers to deploy)
 - **LiveKit Inference** for AI models (no separate API keys needed)
 - Built-in noise cancellation, turn detection, and other voice features
@@ -43,6 +44,7 @@ LiveKit Cloud is the fastest way to get a voice agent running. It provides:
    - `LIVEKIT_API_SECRET` - API secret for authentication
 
 4. Set these as environment variables (typically in `.env.local`):
+
 ```bash
 LIVEKIT_URL=wss://your-project.livekit.cloud
 LIVEKIT_API_KEY=your-api-key
@@ -56,6 +58,7 @@ The LiveKit CLI can automate credential setup. Consult the CLI documentation for
 **LiveKit Inference is the recommended way to use AI models with LiveKit Cloud.** It provides access to leading AI model providers—all through your LiveKit credentials with no separate API keys needed.
 
 Benefits of LiveKit Inference:
+
 - No separate API keys to manage for each AI provider
 - Billing consolidated through your LiveKit Cloud account
 - Optimized for voice AI workloads
@@ -80,6 +83,7 @@ Before writing any LiveKit code, ensure access to the LiveKit documentation MCP 
 ### Check for MCP Availability
 
 Look for `livekit-docs` MCP tools. If available, use them for all documentation lookups:
+
 - Search documentation before implementing any feature
 - Verify API signatures and method parameters
 - Look up configuration options and their valid values
@@ -96,6 +100,7 @@ Fetch the installation instructions appropriate for the user's coding agent from
 ### Fallback When MCP Unavailable
 
 If MCP cannot be installed in the current session:
+
 1. **Inform the user immediately** that documentation cannot be verified in real-time
 2. Use web search to fetch current documentation from docs.livekit.io
 3. **Explicitly mark all LiveKit-specific code** with a comment like `# UNVERIFIED: Please check docs.livekit.io for current API`
@@ -120,6 +125,7 @@ Voice conversations are real-time. Users expect responses within hundreds of mil
 Large system prompts and extensive tool lists directly increase latency. A voice agent with 50 tools and a 10,000-token system prompt will feel sluggish regardless of model speed.
 
 Design agents with minimal viable context:
+
 - Include only tools relevant to the current conversation phase
 - Keep system prompts focused and concise
 - Remove tools and context that aren't actively needed
@@ -127,6 +133,7 @@ Design agents with minimal viable context:
 ### Users Don't Read, They Listen
 
 Voice interface constraints differ from text:
+
 - Long responses frustrate users—keep outputs concise
 - Users cannot scroll back—ensure clarity on first delivery
 - Interruptions are normal—design for graceful handling
@@ -139,6 +146,7 @@ Complex voice agents should not be monolithic. LiveKit Agents supports structure
 ### The Problem with Monolithic Agents
 
 A single agent handling an entire conversation flow accumulates:
+
 - Tools for every possible action (bloated tool list)
 - Instructions for every conversation phase (bloated context)
 - State management for all scenarios (complexity)
@@ -148,6 +156,7 @@ This creates latency and reduces reliability.
 ### Handoffs: Agent-to-Agent Transitions
 
 Handoffs allow one agent to transfer control to another. Use handoffs to:
+
 - Separate distinct conversation phases (greeting → intake → resolution)
 - Isolate specialized capabilities (general support → billing specialist)
 - Manage context boundaries (each agent has only what it needs)
@@ -157,6 +166,7 @@ Design handoffs around natural conversation boundaries where context can be summ
 ### Tasks: Scoped Operations
 
 Tasks are tightly-scoped prompts designed to achieve a specific outcome. Use tasks for:
+
 - Discrete operations that don't require full agent capabilities
 - Situations where a focused prompt outperforms a general-purpose agent
 - Reducing context when only a specific capability is needed
@@ -177,6 +187,7 @@ When building or modifying a LiveKit agent:
 4. **Run the tests** to verify they pass
 
 A minimal test file structure:
+
 ```
 project/
 ├── agent.py (or src/agent.py)
@@ -198,11 +209,13 @@ This approach prevents shipping agents that "seem to work" but fail in productio
 ### What Every Agent Test Should Cover
 
 At minimum, write tests for:
+
 - **Basic conversation flow**: Agent responds appropriately to a greeting
 - **Tool invocation** (if tools exist): Tools are called with correct parameters
 - **Error handling**: Agent handles unexpected input gracefully
 
 Focus tests on:
+
 - **Tool invocation**: Does the agent call the right tools with correct parameters?
 - **Response quality**: Does the agent produce appropriate responses for given inputs?
 - **Workflow transitions**: Do handoffs and tasks trigger correctly?
@@ -211,11 +224,13 @@ Focus tests on:
 ### Test Implementation Pattern
 
 Use LiveKit's testing framework. Consult the testing documentation via MCP for current patterns:
+
 ```
 search: "livekit agents testing"
 ```
 
 The framework supports:
+
 - Simulated user input
 - Verification of agent responses
 - Tool call assertions
@@ -224,6 +239,7 @@ The framework supports:
 ### Why This Is Non-Negotiable
 
 Agents that "seem to work" in manual testing frequently fail in production:
+
 - Prompt changes silently break behavior
 - Tool descriptions affect when tools are called
 - Model updates change response patterns
@@ -233,6 +249,7 @@ Tests catch these issues before users do.
 ### Skipping Tests
 
 If a user explicitly requests no tests, proceed without them but inform them:
+
 > "I've built the agent without tests as requested. I strongly recommend adding tests before deploying to production. Voice agents are difficult to verify manually and tests prevent silent regressions."
 
 ## Common Mistakes to Avoid
@@ -260,6 +277,7 @@ Reiterating the critical rule: never trust model memory for LiveKit APIs. The SD
 ## When to Consult Documentation
 
 **Always consult documentation for:**
+
 - API method signatures and parameters
 - Configuration options and their valid values
 - SDK version-specific features or changes
@@ -268,12 +286,13 @@ Reiterating the critical rule: never trust model memory for LiveKit APIs. The SD
 - CLI commands and flags
 
 **This skill provides guidance on:**
+
 - Architectural approach and design principles
 - Workflow structure decisions
 - Testing strategy
 - Common pitfalls to avoid
 
-The distinction matters: this skill tells you *how to think* about building voice agents. The documentation tells you *how to implement* specific features.
+The distinction matters: this skill tells you _how to think_ about building voice agents. The documentation tells you _how to implement_ specific features.
 
 ## Feedback Loop
 

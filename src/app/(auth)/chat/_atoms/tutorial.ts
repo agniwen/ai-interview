@@ -1,4 +1,4 @@
-import { atom } from 'jotai';
+import { atom } from "jotai";
 
 /**
  * Tracks the current tutorial step index, or `null` when no tutorial is active.

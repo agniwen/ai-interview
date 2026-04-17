@@ -1,26 +1,24 @@
-import { redirect } from 'next/navigation';
+import { redirect } from "next/navigation";
 
-export default async function InterviewByIdPage({
-  params,
-}: {
-  params: Promise<{ id: string }>
-}) {
+export default async function InterviewByIdPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
 
   // Resolve the current active round and redirect
   let roundId: string | null = null;
 
   try {
-    const response = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/interview/${id}/resolve`, {
-      cache: 'no-store',
-    });
+    const response = await fetch(
+      `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/api/interview/${id}/resolve`,
+      {
+        cache: "no-store",
+      },
+    );
 
     if (response.ok) {
       const data = (await response.json()) as { roundId?: string };
       roundId = data.roundId ?? null;
     }
-  }
-  catch {
+  } catch {
     // fall through
   }
 
@@ -30,8 +28,8 @@ export default async function InterviewByIdPage({
 
   // If no round found, show a simple error
   return (
-    <div className='flex min-h-dvh items-center justify-center'>
-      <p className='text-muted-foreground'>当前面试链接不可用。</p>
+    <div className="flex min-h-dvh items-center justify-center">
+      <p className="text-muted-foreground">当前面试链接不可用。</p>
     </div>
   );
 }

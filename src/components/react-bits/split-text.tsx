@@ -1,11 +1,11 @@
-'use client';
+"use client";
 
-import { motion, useReducedMotion } from 'motion/react';
-import { cn } from '@/lib/utils';
+import { motion, useReducedMotion } from "motion/react";
+import { cn } from "@/lib/utils";
 
 interface SplitTextProps {
-  text: string
-  className?: string
+  text: string;
+  className?: string;
 }
 
 export function SplitText({ text, className }: SplitTextProps) {
@@ -17,10 +17,10 @@ export function SplitText({ text, className }: SplitTextProps) {
 
   return (
     <motion.span
-      animate='show'
+      animate="show"
       aria-label={text}
-      className={cn('inline-block whitespace-pre-wrap', className)}
-      initial='hidden'
+      className={cn("inline-block whitespace-pre-wrap", className)}
+      initial="hidden"
       variants={{
         hidden: {},
         show: {
@@ -33,15 +33,15 @@ export function SplitText({ text, className }: SplitTextProps) {
     >
       {Array.from(text, (char, index) => (
         <motion.span
-          aria-hidden='true'
-          className='inline-block'
+          aria-hidden="true"
+          className="inline-block"
           key={`${char}-${index}`}
           variants={{
-            hidden: { opacity: 0, transform: 'translateY(14px)' },
+            hidden: { opacity: 0, transform: "translateY(14px)" },
             show: {
               opacity: 1,
-              transform: 'translateY(0px)',
-              transition: { duration: 0.42, ease: 'easeOut' },
+              transform: "translateY(0px)",
+              transition: { duration: 0.42, ease: "easeOut" },
             },
           }}
         >

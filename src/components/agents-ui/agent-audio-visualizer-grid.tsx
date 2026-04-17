@@ -1,30 +1,16 @@
-'use client';
+"use client";
 
-import type { AgentState, TrackReferenceOrPlaceholder } from '@livekit/components-react';
-import type { VariantProps } from 'class-variance-authority';
-import type { LocalAudioTrack, RemoteAudioTrack } from 'livekit-client';
-import type { ComponentProps, CSSProperties, ReactNode } from 'react';
-import type { Coordinate } from '@/hooks/agents-ui/use-agent-audio-visualizer-grid';
-import {
-
-  useMultibandTrackVolume,
-} from '@livekit/components-react';
-import { cva } from 'class-variance-authority';
-import * as React from 'react';
-import {
-  Children,
-  cloneElement,
-
-  isValidElement,
-  memo,
-
-  useMemo,
-} from 'react';
-import {
-
-  useAgentAudioVisualizerGridAnimator,
-} from '@/hooks/agents-ui/use-agent-audio-visualizer-grid';
-import { cn } from '@/lib/utils';
+import type { AgentState, TrackReferenceOrPlaceholder } from "@livekit/components-react";
+import type { VariantProps } from "class-variance-authority";
+import type { LocalAudioTrack, RemoteAudioTrack } from "livekit-client";
+import type { ComponentProps, CSSProperties, ReactNode } from "react";
+import type { Coordinate } from "@/hooks/agents-ui/use-agent-audio-visualizer-grid";
+import { useMultibandTrackVolume } from "@livekit/components-react";
+import { cva } from "class-variance-authority";
+import * as React from "react";
+import { Children, cloneElement, isValidElement, memo, useMemo } from "react";
+import { useAgentAudioVisualizerGridAnimator } from "@/hooks/agents-ui/use-agent-audio-visualizer-grid";
+import { cn } from "@/lib/utils";
 
 function cloneSingleChild(
   children: ReactNode | ReactNode[],
@@ -52,37 +38,37 @@ function cloneSingleChild(
 
 export const AgentAudioVisualizerGridCellVariants = cva(
   [
-    'w-1 h-1 rounded-full bg-current/10 place-self-center transition-all ease-out',
-    'data-[lk-highlighted=true]:bg-current',
+    "w-1 h-1 rounded-full bg-current/10 place-self-center transition-all ease-out",
+    "data-[lk-highlighted=true]:bg-current",
   ],
   {
+    defaultVariants: {
+      size: "md",
+    },
     variants: {
       size: {
-        icon: ['w-[2px] h-[2px]'],
-        sm: ['w-[4px] h-[4px]'],
-        md: ['w-[8px] h-[8px]'],
-        lg: ['w-[12px] h-[12px]'],
-        xl: ['w-[16px] h-[16px]'],
+        icon: ["w-[2px] h-[2px]"],
+        lg: ["w-[12px] h-[12px]"],
+        md: ["w-[8px] h-[8px]"],
+        sm: ["w-[4px] h-[4px]"],
+        xl: ["w-[16px] h-[16px]"],
       },
-    },
-    defaultVariants: {
-      size: 'md',
     },
   },
 );
 
-export const AgentAudioVisualizerGridVariants = cva('grid', {
+export const AgentAudioVisualizerGridVariants = cva("grid", {
+  defaultVariants: {
+    size: "md",
+  },
   variants: {
     size: {
-      icon: ['gap-[2px]'],
-      sm: ['gap-[4px]'],
-      md: ['gap-[8px]'],
-      lg: ['gap-[12px]'],
-      xl: ['gap-[16px]'],
+      icon: ["gap-[2px]"],
+      lg: ["gap-[12px]"],
+      md: ["gap-[8px]"],
+      sm: ["gap-[4px]"],
+      xl: ["gap-[16px]"],
     },
-  },
-  defaultVariants: {
-    size: 'md',
   },
 });
 
@@ -93,38 +79,38 @@ export interface GridOptions {
   /**
    * The radius for the animation spread effect.
    */
-  radius?: number
+  radius?: number;
   /**
    * The interval in milliseconds between animation frames.
    * @defaultValue 100
    */
-  interval?: number
+  interval?: number;
   /**
    * The number of rows in the grid.
    * @defaultValue 5
    */
-  rowCount?: number
+  rowCount?: number;
   /**
    * The number of columns in the grid.
    * @defaultValue 5
    */
-  columnCount?: number
+  columnCount?: number;
   /**
    * Additional CSS class names to apply to the container.
    */
-  className?: string
+  className?: string;
 }
 
 const sizeDefaults = {
   icon: 3,
-  sm: 5,
-  md: 5,
   lg: 5,
+  md: 5,
+  sm: 5,
   xl: 5,
 };
 
 function useGrid(
-  size: VariantProps<typeof AgentAudioVisualizerGridVariants>['size'] = 'md',
+  size: VariantProps<typeof AgentAudioVisualizerGridVariants>["size"] = "md",
   columnCount = sizeDefaults[size as keyof typeof sizeDefaults],
   rowCount = sizeDefaults[size as keyof typeof sizeDefaults],
 ) {
@@ -133,59 +119,61 @@ function useGrid(
     const _rowCount = rowCount ?? columnCount;
     const items = new Array(_columnCount * _rowCount).fill(0).map((_, idx) => idx);
 
-    return { columnCount: _columnCount, rowCount: _rowCount, items };
+    return { columnCount: _columnCount, items, rowCount: _rowCount };
   }, [columnCount, rowCount]);
 }
 
 interface GridCellProps {
-  index: number
-  state: AgentState
-  interval: number
-  rowCount: number
-  columnCount: number
-  volumeBands: number[]
-  highlightedCoordinate: Coordinate
-  children?: ReactNode
+  index: number;
+  state: AgentState;
+  interval: number;
+  rowCount: number;
+  columnCount: number;
+  volumeBands: number[];
+  highlightedCoordinate: Coordinate;
+  children?: ReactNode;
 }
 
-const GridCell = memo(({
-  index,
-  state,
-  interval,
-  rowCount,
-  columnCount,
-  volumeBands,
-  highlightedCoordinate,
-  children,
-}: GridCellProps) => {
-  if (state === 'speaking') {
-    const y = Math.floor(index / columnCount);
-    const rowMidPoint = Math.floor(rowCount / 2);
-    const volumeChunks = 1 / (rowMidPoint + 1);
-    const distanceToMid = Math.abs(rowMidPoint - y);
-    const threshold = distanceToMid * volumeChunks;
-    const isHighlighted = (volumeBands[index % columnCount] ?? 0) >= threshold;
+const GridCell = memo(
+  ({
+    index,
+    state,
+    interval,
+    rowCount,
+    columnCount,
+    volumeBands,
+    highlightedCoordinate,
+    children,
+  }: GridCellProps) => {
+    if (state === "speaking") {
+      const y = Math.floor(index / columnCount);
+      const rowMidPoint = Math.floor(rowCount / 2);
+      const volumeChunks = 1 / (rowMidPoint + 1);
+      const distanceToMid = Math.abs(rowMidPoint - y);
+      const threshold = distanceToMid * volumeChunks;
+      const isHighlighted = (volumeBands[index % columnCount] ?? 0) >= threshold;
+
+      return cloneSingleChild(children, {
+        "data-lk-highlighted": isHighlighted,
+        "data-lk-index": index,
+      });
+    }
+
+    const isHighlighted =
+      highlightedCoordinate.x === index % columnCount &&
+      highlightedCoordinate.y === Math.floor(index / columnCount);
+
+    const transitionDurationInSeconds = interval / (isHighlighted ? 1000 : 100);
 
     return cloneSingleChild(children, {
-      'data-lk-index': index,
-      'data-lk-highlighted': isHighlighted,
+      "data-lk-highlighted": isHighlighted,
+      "data-lk-index": index,
+      style: {
+        transitionDuration: `${transitionDurationInSeconds}s`,
+      },
     });
-  }
-
-  const isHighlighted
-    = highlightedCoordinate.x === index % columnCount
-      && highlightedCoordinate.y === Math.floor(index / columnCount);
-
-  const transitionDurationInSeconds = interval / (isHighlighted ? 1000 : 100);
-
-  return cloneSingleChild(children, {
-    'data-lk-index': index,
-    'data-lk-highlighted': isHighlighted,
-    'style': {
-      transitionDuration: `${transitionDurationInSeconds}s`,
-    },
-  });
-});
+  },
+);
 
 /**
  * Props for the AgentAudioVisualizerGrid component.
@@ -195,29 +183,29 @@ export type AgentAudioVisualizerGridProps = GridOptions & {
    * The size of the visualizer.
    * @defaultValue 'md'
    */
-  size?: 'icon' | 'sm' | 'md' | 'lg' | 'xl'
+  size?: "icon" | "sm" | "md" | "lg" | "xl";
   /**
    * The current state of the agent. Determines the animation pattern.
    * @defaultValue 'connecting'
    */
-  state?: AgentState
+  state?: AgentState;
   /**
    * The color of the grid cells in hexidecimal format.
    */
-  color?: `#${string}`
+  color?: `#${string}`;
   /**
    * The audio track to visualize. Can be a local/remote audio track or a track reference.
    */
-  audioTrack?: LocalAudioTrack | RemoteAudioTrack | TrackReferenceOrPlaceholder
+  audioTrack?: LocalAudioTrack | RemoteAudioTrack | TrackReferenceOrPlaceholder;
   /**
    * Additional CSS class names to apply to the container.
    */
-  className?: string
+  className?: string;
   /**
    * Custom element to render as grid cells. Each child receives data-lk-index
    * and data-lk-highlighted props.
    */
-  children?: ReactNode
+  children?: ReactNode;
 } & VariantProps<typeof AgentAudioVisualizerGridVariants>;
 
 /**
@@ -239,8 +227,8 @@ export type AgentAudioVisualizerGridProps = GridOptions & {
  * ```
  */
 export function AgentAudioVisualizerGrid({
-  size = 'md',
-  state = 'connecting',
+  size = "md",
+  state = "connecting",
   radius,
   color,
   rowCount: _rowCount = 5,
@@ -251,7 +239,7 @@ export function AgentAudioVisualizerGrid({
   audioTrack,
   style,
   ...props
-}: AgentAudioVisualizerGridProps & ComponentProps<'div'>) {
+}: AgentAudioVisualizerGridProps & ComponentProps<"div">) {
   const { columnCount, rowCount, items } = useGrid(size, _columnCount, _rowCount);
   const highlightedCoordinate = useAgentAudioVisualizerGridAnimator(
     state,
@@ -262,12 +250,12 @@ export function AgentAudioVisualizerGrid({
   );
   const volumeBands = useMultibandTrackVolume(audioTrack, {
     bands: columnCount,
-    loPass: 100,
     hiPass: 200,
+    loPass: 100,
   });
 
   if (children && Array.isArray(children)) {
-    throw new Error('AgentAudioVisualizerGrid children must be a single element.');
+    throw new Error("AgentAudioVisualizerGrid children must be a single element.");
   }
 
   return (
@@ -275,11 +263,11 @@ export function AgentAudioVisualizerGrid({
       data-lk-state={state}
       className={cn(AgentAudioVisualizerGridVariants({ size }), className)}
       style={
-        { ...style, gridTemplateColumns: `repeat(${columnCount}, 1fr)`, color } as CSSProperties
+        { ...style, color, gridTemplateColumns: `repeat(${columnCount}, 1fr)` } as CSSProperties
       }
       {...props}
     >
-      {items.map(idx => (
+      {items.map((idx) => (
         <GridCell
           key={idx}
           index={idx}

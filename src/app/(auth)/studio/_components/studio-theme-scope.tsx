@@ -1,13 +1,13 @@
-'use client';
+"use client";
 
-import { useEffect } from 'react';
+import { useEffect } from "react";
 
 export function StudioThemeScope() {
   useEffect(() => {
-    document.body.classList.add('studio-theme');
+    document.body.classList.add("studio-theme");
 
     return () => {
-      document.body.classList.remove('studio-theme');
+      document.body.classList.remove("studio-theme");
     };
   }, []);
 

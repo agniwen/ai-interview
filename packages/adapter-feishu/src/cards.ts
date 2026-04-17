@@ -5,6 +5,8 @@
  * @see https://open.feishu.cn/document/uAjLw4CM/ukzMukzMukzM/feishu-cards/card-components
  */
 
+/* oxlint-disable no-use-before-define -- Card element converters call each other recursively (processChild ↔ processSectionElement). */
+
 import type {
   ActionsElement,
   ButtonElement,
@@ -14,21 +16,21 @@ import type {
   LinkButtonElement,
   SectionElement,
   TextElement,
-} from 'chat';
+} from "chat";
 import type {
   FeishuCardActionElement,
   FeishuCardButtonElement,
   FeishuCardElement,
   FeishuInteractiveCard,
-} from './types';
-import { convertEmojiPlaceholders } from 'chat';
+} from "./types";
+import { convertEmojiPlaceholders } from "chat";
 
 /**
  * Convert emoji placeholders to Feishu format.
  * Feishu doesn't have a specific emoji format, so we use Unicode.
  */
 function convertEmoji(text: string): string {
-  return convertEmojiPlaceholders(text, 'gchat');
+  return convertEmojiPlaceholders(text, "gchat");
 }
 
 /**
@@ -45,21 +47,21 @@ export function cardToFeishuPayload(card: CardElement): FeishuInteractiveCard {
   // Set header if title is present
   if (card.title) {
     result.header = {
+      template: "blue",
       title: {
-        tag: 'plain_text',
         content: convertEmoji(card.title),
+        tag: "plain_text",
       },
-      template: 'blue',
     };
   }
 
   // Process subtitle as a text div element
   if (card.subtitle) {
     result.elements.push({
-      tag: 'div',
+      tag: "div",
       text: {
-        tag: 'lark_md',
         content: convertEmoji(card.subtitle),
+        tag: "lark_md",
       },
     });
   }
@@ -78,22 +80,29 @@ export function cardToFeishuPayload(card: CardElement): FeishuInteractiveCard {
  */
 function processChild(child: CardChild): FeishuCardElement[] {
   switch (child.type) {
-    case 'text':
+    case "text": {
       return [convertTextElement(child)];
-    case 'image':
+    }
+    case "image": {
       // Feishu card images require an image_key from the upload API.
       // External URLs are not directly supported in cards, so we skip.
       return [];
-    case 'divider':
-      return [{ tag: 'hr' }];
-    case 'actions':
+    }
+    case "divider": {
+      return [{ tag: "hr" }];
+    }
+    case "actions": {
       return convertActionsElement(child);
-    case 'section':
+    }
+    case "section": {
       return processSectionElement(child);
-    case 'fields':
+    }
+    case "fields": {
       return convertFieldsElement(child);
-    default:
+    }
+    default: {
       return [];
+    }
   }
 }
 
@@ -104,19 +113,18 @@ function convertTextElement(element: TextElement): FeishuCardElement {
   let text = convertEmoji(element.content);
 
   // Apply style
-  if (element.style === 'bold') {
+  if (element.style === "bold") {
     text = `**${text}**`;
-  }
-  else if (element.style === 'muted') {
+  } else if (element.style === "muted") {
     // Feishu doesn't have muted, use italic as approximation
     text = `*${text}*`;
   }
 
   return {
-    tag: 'div',
+    tag: "div",
     text: {
-      tag: 'lark_md',
       content: text,
+      tag: "lark_md",
     },
   };
 }
@@ -126,9 +134,9 @@ function convertTextElement(element: TextElement): FeishuCardElement {
  */
 function convertActionsElement(element: ActionsElement): FeishuCardElement[] {
   const buttons: FeishuCardButtonElement[] = element.children
-    .filter(child => child.type === 'button' || child.type === 'link-button')
+    .filter((child) => child.type === "button" || child.type === "link-button")
     .map((button) => {
-      if (button.type === 'link-button') {
+      if (button.type === "link-button") {
         return convertLinkButtonElement(button);
       }
       return convertButtonElement(button);
@@ -139,8 +147,8 @@ function convertActionsElement(element: ActionsElement): FeishuCardElement[] {
   }
 
   const actionElement: FeishuCardActionElement = {
-    tag: 'action',
     actions: buttons,
+    tag: "action",
   };
 
   return [actionElement];
@@ -151,10 +159,10 @@ function convertActionsElement(element: ActionsElement): FeishuCardElement[] {
  */
 function convertButtonElement(button: ButtonElement): FeishuCardButtonElement {
   return {
-    tag: 'button',
+    tag: "button",
     text: {
-      tag: 'plain_text',
       content: button.label,
+      tag: "plain_text",
     },
     type: getButtonType(button.style),
     value: { action_id: button.id },
@@ -164,33 +172,32 @@ function convertButtonElement(button: ButtonElement): FeishuCardButtonElement {
 /**
  * Convert a link button element to a Feishu card button with URL.
  */
-function convertLinkButtonElement(
-  button: LinkButtonElement,
-): FeishuCardButtonElement {
+function convertLinkButtonElement(button: LinkButtonElement): FeishuCardButtonElement {
   return {
-    tag: 'button',
+    tag: "button",
     text: {
-      tag: 'plain_text',
       content: button.label,
+      tag: "plain_text",
     },
+    type: "default",
     url: button.url,
-    type: 'default',
   };
 }
 
 /**
  * Map button style to Feishu button type.
  */
-function getButtonType(
-  style?: ButtonElement['style'],
-): FeishuCardButtonElement['type'] {
+function getButtonType(style?: ButtonElement["style"]): FeishuCardButtonElement["type"] {
   switch (style) {
-    case 'primary':
-      return 'primary';
-    case 'danger':
-      return 'danger';
-    default:
-      return 'default';
+    case "primary": {
+      return "primary";
+    }
+    case "danger": {
+      return "danger";
+    }
+    default: {
+      return "default";
+    }
   }
 }
 
@@ -211,18 +218,15 @@ function processSectionElement(element: SectionElement): FeishuCardElement[] {
  */
 function convertFieldsElement(element: FieldsElement): FeishuCardElement[] {
   const fieldLines = element.children
-    .map(
-      field =>
-        `**${convertEmoji(field.label)}**: ${convertEmoji(field.value)}`,
-    )
-    .join('\n');
+    .map((field) => `**${convertEmoji(field.label)}**: ${convertEmoji(field.value)}`)
+    .join("\n");
 
   return [
     {
-      tag: 'div',
+      tag: "div",
       text: {
-        tag: 'lark_md',
         content: fieldLines,
+        tag: "lark_md",
       },
     },
   ];
@@ -250,7 +254,7 @@ export function cardToFallbackText(card: CardElement): string {
     }
   }
 
-  return parts.join('\n\n');
+  return parts.join("\n\n");
 }
 
 /**
@@ -258,23 +262,29 @@ export function cardToFallbackText(card: CardElement): string {
  */
 function childToFallbackText(child: CardChild): string | null {
   switch (child.type) {
-    case 'text':
+    case "text": {
       return convertEmoji(child.content);
-    case 'fields':
+    }
+    case "fields": {
       return child.children
-        .map(f => `**${convertEmoji(f.label)}**: ${convertEmoji(f.value)}`)
-        .join('\n');
-    case 'actions':
+        .map((f) => `**${convertEmoji(f.label)}**: ${convertEmoji(f.value)}`)
+        .join("\n");
+    }
+    case "actions": {
       // Actions are interactive-only - exclude from fallback text.
       return null;
-    case 'section':
+    }
+    case "section": {
       return child.children
-        .map(c => childToFallbackText(c))
+        .map((c) => childToFallbackText(c))
         .filter(Boolean)
-        .join('\n');
-    case 'divider':
-      return '---';
-    default:
+        .join("\n");
+    }
+    case "divider": {
+      return "---";
+    }
+    default: {
       return null;
+    }
   }
 }

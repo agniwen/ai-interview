@@ -1,8 +1,5 @@
 [build-system]
-requires = [
-  "setuptools>=61.0",
-  "wheel"
-]
+requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -20,14 +17,10 @@ dependencies = [
 ]
 
 [dependency-groups]
-dev = [
-  "pytest",
-  "pytest-asyncio",
-  "ruff",
-]
+dev = ["pytest", "pytest-asyncio", "ruff"]
 
 [tool.setuptools.packages.find]
-where = [ "src" ]
+where = ["src"]
 
 [tool.setuptools.package-dir]
 "" = "src"
@@ -41,22 +34,10 @@ line-length = 88
 target-version = "py39"
 
 [tool.ruff.lint]
-select = [
-  "E",
-  "F",
-  "W",
-  "I",
-  "N",
-  "B",
-  "A",
-  "C4",
-  "UP",
-  "SIM",
-  "RUF"
-]
+select = ["E", "F", "W", "I", "N", "B", "A", "C4", "UP", "SIM", "RUF"]
 ignore = [
   "E501",
-  "RUF001"
+  "RUF001",
 ] # Line too long (handled by formatter); allow fullwidth chars in Chinese prompts
 
 [tool.ruff.format]

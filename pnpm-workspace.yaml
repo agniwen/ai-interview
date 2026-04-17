@@ -3,7 +3,7 @@ shellEmulator: true
 trustPolicy: no-downgrade
 
 packages:
-  - 'packages/*'
+  - "packages/*"
 
 ignoredBuiltDependencies:
   - msw

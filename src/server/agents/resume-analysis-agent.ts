@@ -2,31 +2,28 @@ import type {
   GeneratedInterviewQuestion,
   ResumeAnalysisResult,
   ResumeProfile,
-} from '@/lib/interview/types';
-import { generateText, stepCountIs, tool } from 'ai';
-import { z } from 'zod';
-import {
-  generatedInterviewQuestionsSchema,
-  resumeProfileSchema,
-} from '@/lib/interview/types';
-import { extractPdfText } from '@/lib/resume-pdf';
-import { createResumeAgent } from './resume-agent';
+} from "@/lib/interview/types";
+import { generateText, stepCountIs, tool } from "ai";
+import { z } from "zod";
+import { generatedInterviewQuestionsSchema, resumeProfileSchema } from "@/lib/interview/types";
+import { extractPdfText } from "@/lib/resume-pdf";
+import { createResumeAgent } from "./resume-agent";
 
 // ---------------------------------------------------------------------------
 // NDJSON streaming event types
 // ---------------------------------------------------------------------------
 
-export type AnalysisStreamEvent
-  = | { type: 'status', message: string }
-    | { type: 'tool-start', name: string }
-    | { type: 'tool-end', name: string }
-    | { type: 'text-delta', text: string }
-    | { type: 'step', index: number }
-    | { type: 'result', data: unknown }
-    | { type: 'error', message: string };
+export type AnalysisStreamEvent =
+  | { type: "status"; message: string }
+  | { type: "tool-start"; name: string }
+  | { type: "tool-end"; name: string }
+  | { type: "text-delta"; text: string }
+  | { type: "step"; index: number }
+  | { type: "result"; data: unknown }
+  | { type: "error"; message: string };
 
 const TOOL_LABELS: Record<string, string> = {
-  analyze_pdf_with_vision: '视觉模型分析 PDF',
+  analyze_pdf_with_vision: "视觉模型分析 PDF",
 };
 
 function createNdjsonStream(
@@ -40,14 +37,12 @@ function createNdjsonStream(
       };
       try {
         await run(emit);
-      }
-      catch (error) {
+      } catch (error) {
         emit({
-          type: 'error',
-          message: error instanceof Error ? error.message : 'Unknown error',
+          message: error instanceof Error ? error.message : "Unknown error",
+          type: "error",
         });
-      }
-      finally {
+      } finally {
         controller.close();
       }
     },
@@ -57,12 +52,16 @@ function createNdjsonStream(
 const MAX_RESUME_FILE_SIZE = 10 * 1024 * 1024;
 
 export class ResumeAnalysisError extends Error {
-  stage: 'resume-parsing' | 'question-generation';
+  stage: "resume-parsing" | "question-generation";
   resumeProfile?: ResumeProfile;
 
-  constructor(message: string, stage: 'resume-parsing' | 'question-generation', resumeProfile?: ResumeProfile) {
+  constructor(
+    message: string,
+    stage: "resume-parsing" | "question-generation",
+    resumeProfile?: ResumeProfile,
+  ) {
     super(message);
-    this.name = 'ResumeAnalysisError';
+    this.name = "ResumeAnalysisError";
     this.stage = stage;
     this.resumeProfile = resumeProfile;
   }
@@ -92,39 +91,39 @@ function trimToNull(value: string | null) {
 }
 
 function normalizeNumber(value: number | null) {
-  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 
 function normalizeResumeProfile(profile: ResumeProfile): ResumeProfile {
   return {
-    name: profile.name.trim(),
     age: normalizeNumber(profile.age),
     gender: trimToNull(profile.gender),
-    targetRoles: uniqueStrings(profile.targetRoles),
-    workYears: normalizeNumber(profile.workYears),
-    skills: uniqueStrings(profile.skills),
-    schools: uniqueStrings(profile.schools),
-    workExperiences: profile.workExperiences.map(experience => ({
-      company: trimToNull(experience.company),
-      role: trimToNull(experience.role),
-      period: trimToNull(experience.period),
-      summary: trimToNull(experience.summary),
-    })),
-    projectExperiences: profile.projectExperiences.map(experience => ({
-      name: trimToNull(experience.name),
-      role: trimToNull(experience.role),
-      period: trimToNull(experience.period),
-      techStack: uniqueStrings(experience.techStack),
-      summary: trimToNull(experience.summary),
-    })),
+    name: profile.name.trim(),
     personalStrengths: uniqueStrings(profile.personalStrengths),
+    projectExperiences: profile.projectExperiences.map((experience) => ({
+      name: trimToNull(experience.name),
+      period: trimToNull(experience.period),
+      role: trimToNull(experience.role),
+      summary: trimToNull(experience.summary),
+      techStack: uniqueStrings(experience.techStack),
+    })),
+    schools: uniqueStrings(profile.schools),
+    skills: uniqueStrings(profile.skills),
+    targetRoles: uniqueStrings(profile.targetRoles),
+    workExperiences: profile.workExperiences.map((experience) => ({
+      company: trimToNull(experience.company),
+      period: trimToNull(experience.period),
+      role: trimToNull(experience.role),
+      summary: trimToNull(experience.summary),
+    })),
+    workYears: normalizeNumber(profile.workYears),
   };
 }
 
 function normalizeInterviewQuestions(questions: GeneratedInterviewQuestion[]) {
   return questions.map((question, index) => ({
-    order: index + 1,
     difficulty: question.difficulty,
+    order: index + 1,
     question: question.question.trim(),
   }));
 }
@@ -145,71 +144,73 @@ function parseJsonOutput<T>(text: string, schema: z.ZodType<T>, label: string): 
 
   for (const candidate of candidates) {
     // Find the outermost { ... } or [ ... ]
-    const start = candidate.indexOf('{');
-    const end = candidate.lastIndexOf('}');
-    if (start === -1 || end === -1)
+    const start = candidate.indexOf("{");
+    const end = candidate.lastIndexOf("}");
+    if (start === -1 || end === -1) {
       continue;
+    }
 
     try {
       const raw = JSON.parse(candidate.slice(start, end + 1));
       const parsed = schema.safeParse(raw);
-      if (parsed.success)
+      if (parsed.success) {
         return parsed.data;
+      }
       console.error(`[${label}] Schema validation failed:`, parsed.error.issues.slice(0, 3));
-    }
-    catch {
+    } catch {
       // try next candidate
     }
   }
 
   console.error(`[${label}] Failed to parse JSON from text:`, trimmed.slice(0, 200));
-  throw new Error('Failed to parse structured output from model response.');
+  throw new Error("Failed to parse structured output from model response.");
 }
 
 export function isPdfFile(file: File) {
-  return file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
+  return file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
 }
 
 export function validateResumeFile(file: File) {
   if (!isPdfFile(file)) {
-    throw new Error('仅支持上传 PDF 简历。');
+    throw new Error("仅支持上传 PDF 简历。");
   }
 
   if (file.size > MAX_RESUME_FILE_SIZE) {
-    throw new Error('简历 PDF 不能超过 10 MB。');
+    throw new Error("简历 PDF 不能超过 10 MB。");
   }
 }
 
 function createPdfVisionTool(pdfBytes: Buffer) {
   return tool({
-    description: '当提供的简历文本质量差（乱码、空白、内容过少、信息不完整）或明显是从图片 PDF 提取导致丢失大量信息时，调用此工具使用视觉模型重新解析原始 PDF，获取更完整的简历内容。',
-    inputSchema: z.object({}),
+    description:
+      "当提供的简历文本质量差（乱码、空白、内容过少、信息不完整）或明显是从图片 PDF 提取导致丢失大量信息时，调用此工具使用视觉模型重新解析原始 PDF，获取更完整的简历内容。",
     execute: async () => {
-      const visionModelId = process.env.GOOGLE_VISION_MODEL ?? 'google/gemini-2.5-flash';
-      const base64PdfData = pdfBytes.toString('base64');
+      const visionModelId = process.env.GOOGLE_VISION_MODEL ?? "google/gemini-2.5-flash";
+      const base64PdfData = pdfBytes.toString("base64");
 
       const { text } = await generateText({
-        model: visionModelId,
         messages: [
           {
-            role: 'user',
             content: [
               {
-                type: 'file',
                 data: base64PdfData,
-                mediaType: 'application/pdf',
+                mediaType: "application/pdf",
+                type: "file",
               },
               {
-                type: 'text',
-                text: '请完整提取这份 PDF 简历中的所有文字内容，包括图片中的文字。保持原始结构和排版顺序，不要遗漏任何信息。如果存在表格，用文字形式还原。只输出提取的内容，不要添加任何分析或评论。',
+                text: "请完整提取这份 PDF 简历中的所有文字内容，包括图片中的文字。保持原始结构和排版顺序，不要遗漏任何信息。如果存在表格，用文字形式还原。只输出提取的内容，不要添加任何分析或评论。",
+                type: "text",
               },
             ],
+            role: "user",
           },
         ],
+        model: visionModelId,
       });
 
       return { resumeText: text };
     },
+    inputSchema: z.object({}),
   });
 }
 
@@ -282,8 +283,8 @@ const QUESTION_INSTRUCTIONS = `你是一名技术面试出题助手。请基于�
 5. 不要给答案，不要输出解释，不要重复题目。`;
 
 export interface ResumeParseResult {
-  fileName: string
-  resumeProfile: ResumeProfile
+  fileName: string;
+  resumeProfile: ResumeProfile;
 }
 
 /**
@@ -294,24 +295,22 @@ export function streamParseResumeProfile(file: File): ReadableStream<Uint8Array>
   validateResumeFile(file);
 
   return createNdjsonStream(async (emit) => {
-    emit({ type: 'status', message: '正在解析 PDF 文本…' });
+    emit({ message: "正在解析 PDF 文本…", type: "status" });
 
-    const structuredModelId = process.env.ALIBABA_STRUCTURED_MODEL ?? 'qwen3-max';
+    const structuredModelId = process.env.ALIBABA_STRUCTURED_MODEL ?? "qwen3-max";
     const pdfBytes = Buffer.from(await file.arrayBuffer());
     const pdfParseText = await extractPdfText(pdfBytes);
     const canUseVision = Boolean(process.env.AI_GATEWAY_API_KEY);
 
-    emit({ type: 'status', message: '正在提取候选人信息…' });
+    emit({ message: "正在提取候选人信息…", type: "status" });
 
     const profileAgent = createResumeAgent({
+      enableThinking: false,
       instructions: PROFILE_INSTRUCTIONS,
       modelId: structuredModelId,
-      enableThinking: false,
-      temperature: 0,
       stopWhen: stepCountIs(4),
-      tools: canUseVision
-        ? { analyze_pdf_with_vision: createPdfVisionTool(pdfBytes) }
-        : {},
+      temperature: 0,
+      tools: canUseVision ? { analyze_pdf_with_vision: createPdfVisionTool(pdfBytes) } : {},
     });
 
     const streamResult = await profileAgent.stream({
@@ -319,33 +318,30 @@ export function streamParseResumeProfile(file: File): ReadableStream<Uint8Array>
     });
 
     let stepIndex = 0;
-    let fullText = '';
+    let fullText = "";
     for await (const part of streamResult.fullStream) {
-      if (part.type === 'text-delta') {
+      if (part.type === "text-delta") {
         fullText += part.text;
-        emit({ type: 'text-delta', text: part.text });
-      }
-      else if (part.type === 'tool-input-start') {
-        emit({ type: 'tool-start', name: TOOL_LABELS[part.toolName] ?? part.toolName });
-      }
-      else if (part.type === 'tool-result' || part.type === 'tool-error') {
-        const toolName = (part as { toolName: string }).toolName;
-        emit({ type: 'tool-end', name: TOOL_LABELS[toolName] ?? toolName });
-      }
-      else if (part.type === 'start-step') {
-        stepIndex++;
-        emit({ type: 'step', index: stepIndex });
+        emit({ text: part.text, type: "text-delta" });
+      } else if (part.type === "tool-input-start") {
+        emit({ name: TOOL_LABELS[part.toolName] ?? part.toolName, type: "tool-start" });
+      } else if (part.type === "tool-result" || part.type === "tool-error") {
+        const { toolName } = part as { toolName: string };
+        emit({ name: TOOL_LABELS[toolName] ?? toolName, type: "tool-end" });
+      } else if (part.type === "start-step") {
+        stepIndex += 1;
+        emit({ index: stepIndex, type: "step" });
       }
     }
 
-    const profile = parseJsonOutput(fullText, resumeProfileSchema, 'resume-parsing');
+    const profile = parseJsonOutput(fullText, resumeProfileSchema, "resume-parsing");
 
     const result: ResumeParseResult = {
       fileName: file.name,
       resumeProfile: normalizeResumeProfile(profile),
     };
 
-    emit({ type: 'result', data: result });
+    emit({ data: result, type: "result" });
   });
 }
 
@@ -357,16 +353,16 @@ export function streamGenerateInterviewQuestions(
   resumeProfile: ResumeProfile,
 ): ReadableStream<Uint8Array> {
   return createNdjsonStream(async (emit) => {
-    emit({ type: 'status', message: '正在生成面试题…' });
+    emit({ message: "正在生成面试题…", type: "status" });
 
-    const structuredModelId = process.env.ALIBABA_STRUCTURED_MODEL ?? 'qwen3-max';
+    const structuredModelId = process.env.ALIBABA_STRUCTURED_MODEL ?? "qwen3-max";
 
     const questionAgent = createResumeAgent({
+      enableThinking: false,
       instructions: QUESTION_INSTRUCTIONS,
       modelId: structuredModelId,
-      enableThinking: false,
-      temperature: 0.3,
       stopWhen: stepCountIs(2),
+      temperature: 0.3,
       tools: {},
     });
 
@@ -375,19 +371,25 @@ export function streamGenerateInterviewQuestions(
     });
 
     let stepIndex = 0;
-    let fullText = '';
+    let fullText = "";
     for await (const part of streamResult.fullStream) {
-      if (part.type === 'text-delta') {
+      if (part.type === "text-delta") {
         fullText += part.text;
-      }
-      else if (part.type === 'start-step') {
-        stepIndex++;
-        emit({ type: 'step', index: stepIndex });
+      } else if (part.type === "start-step") {
+        stepIndex += 1;
+        emit({ index: stepIndex, type: "step" });
       }
     }
 
-    const parsed = parseJsonOutput(fullText, generatedInterviewQuestionsSchema, 'question-generation');
-    emit({ type: 'result', data: { interviewQuestions: normalizeInterviewQuestions(parsed.interviewQuestions) } });
+    const parsed = parseJsonOutput(
+      fullText,
+      generatedInterviewQuestionsSchema,
+      "question-generation",
+    );
+    emit({
+      data: { interviewQuestions: normalizeInterviewQuestions(parsed.interviewQuestions) },
+      type: "result",
+    });
   });
 }
 
@@ -398,7 +400,7 @@ export function streamGenerateInterviewQuestions(
 export async function analyzeResumeFile(file: File): Promise<ResumeAnalysisResult> {
   validateResumeFile(file);
 
-  const structuredModelId = process.env.ALIBABA_STRUCTURED_MODEL ?? 'qwen3-max';
+  const structuredModelId = process.env.ALIBABA_STRUCTURED_MODEL ?? "qwen3-max";
   const pdfBytes = Buffer.from(await file.arrayBuffer());
   const pdfParseText = await extractPdfText(pdfBytes);
   const canUseVision = Boolean(process.env.AI_GATEWAY_API_KEY);
@@ -407,14 +409,12 @@ export async function analyzeResumeFile(file: File): Promise<ResumeAnalysisResul
 
   try {
     const profileAgent = createResumeAgent({
+      enableThinking: false,
       instructions: PROFILE_INSTRUCTIONS,
       modelId: structuredModelId,
-      enableThinking: false,
-      temperature: 0,
       stopWhen: stepCountIs(4),
-      tools: canUseVision
-        ? { analyze_pdf_with_vision: createPdfVisionTool(pdfBytes) }
-        : {},
+      temperature: 0,
+      tools: canUseVision ? { analyze_pdf_with_vision: createPdfVisionTool(pdfBytes) } : {},
     });
 
     const { text } = await profileAgent.generate({
@@ -422,25 +422,25 @@ export async function analyzeResumeFile(file: File): Promise<ResumeAnalysisResul
     });
 
     resumeProfile = normalizeResumeProfile(
-      parseJsonOutput(text, resumeProfileSchema, 'resume-parsing'),
+      parseJsonOutput(text, resumeProfileSchema, "resume-parsing"),
     );
-  }
-  catch (error) {
-    if (error instanceof ResumeAnalysisError)
+  } catch (error) {
+    if (error instanceof ResumeAnalysisError) {
       throw error;
+    }
     throw new ResumeAnalysisError(
-      error instanceof Error ? error.message : 'Failed to extract resume information.',
-      'resume-parsing',
+      error instanceof Error ? error.message : "Failed to extract resume information.",
+      "resume-parsing",
     );
   }
 
   try {
     const questionAgent = createResumeAgent({
+      enableThinking: false,
       instructions: QUESTION_INSTRUCTIONS,
       modelId: structuredModelId,
-      enableThinking: false,
-      temperature: 0.3,
       stopWhen: stepCountIs(2),
+      temperature: 0.3,
       tools: {},
     });
 
@@ -448,20 +448,20 @@ export async function analyzeResumeFile(file: File): Promise<ResumeAnalysisResul
       prompt: `候选人信息：\n${JSON.stringify(resumeProfile, null, 2)}`,
     });
 
-    const parsed = parseJsonOutput(text, generatedInterviewQuestionsSchema, 'question-generation');
+    const parsed = parseJsonOutput(text, generatedInterviewQuestionsSchema, "question-generation");
 
     return {
       fileName: file.name,
-      resumeProfile,
       interviewQuestions: normalizeInterviewQuestions(parsed.interviewQuestions),
+      resumeProfile,
     };
-  }
-  catch (error) {
-    if (error instanceof ResumeAnalysisError)
+  } catch (error) {
+    if (error instanceof ResumeAnalysisError) {
       throw error;
+    }
     throw new ResumeAnalysisError(
-      error instanceof Error ? error.message : 'Failed to generate interview questions.',
-      'question-generation',
+      error instanceof Error ? error.message : "Failed to generate interview questions.",
+      "question-generation",
       resumeProfile,
     );
   }

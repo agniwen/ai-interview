@@ -5,6 +5,7 @@ This document provides detailed guidance on maintaining accuracy when building w
 ## The Core Problem
 
 Coding agents (Claude, GPT, etc.) are trained on historical data. This training includes:
+
 - Old versions of LiveKit documentation
 - Outdated code examples from blogs and tutorials
 - Previous SDK versions with different APIs
@@ -35,17 +36,18 @@ When an agent "knows" something about LiveKit, that knowledge may be months or y
 
 When writing code, verify:
 
-| Element | Why It Changes | How to Verify |
-|---------|----------------|---------------|
-| Import statements | Module restructuring | Search docs for current import paths |
-| Method signatures | API evolution | Look up method in API reference |
-| Configuration keys | Naming conventions change | Check configuration documentation |
-| Default behaviors | Defaults are tuned over time | Read parameter documentation |
-| Event names | Event systems evolve | Check events/callbacks documentation |
+| Element            | Why It Changes               | How to Verify                        |
+| ------------------ | ---------------------------- | ------------------------------------ |
+| Import statements  | Module restructuring         | Search docs for current import paths |
+| Method signatures  | API evolution                | Look up method in API reference      |
+| Configuration keys | Naming conventions change    | Check configuration documentation    |
+| Default behaviors  | Defaults are tuned over time | Read parameter documentation         |
+| Event names        | Event systems evolve         | Check events/callbacks documentation |
 
 ### After Implementation
 
 Before presenting code to the user:
+
 - Confirm all APIs used are documented
 - Verify example patterns match current best practices
 - Check for deprecation warnings in documentation
@@ -53,11 +55,13 @@ Before presenting code to the user:
 ## What Cannot Be Verified
 
 Some things legitimately cannot be verified against documentation:
+
 - User's specific environment or configuration
 - Integration with user's existing codebase
 - Business logic and application requirements
 
 When providing guidance on these topics, clearly distinguish between:
+
 - "According to LiveKit documentation..." (verified)
 - "Based on your requirements..." (application-specific)
 - "This may need adjustment..." (uncertain)
@@ -112,10 +116,12 @@ Do not pretend to have verified something when MCP access was unavailable.
 ## Version Awareness
 
 LiveKit Agents has distinct versions with potentially different APIs:
+
 - Python SDK (`livekit-agents`)
 - Node.js/TypeScript SDK (`@livekit/agents`)
 
 Each has its own release cycle and API surface. When working with LiveKit:
+
 - Determine which SDK the user is using
 - Search documentation specific to that SDK
 - Do not assume API parity between Python and Node.js versions
@@ -125,34 +131,43 @@ Each has its own release cycle and API surface. When working with LiveKit:
 These examples illustrate why verification matters:
 
 ### Configuration Changes
+
 Old tutorials might show:
+
 ```python
 agent = VoiceAgent(config={"model": "gpt-4"})
 ```
 
 Current API might be:
+
 ```python
 agent = VoiceAgent(llm=SomeLLMClass(...))
 ```
 
 ### Method Renames
+
 What was once:
+
 ```python
 agent.start_session()
 ```
 
 Might now be:
+
 ```python
 agent.start()
 ```
 
 ### Import Restructuring
+
 Previous:
+
 ```python
 from livekit.agents.voice import VoiceAgent
 ```
 
 Current:
+
 ```python
 from livekit.agents import VoiceAgent
 ```

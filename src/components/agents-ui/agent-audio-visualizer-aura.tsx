@@ -1,15 +1,15 @@
-'use client';
+"use client";
 
-import type { AgentState, TrackReferenceOrPlaceholder } from '@livekit/components-react';
-import type { VariantProps } from 'class-variance-authority';
-import type { LocalAudioTrack, RemoteAudioTrack } from 'livekit-client';
-import type { ComponentProps } from 'react';
-import { cva } from 'class-variance-authority';
-import * as React from 'react';
-import { useMemo } from 'react';
-import { ReactShaderToy } from '@/components/agents-ui/react-shader-toy';
-import { useAgentAudioVisualizerAura } from '@/hooks/agents-ui/use-agent-audio-visualizer-aura';
-import { cn } from '@/lib/utils';
+import type { AgentState, TrackReferenceOrPlaceholder } from "@livekit/components-react";
+import type { VariantProps } from "class-variance-authority";
+import type { LocalAudioTrack, RemoteAudioTrack } from "livekit-client";
+import type { ComponentProps } from "react";
+import { cva } from "class-variance-authority";
+import * as React from "react";
+import { useMemo } from "react";
+import { ReactShaderToy } from "@/components/agents-ui/react-shader-toy";
+import { useAgentAudioVisualizerAura } from "@/hooks/agents-ui/use-agent-audio-visualizer-aura";
+import { cn } from "@/lib/utils";
 
 /**
  * @license
@@ -23,7 +23,7 @@ import { cn } from '@/lib/utils';
  * © 2026 UNCRN LLC
  */
 
-const DEFAULT_COLOR = '#1FD5F9';
+const DEFAULT_COLOR = "#1FD5F9";
 const HEX_COLOR_REGEX = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i;
 
 function hexToRgb(hexColor: string) {
@@ -32,12 +32,11 @@ function hexToRgb(hexColor: string) {
 
     if (rgbColor) {
       const [, r, g, b] = rgbColor;
-      const color = [r, g, b].map((c = '00') => Number.parseInt(c, 16) / 255);
+      const color = [r, g, b].map((c = "00") => Number.parseInt(c, 16) / 255);
 
       return color;
     }
-  }
-  catch (error) {
+  } catch {
     console.error(
       `Invalid hex color '${hexColor}'.\nFalling back to default color '${DEFAULT_COLOR}'.`,
     );
@@ -220,43 +219,43 @@ interface AuraShaderProps {
    * Aurora wave speed
    * @default 1.0
    */
-  speed?: number
+  speed?: number;
 
   /**
    * Turbulence amplitude
    * @default 0.5
    */
-  amplitude?: number
+  amplitude?: number;
 
   /**
    * Wave frequency and complexity
    * @default 0.5
    */
-  frequency?: number
+  frequency?: number;
 
   /**
    * Shape scale
    * @default 0.3
    */
-  scale?: number
+  scale?: number;
 
   /**
    * Shape type: 1=circle, 2=line
    * @default 1
    */
-  shape?: number
+  shape?: number;
 
   /**
    * Edge blur/softness
    * @default 1.0
    */
-  blur?: number
+  blur?: number;
 
   /**
    * Color of the aura in hexidecimal format.
    * @default '#1FD5F9'
    */
-  color?: `#${string}`
+  color?: `#${string}`;
 
   /**
    * Color variation across layers (0-1)
@@ -266,13 +265,13 @@ interface AuraShaderProps {
    * @example 0.5 - moderate variation (default)
    * @example 1.0 - maximum variation (rainbow effect)
    */
-  colorShift?: number
+  colorShift?: number;
 
   /**
    * Brightness of the aurora (0-1)
    * @default 1.0
    */
-  brightness?: number
+  brightness?: number;
 
   /**
    * Display mode for different backgrounds
@@ -280,26 +279,26 @@ interface AuraShaderProps {
    * - 'light': Optimized for light/white backgrounds (inverts colors)
    * @default 'dark'
    */
-  themeMode?: 'dark' | 'light'
+  themeMode?: "dark" | "light";
 }
 
 function AuraShader({
-  shape = 1.0,
-  speed = 1.0,
+  shape = 1,
+  speed = 1,
   amplitude = 0.5,
   frequency = 0.5,
   scale = 0.2,
-  blur = 1.0,
+  blur = 1,
   color = DEFAULT_COLOR,
-  colorShift = 1.0,
-  brightness = 1.0,
-  themeMode = typeof window !== 'undefined' && document.documentElement.classList.contains('dark')
-    ? 'dark'
-    : 'light',
+  colorShift = 1,
+  brightness = 1,
+  themeMode = typeof window !== "undefined" && document.documentElement.classList.contains("dark")
+    ? "dark"
+    : "light",
   ref,
   className,
   ...props
-}: AuraShaderProps & ComponentProps<'div'>) {
+}: AuraShaderProps & ComponentProps<"div">) {
   const rgbColor = useMemo(() => hexToRgb(color), [color]);
 
   return (
@@ -309,60 +308,60 @@ function AuraShader({
         devicePixelRatio={globalThis.devicePixelRatio ?? 1}
         uniforms={{
           // Aurora wave speed
-          uSpeed: { type: '1f', value: speed },
+          uSpeed: { type: "1f", value: speed },
           // Edge blur/softness
-          uBlur: { type: '1f', value: blur },
+          uBlur: { type: "1f", value: blur },
           // Shape scale
-          uScale: { type: '1f', value: scale },
+          uScale: { type: "1f", value: scale },
           // Shape type: 1=circle, 2=line
-          uShape: { type: '1f', value: shape },
+          uShape: { type: "1f", value: shape },
           // Wave frequency and complexity
-          uFrequency: { type: '1f', value: frequency },
+          uFrequency: { type: "1f", value: frequency },
           // Turbulence amplitude
-          uAmplitude: { type: '1f', value: amplitude },
+          uAmplitude: { type: "1f", value: amplitude },
           // Light intensity (bloom)
-          uBloom: { type: '1f', value: 0.0 },
+          uBloom: { type: "1f", value: 0 },
           // Brightness of the aurora (0-1)
-          uMix: { type: '1f', value: brightness },
+          uMix: { type: "1f", value: brightness },
           // Color variation across layers (0-1)
-          uSpacing: { type: '1f', value: 0.5 },
+          uSpacing: { type: "1f", value: 0.5 },
           // Color palette offset - shifts colors along the gradient (0-1)
-          uColorShift: { type: '1f', value: colorShift },
+          uColorShift: { type: "1f", value: colorShift },
           // Color variation across layers (0-1)
-          uVariance: { type: '1f', value: 0.1 },
+          uVariance: { type: "1f", value: 0.1 },
           // Smoothing of the aurora (0-1)
-          uSmoothing: { type: '1f', value: 1.0 },
+          uSmoothing: { type: "1f", value: 1 },
           // Display mode: 0=dark background, 1=light background
-          uMode: { type: '1f', value: themeMode === 'light' ? 1.0 : 0.0 },
+          uMode: { type: "1f", value: themeMode === "light" ? 1 : 0 },
           // Color
-          uColor: { type: '3fv', value: rgbColor ?? [0, 0.7, 1] },
+          uColor: { type: "3fv", value: rgbColor ?? [0, 0.7, 1] },
         }}
         onError={(error) => {
-          console.error('Shader error:', error);
+          console.error("Shader error:", error);
         }}
         onWarning={(warning) => {
-          console.warn('Shader warning:', warning);
+          console.warn("Shader warning:", warning);
         }}
-        style={{ width: '100%', height: '100%' }}
+        style={{ height: "100%", width: "100%" }}
       />
     </div>
   );
 }
 
-AuraShader.displayName = 'AuraShader';
+AuraShader.displayName = "AuraShader";
 
-export const AgentAudioVisualizerAuraVariants = cva(['aspect-square'], {
+export const AgentAudioVisualizerAuraVariants = cva(["aspect-square"], {
+  defaultVariants: {
+    size: "md",
+  },
   variants: {
     size: {
-      icon: 'h-[24px] gap-[2px]',
-      sm: 'h-[56px] gap-[4px]',
-      md: 'h-[112px] gap-[8px]',
-      lg: 'h-[224px] gap-[16px]',
-      xl: 'h-[448px] gap-[32px]',
+      icon: "h-[24px] gap-[2px]",
+      lg: "h-[224px] gap-[16px]",
+      md: "h-[112px] gap-[8px]",
+      sm: "h-[56px] gap-[4px]",
+      xl: "h-[448px] gap-[32px]",
     },
-  },
-  defaultVariants: {
-    size: 'md',
   },
 });
 
@@ -371,31 +370,31 @@ export interface AgentAudioVisualizerAuraProps {
    * The size of the visualizer.
    * @defaultValue 'lg'
    */
-  size?: 'icon' | 'sm' | 'md' | 'lg' | 'xl'
+  size?: "icon" | "sm" | "md" | "lg" | "xl";
   /**
    * Agent state
    * @default 'connecting'
    */
-  state?: AgentState
+  state?: AgentState;
   /**
    * The color of the aura in hexidecimal format.
    * @defaultValue '#1FD5F9'
    */
-  color?: `#${string}`
+  color?: `#${string}`;
   /**
    * The color shift of the aura.
    * @defaultValue 0.05
    */
-  colorShift?: number
+  colorShift?: number;
   /**
    * The theme mode of the aura.
    * @defaultValue 'dark'
    */
-  themeMode?: 'dark' | 'light'
+  themeMode?: "dark" | "light";
   /**
    * The audio track to visualize. Can be a local/remote audio track or a track reference.
    */
-  audioTrack?: LocalAudioTrack | RemoteAudioTrack | TrackReferenceOrPlaceholder
+  audioTrack?: LocalAudioTrack | RemoteAudioTrack | TrackReferenceOrPlaceholder;
 }
 
 /**
@@ -415,8 +414,8 @@ export interface AgentAudioVisualizerAuraProps {
  * ```
  */
 export function AgentAudioVisualizerAura({
-  size = 'lg',
-  state = 'connecting',
+  size = "lg",
+  state = "connecting",
   color = DEFAULT_COLOR,
   colorShift = 0.05,
   audioTrack,
@@ -424,9 +423,9 @@ export function AgentAudioVisualizerAura({
   className,
   ref,
   ...props
-}: AgentAudioVisualizerAuraProps
-  & ComponentProps<'div'>
-  & VariantProps<typeof AgentAudioVisualizerAuraVariants>) {
+}: AgentAudioVisualizerAuraProps &
+  ComponentProps<"div"> &
+  VariantProps<typeof AgentAudioVisualizerAuraVariants>) {
   const { speed, scale, amplitude, frequency, brightness } = useAgentAudioVisualizerAura(
     state,
     audioTrack,

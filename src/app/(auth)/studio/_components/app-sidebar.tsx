@@ -1,10 +1,10 @@
-'use client';
+"use client";
 
-import type { ComponentProps } from 'react';
-import { BotIcon } from 'lucide-react';
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { SidebarUserSection } from '@/components/sidebar-user-section';
+import type { ComponentProps } from "react";
+import { BotIcon } from "lucide-react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { SidebarUserSection } from "@/components/sidebar-user-section";
 import {
   Sidebar,
   SidebarContent,
@@ -17,17 +17,17 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   useSidebar,
-} from '@/components/ui/sidebar';
+} from "@/components/ui/sidebar";
 
 interface AppSidebarProps extends ComponentProps<typeof Sidebar> {
-  onStartTutorial?: () => void
+  onStartTutorial?: () => void;
 }
 
 const navItems = [
   {
-    title: 'AI 面试管理',
-    href: '/studio/interviews',
+    href: "/studio/interviews",
     icon: BotIcon,
+    title: "AI 面试管理",
   },
 ];
 
@@ -35,23 +35,21 @@ export function AppSidebar({ onStartTutorial, ...props }: AppSidebarProps) {
   const pathname = usePathname();
   const { state } = useSidebar();
 
-  const isActive = (href: string) => {
-    return pathname === href || pathname.startsWith(`${href}/`);
-  };
+  const isActive = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
 
   return (
-    <Sidebar collapsible='icon' {...props}>
+    <Sidebar collapsible="icon" {...props}>
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton asChild size='lg'>
-              <Link href='/studio/interviews'>
-                <div className='flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/80 text-primary-foreground'>
-                  <BotIcon className='size-4' />
+            <SidebarMenuButton asChild size="lg">
+              <Link href="/studio/interviews">
+                <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/80 text-primary-foreground">
+                  <BotIcon className="size-4" />
                 </div>
-                <div className='grid flex-1 text-left text-sm leading-tight'>
-                  <span className='truncate font-semibold'>Studio</span>
-                  <span className='truncate text-muted-foreground text-xs'>管理后台</span>
+                <div className="grid flex-1 text-left text-sm leading-tight">
+                  <span className="truncate font-semibold">Studio</span>
+                  <span className="truncate text-muted-foreground text-xs">管理后台</span>
                 </div>
               </Link>
             </SidebarMenuButton>
@@ -83,10 +81,10 @@ export function AppSidebar({ onStartTutorial, ...props }: AppSidebarProps) {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className='p-0'>
+      <SidebarFooter className="p-0">
         <SidebarUserSection
-          callbackURL='/studio'
-          collapsed={state === 'collapsed'}
+          callbackURL="/studio"
+          collapsed={state === "collapsed"}
           onStartTutorial={onStartTutorial}
         />
       </SidebarFooter>

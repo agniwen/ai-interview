@@ -6,7 +6,7 @@
  * Configure via the `ADMIN_ORGANIZATION_ID` env var — see `.env.example`.
  */
 
-export const ADMIN_ORGANIZATION_ID = process.env.ADMIN_ORGANIZATION_ID ?? '';
+export const ADMIN_ORGANIZATION_ID = process.env.ADMIN_ORGANIZATION_ID ?? "";
 
 export function canAccessAdmin(user: { organizationId?: string | null } | null | undefined) {
   if (!ADMIN_ORGANIZATION_ID) {

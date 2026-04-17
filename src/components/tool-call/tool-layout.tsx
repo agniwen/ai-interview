@@ -1,60 +1,60 @@
-'use client';
+"use client";
 
-import type * as React from 'react';
-import type { ReactNode } from 'react';
-import type { ToolRenderState } from '@/lib/tool-state';
-import { CircleX, Loader2, Minus, OctagonPause, Plus } from 'lucide-react';
-import { useEffect, useState } from 'react';
-import { cn } from '@/lib/utils';
-import { ApprovalButtons } from './approval-buttons';
+import type * as React from "react";
+import type { ReactNode } from "react";
+import type { ToolRenderState } from "@/lib/tool-state";
+import { CircleX, Loader2, Minus, OctagonPause, Plus } from "lucide-react";
+import { useEffect, useState } from "react";
+import { cn } from "@/lib/utils";
+import { ApprovalButtons } from "./approval-buttons";
 
 export interface ToolLayoutProps {
-  name: string
-  summary: ReactNode
-  summaryClassName?: string
-  meta?: ReactNode
+  name: string;
+  summary: ReactNode;
+  summaryClassName?: string;
+  meta?: ReactNode;
   /** When true, push meta to the far right of the header row. */
-  rightAlignMeta?: boolean
+  rightAlignMeta?: boolean;
   /** Short label shown right-aligned in the error header (e.g. "exit 1"). */
-  errorMeta?: ReactNode
-  state: ToolRenderState
-  output?: ReactNode
-  children?: ReactNode
-  expandedContent?: ReactNode
-  onApprove?: (id: string) => void
-  onDeny?: (id: string, reason?: string) => void
-  defaultExpanded?: boolean
+  errorMeta?: ReactNode;
+  state: ToolRenderState;
+  output?: ReactNode;
+  children?: ReactNode;
+  expandedContent?: ReactNode;
+  onApprove?: (id: string) => void;
+  onDeny?: (id: string, reason?: string) => void;
+  defaultExpanded?: boolean;
   /** Tool-specific icon (Lucide element). */
-  icon?: ReactNode
-  nameClassName?: string
+  icon?: ReactNode;
+  nameClassName?: string;
+}
+
+function getStatusIndicatorColor(state: ToolRenderState) {
+  if (state.denied || state.error) {
+    return "bg-red-500";
+  }
+  if (state.approvalRequested) {
+    return "bg-yellow-500";
+  }
+  return "bg-green-500";
 }
 
 function StatusIndicator({ state }: { state: ToolRenderState }) {
   if (state.interrupted) {
-    return (
-      <span className='inline-block h-2 w-2 rounded-full border border-yellow-500' />
-    );
+    return <span className="inline-block h-2 w-2 rounded-full border border-yellow-500" />;
   }
 
   if (state.running) {
-    return <Loader2 className='h-3 w-3 animate-spin text-yellow-500' />;
+    return <Loader2 className="h-3 w-3 animate-spin text-yellow-500" />;
   }
 
-  const color = state.denied
-    ? 'bg-red-500'
-    : state.approvalRequested
-      ? 'bg-yellow-500'
-      : state.error
-        ? 'bg-red-500'
-        : 'bg-green-500';
+  const color = getStatusIndicatorColor(state);
 
-  return <span className={cn('inline-block h-2 w-2 rounded-full', color)} />;
+  return <span className={cn("inline-block h-2 w-2 rounded-full", color)} />;
 }
 
 function hasRenderableContent(value: ReactNode) {
-  return (
-    value !== null && value !== undefined && value !== false && value !== ''
-  );
+  return value !== null && value !== undefined && value !== false && value !== "";
 }
 
 const EXPANDED_CONTENT_TRANSITION_MS = 200;
@@ -62,9 +62,84 @@ const EXPANDED_CONTENT_TRANSITION_MS = 200;
 const ERROR_PREFIX_RE = /^Error:\s*/i;
 
 function trimErrorPrefix(message: string) {
-  return message.replace(ERROR_PREFIX_RE, '').trim();
+  return message.replace(ERROR_PREFIX_RE, "").trim();
 }
 
+function getNameToneClass(
+  showErrorHeader: boolean,
+  showInterruptedHeader: boolean,
+  denied: boolean | undefined,
+) {
+  if (showErrorHeader || denied) {
+    return "text-red-500";
+  }
+  if (showInterruptedHeader) {
+    return "text-yellow-500";
+  }
+  return "text-foreground";
+}
+
+function getSummaryToneClass(showErrorHeader: boolean, showInterruptedHeader: boolean) {
+  if (showErrorHeader) {
+    return "text-red-400/80";
+  }
+  if (showInterruptedHeader) {
+    return "text-yellow-400/80";
+  }
+  return "text-muted-foreground";
+}
+
+interface HeaderIconArgs {
+  hasExpandedDetails: boolean;
+  isExpandedPanelVisible: boolean;
+  isRunning: boolean;
+  resolvedIcon: ReactNode;
+  showErrorHeader: boolean;
+  showInterruptedHeader: boolean;
+}
+
+function renderHeaderIcon({
+  hasExpandedDetails,
+  isExpandedPanelVisible,
+  isRunning,
+  resolvedIcon,
+  showErrorHeader,
+  showInterruptedHeader,
+}: HeaderIconArgs) {
+  const expandToggle = isExpandedPanelVisible ? (
+    <Minus className="hidden h-3.5 w-3.5 text-muted-foreground group-hover/tool:block" />
+  ) : (
+    <Plus className="hidden h-3.5 w-3.5 text-muted-foreground group-hover/tool:block" />
+  );
+
+  if (showErrorHeader) {
+    return (
+      <>
+        <CircleX className="h-3.5 w-3.5 text-red-500 group-hover/tool:hidden" />
+        {expandToggle}
+      </>
+    );
+  }
+  if (showInterruptedHeader) {
+    return (
+      <>
+        <OctagonPause className="h-3.5 w-3.5 text-yellow-500 group-hover/tool:hidden" />
+        {expandToggle}
+      </>
+    );
+  }
+  if (hasExpandedDetails && !isRunning) {
+    return (
+      <>
+        <span className="group-hover/tool:hidden">{resolvedIcon}</span>
+        {expandToggle}
+      </>
+    );
+  }
+  return resolvedIcon;
+}
+
+// oxlint-disable-next-line complexity -- Shared tool layout renders many optional slots; flattening the branches hurts clarity.
 export function ToolLayout({
   name,
   summary,
@@ -86,27 +161,26 @@ export function ToolLayout({
   const showApprovalButtons = Boolean(
     state.approvalRequested && !state.isActiveApproval && state.approvalId,
   );
-  const errorMessage
-    = state.error && !state.denied ? trimErrorPrefix(state.error) : undefined;
+  const errorMessage = state.error && !state.denied ? trimErrorPrefix(state.error) : undefined;
   const hasError = Boolean(errorMessage);
   const isInterrupted = Boolean(state.interrupted);
-  const hasExpandedDetails
-    = hasRenderableContent(expandedContent) || hasError || isInterrupted;
+  const hasExpandedDetails = hasRenderableContent(expandedContent) || hasError || isInterrupted;
   const hasOutput = hasRenderableContent(output);
   const hasMeta = hasRenderableContent(meta);
-  const hasSummary
-    = typeof summary === 'string' ? summary.trim().length > 0 : summary != null;
-  const showRunningNotice
-    = state.approvalRequested && !showApprovalButtons && !state.interrupted;
+  const hasSummary =
+    typeof summary === "string"
+      ? summary.trim().length > 0
+      : summary !== null && summary !== undefined;
+  const showRunningNotice = state.approvalRequested && !showApprovalButtons && !state.interrupted;
   const isExpandedPanelVisible = isExpanded && hasExpandedDetails;
-  const [shouldRenderExpandedContent, setShouldRenderExpandedContent]
-    = useState(defaultExpanded && hasExpandedDetails);
+  const [shouldRenderExpandedContent, setShouldRenderExpandedContent] = useState(
+    defaultExpanded && hasExpandedDetails,
+  );
 
   const showErrorHeader = hasError;
   const showInterruptedHeader = isInterrupted && !hasError;
   const showErrorExpanded = hasError && isExpandedPanelVisible;
-  const showInterruptedExpanded
-    = isInterrupted && !hasError && isExpandedPanelVisible;
+  const showInterruptedExpanded = isInterrupted && !hasError && isExpandedPanelVisible;
   const hasErrorMeta = hasRenderableContent(errorMeta);
   const hasTrailingMeta = !showErrorHeader && !showInterruptedHeader && hasMeta;
 
@@ -147,108 +221,61 @@ export function ToolLayout({
   };
 
   const isRunning = state.running;
-  const resolvedIcon = isRunning
-    ? (
-        <Loader2 className='h-3.5 w-3.5 animate-spin text-muted-foreground' />
-      )
-    : (
-        (icon ?? <StatusIndicator state={state} />)
-      );
+  const resolvedIcon = isRunning ? (
+    <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+  ) : (
+    (icon ?? <StatusIndicator state={state} />)
+  );
 
   return (
-    <div className='  border border-transparent bg-transparent'>
+    <div className="  border border-transparent bg-transparent">
       <div
         className={cn(
-          'group/tool flex min-w-0 select-none items-center gap-2  px-1.5 py-1 text-sm',
-          hasExpandedDetails
-          && 'cursor-pointer transition-colors hover:bg-muted/50',
+          "group/tool flex min-w-0 select-none items-center gap-2  px-1.5 py-1 text-sm",
+          hasExpandedDetails && "cursor-pointer transition-colors hover:bg-muted/50",
         )}
         {...(hasExpandedDetails && {
-          'onClick': handleToggle,
-          'onKeyDown': (e: React.KeyboardEvent) => {
-            if (e.key === 'Enter' || e.key === ' ') {
+          "aria-expanded": isExpanded,
+          onClick: handleToggle,
+          onKeyDown: (e: React.KeyboardEvent) => {
+            if (e.key === "Enter" || e.key === " ") {
               e.preventDefault();
               handleToggle();
             }
           },
-          'role': 'button',
-          'tabIndex': 0,
-          'aria-expanded': isExpanded,
+          role: "button",
+          tabIndex: 0,
         })}
       >
         {/* Icon area */}
-        <span className='flex size-4 shrink-0 items-center justify-center text-muted-foreground/70'>
-          {showErrorHeader
-            ? (
-                <>
-                  <CircleX className='h-3.5 w-3.5 text-red-500 group-hover/tool:hidden' />
-                  {isExpandedPanelVisible
-                    ? (
-                        <Minus className='hidden h-3.5 w-3.5 text-muted-foreground group-hover/tool:block' />
-                      )
-                    : (
-                        <Plus className='hidden h-3.5 w-3.5 text-muted-foreground group-hover/tool:block' />
-                      )}
-                </>
-              )
-            : showInterruptedHeader
-              ? (
-                  <>
-                    <OctagonPause className='h-3.5 w-3.5 text-yellow-500 group-hover/tool:hidden' />
-                    {isExpandedPanelVisible
-                      ? (
-                          <Minus className='hidden h-3.5 w-3.5 text-muted-foreground group-hover/tool:block' />
-                        )
-                      : (
-                          <Plus className='hidden h-3.5 w-3.5 text-muted-foreground group-hover/tool:block' />
-                        )}
-                  </>
-                )
-              : hasExpandedDetails && !isRunning
-                ? (
-                    <>
-                      <span className='group-hover/tool:hidden'>{resolvedIcon}</span>
-                      {isExpandedPanelVisible
-                        ? (
-                            <Minus className='hidden h-3.5 w-3.5 text-muted-foreground group-hover/tool:block' />
-                          )
-                        : (
-                            <Plus className='hidden h-3.5 w-3.5 text-muted-foreground group-hover/tool:block' />
-                          )}
-                    </>
-                  )
-                : (
-                    resolvedIcon
-                  )}
+        <span className="flex size-4 shrink-0 items-center justify-center text-muted-foreground/70">
+          {renderHeaderIcon({
+            hasExpandedDetails,
+            isExpandedPanelVisible,
+            isRunning,
+            resolvedIcon,
+            showErrorHeader,
+            showInterruptedHeader,
+          })}
         </span>
 
         {/* Name + summary */}
         <span
           className={cn(
-            'min-w-0 shrink truncate font-medium leading-none',
-            showErrorHeader
-              ? 'text-red-500'
-              : showInterruptedHeader
-                ? 'text-yellow-500'
-                : state.denied
-                  ? 'text-red-500'
-                  : 'text-foreground',
+            "min-w-0 shrink truncate font-medium leading-none",
+            getNameToneClass(showErrorHeader, showInterruptedHeader, state.denied),
             nameClassName,
           )}
         >
           {name}
         </span>
 
-        <div className='flex min-w-0 flex-1 items-baseline gap-1.5 overflow-hidden'>
+        <div className="flex min-w-0 flex-1 items-baseline gap-1.5 overflow-hidden">
           {hasSummary && (
             <span
               className={cn(
-                'min-w-0 shrink truncate font-mono text-[13px] leading-none',
-                showErrorHeader
-                  ? 'text-red-400/80'
-                  : showInterruptedHeader
-                    ? 'text-yellow-400/80'
-                    : 'text-muted-foreground',
+                "min-w-0 shrink truncate font-mono text-[13px] leading-none",
+                getSummaryToneClass(showErrorHeader, showInterruptedHeader),
                 summaryClassName,
               )}
             >
@@ -257,17 +284,17 @@ export function ToolLayout({
           )}
 
           {(rightAlignMeta || showErrorHeader || showInterruptedHeader) && (
-            <span className='flex-1' />
+            <span className="flex-1" />
           )}
 
           {showErrorHeader && hasErrorMeta && (
-            <span className='inline-flex shrink-0 items-center gap-1.5 font-mono text-[12px] leading-none text-red-400/70'>
+            <span className="inline-flex shrink-0 items-center gap-1.5 font-mono text-[12px] leading-none text-red-400/70">
               {errorMeta}
             </span>
           )}
 
           {hasTrailingMeta && (
-            <span className='inline-flex shrink-0 items-center gap-1.5 font-mono text-[12px] leading-none text-muted-foreground/60'>
+            <span className="inline-flex shrink-0 items-center gap-1.5 font-mono text-[12px] leading-none text-muted-foreground/60">
               {meta}
             </span>
           )}
@@ -276,35 +303,26 @@ export function ToolLayout({
 
       {children}
 
-      {showRunningNotice && (
-        <div className='mt-2 text-sm text-muted-foreground'>运行中...</div>
-      )}
+      {showRunningNotice && <div className="mt-2 text-sm text-muted-foreground">运行中...</div>}
 
-      {showApprovalButtons && (
+      {showApprovalButtons && state.approvalId && (
         <div
-          onClick={e => e.stopPropagation()}
-          onKeyDown={e => e.stopPropagation()}
-          role='presentation'
+          onClick={(e) => e.stopPropagation()}
+          onKeyDown={(e) => e.stopPropagation()}
+          role="presentation"
         >
-          <ApprovalButtons
-            approvalId={state.approvalId!}
-            onApprove={onApprove}
-            onDeny={onDeny}
-          />
+          <ApprovalButtons approvalId={state.approvalId} onApprove={onApprove} onDeny={onDeny} />
         </div>
       )}
 
-      {hasOutput
-        && !state.approvalRequested
-        && !state.denied
-        && !state.interrupted && (
-        <div className='mt-2 text-sm text-muted-foreground'>{output}</div>
+      {hasOutput && !state.approvalRequested && !state.denied && !state.interrupted && (
+        <div className="mt-2 text-sm text-muted-foreground">{output}</div>
       )}
 
       {state.denied && (
-        <div className='mt-2 text-sm text-red-500'>
+        <div className="mt-2 text-sm text-red-500">
           已拒绝
-          {state.denialReason ? `: ${state.denialReason}` : ''}
+          {state.denialReason ? `: ${state.denialReason}` : ""}
         </div>
       )}
 
@@ -313,23 +331,22 @@ export function ToolLayout({
           aria-hidden={!isExpandedPanelVisible}
           inert={!isExpandedPanelVisible}
           className={cn(
-            'grid overflow-hidden transition-[grid-template-rows,opacity,margin-top] motion-reduce:transition-none',
+            "grid overflow-hidden transition-[grid-template-rows,opacity,margin-top] motion-reduce:transition-none",
             isExpandedPanelVisible
-              ? 'grid-rows-[1fr] opacity-100 duration-200 ease-out'
-              : 'pointer-events-none grid-rows-[0fr] opacity-0 duration-150 ease-out',
+              ? "grid-rows-[1fr] opacity-100 duration-200 ease-out"
+              : "pointer-events-none grid-rows-[0fr] opacity-0 duration-150 ease-out",
           )}
         >
-          <div className='min-h-0'>
+          <div className="min-h-0">
             {shouldRenderExpandedContent && (
-              <div className='space-y-2 pb-1'>
-                {showErrorExpanded
-                  && !hasRenderableContent(expandedContent) && (
-                  <pre className='max-h-48 overflow-auto whitespace-pre-wrap break-all rounded-md border border-red-500/20 bg-red-500/5 px-3 py-2 font-mono text-xs leading-relaxed text-red-400'>
+              <div className="space-y-2 pb-1">
+                {showErrorExpanded && !hasRenderableContent(expandedContent) && (
+                  <pre className="max-h-48 overflow-auto whitespace-pre-wrap break-all rounded-md border border-red-500/20 bg-red-500/5 px-3 py-2 font-mono text-xs leading-relaxed text-red-400">
                     {errorMessage}
                   </pre>
                 )}
                 {showInterruptedExpanded && (
-                  <pre className='rounded-md border border-yellow-500/20 bg-yellow-500/5 px-3 py-2 font-mono text-xs leading-relaxed text-yellow-500'>
+                  <pre className="rounded-md border border-yellow-500/20 bg-yellow-500/5 px-3 py-2 font-mono text-xs leading-relaxed text-yellow-500">
                     已中断
                   </pre>
                 )}

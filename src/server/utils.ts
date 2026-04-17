@@ -1,5 +1,5 @@
-import type { Context } from 'hono';
-import { z } from 'zod';
+import type { Context } from "hono";
+import { z } from "zod";
 
 /**
  * 成功响应
@@ -32,9 +32,9 @@ export function pageSchema<T extends z.ZodRawShape>(shape: T = {} as T) {
 /**
  * 分页查询条件
  */
-export function pageCondition(schema: { current?: number, pageSize?: number }) {
+export function pageCondition(schema: { current?: number; pageSize?: number }) {
   const { current = 1, pageSize = 10 } = schema;
-  const res = {} as { skip?: number, take?: number };
+  const res = {} as { skip?: number; take?: number };
   if (current >= 1) {
     res.skip = (current - 1) * pageSize;
   }

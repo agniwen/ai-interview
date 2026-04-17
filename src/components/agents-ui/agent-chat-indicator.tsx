@@ -1,47 +1,47 @@
-import type { VariantProps } from 'class-variance-authority';
-import type { MotionProps } from 'motion/react';
-import type { ComponentProps, Ref } from 'react';
-import { cva } from 'class-variance-authority';
-import { motion } from 'motion/react';
-import { cn } from '@/lib/utils';
+import type { VariantProps } from "class-variance-authority";
+import type { MotionProps } from "motion/react";
+import type { ComponentProps, Ref } from "react";
+import { cva } from "class-variance-authority";
+import { motion } from "motion/react";
+import { cn } from "@/lib/utils";
 
 const motionAnimationProps = {
+  animate: "visible",
+  exit: "hidden",
+  initial: "hidden",
   variants: {
     hidden: {
       opacity: 0,
       scale: 0.1,
       transition: {
         duration: 0.1,
-        ease: 'linear' as const,
+        ease: "linear" as const,
       },
     },
     visible: {
       opacity: [0.5, 1],
       scale: [1, 1.2],
       transition: {
-        type: 'spring' as const,
         bounce: 0,
         duration: 0.5,
         repeat: Infinity,
-        repeatType: 'mirror' as const,
+        repeatType: "mirror" as const,
+        type: "spring" as const,
       },
     },
   },
-  initial: 'hidden',
-  animate: 'visible',
-  exit: 'hidden',
 };
 
-const agentChatIndicatorVariants = cva('bg-muted-foreground inline-block size-2.5 rounded-full', {
+const agentChatIndicatorVariants = cva("bg-muted-foreground inline-block size-2.5 rounded-full", {
+  defaultVariants: {
+    size: "md",
+  },
   variants: {
     size: {
-      sm: 'size-2.5',
-      md: 'size-4',
-      lg: 'size-6',
+      lg: "size-6",
+      md: "size-4",
+      sm: "size-2.5",
     },
-  },
-  defaultVariants: {
-    size: 'md',
   },
 });
 
@@ -53,15 +53,15 @@ export interface AgentChatIndicatorProps extends MotionProps {
    * The size of the indicator dot.
    * @defaultValue 'md'
    */
-  size?: 'sm' | 'md' | 'lg'
+  size?: "sm" | "md" | "lg";
   /**
    * Additional CSS class names to apply to the indicator.
    */
-  className?: string
+  className?: string;
   /**
    * Allows getting a ref to the component instance.\nOnce the component unmounts, React will set `ref.current` to `null`\n(or call the ref with `null` if you passed a callback ref).\n@see {@link https://react.dev/learn/referencing-values-with-refs#refs-and-the-dom React Docs}
    */
-  ref?: Ref<HTMLSpanElement>
+  ref?: Ref<HTMLSpanElement>;
 }
 
 /**
@@ -76,16 +76,16 @@ export interface AgentChatIndicatorProps extends MotionProps {
  * ```
  */
 export function AgentChatIndicator({
-  size = 'md',
+  size = "md",
   className,
   ...props
-}: AgentChatIndicatorProps
-  & ComponentProps<'span'>
-  & VariantProps<typeof agentChatIndicatorVariants>) {
+}: AgentChatIndicatorProps &
+  ComponentProps<"span"> &
+  VariantProps<typeof agentChatIndicatorVariants>) {
   return (
     <motion.span
       {...motionAnimationProps}
-      transition={{ duration: 0.1, ease: 'linear' as const }}
+      transition={{ duration: 0.1, ease: "linear" as const }}
       className={cn(agentChatIndicatorVariants({ size }), className)}
       {...props}
     />
