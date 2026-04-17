@@ -537,7 +537,7 @@ function ComposerFooter({
       </PromptInputTools>
 
       <div className="flex items-center gap-2">
-        <span className="hidden text-muted-foreground text-xs sm:inline">
+        <span className="hidden text-muted-foreground select-none pointer-events-none text-xs sm:inline">
           {getComposerStatusLabel(status, displayHasJD)}
         </span>
         <PromptInputSubmit
