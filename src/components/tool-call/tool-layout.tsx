@@ -315,7 +315,7 @@ export function ToolLayout({
           className={cn(
             'grid overflow-hidden transition-[grid-template-rows,opacity,margin-top] motion-reduce:transition-none',
             isExpandedPanelVisible
-              ? 'mt-1.5 grid-rows-[1fr] opacity-100 duration-200 ease-out'
+              ? 'grid-rows-[1fr] opacity-100 duration-200 ease-out'
               : 'pointer-events-none grid-rows-[0fr] opacity-0 duration-150 ease-out',
           )}
         >

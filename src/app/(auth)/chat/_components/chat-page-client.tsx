@@ -520,6 +520,14 @@ export default function ChatPageClient({
     null,
   );
   const [resumeImports, setResumeImports] = useState<Record<string, string>>({});
+  // Tracks whether we expect a model response right now. Set optimistically in
+  // the submit path (before the SDK status transitions) and kept in sync via
+  // the effect below so that the send/stop button stays stable during the
+  // agent loop's brief `ready` gaps between auto-submitted steps.
+  const [hasPendingResponse, setHasPendingResponse] = useState(false);
+  // Explicit user stop — lets us force the UI back to idle even if the SDK
+  // status gets stuck (some abort paths on iOS/Safari leave it on `streaming`).
+  const [userStopped, setUserStopped] = useState(false);
   const userName = session?.user?.name ?? '用户';
   const userEmail = session?.user?.email ?? '';
   const userInitials = getInitials(session?.user?.name, session?.user?.email);
@@ -599,6 +607,7 @@ export default function ChatPageClient({
     stop,
     error,
     regenerate,
+    clearError,
   } = useChat({
     transport,
     sendAutomaticallyWhen: shouldAutoSubmit,
@@ -615,10 +624,41 @@ export default function ChatPageClient({
   const normalizedJobDescription = jobDescription.trim();
   const hasJobDescription = normalizedJobDescription.length > 0;
 
-  const isStreaming = status === 'submitted' || status === 'streaming';
+  const isChatInFlight
+    = (status === 'submitted' || status === 'streaming') && !userStopped;
+  // Treat the loop as still running while `hasPendingResponse` is true so that
+  // the brief `ready` between auto-submitted steps doesn't flip UI state.
+  const effectiveStatus: ChatStatus = userStopped
+    ? 'ready'
+    : hasPendingResponse
+      ? 'streaming'
+      : status;
+  const isStreaming
+    = effectiveStatus === 'submitted' || effectiveStatus === 'streaming';
   const lastMessage = messages.at(-1);
   const showAssistantThinkingBubble
     = isStreaming && lastMessage?.role === 'user';
+
+  // Sync `hasPendingResponse` with the SDK status. Intentionally omitted from
+  // deps: the submit handler sets it to true optimistically while status is
+  // still `ready`, so including it here would immediately clear it.
+
+  useEffect(() => {
+    if (isChatInFlight) {
+      setHasPendingResponse(true);
+      return;
+    }
+    if (status === 'ready' || status === 'error') {
+      setHasPendingResponse(false);
+      setUserStopped(false);
+    }
+  }, [isChatInFlight, status]);
+
+  const handleStop = useCallback(() => {
+    stop();
+    setHasPendingResponse(false);
+    setUserStopped(true);
+  }, [stop]);
 
   const updateSessionInUrl = useCallback(
     (sessionId: string | null) => {
@@ -803,6 +843,11 @@ export default function ChatPageClient({
       }
     }
 
+    // Optimistically flip UI into the "responding" state before `sendMessage`
+    // touches the SDK status — this is what masks the `ready → submitted`
+    // flicker at the start of each turn.
+    setHasPendingResponse(true);
+    setUserStopped(false);
     sendMessage({
       files,
       text,
@@ -983,6 +1028,49 @@ export default function ChatPageClient({
       return rest;
     });
   }, []);
+
+  // When the agent loop errors mid-way, drop the failed step's half-written
+  // parts while keeping every previously completed step. Clearing the error
+  // flips status back to `ready`, which lets `sendAutomaticallyWhen` re-evaluate
+  // against the trimmed message and auto-submit the failed step again.
+  const handleContinueAfterError = useCallback(() => {
+    const lastMessage = messages.at(-1);
+
+    // No assistant message to trim — just retry from the last user message.
+    if (!lastMessage || lastMessage.role !== 'assistant') {
+      clearError();
+      void regenerate();
+      return;
+    }
+
+    let lastStepStartIndex = -1;
+    for (let i = lastMessage.parts.length - 1; i >= 0; i--) {
+      if (lastMessage.parts[i]!.type === 'step-start') {
+        lastStepStartIndex = i;
+        break;
+      }
+    }
+
+    // The first step itself failed (no earlier step-start to keep) — fall back
+    // to `regenerate`, which discards the half-written message and starts over.
+    if (lastStepStartIndex <= 0) {
+      clearError();
+      void regenerate();
+      return;
+    }
+
+    const trimmedParts = lastMessage.parts.slice(0, lastStepStartIndex);
+    setMessages((prev) => {
+      if (prev.length === 0) {
+        return prev;
+      }
+      const next = prev.slice();
+      const lastIndex = next.length - 1;
+      next[lastIndex] = { ...next[lastIndex]!, parts: trimmedParts };
+      return next;
+    });
+    clearError();
+  }, [messages, clearError, regenerate, setMessages]);
 
   const handleCopy = async (messageId: string, content: string) => {
     try {
@@ -1366,9 +1454,25 @@ export default function ChatPageClient({
 
       {error
         ? (
-            <p aria-live='polite' className='mx-auto w-full max-w-5xl px-2 sm:px-3 mt-3 text-destructive text-sm'>
-              请求失败。请检查 API 配置后重试。
-            </p>
+            <div
+              aria-live='polite'
+              className='mx-auto mt-3 flex w-full max-w-5xl flex-wrap items-center gap-2 px-2 text-sm sm:px-3'
+            >
+              <span className='text-destructive'>
+                请求失败，这一步没有完成。可以继续跑完剩下的步骤，或从头重新生成。
+              </span>
+              <div className='ml-auto flex items-center gap-2'>
+                <Button
+                  onClick={handleContinueAfterError}
+                  size='sm'
+                  type='button'
+                  variant='outline'
+                >
+                  <RefreshCcwIcon className='size-3.5' />
+                  继续
+                </Button>
+              </div>
+            </div>
           )
         : null}
 
@@ -1472,8 +1576,8 @@ export default function ChatPageClient({
           input={input}
           onClearJobDescription={clearJobDescription}
           onOpenJobDescriptionSettings={openJobDescriptionDialog}
-          status={status}
-          stop={stop}
+          status={effectiveStatus}
+          stop={handleStop}
         />
       </PromptInput>
 
