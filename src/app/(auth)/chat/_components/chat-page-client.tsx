@@ -1201,9 +1201,6 @@ export default function ChatPageClient({ initialSessionId }: { initialSessionId:
             <TooltipContent>使用教程</TooltipContent>
           </Tooltip>
         </div>
-        <p className="mt-2 max-w-3xl font-serif!  text-xs text-muted-foreground sm:text-sm">
-          支持多份简历上传、初筛评分、风险识别与面试推进建议
-        </p>
       </header>
 
       <section className="mx-auto w-full max-w-5xl mb-0.5 px-2 sm:px-3" data-tour="suggestions">
@@ -1258,7 +1255,7 @@ export default function ChatPageClient({ initialSessionId }: { initialSessionId:
                     .join("\n\n")
                     .trim();
                   const isChatRole = message.role === "user" || message.role === "assistant";
-                  const messageAuthor = message.role === "assistant" ? "简历筛选助手" : "你";
+                  const messageAuthor = message.role === "assistant" ? "简历筛选助手" : userName;
                   const messageTime = getMessageTimeValue(message);
 
                   // Compute startedAt for summary bar timer

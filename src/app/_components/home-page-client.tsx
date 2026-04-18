@@ -14,6 +14,7 @@ import { SignInRequiredDialog } from "@/components/auth/sign-in-required-dialog"
 import { FadeContent } from "@/components/react-bits/fade-content";
 import Prism from "@/components/react-bits/prism";
 import { SplitText } from "@/components/react-bits/split-text";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 
 import { authClient } from "@/lib/auth-client";
@@ -86,8 +87,12 @@ export default function HomePageClient() {
       </div>
       <div
         aria-hidden="true"
-        className="bg-mask pointer-events-none opacity-80 fixed inset-0 -z-10 bg-[linear-gradient(to_bottom,oklch(0.985_0.007_236.5/0.48),oklch(0.985_0.007_236.5/0.68)_42%,oklch(0.985_0.007_236.5/0.82)_100%)]"
+        className="bg-mask pointer-events-none opacity-80 fixed inset-0 -z-10 bg-[linear-gradient(to_bottom,oklch(0.985_0.007_236.5/0.48),oklch(0.985_0.007_236.5/0.68)_42%,oklch(0.985_0.007_236.5/0.82)_100%)] dark:bg-[linear-gradient(to_bottom,oklch(0.145_0_0/0.55),oklch(0.145_0_0/0.72)_42%,oklch(0.145_0_0/0.88)_100%)]"
       />
+
+      <div className="fixed top-4 right-4 z-10">
+        <ThemeToggle />
+      </div>
 
       <main
         className="relative mx-auto flex min-h-dvh w-full max-w-6xl items-center justify-center px-4 py-10 sm:px-8 sm:py-14"
@@ -142,7 +147,7 @@ export default function HomePageClient() {
 
               return (
                 <FadeContent
-                  className="group relative mx-auto w-full max-w-sm overflow-hidden rounded-2xl border border-transparent bg-transparent p-6 text-center shadow-none ring-0 backdrop-blur-0 transition-all duration-300 ease-out hover:-translate-y-1 hover:border-white/55 hover:bg-white/32 hover:shadow-[0_24px_50px_-34px_rgba(32,76,140,0.7)] hover:ring-white/35 hover:backdrop-blur-xl"
+                  className="group relative mx-auto w-full max-w-sm overflow-hidden rounded-2xl border border-transparent bg-transparent p-6 text-center shadow-none ring-0 backdrop-blur-0 transition-all duration-300 ease-out hover:-translate-y-1 hover:border-white/55 hover:bg-white/32 hover:shadow-[0_24px_50px_-34px_rgba(32,76,140,0.7)] hover:ring-white/35 hover:backdrop-blur-xl dark:hover:border-white/15 dark:hover:bg-white/5 dark:hover:shadow-[0_24px_50px_-28px_rgba(0,0,0,0.9)] dark:hover:ring-white/10"
                   delay={0.34 + index * 0.1}
                   key={item.title}
                 >

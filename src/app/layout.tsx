@@ -4,6 +4,7 @@ import { IBM_Plex_Mono, Noto_Sans_SC, Source_Sans_3, Source_Serif_4 } from "next
 import localFont from "next/font/local";
 import { Suspense } from "react";
 import { QueryProvider } from "@/components/query-provider";
+import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import "./globals.css";
@@ -51,9 +52,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="zh-CN">
+    <html lang="zh-CN" suppressHydrationWarning>
       <body
-        className={`${sourceSans.variable} ${notoSansSC.variable} ${sourceSerif.variable} ${fusionPixel.variable} ${ibmPlexMono.variable} min-h-dvh antialiased`}
+        className={`${sourceSans.variable}  ${notoSansSC.variable} ${sourceSerif.variable} ${fusionPixel.variable} ${ibmPlexMono.variable} min-h-dvh antialiased`}
       >
         <a
           className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:rounded-md focus:bg-background focus:px-3 focus:py-2"
@@ -61,12 +62,14 @@ export default function RootLayout({
         >
           跳到主要内容
         </a>
-        <QueryProvider>
-          <TooltipProvider>
-            <Suspense>{children}</Suspense>
-            <Toaster />
-          </TooltipProvider>
-        </QueryProvider>
+        <ThemeProvider attribute="class" defaultTheme="dark" disableTransitionOnChange enableSystem>
+          <QueryProvider>
+            <TooltipProvider>
+              <Suspense>{children}</Suspense>
+              <Toaster />
+            </TooltipProvider>
+          </QueryProvider>
+        </ThemeProvider>
         {isVercelAnalyticsEnabled ? <Analytics /> : null}
       </body>
     </html>
