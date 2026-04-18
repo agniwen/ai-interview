@@ -1,5 +1,6 @@
 /* oxlint-disable no-inline-comments -- `/* @__PURE__ *\/` is a bundler annotation, not a human comment. */
 
+import type { UIMessage } from "ai";
 import type { InterviewTranscriptTurn } from "@/lib/interview-session";
 import type { InterviewQuestion, ResumeProfile } from "@/lib/interview/types";
 import type { ScheduleEntryStatus, StudioInterviewStatus } from "@/lib/studio-interviews";
@@ -291,6 +292,63 @@ export const interviewConversationTurn = pgTable(
     index("interview_conversation_turn_conversation_idx").on(table.conversationId, table.createdAt),
     index("interview_conversation_turn_record_idx").on(table.interviewRecordId, table.createdAt),
   ],
+);
+
+export const chatConversation = pgTable(
+  "chat_conversation",
+  {
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    id: text("id").primaryKey(),
+    isTitleGenerating: boolean("is_title_generating").default(false).notNull(),
+    jobDescription: text("job_description").default("").notNull(),
+    resumeImports: jsonb("resume_imports").$type<Record<string, string>>().default({}).notNull(),
+    title: text("title").default("").notNull(),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+  },
+  (table) => [
+    index("chat_conversation_user_id_idx").on(table.userId),
+    index("chat_conversation_user_updated_idx").on(table.userId, table.updatedAt),
+  ],
+);
+
+export const chatMessage = pgTable(
+  "chat_message",
+  {
+    content: jsonb("content").$type<UIMessage>().notNull(),
+    conversationId: text("conversation_id")
+      .notNull()
+      .references(() => chatConversation.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    id: text("id").primaryKey(),
+    role: text("role").$type<UIMessage["role"]>().notNull(),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+  },
+  (table) => [index("chat_message_conversation_idx").on(table.conversationId, table.createdAt)],
+);
+
+export const chatAttachment = pgTable(
+  "chat_attachment",
+  {
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    filename: text("filename").notNull(),
+    id: text("id").primaryKey(),
+    mediaType: text("media_type").notNull(),
+    size: integer("size").notNull(),
+    storageKey: text("storage_key").notNull(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+  },
+  (table) => [index("chat_attachment_user_id_idx").on(table.userId)],
 );
 
 export const interviewAuditLog = pgTable(

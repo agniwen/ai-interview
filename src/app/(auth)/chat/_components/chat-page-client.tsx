@@ -90,8 +90,12 @@ import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useHydrated } from "@/hooks/use-hydrated";
 import { authClient } from "@/lib/auth-client";
-import { chatHistoryDB } from "@/lib/chat-history-db";
-import type { StoredConversation } from "@/lib/chat-history-db";
+import {
+  fetchConversation,
+  patchConversation,
+  upsertChatMessageOnServer,
+  upsertConversation as upsertConversationOnServer,
+} from "@/lib/chat-api";
 import { thinkingModeAtom } from "../_atoms/thinking";
 import { tutorialStepAtom } from "../_atoms/tutorial";
 import { TUTORIAL_MOCK_ATTACHMENTS, TUTORIAL_MOCK_INPUT_TEXT } from "../constants/tutorial-mock";
@@ -140,6 +144,12 @@ function getInitials(name?: string | null, email?: string | null) {
   }
 
   return source.slice(0, 2).toUpperCase();
+}
+
+function notifyConversationsChanged() {
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent("chat:conversations-changed"));
+  }
 }
 
 function appendSuggestionToInput(currentInput: string, suggestion: string) {
@@ -346,28 +356,6 @@ function renderMobileUserMenu({
   );
 }
 
-interface ResolvePersistedTitleArgs {
-  derivedTitle: string;
-  existing: StoredConversation | undefined;
-  shouldKeepExistingTitle: boolean;
-  shouldKeepGeneratingTitle: boolean;
-}
-
-function resolvePersistedTitle({
-  derivedTitle,
-  existing,
-  shouldKeepExistingTitle,
-  shouldKeepGeneratingTitle,
-}: ResolvePersistedTitleArgs): string {
-  if (shouldKeepGeneratingTitle) {
-    return existing?.title ?? GENERATING_CHAT_TITLE;
-  }
-  if (shouldKeepExistingTitle && existing?.title) {
-    return existing.title;
-  }
-  return derivedTitle;
-}
-
 function ComposerAttachments() {
   const attachments = usePromptInputAttachments();
   const tutorialStep = useAtomValue(tutorialStepAtom);
@@ -421,6 +409,7 @@ function ThinkingModeSwitch() {
       <Switch
         checked={displayEnabled}
         id="thinking-mode"
+        size="default"
         onCheckedChange={setEnabled}
         onMouseDown={(e) => e.preventDefault()}
         className="scale-75"
@@ -598,12 +587,16 @@ export default function ChatPageClient({ initialSessionId }: { initialSessionId:
   // so that auto-submit requests always carry the latest values.
   const jobDescriptionRef = useRef(jobDescription);
   const thinkingModeRef = useRef(thinkingMode);
+  const activeConversationIdRef = useRef(activeConversationId);
   useEffect(() => {
     jobDescriptionRef.current = jobDescription;
   }, [jobDescription]);
   useEffect(() => {
     thinkingModeRef.current = thinkingMode;
   }, [thinkingMode]);
+  useEffect(() => {
+    activeConversationIdRef.current = activeConversationId;
+  }, [activeConversationId]);
 
   const transport = useMemo(
     () =>
@@ -611,8 +604,10 @@ export default function ChatPageClient({ initialSessionId }: { initialSessionId:
         api: "/api/resume",
         body: () => {
           const jd = jobDescriptionRef.current.trim();
+          const chatId = activeConversationIdRef.current;
           return {
             ...(jd && { jobDescription: jd }),
+            ...(chatId && { chatId }),
             enableThinking: thinkingModeRef.current,
           };
         },
@@ -649,6 +644,30 @@ export default function ChatPageClient({ initialSessionId }: { initialSessionId:
 
   const { messages, sendMessage, setMessages, status, stop, error, regenerate, clearError } =
     useChat({
+      onFinish: ({ message, isAbort, isDisconnect, isError }) => {
+        if (message.role !== "assistant") {
+          return;
+        }
+        notifyConversationsChanged();
+
+        // The server's /api/resume onFinish only fires on a clean finish. For
+        // aborts, disconnects, or upstream errors we persist what's in memory
+        // so the partial assistant reply is not lost on refresh.
+        if (!(isAbort || isDisconnect || isError)) {
+          return;
+        }
+        const conversationId = activeConversationIdRef.current;
+        if (!conversationId) {
+          return;
+        }
+        void (async () => {
+          try {
+            await upsertChatMessageOnServer(conversationId, message);
+          } catch (persistError) {
+            console.error("[chat] client-side persist failed", persistError);
+          }
+        })();
+      },
       sendAutomaticallyWhen: shouldAutoSubmit,
       transport,
     });
@@ -712,78 +731,22 @@ export default function ChatPageClient({ initialSessionId }: { initialSessionId:
     );
   }, []);
 
-  const persistConversation = useCallback(
-    async ({
-      id,
-      nextMessages,
-      nextJobDescription,
-      nextResumeImports,
-      createdAt,
-      forcedTitle,
-      forcedIsTitleGenerating,
-    }: {
-      id: string;
-      nextMessages: UIMessage[];
-      nextJobDescription: string;
-      nextResumeImports: Record<string, string>;
-      createdAt?: number;
-      forcedTitle?: string;
-      forcedIsTitleGenerating?: boolean;
-    }) => {
-      const existing = await chatHistoryDB.conversations.get(id);
-      const now = Date.now();
-      const derivedTitle = getConversationTitleFromMessages(
-        nextMessages,
-        existing?.title ?? NEW_CHAT_TITLE,
-      );
-      const shouldKeepExistingTitle =
-        typeof existing?.title === "string" && existing.title !== NEW_CHAT_TITLE;
-      const shouldKeepGeneratingTitle = existing?.isTitleGenerating === true && !forcedTitle;
-      const resolvedTitle =
-        forcedTitle ||
-        resolvePersistedTitle({
-          derivedTitle,
-          existing,
-          shouldKeepExistingTitle,
-          shouldKeepGeneratingTitle,
-        });
-      const isTitleGenerating =
-        typeof forcedIsTitleGenerating === "boolean"
-          ? forcedIsTitleGenerating
-          : (existing?.isTitleGenerating ?? false);
-
-      await chatHistoryDB.conversations.put({
-        createdAt: createdAt ?? existing?.createdAt ?? now,
-        id,
-        isTitleGenerating,
-        jobDescription: nextJobDescription.trim(),
-        messages: nextMessages,
-        resumeImports: nextResumeImports,
-        title: resolvedTitle,
-        updatedAt: now,
-      });
-    },
-    [],
-  );
-
   const updateConversationTitle = useCallback(async (id: string, title: string) => {
-    const conversation = await chatHistoryDB.conversations.get(id);
-
-    if (!conversation) {
-      return;
-    }
-
     const normalizedTitle = title.trim().slice(0, MAX_CHAT_TITLE_LENGTH);
 
     if (!normalizedTitle) {
       return;
     }
 
-    await chatHistoryDB.conversations.put({
-      ...conversation,
-      isTitleGenerating: false,
-      title: normalizedTitle,
-    });
+    try {
+      await patchConversation(id, {
+        isTitleGenerating: false,
+        title: normalizedTitle,
+      });
+      notifyConversationsChanged();
+    } catch {
+      // ignore — the derived title fallback on the server remains
+    }
   }, []);
 
   const ensureConversation = async ({
@@ -797,16 +760,19 @@ export default function ChatPageClient({ initialSessionId }: { initialSessionId:
 
     const id = crypto.randomUUID();
     const now = Date.now();
+    const derivedTitle = withGeneratingTitle
+      ? GENERATING_CHAT_TITLE
+      : getConversationTitleFromMessages(messages);
 
-    await persistConversation({
+    await upsertConversationOnServer({
       createdAt: now,
-      forcedIsTitleGenerating: withGeneratingTitle,
-      forcedTitle: withGeneratingTitle ? GENERATING_CHAT_TITLE : undefined,
       id,
-      nextJobDescription: jobDescription,
-      nextMessages: messages,
-      nextResumeImports: resumeImports,
+      isTitleGenerating: withGeneratingTitle ?? false,
+      jobDescription: jobDescription.trim(),
+      resumeImports,
+      title: derivedTitle,
     });
+    notifyConversationsChanged();
 
     updateSessionInUrl(id);
     setActiveConversationId(id);
@@ -823,7 +789,7 @@ export default function ChatPageClient({ initialSessionId }: { initialSessionId:
       });
       setHistoryErrorMessage(null);
     } catch {
-      setHistoryErrorMessage("本地聊天记录保存失败，请检查浏览器存储权限。");
+      setHistoryErrorMessage("聊天记录保存失败，请稍后重试。");
     }
 
     if (isFirstMessageForNewConversation && conversationId) {
@@ -864,10 +830,16 @@ export default function ChatPageClient({ initialSessionId }: { initialSessionId:
     // flicker at the start of each turn.
     setHasPendingResponse(true);
     setUserStopped(false);
-    sendMessage({
-      files,
-      text,
-    });
+    sendMessage(
+      {
+        files,
+        text,
+      },
+      // Pass chatId explicitly: on a fresh conversation, setState from
+      // ensureConversation has not yet committed, so activeConversationIdRef
+      // is still null when transport.body() runs for this request.
+      conversationId ? { body: { chatId: conversationId } } : undefined,
+    );
   };
 
   const openConversation = useCallback(
@@ -879,7 +851,13 @@ export default function ChatPageClient({ initialSessionId }: { initialSessionId:
         shouldSyncUrl?: boolean;
       } = {},
     ) => {
-      const conversation = await chatHistoryDB.conversations.get(id);
+      let conversation: Awaited<ReturnType<typeof fetchConversation>> = null;
+      try {
+        conversation = await fetchConversation(id);
+      } catch {
+        setHistoryErrorMessage("无法加载聊天记录，请稍后重试。");
+        return false;
+      }
 
       if (!conversation) {
         if (shouldSyncUrl) {
@@ -937,7 +915,7 @@ export default function ChatPageClient({ initialSessionId }: { initialSessionId:
 
         resetToNewConversation();
       } catch {
-        setHistoryErrorMessage("本地聊天记录不可用，侧边栏将不显示历史记录。");
+        setHistoryErrorMessage("加载历史聊天失败，请稍后重试。");
       } finally {
         setIsHistoryReady(true);
       }
@@ -983,6 +961,9 @@ export default function ChatPageClient({ initialSessionId }: { initialSessionId:
     return () => window.clearTimeout(timer);
   }, [activeConversationId, shouldNormalizeSessionPath, updateSessionInUrl]);
 
+  // Persist JD / resumeImports changes (user actions, not message stream).
+  // The message stream is persisted server-side via /api/resume's onFinish
+  // plus a backup client write in useChat's onFinish.
   useEffect(() => {
     if (!isHistoryReady || !activeConversationId) {
       return;
@@ -991,27 +972,18 @@ export default function ChatPageClient({ initialSessionId }: { initialSessionId:
     const saveTimer = window.setTimeout(() => {
       void (async () => {
         try {
-          await persistConversation({
-            id: activeConversationId,
-            nextJobDescription: jobDescription,
-            nextMessages: messages,
-            nextResumeImports: resumeImports,
+          await patchConversation(activeConversationId, {
+            jobDescription: jobDescription.trim(),
+            resumeImports,
           });
         } catch {
-          setHistoryErrorMessage("聊天已继续，但本地记录更新失败。");
+          setHistoryErrorMessage("岗位描述或简历导入保存失败，请稍后重试。");
         }
       })();
-    }, 250);
+    }, 400);
 
     return () => window.clearTimeout(saveTimer);
-  }, [
-    activeConversationId,
-    isHistoryReady,
-    jobDescription,
-    messages,
-    persistConversation,
-    resumeImports,
-  ]);
+  }, [activeConversationId, isHistoryReady, jobDescription, resumeImports]);
 
   const openJobDescriptionDialog = () => {
     setJobDescriptionDraft(jobDescription);
@@ -1028,8 +1000,17 @@ export default function ChatPageClient({ initialSessionId }: { initialSessionId:
     setJobDescriptionDraft("");
   };
 
+  // Override the transport ref for explicit re-runs: on the first send of a
+  // new conversation, `activeConversationIdRef` hasn't committed yet, so we
+  // pass chatId directly. For auto-submitted agent steps the transport's
+  // body() still reads the ref.
+  const buildRegenerateOptions = () => {
+    const conversationId = activeConversationIdRef.current;
+    return conversationId ? { body: { chatId: conversationId } } : {};
+  };
+
   const regenerateLastReply = () => {
-    regenerate();
+    void regenerate(buildRegenerateOptions());
   };
 
   const handleResumeImported = useCallback((partId: string, interviewId: string) => {
@@ -1047,16 +1028,17 @@ export default function ChatPageClient({ initialSessionId }: { initialSessionId:
   }, []);
 
   // When the agent loop errors mid-way, drop the failed step's half-written
-  // parts while keeping every previously completed step. Clearing the error
-  // flips status back to `ready`, which lets `sendAutomaticallyWhen` re-evaluate
-  // against the trimmed message and auto-submit the failed step again.
+  // parts while keeping every previously completed step, then re-run.
+  // `clearError` alone only flips status to `ready` — it does not trigger
+  // `sendAutomaticallyWhen`, so we must call `regenerate` explicitly.
   const handleContinueAfterError = useCallback(() => {
     const lastMessage = messages.at(-1);
+    const regenerateOptions = buildRegenerateOptions();
 
     // No assistant message to trim — just retry from the last user message.
     if (!lastMessage || lastMessage.role !== "assistant") {
       clearError();
-      void regenerate();
+      void regenerate(regenerateOptions);
       return;
     }
 
@@ -1072,7 +1054,7 @@ export default function ChatPageClient({ initialSessionId }: { initialSessionId:
     // to `regenerate`, which discards the half-written message and starts over.
     if (lastStepStartIndex <= 0) {
       clearError();
-      void regenerate();
+      void regenerate(regenerateOptions);
       return;
     }
 
@@ -1091,6 +1073,7 @@ export default function ChatPageClient({ initialSessionId }: { initialSessionId:
       return next;
     });
     clearError();
+    void regenerate(regenerateOptions);
   }, [messages, clearError, regenerate, setMessages]);
 
   const handleCopy = async (messageId: string, content: string) => {
@@ -1415,7 +1398,7 @@ export default function ChatPageClient({ initialSessionId }: { initialSessionId:
       </div>
 
       {error || uploadErrorMessage || historyErrorMessage ? (
-        <div className="mx-auto flex w-full max-w-5xl flex-col gap-2 px-2 pt-3 sm:px-3">
+        <div className="mx-auto mb-2 flex w-full max-w-5xl flex-col gap-2 px-2  sm:px-3">
           {error ? (
             <div
               aria-live="polite"
@@ -1499,18 +1482,20 @@ export default function ChatPageClient({ initialSessionId }: { initialSessionId:
         onGlobalDropOutside={() => {
           toast.warning("请将简历拖拽到上传区域后再松开。");
         }}
-        onError={({ code }) => {
+        onError={({ code, message }) => {
           if (code === "accept") {
             setUploadErrorMessage("仅支持上传 PDF 文件。");
             return;
           }
-
           if (code === "max_file_size") {
             setUploadErrorMessage("单个 PDF 文件不能超过 10 MB。");
             return;
           }
-
-          setUploadErrorMessage("最多上传 8 个 PDF 文件。");
+          if (code === "max_files") {
+            setUploadErrorMessage("最多上传 8 个 PDF 文件。");
+            return;
+          }
+          setUploadErrorMessage(message);
         }}
         onSubmit={({ files, text }) => {
           const trimmed = text.trim();

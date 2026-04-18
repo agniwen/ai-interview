@@ -6,6 +6,7 @@ import type {
   ChangeEventHandler,
   ClipboardEventHandler,
   ComponentProps,
+  Dispatch,
   FormEvent,
   FormEventHandler,
   HTMLAttributes,
@@ -13,6 +14,7 @@ import type {
   PropsWithChildren,
   ReactNode,
   RefObject,
+  SetStateAction,
 } from "react";
 
 import { CornerDownLeftIcon, ImageIcon, PlusIcon, SquareIcon, XIcon } from "lucide-react";
@@ -55,23 +57,49 @@ import { cn } from "@/lib/utils";
 // Helpers
 // ============================================================================
 
-async function convertBlobUrlToDataUrl(url: string): Promise<string | null> {
-  try {
-    const response = await fetch(url);
-    const blob = await response.blob();
-    // FileReader uses callback-based API, wrapping in Promise is necessary
-    // oxlint-disable-next-line eslint-plugin-promise(avoid-new)
-    return new Promise((resolve) => {
-      const reader = new FileReader();
-      // oxlint-disable-next-line eslint-plugin-unicorn(prefer-add-event-listener)
-      reader.onloadend = () => resolve(reader.result as string);
-      // oxlint-disable-next-line eslint-plugin-unicorn(prefer-add-event-listener)
-      reader.onerror = () => resolve(null);
-      reader.readAsDataURL(blob);
-    });
-  } catch {
-    return null;
-  }
+import { uploadAttachment } from "@/lib/chat-api";
+
+export type ManagedAttachment = FileUIPart & {
+  id: string;
+  uploadStatus: "uploading" | "uploaded" | "error";
+};
+
+function beginAttachmentUpload(
+  file: File,
+  id: string,
+  setList: Dispatch<SetStateAction<ManagedAttachment[]>>,
+): void {
+  void (async () => {
+    try {
+      const prepared = await uploadAttachment(file, file.name);
+      setList((prev) =>
+        prev.map((item) =>
+          item.id === id
+            ? {
+                ...item,
+                uploadStatus: "uploaded" as const,
+                url: prepared.url,
+              }
+            : item,
+        ),
+      );
+    } catch {
+      setList((prev) =>
+        prev.map((item) => (item.id === id ? { ...item, uploadStatus: "error" as const } : item)),
+      );
+    }
+  })();
+}
+
+function buildManagedAttachment(file: File): ManagedAttachment {
+  return {
+    filename: file.name,
+    id: nanoid(),
+    mediaType: file.type,
+    type: "file",
+    uploadStatus: "uploading",
+    url: URL.createObjectURL(file),
+  };
 }
 
 // ============================================================================
@@ -149,7 +177,7 @@ export function PromptInputProvider({
   const clearInput = useCallback(() => setTextInput(""), []);
 
   // ----- attachments state (global when wrapped)
-  const [attachmentFiles, setAttachmentFiles] = useState<(FileUIPart & { id: string })[]>([]);
+  const [attachmentFiles, setAttachmentFiles] = useState<ManagedAttachment[]>([]);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   // oxlint-disable-next-line eslint(no-empty-function)
   const openRef = useRef<() => void>(() => {});
@@ -160,16 +188,16 @@ export function PromptInputProvider({
       return;
     }
 
-    setAttachmentFiles((prev) => [
-      ...prev,
-      ...incoming.map((file) => ({
-        filename: file.name,
-        id: nanoid(),
-        mediaType: file.type,
-        type: "file" as const,
-        url: URL.createObjectURL(file),
-      })),
-    ]);
+    const builtAttachments = incoming.map((file) => ({
+      attachment: buildManagedAttachment(file),
+      file,
+    }));
+
+    setAttachmentFiles((prev) => [...prev, ...builtAttachments.map((b) => b.attachment)]);
+
+    for (const { attachment, file } of builtAttachments) {
+      beginAttachmentUpload(file, attachment.id, setAttachmentFiles);
+    }
   }, []);
 
   const remove = useCallback((id: string) => {
@@ -343,7 +371,10 @@ export type PromptInputProps = Omit<HTMLAttributes<HTMLFormElement>, "onSubmit" 
   dragOverlay?: ReactNode;
   dragOverlayClassName?: string;
   onGlobalDropOutside?: () => void;
-  onError?: (err: { code: "max_files" | "max_file_size" | "accept"; message: string }) => void;
+  onError?: (err: {
+    code: "max_files" | "max_file_size" | "accept" | "upload_pending" | "upload_failed";
+    message: string;
+  }) => void;
   onSubmit: (
     message: PromptInputMessage,
     event: FormEvent<HTMLFormElement>,
@@ -375,8 +406,10 @@ export function PromptInput({
   const formRef = useRef<HTMLFormElement | null>(null);
 
   // ----- Local attachments (only used when no provider)
-  const [items, setItems] = useState<(FileUIPart & { id: string })[]>([]);
-  const files = usingProvider ? controller.attachments.files : items;
+  const [items, setItems] = useState<ManagedAttachment[]>([]);
+  const files: ManagedAttachment[] = usingProvider
+    ? (controller.attachments.files as ManagedAttachment[])
+    : items;
   const [isDraggingFiles, setIsDraggingFiles] = useState(false);
 
   // ----- Local referenced sources (always local to PromptInput)
@@ -450,30 +483,29 @@ export function PromptInput({
         return;
       }
 
-      setItems((prev) => {
-        const capacity =
-          typeof maxFiles === "number" ? Math.max(0, maxFiles - prev.length) : undefined;
-        const capped = typeof capacity === "number" ? sized.slice(0, capacity) : sized;
-        if (typeof capacity === "number" && sized.length > capacity) {
-          onError?.({
-            code: "max_files",
-            message: "Too many files. Some were not added.",
-          });
-        }
-        const next: (FileUIPart & { id: string })[] = [];
-        for (const file of capped) {
-          next.push({
-            filename: file.name,
-            id: nanoid(),
-            mediaType: file.type,
-            type: "file",
-            url: URL.createObjectURL(file),
-          });
-        }
-        return [...prev, ...next];
-      });
+      const currentCount = items.length;
+      const capacity =
+        typeof maxFiles === "number" ? Math.max(0, maxFiles - currentCount) : undefined;
+      const capped = typeof capacity === "number" ? sized.slice(0, capacity) : sized;
+      if (typeof capacity === "number" && sized.length > capacity) {
+        onError?.({
+          code: "max_files",
+          message: "Too many files. Some were not added.",
+        });
+      }
+
+      const builtAttachments = capped.map((file) => ({
+        attachment: buildManagedAttachment(file),
+        file,
+      }));
+
+      setItems((prev) => [...prev, ...builtAttachments.map((b) => b.attachment)]);
+
+      for (const { attachment, file } of builtAttachments) {
+        beginAttachmentUpload(file, attachment.id, setItems);
+      }
     },
-    [matchesAccept, maxFiles, maxFileSize, onError],
+    [matchesAccept, maxFiles, maxFileSize, onError, items.length],
   );
 
   const removeLocal = useCallback(
@@ -770,22 +802,26 @@ export function PromptInput({
         form.reset();
       }
 
-      try {
-        // Convert blob URLs to data URLs asynchronously
-        const convertedFiles: FileUIPart[] = await Promise.all(
-          files.map(async ({ id, ...item }) => {
-            void id;
+      // Uploads were kicked off when each file was attached. Block submit
+      // until every attachment has finished uploading.
+      if (files.some((f) => f.uploadStatus === "uploading")) {
+        onError?.({
+          code: "upload_pending",
+          message: "附件还在上传，请稍后再试。",
+        });
+        return;
+      }
+      if (files.some((f) => f.uploadStatus === "error")) {
+        onError?.({
+          code: "upload_failed",
+          message: "有附件上传失败，请移除后重试。",
+        });
+        return;
+      }
 
-            if (item.url?.startsWith("blob:")) {
-              const dataUrl = await convertBlobUrlToDataUrl(item.url);
-              // If conversion failed, keep the original blob URL
-              return {
-                ...item,
-                url: dataUrl ?? item.url,
-              };
-            }
-            return item;
-          }),
+      try {
+        const convertedFiles: FileUIPart[] = files.map(
+          ({ id: _id, uploadStatus: _uploadStatus, ...item }) => item,
         );
 
         const result = onSubmit({ files: convertedFiles, text }, event);
@@ -812,7 +848,7 @@ export function PromptInput({
         // Don't clear on error - user may want to retry
       }
     },
-    [usingProvider, controller, files, onSubmit, clear],
+    [usingProvider, controller, files, onSubmit, clear, onError],
   );
 
   // Render with or without local provider

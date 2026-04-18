@@ -8,6 +8,25 @@ export const relations = defineRelations(schema, (r) => ({
       to: r.user.id,
     }),
   },
+  chatAttachment: {
+    user: r.one.user({
+      from: r.chatAttachment.userId,
+      to: r.user.id,
+    }),
+  },
+  chatConversation: {
+    messages: r.many.chatMessage(),
+    user: r.one.user({
+      from: r.chatConversation.userId,
+      to: r.user.id,
+    }),
+  },
+  chatMessage: {
+    conversation: r.one.chatConversation({
+      from: r.chatMessage.conversationId,
+      to: r.chatConversation.id,
+    }),
+  },
   interviewConversation: {
     interviewRecord: r.one.studioInterview({
       from: r.interviewConversation.interviewRecordId,
@@ -48,6 +67,8 @@ export const relations = defineRelations(schema, (r) => ({
   },
   user: {
     account: r.many.account(),
+    chatAttachment: r.many.chatAttachment(),
+    chatConversation: r.many.chatConversation(),
     session: r.many.session(),
     studioInterview: r.many.studioInterview(),
   },

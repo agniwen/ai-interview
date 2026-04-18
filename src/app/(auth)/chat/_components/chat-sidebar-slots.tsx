@@ -30,7 +30,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { chatHistoryDB } from "@/lib/chat-history-db";
+import { deleteConversation, fetchConversations } from "@/lib/chat-api";
 import { cn } from "@/lib/utils";
 import { tutorialStepAtom } from "../_atoms/tutorial";
 import { TUTORIAL_MOCK_CONVERSATIONS } from "../constants/tutorial-mock";
@@ -130,7 +130,7 @@ function ChatSidebarBody({
       return null;
     }
 
-    return <p className="px-3 py-3 text-muted-foreground text-xs">暂无本地聊天记录</p>;
+    return <p className="px-3 py-3 text-muted-foreground text-xs">暂无聊天记录</p>;
   }
 
   if (isCollapsed) {
@@ -277,17 +277,19 @@ export function ChatSidebarSlots() {
       : conversations;
 
   const refreshConversationList = useCallback(async () => {
-    // oxlint-disable-next-line unicorn/no-array-reverse -- Dexie Collection has .reverse(), not .toReversed()
-    const rows = await chatHistoryDB.conversations.orderBy("createdAt").reverse().toArray();
-
-    setConversations(
-      rows.map((item) => ({
-        id: item.id,
-        isTitleGenerating: item.isTitleGenerating ?? false,
-        title: item.title,
-        updatedAt: item.updatedAt,
-      })),
-    );
+    try {
+      const rows = await fetchConversations();
+      setConversations(
+        rows.map((item) => ({
+          id: item.id,
+          isTitleGenerating: item.isTitleGenerating,
+          title: item.title,
+          updatedAt: item.updatedAt,
+        })),
+      );
+    } catch {
+      // network failure — keep the previous list; the next tick will retry
+    }
   }, []);
 
   const handleStartNewConversation = useCallback(() => {
@@ -303,13 +305,32 @@ export function ChatSidebarSlots() {
       void refreshConversationList();
     }, 0);
 
-    const intervalId = window.setInterval(() => {
+    // Event-driven refresh: the chat page dispatches this after any write
+    // that affects the list (create, title update, assistant finished, delete).
+    const handleListChanged = () => {
       void refreshConversationList();
-    }, 1200);
+    };
+    const handleVisibility = () => {
+      if (!document.hidden) {
+        void refreshConversationList();
+      }
+    };
+
+    window.addEventListener("chat:conversations-changed", handleListChanged);
+    document.addEventListener("visibilitychange", handleVisibility);
+
+    // Slow fallback in case an event was missed (e.g. external updates).
+    const intervalId = window.setInterval(() => {
+      if (!document.hidden) {
+        void refreshConversationList();
+      }
+    }, 30_000);
 
     return () => {
       window.clearTimeout(initialTimerId);
       window.clearInterval(intervalId);
+      window.removeEventListener("chat:conversations-changed", handleListChanged);
+      document.removeEventListener("visibilitychange", handleVisibility);
     };
   }, [refreshConversationList]);
 
@@ -320,7 +341,12 @@ export function ChatSidebarSlots() {
 
     const { id } = deleteTarget;
     setDeleteTarget(null);
-    await chatHistoryDB.conversations.delete(id);
+    try {
+      await deleteConversation(id);
+    } catch {
+      // surface nothing — the UI will reflect server state on next refresh
+    }
+    window.dispatchEvent(new CustomEvent("chat:conversations-changed"));
     await refreshConversationList();
 
     if (activeSessionId === id) {

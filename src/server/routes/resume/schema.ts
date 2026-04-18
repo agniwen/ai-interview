@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 export const resumeChatRequestSchema = z.object({
+  chatId: z.string().min(1).optional(),
   enableThinking: z.boolean().optional(),
   jobDescription: z.string().optional(),
   messages: z.array(z.any()),
