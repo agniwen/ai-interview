@@ -95,73 +95,75 @@ export default function HomePageClient() {
       </div>
 
       <main
-        className="relative mx-auto flex min-h-dvh w-full max-w-6xl items-center justify-center px-4 py-10 sm:px-8 sm:py-14"
+        className="relative mx-auto flex min-h-dvh w-full max-w-6xl items-center justify-center px-5 py-16 sm:px-8 sm:py-20 lg:py-24"
         id="main-content"
       >
-        <section className="relative w-full px-2 py-3 text-center sm:px-4">
+        <section className="relative w-full text-center">
           <FadeContent>
-            <p className="inline-flex items-center gap-2 rounded-full bg-primary/8 px-3 py-1 font-medium text-primary text-xs">
+            <p className="inline-flex items-center gap-1.5 rounded-full border border-primary/15 bg-primary/8 px-3 py-1 font-medium text-[11px] text-primary sm:text-xs">
               <SparklesIcon aria-hidden="true" className="size-3" />
               招聘协作工作台
             </p>
           </FadeContent>
 
-          <h1 className="pixel-title mt-5 mx-auto max-w-4xl text-balance font-bold text-3xl text-foreground leading-tight sm:text-5xl">
+          <h1 className="pixel-title mt-6 mx-auto max-w-5xl text-balance font-bold text-[2rem] text-foreground leading-[1.15] tracking-tight sm:mt-8 sm:text-6xl lg:text-[4.5rem]">
             <SplitText text="从简历筛选到模拟面试，用同一套工作流完成候选人评估" />
           </h1>
 
-          <FadeContent className="mt-4 mx-auto max-w-3xl" delay={0.1}>
-            <p className="font-serif text-base text-muted-foreground leading-relaxed sm:text-lg">
-              现在你可以先用聊天式方式完成简历初筛，再进入实时语音模拟面试，连续查看候选人的亮点、风险、追问过程与回答表现，让招聘判断更完整。
+          <FadeContent className="mt-5 mx-auto max-w-2xl sm:mt-7" delay={0.1}>
+            <p className="font-serif text-sm text-muted-foreground leading-relaxed sm:text-lg sm:leading-[1.8]">
+              先用聊天式方式完成简历初筛，再进入实时语音模拟面试，连续查看候选人的亮点、风险、追问过程与回答表现，让招聘判断更完整。
             </p>
           </FadeContent>
 
-          <FadeContent
-            className="mt-7 flex flex-wrap items-center justify-center gap-3"
-            delay={0.2}
-          >
-            <Button
-              disabled={isPending}
-              onClick={() => handleProtectedNavigation("/chat")}
-              type="button"
-            >
-              进入简历筛选
-              <ArrowRightIcon
-                aria-hidden="true"
-                className="size-4 transition-transform duration-300 ease-out group-hover:translate-x-0.5"
-              />
-            </Button>
-            <Button
-              disabled={isPending}
-              onClick={handleInterviewClick}
-              type="button"
-              variant="outline"
-            >
-              进入模拟面试
-            </Button>
+          <FadeContent className="mt-8 flex items-center justify-center sm:mt-10" delay={0.2}>
+            <div className="inline-flex items-stretch">
+              <Button
+                className="group h-11 border-r-0 gap-0 rounded-r-none rounded-l-full px-8 text-sm sm:h-12 sm:px-10 sm:text-base"
+                disabled={isPending}
+                onClick={() => handleProtectedNavigation("/chat")}
+                type="button"
+              >
+                <span>进入简历筛选</span>
+                <span className="inline-flex max-w-0 overflow-hidden opacity-0 transition-all duration-300 ease-out group-hover:ml-2 group-hover:max-w-4 group-hover:opacity-100">
+                  <ArrowRightIcon aria-hidden="true" className="size-4" />
+                </span>
+              </Button>
+              <Button
+                className="group -ml-px h-11 border-l-0 gap-0 rounded-r-full rounded-l-none border-input bg-background/60 px-8 text-sm backdrop-blur-md hover:bg-background/80 sm:h-12 sm:px-10 sm:text-base"
+                disabled={isPending}
+                onClick={handleInterviewClick}
+                type="button"
+                variant="outline"
+              >
+                <span>进入模拟面试</span>
+                <span className="inline-flex max-w-0 overflow-hidden opacity-0 transition-all duration-300 ease-out group-hover:ml-2 group-hover:max-w-4 group-hover:opacity-100">
+                  <ArrowRightIcon aria-hidden="true" className="size-4" />
+                </span>
+              </Button>
+            </div>
           </FadeContent>
 
-          <div className="mt-12 grid gap-8 sm:grid-cols-2 lg:grid-cols-4" id="features">
+          <div
+            className="mt-16 grid grid-cols-2 gap-4 sm:mt-24 sm:gap-6 lg:mt-28 lg:grid-cols-4"
+            id="features"
+          >
             {highlights.map((item, index) => {
               const Icon = item.icon;
 
               return (
                 <FadeContent
-                  className="group relative mx-auto w-full max-w-sm overflow-hidden rounded-2xl border border-transparent bg-transparent p-6 text-center shadow-none ring-0 backdrop-blur-0 transition-all duration-300 ease-out hover:-translate-y-1 hover:border-white/55 hover:bg-white/32 hover:shadow-[0_24px_50px_-34px_rgba(32,76,140,0.7)] hover:ring-white/35 hover:backdrop-blur-xl dark:hover:border-white/15 dark:hover:bg-white/5 dark:hover:shadow-[0_24px_50px_-28px_rgba(0,0,0,0.9)] dark:hover:ring-white/10"
+                  className="group relative w-full overflow-hidden rounded-2xl border border-transparent bg-transparent p-5 text-center shadow-none ring-0 backdrop-blur-0 transition-all duration-300 ease-out hover:-translate-y-1 hover:border-white/55 hover:bg-white/32 hover:shadow-[0_24px_50px_-34px_rgba(32,76,140,0.7)] hover:ring-white/35 hover:backdrop-blur-xl sm:p-6 dark:hover:border-white/15 dark:hover:bg-white/5 dark:hover:shadow-[0_24px_50px_-28px_rgba(0,0,0,0.9)] dark:hover:ring-white/10"
                   delay={0.34 + index * 0.1}
                   key={item.title}
                 >
-                  <Button
-                    variant="ghost"
-                    size="icon-lg"
-                    className="mx-auto rounded-full p-0 data-[state=open]:bg-transparent mb-3"
-                  >
+                  <div className="mx-auto mb-3 flex size-10 items-center justify-center rounded-full bg-primary/8 text-primary ring-1 ring-primary/10">
                     <Icon aria-hidden="true" className="size-5" />
-                  </Button>
-                  <h3 className="relative mt-3 font-semibold text-xs text-foreground sm:text-sm">
+                  </div>
+                  <h3 className="relative font-semibold text-foreground text-sm sm:text-base">
                     {item.title}
                   </h3>
-                  <p className="relative mx-auto mt-1.5 max-w-[26ch] text-[11px] text-foreground/75 leading-relaxed sm:text-xs">
+                  <p className="relative mx-auto mt-2 max-w-[28ch] text-foreground/70 text-xs leading-relaxed sm:text-[13px]">
                     {item.description}
                   </p>
                 </FadeContent>
