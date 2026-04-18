@@ -11,6 +11,7 @@ import {
   CircleHelpIcon,
   CopyIcon,
   FileTextIcon,
+  ImageIcon,
   LogOutIcon,
   PlusIcon,
   RefreshCcwIcon,
@@ -45,7 +46,6 @@ import {
 } from "@/components/ai-elements/message";
 import {
   PromptInput,
-  PromptInputActionAddAttachments,
   PromptInputActionMenu,
   PromptInputActionMenuContent,
   PromptInputActionMenuItem,
@@ -58,7 +58,10 @@ import {
   PromptInputTools,
   usePromptInputAttachments,
 } from "@/components/ai-elements/prompt-input";
+import type { ManagedAttachment } from "@/components/ai-elements/prompt-input";
 import { Shimmer } from "@/components/ai-elements/shimmer";
+import { Spinner } from "@/components/ui/spinner";
+import { cn } from "@/lib/utils";
 import { Source, Sources, SourcesContent, SourcesTrigger } from "@/components/ai-elements/sources";
 import { Suggestion, Suggestions } from "@/components/ai-elements/suggestion";
 import { AssistantMessageGroups } from "@/components/assistant-message-groups";
@@ -369,17 +372,30 @@ function ComposerAttachments() {
 
   return (
     <Attachments className="w-full" variant="inline">
-      {files.map((file) => (
-        <Attachment
-          data={file}
-          key={file.id}
-          onRemove={showMock ? undefined : () => attachments.remove(file.id)}
-        >
-          <AttachmentPreview />
-          <AttachmentInfo />
-          {!showMock && <AttachmentRemove />}
-        </Attachment>
-      ))}
+      {files.map((file) => {
+        const uploadStatus = (file as Partial<ManagedAttachment>).uploadStatus ?? "uploaded";
+        const isUploading = uploadStatus === "uploading";
+        const isError = uploadStatus === "error";
+
+        return (
+          <Attachment
+            className={cn(isUploading && "opacity-70", isError && "border-destructive")}
+            data={file}
+            key={file.id}
+            onRemove={showMock ? undefined : () => attachments.remove(file.id)}
+          >
+            <AttachmentPreview />
+            <AttachmentInfo />
+            {isUploading ? (
+              <Spinner aria-label="上传中" className="size-3 text-muted-foreground" />
+            ) : null}
+            {isError ? (
+              <AlertCircleIcon aria-label="上传失败" className="size-3 text-destructive" />
+            ) : null}
+            {!showMock && <AttachmentRemove />}
+          </Attachment>
+        );
+      })}
     </Attachments>
   );
 }
@@ -423,6 +439,12 @@ function ThinkingModeSwitch() {
     </div>
   );
 }
+// Override Radix's default "focus trigger on close" — send focus back to
+// the composer textarea so typing can resume without an extra click.
+const focusTextareaOnMenuClose = (event: Event) => {
+  event.preventDefault();
+  document.querySelector<HTMLTextAreaElement>('textarea[name="message"]')?.focus();
+};
 
 function ComposerFooter({
   downloadableMessages,
@@ -443,28 +465,59 @@ function ComposerFooter({
 }) {
   const attachments = usePromptInputAttachments();
   const tutorialStep = useAtomValue(tutorialStepAtom);
-  const canSubmit = input.trim().length > 0 || attachments.files.length > 0;
+  const hasPendingUploads = attachments.files.some(
+    (f) => (f as Partial<ManagedAttachment>).uploadStatus === "uploading",
+  );
+  const canSubmit = (input.trim().length > 0 || attachments.files.length > 0) && !hasPendingUploads;
   const displayHasJD = hasJobDescription || tutorialStep === 4;
   const forceUploadMenuOpen = tutorialStep === 3;
   const forceJDMenuOpen = tutorialStep === 4;
+  const [uploadMenuOpen, setUploadMenuOpen] = useState(false);
+
+  // After the file picker closes with one or more files selected, close the
+  // upload menu and return focus to the textarea so the user can keep typing.
+  const prevFilesCountRef = useRef(attachments.files.length);
+  useEffect(() => {
+    const current = attachments.files.length;
+    if (current > prevFilesCountRef.current) {
+      setUploadMenuOpen(false);
+      document.querySelector<HTMLTextAreaElement>('textarea[name="message"]')?.focus();
+    }
+    prevFilesCountRef.current = current;
+  }, [attachments.files.length]);
 
   return (
     <PromptInputFooter>
       <PromptInputTools>
-        <PromptInputActionMenu {...(forceUploadMenuOpen && { onOpenChange: noop, open: true })}>
+        <PromptInputActionMenu
+          {...(forceUploadMenuOpen
+            ? { onOpenChange: noop, open: true }
+            : { onOpenChange: setUploadMenuOpen, open: uploadMenuOpen })}
+        >
           <PromptInputActionMenuTrigger
             data-tour="file-upload"
             id="prompt-actions-menu-trigger"
             tooltip="更多输入操作"
           />
           <PromptInputActionMenuContent
+            onCloseAutoFocus={focusTextareaOnMenuClose}
             {...(forceUploadMenuOpen && { className: "tutorial-forced-menu" })}
           >
-            <PromptInputActionAddAttachments label="上传 PDF 简历" />
+            <PromptInputActionMenuItem
+              onSelect={(event) => {
+                event.preventDefault();
+                setUploadMenuOpen(false);
+                attachments.openFileDialog();
+              }}
+            >
+              <ImageIcon className="mr-2 size-4" />
+              上传 PDF 简历
+            </PromptInputActionMenuItem>
 
             <PromptInputActionMenuItem
               onSelect={(event) => {
                 event.preventDefault();
+                setUploadMenuOpen(false);
                 attachments.clear();
               }}
             >
@@ -483,6 +536,7 @@ function ComposerFooter({
             <SettingsIcon className="size-4" />
           </PromptInputActionMenuTrigger>
           <PromptInputActionMenuContent
+            onCloseAutoFocus={focusTextareaOnMenuClose}
             {...(forceJDMenuOpen && { className: "tutorial-forced-menu" })}
           >
             <PromptInputActionMenuItem
@@ -588,6 +642,18 @@ export default function ChatPageClient({ initialSessionId }: { initialSessionId:
   const jobDescriptionRef = useRef(jobDescription);
   const thinkingModeRef = useRef(thinkingMode);
   const activeConversationIdRef = useRef(activeConversationId);
+  // Guards `sendMessageToChat` from re-entry on rapid double-clicks. Released
+  // after a short delay — by then the SDK status has moved to submitted and
+  // the submit button is disabled.
+  const submitDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(
+    () => () => {
+      if (submitDebounceRef.current !== null) {
+        clearTimeout(submitDebounceRef.current);
+      }
+    },
+    [],
+  );
   useEffect(() => {
     jobDescriptionRef.current = jobDescription;
   }, [jobDescription]);
@@ -780,6 +846,13 @@ export default function ChatPageClient({ initialSessionId }: { initialSessionId:
   };
 
   const sendMessageToChat = async ({ files, text }: { text: string; files?: FileUIPart[] }) => {
+    if (submitDebounceRef.current !== null) {
+      return;
+    }
+    submitDebounceRef.current = setTimeout(() => {
+      submitDebounceRef.current = null;
+    }, 300);
+
     const isFirstMessageForNewConversation = !activeConversationId && messages.length === 0;
     let conversationId: string | null = activeConversationId;
 
@@ -1143,6 +1216,7 @@ export default function ChatPageClient({ initialSessionId }: { initialSessionId:
               key={suggestion}
               onClick={(text) => {
                 setInput((currentInput) => appendSuggestionToInput(currentInput, text));
+                document.querySelector<HTMLTextAreaElement>('textarea[name="message"]')?.focus();
               }}
               suggestion={suggestion}
             />
@@ -1449,19 +1523,23 @@ export default function ChatPageClient({ initialSessionId }: { initialSessionId:
         data-tour="prompt-input"
         accept="application/pdf"
         className="mx-auto w-full max-w-5xl px-2 sm:px-3 **:data-[slot=input-group]:cursor-text **:data-[slot=input-group]:rounded-[1.3rem] **:data-[slot=input-group]:border-border/65 **:data-[slot=input-group]:bg-white **:data-[slot=input-group]:shadow-[0_8px_18px_-20px_rgba(60,44,23,0.5)]"
-        onClick={(event) => {
+        onMouseDown={(event) => {
           const target = event.target as HTMLElement;
-
+          // Clicks on interactive descendants manage their own focus.
           if (
             target.closest(
-              'button, a, input[type="file"], [role="menuitem"], [role="dialog"], [data-slot="select"]',
+              'button, a, input, textarea, [role="menuitem"], [role="dialog"], [data-slot="select"]',
             )
           ) {
             return;
           }
-
+          // Keep focus on the textarea when clicking blank areas so the
+          // `:focus-visible` shadow variant doesn't flicker on blur/refocus.
+          event.preventDefault();
           const textarea = event.currentTarget.querySelector("textarea");
-          textarea?.focus();
+          if (textarea && document.activeElement !== textarea) {
+            textarea.focus();
+          }
         }}
         dragOverlay={
           <div className="flex h-full w-full items-center justify-center rounded-[1.15rem] border-2 border-dashed border-primary/60 bg-white px-6 py-8 text-center transition-colors">
