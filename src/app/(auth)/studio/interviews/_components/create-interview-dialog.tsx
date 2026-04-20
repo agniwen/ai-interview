@@ -371,6 +371,33 @@ export function CreateInterviewDialog({
       accumulatedTextRef.current = "";
       toast.success("简历解析完成，已回填候选人信息");
 
+      // Match best in-flight job description; non-fatal on failure.
+      void (async () => {
+        try {
+          const matchResponse = await fetch("/api/interview/match-job-description", {
+            body: JSON.stringify({ resumeProfile }),
+            headers: { "Content-Type": "application/json" },
+            method: "POST",
+            signal: abortController.signal,
+          });
+          if (!matchResponse.ok) {
+            return;
+          }
+          const matchPayload = (await matchResponse.json().catch(() => null)) as {
+            matchedId?: string | null;
+            reason?: string | null;
+          } | null;
+          if (matchPayload?.matchedId) {
+            form.setFieldValue("jobDescriptionId", matchPayload.matchedId);
+            toast.success(
+              matchPayload.reason ? `已匹配在招岗位：${matchPayload.reason}` : "已自动匹配在招岗位",
+            );
+          }
+        } catch {
+          // swallow — user can still pick manually
+        }
+      })();
+
       // Step 2: stream generate interview questions
       setIsGeneratingQuestions(true);
       setProgressStatus("正在生成面试题…");

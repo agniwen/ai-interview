@@ -211,7 +211,7 @@ export function InterviewerManagementPage({
         <header className="flex flex-col gap-2">
           <h1 className="font-semibold text-2xl">面试官管理</h1>
           <p className="text-muted-foreground text-sm">
-            配置 AI 面试官的 prompt 和 TTS 音色，JD 会引用这些面试官。
+            配置 AI 面试官的 prompt 和 TTS 音色，在招岗位会引用这些面试官。
           </p>
         </header>
 
@@ -250,7 +250,7 @@ export function InterviewerManagementPage({
             <RefreshCwIcon className="size-4" />
             <span className="sr-only">刷新</span>
           </Button>
-          <Button disabled={noDepartments} onClick={openCreate}>
+          <Button disabled={noDepartments} onClick={openCreate} variant="outline">
             <PlusIcon className="size-4" />
             新建面试官
           </Button>
@@ -277,7 +277,7 @@ export function InterviewerManagementPage({
                   <TableHead>名称</TableHead>
                   <TableHead>所属部门</TableHead>
                   <TableHead>音色</TableHead>
-                  <TableHead>引用 JD</TableHead>
+                  <TableHead>引用岗位</TableHead>
                   <TableHead>创建时间</TableHead>
                   <TableHead className="w-12" />
                 </TableRow>
@@ -352,11 +352,11 @@ export function InterviewerManagementPage({
               </EmptyMedia>
               <EmptyTitle>还没有面试官</EmptyTitle>
               <EmptyDescription>
-                新建一个面试官，配置 prompt 和音色后即可供 JD 引用。
+                新建一个面试官，配置 prompt 和音色后即可供在招岗位引用。
               </EmptyDescription>
             </EmptyHeader>
             <EmptyContent>
-              <Button onClick={openCreate}>
+              <Button onClick={openCreate} variant="outline">
                 <PlusIcon className="size-4" />
                 新建面试官
               </Button>
@@ -463,7 +463,7 @@ export function InterviewerManagementPage({
             <AlertDialogTitle>确认删除这个面试官？</AlertDialogTitle>
             <AlertDialogDescription>
               {deleteRecord && deleteRecord.jobDescriptionCount > 0
-                ? "该面试官仍被 JD 引用，将无法删除。"
+                ? "该面试官仍被在招岗位引用，将无法删除。"
                 : `即将删除面试官：${deleteRecord?.name ?? ""}，删除后无法恢复。`}
             </AlertDialogDescription>
           </AlertDialogHeader>

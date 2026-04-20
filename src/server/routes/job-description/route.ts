@@ -115,7 +115,7 @@ export const jobDescriptionsRouter = factory
     const id = c.req.param("id");
     const record = await loadJobDescriptionById(id);
     if (!record) {
-      return c.json({ error: "JD 不存在。" }, 404);
+      return c.json({ error: "在招岗位不存在。" }, 404);
     }
     return c.json(record);
   })
@@ -123,7 +123,7 @@ export const jobDescriptionsRouter = factory
     const id = c.req.param("id");
     const existing = await loadJobDescriptionById(id);
     if (!existing) {
-      return c.json({ error: "JD 不存在。" }, 404);
+      return c.json({ error: "在招岗位不存在。" }, 404);
     }
 
     const body = (await c.req.json().catch(() => null)) as Record<string, unknown> | null;
@@ -177,7 +177,7 @@ export const jobDescriptionsRouter = factory
     const id = c.req.param("id");
     const existing = await loadJobDescriptionById(id);
     if (!existing) {
-      return c.json({ error: "JD 不存在。" }, 404);
+      return c.json({ error: "在招岗位不存在。" }, 404);
     }
 
     // jobDescriptionInterviewer cascades on JD delete; studio_interview.job_description_id → SET NULL.

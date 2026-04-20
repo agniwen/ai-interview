@@ -21,6 +21,11 @@ import { useStudioTutorialContext } from "./studio-tutorial-provider";
 
 const navItems = [
   {
+    href: "/studio/interviews",
+    icon: BotIcon,
+    title: "AI 面试管理",
+  },
+  {
     href: "/studio/departments",
     icon: Building2Icon,
     title: "部门管理",
@@ -33,12 +38,7 @@ const navItems = [
   {
     href: "/studio/job-descriptions",
     icon: FileTextIcon,
-    title: "JD 管理",
-  },
-  {
-    href: "/studio/interviews",
-    icon: BotIcon,
-    title: "AI 面试管理",
+    title: "在招岗位管理",
   },
 ];
 

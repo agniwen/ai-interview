@@ -5,11 +5,19 @@ import type { InterviewerListRecord } from "@/lib/interviewers";
 import { jobDescriptionFormSchema } from "@/lib/job-descriptions";
 import type { JobDescriptionFormValues, JobDescriptionRecord } from "@/lib/job-descriptions";
 import { useForm, useStore } from "@tanstack/react-form";
-import { LoaderCircleIcon } from "lucide-react";
-import { useEffect } from "react";
+import { CheckIcon, ChevronsUpDownIcon, LoaderCircleIcon, XIcon } from "lucide-react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
 import {
   Dialog,
   DialogContent,
@@ -20,6 +28,7 @@ import {
 } from "@/components/ui/dialog";
 import { Field, FieldContent, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Select,
   SelectContent,
@@ -28,6 +37,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { cn } from "@/lib/utils";
 import { hasFieldErrors, toFieldErrors } from "../../interviews/_components/interview-form";
 
 function defaultValues(departmentId: string): JobDescriptionFormValues {
@@ -48,6 +58,108 @@ function toFormValues(record: JobDescriptionRecord): JobDescriptionFormValues {
     name: record.name,
     prompt: record.prompt,
   };
+}
+
+function InterviewerMultiSelect({
+  interviewers,
+  value,
+  onChange,
+  invalid,
+}: {
+  interviewers: InterviewerListRecord[];
+  value: string[];
+  onChange: (next: string[]) => void;
+  invalid?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const selectedSet = new Set(value);
+  const selectedItems = interviewers.filter((item) => selectedSet.has(item.id));
+
+  function toggle(id: string) {
+    if (selectedSet.has(id)) {
+      onChange(value.filter((item) => item !== id));
+    } else {
+      onChange([...value, id]);
+    }
+  }
+
+  function remove(id: string, event: React.MouseEvent) {
+    event.preventDefault();
+    event.stopPropagation();
+    onChange(value.filter((item) => item !== id));
+  }
+
+  return (
+    <Popover onOpenChange={setOpen} open={open}>
+      <PopoverTrigger asChild>
+        <button
+          aria-expanded={open}
+          className={cn(
+            "flex min-h-10 w-full flex-wrap items-center gap-1.5 rounded-md border border-input bg-transparent px-3 py-1.5 text-left text-sm shadow-xs transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 data-[invalid=true]:border-destructive data-[invalid=true]:ring-[3px] data-[invalid=true]:ring-destructive/20 dark:bg-input/30",
+          )}
+          data-invalid={invalid ? true : undefined}
+          type="button"
+        >
+          {selectedItems.length === 0 ? (
+            <span className="text-muted-foreground">选择面试官…</span>
+          ) : (
+            selectedItems.map((item) => (
+              <Badge
+                className="gap-1 pr-0.5"
+                key={item.id}
+                onPointerDown={(event) => event.stopPropagation()}
+                variant="secondary"
+              >
+                {item.name}
+                <button
+                  aria-label={`移除 ${item.name}`}
+                  className="inline-flex size-4 items-center justify-center rounded-sm opacity-60 hover:bg-background/70 hover:opacity-100"
+                  onClick={(event) => remove(item.id, event)}
+                  tabIndex={-1}
+                  type="button"
+                >
+                  <XIcon className="size-3" />
+                </button>
+              </Badge>
+            ))
+          )}
+          <ChevronsUpDownIcon className="ml-auto size-4 shrink-0 opacity-50" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent
+        align="start"
+        className="w-(--radix-popover-trigger-width) min-w-72 p-0"
+        onOpenAutoFocus={(event) => event.preventDefault()}
+      >
+        <Command>
+          <CommandInput placeholder="搜索面试官…" />
+          <CommandList>
+            <CommandEmpty>没有匹配的面试官</CommandEmpty>
+            <CommandGroup>
+              {interviewers.map((item) => {
+                const isSelected = selectedSet.has(item.id);
+                return (
+                  <CommandItem
+                    key={item.id}
+                    onSelect={() => toggle(item.id)}
+                    value={`${item.name} ${item.departmentName ?? ""}`}
+                  >
+                    <CheckIcon className={cn("size-4", isSelected ? "opacity-100" : "opacity-0")} />
+                    <div className="flex min-w-0 flex-col leading-tight">
+                      <span className="truncate">{item.name}</span>
+                      <span className="truncate text-muted-foreground text-xs">
+                        {item.departmentName ?? "未知部门"}
+                      </span>
+                    </div>
+                  </CommandItem>
+                );
+              })}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
 }
 
 export function JobDescriptionFormDialog({
@@ -92,7 +204,7 @@ export function JobDescriptionFormDialog({
         toast.error(payload?.error ?? (isEdit ? "更新失败" : "创建失败"));
         return;
       }
-      toast.success(isEdit ? "JD 已更新" : "JD 已创建");
+      toast.success(isEdit ? "在招岗位已更新" : "在招岗位已创建");
       onSaved();
       onOpenChange(false);
     },
@@ -120,9 +232,9 @@ export function JobDescriptionFormDialog({
           }}
         >
           <DialogHeader>
-            <DialogTitle>{isEdit ? "编辑 JD" : "新建 JD"}</DialogTitle>
+            <DialogTitle>{isEdit ? "编辑在招岗位" : "新建在招岗位"}</DialogTitle>
             <DialogDescription>
-              JD 指定部门和面试官，prompt 在面试时会传给语音 agent。
+              为在招岗位指定部门和面试官，prompt 在面试时会传给语音 agent。
             </DialogDescription>
           </DialogHeader>
 
@@ -133,7 +245,9 @@ export function JobDescriptionFormDialog({
                   const errors = toFieldErrors(field.state.meta.errors);
                   return (
                     <Field data-invalid={hasFieldErrors(field.state.meta.errors) || undefined}>
-                      <FieldLabel htmlFor={field.name}>JD 名称</FieldLabel>
+                      <FieldLabel htmlFor={field.name}>
+                        岗位名称 <span className="text-destructive">*</span>
+                      </FieldLabel>
                       <FieldContent className="gap-2">
                         <Input
                           aria-invalid={!!errors?.length}
@@ -155,7 +269,9 @@ export function JobDescriptionFormDialog({
                   const errors = toFieldErrors(field.state.meta.errors);
                   return (
                     <Field data-invalid={hasFieldErrors(field.state.meta.errors) || undefined}>
-                      <FieldLabel htmlFor={field.name}>所属部门</FieldLabel>
+                      <FieldLabel htmlFor={field.name}>
+                        所属部门 <span className="text-destructive">*</span>
+                      </FieldLabel>
                       <FieldContent className="gap-2">
                         <Select
                           onValueChange={(value) => field.handleChange(value)}
@@ -186,59 +302,24 @@ export function JobDescriptionFormDialog({
               <form.Field name="interviewerIds">
                 {(field) => {
                   const errors = toFieldErrors(field.state.meta.errors);
-                  const selected = new Set(field.state.value);
-                  const toggle = (id: string, checked: boolean) => {
-                    const next = new Set(selected);
-                    if (checked) {
-                      next.add(id);
-                    } else {
-                      next.delete(id);
-                    }
-                    field.handleChange([...next]);
-                  };
-
                   return (
                     <Field
                       className="md:col-span-2"
                       data-invalid={hasFieldErrors(field.state.meta.errors) || undefined}
                     >
                       <FieldLabel>
-                        面试官
+                        面试官 <span className="text-destructive">*</span>
                         <span className="ml-2 font-normal text-muted-foreground text-xs">
                           （可多选，面试时会随机挑选一位；不限定部门）
                         </span>
                       </FieldLabel>
                       <FieldContent className="gap-2">
-                        <div
-                          aria-invalid={!!errors?.length}
-                          className="grid max-h-56 gap-2 overflow-y-auto rounded-md border border-input p-3 sm:grid-cols-2"
-                        >
-                          {interviewers.map((item) => {
-                            const id = `jd-interviewer-${item.id}`;
-                            return (
-                              <label
-                                className="flex cursor-pointer items-start gap-2 text-sm"
-                                htmlFor={id}
-                                key={item.id}
-                              >
-                                <Checkbox
-                                  checked={selected.has(item.id)}
-                                  id={id}
-                                  onCheckedChange={(checked) => toggle(item.id, checked === true)}
-                                />
-                                <span className="flex min-w-0 flex-col leading-tight">
-                                  <span className="truncate">{item.name}</span>
-                                  <span className="truncate text-muted-foreground text-xs">
-                                    {item.departmentName ?? "未知部门"}
-                                  </span>
-                                </span>
-                              </label>
-                            );
-                          })}
-                        </div>
-                        <span className="text-muted-foreground text-xs">
-                          已选 {selected.size} 位
-                        </span>
+                        <InterviewerMultiSelect
+                          interviewers={interviewers}
+                          invalid={!!errors?.length}
+                          onChange={(next) => field.handleChange(next)}
+                          value={field.state.value}
+                        />
                         <FieldError errors={errors} />
                       </FieldContent>
                     </Field>
@@ -275,7 +356,9 @@ export function JobDescriptionFormDialog({
                 const errors = toFieldErrors(field.state.meta.errors);
                 return (
                   <Field data-invalid={hasFieldErrors(field.state.meta.errors) || undefined}>
-                    <FieldLabel htmlFor={field.name}>JD Prompt</FieldLabel>
+                    <FieldLabel htmlFor={field.name}>
+                      岗位 Prompt <span className="text-destructive">*</span>
+                    </FieldLabel>
                     <FieldContent className="gap-2">
                       <Textarea
                         aria-invalid={!!errors?.length}

@@ -128,7 +128,7 @@ export const interviewersRouter = factory
     if (refs.jobDescriptionCount > 0) {
       return c.json(
         {
-          error: "该面试官仍被 JD 引用，无法删除。",
+          error: "该面试官仍被在招岗位引用，无法删除。",
           refs,
         },
         400,

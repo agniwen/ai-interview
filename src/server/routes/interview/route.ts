@@ -18,7 +18,10 @@ import {
   streamGenerateInterviewQuestions,
   streamParseResumeProfile,
 } from "@/server/agents/resume-analysis-agent";
+import { matchJobDescriptionForResume } from "@/server/agents/job-description-match-agent";
 import { factory } from "@/server/factory";
+import { resumeProfileSchema } from "@/lib/interview/types";
+import { listAllJobDescriptions } from "@/server/queries/job-descriptions";
 import { queryInterviewConversationReports } from "@/server/queries/interview-conversations";
 import { queryPaginatedStudioInterviewRecords } from "@/server/queries/studio-interviews";
 import {
@@ -125,6 +128,32 @@ export const interviewRouter = factory
       }
 
       return c.json({ error: "Failed to parse resume.", stage: "resume-parsing" }, 500);
+    }
+  })
+  .post("/match-job-description", async (c) => {
+    const body = await c.req
+      .json<{ resumeProfile?: unknown }>()
+      .catch(() => ({}) as { resumeProfile?: unknown });
+
+    const profileInput = resumeProfileSchema.safeParse(body.resumeProfile);
+    if (!profileInput.success) {
+      return c.json({ error: "缺少候选人信息 (resumeProfile)。" }, 400);
+    }
+
+    try {
+      const jobDescriptions = await listAllJobDescriptions();
+      if (jobDescriptions.length === 0) {
+        return c.json({ matchedId: null, reason: null });
+      }
+
+      const match = await matchJobDescriptionForResume(profileInput.data, jobDescriptions);
+      if (!match) {
+        return c.json({ matchedId: null, reason: null });
+      }
+
+      return c.json({ matchedId: match.jobDescriptionId, reason: match.reason });
+    } catch (error) {
+      return c.json({ error: error instanceof Error ? error.message : "在招岗位匹配失败。" }, 500);
     }
   })
   .post("/generate-questions", async (c) => {

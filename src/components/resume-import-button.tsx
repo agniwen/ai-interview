@@ -4,7 +4,14 @@ import type { FileUIPart } from "ai";
 import type { InterviewQuestion, ResumeAnalysisResult, ResumeProfile } from "@/lib/interview/types";
 import type { StudioInterviewRecord } from "@/lib/studio-interviews";
 import type { AnalysisStreamEvent } from "@/server/agents/resume-analysis-agent";
-import { CheckIcon, DatabaseIcon, EyeIcon, LoaderCircleIcon, WrenchIcon } from "lucide-react";
+import {
+  CheckIcon,
+  DatabaseIcon,
+  EyeIcon,
+  LoaderCircleIcon,
+  SparklesIcon,
+  WrenchIcon,
+} from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -189,7 +196,11 @@ export function ResumeImportButton({
   const [isPickingJd, setIsPickingJd] = useState(false);
   const [selectedJdId, setSelectedJdId] = useState("");
   const [jdError, setJdError] = useState<string | undefined>();
+  const [isAnalyzingMatch, setIsAnalyzingMatch] = useState(false);
+  const [matchReason, setMatchReason] = useState<string | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const matchAbortControllerRef = useRef<AbortController | null>(null);
+  const cachedParseResultRef = useRef<ParseResult | null>(null);
   const accumulatedTextRef = useRef("");
 
   const isImporting = phase !== "idle";
@@ -233,7 +244,7 @@ export function ResumeImportButton({
       return;
     }
     if (!jobDescriptionId) {
-      toast.error("请选择 JD 后再入库");
+      toast.error("请选择在招岗位后再入库");
       return;
     }
 
@@ -245,49 +256,53 @@ export function ResumeImportButton({
     try {
       const file = await dataUrlToFile(filePart.url, filePart.filename);
 
-      // Step 1: parse resume profile
-      setPhase("parsing");
-      setProgressStatus("正在解析简历…");
-      setProgressTools([]);
-      setPartialFields([]);
-      accumulatedTextRef.current = "";
-
-      const parseForm = new FormData();
-      parseForm.append("resume", file);
-      const parseResponse = await fetch("/api/interview/parse-resume", {
-        body: parseForm,
-        method: "POST",
-        signal: abortController.signal,
-      });
-
-      if (!parseResponse.ok) {
-        const errBody = (await parseResponse.json().catch(() => null)) as { error?: string } | null;
-        throw new Error(errBody?.error ?? "简历解析失败");
-      }
-
-      let parseResult: ParseResult | null = null;
+      // Step 1: parse resume profile (skip if we already analyzed while picking JD)
+      let parseResult: ParseResult | null = cachedParseResultRef.current;
       let streamError: string | null = null;
 
-      await readNdjsonStream<AnalysisStreamEvent>(
-        parseResponse,
-        (event) => {
-          handleStreamEvent(event);
-          if (event.type === "result") {
-            parseResult = event.data as ParseResult;
-          }
-          if (event.type === "error") {
-            streamError = event.message;
-          }
-        },
-        abortController.signal,
-      );
-
-      if (streamError) {
-        throw new Error(streamError);
-      }
-
       if (!parseResult) {
-        throw new Error("简历解析未返回有效结果");
+        setPhase("parsing");
+        setProgressStatus("正在解析简历…");
+        setProgressTools([]);
+        setPartialFields([]);
+        accumulatedTextRef.current = "";
+
+        const parseForm = new FormData();
+        parseForm.append("resume", file);
+        const parseResponse = await fetch("/api/interview/parse-resume", {
+          body: parseForm,
+          method: "POST",
+          signal: abortController.signal,
+        });
+
+        if (!parseResponse.ok) {
+          const errBody = (await parseResponse.json().catch(() => null)) as {
+            error?: string;
+          } | null;
+          throw new Error(errBody?.error ?? "简历解析失败");
+        }
+
+        await readNdjsonStream<AnalysisStreamEvent>(
+          parseResponse,
+          (event) => {
+            handleStreamEvent(event);
+            if (event.type === "result") {
+              parseResult = event.data as ParseResult;
+            }
+            if (event.type === "error") {
+              streamError = event.message;
+            }
+          },
+          abortController.signal,
+        );
+
+        if (streamError) {
+          throw new Error(streamError);
+        }
+
+        if (!parseResult) {
+          throw new Error("简历解析未返回有效结果");
+        }
       }
 
       const { fileName, resumeProfile } = parseResult as ParseResult;
@@ -382,6 +397,7 @@ export function ResumeImportButton({
       const record = savedPayload as StudioInterviewRecord;
       onImported(filePart.id, record.id);
       toast.success("简历已加入简历库");
+      cachedParseResultRef.current = null;
       resetProgress();
       setDetailRecordId(record.id);
       setDetailOpen(true);
@@ -390,9 +406,96 @@ export function ResumeImportButton({
         return;
       }
       toast.error(error instanceof Error ? error.message : "入库失败");
+      cachedParseResultRef.current = null;
       resetProgress();
     } finally {
       abortControllerRef.current = null;
+    }
+  }
+
+  async function analyzeAndMatchJd() {
+    if (!filePart.url || !filePart.filename) {
+      return;
+    }
+
+    const abortController = new AbortController();
+    matchAbortControllerRef.current = abortController;
+    setIsAnalyzingMatch(true);
+    setMatchReason(null);
+
+    try {
+      const file = await dataUrlToFile(filePart.url, filePart.filename);
+
+      const parseForm = new FormData();
+      parseForm.append("resume", file);
+      const parseResponse = await fetch("/api/interview/parse-resume", {
+        body: parseForm,
+        method: "POST",
+        signal: abortController.signal,
+      });
+
+      if (!parseResponse.ok) {
+        const errBody = (await parseResponse.json().catch(() => null)) as { error?: string } | null;
+        throw new Error(errBody?.error ?? "简历解析失败");
+      }
+
+      let parseResult: ParseResult | null = null;
+      let streamError: string | null = null;
+
+      await readNdjsonStream<AnalysisStreamEvent>(
+        parseResponse,
+        (event) => {
+          if (event.type === "result") {
+            parseResult = event.data as ParseResult;
+          }
+          if (event.type === "error") {
+            streamError = event.message;
+          }
+        },
+        abortController.signal,
+      );
+
+      if (streamError) {
+        throw new Error(streamError);
+      }
+
+      if (!parseResult) {
+        throw new Error("简历解析未返回有效结果");
+      }
+
+      cachedParseResultRef.current = parseResult;
+
+      const matchResponse = await fetch("/api/interview/match-job-description", {
+        body: JSON.stringify({ resumeProfile: (parseResult as ParseResult).resumeProfile }),
+        headers: { "Content-Type": "application/json" },
+        method: "POST",
+        signal: abortController.signal,
+      });
+
+      if (!matchResponse.ok) {
+        // Fall back to no preselection — user can still pick manually.
+        return;
+      }
+
+      const matchPayload = (await matchResponse.json().catch(() => null)) as {
+        matchedId?: string | null;
+        reason?: string | null;
+      } | null;
+
+      if (matchPayload?.matchedId) {
+        setSelectedJdId(matchPayload.matchedId);
+        setJdError(undefined);
+        setMatchReason(matchPayload.reason ?? null);
+      }
+    } catch (error) {
+      if (abortController.signal.aborted) {
+        return;
+      }
+      // Non-fatal — dialog still lets the user pick manually.
+      toast.error(error instanceof Error ? error.message : "简历预分析失败");
+    } finally {
+      matchAbortControllerRef.current = null;
+      setIsAnalyzingMatch(false);
     }
   }
 
@@ -404,12 +507,30 @@ export function ResumeImportButton({
     }
     setSelectedJdId("");
     setJdError(undefined);
+    setMatchReason(null);
+    cachedParseResultRef.current = null;
     setIsPickingJd(true);
   }
 
+  function handleCancelAnalysis() {
+    matchAbortControllerRef.current?.abort();
+    matchAbortControllerRef.current = null;
+    setIsAnalyzingMatch(false);
+  }
+
+  function handlePickDialogOpenChange(open: boolean) {
+    setIsPickingJd(open);
+    if (!open) {
+      handleCancelAnalysis();
+    }
+  }
+
   function handleConfirmImport() {
+    if (isAnalyzingMatch) {
+      return;
+    }
     if (!selectedJdId) {
-      setJdError("请选择 JD");
+      setJdError("请选择在招岗位");
       return;
     }
     setJdError(undefined);
@@ -438,17 +559,55 @@ export function ResumeImportButton({
         {renderImportButtonContent({ importedInterviewId, isImporting })}
       </Button>
 
-      <Dialog onOpenChange={setIsPickingJd} open={isPickingJd}>
-        <DialogContent className="max-w-lg">
+      <Dialog onOpenChange={handlePickDialogOpenChange} open={isPickingJd}>
+        <DialogContent
+          className="max-w-lg"
+          onEscapeKeyDown={(event) => {
+            if (isAnalyzingMatch) {
+              event.preventDefault();
+            }
+          }}
+          onPointerDownOutside={(event) => {
+            if (isAnalyzingMatch) {
+              event.preventDefault();
+            }
+          }}
+        >
           <DialogHeader>
-            <DialogTitle>选择 JD 后入库</DialogTitle>
+            <DialogTitle>选择在招岗位后入库</DialogTitle>
             <DialogDescription className="break-all">
               {filePart.filename ?? "候选人简历.pdf"}
             </DialogDescription>
           </DialogHeader>
 
-          <div className="py-2">
+          <div className="space-y-3 py-2">
             <JobDescriptionSelectField
+              action={
+                isAnalyzingMatch ? (
+                  <Button
+                    className="h-13 gap-1.5"
+                    onClick={handleCancelAnalysis}
+                    size="sm"
+                    type="button"
+                    variant="outline"
+                  >
+                    <LoaderCircleIcon className="size-3.5 animate-spin" />
+                    取消分析
+                  </Button>
+                ) : (
+                  <Button
+                    className="h-13 gap-1.5"
+                    onClick={() => void analyzeAndMatchJd()}
+                    size="sm"
+                    type="button"
+                    variant="outline"
+                  >
+                    <SparklesIcon className="size-3.5" />
+                    自动分析
+                  </Button>
+                )
+              }
+              disabled={isAnalyzingMatch}
               error={jdError}
               onChange={(next) => {
                 setSelectedJdId(next);
@@ -458,13 +617,29 @@ export function ResumeImportButton({
               }}
               value={selectedJdId}
             />
+            {isAnalyzingMatch ? (
+              <div className="flex items-center gap-2 rounded-md border border-dashed bg-muted/40 px-3 py-2 text-muted-foreground text-xs">
+                <LoaderCircleIcon className="size-3.5 animate-spin" />
+                <span>正在分析简历并匹配最合适的在招岗位…</span>
+              </div>
+            ) : null}
+            {!isAnalyzingMatch && matchReason ? (
+              <div className="flex items-start gap-2 rounded-md border border-amber-200/70 bg-amber-50/70 px-3 py-2 text-amber-800 text-xs dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-200">
+                <SparklesIcon className="mt-0.5 size-3.5 shrink-0" />
+                <span>已根据简历匹配到建议岗位：{matchReason}</span>
+              </div>
+            ) : null}
           </div>
 
           <DialogFooter>
-            <Button onClick={() => setIsPickingJd(false)} type="button" variant="outline">
+            <Button
+              onClick={() => handlePickDialogOpenChange(false)}
+              type="button"
+              variant="outline"
+            >
               取消
             </Button>
-            <Button onClick={handleConfirmImport} type="button">
+            <Button disabled={isAnalyzingMatch} onClick={handleConfirmImport} type="button">
               确认入库
             </Button>
           </DialogFooter>

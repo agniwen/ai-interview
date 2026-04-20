@@ -97,7 +97,7 @@ export function DepartmentFormDialog({
         >
           <DialogHeader>
             <DialogTitle>{isEdit ? "编辑部门" : "新建部门"}</DialogTitle>
-            <DialogDescription>部门用于对面试官和 JD 进行组织分组。</DialogDescription>
+            <DialogDescription>部门用于对面试官和在招岗位进行组织分组。</DialogDescription>
           </DialogHeader>
 
           <FieldGroup className="mt-4 gap-5">
@@ -106,7 +106,9 @@ export function DepartmentFormDialog({
                 const errors = toFieldErrors(field.state.meta.errors);
                 return (
                   <Field data-invalid={hasFieldErrors(field.state.meta.errors) || undefined}>
-                    <FieldLabel htmlFor={field.name}>部门名称</FieldLabel>
+                    <FieldLabel htmlFor={field.name}>
+                      部门名称 <span className="text-destructive">*</span>
+                    </FieldLabel>
                     <FieldContent className="gap-2">
                       <Input
                         aria-invalid={!!errors?.length}

@@ -187,7 +187,7 @@ export function JobDescriptionManagementPage({
   async function openEdit(record: JobDescriptionListRecord) {
     const full = await loadJobDescriptionDetail(record.id);
     if (!full) {
-      toast.error("加载 JD 失败");
+      toast.error("加载在招岗位失败");
       return;
     }
     setEditingRecord(full);
@@ -207,7 +207,7 @@ export function JobDescriptionManagementPage({
       return;
     }
     setDeleteRecord(null);
-    toast.success("JD 已删除");
+    toast.success("在招岗位已删除");
     invalidateList();
   }
 
@@ -219,7 +219,7 @@ export function JobDescriptionManagementPage({
     <>
       <div className="space-y-6">
         <header className="flex flex-col gap-2">
-          <h1 className="font-semibold text-2xl">JD 管理</h1>
+          <h1 className="font-semibold text-2xl">在招岗位管理</h1>
           <p className="text-muted-foreground text-sm">
             配置岗位描述 prompt，并指定面试时要启用的面试官。
           </p>
@@ -231,7 +231,7 @@ export function JobDescriptionManagementPage({
             <Input
               className="pr-9 pl-9"
               onChange={(event) => setGlobalFilter(event.target.value)}
-              placeholder="搜索 JD 名称或描述"
+              placeholder="搜索在招岗位名称或描述"
               value={globalFilter}
             />
             {isFetching ? (
@@ -275,9 +275,9 @@ export function JobDescriptionManagementPage({
             <RefreshCwIcon className="size-4" />
             <span className="sr-only">刷新</span>
           </Button>
-          <Button disabled={missingRefs} onClick={openCreate}>
+          <Button disabled={missingRefs} onClick={openCreate} variant="outline">
             <PlusIcon className="size-4" />
-            新建 JD
+            新建在招岗位
           </Button>
         </div>
 
@@ -289,7 +289,7 @@ export function JobDescriptionManagementPage({
               </EmptyMedia>
               <EmptyTitle>请先创建部门和面试官</EmptyTitle>
               <EmptyDescription>
-                JD 需要同时指定部门和面试官，先去对应页面完成配置。
+                在招岗位需要同时指定部门和面试官，先去对应页面完成配置。
               </EmptyDescription>
             </EmptyHeader>
           </Empty>
@@ -299,7 +299,7 @@ export function JobDescriptionManagementPage({
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>JD 名称</TableHead>
+                  <TableHead>岗位名称</TableHead>
                   <TableHead>部门</TableHead>
                   <TableHead>面试官</TableHead>
                   <TableHead>描述</TableHead>
@@ -373,15 +373,15 @@ export function JobDescriptionManagementPage({
               <EmptyMedia variant="icon">
                 <FileTextIcon className="size-5" />
               </EmptyMedia>
-              <EmptyTitle>还没有 JD</EmptyTitle>
+              <EmptyTitle>还没有在招岗位</EmptyTitle>
               <EmptyDescription>
-                创建 JD 之后即可在面试记录中引用，并带上面试官 prompt 与音色。
+                创建在招岗位之后即可在面试记录中引用，并带上面试官 prompt 与音色。
               </EmptyDescription>
             </EmptyHeader>
             <EmptyContent>
-              <Button onClick={openCreate}>
+              <Button onClick={openCreate} variant="outline">
                 <PlusIcon className="size-4" />
-                新建 JD
+                新建在招岗位
               </Button>
             </EmptyContent>
           </Empty>
@@ -484,9 +484,9 @@ export function JobDescriptionManagementPage({
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>确认删除这个 JD？</AlertDialogTitle>
+            <AlertDialogTitle>确认删除这个在招岗位？</AlertDialogTitle>
             <AlertDialogDescription>
-              即将删除 JD：{deleteRecord?.name ?? ""}，引用该 JD 的面试记录的 JD 字段会被清空。
+              即将删除岗位：{deleteRecord?.name ?? ""}，引用该岗位的面试记录的关联岗位字段会被清空。
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

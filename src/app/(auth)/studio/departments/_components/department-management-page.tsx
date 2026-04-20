@@ -178,7 +178,7 @@ export function DepartmentManagementPage({
         <header className="flex flex-col gap-2">
           <h1 className="font-semibold text-2xl">部门管理</h1>
           <p className="text-muted-foreground text-sm">
-            维护组织下的业务部门，作为面试官和 JD 的分组维度。
+            维护组织下的业务部门，作为面试官和在招岗位的分组维度。
           </p>
         </header>
 
@@ -204,7 +204,7 @@ export function DepartmentManagementPage({
             <RefreshCwIcon className="size-4" />
             <span className="sr-only">刷新</span>
           </Button>
-          <Button onClick={openCreate}>
+          <Button onClick={openCreate} variant="outline">
             <PlusIcon className="size-4" />
             新建部门
           </Button>
@@ -231,7 +231,7 @@ export function DepartmentManagementPage({
                     </TableCell>
                     <TableCell className="space-x-2 text-sm">
                       <Badge variant="outline">面试官 {record.interviewerCount}</Badge>
-                      <Badge variant="outline">JD {record.jobDescriptionCount}</Badge>
+                      <Badge variant="outline">在招岗位 {record.jobDescriptionCount}</Badge>
                     </TableCell>
                     <TableCell className="text-muted-foreground text-sm">
                       <TimeDisplay options={DATE_TIME_DISPLAY_OPTIONS} value={record.createdAt} />
@@ -274,11 +274,11 @@ export function DepartmentManagementPage({
               </EmptyMedia>
               <EmptyTitle>还没有部门</EmptyTitle>
               <EmptyDescription>
-                创建部门之后可以把面试官和 JD 组织起来，面试时按部门挑选配置。
+                创建部门之后可以把面试官和在招岗位组织起来，面试时按部门挑选配置。
               </EmptyDescription>
             </EmptyHeader>
             <EmptyContent>
-              <Button onClick={openCreate}>
+              <Button onClick={openCreate} variant="outline">
                 <PlusIcon className="size-4" />
                 新建部门
               </Button>
@@ -385,7 +385,7 @@ export function DepartmentManagementPage({
             <AlertDialogDescription>
               {deleteRecord &&
               (deleteRecord.interviewerCount > 0 || deleteRecord.jobDescriptionCount > 0)
-                ? "该部门下仍有面试官或 JD，将无法删除。"
+                ? "该部门下仍有面试官或在招岗位，将无法删除。"
                 : `即将删除部门：${deleteRecord?.name ?? ""}，删除后无法恢复。`}
             </AlertDialogDescription>
           </AlertDialogHeader>

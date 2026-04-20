@@ -98,7 +98,7 @@ export const departmentsRouter = factory
     if (refs.interviewerCount > 0 || refs.jobDescriptionCount > 0) {
       return c.json(
         {
-          error: "该部门下仍有面试官或 JD，无法删除。",
+          error: "该部门下仍有面试官或在招岗位，无法删除。",
           refs,
         },
         400,

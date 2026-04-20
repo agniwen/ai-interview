@@ -130,7 +130,9 @@ export function InterviewerFormDialog({
                   const errors = toFieldErrors(field.state.meta.errors);
                   return (
                     <Field data-invalid={hasFieldErrors(field.state.meta.errors) || undefined}>
-                      <FieldLabel htmlFor={field.name}>名称</FieldLabel>
+                      <FieldLabel htmlFor={field.name}>
+                        名称 <span className="text-destructive">*</span>
+                      </FieldLabel>
                       <FieldContent className="gap-2">
                         <Input
                           aria-invalid={!!errors?.length}
@@ -152,7 +154,9 @@ export function InterviewerFormDialog({
                   const errors = toFieldErrors(field.state.meta.errors);
                   return (
                     <Field data-invalid={hasFieldErrors(field.state.meta.errors) || undefined}>
-                      <FieldLabel htmlFor={field.name}>所属部门</FieldLabel>
+                      <FieldLabel htmlFor={field.name}>
+                        所属部门 <span className="text-destructive">*</span>
+                      </FieldLabel>
                       <FieldContent className="gap-2">
                         <Select
                           disabled={noDepartments}
@@ -191,7 +195,9 @@ export function InterviewerFormDialog({
                       className="md:col-span-2"
                       data-invalid={hasFieldErrors(field.state.meta.errors) || undefined}
                     >
-                      <FieldLabel htmlFor={field.name}>音色（TTS）</FieldLabel>
+                      <FieldLabel htmlFor={field.name}>
+                        音色（TTS）<span className="text-destructive">*</span>
+                      </FieldLabel>
                       <FieldContent className="gap-2">
                         <Select
                           onValueChange={(value) =>
@@ -201,7 +207,7 @@ export function InterviewerFormDialog({
                         >
                           <SelectTrigger
                             aria-invalid={!!errors?.length}
-                            className="w-full"
+                            className="w-full h-13! text-left"
                             id={field.name}
                           >
                             <SelectValue placeholder="选择音色" />
@@ -255,7 +261,9 @@ export function InterviewerFormDialog({
                 const errors = toFieldErrors(field.state.meta.errors);
                 return (
                   <Field data-invalid={hasFieldErrors(field.state.meta.errors) || undefined}>
-                    <FieldLabel htmlFor={field.name}>Prompt</FieldLabel>
+                    <FieldLabel htmlFor={field.name}>
+                      Prompt <span className="text-destructive">*</span>
+                    </FieldLabel>
                     <FieldContent className="gap-2">
                       <Textarea
                         aria-invalid={!!errors?.length}

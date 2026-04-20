@@ -6,7 +6,7 @@ import { listJobDescriptions } from "@/server/queries/job-descriptions";
 import { JobDescriptionManagementPage } from "./_components/job-description-management-page";
 
 export const metadata: Metadata = {
-  title: "JD 管理",
+  title: "在招岗位管理",
 };
 
 export default async function StudioJobDescriptionsPage() {
