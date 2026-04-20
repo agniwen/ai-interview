@@ -1,22 +1,24 @@
 import type { S3Client } from "@aws-sdk/client-s3";
 
-interface R2Config {
+interface S3Config {
   accessKeyId: string;
   bucket: string;
   endpoint: string;
   keyPrefix: string;
+  region: string;
   secretAccessKey: string;
 }
 
-function readConfig(): R2Config {
-  const bucket = process.env.R2_BUCKET_NAME;
-  const accessKeyId = process.env.R2_ACCESS_KEY_ID;
-  const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY;
-  const endpoint = process.env.R2_ENDPOINT?.trim();
+function readConfig(): S3Config {
+  const bucket = process.env.S3_BUCKET_NAME;
+  const accessKeyId = process.env.S3_ACCESS_KEY_ID;
+  const secretAccessKey = process.env.S3_SECRET_ACCESS_KEY;
+  const endpoint = process.env.S3_ENDPOINT?.trim();
+  const region = process.env.S3_REGION?.trim() || "auto";
 
   if (!(bucket && accessKeyId && secretAccessKey && endpoint)) {
     throw new Error(
-      "R2 is not configured. Set R2_BUCKET_NAME, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_ENDPOINT.",
+      "S3 storage is not configured. Set S3_BUCKET_NAME, S3_ACCESS_KEY_ID, S3_SECRET_ACCESS_KEY, S3_ENDPOINT.",
     );
   }
 
@@ -24,12 +26,13 @@ function readConfig(): R2Config {
     accessKeyId,
     bucket,
     endpoint,
-    keyPrefix: process.env.R2_KEY_PREFIX?.trim() || "",
+    keyPrefix: process.env.S3_KEY_PREFIX?.trim() || "",
+    region,
     secretAccessKey,
   };
 }
 
-let cached: Promise<{ client: S3Client; config: R2Config }> | undefined;
+let cached: Promise<{ client: S3Client; config: S3Config }> | undefined;
 
 async function buildClient() {
   const { S3Client } = await import("@aws-sdk/client-s3");
@@ -40,10 +43,10 @@ async function buildClient() {
       secretAccessKey: config.secretAccessKey,
     },
     endpoint: config.endpoint,
-    region: "auto",
+    region: config.region,
     // AWS SDK v3 defaults send x-amz-checksum-* + x-amz-sdk-checksum-algorithm
     // headers on PUT, which trigger CORS preflight on presigned URLs used from
-    // the browser. R2 does not require these, so skip them.
+    // the browser. R2 / Tencent COS do not require these, so skip them.
     requestChecksumCalculation: "WHEN_REQUIRED",
     responseChecksumValidation: "WHEN_REQUIRED",
   });
