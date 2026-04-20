@@ -178,11 +178,14 @@ export const interviewRouter = factory
 
     // Interview context is surfaced to the Python agent worker via participant metadata.
     // Python: `ctx.wait_for_participant()` → `participant.metadata` → JSON.parse.
+    // When the JD has multiple interviewers, the agent picks one at random.
     const participantMetadata = JSON.stringify({
       candidate_name: interviewRecord.candidateName,
       candidate_profile: interviewRecord.resumeProfile,
       interview_questions: interviewRecord.interviewQuestions,
       interview_record_id: id,
+      interviewers: interviewRecord.interviewers,
+      job_description_prompt: interviewRecord.jobDescriptionPrompt ?? null,
       round_id: roundId,
       target_role: interviewRecord.targetRole,
     });
@@ -335,6 +338,7 @@ export const studioInterviewsRouter = factory
       const input = studioInterviewFormSchema.safeParse({
         candidateEmail: toNullableString(formData.get("candidateEmail")) ?? "",
         candidateName: toNullableString(formData.get("candidateName")) ?? "",
+        jobDescriptionId: toNullableString(formData.get("jobDescriptionId")),
         notes: toNullableString(formData.get("notes")) ?? "",
         scheduleEntries: parsedScheduleEntries,
         status: toNullableString(formData.get("status")) ?? "ready",
@@ -355,6 +359,7 @@ export const studioInterviewsRouter = factory
         createdBy: c.var.user?.id ?? null,
         id: interviewRecordId,
         interviewQuestions: analysis?.interviewQuestions ?? manualInterviewQuestions ?? [],
+        jobDescriptionId: input.data.jobDescriptionId || null,
         notes: input.data.notes || null,
         resumeFileName: analysis?.fileName ?? null,
         resumeProfile: analysis?.resumeProfile ?? null,
@@ -420,6 +425,7 @@ export const studioInterviewsRouter = factory
       const input = studioInterviewUpdateSchema.safeParse({
         candidateEmail: toNullableString(formData.get("candidateEmail")) ?? "",
         candidateName: toNullableString(formData.get("candidateName")) ?? "",
+        jobDescriptionId: toNullableString(formData.get("jobDescriptionId")),
         notes: toNullableString(formData.get("notes")) ?? "",
         scheduleEntries: parsedScheduleEntries,
         status: toNullableString(formData.get("status")) ?? existing.status,
@@ -457,6 +463,7 @@ export const studioInterviewsRouter = factory
           input.data.candidateName || analysis?.resumeProfile.name || existing.candidateName,
         interviewQuestions:
           analysis?.interviewQuestions ?? editedQuestions ?? existing.interviewQuestions,
+        jobDescriptionId: input.data.jobDescriptionId || null,
         notes: input.data.notes || null,
         resumeFileName: analysis?.fileName ?? existing.resumeFileName,
         resumeProfile: analysis?.resumeProfile ?? existing.resumeProfile,

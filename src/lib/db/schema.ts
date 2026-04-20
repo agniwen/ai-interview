@@ -3,6 +3,7 @@
 import type { UIMessage } from "ai";
 import type { InterviewTranscriptTurn } from "@/lib/interview-session";
 import type { InterviewQuestion, ResumeProfile } from "@/lib/interview/types";
+import type { MinimaxVoiceId } from "@/lib/minimax-voices";
 import type { ScheduleEntryStatus, StudioInterviewStatus } from "@/lib/studio-interviews";
 import {
   bigserial,
@@ -182,6 +183,10 @@ export const studioInterview = pgTable(
       .$type<InterviewQuestion[]>()
       .notNull()
       .default([]),
+    // oxlint-disable-next-line no-use-before-define -- drizzle-orm resolves refs lazily at runtime
+    jobDescriptionId: text("job_description_id").references(() => jobDescription.id, {
+      onDelete: "set null",
+    }),
     notes: text("notes"),
     resumeFileName: text("resume_file_name"),
     resumeProfile: jsonb("resume_profile").$type<ResumeProfile | null>(),
@@ -196,6 +201,92 @@ export const studioInterview = pgTable(
     index("studio_interview_status_idx").on(table.status),
     index("studio_interview_created_at_idx").on(table.createdAt),
     index("studio_interview_created_by_idx").on(table.createdBy),
+    index("studio_interview_job_description_idx").on(table.jobDescriptionId),
+  ],
+);
+
+export const department = pgTable(
+  "department",
+  {
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
+    description: text("description"),
+    id: text("id").primaryKey(),
+    name: text("name").notNull(),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+  },
+  (table) => [
+    index("department_name_idx").on(table.name),
+    index("department_created_at_idx").on(table.createdAt),
+  ],
+);
+
+export const interviewer = pgTable(
+  "interviewer",
+  {
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
+    departmentId: text("department_id")
+      .notNull()
+      .references(() => department.id, { onDelete: "restrict" }),
+    description: text("description"),
+    id: text("id").primaryKey(),
+    name: text("name").notNull(),
+    prompt: text("prompt").notNull(),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+    voice: text("voice").$type<MinimaxVoiceId>().notNull(),
+  },
+  (table) => [
+    index("interviewer_department_idx").on(table.departmentId),
+    index("interviewer_name_idx").on(table.name),
+    index("interviewer_created_at_idx").on(table.createdAt),
+  ],
+);
+
+export const jobDescription = pgTable(
+  "job_description",
+  {
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
+    departmentId: text("department_id")
+      .notNull()
+      .references(() => department.id, { onDelete: "restrict" }),
+    description: text("description"),
+    id: text("id").primaryKey(),
+    name: text("name").notNull(),
+    prompt: text("prompt").notNull(),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+  },
+  (table) => [
+    index("job_description_department_idx").on(table.departmentId),
+    index("job_description_name_idx").on(table.name),
+    index("job_description_created_at_idx").on(table.createdAt),
+  ],
+);
+
+export const jobDescriptionInterviewer = pgTable(
+  "job_description_interviewer",
+  {
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    interviewerId: text("interviewer_id")
+      .notNull()
+      .references(() => interviewer.id, { onDelete: "restrict" }),
+    jobDescriptionId: text("job_description_id")
+      .notNull()
+      .references(() => jobDescription.id, { onDelete: "cascade" }),
+  },
+  (table) => [
+    primaryKey({ columns: [table.jobDescriptionId, table.interviewerId] }),
+    index("job_description_interviewer_interviewer_idx").on(table.interviewerId),
   ],
 );
 

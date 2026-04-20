@@ -47,6 +47,7 @@ import {
 } from "./interview-form";
 import { InterviewQuestionsFields } from "./interview-questions-fields";
 import { InterviewScheduleFields } from "./interview-schedule-fields";
+import { JobDescriptionSelectField } from "./job-description-select-field";
 
 export function EditInterviewDialog({
   open,
@@ -77,6 +78,7 @@ export function EditInterviewDialog({
       formData.append("targetRole", values.targetRole);
       formData.append("notes", values.notes);
       formData.append("status", values.status);
+      formData.append("jobDescriptionId", values.jobDescriptionId ?? "");
       formData.append(
         "scheduleEntries",
         JSON.stringify(normalizeScheduleEntries(values.scheduleEntries)),
@@ -125,6 +127,7 @@ export function EditInterviewDialog({
     form.setFieldValue("targetRole", values.targetRole);
     form.setFieldValue("notes", values.notes);
     form.setFieldValue("status", values.status);
+    form.setFieldValue("jobDescriptionId", values.jobDescriptionId ?? "");
     form.setFieldValue("scheduleEntries", values.scheduleEntries);
 
     setEditedQuestions(record.interviewQuestions ?? []);
@@ -358,6 +361,19 @@ export function EditInterviewDialog({
                         ) : null}
                       </FieldGroup>
                     </div>
+
+                    <form.Field name="jobDescriptionId">
+                      {(field) => {
+                        const errors = toFieldErrors(field.state.meta.errors);
+                        return (
+                          <JobDescriptionSelectField
+                            error={errors?.[0]?.message}
+                            onChange={(next) => field.handleChange(next)}
+                            value={field.state.value ?? ""}
+                          />
+                        );
+                      }}
+                    </form.Field>
 
                     <FieldGroup className="grid gap-5 md:grid-cols-2 md:items-start">
                       <form.Field name="candidateName">

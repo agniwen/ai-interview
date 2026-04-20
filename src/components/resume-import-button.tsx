@@ -9,11 +9,13 @@ import { AnimatePresence, motion } from "motion/react";
 import { useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
 import { InterviewDetailDialog } from "@/app/(auth)/studio/interviews/_components/interview-detail-dialog";
+import { JobDescriptionSelectField } from "@/app/(auth)/studio/interviews/_components/job-description-select-field";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -184,6 +186,9 @@ export function ResumeImportButton({
   const [partialFields, setPartialFields] = useState<{ label: string; value: string }[]>([]);
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailRecordId, setDetailRecordId] = useState<string | null>(null);
+  const [isPickingJd, setIsPickingJd] = useState(false);
+  const [selectedJdId, setSelectedJdId] = useState("");
+  const [jdError, setJdError] = useState<string | undefined>();
   const abortControllerRef = useRef<AbortController | null>(null);
   const accumulatedTextRef = useRef("");
 
@@ -222,9 +227,13 @@ export function ResumeImportButton({
   }, [resetProgress]);
 
   // oxlint-disable-next-line complexity -- Import flow orchestrates upload → analyze → persist with progress state.
-  async function runImport() {
+  async function runImport(jobDescriptionId: string) {
     if (!filePart.url || !filePart.filename) {
       toast.error("简历文件不完整，无法入库");
+      return;
+    }
+    if (!jobDescriptionId) {
+      toast.error("请选择 JD 后再入库");
       return;
     }
 
@@ -349,6 +358,7 @@ export function ResumeImportButton({
         "scheduleEntries",
         JSON.stringify([{ notes: "", roundLabel: "一面", scheduledAt: "", sortOrder: 0 }]),
       );
+      saveForm.append("jobDescriptionId", jobDescriptionId);
       saveForm.append("resume", file);
       saveForm.append("resumePayload", JSON.stringify(resumePayload));
 
@@ -392,7 +402,19 @@ export function ResumeImportButton({
       setDetailOpen(true);
       return;
     }
-    void runImport();
+    setSelectedJdId("");
+    setJdError(undefined);
+    setIsPickingJd(true);
+  }
+
+  function handleConfirmImport() {
+    if (!selectedJdId) {
+      setJdError("请选择 JD");
+      return;
+    }
+    setJdError(undefined);
+    setIsPickingJd(false);
+    void runImport(selectedJdId);
   }
 
   function handleDetailOpenChange(open: boolean) {
@@ -415,6 +437,39 @@ export function ResumeImportButton({
       >
         {renderImportButtonContent({ importedInterviewId, isImporting })}
       </Button>
+
+      <Dialog onOpenChange={setIsPickingJd} open={isPickingJd}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>选择 JD 后入库</DialogTitle>
+            <DialogDescription className="break-all">
+              {filePart.filename ?? "候选人简历.pdf"}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="py-2">
+            <JobDescriptionSelectField
+              error={jdError}
+              onChange={(next) => {
+                setSelectedJdId(next);
+                if (next) {
+                  setJdError(undefined);
+                }
+              }}
+              value={selectedJdId}
+            />
+          </div>
+
+          <DialogFooter>
+            <Button onClick={() => setIsPickingJd(false)} type="button" variant="outline">
+              取消
+            </Button>
+            <Button onClick={handleConfirmImport} type="button">
+              确认入库
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog
         onOpenChange={(open) => {

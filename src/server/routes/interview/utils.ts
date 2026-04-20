@@ -2,7 +2,13 @@ import type { parseScheduleEntriesInput, StudioInterviewRecord } from "@/lib/stu
 import { eq, inArray } from "drizzle-orm";
 import { updateTag } from "next/cache";
 import { db } from "@/lib/db";
-import { studioInterview, studioInterviewSchedule } from "@/lib/db/schema";
+import {
+  interviewer,
+  jobDescription,
+  jobDescriptionInterviewer,
+  studioInterview,
+  studioInterviewSchedule,
+} from "@/lib/db/schema";
 import {
   buildCandidateInterviewView,
   buildInterviewLink,
@@ -46,7 +52,37 @@ export async function loadCandidateInterviewRecord(id: string, roundId: string) 
     .from(studioInterviewSchedule)
     .where(eq(studioInterviewSchedule.interviewRecordId, id));
 
-  return buildCandidateInterviewView(record, sortScheduleEntries(scheduleEntries), roundId);
+  const view = buildCandidateInterviewView(record, sortScheduleEntries(scheduleEntries), roundId);
+
+  let jobDescriptionPrompt: string | null = null;
+  const interviewers: { name: string; prompt: string; voice: string }[] = [];
+
+  if (record.jobDescriptionId) {
+    const [jdRow] = await db
+      .select({ prompt: jobDescription.prompt })
+      .from(jobDescription)
+      .where(eq(jobDescription.id, record.jobDescriptionId))
+      .limit(1);
+    jobDescriptionPrompt = jdRow?.prompt ?? null;
+
+    const interviewerRows = await db
+      .select({
+        name: interviewer.name,
+        prompt: interviewer.prompt,
+        voice: interviewer.voice,
+      })
+      .from(jobDescriptionInterviewer)
+      .innerJoin(interviewer, eq(jobDescriptionInterviewer.interviewerId, interviewer.id))
+      .where(eq(jobDescriptionInterviewer.jobDescriptionId, record.jobDescriptionId));
+
+    interviewers.push(...interviewerRows);
+  }
+
+  return {
+    ...view,
+    interviewers,
+    jobDescriptionPrompt,
+  };
 }
 
 export async function loadScheduleEntriesForRedirect(id: string) {

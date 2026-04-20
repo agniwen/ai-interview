@@ -19,6 +19,7 @@ export function createInterviewFormValues(): InterviewFormValues {
   return {
     candidateEmail: "",
     candidateName: "",
+    jobDescriptionId: "",
     notes: "",
     scheduleEntries: [createDefaultScheduleEntry()],
     status: "ready",
@@ -29,12 +30,19 @@ export function createInterviewFormValues(): InterviewFormValues {
 export function toInterviewFormValues(
   record: Pick<
     StudioInterviewRecord,
-    "candidateName" | "candidateEmail" | "targetRole" | "notes" | "status" | "scheduleEntries"
+    | "candidateName"
+    | "candidateEmail"
+    | "targetRole"
+    | "notes"
+    | "status"
+    | "scheduleEntries"
+    | "jobDescriptionId"
   >,
 ): InterviewFormValues {
   return {
     candidateEmail: record.candidateEmail ?? "",
     candidateName: record.candidateName,
+    jobDescriptionId: record.jobDescriptionId ?? "",
     notes: record.notes ?? "",
     scheduleEntries: record.scheduleEntries.map((entry, index) => ({
       id: entry.id,

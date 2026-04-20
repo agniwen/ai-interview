@@ -1,6 +1,6 @@
 "use client";
 
-import { BotIcon } from "lucide-react";
+import { BotIcon, Building2Icon, FileTextIcon, UserCircleIcon } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -20,6 +20,21 @@ import {
 import { useStudioTutorialContext } from "./studio-tutorial-provider";
 
 const navItems = [
+  {
+    href: "/studio/departments",
+    icon: Building2Icon,
+    title: "部门管理",
+  },
+  {
+    href: "/studio/interviewers",
+    icon: UserCircleIcon,
+    title: "面试官管理",
+  },
+  {
+    href: "/studio/job-descriptions",
+    icon: FileTextIcon,
+    title: "JD 管理",
+  },
   {
     href: "/studio/interviews",
     icon: BotIcon,

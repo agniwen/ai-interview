@@ -58,9 +58,9 @@ import {
   toFieldErrors,
   useInterviewForm,
 } from "./interview-form";
-
 import { InterviewQuestionsFields } from "./interview-questions-fields";
 import { InterviewScheduleFields } from "./interview-schedule-fields";
+import { JobDescriptionSelectField } from "./job-description-select-field";
 
 const LEADING_DIGIT_RE = /^\d/;
 const LEADING_DIGITS_RE = /^(\d+)/;
@@ -110,6 +110,9 @@ export function CreateInterviewDialog({
       formData.append("targetRole", values.targetRole);
       formData.append("notes", values.notes);
       formData.append("status", values.status);
+      if (values.jobDescriptionId) {
+        formData.append("jobDescriptionId", values.jobDescriptionId);
+      }
       formData.append(
         "scheduleEntries",
         JSON.stringify(normalizeScheduleEntries(values.scheduleEntries)),
@@ -557,6 +560,19 @@ export function CreateInterviewDialog({
                       ) : null}
                     </FieldGroup>
                   </div>
+
+                  <form.Field name="jobDescriptionId">
+                    {(field) => {
+                      const errors = toFieldErrors(field.state.meta.errors);
+                      return (
+                        <JobDescriptionSelectField
+                          error={errors?.[0]?.message}
+                          onChange={(next) => field.handleChange(next)}
+                          value={field.state.value ?? ""}
+                        />
+                      );
+                    }}
+                  </form.Field>
 
                   <FieldGroup
                     className="grid gap-5 md:grid-cols-2 md:items-start"

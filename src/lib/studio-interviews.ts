@@ -42,6 +42,7 @@ export const studioInterviewBaseSchema = z.object({
     .trim()
     .min(1, "请输入候选人姓名")
     .max(120, "候选人姓名不能超过 120 个字符"),
+  jobDescriptionId: z.string().trim().min(1, "请选择 JD"),
   notes: z.string().trim().max(2000, "备注不能超过 2000 字"),
   scheduleEntries: z
     .array(studioInterviewScheduleEntrySchema)
@@ -100,6 +101,7 @@ export interface StudioInterviewRecord {
   interviewQuestions: ResumeAnalysisResult["interviewQuestions"];
   scheduleEntries: InterviewScheduleEntry[];
   interviewLink: string;
+  jobDescriptionId: string | null;
   notes: string | null;
   createdBy: string | null;
   createdAt: string | Date;
@@ -123,6 +125,7 @@ export function toStudioInterviewListRecord(
     createdBy: record.createdBy,
     id: record.id,
     interviewLink: record.interviewLink,
+    jobDescriptionId: record.jobDescriptionId,
     notes: record.notes,
     questionCount: record.interviewQuestions.length,
     resumeFileName: record.resumeFileName,

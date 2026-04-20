@@ -8,7 +8,10 @@ import { authMiddleware } from "./middlewares/auth";
 import { betterAuthMiddleware } from "./middlewares/better-auth";
 import { agentRouter } from "./routes/agent/route";
 import { chatRouter } from "./routes/chat/route";
+import { departmentsRouter } from "./routes/department/route";
 import { interviewRouter, studioInterviewsRouter } from "./routes/interview/route";
+import { interviewersRouter } from "./routes/interviewer/route";
+import { jobDescriptionsRouter } from "./routes/job-description/route";
 import { resumeRouter } from "./routes/resume/route";
 
 export const app = new Hono<Env>()
@@ -32,6 +35,12 @@ export const app = new Hono<Env>()
   .use("/api/interview/parse-resume", authMiddleware)
   .use("/api/studio/interviews", authMiddleware, adminMiddleware)
   .use("/api/studio/interviews/*", authMiddleware, adminMiddleware)
+  .use("/api/studio/departments", authMiddleware, adminMiddleware)
+  .use("/api/studio/departments/*", authMiddleware, adminMiddleware)
+  .use("/api/studio/interviewers", authMiddleware, adminMiddleware)
+  .use("/api/studio/interviewers/*", authMiddleware, adminMiddleware)
+  .use("/api/studio/job-descriptions", authMiddleware, adminMiddleware)
+  .use("/api/studio/job-descriptions/*", authMiddleware, adminMiddleware)
   .basePath("/api")
   .post("/feishu/webhook", async (c) => {
     const bot = getFeishuBot();
@@ -47,7 +56,10 @@ export const app = new Hono<Env>()
   .route("/chat", chatRouter)
   .route("/resume", resumeRouter)
   .route("/interview", interviewRouter)
-  .route("/studio/interviews", studioInterviewsRouter);
+  .route("/studio/interviews", studioInterviewsRouter)
+  .route("/studio/departments", departmentsRouter)
+  .route("/studio/interviewers", interviewersRouter)
+  .route("/studio/job-descriptions", jobDescriptionsRouter);
 
 app.notFound((c) => c.json({ error: "Not Found" }, 404));
 

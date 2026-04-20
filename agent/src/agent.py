@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import random
 import re
 import time
 from collections.abc import AsyncIterable
@@ -37,11 +38,30 @@ logger = logging.getLogger("agent")
 load_dotenv()
 
 
-def build_instructions(interview_context: dict) -> str:
+def pick_interviewer(interview_context: dict) -> dict:
+    """Pick one interviewer at random from the JD's configured interviewers.
+
+    Returns an empty dict when none are configured so the agent still runs
+    with its default voice and base system prompt.
+    """
+    candidates = interview_context.get("interviewers") or []
+    if not isinstance(candidates, list) or not candidates:
+        return {}
+    choice = random.choice(candidates)
+    return choice if isinstance(choice, dict) else {}
+
+
+def build_instructions(
+    interview_context: dict, interviewer: Optional[dict] = None
+) -> str:
     candidate_name = interview_context.get("candidate_name", "候选人")
     target_role = interview_context.get("target_role", "未指定岗位")
     candidate_profile = interview_context.get("candidate_profile", {})
     interview_questions = interview_context.get("interview_questions", [])
+    interviewer_prompt = ((interviewer or {}).get("prompt") or "").strip()
+    job_description_prompt = (
+        interview_context.get("job_description_prompt") or ""
+    ).strip()
 
     skills = candidate_profile.get("skills", [])
     skills_text = "、".join(skills) if skills else "未提供"
@@ -59,7 +79,13 @@ def build_instructions(interview_context: dict) -> str:
     if not questions_text:
         questions_text = "\n  未提供"
 
-    return f"""你是一位专业的AI面试官，负责公司的招聘工作。你通过语音与候选人交流。
+    prefix_sections = ""
+    if interviewer_prompt:
+        prefix_sections += f"## 面试官角色设定\n{interviewer_prompt}\n\n"
+    if job_description_prompt:
+        prefix_sections += f"## 岗位说明\n{job_description_prompt}\n\n"
+
+    return f"""{prefix_sections}你是一位专业的AI面试官，负责公司的招聘工作。你通过语音与候选人交流。
 你需要要求应聘者严肃对待面试，如果应聘者有不尊重面试的行为，你需要提醒他。
 
 ## 候选人信息
@@ -84,7 +110,9 @@ def build_instructions(interview_context: dict) -> str:
 
 
 class InterviewAgent(Agent):
-    def __init__(self, interview_context: dict) -> None:
+    def __init__(
+        self, interview_context: dict, interviewer: Optional[dict] = None
+    ) -> None:
         end_call_tool = EndCallTool(
             extra_description="当面试结束、候选人要求结束、候选人连续三次答非所问、或候选人态度恶劣时，调用此工具结束面试。",
             delete_room=True,
@@ -92,7 +120,7 @@ class InterviewAgent(Agent):
         )
 
         super().__init__(
-            instructions=build_instructions(interview_context),
+            instructions=build_instructions(interview_context, interviewer),
             tools=end_call_tool.tools,  # type: ignore
         )
 
@@ -344,6 +372,31 @@ async def my_agent(ctx: JobContext):
         "room": ctx.room.name,
     }
 
+    # Wait for the candidate to join first so we can pick up dynamic
+    # configuration (TTS voice, interviewer/JD prompts) from metadata
+    # before constructing AgentSession.
+    participant = await ctx.wait_for_participant()
+    interview_context: dict = {}
+    if participant.metadata:
+        try:
+            interview_context = json.loads(participant.metadata)
+            logger.info(
+                "loaded interview context for %s",
+                interview_context.get("candidate_name", "unknown"),
+            )
+        except json.JSONDecodeError:
+            logger.warning("failed to parse participant metadata")
+
+    # Pick one interviewer at random (when the JD has multiple configured).
+    selected_interviewer = pick_interviewer(interview_context)
+    selected_voice = selected_interviewer.get("voice") or "voice_agent_Male_Phone_1"
+    if selected_interviewer:
+        logger.info(
+            "selected interviewer: %s (voice=%s)",
+            selected_interviewer.get("name", "?"),
+            selected_voice,
+        )
+
     session = AgentSession(
         # Speech-to-text (STT) - ElevenLabs Scribe v2
         # Note: no server_vad here — let AgentSession's VAD handle speech detection
@@ -359,10 +412,10 @@ async def my_agent(ctx: JobContext):
             api_key=os.environ.get("DASHSCOPE_API_KEY"),  # type: ignore
             extra_body={"enable_thinking": False},
         ),
-        # Text-to-speech (TTS) - MiniMax China
+        # Text-to-speech (TTS) - MiniMax China, voice sourced from metadata
         tts=minimax.TTS(
             base_url="https://api.minimax.chat",
-            voice="voice_agent_Male_Phone_1",
+            voice=selected_voice,
         ),
         # VAD - Silero (prewarmed)
         vad=ctx.proc.userdata["vad"],
@@ -384,19 +437,6 @@ async def my_agent(ctx: JobContext):
             },
         },
     )
-
-    # Wait for the candidate to join and read interview context from participant metadata
-    participant = await ctx.wait_for_participant()
-    interview_context = {}
-    if participant.metadata:
-        try:
-            interview_context = json.loads(participant.metadata)
-            logger.info(
-                "loaded interview context for %s",
-                interview_context.get("candidate_name", "unknown"),
-            )
-        except json.JSONDecodeError:
-            logger.warning("failed to parse participant metadata")
 
     # ---------------------------------------------------------------------------
     # Conversation tracking
@@ -488,7 +528,7 @@ async def my_agent(ctx: JobContext):
 
     # Start the session
     await session.start(
-        agent=InterviewAgent(interview_context),
+        agent=InterviewAgent(interview_context, selected_interviewer),
         room=ctx.room,
         room_options=room_io.RoomOptions(
             audio_input=room_io.AudioInputOptions(
