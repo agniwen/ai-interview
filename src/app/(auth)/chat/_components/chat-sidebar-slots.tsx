@@ -208,7 +208,7 @@ function ChatSidebarBody({
           <li key={conversation.id}>
             <div
               className={cn(
-                "group flex items-center gap-1 rounded-lg border border-transparent px-1 py-1 transition-colors",
+                "group/session-item flex items-center gap-1 rounded-lg border border-transparent px-1 py-1 transition-colors",
                 isActive ? "border-sidebar-border bg-sidebar-accent" : "hover:bg-sidebar-accent/60",
               )}
             >
@@ -242,7 +242,7 @@ function ChatSidebarBody({
 
                   <Button
                     aria-label="删除聊天记录"
-                    className="size-7 rounded-md opacity-0 transition-opacity group-hover:opacity-100 hover:bg-destructive/12 hover:text-destructive"
+                    className="size-7 rounded-md opacity-0 transition-opacity group-hover/session-item:opacity-100 hover:bg-destructive/12 hover:text-destructive"
                     onClick={(event) => {
                       event.stopPropagation();
                       onDelete(conversation);

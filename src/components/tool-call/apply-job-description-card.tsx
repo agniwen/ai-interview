@@ -2,7 +2,8 @@
 
 import type { DynamicToolUIPart, ToolUIPart } from "ai";
 import { CheckIcon, TargetIcon, XIcon } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { Shimmer } from "@/components/ai-elements/shimmer";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -81,9 +82,34 @@ export function ApplyJobDescriptionCard({
 
   const [selectedId, setSelectedId] = useState<string>(defaultSelectedId);
 
+  // While the tool input streams in, `input` briefly fails the shape check
+  // and the recommended id may not exist yet. Promote the default into the
+  // selection once it becomes available so the Select renders with the
+  // recommended option pre-selected without clobbering a user's manual pick.
+  useEffect(() => {
+    if (defaultSelectedId && !selectedId) {
+      setSelectedId(defaultSelectedId);
+    }
+  }, [defaultSelectedId, selectedId]);
+
+  const partState = (part as { state?: string }).state;
+  const isStreamingInput = partState === "input-streaming";
+
   if (!input) {
+    if (isStreamingInput) {
+      return (
+        <div className="my-2 border border-border/70 bg-background/60 px-4 py-3 rounded">
+          <div className="flex items-center gap-2">
+            <TargetIcon className="mt-0.5 size-4 shrink-0 text-primary" />
+            <div className="min-w-0 flex-1 text-muted-foreground text-xs">
+              <Shimmer duration={1.2}>正在生成岗位推荐…</Shimmer>
+            </div>
+          </div>
+        </div>
+      );
+    }
     return (
-      <div className="my-2 rounded-xl border border-border/60 bg-muted/30 px-3 py-2 text-muted-foreground text-xs">
+      <div className="my-2 rounded border border-border/60 bg-muted/30 px-3 py-2 text-muted-foreground text-xs">
         岗位推荐数据缺失，跳过审批。
       </div>
     );
@@ -99,7 +125,7 @@ export function ApplyJobDescriptionCard({
   const toolCallId = part.toolCallId ?? "";
 
   return (
-    <div className="my-2 rounded-xl border border-border/70 bg-background/60 px-4 py-3 shadow-sm">
+    <div className="my-2  border border-border/70 bg-background/60 px-4 py-3 rounded">
       <div className="flex items-start gap-2">
         <TargetIcon className="mt-0.5 size-4 shrink-0 text-primary" />
         <div className="min-w-0 flex-1 space-y-3">
@@ -115,7 +141,7 @@ export function ApplyJobDescriptionCard({
           </div>
 
           {isResolved ? (
-            <div className="rounded-lg border border-border/60 bg-muted/30 px-3 py-2 text-xs">
+            <div className="rounded-xs border border-border/60 bg-muted/30 px-3 py-2 text-xs">
               {isConfirmed && confirmedCandidate ? (
                 <div className="space-y-0.5">
                   <div className="font-medium text-foreground">
@@ -136,7 +162,7 @@ export function ApplyJobDescriptionCard({
           ) : (
             <>
               <Select onValueChange={setSelectedId} value={selectedId}>
-                <SelectTrigger className="w-full">
+                <SelectTrigger className="w-full h-13!">
                   <SelectValue placeholder="选择一个在招岗位" />
                 </SelectTrigger>
                 <SelectContent>

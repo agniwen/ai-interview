@@ -346,7 +346,7 @@ export function ToolLayout({
                   </pre>
                 )}
                 {showInterruptedExpanded && (
-                  <pre className="rounded-md border border-yellow-500/20 bg-yellow-500/5 px-3 py-2 font-mono text-xs leading-relaxed text-yellow-500">
+                  <pre className="rounded mt-0.5 border border-yellow-500/20 bg-yellow-500/5 px-3 py-2 font-mono text-xs leading-relaxed text-yellow-500">
                     已中断
                   </pre>
                 )}

@@ -738,7 +738,7 @@ export default function ChatPageClient({ initialSessionId }: { initialSessionId:
   );
 
   const {
-    addToolResult,
+    addToolOutput,
     messages,
     sendMessage,
     setMessages,
@@ -1192,7 +1192,7 @@ export default function ChatPageClient({ initialSessionId }: { initialSessionId:
       }
       if (!record) {
         setHistoryErrorMessage("未找到该在招岗位，可能已被删除，请重新选择。");
-        await addToolResult({
+        await addToolOutput({
           output: { action: "ignore" as const },
           tool: "apply_job_description",
           toolCallId,
@@ -1206,13 +1206,13 @@ export default function ChatPageClient({ initialSessionId }: { initialSessionId:
         name: record.name,
         prompt: record.prompt,
       });
-      await addToolResult({
+      await addToolOutput({
         output: { action: "confirm" as const, jobDescriptionId },
         tool: "apply_job_description",
         toolCallId,
       });
     },
-    [addToolResult, jobDescriptionOptions, refetchJobDescriptionOptions],
+    [addToolOutput, jobDescriptionOptions, refetchJobDescriptionOptions],
   );
 
   const handleApplyJobDescriptionIgnore = useCallback(
@@ -1220,13 +1220,13 @@ export default function ChatPageClient({ initialSessionId }: { initialSessionId:
       if (!toolCallId) {
         return;
       }
-      await addToolResult({
+      await addToolOutput({
         output: { action: "ignore" as const },
         tool: "apply_job_description",
         toolCallId,
       });
     },
-    [addToolResult],
+    [addToolOutput],
   );
 
   // Override the transport ref for explicit re-runs: on the first send of a

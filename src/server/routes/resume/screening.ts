@@ -195,7 +195,9 @@ export async function runResumeScreening(input: ResumeScreeningInput) {
 - 如果 extract_resume_pdf_text 返回的文本质量明显很差（大量乱码、几乎空白、有效文字极少），说明该 PDF 可能是图片格式的简历，此时应调用 analyze_resume_pdf_with_vision 使用视觉模型重新提取内容。
 
 【在招岗位智能推荐（suggest_job_description + apply_job_description）】
-- 仅在以下所有条件同时满足时触发这套流程：(a) 当前对话已上传至少一份简历 PDF；(b) 设置中未配置在招岗位；(c) 用户在对话中未提供或更新过 JD；(d) 本轮对话中尚未调用过 apply_job_description 或用户尚未表态过忽略。
+- 仅在以下所有条件同时满足时触发这套流程：(a) 当前对话已上传至少一份简历 PDF；(b) 设置中未配置在招岗位；(c) 用户在对话中未提供或更新过 JD；(d) 本轮对话中尚未调用过 apply_job_description 或用户尚未表态过忽略；(e) 本轮已成功调用过 extract_resume_pdf_structured_info，且返回的 structured 字段具备足够信号（candidateName / skills / projectHighlights / internshipHighlights / timelineSummary 中至少有两项非空），说明确实是一份可解析的有效简历。
+- 触发顺序固定为：list_uploaded_resume_pdfs → extract_resume_pdf_structured_info → （确认结构化信息有效后）suggest_job_description → apply_job_description。禁止在调用 extract_resume_pdf_structured_info 之前直接调用 suggest_job_description。
+- 如果 extract_resume_pdf_structured_info 返回的结构化字段几乎全部为空，说明 PDF 可能是图片或解析失败，应先调用 extract_resume_pdf_text 或 analyze_resume_pdf_with_vision 尝试补救；在仍无法获得有效结构化信息前，不要触发 suggest_job_description。
 - 触发后，先调用 suggest_job_description 获取推荐：
   · 如果返回 status === 'no-jds'：不要调用 apply_job_description，直接按缺少 JD 的分支继续分析，并在回复中简短提示"后台暂无已配置的在招岗位"。
   · 如果返回 status === 'no-resume' 或 status === 'error'：同样跳过 apply，按缺少 JD 分支继续，可简短说明推荐不可用。
