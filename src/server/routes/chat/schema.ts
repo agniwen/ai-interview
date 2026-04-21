@@ -1,5 +1,19 @@
 import { z } from "zod";
 
+export const jobDescriptionConfigSchema = z.union([
+  z.object({
+    departmentName: z.string().nullable(),
+    jobDescriptionId: z.string().min(1),
+    mode: z.literal("select"),
+    name: z.string().min(1),
+    prompt: z.string(),
+  }),
+  z.object({
+    mode: z.literal("custom"),
+    text: z.string(),
+  }),
+]);
+
 export const upsertChatMessageSchema = z.object({
   message: z
     .object({
@@ -14,6 +28,7 @@ export const upsertConversationSchema = z.object({
   id: z.string().min(1),
   isTitleGenerating: z.boolean().optional(),
   jobDescription: z.string().optional(),
+  jobDescriptionConfig: jobDescriptionConfigSchema.nullable().optional(),
   resumeImports: z.record(z.string(), z.string()).optional(),
   title: z.string().optional(),
 });
@@ -21,6 +36,7 @@ export const upsertConversationSchema = z.object({
 export const patchConversationSchema = z.object({
   isTitleGenerating: z.boolean().optional(),
   jobDescription: z.string().optional(),
+  jobDescriptionConfig: jobDescriptionConfigSchema.nullable().optional(),
   resumeImports: z.record(z.string(), z.string()).optional(),
   title: z.string().optional(),
 });

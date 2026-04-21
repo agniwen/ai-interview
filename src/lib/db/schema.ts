@@ -3,6 +3,7 @@
 import type { UIMessage } from "ai";
 import type { InterviewTranscriptTurn } from "@/lib/interview-session";
 import type { InterviewQuestion, ResumeProfile } from "@/lib/interview/types";
+import type { JobDescriptionConfig } from "@/lib/job-description-config";
 import type { MinimaxVoiceId } from "@/lib/minimax-voices";
 import type { ScheduleEntryStatus, StudioInterviewStatus } from "@/lib/studio-interviews";
 import {
@@ -392,6 +393,7 @@ export const chatConversation = pgTable(
     id: text("id").primaryKey(),
     isTitleGenerating: boolean("is_title_generating").default(false).notNull(),
     jobDescription: text("job_description").default("").notNull(),
+    jobDescriptionConfig: jsonb("job_description_config").$type<JobDescriptionConfig>(),
     resumeImports: jsonb("resume_imports").$type<Record<string, string>>().default({}).notNull(),
     title: text("title").default("").notNull(),
     updatedAt: timestamp("updated_at")

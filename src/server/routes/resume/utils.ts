@@ -3,6 +3,8 @@ import type { ParsedResumePdf, UploadedResumePdf } from "@/lib/resume-pdf";
 import { generateText, tool } from "ai";
 import { z } from "zod";
 import { clipResumeText, extractResumeStructuredInfo, readPdfBytes } from "@/lib/resume-pdf";
+import { createResumeAgent } from "@/server/agents/resume-agent";
+import { listAllJobDescriptions } from "@/server/queries/job-descriptions";
 
 // =====================================================================
 // Title sanitization
@@ -813,3 +815,207 @@ export function createExtractResumePdfStructuredInfoTool({
     }),
   });
 }
+
+// =====================================================================
+// Job description suggestion (server) + approval (client)
+// =====================================================================
+
+const SUGGEST_JD_RANKER_SCHEMA = z.object({
+  candidates: z
+    .array(
+      z.object({
+        id: z.string(),
+        reasons: z.string().min(1),
+        score: z.number().min(0).max(100),
+      }),
+    )
+    .min(1),
+  reasoning: z.string().min(1),
+  recommendedId: z.string(),
+});
+
+const SUGGEST_JD_JSON_BLOCK_RE = /```(?:json)?\s*([\s\S]*?)\s*```/;
+
+function parseSuggestJdRanker(text: string) {
+  const trimmed = text.trim();
+  const blockMatch = SUGGEST_JD_JSON_BLOCK_RE.exec(trimmed);
+  const rawCandidates = blockMatch ? [blockMatch[1], trimmed] : [trimmed];
+
+  for (const candidate of rawCandidates) {
+    if (!candidate) {
+      continue;
+    }
+    const start = candidate.indexOf("{");
+    const end = candidate.lastIndexOf("}");
+    if (start === -1 || end === -1) {
+      continue;
+    }
+    try {
+      const raw = JSON.parse(candidate.slice(start, end + 1));
+      const parsed = SUGGEST_JD_RANKER_SCHEMA.safeParse(raw);
+      if (parsed.success) {
+        return parsed.data;
+      }
+    } catch {
+      // continue to next candidate form
+    }
+  }
+  return null;
+}
+
+export function createSuggestJobDescriptionTool({
+  availableResumeNames,
+  parseUploadedResume,
+  selectResumeFiles,
+  uploadedResumePdfs,
+}: PdfToolDependencies) {
+  return tool({
+    description:
+      "当用户上传了简历 PDF 且当前未配置在招岗位时，调用此工具从后台已配置的在招岗位中智能匹配最接近的岗位。返回排序后的候选岗位列表与推荐岗位，供用户确认是否将其设置为当前对话的在招岗位。",
+    execute: async ({ resumeName }) => {
+      if (uploadedResumePdfs.length === 0) {
+        return { status: "no-resume" as const };
+      }
+
+      const selected = selectResumeFiles(resumeName);
+      if (selected.length === 0) {
+        return { availableResumes: availableResumeNames, status: "no-resume" as const };
+      }
+
+      const jobDescriptions = await listAllJobDescriptions();
+      if (jobDescriptions.length === 0) {
+        return { status: "no-jds" as const };
+      }
+
+      const [primaryResume] = selected;
+      if (!primaryResume) {
+        return { status: "no-resume" as const };
+      }
+
+      let structuredResume: ReturnType<typeof extractResumeStructuredInfo> | null = null;
+      try {
+        const parsed = await parseUploadedResume(primaryResume);
+        structuredResume = extractResumeStructuredInfo(parsed.text);
+      } catch {
+        return { reason: "parse-failed", status: "error" as const };
+      }
+
+      const jdSummary = jobDescriptions.map((jd) => ({
+        departmentName: jd.departmentName ?? null,
+        description: jd.description ?? "",
+        id: jd.id,
+        name: jd.name,
+        prompt: jd.prompt,
+      }));
+
+      const rankerInstructions = `你是一名招聘岗位匹配助手。根据候选人的简历结构化信息与后台已配置的在招岗位列表，按匹配度从高到低返回候选岗位排序。
+
+【评判维度】
+- 岗位关键词、核心职责、能力要求是否与候选人的技能、经历、项目相符
+- 候选人过往经历的行业、职级是否匹配岗位定位
+- 候选人明确的求职方向是否覆盖该岗位
+
+【输出格式 — 严格 JSON，禁止添加额外文字或代码块以外的内容】
+{
+  "candidates": [
+    { "id": "<岗位 id>", "score": <0-100 整数>, "reasons": "<一句话匹配原因>" }
+  ],
+  "recommendedId": "<分数最高的岗位 id>",
+  "reasoning": "<整体匹配判断，2-3 句话>"
+}
+
+【约束】
+- candidates 必须只包含输入 jobDescriptions 中真实存在的 id。
+- candidates 必须按 score 降序排列，全部岗位都要出现（可用较低分数淘汰明显不匹配的）。
+- 如果所有岗位都明显不匹配，仍然给出 recommendedId（取 score 最高的），并在 reasoning 中说明最匹配只是相对而言。
+- 不要编造岗位信息。`;
+
+      const rankerModelId = process.env.ALIBABA_STRUCTURED_MODEL ?? "qwen3-max";
+      const rankerAgent = createResumeAgent({
+        enableThinking: false,
+        instructions: rankerInstructions,
+        modelId: rankerModelId,
+        temperature: 0,
+        tools: {},
+      });
+
+      let rankerText: string;
+      try {
+        const { text } = await rankerAgent.generate({
+          prompt: `候选人简历结构化信息：\n${JSON.stringify(structuredResume, null, 2)}\n\n已配置的在招岗位列表（只能从这些 id 中选择）：\n${JSON.stringify(
+            jdSummary,
+            null,
+            2,
+          )}`,
+        });
+        rankerText = text;
+      } catch {
+        return { reason: "ranker-failed", status: "error" as const };
+      }
+
+      const ranker = parseSuggestJdRanker(rankerText);
+      if (!ranker) {
+        return { reason: "ranker-parse-failed", status: "error" as const };
+      }
+
+      const jdById = new Map(jobDescriptions.map((jd) => [jd.id, jd]));
+      const validRankings = ranker.candidates.filter((item) => jdById.has(item.id));
+      if (validRankings.length === 0) {
+        return { reason: "no-valid-candidates", status: "error" as const };
+      }
+
+      const recommendedId = jdById.has(ranker.recommendedId)
+        ? ranker.recommendedId
+        : validRankings[0]?.id;
+      if (!recommendedId) {
+        return { reason: "no-valid-candidates", status: "error" as const };
+      }
+
+      const enrichedCandidates = validRankings.map((item) => {
+        const jd = jdById.get(item.id);
+        return {
+          departmentName: jd?.departmentName ?? null,
+          id: item.id,
+          name: jd?.name ?? "",
+          reasons: item.reasons,
+          score: item.score,
+        };
+      });
+
+      return {
+        candidates: enrichedCandidates,
+        reasoning: ranker.reasoning,
+        recommendedId,
+        status: "ok" as const,
+      };
+    },
+    inputSchema: z.object({
+      resumeName: z.string().optional().describe("简历文件名关键词或从 1 开始的序号"),
+    }),
+  });
+}
+
+/**
+ * Client-side tool — no `execute` on server. The UI renders an approval card
+ * (select + confirm/ignore) and calls addToolResult once the user decides.
+ */
+export const applyJobDescriptionTool = tool({
+  description:
+    "在 suggest_job_description 返回 status === 'ok' 之后调用，把推荐结果交给用户确认。该工具不会自动执行，必须等待用户在 UI 上点击『确定』或『忽略』。output 中的 action 为 'confirm' 表示用户已把岗位设置为当前对话的在招岗位，后续分析应围绕该岗位展开；action 为 'ignore' 表示用户拒绝设置，后续按缺少 JD 分支继续。",
+  inputSchema: z.object({
+    candidates: z
+      .array(
+        z.object({
+          departmentName: z.string().nullable().optional(),
+          id: z.string(),
+          name: z.string(),
+          reasons: z.string().optional(),
+          score: z.number().optional(),
+        }),
+      )
+      .min(1)
+      .describe("按匹配度降序的候选岗位；必须从 suggest_job_description 的输出原样转发"),
+    reasoning: z.string().describe("给用户看的匹配理由解释，1-2 句"),
+    recommendedId: z.string().describe("默认选中的推荐岗位 id"),
+  }),
+});

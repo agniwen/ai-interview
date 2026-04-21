@@ -2,6 +2,7 @@ import type { UIMessage } from "ai";
 import { and, desc, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { chatConversation, chatMessage } from "@/lib/db/schema";
+import type { JobDescriptionConfig } from "@/lib/job-description-config";
 
 export interface ChatConversationSummary {
   id: string;
@@ -13,6 +14,7 @@ export interface ChatConversationSummary {
 
 export interface ChatConversationDetail extends ChatConversationSummary {
   jobDescription: string;
+  jobDescriptionConfig: JobDescriptionConfig | null;
   resumeImports: Record<string, string>;
   messages: UIMessage[];
 }
@@ -58,6 +60,7 @@ export async function getUserConversation(
     id: row.id,
     isTitleGenerating: row.isTitleGenerating,
     jobDescription: row.jobDescription,
+    jobDescriptionConfig: row.jobDescriptionConfig ?? null,
     messages: messages.map((m) => m.content),
     resumeImports: row.resumeImports ?? {},
     title: row.title,
@@ -90,6 +93,7 @@ export interface UpsertConversationInput {
   title?: string;
   isTitleGenerating?: boolean;
   jobDescription?: string;
+  jobDescriptionConfig?: JobDescriptionConfig | null;
   resumeImports?: Record<string, string>;
   createdAt?: Date;
 }
@@ -112,6 +116,7 @@ export async function upsertConversation(input: UpsertConversationInput): Promis
       id: input.id,
       isTitleGenerating: input.isTitleGenerating ?? false,
       jobDescription: input.jobDescription ?? "",
+      jobDescriptionConfig: input.jobDescriptionConfig ?? null,
       resumeImports: input.resumeImports ?? {},
       title: input.title ?? "",
       updatedAt: now,
@@ -129,6 +134,9 @@ export async function upsertConversation(input: UpsertConversationInput): Promis
       }),
       ...(input.jobDescription !== undefined && {
         jobDescription: input.jobDescription,
+      }),
+      ...(input.jobDescriptionConfig !== undefined && {
+        jobDescriptionConfig: input.jobDescriptionConfig,
       }),
       ...(input.resumeImports !== undefined && {
         resumeImports: input.resumeImports,

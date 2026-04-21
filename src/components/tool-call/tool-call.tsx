@@ -9,6 +9,7 @@ import {
   ImageIcon,
   ListIcon,
   RulerIcon,
+  TargetIcon,
   WrenchIcon,
 } from "lucide-react";
 import { extractRenderState } from "@/lib/tool-state";
@@ -78,6 +79,14 @@ const TOOL_META: Record<string, ToolMeta> = {
     getSummary: () => "列出已上传的 PDF 简历",
     icon: <ListIcon className="h-3.5 w-3.5" />,
     label: "列出简历",
+  },
+  suggest_job_description: {
+    getSummary: (input) => {
+      const name = input.resumeName as string | undefined;
+      return name ? `匹配在招岗位: ${name}` : "匹配在招岗位";
+    },
+    icon: <TargetIcon className="h-3.5 w-3.5" />,
+    label: "岗位匹配",
   },
 };
 

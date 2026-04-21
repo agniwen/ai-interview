@@ -1,4 +1,5 @@
 import type { UIMessage } from "ai";
+import type { JobDescriptionConfig } from "@/lib/job-description-config";
 
 export interface ChatConversationSummary {
   id: string;
@@ -10,6 +11,7 @@ export interface ChatConversationSummary {
 
 export interface ChatConversationDetail extends ChatConversationSummary {
   jobDescription: string;
+  jobDescriptionConfig: JobDescriptionConfig | null;
   resumeImports: Record<string, string>;
   messages: UIMessage[];
 }
@@ -60,6 +62,7 @@ export interface UpsertConversationPayload {
   title?: string;
   isTitleGenerating?: boolean;
   jobDescription?: string;
+  jobDescriptionConfig?: JobDescriptionConfig | null;
   resumeImports?: Record<string, string>;
   createdAt?: number;
 }
@@ -75,6 +78,7 @@ export interface PatchConversationPayload {
   title?: string;
   isTitleGenerating?: boolean;
   jobDescription?: string;
+  jobDescriptionConfig?: JobDescriptionConfig | null;
   resumeImports?: Record<string, string>;
 }
 

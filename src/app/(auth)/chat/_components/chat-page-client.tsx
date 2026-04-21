@@ -2,7 +2,11 @@
 
 import type { ChatStatus, DynamicToolUIPart, FileUIPart, ToolUIPart, UIMessage } from "ai";
 import type { ConversationMessage } from "@/components/ai-elements/conversation";
+import type { JobDescriptionConfig } from "@/lib/job-description-config";
+import { deriveJobDescriptionText, getJobDescriptionLabel } from "@/lib/job-description-config";
+import type { JobDescriptionListRecord } from "@/lib/job-descriptions";
 import { useChat } from "@ai-sdk/react";
+import { useQuery } from "@tanstack/react-query";
 import { DefaultChatTransport, isToolUIPart } from "ai";
 import { useAtom, useAtomValue } from "jotai";
 import {
@@ -68,6 +72,7 @@ import { AssistantMessageGroups } from "@/components/assistant-message-groups";
 import { ResumeImportButton } from "@/components/resume-import-button";
 import { ThinkingBlock } from "@/components/thinking-block";
 import { TIME_DISPLAY_OPTIONS, TimeDisplay } from "@/components/time-display";
+import { ApplyJobDescriptionCard } from "@/components/tool-call/apply-job-description-card";
 import { ToolCall } from "@/components/tool-call/tool-call";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -88,6 +93,13 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -126,11 +138,18 @@ const noop = () => {
   // intentionally empty — used to force controlled-open menus
 };
 
-function getComposerStatusLabel(status: ChatStatus, hasJobDescription: boolean) {
+function getComposerStatusLabel(
+  status: ChatStatus,
+  hasJobDescription: boolean,
+  jobDescriptionLabel: string | null,
+) {
   if (status === "streaming") {
     return "正在分析简历内容…";
   }
-  return hasJobDescription ? "已配置岗位描述（JD）" : "未配置岗位描述（可在岗位设置中配置）";
+  if (!hasJobDescription) {
+    return "未配置在招岗位信息（可在岗位设置中配置）";
+  }
+  return jobDescriptionLabel ? `在招岗位：${jobDescriptionLabel}` : "已配置在招岗位信息";
 }
 
 function getInitials(name?: string | null, email?: string | null) {
@@ -450,6 +469,7 @@ function ComposerFooter({
   downloadableMessages,
   input,
   hasJobDescription,
+  jobDescriptionLabel,
   onClearJobDescription,
   onOpenJobDescriptionSettings,
   status,
@@ -458,6 +478,7 @@ function ComposerFooter({
   downloadableMessages: ConversationMessage[];
   input: string;
   hasJobDescription: boolean;
+  jobDescriptionLabel: string | null;
   onClearJobDescription: () => void;
   onOpenJobDescriptionSettings: () => void;
   status: ChatStatus;
@@ -546,7 +567,7 @@ function ComposerFooter({
               }}
             >
               <FileTextIcon className="mr-2 size-4" />
-              设置岗位描述（JD）
+              设置在招岗位信息
             </PromptInputActionMenuItem>
 
             <PromptInputActionMenuItem
@@ -557,7 +578,7 @@ function ComposerFooter({
               }}
             >
               <Trash2Icon className="mr-2 size-4" />
-              清空岗位描述
+              清空在招岗位信息
             </PromptInputActionMenuItem>
           </PromptInputActionMenuContent>
         </PromptInputActionMenu>
@@ -581,7 +602,7 @@ function ComposerFooter({
 
       <div className="flex items-center gap-2">
         <span className="hidden text-muted-foreground select-none pointer-events-none text-xs sm:inline">
-          {getComposerStatusLabel(status, displayHasJD)}
+          {getComposerStatusLabel(status, displayHasJD, jobDescriptionLabel)}
         </span>
         <PromptInputSubmit
           data-tour="send-button"
@@ -609,8 +630,12 @@ export default function ChatPageClient({ initialSessionId }: { initialSessionId:
   const [historyErrorMessage, setHistoryErrorMessage] = useState<string | null>(null);
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
   const [isJobDescriptionDialogOpen, setIsJobDescriptionDialogOpen] = useState(false);
-  const [jobDescription, setJobDescription] = useState("");
+  const [jobDescriptionConfig, setJobDescriptionConfig] = useState<JobDescriptionConfig | null>(
+    null,
+  );
   const [jobDescriptionDraft, setJobDescriptionDraft] = useState("");
+  const [jobDescriptionMode, setJobDescriptionMode] = useState<"select" | "custom">("select");
+  const [selectedJobDescriptionId, setSelectedJobDescriptionId] = useState<string>("");
   const [uploadErrorMessage, setUploadErrorMessage] = useState<string | null>(null);
   const [resumeImports, setResumeImports] = useState<Record<string, string>>({});
   // Tracks whether we expect a model response right now. Set optimistically in
@@ -637,9 +662,13 @@ export default function ChatPageClient({ initialSessionId }: { initialSessionId:
     authClient.signOut();
   }, []);
 
+  const jobDescriptionText = deriveJobDescriptionText(jobDescriptionConfig);
+  const hasJobDescription = jobDescriptionText.length > 0;
+  const jobDescriptionLabel = getJobDescriptionLabel(jobDescriptionConfig);
+
   // Refs for dynamic body values — the transport body function reads these
   // so that auto-submit requests always carry the latest values.
-  const jobDescriptionRef = useRef(jobDescription);
+  const jobDescriptionRef = useRef<string>("");
   const thinkingModeRef = useRef(thinkingMode);
   const activeConversationIdRef = useRef(activeConversationId);
   // Guards `sendMessageToChat` from re-entry on rapid double-clicks. Released
@@ -655,8 +684,8 @@ export default function ChatPageClient({ initialSessionId }: { initialSessionId:
     [],
   );
   useEffect(() => {
-    jobDescriptionRef.current = jobDescription;
-  }, [jobDescription]);
+    jobDescriptionRef.current = jobDescriptionText;
+  }, [jobDescriptionText]);
   useEffect(() => {
     thinkingModeRef.current = thinkingMode;
   }, [thinkingMode]);
@@ -708,42 +737,49 @@ export default function ChatPageClient({ initialSessionId }: { initialSessionId:
     [],
   );
 
-  const { messages, sendMessage, setMessages, status, stop, error, regenerate, clearError } =
-    useChat({
-      onFinish: ({ message, isAbort, isDisconnect, isError }) => {
-        if (message.role !== "assistant") {
-          return;
-        }
-        notifyConversationsChanged();
+  const {
+    addToolResult,
+    messages,
+    sendMessage,
+    setMessages,
+    status,
+    stop,
+    error,
+    regenerate,
+    clearError,
+  } = useChat({
+    onFinish: ({ message, isAbort, isDisconnect, isError }) => {
+      if (message.role !== "assistant") {
+        return;
+      }
+      notifyConversationsChanged();
 
-        // The server's /api/resume onFinish only fires on a clean finish. For
-        // aborts, disconnects, or upstream errors we persist what's in memory
-        // so the partial assistant reply is not lost on refresh.
-        if (!(isAbort || isDisconnect || isError)) {
-          return;
+      // The server's /api/resume onFinish only fires on a clean finish. For
+      // aborts, disconnects, or upstream errors we persist what's in memory
+      // so the partial assistant reply is not lost on refresh.
+      if (!(isAbort || isDisconnect || isError)) {
+        return;
+      }
+      const conversationId = activeConversationIdRef.current;
+      if (!conversationId) {
+        return;
+      }
+      void (async () => {
+        try {
+          await upsertChatMessageOnServer(conversationId, message);
+        } catch (persistError) {
+          console.error("[chat] client-side persist failed", persistError);
         }
-        const conversationId = activeConversationIdRef.current;
-        if (!conversationId) {
-          return;
-        }
-        void (async () => {
-          try {
-            await upsertChatMessageOnServer(conversationId, message);
-          } catch (persistError) {
-            console.error("[chat] client-side persist failed", persistError);
-          }
-        })();
-      },
-      sendAutomaticallyWhen: shouldAutoSubmit,
-      transport,
-    });
+      })();
+    },
+    sendAutomaticallyWhen: shouldAutoSubmit,
+    transport,
+  });
 
   const downloadableMessages = useMemo(() => messages.map(toDownloadMessage), [messages]);
 
   const displayInput =
     tutorialStep !== null && tutorialStep >= 2 && input === "" ? TUTORIAL_MOCK_INPUT_TEXT : input;
-  const normalizedJobDescription = jobDescription.trim();
-  const hasJobDescription = normalizedJobDescription.length > 0;
 
   const isChatInFlight = (status === "submitted" || status === "streaming") && !userStopped;
   // Treat the loop as still running while `hasPendingResponse` is true so that
@@ -834,7 +870,8 @@ export default function ChatPageClient({ initialSessionId }: { initialSessionId:
       createdAt: now,
       id,
       isTitleGenerating: withGeneratingTitle ?? false,
-      jobDescription: jobDescription.trim(),
+      jobDescription: jobDescriptionText,
+      jobDescriptionConfig,
       resumeImports,
       title: derivedTitle,
     });
@@ -950,8 +987,23 @@ export default function ChatPageClient({ initialSessionId }: { initialSessionId:
       setMessages(conversation.messages);
       setInput("");
       setHistoryErrorMessage(null);
-      setJobDescription(conversation.jobDescription);
-      setJobDescriptionDraft(conversation.jobDescription);
+      // Prefer structured config; fall back to legacy text-only conversations by treating them as custom mode.
+      const legacyText = conversation.jobDescription.trim();
+      let hydratedConfig: JobDescriptionConfig | null = null;
+      if (conversation.jobDescriptionConfig) {
+        hydratedConfig = conversation.jobDescriptionConfig;
+      } else if (legacyText) {
+        hydratedConfig = { mode: "custom", text: conversation.jobDescription };
+      }
+      setJobDescriptionConfig(hydratedConfig);
+      let hydratedDraft = "";
+      if (hydratedConfig?.mode === "custom") {
+        hydratedDraft = hydratedConfig.text;
+      }
+      setJobDescriptionDraft(hydratedDraft);
+      setSelectedJobDescriptionId(
+        hydratedConfig?.mode === "select" ? hydratedConfig.jobDescriptionId : "",
+      );
       setResumeImports(conversation.resumeImports ?? {});
       setUploadErrorMessage(null);
       setIsJobDescriptionDialogOpen(false);
@@ -965,8 +1017,9 @@ export default function ChatPageClient({ initialSessionId }: { initialSessionId:
     setActiveConversationId(null);
     setMessages([]);
     setInput("");
-    setJobDescription("");
+    setJobDescriptionConfig(null);
     setJobDescriptionDraft("");
+    setSelectedJobDescriptionId("");
     setResumeImports({});
     setUploadErrorMessage(null);
     setHistoryErrorMessage(null);
@@ -1046,7 +1099,8 @@ export default function ChatPageClient({ initialSessionId }: { initialSessionId:
       void (async () => {
         try {
           await patchConversation(activeConversationId, {
-            jobDescription: jobDescription.trim(),
+            jobDescription: jobDescriptionText,
+            jobDescriptionConfig,
             resumeImports,
           });
         } catch {
@@ -1056,22 +1110,124 @@ export default function ChatPageClient({ initialSessionId }: { initialSessionId:
     }, 400);
 
     return () => window.clearTimeout(saveTimer);
-  }, [activeConversationId, isHistoryReady, jobDescription, resumeImports]);
+  }, [
+    activeConversationId,
+    isHistoryReady,
+    jobDescriptionConfig,
+    jobDescriptionText,
+    resumeImports,
+  ]);
+
+  const { data: jobDescriptionOptions = [], refetch: refetchJobDescriptionOptions } = useQuery({
+    queryFn: async (): Promise<JobDescriptionListRecord[]> => {
+      const response = await fetch("/api/studio/job-descriptions/all");
+      if (!response.ok) {
+        throw new Error("加载在招岗位列表失败");
+      }
+      const payload = (await response.json()) as { records: JobDescriptionListRecord[] };
+      return payload.records;
+    },
+    queryKey: ["job-descriptions", "all"],
+    staleTime: 60_000,
+  });
 
   const openJobDescriptionDialog = () => {
-    setJobDescriptionDraft(jobDescription);
+    if (jobDescriptionConfig?.mode === "select") {
+      setJobDescriptionMode("select");
+      setSelectedJobDescriptionId(jobDescriptionConfig.jobDescriptionId);
+      setJobDescriptionDraft("");
+    } else if (jobDescriptionConfig?.mode === "custom") {
+      setJobDescriptionMode("custom");
+      setSelectedJobDescriptionId("");
+      setJobDescriptionDraft(jobDescriptionConfig.text);
+    } else {
+      setJobDescriptionMode("select");
+      setSelectedJobDescriptionId("");
+      setJobDescriptionDraft("");
+    }
     setIsJobDescriptionDialogOpen(true);
   };
 
   const saveJobDescription = () => {
-    setJobDescription(jobDescriptionDraft.trim());
+    if (jobDescriptionMode === "select") {
+      const selected = jobDescriptionOptions.find((item) => item.id === selectedJobDescriptionId);
+      if (selected) {
+        setJobDescriptionConfig({
+          departmentName: selected.departmentName,
+          jobDescriptionId: selected.id,
+          mode: "select",
+          name: selected.name,
+          prompt: selected.prompt,
+        });
+      } else {
+        setJobDescriptionConfig(null);
+      }
+    } else {
+      const text = jobDescriptionDraft.trim();
+      setJobDescriptionConfig(text ? { mode: "custom", text } : null);
+    }
     setIsJobDescriptionDialogOpen(false);
   };
 
   const clearJobDescription = () => {
-    setJobDescription("");
+    setJobDescriptionConfig(null);
     setJobDescriptionDraft("");
+    setSelectedJobDescriptionId("");
   };
+
+  const selectedJobDescriptionPreview = jobDescriptionOptions.find(
+    (item) => item.id === selectedJobDescriptionId,
+  );
+
+  const handleApplyJobDescriptionConfirm = useCallback(
+    async (toolCallId: string, jobDescriptionId: string) => {
+      if (!toolCallId) {
+        return;
+      }
+      // Ensure we have the full posting record to extract prompt/departmentName.
+      let record = jobDescriptionOptions.find((item) => item.id === jobDescriptionId) ?? null;
+      if (!record) {
+        const result = await refetchJobDescriptionOptions();
+        record = result.data?.find((item) => item.id === jobDescriptionId) ?? null;
+      }
+      if (!record) {
+        setHistoryErrorMessage("未找到该在招岗位，可能已被删除，请重新选择。");
+        await addToolResult({
+          output: { action: "ignore" as const },
+          tool: "apply_job_description",
+          toolCallId,
+        });
+        return;
+      }
+      setJobDescriptionConfig({
+        departmentName: record.departmentName,
+        jobDescriptionId: record.id,
+        mode: "select",
+        name: record.name,
+        prompt: record.prompt,
+      });
+      await addToolResult({
+        output: { action: "confirm" as const, jobDescriptionId },
+        tool: "apply_job_description",
+        toolCallId,
+      });
+    },
+    [addToolResult, jobDescriptionOptions, refetchJobDescriptionOptions],
+  );
+
+  const handleApplyJobDescriptionIgnore = useCallback(
+    async (toolCallId: string) => {
+      if (!toolCallId) {
+        return;
+      }
+      await addToolResult({
+        output: { action: "ignore" as const },
+        tool: "apply_job_description",
+        toolCallId,
+      });
+    },
+    [addToolResult],
+  );
 
   // Override the transport ref for explicit re-runs: on the first send of a
   // new conversation, `activeConversationIdRef` hasn't committed yet, so we
@@ -1359,14 +1515,31 @@ export default function ChatPageClient({ initialSessionId }: { initialSessionId:
                                       );
                                     }
 
-                                    if (isToolPart(part) && isExpanded) {
-                                      return (
-                                        <ToolCall
-                                          key={`${message.id}-${part.type}-${index}`}
-                                          part={part}
-                                          isStreaming={isMessageStreaming}
-                                        />
-                                      );
+                                    if (isToolPart(part)) {
+                                      const toolName =
+                                        part.type === "dynamic-tool"
+                                          ? part.toolName
+                                          : part.type.replace(/^tool-/, "");
+                                      if (toolName === "apply_job_description") {
+                                        return (
+                                          <ApplyJobDescriptionCard
+                                            key={`${message.id}-${part.type}-${index}`}
+                                            onConfirm={handleApplyJobDescriptionConfirm}
+                                            onIgnore={handleApplyJobDescriptionIgnore}
+                                            part={part}
+                                          />
+                                        );
+                                      }
+                                      if (isExpanded) {
+                                        return (
+                                          <ToolCall
+                                            key={`${message.id}-${part.type}-${index}`}
+                                            isStreaming={isMessageStreaming}
+                                            part={part}
+                                          />
+                                        );
+                                      }
+                                      return null;
                                     }
 
                                     if (part.type === "reasoning" && isExpanded) {
@@ -1610,6 +1783,7 @@ export default function ChatPageClient({ initialSessionId }: { initialSessionId:
           downloadableMessages={downloadableMessages}
           hasJobDescription={hasJobDescription}
           input={input}
+          jobDescriptionLabel={jobDescriptionLabel}
           onClearJobDescription={clearJobDescription}
           onOpenJobDescriptionSettings={openJobDescriptionDialog}
           status={effectiveStatus}
@@ -1620,28 +1794,88 @@ export default function ChatPageClient({ initialSessionId }: { initialSessionId:
       <Dialog onOpenChange={setIsJobDescriptionDialogOpen} open={isJobDescriptionDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>岗位描述（JD）设置</DialogTitle>
+            <DialogTitle>在招岗位信息设置</DialogTitle>
             <DialogDescription>
-              这里填写的 JD 会作为简历评估的辅助上下文；若你在对话中明确给出
-              JD，模型会优先使用你在对话中提供的版本。
+              选择后台已配置的在招岗位，或手动填写 JD 作为简历评估的上下文。若你在对话中明确给出
+              JD，模型会优先使用对话中提供的版本。
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-2">
-            <label className="font-medium  text-sm" htmlFor="job-description">
-              岗位描述内容
-            </label>
-            <textarea
-              autoComplete="off"
-              className="min-h-40 mt-2 w-full rounded-xl border border-border/70 bg-background p-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              id="job-description"
-              name="jobDescription"
-              onChange={(event) => setJobDescriptionDraft(event.currentTarget.value)}
-              placeholder="例如：前端开发岗位，要求 React/TypeScript 基础，有完整项目经历或相关工作/实习经验…"
-              spellCheck={false}
-              value={jobDescriptionDraft}
+          <div className="flex items-center justify-between gap-3 rounded-xl border border-border/60 bg-muted/40 px-4 py-3">
+            <div className="space-y-0.5">
+              <div className="font-medium text-sm">从在招岗位中选择</div>
+              <div className="text-muted-foreground text-xs">关闭则手动填写自定义 JD</div>
+            </div>
+            <Switch
+              checked={jobDescriptionMode === "select"}
+              onCheckedChange={(next) => setJobDescriptionMode(next ? "select" : "custom")}
             />
           </div>
+
+          {jobDescriptionMode === "select" ? (
+            <div className="space-y-2">
+              <Label htmlFor="job-description-select">选择在招岗位</Label>
+              <Select
+                onValueChange={(next) => setSelectedJobDescriptionId(next)}
+                value={selectedJobDescriptionId || undefined}
+              >
+                <SelectTrigger className="w-full h-13!" id="job-description-select">
+                  <SelectValue
+                    placeholder={
+                      jobDescriptionOptions.length === 0 ? "暂无已配置的在招岗位" : "请选择在招岗位"
+                    }
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  {jobDescriptionOptions.map((jd) => (
+                    <SelectItem key={jd.id} value={jd.id}>
+                      <div className="flex w-full flex-col items-start text-left">
+                        <span>
+                          {jd.departmentName ? `${jd.departmentName} / ` : ""}
+                          {jd.name}
+                        </span>
+                        {jd.description ? (
+                          <span className="line-clamp-1 text-muted-foreground text-xs">
+                            {jd.description}
+                          </span>
+                        ) : null}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {selectedJobDescriptionPreview ? (
+                <div className="max-h-48 overflow-auto rounded-lg border border-border/60 bg-muted/30 p-3 text-muted-foreground text-xs">
+                  <div className="mb-1 font-medium text-foreground">
+                    {selectedJobDescriptionPreview.name}
+                  </div>
+                  <pre className="whitespace-pre-wrap font-sans">
+                    {selectedJobDescriptionPreview.prompt}
+                  </pre>
+                </div>
+              ) : (
+                <p className="text-muted-foreground text-xs">
+                  选中后会把岗位名称与 prompt 作为评估上下文传给 Agent。
+                </p>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <label className="font-medium text-sm" htmlFor="job-description">
+                自定义 JD 内容
+              </label>
+              <textarea
+                autoComplete="off"
+                className="min-h-40 mt-2 w-full rounded-xl border border-border/70 bg-background p-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                id="job-description"
+                name="jobDescription"
+                onChange={(event) => setJobDescriptionDraft(event.currentTarget.value)}
+                placeholder="例如：前端开发岗位，要求 React/TypeScript 基础，有完整项目经历或相关工作/实习经验…"
+                spellCheck={false}
+                value={jobDescriptionDraft}
+              />
+            </div>
+          )}
 
           <DialogFooter>
             <Button
@@ -1654,8 +1888,12 @@ export default function ChatPageClient({ initialSessionId }: { initialSessionId:
             >
               清空
             </Button>
-            <Button onClick={saveJobDescription} type="button">
-              保存 JD
+            <Button
+              disabled={jobDescriptionMode === "select" && !selectedJobDescriptionId}
+              onClick={saveJobDescription}
+              type="button"
+            >
+              保存
             </Button>
           </DialogFooter>
         </DialogContent>
