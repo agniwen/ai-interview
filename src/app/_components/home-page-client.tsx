@@ -119,10 +119,11 @@ export default function HomePageClient() {
           <FadeContent className="mt-8 flex items-center justify-center sm:mt-10" delay={0.2}>
             <div className="inline-flex items-stretch">
               <Button
-                className="group h-11 border-r-0 gap-0 rounded-r-none rounded-l-full px-8 text-sm sm:h-12 sm:px-10 sm:text-base"
+                className="group h-11  gap-0  border-primary/40 hover:bg-primary/40! bg-primary/20! rounded-r-none rounded-l-xl px-8 text-sm sm:h-12 sm:px-10 sm:text-base"
                 disabled={isPending}
                 onClick={() => handleProtectedNavigation("/chat")}
                 type="button"
+                variant="outline"
               >
                 <span>进入简历筛选</span>
                 <span className="inline-flex max-w-0 overflow-hidden opacity-0 transition-all duration-300 ease-out group-hover:ml-2 group-hover:max-w-4 group-hover:opacity-100">
@@ -130,7 +131,7 @@ export default function HomePageClient() {
                 </span>
               </Button>
               <Button
-                className="group -ml-px h-11 border-l-0 gap-0 rounded-r-full rounded-l-none border-input bg-background/60 px-8 text-sm backdrop-blur-md hover:bg-background/80 sm:h-12 sm:px-10 sm:text-base"
+                className="group  h-11  gap-0 rounded-r-xl rounded-l-none border-background bg-background/60 px-8 text-sm backdrop-blur-md hover:bg-background/80 sm:h-12 sm:px-10 sm:text-base"
                 disabled={isPending}
                 onClick={handleInterviewClick}
                 type="button"
@@ -157,8 +158,8 @@ export default function HomePageClient() {
                   delay={0.34 + index * 0.1}
                   key={item.title}
                 >
-                  <div className="mx-auto mb-3 flex size-10 items-center justify-center rounded-full bg-primary/8 text-primary ring-1 ring-primary/10">
-                    <Icon aria-hidden="true" className="size-5" />
+                  <div className="mx-auto mb-3 flex size-14 items-center justify-center rounded-2xl bg-primary/8 text-primary ring-1 ring-primary/10">
+                    <Icon aria-hidden="true" className="size-6" />
                   </div>
                   <h3 className="relative font-semibold text-foreground text-sm sm:text-base">
                     {item.title}
