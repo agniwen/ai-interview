@@ -252,9 +252,7 @@ class SpeechStream(stt.SpeechStream):
                     asyncio.create_task(send_task(ws)),
                     asyncio.create_task(recv_task(ws)),
                 ]
-                wait_reconnect_task = asyncio.create_task(
-                    self._reconnect_event.wait()
-                )
+                wait_reconnect_task = asyncio.create_task(self._reconnect_event.wait())
                 try:
                     done, _ = await asyncio.wait(
                         [asyncio.gather(*tasks), wait_reconnect_task],
