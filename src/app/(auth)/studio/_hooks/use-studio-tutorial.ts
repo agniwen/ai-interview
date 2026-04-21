@@ -1,19 +1,22 @@
 "use client";
 
+import type { DriveStep } from "driver.js";
 import { driver } from "driver.js";
 import { atom, getDefaultStore } from "jotai";
 import "driver.js/dist/driver.css";
+
+export type StudioTourKey = "interviews" | "departments" | "interviewers" | "job-descriptions";
 
 export const studioTutorialStepAtom = atom<number | null>(null);
 
 const store = getDefaultStore();
 
-/** Steps 0–4: page overview; steps 5–8: inside create dialog */
+/** Interviews tour — steps 0–4: page overview; steps 5–8: inside create dialog. */
 export const STUDIO_DIALOG_FIRST_STEP = 5;
 export const STUDIO_DIALOG_LAST_STEP = 8;
 export const STUDIO_QUESTIONS_TAB_STEP = 7;
 
-const TOUR_STEPS = [
+const INTERVIEWS_TOUR_STEPS: DriveStep[] = [
   {
     element: '[data-tour="studio-create-btn"]',
     popover: {
@@ -81,13 +84,117 @@ const TOUR_STEPS = [
   },
 ];
 
+const DEPARTMENTS_TOUR_STEPS: DriveStep[] = [
+  {
+    element: '[data-tour="studio-departments-search"]',
+    popover: {
+      description: "输入部门名称或描述关键字进行筛选，支持模糊匹配。",
+      title: "搜索部门",
+    },
+  },
+  {
+    element: '[data-tour="studio-departments-create"]',
+    popover: {
+      description: "点击创建一个新的业务部门，作为面试官和在招岗位的组织维度。",
+      title: "新建部门",
+    },
+  },
+  {
+    element: '[data-tour="studio-departments-table"]',
+    popover: {
+      description:
+        "展示所有部门及其描述、引用情况（被多少面试官和在招岗位关联）以及创建时间。仍被引用的部门无法直接删除。",
+      title: "部门列表",
+    },
+  },
+];
+
+const INTERVIEWERS_TOUR_STEPS: DriveStep[] = [
+  {
+    element: '[data-tour="studio-interviewers-search"]',
+    popover: {
+      description: "根据面试官名称或描述进行快速检索。",
+      title: "搜索面试官",
+    },
+  },
+  {
+    element: '[data-tour="studio-interviewers-department-filter"]',
+    popover: {
+      description: "按所属部门过滤，快速定位某个团队的面试官。",
+      title: "按部门筛选",
+    },
+  },
+  {
+    element: '[data-tour="studio-interviewers-create"]',
+    popover: {
+      description: "创建一个 AI 面试官，配置 prompt 风格与 TTS 音色，供在招岗位引用。",
+      title: "新建面试官",
+    },
+  },
+  {
+    element: '[data-tour="studio-interviewers-table"]',
+    popover: {
+      description: "展示面试官的所属部门、音色和被引用的岗位数量。被岗位引用中的面试官无法删除。",
+      title: "面试官列表",
+    },
+  },
+];
+
+const JOB_DESCRIPTIONS_TOUR_STEPS: DriveStep[] = [
+  {
+    element: '[data-tour="studio-jobs-search"]',
+    popover: {
+      description: "根据岗位名称或描述进行搜索。",
+      title: "搜索岗位",
+    },
+  },
+  {
+    element: '[data-tour="studio-jobs-department-filter"]',
+    popover: {
+      description: "按部门筛选该部门下的所有在招岗位。",
+      title: "按部门筛选",
+    },
+  },
+  {
+    element: '[data-tour="studio-jobs-interviewer-filter"]',
+    popover: {
+      description: "按面试官筛选，查看某位面试官关联的岗位。",
+      title: "按面试官筛选",
+    },
+  },
+  {
+    element: '[data-tour="studio-jobs-create"]',
+    popover: {
+      description:
+        "创建一个在招岗位，填写岗位描述 prompt 并指定负责该岗位的面试官。岗位需要先有部门和面试官。",
+      title: "新建在招岗位",
+    },
+  },
+  {
+    element: '[data-tour="studio-jobs-table"]',
+    popover: {
+      description:
+        "展示岗位的所属部门、关联的面试官列表和描述。岗位可以被面试记录引用，作为候选人的目标岗位。",
+      title: "岗位列表",
+    },
+  },
+];
+
+const TOUR_STEPS_BY_KEY: Record<StudioTourKey, DriveStep[]> = {
+  departments: DEPARTMENTS_TOUR_STEPS,
+  interviewers: INTERVIEWERS_TOUR_STEPS,
+  interviews: INTERVIEWS_TOUR_STEPS,
+  "job-descriptions": JOB_DESCRIPTIONS_TOUR_STEPS,
+};
+
 let currentDriverInstance: ReturnType<typeof driver> | null = null;
 
 export function refreshStudioTutorialHighlight() {
   currentDriverInstance?.refresh();
 }
 
-function createDriverInstance() {
+function createDriverInstance(tourKey: StudioTourKey) {
+  const steps = TOUR_STEPS_BY_KEY[tourKey];
   const instance = driver({
     allowClose: true,
     doneBtnText: "完成",
@@ -103,7 +210,7 @@ function createDriverInstance() {
     prevBtnText: "上一步",
     progressText: "{{current}} / {{total}}",
     showProgress: true,
-    steps: TOUR_STEPS.map((step, index) => ({
+    steps: steps.map((step, index) => ({
       ...step,
       onHighlightStarted: () => {
         store.set(studioTutorialStepAtom, index);
@@ -118,8 +225,8 @@ function createDriverInstance() {
 // eslint-disable-next-line react/no-unnecessary-use-prefix
 export function useStudioTutorial() {
   return {
-    startTutorial: () => {
-      const d = createDriverInstance();
+    startTutorial: (tourKey: StudioTourKey) => {
+      const d = createDriverInstance(tourKey);
       d.drive();
     },
   };

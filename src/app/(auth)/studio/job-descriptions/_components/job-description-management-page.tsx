@@ -227,7 +227,7 @@ export function JobDescriptionManagementPage({
         </header>
 
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-          <div className="relative min-w-60">
+          <div className="relative min-w-60" data-tour="studio-jobs-search">
             <SearchIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               className="pr-9 pl-9"
@@ -240,7 +240,7 @@ export function JobDescriptionManagementPage({
             ) : null}
           </div>
           <Select onValueChange={setDepartmentFilter} value={departmentFilter}>
-            <SelectTrigger className="min-w-40">
+            <SelectTrigger className="min-w-40" data-tour="studio-jobs-department-filter">
               <SelectValue placeholder="按部门筛选" />
             </SelectTrigger>
             <SelectContent>
@@ -253,7 +253,7 @@ export function JobDescriptionManagementPage({
             </SelectContent>
           </Select>
           <Select onValueChange={setInterviewerFilter} value={interviewerFilter}>
-            <SelectTrigger className="min-w-48">
+            <SelectTrigger className="min-w-48" data-tour="studio-jobs-interviewer-filter">
               <SelectValue placeholder="按面试官筛选" />
             </SelectTrigger>
             <SelectContent>
@@ -276,7 +276,12 @@ export function JobDescriptionManagementPage({
             <RefreshCwIcon className="size-4" />
             <span className="sr-only">刷新</span>
           </Button>
-          <Button disabled={missingRefs} onClick={openCreate} variant="outline">
+          <Button
+            data-tour="studio-jobs-create"
+            disabled={missingRefs}
+            onClick={openCreate}
+            variant="outline"
+          >
             <PlusIcon className="size-4" />
             新建在招岗位
           </Button>
@@ -296,7 +301,7 @@ export function JobDescriptionManagementPage({
           </Empty>
         ) : null}
         {!missingRefs && records.length > 0 ? (
-          <Card className="overflow-hidden py-0">
+          <Card className="overflow-hidden py-0" data-tour="studio-jobs-table">
             <Table>
               <TableHeader>
                 <TableRow>

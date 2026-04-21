@@ -184,7 +184,7 @@ export function DepartmentManagementPage({
         </header>
 
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-          <div className="relative min-w-60">
+          <div className="relative min-w-60" data-tour="studio-departments-search">
             <SearchIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               className="pr-9 pl-9"
@@ -205,14 +205,14 @@ export function DepartmentManagementPage({
             <RefreshCwIcon className="size-4" />
             <span className="sr-only">刷新</span>
           </Button>
-          <Button onClick={openCreate} variant="outline">
+          <Button data-tour="studio-departments-create" onClick={openCreate} variant="outline">
             <PlusIcon className="size-4" />
             新建部门
           </Button>
         </div>
 
         {records.length > 0 ? (
-          <Card className="overflow-hidden py-0">
+          <Card className="overflow-hidden py-0" data-tour="studio-departments-table">
             <Table>
               <TableHeader>
                 <TableRow>

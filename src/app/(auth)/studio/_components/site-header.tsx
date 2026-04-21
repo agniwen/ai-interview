@@ -1,6 +1,8 @@
 "use client";
 
+import { CircleHelpIcon } from "lucide-react";
 import { usePathname } from "next/navigation";
+import type { StudioTourKey } from "@/app/(auth)/studio/_hooks/use-studio-tutorial";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -8,29 +10,45 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
+import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { SidebarTrigger } from "@/components/ui/sidebar";
+import { useStudioTutorialContext } from "./studio-tutorial-provider";
 
-const routeTitles: Record<string, string> = {
-  "/studio/interviews": "AI 面试管理",
-};
+interface RouteMeta {
+  title: string;
+  tour: StudioTourKey;
+}
 
-function getRouteTitle(pathname: string) {
-  for (const [prefix, title] of Object.entries(routeTitles)) {
+const ROUTE_META: { prefix: string; meta: RouteMeta }[] = [
+  { meta: { title: "AI 面试管理", tour: "interviews" }, prefix: "/studio/interviews" },
+  { meta: { title: "部门管理", tour: "departments" }, prefix: "/studio/departments" },
+  { meta: { title: "面试官管理", tour: "interviewers" }, prefix: "/studio/interviewers" },
+  {
+    meta: { title: "在招岗位管理", tour: "job-descriptions" },
+    prefix: "/studio/job-descriptions",
+  },
+];
+
+const DEFAULT_META: RouteMeta = { title: "AI 面试管理", tour: "interviews" };
+
+function resolveRouteMeta(pathname: string): RouteMeta {
+  for (const { prefix, meta } of ROUTE_META) {
     if (pathname.startsWith(prefix)) {
-      return title;
+      return meta;
     }
   }
 
-  return "AI 面试管理";
+  return DEFAULT_META;
 }
 
 export function SiteHeader() {
   const pathname = usePathname();
-  const title = getRouteTitle(pathname);
+  const { title, tour } = resolveRouteMeta(pathname);
+  const { startTutorial } = useStudioTutorialContext();
 
   return (
-    <header className="flex h-(--header-height) shrink-0 items-center gap-2 border-b px-4 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-(--header-height)">
+    <header className="flex h-(--header-height) shrink-0 items-center justify-between gap-2 border-b px-4 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-(--header-height)">
       <div className="flex items-center gap-2">
         <SidebarTrigger className="-ml-1" />
         <Separator className="mx-2 data-[orientation=vertical]:h-4" orientation="vertical" />
@@ -44,6 +62,10 @@ export function SiteHeader() {
           </BreadcrumbList>
         </Breadcrumb>
       </div>
+      <Button onClick={() => startTutorial(tour)} size="sm" variant="ghost">
+        <CircleHelpIcon className="size-4" />
+        使用教程
+      </Button>
     </header>
   );
 }

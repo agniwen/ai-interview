@@ -17,7 +17,6 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar";
-import { useStudioTutorialContext } from "./studio-tutorial-provider";
 
 const navItems = [
   {
@@ -45,7 +44,6 @@ const navItems = [
 export function StudioSidebarSlots() {
   const pathname = usePathname();
   const { state } = useSidebar();
-  const { startTutorial } = useStudioTutorialContext();
 
   const isActive = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
 
@@ -79,7 +77,7 @@ export function StudioSidebarSlots() {
         <SidebarUserSection
           callbackURL="/studio"
           collapsed={state === "collapsed"}
-          onStartTutorial={startTutorial}
+          showHomeLink={false}
         />
       </SidebarFooterPortalContent>
     </>

@@ -43,10 +43,12 @@ export function SidebarUserSection({
   collapsed,
   callbackURL = "/",
   onStartTutorial,
+  showHomeLink = true,
 }: {
   collapsed: boolean;
   callbackURL?: string;
   onStartTutorial?: () => void;
+  showHomeLink?: boolean;
 }) {
   const router = useRouter();
   const isHydrated = useHydrated();
@@ -103,12 +105,14 @@ export function SidebarUserSection({
               使用教程
             </DropdownMenuItem>
           ) : null}
-          <DropdownMenuItem asChild>
-            <Link href="/">
-              <HouseIcon className="mr-2 size-4" />
-              返回首页
-            </Link>
-          </DropdownMenuItem>
+          {showHomeLink ? (
+            <DropdownMenuItem asChild>
+              <Link href="/">
+                <HouseIcon className="mr-2 size-4" />
+                返回首页
+              </Link>
+            </DropdownMenuItem>
+          ) : null}
           <ThemeSubMenu />
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={handleSignOut} variant="destructive">
@@ -153,12 +157,14 @@ export function SidebarUserSection({
               使用教程
             </DropdownMenuItem>
           ) : null}
-          <DropdownMenuItem asChild>
-            <Link href="/">
-              <HouseIcon className="mr-2 size-4" />
-              返回首页
-            </Link>
-          </DropdownMenuItem>
+          {showHomeLink ? (
+            <DropdownMenuItem asChild>
+              <Link href="/">
+                <HouseIcon className="mr-2 size-4" />
+                返回首页
+              </Link>
+            </DropdownMenuItem>
+          ) : null}
           <ThemeSubMenu />
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={handleSignOut} variant="destructive">

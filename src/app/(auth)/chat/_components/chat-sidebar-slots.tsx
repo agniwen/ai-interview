@@ -354,13 +354,6 @@ export function ChatSidebarSlots() {
     }
   }, [activeSessionId, deleteTarget, refreshConversationList, router]);
 
-  const handleStartTutorial = useCallback(() => {
-    if (isMobile) {
-      setOpenMobile(false);
-    }
-    window.dispatchEvent(new CustomEvent("chat:start-tutorial"));
-  }, [isMobile, setOpenMobile]);
-
   return (
     <>
       <SidebarHeaderPortalContent>
@@ -379,7 +372,7 @@ export function ChatSidebarSlots() {
         <SidebarUserSection
           callbackURL="/chat"
           collapsed={state === "collapsed"}
-          onStartTutorial={handleStartTutorial}
+          showHomeLink={false}
         />
       </SidebarFooterPortalContent>
 
