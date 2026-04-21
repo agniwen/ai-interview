@@ -75,6 +75,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { copyTextToClipboard, toAbsoluteUrl } from "@/lib/clipboard";
 import {
   scheduleEntryStatusMeta,
@@ -370,39 +371,60 @@ export function InterviewManagementPage({
           const record = row.original;
 
           return (
-            <DropdownMenu modal={false}>
-              <DropdownMenuTrigger asChild>
-                <Button className="size-8 p-0" variant="ghost">
-                  <MoreHorizontalIcon className="size-4" />
-                  <span className="sr-only">打开操作菜单</span>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-44">
-                <DropdownMenuLabel>操作</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onSelect={() => void copyInterviewLink(record)}>
-                  <CopyIcon className="size-4" />
-                  复制面试链接
-                </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => setDetailRecordId(record.id)}>
-                  <EyeIcon className="size-4" />
-                  查看详情
-                </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => setEditRecordId(record.id)}>
-                  <PencilIcon className="size-4" />
-                  编辑记录
-                </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => setDeleteRecord(record)} variant="destructive">
-                  <Trash2Icon className="size-4" />
-                  删除
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <div className="flex items-center justify-end gap-0.5">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    aria-label="查看详情"
+                    className="size-8"
+                    onClick={() => setDetailRecordId(record.id)}
+                    size="icon"
+                    variant="ghost"
+                  >
+                    <EyeIcon className="size-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>查看详情</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    aria-label="编辑记录"
+                    className="size-8"
+                    onClick={() => setEditRecordId(record.id)}
+                    size="icon"
+                    variant="ghost"
+                  >
+                    <PencilIcon className="size-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>编辑记录</TooltipContent>
+              </Tooltip>
+              <DropdownMenu modal={false}>
+                <DropdownMenuTrigger asChild>
+                  <Button aria-label="更多操作" className="size-8" size="icon" variant="ghost">
+                    <MoreHorizontalIcon className="size-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-44">
+                  <DropdownMenuLabel>更多操作</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onSelect={() => void copyInterviewLink(record)}>
+                    <CopyIcon className="size-4" />
+                    复制面试链接
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => setDeleteRecord(record)} variant="destructive">
+                    <Trash2Icon className="size-4" />
+                    删除
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           );
         },
         enableHiding: false,
         id: "actions",
-        size: 60,
+        size: 140,
       },
     ],
     [],

@@ -67,6 +67,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { JobDescriptionFormDialog } from "./job-description-form-dialog";
 
 const PAGE_SIZE_OPTIONS = [5, 10, 20, 50] as const;
@@ -304,7 +305,7 @@ export function JobDescriptionManagementPage({
                   <TableHead>面试官</TableHead>
                   <TableHead>描述</TableHead>
                   <TableHead>创建时间</TableHead>
-                  <TableHead className="w-12" />
+                  <TableHead className="w-24" />
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -337,29 +338,45 @@ export function JobDescriptionManagementPage({
                       <TimeDisplay options={DATE_TIME_DISPLAY_OPTIONS} value={record.createdAt} />
                     </TableCell>
                     <TableCell>
-                      <DropdownMenu modal={false}>
-                        <DropdownMenuTrigger asChild>
-                          <Button className="size-8 p-0" variant="ghost">
-                            <MoreHorizontalIcon className="size-4" />
-                            <span className="sr-only">打开操作菜单</span>
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-44">
-                          <DropdownMenuLabel>操作</DropdownMenuLabel>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem onSelect={() => void openEdit(record)}>
-                            <PencilIcon className="size-4" />
-                            编辑
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onSelect={() => setDeleteRecord(record)}
-                            variant="destructive"
-                          >
-                            <Trash2Icon className="size-4" />
-                            删除
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                      <div className="flex items-center justify-end gap-0.5">
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              aria-label="编辑岗位"
+                              className="size-8"
+                              onClick={() => void openEdit(record)}
+                              size="icon"
+                              variant="ghost"
+                            >
+                              <PencilIcon className="size-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>编辑岗位</TooltipContent>
+                        </Tooltip>
+                        <DropdownMenu modal={false}>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              aria-label="更多操作"
+                              className="size-8"
+                              size="icon"
+                              variant="ghost"
+                            >
+                              <MoreHorizontalIcon className="size-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-44">
+                            <DropdownMenuLabel>更多操作</DropdownMenuLabel>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              onSelect={() => setDeleteRecord(record)}
+                              variant="destructive"
+                            >
+                              <Trash2Icon className="size-4" />
+                              删除
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
