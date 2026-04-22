@@ -2,6 +2,7 @@ import type { UIMessage } from "ai";
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { zValidator } from "@hono/zod-validator";
 import { generateText } from "ai";
+import { withDevTools } from "@/server/agents/devtools";
 import { factory } from "@/server/factory";
 import { checkConversationOwner, upsertChatMessage } from "@/server/queries/chat";
 import { inlineAttachmentsForModel } from "./inline-attachments";
@@ -110,7 +111,7 @@ export const resumeRouter = factory
 
     try {
       const { text: titleText } = await generateText({
-        model: provider(modelId),
+        model: withDevTools(provider(modelId)),
         prompt: `你是会话标题助手。请根据用户第一条消息的意图生成一个中文标题。
 要求:
 - 只输出标题，不要任何解释

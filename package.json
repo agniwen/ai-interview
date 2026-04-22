@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "next dev",
+    "dev:ai": "npx @ai-sdk/devtools",
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc  --noEmit",
@@ -19,6 +20,7 @@
     "prepare": "lefthook install"
   },
   "dependencies": {
+    "@ai-sdk/devtools": "^0.0.15",
     "@ai-sdk/openai-compatible": "^2.0.41",
     "@ai-sdk/react": "^3.0.151",
     "@aws-sdk/client-s3": "^3.1032.0",

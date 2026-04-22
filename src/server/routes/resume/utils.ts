@@ -1,9 +1,10 @@
 import type { ModelMessage, UIMessage } from "ai";
 import type { ParsedResumePdf, UploadedResumePdf } from "@/lib/resume-pdf";
-import { generateText, tool } from "ai";
+import { tool } from "ai";
 import { z } from "zod";
-import { clipResumeText, extractResumeStructuredInfo, readPdfBytes } from "@/lib/resume-pdf";
+import { clipResumeText } from "@/lib/resume-pdf";
 import { createResumeAgent } from "@/server/agents/resume-agent";
+import type { ResumeParserResult } from "@/server/agents/resume-parser-agent";
 import { listAllJobDescriptions } from "@/server/queries/job-descriptions";
 
 // =====================================================================
@@ -493,6 +494,7 @@ export function buildAutoJobDescription(role: string): string {
 interface PdfToolDependencies {
   availableResumeNames: string[];
   parseUploadedResume: (file: UploadedResumePdf) => Promise<ParsedResumePdf>;
+  runResumeParserSubagent: (file: UploadedResumePdf) => Promise<ResumeParserResult>;
   selectResumeFiles: (resumeName?: string) => UploadedResumePdf[];
   uploadedResumePdfs: UploadedResumePdf[];
 }
@@ -685,99 +687,25 @@ export function createExtractResumePdfTextTool({
         .max(30_000)
         .optional()
         .describe("每份简历最多返回的字符数"),
-      resumeName: z.string().optional().describe("简历文件名关键词或从 1 开始的序号"),
+      resumeName: z
+        .string()
+        .optional()
+        .describe(
+          "仅在上传了多份简历且需要指向具体一份时传入，用从 1 开始的纯数字序号（如 '1'、'2'）；单份简历时不要传此参数，也不要传完整文件名。",
+        ),
     }),
   });
 }
 
-export function createAnalyzeResumePdfWithVisionTool({
+export function createParseResumeTool({
   availableResumeNames,
-  selectResumeFiles,
-  uploadedResumePdfs,
-}: Pick<PdfToolDependencies, "availableResumeNames" | "selectResumeFiles" | "uploadedResumePdfs">) {
-  return tool({
-    description:
-      "视觉分析工具：当 extract_resume_pdf_text 返回的文本质量差（乱码、空白、内容过少）或 PDF 简历内容主要为图片时，调用此工具使用视觉模型直接分析 PDF 内容。返回视觉模型提取的简历文本。",
-    execute: async ({ resumeName }) => {
-      if (uploadedResumePdfs.length === 0) {
-        return buildNoResumeResult();
-      }
-
-      const selected = selectResumeFiles(resumeName);
-
-      if (selected.length === 0) {
-        return buildResumeSelectorMissResult(availableResumeNames, resumeName);
-      }
-
-      const apiKey = process.env.AI_GATEWAY_API_KEY;
-
-      if (!apiKey) {
-        return {
-          count: 0,
-          error: "未配置 AI_GATEWAY_API_KEY，无法使用视觉分析。",
-          resumes: [],
-        };
-      }
-
-      const modelId = process.env.GOOGLE_VISION_MODEL ?? "google/gemini-2.5-flash";
-
-      const resumes = await Promise.all(
-        selected.map(async (file) => {
-          try {
-            const pdfBytes = await readPdfBytes(file.url);
-            const base64Data = Buffer.from(pdfBytes).toString("base64");
-
-            const { text } = await generateText({
-              messages: [
-                {
-                  content: [
-                    {
-                      data: base64Data,
-                      mediaType: "application/pdf",
-                      type: "file",
-                    },
-                    {
-                      text: "请完整提取这份 PDF 简历中的所有文字内容，包括图片中的文字。保持原始结构和排版顺序，不要遗漏任何信息。如果存在表格，用文字形式还原。只输出提取的内容，不要添加任何分析或评论。",
-                      type: "text",
-                    },
-                  ],
-                  role: "user",
-                },
-              ],
-              model: modelId,
-            });
-
-            return {
-              excerpt: text,
-              filename: file.filename,
-              source: "gemini-vision",
-            };
-          } catch (error) {
-            return toPdfParseError(error, file.filename);
-          }
-        }),
-      );
-
-      return {
-        count: resumes.length,
-        resumes,
-      };
-    },
-    inputSchema: z.object({
-      resumeName: z.string().optional().describe("简历文件名关键词或从 1 开始的序号"),
-    }),
-  });
-}
-
-export function createExtractResumePdfStructuredInfoTool({
-  availableResumeNames,
-  parseUploadedResume,
+  runResumeParserSubagent,
   selectResumeFiles,
   uploadedResumePdfs,
 }: PdfToolDependencies) {
   return tool({
     description:
-      "辅助工具：提取已上传 PDF 简历中的结构化候选人信息，包括联系方式、教育背景、技能、亮点以及时间线摘要。如果模型具备原生 PDF 理解能力，仍应以原生分析为主；但建议主动调用此工具，以生成更一致的结构化字段，用于评分、时间线核验和并排比较。",
+      "简历解析 subagent：对已上传的 PDF 简历执行完整解析流水线，内部负责文本提取与视觉兜底，返回结构化的候选人档案（姓名、联系方式、学历、技能、项目/实习亮点、时间线摘要等）。评估候选人、对比简历、做偏差扫描前应优先调用此工具获取结构化信息。对同一份简历在本轮对话中只会真正解析一次，后续调用会命中缓存。",
     execute: async ({ resumeName }) => {
       if (uploadedResumePdfs.length === 0) {
         return buildNoResumeResult();
@@ -792,12 +720,13 @@ export function createExtractResumePdfStructuredInfoTool({
       const resumes = await Promise.all(
         selected.map(async (file) => {
           try {
-            const parsed = await parseUploadedResume(file);
+            const result = await runResumeParserSubagent(file);
 
             return {
-              filename: parsed.filename,
-              pageCount: parsed.pageCount,
-              structured: extractResumeStructuredInfo(parsed.text),
+              filename: result.filename,
+              pageCount: result.pageCount,
+              structured: result.structured,
+              textSource: result.textSource,
             };
           } catch (error) {
             return toPdfParseError(error, file.filename);
@@ -811,7 +740,12 @@ export function createExtractResumePdfStructuredInfoTool({
       };
     },
     inputSchema: z.object({
-      resumeName: z.string().optional().describe("简历文件名关键词或从 1 开始的序号"),
+      resumeName: z
+        .string()
+        .optional()
+        .describe(
+          "仅在上传了多份简历且需要指向具体一份时传入，用从 1 开始的纯数字序号（如 '1'、'2'）；单份简历时不要传此参数，也不要传完整文件名。",
+        ),
     }),
   });
 }
@@ -865,7 +799,7 @@ function parseSuggestJdRanker(text: string) {
 
 export function createSuggestJobDescriptionTool({
   availableResumeNames,
-  parseUploadedResume,
+  runResumeParserSubagent,
   selectResumeFiles,
   uploadedResumePdfs,
 }: PdfToolDependencies) {
@@ -892,10 +826,10 @@ export function createSuggestJobDescriptionTool({
         return { status: "no-resume" as const };
       }
 
-      let structuredResume: ReturnType<typeof extractResumeStructuredInfo> | null = null;
+      let structuredResume: ResumeParserResult["structured"] | null = null;
       try {
-        const parsed = await parseUploadedResume(primaryResume);
-        structuredResume = extractResumeStructuredInfo(parsed.text);
+        const parsedResult = await runResumeParserSubagent(primaryResume);
+        structuredResume = parsedResult.structured;
       } catch {
         return { reason: "parse-failed", status: "error" as const };
       }
@@ -990,7 +924,12 @@ export function createSuggestJobDescriptionTool({
       };
     },
     inputSchema: z.object({
-      resumeName: z.string().optional().describe("简历文件名关键词或从 1 开始的序号"),
+      resumeName: z
+        .string()
+        .optional()
+        .describe(
+          "仅在上传了多份简历且需要指向具体一份时传入，用从 1 开始的纯数字序号（如 '1'、'2'）；单份简历时不要传此参数，也不要传完整文件名。",
+        ),
     }),
   });
 }

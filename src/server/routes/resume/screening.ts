@@ -7,13 +7,14 @@ import {
   selectUploadedResumePdfs,
 } from "@/lib/resume-pdf";
 import { createResumeAgent } from "@/server/agents/resume-agent";
+import type { ResumeParserOptions, ResumeParserResult } from "@/server/agents/resume-parser-agent";
+import { parseResumeSubagent } from "@/server/agents/resume-parser-agent";
 import {
   applyJobDescriptionTool,
   buildAutoJobDescription,
-  createAnalyzeResumePdfWithVisionTool,
-  createExtractResumePdfStructuredInfoTool,
   createExtractResumePdfTextTool,
   createListUploadedResumePdfsTool,
+  createParseResumeTool,
   createSuggestJobDescriptionTool,
   extractUserText,
   getResumeReviewFrameworkTool,
@@ -43,6 +44,13 @@ interface CachedParsedResume {
 
 const globalParsedResumeCache = new Map<string, CachedParsedResume>();
 
+interface CachedSubagentResult {
+  promise: Promise<ResumeParserResult>;
+  createdAt: number;
+}
+
+const globalResumeSubagentCache = new Map<string, CachedSubagentResult>();
+
 function getCachedParseResume(file: UploadedResumePdf): Promise<ParsedResumePdf> {
   const now = Date.now();
   const existing = globalParsedResumeCache.get(file.id);
@@ -54,11 +62,38 @@ function getCachedParseResume(file: UploadedResumePdf): Promise<ParsedResumePdf>
   return promise;
 }
 
+function getCachedParseResumeSubagent(
+  file: UploadedResumePdf,
+  options: ResumeParserOptions,
+): Promise<ResumeParserResult> {
+  const now = Date.now();
+  const existing = globalResumeSubagentCache.get(file.id);
+  if (existing && now - existing.createdAt < PDF_CACHE_TTL_MS) {
+    return existing.promise;
+  }
+  const promise = (async () => {
+    try {
+      return await parseResumeSubagent(file, options);
+    } catch (error) {
+      // Don't poison the cache with a failure — clear so the next call retries.
+      globalResumeSubagentCache.delete(file.id);
+      throw error;
+    }
+  })();
+  globalResumeSubagentCache.set(file.id, { createdAt: now, promise });
+  return promise;
+}
+
 function pruneExpiredCacheEntries() {
   const now = Date.now();
   for (const [key, entry] of globalParsedResumeCache) {
     if (now - entry.createdAt >= PDF_CACHE_TTL_MS) {
       globalParsedResumeCache.delete(key);
+    }
+  }
+  for (const [key, entry] of globalResumeSubagentCache) {
+    if (now - entry.createdAt >= PDF_CACHE_TTL_MS) {
+      globalResumeSubagentCache.delete(key);
     }
   }
 }
@@ -87,6 +122,8 @@ export async function runResumeScreening(input: ResumeScreeningInput) {
   // Use module-level cache; prune stale entries on each request.
   pruneExpiredCacheEntries();
   const parseUploadedResume = (file: UploadedResumePdf) => getCachedParseResume(file);
+  const runResumeParserSubagent = (file: UploadedResumePdf) =>
+    getCachedParseResumeSubagent(file, { parseUploadedResume });
 
   const availableResumeNames = uploadedResumePdfs.map(
     (file, index) => `${index + 1}. ${file.filename}`,
@@ -144,7 +181,7 @@ export async function runResumeScreening(input: ResumeScreeningInput) {
 
 ■ 阶段 B：结构化追问生成（用户对偏差表态之后才进入）
 触发条件：用户在对话中表达了对某些偏差的接受/不接受立场，或明确要求生成面试题。
-进入阶段 B 前，必须先调用 extract_resume_pdf_structured_info 获取 timelineSummary 和量化要点，避免编造。
+进入阶段 B 前，必须先调用 parse_resume 获取 timelineSummary 和量化要点，避免编造。
 按以下四个分组输出，每组 2-4 题，宁缺毋滥：
 
   1. 缺口验证组
@@ -181,23 +218,22 @@ export async function runResumeScreening(input: ResumeScreeningInput) {
 - 当你需要判断候选人的在职时长、工作年限、项目持续时间、是否仍在职或时间线是否合理时，应以上述服务端当前时间作为"现在"进行推断。
 - 如果简历里的时间表达含糊（例如"至今""最近""目前"），默认按上述服务端当前时间理解，并在结论里明确说明。
 - 做时间线分析时，优先抽取每段经历的起止时间，再判断总工作年限、是否仍在职、是否存在长空档、是否存在明显重叠、是否存在连续短经历或频繁跳槽信号。
-- 如果需要更稳定的时间线判断，应主动调用 extract_resume_pdf_structured_info，优先利用其中的 timelineSummary 字段辅助判断。
+- 如果需要更稳定的时间线判断，应主动调用 parse_resume，优先利用其中的 timelineSummary 字段辅助判断。
 - 对跳槽风险的判断要克制：只有出现连续短经历、明显空档、时间重叠、频繁变动且缺少结果支撑时，才将其列为关键风险项。
 
 【PDF 简历解析规则】
-- PDF 工具是辅助工具。如果当前模型原生支持 PDF 理解，应优先使用原生分析结果。
-- 如果用户要求分析或对比简历，且已上传 PDF，请先调用 list_uploaded_resume_pdfs。
-- 然后主动调用 extract_resume_pdf_structured_info；当你需要逐字证据、冲突核验或更高置信度时，再调用 extract_resume_pdf_text。
-- 对上传 PDF 的简历进行排序或对比时，在给出最终建议前，至少调用一个 PDF 工具。
+- 需要候选人结构化信息（学历、技能、经历、项目、时间线、联系方式等）时，调用 parse_resume。它内部会处理文本提取与视觉兜底，直接返回结构化档案，不需要你自己判断 PDF 是否乱码或是否为图片简历。
+- 如果用户上传了多份 PDF 且命名存在歧义，先调用 list_uploaded_resume_pdfs 确认文件。
+- 只有在需要原文逐字证据（例如引用原句、交叉核验 parse_resume 的某个字段）时，才调用 extract_resume_pdf_text。
+- 对上传 PDF 的简历进行排序或对比时，在给出最终建议前，至少调用一次 parse_resume。
 - 如果上传的 PDF 中已经包含简历信息，不要要求用户手动粘贴这些内容。
 - 只分析能够识别为候选人简历的有效 PDF 内容；如果某个 PDF 明显不是简历（例如合同、报价单、试卷、论文、产品文档、说明书、发票等），忽略该文件，不要把它纳入候选人分析、排序或对比。
 - 如果上传文件里同时包含简历 PDF 和非简历 PDF，仅基于简历 PDF 继续分析，并在必要时简短说明已忽略非简历文件。
-- 如果 extract_resume_pdf_text 返回的文本质量明显很差（大量乱码、几乎空白、有效文字极少），说明该 PDF 可能是图片格式的简历，此时应调用 analyze_resume_pdf_with_vision 使用视觉模型重新提取内容。
 
 【在招岗位智能推荐（suggest_job_description + apply_job_description）】
-- 仅在以下所有条件同时满足时触发这套流程：(a) 当前对话已上传至少一份简历 PDF；(b) 设置中未配置在招岗位；(c) 用户在对话中未提供或更新过 JD；(d) 本轮对话中尚未调用过 apply_job_description 或用户尚未表态过忽略；(e) 本轮已成功调用过 extract_resume_pdf_structured_info，且返回的 structured 字段具备足够信号（candidateName / skills / projectHighlights / internshipHighlights / timelineSummary 中至少有两项非空），说明确实是一份可解析的有效简历。
-- 触发顺序固定为：list_uploaded_resume_pdfs → extract_resume_pdf_structured_info → （确认结构化信息有效后）suggest_job_description → apply_job_description。禁止在调用 extract_resume_pdf_structured_info 之前直接调用 suggest_job_description。
-- 如果 extract_resume_pdf_structured_info 返回的结构化字段几乎全部为空，说明 PDF 可能是图片或解析失败，应先调用 extract_resume_pdf_text 或 analyze_resume_pdf_with_vision 尝试补救；在仍无法获得有效结构化信息前，不要触发 suggest_job_description。
+- 仅在以下所有条件同时满足时触发这套流程：(a) 当前对话已上传至少一份简历 PDF；(b) 设置中未配置在招岗位；(c) 用户在对话中未提供或更新过 JD；(d) 本轮对话中尚未调用过 apply_job_description 或用户尚未表态过忽略；(e) 本轮已成功调用过 parse_resume，且返回的 structured 字段具备足够信号（candidateName / skills / projectHighlights / internshipHighlights / timelineSummary 中至少有两项非空），说明确实是一份可解析的有效简历。
+- 触发顺序固定为：list_uploaded_resume_pdfs → parse_resume → （确认结构化信息有效后）suggest_job_description → apply_job_description。禁止在调用 parse_resume 之前直接调用 suggest_job_description。
+- 如果 parse_resume 返回的结构化字段几乎全部为空，说明该 PDF 可能不是有效简历，在仍无法获得有效结构化信息前，不要触发 suggest_job_description。
 - 触发后，先调用 suggest_job_description 获取推荐：
   · 如果返回 status === 'no-jds'：不要调用 apply_job_description，直接按缺少 JD 的分支继续分析，并在回复中简短提示"后台暂无已配置的在招岗位"。
   · 如果返回 status === 'no-resume' 或 status === 'error'：同样跳过 apply，按缺少 JD 分支继续，可简短说明推荐不可用。
@@ -214,21 +250,11 @@ ${autoJdContext}
 
 已上传简历文件：${uploadedResumeFiles ? "是" : "否"}。`,
     tools: {
-      analyze_resume_pdf_with_vision: createAnalyzeResumePdfWithVisionTool({
-        availableResumeNames,
-        selectResumeFiles,
-        uploadedResumePdfs,
-      }),
       apply_job_description: applyJobDescriptionTool,
-      extract_resume_pdf_structured_info: createExtractResumePdfStructuredInfoTool({
-        availableResumeNames,
-        parseUploadedResume,
-        selectResumeFiles,
-        uploadedResumePdfs,
-      }),
       extract_resume_pdf_text: createExtractResumePdfTextTool({
         availableResumeNames,
         parseUploadedResume,
+        runResumeParserSubagent,
         selectResumeFiles,
         uploadedResumePdfs,
       }),
@@ -238,9 +264,17 @@ ${autoJdContext}
         availableResumeNames,
         uploadedResumePdfs,
       }),
+      parse_resume: createParseResumeTool({
+        availableResumeNames,
+        parseUploadedResume,
+        runResumeParserSubagent,
+        selectResumeFiles,
+        uploadedResumePdfs,
+      }),
       suggest_job_description: createSuggestJobDescriptionTool({
         availableResumeNames,
         parseUploadedResume,
+        runResumeParserSubagent,
         selectResumeFiles,
         uploadedResumePdfs,
       }),

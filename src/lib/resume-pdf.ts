@@ -453,6 +453,8 @@ export function collectUploadedResumePdfs(messages: UIMessage[]): UploadedResume
   return results;
 }
 
+const LEADING_INDEX_PREFIX_REGEX = /^\s*(\d+)\s*[.．、)]\s*/;
+
 export function selectUploadedResumePdfs(
   files: UploadedResumePdf[],
   resumeName?: string,
@@ -463,14 +465,33 @@ export function selectUploadedResumePdfs(
     return files;
   }
 
-  const index = Number(selector);
+  // Accept the `"1. filename.pdf"` display form emitted by list_uploaded_resume_pdfs:
+  // when a leading index prefix is present, prefer the index and try the stripped
+  // remainder as a secondary filename match.
+  const prefixMatch = selector.match(LEADING_INDEX_PREFIX_REGEX);
+  if (prefixMatch) {
+    const prefixedIndex = Number(prefixMatch[1]);
+    if (Number.isInteger(prefixedIndex) && prefixedIndex >= 1 && prefixedIndex <= files.length) {
+      return [files[prefixedIndex - 1]];
+    }
+  }
 
+  const index = Number(selector);
   if (Number.isInteger(index) && index >= 1 && index <= files.length) {
     return [files[index - 1]];
   }
 
-  const lowerSelector = selector.toLowerCase();
-  return files.filter((file) => file.filename.toLowerCase().includes(lowerSelector));
+  const bareSelector = (prefixMatch ? selector.slice(prefixMatch[0].length) : selector)
+    .trim()
+    .toLowerCase();
+  if (!bareSelector) {
+    return [];
+  }
+
+  return files.filter((file) => {
+    const lowerFilename = file.filename.toLowerCase();
+    return lowerFilename.includes(bareSelector) || bareSelector.includes(lowerFilename);
+  });
 }
 
 export async function extractPdfText(data: Uint8Array | Buffer): Promise<string> {

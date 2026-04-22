@@ -1379,7 +1379,7 @@ export default function ChatPageClient({ initialSessionId }: { initialSessionId:
 
       <div className="relative min-h-0 flex-1 overflow-hidden">
         <Conversation className="h-full">
-          <ConversationContent className="mx-auto w-full max-w-5xl py-4 px-2 sm:px-3 sm:py-6">
+          <ConversationContent className="mx-auto w-full max-w-5xl py-4 px-2 md:px-6 sm:py-6">
             {messages.length === 0 ? (
               <ConversationEmptyState
                 className="my-10 rounded-2xl border border-dashed border-border/70 bg-background/70"
@@ -1471,7 +1471,7 @@ export default function ChatPageClient({ initialSessionId }: { initialSessionId:
                       <Message from={message.role}>
                         <MessageContent>
                           {fileParts.length > 0 ? (
-                            <Attachments className="mb-2 min-w-[260px]" variant="list">
+                            <Attachments className="mb-2 min-w-65" variant="list">
                               {fileParts.map((part) => {
                                 const isPdf =
                                   part.mediaType === "application/pdf" ||
@@ -1712,7 +1712,7 @@ export default function ChatPageClient({ initialSessionId }: { initialSessionId:
           }
         }}
         dragOverlay={
-          <div className="flex h-full w-full items-center justify-center rounded-[1.15rem] border-2 border-dashed border-primary/60 bg-white px-6 py-8 text-center transition-colors">
+          <div className="flex h-full w-full items-center justify-center rounded-[1.15rem] border-2 border-dashed border-primary/60 bg-background px-6 py-8 text-center transition-colors">
             <div className="flex flex-col items-center gap-2">
               <UploadIcon className="size-8 text-primary/50" />
               <p className="font-medium text-sm">拖拽 PDF 简历到这里</p>
@@ -1722,7 +1722,7 @@ export default function ChatPageClient({ initialSessionId }: { initialSessionId:
             </div>
           </div>
         }
-        dragOverlayClassName="bg-white rounded-[1.3rem]"
+        dragOverlayClassName="bg-background rounded-[1.3rem]"
         globalDrop
         maxFiles={8}
         maxFileSize={10 * 1024 * 1024}

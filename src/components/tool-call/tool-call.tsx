@@ -6,7 +6,6 @@ import {
   ClockIcon,
   FileSearchIcon,
   FileTextIcon,
-  ImageIcon,
   ListIcon,
   RulerIcon,
   TargetIcon,
@@ -41,22 +40,6 @@ interface ToolMeta {
 }
 
 const TOOL_META: Record<string, ToolMeta> = {
-  analyze_resume_pdf_with_vision: {
-    getSummary: (input) => {
-      const name = input.resumeName as string | undefined;
-      return name ? `视觉分析: ${name}` : "使用视觉模型分析 PDF";
-    },
-    icon: <ImageIcon className="h-3.5 w-3.5" />,
-    label: "视觉分析",
-  },
-  extract_resume_pdf_structured_info: {
-    getSummary: (input) => {
-      const name = input.resumeName as string | undefined;
-      return name ? `结构化解析: ${name}` : "结构化提取简历信息";
-    },
-    icon: <FileSearchIcon className="h-3.5 w-3.5" />,
-    label: "结构化提取",
-  },
   extract_resume_pdf_text: {
     getSummary: (input) => {
       const name = input.resumeName as string | undefined;
@@ -79,6 +62,14 @@ const TOOL_META: Record<string, ToolMeta> = {
     getSummary: () => "列出已上传的 PDF 简历",
     icon: <ListIcon className="h-3.5 w-3.5" />,
     label: "列出简历",
+  },
+  parse_resume: {
+    getSummary: (input) => {
+      const name = input.resumeName as string | undefined;
+      return name ? `解析简历: ${name}` : "解析 PDF 简历为结构化档案";
+    },
+    icon: <FileSearchIcon className="h-3.5 w-3.5" />,
+    label: "解析简历",
   },
   suggest_job_description: {
     getSummary: (input) => {

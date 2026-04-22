@@ -1,5 +1,6 @@
 import type { StopCondition, ToolSet } from "ai";
 import { stepCountIs, ToolLoopAgent } from "ai";
+import { withDevTools } from "./devtools";
 import { createAlibabaProvider } from "./provider";
 
 /**
@@ -18,6 +19,7 @@ export interface CreateResumeAgentOptions<TOOLS extends ToolSet> {
   stopWhen?: StopCondition<TOOLS> | StopCondition<TOOLS>[];
   temperature?: number;
   maxRetries?: number;
+  maxOutputTokens?: number;
 }
 
 export function createResumeAgent<TOOLS extends ToolSet>({
@@ -28,13 +30,15 @@ export function createResumeAgent<TOOLS extends ToolSet>({
   stopWhen = stepCountIs(1),
   temperature,
   maxRetries = DEFAULT_STEP_MAX_RETRIES,
+  maxOutputTokens,
 }: CreateResumeAgentOptions<TOOLS>) {
   const provider = createAlibabaProvider({ enableThinking });
 
   return new ToolLoopAgent({
     instructions,
+    maxOutputTokens,
     maxRetries,
-    model: provider(modelId),
+    model: withDevTools(provider(modelId)),
     stopWhen,
     temperature,
     tools,

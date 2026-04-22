@@ -93,10 +93,14 @@ export function ApplyJobDescriptionCard({
   }, [defaultSelectedId, selectedId]);
 
   const partState = (part as { state?: string }).state;
-  const isStreamingInput = partState === "input-streaming";
+  const hasOutput = output !== null;
+  const isTerminalWithoutOutput = partState === "output-error";
 
   if (!input) {
-    if (isStreamingInput) {
+    // Any non-terminal state without a fully-formed input means the tool is
+    // still streaming / resolving — keep showing the shimmer rather than
+    // flashing a "missing data" message before the real card arrives.
+    if (!hasOutput && !isTerminalWithoutOutput) {
       return (
         <div className="my-2 border border-border/70 bg-background/60 px-4 py-3 rounded">
           <div className="flex items-center gap-2">
@@ -108,6 +112,8 @@ export function ApplyJobDescriptionCard({
         </div>
       );
     }
+    // Truly broken: output arrived (or the tool errored) but the input
+    // payload is unusable. Render a muted notice instead of a full card.
     return (
       <div className="my-2 rounded border border-border/60 bg-muted/30 px-3 py-2 text-muted-foreground text-xs">
         岗位推荐数据缺失，跳过审批。

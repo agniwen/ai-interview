@@ -3,10 +3,11 @@ import type {
   ResumeAnalysisResult,
   ResumeProfile,
 } from "@/lib/interview/types";
-import { generateText, stepCountIs, tool } from "ai";
+import { gateway, generateText, stepCountIs, tool } from "ai";
 import { z } from "zod";
 import { generatedInterviewQuestionsSchema, resumeProfileSchema } from "@/lib/interview/types";
 import { extractPdfText } from "@/lib/resume-pdf";
+import { withDevTools } from "./devtools";
 import { createResumeAgent } from "./resume-agent";
 
 // ---------------------------------------------------------------------------
@@ -135,7 +136,7 @@ const JSON_BLOCK_RE = /```(?:json)?\s*([\s\S]*?)\s*```/;
  * Models without native structured output often wrap JSON in markdown code blocks
  * or output it inline. This helper tries both patterns.
  */
-function parseJsonOutput<T>(text: string, schema: z.ZodType<T>, label: string): T {
+export function parseJsonOutput<T>(text: string, schema: z.ZodType<T>, label: string): T {
   const trimmed = text.trim();
 
   // Try markdown code block first
@@ -205,7 +206,7 @@ function createPdfVisionTool(pdfBytes: Buffer) {
             role: "user",
           },
         ],
-        model: visionModelId,
+        model: withDevTools(gateway(visionModelId)),
       });
 
       return { resumeText: text };
