@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 export default async function InterviewByIdPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -28,8 +29,13 @@ export default async function InterviewByIdPage({ params }: { params: Promise<{ 
 
   // If no round found, show a simple error
   return (
-    <div className="flex min-h-dvh items-center justify-center">
-      <p className="text-muted-foreground">当前面试链接不可用。</p>
-    </div>
+    <>
+      <div className="fixed top-4 right-4 z-20">
+        <ThemeToggle />
+      </div>
+      <div className="flex min-h-dvh items-center justify-center">
+        <p className="text-muted-foreground">当前面试链接不可用。</p>
+      </div>
+    </>
   );
 }

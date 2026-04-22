@@ -8,6 +8,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AgentSessionProvider } from "@/components/agents-ui/agent-session-provider";
 import { AgentSessionView_01 } from "@/components/agents-ui/blocks/agent-session-view-01";
 import { StartAudioButton } from "@/components/agents-ui/start-audio-button";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { Toaster } from "@/components/ui/sonner";
 
@@ -67,8 +68,31 @@ export default function InterviewPageClient({ interviewId, roundId }: InterviewP
 
   const isRoundCompleted = roundStatus === "completed";
 
+  // Custom token source so that a 403 from the livekit-token endpoint
+  // (round already completed) can flip the page into the completed state
+  // instead of letting the LiveKit session silently fail.
   const tokenSource = useMemo(
-    () => TokenSource.endpoint(`/api/interview/${interviewId}/${roundId}/livekit-token`),
+    () =>
+      TokenSource.custom(async () => {
+        const response = await fetch(`/api/interview/${interviewId}/${roundId}/livekit-token`, {
+          method: "POST",
+        });
+
+        if (!response.ok) {
+          if (response.status === 403) {
+            setRoundStatus("completed");
+          }
+          const body = (await response.json().catch(() => null)) as { error?: string } | null;
+          throw new Error(body?.error ?? `livekit-token 请求失败（${response.status}）`);
+        }
+
+        return (await response.json()) as {
+          participantName: string;
+          participantToken: string;
+          roomName: string;
+          serverUrl: string;
+        };
+      }),
     [interviewId, roundId],
   );
 
@@ -115,40 +139,48 @@ export default function InterviewPageClient({ interviewId, roundId }: InterviewP
 
   if (isDisconnected || isConnecting) {
     return (
-      <main className="flex h-dvh w-full flex-col items-center justify-center gap-6">
-        <div className="flex flex-col items-center gap-3 text-center">
-          <h1 className="text-2xl font-semibold">AI面试</h1>
-          {isRoundCompleted ? (
-            <div className="flex flex-col items-center gap-2">
-              {/* <CheckCircle2Icon className='size-8 text-muted-foreground' /> */}
-              <p className="text-muted-foreground text-sm">
-                本轮面试已结束，如需重新面试请联系管理员
-              </p>
-            </div>
-          ) : (
-            <p className="text-muted-foreground text-sm">
-              点击下方按钮开始面试，请确保麦克风已开启
-            </p>
-          )}
+      <>
+        <div className="fixed top-4 right-4 z-20">
+          <ThemeToggle />
         </div>
-        {!isRoundCompleted && (
-          <Button
-            size="lg"
-            variant="outline"
-            disabled={isConnecting || isLoadingStatus}
-            onClick={handleStart}
-            className="gap-2 rounded-full px-8"
-          >
-            <MicIcon className="size-4" />
-            {resolveStartButtonLabel({ isConnecting, isLoadingStatus })}
-          </Button>
-        )}
-      </main>
+        <main className="flex h-dvh w-full flex-col items-center justify-center gap-6">
+          <div className="flex flex-col items-center gap-3 text-center">
+            <h1 className="text-2xl font-semibold">AI面试</h1>
+            {isRoundCompleted ? (
+              <div className="flex flex-col items-center gap-2">
+                {/* <CheckCircle2Icon className='size-8 text-muted-foreground' /> */}
+                <p className="text-muted-foreground text-sm">
+                  本轮面试已结束，如需重新面试请联系管理员
+                </p>
+              </div>
+            ) : (
+              <p className="text-muted-foreground text-sm">
+                点击下方按钮开始面试，请确保麦克风已开启
+              </p>
+            )}
+          </div>
+          {!isRoundCompleted && (
+            <Button
+              size="lg"
+              variant="outline"
+              disabled={isConnecting || isLoadingStatus}
+              onClick={handleStart}
+              className="gap-2 rounded-full px-8"
+            >
+              <MicIcon className="size-4" />
+              {resolveStartButtonLabel({ isConnecting, isLoadingStatus })}
+            </Button>
+          )}
+        </main>
+      </>
     );
   }
 
   return (
     <AgentSessionProvider session={session}>
+      <div className="fixed top-4 right-4 z-20">
+        <ThemeToggle />
+      </div>
       <main className="relative h-dvh w-full overflow-hidden">
         <AgentSessionView_01
           supportsVideoInput={false}
