@@ -8,9 +8,11 @@ import {
   ShieldCheckIcon,
   SparklesIcon,
 } from "lucide-react";
+import { useTheme } from "next-themes";
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { SignInRequiredDialog } from "@/components/auth/sign-in-required-dialog";
+import { DarkVeil } from "@/components/react-bits/dark-veil";
 import { FadeContent } from "@/components/react-bits/fade-content";
 import Prism from "@/components/react-bits/prism";
 import { SplitText } from "@/components/react-bits/split-text";
@@ -46,6 +48,14 @@ export default function HomePageClient() {
   const router = useRouter();
   const { data: session, isPending } = authClient.useSession();
   const [pendingPath, setPendingPath] = useState<string | null>(null);
+  const { resolvedTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const isDark = mounted && resolvedTheme === "dark";
 
   const callbackURL = useMemo(() => pendingPath ?? "/chat", [pendingPath]);
 
@@ -69,21 +79,33 @@ export default function HomePageClient() {
   return (
     <>
       <div aria-hidden="true" className="pointer-events-none fixed  inset-0 -z-20 overflow-hidden">
-        <Prism
-          height={5}
-          baseWidth={7.5}
-          animationType="hover"
-          glow={1}
-          noise={0.2}
-          transparent
-          scale={3.3}
-          hueShift={0}
-          colorFrequency={2.5}
-          hoverStrength={1}
-          inertia={0.05}
-          bloom={0.8}
-          timeScale={0.3}
-        />
+        {isDark ? (
+          <DarkVeil
+            hueShift={30}
+            noiseIntensity={0.02}
+            scanlineIntensity={0}
+            speed={2}
+            scanlineFrequency={0.5}
+            warpAmount={0.2}
+            resolutionScale={1.5}
+          />
+        ) : (
+          <Prism
+            height={5}
+            baseWidth={7.5}
+            animationType="hover"
+            glow={1}
+            noise={0.2}
+            transparent
+            scale={3.3}
+            hueShift={0}
+            colorFrequency={2.5}
+            hoverStrength={1}
+            inertia={0.05}
+            bloom={0.8}
+            timeScale={0.3}
+          />
+        )}
       </div>
       <div
         aria-hidden="true"
