@@ -656,12 +656,6 @@ export function InterviewManagementPage({
               <RefreshCwIcon className={`size-4 ${isMutationRefreshing ? "animate-spin" : ""}`} />
               <span className="sr-only">刷新</span>
             </Button>
-            {selectedCount > 0 ? (
-              <Button onClick={() => setBulkDeleteOpen(true)} size="sm" variant="destructive">
-                <Trash2Icon className="size-4" />
-                批量删除 ({selectedCount})
-              </Button>
-            ) : null}
             <div data-tour="studio-create-btn">
               <CreateInterviewDialog
                 onCreated={() => {
@@ -669,6 +663,12 @@ export function InterviewManagementPage({
                 }}
               />
             </div>
+            {selectedCount > 0 ? (
+              <Button onClick={() => setBulkDeleteOpen(true)} size="sm" variant="destructive">
+                <Trash2Icon className="size-4" />
+                批量删除 ({selectedCount})
+              </Button>
+            ) : null}
           </div>
           <div className="space-y-4">
             {table.getRowModel().rows.length > 0 ? (
