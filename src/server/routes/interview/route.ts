@@ -14,7 +14,6 @@ import {
 } from "@/lib/studio-interviews";
 import {
   analyzeResumeFile,
-  ResumeAnalysisError,
   streamGenerateInterviewQuestions,
   streamParseResumeProfile,
 } from "@/server/agents/resume-analysis-agent";
@@ -38,69 +37,6 @@ import {
 
 export const interviewRouter = factory
   .createApp()
-  .post("/quick-start", async (c) => {
-    const formData = await c.req.formData();
-    const resume = formData.get("resume");
-
-    if (!(resume instanceof File)) {
-      return c.json({ error: "缺少简历 PDF 文件。" }, 400);
-    }
-
-    try {
-      const analysis = await analyzeResumeFile(resume);
-      const now = new Date();
-      const interviewRecordId = crypto.randomUUID();
-
-      const record = {
-        candidateEmail: null,
-        candidateName: analysis.resumeProfile.name || "未命名候选人",
-        createdAt: now,
-        createdBy: c.var.user?.id ?? null,
-        id: interviewRecordId,
-        interviewQuestions: analysis.interviewQuestions,
-        notes: null,
-        resumeFileName: analysis.fileName,
-        resumeProfile: analysis.resumeProfile,
-        status: "ready",
-        targetRole: analysis.resumeProfile.targetRoles[0] || null,
-        updatedAt: now,
-      } satisfies typeof studioInterview.$inferInsert;
-
-      const scheduleRow = {
-        conversationId: null,
-        createdAt: now,
-        id: crypto.randomUUID(),
-        interviewRecordId,
-        notes: null,
-        roundLabel: "快速面试",
-        scheduledAt: now,
-        sortOrder: 0,
-        status: "pending" as const,
-        updatedAt: now,
-      } satisfies typeof studioInterviewSchedule.$inferInsert;
-
-      await db.transaction(async (tx) => {
-        await tx.insert(studioInterview).values(record);
-        await tx.insert(studioInterviewSchedule).values(scheduleRow);
-      });
-
-      return c.json({ interviewId: interviewRecordId, roundId: scheduleRow.id }, 201);
-    } catch (error) {
-      if (error instanceof ResumeAnalysisError) {
-        return c.json({ error: error.message, stage: error.stage }, 500);
-      }
-
-      if (error instanceof Error) {
-        const status = error.message.includes("PDF") || error.message.includes("10 MB") ? 400 : 500;
-        return c.json(
-          { error: error.message, stage: "resume-parsing" },
-          status as ContentfulStatusCode,
-        );
-      }
-
-      return c.json({ error: "简历解析失败，请重试。", stage: "resume-parsing" }, 500);
-    }
-  })
   .post("/parse-resume", async (c) => {
     const formData = await c.req.formData();
     const resume = formData.get("resume");

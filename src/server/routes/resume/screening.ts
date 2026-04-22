@@ -231,7 +231,7 @@ export async function runResumeScreening(input: ResumeScreeningInput) {
 - 如果上传文件里同时包含简历 PDF 和非简历 PDF，仅基于简历 PDF 继续分析，并在必要时简短说明已忽略非简历文件。
 
 【在招岗位智能推荐（suggest_job_description + apply_job_description）】
-- 仅在以下所有条件同时满足时触发这套流程：(a) 当前对话已上传至少一份简历 PDF；(b) 设置中未配置在招岗位；(c) 用户在对话中未提供或更新过 JD；(d) 本轮对话中尚未调用过 apply_job_description 或用户尚未表态过忽略；(e) 本轮已成功调用过 parse_resume，且返回的 structured 字段具备足够信号（candidateName / skills / projectHighlights / internshipHighlights / timelineSummary 中至少有两项非空），说明确实是一份可解析的有效简历。
+- 仅在以下所有条件同时满足时触发这套流程：(a) 当前对话已上传至少一份简历 PDF；(b) 设置中未配置在招岗位；(c) 用户在对话中未提供或更新过 JD；(d) 本轮对话中尚未调用过 apply_job_description 或用户尚未表态过忽略；(e) 本轮已成功调用过 parse_resume，且返回的 structured 字段具备足够信号（name / skills / projectExperiences / workExperiences / timelineSummary 中至少有两项非空），说明确实是一份可解析的有效简历。
 - 触发顺序固定为：list_uploaded_resume_pdfs → parse_resume → （确认结构化信息有效后）suggest_job_description → apply_job_description。禁止在调用 parse_resume 之前直接调用 suggest_job_description。
 - 如果 parse_resume 返回的结构化字段几乎全部为空，说明该 PDF 可能不是有效简历，在仍无法获得有效结构化信息前，不要触发 suggest_job_description。
 - 触发后，先调用 suggest_job_description 获取推荐：

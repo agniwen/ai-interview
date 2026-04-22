@@ -3,12 +3,19 @@ import type {
   ResumeAnalysisResult,
   ResumeProfile,
 } from "@/lib/interview/types";
-import { gateway, generateText, stepCountIs, tool } from "ai";
-import { z } from "zod";
-import { generatedInterviewQuestionsSchema, resumeProfileSchema } from "@/lib/interview/types";
-import { extractPdfText } from "@/lib/resume-pdf";
-import { withDevTools } from "./devtools";
+import { stepCountIs } from "ai";
+import { generatedInterviewQuestionsSchema } from "@/lib/interview/types";
+import { parseResumePdf } from "@/lib/resume-pdf";
+import { parseJsonOutput } from "./json-output";
 import { createResumeAgent } from "./resume-agent";
+import {
+  buildResumeParserAgent,
+  buildResumeParserPrompt,
+  collectResumeParserResult,
+  fileToUploadedResumePdf,
+  structuredSchema,
+  toResumeProfile,
+} from "./resume-parser-agent";
 
 // ---------------------------------------------------------------------------
 // NDJSON streaming event types
@@ -24,7 +31,8 @@ export type AnalysisStreamEvent =
   | { type: "error"; message: string };
 
 const TOOL_LABELS: Record<string, string> = {
-  analyze_pdf_with_vision: "视觉模型分析 PDF",
+  analyze_resume_with_vision: "视觉模型分析 PDF",
+  extract_pdf_text: "pdf-parse 提取文本",
 };
 
 function createNdjsonStream(
@@ -95,11 +103,11 @@ function normalizeNumber(value: number | null) {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 
-function normalizeResumeProfile(profile: ResumeProfile): ResumeProfile {
+export function normalizeResumeProfile(profile: ResumeProfile): ResumeProfile {
   return {
     age: normalizeNumber(profile.age),
     gender: trimToNull(profile.gender),
-    name: profile.name.trim(),
+    name: profile.name.trim() || "未发现信息",
     personalStrengths: uniqueStrings(profile.personalStrengths),
     projectExperiences: profile.projectExperiences.map((experience) => ({
       name: trimToNull(experience.name),
@@ -129,43 +137,8 @@ function normalizeInterviewQuestions(questions: GeneratedInterviewQuestion[]) {
   }));
 }
 
-const JSON_BLOCK_RE = /```(?:json)?\s*([\s\S]*?)\s*```/;
-
-/**
- * Extract and validate JSON from model text output.
- * Models without native structured output often wrap JSON in markdown code blocks
- * or output it inline. This helper tries both patterns.
- */
-export function parseJsonOutput<T>(text: string, schema: z.ZodType<T>, label: string): T {
-  const trimmed = text.trim();
-
-  // Try markdown code block first
-  const blockMatch = JSON_BLOCK_RE.exec(trimmed);
-  const candidates = blockMatch ? [blockMatch[1], trimmed] : [trimmed];
-
-  for (const candidate of candidates) {
-    // Find the outermost { ... } or [ ... ]
-    const start = candidate.indexOf("{");
-    const end = candidate.lastIndexOf("}");
-    if (start === -1 || end === -1) {
-      continue;
-    }
-
-    try {
-      const raw = JSON.parse(candidate.slice(start, end + 1));
-      const parsed = schema.safeParse(raw);
-      if (parsed.success) {
-        return parsed.data;
-      }
-      console.error(`[${label}] Schema validation failed:`, parsed.error.issues.slice(0, 3));
-    } catch {
-      // try next candidate
-    }
-  }
-
-  console.error(`[${label}] Failed to parse JSON from text:`, trimmed.slice(0, 200));
-  throw new Error("Failed to parse structured output from model response.");
-}
+// `parseJsonOutput` is re-exported from json-output below for backward compat.
+export { parseJsonOutput } from "./json-output";
 
 export function isPdfFile(file: File) {
   return file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
@@ -180,86 +153,6 @@ export function validateResumeFile(file: File) {
     throw new Error("简历 PDF 不能超过 10 MB。");
   }
 }
-
-function createPdfVisionTool(pdfBytes: Buffer) {
-  return tool({
-    description:
-      "当提供的简历文本质量差（乱码、空白、内容过少、信息不完整）或明显是从图片 PDF 提取导致丢失大量信息时，调用此工具使用视觉模型重新解析原始 PDF，获取更完整的简历内容。",
-    execute: async () => {
-      const visionModelId = process.env.GOOGLE_VISION_MODEL ?? "google/gemini-2.5-flash";
-      const base64PdfData = pdfBytes.toString("base64");
-
-      const { text } = await generateText({
-        messages: [
-          {
-            content: [
-              {
-                data: base64PdfData,
-                mediaType: "application/pdf",
-                type: "file",
-              },
-              {
-                text: "请完整提取这份 PDF 简历中的所有文字内容，包括图片中的文字。保持原始结构和排版顺序，不要遗漏任何信息。如果存在表格，用文字形式还原。只输出提取的内容，不要添加任何分析或评论。",
-                type: "text",
-              },
-            ],
-            role: "user",
-          },
-        ],
-        model: withDevTools(gateway(visionModelId)),
-      });
-
-      return { resumeText: text };
-    },
-    inputSchema: z.object({}),
-  });
-}
-
-const PROFILE_INSTRUCTIONS = `你是一名简历信息提取助手。你会收到一份从 PDF 中用文本解析器提取出来的简历文本。
-
-【工作流程】
-1) 先评估输入文本的质量：
-   - 如果文本包含完整的候选人信息（姓名、教育、技能、经历等），质量良好，直接用它进行结构化提取。
-   - 如果文本存在大量乱码、几乎空白、有效内容极少、关键信息明显缺失、文字断裂不成句，说明 PDF 可能是图片格式，此时应调用 analyze_pdf_with_vision 工具使用视觉模型重新提取文本，然后基于工具返回的文本进行结构化提取。
-2) 基于最终确认的简历文本，严格按照下方 JSON 结构输出结构化候选人信息。
-
-## 输出 JSON 结构（必须严格遵守每个字段的类型）
-
-{
-  "name": string,           // 候选人姓名，非空；无法确认时返回"未发现信息"
-  "age": number | null,     // 年龄，仅简历明确给出时填数字，否则 null；不要根据毕业年份猜测
-  "gender": string | null,  // 性别；无法确认时返回"未发现信息"
-  "targetRoles": string[],  // 求职岗位列表；未知时返回 []
-  "workYears": number | null, // 工作年限；无法判断时返回 null
-  "skills": string[],       // 技能列表；未知时返回 []
-  "schools": string[],      // 毕业院校名称列表，每项必须是纯字符串，不要返回对象；未知时返回 []
-  "workExperiences": [
-    {
-      "company": string | null,
-      "role": string | null,
-      "period": string | null,
-      "summary": string | null
-    }
-  ],
-  "projectExperiences": [
-    {
-      "name": string | null,
-      "role": string | null,
-      "period": string | null,
-      "techStack": string[],
-      "summary": string | null
-    }
-  ],
-  "personalStrengths": string[]
-}
-
-## 关键约束
-- schools 的每一项必须是纯字符串（院校名称）。
-- projectExperiences 的每一项必须包含 techStack 字段（string[]），即使为空也要写 []。
-- 所有 string | null 类型字段无法确认时返回"未发现信息"，不要返回空字符串。
-- 所有数组字段去重。
-- personalStrengths 必须有简历依据，不要编造。
-- 工作经历和项目经历的 summary 简洁，只保留关键职责、成果或内容。`;
 
 const QUESTION_INSTRUCTIONS = `你是一名技术面试出题助手。请基于给定的候选人简历结构化信息，生成 10 道中文面试题。
 
@@ -290,39 +183,29 @@ export interface ResumeParseResult {
 
 /**
  * Stage 1: Parse a PDF resume and extract structured profile information.
- * Returns a NDJSON stream with progress events and final result.
+ *
+ * This is the NDJSON stream wrapper around the shared resume-parser subagent.
+ * It drives `buildResumeParserAgent`, pipes the fullStream through as
+ * AnalysisStreamEvent progress events, then validates the final JSON against
+ * the subagent's superset schema and projects it down to `ResumeProfile` via
+ * `toResumeProfile`.
  */
 export function streamParseResumeProfile(file: File): ReadableStream<Uint8Array> {
   validateResumeFile(file);
 
   return createNdjsonStream(async (emit) => {
-    emit({ message: "正在解析 PDF 文本…", type: "status" });
+    emit({ message: "正在解析 PDF 简历…", type: "status" });
 
-    const structuredModelId = process.env.ALIBABA_STRUCTURED_MODEL ?? "qwen3-max";
-    const pdfBytes = Buffer.from(await file.arrayBuffer());
-    const pdfParseText = await extractPdfText(pdfBytes);
-    const canUseVision = Boolean(process.env.AI_GATEWAY_API_KEY);
+    const uploadedPdf = await fileToUploadedResumePdf(file);
+    const agent = buildResumeParserAgent(uploadedPdf, parseResumePdf);
 
-    emit({ message: "正在提取候选人信息…", type: "status" });
-
-    const profileAgent = createResumeAgent({
-      enableThinking: false,
-      instructions: PROFILE_INSTRUCTIONS,
-      modelId: structuredModelId,
-      stopWhen: stepCountIs(4),
-      temperature: 0,
-      tools: canUseVision ? { analyze_pdf_with_vision: createPdfVisionTool(pdfBytes) } : {},
-    });
-
-    const streamResult = await profileAgent.stream({
-      prompt: `以下是从 PDF 中解析出的简历文本：\n\n${pdfParseText}`,
+    const streamResult = await agent.stream({
+      prompt: buildResumeParserPrompt(uploadedPdf),
     });
 
     let stepIndex = 0;
-    let fullText = "";
     for await (const part of streamResult.fullStream) {
       if (part.type === "text-delta") {
-        fullText += part.text;
         emit({ text: part.text, type: "text-delta" });
       } else if (part.type === "tool-input-start") {
         emit({ name: TOOL_LABELS[part.toolName] ?? part.toolName, type: "tool-start" });
@@ -335,11 +218,16 @@ export function streamParseResumeProfile(file: File): ReadableStream<Uint8Array>
       }
     }
 
-    const profile = parseJsonOutput(fullText, resumeProfileSchema, "resume-parsing");
+    const finalText = await streamResult.text;
+    const finalSteps = await streamResult.steps;
+    const { structured } = collectResumeParserResult(
+      { steps: finalSteps, text: finalText },
+      file.name,
+    );
 
     const result: ResumeParseResult = {
       fileName: file.name,
-      resumeProfile: normalizeResumeProfile(profile),
+      resumeProfile: normalizeResumeProfile(toResumeProfile(structured)),
     };
 
     emit({ data: result, type: "result" });
@@ -396,35 +284,24 @@ export function streamGenerateInterviewQuestions(
 
 /**
  * Combined: parse profile + generate questions in one blocking call.
- * Used by quick-start and other endpoints that need the full result at once.
+ * Used by endpoints that need the full result at once (create/edit interview
+ * fallback path when the client hasn't pre-parsed the resume).
  */
 export async function analyzeResumeFile(file: File): Promise<ResumeAnalysisResult> {
   validateResumeFile(file);
 
-  const structuredModelId = process.env.ALIBABA_STRUCTURED_MODEL ?? "qwen3-max";
-  const pdfBytes = Buffer.from(await file.arrayBuffer());
-  const pdfParseText = await extractPdfText(pdfBytes);
-  const canUseVision = Boolean(process.env.AI_GATEWAY_API_KEY);
-
   let resumeProfile: ResumeProfile;
 
   try {
-    const profileAgent = createResumeAgent({
-      enableThinking: false,
-      instructions: PROFILE_INSTRUCTIONS,
-      modelId: structuredModelId,
-      stopWhen: stepCountIs(4),
-      temperature: 0,
-      tools: canUseVision ? { analyze_pdf_with_vision: createPdfVisionTool(pdfBytes) } : {},
+    const uploadedPdf = await fileToUploadedResumePdf(file);
+    const agent = buildResumeParserAgent(uploadedPdf, parseResumePdf);
+
+    const result = await agent.generate({
+      prompt: buildResumeParserPrompt(uploadedPdf),
     });
 
-    const { text } = await profileAgent.generate({
-      prompt: `以下是从 PDF 中解析出的简历文本：\n\n${pdfParseText}`,
-    });
-
-    resumeProfile = normalizeResumeProfile(
-      parseJsonOutput(text, resumeProfileSchema, "resume-parsing"),
-    );
+    const { structured } = collectResumeParserResult(result, file.name);
+    resumeProfile = normalizeResumeProfile(toResumeProfile(structured));
   } catch (error) {
     if (error instanceof ResumeAnalysisError) {
       throw error;
@@ -436,6 +313,7 @@ export async function analyzeResumeFile(file: File): Promise<ResumeAnalysisResul
   }
 
   try {
+    const structuredModelId = process.env.ALIBABA_STRUCTURED_MODEL ?? "qwen3-max";
     const questionAgent = createResumeAgent({
       enableThinking: false,
       instructions: QUESTION_INSTRUCTIONS,
@@ -467,3 +345,7 @@ export async function analyzeResumeFile(file: File): Promise<ResumeAnalysisResul
     );
   }
 }
+
+// Re-export the subagent's schema so other modules can validate structured
+// JSON from the same source of truth without reaching into the parser module.
+export { structuredSchema as resumeParserStructuredSchema };

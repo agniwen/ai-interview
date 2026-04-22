@@ -121,7 +121,7 @@ export function ApplyJobDescriptionCard({
     );
   }
 
-  const currentSelection = input.candidates.find((candidate) => candidate.id === selectedId);
+  const _currentSelection = input.candidates.find((candidate) => candidate.id === selectedId);
   const isResolved = Boolean(output);
   const isConfirmed = output?.action === "confirm";
   const confirmedCandidate = isConfirmed
@@ -205,11 +205,11 @@ export function ApplyJobDescriptionCard({
                 </SelectContent>
               </Select>
 
-              {currentSelection?.reasons ? (
+              {/* {currentSelection?.reasons ? (
                 <div className="rounded-lg bg-muted/40 px-3 py-2 text-muted-foreground text-xs">
                   {currentSelection.reasons}
                 </div>
-              ) : null}
+              ) : null} */}
 
               <div className="flex items-center justify-end gap-2 pt-1">
                 <Button
