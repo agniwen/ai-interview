@@ -13,6 +13,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { SignInRequiredDialog } from "@/components/auth/sign-in-required-dialog";
 import { DarkVeil } from "@/components/react-bits/dark-veil";
+import DotGrid from "@/components/react-bits/dot-grid";
 import { FadeContent } from "@/components/react-bits/fade-content";
 import Prism from "@/components/react-bits/prism";
 import { SplitText } from "@/components/react-bits/split-text";
@@ -80,15 +81,31 @@ export default function HomePageClient() {
     <>
       <div aria-hidden="true" className="pointer-events-none fixed  inset-0 -z-20 overflow-hidden">
         {isDark ? (
-          <DarkVeil
-            hueShift={30}
-            noiseIntensity={0.02}
-            scanlineIntensity={0}
-            speed={2}
-            scanlineFrequency={0.5}
-            warpAmount={0.2}
-            resolutionScale={1.5}
-          />
+          <>
+            <div className="absolute inset-0">
+              <DarkVeil
+                hueShift={30}
+                noiseIntensity={0.02}
+                scanlineIntensity={0}
+                speed={2}
+                scanlineFrequency={0.5}
+                warpAmount={0.2}
+                resolutionScale={1.5}
+              />
+            </div>
+            <div className="absolute inset-0 mix-blend-screen ">
+              <DotGrid
+                dotSize={3}
+                gap={18}
+                baseColor="#2a2a3a"
+                activeColor="#ffffff"
+                proximity={140}
+                speedTrigger={120}
+                shockRadius={220}
+                shockStrength={4}
+              />
+            </div>
+          </>
         ) : (
           <Prism
             height={5}
@@ -141,7 +158,7 @@ export default function HomePageClient() {
           <FadeContent className="mt-8 flex items-center justify-center sm:mt-10" delay={0.2}>
             <div className="inline-flex items-stretch">
               <Button
-                className="group h-11  gap-0  border-primary/40 hover:bg-primary/40! bg-primary/20! rounded-r-none rounded-l-xl px-8 text-sm sm:h-12 sm:px-10 sm:text-base"
+                className="group h-11  gap-0 backdrop-blur-md border-primary/40 hover:bg-primary/40! bg-primary/20! rounded-r-none rounded-l-xl px-8 text-sm sm:h-12 sm:px-10 sm:text-base"
                 disabled={isPending}
                 onClick={() => handleProtectedNavigation("/chat")}
                 type="button"

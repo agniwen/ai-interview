@@ -1,7 +1,7 @@
 "use client";
 
 import type { InterviewQuestion } from "@/lib/interview/types";
-import { GripVerticalIcon, Trash2Icon } from "lucide-react";
+import { Trash2Icon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -77,13 +77,14 @@ export function InterviewQuestionsFields({
           key={index}
         >
           <div className="flex shrink-0 items-center pt-2 text-muted-foreground">
-            <GripVerticalIcon className="size-4" />
+            {/* <GripVerticalIcon className="size-4" /> */}
             <span className="ml-1 min-w-5 text-xs">{index + 1}</span>
           </div>
 
-          <div className="min-w-0 flex-1 space-y-2">
+          <div className="min-w-0 flex-1 space-y-2 flex gap-2">
             <Input
               disabled={disabled}
+              className="flex-1"
               onChange={(event) => updateQuestion(index, { question: event.target.value })}
               placeholder="输入面试题目"
               value={question.question}

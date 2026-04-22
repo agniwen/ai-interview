@@ -536,10 +536,10 @@ export function CreateInterviewDialog({
                 支持手动录入候选人资料，也可以先上传 PDF 简历自动分析并回填表单。
               </DialogDescription>
               <TabsList className="mt-0">
-                <TabsTrigger className="min-w-[6em]" value="basic">
+                <TabsTrigger className="min-w-[8em]" value="basic">
                   基础信息
                 </TabsTrigger>
-                <TabsTrigger className="min-w-[6em]" value="questions">
+                <TabsTrigger className="min-w-[8em]" value="questions">
                   面试题目
                   {resolveQuestionsTabSuffix({
                     displayQuestions,

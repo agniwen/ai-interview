@@ -7,7 +7,11 @@ import { deriveJobDescriptionText, getJobDescriptionLabel } from "@/lib/job-desc
 import type { JobDescriptionListRecord } from "@/lib/job-descriptions";
 import { useChat } from "@ai-sdk/react";
 import { useQuery } from "@tanstack/react-query";
-import { DefaultChatTransport, isToolUIPart } from "ai";
+import {
+  DefaultChatTransport,
+  lastAssistantMessageIsCompleteWithApprovalResponses,
+  lastAssistantMessageIsCompleteWithToolCalls,
+} from "ai";
 import { useAtom, useAtomValue } from "jotai";
 import {
   AlertCircleIcon,
@@ -280,36 +284,14 @@ function getConversationTitleFromMessages(
  * the client auto-submits to continue the loop when all tools
  * in the current step reach terminal state.
  */
+// Auto-resend once every non-provider-executed tool invocation in the last
+// assistant step has reached a terminal state — either a server-side tool
+// output (`output-available`/`output-error`) or a client-side approval
+// response. This is the union of the two SDK helpers.
 function shouldAutoSubmit({ messages }: { messages: UIMessage[] }): boolean {
-  const lastMessage = messages.at(-1);
-  if (!lastMessage || lastMessage.role !== "assistant") {
-    return false;
-  }
-
-  let lastStepStartIndex = -1;
-  for (let index = 0; index < lastMessage.parts.length; index += 1) {
-    if (lastMessage.parts[index]?.type === "step-start") {
-      lastStepStartIndex = index;
-    }
-  }
-
-  // Get tool invocations from the last step (non-provider-executed)
-  const lastStepToolInvocations = lastMessage.parts
-    .slice(lastStepStartIndex + 1)
-    .filter(isToolUIPart)
-    .filter((part) => !part.providerExecuted);
-
-  // If no tool invocations, don't auto-submit
-  if (lastStepToolInvocations.length === 0) {
-    return false;
-  }
-
-  // Auto-submit only if ALL tools are in terminal state
-  return lastStepToolInvocations.every(
-    (part) =>
-      part.state === "output-available" ||
-      part.state === "output-error" ||
-      part.state === "approval-responded",
+  return (
+    lastAssistantMessageIsCompleteWithToolCalls({ messages }) ||
+    lastAssistantMessageIsCompleteWithApprovalResponses({ messages })
   );
 }
 

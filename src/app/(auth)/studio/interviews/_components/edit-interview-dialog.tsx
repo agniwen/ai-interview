@@ -311,10 +311,10 @@ export function EditInterviewDialog({
                   更新候选人资料、流程状态、面试安排，并支持替换简历重新分析。
                 </DialogDescription>
                 <TabsList className="mt-0">
-                  <TabsTrigger className="min-w-[6em]" value="basic">
+                  <TabsTrigger className="min-w-[8em]" value="basic">
                     基础信息
                   </TabsTrigger>
-                  <TabsTrigger className="min-w-[6em]" value="questions">
+                  <TabsTrigger className="min-w-[8em]" value="questions">
                     面试题目
                     {` (${resumePayload ? resumePayload.interviewQuestions.length : editedQuestions.length})`}
                   </TabsTrigger>
