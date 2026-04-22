@@ -548,7 +548,7 @@ export function ResumeImportButton({
         className={cn(
           "h-8 shrink-0 gap-1.5",
           importedInterviewId &&
-            "border-emerald-200/80 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:border-emerald-900/60 dark:bg-emerald-950/40 dark:text-emerald-300 dark:hover:bg-emerald-900/40",
+            "border-emerald-200/80 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:border-emerald-600/60 dark:bg-emerald-950/40 dark:text-emerald-300 dark:hover:bg-emerald-900/40",
         )}
         disabled={isImporting}
         onClick={handleButtonClick}

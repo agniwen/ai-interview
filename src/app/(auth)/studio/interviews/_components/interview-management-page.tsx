@@ -1,11 +1,18 @@
 "use client";
 
-import type { Cell, ColumnDef, Header, SortingState } from "@tanstack/react-table";
+import type {
+  Cell,
+  ColumnDef,
+  Header,
+  RowSelectionState,
+  SortingState,
+} from "@tanstack/react-table";
 import type { StudioInterviewListRecord } from "@/lib/studio-interviews";
 import type { PaginatedStudioInterviewResult } from "@/server/queries/studio-interviews";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { flexRender, getCoreRowModel, useReactTable } from "@tanstack/react-table";
 import { useAtomValue } from "jotai";
+import dynamic from "next/dynamic";
 import {
   ArrowUpDownIcon,
   BotIcon,
@@ -15,6 +22,7 @@ import {
   ChevronsRightIcon,
   CopyIcon,
   EyeIcon,
+  FileTextIcon,
   Loader2Icon,
   MoreHorizontalIcon,
   PencilIcon,
@@ -43,6 +51,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -86,6 +95,14 @@ import { CreateInterviewDialog } from "./create-interview-dialog";
 import { EditInterviewDialog } from "./edit-interview-dialog";
 import { InterviewDetailDialog } from "./interview-detail-dialog";
 import { InterviewStatusBadge } from "./interview-status-badge";
+
+const PdfPreviewDialog = dynamic(
+  async () => {
+    const mod = await import("@/components/pdf-preview-dialog");
+    return mod.PdfPreviewDialog;
+  },
+  { ssr: false },
+);
 
 const PAGE_SIZE_OPTIONS = [5, 10, 20, 50, 100] as const;
 
@@ -160,6 +177,10 @@ export function InterviewManagementPage({
   const [detailRecordId, setDetailRecordId] = useState<string | null>(null);
   const [editRecordId, setEditRecordId] = useState<string | null>(null);
   const [deleteRecord, setDeleteRecord] = useState<StudioInterviewListRecord | null>(null);
+  const [previewRecord, setPreviewRecord] = useState<StudioInterviewListRecord | null>(null);
+  const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
 
   const deferredSearch = useDeferredValue(globalFilter);
   const currentSortBy = sorting[0]?.id ?? "createdAt";
@@ -275,6 +296,29 @@ export function InterviewManagementPage({
   const columns = useMemo<ColumnDef<StudioInterviewListRecord>[]>(
     () => [
       {
+        cell: ({ row }) => (
+          <Checkbox
+            aria-label="选择此行"
+            checked={row.getIsSelected()}
+            onCheckedChange={(value) => row.toggleSelected(!!value)}
+          />
+        ),
+        enableHiding: false,
+        enableSorting: false,
+        header: ({ table }) => (
+          <Checkbox
+            aria-label="全选当前页"
+            checked={
+              table.getIsAllPageRowsSelected() ||
+              (table.getIsSomePageRowsSelected() && "indeterminate")
+            }
+            onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
+          />
+        ),
+        id: "select",
+        size: 36,
+      },
+      {
         accessorKey: "candidateName",
         cell: ({ row }) => {
           const record = row.original;
@@ -389,6 +433,23 @@ export function InterviewManagementPage({
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
+                    aria-label="预览简历"
+                    className="size-8"
+                    disabled={!record.hasResumeFile}
+                    onClick={() => setPreviewRecord(record)}
+                    size="icon"
+                    variant="ghost"
+                  >
+                    <FileTextIcon className="size-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  {record.hasResumeFile ? "预览简历" : "暂无简历 PDF"}
+                </TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
                     aria-label="编辑记录"
                     className="size-8"
                     onClick={() => setEditRecordId(record.id)}
@@ -433,17 +494,24 @@ export function InterviewManagementPage({
   const table = useReactTable({
     columns,
     data: displayRecords,
+    enableRowSelection: true,
     getCoreRowModel: getCoreRowModel(),
+    getRowId: (row) => row.id,
     manualSorting: true,
+    onRowSelectionChange: setRowSelection,
     onSortingChange: handleSortingChange,
     state: {
       columnPinning: {
-        left: ["candidateName"],
+        left: ["select", "candidateName"],
         right: ["actions"],
       },
+      rowSelection,
       sorting,
     },
   });
+
+  const selectedIds = Object.keys(rowSelection).filter((id) => rowSelection[id]);
+  const selectedCount = selectedIds.length;
 
   const summary = useMemo(
     () => ({
@@ -474,6 +542,38 @@ export function InterviewManagementPage({
     setDeleteRecord(null);
     toast.success("面试记录已删除");
     invalidateList();
+  }
+
+  async function handleBulkDelete() {
+    if (selectedCount === 0) {
+      return;
+    }
+
+    setIsBulkDeleting(true);
+    try {
+      const response = await fetch("/api/studio/interviews/bulk-delete", {
+        body: JSON.stringify({ ids: selectedIds }),
+        headers: { "Content-Type": "application/json" },
+        method: "POST",
+      });
+
+      const payload = (await response.json().catch(() => null)) as {
+        deletedCount?: number;
+        error?: string;
+      } | null;
+
+      if (!response.ok) {
+        toast.error(payload?.error ?? "批量删除失败");
+        return;
+      }
+
+      toast.success(`已删除 ${payload?.deletedCount ?? selectedCount} 条记录`);
+      setRowSelection({});
+      setBulkDeleteOpen(false);
+      invalidateList();
+    } finally {
+      setIsBulkDeleting(false);
+    }
   }
 
   // Pagination info
@@ -556,6 +656,12 @@ export function InterviewManagementPage({
               <RefreshCwIcon className={`size-4 ${isMutationRefreshing ? "animate-spin" : ""}`} />
               <span className="sr-only">刷新</span>
             </Button>
+            {selectedCount > 0 ? (
+              <Button onClick={() => setBulkDeleteOpen(true)} size="sm" variant="destructive">
+                <Trash2Icon className="size-4" />
+                批量删除 ({selectedCount})
+              </Button>
+            ) : null}
             <div data-tour="studio-create-btn">
               <CreateInterviewDialog
                 onCreated={() => {
@@ -742,7 +848,7 @@ export function InterviewManagementPage({
           <AlertDialogHeader>
             <AlertDialogTitle>确认删除这条面试记录？</AlertDialogTitle>
             <AlertDialogDescription>
-              删除后将无法恢复，包括候选人解析信息和 AI 题目。当前记录：
+              删除后将无法恢复，所有关联的面试轮次、对话记录与面试报告都会一并级联删除。当前记录：
               {deleteRecord?.candidateName ?? "未知候选人"}。
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -754,6 +860,40 @@ export function InterviewManagementPage({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <AlertDialog onOpenChange={setBulkDeleteOpen} open={bulkDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>确认批量删除 {selectedCount} 条面试记录？</AlertDialogTitle>
+            <AlertDialogDescription>
+              此操作不可恢复。所选记录及其附属数据（面试轮次安排、候选人对话记录、AI
+              生成的面试题与面试报告）都将被级联删除。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isBulkDeleting}>取消</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={isBulkDeleting}
+              onClick={(event) => {
+                event.preventDefault();
+                void handleBulkDelete();
+              }}
+              variant="destructive"
+            >
+              {isBulkDeleting ? "正在删除…" : `删除 ${selectedCount} 条记录`}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {previewRecord ? (
+        <PdfPreviewDialog
+          filename={previewRecord.resumeFileName ?? undefined}
+          onOpenChange={(open) => !open && setPreviewRecord(null)}
+          open={previewRecord !== null}
+          url={`/api/studio/interviews/${previewRecord.id}/resume`}
+        />
+      ) : null}
     </>
   );
 }

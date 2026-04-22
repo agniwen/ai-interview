@@ -5,6 +5,7 @@ import {
   ChevronRightIcon,
   DownloadIcon,
   LoaderCircleIcon,
+  XIcon,
   ZoomInIcon,
   ZoomOutIcon,
 } from "lucide-react";
@@ -33,6 +34,46 @@ pdfjs.GlobalWorkerOptions.workerSrc = new URL(
 const MIN_SCALE = 0.5;
 const MAX_SCALE = 3;
 const SCALE_STEP = 0.25;
+// PDFs with at most this many pages render all pages stacked for easy
+// scrolling; longer PDFs fall back to one-page-at-a-time with pagination.
+const RENDER_ALL_PAGES_THRESHOLD = 5;
+
+function renderPages({
+  numPages,
+  pageNumber,
+  renderAllPages,
+  scale,
+}: {
+  numPages: number | null;
+  pageNumber: number;
+  renderAllPages: boolean;
+  scale: number;
+}) {
+  if (!numPages) {
+    return null;
+  }
+  if (renderAllPages) {
+    return Array.from({ length: numPages }, (_, index) => (
+      <Page
+        className="my-4 shadow-sm"
+        key={`page-${index + 1}`}
+        pageNumber={index + 1}
+        renderAnnotationLayer
+        renderTextLayer
+        scale={scale}
+      />
+    ));
+  }
+  return (
+    <Page
+      className="my-4 shadow-sm"
+      pageNumber={pageNumber}
+      renderAnnotationLayer
+      renderTextLayer
+      scale={scale}
+    />
+  );
+}
 
 export interface PdfPreviewDialogProps {
   open: boolean;
@@ -74,16 +115,22 @@ export function PdfPreviewDialog({ open, onOpenChange, url, filename }: PdfPrevi
     [],
   );
 
-  const canPrev = pageNumber > 1;
-  const canNext = numPages !== null && pageNumber < numPages;
+  const renderAllPages = numPages !== null && numPages <= RENDER_ALL_PAGES_THRESHOLD;
+  const canPrev = !renderAllPages && pageNumber > 1;
+  const canNext = !renderAllPages && numPages !== null && pageNumber < numPages;
   const canZoomIn = scale < MAX_SCALE - 1e-6;
   const canZoomOut = scale > MIN_SCALE + 1e-6;
+
+  let pageCountLabel = "加载中...";
+  if (numPages) {
+    pageCountLabel = renderAllPages ? `共 ${numPages} 页` : `第 ${pageNumber} / ${numPages} 页`;
+  }
 
   return (
     <Dialog onOpenChange={onOpenChange} open={open}>
       <DialogContent
-        className="flex h-[88dvh] max-w-4xl flex-col gap-0 overflow-hidden p-0"
-        showCloseButton
+        className="flex h-[92dvh] w-[min(96vw,1400px)] max-w-none sm:max-w-none flex-col gap-0 overflow-hidden p-0"
+        showCloseButton={false}
       >
         <DialogHeader className="flex shrink-0 flex-row items-center justify-between gap-4 border-b px-5 py-3">
           <div className="min-w-0 flex-1">
@@ -91,33 +138,37 @@ export function PdfPreviewDialog({ open, onOpenChange, url, filename }: PdfPrevi
               {filename ?? "简历预览"}
             </DialogTitle>
             <DialogDescription className="text-xs text-muted-foreground">
-              {numPages ? `第 ${pageNumber} / ${numPages} 页` : "加载中..."}
+              {pageCountLabel}
             </DialogDescription>
           </div>
 
           <div className="flex items-center gap-1">
-            <Button
-              disabled={!canPrev}
-              onClick={() => setPageNumber((n) => Math.max(1, n - 1))}
-              size="icon"
-              type="button"
-              variant="ghost"
-              aria-label="上一页"
-            >
-              <ChevronLeftIcon className="size-4" />
-            </Button>
-            <Button
-              disabled={!canNext}
-              onClick={() => setPageNumber((n) => Math.min(numPages ?? n, n + 1))}
-              size="icon"
-              type="button"
-              variant="ghost"
-              aria-label="下一页"
-            >
-              <ChevronRightIcon className="size-4" />
-            </Button>
+            {renderAllPages ? null : (
+              <>
+                <Button
+                  disabled={!canPrev}
+                  onClick={() => setPageNumber((n) => Math.max(1, n - 1))}
+                  size="icon"
+                  type="button"
+                  variant="ghost"
+                  aria-label="上一页"
+                >
+                  <ChevronLeftIcon className="size-4" />
+                </Button>
+                <Button
+                  disabled={!canNext}
+                  onClick={() => setPageNumber((n) => Math.min(numPages ?? n, n + 1))}
+                  size="icon"
+                  type="button"
+                  variant="ghost"
+                  aria-label="下一页"
+                >
+                  <ChevronRightIcon className="size-4" />
+                </Button>
 
-            <span className="mx-1 h-5 w-px bg-border" />
+                <span className="mx-1 h-5 w-px bg-border" />
+              </>
+            )}
 
             <Button
               disabled={!canZoomOut}
@@ -150,11 +201,23 @@ export function PdfPreviewDialog({ open, onOpenChange, url, filename }: PdfPrevi
                 <DownloadIcon className="size-4" />
               </a>
             </Button>
+
+            <span className="mx-1 h-5 w-px bg-border" />
+
+            <Button
+              aria-label="关闭"
+              onClick={() => onOpenChange(false)}
+              size="icon"
+              type="button"
+              variant="ghost"
+            >
+              <XIcon className="size-4" />
+            </Button>
           </div>
         </DialogHeader>
 
         <div
-          className={cn("flex-1 overflow-auto bg-muted/30", "flex justify-center")}
+          className={cn("flex-1 overflow-auto bg-muted/30 py-3", "flex justify-center")}
           ref={scrollRef}
         >
           {loadError ? (
@@ -177,15 +240,7 @@ export function PdfPreviewDialog({ open, onOpenChange, url, filename }: PdfPrevi
               onLoadSuccess={({ numPages: total }) => setNumPages(total)}
               options={documentOptions}
             >
-              {numPages ? (
-                <Page
-                  className="my-4 shadow-sm"
-                  pageNumber={pageNumber}
-                  renderAnnotationLayer
-                  renderTextLayer
-                  scale={scale}
-                />
-              ) : null}
+              {renderPages({ numPages, pageNumber, renderAllPages, scale })}
             </Document>
           )}
         </div>

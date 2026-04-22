@@ -427,13 +427,12 @@ export function InterviewDetailDialog({
                     经历
                   </TabsTrigger>
                 </TabsList>
-                {record.resumeStorageKey ? (
-                  <PdfPreviewButton
-                    filename={record.resumeFileName ?? undefined}
-                    label="预览简历"
-                    url={`/api/studio/interviews/${record.id}/resume`}
-                  />
-                ) : null}
+                <PdfPreviewButton
+                  disabled={!record.resumeStorageKey}
+                  filename={record.resumeFileName ?? undefined}
+                  label="预览简历"
+                  url={record.resumeStorageKey ? `/api/studio/interviews/${record.id}/resume` : ""}
+                />
               </div>
             ) : null}
           </DialogHeader>

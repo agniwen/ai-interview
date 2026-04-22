@@ -1,7 +1,7 @@
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 import type { ResumeProfile } from "@/lib/interview/types";
 import { RoomAgentDispatch, RoomConfiguration } from "@livekit/protocol";
-import { and, eq, ne } from "drizzle-orm";
+import { and, eq, inArray, ne } from "drizzle-orm";
 import { AccessToken } from "livekit-server-sdk";
 import { db } from "@/lib/db";
 import { interviewAuditLog, studioInterview, studioInterviewSchedule } from "@/lib/db/schema";
@@ -436,7 +436,7 @@ export const studioInterviewsRouter = factory
         return c.json({ error: input.error.issues[0]?.message ?? "表单校验失败。" }, 400);
       }
 
-      const analysis = parsedResumePayload ?? (resume ? await analyzeResumeFile(resume) : null);
+      const analysis = parsedResumePayload;
       const now = new Date();
       // When the user re-uploads a resume during edit, overwrite the S3 object
       // (same key derived from interview id) so preview always reflects the
@@ -569,4 +569,28 @@ export const studioInterviewsRouter = factory
     await db.delete(studioInterview).where(eq(studioInterview.id, id));
     safeUpdateTag("studio-interviews");
     return c.json({ success: true });
+  })
+  .post("/bulk-delete", async (c) => {
+    const body = (await c.req.json().catch(() => null)) as { ids?: unknown } | null;
+    const rawIds = Array.isArray(body?.ids) ? body.ids : null;
+
+    if (!rawIds || rawIds.length === 0) {
+      return c.json({ error: "缺少待删除的记录 ID。" }, 400);
+    }
+
+    const ids = rawIds.filter(
+      (value): value is string => typeof value === "string" && value.length > 0,
+    );
+
+    if (ids.length === 0) {
+      return c.json({ error: "缺少待删除的记录 ID。" }, 400);
+    }
+
+    const result = await db
+      .delete(studioInterview)
+      .where(inArray(studioInterview.id, ids))
+      .returning({ id: studioInterview.id });
+
+    safeUpdateTag("studio-interviews");
+    return c.json({ deletedCount: result.length, success: true });
   });

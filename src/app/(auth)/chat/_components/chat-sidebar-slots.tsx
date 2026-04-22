@@ -1,7 +1,7 @@
 "use client";
 
 import { useAtomValue } from "jotai";
-import { PlusIcon, Trash2Icon } from "lucide-react";
+import { PlusIcon, SquareCheckBigIcon, Trash2Icon, XIcon } from "lucide-react";
 import Link from "next/link";
 import { useParams, usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
@@ -23,6 +23,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   SidebarMenu,
   SidebarMenuButton,
@@ -83,27 +84,167 @@ function useActiveSessionId() {
   }, [currentPathname, params.sessionId]);
 }
 
-function ChatSidebarHeader({ onNewConversation }: { onNewConversation: () => void }) {
+function ChatSidebarHeader({
+  onNewConversation,
+  editMode,
+  onToggleEditMode,
+  selectedCount,
+  onBulkDelete,
+  isBulkDeleting,
+}: {
+  onNewConversation: () => void;
+  editMode: boolean;
+  onToggleEditMode: () => void;
+  selectedCount: number;
+  onBulkDelete: () => void;
+  isBulkDeleting: boolean;
+}) {
   const { state } = useSidebar();
   const isCollapsed = state === "collapsed";
 
-  return (
-    <SidebarMenu>
-      <SidebarMenuItem>
-        <SidebarMenuButton
-          className={cn(
-            "h-9 gap-2 text-sidebar-foreground/80",
-            isCollapsed ? "justify-center" : "",
-          )}
-          onClick={onNewConversation}
-          size="default"
-          tooltip="新建对话"
+  if (isCollapsed) {
+    return (
+      <SidebarMenu>
+        <SidebarMenuItem>
+          <SidebarMenuButton
+            className="h-9 justify-center gap-2 text-sidebar-foreground/80"
+            onClick={onNewConversation}
+            size="default"
+            tooltip="新建对话"
+          >
+            <PlusIcon className="size-4" />
+          </SidebarMenuButton>
+        </SidebarMenuItem>
+      </SidebarMenu>
+    );
+  }
+
+  if (editMode) {
+    return (
+      <div className="flex items-center gap-1.5 px-1">
+        <Button
+          className="h-9 flex-1 gap-2"
+          disabled={selectedCount === 0 || isBulkDeleting}
+          onClick={onBulkDelete}
+          size="sm"
+          variant="destructive"
         >
-          <PlusIcon className="size-4" />
-          {isCollapsed ? null : <span className="font-medium text-sm">新建对话</span>}
-        </SidebarMenuButton>
-      </SidebarMenuItem>
-    </SidebarMenu>
+          <Trash2Icon className="size-4" />
+          {isBulkDeleting ? "正在删除…" : `删除 (${selectedCount})`}
+        </Button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              aria-label="退出批量编辑"
+              className="size-9 shrink-0"
+              disabled={isBulkDeleting}
+              onClick={onToggleEditMode}
+              size="icon"
+              variant="ghost"
+            >
+              <XIcon className="size-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>退出批量编辑</TooltipContent>
+        </Tooltip>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-1.5 px-1">
+      <Button
+        className="h-9 flex-1 justify-start gap-2 text-sidebar-foreground/80"
+        onClick={onNewConversation}
+        size="sm"
+        variant="ghost"
+      >
+        <PlusIcon className="size-4" />
+        <span className="font-medium text-sm">新建对话</span>
+      </Button>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            aria-label="批量编辑"
+            className="size-9 shrink-0 text-sidebar-foreground/80"
+            onClick={onToggleEditMode}
+            size="icon"
+            variant="ghost"
+          >
+            <SquareCheckBigIcon className="size-4" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>批量编辑</TooltipContent>
+      </Tooltip>
+    </div>
+  );
+}
+
+function renderSessionItem({
+  conversation,
+  editMode,
+  isMock,
+  isSelected,
+  itemBody,
+  closeOnNavigate,
+  onToggleSelect,
+  onDelete,
+}: {
+  conversation: ConversationListItem;
+  editMode: boolean;
+  isMock: boolean;
+  isSelected: boolean;
+  itemBody: React.ReactNode;
+  closeOnNavigate: () => void;
+  onToggleSelect: (id: string) => void;
+  onDelete: (conversation: ConversationListItem) => void;
+}) {
+  if (editMode && !isMock) {
+    return (
+      <button
+        className="flex min-w-0 flex-1 items-center gap-2 rounded-md text-left"
+        onClick={() => onToggleSelect(conversation.id)}
+        type="button"
+      >
+        <Checkbox
+          aria-label="选择此会话"
+          checked={isSelected}
+          className="ml-2 shrink-0"
+          tabIndex={-1}
+        />
+        {itemBody}
+      </button>
+    );
+  }
+
+  if (isMock) {
+    return itemBody;
+  }
+
+  return (
+    <>
+      <Link
+        className="min-w-0 flex-1 rounded-md"
+        href={`/chat/${conversation.id}`}
+        onClick={closeOnNavigate}
+      >
+        {itemBody}
+      </Link>
+
+      <Button
+        aria-label="删除聊天记录"
+        className="size-7 rounded-md opacity-0 transition-opacity group-hover/session-item:opacity-100 hover:bg-destructive/12 hover:text-destructive"
+        onClick={(event) => {
+          event.stopPropagation();
+          onDelete(conversation);
+        }}
+        size="icon-sm"
+        type="button"
+        variant="ghost"
+      >
+        <Trash2Icon className="size-3.5" />
+      </Button>
+    </>
   );
 }
 
@@ -111,10 +252,16 @@ function ChatSidebarBody({
   conversations,
   activeSessionId,
   onDelete,
+  editMode,
+  selectedIds,
+  onToggleSelect,
 }: {
   conversations: ConversationListItem[];
   activeSessionId: string | null;
   onDelete: (conversation: ConversationListItem) => void;
+  editMode: boolean;
+  selectedIds: Set<string>;
+  onToggleSelect: (id: string) => void;
 }) {
   const { state, setOpenMobile, isMobile } = useSidebar();
   const isCollapsed = state === "collapsed";
@@ -200,61 +347,45 @@ function ChatSidebarBody({
       {conversations.map((conversation) => {
         const isMock = conversation.id.startsWith("tutorial-");
         const isActive = activeSessionId === conversation.id;
+        const isSelected = selectedIds.has(conversation.id);
         const visibleTitle = conversation.isTitleGenerating
           ? GENERATING_CHAT_TITLE
           : conversation.title;
+
+        const itemBody = (
+          <div className="min-w-0 flex-1 rounded-md px-2 py-1.5 text-left">
+            <p className="truncate font-medium text-sm">{visibleTitle}</p>
+            <p className="mt-1 truncate text-muted-foreground text-xs">
+              <TimeDisplay
+                as="span"
+                options={DATE_TIME_DISPLAY_OPTIONS}
+                value={conversation.updatedAt}
+              />
+            </p>
+          </div>
+        );
 
         return (
           <li key={conversation.id}>
             <div
               className={cn(
                 "group/session-item flex items-center gap-1 rounded-lg border border-transparent px-1 py-1 transition-colors",
-                isActive ? "border-sidebar-border bg-sidebar-accent" : "hover:bg-sidebar-accent/60",
+                isActive && !editMode
+                  ? "border-sidebar-border bg-sidebar-accent"
+                  : "hover:bg-sidebar-accent/60",
+                editMode && isSelected ? "border-sidebar-border bg-sidebar-accent" : "",
               )}
             >
-              {isMock ? (
-                <div className="min-w-0 flex-1 rounded-md px-2 py-1.5 text-left">
-                  <p className="truncate font-medium text-sm">{visibleTitle}</p>
-                  <p className="mt-1 truncate text-muted-foreground text-xs">
-                    <TimeDisplay
-                      as="span"
-                      options={DATE_TIME_DISPLAY_OPTIONS}
-                      value={conversation.updatedAt}
-                    />
-                  </p>
-                </div>
-              ) : (
-                <>
-                  <Link
-                    className="min-w-0 flex-1 rounded-md px-2 py-1.5 text-left"
-                    href={`/chat/${conversation.id}`}
-                    onClick={closeOnNavigate}
-                  >
-                    <p className="truncate font-medium text-sm">{visibleTitle}</p>
-                    <p className="mt-1 truncate text-muted-foreground text-xs">
-                      <TimeDisplay
-                        as="span"
-                        options={DATE_TIME_DISPLAY_OPTIONS}
-                        value={conversation.updatedAt}
-                      />
-                    </p>
-                  </Link>
-
-                  <Button
-                    aria-label="删除聊天记录"
-                    className="size-7 rounded-md opacity-0 transition-opacity group-hover/session-item:opacity-100 hover:bg-destructive/12 hover:text-destructive"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      onDelete(conversation);
-                    }}
-                    size="icon-sm"
-                    type="button"
-                    variant="ghost"
-                  >
-                    <Trash2Icon className="size-3.5" />
-                  </Button>
-                </>
-              )}
+              {renderSessionItem({
+                closeOnNavigate,
+                conversation,
+                editMode,
+                isMock,
+                isSelected,
+                itemBody,
+                onDelete,
+                onToggleSelect,
+              })}
             </div>
           </li>
         );
@@ -269,6 +400,10 @@ export function ChatSidebarSlots() {
   const tutorialStep = useAtomValue(tutorialStepAtom);
   const [conversations, setConversations] = useState<ConversationListItem[]>([]);
   const [deleteTarget, setDeleteTarget] = useState<ConversationListItem | null>(null);
+  const [editMode, setEditMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
+  const [bulkConfirmOpen, setBulkConfirmOpen] = useState(false);
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
   const activeSessionId = useActiveSessionId();
 
   const displayConversations =
@@ -334,6 +469,51 @@ export function ChatSidebarSlots() {
     };
   }, [refreshConversationList]);
 
+  const toggleEditMode = useCallback(() => {
+    setEditMode((prev) => {
+      if (prev) {
+        setSelectedIds(new Set());
+      }
+      return !prev;
+    });
+  }, []);
+
+  const handleToggleSelect = useCallback((id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  }, []);
+
+  const handleBulkDelete = useCallback(async () => {
+    if (selectedIds.size === 0) {
+      return;
+    }
+
+    const ids = [...selectedIds];
+    setIsBulkDeleting(true);
+    try {
+      await Promise.allSettled(ids.map((id) => deleteConversation(id)));
+    } finally {
+      setIsBulkDeleting(false);
+    }
+
+    setBulkConfirmOpen(false);
+    setSelectedIds(new Set());
+    setEditMode(false);
+    window.dispatchEvent(new CustomEvent("chat:conversations-changed"));
+    await refreshConversationList();
+
+    if (activeSessionId && ids.includes(activeSessionId)) {
+      router.replace("/chat");
+    }
+  }, [activeSessionId, refreshConversationList, router, selectedIds]);
+
   const confirmDelete = useCallback(async () => {
     if (!deleteTarget) {
       return;
@@ -357,14 +537,24 @@ export function ChatSidebarSlots() {
   return (
     <>
       <SidebarHeaderPortalContent>
-        <ChatSidebarHeader onNewConversation={handleStartNewConversation} />
+        <ChatSidebarHeader
+          editMode={editMode}
+          isBulkDeleting={isBulkDeleting}
+          onBulkDelete={() => setBulkConfirmOpen(true)}
+          onNewConversation={handleStartNewConversation}
+          onToggleEditMode={toggleEditMode}
+          selectedCount={selectedIds.size}
+        />
       </SidebarHeaderPortalContent>
 
       <SidebarBodyPortalContent>
         <ChatSidebarBody
           activeSessionId={activeSessionId}
           conversations={displayConversations}
+          editMode={editMode}
           onDelete={setDeleteTarget}
+          onToggleSelect={handleToggleSelect}
+          selectedIds={selectedIds}
         />
       </SidebarBodyPortalContent>
 
@@ -392,6 +582,30 @@ export function ChatSidebarSlots() {
             <AlertDialogCancel>取消</AlertDialogCancel>
             <AlertDialogAction onClick={() => void confirmDelete()} variant="destructive">
               删除
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog onOpenChange={setBulkConfirmOpen} open={bulkConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>确认批量删除 {selectedIds.size} 条聊天记录？</AlertDialogTitle>
+            <AlertDialogDescription>
+              删除后将无法恢复。所选会话的全部消息也会一并移除。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isBulkDeleting}>取消</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={isBulkDeleting}
+              onClick={(event) => {
+                event.preventDefault();
+                void handleBulkDelete();
+              }}
+              variant="destructive"
+            >
+              {isBulkDeleting ? "正在删除…" : `删除 ${selectedIds.size} 条`}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

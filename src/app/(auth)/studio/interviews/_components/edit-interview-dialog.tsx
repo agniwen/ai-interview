@@ -1,11 +1,10 @@
 "use client";
 
-import type { InterviewQuestion, ResumeAnalysisResult, ResumeProfile } from "@/lib/interview/types";
+import type { InterviewQuestion } from "@/lib/interview/types";
 import type { ScheduleEntryStatus, StudioInterviewRecord } from "@/lib/studio-interviews";
-import type { AnalysisStreamEvent } from "@/server/agents/resume-analysis-agent";
 import { useStore } from "@tanstack/react-form";
 import { useQuery } from "@tanstack/react-query";
-import { LoaderCircleIcon, SparklesIcon } from "lucide-react";
+import { LoaderCircleIcon } from "lucide-react";
 import { useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -35,7 +34,6 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import { readNdjsonStream } from "@/lib/ndjson-stream";
 import { studioInterviewStatusMeta, studioInterviewStatusValues } from "@/lib/studio-interviews";
 import {
   createInterviewFormValues,
@@ -61,8 +59,6 @@ export function EditInterviewDialog({
   onUpdated: (record: StudioInterviewRecord) => void;
 }) {
   const [resumeFile, setResumeFile] = useState<File | null>(null);
-  const [resumePayload, setResumePayload] = useState<ResumeAnalysisResult | null>(null);
-  const [isAnalyzingResume, setIsAnalyzingResume] = useState(false);
   const [editedQuestions, setEditedQuestions] = useState<InterviewQuestion[]>([]);
   const [roundStatuses, setRoundStatuses] = useState<Record<string, ScheduleEntryStatus>>({});
   const form = useInterviewForm({
@@ -88,9 +84,7 @@ export function EditInterviewDialog({
         formData.append("resume", resumeFile);
       }
 
-      if (resumePayload) {
-        formData.append("resumePayload", JSON.stringify(resumePayload));
-      } else if (editedQuestions.length > 0) {
+      if (editedQuestions.length > 0) {
         formData.append("editedQuestions", JSON.stringify(editedQuestions));
       }
 
@@ -112,7 +106,6 @@ export function EditInterviewDialog({
       onUpdated(payload as StudioInterviewRecord);
       onOpenChange(false);
       setResumeFile(null);
-      setResumePayload(null);
       toast.success("简历记录已更新");
     },
   });
@@ -152,7 +145,6 @@ export function EditInterviewDialog({
     },
     queryFn: async () => {
       setResumeFile(null);
-      setResumePayload(null);
 
       const response = await fetch(`/api/studio/interviews/${recordId}`);
       const payload = (await response.json()) as StudioInterviewRecord | { error?: string };
@@ -169,115 +161,8 @@ export function EditInterviewDialog({
     queryKey: ["studio-interview-edit", recordId],
   });
 
-  async function handleResumeChange(file: File | null) {
+  function handleResumeChange(file: File | null) {
     setResumeFile(file);
-    setResumePayload(null);
-
-    if (!file) {
-      return;
-    }
-
-    setIsAnalyzingResume(true);
-
-    try {
-      // Step 1: stream parse resume profile
-      const formData = new FormData();
-      formData.append("resume", file);
-
-      const parseResponse = await fetch("/api/interview/parse-resume", {
-        body: formData,
-        method: "POST",
-      });
-
-      if (!parseResponse.ok) {
-        const errBody = (await parseResponse.json().catch(() => null)) as { error?: string } | null;
-        throw new Error(errBody?.error ?? "简历解析失败");
-      }
-
-      interface ParseResult {
-        fileName: string;
-        resumeProfile: ResumeProfile;
-      }
-      let parseResult: ParseResult | null = null;
-      let streamError: string | null = null;
-
-      await readNdjsonStream<AnalysisStreamEvent>(parseResponse, (event) => {
-        if (event.type === "result") {
-          parseResult = event.data as ParseResult;
-        }
-        if (event.type === "error") {
-          streamError = event.message;
-        }
-      });
-
-      if (streamError) {
-        throw new Error(streamError);
-      }
-
-      if (!parseResult) {
-        throw new Error("简历解析未返回有效结果");
-      }
-
-      const { fileName, resumeProfile } = parseResult as ParseResult;
-
-      form.setFieldValue("candidateName", resumeProfile.name);
-      form.setFieldValue("targetRole", resumeProfile.targetRoles[0] ?? "");
-      setResumePayload({
-        fileName,
-        interviewQuestions: [],
-        resumeProfile,
-      });
-      setIsAnalyzingResume(false);
-      toast.success("已回填候选人信息，正在生成面试题…");
-
-      // Step 2: stream generate interview questions
-      const qResponse = await fetch("/api/interview/generate-questions", {
-        body: JSON.stringify({ resumeProfile }),
-        headers: { "Content-Type": "application/json" },
-        method: "POST",
-      });
-
-      if (!qResponse.ok) {
-        const errBody = (await qResponse.json().catch(() => null)) as { error?: string } | null;
-        throw new Error(errBody?.error ?? "面试题生成失败");
-      }
-
-      let questions: InterviewQuestion[] | null = null;
-      streamError = null;
-
-      await readNdjsonStream<AnalysisStreamEvent>(qResponse, (event) => {
-        if (event.type === "result") {
-          const data = event.data as { interviewQuestions?: InterviewQuestion[] };
-          questions = data.interviewQuestions ?? null;
-        }
-        if (event.type === "error") {
-          streamError = event.message;
-        }
-      });
-
-      if (streamError) {
-        throw new Error(streamError);
-      }
-
-      if (questions) {
-        const nextQuestions = questions;
-        setResumePayload((prev) => (prev ? { ...prev, interviewQuestions: nextQuestions } : null));
-        toast.success("面试题生成完成");
-      }
-    } catch (error) {
-      setResumePayload((prev) => {
-        if (prev?.resumeProfile) {
-          return prev;
-        }
-        return null;
-      });
-      if (!resumePayload?.resumeProfile) {
-        setResumeFile(null);
-      }
-      toast.error(error instanceof Error ? error.message : "简历分析失败");
-    } finally {
-      setIsAnalyzingResume(false);
-    }
   }
 
   return (
@@ -288,7 +173,7 @@ export function EditInterviewDialog({
             <DialogHeader className="border-b px-6 py-5">
               <DialogTitle>编辑简历记录</DialogTitle>
               <DialogDescription>
-                更新候选人资料、流程状态、面试安排，并支持替换简历重新分析。
+                更新候选人资料、流程状态、面试安排，并支持替换关联的简历 PDF。
               </DialogDescription>
             </DialogHeader>
             <div className="flex min-h-[320px] items-center justify-center text-muted-foreground text-sm">
@@ -308,7 +193,7 @@ export function EditInterviewDialog({
               <DialogHeader className="border-b px-6 pt-5 pb-2">
                 <DialogTitle>编辑简历记录</DialogTitle>
                 <DialogDescription>
-                  更新候选人资料、流程状态、面试安排，并支持替换简历重新分析。
+                  更新候选人资料、流程状态、面试安排，并支持替换关联的简历 PDF。
                 </DialogDescription>
                 <TabsList className="mt-0">
                   <TabsTrigger className="min-w-[8em]" value="basic">
@@ -316,7 +201,7 @@ export function EditInterviewDialog({
                   </TabsTrigger>
                   <TabsTrigger className="min-w-[8em]" value="questions">
                     面试题目
-                    {` (${resumePayload ? resumePayload.interviewQuestions.length : editedQuestions.length})`}
+                    {` (${editedQuestions.length})`}
                   </TabsTrigger>
                 </TabsList>
               </DialogHeader>
@@ -329,35 +214,19 @@ export function EditInterviewDialog({
                         <FieldLabel htmlFor="edit-resume-upload">替换简历 PDF</FieldLabel>
                         <Input
                           accept="application/pdf"
-                          disabled={isAnalyzingResume || isLoadingRecord || isSubmitting}
+                          disabled={isLoadingRecord || isSubmitting}
                           id="edit-resume-upload"
-                          onChange={(event) =>
-                            void handleResumeChange(event.target.files?.[0] ?? null)
-                          }
+                          onChange={(event) => handleResumeChange(event.target.files?.[0] ?? null)}
                           type="file"
                         />
                         <p className="text-muted-foreground text-sm">
-                          重新上传后将回填候选人信息与题目，但不会覆盖已维护的轮次安排和备注。
+                          仅替换关联的简历
+                          PDF，不会重新解析简历或覆盖已维护的候选人信息、面试题与轮次安排。
                         </p>
                         {resumeFile ? (
                           <p className="break-all text-muted-foreground text-sm">
                             {resumeFile.name}
                           </p>
-                        ) : null}
-                        {resumePayload ? (
-                          <div className="rounded-xl border border-border/60 bg-background/80 px-4 py-3 text-sm">
-                            <p className="flex items-center gap-2 font-medium">
-                              <SparklesIcon className="size-4 text-amber-500" />
-                              已完成新简历分析
-                            </p>
-                            <p className="mt-1 break-words text-muted-foreground leading-relaxed">
-                              {resumePayload.resumeProfile.name}
-                              {" · "}
-                              {resumePayload.resumeProfile.targetRoles[0] ?? "待识别岗位"}
-                              {" · "}
-                              {resumePayload.interviewQuestions.length} 道题
-                            </p>
-                          </div>
                         ) : null}
                       </FieldGroup>
                     </div>
@@ -526,23 +395,17 @@ export function EditInterviewDialog({
 
                 <TabsContent className="mt-0" value="questions">
                   <InterviewQuestionsFields
-                    disabled={isSubmitting || isAnalyzingResume || isLoadingRecord}
-                    onChange={(questions) => {
-                      if (resumePayload) {
-                        setResumePayload({ ...resumePayload, interviewQuestions: questions });
-                      } else {
-                        setEditedQuestions(questions);
-                      }
-                    }}
-                    questions={resumePayload ? resumePayload.interviewQuestions : editedQuestions}
+                    disabled={isSubmitting || isLoadingRecord}
+                    onChange={(questions) => setEditedQuestions(questions)}
+                    questions={editedQuestions}
                   />
                 </TabsContent>
               </div>
             </Tabs>
 
             <DialogFooter className="border-t px-6 py-4">
-              <Button disabled={isSubmitting || isAnalyzingResume || isLoadingRecord} type="submit">
-                {isSubmitting || isAnalyzingResume || isLoadingRecord ? (
+              <Button disabled={isSubmitting || isLoadingRecord} type="submit">
+                {isSubmitting || isLoadingRecord ? (
                   <LoaderCircleIcon className="size-4 animate-spin" />
                 ) : null}
                 保存更新

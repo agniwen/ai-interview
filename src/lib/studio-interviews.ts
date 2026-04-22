@@ -114,6 +114,7 @@ export type StudioInterviewListRecord = Omit<
   "resumeProfile" | "interviewQuestions" | "resumeStorageKey"
 > & {
   questionCount: number;
+  hasResumeFile: boolean;
 };
 
 export function toStudioInterviewListRecord(
@@ -124,6 +125,7 @@ export function toStudioInterviewListRecord(
     candidateName: record.candidateName,
     createdAt: record.createdAt,
     createdBy: record.createdBy,
+    hasResumeFile: Boolean(record.resumeStorageKey),
     id: record.id,
     interviewLink: record.interviewLink,
     jobDescriptionId: record.jobDescriptionId,
