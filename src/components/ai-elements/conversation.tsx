@@ -121,6 +121,8 @@ export function ConversationDownload({
   formatMessage = defaultFormatMessage,
   className,
   children,
+  size = "icon",
+  variant = "outline",
   ...props
 }: ConversationDownloadProps & { ref?: React.RefObject<HTMLButtonElement | null> }) {
   const handleDownload = useCallback(() => {
@@ -145,9 +147,9 @@ export function ConversationDownload({
         className,
       )}
       onClick={handleDownload}
-      size="icon"
+      size={size}
       type="button"
-      variant="outline"
+      variant={variant}
     >
       {children ?? <DownloadIcon className="size-4" />}
     </Button>
