@@ -51,3 +51,4 @@ __pycache__/
 .ruff_cache/
 *.egg-info/
 .devtools
+.pnpm-store
