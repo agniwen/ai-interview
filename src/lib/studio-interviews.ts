@@ -98,6 +98,7 @@ export interface StudioInterviewRecord {
   status: StudioInterviewStatus;
   resumeFileName: string | null;
   resumeProfile: ResumeAnalysisResult["resumeProfile"] | null;
+  resumeStorageKey: string | null;
   interviewQuestions: ResumeAnalysisResult["interviewQuestions"];
   scheduleEntries: InterviewScheduleEntry[];
   interviewLink: string;
@@ -110,7 +111,7 @@ export interface StudioInterviewRecord {
 
 export type StudioInterviewListRecord = Omit<
   StudioInterviewRecord,
-  "resumeProfile" | "interviewQuestions"
+  "resumeProfile" | "interviewQuestions" | "resumeStorageKey"
 > & {
   questionCount: number;
 };

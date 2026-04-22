@@ -73,6 +73,7 @@ import { cn } from "@/lib/utils";
 import { Source, Sources, SourcesContent, SourcesTrigger } from "@/components/ai-elements/sources";
 import { Suggestion, Suggestions } from "@/components/ai-elements/suggestion";
 import { AssistantMessageGroups } from "@/components/assistant-message-groups";
+import { PdfPreviewButton } from "@/components/pdf-preview-button";
 import { ResumeImportButton } from "@/components/resume-import-button";
 import { ThinkingBlock } from "@/components/thinking-block";
 import { TIME_DISPLAY_OPTIONS, TimeDisplay } from "@/components/time-display";
@@ -1465,6 +1466,9 @@ export default function ChatPageClient({ initialSessionId }: { initialSessionId:
                                   <Attachment data={part} key={part.id}>
                                     <AttachmentPreview />
                                     <AttachmentInfo showMediaType />
+                                    {isPdf && part.url ? (
+                                      <PdfPreviewButton filename={part.filename} url={part.url} />
+                                    ) : null}
                                     {showImportButton ? (
                                       <ResumeImportButton
                                         filePart={part}

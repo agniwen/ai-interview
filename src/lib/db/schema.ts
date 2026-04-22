@@ -191,6 +191,7 @@ export const studioInterview = pgTable(
     notes: text("notes"),
     resumeFileName: text("resume_file_name"),
     resumeProfile: jsonb("resume_profile").$type<ResumeProfile | null>(),
+    resumeStorageKey: text("resume_storage_key"),
     status: text("status").$type<StudioInterviewStatus>().notNull(),
     targetRole: text("target_role"),
     updatedAt: timestamp("updated_at")

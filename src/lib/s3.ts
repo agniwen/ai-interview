@@ -65,6 +65,12 @@ export async function buildAttachmentKey(attachmentId: string, extension: string
   return `${prefix}chat-attachments/${attachmentId}.${safeExt}`;
 }
 
+export async function buildInterviewResumeKey(interviewRecordId: string): Promise<string> {
+  const { config } = await getClient();
+  const prefix = config.keyPrefix ? `${config.keyPrefix.replace(/\/+$/, "")}/` : "";
+  return `${prefix}studio-resumes/${interviewRecordId}.pdf`;
+}
+
 export async function putObjectBytes(input: {
   storageKey: string;
   contentType: string;

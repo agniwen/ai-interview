@@ -13,6 +13,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import { PdfPreviewButton } from "@/components/pdf-preview-button";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -411,20 +412,29 @@ export function InterviewDetailDialog({
               {renderHeaderDescription({ isLoading, record })}
             </DialogDescription>
             {record ? (
-              <TabsList className="mt-0">
-                <TabsTrigger className="min-w-[6em]" value="overview">
-                  概览
-                </TabsTrigger>
-                <TabsTrigger className="min-w-[6em]" value="reports">
-                  面试报告
-                </TabsTrigger>
-                <TabsTrigger className="min-w-[6em]" value="questions">
-                  AI 题目
-                </TabsTrigger>
-                <TabsTrigger className="min-w-[6em]" value="experience">
-                  经历
-                </TabsTrigger>
-              </TabsList>
+              <div className="mt-0 flex flex-wrap items-center justify-between gap-3">
+                <TabsList className="mt-0">
+                  <TabsTrigger className="min-w-[6em]" value="overview">
+                    概览
+                  </TabsTrigger>
+                  <TabsTrigger className="min-w-[6em]" value="reports">
+                    面试报告
+                  </TabsTrigger>
+                  <TabsTrigger className="min-w-[6em]" value="questions">
+                    AI 题目
+                  </TabsTrigger>
+                  <TabsTrigger className="min-w-[6em]" value="experience">
+                    经历
+                  </TabsTrigger>
+                </TabsList>
+                {record.resumeStorageKey ? (
+                  <PdfPreviewButton
+                    filename={record.resumeFileName ?? undefined}
+                    label="预览简历"
+                    url={`/api/studio/interviews/${record.id}/resume`}
+                  />
+                ) : null}
+              </div>
             ) : null}
           </DialogHeader>
 

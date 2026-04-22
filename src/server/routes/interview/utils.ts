@@ -16,6 +16,7 @@ import {
   sortScheduleEntries,
 } from "@/lib/interview/interview-record";
 import { ResumeAnalysisError } from "@/server/agents/resume-analysis-agent";
+import { buildInterviewResumeKey, putObjectBytes } from "@/lib/s3";
 
 export type StudioInterviewRow = typeof studioInterview.$inferSelect;
 export type StudioInterviewScheduleRow = typeof studioInterviewSchedule.$inferSelect;
@@ -118,6 +119,30 @@ export function buildTokenErrorResponse() {
 
 export function normalizeResumeFile(value: FormDataEntryValue | null) {
   return value instanceof File && value.size > 0 ? value : null;
+}
+
+/**
+ * Upload the candidate resume PDF to S3 and return the storage key.
+ * Silently returns null when S3 isn't configured — the interview record still
+ * persists, preview just won't be available for this row.
+ */
+export async function storeInterviewResume(
+  interviewRecordId: string,
+  file: File,
+): Promise<string | null> {
+  try {
+    const storageKey = await buildInterviewResumeKey(interviewRecordId);
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    await putObjectBytes({
+      body: bytes,
+      contentType: file.type || "application/pdf",
+      storageKey,
+    });
+    return storageKey;
+  } catch (error) {
+    console.error("[studio-interview] failed to upload resume to S3:", error);
+    return null;
+  }
 }
 
 export function buildScheduleRows(

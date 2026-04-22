@@ -32,8 +32,10 @@ import {
   normalizeResumeFile,
   safeUpdateTag,
   serializeRecord,
+  storeInterviewResume,
   toBadRequest,
 } from "./utils";
+import { getObjectStream } from "@/lib/s3";
 
 export const interviewRouter = factory
   .createApp()
@@ -317,6 +319,9 @@ export const studioInterviewsRouter = factory
       const analysis = parsedResumePayload ?? (resume ? await analyzeResumeFile(resume) : null);
       const now = new Date();
       const interviewRecordId = crypto.randomUUID();
+      const resumeStorageKey = resume
+        ? await storeInterviewResume(interviewRecordId, resume)
+        : null;
       const record = {
         candidateEmail: input.data.candidateEmail || null,
         candidateName: input.data.candidateName || analysis?.resumeProfile.name || "未命名候选人",
@@ -326,8 +331,9 @@ export const studioInterviewsRouter = factory
         interviewQuestions: analysis?.interviewQuestions ?? manualInterviewQuestions ?? [],
         jobDescriptionId: input.data.jobDescriptionId || null,
         notes: input.data.notes || null,
-        resumeFileName: analysis?.fileName ?? null,
+        resumeFileName: analysis?.fileName ?? resume?.name ?? null,
         resumeProfile: analysis?.resumeProfile ?? null,
+        resumeStorageKey,
         status: input.data.status,
         targetRole: input.data.targetRole || analysis?.resumeProfile.targetRoles[0] || null,
         updatedAt: now,
@@ -355,6 +361,35 @@ export const studioInterviewsRouter = factory
     }
 
     return c.json(record);
+  })
+  .get("/:id/resume", async (c) => {
+    const id = c.req.param("id");
+    const existing = await loadRecordById(id);
+
+    if (!existing) {
+      return c.json({ error: "记录不存在。" }, 404);
+    }
+
+    if (!existing.resumeStorageKey) {
+      return c.json({ error: "该候选人没有可预览的简历 PDF。" }, 404);
+    }
+
+    const object = await getObjectStream(existing.resumeStorageKey);
+    if (!object) {
+      return c.json({ error: "简历文件已不可用。" }, 404);
+    }
+
+    const filename = existing.resumeFileName || "resume.pdf";
+    return new Response(object.body, {
+      headers: {
+        "Cache-Control": "private, max-age=300",
+        "Content-Disposition": `inline; filename="${encodeURIComponent(filename)}"`,
+        "Content-Type": object.contentType ?? "application/pdf",
+        ...(object.contentLength !== undefined && {
+          "Content-Length": String(object.contentLength),
+        }),
+      },
+    });
   })
   .get("/:id/reports", async (c) => {
     const id = c.req.param("id");
@@ -403,6 +438,12 @@ export const studioInterviewsRouter = factory
 
       const analysis = parsedResumePayload ?? (resume ? await analyzeResumeFile(resume) : null);
       const now = new Date();
+      // When the user re-uploads a resume during edit, overwrite the S3 object
+      // (same key derived from interview id) so preview always reflects the
+      // latest file. Keep the existing key when no new file is sent.
+      const resumeStorageKey = resume
+        ? ((await storeInterviewResume(id, resume)) ?? existing.resumeStorageKey)
+        : existing.resumeStorageKey;
 
       const existingScheduleRows = await db
         .select()
@@ -430,8 +471,9 @@ export const studioInterviewsRouter = factory
           analysis?.interviewQuestions ?? editedQuestions ?? existing.interviewQuestions,
         jobDescriptionId: input.data.jobDescriptionId || null,
         notes: input.data.notes || null,
-        resumeFileName: analysis?.fileName ?? existing.resumeFileName,
+        resumeFileName: analysis?.fileName ?? resume?.name ?? existing.resumeFileName,
         resumeProfile: analysis?.resumeProfile ?? existing.resumeProfile,
+        resumeStorageKey,
         status: resolvedStatus,
         targetRole: input.data.targetRole || analysis?.resumeProfile.targetRoles[0] || null,
         updatedAt: now,
