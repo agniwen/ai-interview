@@ -185,6 +185,7 @@ export function loadScheduleEntries(interviewIds: string[]): Promise<StudioInter
 export function serializeRecord(
   record: StudioInterviewRow,
   scheduleRows: StudioInterviewScheduleRow[],
+  jobDescriptionName: string | null = null,
 ): StudioInterviewRecord {
   const scheduleEntries = sortScheduleEntries(
     scheduleRows.filter((schedule) => schedule.interviewRecordId === record.id),
@@ -194,23 +195,28 @@ export function serializeRecord(
     ...record,
     interviewLink: buildInterviewLink(record.id),
     interviewQuestions: record.interviewQuestions ?? [],
+    jobDescriptionName,
     scheduleEntries,
   };
 }
 
 export async function loadRecordById(id: string) {
-  const [record] = await db
-    .select()
+  const [row] = await db
+    .select({
+      jobDescriptionName: jobDescription.name,
+      record: studioInterview,
+    })
     .from(studioInterview)
+    .leftJoin(jobDescription, eq(studioInterview.jobDescriptionId, jobDescription.id))
     .where(eq(studioInterview.id, id))
     .limit(1);
 
-  if (!record) {
+  if (!row) {
     return null;
   }
 
-  const scheduleEntries = await loadScheduleEntries([record.id]);
-  return serializeRecord(record, scheduleEntries);
+  const scheduleEntries = await loadScheduleEntries([row.record.id]);
+  return serializeRecord(row.record, scheduleEntries, row.jobDescriptionName);
 }
 
 export function toBadRequest(error: unknown) {

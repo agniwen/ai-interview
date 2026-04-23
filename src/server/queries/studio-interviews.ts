@@ -3,7 +3,7 @@ import { and, asc, count, desc, eq, ilike, inArray, or } from "drizzle-orm";
 import { cacheLife, cacheTag } from "next/cache";
 import { z } from "zod";
 import { db } from "@/lib/db";
-import { studioInterview, studioInterviewSchedule } from "@/lib/db/schema";
+import { jobDescription, studioInterview, studioInterviewSchedule, user } from "@/lib/db/schema";
 import { buildInterviewLink, sortScheduleEntries } from "@/lib/interview/interview-record";
 import { studioInterviewStatusSchema } from "@/lib/studio-interviews";
 
@@ -106,9 +106,11 @@ const SELECTED_COLUMNS = {
   candidateName: studioInterview.candidateName,
   createdAt: studioInterview.createdAt,
   createdBy: studioInterview.createdBy,
+  creatorName: user.name,
   id: studioInterview.id,
   interviewQuestions: studioInterview.interviewQuestions,
   jobDescriptionId: studioInterview.jobDescriptionId,
+  jobDescriptionName: jobDescription.name,
   notes: studioInterview.notes,
   resumeFileName: studioInterview.resumeFileName,
   resumeStorageKey: studioInterview.resumeStorageKey,
@@ -138,6 +140,8 @@ async function listStudioInterviewRows({
   let query = db
     .select(SELECTED_COLUMNS)
     .from(studioInterview)
+    .leftJoin(user, eq(studioInterview.createdBy, user.id))
+    .leftJoin(jobDescription, eq(studioInterview.jobDescriptionId, jobDescription.id))
     .where(where)
     .orderBy(buildOrderBy(sortBy, sortOrder))
     .$dynamic();
@@ -179,10 +183,12 @@ function toStudioInterviewListRecord(
     candidateName: record.candidateName,
     createdAt: serializeDate(record.createdAt),
     createdBy: record.createdBy,
+    creatorName: record.creatorName,
     hasResumeFile: Boolean(record.resumeStorageKey),
     id: record.id,
     interviewLink: buildInterviewLink(record.id),
     jobDescriptionId: record.jobDescriptionId,
+    jobDescriptionName: record.jobDescriptionName,
     notes: record.notes,
     questionCount: record.interviewQuestions?.length ?? 0,
     resumeFileName: record.resumeFileName,

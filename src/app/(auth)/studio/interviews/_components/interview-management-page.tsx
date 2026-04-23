@@ -22,7 +22,6 @@ import {
   ChevronsRightIcon,
   CopyIcon,
   EyeIcon,
-  FileTextIcon,
   Loader2Icon,
   MoreHorizontalIcon,
   PencilIcon,
@@ -95,6 +94,7 @@ import { CreateInterviewDialog } from "./create-interview-dialog";
 import { EditInterviewDialog } from "./edit-interview-dialog";
 import { InterviewDetailDialog } from "./interview-detail-dialog";
 import { InterviewStatusBadge } from "./interview-status-badge";
+import { JobDescriptionViewDialog } from "./job-description-view-dialog";
 
 const PdfPreviewDialog = dynamic(
   async () => {
@@ -121,7 +121,7 @@ function getPinningStyles(
     left: isPinned === "left" ? `${column.getStart("left")}px` : undefined,
     position: "sticky",
     right: isPinned === "right" ? `${column.getAfter("right")}px` : undefined,
-    zIndex: 1,
+    zIndex: 2,
   };
 }
 
@@ -178,6 +178,7 @@ export function InterviewManagementPage({
   const [editRecordId, setEditRecordId] = useState<string | null>(null);
   const [deleteRecord, setDeleteRecord] = useState<StudioInterviewListRecord | null>(null);
   const [previewRecord, setPreviewRecord] = useState<StudioInterviewListRecord | null>(null);
+  const [viewJobDescriptionId, setViewJobDescriptionId] = useState<string | null>(null);
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
@@ -332,16 +333,8 @@ export function InterviewManagementPage({
             </div>
           );
         },
-        header: ({ column }) => (
-          <Button
-            className="px-0"
-            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-            variant="ghost"
-          >
-            候选人
-            <ArrowUpDownIcon className="size-4" />
-          </Button>
-        ),
+        enableSorting: false,
+        header: "候选人",
         size: 180,
       },
       {
@@ -350,12 +343,50 @@ export function InterviewManagementPage({
         header: "目标岗位",
       },
       {
+        cell: ({ row }) => {
+          const name = row.original.jobDescriptionName;
+          if (!name) {
+            return <span className="text-muted-foreground">—</span>;
+          }
+          return (
+            <button
+              className="cursor-pointer truncate text-left underline-offset-4 hover:underline"
+              onClick={() => setViewJobDescriptionId(row.original.jobDescriptionId)}
+              type="button"
+            >
+              {name}
+            </button>
+          );
+        },
+        header: "关联岗位",
+        id: "jobDescriptionName",
+      },
+      {
         accessorKey: "resumeFileName",
-        cell: ({ row }) => (
-          <div className="max-w-48 truncate text-sm">
-            {row.original.resumeFileName || "手动创建"}
-          </div>
-        ),
+        cell: ({ row }) => {
+          const record = row.original;
+          const label = record.resumeFileName || "手动创建";
+          if (!record.hasResumeFile) {
+            return (
+              <div
+                aria-disabled
+                className="max-w-48 cursor-not-allowed truncate text-sm opacity-50"
+                title="暂无简历 PDF"
+              >
+                {label}
+              </div>
+            );
+          }
+          return (
+            <button
+              className="block max-w-48 cursor-pointer truncate text-left text-sm underline-offset-4 hover:underline"
+              onClick={() => setPreviewRecord(record)}
+              type="button"
+            >
+              {label}
+            </button>
+          );
+        },
         header: "简历文件",
       },
       {
@@ -395,6 +426,11 @@ export function InterviewManagementPage({
         id: "questionCount",
       },
       {
+        cell: ({ row }) => row.original.creatorName ?? "—",
+        header: "创建人",
+        id: "creatorName",
+      },
+      {
         accessorKey: "createdAt",
         cell: ({ row }) => (
           <TimeDisplay options={DATE_TIME_DISPLAY_OPTIONS} value={row.original.createdAt} />
@@ -429,23 +465,6 @@ export function InterviewManagementPage({
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>查看详情</TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    aria-label="预览简历"
-                    className="size-8"
-                    disabled={!record.hasResumeFile}
-                    onClick={() => setPreviewRecord(record)}
-                    size="icon"
-                    variant="ghost"
-                  >
-                    <FileTextIcon className="size-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  {record.hasResumeFile ? "预览简历" : "暂无简历 PDF"}
-                </TooltipContent>
               </Tooltip>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -617,7 +636,7 @@ export function InterviewManagementPage({
         <section className="space-y-4">
           <h2 className="font-semibold text-lg">简历库记录</h2>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-            <div className="flex flex-col gap-3 sm:flex-1 sm:flex-row">
+            <div className="flex flex-col gap-3 sm:flex-row">
               <div className="relative sm:min-w-60" data-tour="studio-search">
                 <SearchIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
@@ -650,7 +669,7 @@ export function InterviewManagementPage({
                 </SelectContent>
               </Select>
             </div>
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-2">
               <Button
                 className="shrink-0"
                 disabled={isFetching}
@@ -682,7 +701,7 @@ export function InterviewManagementPage({
           </div>
           <div className="space-y-4">
             {table.getRowModel().rows.length > 0 ? (
-              <Card className="overflow-hidden py-0" data-tour="studio-table">
+              <Card className="overflow-hidden bg-card py-0" data-tour="studio-table">
                 <Table>
                   <TableHeader>
                     {table.getHeaderGroups().map((headerGroup) => (
@@ -694,7 +713,7 @@ export function InterviewManagementPage({
                             <TableHead
                               className={
                                 isPinned
-                                  ? "bg-background transition-colors [tr:hover_&]:bg-muted [tr[data-state=selected]_&]:bg-muted"
+                                  ? "bg-card px-3! transition-colors [tr:hover_&]:bg-muted [tr[data-state=selected]_&]:bg-muted"
                                   : undefined
                               }
                               key={header.id}
@@ -719,7 +738,7 @@ export function InterviewManagementPage({
                             <TableCell
                               className={
                                 isPinned
-                                  ? "bg-background transition-colors [tr:hover_&]:bg-muted [tr[data-state=selected]_&]:bg-muted"
+                                  ? "bg-card px-3! transition-colors [tr:hover_&]:bg-muted [tr[data-state=selected]_&]:bg-muted"
                                   : undefined
                               }
                               key={cell.id}
@@ -904,6 +923,11 @@ export function InterviewManagementPage({
           url={`/api/studio/interviews/${previewRecord.id}/resume`}
         />
       ) : null}
+
+      <JobDescriptionViewDialog
+        jobDescriptionId={viewJobDescriptionId}
+        onOpenChange={(open) => !open && setViewJobDescriptionId(null)}
+      />
     </>
   );
 }

@@ -21,6 +21,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 
 import { authClient } from "@/lib/auth-client";
+import Waves from "@/components/react-bits/waves";
 
 const highlights = [
   {
@@ -107,21 +108,40 @@ export default function HomePageClient() {
             </div>
           </>
         ) : (
-          <Prism
-            height={4}
-            baseWidth={7.5}
-            animationType="3drotate"
-            glow={1}
-            noise={0.2}
-            transparent
-            scale={3.3}
-            hueShift={0}
-            colorFrequency={2.5}
-            hoverStrength={1}
-            inertia={0.05}
-            bloom={1}
-            timeScale={0.3}
-          />
+          <>
+            <div className="absolute inset-0">
+              <Waves
+                lineColor="#f5f5f5"
+                backgroundColor="transparent"
+                waveSpeedX={0}
+                waveSpeedY={0}
+                waveAmpX={40}
+                waveAmpY={0}
+                friction={0.57}
+                tension={0.01}
+                maxCursorMove={20}
+                xGap={18}
+                yGap={36}
+              />
+            </div>
+            <div className="absolute inset-0 opacity-60">
+              <Prism
+                height={4}
+                baseWidth={7.5}
+                animationType="3drotate"
+                glow={1}
+                noise={0.1}
+                transparent
+                scale={3.3}
+                hueShift={0}
+                colorFrequency={2.5}
+                hoverStrength={1}
+                inertia={0.05}
+                bloom={1}
+                timeScale={0.3}
+              />
+            </div>
+          </>
         )}
       </div>
       <div

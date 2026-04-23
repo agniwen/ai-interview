@@ -272,6 +272,42 @@ function DetailRow({
   );
 }
 
+function renderInstructionsTab({
+  isLoading,
+  variants,
+}: {
+  isLoading: boolean;
+  variants: { interviewerName: string | null; instructions: string }[];
+}) {
+  if (isLoading) {
+    return <div className="py-10 text-center text-muted-foreground text-sm">正在生成提示词...</div>;
+  }
+  if (variants.length === 0) {
+    return (
+      <div className="py-10 text-center text-muted-foreground text-sm">暂无可生成的提示词。</div>
+    );
+  }
+  return (
+    <div className="space-y-5">
+      {variants.map((variant, index) => (
+        <div
+          className="rounded-2xl border border-border/60 bg-muted/30 p-4"
+          key={variant.interviewerName ?? `variant-${index}`}
+        >
+          <h3 className="mb-3 font-medium text-sm">
+            {variant.interviewerName
+              ? `面试官：${variant.interviewerName}`
+              : "默认提示词（未关联岗位）"}
+          </h3>
+          <pre className="whitespace-pre-wrap font-sans text-muted-foreground text-sm leading-relaxed">
+            {variant.instructions}
+          </pre>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // oxlint-disable-next-line complexity -- Dialog owns many conditional sections driven by record state; flattening adds noise.
 export function InterviewDetailDialog({
   open,
@@ -317,6 +353,23 @@ export function InterviewDetailDialog({
       return payload;
     },
     queryKey: ["studio-interview-reports", recordId],
+  });
+
+  const { data: instructionVariants = [], isLoading: isInstructionsLoading } = useQuery({
+    enabled: open && !!recordId,
+    queryFn: async () => {
+      const response = await fetch(`/api/studio/interviews/${recordId}/agent-instructions`);
+      const payload = (await response.json()) as
+        | { variants: { interviewerName: string | null; instructions: string }[] }
+        | { error?: string };
+      if (!response.ok || !("variants" in payload)) {
+        throw new Error(
+          "error" in payload ? (payload.error ?? "加载提示词失败") : "加载提示词失败",
+        );
+      }
+      return payload.variants;
+    },
+    queryKey: ["studio-interview-agent-instructions", recordId],
   });
 
   const isLoading = isRecordLoading;
@@ -426,6 +479,9 @@ export function InterviewDetailDialog({
                   <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="experience">
                     经历
                   </TabsTrigger>
+                  <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="instructions">
+                    Agent 提示词
+                  </TabsTrigger>
                 </TabsList>
                 <PdfPreviewButton
                   className="w-full sm:w-auto"
@@ -453,6 +509,7 @@ export function InterviewDetailDialog({
                     <div className="mt-4 grid gap-3 text-sm">
                       <DetailRow label="邮箱" value={formatValue(record.candidateEmail)} />
                       <DetailRow label="目标岗位" value={formatValue(record.targetRole)} />
+                      <DetailRow label="关联岗位" value={formatValue(record.jobDescriptionName)} />
                       <DetailRow
                         label="工作年限"
                         value={formatValue(record.resumeProfile?.workYears)}
@@ -873,6 +930,13 @@ export function InterviewDetailDialog({
                     </div>
                   </div>
                 </div>
+              </TabsContent>
+
+              <TabsContent value="instructions">
+                {renderInstructionsTab({
+                  isLoading: isInstructionsLoading,
+                  variants: instructionVariants,
+                })}
               </TabsContent>
             </div>
           ) : (

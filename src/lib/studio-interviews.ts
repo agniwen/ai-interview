@@ -105,6 +105,7 @@ export interface StudioInterviewRecord {
   jobDescriptionId: string | null;
   notes: string | null;
   createdBy: string | null;
+  jobDescriptionName: string | null;
   createdAt: string | Date;
   updatedAt: string | Date;
 }
@@ -115,6 +116,7 @@ export type StudioInterviewListRecord = Omit<
 > & {
   questionCount: number;
   hasResumeFile: boolean;
+  creatorName: string | null;
 };
 
 export function toStudioInterviewListRecord(
@@ -125,10 +127,12 @@ export function toStudioInterviewListRecord(
     candidateName: record.candidateName,
     createdAt: record.createdAt,
     createdBy: record.createdBy,
+    creatorName: null,
     hasResumeFile: Boolean(record.resumeStorageKey),
     id: record.id,
     interviewLink: record.interviewLink,
     jobDescriptionId: record.jobDescriptionId,
+    jobDescriptionName: null,
     notes: record.notes,
     questionCount: record.interviewQuestions.length,
     resumeFileName: record.resumeFileName,

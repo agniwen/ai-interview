@@ -4,7 +4,15 @@ import { RoomAgentDispatch, RoomConfiguration } from "@livekit/protocol";
 import { and, eq, inArray, ne } from "drizzle-orm";
 import { AccessToken } from "livekit-server-sdk";
 import { db } from "@/lib/db";
-import { interviewAuditLog, studioInterview, studioInterviewSchedule } from "@/lib/db/schema";
+import {
+  interviewAuditLog,
+  interviewer,
+  jobDescription,
+  jobDescriptionInterviewer,
+  studioInterview,
+  studioInterviewSchedule,
+} from "@/lib/db/schema";
+import { buildAgentInstructions } from "@/lib/interview/agent-instructions";
 import {
   parseResumePayloadInput,
   parseScheduleEntriesInput,
@@ -390,6 +398,62 @@ export const studioInterviewsRouter = factory
         }),
       },
     });
+  })
+  .get("/:id/agent-instructions", async (c) => {
+    const id = c.req.param("id");
+    const existing = await loadRecordById(id);
+
+    if (!existing) {
+      return c.json({ error: "记录不存在。" }, 404);
+    }
+
+    let jobDescriptionPrompt: string | null = null;
+    let interviewers: { name: string; prompt: string }[] = [];
+
+    if (existing.jobDescriptionId) {
+      const [jdRow] = await db
+        .select({ prompt: jobDescription.prompt })
+        .from(jobDescription)
+        .where(eq(jobDescription.id, existing.jobDescriptionId))
+        .limit(1);
+      jobDescriptionPrompt = jdRow?.prompt ?? null;
+
+      const interviewerRows = await db
+        .select({ name: interviewer.name, prompt: interviewer.prompt })
+        .from(jobDescriptionInterviewer)
+        .innerJoin(interviewer, eq(jobDescriptionInterviewer.interviewerId, interviewer.id))
+        .where(eq(jobDescriptionInterviewer.jobDescriptionId, existing.jobDescriptionId));
+      interviewers = interviewerRows;
+    }
+
+    const baseContext = {
+      candidateName: existing.candidateName,
+      interviewQuestions: existing.interviewQuestions,
+      jobDescriptionPrompt,
+      resumeProfile: existing.resumeProfile,
+      targetRole: existing.targetRole,
+    } as const;
+
+    const variants =
+      interviewers.length > 0
+        ? interviewers.map((person) => ({
+            instructions: buildAgentInstructions({
+              ...baseContext,
+              interviewerPrompt: person.prompt,
+            }),
+            interviewerName: person.name,
+          }))
+        : [
+            {
+              instructions: buildAgentInstructions({
+                ...baseContext,
+                interviewerPrompt: null,
+              }),
+              interviewerName: null,
+            },
+          ];
+
+    return c.json({ variants });
   })
   .get("/:id/reports", async (c) => {
     const id = c.req.param("id");

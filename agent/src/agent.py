@@ -15,10 +15,10 @@ from livekit.agents import (
     room_io,
 )
 from livekit.plugins import (
-    # ai_coustics,  # LiveKit Cloud only, disabled for self-hosted
+    ai_coustics,  # LiveKit Cloud only, disabled for self-hosted
     elevenlabs,
     minimax,
-    # noise_cancellation,  # LiveKit Cloud only, disabled for self-hosted
+    noise_cancellation,  # LiveKit Cloud only, disabled for self-hosted
     openai,
     silero,
 )
@@ -196,21 +196,21 @@ async def my_agent(ctx: JobContext):
         agent=InterviewAgent(interview_context, selected_interviewer),
         room=ctx.room,
         # LiveKit Cloud only, disabled for self-hosted
-        # room_options=room_io.RoomOptions(
-        #     audio_input=room_io.AudioInputOptions(
-        #         noise_cancellation=lambda params: (
-        #             noise_cancellation.BVCTelephony()
-        #             if params.participant.kind
-        #             == rtc.ParticipantKind.PARTICIPANT_KIND_SIP
-        #             else ai_coustics.audio_enhancement(
-        #                 model=ai_coustics.EnhancerModel.QUAIL_VF_L,
-        #                 model_parameters=ai_coustics.ModelParameters(
-        #                     enhancement_level=0.7,
-        #                 ),
-        #             )
-        #         ),
-        #     ),
-        # ),
+        room_options=room_io.RoomOptions(
+            audio_input=room_io.AudioInputOptions(
+                noise_cancellation=lambda params: (
+                    noise_cancellation.BVCTelephony()
+                    if params.participant.kind
+                    == rtc.ParticipantKind.PARTICIPANT_KIND_SIP
+                    else ai_coustics.audio_enhancement(
+                        model=ai_coustics.EnhancerModel.QUAIL_VF_L,
+                        model_parameters=ai_coustics.ModelParameters(
+                            enhancement_level=0.7,
+                        ),
+                    )
+                ),
+            ),
+        ),
     )
 
     await ctx.connect()

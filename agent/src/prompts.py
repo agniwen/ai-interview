@@ -92,7 +92,7 @@ def build_instructions(interview_context: dict, interviewer: dict | None = None)
 - 工作经历：{experience_text}
 
 ## 面试题目
-从以下题目中，随机抽取三到五道题目，由简入深地提问候选人，注意候选人不可跳过题目，如果跳过题目则该题视为0分：
+从以下题目中，随机抽取三到五道题目，由简入深地提问候选人，注意候选人不可跳过题目，如果跳过题目则该题视为0分。每道题目前方括号中的难度标记（如 [easy]、[medium]、[hard]）仅供你内部参考，提问时不要念出来：
 {questions_text}
 
 ## 面试规则
