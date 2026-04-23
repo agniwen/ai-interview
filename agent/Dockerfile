@@ -74,6 +74,9 @@ WORKDIR /app
 # This improves security by not running as root
 USER appuser
 
+# Expose the LiveKit Agents health check HTTP port (for liveness/readiness probes)
+EXPOSE 8081
+
 # Run the AgentServer using UV
 # UV will activate the virtual environment and run the agent.
 # The "start" command tells the AgentServer to connect to LiveKit and begin waiting for jobs.
