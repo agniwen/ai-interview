@@ -10,7 +10,7 @@ import type {
 } from "@/lib/candidate-forms";
 import type { JobDescriptionListRecord } from "@/lib/job-descriptions";
 import { useForm, useStore } from "@tanstack/react-form";
-import { ArrowDownIcon, ArrowUpIcon, LoaderCircleIcon, PlusIcon, XIcon } from "lucide-react";
+import { LoaderCircleIcon, PlusIcon, XIcon } from "lucide-react";
 import { useEffect, useMemo } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -25,6 +25,7 @@ import {
 import { Field, FieldContent, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { SortableDragHandle, SortableItem, SortableList } from "@/components/ui/sortable-list";
 import { Switch } from "@/components/ui/switch";
 import {
   Select,
@@ -39,6 +40,7 @@ import {
   DEFAULT_DISPLAY_MODE,
   DISPLAY_MODES_BY_TYPE,
 } from "@/lib/candidate-forms";
+import { useSortableItemIds } from "@/hooks/use-sortable-item-ids";
 import { hasFieldErrors, toFieldErrors } from "../../interviews/_components/interview-form";
 
 const DISPLAY_MODE_LABELS: Record<CandidateFormDisplayMode, string> = {
@@ -182,7 +184,8 @@ export function CandidateFormTemplateEditorDialog({
             </DialogDescription>
           </DialogHeader>
 
-          <div className="mt-4 max-h-[70vh] space-y-6 overflow-y-auto pr-1">
+          {/* -mx-1/px-1 + py-1.5 leaves room for focus rings that would otherwise be clipped by overflow-y-auto. */}
+          <div className="-mx-1 mt-4 max-h-[70vh] space-y-6 overflow-y-auto px-1 py-1.5">
             <FieldGroup className="gap-5">
               <form.Field name="title">
                 {(field) => {
@@ -310,24 +313,31 @@ export function CandidateFormTemplateEditorDialog({
               <form.Field mode="array" name="questions">
                 {(field) => {
                   const items = field.state.value;
+                  // question.id is guaranteed non-empty (makeDefaultQuestion + toFormValues).
+                  const ids = items.map((q) => q.id as string);
                   return (
                     <div className="space-y-3">
-                      {items.map((_, index) => (
-                        // oxlint-disable-next-line no-use-before-define
-                        <QuestionEditorRow
-                          form={form}
-                          index={index}
-                          // biome-ignore lint/suspicious/noArrayIndexKey: array keyed by position
-                          key={index}
-                          onMoveDown={
-                            index < items.length - 1
-                              ? () => field.moveValue(index, index + 1)
-                              : undefined
-                          }
-                          onMoveUp={index > 0 ? () => field.moveValue(index, index - 1) : undefined}
-                          onRemove={items.length > 1 ? () => field.removeValue(index) : undefined}
-                        />
-                      ))}
+                      <SortableList ids={ids} onReorder={(from, to) => field.moveValue(from, to)}>
+                        {items.map((item, index) => {
+                          const id = item.id as string;
+                          return (
+                            <SortableItem id={id} key={id}>
+                              {({ handleProps, isDragging }) => (
+                                // oxlint-disable-next-line no-use-before-define
+                                <QuestionEditorRow
+                                  form={form}
+                                  handleProps={handleProps}
+                                  index={index}
+                                  isDragging={isDragging}
+                                  onRemove={
+                                    items.length > 1 ? () => field.removeValue(index) : undefined
+                                  }
+                                />
+                              )}
+                            </SortableItem>
+                          );
+                        })}
+                      </SortableList>
                       <Button
                         className="w-full"
                         onClick={() => field.pushValue(makeDefaultQuestion(items.length))}
@@ -369,14 +379,15 @@ type TemplateFormApi = any;
 function QuestionEditorRow({
   form,
   index,
-  onMoveUp,
-  onMoveDown,
+  handleProps,
+  isDragging,
   onRemove,
 }: {
   form: TemplateFormApi;
   index: number;
-  onMoveUp?: () => void;
-  onMoveDown?: () => void;
+  // oxlint-disable-next-line no-explicit-any
+  handleProps: any;
+  isDragging: boolean;
   onRemove?: () => void;
 }) {
   const questionType = useStore(
@@ -385,38 +396,25 @@ function QuestionEditorRow({
     (state: any) => state.values.questions[index]?.type ?? "single",
   ) as CandidateFormQuestionType;
 
+  const questionId = useStore(
+    form.store,
+    // oxlint-disable-next-line no-explicit-any
+    (state: any) => state.values.questions[index]?.id ?? "",
+  ) as string;
+
   const allowedDisplayModes = useMemo(
     () => DISPLAY_MODES_BY_TYPE[questionType] as readonly CandidateFormDisplayMode[],
     [questionType],
   );
 
   return (
-    <div className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-3">
+    <div
+      className={`space-y-3 rounded-lg border border-border/60 bg-muted/20 p-3 ${isDragging ? "ring-2 ring-primary/50" : ""}`}
+    >
       <div className="flex items-center gap-2">
+        <SortableDragHandle {...handleProps} aria-label="拖动以调整题目顺序" />
         <span className="font-medium text-muted-foreground text-sm">#{index + 1}</span>
         <div className="ml-auto flex items-center gap-0.5">
-          <Button
-            aria-label="上移"
-            className="size-7"
-            disabled={!onMoveUp}
-            onClick={onMoveUp}
-            size="icon"
-            type="button"
-            variant="ghost"
-          >
-            <ArrowUpIcon className="size-3.5" />
-          </Button>
-          <Button
-            aria-label="下移"
-            className="size-7"
-            disabled={!onMoveDown}
-            onClick={onMoveDown}
-            size="icon"
-            type="button"
-            variant="ghost"
-          >
-            <ArrowDownIcon className="size-3.5" />
-          </Button>
           <Button
             aria-label="删除题目"
             className="size-7"
@@ -567,30 +565,74 @@ function QuestionEditorRow({
 
       {questionType === "text" ? null : (
         // oxlint-disable-next-line no-use-before-define
-        <OptionsEditor form={form} index={index} />
+        <OptionsEditor form={form} index={index} questionId={questionId} />
       )}
     </div>
   );
 }
 
-function OptionsEditor({ form, index }: { form: TemplateFormApi; index: number }) {
+function OptionsEditor({
+  form,
+  index,
+  questionId,
+}: {
+  form: TemplateFormApi;
+  index: number;
+  questionId: string;
+}) {
   return (
     <form.Field mode="array" name={`questions[${index}].options`}>
       {/* oxlint-disable-next-line no-explicit-any */}
-      {(field: any) => {
-        const items = field.state.value as { value: string; label: string }[];
-        const errors = toFieldErrors(field.state.meta.errors);
-        return (
-          <Field data-invalid={hasFieldErrors(field.state.meta.errors) || undefined}>
-            <FieldLabel>选项</FieldLabel>
-            <FieldContent className="gap-2">
-              <div className="space-y-2">
-                {items.map((_item, optionIndex) => (
-                  <div
-                    className="flex items-center gap-2"
-                    // biome-ignore lint/suspicious/noArrayIndexKey: option order stable
-                    key={optionIndex}
-                  >
+      {(field: any) => (
+        // oxlint-disable-next-line no-use-before-define
+        <OptionsList field={field} form={form} index={index} questionId={questionId} />
+      )}
+    </form.Field>
+  );
+}
+
+function OptionsList({
+  field,
+  form,
+  index,
+  questionId,
+}: {
+  // oxlint-disable-next-line no-explicit-any
+  field: any;
+  form: TemplateFormApi;
+  index: number;
+  questionId: string;
+}) {
+  const items = field.state.value as { value: string; label: string }[];
+  const errors = toFieldErrors(field.state.meta.errors);
+  const {
+    ids: optionIds,
+    move: moveId,
+    push: pushId,
+    remove: removeId,
+  } = useSortableItemIds(items.length, questionId);
+
+  return (
+    <Field data-invalid={hasFieldErrors(field.state.meta.errors) || undefined}>
+      <FieldLabel>选项</FieldLabel>
+      <FieldContent className="gap-2">
+        <SortableList
+          ids={optionIds}
+          onReorder={(from, to) => {
+            field.moveValue(from, to);
+            moveId(from, to);
+          }}
+        >
+          {items.map((_item, optionIndex) => {
+            const id = optionIds[optionIndex];
+            if (!id) {
+              return null;
+            }
+            return (
+              <SortableItem id={id} key={id}>
+                {({ handleProps }) => (
+                  <div className="flex items-center gap-2">
+                    <SortableDragHandle {...handleProps} aria-label="拖动以调整选项顺序" />
                     <form.Field name={`questions[${index}].options[${optionIndex}].label`}>
                       {/* oxlint-disable-next-line no-explicit-any */}
                       {(subField: any) => (
@@ -619,7 +661,10 @@ function OptionsEditor({ form, index }: { form: TemplateFormApi; index: number }
                       aria-label="删除选项"
                       className="size-8 shrink-0"
                       disabled={items.length <= 2}
-                      onClick={() => field.removeValue(optionIndex)}
+                      onClick={() => {
+                        field.removeValue(optionIndex);
+                        removeId(optionIndex);
+                      }}
                       size="icon"
                       type="button"
                       variant="ghost"
@@ -627,28 +672,29 @@ function OptionsEditor({ form, index }: { form: TemplateFormApi; index: number }
                       <XIcon className="size-4" />
                     </Button>
                   </div>
-                ))}
-              </div>
-              <Button
-                className="self-start"
-                onClick={() =>
-                  field.pushValue({
-                    label: `选项 ${items.length + 1}`,
-                    value: `option_${items.length + 1}`,
-                  })
-                }
-                size="sm"
-                type="button"
-                variant="outline"
-              >
-                <PlusIcon className="size-4" />
-                添加选项
-              </Button>
-              <FieldError errors={errors} />
-            </FieldContent>
-          </Field>
-        );
-      }}
-    </form.Field>
+                )}
+              </SortableItem>
+            );
+          })}
+        </SortableList>
+        <Button
+          className="self-start"
+          onClick={() => {
+            field.pushValue({
+              label: `选项 ${items.length + 1}`,
+              value: `option_${items.length + 1}`,
+            });
+            pushId();
+          }}
+          size="sm"
+          type="button"
+          variant="outline"
+        >
+          <PlusIcon className="size-4" />
+          添加选项
+        </Button>
+        <FieldError errors={errors} />
+      </FieldContent>
+    </Field>
   );
 }

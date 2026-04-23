@@ -763,6 +763,7 @@ export function CreateInterviewDialog({
                 <InterviewQuestionsFields
                   disabled={isSubmitting || isAnalyzingResume || isGeneratingQuestions}
                   form={form}
+                  resetKey={open ? "create-open" : "create-closed"}
                 />
               </TabsContent>
             </div>

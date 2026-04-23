@@ -36,8 +36,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { SortableDragHandle, SortableItem, SortableList } from "@/components/ui/sortable-list";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { useSortableItemIds } from "@/hooks/use-sortable-item-ids";
 import { cn } from "@/lib/utils";
 import { hasFieldErrors, toFieldErrors } from "../../interviews/_components/interview-form";
 
@@ -407,79 +409,11 @@ export function JobDescriptionFormDialog({
             </TabsContent>
             <TabsContent value="questions">
               <form.Field mode="array" name="presetQuestions">
-                {(field) => {
-                  const items = field.state.value ?? [];
-                  return (
-                    <Field className="mt-4 gap-3">
-                      <FieldLabel>
-                        岗位预设面试题
-                        <span className="ml-2 font-normal text-muted-foreground text-xs">
-                          （面试时会先按顺序全部提问，然后才问简历生成的题目）
-                        </span>
-                      </FieldLabel>
-                      <FieldContent className="gap-2">
-                        <div className="max-h-[50vh] space-y-2 overflow-y-auto pr-1">
-                          {items.length === 0 ? (
-                            <p className="text-muted-foreground text-sm">
-                              暂无预设题，点击下方按钮添加。
-                            </p>
-                          ) : null}
-                          {items.map((_, index) => (
-                            <form.Field
-                              // biome-ignore lint/suspicious/noArrayIndexKey: array order is stable
-                              key={index}
-                              name={`presetQuestions[${index}]`}
-                            >
-                              {(subField) => {
-                                const errors = toFieldErrors(subField.state.meta.errors);
-                                return (
-                                  <div className="flex items-start gap-2">
-                                    <span className="mt-2.5 w-6 shrink-0 text-right text-muted-foreground text-sm">
-                                      {index + 1}.
-                                    </span>
-                                    <div className="flex-1">
-                                      <Textarea
-                                        aria-invalid={!!errors?.length}
-                                        className="min-h-16"
-                                        onBlur={subField.handleBlur}
-                                        onChange={(event) =>
-                                          subField.handleChange(event.target.value)
-                                        }
-                                        placeholder="请输入一道必问题目…"
-                                        value={subField.state.value ?? ""}
-                                      />
-                                      <FieldError errors={errors} />
-                                    </div>
-                                    <Button
-                                      aria-label={`删除第 ${index + 1} 题`}
-                                      className="mt-1"
-                                      onClick={() => field.removeValue(index)}
-                                      size="icon"
-                                      type="button"
-                                      variant="ghost"
-                                    >
-                                      <XIcon className="size-4" />
-                                    </Button>
-                                  </div>
-                                );
-                              }}
-                            </form.Field>
-                          ))}
-                        </div>
-                        <Button
-                          className="self-start"
-                          onClick={() => field.pushValue("")}
-                          size="sm"
-                          type="button"
-                          variant="outline"
-                        >
-                          <PlusIcon className="size-4" />
-                          添加题目
-                        </Button>
-                      </FieldContent>
-                    </Field>
-                  );
-                }}
+                {/* oxlint-disable-next-line no-explicit-any */}
+                {(field: any) => (
+                  // oxlint-disable-next-line no-use-before-define
+                  <PresetQuestionsList field={field} form={form} resetKey={record?.id ?? "new"} />
+                )}
               </form.Field>
             </TabsContent>
           </Tabs>
@@ -496,5 +430,121 @@ export function JobDescriptionFormDialog({
         </form>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function PresetQuestionsList({
+  field,
+  form,
+  resetKey,
+}: {
+  // oxlint-disable-next-line no-explicit-any
+  field: any;
+  // oxlint-disable-next-line no-explicit-any
+  form: any;
+  resetKey: string;
+}) {
+  const items = (field.state.value ?? []) as string[];
+  const {
+    ids,
+    move: moveId,
+    push: pushId,
+    remove: removeId,
+  } = useSortableItemIds(items.length, resetKey);
+
+  return (
+    <Field className="mt-4 gap-3">
+      <FieldLabel>
+        岗位预设面试题
+        <span className="ml-2 font-normal text-muted-foreground text-xs">
+          （面试时会先按顺序全部提问，然后才问简历生成的题目）
+        </span>
+      </FieldLabel>
+      <FieldContent className="gap-2">
+        {/* -mx-1/px-1 + py-1.5 leaves room for focus rings that would otherwise be clipped by overflow-y-auto. */}
+        <div className="-mx-1 max-h-[50vh] overflow-y-auto px-1 py-1.5">
+          {items.length === 0 ? (
+            <p className="text-muted-foreground text-sm">暂无预设题，点击下方按钮添加。</p>
+          ) : null}
+          <SortableList
+            ids={ids}
+            onReorder={(from, to) => {
+              field.moveValue(from, to);
+              moveId(from, to);
+            }}
+          >
+            {items.map((_item, index) => {
+              const id = ids[index];
+              if (!id) {
+                return null;
+              }
+              return (
+                <SortableItem id={id} key={id}>
+                  {({ handleProps }) => (
+                    <div className="flex items-start gap-2">
+                      <SortableDragHandle
+                        {...handleProps}
+                        aria-label={`拖动以调整第 ${index + 1} 题的顺序`}
+                        className="mt-1"
+                      />
+                      <span className="mt-2.5 w-6 shrink-0 text-right text-muted-foreground text-sm">
+                        {index + 1}.
+                      </span>
+                      <div className="flex-1">
+                        <form.Field name={`presetQuestions[${index}]`}>
+                          {/* oxlint-disable-next-line no-explicit-any */}
+                          {(subField: any) => {
+                            const errors = toFieldErrors(subField.state.meta.errors);
+                            return (
+                              <>
+                                <Textarea
+                                  aria-invalid={!!errors?.length}
+                                  className="min-h-16"
+                                  onBlur={subField.handleBlur}
+                                  onChange={(event) => subField.handleChange(event.target.value)}
+                                  placeholder="请输入一道必问题目…"
+                                  value={subField.state.value ?? ""}
+                                />
+                                <FieldError errors={errors} />
+                              </>
+                            );
+                          }}
+                        </form.Field>
+                      </div>
+                      <Button
+                        aria-label={`删除第 ${index + 1} 题`}
+                        className="mt-1"
+                        onClick={() => {
+                          field.removeValue(index);
+                          removeId(index);
+                        }}
+                        size="icon"
+                        type="button"
+                        variant="ghost"
+                      >
+                        <XIcon className="size-4" />
+                      </Button>
+                    </div>
+                  )}
+                </SortableItem>
+              );
+            })}
+          </SortableList>
+        </div>
+        <Button
+          className="self-start"
+          onClick={() => {
+            field.pushValue("");
+            pushId();
+          }}
+          size="sm"
+          type="button"
+          variant="outline"
+        >
+          <PlusIcon className="size-4" />
+          添加题目
+        </Button>
+      </FieldContent>
+    </Field>
   );
 }

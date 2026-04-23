@@ -414,6 +414,7 @@ export function EditInterviewDialog({
                   <InterviewQuestionsFields
                     disabled={isSubmitting || isLoadingRecord}
                     form={form}
+                    resetKey={recordId ?? "new"}
                   />
                 </TabsContent>
               </div>
