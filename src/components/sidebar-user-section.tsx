@@ -6,7 +6,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback } from "react";
 import { FeishuSignInButton } from "@/components/auth/feishu-sign-in-button";
-import { ThemeSubMenu } from "@/components/theme-toggle";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
@@ -64,6 +63,7 @@ export function SidebarUserSection({
   const userEmail = session?.user?.email ?? "";
   const organizationName = session?.user?.organizationName ?? null;
   const userInitials = getInitials(session?.user?.name, session?.user?.email);
+  const hasMiddleItems = Boolean(onStartTutorial) || showHomeLink;
 
   let content: ReactNode;
 
@@ -113,8 +113,7 @@ export function SidebarUserSection({
               </Link>
             </DropdownMenuItem>
           ) : null}
-          <ThemeSubMenu />
-          <DropdownMenuSeparator />
+          {hasMiddleItems ? <DropdownMenuSeparator /> : null}
           <DropdownMenuItem onClick={handleSignOut} variant="destructive">
             <LogOutIcon className="mr-2 size-4" />
             退出登录
@@ -165,8 +164,7 @@ export function SidebarUserSection({
               </Link>
             </DropdownMenuItem>
           ) : null}
-          <ThemeSubMenu />
-          <DropdownMenuSeparator />
+          {hasMiddleItems ? <DropdownMenuSeparator /> : null}
           <DropdownMenuItem onClick={handleSignOut} variant="destructive">
             <LogOutIcon className="mr-2 size-4" />
             退出登录

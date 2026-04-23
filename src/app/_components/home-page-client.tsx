@@ -108,9 +108,9 @@ export default function HomePageClient() {
           </>
         ) : (
           <Prism
-            height={5}
+            height={4}
             baseWidth={7.5}
-            animationType="hover"
+            animationType="3drotate"
             glow={1}
             noise={0.2}
             transparent
@@ -119,7 +119,7 @@ export default function HomePageClient() {
             colorFrequency={2.5}
             hoverStrength={1}
             inertia={0.05}
-            bloom={0.8}
+            bloom={1}
             timeScale={0.3}
           />
         )}

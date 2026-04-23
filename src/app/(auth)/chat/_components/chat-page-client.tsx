@@ -16,18 +16,14 @@ import { useAtom, useAtomValue } from "jotai";
 import {
   AlertCircleIcon,
   CheckIcon,
-  CircleHelpIcon,
   CopyIcon,
   FileTextIcon,
   ImageIcon,
-  LogOutIcon,
-  PlusIcon,
   RefreshCcwIcon,
   SettingsIcon,
   SparklesIcon,
   Trash2Icon,
   UploadIcon,
-  UserIcon,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -79,7 +75,6 @@ import { ThinkingBlock } from "@/components/thinking-block";
 import { TIME_DISPLAY_OPTIONS, TimeDisplay } from "@/components/time-display";
 import { ApplyJobDescriptionCard } from "@/components/tool-call/apply-job-description-card";
 import { ToolCall } from "@/components/tool-call/tool-call";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -89,14 +84,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -105,7 +92,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useHydrated } from "@/hooks/use-hydrated";
@@ -136,7 +122,6 @@ const QUICK_SUGGESTIONS = [
 const NEW_CHAT_TITLE = "新对话";
 const GENERATING_CHAT_TITLE = "生成中...";
 const MAX_CHAT_TITLE_LENGTH = 28;
-const WHITESPACE_REGEX = /\s+/;
 const INPUT_APPEND_PUNCTUATION_REGEX = /[，。,.]$/;
 
 const noop = () => {
@@ -155,22 +140,6 @@ function getComposerStatusLabel(
     return "未配置在招岗位信息（可在岗位设置中配置）";
   }
   return jobDescriptionLabel ? `在招岗位：${jobDescriptionLabel}` : "已配置在招岗位信息";
-}
-
-function getInitials(name?: string | null, email?: string | null) {
-  const source = (name ?? email ?? "").trim();
-
-  if (!source) {
-    return "U";
-  }
-
-  const words = source.split(WHITESPACE_REGEX).filter(Boolean);
-
-  if (words.length >= 2) {
-    return `${words[0]?.[0] ?? ""}${words[1]?.[0] ?? ""}`.toUpperCase();
-  }
-
-  return source.slice(0, 2).toUpperCase();
 }
 
 function notifyConversationsChanged() {
@@ -293,71 +262,6 @@ function shouldAutoSubmit({ messages }: { messages: UIMessage[] }): boolean {
   return (
     lastAssistantMessageIsCompleteWithToolCalls({ messages }) ||
     lastAssistantMessageIsCompleteWithApprovalResponses({ messages })
-  );
-}
-
-type SessionData = ReturnType<typeof authClient.useSession>["data"];
-
-interface MobileUserMenuArgs {
-  handleSignIn: () => void;
-  handleSignOut: () => void;
-  session: SessionData;
-  showSessionLoadingState: boolean;
-  userEmail: string;
-  userInitials: string;
-  userName: string;
-}
-
-function renderMobileUserMenu({
-  handleSignIn,
-  handleSignOut,
-  session,
-  showSessionLoadingState,
-  userEmail,
-  userInitials,
-  userName,
-}: MobileUserMenuArgs) {
-  if (showSessionLoadingState) {
-    return <div className="h-9 w-9 animate-pulse rounded-md bg-muted" />;
-  }
-
-  if (!session?.user) {
-    return (
-      <Button className="mt-4" onClick={handleSignIn} size="sm" type="button" variant="outline">
-        <UserIcon className="mr-1 size-4" />
-        登录
-      </Button>
-    );
-  }
-
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button
-          aria-label="用户菜单"
-          className="rounded-full"
-          size="icon-sm"
-          type="button"
-          variant="outline"
-        >
-          <Avatar size="sm">
-            <AvatarImage alt={userName} src={session.user.image ?? undefined} />
-            <AvatarFallback>{userInitials}</AvatarFallback>
-          </Avatar>
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-56">
-        <DropdownMenuLabel className="space-y-0.5">
-          <p className="truncate font-medium text-sm">{userName}</p>
-          <p className="truncate text-muted-foreground text-xs">{userEmail}</p>
-        </DropdownMenuLabel>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={handleSignOut} variant="destructive">
-          <LogOutIcon className="mr-2 size-4" />
-          退出登录
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
   );
 }
 
@@ -602,8 +506,7 @@ function ComposerFooter({
 // eslint-disable-next-line complexity -- Top-level page component owns many pieces of UI state that belong together.
 export default function ChatPageClient({ initialSessionId }: { initialSessionId: string | null }) {
   const { startTutorial } = useChatTutorial();
-  const { data: session, isPending: isSessionPending } = authClient.useSession();
-  const isHydrated = useHydrated();
+  const { data: session } = authClient.useSession();
   const thinkingMode = useAtomValue(thinkingModeAtom);
   const tutorialStep = useAtomValue(tutorialStepAtom);
   const [input, setInput] = useState("");
@@ -630,20 +533,6 @@ export default function ChatPageClient({ initialSessionId }: { initialSessionId:
   // status gets stuck (some abort paths on iOS/Safari leave it on `streaming`).
   const [userStopped, setUserStopped] = useState(false);
   const userName = session?.user?.name ?? "用户";
-  const userEmail = session?.user?.email ?? "";
-  const userInitials = getInitials(session?.user?.name, session?.user?.email);
-  const showSessionLoadingState = !isHydrated || isSessionPending;
-
-  const handleSignIn = useCallback(() => {
-    authClient.signIn.oauth2({
-      callbackURL: "/chat",
-      providerId: "feishu",
-    });
-  }, []);
-
-  const handleSignOut = useCallback(() => {
-    authClient.signOut();
-  }, []);
 
   const jobDescriptionText = deriveJobDescriptionText(jobDescriptionConfig);
   const hasJobDescription = jobDescriptionText.length > 0;
@@ -1299,49 +1188,7 @@ export default function ChatPageClient({ initialSessionId }: { initialSessionId:
   };
 
   return (
-    <div className="flex h-full w-full flex-col pt-4 pb-2 sm:pb-4 sm:pt-6">
-      <header className="mx-auto w-full max-w-5xl mb-4 px-2 sm:px-3">
-        <div className="mb-2 flex items-center justify-between gap-2 sm:hidden">
-          <div className="flex items-center gap-2">
-            {renderMobileUserMenu({
-              handleSignIn,
-              handleSignOut,
-              session,
-              showSessionLoadingState,
-              userEmail,
-              userInitials,
-              userName,
-            })}
-
-            <SidebarTrigger aria-label="打开聊天记录侧边栏" />
-          </div>
-          <Button onClick={startNewConversation} size="sm" type="button" variant="outline">
-            <PlusIcon className="mr-1 size-4" />
-            新建
-          </Button>
-        </div>
-        <div className="flex items-center gap-2">
-          <h1 className="pixel-title text-balance font-bold tracking-tight text-2xl sm:text-3xl">
-            简历筛选助手
-          </h1>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                aria-label="使用教程"
-                className="size-7 rounded-full text-muted-foreground"
-                onClick={startTutorial}
-                size="icon"
-                type="button"
-                variant="ghost"
-              >
-                <CircleHelpIcon className="size-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>使用教程</TooltipContent>
-          </Tooltip>
-        </div>
-      </header>
-
+    <div className="flex h-full w-full flex-col pt-4 pb-2 sm:pb-4 sm:pt-4">
       <section className="mx-auto w-full max-w-5xl mb-0.5 px-2 sm:px-3" data-tour="suggestions">
         <p className="mb-2 px-1 font-medium text-muted-foreground text-xs">快速提问</p>
         <Suggestions className="gap-2.5 pb-1">
