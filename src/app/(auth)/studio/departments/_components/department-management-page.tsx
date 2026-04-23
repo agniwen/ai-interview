@@ -184,7 +184,7 @@ export function DepartmentManagementPage({
         </header>
 
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-          <div className="relative min-w-60" data-tour="studio-departments-search">
+          <div className="relative sm:min-w-60 sm:flex-1" data-tour="studio-departments-search">
             <SearchIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               className="pr-9 pl-9"
@@ -196,19 +196,27 @@ export function DepartmentManagementPage({
               <Loader2Icon className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 animate-spin text-muted-foreground" />
             ) : null}
           </div>
-          <Button
-            disabled={isFetching}
-            onClick={() => invalidateList()}
-            size="icon"
-            variant="outline"
-          >
-            <RefreshCwIcon className="size-4" />
-            <span className="sr-only">刷新</span>
-          </Button>
-          <Button data-tour="studio-departments-create" onClick={openCreate} variant="outline">
-            <PlusIcon className="size-4" />
-            新建部门
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              className="shrink-0"
+              disabled={isFetching}
+              onClick={() => invalidateList()}
+              size="icon"
+              variant="outline"
+            >
+              <RefreshCwIcon className="size-4" />
+              <span className="sr-only">刷新</span>
+            </Button>
+            <Button
+              className="flex-1 sm:flex-none"
+              data-tour="studio-departments-create"
+              onClick={openCreate}
+              variant="outline"
+            >
+              <PlusIcon className="size-4" />
+              新建部门
+            </Button>
+          </div>
         </div>
 
         {records.length > 0 ? (

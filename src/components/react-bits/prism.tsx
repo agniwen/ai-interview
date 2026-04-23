@@ -1,10 +1,12 @@
 "use client";
 
+import { cn } from "@/lib/utils";
 import { Mesh, Program, Renderer, Triangle } from "ogl";
 import * as React from "react";
 import { useEffect, useRef } from "react";
 
 interface PrismProps {
+  className?: string;
   height?: number;
   baseWidth?: number;
   animationType?: "rotate" | "hover" | "3drotate";
@@ -25,6 +27,7 @@ interface PrismProps {
 const DEFAULT_OFFSET = { x: 0, y: 0 };
 
 const Prism: React.FC<PrismProps> = ({
+  className,
   height = 3.5,
   baseWidth = 5.5,
   animationType = "rotate",
@@ -479,7 +482,7 @@ const Prism: React.FC<PrismProps> = ({
     suspendWhenOffscreen,
   ]);
 
-  return <div className="w-full h-full relative" ref={containerRef} />;
+  return <div className={cn(`w-full h-full relative `, className)} ref={containerRef} />;
 };
 
 export default Prism;

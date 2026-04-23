@@ -129,7 +129,7 @@ export function PdfPreviewDialog({ open, onOpenChange, url, filename }: PdfPrevi
   return (
     <Dialog onOpenChange={onOpenChange} open={open}>
       <DialogContent
-        className="flex h-[92dvh] w-[min(96vw,1400px)] max-w-none sm:max-w-none flex-col gap-0 overflow-hidden p-0"
+        className="flex h-[92dvh] flex-col gap-0 overflow-hidden p-0 sm:w-[min(96vw,1400px)] sm:max-w-none"
         showCloseButton={false}
       >
         <DialogHeader className="flex shrink-0 flex-row items-center justify-between gap-4 border-b px-5 py-3">

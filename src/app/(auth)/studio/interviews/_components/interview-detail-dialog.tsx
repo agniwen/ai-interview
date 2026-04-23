@@ -397,7 +397,7 @@ export function InterviewDetailDialog({
 
   return (
     <Dialog onOpenChange={onOpenChange} open={open}>
-      <DialogContent className="flex max-h-[90vh] flex-col gap-0! w-[min(96vw,1440px)] max-w-none overflow-hidden p-0 sm:min-w-275">
+      <DialogContent className="flex max-h-[90vh] flex-col gap-0! overflow-hidden p-0 sm:w-[min(96vw,1440px)] sm:min-w-275 sm:max-w-none">
         <Tabs
           className="flex min-h-0 flex-1 flex-col"
           defaultValue="overview"
@@ -412,22 +412,23 @@ export function InterviewDetailDialog({
               {renderHeaderDescription({ isLoading, record })}
             </DialogDescription>
             {record ? (
-              <div className="mt-0 flex flex-wrap items-center justify-between gap-3">
-                <TabsList className="mt-0">
-                  <TabsTrigger className="min-w-[6em]" value="overview">
+              <div className="mt-0 flex flex-col items-stretch gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+                <TabsList className="mt-0 w-full sm:w-auto">
+                  <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="overview">
                     概览
                   </TabsTrigger>
-                  <TabsTrigger className="min-w-[6em]" value="reports">
+                  <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="reports">
                     面试报告
                   </TabsTrigger>
-                  <TabsTrigger className="min-w-[6em]" value="questions">
+                  <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="questions">
                     AI 题目
                   </TabsTrigger>
-                  <TabsTrigger className="min-w-[6em]" value="experience">
+                  <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="experience">
                     经历
                   </TabsTrigger>
                 </TabsList>
                 <PdfPreviewButton
+                  className="w-full sm:w-auto"
                   disabled={!record.resumeStorageKey}
                   filename={record.resumeFileName ?? undefined}
                   label="预览简历"

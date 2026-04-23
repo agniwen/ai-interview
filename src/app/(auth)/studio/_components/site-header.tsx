@@ -64,7 +64,12 @@ export function SiteHeader() {
         </Breadcrumb>
       </div>
       <div className="flex items-center gap-1">
-        <Button onClick={() => startTutorial(tour)} size="sm" variant="ghost">
+        <Button
+          className="hidden sm:inline-flex"
+          onClick={() => startTutorial(tour)}
+          size="sm"
+          variant="ghost"
+        >
           <CircleHelpIcon className="size-4" />
           使用教程
         </Button>

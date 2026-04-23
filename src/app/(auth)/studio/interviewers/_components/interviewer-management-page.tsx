@@ -217,49 +217,58 @@ export function InterviewerManagementPage({
         </header>
 
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-          <div className="relative min-w-60" data-tour="studio-interviewers-search">
-            <SearchIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              className="pr-9 pl-9"
-              onChange={(event) => setGlobalFilter(event.target.value)}
-              placeholder="搜索名称或描述"
-              value={globalFilter}
-            />
-            {isFetching ? (
-              <Loader2Icon className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 animate-spin text-muted-foreground" />
-            ) : null}
+          <div className="flex flex-col gap-3 sm:flex-1 sm:flex-row">
+            <div className="relative sm:min-w-60 sm:flex-1" data-tour="studio-interviewers-search">
+              <SearchIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                className="pr-9 pl-9"
+                onChange={(event) => setGlobalFilter(event.target.value)}
+                placeholder="搜索名称或描述"
+                value={globalFilter}
+              />
+              {isFetching ? (
+                <Loader2Icon className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 animate-spin text-muted-foreground" />
+              ) : null}
+            </div>
+            <Select onValueChange={setDepartmentFilter} value={departmentFilter}>
+              <SelectTrigger
+                className="w-full sm:min-w-45 sm:w-auto"
+                data-tour="studio-interviewers-department-filter"
+              >
+                <SelectValue placeholder="按部门筛选" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">全部部门</SelectItem>
+                {departments.map((dept) => (
+                  <SelectItem key={dept.id} value={dept.id}>
+                    {dept.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
-          <Select onValueChange={setDepartmentFilter} value={departmentFilter}>
-            <SelectTrigger className="min-w-45" data-tour="studio-interviewers-department-filter">
-              <SelectValue placeholder="按部门筛选" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">全部部门</SelectItem>
-              {departments.map((dept) => (
-                <SelectItem key={dept.id} value={dept.id}>
-                  {dept.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Button
-            disabled={isFetching}
-            onClick={() => invalidateList()}
-            size="icon"
-            variant="outline"
-          >
-            <RefreshCwIcon className="size-4" />
-            <span className="sr-only">刷新</span>
-          </Button>
-          <Button
-            data-tour="studio-interviewers-create"
-            disabled={noDepartments}
-            onClick={openCreate}
-            variant="outline"
-          >
-            <PlusIcon className="size-4" />
-            新建面试官
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              className="shrink-0"
+              disabled={isFetching}
+              onClick={() => invalidateList()}
+              size="icon"
+              variant="outline"
+            >
+              <RefreshCwIcon className="size-4" />
+              <span className="sr-only">刷新</span>
+            </Button>
+            <Button
+              className="flex-1 sm:flex-none"
+              data-tour="studio-interviewers-create"
+              disabled={noDepartments}
+              onClick={openCreate}
+              variant="outline"
+            >
+              <PlusIcon className="size-4" />
+              新建面试官
+            </Button>
+          </div>
         </div>
 
         {noDepartments ? (

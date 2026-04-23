@@ -583,7 +583,7 @@ export function InterviewManagementPage({
   return (
     <>
       <div className="space-y-6">
-        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4" data-tour="studio-stats">
+        <section className="grid grid-cols-2 gap-4 xl:grid-cols-4" data-tour="studio-stats">
           {[
             { hint: "所有候选人简历与流程记录", label: "总记录数", value: `${summary.total}` },
             {
@@ -617,8 +617,8 @@ export function InterviewManagementPage({
         <section className="space-y-4">
           <h2 className="font-semibold text-lg">简历库记录</h2>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-            <div className="flex flex-col gap-3 sm:flex-row">
-              <div className="relative min-w-60" data-tour="studio-search">
+            <div className="flex flex-col gap-3 sm:flex-1 sm:flex-row">
+              <div className="relative sm:min-w-60" data-tour="studio-search">
                 <SearchIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   className="pr-9 pl-9"
@@ -634,7 +634,10 @@ export function InterviewManagementPage({
                 onValueChange={(value) => setStatusFilter(value as typeof statusFilter)}
                 value={statusFilter}
               >
-                <SelectTrigger className="min-w-45" data-tour="studio-status-filter">
+                <SelectTrigger
+                  className="w-full sm:min-w-45 sm:w-auto"
+                  data-tour="studio-status-filter"
+                >
                   <SelectValue placeholder="按状态筛选" />
                 </SelectTrigger>
                 <SelectContent>
@@ -647,28 +650,35 @@ export function InterviewManagementPage({
                 </SelectContent>
               </Select>
             </div>
-            <Button
-              disabled={isFetching}
-              onClick={() => invalidateList()}
-              size="icon"
-              variant="outline"
-            >
-              <RefreshCwIcon className={`size-4 ${isMutationRefreshing ? "animate-spin" : ""}`} />
-              <span className="sr-only">刷新</span>
-            </Button>
-            <div data-tour="studio-create-btn">
-              <CreateInterviewDialog
-                onCreated={() => {
-                  invalidateList();
-                }}
-              />
-            </div>
-            {selectedCount > 0 ? (
-              <Button onClick={() => setBulkDeleteOpen(true)} size="sm" variant="destructive">
-                <Trash2Icon className="size-4" />
-                批量删除 ({selectedCount})
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                className="shrink-0"
+                disabled={isFetching}
+                onClick={() => invalidateList()}
+                size="icon"
+                variant="outline"
+              >
+                <RefreshCwIcon className={`size-4 ${isMutationRefreshing ? "animate-spin" : ""}`} />
+                <span className="sr-only">刷新</span>
               </Button>
-            ) : null}
+              <div className="flex-1 sm:flex-none" data-tour="studio-create-btn">
+                <CreateInterviewDialog
+                  onCreated={() => {
+                    invalidateList();
+                  }}
+                />
+              </div>
+              {selectedCount > 0 ? (
+                <Button
+                  className="flex-1 sm:flex-none"
+                  onClick={() => setBulkDeleteOpen(true)}
+                  variant="destructive"
+                >
+                  <Trash2Icon className="size-4" />
+                  批量删除 ({selectedCount})
+                </Button>
+              ) : null}
+            </div>
           </div>
           <div className="space-y-4">
             {table.getRowModel().rows.length > 0 ? (
