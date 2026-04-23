@@ -8,9 +8,10 @@ import {
   ShieldCheckIcon,
   SparklesIcon,
 } from "lucide-react";
+import { motion } from "motion/react";
 import { useTheme } from "next-themes";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { SignInRequiredDialog } from "@/components/auth/sign-in-required-dialog";
 import { DarkVeil } from "@/components/react-bits/dark-veil";
 import DotGrid from "@/components/react-bits/dot-grid";
@@ -22,6 +23,14 @@ import { Button } from "@/components/ui/button";
 
 import { authClient } from "@/lib/auth-client";
 import Waves from "@/components/react-bits/waves";
+
+const HOVER_OVERLAY_INITIAL = { opacity: 0, scale: 0.85 } as const;
+const HOVER_OVERLAY_TRANSITION = {
+  opacity: { duration: 0.18, ease: "easeOut" },
+  scale: { damping: 22, stiffness: 320, type: "spring" },
+  x: { damping: 30, stiffness: 320, type: "spring" },
+  y: { damping: 30, stiffness: 320, type: "spring" },
+} as const;
 
 const highlights = [
   {
@@ -60,6 +69,52 @@ export default function HomePageClient() {
   const isDark = mounted && resolvedTheme === "dark";
 
   const callbackURL = useMemo(() => pendingPath ?? "/chat", [pendingPath]);
+  const [hoveredHighlight, setHoveredHighlight] = useState<number | null>(null);
+  const gridRef = useRef<HTMLDivElement | null>(null);
+  const cardRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const [hoverRect, setHoverRect] = useState<{
+    height: number;
+    width: number;
+    x: number;
+    y: number;
+  } | null>(null);
+
+  useLayoutEffect(() => {
+    if (hoveredHighlight === null) {
+      return;
+    }
+    const measure = () => {
+      const grid = gridRef.current;
+      const card = cardRefs.current[hoveredHighlight];
+      if (!(grid && card)) {
+        return;
+      }
+      const gridBox = grid.getBoundingClientRect();
+      const cardBox = card.getBoundingClientRect();
+      setHoverRect({
+        height: cardBox.height,
+        width: cardBox.width,
+        x: cardBox.left - gridBox.left,
+        y: cardBox.top - gridBox.top,
+      });
+    };
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, [hoveredHighlight]);
+
+  const cardCallbacks = useMemo(
+    () =>
+      highlights.map((_, index) => ({
+        onMouseEnter: () => setHoveredHighlight(index),
+        ref: (node: HTMLDivElement | null) => {
+          cardRefs.current[index] = node;
+        },
+      })),
+    [],
+  );
+
+  const handleGridLeave = useMemo(() => () => setHoveredHighlight(null), []);
 
   const handleProtectedNavigation = (href: string) => {
     if (isPending) {
@@ -178,25 +233,25 @@ export default function HomePageClient() {
           <FadeContent className="mt-8 flex items-center justify-center sm:mt-10" delay={0.2}>
             <div className="inline-flex items-stretch">
               <Button
-                className="group h-11  gap-0 backdrop-blur-md border-primary/40 hover:bg-primary/40! bg-primary/20! rounded-r-none rounded-l-xl px-8 text-sm sm:h-12 sm:px-10 sm:text-base"
+                className="group h-11 min-w-[12em]  gap-0 backdrop-blur-md border-primary/40 hover:bg-primary/40! bg-primary/20! rounded-r-none rounded-l-xl px-8 text-sm sm:h-12 sm:px-10 sm:text-base"
                 disabled={isPending}
                 onClick={() => handleProtectedNavigation("/chat")}
                 type="button"
                 variant="outline"
               >
-                <span>进入简历筛选</span>
+                <span>开始简历筛选</span>
                 <span className="inline-flex max-w-0 overflow-hidden opacity-0 transition-all duration-300 ease-out group-hover:ml-2 group-hover:max-w-4 group-hover:opacity-100">
                   <ArrowRightIcon aria-hidden="true" className="size-4" />
                 </span>
               </Button>
               <Button
-                className="group  h-11  gap-0 rounded-r-xl rounded-l-none border-background bg-background/60 px-8 text-sm backdrop-blur-md hover:bg-background/80 sm:h-12 sm:px-10 sm:text-base"
+                className="group h-11 min-w-[12em]  gap-0 rounded-r-xl rounded-l-none border-background bg-background/60 px-8 text-sm backdrop-blur-md hover:bg-background/80 sm:h-12 sm:px-10 sm:text-base"
                 disabled={isPending}
                 onClick={handleInterviewClick}
                 type="button"
                 variant="outline"
               >
-                <span>进入模拟面试</span>
+                <span>进入工作台</span>
                 <span className="inline-flex max-w-0 overflow-hidden opacity-0 transition-all duration-300 ease-out group-hover:ml-2 group-hover:max-w-4 group-hover:opacity-100">
                   <ArrowRightIcon aria-hidden="true" className="size-4" />
                 </span>
@@ -205,17 +260,38 @@ export default function HomePageClient() {
           </FadeContent>
 
           <div
-            className="mt-16 grid grid-cols-2 gap-4 sm:mt-24 sm:gap-6 lg:mt-28 lg:grid-cols-4"
+            className="relative mt-16 grid auto-rows-fr grid-cols-2 gap-4 sm:mt-24 sm:gap-6 lg:mt-28 lg:grid-cols-4"
             id="features"
+            onMouseLeave={handleGridLeave}
+            ref={gridRef}
           >
+            {hoverRect ? (
+              <motion.span
+                animate={{
+                  height: hoverRect.height,
+                  opacity: hoveredHighlight === null ? 0 : 1,
+                  scale: hoveredHighlight === null ? 0.85 : 1,
+                  width: hoverRect.width,
+                  x: hoverRect.x,
+                  y: hoverRect.y,
+                }}
+                aria-hidden="true"
+                className="pointer-events-none absolute top-0 left-0 z-0 rounded-2xl border border-white/55 bg-white/32 shadow-[0_24px_50px_-34px_rgba(32,76,140,0.7)] ring-1 ring-white/35 backdrop-blur-xl dark:border-white/15 dark:bg-white/5 dark:shadow-[0_24px_50px_-28px_rgba(0,0,0,0.9)] dark:ring-white/10"
+                initial={HOVER_OVERLAY_INITIAL}
+                transition={HOVER_OVERLAY_TRANSITION}
+              />
+            ) : null}
             {highlights.map((item, index) => {
               const Icon = item.icon;
+              const callbacks = cardCallbacks[index];
 
               return (
                 <FadeContent
-                  className="group relative w-full overflow-hidden rounded-2xl border border-transparent bg-transparent p-5 text-center shadow-none ring-0 backdrop-blur-0 transition-all duration-300 ease-out hover:-translate-y-1 hover:border-white/55 hover:bg-white/32 hover:shadow-[0_24px_50px_-34px_rgba(32,76,140,0.7)] hover:ring-white/35 hover:backdrop-blur-xl sm:p-6 dark:hover:border-white/15 dark:hover:bg-white/5 dark:hover:shadow-[0_24px_50px_-28px_rgba(0,0,0,0.9)] dark:hover:ring-white/10"
+                  className="relative z-10 h-full w-full rounded-2xl p-5 text-center sm:p-6"
                   delay={0.34 + index * 0.1}
                   key={item.title}
+                  onMouseEnter={callbacks.onMouseEnter}
+                  ref={callbacks.ref}
                 >
                   <div className="mx-auto mb-3 flex size-14 items-center justify-center rounded-2xl bg-primary/8 text-primary ring-1 ring-primary/10">
                     <Icon aria-hidden="true" className="size-6" />
@@ -239,7 +315,7 @@ export default function HomePageClient() {
         open={pendingPath !== null}
         title={
           pendingPath === "/studio/interviews"
-            ? "登录后即可进入模拟面试管理"
+            ? "登录后即可进入模拟面试工作台"
             : "登录后即可进入简历筛选"
         }
       />
