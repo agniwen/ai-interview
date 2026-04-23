@@ -1002,7 +1002,10 @@ export function PromptInputTextarea({
 
   return (
     <InputGroupTextarea
-      className={cn("field-sizing-content min-h-10 max-h-28 overflow-y-auto", className)}
+      className={cn(
+        "field-sizing-content min-h-10 max-h-28 overflow-y-auto text-base md:text-base",
+        className,
+      )}
       name="message"
       onCompositionEnd={handleCompositionEnd}
       onCompositionStart={handleCompositionStart}
