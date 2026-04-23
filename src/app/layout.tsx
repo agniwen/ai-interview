@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Analytics } from "@vercel/analytics/next";
 import { IBM_Plex_Mono, Noto_Sans_SC, Source_Sans_3, Source_Serif_4 } from "next/font/google";
 import localFont from "next/font/local";
@@ -42,6 +42,10 @@ const ibmPlexMono = IBM_Plex_Mono({
 export const metadata: Metadata = {
   description: "面向招聘场景的聊天式简历初筛应用，支持上传简历并生成筛选建议。",
   title: "简历筛选助手",
+};
+
+export const viewport: Viewport = {
+  viewportFit: "cover",
 };
 
 const isVercelAnalyticsEnabled = process.env.NEXT_PUBLIC_ENABLE_VERCEL_ANALYTICS === "true";
