@@ -5,6 +5,7 @@ import { and, eq, inArray, ne } from "drizzle-orm";
 import { AccessToken } from "livekit-server-sdk";
 import { db } from "@/lib/db";
 import {
+  candidateFormSubmission,
   interviewAuditLog,
   interviewer,
   jobDescription,
@@ -12,6 +13,8 @@ import {
   studioInterview,
   studioInterviewSchedule,
 } from "@/lib/db/schema";
+import { buildCandidateFormAnswersSchema } from "@/lib/candidate-forms";
+import type { CandidateFormTemplateRecord } from "@/lib/candidate-forms";
 import { buildAgentInstructions } from "@/lib/interview/agent-instructions";
 import {
   parseResumePayloadInput,
@@ -29,6 +32,13 @@ import { matchJobDescriptionForResume } from "@/server/agents/job-description-ma
 import { factory } from "@/server/factory";
 import { resumeProfileSchema } from "@/lib/interview/types";
 import { listAllJobDescriptions } from "@/server/queries/job-descriptions";
+import {
+  loadApplicableCandidateFormTemplates,
+  loadCandidateFormTemplateVersionById,
+  loadSubmissionsByInterview,
+  loadSubmittedTemplateIds,
+  resolveOrCreateTemplateVersion,
+} from "@/server/queries/candidate-forms";
 import { queryInterviewConversationReports } from "@/server/queries/interview-conversations";
 import { queryPaginatedStudioInterviewRecords } from "@/server/queries/studio-interviews";
 import {
@@ -138,6 +148,15 @@ export const interviewRouter = factory
       return c.json({ error: "当前面试轮次已结束，如需重新面试请联系管理员。" }, 403);
     }
 
+    const applicable = await loadApplicableCandidateFormTemplates(id);
+    const requiredTemplateIds = [...applicable.global, ...applicable.jobSpecific].map((t) => t.id);
+    if (requiredTemplateIds.length > 0) {
+      const submittedIds = await loadSubmittedTemplateIds(id, requiredTemplateIds);
+      if (submittedIds.size < requiredTemplateIds.length) {
+        return c.json({ code: "forms_required", error: "请先完成面试前问卷。" }, 409);
+      }
+    }
+
     const apiKey = process.env.LIVEKIT_API_KEY;
     const apiSecret = process.env.LIVEKIT_API_SECRET;
     const serverUrl = process.env.LIVEKIT_URL;
@@ -226,6 +245,127 @@ export const interviewRouter = factory
     }
 
     return c.json(interviewRecord);
+  })
+  .get("/:id/:roundId/forms", async (c) => {
+    const id = c.req.param("id");
+    const roundId = c.req.param("roundId");
+    const interviewRecord = await loadCandidateInterviewRecord(id, roundId);
+
+    if (!interviewRecord) {
+      return c.json({ error: "Interview not available." }, 404);
+    }
+
+    const applicable = await loadApplicableCandidateFormTemplates(id);
+    const templates: CandidateFormTemplateRecord[] = [
+      ...applicable.global,
+      ...applicable.jobSpecific,
+    ];
+
+    if (templates.length === 0) {
+      return c.json({ required: [], submitted: {} });
+    }
+
+    const templateIds = templates.map((t) => t.id);
+    const submittedIds = await loadSubmittedTemplateIds(id, templateIds);
+
+    // Resolve (or lazily create) the current version for each applicable
+    // template. Performed inside one transaction so concurrent candidates
+    // converge on the same version rows.
+    const required = await db.transaction(async (tx) => {
+      const out: {
+        templateId: string;
+        versionId: string;
+        version: number;
+        snapshot: unknown;
+      }[] = [];
+      for (const template of templates) {
+        const resolved = await resolveOrCreateTemplateVersion(tx, template.id);
+        out.push({
+          snapshot: resolved.snapshot,
+          templateId: template.id,
+          version: resolved.version,
+          versionId: resolved.id,
+        });
+      }
+      return out;
+    });
+
+    const submitted: Record<string, true> = {};
+    for (const templateId of submittedIds) {
+      submitted[templateId] = true;
+    }
+
+    return c.json({ required, submitted });
+  })
+  .post("/:id/:roundId/forms/:templateId/submit", async (c) => {
+    const id = c.req.param("id");
+    const roundId = c.req.param("roundId");
+    const templateId = c.req.param("templateId");
+
+    const interviewRecord = await loadCandidateInterviewRecord(id, roundId);
+    if (!interviewRecord) {
+      return c.json({ error: "Interview not available." }, 404);
+    }
+    if (interviewRecord.currentRoundStatus === "completed") {
+      return c.json({ error: "当前面试轮次已结束，无法再提交问卷。" }, 403);
+    }
+
+    const body = (await c.req.json().catch(() => null)) as {
+      versionId?: unknown;
+      answers?: unknown;
+    } | null;
+    if (
+      !body ||
+      typeof body.versionId !== "string" ||
+      body.answers === null ||
+      typeof body.answers !== "object"
+    ) {
+      return c.json({ error: "请求参数缺失。" }, 400);
+    }
+    const { versionId } = body;
+    const rawAnswers = body.answers as Record<string, unknown>;
+
+    const applicable = await loadApplicableCandidateFormTemplates(id);
+    const applicableIds = new Set(
+      [...applicable.global, ...applicable.jobSpecific].map((t) => t.id),
+    );
+    if (!applicableIds.has(templateId)) {
+      return c.json({ error: "该问卷不适用于当前面试。" }, 400);
+    }
+
+    const version = await loadCandidateFormTemplateVersionById(templateId, versionId);
+    if (!version) {
+      return c.json({ error: "问卷版本不存在。" }, 400);
+    }
+
+    const answersSchema = buildCandidateFormAnswersSchema(version.snapshot);
+    const parsed = answersSchema.safeParse(rawAnswers);
+    if (!parsed.success) {
+      return c.json({ error: parsed.error.issues[0]?.message ?? "问卷填写不完整。" }, 400);
+    }
+
+    const now = new Date();
+    const submissionId = crypto.randomUUID();
+    try {
+      await db.insert(candidateFormSubmission).values({
+        answers: parsed.data,
+        id: submissionId,
+        interviewRecordId: id,
+        submittedAt: now,
+        templateId,
+        versionId,
+      });
+    } catch {
+      // Unique (templateId, interviewRecordId) — treat as already submitted.
+      return c.json({ error: "该问卷已提交过。" }, 409);
+    }
+
+    return c.json({
+      submissionId,
+      success: true,
+      version: version.version,
+      versionId,
+    });
   })
   .post("/:id/:roundId/complete", async (c) => {
     const id = c.req.param("id");
@@ -472,6 +612,17 @@ export const studioInterviewsRouter = factory
 
     const reports = await queryInterviewConversationReports(id);
     return c.json(reports);
+  })
+  .get("/:id/form-submissions", async (c) => {
+    const id = c.req.param("id");
+    const existing = await loadRecordById(id);
+
+    if (!existing) {
+      return c.json({ error: "记录不存在。" }, 404);
+    }
+
+    const submissions = await loadSubmissionsByInterview(id);
+    return c.json({ submissions });
   })
   // oxlint-disable-next-line complexity -- Patch handler validates, normalizes, and coordinates schedule updates in one flow.
   .patch("/:id", async (c) => {

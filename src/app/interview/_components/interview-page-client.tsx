@@ -20,6 +20,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { Toaster } from "@/components/ui/sonner";
 import { InterviewTimer } from "./interview-timer";
+import { PreInterviewFormsView } from "./pre-interview-forms-view";
 
 interface InterviewPageClientProps {
   interviewId: string;
@@ -349,7 +350,7 @@ export default function InterviewPageClient({ interviewId, roundId }: InterviewP
   );
 
   if (isDisconnected || isConnecting) {
-    return (
+    const waitingView = (
       <WaitingView
         interviewView={interviewView}
         isConnecting={isConnecting}
@@ -357,6 +358,14 @@ export default function InterviewPageClient({ interviewId, roundId }: InterviewP
         isRoundCompleted={isRoundCompleted}
         onStart={handleStart}
       />
+    );
+    if (isRoundCompleted) {
+      return waitingView;
+    }
+    return (
+      <PreInterviewFormsView interviewId={interviewId} roundId={roundId}>
+        {waitingView}
+      </PreInterviewFormsView>
     );
   }
 

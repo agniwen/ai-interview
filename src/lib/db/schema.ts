@@ -1,6 +1,13 @@
 /* oxlint-disable no-inline-comments -- `/* @__PURE__ *\/` is a bundler annotation, not a human comment. */
 
 import type { UIMessage } from "ai";
+import type {
+  CandidateFormDisplayMode,
+  CandidateFormOption,
+  CandidateFormQuestionType,
+  CandidateFormScope,
+  CandidateFormTemplateSnapshot,
+} from "@/lib/candidate-forms";
 import type { InterviewTranscriptTurn } from "@/lib/interview-session";
 import type { InterviewQuestion, ResumeProfile } from "@/lib/interview/types";
 import type { JobDescriptionConfig } from "@/lib/job-description-config";
@@ -16,6 +23,7 @@ import {
   primaryKey,
   text,
   timestamp,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 
 // --- Tables managed by @chat-adapter/state-pg ---
@@ -464,5 +472,105 @@ export const interviewAuditLog = pgTable(
   (table) => [
     index("interview_audit_log_record_idx").on(table.interviewRecordId),
     index("interview_audit_log_created_at_idx").on(table.createdAt),
+  ],
+);
+
+export const candidateFormTemplate = pgTable(
+  "candidate_form_template",
+  {
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
+    description: text("description"),
+    id: text("id").primaryKey(),
+    jobDescriptionId: text("job_description_id").references(() => jobDescription.id, {
+      onDelete: "cascade",
+    }),
+    scope: text("scope").$type<CandidateFormScope>().notNull(),
+    title: text("title").notNull(),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+  },
+  (table) => [
+    index("candidate_form_template_scope_idx").on(table.scope),
+    index("candidate_form_template_job_description_idx").on(table.jobDescriptionId),
+    index("candidate_form_template_created_at_idx").on(table.createdAt),
+  ],
+);
+
+export const candidateFormTemplateQuestion = pgTable(
+  "candidate_form_template_question",
+  {
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    displayMode: text("display_mode").$type<CandidateFormDisplayMode>().notNull(),
+    helperText: text("helper_text"),
+    id: text("id").primaryKey(),
+    label: text("label").notNull(),
+    options: jsonb("options").$type<CandidateFormOption[]>().notNull().default([]),
+    required: boolean("required").default(false).notNull(),
+    sortOrder: integer("sort_order").notNull(),
+    templateId: text("template_id")
+      .notNull()
+      .references(() => candidateFormTemplate.id, { onDelete: "cascade" }),
+    type: text("type").$type<CandidateFormQuestionType>().notNull(),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+  },
+  (table) => [
+    index("candidate_form_template_question_template_idx").on(table.templateId),
+    index("candidate_form_template_question_order_idx").on(table.templateId, table.sortOrder),
+  ],
+);
+
+export const candidateFormTemplateVersion = pgTable(
+  "candidate_form_template_version",
+  {
+    contentHash: text("content_hash").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    id: text("id").primaryKey(),
+    snapshot: jsonb("snapshot").$type<CandidateFormTemplateSnapshot>().notNull(),
+    templateId: text("template_id")
+      .notNull()
+      .references(() => candidateFormTemplate.id, { onDelete: "cascade" }),
+    version: integer("version").notNull(),
+  },
+  (table) => [
+    uniqueIndex("candidate_form_template_version_template_version_uq").on(
+      table.templateId,
+      table.version,
+    ),
+    uniqueIndex("candidate_form_template_version_template_hash_uq").on(
+      table.templateId,
+      table.contentHash,
+    ),
+  ],
+);
+
+export const candidateFormSubmission = pgTable(
+  "candidate_form_submission",
+  {
+    answers: jsonb("answers").$type<Record<string, string | string[]>>().notNull().default({}),
+    id: text("id").primaryKey(),
+    interviewRecordId: text("interview_record_id")
+      .notNull()
+      .references(() => studioInterview.id, { onDelete: "cascade" }),
+    submittedAt: timestamp("submitted_at").defaultNow().notNull(),
+    templateId: text("template_id")
+      .notNull()
+      .references(() => candidateFormTemplate.id, { onDelete: "restrict" }),
+    versionId: text("version_id")
+      .notNull()
+      .references(() => candidateFormTemplateVersion.id, { onDelete: "restrict" }),
+  },
+  (table) => [
+    uniqueIndex("candidate_form_submission_template_interview_uq").on(
+      table.templateId,
+      table.interviewRecordId,
+    ),
+    index("candidate_form_submission_version_idx").on(table.versionId),
+    index("candidate_form_submission_interview_idx").on(table.interviewRecordId),
   ],
 );

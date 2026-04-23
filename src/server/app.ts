@@ -7,6 +7,7 @@ import { adminMiddleware } from "./middlewares/admin";
 import { authMiddleware } from "./middlewares/auth";
 import { betterAuthMiddleware } from "./middlewares/better-auth";
 import { agentRouter } from "./routes/agent/route";
+import { candidateFormsRouter } from "./routes/candidate-forms/route";
 import { chatRouter } from "./routes/chat/route";
 import { departmentsRouter } from "./routes/department/route";
 import { interviewRouter, studioInterviewsRouter } from "./routes/interview/route";
@@ -41,6 +42,8 @@ export const app = new Hono<Env>()
   .use("/api/studio/interviewers/*", authMiddleware, adminMiddleware)
   .use("/api/studio/job-descriptions", authMiddleware, adminMiddleware)
   .use("/api/studio/job-descriptions/*", authMiddleware, adminMiddleware)
+  .use("/api/studio/forms", authMiddleware, adminMiddleware)
+  .use("/api/studio/forms/*", authMiddleware, adminMiddleware)
   .basePath("/api")
   .post("/feishu/webhook", async (c) => {
     const bot = getFeishuBot();
@@ -59,7 +62,8 @@ export const app = new Hono<Env>()
   .route("/studio/interviews", studioInterviewsRouter)
   .route("/studio/departments", departmentsRouter)
   .route("/studio/interviewers", interviewersRouter)
-  .route("/studio/job-descriptions", jobDescriptionsRouter);
+  .route("/studio/job-descriptions", jobDescriptionsRouter)
+  .route("/studio/forms", candidateFormsRouter);
 
 app.notFound((c) => c.json({ error: "Not Found" }, 404));
 

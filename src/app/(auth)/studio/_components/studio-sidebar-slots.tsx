@@ -1,6 +1,12 @@
 "use client";
 
-import { BotIcon, Building2Icon, FileTextIcon, UserCircleIcon } from "lucide-react";
+import {
+  BotIcon,
+  Building2Icon,
+  ClipboardListIcon,
+  FileTextIcon,
+  UserCircleIcon,
+} from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -38,6 +44,11 @@ const navItems = [
     href: "/studio/job-descriptions",
     icon: FileTextIcon,
     title: "在招岗位管理",
+  },
+  {
+    href: "/studio/forms",
+    icon: ClipboardListIcon,
+    title: "面试前问卷模版",
   },
 ];
 

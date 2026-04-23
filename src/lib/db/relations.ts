@@ -8,6 +8,46 @@ export const relations = defineRelations(schema, (r) => ({
       to: r.user.id,
     }),
   },
+  candidateFormSubmission: {
+    interviewRecord: r.one.studioInterview({
+      from: r.candidateFormSubmission.interviewRecordId,
+      to: r.studioInterview.id,
+    }),
+    template: r.one.candidateFormTemplate({
+      from: r.candidateFormSubmission.templateId,
+      to: r.candidateFormTemplate.id,
+    }),
+    version: r.one.candidateFormTemplateVersion({
+      from: r.candidateFormSubmission.versionId,
+      to: r.candidateFormTemplateVersion.id,
+    }),
+  },
+  candidateFormTemplate: {
+    jobDescription: r.one.jobDescription({
+      from: r.candidateFormTemplate.jobDescriptionId,
+      to: r.jobDescription.id,
+    }),
+    questions: r.many.candidateFormTemplateQuestion(),
+    submissions: r.many.candidateFormSubmission(),
+    user: r.one.user({
+      from: r.candidateFormTemplate.createdBy,
+      to: r.user.id,
+    }),
+    versions: r.many.candidateFormTemplateVersion(),
+  },
+  candidateFormTemplateQuestion: {
+    template: r.one.candidateFormTemplate({
+      from: r.candidateFormTemplateQuestion.templateId,
+      to: r.candidateFormTemplate.id,
+    }),
+  },
+  candidateFormTemplateVersion: {
+    submissions: r.many.candidateFormSubmission(),
+    template: r.one.candidateFormTemplate({
+      from: r.candidateFormTemplateVersion.templateId,
+      to: r.candidateFormTemplate.id,
+    }),
+  },
   chatAttachment: {
     user: r.one.user({
       from: r.chatAttachment.userId,
@@ -64,6 +104,7 @@ export const relations = defineRelations(schema, (r) => ({
     }),
   },
   jobDescription: {
+    candidateFormTemplates: r.many.candidateFormTemplate(),
     department: r.one.department({
       from: r.jobDescription.departmentId,
       to: r.department.id,
@@ -92,6 +133,7 @@ export const relations = defineRelations(schema, (r) => ({
     }),
   },
   studioInterview: {
+    candidateFormSubmissions: r.many.candidateFormSubmission(),
     conversationTurns: r.many.interviewConversationTurn(),
     conversations: r.many.interviewConversation(),
     jobDescription: r.one.jobDescription({
@@ -112,6 +154,7 @@ export const relations = defineRelations(schema, (r) => ({
   },
   user: {
     account: r.many.account(),
+    candidateFormTemplates: r.many.candidateFormTemplate(),
     chatAttachment: r.many.chatAttachment(),
     chatConversation: r.many.chatConversation(),
     departments: r.many.department(),

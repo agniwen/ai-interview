@@ -1,5 +1,6 @@
 "use client";
 
+import type { CandidateFormSubmissionWithSnapshot } from "@/lib/candidate-forms";
 import type { StudioInterviewConversationReport } from "@/lib/interview-session";
 import type { StudioInterviewRecord } from "@/lib/studio-interviews";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -308,6 +309,89 @@ function renderInstructionsTab({
   );
 }
 
+function renderFormsTab({ submissions }: { submissions: CandidateFormSubmissionWithSnapshot[] }) {
+  if (submissions.length === 0) {
+    return (
+      <div className="py-10 text-center text-muted-foreground text-sm">
+        候选人没有填写过任何问卷。
+      </div>
+    );
+  }
+  return (
+    <div className="space-y-5">
+      {submissions.map((submission) => (
+        <div className="rounded-2xl border border-border/60 bg-muted/30 p-4" key={submission.id}>
+          <div className="mb-3 flex items-center justify-between gap-2">
+            <div>
+              <h3 className="font-medium text-sm">{submission.snapshot.title}</h3>
+              {submission.snapshot.description ? (
+                <p className="mt-1 text-muted-foreground text-xs">
+                  {submission.snapshot.description}
+                </p>
+              ) : null}
+            </div>
+            <Badge variant="outline">v{submission.version}</Badge>
+          </div>
+          <div className="space-y-3">
+            {submission.snapshot.questions.map((question) => {
+              const rawAnswer = submission.answers[question.id];
+              const answerDisplay = (() => {
+                if (
+                  rawAnswer === undefined ||
+                  rawAnswer === "" ||
+                  (Array.isArray(rawAnswer) && rawAnswer.length === 0)
+                ) {
+                  return <span className="text-muted-foreground italic">（未作答）</span>;
+                }
+                if (question.type === "multi") {
+                  const values = Array.isArray(rawAnswer) ? rawAnswer : [rawAnswer];
+                  return (
+                    <div className="flex flex-wrap gap-1">
+                      {values.map((value, index) => {
+                        const label =
+                          question.options.find((opt) => opt.value === value)?.label ?? value;
+                        return (
+                          // biome-ignore lint/suspicious/noArrayIndexKey: ordered options
+                          <Badge key={index} variant="secondary">
+                            {label}
+                          </Badge>
+                        );
+                      })}
+                    </div>
+                  );
+                }
+                if (question.type === "single") {
+                  const value = Array.isArray(rawAnswer) ? rawAnswer[0] : rawAnswer;
+                  const label = question.options.find((opt) => opt.value === value)?.label ?? value;
+                  return <Badge variant="secondary">{label}</Badge>;
+                }
+                return (
+                  <p className="whitespace-pre-wrap text-sm">
+                    {Array.isArray(rawAnswer) ? rawAnswer.join(", ") : rawAnswer}
+                  </p>
+                );
+              })();
+              return (
+                <div className="space-y-1" key={question.id}>
+                  <p className="font-medium text-sm">
+                    {question.label}
+                    {question.required ? <span className="ml-1 text-destructive">*</span> : null}
+                  </p>
+                  <div className="pl-1 text-sm">{answerDisplay}</div>
+                </div>
+              );
+            })}
+          </div>
+          <p className="mt-3 text-muted-foreground text-xs">
+            该记录基于模版 v{submission.version}{" "}
+            的快照；如模版已更新，请到「面试前问卷模版」查看当前版本。
+          </p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // oxlint-disable-next-line complexity -- Dialog owns many conditional sections driven by record state; flattening adds noise.
 export function InterviewDetailDialog({
   open,
@@ -353,6 +437,23 @@ export function InterviewDetailDialog({
       return payload;
     },
     queryKey: ["studio-interview-reports", recordId],
+  });
+
+  const { data: formSubmissions = [] } = useQuery({
+    enabled: open && !!recordId,
+    queryFn: async () => {
+      const response = await fetch(`/api/studio/interviews/${recordId}/form-submissions`);
+      const payload = (await response.json()) as
+        | { submissions: CandidateFormSubmissionWithSnapshot[] }
+        | { error?: string };
+      if (!response.ok || !("submissions" in payload)) {
+        throw new Error(
+          "error" in payload ? (payload.error ?? "加载问卷答复失败") : "加载问卷答复失败",
+        );
+      }
+      return payload.submissions;
+    },
+    queryKey: ["studio-interview-form-submissions", recordId],
   });
 
   const { data: instructionVariants = [], isLoading: isInstructionsLoading } = useQuery({
@@ -481,6 +582,9 @@ export function InterviewDetailDialog({
                   </TabsTrigger>
                   <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="instructions">
                     Agent 提示词
+                  </TabsTrigger>
+                  <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="forms">
+                    问卷答复
                   </TabsTrigger>
                 </TabsList>
                 <PdfPreviewButton
@@ -937,6 +1041,10 @@ export function InterviewDetailDialog({
                   isLoading: isInstructionsLoading,
                   variants: instructionVariants,
                 })}
+              </TabsContent>
+
+              <TabsContent value="forms">
+                {renderFormsTab({ submissions: formSubmissions })}
               </TabsContent>
             </div>
           ) : (
