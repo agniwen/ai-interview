@@ -160,6 +160,7 @@ export const interviewRouter = factory
       interview_questions: interviewRecord.interviewQuestions,
       interview_record_id: id,
       interviewers: interviewRecord.interviewers,
+      job_description_preset_questions: interviewRecord.jobDescriptionPresetQuestions ?? [],
       job_description_prompt: interviewRecord.jobDescriptionPrompt ?? null,
       round_id: roundId,
       target_role: interviewRecord.targetRole,
@@ -408,15 +409,20 @@ export const studioInterviewsRouter = factory
     }
 
     let jobDescriptionPrompt: string | null = null;
+    let jobDescriptionPresetQuestions: string[] = [];
     let interviewers: { name: string; prompt: string }[] = [];
 
     if (existing.jobDescriptionId) {
       const [jdRow] = await db
-        .select({ prompt: jobDescription.prompt })
+        .select({
+          presetQuestions: jobDescription.presetQuestions,
+          prompt: jobDescription.prompt,
+        })
         .from(jobDescription)
         .where(eq(jobDescription.id, existing.jobDescriptionId))
         .limit(1);
       jobDescriptionPrompt = jdRow?.prompt ?? null;
+      jobDescriptionPresetQuestions = jdRow?.presetQuestions ?? [];
 
       const interviewerRows = await db
         .select({ name: interviewer.name, prompt: interviewer.prompt })
@@ -429,6 +435,7 @@ export const studioInterviewsRouter = factory
     const baseContext = {
       candidateName: existing.candidateName,
       interviewQuestions: existing.interviewQuestions,
+      jobDescriptionPresetQuestions,
       jobDescriptionPrompt,
       resumeProfile: existing.resumeProfile,
       targetRole: existing.targetRole,

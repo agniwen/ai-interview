@@ -54,6 +54,7 @@ import { studioInterviewStatusMeta, studioInterviewStatusValues } from "@/lib/st
 import {
   createInterviewFormValues,
   hasFieldErrors,
+  normalizeInterviewQuestions,
   normalizeScheduleEntries,
   toFieldErrors,
   useInterviewForm,
@@ -66,20 +67,22 @@ const LEADING_DIGIT_RE = /^\d/;
 const LEADING_DIGITS_RE = /^(\d+)/;
 
 function resolveQuestionsTabSuffix({
-  displayQuestions,
+  questionCount,
   isTutorialDialog,
 }: {
-  displayQuestions: InterviewQuestion[];
+  questionCount: number;
   isTutorialDialog: boolean;
 }) {
   if (isTutorialDialog) {
     return ` (${STUDIO_TUTORIAL_MOCK_QUESTIONS.length})`;
   }
-  if (displayQuestions.length > 0) {
-    return ` (${displayQuestions.length})`;
+  if (questionCount > 0) {
+    return ` (${questionCount})`;
   }
   return "";
 }
+
+type ResumeSummary = Pick<ResumeAnalysisResult, "fileName" | "resumeProfile">;
 
 // oxlint-disable-next-line complexity -- Create dialog owns form, upload, schedule, and interview-questions flows together; extracting pieces fragments state.
 export function CreateInterviewDialog({
@@ -91,8 +94,7 @@ export function CreateInterviewDialog({
   const [open, setOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<string>("basic");
   const [resumeFile, setResumeFile] = useState<File | null>(null);
-  const [resumePayload, setResumePayload] = useState<ResumeAnalysisResult | null>(null);
-  const [manualQuestions, setManualQuestions] = useState<InterviewQuestion[]>([]);
+  const [resumePayload, setResumePayload] = useState<ResumeSummary | null>(null);
   const [isAnalyzingResume, setIsAnalyzingResume] = useState(false);
   const [isGeneratingQuestions, setIsGeneratingQuestions] = useState(false);
   const [progressStatus, setProgressStatus] = useState<string>("");
@@ -104,6 +106,8 @@ export function CreateInterviewDialog({
   const form = useInterviewForm({
     defaultValues: createInterviewFormValues(),
     onSubmit: async (values) => {
+      const normalizedQuestions = normalizeInterviewQuestions(values.interviewQuestions);
+
       const formData = new FormData();
       formData.append("candidateName", values.candidateName);
       formData.append("candidateEmail", values.candidateEmail);
@@ -123,9 +127,16 @@ export function CreateInterviewDialog({
       }
 
       if (resumePayload) {
-        formData.append("resumePayload", JSON.stringify(resumePayload));
-      } else if (manualQuestions.length > 0) {
-        formData.append("manualInterviewQuestions", JSON.stringify(manualQuestions));
+        formData.append(
+          "resumePayload",
+          JSON.stringify({
+            fileName: resumePayload.fileName,
+            interviewQuestions: normalizedQuestions,
+            resumeProfile: resumePayload.resumeProfile,
+          } satisfies ResumeAnalysisResult),
+        );
+      } else if (normalizedQuestions.length > 0) {
+        formData.append("manualInterviewQuestions", JSON.stringify(normalizedQuestions));
       }
 
       const response = await fetch("/api/studio/interviews", {
@@ -147,9 +158,18 @@ export function CreateInterviewDialog({
       setOpen(false);
       setResumeFile(null);
       setResumePayload(null);
-      setManualQuestions([]);
       form.reset(createInterviewFormValues());
       toast.success("简历库记录已创建");
+    },
+    onSubmitInvalid: (fieldMeta) => {
+      const hasQuestionError = Object.entries(fieldMeta).some(
+        ([key, value]) =>
+          key.startsWith("interviewQuestions") &&
+          ((value as { errors?: unknown[] })?.errors?.length ?? 0) > 0,
+      );
+      if (hasQuestionError) {
+        setActiveTab("questions");
+      }
     },
   });
   const isSubmitting = useStore(form.store, (state) => state.isSubmitting);
@@ -173,6 +193,7 @@ export function CreateInterviewDialog({
         form.setFieldValue("targetRole", STUDIO_TUTORIAL_MOCK_FORM.targetRole);
         form.setFieldValue("status", STUDIO_TUTORIAL_MOCK_FORM.status);
         form.setFieldValue("notes", STUDIO_TUTORIAL_MOCK_FORM.notes);
+        form.setFieldValue("interviewQuestions", STUDIO_TUTORIAL_MOCK_QUESTIONS);
       }
 
       // Switch tab based on step
@@ -201,15 +222,7 @@ export function CreateInterviewDialog({
     }
   }, [tutorialStep, isTutorialDialog, form, open]);
 
-  // Tutorial: mock questions for the questions tab
-  let displayQuestions: InterviewQuestion[];
-  if (isTutorialDialog) {
-    displayQuestions = STUDIO_TUTORIAL_MOCK_QUESTIONS;
-  } else if (resumePayload) {
-    displayQuestions = resumePayload.interviewQuestions;
-  } else {
-    displayQuestions = manualQuestions;
-  }
+  const questionCount = useStore(form.store, (state) => state.values.interviewQuestions.length);
 
   function tryExtractPartialFields(text: string) {
     const fields: { label: string; value: string }[] = [];
@@ -296,7 +309,7 @@ export function CreateInterviewDialog({
   async function handleResumeChange(file: File | null) {
     setResumeFile(file);
     setResumePayload(null);
-    setManualQuestions([]);
+    form.setFieldValue("interviewQuestions", []);
     setProgressStatus("");
     setProgressTools([]);
     setPartialFields([]);
@@ -362,7 +375,6 @@ export function CreateInterviewDialog({
       form.setFieldValue("targetRole", resumeProfile.targetRoles[0] ?? "");
       setResumePayload({
         fileName,
-        interviewQuestions: [],
         resumeProfile,
       });
       setIsAnalyzingResume(false);
@@ -437,21 +449,15 @@ export function CreateInterviewDialog({
       }
 
       if (questions) {
-        const nextQuestions = questions;
-        setResumePayload((prev) => (prev ? { ...prev, interviewQuestions: nextQuestions } : null));
+        form.setFieldValue("interviewQuestions", questions);
         toast.success("面试题生成完成");
       }
     } catch (error) {
       if (abortController.signal.aborted) {
         return;
       }
-      setResumePayload((prev) => {
-        if (prev?.resumeProfile) {
-          return prev;
-        }
-        return null;
-      });
       if (!resumePayload?.resumeProfile) {
+        setResumePayload(null);
         setResumeFile(null);
       }
       toast.error(error instanceof Error ? error.message : "简历分析失败");
@@ -542,8 +548,8 @@ export function CreateInterviewDialog({
                 <TabsTrigger className="min-w-[8em]" value="questions">
                   面试题目
                   {resolveQuestionsTabSuffix({
-                    displayQuestions,
                     isTutorialDialog,
+                    questionCount,
                   })}
                 </TabsTrigger>
               </TabsList>
@@ -581,7 +587,7 @@ export function CreateInterviewDialog({
                             {" · "}
                             {resumePayload.resumeProfile.targetRoles[0] ?? "待识别岗位"}
                             {" · "}
-                            {resumePayload.interviewQuestions.length} 道题
+                            {questionCount} 道题
                           </p>
                         </div>
                       ) : null}
@@ -756,16 +762,7 @@ export function CreateInterviewDialog({
               <TabsContent className="mt-0" value="questions" data-tour="studio-dialog-questions">
                 <InterviewQuestionsFields
                   disabled={isSubmitting || isAnalyzingResume || isGeneratingQuestions}
-                  onChange={(questions) => {
-                    if (resumePayload) {
-                      setResumePayload((prev) =>
-                        prev ? { ...prev, interviewQuestions: questions } : prev,
-                      );
-                    } else {
-                      setManualQuestions(questions);
-                    }
-                  }}
-                  questions={displayQuestions}
+                  form={form}
                 />
               </TabsContent>
             </div>

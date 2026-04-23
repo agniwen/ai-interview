@@ -6,6 +6,7 @@ export interface AgentInstructionContext {
   resumeProfile: ResumeProfile | null;
   interviewQuestions: InterviewQuestion[];
   jobDescriptionPrompt: string | null;
+  jobDescriptionPresetQuestions: string[];
   interviewerPrompt: string | null;
 }
 
@@ -24,9 +25,17 @@ function formatExperienceText(profile: ResumeProfile | null): string {
 
 function formatQuestionsText(questions: InterviewQuestion[]): string {
   if (questions.length === 0) {
-    return "\n  未提供";
+    return "\n  无";
   }
   return questions.map((q) => `\n  ${q.order}. [${q.difficulty}] ${q.question}`).join("");
+}
+
+function formatPresetQuestionsText(questions: string[]): string {
+  const cleaned = questions.map((q) => q.trim()).filter(Boolean);
+  if (cleaned.length === 0) {
+    return "\n  无";
+  }
+  return cleaned.map((q, index) => `\n  ${index + 1}. ${q}`).join("");
 }
 
 function formatPrefixSections(interviewerPrompt: string, jobDescriptionPrompt: string): string {
@@ -51,7 +60,8 @@ export function buildAgentInstructions(context: AgentInstructionContext): string
   const skills = context.resumeProfile?.skills ?? [];
   const skillsText = skills.length > 0 ? skills.join("、") : "未提供";
   const experienceText = formatExperienceText(context.resumeProfile);
-  const questionsText = formatQuestionsText(context.interviewQuestions);
+  const supplementaryQuestionsText = formatQuestionsText(context.interviewQuestions);
+  const presetQuestionsText = formatPresetQuestionsText(context.jobDescriptionPresetQuestions);
   const prefixSections = formatPrefixSections(
     context.interviewerPrompt?.trim() ?? "",
     context.jobDescriptionPrompt?.trim() ?? "",
@@ -66,13 +76,17 @@ export function buildAgentInstructions(context: AgentInstructionContext): string
 - 技术栈：${skillsText}
 - 工作经历：${experienceText}
 
-## 面试题目
-从以下题目中，随机抽取三到五道题目，由简入深地提问候选人，注意候选人不可跳过题目，如果跳过题目则该题视为0分。每道题目前方括号中的难度标记（如 [easy]、[medium]、[hard]）仅供你内部参考，提问时不要念出来：
-${questionsText}
+## 岗位预设题（必问）
+以下题目必须按顺序全部向候选人提问，一道都不能漏：
+${presetQuestionsText}
+
+## 补充题目（从简历生成）
+在问完所有岗位预设题之后，从以下题目中再随机抽取三到五道，由简入深地继续提问。每道题目前方括号中的难度标记（如 [easy]、[medium]、[hard]）仅供你内部参考，提问时不要念出来：
+${supplementaryQuestionsText}
 
 ## 面试规则
-1. 面试时间控制在 20 分钟以内，合理分配每道题的时间。
-2. 每次只问一个问题，等候选人回答完毕后再进行下一题。
+1. 面试时间控制在 20 分钟以内，合理分配每道题的时间；但无论如何岗位预设题都必须全部问完。
+2. 每次只问一个问题，等候选人回答完毕后再进行下一题。候选人不可跳过题目，如果跳过题目则该题视为0分。
 3. 针对候选人的回答可以适当追问，深入了解细节。
 4. 候选人的回答可能包含环境音或不标准的表述，不必太严苛。
 5. 语言简洁专业，不使用 emoji 或特殊符号。

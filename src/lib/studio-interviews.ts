@@ -77,6 +77,18 @@ export const studioInterviewBaseSchema = z.object({
 export const studioInterviewFormSchema = studioInterviewBaseSchema;
 export const studioInterviewUpdateSchema = studioInterviewBaseSchema;
 
+export const studioInterviewQuestionClientSchema = z.object({
+  difficulty: z.enum(["easy", "medium", "hard"]),
+  order: z.number().int().min(1),
+  question: z.string().trim().min(1, "题目内容不能为空").max(1000, "单道题目不能超过 1000 字"),
+});
+
+export const studioInterviewClientFormSchema = studioInterviewBaseSchema.extend({
+  interviewQuestions: z
+    .array(studioInterviewQuestionClientSchema)
+    .max(50, "最多只能设置 50 道面试题"),
+});
+
 export const studioInterviewResumePayloadSchema = z.object({
   fileName: z.string().trim().min(1),
   interviewQuestions: z.custom<ResumeAnalysisResult["interviewQuestions"]>(),

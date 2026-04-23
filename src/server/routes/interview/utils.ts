@@ -56,15 +56,20 @@ export async function loadCandidateInterviewRecord(id: string, roundId: string) 
   const view = buildCandidateInterviewView(record, sortScheduleEntries(scheduleEntries), roundId);
 
   let jobDescriptionPrompt: string | null = null;
+  let jobDescriptionPresetQuestions: string[] = [];
   const interviewers: { name: string; prompt: string; voice: string }[] = [];
 
   if (record.jobDescriptionId) {
     const [jdRow] = await db
-      .select({ prompt: jobDescription.prompt })
+      .select({
+        presetQuestions: jobDescription.presetQuestions,
+        prompt: jobDescription.prompt,
+      })
       .from(jobDescription)
       .where(eq(jobDescription.id, record.jobDescriptionId))
       .limit(1);
     jobDescriptionPrompt = jdRow?.prompt ?? null;
+    jobDescriptionPresetQuestions = jdRow?.presetQuestions ?? [];
 
     const interviewerRows = await db
       .select({
@@ -82,6 +87,7 @@ export async function loadCandidateInterviewRecord(id: string, roundId: string) 
   return {
     ...view,
     interviewers,
+    jobDescriptionPresetQuestions,
     jobDescriptionPrompt,
   };
 }

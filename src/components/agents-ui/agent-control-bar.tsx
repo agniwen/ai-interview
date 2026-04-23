@@ -3,7 +3,7 @@
 import type { MotionProps } from "motion/react";
 import type { ComponentProps } from "react";
 import type { UseInputControlsProps } from "@/hooks/agents-ui/use-agent-control-bar";
-import { useChat } from "@livekit/components-react";
+import { useAgent, useChat } from "@livekit/components-react";
 import { Track } from "livekit-client";
 import { Loader, MessageSquareTextIcon, SendHorizontal } from "lucide-react";
 import { motion } from "motion/react";
@@ -81,7 +81,20 @@ function AgentChatInput({ chatOpen, onSend = async () => {}, className }: AgentC
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const [isSending, setIsSending] = useState(false);
   const [message, setMessage] = useState<string>("");
-  const isDisabled = isSending || message.trim().length === 0;
+  const { state: agentState } = useAgent();
+  // Only allow sending when the agent is actually ready for user input.
+  // Covers connecting, initializing, pre-connect-buffering, thinking, speaking,
+  // disconnected, and failed — all should block the send button.
+  const isAgentReady = agentState === "listening" || agentState === "idle";
+  const isDisabled = isSending || !isAgentReady || message.trim().length === 0;
+  const placeholderHint =
+    agentState === "speaking"
+      ? "面试官讲话中，请稍候..."
+      : agentState === "thinking"
+        ? "面试官思考中，请稍候..."
+        : isAgentReady
+          ? "Type something..."
+          : "连接中...";
 
   const handleSend = async () => {
     if (isDisabled) {
@@ -113,13 +126,17 @@ function AgentChatInput({ chatOpen, onSend = async () => {}, className }: AgentC
     await handleSend();
   };
 
+  // Refocus the input whenever sending finishes or the agent is no longer busy,
+  // so the user can keep typing without clicking back into the field. Ran as
+  // an effect (not inside handleSend's finally) because the textarea is still
+  // disabled in the DOM until React flushes the isSending/agentState change —
+  // focus() on a disabled element is a no-op.
   useEffect(() => {
-    if (chatOpen) {
+    if (!chatOpen || isSending || !isAgentReady) {
       return;
     }
-    // when not disabled refocus on input
     inputRef.current?.focus();
-  }, [chatOpen]);
+  }, [chatOpen, isSending, isAgentReady]);
 
   return (
     <div className={cn("mb-3 flex grow items-end gap-2 rounded-md pl-1 text-sm", className)}>
@@ -128,7 +145,7 @@ function AgentChatInput({ chatOpen, onSend = async () => {}, className }: AgentC
         ref={inputRef}
         value={message}
         disabled={!chatOpen || isSending}
-        placeholder="Type something..."
+        placeholder={placeholderHint}
         onKeyDown={handleKeyDown}
         onChange={(e) => setMessage(e.target.value)}
         className="field-sizing-content max-h-16 min-h-8 flex-1 resize-none py-2 [scrollbar-width:thin] focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
@@ -138,7 +155,7 @@ function AgentChatInput({ chatOpen, onSend = async () => {}, className }: AgentC
         type="button"
         disabled={isDisabled}
         variant={isDisabled ? "secondary" : "default"}
-        title={isSending ? "Sending..." : "Send"}
+        title={isSending ? "Sending..." : isAgentReady ? "Send" : placeholderHint}
         onClick={handleButtonClick}
         className="self-end disabled:cursor-not-allowed"
       >
@@ -268,6 +285,10 @@ export function AgentControlBar({
   const { send } = useChat();
   const publishPermissions = usePublishPermissions();
   const [isChatOpenUncontrolled, setIsChatOpenUncontrolled] = useState(isChatOpen);
+  // Upstream blended the controlled and uncontrolled states with `||`, which
+  // left the panel stuck open after the parent flipped isChatOpen back to
+  // false. Prefer the controlled value when a change handler is provided.
+  const isChatOpenEffective = onIsChatOpenChange ? isChatOpen : isChatOpenUncontrolled;
   const {
     microphoneTrack,
     cameraToggle,
@@ -310,12 +331,12 @@ export function AgentControlBar({
     >
       <motion.div
         {...MOTION_PROPS}
-        inert={!(isChatOpen || isChatOpenUncontrolled)}
-        animate={isChatOpen || isChatOpenUncontrolled ? "visible" : "hidden"}
+        inert={!isChatOpenEffective}
+        animate={isChatOpenEffective ? "visible" : "hidden"}
         className="border-input/50 flex w-full items-start overflow-hidden border-b"
       >
         <AgentChatInput
-          chatOpen={isChatOpen || isChatOpenUncontrolled}
+          chatOpen={isChatOpenEffective}
           onSend={handleSendMessage}
           className={cn(variant === "livekit" && "[&_button]:rounded-full")}
         />
@@ -384,7 +405,7 @@ export function AgentControlBar({
           {visibleControls.chat && (
             <Toggle
               variant={variant === "outline" ? "outline" : "default"}
-              pressed={isChatOpen || isChatOpenUncontrolled}
+              pressed={isChatOpenEffective}
               aria-label="Toggle transcript"
               onPressedChange={(state) => {
                 if (!onIsChatOpenChange) {

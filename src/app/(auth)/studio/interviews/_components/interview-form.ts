@@ -1,14 +1,15 @@
 "use client";
 
-import type { StudioInterviewFormValues, StudioInterviewRecord } from "@/lib/studio-interviews";
+import type { StudioInterviewRecord } from "@/lib/studio-interviews";
 import { useForm } from "@tanstack/react-form";
+import type { z } from "zod";
 import {
   createDefaultScheduleEntry,
   getScheduleEntryDateValue,
-  studioInterviewFormSchema,
+  studioInterviewClientFormSchema,
 } from "@/lib/studio-interviews";
 
-export type InterviewFormValues = StudioInterviewFormValues;
+export type InterviewFormValues = z.infer<typeof studioInterviewClientFormSchema>;
 export type InterviewFormApi = ReturnType<typeof useInterviewForm>;
 
 interface FieldErrorLike {
@@ -19,6 +20,7 @@ export function createInterviewFormValues(): InterviewFormValues {
   return {
     candidateEmail: "",
     candidateName: "",
+    interviewQuestions: [],
     jobDescriptionId: "",
     notes: "",
     scheduleEntries: [createDefaultScheduleEntry()],
@@ -37,11 +39,13 @@ export function toInterviewFormValues(
     | "status"
     | "scheduleEntries"
     | "jobDescriptionId"
+    | "interviewQuestions"
   >,
 ): InterviewFormValues {
   return {
     candidateEmail: record.candidateEmail ?? "",
     candidateName: record.candidateName,
+    interviewQuestions: record.interviewQuestions ?? [],
     jobDescriptionId: record.jobDescriptionId ?? "",
     notes: record.notes ?? "",
     scheduleEntries: record.scheduleEntries.map((entry, index) => ({
@@ -63,20 +67,33 @@ export function normalizeScheduleEntries(values: InterviewFormValues["scheduleEn
   }));
 }
 
+export function normalizeInterviewQuestions(values: InterviewFormValues["interviewQuestions"]) {
+  return values.map((question, index) => ({
+    ...question,
+    order: index + 1,
+    question: question.question.trim(),
+  }));
+}
+
 export function useInterviewForm({
   defaultValues,
   onSubmit,
+  onSubmitInvalid,
 }: {
   defaultValues: InterviewFormValues;
   onSubmit: (value: InterviewFormValues) => Promise<void> | void;
+  onSubmitInvalid?: (errorMap: Record<string, unknown>) => void;
 }) {
   return useForm({
     defaultValues,
     onSubmit: async ({ value }) => {
       await onSubmit(value);
     },
+    onSubmitInvalid: ({ formApi }) => {
+      onSubmitInvalid?.(formApi.store.state.fieldMeta as Record<string, unknown>);
+    },
     validators: {
-      onSubmit: studioInterviewFormSchema,
+      onSubmit: studioInterviewClientFormSchema,
     },
   });
 }

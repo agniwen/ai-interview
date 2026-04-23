@@ -55,6 +55,12 @@ def build_instructions(interview_context: dict, interviewer: dict | None = None)
     target_role = interview_context.get("target_role", "未指定岗位")
     candidate_profile = interview_context.get("candidate_profile", {})
     interview_questions = interview_context.get("interview_questions", [])
+    preset_questions_raw = (
+        interview_context.get("job_description_preset_questions") or []
+    )
+    preset_questions = [
+        q.strip() for q in preset_questions_raw if isinstance(q, str) and q.strip()
+    ]
     interviewer_prompt = ((interviewer or {}).get("prompt") or "").strip()
     job_description_prompt = (
         interview_context.get("job_description_prompt") or ""
@@ -70,11 +76,17 @@ def build_instructions(interview_context: dict, interviewer: dict | None = None)
     if not experience_text:
         experience_text = "\n  未提供"
 
-    questions_text = ""
+    preset_questions_text = ""
+    for idx, q in enumerate(preset_questions, start=1):
+        preset_questions_text += f"\n  {idx}. {q}"
+    if not preset_questions_text:
+        preset_questions_text = "\n  无"
+
+    supplementary_questions_text = ""
     for q in interview_questions:
-        questions_text += f"\n  {q.get('order', '')}. [{q.get('difficulty', '')}] {q.get('question', '')}"
-    if not questions_text:
-        questions_text = "\n  未提供"
+        supplementary_questions_text += f"\n  {q.get('order', '')}. [{q.get('difficulty', '')}] {q.get('question', '')}"
+    if not supplementary_questions_text:
+        supplementary_questions_text = "\n  无"
 
     prefix_sections = ""
     if interviewer_prompt:
@@ -91,13 +103,17 @@ def build_instructions(interview_context: dict, interviewer: dict | None = None)
 - 技术栈：{skills_text}
 - 工作经历：{experience_text}
 
-## 面试题目
-从以下题目中，随机抽取三到五道题目，由简入深地提问候选人，注意候选人不可跳过题目，如果跳过题目则该题视为0分。每道题目前方括号中的难度标记（如 [easy]、[medium]、[hard]）仅供你内部参考，提问时不要念出来：
-{questions_text}
+## 岗位预设题（必问）
+以下题目必须按顺序全部向候选人提问，一道都不能漏：
+{preset_questions_text}
+
+## 补充题目（从简历生成）
+在问完所有岗位预设题之后，从以下题目中再随机抽取三到五道，由简入深地继续提问。每道题目前方括号中的难度标记（如 [easy]、[medium]、[hard]）仅供你内部参考，提问时不要念出来：
+{supplementary_questions_text}
 
 ## 面试规则
-1. 面试时间控制在 20 分钟以内，合理分配每道题的时间。
-2. 每次只问一个问题，等候选人回答完毕后再进行下一题。
+1. 面试时间控制在 20 分钟以内，合理分配每道题的时间；但无论如何岗位预设题都必须全部问完。
+2. 每次只问一个问题，等候选人回答完毕后再进行下一题。候选人不可跳过题目，如果跳过题目则该题视为0分。
 3. 针对候选人的回答可以适当追问，深入了解细节。
 4. 候选人的回答可能包含环境音或不标准的表述，不必太严苛。
 5. 语言简洁专业，不使用 emoji 或特殊符号。

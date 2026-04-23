@@ -84,6 +84,7 @@ export const jobDescriptionsRouter = factory
     }
 
     const now = new Date();
+    const presetQuestions = (input.data.presetQuestions ?? []).map((q) => q.trim()).filter(Boolean);
     const record = {
       createdAt: now,
       createdBy: c.var.user?.id ?? null,
@@ -91,6 +92,7 @@ export const jobDescriptionsRouter = factory
       description: input.data.description?.trim() || null,
       id: crypto.randomUUID(),
       name: input.data.name.trim(),
+      presetQuestions,
       prompt: input.data.prompt.trim(),
       updatedAt: now,
     } satisfies typeof jobDescription.$inferInsert;
@@ -142,6 +144,7 @@ export const jobDescriptionsRouter = factory
       return c.json({ error }, 400);
     }
 
+    const presetQuestions = (input.data.presetQuestions ?? []).map((q) => q.trim()).filter(Boolean);
     const now = new Date();
     await db.transaction(async (tx) => {
       await tx
@@ -150,6 +153,7 @@ export const jobDescriptionsRouter = factory
           departmentId: input.data.departmentId,
           description: input.data.description?.trim() || null,
           name: input.data.name.trim(),
+          presetQuestions,
           prompt: input.data.prompt.trim(),
           updatedAt: now,
         })

@@ -262,6 +262,7 @@ export const jobDescription = pgTable(
     description: text("description"),
     id: text("id").primaryKey(),
     name: text("name").notNull(),
+    presetQuestions: jsonb("preset_questions").$type<string[]>().notNull().default([]),
     prompt: text("prompt").notNull(),
     updatedAt: timestamp("updated_at")
       .defaultNow()

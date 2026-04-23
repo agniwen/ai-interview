@@ -1,6 +1,5 @@
 "use client";
 
-import type { InterviewQuestion } from "@/lib/interview/types";
 import type { ScheduleEntryStatus, StudioInterviewRecord } from "@/lib/studio-interviews";
 import { useStore } from "@tanstack/react-form";
 import { useQuery } from "@tanstack/react-query";
@@ -38,6 +37,7 @@ import { studioInterviewStatusMeta, studioInterviewStatusValues } from "@/lib/st
 import {
   createInterviewFormValues,
   hasFieldErrors,
+  normalizeInterviewQuestions,
   normalizeScheduleEntries,
   toFieldErrors,
   toInterviewFormValues,
@@ -59,14 +59,17 @@ export function EditInterviewDialog({
   onUpdated: (record: StudioInterviewRecord) => void;
 }) {
   const [resumeFile, setResumeFile] = useState<File | null>(null);
-  const [editedQuestions, setEditedQuestions] = useState<InterviewQuestion[]>([]);
+  const [activeTab, setActiveTab] = useState<string>("basic");
   const [roundStatuses, setRoundStatuses] = useState<Record<string, ScheduleEntryStatus>>({});
+
   const form = useInterviewForm({
     defaultValues: createInterviewFormValues(),
     onSubmit: async (values) => {
       if (!recordId) {
         return;
       }
+
+      const normalizedQuestions = normalizeInterviewQuestions(values.interviewQuestions);
 
       const formData = new FormData();
       formData.append("candidateName", values.candidateName);
@@ -84,8 +87,8 @@ export function EditInterviewDialog({
         formData.append("resume", resumeFile);
       }
 
-      if (editedQuestions.length > 0) {
-        formData.append("editedQuestions", JSON.stringify(editedQuestions));
+      if (normalizedQuestions.length > 0) {
+        formData.append("editedQuestions", JSON.stringify(normalizedQuestions));
       }
 
       const response = await fetch(`/api/studio/interviews/${recordId}`, {
@@ -108,8 +111,19 @@ export function EditInterviewDialog({
       setResumeFile(null);
       toast.success("简历记录已更新");
     },
+    onSubmitInvalid: (fieldMeta) => {
+      const hasQuestionError = Object.entries(fieldMeta).some(
+        ([key, value]) =>
+          key.startsWith("interviewQuestions") &&
+          ((value as { errors?: unknown[] })?.errors?.length ?? 0) > 0,
+      );
+      if (hasQuestionError) {
+        setActiveTab("questions");
+      }
+    },
   });
   const isSubmitting = useStore(form.store, (state) => state.isSubmitting);
+  const questionCount = useStore(form.store, (state) => state.values.interviewQuestions.length);
   const onOpenChangeRef = useRef(onOpenChange);
   onOpenChangeRef.current = onOpenChange;
   const closeDialog = useCallback(() => onOpenChangeRef.current(false), []);
@@ -122,8 +136,7 @@ export function EditInterviewDialog({
     form.setFieldValue("status", values.status);
     form.setFieldValue("jobDescriptionId", values.jobDescriptionId ?? "");
     form.setFieldValue("scheduleEntries", values.scheduleEntries);
-
-    setEditedQuestions(record.interviewQuestions ?? []);
+    form.setFieldValue("interviewQuestions", values.interviewQuestions);
 
     const statuses: Record<string, ScheduleEntryStatus> = {};
     for (const entry of record.scheduleEntries) {
@@ -189,7 +202,11 @@ export function EditInterviewDialog({
               void form.handleSubmit();
             }}
           >
-            <Tabs className="flex min-h-0 flex-1 flex-col" defaultValue="basic">
+            <Tabs
+              className="flex min-h-0 flex-1 flex-col"
+              onValueChange={setActiveTab}
+              value={activeTab}
+            >
               <DialogHeader className="border-b px-6 pt-5 pb-2">
                 <DialogTitle>编辑简历记录</DialogTitle>
                 <DialogDescription>
@@ -201,7 +218,7 @@ export function EditInterviewDialog({
                   </TabsTrigger>
                   <TabsTrigger className="min-w-[8em]" value="questions">
                     面试题目
-                    {` (${editedQuestions.length})`}
+                    {` (${questionCount})`}
                   </TabsTrigger>
                 </TabsList>
               </DialogHeader>
@@ -396,8 +413,7 @@ export function EditInterviewDialog({
                 <TabsContent className="mt-0" value="questions">
                   <InterviewQuestionsFields
                     disabled={isSubmitting || isLoadingRecord}
-                    onChange={(questions) => setEditedQuestions(questions)}
-                    questions={editedQuestions}
+                    form={form}
                   />
                 </TabsContent>
               </div>

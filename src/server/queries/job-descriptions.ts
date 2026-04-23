@@ -135,6 +135,7 @@ function listJobDescriptionRows({
       description: jobDescription.description,
       id: jobDescription.id,
       name: jobDescription.name,
+      presetQuestions: jobDescription.presetQuestions,
       prompt: jobDescription.prompt,
       updatedAt: jobDescription.updatedAt,
     })
@@ -228,6 +229,7 @@ function toJobDescriptionListRecord(
     interviewerIds: interviewers.map((item) => item.id),
     interviewers,
     name: row.name,
+    presetQuestions: row.presetQuestions ?? [],
     prompt: row.prompt,
     updatedAt: serializeDate(row.updatedAt),
   };
@@ -339,6 +341,7 @@ export async function loadJobDescriptionById(id: string): Promise<JobDescription
     id: row.id,
     interviewerIds: interviewers.map((item) => item.id),
     name: row.name,
+    presetQuestions: row.presetQuestions ?? [],
     prompt: row.prompt,
     updatedAt: serializeDate(row.updatedAt),
   };
@@ -356,6 +359,7 @@ export function serializeJobDescription(
     id: row.id,
     interviewerIds,
     name: row.name,
+    presetQuestions: row.presetQuestions ?? [],
     prompt: row.prompt,
     updatedAt: serializeDate(row.updatedAt),
   };

@@ -5,7 +5,7 @@ import type { InterviewerListRecord } from "@/lib/interviewers";
 import { jobDescriptionFormSchema } from "@/lib/job-descriptions";
 import type { JobDescriptionFormValues, JobDescriptionRecord } from "@/lib/job-descriptions";
 import { useForm, useStore } from "@tanstack/react-form";
-import { CheckIcon, ChevronsUpDownIcon, LoaderCircleIcon, XIcon } from "lucide-react";
+import { CheckIcon, ChevronsUpDownIcon, LoaderCircleIcon, PlusIcon, XIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -36,6 +36,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { hasFieldErrors, toFieldErrors } from "../../interviews/_components/interview-form";
@@ -46,6 +47,7 @@ function defaultValues(departmentId: string): JobDescriptionFormValues {
     description: "",
     interviewerIds: [],
     name: "",
+    presetQuestions: [],
     prompt: "",
   };
 }
@@ -56,6 +58,7 @@ function toFormValues(record: JobDescriptionRecord): JobDescriptionFormValues {
     description: record.description ?? "",
     interviewerIds: [...record.interviewerIds],
     name: record.name,
+    presetQuestions: [...(record.presetQuestions ?? [])],
     prompt: record.prompt,
   };
 }
@@ -178,6 +181,7 @@ export function JobDescriptionFormDialog({
 }) {
   const isEdit = record !== null;
   const fallbackDepartmentId = departments[0]?.id ?? "";
+  const [activeTab, setActiveTab] = useState<"basic" | "questions">("basic");
 
   const form = useForm({
     defaultValues: record ? toFormValues(record) : defaultValues(fallbackDepartmentId),
@@ -187,6 +191,7 @@ export function JobDescriptionFormDialog({
         description: value.description?.trim() || "",
         interviewerIds: value.interviewerIds,
         name: value.name.trim(),
+        presetQuestions: (value.presetQuestions ?? []).map((q) => q.trim()).filter(Boolean),
         prompt: value.prompt.trim(),
       };
 
@@ -207,6 +212,19 @@ export function JobDescriptionFormDialog({
       onSaved();
       onOpenChange(false);
     },
+    onSubmitInvalid: ({ formApi }) => {
+      const meta = formApi.store.state.fieldMeta as Record<string, { errors?: unknown[] }>;
+      const hasPresetError = Object.entries(meta).some(
+        ([key, value]) => key.startsWith("presetQuestions") && (value.errors?.length ?? 0) > 0,
+      );
+      const basicFields = ["name", "departmentId", "interviewerIds", "description", "prompt"];
+      const hasBasicError = basicFields.some((key) => (meta[key]?.errors?.length ?? 0) > 0);
+      if (hasPresetError && !hasBasicError) {
+        setActiveTab("questions");
+      } else if (hasBasicError) {
+        setActiveTab("basic");
+      }
+    },
     validators: { onSubmit: jobDescriptionFormSchema },
   });
 
@@ -215,6 +233,7 @@ export function JobDescriptionFormDialog({
   useEffect(() => {
     if (open) {
       form.reset(record ? toFormValues(record) : defaultValues(fallbackDepartmentId));
+      setActiveTab("basic");
     }
   }, [open, record, form, fallbackDepartmentId]);
 
@@ -237,144 +256,233 @@ export function JobDescriptionFormDialog({
             </DialogDescription>
           </DialogHeader>
 
-          <FieldGroup className="mt-4 gap-5">
-            <div className="grid gap-5 md:grid-cols-2">
-              <form.Field name="name">
-                {(field) => {
-                  const errors = toFieldErrors(field.state.meta.errors);
-                  return (
-                    <Field data-invalid={hasFieldErrors(field.state.meta.errors) || undefined}>
-                      <FieldLabel htmlFor={field.name}>
-                        岗位名称 <span className="text-destructive">*</span>
-                      </FieldLabel>
-                      <FieldContent className="gap-2">
-                        <Input
-                          aria-invalid={!!errors?.length}
-                          id={field.name}
-                          onBlur={field.handleBlur}
-                          onChange={(event) => field.handleChange(event.target.value)}
-                          placeholder="如：高级前端工程师"
-                          value={field.state.value}
-                        />
-                        <FieldError errors={errors} />
-                      </FieldContent>
-                    </Field>
-                  );
-                }}
-              </form.Field>
+          <Tabs
+            className="mt-4"
+            onValueChange={(value) => setActiveTab(value as "basic" | "questions")}
+            value={activeTab}
+          >
+            <TabsList>
+              <TabsTrigger value="basic">基本信息</TabsTrigger>
+              <TabsTrigger value="questions">面试题</TabsTrigger>
+            </TabsList>
+            <TabsContent value="basic">
+              <FieldGroup className="mt-4 gap-5">
+                <div className="grid gap-5 md:grid-cols-2">
+                  <form.Field name="name">
+                    {(field) => {
+                      const errors = toFieldErrors(field.state.meta.errors);
+                      return (
+                        <Field data-invalid={hasFieldErrors(field.state.meta.errors) || undefined}>
+                          <FieldLabel htmlFor={field.name}>
+                            岗位名称 <span className="text-destructive">*</span>
+                          </FieldLabel>
+                          <FieldContent className="gap-2">
+                            <Input
+                              aria-invalid={!!errors?.length}
+                              id={field.name}
+                              onBlur={field.handleBlur}
+                              onChange={(event) => field.handleChange(event.target.value)}
+                              placeholder="如：高级前端工程师"
+                              value={field.state.value}
+                            />
+                            <FieldError errors={errors} />
+                          </FieldContent>
+                        </Field>
+                      );
+                    }}
+                  </form.Field>
 
-              <form.Field name="departmentId">
-                {(field) => {
-                  const errors = toFieldErrors(field.state.meta.errors);
-                  return (
-                    <Field data-invalid={hasFieldErrors(field.state.meta.errors) || undefined}>
-                      <FieldLabel htmlFor={field.name}>
-                        所属部门 <span className="text-destructive">*</span>
-                      </FieldLabel>
-                      <FieldContent className="gap-2">
-                        <Select
-                          onValueChange={(value) => field.handleChange(value)}
-                          value={field.state.value || undefined}
+                  <form.Field name="departmentId">
+                    {(field) => {
+                      const errors = toFieldErrors(field.state.meta.errors);
+                      return (
+                        <Field data-invalid={hasFieldErrors(field.state.meta.errors) || undefined}>
+                          <FieldLabel htmlFor={field.name}>
+                            所属部门 <span className="text-destructive">*</span>
+                          </FieldLabel>
+                          <FieldContent className="gap-2">
+                            <Select
+                              onValueChange={(value) => field.handleChange(value)}
+                              value={field.state.value || undefined}
+                            >
+                              <SelectTrigger
+                                aria-invalid={!!errors?.length}
+                                className="w-full"
+                                id={field.name}
+                              >
+                                <SelectValue placeholder="选择部门" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {departments.map((dept) => (
+                                  <SelectItem key={dept.id} value={dept.id}>
+                                    {dept.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <FieldError errors={errors} />
+                          </FieldContent>
+                        </Field>
+                      );
+                    }}
+                  </form.Field>
+
+                  <form.Field name="interviewerIds">
+                    {(field) => {
+                      const errors = toFieldErrors(field.state.meta.errors);
+                      return (
+                        <Field
+                          className="md:col-span-2"
+                          data-invalid={hasFieldErrors(field.state.meta.errors) || undefined}
                         >
-                          <SelectTrigger
-                            aria-invalid={!!errors?.length}
-                            className="w-full"
-                            id={field.name}
-                          >
-                            <SelectValue placeholder="选择部门" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {departments.map((dept) => (
-                              <SelectItem key={dept.id} value={dept.id}>
-                                {dept.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FieldError errors={errors} />
-                      </FieldContent>
-                    </Field>
-                  );
-                }}
-              </form.Field>
+                          <FieldLabel>
+                            面试官 <span className="text-destructive">*</span>
+                            <span className="ml-2 font-normal text-muted-foreground text-xs">
+                              （可多选，面试时会随机挑选一位；不限定部门）
+                            </span>
+                          </FieldLabel>
+                          <FieldContent className="gap-2">
+                            <InterviewerMultiSelect
+                              interviewers={interviewers}
+                              invalid={!!errors?.length}
+                              onChange={(next) => field.handleChange(next)}
+                              value={field.state.value}
+                            />
+                            <FieldError errors={errors} />
+                          </FieldContent>
+                        </Field>
+                      );
+                    }}
+                  </form.Field>
+                </div>
 
-              <form.Field name="interviewerIds">
+                <form.Field name="description">
+                  {(field) => {
+                    const errors = toFieldErrors(field.state.meta.errors);
+                    return (
+                      <Field data-invalid={hasFieldErrors(field.state.meta.errors) || undefined}>
+                        <FieldLabel htmlFor={field.name}>描述（可选）</FieldLabel>
+                        <FieldContent className="gap-2">
+                          <Textarea
+                            aria-invalid={!!errors?.length}
+                            className="min-h-20"
+                            id={field.name}
+                            onBlur={field.handleBlur}
+                            onChange={(event) => field.handleChange(event.target.value)}
+                            placeholder="简要描述岗位职责、要求等"
+                            value={field.state.value ?? ""}
+                          />
+                          <FieldError errors={errors} />
+                        </FieldContent>
+                      </Field>
+                    );
+                  }}
+                </form.Field>
+
+                <form.Field name="prompt">
+                  {(field) => {
+                    const errors = toFieldErrors(field.state.meta.errors);
+                    return (
+                      <Field data-invalid={hasFieldErrors(field.state.meta.errors) || undefined}>
+                        <FieldLabel htmlFor={field.name}>
+                          岗位 Prompt <span className="text-destructive">*</span>
+                        </FieldLabel>
+                        <FieldContent className="gap-2">
+                          <Textarea
+                            aria-invalid={!!errors?.length}
+                            className="min-h-44 font-mono text-sm"
+                            id={field.name}
+                            onBlur={field.handleBlur}
+                            onChange={(event) => field.handleChange(event.target.value)}
+                            placeholder="岗位关键职责、技术栈要求、期望的考察维度……"
+                            value={field.state.value}
+                          />
+                          <FieldError errors={errors} />
+                        </FieldContent>
+                      </Field>
+                    );
+                  }}
+                </form.Field>
+              </FieldGroup>
+            </TabsContent>
+            <TabsContent value="questions">
+              <form.Field mode="array" name="presetQuestions">
                 {(field) => {
-                  const errors = toFieldErrors(field.state.meta.errors);
+                  const items = field.state.value ?? [];
                   return (
-                    <Field
-                      className="md:col-span-2"
-                      data-invalid={hasFieldErrors(field.state.meta.errors) || undefined}
-                    >
+                    <Field className="mt-4 gap-3">
                       <FieldLabel>
-                        面试官 <span className="text-destructive">*</span>
+                        岗位预设面试题
                         <span className="ml-2 font-normal text-muted-foreground text-xs">
-                          （可多选，面试时会随机挑选一位；不限定部门）
+                          （面试时会先按顺序全部提问，然后才问简历生成的题目）
                         </span>
                       </FieldLabel>
                       <FieldContent className="gap-2">
-                        <InterviewerMultiSelect
-                          interviewers={interviewers}
-                          invalid={!!errors?.length}
-                          onChange={(next) => field.handleChange(next)}
-                          value={field.state.value}
-                        />
-                        <FieldError errors={errors} />
+                        <div className="max-h-[50vh] space-y-2 overflow-y-auto pr-1">
+                          {items.length === 0 ? (
+                            <p className="text-muted-foreground text-sm">
+                              暂无预设题，点击下方按钮添加。
+                            </p>
+                          ) : null}
+                          {items.map((_, index) => (
+                            <form.Field
+                              // biome-ignore lint/suspicious/noArrayIndexKey: array order is stable
+                              key={index}
+                              name={`presetQuestions[${index}]`}
+                            >
+                              {(subField) => {
+                                const errors = toFieldErrors(subField.state.meta.errors);
+                                return (
+                                  <div className="flex items-start gap-2">
+                                    <span className="mt-2.5 w-6 shrink-0 text-right text-muted-foreground text-sm">
+                                      {index + 1}.
+                                    </span>
+                                    <div className="flex-1">
+                                      <Textarea
+                                        aria-invalid={!!errors?.length}
+                                        className="min-h-16"
+                                        onBlur={subField.handleBlur}
+                                        onChange={(event) =>
+                                          subField.handleChange(event.target.value)
+                                        }
+                                        placeholder="请输入一道必问题目…"
+                                        value={subField.state.value ?? ""}
+                                      />
+                                      <FieldError errors={errors} />
+                                    </div>
+                                    <Button
+                                      aria-label={`删除第 ${index + 1} 题`}
+                                      className="mt-1"
+                                      onClick={() => field.removeValue(index)}
+                                      size="icon"
+                                      type="button"
+                                      variant="ghost"
+                                    >
+                                      <XIcon className="size-4" />
+                                    </Button>
+                                  </div>
+                                );
+                              }}
+                            </form.Field>
+                          ))}
+                        </div>
+                        <Button
+                          className="self-start"
+                          onClick={() => field.pushValue("")}
+                          size="sm"
+                          type="button"
+                          variant="outline"
+                        >
+                          <PlusIcon className="size-4" />
+                          添加题目
+                        </Button>
                       </FieldContent>
                     </Field>
                   );
                 }}
               </form.Field>
-            </div>
-
-            <form.Field name="description">
-              {(field) => {
-                const errors = toFieldErrors(field.state.meta.errors);
-                return (
-                  <Field data-invalid={hasFieldErrors(field.state.meta.errors) || undefined}>
-                    <FieldLabel htmlFor={field.name}>描述（可选）</FieldLabel>
-                    <FieldContent className="gap-2">
-                      <Textarea
-                        aria-invalid={!!errors?.length}
-                        className="min-h-20"
-                        id={field.name}
-                        onBlur={field.handleBlur}
-                        onChange={(event) => field.handleChange(event.target.value)}
-                        placeholder="简要描述岗位职责、要求等"
-                        value={field.state.value ?? ""}
-                      />
-                      <FieldError errors={errors} />
-                    </FieldContent>
-                  </Field>
-                );
-              }}
-            </form.Field>
-
-            <form.Field name="prompt">
-              {(field) => {
-                const errors = toFieldErrors(field.state.meta.errors);
-                return (
-                  <Field data-invalid={hasFieldErrors(field.state.meta.errors) || undefined}>
-                    <FieldLabel htmlFor={field.name}>
-                      岗位 Prompt <span className="text-destructive">*</span>
-                    </FieldLabel>
-                    <FieldContent className="gap-2">
-                      <Textarea
-                        aria-invalid={!!errors?.length}
-                        className="min-h-44 font-mono text-sm"
-                        id={field.name}
-                        onBlur={field.handleBlur}
-                        onChange={(event) => field.handleChange(event.target.value)}
-                        placeholder="岗位关键职责、技术栈要求、期望的考察维度……"
-                        value={field.state.value}
-                      />
-                      <FieldError errors={errors} />
-                    </FieldContent>
-                  </Field>
-                );
-              }}
-            </form.Field>
-          </FieldGroup>
+            </TabsContent>
+          </Tabs>
 
           <DialogFooter className="mt-6">
             <Button onClick={() => onOpenChange(false)} type="button" variant="outline">
