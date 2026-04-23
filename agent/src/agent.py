@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 import os
@@ -115,6 +116,7 @@ async def my_agent(ctx: JobContext):
 
     collected_turns: list[dict] = []
     session_start_time = time.time()
+    timeout_task: asyncio.Task | None = None
 
     @session.on("conversation_item_added")
     def _on_conversation_item(event):
@@ -154,6 +156,8 @@ async def my_agent(ctx: JobContext):
             close_info["reason_value"],
             len(collected_turns),
         )
+        if timeout_task is not None and not timeout_task.done():
+            timeout_task.cancel()
 
     # Use shutdown callback to guarantee report is sent before process exits.
     # Unlike the close event handler, shutdown callbacks are awaited by the
@@ -192,8 +196,10 @@ async def my_agent(ctx: JobContext):
 
     ctx.add_shutdown_callback(_on_shutdown)
 
+    interview_agent = InterviewAgent(interview_context, selected_interviewer)
+
     await session.start(
-        agent=InterviewAgent(interview_context, selected_interviewer),
+        agent=interview_agent,
         room=ctx.room,
         # LiveKit Cloud only, disabled for self-hosted
         room_options=room_io.RoomOptions(
@@ -212,6 +218,36 @@ async def my_agent(ctx: JobContext):
             ),
         ),
     )
+
+    # Anchor the elapsed-time clock on the agent so per-turn time hints align
+    # with actual session start (matches session_start_time above).
+    interview_agent.mark_started()
+
+    # Hard timeout safety net. Per-turn instructions should end the interview
+    # naturally near the limit via end_call; if the LLM ignores them, this
+    # force-ends the session after a 60s grace period so users can't run over.
+    time_limit = interview_agent.time_limit_seconds
+
+    async def _enforce_time_limit():
+        try:
+            await asyncio.sleep(time_limit + 60)
+            logger.warning("interview exceeded time limit; forcing shutdown")
+            try:
+                handle = session.generate_reply(
+                    instructions=(
+                        "面试已达到时间上限。请用一两句话感谢候选人参与，"
+                        "告知面试结束，不要继续提问。"
+                    ),
+                    allow_interruptions=False,
+                )
+                await handle.wait_for_playout()
+            except Exception:
+                logger.exception("timeout final-reply failed")
+            await session.aclose()
+        except asyncio.CancelledError:
+            pass
+
+    timeout_task = asyncio.create_task(_enforce_time_limit())
 
     await ctx.connect()
 

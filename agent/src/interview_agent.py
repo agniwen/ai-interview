@@ -1,14 +1,24 @@
 import logging
 import re
+import time
 from collections.abc import AsyncIterable
 
 from livekit import rtc
-from livekit.agents import Agent, ModelSettings, stt
+from livekit.agents import Agent, ChatContext, ChatMessage, ModelSettings, stt
 from livekit.agents.beta.tools import EndCallTool
 
 from prompts import build_instructions
 
 logger = logging.getLogger("agent")
+
+
+INTERVIEW_TIME_LIMIT_SECONDS = 20 * 60
+INTERVIEW_SOFT_WRAP_SECONDS = 17 * 60
+
+
+def _format_mmss(seconds: float) -> str:
+    total = max(0, int(seconds))
+    return f"{total // 60} 分 {total % 60:02d} 秒"
 
 
 _NOISE_PATTERN = re.compile(
@@ -21,10 +31,13 @@ _NOISE_PATTERN = re.compile(
 
 class InterviewAgent(Agent):
     def __init__(
-        self, interview_context: dict, interviewer: dict | None = None
+        self,
+        interview_context: dict,
+        interviewer: dict | None = None,
+        time_limit_seconds: int = INTERVIEW_TIME_LIMIT_SECONDS,
     ) -> None:
         end_call_tool = EndCallTool(
-            extra_description="当面试结束、候选人要求结束、候选人连续三次答非所问、或候选人态度恶劣时，调用此工具结束面试。",
+            extra_description="当面试结束、候选人要求结束、候选人连续三次答非所问、态度恶劣，或系统计时提示已到时间上限时，调用此工具结束面试。",
             delete_room=True,
             end_instructions="感谢候选人参加本次面试，祝你一切顺利。",
         )
@@ -36,6 +49,50 @@ class InterviewAgent(Agent):
 
         self._candidate_name = interview_context.get("candidate_name", "候选人")
         self._target_role = interview_context.get("target_role", "未指定岗位")
+        self._time_limit = time_limit_seconds
+        self._started_at: float | None = None
+
+    def mark_started(self) -> None:
+        """Anchor the elapsed-time clock. Call after session.start()."""
+        self._started_at = time.time()
+
+    def elapsed_seconds(self) -> float:
+        if self._started_at is None:
+            return 0.0
+        return max(0.0, time.time() - self._started_at)
+
+    @property
+    def time_limit_seconds(self) -> int:
+        return self._time_limit
+
+    async def on_user_turn_completed(
+        self, turn_ctx: ChatContext, new_message: ChatMessage
+    ) -> None:
+        # Inject a per-turn time hint so the LLM can self-pace. Ephemeral:
+        # we intentionally do NOT call update_chat_ctx — it applies only to
+        # this turn, so the LLM sees fresh numbers on every reply.
+        if self._started_at is None:
+            return
+        elapsed = self.elapsed_seconds()
+        remaining = max(0.0, self._time_limit - elapsed)
+
+        if elapsed >= self._time_limit:
+            hint = (
+                f"[计时提示] 面试已达到 {_format_mmss(self._time_limit)} 时间上限。"
+                "请立即用一两句话向候选人告别，并调用 end_call 工具结束面试，不要再发起新提问。"
+            )
+        elif elapsed >= INTERVIEW_SOFT_WRAP_SECONDS:
+            hint = (
+                f"[计时提示] 面试已进行 {_format_mmss(elapsed)}，"
+                f"剩余 {_format_mmss(remaining)}。请开始收尾：最多再追问一个关键点，"
+                "不要展开新话题；到达时间上限务必调用 end_call 结束面试。"
+            )
+        else:
+            hint = (
+                f"[计时提示] 面试已进行 {_format_mmss(elapsed)}，"
+                f"剩余 {_format_mmss(remaining)}。请合理分配剩余时间。"
+            )
+        turn_ctx.add_message(role="system", content=hint)
 
     async def on_enter(self):
         await self.session.generate_reply(
