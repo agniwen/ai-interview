@@ -47,6 +47,29 @@ export function SidebarTabs({ canAccessAdmin }: { canAccessAdmin: boolean }) {
     );
   }, [activeTab, pathname, setTabLastPath]);
 
+  // The chat page transitions from `/chat` to `/chat/[sessionId]` via
+  // `history.replaceState` (soft URL update, invisible to Next's router)
+  // so `usePathname()` never observes the new path. Listen to the chat
+  // page's explicit `chat:session-path-updated` event to record the real
+  // pathname, so a Studio → Chat tab bounce lands back on the conversation.
+  useEffect(() => {
+    const handleSessionPathUpdated = (event: Event) => {
+      const { detail } = event as CustomEvent<{ pathname?: string }>;
+      const nextPathname = detail?.pathname;
+      if (!nextPathname) {
+        return;
+      }
+      setTabLastPath((prev) =>
+        prev.chat === nextPathname ? prev : { ...prev, chat: nextPathname },
+      );
+    };
+
+    window.addEventListener("chat:session-path-updated", handleSessionPathUpdated);
+    return () => {
+      window.removeEventListener("chat:session-path-updated", handleSessionPathUpdated);
+    };
+  }, [setTabLastPath]);
+
   if (!canAccessAdmin) {
     return null;
   }
@@ -62,6 +85,11 @@ export function SidebarTabs({ canAccessAdmin }: { canAccessAdmin: boolean }) {
 
   return (
     <Tabs
+      // Manual activation: Radix's default "automatic" mode calls
+      // onValueChange on focus — when sonner restores focus to the
+      // previously-active tab trigger after dismissing a toast, that
+      // would route us back to the wrong tab.
+      activationMode="manual"
       className="w-full group-data-[collapsible=icon]:hidden"
       onValueChange={handleChange}
       value={activeTab ?? "chat"}

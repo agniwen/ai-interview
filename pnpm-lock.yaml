@@ -134,6 +134,9 @@ importers:
       livekit-server-sdk:
         specifier: ^2.13.3
         version: 2.15.1
+      lru-cache:
+        specifier: ^11.3.5
+        version: 11.3.5
       lucide-react:
         specifier: ^0.575.0
         version: 0.575.0(react@19.2.3)

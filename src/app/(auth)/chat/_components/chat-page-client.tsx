@@ -8,7 +8,6 @@ import type { JobDescriptionListRecord } from "@/lib/job-descriptions";
 import { useChat } from "@ai-sdk/react";
 import { useQuery } from "@tanstack/react-query";
 import {
-  DefaultChatTransport,
   lastAssistantMessageIsCompleteWithApprovalResponses,
   lastAssistantMessageIsCompleteWithToolCalls,
 } from "ai";
@@ -99,17 +98,16 @@ import { authClient } from "@/lib/auth-client";
 import {
   fetchConversation,
   patchConversation,
-  upsertChatMessageOnServer,
   upsertConversation as upsertConversationOnServer,
 } from "@/lib/chat-api";
 import { thinkingModeAtom } from "../_atoms/thinking";
 import { tutorialStepAtom } from "../_atoms/tutorial";
+import { setChatMeta } from "../_lib/chat-meta";
+import { getOrCreateChat, hasChat } from "../_lib/chat-registry";
 import { TUTORIAL_MOCK_ATTACHMENTS, TUTORIAL_MOCK_INPUT_TEXT } from "../constants/tutorial-mock";
 import { useChatTutorial } from "./chat-tutorial";
 
 type MessagePart = UIMessage["parts"][number];
-
-const CHAT_REQUEST_TIMEOUT_MS = 8 * 60 * 1000;
 
 const QUICK_SUGGESTIONS = [
   "列出候选人的优点、缺点、风险关键项，团队定位、职级定级。",
@@ -538,11 +536,6 @@ export default function ChatPageClient({ initialSessionId }: { initialSessionId:
   const hasJobDescription = jobDescriptionText.length > 0;
   const jobDescriptionLabel = getJobDescriptionLabel(jobDescriptionConfig);
 
-  // Refs for dynamic body values — the transport body function reads these
-  // so that auto-submit requests always carry the latest values.
-  const jobDescriptionRef = useRef<string>("");
-  const thinkingModeRef = useRef(thinkingMode);
-  const activeConversationIdRef = useRef(activeConversationId);
   // Guards `sendMessageToChat` from re-entry on rapid double-clicks. Released
   // after a short delay — by then the SDK status has moved to submitted and
   // the submit button is disabled.
@@ -555,98 +548,37 @@ export default function ChatPageClient({ initialSessionId }: { initialSessionId:
     },
     [],
   );
-  useEffect(() => {
-    jobDescriptionRef.current = jobDescriptionText;
-  }, [jobDescriptionText]);
-  useEffect(() => {
-    thinkingModeRef.current = thinkingMode;
-  }, [thinkingMode]);
-  useEffect(() => {
-    activeConversationIdRef.current = activeConversationId;
-  }, [activeConversationId]);
 
-  const transport = useMemo(
-    () =>
-      new DefaultChatTransport({
-        api: "/api/resume",
-        body: () => {
-          const jd = jobDescriptionRef.current.trim();
-          const chatId = activeConversationIdRef.current;
-          return {
-            ...(jd && { jobDescription: jd }),
-            ...(chatId && { chatId }),
-            enableThinking: thinkingModeRef.current,
-          };
-        },
-        fetch: async (fetchInput, init) => {
-          const timeoutController = new AbortController();
-          const timeoutId = window.setTimeout(() => {
-            timeoutController.abort("Chat request timed out after 8 minutes.");
-          }, CHAT_REQUEST_TIMEOUT_MS);
+  // Push latest JD + thinking mode into the registry for every active
+  // conversation, so the transport body always reflects the user's current
+  // settings — including when the stream is running in the background.
+  useEffect(() => {
+    if (!activeConversationId) {
+      return;
+    }
+    setChatMeta(activeConversationId, {
+      enableThinking: thinkingMode,
+      jobDescription: jobDescriptionText,
+    });
+  }, [activeConversationId, jobDescriptionText, thinkingMode]);
 
-          if (init?.signal) {
-            if (init.signal.aborted) {
-              timeoutController.abort(init.signal.reason);
-            } else {
-              init.signal.addEventListener(
-                "abort",
-                () => timeoutController.abort(init.signal?.reason),
-                { once: true },
-              );
-            }
-          }
-
-          try {
-            return await fetch(fetchInput, {
-              ...init,
-              signal: timeoutController.signal,
-            });
-          } finally {
-            window.clearTimeout(timeoutId);
-          }
-        },
-      }),
-    [],
+  // Resolve the Chat instance for this conversation from the module-level
+  // registry. The instance outlives ChatPageClient's mount — stream state is
+  // owned by the registry, not the component — so navigating away does not
+  // abort the request. When `activeConversationId` is null (the empty
+  // `/chat` shell) we hand useChat an empty init; it stands up a throwaway
+  // internal Chat that never gets dispatched against.
+  const boundChat = useMemo(
+    () => (activeConversationId ? getOrCreateChat(activeConversationId) : null),
+    [activeConversationId],
   );
 
-  const {
-    addToolOutput,
-    messages,
-    sendMessage,
-    setMessages,
-    status,
-    stop,
-    error,
-    regenerate,
-    clearError,
-  } = useChat({
-    onFinish: ({ message, isAbort, isDisconnect, isError }) => {
-      if (message.role !== "assistant") {
-        return;
-      }
-      notifyConversationsChanged();
-
-      // The server's /api/resume onFinish only fires on a clean finish. For
-      // aborts, disconnects, or upstream errors we persist what's in memory
-      // so the partial assistant reply is not lost on refresh.
-      if (!(isAbort || isDisconnect || isError)) {
-        return;
-      }
-      const conversationId = activeConversationIdRef.current;
-      if (!conversationId) {
-        return;
-      }
-      void (async () => {
-        try {
-          await upsertChatMessageOnServer(conversationId, message);
-        } catch (persistError) {
-          console.error("[chat] client-side persist failed", persistError);
-        }
-      })();
-    },
-    sendAutomaticallyWhen: shouldAutoSubmit,
-    transport,
-  });
+  const { addToolOutput, messages, setMessages, status, stop, error, regenerate, clearError } =
+    useChat(
+      boundChat
+        ? { chat: boundChat, sendAutomaticallyWhen: shouldAutoSubmit }
+        : { sendAutomaticallyWhen: shouldAutoSubmit },
+    );
 
   const downloadableMessages = useMemo(() => messages.map(toDownloadMessage), [messages]);
 
@@ -749,6 +681,13 @@ export default function ChatPageClient({ initialSessionId }: { initialSessionId:
     });
     notifyConversationsChanged();
 
+    // Seed the registry's meta before the first request so transport.body()
+    // picks up the right JD / thinking mode even though the useEffect that
+    // normally syncs meta has not run yet for this new id.
+    setChatMeta(id, {
+      enableThinking: thinkingMode,
+      jobDescription: jobDescriptionText,
+    });
     updateSessionInUrl(id);
     setActiveConversationId(id);
     return id;
@@ -807,21 +746,20 @@ export default function ChatPageClient({ initialSessionId }: { initialSessionId:
       }
     }
 
+    if (!conversationId) {
+      return;
+    }
+
     // Optimistically flip UI into the "responding" state before `sendMessage`
     // touches the SDK status — this is what masks the `ready → submitted`
     // flicker at the start of each turn.
     setHasPendingResponse(true);
     setUserStopped(false);
-    sendMessage(
-      {
-        files,
-        text,
-      },
-      // Pass chatId explicitly: on a fresh conversation, setState from
-      // ensureConversation has not yet committed, so activeConversationIdRef
-      // is still null when transport.body() runs for this request.
-      conversationId ? { body: { chatId: conversationId } } : undefined,
-    );
+    // Dispatch through the registry's Chat instance directly. On the first
+    // send of a new conversation, the hook's `sendMessage` is still bound to
+    // the throwaway init chat from the pre-id render; going through the
+    // registry targets the real (and persistable) Chat instance.
+    await getOrCreateChat(conversationId).sendMessage({ files, text });
   };
 
   const openConversation = useCallback(
@@ -851,12 +789,16 @@ export default function ChatPageClient({ initialSessionId }: { initialSessionId:
         return false;
       }
 
-      stop();
       if (shouldSyncUrl) {
         updateSessionInUrl(id);
       }
+      // Hot instance (stream still running / just finished in the background)
+      // keeps its in-memory messages. Only cold-hydrate from the server when
+      // the registry has no entry — that's the first mount after a refresh.
+      if (!hasChat(id)) {
+        getOrCreateChat(id, { initialMessages: conversation.messages });
+      }
       setActiveConversationId(id);
-      setMessages(conversation.messages);
       setInput("");
       setHistoryErrorMessage(null);
       // Prefer structured config; fall back to legacy text-only conversations by treating them as custom mode.
@@ -881,13 +823,14 @@ export default function ChatPageClient({ initialSessionId }: { initialSessionId:
       setIsJobDescriptionDialogOpen(false);
       return true;
     },
-    [stop, updateSessionInUrl, setMessages],
+    [updateSessionInUrl],
   );
 
+  // Detaches the UI from the current conversation without aborting its
+  // in-flight stream — the registry keeps the Chat instance (and its fetch)
+  // alive in the background.
   const resetToNewConversation = useCallback(() => {
-    stop();
     setActiveConversationId(null);
-    setMessages([]);
     setInput("");
     setJobDescriptionConfig(null);
     setJobDescriptionDraft("");
@@ -896,7 +839,7 @@ export default function ChatPageClient({ initialSessionId }: { initialSessionId:
     setUploadErrorMessage(null);
     setHistoryErrorMessage(null);
     setIsJobDescriptionDialogOpen(false);
-  }, [stop, setMessages]);
+  }, []);
 
   const startNewConversation = useCallback(() => {
     resetToNewConversation();
@@ -1101,17 +1044,10 @@ export default function ChatPageClient({ initialSessionId }: { initialSessionId:
     [addToolOutput],
   );
 
-  // Override the transport ref for explicit re-runs: on the first send of a
-  // new conversation, `activeConversationIdRef` hasn't committed yet, so we
-  // pass chatId directly. For auto-submitted agent steps the transport's
-  // body() still reads the ref.
-  const buildRegenerateOptions = () => {
-    const conversationId = activeConversationIdRef.current;
-    return conversationId ? { body: { chatId: conversationId } } : {};
-  };
-
+  // The transport has chatId baked into its closure (one transport per Chat
+  // instance in the registry), so regenerate no longer needs to inject it.
   const regenerateLastReply = () => {
-    void regenerate(buildRegenerateOptions());
+    void regenerate();
   };
 
   const handleResumeImported = useCallback((partId: string, interviewId: string) => {
@@ -1134,12 +1070,11 @@ export default function ChatPageClient({ initialSessionId }: { initialSessionId:
   // `sendAutomaticallyWhen`, so we must call `regenerate` explicitly.
   const handleContinueAfterError = useCallback(() => {
     const lastMessage = messages.at(-1);
-    const regenerateOptions = buildRegenerateOptions();
 
     // No assistant message to trim — just retry from the last user message.
     if (!lastMessage || lastMessage.role !== "assistant") {
       clearError();
-      void regenerate(regenerateOptions);
+      void regenerate();
       return;
     }
 
@@ -1155,7 +1090,7 @@ export default function ChatPageClient({ initialSessionId }: { initialSessionId:
     // to `regenerate`, which discards the half-written message and starts over.
     if (lastStepStartIndex <= 0) {
       clearError();
-      void regenerate(regenerateOptions);
+      void regenerate();
       return;
     }
 
@@ -1174,7 +1109,7 @@ export default function ChatPageClient({ initialSessionId }: { initialSessionId:
       return next;
     });
     clearError();
-    void regenerate(regenerateOptions);
+    void regenerate();
   }, [messages, clearError, regenerate, setMessages]);
 
   const handleCopy = async (messageId: string, content: string) => {
