@@ -1,40 +1,8 @@
 import random
 
-SUMMARY_PROMPT = """你是一位面试报告撰写助手。请根据以下面试对话记录，用中文撰写一段 200-300 字的面试摘要。
-摘要需包括：面试涉及的主要话题、候选人的整体表现、值得关注的亮点或不足,面试对话记录中，如果用户跳过了某个问题，则该问题视为0分。
-
-## 面试对话记录
-{transcript}"""
-
-
-EVALUATION_PROMPT = """你是一位专业的面试评估专家。请根据以下面试对话记录和面试题目，对候选人的表现进行结构化评估。
-
-## 面试题目
-{questions}
-
-## 面试对话记录
-{transcript}
-
-请严格按照以下 JSON 格式输出评估结果，不要输出任何其他内容：
-{{
-  "questions": [
-    {{
-      "order": 1,
-      "question": "题目内容",
-      "score": 7,
-      "maxScore": 10,
-      "assessment": "对候选人该题回答的评价"
-    }}
-  ],
-  "overallScore": 72,
-  "overallAssessment": "候选人整体表现的综合评价，2-3句话",
-  "recommendation": "建议进入下一轮 / 不建议进入下一轮 / 待定"
-}}
-
-注意：
-- 只评估面试中实际提问到的题目
-- score 范围 0-10，overallScore 范围 0-100
-- 评价要客观具体，引用候选人的实际回答"""
+# NOTE: Summary/evaluation prompts previously lived here but were moved to the
+# TS backend (src/server/services/interview-report.ts) so the LLM call can run
+# fire-and-forget in the Node process after the agent shutdown completes.
 
 
 def pick_interviewer(interview_context: dict) -> dict:

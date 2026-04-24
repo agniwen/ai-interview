@@ -1,7 +1,7 @@
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 import type { ResumeProfile } from "@/lib/interview/types";
 import { RoomAgentDispatch, RoomConfiguration } from "@livekit/protocol";
-import { and, eq, inArray, ne } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { AccessToken } from "livekit-server-sdk";
 import { db } from "@/lib/db";
 import {
@@ -368,11 +368,18 @@ export const interviewRouter = factory
     });
   })
   .post("/:id/:roundId/complete", async (c) => {
-    const id = c.req.param("id");
+    // "User left the session" signal from the browser (LiveKit disconnect or
+    // tab close). This used to mark the schedule as completed, but doing so
+    // races the agent's /api/agent/report callback and can leave rounds in a
+    // "completed but no transcript" ghost state when the agent POST fails.
+    //
+    // The authoritative completion is now written by the agent's report
+    // callback. This endpoint is kept as a no-op so existing clients and any
+    // keepalive beacons still get a 200. Safe to remove once all clients have
+    // been updated.
     const roundId = c.req.param("roundId");
-
     const [entry] = await db
-      .select({ id: studioInterviewSchedule.id, status: studioInterviewSchedule.status })
+      .select({ id: studioInterviewSchedule.id })
       .from(studioInterviewSchedule)
       .where(eq(studioInterviewSchedule.id, roundId))
       .limit(1);
@@ -380,41 +387,6 @@ export const interviewRouter = factory
     if (!entry) {
       return c.json({ error: "Round not found." }, 404);
     }
-
-    if (entry.status === "completed") {
-      return c.json({ success: true });
-    }
-
-    const now = new Date();
-
-    await db.transaction(async (tx) => {
-      // Mark current round as completed
-      await tx
-        .update(studioInterviewSchedule)
-        .set({ status: "completed" as const, updatedAt: now })
-        .where(eq(studioInterviewSchedule.id, roundId));
-
-      // Check if all rounds are now completed
-      const pendingRounds = await tx
-        .select({ id: studioInterviewSchedule.id })
-        .from(studioInterviewSchedule)
-        .where(
-          and(
-            eq(studioInterviewSchedule.interviewRecordId, id),
-            ne(studioInterviewSchedule.status, "completed"),
-          ),
-        );
-
-      // All rounds done → completed; otherwise → in_progress
-      const nextInterviewStatus = pendingRounds.length === 0 ? "completed" : "in_progress";
-
-      await tx
-        .update(studioInterview)
-        .set({ status: nextInterviewStatus as "in_progress" | "completed", updatedAt: now })
-        .where(eq(studioInterview.id, id));
-    });
-
-    safeUpdateTag("studio-interviews");
 
     return c.json({ success: true });
   });

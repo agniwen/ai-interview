@@ -27,7 +27,7 @@ from livekit.plugins.turn_detector.multilingual import MultilingualModel
 
 from interview_agent import InterviewAgent
 from prompts import pick_interviewer
-from report import generate_report, send_report
+from report import send_report
 
 logger = logging.getLogger("agent")
 
@@ -177,17 +177,14 @@ async def my_agent(ctx: JobContext):
         else:
             call_successful = "failed"
 
-        interview_questions = interview_context.get("interview_questions", [])
-        summary, evaluation = await generate_report(
-            collected_turns, interview_questions
-        )
-
+        # Only ship raw transcript to the backend. Summary + evaluation are
+        # generated server-side (fire-and-forget after /api/agent/report
+        # responds), so this callback can exit in ~1s — resilient to the
+        # framework's shutdown grace period and to user-initiated disconnects.
         await send_report(
             interview_context=interview_context,
             room_name=ctx.room.name,
             turns=collected_turns,
-            summary=summary,
-            evaluation=evaluation,
             call_successful=call_successful,
             started_at=session_start_time,
             ended_at=ended_at,

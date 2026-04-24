@@ -320,8 +320,14 @@ export default function InterviewPageClient({ interviewId, roundId }: InterviewP
       wasConnectedRef.current = false;
       // eslint-disable-next-line react-hooks-extra/no-direct-set-state-in-use-effect
       void setRoundStatus("completed");
-      // Immediately notify backend so status updates without waiting for agent report
-      void fetch(`/api/interview/${interviewId}/${roundId}/complete`, { method: "POST" });
+      // Soft "user left the session" signal. The authoritative completion
+      // (schedule/interview status + transcript) is written by the agent
+      // calling /api/agent/report. keepalive ensures this fetch isn't
+      // cancelled when the user closes the tab.
+      void fetch(`/api/interview/${interviewId}/${roundId}/complete`, {
+        keepalive: true,
+        method: "POST",
+      });
     }
   }, [session.connectionState, interviewId, roundId]);
 

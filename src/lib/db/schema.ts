@@ -358,6 +358,13 @@ export const interviewConversation = pgTable(
     }),
     startedAt: timestamp("started_at"),
     status: text("status").notNull().default("initiated"),
+    summaryAttempts: integer("summary_attempts").notNull().default(0),
+    summaryError: text("summary_error"),
+    summaryStartedAt: timestamp("summary_started_at"),
+    summaryStatus: text("summary_status")
+      .$type<"pending" | "running" | "ready" | "failed">()
+      .notNull()
+      .default("pending"),
     transcript: jsonb("transcript").$type<InterviewTranscriptTurn[]>().notNull().default([]),
     transcriptSummary: text("transcript_summary"),
     updatedAt: timestamp("updated_at")
@@ -369,6 +376,7 @@ export const interviewConversation = pgTable(
   (table) => [
     index("interview_conversation_record_idx").on(table.interviewRecordId),
     index("interview_conversation_status_idx").on(table.status),
+    index("interview_conversation_summary_status_idx").on(table.summaryStatus),
     index("interview_conversation_updated_at_idx").on(table.updatedAt),
   ],
 );

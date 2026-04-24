@@ -142,8 +142,12 @@ function truncateText(value: string | number | null | undefined, maxLength = 320
 
 function formatReportStatus(status: string) {
   switch (status) {
+    case "completed":
     case "done": {
       return "已完成";
+    }
+    case "initiated": {
+      return "已发起";
     }
     case "failed": {
       return "失败";
@@ -167,6 +171,7 @@ function getReportBadgeVariant(
   status: string,
 ): "default" | "secondary" | "destructive" | "outline" {
   switch (status) {
+    case "completed":
     case "done": {
       return "default";
     }

@@ -2,113 +2,31 @@ import asyncio
 import json
 import logging
 import os
-import re
 import time
 
 import httpx
-import openai as openai_sdk
-
-from prompts import EVALUATION_PROMPT, SUMMARY_PROMPT
 
 logger = logging.getLogger("agent")
-
-
-def _format_transcript(turns: list[dict]) -> str:
-    lines = []
-    for t in turns:
-        role = "面试官" if t["role"] == "agent" else "候选人"
-        lines.append(f"{role}: {t['message']}")
-    return "\n".join(lines)
-
-
-def _format_questions(questions: list[dict]) -> str:
-    lines = []
-    for q in questions:
-        lines.append(
-            f"{q.get('order', '')}. [{q.get('difficulty', '')}] {q.get('question', '')}"
-        )
-    return "\n".join(lines)
-
-
-async def generate_report(
-    turns: list[dict],
-    interview_questions: list[dict],
-) -> tuple[str | None, dict]:
-    """Generate transcript summary and evaluation using LLM.
-
-    Returns (summary, evaluation_dict). On failure returns (None, {}).
-    """
-    api_key = os.environ.get("DASHSCOPE_API_KEY")
-    base_url = "https://dashscope.aliyuncs.com/compatible-mode/v1"
-
-    if not api_key:
-        logger.warning("DASHSCOPE_API_KEY not set, skipping report generation")
-        return None, {}
-    if not turns:
-        return None, {}
-
-    transcript_text = _format_transcript(turns)
-    questions_text = _format_questions(interview_questions)
-
-    client = openai_sdk.AsyncOpenAI(
-        base_url=base_url,
-        api_key=api_key,
-    )
-
-    summary: str | None = None
-    evaluation: dict = {}
-
-    try:
-        summary_resp = await client.chat.completions.create(
-            model="qwen-turbo-latest",
-            messages=[
-                {
-                    "role": "user",
-                    "content": SUMMARY_PROMPT.format(transcript=transcript_text),
-                }
-            ],
-            extra_body={"enable_thinking": False},
-        )
-        summary = summary_resp.choices[0].message.content
-    except Exception:
-        logger.exception("failed to generate transcript summary")
-
-    try:
-        eval_resp = await client.chat.completions.create(
-            model="qwen-turbo-latest",
-            messages=[
-                {
-                    "role": "user",
-                    "content": EVALUATION_PROMPT.format(
-                        questions=questions_text,
-                        transcript=transcript_text,
-                    ),
-                }
-            ],
-            extra_body={"enable_thinking": False},
-        )
-        eval_text = eval_resp.choices[0].message.content or ""
-        json_match = re.search(r"\{[\s\S]*\}", eval_text)
-        if json_match:
-            evaluation = json.loads(json_match.group())
-    except Exception:
-        logger.exception("failed to generate evaluation")
-
-    return summary, evaluation
 
 
 async def send_report(
     interview_context: dict,
     room_name: str,
     turns: list[dict],
-    summary: str | None,
-    evaluation: dict,
     call_successful: str,
     started_at: float,
     ended_at: float,
     close_reason: str,
 ) -> None:
-    """POST the interview report to the backend API."""
+    """POST raw transcript to the backend. Summary + evaluation are generated
+    server-side asynchronously (fire-and-forget in the Node process), so this
+    call should return in well under a second.
+
+    Retries twice on transient failure; any remaining gap is handled by the
+    backend recovery endpoint (`/api/agent/retry-summaries`) or by re-POSTing
+    the payload manually. The backend upserts by conversationId, so retries
+    are idempotent.
+    """
     base_url = os.environ.get("CALLBACK_BASE_URL")
     secret = os.environ.get("AGENT_CALLBACK_SECRET")
 
@@ -121,11 +39,9 @@ async def send_report(
         "interviewRecordId": interview_context.get("interview_record_id", ""),
         "scheduleEntryId": interview_context.get("round_id", ""),
         "agentId": "giaogiao",
-        "status": "done",
+        "status": "completed",
         "callSuccessful": call_successful,
         "transcript": turns,
-        "transcriptSummary": summary,
-        "evaluationCriteriaResults": evaluation,
         "startedAt": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(started_at)),
         "endedAt": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(ended_at)),
         "metadata": {
@@ -140,19 +56,21 @@ async def send_report(
 
     url = f"{base_url.rstrip('/')}/api/agent/report"
 
-    async with httpx.AsyncClient(timeout=30) as client:
+    # Short timeout — the backend is supposed to return as soon as the
+    # transcript is saved; the LLM summary runs in the background.
+    async with httpx.AsyncClient(timeout=15) as client:
         for attempt in range(2):
             try:
                 resp = await client.post(url, json=payload, headers=headers)
                 if resp.status_code < 300:
-                    logger.info("report sent successfully: %s", resp.json())
+                    logger.info("report sent successfully: %s turns", len(turns))
                     return
                 logger.error("report API returned %d: %s", resp.status_code, resp.text)
             except Exception:
                 logger.exception("failed to send report (attempt %d)", attempt + 1)
 
             if attempt == 0:
-                await asyncio.sleep(2)
+                await asyncio.sleep(1)
 
     logger.error(
         "report send failed after retries, payload: %s",
