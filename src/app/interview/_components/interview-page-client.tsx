@@ -130,7 +130,7 @@ function WaitingView({
     <>
       <div
         aria-hidden
-        className="pointer-events-none fixed inset-0 -z-20 bg-[url('/textures/interview-prep-dark.png')] bg-cover bg-center bg-no-repeat invert dark:invert-0"
+        className="pointer-events-none fixed inset-0 -z-20 bg-[url('/textures/interview-prep-light.png')] bg-center bg-cover bg-no-repeat dark:bg-[url('/textures/interview-prep-dark.png')]"
       />
       <div aria-hidden className="pointer-events-none fixed inset-0 -z-10 bg-white/5 dark:hidden" />
       <div className="fixed top-4 right-4 z-20">

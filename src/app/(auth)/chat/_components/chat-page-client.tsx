@@ -1188,7 +1188,7 @@ export default function ChatPageClient({ initialSessionId }: { initialSessionId:
   };
 
   return (
-    <div className="flex h-full w-full flex-col pt-4 pb-2 sm:pb-4 sm:pt-4">
+    <div className="relative isolate flex h-full w-full flex-col pt-4 pb-2 sm:pb-4 sm:pt-4 before:pointer-events-none before:absolute before:inset-0 before:-z-10 before:bg-[url('/textures/interview-prep-light.png')] before:bg-center before:bg-cover before:bg-no-repeat before:opacity-20 before:content-[''] dark:before:bg-[url('/textures/interview-prep-dark.png')]">
       <section className="mx-auto w-full max-w-5xl mb-0.5 px-2 sm:px-3" data-tour="suggestions">
         <p className="mb-2 px-1 font-medium text-muted-foreground text-xs">快速提问</p>
         <Suggestions className="gap-2.5 pb-1">
