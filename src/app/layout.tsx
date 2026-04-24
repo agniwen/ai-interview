@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Analytics } from "@vercel/analytics/next";
 import { IBM_Plex_Mono, Noto_Sans_SC, Source_Sans_3, Source_Serif_4 } from "next/font/google";
 import localFont from "next/font/local";
+import { NuqsAdapter } from "nuqs/adapters/next/app";
 import { Suspense } from "react";
 import { QueryProvider } from "@/components/query-provider";
 import { ThemeProvider } from "@/components/theme-provider";
@@ -67,12 +68,14 @@ export default function RootLayout({
           跳到主要内容
         </a>
         <ThemeProvider attribute="class" defaultTheme="dark" disableTransitionOnChange enableSystem>
-          <QueryProvider>
-            <TooltipProvider>
-              <Suspense>{children}</Suspense>
-              <Toaster />
-            </TooltipProvider>
-          </QueryProvider>
+          <NuqsAdapter>
+            <QueryProvider>
+              <TooltipProvider>
+                <Suspense>{children}</Suspense>
+                <Toaster />
+              </TooltipProvider>
+            </QueryProvider>
+          </NuqsAdapter>
         </ThemeProvider>
         {isVercelAnalyticsEnabled ? <Analytics /> : null}
       </body>

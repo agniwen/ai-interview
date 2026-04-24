@@ -19,7 +19,8 @@ import {
   SearchIcon,
   Trash2Icon,
 } from "lucide-react";
-import { useDeferredValue, useMemo, useRef, useState } from "react";
+import { parseAsString, useQueryState } from "nuqs";
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { DATE_TIME_DISPLAY_OPTIONS, TimeDisplay } from "@/components/time-display";
 import {
@@ -124,7 +125,15 @@ export function CandidateFormTemplateManagementPage({
   const queryClient = useQueryClient();
   const [globalFilter, setGlobalFilter] = useState("");
   const [scopeFilter, setScopeFilter] = useState("all");
-  const [jobDescriptionFilter, setJobDescriptionFilter] = useState("all");
+  // URL-bound filters — keeps deep links from "在招岗位 → 面试前问卷" tab in sync.
+  const [jobDescriptionFilter, setJobDescriptionFilter] = useQueryState(
+    "jobDescriptionId",
+    parseAsString.withDefault("all").withOptions({ clearOnDefault: true }),
+  );
+  const [activeTemplateId, setActiveTemplateId] = useQueryState(
+    "templateId",
+    parseAsString.withDefault("").withOptions({ clearOnDefault: true }),
+  );
   const [page, setPage] = useState(initialData.page);
   const [pageSize, setPageSize] = useState(initialData.pageSize);
   const deferredSearch = useDeferredValue(globalFilter);
@@ -144,10 +153,22 @@ export function CandidateFormTemplateManagementPage({
     pageSize,
   ] as const;
 
+  // Seed the SSR payload into its matching key (no filters), independent of
+  // the current `queryKey`. If the URL carries `?jobDescriptionId=...`, the
+  // live key differs from the seed → react-query fetches fresh filtered data
+  // instead of falsely reusing the unfiltered initialData.
   const seededRef = useRef(false);
   if (!seededRef.current) {
     seededRef.current = true;
-    queryClient.setQueryData(queryKey, initialData);
+    const defaultKey = [
+      "candidate-form-templates",
+      "",
+      "all",
+      "all",
+      initialData.page,
+      initialData.pageSize,
+    ] as const;
+    queryClient.setQueryData(defaultKey, initialData);
   }
 
   const { data = initialData, isFetching } = useQuery({
@@ -176,6 +197,35 @@ export function CandidateFormTemplateManagementPage({
       setPage(1);
     }
   }
+
+  // When the URL carries `?templateId=...` (e.g. clicked from the JD dialog),
+  // load the detail and pop the editor open. Re-running on `activeTemplateId`
+  // change covers both initial mount and subsequent param updates.
+  const lastLoadedTemplateRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!activeTemplateId || lastLoadedTemplateRef.current === activeTemplateId) {
+      return;
+    }
+    lastLoadedTemplateRef.current = activeTemplateId;
+    let cancelled = false;
+    void (async () => {
+      const detail = await loadTemplateDetail(activeTemplateId);
+      if (cancelled) {
+        return;
+      }
+      if (!detail) {
+        toast.error("加载模版失败");
+        void setActiveTemplateId(null);
+        lastLoadedTemplateRef.current = null;
+        return;
+      }
+      setEditingRecord(detail);
+      setEditorOpen(true);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [activeTemplateId, setActiveTemplateId]);
 
   function invalidateList() {
     void queryClient.invalidateQueries({ queryKey: ["candidate-form-templates"] });
@@ -465,6 +515,8 @@ export function CandidateFormTemplateManagementPage({
           setEditorOpen(value);
           if (!value) {
             setEditingRecord(null);
+            lastLoadedTemplateRef.current = null;
+            void setActiveTemplateId(null);
           }
         }}
         onSaved={() => invalidateList()}
