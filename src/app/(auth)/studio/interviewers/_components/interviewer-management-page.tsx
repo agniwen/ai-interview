@@ -149,6 +149,8 @@ export function InterviewerManagementPage({
         search: deferredSearch.trim(),
       }),
     queryKey,
+    refetchOnWindowFocus: true,
+    staleTime: 30 * 1000,
   });
 
   const { records, total, totalPages } = data;

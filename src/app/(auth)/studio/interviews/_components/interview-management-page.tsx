@@ -220,6 +220,8 @@ export function InterviewManagementPage({
         status: statusFilter,
       }),
     queryKey,
+    refetchOnWindowFocus: true,
+    staleTime: 30 * 1000,
   });
 
   const { records } = data;
