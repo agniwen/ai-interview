@@ -59,7 +59,7 @@ const QUESTION_TYPE_LABELS: Record<CandidateFormQuestionType, string> = {
 
 function makeDefaultQuestion(sortOrder: number): CandidateFormQuestionInput {
   return {
-    displayMode: "radio",
+    displayMode: DEFAULT_DISPLAY_MODE.single,
     helperText: "",
     id: crypto.randomUUID(),
     label: "",
@@ -402,6 +402,14 @@ function QuestionEditorRow({
     (state: any) => state.values.questions[index]?.id ?? "",
   ) as string;
 
+  const displayMode = useStore(
+    form.store,
+    // oxlint-disable-next-line no-explicit-any
+    (state: any) =>
+      (state.values.questions[index]?.displayMode ??
+        DEFAULT_DISPLAY_MODE[questionType]) as CandidateFormDisplayMode,
+  );
+
   const allowedDisplayModes = useMemo(
     () => DISPLAY_MODES_BY_TYPE[questionType] as readonly CandidateFormDisplayMode[],
     [questionType],
@@ -439,22 +447,28 @@ function QuestionEditorRow({
                 <Select
                   onValueChange={(value) => {
                     const nextType = value as CandidateFormQuestionType;
-                    field.handleChange(nextType);
-                    form.setFieldValue(
-                      `questions[${index}].displayMode`,
-                      DEFAULT_DISPLAY_MODE[nextType],
-                    );
-                    if (nextType === "text") {
-                      form.setFieldValue(`questions[${index}].options`, []);
-                    } else {
-                      const current = form.getFieldValue(`questions[${index}].options`);
-                      if (!current || current.length === 0) {
-                        form.setFieldValue(`questions[${index}].options`, [
-                          { label: "选项 1", value: "option_1" },
-                          { label: "选项 2", value: "option_2" },
-                        ]);
-                      }
+                    if (nextType === field.state.value) {
+                      return;
                     }
+                    // Type change invalidates the previous display mode and any
+                    // stored options — replace the whole question atomically so
+                    // sibling Field subscriptions (displayMode/options) pick up
+                    // the new defaults in the same render cycle.
+                    const current = form.getFieldValue(
+                      `questions[${index}]`,
+                    ) as CandidateFormQuestionInput;
+                    form.setFieldValue(`questions[${index}]`, {
+                      ...current,
+                      displayMode: DEFAULT_DISPLAY_MODE[nextType],
+                      options:
+                        nextType === "text"
+                          ? []
+                          : [
+                              { label: "选项 1", value: "option_1" },
+                              { label: "选项 2", value: "option_2" },
+                            ],
+                      type: nextType,
+                    });
                   }}
                   value={field.state.value}
                 >
@@ -476,31 +490,38 @@ function QuestionEditorRow({
           )}
         </form.Field>
 
-        <form.Field name={`questions[${index}].displayMode`}>
-          {/* oxlint-disable-next-line no-explicit-any */}
-          {(field: any) => (
-            <Field>
-              <FieldLabel>展示方式</FieldLabel>
-              <FieldContent>
-                <Select
-                  onValueChange={(value) => field.handleChange(value as CandidateFormDisplayMode)}
-                  value={field.state.value}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {allowedDisplayModes.map((mode) => (
-                      <SelectItem key={mode} value={mode}>
-                        {DISPLAY_MODE_LABELS[mode]}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </FieldContent>
-            </Field>
-          )}
-        </form.Field>
+        <Field>
+          <FieldLabel>展示方式</FieldLabel>
+          <FieldContent>
+            {/*
+              Driven directly via the form store rather than a `<form.Field>`
+              so that resets triggered by the type Select (which rewrites
+              displayMode in the same tick) propagate immediately — a nested
+              Field's render closure can otherwise read a stale value.
+            */}
+            <Select
+              key={questionType}
+              onValueChange={(value) =>
+                form.setFieldValue(
+                  `questions[${index}].displayMode`,
+                  value as CandidateFormDisplayMode,
+                )
+              }
+              value={displayMode}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {allowedDisplayModes.map((mode) => (
+                  <SelectItem key={mode} value={mode}>
+                    {DISPLAY_MODE_LABELS[mode]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </FieldContent>
+        </Field>
 
         <form.Field name={`questions[${index}].required`}>
           {/* oxlint-disable-next-line no-explicit-any */}
@@ -532,8 +553,9 @@ function QuestionEditorRow({
             <Field data-invalid={hasFieldErrors(field.state.meta.errors) || undefined}>
               <FieldLabel>题目文本</FieldLabel>
               <FieldContent className="gap-2">
-                <Input
+                <Textarea
                   aria-invalid={!!errors?.length}
+                  className="min-h-20"
                   onBlur={field.handleBlur}
                   onChange={(event) => field.handleChange(event.target.value)}
                   placeholder="请输入题目"

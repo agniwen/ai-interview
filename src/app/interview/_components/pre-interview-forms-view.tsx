@@ -1,15 +1,28 @@
 "use client";
 
 import type { CandidateFormTemplateSnapshot } from "@/lib/candidate-forms";
-import { ClipboardListIcon, Loader2Icon } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { CheckIcon, ChevronDownIcon, ClipboardListIcon, Loader2Icon } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Drawer,
+  DrawerClose,
+  DrawerContent,
+  DrawerDescription,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle,
+} from "@/components/ui/drawer";
+import { Field, FieldContent, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Select,
   SelectContent,
@@ -18,6 +31,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { buildCandidateFormAnswersSchema } from "@/lib/candidate-forms";
+import { cn } from "@/lib/utils";
 
 type AnswerValue = string | string[];
 
@@ -72,50 +88,347 @@ function buildInitialAnswers(snapshot: CandidateFormTemplateSnapshot): Record<st
   return answers;
 }
 
+type FieldErrorMap = Record<string, string>;
+
+function friendlyMessage(raw: string): string {
+  // Surface the most common required-field complaints in candidate-friendly
+  // wording; unknown messages fall through unchanged.
+  if (raw.includes("不在可选项")) {
+    return "请选择一项";
+  }
+  if (raw.includes("至少选择")) {
+    return "请至少选择一项";
+  }
+  if (raw.includes("不能为空")) {
+    return "请填写本题";
+  }
+  return raw;
+}
+
+// Run the same zod schema the server uses, then map issues back to their
+// question id so the offending Field can be highlighted in place.
 function validateAnswers(
   snapshot: CandidateFormTemplateSnapshot,
   answers: Record<string, AnswerValue>,
-): string | null {
+): FieldErrorMap {
+  const schema = buildCandidateFormAnswersSchema(snapshot);
+  const normalized: Record<string, AnswerValue> = {};
   for (const question of snapshot.questions) {
-    if (!question.required) {
-      continue;
-    }
-    const value = answers[question.id];
+    const raw = answers[question.id];
     if (question.type === "multi") {
-      if (!Array.isArray(value) || value.length === 0) {
-        return `请作答：${question.label}`;
-      }
-    } else if (!value || (typeof value === "string" && value.trim() === "")) {
-      return `请作答：${question.label}`;
+      normalized[question.id] = Array.isArray(raw) ? raw : [];
+    } else {
+      normalized[question.id] = typeof raw === "string" ? raw : "";
     }
   }
-  return null;
+
+  const result = schema.safeParse(normalized);
+  if (result.success) {
+    return {};
+  }
+
+  const errors: FieldErrorMap = {};
+  for (const issue of result.error.issues) {
+    const [questionId] = issue.path;
+    if (typeof questionId !== "string" || errors[questionId]) {
+      continue;
+    }
+    errors[questionId] = friendlyMessage(issue.message);
+  }
+  return errors;
 }
 
-function QuestionView({
+// Desktop multi-select rendered in a Popover with the same trigger styling
+// as `<SelectTrigger>` so it visually matches single-select on the page.
+function DesktopMultiSelect({
   question,
   value,
   onChange,
+  invalid,
+  inputId,
 }: {
   question: CandidateFormTemplateSnapshot["questions"][number];
   value: AnswerValue;
   onChange: (next: AnswerValue) => void;
+  invalid?: boolean;
+  inputId: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const selected = useMemo(() => new Set(Array.isArray(value) ? value : []), [value]);
+
+  const triggerLabel = useMemo(() => {
+    if (selected.size === 0) {
+      return "请选择";
+    }
+    return question.options
+      .filter((option) => selected.has(option.value))
+      .map((option) => option.label)
+      .join("、");
+  }, [question.options, selected]);
+
+  function toggle(optionValue: string) {
+    const next = new Set(selected);
+    if (next.has(optionValue)) {
+      next.delete(optionValue);
+    } else {
+      next.add(optionValue);
+    }
+    onChange([...next]);
+  }
+
+  return (
+    <Popover onOpenChange={setOpen} open={open}>
+      <PopoverTrigger asChild>
+        <button
+          aria-expanded={open}
+          className={cn(
+            "flex h-10 w-full items-center justify-between gap-2 rounded-md border border-input bg-transparent px-3 py-2 text-left text-sm shadow-xs transition-[color,box-shadow]",
+            "data-[invalid=true]:border-destructive data-[invalid=true]:ring-[3px] data-[invalid=true]:ring-destructive/20",
+            "focus-visible:border-ring focus-visible:outline-hidden focus-visible:ring-[3px] focus-visible:ring-ring/50",
+          )}
+          data-invalid={invalid ? true : undefined}
+          id={inputId}
+          type="button"
+        >
+          <span
+            className={cn(
+              "min-w-0 flex-1 truncate",
+              selected.size === 0 ? "text-muted-foreground" : "",
+            )}
+          >
+            {triggerLabel}
+          </span>
+          <ChevronDownIcon className="size-4 shrink-0 opacity-50" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent
+        align="start"
+        className="w-(--radix-popover-trigger-width) min-w-56 p-1"
+        onOpenAutoFocus={(event) => event.preventDefault()}
+      >
+        <p className="px-2 pt-1 pb-1.5 text-muted-foreground text-xs">可多选</p>
+        <div className="max-h-64 overflow-y-auto">
+          {question.options.map((option) => {
+            const checked = selected.has(option.value);
+            return (
+              <button
+                className={cn(
+                  "flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm transition-colors hover:bg-accent",
+                  checked ? "bg-accent/50" : "",
+                )}
+                key={option.value}
+                onClick={() => toggle(option.value)}
+                type="button"
+              >
+                <CheckIcon
+                  className={cn(
+                    "size-4 shrink-0 text-primary",
+                    checked ? "opacity-100" : "opacity-0",
+                  )}
+                />
+                <span className="flex-1">{option.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+// Mobile-friendly choice picker. The native `<Select>` dropdown and the
+// inline chip list both feel cramped on phones, so on small screens we
+// surface the options inside a bottom drawer with full-width tap targets.
+function MobileChoicePicker({
+  question,
+  value,
+  onChange,
+  invalid,
+  inputId,
+}: {
+  question: CandidateFormTemplateSnapshot["questions"][number];
+  value: AnswerValue;
+  onChange: (next: AnswerValue) => void;
+  invalid?: boolean;
+  inputId: string;
+}) {
+  const isMulti = question.type === "multi";
+  const selectedValues = useMemo(() => {
+    if (isMulti) {
+      return new Set(Array.isArray(value) ? value : []);
+    }
+    const single = Array.isArray(value) ? (value[0] ?? "") : value;
+    return new Set(single ? [single] : []);
+  }, [isMulti, value]);
+
+  const [open, setOpen] = useState(false);
+  const [draft, setDraft] = useState<Set<string>>(selectedValues);
+
+  // Sync the in-drawer draft whenever the drawer opens (or external value
+  // changes while it's closed) so the user always starts from current state.
+  useEffect(() => {
+    if (!open) {
+      setDraft(selectedValues);
+    }
+  }, [open, selectedValues]);
+
+  const triggerLabel = useMemo(() => {
+    if (selectedValues.size === 0) {
+      return "请选择";
+    }
+    return question.options
+      .filter((option) => selectedValues.has(option.value))
+      .map((option) => option.label)
+      .join("、");
+  }, [question.options, selectedValues]);
+
+  return (
+    <Drawer onOpenChange={setOpen} open={open}>
+      <button
+        className={cn(
+          "flex h-10 w-full items-center justify-between gap-2 rounded-md border border-input bg-transparent px-3 py-2 text-left text-sm shadow-xs transition-[color,box-shadow]",
+          "data-[invalid=true]:border-destructive data-[invalid=true]:ring-[3px] data-[invalid=true]:ring-destructive/20",
+          "focus-visible:border-ring focus-visible:outline-hidden focus-visible:ring-[3px] focus-visible:ring-ring/50",
+        )}
+        data-invalid={invalid ? true : undefined}
+        id={inputId}
+        onClick={() => setOpen(true)}
+        type="button"
+      >
+        <span
+          className={cn(
+            "min-w-0 flex-1 truncate",
+            selectedValues.size === 0 ? "text-muted-foreground" : "",
+          )}
+        >
+          {triggerLabel}
+        </span>
+        <ChevronDownIcon className="size-4 shrink-0 opacity-50" />
+      </button>
+      <DrawerContent>
+        <DrawerHeader className="text-left">
+          <div className="flex items-center gap-2">
+            <Badge variant="secondary">{isMulti ? "多选" : "单选"}</Badge>
+            {question.required ? <span className="text-destructive text-xs">必填</span> : null}
+          </div>
+          <DrawerTitle className="leading-snug">{question.label}</DrawerTitle>
+          {question.helperText ? (
+            <DrawerDescription>{question.helperText}</DrawerDescription>
+          ) : null}
+        </DrawerHeader>
+        <div className="max-h-[55vh] overflow-y-auto px-4 pb-2">
+          <div className="flex flex-col gap-1.5">
+            {question.options.map((option) => {
+              const checked = draft.has(option.value);
+              return (
+                <button
+                  className={cn(
+                    "flex min-h-12 items-center gap-3 rounded-md border px-3 py-2 text-left text-sm transition-colors",
+                    checked
+                      ? "border-primary/50 bg-accent/60"
+                      : "border-transparent hover:bg-accent",
+                  )}
+                  key={option.value}
+                  onClick={() => {
+                    if (isMulti) {
+                      const next = new Set(draft);
+                      if (checked) {
+                        next.delete(option.value);
+                      } else {
+                        next.add(option.value);
+                      }
+                      setDraft(next);
+                    } else {
+                      // Single-choice: replace draft so the confirm button
+                      // commits the freshly tapped option.
+                      setDraft(new Set([option.value]));
+                    }
+                  }}
+                  type="button"
+                >
+                  <span className="flex-1">{option.label}</span>
+                  {checked ? <CheckIcon className="size-4 shrink-0 text-primary" /> : null}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+        <DrawerFooter>
+          <Button
+            size="lg"
+            onClick={() => {
+              if (isMulti) {
+                onChange([...draft]);
+              } else {
+                const [next] = [...draft];
+                onChange(next ?? "");
+              }
+              setOpen(false);
+            }}
+            type="button"
+          >
+            确认
+          </Button>
+          <DrawerClose asChild>
+            <Button type="button" variant="outline" size="lg">
+              取消
+            </Button>
+          </DrawerClose>
+        </DrawerFooter>
+      </DrawerContent>
+    </Drawer>
+  );
+}
+
+// oxlint-disable-next-line complexity -- one branch per question type/display-mode combo, all flat conditionals.
+function QuestionView({
+  question,
+  value,
+  onChange,
+  invalid,
+}: {
+  question: CandidateFormTemplateSnapshot["questions"][number];
+  value: AnswerValue;
+  onChange: (next: AnswerValue) => void;
+  invalid?: boolean;
 }) {
   const inputId = `q-${question.id}`;
+  const invalidProp = invalid ? true : undefined;
+  const isMobile = useIsMobile();
+
+  if (
+    isMobile &&
+    question.displayMode === "select" &&
+    (question.type === "single" || question.type === "multi")
+  ) {
+    return (
+      <MobileChoicePicker
+        inputId={inputId}
+        invalid={invalid}
+        onChange={onChange}
+        question={question}
+        value={value}
+      />
+    );
+  }
 
   if (question.type === "single" && question.displayMode === "radio") {
     return (
       <RadioGroup
+        aria-invalid={invalidProp}
+        className={invalid ? "gap-1.5 rounded-md ring-2 ring-destructive/40 p-2" : "gap-1.5"}
         onValueChange={(next) => onChange(next)}
         value={typeof value === "string" ? value : ""}
       >
         {question.options.map((option) => (
-          <div className="flex items-center gap-2" key={option.value}>
+          <Label
+            className="flex min-h-11 cursor-pointer items-center gap-3 rounded-md border border-transparent px-3 py-2 font-normal transition-colors hover:bg-accent has-[button[data-state=checked]]:border-primary/40 has-[button[data-state=checked]]:bg-accent/60"
+            htmlFor={`${inputId}-${option.value}`}
+            key={option.value}
+          >
             <RadioGroupItem id={`${inputId}-${option.value}`} value={option.value} />
-            <Label className="font-normal" htmlFor={`${inputId}-${option.value}`}>
-              {option.label}
-            </Label>
-          </div>
+            <span className="flex-1">{option.label}</span>
+          </Label>
         ))}
       </RadioGroup>
     );
@@ -126,7 +439,7 @@ function QuestionView({
         onValueChange={(next) => onChange(next)}
         value={typeof value === "string" ? value : undefined}
       >
-        <SelectTrigger id={inputId}>
+        <SelectTrigger aria-invalid={invalidProp} className="w-full" id={inputId}>
           <SelectValue placeholder="请选择" />
         </SelectTrigger>
         <SelectContent>
@@ -142,11 +455,20 @@ function QuestionView({
   if (question.type === "multi" && question.displayMode === "checkbox") {
     const selected = new Set(Array.isArray(value) ? value : []);
     return (
-      <div className="space-y-2">
+      <div
+        aria-invalid={invalidProp}
+        className={
+          invalid ? "space-y-1.5 rounded-md ring-2 ring-destructive/40 p-2" : "space-y-1.5"
+        }
+      >
         {question.options.map((option) => {
           const checked = selected.has(option.value);
           return (
-            <div className="flex items-center gap-2" key={option.value}>
+            <Label
+              className="flex min-h-11 cursor-pointer items-center gap-3 rounded-md border border-transparent px-3 py-2 font-normal transition-colors hover:bg-accent has-[button[data-state=checked]]:border-primary/40 has-[button[data-state=checked]]:bg-accent/60"
+              htmlFor={`${inputId}-${option.value}`}
+              key={option.value}
+            >
               <Checkbox
                 checked={checked}
                 id={`${inputId}-${option.value}`}
@@ -160,53 +482,28 @@ function QuestionView({
                   onChange([...next]);
                 }}
               />
-              <Label className="font-normal" htmlFor={`${inputId}-${option.value}`}>
-                {option.label}
-              </Label>
-            </div>
+              <span className="flex-1">{option.label}</span>
+            </Label>
           );
         })}
       </div>
     );
   }
   if (question.type === "multi" && question.displayMode === "select") {
-    const selected = new Set(Array.isArray(value) ? value : []);
     return (
-      <div className="space-y-2">
-        <p className="text-muted-foreground text-xs">可多选</p>
-        <div className="flex flex-wrap gap-2">
-          {question.options.map((option) => {
-            const active = selected.has(option.value);
-            return (
-              <button
-                className={
-                  active
-                    ? "rounded-md border border-primary bg-primary px-3 py-1.5 text-primary-foreground text-sm"
-                    : "rounded-md border border-border bg-background px-3 py-1.5 text-sm hover:bg-accent"
-                }
-                key={option.value}
-                onClick={() => {
-                  const next = new Set(selected);
-                  if (active) {
-                    next.delete(option.value);
-                  } else {
-                    next.add(option.value);
-                  }
-                  onChange([...next]);
-                }}
-                type="button"
-              >
-                {option.label}
-              </button>
-            );
-          })}
-        </div>
-      </div>
+      <DesktopMultiSelect
+        inputId={inputId}
+        invalid={invalid}
+        onChange={onChange}
+        question={question}
+        value={value}
+      />
     );
   }
   if (question.type === "text" && question.displayMode === "textarea") {
     return (
       <Textarea
+        aria-invalid={invalidProp}
         className="min-h-24"
         id={inputId}
         onChange={(event) => onChange(event.target.value)}
@@ -217,6 +514,7 @@ function QuestionView({
   }
   return (
     <Input
+      aria-invalid={invalidProp}
       id={inputId}
       onChange={(event) => onChange(event.target.value)}
       placeholder="请输入你的回答"
@@ -228,11 +526,13 @@ function QuestionView({
 function FormCard({
   template,
   answers,
+  errors,
   onChange,
   submitted,
 }: {
   template: RequiredTemplate;
   answers: Record<string, AnswerValue>;
+  errors: FieldErrorMap;
   onChange: (questionId: string, value: AnswerValue) => void;
   submitted: boolean;
 }) {
@@ -258,22 +558,30 @@ function FormCard({
         ) : null}
       </header>
       <div className="space-y-5">
-        {template.snapshot.questions.map((question) => (
-          <div className="space-y-2" key={question.id}>
-            <Label className="font-medium text-sm" htmlFor={`q-${question.id}`}>
-              {question.label}
-              {question.required ? <span className="ml-1 text-destructive">*</span> : null}
-            </Label>
-            {question.helperText ? (
-              <p className="text-muted-foreground text-xs">{question.helperText}</p>
-            ) : null}
-            <QuestionView
-              onChange={(next) => onChange(question.id, next)}
-              question={question}
-              value={answers[question.id] ?? (question.type === "multi" ? [] : "")}
-            />
-          </div>
-        ))}
+        {template.snapshot.questions.map((question, index) => {
+          const error = errors[question.id];
+          return (
+            <Field data-invalid={error ? true : undefined} key={question.id}>
+              <FieldLabel htmlFor={`q-${question.id}`}>
+                <span className="mr-1 text-muted-foreground">{index + 1}.</span>
+                {question.label}
+                {question.required ? <span className="ml-1 text-destructive">*</span> : null}
+              </FieldLabel>
+              <FieldContent className="gap-2">
+                {question.helperText ? (
+                  <p className="text-muted-foreground text-xs">{question.helperText}</p>
+                ) : null}
+                <QuestionView
+                  invalid={!!error}
+                  onChange={(next) => onChange(question.id, next)}
+                  question={question}
+                  value={answers[question.id] ?? (question.type === "multi" ? [] : "")}
+                />
+                <FieldError>{error}</FieldError>
+              </FieldContent>
+            </Field>
+          );
+        })}
       </div>
     </section>
   );
@@ -297,6 +605,7 @@ export function PreInterviewFormsView({
   const [answersByTemplate, setAnswersByTemplate] = useState<
     Record<string, Record<string, AnswerValue>>
   >({});
+  const [errorsByTemplate, setErrorsByTemplate] = useState<Record<string, FieldErrorMap>>({});
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -350,6 +659,16 @@ export function PreInterviewFormsView({
         ...prev,
         [templateId]: { ...prev[templateId], [questionId]: value },
       }));
+      // Clear the per-question error as soon as the user touches it again,
+      // so the red highlight goes away without waiting for re-submit.
+      setErrorsByTemplate((prev) => {
+        const current = prev[templateId];
+        if (!current?.[questionId]) {
+          return prev;
+        }
+        const { [questionId]: _removed, ...rest } = current;
+        return { ...prev, [templateId]: rest };
+      });
     },
     [],
   );
@@ -357,13 +676,22 @@ export function PreInterviewFormsView({
   const handleSubmitAll = useCallback(async () => {
     setSubmitting(true);
     try {
+      const nextErrors: Record<string, FieldErrorMap> = {};
+      let firstInvalidTitle: string | null = null;
       for (const template of pendingTemplates) {
         const answers = answersByTemplate[template.templateId] ?? {};
-        const error = validateAnswers(template.snapshot, answers);
-        if (error) {
-          toast.error(`「${template.snapshot.title}」${error}`);
-          return;
+        const errors = validateAnswers(template.snapshot, answers);
+        if (Object.keys(errors).length > 0) {
+          nextErrors[template.templateId] = errors;
+          if (!firstInvalidTitle) {
+            firstInvalidTitle = template.snapshot.title;
+          }
         }
+      }
+      setErrorsByTemplate(nextErrors);
+      if (firstInvalidTitle) {
+        toast.error(`「${firstInvalidTitle}」有未完成的题目，请检查标红的内容`);
+        return;
       }
       for (const template of pendingTemplates) {
         const answers = answersByTemplate[template.templateId] ?? {};
@@ -397,66 +725,66 @@ export function PreInterviewFormsView({
         className="pointer-events-none fixed inset-0 -z-20 bg-[url('/textures/interview-prep-dark.png')] bg-center bg-cover bg-no-repeat invert dark:invert-0"
       />
       <div aria-hidden className="pointer-events-none fixed inset-0 -z-10 bg-white/5 dark:hidden" />
-      <div className="fixed top-4 right-4 z-20">
+      <div className="fixed top-4 right-4 z-20 rounded-md bg-background/20 p-1 backdrop-blur-sm">
         <ThemeToggle />
       </div>
-      <main className="relative flex min-h-dvh w-full flex-col md:items-center">
-        <div className="mx-auto flex w-full max-w-2xl flex-col px-5 pt-12 pb-32 sm:px-2 sm:pt-20 md:py-16">
-          <section className="mb-8">
-            <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1 text-primary text-xs">
-              <ClipboardListIcon className="size-3.5" />
-              开始前的问卷
-            </div>
-            <h1 className="font-semibold text-2xl tracking-tight sm:text-3xl">
-              开始前请先填写问卷
-            </h1>
-            <p className="mt-2 text-muted-foreground text-sm sm:text-base">
-              完成全部问卷后才能进入面试。你的回答会在提交那一刻冻结保存，之后问卷模版若被修改也不会影响。
-            </p>
-          </section>
-
-          {loading ? (
-            <div className="flex items-center justify-center gap-2 py-16 text-muted-foreground text-sm">
-              <Loader2Icon className="size-4 animate-spin" />
-              正在加载问卷…
-            </div>
-          ) : null}
-
-          {loadError ? (
-            <p className="py-10 text-center text-destructive text-sm">{loadError}</p>
-          ) : null}
-
-          {!loading && !loadError ? (
-            <div className="space-y-4">
-              {templates.map((template) => (
-                <FormCard
-                  answers={answersByTemplate[template.templateId] ?? {}}
-                  key={template.templateId}
-                  onChange={(questionId, value) =>
-                    handleChangeAnswer(template.templateId, questionId, value)
-                  }
-                  submitted={submittedIds.has(template.templateId)}
-                  template={template}
-                />
-              ))}
-
-              <div className="sticky bottom-0 z-10 -mx-5 border-border/60 border-t bg-background/90 px-5 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] backdrop-blur sm:-mx-2 sm:px-2">
-                <Button
-                  className="h-11 w-full"
-                  disabled={submitting || pendingTemplates.length === 0}
-                  onClick={() => void handleSubmitAll()}
-                  size="lg"
-                >
-                  {submitting ? <Loader2Icon className="size-4 animate-spin" /> : null}
-                  提交并继续
-                </Button>
-                <p className="mt-2 text-center text-muted-foreground text-xs">
-                  还需填写 {pendingTemplates.length} 份问卷
-                </p>
+      <main className="relative flex h-dvh w-full flex-col md:items-center">
+        <ScrollArea className="h-full w-full">
+          <div className="mx-auto flex w-full max-w-2xl flex-col px-5 pt-12  sm:px-2 sm:pt-20 md:pt-16">
+            <section className="mb-8">
+              <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1 text-primary text-xs">
+                <ClipboardListIcon className="size-3.5" />
+                开始前的问卷
               </div>
-            </div>
-          ) : null}
-        </div>
+              <h1 className="font-semibold text-2xl tracking-tight sm:text-3xl">
+                开始前请先填写问卷
+              </h1>
+              <p className="mt-2 text-muted-foreground text-sm sm:text-base">
+                完成全部问卷后进入面试。
+              </p>
+            </section>
+
+            {loading ? (
+              <div className="flex items-center justify-center gap-2 py-16 text-muted-foreground text-sm">
+                <Loader2Icon className="size-4 animate-spin" />
+                正在检查前置问卷填写情况
+              </div>
+            ) : null}
+
+            {loadError ? (
+              <p className="py-10 text-center text-destructive text-sm">{loadError}</p>
+            ) : null}
+
+            {!loading && !loadError ? (
+              <div className="space-y-4">
+                {pendingTemplates.map((template) => (
+                  <FormCard
+                    answers={answersByTemplate[template.templateId] ?? {}}
+                    errors={errorsByTemplate[template.templateId] ?? {}}
+                    key={template.templateId}
+                    onChange={(questionId, value) =>
+                      handleChangeAnswer(template.templateId, questionId, value)
+                    }
+                    submitted={false}
+                    template={template}
+                  />
+                ))}
+
+                <div className="sticky bottom-0 z-10 -mx-5 border-border/60 border-t px-5 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] backdrop-blur sm:-mx-2 sm:px-2">
+                  <Button
+                    className="h-11 w-full"
+                    disabled={submitting || pendingTemplates.length === 0}
+                    onClick={() => void handleSubmitAll()}
+                    size="lg"
+                  >
+                    {submitting ? <Loader2Icon className="size-4 animate-spin" /> : null}
+                    提交并继续
+                  </Button>
+                </div>
+              </div>
+            ) : null}
+          </div>
+        </ScrollArea>
       </main>
     </>
   );

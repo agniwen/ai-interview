@@ -88,7 +88,7 @@ function RuleItem({
 }) {
   return (
     <li className="flex gap-3 py-4 sm:gap-4 sm:py-5">
-      <Icon className="mt-0.5 size-4 shrink-0 text-muted-foreground sm:size-[18px]" />
+      <Icon className="mt-0.5 size-4 shrink-0 text-muted-foreground sm:size-4.5" />
       <div className="flex flex-col gap-1">
         <div className="font-medium text-sm sm:text-base">{title}</div>
         <p className="text-muted-foreground text-xs leading-relaxed sm:text-sm">{description}</p>
@@ -138,7 +138,7 @@ function WaitingView({
       </div>
 
       <main className="relative flex min-h-dvh w-full flex-col md:items-center md:justify-center">
-        <div className="mx-auto flex w-full max-w-2xl flex-col px-5 pt-12 pb-32 sm:px-2 sm:pt-20 md:py-16">
+        <div className="mx-auto flex w-full max-w-2xl flex-col px-5 pt-12  sm:px-2 sm:pt-20 md:pt-16">
           <section>
             <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
               {resolveTitle(isRoundCompleted, candidateName)}

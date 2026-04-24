@@ -1,11 +1,22 @@
 "use client";
 
+import type { CandidateFormTemplateListRecord } from "@/lib/candidate-forms";
 import type { DepartmentRecord } from "@/lib/departments";
 import type { InterviewerListRecord } from "@/lib/interviewers";
 import { jobDescriptionFormSchema } from "@/lib/job-descriptions";
 import type { JobDescriptionFormValues, JobDescriptionRecord } from "@/lib/job-descriptions";
+import { useQuery } from "@tanstack/react-query";
 import { useForm, useStore } from "@tanstack/react-form";
-import { CheckIcon, ChevronsUpDownIcon, LoaderCircleIcon, PlusIcon, XIcon } from "lucide-react";
+import {
+  CheckIcon,
+  ChevronsUpDownIcon,
+  ClipboardListIcon,
+  ExternalLinkIcon,
+  LoaderCircleIcon,
+  PlusIcon,
+  XIcon,
+} from "lucide-react";
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -183,7 +194,30 @@ export function JobDescriptionFormDialog({
 }) {
   const isEdit = record !== null;
   const fallbackDepartmentId = departments[0]?.id ?? "";
-  const [activeTab, setActiveTab] = useState<"basic" | "questions">("basic");
+  const [activeTab, setActiveTab] = useState<"basic" | "questions" | "forms">("basic");
+
+  const { data: linkedForms = [], isLoading: isFormsLoading } = useQuery({
+    enabled: open && isEdit && !!record?.id,
+    queryFn: async () => {
+      const qs = new URLSearchParams({
+        jobDescriptionId: record?.id ?? "",
+        page: "1",
+        pageSize: "100",
+        sortBy: "createdAt",
+        sortOrder: "desc",
+      });
+      const response = await fetch(`/api/studio/forms?${qs.toString()}`);
+      const payload = (await response.json()) as {
+        records?: CandidateFormTemplateListRecord[];
+        error?: string;
+      } | null;
+      if (!response.ok || !payload?.records) {
+        throw new Error(payload?.error ?? "加载关联问卷失败");
+      }
+      return payload.records;
+    },
+    queryKey: ["job-description-linked-forms", record?.id],
+  });
 
   const form = useForm({
     defaultValues: record ? toFormValues(record) : defaultValues(fallbackDepartmentId),
@@ -260,12 +294,13 @@ export function JobDescriptionFormDialog({
 
           <Tabs
             className="mt-4"
-            onValueChange={(value) => setActiveTab(value as "basic" | "questions")}
+            onValueChange={(value) => setActiveTab(value as "basic" | "questions" | "forms")}
             value={activeTab}
           >
             <TabsList>
               <TabsTrigger value="basic">基本信息</TabsTrigger>
               <TabsTrigger value="questions">面试题</TabsTrigger>
+              {isEdit ? <TabsTrigger value="forms">面试前问卷</TabsTrigger> : null}
             </TabsList>
             <TabsContent value="basic">
               <FieldGroup className="mt-4 gap-5">
@@ -416,6 +451,16 @@ export function JobDescriptionFormDialog({
                 )}
               </form.Field>
             </TabsContent>
+            {isEdit ? (
+              <TabsContent value="forms">
+                {/* oxlint-disable-next-line no-use-before-define */}
+                <LinkedFormsList
+                  isLoading={isFormsLoading}
+                  jobDescriptionId={record?.id ?? ""}
+                  templates={linkedForms}
+                />
+              </TabsContent>
+            ) : null}
           </Tabs>
 
           <DialogFooter className="mt-6">
@@ -546,5 +591,74 @@ function PresetQuestionsList({
         </Button>
       </FieldContent>
     </Field>
+  );
+}
+
+function LinkedFormsList({
+  isLoading,
+  jobDescriptionId,
+  templates,
+}: {
+  isLoading: boolean;
+  jobDescriptionId: string;
+  templates: CandidateFormTemplateListRecord[];
+}) {
+  const newTemplateHref = `/studio/forms?jobDescriptionId=${encodeURIComponent(jobDescriptionId)}`;
+
+  return (
+    <div className="mt-4 space-y-3">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="font-medium text-sm">岗位关联的面试前问卷</p>
+          <p className="mt-1 text-muted-foreground text-xs">
+            候选人进入面试前需要填写下列问卷；全局问卷在「问卷模版」中维护。
+          </p>
+        </div>
+        <Button asChild size="sm" type="button" variant="outline">
+          <Link href={newTemplateHref} target="_blank">
+            <ExternalLinkIcon className="size-3.5" />
+            管理问卷
+          </Link>
+        </Button>
+      </div>
+
+      {/* oxlint-disable-next-line no-nested-ternary -- list has loading/empty/data states */}
+      {isLoading ? (
+        <p className="rounded-xl border border-dashed border-border/60 bg-muted/20 px-4 py-6 text-center text-muted-foreground text-sm">
+          正在加载关联问卷…
+        </p>
+      ) : (templates.length === 0 ? (
+        <p className="rounded-xl border border-dashed border-border/60 bg-muted/20 px-4 py-6 text-center text-muted-foreground text-sm">
+          暂无该岗位专属的问卷模版。
+        </p>
+      ) : (
+        <div className="space-y-2">
+          {templates.map((template) => (
+            <Link
+              className="flex items-start justify-between gap-3 rounded-xl border border-border/60 bg-muted/20 p-3 transition-colors hover:bg-muted/40"
+              href={`/studio/forms?templateId=${template.id}`}
+              key={template.id}
+              target="_blank"
+            >
+              <div className="flex min-w-0 items-start gap-3">
+                <ClipboardListIcon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                <div className="min-w-0">
+                  <p className="truncate font-medium text-sm">{template.title}</p>
+                  {template.description ? (
+                    <p className="mt-0.5 line-clamp-2 text-muted-foreground text-xs">
+                      {template.description}
+                    </p>
+                  ) : null}
+                  <p className="mt-1 text-muted-foreground text-xs">
+                    {template.questionCount} 题 · {template.submissionCount} 份答复
+                  </p>
+                </div>
+              </div>
+              <Badge variant="outline">岗位专属</Badge>
+            </Link>
+          ))}
+        </div>
+      ))}
+    </div>
   );
 }

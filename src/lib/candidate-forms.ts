@@ -24,8 +24,8 @@ export const DISPLAY_MODES_BY_TYPE = {
 
 export const DEFAULT_DISPLAY_MODE: Record<CandidateFormQuestionType, CandidateFormDisplayMode> = {
   multi: "checkbox",
-  single: "radio",
-  text: "input",
+  single: "select",
+  text: "textarea",
 };
 
 export function isDisplayModeAllowed(

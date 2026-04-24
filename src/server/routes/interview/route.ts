@@ -624,6 +624,31 @@ export const studioInterviewsRouter = factory
     const submissions = await loadSubmissionsByInterview(id);
     return c.json({ submissions });
   })
+  .delete("/:id/form-submissions/:submissionId", async (c) => {
+    const id = c.req.param("id");
+    const submissionId = c.req.param("submissionId");
+
+    const existing = await loadRecordById(id);
+    if (!existing) {
+      return c.json({ error: "记录不存在。" }, 404);
+    }
+
+    const result = await db
+      .delete(candidateFormSubmission)
+      .where(
+        and(
+          eq(candidateFormSubmission.id, submissionId),
+          eq(candidateFormSubmission.interviewRecordId, id),
+        ),
+      )
+      .returning({ id: candidateFormSubmission.id });
+
+    if (result.length === 0) {
+      return c.json({ error: "答卷不存在或已被重置。" }, 404);
+    }
+
+    return c.json({ success: true });
+  })
   // oxlint-disable-next-line complexity -- Patch handler validates, normalizes, and coordinates schedule updates in one flow.
   .patch("/:id", async (c) => {
     const id = c.req.param("id");

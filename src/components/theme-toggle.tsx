@@ -21,7 +21,13 @@ const THEME_OPTIONS = [
   { icon: MonitorIcon, label: "跟随系统", value: "system" },
 ] as const;
 
-export function ThemeToggle({ className }: { className?: string }) {
+export function ThemeToggle({
+  className,
+  size = "icon-sm",
+}: {
+  className?: string;
+  size?: "icon-xs" | "icon-sm" | "icon" | "icon-lg";
+}) {
   const { theme, setTheme } = useTheme();
   const isHydrated = useHydrated();
   const activeTheme = isHydrated ? (theme ?? "system") : "system";
@@ -32,7 +38,7 @@ export function ThemeToggle({ className }: { className?: string }) {
         <Button
           aria-label="切换主题"
           className={className}
-          size="icon-sm"
+          size={size}
           type="button"
           variant="ghost"
         >
