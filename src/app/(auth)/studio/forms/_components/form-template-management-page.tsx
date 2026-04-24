@@ -276,7 +276,7 @@ export function CandidateFormTemplateManagementPage({
 
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
           <div className="flex flex-col gap-3 sm:flex-1 sm:flex-row">
-            <div className="relative sm:min-w-60 sm:flex-1">
+            <div className="relative sm:min-w-60 sm:flex-1" data-tour="studio-forms-search">
               <SearchIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 className="pr-9 pl-9"
@@ -289,7 +289,10 @@ export function CandidateFormTemplateManagementPage({
               ) : null}
             </div>
             <Select onValueChange={setScopeFilter} value={scopeFilter}>
-              <SelectTrigger className="w-full sm:min-w-36 sm:w-auto">
+              <SelectTrigger
+                className="w-full sm:min-w-36 sm:w-auto"
+                data-tour="studio-forms-scope-filter"
+              >
                 <SelectValue placeholder="按作用范围" />
               </SelectTrigger>
               <SelectContent>
@@ -299,7 +302,10 @@ export function CandidateFormTemplateManagementPage({
               </SelectContent>
             </Select>
             <Select onValueChange={setJobDescriptionFilter} value={jobDescriptionFilter}>
-              <SelectTrigger className="w-full sm:min-w-48 sm:w-auto">
+              <SelectTrigger
+                className="w-full sm:min-w-48 sm:w-auto"
+                data-tour="studio-forms-jd-filter"
+              >
                 <SelectValue placeholder="按岗位筛选" />
               </SelectTrigger>
               <SelectContent>
@@ -323,7 +329,12 @@ export function CandidateFormTemplateManagementPage({
               <RefreshCwIcon className="size-4" />
               <span className="sr-only">刷新</span>
             </Button>
-            <Button className="flex-1 sm:flex-none" onClick={openCreate} variant="outline">
+            <Button
+              className="flex-1 sm:flex-none"
+              data-tour="studio-forms-create"
+              onClick={openCreate}
+              variant="outline"
+            >
               <PlusIcon className="size-4" />
               新建问卷模版
             </Button>
@@ -331,7 +342,7 @@ export function CandidateFormTemplateManagementPage({
         </div>
 
         {records.length > 0 ? (
-          <Card className="overflow-hidden py-0">
+          <Card className="overflow-hidden py-0" data-tour="studio-forms-table">
             <Table>
               <TableHeader>
                 <TableRow>

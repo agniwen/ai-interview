@@ -29,6 +29,7 @@ const ROUTE_META: { prefix: string; meta: RouteMeta }[] = [
     meta: { title: "在招岗位管理", tour: "job-descriptions" },
     prefix: "/studio/job-descriptions",
   },
+  { meta: { title: "面试前问卷模版", tour: "forms" }, prefix: "/studio/forms" },
 ];
 
 const DEFAULT_META: RouteMeta = { title: "AI 面试管理", tour: "interviews" };

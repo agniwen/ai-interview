@@ -5,7 +5,12 @@ import { driver } from "driver.js";
 import { atom, getDefaultStore } from "jotai";
 import "driver.js/dist/driver.css";
 
-export type StudioTourKey = "interviews" | "departments" | "interviewers" | "job-descriptions";
+export type StudioTourKey =
+  | "interviews"
+  | "departments"
+  | "interviewers"
+  | "job-descriptions"
+  | "forms";
 
 export const studioTutorialStepAtom = atom<number | null>(null);
 
@@ -180,8 +185,65 @@ const JOB_DESCRIPTIONS_TOUR_STEPS: DriveStep[] = [
   },
 ];
 
+const FORMS_TOUR_STEPS: DriveStep[] = [
+  {
+    popover: {
+      description:
+        "候选人点开面试链接后、进入语音面试间之前，会被强制要求填写这里维护的问卷。常用于背调、到岗时间确认、知情同意等需要前置收集的信息。提交后内容会冻结为快照，之后改模版不影响历史答卷。",
+      title: "面试前问卷模版",
+    },
+  },
+  {
+    element: '[data-tour="studio-forms-search"]',
+    popover: {
+      description: "按问卷标题或说明做模糊搜索。",
+      title: "搜索模版",
+    },
+  },
+  {
+    element: '[data-tour="studio-forms-scope-filter"]',
+    popover: {
+      description:
+        "按作用范围筛选：全局问卷会出现在所有面试中；岗位绑定问卷只对该在招岗位的面试生效。",
+      title: "按作用域筛选",
+    },
+  },
+  {
+    element: '[data-tour="studio-forms-jd-filter"]',
+    popover: {
+      description:
+        "按在招岗位筛选，查看绑定到该岗位的所有问卷。从「在招岗位 → 面试前问卷」tab 点过来时也会自动用这个参数过滤。",
+      title: "按岗位筛选",
+    },
+  },
+  {
+    element: '[data-tour="studio-forms-create"]',
+    popover: {
+      description:
+        "新建一份模版：设标题、作用范围（全局或绑定岗位），添加题目。每题可选「单选 / 多选 / 填写」，再选展示方式（下拉、单/多选框、单/多行输入），并标注是否必填。",
+      title: "新建模版",
+    },
+  },
+  {
+    element: '[data-tour="studio-forms-table"]',
+    popover: {
+      description:
+        "展示作用范围、题目数和已填写人数。点「已填写」数字或「更多 → 查看填写记录」可以看到该模版下所有候选人的提交快照。",
+      title: "模版列表",
+    },
+  },
+  {
+    popover: {
+      description:
+        "想重置某位候选人的某份问卷？去「面试库 → 候选人详情 → 问卷答复」tab，点对应卡片的「重置填写」即可，候选人下次进面试链接会被要求重新填写这一份。如果轮次已结束，还需在「面试安排」里重置轮次。",
+      title: "重置候选人答卷",
+    },
+  },
+];
+
 const TOUR_STEPS_BY_KEY: Record<StudioTourKey, DriveStep[]> = {
   departments: DEPARTMENTS_TOUR_STEPS,
+  forms: FORMS_TOUR_STEPS,
   interviewers: INTERVIEWERS_TOUR_STEPS,
   interviews: INTERVIEWS_TOUR_STEPS,
   "job-descriptions": JOB_DESCRIPTIONS_TOUR_STEPS,

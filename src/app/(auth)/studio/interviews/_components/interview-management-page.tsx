@@ -701,7 +701,7 @@ export function InterviewManagementPage({
           </div>
           <div className="space-y-4">
             {table.getRowModel().rows.length > 0 ? (
-              <Card className="overflow-hidden bg-card py-0" data-tour="studio-table">
+              <Card className="overflow-hidden py-0" data-tour="studio-table">
                 <Table>
                   <TableHeader>
                     {table.getHeaderGroups().map((headerGroup) => (
@@ -713,7 +713,7 @@ export function InterviewManagementPage({
                             <TableHead
                               className={
                                 isPinned
-                                  ? "bg-card px-3! transition-colors [tr:hover_&]:bg-muted [tr[data-state=selected]_&]:bg-muted"
+                                  ? "bg-background px-3! transition-colors [tr:hover_&]:bg-muted [tr[data-state=selected]_&]:bg-muted"
                                   : undefined
                               }
                               key={header.id}
@@ -738,7 +738,7 @@ export function InterviewManagementPage({
                             <TableCell
                               className={
                                 isPinned
-                                  ? "bg-card px-3! transition-colors [tr:hover_&]:bg-muted [tr[data-state=selected]_&]:bg-muted"
+                                  ? "bg-background px-3! transition-colors [tr:hover_&]:bg-muted [tr[data-state=selected]_&]:bg-muted"
                                   : undefined
                               }
                               key={cell.id}
