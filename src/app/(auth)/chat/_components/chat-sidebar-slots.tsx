@@ -34,6 +34,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { deleteConversation, fetchConversations } from "@/lib/chat-api";
 import { cn } from "@/lib/utils";
 import { tutorialStepAtom } from "../_atoms/tutorial";
+import { CHAT_EVENTS, notifyConversationsChanged } from "../_lib/chat-events";
 import { TUTORIAL_MOCK_CONVERSATIONS } from "../constants/tutorial-mock";
 
 interface ConversationListItem {
@@ -52,11 +53,11 @@ function useActiveSessionId() {
   const currentPathname = useSyncExternalStore(
     useCallback((onStoreChange: () => void) => {
       window.addEventListener("popstate", onStoreChange);
-      window.addEventListener("chat:session-path-updated", onStoreChange);
+      window.addEventListener(CHAT_EVENTS.sessionPathUpdated, onStoreChange);
 
       return () => {
         window.removeEventListener("popstate", onStoreChange);
-        window.removeEventListener("chat:session-path-updated", onStoreChange);
+        window.removeEventListener(CHAT_EVENTS.sessionPathUpdated, onStoreChange);
       };
     }, []),
     () => window.location.pathname,
@@ -431,7 +432,7 @@ export function ChatSidebarSlots() {
     if (isMobile) {
       setOpenMobile(false);
     }
-    window.dispatchEvent(new CustomEvent("chat:start-new-conversation"));
+    window.dispatchEvent(new CustomEvent(CHAT_EVENTS.startNewConversation));
     router.replace("/chat");
   }, [isMobile, router, setOpenMobile]);
 
@@ -451,7 +452,7 @@ export function ChatSidebarSlots() {
       }
     };
 
-    window.addEventListener("chat:conversations-changed", handleListChanged);
+    window.addEventListener(CHAT_EVENTS.conversationsChanged, handleListChanged);
     document.addEventListener("visibilitychange", handleVisibility);
 
     // Slow fallback in case an event was missed (e.g. external updates).
@@ -464,7 +465,7 @@ export function ChatSidebarSlots() {
     return () => {
       window.clearTimeout(initialTimerId);
       window.clearInterval(intervalId);
-      window.removeEventListener("chat:conversations-changed", handleListChanged);
+      window.removeEventListener(CHAT_EVENTS.conversationsChanged, handleListChanged);
       document.removeEventListener("visibilitychange", handleVisibility);
     };
   }, [refreshConversationList]);
@@ -506,7 +507,7 @@ export function ChatSidebarSlots() {
     setBulkConfirmOpen(false);
     setSelectedIds(new Set());
     setEditMode(false);
-    window.dispatchEvent(new CustomEvent("chat:conversations-changed"));
+    notifyConversationsChanged();
     await refreshConversationList();
 
     if (activeSessionId && ids.includes(activeSessionId)) {
@@ -526,7 +527,7 @@ export function ChatSidebarSlots() {
     } catch {
       // surface nothing — the UI will reflect server state on next refresh
     }
-    window.dispatchEvent(new CustomEvent("chat:conversations-changed"));
+    notifyConversationsChanged();
     await refreshConversationList();
 
     if (activeSessionId === id) {

@@ -17,3 +17,7 @@ export function getChatMeta(chatId: string): ChatMeta {
 export function setChatMeta(chatId: string, meta: ChatMeta): void {
   metas.set(chatId, meta);
 }
+
+export function clearChatMeta(chatId: string): void {
+  metas.delete(chatId);
+}

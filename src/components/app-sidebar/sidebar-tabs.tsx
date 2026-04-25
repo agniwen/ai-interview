@@ -3,6 +3,8 @@
 import { atom, useAtom } from "jotai";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo } from "react";
+import type { ChatSessionPathUpdatedDetail } from "@/app/(auth)/chat/_lib/chat-events";
+import { CHAT_EVENTS } from "@/app/(auth)/chat/_lib/chat-events";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 type SidebarTabValue = "chat" | "studio";
@@ -54,7 +56,7 @@ export function SidebarTabs({ canAccessAdmin }: { canAccessAdmin: boolean }) {
   // pathname, so a Studio → Chat tab bounce lands back on the conversation.
   useEffect(() => {
     const handleSessionPathUpdated = (event: Event) => {
-      const { detail } = event as CustomEvent<{ pathname?: string }>;
+      const { detail } = event as CustomEvent<ChatSessionPathUpdatedDetail>;
       const nextPathname = detail?.pathname;
       if (!nextPathname) {
         return;
@@ -64,9 +66,9 @@ export function SidebarTabs({ canAccessAdmin }: { canAccessAdmin: boolean }) {
       );
     };
 
-    window.addEventListener("chat:session-path-updated", handleSessionPathUpdated);
+    window.addEventListener(CHAT_EVENTS.sessionPathUpdated, handleSessionPathUpdated);
     return () => {
-      window.removeEventListener("chat:session-path-updated", handleSessionPathUpdated);
+      window.removeEventListener(CHAT_EVENTS.sessionPathUpdated, handleSessionPathUpdated);
     };
   }, [setTabLastPath]);
 

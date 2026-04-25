@@ -102,6 +102,7 @@ import {
 } from "@/lib/chat-api";
 import { thinkingModeAtom } from "../_atoms/thinking";
 import { tutorialStepAtom } from "../_atoms/tutorial";
+import { CHAT_EVENTS, notifyConversationsChanged } from "../_lib/chat-events";
 import { setChatMeta } from "../_lib/chat-meta";
 import { getOrCreateChat, hasChat } from "../_lib/chat-registry";
 import { TUTORIAL_MOCK_ATTACHMENTS, TUTORIAL_MOCK_INPUT_TEXT } from "../constants/tutorial-mock";
@@ -138,12 +139,6 @@ function getComposerStatusLabel(
     return "未配置在招岗位信息（可在岗位设置中配置）";
   }
   return jobDescriptionLabel ? `在招岗位：${jobDescriptionLabel}` : "已配置在招岗位信息";
-}
-
-function notifyConversationsChanged() {
-  if (typeof window !== "undefined") {
-    window.dispatchEvent(new CustomEvent("chat:conversations-changed"));
-  }
 }
 
 function appendSuggestionToInput(currentInput: string, suggestion: string) {
@@ -628,7 +623,7 @@ export default function ChatPageClient({ initialSessionId }: { initialSessionId:
 
     window.history.replaceState(window.history.state, "", nextUrl);
     window.dispatchEvent(
-      new CustomEvent("chat:session-path-updated", {
+      new CustomEvent(CHAT_EVENTS.sessionPathUpdated, {
         detail: {
           pathname: nextUrl,
           sessionId,
@@ -870,20 +865,20 @@ export default function ChatPageClient({ initialSessionId }: { initialSessionId:
       startNewConversation();
     };
 
-    window.addEventListener("chat:start-new-conversation", handleStartNewConversation);
+    window.addEventListener(CHAT_EVENTS.startNewConversation, handleStartNewConversation);
 
     return () => {
-      window.removeEventListener("chat:start-new-conversation", handleStartNewConversation);
+      window.removeEventListener(CHAT_EVENTS.startNewConversation, handleStartNewConversation);
     };
   }, [startNewConversation]);
 
   useEffect(() => {
     const handleStartTutorial = () => startTutorial();
 
-    window.addEventListener("chat:start-tutorial", handleStartTutorial);
+    window.addEventListener(CHAT_EVENTS.startTutorial, handleStartTutorial);
 
     return () => {
-      window.removeEventListener("chat:start-tutorial", handleStartTutorial);
+      window.removeEventListener(CHAT_EVENTS.startTutorial, handleStartTutorial);
     };
   }, [startTutorial]);
 

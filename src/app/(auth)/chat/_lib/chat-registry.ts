@@ -2,6 +2,8 @@ import type { UIMessage } from "ai";
 import { Chat } from "@ai-sdk/react";
 import { LRUCache } from "lru-cache";
 import { upsertChatMessageOnServer } from "@/lib/chat-api";
+import { notifyConversationsChanged } from "./chat-events";
+import { clearChatMeta } from "./chat-meta";
 import { createChatTransport } from "./chat-transport";
 
 export interface ChatFinishEvent {
@@ -24,16 +26,11 @@ const chats = new LRUCache<string, Chat<UIMessage>>({
   dispose: (chat, chatId) => {
     console.log("[chat-registry] evicting chat", chatId);
     chat.stop();
+    clearChatMeta(chatId);
   },
   max: MAX_ACTIVE_CHATS,
 });
 const finishListeners = new Set<FinishListener>();
-
-function notifyConversationsChanged() {
-  if (typeof window !== "undefined") {
-    window.dispatchEvent(new CustomEvent("chat:conversations-changed"));
-  }
-}
 
 function emitFinish(event: ChatFinishEvent) {
   for (const listener of finishListeners) {
