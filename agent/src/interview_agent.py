@@ -13,7 +13,12 @@ logger = logging.getLogger("agent")
 
 
 INTERVIEW_TIME_LIMIT_SECONDS = 20 * 60
-INTERVIEW_SOFT_WRAP_SECONDS = 17 * 60
+INTERVIEW_SOFT_WRAP_SECONDS = 16 * 60
+INTERVIEW_FINAL_WRAP_SECONDS = 18 * 60 + 30
+# Hard cutoff is enforced in agent.py; allow ~3 min after the soft limit so
+# the LLM has time to ask the closing question, hear the answer, and say
+# goodbye without being interrupted mid-sentence.
+INTERVIEW_HARD_GRACE_SECONDS = 3 * 60
 
 
 def _format_mmss(seconds: float) -> str:
@@ -65,6 +70,10 @@ class InterviewAgent(Agent):
     def time_limit_seconds(self) -> int:
         return self._time_limit
 
+    @property
+    def hard_grace_seconds(self) -> int:
+        return INTERVIEW_HARD_GRACE_SECONDS
+
     async def on_user_turn_completed(
         self, turn_ctx: ChatContext, new_message: ChatMessage
     ) -> None:
@@ -79,13 +88,21 @@ class InterviewAgent(Agent):
         if elapsed >= self._time_limit:
             hint = (
                 f"[计时提示] 面试已达到 {_format_mmss(self._time_limit)} 时间上限。"
-                "请立即用一两句话向候选人告别，并调用 end_call 工具结束面试，不要再发起新提问。"
+                "请用一两句温暖、体面的话向候选人告别（感谢参与、祝顺利），"
+                "随后调用 end_call 工具结束面试，不要再发起新提问。"
+            )
+        elif elapsed >= INTERVIEW_FINAL_WRAP_SECONDS:
+            hint = (
+                f"[计时提示] 面试已进行 {_format_mmss(elapsed)}，时间接近上限。"
+                "不要再开新话题或追问；如果当前题目还未答完，听完这一题的回答即可，"
+                "之后用一两句话向候选人体面告别并调用 end_call 结束面试。"
             )
         elif elapsed >= INTERVIEW_SOFT_WRAP_SECONDS:
             hint = (
                 f"[计时提示] 面试已进行 {_format_mmss(elapsed)}，"
-                f"剩余 {_format_mmss(remaining)}。请开始收尾：最多再追问一个关键点，"
-                "不要展开新话题；到达时间上限务必调用 end_call 结束面试。"
+                f"剩余约 {_format_mmss(remaining)}。请开始收尾："
+                "最多再问一个关键问题作为本场面试的最后一题，不要再展开新话题；"
+                "听完候选人的回答后，自然地向其告别并调用 end_call 结束面试。"
             )
         else:
             hint = (

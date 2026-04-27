@@ -2,7 +2,7 @@
 
 import type { LucideIcon } from "lucide-react";
 import type { CandidateInterviewView } from "@/lib/interview/interview-record";
-import { useSession } from "@livekit/components-react";
+import { useAgent, useSession } from "@livekit/components-react";
 import { ConnectionState, TokenSource } from "livekit-client";
 import {
   MessageSquareTextIcon,
@@ -21,6 +21,19 @@ import { Button } from "@/components/ui/button";
 import { Toaster } from "@/components/ui/sonner";
 import { InterviewTimer } from "./interview-timer";
 import { PreInterviewFormsView } from "./pre-interview-forms-view";
+
+function AgentSpeechTimer() {
+  const { state } = useAgent();
+  const [startedAt, setStartedAt] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (startedAt === null && state === "speaking") {
+      setStartedAt(Date.now());
+    }
+  }, [state, startedAt]);
+
+  return <InterviewTimer startedAt={startedAt} />;
+}
 
 interface InterviewPageClientProps {
   interviewId: string;
@@ -303,15 +316,10 @@ export default function InterviewPageClient({ interviewId, roundId }: InterviewP
   const isDisconnected = session.connectionState === ConnectionState.Disconnected;
   const isConnecting = session.connectionState === ConnectionState.Connecting;
   const wasConnectedRef = useRef(false);
-  const [sessionStartedAt, setSessionStartedAt] = useState<number | null>(null);
 
   // Track if session was ever connected; mark round completed on disconnect
   useEffect(() => {
     if (session.connectionState === ConnectionState.Connected) {
-      if (!wasConnectedRef.current) {
-        // eslint-disable-next-line react-hooks-extra/no-direct-set-state-in-use-effect
-        setSessionStartedAt(Date.now());
-      }
       wasConnectedRef.current = true;
     } else if (
       session.connectionState === ConnectionState.Disconnected &&
@@ -378,7 +386,7 @@ export default function InterviewPageClient({ interviewId, roundId }: InterviewP
   return (
     <AgentSessionProvider session={session}>
       <div className="fixed top-4 left-4 z-20">
-        <InterviewTimer startedAt={sessionStartedAt} />
+        <AgentSpeechTimer />
       </div>
       <div className="fixed top-4 right-4 z-20">
         <ThemeToggle />

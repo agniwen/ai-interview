@@ -41,7 +41,7 @@ def prewarm(proc: JobProcess):
     proc.userdata["vad"] = silero.VAD.load(
         activation_threshold=0.7,
         min_speech_duration=0.25,
-        min_silence_duration=0.7,
+        min_silence_duration=1.0,
         prefix_padding_duration=0.3,
     )
 
@@ -102,7 +102,7 @@ async def my_agent(ctx: JobContext):
             "endpointing": {
                 "mode": "dynamic",
                 "min_delay": 0.5,
-                "max_delay": 3.0,
+                "max_delay": 4.0,
             },
             "interruption": {
                 "mode": "adaptive",
@@ -220,20 +220,22 @@ async def my_agent(ctx: JobContext):
     # with actual session start (matches session_start_time above).
     interview_agent.mark_started()
 
-    # Hard timeout safety net. Per-turn instructions should end the interview
-    # naturally near the limit via end_call; if the LLM ignores them, this
-    # force-ends the session after a 60s grace period so users can't run over.
+    # Hard timeout safety net. Per-turn instructions wind the interview down
+    # gracefully (soft wrap, final wrap, then end_call near the limit). If the
+    # LLM still hasn't ended after a generous grace period, force a goodbye
+    # and close the session so a stuck interview can't run forever.
     time_limit = interview_agent.time_limit_seconds
+    hard_grace = interview_agent.hard_grace_seconds
 
     async def _enforce_time_limit():
         try:
-            await asyncio.sleep(time_limit + 60)
+            await asyncio.sleep(time_limit + hard_grace)
             logger.warning("interview exceeded time limit; forcing shutdown")
             try:
                 handle = session.generate_reply(
                     instructions=(
-                        "面试已达到时间上限。请用一两句话感谢候选人参与，"
-                        "告知面试结束，不要继续提问。"
+                        "面试时间已到。请用一两句温暖的话感谢候选人参与、"
+                        "祝其一切顺利，然后告知面试到此结束，不要继续提问。"
                     ),
                     allow_interruptions=False,
                 )
