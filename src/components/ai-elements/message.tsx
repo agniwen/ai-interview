@@ -276,19 +276,31 @@ export function MessageBranchPage({ className, ...props }: MessageBranchPageProp
   );
 }
 
-export type MessageResponseProps = ComponentProps<typeof Streamdown>;
+export type MessageResponseProps = ComponentProps<typeof Streamdown> & {
+  isStreaming?: boolean;
+};
 
 const streamdownPlugins = { cjk, code, math, mermaid };
 
+const STREAM_ANIMATION = {
+  animation: "fadeIn",
+  duration: 200,
+  easing: "ease-out",
+  sep: "word",
+} as const;
+
 export const MessageResponse = memo(
-  ({ className, ...props }: MessageResponseProps) => (
+  ({ className, isStreaming, animated, ...props }: MessageResponseProps) => (
     <Streamdown
+      animated={animated ?? STREAM_ANIMATION}
       className={cn("size-full [&>*:first-child]:mt-0 [&>*:last-child]:mb-0", className)}
+      isAnimating={isStreaming}
       plugins={streamdownPlugins}
       {...props}
     />
   ),
-  (prevProps, nextProps) => prevProps.children === nextProps.children,
+  (prevProps, nextProps) =>
+    prevProps.children === nextProps.children && prevProps.isStreaming === nextProps.isStreaming,
 );
 
 MessageResponse.displayName = "MessageResponse";

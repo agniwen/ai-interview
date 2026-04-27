@@ -1,7 +1,6 @@
 "use client";
 
 import type { UIMessage } from "ai";
-import { SparklesIcon } from "lucide-react";
 import {
   Conversation,
   ConversationContent,
@@ -28,6 +27,102 @@ interface ConversationViewProps {
 interface MessageRenderEntry {
   message: UIMessage;
   startedAt: string | null;
+}
+
+function ResumeScreeningIllustration() {
+  return (
+    <svg
+      aria-hidden="true"
+      className="size-20 text-primary sm:size-24"
+      fill="none"
+      viewBox="0 0 112 112"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <defs>
+        <linearGradient
+          id="screening-flow"
+          x1="18"
+          x2="94"
+          y1="26"
+          y2="86"
+          gradientUnits="userSpaceOnUse"
+        >
+          <stop stopColor="currentColor" stopOpacity="0.95" />
+          <stop offset="1" stopColor="currentColor" stopOpacity="0.45" />
+        </linearGradient>
+      </defs>
+      <path
+        d="M20 23.5h29l11 11v45H20z"
+        fill="currentColor"
+        fillOpacity="0.08"
+        stroke="url(#screening-flow)"
+        strokeWidth="2.5"
+      />
+      <path d="M49 23.5V35h11" stroke="url(#screening-flow)" strokeWidth="2.5" />
+      <path
+        d="M29 44h20M29 52h14M29 60h11"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeOpacity="0.78"
+        strokeWidth="2.5"
+      />
+      <rect
+        fill="currentColor"
+        fillOpacity="0.08"
+        height="31"
+        rx="10"
+        stroke="url(#screening-flow)"
+        strokeWidth="2.5"
+        width="32"
+        x="60"
+        y="50"
+      />
+      <path
+        d="M68 66.5 73.5 72l10.5-11"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="3"
+      />
+      <path
+        d="M61 37h11.5c7.18 0 13 5.82 13 13v3"
+        stroke="url(#screening-flow)"
+        strokeDasharray="4 5"
+        strokeLinecap="round"
+        strokeWidth="2.5"
+      />
+      <path
+        d="m81 50 4.5 5 4.5-5"
+        stroke="url(#screening-flow)"
+        strokeLinecap="round"
+        strokeWidth="2.5"
+      />
+      <circle
+        cx="79.5"
+        cy="25.5"
+        fill="currentColor"
+        fillOpacity="0.12"
+        r="8.5"
+        stroke="currentColor"
+        strokeOpacity="0.45"
+        strokeWidth="2"
+      />
+      <path
+        d="M79.5 21.5v8M75.5 25.5h8"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeOpacity="0.78"
+        strokeWidth="2.2"
+      />
+      <path
+        d="M14 77h10M88 86h10M12 33h5M92 40h5"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeOpacity="0.3"
+        strokeWidth="2"
+      />
+    </svg>
+  );
 }
 
 function buildRenderEntries(messages: UIMessage[]): MessageRenderEntry[] {
@@ -83,9 +178,9 @@ export function ConversationView({
         <ConversationContent className="mx-auto w-full max-w-5xl px-2 py-4 sm:py-6 md:px-6">
           {entries.length === 0 ? (
             <ConversationEmptyState
-              className="my-10 rounded-2xl border border-dashed border-border/70 bg-background/70"
+              className="my-10 rounded-[1.75rem] border border-border/45 bg-background/28 backdrop-blur-md"
               description="上传候选人简历（最多 8 份）或输入筛选要求，助手会给出评分与推荐结论。"
-              icon={<SparklesIcon className="size-5" />}
+              icon={<ResumeScreeningIllustration />}
               title="开始筛选简历"
             />
           ) : (

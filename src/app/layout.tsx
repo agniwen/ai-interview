@@ -3,7 +3,9 @@ import { Analytics } from "@vercel/analytics/next";
 import { IBM_Plex_Mono, Noto_Sans_SC, Source_Sans_3, Source_Serif_4 } from "next/font/google";
 import localFont from "next/font/local";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
+import "overlayscrollbars/overlayscrollbars.css";
 import { Suspense } from "react";
+import { OverlayScrollbarsBody } from "@/components/overlay-scrollbars-body";
 import { QueryProvider } from "@/components/query-provider";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
@@ -67,6 +69,7 @@ export default function RootLayout({
         >
           跳到主要内容
         </a>
+        <OverlayScrollbarsBody />
         <ThemeProvider attribute="class" defaultTheme="dark" disableTransitionOnChange enableSystem>
           <NuqsAdapter>
             <QueryProvider>

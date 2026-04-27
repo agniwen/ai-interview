@@ -164,6 +164,12 @@ importers:
       openai:
         specifier: ^6.33.0
         version: 6.33.0(ws@8.20.0)(zod@4.3.6)
+      overlayscrollbars:
+        specifier: ^2.15.1
+        version: 2.15.1
+      overlayscrollbars-react:
+        specifier: ^0.5.6
+        version: 0.5.6(overlayscrollbars@2.15.1)(react@19.2.3)
       pdf-parse:
         specifier: ^2.4.5
         version: 2.4.5
@@ -5155,6 +5161,15 @@ packages:
         optional: true
       zod:
         optional: true
+
+  overlayscrollbars-react@0.5.6:
+    resolution: {integrity: sha512-E5To04bL5brn9GVCZ36SnfGanxa2I2MDkWoa4Cjo5wol7l+diAgi4DBc983V7l2nOk/OLJ6Feg4kySspQEGDBw==}
+    peerDependencies:
+      overlayscrollbars: ^2.0.0
+      react: '>=16.8.0'
+
+  overlayscrollbars@2.15.1:
+    resolution: {integrity: sha512-glX26JwjL+Tkzv0JNOWdW4VozP5dGXO+Wx8+TPrdTEJTSYT/8eJS8yXM+fewjU0nFq/JeCa+X+BqABNjC4YZSA==}
 
   oxfmt@0.45.0:
     resolution: {integrity: sha512-0o/COoN9fY50bjVeM7PQsNgbhndKurBIeTIcspW033OumksjJJmIVDKjAk5HMwU/GHTxSOdGDdhJ6BRzGPmsHg==}
@@ -11094,6 +11109,13 @@ snapshots:
     optionalDependencies:
       ws: 8.20.0
       zod: 4.3.6
+
+  overlayscrollbars-react@0.5.6(overlayscrollbars@2.15.1)(react@19.2.3):
+    dependencies:
+      overlayscrollbars: 2.15.1
+      react: 19.2.3
+
+  overlayscrollbars@2.15.1: {}
 
   oxfmt@0.45.0:
     dependencies:

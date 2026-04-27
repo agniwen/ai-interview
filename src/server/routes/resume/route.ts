@@ -4,7 +4,11 @@ import { zValidator } from "@hono/zod-validator";
 import { generateText } from "ai";
 import { withDevTools } from "@/server/agents/devtools";
 import { factory } from "@/server/factory";
-import { checkConversationOwner, upsertChatMessage } from "@/server/queries/chat";
+import {
+  checkConversationOwner,
+  deleteMessagesFromId,
+  upsertChatMessage,
+} from "@/server/queries/chat";
 import { inlineAttachmentsForModel } from "./inline-attachments";
 import { resumeChatRequestSchema, resumeTitleRequestSchema } from "./schema";
 import { runResumeScreening } from "./screening";
@@ -13,15 +17,41 @@ import { sanitizeTitle } from "./utils";
 export const resumeRouter = factory
   .createApp()
   .post("/", zValidator("json", resumeChatRequestSchema), async (c) => {
-    const { chatId, enableThinking, jobDescription, messages } = c.req.valid("json");
+    const {
+      chatId,
+      enableThinking,
+      jobDescription,
+      messages: rawMessages,
+      trigger,
+      messageId,
+    } = c.req.valid("json");
     const userId = c.var.user?.id;
 
     const conversationOwned =
       userId && chatId ? (await checkConversationOwner(userId, chatId)) === "ok" : false;
 
+    // On regenerate, drop the assistant message being replaced (and anything
+    // after it) so the LLM does not see its own prior reply and "continue"
+    // from there. `DefaultChatTransport` sends the full message list along
+    // with `trigger`/`messageId`, expecting the server to slice.
+    let messages = rawMessages as UIMessage[];
+    if (trigger === "regenerate-message" && messageId) {
+      const cutoff = messages.findIndex((m) => (m as UIMessage).id === messageId);
+      if (cutoff !== -1) {
+        messages = messages.slice(0, cutoff);
+      }
+      if (conversationOwned && chatId) {
+        try {
+          await deleteMessagesFromId({ conversationId: chatId, messageId });
+        } catch (error) {
+          console.error("[resume] failed to prune messages on regenerate", error);
+        }
+      }
+    }
+
     // Persist the latest user message up front (fire-and-forget) so a
     // refresh mid-stream still shows what the user just sent.
-    if (conversationOwned && chatId) {
+    if (conversationOwned && chatId && trigger !== "regenerate-message") {
       const latestUser = [...messages]
         .toReversed()
         .find(
@@ -42,9 +72,7 @@ export const resumeRouter = factory
       }
     }
 
-    const messagesForModel = userId
-      ? await inlineAttachmentsForModel(userId, messages as UIMessage[])
-      : (messages as UIMessage[]);
+    const messagesForModel = userId ? await inlineAttachmentsForModel(userId, messages) : messages;
 
     const result = await runResumeScreening({
       enableThinking,
@@ -75,7 +103,7 @@ export const resumeRouter = factory
           console.error("[resume] failed to persist assistant message", error);
         }
       },
-      originalMessages: messages as UIMessage[],
+      originalMessages: messages,
       sendReasoning: enableThinking !== false,
       sendSources: true,
     });

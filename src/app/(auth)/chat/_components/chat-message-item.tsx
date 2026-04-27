@@ -175,7 +175,10 @@ export function ChatMessageItem({
                   {message.parts.map((part, index) => {
                     if (part.type === "text") {
                       return (
-                        <MessageResponse key={`${message.id}-${index}`}>
+                        <MessageResponse
+                          isStreaming={isMessageStreaming}
+                          key={`${message.id}-${index}`}
+                        >
                           {part.text}
                         </MessageResponse>
                       );

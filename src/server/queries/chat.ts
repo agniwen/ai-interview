@@ -1,5 +1,5 @@
 import type { UIMessage } from "ai";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, gte } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { chatConversation, chatMessage } from "@/lib/db/schema";
 import type { JobDescriptionConfig } from "@/lib/job-description-config";
@@ -192,4 +192,39 @@ export async function upsertChatMessage(input: {
     .update(chatConversation)
     .set({ updatedAt: now })
     .where(eq(chatConversation.id, input.conversationId));
+}
+
+/**
+ * Deletes the message identified by `messageId` and every message that was
+ * created at or after it within the same conversation. Used by the regenerate
+ * flow to prune the assistant message being replaced (and any orphan messages
+ * that came after it). The caller must have already verified ownership.
+ */
+export async function deleteMessagesFromId(input: {
+  conversationId: string;
+  messageId: string;
+}): Promise<void> {
+  const [target] = await db
+    .select({ createdAt: chatMessage.createdAt })
+    .from(chatMessage)
+    .where(
+      and(
+        eq(chatMessage.conversationId, input.conversationId),
+        eq(chatMessage.id, input.messageId),
+      ),
+    )
+    .limit(1);
+
+  if (!target) {
+    return;
+  }
+
+  await db
+    .delete(chatMessage)
+    .where(
+      and(
+        eq(chatMessage.conversationId, input.conversationId),
+        gte(chatMessage.createdAt, target.createdAt),
+      ),
+    );
 }

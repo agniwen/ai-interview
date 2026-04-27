@@ -332,3 +332,15 @@
     transition-duration: 0.01ms !important;
   }
 }
+
+/* OverlayScrollbars custom theme — matches shadcn muted-foreground/25 thumb */
+.os-theme-app {
+  --os-size: 10px;
+  --os-padding-perpendicular: 2px;
+  --os-padding-axis: 2px;
+  --os-track-border-radius: 9999px;
+  --os-handle-border-radius: 9999px;
+  --os-handle-bg: color-mix(in oklch, var(--muted-foreground) 25%, transparent);
+  --os-handle-bg-hover: color-mix(in oklch, var(--muted-foreground) 40%, transparent);
+  --os-handle-bg-active: color-mix(in oklch, var(--muted-foreground) 55%, transparent);
+}
