@@ -42,5 +42,30 @@ export function createChatTransport(chatId: string) {
         window.clearTimeout(timeoutId);
       }
     },
+    // Defensive layer over the SDK's default body builder: when regenerating,
+    // ensure `messages` is trimmed *before* the message being replaced and
+    // that `messageId` is present so the server can prune the DB row. The SDK
+    // strips local state but does not always pass `messageId` to the body
+    // (e.g. when callers omit it), leaving the old assistant orphaned in the
+    // DB and resurfacing on reload.
+    prepareSendMessagesRequest: ({ id, messages, trigger, messageId, body, headers }) => {
+      let outgoingMessages = messages;
+      if (trigger === "regenerate-message" && messageId) {
+        const cutoff = messages.findIndex((m) => m.id === messageId);
+        if (cutoff !== -1) {
+          outgoingMessages = messages.slice(0, cutoff);
+        }
+      }
+      return {
+        body: {
+          ...body,
+          id,
+          messageId,
+          messages: outgoingMessages,
+          trigger,
+        },
+        headers,
+      };
+    },
   });
 }

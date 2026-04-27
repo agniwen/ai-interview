@@ -50,8 +50,11 @@ export const resumeRouter = factory
     }
 
     // Persist the latest user message up front (fire-and-forget) so a
-    // refresh mid-stream still shows what the user just sent.
-    if (conversationOwned && chatId && trigger !== "regenerate-message") {
+    // refresh mid-stream still shows what the user just sent. Run on every
+    // trigger — `upsertChatMessage` is idempotent, and skipping on
+    // regenerate would drop the user row if the original submit's
+    // fire-and-forget persist never landed.
+    if (conversationOwned && chatId) {
       const latestUser = [...messages]
         .toReversed()
         .find(

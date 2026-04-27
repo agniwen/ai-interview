@@ -526,9 +526,16 @@ export default function ChatPageClient({ initialSessionId }: { initialSessionId:
     [addToolOutput],
   );
 
-  const regenerateLastReply = useCallback(() => {
-    void regenerate();
-  }, [regenerate]);
+  const regenerateLastReply = useCallback(
+    (messageId: string) => {
+      // Pass the explicit `messageId` so the server route can prune the old
+      // assistant row from the DB. Without it, the SDK still strips the
+      // assistant from local state but omits `messageId` from the request
+      // body, leaving the old row orphaned and resurfacing on reload.
+      void regenerate({ messageId });
+    },
+    [regenerate],
+  );
 
   const handleResumeImported = useCallback((partId: string, interviewId: string) => {
     setResumeImports((prev) => ({ ...prev, [partId]: interviewId }));
@@ -566,9 +573,12 @@ export default function ChatPageClient({ initialSessionId }: { initialSessionId:
 
     // The first step itself failed (no earlier step-start to keep) — fall back
     // to `regenerate`, which discards the half-written message and starts over.
+    // Pass the messageId so the server can prune the partially persisted row
+    // (chat-registry's onFinish writes a partial on isError) before inserting
+    // the fresh response — otherwise the orphan resurfaces on reload.
     if (lastStepStartIndex <= 0) {
       clearError();
-      void regenerate();
+      void regenerate({ messageId: lastMessage.id });
       return;
     }
 
@@ -587,7 +597,9 @@ export default function ChatPageClient({ initialSessionId }: { initialSessionId:
       return next;
     });
     clearError();
-    void regenerate();
+    // Same DB-cleanup reason as above — the partially persisted assistant row
+    // must be removed even though we drop it locally via `setMessages`.
+    void regenerate({ messageId: lastMessage.id });
   }, [clearError, regenerate, setMessages]);
 
   return (

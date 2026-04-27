@@ -21,7 +21,7 @@ interface ConversationViewProps {
   onResumeImportMissing: (partId: string) => void;
   onApplyJDConfirm: (toolCallId: string, jobDescriptionId: string) => Promise<void>;
   onApplyJDIgnore: (toolCallId: string) => Promise<void>;
-  onRegenerate: () => void;
+  onRegenerate: (messageId: string) => void;
 }
 
 interface MessageRenderEntry {

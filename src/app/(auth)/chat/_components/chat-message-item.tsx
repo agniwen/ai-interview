@@ -45,7 +45,7 @@ interface ChatMessageItemProps {
   onResumeImportMissing: (partId: string) => void;
   onApplyJDConfirm: (toolCallId: string, jobDescriptionId: string) => Promise<void>;
   onApplyJDIgnore: (toolCallId: string) => Promise<void>;
-  onRegenerate: () => void;
+  onRegenerate: (messageId: string) => void;
 }
 
 /**
@@ -253,7 +253,7 @@ export function ChatMessageItem({
           <MessageAction
             disabled={isStreaming}
             label="重新生成"
-            onClick={onRegenerate}
+            onClick={() => onRegenerate(message.id)}
             tooltip="重新生成"
           >
             <RefreshCcwIcon className="size-3" />
