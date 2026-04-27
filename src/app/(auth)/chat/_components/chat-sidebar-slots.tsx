@@ -202,22 +202,14 @@ function renderSessionItem({
 }) {
   if (editMode && !isMock) {
     return (
-      <div
-        aria-pressed={isSelected}
-        className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 rounded-md text-left"
-        onClick={() => onToggleSelect(conversation.id)}
-        onKeyDown={(event) => {
-          if (event.key === "Enter" || event.key === " ") {
-            event.preventDefault();
-            onToggleSelect(conversation.id);
-          }
-        }}
-        role="button"
-        tabIndex={0}
-      >
-        <Checkbox aria-hidden="true" checked={isSelected} className="ml-2 shrink-0" tabIndex={-1} />
+      <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 rounded-md text-left">
+        <Checkbox
+          checked={isSelected}
+          className="ml-2 shrink-0"
+          onCheckedChange={() => onToggleSelect(conversation.id)}
+        />
         {itemBody}
-      </div>
+      </label>
     );
   }
 

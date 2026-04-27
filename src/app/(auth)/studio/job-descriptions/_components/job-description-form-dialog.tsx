@@ -622,16 +622,17 @@ function LinkedFormsList({
         </Button>
       </div>
 
-      {/* oxlint-disable-next-line no-nested-ternary -- list has loading/empty/data states */}
       {isLoading ? (
         <p className="rounded-xl border border-dashed border-border/60 bg-muted/20 px-4 py-6 text-center text-muted-foreground text-sm">
           正在加载关联问卷…
         </p>
-      ) : (templates.length === 0 ? (
+      ) : null}
+      {!isLoading && templates.length === 0 ? (
         <p className="rounded-xl border border-dashed border-border/60 bg-muted/20 px-4 py-6 text-center text-muted-foreground text-sm">
           暂无该岗位专属的问卷模版。
         </p>
-      ) : (
+      ) : null}
+      {!isLoading && templates.length > 0 ? (
         <div className="space-y-2">
           {templates.map((template) => (
             <Link
@@ -658,7 +659,7 @@ function LinkedFormsList({
             </Link>
           ))}
         </div>
-      ))}
+      ) : null}
     </div>
   );
 }
