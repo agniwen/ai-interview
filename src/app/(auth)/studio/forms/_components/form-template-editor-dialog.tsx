@@ -151,7 +151,7 @@ export function CandidateFormTemplateEditorDialog({
         toast.error(payload?.error ?? (isEdit ? "更新失败" : "创建失败"));
         return;
       }
-      toast.success(isEdit ? "问卷模版已更新" : "问卷模版已创建");
+      toast.success(isEdit ? "面试表单已更新" : "已创建面试表单");
       onSaved();
       onOpenChange(false);
     },
@@ -178,9 +178,9 @@ export function CandidateFormTemplateEditorDialog({
           }}
         >
           <DialogHeader>
-            <DialogTitle>{isEdit ? "编辑问卷模版" : "新建问卷模版"}</DialogTitle>
+            <DialogTitle>{isEdit ? "编辑面试表单" : "新建面试表单"}</DialogTitle>
             <DialogDescription>
-              候选人在面试开始前根据作用域填写该问卷；提交瞬间的题目结构会被冻结为快照。
+              候选人在面试开始前根据作用域填写该表单；提交瞬间的题目结构会被冻结为快照。
             </DialogDescription>
           </DialogHeader>
 
@@ -193,7 +193,7 @@ export function CandidateFormTemplateEditorDialog({
                   return (
                     <Field data-invalid={hasFieldErrors(field.state.meta.errors) || undefined}>
                       <FieldLabel htmlFor={field.name}>
-                        问卷标题 <span className="text-destructive">*</span>
+                        表单标题 <span className="text-destructive">*</span>
                       </FieldLabel>
                       <FieldContent className="gap-2">
                         <Input
@@ -224,7 +224,7 @@ export function CandidateFormTemplateEditorDialog({
                           id={field.name}
                           onBlur={field.handleBlur}
                           onChange={(event) => field.handleChange(event.target.value)}
-                          placeholder="告知候选人这份问卷的用途或填写须知"
+                          placeholder="告知候选人这份表单的用途或填写须知"
                           value={field.state.value ?? ""}
                         />
                         <FieldError errors={errors} />

@@ -164,7 +164,7 @@ export const interviewRouter = factory
     if (requiredTemplateIds.length > 0) {
       const submittedIds = await loadSubmittedTemplateIds(id, requiredTemplateIds);
       if (submittedIds.size < requiredTemplateIds.length) {
-        return c.json({ code: "forms_required", error: "请先完成面试前问卷。" }, 409);
+        return c.json({ code: "forms_required", error: "请先完成面试表单。" }, 409);
       }
     }
 
@@ -318,7 +318,7 @@ export const interviewRouter = factory
       return c.json({ error: "Interview not available." }, 404);
     }
     if (interviewRecord.currentRoundStatus === "completed") {
-      return c.json({ error: "当前面试轮次已结束，无法再提交问卷。" }, 403);
+      return c.json({ error: "当前面试轮次已结束，无法再提交面试表单。" }, 403);
     }
 
     const body = (await c.req.json().catch(() => null)) as {
@@ -341,18 +341,18 @@ export const interviewRouter = factory
       [...applicable.global, ...applicable.jobSpecific].map((t) => t.id),
     );
     if (!applicableIds.has(templateId)) {
-      return c.json({ error: "该问卷不适用于当前面试。" }, 400);
+      return c.json({ error: "该面试表单不适用于当前面试。" }, 400);
     }
 
     const version = await loadCandidateFormTemplateVersionById(templateId, versionId);
     if (!version) {
-      return c.json({ error: "问卷版本不存在。" }, 400);
+      return c.json({ error: "面试表单版本不存在。" }, 400);
     }
 
     const answersSchema = buildCandidateFormAnswersSchema(version.snapshot);
     const parsed = answersSchema.safeParse(rawAnswers);
     if (!parsed.success) {
-      return c.json({ error: parsed.error.issues[0]?.message ?? "问卷填写不完整。" }, 400);
+      return c.json({ error: parsed.error.issues[0]?.message ?? "面试表单填写不完整。" }, 400);
     }
 
     const now = new Date();
@@ -368,7 +368,7 @@ export const interviewRouter = factory
       });
     } catch {
       // Unique (templateId, interviewRecordId) — treat as already submitted.
-      return c.json({ error: "该问卷已提交过。" }, 409);
+      return c.json({ error: "该面试表单已提交过。" }, 409);
     }
 
     return c.json({

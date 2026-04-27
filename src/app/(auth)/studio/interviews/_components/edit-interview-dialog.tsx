@@ -43,6 +43,7 @@ import {
   toInterviewFormValues,
   useInterviewForm,
 } from "./interview-form";
+import { AgentInstructionsPanel } from "./agent-instructions-panel";
 import { InterviewQuestionBindingsSection } from "./interview-question-bindings-section";
 import { InterviewQuestionsFields } from "./interview-questions-fields";
 import { InterviewScheduleFields } from "./interview-schedule-fields";
@@ -124,7 +125,6 @@ export function EditInterviewDialog({
     },
   });
   const isSubmitting = useStore(form.store, (state) => state.isSubmitting);
-  const questionCount = useStore(form.store, (state) => state.values.interviewQuestions.length);
   const onOpenChangeRef = useRef(onOpenChange);
   onOpenChangeRef.current = onOpenChange;
   const closeDialog = useCallback(() => onOpenChangeRef.current(false), []);
@@ -219,7 +219,9 @@ export function EditInterviewDialog({
                   </TabsTrigger>
                   <TabsTrigger className="min-w-[8em]" value="questions">
                     面试题目
-                    {` (${questionCount})`}
+                  </TabsTrigger>
+                  <TabsTrigger className="min-w-[8em]" value="instructions">
+                    Agent 提示词
                   </TabsTrigger>
                 </TabsList>
               </DialogHeader>
@@ -261,13 +263,6 @@ export function EditInterviewDialog({
                         );
                       }}
                     </form.Field>
-
-                    {recordId ? (
-                      <InterviewQuestionBindingsSection
-                        disabled={isSubmitting || isLoadingRecord}
-                        interviewId={recordId}
-                      />
-                    ) : null}
 
                     <FieldGroup className="grid gap-5 md:grid-cols-2 md:items-start">
                       <form.Field name="candidateName">
@@ -418,11 +413,33 @@ export function EditInterviewDialog({
                   </div>
                 </TabsContent>
 
-                <TabsContent className="mt-0" value="questions">
-                  <InterviewQuestionsFields
-                    disabled={isSubmitting || isLoadingRecord}
-                    form={form}
-                    resetKey={recordId ?? "new"}
+                <TabsContent className="mt-0 space-y-6" value="questions">
+                  {recordId ? (
+                    <InterviewQuestionBindingsSection
+                      disabled={isSubmitting || isLoadingRecord}
+                      interviewId={recordId}
+                    />
+                  ) : null}
+
+                  <div className="space-y-3">
+                    <div>
+                      <p className="font-medium text-sm">候选人专属面试题</p>
+                      <p className="mt-1 text-muted-foreground text-xs">
+                        基于该候选人的简历单独维护的题目，仅用于本次面试。
+                      </p>
+                    </div>
+                    <InterviewQuestionsFields
+                      disabled={isSubmitting || isLoadingRecord}
+                      form={form}
+                      resetKey={recordId ?? "new"}
+                    />
+                  </div>
+                </TabsContent>
+
+                <TabsContent className="mt-0" value="instructions">
+                  <AgentInstructionsPanel
+                    enabled={open && activeTab === "instructions"}
+                    recordId={recordId}
                   />
                 </TabsContent>
               </div>

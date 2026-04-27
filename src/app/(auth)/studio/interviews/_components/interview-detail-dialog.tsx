@@ -51,6 +51,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { copyTextToClipboard, toAbsoluteUrl } from "@/lib/clipboard";
 import { scheduleEntryStatusMeta } from "@/lib/studio-interviews";
+import { AgentInstructionsPanel } from "./agent-instructions-panel";
 import { InterviewStatusBadge } from "./interview-status-badge";
 
 function renderHeaderDescription({
@@ -301,42 +302,6 @@ function DetailRow({
   );
 }
 
-function renderInstructionsTab({
-  isLoading,
-  variants,
-}: {
-  isLoading: boolean;
-  variants: { interviewerName: string | null; instructions: string }[];
-}) {
-  if (isLoading) {
-    return <div className="py-10 text-center text-muted-foreground text-sm">正在生成提示词...</div>;
-  }
-  if (variants.length === 0) {
-    return (
-      <div className="py-10 text-center text-muted-foreground text-sm">暂无可生成的提示词。</div>
-    );
-  }
-  return (
-    <div className="space-y-5">
-      {variants.map((variant, index) => (
-        <div
-          className="rounded-2xl border border-border/60 bg-muted/30 p-4"
-          key={variant.interviewerName ?? `variant-${index}`}
-        >
-          <h3 className="mb-3 font-medium text-sm">
-            {variant.interviewerName
-              ? `面试官：${variant.interviewerName}`
-              : "默认提示词（未关联岗位）"}
-          </h3>
-          <pre className="whitespace-pre-wrap font-sans text-muted-foreground text-sm leading-relaxed">
-            {variant.instructions}
-          </pre>
-        </div>
-      ))}
-    </div>
-  );
-}
-
 // oxlint-disable-next-line complexity -- one branch per (type, displayMode) combo, all flat conditionals.
 function ReadOnlyAnswer({
   answer,
@@ -454,7 +419,7 @@ function renderFormsTab({
   if (submissions.length === 0) {
     return (
       <div className="py-10 text-center text-muted-foreground text-sm">
-        候选人没有填写过任何问卷。
+        候选人没有填写过任何面试表单。
       </div>
     );
   }
@@ -507,8 +472,7 @@ function renderFormsTab({
             ))}
           </div>
           <p className="mt-3 text-muted-foreground text-xs">
-            该记录基于模版 v{submission.version}{" "}
-            的快照；如模版已更新，请到「面试前问卷模版」查看当前版本。
+            该记录基于 v{submission.version} 的快照；如已更新，请到「面试表单」查看当前版本。
           </p>
         </div>
       ))}
@@ -574,29 +538,12 @@ export function InterviewDetailDialog({
         | { error?: string };
       if (!response.ok || !("submissions" in payload)) {
         throw new Error(
-          "error" in payload ? (payload.error ?? "加载问卷答复失败") : "加载问卷答复失败",
+          "error" in payload ? (payload.error ?? "加载面试表单答复失败") : "加载面试表单答复失败",
         );
       }
       return payload.submissions;
     },
     queryKey: ["studio-interview-form-submissions", recordId],
-  });
-
-  const { data: instructionVariants = [], isLoading: isInstructionsLoading } = useQuery({
-    enabled: open && !!recordId,
-    queryFn: async () => {
-      const response = await fetch(`/api/studio/interviews/${recordId}/agent-instructions`);
-      const payload = (await response.json()) as
-        | { variants: { interviewerName: string | null; instructions: string }[] }
-        | { error?: string };
-      if (!response.ok || !("variants" in payload)) {
-        throw new Error(
-          "error" in payload ? (payload.error ?? "加载提示词失败") : "加载提示词失败",
-        );
-      }
-      return payload.variants;
-    },
-    queryKey: ["studio-interview-agent-instructions", recordId],
   });
 
   const isLoading = isRecordLoading;
@@ -677,7 +624,7 @@ export function InterviewDetailDialog({
         throw new Error(payload?.error ?? "重置失败");
       }
 
-      toast.success("已重置问卷填写");
+      toast.success("已重置面试表单填写");
       await queryClient.invalidateQueries({
         queryKey: ["studio-interview-form-submissions", recordId],
       });
@@ -748,7 +695,7 @@ export function InterviewDetailDialog({
                       Agent 提示词
                     </TabsTrigger>
                     <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="forms">
-                      问卷答复
+                      表单答复
                     </TabsTrigger>
                   </TabsList>
                   <PdfPreviewButton
@@ -1209,10 +1156,7 @@ export function InterviewDetailDialog({
                 </TabsContent>
 
                 <TabsContent value="instructions">
-                  {renderInstructionsTab({
-                    isLoading: isInstructionsLoading,
-                    variants: instructionVariants,
-                  })}
+                  <AgentInstructionsPanel enabled={open} recordId={recordId} />
                 </TabsContent>
 
                 <TabsContent value="forms">
@@ -1241,9 +1185,9 @@ export function InterviewDetailDialog({
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>重置问卷填写？</AlertDialogTitle>
+            <AlertDialogTitle>重置面试表单填写？</AlertDialogTitle>
             <AlertDialogDescription>
-              候选人本份问卷的答复将被删除，下次进入面试时需要重新填写。该操作不可撤销。
+              候选人本份面试表单的答复将被删除，下次进入面试时需要重新填写。该操作不可撤销。
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

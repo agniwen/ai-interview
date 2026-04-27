@@ -25,38 +25,53 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 
-const navItems = [
+const navGroups = [
   {
-    href: "/studio/interviews",
-    icon: BotIcon,
-    title: "AI 面试管理",
+    items: [
+      {
+        href: "/studio/interviews",
+        icon: BotIcon,
+        title: "AI 面试管理",
+      },
+    ],
+    label: "工作台",
   },
   {
-    href: "/studio/departments",
-    icon: Building2Icon,
-    title: "部门管理",
+    items: [
+      {
+        href: "/studio/departments",
+        icon: Building2Icon,
+        title: "部门管理",
+      },
+      {
+        href: "/studio/interviewers",
+        icon: UserCircleIcon,
+        title: "面试官管理",
+      },
+      {
+        href: "/studio/job-descriptions",
+        icon: FileTextIcon,
+        title: "在招岗位管理",
+      },
+    ],
+    label: "招聘配置",
   },
   {
-    href: "/studio/interviewers",
-    icon: UserCircleIcon,
-    title: "面试官管理",
+    items: [
+      {
+        href: "/studio/forms",
+        icon: ClipboardListIcon,
+        title: "面试表单",
+      },
+      {
+        href: "/studio/interview-questions",
+        icon: ListChecksIcon,
+        title: "面试题",
+      },
+    ],
+    label: "题库",
   },
-  {
-    href: "/studio/job-descriptions",
-    icon: FileTextIcon,
-    title: "在招岗位管理",
-  },
-  {
-    href: "/studio/forms",
-    icon: ClipboardListIcon,
-    title: "面试前问卷模版",
-  },
-  {
-    href: "/studio/interview-questions",
-    icon: ListChecksIcon,
-    title: "面试中问题模版",
-  },
-];
+] as const;
 
 export function StudioSidebarSlots() {
   const pathname = usePathname();
@@ -67,27 +82,33 @@ export function StudioSidebarSlots() {
   return (
     <>
       <SidebarBodyPortalContent>
-        <SidebarGroup>
-          <SidebarGroupLabel>AI 面试</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {navItems.map((item) => {
-                const Icon = item.icon;
+        {navGroups.map((group) => (
+          <SidebarGroup key={group.label}>
+            <SidebarGroupLabel>{group.label}</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {group.items.map((item) => {
+                  const Icon = item.icon;
 
-                return (
-                  <SidebarMenuItem key={item.href}>
-                    <SidebarMenuButton asChild isActive={isActive(item.href)} tooltip={item.title}>
-                      <Link href={item.href}>
-                        <Icon />
-                        <span>{item.title}</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                );
-              })}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+                  return (
+                    <SidebarMenuItem key={item.href}>
+                      <SidebarMenuButton
+                        asChild
+                        isActive={isActive(item.href)}
+                        tooltip={item.title}
+                      >
+                        <Link href={item.href}>
+                          <Icon />
+                          <span>{item.title}</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  );
+                })}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        ))}
       </SidebarBodyPortalContent>
 
       <SidebarFooterPortalContent>

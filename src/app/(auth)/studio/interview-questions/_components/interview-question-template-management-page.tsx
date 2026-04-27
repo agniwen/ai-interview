@@ -99,7 +99,7 @@ async function fetchTemplates(params: {
   const response = await fetch(`/api/studio/interview-questions?${qs.toString()}`);
   const payload = await response.json();
   if (!response.ok || !payload?.records) {
-    throw new Error(payload?.error ?? "加载面试中问题模版失败");
+    throw new Error(payload?.error ?? "加载面试题列表失败");
   }
   return payload as PaginatedInterviewQuestionTemplateResult;
 }
@@ -123,7 +123,7 @@ export function InterviewQuestionTemplateManagementPage({
   const queryClient = useQueryClient();
   const [globalFilter, setGlobalFilter] = useState("");
   const [scopeFilter, setScopeFilter] = useState("all");
-  // URL-bound filters — keeps deep links from "在招岗位 → 面试中问题" tab in sync.
+  // URL-bound filters — keeps deep links from "在招岗位 → 面试题" tab in sync.
   const [jobDescriptionFilter, setJobDescriptionFilter] = useQueryState(
     "jobDescriptionId",
     parseAsString.withDefault("all").withOptions({ clearOnDefault: true }),
@@ -269,9 +269,9 @@ export function InterviewQuestionTemplateManagementPage({
     <>
       <div className="space-y-6">
         <header className="flex flex-col gap-2">
-          <h1 className="font-semibold text-2xl">面试中问题模版</h1>
+          <h1 className="font-semibold text-2xl">面试题</h1>
           <p className="text-muted-foreground text-sm">
-            配置面试官在面试中向候选人必问的题目。模版可以设为全局或绑定到在招岗位；面试创建时会冻结当前题目快照，之后编辑模版不影响已开始的面试。
+            配置面试官在面试中向候选人必问的题目。可以设为全局或绑定到在招岗位；面试创建时会冻结当前题目快照，之后编辑不影响已开始的面试。
           </p>
         </header>
 
@@ -326,7 +326,7 @@ export function InterviewQuestionTemplateManagementPage({
             </Button>
             <Button className="flex-1 sm:flex-none" onClick={openCreate} variant="outline">
               <PlusIcon className="size-4" />
-              新建问题模版
+              新建面试题
             </Button>
           </div>
         </div>
@@ -352,7 +352,7 @@ export function InterviewQuestionTemplateManagementPage({
                       <div className="flex flex-col">
                         <span>{record.title}</span>
                         {record.description ? (
-                          <span className="truncate text-muted-foreground text-xs">
+                          <span className="truncate text-muted-foreground text-xs max-w-sm">
                             {record.description}
                           </span>
                         ) : null}
@@ -430,15 +430,15 @@ export function InterviewQuestionTemplateManagementPage({
               <EmptyMedia variant="icon">
                 <ListChecksIcon className="size-5" />
               </EmptyMedia>
-              <EmptyTitle>还没有问题模版</EmptyTitle>
+              <EmptyTitle>还没有面试题</EmptyTitle>
               <EmptyDescription>
-                创建模版后，符合作用域的面试在创建时会自动绑定到该模版的最新版本。
+                创建后，符合作用域的面试在创建时会自动绑定到最新版本的题目快照。
               </EmptyDescription>
             </EmptyHeader>
             <EmptyContent>
               <Button onClick={openCreate} variant="outline">
                 <PlusIcon className="size-4" />
-                新建问题模版
+                新建面试题
               </Button>
             </EmptyContent>
           </Empty>
@@ -520,7 +520,7 @@ export function InterviewQuestionTemplateManagementPage({
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>确认删除这个问题模版？</AlertDialogTitle>
+            <AlertDialogTitle>确认删除这组面试题？</AlertDialogTitle>
             <AlertDialogDescription>
               即将删除：{deleteRecord?.title ?? ""}。 如果已被某个面试绑定，将无法删除。
             </AlertDialogDescription>

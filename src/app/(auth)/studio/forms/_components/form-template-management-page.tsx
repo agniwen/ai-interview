@@ -101,7 +101,7 @@ async function fetchTemplates(params: {
   const response = await fetch(`/api/studio/forms?${qs.toString()}`);
   const payload = await response.json();
   if (!response.ok || !payload?.records) {
-    throw new Error(payload?.error ?? "加载问卷模版失败");
+    throw new Error(payload?.error ?? "加载面试表单失败");
   }
   return payload as PaginatedCandidateFormTemplateResult;
 }
@@ -125,7 +125,7 @@ export function CandidateFormTemplateManagementPage({
   const queryClient = useQueryClient();
   const [globalFilter, setGlobalFilter] = useState("");
   const [scopeFilter, setScopeFilter] = useState("all");
-  // URL-bound filters — keeps deep links from "在招岗位 → 面试前问卷" tab in sync.
+  // URL-bound filters — keeps deep links from "在招岗位 → 面试表单" tab in sync.
   const [jobDescriptionFilter, setJobDescriptionFilter] = useQueryState(
     "jobDescriptionId",
     parseAsString.withDefault("all").withOptions({ clearOnDefault: true }),
@@ -270,9 +270,9 @@ export function CandidateFormTemplateManagementPage({
     <>
       <div className="space-y-6">
         <header className="flex flex-col gap-2">
-          <h1 className="font-semibold text-2xl">面试前问卷模版</h1>
+          <h1 className="font-semibold text-2xl">面试表单</h1>
           <p className="text-muted-foreground text-sm">
-            配置候选人在面试前需要填写的问卷。模版可以设为全局或绑定到在招岗位；候选人提交后会冻结为快照，之后编辑模版不影响历史填写记录。
+            配置候选人在面试前需要填写的表单。可以设为全局或绑定到在招岗位；候选人提交后会冻结为快照，之后编辑不影响历史填写记录。
           </p>
         </header>
 
@@ -283,7 +283,7 @@ export function CandidateFormTemplateManagementPage({
               <Input
                 className="pr-9 pl-9"
                 onChange={(event) => setGlobalFilter(event.target.value)}
-                placeholder="搜索问卷标题或说明"
+                placeholder="搜索表单标题或说明"
                 value={globalFilter}
               />
               {isFetching ? (
@@ -338,7 +338,7 @@ export function CandidateFormTemplateManagementPage({
               variant="outline"
             >
               <PlusIcon className="size-4" />
-              新建问卷模版
+              新建面试表单
             </Button>
           </div>
         </div>
@@ -453,15 +453,15 @@ export function CandidateFormTemplateManagementPage({
               <EmptyMedia variant="icon">
                 <ClipboardListIcon className="size-5" />
               </EmptyMedia>
-              <EmptyTitle>还没有问卷模版</EmptyTitle>
+              <EmptyTitle>还没有面试表单</EmptyTitle>
               <EmptyDescription>
-                创建模版后，符合作用域的面试开始前，候选人会先被要求填写问卷。
+                创建后，符合作用域的面试开始前，候选人会先被要求填写表单。
               </EmptyDescription>
             </EmptyHeader>
             <EmptyContent>
               <Button onClick={openCreate} variant="outline">
                 <PlusIcon className="size-4" />
-                新建问卷模版
+                新建面试表单
               </Button>
             </EmptyContent>
           </Empty>
@@ -549,7 +549,7 @@ export function CandidateFormTemplateManagementPage({
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>确认删除这个问卷模版？</AlertDialogTitle>
+            <AlertDialogTitle>确认删除这个面试表单？</AlertDialogTitle>
             <AlertDialogDescription>
               即将删除：{deleteRecord?.title ?? ""}。 如果已有候选人填写过，将无法删除 ——
               请先清理相关面试记录。

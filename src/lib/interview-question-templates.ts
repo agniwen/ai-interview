@@ -4,8 +4,20 @@ import { z } from "zod";
 export const interviewQuestionTemplateScopeSchema = z.enum(["global", "job_description"]);
 export type InterviewQuestionTemplateScope = z.infer<typeof interviewQuestionTemplateScopeSchema>;
 
+export const interviewQuestionTemplateDifficultySchema = z.enum(["easy", "medium", "hard"]);
+export type InterviewQuestionTemplateDifficulty = z.infer<
+  typeof interviewQuestionTemplateDifficultySchema
+>;
+
+export const INTERVIEW_QUESTION_DIFFICULTY_OPTIONS = [
+  { label: "简单", value: "easy" },
+  { label: "中等", value: "medium" },
+  { label: "困难", value: "hard" },
+] as const satisfies readonly { label: string; value: InterviewQuestionTemplateDifficulty }[];
+
 export const interviewQuestionTemplateQuestionInputSchema = z.object({
   content: z.string().trim().min(1, "题目不能为空").max(1000, "题目不能超过 1000 字"),
+  difficulty: interviewQuestionTemplateDifficultySchema,
   id: z.string().trim().min(1).optional(),
   sortOrder: z.number().int().min(0),
 });
@@ -48,6 +60,7 @@ export interface InterviewQuestionTemplateQuestionRecord {
   id: string;
   templateId: string;
   content: string;
+  difficulty: InterviewQuestionTemplateDifficulty;
   sortOrder: number;
   createdAt: string | Date;
   updatedAt: string | Date;
@@ -82,6 +95,7 @@ export interface InterviewQuestionTemplateListRecord {
 export interface InterviewQuestionTemplateSnapshotQuestion {
   id: string;
   content: string;
+  difficulty: InterviewQuestionTemplateDifficulty;
   sortOrder: number;
 }
 
@@ -127,6 +141,7 @@ export function buildTemplateSnapshot(params: {
     jobDescriptionId: params.jobDescriptionId,
     questions: sortedQuestions.map((question) => ({
       content: question.content,
+      difficulty: question.difficulty,
       id: question.id,
       sortOrder: question.sortOrder,
     })),

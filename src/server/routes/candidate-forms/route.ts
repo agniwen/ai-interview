@@ -122,7 +122,7 @@ export const candidateFormsRouter = factory
     const id = c.req.param("id");
     const record = await loadCandidateFormTemplateById(id);
     if (!record) {
-      return c.json({ error: "问卷模版不存在。" }, 404);
+      return c.json({ error: "面试表单不存在。" }, 404);
     }
     return c.json(record);
   })
@@ -130,7 +130,7 @@ export const candidateFormsRouter = factory
     const id = c.req.param("id");
     const existing = await loadCandidateFormTemplateById(id);
     if (!existing) {
-      return c.json({ error: "问卷模版不存在。" }, 404);
+      return c.json({ error: "面试表单不存在。" }, 404);
     }
 
     const body = (await c.req.json().catch(() => null)) as Record<string, unknown> | null;
@@ -180,7 +180,7 @@ export const candidateFormsRouter = factory
     const id = c.req.param("id");
     const existing = await loadCandidateFormTemplateById(id);
     if (!existing) {
-      return c.json({ error: "问卷模版不存在。" }, 404);
+      return c.json({ error: "面试表单不存在。" }, 404);
     }
 
     const [submissionCountRow] = await db
@@ -189,7 +189,7 @@ export const candidateFormsRouter = factory
       .where(eq(candidateFormSubmission.templateId, id))
       .limit(1);
     if (submissionCountRow) {
-      return c.json({ error: "已有候选人填写该问卷，无法删除。" }, 400);
+      return c.json({ error: "已有候选人填写该面试表单，无法删除。" }, 400);
     }
 
     await db.delete(candidateFormTemplate).where(eq(candidateFormTemplate.id, id));
@@ -200,7 +200,7 @@ export const candidateFormsRouter = factory
     const id = c.req.param("id");
     const existing = await loadCandidateFormTemplateById(id);
     if (!existing) {
-      return c.json({ error: "问卷模版不存在。" }, 404);
+      return c.json({ error: "面试表单不存在。" }, 404);
     }
     const submissions = await loadSubmissionsByTemplate(id);
     return c.json({ submissions });

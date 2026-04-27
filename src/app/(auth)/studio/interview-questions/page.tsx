@@ -5,7 +5,7 @@ import { listInterviewQuestionTemplates } from "@/server/queries/interview-quest
 import { InterviewQuestionTemplateManagementPage } from "./_components/interview-question-template-management-page";
 
 export const metadata: Metadata = {
-  title: "面试中问题模版",
+  title: "面试题",
 };
 
 export default async function StudioInterviewQuestionTemplatesPage() {

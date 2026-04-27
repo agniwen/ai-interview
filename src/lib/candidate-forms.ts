@@ -106,7 +106,7 @@ export const candidateFormTemplateSchema = z
       .min(1, "至少需要一道题目")
       .max(50, "最多 50 道题目"),
     scope: candidateFormScopeSchema,
-    title: z.string().trim().min(1, "请输入问卷标题").max(120, "标题不能超过 120 字"),
+    title: z.string().trim().min(1, "请输入面试表单标题").max(120, "标题不能超过 120 字"),
   })
   .superRefine((value, ctx) => {
     if (value.scope === "job_description" && !value.jobDescriptionId) {

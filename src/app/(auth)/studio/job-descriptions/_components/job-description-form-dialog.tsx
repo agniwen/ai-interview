@@ -210,7 +210,7 @@ export function JobDescriptionFormDialog({
         error?: string;
       } | null;
       if (!response.ok || !payload?.records) {
-        throw new Error(payload?.error ?? "加载关联问卷失败");
+        throw new Error(payload?.error ?? "加载关联面试表单失败");
       }
       return payload.records;
     },
@@ -233,7 +233,7 @@ export function JobDescriptionFormDialog({
         error?: string;
       } | null;
       if (!response.ok || !payload?.records) {
-        throw new Error(payload?.error ?? "加载关联面试中问题模版失败");
+        throw new Error(payload?.error ?? "加载关联面试题失败");
       }
       return payload.records;
     },
@@ -316,8 +316,8 @@ export function JobDescriptionFormDialog({
           >
             <TabsList>
               <TabsTrigger value="basic">基本信息</TabsTrigger>
-              {isEdit ? <TabsTrigger value="interview-questions">面试中问题</TabsTrigger> : null}
-              {isEdit ? <TabsTrigger value="forms">面试前问卷</TabsTrigger> : null}
+              {isEdit ? <TabsTrigger value="interview-questions">面试题</TabsTrigger> : null}
+              {isEdit ? <TabsTrigger value="forms">面试表单</TabsTrigger> : null}
             </TabsList>
             <TabsContent value="basic">
               <FieldGroup className="mt-4 gap-5">
@@ -511,27 +511,27 @@ function LinkedFormsList({
     <div className="mt-4 space-y-3">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="font-medium text-sm">岗位关联的面试前问卷</p>
+          <p className="font-medium text-sm">岗位关联的面试表单</p>
           <p className="mt-1 text-muted-foreground text-xs">
-            候选人进入面试前需要填写下列问卷；全局问卷在「问卷模版」中维护。
+            候选人进入面试前需要填写下列表单；全局面试表单在「面试表单」菜单中维护。
           </p>
         </div>
         <Button asChild size="sm" type="button" variant="outline">
           <Link href={newTemplateHref} target="_blank">
             <ExternalLinkIcon className="size-3.5" />
-            管理问卷
+            管理表单
           </Link>
         </Button>
       </div>
 
       {isLoading ? (
         <p className="rounded-xl border border-dashed border-border/60 bg-muted/20 px-4 py-6 text-center text-muted-foreground text-sm">
-          正在加载关联问卷…
+          正在加载关联表单…
         </p>
       ) : null}
       {!isLoading && templates.length === 0 ? (
         <p className="rounded-xl border border-dashed border-border/60 bg-muted/20 px-4 py-6 text-center text-muted-foreground text-sm">
-          暂无该岗位专属的问卷模版。
+          暂无该岗位专属的面试表单。
         </p>
       ) : null}
       {!isLoading && templates.length > 0 ? (
@@ -581,9 +581,9 @@ function LinkedInterviewQuestionTemplatesList({
     <div className="mt-4 space-y-3">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="font-medium text-sm">岗位关联的面试中问题模版</p>
+          <p className="font-medium text-sm">岗位关联的面试题</p>
           <p className="mt-1 text-muted-foreground text-xs">
-            面试创建时会自动绑定到下列模版的最新版本；全局模版在「面试中问题模版」菜单中维护。
+            面试创建时会自动绑定到下列面试题的最新版本；全局面试题在「面试题」菜单中维护。
           </p>
         </div>
         <Button asChild size="sm" type="button" variant="outline">
@@ -601,7 +601,7 @@ function LinkedInterviewQuestionTemplatesList({
       ) : null}
       {!isLoading && templates.length === 0 ? (
         <p className="rounded-xl border border-dashed border-border/60 bg-muted/20 px-4 py-6 text-center text-muted-foreground text-sm">
-          暂无该岗位专属的面试中问题模版。
+          暂无该岗位专属的面试题。
         </p>
       ) : null}
       {!isLoading && templates.length > 0 ? (

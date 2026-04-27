@@ -7,7 +7,7 @@ import type {
 } from "@/lib/interview-question-templates";
 import type { JobDescriptionListRecord } from "@/lib/job-descriptions";
 import { useForm, useStore } from "@tanstack/react-form";
-import { LoaderCircleIcon, PlusIcon, XIcon } from "lucide-react";
+import { LoaderCircleIcon } from "lucide-react";
 import { useEffect } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -28,17 +28,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { SortableDragHandle, SortableItem, SortableList } from "@/components/ui/sortable-list";
 import { Textarea } from "@/components/ui/textarea";
-import { useSortableItemIds } from "@/hooks/use-sortable-item-ids";
 import { interviewQuestionTemplateSchema } from "@/lib/interview-question-templates";
 import { hasFieldErrors, toFieldErrors } from "../../interviews/_components/interview-form";
+import { SortableQuestionListEditor } from "../../_components/sortable-question-list-editor";
 
 function defaultValues(): InterviewQuestionTemplateInput {
   return {
     description: "",
     jobDescriptionId: null,
-    questions: [{ content: "", id: crypto.randomUUID(), sortOrder: 0 }],
+    questions: [{ content: "", difficulty: "easy", id: crypto.randomUUID(), sortOrder: 0 }],
     scope: "global",
     title: "",
   };
@@ -50,6 +49,7 @@ function toFormValues(record: InterviewQuestionTemplateRecord): InterviewQuestio
     jobDescriptionId: record.jobDescriptionId,
     questions: record.questions.map((question, index) => ({
       content: question.content,
+      difficulty: question.difficulty ?? "easy",
       id: question.id,
       sortOrder: index,
     })),
@@ -82,6 +82,7 @@ export function InterviewQuestionTemplateEditorDialog({
         jobDescriptionId: value.scope === "job_description" ? value.jobDescriptionId : null,
         questions: value.questions.map((question, index) => ({
           content: question.content.trim(),
+          difficulty: question.difficulty,
           id: question.id,
           sortOrder: index,
         })),
@@ -102,7 +103,7 @@ export function InterviewQuestionTemplateEditorDialog({
         toast.error(payload?.error ?? (isEdit ? "更新失败" : "创建失败"));
         return;
       }
-      toast.success(isEdit ? "问题模版已更新" : "问题模版已创建");
+      toast.success(isEdit ? "面试题已更新" : "已创建面试题");
       onSaved();
       onOpenChange(false);
     },
@@ -129,7 +130,7 @@ export function InterviewQuestionTemplateEditorDialog({
           }}
         >
           <DialogHeader>
-            <DialogTitle>{isEdit ? "编辑面试中问题模版" : "新建面试中问题模版"}</DialogTitle>
+            <DialogTitle>{isEdit ? "编辑面试题" : "新建面试题"}</DialogTitle>
             <DialogDescription>
               面试官在面试时按顺序向候选人必问的题目；面试创建瞬间的题目内容会被冻结为快照。
             </DialogDescription>
@@ -144,7 +145,7 @@ export function InterviewQuestionTemplateEditorDialog({
                   return (
                     <Field data-invalid={hasFieldErrors(field.state.meta.errors) || undefined}>
                       <FieldLabel htmlFor={field.name}>
-                        模版标题 <span className="text-destructive">*</span>
+                        标题 <span className="text-destructive">*</span>
                       </FieldLabel>
                       <FieldContent className="gap-2">
                         <Input
@@ -261,13 +262,19 @@ export function InterviewQuestionTemplateEditorDialog({
                   {(len) => <span className="text-muted-foreground text-xs">共 {len} 道</span>}
                 </form.Subscribe>
               </div>
-              <form.Field mode="array" name="questions">
-                {/* oxlint-disable-next-line no-explicit-any */}
-                {(field: any) => (
-                  // oxlint-disable-next-line no-use-before-define
-                  <QuestionList field={field} form={form} resetKey={record?.id ?? "new"} />
-                )}
-              </form.Field>
+              <SortableQuestionListEditor
+                arrayFieldName="questions"
+                contentFieldName="content"
+                contentPlaceholder="请输入一道必问题目…"
+                createItem={(sortIndex) => ({
+                  content: "",
+                  difficulty: "easy",
+                  id: crypto.randomUUID(),
+                  sortOrder: sortIndex,
+                })}
+                form={form}
+                resetKey={record?.id ?? "new"}
+              />
             </div>
           </div>
 
@@ -283,116 +290,5 @@ export function InterviewQuestionTemplateEditorDialog({
         </form>
       </DialogContent>
     </Dialog>
-  );
-}
-
-function QuestionList({
-  field,
-  form,
-  resetKey,
-}: {
-  // oxlint-disable-next-line no-explicit-any
-  field: any;
-  // oxlint-disable-next-line no-explicit-any
-  form: any;
-  resetKey: string;
-}) {
-  const items = (field.state.value ?? []) as { id?: string; content: string; sortOrder: number }[];
-  const {
-    ids,
-    move: moveId,
-    push: pushId,
-    remove: removeId,
-  } = useSortableItemIds(items.length, resetKey);
-
-  return (
-    <div className="space-y-3">
-      {items.length === 0 ? (
-        <p className="rounded-xl border border-dashed border-border/60 bg-muted/20 px-4 py-6 text-center text-muted-foreground text-sm">
-          暂无题目，点击下方按钮添加。
-        </p>
-      ) : null}
-      <SortableList
-        ids={ids}
-        onReorder={(from, to) => {
-          field.moveValue(from, to);
-          moveId(from, to);
-        }}
-      >
-        {items.map((_item, index) => {
-          const id = ids[index];
-          if (!id) {
-            return null;
-          }
-          return (
-            <SortableItem id={id} key={id}>
-              {({ handleProps }) => (
-                <div className="flex items-start gap-2">
-                  <SortableDragHandle
-                    {...handleProps}
-                    aria-label={`拖动以调整第 ${index + 1} 题的顺序`}
-                    className="mt-1"
-                  />
-                  <span className="mt-2.5 w-6 shrink-0 text-right text-muted-foreground text-sm">
-                    {index + 1}.
-                  </span>
-                  <div className="flex-1">
-                    <form.Field name={`questions[${index}].content`}>
-                      {/* oxlint-disable-next-line no-explicit-any */}
-                      {(subField: any) => {
-                        const errors = toFieldErrors(subField.state.meta.errors);
-                        return (
-                          <>
-                            <Textarea
-                              aria-invalid={!!errors?.length}
-                              className="min-h-16"
-                              onBlur={subField.handleBlur}
-                              onChange={(event) => subField.handleChange(event.target.value)}
-                              placeholder="请输入一道必问题目…"
-                              value={subField.state.value ?? ""}
-                            />
-                            <FieldError errors={errors} />
-                          </>
-                        );
-                      }}
-                    </form.Field>
-                  </div>
-                  <Button
-                    aria-label={`删除第 ${index + 1} 题`}
-                    className="mt-1"
-                    onClick={() => {
-                      field.removeValue(index);
-                      removeId(index);
-                    }}
-                    size="icon"
-                    type="button"
-                    variant="ghost"
-                  >
-                    <XIcon className="size-4" />
-                  </Button>
-                </div>
-              )}
-            </SortableItem>
-          );
-        })}
-      </SortableList>
-      <Button
-        className="self-start"
-        onClick={() => {
-          field.pushValue({
-            content: "",
-            id: crypto.randomUUID(),
-            sortOrder: items.length,
-          });
-          pushId();
-        }}
-        size="sm"
-        type="button"
-        variant="outline"
-      >
-        <PlusIcon className="size-4" />
-        添加题目
-      </Button>
-    </div>
   );
 }

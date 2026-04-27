@@ -99,7 +99,7 @@ export function CandidateFormTemplateSubmissionsDrawer({
       <SheetContent className="w-full gap-0 overflow-y-auto p-0 sm:max-w-2xl">
         <SheetHeader className="border-border/60 border-b px-6 pt-6 pb-4">
           <SheetTitle>填写记录</SheetTitle>
-          <SheetDescription>{template ? `问卷模版：${template.title}` : null}</SheetDescription>
+          <SheetDescription>{template ? `面试表单：${template.title}` : null}</SheetDescription>
         </SheetHeader>
         <div className="space-y-4 p-6">
           {isLoading ? (
@@ -116,7 +116,7 @@ export function CandidateFormTemplateSubmissionsDrawer({
           {data && data.length === 0 ? (
             <div className="flex flex-col items-center gap-2 py-10 text-muted-foreground text-sm">
               <InboxIcon className="size-6" />
-              还没有候选人填写过这份问卷
+              还没有候选人填写过这份面试表单
             </div>
           ) : null}
           {data?.map((submission) => (

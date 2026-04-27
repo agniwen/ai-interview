@@ -5,7 +5,7 @@ import { listAllJobDescriptions } from "@/server/queries/job-descriptions";
 import { CandidateFormTemplateManagementPage } from "./_components/form-template-management-page";
 
 export const metadata: Metadata = {
-  title: "面试前问卷模版",
+  title: "面试表单",
 };
 
 export default async function StudioCandidateFormsPage() {

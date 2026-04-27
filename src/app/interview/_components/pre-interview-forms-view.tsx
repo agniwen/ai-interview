@@ -53,7 +53,7 @@ async function fetchForms(interviewId: string, roundId: string): Promise<FormsPa
   const response = await fetch(`/api/interview/${interviewId}/${roundId}/forms`);
   const payload = await response.json();
   if (!response.ok) {
-    throw new Error(payload?.error ?? "加载问卷失败");
+    throw new Error(payload?.error ?? "加载面试表单失败");
   }
   return payload as FormsPayload;
 }
@@ -628,7 +628,7 @@ export function PreInterviewFormsView({
         setSubmittedIds(new Set(Object.keys(payload.submitted)));
       } catch (error) {
         if (!cancelled) {
-          setLoadError(error instanceof Error ? error.message : "加载问卷失败");
+          setLoadError(error instanceof Error ? error.message : "加载面试表单失败");
         }
       } finally {
         if (!cancelled) {
@@ -708,7 +708,7 @@ export function PreInterviewFormsView({
         }
         setSubmittedIds((prev) => new Set([...prev, template.templateId]));
       }
-      toast.success("问卷已提交");
+      toast.success("面试表单已提交");
     } finally {
       setSubmitting(false);
     }
@@ -734,20 +734,20 @@ export function PreInterviewFormsView({
             <section className="mb-8">
               <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1 text-primary text-xs">
                 <ClipboardListIcon className="size-3.5" />
-                开始前的问卷
+                开始前的面试表单
               </div>
               <h1 className="font-semibold text-2xl tracking-tight sm:text-3xl">
-                开始前请先填写问卷
+                开始前请先填写面试表单
               </h1>
               <p className="mt-2 text-muted-foreground text-sm sm:text-base">
-                完成全部问卷后进入面试。
+                完成全部面试表单后进入面试。
               </p>
             </section>
 
             {loading ? (
               <div className="flex items-center justify-center gap-2 py-16 text-muted-foreground text-sm">
                 <Loader2Icon className="size-4 animate-spin" />
-                正在检查前置问卷填写情况
+                正在检查面试表单填写情况
               </div>
             ) : null}
 

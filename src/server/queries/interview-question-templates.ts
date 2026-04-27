@@ -332,6 +332,7 @@ function mapQuestionRow(
   return {
     content: row.content,
     createdAt: serializeDate(row.createdAt),
+    difficulty: row.difficulty,
     id: row.id,
     sortOrder: row.sortOrder,
     templateId: row.templateId,

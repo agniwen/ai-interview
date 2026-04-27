@@ -9,6 +9,7 @@ import type {
   CandidateFormTemplateSnapshot,
 } from "@/lib/candidate-forms";
 import type {
+  InterviewQuestionTemplateDifficulty,
   InterviewQuestionTemplateScope,
   InterviewQuestionTemplateSnapshot,
 } from "@/lib/interview-question-templates";
@@ -623,6 +624,10 @@ export const interviewQuestionTemplateQuestion = pgTable(
   {
     content: text("content").notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
+    difficulty: text("difficulty")
+      .$type<InterviewQuestionTemplateDifficulty>()
+      .notNull()
+      .default("easy"),
     id: text("id").primaryKey(),
     sortOrder: integer("sort_order").notNull(),
     templateId: text("template_id")

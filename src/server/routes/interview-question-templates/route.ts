@@ -29,6 +29,7 @@ function normalizeQuestions(
   questions: {
     id?: string;
     content: string;
+    difficulty: "easy" | "medium" | "hard";
     sortOrder: number;
   }[],
   templateId: string,
@@ -37,6 +38,7 @@ function normalizeQuestions(
   return questions.map((question, index) => ({
     content: question.content.trim(),
     createdAt: now,
+    difficulty: question.difficulty,
     id: question.id?.trim() || crypto.randomUUID(),
     sortOrder: typeof question.sortOrder === "number" ? question.sortOrder : index,
     templateId,
@@ -111,7 +113,7 @@ export const interviewQuestionTemplatesRouter = factory
     const id = c.req.param("id");
     const record = await loadInterviewQuestionTemplateById(id);
     if (!record) {
-      return c.json({ error: "面试中问题模板不存在。" }, 404);
+      return c.json({ error: "面试题不存在。" }, 404);
     }
     return c.json(record);
   })
@@ -119,7 +121,7 @@ export const interviewQuestionTemplatesRouter = factory
     const id = c.req.param("id");
     const existing = await loadInterviewQuestionTemplateById(id);
     if (!existing) {
-      return c.json({ error: "面试中问题模板不存在。" }, 404);
+      return c.json({ error: "面试题不存在。" }, 404);
     }
 
     const body = (await c.req.json().catch(() => null)) as Record<string, unknown> | null;
@@ -169,7 +171,7 @@ export const interviewQuestionTemplatesRouter = factory
     const id = c.req.param("id");
     const existing = await loadInterviewQuestionTemplateById(id);
     if (!existing) {
-      return c.json({ error: "面试中问题模板不存在。" }, 404);
+      return c.json({ error: "面试题不存在。" }, 404);
     }
 
     const bindingCount = await countBindingsByTemplate(id);
