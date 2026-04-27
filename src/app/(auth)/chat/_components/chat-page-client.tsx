@@ -7,6 +7,8 @@ import { deriveJobDescriptionText, getJobDescriptionLabel } from "@/lib/job-desc
 import type { JobDescriptionListRecord } from "@/lib/job-descriptions";
 import { useChat } from "@ai-sdk/react";
 import { useQuery } from "@tanstack/react-query";
+import { BorderBeam } from "border-beam";
+import { useTheme } from "next-themes";
 import {
   lastAssistantMessageIsCompleteWithApprovalResponses,
   lastAssistantMessageIsCompleteWithToolCalls,
@@ -255,6 +257,38 @@ function shouldAutoSubmit({ messages }: { messages: UIMessage[] }): boolean {
   return (
     lastAssistantMessageIsCompleteWithToolCalls({ messages }) ||
     lastAssistantMessageIsCompleteWithApprovalResponses({ messages })
+  );
+}
+
+function DarkModeBeam({
+  active,
+  children,
+  className,
+}: {
+  active: boolean;
+  children: React.ReactNode;
+  className?: string;
+}) {
+  const { resolvedTheme } = useTheme();
+  const isHydrated = useHydrated();
+  const isDark = isHydrated && resolvedTheme === "dark";
+
+  if (!isDark) {
+    return <div className={className}>{children}</div>;
+  }
+
+  return (
+    <BorderBeam
+      active={active}
+      borderRadius={21}
+      className={className}
+      colorVariant="ocean"
+      size="md"
+      strength={0.7}
+      theme="dark"
+    >
+      {children}
+    </BorderBeam>
   );
 }
 
@@ -1451,108 +1485,111 @@ export default function ChatPageClient({ initialSessionId }: { initialSessionId:
           ) : null}
         </div>
       ) : null}
+      <div className="mx-auto w-full max-w-5xl px-3">
+        <DarkModeBeam active={isStreaming} className="w-full">
+          <PromptInput
+            data-tour="prompt-input"
+            accept="application/pdf"
+            className="**:data-[slot=input-group]:cursor-text **:data-[slot=input-group]:rounded-[1.3rem] **:data-[slot=input-group]:border-border/65 **:data-[slot=input-group]:bg-white **:data-[slot=input-group]:shadow-[0_8px_18px_-20px_rgba(60,44,23,0.5)]"
+            onMouseDown={(event) => {
+              const target = event.target as HTMLElement;
+              // Clicks on interactive descendants manage their own focus.
+              if (
+                target.closest(
+                  'button, a, input, textarea, [role="menuitem"], [role="dialog"], [data-slot="select"]',
+                )
+              ) {
+                return;
+              }
+              // Keep focus on the textarea when clicking blank areas so the
+              // `:focus-visible` shadow variant doesn't flicker on blur/refocus.
+              event.preventDefault();
+              const textarea = event.currentTarget.querySelector("textarea");
+              if (textarea && document.activeElement !== textarea) {
+                textarea.focus();
+              }
+            }}
+            dragOverlay={
+              <div className="flex h-full w-full items-center justify-center rounded-[1.15rem] border-2 border-dashed border-primary/60 bg-background px-6 py-8 text-center transition-colors">
+                <div className="flex flex-col items-center gap-2">
+                  <UploadIcon className="size-8 text-primary/50" />
+                  <p className="font-medium text-sm">拖拽 PDF 简历到这里</p>
+                  <p className="text-muted-foreground text-xs">
+                    支持多个文件，系统只会加入 PDF 格式的文件
+                  </p>
+                </div>
+              </div>
+            }
+            dragOverlayClassName="bg-background rounded-[1.3rem]"
+            globalDrop
+            maxFiles={8}
+            maxFileSize={10 * 1024 * 1024}
+            multiple
+            onGlobalDropOutside={() => {
+              toast.warning("请将简历拖拽到上传区域后再松开。");
+            }}
+            onError={({ code, message }) => {
+              if (code === "accept") {
+                setUploadErrorMessage("仅支持上传 PDF 文件。");
+                return;
+              }
+              if (code === "max_file_size") {
+                setUploadErrorMessage("单个 PDF 文件不能超过 10 MB。");
+                return;
+              }
+              if (code === "max_files") {
+                setUploadErrorMessage("最多上传 8 个 PDF 文件。");
+                return;
+              }
+              setUploadErrorMessage(message);
+            }}
+            onSubmit={({ files, text }) => {
+              const trimmed = text.trim();
+              const hasText = trimmed.length > 0;
+              const hasFiles = files.length > 0;
 
-      <PromptInput
-        data-tour="prompt-input"
-        accept="application/pdf"
-        className="mx-auto w-full max-w-5xl px-2 sm:px-3 **:data-[slot=input-group]:cursor-text **:data-[slot=input-group]:rounded-[1.3rem] **:data-[slot=input-group]:border-border/65 **:data-[slot=input-group]:bg-white **:data-[slot=input-group]:shadow-[0_8px_18px_-20px_rgba(60,44,23,0.5)]"
-        onMouseDown={(event) => {
-          const target = event.target as HTMLElement;
-          // Clicks on interactive descendants manage their own focus.
-          if (
-            target.closest(
-              'button, a, input, textarea, [role="menuitem"], [role="dialog"], [data-slot="select"]',
-            )
-          ) {
-            return;
-          }
-          // Keep focus on the textarea when clicking blank areas so the
-          // `:focus-visible` shadow variant doesn't flicker on blur/refocus.
-          event.preventDefault();
-          const textarea = event.currentTarget.querySelector("textarea");
-          if (textarea && document.activeElement !== textarea) {
-            textarea.focus();
-          }
-        }}
-        dragOverlay={
-          <div className="flex h-full w-full items-center justify-center rounded-[1.15rem] border-2 border-dashed border-primary/60 bg-background px-6 py-8 text-center transition-colors">
-            <div className="flex flex-col items-center gap-2">
-              <UploadIcon className="size-8 text-primary/50" />
-              <p className="font-medium text-sm">拖拽 PDF 简历到这里</p>
-              <p className="text-muted-foreground text-xs">
-                支持多个文件，系统只会加入 PDF 格式的文件
-              </p>
-            </div>
-          </div>
-        }
-        dragOverlayClassName="bg-background rounded-[1.3rem]"
-        globalDrop
-        maxFiles={8}
-        maxFileSize={10 * 1024 * 1024}
-        multiple
-        onGlobalDropOutside={() => {
-          toast.warning("请将简历拖拽到上传区域后再松开。");
-        }}
-        onError={({ code, message }) => {
-          if (code === "accept") {
-            setUploadErrorMessage("仅支持上传 PDF 文件。");
-            return;
-          }
-          if (code === "max_file_size") {
-            setUploadErrorMessage("单个 PDF 文件不能超过 10 MB。");
-            return;
-          }
-          if (code === "max_files") {
-            setUploadErrorMessage("最多上传 8 个 PDF 文件。");
-            return;
-          }
-          setUploadErrorMessage(message);
-        }}
-        onSubmit={({ files, text }) => {
-          const trimmed = text.trim();
-          const hasText = trimmed.length > 0;
-          const hasFiles = files.length > 0;
+              if (!hasText && !hasFiles) {
+                return;
+              }
 
-          if (!hasText && !hasFiles) {
-            return;
-          }
+              setUploadErrorMessage(null);
 
-          setUploadErrorMessage(null);
+              void sendMessageToChat({
+                files,
+                text: hasText ? trimmed : "请结合岗位要求分析这份简历并给出筛选建议。",
+              });
+              setInput("");
+            }}
+          >
+            <UploadErrorReset onReset={() => setUploadErrorMessage(null)} />
 
-          void sendMessageToChat({
-            files,
-            text: hasText ? trimmed : "请结合岗位要求分析这份简历并给出筛选建议。",
-          });
-          setInput("");
-        }}
-      >
-        <UploadErrorReset onReset={() => setUploadErrorMessage(null)} />
+            <PromptInputHeader>
+              <ComposerAttachments />
+            </PromptInputHeader>
 
-        <PromptInputHeader>
-          <ComposerAttachments />
-        </PromptInputHeader>
+            <PromptInputBody>
+              <PromptInputTextarea
+                autoComplete="off"
+                className="min-h-20"
+                onChange={(event) => setInput(event.currentTarget.value)}
+                placeholder="输入岗位与筛选要求，或上传候选人 PDF 简历（支持多文件）…"
+                value={displayInput}
+              />
+            </PromptInputBody>
 
-        <PromptInputBody>
-          <PromptInputTextarea
-            autoComplete="off"
-            className="min-h-20"
-            onChange={(event) => setInput(event.currentTarget.value)}
-            placeholder="输入岗位与筛选要求，或上传候选人 PDF 简历（支持多文件）…"
-            value={displayInput}
-          />
-        </PromptInputBody>
-
-        <ComposerFooter
-          downloadableMessages={downloadableMessages}
-          hasJobDescription={hasJobDescription}
-          input={input}
-          jobDescriptionLabel={jobDescriptionLabel}
-          onClearJobDescription={clearJobDescription}
-          onOpenJobDescriptionSettings={openJobDescriptionDialog}
-          status={effectiveStatus}
-          stop={handleStop}
-        />
-      </PromptInput>
+            <ComposerFooter
+              downloadableMessages={downloadableMessages}
+              hasJobDescription={hasJobDescription}
+              input={input}
+              jobDescriptionLabel={jobDescriptionLabel}
+              onClearJobDescription={clearJobDescription}
+              onOpenJobDescriptionSettings={openJobDescriptionDialog}
+              status={effectiveStatus}
+              stop={handleStop}
+            />
+          </PromptInput>
+        </DarkModeBeam>
+      </div>
 
       <Dialog onOpenChange={setIsJobDescriptionDialogOpen} open={isJobDescriptionDialogOpen}>
         <DialogContent>

@@ -89,6 +89,9 @@ importers:
       better-auth:
         specifier: ^1.6.0
         version: 1.6.0(@opentelemetry/api@1.9.0)(drizzle-kit@1.0.0-beta.9-e89174b)(drizzle-orm@1.0.0-beta.9-e89174b(@opentelemetry/api@1.9.0)(@types/mssql@9.1.11(@azure/core-client@1.10.1))(@types/pg@8.20.0)(mssql@11.0.1(@azure/core-client@1.10.1))(pg@8.20.0)(postgres@3.4.9))(next@16.1.6(@babel/core@7.29.0)(@opentelemetry/api@1.9.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(pg@8.20.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(vitest@2.1.9(@types/node@25.5.2)(lightningcss@1.32.0))
+      border-beam:
+        specifier: ^1.0.1
+        version: 1.0.1(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       chat:
         specifier: ^4.26.0
         version: 4.26.0
@@ -3652,6 +3655,12 @@ packages:
 
   bl@6.1.6:
     resolution: {integrity: sha512-jLsPgN/YSvPUg9UX0Kd73CXpm2Psg9FxMeCSXnk3WBO3CMT10JMwijubhGfHCnFu6TPn1ei3b975dxv7K2pWVg==}
+
+  border-beam@1.0.1:
+    resolution: {integrity: sha512-kswSYT8zRmt5en+wZMtJAbM8RjJglqSKwyRuQZWXnMHQsBwJisaznTfhD8SWvWJZKAtGbSkE2q/wY7seiNDmcw==}
+    peerDependencies:
+      react: '>=18.0.0'
+      react-dom: '>=18.0.0'
 
   bowser@2.14.1:
     resolution: {integrity: sha512-tzPjzCxygAKWFOJP011oxFHs57HzIhOEracIgAePE4pqB3LikALKnSzUyU4MGs9/iCEUuHlAJTjTc5M+u7YEGg==}
@@ -9388,6 +9397,11 @@ snapshots:
       buffer: 6.0.3
       inherits: 2.0.4
       readable-stream: 4.7.0
+
+  border-beam@1.0.1(react-dom@19.2.3(react@19.2.3))(react@19.2.3):
+    dependencies:
+      react: 19.2.3
+      react-dom: 19.2.3(react@19.2.3)
 
   bowser@2.14.1: {}
 
