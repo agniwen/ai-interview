@@ -4,10 +4,10 @@ import type {
   TrackReferenceOrPlaceholder,
 } from "@livekit/components-react";
 import type { LocalAudioTrack, RemoteAudioTrack } from "livekit-client";
-import type { AnimationPlaybackControlsWithThen, ValueAnimationTransition } from "motion/react";
+import type { ValueAnimationTransition } from "motion/react";
 import { useTrackVolume } from "@livekit/components-react";
-import { animate, useMotionValue, useMotionValueEvent } from "motion/react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
+import { useAnimatedValue } from "./_internals/use-animated-value";
 
 const DEFAULT_SPEED = 10;
 const DEFAULT_AMPLITUDE = 2;
@@ -18,26 +18,17 @@ const DEFAULT_TRANSITION: ValueAnimationTransition = { duration: 0.5, ease: "eas
 const DEFAULT_PULSE_TRANSITION: ValueAnimationTransition = {
   duration: 0.35,
   ease: "easeOut",
-  repeat: Infinity,
+  repeat: Number.POSITIVE_INFINITY,
   repeatType: "mirror",
 };
 
-function useAnimatedValue<T>(initialValue: T) {
-  const [value, setValue] = useState(initialValue);
-  const motionValue = useMotionValue(initialValue);
-  const controlsRef = useRef<AnimationPlaybackControlsWithThen | null>(null);
-  useMotionValueEvent(motionValue, "change", (value) => setValue(value as T));
-
-  const animateFn = useCallback(
-    (targetValue: T | T[], transition: ValueAnimationTransition) => {
-      controlsRef.current = animate(motionValue, targetValue, transition);
-    },
-    [motionValue],
-  );
-
-  return { animate: animateFn, controls: controlsRef, motionValue, value };
-}
-
+/**
+ * Aura 视觉效果的动画驱动 hook：根据 Agent 状态产出 shader uniform 所需的数值。
+ * Aura visualizer driver: produces the numeric uniforms consumed by the aura shader.
+ *
+ * `speaking` 状态下会读取实时音量并把它喂给 `scale`，从而形成响动效果。
+ * In the `speaking` state real-time volume drives `scale` so the orb pulses with audio.
+ */
 export function useAgentAudioVisualizerAura(
   state: AgentState | undefined,
   audioTrack?: LocalAudioTrack | RemoteAudioTrack | TrackReferenceOrPlaceholder,
@@ -99,18 +90,12 @@ export function useAgentAudioVisualizerAura(
   }, [state, animateScale, animateAmplitude, animateFrequency, animateBrightness]);
 
   useEffect(() => {
+    // Drive scale directly from real-time volume only while actually speaking.
+    // 仅在 speaking 状态下用实时音量驱动 scale，其它状态保留过渡动画。
     if (state === "speaking" && volume > 0 && !scaleMotionValue.isAnimating()) {
       animateScale(0.2 + 0.2 * volume, { duration: 0 });
     }
-  }, [
-    state,
-    volume,
-    scaleMotionValue,
-    animateScale,
-    animateAmplitude,
-    animateFrequency,
-    animateBrightness,
-  ]);
+  }, [state, volume, scaleMotionValue, animateScale]);
 
   return {
     amplitude,

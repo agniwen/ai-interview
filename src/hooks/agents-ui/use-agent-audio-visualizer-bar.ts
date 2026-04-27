@@ -1,70 +1,54 @@
 import type { AgentState } from "@livekit/components-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
+import { useSequenceStepper } from "./_internals/use-sequence-stepper";
 
+/**
+ * 生成"连接中"状态的 bar 序列：从两端向中间收敛。
+ * Build the "connecting" sequence — bars converge from both ends toward the center.
+ */
 function generateConnectingSequenceBar(columns: number): number[][] {
-  const seq = [];
-
-  for (let x = 0; x < columns; x++) {
-    seq.push([x, columns - 1 - x]);
+  const sequence: number[][] = [];
+  for (let x = 0; x < columns; x += 1) {
+    sequence.push([x, columns - 1 - x]);
   }
-
-  return seq;
+  return sequence;
 }
 
+/**
+ * 生成"聆听中"状态的 bar 序列：仅中间柱亮起，其余熄灭。
+ * Build the "listening" sequence — only the center bar is highlighted.
+ */
 function generateListeningSequenceBar(columns: number): number[][] {
   const center = Math.floor(columns / 2);
   const noIndex = -1;
-
   return [[center], [noIndex]];
 }
 
+/**
+ * Bar 风格的语音可视化动画器：根据 Agent 状态产出"当前应高亮的列下标数组"。
+ * Bar-style visualizer animator: produces the array of column indices to highlight.
+ *
+ * 与 radial 版共用底层步进器 `useSequenceStepper`。
+ * Shares its rAF-based stepper with the radial variant.
+ */
 export function useAgentAudioVisualizerBarAnimator(
   state: AgentState | undefined,
   columns: number,
   interval: number,
 ): number[] {
-  const [index, setIndex] = useState(0);
   const [sequence, setSequence] = useState<number[][]>([[]]);
 
   useEffect(() => {
-    if (state === "thinking") {
+    if (state === "thinking" || state === "listening") {
       setSequence(generateListeningSequenceBar(columns));
     } else if (state === "connecting" || state === "initializing") {
-      const sequence = [...generateConnectingSequenceBar(columns)];
-      setSequence(sequence);
-    } else if (state === "listening") {
-      setSequence(generateListeningSequenceBar(columns));
+      setSequence(generateConnectingSequenceBar(columns));
     } else if (state === undefined || state === "speaking") {
-      setSequence([new Array(columns).fill(0).map((_, idx) => idx)]);
+      setSequence([Array.from({ length: columns }, (_, idx) => idx)]);
     } else {
       setSequence([[]]);
     }
-    setIndex(0);
   }, [state, columns]);
 
-  const animationFrameId = useRef<number | null>(null);
-  useEffect(() => {
-    let startTime = performance.now();
-
-    const animate = (time: DOMHighResTimeStamp) => {
-      const timeElapsed = time - startTime;
-
-      if (timeElapsed >= interval) {
-        setIndex((prev) => prev + 1);
-        startTime = time;
-      }
-
-      animationFrameId.current = requestAnimationFrame(animate);
-    };
-
-    animationFrameId.current = requestAnimationFrame(animate);
-
-    return () => {
-      if (animationFrameId.current !== null) {
-        cancelAnimationFrame(animationFrameId.current);
-      }
-    };
-  }, [interval, columns, state, sequence.length]);
-
-  return sequence[index % sequence.length] ?? [];
+  return useSequenceStepper(sequence, interval, []);
 }

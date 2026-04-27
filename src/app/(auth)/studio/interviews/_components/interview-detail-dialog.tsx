@@ -27,7 +27,6 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -35,23 +34,23 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Field, FieldContent, FieldLabel } from "@/components/ui/field";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Textarea } from "@/components/ui/textarea";
 import { copyTextToClipboard, toAbsoluteUrl } from "@/lib/clipboard";
 import { scheduleEntryStatusMeta } from "@/lib/studio-interviews";
 import { AgentInstructionsPanel } from "./agent-instructions-panel";
+import { DetailRow } from "./interview-detail/detail-row";
+import { EvaluationResults } from "./interview-detail/evaluation-results";
+import { FormsTab } from "./interview-detail/forms-tab";
+import {
+  ensureArray,
+  ensureProjectExperiences,
+  ensureStringArray,
+  formatReportStatus,
+  formatValue,
+  getReportBadgeVariant,
+  truncateText,
+} from "./interview-detail/helpers";
 import { InterviewStatusBadge } from "./interview-status-badge";
 
 function renderHeaderDescription({
@@ -71,413 +70,6 @@ function renderHeaderDescription({
     );
   }
   return isLoading ? "正在加载候选人详情..." : "暂无可展示的候选人详情。";
-}
-
-function resolveRecommendationVariant(
-  recommendation: string,
-): "default" | "secondary" | "destructive" {
-  if (recommendation.includes("不建议")) {
-    return "destructive";
-  }
-  if (recommendation.includes("待定")) {
-    return "secondary";
-  }
-  return "default";
-}
-
-function formatValue(value: string | number | null | undefined) {
-  if (value === null || value === undefined || value === "") {
-    return "未填写";
-  }
-
-  return String(value);
-}
-
-function ensureStringArray(value: unknown) {
-  if (!Array.isArray(value)) {
-    return [] as string[];
-  }
-
-  return value.filter((item) => typeof item === "string" && item.trim().length > 0);
-}
-
-function ensureArray<T>(value: unknown) {
-  return Array.isArray(value) ? (value as T[]) : [];
-}
-
-function ensureProjectExperiences(value: unknown) {
-  if (!Array.isArray(value)) {
-    return [] as {
-      name?: string | null;
-      role?: string | null;
-      period?: string | null;
-      summary?: string | null;
-      techStack: string[];
-    }[];
-  }
-
-  return value
-    .filter((item) => typeof item === "object" && item !== null)
-    .map((item) => {
-      const project = item as Record<string, unknown>;
-
-      return {
-        name: typeof project.name === "string" ? project.name : null,
-        period: typeof project.period === "string" ? project.period : null,
-        role: typeof project.role === "string" ? project.role : null,
-        summary: typeof project.summary === "string" ? project.summary : null,
-        techStack: ensureStringArray(project.techStack),
-      };
-    });
-}
-
-function truncateText(value: string | number | null | undefined, maxLength = 320) {
-  const text = formatValue(value);
-
-  if (text === "未填写" || text.length <= maxLength) {
-    return text;
-  }
-
-  return `${text.slice(0, maxLength)}...`;
-}
-
-function formatReportStatus(status: string) {
-  switch (status) {
-    case "completed":
-    case "done": {
-      return "已完成";
-    }
-    case "initiated": {
-      return "已发起";
-    }
-    case "failed": {
-      return "失败";
-    }
-    case "connected": {
-      return "进行中";
-    }
-    case "disconnected": {
-      return "已断开";
-    }
-    case "connecting": {
-      return "连接中";
-    }
-    default: {
-      return status || "未知";
-    }
-  }
-}
-
-function getReportBadgeVariant(
-  status: string,
-): "default" | "secondary" | "destructive" | "outline" {
-  switch (status) {
-    case "completed":
-    case "done": {
-      return "default";
-    }
-    case "failed": {
-      return "destructive";
-    }
-    case "connected": {
-      return "secondary";
-    }
-    default: {
-      return "outline";
-    }
-  }
-}
-
-function renderKeyValueEntries(entries: Record<string, unknown>) {
-  const items = Object.entries(entries).filter(
-    ([, value]) => value !== null && value !== undefined && value !== "",
-  );
-
-  if (items.length === 0) {
-    return <p className="text-muted-foreground text-sm">暂无结构化结果。</p>;
-  }
-
-  return (
-    <div className="space-y-2">
-      {items.map(([key, value]) => (
-        <div className="rounded-xl border border-border/60 bg-muted/20 px-3 py-2 text-sm" key={key}>
-          <p className="font-medium">{key}</p>
-          <p className="mt-1 break-words text-muted-foreground leading-relaxed">
-            {typeof value === "string" ? value : JSON.stringify(value)}
-          </p>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-interface EvaluationQuestion {
-  order?: number;
-  question?: string;
-  score?: number;
-  maxScore?: number;
-  assessment?: string;
-}
-
-function isAgentEvaluation(data: Record<string, unknown>): data is {
-  questions: EvaluationQuestion[];
-  overallScore?: number;
-  overallAssessment?: string;
-  recommendation?: string;
-} {
-  return Array.isArray(data.questions);
-}
-
-function renderEvaluationResults(data: Record<string, unknown>) {
-  if (!data || Object.keys(data).length === 0) {
-    return <p className="text-muted-foreground text-sm">暂无结构化结果。</p>;
-  }
-
-  if (!isAgentEvaluation(data)) {
-    return renderKeyValueEntries(data);
-  }
-
-  return (
-    <div className="space-y-3">
-      {typeof data.overallScore === "number" && (
-        <div className="flex items-center gap-3 rounded-xl border border-border/60 bg-muted/20 px-3 py-2.5">
-          <span className="font-semibold text-2xl">{data.overallScore}</span>
-          <span className="text-muted-foreground text-sm">/ 100</span>
-          {data.recommendation && (
-            <Badge variant={resolveRecommendationVariant(data.recommendation)} className="ml-auto">
-              {data.recommendation}
-            </Badge>
-          )}
-        </div>
-      )}
-      {data.overallAssessment && (
-        <p className="text-muted-foreground text-sm leading-relaxed">{data.overallAssessment}</p>
-      )}
-      {data.questions.length > 0 && (
-        <div className="space-y-2">
-          {data.questions.map((q, i) => (
-            <div
-              className="rounded-xl border border-border/60 bg-muted/20 px-3 py-2.5 text-sm"
-              key={q.order ?? i}
-            >
-              <div className="flex items-start justify-between gap-2">
-                <p className="min-w-0 font-medium leading-relaxed">
-                  {q.order === null || q.order === undefined ? "" : `${q.order}. `}
-                  {q.question ?? "未知题目"}
-                </p>
-                <span className="shrink-0 font-semibold">
-                  {q.score ?? "-"}
-                  <span className="font-normal text-muted-foreground">/{q.maxScore ?? 10}</span>
-                </span>
-              </div>
-              {q.assessment && (
-                <p className="mt-1.5 text-muted-foreground leading-relaxed">{q.assessment}</p>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function DetailRow({
-  label,
-  value,
-  valueClassName,
-}: {
-  label: string;
-  value: React.ReactNode;
-  valueClassName?: string;
-}) {
-  return (
-    <div className="grid grid-cols-[88px_minmax(0,1fr)] items-start gap-3">
-      <span className="pt-0.5 text-muted-foreground">{label}</span>
-      <span
-        className={`min-w-0 break-words text-foreground leading-relaxed ${valueClassName ?? ""}`}
-      >
-        {value}
-      </span>
-    </div>
-  );
-}
-
-// oxlint-disable-next-line complexity -- one branch per (type, displayMode) combo, all flat conditionals.
-function ReadOnlyAnswer({
-  answer,
-  inputId,
-  question,
-}: {
-  answer: string | string[] | undefined;
-  inputId: string;
-  question: CandidateFormSubmissionWithSnapshot["snapshot"]["questions"][number];
-}) {
-  const isEmpty =
-    answer === undefined || answer === "" || (Array.isArray(answer) && answer.length === 0);
-
-  if (isEmpty) {
-    return <p className="text-muted-foreground text-sm italic">候选人未作答</p>;
-  }
-
-  if (question.type === "single" && question.displayMode === "radio") {
-    const value = Array.isArray(answer) ? (answer[0] ?? "") : answer;
-    return (
-      <RadioGroup className="pointer-events-none" value={value}>
-        {question.options.map((option) => (
-          <div className="flex items-center gap-2" key={option.value}>
-            <RadioGroupItem disabled id={`${inputId}-${option.value}`} value={option.value} />
-            <Label className="font-normal" htmlFor={`${inputId}-${option.value}`}>
-              {option.label}
-            </Label>
-          </div>
-        ))}
-      </RadioGroup>
-    );
-  }
-
-  if (question.type === "single" && question.displayMode === "select") {
-    const value = Array.isArray(answer) ? (answer[0] ?? "") : answer;
-    return (
-      <Select disabled value={value}>
-        <SelectTrigger className="w-full" id={inputId}>
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          {question.options.map((option) => (
-            <SelectItem key={option.value} value={option.value}>
-              {option.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    );
-  }
-
-  if (question.type === "multi" && question.displayMode === "checkbox") {
-    const selected = new Set(Array.isArray(answer) ? answer : [answer]);
-    return (
-      <div className="space-y-2">
-        {question.options.map((option) => (
-          <div className="flex items-center gap-2" key={option.value}>
-            <Checkbox
-              checked={selected.has(option.value)}
-              disabled
-              id={`${inputId}-${option.value}`}
-            />
-            <Label className="font-normal" htmlFor={`${inputId}-${option.value}`}>
-              {option.label}
-            </Label>
-          </div>
-        ))}
-      </div>
-    );
-  }
-
-  if (question.type === "multi" && question.displayMode === "select") {
-    const selected = new Set(Array.isArray(answer) ? answer : [answer]);
-    const selectedLabels = question.options
-      .filter((option) => selected.has(option.value))
-      .map((option) => option.label);
-    return (
-      <Select disabled value={selectedLabels[0] ?? ""}>
-        <SelectTrigger
-          className="h-auto min-h-10 w-full items-start whitespace-normal py-2"
-          id={inputId}
-        >
-          <span className="text-left text-sm">
-            {selectedLabels.length > 0 ? selectedLabels.join("、") : "请选择"}
-          </span>
-        </SelectTrigger>
-        <SelectContent />
-      </Select>
-    );
-  }
-
-  if (question.type === "text" && question.displayMode === "textarea") {
-    return (
-      <Textarea
-        className="min-h-24"
-        id={inputId}
-        readOnly
-        value={Array.isArray(answer) ? answer.join("\n") : answer}
-      />
-    );
-  }
-
-  return <Input id={inputId} readOnly value={Array.isArray(answer) ? answer.join(", ") : answer} />;
-}
-
-function renderFormsTab({
-  submissions,
-  resettingId,
-  onReset,
-}: {
-  submissions: CandidateFormSubmissionWithSnapshot[];
-  resettingId: string | null;
-  onReset: (submissionId: string) => void;
-}) {
-  if (submissions.length === 0) {
-    return (
-      <div className="py-10 text-center text-muted-foreground text-sm">
-        候选人没有填写过任何面试表单。
-      </div>
-    );
-  }
-  return (
-    <div className="space-y-5">
-      {submissions.map((submission) => (
-        <div className="rounded-2xl border border-border/60 bg-muted/30 p-4" key={submission.id}>
-          <div className="mb-3 flex items-center justify-between gap-2">
-            <div>
-              <h3 className="font-medium text-sm">{submission.snapshot.title}</h3>
-              {submission.snapshot.description ? (
-                <p className="mt-1 text-muted-foreground text-xs">
-                  {submission.snapshot.description}
-                </p>
-              ) : null}
-            </div>
-            <div className="flex items-center gap-2">
-              <Badge variant="outline">v{submission.version}</Badge>
-              <Button
-                disabled={resettingId === submission.id}
-                onClick={() => onReset(submission.id)}
-                size="sm"
-                type="button"
-                variant="outline"
-              >
-                <RotateCcwIcon className="size-3.5" />
-                {resettingId === submission.id ? "重置中..." : "重置填写"}
-              </Button>
-            </div>
-          </div>
-          <div className="space-y-5">
-            {submission.snapshot.questions.map((question, index) => (
-              <Field key={question.id}>
-                <FieldLabel htmlFor={`sub-${submission.id}-${question.id}`}>
-                  <span className="mr-1 text-muted-foreground">{index + 1}.</span>
-                  {question.label}
-                  {question.required ? <span className="ml-1 text-destructive">*</span> : null}
-                </FieldLabel>
-                <FieldContent className="gap-2">
-                  {question.helperText ? (
-                    <p className="text-muted-foreground text-xs">{question.helperText}</p>
-                  ) : null}
-                  <ReadOnlyAnswer
-                    answer={submission.answers[question.id]}
-                    inputId={`sub-${submission.id}-${question.id}`}
-                    question={question}
-                  />
-                </FieldContent>
-              </Field>
-            ))}
-          </div>
-          <p className="mt-3 text-muted-foreground text-xs">
-            该记录基于 v{submission.version} 的快照；如已更新，请到「面试表单」查看当前版本。
-          </p>
-        </div>
-      ))}
-    </div>
-  );
 }
 
 // oxlint-disable-next-line complexity -- Dialog owns many conditional sections driven by record state; flattening adds noise.
@@ -1005,7 +597,14 @@ export function InterviewDetailDialog({
                                     <div className="rounded-2xl border border-border/60 bg-background p-4">
                                       <h4 className="font-medium text-sm">评估指标</h4>
                                       <div className="mt-4">
-                                        {renderEvaluationResults(report.evaluationCriteriaResults)}
+                                        <EvaluationResults
+                                          data={
+                                            (report.evaluationCriteriaResults as Record<
+                                              string,
+                                              unknown
+                                            >) ?? {}
+                                          }
+                                        />
                                       </div>
                                     </div>
                                   </div>
@@ -1160,11 +759,11 @@ export function InterviewDetailDialog({
                 </TabsContent>
 
                 <TabsContent value="forms">
-                  {renderFormsTab({
-                    onReset: (submissionId) => setPendingResetSubmissionId(submissionId),
-                    resettingId: resettingSubmissionId,
-                    submissions: formSubmissions,
-                  })}
+                  <FormsTab
+                    onReset={(submissionId) => setPendingResetSubmissionId(submissionId)}
+                    resettingId={resettingSubmissionId}
+                    submissions={formSubmissions}
+                  />
                 </TabsContent>
               </div>
             ) : (

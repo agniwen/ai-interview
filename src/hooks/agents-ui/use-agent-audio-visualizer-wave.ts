@@ -4,37 +4,28 @@ import type {
   TrackReferenceOrPlaceholder,
 } from "@livekit/components-react";
 import type { LocalAudioTrack, RemoteAudioTrack } from "livekit-client";
-import type { AnimationPlaybackControlsWithThen, ValueAnimationTransition } from "motion/react";
+import type { ValueAnimationTransition } from "motion/react";
 import { useTrackVolume } from "@livekit/components-react";
-import { animate, useMotionValue, useMotionValueEvent } from "motion/react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
+import { useAnimatedValue } from "./_internals/use-animated-value";
 
 const DEFAULT_SPEED = 5;
 const DEFAULT_AMPLITUDE = 0.025;
 const DEFAULT_FREQUENCY = 10;
 const DEFAULT_TRANSITION: ValueAnimationTransition = { duration: 0.2, ease: "easeOut" };
 
-function useAnimatedValue<T>(initialValue: T) {
-  const [value, setValue] = useState(initialValue);
-  const motionValue = useMotionValue(initialValue);
-  const controlsRef = useRef<AnimationPlaybackControlsWithThen | null>(null);
-  useMotionValueEvent(motionValue, "change", (value) => setValue(value as T));
-
-  const animateFn = useCallback(
-    (targetValue: T | T[], transition: ValueAnimationTransition) => {
-      controlsRef.current = animate(motionValue, targetValue, transition);
-    },
-    [motionValue],
-  );
-
-  return { animate: animateFn, controls: controlsRef, value };
-}
-
 interface UseAgentAudioVisualizerWaveAnimatorArgs {
   state?: AgentState;
   audioTrack?: LocalAudioTrack | RemoteAudioTrack | TrackReferenceOrPlaceholder;
 }
 
+/**
+ * Wave 视觉效果的动画驱动 hook：把 Agent 状态映射到波形 shader 所需的参数。
+ * Wave visualizer driver: maps Agent states to the parameters used by the wave shader.
+ *
+ * `speaking` 状态下用 `volume` 实时驱动振幅与频率，让波形随声音变化。
+ * Volume drives amplitude / frequency in real time during `speaking` so the wave reacts to audio.
+ */
 export function useAgentAudioVisualizerWave({
   state,
   audioTrack,
@@ -64,7 +55,7 @@ export function useAgentAudioVisualizerWave({
         animateFrequency(DEFAULT_FREQUENCY, DEFAULT_TRANSITION);
         animateOpacity([1, 0.3], {
           duration: 0.75,
-          repeat: Infinity,
+          repeat: Number.POSITIVE_INFINITY,
           repeatType: "mirror",
         });
         return;
@@ -77,7 +68,7 @@ export function useAgentAudioVisualizerWave({
         animateFrequency(DEFAULT_FREQUENCY * 4, DEFAULT_TRANSITION);
         animateOpacity([1, 0.3], {
           duration: 0.4,
-          repeat: Infinity,
+          repeat: Number.POSITIVE_INFINITY,
           repeatType: "mirror",
         });
         return;
@@ -90,9 +81,11 @@ export function useAgentAudioVisualizerWave({
         animateOpacity(1, DEFAULT_TRANSITION);
       }
     }
-  }, [state, setSpeed, animateAmplitude, animateFrequency, animateOpacity]);
+  }, [state, animateAmplitude, animateFrequency, animateOpacity]);
 
   useEffect(() => {
+    // Volume-driven micro-modulation during speaking.
+    // speaking 时用实时音量做微调，让波形随声音"呼吸"。
     if (state === "speaking") {
       animateAmplitude(0.015 + 0.4 * volume, { duration: 0 });
       animateFrequency(20 + 60 * volume, { duration: 0 });
