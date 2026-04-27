@@ -129,6 +129,7 @@ export type StudioInterviewListRecord = Omit<
   questionCount: number;
   hasResumeFile: boolean;
   creatorName: string | null;
+  creatorOrganizationName: string | null;
 };
 
 export function toStudioInterviewListRecord(
@@ -140,6 +141,7 @@ export function toStudioInterviewListRecord(
     createdAt: record.createdAt,
     createdBy: record.createdBy,
     creatorName: null,
+    creatorOrganizationName: null,
     hasResumeFile: Boolean(record.resumeStorageKey),
     id: record.id,
     interviewLink: record.interviewLink,

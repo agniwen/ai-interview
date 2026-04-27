@@ -433,6 +433,11 @@ export function InterviewManagementPage({
         id: "creatorName",
       },
       {
+        cell: ({ row }) => row.original.creatorOrganizationName ?? "—",
+        header: "创建人组织",
+        id: "creatorOrganizationName",
+      },
+      {
         accessorKey: "createdAt",
         cell: ({ row }) => (
           <TimeDisplay options={DATE_TIME_DISPLAY_OPTIONS} value={row.original.createdAt} />
