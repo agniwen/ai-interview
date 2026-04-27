@@ -113,6 +113,12 @@ function AgentChatInput({ chatOpen, onSend = async () => {}, className }: AgentC
   };
 
   const handleKeyDown = async (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    // Skip Enter while an IME (e.g. Chinese pinyin) is composing — pressing
+    // Enter then is used to confirm/exit composition, not to submit. Browsers
+    // report keyCode 229 during composition; isComposing covers modern paths.
+    if (e.nativeEvent.isComposing || e.keyCode === 229) {
+      return;
+    }
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSend();

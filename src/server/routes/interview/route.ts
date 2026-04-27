@@ -1,7 +1,7 @@
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 import type { ResumeProfile } from "@/lib/interview/types";
 import { RoomAgentDispatch, RoomConfiguration } from "@livekit/protocol";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, ne } from "drizzle-orm";
 import { AccessToken } from "livekit-server-sdk";
 import { db } from "@/lib/db";
 import {
@@ -371,18 +371,23 @@ export const interviewRouter = factory
     });
   })
   .post("/:id/:roundId/complete", async (c) => {
-    // "User left the session" signal from the browser (LiveKit disconnect or
-    // tab close). This used to mark the schedule as completed, but doing so
-    // races the agent's /api/agent/report callback and can leave rounds in a
-    // "completed but no transcript" ghost state when the agent POST fails.
-    //
-    // The authoritative completion is now written by the agent's report
-    // callback. This endpoint is kept as a no-op so existing clients and any
-    // keepalive beacons still get a 200. Safe to remove once all clients have
-    // been updated.
+    // "User left the session" signal from the browser. We mark the schedule
+    // entry as completed *immediately* so a quick page refresh can't grant
+    // the candidate a second attempt at this round. The agent's
+    // /api/agent/report callback still arrives later with the transcript and
+    // is idempotent — it writes the same `completed` status plus the
+    // conversation/summary rows. If the agent callback never arrives, the
+    // round stays "completed without transcript" and an admin can use the
+    // round reset flow to allow a retake.
     const roundId = c.req.param("roundId");
+    const now = new Date();
+
     const [entry] = await db
-      .select({ id: studioInterviewSchedule.id })
+      .select({
+        id: studioInterviewSchedule.id,
+        interviewRecordId: studioInterviewSchedule.interviewRecordId,
+        status: studioInterviewSchedule.status,
+      })
       .from(studioInterviewSchedule)
       .where(eq(studioInterviewSchedule.id, roundId))
       .limit(1);
@@ -391,6 +396,35 @@ export const interviewRouter = factory
       return c.json({ error: "Round not found." }, 404);
     }
 
+    if (entry.status === "completed") {
+      return c.json({ success: true });
+    }
+
+    await db.transaction(async (tx) => {
+      await tx
+        .update(studioInterviewSchedule)
+        .set({ status: "completed" as const, updatedAt: now })
+        .where(eq(studioInterviewSchedule.id, roundId));
+
+      const pendingRounds = await tx
+        .select({ id: studioInterviewSchedule.id })
+        .from(studioInterviewSchedule)
+        .where(
+          and(
+            eq(studioInterviewSchedule.interviewRecordId, entry.interviewRecordId),
+            ne(studioInterviewSchedule.status, "completed"),
+          ),
+        );
+
+      if (pendingRounds.length === 0) {
+        await tx
+          .update(studioInterview)
+          .set({ status: "completed" as const, updatedAt: now })
+          .where(eq(studioInterview.id, entry.interviewRecordId));
+      }
+    });
+
+    safeUpdateTag("studio-interviews");
     return c.json({ success: true });
   });
 
