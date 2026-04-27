@@ -17,7 +17,7 @@ export function ChatHeader() {
   const { startTutorial } = useChatTutorial();
 
   return (
-    <header className="flex h-(--header-height) shrink-0 items-center justify-between gap-2 border-sidebar border-b px-4 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-(--header-height)">
+    <header className="flex h-(--header-height) shrink-0 items-center justify-between gap-2 border-sidebar/60 border-b bg-background/60 px-4 backdrop-blur-md transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-(--header-height)">
       <div className="flex items-center gap-2">
         <SidebarTrigger className="-ml-1" />
         <Separator className="mx-2 data-[orientation=vertical]:h-4" orientation="vertical" />

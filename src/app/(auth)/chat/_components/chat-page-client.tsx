@@ -603,7 +603,7 @@ export default function ChatPageClient({ initialSessionId }: { initialSessionId:
   }, [clearError, regenerate, setMessages]);
 
   return (
-    <div className="relative isolate flex h-full w-full flex-col pb-2 pt-4 before:pointer-events-none before:absolute before:inset-0 before:-z-10 before:bg-[url('/textures/interview-prep-light.png')] before:bg-center before:bg-cover before:bg-no-repeat before:opacity-20 before:content-[''] sm:pb-4 sm:pt-4 dark:before:bg-[url('/textures/interview-prep-dark.png')]">
+    <div className="relative flex h-full w-full flex-col pb-2 pt-4 sm:pb-4 sm:pt-4">
       <ChatRuntimeProvider
         addToolOutput={addToolOutput}
         clearError={clearError}
