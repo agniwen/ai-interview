@@ -40,7 +40,10 @@ import {
   resolveOrCreateTemplateVersion,
 } from "@/server/queries/candidate-forms";
 import { queryInterviewConversationReports } from "@/server/queries/interview-conversations";
-import { queryPaginatedStudioInterviewRecords } from "@/server/queries/studio-interviews";
+import {
+  queryPaginatedStudioInterviewRecords,
+  queryStudioInterviewSummary,
+} from "@/server/queries/studio-interviews";
 import {
   buildScheduleRows,
   buildTokenErrorResponse,
@@ -393,6 +396,10 @@ export const interviewRouter = factory
 
 export const studioInterviewsRouter = factory
   .createApp()
+  .get("/summary", async (c) => {
+    const summary = await queryStudioInterviewSummary();
+    return c.json(summary);
+  })
   .get("/", async (c) => {
     const result = await queryPaginatedStudioInterviewRecords(
       {

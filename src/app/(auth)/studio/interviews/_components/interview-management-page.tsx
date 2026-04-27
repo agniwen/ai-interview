@@ -8,7 +8,10 @@ import type {
   SortingState,
 } from "@tanstack/react-table";
 import type { StudioInterviewListRecord } from "@/lib/studio-interviews";
-import type { PaginatedStudioInterviewResult } from "@/server/queries/studio-interviews";
+import type {
+  PaginatedStudioInterviewResult,
+  StudioInterviewSummary,
+} from "@/server/queries/studio-interviews";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { flexRender, getCoreRowModel, useReactTable } from "@tanstack/react-table";
 import { useAtomValue } from "jotai";
@@ -155,11 +158,24 @@ async function fetchInterviews(params: {
   return payload as PaginatedStudioInterviewResult;
 }
 
+async function fetchInterviewSummary(): Promise<StudioInterviewSummary> {
+  const response = await fetch("/api/studio/interviews/summary");
+  const payload = await response.json();
+
+  if (!response.ok) {
+    throw new Error(payload?.error ?? "加载统计数据失败");
+  }
+
+  return payload as StudioInterviewSummary;
+}
+
 // oxlint-disable-next-line complexity -- Page component hosts list filters, dialog state, and mutation handlers; splitting fragments domain logic.
 export function InterviewManagementPage({
   initialData,
+  initialSummary,
 }: {
   initialData: PaginatedStudioInterviewResult;
+  initialSummary: StudioInterviewSummary;
 }) {
   const tutorialStep = useAtomValue(studioTutorialStepAtom);
   const queryClient = useQueryClient();
@@ -197,11 +213,14 @@ export function InterviewManagementPage({
     currentSortOrder,
   ] as const;
 
+  const summaryQueryKey = ["studio-interviews", "summary"] as const;
+
   // Seed cache with SSR data only once on mount
   const seededRef = useRef(false);
   if (!seededRef.current) {
     seededRef.current = true;
     queryClient.setQueryData(queryKey, initialData);
+    queryClient.setQueryData(summaryQueryKey, initialSummary);
   }
 
   const {
@@ -220,6 +239,14 @@ export function InterviewManagementPage({
         status: statusFilter,
       }),
     queryKey,
+    refetchOnWindowFocus: true,
+    staleTime: 30 * 1000,
+  });
+
+  const { data: summaryData = initialSummary } = useQuery({
+    placeholderData: (prev) => prev,
+    queryFn: fetchInterviewSummary,
+    queryKey: summaryQueryKey,
     refetchOnWindowFocus: true,
     staleTime: 30 * 1000,
   });
@@ -539,15 +566,7 @@ export function InterviewManagementPage({
   const selectedIds = Object.keys(rowSelection).filter((id) => rowSelection[id]);
   const selectedCount = selectedIds.length;
 
-  const summary = useMemo(
-    () => ({
-      completed: displayRecords.filter((item) => item.status === "completed").length,
-      ready: displayRecords.filter((item) => item.status === "ready").length,
-      rounds: displayRecords.reduce((count, item) => count + item.scheduleEntries.length, 0),
-      total,
-    }),
-    [displayRecords, total],
-  );
+  const summary = summaryData;
 
   async function handleDelete() {
     if (!deleteRecord) {

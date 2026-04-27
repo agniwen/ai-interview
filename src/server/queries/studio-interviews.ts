@@ -265,6 +265,42 @@ async function queryPaginatedStudioInterviewRecords(
   };
 }
 
+export interface StudioInterviewSummary {
+  total: number;
+  ready: number;
+  completed: number;
+  rounds: number;
+}
+
+async function queryStudioInterviewSummary(): Promise<StudioInterviewSummary> {
+  const [statusRows, [roundsRow]] = await Promise.all([
+    db
+      .select({ count: count(), status: studioInterview.status })
+      .from(studioInterview)
+      .groupBy(studioInterview.status),
+    db.select({ count: count() }).from(studioInterviewSchedule),
+  ]);
+
+  let total = 0;
+  let ready = 0;
+  let completed = 0;
+  for (const row of statusRows) {
+    total += row.count;
+    if (row.status === "ready") {
+      ready = row.count;
+    } else if (row.status === "completed") {
+      completed = row.count;
+    }
+  }
+
+  return {
+    completed,
+    ready,
+    rounds: roundsRow?.count ?? 0,
+    total,
+  };
+}
+
 /** Cached version for Server Components */
 // oxlint-disable-next-line require-await -- "use cache" requires the function be async.
 export async function listStudioInterviewRecords(
@@ -279,4 +315,8 @@ export async function listStudioInterviewRecords(
 }
 
 /** Uncached version for API route handlers */
-export { queryPaginatedStudioInterviewRecords, queryStudioInterviewRecords };
+export {
+  queryPaginatedStudioInterviewRecords,
+  queryStudioInterviewRecords,
+  queryStudioInterviewSummary,
+};
