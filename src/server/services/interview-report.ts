@@ -1,4 +1,4 @@
-import { generateObject, generateText } from "ai";
+import { gateway, generateObject, generateText } from "ai";
 import { z } from "zod";
 import type { InterviewTranscriptTurn } from "@/lib/interview-session";
 import type { InterviewQuestion } from "@/lib/interview/types";
@@ -77,7 +77,7 @@ export async function generateInterviewReport(options: {
 
   const provider = createAlibabaProvider({ enableThinking: false });
   const summaryModelId = process.env.ALIBABA_FAST_MODEL ?? "qwen-turbo";
-  const structuredModelId = process.env.ALIBABA_STRUCTURED_MODEL ?? "qwen3-max";
+  const evaluationModelId = process.env.INTERVIEW_EVALUATION_MODEL ?? "google/gemini-2.5-flash";
 
   const transcriptText = formatTranscript(transcript);
   const questionsText = formatQuestions(questions);
@@ -89,7 +89,7 @@ export async function generateInterviewReport(options: {
       temperature: 0.2,
     }),
     generateObject({
-      model: provider(structuredModelId),
+      model: gateway(evaluationModelId),
       prompt: EVALUATION_PROMPT.replace("{questions}", questionsText).replace(
         "{transcript}",
         transcriptText,
