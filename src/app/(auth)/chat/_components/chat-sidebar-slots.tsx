@@ -202,19 +202,22 @@ function renderSessionItem({
 }) {
   if (editMode && !isMock) {
     return (
-      <button
-        className="flex min-w-0 flex-1 items-center gap-2 rounded-md text-left"
+      <div
+        aria-pressed={isSelected}
+        className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 rounded-md text-left"
         onClick={() => onToggleSelect(conversation.id)}
-        type="button"
+        onKeyDown={(event) => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            onToggleSelect(conversation.id);
+          }
+        }}
+        role="button"
+        tabIndex={0}
       >
-        <Checkbox
-          aria-label="选择此会话"
-          checked={isSelected}
-          className="ml-2 shrink-0"
-          tabIndex={-1}
-        />
+        <Checkbox aria-hidden="true" checked={isSelected} className="ml-2 shrink-0" tabIndex={-1} />
         {itemBody}
-      </button>
+      </div>
     );
   }
 

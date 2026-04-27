@@ -884,7 +884,12 @@ export function ReactShaderToy({
     }
     if (uniformsRef.current.iFrame?.isNeeded) {
       const timeDeltaUniform = gl.getUniformLocation(shaderProgramRef.current, UNIFORM_FRAME);
-      gl.uniform1i(timeDeltaUniform, (uniformsRef.current.iFrame.value as number)++);
+      // Upstream wrote `(value as number)++` which Next 16 SWC + React Compiler
+      // re-emits as syntactically invalid `value as number++`. Equivalent
+      // post-increment, broken out so the cast is no longer adjacent to `++`.
+      const frameValue = uniformsRef.current.iFrame.value as number;
+      uniformsRef.current.iFrame.value = frameValue + 1;
+      gl.uniform1i(timeDeltaUniform, frameValue);
     }
     if (texturesArrRef.current.length > 0) {
       for (let index = 0; index < texturesArrRef.current.length; index++) {

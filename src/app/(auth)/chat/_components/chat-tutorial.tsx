@@ -40,14 +40,16 @@ const TOUR_STEPS = [
   {
     element: '[data-tour="jd-settings"]',
     popover: {
-      description: "配置目标岗位的职位描述，AI 会结合 JD 进行更精准的简历评估。",
-      title: "岗位描述（JD）",
+      description:
+        "在这里配置目标岗位的职位描述，AI 会结合 JD 进行更精准的简历评估；其他偏好（如深度思考）也会归集到这个菜单里。",
+      title: "岗位与偏好设置",
     },
   },
   {
     element: '[data-tour="thinking-toggle"]',
     popover: {
-      description: "开启后 AI 会展示完整的推理过程，帮助你理解分析逻辑。",
+      description:
+        "在「岗位设置」菜单底部的偏好开关。开启后 AI 会展示完整的推理过程，帮助你理解分析逻辑；默认关闭。",
       title: "深度思考",
     },
   },

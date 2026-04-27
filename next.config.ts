@@ -11,6 +11,7 @@ const nextConfig: NextConfig = {
     ],
   },
   output: "standalone",
+  reactCompiler: true,
   serverExternalPackages: ["@napi-rs/canvas", "pdf-parse"],
   transpilePackages: ["@repo/adapter-feishu"],
 };

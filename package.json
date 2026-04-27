@@ -101,6 +101,7 @@
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@types/three": "^0.183.1",
+    "babel-plugin-react-compiler": "^1.0.0",
     "drizzle-kit": "^1.0.0-beta.9-e89174b",
     "lefthook": "^2.1.6",
     "oxfmt": "^0.45.0",
