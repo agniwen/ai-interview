@@ -39,6 +39,14 @@ import {
   loadSubmittedTemplateIds,
   resolveOrCreateTemplateVersion,
 } from "@/server/queries/candidate-forms";
+import {
+  autoBindApplicableTemplates,
+  dropJobDescriptionBindings,
+  ensureApplicableBindings,
+  loadInterviewPresetQuestions,
+  loadInterviewQuestionTemplateBindings,
+  replaceInterviewBindings,
+} from "@/server/queries/interview-question-templates";
 import { queryInterviewConversationReports } from "@/server/queries/interview-conversations";
 import {
   queryPaginatedStudioInterviewRecords,
@@ -505,6 +513,7 @@ export const studioInterviewsRouter = factory
       await db.transaction(async (tx) => {
         await tx.insert(studioInterview).values(record);
         await tx.insert(studioInterviewSchedule).values(scheduleRows);
+        await autoBindApplicableTemplates(tx, interviewRecordId, record.jobDescriptionId);
       });
 
       safeUpdateTag("studio-interviews");
@@ -562,20 +571,17 @@ export const studioInterviewsRouter = factory
     }
 
     let jobDescriptionPrompt: string | null = null;
-    let jobDescriptionPresetQuestions: string[] = [];
     let interviewers: { name: string; prompt: string }[] = [];
 
     if (existing.jobDescriptionId) {
       const [jdRow] = await db
         .select({
-          presetQuestions: jobDescription.presetQuestions,
           prompt: jobDescription.prompt,
         })
         .from(jobDescription)
         .where(eq(jobDescription.id, existing.jobDescriptionId))
         .limit(1);
       jobDescriptionPrompt = jdRow?.prompt ?? null;
-      jobDescriptionPresetQuestions = jdRow?.presetQuestions ?? [];
 
       const interviewerRows = await db
         .select({ name: interviewer.name, prompt: interviewer.prompt })
@@ -584,6 +590,13 @@ export const studioInterviewsRouter = factory
         .where(eq(jobDescriptionInterviewer.jobDescriptionId, existing.jobDescriptionId));
       interviewers = interviewerRows;
     }
+
+    // Source preset questions from binding-attached template versions, not
+    // from the legacy `jobDescription.presetQuestions` column. Lazy-bind any
+    // newly applicable templates so e.g. a global template created after this
+    // interview shows up in the rendered prompt preview.
+    await ensureApplicableBindings(id);
+    const jobDescriptionPresetQuestions = await loadInterviewPresetQuestions(id);
 
     const baseContext = {
       candidateName: existing.candidateName,
@@ -739,12 +752,23 @@ export const studioInterviewsRouter = factory
         updatedAt: now,
       } satisfies Partial<typeof studioInterview.$inferInsert>;
 
+      const newJobDescriptionId = input.data.jobDescriptionId || null;
+      const jdChanged = newJobDescriptionId !== existing.jobDescriptionId;
+
       await db.transaction(async (tx) => {
         await tx.update(studioInterview).set(nextRecord).where(eq(studioInterview.id, id));
         await tx
           .delete(studioInterviewSchedule)
           .where(eq(studioInterviewSchedule.interviewRecordId, id));
         await tx.insert(studioInterviewSchedule).values(scheduleRows);
+
+        // Re-evaluate JD-scoped bindings only when the job description
+        // actually changes. Global bindings (and their disabledByUser state)
+        // are preserved across this operation.
+        if (jdChanged) {
+          await dropJobDescriptionBindings(tx, id);
+          await autoBindApplicableTemplates(tx, id, newJobDescriptionId);
+        }
       });
 
       safeUpdateTag("studio-interviews");
@@ -754,6 +778,42 @@ export const studioInterviewsRouter = factory
       const result = toBadRequest(error);
       return c.json({ error: result.error }, { status: result.status as ContentfulStatusCode });
     }
+  })
+  .get("/:id/question-template-bindings", async (c) => {
+    const id = c.req.param("id");
+    const existing = await loadRecordById(id);
+    if (!existing) {
+      return c.json({ error: "记录不存在。" }, 404);
+    }
+    // Lazy-bind so applicable templates created *after* this interview show
+    // up in the section UI without requiring manual re-attach.
+    await ensureApplicableBindings(id);
+    const data = await loadInterviewQuestionTemplateBindings(id);
+    return c.json(data);
+  })
+  .put("/:id/question-template-bindings", async (c) => {
+    const id = c.req.param("id");
+    const existing = await loadRecordById(id);
+    if (!existing) {
+      return c.json({ error: "记录不存在。" }, 404);
+    }
+
+    const body = (await c.req.json().catch(() => null)) as {
+      enabledTemplateIds?: unknown;
+    } | null;
+    if (!body || !Array.isArray(body.enabledTemplateIds)) {
+      return c.json({ error: "请求参数缺失。" }, 400);
+    }
+    const enabledTemplateIds = body.enabledTemplateIds.filter(
+      (v): v is string => typeof v === "string" && v.length > 0,
+    );
+
+    await db.transaction(async (tx) => {
+      await replaceInterviewBindings(tx, id, enabledTemplateIds, existing.jobDescriptionId);
+    });
+
+    const data = await loadInterviewQuestionTemplateBindings(id);
+    return c.json(data);
   })
   .post("/:id/rounds/:roundId/reset", async (c) => {
     const id = c.req.param("id");

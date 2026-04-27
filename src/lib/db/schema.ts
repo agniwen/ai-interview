@@ -8,6 +8,10 @@ import type {
   CandidateFormScope,
   CandidateFormTemplateSnapshot,
 } from "@/lib/candidate-forms";
+import type {
+  InterviewQuestionTemplateScope,
+  InterviewQuestionTemplateSnapshot,
+} from "@/lib/interview-question-templates";
 import type { InterviewTranscriptTurn } from "@/lib/interview-session";
 import type { InterviewQuestion, ResumeProfile } from "@/lib/interview/types";
 import type { JobDescriptionConfig } from "@/lib/job-description-config";
@@ -580,5 +584,113 @@ export const candidateFormSubmission = pgTable(
     ),
     index("candidate_form_submission_version_idx").on(table.versionId),
     index("candidate_form_submission_interview_idx").on(table.interviewRecordId),
+  ],
+);
+
+// =====================================================================
+// Interview question templates — agent's mandatory questions to ask
+// during the interview. Mirrors candidate_form_template structure but
+// stores plain question text (no types/options/required). Replaces the
+// legacy `jobDescription.presetQuestions` column.
+// =====================================================================
+
+export const interviewQuestionTemplate = pgTable(
+  "interview_question_template",
+  {
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
+    description: text("description"),
+    id: text("id").primaryKey(),
+    jobDescriptionId: text("job_description_id").references(() => jobDescription.id, {
+      onDelete: "cascade",
+    }),
+    scope: text("scope").$type<InterviewQuestionTemplateScope>().notNull(),
+    title: text("title").notNull(),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+  },
+  (table) => [
+    index("interview_question_template_scope_idx").on(table.scope),
+    index("interview_question_template_job_description_idx").on(table.jobDescriptionId),
+    index("interview_question_template_created_at_idx").on(table.createdAt),
+  ],
+);
+
+export const interviewQuestionTemplateQuestion = pgTable(
+  "interview_question_template_question",
+  {
+    content: text("content").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    id: text("id").primaryKey(),
+    sortOrder: integer("sort_order").notNull(),
+    templateId: text("template_id")
+      .notNull()
+      .references(() => interviewQuestionTemplate.id, { onDelete: "cascade" }),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+  },
+  (table) => [
+    index("interview_question_template_question_template_idx").on(table.templateId),
+    index("interview_question_template_question_order_idx").on(table.templateId, table.sortOrder),
+  ],
+);
+
+export const interviewQuestionTemplateVersion = pgTable(
+  "interview_question_template_version",
+  {
+    contentHash: text("content_hash").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    id: text("id").primaryKey(),
+    snapshot: jsonb("snapshot").$type<InterviewQuestionTemplateSnapshot>().notNull(),
+    templateId: text("template_id")
+      .notNull()
+      .references(() => interviewQuestionTemplate.id, { onDelete: "cascade" }),
+    version: integer("version").notNull(),
+  },
+  (table) => [
+    uniqueIndex("interview_question_template_version_template_version_uq").on(
+      table.templateId,
+      table.version,
+    ),
+    uniqueIndex("interview_question_template_version_template_hash_uq").on(
+      table.templateId,
+      table.contentHash,
+    ),
+  ],
+);
+
+// Binding between an interview record and a frozen template version.
+// disabledByUser lets the operator opt out of a template on the interview
+// detail page without deleting the row — this preserves the manual override
+// across JD changes and across template content updates.
+export const interviewQuestionTemplateBinding = pgTable(
+  "interview_question_template_binding",
+  {
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    disabledByUser: boolean("disabled_by_user").default(false).notNull(),
+    id: text("id").primaryKey(),
+    interviewRecordId: text("interview_record_id")
+      .notNull()
+      .references(() => studioInterview.id, { onDelete: "cascade" }),
+    sortOrder: integer("sort_order").notNull(),
+    templateId: text("template_id")
+      .notNull()
+      .references(() => interviewQuestionTemplate.id, { onDelete: "restrict" }),
+    versionId: text("version_id")
+      .notNull()
+      .references(() => interviewQuestionTemplateVersion.id, { onDelete: "restrict" }),
+  },
+  (table) => [
+    uniqueIndex("interview_question_template_binding_interview_template_uq").on(
+      table.interviewRecordId,
+      table.templateId,
+    ),
+    index("interview_question_template_binding_interview_idx").on(table.interviewRecordId),
+    index("interview_question_template_binding_template_idx").on(table.templateId),
+    index("interview_question_template_binding_version_idx").on(table.versionId),
   ],
 );

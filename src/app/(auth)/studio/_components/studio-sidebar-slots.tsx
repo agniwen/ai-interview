@@ -5,6 +5,7 @@ import {
   Building2Icon,
   ClipboardListIcon,
   FileTextIcon,
+  ListChecksIcon,
   UserCircleIcon,
 } from "lucide-react";
 import Link from "next/link";
@@ -49,6 +50,11 @@ const navItems = [
     href: "/studio/forms",
     icon: ClipboardListIcon,
     title: "面试前问卷模版",
+  },
+  {
+    href: "/studio/interview-questions",
+    icon: ListChecksIcon,
+    title: "面试中问题模版",
   },
 ];
 

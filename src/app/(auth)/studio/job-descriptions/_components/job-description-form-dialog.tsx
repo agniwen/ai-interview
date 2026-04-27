@@ -3,6 +3,7 @@
 import type { CandidateFormTemplateListRecord } from "@/lib/candidate-forms";
 import type { DepartmentRecord } from "@/lib/departments";
 import type { InterviewerListRecord } from "@/lib/interviewers";
+import type { InterviewQuestionTemplateListRecord } from "@/lib/interview-question-templates";
 import { jobDescriptionFormSchema } from "@/lib/job-descriptions";
 import type { JobDescriptionFormValues, JobDescriptionRecord } from "@/lib/job-descriptions";
 import { useQuery } from "@tanstack/react-query";
@@ -12,8 +13,8 @@ import {
   ChevronsUpDownIcon,
   ClipboardListIcon,
   ExternalLinkIcon,
+  ListChecksIcon,
   LoaderCircleIcon,
-  PlusIcon,
   XIcon,
 } from "lucide-react";
 import Link from "next/link";
@@ -47,10 +48,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { SortableDragHandle, SortableItem, SortableList } from "@/components/ui/sortable-list";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import { useSortableItemIds } from "@/hooks/use-sortable-item-ids";
 import { cn } from "@/lib/utils";
 import { hasFieldErrors, toFieldErrors } from "../../interviews/_components/interview-form";
 
@@ -60,7 +59,6 @@ function defaultValues(departmentId: string): JobDescriptionFormValues {
     description: "",
     interviewerIds: [],
     name: "",
-    presetQuestions: [],
     prompt: "",
   };
 }
@@ -71,7 +69,6 @@ function toFormValues(record: JobDescriptionRecord): JobDescriptionFormValues {
     description: record.description ?? "",
     interviewerIds: [...record.interviewerIds],
     name: record.name,
-    presetQuestions: [...(record.presetQuestions ?? [])],
     prompt: record.prompt,
   };
 }
@@ -177,6 +174,7 @@ function InterviewerMultiSelect({
   );
 }
 
+// oxlint-disable-next-line complexity -- Dialog hosts tabs, queries, validation, and form submission together.
 export function JobDescriptionFormDialog({
   open,
   onOpenChange,
@@ -194,7 +192,7 @@ export function JobDescriptionFormDialog({
 }) {
   const isEdit = record !== null;
   const fallbackDepartmentId = departments[0]?.id ?? "";
-  const [activeTab, setActiveTab] = useState<"basic" | "questions" | "forms">("basic");
+  const [activeTab, setActiveTab] = useState<"basic" | "interview-questions" | "forms">("basic");
 
   const { data: linkedForms = [], isLoading: isFormsLoading } = useQuery({
     enabled: open && isEdit && !!record?.id,
@@ -219,6 +217,29 @@ export function JobDescriptionFormDialog({
     queryKey: ["job-description-linked-forms", record?.id],
   });
 
+  const { data: linkedInterviewQuestions = [], isLoading: isInterviewQuestionsLoading } = useQuery({
+    enabled: open && isEdit && !!record?.id,
+    queryFn: async () => {
+      const qs = new URLSearchParams({
+        jobDescriptionId: record?.id ?? "",
+        page: "1",
+        pageSize: "100",
+        sortBy: "createdAt",
+        sortOrder: "desc",
+      });
+      const response = await fetch(`/api/studio/interview-questions?${qs.toString()}`);
+      const payload = (await response.json()) as {
+        records?: InterviewQuestionTemplateListRecord[];
+        error?: string;
+      } | null;
+      if (!response.ok || !payload?.records) {
+        throw new Error(payload?.error ?? "加载关联面试中问题模版失败");
+      }
+      return payload.records;
+    },
+    queryKey: ["job-description-linked-interview-questions", record?.id],
+  });
+
   const form = useForm({
     defaultValues: record ? toFormValues(record) : defaultValues(fallbackDepartmentId),
     onSubmit: async ({ value }) => {
@@ -227,7 +248,6 @@ export function JobDescriptionFormDialog({
         description: value.description?.trim() || "",
         interviewerIds: value.interviewerIds,
         name: value.name.trim(),
-        presetQuestions: (value.presetQuestions ?? []).map((q) => q.trim()).filter(Boolean),
         prompt: value.prompt.trim(),
       };
 
@@ -250,14 +270,9 @@ export function JobDescriptionFormDialog({
     },
     onSubmitInvalid: ({ formApi }) => {
       const meta = formApi.store.state.fieldMeta as Record<string, { errors?: unknown[] }>;
-      const hasPresetError = Object.entries(meta).some(
-        ([key, value]) => key.startsWith("presetQuestions") && (value.errors?.length ?? 0) > 0,
-      );
       const basicFields = ["name", "departmentId", "interviewerIds", "description", "prompt"];
       const hasBasicError = basicFields.some((key) => (meta[key]?.errors?.length ?? 0) > 0);
-      if (hasPresetError && !hasBasicError) {
-        setActiveTab("questions");
-      } else if (hasBasicError) {
+      if (hasBasicError) {
         setActiveTab("basic");
       }
     },
@@ -294,12 +309,14 @@ export function JobDescriptionFormDialog({
 
           <Tabs
             className="mt-4"
-            onValueChange={(value) => setActiveTab(value as "basic" | "questions" | "forms")}
+            onValueChange={(value) =>
+              setActiveTab(value as "basic" | "interview-questions" | "forms")
+            }
             value={activeTab}
           >
             <TabsList>
               <TabsTrigger value="basic">基本信息</TabsTrigger>
-              <TabsTrigger value="questions">面试题</TabsTrigger>
+              {isEdit ? <TabsTrigger value="interview-questions">面试中问题</TabsTrigger> : null}
               {isEdit ? <TabsTrigger value="forms">面试前问卷</TabsTrigger> : null}
             </TabsList>
             <TabsContent value="basic">
@@ -442,15 +459,16 @@ export function JobDescriptionFormDialog({
                 </form.Field>
               </FieldGroup>
             </TabsContent>
-            <TabsContent value="questions">
-              <form.Field mode="array" name="presetQuestions">
-                {/* oxlint-disable-next-line no-explicit-any */}
-                {(field: any) => (
-                  // oxlint-disable-next-line no-use-before-define
-                  <PresetQuestionsList field={field} form={form} resetKey={record?.id ?? "new"} />
-                )}
-              </form.Field>
-            </TabsContent>
+            {isEdit ? (
+              <TabsContent value="interview-questions">
+                {/* oxlint-disable-next-line no-use-before-define */}
+                <LinkedInterviewQuestionTemplatesList
+                  isLoading={isInterviewQuestionsLoading}
+                  jobDescriptionId={record?.id ?? ""}
+                  templates={linkedInterviewQuestions}
+                />
+              </TabsContent>
+            ) : null}
             {isEdit ? (
               <TabsContent value="forms">
                 {/* oxlint-disable-next-line no-use-before-define */}
@@ -475,122 +493,6 @@ export function JobDescriptionFormDialog({
         </form>
       </DialogContent>
     </Dialog>
-  );
-}
-
-function PresetQuestionsList({
-  field,
-  form,
-  resetKey,
-}: {
-  // oxlint-disable-next-line no-explicit-any
-  field: any;
-  // oxlint-disable-next-line no-explicit-any
-  form: any;
-  resetKey: string;
-}) {
-  const items = (field.state.value ?? []) as string[];
-  const {
-    ids,
-    move: moveId,
-    push: pushId,
-    remove: removeId,
-  } = useSortableItemIds(items.length, resetKey);
-
-  return (
-    <Field className="mt-4 gap-3">
-      <FieldLabel>
-        岗位预设面试题
-        <span className="ml-2 font-normal text-muted-foreground text-xs">
-          （面试时会先按顺序全部提问，然后才问简历生成的题目）
-        </span>
-      </FieldLabel>
-      <FieldContent className="gap-2">
-        {/* -mx-1/px-1 + py-1.5 leaves room for focus rings that would otherwise be clipped by overflow-y-auto. */}
-        <div className="-mx-1 max-h-[50vh] overflow-y-auto px-1 py-1.5">
-          {items.length === 0 ? (
-            <p className="text-muted-foreground text-sm">暂无预设题，点击下方按钮添加。</p>
-          ) : null}
-          <SortableList
-            ids={ids}
-            onReorder={(from, to) => {
-              field.moveValue(from, to);
-              moveId(from, to);
-            }}
-          >
-            {items.map((_item, index) => {
-              const id = ids[index];
-              if (!id) {
-                return null;
-              }
-              return (
-                <SortableItem id={id} key={id}>
-                  {({ handleProps }) => (
-                    <div className="flex items-start gap-2">
-                      <SortableDragHandle
-                        {...handleProps}
-                        aria-label={`拖动以调整第 ${index + 1} 题的顺序`}
-                        className="mt-1"
-                      />
-                      <span className="mt-2.5 w-6 shrink-0 text-right text-muted-foreground text-sm">
-                        {index + 1}.
-                      </span>
-                      <div className="flex-1">
-                        <form.Field name={`presetQuestions[${index}]`}>
-                          {/* oxlint-disable-next-line no-explicit-any */}
-                          {(subField: any) => {
-                            const errors = toFieldErrors(subField.state.meta.errors);
-                            return (
-                              <>
-                                <Textarea
-                                  aria-invalid={!!errors?.length}
-                                  className="min-h-16"
-                                  onBlur={subField.handleBlur}
-                                  onChange={(event) => subField.handleChange(event.target.value)}
-                                  placeholder="请输入一道必问题目…"
-                                  value={subField.state.value ?? ""}
-                                />
-                                <FieldError errors={errors} />
-                              </>
-                            );
-                          }}
-                        </form.Field>
-                      </div>
-                      <Button
-                        aria-label={`删除第 ${index + 1} 题`}
-                        className="mt-1"
-                        onClick={() => {
-                          field.removeValue(index);
-                          removeId(index);
-                        }}
-                        size="icon"
-                        type="button"
-                        variant="ghost"
-                      >
-                        <XIcon className="size-4" />
-                      </Button>
-                    </div>
-                  )}
-                </SortableItem>
-              );
-            })}
-          </SortableList>
-        </div>
-        <Button
-          className="self-start"
-          onClick={() => {
-            field.pushValue("");
-            pushId();
-          }}
-          size="sm"
-          type="button"
-          variant="outline"
-        >
-          <PlusIcon className="size-4" />
-          添加题目
-        </Button>
-      </FieldContent>
-    </Field>
   );
 }
 
@@ -652,6 +554,76 @@ function LinkedFormsList({
                   ) : null}
                   <p className="mt-1 text-muted-foreground text-xs">
                     {template.questionCount} 题 · {template.submissionCount} 份答复
+                  </p>
+                </div>
+              </div>
+              <Badge variant="outline">岗位专属</Badge>
+            </Link>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function LinkedInterviewQuestionTemplatesList({
+  isLoading,
+  jobDescriptionId,
+  templates,
+}: {
+  isLoading: boolean;
+  jobDescriptionId: string;
+  templates: InterviewQuestionTemplateListRecord[];
+}) {
+  const newTemplateHref = `/studio/interview-questions?jobDescriptionId=${encodeURIComponent(jobDescriptionId)}`;
+
+  return (
+    <div className="mt-4 space-y-3">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="font-medium text-sm">岗位关联的面试中问题模版</p>
+          <p className="mt-1 text-muted-foreground text-xs">
+            面试创建时会自动绑定到下列模版的最新版本；全局模版在「面试中问题模版」菜单中维护。
+          </p>
+        </div>
+        <Button asChild size="sm" type="button" variant="outline">
+          <Link href={newTemplateHref} target="_blank">
+            <ExternalLinkIcon className="size-3.5" />
+            管理模版
+          </Link>
+        </Button>
+      </div>
+
+      {isLoading ? (
+        <p className="rounded-xl border border-dashed border-border/60 bg-muted/20 px-4 py-6 text-center text-muted-foreground text-sm">
+          正在加载关联模版…
+        </p>
+      ) : null}
+      {!isLoading && templates.length === 0 ? (
+        <p className="rounded-xl border border-dashed border-border/60 bg-muted/20 px-4 py-6 text-center text-muted-foreground text-sm">
+          暂无该岗位专属的面试中问题模版。
+        </p>
+      ) : null}
+      {!isLoading && templates.length > 0 ? (
+        <div className="space-y-2">
+          {templates.map((template) => (
+            <Link
+              className="flex items-start justify-between gap-3 rounded-xl border border-border/60 bg-muted/20 p-3 transition-colors hover:bg-muted/40"
+              href={`/studio/interview-questions?templateId=${template.id}`}
+              key={template.id}
+              target="_blank"
+            >
+              <div className="flex min-w-0 items-start gap-3">
+                <ListChecksIcon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                <div className="min-w-0">
+                  <p className="truncate font-medium text-sm">{template.title}</p>
+                  {template.description ? (
+                    <p className="mt-0.5 line-clamp-2 text-muted-foreground text-xs">
+                      {template.description}
+                    </p>
+                  ) : null}
+                  <p className="mt-1 text-muted-foreground text-xs">
+                    {template.questionCount} 题 · {template.bindingCount} 个面试已绑定
                   </p>
                 </div>
               </div>

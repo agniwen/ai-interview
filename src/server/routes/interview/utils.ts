@@ -16,6 +16,10 @@ import {
   sortScheduleEntries,
 } from "@/lib/interview/interview-record";
 import { ResumeAnalysisError } from "@/server/agents/resume-analysis-agent";
+import {
+  ensureApplicableBindings,
+  loadInterviewPresetQuestions,
+} from "@/server/queries/interview-question-templates";
 import { buildInterviewResumeKey, putObjectBytes } from "@/lib/s3";
 
 export type StudioInterviewRow = typeof studioInterview.$inferSelect;
@@ -56,20 +60,17 @@ export async function loadCandidateInterviewRecord(id: string, roundId: string) 
   const view = buildCandidateInterviewView(record, sortScheduleEntries(scheduleEntries), roundId);
 
   let jobDescriptionPrompt: string | null = null;
-  let jobDescriptionPresetQuestions: string[] = [];
   const interviewers: { name: string; prompt: string; voice: string }[] = [];
 
   if (record.jobDescriptionId) {
     const [jdRow] = await db
       .select({
-        presetQuestions: jobDescription.presetQuestions,
         prompt: jobDescription.prompt,
       })
       .from(jobDescription)
       .where(eq(jobDescription.id, record.jobDescriptionId))
       .limit(1);
     jobDescriptionPrompt = jdRow?.prompt ?? null;
-    jobDescriptionPresetQuestions = jdRow?.presetQuestions ?? [];
 
     const interviewerRows = await db
       .select({
@@ -83,6 +84,15 @@ export async function loadCandidateInterviewRecord(id: string, roundId: string) 
 
     interviewers.push(...interviewerRows);
   }
+
+  // Aggregate preset questions from interview_question_template_binding rows
+  // (replacing the legacy `jobDescription.presetQuestions` column). Field name
+  // and shape kept as `string[]` so the LiveKit agent's metadata contract is
+  // unchanged. ensureApplicableBindings lazily attaches templates created
+  // *after* the interview was created (e.g. a new global template) so they
+  // also flow into the agent's metadata.
+  await ensureApplicableBindings(id);
+  const jobDescriptionPresetQuestions = await loadInterviewPresetQuestions(id);
 
   return {
     ...view,

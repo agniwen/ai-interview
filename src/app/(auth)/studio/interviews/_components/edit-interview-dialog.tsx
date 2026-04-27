@@ -43,6 +43,7 @@ import {
   toInterviewFormValues,
   useInterviewForm,
 } from "./interview-form";
+import { InterviewQuestionBindingsSection } from "./interview-question-bindings-section";
 import { InterviewQuestionsFields } from "./interview-questions-fields";
 import { InterviewScheduleFields } from "./interview-schedule-fields";
 import { JobDescriptionSelectField } from "./job-description-select-field";
@@ -260,6 +261,13 @@ export function EditInterviewDialog({
                         );
                       }}
                     </form.Field>
+
+                    {recordId ? (
+                      <InterviewQuestionBindingsSection
+                        disabled={isSubmitting || isLoadingRecord}
+                        interviewId={recordId}
+                      />
+                    ) : null}
 
                     <FieldGroup className="grid gap-5 md:grid-cols-2 md:items-start">
                       <form.Field name="candidateName">

@@ -12,6 +12,7 @@ import { chatRouter } from "./routes/chat/route";
 import { departmentsRouter } from "./routes/department/route";
 import { interviewRouter, studioInterviewsRouter } from "./routes/interview/route";
 import { interviewersRouter } from "./routes/interviewer/route";
+import { interviewQuestionTemplatesRouter } from "./routes/interview-question-templates/route";
 import { jobDescriptionsRouter } from "./routes/job-description/route";
 import { resumeRouter } from "./routes/resume/route";
 
@@ -44,6 +45,8 @@ export const app = new Hono<Env>()
   .use("/api/studio/job-descriptions/*", authMiddleware, adminMiddleware)
   .use("/api/studio/forms", authMiddleware, adminMiddleware)
   .use("/api/studio/forms/*", authMiddleware, adminMiddleware)
+  .use("/api/studio/interview-questions", authMiddleware, adminMiddleware)
+  .use("/api/studio/interview-questions/*", authMiddleware, adminMiddleware)
   .basePath("/api")
   .post("/feishu/webhook", async (c) => {
     const bot = getFeishuBot();
@@ -63,7 +66,8 @@ export const app = new Hono<Env>()
   .route("/studio/departments", departmentsRouter)
   .route("/studio/interviewers", interviewersRouter)
   .route("/studio/job-descriptions", jobDescriptionsRouter)
-  .route("/studio/forms", candidateFormsRouter);
+  .route("/studio/forms", candidateFormsRouter)
+  .route("/studio/interview-questions", interviewQuestionTemplatesRouter);
 
 app.notFound((c) => c.json({ error: "Not Found" }, 404));
 
