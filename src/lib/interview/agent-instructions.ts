@@ -1,5 +1,21 @@
+/**
+ * AI 面试官 prompt 拼装：把候选人信息 / 岗位 / 题目组合成最终 system prompt。
+ * AI interviewer prompt assembly: merges candidate info / role / questions into the
+ * final system prompt sent to the agent.
+ *
+ * **重要**：本文件需要与 `agent/src/prompts.py` 的 `build_instructions` 保持同步，
+ * 否则 UI 预览的指令会和 agent 运行时实际接收的 prompt 不一致。
+ *
+ * **Important**: keep this file in sync with `agent/src/prompts.py::build_instructions`,
+ * otherwise the preview shown in the UI will differ from what the agent actually receives.
+ */
+
 import type { InterviewQuestion, ResumeProfile } from "@/lib/interview/types";
 
+/**
+ * 拼装 agent prompt 所需的全部上下文。
+ * Full context required to assemble an agent prompt.
+ */
 export interface AgentInstructionContext {
   candidateName: string;
   targetRole: string | null;
@@ -10,6 +26,10 @@ export interface AgentInstructionContext {
   interviewerPrompt: string | null;
 }
 
+/**
+ * 把工作经历列表渲染成一段缩进文本，写入 prompt。
+ * Render the work-experience list as an indented text block for the prompt.
+ */
 function formatExperienceText(profile: ResumeProfile | null): string {
   const workExperiences = profile?.workExperiences ?? [];
   if (workExperiences.length === 0) {
@@ -23,6 +43,10 @@ function formatExperienceText(profile: ResumeProfile | null): string {
     .join("");
 }
 
+/**
+ * 把补充题目（从简历生成）渲染为带难度标记的列表。
+ * Render the supplementary (resume-derived) questions as a list with difficulty tags.
+ */
 function formatQuestionsText(questions: InterviewQuestion[]): string {
   if (questions.length === 0) {
     return "\n  无";
@@ -30,6 +54,10 @@ function formatQuestionsText(questions: InterviewQuestion[]): string {
   return questions.map((q) => `\n  ${q.order}. [${q.difficulty}] ${q.question}`).join("");
 }
 
+/**
+ * 把岗位预设题渲染为顺序编号列表（必须全部问到，所以保留顺序）。
+ * Render preset questions as a numbered list (every one must be asked, so preserve order).
+ */
 function formatPresetQuestionsText(questions: string[]): string {
   const cleaned = questions.map((q) => q.trim()).filter(Boolean);
   if (cleaned.length === 0) {
@@ -38,6 +66,10 @@ function formatPresetQuestionsText(questions: string[]): string {
   return cleaned.map((q, index) => `\n  ${index + 1}. ${q}`).join("");
 }
 
+/**
+ * 拼接 prompt 的"前置段落"：面试官设定 + 岗位说明，这两段都为可选。
+ * Build the prompt's prefix sections: interviewer persona + job description (both optional).
+ */
 function formatPrefixSections(interviewerPrompt: string, jobDescriptionPrompt: string): string {
   let prefixSections = "";
   if (interviewerPrompt) {
@@ -50,9 +82,11 @@ function formatPrefixSections(interviewerPrompt: string, jobDescriptionPrompt: s
 }
 
 /**
- * Mirror of agent/src/prompts.py `build_instructions`. Keep in sync with
- * the Python implementation so the preview shown in the UI matches what the
- * agent actually receives at runtime.
+ * 构建最终发送给 LiveKit agent 的 system prompt。
+ * Build the final system prompt sent to the LiveKit agent.
+ *
+ * 必须与 `agent/src/prompts.py::build_instructions` 同步，UI 预览才能反映真实下发内容。
+ * Must mirror `agent/src/prompts.py::build_instructions` so the UI preview is accurate.
  */
 export function buildAgentInstructions(context: AgentInstructionContext): string {
   const candidateName = context.candidateName?.trim() || "候选人";

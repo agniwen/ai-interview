@@ -4,10 +4,19 @@
  * 前端 API 层统一入口。
  * Single entry point for the frontend API layer.
  *
- * 业务代码示例：
- *   import { apiFetch, ApiError, fetchConversations } from "@/lib/api";
+ * 业务代码示例 / Examples:
+ *   import {
+ *     apiFetch, ApiError,
+ *     fetchConversations,
+ *     fetchStudioInterviews,
+ *     parseResume,
+ *     requestResumeChatTitle,
+ *   } from "@/lib/api";
  */
 
 export { ApiError, isApiError } from "./errors";
 export { apiFetch, type ApiFetchOptions } from "./client";
 export * from "./endpoints/chat";
+export * from "./endpoints/studio-interviews";
+export * from "./endpoints/interview";
+export * from "./endpoints/resume";

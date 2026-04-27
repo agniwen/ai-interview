@@ -31,37 +31,20 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import {
-  Field,
-  FieldContent,
-  FieldDescription,
-  FieldError,
-  FieldGroup,
-  FieldLabel,
-} from "@/components/ui/field";
+import { FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Textarea } from "@/components/ui/textarea";
+import { apiFetch } from "@/lib/api";
 import { readNdjsonStream } from "@/lib/ndjson-stream";
-import { studioInterviewStatusMeta, studioInterviewStatusValues } from "@/lib/studio-interviews";
 import {
   createInterviewFormValues,
-  hasFieldErrors,
   normalizeInterviewQuestions,
-  normalizeScheduleEntries,
-  toFieldErrors,
   useInterviewForm,
 } from "./interview-form";
+import { InterviewBasicInfoFields, InterviewNotesField } from "./interview-form/basic-info-fields";
+import { buildInterviewFormData } from "./interview-form/build-form-data";
 import { InterviewQuestionsFields } from "./interview-questions-fields";
 import { InterviewScheduleFields } from "./interview-schedule-fields";
-import { JobDescriptionSelectField } from "./job-description-select-field";
 
 const LEADING_DIGIT_RE = /^\d/;
 const LEADING_DIGITS_RE = /^(\d+)/;
@@ -106,25 +89,16 @@ export function CreateInterviewDialog({
   const form = useInterviewForm({
     defaultValues: createInterviewFormValues(),
     onSubmit: async (values) => {
+      // 通用字段 + 简历由共享 helper 组装；问题字段需要二选一处理（带 LLM 解析时附 resumePayload，
+      // 否则附 manualInterviewQuestions），所以走自定义分支。
+      // Common fields + resume go through the shared helper; the question payload is
+      // either `resumePayload` (LLM-analysed) or `manualInterviewQuestions`, so it
+      // gets a custom branch.
       const normalizedQuestions = normalizeInterviewQuestions(values.interviewQuestions);
-
-      const formData = new FormData();
-      formData.append("candidateName", values.candidateName);
-      formData.append("candidateEmail", values.candidateEmail);
-      formData.append("targetRole", values.targetRole);
-      formData.append("notes", values.notes);
-      formData.append("status", values.status);
-      if (values.jobDescriptionId) {
-        formData.append("jobDescriptionId", values.jobDescriptionId);
-      }
-      formData.append(
-        "scheduleEntries",
-        JSON.stringify(normalizeScheduleEntries(values.scheduleEntries)),
-      );
-
-      if (resumeFile) {
-        formData.append("resume", resumeFile);
-      }
+      const formData = buildInterviewFormData(values, {
+        questionsFieldName: null,
+        resumeFile,
+      });
 
       if (resumePayload) {
         formData.append(
@@ -139,27 +113,20 @@ export function CreateInterviewDialog({
         formData.append("manualInterviewQuestions", JSON.stringify(normalizedQuestions));
       }
 
-      const response = await fetch("/api/studio/interviews", {
-        body: formData,
-        method: "POST",
-      });
-
-      const payload = (await response.json().catch(() => null)) as
-        | StudioInterviewRecord
-        | { error?: string }
-        | null;
-
-      if (!response.ok || !payload || "error" in payload) {
-        toast.error(payload && "error" in payload ? (payload.error ?? "创建失败") : "创建失败");
-        return;
+      try {
+        const created = await apiFetch<StudioInterviewRecord>("/api/studio/interviews", {
+          body: formData,
+          method: "POST",
+        });
+        onCreated(created);
+        setOpen(false);
+        setResumeFile(null);
+        setResumePayload(null);
+        form.reset(createInterviewFormValues());
+        toast.success("简历库记录已创建");
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "创建失败");
       }
-
-      onCreated(payload as StudioInterviewRecord);
-      setOpen(false);
-      setResumeFile(null);
-      setResumePayload(null);
-      form.reset(createInterviewFormValues());
-      toast.success("简历库记录已创建");
     },
     onSubmitInvalid: (fieldMeta) => {
       const hasQuestionError = Object.entries(fieldMeta).some(
@@ -594,168 +561,15 @@ export function CreateInterviewDialog({
                     </FieldGroup>
                   </div>
 
-                  <form.Field name="jobDescriptionId">
-                    {(field) => {
-                      const errors = toFieldErrors(field.state.meta.errors);
-                      return (
-                        <JobDescriptionSelectField
-                          error={errors?.[0]?.message}
-                          onChange={(next) => field.handleChange(next)}
-                          value={field.state.value ?? ""}
-                        />
-                      );
-                    }}
-                  </form.Field>
-
-                  <FieldGroup
-                    className="grid gap-5 md:grid-cols-2 md:items-start"
-                    data-tour="studio-dialog-basic"
-                  >
-                    <form.Field name="candidateName">
-                      {(field) => {
-                        const errors = toFieldErrors(field.state.meta.errors);
-
-                        return (
-                          <Field
-                            data-invalid={hasFieldErrors(field.state.meta.errors) || undefined}
-                          >
-                            <FieldLabel htmlFor={field.name}>候选人姓名</FieldLabel>
-                            <FieldContent className="gap-2">
-                              <Input
-                                aria-invalid={!!errors?.length}
-                                className="w-full"
-                                id={field.name}
-                                onBlur={field.handleBlur}
-                                onChange={(event) => field.handleChange(event.target.value)}
-                                placeholder="请输入候选人姓名"
-                                value={field.state.value}
-                              />
-                              <FieldError errors={errors} />
-                            </FieldContent>
-                          </Field>
-                        );
-                      }}
-                    </form.Field>
-
-                    <form.Field name="candidateEmail">
-                      {(field) => {
-                        const errors = toFieldErrors(field.state.meta.errors);
-
-                        return (
-                          <Field
-                            data-invalid={hasFieldErrors(field.state.meta.errors) || undefined}
-                          >
-                            <FieldLabel htmlFor={field.name}>候选人邮箱</FieldLabel>
-                            <FieldContent className="gap-2">
-                              <Input
-                                aria-invalid={!!errors?.length}
-                                className="w-full"
-                                id={field.name}
-                                onBlur={field.handleBlur}
-                                onChange={(event) => field.handleChange(event.target.value)}
-                                placeholder="candidate@example.com"
-                                value={field.state.value}
-                              />
-                              <FieldDescription>可选，方便后台检索与跟进。</FieldDescription>
-                              <FieldError errors={errors} />
-                            </FieldContent>
-                          </Field>
-                        );
-                      }}
-                    </form.Field>
-
-                    <form.Field name="targetRole">
-                      {(field) => {
-                        const errors = toFieldErrors(field.state.meta.errors);
-
-                        return (
-                          <Field
-                            data-invalid={hasFieldErrors(field.state.meta.errors) || undefined}
-                          >
-                            <FieldLabel htmlFor={field.name}>目标岗位</FieldLabel>
-                            <FieldContent className="gap-2">
-                              <Input
-                                aria-invalid={!!errors?.length}
-                                className="w-full"
-                                id={field.name}
-                                onBlur={field.handleBlur}
-                                onChange={(event) => field.handleChange(event.target.value)}
-                                placeholder="如：前端工程师 / 产品经理"
-                                value={field.state.value}
-                              />
-                              <FieldError errors={errors} />
-                            </FieldContent>
-                          </Field>
-                        );
-                      }}
-                    </form.Field>
-
-                    <form.Field name="status">
-                      {(field) => {
-                        const errors = toFieldErrors(field.state.meta.errors);
-
-                        return (
-                          <Field
-                            data-invalid={hasFieldErrors(field.state.meta.errors) || undefined}
-                          >
-                            <FieldLabel htmlFor={field.name}>当前流程</FieldLabel>
-                            <FieldContent className="gap-2">
-                              <Select
-                                onValueChange={(value) =>
-                                  field.handleChange(value as typeof field.state.value)
-                                }
-                                value={field.state.value}
-                              >
-                                <SelectTrigger
-                                  aria-invalid={!!errors?.length}
-                                  className="w-full"
-                                  id={field.name}
-                                >
-                                  <SelectValue placeholder="选择状态" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {studioInterviewStatusValues.map((status) => (
-                                    <SelectItem key={status} value={status}>
-                                      {studioInterviewStatusMeta[status].label}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                              <FieldError errors={errors} />
-                            </FieldContent>
-                          </Field>
-                        );
-                      }}
-                    </form.Field>
-                  </FieldGroup>
+                  <div data-tour="studio-dialog-basic">
+                    <InterviewBasicInfoFields form={form} />
+                  </div>
 
                   <div data-tour="studio-dialog-schedule">
                     <InterviewScheduleFields form={form} />
                   </div>
 
-                  <form.Field name="notes">
-                    {(field) => {
-                      const errors = toFieldErrors(field.state.meta.errors);
-
-                      return (
-                        <Field data-invalid={hasFieldErrors(field.state.meta.errors) || undefined}>
-                          <FieldLabel htmlFor={field.name}>内部备注</FieldLabel>
-                          <FieldContent className="gap-2">
-                            <Textarea
-                              aria-invalid={!!errors?.length}
-                              className="min-h-32 w-full"
-                              id={field.name}
-                              onBlur={field.handleBlur}
-                              onChange={(event) => field.handleChange(event.target.value)}
-                              placeholder="记录候选人来源、业务线、面试关注点等信息"
-                              value={field.state.value}
-                            />
-                            <FieldError errors={errors} />
-                          </FieldContent>
-                        </Field>
-                      );
-                    }}
-                  </form.Field>
+                  <InterviewNotesField form={form} />
                 </div>
               </TabsContent>
 

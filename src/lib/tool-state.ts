@@ -1,9 +1,18 @@
 /**
- * Shared tool state extraction utilities.
- * Ported from open-agents — platform-agnostic.
+ * AI tool 调用的渲染状态工具集（与具体平台解耦）。
+ * Shared tool-state extraction utilities, ported from open-agents — platform-agnostic.
+ *
+ * 提供两件事：
+ *   1) 将 `GenericToolPart` 扁平化为 UI 直接可用的 {@link ToolRenderState}；
+ *   2) 一组渲染辅助：状态色、状态标签、Token 数格式化。
+ *
+ * Provides:
+ *   1) flatten a `GenericToolPart` into a UI-ready {@link ToolRenderState};
+ *   2) helpers for status color, status label, and token-count formatting.
  */
 
 /**
+ * 由 tool part 衍生出的"渲染端关心的状态"。
  * Common state derived from a tool part for renderers.
  */
 export interface ToolRenderState {
@@ -26,6 +35,7 @@ export interface ToolRenderState {
 }
 
 /**
+ * 通用 tool part 形状：能容纳任意工具配置返回的字段子集。
  * Generic tool part type that works with any tool configuration.
  */
 export interface GenericToolPart {
@@ -41,6 +51,7 @@ export interface GenericToolPart {
 }
 
 /**
+ * 从 tool part 中抽取出渲染端关心的状态字段。
  * Extract render state from a tool part.
  */
 export function extractRenderState(
@@ -74,7 +85,8 @@ export function extractRenderState(
 }
 
 /**
- * Get the status color based on tool state.
+ * 根据状态决定显示色：红 = 失败 / 拒绝，黄 = 进行中 / 待确认，绿 = 正常。
+ * Pick a status color: red = failed / denied, yellow = in-flight / pending, green = ok.
  */
 export function getStatusColor(state: ToolRenderState): "red" | "yellow" | "green" {
   if (state.denied) {
@@ -96,7 +108,8 @@ export function getStatusColor(state: ToolRenderState): "red" | "yellow" | "gree
 }
 
 /**
- * Get the status label based on tool state.
+ * 根据状态返回中文展示文案；正常运行无文案返回 undefined。
+ * Pick a Chinese label for the status; returns undefined when no label is needed.
  */
 export function getStatusLabel(state: ToolRenderState): string | undefined {
   if (state.denied) {
@@ -118,7 +131,8 @@ export function getStatusLabel(state: ToolRenderState): string | undefined {
 }
 
 /**
- * Format token count for display.
+ * 把 Token 数压缩成 1.2k / 3.4m / 5.6b / 7.8t 形式，便于状态栏展示。
+ * Format a token count for display: 1.2k / 3.4m / 5.6b / 7.8t.
  */
 export function formatTokens(tokens: number): string {
   if (tokens >= 999_950_000_000) {

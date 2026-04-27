@@ -1,9 +1,14 @@
 "use client";
 
-import type { CandidateFormSubmissionWithSnapshot } from "@/lib/candidate-forms";
-import type { StudioInterviewConversationReport } from "@/lib/interview-session";
 import type { StudioInterviewRecord } from "@/lib/studio-interviews";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  deleteStudioInterviewFormSubmission,
+  fetchStudioInterview,
+  fetchStudioInterviewFormSubmissions,
+  fetchStudioInterviewReports,
+  resetStudioInterviewRound,
+} from "@/lib/api";
 import { MessageSquareTextIcon, RotateCcwIcon, Share2Icon } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -89,52 +94,24 @@ export function InterviewDetailDialog({
   const [pendingResetSubmissionId, setPendingResetSubmissionId] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
+  // 三个查询统一改走 @/lib/api 的端点，错误处理由 ApiError 统一接管，避免重复样板。
+  // All three queries go through @/lib/api endpoints; ApiError handles failure paths,
+  // removing the duplicated unwrap-and-throw boilerplate.
   const { data: record, isLoading: isRecordLoading } = useQuery({
     enabled: open && !!recordId,
-    queryFn: async () => {
-      const response = await fetch(`/api/studio/interviews/${recordId}`);
-      const payload = (await response.json()) as StudioInterviewRecord | { error?: string };
-      if (!response.ok || "error" in payload) {
-        throw new Error("error" in payload ? (payload.error ?? "加载详情失败") : "加载详情失败");
-      }
-      return payload as StudioInterviewRecord;
-    },
+    queryFn: () => fetchStudioInterview(recordId as string),
     queryKey: ["studio-interview", recordId],
   });
 
   const { data: reports = [] } = useQuery({
     enabled: open && !!recordId,
-    queryFn: async () => {
-      const response = await fetch(`/api/studio/interviews/${recordId}/reports`);
-      const payload = (await response.json()) as
-        | StudioInterviewConversationReport[]
-        | { error?: string };
-      if (!response.ok || !Array.isArray(payload)) {
-        const fallbackMessage = "加载面试报告失败";
-        const errorMessage = Array.isArray(payload)
-          ? fallbackMessage
-          : (payload.error ?? fallbackMessage);
-        throw new Error(errorMessage);
-      }
-      return payload;
-    },
+    queryFn: () => fetchStudioInterviewReports(recordId as string),
     queryKey: ["studio-interview-reports", recordId],
   });
 
   const { data: formSubmissions = [] } = useQuery({
     enabled: open && !!recordId,
-    queryFn: async () => {
-      const response = await fetch(`/api/studio/interviews/${recordId}/form-submissions`);
-      const payload = (await response.json()) as
-        | { submissions: CandidateFormSubmissionWithSnapshot[] }
-        | { error?: string };
-      if (!response.ok || !("submissions" in payload)) {
-        throw new Error(
-          "error" in payload ? (payload.error ?? "加载面试表单答复失败") : "加载面试表单答复失败",
-        );
-      }
-      return payload.submissions;
-    },
+    queryFn: () => fetchStudioInterviewFormSubmissions(recordId as string),
     queryKey: ["studio-interview-form-submissions", recordId],
   });
 
@@ -170,18 +147,7 @@ export function InterviewDetailDialog({
     setResettingRoundId(roundId);
 
     try {
-      const response = await fetch(`/api/studio/interviews/${recordId}/rounds/${roundId}/reset`, {
-        method: "POST",
-      });
-      const payload = (await response.json().catch(() => null)) as
-        | StudioInterviewRecord
-        | { error?: string }
-        | null;
-
-      if (!response.ok || !payload || "error" in payload) {
-        throw new Error(payload && "error" in payload ? (payload.error ?? "重置失败") : "重置失败");
-      }
-
+      await resetStudioInterviewRound(recordId, roundId);
       toast.success("轮次已重置为待开始");
       await queryClient.invalidateQueries({ queryKey: ["studio-interview", recordId] });
       await queryClient.invalidateQueries({ queryKey: ["studio-interview-reports", recordId] });
@@ -203,19 +169,7 @@ export function InterviewDetailDialog({
     setPendingResetSubmissionId(null);
 
     try {
-      const response = await fetch(
-        `/api/studio/interviews/${recordId}/form-submissions/${submissionId}`,
-        { method: "DELETE" },
-      );
-      const payload = (await response.json().catch(() => null)) as {
-        success?: boolean;
-        error?: string;
-      } | null;
-
-      if (!response.ok || !payload?.success) {
-        throw new Error(payload?.error ?? "重置失败");
-      }
-
+      await deleteStudioInterviewFormSubmission(recordId, submissionId);
       toast.success("已重置面试表单填写");
       await queryClient.invalidateQueries({
         queryKey: ["studio-interview-form-submissions", recordId],

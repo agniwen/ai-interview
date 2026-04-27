@@ -9,7 +9,7 @@ import {
 } from "ai";
 import { useAtomValue } from "jotai";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { deriveJobDescriptionText, getJobDescriptionLabel } from "@/lib/job-description-config";
+import { requestResumeChatTitle } from "@/lib/api";
 import { authClient } from "@/lib/auth-client";
 import {
   fetchConversation,
@@ -20,7 +20,9 @@ import { thinkingModeAtom } from "../_atoms/thinking";
 import { CHAT_EVENTS, notifyConversationsChanged } from "../_lib/chat-events";
 import { setChatMeta } from "../_lib/chat-meta";
 import { getOrCreateChat, hasChat } from "../_lib/chat-registry";
+import { useJobDescriptionConfig } from "../_lib/use-job-description-config";
 import { useJobDescriptionOptionsQuery } from "../_lib/use-job-description-options";
+import { useResumeImports } from "../_lib/use-resume-imports";
 import { ChatRuntimeProvider } from "./chat-runtime-context";
 import type { SendMessageInput } from "./chat-runtime-context";
 import { useChatTutorial } from "./chat-tutorial";
@@ -81,12 +83,7 @@ export default function ChatPageClient({ initialSessionId }: { initialSessionId:
   const [isHistoryReady, setIsHistoryReady] = useState(false);
   const [shouldNormalizeSessionPath, setShouldNormalizeSessionPath] = useState(false);
   const [historyErrorMessage, setHistoryErrorMessage] = useState<string | null>(null);
-  const [isJobDescriptionDialogOpen, setIsJobDescriptionDialogOpen] = useState(false);
-  const [jobDescriptionConfig, setJobDescriptionConfig] = useState<JobDescriptionConfig | null>(
-    null,
-  );
   const [uploadErrorMessage, setUploadErrorMessage] = useState<string | null>(null);
-  const [resumeImports, setResumeImports] = useState<Record<string, string>>({});
   // Tracks whether we expect a model response right now. Set optimistically in
   // the submit path (before the SDK status transitions) and kept in sync via
   // the effect below so the send/stop button stays stable during the agent
@@ -96,11 +93,29 @@ export default function ChatPageClient({ initialSessionId }: { initialSessionId:
   // status gets stuck (some abort paths on iOS/Safari leave it on `streaming`).
   const [userStopped, setUserStopped] = useState(false);
 
-  const userName = session?.user?.name ?? "用户";
+  // 抽出的状态切片：JD 配置 / 简历导入映射。
+  // Extracted state slices: JD config + resume-import mapping.
+  const {
+    config: jobDescriptionConfig,
+    setConfig: setJobDescriptionConfig,
+    text: jobDescriptionText,
+    label: jobDescriptionLabel,
+    hasJobDescription,
+    isDialogOpen: isJobDescriptionDialogOpen,
+    setIsDialogOpen: setIsJobDescriptionDialogOpen,
+    openDialog: openJobDescriptionDialog,
+    save: saveJobDescription,
+    clear: clearJobDescription,
+  } = useJobDescriptionConfig();
+  const {
+    map: resumeImports,
+    replaceAll: replaceResumeImports,
+    reset: resetResumeImports,
+    markImported: handleResumeImported,
+    markMissing: handleResumeImportMissing,
+  } = useResumeImports();
 
-  const jobDescriptionText = deriveJobDescriptionText(jobDescriptionConfig);
-  const hasJobDescription = jobDescriptionText.length > 0;
-  const jobDescriptionLabel = getJobDescriptionLabel(jobDescriptionConfig);
+  const userName = session?.user?.name ?? "用户";
 
   // Guards `sendMessageToChat` from re-entry on rapid double-clicks. Released
   // after a short delay — by then the SDK status has moved to submitted and
@@ -285,19 +300,11 @@ export default function ChatPageClient({ initialSessionId }: { initialSessionId:
         if (firstMessageText.length > 0) {
           void (async () => {
             try {
-              const response = await fetch("/api/resume/title", {
-                body: JSON.stringify({
-                  hasFiles: Boolean(files?.length),
-                  text: firstMessageText,
-                }),
-                headers: { "Content-Type": "application/json" },
-                method: "POST",
+              const payload = await requestResumeChatTitle({
+                hasFiles: Boolean(files?.length),
+                text: firstMessageText,
               });
-              let title: string | null = null;
-              if (response.ok) {
-                const payload = (await response.json()) as { title?: string };
-                title = payload.title?.trim() ?? null;
-              }
+              const title = payload.title?.trim() ?? null;
               await updateConversationTitle(titleConversationId, title || NEW_CHAT_TITLE);
             } catch {
               await updateConversationTitle(titleConversationId, NEW_CHAT_TITLE);
@@ -366,12 +373,17 @@ export default function ChatPageClient({ initialSessionId }: { initialSessionId:
         hydratedConfig = { mode: "custom", text: conversation.jobDescription };
       }
       setJobDescriptionConfig(hydratedConfig);
-      setResumeImports(conversation.resumeImports ?? {});
+      replaceResumeImports(conversation.resumeImports ?? {});
       setUploadErrorMessage(null);
       setIsJobDescriptionDialogOpen(false);
       return true;
     },
-    [updateSessionInUrl],
+    [
+      replaceResumeImports,
+      setJobDescriptionConfig,
+      setIsJobDescriptionDialogOpen,
+      updateSessionInUrl,
+    ],
   );
 
   // Detaches the UI from the current conversation without aborting its
@@ -380,11 +392,11 @@ export default function ChatPageClient({ initialSessionId }: { initialSessionId:
   const resetToNewConversation = useCallback(() => {
     setActiveConversationId(null);
     setJobDescriptionConfig(null);
-    setResumeImports({});
+    resetResumeImports();
     setUploadErrorMessage(null);
     setHistoryErrorMessage(null);
     setIsJobDescriptionDialogOpen(false);
-  }, []);
+  }, [resetResumeImports, setJobDescriptionConfig, setIsJobDescriptionDialogOpen]);
 
   const startNewConversation = useCallback(() => {
     resetToNewConversation();
@@ -468,18 +480,6 @@ export default function ChatPageClient({ initialSessionId }: { initialSessionId:
 
   const { refetch: refetchJobDescriptionOptions } = useJobDescriptionOptionsQuery();
 
-  const openJobDescriptionDialog = useCallback(() => {
-    setIsJobDescriptionDialogOpen(true);
-  }, []);
-
-  const saveJobDescription = useCallback((next: JobDescriptionConfig | null) => {
-    setJobDescriptionConfig(next);
-  }, []);
-
-  const clearJobDescription = useCallback(() => {
-    setJobDescriptionConfig(null);
-  }, []);
-
   const handleApplyJDConfirm = useCallback(
     async (toolCallId: string, jobDescriptionId: string) => {
       if (!toolCallId) {
@@ -509,7 +509,7 @@ export default function ChatPageClient({ initialSessionId }: { initialSessionId:
         toolCallId,
       });
     },
-    [addToolOutput, refetchJobDescriptionOptions],
+    [addToolOutput, refetchJobDescriptionOptions, setJobDescriptionConfig],
   );
 
   const handleApplyJDIgnore = useCallback(
@@ -536,20 +536,6 @@ export default function ChatPageClient({ initialSessionId }: { initialSessionId:
     },
     [regenerate],
   );
-
-  const handleResumeImported = useCallback((partId: string, interviewId: string) => {
-    setResumeImports((prev) => ({ ...prev, [partId]: interviewId }));
-  }, []);
-
-  const handleResumeImportMissing = useCallback((partId: string) => {
-    setResumeImports((prev) => {
-      if (!(partId in prev)) {
-        return prev;
-      }
-      const { [partId]: _removed, ...rest } = prev;
-      return rest;
-    });
-  }, []);
 
   // When the agent loop errors mid-way, drop the failed step's half-written
   // parts while keeping every previously completed step, then re-run.

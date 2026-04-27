@@ -1,33 +1,23 @@
 "use client";
 
-import type {
-  Cell,
-  ColumnDef,
-  Header,
-  RowSelectionState,
-  SortingState,
-} from "@tanstack/react-table";
+import type { RowSelectionState, SortingState } from "@tanstack/react-table";
 import type { StudioInterviewListRecord } from "@/lib/studio-interviews";
 import type {
   PaginatedStudioInterviewResult,
   StudioInterviewSummary,
 } from "@/server/queries/studio-interviews";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { flexRender, getCoreRowModel, useReactTable } from "@tanstack/react-table";
+import { bulkDeleteStudioInterviews, deleteStudioInterview } from "@/lib/api";
 import { useAtomValue } from "jotai";
 import dynamic from "next/dynamic";
 import {
-  ArrowUpDownIcon,
   BotIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
   ChevronsLeftIcon,
   ChevronsRightIcon,
-  CopyIcon,
-  EyeIcon,
   Loader2Icon,
-  MoreHorizontalIcon,
-  PencilIcon,
   RefreshCwIcon,
   SearchIcon,
   Trash2Icon,
@@ -39,7 +29,6 @@ import {
   STUDIO_TUTORIAL_MOCK_SEARCH,
 } from "@/app/(auth)/studio/_hooks/studio-tutorial-mock";
 import { studioTutorialStepAtom } from "@/app/(auth)/studio/_hooks/use-studio-tutorial";
-import { DATE_TIME_DISPLAY_OPTIONS, TimeDisplay } from "@/components/time-display";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -50,18 +39,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import {
   Empty,
   EmptyContent,
@@ -86,17 +65,14 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { copyTextToClipboard, toAbsoluteUrl } from "@/lib/clipboard";
-import {
-  scheduleEntryStatusMeta,
-  studioInterviewStatusMeta,
-  studioInterviewStatusValues,
-} from "@/lib/studio-interviews";
+import { studioInterviewStatusMeta, studioInterviewStatusValues } from "@/lib/studio-interviews";
 import { CreateInterviewDialog } from "./create-interview-dialog";
 import { EditInterviewDialog } from "./edit-interview-dialog";
 import { InterviewDetailDialog } from "./interview-detail-dialog";
-import { InterviewStatusBadge } from "./interview-status-badge";
+import { buildInterviewListColumns } from "./interview-list/columns";
+import { getPinningStyles } from "./interview-list/get-pinning-styles";
+import { useInterviewListData } from "./interview-list/use-interview-list-data";
 import { JobDescriptionViewDialog } from "./job-description-view-dialog";
 
 const PdfPreviewDialog = dynamic(
@@ -108,66 +84,6 @@ const PdfPreviewDialog = dynamic(
 );
 
 const PAGE_SIZE_OPTIONS = [5, 10, 20, 50, 100] as const;
-
-function getPinningStyles(
-  column:
-    | Header<StudioInterviewListRecord, unknown>["column"]
-    | Cell<StudioInterviewListRecord, unknown>["column"],
-): React.CSSProperties {
-  const isPinned = column.getIsPinned();
-
-  if (!isPinned) {
-    return {};
-  }
-
-  return {
-    left: isPinned === "left" ? `${column.getStart("left")}px` : undefined,
-    position: "sticky",
-    right: isPinned === "right" ? `${column.getAfter("right")}px` : undefined,
-    zIndex: 2,
-  };
-}
-
-async function fetchInterviews(params: {
-  search: string;
-  status: string;
-  page: number;
-  pageSize: number;
-  sortBy: string;
-  sortOrder: string;
-}): Promise<PaginatedStudioInterviewResult> {
-  const qs = new URLSearchParams();
-  if (params.search) {
-    qs.set("search", params.search);
-  }
-  if (params.status !== "all") {
-    qs.set("status", params.status);
-  }
-  qs.set("page", String(params.page));
-  qs.set("pageSize", String(params.pageSize));
-  qs.set("sortBy", params.sortBy);
-  qs.set("sortOrder", params.sortOrder);
-
-  const response = await fetch(`/api/studio/interviews?${qs.toString()}`);
-  const payload = await response.json();
-
-  if (!response.ok || !payload?.records) {
-    throw new Error(payload?.error ?? "加载列表失败");
-  }
-
-  return payload as PaginatedStudioInterviewResult;
-}
-
-async function fetchInterviewSummary(): Promise<StudioInterviewSummary> {
-  const response = await fetch("/api/studio/interviews/summary");
-  const payload = await response.json();
-
-  if (!response.ok) {
-    throw new Error(payload?.error ?? "加载统计数据失败");
-  }
-
-  return payload as StudioInterviewSummary;
-}
 
 // oxlint-disable-next-line complexity -- Page component hosts list filters, dialog state, and mutation handlers; splitting fragments domain logic.
 export function InterviewManagementPage({
@@ -203,17 +119,26 @@ export function InterviewManagementPage({
   const currentSortBy = sorting[0]?.id ?? "createdAt";
   const currentSortOrder = sorting[0]?.desc ? "desc" : "asc";
 
-  const queryKey = [
-    "studio-interviews",
-    deferredSearch.trim(),
-    statusFilter,
-    page,
-    pageSize,
-    currentSortBy,
-    currentSortOrder,
-  ] as const;
-
-  const summaryQueryKey = ["studio-interviews", "summary"] as const;
+  // 数据 / 概览查询 — 由独立 hook 管理；这里只负责把 SSR 初始数据注入缓存。
+  // List + summary queries are owned by a dedicated hook; this scope only seeds SSR data.
+  const {
+    data,
+    isFetching,
+    isRefetching,
+    queryKey,
+    summary: summaryData,
+    summaryQueryKey,
+  } = useInterviewListData(
+    {
+      page,
+      pageSize,
+      search: deferredSearch.trim(),
+      sortBy: currentSortBy,
+      sortOrder: currentSortOrder,
+      status: statusFilter,
+    },
+    { data: initialData, summary: initialSummary },
+  );
 
   // Seed cache with SSR data only once on mount
   const seededRef = useRef(false);
@@ -222,34 +147,6 @@ export function InterviewManagementPage({
     queryClient.setQueryData(queryKey, initialData);
     queryClient.setQueryData(summaryQueryKey, initialSummary);
   }
-
-  const {
-    data = initialData,
-    isFetching,
-    isRefetching,
-  } = useQuery({
-    placeholderData: (prev) => prev,
-    queryFn: () =>
-      fetchInterviews({
-        page,
-        pageSize,
-        search: deferredSearch.trim(),
-        sortBy: currentSortBy,
-        sortOrder: currentSortOrder,
-        status: statusFilter,
-      }),
-    queryKey,
-    refetchOnWindowFocus: true,
-    staleTime: 30 * 1000,
-  });
-
-  const { data: summaryData = initialSummary } = useQuery({
-    placeholderData: (prev) => prev,
-    queryFn: fetchInterviewSummary,
-    queryKey: summaryQueryKey,
-    refetchOnWindowFocus: true,
-    staleTime: 30 * 1000,
-  });
 
   const { records } = data;
   const { total } = data;
@@ -323,224 +220,18 @@ export function InterviewManagementPage({
     }
   }
 
-  const columns = useMemo<ColumnDef<StudioInterviewListRecord>[]>(
-    () => [
-      {
-        cell: ({ row }) => (
-          <Checkbox
-            aria-label="选择此行"
-            checked={row.getIsSelected()}
-            onCheckedChange={(value) => row.toggleSelected(!!value)}
-          />
-        ),
-        enableHiding: false,
-        enableSorting: false,
-        header: ({ table }) => (
-          <Checkbox
-            aria-label="全选当前页"
-            checked={
-              table.getIsAllPageRowsSelected() ||
-              (table.getIsSomePageRowsSelected() && "indeterminate")
-            }
-            onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
-          />
-        ),
-        id: "select",
-        size: 36,
-      },
-      {
-        accessorKey: "candidateName",
-        cell: ({ row }) => {
-          const record = row.original;
-
-          return (
-            <div className="min-w-0">
-              <p className="truncate font-medium">{record.candidateName}</p>
-              <p className="truncate text-muted-foreground text-xs">
-                {record.candidateEmail || "未填写邮箱"}
-              </p>
-            </div>
-          );
-        },
-        enableSorting: false,
-        header: "候选人",
-        size: 180,
-      },
-      {
-        accessorKey: "targetRole",
-        cell: ({ row }) => row.original.targetRole || "待识别岗位",
-        header: "目标岗位",
-      },
-      {
-        cell: ({ row }) => {
-          const name = row.original.jobDescriptionName;
-          if (!name) {
-            return <span className="text-muted-foreground">—</span>;
-          }
-          return (
-            <button
-              className="cursor-pointer truncate text-left underline-offset-4 hover:underline"
-              onClick={() => setViewJobDescriptionId(row.original.jobDescriptionId)}
-              type="button"
-            >
-              {name}
-            </button>
-          );
-        },
-        header: "关联岗位",
-        id: "jobDescriptionName",
-      },
-      {
-        accessorKey: "resumeFileName",
-        cell: ({ row }) => {
-          const record = row.original;
-          const label = record.resumeFileName || "手动创建";
-          if (!record.hasResumeFile) {
-            return (
-              <div
-                aria-disabled
-                className="max-w-48 cursor-not-allowed truncate text-sm opacity-50"
-                title="暂无简历 PDF"
-              >
-                {label}
-              </div>
-            );
-          }
-          return (
-            <button
-              className="block max-w-48 cursor-pointer truncate text-left text-sm underline-offset-4 hover:underline"
-              onClick={() => setPreviewRecord(record)}
-              type="button"
-            >
-              {label}
-            </button>
-          );
-        },
-        header: "简历文件",
-      },
-      {
-        accessorKey: "status",
-        cell: ({ row }) => <InterviewStatusBadge status={row.original.status} />,
-        header: "状态",
-      },
-      {
-        cell: ({ row }) => {
-          const [currentEntry] = row.original.scheduleEntries;
-
-          if (!currentEntry) {
-            return "未安排";
-          }
-
-          const statusKey = (currentEntry.status ??
-            "pending") as keyof typeof scheduleEntryStatusMeta;
-          const statusMeta = scheduleEntryStatusMeta[statusKey] ?? scheduleEntryStatusMeta.pending;
-
-          return (
-            <div className="min-w-0">
-              <div className="flex items-center gap-1.5">
-                <p className="truncate text-sm font-medium">{currentEntry.roundLabel}</p>
-                <Badge variant={statusMeta.tone} className="text-[10px] px-1.5 py-0">
-                  {statusMeta.label}
-                </Badge>
-              </div>
-            </div>
-          );
-        },
-        header: "当前轮次",
-        id: "currentRound",
-      },
-      {
-        cell: ({ row }) => `${row.original.questionCount} 题`,
-        header: "题目数",
-        id: "questionCount",
-      },
-      {
-        cell: ({ row }) => row.original.creatorName ?? "—",
-        header: "创建人",
-        id: "creatorName",
-      },
-      {
-        cell: ({ row }) => row.original.creatorOrganizationName ?? "—",
-        header: "创建人组织",
-        id: "creatorOrganizationName",
-      },
-      {
-        accessorKey: "createdAt",
-        cell: ({ row }) => (
-          <TimeDisplay options={DATE_TIME_DISPLAY_OPTIONS} value={row.original.createdAt} />
-        ),
-        header: ({ column }) => (
-          <Button
-            className="px-0"
-            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-            variant="ghost"
-          >
-            创建时间
-            <ArrowUpDownIcon className="size-4" />
-          </Button>
-        ),
-      },
-      {
-        cell: ({ row }) => {
-          const record = row.original;
-
-          return (
-            <div className="flex items-center justify-end gap-0.5">
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    aria-label="查看详情"
-                    className="size-8"
-                    onClick={() => setDetailRecordId(record.id)}
-                    size="icon"
-                    variant="ghost"
-                  >
-                    <EyeIcon className="size-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>查看详情</TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    aria-label="编辑记录"
-                    className="size-8"
-                    onClick={() => setEditRecordId(record.id)}
-                    size="icon"
-                    variant="ghost"
-                  >
-                    <PencilIcon className="size-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>编辑记录</TooltipContent>
-              </Tooltip>
-              <DropdownMenu modal={false}>
-                <DropdownMenuTrigger asChild>
-                  <Button aria-label="更多操作" className="size-8" size="icon" variant="ghost">
-                    <MoreHorizontalIcon className="size-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-44">
-                  <DropdownMenuLabel>更多操作</DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onSelect={() => void copyInterviewLink(record)}>
-                    <CopyIcon className="size-4" />
-                    复制面试链接
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onSelect={() => setDeleteRecord(record)} variant="destructive">
-                    <Trash2Icon className="size-4" />
-                    删除
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-          );
-        },
-        enableHiding: false,
-        id: "actions",
-        size: 140,
-      },
-    ],
+  // 列定义抽到 ./interview-list/columns.tsx，便于独立 review。
+  // Column definitions live in ./interview-list/columns.tsx for separate review.
+  const columns = useMemo(
+    () =>
+      buildInterviewListColumns({
+        onCopyLink: copyInterviewLink,
+        onDelete: setDeleteRecord,
+        onEdit: setEditRecordId,
+        onPreviewResume: setPreviewRecord,
+        onViewDetail: setDetailRecordId,
+        onViewJobDescription: setViewJobDescriptionId,
+      }),
     [],
   );
 
@@ -572,21 +263,14 @@ export function InterviewManagementPage({
     if (!deleteRecord) {
       return;
     }
-
-    const response = await fetch(`/api/studio/interviews/${deleteRecord.id}`, {
-      method: "DELETE",
-    });
-
-    const payload = (await response.json().catch(() => null)) as { error?: string } | null;
-
-    if (!response.ok) {
-      toast.error(payload?.error ?? "删除失败");
-      return;
+    try {
+      await deleteStudioInterview(deleteRecord.id);
+      setDeleteRecord(null);
+      toast.success("面试记录已删除");
+      invalidateList();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "删除失败");
     }
-
-    setDeleteRecord(null);
-    toast.success("面试记录已删除");
-    invalidateList();
   }
 
   async function handleBulkDelete() {
@@ -596,26 +280,13 @@ export function InterviewManagementPage({
 
     setIsBulkDeleting(true);
     try {
-      const response = await fetch("/api/studio/interviews/bulk-delete", {
-        body: JSON.stringify({ ids: selectedIds }),
-        headers: { "Content-Type": "application/json" },
-        method: "POST",
-      });
-
-      const payload = (await response.json().catch(() => null)) as {
-        deletedCount?: number;
-        error?: string;
-      } | null;
-
-      if (!response.ok) {
-        toast.error(payload?.error ?? "批量删除失败");
-        return;
-      }
-
-      toast.success(`已删除 ${payload?.deletedCount ?? selectedCount} 条记录`);
+      const result = await bulkDeleteStudioInterviews(selectedIds);
+      toast.success(`已删除 ${result?.deleted ?? selectedCount} 条记录`);
       setRowSelection({});
       setBulkDeleteOpen(false);
       invalidateList();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "批量删除失败");
     } finally {
       setIsBulkDeleting(false);
     }
