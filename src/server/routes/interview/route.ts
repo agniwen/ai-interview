@@ -45,6 +45,7 @@ import {
   ensureApplicableBindings,
   loadInterviewPresetQuestions,
   loadInterviewQuestionTemplateBindings,
+  refreshInterviewBindingsToLatest,
   replaceInterviewBindings,
 } from "@/server/queries/interview-question-templates";
 import { queryInterviewConversationReports } from "@/server/queries/interview-conversations";
@@ -857,6 +858,12 @@ export const studioInterviewsRouter = factory
           })
           .where(eq(studioInterview.id, id));
       }
+
+      // 重置即「以当下为准」：把题库模板绑定的快照刷新到最新版本，
+      // 并补上自上次绑定以来新建的适用模板。
+      // Reset = "snapshot to now": refresh template bindings to the
+      // latest version and lazy-bind any newly-applicable templates.
+      await refreshInterviewBindingsToLatest(tx, id, existing.jobDescriptionId);
 
       await tx.insert(interviewAuditLog).values({
         action: "round_reset",

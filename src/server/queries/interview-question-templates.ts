@@ -765,6 +765,56 @@ export async function replaceInterviewBindings(
 }
 
 /**
+ * 将该面试的所有模板绑定刷新到「当前」最新版本快照。
+ * Refresh every template binding for the given interview to point at the
+ * *current* latest version snapshot of its template.
+ *
+ * 同时对在原绑定后新建、且对该面试适用（global / 同 JD）的模板补一条
+ * binding，使其与重置时刻的「适用集」对齐。已绑定但被用户禁用的行也会
+ * 被刷新——`disabledByUser` 不变，只动 `versionId`，确保后续启用时
+ * 自然指向最新内容。
+ *
+ * Also lazily binds any newly-applicable templates created since the
+ * existing bindings were written. Disabled bindings get refreshed too —
+ * `disabledByUser` is preserved, only `versionId` moves — so re-enabling
+ * them later naturally picks up the latest content.
+ *
+ * 若模板内容自上次绑定以来未变，`resolveOrCreate...Version` 会复用同一
+ * version 行，update 是 no-op。
+ * If a template's content hasn't changed, the resolver returns the same
+ * version row and the update is a no-op.
+ */
+export async function refreshInterviewBindingsToLatest(
+  tx: Tx,
+  interviewRecordId: string,
+  jobDescriptionId: string | null,
+): Promise<void> {
+  // 先把这次重置之前新建的适用模板补上 binding。
+  // First lazy-bind any applicable templates added since prior bindings.
+  await autoBindApplicableTemplates(tx, interviewRecordId, jobDescriptionId);
+
+  const bindings = await tx
+    .select({
+      id: interviewQuestionTemplateBinding.id,
+      templateId: interviewQuestionTemplateBinding.templateId,
+      versionId: interviewQuestionTemplateBinding.versionId,
+    })
+    .from(interviewQuestionTemplateBinding)
+    .where(eq(interviewQuestionTemplateBinding.interviewRecordId, interviewRecordId));
+
+  for (const row of bindings) {
+    const latest = await resolveOrCreateInterviewQuestionTemplateVersion(tx, row.templateId);
+    if (latest.id === row.versionId) {
+      continue;
+    }
+    await tx
+      .update(interviewQuestionTemplateBinding)
+      .set({ versionId: latest.id })
+      .where(eq(interviewQuestionTemplateBinding.id, row.id));
+  }
+}
+
+/**
  * Single-join read used by the LiveKit-token + agent-instructions paths.
  * Returns the flattened list of question content the agent must ask, in
  * binding sortOrder × question sortOrder order. Disabled bindings are
