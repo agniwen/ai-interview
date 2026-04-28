@@ -6,6 +6,17 @@ import { extractResumeReport } from "./_shared/extract-report";
 
 const HISTORY_LIMIT = 20;
 
+// 中文：判断附件是否为 PDF（按 mime 或文件名后缀）
+// English: detect whether an attachment is a PDF (by mime type or .pdf suffix)
+function isPdfAttachment(attachment: NonNullable<Message["attachments"]>[number]): boolean {
+  if (attachment.type !== "file") {
+    return false;
+  }
+  const mime = attachment.mimeType ?? "";
+  const isPdfByName = attachment.name?.toLowerCase().endsWith(".pdf") ?? false;
+  return mime === "application/pdf" || isPdfByName;
+}
+
 /**
  * Convert a chat-sdk Message into an AI SDK UIMessage with text and
  * (when present) PDF file parts as data: URLs.
@@ -116,12 +127,14 @@ export async function runResumeScreeningFlow(
     const messages = await buildHistory(thread, message);
     console.log("[feishu:flow:resume-screening] history built", { count: messages.length });
 
-    const hasResumePdf = messages.some((m) =>
-      m.parts.some((part) => part.type === "file" && part.mediaType === "application/pdf"),
-    );
+    // 中文：仅当本条消息携带新 PDF 时才发结构化卡片，避免后续追问时重复推送
+    // English: only post the card when THIS message brings a fresh PDF; follow-up
+    // text-only questions in the same thread should get a text reply only.
+    const currentPdfAttachments = (message.attachments ?? []).filter(isPdfAttachment);
+    const currentMessageHasPdf = currentPdfAttachments.length > 0;
 
-    console.log("[feishu:flow:resume-screening] running screening", { hasResumePdf });
-    const stream = await runResumeScreening({ enableThinking: true, messages });
+    console.log("[feishu:flow:resume-screening] running screening", { currentMessageHasPdf });
+    const stream = await runResumeScreening({ enableThinking: false, messages });
 
     // Feishu does not support editing text messages (their PATCH API only
     // accepts interactive cards), so chat-sdk's post+edit streaming
@@ -133,19 +146,14 @@ export async function runResumeScreeningFlow(
     await thread.post(finalText || "（无内容）");
     console.log("[feishu:flow:resume-screening] text posted");
 
-    // Only extract and post a structured report card when resumes were analyzed
-    if (hasResumePdf) {
+    // Only extract and post a structured report card when this turn brought a resume
+    if (currentMessageHasPdf) {
       try {
         console.log("[feishu:flow:resume-screening] extracting report");
         const report = await extractResumeReport(finalText);
-        const resumeCount = messages.reduce(
-          (acc, m) =>
-            acc +
-            m.parts.filter((p) => p.type === "file" && p.mediaType === "application/pdf").length,
-          0,
+        await thread.post(
+          ResumeReportCard({ ...report, resumeCount: currentPdfAttachments.length }) as never,
         );
-
-        await thread.post(ResumeReportCard({ ...report, resumeCount }) as never);
         console.log("[feishu:flow:resume-screening] card posted");
       } catch (cardError) {
         console.error("[feishu:flow:resume-screening] card extraction failed:", cardError);
