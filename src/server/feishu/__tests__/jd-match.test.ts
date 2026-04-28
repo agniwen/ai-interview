@@ -53,8 +53,8 @@ function makeThread() {
   return {
     adapter: { fetchMessages: vi.fn(() => Promise.resolve({ messages: [] })) },
     id: "th-jdm",
-    post: vi.fn(() => Promise.resolve()),
-  } as never;
+    post: vi.fn<(arg: unknown) => Promise<void>>(() => Promise.resolve()),
+  };
 }
 
 describe("runJdMatchFlow", () => {
@@ -80,7 +80,7 @@ describe("runJdMatchFlow", () => {
       id: "m-1",
       text: "这个候选人怎么样",
     };
-    await runJdMatchFlow(thread, message as never, undefined, JD_ID);
+    await runJdMatchFlow(thread as never, message as never, undefined, JD_ID);
 
     expect(runResumeScreening).toHaveBeenCalledOnce();
     const [[call]] = vi.mocked(runResumeScreening).mock.calls;
@@ -89,7 +89,7 @@ describe("runJdMatchFlow", () => {
 
     expect(thread.post).toHaveBeenCalledTimes(2);
     expect(thread.post).toHaveBeenNthCalledWith(1, "候选人很匹配；评分 80。");
-    const [, [cardArg]] = thread.post.mock.calls;
+    const [, [cardArg]] = thread.post.mock.calls as unknown[][];
     const cardArgStr = JSON.stringify(cardArg);
     expect(cardArgStr).toContain("后端工程师");
     expect(cardArgStr).toContain("李四");
@@ -105,11 +105,11 @@ describe("runJdMatchFlow", () => {
       id: "m-2",
       text: "...",
     };
-    await runJdMatchFlow(thread, message as never, undefined, JD_ID);
+    await runJdMatchFlow(thread as never, message as never, undefined, JD_ID);
     // No screening called (we abort early to let the user re-activate)
     expect(runResumeScreening).not.toHaveBeenCalled();
     expect(thread.post).toHaveBeenCalledOnce();
-    const [[firstArg]] = thread.post.mock.calls;
+    const [[firstArg]] = thread.post.mock.calls as unknown[][];
     const arg = JSON.stringify(firstArg);
     expect(arg).toContain("已失效");
   });

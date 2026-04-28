@@ -44,7 +44,7 @@ async function cleanup() {
 }
 
 function makeEvent(opts: { value: string; openId: string; threadId: string }) {
-  const post = vi.fn(async () => {});
+  const post = vi.fn<(arg: unknown) => Promise<void>>(async () => {});
   return {
     event: {
       actionId: "activate-jd",
