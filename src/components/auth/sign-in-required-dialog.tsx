@@ -35,8 +35,9 @@ export function SignInRequiredDialog({
         <div className="space-y-3">
           <FeishuSignInButton callbackURL={callbackURL} />
           <FeishuSignInButton
+            variant="default"
             callbackURL={callbackURL}
-            label="极光HR飞书登录"
+            label="极光 HR 飞书登录"
             providerId="feishu-jiguang-hr"
           />
         </div>
