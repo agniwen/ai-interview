@@ -9,8 +9,9 @@ import type {
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAtomValue } from "jotai";
 import dynamic from "next/dynamic";
+import { useSearchParams } from "next/navigation";
 import { BotIcon, CopyIcon, EyeIcon, PencilIcon, Trash2Icon } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
   STUDIO_TUTORIAL_MOCK_RECORDS,
@@ -133,6 +134,30 @@ export function InterviewManagementPage({
   const [viewJobDescriptionId, setViewJobDescriptionId] = useState<string | null>(null);
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+
+  // 中文：从飞书通知卡片等外部链接进入时，URL 形如 ?recordId=xxx；
+  // 自动打开详情 dialog 并清掉这个参数（避免刷新 / 分享时反复触发）。
+  // English: when entering via an external link (e.g. Feishu notification card)
+  // shaped like `?recordId=xxx`, auto-open the detail dialog and strip the
+  // param so refreshes or shared URLs don't re-trigger.
+  const searchParams = useSearchParams();
+  const consumedRecordIdRef = useRef(false);
+  useEffect(() => {
+    if (consumedRecordIdRef.current) {
+      return;
+    }
+    const recordIdFromUrl = searchParams.get("recordId");
+    if (!recordIdFromUrl) {
+      return;
+    }
+    consumedRecordIdRef.current = true;
+    setDetailRecordId(recordIdFromUrl);
+    const remaining = new URLSearchParams(searchParams.toString());
+    remaining.delete("recordId");
+    const query = remaining.toString();
+    const nextUrl = query ? `${window.location.pathname}?${query}` : window.location.pathname;
+    window.history.replaceState(null, "", nextUrl);
+  }, [searchParams]);
 
   // Tutorial mock overlay (preserves existing UX)
   const isTutorialActive = tutorialStep !== null;
