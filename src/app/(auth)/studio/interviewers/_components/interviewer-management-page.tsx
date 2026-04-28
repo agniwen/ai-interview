@@ -3,24 +3,10 @@
 import type { DepartmentRecord } from "@/lib/departments";
 import type { InterviewerListRecord, InterviewerRecord } from "@/lib/interviewers";
 import type { PaginatedInterviewerResult } from "@/server/queries/interviewers";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  ChevronLeftIcon,
-  ChevronRightIcon,
-  ChevronsLeftIcon,
-  ChevronsRightIcon,
-  Loader2Icon,
-  MoreHorizontalIcon,
-  PencilIcon,
-  PlusIcon,
-  RefreshCwIcon,
-  SearchIcon,
-  Trash2Icon,
-  UserCircleIcon,
-} from "lucide-react";
-import { useDeferredValue, useMemo, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { PencilIcon, PlusIcon, Trash2Icon, UserCircleIcon } from "lucide-react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { DATE_TIME_DISPLAY_OPTIONS, TimeDisplay } from "@/components/time-display";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -33,15 +19,14 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+  actionsColumn,
+  customColumn,
+  DataGrid,
+  dateColumn,
+  textColumn,
+  useDataGridState,
+} from "@/components/data-grid";
 import {
   Empty,
   EmptyContent,
@@ -50,52 +35,25 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
-import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { apiFetch } from "@/lib/api";
 import { getMinimaxVoiceMeta } from "@/lib/minimax-voices";
 import { InterviewerFormDialog } from "./interviewer-form-dialog";
 
-const PAGE_SIZE_OPTIONS = [5, 10, 20, 50] as const;
-
-async function fetchInterviewers(params: {
+function fetchInterviewers(params: {
   search: string;
-  departmentId: string;
   page: number;
   pageSize: number;
+  filters: Record<string, never>;
 }): Promise<PaginatedInterviewerResult> {
   const qs = new URLSearchParams();
   if (params.search) {
     qs.set("search", params.search);
   }
-  if (params.departmentId !== "all") {
-    qs.set("departmentId", params.departmentId);
-  }
   qs.set("page", String(params.page));
   qs.set("pageSize", String(params.pageSize));
   qs.set("sortBy", "createdAt");
   qs.set("sortOrder", "desc");
-
-  const response = await fetch(`/api/studio/interviewers?${qs.toString()}`);
-  const payload = await response.json();
-  if (!response.ok || !payload?.records) {
-    throw new Error(payload?.error ?? "加载列表失败");
-  }
-  return payload as PaginatedInterviewerResult;
+  return apiFetch<PaginatedInterviewerResult>(`/api/studio/interviewers?${qs.toString()}`);
 }
 
 async function loadInterviewerDetail(id: string): Promise<InterviewerRecord | null> {
@@ -106,7 +64,6 @@ async function loadInterviewerDetail(id: string): Promise<InterviewerRecord | nu
   return (await response.json()) as InterviewerRecord;
 }
 
-// oxlint-disable-next-line complexity -- Page hosts list, filter, pagination, and dialog state together.
 export function InterviewerManagementPage({
   initialData,
   departments,
@@ -115,60 +72,22 @@ export function InterviewerManagementPage({
   departments: DepartmentRecord[];
 }) {
   const queryClient = useQueryClient();
-  const [globalFilter, setGlobalFilter] = useState("");
-  const [departmentFilter, setDepartmentFilter] = useState<string>("all");
-  const [page, setPage] = useState(initialData.page);
-  const [pageSize, setPageSize] = useState(initialData.pageSize);
-  const deferredSearch = useDeferredValue(globalFilter);
+
+  const grid = useDataGridState<InterviewerListRecord, Record<string, never>>({
+    fetcher: fetchInterviewers,
+    initialData,
+    initialFilters: {},
+    namespace: "interviewers",
+  });
 
   const [formDialogOpen, setFormDialogOpen] = useState(false);
   const [editingRecord, setEditingRecord] = useState<InterviewerRecord | null>(null);
   const [deleteRecord, setDeleteRecord] = useState<InterviewerListRecord | null>(null);
 
-  const queryKey = [
-    "interviewers",
-    deferredSearch.trim(),
-    departmentFilter,
-    page,
-    pageSize,
-  ] as const;
+  const noDepartments = departments.length === 0;
 
-  const seededRef = useRef(false);
-  if (!seededRef.current) {
-    seededRef.current = true;
-    queryClient.setQueryData(queryKey, initialData);
-  }
-
-  const { data = initialData, isFetching } = useQuery({
-    placeholderData: (prev) => prev,
-    queryFn: () =>
-      fetchInterviewers({
-        departmentId: departmentFilter,
-        page,
-        pageSize,
-        search: deferredSearch.trim(),
-      }),
-    queryKey,
-    refetchOnWindowFocus: true,
-    staleTime: 30 * 1000,
-  });
-
-  const { records, total, totalPages } = data;
-
-  const prevKey = useMemo(
-    () => `${deferredSearch.trim()}::${departmentFilter}`,
-    [deferredSearch, departmentFilter],
-  );
-  const [lastKey, setLastKey] = useState(prevKey);
-  if (prevKey !== lastKey) {
-    setLastKey(prevKey);
-    if (page !== 1) {
-      setPage(1);
-    }
-  }
-
-  function invalidateList() {
-    void queryClient.invalidateQueries({ queryKey: ["interviewers"] });
+  function invalidateAll() {
+    grid.invalidate();
     void queryClient.invalidateQueries({ queryKey: ["departments"] });
   }
 
@@ -201,12 +120,83 @@ export function InterviewerManagementPage({
     }
     setDeleteRecord(null);
     toast.success("面试官已删除");
-    invalidateList();
+    invalidateAll();
   }
 
-  const startRow = total > 0 ? (page - 1) * pageSize + 1 : 0;
-  const endRow = Math.min(page * pageSize, total);
-  const noDepartments = departments.length === 0;
+  const columns = useMemo(
+    () => [
+      textColumn<InterviewerListRecord>({
+        key: "name",
+        primary: true,
+        secondary: (r) => r.description || "—",
+        title: "名称",
+      }),
+      customColumn<InterviewerListRecord>({
+        cell: (r) => r.departmentName ?? <Badge variant="outline">未知</Badge>,
+        key: "departmentName",
+        title: "所属部门",
+      }),
+      customColumn<InterviewerListRecord>({
+        cell: (r) => {
+          const voiceMeta = getMinimaxVoiceMeta(r.voice);
+          return (
+            <div className="flex flex-col">
+              <span className="font-medium text-foreground text-sm">
+                {voiceMeta?.label ?? r.voice}
+              </span>
+              <span className="truncate text-muted-foreground text-xs">
+                {voiceMeta?.description ?? ""}
+              </span>
+            </div>
+          );
+        },
+        key: "voice",
+        title: "音色",
+      }),
+      customColumn<InterviewerListRecord>({
+        cell: (r) => <Badge variant="outline">{r.jobDescriptionCount}</Badge>,
+        key: "jobDescriptionCount",
+        title: "引用岗位",
+      }),
+      dateColumn<InterviewerListRecord>({
+        key: "createdAt",
+        title: "创建时间",
+      }),
+      actionsColumn<InterviewerListRecord>({
+        inline: [
+          {
+            icon: PencilIcon,
+            label: "编辑面试官",
+            onClick: (r) => {
+              void openEdit(r);
+            },
+          },
+        ],
+        menu: [
+          {
+            icon: Trash2Icon,
+            label: "删除",
+            onClick: (r) => setDeleteRecord(r),
+            variant: "destructive",
+          },
+        ],
+      }),
+    ],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
+
+  const filtersConfig = useMemo(
+    () => [
+      {
+        key: "search" as const,
+        minWidth: "15rem",
+        placeholder: "搜索名称或描述",
+        type: "search" as const,
+      },
+    ],
+    [],
+  );
 
   return (
     <>
@@ -218,48 +208,12 @@ export function InterviewerManagementPage({
           </p>
         </header>
 
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-          <div className="flex flex-col gap-3 sm:flex-1 sm:flex-row">
-            <div className="relative sm:min-w-60 sm:flex-1" data-tour="studio-interviewers-search">
-              <SearchIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                className="pr-9 pl-9"
-                onChange={(event) => setGlobalFilter(event.target.value)}
-                placeholder="搜索名称或描述"
-                value={globalFilter}
-              />
-              {isFetching ? (
-                <Loader2Icon className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 animate-spin text-muted-foreground" />
-              ) : null}
-            </div>
-            <Select onValueChange={setDepartmentFilter} value={departmentFilter}>
-              <SelectTrigger
-                className="w-full sm:min-w-45 sm:w-auto"
-                data-tour="studio-interviewers-department-filter"
-              >
-                <SelectValue placeholder="按部门筛选" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">全部部门</SelectItem>
-                {departments.map((dept) => (
-                  <SelectItem key={dept.id} value={dept.id}>
-                    {dept.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <Button
-              className="shrink-0"
-              disabled={isFetching}
-              onClick={() => invalidateList()}
-              size="icon"
-              variant="outline"
-            >
-              <RefreshCwIcon className="size-4" />
-              <span className="sr-only">刷新</span>
-            </Button>
+        <DataGrid<InterviewerListRecord>
+          {...grid.bind}
+          columns={columns}
+          filters={filtersConfig}
+          getRowId={(r) => r.id}
+          toolbarRight={
             <Button
               className="flex-1 sm:flex-none"
               data-tour="studio-interviewers-create"
@@ -270,208 +224,46 @@ export function InterviewerManagementPage({
               <PlusIcon className="size-4" />
               新建面试官
             </Button>
-          </div>
-        </div>
-
-        {noDepartments ? (
-          <Empty className="border-border/60">
-            <EmptyHeader>
-              <EmptyMedia variant="icon">
-                <UserCircleIcon className="size-5" />
-              </EmptyMedia>
-              <EmptyTitle>请先创建部门</EmptyTitle>
-              <EmptyDescription>
-                面试官必须挂在某个部门下，先去「部门管理」创建一个部门。
-              </EmptyDescription>
-            </EmptyHeader>
-          </Empty>
-        ) : null}
-        {!noDepartments && records.length > 0 ? (
-          <Card className="overflow-hidden py-0" data-tour="studio-interviewers-table">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>名称</TableHead>
-                  <TableHead>所属部门</TableHead>
-                  <TableHead>音色</TableHead>
-                  <TableHead>引用岗位</TableHead>
-                  <TableHead>创建时间</TableHead>
-                  <TableHead className="w-24" />
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {records.map((record) => {
-                  const voiceMeta = getMinimaxVoiceMeta(record.voice);
-                  return (
-                    <TableRow key={record.id}>
-                      <TableCell>
-                        <div className="min-w-0">
-                          <p className="truncate font-medium">{record.name}</p>
-                          <p className="truncate text-muted-foreground text-xs">
-                            {record.description || "—"}
-                          </p>
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-sm">
-                        {record.departmentName ?? <Badge variant="outline">未知</Badge>}
-                      </TableCell>
-                      <TableCell className="text-muted-foreground text-xs">
-                        <div className="flex flex-col">
-                          <span className="font-medium text-foreground text-sm">
-                            {voiceMeta?.label ?? record.voice}
-                          </span>
-                          <span className="truncate">{voiceMeta?.description ?? ""}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline">{record.jobDescriptionCount}</Badge>
-                      </TableCell>
-                      <TableCell className="text-muted-foreground text-sm">
-                        <TimeDisplay options={DATE_TIME_DISPLAY_OPTIONS} value={record.createdAt} />
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center justify-end gap-0.5">
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button
-                                aria-label="编辑面试官"
-                                className="size-8"
-                                onClick={() => void openEdit(record)}
-                                size="icon"
-                                variant="ghost"
-                              >
-                                <PencilIcon className="size-4" />
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>编辑面试官</TooltipContent>
-                          </Tooltip>
-                          <DropdownMenu modal={false}>
-                            <DropdownMenuTrigger asChild>
-                              <Button
-                                aria-label="更多操作"
-                                className="size-8"
-                                size="icon"
-                                variant="ghost"
-                              >
-                                <MoreHorizontalIcon className="size-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="w-44">
-                              <DropdownMenuLabel>更多操作</DropdownMenuLabel>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem
-                                onSelect={() => setDeleteRecord(record)}
-                                variant="destructive"
-                              >
-                                <Trash2Icon className="size-4" />
-                                删除
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </Card>
-        ) : null}
-        {!noDepartments && records.length === 0 ? (
-          <Empty className="border-border/60">
-            <EmptyHeader>
-              <EmptyMedia variant="icon">
-                <UserCircleIcon className="size-5" />
-              </EmptyMedia>
-              <EmptyTitle>还没有面试官</EmptyTitle>
-              <EmptyDescription>
-                新建一个面试官，配置 prompt 和音色后即可供在招岗位引用。
-              </EmptyDescription>
-            </EmptyHeader>
-            <EmptyContent>
-              <Button onClick={openCreate} variant="outline">
-                <PlusIcon className="size-4" />
-                新建面试官
-              </Button>
-            </EmptyContent>
-          </Empty>
-        ) : null}
-
-        {total > 0 ? (
-          <div className="flex flex-col items-center justify-between gap-4 px-2 sm:flex-row">
-            <p className="text-muted-foreground text-sm tabular-nums">
-              显示第 {startRow}–{endRow} 条，共 {total} 条记录
-            </p>
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2">
-                <span className="text-muted-foreground text-sm">每页</span>
-                <Select
-                  onValueChange={(value) => {
-                    setPageSize(Number(value));
-                    setPage(1);
-                  }}
-                  value={String(pageSize)}
-                >
-                  <SelectTrigger className="h-8 w-[5.5rem]">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {PAGE_SIZE_OPTIONS.map((size) => (
-                      <SelectItem key={size} value={String(size)}>
-                        {size} 条
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <span className="text-muted-foreground text-sm tabular-nums">
-                第 {page} / {totalPages} 页
-              </span>
-              <div className="flex items-center gap-1">
-                <Button
-                  aria-label="第一页"
-                  className="size-8"
-                  disabled={page <= 1 || isFetching}
-                  onClick={() => setPage(1)}
-                  size="icon"
-                  variant="outline"
-                >
-                  <ChevronsLeftIcon className="size-4" />
-                </Button>
-                <Button
-                  aria-label="上一页"
-                  className="size-8"
-                  disabled={page <= 1 || isFetching}
-                  onClick={() => setPage(page - 1)}
-                  size="icon"
-                  variant="outline"
-                >
-                  <ChevronLeftIcon className="size-4" />
-                </Button>
-                <Button
-                  aria-label="下一页"
-                  className="size-8"
-                  disabled={page >= totalPages || isFetching}
-                  onClick={() => setPage(page + 1)}
-                  size="icon"
-                  variant="outline"
-                >
-                  <ChevronRightIcon className="size-4" />
-                </Button>
-                <Button
-                  aria-label="最后一页"
-                  className="size-8"
-                  disabled={page >= totalPages || isFetching}
-                  onClick={() => setPage(totalPages)}
-                  size="icon"
-                  variant="outline"
-                >
-                  <ChevronsRightIcon className="size-4" />
-                </Button>
-              </div>
-            </div>
-          </div>
-        ) : null}
+          }
+          empty={
+            noDepartments ? (
+              <Empty className="border-border/60">
+                <EmptyHeader>
+                  <EmptyMedia variant="icon">
+                    <UserCircleIcon className="size-5" />
+                  </EmptyMedia>
+                  <EmptyTitle>请先创建部门</EmptyTitle>
+                  <EmptyDescription>
+                    面试官必须挂在某个部门下，先去「部门管理」创建一个部门。
+                  </EmptyDescription>
+                </EmptyHeader>
+              </Empty>
+            ) : (
+              <Empty className="border-border/60">
+                <EmptyHeader>
+                  <EmptyMedia variant="icon">
+                    <UserCircleIcon className="size-5" />
+                  </EmptyMedia>
+                  <EmptyTitle>还没有面试官</EmptyTitle>
+                  <EmptyDescription>
+                    新建一个面试官，配置 prompt 和音色后即可供在招岗位引用。
+                  </EmptyDescription>
+                </EmptyHeader>
+                <EmptyContent>
+                  <Button onClick={openCreate} variant="outline">
+                    <PlusIcon className="size-4" />
+                    新建面试官
+                  </Button>
+                </EmptyContent>
+              </Empty>
+            )
+          }
+          dataTour={{
+            create: "studio-interviewers-create",
+            search: "studio-interviewers-search",
+            table: "studio-interviewers-table",
+          }}
+        />
       </div>
 
       <InterviewerFormDialog
@@ -482,7 +274,7 @@ export function InterviewerManagementPage({
             setEditingRecord(null);
           }
         }}
-        onSaved={() => invalidateList()}
+        onSaved={() => invalidateAll()}
         open={formDialogOpen}
         record={editingRecord}
       />
