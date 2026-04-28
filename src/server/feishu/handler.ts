@@ -2,7 +2,7 @@ import type { UIMessage } from "ai";
 import type { Message, MessageContext, Thread } from "chat";
 import { runResumeScreening } from "@/server/routes/resume/screening";
 import { ResumeReportCard } from "./cards/resume-report-card";
-import { extractResumeReport } from "./extract-report";
+import { extractResumeReport } from "./flows/_shared/extract-report";
 
 const HISTORY_LIMIT = 20;
 
