@@ -4,31 +4,37 @@
 // a short greeter pointing the user to the Studio Web app. The bot's primary role
 // is as a notification channel for interview events (Workflow 3).
 import type { Message, MessageContext, Thread } from "chat";
+import { GreeterCard } from "./greeter-card";
 
-const STUDIO_URL = "https://interview.chainthink.cn/studio/interviews";
-
-const GREETER_TEXT = `👋 你好！我是 AI 面试助手 bot。
-
-我主要负责：
-• 面试结果通知
-• 候选人简历筛选报告推送
-
-简历筛选、JD 管理、发起面试等操作请前往 Studio Web 端：
-${STUDIO_URL}`;
+// 中文：飞书 web_app applink — 直接以「网页应用」形态在飞书内打开，appId 见开放平台
+// English: Feishu web_app applink — opens the registered web app inside Feishu;
+// appId comes from the Feishu open platform.
+const GREETER_LINKS = [
+  {
+    label: "极光矩阵有限公司主体入口",
+    url: "https://applink.feishu.cn/client/web_app/open?appId=cli_a955211781785bd8",
+  },
+  {
+    label: "极光矩阵主体入口",
+    url: "https://applink.feishu.cn/client/web_app/open?appId=cli_a97aa896aab85bc2",
+  },
+];
 
 export async function routeDM(
   thread: Thread,
   _message: Message,
   _context?: MessageContext,
 ): Promise<void> {
-  await thread.post(GREETER_TEXT);
+  await thread.post(GreeterCard({ links: GREETER_LINKS }) as never);
 }
 
-export async function routeGroup(
-  _thread: Thread,
+export async function routeGroupMention(
+  thread: Thread,
   _message: Message,
   _context?: MessageContext,
 ): Promise<void> {
-  // 中文：群组路由占位；未来通知/决策按钮（Workflow 3）在此接入
-  // English: group routing stub; Workflow 3 will wire interview-result notifications here
+  // 中文：群里 @bot 等同于 DM，给同一份引导文案；后续 Workflow 3 的通知/决策按钮也在群里发出
+  // English: @bot in a group gets the same greeter as DM; Workflow 3 notifications + decision
+  // buttons will also live in groups but are pushed by the server, not triggered by chat.
+  await thread.post(GreeterCard({ links: GREETER_LINKS }) as never);
 }

@@ -1,7 +1,7 @@
 import { createPostgresState } from "@chat-adapter/state-pg";
 import { createFeishuAdapter } from "@repo/adapter-feishu";
 import { Chat } from "chat";
-import { routeDM } from "./router";
+import { routeDM, routeGroupMention } from "./router";
 
 let cached: Chat<{ feishu: ReturnType<typeof createFeishuAdapter> }> | null = null;
 
@@ -38,8 +38,14 @@ export function getFeishuBot() {
     await routeDM(thread, message, context);
   });
 
-  // 中文：群组路由 / 卡片按钮回调将在 Workflow 3（面试结果通知）实现
-  // English: group routing + card-action handlers will be wired in Workflow 3
+  // 中文：群里 @bot 时回引导文案；非 mention 的群消息忽略
+  // English: reply with the greeter when @-mentioned in a group; ignore other group chatter
+  bot.onNewMention(async (thread, message, context) => {
+    await routeGroupMention(thread, message, context);
+  });
+
+  // 中文：卡片按钮回调将在 Workflow 3（面试结果通知）的决策按钮里使用
+  // English: card-action handlers will be wired in Workflow 3 (decision buttons)
 
   cached = bot;
   return bot;
