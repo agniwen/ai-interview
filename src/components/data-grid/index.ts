@@ -20,3 +20,5 @@ export {
   type DataGridFetchResult,
   type UseDataGridStateOptions,
 } from "./use-data-grid-state";
+export { DataGrid, type BulkActionContext, type DataGridProps } from "./data-grid";
+export { type ToolbarFilterConfig } from "./parts/toolbar";
