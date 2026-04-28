@@ -86,11 +86,11 @@ export async function loadCandidateInterviewRecord(id: string, roundId: string) 
   }
 
   // Aggregate preset questions from interview_question_template_binding rows
-  // (replacing the legacy `jobDescription.presetQuestions` column). Field name
-  // and shape kept as `string[]` so the LiveKit agent's metadata contract is
-  // unchanged. ensureApplicableBindings lazily attaches templates created
-  // *after* the interview was created (e.g. a new global template) so they
-  // also flow into the agent's metadata.
+  // (replacing the legacy `jobDescription.presetQuestions` column). Each entry
+  // is { content, difficulty } so the agent prompt can tag preset questions
+  // with [easy]/[medium]/[hard] markers and apply per-difficulty follow-up
+  // rules. ensureApplicableBindings lazily attaches templates created *after*
+  // the interview was created (e.g. a new global template).
   await ensureApplicableBindings(id);
   const jobDescriptionPresetQuestions = await loadInterviewPresetQuestions(id);
 

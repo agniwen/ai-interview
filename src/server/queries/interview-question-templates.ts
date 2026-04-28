@@ -1,4 +1,5 @@
 import type {
+  InterviewQuestionTemplateDifficulty,
   InterviewQuestionTemplateListRecord,
   InterviewQuestionTemplateQuestionRecord,
   InterviewQuestionTemplateRecord,
@@ -820,7 +821,14 @@ export async function refreshInterviewBindingsToLatest(
  * binding sortOrder × question sortOrder order. Disabled bindings are
  * filtered out.
  */
-export async function loadInterviewPresetQuestions(interviewRecordId: string): Promise<string[]> {
+export interface InterviewPresetQuestion {
+  content: string;
+  difficulty: InterviewQuestionTemplateDifficulty;
+}
+
+export async function loadInterviewPresetQuestions(
+  interviewRecordId: string,
+): Promise<InterviewPresetQuestion[]> {
   const rows = await db
     .select({
       bindingSortOrder: interviewQuestionTemplateBinding.sortOrder,
@@ -839,7 +847,7 @@ export async function loadInterviewPresetQuestions(interviewRecordId: string): P
     )
     .orderBy(asc(interviewQuestionTemplateBinding.sortOrder));
 
-  const out: string[] = [];
+  const out: InterviewPresetQuestion[] = [];
   for (const row of rows) {
     const snapshotQuestions = [...row.snapshot.questions].toSorted(
       (a, b) => a.sortOrder - b.sortOrder,
@@ -847,7 +855,7 @@ export async function loadInterviewPresetQuestions(interviewRecordId: string): P
     for (const q of snapshotQuestions) {
       const trimmed = q.content?.trim();
       if (trimmed) {
-        out.push(trimmed);
+        out.push({ content: trimmed, difficulty: q.difficulty });
       }
     }
   }

@@ -11,6 +11,12 @@
  */
 
 import type { InterviewQuestion, ResumeProfile } from "@/lib/interview/types";
+import type { InterviewQuestionTemplateDifficulty } from "@/lib/interview-question-templates";
+
+export interface AgentInstructionPresetQuestion {
+  content: string;
+  difficulty: InterviewQuestionTemplateDifficulty;
+}
 
 /**
  * 拼装 agent prompt 所需的全部上下文。
@@ -22,7 +28,7 @@ export interface AgentInstructionContext {
   resumeProfile: ResumeProfile | null;
   interviewQuestions: InterviewQuestion[];
   jobDescriptionPrompt: string | null;
-  jobDescriptionPresetQuestions: string[];
+  jobDescriptionPresetQuestions: AgentInstructionPresetQuestion[];
   interviewerPrompt: string | null;
 }
 
@@ -55,15 +61,17 @@ function formatQuestionsText(questions: InterviewQuestion[]): string {
 }
 
 /**
- * 把岗位预设题渲染为顺序编号列表（必须全部问到，所以保留顺序）。
- * Render preset questions as a numbered list (every one must be asked, so preserve order).
+ * 把岗位预设题渲染为带难度标记的顺序编号列表（必须全部问到，所以保留顺序）。
+ * Render preset questions as a numbered list with difficulty tags (preserves order; all required).
  */
-function formatPresetQuestionsText(questions: string[]): string {
-  const cleaned = questions.map((q) => q.trim()).filter(Boolean);
+function formatPresetQuestionsText(questions: AgentInstructionPresetQuestion[]): string {
+  const cleaned = questions
+    .map((q) => ({ content: q.content.trim(), difficulty: q.difficulty }))
+    .filter((q) => q.content.length > 0);
   if (cleaned.length === 0) {
     return "\n  无";
   }
-  return cleaned.map((q, index) => `\n  ${index + 1}. ${q}`).join("");
+  return cleaned.map((q, index) => `\n  ${index + 1}. [${q.difficulty}] ${q.content}`).join("");
 }
 
 /**
@@ -111,17 +119,21 @@ export function buildAgentInstructions(context: AgentInstructionContext): string
 - 工作经历：${experienceText}
 
 ## 岗位预设题（必问）
-以下题目必须按顺序全部向候选人提问，一道都不能漏：
+以下题目必须按顺序全部向候选人提问，一道都不能漏。题前方括号中的难度标记（[easy]/[medium]/[hard]）仅供你内部参考，提问时不要念出来：
 ${presetQuestionsText}
 
 ## 补充题目（从简历生成）
-在问完所有岗位预设题之后，从以下题目中再随机抽取三到五道，由简入深地继续提问。每道题目前方括号中的难度标记（如 [easy]、[medium]、[hard]）仅供你内部参考，提问时不要念出来：
+在问完所有岗位预设题之后，从以下题目中再随机抽取三到五道，由简入深地继续提问。难度标记规则与上方一致，仅供内部参考。
+抽题时请进行考查点去重：若某道补充题目与岗位预设题的考查点重复（例如同一项技术、同一段工作经历、同一类能力或同一类问题情境），则跳过该题，改从未被覆盖的考查点中另选，避免重复提问：
 ${supplementaryQuestionsText}
 
 ## 面试规则
 1. 面试时长目标在 20 分钟左右（可略超几分钟以体面收尾），合理分配每道题的时间；但无论如何岗位预设题都必须全部问完。临近时间上限时，请优先确保流程体面：宁愿少追问一两个细节，也要给候选人留出回答和告别的时间。
 2. 每次只问一个问题，等候选人回答完毕后再进行下一题。候选人不可跳过题目，如果跳过题目则该题视为0分。
-3. 针对候选人的回答可以适当追问，深入了解细节。
+3. 追问规则按题目难度执行（适用于岗位预设题与补充题目）：
+   - [easy] 题：候选人完成回答后不追问，直接进入下一题。
+   - [medium] 题：仅可针对关键细节追问一次，不再展开第二轮追问。
+   - [hard] 题：由你自行评估是否追问以及追问的深度与轮数，可视回答质量进行多轮深挖。
 4. 候选人的回答可能包含环境音或不标准的表述，不必太严苛。
 5. 语言简洁专业，不使用 emoji 或特殊符号。
 6. 全程使用中文交流。
