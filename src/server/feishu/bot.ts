@@ -1,14 +1,16 @@
 import { createPostgresState } from "@chat-adapter/state-pg";
 import { createFeishuAdapter } from "@repo/adapter-feishu";
 import { Chat } from "chat";
+import type { AdapterPostableMessage } from "chat";
 import { routeDM, routeGroupMention } from "./router";
 
 export const FEISHU_PROVIDER_IDS = ["feishu", "feishu-jiguang-hr"] as const;
 export type FeishuProviderId = (typeof FEISHU_PROVIDER_IDS)[number];
 
 type FeishuBot = Chat<{ feishu: ReturnType<typeof createFeishuAdapter> }>;
+type FeishuAdapter = ReturnType<typeof createFeishuAdapter>;
 
-const cached = new Map<FeishuProviderId, FeishuBot>();
+const cached = new Map<FeishuProviderId, { adapter: FeishuAdapter; bot: FeishuBot }>();
 
 const FEISHU_BOT_CONFIG: Record<
   FeishuProviderId,
@@ -49,7 +51,7 @@ function getEnv(name: string): string | undefined {
 export function getFeishuBot(providerId: FeishuProviderId = "feishu"): FeishuBot {
   const existing = cached.get(providerId);
   if (existing) {
-    return existing;
+    return existing.bot;
   }
 
   const databaseUrl = process.env.DATABASE_URL;
@@ -64,19 +66,21 @@ export function getFeishuBot(providerId: FeishuProviderId = "feishu"): FeishuBot
     throw new Error(`${config.appIdEnv} and ${config.appSecretEnv} are required`);
   }
 
+  const adapter = createFeishuAdapter({
+    appId,
+    appSecret,
+    encryptKey: config.encryptKeyEnv
+      ? (getEnv(config.encryptKeyEnv) ?? getEnv("FEISHU_ENCRYPT_KEY"))
+      : undefined,
+    userName: "resume-bot",
+    verificationToken: config.verificationTokenEnv
+      ? (getEnv(config.verificationTokenEnv) ?? getEnv("FEISHU_VERIFICATION_TOKEN"))
+      : undefined,
+  });
+
   const bot = new Chat({
     adapters: {
-      feishu: createFeishuAdapter({
-        appId,
-        appSecret,
-        encryptKey: config.encryptKeyEnv
-          ? (getEnv(config.encryptKeyEnv) ?? getEnv("FEISHU_ENCRYPT_KEY"))
-          : undefined,
-        userName: "resume-bot",
-        verificationToken: config.verificationTokenEnv
-          ? (getEnv(config.verificationTokenEnv) ?? getEnv("FEISHU_VERIFICATION_TOKEN"))
-          : undefined,
-      }),
+      feishu: adapter,
     },
     concurrency: "queue",
     dedupeTtlMs: 600_000,
@@ -98,6 +102,24 @@ export function getFeishuBot(providerId: FeishuProviderId = "feishu"): FeishuBot
   // 中文：卡片按钮回调将在 Workflow 3（面试结果通知）的决策按钮里使用
   // English: card-action handlers will be wired in Workflow 3 (decision buttons)
 
-  cached.set(providerId, bot);
+  cached.set(providerId, { adapter, bot });
   return bot;
+}
+
+export async function postFeishuDirectMessage(
+  providerId: FeishuProviderId,
+  openId: string,
+  message: AdapterPostableMessage,
+): Promise<{ id: string }> {
+  const existing = cached.get(providerId);
+  if (!existing) {
+    getFeishuBot(providerId);
+  }
+  const adapter = cached.get(providerId)?.adapter;
+  if (!adapter) {
+    throw new Error(`Feishu bot is not initialized for provider ${providerId}`);
+  }
+
+  const sent = await adapter.postDirectMessage(openId, message);
+  return { id: sent.id };
 }

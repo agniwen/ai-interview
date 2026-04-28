@@ -881,6 +881,40 @@ export class FeishuAdapter implements Adapter<FeishuThreadId, unknown> {
     }
   }
 
+  async postDirectMessage(
+    userId: string,
+    message: AdapterPostableMessage,
+  ): Promise<RawMessage<unknown>> {
+    const { content, msgType } = this.buildMessagePayload(message);
+
+    this.logger.debug("Feishu API: POST direct message", {
+      msgType,
+      userId,
+    });
+
+    try {
+      const response = await this.client.im.message.create({
+        data: {
+          content,
+          msg_type: msgType,
+          receive_id: userId,
+        },
+        params: { receive_id_type: "open_id" },
+      });
+
+      const messageId =
+        (response as { data?: { message_id?: string } }).data?.message_id ?? "unknown";
+
+      return {
+        id: messageId,
+        raw: response,
+        threadId: this.encodeThreadId({ chatId: userId, messageId: "dm" }),
+      };
+    } catch (error) {
+      throw new NetworkError("feishu", `Failed to post direct message: ${String(error)}`);
+    }
+  }
+
   /**
    * Check if a thread is a DM.
    */

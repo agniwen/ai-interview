@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, or } from "drizzle-orm";
 import {
   account,
   interviewConversation,
@@ -6,11 +6,12 @@ import {
   studioInterview,
 } from "@/lib/db/schema";
 import { db } from "@/lib/db";
-import { FEISHU_PROVIDER_IDS, getFeishuBot } from "@/server/feishu/bot";
+import { FEISHU_PROVIDER_IDS, postFeishuDirectMessage } from "@/server/feishu/bot";
 import type { FeishuProviderId } from "@/server/feishu/bot";
 
 const LOG_PREFIX = "[feishu-interview-notification]";
 const SUMMARY_PREVIEW_MAX_LENGTH = 500;
+const RETRY_BATCH_SIZE = 20;
 
 interface SummaryReadyNotificationOptions {
   conversationId: string;
@@ -137,6 +138,43 @@ async function claimNotification({
   interviewRecordId: string;
   recipient: RecipientAccount;
 }) {
+  const [existing] = await db
+    .select({
+      id: interviewNotification.id,
+      status: interviewNotification.status,
+    })
+    .from(interviewNotification)
+    .where(
+      and(
+        eq(interviewNotification.interviewRecordId, interviewRecordId),
+        or(
+          eq(interviewNotification.conversationId, conversationId),
+          isNull(interviewNotification.conversationId),
+        ),
+        eq(interviewNotification.type, "summary_ready"),
+        eq(interviewNotification.recipientUserId, recipient.userId),
+        eq(interviewNotification.providerId, recipient.providerId),
+      ),
+    )
+    .limit(1);
+
+  if (existing?.status === "sent") {
+    return null;
+  }
+
+  if (existing) {
+    await db
+      .update(interviewNotification)
+      .set({
+        conversationId,
+        error: null,
+        recipientOpenId: recipient.accountId,
+        status: "pending",
+      })
+      .where(eq(interviewNotification.id, existing.id));
+    return existing.id;
+  }
+
   const [row] = await db
     .insert(interviewNotification)
     .values({
@@ -218,9 +256,7 @@ export async function notifyInterviewSummaryReady(
     }
 
     try {
-      const bot = getFeishuBot(recipient.providerId);
-      const thread = await bot.openDM(recipient.accountId);
-      const sent = await thread.post(text);
+      const sent = await postFeishuDirectMessage(recipient.providerId, recipient.accountId, text);
       await markNotificationSent(notificationId, sent.id ?? null);
     } catch (error) {
       await markNotificationFailed(notificationId, error);
@@ -228,4 +264,42 @@ export async function notifyInterviewSummaryReady(
       console.error(`${LOG_PREFIX} failed for ${options.conversationId}:`, error);
     }
   }
+}
+
+export async function retryFailedInterviewSummaryNotifications(): Promise<{
+  retried: number;
+}> {
+  const failedRows = await db
+    .select({
+      conversationId: interviewNotification.conversationId,
+      interviewRecordId: interviewNotification.interviewRecordId,
+    })
+    .from(interviewNotification)
+    .where(
+      and(
+        eq(interviewNotification.type, "summary_ready"),
+        inArray(interviewNotification.status, ["failed", "pending"]),
+      ),
+    )
+    .limit(RETRY_BATCH_SIZE);
+
+  let retried = 0;
+  const seen = new Set<string>();
+  for (const row of failedRows) {
+    if (!row.conversationId) {
+      continue;
+    }
+    const key = `${row.interviewRecordId}:${row.conversationId}`;
+    if (seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    await notifyInterviewSummaryReady({
+      conversationId: row.conversationId,
+      interviewRecordId: row.interviewRecordId,
+    });
+    retried += 1;
+  }
+
+  return { retried };
 }

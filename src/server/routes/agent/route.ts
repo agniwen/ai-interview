@@ -10,6 +10,7 @@ import {
 } from "@/lib/db/schema";
 import { factory } from "@/server/factory";
 import { safeUpdateTag } from "@/server/routes/interview/utils";
+import { retryFailedInterviewSummaryNotifications } from "@/server/services/feishu-interview-notifications";
 import { runSummaryJob } from "@/server/services/interview-summary-job";
 
 const transcriptTurnSchema = z.object({
@@ -262,4 +263,15 @@ export const agentRouter = factory
       scanned: candidates.length,
       skipped: candidates.length - retryable.length,
     });
+  })
+  .post("/retry-notifications", async (c) => {
+    const secret = c.req.header("X-Agent-Secret");
+    const expectedSecret = process.env.AGENT_CALLBACK_SECRET;
+
+    if (!expectedSecret || secret !== expectedSecret) {
+      return c.json({ error: "Unauthorized" }, 401);
+    }
+
+    const result = await retryFailedInterviewSummaryNotifications();
+    return c.json(result);
   });
