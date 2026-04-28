@@ -1,0 +1,31 @@
+{
+  "schema": "2.0",
+  "header": {
+    "event_id": "REDACTED-FOR-FIXTURE",
+    "token": "REDACTED-FOR-FIXTURE",
+    "create_time": "1777366727907273",
+    "event_type": "card.action.trigger",
+    "tenant_key": "REDACTED-FOR-FIXTURE",
+    "app_id": "REDACTED-FOR-FIXTURE"
+  },
+  "event": {
+    "operator": {
+      "tenant_key": "REDACTED-FOR-FIXTURE",
+      "open_id": "ou_REDACTED_OPERATOR",
+      "union_id": "on_REDACTED"
+    },
+    "token": "c-REDACTED_FOR_FIXTURE",
+    "action": {
+      "tag": "button",
+      "value": {
+        "action_id": "activate-jd",
+        "value": "jd-synthetic-1"
+      }
+    },
+    "host": "im_message",
+    "context": {
+      "open_message_id": "om_REDACTED_MESSAGE",
+      "open_chat_id": "oc_REDACTED_CHAT"
+    }
+  }
+}
