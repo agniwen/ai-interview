@@ -1,4 +1,4 @@
-import type { ResumeReportCardProps } from "./card";
+import type { ResumeReportCardProps } from "./cards/resume-report-card";
 import { z } from "zod";
 import { createResumeAgent } from "@/server/agents/resume-agent";
 
