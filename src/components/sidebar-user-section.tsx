@@ -187,7 +187,14 @@ export function SidebarUserSection({
         </Link>
       </Button>
     ) : (
-      <FeishuSignInButton callbackURL={callbackURL} />
+      <div className="flex w-full flex-col gap-2">
+        <FeishuSignInButton callbackURL={callbackURL} />
+        <FeishuSignInButton
+          callbackURL={callbackURL}
+          label="极光HR飞书登录"
+          providerId="feishu-jiguang-hr"
+        />
+      </div>
     );
   }
 

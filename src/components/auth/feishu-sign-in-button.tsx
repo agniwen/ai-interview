@@ -11,13 +11,15 @@ interface FeishuSignInButtonProps {
   className?: string;
   label?: string;
   variant?: "default" | "outline" | "secondary" | "ghost";
+  providerId?: string;
 }
 
 export function FeishuSignInButton({
   callbackURL,
   className,
-  label = "使用飞书登录",
+  label = "极光员工飞书登录",
   variant = "outline",
+  providerId = "feishu",
 }: FeishuSignInButtonProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -25,8 +27,8 @@ export function FeishuSignInButton({
     setIsSubmitting(true);
     const result = await authClient.signIn.oauth2({
       callbackURL,
-      errorCallbackURL: "/login?error=feishu",
-      providerId: "feishu",
+      errorCallbackURL: `/login?error=${encodeURIComponent(providerId)}`,
+      providerId,
     });
     if (result.error) {
       setIsSubmitting(false);

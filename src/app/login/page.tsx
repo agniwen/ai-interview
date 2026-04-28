@@ -30,8 +30,13 @@ export default async function LoginPage() {
               <CardTitle>登录</CardTitle>
               <CardDescription>使用飞书账号登录，登录后即可使用完整功能。</CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-3">
               <FeishuSignInButton callbackURL="/login" />
+              <FeishuSignInButton
+                callbackURL="/login"
+                label="极光HR飞书登录"
+                providerId="feishu-jiguang-hr"
+              />
             </CardContent>
           </Card>
 
