@@ -166,7 +166,10 @@ export const account = pgTable(
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
   },
-  (table) => [index("account_userId_idx").on(table.userId)],
+  (table) => [
+    index("account_userId_idx").on(table.userId),
+    uniqueIndex("account_provider_account_uq").on(table.providerId, table.accountId),
+  ],
 );
 
 export const verification = pgTable(
@@ -273,6 +276,11 @@ export const jobDescription = pgTable(
       .notNull()
       .references(() => department.id, { onDelete: "restrict" }),
     description: text("description"),
+    feishuChatBoundAt: timestamp("feishu_chat_bound_at"),
+    feishuChatBoundBy: text("feishu_chat_bound_by").references(() => user.id, {
+      onDelete: "set null",
+    }),
+    feishuChatId: text("feishu_chat_id"),
     id: text("id").primaryKey(),
     name: text("name").notNull(),
     presetQuestions: jsonb("preset_questions").$type<string[]>().notNull().default([]),
@@ -699,3 +707,22 @@ export const interviewQuestionTemplateBinding = pgTable(
     index("interview_question_template_binding_version_idx").on(table.versionId),
   ],
 );
+
+// =====================================================================
+// Feishu bot per-thread state (DM thread or group chat). Currently stores
+// the user's "active JD" selection; future per-thread scratch state should
+// be added here as new columns rather than spawning new tables.
+// 中文：飞书 bot 按 thread 维度的会话状态，目前用于记录 HR 在 DM 中激活的 JD。
+// =====================================================================
+
+export const feishuThreadState = pgTable("feishu_thread_state", {
+  activeJdId: text("active_jd_id").references(() => jobDescription.id, {
+    onDelete: "set null",
+  }),
+  activeJdSetAt: timestamp("active_jd_set_at"),
+  threadId: text("thread_id").primaryKey(),
+  updatedAt: timestamp("updated_at")
+    .defaultNow()
+    .$onUpdate(() => /* @__PURE__ */ new Date())
+    .notNull(),
+});

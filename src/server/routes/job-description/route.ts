@@ -89,6 +89,9 @@ export const jobDescriptionsRouter = factory
       createdBy: c.var.user?.id ?? null,
       departmentId: input.data.departmentId,
       description: input.data.description?.trim() || null,
+      feishuChatBoundAt: null,
+      feishuChatBoundBy: null,
+      feishuChatId: null,
       id: crypto.randomUUID(),
       name: input.data.name.trim(),
       // presetQuestions is deprecated — column kept with default [] for legacy
@@ -96,7 +99,7 @@ export const jobDescriptionsRouter = factory
       presetQuestions: [],
       prompt: input.data.prompt.trim(),
       updatedAt: now,
-    } satisfies typeof jobDescription.$inferInsert;
+    } satisfies typeof jobDescription.$inferSelect;
 
     await db.transaction(async (tx) => {
       await tx.insert(jobDescription).values(record);
