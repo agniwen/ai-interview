@@ -248,6 +248,29 @@ async def my_agent(ctx: JobContext):
 
     timeout_task = asyncio.create_task(_enforce_time_limit())
 
+    # Without this, when the candidate closes the tab / hangs up, the agent
+    # may linger in the empty room until some framework-level timeout, and
+    # the JobContext shutdown callback (which POSTs the transcript to
+    # /api/agent/report) won't run promptly — causing the interview report
+    # to never be backfilled. Closing the session here forces the shutdown
+    # path so the report is sent.
+    candidate_identity = participant.identity
+    close_task: asyncio.Task | None = None
+
+    def _on_participant_disconnected(p: rtc.RemoteParticipant):
+        nonlocal close_task
+        if p.identity != candidate_identity or close_task is not None:
+            return
+        logger.info(
+            "candidate %s disconnected; closing session to flush report",
+            p.identity,
+        )
+        if timeout_task is not None and not timeout_task.done():
+            timeout_task.cancel()
+        close_task = asyncio.create_task(session.aclose())
+
+    ctx.room.on("participant_disconnected", _on_participant_disconnected)
+
     await ctx.connect()
 
 
