@@ -496,6 +496,43 @@ export const interviewAuditLog = pgTable(
   ],
 );
 
+export const interviewNotification = pgTable(
+  "interview_notification",
+  {
+    conversationId: text("conversation_id").references(() => interviewConversation.conversationId, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    error: text("error"),
+    feishuMessageId: text("feishu_message_id"),
+    id: text("id").primaryKey(),
+    interviewRecordId: text("interview_record_id")
+      .notNull()
+      .references(() => studioInterview.id, { onDelete: "cascade" }),
+    providerId: text("provider_id").notNull(),
+    recipientOpenId: text("recipient_open_id").notNull(),
+    recipientUserId: text("recipient_user_id").references(() => user.id, { onDelete: "set null" }),
+    sentAt: timestamp("sent_at"),
+    status: text("status").$type<"pending" | "sent" | "failed">().notNull().default("pending"),
+    type: text("type").$type<"summary_ready">().notNull(),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+  },
+  (table) => [
+    index("interview_notification_record_idx").on(table.interviewRecordId),
+    index("interview_notification_recipient_idx").on(table.recipientUserId),
+    uniqueIndex("interview_notification_once_uq").on(
+      table.interviewRecordId,
+      table.conversationId,
+      table.type,
+      table.recipientUserId,
+      table.providerId,
+    ),
+  ],
+);
+
 export const candidateFormTemplate = pgTable(
   "candidate_form_template",
   {

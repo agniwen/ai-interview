@@ -58,6 +58,16 @@ export const app = new Hono<Env>()
     });
     return bot.webhooks.feishu(rebuilt);
   })
+  .post("/feishu-jiguang-hr/webhook", async (c) => {
+    const bot = getFeishuBot("feishu-jiguang-hr");
+    const body = await c.req.text();
+    const rebuilt = new Request(c.req.raw.url, {
+      body,
+      headers: c.req.raw.headers,
+      method: "POST",
+    });
+    return bot.webhooks.feishu(rebuilt);
+  })
   .route("/agent", agentRouter)
   .route("/chat", chatRouter)
   .route("/resume", resumeRouter)

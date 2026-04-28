@@ -1,6 +1,7 @@
 import { and, eq, inArray, lt, or, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { interviewConversation, studioInterview } from "@/lib/db/schema";
+import { notifyInterviewSummaryReady } from "@/server/services/feishu-interview-notifications";
 import { safeUpdateTag } from "@/server/routes/interview/utils";
 import { generateInterviewReport } from "@/server/services/interview-report";
 
@@ -119,6 +120,11 @@ export async function runSummaryJob(options: RunSummaryJobOptions): Promise<void
 
     safeUpdateTag("interview-conversations");
     safeUpdateTag(`interview-conversations-${interviewRecordId}`);
+
+    void notifyInterviewSummaryReady({
+      conversationId,
+      interviewRecordId,
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     // eslint-disable-next-line no-console
