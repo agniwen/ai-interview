@@ -158,6 +158,12 @@ function convertActionsElement(element: ActionsElement): FeishuCardElement[] {
  * Convert a button element to a Feishu card button.
  */
 function convertButtonElement(button: ButtonElement): FeishuCardButtonElement {
+  // 中文：把 user 提供的 value 一并塞进飞书的 value 对象，便于回调时取回
+  // English: thread Button.value through Feishu's value object so click callbacks can read it
+  const value: Record<string, string> = { action_id: button.id };
+  if (button.value !== undefined) {
+    value.value = button.value;
+  }
   return {
     tag: "button",
     text: {
@@ -165,7 +171,7 @@ function convertButtonElement(button: ButtonElement): FeishuCardButtonElement {
       tag: "plain_text",
     },
     type: getButtonType(button.style),
-    value: { action_id: button.id },
+    value,
   };
 }
 

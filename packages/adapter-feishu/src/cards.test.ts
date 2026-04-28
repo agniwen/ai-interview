@@ -132,6 +132,25 @@ describe("cardToFeishuPayload", () => {
     });
   });
 
+  it("preserves Button.value alongside action_id when user provides one", () => {
+    // 中文：用户给 Button 传入 value（如 JD id）时，应原样附在 Feishu 的 value 字段里
+    // English: when user passes Button({value}), it must be carried in the Feishu payload
+    //          alongside action_id so the click handler can read it
+    const card = Card({
+      children: [Actions([Button({ id: "activate-jd", label: "选择", value: "jd-1" })])],
+    });
+    const result = cardToFeishuPayload(card);
+    const actionElement = result.elements?.find((el) => el.tag === "action") as
+      | { actions: { value: Record<string, unknown> }[] }
+      | undefined;
+    expect(actionElement).toBeDefined();
+    const buttonValue = actionElement?.actions[0]?.value;
+    expect(buttonValue).toMatchObject({
+      action_id: "activate-jd",
+      value: "jd-1",
+    });
+  });
+
   it("converts fields elements", () => {
     const card = Card({
       children: [
