@@ -183,11 +183,27 @@ export class FeishuAdapter implements Adapter<FeishuThreadId, unknown> {
       schema: payload.schema,
     });
 
-    if (eventType === "im.message.receive_v1" && payload.event) {
-      await this.handleMessageEvent(payload);
-    }
+    await this.dispatchEvent(payload, eventType, _options);
 
     return Response.json({ ok: true });
+  }
+
+  /**
+   * Route a parsed Feishu event to the appropriate handler based on event type.
+   * Extracted from handleWebhook to keep cyclomatic complexity in check.
+   */
+  private async dispatchEvent(
+    payload: FeishuEventCallback,
+    eventType: string | undefined,
+    options: WebhookOptions | undefined,
+  ): Promise<void> {
+    if (eventType === "im.message.receive_v1" && payload.event) {
+      await this.handleMessageEvent(payload);
+    } else if (eventType === "card.action.trigger" && payload.event) {
+      // 中文：卡片按钮点击 → 走 chat-sdk 的 processAction 分发到用户注册的 onAction
+      // English: card button click → dispatch via chat-sdk's processAction
+      await this.handleCardActionEvent(payload, options);
+    }
   }
 
   /**
@@ -279,6 +295,75 @@ export class FeishuAdapter implements Adapter<FeishuThreadId, unknown> {
         messageId: msg.message_id,
       });
     }
+  }
+
+  /**
+   * Handle a card-button click event from Feishu (card.action.trigger).
+   * Translates the Feishu payload into a chat-sdk ActionEvent and forwards
+   * it to chat.processAction, which routes to user-registered onAction handlers.
+   *
+   * Field paths captured in __fixtures__/card-action-event.json. Currently
+   * assumes DM context; group-chat card actions (Workflow 3) will require
+   * a different threadId encoding, which can be added when needed.
+   */
+  private async handleCardActionEvent(
+    payload: FeishuEventCallback,
+    options: WebhookOptions | undefined,
+  ): Promise<void> {
+    if (!this.chat) {
+      this.logger.warn("Card action received but chat not attached");
+      return;
+    }
+    const event = payload.event as Record<string, unknown> | undefined;
+    if (!event) {
+      return;
+    }
+
+    const action = (event.action as Record<string, unknown> | undefined) ?? {};
+    const actionValue = (action.value as Record<string, unknown> | undefined) ?? {};
+    const operator = (event.operator as Record<string, unknown> | undefined) ?? {};
+    const context = (event.context as Record<string, unknown> | undefined) ?? {};
+
+    const actionId = String(actionValue.action_id ?? "");
+    if (!actionId) {
+      this.logger.warn("Card action missing action_id; skipping");
+      return;
+    }
+    const userValue = actionValue.value === undefined ? undefined : String(actionValue.value);
+    const openId = String(operator.open_id ?? "");
+    const chatId = String(context.open_chat_id ?? "");
+    const messageId = String(context.open_message_id ?? "");
+    const userName = String(operator.user_name ?? operator.name ?? "");
+
+    if (!chatId) {
+      this.logger.warn("Card action missing chat_id; cannot reconstruct thread", {
+        actionId,
+      });
+      return;
+    }
+
+    // 中文：当前只支持 DM 场景；群聊卡片按钮的 thread 编码 Workflow 3 再补
+    // English: DM only for now; group-chat card thread encoding will be added in Workflow 3
+    const threadId = this.encodeThreadId({ chatId, messageId: "dm" });
+
+    await this.chat.processAction(
+      {
+        actionId,
+        adapter: this,
+        messageId,
+        raw: payload,
+        threadId,
+        user: {
+          fullName: userName,
+          isBot: false,
+          isMe: false,
+          userId: openId,
+          userName,
+        },
+        value: userValue,
+      },
+      options,
+    );
   }
 
   /**
