@@ -2,24 +2,10 @@
 
 import type { DepartmentListRecord, DepartmentRecord } from "@/lib/departments";
 import type { PaginatedDepartmentResult } from "@/server/queries/departments";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  Building2Icon,
-  ChevronLeftIcon,
-  ChevronRightIcon,
-  ChevronsLeftIcon,
-  ChevronsRightIcon,
-  Loader2Icon,
-  MoreHorizontalIcon,
-  PencilIcon,
-  PlusIcon,
-  RefreshCwIcon,
-  SearchIcon,
-  Trash2Icon,
-} from "lucide-react";
-import { useDeferredValue, useMemo, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { Building2Icon, PencilIcon, PlusIcon, Trash2Icon } from "lucide-react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { DATE_TIME_DISPLAY_OPTIONS, TimeDisplay } from "@/components/time-display";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -32,15 +18,14 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+  actionsColumn,
+  customColumn,
+  DataGrid,
+  dateColumn,
+  textColumn,
+  useDataGridState,
+} from "@/components/data-grid";
 import {
   Empty,
   EmptyContent,
@@ -49,31 +34,14 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
-import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { apiFetch } from "@/lib/api";
 import { DepartmentFormDialog } from "./department-form-dialog";
 
-const PAGE_SIZE_OPTIONS = [5, 10, 20, 50] as const;
-
-async function fetchDepartments(params: {
+function fetchDepartments(params: {
   search: string;
   page: number;
   pageSize: number;
+  filters: Record<string, never>;
 }): Promise<PaginatedDepartmentResult> {
   const qs = new URLSearchParams();
   if (params.search) {
@@ -83,14 +51,7 @@ async function fetchDepartments(params: {
   qs.set("pageSize", String(params.pageSize));
   qs.set("sortBy", "createdAt");
   qs.set("sortOrder", "desc");
-
-  const response = await fetch(`/api/studio/departments?${qs.toString()}`);
-  const payload = await response.json();
-
-  if (!response.ok || !payload?.records) {
-    throw new Error(payload?.error ?? "加载列表失败");
-  }
-  return payload as PaginatedDepartmentResult;
+  return apiFetch<PaginatedDepartmentResult>(`/api/studio/departments?${qs.toString()}`);
 }
 
 export function DepartmentManagementPage({
@@ -99,48 +60,20 @@ export function DepartmentManagementPage({
   initialData: PaginatedDepartmentResult;
 }) {
   const queryClient = useQueryClient();
-  const [globalFilter, setGlobalFilter] = useState("");
-  const [page, setPage] = useState(initialData.page);
-  const [pageSize, setPageSize] = useState(initialData.pageSize);
-  const deferredSearch = useDeferredValue(globalFilter);
+
+  const grid = useDataGridState<DepartmentListRecord, Record<string, never>>({
+    fetcher: fetchDepartments,
+    initialData,
+    initialFilters: {},
+    namespace: "departments",
+  });
 
   const [formDialogOpen, setFormDialogOpen] = useState(false);
   const [editingRecord, setEditingRecord] = useState<DepartmentRecord | null>(null);
   const [deleteRecord, setDeleteRecord] = useState<DepartmentListRecord | null>(null);
 
-  const queryKey = ["departments", deferredSearch.trim(), page, pageSize] as const;
-
-  const seededRef = useRef(false);
-  if (!seededRef.current) {
-    seededRef.current = true;
-    queryClient.setQueryData(queryKey, initialData);
-  }
-
-  const { data = initialData, isFetching } = useQuery({
-    placeholderData: (prev) => prev,
-    queryFn: () =>
-      fetchDepartments({
-        page,
-        pageSize,
-        search: deferredSearch.trim(),
-      }),
-    queryKey,
-    refetchOnWindowFocus: true,
-    staleTime: 30 * 1000,
-  });
-
-  const { records, total, totalPages } = data;
-
-  const prevKey = useMemo(() => deferredSearch.trim(), [deferredSearch]);
-  const [lastKey, setLastKey] = useState(prevKey);
-  if (prevKey !== lastKey) {
-    setLastKey(prevKey);
-    if (page !== 1) {
-      setPage(1);
-    }
-  }
-
-  function invalidateList() {
+  function invalidateAll() {
+    grid.invalidate();
     void queryClient.invalidateQueries({ queryKey: ["departments"] });
   }
 
@@ -169,11 +102,70 @@ export function DepartmentManagementPage({
     }
     setDeleteRecord(null);
     toast.success("部门已删除");
-    invalidateList();
+    invalidateAll();
   }
 
-  const startRow = total > 0 ? (page - 1) * pageSize + 1 : 0;
-  const endRow = Math.min(page * pageSize, total);
+  const columns = useMemo(
+    () => [
+      textColumn<DepartmentListRecord>({
+        key: "name",
+        primary: true,
+        title: "部门名称",
+      }),
+      textColumn<DepartmentListRecord>({
+        fallback: "—",
+        key: "description",
+        muted: true,
+        title: "描述",
+        truncate: true,
+      }),
+      customColumn<DepartmentListRecord>({
+        cell: (r) => (
+          <div className="space-x-2">
+            <Badge variant="outline">面试官 {r.interviewerCount}</Badge>
+            <Badge variant="outline">在招岗位 {r.jobDescriptionCount}</Badge>
+          </div>
+        ),
+        key: "usage",
+        title: "引用情况",
+      }),
+      dateColumn<DepartmentListRecord>({
+        key: "createdAt",
+        title: "创建时间",
+      }),
+      actionsColumn<DepartmentListRecord>({
+        inline: [
+          {
+            icon: PencilIcon,
+            label: "编辑部门",
+            onClick: (r) => openEdit(r),
+          },
+        ],
+        menu: [
+          {
+            icon: Trash2Icon,
+            label: "删除",
+            onClick: (r) => setDeleteRecord(r),
+            variant: "destructive",
+          },
+        ],
+      }),
+    ],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
+
+  const filtersConfig = useMemo(
+    () => [
+      {
+        key: "search" as const,
+        minWidth: "15rem",
+        placeholder: "搜索部门名称或描述",
+        type: "search" as const,
+      },
+    ],
+    [],
+  );
 
   return (
     <>
@@ -185,30 +177,12 @@ export function DepartmentManagementPage({
           </p>
         </header>
 
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-          <div className="relative sm:min-w-60 sm:flex-1" data-tour="studio-departments-search">
-            <SearchIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              className="pr-9 pl-9"
-              onChange={(event) => setGlobalFilter(event.target.value)}
-              placeholder="搜索部门名称或描述"
-              value={globalFilter}
-            />
-            {isFetching ? (
-              <Loader2Icon className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 animate-spin text-muted-foreground" />
-            ) : null}
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <Button
-              className="shrink-0"
-              disabled={isFetching}
-              onClick={() => invalidateList()}
-              size="icon"
-              variant="outline"
-            >
-              <RefreshCwIcon className="size-4" />
-              <span className="sr-only">刷新</span>
-            </Button>
+        <DataGrid<DepartmentListRecord>
+          {...grid.bind}
+          columns={columns}
+          filters={filtersConfig}
+          getRowId={(r) => r.id}
+          toolbarRight={
             <Button
               className="flex-1 sm:flex-none"
               data-tour="studio-departments-create"
@@ -218,176 +192,32 @@ export function DepartmentManagementPage({
               <PlusIcon className="size-4" />
               新建部门
             </Button>
-          </div>
-        </div>
-
-        {records.length > 0 ? (
-          <Card className="overflow-hidden py-0" data-tour="studio-departments-table">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>部门名称</TableHead>
-                  <TableHead>描述</TableHead>
-                  <TableHead>引用情况</TableHead>
-                  <TableHead>创建时间</TableHead>
-                  <TableHead className="w-24" />
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {records.map((record) => (
-                  <TableRow key={record.id}>
-                    <TableCell className="font-medium">{record.name}</TableCell>
-                    <TableCell className="max-w-sm truncate text-muted-foreground text-sm">
-                      {record.description || "—"}
-                    </TableCell>
-                    <TableCell className="space-x-2 text-sm">
-                      <Badge variant="outline">面试官 {record.interviewerCount}</Badge>
-                      <Badge variant="outline">在招岗位 {record.jobDescriptionCount}</Badge>
-                    </TableCell>
-                    <TableCell className="text-muted-foreground text-sm">
-                      <TimeDisplay options={DATE_TIME_DISPLAY_OPTIONS} value={record.createdAt} />
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center justify-end gap-0.5">
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button
-                              aria-label="编辑部门"
-                              className="size-8"
-                              onClick={() => openEdit(record)}
-                              size="icon"
-                              variant="ghost"
-                            >
-                              <PencilIcon className="size-4" />
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent>编辑部门</TooltipContent>
-                        </Tooltip>
-                        <DropdownMenu modal={false}>
-                          <DropdownMenuTrigger asChild>
-                            <Button
-                              aria-label="更多操作"
-                              className="size-8"
-                              size="icon"
-                              variant="ghost"
-                            >
-                              <MoreHorizontalIcon className="size-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="w-44">
-                            <DropdownMenuLabel>更多操作</DropdownMenuLabel>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem
-                              onSelect={() => setDeleteRecord(record)}
-                              variant="destructive"
-                            >
-                              <Trash2Icon className="size-4" />
-                              删除
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </Card>
-        ) : (
-          <Empty className="border-border/60">
-            <EmptyHeader>
-              <EmptyMedia variant="icon">
-                <Building2Icon className="size-5" />
-              </EmptyMedia>
-              <EmptyTitle>还没有部门</EmptyTitle>
-              <EmptyDescription>
-                创建部门之后可以把面试官和在招岗位组织起来，面试时按部门挑选配置。
-              </EmptyDescription>
-            </EmptyHeader>
-            <EmptyContent>
-              <Button onClick={openCreate} variant="outline">
-                <PlusIcon className="size-4" />
-                新建部门
-              </Button>
-            </EmptyContent>
-          </Empty>
-        )}
-
-        {total > 0 ? (
-          <div className="flex flex-col items-center justify-between gap-4 px-2 sm:flex-row">
-            <p className="text-muted-foreground text-sm tabular-nums">
-              显示第 {startRow}–{endRow} 条，共 {total} 条记录
-            </p>
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2">
-                <span className="text-muted-foreground text-sm">每页</span>
-                <Select
-                  onValueChange={(value) => {
-                    setPageSize(Number(value));
-                    setPage(1);
-                  }}
-                  value={String(pageSize)}
-                >
-                  <SelectTrigger className="h-8 w-[5.5rem]">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {PAGE_SIZE_OPTIONS.map((size) => (
-                      <SelectItem key={size} value={String(size)}>
-                        {size} 条
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <span className="text-muted-foreground text-sm tabular-nums">
-                第 {page} / {totalPages} 页
-              </span>
-              <div className="flex items-center gap-1">
-                <Button
-                  aria-label="第一页"
-                  className="size-8"
-                  disabled={page <= 1 || isFetching}
-                  onClick={() => setPage(1)}
-                  size="icon"
-                  variant="outline"
-                >
-                  <ChevronsLeftIcon className="size-4" />
+          }
+          empty={
+            <Empty className="border-border/60">
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  <Building2Icon className="size-5" />
+                </EmptyMedia>
+                <EmptyTitle>还没有部门</EmptyTitle>
+                <EmptyDescription>
+                  创建部门之后可以把面试官和在招岗位组织起来，面试时按部门挑选配置。
+                </EmptyDescription>
+              </EmptyHeader>
+              <EmptyContent>
+                <Button onClick={openCreate} variant="outline">
+                  <PlusIcon className="size-4" />
+                  新建部门
                 </Button>
-                <Button
-                  aria-label="上一页"
-                  className="size-8"
-                  disabled={page <= 1 || isFetching}
-                  onClick={() => setPage(page - 1)}
-                  size="icon"
-                  variant="outline"
-                >
-                  <ChevronLeftIcon className="size-4" />
-                </Button>
-                <Button
-                  aria-label="下一页"
-                  className="size-8"
-                  disabled={page >= totalPages || isFetching}
-                  onClick={() => setPage(page + 1)}
-                  size="icon"
-                  variant="outline"
-                >
-                  <ChevronRightIcon className="size-4" />
-                </Button>
-                <Button
-                  aria-label="最后一页"
-                  className="size-8"
-                  disabled={page >= totalPages || isFetching}
-                  onClick={() => setPage(totalPages)}
-                  size="icon"
-                  variant="outline"
-                >
-                  <ChevronsRightIcon className="size-4" />
-                </Button>
-              </div>
-            </div>
-          </div>
-        ) : null}
+              </EmptyContent>
+            </Empty>
+          }
+          dataTour={{
+            create: "studio-departments-create",
+            search: "studio-departments-search",
+            table: "studio-departments-table",
+          }}
+        />
       </div>
 
       <DepartmentFormDialog
@@ -397,7 +227,7 @@ export function DepartmentManagementPage({
             setEditingRecord(null);
           }
         }}
-        onSaved={() => invalidateList()}
+        onSaved={() => invalidateAll()}
         open={formDialogOpen}
         record={editingRecord}
       />
