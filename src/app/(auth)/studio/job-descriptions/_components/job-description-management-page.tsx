@@ -43,11 +43,17 @@ function fetchJobDescriptions(params: {
   search: string;
   page: number;
   pageSize: number;
-  filters: Record<string, never>;
+  filters: { departmentId: string; interviewerId: string };
 }): Promise<PaginatedJobDescriptionResult> {
   const qs = new URLSearchParams();
   if (params.search) {
     qs.set("search", params.search);
+  }
+  if (params.filters.departmentId !== "all") {
+    qs.set("departmentId", params.filters.departmentId);
+  }
+  if (params.filters.interviewerId !== "all") {
+    qs.set("interviewerId", params.filters.interviewerId);
   }
   qs.set("page", String(params.page));
   qs.set("pageSize", String(params.pageSize));
@@ -75,10 +81,13 @@ export function JobDescriptionManagementPage({
 }) {
   const queryClient = useQueryClient();
 
-  const grid = useDataGridState<JobDescriptionListRecord, Record<string, never>>({
+  const grid = useDataGridState<
+    JobDescriptionListRecord,
+    { departmentId: string; interviewerId: string }
+  >({
     fetcher: fetchJobDescriptions,
     initialData,
-    initialFilters: {},
+    initialFilters: { departmentId: "all", interviewerId: "all" },
     namespace: "job-descriptions",
   });
 
@@ -204,8 +213,29 @@ export function JobDescriptionManagementPage({
         placeholder: "搜索在招岗位名称或描述",
         type: "search" as const,
       },
+      {
+        key: "departmentId" as const,
+        options: [
+          { label: "全部部门", value: "all" },
+          ...departments.map((d) => ({ label: d.name, value: d.id })),
+        ],
+        placeholder: "按部门筛选",
+        type: "select" as const,
+      },
+      {
+        key: "interviewerId" as const,
+        options: [
+          { label: "全部面试官", value: "all" },
+          ...interviewers.map((i) => ({
+            label: i.departmentName ? `${i.departmentName} / ${i.name}` : i.name,
+            value: i.id,
+          })),
+        ],
+        placeholder: "按面试官筛选",
+        type: "select" as const,
+      },
     ],
-    [],
+    [departments, interviewers],
   );
 
   return (
@@ -270,6 +300,10 @@ export function JobDescriptionManagementPage({
           }
           dataTour={{
             create: "studio-jobs-create",
+            filters: {
+              departmentId: "studio-jobs-department-filter",
+              interviewerId: "studio-jobs-interviewer-filter",
+            },
             search: "studio-jobs-search",
             table: "studio-jobs-table",
           }}
