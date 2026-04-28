@@ -1,6 +1,7 @@
 import { createPostgresState } from "@chat-adapter/state-pg";
 import { createFeishuAdapter } from "@repo/adapter-feishu";
 import { Chat } from "chat";
+import { handleActivateJd } from "./actions/activate-jd";
 import { routeDM } from "./router";
 
 let cached: Chat<{ feishu: ReturnType<typeof createFeishuAdapter> }> | null = null;
@@ -36,6 +37,10 @@ export function getFeishuBot() {
   bot.onDirectMessage(async (thread, message, _channel, context) => {
     await thread.subscribe();
     await routeDM(thread, message, context);
+  });
+
+  bot.onAction("activate-jd", async (event) => {
+    await handleActivateJd(event);
   });
 
   // Group chat handlers disabled for now — only DM is active
