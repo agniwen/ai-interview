@@ -13,6 +13,7 @@ import type {
   Adapter,
   AdapterPostableMessage,
   Attachment,
+  CardElement,
   ChatInstance,
   EmojiValue,
   FetchOptions,
@@ -24,6 +25,7 @@ import type {
   WebhookOptions,
 } from "chat";
 import type { FeishuAdapterConfig, FeishuEventCallback, FeishuThreadId } from "./types";
+import type { CardToFeishuPayloadOptions } from "./cards";
 import crypto from "node:crypto";
 import {
   extractCard,
@@ -33,7 +35,14 @@ import {
   ValidationError,
 } from "@chat-adapter/shared";
 import { AppType, Client, Domain } from "@larksuiteoapi/node-sdk";
-import { ConsoleLogger, convertEmojiPlaceholders, defaultEmojiResolver, Message } from "chat";
+import {
+  ConsoleLogger,
+  convertEmojiPlaceholders,
+  defaultEmojiResolver,
+  isCardElement,
+  Message,
+  toCardElement,
+} from "chat";
 import { cardToFeishuPayload } from "./cards";
 import { FeishuFormatConverter } from "./markdown";
 
@@ -916,6 +925,48 @@ export class FeishuAdapter implements Adapter<FeishuThreadId, unknown> {
   }
 
   /**
+   * Send a Feishu interactive card directly to a user with header-template control.
+   * Use this when you need fine-grained Feishu-specific options (like header color)
+   * that aren't expressible through the cross-platform `CardElement` shape.
+   */
+  async postDirectCard(
+    userId: string,
+    card: CardElement | unknown,
+    options?: CardToFeishuPayloadOptions,
+  ): Promise<RawMessage<unknown>> {
+    const cardElement = isCardElement(card) ? card : toCardElement(card);
+    if (!cardElement) {
+      throw new ValidationError("feishu", "postDirectCard expects a CardElement or JSX card");
+    }
+    const cardPayload = cardToFeishuPayload(cardElement, options);
+    const content = JSON.stringify(cardPayload);
+
+    this.logger.debug("Feishu API: POST direct card", { userId });
+
+    try {
+      const response = await this.client.im.message.create({
+        data: {
+          content,
+          msg_type: "interactive",
+          receive_id: userId,
+        },
+        params: { receive_id_type: "open_id" },
+      });
+
+      const messageId =
+        (response as { data?: { message_id?: string } }).data?.message_id ?? "unknown";
+
+      return {
+        id: messageId,
+        raw: response,
+        threadId: this.encodeThreadId({ chatId: userId, messageId: "dm" }),
+      };
+    } catch (error) {
+      throw new NetworkError("feishu", `Failed to post direct card: ${String(error)}`);
+    }
+  }
+
+  /**
    * Check if a thread is a DM.
    */
   isDM(threadId: string): boolean {
@@ -1326,6 +1377,7 @@ export function createFeishuAdapter(
 
 // Re-export card converter for advanced use
 export { cardToFallbackText, cardToFeishuPayload } from "./cards";
+export type { CardToFeishuPayloadOptions, FeishuHeaderTemplate } from "./cards";
 
 // Re-export format converter for advanced use
 export {

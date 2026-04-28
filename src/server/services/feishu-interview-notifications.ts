@@ -6,11 +6,14 @@ import {
   studioInterview,
 } from "@/lib/db/schema";
 import { db } from "@/lib/db";
-import { FEISHU_PROVIDER_IDS, postFeishuDirectMessage } from "@/server/feishu/bot";
+import { FEISHU_PROVIDER_IDS, postFeishuDirectCard } from "@/server/feishu/bot";
 import type { FeishuProviderId } from "@/server/feishu/bot";
+import {
+  InterviewSummaryCard,
+  resolveHeaderTemplate,
+} from "@/server/feishu/interview-summary-card";
 
 const LOG_PREFIX = "[feishu-interview-notification]";
-const SUMMARY_PREVIEW_MAX_LENGTH = 500;
 const RETRY_BATCH_SIZE = 20;
 
 interface SummaryReadyNotificationOptions {
@@ -28,13 +31,6 @@ function isFeishuProviderId(value: string): value is FeishuProviderId {
   return (FEISHU_PROVIDER_IDS as readonly string[]).includes(value);
 }
 
-function truncate(value: string, maxLength: number): string {
-  if (value.length <= maxLength) {
-    return value;
-  }
-  return `${value.slice(0, maxLength - 1)}…`;
-}
-
 function buildStudioUrl(interviewRecordId: string): string {
   const baseUrl = process.env.BETTER_AUTH_URL ?? "http://localhost:3000";
   return `${baseUrl.replace(/\/$/, "")}/studio/interviews?recordId=${encodeURIComponent(
@@ -42,40 +38,39 @@ function buildStudioUrl(interviewRecordId: string): string {
   )}`;
 }
 
-function buildNotificationText({
-  candidateName,
-  evaluation,
-  interviewRecordId,
-  summary,
-  targetRole,
-}: {
+interface NotificationCardInput {
   candidateName: string;
   evaluation: Record<string, unknown>;
   interviewRecordId: string;
   summary: string | null;
   targetRole: string | null;
-}): string {
-  const overallScore =
-    typeof evaluation.overallScore === "number" ? `${evaluation.overallScore}/100` : "暂无评分";
-  const recommendation =
-    typeof evaluation.recommendation === "string" ? evaluation.recommendation : "暂无建议";
-  const assessment =
-    typeof evaluation.overallAssessment === "string" ? evaluation.overallAssessment : null;
+}
 
-  return [
-    "AI 面试报告已生成",
-    "",
-    `候选人：${candidateName}`,
-    `目标岗位：${targetRole ?? "未填写"}`,
-    `综合评分：${overallScore}`,
-    `推荐结论：${recommendation}`,
-    assessment ? `整体评价：${assessment}` : null,
-    summary ? `面试摘要：${truncate(summary, SUMMARY_PREVIEW_MAX_LENGTH)}` : null,
-    "",
-    `查看详情：${buildStudioUrl(interviewRecordId)}`,
-  ]
-    .filter((line): line is string => line !== null)
-    .join("\n");
+function buildNotificationCard(input: NotificationCardInput) {
+  const overallScore =
+    typeof input.evaluation.overallScore === "number"
+      ? `${input.evaluation.overallScore}/100`
+      : "暂无评分";
+  const recommendation =
+    typeof input.evaluation.recommendation === "string"
+      ? input.evaluation.recommendation
+      : "暂无建议";
+  const assessment =
+    typeof input.evaluation.overallAssessment === "string"
+      ? input.evaluation.overallAssessment
+      : null;
+
+  const card = InterviewSummaryCard({
+    assessment,
+    candidateName: input.candidateName,
+    detailUrl: buildStudioUrl(input.interviewRecordId),
+    overallScore,
+    recommendation,
+    summary: input.summary,
+    targetRole: input.targetRole,
+  });
+
+  return { card, headerTemplate: resolveHeaderTemplate(recommendation) };
 }
 
 async function loadNotificationContext(options: SummaryReadyNotificationOptions) {
@@ -237,7 +232,7 @@ export async function notifyInterviewSummaryReady(
     return;
   }
 
-  const text = buildNotificationText({
+  const { card, headerTemplate } = buildNotificationCard({
     candidateName: context.candidateName,
     evaluation: context.evaluationCriteriaResults ?? {},
     interviewRecordId: options.interviewRecordId,
@@ -256,7 +251,9 @@ export async function notifyInterviewSummaryReady(
     }
 
     try {
-      const sent = await postFeishuDirectMessage(recipient.providerId, recipient.accountId, text);
+      const sent = await postFeishuDirectCard(recipient.providerId, recipient.accountId, card, {
+        headerTemplate,
+      });
       await markNotificationSent(notificationId, sent.id ?? null);
     } catch (error) {
       await markNotificationFailed(notificationId, error);

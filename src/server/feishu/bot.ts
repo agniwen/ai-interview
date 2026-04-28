@@ -1,7 +1,8 @@
 import { createPostgresState } from "@chat-adapter/state-pg";
 import { createFeishuAdapter } from "@repo/adapter-feishu";
+import type { CardToFeishuPayloadOptions } from "@repo/adapter-feishu";
 import { Chat } from "chat";
-import type { AdapterPostableMessage } from "chat";
+import type { AdapterPostableMessage, CardElement } from "chat";
 import { routeDM, routeGroupMention } from "./router";
 
 export const FEISHU_PROVIDER_IDS = ["feishu", "feishu-jiguang-hr"] as const;
@@ -121,5 +122,24 @@ export async function postFeishuDirectMessage(
   }
 
   const sent = await adapter.postDirectMessage(openId, message);
+  return { id: sent.id };
+}
+
+export async function postFeishuDirectCard(
+  providerId: FeishuProviderId,
+  openId: string,
+  card: CardElement | unknown,
+  options?: CardToFeishuPayloadOptions,
+): Promise<{ id: string }> {
+  const existing = cached.get(providerId);
+  if (!existing) {
+    getFeishuBot(providerId);
+  }
+  const adapter = cached.get(providerId)?.adapter;
+  if (!adapter) {
+    throw new Error(`Feishu bot is not initialized for provider ${providerId}`);
+  }
+
+  const sent = await adapter.postDirectCard(openId, card, options);
   return { id: sent.id };
 }

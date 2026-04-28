@@ -34,9 +34,33 @@ function convertEmoji(text: string): string {
 }
 
 /**
+ * Feishu card header background colors.
+ * @see https://open.feishu.cn/document/uAjLw4CM/ukzMukzMukzM/feishu-cards/card-components/title
+ */
+export type FeishuHeaderTemplate =
+  | "blue"
+  | "green"
+  | "grey"
+  | "indigo"
+  | "orange"
+  | "purple"
+  | "red"
+  | "turquoise"
+  | "wathet"
+  | "yellow";
+
+export interface CardToFeishuPayloadOptions {
+  /** Override the card header background color. Defaults to `blue`. */
+  headerTemplate?: FeishuHeaderTemplate;
+}
+
+/**
  * Convert a CardElement to a Feishu Interactive Card payload.
  */
-export function cardToFeishuPayload(card: CardElement): FeishuInteractiveCard {
+export function cardToFeishuPayload(
+  card: CardElement,
+  options: CardToFeishuPayloadOptions = {},
+): FeishuInteractiveCard {
   const result: FeishuInteractiveCard = {
     config: {
       wide_screen_mode: true,
@@ -47,7 +71,7 @@ export function cardToFeishuPayload(card: CardElement): FeishuInteractiveCard {
   // Set header if title is present
   if (card.title) {
     result.header = {
-      template: "blue",
+      template: options.headerTemplate ?? "blue",
       title: {
         content: convertEmoji(card.title),
         tag: "plain_text",
