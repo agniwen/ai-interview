@@ -1,7 +1,6 @@
 import { createPostgresState } from "@chat-adapter/state-pg";
 import { createFeishuAdapter } from "@repo/adapter-feishu";
 import { Chat } from "chat";
-import { handleActivateJd } from "./actions/activate-jd";
 import { routeDM } from "./router";
 
 let cached: Chat<{ feishu: ReturnType<typeof createFeishuAdapter> }> | null = null;
@@ -39,11 +38,8 @@ export function getFeishuBot() {
     await routeDM(thread, message, context);
   });
 
-  bot.onAction("activate-jd", async (event) => {
-    await handleActivateJd(event);
-  });
-
-  // Group chat handlers disabled for now — only DM is active
+  // 中文：群组路由 / 卡片按钮回调将在 Workflow 3（面试结果通知）实现
+  // English: group routing + card-action handlers will be wired in Workflow 3
 
   cached = bot;
   return bot;
