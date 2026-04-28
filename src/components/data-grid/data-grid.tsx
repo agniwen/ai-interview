@@ -97,6 +97,14 @@ export function DataGrid<TData>(props: DataGridProps<TData>) {
     totalPages,
   } = props;
 
+  const normalizedPinning = useMemo(
+    () => ({
+      left: columnPinning?.left ?? [],
+      right: columnPinning?.right ?? [],
+    }),
+    [columnPinning],
+  );
+
   const table = useReactTable({
     columns,
     data,
@@ -108,7 +116,7 @@ export function DataGrid<TData>(props: DataGridProps<TData>) {
     onRowSelectionChange,
     onSortingChange,
     state: {
-      columnPinning,
+      columnPinning: normalizedPinning,
       rowSelection: rowSelection ?? {},
       sorting: sorting ?? [],
     },
