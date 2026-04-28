@@ -84,6 +84,15 @@ export const jobDescriptionsRouter = factory
     }
 
     const now = new Date();
+    // `record` is passed both to `tx.insert().values()` AND directly to
+    // `serializeJobDescription`, which expects the full select shape — so we
+    // use `$inferSelect` (not `$inferInsert`) to satisfy that consumer without
+    // a DB round-trip.  The three nullable Feishu columns must be explicitly
+    // set to `null` here because `$inferSelect` requires them to be present.
+    //
+    // `record` 同时用于 `tx.insert().values()` 和 `serializeJobDescription`，
+    // 后者要求完整的 select 类型，因此使用 `$inferSelect` 而非 `$inferInsert`，
+    // 避免额外的数据库查询。三个可空飞书列需显式设为 `null` 以满足该类型。
     const record = {
       createdAt: now,
       createdBy: c.var.user?.id ?? null,
