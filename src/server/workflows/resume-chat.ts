@@ -50,6 +50,16 @@ async function clearActiveWorkflowRunIdStep(conversationId: string, runId: strin
   await clearActiveWorkflowRunId(conversationId, runId);
 }
 
+async function closeWritableStep(writable: WritableStream<UIMessageChunk>) {
+  "use step";
+  const writer = writable.getWriter();
+  try {
+    await writer.close();
+  } catch {
+    // Already closed/aborted by an earlier error path — fine to ignore.
+  }
+}
+
 export async function runResumeChatWorkflow(input: ResumeChatWorkflowInput) {
   "use workflow";
 
@@ -64,7 +74,14 @@ export async function runResumeChatWorkflow(input: ResumeChatWorkflowInput) {
         message: assistantMessage,
       });
     }
-  } finally {
+    // Order matters: clear the active run id BEFORE closing the writable so
+    // the client's auto-resume POST (triggered by stream finish) finds a
+    // NULL active run and starts a fresh workflow for the next turn.
     await clearActiveWorkflowRunIdStep(input.chatId, workflowRunId);
+    await closeWritableStep(writable);
+  } catch (error) {
+    await clearActiveWorkflowRunIdStep(input.chatId, workflowRunId);
+    await closeWritableStep(writable);
+    throw error;
   }
 }
