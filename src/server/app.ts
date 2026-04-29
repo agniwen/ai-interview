@@ -15,6 +15,7 @@ import { interviewRouter, studioInterviewsRouter } from "./routes/interview/rout
 import { interviewersRouter } from "./routes/interviewer/route";
 import { interviewQuestionTemplatesRouter } from "./routes/interview-question-templates/route";
 import { jobDescriptionsRouter } from "./routes/job-description/route";
+import { livekitRouter } from "./routes/livekit/route";
 import { resumeRouter } from "./routes/resume/route";
 
 export const app = new Hono<Env>()
@@ -72,6 +73,7 @@ export const app = new Hono<Env>()
     return bot.webhooks.feishu(rebuilt);
   })
   .route("/agent", agentRouter)
+  .route("/livekit", livekitRouter)
   .route("/chat", chatRouter)
   .route("/resume", resumeRouter)
   .route("/interview", interviewRouter)

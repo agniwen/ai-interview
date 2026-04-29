@@ -29,8 +29,6 @@ from livekit.plugins.turn_detector.multilingual import MultilingualModel
 from interview_agent import InterviewAgent
 from prompts import pick_interviewer
 from recording import (
-    egress_duration_secs,
-    egress_status_to_str,
     start_room_recording,
     stop_recording,
 )
@@ -205,39 +203,55 @@ async def my_agent(ctx: JobContext):
         else:
             call_successful = "failed"
 
-        # 收尾录像: 先尝试 stop_egress, 再用拉取的 EgressInfo 更新最终状态/时长.
-        # Wrap up recording: stop egress first, then refresh status/duration from the
-        # returned EgressInfo so the report carries the final state.
+        # 录像收尾策略: 不再阻塞 send_report 等待 stop_egress.
+        # report 直接用启动时拿到的 egressId / fileKey 写 status="active",
+        # 由 web 端的 LiveKit egress_ended webhook 兜底回填最终 status / durationSecs.
+        # 这样即使 LiveKit Egress API 抖动或 list_egress fallback 慢, 报告也能稳定回填.
+        #
+        # Recording wrap-up: do NOT block send_report on stop_egress. The report
+        # carries the egressId/fileKey we already have from start time with
+        # status="active"; the web-side LiveKit egress_ended webhook handler is
+        # responsible for backfilling the final status / durationSecs once the
+        # MP4 finishes uploading. This keeps shutdown resilient even when the
+        # LiveKit Egress API is slow.
         recording_payload: dict | None = None
         if recording_info:
-            final_info = await stop_recording(lkapi, recording_info["egressId"])
             recording_payload = {
                 "egressId": recording_info["egressId"],
                 "fileKey": recording_info["fileKey"],
-                "status": egress_status_to_str(final_info)
-                if final_info is not None
-                else "active",
-                "durationSecs": egress_duration_secs(final_info),
+                "status": "active",
+                "durationSecs": None,
             }
+
+        async def _stop_recording_best_effort() -> None:
+            if not recording_info:
+                return
+            try:
+                await stop_recording(lkapi, recording_info["egressId"])
+            except Exception:
+                logger.exception("stop_recording during shutdown failed")
+
+        # Run report send + recording stop concurrently. send_report finishes
+        # in <1s when the backend is healthy, so the framework's shutdown
+        # grace period is no longer pressured by Egress API latency.
+        await asyncio.gather(
+            send_report(
+                interview_context=interview_context,
+                room_name=ctx.room.name,
+                turns=collected_turns,
+                call_successful=call_successful,
+                started_at=session_start_time,
+                ended_at=ended_at,
+                close_reason=close_reason,
+                recording=recording_payload,
+            ),
+            _stop_recording_best_effort(),
+        )
+
         try:
             await lkapi.aclose()
         except Exception:
             logger.debug("lkapi.aclose failed", exc_info=True)
-
-        # Only ship raw transcript to the backend. Summary + evaluation are
-        # generated server-side (fire-and-forget after /api/agent/report
-        # responds), so this callback can exit in ~1s — resilient to the
-        # framework's shutdown grace period and to user-initiated disconnects.
-        await send_report(
-            interview_context=interview_context,
-            room_name=ctx.room.name,
-            turns=collected_turns,
-            call_successful=call_successful,
-            started_at=session_start_time,
-            ended_at=ended_at,
-            close_reason=close_reason,
-            recording=recording_payload,
-        )
 
     ctx.add_shutdown_callback(_on_shutdown)
 
