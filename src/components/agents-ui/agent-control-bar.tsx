@@ -75,9 +75,20 @@ interface AgentChatInputProps {
   chatOpen: boolean;
   onSend?: (message: string) => void;
   className?: string;
+  /**
+   * When false, disables the textarea and send button so candidates cannot
+   * submit text replies. Defaults to true.
+   * 当为 false 时，禁用输入框与发送按钮（用于轮次未开启文本作答的场景）。
+   */
+  inputEnabled?: boolean;
 }
 
-function AgentChatInput({ chatOpen, onSend = async () => {}, className }: AgentChatInputProps) {
+function AgentChatInput({
+  chatOpen,
+  onSend = async () => {},
+  className,
+  inputEnabled = true,
+}: AgentChatInputProps) {
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const [isSending, setIsSending] = useState(false);
   const [message, setMessage] = useState<string>("");
@@ -86,9 +97,10 @@ function AgentChatInput({ chatOpen, onSend = async () => {}, className }: AgentC
   // Covers connecting, initializing, pre-connect-buffering, thinking, speaking,
   // disconnected, and failed — all should block the send button.
   const isAgentReady = agentState === "listening" || agentState === "idle";
-  const isDisabled = isSending || !isAgentReady || message.trim().length === 0;
-  const placeholderHint =
-    agentState === "speaking"
+  const isDisabled = !inputEnabled || isSending || !isAgentReady || message.trim().length === 0;
+  const placeholderHint = !inputEnabled
+    ? "本轮未开启文本作答"
+    : agentState === "speaking"
       ? "面试官讲话中，请稍候..."
       : agentState === "thinking"
         ? "面试官思考中，请稍候..."
@@ -138,11 +150,11 @@ function AgentChatInput({ chatOpen, onSend = async () => {}, className }: AgentC
   // disabled in the DOM until React flushes the isSending/agentState change —
   // focus() on a disabled element is a no-op.
   useEffect(() => {
-    if (!chatOpen || isSending || !isAgentReady) {
+    if (!chatOpen || isSending || !isAgentReady || !inputEnabled) {
       return;
     }
     inputRef.current?.focus();
-  }, [chatOpen, isSending, isAgentReady]);
+  }, [chatOpen, isSending, isAgentReady, inputEnabled]);
 
   return (
     <div className={cn("mb-3 flex grow items-end gap-2 rounded-md pl-1 text-sm", className)}>
@@ -150,7 +162,7 @@ function AgentChatInput({ chatOpen, onSend = async () => {}, className }: AgentC
         autoFocus
         ref={inputRef}
         value={message}
-        disabled={!chatOpen || isSending}
+        disabled={!chatOpen || isSending || !inputEnabled}
         placeholder={placeholderHint}
         onKeyDown={handleKeyDown}
         onChange={(e) => setMessage(e.target.value)}
@@ -244,6 +256,14 @@ export interface AgentControlBarProps extends UseInputControlsProps {
    * @default false
    */
   isChatOpen?: boolean;
+  /**
+   * Whether the candidate is allowed to submit text replies. When false the
+   * textarea + send button are rendered disabled. Defaults to true.
+   * 是否允许候选人通过文本回复；为 false 时文本输入框处于禁用状态。
+   *
+   * @default true
+   */
+  chatInputEnabled?: boolean;
   /** The callback for when the user disconnects. */
   onDisconnect?: () => void;
   /** The callback for when the chat is opened or closed. */
@@ -281,6 +301,7 @@ export function AgentControlBar({
   controls,
   isChatOpen = false,
   isConnected = false,
+  chatInputEnabled = true,
   saveUserChoices = true,
   onDisconnect,
   onDeviceError,
@@ -343,6 +364,7 @@ export function AgentControlBar({
       >
         <AgentChatInput
           chatOpen={isChatOpenEffective}
+          inputEnabled={chatInputEnabled}
           onSend={handleSendMessage}
           className={cn(variant === "livekit" && "[&_button]:rounded-full")}
         />

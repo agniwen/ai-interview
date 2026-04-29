@@ -28,6 +28,7 @@ export const scheduleEntryStatusMeta: Record<
 };
 
 export const studioInterviewScheduleEntrySchema = z.object({
+  allowTextInput: z.boolean(),
   id: z.string().trim().optional(),
   notes: z.string().trim().max(1000, "轮次备注不能超过 1000 字").optional().or(z.literal("")),
   roundLabel: z.string().trim().min(1, "请输入面试轮次").max(100, "面试轮次不能超过 100 个字符"),
@@ -170,6 +171,7 @@ export const studioInterviewStatusMeta: Record<
 
 export function createDefaultScheduleEntry(sortOrder = 0): StudioInterviewScheduleEntryFormValue {
   return {
+    allowTextInput: false,
     notes: "",
     roundLabel: sortOrder === 0 ? "一面" : `第 ${sortOrder + 1} 轮`,
     scheduledAt: "",

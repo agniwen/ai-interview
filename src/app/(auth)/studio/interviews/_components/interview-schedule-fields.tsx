@@ -14,6 +14,7 @@ import {
   FieldLabel,
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { createDefaultScheduleEntry, scheduleEntryStatusMeta } from "@/lib/studio-interviews";
 import { hasFieldErrors, toFieldErrors } from "./interview-form";
@@ -153,6 +154,29 @@ export function InterviewScheduleFields({
                         }}
                       </form.Field>
                     </FieldGroup>
+
+                    <form.Field name={`scheduleEntries[${index}].allowTextInput` as const}>
+                      {(field) => (
+                        <Field
+                          className="mt-4 flex-row items-center justify-between gap-4"
+                          orientation="horizontal"
+                        >
+                          <FieldContent className="gap-1">
+                            {/* 允许文本输入 / Allow text input */}
+                            <FieldLabel htmlFor={field.name}>允许面试者文本输入</FieldLabel>
+                            <FieldDescription>
+                              开启后，面试者可在面试界面通过文字回复；默认关闭。
+                            </FieldDescription>
+                          </FieldContent>
+                          <Switch
+                            checked={!!field.state.value}
+                            disabled={isLocked}
+                            id={field.name}
+                            onCheckedChange={(checked) => field.handleChange(checked)}
+                          />
+                        </Field>
+                      )}
+                    </form.Field>
 
                     <form.Field name={`scheduleEntries[${index}].notes` as const}>
                       {(field) => {

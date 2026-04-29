@@ -396,6 +396,7 @@ export default function InterviewPageClient({ interviewId, roundId }: InterviewP
           defaultChatOpen={startedMuted}
           supportsVideoInput={false}
           supportsScreenShare={false}
+          chatInputEnabled={interviewView?.currentRoundAllowTextInput ?? false}
           preConnectMessage="正在连线面试官，请稍等..."
         />
       </main>

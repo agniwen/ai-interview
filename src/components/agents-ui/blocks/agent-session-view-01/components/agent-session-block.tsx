@@ -156,6 +156,13 @@ export interface AgentSessionView_01Props {
   className?: string;
   /** When true, the chat/message panel opens immediately on mount. */
   defaultChatOpen?: boolean;
+  /**
+   * Whether the candidate may type text replies. When false the textarea is
+   * rendered disabled (the chat panel toggle is still visible so users can
+   * read the transcript). Defaults to true.
+   * 是否允许候选人通过文本回复；为 false 时文本输入框处于禁用状态。
+   */
+  chatInputEnabled?: boolean;
 }
 
 export function AgentSessionView_01({
@@ -175,6 +182,7 @@ export function AgentSessionView_01({
   audioVisualizerRadialRadius,
   audioVisualizerWaveLineWidth,
   defaultChatOpen = false,
+  chatInputEnabled = true,
   ref,
   className,
   ...props
@@ -272,6 +280,7 @@ export function AgentSessionView_01({
             variant="livekit"
             controls={controls}
             isChatOpen={chatOpen}
+            chatInputEnabled={chatInputEnabled}
             isConnected={session.isConnected}
             onDisconnect={session.end}
             onIsChatOpenChange={setChatOpen}

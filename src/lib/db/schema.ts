@@ -317,6 +317,7 @@ export const jobDescriptionInterviewer = pgTable(
 export const studioInterviewSchedule = pgTable(
   "studio_interview_schedule",
   {
+    allowTextInput: boolean("allow_text_input").notNull().default(false),
     conversationId: text("conversation_id"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     id: text("id").primaryKey(),

@@ -49,6 +49,7 @@ export function toInterviewFormValues(
     jobDescriptionId: record.jobDescriptionId ?? "",
     notes: record.notes ?? "",
     scheduleEntries: record.scheduleEntries.map((entry, index) => ({
+      allowTextInput: entry.allowTextInput ?? false,
       id: entry.id,
       notes: entry.notes ?? "",
       roundLabel: entry.roundLabel,

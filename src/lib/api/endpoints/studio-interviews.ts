@@ -128,6 +128,21 @@ export function resetStudioInterviewRound(
 }
 
 /**
+ * 切换单轮面试的"允许面试者文本输入"开关。
+ * Toggle the per-round "allow candidate text input" flag.
+ */
+export function updateStudioInterviewRound(
+  interviewId: string,
+  roundId: string,
+  payload: { allowTextInput: boolean },
+): Promise<StudioInterviewRecord> {
+  return apiFetch<StudioInterviewRecord>(
+    `/api/studio/interviews/${encodeURIComponent(interviewId)}/rounds/${encodeURIComponent(roundId)}`,
+    { body: payload, method: "PATCH" },
+  );
+}
+
+/**
  * 删除单条面试记录。
  * Delete a single interview record.
  */

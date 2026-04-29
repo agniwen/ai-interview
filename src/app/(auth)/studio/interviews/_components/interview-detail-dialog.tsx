@@ -8,6 +8,7 @@ import {
   fetchStudioInterviewFormSubmissions,
   fetchStudioInterviewReports,
   resetStudioInterviewRound,
+  updateStudioInterviewRound,
 } from "@/lib/api";
 import { MessageSquareTextIcon, RotateCcwIcon, Share2Icon } from "lucide-react";
 import { useState } from "react";
@@ -40,6 +41,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
+import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { copyTextToClipboard, toAbsoluteUrl } from "@/lib/clipboard";
 import { scheduleEntryStatusMeta } from "@/lib/studio-interviews";
@@ -90,6 +92,7 @@ export function InterviewDetailDialog({
   recordId: string | null;
 }) {
   const [resettingRoundId, setResettingRoundId] = useState<string | null>(null);
+  const [updatingRoundId, setUpdatingRoundId] = useState<string | null>(null);
   const [resettingSubmissionId, setResettingSubmissionId] = useState<string | null>(null);
   const [pendingResetSubmissionId, setPendingResetSubmissionId] = useState<string | null>(null);
   const queryClient = useQueryClient();
@@ -136,6 +139,25 @@ export function InterviewDetailDialog({
       }
     } catch {
       toast.error("复制失败，请手动复制");
+    }
+  }
+
+  async function handleToggleAllowTextInput(roundId: string, next: boolean) {
+    if (!recordId || updatingRoundId) {
+      return;
+    }
+
+    setUpdatingRoundId(roundId);
+
+    try {
+      await updateStudioInterviewRound(recordId, roundId, { allowTextInput: next });
+      toast.success(next ? "已开启文本作答" : "已关闭文本作答");
+      await queryClient.invalidateQueries({ queryKey: ["studio-interview", recordId] });
+      onUpdated?.();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "更新失败");
+    } finally {
+      setUpdatingRoundId(null);
     }
   }
 
@@ -343,6 +365,24 @@ export function InterviewDetailDialog({
                                 <p className="mt-2 text-muted-foreground text-sm leading-relaxed">
                                   {truncateText(entry.notes, 180) || "暂无轮次备注"}
                                 </p>
+                                <div className="mt-3 flex items-center justify-between gap-3 rounded-lg border border-border/50 bg-background/80 px-3 py-2">
+                                  <div className="min-w-0">
+                                    {/* 允许面试者文本输入 / Allow candidate text input */}
+                                    <p className="font-medium text-sm">允许面试者文本输入</p>
+                                    <p className="mt-0.5 text-muted-foreground text-xs">
+                                      关闭时面试界面文字输入框被禁用，仅支持语音作答。
+                                    </p>
+                                  </div>
+                                  <Switch
+                                    checked={entry.allowTextInput}
+                                    disabled={
+                                      entry.status === "completed" || updatingRoundId === entry.id
+                                    }
+                                    onCheckedChange={(next) =>
+                                      void handleToggleAllowTextInput(entry.id, next)
+                                    }
+                                  />
+                                </div>
                                 <div className="mt-3 rounded-lg border border-border/50 bg-background/80 px-3 py-2">
                                   <p className="text-muted-foreground text-xs">完整面试链接</p>
                                   <p className="mt-1 break-all font-mono text-xs leading-relaxed">

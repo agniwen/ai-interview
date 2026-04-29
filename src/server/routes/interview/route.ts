@@ -917,6 +917,46 @@ export const studioInterviewsRouter = factory
     const updatedRecord = await loadRecordById(id);
     return c.json(updatedRecord);
   })
+  .patch("/:id/rounds/:roundId", async (c) => {
+    // 单轮次内联编辑：当前仅支持切换"是否允许文本输入"。
+    // Per-round inline edit: currently only toggles allowTextInput.
+    const id = c.req.param("id");
+    const roundId = c.req.param("roundId");
+
+    const body = (await c.req.json().catch(() => null)) as { allowTextInput?: unknown } | null;
+
+    if (!body || typeof body.allowTextInput !== "boolean") {
+      return c.json({ error: "请求体格式不正确。" }, 400);
+    }
+
+    const existing = await loadRecordById(id);
+
+    if (!existing) {
+      return c.json({ error: "记录不存在。" }, 404);
+    }
+
+    const targetEntry = existing.scheduleEntries.find((e) => e.id === roundId);
+
+    if (!targetEntry) {
+      return c.json({ error: "轮次不存在。" }, 404);
+    }
+
+    if (targetEntry.status === "completed") {
+      return c.json({ error: "已结束的轮次无法修改设置。" }, 400);
+    }
+
+    await db
+      .update(studioInterviewSchedule)
+      .set({
+        allowTextInput: body.allowTextInput,
+        updatedAt: new Date(),
+      })
+      .where(eq(studioInterviewSchedule.id, roundId));
+
+    safeUpdateTag("studio-interviews");
+    const updatedRecord = await loadRecordById(id);
+    return c.json(updatedRecord);
+  })
   .delete("/:id", async (c) => {
     const id = c.req.param("id");
     const existing = await loadRecordById(id);

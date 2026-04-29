@@ -173,6 +173,7 @@ export function buildScheduleRows(
     const existing = entry.id ? existingMap.get(entry.id.trim()) : undefined;
 
     return {
+      allowTextInput: entry.allowTextInput ?? false,
       conversationId: existing?.conversationId ?? null,
       createdAt: existing?.createdAt ?? now,
       id: entry.id?.trim() || crypto.randomUUID(),

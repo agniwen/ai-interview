@@ -14,6 +14,7 @@ export interface InterviewScheduleEntry {
   notes: string | null;
   sortOrder: number;
   conversationId: string | null;
+  allowTextInput: boolean;
   createdAt: string | Date;
   updatedAt: string | Date;
 }
@@ -33,6 +34,7 @@ export interface CandidateInterviewView {
   currentRoundLabel: string | null;
   currentRoundStatus: ScheduleEntryStatus | null;
   currentRoundTime: string | Date | null;
+  currentRoundAllowTextInput: boolean;
 }
 
 /**
@@ -97,6 +99,7 @@ export function buildCandidateInterviewView(
 
   return {
     candidateName: record.candidateName,
+    currentRoundAllowTextInput: currentEntry?.allowTextInput ?? false,
     currentRoundId: currentEntry?.id ?? null,
     currentRoundLabel: currentEntry?.roundLabel ?? null,
     currentRoundStatus: (currentEntry?.status as ScheduleEntryStatus) ?? null,
