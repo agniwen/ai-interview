@@ -85,10 +85,10 @@ export function BackgroundLayers() {
           </>
         )}
       </div>
-      {/* 长滚动页面下，背景需逐渐淡出为纯净表面 / On long scroll, fade bg into a flat surface. */}
+      {/* 保持原首页 mask，背景动画始终可见 / Preserve original mask so bg animation stays visible. */}
       <div
         aria-hidden="true"
-        className="bg-mask pointer-events-none fixed inset-0 -z-10 bg-[linear-gradient(to_bottom,oklch(0.985_0.007_236.5/0.48),oklch(0.985_0.007_236.5/0.78)_30vh,oklch(0.985_0.007_236.5/1)_85vh,oklch(0.985_0.007_236.5/1)_100%)] dark:bg-[linear-gradient(to_bottom,oklch(0.145_0_0/0.55),oklch(0.145_0_0/0.82)_30vh,oklch(0.145_0_0/1)_85vh,oklch(0.145_0_0/1)_100%)]"
+        className="bg-mask pointer-events-none fixed inset-0 -z-10 bg-[linear-gradient(to_bottom,oklch(0.985_0.007_236.5/0.48),oklch(0.985_0.007_236.5/0.68)_42%,oklch(0.985_0.007_236.5/0.82)_100%)] opacity-80 dark:bg-[linear-gradient(to_bottom,oklch(0.145_0_0/0.55),oklch(0.145_0_0/0.72)_42%,oklch(0.145_0_0/0.88)_100%)]"
       />
     </>
   );

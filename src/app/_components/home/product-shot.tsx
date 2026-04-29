@@ -13,10 +13,10 @@ export function ProductShot() {
         <Screenshot
           alt="工作台主界面预览"
           darkSrc="/landing/studio-dark.png"
-          height={1100}
+          height={900}
           lightSrc="/landing/studio-light.png"
           priority
-          width={1760}
+          width={1440}
         />
       </FadeContent>
     </Section>
