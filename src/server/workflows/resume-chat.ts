@@ -16,8 +16,16 @@ export interface ResumeChatWorkflowInput {
 async function runScreeningAndStream(
   input: ResumeChatWorkflowInput,
   writable: WritableStream<UIMessageChunk>,
+  messageId: string,
 ): Promise<UIMessage | null> {
   "use step";
+
+  // eslint-disable-next-line no-console -- TEMP debug
+  console.log("[workflow] runScreeningAndStream IN", {
+    chatId: input.chatId,
+    incomingMessageIds: input.messages.map((m) => `${m.role}:${m.id?.slice(0, 8)}`),
+    messageId,
+  });
 
   const messagesForModel = await inlineAttachmentsForModel(input.userId, input.messages);
 
@@ -28,20 +36,42 @@ async function runScreeningAndStream(
   });
 
   const stream = result.toUIMessageStream({
-    generateMessageId: () => crypto.randomUUID(),
+    generateMessageId: () => messageId,
     originalMessages: input.messages,
     sendReasoning: input.enableThinking !== false,
     sendSources: true,
   });
 
-  return await pumpAssistantStream({
+  const accumulated = await pumpAssistantStream({
     stream,
     writable,
   });
+
+  // eslint-disable-next-line no-console -- TEMP debug
+  console.log("[workflow] runScreeningAndStream OUT", {
+    accumulatedId: accumulated?.id,
+    accumulatedRole: accumulated?.role,
+    partsSummary: accumulated?.parts?.map((p) => ({
+      state: (p as { state?: string }).state,
+      type: p.type,
+    })),
+  });
+
+  return accumulated;
 }
 
 async function persistAssistantMessageStep(args: { conversationId: string; message: UIMessage }) {
   "use step";
+  // eslint-disable-next-line no-console -- TEMP debug
+  console.log("[workflow] persistAssistantMessage", {
+    conversationId: args.conversationId,
+    messageId: args.message.id,
+    partsSummary: args.message.parts?.map((p) => ({
+      state: (p as { state?: string }).state,
+      type: p.type,
+    })),
+    role: args.message.role,
+  });
   await upsertChatMessage(args);
 }
 
@@ -65,9 +95,13 @@ export async function runResumeChatWorkflow(input: ResumeChatWorkflowInput) {
 
   const { workflowRunId } = getWorkflowMetadata();
   const writable = getWritable<UIMessageChunk>();
+  // Derive a deterministic message id from the workflow run id so step
+  // retries don't generate a fresh id (which would orphan the chunks
+  // already written and produce duplicate rows on persist).
+  const messageId = `msg_${workflowRunId}`;
 
   try {
-    const assistantMessage = await runScreeningAndStream(input, writable);
+    const assistantMessage = await runScreeningAndStream(input, writable, messageId);
     if (assistantMessage) {
       await persistAssistantMessageStep({
         conversationId: input.chatId,
