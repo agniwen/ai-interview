@@ -101,6 +101,7 @@ export function RecordingPlayer({
         )}
       </div>
       {url ? (
+        // oxlint-disable-next-line jsx-a11y/media-has-caption -- 面试录像无字幕轨道可挂载；候选人音视频原始记录，不存在 captions 资源。
         <video
           className="mt-3 w-full rounded-xl border border-border/60"
           controls
