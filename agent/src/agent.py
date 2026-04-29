@@ -234,8 +234,9 @@ async def my_agent(ctx: JobContext):
             try:
                 handle = session.generate_reply(
                     instructions=(
-                        "面试时间已到。请用一两句温暖的话感谢候选人参与、"
-                        "祝其一切顺利，然后告知面试到此结束，不要继续提问。"
+                        "面试时间已到。请用一两句温暖的话感谢候选人参与并体面告别，"
+                        f"参考用语：{interview_agent.closing_instructions}。"
+                        "然后告知面试到此结束，不要继续提问。"
                     ),
                     allow_interruptions=False,
                 )
