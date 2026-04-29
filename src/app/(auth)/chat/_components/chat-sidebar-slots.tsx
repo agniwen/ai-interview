@@ -1,6 +1,5 @@
 "use client";
 
-import { useAtomValue } from "jotai";
 import { PlusIcon, SquareCheckBigIcon, Trash2Icon, XIcon } from "lucide-react";
 import Link from "next/link";
 import { useParams, usePathname, useRouter } from "next/navigation";
@@ -33,9 +32,7 @@ import {
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { deleteConversation, fetchConversations } from "@/lib/chat-api";
 import { cn } from "@/lib/utils";
-import { tutorialStepAtom } from "../_atoms/tutorial";
 import { CHAT_EVENTS, notifyConversationsChanged } from "../_lib/chat-events";
-import { TUTORIAL_MOCK_CONVERSATIONS } from "../constants/tutorial-mock";
 
 interface ConversationListItem {
   id: string;
@@ -184,7 +181,6 @@ function ChatSidebarHeader({
 function renderSessionItem({
   conversation,
   editMode,
-  isMock,
   isSelected,
   itemBody,
   closeOnNavigate,
@@ -193,14 +189,13 @@ function renderSessionItem({
 }: {
   conversation: ConversationListItem;
   editMode: boolean;
-  isMock: boolean;
   isSelected: boolean;
   itemBody: React.ReactNode;
   closeOnNavigate: () => void;
   onToggleSelect: (id: string) => void;
   onDelete: (conversation: ConversationListItem) => void;
 }) {
-  if (editMode && !isMock) {
+  if (editMode) {
     return (
       <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 rounded-md text-left">
         <Checkbox
@@ -211,10 +206,6 @@ function renderSessionItem({
         {itemBody}
       </label>
     );
-  }
-
-  if (isMock) {
-    return itemBody;
   }
 
   return (
@@ -285,48 +276,28 @@ function ChatSidebarBody({
             const visibleTitle = conversation.isTitleGenerating
               ? GENERATING_CHAT_TITLE
               : conversation.title;
-            const isMock = conversation.id.startsWith("tutorial-");
 
             return (
               <li key={conversation.id}>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    {isMock ? (
+                    <Link
+                      className={cn(
+                        "block rounded-md px-1.5 py-1.5 transition-colors",
+                        isActive ? "bg-sidebar-accent" : "hover:bg-sidebar-accent/60",
+                      )}
+                      href={`/chat/${conversation.id}`}
+                      onClick={closeOnNavigate}
+                    >
                       <div
-                        aria-disabled="true"
                         className={cn(
-                          "block rounded-md px-1.5 py-1.5",
-                          isActive ? "bg-sidebar-accent" : "",
+                          "h-1.5 rounded-full",
+                          isActive
+                            ? "bg-sidebar-foreground/40 w-full"
+                            : "bg-muted-foreground/20 w-3/4",
                         )}
-                      >
-                        <div
-                          className={cn(
-                            "h-1.5 rounded-full",
-                            isActive
-                              ? "bg-sidebar-foreground/40 w-full"
-                              : "bg-muted-foreground/20 w-3/4",
-                          )}
-                        />
-                      </div>
-                    ) : (
-                      <Link
-                        className={cn(
-                          "block rounded-md px-1.5 py-1.5 transition-colors",
-                          isActive ? "bg-sidebar-accent" : "hover:bg-sidebar-accent/60",
-                        )}
-                        href={`/chat/${conversation.id}`}
-                        onClick={closeOnNavigate}
-                      >
-                        <div
-                          className={cn(
-                            "h-1.5 rounded-full",
-                            isActive
-                              ? "bg-sidebar-foreground/40 w-full"
-                              : "bg-muted-foreground/20 w-3/4",
-                          )}
-                        />
-                      </Link>
-                    )}
+                      />
+                    </Link>
                   </TooltipTrigger>
                   <TooltipContent side="right">{visibleTitle}</TooltipContent>
                 </Tooltip>
@@ -341,7 +312,6 @@ function ChatSidebarBody({
   return (
     <ul className="space-y-1 px-1.5 py-1">
       {conversations.map((conversation) => {
-        const isMock = conversation.id.startsWith("tutorial-");
         const isActive = activeSessionId === conversation.id;
         const isSelected = selectedIds.has(conversation.id);
         const visibleTitle = conversation.isTitleGenerating
@@ -376,7 +346,6 @@ function ChatSidebarBody({
                 closeOnNavigate,
                 conversation,
                 editMode,
-                isMock,
                 isSelected,
                 itemBody,
                 onDelete,
@@ -393,7 +362,6 @@ function ChatSidebarBody({
 export function ChatSidebarSlots() {
   const router = useRouter();
   const { setOpenMobile, isMobile, state } = useSidebar();
-  const tutorialStep = useAtomValue(tutorialStepAtom);
   const [conversations, setConversations] = useState<ConversationListItem[]>([]);
   const [deleteTarget, setDeleteTarget] = useState<ConversationListItem | null>(null);
   const [editMode, setEditMode] = useState(false);
@@ -401,11 +369,6 @@ export function ChatSidebarSlots() {
   const [bulkConfirmOpen, setBulkConfirmOpen] = useState(false);
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
   const activeSessionId = useActiveSessionId();
-
-  const displayConversations =
-    tutorialStep !== null && conversations.length === 0
-      ? TUTORIAL_MOCK_CONVERSATIONS
-      : conversations;
 
   const refreshConversationList = useCallback(async () => {
     try {
@@ -546,7 +509,7 @@ export function ChatSidebarSlots() {
       <SidebarBodyPortalContent>
         <ChatSidebarBody
           activeSessionId={activeSessionId}
-          conversations={displayConversations}
+          conversations={conversations}
           editMode={editMode}
           onDelete={setDeleteTarget}
           onToggleSelect={handleToggleSelect}

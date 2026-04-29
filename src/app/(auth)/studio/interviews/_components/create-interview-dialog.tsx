@@ -4,22 +4,10 @@ import type { InterviewQuestion, ResumeAnalysisResult, ResumeProfile } from "@/l
 import type { StudioInterviewRecord } from "@/lib/studio-interviews";
 import type { AnalysisStreamEvent } from "@/server/agents/resume-analysis-agent";
 import { useStore } from "@tanstack/react-form";
-import { useAtomValue } from "jotai";
 import { CheckIcon, FileUpIcon, LoaderCircleIcon, SparklesIcon, WrenchIcon } from "lucide-react";
 import { motion } from "motion/react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
-import {
-  STUDIO_TUTORIAL_MOCK_FORM,
-  STUDIO_TUTORIAL_MOCK_QUESTIONS,
-} from "@/app/(auth)/studio/_hooks/studio-tutorial-mock";
-import {
-  refreshStudioTutorialHighlight,
-  STUDIO_DIALOG_FIRST_STEP,
-  STUDIO_DIALOG_LAST_STEP,
-  STUDIO_QUESTIONS_TAB_STEP,
-  studioTutorialStepAtom,
-} from "@/app/(auth)/studio/_hooks/use-studio-tutorial";
 import { TextFlip } from "@/components/text-flip";
 import { Button } from "@/components/ui/button";
 import {
@@ -49,16 +37,7 @@ import { InterviewScheduleFields } from "./interview-schedule-fields";
 const LEADING_DIGIT_RE = /^\d/;
 const LEADING_DIGITS_RE = /^(\d+)/;
 
-function resolveQuestionsTabSuffix({
-  questionCount,
-  isTutorialDialog,
-}: {
-  questionCount: number;
-  isTutorialDialog: boolean;
-}) {
-  if (isTutorialDialog) {
-    return ` (${STUDIO_TUTORIAL_MOCK_QUESTIONS.length})`;
-  }
+function resolveQuestionsTabSuffix(questionCount: number) {
   if (questionCount > 0) {
     return ` (${questionCount})`;
   }
@@ -73,7 +52,6 @@ export function CreateInterviewDialog({
 }: {
   onCreated: (record: StudioInterviewRecord) => void;
 }) {
-  const tutorialStep = useAtomValue(studioTutorialStepAtom);
   const [open, setOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<string>("basic");
   const [resumeFile, setResumeFile] = useState<File | null>(null);
@@ -85,7 +63,6 @@ export function CreateInterviewDialog({
   const [partialFields, setPartialFields] = useState<{ label: string; value: string }[]>([]);
   const accumulatedTextRef = useRef("");
   const abortControllerRef = useRef<AbortController | null>(null);
-  const tutorialMockedRef = useRef(false);
   const form = useInterviewForm({
     defaultValues: createInterviewFormValues(),
     onSubmit: async (values) => {
@@ -140,54 +117,6 @@ export function CreateInterviewDialog({
     },
   });
   const isSubmitting = useStore(form.store, (state) => state.isSubmitting);
-
-  // Tutorial: control dialog open state, tab, and mock form values
-  const isTutorialDialog =
-    tutorialStep !== null &&
-    tutorialStep >= STUDIO_DIALOG_FIRST_STEP &&
-    tutorialStep <= STUDIO_DIALOG_LAST_STEP;
-
-  useEffect(() => {
-    if (isTutorialDialog) {
-      const wasOpen = open;
-      setOpen(true);
-
-      // Mock form values once when dialog opens for tutorial
-      if (!tutorialMockedRef.current) {
-        tutorialMockedRef.current = true;
-        form.setFieldValue("candidateName", STUDIO_TUTORIAL_MOCK_FORM.candidateName);
-        form.setFieldValue("candidateEmail", STUDIO_TUTORIAL_MOCK_FORM.candidateEmail);
-        form.setFieldValue("targetRole", STUDIO_TUTORIAL_MOCK_FORM.targetRole);
-        form.setFieldValue("status", STUDIO_TUTORIAL_MOCK_FORM.status);
-        form.setFieldValue("notes", STUDIO_TUTORIAL_MOCK_FORM.notes);
-        form.setFieldValue("interviewQuestions", STUDIO_TUTORIAL_MOCK_QUESTIONS);
-      }
-
-      // Switch tab based on step
-      if (tutorialStep >= STUDIO_QUESTIONS_TAB_STEP) {
-        setActiveTab("questions");
-      } else {
-        setActiveTab("basic");
-      }
-
-      // Dialog entrance animation ends before driver.js re-samples the
-      // highlighted element; refresh once after it settles so step 6's
-      // popover lines up with the basic-info FieldGroup.
-      if (!wasOpen) {
-        const id = window.setTimeout(() => {
-          refreshStudioTutorialHighlight();
-        }, 320);
-
-        return () => window.clearTimeout(id);
-      }
-    } else if (tutorialStep === null && tutorialMockedRef.current) {
-      // Tutorial ended — close dialog and reset mock
-      tutorialMockedRef.current = false;
-      setOpen(false);
-      setActiveTab("basic");
-      form.reset(createInterviewFormValues());
-    }
-  }, [tutorialStep, isTutorialDialog, form, open]);
 
   const questionCount = useStore(form.store, (state) => state.values.interviewQuestions.length);
 
@@ -459,9 +388,6 @@ export function CreateInterviewDialog({
   return (
     <Dialog
       onOpenChange={(value) => {
-        if (isTutorialDialog) {
-          return;
-        }
         if (!isAnalyzingResume && !isGeneratingQuestions) {
           setOpen(value);
         }
@@ -477,31 +403,29 @@ export function CreateInterviewDialog({
       <DialogContent
         className="max-h-[90vh] sm:max-w-5xl gap-0 overflow-hidden p-0"
         onPointerDownOutside={(e) => {
-          if (isAnalyzingResume || isGeneratingQuestions || isTutorialDialog) {
+          if (isAnalyzingResume || isGeneratingQuestions) {
             e.preventDefault();
           }
         }}
         onEscapeKeyDown={(e) => {
-          if (isAnalyzingResume || isGeneratingQuestions || isTutorialDialog) {
+          if (isAnalyzingResume || isGeneratingQuestions) {
             e.preventDefault();
           }
         }}
-        showCloseButton={!isAnalyzingResume && !isGeneratingQuestions && !isTutorialDialog}
+        showCloseButton={!isAnalyzingResume && !isGeneratingQuestions}
       >
         <form
           className="flex max-h-[90vh] flex-col"
           onSubmit={(event) => {
             event.preventDefault();
             event.stopPropagation();
-            if (!isTutorialDialog) {
-              void form.handleSubmit();
-            }
+            void form.handleSubmit();
           }}
         >
           <Tabs
             className="flex min-h-0 flex-1 flex-col"
             value={activeTab}
-            onValueChange={isTutorialDialog ? undefined : setActiveTab}
+            onValueChange={setActiveTab}
           >
             <DialogHeader className="border-b px-6 pt-5 pb-2">
               <DialogTitle>新建简历记录</DialogTitle>
@@ -514,10 +438,7 @@ export function CreateInterviewDialog({
                 </TabsTrigger>
                 <TabsTrigger className="min-w-[8em]" value="questions">
                   面试题目
-                  {resolveQuestionsTabSuffix({
-                    isTutorialDialog,
-                    questionCount,
-                  })}
+                  {resolveQuestionsTabSuffix(questionCount)}
                 </TabsTrigger>
               </TabsList>
             </DialogHeader>
@@ -561,19 +482,15 @@ export function CreateInterviewDialog({
                     </FieldGroup>
                   </div>
 
-                  <div data-tour="studio-dialog-basic">
-                    <InterviewBasicInfoFields form={form} />
-                  </div>
+                  <InterviewBasicInfoFields form={form} />
 
-                  <div data-tour="studio-dialog-schedule">
-                    <InterviewScheduleFields form={form} />
-                  </div>
+                  <InterviewScheduleFields form={form} />
 
                   <InterviewNotesField form={form} />
                 </div>
               </TabsContent>
 
-              <TabsContent className="mt-0" value="questions" data-tour="studio-dialog-questions">
+              <TabsContent className="mt-0" value="questions">
                 <InterviewQuestionsFields
                   disabled={isSubmitting || isAnalyzingResume || isGeneratingQuestions}
                   form={form}
@@ -583,7 +500,7 @@ export function CreateInterviewDialog({
             </div>
           </Tabs>
 
-          <DialogFooter className="border-t px-6 py-4" data-tour="studio-dialog-submit">
+          <DialogFooter className="border-t px-6 py-4">
             <Button
               disabled={isSubmitting || isAnalyzingResume || isGeneratingQuestions}
               type="submit"

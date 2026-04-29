@@ -2,7 +2,6 @@ export const CHAT_EVENTS = {
   conversationsChanged: "chat:conversations-changed",
   sessionPathUpdated: "chat:session-path-updated",
   startNewConversation: "chat:start-new-conversation",
-  startTutorial: "chat:start-tutorial",
 } as const;
 
 export interface ChatSessionPathUpdatedDetail {

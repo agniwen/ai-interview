@@ -60,14 +60,6 @@ export interface DataGridProps<TData> {
 
   empty: ReactNode;
   onRefresh?: () => void;
-
-  dataTour?: {
-    table?: string;
-    search?: string;
-    filters?: Partial<Record<string, string>>;
-    create?: string;
-    stats?: string;
-  };
 }
 
 export function DataGrid<TData>(props: DataGridProps<TData>) {
@@ -76,7 +68,6 @@ export function DataGrid<TData>(props: DataGridProps<TData>) {
     columnPinning,
     columns,
     data,
-    dataTour,
     empty,
     filterValues,
     filters,
@@ -141,15 +132,10 @@ export function DataGrid<TData>(props: DataGridProps<TData>) {
 
   return (
     <div className="space-y-4">
-      {headerExtra ? <div data-tour={dataTour?.stats}>{headerExtra}</div> : null}
+      {headerExtra ? <div>{headerExtra}</div> : null}
 
       <Toolbar
         bulkActionsSlot={bulkSlot}
-        dataTour={{
-          create: dataTour?.create,
-          filters: dataTour?.filters,
-          search: dataTour?.search,
-        }}
         filterValues={filterValues}
         filters={filters}
         onFilterChange={onFilterChange}
@@ -160,7 +146,7 @@ export function DataGrid<TData>(props: DataGridProps<TData>) {
       />
 
       {rows.length > 0 ? (
-        <Card className="overflow-hidden py-0" data-tour={dataTour?.table}>
+        <Card className="overflow-hidden py-0">
           <Table>
             <TableHeader>
               {table.getHeaderGroups().map((headerGroup) => (

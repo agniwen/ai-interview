@@ -28,17 +28,11 @@ export interface ToolbarProps {
   onRefresh?: () => void;
   toolbarRight?: ReactNode;
   bulkActionsSlot?: ReactNode;
-  dataTour?: {
-    search?: string;
-    filters?: Partial<Record<string, string>>;
-    create?: string;
-  };
 }
 
 export function Toolbar(props: ToolbarProps) {
   const {
     bulkActionsSlot,
-    dataTour,
     filterValues,
     filters,
     onFilterChange,
@@ -63,7 +57,6 @@ export function Toolbar(props: ToolbarProps) {
               return (
                 <div
                   className="relative"
-                  data-tour={dataTour?.search}
                   key={filter.key}
                   style={filter.minWidth ? { minWidth: filter.minWidth } : undefined}
                 >
@@ -86,10 +79,7 @@ export function Toolbar(props: ToolbarProps) {
                 onValueChange={(next) => onFilterChange?.(filter.key, next)}
                 value={value}
               >
-                <SelectTrigger
-                  className="w-full sm:w-auto sm:min-w-45"
-                  data-tour={dataTour?.filters?.[filter.key]}
-                >
+                <SelectTrigger className="w-full sm:w-auto sm:min-w-45">
                   <SelectValue placeholder={filter.placeholder} />
                 </SelectTrigger>
                 <SelectContent>
@@ -118,7 +108,7 @@ export function Toolbar(props: ToolbarProps) {
             <span className="sr-only">刷新</span>
           </Button>
         ) : null}
-        {toolbarRight ? <div data-tour={dataTour?.create}>{toolbarRight}</div> : null}
+        {toolbarRight ? <div>{toolbarRight}</div> : null}
         {bulkActionsSlot}
       </div>
     </div>

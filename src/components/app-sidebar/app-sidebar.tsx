@@ -15,7 +15,7 @@ type AppSidebarProps = ComponentProps<typeof Sidebar> & {
 
 export function AppSidebar({ canAccessAdmin, ...props }: AppSidebarProps) {
   return (
-    <Sidebar collapsible="icon" data-tour="sidebar" variant="inset" {...props}>
+    <Sidebar collapsible="icon" variant="inset" {...props}>
       <SidebarHeader className="gap-3">
         <SidebarTabs canAccessAdmin={canAccessAdmin} />
         <SidebarHeaderPortalTarget className="contents" />

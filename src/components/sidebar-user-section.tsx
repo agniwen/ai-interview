@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { ChevronsUpDownIcon, CircleHelpIcon, HouseIcon, LogOutIcon, UserIcon } from "lucide-react";
+import { ChevronsUpDownIcon, HouseIcon, LogOutIcon, UserIcon } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback } from "react";
@@ -37,16 +37,14 @@ function getInitials(name?: string | null, email?: string | null) {
   return source.slice(0, 2).toUpperCase();
 }
 
-// oxlint-disable-next-line complexity -- Shared user section branches on session state, tutorial, and collapse variants.
+// oxlint-disable-next-line complexity -- Shared user section branches on session state and collapse variants.
 export function SidebarUserSection({
   collapsed,
   callbackURL = "/",
-  onStartTutorial,
   showHomeLink = true,
 }: {
   collapsed: boolean;
   callbackURL?: string;
-  onStartTutorial?: () => void;
   showHomeLink?: boolean;
 }) {
   const router = useRouter();
@@ -63,7 +61,6 @@ export function SidebarUserSection({
   const userEmail = session?.user?.email ?? "";
   const organizationName = session?.user?.organizationName ?? null;
   const userInitials = getInitials(session?.user?.name, session?.user?.email);
-  const hasMiddleItems = Boolean(onStartTutorial) || showHomeLink;
 
   let content: ReactNode;
 
@@ -99,12 +96,6 @@ export function SidebarUserSection({
             ) : null}
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
-          {onStartTutorial ? (
-            <DropdownMenuItem onClick={onStartTutorial}>
-              <CircleHelpIcon className="mr-2 size-4" />
-              使用教程
-            </DropdownMenuItem>
-          ) : null}
           {showHomeLink ? (
             <DropdownMenuItem asChild>
               <Link href="/">
@@ -113,7 +104,7 @@ export function SidebarUserSection({
               </Link>
             </DropdownMenuItem>
           ) : null}
-          {hasMiddleItems ? <DropdownMenuSeparator /> : null}
+          {showHomeLink ? <DropdownMenuSeparator /> : null}
           <DropdownMenuItem onClick={handleSignOut} variant="destructive">
             <LogOutIcon className="mr-2 size-4" />
             退出登录
@@ -150,12 +141,6 @@ export function SidebarUserSection({
             ) : null}
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
-          {onStartTutorial ? (
-            <DropdownMenuItem onClick={onStartTutorial}>
-              <CircleHelpIcon className="mr-2 size-4" />
-              使用教程
-            </DropdownMenuItem>
-          ) : null}
           {showHomeLink ? (
             <DropdownMenuItem asChild>
               <Link href="/">
@@ -164,7 +149,7 @@ export function SidebarUserSection({
               </Link>
             </DropdownMenuItem>
           ) : null}
-          {hasMiddleItems ? <DropdownMenuSeparator /> : null}
+          {showHomeLink ? <DropdownMenuSeparator /> : null}
           <DropdownMenuItem onClick={handleSignOut} variant="destructive">
             <LogOutIcon className="mr-2 size-4" />
             退出登录

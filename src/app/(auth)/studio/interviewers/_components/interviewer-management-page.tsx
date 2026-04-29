@@ -216,7 +216,6 @@ export function InterviewerManagementPage({
           toolbarRight={
             <Button
               className="flex-1 sm:flex-none"
-              data-tour="studio-interviewers-create"
               disabled={noDepartments}
               onClick={openCreate}
               variant="outline"
@@ -258,11 +257,6 @@ export function InterviewerManagementPage({
               </Empty>
             )
           }
-          dataTour={{
-            create: "studio-interviewers-create",
-            search: "studio-interviewers-search",
-            table: "studio-interviewers-table",
-          }}
         />
       </div>
 

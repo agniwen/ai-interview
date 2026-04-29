@@ -1,6 +1,5 @@
 "use client";
 
-import { useAtomValue } from "jotai";
 import { UploadIcon } from "lucide-react";
 import { useEffect } from "react";
 import { toast } from "sonner";
@@ -11,8 +10,6 @@ import {
   PromptInputTextarea,
   usePromptInputAttachments,
 } from "@/components/ai-elements/prompt-input";
-import { tutorialStepAtom } from "../../_atoms/tutorial";
-import { TUTORIAL_MOCK_INPUT_TEXT } from "../../constants/tutorial-mock";
 import { useChatActionsContext, useChatStreamingContext } from "../chat-runtime-context";
 import { useComposerInputContext } from "../composer-input-context";
 import { ComposerAttachments } from "./composer-attachments";
@@ -55,10 +52,6 @@ export function Composer({
   const { input, setInput, resetInput } = useComposerInputContext();
   const { sendMessage } = useChatActionsContext();
   const { isStreaming } = useChatStreamingContext();
-  const tutorialStep = useAtomValue(tutorialStepAtom);
-
-  const displayInput =
-    tutorialStep !== null && tutorialStep >= 2 && input === "" ? TUTORIAL_MOCK_INPUT_TEXT : input;
 
   return (
     <div className="mx-auto w-full max-w-5xl px-3">
@@ -66,7 +59,6 @@ export function Composer({
         <PromptInput
           accept="application/pdf"
           className="**:data-[slot=input-group]:cursor-text **:data-[slot=input-group]:rounded-[1.3rem] **:data-[slot=input-group]:border-border/65 **:data-[slot=input-group]:bg-white **:data-[slot=input-group]:shadow-[0_8px_18px_-20px_rgba(60,44,23,0.5)]"
-          data-tour="prompt-input"
           dragOverlay={
             <div className="flex h-full w-full items-center justify-center rounded-[1.15rem] border-2 border-dashed border-primary/60 bg-background px-6 py-8 text-center transition-colors">
               <div className="flex flex-col items-center gap-2">
@@ -146,7 +138,7 @@ export function Composer({
               className="min-h-20"
               onChange={(event) => setInput(event.currentTarget.value)}
               placeholder="输入岗位与筛选要求，或上传候选人 PDF 简历（支持多文件）…"
-              value={displayInput}
+              value={input}
             />
           </PromptInputBody>
 

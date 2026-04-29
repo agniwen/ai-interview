@@ -292,12 +292,7 @@ export function InterviewQuestionTemplateManagementPage({
           filters={filtersConfig}
           getRowId={(r) => r.id}
           toolbarRight={
-            <Button
-              className="flex-1 sm:flex-none"
-              data-tour="studio-interview-questions-create"
-              onClick={openCreate}
-              variant="outline"
-            >
+            <Button className="flex-1 sm:flex-none" onClick={openCreate} variant="outline">
               <PlusIcon className="size-4" />
               新建面试题
             </Button>
@@ -321,15 +316,6 @@ export function InterviewQuestionTemplateManagementPage({
               </EmptyContent>
             </Empty>
           }
-          dataTour={{
-            create: "studio-interview-questions-create",
-            filters: {
-              jobDescriptionId: "studio-interview-questions-jd-filter",
-              scope: "studio-interview-questions-scope-filter",
-            },
-            search: "studio-interview-questions-search",
-            table: "studio-interview-questions-table",
-          }}
         />
       </div>
 

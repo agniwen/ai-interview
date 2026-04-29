@@ -25,7 +25,6 @@ import { useJobDescriptionOptionsQuery } from "../_lib/use-job-description-optio
 import { useResumeImports } from "../_lib/use-resume-imports";
 import { ChatRuntimeProvider } from "./chat-runtime-context";
 import type { SendMessageInput } from "./chat-runtime-context";
-import { useChatTutorial } from "./chat-tutorial";
 import { Composer } from "./composer/composer";
 import { QuickSuggestions } from "./composer/quick-suggestions";
 import { ComposerInputProvider } from "./composer-input-context";
@@ -75,7 +74,6 @@ function getConversationTitleFromMessages(
 
 // eslint-disable-next-line complexity -- Top-level shell owns many pieces of orchestration state.
 export default function ChatPageClient({ initialSessionId }: { initialSessionId: string | null }) {
-  const { startTutorial } = useChatTutorial();
   const { data: session } = authClient.useSession();
   const thinkingMode = useAtomValue(thinkingModeAtom);
 
@@ -427,14 +425,6 @@ export default function ChatPageClient({ initialSessionId }: { initialSessionId:
       window.removeEventListener(CHAT_EVENTS.startNewConversation, handleStartNewConversation);
     };
   }, [startNewConversation]);
-
-  useEffect(() => {
-    const handleStartTutorial = () => startTutorial();
-    window.addEventListener(CHAT_EVENTS.startTutorial, handleStartTutorial);
-    return () => {
-      window.removeEventListener(CHAT_EVENTS.startTutorial, handleStartTutorial);
-    };
-  }, [startTutorial]);
 
   useEffect(() => {
     if (!shouldNormalizeSessionPath || activeConversationId) {

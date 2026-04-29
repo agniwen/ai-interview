@@ -1,7 +1,7 @@
 "use client";
 
 import type { ChatStatus } from "ai";
-import { useAtom, useAtomValue } from "jotai";
+import { useAtom } from "jotai";
 import { FileTextIcon, ImageIcon, SettingsIcon, SparklesIcon, Trash2Icon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { ConversationDownload } from "@/components/ai-elements/conversation";
@@ -21,14 +21,9 @@ import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useHydrated } from "@/hooks/use-hydrated";
 import { thinkingModeAtom } from "../../_atoms/thinking";
-import { tutorialStepAtom } from "../../_atoms/tutorial";
 import { toDownloadMessage } from "../../_lib/chat-message-utils";
 import { useChatActionsContext, useChatMessagesContext } from "../chat-runtime-context";
 import { useComposerInputContext } from "../composer-input-context";
-
-const noop = () => {
-  // intentionally empty — used to force controlled-open menus
-};
 
 const focusTextareaOnMenuClose = (event: Event) => {
   event.preventDefault();
@@ -51,15 +46,13 @@ function getComposerStatusLabel(
 
 function ThinkingModeMenuItem() {
   const [enabled, setEnabled] = useAtom(thinkingModeAtom);
-  const tutorialStep = useAtomValue(tutorialStepAtom);
   const isHydrated = useHydrated();
-  // Hydration-safe: SSR sees `false`, the persisted atom value applies after
-  // hydration. Tutorial step 5 force-checks the switch for the demo.
-  const displayChecked = isHydrated ? enabled || tutorialStep === 5 : false;
+  // Hydration-safe: SSR sees `false`, the persisted atom value applies after hydration.
+  // 水合安全：SSR 默认 `false`，水合后再应用持久化的 atom 值。
+  const displayChecked = isHydrated ? enabled : false;
 
   return (
     <PromptInputActionMenuItem
-      data-tour="thinking-toggle"
       onSelect={(event) => {
         // Toggle on click but keep the menu open so the user can see the new
         // state without re-opening.
@@ -120,7 +113,6 @@ export function ComposerFooter({
   onOpenJobDescriptionSettings,
 }: ComposerFooterProps) {
   const attachments = usePromptInputAttachments();
-  const tutorialStep = useAtomValue(tutorialStepAtom);
   const { input } = useComposerInputContext();
   const { effectiveStatus, stop } = useChatActionsContext();
 
@@ -128,10 +120,6 @@ export function ComposerFooter({
     (f) => (f as Partial<ManagedAttachment>).uploadStatus === "uploading",
   );
   const canSubmit = (input.trim().length > 0 || attachments.files.length > 0) && !hasPendingUploads;
-  const displayHasJD = hasJobDescription || tutorialStep === 4;
-  const forceUploadMenuOpen = tutorialStep === 3;
-  // Step 4 = JD config; step 5 = thinking-mode toggle (now nested in this menu).
-  const forceJDMenuOpen = tutorialStep === 4 || tutorialStep === 5;
   const [uploadMenuOpen, setUploadMenuOpen] = useState(false);
 
   // After the file picker closes with one or more files selected, close the
@@ -149,20 +137,9 @@ export function ComposerFooter({
   return (
     <PromptInputFooter>
       <PromptInputTools>
-        <PromptInputActionMenu
-          {...(forceUploadMenuOpen
-            ? { onOpenChange: noop, open: true }
-            : { onOpenChange: setUploadMenuOpen, open: uploadMenuOpen })}
-        >
-          <PromptInputActionMenuTrigger
-            data-tour="file-upload"
-            id="prompt-actions-menu-trigger"
-            tooltip="更多输入操作"
-          />
-          <PromptInputActionMenuContent
-            onCloseAutoFocus={focusTextareaOnMenuClose}
-            {...(forceUploadMenuOpen && { className: "tutorial-forced-menu" })}
-          >
+        <PromptInputActionMenu onOpenChange={setUploadMenuOpen} open={uploadMenuOpen}>
+          <PromptInputActionMenuTrigger id="prompt-actions-menu-trigger" tooltip="更多输入操作" />
+          <PromptInputActionMenuContent onCloseAutoFocus={focusTextareaOnMenuClose}>
             <PromptInputActionMenuItem
               onSelect={(event) => {
                 event.preventDefault();
@@ -186,18 +163,11 @@ export function ComposerFooter({
           </PromptInputActionMenuContent>
         </PromptInputActionMenu>
 
-        <PromptInputActionMenu {...(forceJDMenuOpen && { onOpenChange: noop, open: true })}>
-          <PromptInputActionMenuTrigger
-            data-tour="jd-settings"
-            id="prompt-job-settings-menu-trigger"
-            tooltip="岗位设置"
-          >
+        <PromptInputActionMenu>
+          <PromptInputActionMenuTrigger id="prompt-job-settings-menu-trigger" tooltip="岗位设置">
             <SettingsIcon className="size-4" />
           </PromptInputActionMenuTrigger>
-          <PromptInputActionMenuContent
-            onCloseAutoFocus={focusTextareaOnMenuClose}
-            {...(forceJDMenuOpen && { className: "tutorial-forced-menu" })}
-          >
+          <PromptInputActionMenuContent onCloseAutoFocus={focusTextareaOnMenuClose}>
             <PromptInputActionMenuItem
               onSelect={(event) => {
                 event.preventDefault();
@@ -227,10 +197,9 @@ export function ComposerFooter({
 
       <div className="flex items-center gap-2">
         <span className="pointer-events-none hidden select-none text-muted-foreground text-xs sm:inline">
-          {getComposerStatusLabel(effectiveStatus, displayHasJD, jobDescriptionLabel)}
+          {getComposerStatusLabel(effectiveStatus, hasJobDescription, jobDescriptionLabel)}
         </span>
         <PromptInputSubmit
-          data-tour="send-button"
           disabled={effectiveStatus === "ready" ? !canSubmit : false}
           onStop={stop}
           status={effectiveStatus}

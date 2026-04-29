@@ -183,12 +183,7 @@ export function DepartmentManagementPage({
           filters={filtersConfig}
           getRowId={(r) => r.id}
           toolbarRight={
-            <Button
-              className="flex-1 sm:flex-none"
-              data-tour="studio-departments-create"
-              onClick={openCreate}
-              variant="outline"
-            >
+            <Button className="flex-1 sm:flex-none" onClick={openCreate} variant="outline">
               <PlusIcon className="size-4" />
               新建部门
             </Button>
@@ -212,11 +207,6 @@ export function DepartmentManagementPage({
               </EmptyContent>
             </Empty>
           }
-          dataTour={{
-            create: "studio-departments-create",
-            search: "studio-departments-search",
-            table: "studio-departments-table",
-          }}
         />
       </div>
 

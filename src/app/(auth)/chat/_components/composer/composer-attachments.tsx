@@ -1,6 +1,5 @@
 "use client";
 
-import { useAtomValue } from "jotai";
 import { AlertCircleIcon } from "lucide-react";
 import {
   Attachment,
@@ -13,14 +12,10 @@ import { usePromptInputAttachments } from "@/components/ai-elements/prompt-input
 import type { ManagedAttachment } from "@/components/ai-elements/prompt-input";
 import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
-import { tutorialStepAtom } from "../../_atoms/tutorial";
-import { TUTORIAL_MOCK_ATTACHMENTS } from "../../constants/tutorial-mock";
 
 export function ComposerAttachments() {
   const attachments = usePromptInputAttachments();
-  const tutorialStep = useAtomValue(tutorialStepAtom);
-  const showMock = tutorialStep !== null && tutorialStep >= 3 && attachments.files.length === 0;
-  const files = showMock ? TUTORIAL_MOCK_ATTACHMENTS : attachments.files;
+  const { files } = attachments;
 
   if (files.length === 0) {
     return null;
@@ -37,7 +32,7 @@ export function ComposerAttachments() {
             className={cn(isUploading && "opacity-70", isError && "border-destructive")}
             data={file}
             key={file.id}
-            onRemove={showMock ? undefined : () => attachments.remove(file.id)}
+            onRemove={() => attachments.remove(file.id)}
           >
             <AttachmentPreview />
             <AttachmentInfo />
@@ -47,7 +42,7 @@ export function ComposerAttachments() {
             {isError ? (
               <AlertCircleIcon aria-label="上传失败" className="size-3 text-destructive" />
             ) : null}
-            {!showMock && <AttachmentRemove />}
+            <AttachmentRemove />
           </Attachment>
         );
       })}

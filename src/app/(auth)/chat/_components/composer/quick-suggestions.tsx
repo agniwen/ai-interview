@@ -21,7 +21,7 @@ export function QuickSuggestions() {
   const { appendInput } = useComposerInputContext();
 
   return (
-    <section className="mx-auto mb-0.5 w-full max-w-5xl px-2 sm:px-3" data-tour="suggestions">
+    <section className="mx-auto mb-0.5 w-full max-w-5xl px-2 sm:px-3">
       <p className="mb-2 px-1 font-medium text-muted-foreground text-xs">快速提问</p>
       <Suggestions className="gap-2.5 pb-1">
         {QUICK_SUGGESTIONS.map((suggestion) => (

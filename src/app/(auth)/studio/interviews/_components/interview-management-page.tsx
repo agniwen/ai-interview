@@ -7,17 +7,11 @@ import type {
   StudioInterviewSummary,
 } from "@/server/queries/studio-interviews";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useAtomValue } from "jotai";
 import dynamic from "next/dynamic";
 import { useSearchParams } from "next/navigation";
 import { BotIcon, CopyIcon, EyeIcon, PencilIcon, Trash2Icon } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import {
-  STUDIO_TUTORIAL_MOCK_RECORDS,
-  STUDIO_TUTORIAL_MOCK_SEARCH,
-} from "@/app/(auth)/studio/_hooks/studio-tutorial-mock";
-import { studioTutorialStepAtom } from "@/app/(auth)/studio/_hooks/use-studio-tutorial";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -105,7 +99,6 @@ export function InterviewManagementPage({
   initialData: PaginatedStudioInterviewResult;
   initialSummary: StudioInterviewSummary;
 }) {
-  const tutorialStep = useAtomValue(studioTutorialStepAtom);
   const queryClient = useQueryClient();
 
   const grid = useDataGridState<StudioInterviewListRecord, { status: string }>({
@@ -158,16 +151,6 @@ export function InterviewManagementPage({
     const nextUrl = query ? `${window.location.pathname}?${query}` : window.location.pathname;
     window.history.replaceState(null, "", nextUrl);
   }, [searchParams]);
-
-  // Tutorial mock overlay (preserves existing UX)
-  const isTutorialActive = tutorialStep !== null;
-  const records = grid.bind.data;
-  const displayRecords =
-    isTutorialActive && records.length === 0 ? STUDIO_TUTORIAL_MOCK_RECORDS : records;
-  const displaySearch =
-    isTutorialActive && tutorialStep >= 3 && grid.search === ""
-      ? STUDIO_TUTORIAL_MOCK_SEARCH
-      : grid.search;
 
   function invalidateAll() {
     void queryClient.invalidateQueries({ queryKey: ["studio-interviews"] });
@@ -404,8 +387,6 @@ export function InterviewManagementPage({
 
           <DataGrid<StudioInterviewListRecord>
             {...grid.bind}
-            data={displayRecords}
-            filterValues={{ ...grid.bind.filterValues, search: displaySearch }}
             columns={columns}
             getRowId={(r) => r.id}
             columnPinning={{ left: ["select", "candidateName"], right: ["actions"] }}
@@ -439,13 +420,6 @@ export function InterviewManagementPage({
                 </EmptyContent>
               </Empty>
             }
-            dataTour={{
-              create: "studio-create-btn",
-              filters: { status: "studio-status-filter" },
-              search: "studio-search",
-              stats: "studio-stats",
-              table: "studio-table",
-            }}
           />
         </section>
       </div>

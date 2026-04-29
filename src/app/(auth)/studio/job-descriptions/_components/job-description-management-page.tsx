@@ -256,7 +256,6 @@ export function JobDescriptionManagementPage({
           toolbarRight={
             <Button
               className="flex-1 sm:flex-none"
-              data-tour="studio-jobs-create"
               disabled={missingRefs}
               onClick={openCreate}
               variant="outline"
@@ -298,15 +297,6 @@ export function JobDescriptionManagementPage({
               </Empty>
             )
           }
-          dataTour={{
-            create: "studio-jobs-create",
-            filters: {
-              departmentId: "studio-jobs-department-filter",
-              interviewerId: "studio-jobs-interviewer-filter",
-            },
-            search: "studio-jobs-search",
-            table: "studio-jobs-table",
-          }}
         />
       </div>
 

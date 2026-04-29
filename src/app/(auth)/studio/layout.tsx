@@ -5,7 +5,6 @@ import { redirect } from "next/navigation";
 import { connection } from "next/server";
 import { SiteHeader } from "@/app/(auth)/studio/_components/site-header";
 import { StudioSidebarSlots } from "@/app/(auth)/studio/_components/studio-sidebar-slots";
-import { StudioTutorialProvider } from "@/app/(auth)/studio/_components/studio-tutorial-provider";
 import { SidebarInset } from "@/components/ui/sidebar";
 import { auth } from "@/lib/auth";
 import { canAccessAdmin } from "@/lib/auth-roles";
@@ -33,7 +32,7 @@ export default async function StudioLayout({ children }: { children: ReactNode }
   }
 
   return (
-    <StudioTutorialProvider>
+    <>
       <StudioSidebarSlots />
       <SidebarInset className="h-dvh overflow-hidden md:h-[calc(100dvh-1rem)]">
         <SiteHeader />
@@ -41,6 +40,6 @@ export default async function StudioLayout({ children }: { children: ReactNode }
           <div className="flex flex-col gap-4 px-4 py-4 md:gap-6 md:px-6 md:py-6">{children}</div>
         </div>
       </SidebarInset>
-    </StudioTutorialProvider>
+    </>
   );
 }
