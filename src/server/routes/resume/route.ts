@@ -2,6 +2,7 @@ import type { UIMessage } from "ai";
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { zValidator } from "@hono/zod-validator";
 import { generateText } from "ai";
+import { getRun, start } from "workflow/api";
 import { withDevTools } from "@/server/agents/devtools";
 import { factory } from "@/server/factory";
 import {
@@ -9,9 +10,14 @@ import {
   deleteMessagesFromId,
   upsertChatMessage,
 } from "@/server/queries/chat";
-import { inlineAttachmentsForModel } from "./inline-attachments";
+import {
+  claimActiveWorkflowRunId,
+  clearActiveWorkflowRunId,
+  findConversationByActiveRunId,
+  getActiveWorkflowRunId,
+} from "@/server/queries/workflow-runs";
+import { runResumeChatWorkflow } from "@/server/workflows/resume-chat";
 import { resumeChatRequestSchema, resumeTitleRequestSchema } from "./schema";
-import { runResumeScreening } from "./screening";
 import { sanitizeTitle } from "./utils";
 
 export const resumeRouter = factory
@@ -27,88 +33,131 @@ export const resumeRouter = factory
     } = c.req.valid("json");
     const userId = c.var.user?.id;
 
-    const conversationOwned =
-      userId && chatId ? (await checkConversationOwner(userId, chatId)) === "ok" : false;
+    if (!userId || !chatId) {
+      return c.json({ error: "missing_user_or_chat" }, 401);
+    }
 
-    // On regenerate, drop the assistant message being replaced (and anything
-    // after it) so the LLM does not see its own prior reply and "continue"
-    // from there. `DefaultChatTransport` sends the full message list along
-    // with `trigger`/`messageId`, expecting the server to slice.
+    const ownership = await checkConversationOwner(userId, chatId);
+    if (ownership !== "ok") {
+      return c.json({ error: "forbidden" }, ownership === "forbidden" ? 403 : 404);
+    }
+
     let messages = rawMessages as UIMessage[];
     if (trigger === "regenerate-message" && messageId) {
       const cutoff = messages.findIndex((m) => (m as UIMessage).id === messageId);
       if (cutoff !== -1) {
         messages = messages.slice(0, cutoff);
       }
-      if (conversationOwned && chatId) {
+      try {
+        await deleteMessagesFromId({ conversationId: chatId, messageId });
+      } catch (error) {
+        console.error("[resume] failed to prune messages on regenerate", error);
+      }
+    }
+
+    // Persist latest user message up front so a refresh shows what was sent.
+    const latestUser = [...messages]
+      .toReversed()
+      .find(
+        (m): m is UIMessage =>
+          typeof m === "object" && m !== null && (m as UIMessage).role === "user",
+      );
+    if (latestUser) {
+      void (async () => {
         try {
-          await deleteMessagesFromId({ conversationId: chatId, messageId });
+          await upsertChatMessage({ conversationId: chatId, message: latestUser });
         } catch (error) {
-          console.error("[resume] failed to prune messages on regenerate", error);
+          console.error("[resume] failed to persist user message", error);
         }
-      }
+      })();
     }
 
-    // Persist the latest user message up front (fire-and-forget) so a
-    // refresh mid-stream still shows what the user just sent. Run on every
-    // trigger — `upsertChatMessage` is idempotent, and skipping on
-    // regenerate would drop the user row if the original submit's
-    // fire-and-forget persist never landed.
-    if (conversationOwned && chatId) {
-      const latestUser = [...messages]
-        .toReversed()
-        .find(
-          (m): m is UIMessage =>
-            typeof m === "object" && m !== null && (m as UIMessage).role === "user",
-        );
-      if (latestUser) {
-        void (async () => {
-          try {
-            await upsertChatMessage({
-              conversationId: chatId,
-              message: latestUser,
-            });
-          } catch (error) {
-            console.error("[resume] failed to persist user message", error);
-          }
-        })();
-      }
-    }
-
-    const messagesForModel = userId ? await inlineAttachmentsForModel(userId, messages) : messages;
-
-    const result = await runResumeScreening({
-      enableThinking,
-      jobDescription,
-      messages: messagesForModel,
-    });
-
-    return result.toUIMessageStreamResponse({
-      // Required for the SDK to emit a response-message id on the stream —
-      // without it, `responseMessage.id` is undefined and the DB insert fails
-      // (id is the primary key). Use pre-inline messages so the ids match
-      // what the client sees.
-      generateMessageId: () => crypto.randomUUID(),
-      onFinish: async ({ responseMessage }) => {
-        if (!conversationOwned || !chatId) {
-          return;
-        }
-        if (!responseMessage.id) {
-          console.error("[resume] response message has no id, skipping persist");
-          return;
-        }
-        try {
-          await upsertChatMessage({
-            conversationId: chatId,
-            message: responseMessage,
+    // 1. Reuse an in-flight run if the conversation already has one running.
+    const existingRunId = await getActiveWorkflowRunId(chatId);
+    if (existingRunId) {
+      try {
+        const existingRun = getRun(existingRunId);
+        const status = await existingRun.status;
+        if (status === "running") {
+          return new Response(existingRun.readable, {
+            headers: {
+              "content-type": "text/event-stream",
+              "x-workflow-run-id": existingRunId,
+            },
           });
-        } catch (error) {
-          console.error("[resume] failed to persist assistant message", error);
         }
+      } catch (error) {
+        console.warn("[resume] stale active run; clearing", { error, existingRunId });
+      }
+      await clearActiveWorkflowRunId(chatId, existingRunId);
+    }
+
+    // 2. Start a new workflow run.
+    const run = await start(runResumeChatWorkflow, [
+      {
+        chatId,
+        enableThinking,
+        jobDescription,
+        messages,
+        userId,
       },
-      originalMessages: messages,
-      sendReasoning: enableThinking !== false,
-      sendSources: true,
+    ]);
+
+    // 3. CAS-claim the runId. If a concurrent request beat us to it, cancel.
+    const claimed = await claimActiveWorkflowRunId(chatId, run.runId);
+    if (!claimed) {
+      try {
+        await run.cancel();
+      } catch (error) {
+        console.error("[resume] failed to cancel concurrent run", error);
+      }
+      return c.json({ error: "concurrent_run_started" }, 409);
+    }
+
+    return new Response(run.readable, {
+      headers: {
+        "content-type": "text/event-stream",
+        "x-workflow-run-id": run.runId,
+      },
+    });
+  })
+  .get("/:runId/stream", async (c) => {
+    const runId = c.req.param("runId");
+    const userId = c.var.user?.id;
+    if (!userId) {
+      return c.json({ error: "unauthorized" }, 401);
+    }
+
+    const conversation = await findConversationByActiveRunId(runId, userId);
+    if (!conversation) {
+      return new Response(null, { status: 204 });
+    }
+
+    let run: ReturnType<typeof getRun>;
+    try {
+      run = getRun(runId);
+    } catch {
+      await clearActiveWorkflowRunId(conversation.id, runId);
+      return new Response(null, { status: 204 });
+    }
+
+    const status = await run.status;
+    if (status === "completed" || status === "cancelled" || status === "failed") {
+      await clearActiveWorkflowRunId(conversation.id, runId);
+      return new Response(null, { status: 204 });
+    }
+
+    const startIndexParam = c.req.query("startIndex");
+    const readable = run.getReadable({
+      startIndex: startIndexParam ? Number.parseInt(startIndexParam, 10) : undefined,
+    });
+    const tailIndex = await readable.getTailIndex();
+
+    return new Response(readable, {
+      headers: {
+        "content-type": "text/event-stream",
+        "x-workflow-stream-tail-index": String(tailIndex),
+      },
     });
   })
   .post("/title", zValidator("json", resumeTitleRequestSchema), async (c) => {
