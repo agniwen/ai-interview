@@ -1,5 +1,5 @@
 import type { UIMessage, UIMessageChunk } from "ai";
-import { getWritable } from "workflow";
+import { getWorkflowMetadata, getWritable } from "workflow";
 import { upsertChatMessage } from "@/server/queries/chat";
 import { clearActiveWorkflowRunId } from "@/server/queries/workflow-runs";
 import { inlineAttachmentsForModel } from "@/server/routes/resume/inline-attachments";
@@ -45,14 +45,15 @@ async function persistAssistantMessageStep(args: { conversationId: string; messa
   await upsertChatMessage(args);
 }
 
-async function clearActiveWorkflowRunIdStep(conversationId: string) {
+async function clearActiveWorkflowRunIdStep(conversationId: string, runId: string) {
   "use step";
-  await clearActiveWorkflowRunId(conversationId);
+  await clearActiveWorkflowRunId(conversationId, runId);
 }
 
 export async function runResumeChatWorkflow(input: ResumeChatWorkflowInput) {
   "use workflow";
 
+  const { workflowRunId } = getWorkflowMetadata();
   const writable = getWritable<UIMessageChunk>();
 
   try {
@@ -64,6 +65,6 @@ export async function runResumeChatWorkflow(input: ResumeChatWorkflowInput) {
       });
     }
   } finally {
-    await clearActiveWorkflowRunIdStep(input.chatId);
+    await clearActiveWorkflowRunIdStep(input.chatId, workflowRunId);
   }
 }

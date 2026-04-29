@@ -78,7 +78,7 @@ export const resumeRouter = factory
       try {
         const existingRun = getRun(existingRunId);
         const status = await existingRun.status;
-        if (status === "running") {
+        if (status !== "completed" && status !== "cancelled" && status !== "failed") {
           return new Response(existingRun.readable, {
             headers: {
               "content-type": "text/event-stream",
