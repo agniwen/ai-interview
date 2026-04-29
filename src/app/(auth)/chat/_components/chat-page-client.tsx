@@ -16,6 +16,7 @@ import { thinkingModeAtom } from "../_atoms/thinking";
 import { CHAT_EVENTS, notifyConversationsChanged } from "../_lib/chat-events";
 import { setChatMeta } from "../_lib/chat-meta";
 import { getOrCreateChat, hasChat } from "../_lib/chat-registry";
+import { getStoredActiveRunId } from "../_lib/chat-transport";
 import { useJobDescriptionConfig } from "../_lib/use-job-description-config";
 import { useJobDescriptionOptionsQuery } from "../_lib/use-job-description-options";
 import { useResumeImports } from "../_lib/use-resume-imports";
@@ -135,12 +136,20 @@ export default function ChatPageClient({ initialSessionId }: { initialSessionId:
     [activeConversationId],
   );
 
+  const shouldResumeOnMount = useMemo(() => {
+    if (!activeConversationId) {
+      return false;
+    }
+    return Boolean(getStoredActiveRunId(activeConversationId));
+  }, [activeConversationId]);
+
   const { addToolOutput, messages, setMessages, status, stop, error, regenerate, clearError } =
     useChat(
       boundChat
         ? {
             chat: boundChat,
             experimental_throttle: 50,
+            resume: shouldResumeOnMount,
           }
         : { experimental_throttle: 50 },
     );
@@ -338,8 +347,13 @@ export default function ChatPageClient({ initialSessionId }: { initialSessionId:
       // Hot instance (stream still running / just finished in the background)
       // keeps its in-memory messages. Only cold-hydrate from the server when
       // the registry has no entry — that's the first mount after a refresh.
+      // Hand off both initial messages AND the active workflow run id (if any) so
+      // the transport's localStorage hint is set before useChat's resume check runs.
       if (!hasChat(id)) {
-        getOrCreateChat(id, { initialMessages: conversation.messages });
+        getOrCreateChat(id, {
+          initialActiveRunId: conversation.activeWorkflowRunId,
+          initialMessages: conversation.messages,
+        });
       }
       setActiveConversationId(id);
       setHistoryErrorMessage(null);

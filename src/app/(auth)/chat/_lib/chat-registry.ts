@@ -52,7 +52,7 @@ async function persistPartialMessage(chatId: string, message: UIMessage) {
 
 export function getOrCreateChat(
   chatId: string,
-  options: { initialMessages?: UIMessage[] } = {},
+  options: { initialMessages?: UIMessage[]; initialActiveRunId?: string | null } = {},
 ): Chat<UIMessage> {
   const existing = chats.get(chatId);
   if (existing) {
@@ -84,7 +84,7 @@ export function getOrCreateChat(
     sendAutomaticallyWhen: ({ messages }) =>
       lastAssistantMessageIsCompleteWithToolCalls({ messages }) ||
       lastAssistantMessageIsCompleteWithApprovalResponses({ messages }),
-    transport: createChatTransport(chatId),
+    transport: createChatTransport(chatId, options.initialActiveRunId ?? null),
   });
 
   chats.set(chatId, chat);
