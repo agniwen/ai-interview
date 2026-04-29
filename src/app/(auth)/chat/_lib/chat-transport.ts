@@ -94,6 +94,8 @@ export function createChatTransport(chatId: string, initialActiveRunId: string |
       }
       const meta = getChatMeta(chatId);
       const jd = meta.jobDescription.trim();
+      // WorkflowChatTransport's fetch does not auto-set Content-Type, so the
+      // server's JSON validator sees an unparsed body. Set it explicitly.
       return {
         body: {
           ...body,
@@ -105,7 +107,10 @@ export function createChatTransport(chatId: string, initialActiveRunId: string |
           trigger,
           ...(jd && { jobDescription: jd }),
         },
-        headers,
+        headers: {
+          ...headers,
+          "content-type": "application/json",
+        },
       };
     },
   });
