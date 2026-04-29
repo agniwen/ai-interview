@@ -8,10 +8,16 @@
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans:
-    var(--font-source-sans), "PingFang SC", "Hiragino Sans GB", var(--font-noto-sans-sc),
-    "Noto Sans CJK SC", "Microsoft YaHei", sans-serif;
+    "MiSans", "MiSans VL", var(--font-source-sans), "PingFang SC", "Hiragino Sans GB",
+    "Microsoft YaHei", sans-serif;
   --font-mono: var(--font-ibm-plex-mono);
   --font-serif: var(--font-source-serif);
+  /* Tailwind v4 的 preflight 用 --default-font-family 设置 html/body 默认字体；
+     不覆盖时会落回 ui-sans-serif/system-ui 默认栈，导致 MiSans 不生效。
+     Tailwind v4 preflight reads --default-font-family for html/body; without
+     this override it falls back to the ui-sans-serif/system-ui default stack. */
+  --default-font-family: var(--font-sans);
+  --default-mono-font-family: var(--font-mono);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -130,7 +136,11 @@
   }
 
   body {
-    @apply text-foreground;
+    /* @theme inline 里的 --font-sans 只编译进 utility class，不会作为 :root CSS 变量暴露；
+       直接 @apply font-sans 才会用上 MiSans 字体栈。
+       Vars under `@theme inline` are inlined into utilities only — they aren't
+       emitted as :root custom properties. Use the `font-sans` utility instead. */
+    @apply font-sans text-foreground;
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
     touch-action: manipulation;
@@ -139,8 +149,8 @@
 
   .pixel-title {
     font-family:
-      var(--font-fusion-pixel), "Zpix", "Fusion Pixel 12px Monospaced SC", "PingFang SC",
-      var(--font-noto-sans-sc), monospace;
+      var(--font-fusion-pixel), "Zpix", "Fusion Pixel 12px Monospaced SC", "PingFang SC", "MiSans",
+      monospace;
     letter-spacing: 0.01em;
     -webkit-font-smoothing: none;
     text-rendering: geometricPrecision;
@@ -190,7 +200,6 @@
   }
 }
 
-/* OverlayScrollbars custom theme — matches shadcn muted-foreground/25 thumb */
 .os-theme-app {
   --os-size: 10px;
   --os-padding-perpendicular: 2px;

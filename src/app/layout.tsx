@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Analytics } from "@vercel/analytics/next";
-import { IBM_Plex_Mono, Noto_Sans_SC, Source_Sans_3, Source_Serif_4 } from "next/font/google";
+import { IBM_Plex_Mono, Source_Sans_3, Source_Serif_4 } from "next/font/google";
 import localFont from "next/font/local";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
 import "overlayscrollbars/overlayscrollbars.css";
@@ -22,12 +22,6 @@ const sourceSerif = Source_Serif_4({
   subsets: ["latin"],
   variable: "--font-source-serif",
   weight: ["400", "600", "700"],
-});
-
-const notoSansSC = Noto_Sans_SC({
-  subsets: ["latin"],
-  variable: "--font-noto-sans-sc",
-  weight: ["400", "500", "700"],
 });
 
 const fusionPixel = localFont({
@@ -60,8 +54,32 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="zh-CN" suppressHydrationWarning>
+      <head>
+        {/* 通过 jsDelivr 加载小米 MiSans 中英文字体（4 档常用字重）。
+            Load MiSans CJK + Latin webfont via jsDelivr CDN (4 common weights). */}
+        <link
+          crossOrigin="anonymous"
+          href="https://cdn.jsdelivr.net/npm/misans@4.1.0/lib/Normal/MiSans-Regular.min.css"
+          rel="stylesheet"
+        />
+        <link
+          crossOrigin="anonymous"
+          href="https://cdn.jsdelivr.net/npm/misans@4.1.0/lib/Normal/MiSans-Medium.min.css"
+          rel="stylesheet"
+        />
+        <link
+          crossOrigin="anonymous"
+          href="https://cdn.jsdelivr.net/npm/misans@4.1.0/lib/Normal/MiSans-Semibold.min.css"
+          rel="stylesheet"
+        />
+        <link
+          crossOrigin="anonymous"
+          href="https://cdn.jsdelivr.net/npm/misans@4.1.0/lib/Normal/MiSans-Bold.min.css"
+          rel="stylesheet"
+        />
+      </head>
       <body
-        className={`${sourceSans.variable}  ${notoSansSC.variable} ${sourceSerif.variable} ${fusionPixel.variable} ${ibmPlexMono.variable} min-h-dvh antialiased`}
+        className={`${sourceSans.variable} ${sourceSerif.variable} ${fusionPixel.variable} ${ibmPlexMono.variable} min-h-dvh antialiased`}
       >
         <a
           className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:rounded-md focus:bg-background focus:px-3 focus:py-2"
