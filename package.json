@@ -11,7 +11,7 @@
     "typecheck": "tsc  --noEmit",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
-    "db:setup": "pnpm db:migrate && pnpm exec workflow-postgres-setup",
+    "db:setup": "pnpm db:push && pnpm exec workflow-postgres-setup",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
     "db:seed": "tsx --env-file=.env scripts/seed.ts",
