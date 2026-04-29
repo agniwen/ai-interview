@@ -32,6 +32,7 @@ import { matchJobDescriptionForResume } from "@/server/agents/job-description-ma
 import { factory } from "@/server/factory";
 import { resumeProfileSchema } from "@/lib/interview/types";
 import { listAllJobDescriptions } from "@/server/queries/job-descriptions";
+import { getGlobalConfig } from "@/server/queries/global-config";
 import {
   loadApplicableCandidateFormTemplates,
   loadCandidateFormTemplateVersionById,
@@ -185,9 +186,15 @@ export const interviewRouter = factory
     // Interview context is surfaced to the Python agent worker via participant metadata.
     // Python: `ctx.wait_for_participant()` → `participant.metadata` → JSON.parse.
     // When the JD has multiple interviewers, the agent picks one at random.
+    // 全局配置（公司背景、开场/结束指令）在颁发 token 前读取并注入。
+    // Global config (company context, opening/closing instructions) is read before token issuance and injected here.
+    const globalCfg = await getGlobalConfig();
     const participantMetadata = JSON.stringify({
       candidate_name: interviewRecord.candidateName,
       candidate_profile: interviewRecord.resumeProfile,
+      global_closing_instructions: globalCfg.closingInstructions,
+      global_company_context: globalCfg.companyContext,
+      global_opening_instructions: globalCfg.openingInstructions,
       interview_questions: interviewRecord.interviewQuestions,
       interview_record_id: id,
       interviewers: interviewRecord.interviewers,
