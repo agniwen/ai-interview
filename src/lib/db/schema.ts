@@ -763,3 +763,17 @@ export const feishuThreadState = pgTable("feishu_thread_state", {
     .$onUpdate(() => /* @__PURE__ */ new Date())
     .notNull(),
 });
+
+// 全局配置（单例表，固定 id="singleton"）
+// Global config (singleton table, id="singleton")
+export const globalConfig = pgTable("global_config", {
+  closingInstructions: text("closing_instructions").notNull().default(""),
+  companyContext: text("company_context").notNull().default(""),
+  id: text("id").primaryKey().default("singleton"),
+  openingInstructions: text("opening_instructions").notNull().default(""),
+  updatedAt: timestamp("updated_at")
+    .defaultNow()
+    .$onUpdate(() => /* @__PURE__ */ new Date())
+    .notNull(),
+  updatedBy: text("updated_by").references(() => user.id, { onDelete: "set null" }),
+});
