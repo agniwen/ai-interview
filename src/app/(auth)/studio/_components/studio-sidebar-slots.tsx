@@ -6,6 +6,7 @@ import {
   ClipboardListIcon,
   FileTextIcon,
   ListChecksIcon,
+  SettingsIcon,
   UserCircleIcon,
 } from "lucide-react";
 import Link from "next/link";
@@ -70,6 +71,16 @@ const navGroups = [
       },
     ],
     label: "题库",
+  },
+  {
+    items: [
+      {
+        href: "/studio/global-config",
+        icon: SettingsIcon,
+        title: "全局配置",
+      },
+    ],
+    label: "系统配置",
   },
 ] as const;
 
