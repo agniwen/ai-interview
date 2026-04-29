@@ -1,10 +1,11 @@
 packages:
   - "packages/*"
 allowBuilds:
-  esbuild: set this to true or false
-  lefthook: set this to true or false
-  protobufjs: set this to true or false
-  sharp: set this to true or false
+  cbor-extract: true
+  esbuild: true
+  lefthook: true
+  protobufjs: true
+  sharp: true
 
 ignoredBuiltDependencies:
   - msw
