@@ -152,11 +152,18 @@ export function TileLayout({ chatOpen }: TileLayoutProps) {
             </AnimatePresence>
           </div>
 
+          {/* 聊天面板展开时, 顶部槽位高度 (h-18=72px) 装不下 90px 的摄像头窗口,
+              会和 agent 可视化挤压变形, 所以直接隐藏摄像头自览;
+              录像由 LiveKit Egress 在云端继续录制, 不受影响. */}
+          {/* When chat is open, the 72px top slot can't fit the 90px self-view
+              tile, which collides with the agent visualizer — hide the tile.
+              Server-side egress recording continues unaffected. */}
           <div
             className={cn([
               "grid",
               chatOpen && tileViewClassNames.secondTileChatOpen,
               !chatOpen && tileViewClassNames.secondTileChatClosed,
+              chatOpen && "hidden",
             ])}
           >
             <AnimatePresence>

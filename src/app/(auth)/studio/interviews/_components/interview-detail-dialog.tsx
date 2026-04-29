@@ -58,6 +58,7 @@ import {
   getReportBadgeVariant,
   truncateText,
 } from "./interview-detail/helpers";
+import { RecordingPlayer } from "./interview-detail/recording-player";
 import { InterviewStatusBadge } from "./interview-status-badge";
 
 function renderHeaderDescription({
@@ -518,6 +519,12 @@ export function InterviewDetailDialog({
                               <AccordionContent className="px-5 pb-5">
                                 <div className="grid gap-4 lg:grid-cols-[minmax(0,0.95fr)_minmax(320px,0.75fr)]">
                                   <div className="space-y-4">
+                                    <RecordingPlayer
+                                      conversationId={report.conversationId}
+                                      durationSecs={report.recordingDurationSecs}
+                                      recordId={recordId ?? ""}
+                                      status={report.recordingStatus}
+                                    />
                                     <div className="rounded-2xl border border-border/60 bg-muted/20 p-4">
                                       <h4 className="font-medium text-sm">会话概览</h4>
                                       <div className="mt-3 grid gap-2 text-sm">

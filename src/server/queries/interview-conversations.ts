@@ -48,6 +48,8 @@ function serializeConversationReport(
     latestError: conversation.latestError,
     metadata: conversation.metadata ?? {},
     mode: conversation.mode,
+    recordingDurationSecs: conversation.recordingDurationSecs,
+    recordingStatus: conversation.recordingStatus,
     startedAt: conversation.startedAt,
     status: conversation.status,
     transcriptSummary: conversation.transcriptSummary,

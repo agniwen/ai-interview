@@ -346,6 +346,13 @@ export default function InterviewPageClient({ interviewId, roundId }: InterviewP
       setStartedMuted(!!options?.muted);
       session.start({
         tracks: {
+          // 默认开启摄像头以便服务端 RoomCompositeEgress 录像；
+          // 浏览器拒绝权限时 LiveKit 会自动跳过该 track，不影响音频通话。
+          // Enable camera by default so server-side RoomCompositeEgress captures
+          // video; if the browser denies permission, LiveKit silently skips it.
+          camera: {
+            enabled: true,
+          },
           microphone: {
             enabled: !options?.muted,
             publishOptions: {
@@ -394,7 +401,7 @@ export default function InterviewPageClient({ interviewId, roundId }: InterviewP
       <main className="relative h-dvh w-full overflow-hidden">
         <AgentSessionView_01
           defaultChatOpen={startedMuted}
-          supportsVideoInput={false}
+          supportsVideoInput={true}
           supportsScreenShare={false}
           chatInputEnabled={interviewView?.currentRoundAllowTextInput ?? false}
           preConnectMessage="正在连线面试官，请稍等..."

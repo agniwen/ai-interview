@@ -88,4 +88,9 @@ export interface StudioInterviewConversationReport {
   turnCount: number;
   userTurnCount: number;
   agentTurnCount: number;
+  // 录像相关元信息: file_key 仅服务端可见, 前端通过预签名 URL 接口换取播放地址
+  // Recording metadata; the file_key is server-side only — the browser fetches a
+  // presigned URL via /recordings/:conversationId.
+  recordingStatus: "pending" | "active" | "completed" | "failed" | null;
+  recordingDurationSecs: number | null;
 }

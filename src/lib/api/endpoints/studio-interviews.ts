@@ -87,6 +87,19 @@ export function fetchStudioInterviewReports(
 }
 
 /**
+ * 获取某轮录像的 S3 预签名播放 URL (10 分钟有效).
+ * Fetch a 10-min presigned URL for the round's recording mp4.
+ */
+export function fetchStudioInterviewRecordingUrl(
+  id: string,
+  conversationId: string,
+): Promise<{ url: string; expiresInSeconds: number }> {
+  return apiFetch<{ url: string; expiresInSeconds: number }>(
+    `/api/studio/interviews/${encodeURIComponent(id)}/recordings/${encodeURIComponent(conversationId)}`,
+  );
+}
+
+/**
  * 拉取面试关联的表单回答（按提交时间倒序）。
  * Fetch the candidate form submissions for an interview (newest first).
  */

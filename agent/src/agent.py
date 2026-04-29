@@ -5,6 +5,7 @@ import os
 import time
 
 from dotenv import load_dotenv
+from livekit import api as lkapi_module
 from livekit import rtc
 from livekit.agents import (
     AgentServer,
@@ -27,6 +28,12 @@ from livekit.plugins.turn_detector.multilingual import MultilingualModel
 
 from interview_agent import InterviewAgent
 from prompts import pick_interviewer
+from recording import (
+    egress_duration_secs,
+    egress_status_to_str,
+    start_room_recording,
+    stop_recording,
+)
 from report import send_report
 
 logger = logging.getLogger("agent")
@@ -69,6 +76,27 @@ async def my_agent(ctx: JobContext):
             )
         except json.JSONDecodeError:
             logger.warning("failed to parse participant metadata")
+
+    # 录像: web 颁发 token 时在 metadata 里给出 recording_enabled / recording_file_key,
+    # 二者都满足才尝试启动 RoomCompositeEgress; 失败不影响面试主流程.
+    # Recording: web token endpoint stamps recording_enabled / recording_file_key into
+    # the participant metadata. Both must be present before we try to start egress.
+    lkapi = lkapi_module.LiveKitAPI()
+    recording_info: dict = {}
+    if interview_context.get("recording_enabled") and interview_context.get(
+        "recording_file_key"
+    ):
+        info = await start_room_recording(
+            lkapi,
+            room_name=ctx.room.name,
+            file_key=interview_context["recording_file_key"],
+        )
+        if info is not None:
+            recording_info = {
+                "egressId": info.egress_id,
+                "fileKey": interview_context["recording_file_key"],
+                "status": "active",
+            }
 
     selected_interviewer = pick_interviewer(interview_context)
     selected_voice = selected_interviewer.get("voice") or "voice_agent_Male_Phone_1"
@@ -177,6 +205,25 @@ async def my_agent(ctx: JobContext):
         else:
             call_successful = "failed"
 
+        # 收尾录像: 先尝试 stop_egress, 再用拉取的 EgressInfo 更新最终状态/时长.
+        # Wrap up recording: stop egress first, then refresh status/duration from the
+        # returned EgressInfo so the report carries the final state.
+        recording_payload: dict | None = None
+        if recording_info:
+            final_info = await stop_recording(lkapi, recording_info["egressId"])
+            recording_payload = {
+                "egressId": recording_info["egressId"],
+                "fileKey": recording_info["fileKey"],
+                "status": egress_status_to_str(final_info)
+                if final_info is not None
+                else "active",
+                "durationSecs": egress_duration_secs(final_info),
+            }
+        try:
+            await lkapi.aclose()
+        except Exception:
+            logger.debug("lkapi.aclose failed", exc_info=True)
+
         # Only ship raw transcript to the backend. Summary + evaluation are
         # generated server-side (fire-and-forget after /api/agent/report
         # responds), so this callback can exit in ~1s — resilient to the
@@ -189,6 +236,7 @@ async def my_agent(ctx: JobContext):
             started_at=session_start_time,
             ended_at=ended_at,
             close_reason=close_reason,
+            recording=recording_payload,
         )
 
     ctx.add_shutdown_callback(_on_shutdown)

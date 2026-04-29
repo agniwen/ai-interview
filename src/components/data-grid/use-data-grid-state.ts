@@ -39,6 +39,33 @@ function getInitialSortOrder(first: SortingState[number] | undefined): string {
   return first.desc === true ? "desc" : "asc";
 }
 
+interface UrlState<F extends Record<string, string>> {
+  page: number;
+  pageSize: number;
+  search: string;
+  filters: F;
+  sortBy: string;
+  sortOrder: string;
+}
+
+// 判断当前 URL 状态是否与服务端 SSR 时使用的查询参数完全一致.
+// True iff the URL state matches what the SSR initialData was fetched for.
+function urlMatchesInitial<TData, F extends Record<string, string>>(
+  url: UrlState<F>,
+  opts: UseDataGridStateOptions<TData, F>,
+  filterKeys: readonly (keyof F & string)[],
+  initialSortFirst: SortingState[number] | undefined,
+): boolean {
+  return (
+    url.page === opts.initialData.page &&
+    url.pageSize === opts.initialData.pageSize &&
+    !url.search.trim() &&
+    filterKeys.every((k) => url.filters[k] === opts.initialFilters[k]) &&
+    url.sortBy === (initialSortFirst?.id ?? "") &&
+    url.sortOrder === getInitialSortOrder(initialSortFirst)
+  );
+}
+
 export function useDataGridState<TData, F extends Record<string, string>>(
   opts: UseDataGridStateOptions<TData, F>,
 ) {
@@ -134,10 +161,35 @@ export function useDataGridState<TData, F extends Record<string, string>>(
     [opts.namespace, deferredSearch, filters, filterKeys, page, pageSize, sortBy, sortOrder],
   );
 
+  // 服务端渲染的 initialData 始终是「无过滤、第 1 页、默认排序」的结果;
+  // 当 URL 带 ?page=2 / 搜索 / 过滤时, 不能把这份数据塞进当前 queryKey 的缓存,
+  // 否则 react-query 会把页 1 数据当成页 2 的新鲜缓存使用 (staleTime 内不再请求).
+  // The server-rendered initialData always reflects the unfiltered first page;
+  // seeding it under a queryKey that disagrees would let react-query serve
+  // page-1 rows as if they were the requested page until staleTime expires.
+  const initialMatchesUrlRef = useRef<boolean | null>(null);
+  if (initialMatchesUrlRef.current === null) {
+    initialMatchesUrlRef.current = urlMatchesInitial(
+      {
+        filters,
+        page,
+        pageSize,
+        search: deferredSearch,
+        sortBy,
+        sortOrder,
+      },
+      opts,
+      filterKeys,
+      initialSort[0],
+    );
+  }
+
   const seededRef = useRef(false);
   if (!seededRef.current) {
     seededRef.current = true;
-    queryClient.setQueryData(queryKey, opts.initialData);
+    if (initialMatchesUrlRef.current) {
+      queryClient.setQueryData(queryKey, opts.initialData);
+    }
   }
 
   const listQuery = useQuery({
@@ -156,7 +208,16 @@ export function useDataGridState<TData, F extends Record<string, string>>(
     staleTime: opts.staleTime ?? 30 * 1000,
   });
 
-  const data = listQuery.data ?? opts.initialData;
+  // URL 与 initialData 不匹配时, 不要把 initialData 当兜底渲染出来
+  // (那是页 1 数据), 否则首屏一闪显示错误内容. 改为空集 + loading 状态.
+  // When URL diverges from initialData, don't fall back to initialData (it's
+  // page-1 rows) — render an empty result + loading state instead so the user
+  // doesn't see wrong data flash before the real fetch lands.
+  const emptyFallback = useMemo<DataGridFetchResult<TData>>(
+    () => ({ records: [], total: 0, totalPages: 0 }),
+    [],
+  );
+  const data = listQuery.data ?? (initialMatchesUrlRef.current ? opts.initialData : emptyFallback);
   const loading = listQuery.isFetching && !listQuery.isRefetching;
   const refetching = listQuery.isRefetching;
 

@@ -7,6 +7,7 @@ import { db } from "@/lib/db";
 import {
   candidateFormSubmission,
   interviewAuditLog,
+  interviewConversation,
   interviewer,
   jobDescription,
   jobDescriptionInterviewer,
@@ -70,7 +71,7 @@ import {
   storeInterviewResume,
   toBadRequest,
 } from "./utils";
-import { getObjectStream } from "@/lib/s3";
+import { getObjectStream, presignGetObjectUrl } from "@/lib/s3";
 
 export const interviewRouter = factory
   .createApp()
@@ -193,6 +194,20 @@ export const interviewRouter = factory
     // 全局配置（公司背景、开场/结束指令）在颁发 token 前读取并注入。
     // Global config (company context, opening/closing instructions) is read before token issuance and injected here.
     const globalCfg = await getGlobalConfig();
+    // 录像开关：S3 凭据齐全才让 Agent 启动 Egress；候选人浏览器拒绝摄像头时
+    // 由前端在 /api/interview/.../recording-skipped 之类的通道反馈（这里只判服务端能力）。
+    // Recording switch: only enable when S3 creds are present so the agent can write to storage.
+    const recordingEnabled = Boolean(
+      process.env.S3_BUCKET_NAME &&
+      process.env.S3_ACCESS_KEY_ID &&
+      process.env.S3_SECRET_ACCESS_KEY,
+    );
+    const recordingFileKey = recordingEnabled
+      ? `${(process.env.S3_KEY_PREFIX ?? "").replace(/\/+$/, "")}/interviews/${id}/${roundId}/${roomName}.mp4`.replace(
+          /^\/+/,
+          "",
+        )
+      : null;
     const participantMetadata = JSON.stringify({
       candidate_name: interviewRecord.candidateName,
       candidate_profile: interviewRecord.resumeProfile,
@@ -204,6 +219,8 @@ export const interviewRouter = factory
       interviewers: interviewRecord.interviewers,
       job_description_preset_questions: interviewRecord.jobDescriptionPresetQuestions ?? [],
       job_description_prompt: interviewRecord.jobDescriptionPrompt ?? null,
+      recording_enabled: recordingEnabled,
+      recording_file_key: recordingFileKey,
       round_id: roundId,
       target_role: interviewRecord.targetRole,
     });
@@ -671,6 +688,59 @@ export const studioInterviewsRouter = factory
 
     const reports = await queryInterviewConversationReports(id);
     return c.json(reports);
+  })
+  .get("/:id/recordings/:conversationId", async (c) => {
+    // 返回该轮面试录像的 S3 预签名播放 URL (10 分钟有效).
+    // Return a 10-min presigned URL so the browser can stream the round's
+    // recording mp4 directly from S3.
+    const id = c.req.param("id");
+    const conversationId = c.req.param("conversationId");
+
+    const existing = await loadRecordById(id);
+    if (!existing) {
+      return c.json({ error: "记录不存在。" }, 404);
+    }
+
+    const [conversation] = await db
+      .select({
+        interviewRecordId: interviewConversation.interviewRecordId,
+        recordingFileKey: interviewConversation.recordingFileKey,
+        recordingStatus: interviewConversation.recordingStatus,
+      })
+      .from(interviewConversation)
+      .where(eq(interviewConversation.conversationId, conversationId))
+      .limit(1);
+
+    // 防止跨面试访问: conversationId 必须挂在当前 interview 上.
+    // Prevent cross-record access: the conversation must belong to this interview.
+    if (!conversation || conversation.interviewRecordId !== id) {
+      return c.json({ error: "未找到该轮录像。" }, 404);
+    }
+    if (!conversation.recordingFileKey) {
+      return c.json({ error: "本轮面试没有录像文件。" }, 404);
+    }
+    if (conversation.recordingStatus !== "completed") {
+      return c.json(
+        {
+          error: "录像尚未生成完成, 请稍后再试。",
+          status: conversation.recordingStatus ?? "unknown",
+        },
+        409,
+      );
+    }
+
+    try {
+      const url = await presignGetObjectUrl(conversation.recordingFileKey, 600);
+      return c.json({ expiresInSeconds: 600, url });
+    } catch (error) {
+      return c.json(
+        {
+          detail: error instanceof Error ? error.message : "Unknown error",
+          error: "无法生成录像访问链接。",
+        },
+        500,
+      );
+    }
   })
   .get("/:id/form-submissions", async (c) => {
     const id = c.req.param("id");

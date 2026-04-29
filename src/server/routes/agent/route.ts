@@ -19,6 +19,15 @@ const transcriptTurnSchema = z.object({
   timeInCallSecs: z.number().optional(),
 });
 
+const recordingPayloadSchema = z
+  .object({
+    durationSecs: z.number().int().nullish(),
+    egressId: z.string().min(1),
+    fileKey: z.string().min(1),
+    status: z.enum(["pending", "active", "completed", "failed"]),
+  })
+  .nullish();
+
 const reportPayloadSchema = z.object({
   agentId: z.string().nullish(),
   callSuccessful: z.string().nullish(),
@@ -26,6 +35,7 @@ const reportPayloadSchema = z.object({
   endedAt: z.string().nullish(),
   interviewRecordId: z.string().min(1),
   metadata: z.record(z.string(), z.unknown()).nullish(),
+  recording: recordingPayloadSchema,
   scheduleEntryId: z.string().min(1),
   startedAt: z.string().nullish(),
   status: z.string().default("completed"),
@@ -84,6 +94,18 @@ export const agentRouter = factory
           }
         : {};
 
+      // 录像字段：仅当 agent 上报了 recording 才写入，避免重传清空已有元数据。
+      // Recording columns: only set when the report carries recording info, so an
+      // idempotent retransmit doesn't blank out previously stored metadata.
+      const recordingFields = data.recording
+        ? {
+            recordingDurationSecs: data.recording.durationSecs ?? null,
+            recordingEgressId: data.recording.egressId,
+            recordingFileKey: data.recording.fileKey,
+            recordingStatus: data.recording.status,
+          }
+        : {};
+
       await tx
         .insert(interviewConversation)
         .values({
@@ -103,6 +125,7 @@ export const agentRouter = factory
           summaryStatus: "pending",
           transcript: data.transcript,
           webhookReceivedAt: now,
+          ...recordingFields,
         })
         .onConflictDoUpdate({
           set: {
@@ -115,6 +138,7 @@ export const agentRouter = factory
             transcript: data.transcript,
             webhookReceivedAt: now,
             ...summaryResetFields,
+            ...recordingFields,
           },
           target: interviewConversation.conversationId,
         });

@@ -17,6 +17,7 @@ async def send_report(
     started_at: float,
     ended_at: float,
     close_reason: str,
+    recording: dict | None = None,
 ) -> None:
     """POST raw transcript to the backend. Summary + evaluation are generated
     server-side asynchronously (fire-and-forget in the Node process), so this
@@ -48,6 +49,7 @@ async def send_report(
             "roomName": room_name,
             "closeReason": close_reason,
         },
+        "recording": recording,
     }
 
     headers = {"Content-Type": "application/json"}

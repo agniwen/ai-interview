@@ -367,6 +367,14 @@ export const interviewConversation = pgTable(
     latestError: text("latest_error"),
     metadata: jsonb("metadata").$type<Record<string, unknown>>().notNull().default({}),
     mode: text("mode"),
+    // 录像相关：通过 LiveKit RoomCompositeEgress 直传 S3 后写回
+    // Recording fields populated after LiveKit RoomCompositeEgress finishes uploading to S3
+    recordingDurationSecs: integer("recording_duration_secs"),
+    recordingEgressId: text("recording_egress_id"),
+    recordingFileKey: text("recording_file_key"),
+    recordingStatus: text("recording_status").$type<
+      "pending" | "active" | "completed" | "failed"
+    >(),
     scheduleEntryId: text("schedule_entry_id").references(() => studioInterviewSchedule.id, {
       onDelete: "set null",
     }),

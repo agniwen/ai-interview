@@ -131,6 +131,25 @@ export async function getObjectStream(storageKey: string): Promise<ObjectResult 
   }
 }
 
+// 为给定 S3 对象生成只读的预签名 URL, 主要用于浏览器直接 GET 大文件
+// (例如面试录像 mp4) 而不是经由服务端转发流量.
+// Generate a presigned read-only URL so the browser can GET large objects
+// (e.g. interview recording mp4) directly from S3 instead of streaming
+// through the Node server.
+export async function presignGetObjectUrl(
+  storageKey: string,
+  expiresInSeconds = 600,
+): Promise<string> {
+  const [{ GetObjectCommand }, { getSignedUrl }, { client, config }] = await Promise.all([
+    import("@aws-sdk/client-s3"),
+    import("@aws-sdk/s3-request-presigner"),
+    getClient(),
+  ]);
+  return getSignedUrl(client, new GetObjectCommand({ Bucket: config.bucket, Key: storageKey }), {
+    expiresIn: expiresInSeconds,
+  });
+}
+
 export async function getObjectBytes(storageKey: string): Promise<{
   bytes: Uint8Array;
   contentType: string;
