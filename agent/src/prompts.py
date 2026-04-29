@@ -45,6 +45,11 @@ def build_instructions(interview_context: dict, interviewer: dict | None = None)
     job_description_prompt = (
         interview_context.get("job_description_prompt") or ""
     ).strip()
+    # 读取全局公司情况，缺失或空值均视为不注入  # noqa: RUF003
+    # Read global company context; absent or empty means the section is skipped.
+    global_company_context = (
+        interview_context.get("global_company_context") or ""
+    ).strip()
 
     skills = candidate_profile.get("skills", [])
     skills_text = "、".join(skills) if skills else "未提供"
@@ -68,9 +73,13 @@ def build_instructions(interview_context: dict, interviewer: dict | None = None)
     if not supplementary_questions_text:
         supplementary_questions_text = "\n  无"
 
+    # 按顺序拼接前置板块：面试官角色设定 → 公司情况 → 岗位说明  # noqa: RUF003
+    # Assemble prefix sections in order: interviewer role → company context → JD.
     prefix_sections = ""
     if interviewer_prompt:
         prefix_sections += f"## 面试官角色设定\n{interviewer_prompt}\n\n"
+    if global_company_context:
+        prefix_sections += f"## 公司情况\n{global_company_context}\n\n"
     if job_description_prompt:
         prefix_sections += f"## 岗位说明\n{job_description_prompt}\n\n"
 
