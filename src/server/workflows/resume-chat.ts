@@ -35,19 +35,9 @@ async function runScreeningAndStream(
     messages: messagesForModel,
   });
 
-  // toUIMessageStream's `originalMessages`, if its last item is an assistant,
-  // forces the streamed message to inherit that assistant's id (ignores
-  // generateMessageId). For our auto-resume turn the last item is the prior
-  // assistant with a tool call — leaving it in would make every continuation
-  // round overwrite that DB row.
-  // Strip the trailing assistant so the SDK falls through to generateMessageId
-  // and each turn lands as its own row. The LLM still gets the full context
-  // via `messagesForModel`.
-  const lastIsAssistant = input.messages.at(-1)?.role === "assistant";
-  const originalMessagesForStream = lastIsAssistant ? input.messages.slice(0, -1) : input.messages;
   const stream = result.toUIMessageStream({
     generateMessageId: () => messageId,
-    originalMessages: originalMessagesForStream,
+    originalMessages: input.messages,
     sendReasoning: input.enableThinking !== false,
     sendSources: true,
   });
