@@ -45,17 +45,12 @@ export function Screenshot({
   return (
     <div
       className={cn(
-        "relative overflow-hidden rounded-2xl border border-primary/15 bg-background/40 shadow-[0_30px_80px_-30px_rgba(0,0,0,0.55)] ring-1 ring-primary/10 backdrop-blur",
+        // 浅淡半透明边框 + 柔和投影，避免 macOS 拟物边框的违和感
+        // Subtle translucent border + soft shadow, no skeuomorphic chrome.
+        "relative overflow-hidden rounded-2xl border border-foreground/10 bg-background/30 shadow-[0_30px_80px_-30px_rgba(0,0,0,0.45)] ring-1 ring-foreground/5 backdrop-blur",
         className,
       )}
     >
-      {/* macOS 风格的窗口标题栏，让截图看起来像独立产品视图
-          macOS-style window chrome to make screenshots feel like standalone product shots. */}
-      <div className="flex items-center gap-1.5 border-primary/10 border-b bg-background/60 px-4 py-2.5">
-        <span className="size-2.5 rounded-full bg-[#ff5f57]" />
-        <span className="size-2.5 rounded-full bg-[#febc2e]" />
-        <span className="size-2.5 rounded-full bg-[#28c840]" />
-      </div>
       <Image
         alt={alt}
         className="h-auto w-full"
