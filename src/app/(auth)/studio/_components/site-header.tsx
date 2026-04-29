@@ -18,7 +18,7 @@ import { useStudioTutorialContext } from "./studio-tutorial-provider";
 
 interface RouteMeta {
   title: string;
-  tour: StudioTourKey;
+  tour?: StudioTourKey;
 }
 
 const ROUTE_META: { prefix: string; meta: RouteMeta }[] = [
@@ -34,6 +34,7 @@ const ROUTE_META: { prefix: string; meta: RouteMeta }[] = [
     meta: { title: "面试题", tour: "interviews" },
     prefix: "/studio/interview-questions",
   },
+  { meta: { title: "全局配置" }, prefix: "/studio/global-config" },
 ];
 
 const DEFAULT_META: RouteMeta = { title: "AI 面试管理", tour: "interviews" };
@@ -69,15 +70,17 @@ export function SiteHeader() {
         </Breadcrumb>
       </div>
       <div className="flex items-center gap-1">
-        <Button
-          className="hidden sm:inline-flex"
-          onClick={() => startTutorial(tour)}
-          size="sm"
-          variant="ghost"
-        >
-          <CircleHelpIcon className="size-4" />
-          使用教程
-        </Button>
+        {tour ? (
+          <Button
+            className="hidden sm:inline-flex"
+            onClick={() => startTutorial(tour)}
+            size="sm"
+            variant="ghost"
+          >
+            <CircleHelpIcon className="size-4" />
+            使用教程
+          </Button>
+        ) : null}
         <ThemeToggle />
       </div>
     </header>
