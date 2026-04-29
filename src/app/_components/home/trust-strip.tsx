@@ -15,9 +15,10 @@ const items = [
 export function TrustStrip() {
   return (
     <FadeContent className="mt-8 sm:mt-10" delay={0.3}>
-      <ul className="mx-auto flex max-w-4xl flex-wrap items-center justify-center gap-x-6 gap-y-3 text-foreground/70 text-xs sm:gap-x-10 sm:text-sm">
+      {/* 移动端每行 2 个（grid-cols-2），sm 起恢复横排 / 2 per row on mobile, single row from sm+ */}
+      <ul className="mx-auto grid max-w-4xl grid-cols-2 place-items-center gap-x-6 gap-y-3 text-foreground/70 text-xs sm:flex sm:flex-wrap sm:items-center sm:justify-center sm:gap-x-10 sm:text-sm">
         {items.map(({ Icon, label }) => (
-          <li className="inline-flex items-center gap-2" key={label}>
+          <li className="inline-flex w-full items-center gap-2 sm:w-auto" key={label}>
             <span className="inline-flex size-7 items-center justify-center rounded-lg border border-primary/15 bg-primary/8 text-primary">
               <Icon aria-hidden="true" className="size-4" />
             </span>
