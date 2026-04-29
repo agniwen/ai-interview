@@ -18,6 +18,7 @@ import type { InterviewQuestion, ResumeProfile } from "@/lib/interview/types";
 import type { JobDescriptionConfig } from "@/lib/job-description-config";
 import type { MinimaxVoiceId } from "@/lib/minimax-voices";
 import type { ScheduleEntryStatus, StudioInterviewStatus } from "@/lib/studio-interviews";
+import { sql } from "drizzle-orm";
 import {
   bigserial,
   boolean,
@@ -429,6 +430,7 @@ export const interviewConversationTurn = pgTable(
 export const chatConversation = pgTable(
   "chat_conversation",
   {
+    activeWorkflowRunId: text("active_workflow_run_id"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     id: text("id").primaryKey(),
     isTitleGenerating: boolean("is_title_generating").default(false).notNull(),
@@ -447,6 +449,9 @@ export const chatConversation = pgTable(
   (table) => [
     index("chat_conversation_user_id_idx").on(table.userId),
     index("chat_conversation_user_updated_idx").on(table.userId, table.updatedAt),
+    index("chat_conversation_active_run_idx")
+      .on(table.activeWorkflowRunId)
+      .where(sql`${table.activeWorkflowRunId} IS NOT NULL`),
   ],
 );
 
