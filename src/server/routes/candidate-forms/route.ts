@@ -1,8 +1,9 @@
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
   candidateFormSubmission,
   candidateFormTemplate,
+  candidateFormTemplateJobDescription,
   candidateFormTemplateQuestion,
   jobDescription,
 } from "@/lib/db/schema";
@@ -17,13 +18,15 @@ import {
 } from "@/server/queries/candidate-forms";
 import { safeUpdateTag } from "@/server/routes/interview/utils";
 
-async function validateJobDescriptionExists(jobDescriptionId: string) {
-  const [row] = await db
+async function validateJobDescriptionsExist(ids: string[]) {
+  if (ids.length === 0) {
+    return true;
+  }
+  const rows = await db
     .select({ id: jobDescription.id })
     .from(jobDescription)
-    .where(eq(jobDescription.id, jobDescriptionId))
-    .limit(1);
-  return !!row;
+    .where(inArray(jobDescription.id, ids));
+  return rows.length === new Set(ids).size;
 }
 
 function normalizeQuestions(
@@ -83,12 +86,12 @@ export const candidateFormsRouter = factory
     if (!input.success) {
       return c.json({ error: input.error.issues[0]?.message ?? "表单校验失败。" }, 400);
     }
-    const jobDescriptionId =
-      input.data.scope === "job_description" ? (input.data.jobDescriptionId ?? null) : null;
-    if (jobDescriptionId) {
-      const ok = await validateJobDescriptionExists(jobDescriptionId);
+    const jobDescriptionIds =
+      input.data.scope === "job_description" ? input.data.jobDescriptionIds : [];
+    if (jobDescriptionIds.length > 0) {
+      const ok = await validateJobDescriptionsExist(jobDescriptionIds);
       if (!ok) {
-        return c.json({ error: "所选在招岗位不存在。" }, 400);
+        return c.json({ error: "所选在招岗位中存在无效项。" }, 400);
       }
     }
 
@@ -99,7 +102,6 @@ export const candidateFormsRouter = factory
       createdBy: c.var.user?.id ?? null,
       description: input.data.description?.trim() || null,
       id: templateId,
-      jobDescriptionId,
       scope: input.data.scope,
       title: input.data.title.trim(),
       updatedAt: now,
@@ -111,6 +113,11 @@ export const candidateFormsRouter = factory
       await tx.insert(candidateFormTemplate).values(record);
       if (questions.length > 0) {
         await tx.insert(candidateFormTemplateQuestion).values(questions);
+      }
+      if (jobDescriptionIds.length > 0) {
+        await tx
+          .insert(candidateFormTemplateJobDescription)
+          .values(jobDescriptionIds.map((jdId) => ({ jobDescriptionId: jdId, templateId })));
       }
     });
 
@@ -138,12 +145,12 @@ export const candidateFormsRouter = factory
     if (!input.success) {
       return c.json({ error: input.error.issues[0]?.message ?? "表单校验失败。" }, 400);
     }
-    const jobDescriptionId =
-      input.data.scope === "job_description" ? (input.data.jobDescriptionId ?? null) : null;
-    if (jobDescriptionId) {
-      const ok = await validateJobDescriptionExists(jobDescriptionId);
+    const jobDescriptionIds =
+      input.data.scope === "job_description" ? input.data.jobDescriptionIds : [];
+    if (jobDescriptionIds.length > 0) {
+      const ok = await validateJobDescriptionsExist(jobDescriptionIds);
       if (!ok) {
-        return c.json({ error: "所选在招岗位不存在。" }, 400);
+        return c.json({ error: "所选在招岗位中存在无效项。" }, 400);
       }
     }
 
@@ -155,7 +162,6 @@ export const candidateFormsRouter = factory
         .update(candidateFormTemplate)
         .set({
           description: input.data.description?.trim() || null,
-          jobDescriptionId,
           scope: input.data.scope,
           title: input.data.title.trim(),
           updatedAt: now,
@@ -169,6 +175,17 @@ export const candidateFormsRouter = factory
         .where(eq(candidateFormTemplateQuestion.templateId, id));
       if (questions.length > 0) {
         await tx.insert(candidateFormTemplateQuestion).values(questions);
+      }
+
+      // 重写岗位绑定关系
+      // Replace JD links wholesale.
+      await tx
+        .delete(candidateFormTemplateJobDescription)
+        .where(eq(candidateFormTemplateJobDescription.templateId, id));
+      if (jobDescriptionIds.length > 0) {
+        await tx
+          .insert(candidateFormTemplateJobDescription)
+          .values(jobDescriptionIds.map((jdId) => ({ jobDescriptionId: jdId, templateId: id })));
       }
     });
 

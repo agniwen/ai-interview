@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/dialog";
 import { Field, FieldContent, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { JobDescriptionMultiSelect } from "@/components/ui/job-description-multi-select";
 import { Label } from "@/components/ui/label";
 import { SortableDragHandle, SortableItem, SortableList } from "@/components/ui/sortable-list";
 import { Switch } from "@/components/ui/switch";
@@ -76,7 +77,7 @@ function makeDefaultQuestion(sortOrder: number): CandidateFormQuestionInput {
 function defaultValues(): CandidateFormTemplateInput {
   return {
     description: "",
-    jobDescriptionId: null,
+    jobDescriptionIds: [],
     questions: [makeDefaultQuestion(0)],
     scope: "global",
     title: "",
@@ -86,7 +87,7 @@ function defaultValues(): CandidateFormTemplateInput {
 function toFormValues(record: CandidateFormTemplateRecord): CandidateFormTemplateInput {
   return {
     description: record.description ?? "",
-    jobDescriptionId: record.jobDescriptionId,
+    jobDescriptionIds: record.jobDescriptionIds,
     questions: record.questions.map((question, index) => ({
       displayMode: question.displayMode,
       helperText: question.helperText ?? "",
@@ -123,7 +124,7 @@ export function CandidateFormTemplateEditorDialog({
     onSubmit: async ({ value }) => {
       const body = {
         description: value.description?.trim() || "",
-        jobDescriptionId: value.scope === "job_description" ? value.jobDescriptionId : null,
+        jobDescriptionIds: value.scope === "job_description" ? value.jobDescriptionIds : [],
         questions: value.questions.map((question, index) => ({
           displayMode: question.displayMode,
           helperText: question.helperText?.trim() || "",
@@ -246,7 +247,7 @@ export function CandidateFormTemplateEditorDialog({
                           onValueChange={(value) => {
                             field.handleChange(value as CandidateFormScope);
                             if (value === "global") {
-                              form.setFieldValue("jobDescriptionId", null);
+                              form.setFieldValue("jobDescriptionIds", []);
                             }
                           }}
                           value={field.state.value}
@@ -265,7 +266,7 @@ export function CandidateFormTemplateEditorDialog({
                 </form.Field>
 
                 {currentScope === "job_description" ? (
-                  <form.Field name="jobDescriptionId">
+                  <form.Field name="jobDescriptionIds">
                     {(field) => {
                       const errors = toFieldErrors(field.state.meta.errors);
                       return (
@@ -274,25 +275,12 @@ export function CandidateFormTemplateEditorDialog({
                             绑定岗位 <span className="text-destructive">*</span>
                           </FieldLabel>
                           <FieldContent className="gap-2">
-                            <Select
-                              onValueChange={(value) => field.handleChange(value)}
-                              value={field.state.value ?? undefined}
-                            >
-                              <SelectTrigger
-                                aria-invalid={!!errors?.length}
-                                className="w-full"
-                                id={field.name}
-                              >
-                                <SelectValue placeholder="选择岗位" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {jobDescriptions.map((jd) => (
-                                  <SelectItem key={jd.id} value={jd.id}>
-                                    {jd.name}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
+                            <JobDescriptionMultiSelect
+                              invalid={!!errors?.length}
+                              onChange={(next) => field.handleChange(next)}
+                              options={jobDescriptions.map((jd) => ({ id: jd.id, name: jd.name }))}
+                              value={field.state.value ?? []}
+                            />
                             <FieldError errors={errors} />
                           </FieldContent>
                         </Field>

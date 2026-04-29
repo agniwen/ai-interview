@@ -192,11 +192,24 @@ export function CandidateFormTemplateManagementPage({
         title: "作用范围",
       }),
       customColumn<CandidateFormTemplateListRecord>({
-        cell: (r) =>
-          r.scope === "global"
-            ? "—"
-            : (r.jobDescriptionName ?? <Badge variant="outline">岗位已删除</Badge>),
-        key: "jobDescriptionName",
+        cell: (r) => {
+          if (r.scope === "global") {
+            return "—";
+          }
+          if (r.jobDescriptions.length === 0) {
+            return <Badge variant="outline">岗位已删除</Badge>;
+          }
+          return (
+            <div className="flex flex-wrap gap-1">
+              {r.jobDescriptions.map((jd) => (
+                <Badge key={jd.id} variant="secondary">
+                  {jd.name}
+                </Badge>
+              ))}
+            </div>
+          );
+        },
+        key: "jobDescriptions",
         title: "绑定岗位",
       }),
       customColumn<CandidateFormTemplateListRecord>({

@@ -7,7 +7,7 @@ import {
 } from "@/server/queries/studio-interviews";
 
 export const metadata: Metadata = {
-  title: "AI 面试管理",
+  title: "简历库",
 };
 
 export default async function StudioInterviewsPage() {

@@ -23,10 +23,7 @@ export const relations = defineRelations(schema, (r) => ({
     }),
   },
   candidateFormTemplate: {
-    jobDescription: r.one.jobDescription({
-      from: r.candidateFormTemplate.jobDescriptionId,
-      to: r.jobDescription.id,
-    }),
+    jobDescriptionLinks: r.many.candidateFormTemplateJobDescription(),
     questions: r.many.candidateFormTemplateQuestion(),
     submissions: r.many.candidateFormSubmission(),
     user: r.one.user({
@@ -34,6 +31,16 @@ export const relations = defineRelations(schema, (r) => ({
       to: r.user.id,
     }),
     versions: r.many.candidateFormTemplateVersion(),
+  },
+  candidateFormTemplateJobDescription: {
+    jobDescription: r.one.jobDescription({
+      from: r.candidateFormTemplateJobDescription.jobDescriptionId,
+      to: r.jobDescription.id,
+    }),
+    template: r.one.candidateFormTemplate({
+      from: r.candidateFormTemplateJobDescription.templateId,
+      to: r.candidateFormTemplate.id,
+    }),
   },
   candidateFormTemplateQuestion: {
     template: r.one.candidateFormTemplate({
@@ -92,6 +99,19 @@ export const relations = defineRelations(schema, (r) => ({
       to: r.studioInterview.id,
     }),
   },
+  interviewQuestionTemplate: {
+    jobDescriptionLinks: r.many.interviewQuestionTemplateJobDescription(),
+  },
+  interviewQuestionTemplateJobDescription: {
+    jobDescription: r.one.jobDescription({
+      from: r.interviewQuestionTemplateJobDescription.jobDescriptionId,
+      to: r.jobDescription.id,
+    }),
+    template: r.one.interviewQuestionTemplate({
+      from: r.interviewQuestionTemplateJobDescription.templateId,
+      to: r.interviewQuestionTemplate.id,
+    }),
+  },
   interviewer: {
     department: r.one.department({
       from: r.interviewer.departmentId,
@@ -104,11 +124,12 @@ export const relations = defineRelations(schema, (r) => ({
     }),
   },
   jobDescription: {
-    candidateFormTemplates: r.many.candidateFormTemplate(),
+    candidateFormTemplateLinks: r.many.candidateFormTemplateJobDescription(),
     department: r.one.department({
       from: r.jobDescription.departmentId,
       to: r.department.id,
     }),
+    interviewQuestionTemplateLinks: r.many.interviewQuestionTemplateJobDescription(),
     interviewerLinks: r.many.jobDescriptionInterviewer(),
     studioInterviews: r.many.studioInterview(),
     user: r.one.user({

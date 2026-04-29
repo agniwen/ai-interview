@@ -29,7 +29,7 @@ export type InterviewQuestionTemplateQuestionInput = z.infer<
 export const interviewQuestionTemplateSchema = z
   .object({
     description: z.string().trim().max(1000, "描述不能超过 1000 字").optional().or(z.literal("")),
-    jobDescriptionId: z.string().trim().min(1).optional().nullable(),
+    jobDescriptionIds: z.array(z.string().trim().min(1)).max(50, "最多绑定 50 个岗位"),
     questions: z
       .array(interviewQuestionTemplateQuestionInputSchema)
       .min(1, "至少需要一道题目")
@@ -38,18 +38,26 @@ export const interviewQuestionTemplateSchema = z
     title: z.string().trim().min(1, "请输入模板标题").max(120, "标题不能超过 120 字"),
   })
   .superRefine((value, ctx) => {
-    if (value.scope === "job_description" && !value.jobDescriptionId) {
+    if (value.scope === "job_description" && value.jobDescriptionIds.length === 0) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: "请选择要绑定的在招岗位",
-        path: ["jobDescriptionId"],
+        message: "请至少选择一个绑定岗位",
+        path: ["jobDescriptionIds"],
       });
     }
-    if (value.scope === "global" && value.jobDescriptionId) {
+    if (value.scope === "global" && value.jobDescriptionIds.length > 0) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: "全局模板不应绑定岗位",
-        path: ["jobDescriptionId"],
+        path: ["jobDescriptionIds"],
+      });
+    }
+    const dedup = new Set(value.jobDescriptionIds);
+    if (dedup.size !== value.jobDescriptionIds.length) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "存在重复岗位",
+        path: ["jobDescriptionIds"],
       });
     }
   });
@@ -66,12 +74,18 @@ export interface InterviewQuestionTemplateQuestionRecord {
   updatedAt: string | Date;
 }
 
+export interface JobDescriptionRef {
+  id: string;
+  name: string;
+}
+
 export interface InterviewQuestionTemplateRecord {
   id: string;
   title: string;
   description: string | null;
   scope: InterviewQuestionTemplateScope;
-  jobDescriptionId: string | null;
+  jobDescriptionIds: string[];
+  jobDescriptions: JobDescriptionRef[];
   createdBy: string | null;
   createdAt: string | Date;
   updatedAt: string | Date;
@@ -83,8 +97,8 @@ export interface InterviewQuestionTemplateListRecord {
   title: string;
   description: string | null;
   scope: InterviewQuestionTemplateScope;
-  jobDescriptionId: string | null;
-  jobDescriptionName: string | null;
+  jobDescriptionIds: string[];
+  jobDescriptions: JobDescriptionRef[];
   questionCount: number;
   bindingCount: number;
   createdBy: string | null;
@@ -104,7 +118,7 @@ export interface InterviewQuestionTemplateSnapshot {
   title: string;
   description: string | null;
   scope: InterviewQuestionTemplateScope;
-  jobDescriptionId: string | null;
+  jobDescriptionIds: string[];
   questions: InterviewQuestionTemplateSnapshotQuestion[];
 }
 
@@ -132,13 +146,13 @@ export function buildTemplateSnapshot(params: {
   title: string;
   description: string | null;
   scope: InterviewQuestionTemplateScope;
-  jobDescriptionId: string | null;
+  jobDescriptionIds: string[];
   questions: InterviewQuestionTemplateQuestionRecord[];
 }): InterviewQuestionTemplateSnapshot {
   const sortedQuestions = [...params.questions].toSorted((a, b) => a.sortOrder - b.sortOrder);
   return {
     description: params.description,
-    jobDescriptionId: params.jobDescriptionId,
+    jobDescriptionIds: [...params.jobDescriptionIds].toSorted(),
     questions: sortedQuestions.map((question) => ({
       content: question.content,
       difficulty: question.difficulty,

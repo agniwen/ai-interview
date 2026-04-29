@@ -6,14 +6,16 @@ import type {
   InterviewQuestionTemplateScope,
   InterviewQuestionTemplateSnapshot,
   InterviewQuestionTemplateVersionRecord,
+  JobDescriptionRef,
 } from "@/lib/interview-question-templates";
-import { and, asc, count, desc, eq, ilike, inArray, or } from "drizzle-orm";
+import { and, asc, count, desc, eq, exists, ilike, inArray, or } from "drizzle-orm";
 import { cacheLife, cacheTag } from "next/cache";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import {
   interviewQuestionTemplate,
   interviewQuestionTemplateBinding,
+  interviewQuestionTemplateJobDescription,
   interviewQuestionTemplateQuestion,
   interviewQuestionTemplateVersion,
   jobDescription,
@@ -60,7 +62,10 @@ function buildWhereConditions({
   scope?: InterviewQuestionTemplateScope;
   jobDescriptionId?: string;
 }) {
-  const conditions = [] as (ReturnType<typeof ilike> | ReturnType<typeof eq>)[];
+  // 用 any[] 容纳 exists() 等 SQL chunk，避免与 ilike/eq 类型不兼容。
+  // Mixed condition kinds (eq / ilike / exists) need a permissive container.
+  // oxlint-disable-next-line no-explicit-any
+  const conditions: any[] = [];
   if (search) {
     const searchCond = or(
       ilike(interviewQuestionTemplate.title, `%${search}%`),
@@ -74,12 +79,62 @@ function buildWhereConditions({
     conditions.push(eq(interviewQuestionTemplate.scope, scope));
   }
   if (jobDescriptionId) {
-    conditions.push(eq(interviewQuestionTemplate.jobDescriptionId, jobDescriptionId));
+    // 模板只要有任一关联到该 JD 即可命中
+    conditions.push(
+      exists(
+        db
+          .select({ one: interviewQuestionTemplateJobDescription.templateId })
+          .from(interviewQuestionTemplateJobDescription)
+          .where(
+            and(
+              eq(interviewQuestionTemplateJobDescription.templateId, interviewQuestionTemplate.id),
+              eq(interviewQuestionTemplateJobDescription.jobDescriptionId, jobDescriptionId),
+            ),
+          ),
+      ),
+    );
   }
   if (conditions.length === 0) {
     return;
   }
   return and(...conditions);
+}
+
+async function loadJobDescriptionsByTemplate(
+  templateIds: string[],
+): Promise<Map<string, JobDescriptionRef[]>> {
+  const map = new Map<string, JobDescriptionRef[]>();
+  if (templateIds.length === 0) {
+    return map;
+  }
+  const rows = await db
+    .select({
+      id: jobDescription.id,
+      name: jobDescription.name,
+      templateId: interviewQuestionTemplateJobDescription.templateId,
+    })
+    .from(interviewQuestionTemplateJobDescription)
+    .innerJoin(
+      jobDescription,
+      eq(interviewQuestionTemplateJobDescription.jobDescriptionId, jobDescription.id),
+    )
+    .where(inArray(interviewQuestionTemplateJobDescription.templateId, templateIds))
+    .orderBy(asc(jobDescription.name));
+  for (const row of rows) {
+    const list = map.get(row.templateId);
+    const ref: JobDescriptionRef = { id: row.id, name: row.name };
+    if (list) {
+      list.push(ref);
+    } else {
+      map.set(row.templateId, [ref]);
+    }
+  }
+  return map;
+}
+
+async function loadJobDescriptionRefs(templateId: string): Promise<JobDescriptionRef[]> {
+  const refs = await loadJobDescriptionsByTemplate([templateId]);
+  return refs.get(templateId) ?? [];
 }
 
 function buildOrderBy(sortBy: SortColumn, sortOrder: "asc" | "desc") {
@@ -125,14 +180,11 @@ function listTemplateRows({
       createdBy: interviewQuestionTemplate.createdBy,
       description: interviewQuestionTemplate.description,
       id: interviewQuestionTemplate.id,
-      jobDescriptionId: interviewQuestionTemplate.jobDescriptionId,
-      jobDescriptionName: jobDescription.name,
       scope: interviewQuestionTemplate.scope,
       title: interviewQuestionTemplate.title,
       updatedAt: interviewQuestionTemplate.updatedAt,
     })
     .from(interviewQuestionTemplate)
-    .leftJoin(jobDescription, eq(interviewQuestionTemplate.jobDescriptionId, jobDescription.id))
     .where(where)
     .orderBy(buildOrderBy(sortBy, sortOrder))
     .$dynamic();
@@ -203,6 +255,7 @@ function toListRecord(
   row: Awaited<ReturnType<typeof listTemplateRows>>[number],
   questionCount: number,
   bindingCount: number,
+  jobDescriptions: JobDescriptionRef[],
 ): InterviewQuestionTemplateListRecord {
   return {
     bindingCount,
@@ -210,8 +263,8 @@ function toListRecord(
     createdBy: row.createdBy,
     description: row.description,
     id: row.id,
-    jobDescriptionId: row.jobDescriptionId,
-    jobDescriptionName: row.jobDescriptionName,
+    jobDescriptionIds: jobDescriptions.map((jd) => jd.id),
+    jobDescriptions,
     questionCount,
     scope: row.scope,
     title: row.title,
@@ -276,16 +329,22 @@ export async function queryPaginatedInterviewQuestionTemplates(
   ]);
 
   const ids = rows.map((row) => row.id);
-  const [questionCounts, bindingCounts] = await Promise.all([
+  const [questionCounts, bindingCounts, jdsByTemplate] = await Promise.all([
     loadQuestionCountsByTemplate(ids),
     loadBindingCountsByTemplate(ids),
+    loadJobDescriptionsByTemplate(ids),
   ]);
 
   return {
     page,
     pageSize,
     records: rows.map((row) =>
-      toListRecord(row, questionCounts.get(row.id) ?? 0, bindingCounts.get(row.id) ?? 0),
+      toListRecord(
+        row,
+        questionCounts.get(row.id) ?? 0,
+        bindingCounts.get(row.id) ?? 0,
+        jdsByTemplate.get(row.id) ?? [],
+      ),
     ),
     total,
     totalPages: Math.max(1, Math.ceil(total / pageSize)),
@@ -318,12 +377,18 @@ export async function listAllInterviewQuestionTemplates(): Promise<
 
   const rows = await listTemplateRows({ sortBy: "title", sortOrder: "asc" });
   const ids = rows.map((row) => row.id);
-  const [questionCounts, bindingCounts] = await Promise.all([
+  const [questionCounts, bindingCounts, jdsByTemplate] = await Promise.all([
     loadQuestionCountsByTemplate(ids),
     loadBindingCountsByTemplate(ids),
+    loadJobDescriptionsByTemplate(ids),
   ]);
   return rows.map((row) =>
-    toListRecord(row, questionCounts.get(row.id) ?? 0, bindingCounts.get(row.id) ?? 0),
+    toListRecord(
+      row,
+      questionCounts.get(row.id) ?? 0,
+      bindingCounts.get(row.id) ?? 0,
+      jdsByTemplate.get(row.id) ?? [],
+    ),
   );
 }
 
@@ -352,17 +417,21 @@ export async function loadInterviewQuestionTemplateById(
   if (!row) {
     return null;
   }
-  const questions = await db
-    .select()
-    .from(interviewQuestionTemplateQuestion)
-    .where(eq(interviewQuestionTemplateQuestion.templateId, id))
-    .orderBy(asc(interviewQuestionTemplateQuestion.sortOrder));
+  const [questions, jds] = await Promise.all([
+    db
+      .select()
+      .from(interviewQuestionTemplateQuestion)
+      .where(eq(interviewQuestionTemplateQuestion.templateId, id))
+      .orderBy(asc(interviewQuestionTemplateQuestion.sortOrder)),
+    loadJobDescriptionRefs(id),
+  ]);
   return {
     createdAt: serializeDate(row.createdAt),
     createdBy: row.createdBy,
     description: row.description,
     id: row.id,
-    jobDescriptionId: row.jobDescriptionId,
+    jobDescriptionIds: jds.map((jd) => jd.id),
+    jobDescriptions: jds,
     questions: questions.map(mapQuestionRow),
     scope: row.scope,
     title: row.title,
@@ -395,7 +464,23 @@ export async function loadApplicableInterviewQuestionTemplates(interviewRecordId
         jobDescriptionId
           ? and(
               eq(interviewQuestionTemplate.scope, "job_description"),
-              eq(interviewQuestionTemplate.jobDescriptionId, jobDescriptionId),
+              exists(
+                db
+                  .select({ one: interviewQuestionTemplateJobDescription.templateId })
+                  .from(interviewQuestionTemplateJobDescription)
+                  .where(
+                    and(
+                      eq(
+                        interviewQuestionTemplateJobDescription.templateId,
+                        interviewQuestionTemplate.id,
+                      ),
+                      eq(
+                        interviewQuestionTemplateJobDescription.jobDescriptionId,
+                        jobDescriptionId,
+                      ),
+                    ),
+                  ),
+              ),
             )
           : undefined,
       ),
@@ -407,11 +492,14 @@ export async function loadApplicableInterviewQuestionTemplates(interviewRecordId
   }
 
   const ids = templateRows.map((row) => row.id);
-  const questionRows = await db
-    .select()
-    .from(interviewQuestionTemplateQuestion)
-    .where(inArray(interviewQuestionTemplateQuestion.templateId, ids))
-    .orderBy(asc(interviewQuestionTemplateQuestion.sortOrder));
+  const [questionRows, jdsByTemplate] = await Promise.all([
+    db
+      .select()
+      .from(interviewQuestionTemplateQuestion)
+      .where(inArray(interviewQuestionTemplateQuestion.templateId, ids))
+      .orderBy(asc(interviewQuestionTemplateQuestion.sortOrder)),
+    loadJobDescriptionsByTemplate(ids),
+  ]);
 
   const questionsByTemplate = new Map<string, InterviewQuestionTemplateQuestionRecord[]>();
   for (const id of ids) {
@@ -421,17 +509,21 @@ export async function loadApplicableInterviewQuestionTemplates(interviewRecordId
     questionsByTemplate.get(row.templateId)?.push(mapQuestionRow(row));
   }
 
-  const toRecord = (row: (typeof templateRows)[number]): InterviewQuestionTemplateRecord => ({
-    createdAt: serializeDate(row.createdAt),
-    createdBy: row.createdBy,
-    description: row.description,
-    id: row.id,
-    jobDescriptionId: row.jobDescriptionId,
-    questions: questionsByTemplate.get(row.id) ?? [],
-    scope: row.scope,
-    title: row.title,
-    updatedAt: serializeDate(row.updatedAt),
-  });
+  const toRecord = (row: (typeof templateRows)[number]): InterviewQuestionTemplateRecord => {
+    const jds = jdsByTemplate.get(row.id) ?? [];
+    return {
+      createdAt: serializeDate(row.createdAt),
+      createdBy: row.createdBy,
+      description: row.description,
+      id: row.id,
+      jobDescriptionIds: jds.map((jd) => jd.id),
+      jobDescriptions: jds,
+      questions: questionsByTemplate.get(row.id) ?? [],
+      scope: row.scope,
+      title: row.title,
+      updatedAt: serializeDate(row.updatedAt),
+    };
+  };
 
   const global: InterviewQuestionTemplateRecord[] = [];
   const jobSpecific: InterviewQuestionTemplateRecord[] = [];
@@ -469,9 +561,13 @@ export async function resolveOrCreateInterviewQuestionTemplateVersion(
     .where(eq(interviewQuestionTemplateQuestion.templateId, templateId))
     .orderBy(asc(interviewQuestionTemplateQuestion.sortOrder));
 
+  const linkRows = await tx
+    .select({ jobDescriptionId: interviewQuestionTemplateJobDescription.jobDescriptionId })
+    .from(interviewQuestionTemplateJobDescription)
+    .where(eq(interviewQuestionTemplateJobDescription.templateId, templateId));
   const snapshot: InterviewQuestionTemplateSnapshot = buildTemplateSnapshot({
     description: templateRow.description,
-    jobDescriptionId: templateRow.jobDescriptionId,
+    jobDescriptionIds: linkRows.map((row) => row.jobDescriptionId),
     questions: questionRows.map(mapQuestionRow),
     scope: templateRow.scope,
     templateId: templateRow.id,
@@ -610,7 +706,23 @@ async function listApplicableTemplateMetas(
         jobDescriptionId
           ? and(
               eq(interviewQuestionTemplate.scope, "job_description"),
-              eq(interviewQuestionTemplate.jobDescriptionId, jobDescriptionId),
+              exists(
+                tx
+                  .select({ one: interviewQuestionTemplateJobDescription.templateId })
+                  .from(interviewQuestionTemplateJobDescription)
+                  .where(
+                    and(
+                      eq(
+                        interviewQuestionTemplateJobDescription.templateId,
+                        interviewQuestionTemplate.id,
+                      ),
+                      eq(
+                        interviewQuestionTemplateJobDescription.jobDescriptionId,
+                        jobDescriptionId,
+                      ),
+                    ),
+                  ),
+              ),
             )
           : undefined,
       ),

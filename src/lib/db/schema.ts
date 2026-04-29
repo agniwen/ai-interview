@@ -540,9 +540,6 @@ export const candidateFormTemplate = pgTable(
     createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
     description: text("description"),
     id: text("id").primaryKey(),
-    jobDescriptionId: text("job_description_id").references(() => jobDescription.id, {
-      onDelete: "cascade",
-    }),
     scope: text("scope").$type<CandidateFormScope>().notNull(),
     title: text("title").notNull(),
     updatedAt: timestamp("updated_at")
@@ -552,8 +549,27 @@ export const candidateFormTemplate = pgTable(
   },
   (table) => [
     index("candidate_form_template_scope_idx").on(table.scope),
-    index("candidate_form_template_job_description_idx").on(table.jobDescriptionId),
     index("candidate_form_template_created_at_idx").on(table.createdAt),
+  ],
+);
+
+// 表单模板 ↔ 在招岗位 多对多关联表
+// Many-to-many link between candidate form templates and job descriptions.
+// 仅当 template.scope = "job_description" 时存在记录；scope 切回 "global" 时
+// 应一并清空。删除 JD 或 template 时通过外键级联清理。
+export const candidateFormTemplateJobDescription = pgTable(
+  "candidate_form_template_job_description",
+  {
+    jobDescriptionId: text("job_description_id")
+      .notNull()
+      .references(() => jobDescription.id, { onDelete: "cascade" }),
+    templateId: text("template_id")
+      .notNull()
+      .references(() => candidateFormTemplate.id, { onDelete: "cascade" }),
+  },
+  (table) => [
+    primaryKey({ columns: [table.templateId, table.jobDescriptionId] }),
+    index("candidate_form_template_jd_jd_idx").on(table.jobDescriptionId),
   ],
 );
 
@@ -647,9 +663,6 @@ export const interviewQuestionTemplate = pgTable(
     createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
     description: text("description"),
     id: text("id").primaryKey(),
-    jobDescriptionId: text("job_description_id").references(() => jobDescription.id, {
-      onDelete: "cascade",
-    }),
     scope: text("scope").$type<InterviewQuestionTemplateScope>().notNull(),
     title: text("title").notNull(),
     updatedAt: timestamp("updated_at")
@@ -659,8 +672,25 @@ export const interviewQuestionTemplate = pgTable(
   },
   (table) => [
     index("interview_question_template_scope_idx").on(table.scope),
-    index("interview_question_template_job_description_idx").on(table.jobDescriptionId),
     index("interview_question_template_created_at_idx").on(table.createdAt),
+  ],
+);
+
+// 面试题模板 ↔ 在招岗位 多对多关联表
+// Many-to-many link between interview question templates and job descriptions.
+export const interviewQuestionTemplateJobDescription = pgTable(
+  "interview_question_template_job_description",
+  {
+    jobDescriptionId: text("job_description_id")
+      .notNull()
+      .references(() => jobDescription.id, { onDelete: "cascade" }),
+    templateId: text("template_id")
+      .notNull()
+      .references(() => interviewQuestionTemplate.id, { onDelete: "cascade" }),
+  },
+  (table) => [
+    primaryKey({ columns: [table.templateId, table.jobDescriptionId] }),
+    index("interview_question_template_jd_jd_idx").on(table.jobDescriptionId),
   ],
 );
 

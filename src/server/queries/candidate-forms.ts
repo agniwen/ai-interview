@@ -7,14 +7,16 @@ import type {
   CandidateFormTemplateRecord,
   CandidateFormTemplateSnapshot,
   CandidateFormTemplateVersionRecord,
+  JobDescriptionRef,
 } from "@/lib/candidate-forms";
-import { and, asc, count, desc, eq, ilike, inArray, or } from "drizzle-orm";
+import { and, asc, count, desc, eq, exists, ilike, inArray, or } from "drizzle-orm";
 import { cacheLife, cacheTag } from "next/cache";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import {
   candidateFormSubmission,
   candidateFormTemplate,
+  candidateFormTemplateJobDescription,
   candidateFormTemplateQuestion,
   candidateFormTemplateVersion,
   jobDescription,
@@ -61,7 +63,10 @@ function buildWhereConditions({
   scope?: CandidateFormScope;
   jobDescriptionId?: string;
 }) {
-  const conditions = [] as (ReturnType<typeof ilike> | ReturnType<typeof eq>)[];
+  // 用 any[] 容纳 exists() 等 SQL chunk
+  // Mixed condition kinds (eq / ilike / exists) need a permissive container.
+  // oxlint-disable-next-line no-explicit-any
+  const conditions: any[] = [];
   if (search) {
     const searchCond = or(
       ilike(candidateFormTemplate.title, `%${search}%`),
@@ -75,12 +80,61 @@ function buildWhereConditions({
     conditions.push(eq(candidateFormTemplate.scope, scope));
   }
   if (jobDescriptionId) {
-    conditions.push(eq(candidateFormTemplate.jobDescriptionId, jobDescriptionId));
+    conditions.push(
+      exists(
+        db
+          .select({ one: candidateFormTemplateJobDescription.templateId })
+          .from(candidateFormTemplateJobDescription)
+          .where(
+            and(
+              eq(candidateFormTemplateJobDescription.templateId, candidateFormTemplate.id),
+              eq(candidateFormTemplateJobDescription.jobDescriptionId, jobDescriptionId),
+            ),
+          ),
+      ),
+    );
   }
   if (conditions.length === 0) {
     return;
   }
   return and(...conditions);
+}
+
+async function loadJobDescriptionsByTemplate(
+  templateIds: string[],
+): Promise<Map<string, JobDescriptionRef[]>> {
+  const map = new Map<string, JobDescriptionRef[]>();
+  if (templateIds.length === 0) {
+    return map;
+  }
+  const rows = await db
+    .select({
+      id: jobDescription.id,
+      name: jobDescription.name,
+      templateId: candidateFormTemplateJobDescription.templateId,
+    })
+    .from(candidateFormTemplateJobDescription)
+    .innerJoin(
+      jobDescription,
+      eq(candidateFormTemplateJobDescription.jobDescriptionId, jobDescription.id),
+    )
+    .where(inArray(candidateFormTemplateJobDescription.templateId, templateIds))
+    .orderBy(asc(jobDescription.name));
+  for (const row of rows) {
+    const list = map.get(row.templateId);
+    const ref: JobDescriptionRef = { id: row.id, name: row.name };
+    if (list) {
+      list.push(ref);
+    } else {
+      map.set(row.templateId, [ref]);
+    }
+  }
+  return map;
+}
+
+async function loadJobDescriptionRefs(templateId: string): Promise<JobDescriptionRef[]> {
+  const refs = await loadJobDescriptionsByTemplate([templateId]);
+  return refs.get(templateId) ?? [];
 }
 
 function buildOrderBy(sortBy: SortColumn, sortOrder: "asc" | "desc") {
@@ -126,14 +180,11 @@ function listTemplateRows({
       createdBy: candidateFormTemplate.createdBy,
       description: candidateFormTemplate.description,
       id: candidateFormTemplate.id,
-      jobDescriptionId: candidateFormTemplate.jobDescriptionId,
-      jobDescriptionName: jobDescription.name,
       scope: candidateFormTemplate.scope,
       title: candidateFormTemplate.title,
       updatedAt: candidateFormTemplate.updatedAt,
     })
     .from(candidateFormTemplate)
-    .leftJoin(jobDescription, eq(candidateFormTemplate.jobDescriptionId, jobDescription.id))
     .where(where)
     .orderBy(buildOrderBy(sortBy, sortOrder))
     .$dynamic();
@@ -204,14 +255,15 @@ function toListRecord(
   row: Awaited<ReturnType<typeof listTemplateRows>>[number],
   questionCount: number,
   submissionCount: number,
+  jobDescriptions: JobDescriptionRef[],
 ): CandidateFormTemplateListRecord {
   return {
     createdAt: serializeDate(row.createdAt),
     createdBy: row.createdBy,
     description: row.description,
     id: row.id,
-    jobDescriptionId: row.jobDescriptionId,
-    jobDescriptionName: row.jobDescriptionName,
+    jobDescriptionIds: jobDescriptions.map((jd) => jd.id),
+    jobDescriptions,
     questionCount,
     scope: row.scope,
     submissionCount,
@@ -276,16 +328,22 @@ export async function queryPaginatedCandidateFormTemplates(
   ]);
 
   const ids = rows.map((row) => row.id);
-  const [questionCounts, submissionCounts] = await Promise.all([
+  const [questionCounts, submissionCounts, jdsByTemplate] = await Promise.all([
     loadQuestionCountsByTemplate(ids),
     loadSubmissionCountsByTemplate(ids),
+    loadJobDescriptionsByTemplate(ids),
   ]);
 
   return {
     page,
     pageSize,
     records: rows.map((row) =>
-      toListRecord(row, questionCounts.get(row.id) ?? 0, submissionCounts.get(row.id) ?? 0),
+      toListRecord(
+        row,
+        questionCounts.get(row.id) ?? 0,
+        submissionCounts.get(row.id) ?? 0,
+        jdsByTemplate.get(row.id) ?? [],
+      ),
     ),
     total,
     totalPages: Math.max(1, Math.ceil(total / pageSize)),
@@ -316,12 +374,18 @@ export async function listAllCandidateFormTemplates(): Promise<CandidateFormTemp
 
   const rows = await listTemplateRows({ sortBy: "title", sortOrder: "asc" });
   const ids = rows.map((row) => row.id);
-  const [questionCounts, submissionCounts] = await Promise.all([
+  const [questionCounts, submissionCounts, jdsByTemplate] = await Promise.all([
     loadQuestionCountsByTemplate(ids),
     loadSubmissionCountsByTemplate(ids),
+    loadJobDescriptionsByTemplate(ids),
   ]);
   return rows.map((row) =>
-    toListRecord(row, questionCounts.get(row.id) ?? 0, submissionCounts.get(row.id) ?? 0),
+    toListRecord(
+      row,
+      questionCounts.get(row.id) ?? 0,
+      submissionCounts.get(row.id) ?? 0,
+      jdsByTemplate.get(row.id) ?? [],
+    ),
   );
 }
 
@@ -354,17 +418,21 @@ export async function loadCandidateFormTemplateById(
   if (!row) {
     return null;
   }
-  const questions = await db
-    .select()
-    .from(candidateFormTemplateQuestion)
-    .where(eq(candidateFormTemplateQuestion.templateId, id))
-    .orderBy(asc(candidateFormTemplateQuestion.sortOrder));
+  const [questions, jds] = await Promise.all([
+    db
+      .select()
+      .from(candidateFormTemplateQuestion)
+      .where(eq(candidateFormTemplateQuestion.templateId, id))
+      .orderBy(asc(candidateFormTemplateQuestion.sortOrder)),
+    loadJobDescriptionRefs(id),
+  ]);
   return {
     createdAt: serializeDate(row.createdAt),
     createdBy: row.createdBy,
     description: row.description,
     id: row.id,
-    jobDescriptionId: row.jobDescriptionId,
+    jobDescriptionIds: jds.map((jd) => jd.id),
+    jobDescriptions: jds,
     questions: questions.map(mapQuestionRow),
     scope: row.scope,
     title: row.title,
@@ -402,7 +470,17 @@ export async function loadApplicableCandidateFormTemplates(interviewRecordId: st
         jobDescriptionId
           ? and(
               eq(candidateFormTemplate.scope, "job_description"),
-              eq(candidateFormTemplate.jobDescriptionId, jobDescriptionId),
+              exists(
+                db
+                  .select({ one: candidateFormTemplateJobDescription.templateId })
+                  .from(candidateFormTemplateJobDescription)
+                  .where(
+                    and(
+                      eq(candidateFormTemplateJobDescription.templateId, candidateFormTemplate.id),
+                      eq(candidateFormTemplateJobDescription.jobDescriptionId, jobDescriptionId),
+                    ),
+                  ),
+              ),
             )
           : undefined,
       ),
@@ -414,11 +492,14 @@ export async function loadApplicableCandidateFormTemplates(interviewRecordId: st
   }
 
   const ids = templateRows.map((row) => row.id);
-  const questionRows = await db
-    .select()
-    .from(candidateFormTemplateQuestion)
-    .where(inArray(candidateFormTemplateQuestion.templateId, ids))
-    .orderBy(asc(candidateFormTemplateQuestion.sortOrder));
+  const [questionRows, jdsByTemplate] = await Promise.all([
+    db
+      .select()
+      .from(candidateFormTemplateQuestion)
+      .where(inArray(candidateFormTemplateQuestion.templateId, ids))
+      .orderBy(asc(candidateFormTemplateQuestion.sortOrder)),
+    loadJobDescriptionsByTemplate(ids),
+  ]);
 
   const questionsByTemplate = new Map<string, CandidateFormTemplateQuestionRecord[]>();
   for (const id of ids) {
@@ -428,17 +509,21 @@ export async function loadApplicableCandidateFormTemplates(interviewRecordId: st
     questionsByTemplate.get(row.templateId)?.push(mapQuestionRow(row));
   }
 
-  const toRecord = (row: (typeof templateRows)[number]): CandidateFormTemplateRecord => ({
-    createdAt: serializeDate(row.createdAt),
-    createdBy: row.createdBy,
-    description: row.description,
-    id: row.id,
-    jobDescriptionId: row.jobDescriptionId,
-    questions: questionsByTemplate.get(row.id) ?? [],
-    scope: row.scope,
-    title: row.title,
-    updatedAt: serializeDate(row.updatedAt),
-  });
+  const toRecord = (row: (typeof templateRows)[number]): CandidateFormTemplateRecord => {
+    const jds = jdsByTemplate.get(row.id) ?? [];
+    return {
+      createdAt: serializeDate(row.createdAt),
+      createdBy: row.createdBy,
+      description: row.description,
+      id: row.id,
+      jobDescriptionIds: jds.map((jd) => jd.id),
+      jobDescriptions: jds,
+      questions: questionsByTemplate.get(row.id) ?? [],
+      scope: row.scope,
+      title: row.title,
+      updatedAt: serializeDate(row.updatedAt),
+    };
+  };
 
   const global: CandidateFormTemplateRecord[] = [];
   const jobSpecific: CandidateFormTemplateRecord[] = [];
@@ -472,15 +557,21 @@ export async function resolveOrCreateTemplateVersion(
   if (!templateRow) {
     throw new Error(`模版 ${templateId} 不存在`);
   }
-  const questionRows = await tx
-    .select()
-    .from(candidateFormTemplateQuestion)
-    .where(eq(candidateFormTemplateQuestion.templateId, templateId))
-    .orderBy(asc(candidateFormTemplateQuestion.sortOrder));
+  const [questionRows, linkRows] = await Promise.all([
+    tx
+      .select()
+      .from(candidateFormTemplateQuestion)
+      .where(eq(candidateFormTemplateQuestion.templateId, templateId))
+      .orderBy(asc(candidateFormTemplateQuestion.sortOrder)),
+    tx
+      .select({ jobDescriptionId: candidateFormTemplateJobDescription.jobDescriptionId })
+      .from(candidateFormTemplateJobDescription)
+      .where(eq(candidateFormTemplateJobDescription.templateId, templateId)),
+  ]);
 
   const snapshot: CandidateFormTemplateSnapshot = buildTemplateSnapshot({
     description: templateRow.description,
-    jobDescriptionId: templateRow.jobDescriptionId,
+    jobDescriptionIds: linkRows.map((row) => row.jobDescriptionId),
     questions: questionRows.map(mapQuestionRow),
     scope: templateRow.scope,
     templateId: templateRow.id,
