@@ -287,59 +287,56 @@ ${autoJdContext}
 }
 
 /**
- * Iterate the UI message stream produced by `runResumeScreening(...).toUIMessageStream(...)`,
- * forward each chunk to a writable stream, and return the accumulated assistant message.
+ * Iterate the stream produced by `runResumeScreening(...).toUIMessageStream(...)`,
+ * forward each chunk to a writable, and return the accumulated assistant message.
  *
- * The accumulator builds a final `UIMessage` by replaying chunks via the AI SDK's
- * `readUIMessageStream` helper. The caller is responsible for providing the
- * destination `WritableStream<UIMessageChunk>` (e.g. the workflow writable from
- * `getWritable()`).
+ * Lifecycle: this function owns the writable's close/abort. On normal completion
+ * it calls `writer.close()`; on error it calls `writer.abort(err)` and rethrows.
+ * Callers should NOT close the writable themselves.
  */
 export async function pumpAssistantStream(args: {
   stream: ReadableStream<UIMessageChunk>;
   writable: WritableStream<UIMessageChunk>;
-  originalMessages: UIMessage[];
 }): Promise<UIMessage | null> {
-  const { stream, writable, originalMessages } = args;
+  const { stream, writable } = args;
 
-  // Tee the stream: one branch goes to the writable (forwarded as-is), the other
+  let lastMessage: UIMessage | null = null;
+
+  // Tee the stream: one branch goes to the writable as raw chunks, the other
   // is consumed by readUIMessageStream to accumulate the final UIMessage.
+  // Note: tee() buffers for the slower branch. For chat assistant messages
+  // the buffer stays small.
   const [forClient, forAccumulator] = stream.tee();
 
-  // Forward chunks to the writable. We use a manual writer rather than pipeTo()
-  // so that we don't close the writable when the stream ends (the workflow
-  // runtime owns its lifecycle and may want to send additional chunks).
   const forwardPromise = (async () => {
     const reader = forClient.getReader();
     const writer = writable.getWriter();
     try {
-      while (true) {
+      for (;;) {
         const { done, value } = await reader.read();
         if (done) {
           break;
         }
         await writer.write(value);
       }
+      await writer.close();
+    } catch (error) {
+      await writer.abort(error).catch(() => {
+        // ignore: writable may already be in an errored state
+      });
+      throw error;
     } finally {
       reader.releaseLock();
-      writer.releaseLock();
     }
   })();
 
-  // Seed the accumulator with the previous assistant message if the last
-  // message in originalMessages is an assistant message (resume case).
-  const lastOriginal = originalMessages.at(-1);
-  const seedMessage = lastOriginal && lastOriginal.role === "assistant" ? lastOriginal : undefined;
+  const accumulatorPromise = (async () => {
+    for await (const message of readUIMessageStream({ stream: forAccumulator })) {
+      lastMessage = message;
+    }
+  })();
 
-  let lastMessage: UIMessage | null = seedMessage ?? null;
+  await Promise.all([forwardPromise, accumulatorPromise]);
 
-  for await (const message of readUIMessageStream({
-    message: seedMessage,
-    stream: forAccumulator,
-  })) {
-    lastMessage = message;
-  }
-
-  await forwardPromise;
   return lastMessage;
 }

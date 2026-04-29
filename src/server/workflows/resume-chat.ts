@@ -35,7 +35,6 @@ async function runScreeningAndStream(
   });
 
   return await pumpAssistantStream({
-    originalMessages: input.messages,
     stream,
     writable,
   });
@@ -56,14 +55,15 @@ export async function runResumeChatWorkflow(input: ResumeChatWorkflowInput) {
 
   const writable = getWritable<UIMessageChunk>();
 
-  const assistantMessage = await runScreeningAndStream(input, writable);
-
-  if (assistantMessage) {
-    await persistAssistantMessageStep({
-      conversationId: input.chatId,
-      message: assistantMessage,
-    });
+  try {
+    const assistantMessage = await runScreeningAndStream(input, writable);
+    if (assistantMessage) {
+      await persistAssistantMessageStep({
+        conversationId: input.chatId,
+        message: assistantMessage,
+      });
+    }
+  } finally {
+    await clearActiveWorkflowRunIdStep(input.chatId);
   }
-
-  await clearActiveWorkflowRunIdStep(input.chatId);
 }
