@@ -39,7 +39,7 @@ const faqs = [
 
 export function Faq() {
   return (
-    <Section>
+    <Section width="wide">
       <Eyebrow>FAQ</Eyebrow>
       <SectionTitle>常见问题</SectionTitle>
       <Accordion className="mt-10 w-full" collapsible type="single">

@@ -14,7 +14,7 @@ interface CtaSectionProps {
 
 export function CtaSection({ isPending, onResumeFiltering, onWorkbench }: CtaSectionProps) {
   return (
-    <Section>
+    <Section width="wide">
       <div className="rounded-3xl border border-primary/15 bg-primary/5 px-8 py-16 text-center backdrop-blur sm:px-12 sm:py-20">
         <SectionTitle className="mx-auto text-balance">准备好让招聘流程更连续了吗？</SectionTitle>
         <p className="mx-auto mt-4 max-w-2xl text-base text-muted-foreground leading-relaxed sm:text-lg">

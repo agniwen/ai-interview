@@ -49,7 +49,7 @@ const personas: Persona[] = [
 
 export function Personas() {
   return (
-    <Section>
+    <Section width="wide">
       <Eyebrow>For Every Role</Eyebrow>
       <SectionTitle>不同角色，同一套招聘工作流</SectionTitle>
       <SectionLead>
