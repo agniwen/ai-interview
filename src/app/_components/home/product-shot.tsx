@@ -8,7 +8,7 @@ import { Section } from "./section";
 
 export function ProductShot() {
   return (
-    <Section className="!py-16 sm:!py-20" width="wide">
+    <Section className="!pt-8 !pb-16 sm:!pt-10 sm:!pb-20" width="wide">
       <FadeContent>
         <Screenshot
           alt="工作台主界面预览"

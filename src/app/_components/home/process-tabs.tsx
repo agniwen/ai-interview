@@ -1,8 +1,10 @@
-// 用途：从简历到评估的 4 步骤交互式标签切换
-// Purpose: Interactive 4-step process tabs.
+// 用途：从简历到评估的 4 步骤纵向标签切换（Notion 风格：左侧步骤列表，右侧大图）
+// Purpose: Vertical 4-step process tabs (Notion style: left list, right image).
 "use client";
 
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useState } from "react";
+import { FadeContent } from "@/components/react-bits/fade-content";
+import { cn } from "@/lib/utils";
 import { Screenshot } from "./screenshot";
 import { Eyebrow, Section, SectionLead, SectionTitle } from "./section";
 
@@ -61,49 +63,82 @@ const steps: Step[] = [
 ];
 
 export function ProcessTabs() {
+  const [activeValue, setActiveValue] = useState<string>(steps[0].value);
+  const activeStep = steps.find((step) => step.value === activeValue) ?? steps[0];
+
   return (
     <Section width="wide">
-      <Eyebrow>How It Works</Eyebrow>
-      <SectionTitle>从一份 JD 到一次完整评估，四步贯通</SectionTitle>
-      <SectionLead>每一步都在同一个产品里完成，候选人上下文与团队判断不会断开。</SectionLead>
+      <div className="max-w-3xl">
+        <Eyebrow>How It Works</Eyebrow>
+        <SectionTitle>从一份 JD 到一次完整评估，四步贯通</SectionTitle>
+        <SectionLead>每一步都在同一个产品里完成，候选人上下文与团队判断不会断开。</SectionLead>
+      </div>
 
-      <Tabs className="mt-10" defaultValue="step-1">
-        <TabsList className="h-auto w-full max-w-3xl flex-wrap gap-1 bg-muted/40 p-1.5">
-          {steps.map((step) => (
-            <TabsTrigger
-              className="min-w-[6rem] flex-1 py-2 text-xs sm:text-sm"
-              key={step.value}
-              value={step.value}
-            >
-              <span className="mr-1.5 font-mono text-[10px] text-foreground/50 sm:text-xs">
-                {step.number}
-              </span>
-              {step.label}
-            </TabsTrigger>
-          ))}
-        </TabsList>
+      <div className="mt-12 grid grid-cols-1 gap-10 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:gap-16">
+        {/* 左侧：步骤列表 / Left: step list */}
+        <div className="flex flex-col">
+          <ol className="flex flex-col">
+            {steps.map((step) => {
+              const isActive = step.value === activeValue;
+              return (
+                <li key={step.value}>
+                  <button
+                    aria-current={isActive ? "step" : undefined}
+                    className={cn(
+                      "group relative w-full border-foreground/10 border-l-2 py-5 pl-6 text-left transition-colors",
+                      isActive ? "border-l-primary" : "hover:border-l-foreground/30",
+                    )}
+                    onClick={() => setActiveValue(step.value)}
+                    type="button"
+                  >
+                    <div className="flex items-baseline gap-3">
+                      <span
+                        className={cn(
+                          "font-mono text-xs transition-colors",
+                          isActive ? "text-primary" : "text-foreground/40",
+                        )}
+                      >
+                        {step.number}
+                      </span>
+                      <span
+                        className={cn(
+                          "font-semibold text-base transition-colors sm:text-lg",
+                          isActive ? "text-foreground" : "text-foreground/55",
+                        )}
+                      >
+                        {step.title}
+                      </span>
+                    </div>
+                    <p
+                      className={cn(
+                        "grid overflow-hidden text-foreground/70 text-sm leading-relaxed transition-[grid-template-rows,opacity,margin] duration-300",
+                        isActive
+                          ? "mt-3 grid-rows-[1fr] opacity-100"
+                          : "mt-0 grid-rows-[0fr] opacity-0",
+                      )}
+                    >
+                      <span className="min-h-0">{step.body}</span>
+                    </p>
+                  </button>
+                </li>
+              );
+            })}
+          </ol>
+        </div>
 
-        {steps.map((step) => (
-          <TabsContent className="mt-8" key={step.value} value={step.value}>
-            <div className="grid grid-cols-1 items-start gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.6fr)] lg:gap-12">
-              <div>
-                <p className="font-mono text-primary text-sm">{step.number}</p>
-                <h3 className="mt-2 font-bold text-2xl text-foreground tracking-tight sm:text-3xl">
-                  {step.title}
-                </h3>
-                <p className="mt-3 text-base text-muted-foreground leading-relaxed">{step.body}</p>
-              </div>
-              <Screenshot
-                alt={step.imageAlt}
-                darkSrc={step.darkSrc}
-                height={900}
-                lightSrc={step.lightSrc}
-                width={1440}
-              />
-            </div>
-          </TabsContent>
-        ))}
-      </Tabs>
+        {/* 右侧：当前步骤的产品截图 / Right: active step screenshot */}
+        <div className="lg:sticky lg:top-24 lg:self-start">
+          <FadeContent key={activeStep.value}>
+            <Screenshot
+              alt={activeStep.imageAlt}
+              darkSrc={activeStep.darkSrc}
+              height={900}
+              lightSrc={activeStep.lightSrc}
+              width={1440}
+            />
+          </FadeContent>
+        </div>
+      </div>
     </Section>
   );
 }

@@ -7,6 +7,7 @@ import { SignInRequiredDialog } from "@/components/auth/sign-in-required-dialog"
 import { ThemeToggle } from "@/components/theme-toggle";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { BackgroundLayers } from "./home/background-layers";
+import { CapabilityGrid } from "./home/capability-grid";
 import { CtaSection } from "./home/cta-section";
 import { Faq } from "./home/faq";
 import { FeatureBlocks } from "./home/feature-blocks";
@@ -35,16 +36,19 @@ export default function HomePageClient() {
 
       <ScrollArea className="fixed inset-0">
         <main className="relative flex w-full flex-col items-stretch" id="main-content">
-          <div className="mx-auto flex min-h-dvh w-full max-w-6xl flex-col items-center justify-center px-5 py-16 sm:px-8 sm:py-20 lg:py-24">
+          {/* Hero 区不再占满首屏，让下方 ProductShot 露出约一半（Notion 风格）
+              Hero no longer fills the viewport; lets ProductShot peek up like Notion's hero. */}
+          <div className="mx-auto flex w-full max-w-6xl flex-col items-center px-5 pt-16 sm:px-8 sm:pt-20 lg:pt-24">
             <Hero
               isPending={isPending}
               onResumeFiltering={onResumeFiltering}
               onWorkbench={onWorkbench}
             />
-            <TrustStrip />
           </div>
           <ProductShot />
+          <TrustStrip />
           <FeatureBlocks />
+          <CapabilityGrid />
           <Personas />
           <ProcessTabs />
           <Faq />

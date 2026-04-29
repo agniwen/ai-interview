@@ -14,7 +14,7 @@ const items = [
 
 export function TrustStrip() {
   return (
-    <FadeContent className="mt-12 sm:mt-16" delay={0.3}>
+    <FadeContent className="mt-8 sm:mt-10" delay={0.3}>
       <ul className="mx-auto flex max-w-4xl flex-wrap items-center justify-center gap-x-6 gap-y-3 text-foreground/70 text-xs sm:gap-x-10 sm:text-sm">
         {items.map(({ Icon, label }) => (
           <li className="inline-flex items-center gap-2" key={label}>

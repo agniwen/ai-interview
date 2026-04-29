@@ -23,7 +23,7 @@ export function Hero({ isPending, onResumeFiltering, onWorkbench }: HeroProps) {
         </p>
       </FadeContent>
 
-      <h1 className="pixel-title mt-6 mx-auto max-w-5xl text-balance font-bold text-[2rem] text-foreground leading-[1.15] tracking-tight sm:mt-8 sm:text-6xl lg:text-[4.5rem]">
+      <h1 className="pixel-title mt-5 mx-auto max-w-5xl text-balance font-bold text-[2rem] text-foreground leading-[1.12] tracking-tight sm:mt-6 sm:text-5xl lg:text-[3.5rem]">
         <SplitText text="从简历筛选到模拟面试，用同一套工作流完成候选人评估" />
       </h1>
 

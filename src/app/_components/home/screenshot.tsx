@@ -10,10 +10,10 @@ import { cn } from "@/lib/utils";
 interface ScreenshotProps {
   alt: string;
   className?: string;
-  // 显示在亮色 UI 中的暗色截图 / shown on light UI
+  // 暗色主题展示的截图 / shown on dark UI
   darkSrc: string;
   height: number;
-  // 显示在暗色 UI 中的亮色截图 / shown on dark UI
+  // 亮色主题展示的截图 / shown on light UI
   lightSrc: string;
   priority?: boolean;
   width: number;
@@ -35,11 +35,11 @@ export function Screenshot({
     setMounted(true);
   }, []);
 
-  // 未挂载时统一用 darkSrc 占位，避免 hydration mismatch
-  // Pre-mount: use darkSrc as placeholder to avoid hydration mismatch.
+  // 未挂载时使用 darkSrc 占位避免 hydration mismatch；挂载后按当前主题选取
+  // Pre-mount: darkSrc placeholder; post-mount: pick by current theme.
   let src = darkSrc;
   if (mounted) {
-    src = resolvedTheme === "dark" ? lightSrc : darkSrc;
+    src = resolvedTheme === "dark" ? darkSrc : lightSrc;
   }
 
   return (
