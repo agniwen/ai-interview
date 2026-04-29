@@ -290,9 +290,12 @@ ${autoJdContext}
  * Iterate the stream produced by `runResumeScreening(...).toUIMessageStream(...)`,
  * forward each chunk to a writable, and return the accumulated assistant message.
  *
- * Lifecycle: this function owns the writable's close/abort. On normal completion
- * it calls `writer.close()`; on error it calls `writer.abort(err)` and rethrows.
- * Callers should NOT close the writable themselves.
+ * Lifecycle: on success this function does NOT close the writable — the workflow
+ * runtime closes it when the workflow function returns, so cleanup steps that
+ * run after this one (persist, clear active run id) complete before the client
+ * sees stream end. Closing here would cause the client's auto-resume on tool
+ * calls to race ahead and reuse this still-finishing run.
+ * On error we abort so the client sees the failure promptly.
  */
 export async function pumpAssistantStream(args: {
   stream: ReadableStream<UIMessageChunk>;
@@ -319,7 +322,7 @@ export async function pumpAssistantStream(args: {
         }
         await writer.write(value);
       }
-      await writer.close();
+      // Intentionally do NOT close: workflow runtime owns close on workflow return.
     } catch (error) {
       await writer.abort(error).catch(() => {
         // ignore: writable may already be in an errored state
@@ -327,6 +330,11 @@ export async function pumpAssistantStream(args: {
       throw error;
     } finally {
       reader.releaseLock();
+      try {
+        writer.releaseLock();
+      } catch {
+        // Already errored / aborted — releaseLock would throw. Ignore.
+      }
     }
   })();
 
