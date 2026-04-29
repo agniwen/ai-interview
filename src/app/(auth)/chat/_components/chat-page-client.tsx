@@ -3,10 +3,6 @@
 import type { ChatStatus, FileUIPart, UIMessage } from "ai";
 import type { JobDescriptionConfig } from "@/lib/job-description-config";
 import { useChat } from "@ai-sdk/react";
-import {
-  lastAssistantMessageIsCompleteWithApprovalResponses,
-  lastAssistantMessageIsCompleteWithToolCalls,
-} from "ai";
 import { useAtomValue } from "jotai";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { requestResumeChatTitle } from "@/lib/api";
@@ -35,19 +31,6 @@ import { JobDescriptionDialog } from "./job-description-dialog";
 const NEW_CHAT_TITLE = "新对话";
 const GENERATING_CHAT_TITLE = "生成中...";
 const MAX_CHAT_TITLE_LENGTH = 28;
-
-/**
- * Auto-resend once every non-provider-executed tool invocation in the last
- * assistant step has reached a terminal state — either a server-side tool
- * output (`output-available`/`output-error`) or a client-side approval
- * response. This is the union of the two SDK helpers.
- */
-function shouldAutoSubmit({ messages }: { messages: UIMessage[] }): boolean {
-  return (
-    lastAssistantMessageIsCompleteWithToolCalls({ messages }) ||
-    lastAssistantMessageIsCompleteWithApprovalResponses({ messages })
-  );
-}
 
 function getConversationTitleFromMessages(
   messages: UIMessage[],
@@ -158,9 +141,8 @@ export default function ChatPageClient({ initialSessionId }: { initialSessionId:
         ? {
             chat: boundChat,
             experimental_throttle: 50,
-            sendAutomaticallyWhen: shouldAutoSubmit,
           }
-        : { experimental_throttle: 50, sendAutomaticallyWhen: shouldAutoSubmit },
+        : { experimental_throttle: 50 },
     );
 
   // Keep the latest messages reachable from callbacks without making

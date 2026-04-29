@@ -1,5 +1,9 @@
 import type { UIMessage } from "ai";
 import { Chat } from "@ai-sdk/react";
+import {
+  lastAssistantMessageIsCompleteWithApprovalResponses,
+  lastAssistantMessageIsCompleteWithToolCalls,
+} from "ai";
 import { LRUCache } from "lru-cache";
 import { upsertChatMessageOnServer } from "@/lib/chat-api";
 import { notifyConversationsChanged } from "./chat-events";
@@ -58,6 +62,11 @@ export function getOrCreateChat(
   const chat = new Chat<UIMessage>({
     id: chatId,
     messages: options.initialMessages ?? [],
+    // 工具调用完成后自动续跑下一步;hook 层的 `sendAutomaticallyWhen`
+    // 在外部 Chat 实例下会被忽略,必须配置在构造器上。
+    // Auto-resume after tool calls finish; the hook-level
+    // `sendAutomaticallyWhen` is ignored when an external Chat
+    // instance is passed in, so it must live on the constructor.
     onFinish: ({ message, isAbort, isDisconnect, isError }) => {
       notifyConversationsChanged();
 
@@ -67,6 +76,14 @@ export function getOrCreateChat(
 
       emitFinish({ chatId, isAbort, isDisconnect, isError, message });
     },
+    // 工具调用完成后自动续跑下一步;hook 层的 `sendAutomaticallyWhen`
+    // 在外部 Chat 实例下会被忽略,必须配置在构造器上。
+    // Auto-resume after tool calls finish; the hook-level
+    // `sendAutomaticallyWhen` is ignored when an external Chat
+    // instance is passed in, so it must live on the constructor.
+    sendAutomaticallyWhen: ({ messages }) =>
+      lastAssistantMessageIsCompleteWithToolCalls({ messages }) ||
+      lastAssistantMessageIsCompleteWithApprovalResponses({ messages }),
     transport: createChatTransport(chatId),
   });
 
