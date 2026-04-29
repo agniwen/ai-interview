@@ -57,10 +57,6 @@ export function GlobalConfigForm({ initial }: Props) {
           onChange={(e) => setOpening(e.target.value)}
           placeholder='例如：用候选人的名字"{候选人姓名}"打招呼，介绍你是 XX 公司"{岗位}"的面试官…'
         />
-        <p className="text-xs text-muted-foreground">
-          注入位置：面试开始时 agent 的 on_enter 指令。占位符 {"{候选人姓名}"} {"{岗位}"} 由 LLM
-          自行替换。
-        </p>
       </div>
 
       <div className="flex flex-col gap-2">
@@ -72,9 +68,6 @@ export function GlobalConfigForm({ initial }: Props) {
           onChange={(e) => setClosing(e.target.value)}
           placeholder="例如：感谢候选人参加本次面试，祝你一切顺利。"
         />
-        <p className="text-xs text-muted-foreground">
-          注入位置：end_call 工具的 end_instructions 与超时兜底告别。
-        </p>
       </div>
 
       <div className="flex flex-col gap-2">
@@ -86,9 +79,6 @@ export function GlobalConfigForm({ initial }: Props) {
           onChange={(e) => setCompany(e.target.value)}
           placeholder="公司业务、规模、文化等，候选人若问及可由此回答。"
         />
-        <p className="text-xs text-muted-foreground">
-          注入位置：system prompt 顶部的"## 公司情况"段。
-        </p>
       </div>
 
       <div>
