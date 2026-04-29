@@ -11,6 +11,7 @@
     "typecheck": "tsc  --noEmit",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
+    "db:setup": "pnpm db:migrate && pnpm exec workflow-postgres-setup",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
     "db:seed": "tsx --env-file=.env scripts/seed.ts",
@@ -47,6 +48,7 @@
     "@tanstack/react-query": "^5.99.0",
     "@tanstack/react-table": "^8.21.3",
     "@vercel/analytics": "^1.6.1",
+    "@workflow/ai": "^4.1.2",
     "@workflow/world-postgres": "^4.1.1",
     "ai": "^6.0.149",
     "better-auth": "^1.6.0",
@@ -96,6 +98,7 @@
     "three": "^0.167.1",
     "use-stick-to-bottom": "^1.1.3",
     "vaul": "^1.1.2",
+    "workflow": "^4.2.4",
     "zod": "^4.3.6"
   },
   "devDependencies": {
