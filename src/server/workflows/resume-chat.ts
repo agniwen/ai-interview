@@ -35,12 +35,9 @@ async function runScreeningAndStream(
     messages: messagesForModel,
   });
 
-  // Do NOT pass originalMessages: when the last item is an assistant with
-  // tool calls (i.e. the auto-resume turn), the SDK extends that message and
-  // reuses its id instead of honouring generateMessageId, which causes our
-  // upsertChatMessage to overwrite the previous turn's tool-call row.
   const stream = result.toUIMessageStream({
     generateMessageId: () => messageId,
+    originalMessages: input.messages,
     sendReasoning: input.enableThinking !== false,
     sendSources: true,
   });
