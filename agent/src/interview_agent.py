@@ -20,6 +20,14 @@ INTERVIEW_FINAL_WRAP_SECONDS = 18 * 60 + 30
 # goodbye without being interrupted mid-sentence.
 INTERVIEW_HARD_GRACE_SECONDS = 3 * 60
 
+# 默认开场白指令 / Default opening instructions when none are configured globally
+DEFAULT_OPENING_INSTRUCTIONS = (
+    '用候选人的名字"{候选人姓名}"打招呼，简短介绍你是今天"{岗位}"岗位的面试官，'
+    "告知面试即将开始，准备好了就确认开始。语气友好专业，一两句话即可。"
+)
+# 默认结束语指令 / Default closing instructions when none are configured globally
+DEFAULT_CLOSING_INSTRUCTIONS = "感谢候选人参加本次面试，祝你一切顺利。"
+
 
 def _format_mmss(seconds: float) -> str:
     total = max(0, int(seconds))
@@ -41,10 +49,17 @@ class InterviewAgent(Agent):
         interviewer: dict | None = None,
         time_limit_seconds: int = INTERVIEW_TIME_LIMIT_SECONDS,
     ) -> None:
+        # 解析全局开场白与结束语，空值时使用默认值  # noqa: RUF003
+        # Parse global opening/closing instructions; fall back to defaults when empty
+        opening = (interview_context.get("global_opening_instructions") or "").strip()
+        closing = (interview_context.get("global_closing_instructions") or "").strip()
+        self._opening_instructions = opening or DEFAULT_OPENING_INSTRUCTIONS
+        self._closing_instructions = closing or DEFAULT_CLOSING_INSTRUCTIONS
+
         end_call_tool = EndCallTool(
             extra_description="当面试结束、候选人要求结束、候选人连续三次答非所问、态度恶劣，或系统计时提示已到时间上限时，调用此工具结束面试。",
             delete_room=True,
-            end_instructions="感谢候选人参加本次面试，祝你一切顺利。",
+            end_instructions=self._closing_instructions,
         )
 
         super().__init__(
@@ -73,6 +88,10 @@ class InterviewAgent(Agent):
     @property
     def hard_grace_seconds(self) -> int:
         return INTERVIEW_HARD_GRACE_SECONDS
+
+    @property
+    def closing_instructions(self) -> str:
+        return self._closing_instructions
 
     async def on_user_turn_completed(
         self, turn_ctx: ChatContext, new_message: ChatMessage
@@ -112,9 +131,13 @@ class InterviewAgent(Agent):
         turn_ctx.add_message(role="system", content=hint)
 
     async def on_enter(self):
-        await self.session.generate_reply(
-            instructions=f'用候选人的名字"{self._candidate_name}"打招呼，简短介绍你是今天"{self._target_role}"岗位的面试官，告知面试即将开始，准备好了就确认开始。语气友好专业，一两句话即可。',
+        # 组合开场白指令与候选人信息 / Combine opening instructions with candidate context
+        instructions = (
+            f"{self._opening_instructions}\n\n"
+            f'补充信息：候选人姓名是"{self._candidate_name}"，'
+            f'岗位是"{self._target_role}"。'
         )
+        await self.session.generate_reply(instructions=instructions)
 
     async def stt_node(
         self,
