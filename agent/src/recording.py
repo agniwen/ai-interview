@@ -35,7 +35,8 @@ def _s3_upload_from_env() -> api.S3Upload | None:
         bucket=bucket,
         region=os.environ.get("S3_REGION", "auto"),
         endpoint=os.environ.get("S3_ENDPOINT", ""),
-        force_path_style=True,
+        force_path_style=os.environ.get("S3_FORCE_PATH_STYLE", "false").lower()
+        == "true",
     )
 
 

@@ -187,7 +187,7 @@ export function PreInterviewFormsView({
       <div className="fixed top-4 right-4 z-20 rounded-md bg-background/20 p-1 backdrop-blur-sm">
         <ThemeToggle />
       </div>
-      <main className="relative flex h-dvh w-full flex-col md:items-center">
+      <main className="relative flex h-dvh w-full select-none flex-col md:items-center">
         <ScrollArea className="h-full w-full">
           <div className="mx-auto flex w-full max-w-2xl flex-col px-5 pt-12  sm:px-2 sm:pt-20 md:pt-16">
             <section className="mb-8">

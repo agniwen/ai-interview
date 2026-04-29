@@ -23,7 +23,9 @@ INTERVIEW_HARD_GRACE_SECONDS = 3 * 60
 # 默认开场白指令 / Default opening instructions when none are configured globally
 DEFAULT_OPENING_INSTRUCTIONS = (
     '用候选人的名字"{候选人姓名}"打招呼，简短介绍你是今天"{岗位}"岗位的面试官，'
-    "告知面试即将开始，准备好了就确认开始。语气友好专业，一两句话即可。"
+    '然后用自然口语询问候选人"准备好了吗"。语气友好专业，一两句话即可。'
+    "本轮只做开场和询问是否准备好，不要在这一轮提出任何面试题；"
+    "等候选人明确表示准备好之后，再开始第一道题。"
 )
 # 默认结束语指令 / Default closing instructions when none are configured globally
 DEFAULT_CLOSING_INSTRUCTIONS = "感谢候选人参加本次面试，祝你一切顺利。"

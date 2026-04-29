@@ -150,7 +150,7 @@ function WaitingView({
         <ThemeToggle />
       </div>
 
-      <main className="relative flex min-h-dvh w-full flex-col md:items-center md:justify-center">
+      <main className="relative flex min-h-dvh w-full select-none flex-col md:items-center md:justify-center">
         <div className="mx-auto flex w-full max-w-2xl flex-col px-5 pt-12  sm:px-2 sm:pt-20 md:pt-16">
           <section>
             <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
@@ -187,6 +187,11 @@ function WaitingView({
                   description="保持严肃与尊重；连续答非所问或跳过题目会影响评分，必要时面试官会结束面试。"
                   icon={UserCheckIcon}
                   title="认真作答"
+                />
+                <RuleItem
+                  description="面试一旦开始，请勿刷新页面、关闭标签页或切换到其他应用。中断后本轮面试将立即结束，无法重新进入。"
+                  icon={TriangleAlertIcon}
+                  title="中途请勿刷新或离开"
                 />
               </ul>
             </section>
@@ -398,7 +403,7 @@ export default function InterviewPageClient({ interviewId, roundId }: InterviewP
       <div className="fixed top-4 right-4 z-20">
         <ThemeToggle />
       </div>
-      <main className="relative h-dvh w-full overflow-hidden">
+      <main className="relative h-dvh w-full select-none overflow-hidden">
         <AgentSessionView_01
           defaultChatOpen={startedMuted}
           supportsVideoInput={true}
