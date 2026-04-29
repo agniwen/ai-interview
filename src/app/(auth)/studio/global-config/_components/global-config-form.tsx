@@ -49,7 +49,7 @@ export function GlobalConfigForm({ initial }: Props) {
       </div>
 
       <div className="flex flex-col gap-2">
-        <Label htmlFor="opening">开场白指令</Label>
+        <Label htmlFor="opening">开场白 prompt</Label>
         <Textarea
           id="opening"
           rows={4}
@@ -57,10 +57,15 @@ export function GlobalConfigForm({ initial }: Props) {
           onChange={(e) => setOpening(e.target.value)}
           placeholder='例如：用候选人的名字"{候选人姓名}"打招呼，介绍你是 XX 公司"{岗位}"的面试官…'
         />
+        <p className="text-xs text-muted-foreground">
+          可用占位符：<code className="rounded bg-muted px-1">{"{候选人姓名}"}</code>、
+          <code className="rounded bg-muted px-1">{"{岗位}"}</code>
+          ，将在面试开始时自动替换为本场面试的真实值。
+        </p>
       </div>
 
       <div className="flex flex-col gap-2">
-        <Label htmlFor="closing">结束语指令</Label>
+        <Label htmlFor="closing">结束语 prompt</Label>
         <Textarea
           id="closing"
           rows={3}
@@ -68,6 +73,11 @@ export function GlobalConfigForm({ initial }: Props) {
           onChange={(e) => setClosing(e.target.value)}
           placeholder="例如：感谢候选人参加本次面试，祝你一切顺利。"
         />
+        <p className="text-xs text-muted-foreground">
+          可用占位符：<code className="rounded bg-muted px-1">{"{候选人姓名}"}</code>、
+          <code className="rounded bg-muted px-1">{"{岗位}"}</code>
+          ，将在面试结束时自动替换为本场面试的真实值。
+        </p>
       </div>
 
       <div className="flex flex-col gap-2">

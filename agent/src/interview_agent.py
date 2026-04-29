@@ -34,6 +34,13 @@ def _format_mmss(seconds: float) -> str:
     return f"{total // 60} 分 {total % 60:02d} 秒"
 
 
+# 占位符字面替换：{候选人姓名} 与 {岗位}，避免 str.format 对其他花括号报错  # noqa: RUF003
+# Literal placeholder substitution; using str.replace avoids str.format errors
+# on any other braces in the user-authored prompt.
+def _apply_placeholders(text: str, candidate_name: str, target_role: str) -> str:
+    return text.replace("{候选人姓名}", candidate_name).replace("{岗位}", target_role)
+
+
 _NOISE_PATTERN = re.compile(
     r"^[\s，。、？！,.?!]*"
     r"(嗯+|哦+|啊+|呃+|唔+|哎+|噢+|嘶+|哼+|呵+|额+|emmm*|hmm*|uh+|um+|oh+|ah+)"
@@ -49,12 +56,20 @@ class InterviewAgent(Agent):
         interviewer: dict | None = None,
         time_limit_seconds: int = INTERVIEW_TIME_LIMIT_SECONDS,
     ) -> None:
-        # 解析全局开场白与结束语，空值时使用默认值  # noqa: RUF003
-        # Parse global opening/closing instructions; fall back to defaults when empty
+        candidate_name = interview_context.get("candidate_name", "候选人")
+        target_role = interview_context.get("target_role", "未指定岗位")
+
+        # 解析全局开场白与结束语，空值时使用默认值，并应用字面占位符替换  # noqa: RUF003
+        # Parse global opening/closing instructions; fall back to defaults when
+        # empty, then apply literal placeholder substitution.
         opening = (interview_context.get("global_opening_instructions") or "").strip()
         closing = (interview_context.get("global_closing_instructions") or "").strip()
-        self._opening_instructions = opening or DEFAULT_OPENING_INSTRUCTIONS
-        self._closing_instructions = closing or DEFAULT_CLOSING_INSTRUCTIONS
+        self._opening_instructions = _apply_placeholders(
+            opening or DEFAULT_OPENING_INSTRUCTIONS, candidate_name, target_role
+        )
+        self._closing_instructions = _apply_placeholders(
+            closing or DEFAULT_CLOSING_INSTRUCTIONS, candidate_name, target_role
+        )
 
         end_call_tool = EndCallTool(
             extra_description="当面试结束、候选人要求结束、候选人连续三次答非所问、态度恶劣，或系统计时提示已到时间上限时，调用此工具结束面试。",
@@ -67,8 +82,8 @@ class InterviewAgent(Agent):
             tools=end_call_tool.tools,  # type: ignore
         )
 
-        self._candidate_name = interview_context.get("candidate_name", "候选人")
-        self._target_role = interview_context.get("target_role", "未指定岗位")
+        self._candidate_name = candidate_name
+        self._target_role = target_role
         self._time_limit = time_limit_seconds
         self._started_at: float | None = None
 
@@ -131,13 +146,7 @@ class InterviewAgent(Agent):
         turn_ctx.add_message(role="system", content=hint)
 
     async def on_enter(self):
-        # 组合开场白指令与候选人信息 / Combine opening instructions with candidate context
-        instructions = (
-            f"{self._opening_instructions}\n\n"
-            f'补充信息：候选人姓名是"{self._candidate_name}"，'
-            f'岗位是"{self._target_role}"。'
-        )
-        await self.session.generate_reply(instructions=instructions)
+        await self.session.generate_reply(instructions=self._opening_instructions)
 
     async def stt_node(
         self,
