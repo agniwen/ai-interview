@@ -24,8 +24,7 @@ const personas: Persona[] = [
       "在工作台配置岗位、面试问题与面试官设定，向候选人发送模拟面试链接，集中查看每个候选人的评估结果。",
     iconClass: "bg-amber-500/15 text-amber-600 dark:bg-amber-400/15 dark:text-amber-300",
     role: "HR / 招聘负责人",
-    surfaceClass:
-      "bg-gradient-to-br from-amber-50/80 via-orange-50/40 to-transparent dark:from-amber-500/8 dark:via-orange-500/4 dark:to-transparent",
+    surfaceClass: "bg-gradient-to-br from-amber-500/[0.06] to-orange-500/[0.02]",
     title: "把招聘流程沉淀为可复用的工作流",
   },
   {
@@ -34,8 +33,7 @@ const personas: Persona[] = [
       "通过聊天式筛选快速浏览简历，查看 AI 给出的亮点、风险与追问过程，决定是否安排深入面试。",
     iconClass: "bg-sky-500/15 text-sky-600 dark:bg-sky-400/15 dark:text-sky-300",
     role: "业务面试官 / 用人经理",
-    surfaceClass:
-      "bg-gradient-to-br from-sky-50/80 via-blue-50/40 to-transparent dark:from-sky-500/8 dark:via-blue-500/4 dark:to-transparent",
+    surfaceClass: "bg-gradient-to-br from-sky-500/[0.06] to-blue-500/[0.02]",
     title: "判断更快、依据更完整",
   },
   {
@@ -44,8 +42,7 @@ const personas: Persona[] = [
       "通过链接进入实时语音模拟面试，完整经历追问与作答流程，提交后得到一致的结构化记录。",
     iconClass: "bg-emerald-500/15 text-emerald-600 dark:bg-emerald-400/15 dark:text-emerald-300",
     role: "候选人",
-    surfaceClass:
-      "bg-gradient-to-br from-emerald-50/80 via-teal-50/40 to-transparent dark:from-emerald-500/8 dark:via-teal-500/4 dark:to-transparent",
+    surfaceClass: "bg-gradient-to-br from-emerald-500/[0.06] to-teal-500/[0.02]",
     title: "贴近真实节奏的面试体验",
   },
 ];
@@ -63,7 +60,7 @@ export function Personas() {
         {personas.map(({ Icon, description, iconClass, role, surfaceClass, title }, index) => (
           <FadeContent delay={0.1 * index} key={role}>
             <article
-              className={`group relative h-full overflow-hidden rounded-3xl border border-primary/10 p-7 ring-1 ring-primary/5 backdrop-blur transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_24px_60px_-30px_rgba(0,0,0,0.45)] sm:p-8 ${surfaceClass}`}
+              className={`group relative h-full overflow-hidden rounded-3xl border border-foreground/[0.04] p-7 backdrop-blur transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_12px_28px_-22px_rgba(0,0,0,0.25)] sm:p-8 ${surfaceClass}`}
             >
               <div
                 className={`mb-6 inline-flex size-11 items-center justify-center rounded-xl ${iconClass}`}

@@ -80,7 +80,7 @@ export function CapabilityGrid() {
         {capabilities.map(({ Icon, description, iconClass, surfaceClass, title }, index) => (
           <FadeContent delay={0.05 * index} key={title}>
             <article
-              className={`group relative h-full overflow-hidden rounded-2xl border border-foreground/[0.04] p-6 backdrop-blur transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_18px_44px_-26px_rgba(0,0,0,0.4)] ${surfaceClass}`}
+              className={`group relative h-full overflow-hidden rounded-2xl border border-foreground/[0.04] p-6 backdrop-blur transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_8px_22px_-18px_rgba(0,0,0,0.22)] ${surfaceClass}`}
             >
               <div
                 className={`mb-5 inline-flex size-10 items-center justify-center rounded-xl ${iconClass}`}
