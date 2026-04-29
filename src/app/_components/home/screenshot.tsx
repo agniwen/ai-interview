@@ -47,13 +47,13 @@ export function Screenshot({
       className={cn(
         // 浅淡半透明边框 + 柔和投影，避免 macOS 拟物边框的违和感
         // Subtle translucent border + soft shadow, no skeuomorphic chrome.
-        "relative overflow-hidden rounded-2xl border border-foreground/10 bg-background/30 shadow-[0_30px_80px_-30px_rgba(0,0,0,0.45)] ring-1 ring-foreground/5 backdrop-blur",
+        "relative pointer-events-none select-none overflow-hidden rounded-2xl p-1 bg-foreground/5 shadow-xl ring-1 ring-foreground/5 backdrop-blur",
         className,
       )}
     >
       <Image
         alt={alt}
-        className="h-auto w-full"
+        className="h-auto w-full rounded-xl"
         height={height}
         priority={priority}
         src={src}
