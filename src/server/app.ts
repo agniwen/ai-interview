@@ -10,6 +10,7 @@ import { agentRouter } from "./routes/agent/route";
 import { candidateFormsRouter } from "./routes/candidate-forms/route";
 import { chatRouter } from "./routes/chat/route";
 import { departmentsRouter } from "./routes/department/route";
+import { globalConfigRouter } from "./routes/global-config/route";
 import { interviewRouter, studioInterviewsRouter } from "./routes/interview/route";
 import { interviewersRouter } from "./routes/interviewer/route";
 import { interviewQuestionTemplatesRouter } from "./routes/interview-question-templates/route";
@@ -39,6 +40,8 @@ export const app = new Hono<Env>()
   .use("/api/studio/interviews/*", authMiddleware, adminMiddleware)
   .use("/api/studio/departments", authMiddleware, adminMiddleware)
   .use("/api/studio/departments/*", authMiddleware, adminMiddleware)
+  .use("/api/studio/global-config", authMiddleware, adminMiddleware)
+  .use("/api/studio/global-config/*", authMiddleware, adminMiddleware)
   .use("/api/studio/interviewers", authMiddleware, adminMiddleware)
   .use("/api/studio/interviewers/*", authMiddleware, adminMiddleware)
   .use("/api/studio/job-descriptions", authMiddleware, adminMiddleware)
@@ -74,6 +77,7 @@ export const app = new Hono<Env>()
   .route("/interview", interviewRouter)
   .route("/studio/interviews", studioInterviewsRouter)
   .route("/studio/departments", departmentsRouter)
+  .route("/studio/global-config", globalConfigRouter)
   .route("/studio/interviewers", interviewersRouter)
   .route("/studio/job-descriptions", jobDescriptionsRouter)
   .route("/studio/forms", candidateFormsRouter)
