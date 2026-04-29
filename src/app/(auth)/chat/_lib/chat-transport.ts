@@ -68,14 +68,18 @@ export function createChatTransport(chatId: string, initialActiveRunId: string |
         setStoredActiveRunId(chatId, runId);
       }
     },
-    prepareReconnectToStreamRequest: ({ api, ...rest }) => {
+    prepareReconnectToStreamRequest: ({ api: _ignored, ...rest }) => {
+      // The SDK pre-builds `${this.api}/${runId or chatId}/stream`. On a fresh
+      // page mount with no internal runId state, it falls back to chatId — which
+      // our server route does not match. Rebuild from `/api/resume` directly,
+      // using the runId from localStorage (set on each successful POST).
       const runId = getStoredActiveRunId(chatId);
       if (!runId) {
         throw new Error(`No active workflow run for chat ${chatId}`);
       }
       return {
         ...rest,
-        api: `${api}/${encodeURIComponent(runId)}/stream`,
+        api: `/api/resume/${encodeURIComponent(runId)}/stream`,
       };
     },
     // Defensive layer over the SDK's default body builder: when regenerating,
