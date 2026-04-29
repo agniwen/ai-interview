@@ -15,7 +15,11 @@ import {
 } from "@/lib/db/schema";
 import { buildCandidateFormAnswersSchema } from "@/lib/candidate-forms";
 import type { CandidateFormTemplateRecord } from "@/lib/candidate-forms";
-import { buildAgentInstructions } from "@/lib/interview/agent-instructions";
+import {
+  buildAgentInstructions,
+  resolveClosingPrompt,
+  resolveOpeningPrompt,
+} from "@/lib/interview/agent-instructions";
 import {
   parseResumePayloadInput,
   parseScheduleEntriesInput,
@@ -606,8 +610,25 @@ export const studioInterviewsRouter = factory
     await ensureApplicableBindings(id);
     const jobDescriptionPresetQuestions = await loadInterviewPresetQuestions(id);
 
+    // 注入全局配置（公司情况 / 开场白 / 结束语），保证预览与运行时一致。
+    // Inject global config so the preview matches what the agent will receive.
+    const globalCfg = await getGlobalConfig();
+    const candidateName = existing.candidateName?.trim() || "候选人";
+    const targetRole = existing.targetRole?.trim() || "未指定岗位";
+    const openingPrompt = resolveOpeningPrompt(
+      globalCfg.openingInstructions,
+      candidateName,
+      targetRole,
+    );
+    const closingPrompt = resolveClosingPrompt(
+      globalCfg.closingInstructions,
+      candidateName,
+      targetRole,
+    );
+
     const baseContext = {
       candidateName: existing.candidateName,
+      companyContext: globalCfg.companyContext,
       interviewQuestions: existing.interviewQuestions,
       jobDescriptionPresetQuestions,
       jobDescriptionPrompt,
@@ -618,19 +639,23 @@ export const studioInterviewsRouter = factory
     const variants =
       interviewers.length > 0
         ? interviewers.map((person) => ({
+            closingPrompt,
             instructions: buildAgentInstructions({
               ...baseContext,
               interviewerPrompt: person.prompt,
             }),
             interviewerName: person.name,
+            openingPrompt,
           }))
         : [
             {
+              closingPrompt,
               instructions: buildAgentInstructions({
                 ...baseContext,
                 interviewerPrompt: null,
               }),
               interviewerName: null,
+              openingPrompt,
             },
           ];
 

@@ -6,6 +6,8 @@ import { Loader2Icon } from "lucide-react";
 interface AgentInstructionVariant {
   interviewerName: string | null;
   instructions: string;
+  openingPrompt: string;
+  closingPrompt: string;
 }
 
 export function AgentInstructionsPanel({
@@ -52,17 +54,41 @@ export function AgentInstructionsPanel({
     <div className="space-y-5">
       {variants.map((variant, index) => (
         <div
-          className="rounded-2xl border border-border/60 bg-muted/30 p-4"
+          className="space-y-4 rounded-2xl border border-border/60 bg-muted/30 p-4"
           key={variant.interviewerName ?? `variant-${index}`}
         >
-          <h3 className="mb-3 font-medium text-sm">
+          <h3 className="font-medium text-sm">
             {variant.interviewerName
               ? `面试官：${variant.interviewerName}`
               : "默认提示词（未关联岗位）"}
           </h3>
-          <pre className="whitespace-pre-wrap font-sans text-muted-foreground text-sm leading-relaxed">
-            {variant.instructions}
-          </pre>
+
+          <section className="space-y-2">
+            <h4 className="font-medium text-foreground/80 text-xs uppercase tracking-wide">
+              系统提示词 (system prompt)
+            </h4>
+            <pre className="whitespace-pre-wrap rounded-md bg-background/60 p-3 font-sans text-muted-foreground text-sm leading-relaxed">
+              {variant.instructions}
+            </pre>
+          </section>
+
+          <section className="space-y-2">
+            <h4 className="font-medium text-foreground/80 text-xs uppercase tracking-wide">
+              开场白 prompt
+            </h4>
+            <pre className="whitespace-pre-wrap rounded-md bg-background/60 p-3 font-sans text-muted-foreground text-sm leading-relaxed">
+              {variant.openingPrompt}
+            </pre>
+          </section>
+
+          <section className="space-y-2">
+            <h4 className="font-medium text-foreground/80 text-xs uppercase tracking-wide">
+              结束语 prompt
+            </h4>
+            <pre className="whitespace-pre-wrap rounded-md bg-background/60 p-3 font-sans text-muted-foreground text-sm leading-relaxed">
+              {variant.closingPrompt}
+            </pre>
+          </section>
         </div>
       ))}
     </div>

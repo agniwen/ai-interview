@@ -19,6 +19,54 @@ export interface AgentInstructionPresetQuestion {
 }
 
 /**
+ * 默认开场白 / 结束语 prompt：与 `agent/src/interview_agent.py` 中的同名常量保持同步。
+ * Default opening/closing prompts; must mirror the constants in
+ * `agent/src/interview_agent.py` so the UI preview matches what the agent
+ * actually uses when global config fields are empty.
+ */
+export const DEFAULT_OPENING_PROMPT =
+  '用候选人的名字"{候选人姓名}"打招呼，简短介绍你是今天"{岗位}"岗位的面试官，告知面试即将开始，准备好了就确认开始。语气友好专业，一两句话即可。';
+export const DEFAULT_CLOSING_PROMPT = "感谢候选人参加本次面试，祝你一切顺利。";
+
+/**
+ * 字面替换占位符 `{候选人姓名}` 与 `{岗位}`，与 agent 端 `_apply_placeholders` 行为一致。
+ * Literal placeholder substitution; mirrors `_apply_placeholders` on the agent side.
+ */
+export function applyPromptPlaceholders(
+  text: string,
+  candidateName: string,
+  targetRole: string,
+): string {
+  return text.replaceAll("{候选人姓名}", candidateName).replaceAll("{岗位}", targetRole);
+}
+
+/**
+ * 解析有效的开场白 prompt：空值回退到默认值，再做占位符替换。
+ * Resolve the effective opening prompt: fall back to default when empty, then substitute.
+ */
+export function resolveOpeningPrompt(
+  raw: string | null | undefined,
+  candidateName: string,
+  targetRole: string,
+): string {
+  const source = (raw ?? "").trim() || DEFAULT_OPENING_PROMPT;
+  return applyPromptPlaceholders(source, candidateName, targetRole);
+}
+
+/**
+ * 解析有效的结束语 prompt：空值回退到默认值，再做占位符替换。
+ * Resolve the effective closing prompt: fall back to default when empty, then substitute.
+ */
+export function resolveClosingPrompt(
+  raw: string | null | undefined,
+  candidateName: string,
+  targetRole: string,
+): string {
+  const source = (raw ?? "").trim() || DEFAULT_CLOSING_PROMPT;
+  return applyPromptPlaceholders(source, candidateName, targetRole);
+}
+
+/**
  * 拼装 agent prompt 所需的全部上下文。
  * Full context required to assemble an agent prompt.
  */
@@ -30,6 +78,8 @@ export interface AgentInstructionContext {
   jobDescriptionPrompt: string | null;
   jobDescriptionPresetQuestions: AgentInstructionPresetQuestion[];
   interviewerPrompt: string | null;
+  /** 全局公司情况，由 /studio/global-config 配置；空字符串视为不注入。 */
+  companyContext?: string | null;
 }
 
 /**
@@ -78,10 +128,17 @@ function formatPresetQuestionsText(questions: AgentInstructionPresetQuestion[]):
  * 拼接 prompt 的"前置段落"：面试官设定 + 岗位说明，这两段都为可选。
  * Build the prompt's prefix sections: interviewer persona + job description (both optional).
  */
-function formatPrefixSections(interviewerPrompt: string, jobDescriptionPrompt: string): string {
+function formatPrefixSections(
+  interviewerPrompt: string,
+  companyContext: string,
+  jobDescriptionPrompt: string,
+): string {
   let prefixSections = "";
   if (interviewerPrompt) {
     prefixSections += `## 面试官角色设定\n${interviewerPrompt}\n\n`;
+  }
+  if (companyContext) {
+    prefixSections += `## 公司情况\n${companyContext}\n\n`;
   }
   if (jobDescriptionPrompt) {
     prefixSections += `## 岗位说明\n${jobDescriptionPrompt}\n\n`;
@@ -106,6 +163,7 @@ export function buildAgentInstructions(context: AgentInstructionContext): string
   const presetQuestionsText = formatPresetQuestionsText(context.jobDescriptionPresetQuestions);
   const prefixSections = formatPrefixSections(
     context.interviewerPrompt?.trim() ?? "",
+    context.companyContext?.trim() ?? "",
     context.jobDescriptionPrompt?.trim() ?? "",
   );
 
