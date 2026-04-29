@@ -163,6 +163,13 @@ export interface AgentSessionView_01Props {
    * 是否允许候选人通过文本回复；为 false 时文本输入框处于禁用状态。
    */
   chatInputEnabled?: boolean;
+  /**
+   * Invoked when the candidate attempts to turn the camera OFF. When provided
+   * the camera toggle blocks the off transition and runs this callback
+   * instead. Turning the camera on remains unaffected.
+   * 候选人尝试关闭摄像头时的回调；提供时关闭动作被拦截，仅触发回调（用于提示）。
+   */
+  onCameraDisableAttempt?: () => void;
 }
 
 export function AgentSessionView_01({
@@ -183,6 +190,7 @@ export function AgentSessionView_01({
   audioVisualizerWaveLineWidth,
   defaultChatOpen = false,
   chatInputEnabled = true,
+  onCameraDisableAttempt,
   ref,
   className,
   ...props
@@ -284,6 +292,7 @@ export function AgentSessionView_01({
             isConnected={session.isConnected}
             onDisconnect={session.end}
             onIsChatOpenChange={setChatOpen}
+            onCameraDisableAttempt={onCameraDisableAttempt}
           />
         </div>
       </motion.div>

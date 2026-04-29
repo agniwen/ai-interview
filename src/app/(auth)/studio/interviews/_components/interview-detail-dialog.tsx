@@ -483,7 +483,11 @@ export function InterviewDetailDialog({
                         </p>
                       </div>
                     ) : (
-                      <Accordion className="space-y-4" collapsible type="single">
+                      <Accordion
+                        className="space-y-4"
+                        defaultValue={[reports[0].conversationId]}
+                        type="multiple"
+                      >
                         {reports.map((report) => {
                           const startedAt = report.startedAt ?? report.createdAt;
                           const endedAt = report.endedAt ?? report.updatedAt;
@@ -525,7 +529,7 @@ export function InterviewDetailDialog({
                                       recordId={recordId ?? ""}
                                       status={report.recordingStatus}
                                     />
-                                    <div className="rounded-2xl border border-border/60 bg-muted/20 p-4">
+                                    <div className="rounded-2xl border border-border/60 bg-background p-4">
                                       <h4 className="font-medium text-sm">会话概览</h4>
                                       <div className="mt-3 grid gap-2 text-sm">
                                         <DetailRow
@@ -597,7 +601,7 @@ export function InterviewDetailDialog({
 
                                     <div className="rounded-2xl border border-border/60 bg-background p-4">
                                       <h4 className="font-medium text-sm">评估指标</h4>
-                                      <div className="mt-4">
+                                      <div className="mt-4 max-h-[420px] overflow-y-auto pr-1">
                                         <EvaluationResults
                                           data={
                                             (report.evaluationCriteriaResults as Record<
@@ -610,45 +614,47 @@ export function InterviewDetailDialog({
                                     </div>
                                   </div>
 
-                                  <div className="rounded-2xl border border-border/60 bg-background p-4">
-                                    <h4 className="font-medium text-sm">对话记录</h4>
-                                    <div className="mt-4 space-y-3">
-                                      {report.turns.length > 0 ? (
-                                        report.turns.map((turn) => (
-                                          <div
-                                            className="rounded-xl border border-border/60 bg-muted/20 p-3"
-                                            key={turn.id}
-                                          >
-                                            <div className="flex flex-wrap items-center gap-2 text-xs">
-                                              <Badge
-                                                variant={
-                                                  turn.role === "user" ? "outline" : "secondary"
-                                                }
-                                              >
-                                                {turn.role === "user" ? "候选人" : "面试官"}
-                                              </Badge>
-                                              <TimeDisplay
-                                                className="text-muted-foreground"
-                                                options={DATE_TIME_DISPLAY_OPTIONS}
-                                                value={turn.createdAt}
-                                              />
-                                              {typeof turn.timeInCallSecs === "number" ? (
-                                                <span className="text-muted-foreground">
-                                                  通话
-                                                  {turn.timeInCallSecs}s
-                                                </span>
-                                              ) : null}
+                                  <div className="lg:relative">
+                                    <div className="flex flex-col rounded-2xl border border-border/60 bg-background p-4 lg:absolute lg:inset-0">
+                                      <h4 className="font-medium text-sm">对话记录</h4>
+                                      <div className="mt-4 space-y-3 lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:pr-1">
+                                        {report.turns.length > 0 ? (
+                                          report.turns.map((turn) => (
+                                            <div
+                                              className="rounded-xl border border-border/60 bg-muted/20 p-3"
+                                              key={turn.id}
+                                            >
+                                              <div className="flex flex-wrap items-center gap-2 text-xs">
+                                                <Badge
+                                                  variant={
+                                                    turn.role === "user" ? "outline" : "secondary"
+                                                  }
+                                                >
+                                                  {turn.role === "user" ? "候选人" : "面试官"}
+                                                </Badge>
+                                                <TimeDisplay
+                                                  className="text-muted-foreground"
+                                                  options={DATE_TIME_DISPLAY_OPTIONS}
+                                                  value={turn.createdAt}
+                                                />
+                                                {typeof turn.timeInCallSecs === "number" ? (
+                                                  <span className="text-muted-foreground">
+                                                    通话
+                                                    {turn.timeInCallSecs}s
+                                                  </span>
+                                                ) : null}
+                                              </div>
+                                              <p className="mt-2 text-sm leading-relaxed">
+                                                {turn.message}
+                                              </p>
                                             </div>
-                                            <p className="mt-2 text-sm leading-relaxed">
-                                              {turn.message}
-                                            </p>
-                                          </div>
-                                        ))
-                                      ) : (
-                                        <p className="text-muted-foreground text-sm">
-                                          暂无对话记录。
-                                        </p>
-                                      )}
+                                          ))
+                                        ) : (
+                                          <p className="text-muted-foreground text-sm">
+                                            暂无对话记录。
+                                          </p>
+                                        )}
+                                      </div>
                                     </div>
                                   </div>
                                 </div>

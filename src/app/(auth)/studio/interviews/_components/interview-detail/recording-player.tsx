@@ -58,7 +58,7 @@ export function RecordingPlayer({
 
   if (status !== "completed") {
     return (
-      <div className="rounded-2xl border border-border/60 bg-muted/20 p-4">
+      <div className="rounded-2xl border border-border/60 bg-background p-4">
         <h4 className="font-medium text-sm">面试录像</h4>
         <p className="mt-2 text-muted-foreground text-sm">{statusLabel(status)}</p>
       </div>

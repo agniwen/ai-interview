@@ -10,9 +10,11 @@ import {
   MicOffIcon,
   TriangleAlertIcon,
   UserCheckIcon,
+  VideoIcon,
   Volume2Icon,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { toast } from "sonner";
 import { AgentSessionProvider } from "@/components/agents-ui/agent-session-provider";
 import { AgentSessionView_01 } from "@/components/agents-ui/blocks/agent-session-view-01";
 import { StartAudioButton } from "@/components/agents-ui/start-audio-button";
@@ -187,6 +189,11 @@ function WaitingView({
                   description="保持严肃与尊重；连续答非所问或跳过题目会影响评分，必要时面试官会结束面试。"
                   icon={UserCheckIcon}
                   title="认真作答"
+                />
+                <RuleItem
+                  description="面试将通过摄像头全程录制，开始后请保持摄像头开启，期间不能关闭。"
+                  icon={VideoIcon}
+                  title="保持摄像头录制"
                 />
                 <RuleItem
                   description="面试一旦开始，请勿刷新页面、关闭标签页或切换到其他应用。中断后本轮面试将立即结束，无法重新进入。"
@@ -409,6 +416,9 @@ export default function InterviewPageClient({ interviewId, roundId }: InterviewP
           supportsVideoInput={true}
           supportsScreenShare={false}
           chatInputEnabled={interviewView?.currentRoundAllowTextInput ?? false}
+          onCameraDisableAttempt={() => {
+            toast.warning("面试过程中需要保持摄像头录制，请勿关闭摄像头。");
+          }}
           preConnectMessage="正在连线面试官，请稍等..."
         />
       </main>

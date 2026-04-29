@@ -270,6 +270,13 @@ export interface AgentControlBarProps extends UseInputControlsProps {
   onIsChatOpenChange?: (open: boolean) => void;
   /** The callback for when a device error occurs. */
   onDeviceError?: (error: { source: Track.Source; error: Error }) => void;
+  /**
+   * Invoked when the candidate attempts to turn the camera OFF. When provided,
+   * the camera toggle blocks the off transition and runs this callback instead
+   * (typically to surface a reminder). Turning the camera on is unaffected.
+   * 候选人尝试关闭摄像头时的回调；提供时关闭动作被拦截，仅触发回调（用于提示）。打开方向不受影响。
+   */
+  onCameraDisableAttempt?: () => void;
 }
 
 /**
@@ -306,6 +313,7 @@ export function AgentControlBar({
   onDisconnect,
   onDeviceError,
   onIsChatOpenChange,
+  onCameraDisableAttempt,
   className,
   ...props
 }: AgentControlBarProps & ComponentProps<"div">) {
@@ -404,7 +412,16 @@ export function AgentControlBar({
               pressed={cameraToggle.enabled}
               pending={cameraToggle.pending}
               disabled={cameraToggle.pending}
-              onPressedChange={cameraToggle.toggle}
+              onPressedChange={(next) => {
+                // Camera is recording-mandatory: block off transitions when an
+                // interceptor is provided, but always allow turning on.
+                // 摄像头为强制录制场景：有拦截器时不允许从开变关，但允许从关变开。
+                if (!next && cameraToggle.enabled && onCameraDisableAttempt) {
+                  onCameraDisableAttempt();
+                  return;
+                }
+                cameraToggle.toggle();
+              }}
               onMediaDeviceError={handleCameraDeviceSelectError}
               onActiveDeviceChange={handleVideoDeviceChange}
               className={cn(
