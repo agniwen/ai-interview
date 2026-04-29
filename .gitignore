@@ -52,3 +52,4 @@ __pycache__/
 *.egg-info/
 .devtools
 .pnpm-store
+.worktrees/
