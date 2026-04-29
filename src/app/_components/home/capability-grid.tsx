@@ -27,48 +27,42 @@ const capabilities: Capability[] = [
     Icon: MessageSquareTextIcon,
     description: "围绕岗位语境追问候选人亮点与风险，不是简单的关键词匹配。",
     iconClass: "bg-violet-500/15 text-violet-600 dark:bg-violet-400/15 dark:text-violet-300",
-    surfaceClass:
-      "bg-violet-50 dark:bg-transparent dark:bg-gradient-to-br dark:from-violet-500/10 dark:to-fuchsia-500/5",
+    surfaceClass: "bg-gradient-to-br from-violet-500/10 to-fuchsia-500/5",
     title: "聊天式筛选",
   },
   {
     Icon: ClipboardListIcon,
     description: "在工作台维护岗位、JD、面试官人设、面试问题，全局复用。",
     iconClass: "bg-amber-500/15 text-amber-600 dark:bg-amber-400/15 dark:text-amber-300",
-    surfaceClass:
-      "bg-amber-50 dark:bg-transparent dark:bg-gradient-to-br dark:from-amber-500/10 dark:to-orange-500/5",
+    surfaceClass: "bg-gradient-to-br from-amber-500/10 to-orange-500/5",
     title: "工作台配置",
   },
   {
     Icon: RadioIcon,
     description: "一键发起实时语音模拟面试，候选人通过链接即可参与。",
     iconClass: "bg-rose-500/15 text-rose-600 dark:bg-rose-400/15 dark:text-rose-300",
-    surfaceClass:
-      "bg-rose-50 dark:bg-transparent dark:bg-gradient-to-br dark:from-rose-500/10 dark:to-pink-500/5",
+    surfaceClass: "bg-gradient-to-br from-rose-500/10 to-pink-500/5",
     title: "实时语音面试",
   },
   {
     Icon: SparklesIcon,
     description: "AI 自动追问、记录节奏与停顿，沉淀完整对话上下文。",
     iconClass: "bg-sky-500/15 text-sky-600 dark:bg-sky-400/15 dark:text-sky-300",
-    surfaceClass:
-      "bg-sky-50 dark:bg-transparent dark:bg-gradient-to-br dark:from-sky-500/10 dark:to-cyan-500/5",
+    surfaceClass: "bg-gradient-to-br from-sky-500/10 to-cyan-500/5",
     title: "智能追问",
   },
   {
     Icon: GaugeIcon,
     description: "结构化评估展示亮点、风险、推荐度，团队判断有共同依据。",
     iconClass: "bg-emerald-500/15 text-emerald-600 dark:bg-emerald-400/15 dark:text-emerald-300",
-    surfaceClass:
-      "bg-emerald-50 dark:bg-transparent dark:bg-gradient-to-br dark:from-emerald-500/10 dark:to-teal-500/5",
+    surfaceClass: "bg-gradient-to-br from-emerald-500/10 to-teal-500/5",
     title: "结构化评估",
   },
   {
     Icon: ShieldCheckIcon,
     description: "简历内容与面试录音仅用于本次评估，不会用于训练模型。",
     iconClass: "bg-slate-500/15 text-slate-600 dark:bg-slate-400/15 dark:text-slate-300",
-    surfaceClass:
-      "bg-slate-50 dark:bg-transparent dark:bg-gradient-to-br dark:from-slate-500/10 dark:to-zinc-500/5",
+    surfaceClass: "bg-gradient-to-br from-slate-500/10 to-zinc-500/5",
     title: "数据可控",
   },
 ];
