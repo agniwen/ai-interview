@@ -71,7 +71,7 @@ const blocks: Block[] = [
 export function FeatureBlocks() {
   return (
     <Section width="wide">
-      <div className="space-y-24 sm:space-y-28">
+      <div className="space-y-20 sm:space-y-24">
         {blocks.map((block, index) => {
           const reversed = index % 2 === 1;
           return (
