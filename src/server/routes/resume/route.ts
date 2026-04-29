@@ -1,7 +1,7 @@
 import type { UIMessage } from "ai";
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { zValidator } from "@hono/zod-validator";
-import { generateText } from "ai";
+import { createUIMessageStreamResponse, generateText } from "ai";
 import { getRun, start } from "workflow/api";
 import { withDevTools } from "@/server/agents/devtools";
 import { factory } from "@/server/factory";
@@ -79,11 +79,11 @@ export const resumeRouter = factory
         const existingRun = getRun(existingRunId);
         const status = await existingRun.status;
         if (status !== "completed" && status !== "cancelled" && status !== "failed") {
-          return new Response(existingRun.readable, {
+          return createUIMessageStreamResponse({
             headers: {
-              "content-type": "text/event-stream",
               "x-workflow-run-id": existingRunId,
             },
+            stream: existingRun.readable,
           });
         }
       } catch (error) {
@@ -114,11 +114,11 @@ export const resumeRouter = factory
       return c.json({ error: "concurrent_run_started" }, 409);
     }
 
-    return new Response(run.readable, {
+    return createUIMessageStreamResponse({
       headers: {
-        "content-type": "text/event-stream",
         "x-workflow-run-id": run.runId,
       },
+      stream: run.readable,
     });
   })
   .get("/:runId/stream", async (c) => {
@@ -153,11 +153,11 @@ export const resumeRouter = factory
     });
     const tailIndex = await readable.getTailIndex();
 
-    return new Response(readable, {
+    return createUIMessageStreamResponse({
       headers: {
-        "content-type": "text/event-stream",
         "x-workflow-stream-tail-index": String(tailIndex),
       },
+      stream: readable,
     });
   })
   .post("/title", zValidator("json", resumeTitleRequestSchema), async (c) => {
