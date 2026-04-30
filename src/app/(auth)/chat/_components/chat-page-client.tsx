@@ -1,8 +1,8 @@
 "use client";
 
 import type { ChatStatus, FileUIPart, UIMessage } from "ai";
+import type { ChatConversationDetail } from "@/lib/api/endpoints/chat";
 import type { JobDescriptionConfig } from "@/lib/job-description-config";
-import { useChat } from "@ai-sdk/react";
 import { useAtomValue } from "jotai";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { requestResumeChatTitle } from "@/lib/api";
@@ -14,12 +14,12 @@ import {
 } from "@/lib/chat-api";
 import { thinkingModeAtom } from "../_atoms/thinking";
 import { CHAT_EVENTS, notifyConversationsChanged } from "../_lib/chat-events";
-import { setChatMeta } from "../_lib/chat-meta";
-import { getOrCreateChat, hasChat } from "../_lib/chat-registry";
-import { getStoredActiveRunId } from "../_lib/chat-transport";
+import { trailingAssistantHasRenderableContent } from "../_lib/chat-streaming-state";
+import { useChatRuntime } from "../_lib/use-chat-runtime";
 import { useJobDescriptionConfig } from "../_lib/use-job-description-config";
 import { useJobDescriptionOptionsQuery } from "../_lib/use-job-description-options";
 import { useResumeImports } from "../_lib/use-resume-imports";
+import { useStreamRecovery } from "../_lib/use-stream-recovery";
 import { ChatRuntimeProvider } from "./chat-runtime-context";
 import type { SendMessageInput } from "./chat-runtime-context";
 import { Composer } from "./composer/composer";
@@ -57,12 +57,22 @@ function getConversationTitleFromMessages(
 }
 
 // eslint-disable-next-line complexity -- Top-level shell owns many pieces of orchestration state.
-export default function ChatPageClient({ initialSessionId }: { initialSessionId: string | null }) {
+export default function ChatPageClient({
+  initialSessionId,
+  initialConversation,
+}: {
+  initialSessionId: string | null;
+  initialConversation?: ChatConversationDetail | null;
+}) {
   const { data: session } = authClient.useSession();
   const thinkingMode = useAtomValue(thinkingModeAtom);
 
-  const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
-  const [isHistoryReady, setIsHistoryReady] = useState(false);
+  // SSR 已经把会话快照塞过来了, 用 lazy initializer 直接同步 hydrate, 避免一帧空 UI 闪烁。
+  // SSR snapshot is already available — lazy-init from it to avoid a one-frame flash.
+  const [activeConversationId, setActiveConversationId] = useState<string | null>(
+    () => initialConversation?.id ?? null,
+  );
+  const [isHistoryReady, setIsHistoryReady] = useState(() => Boolean(initialConversation));
   const [shouldNormalizeSessionPath, setShouldNormalizeSessionPath] = useState(false);
   const [historyErrorMessage, setHistoryErrorMessage] = useState<string | null>(null);
   const [uploadErrorMessage, setUploadErrorMessage] = useState<string | null>(null);
@@ -74,6 +84,20 @@ export default function ChatPageClient({ initialSessionId }: { initialSessionId:
   // Explicit user stop — lets us force the UI back to idle even if the SDK
   // status gets stuck (some abort paths on iOS/Safari leave it on `streaming`).
   const [userStopped, setUserStopped] = useState(false);
+
+  // 服务端注入的初始 JD 配置: 优先用结构化字段, 兼容仅有文本的旧记录。
+  // SSR-injected initial JD config: prefer the structured field, fall back to
+  // legacy text-only conversations by treating them as custom mode.
+  const initialJobDescriptionConfig = useMemo<JobDescriptionConfig | null>(() => {
+    if (!initialConversation) {
+      return null;
+    }
+    if (initialConversation.jobDescriptionConfig) {
+      return initialConversation.jobDescriptionConfig;
+    }
+    const legacy = initialConversation.jobDescription.trim();
+    return legacy ? { mode: "custom", text: initialConversation.jobDescription } : null;
+  }, [initialConversation]);
 
   // 抽出的状态切片：JD 配置 / 简历导入映射。
   // Extracted state slices: JD config + resume-import mapping.
@@ -88,14 +112,14 @@ export default function ChatPageClient({ initialSessionId }: { initialSessionId:
     openDialog: openJobDescriptionDialog,
     save: saveJobDescription,
     clear: clearJobDescription,
-  } = useJobDescriptionConfig();
+  } = useJobDescriptionConfig(initialJobDescriptionConfig);
   const {
     map: resumeImports,
     replaceAll: replaceResumeImports,
     reset: resetResumeImports,
     markImported: handleResumeImported,
     markMissing: handleResumeImportMissing,
-  } = useResumeImports();
+  } = useResumeImports(initialConversation?.resumeImports ?? {});
 
   const userName = session?.user?.name ?? "用户";
 
@@ -112,47 +136,57 @@ export default function ChatPageClient({ initialSessionId }: { initialSessionId:
     [],
   );
 
-  // Push latest JD + thinking mode into the registry for every active
-  // conversation, so the transport body always reflects the user's current
-  // settings — including when the stream is running in the background.
-  useEffect(() => {
-    if (!activeConversationId) {
-      return;
-    }
-    setChatMeta(activeConversationId, {
-      enableThinking: thinkingMode,
-      jobDescription: jobDescriptionText,
-    });
-  }, [activeConversationId, jobDescriptionText, thinkingMode]);
+  // 单一 hook 拥有 transport / Chat 实例 / resume / probe / cleanup。
+  // 关键: chatId 可以是 null —— /chat 新建会话路径下, 在用户首次发送之前 hook 不构造
+  // Chat 实例; 一旦 ensureConversation 设置了 activeConversationId, 下一次 render
+  // hook 就把 transport + 实例 + 续接探测 / unmount 清理全部串起来。
+  // Single hook owns transport + Chat instance + resume policy + probe +
+  // cleanup. chatId is allowed to be null — `/chat` new-conversation path
+  // runs through the hook with no instance until the user sends the first
+  // message, after which the next render fully wires it up.
+  const { chat, hasBoundChat, stopChatStream, retryChatStream } = useChatRuntime({
+    chatId: activeConversationId,
+    enableThinking: thinkingMode,
+    initialActiveWorkflowRunId:
+      initialConversation && initialConversation.id === activeConversationId
+        ? initialConversation.activeWorkflowRunId
+        : null,
+    initialMessages:
+      initialConversation && initialConversation.id === activeConversationId
+        ? initialConversation.messages
+        : undefined,
+    jobDescriptionText,
+  });
 
-  // Resolve the Chat instance for this conversation from the module-level
-  // registry. The instance outlives ChatPageClient's mount — stream state is
-  // owned by the registry, not the component — so navigating away does not
-  // abort the request. When `activeConversationId` is null (the empty
-  // `/chat` shell) we hand useChat an empty init; it stands up a throwaway
-  // internal Chat that never gets dispatched against.
-  const boundChat = useMemo(
-    () => (activeConversationId ? getOrCreateChat(activeConversationId) : null),
-    [activeConversationId],
-  );
+  const {
+    addToolOutput,
+    messages,
+    setMessages,
+    status,
+    error,
+    regenerate,
+    clearError,
+    sendMessage,
+  } = chat;
 
-  const shouldResumeOnMount = useMemo(() => {
-    if (!activeConversationId) {
-      return false;
-    }
-    return Boolean(getStoredActiveRunId(activeConversationId));
-  }, [activeConversationId]);
-
-  const { addToolOutput, messages, setMessages, status, stop, error, regenerate, clearError } =
-    useChat(
-      boundChat
-        ? {
-            chat: boundChat,
-            experimental_throttle: 50,
-            resume: shouldResumeOnMount,
-          }
-        : { experimental_throttle: 50 },
-    );
+  // visibilitychange / online / focus 时尝试自动续接服务端流。
+  // 关键: 只在 status === "error" 或 "submitted 但还没助手内容" 时才发请求。
+  // 否则空跑会让 /api/resume/by-chat/.../stream 被反复打 204。userStopped 已被
+  // useChatRuntime 内部尊重 —— 用户主动停止过的会话不会被自动拉回。
+  // Auto-resume on visibility/online/focus, but only when there's reason to
+  // believe a stream is broken (error or stalled submitted). Idle ready/
+  // streaming states skip the GET to avoid 204 floods.
+  // 用 hasRenderableAssistantPart 判断"是不是真的有可见内容", 而不是 parts.length > 0
+  // —— 后者会把 step-start 之类的占位 part 也算进去, 让 stall recovery 误判。
+  // Use the renderable-part helper so empty placeholders (step-start etc.)
+  // don't count as "has assistant content".
+  const hasAssistantContent = trailingAssistantHasRenderableContent(messages);
+  useStreamRecovery({
+    chatId: activeConversationId,
+    hasAssistantContent,
+    retryChatStream,
+    status,
+  });
 
   // Keep the latest messages reachable from callbacks without making
   // `messages` itself a dep — otherwise every streamed chunk would re-create
@@ -160,6 +194,17 @@ export default function ChatPageClient({ initialSessionId }: { initialSessionId:
   // in turn would churn ActionsContext value and re-render the composer.
   const messagesRef = useRef(messages);
   messagesRef.current = messages;
+
+  // 也把 sendMessage 挂到 ref 里:
+  // - "首条消息" 由 ensureConversation 设置 activeConversationId 后, 在下一次 render
+  //   通过 effect 派发 (此时 hook 才完成 Chat 实例的构造)。effect 直接读 ref 而不是
+  //   把 sendMessage 放进 deps —— 这样在普通流式 chunk 期间不会被重建。
+  // Mirror sendMessage on a ref. The "first message" path enqueues a
+  // pendingFirstMessage and the effect below dispatches via the ref once the
+  // hook has wired up the new Chat instance — the effect avoids putting
+  // sendMessage in its deps so streaming chunks don't churn it.
+  const sendMessageRef = useRef(sendMessage);
+  sendMessageRef.current = sendMessage;
 
   const isChatInFlight = (status === "submitted" || status === "streaming") && !userStopped;
   let effectiveStatus: ChatStatus = status;
@@ -184,10 +229,10 @@ export default function ChatPageClient({ initialSessionId }: { initialSessionId:
   }, [isChatInFlight, status]);
 
   const handleStop = useCallback(() => {
-    stop();
+    stopChatStream();
     setHasPendingResponse(false);
     setUserStopped(true);
-  }, [stop]);
+  }, [stopChatStream]);
 
   const updateSessionInUrl = useCallback((sessionId: string | null) => {
     const nextUrl = sessionId ? `/chat/${encodeURIComponent(sessionId)}` : "/chat";
@@ -239,14 +284,6 @@ export default function ChatPageClient({ initialSessionId }: { initialSessionId:
         title: derivedTitle,
       });
       notifyConversationsChanged();
-
-      // Seed the registry's meta before the first request so transport.body()
-      // picks up the right JD / thinking mode even though the useEffect that
-      // normally syncs meta has not run yet for this new id.
-      setChatMeta(id, {
-        enableThinking: thinkingMode,
-        jobDescription: jobDescriptionText,
-      });
       updateSessionInUrl(id);
       setActiveConversationId(id);
       return id;
@@ -256,10 +293,27 @@ export default function ChatPageClient({ initialSessionId }: { initialSessionId:
       jobDescriptionConfig,
       jobDescriptionText,
       resumeImports,
-      thinkingMode,
       updateSessionInUrl,
     ],
   );
+
+  // 首条消息发送的延迟队列: ensureConversation 之后状态还没 commit, hook 还没把
+  // Chat 实例构造好, 因此把 (files, text) 暂存; 下一次 render hook 完成后由
+  // useEffect 派发到真正的 Chat 实例上。
+  // Pending first message queue: ensureConversation flips activeConversationId
+  // but the next render hasn't happened yet, so the hook's Chat instance
+  // doesn't exist. Park (files, text) here and let the effect dispatch once
+  // hasBoundChat flips true.
+  const [pendingFirstMessage, setPendingFirstMessage] = useState<SendMessageInput | null>(null);
+
+  useEffect(() => {
+    if (!pendingFirstMessage || !hasBoundChat) {
+      return;
+    }
+    const { files, text } = pendingFirstMessage;
+    setPendingFirstMessage(null);
+    void sendMessageRef.current({ files: files as FileUIPart[], text });
+  }, [pendingFirstMessage, hasBoundChat]);
 
   const sendMessageToChat = useCallback(
     async ({ files, text }: SendMessageInput) => {
@@ -272,51 +326,48 @@ export default function ChatPageClient({ initialSessionId }: { initialSessionId:
 
       const isFirstMessageForNewConversation =
         !activeConversationId && messagesRef.current.length === 0;
-      let conversationId: string | null = activeConversationId;
 
-      try {
-        conversationId = await ensureConversation({
-          withGeneratingTitle: isFirstMessageForNewConversation,
-        });
-        setHistoryErrorMessage(null);
-      } catch {
-        setHistoryErrorMessage("聊天记录保存失败，请稍后重试。");
-      }
+      // Optimistically flip UI into the "responding" state before the SDK
+      // status flips — masks the `ready → submitted` flicker.
+      setHasPendingResponse(true);
+      setUserStopped(false);
 
-      if (isFirstMessageForNewConversation && conversationId) {
-        const firstMessageText = text.trim();
-        const titleConversationId = conversationId;
-        if (firstMessageText.length > 0) {
-          void (async () => {
-            try {
-              const payload = await requestResumeChatTitle({
-                hasFiles: Boolean(files?.length),
-                text: firstMessageText,
-              });
-              const title = payload.title?.trim() ?? null;
-              await updateConversationTitle(titleConversationId, title || NEW_CHAT_TITLE);
-            } catch {
-              await updateConversationTitle(titleConversationId, NEW_CHAT_TITLE);
-              setHistoryErrorMessage("会话已创建，但智能标题生成失败。已使用默认标题。");
-            }
-          })();
+      if (isFirstMessageForNewConversation) {
+        try {
+          const conversationId = await ensureConversation({ withGeneratingTitle: true });
+          setHistoryErrorMessage(null);
+
+          const firstMessageText = text.trim();
+          if (firstMessageText.length > 0) {
+            void (async () => {
+              try {
+                const payload = await requestResumeChatTitle({
+                  hasFiles: Boolean(files?.length),
+                  text: firstMessageText,
+                });
+                const title = payload.title?.trim() ?? null;
+                await updateConversationTitle(conversationId, title || NEW_CHAT_TITLE);
+              } catch {
+                await updateConversationTitle(conversationId, NEW_CHAT_TITLE);
+                setHistoryErrorMessage("会话已创建，但智能标题生成失败。已使用默认标题。");
+              }
+            })();
+          }
+        } catch {
+          setHistoryErrorMessage("聊天记录保存失败，请稍后重试。");
+          setHasPendingResponse(false);
+          return;
         }
-      }
 
-      if (!conversationId) {
+        // Dispatch deferred to the next render where the hook has wired up
+        // the new Chat instance — see the pendingFirstMessage effect above.
+        setPendingFirstMessage({ files, text });
         return;
       }
 
-      // Optimistically flip UI into the "responding" state before `sendMessage`
-      // touches the SDK status — this is what masks the `ready → submitted`
-      // flicker at the start of each turn.
-      setHasPendingResponse(true);
-      setUserStopped(false);
-      // Dispatch through the registry's Chat instance directly. On the first
-      // send of a new conversation, the hook's `sendMessage` is still bound to
-      // the throwaway init chat from the pre-id render; going through the
-      // registry targets the real (and persistable) Chat instance.
-      await getOrCreateChat(conversationId).sendMessage({ files: files as FileUIPart[], text });
+      // Existing conversation: hook's `sendMessage` already targets the right
+      // Chat instance.
+      await sendMessageRef.current({ files: files as FileUIPart[], text });
     },
     [activeConversationId, ensureConversation, updateConversationTitle],
   );
@@ -344,17 +395,6 @@ export default function ChatPageClient({ initialSessionId }: { initialSessionId:
       if (shouldSyncUrl) {
         updateSessionInUrl(id);
       }
-      // Hot instance (stream still running / just finished in the background)
-      // keeps its in-memory messages. Only cold-hydrate from the server when
-      // the registry has no entry — that's the first mount after a refresh.
-      // Hand off both initial messages AND the active workflow run id (if any) so
-      // the transport's localStorage hint is set before useChat's resume check runs.
-      if (!hasChat(id)) {
-        getOrCreateChat(id, {
-          initialActiveRunId: conversation.activeWorkflowRunId,
-          initialMessages: conversation.messages,
-        });
-      }
       setActiveConversationId(id);
       setHistoryErrorMessage(null);
       // Prefer structured config; fall back to legacy text-only conversations
@@ -380,9 +420,6 @@ export default function ChatPageClient({ initialSessionId }: { initialSessionId:
     ],
   );
 
-  // Detaches the UI from the current conversation without aborting its
-  // in-flight stream — the registry keeps the Chat instance (and its fetch)
-  // alive in the background.
   const resetToNewConversation = useCallback(() => {
     setActiveConversationId(null);
     setJobDescriptionConfig(null);
@@ -398,6 +435,14 @@ export default function ChatPageClient({ initialSessionId }: { initialSessionId:
   }, [resetToNewConversation, updateSessionInUrl]);
 
   useEffect(() => {
+    // SSR 路径: 服务端已经把 conversation 塞过来,所有相关状态在 lazy init 阶段已经
+    // 同步赋值,这里直接跳过网络请求,避免双重 fetch + 一帧 loading 闪烁。
+    // SSR fast path: when the page handed us `initialConversation`, every
+    // related state slice was lazy-initialized synchronously, so skip the
+    // network round-trip and avoid the one-frame loading flash.
+    if (initialConversation) {
+      return;
+    }
     const bootstrap = async () => {
       try {
         if (initialSessionId) {
@@ -412,7 +457,7 @@ export default function ChatPageClient({ initialSessionId }: { initialSessionId:
       }
     };
     void bootstrap();
-  }, [initialSessionId, openConversation, resetToNewConversation]);
+  }, [initialConversation, initialSessionId, openConversation, resetToNewConversation]);
 
   useEffect(() => {
     const handleStartNewConversation = () => startNewConversation();
@@ -436,8 +481,8 @@ export default function ChatPageClient({ initialSessionId }: { initialSessionId:
   }, [activeConversationId, shouldNormalizeSessionPath, updateSessionInUrl]);
 
   // Persist JD / resumeImports changes (user actions, not message stream).
-  // The message stream is persisted server-side via /api/resume's onFinish
-  // plus a backup client write in useChat's onFinish.
+  // The message stream is persisted server-side via the workflow's
+  // persistAssistantMessageStep; this is just the side metadata.
   useEffect(() => {
     if (!isHistoryReady || !activeConversationId) {
       return;
@@ -546,8 +591,8 @@ export default function ChatPageClient({ initialSessionId }: { initialSessionId:
     // The first step itself failed (no earlier step-start to keep) — fall back
     // to `regenerate`, which discards the half-written message and starts over.
     // Pass the messageId so the server can prune the partially persisted row
-    // (chat-registry's onFinish writes a partial on isError) before inserting
-    // the fresh response — otherwise the orphan resurfaces on reload.
+    // (the hook's onFinish writes a partial on isError) before inserting the
+    // fresh response — otherwise the orphan resurfaces on reload.
     if (lastStepStartIndex <= 0) {
       clearError();
       void regenerate({ messageId: lastMessage.id });

@@ -121,7 +121,7 @@ function ChatSidebarHeader({
     return (
       <div className="flex items-center gap-1.5 px-1">
         <Button
-          className="h-9 flex-1 gap-2"
+          className="h-9 flex-1 gap-2 dark:bg-destructive dark:hover:bg-destructive/90"
           disabled={selectedCount === 0 || isBulkDeleting}
           onClick={onBulkDelete}
           size="sm"

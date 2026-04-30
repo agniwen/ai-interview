@@ -1,121 +1,63 @@
+import type { UIMessage } from "ai";
 import { WorkflowChatTransport } from "@workflow/ai";
-import { getChatMeta } from "./chat-meta";
 
 const CHAT_REQUEST_TIMEOUT_MS = 8 * 60 * 1000;
-const ACTIVE_RUN_LS_KEY = (chatId: string) => `active-workflow-run:${chatId}`;
 
-export function getStoredActiveRunId(chatId: string): string | null {
-  if (typeof window === "undefined") {
-    return null;
-  }
-  return window.localStorage.getItem(ACTIVE_RUN_LS_KEY(chatId));
-}
+/**
+ * 在 `WorkflowChatTransport` 之上加一层 abort 控制 + 请求超时:
+ *  - `abort()` 会中断该 transport 上所有正在进行的 fetch（包含 AI SDK 内部不传 signal 的
+ *    `reconnectToStream`），用于路由切走时清理本地连接、或者 iOS 上的 stop 兜底。
+ *  - 8 分钟级别的客户端超时，避免单个请求长期挂住 hibernated 标签页里的连接池。
+ *  - `abort()` 后会立即换上一个新的 AbortController，transport 仍可继续被复用。
+ *
+ * Wraps `WorkflowChatTransport` with transport-level abort control + request
+ * timeout:
+ *  - `abort()` cancels every in-flight fetch through this transport, including
+ *    AI SDK internal `reconnectToStream` calls (which don't pass a signal).
+ *    Used for route teardown and as an iOS-stop fallback.
+ *  - 8-minute client-side timeout per request, so a hibernated tab never holds
+ *    sockets open indefinitely.
+ *  - After `abort()` a fresh AbortController is installed so the same instance
+ *    stays usable.
+ */
+export class AbortableWorkflowChatTransport<
+  UI_MESSAGE extends UIMessage = UIMessage,
+> extends WorkflowChatTransport<UI_MESSAGE> {
+  private _state: { controller: AbortController };
 
-export function setStoredActiveRunId(chatId: string, runId: string | null) {
-  if (typeof window === "undefined") {
-    return;
-  }
-  if (runId) {
-    window.localStorage.setItem(ACTIVE_RUN_LS_KEY(chatId), runId);
-  } else {
-    window.localStorage.removeItem(ACTIVE_RUN_LS_KEY(chatId));
-  }
-}
+  constructor(options: ConstructorParameters<typeof WorkflowChatTransport<UI_MESSAGE>>[0]) {
+    const state = { controller: new AbortController() };
+    const outerFetch: typeof fetch = options?.fetch ?? globalThis.fetch;
 
-export function createChatTransport(chatId: string, initialActiveRunId: string | null = null) {
-  // localStorage is the fast-path hint. Server-injected initialActiveRunId is
-  // the source of truth on first mount; transport still re-reads localStorage
-  // on subsequent reconnects within the same tab.
-  if (initialActiveRunId) {
-    setStoredActiveRunId(chatId, initialActiveRunId);
-  }
+    super({
+      ...options,
+      fetch: ((input: RequestInfo | URL, init?: RequestInit) => {
+        const timeoutController = new AbortController();
+        const timeoutId = setTimeout(() => {
+          timeoutController.abort("Chat request timed out after 8 minutes.");
+        }, CHAT_REQUEST_TIMEOUT_MS);
 
-  return new WorkflowChatTransport({
-    api: "/api/resume",
-    fetch: async (fetchInput, init) => {
-      const timeoutController = new AbortController();
-      const timeoutId = window.setTimeout(() => {
-        timeoutController.abort("Chat request timed out after 8 minutes.");
-      }, CHAT_REQUEST_TIMEOUT_MS);
-
-      if (init?.signal) {
-        if (init.signal.aborted) {
-          timeoutController.abort(init.signal.reason);
-        } else {
-          init.signal.addEventListener(
-            "abort",
-            () => timeoutController.abort(init.signal?.reason),
-            { once: true },
-          );
+        const signals: AbortSignal[] = [state.controller.signal, timeoutController.signal];
+        if (init?.signal) {
+          signals.push(init.signal);
         }
-      }
 
-      try {
-        return await fetch(fetchInput, {
-          ...init,
-          signal: timeoutController.signal,
-        });
-      } finally {
-        window.clearTimeout(timeoutId);
-      }
-    },
-    onChatEnd: () => {
-      setStoredActiveRunId(chatId, null);
-    },
-    onChatSendMessage: (response) => {
-      const runId = response.headers.get("x-workflow-run-id");
-      if (runId) {
-        setStoredActiveRunId(chatId, runId);
-      }
-    },
-    prepareReconnectToStreamRequest: ({ api: _ignored, ...rest }) => {
-      // The SDK pre-builds `${this.api}/${runId or chatId}/stream`. On a fresh
-      // page mount with no internal runId state, it falls back to chatId — which
-      // our server route does not match. Rebuild from `/api/resume` directly,
-      // using the runId from localStorage (set on each successful POST).
-      const runId = getStoredActiveRunId(chatId);
-      if (!runId) {
-        throw new Error(`No active workflow run for chat ${chatId}`);
-      }
-      return {
-        ...rest,
-        api: `/api/resume/${encodeURIComponent(runId)}/stream`,
-      };
-    },
-    // Defensive layer over the SDK's default body builder: when regenerating,
-    // ensure `messages` is trimmed *before* the message being replaced and
-    // that `messageId` is present so the server can prune the DB row. The SDK
-    // strips local state but does not always pass `messageId` to the body
-    // (e.g. when callers omit it), leaving the old assistant orphaned in the
-    // DB and resurfacing on reload.
-    prepareSendMessagesRequest: ({ id, messages, trigger, messageId, body, headers }) => {
-      let outgoingMessages = messages;
-      if (trigger === "regenerate-message" && messageId) {
-        const cutoff = messages.findIndex((m) => m.id === messageId);
-        if (cutoff !== -1) {
-          outgoingMessages = messages.slice(0, cutoff);
-        }
-      }
-      const meta = getChatMeta(chatId);
-      const jd = meta.jobDescription.trim();
-      // WorkflowChatTransport's fetch does not auto-set Content-Type, so the
-      // server's JSON validator sees an unparsed body. Set it explicitly.
-      return {
-        body: {
-          ...body,
-          chatId,
-          enableThinking: meta.enableThinking,
-          id,
-          messageId,
-          messages: outgoingMessages,
-          trigger,
-          ...(jd && { jobDescription: jd }),
-        },
-        headers: {
-          ...headers,
-          "content-type": "application/json",
-        },
-      };
-    },
-  });
+        const merged = AbortSignal.any(signals);
+        const promise = outerFetch(input, { ...init, signal: merged });
+        return promise.finally(() => clearTimeout(timeoutId));
+      }) as typeof fetch,
+    });
+
+    this._state = state;
+  }
+
+  /**
+   * 中断本 transport 上所有正在进行的 fetch（包含 reconnect），随后立即重置可继续使用。
+   * Aborts every in-flight fetch through this transport (including reconnect),
+   * then immediately resets so subsequent requests work normally.
+   */
+  abort(): void {
+    this._state.controller.abort();
+    this._state.controller = new AbortController();
+  }
 }
