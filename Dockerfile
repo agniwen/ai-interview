@@ -34,8 +34,6 @@ COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
-RUN pnpm install @workflow/world-postgres -w
-
 
 USER nextjs
 
