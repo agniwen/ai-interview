@@ -28,8 +28,10 @@ export interface UseJobDescriptionConfigResult {
   clear: () => void;
 }
 
-export function useJobDescriptionConfig(): UseJobDescriptionConfigResult {
-  const [config, setConfig] = useState<JobDescriptionConfig | null>(null);
+export function useJobDescriptionConfig(
+  initial: JobDescriptionConfig | null = null,
+): UseJobDescriptionConfigResult {
+  const [config, setConfig] = useState<JobDescriptionConfig | null>(() => initial);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
   const text = deriveJobDescriptionText(config);

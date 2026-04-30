@@ -1,4 +1,4 @@
-import type { UIMessage } from "ai";
+import type { UIMessage, UIMessageChunk } from "ai";
 import type { ParsedResumePdf, UploadedResumePdf } from "@/lib/resume-pdf";
 import { convertToModelMessages } from "ai";
 import {
@@ -28,28 +28,58 @@ export interface ResumeScreeningInput {
   messages: UIMessage[];
   jobDescription?: string;
   enableThinking?: boolean;
+  /**
+   * 可选 abort 信号: 由 workflow 层的 stop monitor 持有, 在用户点 stop 时
+   * 触发, 让底层 LLM 调用 / 流式解析提前结束。
+   * Optional abort signal owned by the workflow-level stop monitor — flips
+   * when the user clicks stop so the underlying LLM stream tears down.
+   */
+  abortSignal?: AbortSignal;
 }
 
 // ---------------------------------------------------------------------------
 // Module-level PDF parse cache — persists across auto-submit steps so the
 // same PDF is not re-parsed on every round-trip.
-// Entries expire after 10 minutes to avoid unbounded memory growth.
+//  - 单条 entry 10 分钟 TTL, 防止陈旧。
+//  - 总条数硬上限, 触顶时按插入顺序(FIFO)淘汰最早的, 避免高并发上传不同 PDF
+//    导致内存无界膨胀。
+// Entries TTL out after 10 min; total size is hard-capped via FIFO eviction.
 // ---------------------------------------------------------------------------
 const PDF_CACHE_TTL_MS = 10 * 60 * 1000;
+const PDF_CACHE_MAX_ENTRIES = 200;
 
-interface CachedParsedResume {
-  promise: Promise<ParsedResumePdf>;
+interface CachedEntry<T> {
+  promise: Promise<T>;
   createdAt: number;
 }
 
-const globalParsedResumeCache = new Map<string, CachedParsedResume>();
+const globalParsedResumeCache = new Map<string, CachedEntry<ParsedResumePdf>>();
+const globalResumeSubagentCache = new Map<string, CachedEntry<ResumeParserResult>>();
 
-interface CachedSubagentResult {
-  promise: Promise<ResumeParserResult>;
-  createdAt: number;
+/**
+ * 把 entry 写入 Map, 超过 MAX_ENTRIES 时淘汰最早插入的。
+ * Set entry, evicting the oldest insertion when above MAX_ENTRIES (Map keys
+ * iterate in insertion order, so `keys().next().value` is the oldest).
+ */
+function setWithMaxEntries<T>(
+  cache: Map<string, CachedEntry<T>>,
+  key: string,
+  entry: CachedEntry<T>,
+) {
+  // 同 key 重写时先删, 让重新插入排到队尾, 避免被立刻淘汰。
+  // Re-insert by deleting first so updates land at the tail.
+  if (cache.has(key)) {
+    cache.delete(key);
+  }
+  cache.set(key, entry);
+  while (cache.size > PDF_CACHE_MAX_ENTRIES) {
+    const oldest = cache.keys().next().value;
+    if (oldest === undefined) {
+      break;
+    }
+    cache.delete(oldest);
+  }
 }
-
-const globalResumeSubagentCache = new Map<string, CachedSubagentResult>();
 
 function getCachedParseResume(file: UploadedResumePdf): Promise<ParsedResumePdf> {
   const now = Date.now();
@@ -58,7 +88,7 @@ function getCachedParseResume(file: UploadedResumePdf): Promise<ParsedResumePdf>
     return existing.promise;
   }
   const promise = parseResumePdf(file);
-  globalParsedResumeCache.set(file.id, { createdAt: now, promise });
+  setWithMaxEntries(globalParsedResumeCache, file.id, { createdAt: now, promise });
   return promise;
 }
 
@@ -80,7 +110,7 @@ function getCachedParseResumeSubagent(
       throw error;
     }
   })();
-  globalResumeSubagentCache.set(file.id, { createdAt: now, promise });
+  setWithMaxEntries(globalResumeSubagentCache, file.id, { createdAt: now, promise });
   return promise;
 }
 
@@ -104,7 +134,7 @@ function pruneExpiredCacheEntries() {
  * direct iteration over `fullStream`, etc.).
  */
 export async function runResumeScreening(input: ResumeScreeningInput) {
-  const { messages, jobDescription, enableThinking } = input;
+  const { messages, jobDescription, enableThinking, abortSignal } = input;
   const thinkingEnabled = enableThinking !== false;
   const normalizedJobDescription = jobDescription?.trim();
   const uploadedResumePdfs = collectUploadedResumePdfs(messages);
@@ -281,7 +311,69 @@ ${autoJdContext}
     },
   });
 
-  return agent.stream({
-    messages: stripNonImageFileParts(await convertToModelMessages(messages)),
+  // ignoreIncompleteToolCalls: 用户中途 stop 时, 上一轮的 assistant 可能留下
+  // 有 tool-call 但没有 tool-result 的 part。下一轮发给 LLM 时, OpenAI 兼容模式
+  // 会校验"每个 tool_call 必须有对应的 tool result", 否则报
+  // "Tool result is missing for tool call ..."。开启这个选项让 SDK 自动剥掉
+  // 这些 orphan tool call, 保证下一轮可以正常推进。
+  // ignoreIncompleteToolCalls: when the user stops mid-tool, the prior assistant
+  // turn keeps a tool-call without a matching tool-result. On the next request,
+  // OpenAI-compatible providers reject with "Tool result is missing for tool
+  // call ...". This flag tells the SDK to drop those orphan tool calls.
+  const modelMessages = await convertToModelMessages(messages, {
+    ignoreIncompleteToolCalls: true,
   });
+
+  return agent.stream({
+    abortSignal,
+    messages: stripNonImageFileParts(modelMessages),
+  });
+}
+
+/**
+ * 把 `toUIMessageStream(...)` 产生的 chunks 转发到 writable。
+ *
+ * 与 open-agents `runAgentStep` (apps/web/app/workflows/chat.ts:1080) 的写法对齐:
+ *  - 每个 chunk 单独 getWriter / write / releaseLock —— 不长期持有 writer。
+ *  - 不做 message 累积; 这交给 `toUIMessageStream({onFinish})`, 只有 SDK 内部
+ *    维护 lastMessage 的合并状态(continuation 模式: parts = lastMessage.parts
+ *    + 新 chunks)。
+ *  - 不做错误兜底 (writer.abort 等); 让异常直接抛出, 外层 workflow 的 try/catch
+ *    + 后续 `closeWritableStep` 统一处理。
+ *  - 成功路径不 close: workflow 在所有 cleanup step (persist, clear runId) 之后
+ *    再调 `closeWritableStep`, 避免客户端在落库前就看到流结束并触发 auto-resume。
+ *
+ * Mirrors open-agents `runAgentStep`'s per-chunk getWriter/write/releaseLock
+ * pattern. No accumulation here (SDK does it via `onFinish`). No abort on
+ * error — let exceptions propagate so the workflow body's catch + closing
+ * step handle teardown uniformly. Success path does not close the writable;
+ * the workflow runtime closes it after persist + clear-runId so the client's
+ * auto-resume only fires once the new turn is durable.
+ */
+export async function pumpAssistantStream(args: {
+  stream: ReadableStream<UIMessageChunk>;
+  writable: WritableStream<UIMessageChunk>;
+}): Promise<void> {
+  const { stream, writable } = args;
+  // 用 reader/read() 而不是 for-await: TS lib 里的 ReadableStream 类型还没暴露
+  // [Symbol.asyncIterator]; 行为等价。
+  // Use reader/read() — the TS lib's ReadableStream type doesn't expose
+  // [Symbol.asyncIterator] yet; semantics are equivalent.
+  const reader = stream.getReader();
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) {
+        break;
+      }
+      const writer = writable.getWriter();
+      try {
+        await writer.write(value);
+      } finally {
+        writer.releaseLock();
+      }
+    }
+  } finally {
+    reader.releaseLock();
+  }
 }

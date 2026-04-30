@@ -2,7 +2,7 @@
 
 **日期：** 2026-04-29
 **作者：** Claude (with @sakurawen)
-**状态：** Draft — 待 review
+**状态：** Implemented（2026-04-30）
 
 ## 背景
 

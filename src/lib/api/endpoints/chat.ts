@@ -32,6 +32,7 @@ export interface ChatConversationDetail extends ChatConversationSummary {
   jobDescriptionConfig: JobDescriptionConfig | null;
   resumeImports: Record<string, string>;
   messages: UIMessage[];
+  activeWorkflowRunId: string | null;
 }
 
 /**

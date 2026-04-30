@@ -26,8 +26,8 @@ export interface UseResumeImportsResult {
   markMissing: (partId: string) => void;
 }
 
-export function useResumeImports(): UseResumeImportsResult {
-  const [map, setMap] = useState<Record<string, string>>({});
+export function useResumeImports(initial: Record<string, string> = {}): UseResumeImportsResult {
+  const [map, setMap] = useState<Record<string, string>>(() => initial);
 
   const replaceAll = useCallback((next: Record<string, string>) => {
     setMap(next);

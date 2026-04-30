@@ -13,6 +13,7 @@ export interface ChatConversationSummary {
 }
 
 export interface ChatConversationDetail extends ChatConversationSummary {
+  activeWorkflowRunId: string | null;
   jobDescription: string;
   jobDescriptionConfig: JobDescriptionConfig | null;
   resumeImports: Record<string, string>;
@@ -56,6 +57,7 @@ export async function getUserConversation(
     .orderBy(chatMessage.createdAt);
 
   return {
+    activeWorkflowRunId: row.activeWorkflowRunId,
     createdAt: row.createdAt,
     id: row.id,
     isTitleGenerating: row.isTitleGenerating,
