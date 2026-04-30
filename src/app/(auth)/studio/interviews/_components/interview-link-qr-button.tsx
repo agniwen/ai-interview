@@ -16,9 +16,9 @@ function buildGreeting(candidateName?: string | null) {
   // 候选人姓名缺失时退回到通用称呼，避免出现「您好，：」这种空白尾巴。
   // Fallback to a generic salutation when no candidate name is available.
   if (!name) {
-    return "您好！欢迎参加本次面试，请扫描下方二维码或点击链接进入：";
+    return "您好！欢迎参加本次面试，请扫描下方二维码进入";
   }
-  return `${name} 您好！欢迎参加本次面试，请扫描下方二维码或点击链接进入：`;
+  return `${name} 您好！欢迎参加本次面试，请扫描下方二维码进入`;
 }
 
 export function InterviewLinkQrButton({
