@@ -46,6 +46,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { copyTextToClipboard, toAbsoluteUrl } from "@/lib/clipboard";
 import { scheduleEntryStatusMeta } from "@/lib/studio-interviews";
 import { AgentInstructionsPanel } from "./agent-instructions-panel";
+import { InterviewLinkQrButton } from "./interview-link-qr-button";
 import { DetailRow } from "./interview-detail/detail-row";
 import { EvaluationResults } from "./interview-detail/evaluation-results";
 import { FormsTab } from "./interview-detail/forms-tab";
@@ -349,6 +350,10 @@ export function InterviewDetailDialog({
                                       <Share2Icon className="size-3.5" />
                                       复制链接
                                     </Button>
+                                    <InterviewLinkQrButton
+                                      candidateName={record.candidateName}
+                                      url={interviewLink}
+                                    />
                                     {isLastEntry && entry.status === "completed" ? (
                                       <Button
                                         disabled={resettingRoundId === entry.id}

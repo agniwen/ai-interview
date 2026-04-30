@@ -2,7 +2,7 @@
 
 import type { InterviewFormApi } from "./interview-form";
 import type { ScheduleEntryStatus } from "@/lib/studio-interviews";
-import { CalendarDaysIcon, LockIcon, PlusIcon, Trash2Icon } from "lucide-react";
+import { CalendarDaysIcon, LockIcon, PlusIcon, RotateCcwIcon, Trash2Icon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -22,9 +22,13 @@ import { hasFieldErrors, toFieldErrors } from "./interview-form";
 export function InterviewScheduleFields({
   form,
   roundStatuses,
+  onResetRound,
+  resettingRoundId,
 }: {
   form: InterviewFormApi;
   roundStatuses?: Record<string, ScheduleEntryStatus>;
+  onResetRound?: (roundId: string) => void | Promise<void>;
+  resettingRoundId?: string | null;
 }) {
   return (
     <form.Field mode="array" name="scheduleEntries">
@@ -61,6 +65,12 @@ export function InterviewScheduleFields({
                 const entryStatus = entry.id ? roundStatuses?.[entry.id] : undefined;
                 const isLocked = entryStatus === "completed" || entryStatus === "in_progress";
                 const statusMeta = entryStatus ? scheduleEntryStatusMeta[entryStatus] : undefined;
+                const isLastEntry = index === scheduleEntriesField.state.value.length - 1;
+                // 仅在最后一轮且状态为「已结束」时显示重置按钮，与详情 dialog 保持一致。
+                // Show reset only on the last completed round, mirroring the detail dialog.
+                const canResetRound =
+                  !!entry.id && isLastEntry && entryStatus === "completed" && !!onResetRound;
+                const isResetting = !!entry.id && resettingRoundId === entry.id;
 
                 return (
                   <div
@@ -80,15 +90,33 @@ export function InterviewScheduleFields({
                           </span>
                         ) : null}
                       </div>
-                      <Button
-                        disabled={scheduleEntriesField.state.value.length <= 1 || isLocked}
-                        onClick={() => void scheduleEntriesField.removeValue(index)}
-                        size="icon"
-                        type="button"
-                        variant="ghost"
-                      >
-                        <Trash2Icon className="size-4" />
-                      </Button>
+                      <div className="flex items-center gap-2">
+                        {canResetRound ? (
+                          <Button
+                            disabled={isResetting}
+                            onClick={() => {
+                              if (entry.id) {
+                                void onResetRound(entry.id);
+                              }
+                            }}
+                            size="sm"
+                            type="button"
+                            variant="outline"
+                          >
+                            <RotateCcwIcon className="size-3.5" />
+                            {isResetting ? "重置中..." : "重置轮次"}
+                          </Button>
+                        ) : null}
+                        <Button
+                          disabled={scheduleEntriesField.state.value.length <= 1 || isLocked}
+                          onClick={() => void scheduleEntriesField.removeValue(index)}
+                          size="icon"
+                          type="button"
+                          variant="ghost"
+                        >
+                          <Trash2Icon className="size-4" />
+                        </Button>
+                      </div>
                     </div>
 
                     <FieldGroup className="grid gap-4 md:grid-cols-2">

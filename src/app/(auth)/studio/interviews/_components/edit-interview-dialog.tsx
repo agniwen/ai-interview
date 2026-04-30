@@ -2,7 +2,7 @@
 
 import type { ScheduleEntryStatus, StudioInterviewRecord } from "@/lib/studio-interviews";
 import { useStore } from "@tanstack/react-form";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { LoaderCircleIcon } from "lucide-react";
 import { useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -18,7 +18,7 @@ import {
 import { FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { apiFetch, fetchStudioInterview } from "@/lib/api";
+import { apiFetch, fetchStudioInterview, resetStudioInterviewRound } from "@/lib/api";
 import {
   createInterviewFormValues,
   toInterviewFormValues,
@@ -45,6 +45,8 @@ export function EditInterviewDialog({
   const [resumeFile, setResumeFile] = useState<File | null>(null);
   const [activeTab, setActiveTab] = useState<string>("basic");
   const [roundStatuses, setRoundStatuses] = useState<Record<string, ScheduleEntryStatus>>({});
+  const [resettingRoundId, setResettingRoundId] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
   const form = useInterviewForm({
     defaultValues: createInterviewFormValues(),
@@ -131,6 +133,37 @@ export function EditInterviewDialog({
     setResumeFile(file);
   }
 
+  async function handleResetRound(roundId: string) {
+    if (!recordId || resettingRoundId) {
+      return;
+    }
+
+    setResettingRoundId(roundId);
+
+    try {
+      const updated = await resetStudioInterviewRound(recordId, roundId);
+      toast.success("轮次已重置为待开始");
+      // 仅在本地清掉该轮次的锁定状态，不重写表单值，
+      // 避免覆盖用户在题目 / Agent 提示词等其他 tab 中尚未保存的修改。
+      // Drop the local lock for this round only — don't overwrite the form,
+      // so unsaved edits in other tabs (questions, agent instructions) survive.
+      setRoundStatuses((prev) => {
+        if (!(roundId in prev)) {
+          return prev;
+        }
+        const { [roundId]: _removed, ...rest } = prev;
+        return rest;
+      });
+      await queryClient.invalidateQueries({ queryKey: ["studio-interview", recordId] });
+      await queryClient.invalidateQueries({ queryKey: ["studio-interview-reports", recordId] });
+      onUpdated(updated);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "重置失败");
+    } finally {
+      setResettingRoundId(null);
+    }
+  }
+
   return (
     <Dialog onOpenChange={onOpenChange} open={open}>
       <DialogContent className="max-h-[90vh] sm:max-w-5xl gap-0 overflow-hidden p-0">
@@ -205,7 +238,12 @@ export function EditInterviewDialog({
 
                     <InterviewBasicInfoFields form={form} />
 
-                    <InterviewScheduleFields form={form} roundStatuses={roundStatuses} />
+                    <InterviewScheduleFields
+                      form={form}
+                      onResetRound={handleResetRound}
+                      resettingRoundId={resettingRoundId}
+                      roundStatuses={roundStatuses}
+                    />
 
                     <InterviewNotesField form={form} />
                   </div>
