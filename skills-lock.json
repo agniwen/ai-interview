@@ -11,6 +11,16 @@
       "sourceType": "github",
       "computedHash": "a4c830509e85557b59339d8d93a4e243e9e59c686e7678854d39230e12c2a6dc"
     },
+    "chat-sdk": {
+      "source": "vercel/chat",
+      "sourceType": "github",
+      "computedHash": "f10f9eb1289aa7a1095d77954ea70c6ee6ab217f18af46a90d57a4b246d73af3"
+    },
+    "shadcn": {
+      "source": "shadcn/ui",
+      "sourceType": "github",
+      "computedHash": "873c67922d80775a9fdf596db7964b579f0408c30ec6e3d11989f6055bbec89f"
+    },
     "vercel-react-best-practices": {
       "source": "vercel-labs/agent-skills",
       "sourceType": "github",

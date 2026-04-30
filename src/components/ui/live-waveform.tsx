@@ -1,31 +1,31 @@
-'use client';
+"use client";
 
-import type { HTMLAttributes } from 'react';
-import { useEffect, useRef } from 'react';
+import type { HTMLAttributes } from "react";
+import { useEffect, useRef } from "react";
 
-import { cn } from '@/lib/utils';
+import { cn } from "@/lib/utils";
 
 export type LiveWaveformProps = HTMLAttributes<HTMLDivElement> & {
-  active?: boolean
-  processing?: boolean
-  deviceId?: string
-  barWidth?: number
-  barHeight?: number
-  barGap?: number
-  barRadius?: number
-  barColor?: string
-  fadeEdges?: boolean
-  fadeWidth?: number
-  height?: string | number
-  sensitivity?: number
-  smoothingTimeConstant?: number
-  fftSize?: number
-  historySize?: number
-  updateRate?: number
-  mode?: 'scrolling' | 'static'
-  onError?: (error: Error) => void
-  onStreamReady?: (stream: MediaStream) => void
-  onStreamEnd?: () => void
+  active?: boolean;
+  processing?: boolean;
+  deviceId?: string;
+  barWidth?: number;
+  barHeight?: number;
+  barGap?: number;
+  barRadius?: number;
+  barColor?: string;
+  fadeEdges?: boolean;
+  fadeWidth?: number;
+  height?: string | number;
+  sensitivity?: number;
+  smoothingTimeConstant?: number;
+  fftSize?: number;
+  historySize?: number;
+  updateRate?: number;
+  mode?: "scrolling" | "static";
+  onError?: (error: Error) => void;
+  onStreamReady?: (stream: MediaStream) => void;
+  onStreamEnd?: () => void;
 };
 
 export function LiveWaveform({
@@ -45,7 +45,7 @@ export function LiveWaveform({
   fftSize = 256,
   historySize = 60,
   updateRate = 30,
-  mode = 'static',
+  mode = "static",
   onError,
   onStreamReady,
   onStreamEnd,
@@ -68,13 +68,14 @@ export function LiveWaveform({
   const gradientCacheRef = useRef<CanvasGradient | null>(null);
   const lastWidthRef = useRef(0);
 
-  const heightStyle = typeof height === 'number' ? `${height}px` : height;
+  const heightStyle = typeof height === "number" ? `${height}px` : height;
 
   useEffect(() => {
     const canvas = canvasRef.current;
     const container = containerRef.current;
-    if (!canvas || !container)
+    if (!canvas || !container) {
       return;
+    }
 
     const resizeObserver = new ResizeObserver(() => {
       const rect = container.getBoundingClientRect();
@@ -85,7 +86,7 @@ export function LiveWaveform({
       canvas.style.width = `${rect.width}px`;
       canvas.style.height = `${rect.height}px`;
 
-      const ctx = canvas.getContext('2d');
+      const ctx = canvas.getContext("2d");
       if (ctx) {
         ctx.scale(dpr, dpr);
       }
@@ -106,18 +107,14 @@ export function LiveWaveform({
 
       const animateProcessing = () => {
         time += 0.03;
-        transitionProgressRef.current = Math.min(
-          1,
-          transitionProgressRef.current + 0.02,
-        );
+        transitionProgressRef.current = Math.min(1, transitionProgressRef.current + 0.02);
 
         const processingData = [];
         const barCount = Math.floor(
-          (containerRef.current?.getBoundingClientRect().width || 200)
-          / (barWidth + barGap),
+          (containerRef.current?.getBoundingClientRect().width || 200) / (barWidth + barGap),
         );
 
-        if (mode === 'static') {
+        if (mode === "static") {
           const halfCount = Math.floor(barCount / 2);
 
           for (let i = 0; i < barCount; i++) {
@@ -131,24 +128,17 @@ export function LiveWaveform({
             const processingValue = (0.2 + combinedWave) * centerWeight;
 
             let finalValue = processingValue;
-            if (
-              lastActiveDataRef.current.length > 0
-              && transitionProgressRef.current < 1
-            ) {
-              const lastDataIndex = Math.min(
-                i,
-                lastActiveDataRef.current.length - 1,
-              );
+            if (lastActiveDataRef.current.length > 0 && transitionProgressRef.current < 1) {
+              const lastDataIndex = Math.min(i, lastActiveDataRef.current.length - 1);
               const lastValue = lastActiveDataRef.current[lastDataIndex] || 0;
-              finalValue
-                = lastValue * (1 - transitionProgressRef.current)
-                  + processingValue * transitionProgressRef.current;
+              finalValue =
+                lastValue * (1 - transitionProgressRef.current) +
+                processingValue * transitionProgressRef.current;
             }
 
             processingData.push(Math.max(0.05, Math.min(1, finalValue)));
           }
-        }
-        else {
+        } else {
           for (let i = 0; i < barCount; i++) {
             const normalizedPosition = (i - barCount / 2) / (barCount / 2);
             const centerWeight = 1 - Math.abs(normalizedPosition) * 0.4;
@@ -160,33 +150,26 @@ export function LiveWaveform({
             const processingValue = (0.2 + combinedWave) * centerWeight;
 
             let finalValue = processingValue;
-            if (
-              lastActiveDataRef.current.length > 0
-              && transitionProgressRef.current < 1
-            ) {
-              const lastDataIndex = Math.floor(
-                (i / barCount) * lastActiveDataRef.current.length,
-              );
+            if (lastActiveDataRef.current.length > 0 && transitionProgressRef.current < 1) {
+              const lastDataIndex = Math.floor((i / barCount) * lastActiveDataRef.current.length);
               const lastValue = lastActiveDataRef.current[lastDataIndex] || 0;
-              finalValue
-                = lastValue * (1 - transitionProgressRef.current)
-                  + processingValue * transitionProgressRef.current;
+              finalValue =
+                lastValue * (1 - transitionProgressRef.current) +
+                processingValue * transitionProgressRef.current;
             }
 
             processingData.push(Math.max(0.05, Math.min(1, finalValue)));
           }
         }
 
-        if (mode === 'static') {
+        if (mode === "static") {
           staticBarsRef.current = processingData;
-        }
-        else {
+        } else {
           historyRef.current = processingData;
         }
 
         needsRedrawRef.current = true;
-        processingAnimationRef.current
-          = requestAnimationFrame(animateProcessing);
+        processingAnimationRef.current = requestAnimationFrame(animateProcessing);
       };
 
       animateProcessing();
@@ -196,36 +179,28 @@ export function LiveWaveform({
           cancelAnimationFrame(processingAnimationRef.current);
         }
       };
-    }
-    else if (!active && !processing) {
-      const hasData
-        = mode === 'static'
-          ? staticBarsRef.current.length > 0
-          : historyRef.current.length > 0;
+    } else if (!active && !processing) {
+      const hasData =
+        mode === "static" ? staticBarsRef.current.length > 0 : historyRef.current.length > 0;
 
       if (hasData) {
         let fadeProgress = 0;
         const fadeToIdle = () => {
           fadeProgress += 0.03;
           if (fadeProgress < 1) {
-            if (mode === 'static') {
+            if (mode === "static") {
               staticBarsRef.current = staticBarsRef.current.map(
-                value => value * (1 - fadeProgress),
+                (value) => value * (1 - fadeProgress),
               );
-            }
-            else {
-              historyRef.current = historyRef.current.map(
-                value => value * (1 - fadeProgress),
-              );
+            } else {
+              historyRef.current = historyRef.current.map((value) => value * (1 - fadeProgress));
             }
             needsRedrawRef.current = true;
             requestAnimationFrame(fadeToIdle);
-          }
-          else {
-            if (mode === 'static') {
+          } else {
+            if (mode === "static") {
               staticBarsRef.current = [];
-            }
-            else {
+            } else {
               historyRef.current = [];
             }
           }
@@ -238,14 +213,11 @@ export function LiveWaveform({
   useEffect(() => {
     if (!active) {
       if (streamRef.current) {
-        streamRef.current.getTracks().forEach(track => track.stop());
+        streamRef.current.getTracks().forEach((track) => track.stop());
         streamRef.current = null;
         onStreamEnd?.();
       }
-      if (
-        audioContextRef.current
-        && audioContextRef.current.state !== 'closed'
-      ) {
+      if (audioContextRef.current && audioContextRef.current.state !== "closed") {
         audioContextRef.current.close();
         audioContextRef.current = null;
       }
@@ -261,24 +233,23 @@ export function LiveWaveform({
         const stream = await navigator.mediaDevices.getUserMedia({
           audio: deviceId
             ? {
+                autoGainControl: true,
                 deviceId: { exact: deviceId },
                 echoCancellation: true,
                 noiseSuppression: true,
-                autoGainControl: true,
               }
             : {
+                autoGainControl: true,
                 echoCancellation: true,
                 noiseSuppression: true,
-                autoGainControl: true,
               },
         });
         streamRef.current = stream;
         onStreamReady?.(stream);
 
-        const AudioContextConstructor
-          = window.AudioContext
-            || (window as unknown as { webkitAudioContext: typeof AudioContext })
-              .webkitAudioContext;
+        const AudioContextConstructor =
+          window.AudioContext ||
+          (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
         const audioContext = new AudioContextConstructor();
         const analyser = audioContext.createAnalyser();
         analyser.fftSize = fftSize;
@@ -291,8 +262,7 @@ export function LiveWaveform({
         analyserRef.current = analyser;
 
         historyRef.current = [];
-      }
-      catch (error) {
+      } catch (error) {
         onError?.(error as Error);
       }
     };
@@ -301,14 +271,11 @@ export function LiveWaveform({
 
     return () => {
       if (streamRef.current) {
-        streamRef.current.getTracks().forEach(track => track.stop());
+        streamRef.current.getTracks().forEach((track) => track.stop());
         streamRef.current = null;
         onStreamEnd?.();
       }
-      if (
-        audioContextRef.current
-        && audioContextRef.current.state !== 'closed'
-      ) {
+      if (audioContextRef.current && audioContextRef.current.state !== "closed") {
         audioContextRef.current.close();
         audioContextRef.current = null;
       }
@@ -317,24 +284,18 @@ export function LiveWaveform({
         animationRef.current = 0;
       }
     };
-  }, [
-    active,
-    deviceId,
-    fftSize,
-    smoothingTimeConstant,
-    onError,
-    onStreamReady,
-    onStreamEnd,
-  ]);
+  }, [active, deviceId, fftSize, smoothingTimeConstant, onError, onStreamReady, onStreamEnd]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas)
+    if (!canvas) {
       return;
+    }
 
-    const ctx = canvas.getContext('2d');
-    if (!ctx)
+    const ctx = canvas.getContext("2d");
+    if (!ctx) {
       return;
+    }
 
     let rafId: number;
 
@@ -345,12 +306,10 @@ export function LiveWaveform({
         lastUpdateRef.current = currentTime;
 
         if (analyserRef.current) {
-          const dataArray = new Uint8Array(
-            analyserRef.current.frequencyBinCount,
-          );
+          const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
           analyserRef.current.getByteFrequencyData(dataArray);
 
-          if (mode === 'static') {
+          if (mode === "static") {
             const startFreq = Math.floor(dataArray.length * 0.05);
             const endFreq = Math.floor(dataArray.length * 0.4);
             const relevantData = dataArray.slice(startFreq, endFreq);
@@ -360,31 +319,20 @@ export function LiveWaveform({
             const newBars: number[] = [];
 
             for (let i = halfCount - 1; i >= 0; i--) {
-              const dataIndex = Math.floor(
-                (i / halfCount) * relevantData.length,
-              );
-              const value = Math.min(
-                1,
-                (relevantData[dataIndex] / 255) * sensitivity,
-              );
+              const dataIndex = Math.floor((i / halfCount) * relevantData.length);
+              const value = Math.min(1, (relevantData[dataIndex] / 255) * sensitivity);
               newBars.push(Math.max(0.05, value));
             }
 
             for (let i = 0; i < halfCount; i++) {
-              const dataIndex = Math.floor(
-                (i / halfCount) * relevantData.length,
-              );
-              const value = Math.min(
-                1,
-                (relevantData[dataIndex] / 255) * sensitivity,
-              );
+              const dataIndex = Math.floor((i / halfCount) * relevantData.length);
+              const value = Math.min(1, (relevantData[dataIndex] / 255) * sensitivity);
               newBars.push(Math.max(0.05, value));
             }
 
             staticBarsRef.current = newBars;
             lastActiveDataRef.current = newBars;
-          }
-          else {
+          } else {
             let sum = 0;
             const startFreq = Math.floor(dataArray.length * 0.05);
             const endFreq = Math.floor(dataArray.length * 0.4);
@@ -414,19 +362,19 @@ export function LiveWaveform({
       needsRedrawRef.current = active;
       ctx.clearRect(0, 0, rect.width, rect.height);
 
-      const computedBarColor
-        = barColor
-          || (() => {
-            const style = getComputedStyle(canvas);
-            const color = style.color;
-            return color || '#000';
-          })();
+      const computedBarColor =
+        barColor ||
+        (() => {
+          const style = getComputedStyle(canvas);
+          const { color } = style;
+          return color || "#000";
+        })();
 
       const step = barWidth + barGap;
       const barCount = Math.floor(rect.width / step);
       const centerY = rect.height / 2;
 
-      if (mode === 'static') {
+      if (mode === "static") {
         const dataToRender = processing
           ? staticBarsRef.current
           : active
@@ -448,13 +396,11 @@ export function LiveWaveform({
             ctx.beginPath();
             ctx.roundRect(x, y, barWidth, barHeight, barRadius);
             ctx.fill();
-          }
-          else {
+          } else {
             ctx.fillRect(x, y, barWidth, barHeight);
           }
         }
-      }
-      else {
+      } else {
         for (let i = 0; i < barCount && i < historyRef.current.length; i++) {
           const dataIndex = historyRef.current.length - 1 - i;
           const value = historyRef.current[dataIndex] || 0.1;
@@ -469,8 +415,7 @@ export function LiveWaveform({
             ctx.beginPath();
             ctx.roundRect(x, y, barWidth, barHeight, barRadius);
             ctx.fill();
-          }
-          else {
+          } else {
             ctx.fillRect(x, y, barWidth, barHeight);
           }
         }
@@ -481,19 +426,19 @@ export function LiveWaveform({
           const gradient = ctx.createLinearGradient(0, 0, rect.width, 0);
           const fadePercent = Math.min(0.3, fadeWidth / rect.width);
 
-          gradient.addColorStop(0, 'rgba(255,255,255,1)');
-          gradient.addColorStop(fadePercent, 'rgba(255,255,255,0)');
-          gradient.addColorStop(1 - fadePercent, 'rgba(255,255,255,0)');
-          gradient.addColorStop(1, 'rgba(255,255,255,1)');
+          gradient.addColorStop(0, "rgba(255,255,255,1)");
+          gradient.addColorStop(fadePercent, "rgba(255,255,255,0)");
+          gradient.addColorStop(1 - fadePercent, "rgba(255,255,255,0)");
+          gradient.addColorStop(1, "rgba(255,255,255,1)");
 
           gradientCacheRef.current = gradient;
           lastWidthRef.current = rect.width;
         }
 
-        ctx.globalCompositeOperation = 'destination-out';
+        ctx.globalCompositeOperation = "destination-out";
         ctx.fillStyle = gradientCacheRef.current;
         ctx.fillRect(0, 0, rect.width, rect.height);
-        ctx.globalCompositeOperation = 'source-over';
+        ctx.globalCompositeOperation = "source-over";
       }
 
       ctx.globalAlpha = 1;
@@ -526,27 +471,19 @@ export function LiveWaveform({
 
   return (
     <div
-      className={cn('relative h-full w-full', className)}
+      className={cn("relative h-full w-full", className)}
       ref={containerRef}
       style={{ height: heightStyle }}
       aria-label={
-        active
-          ? 'Live audio waveform'
-          : processing
-            ? 'Processing audio'
-            : 'Audio waveform idle'
+        active ? "Live audio waveform" : processing ? "Processing audio" : "Audio waveform idle"
       }
-      role='img'
+      role="img"
       {...props}
     >
       {!active && !processing && (
-        <div className='border-muted-foreground/20 absolute top-1/2 right-0 left-0 -translate-y-1/2 border-t-2 border-dotted' />
+        <div className="border-muted-foreground/20 absolute top-1/2 right-0 left-0 -translate-y-1/2 border-t-2 border-dotted" />
       )}
-      <canvas
-        className='block h-full w-full'
-        ref={canvasRef}
-        aria-hidden='true'
-      />
+      <canvas className="block h-full w-full" ref={canvasRef} aria-hidden="true" />
     </div>
   );
 }

@@ -1,26 +1,26 @@
-'use client';
+"use client";
 
-import { useMemo } from 'react';
-import { useHydrated } from '@/hooks/use-hydrated';
+import { useMemo } from "react";
+import { useHydrated } from "@/hooks/use-hydrated";
 
 export const DATE_TIME_DISPLAY_OPTIONS = {
-  month: '2-digit',
-  day: '2-digit',
-  hour: '2-digit',
-  minute: '2-digit',
+  day: "2-digit",
+  hour: "2-digit",
   hour12: false,
+  minute: "2-digit",
+  month: "2-digit",
 } satisfies Intl.DateTimeFormatOptions;
 
 export const TIME_DISPLAY_OPTIONS = {
-  hour: '2-digit',
-  minute: '2-digit',
+  hour: "2-digit",
   hour12: false,
+  minute: "2-digit",
 } satisfies Intl.DateTimeFormatOptions;
 
 type TimeValue = string | number | Date | null | undefined;
 
 function normalizeDate(value: TimeValue) {
-  if (value === null || value === undefined || value === '') {
+  if (value === null || value === undefined || value === "") {
     return null;
   }
 
@@ -35,20 +35,20 @@ function getDateTimeAttribute(value: TimeValue) {
 
 export function TimeDisplay({
   value,
-  emptyText = '待定',
-  pendingText = '--',
-  locale = 'zh-CN',
+  emptyText = "待定",
+  pendingText = "--",
+  locale = "zh-CN",
   options = DATE_TIME_DISPLAY_OPTIONS,
-  as = 'time',
+  as = "time",
   className,
 }: {
-  value: TimeValue
-  emptyText?: string
-  pendingText?: string
-  locale?: string
-  options?: Intl.DateTimeFormatOptions
-  as?: 'span' | 'time'
-  className?: string
+  value: TimeValue;
+  emptyText?: string;
+  pendingText?: string;
+  locale?: string;
+  options?: Intl.DateTimeFormatOptions;
+  as?: "span" | "time";
+  className?: string;
 }) {
   const isHydrated = useHydrated();
   const dateTime = useMemo(() => getDateTimeAttribute(value), [value]);
@@ -66,7 +66,7 @@ export function TimeDisplay({
     return new Intl.DateTimeFormat(locale, options).format(date);
   }, [emptyText, isHydrated, locale, options, pendingText, value]);
 
-  if (as === 'span') {
+  if (as === "span") {
     return <span className={className}>{text}</span>;
   }
 

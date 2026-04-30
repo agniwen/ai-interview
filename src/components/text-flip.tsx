@@ -1,29 +1,29 @@
-'use client';
+"use client";
 
-import type { Transition, Variants } from 'motion/react';
-import { AnimatePresence, motion } from 'motion/react';
-import { Children, useEffect, useState } from 'react';
+import type { Transition, Variants } from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
+import { Children, useEffect, useState } from "react";
 
-import { cn } from '@/lib/utils';
+import { cn } from "@/lib/utils";
 
 const defaultVariants: Variants = {
-  initial: { y: -8, opacity: 0 },
-  animate: { y: 0, opacity: 1 },
-  exit: { y: 8, opacity: 0 },
+  animate: { opacity: 1, y: 0 },
+  exit: { opacity: 0, y: 8 },
+  initial: { opacity: 0, y: -8 },
 };
 
 type MotionElement = typeof motion.p | typeof motion.span | typeof motion.code;
 
-export type TextFlipProps = {
-  as?: MotionElement
-  className?: string
-  children: React.ReactNode[]
-  interval?: number
-  transition?: Transition
-  variants?: Variants
-  layout?: boolean | 'position' | 'size' | 'preserve-aspect'
-  onIndexChange?: (index: number) => void
-};
+export interface TextFlipProps {
+  as?: MotionElement;
+  className?: string;
+  children: React.ReactNode[];
+  interval?: number;
+  transition?: Transition;
+  variants?: Variants;
+  layout?: boolean | "position" | "size" | "preserve-aspect";
+  onIndexChange?: (index: number) => void;
+}
 
 export function TextFlip({
   as: Component = motion.p,
@@ -55,7 +55,7 @@ export function TextFlip({
     <AnimatePresence mode="wait" initial={false}>
       <Component
         key={currentIndex}
-        className={cn('inline-block', className)}
+        className={cn("inline-block", className)}
         initial="initial"
         animate="animate"
         exit="exit"

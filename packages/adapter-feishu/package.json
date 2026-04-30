@@ -1,0 +1,25 @@
+{
+  "name": "@repo/adapter-feishu",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Feishu (Lark) adapter for chat",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@chat-adapter/shared": "^4.26.0",
+    "@larksuiteoapi/node-sdk": "^1.59.0",
+    "chat": "^4.26.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "typescript": "^5.9.3",
+    "vitest": "^2.1.8"
+  }
+}

@@ -50,14 +50,14 @@ conversation_config={
 }
 ```
 
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `first_message` | string | `""` | What the agent says when conversation starts |
-| `language` | string | `"en"` | ISO 639-1 language code (en, es, fr, etc.) |
-| `disable_first_message_interruptions` | bool | `false` | Prevent user from interrupting the first message |
-| `hinglish_mode` | bool | `false` | When enabled and language is Hindi, agent responds in Hinglish |
-| `dynamic_variables` | object | - | Config with `dynamic_variable_placeholders` containing key-value pairs |
-| `prompt` | object | - | LLM configuration (see prompt section below) |
+| Field                                 | Type   | Default | Description                                                            |
+| ------------------------------------- | ------ | ------- | ---------------------------------------------------------------------- |
+| `first_message`                       | string | `""`    | What the agent says when conversation starts                           |
+| `language`                            | string | `"en"`  | ISO 639-1 language code (en, es, fr, etc.)                             |
+| `disable_first_message_interruptions` | bool   | `false` | Prevent user from interrupting the first message                       |
+| `hinglish_mode`                       | bool   | `false` | When enabled and language is Hindi, agent responds in Hinglish         |
+| `dynamic_variables`                   | object | -       | Config with `dynamic_variable_placeholders` containing key-value pairs |
+| `prompt`                              | object | -       | LLM configuration (see prompt section below)                           |
 
 ### tts (Text-to-Speech)
 
@@ -75,28 +75,28 @@ conversation_config={
 }
 ```
 
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `voice_id` | string | `"cjVigY5qzO86Huf0OWal"` | Voice to use |
-| `model_id` | string | - | TTS model (see below) |
-| `stability` | float | `0.5` | 0-1, lower = more expressive |
-| `similarity_boost` | float | `0.8` | 0-1, higher = closer to original voice |
-| `speed` | float | `1.0` | 0.7-1.2, speech speed multiplier |
-| `optimize_streaming_latency` | int | - | 0-4, higher = faster but lower quality |
-| `expressive_mode` | bool | `true` | Enable expressive voice generation |
-| `agent_output_audio_format` | string | - | Output audio codec format |
-| `pronunciation_dictionary_locators` | array | - | Pronunciation overrides |
+| Field                               | Type   | Default                  | Description                            |
+| ----------------------------------- | ------ | ------------------------ | -------------------------------------- |
+| `voice_id`                          | string | `"cjVigY5qzO86Huf0OWal"` | Voice to use                           |
+| `model_id`                          | string | -                        | TTS model (see below)                  |
+| `stability`                         | float  | `0.5`                    | 0-1, lower = more expressive           |
+| `similarity_boost`                  | float  | `0.8`                    | 0-1, higher = closer to original voice |
+| `speed`                             | float  | `1.0`                    | 0.7-1.2, speech speed multiplier       |
+| `optimize_streaming_latency`        | int    | -                        | 0-4, higher = faster but lower quality |
+| `expressive_mode`                   | bool   | `true`                   | Enable expressive voice generation     |
+| `agent_output_audio_format`         | string | -                        | Output audio codec format              |
+| `pronunciation_dictionary_locators` | array  | -                        | Pronunciation overrides                |
 
 **Available TTS models for agents:**
 
-| Model ID | Languages | Latency |
-|----------|-----------|---------|
-| `eleven_flash_v2_5` | 32 | ~75ms (recommended) |
-| `eleven_flash_v2` | English | ~75ms |
-| `eleven_turbo_v2_5` | 32 | ~250-300ms |
-| `eleven_turbo_v2` | English | ~250-300ms |
-| `eleven_multilingual_v2` | 29 | Standard |
-| `eleven_v3_conversational` | 70+ | Standard |
+| Model ID                   | Languages | Latency             |
+| -------------------------- | --------- | ------------------- |
+| `eleven_flash_v2_5`        | 32        | ~75ms (recommended) |
+| `eleven_flash_v2`          | English   | ~75ms               |
+| `eleven_turbo_v2_5`        | 32        | ~250-300ms          |
+| `eleven_turbo_v2`          | English   | ~250-300ms          |
+| `eleven_multilingual_v2`   | 29        | Standard            |
+| `eleven_v3_conversational` | 70+       | Standard            |
 
 ### asr (Automatic Speech Recognition)
 
@@ -110,12 +110,12 @@ conversation_config={
 }
 ```
 
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `quality` | string | `"high"` | Transcription quality level |
-| `provider` | string | `"elevenlabs"` | ASR provider (`elevenlabs` or `scribe_realtime`) |
-| `keywords` | array | - | Words to boost recognition accuracy |
-| `user_input_audio_format` | string | - | Input audio format (e.g., `pcm_16000`, `ulaw_8000`) |
+| Field                     | Type   | Default        | Description                                         |
+| ------------------------- | ------ | -------------- | --------------------------------------------------- |
+| `quality`                 | string | `"high"`       | Transcription quality level                         |
+| `provider`                | string | `"elevenlabs"` | ASR provider (`elevenlabs` or `scribe_realtime`)    |
+| `keywords`                | array  | -              | Words to boost recognition accuracy                 |
+| `user_input_audio_format` | string | -              | Input audio format (e.g., `pcm_16000`, `ulaw_8000`) |
 
 ### turn (Turn-Taking)
 
@@ -129,23 +129,23 @@ conversation_config={
 }
 ```
 
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `turn_timeout` | number | `7` | Seconds to wait before re-engaging the user |
-| `turn_eagerness` | string | `"normal"` | How quickly agent responds: `patient`, `normal`, or `eager` |
-| `silence_end_call_timeout` | number | `-1` | Seconds of silence before ending call (-1 = disabled) |
-| `initial_wait_time` | number | - | Seconds to wait for user to start speaking |
-| `spelling_patience` | string | `"auto"` | Entity detection patience: `auto` or `off` |
-| `speculative_turn` | bool | `false` | Enable speculative turn detection |
-| `soft_timeout_config` | object | - | Configures a message if user is silent (see below) |
+| Field                      | Type   | Default    | Description                                                 |
+| -------------------------- | ------ | ---------- | ----------------------------------------------------------- |
+| `turn_timeout`             | number | `7`        | Seconds to wait before re-engaging the user                 |
+| `turn_eagerness`           | string | `"normal"` | How quickly agent responds: `patient`, `normal`, or `eager` |
+| `silence_end_call_timeout` | number | `-1`       | Seconds of silence before ending call (-1 = disabled)       |
+| `initial_wait_time`        | number | -          | Seconds to wait for user to start speaking                  |
+| `spelling_patience`        | string | `"auto"`   | Entity detection patience: `auto` or `off`                  |
+| `speculative_turn`         | bool   | `false`    | Enable speculative turn detection                           |
+| `soft_timeout_config`      | object | -          | Configures a message if user is silent (see below)          |
 
 **soft_timeout_config:**
 
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `timeout_seconds` | number | `-1` | Seconds before soft timeout (-1 = disabled) |
-| `message` | string | `"Hhmmmm...yeah."` | What agent says on timeout |
-| `use_llm_generated_message` | bool | `false` | Let LLM generate the timeout message |
+| Field                       | Type   | Default            | Description                                 |
+| --------------------------- | ------ | ------------------ | ------------------------------------------- |
+| `timeout_seconds`           | number | `-1`               | Seconds before soft timeout (-1 = disabled) |
+| `message`                   | string | `"Hhmmmm...yeah."` | What agent says on timeout                  |
+| `use_llm_generated_message` | bool   | `false`            | Let LLM generate the timeout message        |
 
 ## prompt (nested in conversation_config.agent)
 
@@ -167,25 +167,25 @@ conversation_config={
 }
 ```
 
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `prompt` | string | `""` | System prompt defining agent behavior |
-| `llm` | string | - | Model ID (see LLM providers below) |
-| `temperature` | float | `0` | 0-1, higher = more creative |
-| `max_tokens` | int | `-1` | Max tokens for LLM response (-1 = unlimited) |
-| `reasoning_effort` | string | - | Reasoning depth: `none`, `minimal`, `low`, `medium`, `high` (model-dependent) |
-| `thinking_budget` | int | - | Max thinking tokens for reasoning models |
-| `tools` | array | - | Webhook and client tool definitions |
-| `built_in_tools` | object | - | System tools (end_call, transfer, etc.) |
-| `tool_ids` | array | - | References to pre-configured tools |
-| `knowledge_base` | array | - | Documents for RAG |
-| `custom_llm` | object | - | Custom LLM endpoint config |
-| `timezone` | string | - | IANA timezone (e.g., `America/New_York`) |
-| `backup_llm_config` | object | - | Fallback LLM configuration |
-| `cascade_timeout_seconds` | number | `8` | Seconds before cascading to backup LLM (2-15) |
-| `mcp_server_ids` | array | - | MCP server IDs to connect |
-| `native_mcp_server_ids` | array | - | Native MCP server IDs |
-| `ignore_default_personality` | bool | - | Skip default personality instructions |
+| Field                        | Type   | Default | Description                                                                   |
+| ---------------------------- | ------ | ------- | ----------------------------------------------------------------------------- |
+| `prompt`                     | string | `""`    | System prompt defining agent behavior                                         |
+| `llm`                        | string | -       | Model ID (see LLM providers below)                                            |
+| `temperature`                | float  | `0`     | 0-1, higher = more creative                                                   |
+| `max_tokens`                 | int    | `-1`    | Max tokens for LLM response (-1 = unlimited)                                  |
+| `reasoning_effort`           | string | -       | Reasoning depth: `none`, `minimal`, `low`, `medium`, `high` (model-dependent) |
+| `thinking_budget`            | int    | -       | Max thinking tokens for reasoning models                                      |
+| `tools`                      | array  | -       | Webhook and client tool definitions                                           |
+| `built_in_tools`             | object | -       | System tools (end_call, transfer, etc.)                                       |
+| `tool_ids`                   | array  | -       | References to pre-configured tools                                            |
+| `knowledge_base`             | array  | -       | Documents for RAG                                                             |
+| `custom_llm`                 | object | -       | Custom LLM endpoint config                                                    |
+| `timezone`                   | string | -       | IANA timezone (e.g., `America/New_York`)                                      |
+| `backup_llm_config`          | object | -       | Fallback LLM configuration                                                    |
+| `cascade_timeout_seconds`    | number | `8`     | Seconds before cascading to backup LLM (2-15)                                 |
+| `mcp_server_ids`             | array  | -       | MCP server IDs to connect                                                     |
+| `native_mcp_server_ids`      | array  | -       | Native MCP server IDs                                                         |
+| `ignore_default_personality` | bool   | -       | Skip default personality instructions                                         |
 
 Workspace environment variables let one agent configuration span multiple deployments. Use
 `{{system_env__label}}` in server tool and MCP server URLs, `{ "env_var_label": "orders_api_key" }`
@@ -194,13 +194,13 @@ to resolve per-environment auth connections at runtime.
 
 ### LLM Providers
 
-| Provider | Model IDs |
-|----------|-----------|
-| OpenAI | `gpt-5`, `gpt-5-mini`, `gpt-5-nano`, `gpt-4.1`, `gpt-4.1-mini`, `gpt-4.1-nano`, `gpt-4o`, `gpt-4o-mini`, `gpt-4-turbo` |
-| Anthropic | `claude-sonnet-4-6`, `claude-sonnet-4-5`, `claude-sonnet-4`, `claude-haiku-4-5`, `claude-3-7-sonnet`, `claude-3-5-sonnet`, `claude-3-haiku` |
-| Google | `gemini-3.1-flash-lite-preview`, `gemini-3-pro-preview`, `gemini-3-flash-preview`, `gemini-2.5-flash`, `gemini-2.5-flash-lite`, `gemini-2.0-flash`, `gemini-2.0-flash-lite` |
-| ElevenLabs | `glm-45-air-fp8`, `qwen3-30b-a3b`, `gpt-oss-120b` (hosted, ultra-low latency) |
-| Custom | `custom-llm` (requires custom_llm config) |
+| Provider   | Model IDs                                                                                                                                                                   |
+| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| OpenAI     | `gpt-5`, `gpt-5-mini`, `gpt-5-nano`, `gpt-4.1`, `gpt-4.1-mini`, `gpt-4.1-nano`, `gpt-4o`, `gpt-4o-mini`, `gpt-4-turbo`                                                      |
+| Anthropic  | `claude-sonnet-4-6`, `claude-sonnet-4-5`, `claude-sonnet-4`, `claude-haiku-4-5`, `claude-3-7-sonnet`, `claude-3-5-sonnet`, `claude-3-haiku`                                 |
+| Google     | `gemini-3.1-flash-lite-preview`, `gemini-3-pro-preview`, `gemini-3-flash-preview`, `gemini-2.5-flash`, `gemini-2.5-flash-lite`, `gemini-2.0-flash`, `gemini-2.0-flash-lite` |
+| ElevenLabs | `glm-45-air-fp8`, `qwen3-30b-a3b`, `gpt-oss-120b` (hosted, ultra-low latency)                                                                                               |
+| Custom     | `custom-llm` (requires custom_llm config)                                                                                                                                   |
 
 Use `GET /v1/convai/llm/list` to inspect the current model catalog, including deprecation state, token/context limits, and capability flags such as image-input support.
 
@@ -249,74 +249,74 @@ platform_settings={
 
 ### Top-Level Fields
 
-| Field | Type | Description |
-|-------|------|-------------|
+| Field              | Type   | Description                                                                                                                                                                          |
+| ------------------ | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `summary_language` | string | Language for conversation analysis outputs such as summaries, titles, evaluation rationales, and data collection rationales. If omitted, ElevenLabs infers it from the conversation. |
-| `widget` | object | Hosted widget and shareable page configuration. See the widget table below for selected options. |
-| `auth` | object | Authentication and origin restrictions for agent access |
-| `call_limits` | object | Concurrency and daily usage limits |
-| `guardrails` | object | Built-in safety and policy controls for agent interactions |
-| `privacy` | object | Recording, retention, and conversation history redaction settings |
+| `widget`           | object | Hosted widget and shareable page configuration. See the widget table below for selected options.                                                                                     |
+| `auth`             | object | Authentication and origin restrictions for agent access                                                                                                                              |
+| `call_limits`      | object | Concurrency and daily usage limits                                                                                                                                                   |
+| `guardrails`       | object | Built-in safety and policy controls for agent interactions                                                                                                                           |
+| `privacy`          | object | Recording, retention, and conversation history redaction settings                                                                                                                    |
 
 ### auth
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `enable_auth` | bool | Require signed URLs/tokens for connections |
-| `allowlist` | array | Allowed origins for CORS |
-| `shareable_token` | string | Public conversation token |
+| Field             | Type   | Description                                |
+| ----------------- | ------ | ------------------------------------------ |
+| `enable_auth`     | bool   | Require signed URLs/tokens for connections |
+| `allowlist`       | array  | Allowed origins for CORS                   |
+| `shareable_token` | string | Public conversation token                  |
 
 ### call_limits
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `agent_concurrency_limit` | int | Max simultaneous conversations (default: -1, unlimited) |
-| `daily_limit` | int | Max conversations per day (default: 100000) |
-| `bursting_enabled` | bool | Allow exceeding limits at 2x cost (default: true) |
+| Field                     | Type | Description                                             |
+| ------------------------- | ---- | ------------------------------------------------------- |
+| `agent_concurrency_limit` | int  | Max simultaneous conversations (default: -1, unlimited) |
+| `daily_limit`             | int  | Max conversations per day (default: 100000)             |
+| `bursting_enabled`        | bool | Allow exceeding limits at 2x cost (default: true)       |
 
 ### guardrails
 
 Use `platform_settings.guardrails` to configure built-in safety controls for user input and agent behavior. The fields below cover the current schema additions that are most relevant in agent configs.
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `version` | string | Guardrail config version. Use `"1"` for the current schema. |
-| `focus` | object | Keeps the agent on-topic and aligned with the configured task. |
-| `prompt_injection` | object | Detects prompt injection and instruction override attempts. |
-| `custom` | object | Configures user-defined response validation guardrails. |
-| `content` | object | Configures category-specific content moderation guardrails. |
+| Field              | Type   | Description                                                    |
+| ------------------ | ------ | -------------------------------------------------------------- |
+| `version`          | string | Guardrail config version. Use `"1"` for the current schema.    |
+| `focus`            | object | Keeps the agent on-topic and aligned with the configured task. |
+| `prompt_injection` | object | Detects prompt injection and instruction override attempts.    |
+| `custom`           | object | Configures user-defined response validation guardrails.        |
+| `content`          | object | Configures category-specific content moderation guardrails.    |
 
 **focus / prompt_injection:**
 
-| Field | Type | Description |
-|-------|------|-------------|
+| Field        | Type | Description            |
+| ------------ | ---- | ---------------------- |
 | `is_enabled` | bool | Enables the guardrail. |
 
 **content:**
 
-| Field | Type | Description |
-|-------|------|-------------|
+| Field            | Type   | Description                                          |
+| ---------------- | ------ | ---------------------------------------------------- |
 | `execution_mode` | string | Guardrail execution mode: `streaming` or `blocking`. |
-| `config` | object | Category threshold settings for content moderation. |
+| `config`         | object | Category threshold settings for content moderation.  |
 
 **content.config:**
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `sexual` | object | Threshold settings for sexual content. |
-| `violence` | object | Threshold settings for violent content. |
-| `harassment` | object | Threshold settings for harassment. |
-| `self_harm` | object | Threshold settings for self-harm content. |
-| `profanity` | object | Threshold settings for profanity. |
-| `religion_or_politics` | object | Threshold settings for religion or politics content. |
+| Field                           | Type   | Description                                          |
+| ------------------------------- | ------ | ---------------------------------------------------- |
+| `sexual`                        | object | Threshold settings for sexual content.               |
+| `violence`                      | object | Threshold settings for violent content.              |
+| `harassment`                    | object | Threshold settings for harassment.                   |
+| `self_harm`                     | object | Threshold settings for self-harm content.            |
+| `profanity`                     | object | Threshold settings for profanity.                    |
+| `religion_or_politics`          | object | Threshold settings for religion or politics content. |
 | `medical_and_legal_information` | object | Threshold settings for medical or legal information. |
 
 **content.config.\<category\>:**
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `is_enabled` | bool | Enables moderation for the category. |
-| `threshold` | number or string | Category threshold as a numeric score or one of `low`, `medium`, or `high`. |
+| Field        | Type             | Description                                                                 |
+| ------------ | ---------------- | --------------------------------------------------------------------------- |
+| `is_enabled` | bool             | Enables moderation for the category.                                        |
+| `threshold`  | number or string | Category threshold as a numeric score or one of `low`, `medium`, or `high`. |
 
 Blocking content guardrails and custom guardrails support a `trigger_action` that either ends
 the session immediately or retries the response. Retry removes the blocked reply, injects your
@@ -327,43 +327,43 @@ ending the session. Feedback templates can use `{{trigger_reason}}` and `{{agent
 
 Use `platform_settings.privacy` to control recording, retention, and redaction behavior. The redaction-specific field is:
 
-| Field | Type | Description |
-|-------|------|-------------|
+| Field                            | Type   | Description                                                                   |
+| -------------------------------- | ------ | ----------------------------------------------------------------------------- |
 | `conversation_history_redaction` | object | Redacts configured entity types from stored transcripts, audio, and analysis. |
 
 **conversation_history_redaction:**
 
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `enabled` | bool | `false` | Whether conversation history redaction is enabled |
-| `entities` | array | - | Entity types to redact. Use parent types such as `name` or specific values such as `name.name_given`, `email_address`, `contact_number`, `dob`, and `age`. |
+| Field      | Type  | Default | Description                                                                                                                                                |
+| ---------- | ----- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `enabled`  | bool  | `false` | Whether conversation history redaction is enabled                                                                                                          |
+| `entities` | array | -       | Entity types to redact. Use parent types such as `name` or specific values such as `name.name_given`, `email_address`, `contact_number`, `dob`, and `age`. |
 
 ### widget
 
 Use `platform_settings.widget` to configure the hosted widget and shareable page defaults. For client-side embed attributes, see the widget embedding reference.
 
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `dismissible` | bool | `false` | Whether the widget can be dismissed by the user |
-| `show_agent_status` | bool | `false` | Whether to show working, done, or error status while tools are running |
-| `show_conversation_id` | bool | `true` | Whether to show the conversation ID after disconnection |
-| `strip_audio_tags` | bool | `true` | Whether to strip audio markup from messages |
-| `syntax_highlight_theme` | string | auto | Code block syntax highlighting theme (`light` or `dark`); omit it to let the widget auto-detect |
+| Field                    | Type   | Default | Description                                                                                     |
+| ------------------------ | ------ | ------- | ----------------------------------------------------------------------------------------------- |
+| `dismissible`            | bool   | `false` | Whether the widget can be dismissed by the user                                                 |
+| `show_agent_status`      | bool   | `false` | Whether to show working, done, or error status while tools are running                          |
+| `show_conversation_id`   | bool   | `true`  | Whether to show the conversation ID after disconnection                                         |
+| `strip_audio_tags`       | bool   | `true`  | Whether to strip audio markup from messages                                                     |
+| `syntax_highlight_theme` | string | auto    | Code block syntax highlighting theme (`light` or `dark`); omit it to let the widget auto-detect |
 
 ### conversation (inside conversation_config)
 
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `max_duration_seconds` | int | `600` | Max conversation duration |
-| `text_only` | bool | `false` | Text-only mode (avoids audio pricing) |
-| `monitoring_enabled` | bool | `false` | Enable real-time WebSocket monitoring |
+| Field                  | Type | Default | Description                           |
+| ---------------------- | ---- | ------- | ------------------------------------- |
+| `max_duration_seconds` | int  | `600`   | Max conversation duration             |
+| `text_only`            | bool | `false` | Text-only mode (avoids audio pricing) |
+| `monitoring_enabled`   | bool | `false` | Enable real-time WebSocket monitoring |
 
 ## Additional Top-Level Fields
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `tags` | array | Classification labels for filtering (e.g., `["production"]`, `["test"]`) |
-| `workflow` | object | Conversation flow definition and tool interaction sequences |
+| Field      | Type   | Description                                                              |
+| ---------- | ------ | ------------------------------------------------------------------------ |
+| `tags`     | array  | Classification labels for filtering (e.g., `["production"]`, `["test"]`) |
+| `workflow` | object | Conversation flow definition and tool interaction sequences              |
 
 ## Knowledge Base / RAG
 
@@ -469,6 +469,7 @@ curl -X GET "https://api.elevenlabs.io/v1/convai/agents/your-agent-id" -H "xi-ap
 Only include fields you want to change. All other settings remain unchanged.
 
 **Python:**
+
 ```python
 # Update name
 client.conversational_ai.agents.update(agent_id="id", name="New Name")
@@ -495,17 +496,21 @@ client.conversational_ai.agents.update(agent_id="id", platform_settings={
 ```
 
 **JavaScript:**
+
 ```javascript
 await client.conversationalAi.agents.update("id", { name: "New Name" });
 await client.conversationalAi.agents.update("id", {
-  conversationConfig: { tts: { voiceId: "EXAVITQu4vr4xnSDxMaL" } }
+  conversationConfig: { tts: { voiceId: "EXAVITQu4vr4xnSDxMaL" } },
 });
 await client.conversationalAi.agents.update("id", {
-  conversationConfig: { agent: { prompt: { prompt: "New instructions.", llm: "claude-sonnet-4" } } }
+  conversationConfig: {
+    agent: { prompt: { prompt: "New instructions.", llm: "claude-sonnet-4" } },
+  },
 });
 ```
 
 **cURL:**
+
 ```bash
 curl -X PATCH "https://api.elevenlabs.io/v1/convai/agents/your-agent-id" \
   -H "xi-api-key: $ELEVENLABS_API_KEY" -H "Content-Type: application/json" \
@@ -514,19 +519,19 @@ curl -X PATCH "https://api.elevenlabs.io/v1/convai/agents/your-agent-id" \
 
 #### Updatable Fields
 
-| Section | Fields |
-|---------|--------|
-| Root | `name`, `tags` |
-| `conversation_config.agent` | `first_message`, `language`, `disable_first_message_interruptions`, `dynamic_variables` |
+| Section                            | Fields                                                                                                                                  |
+| ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| Root                               | `name`, `tags`                                                                                                                          |
+| `conversation_config.agent`        | `first_message`, `language`, `disable_first_message_interruptions`, `dynamic_variables`                                                 |
 | `conversation_config.agent.prompt` | `prompt`, `llm`, `temperature`, `max_tokens`, `reasoning_effort`, `tools`, `built_in_tools`, `knowledge_base`, `custom_llm`, `timezone` |
-| `conversation_config.tts` | `voice_id`, `model_id`, `stability`, `similarity_boost`, `speed`, `optimize_streaming_latency`, `expressive_mode` |
-| `conversation_config.asr` | `quality`, `provider`, `keywords`, `user_input_audio_format` |
-| `conversation_config.turn` | `turn_timeout`, `turn_eagerness`, `silence_end_call_timeout`, `soft_timeout_config` |
-| `conversation_config.conversation` | `max_duration_seconds`, `text_only`, `monitoring_enabled` |
-| `platform_settings` | `summary_language`, `guardrails`, `privacy` |
-| `platform_settings.widget` | `dismissible`, `show_agent_status`, `show_conversation_id`, `strip_audio_tags`, `syntax_highlight_theme` |
-| `platform_settings.auth` | `enable_auth`, `allowlist` |
-| `platform_settings.call_limits` | `agent_concurrency_limit`, `daily_limit`, `bursting_enabled` |
+| `conversation_config.tts`          | `voice_id`, `model_id`, `stability`, `similarity_boost`, `speed`, `optimize_streaming_latency`, `expressive_mode`                       |
+| `conversation_config.asr`          | `quality`, `provider`, `keywords`, `user_input_audio_format`                                                                            |
+| `conversation_config.turn`         | `turn_timeout`, `turn_eagerness`, `silence_end_call_timeout`, `soft_timeout_config`                                                     |
+| `conversation_config.conversation` | `max_duration_seconds`, `text_only`, `monitoring_enabled`                                                                               |
+| `platform_settings`                | `summary_language`, `guardrails`, `privacy`                                                                                             |
+| `platform_settings.widget`         | `dismissible`, `show_agent_status`, `show_conversation_id`, `strip_audio_tags`, `syntax_highlight_theme`                                |
+| `platform_settings.auth`           | `enable_auth`, `allowlist`                                                                                                              |
+| `platform_settings.call_limits`    | `agent_concurrency_limit`, `daily_limit`, `bursting_enabled`                                                                            |
 
 ### SDK: Delete Agent
 

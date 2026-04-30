@@ -1,8 +1,24 @@
-shellEmulator: true
-
-trustPolicy: no-downgrade
+packages:
+  - "packages/*"
+allowBuilds:
+  "@nestjs/core": false
+  "@swc/core": false
+  cbor-extract: true
+  esbuild: true
+  lefthook: true
+  protobufjs: true
+  sharp: true
 
 ignoredBuiltDependencies:
   - msw
   - sharp
   - unrs-resolver
+shellEmulator: true
+
+trustPolicy: no-downgrade
+
+# Known false positives — these packages were published before npm provenance
+# became available, so their "trust downgrade" is expected and safe.
+trustPolicyExclude:
+  - "semver@6.3.1"
+  - "chokidar@4.0.3"

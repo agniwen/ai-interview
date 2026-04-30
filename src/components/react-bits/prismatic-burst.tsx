@@ -1,23 +1,26 @@
-'use client';
+"use client";
 
-import { Mesh, Program, Renderer, Texture, Triangle } from 'ogl';
-import * as React from 'react';
-import { useEffect, useRef } from 'react';
+import { Mesh, Program, Renderer, Texture, Triangle } from "ogl";
+import * as React from "react";
+import { useEffect, useRef } from "react";
 
-interface Offset { x?: number | string, y?: number | string }
-type AnimationType = 'rotate' | 'rotate3d' | 'hover';
+interface Offset {
+  x?: number | string;
+  y?: number | string;
+}
+type AnimationType = "rotate" | "rotate3d" | "hover";
 
 export interface PrismaticBurstProps {
-  intensity?: number
-  speed?: number
-  animationType?: AnimationType
-  colors?: string[]
-  distort?: number
-  paused?: boolean
-  offset?: Offset
-  hoverDampness?: number
-  rayCount?: number
-  mixBlendMode?: React.CSSProperties['mixBlendMode'] | 'none'
+  intensity?: number;
+  speed?: number;
+  animationType?: AnimationType;
+  colors?: string[];
+  distort?: number;
+  paused?: boolean;
+  offset?: Offset;
+  hoverDampness?: number;
+  rayCount?: number;
+  mixBlendMode?: React.CSSProperties["mixBlendMode"] | "none";
 }
 
 const DEFAULT_OFFSET: Offset = { x: 0, y: 0 };
@@ -197,8 +200,9 @@ void main(){
 
 function hexToRgb01(hex: string): [number, number, number] {
   let h = hex.trim();
-  if (h.startsWith('#'))
+  if (h.startsWith("#")) {
     h = h.slice(1);
+  }
   if (h.length === 3) {
     const r = h[0];
     const g = h[1];
@@ -206,8 +210,9 @@ function hexToRgb01(hex: string): [number, number, number] {
     h = r + r + g + g + b + b;
   }
   const intVal = Number.parseInt(h, 16);
-  if (Number.isNaN(intVal) || (h.length !== 6 && h.length !== 8))
+  if (Number.isNaN(intVal) || (h.length !== 6 && h.length !== 8)) {
     return [1, 1, 1];
+  }
   const r = ((intVal >> 16) & 255) / 255;
   const g = ((intVal >> 8) & 255) / 255;
   const b = (intVal & 255) / 255;
@@ -215,26 +220,28 @@ function hexToRgb01(hex: string): [number, number, number] {
 }
 
 function toPx(v: number | string | undefined): number {
-  if (v == null)
+  if (v == null) {
     return 0;
-  if (typeof v === 'number')
+  }
+  if (typeof v === "number") {
     return v;
+  }
   const s = String(v).trim();
-  const num = Number.parseFloat(s.replace('px', ''));
+  const num = Number.parseFloat(s.replace("px", ""));
   return Number.isNaN(num) ? 0 : num;
 }
 
 function PrismaticBurst({
   intensity = 2,
   speed = 0.5,
-  animationType = 'rotate3d',
+  animationType = "rotate3d",
   colors,
   distort = 0,
   paused = false,
   offset = DEFAULT_OFFSET,
   hoverDampness = 0,
   rayCount,
-  mixBlendMode = 'lighten',
+  mixBlendMode = "lighten",
 }: PrismaticBurstProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const programRef = useRef<Program | null>(null);
@@ -244,7 +251,7 @@ function PrismaticBurst({
   const pausedRef = useRef<boolean>(paused);
   const gradTexRef = useRef<Texture | null>(null);
   const hoverDampRef = useRef<number>(hoverDampness);
-  const mixBlendModeRef = useRef<PrismaticBurstProps['mixBlendMode']>(mixBlendMode);
+  const mixBlendModeRef = useRef<PrismaticBurstProps["mixBlendMode"]>(mixBlendMode);
   const isVisibleRef = useRef<boolean>(true);
   const meshRef = useRef<Mesh | null>(null);
   const triRef = useRef<Triangle | null>(null);
@@ -257,40 +264,38 @@ function PrismaticBurst({
   }, [hoverDampness]);
   useEffect(() => {
     mixBlendModeRef.current = mixBlendMode;
-    const canvas = containerRef.current?.querySelector('canvas');
+    const canvas = containerRef.current?.querySelector("canvas");
     if (canvas instanceof HTMLCanvasElement) {
-      canvas.style.mixBlendMode
-        = mixBlendMode && mixBlendMode !== 'none' ? mixBlendMode : '';
+      canvas.style.mixBlendMode = mixBlendMode && mixBlendMode !== "none" ? mixBlendMode : "";
     }
   }, [mixBlendMode]);
 
   useEffect(() => {
     const container = containerRef.current;
-    if (!container)
+    if (!container) {
       return;
+    }
 
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    const renderer = new Renderer({ dpr, alpha: false, antialias: false });
+    const renderer = new Renderer({ alpha: false, antialias: false, dpr });
     rendererRef.current = renderer;
 
-    const gl = renderer.gl;
-    gl.canvas.style.position = 'absolute';
-    gl.canvas.style.inset = '0';
-    gl.canvas.style.width = '100%';
-    gl.canvas.style.height = '100%';
-    gl.canvas.style.mixBlendMode
-      = mixBlendModeRef.current && mixBlendModeRef.current !== 'none'
-        ? mixBlendModeRef.current
-        : '';
-    container.appendChild(gl.canvas);
+    const { gl } = renderer;
+    gl.canvas.style.position = "absolute";
+    gl.canvas.style.inset = "0";
+    gl.canvas.style.width = "100%";
+    gl.canvas.style.height = "100%";
+    gl.canvas.style.mixBlendMode =
+      mixBlendModeRef.current && mixBlendModeRef.current !== "none" ? mixBlendModeRef.current : "";
+    container.append(gl.canvas);
 
     const white = new Uint8Array([255, 255, 255, 255]);
     const gradientTex = new Texture(gl, {
+      flipY: false,
+      generateMipmaps: false,
+      height: 1,
       image: white,
       width: 1,
-      height: 1,
-      generateMipmaps: false,
-      flipY: false,
     });
 
     gradientTex.minFilter = gl.LINEAR;
@@ -300,23 +305,23 @@ function PrismaticBurst({
     gradTexRef.current = gradientTex;
 
     const program = new Program(gl, {
-      vertex: vertexShader,
       fragment: fragmentShader,
       uniforms: {
-        uResolution: { value: [1, 1] as [number, number] },
-        uTime: { value: 0 },
-
-        uIntensity: { value: 1 },
-        uSpeed: { value: 1 },
         uAnimType: { value: 0 },
-        uMouse: { value: [0.5, 0.5] as [number, number] },
         uColorCount: { value: 0 },
+
         uDistort: { value: 0 },
-        uOffset: { value: [0, 0] as [number, number] },
         uGradient: { value: gradientTex },
+        uIntensity: { value: 1 },
+        uMouse: { value: [0.5, 0.5] as [number, number] },
         uNoiseAmount: { value: 0.8 },
+        uOffset: { value: [0, 0] as [number, number] },
         uRayCount: { value: 0 },
+        uResolution: { value: [1, 1] as [number, number] },
+        uSpeed: { value: 1 },
+        uTime: { value: 0 },
       },
+      vertex: vertexShader,
     });
 
     programRef.current = program;
@@ -334,12 +339,11 @@ function PrismaticBurst({
     };
 
     let ro: ResizeObserver | null = null;
-    if ('ResizeObserver' in window) {
+    if ("ResizeObserver" in window) {
       ro = new ResizeObserver(resize);
       ro.observe(container);
-    }
-    else {
-      (window as Window).addEventListener('resize', resize);
+    } else {
+      (window as Window).addEventListener("resize", resize);
     }
     resize();
 
@@ -349,21 +353,22 @@ function PrismaticBurst({
       const y = (e.clientY - rect.top) / Math.max(rect.height, 1);
       mouseTargetRef.current = [Math.min(Math.max(x, 0), 1), Math.min(Math.max(y, 0), 1)];
     };
-    container.addEventListener('pointermove', onPointer, { passive: true });
+    container.addEventListener("pointermove", onPointer, { passive: true });
 
     let io: IntersectionObserver | null = null;
-    if ('IntersectionObserver' in window) {
+    if ("IntersectionObserver" in window) {
       io = new IntersectionObserver(
         (entries) => {
-          if (entries[0])
+          if (entries[0]) {
             isVisibleRef.current = entries[0].isIntersecting;
+          }
         },
         { root: null, threshold: 0.01 },
       );
       io.observe(container);
     }
     const onVis = () => {};
-    document.addEventListener('visibilitychange', onVis);
+    document.addEventListener("visibilitychange", onVis);
 
     let raf = 0;
     let last = performance.now();
@@ -373,8 +378,9 @@ function PrismaticBurst({
       const dt = Math.max(0, now - last) * 0.001;
       last = now;
       const visible = isVisibleRef.current && !document.hidden;
-      if (!pausedRef.current)
+      if (!pausedRef.current) {
         accumTime += dt;
+      }
       if (!visible) {
         raf = requestAnimationFrame(update);
         return;
@@ -394,28 +400,28 @@ function PrismaticBurst({
 
     return () => {
       cancelAnimationFrame(raf);
-      container.removeEventListener('pointermove', onPointer);
+      container.removeEventListener("pointermove", onPointer);
       ro?.disconnect();
-      if (!ro)
-        window.removeEventListener('resize', resize);
+      if (!ro) {
+        window.removeEventListener("resize", resize);
+      }
       io?.disconnect();
-      document.removeEventListener('visibilitychange', onVis);
+      document.removeEventListener("visibilitychange", onVis);
       try {
         container.removeChild(gl.canvas);
-      }
-      catch (e) {
-        void e;
+      } catch (error) {
+        void error;
       }
       meshRef.current = null;
       triRef.current = null;
       programRef.current = null;
       try {
         const glCtx = rendererRef.current?.gl;
-        if (glCtx && gradTexRef.current?.texture)
+        if (glCtx && gradTexRef.current?.texture) {
           glCtx.deleteTexture(gradTexRef.current.texture);
-      }
-      catch (e) {
-        void e;
+        }
+      } catch (error) {
+        void error;
       }
       rendererRef.current = null;
       gradTexRef.current = null;
@@ -426,20 +432,21 @@ function PrismaticBurst({
     const program = programRef.current;
     const renderer = rendererRef.current;
     const gradTex = gradTexRef.current;
-    if (!program || !renderer || !gradTex)
+    if (!program || !renderer || !gradTex) {
       return;
+    }
 
     program.uniforms.uIntensity.value = intensity ?? 1;
     program.uniforms.uSpeed.value = speed ?? 1;
 
     const animTypeMap: Record<AnimationType, number> = {
+      hover: 2,
       rotate: 0,
       rotate3d: 1,
-      hover: 2,
     };
-    program.uniforms.uAnimType.value = animTypeMap[animationType ?? 'rotate'];
+    program.uniforms.uAnimType.value = animTypeMap[animationType ?? "rotate"];
 
-    program.uniforms.uDistort.value = typeof distort === 'number' ? distort : 0;
+    program.uniforms.uDistort.value = typeof distort === "number" ? distort : 0;
 
     const ox = toPx(offset?.x);
     const oy = toPx(offset?.y);
@@ -448,7 +455,7 @@ function PrismaticBurst({
 
     let count = 0;
     if (Array.isArray(colors) && colors.length > 0) {
-      const gl = renderer.gl;
+      const { gl } = renderer;
       const capped = colors.slice(0, 64);
       count = capped.length;
       const data = new Uint8Array(count * 4);
@@ -471,14 +478,13 @@ function PrismaticBurst({
       gradTex.format = gl.RGBA;
       gradTex.type = gl.UNSIGNED_BYTE;
       gradTex.needsUpdate = true;
-    }
-    else {
+    } else {
       count = 0;
     }
     program.uniforms.uColorCount.value = count;
   }, [intensity, speed, animationType, colors, distort, offset, rayCount]);
 
-  return <div className='w-full h-full relative overflow-hidden' ref={containerRef} />;
+  return <div className="w-full h-full relative overflow-hidden" ref={containerRef} />;
 }
 
 export default PrismaticBurst;

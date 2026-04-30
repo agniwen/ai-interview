@@ -1,0 +1,12 @@
+{
+  "extends": "../../tsconfig.json",
+
+  "compilerOptions": {
+    "rootDir": "./src",
+    "types": ["node"],
+    "noEmit": true,
+    "strictNullChecks": true
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "**/*.test.ts"]
+}

@@ -1,6 +1,6 @@
-import { handle } from 'hono/vercel';
+import { handle } from "hono/vercel";
 
-import { app } from '@/server/app';
+import { app } from "@/server/app";
 
 export const maxDuration = 300;
 

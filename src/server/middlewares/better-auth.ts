@@ -1,5 +1,5 @@
-import { auth } from '@/lib/auth';
-import { factory } from '../factory';
+import { auth } from "@/lib/auth";
+import { factory } from "../factory";
 
 export const betterAuthMiddleware = factory.createMiddleware(async (c, next) => {
   const session = await auth.api.getSession({
@@ -7,12 +7,12 @@ export const betterAuthMiddleware = factory.createMiddleware(async (c, next) => 
   });
 
   if (!session) {
-    c.set('user', null);
-    c.set('session', null);
+    c.set("user", null);
+    c.set("session", null);
     return next();
   }
 
-  c.set('user', session.user);
-  c.set('session', session.session);
+  c.set("user", session.user);
+  c.set("session", session.session);
   return next();
 });

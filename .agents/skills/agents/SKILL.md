@@ -3,7 +3,11 @@ name: agents
 description: Build voice AI agents with ElevenLabs. Use when creating voice assistants, customer service bots, interactive voice characters, or any real-time voice conversation experience.
 license: MIT
 compatibility: Requires internet access and an ElevenLabs API key (ELEVENLABS_API_KEY).
-metadata: {"openclaw": {"requires": {"env": ["ELEVENLABS_API_KEY"]}, "primaryEnv": "ELEVENLABS_API_KEY"}}
+metadata:
+  {
+    "openclaw":
+      { "requires": { "env": ["ELEVENLABS_API_KEY"] }, "primaryEnv": "ELEVENLABS_API_KEY" },
+  }
 ---
 
 # ElevenLabs Agents Platform
@@ -72,11 +76,11 @@ const agent = await client.conversationalAi.agents.create({
       prompt: {
         prompt: "You are a helpful assistant.",
         llm: "gemini-2.0-flash",
-        temperature: 0.7
-      }
+        temperature: 0.7,
+      },
     },
-    tts: { voiceId: "JBFqnCBsd6RMkjVDRZzb" }
-  }
+    tts: { voiceId: "JBFqnCBsd6RMkjVDRZzb" },
+  },
 });
 ```
 
@@ -91,6 +95,7 @@ curl -X POST "https://api.elevenlabs.io/v1/convai/agents/create?enable_versionin
 ## Starting Conversations
 
 **Server-side (Python):** Get signed URL for client connection:
+
 ```python
 signed_url = client.conversational_ai.conversations.get_signed_url(
     agent_id="your-agent-id",
@@ -99,6 +104,7 @@ signed_url = client.conversational_ai.conversations.get_signed_url(
 ```
 
 **Client-side (JavaScript):**
+
 ```javascript
 import { Conversation } from "@elevenlabs/client";
 
@@ -107,11 +113,12 @@ const conversation = await Conversation.startSession({
   environment: "staging",
   onMessage: (msg) => console.log("Agent:", msg.message),
   onUserTranscript: (t) => console.log("User:", t.message),
-  onError: (e) => console.error(e)
+  onError: (e) => console.error(e),
 });
 ```
 
 **React Hook:**
+
 ```typescript
 import { useConversation } from "@elevenlabs/react";
 
@@ -122,13 +129,13 @@ await conversation.startSession({ signedUrl: token });
 
 ## Configuration
 
-| Provider | Models |
-|----------|--------|
-| OpenAI | `gpt-5`, `gpt-5-mini`, `gpt-5-nano`, `gpt-4.1`, `gpt-4.1-mini`, `gpt-4.1-nano`, `gpt-4o`, `gpt-4o-mini`, `gpt-4-turbo` |
-| Anthropic | `claude-sonnet-4-6`, `claude-sonnet-4-5`, `claude-sonnet-4`, `claude-haiku-4-5`, `claude-3-7-sonnet`, `claude-3-5-sonnet`, `claude-3-haiku` |
-| Google | `gemini-3.1-flash-lite-preview`, `gemini-3-pro-preview`, `gemini-3-flash-preview`, `gemini-2.5-flash`, `gemini-2.5-flash-lite`, `gemini-2.0-flash`, `gemini-2.0-flash-lite` |
-| ElevenLabs | `glm-45-air-fp8`, `qwen3-30b-a3b`, `gpt-oss-120b` |
-| Custom | `custom-llm` (bring your own endpoint) |
+| Provider   | Models                                                                                                                                                                      |
+| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| OpenAI     | `gpt-5`, `gpt-5-mini`, `gpt-5-nano`, `gpt-4.1`, `gpt-4.1-mini`, `gpt-4.1-nano`, `gpt-4o`, `gpt-4o-mini`, `gpt-4-turbo`                                                      |
+| Anthropic  | `claude-sonnet-4-6`, `claude-sonnet-4-5`, `claude-sonnet-4`, `claude-haiku-4-5`, `claude-3-7-sonnet`, `claude-3-5-sonnet`, `claude-3-haiku`                                 |
+| Google     | `gemini-3.1-flash-lite-preview`, `gemini-3-pro-preview`, `gemini-3-flash-preview`, `gemini-2.5-flash`, `gemini-2.5-flash-lite`, `gemini-2.0-flash`, `gemini-2.0-flash-lite` |
+| ElevenLabs | `glm-45-air-fp8`, `qwen3-30b-a3b`, `gpt-oss-120b`                                                                                                                           |
+| Custom     | `custom-llm` (bring your own endpoint)                                                                                                                                      |
 
 Use `GET /v1/convai/llm/list` to inspect the current model catalog, including deprecation state, token/context limits, and capability flags such as image-input support.
 
@@ -165,12 +172,13 @@ Workspace environment variables can resolve per-environment server tool URLs, he
 ```
 
 **Client tools** run in browser:
+
 ```javascript
 clientTools: {
   show_product: async ({ productId }) => {
     document.getElementById("product").src = `/products/${productId}`;
     return { success: true };
-  }
+  };
 }
 ```
 
@@ -180,7 +188,11 @@ See [Client Tools Reference](references/client-tools.md) for complete documentat
 
 ```html
 <elevenlabs-convai agent-id="your-agent-id"></elevenlabs-convai>
-<script src="https://unpkg.com/@elevenlabs/convai-widget-embed" async type="text/javascript"></script>
+<script
+  src="https://unpkg.com/@elevenlabs/convai-widget-embed"
+  async
+  type="text/javascript"
+></script>
 ```
 
 Customize with attributes: `avatar-image-url`, `action-text`, `start-call-text`, `end-call-text`.

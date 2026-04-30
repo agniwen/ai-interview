@@ -8,15 +8,16 @@
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans:
-    var(--font-source-sans),
-    "PingFang SC",
-    "Hiragino Sans GB",
-    var(--font-noto-sans-sc),
-    "Noto Sans CJK SC",
-    "Microsoft YaHei",
-    sans-serif;
+    "MiSans", "MiSans VL", var(--font-source-sans), "PingFang SC", "Hiragino Sans GB",
+    "Microsoft YaHei", sans-serif;
   --font-mono: var(--font-ibm-plex-mono);
   --font-serif: var(--font-source-serif);
+  /* Tailwind v4 的 preflight 用 --default-font-family 设置 html/body 默认字体；
+     不覆盖时会落回 ui-sans-serif/system-ui 默认栈，导致 MiSans 不生效。
+     Tailwind v4 preflight reads --default-font-family for html/body; without
+     this override it falls back to the ui-sans-serif/system-ui default stack. */
+  --default-font-family: var(--font-sans);
+  --default-mono-font-family: var(--font-mono);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -57,71 +58,71 @@
 
 :root {
   --radius: 0.875rem;
-  --background: oklch(0.988 0.006 236.5);
-  --foreground: oklch(0.292 0.02 248.2);
-  --card: oklch(0.995 0.005 233.8);
-  --card-foreground: oklch(0.292 0.02 248.2);
-  --popover: oklch(0.995 0.005 233.8);
-  --popover-foreground: oklch(0.292 0.02 248.2);
-  --primary: oklch(0.58 0.094 244.3);
-  --primary-foreground: oklch(0.985 0.006 240.3);
-  --secondary: oklch(0.972 0.01 231.2);
-  --secondary-foreground: oklch(0.355 0.03 246.2);
-  --muted: oklch(0.966 0.008 233.5);
-  --muted-foreground: oklch(0.537 0.025 243.1);
-  --accent: oklch(0.958 0.018 223.5);
-  --accent-foreground: oklch(0.336 0.03 244.8);
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.28 0.04 254);
+  --card: #fafafa;
+  --card-foreground: oklch(0.28 0.04 254);
+  --popover: #fafafa;
+  --popover-foreground: oklch(0.28 0.04 254);
+  --primary: oklch(0.46 0.087 254);
+  --primary-foreground: oklch(0.985 0.006 254);
+  --secondary: #f5f5f5;
+  --secondary-foreground: oklch(0.36 0.05 254);
+  --muted: #f5f5f5;
+  --muted-foreground: oklch(0.52 0.035 254);
+  --accent: #f5f5f5;
+  --accent-foreground: oklch(0.36 0.05 254);
   --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0.01 231.8);
-  --input: oklch(0.922 0.01 231.8);
-  --ring: oklch(0.66 0.06 243.5);
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
+  --border: #e5e5e5;
+  --input: #e5e5e5;
+  --ring: oklch(0.6 0.08 254);
+  --chart-1: oklch(0.46 0.087 254);
+  --chart-2: oklch(0.58 0.09 254);
+  --chart-3: oklch(0.7 0.07 254);
+  --chart-4: oklch(0.82 0.05 254);
+  --chart-5: oklch(0.35 0.05 254);
   --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --sidebar-foreground: oklch(0.28 0.04 254);
+  --sidebar-primary: oklch(0.46 0.087 254);
+  --sidebar-primary-foreground: oklch(0.985 0.006 254);
+  --sidebar-accent: oklch(0.96 0.01 254);
+  --sidebar-accent-foreground: oklch(0.36 0.05 254);
+  --sidebar-border: oklch(0.92 0.01 254);
+  --sidebar-ring: oklch(0.6 0.08 254);
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
+  --background: oklch(0.17 0.014 254);
+  --foreground: oklch(0.97 0.006 254);
+  --card: oklch(0.23 0.02 254);
+  --card-foreground: oklch(0.97 0.006 254);
+  --popover: oklch(0.23 0.02 254);
+  --popover-foreground: oklch(0.97 0.006 254);
+  --primary: oklch(0.72 0.095 254);
+  --primary-foreground: oklch(0.22 0.025 254);
+  --secondary: oklch(0.3 0.022 254);
+  --secondary-foreground: oklch(0.97 0.006 254);
+  --muted: oklch(0.3 0.022 254);
+  --muted-foreground: oklch(0.74 0.03 254);
+  --accent: oklch(0.3 0.022 254);
+  --accent-foreground: oklch(0.97 0.006 254);
   --destructive: oklch(0.704 0.191 22.216);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --ring: oklch(0.65 0.09 254);
+  --chart-1: oklch(0.62 0.1 254);
+  --chart-2: oklch(0.75 0.08 254);
+  --chart-3: oklch(0.45 0.09 254);
+  --chart-4: oklch(0.85 0.05 254);
+  --chart-5: oklch(0.55 0.06 254);
+  --sidebar: oklch(0.23 0.02 254);
+  --sidebar-foreground: oklch(0.97 0.006 254);
+  --sidebar-primary: oklch(0.62 0.1 254);
+  --sidebar-primary-foreground: oklch(0.97 0.006 254);
+  --sidebar-accent: oklch(0.3 0.022 254);
+  --sidebar-accent-foreground: oklch(0.97 0.006 254);
   --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --sidebar-ring: oklch(0.65 0.09 254);
 }
 
 @layer base {
@@ -135,32 +136,20 @@
   }
 
   body {
-    @apply text-foreground;
+    /* @theme inline 里的 --font-sans 只编译进 utility class，不会作为 :root CSS 变量暴露；
+       直接 @apply font-sans 才会用上 MiSans 字体栈。
+       Vars under `@theme inline` are inlined into utilities only — they aren't
+       emitted as :root custom properties. Use the `font-sans` utility instead. */
+    @apply font-sans text-foreground;
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
     touch-action: manipulation;
-    -webkit-tap-highlight-color: rgba(44, 123, 229, 0.12);
-  }
-
-  .studio-surface,
-  body.studio-theme {
-    --background: #fafafa;
-    --card: #fafafa;
-    --popover: #fafafa;
-    --secondary: #f5f5f5;
-    --muted: #f5f5f5;
-    --accent: #f5f5f5;
-    --input: #e5e5e5;
-    --border: #e5e5e5;
+    -webkit-tap-highlight-color: rgba(45, 90, 138, 0.12);
   }
 
   .pixel-title {
     font-family:
-      var(--font-fusion-pixel),
-      "Zpix",
-      "Fusion Pixel 12px Monospaced SC",
-      "PingFang SC",
-      var(--font-noto-sans-sc),
+      var(--font-fusion-pixel), "Zpix", "Fusion Pixel 12px Monospaced SC", "PingFang SC", "MiSans",
       monospace;
     letter-spacing: 0.01em;
     -webkit-font-smoothing: none;
@@ -169,13 +158,13 @@
   }
 
   ::selection {
-    background: oklch(0.885 0.056 222.4);
-    color: oklch(0.301 0.03 247.8);
+    background: oklch(0.88 0.055 254);
+    color: oklch(0.3 0.06 254);
   }
 
   * {
     scrollbar-width: thin;
-    scrollbar-color: oklch(0.69 0.034 234.2 / 55%) transparent;
+    scrollbar-color: oklch(0.55 0.055 254 / 55%) transparent;
   }
 
   *::-webkit-scrollbar {
@@ -190,159 +179,14 @@
   *::-webkit-scrollbar-thumb {
     border: 2px solid transparent;
     border-radius: 9999px;
-    background: oklch(0.69 0.034 234.2 / 55%);
+    background: oklch(0.55 0.055 254 / 55%);
     background-clip: content-box;
   }
 
   *::-webkit-scrollbar-thumb:hover {
-    background: oklch(0.62 0.046 236.6 / 70%);
+    background: oklch(0.47 0.07 254 / 70%);
     background-clip: content-box;
   }
-}
-
-/* driver.js tour — block interaction on highlighted elements so mock state is preserved */
-.driver-active .driver-active-element,
-.driver-active .driver-active-element * {
-  pointer-events: none !important;
-}
-
-/* driver.js tour — shadcn/ui aligned overrides */
-.chat-tour-popover.driver-popover {
-  background-color: var(--popover);
-  color: var(--popover-foreground);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  box-shadow:
-    0 4px 6px -1px oklch(0.25 0.02 240 / 8%),
-    0 10px 22px -4px oklch(0.25 0.02 240 / 14%);
-  padding: 1rem 1.25rem;
-  max-width: 22rem;
-}
-
-.chat-tour-popover .driver-popover-title {
-  font-size: 0.9375rem;
-  font-weight: 600;
-  color: var(--popover-foreground);
-  font-family: inherit;
-}
-
-.chat-tour-popover .driver-popover-description {
-  font-size: 0.8125rem;
-  color: var(--muted-foreground);
-  line-height: 1.625;
-  font-family: inherit;
-}
-
-.chat-tour-popover .driver-popover-progress-text {
-  font-size: 0.75rem;
-  color: var(--muted-foreground);
-  font-family: inherit;
-}
-
-.chat-tour-popover.driver-popover .driver-popover-footer button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  white-space: nowrap;
-  border-radius: calc(var(--radius) - 2px);
-  font-size: 0.8125rem;
-  font-weight: 500;
-  font-family: inherit;
-  height: 2rem;
-  padding: 0 0.75rem;
-  text-shadow: none;
-  cursor: pointer;
-  line-height: 1;
-}
-
-.chat-tour-popover.driver-popover .driver-popover-prev-btn {
-  border: 1px solid var(--border);
-  background: var(--background);
-  color: var(--foreground);
-  box-shadow: 0 1px 2px 0 oklch(0 0 0 / 5%);
-  transition: background-color 0.15s, color 0.15s;
-}
-
-.chat-tour-popover.driver-popover .driver-popover-prev-btn:hover {
-  background: var(--accent);
-  color: var(--accent-foreground);
-}
-
-.chat-tour-popover.driver-popover .driver-popover-next-btn {
-  border: 1px solid transparent;
-  background: var(--primary);
-  color: var(--primary-foreground);
-  transition: background-color 0.15s;
-}
-
-.chat-tour-popover.driver-popover .driver-popover-next-btn:hover {
-  background: oklch(from var(--primary) calc(l * 0.9) c h);
-}
-
-.chat-tour-popover .driver-popover-close-btn {
-  color: var(--muted-foreground);
-  font-size: 1.125rem;
-  width: 1.5rem;
-  height: 1.5rem;
-  top: 0.75rem;
-  right: 0.75rem;
-}
-
-.chat-tour-popover .driver-popover-close-btn:hover {
-  color: var(--foreground);
-}
-
-/* Arrow: base color matches popover background; directional transparent sides come from driver.js defaults */
-.chat-tour-popover .driver-popover-arrow {
-  border: 10px solid var(--popover);
-}
-
-.chat-tour-popover .driver-popover-arrow-side-left {
-  border-right-color: transparent;
-  border-bottom-color: transparent;
-  border-top-color: transparent;
-}
-
-.chat-tour-popover .driver-popover-arrow-side-right {
-  border-left-color: transparent;
-  border-bottom-color: transparent;
-  border-top-color: transparent;
-}
-
-.chat-tour-popover .driver-popover-arrow-side-top {
-  border-right-color: transparent;
-  border-bottom-color: transparent;
-  border-left-color: transparent;
-}
-
-.chat-tour-popover .driver-popover-arrow-side-bottom {
-  border-left-color: transparent;
-  border-top-color: transparent;
-  border-right-color: transparent;
-}
-
-.chat-tour-popover .driver-popover-footer {
-  margin-top: 0.75rem;
-}
-
-/* Force-open menus during tutorial: above overlay (1e9-1) but below popover (1e9) */
-.driver-active [data-radix-popper-content-wrapper]:has(.tutorial-forced-menu) {
-  z-index: 999999999 !important;
-}
-
-.driver-active .tutorial-forced-menu,
-.driver-active .tutorial-forced-menu * {
-  pointer-events: none !important;
-}
-
-/* Dialog visible during tutorial: above overlay but below popover */
-.driver-active [data-slot="dialog-overlay"] {
-  z-index: 999999998 !important;
-}
-
-.driver-active [data-slot="dialog-content"] {
-  z-index: 999999999 !important;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -354,4 +198,15 @@
     scroll-behavior: auto !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+.os-theme-app {
+  --os-size: 10px;
+  --os-padding-perpendicular: 2px;
+  --os-padding-axis: 2px;
+  --os-track-border-radius: 9999px;
+  --os-handle-border-radius: 9999px;
+  --os-handle-bg: color-mix(in oklch, var(--muted-foreground) 25%, transparent);
+  --os-handle-bg-hover: color-mix(in oklch, var(--muted-foreground) 40%, transparent);
+  --os-handle-bg-active: color-mix(in oklch, var(--muted-foreground) 55%, transparent);
 }

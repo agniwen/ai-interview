@@ -1,9 +1,10 @@
-import { isAdminRole } from '@/lib/auth-roles';
-import { factory } from '../factory';
+import { canAccessAdmin } from "@/lib/auth-roles";
+import { factory } from "../factory";
 
+// oxlint-disable-next-line require-await -- Hono middleware signature expects an async handler.
 export const adminMiddleware = factory.createMiddleware(async (c, next) => {
-  if (!c.var.user || !isAdminRole(c.var.user.role)) {
-    return c.json({ message: 'Forbidden' }, 403);
+  if (!c.var.user || !canAccessAdmin(c.var.user)) {
+    return c.json({ message: "Forbidden" }, 403);
   }
 
   return next();
