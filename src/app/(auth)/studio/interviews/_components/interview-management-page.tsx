@@ -179,10 +179,30 @@ export function InterviewManagementPage({
   const columns = useMemo(
     () => [
       selectColumn<StudioInterviewListRecord>(),
-      textColumn<StudioInterviewListRecord>({
+      customColumn<StudioInterviewListRecord>({
+        cell: (r) => (
+          <div className="min-w-0">
+            <button
+              className="block max-w-full cursor-pointer truncate text-left font-medium underline-offset-4 hover:underline"
+              onClick={() => setDetailRecordId(r.id)}
+              type="button"
+            >
+              {r.candidateName}
+            </button>
+            {r.candidateEmail ? (
+              <a
+                className="block max-w-full truncate text-muted-foreground text-xs underline-offset-4 hover:underline"
+                href={`mailto:${r.candidateEmail}`}
+                onClick={(e) => e.stopPropagation()}
+              >
+                {r.candidateEmail}
+              </a>
+            ) : (
+              <p className="truncate text-muted-foreground text-xs">未填写邮箱</p>
+            )}
+          </div>
+        ),
         key: "candidateName",
-        primary: true,
-        secondary: (r) => r.candidateEmail || "未填写邮箱",
         size: 180,
         title: "候选人",
       }),
@@ -381,8 +401,7 @@ export function InterviewManagementPage({
     <>
       <div className="space-y-6">
         <section className="space-y-4">
-          <h2 className="font-semibold text-lg">简历库</h2>
-
+          <h2 className="font-semibold text-lg">AI 面试</h2>
           <DataGrid<StudioInterviewListRecord>
             {...grid.bind}
             columns={columns}

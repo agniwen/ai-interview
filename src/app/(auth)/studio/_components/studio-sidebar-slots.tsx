@@ -32,7 +32,7 @@ const navGroups = [
       {
         href: "/studio/interviews",
         icon: BotIcon,
-        title: "简历库",
+        title: "AI 面试",
       },
     ],
     label: "工作台",

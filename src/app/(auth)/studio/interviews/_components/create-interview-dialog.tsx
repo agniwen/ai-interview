@@ -100,7 +100,7 @@ export function CreateInterviewDialog({
         setResumeFile(null);
         setResumePayload(null);
         form.reset(createInterviewFormValues());
-        toast.success("简历库记录已创建");
+        toast.success("AI 面试记录已创建");
       } catch (error) {
         toast.error(error instanceof Error ? error.message : "创建失败");
       }

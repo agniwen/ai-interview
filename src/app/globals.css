@@ -166,7 +166,7 @@
 
   * {
     scrollbar-width: thin;
-    scrollbar-color: oklch(0.62 0.12 254 / 55%) transparent;
+    scrollbar-color: oklch(0.6 0 0 / 45%) transparent;
   }
 
   *::-webkit-scrollbar {
@@ -181,12 +181,12 @@
   *::-webkit-scrollbar-thumb {
     border: 2px solid transparent;
     border-radius: 9999px;
-    background: oklch(0.62 0.12 254 / 55%);
+    background: oklch(0.6 0 0 / 45%);
     background-clip: content-box;
   }
 
   *::-webkit-scrollbar-thumb:hover {
-    background: oklch(0.56 0.16 254 / 70%);
+    background: oklch(0.45 0 0 / 65%);
     background-clip: content-box;
   }
 }
