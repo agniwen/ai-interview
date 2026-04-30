@@ -64,8 +64,10 @@
   --card-foreground: oklch(0.28 0.04 254);
   --popover: #fafafa;
   --popover-foreground: oklch(0.28 0.04 254);
-  --primary: oklch(0.46 0.087 254);
-  --primary-foreground: oklch(0.985 0.006 254);
+  /* 主色对齐 #3D8EEE ≈ oklch(0.644 0.164 254)，按钮主色稍压暗保白字对比度。
+     Primary aligns with #3D8EEE; button surface slightly darker for AA contrast. */
+  --primary: oklch(0.62 0.17 254);
+  --primary-foreground: oklch(0.99 0.005 254);
   --secondary: #f5f5f5;
   --secondary-foreground: oklch(0.36 0.05 254);
   --muted: #f5f5f5;
@@ -75,20 +77,20 @@
   --destructive: oklch(0.577 0.245 27.325);
   --border: #e5e5e5;
   --input: #e5e5e5;
-  --ring: oklch(0.6 0.08 254);
-  --chart-1: oklch(0.46 0.087 254);
-  --chart-2: oklch(0.58 0.09 254);
-  --chart-3: oklch(0.7 0.07 254);
-  --chart-4: oklch(0.82 0.05 254);
-  --chart-5: oklch(0.35 0.05 254);
+  --ring: oklch(0.644 0.164 254);
+  --chart-1: oklch(0.62 0.17 254);
+  --chart-2: oklch(0.72 0.13 254);
+  --chart-3: oklch(0.8 0.09 254);
+  --chart-4: oklch(0.87 0.05 254);
+  --chart-5: oklch(0.5 0.16 254);
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.28 0.04 254);
-  --sidebar-primary: oklch(0.46 0.087 254);
-  --sidebar-primary-foreground: oklch(0.985 0.006 254);
-  --sidebar-accent: oklch(0.96 0.01 254);
+  --sidebar-primary: oklch(0.62 0.17 254);
+  --sidebar-primary-foreground: oklch(0.99 0.005 254);
+  --sidebar-accent: oklch(0.96 0.018 254);
   --sidebar-accent-foreground: oklch(0.36 0.05 254);
-  --sidebar-border: oklch(0.92 0.01 254);
-  --sidebar-ring: oklch(0.6 0.08 254);
+  --sidebar-border: oklch(0.92 0.012 254);
+  --sidebar-ring: oklch(0.644 0.164 254);
 }
 
 .dark {
@@ -144,7 +146,7 @@
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
     touch-action: manipulation;
-    -webkit-tap-highlight-color: rgba(45, 90, 138, 0.12);
+    -webkit-tap-highlight-color: rgba(61, 142, 238, 0.14);
   }
 
   .pixel-title {
@@ -158,13 +160,13 @@
   }
 
   ::selection {
-    background: oklch(0.88 0.055 254);
-    color: oklch(0.3 0.06 254);
+    background: oklch(0.86 0.09 254);
+    color: oklch(0.32 0.1 254);
   }
 
   * {
     scrollbar-width: thin;
-    scrollbar-color: oklch(0.55 0.055 254 / 55%) transparent;
+    scrollbar-color: oklch(0.62 0.12 254 / 55%) transparent;
   }
 
   *::-webkit-scrollbar {
@@ -179,12 +181,12 @@
   *::-webkit-scrollbar-thumb {
     border: 2px solid transparent;
     border-radius: 9999px;
-    background: oklch(0.55 0.055 254 / 55%);
+    background: oklch(0.62 0.12 254 / 55%);
     background-clip: content-box;
   }
 
   *::-webkit-scrollbar-thumb:hover {
-    background: oklch(0.47 0.07 254 / 70%);
+    background: oklch(0.56 0.16 254 / 70%);
     background-clip: content-box;
   }
 }
