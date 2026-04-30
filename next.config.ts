@@ -12,35 +12,22 @@ const nextConfig: NextConfig = {
     ],
   },
   output: "standalone",
-  // 双管齐下让 standalone 包含 @workflow/world-postgres 整棵依赖树:
-  //
-  // 1) serverExternalPackages 把它从 turbopack 的数字 id bundle 中拎出来, 输出
-  //    `require("@workflow/world-postgres")` 字符串, NFT 可识别。
-  // 2) outputFileTracingIncludes 兜底: NFT trace 出来后, standalone copy 阶段对
-  //    instrumentation.js 的 trace 处理不稳定, 显式 include `.pnpm` 仓库里的实际
-  //    包路径 (pnpm 把真实文件放在 .pnpm/, 顶层 node_modules 只有 symlink)。
-  //
-  // 没这两个, 容器启动会 MODULE_NOT_FOUND 把整个 instrumentation 炸掉, 间接让
-  // 所有路由(含 better-auth) 500。
-  //
-  // 1) external = preserve `require("@workflow/world-postgres")` string for NFT.
-  // 2) outputFileTracingIncludes = belt-and-suspenders force-copy because the
-  //    standalone copy phase doesn't reliably honor instrumentation's NFT trace.
-  //    Globs target the .pnpm store (where pnpm places real files; top-level
-  //    node_modules holds only symlinks).
+  // `@workflow/world-postgres` 是 workflow runtime 根据 WORKFLOW_TARGET_WORLD 环境变量
+  // 在运行时动态 require 的, Next.js NFT (next-file-tracing) 只能追静态 import,
+  // standalone 构建会漏掉这个 npm 包 → 容器启动报 MODULE_NOT_FOUND, 间接让所有
+  // 路由 500。这里强制 trace 把它打进 `.next/standalone/node_modules`。
+  // `@workflow/world-postgres` is dynamically required by workflow runtime
+  // based on WORKFLOW_TARGET_WORLD; NFT only traces static imports, so the
+  // standalone build skips this package and the container fails to boot with
+  // MODULE_NOT_FOUND, cascading into 500s on every route. Force-include it.
   outputFileTracingIncludes: {
     "/**/*": [
-      "./node_modules/.pnpm/@workflow+world-postgres@*/**/*",
-      "./node_modules/.pnpm/@workflow+world@*/**/*",
-      "./node_modules/.pnpm/@workflow+errors@*/**/*",
-      "./node_modules/.pnpm/graphile-worker@*/**/*",
-      "./node_modules/.pnpm/cbor-x@*/**/*",
-      "./node_modules/.pnpm/ulid@*/**/*",
-      "./node_modules/.pnpm/@vercel+queue@*/**/*",
+      "./node_modules/@workflow/world-postgres/**/*",
+      "./node_modules/@workflow/world/**/*",
     ],
   },
   reactCompiler: true,
-  serverExternalPackages: ["@napi-rs/canvas", "pdf-parse", "@workflow/world-postgres"],
+  serverExternalPackages: ["@napi-rs/canvas", "pdf-parse"],
   transpilePackages: ["@repo/adapter-feishu"],
 };
 
