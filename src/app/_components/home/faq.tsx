@@ -42,7 +42,7 @@ export function Faq() {
     <Section width="wide">
       <Eyebrow>FAQ</Eyebrow>
       <SectionTitle>常见问题</SectionTitle>
-      <Accordion className="mt-10 w-full" collapsible type="single">
+      <Accordion className="mt-10 w-full" defaultValue={["faq-0"]} type="multiple">
         {faqs.map((item, index) => (
           <AccordionItem key={item.question} value={`faq-${index}`}>
             <AccordionTrigger className="text-left text-base sm:text-lg">

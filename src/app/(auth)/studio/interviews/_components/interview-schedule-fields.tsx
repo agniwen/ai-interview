@@ -16,7 +16,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { createDefaultScheduleEntry, scheduleEntryStatusMeta } from "@/lib/studio-interviews";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { scheduleEntryStatusMeta } from "@/lib/studio-interviews";
 import { hasFieldErrors, toFieldErrors } from "./interview-form";
 
 export function InterviewScheduleFields({
@@ -44,20 +45,19 @@ export function InterviewScheduleFields({
                   支持添加一面、二面、三面等多个轮次，并维护计划时间。
                 </p>
               </div>
-              <Button
-                className="shrink-0 self-start"
-                onClick={() =>
-                  scheduleEntriesField.pushValue(
-                    createDefaultScheduleEntry(scheduleEntriesField.state.value.length),
-                  )
-                }
-                size="sm"
-                type="button"
-                variant="outline"
-              >
-                <PlusIcon className="size-4" />
-                新增轮次
-              </Button>
+              {/* 新增轮次功能暂未开放，禁用按钮并通过 tooltip 提示。
+                  Add-round is gated; show a "feature in progress" tooltip on the disabled button. */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="shrink-0 self-start" tabIndex={0}>
+                    <Button disabled size="sm" type="button" variant="outline">
+                      <PlusIcon className="size-4" />
+                      新增轮次
+                    </Button>
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>功能开发中</TooltipContent>
+              </Tooltip>
             </div>
 
             <div className="space-y-4">

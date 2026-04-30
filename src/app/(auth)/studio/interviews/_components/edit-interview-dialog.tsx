@@ -68,7 +68,7 @@ export function EditInterviewDialog({
         onUpdated(updated);
         onOpenChange(false);
         setResumeFile(null);
-        toast.success("简历记录已更新");
+        toast.success("面试记录已更新");
       } catch (error) {
         toast.error(error instanceof Error ? error.message : "更新失败");
       }
@@ -170,7 +170,7 @@ export function EditInterviewDialog({
         {isLoadingRecord ? (
           <>
             <DialogHeader className="border-b px-6 py-5">
-              <DialogTitle>编辑简历记录</DialogTitle>
+              <DialogTitle>编辑面试记录</DialogTitle>
               <DialogDescription>
                 更新候选人资料、流程状态、面试安排，并支持替换关联的简历 PDF。
               </DialogDescription>
@@ -194,7 +194,7 @@ export function EditInterviewDialog({
               value={activeTab}
             >
               <DialogHeader className="border-b px-6 pt-5 pb-2">
-                <DialogTitle>编辑简历记录</DialogTitle>
+                <DialogTitle>编辑面试记录</DialogTitle>
                 <DialogDescription>
                   更新候选人资料、流程状态、面试安排，并支持替换关联的简历 PDF。
                 </DialogDescription>

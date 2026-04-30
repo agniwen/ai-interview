@@ -100,7 +100,7 @@ export function CreateInterviewDialog({
         setResumeFile(null);
         setResumePayload(null);
         form.reset(createInterviewFormValues());
-        toast.success("AI 面试记录已创建");
+        toast.success("面试记录已创建");
       } catch (error) {
         toast.error(error instanceof Error ? error.message : "创建失败");
       }
@@ -397,7 +397,7 @@ export function CreateInterviewDialog({
       <DialogTrigger asChild>
         <Button className="w-full sm:w-auto" variant="outline">
           <FileUpIcon className="size-4" />
-          新建简历记录
+          新建面试记录
         </Button>
       </DialogTrigger>
       <DialogContent
@@ -428,7 +428,7 @@ export function CreateInterviewDialog({
             onValueChange={setActiveTab}
           >
             <DialogHeader className="border-b px-6 pt-5 pb-2">
-              <DialogTitle>新建简历记录</DialogTitle>
+              <DialogTitle>新建面试记录</DialogTitle>
               <DialogDescription>
                 支持手动录入候选人资料，也可以先上传 PDF 简历自动分析并回填表单。
               </DialogDescription>
@@ -508,7 +508,7 @@ export function CreateInterviewDialog({
               {isSubmitting || isAnalyzingResume || isGeneratingQuestions ? (
                 <LoaderCircleIcon className="size-4 animate-spin" />
               ) : null}
-              保存简历记录
+              保存面试记录
             </Button>
           </DialogFooter>
         </form>

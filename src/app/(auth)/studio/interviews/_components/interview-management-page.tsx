@@ -426,9 +426,9 @@ export function InterviewManagementPage({
                   <EmptyMedia variant="icon">
                     <BotIcon className="size-5" />
                   </EmptyMedia>
-                  <EmptyTitle>还没有候选人简历记录</EmptyTitle>
+                  <EmptyTitle>还没有候选人面试记录</EmptyTitle>
                   <EmptyDescription>
-                    先创建一条候选人简历记录，可以直接手动录入，也可以上传 PDF
+                    先创建一条候选人面试记录，可以直接手动录入，也可以上传 PDF
                     自动分析并生成面试题。
                   </EmptyDescription>
                 </EmptyHeader>
