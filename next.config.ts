@@ -28,17 +28,17 @@ const nextConfig: NextConfig = {
   //    standalone copy phase doesn't reliably honor instrumentation's NFT trace.
   //    Globs target the .pnpm store (where pnpm places real files; top-level
   //    node_modules holds only symlinks).
-  // outputFileTracingIncludes: {
-  //   "/**/*": [
-  //     "./node_modules/.pnpm/@workflow+world-postgres@*/**/*",
-  //     "./node_modules/.pnpm/@workflow+world@*/**/*",
-  //     "./node_modules/.pnpm/@workflow+errors@*/**/*",
-  //     "./node_modules/.pnpm/graphile-worker@*/**/*",
-  //     "./node_modules/.pnpm/cbor-x@*/**/*",
-  //     "./node_modules/.pnpm/ulid@*/**/*",
-  //     "./node_modules/.pnpm/@vercel+queue@*/**/*",
-  //   ],
-  // },
+  outputFileTracingIncludes: {
+    "/**/*": [
+      "./node_modules/.pnpm/@workflow+world-postgres@*/**/*",
+      "./node_modules/.pnpm/@workflow+world@*/**/*",
+      "./node_modules/.pnpm/@workflow+errors@*/**/*",
+      "./node_modules/.pnpm/graphile-worker@*/**/*",
+      "./node_modules/.pnpm/cbor-x@*/**/*",
+      "./node_modules/.pnpm/ulid@*/**/*",
+      "./node_modules/.pnpm/@vercel+queue@*/**/*",
+    ],
+  },
   reactCompiler: true,
   serverExternalPackages: ["@napi-rs/canvas", "pdf-parse", "@workflow/world-postgres"],
   transpilePackages: ["@repo/adapter-feishu"],
