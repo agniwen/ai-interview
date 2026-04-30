@@ -84,7 +84,7 @@ WORKFLOW_TARGET_WORLD=@workflow/world-postgres
 把 `scripts` 块里现有的 `db:migrate` 之外，增加：
 
 ```json
-"db:setup": "pnpm db:push && pnpm exec workflow-postgres-setup"
+"db:setup": "pnpm db:migrate && pnpm dlx workflow-postgres-setup"
 ```
 
 并更新 README 里"安装/启动"章节（如有）：本地 onboarding 与生产部署都使用 `pnpm db:setup` 而不是裸 `db:migrate`。如果 README 没相关章节就跳过。
@@ -102,7 +102,7 @@ echo 'WORKFLOW_TARGET_WORLD=@workflow/world-postgres' >> .env
 - [ ] **Step 7: 跑 workflow 表迁移**
 
 ```bash
-pnpm exec workflow-postgres-setup
+pnpm dlx workflow-postgres-setup
 ```
 
 预期：CLI 报告创建/确认了一组 `workflow_*` 表（runs/steps/queues/locks 之类），无错误退出。可以用 `psql $DATABASE_URL -c "\dt workflow*"` 抽查。
@@ -1266,7 +1266,7 @@ git commit -m "docs(spec): mark workflow-postgres design as implemented"
 
 PR 描述里要写上：
 
-- ⚠️ 部署到生产前，需在生产 PG 上**先**跑 `pnpm exec workflow-postgres-setup` 建 `workflow_*` 表
+- ⚠️ 部署到生产前，需在生产 PG 上**先**跑 `pnpm dlx workflow-postgres-setup` 建 `workflow_*` 表
 - ⚠️ 生产 env 需补 `WORKFLOW_TARGET_WORLD=@workflow/world-postgres`
 - ⚠️ 与 Vercel 不兼容：本变更只能部署到长进程 Docker / VM
 - 回滚方案：`git revert` workflow 相关 commits；`workflow_*` 表保留无副作用

@@ -1,5 +1,4 @@
 import type { NextConfig } from "next";
-import { withWorkflow } from "workflow/next";
 
 const nextConfig: NextConfig = {
   cacheComponents: true,
@@ -17,4 +16,4 @@ const nextConfig: NextConfig = {
   transpilePackages: ["@repo/adapter-feishu"],
 };
 
-export default withWorkflow(nextConfig);
+export default nextConfig;

@@ -1,8 +1,6 @@
 packages:
   - "packages/*"
 allowBuilds:
-  "@nestjs/core": false
-  "@swc/core": false
   cbor-extract: true
   esbuild: true
   lefthook: true
@@ -21,4 +19,3 @@ trustPolicy: no-downgrade
 # became available, so their "trust downgrade" is expected and safe.
 trustPolicyExclude:
   - "semver@6.3.1"
-  - "chokidar@4.0.3"

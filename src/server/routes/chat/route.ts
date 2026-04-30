@@ -82,7 +82,6 @@ export const chatRouter = factory
 
     return c.json({
       conversation: {
-        activeWorkflowRunId: conversation.activeWorkflowRunId,
         createdAt: conversation.createdAt.getTime(),
         id: conversation.id,
         isTitleGenerating: conversation.isTitleGenerating,
