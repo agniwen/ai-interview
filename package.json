@@ -34,7 +34,6 @@
     "@dnd-kit/modifiers": "^9.0.0",
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
-    "@hono/zod-validator": "^0.7.6",
     "@hookform/resolvers": "^5.2.2",
     "@livekit/components-react": "^2.9.20",
     "@livekit/protocol": "^1.41.0",
@@ -103,6 +102,7 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@hono/zod-validator": "^0.7.6",
     "@tailwindcss/postcss": "^4.2.2",
     "@testing-library/jest-dom": "^6.9.1",
     "@types/pg": "^8.20.0",
