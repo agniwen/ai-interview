@@ -1,4 +1,4 @@
-AGENT_DIR := agent
+AGENT_DIR := apps/agent
 VENV      := $(AGENT_DIR)/.venv
 PY        := uv run --project $(AGENT_DIR)
 AGENT_SCRIPT := src/agent.py
