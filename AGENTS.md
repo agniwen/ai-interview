@@ -1,69 +1,30 @@
-# ai-interview Development Guidelines
+# ai-tool-demo Development Guidelines
 
-AI-powered voice interview/resume screening application. Chinese-first locale — agent instructions and interview prompts are in Simplified Chinese.
+Auto-generated from all feature plans. Last updated: 2026-03-10
 
-## Architecture
+## Active Technologies
 
-pnpm + Turbo workspace.
+- TypeScript 5.x on Node.js with Next.js 16 / React 19 + Next.js App Router, Hono, Drizzle ORM, Postgres, Zod, React Hook Form, TanStack Table, Better Auth, ElevenLabs clien (001-interview-resume-library)
 
-- **Web app** (`apps/ai-interview/`): Next.js 16 + React 19, App Router, Hono API routes, Drizzle ORM + PostgreSQL, Better Auth, shadcn/ui + Tailwind CSS v4
-- **Voice agent** (`agent/`): Python LiveKit Agents SDK, ElevenLabs TTS, Alibaba Qwen STT/LLM
-- **Shared packages** (`packages/`): e.g. `@repo/adapter-feishu`
+## Project Structure
 
-Two separate package managers: **pnpm** for web, **uv** for Python agent. Do not mix them.
+```text
+backend/
+frontend/
+tests/
+```
 
 ## Commands
 
-### Web (from project root)
-
-- `pnpm dev` — dev server
-- `pnpm build` — production build
-- `pnpm typecheck` — TypeScript type checking
-- `pnpm check` — Ultracite/Oxlint check
-- `pnpm fix` — Ultracite/Oxlint autofix
-- `pnpm --filter ai-interview db:push` — sync Drizzle schema to database
-- `pnpm --filter ai-interview db:migrate` — run migrations
-- `pnpm --filter ai-interview db:studio` — Drizzle Studio UI
-- `pnpm --filter ai-interview db:seed` — seed data
-
-### Agent (from `agent/`)
-
-- `uv sync` — install dependencies
-- `uv run src/agent.py download-files` — download VAD + turn-detector models (required before first run)
-- `uv run src/agent.py dev` — dev mode with hot reload
-- `uv run src/agent.py console` — interactive terminal chat
-- `uv run pytest` — run tests
-- `uv run ruff format` — format Python code
-- `uv run ruff check` — lint Python code
-
-### Unified (Makefile)
-
-- `make install` — full setup: web deps + agent + model downloads
-- `make dev` — run web + agent in parallel
-- `make agent-console` — terminal chat without web
+npm test && npm run lint
 
 ## Code Style
 
-- **Conventional commits**: `feat:`, `fix:`, `chore:`, `refactor:`, etc.
-- **TypeScript**: Ultracite (Oxlint + Oxfmt) — see Ultracite Code Standards below. Run `pnpm dlx ultracite fix` before committing.
-- **Python**: Ruff — double quotes, 88 char line length
-- **Components**: shadcn/ui with new-york style, CSS variables for theming
+TypeScript 5.x on Node.js with Next.js 16 / React 19: Follow standard conventions
 
-## Environment Setup
+## Recent Changes
 
-Copy `.env.example` to `.env` and populate required keys. Key requirements:
-
-- LiveKit Cloud credentials (`LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`)
-- Google OAuth (`GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`)
-- Database (`DATABASE_URL`)
-- AI providers (`GOOGLE_GENERATIVE_AI_API_KEY`, `ELEVENLABS_API_KEY`, `ALIBABA_API_KEY`)
-
-## Gotchas
-
-- Must run `uv run src/agent.py download-files` before first agent run to download Silero VAD and turn-detector models
-- `apps/ai-interview/src/components/agents-ui/` and `apps/ai-interview/src/hooks/agents-ui/` are upstream LiveKit UI code, ignored by Oxlint — avoid modifying these
-- Next.js config uses `output: 'standalone'` for Docker deployment
-- Drizzle ORM/Kit are on RC (`1.0.0-rc.1`). Note RC breaking changes from beta: casing API moved to per-table helpers; RQBv1 (`db._query`) removed; `drizzle({ relations })` no longer accepts `schema` alongside `relations`
+- 001-interview-resume-library: Added TypeScript 5.x on Node.js with Next.js 16 / React 19 + Next.js App Router, Hono, Drizzle ORM, Postgres, Zod, React Hook Form, TanStack Table, Better Auth, ElevenLabs clien
 
 <!-- MANUAL ADDITIONS START -->
 <!-- MANUAL ADDITIONS END -->
