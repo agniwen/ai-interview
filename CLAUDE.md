@@ -8,8 +8,11 @@ AI-powered voice interview/resume screening application. Chinese-first locale �
 
 ## Architecture
 
-- **Web app** (`src/`): Next.js 16 + React 19, App Router, Hono API routes, Drizzle ORM + PostgreSQL, Better Auth, shadcn/ui + Tailwind CSS v4
+pnpm + Turbo workspace.
+
+- **Web app** (`apps/ai-interview/`): Next.js 16 + React 19, App Router, Hono API routes, Drizzle ORM + PostgreSQL, Better Auth, shadcn/ui + Tailwind CSS v4
 - **Voice agent** (`agent/`): Python LiveKit Agents SDK, ElevenLabs TTS, Alibaba Qwen STT/LLM
+- **Shared packages** (`packages/`): e.g. `@repo/adapter-feishu`
 
 Two separate package managers: **pnpm** for web, **uv** for Python agent. Do not mix them.
 
@@ -20,10 +23,12 @@ Two separate package managers: **pnpm** for web, **uv** for Python agent. Do not
 - `pnpm dev` — dev server
 - `pnpm build` — production build
 - `pnpm typecheck` — TypeScript type checking
-- `pnpm lint` — ESLint with autofix
-- `npm run db:push` — sync Drizzle schema to database
-- `npm run db:migrate` — run migrations
-- `npm run db:studio` — Drizzle Studio UI
+- `pnpm check` — Ultracite/Oxlint check
+- `pnpm fix` — Ultracite/Oxlint autofix
+- `pnpm --filter ai-interview db:push` — sync Drizzle schema to database
+- `pnpm --filter ai-interview db:migrate` — run migrations
+- `pnpm --filter ai-interview db:studio` — Drizzle Studio UI
+- `pnpm --filter ai-interview db:seed` — seed data
 
 ### Agent (from `agent/`)
 
@@ -44,7 +49,7 @@ Two separate package managers: **pnpm** for web, **uv** for Python agent. Do not
 ## Code Style
 
 - **Conventional commits**: `feat:`, `fix:`, `chore:`, `refactor:`, etc.
-- **TypeScript**: ESLint with @antfu/eslint-config — single quotes, always semicolons
+- **TypeScript**: Ultracite (Oxlint + Oxfmt) — see `.claude/CLAUDE.md` for full standards. Run `pnpm dlx ultracite fix` before committing.
 - **Python**: Ruff — double quotes, 88 char line length
 - **Components**: shadcn/ui with new-york style, CSS variables for theming
 
@@ -60,6 +65,6 @@ Copy `.env.example` to `.env` and populate required keys. See `.env.example` for
 ## Gotchas
 
 - Must run `uv run src/agent.py download-files` before first agent run to download Silero VAD and turn-detector models
-- `src/components/agents-ui/` and `src/hooks/agents-ui/` are upstream LiveKit UI code with relaxed lint rules — avoid modifying these
+- `apps/ai-interview/src/components/agents-ui/` and `apps/ai-interview/src/hooks/agents-ui/` are upstream LiveKit UI code, ignored by Oxlint — avoid modifying these
 - Next.js config uses `output: 'standalone'` for Docker deployment
-- Drizzle ORM is on beta (`1.0.0-beta.9`)
+- Drizzle ORM/Kit are on RC (`1.0.0-rc.1`). Note RC breaking changes from beta: casing API moved to per-table helpers; RQBv1 (`db._query`) removed; `drizzle({ relations })` no longer accepts `schema` alongside `relations`
