@@ -7,7 +7,7 @@ AI-powered voice interview/resume screening application. Chinese-first locale �
 pnpm + Turbo workspace.
 
 - **Web app** (`apps/ai-interview/`): Next.js 16 + React 19, App Router, Hono API routes, Drizzle ORM + PostgreSQL, Better Auth, shadcn/ui + Tailwind CSS v4
-- **Voice agent** (`agent/`): Python LiveKit Agents SDK, ElevenLabs TTS, Alibaba Qwen STT/LLM
+- **Voice agent** (`apps/agent/`): Python LiveKit Agents SDK, ElevenLabs TTS, Alibaba Qwen STT/LLM
 - **Shared packages** (`packages/`): e.g. `@repo/adapter-feishu`
 
 Two separate package managers: **pnpm** for web, **uv** for Python agent. Do not mix them.
@@ -26,7 +26,7 @@ Two separate package managers: **pnpm** for web, **uv** for Python agent. Do not
 - `pnpm --filter ai-interview db:studio` — Drizzle Studio UI
 - `pnpm --filter ai-interview db:seed` — seed data
 
-### Agent (from `agent/`)
+### Agent (from `apps/agent/`)
 
 - `uv sync` — install dependencies
 - `uv run src/agent.py download-files` — download VAD + turn-detector models (required before first run)
