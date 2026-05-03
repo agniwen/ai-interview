@@ -17,7 +17,7 @@ if (!process.env.DATABASE_URL) {
 }
 
 const client = postgres(process.env.DATABASE_URL, { max: 1 });
-const db = drizzle({ client, relations });
+const db = drizzle({ client, relations, schema });
 
 // ---------------------------------------------------------------------------
 // 数据定义

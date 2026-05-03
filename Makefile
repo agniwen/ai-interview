@@ -31,7 +31,7 @@ dev: ## 并行启动 Next.js + LiveKit agent worker (Ctrl-C 同时停止)
 	@$(MAKE) -j2 web-dev agent-dev
 
 web-dev: ## 仅启动 Next.js dev server
-	pnpm --filter ai-interview dev
+	pnpm dev
 
 agent-dev: ## 仅启动 LiveKit agent worker (dev 模式，热重载)
 	cd $(AGENT_DIR) && uv run $(AGENT_SCRIPT) dev
