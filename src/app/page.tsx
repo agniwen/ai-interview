@@ -1,5 +1,5 @@
-import HomePageClient from "./_components/home-page-client";
+import HomeShell from "./_components/home-shell";
 
 export default function HomePage() {
-  return <HomePageClient />;
+  return <HomeShell />;
 }

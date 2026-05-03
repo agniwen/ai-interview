@@ -4,7 +4,7 @@
  * 「岗位描述（JD）」状态切片：聚焦在选择 / 派生文本 / 弹窗开关上。
  * Job-description (JD) state slice — focused on selection, derived text, and dialog toggle.
  *
- * 把它从 chat-page-client 抽出来后，主组件不再需要直接管理 JD 弹窗与配置；同时
+ * 把它从 chat-workspace 抽出来后，主组件不再需要直接管理 JD 弹窗与配置；同时
  * 文本派生与标签计算也只发生在一处，避免重复 memoize。
  *
  * Extracting this slice keeps the main chat shell from babysitting JD dialog state

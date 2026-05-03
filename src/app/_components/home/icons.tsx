@@ -1,5 +1,3 @@
-// 用途：首页特性图标集合（从 home-page-client 抽出）
-// Purpose: feature icons for the homepage, extracted from home-page-client.
 "use client";
 
 import type { SVGProps } from "react";

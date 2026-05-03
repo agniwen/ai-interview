@@ -1,5 +1,3 @@
-// 用途：首页组合根，编排所有分区
-// Purpose: Homepage composition root that orchestrates all sections.
 "use client";
 
 import { useMemo } from "react";
@@ -19,7 +17,7 @@ import { ProductShot } from "./home/product-shot";
 import { TrustStrip } from "./home/trust-strip";
 import { useProtectedNavigation } from "./home/use-protected-navigation";
 
-export default function HomePageClient() {
+export default function HomeShell() {
   const { isPending, navigate, pendingPath, setPendingPath } = useProtectedNavigation();
 
   const callbackURL = useMemo(() => pendingPath ?? "/chat", [pendingPath]);

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { cacheLife } from "next/cache";
-import InterviewPageClient from "@/app/interview/_components/interview-page-client";
+import InterviewRoom from "@/app/interview/_components/interview-room";
 
 export const metadata: Metadata = {
   description: "根据候选人专属链接发起语音面试，并实时查看追问过程与作答记录。",
@@ -17,5 +17,5 @@ export default async function InterviewRoundPage({
 
   const { id, roundId } = await params;
 
-  return <InterviewPageClient interviewId={id} roundId={roundId} />;
+  return <InterviewRoom interviewId={id} roundId={roundId} />;
 }

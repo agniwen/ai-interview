@@ -121,7 +121,7 @@ function DialogContent({
           )}
           {...(props as unknown as React.ComponentProps<typeof DrawerPrimitive.Content>)}
         >
-          <div className="mx-auto mt-4 h-2 w-[100px] shrink-0 rounded-full bg-muted" />
+          <div className="mx-auto mt-4 h-2 w-25 shrink-0 rounded-full bg-muted" />
           {children}
         </DrawerPrimitive.Content>
       </DrawerPrimitive.Portal>

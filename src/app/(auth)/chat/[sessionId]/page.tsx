@@ -1,5 +1,5 @@
 import { cacheLife } from "next/cache";
-import ChatPageClient from "@/app/(auth)/chat/_components/chat-page-client";
+import ChatWorkspace from "@/app/(auth)/chat/_components/chat-workspace";
 
 export default async function ChatSessionPage({
   params,
@@ -11,5 +11,5 @@ export default async function ChatSessionPage({
 
   const { sessionId } = await params;
 
-  return <ChatPageClient initialSessionId={sessionId} key={sessionId} />;
+  return <ChatWorkspace initialSessionId={sessionId} key={sessionId} />;
 }

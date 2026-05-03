@@ -37,7 +37,7 @@ function AgentSpeechTimer() {
   return <InterviewTimer startedAt={startedAt} />;
 }
 
-interface InterviewPageClientProps {
+interface InterviewRoomProps {
   interviewId: string;
   roundId: string;
 }
@@ -257,7 +257,7 @@ function WaitingView({
   );
 }
 
-export default function InterviewPageClient({ interviewId, roundId }: InterviewPageClientProps) {
+export default function InterviewRoom({ interviewId, roundId }: InterviewRoomProps) {
   const [interviewView, setInterviewView] = useState<CandidateInterviewView | null>(null);
   const [roundStatus, setRoundStatus] = useState<string | null>(null);
   const [isLoadingStatus, setIsLoadingStatus] = useState(true);

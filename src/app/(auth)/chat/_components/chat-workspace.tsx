@@ -56,7 +56,7 @@ function getConversationTitleFromMessages(
 }
 
 // eslint-disable-next-line complexity -- Top-level shell owns many pieces of orchestration state.
-export default function ChatPageClient({ initialSessionId }: { initialSessionId: string | null }) {
+export default function ChatWorkspace({ initialSessionId }: { initialSessionId: string | null }) {
   const { data: session } = authClient.useSession();
   const thinkingMode = useAtomValue(thinkingModeAtom);
 
@@ -125,7 +125,7 @@ export default function ChatPageClient({ initialSessionId }: { initialSessionId:
   }, [activeConversationId, jobDescriptionText, thinkingMode]);
 
   // Resolve the Chat instance for this conversation from the module-level
-  // registry. The instance outlives ChatPageClient's mount — stream state is
+  // registry. The instance outlives ChatWorkspace's mount — stream state is
   // owned by the registry, not the component — so navigating away does not
   // abort the request. When `activeConversationId` is null (the empty
   // `/chat` shell) we hand useChat an empty init; it stands up a throwaway
@@ -561,7 +561,7 @@ export default function ChatPageClient({ initialSessionId }: { initialSessionId:
   }, [clearError, regenerate, setMessages]);
 
   return (
-    <div className="relative flex h-full w-full flex-col pb-2 pt-4 sm:pb-4 sm:pt-4">
+    <div className="relative flex h-full w-full flex-col pb-4 pt-4 sm:pb-4 sm:pt-4">
       <ChatRuntimeProvider
         addToolOutput={addToolOutput}
         clearError={clearError}
