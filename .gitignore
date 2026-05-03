@@ -14,8 +14,8 @@ node_modules/
 /coverage
 
 # next.js
-/.next/
-/out/
+.next/
+out/
 
 # production
 /build
@@ -53,3 +53,4 @@ __pycache__/
 .devtools
 .pnpm-store
 .worktrees/
+.turbo
