@@ -21,7 +21,6 @@ interface BentoTileProps {
   Icon: ComponentType<SVGProps<SVGSVGElement>>;
   className?: string;
   description: string;
-  iconClass: string;
   layout?: TileLayout;
   title: string;
   visual?: ReactNode;
@@ -31,7 +30,6 @@ function BentoTile({
   Icon,
   className,
   description,
-  iconClass,
   layout = "stacked",
   title,
   visual,
@@ -40,10 +38,8 @@ function BentoTile({
 
   const head = (
     <div>
-      <div className={cn("inline-flex size-10 items-center justify-center rounded-xl", iconClass)}>
-        <Icon aria-hidden="true" className="size-5" />
-      </div>
-      <h3 className="mt-5 font-semibold text-foreground text-lg leading-tight tracking-tight">
+      <Icon aria-hidden="true" className="size-6 text-foreground/55" strokeWidth={1.25} />
+      <h3 className="mt-6 font-semibold text-foreground text-lg leading-tight tracking-tight">
         {title}
       </h3>
       <p className="mt-2 text-foreground/70 text-sm leading-relaxed">{description}</p>
@@ -273,7 +269,6 @@ const tiles: BentoConfig[] = [
     Icon: MessageSquareTextIcon,
     description:
       "围绕岗位语境追问候选人亮点与风险，AI 持续根据回答继续深挖，而不是简单的关键词匹配。",
-    iconClass: "bg-violet-500/15 text-violet-600 dark:bg-violet-400/15 dark:text-violet-300",
     span: "lg:col-span-2 lg:row-span-2",
     title: "聊天式筛选",
     visual: <ChatBubblesVisual />,
@@ -281,7 +276,6 @@ const tiles: BentoConfig[] = [
   {
     Icon: ClipboardListIcon,
     description: "在工作台维护岗位、JD、面试官人设、面试问题，全局复用。",
-    iconClass: "bg-amber-500/15 text-amber-600 dark:bg-amber-400/15 dark:text-amber-300",
     layout: "split",
     span: "lg:col-span-2",
     title: "工作台配置",
@@ -290,7 +284,6 @@ const tiles: BentoConfig[] = [
   {
     Icon: SparklesIcon,
     description: "AI 自动追问、记录节奏与停顿，沉淀完整对话上下文。",
-    iconClass: "bg-sky-500/15 text-sky-600 dark:bg-sky-400/15 dark:text-sky-300",
     span: "lg:col-span-1",
     title: "智能追问",
     visual: <FollowUpVisual />,
@@ -298,7 +291,6 @@ const tiles: BentoConfig[] = [
   {
     Icon: RadioIcon,
     description: "一键发起实时语音模拟面试，候选人通过链接即可参与。",
-    iconClass: "bg-rose-500/15 text-rose-600 dark:bg-rose-400/15 dark:text-rose-300",
     span: "lg:col-span-1",
     title: "实时语音面试",
     visual: <LiveVoiceVisual />,
@@ -306,7 +298,6 @@ const tiles: BentoConfig[] = [
   {
     Icon: GaugeIcon,
     description: "结构化展示候选人亮点、风险、推荐度，团队判断有共同依据。",
-    iconClass: "bg-emerald-500/15 text-emerald-600 dark:bg-emerald-400/15 dark:text-emerald-300",
     layout: "split",
     span: "lg:col-span-2",
     title: "结构化评估",
@@ -315,7 +306,6 @@ const tiles: BentoConfig[] = [
   {
     Icon: ShieldCheckIcon,
     description: "简历内容与面试录音仅用于本次评估，不会用于训练模型。",
-    iconClass: "bg-slate-500/15 text-slate-600 dark:bg-slate-400/15 dark:text-slate-300",
     layout: "split",
     span: "lg:col-span-2",
     title: "数据可控",
