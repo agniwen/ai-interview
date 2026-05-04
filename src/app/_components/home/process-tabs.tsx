@@ -89,6 +89,8 @@ export function ProcessTabs() {
                       isActive ? "border-l-primary" : "hover:border-l-foreground/30",
                     )}
                     onClick={() => setActiveValue(step.value)}
+                    onFocus={() => setActiveValue(step.value)}
+                    onMouseEnter={() => setActiveValue(step.value)}
                     type="button"
                   >
                     <div className="flex items-baseline gap-3">
