@@ -11,6 +11,7 @@ export default defineConfig({
     "src/hooks/agents-ui/**",
     "src/components/ui/**",
     "src/components/react-bits/**",
+    "src/components/spell-ui/**",
   ],
   rules: {
     "func-style": "off",

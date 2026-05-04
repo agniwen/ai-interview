@@ -14,6 +14,7 @@ import { Hero } from "./home/hero";
 import { Personas } from "./home/personas";
 import { ProcessTabs } from "./home/process-tabs";
 import { ProductShot } from "./home/product-shot";
+import { Testimonials } from "./home/testimonials";
 import { TrustStrip } from "./home/trust-strip";
 import { useProtectedNavigation } from "./home/use-protected-navigation";
 
@@ -48,6 +49,7 @@ export default function HomeShell() {
           <FeatureBlocks />
           <CapabilityGrid />
           <Personas />
+          <Testimonials />
           <ProcessTabs />
           <Faq />
           <CtaSection
