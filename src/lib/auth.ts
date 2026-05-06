@@ -192,7 +192,7 @@ function buildFeishuOAuthProvider(opts: FeishuOAuthProviderOptions): GenericOAut
 }
 
 export const auth = betterAuth({
-  appName: "简历筛选助手",
+  appName: "招聘 AI 协同工作台",
   baseURL,
   database: drizzleAdapter(db, {
     provider: "pg",

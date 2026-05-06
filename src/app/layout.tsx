@@ -1,7 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Analytics } from "@vercel/analytics/next";
 import { IBM_Plex_Mono, Source_Sans_3, Source_Serif_4 } from "next/font/google";
-import localFont from "next/font/local";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
 import "overlayscrollbars/overlayscrollbars.css";
 import { Suspense } from "react";
@@ -24,12 +23,6 @@ const sourceSerif = Source_Serif_4({
   weight: ["400", "600", "700"],
 });
 
-const fusionPixel = localFont({
-  display: "swap",
-  src: "../../public/fonts/fusion-pixel-12px-proportional-zh_hans.ttf.woff2",
-  variable: "--font-fusion-pixel",
-});
-
 const ibmPlexMono = IBM_Plex_Mono({
   subsets: ["latin"],
   variable: "--font-ibm-plex-mono",
@@ -37,8 +30,9 @@ const ibmPlexMono = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
-  description: "面向招聘场景的聊天式简历初筛应用，支持上传简历并生成筛选建议。",
-  title: "简历筛选助手",
+  description:
+    "面向招聘场景的 AI 协同工作台，覆盖简历筛选、模拟面试与候选人评估全流程。AI Recruitment Copilot — your end-to-end hiring workflow.",
+  title: "招聘 AI 协同工作台 · AI Recruitment Copilot",
 };
 
 export const viewport: Viewport = {
@@ -79,7 +73,7 @@ export default function RootLayout({
         />
       </head>
       <body
-        className={`${sourceSans.variable} ${sourceSerif.variable} ${fusionPixel.variable} ${ibmPlexMono.variable} min-h-dvh antialiased`}
+        className={`${sourceSans.variable} ${sourceSerif.variable} ${ibmPlexMono.variable} min-h-dvh antialiased`}
       >
         <a
           className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:rounded-md focus:bg-background focus:px-3 focus:py-2"

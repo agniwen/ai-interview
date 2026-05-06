@@ -30,7 +30,7 @@ interface EyebrowProps {
 }
 export function Eyebrow({ children }: EyebrowProps) {
   return (
-    <p className="pixel-title font-bold text-primary text-sm uppercase tracking-[0.18em] sm:text-base">
+    <p className="font-mono font-semibold text-primary text-sm uppercase tracking-[0.22em] sm:text-base">
       {children}
     </p>
   );
