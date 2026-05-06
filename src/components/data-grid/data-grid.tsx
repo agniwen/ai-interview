@@ -13,8 +13,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { cn } from "@/lib/utils";
 import { PaginationBar } from "./parts/pagination-bar";
-import { getPinningStyles, PINNED_CELL_CLASS } from "./parts/pinned-cell";
+import { getPinningStyles, PINNED_CELL_CLASS, STICKY_HEADER_CLASS } from "./parts/pinned-cell";
 import { Toolbar } from "./parts/toolbar";
 import type { ToolbarFilterConfig } from "./parts/toolbar";
 
@@ -62,6 +63,16 @@ export interface DataGridProps<TData> {
   onRefresh?: () => void;
   onResetFilters?: () => void;
   canResetFilters?: boolean;
+  /**
+   * 表格滚动区最大高度（启用 sticky 表头依赖此值）。
+   * 默认 `calc(100svh - 22rem)`，给工具栏 / 分页 / 页头留出空间。
+   * 传入 `null` 可关闭高度约束，从而禁用 sticky 行为。
+   *
+   * Max height for the scroll viewport (enables sticky header).
+   * Defaults to `calc(100svh - 22rem)`. Pass `null` to disable height cap
+   * (which also makes the sticky header a no-op since there's no scroll container).
+   */
+  maxHeight?: string | null;
 }
 
 export function DataGrid<TData>(props: DataGridProps<TData>) {
@@ -77,6 +88,7 @@ export function DataGrid<TData>(props: DataGridProps<TData>) {
     getRowId,
     headerExtra,
     loading,
+    maxHeight = "calc(100svh - 22rem)",
     onFilterChange,
     onRefresh,
     onResetFilters,
@@ -153,17 +165,34 @@ export function DataGrid<TData>(props: DataGridProps<TData>) {
 
       {rows.length > 0 ? (
         <Card className="overflow-hidden py-0">
-          <Table>
+          <Table
+            containerClassName={maxHeight ? "overflow-auto" : undefined}
+            containerStyle={maxHeight ? { maxHeight } : undefined}
+          >
             <TableHeader>
               {table.getHeaderGroups().map((headerGroup) => (
-                <TableRow key={headerGroup.id}>
+                // 表头行不响应 hover：基础 TableRow 自带 `hover:bg-muted`，
+                // 但表头不应该跟随光标变色（否则非固定列变 muted、固定列保持 card 会撕裂）。
+                // Override the base TableRow hover so the whole header stays flat —
+                // otherwise non-pinned header cells would tint while pinned ones don't.
+                <TableRow className="hover:bg-transparent" key={headerGroup.id}>
                   {headerGroup.headers.map((header) => {
                     const isPinned = header.column.getIsPinned();
                     return (
                       <TableHead
-                        className={isPinned ? PINNED_CELL_CLASS : undefined}
+                        className={cn(
+                          // 统一 12px 水平 padding；shadcn `<TableHead>` 自带的
+                          // `[&:has([role=checkbox])]:pr-0` 会让 checkbox 列变成 pl:12 / pr:0
+                          // 的不对称形态，这里用同变体的 `pr-3` 把右内距找回来。
+                          // Force symmetric horizontal padding even for checkbox cells —
+                          // shadcn's base `<TableHead>` zeroes pr for checkbox cells, which
+                          // makes the column visibly off-center; restore pr-3 to match px-3.
+                          "px-3 [&:has([role=checkbox])]:pr-3",
+                          maxHeight && STICKY_HEADER_CLASS,
+                          isPinned && PINNED_CELL_CLASS,
+                        )}
                         key={header.id}
-                        style={getPinningStyles(header.column)}
+                        style={getPinningStyles(header.column, { isHeader: !!maxHeight })}
                       >
                         {header.isPlaceholder
                           ? null
@@ -181,7 +210,12 @@ export function DataGrid<TData>(props: DataGridProps<TData>) {
                     const isPinned = cell.column.getIsPinned();
                     return (
                       <TableCell
-                        className={isPinned ? PINNED_CELL_CLASS : undefined}
+                        className={cn(
+                          // 同 TableHead：统一 12px 水平 padding，并把 checkbox 列的 pr-0 找回来。
+                          // Same as TableHead — uniform px-3 plus pr restore for checkbox cells.
+                          "px-3 [&:has([role=checkbox])]:pr-3",
+                          isPinned && PINNED_CELL_CLASS,
+                        )}
                         key={cell.id}
                         style={getPinningStyles(cell.column)}
                       >

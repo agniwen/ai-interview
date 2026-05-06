@@ -22,6 +22,10 @@ export function selectColumn<TData>(): ColumnDef<TData> {
       />
     ),
     id: "select",
-    size: 36,
+    // 必须与 DataGrid 中 px-3 (12px) + Checkbox (16px) + px-3 (12px) = 40px 实际渲染宽度对齐，
+    // 否则后续 pinned 列的 sticky `left:` 偏移会错开造成"余量"。
+    // Must match the actual rendered width (px-3 + 16px checkbox + px-3 = 40)
+    // so subsequent pinned columns' sticky left offsets line up exactly.
+    size: 40,
   };
 }
