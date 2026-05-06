@@ -29,49 +29,65 @@ gsap.registerPlugin(useGSAP, ScrollTrigger, ScrollSmoother);
 
 export function HomeSmoothScroll({ children }: { children: ReactNode }) {
   const wrapperRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
 
-  useGSAP(
-    () => {
-      if (typeof window === "undefined") {
-        return;
-      }
-      // reduced-motion 时直接退出，让浏览器原生滚动接管
-      // Bail out for reduced-motion users — keep native scrolling.
-      if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-        return;
-      }
+  // 注意：不要给 useGSAP 传 `{ scope: wrapperRef }`。scope 会把所有选择器字符串
+  // 改写成 `wrapperRef.current.querySelector(...)`，但 wrapperRef.current 本身就是
+  // #smooth-wrapper，导致 `wrapper: "#smooth-wrapper"` 在自身内部查找而返回 null，
+  // ScrollSmoother 静默失败。直接传 DOM 元素 ref 最稳。
+  // Do NOT pass `{ scope: wrapperRef }` to useGSAP — scope rewrites selector strings
+  // to `wrapperRef.current.querySelector(...)`, and since wrapperRef IS #smooth-wrapper
+  // the lookup returns null and ScrollSmoother silently fails to initialize.
+  // Pass DOM nodes directly instead of selector strings.
+  useGSAP(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    // reduced-motion 时直接退出，让浏览器原生滚动接管
+    // Bail out for reduced-motion users — keep native scrolling.
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      return;
+    }
+    if (!(wrapperRef.current && contentRef.current)) {
+      return;
+    }
 
-      const smoother = ScrollSmoother.create({
-        content: "#smooth-content",
-        // 启用基于滚动方向的 effects（data-speed / data-lag 暂未使用，留接口）。
-        // Enable speed/lag effects (we don't use data-speed yet but keep the option open).
-        effects: true,
-        // 内容滚动 lerp 时长（秒），数值越大越"飘"；1 是 GSAP demo 推荐值。
-        // Scroll lerp duration in seconds — higher = floatier. 1 matches GSAP's demo.
-        smooth: 1,
-        // 让原生 anchor 点击也走 smoother，体验统一。
-        // Route native anchor clicks through smoother for consistent feel.
-        smoothTouch: 0.1,
-        wrapper: "#smooth-wrapper",
-      });
+    const smoother = ScrollSmoother.create({
+      content: contentRef.current,
+      // 启用基于滚动方向的 effects（data-speed / data-lag 暂未使用，留接口）。
+      // Enable speed/lag effects (we don't use data-speed yet but keep the option open).
+      effects: true,
+      // 内容滚动 lerp 时长（秒），数值越大越"飘"；1 是 GSAP demo 推荐值。
+      // Scroll lerp duration in seconds — higher = floatier. 1 matches GSAP's demo.
+      smooth: 1,
+      // 让原生 anchor 点击也走 smoother，体验统一。
+      // Route native anchor clicks through smoother for consistent feel.
+      smoothTouch: 0.1,
+      wrapper: wrapperRef.current,
+    });
 
-      // 先于本组件 mount 的 ScrollTrigger（product-shot / feature-blocks 的 useLayoutEffect
-      // 比父组件早跑）需要 refresh，重新按 smoother 的虚拟滚动坐标计算 start/end。
-      // Existing ScrollTriggers from children already mounted (their useLayoutEffect runs
-      // before this parent's) need a refresh so their start/end get recomputed against
-      // the smoother's virtual scroll axis.
-      ScrollTrigger.refresh();
+    // 先于本组件 mount 的 ScrollTrigger（product-shot / feature-blocks 的 useLayoutEffect
+    // 比父组件早跑）需要 refresh，重新按 smoother 的虚拟滚动坐标计算 start/end。
+    // Existing ScrollTriggers from children already mounted (their useLayoutEffect runs
+    // before this parent's) need a refresh so their start/end get recomputed against
+    // the smoother's virtual scroll axis.
+    ScrollTrigger.refresh();
 
-      return () => {
-        smoother.kill();
-      };
-    },
-    { scope: wrapperRef },
-  );
+    return () => {
+      smoother.kill();
+      // 兜底还原 html/body 的 overflow，避免 GSAP 残留导致离开首页后页面无法滚动。
+      // Defensive reset — clear any inline overflow GSAP may have left behind so
+      // subsequent routes (e.g. OverlayScrollbars) can scroll normally.
+      document.documentElement.style.overflow = "";
+      document.body.style.overflow = "";
+    };
+  }, []);
 
   return (
     <div id="smooth-wrapper" ref={wrapperRef}>
-      <div id="smooth-content">{children}</div>
+      <div id="smooth-content" ref={contentRef}>
+        {children}
+      </div>
     </div>
   );
 }

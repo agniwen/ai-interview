@@ -4,12 +4,12 @@ import { IBM_Plex_Mono, Source_Sans_3, Source_Serif_4 } from "next/font/google";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
 import "overlayscrollbars/overlayscrollbars.css";
 import { Suspense } from "react";
-import { OverlayScrollbarsBody } from "@/components/overlay-scrollbars-body";
 import { QueryProvider } from "@/components/query-provider";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import "./globals.css";
+import { OverlayScrollbarsBody } from "@/components/overlay-scrollbars-body";
 
 const sourceSans = Source_Sans_3({
   subsets: ["latin"],
@@ -81,9 +81,9 @@ export default function RootLayout({
         >
           跳到主要内容
         </a>
-        <Suspense>
-          <OverlayScrollbarsBody />
-        </Suspense>
+        {/* <Suspense> */}
+        <OverlayScrollbarsBody />
+        {/* </Suspense> */}
         <ThemeProvider
           attribute="class"
           defaultTheme="system"
