@@ -116,13 +116,18 @@ function DialogContent({
         <DrawerPrimitive.Content
           data-slot="dialog-content"
           className={cn(
-            "group/drawer-content fixed inset-x-0 bottom-0 z-50 mt-24 flex h-auto max-h-[85vh] flex-col gap-4 rounded-t-lg border-t bg-background px-4 pb-4 outline-none",
+            // 外层 drawer 不再吃 padding；内容区单独做滚动，确保 footer 始终可达
+            // / Outer drawer drops its padding; the inner scroll wrapper owns it
+            // so the sticky footer can extend edge-to-edge and stay reachable.
+            "group/drawer-content fixed inset-x-0 bottom-0 z-50 mt-24 flex h-auto max-h-[85vh] flex-col overflow-hidden rounded-t-lg border-t bg-background outline-none",
             className,
           )}
           {...(props as unknown as React.ComponentProps<typeof DrawerPrimitive.Content>)}
         >
           <div className="mx-auto mt-4 h-2 w-25 shrink-0 rounded-full bg-muted" />
-          {children}
+          <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-4 pt-4">
+            {children}
+          </div>
         </DrawerPrimitive.Content>
       </DrawerPrimitive.Portal>
     );
@@ -189,7 +194,14 @@ function DialogFooter({
       data-slot="dialog-footer"
       className={cn(
         isMobile
-          ? "mt-auto flex flex-col gap-2"
+          ? // 横向铺满：每个按钮 flex-1 平分宽度（两按钮各占一半，单按钮占满）。
+            // mt-auto / sticky bottom-0：内容短时贴底，内容长时滚动钉底。
+            // -mx-4 + border-t：贯穿 drawer 边到边的分隔。
+            // safe-area inset：避开 iOS 主屏指示条。
+            // / Row layout where every direct child is flex-1 — two buttons
+            // each take half, a single button fills the row. mt-auto + sticky
+            // bottom-0 keep it pinned in both short and long content.
+            "-mx-4 sticky bottom-0 z-10 mt-auto flex flex-row items-stretch gap-2 border-t bg-background px-4 pt-3 pb-[calc(env(safe-area-inset-bottom)+1rem)] [&>*]:flex-1"
           : "flex flex-col-reverse gap-2 sm:flex-row sm:justify-end",
         className,
       )}

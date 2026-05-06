@@ -134,11 +134,12 @@ export function DepartmentFormDialog({
                     <FieldContent className="gap-2">
                       <Textarea
                         aria-invalid={!!errors?.length}
-                        className="min-h-24"
+                        className="max-h-48 min-h-24 resize-none"
                         id={field.name}
                         onBlur={field.handleBlur}
                         onChange={(event) => field.handleChange(event.target.value)}
                         placeholder="简要说明该部门的职责或定位"
+                        rows={3}
                         value={field.state.value ?? ""}
                       />
                       <FieldError errors={errors} />

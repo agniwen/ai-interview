@@ -202,11 +202,12 @@ function QuestionListBody({
                         <div data-invalid={hasFieldErrors(subField.state.meta.errors) || undefined}>
                           <Textarea
                             aria-invalid={!!errors?.length}
-                            className="min-h-14 resize-none  bg-transparent p-1 border-transparent focus:border text-sm shadow-none placeholder:text-muted-foreground/50 focus-visible:ring-0 dark:bg-transparent"
+                            className="min-h-14 max-h-40 resize-none bg-transparent p-1 border-transparent focus:border text-sm shadow-none placeholder:text-muted-foreground/50 focus-visible:ring-0 dark:bg-transparent"
                             disabled={disabled}
                             onBlur={subField.handleBlur}
                             onChange={(event) => subField.handleChange(event.target.value)}
                             placeholder={contentPlaceholder}
+                            rows={2}
                             value={subField.state.value ?? ""}
                           />
                           <FieldError errors={errors} />

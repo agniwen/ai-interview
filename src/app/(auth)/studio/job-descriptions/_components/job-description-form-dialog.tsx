@@ -444,8 +444,9 @@ export function JobDescriptionFormDialog({
                         <FieldContent className="gap-2">
                           <Textarea
                             aria-invalid={!!errors?.length}
-                            className="min-h-44 font-mono text-sm"
+                            className="min-h-24 max-h-60 font-mono text-sm resize-none"
                             id={field.name}
+                            rows={4}
                             onBlur={field.handleBlur}
                             onChange={(event) => field.handleChange(event.target.value)}
                             placeholder="岗位关键职责、技术栈要求、期望的考察维度……"

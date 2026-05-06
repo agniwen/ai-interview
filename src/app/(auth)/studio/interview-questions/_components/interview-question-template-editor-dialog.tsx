@@ -173,11 +173,12 @@ export function InterviewQuestionTemplateEditorDialog({
                       <FieldContent className="gap-2">
                         <Textarea
                           aria-invalid={!!errors?.length}
-                          className="min-h-16"
+                          className="max-h-32 min-h-16 resize-none"
                           id={field.name}
                           onBlur={field.handleBlur}
                           onChange={(event) => field.handleChange(event.target.value)}
                           placeholder="给团队的备注，例如这套题适用于哪种候选人"
+                          rows={2}
                           value={field.state.value ?? ""}
                         />
                         <FieldError errors={errors} />

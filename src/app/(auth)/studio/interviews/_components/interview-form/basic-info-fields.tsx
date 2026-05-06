@@ -172,11 +172,12 @@ export function InterviewNotesField({ form }: { form: InterviewFormApi }) {
             <FieldContent className="gap-2">
               <Textarea
                 aria-invalid={!!errors?.length}
-                className="min-h-32 w-full"
+                className="max-h-60 min-h-24 w-full resize-none"
                 id={field.name}
                 onBlur={field.handleBlur}
                 onChange={(event) => field.handleChange(event.target.value)}
                 placeholder="记录候选人来源、业务线、面试关注点等信息"
+                rows={4}
                 value={field.state.value}
               />
               <FieldError errors={errors} />

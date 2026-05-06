@@ -242,11 +242,12 @@ export function InterviewerFormDialog({
                     <FieldContent className="gap-2">
                       <Textarea
                         aria-invalid={!!errors?.length}
-                        className="min-h-20"
+                        className="max-h-40 min-h-20 resize-none"
                         id={field.name}
                         onBlur={field.handleBlur}
                         onChange={(event) => field.handleChange(event.target.value)}
                         placeholder="简要说明该面试官的定位或擅长领域"
+                        rows={3}
                         value={field.state.value ?? ""}
                       />
                       <FieldError errors={errors} />
@@ -267,11 +268,12 @@ export function InterviewerFormDialog({
                     <FieldContent className="gap-2">
                       <Textarea
                         aria-invalid={!!errors?.length}
-                        className="min-h-44 font-mono text-sm"
+                        className="max-h-60 min-h-24 resize-none font-mono text-sm"
                         id={field.name}
                         onBlur={field.handleBlur}
                         onChange={(event) => field.handleChange(event.target.value)}
                         placeholder="你是一位资深的后端技术面试官……（描述面试官人设、风格、关注点）"
+                        rows={4}
                         value={field.state.value}
                       />
                       <FieldError errors={errors} />

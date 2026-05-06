@@ -221,11 +221,12 @@ export function CandidateFormTemplateEditorDialog({
                       <FieldContent className="gap-2">
                         <Textarea
                           aria-invalid={!!errors?.length}
-                          className="min-h-16"
+                          className="max-h-32 min-h-16 resize-none"
                           id={field.name}
                           onBlur={field.handleBlur}
                           onChange={(event) => field.handleChange(event.target.value)}
                           placeholder="告知候选人这份表单的用途或填写须知"
+                          rows={2}
                           value={field.state.value ?? ""}
                         />
                         <FieldError errors={errors} />
@@ -543,10 +544,11 @@ function QuestionEditorRow({
               <FieldContent className="gap-2">
                 <Textarea
                   aria-invalid={!!errors?.length}
-                  className="min-h-20"
+                  className="max-h-40 min-h-20 resize-none"
                   onBlur={field.handleBlur}
                   onChange={(event) => field.handleChange(event.target.value)}
                   placeholder="请输入题目"
+                  rows={3}
                   value={field.state.value}
                 />
                 <FieldError errors={errors} />

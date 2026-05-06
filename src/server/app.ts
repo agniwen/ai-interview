@@ -17,6 +17,7 @@ import { interviewQuestionTemplatesRouter } from "./routes/interview-question-te
 import { jobDescriptionsRouter } from "./routes/job-description/route";
 import { livekitRouter } from "./routes/livekit/route";
 import { resumeRouter } from "./routes/resume/route";
+import { skillRouter } from "./routes/skill/route";
 
 export const app = new Hono<Env>()
   .use(
@@ -37,6 +38,8 @@ export const app = new Hono<Env>()
   .use("/api/chat", authMiddleware)
   .use("/api/chat/*", authMiddleware)
   .use("/api/interview/parse-resume", authMiddleware)
+  .use("/api/skill/v1/auth/device/approve", authMiddleware)
+  .use("/api/skill/v1/auth/device/deny", authMiddleware)
   .use("/api/studio/interviews", authMiddleware, adminMiddleware)
   .use("/api/studio/interviews/*", authMiddleware, adminMiddleware)
   .use("/api/studio/departments", authMiddleware, adminMiddleware)
@@ -77,6 +80,7 @@ export const app = new Hono<Env>()
   .route("/chat", chatRouter)
   .route("/resume", resumeRouter)
   .route("/interview", interviewRouter)
+  .route("/skill", skillRouter)
   .route("/studio/interviews", studioInterviewsRouter)
   .route("/studio/departments", departmentsRouter)
   .route("/studio/global-config", globalConfigRouter)

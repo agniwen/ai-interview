@@ -219,11 +219,12 @@ export function InterviewScheduleFields({
                             <FieldContent className="gap-2">
                               <Textarea
                                 aria-invalid={!!errors?.length}
-                                className="min-h-24 w-full"
+                                className="max-h-48 min-h-24 w-full resize-none"
                                 id={field.name}
                                 onBlur={field.handleBlur}
                                 onChange={(event) => field.handleChange(event.target.value)}
                                 placeholder="记录该轮次关注点、面试官、准备要求等"
+                                rows={3}
                                 value={field.state.value}
                               />
                               <FieldError errors={errors} />
