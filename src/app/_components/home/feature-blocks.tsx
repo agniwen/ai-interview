@@ -124,16 +124,23 @@ function SceneChat({ block }: SceneProps) {
       </div>
       <div className="relative" data-reveal="image">
         <div className="lg:rotate-[1.2deg] transform-gpu">
-          <Screenshot
-            alt={block.imageAlt}
-            className="w-full"
-            darkSrc={block.darkSrc}
-            height={block.imageHeight}
-            lightSrc={block.lightSrc}
-            width={block.imageWidth}
-          />
+          {/* 入场放大缩到位的目标层：与 pin 时间轴解耦的独立 ScrollTrigger 控制 scale 1.25 → 1 */}
+          {/* Entry-scale target — driven by a separate ScrollTrigger from 1.25 → 1 before the pin engages */}
+          <div className="origin-center will-change-transform" data-entry-scale>
+            <Screenshot
+              alt={block.imageAlt}
+              className="w-full"
+              darkSrc={block.darkSrc}
+              height={block.imageHeight}
+              lightSrc={block.lightSrc}
+              width={block.imageWidth}
+            />
+          </div>
         </div>
-        <div className="-top-3 -left-3 absolute flex items-center gap-1.5 rounded-full border border-foreground/[0.06] bg-background/80 px-3 py-1.5 font-mono text-[10px] text-foreground tracking-[0.18em] shadow-[0_4px_18px_-12px_rgba(0,0,0,0.18)] backdrop-blur">
+        <div
+          className="-top-3 -left-3 absolute flex items-center gap-1.5 rounded-full border border-foreground/[0.06] bg-background/80 px-3 py-1.5 font-mono text-[10px] text-foreground tracking-[0.18em] shadow-[0_4px_18px_-12px_rgba(0,0,0,0.18)] backdrop-blur"
+          data-reveal="badge"
+        >
           <span className="size-1.5 animate-pulse rounded-full bg-primary" />
           LIVE CHAT
         </div>
@@ -181,6 +188,15 @@ function SceneWorkspace({ block }: SceneProps) {
             width={block.imageWidth}
           />
         </div>
+        {/* JD READY 徽标：与 Chat 的 LIVE CHAT、Voice Interview 的 REC 形成同节奏的"压轴"标签 */}
+        {/* JD READY badge — paired with Chat's LIVE CHAT and Voice Interview's REC, revealed last in the dwell */}
+        <div
+          className="-top-3 -right-3 absolute flex items-center gap-1.5 rounded-full border border-foreground/[0.06] bg-background/80 px-3 py-1.5 font-mono text-[10px] text-foreground tracking-[0.18em] shadow-[0_4px_18px_-12px_rgba(0,0,0,0.18)] backdrop-blur"
+          data-reveal="badge"
+        >
+          <span className="size-1.5 rounded-full bg-emerald-500" />
+          JD READY
+        </div>
       </div>
     </div>
   );
@@ -225,7 +241,10 @@ function SceneInterview({ block }: SceneProps) {
             width={block.imageWidth}
           />
         </div>
-        <div className="-bottom-3 -right-3 absolute flex items-center gap-2 rounded-full border border-foreground/[0.06] bg-background/80 px-3 py-1.5 shadow-[0_4px_18px_-12px_rgba(0,0,0,0.18)] backdrop-blur">
+        <div
+          className="-bottom-3 -right-3 absolute flex items-center gap-2 rounded-full border border-foreground/[0.06] bg-background/80 px-3 py-1.5 shadow-[0_4px_18px_-12px_rgba(0,0,0,0.18)] backdrop-blur"
+          data-reveal="badge"
+        >
           <span className="flex h-3.5 items-end gap-[2px]">
             {[3, 5, 2, 6, 4, 3, 5].map((h, i) => (
               <span
@@ -252,13 +271,17 @@ function SceneByLayout({ block, layout }: { block: Block; layout: Layout }) {
   }
   return <SceneInterview block={block} />;
 }
-// 每个场景内部需要"渐进揭示"的子元素（除截图外的所有标记块）
-// Inner reveal targets per scene — everything except the image (image is the visual anchor)
+// 每个场景内部需要"渐进揭示"的子元素（排除作为视觉锚点 / 单独控制的 image / badge）
+// Inner reveal targets per scene — everything except image (visual anchor) and badge (revealed last separately)
 const getTextReveals = (sceneEl: HTMLElement) => [
-  ...sceneEl.querySelectorAll<HTMLElement>('[data-reveal]:not([data-reveal="image"])'),
+  ...sceneEl.querySelectorAll<HTMLElement>(
+    '[data-reveal]:not([data-reveal="image"]):not([data-reveal="badge"])',
+  ),
 ];
 const getImage = (sceneEl: HTMLElement) =>
   sceneEl.querySelector<HTMLElement>('[data-reveal="image"]');
+const getBadge = (sceneEl: HTMLElement) =>
+  sceneEl.querySelector<HTMLElement>('[data-reveal="badge"]');
 
 // 移动端 carousel 卡片：把每段叙事压成统一节奏的 article 卡——eyebrow / title / lead / 截图 / 编号 bullet
 // Mobile carousel card — compresses each scene into a uniform article: eyebrow → title → lead → screenshot → numbered bullets
@@ -409,6 +432,10 @@ export function FeatureBlocks() {
         const scene2Text = getTextReveals(scenes[2]);
         const scene1Image = getImage(scenes[1]);
         const scene2Image = getImage(scenes[2]);
+        const scene0EntryScale = scenes[0].querySelector<HTMLElement>("[data-entry-scale]");
+        const scene0Badge = getBadge(scenes[0]);
+        const scene1Badge = getBadge(scenes[1]);
+        const scene2Badge = getBadge(scenes[2]);
 
         // 场景容器：0 在场，1/2 待入场（带轻微缩放与 y 偏移）
         // Scene containers — 0 in view, 1/2 staged
@@ -432,6 +459,42 @@ export function FeatureBlocks() {
 
         if (fill) {
           gsap.set(fill, { scaleX: 0, transformOrigin: "0% 50%" });
+        }
+
+        // 三幕徽标统一初始隐藏 + 缩放 + y 偏移，在各自 dwell 末尾"压轴"出场
+        // All three badges share the same hidden initial state, revealed last in each scene's dwell
+        const allBadges = [scene0Badge, scene1Badge, scene2Badge].filter(
+          (el): el is HTMLElement => el !== null,
+        );
+        if (allBadges.length > 0) {
+          gsap.set(allBadges, { autoAlpha: 0, scale: 0.85, y: -8 });
+        }
+
+        // 入场缩放 + 透明度：scene 0 的截图在用户从首屏向下滚的过程中，
+        // 从 (scale 1.25, opacity 0) 缩到 (scale 1, opacity 1)，恰好在 pin 启动时落位
+        // start "top bottom" = section 上沿到达视口下沿（图刚刚开始入场）
+        // end   "top top"    = section 上沿到达视口顶（pin 启动那一刻刚好 scale 1 / opacity 1）
+        // Entry scale + fade — chat screenshot transitions from (1.25, 0) → (1, 1) as the section
+        // enters the viewport, landing exactly at scale 1 + fully visible right when the pin engages.
+        if (scene0EntryScale) {
+          gsap.fromTo(
+            scene0EntryScale,
+            { autoAlpha: 0, scale: 1.25 },
+            {
+              autoAlpha: 1,
+              ease: "none",
+              scale: 1,
+              scrollTrigger: {
+                end: "top top",
+                invalidateOnRefresh: true,
+                pinType: "transform",
+                scroller: viewport ?? undefined,
+                scrub: true,
+                start: "top bottom",
+                trigger: sectionRef.current,
+              },
+            },
+          );
         }
 
         const tl = gsap.timeline({
@@ -506,6 +569,21 @@ export function FeatureBlocks() {
           },
           0,
         );
+        // LIVE CHAT 徽标压轴：在所有正文揭示完成后再弹出，带 back ease 增加节奏感
+        // Badge "punctuation" — appears after all text reveals, with a back ease for a snappy entrance
+        if (scene0Badge) {
+          tl.to(
+            scene0Badge,
+            {
+              autoAlpha: 1,
+              duration: 0.18,
+              ease: "back.out(1.6)",
+              scale: 1,
+              y: 0,
+            },
+            0.46,
+          );
+        }
         // 占位至 0.6 完成开场停留
         tl.to({}, { duration: 0.6 }, 0);
 
@@ -533,6 +611,20 @@ export function FeatureBlocks() {
           },
           1.6,
         );
+        // 场景 1 徽标压轴 / Scene 1 badge punctuation
+        if (scene1Badge) {
+          tl.to(
+            scene1Badge,
+            {
+              autoAlpha: 1,
+              duration: 0.14,
+              ease: "back.out(1.6)",
+              scale: 1,
+              y: 0,
+            },
+            2.04,
+          );
+        }
         tl.to({}, { duration: 0.6 }, 1.6);
 
         // ── 场景 1 → 2 转场 ──
@@ -558,6 +650,20 @@ export function FeatureBlocks() {
           },
           3.2,
         );
+        // 场景 2 徽标压轴 / Scene 2 badge punctuation
+        if (scene2Badge) {
+          tl.to(
+            scene2Badge,
+            {
+              autoAlpha: 1,
+              duration: 0.18,
+              ease: "back.out(1.6)",
+              scale: 1,
+              y: 0,
+            },
+            3.66,
+          );
+        }
         tl.to({}, { duration: 0.8 }, 3.2);
 
         // matchMedia 进入桌面态后，分两波强制刷新：
