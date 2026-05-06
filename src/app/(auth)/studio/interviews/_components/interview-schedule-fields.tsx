@@ -49,6 +49,11 @@ export function InterviewScheduleFields({
                   Add-round is gated; show a "feature in progress" tooltip on the disabled button. */}
               <Tooltip>
                 <TooltipTrigger asChild>
+                  {/* tabIndex={0} 让外层 span 可聚焦：disabled 按钮不触发 pointer/focus 事件，
+                      没有这个键盘用户就看不到 tooltip。是 Radix 官方推荐的 a11y 兜底写法。 */}
+                  {/* tabIndex={0} keeps the wrapper focusable so keyboard users still see the
+                      tooltip — disabled <button> elements don't fire pointer/focus events. */}
+                  {/* oxlint-disable-next-line jsx-a11y/no-noninteractive-tabindex */}
                   <span className="shrink-0 self-start" tabIndex={0}>
                     <Button disabled size="sm" type="button" variant="outline">
                       <PlusIcon className="size-4" />
