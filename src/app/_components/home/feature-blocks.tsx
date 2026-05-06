@@ -129,25 +129,38 @@ export function FeatureBlocks() {
   const triggerRef = useRef<ScrollTrigger | null>(null);
 
   // 点击进度条标签：跳转到该场景的中点位置
-  // Click on progress bar label: jump to that scene's settled mid-point
+  // 兼容两种滚动机制：
+  //   - 非首页（OverlayScrollbars 接管 body）：tween viewport.scrollTop
+  //   - 首页（ScrollSmoother 接管 window）：tween window 的 scrollY，由 smoother 接住
+  // Click on progress bar label: jump to that scene's settled mid-point.
+  // Handles both scroll mechanisms — OverlayScrollbars viewport on inner pages, and
+  // ScrollSmoother / window on the homepage.
   const handleSeek = useCallback((sceneIndex: number) => {
     const trigger = triggerRef.current;
-    const viewport = document.querySelector<HTMLElement>("[data-overlayscrollbars-viewport]");
-    if (!(trigger && viewport)) {
+    if (!trigger) {
       return;
     }
     const targetProgress = SCENE_TARGET_PROGRESS[sceneIndex] ?? 0;
     const targetScroll = trigger.start + targetProgress * (trigger.end - trigger.start);
 
+    const viewport = document.querySelector<HTMLElement>("[data-overlayscrollbars-viewport]");
+
     // 自定义 GSAP 中转 tween 平滑设置 scrollTop（避免依赖 ScrollToPlugin）
-    // Tween scrollTop via a proxy to avoid the ScrollToPlugin dependency
-    const proxy = { y: viewport.scrollTop };
+    // Tween via a proxy to avoid the ScrollToPlugin dependency.
+    const start = viewport ? viewport.scrollTop : window.scrollY;
+    const proxy = { y: start };
     gsap.killTweensOf(proxy);
     gsap.to(proxy, {
       duration: 0.9,
       ease: "power2.inOut",
       onUpdate() {
-        viewport.scrollTop = proxy.y;
+        if (viewport) {
+          viewport.scrollTop = proxy.y;
+        } else {
+          // 首页 ScrollSmoother 模式：window.scrollTo 会被 smoother 拦截并平滑代理。
+          // Homepage smoother mode: window.scrollTo is intercepted by ScrollSmoother.
+          window.scrollTo(0, proxy.y);
+        }
       },
       y: targetScroll,
     });

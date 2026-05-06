@@ -3,7 +3,6 @@
 import { useMemo } from "react";
 import { SignInRequiredDialog } from "@/components/auth/sign-in-required-dialog";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { BackgroundLayers } from "./home/background-layers";
 import { CapabilityGrid } from "./home/capability-grid";
 import { CtaSection } from "./home/cta-section";
@@ -14,6 +13,7 @@ import { Hero } from "./home/hero";
 import { Personas } from "./home/personas";
 import { ProcessTabs } from "./home/process-tabs";
 import { ProductShot } from "./home/product-shot";
+import { HomeSmoothScroll } from "./home/smooth-scroll";
 import { Testimonials } from "./home/testimonials";
 import { TrustStrip } from "./home/trust-strip";
 import { useProtectedNavigation } from "./home/use-protected-navigation";
@@ -33,7 +33,7 @@ export default function HomeShell() {
         <ThemeToggle />
       </div>
 
-      <ScrollArea className="fixed inset-0">
+      <HomeSmoothScroll>
         <main className="relative flex w-full flex-col items-stretch" id="main-content">
           {/* Hero 区不再占满首屏，让下方 ProductShot 露出约一半（Notion 风格）
               Hero no longer fills the viewport; lets ProductShot peek up like Notion's hero. */}
@@ -59,7 +59,7 @@ export default function HomeShell() {
           />
           <HomeFooter />
         </main>
-      </ScrollArea>
+      </HomeSmoothScroll>
 
       <SignInRequiredDialog
         callbackURL={callbackURL}
