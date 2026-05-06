@@ -88,7 +88,12 @@ export default function RootLayout({
           跳到主要内容
         </a>
         <OverlayScrollbarsBody />
-        <ThemeProvider attribute="class" defaultTheme="dark" disableTransitionOnChange enableSystem>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          disableTransitionOnChange
+          enableSystem
+        >
           <NuqsAdapter>
             <QueryProvider>
               <TooltipProvider>

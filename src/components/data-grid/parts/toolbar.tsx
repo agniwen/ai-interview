@@ -1,14 +1,18 @@
-import { Loader2Icon, RefreshCwIcon, SearchIcon } from "lucide-react";
+import { FilterXIcon, Loader2Icon, RefreshCwIcon, SearchIcon } from "lucide-react";
 import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { SearchableMultiSelect } from "@/components/ui/searchable-multi-select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
+
+// =====================================================================
+// DataGrid 工具栏过滤器：支持搜索框、单选下拉、多选下拉。
+// 多选下拉 (`multi-select`) 在 state/URL 层用 CSV 字符串编码（"a,b,c"），
+// 与现有 `Record<string, string>` 的 filter state 兼容；空字符串表示未筛选。
+// / Multi-select filters serialize to a CSV string (`"a,b,c"`) so they fit
+// the existing Record<string,string> filter state and URL params. An empty
+// string means "no filter applied".
+// =====================================================================
 
 export type ToolbarFilterConfig =
   | { type: "search"; key: string; placeholder?: string; minWidth?: string }
@@ -16,7 +20,18 @@ export type ToolbarFilterConfig =
       type: "select";
       key: string;
       placeholder?: string;
-      options: { value: string; label: string }[];
+      options: { value: string; label: string; description?: string }[];
+      searchPlaceholder?: string;
+      emptyMessage?: string;
+    }
+  | {
+      type: "multi-select";
+      key: string;
+      placeholder?: string;
+      options: { value: string; label: string; description?: string }[];
+      searchPlaceholder?: string;
+      emptyMessage?: string;
+      selectedFormat?: (count: number) => string;
     };
 
 export interface ToolbarProps {
@@ -26,24 +41,45 @@ export interface ToolbarProps {
   searchLoading?: boolean;
   refreshing?: boolean;
   onRefresh?: () => void;
+  /** 重置所有过滤器（含搜索）到初始默认值 / Reset every filter (incl. search) to defaults. */
+  onResetFilters?: () => void;
+  /** 当前是否有非默认筛选条件，用于驱动重置按钮的 disabled 态。 */
+  /** Whether any filter currently deviates from defaults. Drives reset button disabled state. */
+  canResetFilters?: boolean;
   toolbarRight?: ReactNode;
   bulkActionsSlot?: ReactNode;
+}
+
+function csvToArray(value: string): string[] {
+  if (!value) {
+    return [];
+  }
+  return value
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+function arrayToCsv(value: string[]): string {
+  return value.join(",");
 }
 
 export function Toolbar(props: ToolbarProps) {
   const {
     bulkActionsSlot,
+    canResetFilters,
     filterValues,
     filters,
     onFilterChange,
     onRefresh,
+    onResetFilters,
     refreshing,
     searchLoading,
     toolbarRight,
   } = props;
 
   const hasFilters = filters && filters.length > 0;
-  if (!hasFilters && !toolbarRight && !onRefresh && !bulkActionsSlot) {
+  if (!hasFilters && !toolbarRight && !onRefresh && !onResetFilters && !bulkActionsSlot) {
     return null;
   }
 
@@ -73,23 +109,35 @@ export function Toolbar(props: ToolbarProps) {
                 </div>
               );
             }
+            if (filter.type === "select") {
+              return (
+                <div className="w-full sm:w-auto sm:min-w-45" key={filter.key}>
+                  <SearchableSelect
+                    clearable
+                    emptyMessage={filter.emptyMessage ?? "没有匹配项"}
+                    onChange={(next) => onFilterChange?.(filter.key, next ?? "")}
+                    options={filter.options}
+                    placeholder={filter.placeholder ?? "请选择"}
+                    searchPlaceholder={filter.searchPlaceholder ?? "搜索…"}
+                    value={value || null}
+                  />
+                </div>
+              );
+            }
+            // multi-select
             return (
-              <Select
-                key={filter.key}
-                onValueChange={(next) => onFilterChange?.(filter.key, next)}
-                value={value}
-              >
-                <SelectTrigger className="w-full sm:w-auto sm:min-w-45">
-                  <SelectValue placeholder={filter.placeholder} />
-                </SelectTrigger>
-                <SelectContent>
-                  {filter.options.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="w-full sm:w-auto sm:min-w-45" key={filter.key}>
+                <SearchableMultiSelect
+                  emptyMessage={filter.emptyMessage ?? "没有匹配项"}
+                  onChange={(next) => onFilterChange?.(filter.key, arrayToCsv(next))}
+                  options={filter.options}
+                  placeholder={filter.placeholder ?? "请选择"}
+                  searchPlaceholder={filter.searchPlaceholder ?? "搜索…"}
+                  selectedFormat={filter.selectedFormat ?? ((count) => `已选 ${count} 项`)}
+                  showBadges={false}
+                  value={csvToArray(value)}
+                />
+              </div>
             );
           })}
         </div>
@@ -106,6 +154,18 @@ export function Toolbar(props: ToolbarProps) {
           >
             <RefreshCwIcon className={`size-4 ${refreshing ? "animate-spin" : ""}`} />
             <span className="sr-only">刷新</span>
+          </Button>
+        ) : null}
+        {onResetFilters ? (
+          <Button
+            className="shrink-0"
+            disabled={!canResetFilters}
+            onClick={onResetFilters}
+            size="icon"
+            variant="outline"
+          >
+            <FilterXIcon className="size-4" />
+            <span className="sr-only">重置筛选</span>
           </Button>
         ) : null}
         {toolbarRight ? <div>{toolbarRight}</div> : null}

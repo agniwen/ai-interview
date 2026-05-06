@@ -58,10 +58,11 @@ function fetchTemplates(params: {
   if (params.search) {
     qs.set("search", params.search);
   }
-  if (params.filters.scope !== "all") {
+  // 多选过滤：CSV 形式 / Multi-select filters: CSV serialization.
+  if (params.filters.scope) {
     qs.set("scope", params.filters.scope);
   }
-  if (params.filters.jobDescriptionId !== "all") {
+  if (params.filters.jobDescriptionId) {
     qs.set("jobDescriptionId", params.filters.jobDescriptionId);
   }
   qs.set("page", String(params.page));
@@ -95,7 +96,7 @@ export function CandidateFormTemplateManagementPage({
   >({
     fetcher: fetchTemplates,
     initialData,
-    initialFilters: { jobDescriptionId: "all", scope: "all" },
+    initialFilters: { jobDescriptionId: "", scope: "" },
     namespace: "candidate-form-templates",
   });
 
@@ -277,21 +278,21 @@ export function CandidateFormTemplateManagementPage({
       {
         key: "scope" as const,
         options: [
-          { label: "全部作用域", value: "all" },
           { label: "全局", value: "global" },
           { label: "岗位绑定", value: "job_description" },
         ],
-        placeholder: "按作用范围",
-        type: "select" as const,
+        placeholder: "全部作用域",
+        selectedFormat: (count: number) => `已选 ${count} 个作用域`,
+        type: "multi-select" as const,
       },
       {
+        emptyMessage: "没有匹配的岗位",
         key: "jobDescriptionId" as const,
-        options: [
-          { label: "全部岗位", value: "all" },
-          ...jobDescriptions.map((jd) => ({ label: jd.name, value: jd.id })),
-        ],
-        placeholder: "按岗位筛选",
-        type: "select" as const,
+        options: jobDescriptions.map((jd) => ({ label: jd.name, value: jd.id })),
+        placeholder: "全部岗位",
+        searchPlaceholder: "搜索岗位…",
+        selectedFormat: (count: number) => `已选 ${count} 个岗位`,
+        type: "multi-select" as const,
       },
     ],
     [jobDescriptions],
@@ -313,7 +314,7 @@ export function CandidateFormTemplateManagementPage({
           filters={filtersConfig}
           getRowId={(r) => r.id}
           toolbarRight={
-            <Button className="flex-1 sm:flex-none" onClick={openCreate} variant="outline">
+            <Button className="flex-1 sm:flex-none" onClick={openCreate}>
               <PlusIcon className="size-4" />
               新建面试表单
             </Button>
@@ -330,7 +331,7 @@ export function CandidateFormTemplateManagementPage({
                 </EmptyDescription>
               </EmptyHeader>
               <EmptyContent>
-                <Button onClick={openCreate} variant="outline">
+                <Button onClick={openCreate}>
                   <PlusIcon className="size-4" />
                   新建面试表单
                 </Button>

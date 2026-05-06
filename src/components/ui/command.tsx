@@ -17,8 +17,15 @@ function Command({ className, ...props }: React.ComponentProps<typeof CommandPri
   return (
     <CommandPrimitive
       data-slot="command"
+      // 不再用 `h-full overflow-hidden`：在 Popover 这种 height:auto 的父容器里
+      // h-full 会塌成 0，叠上 overflow-hidden 会让 CommandList 拿不到正确的 clientHeight，
+      // 导致 react-remove-scroll 判定整个 popover 不可滚动 → 鼠标滚轮 / 触摸都被拦下。
+      // / Drop `h-full overflow-hidden`: under a height:auto parent (Popover) those
+      // collapse Command to zero height and keep CommandList from reporting a real
+      // clientHeight, which makes react-remove-scroll mark the popover non-scrollable
+      // and swallow wheel/touch events.
       className={cn(
-        "bg-popover text-popover-foreground flex h-full w-full flex-col overflow-hidden rounded-md",
+        "flex w-full flex-col rounded-md bg-popover text-popover-foreground",
         className,
       )}
       {...props}
@@ -80,7 +87,20 @@ function CommandList({ className, ...props }: React.ComponentProps<typeof Comman
   return (
     <CommandPrimitive.List
       data-slot="command-list"
-      className={cn("max-h-[300px] scroll-py-1 overflow-x-hidden overflow-y-auto", className)}
+      // 用 cmdk 官方 `--cmdk-list-height`（由内部 ResizeObserver 实时写入）驱动高度，
+      // 配合 max-height 上限，确保有内容时 list 显式拿到具体高度而不是依赖 flex 推导。
+      // 这样 react-remove-scroll 的 elementCanBeScrolled 才能正确判定 scrollHeight>clientHeight，
+      // 滚轮 / 触摸事件不会被拦下。
+      // touch-pan-y：移动端 vaul drawer 内仅允许纵向滑动，避免被误判为下拉关闭。
+      // overscroll-contain：滚到边界时不把事件冒泡给外层 dialog/drawer。
+      // / Use cmdk's official `--cmdk-list-height` variable (set by its ResizeObserver)
+      // so the list always has a concrete height rather than relying on flex
+      // resolution. This ensures react-remove-scroll's elementCanBeScrolled
+      // sees `scrollHeight > clientHeight` and lets wheel/touch through.
+      className={cn(
+        "max-h-[300px] min-h-0 scroll-py-1 touch-pan-y overflow-x-hidden overflow-y-auto overscroll-contain",
+        className,
+      )}
       {...props}
     />
   );

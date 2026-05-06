@@ -24,7 +24,7 @@ import {
 } from "@/components/ui/dialog";
 import { Field, FieldContent, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { JobDescriptionMultiSelect } from "@/components/ui/job-description-multi-select";
+import { SearchableMultiSelect } from "@/components/ui/searchable-multi-select";
 import { Label } from "@/components/ui/label";
 import { SortableDragHandle, SortableItem, SortableList } from "@/components/ui/sortable-list";
 import { Switch } from "@/components/ui/switch";
@@ -276,10 +276,17 @@ export function CandidateFormTemplateEditorDialog({
                             绑定岗位 <span className="text-destructive">*</span>
                           </FieldLabel>
                           <FieldContent className="gap-2">
-                            <JobDescriptionMultiSelect
+                            <SearchableMultiSelect
+                              emptyMessage="没有匹配的岗位"
                               invalid={!!errors?.length}
                               onChange={(next) => field.handleChange(next)}
-                              options={jobDescriptions.map((jd) => ({ id: jd.id, name: jd.name }))}
+                              options={jobDescriptions.map((jd) => ({
+                                label: jd.name,
+                                value: jd.id,
+                              }))}
+                              placeholder="选择岗位…"
+                              searchPlaceholder="搜索岗位…"
+                              selectedFormat={(count) => `已选 ${count} 个岗位`}
                               value={field.state.value ?? []}
                             />
                             <FieldError errors={errors} />

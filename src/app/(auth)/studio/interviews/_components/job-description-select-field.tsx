@@ -10,13 +10,7 @@ import {
   FieldError,
   FieldLabel,
 } from "@/components/ui/field";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 
 async function fetchJobDescriptions(): Promise<JobDescriptionListRecord[]> {
   const response = await fetch("/api/studio/job-descriptions/all");
@@ -25,6 +19,22 @@ async function fetchJobDescriptions(): Promise<JobDescriptionListRecord[]> {
   }
   const payload = (await response.json()) as { records: JobDescriptionListRecord[] };
   return payload.records;
+}
+
+function describeInterviewers(jd: JobDescriptionListRecord): string {
+  if (jd.interviewers.length === 0) {
+    return "未配置面试官";
+  }
+  const head = jd.interviewers
+    .slice(0, 3)
+    .map((item) => item.name)
+    .join(" / ");
+  const more = jd.interviewers.length > 3 ? " …" : "";
+  return `面试官 ${jd.interviewers.length} 位：${head}${more}`;
+}
+
+function buildJdLabel(jd: JobDescriptionListRecord): string {
+  return jd.departmentName ? `${jd.departmentName} / ${jd.name}` : jd.name;
 }
 
 export function JobDescriptionSelectField({
@@ -54,39 +64,21 @@ export function JobDescriptionSelectField({
       <FieldContent className="gap-2">
         <div className="flex items-start gap-2">
           <div className="min-w-0 flex-1">
-            <Select
+            <SearchableSelect
               disabled={disabled}
-              onValueChange={(next) => onChange(next)}
-              value={value || undefined}
-            >
-              <SelectTrigger
-                aria-invalid={!!error}
-                className="w-full h-13!"
-                id="interview-jd-select"
-              >
-                <SelectValue placeholder="请选择在招岗位" />
-              </SelectTrigger>
-              <SelectContent>
-                {jobDescriptions.map((jd) => (
-                  <SelectItem key={jd.id} value={jd.id}>
-                    <div className="flex w-full flex-col items-start text-left">
-                      <span className="w-full text-left">
-                        {jd.departmentName ? `${jd.departmentName} / ` : ""}
-                        {jd.name}
-                      </span>
-                      <span className="w-full text-left text-muted-foreground text-xs">
-                        {jd.interviewers.length > 0
-                          ? `面试官 ${jd.interviewers.length} 位：${jd.interviewers
-                              .slice(0, 3)
-                              .map((item) => item.name)
-                              .join(" / ")}${jd.interviewers.length > 3 ? " …" : ""}`
-                          : "未配置面试官"}
-                      </span>
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              id="interview-jd-select"
+              invalid={!!error}
+              onChange={(next) => onChange(next ?? "")}
+              options={jobDescriptions.map((jd) => ({
+                description: describeInterviewers(jd),
+                label: buildJdLabel(jd),
+                value: jd.id,
+              }))}
+              placeholder="请选择在招岗位"
+              searchPlaceholder="搜索岗位…"
+              triggerClassName="h-13!"
+              value={value || null}
+            />
           </div>
           {action ? <div className="shrink-0">{action}</div> : null}
         </div>

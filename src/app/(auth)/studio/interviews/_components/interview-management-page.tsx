@@ -77,7 +77,8 @@ function fetchInterviews(params: FetchParams): Promise<PaginatedStudioInterviewR
   if (params.search) {
     qs.set("search", params.search);
   }
-  if (params.filters.status && params.filters.status !== "all") {
+  // 多选过滤：CSV 形式 / Multi-select filters: CSV serialization.
+  if (params.filters.status) {
     qs.set("status", params.filters.status);
   }
   qs.set("page", String(params.page));
@@ -105,7 +106,7 @@ export function InterviewManagementPage({
     defaultSorting: [{ desc: true, id: "createdAt" }],
     fetcher: fetchInterviews,
     initialData,
-    initialFilters: { status: "all" },
+    initialFilters: { status: "" },
     namespace: "studio-interviews",
   });
 
@@ -329,15 +330,13 @@ export function InterviewManagementPage({
       },
       {
         key: "status" as const,
-        options: [
-          { label: "全部状态", value: "all" },
-          ...studioInterviewStatusValues.map((status) => ({
-            label: studioInterviewStatusMeta[status].label,
-            value: status,
-          })),
-        ],
-        placeholder: "按状态筛选",
-        type: "select" as const,
+        options: studioInterviewStatusValues.map((status) => ({
+          label: studioInterviewStatusMeta[status].label,
+          value: status,
+        })),
+        placeholder: "全部状态",
+        selectedFormat: (count: number) => `已选 ${count} 个状态`,
+        type: "multi-select" as const,
       },
     ],
     [],

@@ -49,10 +49,12 @@ function fetchJobDescriptions(params: {
   if (params.search) {
     qs.set("search", params.search);
   }
-  if (params.filters.departmentId !== "all") {
+  // 多选过滤：CSV 形式，例如 "a,b,c"。空串表示不筛选。
+  // / Multi-select filters serialize to CSV; empty string means "no filter".
+  if (params.filters.departmentId) {
     qs.set("departmentId", params.filters.departmentId);
   }
-  if (params.filters.interviewerId !== "all") {
+  if (params.filters.interviewerId) {
     qs.set("interviewerId", params.filters.interviewerId);
   }
   qs.set("page", String(params.page));
@@ -87,7 +89,7 @@ export function JobDescriptionManagementPage({
   >({
     fetcher: fetchJobDescriptions,
     initialData,
-    initialFilters: { departmentId: "all", interviewerId: "all" },
+    initialFilters: { departmentId: "", interviewerId: "" },
     namespace: "job-descriptions",
   });
 
@@ -214,25 +216,26 @@ export function JobDescriptionManagementPage({
         type: "search" as const,
       },
       {
+        emptyMessage: "没有匹配的部门",
         key: "departmentId" as const,
-        options: [
-          { label: "全部部门", value: "all" },
-          ...departments.map((d) => ({ label: d.name, value: d.id })),
-        ],
-        placeholder: "按部门筛选",
-        type: "select" as const,
+        options: departments.map((d) => ({ label: d.name, value: d.id })),
+        placeholder: "全部部门",
+        searchPlaceholder: "搜索部门…",
+        selectedFormat: (count: number) => `已选 ${count} 个部门`,
+        type: "multi-select" as const,
       },
       {
+        emptyMessage: "没有匹配的面试官",
         key: "interviewerId" as const,
-        options: [
-          { label: "全部面试官", value: "all" },
-          ...interviewers.map((i) => ({
-            label: i.departmentName ? `${i.departmentName} / ${i.name}` : i.name,
-            value: i.id,
-          })),
-        ],
-        placeholder: "按面试官筛选",
-        type: "select" as const,
+        options: interviewers.map((i) => ({
+          description: i.departmentName ?? "未知部门",
+          label: i.name,
+          value: i.id,
+        })),
+        placeholder: "全部面试官",
+        searchPlaceholder: "搜索面试官…",
+        selectedFormat: (count: number) => `已选 ${count} 位面试官`,
+        type: "multi-select" as const,
       },
     ],
     [departments, interviewers],
@@ -254,12 +257,7 @@ export function JobDescriptionManagementPage({
           filters={filtersConfig}
           getRowId={(r) => r.id}
           toolbarRight={
-            <Button
-              className="flex-1 sm:flex-none"
-              disabled={missingRefs}
-              onClick={openCreate}
-              variant="outline"
-            >
+            <Button className="flex-1 sm:flex-none" disabled={missingRefs} onClick={openCreate}>
               <PlusIcon className="size-4" />
               新建在招岗位
             </Button>
@@ -289,7 +287,7 @@ export function JobDescriptionManagementPage({
                   </EmptyDescription>
                 </EmptyHeader>
                 <EmptyContent>
-                  <Button onClick={openCreate} variant="outline">
+                  <Button onClick={openCreate}>
                     <PlusIcon className="size-4" />
                     新建在招岗位
                   </Button>

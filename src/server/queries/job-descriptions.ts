@@ -43,14 +43,14 @@ export interface PaginatedJobDescriptionResult {
 
 function buildWhereConditions({
   search,
-  departmentId,
-  interviewerId,
-  jdIdsForInterviewer,
+  departmentIds,
+  interviewerIds,
+  jdIdsForInterviewers,
 }: {
   search?: string;
-  departmentId?: string;
-  interviewerId?: string;
-  jdIdsForInterviewer?: string[];
+  departmentIds?: string[];
+  interviewerIds?: string[];
+  jdIdsForInterviewers?: string[];
 }) {
   const conditions = [] as (ReturnType<typeof ilike> | ReturnType<typeof eq>)[];
   if (search) {
@@ -62,15 +62,15 @@ function buildWhereConditions({
       conditions.push(searchCond);
     }
   }
-  if (departmentId) {
-    conditions.push(eq(jobDescription.departmentId, departmentId));
+  if (departmentIds && departmentIds.length > 0) {
+    conditions.push(inArray(jobDescription.departmentId, departmentIds));
   }
-  if (interviewerId) {
-    if (!jdIdsForInterviewer || jdIdsForInterviewer.length === 0) {
-      // No JD links this interviewer — short-circuit with an always-false clause.
+  if (interviewerIds && interviewerIds.length > 0) {
+    if (!jdIdsForInterviewers || jdIdsForInterviewers.length === 0) {
+      // 选了面试官但没有任何关联 JD → 永远不命中 / short-circuit empty result.
       conditions.push(eq(jobDescription.id, "__never__"));
     } else {
-      conditions.push(inArray(jobDescription.id, jdIdsForInterviewer));
+      conditions.push(inArray(jobDescription.id, jdIdsForInterviewers));
     }
   }
   if (conditions.length === 0) {
@@ -89,40 +89,43 @@ function buildOrderBy(sortBy: SortColumn, sortOrder: "asc" | "desc") {
   return sortOrder === "asc" ? asc(column) : desc(column);
 }
 
-async function resolveJdIdsForInterviewer(interviewerId?: string): Promise<string[] | undefined> {
-  if (!interviewerId) {
+async function resolveJdIdsForInterviewers(
+  interviewerIds?: string[],
+): Promise<string[] | undefined> {
+  if (!interviewerIds || interviewerIds.length === 0) {
     return;
   }
   const rows = await db
     .select({ jobDescriptionId: jobDescriptionInterviewer.jobDescriptionId })
     .from(jobDescriptionInterviewer)
-    .where(eq(jobDescriptionInterviewer.interviewerId, interviewerId));
-  return rows.map((row) => row.jobDescriptionId);
+    .where(inArray(jobDescriptionInterviewer.interviewerId, interviewerIds));
+  // 任意一个面试官 → 该 JD 命中（OR 语义）/ Any matching interviewer surfaces the JD.
+  return [...new Set(rows.map((row) => row.jobDescriptionId))];
 }
 
 function listJobDescriptionRows({
   search,
-  departmentId,
-  interviewerId,
-  jdIdsForInterviewer,
+  departmentIds,
+  interviewerIds,
+  jdIdsForInterviewers,
   sortBy = "createdAt",
   sortOrder = "desc",
   limit,
   offset,
 }: {
   search?: string;
-  departmentId?: string;
-  interviewerId?: string;
-  jdIdsForInterviewer?: string[];
+  departmentIds?: string[];
+  interviewerIds?: string[];
+  jdIdsForInterviewers?: string[];
   sortBy?: SortColumn;
   sortOrder?: "asc" | "desc";
   limit?: number;
   offset?: number;
 }) {
   const where = buildWhereConditions({
-    departmentId,
-    interviewerId,
-    jdIdsForInterviewer,
+    departmentIds,
+    interviewerIds,
+    jdIdsForInterviewers,
     search,
   });
 
@@ -157,19 +160,19 @@ function listJobDescriptionRows({
 
 async function countJobDescriptionRows({
   search,
-  departmentId,
-  interviewerId,
-  jdIdsForInterviewer,
+  departmentIds,
+  interviewerIds,
+  jdIdsForInterviewers,
 }: {
   search?: string;
-  departmentId?: string;
-  interviewerId?: string;
-  jdIdsForInterviewer?: string[];
+  departmentIds?: string[];
+  interviewerIds?: string[];
+  jdIdsForInterviewers?: string[];
 }) {
   const where = buildWhereConditions({
-    departmentId,
-    interviewerId,
-    jdIdsForInterviewer,
+    departmentIds,
+    interviewerIds,
+    jdIdsForInterviewers,
     search,
   });
   const [result] = await db.select({ count: count() }).from(jobDescription).where(where);
@@ -235,6 +238,19 @@ function toJobDescriptionListRecord(
   };
 }
 
+// 多选过滤器在 URL/state 层用 CSV 字符串编码。后端这里把 CSV 切回 ID 数组。
+// / Multi-select filters arrive as a comma-separated string; split into ids here.
+function csvToIds(value?: string | null): string[] | undefined {
+  if (!value) {
+    return;
+  }
+  const ids = value
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  return ids.length > 0 ? ids : undefined;
+}
+
 function parseFilters(filters?: {
   search?: string | null;
   departmentId?: string | null;
@@ -242,11 +258,11 @@ function parseFilters(filters?: {
 }) {
   const parsed = jobDescriptionListFiltersSchema.safeParse(filters ?? {});
   if (!parsed.success) {
-    return { departmentId: undefined, interviewerId: undefined, search: undefined };
+    return { departmentIds: undefined, interviewerIds: undefined, search: undefined };
   }
   return {
-    departmentId: parsed.data.departmentId?.trim() || undefined,
-    interviewerId: parsed.data.interviewerId?.trim() || undefined,
+    departmentIds: csvToIds(parsed.data.departmentId),
+    interviewerIds: csvToIds(parsed.data.interviewerId),
     search: parsed.data.search?.trim() || undefined,
   };
 }
@@ -265,23 +281,28 @@ export async function queryPaginatedJobDescriptions(
   },
   pagination?: Record<string, unknown>,
 ): Promise<PaginatedJobDescriptionResult> {
-  const { search, departmentId, interviewerId } = parseFilters(filters);
+  const { search, departmentIds, interviewerIds } = parseFilters(filters);
   const { page, pageSize, sortBy, sortOrder } = parseJobDescriptionPagination(pagination);
   const offset = (page - 1) * pageSize;
-  const jdIdsForInterviewer = await resolveJdIdsForInterviewer(interviewerId);
+  const jdIdsForInterviewers = await resolveJdIdsForInterviewers(interviewerIds);
 
   const [records, total] = await Promise.all([
     listJobDescriptionRows({
-      departmentId,
-      interviewerId,
-      jdIdsForInterviewer,
+      departmentIds,
+      interviewerIds,
+      jdIdsForInterviewers,
       limit: pageSize,
       offset,
       search,
       sortBy,
       sortOrder,
     }),
-    countJobDescriptionRows({ departmentId, interviewerId, jdIdsForInterviewer, search }),
+    countJobDescriptionRows({
+      departmentIds,
+      interviewerIds,
+      jdIdsForInterviewers,
+      search,
+    }),
   ]);
 
   const interviewersMap = await loadInterviewersForJobDescriptions(

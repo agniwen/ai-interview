@@ -183,7 +183,7 @@ export function DepartmentManagementPage({
           filters={filtersConfig}
           getRowId={(r) => r.id}
           toolbarRight={
-            <Button className="flex-1 sm:flex-none" onClick={openCreate} variant="outline">
+            <Button className="flex-1 sm:flex-none" onClick={openCreate}>
               <PlusIcon className="size-4" />
               新建部门
             </Button>
@@ -200,7 +200,7 @@ export function DepartmentManagementPage({
                 </EmptyDescription>
               </EmptyHeader>
               <EmptyContent>
-                <Button onClick={openCreate} variant="outline">
+                <Button onClick={openCreate}>
                   <PlusIcon className="size-4" />
                   新建部门
                 </Button>

@@ -251,12 +251,27 @@ export function useDataGridState<TData, F extends Record<string, string>>(
     setFilter(key as keyof F & string, value);
   };
 
+  // 是否处于"非默认"过滤状态（用于决定 reset 按钮的 disabled 态）。
+  // / Whether any filter (incl. search) deviates from initialFilters defaults.
+  const canResetFilters =
+    search.trim() !== "" || filterKeys.some((k) => filters[k] !== opts.initialFilters[k]);
+
+  const onResetFilters = () => {
+    void setSearchRaw("");
+    for (const key of filterKeys) {
+      setFilter(key, opts.initialFilters[key]);
+    }
+    void setPageRaw(1);
+  };
+
   const bind = {
+    canResetFilters,
     data: data.records,
     filterValues,
     loading,
     onFilterChange,
     onRefresh: invalidate,
+    onResetFilters,
     onRowSelectionChange: setRowSelection,
     onSortingChange,
     pagination,

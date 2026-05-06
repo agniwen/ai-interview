@@ -60,11 +60,14 @@ export interface DataGridProps<TData> {
 
   empty: ReactNode;
   onRefresh?: () => void;
+  onResetFilters?: () => void;
+  canResetFilters?: boolean;
 }
 
 export function DataGrid<TData>(props: DataGridProps<TData>) {
   const {
     bulkActions,
+    canResetFilters,
     columnPinning,
     columns,
     data,
@@ -76,6 +79,7 @@ export function DataGrid<TData>(props: DataGridProps<TData>) {
     loading,
     onFilterChange,
     onRefresh,
+    onResetFilters,
     onRowSelectionChange,
     onSortingChange,
     pageSizeOptions = DEFAULT_PAGE_SIZE_OPTIONS,
@@ -136,10 +140,12 @@ export function DataGrid<TData>(props: DataGridProps<TData>) {
 
       <Toolbar
         bulkActionsSlot={bulkSlot}
+        canResetFilters={canResetFilters}
         filterValues={filterValues}
         filters={filters}
         onFilterChange={onFilterChange}
         onRefresh={onRefresh}
+        onResetFilters={onResetFilters}
         refreshing={refetching}
         searchLoading={loading}
         toolbarRight={toolbarRight}

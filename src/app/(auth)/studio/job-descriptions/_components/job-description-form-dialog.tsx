@@ -9,27 +9,16 @@ import type { JobDescriptionFormValues, JobDescriptionRecord } from "@/lib/job-d
 import { useQuery } from "@tanstack/react-query";
 import { useForm, useStore } from "@tanstack/react-form";
 import {
-  CheckIcon,
-  ChevronsUpDownIcon,
   ClipboardListIcon,
   ExternalLinkIcon,
   ListChecksIcon,
   LoaderCircleIcon,
-  XIcon,
 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@/components/ui/command";
 import {
   Dialog,
   DialogContent,
@@ -40,17 +29,10 @@ import {
 } from "@/components/ui/dialog";
 import { Field, FieldContent, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { SearchableMultiSelect } from "@/components/ui/searchable-multi-select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import { cn } from "@/lib/utils";
 import { hasFieldErrors, toFieldErrors } from "../../interviews/_components/interview-form";
 
 function defaultValues(departmentId: string): JobDescriptionFormValues {
@@ -73,105 +55,12 @@ function toFormValues(record: JobDescriptionRecord): JobDescriptionFormValues {
   };
 }
 
-function InterviewerMultiSelect({
-  interviewers,
-  value,
-  onChange,
-  invalid,
-}: {
-  interviewers: InterviewerListRecord[];
-  value: string[];
-  onChange: (next: string[]) => void;
-  invalid?: boolean;
-}) {
-  const [open, setOpen] = useState(false);
-  const selectedSet = new Set(value);
-  const selectedItems = interviewers.filter((item) => selectedSet.has(item.id));
-
-  function toggle(id: string) {
-    if (selectedSet.has(id)) {
-      onChange(value.filter((item) => item !== id));
-    } else {
-      onChange([...value, id]);
-    }
-  }
-
-  function remove(id: string) {
-    onChange(value.filter((item) => item !== id));
-  }
-
-  return (
-    <div className="space-y-2">
-      <Popover onOpenChange={setOpen} open={open}>
-        <PopoverTrigger asChild>
-          <button
-            aria-expanded={open}
-            className={cn(
-              "flex h-10 w-full items-center justify-between rounded-md border border-input bg-transparent px-3 py-2 text-left text-sm shadow-xs transition-[color,box-shadow] focus-visible:border-ring focus-visible:outline-hidden focus-visible:ring-[3px] focus-visible:ring-ring/50 data-[invalid=true]:border-destructive data-[invalid=true]:ring-[3px] data-[invalid=true]:ring-destructive/20 dark:bg-input/30",
-            )}
-            data-invalid={invalid ? true : undefined}
-            type="button"
-          >
-            <span className={selectedItems.length === 0 ? "text-muted-foreground" : ""}>
-              {selectedItems.length === 0 ? "选择面试官…" : `已选 ${selectedItems.length} 位面试官`}
-            </span>
-            <ChevronsUpDownIcon className="size-4 shrink-0 opacity-50" />
-          </button>
-        </PopoverTrigger>
-        <PopoverContent
-          align="start"
-          className="w-(--radix-popover-trigger-width) min-w-72 p-0"
-          onOpenAutoFocus={(event) => event.preventDefault()}
-        >
-          <Command>
-            <CommandInput placeholder="搜索面试官…" />
-            <CommandList>
-              <CommandEmpty>没有匹配的面试官</CommandEmpty>
-              <CommandGroup>
-                {interviewers.map((item) => {
-                  const isSelected = selectedSet.has(item.id);
-                  return (
-                    <CommandItem
-                      key={item.id}
-                      onSelect={() => toggle(item.id)}
-                      value={`${item.name} ${item.departmentName ?? ""}`}
-                    >
-                      <CheckIcon
-                        className={cn("size-4", isSelected ? "opacity-100" : "opacity-0")}
-                      />
-                      <div className="flex min-w-0 flex-col leading-tight">
-                        <span className="truncate">{item.name}</span>
-                        <span className="truncate text-muted-foreground text-xs">
-                          {item.departmentName ?? "未知部门"}
-                        </span>
-                      </div>
-                    </CommandItem>
-                  );
-                })}
-              </CommandGroup>
-            </CommandList>
-          </Command>
-        </PopoverContent>
-      </Popover>
-      {selectedItems.length > 0 ? (
-        <div className="flex flex-wrap gap-1.5">
-          {selectedItems.map((item) => (
-            <Badge className="gap-1 pr-0.5" key={item.id} variant="secondary">
-              {item.name}
-              <button
-                aria-label={`移除 ${item.name}`}
-                className="inline-flex size-4 items-center justify-center rounded-sm opacity-60 hover:bg-background/70 hover:opacity-100"
-                onClick={() => remove(item.id)}
-                type="button"
-              >
-                <XIcon className="size-3" />
-              </button>
-            </Badge>
-          ))}
-        </div>
-      ) : null}
-    </div>
-  );
+function buildInterviewerOptions(interviewers: InterviewerListRecord[]) {
+  return interviewers.map((item) => ({
+    description: item.departmentName ?? "未知部门",
+    label: item.name,
+    value: item.id,
+  }));
 }
 
 // oxlint-disable-next-line complexity -- Dialog hosts tabs, queries, validation, and form submission together.
@@ -355,25 +244,18 @@ export function JobDescriptionFormDialog({
                             所属部门 <span className="text-destructive">*</span>
                           </FieldLabel>
                           <FieldContent className="gap-2">
-                            <Select
-                              onValueChange={(value) => field.handleChange(value)}
-                              value={field.state.value || undefined}
-                            >
-                              <SelectTrigger
-                                aria-invalid={!!errors?.length}
-                                className="w-full"
-                                id={field.name}
-                              >
-                                <SelectValue placeholder="选择部门" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {departments.map((dept) => (
-                                  <SelectItem key={dept.id} value={dept.id}>
-                                    {dept.name}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
+                            <SearchableSelect
+                              id={field.name}
+                              invalid={!!errors?.length}
+                              onChange={(value) => field.handleChange(value ?? "")}
+                              options={departments.map((dept) => ({
+                                label: dept.name,
+                                value: dept.id,
+                              }))}
+                              placeholder="选择部门"
+                              searchPlaceholder="搜索部门…"
+                              value={field.state.value || null}
+                            />
                             <FieldError errors={errors} />
                           </FieldContent>
                         </Field>
@@ -396,10 +278,14 @@ export function JobDescriptionFormDialog({
                             </span>
                           </FieldLabel>
                           <FieldContent className="gap-2">
-                            <InterviewerMultiSelect
-                              interviewers={interviewers}
+                            <SearchableMultiSelect
+                              emptyMessage="没有匹配的面试官"
                               invalid={!!errors?.length}
                               onChange={(next) => field.handleChange(next)}
+                              options={buildInterviewerOptions(interviewers)}
+                              placeholder="选择面试官…"
+                              searchPlaceholder="搜索面试官…"
+                              selectedFormat={(count) => `已选 ${count} 位面试官`}
                               value={field.state.value}
                             />
                             <FieldError errors={errors} />

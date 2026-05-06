@@ -395,7 +395,7 @@ export function CreateInterviewDialog({
       open={open}
     >
       <DialogTrigger asChild>
-        <Button className="w-full sm:w-auto" variant="outline">
+        <Button className="w-full sm:w-auto">
           <FileUpIcon className="size-4" />
           新建面试记录
         </Button>

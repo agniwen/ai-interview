@@ -28,9 +28,10 @@ import { buildTemplateSnapshot, hashTemplateSnapshot } from "@/lib/candidate-for
 // Pagination + filters
 // =====================================================================
 
+// 多选过滤器走 CSV 字符串 / Multi-select filters use CSV string serialization.
 const templateListFiltersSchema = z.object({
-  jobDescriptionId: z.string().trim().max(120).optional().nullable(),
-  scope: z.enum(["global", "job_description"]).optional().nullable(),
+  jobDescriptionId: z.string().trim().max(2000).optional().nullable(),
+  scope: z.string().trim().max(120).optional().nullable(),
   search: z.string().trim().max(120).optional().nullable(),
 });
 
@@ -56,12 +57,12 @@ export interface PaginatedCandidateFormTemplateResult {
 
 function buildWhereConditions({
   search,
-  scope,
-  jobDescriptionId,
+  scopes,
+  jobDescriptionIds,
 }: {
   search?: string;
-  scope?: CandidateFormScope;
-  jobDescriptionId?: string;
+  scopes?: CandidateFormScope[];
+  jobDescriptionIds?: string[];
 }) {
   // 用 any[] 容纳 exists() 等 SQL chunk
   // Mixed condition kinds (eq / ilike / exists) need a permissive container.
@@ -76,10 +77,10 @@ function buildWhereConditions({
       conditions.push(searchCond);
     }
   }
-  if (scope) {
-    conditions.push(eq(candidateFormTemplate.scope, scope));
+  if (scopes && scopes.length > 0) {
+    conditions.push(inArray(candidateFormTemplate.scope, scopes));
   }
-  if (jobDescriptionId) {
+  if (jobDescriptionIds && jobDescriptionIds.length > 0) {
     conditions.push(
       exists(
         db
@@ -88,7 +89,7 @@ function buildWhereConditions({
           .where(
             and(
               eq(candidateFormTemplateJobDescription.templateId, candidateFormTemplate.id),
-              eq(candidateFormTemplateJobDescription.jobDescriptionId, jobDescriptionId),
+              inArray(candidateFormTemplateJobDescription.jobDescriptionId, jobDescriptionIds),
             ),
           ),
       ),
@@ -157,22 +158,22 @@ function serializeDate(value: string | Date): string {
 
 function listTemplateRows({
   search,
-  scope,
-  jobDescriptionId,
+  scopes,
+  jobDescriptionIds,
   sortBy = "createdAt",
   sortOrder = "desc",
   limit,
   offset,
 }: {
   search?: string;
-  scope?: CandidateFormScope;
-  jobDescriptionId?: string;
+  scopes?: CandidateFormScope[];
+  jobDescriptionIds?: string[];
   sortBy?: SortColumn;
   sortOrder?: "asc" | "desc";
   limit?: number;
   offset?: number;
 }) {
-  const where = buildWhereConditions({ jobDescriptionId, scope, search });
+  const where = buildWhereConditions({ jobDescriptionIds, scopes, search });
 
   let query = db
     .select({
@@ -201,14 +202,14 @@ function listTemplateRows({
 
 async function countTemplateRows({
   search,
-  scope,
-  jobDescriptionId,
+  scopes,
+  jobDescriptionIds,
 }: {
   search?: string;
-  scope?: CandidateFormScope;
-  jobDescriptionId?: string;
+  scopes?: CandidateFormScope[];
+  jobDescriptionIds?: string[];
 }) {
-  const where = buildWhereConditions({ jobDescriptionId, scope, search });
+  const where = buildWhereConditions({ jobDescriptionIds, scopes, search });
   const [result] = await db.select({ count: count() }).from(candidateFormTemplate).where(where);
   return result?.count ?? 0;
 }
@@ -272,6 +273,30 @@ function toListRecord(
   };
 }
 
+function csvToIds(value?: string | null): string[] | undefined {
+  if (!value) {
+    return;
+  }
+  const ids = value
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  return ids.length > 0 ? ids : undefined;
+}
+
+const VALID_SCOPES: readonly CandidateFormScope[] = ["global", "job_description"];
+
+function parseScopes(value?: string | null): CandidateFormScope[] | undefined {
+  const ids = csvToIds(value);
+  if (!ids) {
+    return;
+  }
+  const valid = ids.filter((id): id is CandidateFormScope =>
+    (VALID_SCOPES as readonly string[]).includes(id),
+  );
+  return valid.length > 0 ? valid : undefined;
+}
+
 function parseFilters(filters?: {
   search?: string | null;
   scope?: string | null;
@@ -280,14 +305,14 @@ function parseFilters(filters?: {
   const parsed = templateListFiltersSchema.safeParse(filters ?? {});
   if (!parsed.success) {
     return {
-      jobDescriptionId: undefined,
-      scope: undefined,
+      jobDescriptionIds: undefined,
+      scopes: undefined,
       search: undefined,
     };
   }
   return {
-    jobDescriptionId: parsed.data.jobDescriptionId?.trim() || undefined,
-    scope: (parsed.data.scope as CandidateFormScope | undefined) ?? undefined,
+    jobDescriptionIds: csvToIds(parsed.data.jobDescriptionId),
+    scopes: parseScopes(parsed.data.scope),
     search: parsed.data.search?.trim() || undefined,
   };
 }
@@ -310,21 +335,21 @@ export async function queryPaginatedCandidateFormTemplates(
   },
   pagination?: Record<string, unknown>,
 ): Promise<PaginatedCandidateFormTemplateResult> {
-  const { search, scope, jobDescriptionId } = parseFilters(filters);
+  const { search, scopes, jobDescriptionIds } = parseFilters(filters);
   const { page, pageSize, sortBy, sortOrder } = parseCandidateFormTemplatePagination(pagination);
   const offset = (page - 1) * pageSize;
 
   const [rows, total] = await Promise.all([
     listTemplateRows({
-      jobDescriptionId,
+      jobDescriptionIds,
       limit: pageSize,
       offset,
-      scope,
+      scopes,
       search,
       sortBy,
       sortOrder,
     }),
-    countTemplateRows({ jobDescriptionId, scope, search }),
+    countTemplateRows({ jobDescriptionIds, scopes, search }),
   ]);
 
   const ids = rows.map((row) => row.id);

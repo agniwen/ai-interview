@@ -214,12 +214,7 @@ export function InterviewerManagementPage({
           filters={filtersConfig}
           getRowId={(r) => r.id}
           toolbarRight={
-            <Button
-              className="flex-1 sm:flex-none"
-              disabled={noDepartments}
-              onClick={openCreate}
-              variant="outline"
-            >
+            <Button className="flex-1 sm:flex-none" disabled={noDepartments} onClick={openCreate}>
               <PlusIcon className="size-4" />
               新建面试官
             </Button>
@@ -249,7 +244,7 @@ export function InterviewerManagementPage({
                   </EmptyDescription>
                 </EmptyHeader>
                 <EmptyContent>
-                  <Button onClick={openCreate} variant="outline">
+                  <Button onClick={openCreate}>
                     <PlusIcon className="size-4" />
                     新建面试官
                   </Button>

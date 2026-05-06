@@ -27,9 +27,10 @@ import { buildTemplateSnapshot, hashTemplateSnapshot } from "@/lib/interview-que
 // Pagination + filters
 // =====================================================================
 
+// 多选过滤器走 CSV / Multi-select filters: CSV serialization in URL/state.
 const templateListFiltersSchema = z.object({
-  jobDescriptionId: z.string().trim().max(120).optional().nullable(),
-  scope: z.enum(["global", "job_description"]).optional().nullable(),
+  jobDescriptionId: z.string().trim().max(2000).optional().nullable(),
+  scope: z.string().trim().max(120).optional().nullable(),
   search: z.string().trim().max(120).optional().nullable(),
 });
 
@@ -55,12 +56,12 @@ export interface PaginatedInterviewQuestionTemplateResult {
 
 function buildWhereConditions({
   search,
-  scope,
-  jobDescriptionId,
+  scopes,
+  jobDescriptionIds,
 }: {
   search?: string;
-  scope?: InterviewQuestionTemplateScope;
-  jobDescriptionId?: string;
+  scopes?: InterviewQuestionTemplateScope[];
+  jobDescriptionIds?: string[];
 }) {
   // 用 any[] 容纳 exists() 等 SQL chunk，避免与 ilike/eq 类型不兼容。
   // Mixed condition kinds (eq / ilike / exists) need a permissive container.
@@ -75,11 +76,12 @@ function buildWhereConditions({
       conditions.push(searchCond);
     }
   }
-  if (scope) {
-    conditions.push(eq(interviewQuestionTemplate.scope, scope));
+  if (scopes && scopes.length > 0) {
+    conditions.push(inArray(interviewQuestionTemplate.scope, scopes));
   }
-  if (jobDescriptionId) {
-    // 模板只要有任一关联到该 JD 即可命中
+  if (jobDescriptionIds && jobDescriptionIds.length > 0) {
+    // 模板只要有任一关联到所选 JD 即可命中（OR 语义）
+    // / Template surfaces if linked to ANY of the selected JDs.
     conditions.push(
       exists(
         db
@@ -88,7 +90,7 @@ function buildWhereConditions({
           .where(
             and(
               eq(interviewQuestionTemplateJobDescription.templateId, interviewQuestionTemplate.id),
-              eq(interviewQuestionTemplateJobDescription.jobDescriptionId, jobDescriptionId),
+              inArray(interviewQuestionTemplateJobDescription.jobDescriptionId, jobDescriptionIds),
             ),
           ),
       ),
@@ -157,22 +159,22 @@ function serializeDate(value: string | Date): string {
 
 function listTemplateRows({
   search,
-  scope,
-  jobDescriptionId,
+  scopes,
+  jobDescriptionIds,
   sortBy = "createdAt",
   sortOrder = "desc",
   limit,
   offset,
 }: {
   search?: string;
-  scope?: InterviewQuestionTemplateScope;
-  jobDescriptionId?: string;
+  scopes?: InterviewQuestionTemplateScope[];
+  jobDescriptionIds?: string[];
   sortBy?: SortColumn;
   sortOrder?: "asc" | "desc";
   limit?: number;
   offset?: number;
 }) {
-  const where = buildWhereConditions({ jobDescriptionId, scope, search });
+  const where = buildWhereConditions({ jobDescriptionIds, scopes, search });
 
   let query = db
     .select({
@@ -201,14 +203,14 @@ function listTemplateRows({
 
 async function countTemplateRows({
   search,
-  scope,
-  jobDescriptionId,
+  scopes,
+  jobDescriptionIds,
 }: {
   search?: string;
-  scope?: InterviewQuestionTemplateScope;
-  jobDescriptionId?: string;
+  scopes?: InterviewQuestionTemplateScope[];
+  jobDescriptionIds?: string[];
 }) {
-  const where = buildWhereConditions({ jobDescriptionId, scope, search });
+  const where = buildWhereConditions({ jobDescriptionIds, scopes, search });
   const [result] = await db.select({ count: count() }).from(interviewQuestionTemplate).where(where);
   return result?.count ?? 0;
 }
@@ -272,6 +274,30 @@ function toListRecord(
   };
 }
 
+function csvToIds(value?: string | null): string[] | undefined {
+  if (!value) {
+    return;
+  }
+  const ids = value
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  return ids.length > 0 ? ids : undefined;
+}
+
+const VALID_SCOPES: readonly InterviewQuestionTemplateScope[] = ["global", "job_description"];
+
+function parseScopes(value?: string | null): InterviewQuestionTemplateScope[] | undefined {
+  const ids = csvToIds(value);
+  if (!ids) {
+    return;
+  }
+  const valid = ids.filter((id): id is InterviewQuestionTemplateScope =>
+    (VALID_SCOPES as readonly string[]).includes(id),
+  );
+  return valid.length > 0 ? valid : undefined;
+}
+
 function parseFilters(filters?: {
   search?: string | null;
   scope?: string | null;
@@ -280,14 +306,14 @@ function parseFilters(filters?: {
   const parsed = templateListFiltersSchema.safeParse(filters ?? {});
   if (!parsed.success) {
     return {
-      jobDescriptionId: undefined,
-      scope: undefined,
+      jobDescriptionIds: undefined,
+      scopes: undefined,
       search: undefined,
     };
   }
   return {
-    jobDescriptionId: parsed.data.jobDescriptionId?.trim() || undefined,
-    scope: (parsed.data.scope as InterviewQuestionTemplateScope | undefined) ?? undefined,
+    jobDescriptionIds: csvToIds(parsed.data.jobDescriptionId),
+    scopes: parseScopes(parsed.data.scope),
     search: parsed.data.search?.trim() || undefined,
   };
 }
@@ -310,22 +336,22 @@ export async function queryPaginatedInterviewQuestionTemplates(
   },
   pagination?: Record<string, unknown>,
 ): Promise<PaginatedInterviewQuestionTemplateResult> {
-  const { search, scope, jobDescriptionId } = parseFilters(filters);
+  const { search, scopes, jobDescriptionIds } = parseFilters(filters);
   const { page, pageSize, sortBy, sortOrder } =
     parseInterviewQuestionTemplatePagination(pagination);
   const offset = (page - 1) * pageSize;
 
   const [rows, total] = await Promise.all([
     listTemplateRows({
-      jobDescriptionId,
+      jobDescriptionIds,
       limit: pageSize,
       offset,
-      scope,
+      scopes,
       search,
       sortBy,
       sortOrder,
     }),
-    countTemplateRows({ jobDescriptionId, scope, search }),
+    countTemplateRows({ jobDescriptionIds, scopes, search }),
   ]);
 
   const ids = rows.map((row) => row.id);

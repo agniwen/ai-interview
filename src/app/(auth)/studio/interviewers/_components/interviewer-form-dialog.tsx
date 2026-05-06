@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/dialog";
 import { Field, FieldContent, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import {
   Select,
   SelectContent,
@@ -158,28 +159,19 @@ export function InterviewerFormDialog({
                         所属部门 <span className="text-destructive">*</span>
                       </FieldLabel>
                       <FieldContent className="gap-2">
-                        <Select
+                        <SearchableSelect
                           disabled={noDepartments}
-                          onValueChange={(value) => field.handleChange(value)}
-                          value={field.state.value || undefined}
-                        >
-                          <SelectTrigger
-                            aria-invalid={!!errors?.length}
-                            className="w-full"
-                            id={field.name}
-                          >
-                            <SelectValue
-                              placeholder={noDepartments ? "请先创建部门" : "选择部门"}
-                            />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {departments.map((dept) => (
-                              <SelectItem key={dept.id} value={dept.id}>
-                                {dept.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                          id={field.name}
+                          invalid={!!errors?.length}
+                          onChange={(value) => field.handleChange(value ?? "")}
+                          options={departments.map((dept) => ({
+                            label: dept.name,
+                            value: dept.id,
+                          }))}
+                          placeholder={noDepartments ? "请先创建部门" : "选择部门"}
+                          searchPlaceholder="搜索部门…"
+                          value={field.state.value || null}
+                        />
                         <FieldError errors={errors} />
                       </FieldContent>
                     </Field>

@@ -1,19 +1,24 @@
-import type { StudioInterviewListRecord } from "@/lib/studio-interviews";
 import { and, asc, count, desc, eq, ilike, inArray, or } from "drizzle-orm";
 import { cacheLife, cacheTag } from "next/cache";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { jobDescription, studioInterview, studioInterviewSchedule, user } from "@/lib/db/schema";
 import { buildInterviewLink, sortScheduleEntries } from "@/lib/interview/interview-record";
-import { studioInterviewStatusSchema } from "@/lib/studio-interviews";
+import { studioInterviewStatusValues } from "@/lib/studio-interviews";
+import type {
+  StudioInterviewListRecord,
+  StudioInterviewStatus,
+  studioInterviewStatusSchema,
+} from "@/lib/studio-interviews";
 
 // ---------------------------------------------------------------------------
 // Schemas
 // ---------------------------------------------------------------------------
 
+// 多选过滤器走 CSV / Multi-select filters: CSV serialization in URL/state.
 const studioInterviewListFiltersSchema = z.object({
   search: z.string().trim().max(120).optional().nullable(),
-  status: studioInterviewStatusSchema.or(z.literal("all")).optional().nullable(),
+  status: z.string().trim().max(200).optional().nullable(),
 });
 
 const SORT_COLUMNS = ["createdAt", "candidateName", "updatedAt"] as const;
@@ -65,11 +70,11 @@ async function findMatchingScheduleRecordIds(search: string) {
 
 function buildWhereConditions({
   search,
-  status,
+  statuses,
   matchingScheduleRecordIds,
 }: {
   search?: string;
-  status?: z.infer<typeof studioInterviewStatusSchema>;
+  statuses?: z.infer<typeof studioInterviewStatusSchema>[];
   matchingScheduleRecordIds: string[];
 }) {
   const searchConditions = search
@@ -85,7 +90,7 @@ function buildWhereConditions({
     : [];
   const whereConditions = [
     searchConditions.length > 0 ? or(...searchConditions) : undefined,
-    status ? eq(studioInterview.status, status) : undefined,
+    statuses && statuses.length > 0 ? inArray(studioInterview.status, statuses) : undefined,
   ].filter(Boolean);
 
   return whereConditions.length > 0 ? and(...whereConditions) : undefined;
@@ -122,21 +127,21 @@ const SELECTED_COLUMNS = {
 
 async function listStudioInterviewRows({
   search,
-  status,
+  statuses,
   sortBy = "createdAt",
   sortOrder = "desc",
   limit,
   offset,
 }: {
   search?: string;
-  status?: z.infer<typeof studioInterviewStatusSchema>;
+  statuses?: z.infer<typeof studioInterviewStatusSchema>[];
   sortBy?: SortColumn;
   sortOrder?: "asc" | "desc";
   limit?: number;
   offset?: number;
 }) {
   const matchingScheduleRecordIds = search ? await findMatchingScheduleRecordIds(search) : [];
-  const where = buildWhereConditions({ matchingScheduleRecordIds, search, status });
+  const where = buildWhereConditions({ matchingScheduleRecordIds, search, statuses });
 
   let query = db
     .select(SELECTED_COLUMNS)
@@ -159,13 +164,13 @@ async function listStudioInterviewRows({
 
 async function countStudioInterviewRows({
   search,
-  status,
+  statuses,
 }: {
   search?: string;
-  status?: z.infer<typeof studioInterviewStatusSchema>;
+  statuses?: z.infer<typeof studioInterviewStatusSchema>[];
 }) {
   const matchingScheduleRecordIds = search ? await findMatchingScheduleRecordIds(search) : [];
-  const where = buildWhereConditions({ matchingScheduleRecordIds, search, status });
+  const where = buildWhereConditions({ matchingScheduleRecordIds, search, statuses });
 
   const [result] = await db.select({ count: count() }).from(studioInterview).where(where);
   return result?.count ?? 0;
@@ -214,15 +219,37 @@ function toStudioInterviewListRecord(
 // Public API
 // ---------------------------------------------------------------------------
 
+function csvToIds(value?: string | null): string[] | undefined {
+  if (!value) {
+    return;
+  }
+  const ids = value
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  return ids.length > 0 ? ids : undefined;
+}
+
+function parseStatuses(value?: string | null): StudioInterviewStatus[] | undefined {
+  const ids = csvToIds(value);
+  if (!ids) {
+    return;
+  }
+  const valid = ids.filter((id): id is StudioInterviewStatus =>
+    (studioInterviewStatusValues as readonly string[]).includes(id),
+  );
+  return valid.length > 0 ? valid : undefined;
+}
+
 function parseFilters(filters?: { search?: string | null; status?: string | null }) {
   const parsed = studioInterviewListFiltersSchema.safeParse(filters ?? {});
   if (!parsed.success) {
-    return { search: undefined, status: undefined };
+    return { search: undefined, statuses: undefined };
   }
 
   return {
     search: parsed.data.search?.trim() || undefined,
-    status: parsed.data.status && parsed.data.status !== "all" ? parsed.data.status : undefined,
+    statuses: parseStatuses(parsed.data.status),
   };
 }
 
@@ -234,8 +261,8 @@ async function queryStudioInterviewRecords(filters?: {
   search?: string | null;
   status?: string | null;
 }) {
-  const { search, status } = parseFilters(filters);
-  const records = await listStudioInterviewRows({ search, status });
+  const { search, statuses } = parseFilters(filters);
+  const records = await listStudioInterviewRows({ search, statuses });
   const scheduleEntries = await loadScheduleEntries(records.map((record) => record.id));
 
   return records.map((record) => toStudioInterviewListRecord(record, scheduleEntries));
@@ -245,13 +272,13 @@ async function queryPaginatedStudioInterviewRecords(
   filters?: { search?: string | null; status?: string | null },
   pagination?: Record<string, unknown>,
 ): Promise<PaginatedStudioInterviewResult> {
-  const { search, status } = parseFilters(filters);
+  const { search, statuses } = parseFilters(filters);
   const { page, pageSize, sortBy, sortOrder } = parsePagination(pagination);
   const offset = (page - 1) * pageSize;
 
   const [records, total] = await Promise.all([
-    listStudioInterviewRows({ limit: pageSize, offset, search, sortBy, sortOrder, status }),
-    countStudioInterviewRows({ search, status }),
+    listStudioInterviewRows({ limit: pageSize, offset, search, sortBy, sortOrder, statuses }),
+    countStudioInterviewRows({ search, statuses }),
   ]);
 
   const scheduleEntries = await loadScheduleEntries(records.map((record) => record.id));
