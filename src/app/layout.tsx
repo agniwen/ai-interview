@@ -81,7 +81,9 @@ export default function RootLayout({
         >
           跳到主要内容
         </a>
-        <OverlayScrollbarsBody />
+        <Suspense>
+          <OverlayScrollbarsBody />
+        </Suspense>
         <ThemeProvider
           attribute="class"
           defaultTheme="system"
