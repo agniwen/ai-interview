@@ -13,6 +13,7 @@ import {
 import type { ComponentType, ReactNode, SVGProps } from "react";
 import { FadeContent } from "@/components/react-bits/fade-content";
 import { cn } from "@/lib/utils";
+import { CenterCarousel } from "./center-carousel";
 import { Eyebrow, Section, SectionLead, SectionTitle } from "./section";
 
 type TileLayout = "stacked" | "split";
@@ -49,19 +50,21 @@ function BentoTile({
   return (
     <article
       className={cn(
-        "group relative flex h-full flex-col overflow-hidden rounded-3xl border border-foreground/[0.06] bg-background/60 p-6 shadow-[0_4px_18px_-12px_rgba(0,0,0,0.18)] backdrop-blur transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_12px_28px_-22px_rgba(0,0,0,0.25)] sm:p-7",
+        // 与 FeatureBlocks SceneCard 同款边距与材质：p-5 sm:p-6 / 同款圆角、淡边、轻投影、毛玻璃
+        // Match FeatureBlocks SceneCard padding & material: p-5 sm:p-6, same rounded / faint border / soft drop / blur
+        "group relative flex h-full flex-col overflow-hidden rounded-3xl border border-foreground/[0.06] bg-background/60 p-5 shadow-[0_4px_18px_-12px_rgba(0,0,0,0.18)] backdrop-blur transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_12px_28px_-22px_rgba(0,0,0,0.25)] sm:p-6",
         className,
       )}
     >
       {isSplit ? (
-        <div className="flex flex-1 flex-col gap-6 lg:flex-row lg:items-center lg:gap-8">
+        <div className="flex flex-1 flex-col gap-4 sm:gap-5 lg:flex-row lg:items-center lg:gap-8">
           <div className="lg:flex-1">{head}</div>
           {visual && <div className="min-w-0 lg:flex-1">{visual}</div>}
         </div>
       ) : (
         <div className="flex flex-1 flex-col">
           {head}
-          {visual && <div className="mt-6 sm:mt-7">{visual}</div>}
+          {visual && <div className="mt-4 sm:mt-5">{visual}</div>}
         </div>
       )}
     </article>
@@ -313,6 +316,34 @@ const tiles: BentoConfig[] = [
   },
 ];
 
+// PC（lg+）：原 Bento 网格 / Desktop bento grid
+function CapabilityBento() {
+  return (
+    <div className="mt-12 hidden gap-4 sm:gap-5 lg:grid lg:auto-rows-[minmax(180px,auto)] lg:grid-cols-4">
+      {tiles.map(({ span, ...tile }, index) => (
+        <FadeContent className={cn("h-full", span)} delay={0.05 * index} key={tile.title}>
+          <BentoTile {...tile} />
+        </FadeContent>
+      ))}
+    </div>
+  );
+}
+
+// 移动端（< lg）：循环自动播放的 carousel，主卡居中、左右露出邻卡
+// Mobile: looping autoplay carousel with center alignment, neighbors peek on both sides
+function CapabilityCarousel() {
+  return (
+    <CenterCarousel
+      className="mt-10 lg:hidden"
+      items={tiles.map((tile) => ({
+        key: tile.title,
+        label: tile.title,
+        node: <BentoTile {...tile} />,
+      }))}
+    />
+  );
+}
+
 export function CapabilityGrid() {
   return (
     <Section width="wide">
@@ -322,13 +353,8 @@ export function CapabilityGrid() {
         <SectionLead>从筛选、面试到评估，AI 协助你在每一个环节做出更可解释的判断。</SectionLead>
       </div>
 
-      <div className="mt-12 grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5 lg:auto-rows-[minmax(180px,auto)] lg:grid-cols-4">
-        {tiles.map(({ span, ...tile }, index) => (
-          <FadeContent className={cn("h-full", span)} delay={0.05 * index} key={tile.title}>
-            <BentoTile {...tile} />
-          </FadeContent>
-        ))}
-      </div>
+      <CapabilityBento />
+      <CapabilityCarousel />
     </Section>
   );
 }

@@ -2,8 +2,8 @@
 // Purpose: Vertical 4-step process tabs (Notion style: left list, right image).
 "use client";
 
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useState } from "react";
-import { FadeContent } from "@/components/react-bits/fade-content";
 import { cn } from "@/lib/utils";
 import { Screenshot } from "./screenshot";
 import { Eyebrow, Section, SectionLead, SectionTitle } from "./section";
@@ -65,6 +65,7 @@ const steps: Step[] = [
 export function ProcessTabs() {
   const [activeValue, setActiveValue] = useState<string>(steps[0].value);
   const activeStep = steps.find((step) => step.value === activeValue) ?? steps[0];
+  const prefersReducedMotion = useReducedMotion();
 
   return (
     <Section width="wide">
@@ -74,18 +75,19 @@ export function ProcessTabs() {
         <SectionLead>每一步都在同一个产品里完成，候选人上下文与团队判断不会断开。</SectionLead>
       </div>
 
-      <div className="mt-12 grid grid-cols-1 gap-10 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:gap-16">
-        {/* 左侧：步骤列表 / Left: step list */}
+      <div className="mt-12 grid grid-cols-1 items-stretch gap-10 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:gap-16">
+        {/* 左侧：步骤列表（lg+ 用 flex-1 等高分布，使首尾 tab 与右侧截图上下边缘对齐） */}
+        {/* Left: step list — on lg+, each item takes flex-1 so the first/last tabs align with the screenshot's top/bottom edges */}
         <div className="flex flex-col">
-          <ol className="flex flex-col">
+          <ol className="flex h-full flex-col">
             {steps.map((step) => {
               const isActive = step.value === activeValue;
               return (
-                <li key={step.value}>
+                <li className="lg:flex lg:flex-1 lg:flex-col" key={step.value}>
                   <button
                     aria-current={isActive ? "step" : undefined}
                     className={cn(
-                      "group relative w-full border-foreground/10 border-l-2 py-5 pl-6 text-left transition-colors",
+                      "group relative w-full border-foreground/10 border-l-2 py-5 pl-6 text-left transition-colors lg:flex lg:h-full lg:flex-col lg:justify-center",
                       isActive ? "border-l-primary" : "hover:border-l-foreground/30",
                     )}
                     onClick={() => setActiveValue(step.value)}
@@ -129,16 +131,26 @@ export function ProcessTabs() {
         </div>
 
         {/* 右侧：当前步骤的产品截图 / Right: active step screenshot */}
-        <div className="lg:sticky lg:top-24 lg:self-start">
-          <FadeContent key={activeStep.value}>
-            <Screenshot
-              alt={activeStep.imageAlt}
-              darkSrc={activeStep.darkSrc}
-              height={900}
-              lightSrc={activeStep.lightSrc}
-              width={1440}
-            />
-          </FadeContent>
+        {/* AnimatePresence mode="wait" 等当前图退出后再放入下一张，淡出/淡入两端都被处理 */}
+        {/* AnimatePresence mode="wait" — old image animates out fully before new one animates in */}
+        <div className="relative lg:sticky lg:top-24 lg:self-start">
+          <AnimatePresence initial={false} mode="wait">
+            <motion.div
+              animate={prefersReducedMotion ? { opacity: 1 } : { opacity: 1, y: 0 }}
+              exit={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, y: -60 }}
+              initial={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, y: 60 }}
+              key={activeStep.value}
+              transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+            >
+              <Screenshot
+                alt={activeStep.imageAlt}
+                darkSrc={activeStep.darkSrc}
+                height={900}
+                lightSrc={activeStep.lightSrc}
+                width={1440}
+              />
+            </motion.div>
+          </AnimatePresence>
         </div>
       </div>
     </Section>

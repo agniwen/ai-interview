@@ -5,7 +5,6 @@ import { SignInRequiredDialog } from "@/components/auth/sign-in-required-dialog"
 import { ThemeToggle } from "@/components/theme-toggle";
 import { BackgroundLayers } from "./home/background-layers";
 import { CapabilityGrid } from "./home/capability-grid";
-import { CtaSection } from "./home/cta-section";
 import { Faq } from "./home/faq";
 import { FeatureBlocks } from "./home/feature-blocks";
 import { HomeFooter } from "./home/footer";
@@ -52,11 +51,11 @@ export default function HomeShell() {
           <Testimonials />
           <ProcessTabs />
           <Faq />
-          <CtaSection
+          {/* <CtaSection
             isPending={isPending}
             onResumeFiltering={onResumeFiltering}
             onWorkbench={onWorkbench}
-          />
+          /> */}
           <HomeFooter />
         </main>
       </HomeSmoothScroll>

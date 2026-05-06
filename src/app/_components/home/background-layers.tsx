@@ -6,8 +6,7 @@ import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
 import { DarkVeil } from "@/components/react-bits/dark-veil";
 import DotGrid from "@/components/react-bits/dot-grid";
-import Prism from "@/components/react-bits/prism";
-import Waves from "@/components/react-bits/waves";
+import Grainient from "@/components/react-bits/grainient";
 
 export function BackgroundLayers() {
   const { resolvedTheme } = useTheme();
@@ -51,7 +50,7 @@ export function BackgroundLayers() {
         ) : (
           <>
             <div className="absolute inset-0">
-              <Waves
+              {/* <Waves
                 backgroundColor="transparent"
                 friction={0.57}
                 lineColor="#f5f5f5"
@@ -63,23 +62,32 @@ export function BackgroundLayers() {
                 waveSpeedY={0}
                 xGap={18}
                 yGap={36}
-              />
+              /> */}
             </div>
-            <div className="absolute inset-0 opacity-60">
-              <Prism
-                animationType="3drotate"
-                baseWidth={7.5}
-                bloom={1}
-                colorFrequency={2.5}
-                glow={1}
-                height={4}
-                hoverStrength={1}
-                hueShift={0}
-                inertia={0.05}
-                noise={0.1}
-                scale={3.3}
-                timeScale={0.3}
-                transparent
+            <div className="absolute inset-0 opacity-100">
+              <Grainient
+                color1="#b9d6e6"
+                color2="#279cff"
+                color3="#B497CF"
+                timeSpeed={0.5}
+                colorBalance={0}
+                warpStrength={1}
+                warpFrequency={5}
+                warpSpeed={2}
+                warpAmplitude={50}
+                blendAngle={0}
+                blendSoftness={0.05}
+                rotationAmount={500}
+                noiseScale={3}
+                grainAmount={0.1}
+                grainScale={2}
+                grainAnimated={false}
+                contrast={1.5}
+                gamma={1}
+                saturation={1}
+                centerX={0}
+                centerY={0}
+                zoom={0.9}
               />
             </div>
           </>
