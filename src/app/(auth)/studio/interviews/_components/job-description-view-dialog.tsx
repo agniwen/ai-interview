@@ -3,13 +3,7 @@
 import type { JobDescriptionListRecord } from "@/lib/job-descriptions";
 import { useQuery } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Modal } from "@/components/ui/modal";
 
 async function fetchJobDescriptions(): Promise<JobDescriptionListRecord[]> {
   const response = await fetch("/api/studio/job-descriptions/all");
@@ -46,7 +40,7 @@ export function JobDescriptionViewDialog({
       return <div className="py-10 text-center text-muted-foreground text-sm">未找到该岗位。</div>;
     }
     return (
-      <div className="max-h-[70vh] space-y-5 overflow-y-auto pr-1 text-sm">
+      <div className="space-y-5 text-sm">
         <section className="space-y-1.5">
           <h3 className="font-medium text-muted-foreground text-xs">岗位描述</h3>
           <p className="whitespace-pre-wrap">
@@ -80,16 +74,16 @@ export function JobDescriptionViewDialog({
   }
 
   return (
-    <Dialog onOpenChange={onOpenChange} open={jobDescriptionId !== null}>
-      <DialogContent className="sm:max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>{record?.name ?? "关联岗位"}</DialogTitle>
-          <DialogDescription>
-            {record?.departmentName ? `所属部门：${record.departmentName}` : "在招岗位只读详情"}
-          </DialogDescription>
-        </DialogHeader>
-        {renderBody()}
-      </DialogContent>
-    </Dialog>
+    <Modal
+      open={jobDescriptionId !== null}
+      onOpenChange={onOpenChange}
+      title={record?.name ?? "关联岗位"}
+      description={
+        record?.departmentName ? `所属部门：${record.departmentName}` : "在招岗位只读详情"
+      }
+      size="lg"
+    >
+      {renderBody()}
+    </Modal>
   );
 }

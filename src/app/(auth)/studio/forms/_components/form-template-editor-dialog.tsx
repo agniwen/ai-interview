@@ -14,14 +14,7 @@ import { LoaderCircleIcon, PlusIcon, XIcon } from "lucide-react";
 import { useEffect, useMemo } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Modal } from "@/components/ui/modal";
 import { Field, FieldContent, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { SearchableMultiSelect } from "@/components/ui/searchable-multi-select";
@@ -169,200 +162,199 @@ export function CandidateFormTemplateEditorDialog({
   }, [open, record, form]);
 
   return (
-    <Dialog onOpenChange={onOpenChange} open={open}>
-      <DialogContent className="sm:max-w-3xl">
-        <form
-          onSubmit={(event) => {
-            event.preventDefault();
-            event.stopPropagation();
-            void form.handleSubmit();
-          }}
-        >
-          <DialogHeader>
-            <DialogTitle>{isEdit ? "编辑面试表单" : "新建面试表单"}</DialogTitle>
-            <DialogDescription>
-              候选人在面试开始前根据作用域填写该表单；提交瞬间的题目结构会被冻结为快照。
-            </DialogDescription>
-          </DialogHeader>
+    <Modal
+      open={open}
+      onOpenChange={onOpenChange}
+      title={isEdit ? "编辑面试表单" : "新建面试表单"}
+      description="候选人在面试开始前根据作用域填写该表单；提交瞬间的题目结构会被冻结为快照。"
+      size="xl"
+      bodyClassName="-mx-1 px-7 py-1.5 space-y-6"
+      footer={
+        <>
+          <Button onClick={() => onOpenChange(false)} type="button" variant="outline">
+            取消
+          </Button>
+          <Button disabled={isSubmitting} form="form-template-form" type="submit">
+            {isSubmitting ? <LoaderCircleIcon className="size-4 animate-spin" /> : null}
+            {isEdit ? "保存" : "创建"}
+          </Button>
+        </>
+      }
+    >
+      <form
+        id="form-template-form"
+        onSubmit={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          void form.handleSubmit();
+        }}
+      >
+        <div className="space-y-6">
+          <FieldGroup className="gap-5">
+            <form.Field name="title">
+              {(field) => {
+                const errors = toFieldErrors(field.state.meta.errors);
+                return (
+                  <Field data-invalid={hasFieldErrors(field.state.meta.errors) || undefined}>
+                    <FieldLabel htmlFor={field.name}>
+                      表单标题 <span className="text-destructive">*</span>
+                    </FieldLabel>
+                    <FieldContent className="gap-2">
+                      <Input
+                        aria-invalid={!!errors?.length}
+                        id={field.name}
+                        onBlur={field.handleBlur}
+                        onChange={(event) => field.handleChange(event.target.value)}
+                        placeholder="例如：候选人背景调查表"
+                        value={field.state.value}
+                      />
+                      <FieldError errors={errors} />
+                    </FieldContent>
+                  </Field>
+                );
+              }}
+            </form.Field>
 
-          {/* -mx-1/px-1 + py-1.5 leaves room for focus rings that would otherwise be clipped by overflow-y-auto. */}
-          <div className="-mx-1 mt-4 max-h-[70vh] space-y-6 overflow-y-auto px-1 py-1.5">
-            <FieldGroup className="gap-5">
-              <form.Field name="title">
-                {(field) => {
-                  const errors = toFieldErrors(field.state.meta.errors);
-                  return (
-                    <Field data-invalid={hasFieldErrors(field.state.meta.errors) || undefined}>
-                      <FieldLabel htmlFor={field.name}>
-                        表单标题 <span className="text-destructive">*</span>
-                      </FieldLabel>
-                      <FieldContent className="gap-2">
-                        <Input
-                          aria-invalid={!!errors?.length}
-                          id={field.name}
-                          onBlur={field.handleBlur}
-                          onChange={(event) => field.handleChange(event.target.value)}
-                          placeholder="例如：候选人背景调查表"
-                          value={field.state.value}
-                        />
-                        <FieldError errors={errors} />
-                      </FieldContent>
-                    </Field>
-                  );
-                }}
-              </form.Field>
+            <form.Field name="description">
+              {(field) => {
+                const errors = toFieldErrors(field.state.meta.errors);
+                return (
+                  <Field data-invalid={hasFieldErrors(field.state.meta.errors) || undefined}>
+                    <FieldLabel htmlFor={field.name}>说明（可选）</FieldLabel>
+                    <FieldContent className="gap-2">
+                      <Textarea
+                        aria-invalid={!!errors?.length}
+                        className="max-h-32 min-h-16 resize-none"
+                        id={field.name}
+                        onBlur={field.handleBlur}
+                        onChange={(event) => field.handleChange(event.target.value)}
+                        placeholder="告知候选人这份表单的用途或填写须知"
+                        rows={2}
+                        value={field.state.value ?? ""}
+                      />
+                      <FieldError errors={errors} />
+                    </FieldContent>
+                  </Field>
+                );
+              }}
+            </form.Field>
 
-              <form.Field name="description">
-                {(field) => {
-                  const errors = toFieldErrors(field.state.meta.errors);
-                  return (
-                    <Field data-invalid={hasFieldErrors(field.state.meta.errors) || undefined}>
-                      <FieldLabel htmlFor={field.name}>说明（可选）</FieldLabel>
-                      <FieldContent className="gap-2">
-                        <Textarea
-                          aria-invalid={!!errors?.length}
-                          className="max-h-32 min-h-16 resize-none"
-                          id={field.name}
-                          onBlur={field.handleBlur}
-                          onChange={(event) => field.handleChange(event.target.value)}
-                          placeholder="告知候选人这份表单的用途或填写须知"
-                          rows={2}
-                          value={field.state.value ?? ""}
-                        />
-                        <FieldError errors={errors} />
-                      </FieldContent>
-                    </Field>
-                  );
-                }}
-              </form.Field>
-
-              <div className="grid gap-5 md:grid-cols-2">
-                <form.Field name="scope">
-                  {(field) => (
-                    <Field>
-                      <FieldLabel htmlFor={field.name}>
-                        作用范围 <span className="text-destructive">*</span>
-                      </FieldLabel>
-                      <FieldContent className="gap-2">
-                        <Select
-                          onValueChange={(value) => {
-                            field.handleChange(value as CandidateFormScope);
-                            if (value === "global") {
-                              form.setFieldValue("jobDescriptionIds", []);
-                            }
-                          }}
-                          value={field.state.value}
-                        >
-                          <SelectTrigger className="w-full" id={field.name}>
-                            <SelectValue placeholder="选择作用范围" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="global">全局（所有面试）</SelectItem>
-                            <SelectItem value="job_description">指定在招岗位</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </FieldContent>
-                    </Field>
-                  )}
-                </form.Field>
-
-                {currentScope === "job_description" ? (
-                  <form.Field name="jobDescriptionIds">
-                    {(field) => {
-                      const errors = toFieldErrors(field.state.meta.errors);
-                      return (
-                        <Field data-invalid={hasFieldErrors(field.state.meta.errors) || undefined}>
-                          <FieldLabel htmlFor={field.name}>
-                            绑定岗位 <span className="text-destructive">*</span>
-                          </FieldLabel>
-                          <FieldContent className="gap-2">
-                            <SearchableMultiSelect
-                              emptyMessage="没有匹配的岗位"
-                              invalid={!!errors?.length}
-                              onChange={(next) => field.handleChange(next)}
-                              options={jobDescriptions.map((jd) => ({
-                                label: jd.name,
-                                value: jd.id,
-                              }))}
-                              placeholder="选择岗位…"
-                              searchPlaceholder="搜索岗位…"
-                              selectedFormat={(count) => `已选 ${count} 个岗位`}
-                              value={field.state.value ?? []}
-                            />
-                            <FieldError errors={errors} />
-                          </FieldContent>
-                        </Field>
-                      );
-                    }}
-                  </form.Field>
-                ) : null}
-              </div>
-            </FieldGroup>
-
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <h3 className="font-medium text-sm">题目列表</h3>
-                <form.Subscribe selector={(state) => state.values.questions.length}>
-                  {(len) => <span className="text-muted-foreground text-xs">共 {len} 道</span>}
-                </form.Subscribe>
-              </div>
-              <form.Field mode="array" name="questions">
-                {(field) => {
-                  const items = field.state.value;
-                  // question.id is guaranteed non-empty (makeDefaultQuestion + toFormValues).
-                  const ids = items.map((q) => q.id as string);
-                  return (
-                    <div className="space-y-3">
-                      <SortableList ids={ids} onReorder={(from, to) => field.moveValue(from, to)}>
-                        {items.map((item, index) => {
-                          const id = item.id as string;
-                          return (
-                            <SortableItem id={id} key={id}>
-                              {({ handleProps, isDragging }) => (
-                                // oxlint-disable-next-line no-use-before-define
-                                <QuestionEditorRow
-                                  form={form}
-                                  handleProps={handleProps}
-                                  index={index}
-                                  isDragging={isDragging}
-                                  onRemove={
-                                    items.length > 1 ? () => field.removeValue(index) : undefined
-                                  }
-                                />
-                              )}
-                            </SortableItem>
-                          );
-                        })}
-                      </SortableList>
-                      <Button
-                        className="w-full"
-                        onClick={() => field.pushValue(makeDefaultQuestion(items.length))}
-                        size="sm"
-                        type="button"
-                        variant="outline"
+            <div className="grid gap-5 md:grid-cols-2">
+              <form.Field name="scope">
+                {(field) => (
+                  <Field>
+                    <FieldLabel htmlFor={field.name}>
+                      作用范围 <span className="text-destructive">*</span>
+                    </FieldLabel>
+                    <FieldContent className="gap-2">
+                      <Select
+                        onValueChange={(value) => {
+                          field.handleChange(value as CandidateFormScope);
+                          if (value === "global") {
+                            form.setFieldValue("jobDescriptionIds", []);
+                          }
+                        }}
+                        value={field.state.value}
                       >
-                        <PlusIcon className="size-4" />
-                        添加题目
-                      </Button>
-                    </div>
-                  );
-                }}
+                        <SelectTrigger className="w-full" id={field.name}>
+                          <SelectValue placeholder="选择作用范围" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="global">全局（所有面试）</SelectItem>
+                          <SelectItem value="job_description">指定在招岗位</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </FieldContent>
+                  </Field>
+                )}
               </form.Field>
-            </div>
-          </div>
 
-          <DialogFooter className="mt-6">
-            <Button onClick={() => onOpenChange(false)} type="button" variant="outline">
-              取消
-            </Button>
-            <Button disabled={isSubmitting} type="submit">
-              {isSubmitting ? <LoaderCircleIcon className="size-4 animate-spin" /> : null}
-              {isEdit ? "保存" : "创建"}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+              {currentScope === "job_description" ? (
+                <form.Field name="jobDescriptionIds">
+                  {(field) => {
+                    const errors = toFieldErrors(field.state.meta.errors);
+                    return (
+                      <Field data-invalid={hasFieldErrors(field.state.meta.errors) || undefined}>
+                        <FieldLabel htmlFor={field.name}>
+                          绑定岗位 <span className="text-destructive">*</span>
+                        </FieldLabel>
+                        <FieldContent className="gap-2">
+                          <SearchableMultiSelect
+                            emptyMessage="没有匹配的岗位"
+                            invalid={!!errors?.length}
+                            onChange={(next) => field.handleChange(next)}
+                            options={jobDescriptions.map((jd) => ({
+                              label: jd.name,
+                              value: jd.id,
+                            }))}
+                            placeholder="选择岗位…"
+                            searchPlaceholder="搜索岗位…"
+                            selectedFormat={(count) => `已选 ${count} 个岗位`}
+                            value={field.state.value ?? []}
+                          />
+                          <FieldError errors={errors} />
+                        </FieldContent>
+                      </Field>
+                    );
+                  }}
+                </form.Field>
+              ) : null}
+            </div>
+          </FieldGroup>
+
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="font-medium text-sm">题目列表</h3>
+              <form.Subscribe selector={(state) => state.values.questions.length}>
+                {(len) => <span className="text-muted-foreground text-xs">共 {len} 道</span>}
+              </form.Subscribe>
+            </div>
+            <form.Field mode="array" name="questions">
+              {(field) => {
+                const items = field.state.value;
+                // question.id is guaranteed non-empty (makeDefaultQuestion + toFormValues).
+                const ids = items.map((q) => q.id as string);
+                return (
+                  <div className="space-y-3">
+                    <SortableList ids={ids} onReorder={(from, to) => field.moveValue(from, to)}>
+                      {items.map((item, index) => {
+                        const id = item.id as string;
+                        return (
+                          <SortableItem id={id} key={id}>
+                            {({ handleProps, isDragging }) => (
+                              // oxlint-disable-next-line no-use-before-define
+                              <QuestionEditorRow
+                                form={form}
+                                handleProps={handleProps}
+                                index={index}
+                                isDragging={isDragging}
+                                onRemove={
+                                  items.length > 1 ? () => field.removeValue(index) : undefined
+                                }
+                              />
+                            )}
+                          </SortableItem>
+                        );
+                      })}
+                    </SortableList>
+                    <Button
+                      className="w-full"
+                      onClick={() => field.pushValue(makeDefaultQuestion(items.length))}
+                      size="sm"
+                      type="button"
+                      variant="outline"
+                    >
+                      <PlusIcon className="size-4" />
+                      添加题目
+                    </Button>
+                  </div>
+                );
+              }}
+            </form.Field>
+          </div>
+        </div>
+      </form>
+    </Modal>
   );
 }
 

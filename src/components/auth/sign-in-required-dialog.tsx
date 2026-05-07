@@ -1,12 +1,6 @@
 "use client";
 
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Modal } from "@/components/ui/modal";
 import { FeishuSignInButton } from "./feishu-sign-in-button";
 
 interface SignInRequiredDialogProps {
@@ -23,25 +17,23 @@ export function SignInRequiredDialog({
   title = "先登录后继续",
 }: SignInRequiredDialogProps) {
   return (
-    <Dialog onOpenChange={onOpenChange} open={open}>
-      <DialogContent className="max-w-md mx-auto rounded-3xl border-border/70 bg-card/95 p-7 shadow-[0_30px_90px_-42px_rgba(30,72,132,0.55)] backdrop-blur-xl">
-        <DialogHeader className="space-y-3 text-left">
-          <DialogTitle className="font-semibold text-xl text-foreground">{title}</DialogTitle>
-          <DialogDescription className="font-serif text-sm leading-relaxed text-muted-foreground">
-            为了保存你的会话、同步简历分析记录和面试结果，请先使用飞书账号登录。
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="space-y-3">
-          <FeishuSignInButton callbackURL={callbackURL} />
-          <FeishuSignInButton
-            variant="default"
-            callbackURL={callbackURL}
-            label="极光 HR 飞书登录"
-            providerId="feishu-jiguang-hr"
-          />
-        </div>
-      </DialogContent>
-    </Dialog>
+    <Modal
+      open={open}
+      onOpenChange={onOpenChange}
+      title={title}
+      description="为了保存你的会话、同步简历分析记录和面试结果，请先使用飞书账号登录。"
+      size="sm"
+      className="rounded-3xl border-border/70 bg-card/95 shadow-[0_30px_90px_-42px_rgba(30,72,132,0.55)] backdrop-blur-xl"
+      headerClassName="space-y-1 border-b-0 pb-2"
+      bodyClassName="px-7 pb-7 pt-2 space-y-3"
+    >
+      <FeishuSignInButton callbackURL={callbackURL} />
+      <FeishuSignInButton
+        callbackURL={callbackURL}
+        label="极光 HR 飞书登录"
+        providerId="feishu-jiguang-hr"
+        variant="default"
+      />
+    </Modal>
   );
 }

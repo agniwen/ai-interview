@@ -14,13 +14,7 @@ import { Document, Page, pdfjs } from "react-pdf";
 import "react-pdf/dist/Page/AnnotationLayer.css";
 import "react-pdf/dist/Page/TextLayer.css";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Modal } from "@/components/ui/modal";
 import { cn } from "@/lib/utils";
 
 // Worker bootstrap — Next.js (Turbopack/Webpack) resolves the asset URL via
@@ -127,124 +121,116 @@ export function PdfPreviewDialog({ open, onOpenChange, url, filename }: PdfPrevi
   }
 
   return (
-    <Dialog onOpenChange={onOpenChange} open={open}>
-      <DialogContent
-        className="flex h-[92dvh] flex-col gap-0 overflow-hidden p-0 sm:w-[min(96vw,1400px)] sm:max-w-none"
-        showCloseButton={false}
-      >
-        <DialogHeader className="flex shrink-0 flex-row items-center justify-between gap-4 border-b px-5 py-3">
-          <div className="min-w-0 flex-1">
-            <DialogTitle className="truncate text-sm font-medium">
-              {filename ?? "简历预览"}
-            </DialogTitle>
-            <DialogDescription className="text-xs text-muted-foreground">
-              {pageCountLabel}
-            </DialogDescription>
-          </div>
-
-          <div className="flex items-center gap-1">
-            {renderAllPages ? null : (
-              <>
-                <Button
-                  disabled={!canPrev}
-                  onClick={() => setPageNumber((n) => Math.max(1, n - 1))}
-                  size="icon"
-                  type="button"
-                  variant="ghost"
-                  aria-label="上一页"
-                >
-                  <ChevronLeftIcon className="size-4" />
-                </Button>
-                <Button
-                  disabled={!canNext}
-                  onClick={() => setPageNumber((n) => Math.min(numPages ?? n, n + 1))}
-                  size="icon"
-                  type="button"
-                  variant="ghost"
-                  aria-label="下一页"
-                >
-                  <ChevronRightIcon className="size-4" />
-                </Button>
-
-                <span className="mx-1 h-5 w-px bg-border" />
-              </>
-            )}
-
-            <Button
-              disabled={!canZoomOut}
-              onClick={() => setScale((s) => Math.max(MIN_SCALE, s - SCALE_STEP))}
-              size="icon"
-              type="button"
-              variant="ghost"
-              aria-label="缩小"
-            >
-              <ZoomOutIcon className="size-4" />
-            </Button>
-            <span className="w-12 text-center text-xs tabular-nums text-muted-foreground">
-              {Math.round(scale * 100)}%
-            </span>
-            <Button
-              disabled={!canZoomIn}
-              onClick={() => setScale((s) => Math.min(MAX_SCALE, s + SCALE_STEP))}
-              size="icon"
-              type="button"
-              variant="ghost"
-              aria-label="放大"
-            >
-              <ZoomInIcon className="size-4" />
-            </Button>
-
-            <span className="mx-1 h-5 w-px bg-border" />
-
-            <Button asChild size="icon" type="button" variant="ghost" aria-label="下载">
-              <a download={filename ?? "resume.pdf"} href={url} rel="noopener" target="_blank">
-                <DownloadIcon className="size-4" />
-              </a>
-            </Button>
-
-            <span className="mx-1 h-5 w-px bg-border" />
-
-            <Button
-              aria-label="关闭"
-              onClick={() => onOpenChange(false)}
-              size="icon"
-              type="button"
-              variant="ghost"
-            >
-              <XIcon className="size-4" />
-            </Button>
-          </div>
-        </DialogHeader>
-
-        <div
-          className={cn("flex-1 overflow-auto bg-muted/30 py-3", "flex justify-center")}
-          ref={scrollRef}
-        >
-          {loadError ? (
-            <div className="flex h-full w-full items-center justify-center p-8 text-center text-sm text-muted-foreground">
-              {loadError}
-            </div>
-          ) : (
-            <Document
-              file={url}
-              loading={
-                <div className="flex h-full w-full items-center justify-center gap-2 text-muted-foreground text-sm">
-                  <LoaderCircleIcon className="size-4 animate-spin" />
-                  正在加载 PDF...
-                </div>
-              }
-              onLoadError={(error) => {
-                console.error("[pdf-preview] load error", error);
-                setLoadError("PDF 加载失败，请稍后重试或下载后查看。");
-              }}
-              onLoadSuccess={({ numPages: total }) => setNumPages(total)}
-              options={documentOptions}
-            >
-              {renderPages({ numPages, pageNumber, renderAllPages, scale })}
-            </Document>
+    <Modal
+      open={open}
+      onOpenChange={onOpenChange}
+      size="full"
+      showCloseButton={false}
+      className="h-[92dvh]"
+      title={filename ?? "简历预览"}
+      description={pageCountLabel}
+      headerLayout="row"
+      headerClassName="px-5 py-3"
+      bodyClassName="flex justify-center overflow-auto bg-muted/30 px-0 py-3"
+      headerExtra={
+        <div className="flex items-center gap-1">
+          {renderAllPages ? null : (
+            <>
+              <Button
+                aria-label="上一页"
+                disabled={!canPrev}
+                onClick={() => setPageNumber((n) => Math.max(1, n - 1))}
+                size="icon"
+                type="button"
+                variant="ghost"
+              >
+                <ChevronLeftIcon className="size-4" />
+              </Button>
+              <Button
+                aria-label="下一页"
+                disabled={!canNext}
+                onClick={() => setPageNumber((n) => Math.min(numPages ?? n, n + 1))}
+                size="icon"
+                type="button"
+                variant="ghost"
+              >
+                <ChevronRightIcon className="size-4" />
+              </Button>
+              <span className="mx-1 h-5 w-px bg-border" />
+            </>
           )}
+
+          <Button
+            aria-label="缩小"
+            disabled={!canZoomOut}
+            onClick={() => setScale((s) => Math.max(MIN_SCALE, s - SCALE_STEP))}
+            size="icon"
+            type="button"
+            variant="ghost"
+          >
+            <ZoomOutIcon className="size-4" />
+          </Button>
+          <span className="w-12 text-center text-muted-foreground text-xs tabular-nums">
+            {Math.round(scale * 100)}%
+          </span>
+          <Button
+            aria-label="放大"
+            disabled={!canZoomIn}
+            onClick={() => setScale((s) => Math.min(MAX_SCALE, s + SCALE_STEP))}
+            size="icon"
+            type="button"
+            variant="ghost"
+          >
+            <ZoomInIcon className="size-4" />
+          </Button>
+
+          <span className="mx-1 h-5 w-px bg-border" />
+
+          <Button aria-label="下载" asChild size="icon" type="button" variant="ghost">
+            <a download={filename ?? "resume.pdf"} href={url} rel="noopener" target="_blank">
+              <DownloadIcon className="size-4" />
+            </a>
+          </Button>
+
+          <span className="mx-1 h-5 w-px bg-border" />
+
+          <Button
+            aria-label="关闭"
+            onClick={() => onOpenChange(false)}
+            size="icon"
+            type="button"
+            variant="ghost"
+          >
+            <XIcon className="size-4" />
+          </Button>
         </div>
-      </DialogContent>
-    </Dialog>
+      }
+    >
+      <div className={cn("flex w-full justify-center")} ref={scrollRef}>
+        {loadError ? (
+          <div className="flex h-full w-full items-center justify-center p-8 text-center text-muted-foreground text-sm">
+            {loadError}
+          </div>
+        ) : (
+          <Document
+            file={url}
+            loading={
+              <div className="flex h-full w-full items-center justify-center gap-2 text-muted-foreground text-sm">
+                <LoaderCircleIcon className="size-4 animate-spin" />
+                正在加载 PDF...
+              </div>
+            }
+            onLoadError={(error) => {
+              console.error("[pdf-preview] load error", error);
+              setLoadError("PDF 加载失败，请稍后重试或下载后查看。");
+            }}
+            onLoadSuccess={({ numPages: total }) => setNumPages(total)}
+            options={documentOptions}
+          >
+            {renderPages({ numPages, pageNumber, renderAllPages, scale })}
+          </Document>
+        )}
+      </div>
+    </Modal>
   );
 }

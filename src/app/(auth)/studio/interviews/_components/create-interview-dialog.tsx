@@ -10,15 +10,7 @@ import { useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
 import { TextFlip } from "@/components/text-flip";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+import { Modal } from "@/components/ui/modal";
 import { FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -385,185 +377,161 @@ export function CreateInterviewDialog({
     toast.info("已取消简历分析");
   }, []);
 
+  const isBusy = isAnalyzingResume || isGeneratingQuestions;
+
   return (
-    <Dialog
-      onOpenChange={(value) => {
-        if (!isAnalyzingResume && !isGeneratingQuestions) {
-          setOpen(value);
-        }
-      }}
-      open={open}
-    >
-      <DialogTrigger asChild>
-        <Button className="w-full sm:w-auto">
-          <FileUpIcon className="size-4" />
-          新建面试记录
-        </Button>
-      </DialogTrigger>
-      <DialogContent
-        className="max-h-[90vh] sm:max-w-5xl gap-0 overflow-hidden p-0"
-        onPointerDownOutside={(e) => {
-          if (isAnalyzingResume || isGeneratingQuestions) {
-            e.preventDefault();
-          }
-        }}
-        onEscapeKeyDown={(e) => {
-          if (isAnalyzingResume || isGeneratingQuestions) {
-            e.preventDefault();
-          }
-        }}
-        showCloseButton={!isAnalyzingResume && !isGeneratingQuestions}
-      >
-        <form
-          className="flex max-h-[90vh] flex-col"
-          onSubmit={(event) => {
-            event.preventDefault();
-            event.stopPropagation();
-            void form.handleSubmit();
+    <>
+      <Button className="w-full sm:w-auto" onClick={() => setOpen(true)} type="button">
+        <FileUpIcon className="size-4" />
+        新建面试记录
+      </Button>
+      <Tabs onValueChange={setActiveTab} value={activeTab}>
+        <Modal
+          open={open}
+          onOpenChange={(value) => {
+            if (!isBusy) {
+              setOpen(value);
+            }
           }}
-        >
-          <Tabs
-            className="flex min-h-0 flex-1 flex-col"
-            value={activeTab}
-            onValueChange={setActiveTab}
-          >
-            <DialogHeader className="border-b px-6 pt-5 pb-2">
-              <DialogTitle>新建面试记录</DialogTitle>
-              <DialogDescription>
-                支持手动录入候选人资料，也可以先上传 PDF 简历自动分析并回填表单。
-              </DialogDescription>
-              <TabsList className="mt-0">
-                <TabsTrigger className="min-w-[8em]" value="basic">
-                  基础信息
-                </TabsTrigger>
-                <TabsTrigger className="min-w-[8em]" value="questions">
-                  面试题目
-                  {resolveQuestionsTabSuffix(questionCount)}
-                </TabsTrigger>
-              </TabsList>
-            </DialogHeader>
-
-            <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
-              <TabsContent className="mt-0" value="basic">
-                <div className="space-y-5">
-                  <div className="grid gap-4">
-                    <FieldGroup className="gap-2">
-                      <FieldLabel htmlFor="resume-upload">简历 PDF</FieldLabel>
-                      <Input
-                        accept="application/pdf"
-                        disabled={isAnalyzingResume || isSubmitting}
-                        id="resume-upload"
-                        onChange={(event) =>
-                          void handleResumeChange(event.target.files?.[0] ?? null)
-                        }
-                        type="file"
-                      />
-                      <p className="text-muted-foreground text-sm">
-                        选填。上传后会调用现有简历分析接口，自动回填候选人姓名、岗位和题目数据。
-                      </p>
-                      {resumeFile ? (
-                        <p className="break-all text-muted-foreground text-sm">{resumeFile.name}</p>
-                      ) : null}
-                      {resumePayload ? (
-                        <div className="rounded-xl border border-border/60 bg-background/80 px-4 py-3 text-sm">
-                          <p className="flex items-center gap-2 font-medium">
-                            <SparklesIcon className="size-4 text-amber-500" />
-                            已完成简历分析
-                          </p>
-                          <p className="mt-1 break-words text-muted-foreground leading-relaxed">
-                            {resumePayload.resumeProfile.name}
-                            {" · "}
-                            {resumePayload.resumeProfile.targetRoles[0] ?? "待识别岗位"}
-                            {" · "}
-                            {questionCount} 道题
-                          </p>
-                        </div>
-                      ) : null}
-                    </FieldGroup>
-                  </div>
-
-                  <InterviewBasicInfoFields form={form} />
-
-                  <InterviewScheduleFields form={form} />
-
-                  <InterviewNotesField form={form} />
-                </div>
-              </TabsContent>
-
-              <TabsContent className="mt-0" value="questions">
-                <InterviewQuestionsFields
-                  disabled={isSubmitting || isAnalyzingResume || isGeneratingQuestions}
-                  form={form}
-                  resetKey={open ? "create-open" : "create-closed"}
-                />
-              </TabsContent>
-            </div>
-          </Tabs>
-
-          <DialogFooter className="border-t px-6 py-4">
-            <Button
-              disabled={isSubmitting || isAnalyzingResume || isGeneratingQuestions}
-              type="submit"
-            >
-              {isSubmitting || isAnalyzingResume || isGeneratingQuestions ? (
-                <LoaderCircleIcon className="size-4 animate-spin" />
-              ) : null}
+          title="新建面试记录"
+          description="支持手动录入候选人资料，也可以先上传 PDF 简历自动分析并回填表单。"
+          size="2xl"
+          dismissible={!isBusy}
+          showCloseButton={!isBusy}
+          headerExtra={
+            <TabsList className="mt-2">
+              <TabsTrigger className="min-w-[8em]" value="basic">
+                基础信息
+              </TabsTrigger>
+              <TabsTrigger className="min-w-[8em]" value="questions">
+                面试题目
+                {resolveQuestionsTabSuffix(questionCount)}
+              </TabsTrigger>
+            </TabsList>
+          }
+          footer={
+            <Button disabled={isSubmitting || isBusy} form="create-interview-form" type="submit">
+              {isSubmitting || isBusy ? <LoaderCircleIcon className="size-4 animate-spin" /> : null}
               保存面试记录
             </Button>
-          </DialogFooter>
-        </form>
-
-        {(isAnalyzingResume || isGeneratingQuestions) && (
-          <motion.div
-            className="absolute inset-0 z-50 flex flex-col items-center justify-center gap-5 rounded-lg bg-white/60 backdrop-blur-sm dark:bg-black/40"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.2 }}
+          }
+        >
+          <form
+            id="create-interview-form"
+            onSubmit={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              void form.handleSubmit();
+            }}
           >
-            <LoaderCircleIcon className="size-7 animate-spin text-muted-foreground" />
-            {progressStatus ? (
-              <p className="text-sm font-medium text-foreground">{progressStatus}</p>
-            ) : (
-              <motion.div layout className="flex items-center text-lg font-medium text-foreground">
-                <span>正在</span>
-                <TextFlip as={motion.span} interval={2.5} layout>
-                  <span>解析简历</span>
-                  <span>提取信息</span>
-                  <span>分析简历</span>
-                  <span>评估技能</span>
-                </TextFlip>
+            <TabsContent className="mt-0" value="basic">
+              <div className="space-y-5">
+                <div className="grid gap-4">
+                  <FieldGroup className="gap-2">
+                    <FieldLabel htmlFor="resume-upload">简历 PDF</FieldLabel>
+                    <Input
+                      accept="application/pdf"
+                      disabled={isAnalyzingResume || isSubmitting}
+                      id="resume-upload"
+                      onChange={(event) => void handleResumeChange(event.target.files?.[0] ?? null)}
+                      type="file"
+                    />
+                    <p className="text-muted-foreground text-sm">
+                      选填。上传后会调用现有简历分析接口，自动回填候选人姓名、岗位和题目数据。
+                    </p>
+                    {resumeFile ? (
+                      <p className="break-all text-muted-foreground text-sm">{resumeFile.name}</p>
+                    ) : null}
+                    {resumePayload ? (
+                      <div className="rounded-xl border border-border/60 bg-background/80 px-4 py-3 text-sm">
+                        <p className="flex items-center gap-2 font-medium">
+                          <SparklesIcon className="size-4 text-amber-500" />
+                          已完成简历分析
+                        </p>
+                        <p className="mt-1 break-words text-muted-foreground leading-relaxed">
+                          {resumePayload.resumeProfile.name}
+                          {" · "}
+                          {resumePayload.resumeProfile.targetRoles[0] ?? "待识别岗位"}
+                          {" · "}
+                          {questionCount} 道题
+                        </p>
+                      </div>
+                    ) : null}
+                  </FieldGroup>
+                </div>
+
+                <InterviewBasicInfoFields form={form} />
+
+                <InterviewScheduleFields form={form} />
+
+                <InterviewNotesField form={form} />
+              </div>
+            </TabsContent>
+
+            <TabsContent className="mt-0" value="questions">
+              <InterviewQuestionsFields
+                disabled={isSubmitting || isAnalyzingResume || isGeneratingQuestions}
+                form={form}
+                resetKey={open ? "create-open" : "create-closed"}
+              />
+            </TabsContent>
+
+            {isBusy && (
+              <motion.div
+                animate={{ opacity: 1 }}
+                className="absolute inset-0 z-50 flex flex-col items-center justify-center gap-5 bg-white/60 backdrop-blur-sm dark:bg-black/40"
+                initial={{ opacity: 0 }}
+                transition={{ duration: 0.2 }}
+              >
+                <LoaderCircleIcon className="size-7 animate-spin text-muted-foreground" />
+                {progressStatus ? (
+                  <p className="font-medium text-foreground text-sm">{progressStatus}</p>
+                ) : (
+                  <motion.div
+                    className="flex items-center font-medium text-foreground text-lg"
+                    layout
+                  >
+                    <span>正在</span>
+                    <TextFlip as={motion.span} interval={2.5} layout>
+                      <span>解析简历</span>
+                      <span>提取信息</span>
+                      <span>分析简历</span>
+                      <span>评估技能</span>
+                    </TextFlip>
+                  </motion.div>
+                )}
+                {progressTools.length > 0 && (
+                  <div className="flex flex-col gap-1.5 text-muted-foreground text-xs">
+                    {progressTools.map((t) => (
+                      <div className="flex items-center gap-1.5" key={t.name}>
+                        {t.done ? (
+                          <CheckIcon className="size-3 text-green-500" />
+                        ) : (
+                          <WrenchIcon className="size-3 animate-pulse" />
+                        )}
+                        <span>{t.name}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {partialFields.length > 0 && (
+                  <div className="mx-auto grid w-full max-w-xs grid-cols-[auto_1fr] gap-x-3 gap-y-1 rounded-lg border bg-background/80 px-4 py-3 text-xs">
+                    {partialFields.map((f) => (
+                      <div className="contents" key={f.label}>
+                        <span className="text-muted-foreground">{f.label}</span>
+                        <span className="truncate font-medium text-foreground">{f.value}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <Button onClick={handleCancelAnalysis} size="sm" variant="outline">
+                  取消
+                </Button>
               </motion.div>
             )}
-            {progressTools.length > 0 && (
-              <div className="flex flex-col gap-1.5 text-xs text-muted-foreground">
-                {progressTools.map((t) => (
-                  <div key={t.name} className="flex items-center gap-1.5">
-                    {t.done ? (
-                      <CheckIcon className="size-3 text-green-500" />
-                    ) : (
-                      <WrenchIcon className="size-3 animate-pulse" />
-                    )}
-                    <span>{t.name}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-            {partialFields.length > 0 && (
-              <div className="mx-auto grid w-full max-w-xs grid-cols-[auto_1fr] gap-x-3 gap-y-1 rounded-lg border bg-background/80 px-4 py-3 text-xs">
-                {partialFields.map((f) => (
-                  <div key={f.label} className="contents">
-                    <span className="text-muted-foreground">{f.label}</span>
-                    <span className="truncate font-medium text-foreground">{f.value}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-            <Button variant="outline" size="sm" onClick={handleCancelAnalysis}>
-              取消
-            </Button>
-          </motion.div>
-        )}
-      </DialogContent>
-    </Dialog>
+          </form>
+        </Modal>
+      </Tabs>
+    </>
   );
 }
