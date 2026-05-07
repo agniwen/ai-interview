@@ -282,6 +282,15 @@ async def my_agent(ctx: JobContext):
                     )
                 ),
             ),
+            # 默认 True 会让框架在 candidate 断开时自动关 session, 与我们的
+            # 3 分钟热重连 grace 冲突 (grace 还没启动就被关了); 关掉让我们
+            # 自己在 _on_participant_disconnected/_on_participant_connected
+            # 里管理 session 生命周期.
+            # Default True closes the session as soon as the candidate drops,
+            # bypassing our 180s hot-reconnect grace timer. Turn it off so our
+            # _on_participant_disconnected / _on_participant_connected handlers
+            # own the lifecycle.
+            close_on_disconnect=False,
         ),
     )
 
@@ -366,17 +375,17 @@ async def my_agent(ctx: JobContext):
         logger.info("candidate %s reconnected; cancelling grace", p.identity)
         grace_task.cancel()
         grace_task = None
-        # 简短致意并从断点继续, 不重新自我介绍也不重复完整问题.
-        # Brief re-acknowledgement and continue from the prior question.
+        # 用 session.say 直接走 TTS 念一句固定话, 不通过 LLM. 之前用
+        # generate_reply(instructions=...) 让 LLM 生成致意话语, 但 Qwen-turbo
+        # 这类小模型会把"候选人刚才因网络问题短暂离线"这种元指令当成是
+        # 候选人在反思, 进而切换到候选人口吻 / 开始回答自己之前问的问题.
+        # add_to_chat_ctx=True 默认值会把这句加进 chat history (assistant 角色),
+        # 让 LLM 知道刚刚 agent 说了"欢迎回来", 后续提问不会重复.
+        # Use TTS-only say() instead of LLM-driven generate_reply: small models
+        # (Qwen-turbo) misread the meta-instruction "the candidate dropped off"
+        # as the candidate's own utterance and flip into the candidate role.
         try:
-            session.generate_reply(
-                instructions=(
-                    "候选人刚才因网络问题短暂离线，现已重新连入。"
-                    "请用一句话致意（例如『欢迎回来，我们继续』），"
-                    "然后从你之前提的最后一个问题继续，不要重复完整问题，"
-                    "也不要再做自我介绍。"
-                )
-            )
+            session.say("欢迎回来，我们继续刚才的话题。", allow_interruptions=True)
         except Exception:
             logger.exception("re-greeting after reconnect failed")
 

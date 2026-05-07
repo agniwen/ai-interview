@@ -46,6 +46,13 @@ export interface CandidateInterviewView {
   // ISO timestamp of the latest moment the candidate may rejoin; non-null only
   // while the round is "interrupted" within the 3-minute grace window.
   currentRoundRecoverableUntil: string | null;
+  // 是否应当尝试自动续连：包括（a）interrupted 仍在窗口内、以及（b）in_progress
+  // 但用户已离开页面（前端 disconnect/beforeunload beacon 可能未送达，导致状态没翻成
+  // interrupted）。这两种情况用户回到页面都应直接续连同一房间。
+  // Whether the candidate should auto-resume: covers (a) interrupted within
+  // grace and (b) in_progress with stale anchors (beacon may not have made it
+  // to the server before the page unloaded).
+  currentRoundCanResume: boolean;
 }
 
 /**
@@ -111,6 +118,29 @@ function computeRecoverableUntil(entry: InterviewScheduleEntry | null): string |
   return new Date(deadlineMs).toISOString();
 }
 
+// 判定本轮是否应当自动续连：
+// - in_progress + 已 mint anchor → 用户可能刚刚刷新但 disconnect 信号还没到服务端；
+// - interrupted + 仍在 3 分钟宽限期内 → 标准热重连场景。
+// pending 与 completed 都不算可续连（前者首次开始走正常按钮，后者已结束）。
+// canResume covers both interrupted-in-window AND in_progress with anchors
+// (when the disconnect/beforeunload beacon didn't reach the server in time).
+function computeCanResume(entry: InterviewScheduleEntry | null): boolean {
+  if (!entry) {
+    return false;
+  }
+  if (entry.status === "in_progress" && entry.liveKitRoomName && entry.liveKitParticipantIdentity) {
+    return true;
+  }
+  if (entry.status === "interrupted" && entry.disconnectedAt) {
+    const disconnectedAtMs = new Date(entry.disconnectedAt).getTime();
+    if (Number.isNaN(disconnectedAtMs)) {
+      return false;
+    }
+    return disconnectedAtMs + RECONNECT_GRACE_MS > Date.now();
+  }
+  return false;
+}
+
 /**
  * 把 server 端记录 + 轮次 + 当前 roundId 组装成候选人侧视图。
  * Build the candidate-facing view from a server record, schedule entries, and the
@@ -133,6 +163,7 @@ export function buildCandidateInterviewView(
   return {
     candidateName: record.candidateName,
     currentRoundAllowTextInput: currentEntry?.allowTextInput ?? false,
+    currentRoundCanResume: computeCanResume(currentEntry),
     currentRoundId: currentEntry?.id ?? null,
     currentRoundLabel: currentEntry?.roundLabel ?? null,
     currentRoundRecoverableUntil: computeRecoverableUntil(currentEntry),

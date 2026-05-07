@@ -287,6 +287,20 @@ export default function InterviewRoom({ interviewId, roundId }: InterviewRoomPro
   const [interviewView, setInterviewView] = useState<CandidateInterviewView | null>(null);
   const [roundStatus, setRoundStatus] = useState<string | null>(null);
   const [isLoadingStatus, setIsLoadingStatus] = useState(true);
+  // 镜像 isLoadingStatus 给 TokenSource 闭包用：useSession() 在 mount 时会自动
+  // 调一次 prepareConnection 预热，连带触发 token 接口。如果在 fetchStatus 完成
+  // 前就让 TokenSource 签 token，会命中 token 接口的 pending 分支把 status 翻
+  // 成 in_progress + mint anchor — 之后 fetchStatus 看到 in_progress 会以为是
+  // 刚才残留的 in_progress 并自动续连，让用户首次进入跳过了 RuleItem。
+  // 这里 gate 住第一次 prepareConnection，让它失败被框架吞掉；之后用户点
+  // "开始"或自动续连真正调 session.start 时再签。
+  // Mirror isLoadingStatus into a ref the TokenSource closure can read so the
+  // mount-time prepareConnection is gated until fetchStatus settles, avoiding
+  // the race where pending → in_progress flips before status is read.
+  const isLoadingStatusRef = useRef(true);
+  useEffect(() => {
+    isLoadingStatusRef.current = isLoadingStatus;
+  }, [isLoadingStatus]);
 
   useEffect(() => {
     let cancelled = false;
@@ -318,14 +332,24 @@ export default function InterviewRoom({ interviewId, roundId }: InterviewRoomPro
     };
   }, [interviewId, roundId]);
 
-  const isRoundCompleted = roundStatus === "completed";
-  // 服务端基于 disconnectedAt + 3 分钟宽限期算出，仅在 interrupted 且窗口内非空。
-  // Server-derived rejoin deadline; non-null only while interrupted within grace.
-  const recoverableUntil = interviewView?.currentRoundRecoverableUntil ?? null;
-  const isRecoverable =
-    roundStatus === "interrupted" &&
-    recoverableUntil !== null &&
-    new Date(recoverableUntil).getTime() > Date.now();
+  // 服务端综合 status + anchor + 宽限期算出。覆盖两个场景：
+  // - status=interrupted + 仍在 3 分钟宽限内（标准热重连）；
+  // - status=in_progress + 已有 anchor（用户在浏览器关闭瞬间 disconnect/beforeunload
+  //   信号没送达，状态没翻成 interrupted，但用户回页面仍应直接续连）。
+  // Server-derived flag covering both interrupted-in-window AND in_progress with
+  // anchors (the disconnect beacon may not always reach the server in time).
+  const isRecoverable = interviewView?.currentRoundCanResume ?? false;
+  // status='interrupted' 且已过 3 分钟宽限期是中间态：agent 端 grace 已超时
+  // 触发 aclose，但 /api/agent/report 把状态翻成 completed 之前会有几秒到
+  // 几分钟延迟（取决于 transcript / 录像收尾）。这段时间里 DB 仍是
+  // interrupted，但实际已无法重连。这里把"interrupted 且 canResume=false"
+  // 视为已结束，避免显示成"准备页面"误导用户点开始。
+  // Treat "interrupted-but-not-recoverable" as completed for UI purposes:
+  // there is a window between the agent's grace expiring and /api/agent/report
+  // flipping the schedule row to completed, during which the DB still says
+  // interrupted but the session is effectively over.
+  const isRoundCompleted =
+    roundStatus === "completed" || (roundStatus === "interrupted" && !isRecoverable);
 
   // Custom token source so that token-endpoint errors (403/409/410) can flip
   // the page into the appropriate state instead of letting the LiveKit
@@ -333,6 +357,13 @@ export default function InterviewRoom({ interviewId, roundId }: InterviewRoomPro
   const tokenSource = useMemo(
     () =>
       TokenSource.custom(async () => {
+        // 阻塞 mount 期 prepareConnection 的预热请求，等 fetchStatus 拿到状态后
+        // 再签 token。否则会让 pending 轮次过早被改成 in_progress 并自动续连。
+        // Block useSession's mount-time prepareConnection until fetchStatus
+        // settles; otherwise it preemptively flips pending → in_progress.
+        if (isLoadingStatusRef.current) {
+          throw new Error("interview status not loaded yet");
+        }
         const response = await fetch(`/api/interview/${interviewId}/${roundId}/livekit-token`, {
           method: "POST",
         });
@@ -370,20 +401,31 @@ export default function InterviewRoom({ interviewId, roundId }: InterviewRoomPro
   const isDisconnected = session.connectionState === ConnectionState.Disconnected;
   const isConnecting = session.connectionState === ConnectionState.Connecting;
   const wasConnectedRef = useRef(false);
+  // 用户主动点"结束面试"时置 true。区分主动结束 vs 网络断连：
+  // 前者走 /complete?mode=final 直接置 completed；
+  // 后者走 /complete?mode=interrupt 进入热重连窗口。
+  // Set when the user clicks "End interview". Distinguishes a deliberate end
+  // (final) from a transient drop (interrupt + grace window).
+  const userEndedRef = useRef(false);
 
-  // 监听硬断连：进入 interrupted 状态而非立刻 completed，
-  // 让候选人有 3 分钟宽限回到本页面继续面试。
-  // Hard disconnect → mark interrupted (not completed) so the candidate has
-  // a 3-minute window to rejoin. Authoritative completion comes from
-  // /api/agent/report after the agent's grace timer fires.
+  // 监听硬断连：
+  // - 主动结束（userEndedRef=true）：handleEndInterview 已经发过 final，这里跳过；
+  // - 被动断连：发 ?mode=interrupt 进入 3 分钟宽限。
+  // Distinguish deliberate end from passive drop: the former already sent
+  // ?mode=final via handleEndInterview before disconnecting, so skip here.
   useEffect(() => {
     if (session.connectionState === ConnectionState.Connected) {
       wasConnectedRef.current = true;
-    } else if (
-      session.connectionState === ConnectionState.Disconnected &&
-      wasConnectedRef.current
-    ) {
+      return;
+    }
+    if (session.connectionState === ConnectionState.Disconnected && wasConnectedRef.current) {
       wasConnectedRef.current = false;
+      if (userEndedRef.current) {
+        // 主动结束：完成态由 handleEndInterview 写入，这里只清标记。
+        // Deliberate end: final state already persisted, just clear the flag.
+        userEndedRef.current = false;
+        return;
+      }
       void fetch(`/api/interview/${interviewId}/${roundId}/complete?mode=interrupt`, {
         keepalive: true,
         method: "POST",
@@ -393,10 +435,14 @@ export default function InterviewRoom({ interviewId, roundId }: InterviewRoomPro
 
   // beforeunload 兜底信号：用户关闭/刷新标签页时通过 sendBeacon 提前通知后端
   // 进入 interrupted，避免依赖 LiveKit 才发现断开导致延迟。两条路径幂等。
+  // 主动结束的用户路径不走这里（handleEndInterview 已写过 final）。
   // Belt-and-suspenders beacon for tab close/refresh, idempotent with the
-  // disconnect handler above.
+  // disconnect handler above. Skipped for deliberate-end flow.
   useEffect(() => {
     const onBeforeUnload = () => {
+      if (userEndedRef.current) {
+        return;
+      }
       navigator.sendBeacon(`/api/interview/${interviewId}/${roundId}/complete?mode=interrupt`);
     };
     window.addEventListener("beforeunload", onBeforeUnload);
@@ -405,51 +451,104 @@ export default function InterviewRoom({ interviewId, roundId }: InterviewRoomPro
 
   const [startedMuted, setStartedMuted] = useState(false);
   // 自动续连只触发一次：避免 connectionState 变化或 fetchStatus 重跑时反复 session.start。
-  // Latch the auto-rejoin so it fires at most once per page load.
+  // 失败后会被 reset，让用户能手动点继续。
+  // Latched so the auto-rejoin fires once per page load; reset on failure to
+  // allow the user to retry manually.
   const autoRejoinTriggeredRef = useRef(false);
 
   const handleStart = useCallback(
-    (options?: { muted?: boolean }) => {
+    async (options?: { muted?: boolean }) => {
       setStartedMuted(!!options?.muted);
-      session.start({
-        tracks: {
-          // 默认开启摄像头以便服务端 RoomCompositeEgress 录像；
-          // 浏览器拒绝权限时 LiveKit 会自动跳过该 track，不影响音频通话。
-          // Enable camera by default so server-side RoomCompositeEgress captures
-          // video; if the browser denies permission, LiveKit silently skips it.
-          camera: {
-            enabled: true,
-          },
-          microphone: {
-            enabled: !options?.muted,
-            publishOptions: {
-              // @ts-expect-error ignore
-              audioCaptureOptions: {
-                autoGainControl: true,
-                echoCancellation: true,
-                noiseSuppression: true,
+      try {
+        await session.start({
+          tracks: {
+            // 默认开启摄像头以便服务端 RoomCompositeEgress 录像；
+            // 浏览器拒绝权限时 LiveKit 会自动跳过该 track，不影响音频通话。
+            // Enable camera by default so server-side RoomCompositeEgress captures
+            // video; if the browser denies permission, LiveKit silently skips it.
+            camera: {
+              enabled: true,
+            },
+            microphone: {
+              enabled: !options?.muted,
+              publishOptions: {
+                // @ts-expect-error ignore
+                audioCaptureOptions: {
+                  autoGainControl: true,
+                  echoCancellation: true,
+                  noiseSuppression: true,
+                },
               },
             },
           },
-        },
-      });
+        });
+      } catch (error) {
+        // 失败常见原因：浏览器媒体设备权限被拒、token 接口报错（403/410）、网络中断。
+        // 重置 latch 让 WaitingView 退出"恢复中"状态、显示开始按钮供用户重试。
+        // Common causes: media-device permission denied, token endpoint
+        // returned 403/410, network failure. Clear the latch so the WaitingView
+        // exits "recovering" state and shows the retry button.
+        autoRejoinTriggeredRef.current = false;
+        const message = error instanceof Error ? error.message : "连接失败，请重试";
+        // eslint-disable-next-line no-console
+        console.error("[interview] session.start failed:", error);
+        toast.error(message);
+      }
     },
     [session],
   );
 
-  // 刷新返回 + 仍在 3 分钟宽限期：跳过 RuleItem 自动 handleStart 续连。
-  // On page reload during the grace window, auto-trigger handleStart so the
-  // candidate lands directly back into the same room.
+  // 刷新返回时若 canResume 为 true：跳过 RuleItem 自动 handleStart 续连。
+  // 加 isRoundCompleted 保护，防止主动结束流程里 setRoundStatus("completed")
+  // 与 connectionState 变 Disconnected 之间的 race 让 effect 误触发。
+  // Auto-trigger handleStart only when the round is genuinely resumable.
+  // The isRoundCompleted guard prevents a race during deliberate-end where
+  // the disconnect arrives before interviewView refreshes.
   useEffect(() => {
-    if (!isLoadingStatus && isRecoverable && !autoRejoinTriggeredRef.current && isDisconnected) {
+    if (
+      !isLoadingStatus &&
+      !isRoundCompleted &&
+      isRecoverable &&
+      !autoRejoinTriggeredRef.current &&
+      session.connectionState === ConnectionState.Disconnected
+    ) {
       autoRejoinTriggeredRef.current = true;
-      handleStart();
+      void handleStart();
     }
-  }, [isLoadingStatus, isRecoverable, isDisconnected, handleStart]);
+  }, [isLoadingStatus, isRoundCompleted, isRecoverable, session.connectionState, handleStart]);
 
-  // isRecovering 决定 WaitingView 是否展示规则与开始按钮：自动续连进行中时只展示「正在恢复连接」。
-  // While auto-rejoining we hide the rules/start buttons and show a recovery hint.
-  const isRecovering = isRecoverable && (isConnecting || autoRejoinTriggeredRef.current);
+  // 用户主动结束面试：先把轮次标 final 落库，再断开 LiveKit。
+  // 立刻同步置 roundStatus=completed 与 autoRejoinTriggeredRef=true，
+  // 避免 await session.end() 触发 Disconnected 时让 auto-rejoin useEffect
+  // 抢先看到 isRecoverable=true（interviewView 还没刷新）误触发恢复流程，
+  // 出现"标题：正在恢复 + 副标题：已结束"这种自相矛盾的中间态。
+  // userEndedRef 让断连 useEffect 跳过 ?mode=interrupt POST，否则会把刚刚
+  // final 的轮次又改回 interrupted。
+  // Sync-flush completed state and latch the auto-rejoin guard *before*
+  // session.end() to prevent the brief "recovering" UI flash. userEndedRef
+  // suppresses the interrupt POST in the disconnect handler.
+  const handleEndInterview = useCallback(async () => {
+    userEndedRef.current = true;
+    setRoundStatus("completed");
+    autoRejoinTriggeredRef.current = true;
+    try {
+      await fetch(`/api/interview/${interviewId}/${roundId}/complete?mode=final`, {
+        keepalive: true,
+        method: "POST",
+      });
+    } catch {
+      // 上报失败不阻断 session.end —— agent 端 grace 超时仍会兜底落 completed。
+      // Report failure must not block teardown; agent's grace timeout finalises.
+    }
+    await session.end();
+  }, [interviewId, roundId, session]);
+
+  // isRecovering 决定 WaitingView 是否展示「正在恢复连接」。已结束态强制 false，
+  // 避免主动结束流程出现「标题：恢复中 / 副标题：已结束」自相矛盾的中间帧。
+  // Force false when the round is completed; otherwise the deliberate-end flow
+  // can render a contradictory "recovering / ended" frame for a tick.
+  const isRecovering =
+    !isRoundCompleted && isRecoverable && (isConnecting || autoRejoinTriggeredRef.current);
 
   if (isDisconnected || isConnecting) {
     const waitingView = (
@@ -462,7 +561,12 @@ export default function InterviewRoom({ interviewId, roundId }: InterviewRoomPro
         onStart={handleStart}
       />
     );
-    if (isRoundCompleted) {
+    // 已结束或正在重连：跳过 PreInterviewFormsView 这层。
+    // 已结束不需要再填表单；重连时表单一般已交完，包一层只会多一次 forms
+    // GET 请求且如果管理员中途新增了全局表单还会卡住"恢复中"提示。
+    // Skip the forms gate when round is finished or in mid-reconnect; otherwise
+    // the wrapper wastes a /forms fetch and could hide the recovery hint.
+    if (isRoundCompleted || isRecovering) {
       return waitingView;
     }
     return (
@@ -489,6 +593,7 @@ export default function InterviewRoom({ interviewId, roundId }: InterviewRoomPro
           onCameraDisableAttempt={() => {
             toast.warning("面试过程中需要保持摄像头录制，请勿关闭摄像头。");
           }}
+          onDisconnect={handleEndInterview}
           preConnectMessage="正在连线面试官，请稍等..."
         />
       </main>

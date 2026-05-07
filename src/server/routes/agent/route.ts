@@ -169,32 +169,56 @@ export const agentRouter = factory
         );
       }
 
-      // 3. Update schedule entry → completed
-      await tx
+      // 3. Update schedule entry → completed.
+      // 加 liveKitRoomName 校验防止"stale agent"覆盖：场景为管理员在 grace
+      // 期间 reset 了一轮（清掉 anchor），候选人重新开始（mint 了新 anchor），
+      // 但旧 grace 超时后 agent shutdown 上报到这里——若不校验会把已被新会话
+      // 占用的 schedule 行写成 completed。conversationId 在 agent 端 ===
+      // ctx.room.name === schedule.liveKitRoomName，只接受当前 anchor 匹配的写。
+      // Guard against stale agent reports overwriting a freshly reset round:
+      // require schedule.liveKitRoomName === conversationId. Mismatch means
+      // this report is from a previous lifecycle and must not cascade.
+      const updatedSchedule = await tx
         .update(studioInterviewSchedule)
         .set({
           conversationId: data.conversationId,
           status: "completed" as const,
           updatedAt: now,
         })
-        .where(eq(studioInterviewSchedule.id, data.scheduleEntryId));
-
-      // 4. If all rounds completed → interview completed
-      const pendingRounds = await tx
-        .select({ id: studioInterviewSchedule.id })
-        .from(studioInterviewSchedule)
         .where(
           and(
-            eq(studioInterviewSchedule.interviewRecordId, data.interviewRecordId),
-            ne(studioInterviewSchedule.status, "completed"),
+            eq(studioInterviewSchedule.id, data.scheduleEntryId),
+            eq(studioInterviewSchedule.liveKitRoomName, data.conversationId),
           ),
-        );
+        )
+        .returning({ id: studioInterviewSchedule.id });
 
-      if (pendingRounds.length === 0) {
-        await tx
-          .update(studioInterview)
-          .set({ status: "completed" as const, updatedAt: now })
-          .where(eq(studioInterview.id, data.interviewRecordId));
+      const cascaded = updatedSchedule.length > 0;
+
+      // 4. If all rounds completed → interview completed.
+      //    跳过级联当 schedule 不匹配（被 reset / 被新会话接管），避免误把
+      //    studioInterview 整体置 completed。transcript（interviewConversation）
+      //    照常落库，后续可以人工核对。
+      //    Skip cascading when the schedule update was rejected (round reset
+      //    or taken over by a newer session). Transcript still lands on the
+      //    interview_conversation row and remains auditable.
+      if (cascaded) {
+        const pendingRounds = await tx
+          .select({ id: studioInterviewSchedule.id })
+          .from(studioInterviewSchedule)
+          .where(
+            and(
+              eq(studioInterviewSchedule.interviewRecordId, data.interviewRecordId),
+              ne(studioInterviewSchedule.status, "completed"),
+            ),
+          );
+
+        if (pendingRounds.length === 0) {
+          await tx
+            .update(studioInterview)
+            .set({ status: "completed" as const, updatedAt: now })
+            .where(eq(studioInterview.id, data.interviewRecordId));
+        }
       }
 
       // 5. Audit

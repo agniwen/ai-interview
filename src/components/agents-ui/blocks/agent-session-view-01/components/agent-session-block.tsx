@@ -170,6 +170,16 @@ export interface AgentSessionView_01Props {
    * 候选人尝试关闭摄像头时的回调；提供时关闭动作被拦截，仅触发回调（用于提示）。
    */
   onCameraDisableAttempt?: () => void;
+  /**
+   * 候选人点"结束面试"确认后的回调；提供时覆盖默认的 session.end()，调用方
+   * 负责自行结束 LiveKit 房间。用于在断开前先标记轮次为最终完成，区别于
+   * 网络断连导致的被动 Disconnected。
+   * Override the default session.end() invoked when the candidate confirms
+   * "End interview". Caller is responsible for tearing down the room (typically
+   * after marking the round as finally completed server-side), distinguishing
+   * an intentional end from a transient network disconnect.
+   */
+  onDisconnect?: () => void | Promise<void>;
 }
 
 export function AgentSessionView_01({
@@ -191,6 +201,7 @@ export function AgentSessionView_01({
   defaultChatOpen = false,
   chatInputEnabled = true,
   onCameraDisableAttempt,
+  onDisconnect,
   ref,
   className,
   ...props
@@ -290,7 +301,7 @@ export function AgentSessionView_01({
             isChatOpen={chatOpen}
             chatInputEnabled={chatInputEnabled}
             isConnected={session.isConnected}
-            onDisconnect={session.end}
+            onDisconnect={onDisconnect ?? session.end}
             onIsChatOpenChange={setChatOpen}
             onCameraDisableAttempt={onCameraDisableAttempt}
           />

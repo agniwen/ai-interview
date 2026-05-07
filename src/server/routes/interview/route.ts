@@ -203,7 +203,6 @@ export const interviewRouter = factory
           participantIdentity: string;
           isReconnect: boolean;
         }
-      | { status: "session_active" }
       | { status: "grace_expired" }
       | { status: "round_completed" };
 
@@ -235,10 +234,8 @@ export const interviewRouter = factory
         return { status: "round_completed" };
       }
 
-      if (row.status === "in_progress" && !row.disconnectedAt) {
-        return { status: "session_active" };
-      }
-
+      // interrupted 已过期：写 completed + 清 anchor 后返 410。
+      // Expired grace: persist completed and clear anchors before 410.
       if (row.status === "interrupted" && row.disconnectedAt) {
         const elapsed = now.getTime() - new Date(row.disconnectedAt).getTime();
         if (elapsed > RECONNECT_GRACE_MS) {
@@ -256,19 +253,17 @@ export const interviewRouter = factory
         }
       }
 
-      // 复用：interrupted 在窗口内，或 in_progress 且 disconnectedAt 非空（边缘）。
-      // Reuse path: interrupted-in-window OR in_progress with disconnectedAt set.
+      // 复用现有 anchor，幂等：in_progress 与 interrupted-in-window 都走这里。
+      // useSession() 在 mount 时会先调一次 prepareConnection 拿 token 预热，
+      // 之后用户 session.start() 又调一次。如果这里写 status / disconnectedAt
+      // 第二次调用会因为状态已变被拒，所以保持只读。
+      // Reuse existing anchors as a pure read (idempotent path); applies to
+      // in_progress and interrupted-in-window. useSession's mount-time
+      // prepareConnection fetches once, then session.start() fetches again;
+      // if we mutated state on the first call, the second would be rejected.
       if (row.liveKitRoomName && row.liveKitParticipantIdentity) {
-        await tx
-          .update(studioInterviewSchedule)
-          .set({
-            disconnectedAt: null,
-            status: "in_progress" as const,
-            updatedAt: now,
-          })
-          .where(eq(studioInterviewSchedule.id, roundId));
         return {
-          isReconnect: true,
+          isReconnect: row.status === "interrupted",
           participantIdentity: row.liveKitParticipantIdentity,
           roomName: row.liveKitRoomName,
           status: "ready",
@@ -300,13 +295,6 @@ export const interviewRouter = factory
 
     if (resolution.status === "round_completed") {
       return c.json({ error: "当前面试轮次已结束，如需重新面试请联系管理员。" }, 403);
-    }
-
-    if (resolution.status === "session_active") {
-      return c.json(
-        { code: "session_active", error: "面试已在另一个窗口进行中，请回到原窗口继续。" },
-        409,
-      );
     }
 
     if (resolution.status === "grace_expired") {
@@ -573,11 +561,17 @@ export const interviewRouter = factory
     }
 
     if (mode === "interrupt") {
-      // 仅当当前是 in_progress 且尚未记录断开时间，才标记 interrupted；
-      // 重复 beacon / 多 tab 触发不会刷新 disconnectedAt，3 分钟从首次断开起算。
-      // Only flip in_progress + null disconnectedAt → interrupted; repeat
-      // beacons must NOT refresh disconnectedAt (grace measured from first drop).
-      if (entry.status === "in_progress" && !entry.disconnectedAt) {
+      // 每次断连都覆盖 disconnectedAt = now，让 3 分钟宽限窗口与 agent 端的
+      // grace 计时器（每次 participant_disconnected 重启）保持同步。
+      // 之前"只在首次写"的策略会让多次断连时两端窗口错位 —— 例如用户首次断
+      // 30 秒后重连，又过 60 秒再次断开，agent 重启 grace 等 180 秒，但 web
+      // 仍按首次断的时间算（剩余 90 秒）就会过早判 410。
+      // pending 没有 anchor 不能重连，忽略；completed 已结束，忽略。
+      // Always overwrite disconnectedAt = now on every drop so the web grace
+      // window stays in lockstep with agent's grace timer (which restarts on
+      // each participant_disconnected). The earlier "first-drop only" rule
+      // caused the two windows to drift apart on multiple reconnects.
+      if (entry.status === "in_progress" || entry.status === "interrupted") {
         await db
           .update(studioInterviewSchedule)
           .set({

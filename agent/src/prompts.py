@@ -4,6 +4,20 @@ import random
 # TS backend (src/server/services/interview-report.ts) so the LLM call can run
 # fire-and-forget in the Node process after the agent shutdown completes.
 
+# 难度追问规则: 在两个题目板块顶部各重复一次, 让模型每次看到题目都被强提醒一遍.
+# 实测较小的 LLM (Qwen-turbo) 把规则放在 prompt 中段时容易忽略, 把它紧贴题目能显著降低偏离.
+# 必须与 src/lib/interview/agent-instructions.ts 中的 DIFFICULTY_FOLLOWUP_RULES 保持一致.
+# Followup-rule block repeated above each question section. Smaller LLMs tend to
+# ignore mid-prompt rules, but co-locating with the questions reinforces them.
+# Keep in sync with DIFFICULTY_FOLLOWUP_RULES in agent-instructions.ts.
+DIFFICULTY_FOLLOWUP_RULES = (
+    "**追问规则（必须严格执行, 不得忽略, 不得放宽）**:\n"
+    "- [easy] 题: 候选人作出任何回答即视为完成本题, 无论答案是否正确、是否切题、是否完整, "
+    "都不追问、不纠错、不补充提示, 直接进入下一题.\n"
+    "- [medium] 题: 仅可针对关键细节追问一次, 不再展开第二轮追问.\n"
+    "- [hard] 题: 由你自行评估是否追问以及追问的深度与轮数, 可视回答质量进行多轮深挖."
+)
+
 
 def pick_interviewer(interview_context: dict) -> dict:
     """Pick one interviewer at random from the JD's configured interviewers.
@@ -108,22 +122,25 @@ def build_instructions(interview_context: dict, interviewer: dict | None = None)
 - 工作经历：{experience_text}
 
 ## 岗位预设题（必问）
-以下题目必须按顺序全部向候选人提问，一道都不能漏。题前方括号中的难度标记（[easy]/[medium]/[hard]）仅供你内部参考，提问时不要念出来：
-{preset_questions_text}
+以下题目必须按顺序全部向候选人提问，一道都不能漏。题前方括号中的难度标记（[easy]/[medium]/[hard]）仅供你内部参考，提问时不要念出来。
+
+{DIFFICULTY_FOLLOWUP_RULES}
+
+题目列表：{preset_questions_text}
 
 ## 补充题目（从简历生成）
 在问完所有岗位预设题之后，从以下题目中再随机抽取三到五道，由简入深地继续提问。难度标记规则与上方一致，仅供内部参考。
-抽题时请进行考查点去重：若某道补充题目与岗位预设题的考查点重复（例如同一项技术、同一段工作经历、同一类能力或同一类问题情境），则跳过该题，改从未被覆盖的考查点中另选，避免重复提问：
-{supplementary_questions_text}
+抽题时请进行考查点去重：若某道补充题目与岗位预设题的考查点重复（例如同一项技术、同一段工作经历、同一类能力或同一类问题情境），则跳过该题，改从未被覆盖的考查点中另选，避免重复提问。
+
+{DIFFICULTY_FOLLOWUP_RULES}
+
+题目列表：{supplementary_questions_text}
 
 ## 面试规则
 1. 开场流程：完成自我介绍后，必须先用自然口语询问候选人"准备好了吗"，并等候选人明确表示已准备好（例如"好""准备好了""可以开始"）后，再开始第一道题。若候选人表示还需要片刻或暂未准备好，请礼貌等候并稍后再次确认；在收到肯定答复前，不要提出任何面试题。
 2. 面试时长目标在 20 分钟左右（可略超几分钟以体面收尾），合理分配每道题的时间；但无论如何岗位预设题都必须全部问完。临近时间上限时，请优先确保流程体面：宁愿少追问一两个细节，也要给候选人留出回答和告别的时间。
 3. 每次只问一个问题，等候选人回答完毕后再进行下一题。候选人不可跳过题目，如果跳过题目则该题视为0分。
-4. 追问规则按题目难度执行（适用于岗位预设题与补充题目）：
-   - [easy] 题：候选人作出任何回答即视为完成本题，无论答案是否正确、是否切题、是否完整，都不追问、不纠错、不补充提示，直接进入下一题。
-   - [medium] 题：仅可针对关键细节追问一次，不再展开第二轮追问。
-   - [hard] 题：由你自行评估是否追问以及追问的深度与轮数，可视回答质量进行多轮深挖。
+4. 追问规则严格按题目难度执行，已写在每个题目板块顶部，请逐题对照执行；不得放宽 [easy] 题"不追问"的限制，也不得超过 [medium] 题"仅一次追问"的上限。
 5. 候选人的回答可能包含环境音或不标准的表述，不必太严苛。
 6. 语言简洁专业，不使用 emoji 或特殊符号。
 7. 全程使用中文交流。
