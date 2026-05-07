@@ -18,6 +18,10 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
 ENV NEXT_TELEMETRY_DISABLED=1
+# pnpm 11 在运行脚本前会重新校验依赖并隐式触发 install，
+# 进而执行 prepare 脚本 (lefthook install)，需要 git。
+# 依赖已在 deps 阶段装好，这里关掉校验避免触发。
+ENV npm_config_verify_deps_before_run=false
 RUN pnpm build
 
 # --- Production ---
