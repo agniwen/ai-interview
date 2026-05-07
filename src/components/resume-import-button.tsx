@@ -364,7 +364,9 @@ export function ResumeImportButton({
       saveForm.append("status", "ready");
       saveForm.append(
         "scheduleEntries",
-        JSON.stringify([{ notes: "", roundLabel: "一面", scheduledAt: "", sortOrder: 0 }]),
+        JSON.stringify([
+          { allowTextInput: false, notes: "", roundLabel: "一面", scheduledAt: "", sortOrder: 0 },
+        ]),
       );
       saveForm.append("jobDescriptionId", jobDescriptionId);
       saveForm.append("resume", file);
