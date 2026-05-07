@@ -320,13 +320,23 @@ export const studioInterviewSchedule = pgTable(
     allowTextInput: boolean("allow_text_input").notNull().default(false),
     conversationId: text("conversation_id"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
+    // 热重连锚点：轮次首次开始时持久化 LiveKit 房间名、参与者 identity、
+    // 会话起始时间。断连超过 LiveKit 自动重连窗口时记录 disconnectedAt，
+    // 给候选人 3 分钟内回到同一房间继续对话。
+    // Hot-reconnect anchor columns: persist the LiveKit room/identity and
+    // session start so a candidate can rejoin the same room within 3 minutes
+    // after a hard disconnect.
+    disconnectedAt: timestamp("disconnected_at"),
     id: text("id").primaryKey(),
     interviewRecordId: text("interview_record_id")
       .notNull()
       .references(() => studioInterview.id, { onDelete: "cascade" }),
+    liveKitParticipantIdentity: text("livekit_participant_identity"),
+    liveKitRoomName: text("livekit_room_name"),
     notes: text("notes"),
     roundLabel: text("round_label").notNull(),
     scheduledAt: timestamp("scheduled_at"),
+    sessionStartedAt: timestamp("session_started_at"),
     sortOrder: integer("sort_order").notNull(),
     status: text("status").$type<ScheduleEntryStatus>().notNull().default("pending"),
     updatedAt: timestamp("updated_at")

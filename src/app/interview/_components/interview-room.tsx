@@ -92,6 +92,28 @@ function buildSubheading({
   return prefix ? `${prefix} · ${countText}${trailing}` : `${countText}${trailing}`;
 }
 
+function resolveSubheading({
+  isRoundCompleted,
+  isRecovering,
+  questionCount,
+  roundLabel,
+  targetRole,
+}: {
+  isRoundCompleted: boolean;
+  isRecovering: boolean;
+  questionCount: number;
+  roundLabel: string | null;
+  targetRole: string | null;
+}) {
+  if (isRoundCompleted) {
+    return "本轮面试已结束，如需重新面试请联系管理员。";
+  }
+  if (isRecovering) {
+    return "正在为你重新接入刚才的对话，请稍候...";
+  }
+  return buildSubheading({ questionCount, roundLabel, targetRole });
+}
+
 function RuleItem({
   icon: Icon,
   title,
@@ -117,12 +139,16 @@ function WaitingView({
   isConnecting,
   isLoadingStatus,
   isRoundCompleted,
+  isRecovering,
   onStart,
 }: {
   interviewView: CandidateInterviewView | null;
   isConnecting: boolean;
   isLoadingStatus: boolean;
   isRoundCompleted: boolean;
+  // 重连恢复中：跳过 RuleItem 与开始按钮，仅展示「正在恢复连接」骨架。
+  // Recovery mode: hide rules + start buttons, show only a "reconnecting" hint.
+  isRecovering: boolean;
   onStart: (options?: { muted?: boolean }) => void;
 }) {
   const candidateName = interviewView?.candidateName ?? "";
@@ -130,6 +156,14 @@ function WaitingView({
   const roundLabel = interviewView?.currentRoundLabel ?? null;
   const questionCount = interviewView?.interviewQuestions?.length ?? 0;
   const startDisabled = isConnecting || isLoadingStatus;
+  const showRulesAndButtons = !isRoundCompleted && !isRecovering;
+  const subheadingText = resolveSubheading({
+    isRecovering,
+    isRoundCompleted,
+    questionCount,
+    roundLabel,
+    targetRole,
+  });
   const primaryLabel = resolveStartButtonLabel({
     isConnecting,
     isLoadingStatus,
@@ -156,20 +190,12 @@ function WaitingView({
         <div className="mx-auto flex w-full max-w-2xl flex-col px-5 pt-12  sm:px-2 sm:pt-20 md:pt-16">
           <section>
             <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
-              {resolveTitle(isRoundCompleted, candidateName)}
+              {isRecovering ? "正在恢复面试连接" : resolveTitle(isRoundCompleted, candidateName)}
             </h1>
-            {isRoundCompleted ? (
-              <p className="mt-2 text-muted-foreground text-sm sm:text-base">
-                本轮面试已结束，如需重新面试请联系管理员。
-              </p>
-            ) : (
-              <p className="mt-2 text-muted-foreground text-sm sm:text-base">
-                {buildSubheading({ questionCount, roundLabel, targetRole })}
-              </p>
-            )}
+            <p className="mt-2 text-muted-foreground text-sm sm:text-base">{subheadingText}</p>
           </section>
 
-          {!isRoundCompleted && (
+          {showRulesAndButtons && (
             <section className="mt-10 sm:mt-14">
               <h2 className="mb-4 font-medium text-muted-foreground text-sm sm:mb-5">
                 开始前，请留意
@@ -196,15 +222,15 @@ function WaitingView({
                   title="保持摄像头录制"
                 />
                 <RuleItem
-                  description="面试一旦开始，请勿刷新页面、关闭标签页或切换到其他应用。中断后本轮面试将立即结束，无法重新进入。"
+                  description="尽量不要刷新页面或关闭标签页。如遇网络中断，请在 3 分钟内回到本页面，可继续之前的对话；超过 3 分钟本轮将自动结束。"
                   icon={TriangleAlertIcon}
-                  title="中途请勿刷新或离开"
+                  title="保持稳定连接"
                 />
               </ul>
             </section>
           )}
 
-          {!isRoundCompleted && (
+          {showRulesAndButtons && (
             <div className="mt-10 hidden items-center gap-3 sm:mt-12 md:flex">
               <Button
                 className="h-11 flex-1 gap-2"
@@ -229,7 +255,7 @@ function WaitingView({
           )}
         </div>
 
-        {!isRoundCompleted && (
+        {showRulesAndButtons && (
           <div className="fixed inset-x-0 bottom-0 z-10 border-border/60 border-t bg-background/90 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur md:hidden">
             <div className="mx-auto flex w-full max-w-md items-center gap-3">
               <Button
@@ -293,10 +319,17 @@ export default function InterviewRoom({ interviewId, roundId }: InterviewRoomPro
   }, [interviewId, roundId]);
 
   const isRoundCompleted = roundStatus === "completed";
+  // 服务端基于 disconnectedAt + 3 分钟宽限期算出，仅在 interrupted 且窗口内非空。
+  // Server-derived rejoin deadline; non-null only while interrupted within grace.
+  const recoverableUntil = interviewView?.currentRoundRecoverableUntil ?? null;
+  const isRecoverable =
+    roundStatus === "interrupted" &&
+    recoverableUntil !== null &&
+    new Date(recoverableUntil).getTime() > Date.now();
 
-  // Custom token source so that a 403 from the livekit-token endpoint
-  // (round already completed) can flip the page into the completed state
-  // instead of letting the LiveKit session silently fail.
+  // Custom token source so that token-endpoint errors (403/409/410) can flip
+  // the page into the appropriate state instead of letting the LiveKit
+  // session silently fail.
   const tokenSource = useMemo(
     () =>
       TokenSource.custom(async () => {
@@ -305,14 +338,23 @@ export default function InterviewRoom({ interviewId, roundId }: InterviewRoomPro
         });
 
         if (!response.ok) {
-          if (response.status === 403) {
+          const body = (await response.json().catch(() => null)) as {
+            code?: string;
+            error?: string;
+          } | null;
+          // 403: 轮次已结束；410: 重连超过 3 分钟宽限。两者最终都置 completed。
+          // 409: 另一窗口/设备占用，留在 WaitingView 由 toast 引导用户。
+          // 403/410 → completed; 409 → toast and stay in WaitingView.
+          if (response.status === 403 || response.status === 410) {
             setRoundStatus("completed");
+          } else if (response.status === 409) {
+            toast.error(body?.error ?? "面试已在另一个窗口进行中。");
           }
-          const body = (await response.json().catch(() => null)) as { error?: string } | null;
           throw new Error(body?.error ?? `livekit-token 请求失败（${response.status}）`);
         }
 
         return (await response.json()) as {
+          isReconnect?: boolean;
           participantName: string;
           participantToken: string;
           roomName: string;
@@ -329,7 +371,11 @@ export default function InterviewRoom({ interviewId, roundId }: InterviewRoomPro
   const isConnecting = session.connectionState === ConnectionState.Connecting;
   const wasConnectedRef = useRef(false);
 
-  // Track if session was ever connected; mark round completed on disconnect
+  // 监听硬断连：进入 interrupted 状态而非立刻 completed，
+  // 让候选人有 3 分钟宽限回到本页面继续面试。
+  // Hard disconnect → mark interrupted (not completed) so the candidate has
+  // a 3-minute window to rejoin. Authoritative completion comes from
+  // /api/agent/report after the agent's grace timer fires.
   useEffect(() => {
     if (session.connectionState === ConnectionState.Connected) {
       wasConnectedRef.current = true;
@@ -338,20 +384,29 @@ export default function InterviewRoom({ interviewId, roundId }: InterviewRoomPro
       wasConnectedRef.current
     ) {
       wasConnectedRef.current = false;
-      // eslint-disable-next-line react-hooks-extra/no-direct-set-state-in-use-effect
-      void setRoundStatus("completed");
-      // Soft "user left the session" signal. The authoritative completion
-      // (schedule/interview status + transcript) is written by the agent
-      // calling /api/agent/report. keepalive ensures this fetch isn't
-      // cancelled when the user closes the tab.
-      void fetch(`/api/interview/${interviewId}/${roundId}/complete`, {
+      void fetch(`/api/interview/${interviewId}/${roundId}/complete?mode=interrupt`, {
         keepalive: true,
         method: "POST",
       });
     }
   }, [session.connectionState, interviewId, roundId]);
 
+  // beforeunload 兜底信号：用户关闭/刷新标签页时通过 sendBeacon 提前通知后端
+  // 进入 interrupted，避免依赖 LiveKit 才发现断开导致延迟。两条路径幂等。
+  // Belt-and-suspenders beacon for tab close/refresh, idempotent with the
+  // disconnect handler above.
+  useEffect(() => {
+    const onBeforeUnload = () => {
+      navigator.sendBeacon(`/api/interview/${interviewId}/${roundId}/complete?mode=interrupt`);
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [interviewId, roundId]);
+
   const [startedMuted, setStartedMuted] = useState(false);
+  // 自动续连只触发一次：避免 connectionState 变化或 fetchStatus 重跑时反复 session.start。
+  // Latch the auto-rejoin so it fires at most once per page load.
+  const autoRejoinTriggeredRef = useRef(false);
 
   const handleStart = useCallback(
     (options?: { muted?: boolean }) => {
@@ -382,12 +437,27 @@ export default function InterviewRoom({ interviewId, roundId }: InterviewRoomPro
     [session],
   );
 
+  // 刷新返回 + 仍在 3 分钟宽限期：跳过 RuleItem 自动 handleStart 续连。
+  // On page reload during the grace window, auto-trigger handleStart so the
+  // candidate lands directly back into the same room.
+  useEffect(() => {
+    if (!isLoadingStatus && isRecoverable && !autoRejoinTriggeredRef.current && isDisconnected) {
+      autoRejoinTriggeredRef.current = true;
+      handleStart();
+    }
+  }, [isLoadingStatus, isRecoverable, isDisconnected, handleStart]);
+
+  // isRecovering 决定 WaitingView 是否展示规则与开始按钮：自动续连进行中时只展示「正在恢复连接」。
+  // While auto-rejoining we hide the rules/start buttons and show a recovery hint.
+  const isRecovering = isRecoverable && (isConnecting || autoRejoinTriggeredRef.current);
+
   if (isDisconnected || isConnecting) {
     const waitingView = (
       <WaitingView
         interviewView={interviewView}
         isConnecting={isConnecting}
         isLoadingStatus={isLoadingStatus}
+        isRecovering={isRecovering}
         isRoundCompleted={isRoundCompleted}
         onStart={handleStart}
       />

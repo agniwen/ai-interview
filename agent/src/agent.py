@@ -143,6 +143,9 @@ async def my_agent(ctx: JobContext):
     collected_turns: list[dict] = []
     session_start_time = time.time()
     timeout_task: asyncio.Task | None = None
+    # 热重连宽限期任务: 候选人断连后等候同 identity 在 3 分钟内重连.
+    # Hot-reconnect grace task: wait up to 3 min for the same identity to rejoin.
+    grace_task: asyncio.Task | None = None
 
     @session.on("conversation_item_added")
     def _on_conversation_item(event):
@@ -184,6 +187,10 @@ async def my_agent(ctx: JobContext):
         )
         if timeout_task is not None and not timeout_task.done():
             timeout_task.cancel()
+        # 防止 grace 任务在 session 已关闭后仍跑完触发重复 aclose。
+        # Prevent the grace task from running after the session is already closed.
+        if grace_task is not None and not grace_task.done():
+            grace_task.cancel()
 
     # Use shutdown callback to guarantee report is sent before process exits.
     # Unlike the close event handler, shutdown callbacks are awaited by the
@@ -311,28 +318,70 @@ async def my_agent(ctx: JobContext):
 
     timeout_task = asyncio.create_task(_enforce_time_limit())
 
-    # Without this, when the candidate closes the tab / hangs up, the agent
-    # may linger in the empty room until some framework-level timeout, and
-    # the JobContext shutdown callback (which POSTs the transcript to
-    # /api/agent/report) won't run promptly — causing the interview report
-    # to never be backfilled. Closing the session here forces the shutdown
-    # path so the report is sent.
+    # 热重连: 候选人断连不再立即 aclose, 启动 3 分钟宽限计时器, 等同 identity
+    # 重新加入则取消计时、继续对话; 否则计时到时再走 aclose -> shutdown 回调
+    # -> /api/agent/report, 把转写落库并把轮次置为 completed.
+    # Hot reconnect: do NOT immediately aclose on participant disconnect.
+    # Start a 3-min grace timer; if the same identity rejoins within the
+    # window, cancel the timer and resume. Otherwise fire aclose so the
+    # existing shutdown -> /api/agent/report path runs and finalises the round.
     candidate_identity = participant.identity
     close_task: asyncio.Task | None = None
+    grace_seconds = 180
+
+    async def _grace_finalize():
+        try:
+            await asyncio.sleep(grace_seconds)
+            logger.info(
+                "hot-reconnect grace expired for %s; closing session",
+                candidate_identity,
+            )
+            await session.aclose()
+        except asyncio.CancelledError:
+            pass
 
     def _on_participant_disconnected(p: rtc.RemoteParticipant):
-        nonlocal close_task
+        nonlocal grace_task
         if p.identity != candidate_identity or close_task is not None:
             return
+        if grace_task is not None and not grace_task.done():
+            return
         logger.info(
-            "candidate %s disconnected; closing session to flush report",
+            "candidate %s disconnected; %ds hot-reconnect grace started",
             p.identity,
+            grace_seconds,
         )
-        if timeout_task is not None and not timeout_task.done():
-            timeout_task.cancel()
-        close_task = asyncio.create_task(session.aclose())
+        # 立即打断进行中的 TTS, 避免对空房间继续讲话; STT 无输入即无新 LLM 调用.
+        # Interrupt any ongoing TTS so we don't speak to an empty room.
+        try:
+            session.interrupt()
+        except Exception:
+            logger.exception("session.interrupt() during grace start failed")
+        grace_task = asyncio.create_task(_grace_finalize())
+
+    def _on_participant_connected(p: rtc.RemoteParticipant):
+        nonlocal grace_task
+        if p.identity != candidate_identity or grace_task is None:
+            return
+        logger.info("candidate %s reconnected; cancelling grace", p.identity)
+        grace_task.cancel()
+        grace_task = None
+        # 简短致意并从断点继续, 不重新自我介绍也不重复完整问题.
+        # Brief re-acknowledgement and continue from the prior question.
+        try:
+            session.generate_reply(
+                instructions=(
+                    "候选人刚才因网络问题短暂离线，现已重新连入。"
+                    "请用一句话致意（例如『欢迎回来，我们继续』），"
+                    "然后从你之前提的最后一个问题继续，不要重复完整问题，"
+                    "也不要再做自我介绍。"
+                )
+            )
+        except Exception:
+            logger.exception("re-greeting after reconnect failed")
 
     ctx.room.on("participant_disconnected", _on_participant_disconnected)
+    ctx.room.on("participant_connected", _on_participant_connected)
 
     await ctx.connect()
 

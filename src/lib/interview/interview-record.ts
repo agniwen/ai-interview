@@ -1,5 +1,6 @@
 import type { InterviewQuestion, ResumeProfile } from "@/lib/interview/types";
 import type { ScheduleEntryStatus } from "@/lib/studio-interviews";
+import { RECONNECT_GRACE_MS } from "@/lib/studio-interviews";
 
 /**
  * 单轮面试安排记录（来自数据库 schedule_entries 表的视图）。
@@ -17,6 +18,12 @@ export interface InterviewScheduleEntry {
   allowTextInput: boolean;
   createdAt: string | Date;
   updatedAt: string | Date;
+  // 热重连相关字段（首次开始时填充，断连后用于续连判定）。
+  // Hot-reconnect anchor fields populated on first start.
+  liveKitRoomName: string | null;
+  liveKitParticipantIdentity: string | null;
+  sessionStartedAt: string | Date | null;
+  disconnectedAt: string | Date | null;
 }
 
 /**
@@ -35,6 +42,10 @@ export interface CandidateInterviewView {
   currentRoundStatus: ScheduleEntryStatus | null;
   currentRoundTime: string | Date | null;
   currentRoundAllowTextInput: boolean;
+  // 当轮次处于 interrupted 且 disconnectedAt + 宽限期 > 现在时，给出可续连的截止时间 ISO 字符串。
+  // ISO timestamp of the latest moment the candidate may rejoin; non-null only
+  // while the round is "interrupted" within the 3-minute grace window.
+  currentRoundRecoverableUntil: string | null;
 }
 
 /**
@@ -63,10 +74,14 @@ export function pickCurrentScheduleEntry<
 >(entries: T[]) {
   const sorted = sortScheduleEntries(entries);
 
-  // Pick first pending or in_progress round (by sortOrder).
-  // 取按顺序排在最前的 pending / in_progress 轮次。
+  // Pick first pending / in_progress / interrupted round (by sortOrder).
+  // interrupted 表示候选人临时断连仍可在 3 分钟宽限期内回归，视为活跃轮次。
+  // "interrupted" still counts as the active round during the grace window.
   const activeEntry = sorted.find(
-    (entry) => entry.status === "pending" || entry.status === "in_progress",
+    (entry) =>
+      entry.status === "pending" ||
+      entry.status === "in_progress" ||
+      entry.status === "interrupted",
   );
 
   if (activeEntry) {
@@ -76,6 +91,24 @@ export function pickCurrentScheduleEntry<
   // All rounds are completed — return the last completed round.
   // 所有轮次都已完成时，返回最后一轮作为兜底。
   return sorted.at(-1) ?? null;
+}
+
+// 仅当 interrupted 且 disconnectedAt + 宽限期 仍在未来时，返回可续连截止 ISO 串。
+// Returns the rejoin deadline ISO string only while the entry is "interrupted"
+// AND disconnectedAt + grace > now; otherwise null.
+function computeRecoverableUntil(entry: InterviewScheduleEntry | null): string | null {
+  if (!entry || entry.status !== "interrupted" || !entry.disconnectedAt) {
+    return null;
+  }
+  const disconnectedAtMs = new Date(entry.disconnectedAt).getTime();
+  if (Number.isNaN(disconnectedAtMs)) {
+    return null;
+  }
+  const deadlineMs = disconnectedAtMs + RECONNECT_GRACE_MS;
+  if (deadlineMs <= Date.now()) {
+    return null;
+  }
+  return new Date(deadlineMs).toISOString();
 }
 
 /**
@@ -102,6 +135,7 @@ export function buildCandidateInterviewView(
     currentRoundAllowTextInput: currentEntry?.allowTextInput ?? false,
     currentRoundId: currentEntry?.id ?? null,
     currentRoundLabel: currentEntry?.roundLabel ?? null,
+    currentRoundRecoverableUntil: computeRecoverableUntil(currentEntry),
     currentRoundStatus: (currentEntry?.status as ScheduleEntryStatus) ?? null,
     currentRoundTime: currentEntry?.scheduledAt ?? null,
     id: record.id,

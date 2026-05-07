@@ -161,6 +161,39 @@ export async function storeInterviewResume(
   }
 }
 
+// 单行构造拆分：避免上层 map 函数的圈复杂度过高，并方便在 PATCH 编辑时
+// 透传 conversationId、热重连锚点等已存在字段。
+// Single-row builder, kept separate so callers stay under complexity limits
+// and so existing fields (conversationId, hot-reconnect anchors) carry through.
+// oxlint-disable-next-line complexity -- Pure data-shape mapping with many nullable carry-overs from the existing row.
+function buildSingleScheduleRow(
+  entry: ReturnType<typeof parseScheduleEntriesInput>[number],
+  index: number,
+  interviewRecordId: string,
+  now: Date,
+  existingMap: Map<string, StudioInterviewScheduleRow>,
+) {
+  const existing = entry.id ? existingMap.get(entry.id.trim()) : undefined;
+
+  return {
+    allowTextInput: entry.allowTextInput ?? false,
+    conversationId: existing?.conversationId ?? null,
+    createdAt: existing?.createdAt ?? now,
+    disconnectedAt: existing?.disconnectedAt ?? null,
+    id: entry.id?.trim() || crypto.randomUUID(),
+    interviewRecordId,
+    liveKitParticipantIdentity: existing?.liveKitParticipantIdentity ?? null,
+    liveKitRoomName: existing?.liveKitRoomName ?? null,
+    notes: entry.notes?.trim() || null,
+    roundLabel: entry.roundLabel.trim(),
+    scheduledAt: entry.scheduledAt ? new Date(entry.scheduledAt) : null,
+    sessionStartedAt: existing?.sessionStartedAt ?? null,
+    sortOrder: typeof entry.sortOrder === "number" ? entry.sortOrder : index,
+    status: existing?.status ?? ("pending" as const),
+    updatedAt: now,
+  };
+}
+
 export function buildScheduleRows(
   interviewRecordId: string,
   entries: ReturnType<typeof parseScheduleEntriesInput>,
@@ -169,23 +202,9 @@ export function buildScheduleRows(
 ) {
   const existingMap = new Map((existingRows ?? []).map((row) => [row.id, row]));
 
-  return entries.map((entry, index) => {
-    const existing = entry.id ? existingMap.get(entry.id.trim()) : undefined;
-
-    return {
-      allowTextInput: entry.allowTextInput ?? false,
-      conversationId: existing?.conversationId ?? null,
-      createdAt: existing?.createdAt ?? now,
-      id: entry.id?.trim() || crypto.randomUUID(),
-      interviewRecordId,
-      notes: entry.notes?.trim() || null,
-      roundLabel: entry.roundLabel.trim(),
-      scheduledAt: entry.scheduledAt ? new Date(entry.scheduledAt) : null,
-      sortOrder: typeof entry.sortOrder === "number" ? entry.sortOrder : index,
-      status: existing?.status ?? ("pending" as const),
-      updatedAt: now,
-    };
-  });
+  return entries.map((entry, index) =>
+    buildSingleScheduleRow(entry, index, interviewRecordId, now, existingMap),
+  );
 }
 
 export function loadScheduleEntries(interviewIds: string[]): Promise<StudioInterviewScheduleRow[]> {

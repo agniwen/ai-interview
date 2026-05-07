@@ -24,6 +24,7 @@ import {
 import {
   parseResumePayloadInput,
   parseScheduleEntriesInput,
+  RECONNECT_GRACE_MS,
   studioInterviewFormSchema,
   studioInterviewUpdateSchema,
   toNullableString,
@@ -149,6 +150,7 @@ export const interviewRouter = factory
       },
     });
   })
+  // oxlint-disable-next-line complexity -- Token issuance composes auth, form gate, and the hot-reconnect state machine in one flow.
   .post("/:id/:roundId/livekit-token", async (c) => {
     const id = c.req.param("id");
     const roundId = c.req.param("roundId");
@@ -184,9 +186,134 @@ export const interviewRouter = factory
       return c.json(buildTokenErrorResponse(), 500);
     }
 
-    const roomName = `interview_${id}_${roundId}_${Math.floor(Math.random() * 10_000)}`;
+    // 热重连：在事务里加行锁后判定状态机；
+    //   pending → 生成新 roomName/identity 并写库；
+    //   interrupted 在 3 分钟内 → 复用持久化的 roomName/identity；
+    //   interrupted 已过期 → 同事务置 completed 并返回 410；
+    //   in_progress 且 disconnectedAt 为空 → 视为占用中，返回 409；
+    // 用 FOR UPDATE 防止两个 tab/设备并发竞争同一轮次。
+    // Hot-reconnect: a SELECT … FOR UPDATE state-machine inside a transaction.
+    // pending → mint and persist new roomName/identity; interrupted-in-window →
+    // reuse the persisted ones; interrupted-expired → flip to completed + 410;
+    // in_progress with disconnectedAt null → 409 (taken by another tab/device).
+    type TokenResolution =
+      | {
+          status: "ready";
+          roomName: string;
+          participantIdentity: string;
+          isReconnect: boolean;
+        }
+      | { status: "session_active" }
+      | { status: "grace_expired" }
+      | { status: "round_completed" };
+
     const participantName = interviewRecord.candidateName || "candidate";
-    const participantIdentity = `candidate_${id}_${roundId}_${Math.floor(Math.random() * 10_000)}`;
+    const now = new Date();
+
+    const resolution = await db.transaction(async (tx): Promise<TokenResolution> => {
+      const [row] = await tx
+        .select({
+          disconnectedAt: studioInterviewSchedule.disconnectedAt,
+          liveKitParticipantIdentity: studioInterviewSchedule.liveKitParticipantIdentity,
+          liveKitRoomName: studioInterviewSchedule.liveKitRoomName,
+          status: studioInterviewSchedule.status,
+        })
+        .from(studioInterviewSchedule)
+        .where(eq(studioInterviewSchedule.id, roundId))
+        .for("update")
+        .limit(1);
+
+      if (!row) {
+        return { status: "round_completed" };
+      }
+
+      // 同事务里再校验一遍 completed —— 早先 loadCandidateInterviewRecord 之后
+      // 可能被 agent /report 抢先置 completed，避免发出错乱的 token。
+      // Re-check completed under the row lock to defend against a race where
+      // /api/agent/report flipped status between our earlier read and now.
+      if (row.status === "completed") {
+        return { status: "round_completed" };
+      }
+
+      if (row.status === "in_progress" && !row.disconnectedAt) {
+        return { status: "session_active" };
+      }
+
+      if (row.status === "interrupted" && row.disconnectedAt) {
+        const elapsed = now.getTime() - new Date(row.disconnectedAt).getTime();
+        if (elapsed > RECONNECT_GRACE_MS) {
+          await tx
+            .update(studioInterviewSchedule)
+            .set({
+              disconnectedAt: null,
+              liveKitParticipantIdentity: null,
+              liveKitRoomName: null,
+              status: "completed" as const,
+              updatedAt: now,
+            })
+            .where(eq(studioInterviewSchedule.id, roundId));
+          return { status: "grace_expired" };
+        }
+      }
+
+      // 复用：interrupted 在窗口内，或 in_progress 且 disconnectedAt 非空（边缘）。
+      // Reuse path: interrupted-in-window OR in_progress with disconnectedAt set.
+      if (row.liveKitRoomName && row.liveKitParticipantIdentity) {
+        await tx
+          .update(studioInterviewSchedule)
+          .set({
+            disconnectedAt: null,
+            status: "in_progress" as const,
+            updatedAt: now,
+          })
+          .where(eq(studioInterviewSchedule.id, roundId));
+        return {
+          isReconnect: true,
+          participantIdentity: row.liveKitParticipantIdentity,
+          roomName: row.liveKitRoomName,
+          status: "ready",
+        };
+      }
+
+      // 首次开始（pending），或异常缺失锚点的 in_progress（兜底当作首次）。
+      // Fresh start (pending) or in_progress without anchors (defensive fallback).
+      const freshRoomName = `interview_${id}_${roundId}_${Math.floor(Math.random() * 10_000)}`;
+      const freshIdentity = `candidate_${id}_${roundId}_${Math.floor(Math.random() * 10_000)}`;
+      await tx
+        .update(studioInterviewSchedule)
+        .set({
+          disconnectedAt: null,
+          liveKitParticipantIdentity: freshIdentity,
+          liveKitRoomName: freshRoomName,
+          sessionStartedAt: now,
+          status: "in_progress" as const,
+          updatedAt: now,
+        })
+        .where(eq(studioInterviewSchedule.id, roundId));
+      return {
+        isReconnect: false,
+        participantIdentity: freshIdentity,
+        roomName: freshRoomName,
+        status: "ready",
+      };
+    });
+
+    if (resolution.status === "round_completed") {
+      return c.json({ error: "当前面试轮次已结束，如需重新面试请联系管理员。" }, 403);
+    }
+
+    if (resolution.status === "session_active") {
+      return c.json(
+        { code: "session_active", error: "面试已在另一个窗口进行中，请回到原窗口继续。" },
+        409,
+      );
+    }
+
+    if (resolution.status === "grace_expired") {
+      return c.json({ code: "grace_expired", error: "重连超时，本轮面试已结束。" }, 410);
+    }
+
+    const { roomName, participantIdentity, isReconnect } = resolution;
 
     // Interview context is surfaced to the Python agent worker via participant metadata.
     // Python: `ctx.wait_for_participant()` → `participant.metadata` → JSON.parse.
@@ -250,6 +377,7 @@ export const interviewRouter = factory
       const participantToken = await at.toJwt();
 
       return c.json({
+        isReconnect,
         participantName,
         participantToken,
         roomName,
@@ -408,19 +536,26 @@ export const interviewRouter = factory
     });
   })
   .post("/:id/:roundId/complete", async (c) => {
-    // "User left the session" signal from the browser. We mark the schedule
-    // entry as completed *immediately* so a quick page refresh can't grant
-    // the candidate a second attempt at this round. The agent's
-    // /api/agent/report callback still arrives later with the transcript and
-    // is idempotent — it writes the same `completed` status plus the
-    // conversation/summary rows. If the agent callback never arrives, the
-    // round stays "completed without transcript" and an admin can use the
-    // round reset flow to allow a retake.
+    // 浏览器侧发出的「会话状态变更」信号，按 mode 区分：
+    //   mode=interrupt（默认）：候选人断连。把状态置为 interrupted 并写入
+    //     首次断开时间，开启 3 分钟热重连窗口；不级联面试整体状态。
+    //   mode=final：候选人主动结束（保留接口未来扩展）。立刻置 completed
+    //     并级联面试整体状态，与 /api/agent/report 的写入路径保持兼容。
+    // Agent grace 超时后由 shutdown 回调走 /api/agent/report 把轮次最终
+    // 落到 completed，因此 interrupt 不需要做任何兜底「结束」工作。
+    //
+    // Browser-side session-state signal. mode=interrupt (default) marks the
+    // round "interrupted" with disconnectedAt to open the 3-minute rejoin
+    // window; mode=final retains the original cascade-to-completed semantics
+    // for any future "leave interview" button. Final completion is normally
+    // driven by /api/agent/report after the agent's grace timer fires.
     const roundId = c.req.param("roundId");
+    const mode = c.req.query("mode") === "final" ? "final" : "interrupt";
     const now = new Date();
 
     const [entry] = await db
       .select({
+        disconnectedAt: studioInterviewSchedule.disconnectedAt,
         id: studioInterviewSchedule.id,
         interviewRecordId: studioInterviewSchedule.interviewRecordId,
         status: studioInterviewSchedule.status,
@@ -434,6 +569,25 @@ export const interviewRouter = factory
     }
 
     if (entry.status === "completed") {
+      return c.json({ success: true });
+    }
+
+    if (mode === "interrupt") {
+      // 仅当当前是 in_progress 且尚未记录断开时间，才标记 interrupted；
+      // 重复 beacon / 多 tab 触发不会刷新 disconnectedAt，3 分钟从首次断开起算。
+      // Only flip in_progress + null disconnectedAt → interrupted; repeat
+      // beacons must NOT refresh disconnectedAt (grace measured from first drop).
+      if (entry.status === "in_progress" && !entry.disconnectedAt) {
+        await db
+          .update(studioInterviewSchedule)
+          .set({
+            disconnectedAt: now,
+            status: "interrupted" as const,
+            updatedAt: now,
+          })
+          .where(eq(studioInterviewSchedule.id, roundId));
+        safeUpdateTag("studio-interviews");
+      }
       return c.json({ success: true });
     }
 
@@ -946,6 +1100,12 @@ export const studioInterviewsRouter = factory
         .update(studioInterviewSchedule)
         .set({
           conversationId: null,
+          // 重置时一并清空热重连锚点，避免下一轮复用旧房间名/identity。
+          // Clear hot-reconnect anchors so the next attempt mints a fresh room.
+          disconnectedAt: null,
+          liveKitParticipantIdentity: null,
+          liveKitRoomName: null,
+          sessionStartedAt: null,
           status: "pending",
           updatedAt: now,
         })

@@ -12,7 +12,17 @@ export const studioInterviewStatusValues = [
 
 export const studioInterviewStatusSchema = z.enum(studioInterviewStatusValues);
 
-export const scheduleEntryStatusValues = ["pending", "in_progress", "completed"] as const;
+// 轮次状态机：pending → in_progress → (interrupted ↔ in_progress) → completed。
+// interrupted 表示候选人临时断连，仍可在 3 分钟宽限内回到同一房间继续。
+// Schedule round states: pending → in_progress → (interrupted ↔ in_progress) →
+// completed. "interrupted" indicates a transient disconnect during which the
+// candidate can rejoin the same room within a 3-minute grace window.
+export const scheduleEntryStatusValues = [
+  "pending",
+  "in_progress",
+  "interrupted",
+  "completed",
+] as const;
 
 export const scheduleEntryStatusSchema = z.enum(scheduleEntryStatusValues);
 
@@ -24,8 +34,14 @@ export const scheduleEntryStatusMeta: Record<
 > = {
   completed: { label: "已结束", tone: "default" },
   in_progress: { label: "进行中", tone: "secondary" },
+  interrupted: { label: "已中断（可在 3 分钟内继续）", tone: "secondary" },
   pending: { label: "待开始", tone: "outline" },
 };
+
+// 热重连宽限期：候选人断连后允许在该窗口内拿同一房间名续连。
+// Hot-reconnect grace window during which a disconnected candidate can rejoin
+// the same LiveKit room with the same participant identity.
+export const RECONNECT_GRACE_MS = 3 * 60 * 1000;
 
 export const studioInterviewScheduleEntrySchema = z.object({
   allowTextInput: z.boolean(),
