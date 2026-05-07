@@ -59,9 +59,19 @@ import { cn } from "@/lib/utils";
 
 import { uploadAttachment } from "@/lib/chat-api";
 
+export interface AttachmentParsed {
+  attachmentId: string;
+  text: string;
+  structured: unknown;
+  pageCount: number;
+  textSource: "qwen-ocr";
+}
+
 export type ManagedAttachment = FileUIPart & {
   id: string;
   uploadStatus: "uploading" | "uploaded" | "error";
+  attachmentId?: string;
+  parsed?: AttachmentParsed;
 };
 
 function beginAttachmentUpload(
@@ -77,6 +87,11 @@ function beginAttachmentUpload(
           item.id === id
             ? {
                 ...item,
+                attachmentId: prepared.id,
+                parsed:
+                  prepared.parsed && prepared.parseStatus === "ready"
+                    ? { attachmentId: prepared.id, ...prepared.parsed }
+                    : undefined,
                 uploadStatus: "uploaded" as const,
                 url: prepared.url,
               }
@@ -179,7 +194,7 @@ export function PromptInputProvider({
   // ----- attachments state (global when wrapped)
   const [attachmentFiles, setAttachmentFiles] = useState<ManagedAttachment[]>([]);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  // oxlint-disable-next-line eslint(no-empty-function)
+  // oxlint-disable-next-line no-empty-function
   const openRef = useRef<() => void>(() => {});
 
   const add = useCallback((files: File[] | FileList) => {
@@ -353,7 +368,7 @@ export function PromptInputActionAddAttachments({
 
 export interface PromptInputMessage {
   text: string;
-  files: FileUIPart[];
+  files: (FileUIPart & { attachmentId?: string; parsed?: AttachmentParsed })[];
 }
 
 export type PromptInputProps = Omit<HTMLAttributes<HTMLFormElement>, "onSubmit" | "onError"> & {
@@ -820,7 +835,7 @@ export function PromptInput({
       }
 
       try {
-        const convertedFiles: FileUIPart[] = files.map(
+        const convertedFiles: PromptInputMessage["files"] = files.map(
           ({ id: _id, uploadStatus: _uploadStatus, ...item }) => item,
         );
 

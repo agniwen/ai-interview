@@ -28,9 +28,22 @@ interface StreamingValue {
   showAssistantThinkingBubble: boolean;
 }
 
+export interface ResumeParsedClientData {
+  attachmentId: string;
+  text: string;
+  structured: unknown;
+  pageCount: number;
+  textSource: "qwen-ocr";
+}
+
+export type SendMessageFile = FileUIPart & {
+  attachmentId?: string;
+  parsed?: ResumeParsedClientData;
+};
+
 export interface SendMessageInput {
   text: string;
-  files?: FileUIPart[];
+  files?: SendMessageFile[];
 }
 
 interface ActionsValue {

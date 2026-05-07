@@ -8,6 +8,7 @@ import {
   AttachmentInfo,
   AttachmentPreview,
   Attachments,
+  PdfFileIcon,
 } from "@/components/ai-elements/attachments";
 import {
   Message,
@@ -18,8 +19,10 @@ import {
 } from "@/components/ai-elements/message";
 import { Source, Sources, SourcesContent, SourcesTrigger } from "@/components/ai-elements/sources";
 import { AssistantMessageGroups } from "@/components/assistant-message-groups";
+import { ParsedResumeButton } from "@/components/parsed-resume-button";
 import { PdfPreviewButton } from "@/components/pdf-preview-button";
 import { ResumeImportButton } from "@/components/resume-import-button";
+import type { ResumeParserStructured } from "@/server/agents/resume-parser-schema";
 import { ThinkingBlock } from "@/components/thinking-block";
 import { TIME_DISPLAY_OPTIONS, TimeDisplay } from "@/components/time-display";
 import { ApplyJobDescriptionCard } from "@/components/tool-call/apply-job-description-card";
@@ -76,6 +79,16 @@ export function ChatMessageItem({
 
   const fileParts: (FileUIPart & { id: string })[] = [];
   const sourceParts: SourceUrlUIPart[] = [];
+  const parsedByAttachmentId = new Map<
+    string,
+    {
+      filename: string;
+      parsedStructured: ResumeParserStructured;
+      parsedText: string | null;
+      parsedPageCount: number | null;
+      parsedTextSource: "pdf-parse" | "qwen-ocr";
+    }
+  >();
   let assistantText = "";
 
   for (let index = 0; index < message.parts.length; index += 1) {
@@ -89,6 +102,24 @@ export function ChatMessageItem({
       fileParts.push({ ...part, id: `${message.id}-file-${index}` });
     } else if (isSourceUrlPart(part)) {
       sourceParts.push(part);
+    } else if (
+      typeof part === "object" &&
+      part !== null &&
+      (part as { type?: unknown }).type === "data-resume-parsed"
+    ) {
+      const { data } = part as { data: Record<string, unknown> };
+      if (data && typeof data.attachmentId === "string" && data.parsedStructured) {
+        parsedByAttachmentId.set(data.attachmentId, {
+          filename: typeof data.filename === "string" ? data.filename : "resume.pdf",
+          parsedPageCount: typeof data.parsedPageCount === "number" ? data.parsedPageCount : null,
+          parsedStructured: data.parsedStructured as ResumeParserStructured,
+          parsedText: typeof data.parsedText === "string" ? data.parsedText : null,
+          parsedTextSource:
+            data.parsedTextSource === "pdf-parse" || data.parsedTextSource === "qwen-ocr"
+              ? data.parsedTextSource
+              : "qwen-ocr",
+        });
+      }
     }
   }
   assistantText = assistantText.trim();
@@ -142,21 +173,63 @@ export function ChatMessageItem({
                   part.filename?.toLowerCase().endsWith(".pdf");
                 const showImportButton = message.role === "user" && isPdf;
                 const importedId = resumeImports[part.id] ?? null;
+                const attachmentIdMatch = part.url.match(/\/api\/chat\/attachments\/([^/?#]+)/);
+                const attachmentId = attachmentIdMatch?.[1] ?? null;
+                const parsed = attachmentId ? parsedByAttachmentId.get(attachmentId) : null;
+
+                if (isPdf) {
+                  return (
+                    <div
+                      className="flex w-full flex-col gap-3 rounded-lg border bg-card p-3 hover:bg-accent/30"
+                      key={part.id}
+                    >
+                      <div className="flex min-w-0 items-center gap-3">
+                        <div className="flex size-12 shrink-0 items-center justify-center rounded">
+                          <PdfFileIcon className="size-9" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate font-medium text-sm">
+                            {part.filename || "resume.pdf"}
+                          </p>
+                          <p className="truncate text-muted-foreground text-xs">{part.mediaType}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-stretch gap-2 border-t pt-3">
+                        {part.url ? (
+                          <PdfPreviewButton
+                            className="flex-1 basis-0"
+                            filename={part.filename}
+                            url={part.url}
+                          />
+                        ) : null}
+                        {parsed ? (
+                          <ParsedResumeButton
+                            className="flex-1 basis-0"
+                            filename={parsed.filename || part.filename || "resume.pdf"}
+                            pageCount={parsed.parsedPageCount}
+                            parsedText={parsed.parsedText}
+                            structured={parsed.parsedStructured}
+                            textSource={parsed.parsedTextSource}
+                          />
+                        ) : null}
+                        {showImportButton ? (
+                          <ResumeImportButton
+                            className="flex-1 basis-0"
+                            filePart={part}
+                            importedInterviewId={importedId}
+                            onImported={onResumeImported}
+                            onMissing={onResumeImportMissing}
+                          />
+                        ) : null}
+                      </div>
+                    </div>
+                  );
+                }
+
                 return (
                   <Attachment data={part} key={part.id}>
                     <AttachmentPreview />
                     <AttachmentInfo showMediaType />
-                    {isPdf && part.url ? (
-                      <PdfPreviewButton filename={part.filename} url={part.url} />
-                    ) : null}
-                    {showImportButton ? (
-                      <ResumeImportButton
-                        filePart={part}
-                        importedInterviewId={importedId}
-                        onImported={onResumeImported}
-                        onMissing={onResumeImportMissing}
-                      />
-                    ) : null}
                   </Attachment>
                 );
               })}

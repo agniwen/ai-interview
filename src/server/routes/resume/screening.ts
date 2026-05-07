@@ -1,20 +1,17 @@
 import type { UIMessage } from "ai";
-import type { ParsedResumePdf, UploadedResumePdf } from "@/lib/resume-pdf";
+import type { UploadedResumePdf } from "@/lib/resume-pdf";
 import { convertToModelMessages } from "ai";
-import {
-  collectUploadedResumePdfs,
-  parseResumePdf,
-  selectUploadedResumePdfs,
-} from "@/lib/resume-pdf";
+import { collectUploadedResumePdfs, selectUploadedResumePdfs } from "@/lib/resume-pdf";
 import { createResumeAgent } from "@/server/agents/resume-agent";
-import type { ResumeParserOptions, ResumeParserResult } from "@/server/agents/resume-parser-agent";
-import { parseResumeSubagent } from "@/server/agents/resume-parser-agent";
+import type { ResumeParserResult } from "@/server/agents/resume-parser-agent";
+import { getUserAttachments, updateAttachmentParseResult } from "@/server/queries/chat-attachments";
+import { parseResumeFastFromUrl } from "@/lib/resume-parse-pipeline";
+import { RESUME_PARSED_PART_TYPE } from "./bake-parsed-resume";
+import type { ResumeParsedPartData } from "./bake-parsed-resume";
 import {
   applyJobDescriptionTool,
   buildAutoJobDescription,
-  createExtractResumePdfTextTool,
   createListUploadedResumePdfsTool,
-  createParseResumeTool,
   createSuggestJobDescriptionTool,
   extractUserText,
   getResumeReviewFrameworkTool,
@@ -28,74 +25,69 @@ export interface ResumeScreeningInput {
   messages: UIMessage[];
   jobDescription?: string;
   enableThinking?: boolean;
+  userId?: string | null;
 }
 
-// ---------------------------------------------------------------------------
-// Module-level PDF parse cache — persists across auto-submit steps so the
-// same PDF is not re-parsed on every round-trip.
-// Entries expire after 10 minutes to avoid unbounded memory growth.
-// ---------------------------------------------------------------------------
-const PDF_CACHE_TTL_MS = 10 * 60 * 1000;
+const ATTACHMENT_URL_REGEX = /\/api\/chat\/attachments\/([^/?#]+)/;
 
-interface CachedParsedResume {
-  promise: Promise<ParsedResumePdf>;
-  createdAt: number;
+function extractAttachmentId(url: string): string | null {
+  const match = url.match(ATTACHMENT_URL_REGEX);
+  return match?.[1] ?? null;
 }
 
-const globalParsedResumeCache = new Map<string, CachedParsedResume>();
-
-interface CachedSubagentResult {
-  promise: Promise<ResumeParserResult>;
-  createdAt: number;
-}
-
-const globalResumeSubagentCache = new Map<string, CachedSubagentResult>();
-
-function getCachedParseResume(file: UploadedResumePdf): Promise<ParsedResumePdf> {
-  const now = Date.now();
-  const existing = globalParsedResumeCache.get(file.id);
-  if (existing && now - existing.createdAt < PDF_CACHE_TTL_MS) {
-    return existing.promise;
+function buildParsedResumeTextBlock(parsed: ResumeParsedPartData): string {
+  const block = [
+    `[系统已自动解析的简历: ${parsed.filename}]`,
+    "以下结构化信息已通过 Qwen-VL OCR + qwen3-max 提取完毕，可直接使用，**无需再调用任何 PDF 解析工具**。",
+    "结构化信息（JSON）:",
+    "```json",
+    JSON.stringify(parsed.parsedStructured, null, 2),
+    "```",
+  ];
+  if (parsed.parsedText) {
+    const snippet = parsed.parsedText.slice(0, 4000);
+    block.push("简历原文（截断 4000 字以内，仅在需要逐字证据时引用）:");
+    block.push("```text");
+    block.push(snippet);
+    block.push("```");
   }
-  const promise = parseResumePdf(file);
-  globalParsedResumeCache.set(file.id, { createdAt: now, promise });
-  return promise;
+  return block.join("\n");
 }
 
-function getCachedParseResumeSubagent(
-  file: UploadedResumePdf,
-  options: ResumeParserOptions,
-): Promise<ResumeParserResult> {
-  const now = Date.now();
-  const existing = globalResumeSubagentCache.get(file.id);
-  if (existing && now - existing.createdAt < PDF_CACHE_TTL_MS) {
-    return existing.promise;
-  }
-  const promise = (async () => {
-    try {
-      return await parseResumeSubagent(file, options);
-    } catch (error) {
-      // Don't poison the cache with a failure — clear so the next call retries.
-      globalResumeSubagentCache.delete(file.id);
-      throw error;
+/**
+ * Convert any `data-resume-parsed` parts on user messages into plain text
+ * parts so the LLM consumes them. The data parts themselves are removed
+ * (along with the original PDF file part — that's stripped later anyway).
+ *
+ * The data parts are baked in by `bakeParsedResumesIntoMessage` before the
+ * message is persisted, so this transform is purely on the model-bound copy
+ * and never mutates what's stored in chat_message.
+ */
+function injectParsedResumesIntoMessages(messages: UIMessage[]): UIMessage[] {
+  return messages.map((message) => {
+    if (message.role !== "user") {
+      return message;
     }
-  })();
-  globalResumeSubagentCache.set(file.id, { createdAt: now, promise });
-  return promise;
-}
 
-function pruneExpiredCacheEntries() {
-  const now = Date.now();
-  for (const [key, entry] of globalParsedResumeCache) {
-    if (now - entry.createdAt >= PDF_CACHE_TTL_MS) {
-      globalParsedResumeCache.delete(key);
+    let touched = false;
+    const newParts: typeof message.parts = [];
+
+    for (const part of message.parts) {
+      if (
+        typeof part === "object" &&
+        part !== null &&
+        (part as { type?: unknown }).type === RESUME_PARSED_PART_TYPE
+      ) {
+        const { data } = part as { data: ResumeParsedPartData };
+        newParts.push({ text: buildParsedResumeTextBlock(data), type: "text" });
+        touched = true;
+        continue;
+      }
+      newParts.push(part);
     }
-  }
-  for (const [key, entry] of globalResumeSubagentCache) {
-    if (now - entry.createdAt >= PDF_CACHE_TTL_MS) {
-      globalResumeSubagentCache.delete(key);
-    }
-  }
+
+    return touched ? { ...message, parts: newParts } : message;
+  });
 }
 
 /**
@@ -119,11 +111,58 @@ export async function runResumeScreening(input: ResumeScreeningInput) {
     timeZone: SERVER_TIME_ZONE,
   }).format(serverNow);
 
-  // Use module-level cache; prune stale entries on each request.
-  pruneExpiredCacheEntries();
-  const parseUploadedResume = (file: UploadedResumePdf) => getCachedParseResume(file);
-  const runResumeParserSubagent = (file: UploadedResumePdf) =>
-    getCachedParseResumeSubagent(file, { parseUploadedResume });
+  // Pre-fetch persisted parse results for all PDF attachments in the thread.
+  // Resumes are parsed at upload time (POST /api/chat/uploads); the screening
+  // agent never invokes pdf-parse itself.
+  const userId = input.userId ?? null;
+  const attachmentIdByFileId = new Map<string, string>();
+  for (const file of uploadedResumePdfs) {
+    const attachmentId = extractAttachmentId(file.url);
+    if (attachmentId) {
+      attachmentIdByFileId.set(file.id, attachmentId);
+    }
+  }
+  const persistedAttachments = userId
+    ? await getUserAttachments(userId, [...new Set(attachmentIdByFileId.values())])
+    : new Map();
+
+  // Used by `suggest_job_description` which needs structured info to rank JDs.
+  // Always reads from the persisted parse; if a row is missing or failed
+  // (legacy upload before pre-parse, or upload-time parse failure), runs
+  // parseResumeFast on the fly and writes back.
+  const runResumeParserSubagent = async (file: UploadedResumePdf): Promise<ResumeParserResult> => {
+    const attachmentId = attachmentIdByFileId.get(file.id);
+    const row = attachmentId ? persistedAttachments.get(attachmentId) : null;
+    if (row?.parsedStatus === "ready" && row.parsedStructured) {
+      return {
+        filename: file.filename,
+        pageCount: row.parsedPageCount ?? 0,
+        structured: row.parsedStructured,
+        textSource: row.parsedTextSource ?? "pdf-parse",
+      };
+    }
+
+    const result = await parseResumeFastFromUrl(file.url);
+    if (userId && attachmentId) {
+      await updateAttachmentParseResult({
+        attachmentId,
+        parsedPageCount: result.pageCount,
+        parsedStatus: "ready",
+        parsedStructured: result.structured,
+        parsedText: result.text,
+        parsedTextSource: result.textSource,
+        userId,
+      }).catch((error) => {
+        console.error("[resume] failed to persist lazy parse result", error);
+      });
+    }
+    return {
+      filename: file.filename,
+      pageCount: result.pageCount,
+      structured: result.structured,
+      textSource: result.textSource,
+    };
+  };
 
   const availableResumeNames = uploadedResumePdfs.map(
     (file, index) => `${index + 1}. ${file.filename}`,
@@ -181,7 +220,7 @@ export async function runResumeScreening(input: ResumeScreeningInput) {
 
 ■ 阶段 B：结构化追问生成（用户对偏差表态之后才进入）
 触发条件：用户在对话中表达了对某些偏差的接受/不接受立场，或明确要求生成面试题。
-进入阶段 B 前，必须先调用 parse_resume 获取 timelineSummary 和量化要点，避免编造。
+进入阶段 B 前，必须已读取自动解析块中的 timelineSummary 和量化要点，避免编造。
 按以下四个分组输出，每组 2-4 题，宁缺毋滥：
 
   1. 缺口验证组
@@ -218,22 +257,22 @@ export async function runResumeScreening(input: ResumeScreeningInput) {
 - 当你需要判断候选人的在职时长、工作年限、项目持续时间、是否仍在职或时间线是否合理时，应以上述服务端当前时间作为"现在"进行推断。
 - 如果简历里的时间表达含糊（例如"至今""最近""目前"），默认按上述服务端当前时间理解，并在结论里明确说明。
 - 做时间线分析时，优先抽取每段经历的起止时间，再判断总工作年限、是否仍在职、是否存在长空档、是否存在明显重叠、是否存在连续短经历或频繁跳槽信号。
-- 如果需要更稳定的时间线判断，应主动调用 parse_resume，优先利用其中的 timelineSummary 字段辅助判断。
+- 时间线判断使用自动解析块中的 timelineSummary 字段。
 - 对跳槽风险的判断要克制：只有出现连续短经历、明显空档、时间重叠、频繁变动且缺少结果支撑时，才将其列为关键风险项。
 
 【PDF 简历解析规则】
-- 需要候选人结构化信息（学历、技能、经历、项目、时间线、联系方式等）时，调用 parse_resume。它内部会处理文本提取与视觉兜底，直接返回结构化档案，不需要你自己判断 PDF 是否乱码或是否为图片简历。
+- 系统已在用户上传 PDF 时**自动完成解析**。每条上传 PDF 的用户消息都会附带一个 "[系统已自动解析的简历: ...]" 文本块，包含结构化 JSON 与原文片段，**这就是简历信息的唯一来源**。
+- 你**没有**简历解析工具，无需也无法调用任何 PDF 解析能力，直接读用户消息里的自动解析块即可。
+- 如果某条消息缺少自动解析块（极少数老附件或解析失败），礼貌提示用户重新上传。
 - 如果用户上传了多份 PDF 且命名存在歧义，先调用 list_uploaded_resume_pdfs 确认文件。
-- 只有在需要原文逐字证据（例如引用原句、交叉核验 parse_resume 的某个字段）时，才调用 extract_resume_pdf_text。
-- 对上传 PDF 的简历进行排序或对比时，在给出最终建议前，至少调用一次 parse_resume。
 - 如果上传的 PDF 中已经包含简历信息，不要要求用户手动粘贴这些内容。
 - 只分析能够识别为候选人简历的有效 PDF 内容；如果某个 PDF 明显不是简历（例如合同、报价单、试卷、论文、产品文档、说明书、发票等），忽略该文件，不要把它纳入候选人分析、排序或对比。
 - 如果上传文件里同时包含简历 PDF 和非简历 PDF，仅基于简历 PDF 继续分析，并在必要时简短说明已忽略非简历文件。
 
 【在招岗位智能推荐（suggest_job_description + apply_job_description）】
-- 仅在以下所有条件同时满足时触发这套流程：(a) 当前对话已上传至少一份简历 PDF；(b) 设置中未配置在招岗位；(c) 用户在对话中未提供或更新过 JD；(d) 本轮对话中尚未调用过 apply_job_description 或用户尚未表态过忽略；(e) 本轮已成功调用过 parse_resume，且返回的 structured 字段具备足够信号（name / skills / projectExperiences / workExperiences / timelineSummary 中至少有两项非空），说明确实是一份可解析的有效简历。
-- 触发顺序固定为：list_uploaded_resume_pdfs → parse_resume → （确认结构化信息有效后）suggest_job_description → apply_job_description。禁止在调用 parse_resume 之前直接调用 suggest_job_description。
-- 如果 parse_resume 返回的结构化字段几乎全部为空，说明该 PDF 可能不是有效简历，在仍无法获得有效结构化信息前，不要触发 suggest_job_description。
+- 仅在以下所有条件同时满足时触发这套流程：(a) 当前对话已上传至少一份简历 PDF；(b) 设置中未配置在招岗位；(c) 用户在对话中未提供或更新过 JD；(d) 本轮对话中尚未调用过 apply_job_description 或用户尚未表态过忽略；(e) 自动解析块已提供足够信号（name / skills / projectExperiences / workExperiences / timelineSummary 中至少有两项非空），说明确实是一份可解析的有效简历。
+- 触发顺序：确认自动解析块的结构化信息可用后，再调用 suggest_job_description → apply_job_description。
+- 如果结构化字段几乎全部为空，说明该 PDF 可能不是有效简历，在仍无法获得有效结构化信息前，不要触发 suggest_job_description。
 - 触发后，先调用 suggest_job_description 获取推荐：
   · 如果返回 status === 'no-jds'：不要调用 apply_job_description，直接按缺少 JD 的分支继续分析，并在回复中简短提示"后台暂无已配置的在招岗位"。
   · 如果返回 status === 'no-resume' 或 status === 'error'：同样跳过 apply，按缺少 JD 分支继续，可简短说明推荐不可用。
@@ -251,29 +290,18 @@ ${autoJdContext}
 已上传简历文件：${uploadedResumeFiles ? "是" : "否"}。`,
     tools: {
       apply_job_description: applyJobDescriptionTool,
-      extract_resume_pdf_text: createExtractResumePdfTextTool({
-        availableResumeNames,
-        parseUploadedResume,
-        runResumeParserSubagent,
-        selectResumeFiles,
-        uploadedResumePdfs,
-      }),
       get_resume_review_framework: getResumeReviewFrameworkTool,
       get_server_time: getServerTimeTool,
       list_uploaded_resume_pdfs: createListUploadedResumePdfsTool({
         availableResumeNames,
         uploadedResumePdfs,
       }),
-      parse_resume: createParseResumeTool({
-        availableResumeNames,
-        parseUploadedResume,
-        runResumeParserSubagent,
-        selectResumeFiles,
-        uploadedResumePdfs,
-      }),
       suggest_job_description: createSuggestJobDescriptionTool({
         availableResumeNames,
-        parseUploadedResume,
+        // suggest_job_description doesn't read raw PDF text; this stub
+        // satisfies the shared PdfToolDependencies shape and is never invoked.
+        parseUploadedResume: () =>
+          Promise.reject(new Error("parseUploadedResume is disabled in screening.")),
         runResumeParserSubagent,
         selectResumeFiles,
         uploadedResumePdfs,
@@ -281,7 +309,9 @@ ${autoJdContext}
     },
   });
 
+  const messagesForModel = injectParsedResumesIntoMessages(messages);
+
   return agent.stream({
-    messages: stripNonImageFileParts(await convertToModelMessages(messages)),
+    messages: stripNonImageFileParts(await convertToModelMessages(messagesForModel)),
   });
 }

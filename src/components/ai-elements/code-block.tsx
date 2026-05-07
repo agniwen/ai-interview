@@ -186,7 +186,7 @@ function createRawTokens(code: string): TokenizedCode {
 export function highlightCode(
   code: string,
   language: BundledLanguage,
-  // oxlint-disable-next-line eslint-plugin-promise(prefer-await-to-callbacks)
+  // oxlint-disable-next-line prefer-await-to-callbacks
   callback?: (result: TokenizedCode) => void,
 ): TokenizedCode | null {
   const tokensCacheKey = getTokensCacheKey(code, language);
@@ -207,7 +207,7 @@ export function highlightCode(
 
   // Start highlighting in background - fire-and-forget async pattern
   getHighlighter(language)
-    // oxlint-disable-next-line eslint-plugin-promise(prefer-await-to-then)
+    // oxlint-disable-next-line prefer-await-to-then
     .then((highlighter) => {
       const availableLangs = highlighter.getLoadedLanguages();
       const langToUse = availableLangs.includes(language) ? language : "text";
@@ -238,7 +238,7 @@ export function highlightCode(
         subscribers.delete(tokensCacheKey);
       }
     })
-    // oxlint-disable-next-line eslint-plugin-promise(prefer-await-to-then), eslint-plugin-promise(prefer-await-to-callbacks)
+    // oxlint-disable-next-line prefer-await-to-then, prefer-await-to-callbacks
     .catch((error) => {
       console.error("Failed to highlight code:", error);
       subscribers.delete(tokensCacheKey);

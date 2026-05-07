@@ -485,6 +485,16 @@ export const chatAttachment = pgTable(
     filename: text("filename").notNull(),
     id: text("id").primaryKey(),
     mediaType: text("media_type").notNull(),
+    parsedAt: timestamp("parsed_at"),
+    parsedError: text("parsed_error"),
+    parsedPageCount: integer("parsed_page_count"),
+    parsedStatus: text("parsed_status")
+      .$type<"pending" | "ready" | "failed">()
+      .default("pending")
+      .notNull(),
+    parsedStructured: jsonb("parsed_structured"),
+    parsedText: text("parsed_text"),
+    parsedTextSource: text("parsed_text_source").$type<"pdf-parse" | "qwen-ocr">(),
     size: integer("size").notNull(),
     storageKey: text("storage_key").notNull(),
     userId: text("user_id")

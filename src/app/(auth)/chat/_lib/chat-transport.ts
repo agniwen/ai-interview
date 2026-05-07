@@ -5,7 +5,7 @@ const CHAT_REQUEST_TIMEOUT_MS = 8 * 60 * 1000;
 
 export function createChatTransport(chatId: string) {
   return new DefaultChatTransport({
-    api: "/api/resume",
+    api: "/api/resume/chat",
     body: () => {
       const meta = getChatMeta(chatId);
       const jd = meta.jobDescription.trim();

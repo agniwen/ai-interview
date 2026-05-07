@@ -9,6 +9,7 @@ import {
   deleteMessagesFromId,
   upsertChatMessage,
 } from "@/server/queries/chat";
+import { bakeParsedResumesIntoMessage } from "./bake-parsed-resume";
 import { inlineAttachmentsForModel } from "./inline-attachments";
 import { resumeChatRequestSchema, resumeTitleRequestSchema } from "./schema";
 import { runResumeScreening } from "./screening";
@@ -16,7 +17,7 @@ import { sanitizeTitle } from "./utils";
 
 export const resumeRouter = factory
   .createApp()
-  .post("/", zValidator("json", resumeChatRequestSchema), async (c) => {
+  .post("/chat", zValidator("json", resumeChatRequestSchema), async (c) => {
     const {
       chatId,
       enableThinking,
@@ -64,9 +65,12 @@ export const resumeRouter = factory
       if (latestUser) {
         void (async () => {
           try {
+            const baked = userId
+              ? await bakeParsedResumesIntoMessage(userId, latestUser)
+              : latestUser;
             await upsertChatMessage({
               conversationId: chatId,
-              message: latestUser,
+              message: baked,
             });
           } catch (error) {
             console.error("[resume] failed to persist user message", error);
@@ -75,12 +79,24 @@ export const resumeRouter = factory
       }
     }
 
-    const messagesForModel = userId ? await inlineAttachmentsForModel(userId, messages) : messages;
+    // Bake the parsed resume info into the in-memory message list too so the
+    // screening agent sees the same shape that's about to be persisted.
+    let bakedMessages = messages;
+    if (userId) {
+      bakedMessages = await Promise.all(
+        messages.map((m) => bakeParsedResumesIntoMessage(userId, m)),
+      );
+    }
+
+    const messagesForModel = userId
+      ? await inlineAttachmentsForModel(userId, bakedMessages)
+      : bakedMessages;
 
     const result = await runResumeScreening({
       enableThinking,
       jobDescription,
       messages: messagesForModel,
+      userId: userId ?? null,
     });
 
     return result.toUIMessageStreamResponse({

@@ -62,11 +62,21 @@ export interface PatchConversationPayload {
 
 /**
  * 上传附件后的返回结构。
- * Upload-attachment response.
+ * Upload-attachment response. When the file is a resume PDF, the server runs
+ * Qwen-VL OCR + structured extraction inline and returns the result so the
+ * client can attach it to the outgoing message as a data part — no need for
+ * a second roundtrip and no server-side DB lookup at send time.
  */
 export interface UploadedAttachment {
   id: string;
   url: string;
+  parseStatus?: "ready" | "failed" | "pending";
+  parsed?: {
+    text: string;
+    structured: unknown;
+    pageCount: number;
+    textSource: "qwen-ocr";
+  };
 }
 
 /**

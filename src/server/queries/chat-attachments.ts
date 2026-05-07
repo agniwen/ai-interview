@@ -1,3 +1,4 @@
+import type { ResumeParserStructured } from "@/server/agents/resume-parser-agent";
 import { and, eq, inArray } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { chatAttachment } from "@/lib/db/schema";
@@ -10,6 +11,13 @@ export interface ChatAttachmentRow {
   size: number;
   storageKey: string;
   createdAt: Date;
+  parsedStatus: "pending" | "ready" | "failed";
+  parsedText: string | null;
+  parsedStructured: ResumeParserStructured | null;
+  parsedPageCount: number | null;
+  parsedTextSource: "pdf-parse" | "qwen-ocr" | null;
+  parsedError: string | null;
+  parsedAt: Date | null;
 }
 
 export interface CreateAttachmentInput {
@@ -19,6 +27,13 @@ export interface CreateAttachmentInput {
   mediaType: string;
   size: number;
   storageKey: string;
+  parsedStatus?: "pending" | "ready" | "failed";
+  parsedText?: string | null;
+  parsedStructured?: ResumeParserStructured | null;
+  parsedPageCount?: number | null;
+  parsedTextSource?: "pdf-parse" | "qwen-ocr" | null;
+  parsedError?: string | null;
+  parsedAt?: Date | null;
 }
 
 export async function createAttachment(input: CreateAttachmentInput): Promise<void> {
@@ -26,10 +41,45 @@ export async function createAttachment(input: CreateAttachmentInput): Promise<vo
     filename: input.filename,
     id: input.id,
     mediaType: input.mediaType,
+    parsedAt: input.parsedAt ?? null,
+    parsedError: input.parsedError ?? null,
+    parsedPageCount: input.parsedPageCount ?? null,
+    parsedStatus: input.parsedStatus ?? "pending",
+    parsedStructured: input.parsedStructured ?? null,
+    parsedText: input.parsedText ?? null,
+    parsedTextSource: input.parsedTextSource ?? null,
     size: input.size,
     storageKey: input.storageKey,
     userId: input.userId,
   });
+}
+
+export interface UpdateAttachmentParseInput {
+  attachmentId: string;
+  userId: string;
+  parsedStatus: "ready" | "failed";
+  parsedText?: string | null;
+  parsedStructured?: ResumeParserStructured | null;
+  parsedPageCount?: number | null;
+  parsedTextSource?: "pdf-parse" | "qwen-ocr" | null;
+  parsedError?: string | null;
+}
+
+export async function updateAttachmentParseResult(
+  input: UpdateAttachmentParseInput,
+): Promise<void> {
+  await db
+    .update(chatAttachment)
+    .set({
+      parsedAt: new Date(),
+      parsedError: input.parsedError ?? null,
+      parsedPageCount: input.parsedPageCount ?? null,
+      parsedStatus: input.parsedStatus,
+      parsedStructured: input.parsedStructured ?? null,
+      parsedText: input.parsedText ?? null,
+      parsedTextSource: input.parsedTextSource ?? null,
+    })
+    .where(and(eq(chatAttachment.id, input.attachmentId), eq(chatAttachment.userId, input.userId)));
 }
 
 export async function getUserAttachment(
@@ -41,7 +91,7 @@ export async function getUserAttachment(
     .from(chatAttachment)
     .where(and(eq(chatAttachment.id, attachmentId), eq(chatAttachment.userId, userId)))
     .limit(1);
-  return row ?? null;
+  return (row as ChatAttachmentRow | undefined) ?? null;
 }
 
 export async function getUserAttachments(
@@ -51,9 +101,11 @@ export async function getUserAttachments(
   if (attachmentIds.length === 0) {
     return new Map();
   }
-  const rows = await db
+  const rows = (await db
     .select()
     .from(chatAttachment)
-    .where(and(inArray(chatAttachment.id, attachmentIds), eq(chatAttachment.userId, userId)));
+    .where(
+      and(inArray(chatAttachment.id, attachmentIds), eq(chatAttachment.userId, userId)),
+    )) as ChatAttachmentRow[];
   return new Map(rows.map((row) => [row.id, row]));
 }

@@ -5,17 +5,10 @@ import type {
 } from "@/lib/interview/types";
 import { stepCountIs } from "ai";
 import { generatedInterviewQuestionsSchema } from "@/lib/interview/types";
-import { parseResumePdf } from "@/lib/resume-pdf";
+import { parseResumeFast } from "@/lib/resume-parse-pipeline";
 import { parseJsonOutput } from "./json-output";
 import { createResumeAgent } from "./resume-agent";
-import {
-  buildResumeParserAgent,
-  buildResumeParserPrompt,
-  collectResumeParserResult,
-  fileToUploadedResumePdf,
-  structuredSchema,
-  toResumeProfile,
-} from "./resume-parser-agent";
+import { structuredSchema, toResumeProfile } from "./resume-parser-agent";
 
 // ---------------------------------------------------------------------------
 // NDJSON streaming event types
@@ -30,10 +23,10 @@ export type AnalysisStreamEvent =
   | { type: "result"; data: unknown }
   | { type: "error"; message: string };
 
-const TOOL_LABELS: Record<string, string> = {
-  analyze_resume_with_vision: "视觉模型分析 PDF",
-  extract_pdf_text: "pdf-parse 提取文本",
-};
+const PARSE_STAGE_LABELS = {
+  ocr: "Qwen-VL OCR 识别简历",
+  structured: "qwen3-max 提取结构化字段",
+} as const;
 
 function createNdjsonStream(
   run: (emit: (event: AnalysisStreamEvent) => void) => Promise<void>,
@@ -196,38 +189,22 @@ export function streamParseResumeProfile(file: File): ReadableStream<Uint8Array>
   return createNdjsonStream(async (emit) => {
     emit({ message: "正在解析 PDF 简历…", type: "status" });
 
-    const uploadedPdf = await fileToUploadedResumePdf(file);
-    const agent = buildResumeParserAgent(uploadedPdf, parseResumePdf);
+    const bytes = new Uint8Array(await file.arrayBuffer());
 
-    const streamResult = await agent.stream({
-      prompt: buildResumeParserPrompt(uploadedPdf),
-    });
+    emit({ index: 1, type: "step" });
+    emit({ name: PARSE_STAGE_LABELS.ocr, type: "tool-start" });
 
-    let stepIndex = 0;
-    for await (const part of streamResult.fullStream) {
-      if (part.type === "text-delta") {
-        emit({ text: part.text, type: "text-delta" });
-      } else if (part.type === "tool-input-start") {
-        emit({ name: TOOL_LABELS[part.toolName] ?? part.toolName, type: "tool-start" });
-      } else if (part.type === "tool-result" || part.type === "tool-error") {
-        const { toolName } = part as { toolName: string };
-        emit({ name: TOOL_LABELS[toolName] ?? toolName, type: "tool-end" });
-      } else if (part.type === "start-step") {
-        stepIndex += 1;
-        emit({ index: stepIndex, type: "step" });
-      }
-    }
+    const fast = await parseResumeFast(bytes);
 
-    const finalText = await streamResult.text;
-    const finalSteps = await streamResult.steps;
-    const { structured } = collectResumeParserResult(
-      { steps: finalSteps, text: finalText },
-      file.name,
-    );
+    emit({ name: PARSE_STAGE_LABELS.ocr, type: "tool-end" });
+
+    emit({ index: 2, type: "step" });
+    emit({ name: PARSE_STAGE_LABELS.structured, type: "tool-start" });
+    emit({ name: PARSE_STAGE_LABELS.structured, type: "tool-end" });
 
     const result: ResumeParseResult = {
       fileName: file.name,
-      resumeProfile: normalizeResumeProfile(toResumeProfile(structured)),
+      resumeProfile: normalizeResumeProfile(toResumeProfile(fast.structured)),
     };
 
     emit({ data: result, type: "result" });
@@ -293,15 +270,9 @@ export async function analyzeResumeFile(file: File): Promise<ResumeAnalysisResul
   let resumeProfile: ResumeProfile;
 
   try {
-    const uploadedPdf = await fileToUploadedResumePdf(file);
-    const agent = buildResumeParserAgent(uploadedPdf, parseResumePdf);
-
-    const result = await agent.generate({
-      prompt: buildResumeParserPrompt(uploadedPdf),
-    });
-
-    const { structured } = collectResumeParserResult(result, file.name);
-    resumeProfile = normalizeResumeProfile(toResumeProfile(structured));
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    const fast = await parseResumeFast(bytes);
+    resumeProfile = normalizeResumeProfile(toResumeProfile(fast.structured));
   } catch (error) {
     if (error instanceof ResumeAnalysisError) {
       throw error;

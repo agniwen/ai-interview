@@ -150,7 +150,7 @@ export function renderProfileReport(result: ResumeParserResult): string {
   }
 
   // 元数据 / Metadata
-  const sourceLabel = result.textSource === "vision" ? "视觉模型 (Gemini)" : "PDF 文本提取";
+  const sourceLabel = result.textSource === "qwen-ocr" ? "Qwen-VL OCR" : "PDF 文本提取";
   sections.push("---");
   sections.push(
     `_文件：${result.filename} · 页数：${result.pageCount} · 文本来源：${sourceLabel}_`,

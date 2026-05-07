@@ -1,5 +1,6 @@
 import type { UIMessage } from "ai";
 import { zValidator } from "@hono/zod-validator";
+import { parseResumeFast } from "@/lib/resume-parse-pipeline";
 import { buildAttachmentKey, getObjectStream, putObjectBytes } from "@/lib/s3";
 import { createAttachment, getUserAttachment } from "@/server/queries/chat-attachments";
 import {
@@ -182,16 +183,44 @@ export const chatRouter = factory
     const attachmentId = crypto.randomUUID();
     const storageKey = await buildAttachmentKey(attachmentId, mediaTypeToExtension(file.type));
 
-    try {
-      const bytes = new Uint8Array(await file.arrayBuffer());
-      await putObjectBytes({
-        body: bytes,
-        contentType: file.type,
-        storageKey,
-      });
-    } catch (error) {
-      console.error("[chat] failed to upload to storage", error);
+    const original = new Uint8Array(await file.arrayBuffer());
+    // pdf-parse / pdfjs may transfer the underlying ArrayBuffer to a worker,
+    // detaching the original. Hand out independent copies so the S3 upload
+    // and the parse pipeline cannot poison each other.
+    const bytesForUpload = new Uint8Array(original);
+    const bytesForParse = new Uint8Array(original);
+
+    // Run S3 upload + resume parsing in parallel; the parse cost is normally
+    // hidden by the user's typing window. S3 failure is fatal; parse failure
+    // is recorded and falls back to lazy parsing at LLM call time.
+    const [uploadOutcome, parseOutcome] = await Promise.allSettled([
+      putObjectBytes({ body: bytesForUpload, contentType: file.type, storageKey }),
+      parseResumeFast(bytesForParse),
+    ]);
+
+    if (uploadOutcome.status === "rejected") {
+      console.error("[chat] failed to upload to storage", uploadOutcome.reason);
       return c.json({ error: "Storage upload failed" }, 500);
+    }
+
+    const parseFields =
+      parseOutcome.status === "fulfilled"
+        ? {
+            parsedAt: new Date(),
+            parsedPageCount: parseOutcome.value.pageCount,
+            parsedStatus: "ready" as const,
+            parsedStructured: parseOutcome.value.structured,
+            parsedText: parseOutcome.value.text,
+            parsedTextSource: parseOutcome.value.textSource,
+          }
+        : {
+            parsedAt: new Date(),
+            parsedError: String(parseOutcome.reason).slice(0, 500),
+            parsedStatus: "failed" as const,
+          };
+
+    if (parseOutcome.status === "rejected") {
+      console.error("[chat] resume preparse failed (non-fatal)", parseOutcome.reason);
     }
 
     await createAttachment({
@@ -201,10 +230,20 @@ export const chatRouter = factory
       size: file.size,
       storageKey,
       userId: user.id,
+      ...parseFields,
     });
 
     return c.json({
       id: attachmentId,
+      parseStatus: parseFields.parsedStatus,
+      ...(parseOutcome.status === "fulfilled" && {
+        parsed: {
+          pageCount: parseOutcome.value.pageCount,
+          structured: parseOutcome.value.structured,
+          text: parseOutcome.value.text,
+          textSource: parseOutcome.value.textSource,
+        },
+      }),
       url: `/api/chat/attachments/${attachmentId}`,
     });
   })

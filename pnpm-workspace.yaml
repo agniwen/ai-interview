@@ -1,6 +1,7 @@
 packages:
   - "packages/*"
 allowBuilds:
+  canvas: set this to true or false
   cbor-extract: true
   esbuild: true
   lefthook: true

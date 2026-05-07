@@ -303,11 +303,48 @@ export default function ChatWorkspace({ initialSessionId }: { initialSessionId: 
       // flicker at the start of each turn.
       setHasPendingResponse(true);
       setUserStopped(false);
-      // Dispatch through the registry's Chat instance directly. On the first
-      // send of a new conversation, the hook's `sendMessage` is still bound to
-      // the throwaway init chat from the pre-id render; going through the
-      // registry targets the real (and persistable) Chat instance.
-      await getOrCreateChat(conversationId).sendMessage({ files: files as FileUIPart[], text });
+
+      // Bake any client-side parsed-resume data into the outgoing UIMessage as
+      // `data-resume-parsed` parts. With this in place, the request payload
+      // visible in DevTools already contains the OCR JSON — no server-side
+      // post-processing required.
+      const filesArr = files ?? [];
+      const hasParsed = filesArr.some((f) => f.parsed);
+
+      if (hasParsed) {
+        const parts: UIMessage["parts"] = [];
+        if (text.trim().length > 0) {
+          parts.push({ text, type: "text" });
+        }
+        for (const file of filesArr) {
+          parts.push({
+            filename: file.filename,
+            mediaType: file.mediaType,
+            type: "file",
+            url: file.url,
+          });
+          if (file.parsed) {
+            parts.push({
+              data: {
+                attachmentId: file.parsed.attachmentId,
+                filename: file.filename ?? "resume.pdf",
+                parsedPageCount: file.parsed.pageCount,
+                parsedStructured: file.parsed.structured,
+                parsedText: file.parsed.text,
+                parsedTextSource: file.parsed.textSource,
+              },
+              id: `parsed-${file.parsed.attachmentId}`,
+              type: "data-resume-parsed",
+            });
+          }
+        }
+        await getOrCreateChat(conversationId).sendMessage({ parts });
+      } else {
+        await getOrCreateChat(conversationId).sendMessage({
+          files: filesArr as FileUIPart[],
+          text,
+        });
+      }
     },
     [activeConversationId, ensureConversation, updateConversationTitle],
   );
@@ -422,7 +459,7 @@ export default function ChatWorkspace({ initialSessionId }: { initialSessionId: 
   }, [activeConversationId, shouldNormalizeSessionPath, updateSessionInUrl]);
 
   // Persist JD / resumeImports changes (user actions, not message stream).
-  // The message stream is persisted server-side via /api/resume's onFinish
+  // The message stream is persisted server-side via /api/resume/chat's onFinish
   // plus a backup client write in useChat's onFinish.
   useEffect(() => {
     if (!isHistoryReady || !activeConversationId) {
