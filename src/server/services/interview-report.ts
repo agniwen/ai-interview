@@ -76,7 +76,7 @@ export async function generateInterviewReport(options: {
   }
 
   const provider = createAlibabaProvider({ enableThinking: false });
-  const summaryModelId = process.env.ALIBABA_FAST_MODEL ?? "qwen-turbo";
+  const summaryModelId = process.env.ALIBABA_FAST_MODEL ?? "deepseek-v4-flash";
   const evaluationModelId = process.env.INTERVIEW_EVALUATION_MODEL ?? "google/gemini-2.5-flash";
 
   const transcriptText = formatTranscript(transcript);

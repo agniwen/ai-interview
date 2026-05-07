@@ -5,7 +5,7 @@ import random
 # fire-and-forget in the Node process after the agent shutdown completes.
 
 # 难度追问规则: 在两个题目板块顶部各重复一次, 让模型每次看到题目都被强提醒一遍.
-# 实测较小的 LLM (Qwen-turbo) 把规则放在 prompt 中段时容易忽略, 把它紧贴题目能显著降低偏离.
+# 实测较小的 LLM (Qwen-turbo / deepseek-v4-flash 等) 把规则放在 prompt 中段时容易忽略, 把它紧贴题目能显著降低偏离.
 # 必须与 src/lib/interview/agent-instructions.ts 中的 DIFFICULTY_FOLLOWUP_RULES 保持一致.
 # Followup-rule block repeated above each question section. Smaller LLMs tend to
 # ignore mid-prompt rules, but co-locating with the questions reinforces them.

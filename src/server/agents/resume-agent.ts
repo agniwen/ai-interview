@@ -1,4 +1,4 @@
-import type { StopCondition, ToolSet } from "ai";
+import type { PrepareStepFunction, StopCondition, ToolSet } from "ai";
 import { stepCountIs, ToolLoopAgent } from "ai";
 import { withDevTools } from "./devtools";
 import { createAlibabaProvider } from "./provider";
@@ -20,17 +20,19 @@ export interface CreateResumeAgentOptions<TOOLS extends ToolSet> {
   temperature?: number;
   maxRetries?: number;
   maxOutputTokens?: number;
+  prepareStep?: PrepareStepFunction<TOOLS>;
 }
 
 export function createResumeAgent<TOOLS extends ToolSet>({
   instructions,
   tools,
-  modelId = process.env.ALIBABA_MODEL ?? "qwen3.6-plus",
+  modelId = process.env.ALIBABA_MODEL ?? "deepseek-v4-pro",
   enableThinking = true,
   stopWhen = stepCountIs(1),
   temperature,
   maxRetries = DEFAULT_STEP_MAX_RETRIES,
   maxOutputTokens,
+  prepareStep,
 }: CreateResumeAgentOptions<TOOLS>) {
   const provider = createAlibabaProvider({ enableThinking });
 
@@ -39,6 +41,7 @@ export function createResumeAgent<TOOLS extends ToolSet>({
     maxOutputTokens,
     maxRetries,
     model: withDevTools(provider(modelId)),
+    prepareStep,
     stopWhen,
     temperature,
     tools,

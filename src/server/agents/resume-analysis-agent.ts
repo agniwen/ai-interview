@@ -25,7 +25,7 @@ export type AnalysisStreamEvent =
 
 const PARSE_STAGE_LABELS = {
   ocr: "Qwen-VL OCR 识别简历",
-  structured: "qwen3-max 提取结构化字段",
+  structured: "DeepSeek V4 Flash 提取结构化字段",
 } as const;
 
 function createNdjsonStream(
@@ -221,7 +221,7 @@ export function streamGenerateInterviewQuestions(
   return createNdjsonStream(async (emit) => {
     emit({ message: "正在生成面试题…", type: "status" });
 
-    const structuredModelId = process.env.ALIBABA_STRUCTURED_MODEL ?? "qwen3-max";
+    const structuredModelId = process.env.ALIBABA_STRUCTURED_MODEL ?? "deepseek-v4-flash";
 
     const questionAgent = createResumeAgent({
       enableThinking: false,
@@ -284,7 +284,7 @@ export async function analyzeResumeFile(file: File): Promise<ResumeAnalysisResul
   }
 
   try {
-    const structuredModelId = process.env.ALIBABA_STRUCTURED_MODEL ?? "qwen3-max";
+    const structuredModelId = process.env.ALIBABA_STRUCTURED_MODEL ?? "deepseek-v4-flash";
     const questionAgent = createResumeAgent({
       enableThinking: false,
       instructions: QUESTION_INSTRUCTIONS,

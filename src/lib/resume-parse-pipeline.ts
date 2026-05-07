@@ -77,7 +77,7 @@ function clipForStructured(text: string): string {
 
 export async function generateResumeStructured(text: string): Promise<ResumeParserStructured> {
   const provider = createAlibabaProvider({ enableThinking: false });
-  const modelId = process.env.ALIBABA_STRUCTURED_MODEL ?? "qwen3-max";
+  const modelId = process.env.ALIBABA_STRUCTURED_MODEL ?? "deepseek-v4-flash";
   const { text: rawOutput } = await generateText({
     maxOutputTokens: 4096,
     model: provider(modelId),

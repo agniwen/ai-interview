@@ -112,7 +112,7 @@ async def my_agent(ctx: JobContext):
             tag_audio_events=False,
         ),
         llm=openai.LLM(
-            model="qwen-turbo-latest",
+            model=os.environ.get("DASHSCOPE_LLM_MODEL", "deepseek-v4-flash"),
             base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
             api_key=os.environ.get("DASHSCOPE_API_KEY"),  # type: ignore
             extra_body={"enable_thinking": False},
@@ -376,14 +376,14 @@ async def my_agent(ctx: JobContext):
         grace_task.cancel()
         grace_task = None
         # 用 session.say 直接走 TTS 念一句固定话, 不通过 LLM. 之前用
-        # generate_reply(instructions=...) 让 LLM 生成致意话语, 但 Qwen-turbo
-        # 这类小模型会把"候选人刚才因网络问题短暂离线"这种元指令当成是
-        # 候选人在反思, 进而切换到候选人口吻 / 开始回答自己之前问的问题.
-        # add_to_chat_ctx=True 默认值会把这句加进 chat history (assistant 角色),
-        # 让 LLM 知道刚刚 agent 说了"欢迎回来", 后续提问不会重复.
+        # generate_reply(instructions=...) 让 LLM 生成致意话语, 但小模型
+        # (Qwen-turbo / deepseek-v4-flash 等) 会把"候选人刚才因网络问题短暂离线"
+        # 这种元指令当成是候选人在反思, 进而切换到候选人口吻 / 开始回答自己之前
+        # 问的问题. add_to_chat_ctx=True 默认值会把这句加进 chat history
+        # (assistant 角色), 让 LLM 知道刚刚 agent 说了"欢迎回来", 后续提问不会重复.
         # Use TTS-only say() instead of LLM-driven generate_reply: small models
-        # (Qwen-turbo) misread the meta-instruction "the candidate dropped off"
-        # as the candidate's own utterance and flip into the candidate role.
+        # misread the meta-instruction "the candidate dropped off" as the
+        # candidate's own utterance and flip into the candidate role.
         try:
             session.say("欢迎回来，我们继续刚才的话题。", allow_interruptions=True)
         except Exception:

@@ -154,7 +154,7 @@ export const resumeRouter = factory
       }),
     });
 
-    const modelId = process.env.ALIBABA_FAST_MODEL ?? "qwen-turbo";
+    const modelId = process.env.ALIBABA_FAST_MODEL ?? "deepseek-v4-flash";
 
     try {
       const { text: titleText } = await generateText({

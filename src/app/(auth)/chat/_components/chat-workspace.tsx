@@ -145,6 +145,16 @@ export default function ChatWorkspace({ initialSessionId }: { initialSessionId: 
         : { experimental_throttle: 50 },
     );
 
+  // When the user starts a new conversation (boundChat goes null), useChat
+  // doesn't automatically clear its internal messages array — the throwaway
+  // internal Chat reuses state. Force-clear so the prior conversation's
+  // messages don't bleed into the empty shell.
+  useEffect(() => {
+    if (!boundChat) {
+      setMessages([]);
+    }
+  }, [boundChat, setMessages]);
+
   // Keep the latest messages reachable from callbacks without making
   // `messages` itself a dep — otherwise every streamed chunk would re-create
   // ensureConversation / sendMessageToChat / handleContinueAfterError, which
