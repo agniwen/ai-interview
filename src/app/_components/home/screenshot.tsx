@@ -47,20 +47,20 @@ export function Screenshot({
       className={cn(
         // 浅淡半透明边框 + 柔和投影，避免 macOS 拟物边框的违和感
         // Subtle translucent border + soft shadow, no skeuomorphic chrome.
-        "relative pointer-events-none select-none overflow-hidden rounded-2xl pt-1 pb-1 px-1 bg-background/60 shadow-xl ring-1 ring-foreground/5 backdrop-blur",
+        "relative pointer-events-none select-none overflow-hidden rounded-lg pt-1 pb-1 px-1 bg-background/60 shadow-xl ring-1 ring-foreground/5 backdrop-blur",
         className,
       )}
     >
-      <div className="flex flex-row items-center h-7">
+      <div className="flex flex-row items-center h-6">
         <div className="flex gap-2 px-2">
-          <i className="h-3 w-3 rounded-full bg-[#FF5C5F]" />
-          <i className="h-3 w-3 rounded-full bg-[#FAC800]" />
-          <i className="h-3 w-3 rounded-full bg-[#34C759]" />
+          <i className="size-3 rounded-full bg-[#FF5C5F]" />
+          <i className="size-3 rounded-full bg-[#FAC800]" />
+          <i className="size-3 rounded-full bg-[#34C759]" />
         </div>
       </div>
       <Image
         alt={alt}
-        className="h-auto w-full border border-border/60 rounded-xl"
+        className="h-auto w-full border border-border/60 rounded-md"
         height={height}
         priority={priority}
         src={src}
