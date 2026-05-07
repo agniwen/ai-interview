@@ -105,8 +105,7 @@ export function TileLayout({ chatOpen }: TileLayoutProps) {
                   <AgentAudioVisualizerAura
                     size={chatOpen ? "sm" : "lg"}
                     state={agentState}
-                    color={resolvedTheme === "dark" ? "#7C8CFF" : "#4680ae"}
-                    colorShift={0.06}
+                    colorShift={0.1}
                     themeMode={resolvedTheme as "light" | "dark"}
                     audioTrack={audioTrack}
                   />
