@@ -18,6 +18,7 @@ Two separate package managers: **pnpm** for web, **uv** for Python agent. Do not
 ### Web (from project root)
 
 - `pnpm dev` — dev server
+- `pnpm hooks` — install lefthook git hooks (run once after clone)
 - `pnpm build` — production build
 - `pnpm typecheck` — TypeScript type checking
 - `pnpm lint` — ESLint with autofix

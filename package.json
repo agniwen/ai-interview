@@ -1,6 +1,6 @@
 {
   "name": "ai-recruitment-copilot",
-  "version": "0.1.1",
+  "version": "1.0.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -18,7 +18,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "fix": "ultracite fix",
-    "prepare": "lefthook install"
+    "hooks": "lefthook install"
   },
   "dependencies": {
     "@ai-sdk/devtools": "^0.0.15",

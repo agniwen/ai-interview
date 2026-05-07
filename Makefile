@@ -18,6 +18,7 @@ install: web-install agent-install agent-download ## 一键安装前后端依赖
 
 web-install: ## pnpm install (Next.js 前端)
 	pnpm install
+	pnpm hooks
 
 agent-install: ## 创建 venv 并安装 Python 依赖 (uv sync)
 	cd $(AGENT_DIR) && uv sync
