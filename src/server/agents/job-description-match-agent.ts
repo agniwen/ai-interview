@@ -57,14 +57,12 @@ function parseMatchOutput(text: string) {
 function summarizeJobDescription(jd: JobDescriptionListRecord) {
   const departmentPrefix = jd.departmentName ? `${jd.departmentName} / ` : "";
   const description = jd.description?.trim() || "（无描述）";
-  const promptExcerpt = jd.prompt.trim().slice(0, 400);
 
-  return [
-    `- id: ${jd.id}`,
-    `  岗位: ${departmentPrefix}${jd.name}`,
-    `  描述: ${description}`,
-    `  岗位 prompt 节选: ${promptExcerpt}`,
-  ].join("\n");
+  // 仅传 name / description / departmentName，避免 prompt 拉爆上下文。
+  // Only pass name / description / departmentName; omit prompt to keep context small.
+  return [`- id: ${jd.id}`, `  岗位: ${departmentPrefix}${jd.name}`, `  描述: ${description}`].join(
+    "\n",
+  );
 }
 
 function safeString(value: string | null) {

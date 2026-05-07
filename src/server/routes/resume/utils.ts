@@ -834,12 +834,13 @@ export function createSuggestJobDescriptionTool({
         return { reason: "parse-failed", status: "error" as const };
       }
 
+      // 仅传 name / description / departmentName，避免 prompt 拉爆上下文。
+      // Only pass name / description / departmentName; omit prompt to keep context small.
       const jdSummary = jobDescriptions.map((jd) => ({
         departmentName: jd.departmentName ?? null,
         description: jd.description ?? "",
         id: jd.id,
         name: jd.name,
-        prompt: jd.prompt,
       }));
 
       const rankerInstructions = `你是一名招聘岗位匹配助手。根据候选人的简历结构化信息与后台已配置的在招岗位列表，按匹配度从高到低返回候选岗位排序。
