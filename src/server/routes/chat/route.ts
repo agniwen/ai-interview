@@ -1,8 +1,13 @@
 import type { UIMessage } from "ai";
 import { zValidator } from "@hono/zod-validator";
 import { parseResumeFast } from "@/lib/resume-parse-pipeline";
-import { buildAttachmentKey, getObjectStream, putObjectBytes } from "@/lib/s3";
-import { createAttachment, getUserAttachment } from "@/server/queries/chat-attachments";
+import { sha256HexOfBytes } from "@/lib/file-hash";
+import { buildAttachmentKeyByHash, getObjectStream, putObjectBytes } from "@/lib/s3";
+import {
+  createAttachment,
+  findAttachmentByContentHash,
+  getUserAttachment,
+} from "@/server/queries/chat-attachments";
 import {
   checkConversationOwner,
   deleteUserConversation,
@@ -180,19 +185,60 @@ export const chatRouter = factory
     }
 
     const filename = file.name.slice(0, 255) || "attachment.pdf";
-    const attachmentId = crypto.randomUUID();
-    const storageKey = await buildAttachmentKey(attachmentId, mediaTypeToExtension(file.type));
-
     const original = new Uint8Array(await file.arrayBuffer());
+
+    // 服务端始终自算 hash，不读客户端声称值。
+    // The server always computes the hash itself; client claims are ignored.
+    const contentHash = await sha256HexOfBytes(original);
+
+    // 命中既有行：复制 storageKey + 解析结果，新建一条独立 attachment 行。
+    // Hash hit: reuse storageKey and parse result; insert a fresh per-user row.
+    const existing = await findAttachmentByContentHash(contentHash);
+    if (existing) {
+      const attachmentId = crypto.randomUUID();
+      await createAttachment({
+        contentHash,
+        filename,
+        id: attachmentId,
+        mediaType: file.type,
+        parsedAt: existing.parsedAt,
+        parsedError: existing.parsedError,
+        parsedPageCount: existing.parsedPageCount,
+        parsedStatus: existing.parsedStatus,
+        parsedStructured: existing.parsedStructured,
+        parsedText: existing.parsedText,
+        parsedTextSource: existing.parsedTextSource,
+        size: file.size,
+        storageKey: existing.storageKey,
+        userId: user.id,
+      });
+
+      return c.json({
+        id: attachmentId,
+        parseStatus: existing.parsedStatus,
+        ...(existing.parsedStatus === "ready" && {
+          parsed: {
+            pageCount: existing.parsedPageCount,
+            structured: existing.parsedStructured,
+            text: existing.parsedText,
+            textSource: existing.parsedTextSource,
+          },
+        }),
+        url: `/api/chat/attachments/${attachmentId}`,
+      });
+    }
+
+    // 未命中：走原有上传 + 解析路径，但 S3 key 用 hash 命名。
+    // Miss: original upload + parse path, but S3 key is derived from the hash.
+    const attachmentId = crypto.randomUUID();
+    const storageKey = await buildAttachmentKeyByHash(contentHash, mediaTypeToExtension(file.type));
+
     // pdf-parse / pdfjs may transfer the underlying ArrayBuffer to a worker,
     // detaching the original. Hand out independent copies so the S3 upload
     // and the parse pipeline cannot poison each other.
     const bytesForUpload = new Uint8Array(original);
     const bytesForParse = new Uint8Array(original);
 
-    // Run S3 upload + resume parsing in parallel; the parse cost is normally
-    // hidden by the user's typing window. S3 failure is fatal; parse failure
-    // is recorded and falls back to lazy parsing at LLM call time.
     const [uploadOutcome, parseOutcome] = await Promise.allSettled([
       putObjectBytes({ body: bytesForUpload, contentType: file.type, storageKey }),
       parseResumeFast(bytesForParse),
@@ -224,6 +270,7 @@ export const chatRouter = factory
     }
 
     await createAttachment({
+      contentHash,
       filename,
       id: attachmentId,
       mediaType: file.type,
