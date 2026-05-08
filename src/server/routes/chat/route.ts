@@ -31,6 +31,39 @@ function mediaTypeToExtension(mediaType: string): string {
   return "bin";
 }
 
+// 构造上传/preflight 共用的响应结构。
+// Build the upload/preflight shared response shape.
+export function buildUploadResponse(args: {
+  attachmentId: string;
+  parsedStatus: "ready" | "failed" | "pending";
+  parsedPageCount: number | null;
+  parsedStructured: unknown;
+  parsedText: string | null;
+  parsedTextSource: "pdf-parse" | "qwen-ocr" | null;
+}) {
+  const {
+    attachmentId,
+    parsedStatus,
+    parsedPageCount,
+    parsedStructured,
+    parsedText,
+    parsedTextSource,
+  } = args;
+  return {
+    id: attachmentId,
+    parseStatus: parsedStatus,
+    ...(parsedStatus === "ready" && {
+      parsed: {
+        pageCount: parsedPageCount,
+        structured: parsedStructured,
+        text: parsedText,
+        textSource: parsedTextSource,
+      },
+    }),
+    url: `/api/chat/attachments/${attachmentId}`,
+  };
+}
+
 export const chatRouter = factory
   .createApp()
   .get("/conversations", async (c) => {
@@ -192,7 +225,11 @@ export const chatRouter = factory
     const contentHash = await sha256HexOfBytes(original);
 
     // 命中既有行：复制 storageKey + 解析结果，新建一条独立 attachment 行。
+    // 并发 miss：两个请求各自 PUT 同一 hash 命名的 S3 对象（幂等覆盖）+
+    // 各自 INSERT 独立 attachmentId，不冲突。
     // Hash hit: reuse storageKey and parse result; insert a fresh per-user row.
+    // Concurrent miss: two requests each PUT the same hash-named S3 key
+    // (idempotent overwrite) and INSERT independent attachmentIds — no conflict.
     const existing = await findAttachmentByContentHash(contentHash);
     if (existing) {
       const attachmentId = crypto.randomUUID();
@@ -213,19 +250,16 @@ export const chatRouter = factory
         userId: user.id,
       });
 
-      return c.json({
-        id: attachmentId,
-        parseStatus: existing.parsedStatus,
-        ...(existing.parsedStatus === "ready" && {
-          parsed: {
-            pageCount: existing.parsedPageCount,
-            structured: existing.parsedStructured,
-            text: existing.parsedText,
-            textSource: existing.parsedTextSource,
-          },
+      return c.json(
+        buildUploadResponse({
+          attachmentId,
+          parsedPageCount: existing.parsedPageCount,
+          parsedStatus: existing.parsedStatus,
+          parsedStructured: existing.parsedStructured,
+          parsedText: existing.parsedText,
+          parsedTextSource: existing.parsedTextSource,
         }),
-        url: `/api/chat/attachments/${attachmentId}`,
-      });
+      );
     }
 
     // 未命中：走原有上传 + 解析路径，但 S3 key 用 hash 命名。
@@ -239,6 +273,11 @@ export const chatRouter = factory
     const bytesForUpload = new Uint8Array(original);
     const bytesForParse = new Uint8Array(original);
 
+    // 上传与解析并行：解析成本通常被用户输入窗口掩盖。S3 失败致命；解析失败记录后
+    // 由 LLM 调用时按需兜底解析。
+    // Run S3 upload + resume parsing in parallel; the parse cost is normally
+    // hidden by the user's typing window. S3 failure is fatal; parse failure
+    // is recorded and falls back to lazy parsing at LLM call time.
     const [uploadOutcome, parseOutcome] = await Promise.allSettled([
       putObjectBytes({ body: bytesForUpload, contentType: file.type, storageKey }),
       parseResumeFast(bytesForParse),
@@ -280,19 +319,18 @@ export const chatRouter = factory
       ...parseFields,
     });
 
-    return c.json({
-      id: attachmentId,
-      parseStatus: parseFields.parsedStatus,
-      ...(parseOutcome.status === "fulfilled" && {
-        parsed: {
-          pageCount: parseOutcome.value.pageCount,
-          structured: parseOutcome.value.structured,
-          text: parseOutcome.value.text,
-          textSource: parseOutcome.value.textSource,
-        },
+    return c.json(
+      buildUploadResponse({
+        attachmentId,
+        parsedPageCount: parseOutcome.status === "fulfilled" ? parseOutcome.value.pageCount : null,
+        parsedStatus: parseFields.parsedStatus,
+        parsedStructured:
+          parseOutcome.status === "fulfilled" ? parseOutcome.value.structured : null,
+        parsedText: parseOutcome.status === "fulfilled" ? parseOutcome.value.text : null,
+        parsedTextSource:
+          parseOutcome.status === "fulfilled" ? parseOutcome.value.textSource : null,
       }),
-      url: `/api/chat/attachments/${attachmentId}`,
-    });
+    );
   })
   .get("/attachments/:id", async (c) => {
     const { user } = c.var;

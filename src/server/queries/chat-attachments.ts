@@ -1,5 +1,5 @@
 import type { ResumeParserStructured } from "@/server/agents/resume-parser-agent";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, ne } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { chatAttachment } from "@/lib/db/schema";
 
@@ -114,12 +114,15 @@ export async function getUserAttachments(
 }
 
 // 全局按内容哈希查 chat_attachment——任意一行命中即可作为 storageKey + 解析结果的复用源。
+// 排除 parsedStatus === "failed" 的行：失败的解析不应永久污染后续上传。
 // Global lookup by content hash; any matching row is a reuse source for storageKey + parsed*.
+// Rows with parsedStatus === "failed" are excluded so a one-time parse error doesn't
+// permanently poison every subsequent upload of the same file.
 export async function findAttachmentByContentHash(hash: string): Promise<ChatAttachmentRow | null> {
   const [row] = await db
     .select()
     .from(chatAttachment)
-    .where(eq(chatAttachment.contentHash, hash))
+    .where(and(eq(chatAttachment.contentHash, hash), ne(chatAttachment.parsedStatus, "failed")))
     .limit(1);
   return (row as ChatAttachmentRow | undefined) ?? null;
 }
