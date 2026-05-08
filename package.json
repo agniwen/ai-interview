@@ -34,6 +34,7 @@
     "@dnd-kit/utilities": "^3.2.2",
     "@gsap/react": "^2.1.2",
     "@heroui/react": "^3.0.4",
+    "@heroui/styles": "^3.0.3",
     "@hookform/resolvers": "^5.2.2",
     "@livekit/components-react": "^2.9.20",
     "@livekit/protocol": "^1.41.0",
