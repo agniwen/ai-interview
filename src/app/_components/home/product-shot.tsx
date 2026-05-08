@@ -2,55 +2,35 @@
 // Purpose: Hero shot of the primary product surface; subtle scroll-driven scale-down.
 "use client";
 
+import { useGSAP } from "@gsap/react";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
-import { useLayoutEffect, useRef } from "react";
+import { useRef } from "react";
 import { FadeContent } from "@/components/react-bits/fade-content";
 import { Screenshot } from "./screenshot";
 import { Section } from "./section";
+
+gsap.registerPlugin(useGSAP, ScrollTrigger);
 
 // 顶部小 padding 让截图露出首屏一半，底部沿用 Section 默认节奏与下方 section 对齐
 // Small top keeps the screenshot peeking above the fold; default bottom keeps section rhythm consistent.
 export function ProductShot() {
   const wrapperRef = useRef<HTMLDivElement>(null);
 
-  useLayoutEffect(() => {
-    if (typeof window === "undefined") {
-      return;
-    }
-    gsap.registerPlugin(ScrollTrigger);
-
-    // 整页 OverlayScrollbars 自定义滚动容器
-    // Custom OverlayScrollbars viewport as ScrollTrigger scroller
-    const viewport = document.querySelector<HTMLElement>("[data-overlayscrollbars-viewport]");
-
-    const ctx = gsap.context(() => {
+  // ScrollSmoother + ScrollTrigger 是同源整合，**不要**手动 scrollerProxy 也不要传
+  // scroller —— 那是给第三方 smooth scroller 用的。useGSAP 的 scope 把所有动画挂到
+  // wrapperRef 上，unmount 时自动 revert。
+  // ScrollSmoother + ScrollTrigger are first-party — no scrollerProxy and no `scroller`
+  // option needed (those are for third-party smooth scrollers). useGSAP's scope binds
+  // the animation to wrapperRef and reverts automatically on unmount.
+  useGSAP(
+    () => {
+      if (typeof window === "undefined") {
+        return;
+      }
       if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
         return;
       }
-
-      // 注册 scrollerProxy（与 FeatureBlocks 共享同一 viewport，配置幂等）
-      // Register scrollerProxy (idempotent with FeatureBlocks's registration on the same viewport)
-      if (viewport) {
-        ScrollTrigger.scrollerProxy(viewport, {
-          getBoundingClientRect() {
-            return {
-              height: window.innerHeight,
-              left: 0,
-              top: 0,
-              width: window.innerWidth,
-            };
-          },
-          scrollTop(value) {
-            if (value !== undefined) {
-              viewport.scrollTop = value;
-            }
-            return viewport.scrollTop;
-          },
-        });
-        viewport.addEventListener("scroll", () => ScrollTrigger.update(), { passive: true });
-      }
-
       const target = wrapperRef.current;
       if (!target) {
         return;
@@ -67,7 +47,6 @@ export function ProductShot() {
           scrollTrigger: {
             end: "bottom top",
             invalidateOnRefresh: true,
-            scroller: viewport ?? undefined,
             scrub: 0.4,
             // 进入屏幕中部就开始缩小，到完全滚出时缩到最小
             // Begins shrinking once image top crosses viewport center; fully shrunk when scrolled out
@@ -76,10 +55,9 @@ export function ProductShot() {
           },
         },
       );
-    }, wrapperRef);
-
-    return () => ctx.revert();
-  }, []);
+    },
+    { scope: wrapperRef },
+  );
 
   return (
     <Section className="!pt-8 sm:!pt-10" width="wide">

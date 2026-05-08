@@ -2,13 +2,17 @@
 // Purpose: Apple-style pinned scroll storytelling — 3 distinct layouts, inner content reveals progressively as user scrolls (fully revealed by ~70% of each scene).
 "use client";
 
+import { useGSAP } from "@gsap/react";
 import { gsap } from "gsap";
+import { ScrollSmoother } from "gsap/ScrollSmoother";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
-import { useCallback, useLayoutEffect, useRef } from "react";
+import { useCallback, useRef } from "react";
 import { cn } from "@/lib/utils";
 import { CenterCarousel } from "./center-carousel";
 import { Screenshot } from "./screenshot";
 import { Eyebrow, Section } from "./section";
+
+gsap.registerPlugin(useGSAP, ScrollTrigger, ScrollSmoother);
 
 interface Block {
   bullets: string[];
@@ -332,8 +336,12 @@ export function FeatureBlocks() {
   const labelRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const triggerRef = useRef<ScrollTrigger | null>(null);
 
-  // 点击进度条标签：跳转到该场景的中点位置
+  // 点击进度条标签：跳转到该场景的中点位置。
+  // 优先用 ScrollSmoother.scrollTo —— 它会原生跟 smoother 的 lerp 协调，避免再起一个
+  // 跟 smoother 抢 scroll 控制权的并行 tween。降级回 window.scrollTo 兼容 reduced-motion。
   // Click on progress bar label: jump to that scene's settled mid-point.
+  // Use ScrollSmoother.scrollTo when available — it coordinates with the smoother's lerp
+  // natively. Falls back to window.scrollTo when smoother is disabled (reduced-motion).
   const handleSeek = useCallback((sceneIndex: number) => {
     const trigger = triggerRef.current;
     if (!trigger) {
@@ -342,80 +350,37 @@ export function FeatureBlocks() {
     const targetProgress = SCENE_TARGET_PROGRESS[sceneIndex] ?? 0;
     const targetScroll = trigger.start + targetProgress * (trigger.end - trigger.start);
 
-    const viewport = document.querySelector<HTMLElement>("[data-overlayscrollbars-viewport]");
-
-    const start = viewport ? viewport.scrollTop : window.scrollY;
-    const proxy = { y: start };
-    gsap.killTweensOf(proxy);
-    gsap.to(proxy, {
-      duration: 0.9,
-      ease: "power2.inOut",
-      onUpdate() {
-        if (viewport) {
-          viewport.scrollTop = proxy.y;
-        } else {
-          window.scrollTo(0, proxy.y);
-        }
-      },
-      y: targetScroll,
-    });
+    const smoother = ScrollSmoother.get();
+    if (smoother) {
+      smoother.scrollTo(targetScroll, true);
+    } else {
+      window.scrollTo({ behavior: "smooth", top: targetScroll });
+    }
   }, []);
 
-  useLayoutEffect(() => {
-    if (typeof window === "undefined") {
-      return;
-    }
-    gsap.registerPlugin(ScrollTrigger);
-
-    const viewport = document.querySelector<HTMLElement>("[data-overlayscrollbars-viewport]");
-
-    // 浏览器窗口或滚动容器尺寸变化时显式 refresh：ScrollSmoother + scrub 时间轴下，
-    // 默认 auto-refresh 偶尔会跟不上，pin spacer 高度与 end 公式（依赖 innerHeight）
-    // 都需要重新计算。debounce 避免 resize 抖动期间频繁重排。
-    // Window/viewport size changes need an explicit ScrollTrigger.refresh — under
-    // ScrollSmoother + scrub, the default auto-refresh sometimes lags, leaving stale
-    // pin spacer heights and stale end math (which depends on innerHeight).
-    // 250ms debounce 让 matchMedia 边界跨越（桌面 ↔ mobile）的 add/revert 全部完成后再 refresh，
-    // 避免在 matchMedia 还没建好新 pin spacer 时刷新导致 ScrollTrigger 测量错位
-    // 250ms debounce — wait until any matchMedia add/revert at the lg boundary has settled
-    // before refreshing, so ScrollTrigger doesn't measure against a half-built pin spacer.
-    let resizeTimer: ReturnType<typeof setTimeout> | null = null;
-    const handleResize = () => {
-      if (resizeTimer) {
-        clearTimeout(resizeTimer);
+  useGSAP(
+    () => {
+      if (typeof window === "undefined") {
+        return;
       }
-      resizeTimer = setTimeout(() => {
-        ScrollTrigger.refresh();
-      }, 250);
-    };
-    window.addEventListener("resize", handleResize);
-    window.addEventListener("orientationchange", handleResize);
-
-    const ctx = gsap.context(() => {
+      // reduced-motion 直接退出，让浏览器原生滚动接管，pinned 叙事降级为静态版式。
+      // Bail for reduced-motion users — keep native scrolling, pinned story degrades to static.
       if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
         return;
       }
 
-      if (viewport) {
-        ScrollTrigger.scrollerProxy(viewport, {
-          getBoundingClientRect() {
-            return {
-              height: window.innerHeight,
-              left: 0,
-              top: 0,
-              width: window.innerWidth,
-            };
-          },
-          scrollTop(value) {
-            if (value !== undefined) {
-              viewport.scrollTop = value;
-            }
-            return viewport.scrollTop;
-          },
-        });
-        const onScroll = () => ScrollTrigger.update();
-        viewport.addEventListener("scroll", onScroll, { passive: true });
-      }
+      // ScrollSmoother + ScrollTrigger 是同源整合，**不要**手动 scrollerProxy 也不要传
+      // scroller —— 那是给第三方 smooth scroller（Locomotive、Smooth Scrollbar 等）用的。
+      // ScrollTrigger 也会在 viewport resize 时自动 refresh，所以**不要**自己挂 resize
+      // listener。pinType 在 ScrollSmoother active 时默认 "transform"，**不要**手动强制。
+      // 任何形式的手动 refresh / refresh(true) 链都会跟 ScrollSmoother 打架，造成 pin
+      // 跟 smoother 失同步的视觉漂移。
+      // ScrollSmoother + ScrollTrigger are first-party — don't add scrollerProxy and don't
+      // pass `scroller`; those are for third-party smooth scrollers (Locomotive, Smooth
+      // Scrollbar, etc). ScrollTrigger also auto-refreshes on viewport resize, so don't
+      // attach manual resize listeners. pinType defaults to "transform" when ScrollSmoother
+      // is active, no need to force it. Any manual refresh chain fights the smoother and
+      // causes visible pin/scroll desync.
 
       const mm = gsap.matchMedia();
 
@@ -487,8 +452,6 @@ export function FeatureBlocks() {
               scrollTrigger: {
                 end: "top top",
                 invalidateOnRefresh: true,
-                pinType: "transform",
-                scroller: viewport ?? undefined,
                 scrub: true,
                 start: "top bottom",
                 trigger: sectionRef.current,
@@ -526,18 +489,8 @@ export function FeatureBlocks() {
             },
             pin: true,
             pinSpacing: true,
-            // 强制 pinType=transform：首页 ScrollSmoother 给 #smooth-content 加了 transform，
-            // 导致默认的 position:fixed pin 退化为相对 transformed 祖先定位（top:0 变成 #smooth-content 顶端）。
-            // 用 transform pin 通过位移来"假装"固定，规避 fixed-inside-transformed 的浏览器规则。
-            // 关键：matchMedia revert+re-add 后 ScrollTrigger 自动检测不会再走 transform 路径，
-            // 必须显式声明，否则 mobile→PC 回切之后 pin 视觉错位 ~1500px。
-            // Force pinType=transform — homepage uses ScrollSmoother which transforms #smooth-content.
-            // The default position:fixed pin gets re-anchored to that transformed ancestor (top:0
-            // becomes the content's top, not the viewport's). transform pin fakes fixed via translate.
-            // Required because after matchMedia revert+re-add, ScrollTrigger's auto-detection no
-            // longer picks the transform path; without this, mobile→PC reentry breaks the pin.
-            pinType: "transform",
-            scroller: viewport ?? undefined,
+            // ScrollSmoother active 时 ScrollTrigger 会自动选 pinType: "transform"，无需手动指定。
+            // ScrollTrigger picks pinType: "transform" automatically when ScrollSmoother is active.
             scrub: 0.4,
             start: "top top",
             trigger: sectionRef.current,
@@ -666,46 +619,16 @@ export function FeatureBlocks() {
         }
         tl.to({}, { duration: 0.8 }, 3.2);
 
-        // matchMedia 进入桌面态后，分两波强制刷新：
-        //   1) 下一帧：等 pin spacer 实际落到 DOM 后做软 refresh
-        //   2) +200ms：等 ScrollSmoother 的 content 高度 re-sync 完成后做 hard refresh(true)
-        // 直接覆盖 "先 mobile 再 PC" 这条路径上 ScrollSmoother 缓存了旧 content 高度的窗口
-        // After matchMedia enters desktop, refresh in two waves:
-        //   1) Next frame — wait for pin spacer to land in DOM, then soft refresh
-        //   2) +200ms — wait for ScrollSmoother content-height re-sync, then hard refresh(true)
-        // This covers the mobile→PC reentry where ScrollSmoother holds the stale content height.
-        requestAnimationFrame(() => {
-          ScrollTrigger.refresh();
-        });
-        const hardRefreshId = setTimeout(() => {
-          ScrollTrigger.refresh(true);
-        }, 200);
-
-        // matchMedia revert（PC → mobile）时也要 refresh，否则 ScrollSmoother 还把销毁前的
-        // pin spacer 4× viewport 高度算在 content 里，回到 PC 后初次测量就偏
-        // On revert (PC → mobile) refresh too, otherwise ScrollSmoother keeps the pre-destroyed
-        // pin spacer's 4× viewport height in its content cache, biasing the next measurement.
-        return () => {
-          clearTimeout(hardRefreshId);
-          requestAnimationFrame(() => {
-            ScrollTrigger.refresh(true);
-          });
-        };
+        // mm.add 自带 cleanup —— matchMedia revert 时 gsap 会把这个回调里所有 gsap.set /
+        // 时间轴 / ScrollTrigger 自动 revert，pin spacer 也会被销毁，无需手动 refresh。
+        // mm.add cleans up automatically — when matchMedia reverts, gsap reverts every
+        // gsap.set / timeline / ScrollTrigger created here and removes the pin spacer.
+        // No manual refresh chain needed; ScrollTrigger handles resize via its own
+        // built-in resize listener.
       });
-    }, sectionRef);
-
-    return () => {
-      window.removeEventListener("resize", handleResize);
-      window.removeEventListener("orientationchange", handleResize);
-      if (resizeTimer) {
-        clearTimeout(resizeTimer);
-      }
-      ctx.revert();
-      if (viewport) {
-        ScrollTrigger.scrollerProxy(viewport);
-      }
-    };
-  }, []);
+    },
+    { scope: sectionRef },
+  );
 
   return (
     <div className="relative" ref={sectionRef}>
