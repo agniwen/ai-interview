@@ -68,8 +68,7 @@ function ThinkingModeMenuItem() {
         // pointer-events-none so the switch never intercepts focus / clicks.
         checked={displayChecked}
         className="pointer-events-none ml-auto scale-75"
-        size="default"
-        tabIndex={-1}
+        size="md"
       />
     </PromptInputActionMenuItem>
   );

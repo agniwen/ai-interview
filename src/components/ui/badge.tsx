@@ -1,47 +1,55 @@
-import type { VariantProps } from "class-variance-authority";
-import { cva } from "class-variance-authority";
-import { Slot } from "radix-ui";
-import * as React from "react";
+"use client";
 
-import { cn } from "@/lib/utils";
+import { Chip as HeroChip, type ChipProps as HeroChipProps, chipVariants } from "@heroui/react";
+import type { ReactNode } from "react";
 
-const badgeVariants = cva(
-  "inline-flex w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-full border border-transparent px-2 py-0.5 text-xs font-medium whitespace-nowrap transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&>svg]:pointer-events-none [&>svg]:size-3",
-  {
-    defaultVariants: {
-      variant: "default",
-    },
-    variants: {
-      variant: {
-        default: "bg-primary text-primary-foreground [a&]:hover:bg-primary/90",
-        destructive:
-          "bg-destructive text-white focus-visible:ring-destructive/20 dark:bg-destructive/60 dark:focus-visible:ring-destructive/40 [a&]:hover:bg-destructive/90",
-        ghost: "[a&]:hover:bg-accent [a&]:hover:text-accent-foreground",
-        link: "text-primary underline-offset-4 [a&]:hover:underline",
-        outline:
-          "border-border text-foreground [a&]:hover:bg-accent [a&]:hover:text-accent-foreground",
-        secondary: "bg-secondary text-secondary-foreground [a&]:hover:bg-secondary/90",
-      },
-    },
-  },
-);
+/**
+ * Project Badge wraps Hero UI Chip. Hero UI's own Badge is a notification-angle
+ * indicator with `placement`, semantically different from shadcn Badge.
+ * Hero UI Chip API: color (default|accent|danger|success|warning), variant
+ * (primary|secondary|soft|tertiary), size (sm|md|lg). We translate legacy
+ * shadcn-style variant names to a (color, variant) pair.
+ */
+type LegacyVariant = "default" | "destructive" | "outline" | "ghost" | "link" | "secondary";
 
-function Badge({
-  className,
+const LEGACY_MAP: Record<
+  LegacyVariant,
+  { color?: HeroChipProps["color"]; variant?: HeroChipProps["variant"] }
+> = {
+  default: { color: "accent", variant: "primary" },
+  destructive: { color: "danger", variant: "primary" },
+  outline: { color: "default", variant: "tertiary" },
+  ghost: { color: "default", variant: "soft" },
+  link: { color: "accent", variant: "soft" },
+  secondary: { color: "default", variant: "secondary" },
+};
+
+export type BadgeProps = Omit<HeroChipProps, "children" | "variant"> & {
+  children?: ReactNode;
+  variant?: HeroChipProps["variant"] | LegacyVariant;
+  asChild?: boolean;
+};
+
+export function Badge({
   variant = "default",
-  asChild = false,
+  asChild: _asChild,
+  color,
+  children,
   ...props
-}: React.ComponentProps<"span"> & VariantProps<typeof badgeVariants> & { asChild?: boolean }) {
-  const Comp = asChild ? Slot.Root : "span";
-
+}: BadgeProps) {
+  if (variant && variant in LEGACY_MAP) {
+    const mapped = LEGACY_MAP[variant as LegacyVariant];
+    return (
+      <HeroChip color={color ?? mapped.color} variant={mapped.variant} {...props}>
+        {children ?? null}
+      </HeroChip>
+    );
+  }
   return (
-    <Comp
-      data-slot="badge"
-      data-variant={variant}
-      className={cn(badgeVariants({ variant }), className)}
-      {...props}
-    />
+    <HeroChip color={color} variant={variant as HeroChipProps["variant"]} {...props}>
+      {children ?? null}
+    </HeroChip>
   );
 }
 
-export { Badge, badgeVariants };
+export { chipVariants as badgeVariants };

@@ -1,47 +1,77 @@
 "use client";
 
-import type { VariantProps } from "class-variance-authority";
-import { cva } from "class-variance-authority";
-import { Toggle as TogglePrimitive } from "radix-ui";
-import * as React from "react";
+import type { ComponentProps } from "react";
+import {
+  ToggleButton as HeroToggleButton,
+  type ToggleButtonProps as HeroToggleButtonProps,
+} from "@heroui/react";
+import { cva, type VariantProps } from "class-variance-authority";
 
-import { cn } from "@/lib/utils";
+type LegacyVariant = "outline";
+type LegacySize = "default";
 
-const toggleVariants = cva(
-  "inline-flex items-center justify-center gap-2 rounded-md text-sm font-medium whitespace-nowrap transition-[color,box-shadow] outline-none hover:bg-muted hover:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 data-[state=on]:bg-accent data-[state=on]:text-accent-foreground dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
-  {
-    defaultVariants: {
-      size: "default",
-      variant: "default",
-    },
-    variants: {
-      size: {
-        default: "h-9 min-w-9 px-2",
-        lg: "h-10 min-w-10 px-2.5",
-        sm: "h-8 min-w-8 px-1.5",
-      },
-      variant: {
-        default: "bg-transparent",
-        outline:
-          "border border-input bg-transparent shadow-xs hover:bg-accent hover:text-accent-foreground",
-      },
-    },
-  },
-);
+export interface ToggleProps extends Omit<ComponentProps<"button">, "color" | "onChange"> {
+  variant?: HeroToggleButtonProps["variant"] | LegacyVariant;
+  size?: HeroToggleButtonProps["size"] | LegacySize;
+  /** Legacy alias (Radix). */
+  pressed?: boolean;
+  defaultPressed?: boolean;
+  onPressedChange?: (pressed: boolean) => void;
+  isSelected?: boolean;
+  defaultSelected?: boolean;
+  isIconOnly?: boolean;
+  isDisabled?: boolean;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  onChange?: (...args: any[]) => any;
+}
 
-function Toggle({
-  className,
+export function Toggle({
   variant,
   size,
-  ...props
-}: React.ComponentProps<typeof TogglePrimitive.Root> & VariantProps<typeof toggleVariants>) {
+  disabled,
+  pressed,
+  defaultPressed,
+  onPressedChange,
+  isDisabled,
+  isSelected,
+  defaultSelected,
+  onChange,
+  isIconOnly,
+  type = "button",
+  ...rest
+}: ToggleProps) {
+  const heroVariant: HeroToggleButtonProps["variant"] =
+    variant === "outline" ? "ghost" : (variant as HeroToggleButtonProps["variant"]);
+  const heroSize: HeroToggleButtonProps["size"] =
+    size === "default" || size === undefined ? "md" : (size as HeroToggleButtonProps["size"]);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const Comp = HeroToggleButton as unknown as (props: any) => React.JSX.Element;
   return (
-    <TogglePrimitive.Root
-      data-slot="toggle"
-      className={cn(toggleVariants({ className, size, variant }))}
-      {...props}
+    <Comp
+      variant={heroVariant}
+      size={heroSize}
+      type={type}
+      isDisabled={disabled ?? isDisabled}
+      isSelected={pressed ?? isSelected}
+      defaultSelected={defaultPressed ?? defaultSelected}
+      isIconOnly={isIconOnly}
+      onChange={onPressedChange ?? onChange}
+      {...rest}
     />
   );
 }
 
-export { Toggle, toggleVariants };
+/**
+ * Legacy cva — kept so upstream LiveKit code in src/components/agents-ui/* that
+ * does `VariantProps<typeof toggleVariants>` keeps inferring the original
+ * `variant: "default" | "outline"` and `size: "default" | "sm" | "lg"` enums.
+ */
+export const toggleVariants = cva("", {
+  defaultVariants: { size: "default", variant: "default" },
+  variants: {
+    size: { default: "", sm: "", lg: "" },
+    variant: { default: "", outline: "" },
+  },
+});
+
+export type ToggleVariantProps = VariantProps<typeof toggleVariants>;

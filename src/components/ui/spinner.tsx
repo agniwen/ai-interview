@@ -1,16 +1,14 @@
-import { Loader2Icon } from "lucide-react";
+"use client";
 
-import { cn } from "@/lib/utils";
+import { Spinner as HeroSpinner, type SpinnerProps as HeroSpinnerProps } from "@heroui/react";
 
-function Spinner({ className, ...props }: React.ComponentProps<"svg">) {
-  return (
-    <Loader2Icon
-      role="status"
-      aria-label="Loading"
-      className={cn("size-4 animate-spin", className)}
-      {...props}
-    />
-  );
+type LegacySize = "default";
+export type SpinnerProps = Omit<HeroSpinnerProps, "size"> & {
+  size?: HeroSpinnerProps["size"] | LegacySize;
+};
+
+export function Spinner({ size, ...props }: SpinnerProps) {
+  const heroSize: HeroSpinnerProps["size"] =
+    size === "default" || size === undefined ? "md" : (size as HeroSpinnerProps["size"]);
+  return <HeroSpinner size={heroSize} {...props} />;
 }
-
-export { Spinner };
