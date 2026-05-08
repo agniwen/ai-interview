@@ -31,6 +31,7 @@ import {
 } from "@/lib/studio-interviews";
 import {
   analyzeResumeFile,
+  generateInterviewQuestionsForProfile,
   streamGenerateInterviewQuestions,
   streamParseResumeProfile,
 } from "@/server/agents/resume-analysis-agent";
@@ -663,12 +664,36 @@ export const studioInterviewsRouter = factory
         return c.json({ error: input.error.issues[0]?.message ?? "表单校验失败。" }, 400);
       }
 
-      const analysis = parsedResumePayload ?? (resume ? await analyzeResumeFile(resume) : null);
+      if (resume && !c.var.user) {
+        return c.json({ error: "Unauthorized" }, 401);
+      }
+
       const now = new Date();
       const interviewRecordId = crypto.randomUUID();
-      const uploadResult = resume ? await storeInterviewResume(interviewRecordId, resume) : null;
+      const uploadResult =
+        resume && c.var.user
+          ? await storeInterviewResume(interviewRecordId, resume, c.var.user.id)
+          : null;
       const resumeStorageKey = uploadResult?.storageKey ?? null;
       const resumeContentHash = uploadResult?.contentHash ?? null;
+
+      // 解析复用顺序：客户端预解析 > 注册表缓存命中 > 现场跑完整 analyzeResumeFile。
+      // Reuse order: client-prebaked → registry cache → server full analysis.
+      let analysis = parsedResumePayload;
+      if (!analysis && resume) {
+        if (uploadResult?.cachedResumeProfile) {
+          const interviewQuestions = await generateInterviewQuestionsForProfile(
+            uploadResult.cachedResumeProfile,
+          );
+          analysis = {
+            fileName: resume.name,
+            interviewQuestions,
+            resumeProfile: uploadResult.cachedResumeProfile,
+          };
+        } else {
+          analysis = await analyzeResumeFile(resume);
+        }
+      }
       const record = {
         candidateEmail: input.data.candidateEmail || null,
         candidateName: input.data.candidateName || analysis?.resumeProfile.name || "未命名候选人",
@@ -961,12 +986,21 @@ export const studioInterviewsRouter = factory
         return c.json({ error: input.error.issues[0]?.message ?? "表单校验失败。" }, 400);
       }
 
+      if (resume && !c.var.user) {
+        return c.json({ error: "Unauthorized" }, 401);
+      }
+
       const analysis = parsedResumePayload;
       const now = new Date();
+      // 编辑分支不在此处重新分析简历——只更新 storage 引用；analysis 由
+      // parsedResumePayload 提供或保持原 record 上的快照。
+      // Edit path: do not re-analyze on resume swap; analysis comes from
+      // parsedResumePayload or remains the existing snapshot.
       // When the user re-uploads a resume during edit, overwrite the S3 object
       // (same key derived from interview id) so preview always reflects the
       // latest file. Keep the existing key when no new file is sent.
-      const uploadResult = resume ? await storeInterviewResume(id, resume) : null;
+      const uploadResult =
+        resume && c.var.user ? await storeInterviewResume(id, resume, c.var.user.id) : null;
       const resumeStorageKey = uploadResult?.storageKey ?? existing.resumeStorageKey;
       const resumeContentHash = resume
         ? (uploadResult?.contentHash ?? existing.resumeContentHash)
