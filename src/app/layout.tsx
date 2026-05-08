@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Analytics } from "@vercel/analytics/next";
 import { IBM_Plex_Mono, Source_Sans_3, Source_Serif_4 } from "next/font/google";
+import { ToastProvider } from "@heroui/react";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
 import "overlayscrollbars/overlayscrollbars.css";
 import { Suspense } from "react";
@@ -84,12 +85,8 @@ export default function RootLayout({
         {/* <Suspense> */}
         <OverlayScrollbarsBody />
         {/* </Suspense> */}
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="system"
-          disableTransitionOnChange
-          enableSystem
-        >
+        <ToastProvider />
+        <ThemeProvider attribute="data-theme" defaultTheme="light" enableSystem>
           <NuqsAdapter>
             <QueryProvider>
               <TooltipProvider>
