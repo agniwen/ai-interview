@@ -205,6 +205,7 @@ export const studioInterview = pgTable(
       onDelete: "set null",
     }),
     notes: text("notes"),
+    resumeContentHash: text("resume_content_hash"),
     resumeFileName: text("resume_file_name"),
     resumeProfile: jsonb("resume_profile").$type<ResumeProfile | null>(),
     resumeStorageKey: text("resume_storage_key"),
@@ -220,6 +221,7 @@ export const studioInterview = pgTable(
     index("studio_interview_created_at_idx").on(table.createdAt),
     index("studio_interview_created_by_idx").on(table.createdBy),
     index("studio_interview_job_description_idx").on(table.jobDescriptionId),
+    index("studio_interview_resume_hash_idx").on(table.resumeContentHash),
   ],
 );
 
@@ -481,6 +483,7 @@ export const chatMessage = pgTable(
 export const chatAttachment = pgTable(
   "chat_attachment",
   {
+    contentHash: text("content_hash"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     filename: text("filename").notNull(),
     id: text("id").primaryKey(),
@@ -501,7 +504,10 @@ export const chatAttachment = pgTable(
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
   },
-  (table) => [index("chat_attachment_user_id_idx").on(table.userId)],
+  (table) => [
+    index("chat_attachment_user_id_idx").on(table.userId),
+    index("chat_attachment_content_hash_idx").on(table.contentHash),
+  ],
 );
 
 export const interviewAuditLog = pgTable(
