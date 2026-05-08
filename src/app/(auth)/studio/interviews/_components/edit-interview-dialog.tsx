@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
 import { FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabPanel, TabList, Tab } from "@/components/ui/tabs";
 import { apiFetch, fetchStudioInterview, resetStudioInterviewRound } from "@/lib/api";
 import {
   createInterviewFormValues,
@@ -157,7 +157,7 @@ export function EditInterviewDialog({
   }
 
   return (
-    <Tabs onValueChange={setActiveTab} value={activeTab}>
+    <Tabs onSelectionChange={(key) => setActiveTab(String(key))} selectedKey={activeTab}>
       <Modal
         open={open}
         onOpenChange={onOpenChange}
@@ -166,17 +166,17 @@ export function EditInterviewDialog({
         size="2xl"
         headerExtra={
           isLoadingRecord ? null : (
-            <TabsList className="mt-2">
-              <TabsTrigger className="min-w-[8em]" value="basic">
+            <TabList className="mt-2">
+              <Tab className="min-w-[8em]" id="basic">
                 基础信息
-              </TabsTrigger>
-              <TabsTrigger className="min-w-[8em]" value="questions">
+              </Tab>
+              <Tab className="min-w-[8em]" id="questions">
                 面试题目
-              </TabsTrigger>
-              <TabsTrigger className="min-w-[8em]" value="instructions">
+              </Tab>
+              <Tab className="min-w-[8em]" id="instructions">
                 Agent 提示词
-              </TabsTrigger>
-            </TabsList>
+              </Tab>
+            </TabList>
           )
         }
         footer={
@@ -204,7 +204,7 @@ export function EditInterviewDialog({
               void form.handleSubmit();
             }}
           >
-            <TabsContent className="mt-0" value="basic">
+            <TabPanel className="mt-0" id="basic">
               <div className="space-y-5">
                 <div className="grid gap-4">
                   <FieldGroup className="gap-2">
@@ -237,9 +237,9 @@ export function EditInterviewDialog({
 
                 <InterviewNotesField form={form} />
               </div>
-            </TabsContent>
+            </TabPanel>
 
-            <TabsContent className="mt-0 space-y-6" value="questions">
+            <TabPanel className="mt-0 space-y-6" id="questions">
               {recordId ? (
                 <InterviewQuestionBindingsSection
                   disabled={isSubmitting || isLoadingRecord}
@@ -260,14 +260,14 @@ export function EditInterviewDialog({
                   resetKey={recordId ?? "new"}
                 />
               </div>
-            </TabsContent>
+            </TabPanel>
 
-            <TabsContent className="mt-0" value="instructions">
+            <TabPanel className="mt-0" id="instructions">
               <AgentInstructionsPanel
                 enabled={open && activeTab === "instructions"}
                 recordId={recordId}
               />
-            </TabsContent>
+            </TabPanel>
           </form>
         )}
       </Modal>

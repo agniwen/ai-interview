@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
 import { FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabPanel, TabList, Tab } from "@/components/ui/tabs";
 import { apiFetch } from "@/lib/api";
 import { readNdjsonStream } from "@/lib/ndjson-stream";
 import {
@@ -410,7 +410,7 @@ export function CreateInterviewDialog({
         <FileUpIcon className="size-4" />
         新建面试记录
       </Button>
-      <Tabs onValueChange={setActiveTab} value={activeTab}>
+      <Tabs onSelectionChange={(key) => setActiveTab(String(key))} selectedKey={activeTab}>
         <Modal
           open={open}
           onOpenChange={(value) => {
@@ -429,15 +429,15 @@ export function CreateInterviewDialog({
           dismissible={!isBusy}
           showCloseButton={!isBusy}
           headerExtra={
-            <TabsList className="mt-2">
-              <TabsTrigger className="min-w-[8em]" value="basic">
+            <TabList className="mt-2">
+              <Tab className="min-w-[8em]" id="basic">
                 基础信息
-              </TabsTrigger>
-              <TabsTrigger className="min-w-[8em]" value="questions">
+              </Tab>
+              <Tab className="min-w-[8em]" id="questions">
                 面试题目
                 {resolveQuestionsTabSuffix(questionCount)}
-              </TabsTrigger>
-            </TabsList>
+              </Tab>
+            </TabList>
           }
           footer={
             <Button isPending={isSubmitting || isBusy} form="create-interview-form" type="submit">
@@ -453,7 +453,7 @@ export function CreateInterviewDialog({
               void form.handleSubmit();
             }}
           >
-            <TabsContent className="mt-0" value="basic">
+            <TabPanel className="mt-0" id="basic">
               <div className="space-y-5">
                 <div className="grid gap-4">
                   <FieldGroup className="gap-2">
@@ -495,15 +495,15 @@ export function CreateInterviewDialog({
 
                 <InterviewNotesField form={form} />
               </div>
-            </TabsContent>
+            </TabPanel>
 
-            <TabsContent className="mt-0" value="questions">
+            <TabPanel className="mt-0" id="questions">
               <InterviewQuestionsFields
                 disabled={isSubmitting || isAnalyzingResume || isGeneratingQuestions}
                 form={form}
                 resetKey={open ? "create-open" : "create-closed"}
               />
-            </TabsContent>
+            </TabPanel>
 
             {isBusy && (
               <motion.div

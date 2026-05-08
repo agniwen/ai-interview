@@ -19,7 +19,7 @@ import { Field, FieldContent, FieldError, FieldGroup, FieldLabel } from "@/compo
 import { Input } from "@/components/ui/input";
 import { SearchableMultiSelect } from "@/components/ui/searchable-multi-select";
 import { SearchableSelect } from "@/components/ui/searchable-select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabPanel, TabList, Tab } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { hasFieldErrors, toFieldErrors } from "../../interviews/_components/interview-form";
 
@@ -169,8 +169,10 @@ export function JobDescriptionFormDialog({
 
   return (
     <Tabs
-      onValueChange={(value) => setActiveTab(value as "basic" | "interview-questions" | "forms")}
-      value={activeTab}
+      onSelectionChange={(key) =>
+        setActiveTab(String(key) as "basic" | "interview-questions" | "forms")
+      }
+      selectedKey={activeTab}
     >
       <Modal
         open={open}
@@ -179,11 +181,11 @@ export function JobDescriptionFormDialog({
         description="为在招岗位指定部门和面试官，prompt 在面试时会传给语音 agent。"
         size="lg"
         headerExtra={
-          <TabsList className="mt-2">
-            <TabsTrigger value="basic">基本信息</TabsTrigger>
-            {isEdit ? <TabsTrigger value="interview-questions">面试题</TabsTrigger> : null}
-            {isEdit ? <TabsTrigger value="forms">面试表单</TabsTrigger> : null}
-          </TabsList>
+          <TabList className="mt-2">
+            <Tab id="basic">基本信息</Tab>
+            {isEdit ? <Tab id="interview-questions">面试题</Tab> : null}
+            {isEdit ? <Tab id="forms">面试表单</Tab> : null}
+          </TabList>
         }
         footer={
           <>
@@ -209,7 +211,7 @@ export function JobDescriptionFormDialog({
             void form.handleSubmit();
           }}
         >
-          <TabsContent value="basic">
+          <TabPanel id="basic">
             <FieldGroup className="mt-4 gap-5">
               <div className="grid gap-5 md:grid-cols-2">
                 <form.Field name="name">
@@ -346,26 +348,26 @@ export function JobDescriptionFormDialog({
                 }}
               </form.Field>
             </FieldGroup>
-          </TabsContent>
+          </TabPanel>
           {isEdit ? (
-            <TabsContent value="interview-questions">
+            <TabPanel id="interview-questions">
               {/* oxlint-disable-next-line no-use-before-define */}
               <LinkedInterviewQuestionTemplatesList
                 isLoading={isInterviewQuestionsLoading}
                 jobDescriptionId={record?.id ?? ""}
                 templates={linkedInterviewQuestions}
               />
-            </TabsContent>
+            </TabPanel>
           ) : null}
           {isEdit ? (
-            <TabsContent value="forms">
+            <TabPanel id="forms">
               {/* oxlint-disable-next-line no-use-before-define */}
               <LinkedFormsList
                 isLoading={isFormsLoading}
                 jobDescriptionId={record?.id ?? ""}
                 templates={linkedForms}
               />
-            </TabsContent>
+            </TabPanel>
           ) : null}
         </form>
       </Modal>

@@ -36,7 +36,7 @@ import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabPanel, TabList, Tab } from "@/components/ui/tabs";
 import { copyTextToClipboard, toAbsoluteUrl } from "@/lib/clipboard";
 import { scheduleEntryStatusMeta } from "@/lib/studio-interviews";
 import { AgentInstructionsPanel } from "./agent-instructions-panel";
@@ -222,7 +222,7 @@ export function InterviewDetailDialog({
 
   return (
     <>
-      <Tabs defaultValue="overview" key={recordId ?? "empty"}>
+      <Tabs defaultSelectedKey="overview" key={recordId ?? "empty"}>
         <Modal
           open={open}
           onOpenChange={onOpenChange}
@@ -237,26 +237,26 @@ export function InterviewDetailDialog({
           headerExtra={
             record ? (
               <div className="mt-2 flex flex-col items-stretch gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
-                <TabsList className="mt-0 w-full sm:w-auto">
-                  <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="overview">
+                <TabList className="mt-0 w-full sm:w-auto">
+                  <Tab className="flex-1 sm:min-w-[6em] sm:flex-none" id="overview">
                     概览
-                  </TabsTrigger>
-                  <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="reports">
+                  </Tab>
+                  <Tab className="flex-1 sm:min-w-[6em] sm:flex-none" id="reports">
                     面试报告
-                  </TabsTrigger>
-                  <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="questions">
+                  </Tab>
+                  <Tab className="flex-1 sm:min-w-[6em] sm:flex-none" id="questions">
                     AI 题目
-                  </TabsTrigger>
-                  <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="experience">
+                  </Tab>
+                  <Tab className="flex-1 sm:min-w-[6em] sm:flex-none" id="experience">
                     经历
-                  </TabsTrigger>
-                  <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="instructions">
+                  </Tab>
+                  <Tab className="flex-1 sm:min-w-[6em] sm:flex-none" id="instructions">
                     Agent 提示词
-                  </TabsTrigger>
-                  <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="forms">
+                  </Tab>
+                  <Tab className="flex-1 sm:min-w-[6em] sm:flex-none" id="forms">
                     表单答复
-                  </TabsTrigger>
-                </TabsList>
+                  </Tab>
+                </TabList>
                 <PdfPreviewButton
                   className="w-full sm:w-auto"
                   disabled={!record.resumeStorageKey}
@@ -276,7 +276,7 @@ export function InterviewDetailDialog({
           ) : /* oxlint-disable-next-line no-nested-ternary -- Secondary branch renders based on record presence. */
           record ? (
             <>
-              <TabsContent value="overview">
+              <TabPanel id="overview">
                 <div className="space-y-6">
                   <div className="rounded-2xl border border-separator/60 bg-default/30 p-5">
                     <h3 className="font-medium text-sm">基础信息</h3>
@@ -433,9 +433,9 @@ export function InterviewDetailDialog({
                     </p>
                   </div>
                 </div>
-              </TabsContent>
+              </TabPanel>
 
-              <TabsContent value="reports">
+              <TabPanel id="reports">
                 <div className="space-y-6">
                   <div className="grid gap-4 md:grid-cols-4">
                     <div className="rounded-2xl border border-separator/60 bg-background p-4">
@@ -649,9 +649,9 @@ export function InterviewDetailDialog({
                     </Accordion>
                   )}
                 </div>
-              </TabsContent>
+              </TabPanel>
 
-              <TabsContent value="questions">
+              <TabPanel id="questions">
                 <div className="rounded-2xl border border-separator/60 bg-background p-4">
                   <h3 className="font-medium text-sm">AI 面试题</h3>
                   <div className="mt-4 space-y-3">
@@ -677,9 +677,9 @@ export function InterviewDetailDialog({
                     )}
                   </div>
                 </div>
-              </TabsContent>
+              </TabPanel>
 
-              <TabsContent value="experience">
+              <TabPanel id="experience">
                 <div className="space-y-6">
                   <div className="rounded-2xl border border-separator/60 bg-default/30 p-5">
                     <h3 className="font-medium text-sm">工作经历</h3>
@@ -737,19 +737,19 @@ export function InterviewDetailDialog({
                     </div>
                   </div>
                 </div>
-              </TabsContent>
+              </TabPanel>
 
-              <TabsContent value="instructions">
+              <TabPanel id="instructions">
                 <AgentInstructionsPanel enabled={open} recordId={recordId} />
-              </TabsContent>
+              </TabPanel>
 
-              <TabsContent value="forms">
+              <TabPanel id="forms">
                 <FormsTab
                   onReset={(submissionId) => setPendingResetSubmissionId(submissionId)}
                   resettingId={resettingSubmissionId}
                   submissions={formSubmissions}
                 />
-              </TabsContent>
+              </TabPanel>
             </>
           ) : (
             <div className="flex min-h-[240px] items-center justify-center text-muted text-sm">

@@ -5,7 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo } from "react";
 import type { ChatSessionPathUpdatedDetail } from "@/app/(auth)/chat/_lib/chat-events";
 import { CHAT_EVENTS } from "@/app/(auth)/chat/_lib/chat-events";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabList, Tab } from "@/components/ui/tabs";
 
 type SidebarTabValue = "chat" | "studio";
 
@@ -87,19 +87,14 @@ export function SidebarTabs({ canAccessAdmin }: { canAccessAdmin: boolean }) {
 
   return (
     <Tabs
-      // Manual activation: Radix's default "automatic" mode calls
-      // onValueChange on focus — when sonner restores focus to the
-      // previously-active tab trigger after dismissing a toast, that
-      // would route us back to the wrong tab.
-      activationMode="manual"
       className="w-full group-data-[collapsible=icon]:hidden"
-      onValueChange={handleChange}
-      value={activeTab ?? "chat"}
+      onSelectionChange={(key) => handleChange(String(key))}
+      selectedKey={activeTab ?? "chat"}
     >
-      <TabsList className="w-full">
-        <TabsTrigger value="chat">Chat</TabsTrigger>
-        <TabsTrigger value="studio">Studio</TabsTrigger>
-      </TabsList>
+      <TabList className="w-full">
+        <Tab id="chat">Chat</Tab>
+        <Tab id="studio">Studio</Tab>
+      </TabList>
     </Tabs>
   );
 }
