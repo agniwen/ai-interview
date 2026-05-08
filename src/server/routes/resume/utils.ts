@@ -2,10 +2,22 @@ import type { ModelMessage, UIMessage } from "ai";
 import type { ParsedResumePdf, UploadedResumePdf } from "@/lib/resume-pdf";
 import { tool } from "ai";
 import { z } from "zod";
-import { clipResumeText } from "@/lib/resume-pdf";
+import { clipResumeText, selectUploadedResumePdfs } from "@/lib/resume-pdf";
 import { createResumeAgent } from "@/server/agents/resume-agent";
 import type { ResumeParserResult } from "@/server/agents/resume-parser-agent";
+import type { ResumeParserStructured } from "@/server/agents/resume-parser-schema";
 import { listAllJobDescriptions } from "@/server/queries/job-descriptions";
+
+/**
+ * 已经在 message 里 baked 的简历解析结果，suggest_job_description 直接拿来用。
+ * Pre-baked resume parse data already in the user message — used by
+ * suggest_job_description without any OCR / DB roundtrip.
+ */
+export interface BakedParsedResume {
+  attachmentId: string;
+  filename: string;
+  parsedStructured: ResumeParserStructured;
+}
 
 // =====================================================================
 // Title sanitization
@@ -620,14 +632,15 @@ export const getResumeReviewFrameworkTool = tool({
 
 export function createListUploadedResumePdfsTool({
   availableResumeNames,
-  uploadedResumePdfs,
-}: Pick<PdfToolDependencies, "availableResumeNames" | "uploadedResumePdfs">) {
+}: {
+  availableResumeNames: string[];
+}) {
   return tool({
     description:
       "辅助工具：列出已上传的 PDF 简历，包含序号和文件名。如果存在多份文件，应主动调用以避免文件名歧义，即使模型原生支持读取 PDF。",
     // oxlint-disable-next-line require-await -- AI SDK tool signature requires async execute.
     execute: async () => ({
-      count: uploadedResumePdfs.length,
+      count: availableResumeNames.length,
       resumes: availableResumeNames,
     }),
     inputSchema: z.object({}),
@@ -797,21 +810,22 @@ function parseSuggestJdRanker(text: string) {
   return null;
 }
 
-export function createSuggestJobDescriptionTool({
-  availableResumeNames,
-  runResumeParserSubagent,
-  selectResumeFiles,
-  uploadedResumePdfs,
-}: PdfToolDependencies) {
+export function createSuggestJobDescriptionTool({ resumes }: { resumes: BakedParsedResume[] }) {
   return tool({
     description:
       "当用户上传了简历 PDF 且当前未配置在招岗位时，调用此工具从后台已配置的在招岗位中智能匹配最接近的岗位。返回排序后的候选岗位列表与推荐岗位，供用户确认是否将其设置为当前对话的在招岗位。",
     execute: async ({ resumeName }) => {
-      if (uploadedResumePdfs.length === 0) {
+      // 直接消费 message 里 baked 好的解析结果，不做任何 OCR / DB 读取。
+      // 没有 baked 数据就直接当作"没简历"返回，让上层依据 system prompt 提示用户重传。
+      // Consume the parsed data already baked into the message — no OCR / DB.
+      // If nothing baked, return as "no-resume" and let the prompt instruct
+      // the user to re-upload.
+      if (resumes.length === 0) {
         return { status: "no-resume" as const };
       }
 
-      const selected = selectResumeFiles(resumeName);
+      const availableResumeNames = resumes.map((r, i) => `${i + 1}. ${r.filename}`);
+      const selected = selectUploadedResumePdfs(resumes, resumeName);
       if (selected.length === 0) {
         return { availableResumes: availableResumeNames, status: "no-resume" as const };
       }
@@ -826,13 +840,7 @@ export function createSuggestJobDescriptionTool({
         return { status: "no-resume" as const };
       }
 
-      let structuredResume: ResumeParserResult["structured"] | null = null;
-      try {
-        const parsedResult = await runResumeParserSubagent(primaryResume);
-        structuredResume = parsedResult.structured;
-      } catch {
-        return { reason: "parse-failed", status: "error" as const };
-      }
+      const structuredResume = primaryResume.parsedStructured;
 
       // 仅传 name / description / departmentName，避免 prompt 拉爆上下文。
       // Only pass name / description / departmentName; omit prompt to keep context small.

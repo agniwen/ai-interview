@@ -95,10 +95,10 @@ export function collectUploadedResumePdfs(messages: UIMessage[]): UploadedResume
   return results;
 }
 
-export function selectUploadedResumePdfs(
-  files: UploadedResumePdf[],
+export function selectUploadedResumePdfs<T extends { filename: string }>(
+  files: T[],
   resumeName?: string,
-): UploadedResumePdf[] {
+): T[] {
   const selector = resumeName?.trim();
 
   if (!selector) {
