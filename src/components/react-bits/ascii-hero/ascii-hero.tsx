@@ -2,6 +2,7 @@
 // English: Light-mode hero ASCII fluid hover background, replicating OpenAI Codex hero interaction.
 "use client";
 
+import { useReducedMotion } from "motion/react";
 import { useTheme } from "next-themes";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createNoise3D } from "simplex-noise";
@@ -52,6 +53,7 @@ export function AsciiHero(props: AsciiHeroProps) {
     ],
   );
   const { resolvedTheme } = useTheme();
+  const prefersReduced = useReducedMotion();
   const [mounted, setMounted] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -67,6 +69,57 @@ export function AsciiHero(props: AsciiHeroProps) {
     if (!container || !canvas) return;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
+
+    // 中文：prefers-reduced-motion：渲染单帧静态画面，跳过所有动画和指针监听
+    // English: prefers-reduced-motion: render a single static frame, skip all animation and pointer wiring
+    if (prefersReduced) {
+      const noise3D = createNoise3D();
+      const resize = () => {
+        const rect = container.getBoundingClientRect();
+        const dpr = window.devicePixelRatio || 1;
+        const cssW = Math.max(1, Math.floor(rect.width));
+        const cssH = Math.max(1, Math.floor(rect.height));
+        canvas.width = cssW * dpr;
+        canvas.height = cssH * dpr;
+        canvas.style.width = `${cssW}px`;
+        canvas.style.height = `${cssH}px`;
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.font = `${cfg.cellSize}px ui-monospace, SF Mono, monospace`;
+        ctx.textBaseline = "top";
+        ctx.fillStyle = cfg.color;
+
+        const W = Math.max(1, Math.ceil(cssW / cfg.cellSize));
+        const H = Math.max(1, Math.ceil(cssH / cfg.cellSize));
+        const density = new Float32Array(W * H);
+        const luma = new Float32Array(W * H);
+        compose({
+          luma,
+          density,
+          noise: noise3D,
+          W,
+          H,
+          noiseScale: cfg.noiseScale,
+          noiseSpeed: cfg.noiseSpeed,
+          t: 0,
+        });
+        const charsetLen = cfg.charset.length;
+        const cellSize = cfg.cellSize;
+        ctx.clearRect(0, 0, cssW, cssH);
+        for (let j = 0; j < H; j++) {
+          for (let i = 0; i < W; i++) {
+            const idx = j * W + i;
+            const v = luma[idx];
+            const cidx = Math.min(charsetLen - 1, Math.max(0, Math.floor(v * charsetLen)));
+            const ch = cfg.charset[cidx];
+            if (ch !== " ") ctx.fillText(ch, i * cellSize, j * cellSize);
+          }
+        }
+      };
+      resize();
+      const observer = new ResizeObserver(() => resize());
+      observer.observe(container);
+      return () => observer.disconnect();
+    }
 
     const noise3D = createNoise3D();
 
@@ -247,7 +300,7 @@ export function AsciiHero(props: AsciiHeroProps) {
       if (timer) clearTimeout(timer);
       observer.disconnect();
     };
-  }, [mounted, resolvedTheme, cfg]);
+  }, [mounted, resolvedTheme, cfg, prefersReduced]);
 
   if (!mounted || resolvedTheme !== "light") return null;
 
