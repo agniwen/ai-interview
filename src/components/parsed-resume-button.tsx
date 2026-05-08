@@ -4,7 +4,7 @@ import { FileTextIcon, SparklesIcon } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
-import { Tabs, TabList, Tab } from "@/components/ui/tabs";
+import { Tabs } from "@/components/ui/tabs";
 import type { ResumeParserStructured } from "@/server/agents/resume-parser-schema";
 import { cn } from "@/lib/utils";
 
@@ -276,17 +276,22 @@ export function ParsedResumeButton({
             onSelectionChange={(key) => setTab(String(key) as typeof tab)}
             selectedKey={tab}
           >
-            <TabList>
-              <Tab className="min-w-20 px-4" id="summary">
-                概览
-              </Tab>
-              <Tab className="min-w-20 px-4" id="json">
-                JSON
-              </Tab>
-              <Tab className="min-w-20 px-4" id="text" isDisabled={!parsedText}>
-                原文
-              </Tab>
-            </TabList>
+            <Tabs.ListContainer>
+              <Tabs.List>
+                <Tabs.Tab className="min-w-20 px-4" id="summary">
+                  概览
+                  <Tabs.Indicator />
+                </Tabs.Tab>
+                <Tabs.Tab className="min-w-20 px-4" id="json">
+                  JSON
+                  <Tabs.Indicator />
+                </Tabs.Tab>
+                <Tabs.Tab className="min-w-20 px-4" id="text" isDisabled={!parsedText}>
+                  原文
+                  <Tabs.Indicator />
+                </Tabs.Tab>
+              </Tabs.List>
+            </Tabs.ListContainer>
           </Tabs>
         }
         headerLayout="stack"

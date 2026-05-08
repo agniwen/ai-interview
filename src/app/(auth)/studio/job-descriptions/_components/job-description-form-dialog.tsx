@@ -19,7 +19,7 @@ import { Field, FieldContent, FieldError, FieldGroup, FieldLabel } from "@/compo
 import { Input } from "@/components/ui/input";
 import { SearchableMultiSelect } from "@/components/ui/searchable-multi-select";
 import { SearchableSelect } from "@/components/ui/searchable-select";
-import { Tabs, TabPanel, TabList, Tab } from "@/components/ui/tabs";
+import { Tabs } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { hasFieldErrors, toFieldErrors } from "../../interviews/_components/interview-form";
 
@@ -181,11 +181,26 @@ export function JobDescriptionFormDialog({
         description="为在招岗位指定部门和面试官，prompt 在面试时会传给语音 agent。"
         size="lg"
         headerExtra={
-          <TabList className="mt-2">
-            <Tab id="basic">基本信息</Tab>
-            {isEdit ? <Tab id="interview-questions">面试题</Tab> : null}
-            {isEdit ? <Tab id="forms">面试表单</Tab> : null}
-          </TabList>
+          <Tabs.ListContainer>
+            <Tabs.List aria-label="岗位分区" className="mt-2">
+              <Tabs.Tab id="basic">
+                基本信息
+                <Tabs.Indicator />
+              </Tabs.Tab>
+              {isEdit ? (
+                <Tabs.Tab id="interview-questions">
+                  面试题
+                  <Tabs.Indicator />
+                </Tabs.Tab>
+              ) : null}
+              {isEdit ? (
+                <Tabs.Tab id="forms">
+                  面试表单
+                  <Tabs.Indicator />
+                </Tabs.Tab>
+              ) : null}
+            </Tabs.List>
+          </Tabs.ListContainer>
         }
         footer={
           <>
@@ -211,7 +226,7 @@ export function JobDescriptionFormDialog({
             void form.handleSubmit();
           }}
         >
-          <TabPanel id="basic">
+          <Tabs.Panel id="basic">
             <FieldGroup className="mt-4 gap-5">
               <div className="grid gap-5 md:grid-cols-2">
                 <form.Field name="name">
@@ -348,26 +363,26 @@ export function JobDescriptionFormDialog({
                 }}
               </form.Field>
             </FieldGroup>
-          </TabPanel>
+          </Tabs.Panel>
           {isEdit ? (
-            <TabPanel id="interview-questions">
+            <Tabs.Panel id="interview-questions">
               {/* oxlint-disable-next-line no-use-before-define */}
               <LinkedInterviewQuestionTemplatesList
                 isLoading={isInterviewQuestionsLoading}
                 jobDescriptionId={record?.id ?? ""}
                 templates={linkedInterviewQuestions}
               />
-            </TabPanel>
+            </Tabs.Panel>
           ) : null}
           {isEdit ? (
-            <TabPanel id="forms">
+            <Tabs.Panel id="forms">
               {/* oxlint-disable-next-line no-use-before-define */}
               <LinkedFormsList
                 isLoading={isFormsLoading}
                 jobDescriptionId={record?.id ?? ""}
                 templates={linkedForms}
               />
-            </TabPanel>
+            </Tabs.Panel>
           ) : null}
         </form>
       </Modal>

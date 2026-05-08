@@ -5,7 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo } from "react";
 import type { ChatSessionPathUpdatedDetail } from "@/app/(auth)/chat/_lib/chat-events";
 import { CHAT_EVENTS } from "@/app/(auth)/chat/_lib/chat-events";
-import { Tabs, TabList, Tab } from "@/components/ui/tabs";
+import { Tabs } from "@/components/ui/tabs";
 
 type SidebarTabValue = "chat" | "studio";
 
@@ -91,10 +91,18 @@ export function SidebarTabs({ canAccessAdmin }: { canAccessAdmin: boolean }) {
       onSelectionChange={(key) => handleChange(String(key))}
       selectedKey={activeTab ?? "chat"}
     >
-      <TabList className="w-full">
-        <Tab id="chat">Chat</Tab>
-        <Tab id="studio">Studio</Tab>
-      </TabList>
+      <Tabs.ListContainer>
+        <Tabs.List className="w-full">
+          <Tabs.Tab id="chat">
+            Chat
+            <Tabs.Indicator />
+          </Tabs.Tab>
+          <Tabs.Tab id="studio">
+            Studio
+            <Tabs.Indicator />
+          </Tabs.Tab>
+        </Tabs.List>
+      </Tabs.ListContainer>
     </Tabs>
   );
 }

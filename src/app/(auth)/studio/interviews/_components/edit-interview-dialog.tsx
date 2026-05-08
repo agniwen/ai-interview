@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
 import { FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { Tabs, TabPanel, TabList, Tab } from "@/components/ui/tabs";
+import { Tabs } from "@/components/ui/tabs";
 import { apiFetch, fetchStudioInterview, resetStudioInterviewRound } from "@/lib/api";
 import {
   createInterviewFormValues,
@@ -166,17 +166,22 @@ export function EditInterviewDialog({
         size="2xl"
         headerExtra={
           isLoadingRecord ? null : (
-            <TabList className="mt-2">
-              <Tab className="min-w-[8em]" id="basic">
-                基础信息
-              </Tab>
-              <Tab className="min-w-[8em]" id="questions">
-                面试题目
-              </Tab>
-              <Tab className="min-w-[8em]" id="instructions">
-                Agent 提示词
-              </Tab>
-            </TabList>
+            <Tabs.ListContainer>
+              <Tabs.List aria-label="编辑分区" className="mt-2">
+                <Tabs.Tab className="min-w-[8em]" id="basic">
+                  基础信息
+                  <Tabs.Indicator />
+                </Tabs.Tab>
+                <Tabs.Tab className="min-w-[8em]" id="questions">
+                  面试题目
+                  <Tabs.Indicator />
+                </Tabs.Tab>
+                <Tabs.Tab className="min-w-[8em]" id="instructions">
+                  Agent 提示词
+                  <Tabs.Indicator />
+                </Tabs.Tab>
+              </Tabs.List>
+            </Tabs.ListContainer>
           )
         }
         footer={
@@ -204,7 +209,7 @@ export function EditInterviewDialog({
               void form.handleSubmit();
             }}
           >
-            <TabPanel className="mt-0" id="basic">
+            <Tabs.Panel className="mt-0" id="basic">
               <div className="space-y-5">
                 <div className="grid gap-4">
                   <FieldGroup className="gap-2">
@@ -237,9 +242,9 @@ export function EditInterviewDialog({
 
                 <InterviewNotesField form={form} />
               </div>
-            </TabPanel>
+            </Tabs.Panel>
 
-            <TabPanel className="mt-0 space-y-6" id="questions">
+            <Tabs.Panel className="mt-0 space-y-6" id="questions">
               {recordId ? (
                 <InterviewQuestionBindingsSection
                   disabled={isSubmitting || isLoadingRecord}
@@ -260,14 +265,14 @@ export function EditInterviewDialog({
                   resetKey={recordId ?? "new"}
                 />
               </div>
-            </TabPanel>
+            </Tabs.Panel>
 
-            <TabPanel className="mt-0" id="instructions">
+            <Tabs.Panel className="mt-0" id="instructions">
               <AgentInstructionsPanel
                 enabled={open && activeTab === "instructions"}
                 recordId={recordId}
               />
-            </TabPanel>
+            </Tabs.Panel>
           </form>
         )}
       </Modal>

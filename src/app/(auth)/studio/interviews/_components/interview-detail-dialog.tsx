@@ -36,7 +36,7 @@ import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
-import { Tabs, TabPanel, TabList, Tab } from "@/components/ui/tabs";
+import { Tabs } from "@/components/ui/tabs";
 import { copyTextToClipboard, toAbsoluteUrl } from "@/lib/clipboard";
 import { scheduleEntryStatusMeta } from "@/lib/studio-interviews";
 import { AgentInstructionsPanel } from "./agent-instructions-panel";
@@ -237,26 +237,34 @@ export function InterviewDetailDialog({
           headerExtra={
             record ? (
               <div className="mt-2 flex flex-col items-stretch gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
-                <TabList className="mt-0 w-full sm:w-auto">
-                  <Tab className="flex-1 sm:min-w-[6em] sm:flex-none" id="overview">
-                    概览
-                  </Tab>
-                  <Tab className="flex-1 sm:min-w-[6em] sm:flex-none" id="reports">
-                    面试报告
-                  </Tab>
-                  <Tab className="flex-1 sm:min-w-[6em] sm:flex-none" id="questions">
-                    AI 题目
-                  </Tab>
-                  <Tab className="flex-1 sm:min-w-[6em] sm:flex-none" id="experience">
-                    经历
-                  </Tab>
-                  <Tab className="flex-1 sm:min-w-[6em] sm:flex-none" id="instructions">
-                    Agent 提示词
-                  </Tab>
-                  <Tab className="flex-1 sm:min-w-[6em] sm:flex-none" id="forms">
-                    表单答复
-                  </Tab>
-                </TabList>
+                <Tabs.ListContainer>
+                  <Tabs.List aria-label="详情分区" className="mt-0 w-full sm:w-auto">
+                    <Tabs.Tab className="flex-1 sm:min-w-[6em] sm:flex-none" id="overview">
+                      概览
+                      <Tabs.Indicator />
+                    </Tabs.Tab>
+                    <Tabs.Tab className="flex-1 sm:min-w-[6em] sm:flex-none" id="reports">
+                      面试报告
+                      <Tabs.Indicator />
+                    </Tabs.Tab>
+                    <Tabs.Tab className="flex-1 sm:min-w-[6em] sm:flex-none" id="questions">
+                      AI 题目
+                      <Tabs.Indicator />
+                    </Tabs.Tab>
+                    <Tabs.Tab className="flex-1 sm:min-w-[6em] sm:flex-none" id="experience">
+                      经历
+                      <Tabs.Indicator />
+                    </Tabs.Tab>
+                    <Tabs.Tab className="flex-1 sm:min-w-[6em] sm:flex-none" id="instructions">
+                      Agent 提示词
+                      <Tabs.Indicator />
+                    </Tabs.Tab>
+                    <Tabs.Tab className="flex-1 sm:min-w-[6em] sm:flex-none" id="forms">
+                      表单答复
+                      <Tabs.Indicator />
+                    </Tabs.Tab>
+                  </Tabs.List>
+                </Tabs.ListContainer>
                 <PdfPreviewButton
                   className="w-full sm:w-auto"
                   disabled={!record.resumeStorageKey}
@@ -276,7 +284,7 @@ export function InterviewDetailDialog({
           ) : /* oxlint-disable-next-line no-nested-ternary -- Secondary branch renders based on record presence. */
           record ? (
             <>
-              <TabPanel id="overview">
+              <Tabs.Panel id="overview">
                 <div className="space-y-6">
                   <div className="rounded-2xl border border-separator/60 bg-default/30 p-5">
                     <h3 className="font-medium text-sm">基础信息</h3>
@@ -433,9 +441,9 @@ export function InterviewDetailDialog({
                     </p>
                   </div>
                 </div>
-              </TabPanel>
+              </Tabs.Panel>
 
-              <TabPanel id="reports">
+              <Tabs.Panel id="reports">
                 <div className="space-y-6">
                   <div className="grid gap-4 md:grid-cols-4">
                     <div className="rounded-2xl border border-separator/60 bg-background p-4">
@@ -649,9 +657,9 @@ export function InterviewDetailDialog({
                     </Accordion>
                   )}
                 </div>
-              </TabPanel>
+              </Tabs.Panel>
 
-              <TabPanel id="questions">
+              <Tabs.Panel id="questions">
                 <div className="rounded-2xl border border-separator/60 bg-background p-4">
                   <h3 className="font-medium text-sm">AI 面试题</h3>
                   <div className="mt-4 space-y-3">
@@ -677,9 +685,9 @@ export function InterviewDetailDialog({
                     )}
                   </div>
                 </div>
-              </TabPanel>
+              </Tabs.Panel>
 
-              <TabPanel id="experience">
+              <Tabs.Panel id="experience">
                 <div className="space-y-6">
                   <div className="rounded-2xl border border-separator/60 bg-default/30 p-5">
                     <h3 className="font-medium text-sm">工作经历</h3>
@@ -737,19 +745,19 @@ export function InterviewDetailDialog({
                     </div>
                   </div>
                 </div>
-              </TabPanel>
+              </Tabs.Panel>
 
-              <TabPanel id="instructions">
+              <Tabs.Panel id="instructions">
                 <AgentInstructionsPanel enabled={open} recordId={recordId} />
-              </TabPanel>
+              </Tabs.Panel>
 
-              <TabPanel id="forms">
+              <Tabs.Panel id="forms">
                 <FormsTab
                   onReset={(submissionId) => setPendingResetSubmissionId(submissionId)}
                   resettingId={resettingSubmissionId}
                   submissions={formSubmissions}
                 />
-              </TabPanel>
+              </Tabs.Panel>
             </>
           ) : (
             <div className="flex min-h-[240px] items-center justify-center text-muted text-sm">
