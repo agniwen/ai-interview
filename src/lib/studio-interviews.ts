@@ -125,6 +125,7 @@ export interface StudioInterviewRecord {
   candidateEmail: string | null;
   targetRole: string | null;
   status: StudioInterviewStatus;
+  resumeContentHash: string | null;
   resumeFileName: string | null;
   resumeProfile: ResumeAnalysisResult["resumeProfile"] | null;
   resumeStorageKey: string | null;
@@ -166,6 +167,7 @@ export function toStudioInterviewListRecord(
     jobDescriptionName: null,
     notes: record.notes,
     questionCount: record.interviewQuestions.length,
+    resumeContentHash: record.resumeContentHash,
     resumeFileName: record.resumeFileName,
     scheduleEntries: record.scheduleEntries,
     status: record.status,

@@ -118,6 +118,7 @@ const SELECTED_COLUMNS = {
   jobDescriptionId: studioInterview.jobDescriptionId,
   jobDescriptionName: jobDescription.name,
   notes: studioInterview.notes,
+  resumeContentHash: studioInterview.resumeContentHash,
   resumeFileName: studioInterview.resumeFileName,
   resumeStorageKey: studioInterview.resumeStorageKey,
   status: studioInterview.status,
@@ -198,6 +199,7 @@ function toStudioInterviewListRecord(
     jobDescriptionName: record.jobDescriptionName,
     notes: record.notes,
     questionCount: record.interviewQuestions?.length ?? 0,
+    resumeContentHash: record.resumeContentHash,
     resumeFileName: record.resumeFileName,
     scheduleEntries: sortScheduleEntries(
       scheduleEntries

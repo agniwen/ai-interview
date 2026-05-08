@@ -666,9 +666,9 @@ export const studioInterviewsRouter = factory
       const analysis = parsedResumePayload ?? (resume ? await analyzeResumeFile(resume) : null);
       const now = new Date();
       const interviewRecordId = crypto.randomUUID();
-      const resumeStorageKey = resume
-        ? await storeInterviewResume(interviewRecordId, resume)
-        : null;
+      const uploadResult = resume ? await storeInterviewResume(interviewRecordId, resume) : null;
+      const resumeStorageKey = uploadResult?.storageKey ?? null;
+      const resumeContentHash = uploadResult?.contentHash ?? null;
       const record = {
         candidateEmail: input.data.candidateEmail || null,
         candidateName: input.data.candidateName || analysis?.resumeProfile.name || "未命名候选人",
@@ -678,7 +678,7 @@ export const studioInterviewsRouter = factory
         interviewQuestions: analysis?.interviewQuestions ?? manualInterviewQuestions ?? [],
         jobDescriptionId: input.data.jobDescriptionId || null,
         notes: input.data.notes || null,
-        resumeContentHash: null,
+        resumeContentHash,
         resumeFileName: analysis?.fileName ?? resume?.name ?? null,
         resumeProfile: analysis?.resumeProfile ?? null,
         resumeStorageKey,
@@ -966,9 +966,11 @@ export const studioInterviewsRouter = factory
       // When the user re-uploads a resume during edit, overwrite the S3 object
       // (same key derived from interview id) so preview always reflects the
       // latest file. Keep the existing key when no new file is sent.
-      const resumeStorageKey = resume
-        ? ((await storeInterviewResume(id, resume)) ?? existing.resumeStorageKey)
-        : existing.resumeStorageKey;
+      const uploadResult = resume ? await storeInterviewResume(id, resume) : null;
+      const resumeStorageKey = uploadResult?.storageKey ?? existing.resumeStorageKey;
+      const resumeContentHash = resume
+        ? (uploadResult?.contentHash ?? existing.resumeContentHash)
+        : existing.resumeContentHash;
 
       const existingScheduleRows = await db
         .select()
@@ -996,6 +998,7 @@ export const studioInterviewsRouter = factory
           analysis?.interviewQuestions ?? editedQuestions ?? existing.interviewQuestions,
         jobDescriptionId: input.data.jobDescriptionId || null,
         notes: input.data.notes || null,
+        resumeContentHash,
         resumeFileName: analysis?.fileName ?? resume?.name ?? existing.resumeFileName,
         resumeProfile: analysis?.resumeProfile ?? existing.resumeProfile,
         resumeStorageKey,
