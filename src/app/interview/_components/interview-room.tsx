@@ -512,6 +512,10 @@ export default function InterviewRoom({ interviewId, roundId }: InterviewRoomPro
         const message = error instanceof Error ? error.message : "连接失败，请重试";
         // eslint-disable-next-line no-console
         console.error("[interview] session.start failed:", error);
+        if (message === "Requested device not found") {
+          console.error("[Requested device not found] session.start failed:", error);
+          return;
+        }
         toast.error(message);
       }
     },
