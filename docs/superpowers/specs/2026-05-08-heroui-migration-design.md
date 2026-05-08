@@ -24,7 +24,7 @@
 - 不动 `src/components/agents-ui/`、`src/hooks/agents-ui/`（LiveKit upstream 代码）。
 - 不动 `src/components/ui/alignui/*`（独立子设计系统）。
 - 不动 LiveKit 专用组件（`bar-visualizer.tsx`、`live-waveform.tsx`、`mic-selector.tsx`）。
-- 不重写 `react-hook-form` 的状态/校验流；只把 `field.tsx` 桥接到 Hero UI 输入控件。
+- 不重写表单状态/校验流。项目实际用 `@tanstack/react-form`（8 个调用文件），仅 1 处用 `react-hook-form`（旧 `form.tsx` 自身）。`field.tsx` 是布局原语家族（`<Field>` / `<FieldGroup>` / `<FieldLabel>` / `<FieldContent>` / `<FieldError>` / `<FieldDescription>` / `<FieldLegend>` / `<FieldSeparator>` / `<FieldSet>` / `<FieldTitle>`），不是 Controller 桥；保留其全部对外 API 和结构，仅替换内部消费的 Tailwind 类（指向 Hero UI tokens）和它内部的 `<Label>` / `<Separator>` 引用（已经走 `@/components/ui/*` 自动跟随迁移）。
 - 不动 Hero UI 没有的 13 个保留组件的对外 API（仅改其内部 className 让色板对齐 Hero UI tokens）。
 - 不动 `src/components/ui/sortable-list.tsx`（dnd-kit 自定义）的拖拽逻辑，仅替换其中按钮/视觉元素。
 
@@ -42,54 +42,54 @@
 
 ### A. Hero UI 替换（41 个 shadcn 文件）
 
-| 现有文件                    | Hero UI v3 对应                                              | 备注                                                                                   |
-| --------------------------- | ------------------------------------------------------------ | -------------------------------------------------------------------------------------- |
-| button.tsx                  | Button                                                       | `variant="default"→"solid"`，`destructive→color="danger"` 等见 §6 prop 表              |
-| button-group.tsx            | ButtonGroup                                                  | API 接近                                                                               |
-| input.tsx                   | Input                                                        | 内置 label/errorMessage                                                                |
-| input-group.tsx             | InputGroup                                                   | Hero UI 原生有                                                                         |
-| input-otp.tsx               | InputOTP                                                     | Hero UI 原生有；可弃用 `input-otp` 包（保留亦可，看 Hero UI 是否完全覆盖）             |
-| textarea.tsx                | TextArea                                                     |                                                                                        |
-| label.tsx                   | Label                                                        | Hero UI 原生                                                                           |
-| field.tsx                   | Form/Label/Description/FieldError                            | 见 §5；保留 `<Field>` 业务壳，内部改用 Hero UI 原语                                    |
-| form.tsx                    | Form                                                         | RHF 仍是状态层；删除 shadcn `<Form>`/`<FormField>`/`<FormControl>`/`<FormItem>` 中间层 |
-| native-select.tsx           | Select                                                       |                                                                                        |
-| select.tsx                  | Select                                                       |                                                                                        |
-| searchable-select.tsx       | Autocomplete                                                 | API 是子组件式                                                                         |
-| searchable-multi-select.tsx | TagGroup + Autocomplete                                      | 复合用法                                                                               |
-| combobox.tsx                | ComboBox                                                     |                                                                                        |
-| checkbox.tsx                | Checkbox                                                     |                                                                                        |
-| radio-group.tsx             | RadioGroup / Radio                                           |                                                                                        |
-| switch.tsx                  | Switch                                                       |                                                                                        |
-| toggle.tsx                  | ToggleButton                                                 |                                                                                        |
-| toggle-group.tsx            | ToggleButtonGroup                                            |                                                                                        |
-| slider.tsx                  | Slider                                                       |                                                                                        |
-| badge.tsx                   | Chip（默认）                                                 | 数字角标语义保留 Badge 备用                                                            |
-| avatar.tsx                  | Avatar                                                       | API 平铺（src/name/fallback 一个组件）                                                 |
-| separator.tsx               | Separator                                                    |                                                                                        |
-| skeleton.tsx                | Skeleton                                                     |                                                                                        |
-| spinner.tsx                 | Spinner                                                      |                                                                                        |
-| progress.tsx                | ProgressBar                                                  |                                                                                        |
-| kbd.tsx                     | Kbd                                                          |                                                                                        |
-| pagination.tsx              | Pagination                                                   |                                                                                        |
-| breadcrumb.tsx              | Breadcrumbs                                                  |                                                                                        |
-| accordion.tsx               | Accordion / Disclosure                                       |                                                                                        |
-| collapsible.tsx             | Disclosure                                                   |                                                                                        |
-| tabs.tsx                    | Tabs                                                         | API 改为 `<Tab key title>{children}</Tab>` 平铺                                        |
-| card.tsx                    | Card                                                         |                                                                                        |
-| modal.tsx                   | Modal / ModalContent / ModalHeader / ModalBody / ModalFooter | 已经叫 modal，正合适                                                                   |
-| dialog.tsx                  | Modal                                                        | dialog 当 modal 用                                                                     |
-| alert-dialog.tsx            | AlertDialog                                                  | Hero UI v3 原生有                                                                      |
-| alert.tsx                   | Alert                                                        |                                                                                        |
-| popover.tsx                 | Popover                                                      | 子结构一致                                                                             |
-| tooltip.tsx                 | Tooltip                                                      | API 改为 `<Tooltip content>{trigger}</Tooltip>`                                        |
-| dropdown-menu.tsx           | Dropdown / DropdownTrigger / DropdownMenu / DropdownItem     |                                                                                        |
-| sheet.tsx                   | Drawer                                                       | `side` → `placement`                                                                   |
-| drawer.tsx                  | Drawer                                                       |                                                                                        |
-| scroll-area.tsx             | ScrollShadow                                                 | 外滚动条仍走 OverlayScrollbars                                                         |
-| sonner.tsx                  | Toast                                                        | Hero UI Toast 替代 sonner，移除 `sonner` 依赖                                          |
-| calendar.tsx                | Calendar / RangeCalendar                                     | 评估是否仍需 `react-day-picker`，能去则去                                              |
-| table.tsx                   | Table                                                        |                                                                                        |
+| 现有文件                    | Hero UI v3 对应                                              | 备注                                                                                      |
+| --------------------------- | ------------------------------------------------------------ | ----------------------------------------------------------------------------------------- |
+| button.tsx                  | Button                                                       | `variant="default"→"solid"`，`destructive→color="danger"` 等见 §6 prop 表                 |
+| button-group.tsx            | ButtonGroup                                                  | API 接近                                                                                  |
+| input.tsx                   | Input                                                        | 内置 label/errorMessage                                                                   |
+| input-group.tsx             | InputGroup                                                   | Hero UI 原生有                                                                            |
+| input-otp.tsx               | InputOTP                                                     | Hero UI 原生有；可弃用 `input-otp` 包（保留亦可，看 Hero UI 是否完全覆盖）                |
+| textarea.tsx                | TextArea                                                     |                                                                                           |
+| label.tsx                   | Label                                                        | Hero UI 原生                                                                              |
+| field.tsx                   | （保留为布局原语家族）                                       | 见 §5；不引入 Hero UI Form 原语，仅替换内部 `text-muted-foreground` 等类为 Hero UI tokens |
+| form.tsx                    | （删除或保留为最小壳）                                       | 仅 1 处旧 react-hook-form 用法，迁移期间评估：直接改用 tanstack/react-form 或保留兼容     |
+| native-select.tsx           | Select                                                       |                                                                                           |
+| select.tsx                  | Select                                                       |                                                                                           |
+| searchable-select.tsx       | Autocomplete                                                 | API 是子组件式                                                                            |
+| searchable-multi-select.tsx | TagGroup + Autocomplete                                      | 复合用法                                                                                  |
+| combobox.tsx                | ComboBox                                                     |                                                                                           |
+| checkbox.tsx                | Checkbox                                                     |                                                                                           |
+| radio-group.tsx             | RadioGroup / Radio                                           |                                                                                           |
+| switch.tsx                  | Switch                                                       |                                                                                           |
+| toggle.tsx                  | ToggleButton                                                 |                                                                                           |
+| toggle-group.tsx            | ToggleButtonGroup                                            |                                                                                           |
+| slider.tsx                  | Slider                                                       |                                                                                           |
+| badge.tsx                   | Chip（默认）                                                 | 数字角标语义保留 Badge 备用                                                               |
+| avatar.tsx                  | Avatar                                                       | API 平铺（src/name/fallback 一个组件）                                                    |
+| separator.tsx               | Separator                                                    |                                                                                           |
+| skeleton.tsx                | Skeleton                                                     |                                                                                           |
+| spinner.tsx                 | Spinner                                                      |                                                                                           |
+| progress.tsx                | ProgressBar                                                  |                                                                                           |
+| kbd.tsx                     | Kbd                                                          |                                                                                           |
+| pagination.tsx              | Pagination                                                   |                                                                                           |
+| breadcrumb.tsx              | Breadcrumbs                                                  |                                                                                           |
+| accordion.tsx               | Accordion / Disclosure                                       |                                                                                           |
+| collapsible.tsx             | Disclosure                                                   |                                                                                           |
+| tabs.tsx                    | Tabs                                                         | API 改为 `<Tab key title>{children}</Tab>` 平铺                                           |
+| card.tsx                    | Card                                                         |                                                                                           |
+| modal.tsx                   | Modal / ModalContent / ModalHeader / ModalBody / ModalFooter | 已经叫 modal，正合适                                                                      |
+| dialog.tsx                  | Modal                                                        | dialog 当 modal 用                                                                        |
+| alert-dialog.tsx            | AlertDialog                                                  | Hero UI v3 原生有                                                                         |
+| alert.tsx                   | Alert                                                        |                                                                                           |
+| popover.tsx                 | Popover                                                      | 子结构一致                                                                                |
+| tooltip.tsx                 | Tooltip                                                      | API 改为 `<Tooltip content>{trigger}</Tooltip>`                                           |
+| dropdown-menu.tsx           | Dropdown / DropdownTrigger / DropdownMenu / DropdownItem     |                                                                                           |
+| sheet.tsx                   | Drawer                                                       | `side` → `placement`                                                                      |
+| drawer.tsx                  | Drawer                                                       |                                                                                           |
+| scroll-area.tsx             | ScrollShadow                                                 | 外滚动条仍走 OverlayScrollbars                                                            |
+| sonner.tsx                  | Toast                                                        | Hero UI Toast 替代 sonner，移除 `sonner` 依赖                                             |
+| calendar.tsx                | Calendar / RangeCalendar                                     | 评估是否仍需 `react-day-picker`，能去则去                                                 |
+| table.tsx                   | Table                                                        |                                                                                           |
 
 ### B. 保留 shadcn / Radix（13 个）
 
@@ -292,85 +292,43 @@ export { Input, type InputProps } from "@heroui/react";
 
 不再使用 `class-variance-authority` 与 shadcn `cn()` 风格的 `variant` 体系——Hero UI 的 `classNames` slot prop 与 `variant`/`color` 已覆盖。`@/lib/utils` 的 `cn` 函数本身留作业务代码用。
 
-## 表单系统：RHF + Hero UI 原语
+## 表单系统：tanstack/react-form + Field 布局原语
 
-保留 `react-hook-form` 作为状态/校验层，`field.tsx` 改写为 RHF Controller 桥。
+**项目实际状态：**
 
-```tsx
-// src/components/ui/field.tsx
-import { Controller, type Control, type FieldPath, type FieldValues } from "react-hook-form";
-import { cloneElement, type ReactElement } from "react";
-
-type FieldProps<TForm extends FieldValues> = {
-  control: Control<TForm>;
-  name: FieldPath<TForm>;
-  label?: string;
-  description?: string;
-  children: ReactElement;
-};
-
-export function Field<TForm extends FieldValues>({
-  control,
-  name,
-  label,
-  description,
-  children,
-}: FieldProps<TForm>) {
-  return (
-    <Controller
-      control={control}
-      name={name}
-      render={({ field, fieldState }) =>
-        cloneElement(children, {
-          ...field,
-          label,
-          description,
-          isInvalid: fieldState.invalid,
-          errorMessage: fieldState.error?.message,
-        })
-      }
-    />
-  );
-}
-```
-
-调用点几乎不变：
+- 8 个表单文件用 `@tanstack/react-form`，1 个旧文件用 `react-hook-form`（即 `form.tsx` 自身）
+- `field.tsx` 是**布局原语家族**（不是 Controller 桥）：`<FieldSet>` / `<FieldGroup>` / `<FieldLegend>` / `<Field>` / `<FieldContent>` / `<FieldLabel>` / `<FieldTitle>` / `<FieldDescription>` / `<FieldSeparator>` / `<FieldError>`
+- 典型调用模式（来自 `department-form-dialog.tsx`）：
 
 ```tsx
-<Field control={form.control} name="email" label="邮箱" description="...">
-  <Input type="email" placeholder="..." />
-</Field>
+<form.Field name="name">
+  {(field) => (
+    <Field data-invalid={hasFieldErrors(field.state.meta.errors) || undefined}>
+      <FieldLabel htmlFor={field.name}>部门名称</FieldLabel>
+      <FieldContent className="gap-2">
+        <Input
+          id={field.name}
+          value={field.state.value}
+          onChange={(e) => field.handleChange(e.target.value)}
+          onBlur={field.handleBlur}
+        />
+        <FieldError errors={toFieldErrors(field.state.meta.errors)} />
+      </FieldContent>
+    </Field>
+  )}
+</form.Field>
 ```
 
-Hero UI 的 `Input` / `Select` / `Textarea` / `Checkbox` / `Switch` 全部内置 `label` / `description` / `errorMessage` / `isInvalid`，与 Field 桥的输出一致。
+**迁移策略：**
 
-**onChange 签名差异处理**：Hero UI 受控组件用 `onValueChange` 传值，RHF Controller 给的是 `field.onChange(event)`。在 `cloneElement` 时显式映射：
-
-```tsx
-// 详细映射（实现时按子组件 props 类型补齐）
-cloneElement(children, {
-  value: field.value,
-  onValueChange: field.onChange, // Hero UI 控件统一回调
-  onBlur: field.onBlur,
-  name: field.name,
-  ref: field.ref,
-  label,
-  description,
-  isInvalid: fieldState.invalid,
-  errorMessage: fieldState.error?.message,
-});
-```
-
-shadcn `<Form>` / `<FormField>` / `<FormControl>` / `<FormItem>` / `<FormMessage>` 中间层全部删除；调用点改为：
-
-```tsx
-<form onSubmit={form.handleSubmit(onSubmit)}>
-  <Field control={form.control} name="..." label="...">
-    <Input ... />
-  </Field>
-  ...
-</form>
-```
+1. **保留 `field.tsx` 全部对外 API 和结构** —— 这些都是纯布局原语（CSS 类组合），不绑定具体表单库，调用点完全不动。
+2. **仅替换 `field.tsx` 内部消费的 Tailwind 类**：`text-muted-foreground` → `text-default-500`、`text-destructive` → `text-danger`、`bg-background` → 不变（同名 token），等等（详见 §3 的 className 对照表）。
+3. **`field.tsx` 内部引用的 `<Label>` / `<Separator>` 自动跟随**：它们 import 自 `@/components/ui/`，wrapper 升级为 Hero UI 后自动迁移。
+4. **`form.tsx`（react-hook-form 风格的 shadcn `<Form>`/`<FormField>`/...）** 按以下处理：
+   - 先 grep 确认全仓库没有 `from "@/components/ui/form"` 调用点（如果只有 `form.tsx` 自己定义、没人 import，直接删除）；
+   - 若仍有调用点，最小改造：让其内部消费的 Tailwind 类同样切到 Hero UI tokens，对外 API 不动。
+5. **不引入 Hero UI 的 `<Form>` / `<Label>` / `<FieldError>` 原语**：项目的 `Field*` 家族已经覆盖布局需求，引入 Hero UI Form 原语会双重定义。
+6. **Hero UI Input / Textarea / Select / Checkbox / Switch 内置的 `label` / `description` / `errorMessage` / `isInvalid` props 不在调用点使用**：调用点继续走 `<FieldLabel>` + `<FieldDescription>` + `<FieldError>` 外挂（保持现状），把 Hero UI 的内置 label 系统当作"备选能力"，不混用。
 
 ## PR 内执行顺序
 
@@ -432,7 +390,7 @@ shadcn `<Form>` / `<FormField>` / `<FormControl>` / `<FormItem>` / `<FormMessage
 | `<Tooltip><TooltipTrigger/><TooltipContent>...</TooltipContent></Tooltip>`                  | `<Tooltip content="...">{trigger}</Tooltip>`                                             |
 | `<DropdownMenu><DropdownMenuTrigger/><DropdownMenuContent><DropdownMenuItem/>...</>`        | `<Dropdown><DropdownTrigger/><DropdownMenu><DropdownItem/>...</DropdownMenu></Dropdown>` |
 | `<Calendar mode="..." />` (react-day-picker)                                                | `<Calendar />`（Hero UI 原生）；保留 react-day-picker 仅在仍有遗留用法时                 |
-| shadcn `<Form>` `<FormField>` `<FormItem>` `<FormControl>` `<FormMessage>`                  | `<form>` + `<Field control name>` + Hero UI 原生输入                                     |
+| shadcn `<Form>` `<FormField>` `<FormItem>` `<FormControl>` `<FormMessage>`（仅遗留 1 处）   | 保留或删除（见 §5）；不替换为 Hero UI Form 原语                                          |
 | `bg-background/-foreground/-card/-popover/-muted/-accent/-border/-input/-ring/-destructive` | 见 §3 token 对照表                                                                       |
 
 ### Step 6 — 收尾
