@@ -24,7 +24,7 @@ export interface AsciiHeroProps {
 const DEFAULTS = {
   cellSize: 16,
   charset: " ·∙-+*▒▓",
-  color: "oklch(0.55 0.03 240 / 0.35)",
+  color: "rgba(255, 255, 255, 0.2)",
   noiseScale: 0.05,
   noiseSpeed: 0.0003,
   splatRadius: 6,
@@ -308,7 +308,7 @@ export function AsciiHero(props: AsciiHeroProps) {
     <div
       ref={containerRef}
       aria-hidden="true"
-      className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-full overflow-hidden"
+      className="pointer-events-none absolute inset-0 overflow-hidden"
     >
       <canvas ref={canvasRef} />
     </div>

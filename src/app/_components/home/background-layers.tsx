@@ -4,6 +4,7 @@
 
 import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
+import { AsciiHero } from "@/components/react-bits/ascii-hero";
 import { DarkVeil } from "@/components/react-bits/dark-veil";
 import DotGrid from "@/components/react-bits/dot-grid";
 import Grainient from "@/components/react-bits/grainient";
@@ -89,6 +90,11 @@ export function BackgroundLayers() {
                 centerY={0}
                 zoom={0.9}
               />
+            </div>
+            {/* 亮色模式 hover 交互层：流体 ASCII canvas，叠在 Grainient 之上、bg-mask 之下
+                Light-mode hover layer: fluid ASCII canvas, sits above Grainient and below bg-mask. */}
+            <div className="absolute inset-0">
+              <AsciiHero />
             </div>
           </>
         )}

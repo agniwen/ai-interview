@@ -162,7 +162,7 @@ describe("dissipate", () => {
 import { compose } from "./utils";
 
 describe("compose", () => {
-  it("with zero density and zero noise, luma is 0.5 everywhere", () => {
+  it("with zero density and zero noise, luma is 0 everywhere (idle = empty)", () => {
     const W = 2;
     const H = 2;
     const luma = new Float32Array(W * H);
@@ -180,7 +180,7 @@ describe("compose", () => {
       t: 0,
     });
 
-    for (let i = 0; i < luma.length; i++) expect(luma[i]).toBeCloseTo(0.5, 5);
+    for (let i = 0; i < luma.length; i++) expect(luma[i]).toBe(0);
   });
 
   it("density saturates to 1 even with negative noise", () => {
@@ -250,5 +250,27 @@ describe("compose", () => {
     expect(calls[0]).toEqual([0, 0, 1]);
     expect(calls[1]).toEqual([0.1, 0, 1]);
     expect(calls[3]).toEqual([0.1, 0.1, 1]);
+  });
+
+  it("noise peaks are amplified by 4th-power curve, valleys clamped to 0 when density is 0", () => {
+    const W = 1;
+    const H = 1;
+    const luma = new Float32Array(1);
+    const density = new Float32Array(1);
+
+    // 中文：noise 返回 0.5 → sparse = 0.5^4 = 0.0625
+    // English: noise returning 0.5 → sparse = 0.5^4 = 0.0625 (very dim, sparse-dot regime)
+    compose({ luma, density, noise: () => 0.5, W, H, noiseScale: 1, noiseSpeed: 1, t: 0 });
+    expect(luma[0]).toBeCloseTo(0.0625, 5);
+
+    // 中文：noise 返回 -0.9 → sparse = 0（负半被裁掉）
+    // English: noise returning -0.9 → sparse = 0 (negative half clamped)
+    compose({ luma, density, noise: () => -0.9, W, H, noiseScale: 1, noiseSpeed: 1, t: 0 });
+    expect(luma[0]).toBe(0);
+
+    // 中文：noise 返回 1.0 → sparse = 1.0（峰值满亮度）
+    // English: noise returning 1.0 → sparse = 1.0 (peak full brightness)
+    compose({ luma, density, noise: () => 1.0, W, H, noiseScale: 1, noiseSpeed: 1, t: 0 });
+    expect(luma[0]).toBe(1);
   });
 });

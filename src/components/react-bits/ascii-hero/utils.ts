@@ -103,8 +103,12 @@ export function compose(args: ComposeArgs): void {
   for (let j = 0; j < H; j++) {
     for (let i = 0; i < W; i++) {
       const idx = j * W + i;
-      const n = (noise(i * noiseScale, j * noiseScale, tScaled) + 1) * 0.5;
-      const v = n + density[idx];
+      // 中文：noise 正半部分应用 4 次幂曲线，让大多数 cell 留空，只有峰值处出现零星点
+      // English: apply a 4th-power curve to the positive half of noise so most cells stay
+      // empty and only peaks render — sparse dots when idle, filled by density on hover.
+      const n = noise(i * noiseScale, j * noiseScale, tScaled);
+      const sparse = n > 0 ? n * n * n * n : 0;
+      const v = sparse + density[idx];
       luma[idx] = v < 0 ? 0 : v > 1 ? 1 : v;
     }
   }

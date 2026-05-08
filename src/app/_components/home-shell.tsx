@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo } from "react";
-import { AsciiHero } from "@/components/react-bits/ascii-hero";
 import { SignInRequiredDialog } from "@/components/auth/sign-in-required-dialog";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { BackgroundLayers } from "./home/background-layers";
@@ -38,14 +37,11 @@ export default function HomeShell() {
           {/* Hero 区不再占满首屏，让下方 ProductShot 露出约一半（Notion 风格）
               Hero no longer fills the viewport; lets ProductShot peek up like Notion's hero. */}
           <div className="mx-auto flex w-full max-w-7xl flex-col items-center px-5 pt-16 sm:px-8 sm:pt-20 lg:pt-24">
-            <div className="relative w-full">
-              <AsciiHero />
-              <Hero
-                isPending={isPending}
-                onResumeFiltering={onResumeFiltering}
-                onWorkbench={onWorkbench}
-              />
-            </div>
+            <Hero
+              isPending={isPending}
+              onResumeFiltering={onResumeFiltering}
+              onWorkbench={onWorkbench}
+            />
           </div>
           <ProductShot />
           <TrustStrip />
