@@ -232,11 +232,11 @@ export function PreInterviewFormsView({
                 <div className="sticky bottom-0 z-10 -mx-5 border-border/60 border-t px-5 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] backdrop-blur sm:-mx-2 sm:px-2">
                   <Button
                     className="h-11 w-full"
-                    disabled={submitting || pendingTemplates.length === 0}
+                    isDisabled={pendingTemplates.length === 0}
+                    isPending={submitting}
                     onClick={() => void handleSubmitAll()}
                     size="lg"
                   >
-                    {submitting ? <Loader2Icon className="size-4 animate-spin" /> : null}
                     提交并继续
                   </Button>
                 </div>

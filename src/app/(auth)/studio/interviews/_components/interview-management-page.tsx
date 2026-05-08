@@ -413,7 +413,7 @@ export function InterviewManagementPage({
               <Button
                 className="flex-1 sm:flex-none"
                 onClick={() => setBulkDeleteOpen(true)}
-                variant="destructive"
+                variant="danger"
               >
                 <Trash2Icon className="size-4" />
                 批量删除 ({selectedIds.length})
@@ -468,7 +468,7 @@ export function InterviewManagementPage({
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>取消</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} variant="destructive">
+            <AlertDialogAction onClick={handleDelete} variant="danger">
               删除记录
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -496,7 +496,7 @@ export function InterviewManagementPage({
                 event.preventDefault();
                 void handleBulkDelete();
               }}
-              variant="destructive"
+              variant="danger"
             >
               {isBulkDeleting
                 ? "正在删除…"

@@ -7,7 +7,6 @@ import type {
 } from "@/lib/interview-question-templates";
 import type { JobDescriptionListRecord } from "@/lib/job-descriptions";
 import { useForm, useStore } from "@tanstack/react-form";
-import { LoaderCircleIcon } from "lucide-react";
 import { useEffect } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -126,8 +125,7 @@ export function InterviewQuestionTemplateEditorDialog({
           <Button onClick={() => onOpenChange(false)} type="button" variant="outline">
             取消
           </Button>
-          <Button disabled={isSubmitting} form="interview-question-template-form" type="submit">
-            {isSubmitting ? <LoaderCircleIcon className="size-4 animate-spin" /> : null}
+          <Button isPending={isSubmitting} form="interview-question-template-form" type="submit">
             {isEdit ? "保存" : "创建"}
           </Button>
         </>

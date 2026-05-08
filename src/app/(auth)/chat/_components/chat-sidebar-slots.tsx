@@ -122,10 +122,10 @@ function ChatSidebarHeader({
       <div className="flex items-center gap-1.5 px-1">
         <Button
           className="h-9 flex-1 gap-2"
-          disabled={selectedCount === 0 || isBulkDeleting}
+          isDisabled={selectedCount === 0 || isBulkDeleting}
           onClick={onBulkDelete}
           size="sm"
-          variant="destructive"
+          variant="danger"
         >
           <Trash2Icon className="size-4" />
           {isBulkDeleting ? "正在删除…" : `删除 (${selectedCount})`}
@@ -135,9 +135,9 @@ function ChatSidebarHeader({
             <Button
               aria-label="退出批量编辑"
               className="size-9 shrink-0"
-              disabled={isBulkDeleting}
+              isDisabled={isBulkDeleting}
+              isIconOnly
               onClick={onToggleEditMode}
-              size="icon"
               variant="ghost"
             >
               <XIcon className="size-4" />
@@ -165,8 +165,8 @@ function ChatSidebarHeader({
           <Button
             aria-label="批量编辑"
             className="size-9 shrink-0 text-sidebar-foreground/80"
+            isIconOnly
             onClick={onToggleEditMode}
-            size="icon"
             variant="ghost"
           >
             <SquareCheckBigIcon className="size-4" />
@@ -225,11 +225,12 @@ function renderSessionItem({
       <Button
         aria-label="删除聊天记录"
         className="size-7 rounded-md opacity-0 transition-opacity group-hover/session-item:opacity-100 hover:bg-destructive/12 hover:text-destructive"
+        isIconOnly
         onClick={(event) => {
           event.stopPropagation();
           onDelete(conversation);
         }}
-        size="icon-sm"
+        size="sm"
         type="button"
         variant="ghost"
       >
@@ -547,7 +548,7 @@ export function ChatSidebarSlots() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>取消</AlertDialogCancel>
-            <AlertDialogAction onClick={() => void confirmDelete()} variant="destructive">
+            <AlertDialogAction onClick={() => void confirmDelete()} variant="danger">
               删除
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -570,7 +571,7 @@ export function ChatSidebarSlots() {
                 event.preventDefault();
                 void handleBulkDelete();
               }}
-              variant="destructive"
+              variant="danger"
             >
               {isBulkDeleting ? "正在删除…" : `删除 ${selectedIds.size} 条`}
             </AlertDialogAction>

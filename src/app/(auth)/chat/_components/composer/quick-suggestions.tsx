@@ -43,7 +43,7 @@ export function QuickSuggestions() {
           {QUICK_SUGGESTIONS.map((suggestion) => (
             <Suggestion
               className="h-auto whitespace-normal rounded-2xl border-border/70 bg-card/70 px-4 py-2 text-left text-xs leading-relaxed hover:bg-accent"
-              disabled={isStreaming}
+              isDisabled={isStreaming}
               key={suggestion}
               onClick={(text) => {
                 appendInput(text);

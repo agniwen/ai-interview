@@ -257,7 +257,7 @@ export function JobDescriptionManagementPage({
           filters={filtersConfig}
           getRowId={(r) => r.id}
           toolbarRight={
-            <Button className="flex-1 sm:flex-none" disabled={missingRefs} onClick={openCreate}>
+            <Button className="flex-1 sm:flex-none" isDisabled={missingRefs} onClick={openCreate}>
               <PlusIcon className="size-4" />
               新建在招岗位
             </Button>
@@ -325,7 +325,7 @@ export function JobDescriptionManagementPage({
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>取消</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} variant="destructive">
+            <AlertDialogAction onClick={handleDelete} variant="danger">
               删除
             </AlertDialogAction>
           </AlertDialogFooter>

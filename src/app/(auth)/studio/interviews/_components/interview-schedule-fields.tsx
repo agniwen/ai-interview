@@ -55,7 +55,7 @@ export function InterviewScheduleFields({
                       tooltip — disabled <button> elements don't fire pointer/focus events. */}
                   {/* oxlint-disable-next-line jsx-a11y/no-noninteractive-tabindex */}
                   <span className="shrink-0 self-start" tabIndex={0}>
-                    <Button disabled size="sm" type="button" variant="outline">
+                    <Button isDisabled size="sm" type="button" variant="outline">
                       <PlusIcon className="size-4" />
                       新增轮次
                     </Button>
@@ -98,7 +98,7 @@ export function InterviewScheduleFields({
                       <div className="flex items-center gap-2">
                         {canResetRound ? (
                           <Button
-                            disabled={isResetting}
+                            isPending={isResetting}
                             onClick={() => {
                               if (entry.id) {
                                 void onResetRound(entry.id);
@@ -109,13 +109,13 @@ export function InterviewScheduleFields({
                             variant="outline"
                           >
                             <RotateCcwIcon className="size-3.5" />
-                            {isResetting ? "重置中..." : "重置轮次"}
+                            重置轮次
                           </Button>
                         ) : null}
                         <Button
-                          disabled={scheduleEntriesField.state.value.length <= 1 || isLocked}
+                          isDisabled={scheduleEntriesField.state.value.length <= 1 || isLocked}
+                          isIconOnly
                           onClick={() => void scheduleEntriesField.removeValue(index)}
-                          size="icon"
                           type="button"
                           variant="ghost"
                         >

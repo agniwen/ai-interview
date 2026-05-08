@@ -96,7 +96,7 @@ export function MicSelector({
           variant="ghost"
           size="sm"
           className={cn("hover:bg-accent flex w-48 cursor-pointer items-center gap-1.5", className)}
-          disabled={loading || disabled}
+          isDisabled={loading || disabled}
         >
           {isMuted ? (
             <MicOff className="h-4 w-4 flex-shrink-0" />

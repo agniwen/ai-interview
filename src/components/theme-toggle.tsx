@@ -21,6 +21,16 @@ const THEME_OPTIONS = [
   { icon: MonitorIcon, label: "跟随系统", value: "system" },
 ] as const;
 
+function resolveSize(size: "icon-xs" | "icon-sm" | "icon" | "icon-lg"): "sm" | "md" | "lg" {
+  if (size === "icon-xs" || size === "icon-sm") {
+    return "sm";
+  }
+  if (size === "icon-lg") {
+    return "lg";
+  }
+  return "md";
+}
+
 export function ThemeToggle({
   className,
   size = "icon-sm",
@@ -38,7 +48,8 @@ export function ThemeToggle({
         <Button
           aria-label="切换主题"
           className={className}
-          size={size}
+          isIconOnly
+          size={resolveSize(size)}
           type="button"
           variant="ghost"
         >

@@ -89,9 +89,9 @@ function ConversationDownloadButton() {
         <ConversationDownload
           aria-label="导出聊天记录"
           className="static rounded-md border-0 bg-transparent shadow-none hover:bg-accent"
-          disabled={downloadable.length === 0}
+          isDisabled={downloadable.length === 0}
           messages={downloadable}
-          size="icon-sm"
+          size="sm"
           variant="ghost"
         />
       </TooltipTrigger>
@@ -203,7 +203,7 @@ export function ComposerFooter({
           {getComposerStatusLabel(effectiveStatus, hasJobDescription, jobDescriptionLabel)}
         </span>
         <PromptInputSubmit
-          disabled={effectiveStatus === "ready" ? !canSubmit : false}
+          isDisabled={effectiveStatus === "ready" ? !canSubmit : false}
           onStop={stop}
           status={effectiveStatus}
           variant="outline"

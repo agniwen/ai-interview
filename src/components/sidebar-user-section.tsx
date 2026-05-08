@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import { useCallback } from "react";
 import { FeishuSignInButton } from "@/components/auth/feishu-sign-in-button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
+import { Button, buttonClass } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -74,13 +74,7 @@ export function SidebarUserSection({
     content = collapsed ? (
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button
-            aria-label="用户菜单"
-            className="w-full"
-            size="icon"
-            type="button"
-            variant="ghost"
-          >
+          <Button aria-label="用户菜单" className="w-full" isIconOnly type="button" variant="ghost">
             <Avatar size="sm">
               <AvatarImage alt={userName} src={session.user.image ?? undefined} />
               <AvatarFallback>{userInitials}</AvatarFallback>
@@ -159,23 +153,18 @@ export function SidebarUserSection({
     );
   } else {
     content = collapsed ? (
-      <Button
+      <Link
         aria-label="登录"
-        asChild
-        className="w-full"
-        size="icon"
-        type="button"
-        variant="ghost"
+        className={buttonClass({ className: "w-full", isIconOnly: true, variant: "ghost" })}
+        href={`/login?callbackURL=${encodeURIComponent(callbackURL)}`}
       >
-        <Link href={`/login?callbackURL=${encodeURIComponent(callbackURL)}`}>
-          <UserIcon className="size-4" />
-        </Link>
-      </Button>
+        <UserIcon className="size-4" />
+      </Link>
     ) : (
       <div className="flex w-full flex-col gap-2">
         <FeishuSignInButton callbackURL={callbackURL} />
         <FeishuSignInButton
-          variant="default"
+          variant="primary"
           callbackURL={callbackURL}
           label="极光 HR 飞书登录"
           providerId="feishu-jiguang-hr"

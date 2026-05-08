@@ -440,8 +440,7 @@ export function CreateInterviewDialog({
             </TabsList>
           }
           footer={
-            <Button disabled={isSubmitting || isBusy} form="create-interview-form" type="submit">
-              {isSubmitting || isBusy ? <LoaderCircleIcon className="size-4 animate-spin" /> : null}
+            <Button isPending={isSubmitting || isBusy} form="create-interview-form" type="submit">
               保存面试记录
             </Button>
           }

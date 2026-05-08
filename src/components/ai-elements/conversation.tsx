@@ -79,8 +79,8 @@ export function ConversationScrollButton({ className, ...props }: ConversationSc
           "absolute bottom-4 left-[50%] translate-x-[-50%] rounded-full border-border/70 bg-background/85 shadow-xs backdrop-blur-sm hover:bg-accent/60",
           className,
         )}
+        isIconOnly
         onClick={handleScrollToBottom}
-        size="icon"
         type="button"
         variant="outline"
         {...props}
@@ -121,7 +121,7 @@ export function ConversationDownload({
   formatMessage = defaultFormatMessage,
   className,
   children,
-  size = "icon",
+  size = "md",
   variant = "outline",
   ...props
 }: ConversationDownloadProps & { ref?: React.RefObject<HTMLButtonElement | null> }) {
@@ -146,6 +146,7 @@ export function ConversationDownload({
         "absolute top-4 right-4 rounded-full border-border/70 bg-background/85 shadow-xs backdrop-blur-sm hover:bg-accent/60",
         className,
       )}
+      isIconOnly
       onClick={handleDownload}
       size={size}
       type="button"

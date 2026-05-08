@@ -10,7 +10,7 @@ interface FeishuSignInButtonProps {
   callbackURL: string;
   className?: string;
   label?: string;
-  variant?: "default" | "outline" | "secondary" | "ghost";
+  variant?: "primary" | "outline" | "secondary" | "ghost";
   providerId?: string;
 }
 
@@ -38,14 +38,14 @@ export function FeishuSignInButton({
   return (
     <Button
       className={cn("w-full gap-2", className)}
-      disabled={isSubmitting}
+      isPending={isSubmitting}
       onClick={handleClick}
       size="lg"
       type="button"
       variant={variant}
     >
       <FeishuIcon className="size-4" />
-      {isSubmitting ? "跳转中..." : label}
+      {label}
     </Button>
   );
 }

@@ -92,8 +92,8 @@ export function GlobalConfigForm({ initial }: Props) {
       </div>
 
       <div>
-        <Button onClick={onSave} disabled={pending}>
-          {pending ? "保存中…" : "保存"}
+        <Button isPending={pending} onClick={onSave}>
+          保存
         </Button>
       </div>
     </div>

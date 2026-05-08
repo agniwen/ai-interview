@@ -63,9 +63,9 @@ export function actionsColumn<TData>(opts: ActionsColumnOptions<TData>): ColumnD
                   <Button
                     aria-label={action.label}
                     className="size-8"
-                    disabled={disabled}
+                    isDisabled={disabled}
+                    isIconOnly
                     onClick={() => void action.onClick(record)}
-                    size="icon"
                     variant="ghost"
                   >
                     <Icon className="size-4" />
@@ -78,7 +78,7 @@ export function actionsColumn<TData>(opts: ActionsColumnOptions<TData>): ColumnD
           {visibleMenu.length > 0 ? (
             <DropdownMenu modal={false}>
               <DropdownMenuTrigger asChild>
-                <Button aria-label="更多操作" className="size-8" size="icon" variant="ghost">
+                <Button aria-label="更多操作" className="size-8" isIconOnly variant="ghost">
                   <MoreHorizontalIcon className="size-4" />
                 </Button>
               </DropdownMenuTrigger>

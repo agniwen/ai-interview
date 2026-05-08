@@ -3,7 +3,7 @@
 import { AlertDialog as AlertDialogPrimitive } from "radix-ui";
 import * as React from "react";
 
-import { Button } from "@/components/ui/button";
+import { buttonClass, type ButtonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 function AlertDialog({ ...props }: React.ComponentProps<typeof AlertDialogPrimitive.Root>) {
@@ -129,37 +129,33 @@ function AlertDialogMedia({ className, ...props }: React.ComponentProps<"div">) 
 
 function AlertDialogAction({
   className,
-  variant = "default",
-  size = "default",
+  variant = "primary",
   ...props
-}: React.ComponentProps<typeof AlertDialogPrimitive.Action> &
-  Pick<React.ComponentProps<typeof Button>, "variant" | "size">) {
+}: React.ComponentProps<typeof AlertDialogPrimitive.Action> & {
+  variant?: ButtonVariants["variant"];
+}) {
   return (
-    <Button variant={variant} size={size} asChild>
-      <AlertDialogPrimitive.Action
-        data-slot="alert-dialog-action"
-        className={cn(className)}
-        {...props}
-      />
-    </Button>
+    <AlertDialogPrimitive.Action
+      data-slot="alert-dialog-action"
+      className={buttonClass({ variant, className })}
+      {...props}
+    />
   );
 }
 
 function AlertDialogCancel({
   className,
   variant = "outline",
-  size = "default",
   ...props
-}: React.ComponentProps<typeof AlertDialogPrimitive.Cancel> &
-  Pick<React.ComponentProps<typeof Button>, "variant" | "size">) {
+}: React.ComponentProps<typeof AlertDialogPrimitive.Cancel> & {
+  variant?: ButtonVariants["variant"];
+}) {
   return (
-    <Button variant={variant} size={size} asChild>
-      <AlertDialogPrimitive.Cancel
-        data-slot="alert-dialog-cancel"
-        className={cn(className)}
-        {...props}
-      />
-    </Button>
+    <AlertDialogPrimitive.Cancel
+      data-slot="alert-dialog-cancel"
+      className={buttonClass({ variant, className })}
+      {...props}
+    />
   );
 }
 

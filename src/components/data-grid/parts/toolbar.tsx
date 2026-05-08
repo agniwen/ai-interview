@@ -147,9 +147,9 @@ export function Toolbar(props: ToolbarProps) {
         {onRefresh ? (
           <Button
             className="shrink-0"
-            disabled={refreshing}
+            isDisabled={refreshing}
+            isIconOnly
             onClick={onRefresh}
-            size="icon"
             variant="outline"
           >
             <RefreshCwIcon className={`size-4 ${refreshing ? "animate-spin" : ""}`} />
@@ -159,9 +159,9 @@ export function Toolbar(props: ToolbarProps) {
         {onResetFilters ? (
           <Button
             className="shrink-0"
-            disabled={!canResetFilters}
+            isDisabled={!canResetFilters}
+            isIconOnly
             onClick={onResetFilters}
-            size="icon"
             variant="outline"
           >
             <FilterXIcon className="size-4" />

@@ -117,13 +117,13 @@ export function AuthorizeForm({ initialUserCode, userName }: AuthorizeFormProps)
       <div className="flex gap-2">
         <Button
           className="flex-1"
-          disabled={phase === "submitting"}
+          isPending={phase === "submitting"}
           onClick={() => submitDecision("approve")}
         >
-          {phase === "submitting" ? "处理中..." : "确认授权"}
+          确认授权
         </Button>
         <Button
-          disabled={phase === "submitting"}
+          isDisabled={phase === "submitting"}
           onClick={() => submitDecision("deny")}
           variant="outline"
         >

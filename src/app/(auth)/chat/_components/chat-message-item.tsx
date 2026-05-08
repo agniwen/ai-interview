@@ -324,7 +324,7 @@ export function ChatMessageItem({
       {message.role === "assistant" && isLastMessage && assistantText ? (
         <MessageActions className="mt-2">
           <MessageAction
-            disabled={isStreaming}
+            isDisabled={isStreaming}
             label="重新生成"
             onClick={() => onRegenerate(message.id)}
             tooltip="重新生成"

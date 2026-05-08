@@ -1,8 +1,6 @@
-import type { Button } from "@/components/ui/button";
 import { ChevronLeftIcon, ChevronRightIcon, MoreHorizontalIcon } from "lucide-react";
-
 import * as React from "react";
-import { buttonVariants } from "@/components/ui/button";
+import { buttonClass, type ButtonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 function Pagination({ className, ...props }: React.ComponentProps<"nav">) {
@@ -32,22 +30,21 @@ function PaginationItem({ ...props }: React.ComponentProps<"li">) {
 
 type PaginationLinkProps = {
   isActive?: boolean;
-} & Pick<React.ComponentProps<typeof Button>, "size"> &
-  React.ComponentProps<"a">;
+  size?: ButtonVariants["size"];
+} & React.ComponentProps<"a">;
 
-function PaginationLink({ className, isActive, size = "icon", ...props }: PaginationLinkProps) {
+function PaginationLink({ className, isActive, size = "md", ...props }: PaginationLinkProps) {
   return (
     <a
       aria-current={isActive ? "page" : undefined}
       data-slot="pagination-link"
       data-active={isActive}
-      className={cn(
-        buttonVariants({
-          size,
-          variant: isActive ? "outline" : "ghost",
-        }),
+      className={buttonClass({
+        size,
+        variant: isActive ? "outline" : "ghost",
+        isIconOnly: size === "md",
         className,
-      )}
+      })}
       {...props}
     />
   );
@@ -57,7 +54,7 @@ function PaginationPrevious({ className, ...props }: React.ComponentProps<typeof
   return (
     <PaginationLink
       aria-label="Go to previous page"
-      size="default"
+      size="sm"
       className={cn("gap-1 px-2.5 sm:pl-2.5", className)}
       {...props}
     >
@@ -71,7 +68,7 @@ function PaginationNext({ className, ...props }: React.ComponentProps<typeof Pag
   return (
     <PaginationLink
       aria-label="Go to next page"
-      size="default"
+      size="sm"
       className={cn("gap-1 px-2.5 sm:pr-2.5", className)}
       {...props}
     >

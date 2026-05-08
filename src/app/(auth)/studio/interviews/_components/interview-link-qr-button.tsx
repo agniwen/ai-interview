@@ -101,13 +101,13 @@ export function InterviewLinkQrButton({
           </div>
           <Button
             className="w-full"
-            disabled={isCopying}
+            isPending={isCopying}
             onClick={() => void handleCopy()}
             size="sm"
             type="button"
           >
             <CopyIcon className="size-3.5" />
-            {isCopying ? "正在生成图片..." : "复制为图片"}
+            复制为图片
           </Button>
         </div>
       </PopoverContent>

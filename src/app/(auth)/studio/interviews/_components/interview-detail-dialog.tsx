@@ -340,14 +340,14 @@ export function InterviewDetailDialog({
                                   />
                                   {isLastEntry && entry.status === "completed" ? (
                                     <Button
-                                      disabled={resettingRoundId === entry.id}
+                                      isPending={resettingRoundId === entry.id}
                                       onClick={() => void handleResetRound(entry.id)}
                                       size="sm"
                                       type="button"
                                       variant="outline"
                                     >
                                       <RotateCcwIcon className="size-3.5" />
-                                      {resettingRoundId === entry.id ? "重置中..." : "重置轮次"}
+                                      重置轮次
                                     </Button>
                                   ) : null}
                                 </div>

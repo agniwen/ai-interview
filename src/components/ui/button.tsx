@@ -1,64 +1,144 @@
-import type { VariantProps } from "class-variance-authority";
-import { cva } from "class-variance-authority";
-import { Slot } from "radix-ui";
-import * as React from "react";
+"use client";
 
+import type { ComponentProps, MouseEvent, ReactNode } from "react";
+import { Button as HeroButton, type ButtonProps as HeroButtonProps } from "@heroui/react";
+import { buttonVariants as heroButtonVariants, type ButtonVariants } from "@heroui/styles";
+import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
-const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-all disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive",
-  {
-    defaultVariants: {
-      size: "default",
-      variant: "default",
-    },
-    variants: {
-      size: {
-        default: "h-9 px-4 py-2 has-[>svg]:px-3",
-        icon: "size-9",
-        "icon-lg": "size-10",
-        "icon-sm": "size-8",
-        "icon-xs": "size-6 rounded-md [&_svg:not([class*='size-'])]:size-3",
-        lg: "h-10 rounded-md px-6 has-[>svg]:px-4",
-        sm: "h-8 rounded-md gap-1.5 px-3 has-[>svg]:px-2.5",
-        xs: "h-6 gap-1 rounded-md px-2 text-xs has-[>svg]:px-1.5 [&_svg:not([class*='size-'])]:size-3",
-      },
-      variant: {
-        default: "bg-primary border border-ring text-primary-foreground hover:bg-primary/90",
-        destructive:
-          "bg-destructive text-white hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/60",
-        ghost: "hover:bg-accent hover:text-accent-foreground dark:hover:bg-accent/50",
-        link: "text-primary underline-offset-4 hover:underline",
-        outline:
-          "border bg-background shadow-xs hover:bg-accent hover:text-accent-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50",
-        secondary:
-          "bg-secondary border-primary/20 border text-secondary-foreground hover:bg-secondary/80 hover:scale-[0.98] hover:scale-[0.95]",
-      },
-    },
-  },
-);
+type LegacyVariant = "default" | "destructive" | "link";
+type LegacySize = "default" | "icon" | "icon-sm" | "icon-xs" | "icon-lg" | "xs";
 
-function Button({
-  className,
-  variant = "default",
-  size = "default",
-  asChild = false,
-  ...props
-}: React.ComponentProps<"button"> &
-  VariantProps<typeof buttonVariants> & {
-    asChild?: boolean;
-  }) {
-  const Comp = asChild ? Slot.Root : "button";
+const LEGACY_VARIANT_MAP: Record<LegacyVariant, NonNullable<HeroButtonProps["variant"]>> = {
+  default: "primary",
+  destructive: "danger",
+  link: "ghost",
+};
+
+const LEGACY_SIZE_MAP: Record<
+  LegacySize,
+  { size?: HeroButtonProps["size"]; isIconOnly?: boolean }
+> = {
+  default: { size: "md" },
+  xs: { size: "sm" },
+  icon: { size: "md", isIconOnly: true },
+  "icon-sm": { size: "sm", isIconOnly: true },
+  "icon-xs": { size: "sm", isIconOnly: true },
+  "icon-lg": { size: "lg", isIconOnly: true },
+};
+
+/**
+ * Project Button props.
+ *
+ * Hero UI v3 native API (preferred at new call sites):
+ *   variant: "primary" (default) | "secondary" | "danger" | "danger-soft" | "outline" | "ghost" | "tertiary"
+ *   size: "sm" | "md" (default) | "lg"
+ *   isIconOnly | isDisabled | fullWidth | isPending
+ *
+ * Legacy shadcn props still accepted (translated internally) so upstream LiveKit
+ * components in src/components/agents-ui/* (which we cannot edit) keep compiling:
+ *   variant: "default" → "primary", "destructive" → "danger", "link" → "ghost"
+ *   size:    "default" / "xs" / "icon" / "icon-sm" / "icon-xs" / "icon-lg"
+ *   disabled → isDisabled; onClick → onPress (with HTMLButtonElement event signature)
+ *
+ * The base type is the native button HTML element so callers may spread
+ * ComponentProps<"button"> onto <Button> without TS friction.
+ */
+export type ButtonProps = Omit<ComponentProps<"button">, "color" | "onClick"> & {
+  variant?: HeroButtonProps["variant"] | LegacyVariant;
+  size?: HeroButtonProps["size"] | LegacySize;
+  isDisabled?: boolean;
+  isIconOnly?: boolean;
+  isPending?: boolean;
+  isLoading?: boolean;
+  isPressed?: boolean;
+  fullWidth?: boolean;
+  onClick?: (event: MouseEvent<HTMLButtonElement>) => void;
+  onPress?: HeroButtonProps["onPress"];
+};
+
+export function Button({
+  variant = "primary",
+  size,
+  disabled,
+  onClick,
+  isDisabled,
+  isIconOnly,
+  isPending,
+  isLoading,
+  fullWidth,
+  onPress,
+  type,
+  ...rest
+}: ButtonProps) {
+  const heroVariant: HeroButtonProps["variant"] =
+    variant in LEGACY_VARIANT_MAP
+      ? LEGACY_VARIANT_MAP[variant as LegacyVariant]
+      : (variant as HeroButtonProps["variant"]);
+
+  const sizeSpec =
+    size && size in LEGACY_SIZE_MAP
+      ? LEGACY_SIZE_MAP[size as LegacySize]
+      : { size: size as HeroButtonProps["size"], isIconOnly: undefined };
 
   return (
-    <Comp
-      data-slot="button"
-      data-variant={variant}
-      data-size={size}
-      className={cn(buttonVariants({ className, size, variant }))}
-      {...props}
+    <HeroButton
+      variant={heroVariant}
+      size={sizeSpec.size}
+      isIconOnly={sizeSpec.isIconOnly ?? isIconOnly}
+      isDisabled={disabled ?? isDisabled}
+      isPending={isPending ?? isLoading}
+      fullWidth={fullWidth}
+      type={type}
+      onPress={
+        onClick ? (event) => onClick(event as unknown as MouseEvent<HTMLButtonElement>) : onPress
+      }
+      {...(rest as Omit<HeroButtonProps, "variant" | "size">)}
     />
   );
 }
 
-export { Button, buttonVariants };
+/**
+ * Generates the Hero UI button CSS class string for non-button elements (e.g. links).
+ */
+export function buttonClass({
+  variant = "primary",
+  size = "md",
+  isIconOnly = false,
+  fullWidth = false,
+  className,
+}: ButtonVariants & { className?: string } = {}) {
+  return cn(heroButtonVariants({ variant, size, isIconOnly, fullWidth }), className);
+}
+
+export type { ButtonVariants };
+
+/**
+ * Legacy cva config — type-only export for upstream LiveKit code in
+ * src/components/agents-ui/* that references VariantProps<typeof buttonVariants>.
+ */
+export const buttonVariants = cva("", {
+  defaultVariants: { size: "default", variant: "default" },
+  variants: {
+    size: {
+      default: "",
+      icon: "",
+      "icon-lg": "",
+      "icon-sm": "",
+      "icon-xs": "",
+      lg: "",
+      sm: "",
+      xs: "",
+    },
+    variant: {
+      default: "",
+      destructive: "",
+      ghost: "",
+      link: "",
+      outline: "",
+      secondary: "",
+    },
+  },
+});
+
+export type ButtonVariantProps = VariantProps<typeof buttonVariants>;

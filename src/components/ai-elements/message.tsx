@@ -70,11 +70,12 @@ export function MessageAction({
   children,
   label,
   variant = "ghost",
-  size = "icon-sm",
+  size = "sm",
+  isIconOnly = true,
   ...props
 }: MessageActionProps) {
   const button = (
-    <Button size={size} type="button" variant={variant} {...props}>
+    <Button isIconOnly={isIconOnly} size={size} type="button" variant={variant} {...props}>
       {children}
       <span className="sr-only">{label || tooltip}</span>
     </Button>
@@ -228,9 +229,10 @@ export function MessageBranchPrevious({ children, ...props }: MessageBranchPrevi
   return (
     <Button
       aria-label="Previous branch"
-      disabled={totalBranches <= 1}
+      isDisabled={totalBranches <= 1}
+      isIconOnly
       onClick={goToPrevious}
-      size="icon-sm"
+      size="sm"
       type="button"
       variant="ghost"
       {...props}
@@ -248,9 +250,10 @@ export function MessageBranchNext({ children, ...props }: MessageBranchNextProps
   return (
     <Button
       aria-label="Next branch"
-      disabled={totalBranches <= 1}
+      isDisabled={totalBranches <= 1}
+      isIconOnly
       onClick={goToNext}
-      size="icon-sm"
+      size="sm"
       type="button"
       variant="ghost"
       {...props}

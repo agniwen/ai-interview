@@ -234,7 +234,7 @@ function WaitingView({
             <div className="mt-10 hidden items-center gap-3 sm:mt-12 md:flex">
               <Button
                 className="h-11 flex-1 gap-2"
-                disabled={startDisabled}
+                isDisabled={startDisabled}
                 onClick={() => onStart({ muted: true })}
                 size="lg"
                 variant="outline"
@@ -244,7 +244,7 @@ function WaitingView({
               </Button>
               <Button
                 className="h-11 flex-[2] gap-2"
-                disabled={startDisabled}
+                isDisabled={startDisabled}
                 onClick={() => onStart()}
                 size="lg"
               >
@@ -260,7 +260,7 @@ function WaitingView({
             <div className="mx-auto flex w-full max-w-md items-center gap-3">
               <Button
                 className="h-11 flex-1 gap-2"
-                disabled={startDisabled}
+                isDisabled={startDisabled}
                 onClick={() => onStart({ muted: true })}
                 variant="outline"
               >
@@ -269,7 +269,7 @@ function WaitingView({
               </Button>
               <Button
                 className="h-11 flex-[2] gap-2"
-                disabled={startDisabled}
+                isDisabled={startDisabled}
                 onClick={() => onStart()}
               >
                 <MicIcon className="size-4" />

@@ -174,7 +174,7 @@ export function ModelPicker({ className }: ModelPickerProps) {
                 "h-7 gap-1.5 rounded-md border-0 bg-transparent px-2 font-normal text-xs hover:bg-accent",
                 className,
               )}
-              disabled={isLoading || models.length === 0}
+              isDisabled={isLoading || models.length === 0}
               size="sm"
               variant="ghost"
             >

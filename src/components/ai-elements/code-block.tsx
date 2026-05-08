@@ -477,8 +477,8 @@ export function CodeBlockCopyButton({
   return (
     <Button
       className={cn("shrink-0", className)}
+      isIconOnly
       onClick={copyToClipboard}
-      size="icon"
       variant="ghost"
       {...props}
     >

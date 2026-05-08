@@ -214,7 +214,7 @@ export function InterviewerManagementPage({
           filters={filtersConfig}
           getRowId={(r) => r.id}
           toolbarRight={
-            <Button className="flex-1 sm:flex-none" disabled={noDepartments} onClick={openCreate}>
+            <Button className="flex-1 sm:flex-none" isDisabled={noDepartments} onClick={openCreate}>
               <PlusIcon className="size-4" />
               新建面试官
             </Button>
@@ -283,7 +283,7 @@ export function InterviewerManagementPage({
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>取消</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} variant="destructive">
+            <AlertDialogAction onClick={handleDelete} variant="danger">
               删除
             </AlertDialogAction>
           </AlertDialogFooter>

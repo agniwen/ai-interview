@@ -39,7 +39,7 @@ export function PdfPreviewButton({
     <>
       <Button
         className={cn("h-8 shrink-0 gap-1.5", className)}
-        disabled={disabled}
+        isDisabled={disabled}
         onClick={() => setOpen(true)}
         size="sm"
         type="button"

@@ -69,7 +69,7 @@ export function Hero({ isPending, onResumeFiltering, onWorkbench }: HeroProps) {
         <div className="inline-flex items-stretch">
           <Button
             className="group h-11 min-w-[12em] gap-0 rounded-l-xl rounded-r-none border-primary/40 bg-primary/20! px-8 text-sm backdrop-blur-md hover:bg-primary/40! sm:h-12 sm:px-10 sm:text-base"
-            disabled={isPending}
+            isDisabled={isPending}
             onClick={onResumeFiltering}
             type="button"
             variant="outline"
@@ -81,7 +81,7 @@ export function Hero({ isPending, onResumeFiltering, onWorkbench }: HeroProps) {
           </Button>
           <Button
             className="group h-11 min-w-[12em] gap-0 rounded-l-none rounded-r-xl border-background bg-background/60 px-8 text-sm backdrop-blur-md hover:bg-background/80 sm:h-12 sm:px-10 sm:text-base"
-            disabled={isPending}
+            isDisabled={isPending}
             onClick={onWorkbench}
             type="button"
             variant="outline"

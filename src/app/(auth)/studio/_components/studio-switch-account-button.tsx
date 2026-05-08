@@ -1,6 +1,6 @@
 "use client";
 
-import { LoaderCircleIcon, LogOutIcon } from "lucide-react";
+import { LogOutIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -13,7 +13,7 @@ export function StudioSwitchAccountButton() {
   return (
     <Button
       className="gap-2"
-      disabled={isSubmitting}
+      isPending={isSubmitting}
       onClick={async () => {
         setIsSubmitting(true);
 
@@ -28,11 +28,7 @@ export function StudioSwitchAccountButton() {
       type="button"
       variant="outline"
     >
-      {isSubmitting ? (
-        <LoaderCircleIcon className="size-4 animate-spin" />
-      ) : (
-        <LogOutIcon className="size-4" />
-      )}
+      <LogOutIcon className="size-4" />
       切换账号
     </Button>
   );

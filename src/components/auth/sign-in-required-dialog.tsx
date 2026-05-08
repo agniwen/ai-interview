@@ -32,7 +32,7 @@ export function SignInRequiredDialog({
         callbackURL={callbackURL}
         label="极光 HR 飞书登录"
         providerId="feishu-jiguang-hr"
-        variant="default"
+        variant="primary"
       />
     </Modal>
   );

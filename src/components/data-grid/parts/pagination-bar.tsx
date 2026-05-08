@@ -76,9 +76,9 @@ export function PaginationBar(props: PaginationBarProps) {
           <Button
             aria-label="第一页"
             className="size-8"
-            disabled={page <= 1 || loading}
+            isDisabled={page <= 1 || loading}
+            isIconOnly
             onClick={() => onPageChange(1)}
-            size="icon"
             variant="outline"
           >
             <ChevronsLeftIcon className="size-4" />
@@ -86,9 +86,9 @@ export function PaginationBar(props: PaginationBarProps) {
           <Button
             aria-label="上一页"
             className="size-8"
-            disabled={page <= 1 || loading}
+            isDisabled={page <= 1 || loading}
+            isIconOnly
             onClick={() => onPageChange(page - 1)}
-            size="icon"
             variant="outline"
           >
             <ChevronLeftIcon className="size-4" />
@@ -96,9 +96,9 @@ export function PaginationBar(props: PaginationBarProps) {
           <Button
             aria-label="下一页"
             className="size-8"
-            disabled={page >= totalPages || loading}
+            isDisabled={page >= totalPages || loading}
+            isIconOnly
             onClick={() => onPageChange(page + 1)}
-            size="icon"
             variant="outline"
           >
             <ChevronRightIcon className="size-4" />
@@ -106,9 +106,9 @@ export function PaginationBar(props: PaginationBarProps) {
           <Button
             aria-label="最后一页"
             className="size-8"
-            disabled={page >= totalPages || loading}
+            isDisabled={page >= totalPages || loading}
+            isIconOnly
             onClick={() => onPageChange(totalPages)}
-            size="icon"
             variant="outline"
           >
             <ChevronsRightIcon className="size-4" />

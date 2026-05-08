@@ -163,14 +163,14 @@ export function FormsTab({
             <div className="flex items-center gap-2">
               <Badge variant="outline">v{submission.version}</Badge>
               <Button
-                disabled={resettingId === submission.id}
+                isPending={resettingId === submission.id}
                 onClick={() => onReset(submission.id)}
                 size="sm"
                 type="button"
                 variant="outline"
               >
                 <RotateCcwIcon className="size-3.5" />
-                {resettingId === submission.id ? "重置中..." : "重置填写"}
+                重置填写
               </Button>
             </div>
           </div>

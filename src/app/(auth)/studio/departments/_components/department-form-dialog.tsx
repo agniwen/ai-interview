@@ -3,7 +3,6 @@
 import { departmentFormSchema } from "@/lib/departments";
 import type { DepartmentFormValues, DepartmentRecord } from "@/lib/departments";
 import { useForm, useStore } from "@tanstack/react-form";
-import { LoaderCircleIcon } from "lucide-react";
 import { useEffect } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -90,8 +89,7 @@ export function DepartmentFormDialog({
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
             取消
           </Button>
-          <Button disabled={isSubmitting} form="department-form" type="submit">
-            {isSubmitting ? <LoaderCircleIcon className="size-4 animate-spin" /> : null}
+          <Button isPending={isSubmitting} form="department-form" type="submit">
             {isEdit ? "保存" : "创建"}
           </Button>
         </>

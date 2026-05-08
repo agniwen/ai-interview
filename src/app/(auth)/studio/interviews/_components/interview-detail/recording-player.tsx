@@ -9,7 +9,7 @@
  * presign request per round.
  */
 
-import { Loader2Icon, PlayIcon } from "lucide-react";
+import { PlayIcon } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -90,12 +90,8 @@ export function RecordingPlayer({
           ) : null}
         </h4>
         {!url && (
-          <Button disabled={loading} onClick={loadUrl} size="sm" variant="outline">
-            {loading ? (
-              <Loader2Icon className="size-4 animate-spin" />
-            ) : (
-              <PlayIcon className="size-4" />
-            )}
+          <Button isPending={loading} onClick={loadUrl} size="sm" variant="outline">
+            <PlayIcon className="size-4" />
             <span className="ml-1">加载录像</span>
           </Button>
         )}

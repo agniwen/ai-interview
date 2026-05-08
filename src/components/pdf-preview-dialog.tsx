@@ -13,7 +13,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Document, Page, pdfjs } from "react-pdf";
 import "react-pdf/dist/Page/AnnotationLayer.css";
 import "react-pdf/dist/Page/TextLayer.css";
-import { Button } from "@/components/ui/button";
+import { Button, buttonClass } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
 import { cn } from "@/lib/utils";
 
@@ -138,9 +138,9 @@ export function PdfPreviewDialog({ open, onOpenChange, url, filename }: PdfPrevi
             <>
               <Button
                 aria-label="上一页"
-                disabled={!canPrev}
+                isDisabled={!canPrev}
+                isIconOnly
                 onClick={() => setPageNumber((n) => Math.max(1, n - 1))}
-                size="icon"
                 type="button"
                 variant="ghost"
               >
@@ -148,9 +148,9 @@ export function PdfPreviewDialog({ open, onOpenChange, url, filename }: PdfPrevi
               </Button>
               <Button
                 aria-label="下一页"
-                disabled={!canNext}
+                isDisabled={!canNext}
+                isIconOnly
                 onClick={() => setPageNumber((n) => Math.min(numPages ?? n, n + 1))}
-                size="icon"
                 type="button"
                 variant="ghost"
               >
@@ -162,9 +162,9 @@ export function PdfPreviewDialog({ open, onOpenChange, url, filename }: PdfPrevi
 
           <Button
             aria-label="缩小"
-            disabled={!canZoomOut}
+            isDisabled={!canZoomOut}
+            isIconOnly
             onClick={() => setScale((s) => Math.max(MIN_SCALE, s - SCALE_STEP))}
-            size="icon"
             type="button"
             variant="ghost"
           >
@@ -175,9 +175,9 @@ export function PdfPreviewDialog({ open, onOpenChange, url, filename }: PdfPrevi
           </span>
           <Button
             aria-label="放大"
-            disabled={!canZoomIn}
+            isDisabled={!canZoomIn}
+            isIconOnly
             onClick={() => setScale((s) => Math.min(MAX_SCALE, s + SCALE_STEP))}
-            size="icon"
             type="button"
             variant="ghost"
           >
@@ -186,18 +186,23 @@ export function PdfPreviewDialog({ open, onOpenChange, url, filename }: PdfPrevi
 
           <span className="mx-1 h-5 w-px bg-border" />
 
-          <Button aria-label="下载" asChild size="icon" type="button" variant="ghost">
-            <a download={filename ?? "resume.pdf"} href={url} rel="noopener" target="_blank">
-              <DownloadIcon className="size-4" />
-            </a>
-          </Button>
+          <a
+            aria-label="下载"
+            className={buttonClass({ isIconOnly: true, variant: "ghost" })}
+            download={filename ?? "resume.pdf"}
+            href={url}
+            rel="noopener"
+            target="_blank"
+          >
+            <DownloadIcon className="size-4" />
+          </a>
 
           <span className="mx-1 h-5 w-px bg-border" />
 
           <Button
             aria-label="关闭"
+            isIconOnly
             onClick={() => onOpenChange(false)}
-            size="icon"
             type="button"
             variant="ghost"
           >

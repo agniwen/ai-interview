@@ -222,7 +222,7 @@ export function ApplyJobDescriptionCard({
                   忽略
                 </Button>
                 <Button
-                  disabled={!selectedId}
+                  isDisabled={!selectedId}
                   onClick={() => onConfirm(toolCallId, selectedId)}
                   size="sm"
                   type="button"

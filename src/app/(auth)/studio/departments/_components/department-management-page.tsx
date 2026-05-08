@@ -238,7 +238,7 @@ export function DepartmentManagementPage({
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>取消</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} variant="destructive">
+            <AlertDialogAction onClick={handleDelete} variant="danger">
               删除
             </AlertDialogAction>
           </AlertDialogFooter>

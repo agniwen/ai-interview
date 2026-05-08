@@ -97,7 +97,7 @@ function QuestionListBody({
         ) : null}
         <Button
           className="mt-5"
-          disabled={disabled}
+          isDisabled={disabled}
           onClick={addItem}
           size="sm"
           type="button"
@@ -179,12 +179,12 @@ function QuestionListBody({
                       <Button
                         aria-label={`删除第 ${index + 1} 题`}
                         className="size-7 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                        disabled={disabled}
+                        isDisabled={disabled}
+                        isIconOnly
                         onClick={() => {
                           field.removeValue(index);
                           removeId(index);
                         }}
-                        size="icon"
                         type="button"
                         variant="ghost"
                       >
@@ -224,7 +224,7 @@ function QuestionListBody({
 
       <Button
         className="w-full border-dashed text-muted-foreground hover:text-foreground"
-        disabled={disabled}
+        isDisabled={disabled}
         onClick={addItem}
         size="sm"
         type="button"

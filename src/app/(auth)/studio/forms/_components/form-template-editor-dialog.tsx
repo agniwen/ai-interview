@@ -10,7 +10,7 @@ import type {
 } from "@/lib/candidate-forms";
 import type { JobDescriptionListRecord } from "@/lib/job-descriptions";
 import { useForm, useStore } from "@tanstack/react-form";
-import { LoaderCircleIcon, PlusIcon, XIcon } from "lucide-react";
+import { PlusIcon, XIcon } from "lucide-react";
 import { useEffect, useMemo } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -174,8 +174,7 @@ export function CandidateFormTemplateEditorDialog({
           <Button onClick={() => onOpenChange(false)} type="button" variant="outline">
             取消
           </Button>
-          <Button disabled={isSubmitting} form="form-template-form" type="submit">
-            {isSubmitting ? <LoaderCircleIcon className="size-4 animate-spin" /> : null}
+          <Button isPending={isSubmitting} form="form-template-form" type="submit">
             {isEdit ? "保存" : "创建"}
           </Button>
         </>
@@ -414,9 +413,9 @@ function QuestionEditorRow({
           <Button
             aria-label="删除题目"
             className="size-7"
-            disabled={!onRemove}
+            isDisabled={!onRemove}
+            isIconOnly
             onClick={onRemove}
-            size="icon"
             type="button"
             variant="ghost"
           >
@@ -671,12 +670,12 @@ function OptionsList({
                     <Button
                       aria-label="删除选项"
                       className="size-8 shrink-0"
-                      disabled={items.length <= 2}
+                      isDisabled={items.length <= 2}
+                      isIconOnly
                       onClick={() => {
                         field.removeValue(optionIndex);
                         removeId(optionIndex);
                       }}
-                      size="icon"
                       type="button"
                       variant="ghost"
                     >

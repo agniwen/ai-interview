@@ -3,7 +3,6 @@
 import type { ScheduleEntryStatus, StudioInterviewRecord } from "@/lib/studio-interviews";
 import { useStore } from "@tanstack/react-form";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { LoaderCircleIcon } from "lucide-react";
 import { useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -183,13 +182,10 @@ export function EditInterviewDialog({
         footer={
           isLoadingRecord ? undefined : (
             <Button
-              disabled={isSubmitting || isLoadingRecord}
+              isPending={isSubmitting || isLoadingRecord}
               form="edit-interview-form"
               type="submit"
             >
-              {isSubmitting || isLoadingRecord ? (
-                <LoaderCircleIcon className="size-4 animate-spin" />
-              ) : null}
               保存更新
             </Button>
           )

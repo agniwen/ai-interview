@@ -548,7 +548,7 @@ export function ResumeImportButton({
             "border-emerald-200/80 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:border-emerald-600/60 dark:bg-emerald-950/40 dark:text-emerald-300 dark:hover:bg-emerald-900/40",
           className,
         )}
-        disabled={isImporting}
+        isDisabled={isImporting}
         onClick={handleButtonClick}
         size="sm"
         type="button"
@@ -573,7 +573,7 @@ export function ResumeImportButton({
             >
               取消
             </Button>
-            <Button disabled={isAnalyzingMatch} onClick={handleConfirmImport} type="button">
+            <Button isDisabled={isAnalyzingMatch} onClick={handleConfirmImport} type="button">
               确认入库
             </Button>
           </>

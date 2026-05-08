@@ -101,7 +101,7 @@ export function JobDescriptionDialog({
           <Button onClick={handleClear} type="button" variant="outline">
             清空
           </Button>
-          <Button disabled={mode === "select" && !selectedId} onClick={handleSave} type="button">
+          <Button isDisabled={mode === "select" && !selectedId} onClick={handleSave} type="button">
             保存
           </Button>
         </>

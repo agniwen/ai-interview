@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect } from "react";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
+import { buttonClass } from "@/components/ui/button";
 import { subscribeChatFinish } from "../_lib/chat-registry";
 
 // The chat page promotes `/chat` to `/chat/[id]` via `history.replaceState`,
@@ -35,11 +35,13 @@ export function BackgroundStreamToaster() {
         const href = `/chat/${encodeURIComponent(chatId)}`;
         const toastId = toast("新回复", {
           action: (
-            <Button asChild className="ml-auto" size="sm">
-              <Link href={href} onClick={() => toast.dismiss(toastId)}>
-                查看
-              </Link>
-            </Button>
+            <Link
+              className={buttonClass({ className: "ml-auto", size: "sm", variant: "primary" })}
+              href={href}
+              onClick={() => toast.dismiss(toastId)}
+            >
+              查看
+            </Link>
           ),
         });
       }),

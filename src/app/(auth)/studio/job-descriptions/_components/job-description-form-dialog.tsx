@@ -8,17 +8,12 @@ import { jobDescriptionFormSchema } from "@/lib/job-descriptions";
 import type { JobDescriptionFormValues, JobDescriptionRecord } from "@/lib/job-descriptions";
 import { useQuery } from "@tanstack/react-query";
 import { useForm, useStore } from "@tanstack/react-form";
-import {
-  ClipboardListIcon,
-  ExternalLinkIcon,
-  ListChecksIcon,
-  LoaderCircleIcon,
-} from "lucide-react";
+import { ClipboardListIcon, ExternalLinkIcon, ListChecksIcon } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button, buttonClass } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
 import { Field, FieldContent, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
@@ -196,11 +191,11 @@ export function JobDescriptionFormDialog({
               取消
             </Button>
             <Button
-              disabled={isSubmitting || missingRefs}
+              isDisabled={missingRefs}
+              isPending={isSubmitting}
               form="job-description-form"
               type="submit"
             >
-              {isSubmitting ? <LoaderCircleIcon className="size-4 animate-spin" /> : null}
               {isEdit ? "保存" : "创建"}
             </Button>
           </>
@@ -398,12 +393,15 @@ function LinkedFormsList({
             候选人进入面试前需要填写下列表单；全局面试表单在「面试表单」菜单中维护。
           </p>
         </div>
-        <Button asChild size="sm" type="button" variant="outline">
-          <Link href={newTemplateHref} target="_blank">
-            <ExternalLinkIcon className="size-3.5" />
-            管理表单
-          </Link>
-        </Button>
+        <Link
+          className={buttonClass({ size: "sm", variant: "outline" })}
+          href={newTemplateHref}
+          rel="noopener noreferrer"
+          target="_blank"
+        >
+          <ExternalLinkIcon className="size-3.5" />
+          管理表单
+        </Link>
       </div>
 
       {isLoading ? (
@@ -468,12 +466,15 @@ function LinkedInterviewQuestionTemplatesList({
             面试创建时会自动绑定到下列面试题的最新版本；全局面试题在「面试题」菜单中维护。
           </p>
         </div>
-        <Button asChild size="sm" type="button" variant="outline">
-          <Link href={newTemplateHref} target="_blank">
-            <ExternalLinkIcon className="size-3.5" />
-            管理模版
-          </Link>
-        </Button>
+        <Link
+          className={buttonClass({ size: "sm", variant: "outline" })}
+          href={newTemplateHref}
+          rel="noopener noreferrer"
+          target="_blank"
+        >
+          <ExternalLinkIcon className="size-3.5" />
+          管理模版
+        </Link>
       </div>
 
       {isLoading ? (
