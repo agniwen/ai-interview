@@ -11,14 +11,13 @@ function bufferToHex(buffer: ArrayBuffer): string {
 }
 
 export async function sha256HexOfBytes(bytes: Uint8Array): Promise<string> {
-  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  const digest = await globalThis.crypto.subtle.digest("SHA-256", bytes);
   return bufferToHex(digest);
 }
 
 export async function sha256HexOfFile(file: File | Blob): Promise<string> {
-  const buffer = await file.arrayBuffer();
-  const digest = await crypto.subtle.digest("SHA-256", buffer);
-  return bufferToHex(digest);
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  return sha256HexOfBytes(bytes);
 }
 
 const HASH_RE = /^[0-9a-f]{64}$/;

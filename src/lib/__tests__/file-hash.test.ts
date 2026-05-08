@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { sha256HexOfBytes, sha256HexOfFile } from "@/lib/file-hash";
+import { isValidSha256Hex, sha256HexOfBytes, sha256HexOfFile } from "@/lib/file-hash";
 
 describe("sha256Hex helpers", () => {
   // Known SHA-256 of the empty string
@@ -28,5 +28,20 @@ describe("sha256Hex helpers", () => {
   it("sha256HexOfBytes: returns 64-char lowercase hex", async () => {
     const hex = await sha256HexOfBytes(new TextEncoder().encode("any"));
     expect(hex).toMatch(/^[0-9a-f]{64}$/);
+  });
+});
+
+describe("isValidSha256Hex", () => {
+  it("accepts a valid 64-char lowercase hex", () => {
+    expect(isValidSha256Hex("a".repeat(64))).toBe(true);
+  });
+  it("rejects uppercase hex", () => {
+    expect(isValidSha256Hex("A".repeat(64))).toBe(false);
+  });
+  it("rejects wrong length", () => {
+    expect(isValidSha256Hex("a".repeat(63))).toBe(false);
+  });
+  it("rejects non-string", () => {
+    expect(isValidSha256Hex(null)).toBe(false);
   });
 });
