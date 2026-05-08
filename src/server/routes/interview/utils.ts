@@ -1,5 +1,5 @@
 import type { parseScheduleEntriesInput, StudioInterviewRecord } from "@/lib/studio-interviews";
-import { eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, isNotNull } from "drizzle-orm";
 import { updateTag } from "next/cache";
 import { db } from "@/lib/db";
 import {
@@ -20,7 +20,8 @@ import {
   ensureApplicableBindings,
   loadInterviewPresetQuestions,
 } from "@/server/queries/interview-question-templates";
-import { buildInterviewResumeKey, putObjectBytes } from "@/lib/s3";
+import { sha256HexOfBytes } from "@/lib/file-hash";
+import { buildInterviewResumeKeyByHash, putObjectBytes } from "@/lib/s3";
 
 export type StudioInterviewRow = typeof studioInterview.$inferSelect;
 export type StudioInterviewScheduleRow = typeof studioInterviewSchedule.$inferSelect;
@@ -138,23 +139,46 @@ export function normalizeResumeFile(value: FormDataEntryValue | null) {
 }
 
 /**
- * Upload the candidate resume PDF to S3 and return the storage key.
+ * 把简历 PDF 写入 S3 并返回 storageKey + contentHash。
+ * 同 hash 已存在 (任意一条 studio_interview 行) 时复用既有 storageKey，跳过 PUT。
+ *
+ * Upload the candidate resume PDF to S3 and return both storageKey and contentHash.
+ * If a studio_interview row with the same hash exists, the existing storageKey is
+ * reused and no PUT is performed.
+ *
  * Silently returns null when S3 isn't configured — the interview record still
  * persists, preview just won't be available for this row.
  */
 export async function storeInterviewResume(
-  interviewRecordId: string,
+  _interviewRecordId: string,
   file: File,
-): Promise<string | null> {
+): Promise<{ storageKey: string; contentHash: string } | null> {
   try {
-    const storageKey = await buildInterviewResumeKey(interviewRecordId);
     const bytes = new Uint8Array(await file.arrayBuffer());
+    const contentHash = await sha256HexOfBytes(bytes);
+
+    const [existing] = await db
+      .select({ storageKey: studioInterview.resumeStorageKey })
+      .from(studioInterview)
+      .where(
+        and(
+          eq(studioInterview.resumeContentHash, contentHash),
+          isNotNull(studioInterview.resumeStorageKey),
+        ),
+      )
+      .limit(1);
+
+    if (existing?.storageKey) {
+      return { contentHash, storageKey: existing.storageKey };
+    }
+
+    const storageKey = await buildInterviewResumeKeyByHash(contentHash);
     await putObjectBytes({
       body: bytes,
       contentType: file.type || "application/pdf",
       storageKey,
     });
-    return storageKey;
+    return { contentHash, storageKey };
   } catch (error) {
     console.error("[studio-interview] failed to upload resume to S3:", error);
     return null;
