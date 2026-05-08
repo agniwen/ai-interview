@@ -20,6 +20,7 @@ import { factory } from "@/server/factory";
 import {
   MAX_ATTACHMENT_SIZE,
   patchConversationSchema,
+  uploadPreflightSchema,
   upsertChatMessageSchema,
   upsertConversationSchema,
 } from "./schema";
@@ -198,6 +199,49 @@ export const chatRouter = factory
     }
 
     return c.json({ ok: true });
+  })
+  .post("/uploads/preflight", zValidator("json", uploadPreflightSchema), async (c) => {
+    const { user } = c.var;
+    if (!user) {
+      return c.json({ error: "Unauthorized" }, 401);
+    }
+
+    const { filename, hash, mediaType, size } = c.req.valid("json");
+
+    const existing = await findAttachmentByContentHash(hash);
+    if (!existing) {
+      return c.json({ hit: false } as const);
+    }
+
+    const attachmentId = crypto.randomUUID();
+    await createAttachment({
+      contentHash: hash,
+      filename: filename.slice(0, 255),
+      id: attachmentId,
+      mediaType,
+      parsedAt: existing.parsedAt,
+      parsedError: existing.parsedError,
+      parsedPageCount: existing.parsedPageCount,
+      parsedStatus: existing.parsedStatus,
+      parsedStructured: existing.parsedStructured,
+      parsedText: existing.parsedText,
+      parsedTextSource: existing.parsedTextSource,
+      size,
+      storageKey: existing.storageKey,
+      userId: user.id,
+    });
+
+    return c.json({
+      hit: true as const,
+      ...buildUploadResponse({
+        attachmentId,
+        parsedPageCount: existing.parsedPageCount,
+        parsedStatus: existing.parsedStatus,
+        parsedStructured: existing.parsedStructured,
+        parsedText: existing.parsedText,
+        parsedTextSource: existing.parsedTextSource,
+      }),
+    });
   })
   .post("/uploads", async (c) => {
     const { user } = c.var;

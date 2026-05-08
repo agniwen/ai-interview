@@ -42,3 +42,12 @@ export const patchConversationSchema = z.object({
 });
 
 export const MAX_ATTACHMENT_SIZE = 10 * 1024 * 1024;
+
+const HASH_RE = /^[0-9a-f]{64}$/;
+
+export const uploadPreflightSchema = z.object({
+  filename: z.string().min(1).max(255),
+  hash: z.string().regex(HASH_RE, "Invalid sha256 hex"),
+  mediaType: z.literal("application/pdf"),
+  size: z.number().int().positive().max(MAX_ATTACHMENT_SIZE),
+});
