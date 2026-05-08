@@ -5,7 +5,7 @@
 import { useTheme } from "next-themes";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createNoise3D } from "simplex-noise";
-import { compose } from "./utils";
+import { compose, dissipate, splat } from "./utils";
 
 export interface AsciiHeroProps {
   cellSize?: number;
@@ -77,6 +77,10 @@ export function AsciiHero(props: AsciiHeroProps) {
     let density = new Float32Array(0);
     let luma = new Float32Array(0);
     let charBuffer = new Uint8Array(0);
+    // 中文：速度场（每格存 vx/vy 两分量）和指针状态 / English: velocity field (vx,vy per cell) and pointer state
+    let velocity = new Float32Array(0);
+    let pointer: { cx: number; cy: number; vx: number; vy: number } | null = null;
+    let lastPointer: { cx: number; cy: number } | null = null;
     let rafId = 0;
     let lastFrame = 0;
     const frameInterval = 1000 / cfg.fps;
@@ -98,6 +102,7 @@ export function AsciiHero(props: AsciiHeroProps) {
       W = Math.max(1, Math.ceil(cssW / cfg.cellSize));
       H = Math.max(1, Math.ceil(cssH / cfg.cellSize));
       density = new Float32Array(W * H);
+      velocity = new Float32Array(W * H * 2);
       luma = new Float32Array(W * H);
       charBuffer = new Uint8Array(W * H).fill(255);
     };
@@ -105,6 +110,25 @@ export function AsciiHero(props: AsciiHeroProps) {
     const tick = (now: number) => {
       if (now - lastFrame >= frameInterval) {
         lastFrame = now;
+
+        // 中文：消费待处理的指针事件，注入密度+速度，然后整体衰减 / English: consume pending pointer event, inject density+velocity, then decay both fields
+        if (pointer) {
+          splat({
+            density,
+            velocity,
+            W,
+            H,
+            cx: pointer.cx,
+            cy: pointer.cy,
+            vx: pointer.vx,
+            vy: pointer.vy,
+            radius: cfg.splatRadius,
+            strength: cfg.splatStrength,
+          });
+          pointer = null;
+        }
+        dissipate(density, cfg.densityDissipation);
+        dissipate(velocity, cfg.velocityDissipation);
 
         compose({
           luma,
@@ -142,9 +166,37 @@ export function AsciiHero(props: AsciiHeroProps) {
       timer = setTimeout(resize, 200);
     });
     observer.observe(container);
+
+    // 中文：监听全局指针移动，将坐标转换为 cell 单位并记录速度 / English: track pointer in cell coords with velocity
+    const handlePointerMove = (e: PointerEvent) => {
+      const rect = container.getBoundingClientRect();
+      const cx = (e.clientX - rect.left) / cfg.cellSize;
+      const cy = (e.clientY - rect.top) / cfg.cellSize;
+      if (lastPointer) {
+        pointer = {
+          cx,
+          cy,
+          vx: cx - lastPointer.cx,
+          vy: cy - lastPointer.cy,
+        };
+      } else {
+        pointer = { cx, cy, vx: 0, vy: 0 };
+      }
+      lastPointer = { cx, cy };
+    };
+    // 中文：指针离开时重置追踪，避免下次进入产生错误速度 / English: reset tracking on leave to avoid spurious velocity on re-entry
+    const handlePointerLeave = () => {
+      lastPointer = null;
+    };
+    window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("pointerleave", handlePointerLeave);
+
     rafId = requestAnimationFrame(tick);
 
     return () => {
+      // 中文：清除指针监听，避免组件卸载后泄漏 / English: remove pointer listeners to avoid leaks after unmount
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerleave", handlePointerLeave);
       cancelAnimationFrame(rafId);
       if (timer) clearTimeout(timer);
       observer.disconnect();
