@@ -68,6 +68,17 @@ export function isChatCapableId(id: string): boolean {
     return false;
   }
 
+  // 过于细分的 id（通常是带 yyyy-mm-dd 日期快照的版本）—— 横线超过 3 个就剔除。
+  // 例如 `qwen-plus-2025-12-01`、`qwen3.6-plus-2026-04-02` 都会被排除，
+  // 但保留 `qwen3.6-max-preview`（2 个）和 `qwen3.5-flash`（1 个）。
+  // Drop ids with > 3 dashes — these are typically dated snapshot variants
+  // (e.g. `qwen-plus-2025-12-01`). Cleaner names like `qwen3.6-max-preview`
+  // (2 dashes) and `glm-4.5-air` (2 dashes) survive.
+  const dashCount = id.split("-").length - 1;
+  if (dashCount > 3) {
+    return false;
+  }
+
   const lower = id.toLowerCase();
 
   if (

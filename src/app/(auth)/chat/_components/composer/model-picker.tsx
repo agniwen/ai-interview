@@ -3,6 +3,7 @@
 import type { ChatModelOption } from "@/lib/api";
 import { CheckIcon, ChevronDownIcon, CpuIcon } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
   Command,
@@ -15,8 +16,8 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-import { SESSION_MODEL_FALLBACK_ID } from "../../_atoms/model";
 import { useChatModelsQuery } from "../../_lib/use-chat-models";
+import { resolveEffectiveModel } from "../../_lib/resolve-effective-model";
 import { useSessionModel } from "../../_lib/use-session-model";
 import { useChatSessionContext } from "../chat-runtime-context";
 
@@ -91,10 +92,20 @@ export function ModelPicker({ className }: ModelPickerProps) {
   const defaultId = data?.defaultId ?? "";
   const upstreamReachable = data?.upstreamReachable !== false;
 
-  // 当前 session 选中的 model 不在最新 /models 列表里时（厂商下架 / 改了过滤规则），
-  // 自动切到 SESSION_MODEL_FALLBACK_ID（qwen-plus-latest）。
-  // Auto-fallback when this session's saved model is no longer in the upstream
-  // list (provider removed it, or our allowlist changed).
+  // 展示用的有效 id：先走兜底级联拿到"真实可用"id，空串再回退到 defaultId 给用户看。
+  // 这一帧就给出最终值，避免出现"先闪 defaultId 再切 fallback"的抖动。
+  // Display id: cascade first, then fallback to defaultId for the empty case.
+  // Computed in a single pass so the trigger never flashes a stale value.
+  const effectiveId = useMemo(() => {
+    const resolved = resolveEffectiveModel({ defaultId, models, raw: selectedId });
+    return resolved || defaultId;
+  }, [defaultId, models, selectedId]);
+
+  // /models 返回后，若 atom 里的 raw 不在新列表里 → 用同一套级联挑一个新的，
+  // 同步写回 atom + 弹 toast 让用户知情；空串（"用默认"）不算"过期"，跳过。
+  // After /models lands, if the atom-saved id is no longer in the list, run
+  // the cascade and reconcile the atom + notify the user. Empty raw means
+  // "use the server default" — that's never stale, skip.
   useEffect(() => {
     if (!data || !selectedId) {
       return;
@@ -102,18 +113,17 @@ export function ModelPicker({ className }: ModelPickerProps) {
     if (data.models.some((m) => m.id === selectedId)) {
       return;
     }
-    setSelectedId(SESSION_MODEL_FALLBACK_ID);
+    const resolved = resolveEffectiveModel({
+      defaultId: data.defaultId,
+      models: data.models,
+      raw: selectedId,
+    });
+    // resolved 不可能是空串（raw 非空），但保险起见。
+    // resolved cannot be empty here since raw isn't empty, guard anyway.
+    const next = resolved || data.defaultId;
+    setSelectedId(next === data.defaultId ? "" : next);
+    toast.info(`原模型 ${selectedId} 已不可用，已切换到 ${next}`);
   }, [data, selectedId, setSelectedId]);
-
-  const effectiveId = useMemo(() => {
-    if (!selectedId) {
-      return defaultId;
-    }
-    if (models.length === 0) {
-      return selectedId;
-    }
-    return models.some((m) => m.id === selectedId) ? selectedId : defaultId;
-  }, [defaultId, models, selectedId]);
 
   const current = useMemo(
     () => models.find((m) => m.id === effectiveId) ?? null,

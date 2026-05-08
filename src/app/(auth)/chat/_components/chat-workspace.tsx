@@ -14,6 +14,8 @@ import {
 } from "@/lib/chat-api";
 import { chatModelByIdAtom, DRAFT_CHAT_KEY } from "../_atoms/model";
 import { thinkingModeAtom } from "../_atoms/thinking";
+import { useChatModelsQuery } from "../_lib/use-chat-models";
+import { resolveEffectiveModel } from "../_lib/resolve-effective-model";
 import { CHAT_EVENTS, notifyConversationsChanged } from "../_lib/chat-events";
 import { setChatMeta } from "../_lib/chat-meta";
 import { getOrCreateChat, hasChat } from "../_lib/chat-registry";
@@ -113,10 +115,28 @@ export default function ChatWorkspace({ initialSessionId }: { initialSessionId: 
     [],
   );
 
-  // 当前 session 的模型选择：从 atom map 中按 chatId 取，未设则空串（让服务端回落）。
-  // Per-session model: read from the atom map by chatId, empty string defers
-  // to the server default.
-  const sessionModel = activeConversationId ? (chatModelByChatId[activeConversationId] ?? "") : "";
+  // 当前 session 的模型选择：先按 chatId 从 atom map 取，再用 /models 的最新列表
+  // 通过同一个 `resolveEffectiveModel` 兜底，保证发出去的 model 和 picker 显示一致。
+  // Atom 由 picker 的 useEffect 异步纠正；这里再做一次同步级联，避免那个一帧间隙
+  // 期间 transport 用旧值的尴尬场景。
+  // Per-session model: read by chatId, then run the same cascade against the
+  // latest /models list. The picker reconciles the atom asynchronously; doing
+  // the cascade here too guarantees the *sent* model matches what the picker
+  // displays, even during the one-render gap before the atom settles.
+  const { data: modelsData } = useChatModelsQuery();
+  const rawSessionModel = activeConversationId
+    ? (chatModelByChatId[activeConversationId] ?? "")
+    : "";
+  const sessionModel = useMemo(() => {
+    if (!modelsData) {
+      return rawSessionModel;
+    }
+    return resolveEffectiveModel({
+      defaultId: modelsData.defaultId,
+      models: modelsData.models,
+      raw: rawSessionModel,
+    });
+  }, [modelsData, rawSessionModel]);
 
   // Push latest JD + thinking mode + session model into the registry for every
   // active conversation, so the transport body always reflects the user's
@@ -249,15 +269,30 @@ export default function ChatWorkspace({ initialSessionId }: { initialSessionId: 
       });
       notifyConversationsChanged();
 
-      // Draft → 新 chatId 转移：用户在空 `/chat` 页选过模型时，把草稿槽里的值
-      // 搬到新建会话名下并清空草稿，让选择跟着会话走。
-      // Hand off the pre-conversation draft to the freshly created chatId so
-      // the user's pick survives the empty-shell → real-conversation transition.
-      const draftModel = chatModelByChatId[DRAFT_CHAT_KEY];
-      if (draftModel) {
+      // Draft → 新 chatId 转移：把草稿槽里的值经同一份 cascade 解析后写到新 id 名下，
+      // 草稿如果是过期 id（picker 还没来得及自动纠正），这里先纠正再持久化，避免
+      // 首条消息用错模型的尴尬。
+      // Hand the draft slot off to the new chatId, but pipe it through the
+      // same cascade first so an obsolete draft (picker not corrected yet)
+      // doesn't leak into the first message.
+      const rawDraft = chatModelByChatId[DRAFT_CHAT_KEY] ?? "";
+      const effectiveDraft = modelsData
+        ? resolveEffectiveModel({
+            defaultId: modelsData.defaultId,
+            models: modelsData.models,
+            raw: rawDraft,
+          })
+        : rawDraft;
+      // 等于服务端默认就不存（让 atom 保持空，下次解析时仍然用 defaultId）。
+      // Skip writing when equal to the server default — empty atom means
+      // "use server default", same outcome with one fewer entry.
+      const persistDraft =
+        effectiveDraft && effectiveDraft !== modelsData?.defaultId ? effectiveDraft : "";
+
+      if (rawDraft) {
         setChatModelByChatId((prev) => {
           const { [DRAFT_CHAT_KEY]: _draft, ...rest } = prev;
-          return { ...rest, [id]: draftModel };
+          return persistDraft ? { ...rest, [id]: persistDraft } : rest;
         });
       }
 
@@ -267,7 +302,7 @@ export default function ChatWorkspace({ initialSessionId }: { initialSessionId: 
       setChatMeta(id, {
         enableThinking: thinkingMode,
         jobDescription: jobDescriptionText,
-        model: draftModel ?? "",
+        model: persistDraft,
       });
       updateSessionInUrl(id);
       setActiveConversationId(id);
@@ -278,6 +313,7 @@ export default function ChatWorkspace({ initialSessionId }: { initialSessionId: 
       chatModelByChatId,
       jobDescriptionConfig,
       jobDescriptionText,
+      modelsData,
       resumeImports,
       setChatModelByChatId,
       thinkingMode,
