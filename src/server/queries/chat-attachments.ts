@@ -18,6 +18,7 @@ export interface ChatAttachmentRow {
   parsedTextSource: "pdf-parse" | "qwen-ocr" | null;
   parsedError: string | null;
   parsedAt: Date | null;
+  contentHash: string | null;
 }
 
 export interface CreateAttachmentInput {
@@ -34,10 +35,12 @@ export interface CreateAttachmentInput {
   parsedTextSource?: "pdf-parse" | "qwen-ocr" | null;
   parsedError?: string | null;
   parsedAt?: Date | null;
+  contentHash?: string | null;
 }
 
 export async function createAttachment(input: CreateAttachmentInput): Promise<void> {
   await db.insert(chatAttachment).values({
+    contentHash: input.contentHash ?? null,
     filename: input.filename,
     id: input.id,
     mediaType: input.mediaType,
@@ -108,4 +111,15 @@ export async function getUserAttachments(
       and(inArray(chatAttachment.id, attachmentIds), eq(chatAttachment.userId, userId)),
     )) as ChatAttachmentRow[];
   return new Map(rows.map((row) => [row.id, row]));
+}
+
+// 全局按内容哈希查 chat_attachment——任意一行命中即可作为 storageKey + 解析结果的复用源。
+// Global lookup by content hash; any matching row is a reuse source for storageKey + parsed*.
+export async function findAttachmentByContentHash(hash: string): Promise<ChatAttachmentRow | null> {
+  const [row] = await db
+    .select()
+    .from(chatAttachment)
+    .where(eq(chatAttachment.contentHash, hash))
+    .limit(1);
+  return (row as ChatAttachmentRow | undefined) ?? null;
 }
