@@ -1,5 +1,6 @@
 import type { parseScheduleEntriesInput, StudioInterviewRecord } from "@/lib/studio-interviews";
-import { and, eq, inArray, isNotNull } from "drizzle-orm";
+import type { ResumeProfile } from "@/lib/interview/types";
+import { eq, inArray } from "drizzle-orm";
 import { updateTag } from "next/cache";
 import { db } from "@/lib/db";
 import {
@@ -15,13 +16,18 @@ import {
   pickCurrentScheduleEntry,
   sortScheduleEntries,
 } from "@/lib/interview/interview-record";
-import { ResumeAnalysisError } from "@/server/agents/resume-analysis-agent";
+import {
+  parseResumeFastToProfile,
+  ResumeAnalysisError,
+} from "@/server/agents/resume-analysis-agent";
+import { projectAttachmentToResumeProfile } from "@/server/agents/resume-parser-agent";
+import { createAttachment, findAttachmentByContentHash } from "@/server/queries/chat-attachments";
 import {
   ensureApplicableBindings,
   loadInterviewPresetQuestions,
 } from "@/server/queries/interview-question-templates";
 import { sha256HexOfBytes } from "@/lib/file-hash";
-import { buildInterviewResumeKeyByHash, putObjectBytes } from "@/lib/s3";
+import { buildAttachmentKeyByHash, putObjectBytes } from "@/lib/s3";
 
 export type StudioInterviewRow = typeof studioInterview.$inferSelect;
 export type StudioInterviewScheduleRow = typeof studioInterviewSchedule.$inferSelect;
@@ -139,12 +145,19 @@ export function normalizeResumeFile(value: FormDataEntryValue | null) {
 }
 
 /**
- * 把简历 PDF 写入 S3 并返回 storageKey + contentHash。
- * 同 hash 已存在 (任意一条 studio_interview 行) 时复用既有 storageKey，跳过 PUT。
+ * 把简历 PDF 写入"统一注册表"（chat_attachment 表）并返回 storageKey
+ * + contentHash + 命中时的 cachedResumeProfile。
  *
- * Upload the candidate resume PDF to S3 and return both storageKey and contentHash.
- * If a studio_interview row with the same hash exists, the existing storageKey is
- * reused and no PUT is performed.
+ * 1. 算 hash → 查 chat_attachment 是否已存在（任意用户、任意路径写入）。
+ * 2. 命中：复用 storageKey；从 superset parsedStructured 投影到 ResumeProfile
+ *    供调用方判断是否能跳过 parseResumeFast。**不**额外写 chat_attachment 行。
+ * 3. 未命中：并行跑 parseResumeFastToProfile + S3 PUT。两者都成功才写一行
+ *    chat_attachment（userId = 当前操作者）；S3 失败致命，parse 失败时不
+ *    写注册行（避免污染），返回 cachedResumeProfile=null 让调用方兜底。
+ *
+ * Upload the candidate resume PDF into the unified registry (chat_attachment)
+ * and return its storageKey, contentHash, and a cached ResumeProfile when the
+ * registry already had this hash.
  *
  * Silently returns null when S3 isn't configured — the interview record still
  * persists, preview just won't be available for this row.
@@ -152,34 +165,84 @@ export function normalizeResumeFile(value: FormDataEntryValue | null) {
 export async function storeInterviewResume(
   _interviewRecordId: string,
   file: File,
-): Promise<{ storageKey: string; contentHash: string } | null> {
+  userId: string,
+): Promise<{
+  storageKey: string;
+  contentHash: string;
+  cachedResumeProfile: ResumeProfile | null;
+} | null> {
   try {
     const bytes = new Uint8Array(await file.arrayBuffer());
     const contentHash = await sha256HexOfBytes(bytes);
 
-    const [existing] = await db
-      .select({ storageKey: studioInterview.resumeStorageKey })
-      .from(studioInterview)
-      .where(
-        and(
-          eq(studioInterview.resumeContentHash, contentHash),
-          isNotNull(studioInterview.resumeStorageKey),
-        ),
-      )
-      .limit(1);
-
-    if (existing?.storageKey) {
-      return { contentHash, storageKey: existing.storageKey };
+    // 命中既有 chat_attachment 行（已过滤 failed）：复用 storageKey + 投影出 cached profile。
+    // Registry hit: reuse storageKey and project the cached superset down to ResumeProfile.
+    const existing = await findAttachmentByContentHash(contentHash);
+    if (existing) {
+      return {
+        cachedResumeProfile: projectAttachmentToResumeProfile(existing.parsedStructured),
+        contentHash,
+        storageKey: existing.storageKey,
+      };
     }
 
-    const storageKey = await buildInterviewResumeKeyByHash(contentHash);
-    await putObjectBytes({
-      body: bytes,
-      contentType: file.type || "application/pdf",
+    // 未命中：parse + PUT 并行。
+    // Miss: parse + PUT in parallel.
+    const storageKey = await buildAttachmentKeyByHash(contentHash, "pdf");
+    const [putOutcome, parseOutcome] = await Promise.allSettled([
+      putObjectBytes({
+        body: bytes,
+        contentType: file.type || "application/pdf",
+        storageKey,
+      }),
+      parseResumeFastToProfile(file),
+    ]);
+
+    if (putOutcome.status === "rejected") {
+      console.error("[studio-interview] failed to upload resume to S3:", putOutcome.reason);
+      return null;
+    }
+
+    if (parseOutcome.status === "rejected") {
+      // S3 已写字节但 parse 失败：不写 chat_attachment 行（避免污染注册表）。
+      // 调用方拿到 cachedResumeProfile=null，会兜底跑 analyzeResumeFile，
+      // 那次失败再让上层 ResumeAnalysisError 处理。
+      // S3 wrote bytes but parse failed: skip chat_attachment write to keep
+      // the registry clean. Caller falls back to analyzeResumeFile, whose
+      // failure will surface as ResumeAnalysisError upstream.
+      console.error(
+        "[studio-interview] resume parse failed (S3 PUT succeeded):",
+        parseOutcome.reason,
+      );
+      return { cachedResumeProfile: null, contentHash, storageKey };
+    }
+
+    const parsed = parseOutcome.value;
+    await createAttachment({
+      contentHash,
+      filename: file.name.slice(0, 255) || "resume.pdf",
+      id: crypto.randomUUID(),
+      mediaType: file.type || "application/pdf",
+      parsedAt: new Date(),
+      parsedPageCount: parsed.parsedPageCount,
+      parsedStatus: "ready",
+      parsedStructured: parsed.parsedStructured,
+      parsedText: parsed.parsedText,
+      parsedTextSource: parsed.parsedTextSource,
+      size: file.size,
       storageKey,
+      userId,
     });
-    return { contentHash, storageKey };
+
+    return {
+      cachedResumeProfile: parsed.resumeProfile,
+      contentHash,
+      storageKey,
+    };
   } catch (error) {
+    if (error instanceof ResumeAnalysisError) {
+      throw error;
+    }
     console.error("[studio-interview] failed to upload resume to S3:", error);
     return null;
   }
