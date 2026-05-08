@@ -78,39 +78,40 @@ export function Modal({
 }: ModalProps) {
   return (
     <HeroModal isOpen={open} onOpenChange={onOpenChange}>
-      <ModalBackdrop isDismissable={dismissible} />
-      <ModalContainer size={SIZE_TO_HERO[size]}>
-        <ModalDialog
-          className={cn(
-            "flex max-h-[90vh] flex-col overflow-hidden",
-            SIZE_DIALOG_CLASS[size],
-            className,
-          )}
-        >
-          <InnerHeader
-            title={title}
-            description={description}
-            headerExtra={headerExtra}
-            headerLayout={headerLayout}
-            showCloseButton={showCloseButton}
-            className={headerClassName}
-          />
-          <ModalBody className={cn("min-h-0 flex-1 overflow-y-auto px-6 py-5", bodyClassName)}>
-            {children}
-          </ModalBody>
-          {footer ? (
-            <ModalFooter
-              className={cn(
-                "flex shrink-0 flex-col-reverse gap-2 border-t border-separator px-6 py-4",
-                "sm:flex-row sm:justify-end",
-                footerClassName,
-              )}
-            >
-              {footer}
-            </ModalFooter>
-          ) : null}
-        </ModalDialog>
-      </ModalContainer>
+      <ModalBackdrop isDismissable={dismissible}>
+        <ModalContainer size={SIZE_TO_HERO[size]}>
+          <ModalDialog
+            className={cn(
+              "flex max-h-[90vh] flex-col overflow-hidden",
+              SIZE_DIALOG_CLASS[size],
+              className,
+            )}
+          >
+            <InnerHeader
+              title={title}
+              description={description}
+              headerExtra={headerExtra}
+              headerLayout={headerLayout}
+              showCloseButton={showCloseButton}
+              className={headerClassName}
+            />
+            <ModalBody className={cn("min-h-0 flex-1 overflow-y-auto px-6 py-5", bodyClassName)}>
+              {children}
+            </ModalBody>
+            {footer ? (
+              <ModalFooter
+                className={cn(
+                  "flex shrink-0 flex-col-reverse gap-2 border-t border-separator px-6 py-4",
+                  "sm:flex-row sm:justify-end",
+                  footerClassName,
+                )}
+              >
+                {footer}
+              </ModalFooter>
+            ) : null}
+          </ModalDialog>
+        </ModalContainer>
+      </ModalBackdrop>
     </HeroModal>
   );
 }

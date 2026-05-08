@@ -61,8 +61,7 @@ export function SheetContent({
   ...props
 }: SheetContentProps) {
   return (
-    <>
-      <DrawerBackdrop />
+    <DrawerBackdrop>
       <HeroDrawerContent
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         {...(props as any)}
@@ -71,7 +70,7 @@ export function SheetContent({
       >
         {children as never}
       </HeroDrawerContent>
-    </>
+    </DrawerBackdrop>
   );
 }
 

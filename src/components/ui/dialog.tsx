@@ -39,8 +39,7 @@ export const DialogTrigger = ModalTrigger;
 export type DialogContentProps = AnyProps & { children?: ReactNode; className?: string };
 export function DialogContent({ children, className, ...props }: DialogContentProps) {
   return (
-    <>
-      <ModalBackdrop />
+    <ModalBackdrop>
       <ModalContainer>
         <ModalDialog
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -50,7 +49,7 @@ export function DialogContent({ children, className, ...props }: DialogContentPr
           {children as never}
         </ModalDialog>
       </ModalContainer>
-    </>
+    </ModalBackdrop>
   );
 }
 

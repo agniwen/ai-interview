@@ -133,7 +133,7 @@ export function Composer({
           <PromptInputBody>
             <PromptInputTextarea
               autoComplete="off"
-              className="min-h-20"
+              className="min-h-20 w-full"
               onChange={(event) => setInput(event.currentTarget.value)}
               placeholder="输入岗位与筛选要求，或上传候选人 PDF 简历（支持多文件）…"
               value={input}

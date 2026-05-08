@@ -43,8 +43,7 @@ export const DrawerTrigger = HeroDrawerTrigger;
 export type DrawerContentProps = AnyProps & { children?: ReactNode; className?: string };
 export function DrawerContent({ children, className, ...props }: DrawerContentProps) {
   return (
-    <>
-      <DrawerBackdrop />
+    <DrawerBackdrop>
       <HeroDrawerContent
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         {...(props as any)}
@@ -52,7 +51,7 @@ export function DrawerContent({ children, className, ...props }: DrawerContentPr
       >
         {children as never}
       </HeroDrawerContent>
-    </>
+    </DrawerBackdrop>
   );
 }
 

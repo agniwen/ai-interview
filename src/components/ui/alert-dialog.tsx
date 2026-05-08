@@ -55,8 +55,7 @@ export function AlertDialogContent({
 }: AlertDialogContentProps) {
   const heroSize = size === "default" ? "md" : "sm";
   return (
-    <>
-      <AlertDialogBackdrop />
+    <AlertDialogBackdrop>
       <AlertDialogContainer size={heroSize}>
         <AlertDialogDialog
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -70,7 +69,7 @@ export function AlertDialogContent({
           {children as never}
         </AlertDialogDialog>
       </AlertDialogContainer>
-    </>
+    </AlertDialogBackdrop>
   );
 }
 
