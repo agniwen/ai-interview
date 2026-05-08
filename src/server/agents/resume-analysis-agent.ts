@@ -6,9 +6,11 @@ import type {
 import { stepCountIs } from "ai";
 import { generatedInterviewQuestionsSchema } from "@/lib/interview/types";
 import { parseResumeFast } from "@/lib/resume-parse-pipeline";
+import type { ResumeTextSource } from "@/lib/resume-parse-pipeline";
 import { parseJsonOutput } from "./json-output";
 import { createResumeAgent } from "./resume-agent";
 import { structuredSchema, toResumeProfile } from "./resume-parser-agent";
+import type { ResumeParserStructured } from "./resume-parser-agent";
 
 // ---------------------------------------------------------------------------
 // NDJSON streaming event types
@@ -259,20 +261,36 @@ export function streamGenerateInterviewQuestions(
   });
 }
 
-/**
- * Combined: parse profile + generate questions in one blocking call.
- * Used by endpoints that need the full result at once (create/edit interview
- * fallback path when the client hasn't pre-parsed the resume).
- */
-export async function analyzeResumeFile(file: File): Promise<ResumeAnalysisResult> {
-  validateResumeFile(file);
+// =====================================================================
+// Stage helpers — 把原 analyzeResumeFile 拆成两段独立可调用：
+//   parseResumeFastToProfile —— 字节 → ResumeProfile + 原始 superset
+//   generateInterviewQuestionsForProfile —— ResumeProfile → 面试题
+// 这样 studio 路由在拿到 cache 命中的 profile 时，只用跑 question-gen。
+// Stage helpers split out from analyzeResumeFile so the studio route
+// can skip parseResumeFast when it already has a cached resume profile.
+// =====================================================================
 
-  let resumeProfile: ResumeProfile;
+export interface ParsedResumeProfileResult {
+  resumeProfile: ResumeProfile;
+  parsedStructured: ResumeParserStructured;
+  parsedTextSource: ResumeTextSource;
+  parsedPageCount: number;
+  parsedText: string;
+}
+
+export async function parseResumeFastToProfile(file: File): Promise<ParsedResumeProfileResult> {
+  validateResumeFile(file);
 
   try {
     const bytes = new Uint8Array(await file.arrayBuffer());
     const fast = await parseResumeFast(bytes);
-    resumeProfile = normalizeResumeProfile(toResumeProfile(fast.structured));
+    return {
+      parsedPageCount: fast.pageCount,
+      parsedStructured: fast.structured,
+      parsedText: fast.text,
+      parsedTextSource: fast.textSource,
+      resumeProfile: normalizeResumeProfile(toResumeProfile(fast.structured)),
+    };
   } catch (error) {
     if (error instanceof ResumeAnalysisError) {
       throw error;
@@ -282,7 +300,11 @@ export async function analyzeResumeFile(file: File): Promise<ResumeAnalysisResul
       "resume-parsing",
     );
   }
+}
 
+export async function generateInterviewQuestionsForProfile(
+  resumeProfile: ResumeProfile,
+): Promise<ResumeAnalysisResult["interviewQuestions"]> {
   try {
     const structuredModelId = process.env.ALIBABA_STRUCTURED_MODEL ?? "deepseek-v4-flash";
     const questionAgent = createResumeAgent({
@@ -299,12 +321,7 @@ export async function analyzeResumeFile(file: File): Promise<ResumeAnalysisResul
     });
 
     const parsed = parseJsonOutput(text, generatedInterviewQuestionsSchema, "question-generation");
-
-    return {
-      fileName: file.name,
-      interviewQuestions: normalizeInterviewQuestions(parsed.interviewQuestions),
-      resumeProfile,
-    };
+    return normalizeInterviewQuestions(parsed.interviewQuestions);
   } catch (error) {
     if (error instanceof ResumeAnalysisError) {
       throw error;
@@ -315,6 +332,17 @@ export async function analyzeResumeFile(file: File): Promise<ResumeAnalysisResul
       resumeProfile,
     );
   }
+}
+
+/**
+ * Combined: parse profile + generate questions in one blocking call.
+ * Used by endpoints that need the full result at once (create/edit interview
+ * fallback path when the client hasn't pre-parsed the resume).
+ */
+export async function analyzeResumeFile(file: File): Promise<ResumeAnalysisResult> {
+  const { resumeProfile } = await parseResumeFastToProfile(file);
+  const interviewQuestions = await generateInterviewQuestionsForProfile(resumeProfile);
+  return { fileName: file.name, interviewQuestions, resumeProfile };
 }
 
 // Re-export the subagent's schema so other modules can validate structured
