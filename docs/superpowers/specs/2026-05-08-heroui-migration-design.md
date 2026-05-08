@@ -237,14 +237,14 @@
 ### Provider 树（`src/app/layout.tsx`）
 
 ```tsx
-import { HeroUIProvider, ToastProvider } from "@heroui/react";
+import { ToastProvider } from "@heroui/react";
 
-<HeroUIProvider>
-  <ToastProvider />
-  <ThemeProvider attribute="data-theme" defaultTheme="light">
-    {children}
-  </ThemeProvider>
-</HeroUIProvider>;
+// Hero UI v3 dropped HeroUIProvider; ToastProvider is the only provider needed
+// (mount once near the root, outside ThemeProvider so toasts survive theme transitions).
+<ToastProvider />
+<ThemeProvider attribute="data-theme" defaultTheme="light">
+  {children}
+</ThemeProvider>
 ```
 
 `next-themes` 的 `attribute` 切到 `data-theme`，对齐 Hero UI 的 `[data-theme="light|dark"]` 选择器。**注意：项目当前 `<html>` 的 dark 选择器是 `class="dark"`，需要同步切换。**
@@ -338,7 +338,7 @@ export { Input, type InputProps } from "@heroui/react";
 
 - `pnpm add @heroui/react framer-motion`（Hero UI v3 peer dep）
 - 不删 `cmdk`（命令面板保留）
-- `src/app/layout.tsx` 加 `HeroUIProvider` + `ToastProvider`，旧 `<Toaster />` 暂留共存（最后一步删）
+- `src/app/layout.tsx` 加 `ToastProvider`（Hero UI v3 不需要 Provider 包装），旧 `<Toaster />` 暂留共存（最后一步删）
 
 ### Step 2 — 主题切换
 

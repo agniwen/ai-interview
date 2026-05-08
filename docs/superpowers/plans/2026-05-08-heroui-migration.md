@@ -52,7 +52,7 @@
 ### Files to modify (non-`ui/`)
 
 - `src/app/globals.css` — full theme rewrite
-- `src/app/layout.tsx` — add `HeroUIProvider` + `ToastProvider`, change `next-themes` attribute
+- `src/app/layout.tsx` — add `ToastProvider`, change `next-themes` attribute
 - `src/components/theme-provider.tsx` — confirm passes `attribute` through
 - `package.json` — add `@heroui/react`, `framer-motion`; remove `sonner`, `vaul`, `cmdk` (only if `command` still uses it — check below), `input-otp` (no longer used)
 
@@ -94,51 +94,47 @@ git commit -m "chore(ui): add @heroui/react and framer-motion"
 
 ---
 
-### Task 2: Add HeroUIProvider and ToastProvider in root layout
+### Task 2: Add ToastProvider in root layout
+
+**Note:** Hero UI v3 dropped `HeroUIProvider`. Only `ToastProvider` is needed.
 
 **Files:**
 
-- Modify: `src/app/layout.tsx:8-101` (provider tree region)
+- Modify: `src/app/layout.tsx` (provider tree region)
 
 - [ ] **Step 1: Read current `src/app/layout.tsx`**
 
-```bash
-sed -n '80,105p' src/app/layout.tsx
-```
-
-Locate the existing `<ThemeProvider …>` wrapping `{children}` and the `<Toaster />` mount.
-
-- [ ] **Step 2: Wrap providers**
-
-Replace the section that currently mounts `<ThemeProvider>{children}</ThemeProvider>` (and its companion `<Toaster />`) with:
+- [ ] **Step 2: Mount ToastProvider as sibling above ThemeProvider, switch theme attribute**
 
 ```tsx
-import { HeroUIProvider, ToastProvider } from "@heroui/react";
+import { ToastProvider } from "@heroui/react";
 
-// inside <body>:
-<HeroUIProvider>
-  <ToastProvider /> {/* new — replaces sonner Toaster */}
-  <ThemeProvider attribute="data-theme" defaultTheme="light" enableSystem>
-    {children}
-  </ThemeProvider>
-</HeroUIProvider>;
+// inside <body>, replacing the existing <ThemeProvider attribute="class" ...> block:
+<ToastProvider />
+<ThemeProvider attribute="data-theme" defaultTheme="light" enableSystem>
+  {/* preserved: NuqsAdapter, QueryProvider, TooltipProvider, Suspense */}
+  ...
+  {children}
+  <Toaster /> {/* transitional: removed in T25 */}
+  ...
+</ThemeProvider>
 ```
 
-Keep the existing `<Toaster />` import + mount **temporarily** (we delete it in Task 25) so toasts keep working until call sites migrate. Delete only when Sonner→Toast migration is complete.
+Keep the existing `<Toaster />` import + mount **temporarily** (we delete it in Task 25) so toasts keep working until call sites migrate. Same for the existing `<TooltipProvider>` (cleaned up in Task 17).
 
-- [ ] **Step 3: Confirm dev server compiles**
+- [ ] **Step 3: Verify typecheck**
 
 ```bash
-pnpm dev
+pnpm typecheck
 ```
 
-Open `http://localhost:3000`. Page should still render. There will be no Hero UI components yet — just verifying provider mount doesn't crash.
+Expected: passes (or only unrelated errors from later tasks).
 
 - [ ] **Step 4: Commit**
 
 ```bash
 git add src/app/layout.tsx
-git commit -m "feat(ui): mount HeroUIProvider and ToastProvider"
+git commit -m "feat(ui): mount ToastProvider and switch ThemeProvider attribute to data-theme"
 ```
 
 ---
@@ -1259,7 +1255,7 @@ export { Popover, PopoverTrigger, PopoverContent, type PopoverProps } from "@her
 // src/components/ui/tooltip.tsx
 export { Tooltip, type TooltipProps } from "@heroui/react";
 // shadcn's TooltipProvider/TooltipTrigger/TooltipContent flatten into <Tooltip content>{trigger}</Tooltip>.
-// Provide stub TooltipProvider as no-op (already in HeroUIProvider).
+// Provide stub TooltipProvider as no-op (Hero UI Tooltip works without provider in v3).
 import type { ReactNode } from "react";
 export function TooltipProvider({ children }: { children: ReactNode }) {
   return <>{children}</>;
