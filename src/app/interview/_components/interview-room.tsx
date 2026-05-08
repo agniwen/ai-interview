@@ -483,6 +483,26 @@ export default function InterviewRoom({ interviewId, roundId }: InterviewRoomPro
           },
         });
       } catch (error) {
+        // session.start 内部先连 room 再发布轨道。摄像头轨道发布失败（无摄像头、
+        // 被占用、缓存的 deviceId 在当前机器找不到等 OverconstrainedError /
+        // NotFoundError）会让整个 promise reject，但此时 room 通常已连上、
+        // agent 也会照常加入。这种情况下吞掉错误，让面试继续走纯音频。
+        // 真正的失败（token 403/410、网络断、麦克风也没拿到）才需要 toast +
+        // reset latch 让用户重试。
+        // Track-publish failures (camera missing/busy/stale deviceId) reject
+        // session.start even though the room is already connected — swallow
+        // those and continue audio-only. Only surface real failures.
+        const isDeviceError =
+          error instanceof Error &&
+          (error.name === "NotFoundError" ||
+            error.name === "OverconstrainedError" ||
+            error.name === "DeviceUnsupportedError" ||
+            /device not found|requested device/i.test(error.message));
+        if (isDeviceError && session.connectionState === ConnectionState.Connected) {
+          // eslint-disable-next-line no-console
+          console.warn("[interview] camera publish skipped, continuing audio-only:", error);
+          return;
+        }
         // 失败常见原因：浏览器媒体设备权限被拒、token 接口报错（403/410）、网络中断。
         // 重置 latch 让 WaitingView 退出"恢复中"状态、显示开始按钮供用户重试。
         // Common causes: media-device permission denied, token endpoint
