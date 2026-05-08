@@ -211,7 +211,11 @@ function renderSessionItem({
   return (
     <>
       <Link
-        className="min-w-0 flex-1 rounded-md"
+        // focus 指示器统一交给外层 wrapper（用 ring-inset 不裁切），Link 自己的
+        // outline 关掉，避免在窄 padding 里溢出顶到 sidebar 容器被截。
+        // Focus indicator lives on the wrapper (ring-inset, no clipping). Drop
+        // the Link's own outline so it doesn't bleed into the sidebar edge.
+        className="min-w-0 flex-1 rounded-md focus-visible:outline-none"
         href={`/chat/${conversation.id}`}
         onClick={closeOnNavigate}
       >
@@ -336,6 +340,10 @@ function ChatSidebarBody({
             <div
               className={cn(
                 "group/session-item flex items-center gap-1 rounded-lg border border-transparent px-1 py-1 transition-colors",
+                // ring-inset：focus 指示器画在元素内部，sidebar 边缘不会再裁掉它。
+                // ring-inset keeps the focus indicator inside the wrapper so the
+                // sidebar's edge can't clip it.
+                "focus-within:ring-2 focus-within:ring-sidebar-ring focus-within:ring-inset",
                 isActive && !editMode
                   ? "border-sidebar-border bg-sidebar-accent"
                   : "hover:bg-sidebar-accent/60",

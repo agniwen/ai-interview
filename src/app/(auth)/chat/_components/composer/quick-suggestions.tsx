@@ -23,20 +23,37 @@ export function QuickSuggestions() {
   return (
     <section className="mx-auto mb-0.5 w-full max-w-5xl px-2 sm:px-3">
       <p className="mb-2 px-1 font-medium text-muted-foreground text-xs">快速提问</p>
-      <Suggestions className="gap-2.5 pb-1">
-        {QUICK_SUGGESTIONS.map((suggestion) => (
-          <Suggestion
-            className="h-auto whitespace-normal rounded-2xl border-border/70 bg-card/70 px-4 py-2 text-left text-xs leading-relaxed hover:bg-accent"
-            disabled={isStreaming}
-            key={suggestion}
-            onClick={(text) => {
-              appendInput(text);
-              focusComposerTextarea();
-            }}
-            suggestion={suggestion}
-          />
-        ))}
-      </Suggestions>
+      {/*
+        左右两侧 32px 的渐隐遮罩，跟首页 Marquee 的视觉一致。
+        Suggestions 内层是 ScrollArea，遮罩放在外层 wrapper 上，scroll 时内容
+        滑过遮罩区域自然变淡，而不是被硬截断。
+        32px fade-out mask on both edges, matching the home Marquee. The mask
+        sits on the wrapper so scrolled content visually fades into the
+        boundary instead of getting hard-cut.
+      */}
+      <div
+        style={{
+          WebkitMaskImage:
+            "linear-gradient(to right, transparent 0, black 32px, black calc(100% - 32px), transparent 100%)",
+          maskImage:
+            "linear-gradient(to right, transparent 0, black 32px, black calc(100% - 32px), transparent 100%)",
+        }}
+      >
+        <Suggestions className="gap-2.5 px-1 pb-1">
+          {QUICK_SUGGESTIONS.map((suggestion) => (
+            <Suggestion
+              className="h-auto whitespace-normal rounded-2xl border-border/70 bg-card/70 px-4 py-2 text-left text-xs leading-relaxed hover:bg-accent"
+              disabled={isStreaming}
+              key={suggestion}
+              onClick={(text) => {
+                appendInput(text);
+                focusComposerTextarea();
+              }}
+              suggestion={suggestion}
+            />
+          ))}
+        </Suggestions>
+      </div>
     </section>
   );
 }
