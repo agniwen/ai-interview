@@ -80,3 +80,7 @@ export function advect(args: AdvectArgs): void {
     }
   }
 }
+
+export function dissipate(arr: Float32Array, factor: number): void {
+  for (let i = 0; i < arr.length; i++) arr[i] *= factor;
+}

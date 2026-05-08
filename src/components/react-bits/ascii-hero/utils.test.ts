@@ -1,7 +1,7 @@
 // 中文：splat / advect / dissipate / compose 纯函数单元测试
 // English: pure-function unit tests for splat / advect / dissipate / compose
 import { describe, expect, it } from "vitest";
-import { advect, splat } from "./utils";
+import { advect, dissipate, splat } from "./utils";
 
 describe("splat", () => {
   it("center cell receives full strength, axial neighbors get gaussian falloff, diagonals are excluded by radius cutoff", () => {
@@ -140,5 +140,21 @@ describe("advect", () => {
     advect({ density, prevDensity, velocity, W, H, dt: 1 });
 
     expect(density[1]).toBeCloseTo(0.5, 5);
+  });
+});
+
+describe("dissipate", () => {
+  it("multiplies every element by factor", () => {
+    const arr = new Float32Array([1, 2, 3, 4]);
+    dissipate(arr, 0.5);
+    expect(Array.from(arr)).toEqual([0.5, 1, 1.5, 2]);
+  });
+
+  it("factor 0.985 reduces total energy by 1.5%", () => {
+    const arr = new Float32Array(100).fill(1);
+    dissipate(arr, 0.985);
+    let sum = 0;
+    for (let i = 0; i < arr.length; i++) sum += arr[i];
+    expect(sum).toBeCloseTo(98.5, 5);
   });
 });
