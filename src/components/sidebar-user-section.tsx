@@ -75,10 +75,10 @@ export function SidebarUserSection({
       <DropdownPopover placement="bottom end">
         <DropdownMenu className="w-56">
           <DropdownSection>
-            <DropdownItem isDisabled>
+            <DropdownItem>
               <div className="space-y-0.5">
                 <p className="truncate font-medium text-sm">{userName}</p>
-                <p className="truncate text-muted text-xs">{userEmail}</p>
+                <p className="truncate text-muted text-xs max-w-[16em]">{userEmail}</p>
                 {organizationName ? (
                   <p className="truncate text-muted text-xs">{organizationName}</p>
                 ) : null}
@@ -105,7 +105,7 @@ export function SidebarUserSection({
       <Dropdown>
         <DropdownTrigger
           aria-label="用户菜单"
-          className={buttonClass({ className: "w-full", isIconOnly: true, variant: "ghost" })}
+          className="flex h-10 w-full items-center justify-center rounded-full transition-colors outline-none hover:bg-default focus-visible:ring-2 focus-visible:ring-focus"
         >
           <Avatar size="sm">
             <AvatarImage alt={userName} src={session.user.image ?? undefined} />
@@ -116,13 +116,8 @@ export function SidebarUserSection({
       </Dropdown>
     ) : (
       <Dropdown>
-        <DropdownTrigger
-          className={buttonClass({
-            className: "w-full justify-start gap-2 p-1! rounded-full",
-            variant: "ghost",
-          })}
-        >
-          <Avatar size="default">
+        <DropdownTrigger className="flex w-full items-center gap-2 rounded-full p-1 text-left transition-colors outline-none hover:bg-default focus-visible:ring-2 focus-visible:ring-focus">
+          <Avatar size="md">
             <AvatarImage alt={userName} src={session.user.image ?? undefined} />
             <AvatarFallback>{userInitials}</AvatarFallback>
           </Avatar>
@@ -130,7 +125,7 @@ export function SidebarUserSection({
             <p className="truncate font-medium text-sm">{userName}</p>
             <p className="truncate text-muted text-xs">{organizationName ?? userEmail}</p>
           </div>
-          <ChevronsUpDownIcon className="size-4 text-muted" />
+          <ChevronsUpDownIcon className="size-4 shrink-0 text-muted" />
         </DropdownTrigger>
         {menuContent}
       </Dropdown>
