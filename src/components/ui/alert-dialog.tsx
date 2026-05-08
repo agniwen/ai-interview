@@ -1,99 +1,85 @@
 "use client";
 
-import { AlertDialog as AlertDialogPrimitive } from "radix-ui";
-import * as React from "react";
-
+import type { ComponentProps, ReactNode } from "react";
+import {
+  AlertDialog as HeroAlertDialog,
+  AlertDialogBackdrop,
+  AlertDialogBody,
+  AlertDialogContainer,
+  AlertDialogDialog,
+  AlertDialogFooter as HeroAlertDialogFooter,
+  AlertDialogHeader as HeroAlertDialogHeader,
+  AlertDialogHeading,
+  AlertDialogTrigger as HeroAlertDialogTrigger,
+} from "@heroui/react";
 import { buttonClass, type ButtonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-function AlertDialog({ ...props }: React.ComponentProps<typeof AlertDialogPrimitive.Root>) {
-  return <AlertDialogPrimitive.Root data-slot="alert-dialog" {...props} />;
-}
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AnyProps = Record<string, any>;
 
-function AlertDialogTrigger({
-  ...props
-}: React.ComponentProps<typeof AlertDialogPrimitive.Trigger>) {
-  return <AlertDialogPrimitive.Trigger data-slot="alert-dialog-trigger" {...props} />;
-}
+export type AlertDialogProps = AnyProps & {
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  isOpen?: boolean;
+  children?: ReactNode;
+};
 
-function AlertDialogPortal({ ...props }: React.ComponentProps<typeof AlertDialogPrimitive.Portal>) {
-  return <AlertDialogPrimitive.Portal data-slot="alert-dialog-portal" {...props} />;
-}
-
-function AlertDialogOverlay({
-  className,
-  ...props
-}: React.ComponentProps<typeof AlertDialogPrimitive.Overlay>) {
+export function AlertDialog({ open, onOpenChange, isOpen, ...props }: AlertDialogProps) {
   return (
-    <AlertDialogPrimitive.Overlay
-      data-slot="alert-dialog-overlay"
-      className={cn(
-        "fixed inset-0 z-50 bg-background/80 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0",
-        className,
-      )}
-      {...props}
+    <HeroAlertDialog
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      {...(props as any)}
+      isOpen={open ?? isOpen}
+      onOpenChange={onOpenChange}
     />
   );
 }
 
-function AlertDialogContent({
-  className,
-  size = "default",
-  ...props
-}: React.ComponentProps<typeof AlertDialogPrimitive.Content> & {
+export type AlertDialogTriggerProps = AnyProps & { asChild?: boolean; children?: ReactNode };
+export function AlertDialogTrigger({ asChild: _asChild, ...props }: AlertDialogTriggerProps) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return <HeroAlertDialogTrigger {...(props as any)} />;
+}
+
+export type AlertDialogContentProps = AnyProps & {
   size?: "default" | "sm";
-}) {
-  return (
-    <AlertDialogPortal>
-      <AlertDialogOverlay />
-      <AlertDialogPrimitive.Content
-        data-slot="alert-dialog-content"
-        data-size={size}
-        className={cn(
-          "group/alert-dialog-content fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-lg border bg-background p-6 shadow-lg duration-200 data-[size=sm]:max-w-xs data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[size=default]:sm:max-w-lg",
-          className,
-        )}
-        {...props}
-      />
-    </AlertDialogPortal>
-  );
-}
-
-function AlertDialogHeader({ className, ...props }: React.ComponentProps<"div">) {
-  return (
-    <div
-      data-slot="alert-dialog-header"
-      className={cn(
-        "grid grid-rows-[auto_1fr] place-items-center gap-1.5 text-center has-data-[slot=alert-dialog-media]:grid-rows-[auto_auto_1fr] has-data-[slot=alert-dialog-media]:gap-x-6 sm:group-data-[size=default]/alert-dialog-content:place-items-start sm:group-data-[size=default]/alert-dialog-content:text-left sm:group-data-[size=default]/alert-dialog-content:has-data-[slot=alert-dialog-media]:grid-rows-[auto_1fr]",
-        className,
-      )}
-      {...props}
-    />
-  );
-}
-
-function AlertDialogFooter({ className, ...props }: React.ComponentProps<"div">) {
-  return (
-    <div
-      data-slot="alert-dialog-footer"
-      className={cn(
-        "flex flex-col-reverse gap-2 group-data-[size=sm]/alert-dialog-content:grid group-data-[size=sm]/alert-dialog-content:grid-cols-2 sm:flex-row sm:justify-end",
-        className,
-      )}
-      {...props}
-    />
-  );
-}
-
-function AlertDialogTitle({
+  children?: ReactNode;
+  className?: string;
+};
+export function AlertDialogContent({
+  size = "default",
+  children,
   className,
   ...props
-}: React.ComponentProps<typeof AlertDialogPrimitive.Title>) {
+}: AlertDialogContentProps) {
+  const heroSize = size === "default" ? "md" : "sm";
   return (
-    <AlertDialogPrimitive.Title
-      data-slot="alert-dialog-title"
+    <>
+      <AlertDialogBackdrop />
+      <AlertDialogContainer size={heroSize}>
+        <AlertDialogDialog
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          {...(props as any)}
+          className={cn(
+            "group/alert-dialog-content grid gap-4 rounded-lg border border-separator bg-surface p-6 shadow-lg",
+            size === "sm" && "max-w-xs",
+            className,
+          )}
+        >
+          {children as never}
+        </AlertDialogDialog>
+      </AlertDialogContainer>
+    </>
+  );
+}
+
+export type AlertDialogHeaderProps = ComponentProps<"div">;
+export function AlertDialogHeader({ className, ...props }: AlertDialogHeaderProps) {
+  return (
+    <HeroAlertDialogHeader
       className={cn(
-        "text-lg font-semibold sm:group-data-[size=default]/alert-dialog-content:group-has-data-[slot=alert-dialog-media]/alert-dialog-content:col-start-2",
+        "grid grid-rows-[auto_1fr] place-items-center gap-1.5 text-center sm:place-items-start sm:text-left",
         className,
       )}
       {...props}
@@ -101,25 +87,35 @@ function AlertDialogTitle({
   );
 }
 
-function AlertDialogDescription({
-  className,
-  ...props
-}: React.ComponentProps<typeof AlertDialogPrimitive.Description>) {
+export type AlertDialogTitleProps = ComponentProps<"h2">;
+export function AlertDialogTitle({ className, ...props }: AlertDialogTitleProps) {
+  return <AlertDialogHeading className={cn("text-lg font-semibold", className)} {...props} />;
+}
+
+export type AlertDialogDescriptionProps = ComponentProps<"p">;
+export function AlertDialogDescription({ className, ...props }: AlertDialogDescriptionProps) {
+  return <p className={cn("text-sm text-muted", className)} {...props} />;
+}
+
+export { AlertDialogBody };
+
+export type AlertDialogFooterProps = ComponentProps<"div">;
+export function AlertDialogFooter({ className, ...props }: AlertDialogFooterProps) {
   return (
-    <AlertDialogPrimitive.Description
-      data-slot="alert-dialog-description"
-      className={cn("text-sm text-muted", className)}
+    <HeroAlertDialogFooter
+      className={cn("flex flex-col-reverse gap-2 sm:flex-row sm:justify-end", className)}
       {...props}
     />
   );
 }
 
-function AlertDialogMedia({ className, ...props }: React.ComponentProps<"div">) {
+export type AlertDialogMediaProps = ComponentProps<"div">;
+export function AlertDialogMedia({ className, ...props }: AlertDialogMediaProps) {
   return (
     <div
       data-slot="alert-dialog-media"
       className={cn(
-        "mb-2 inline-flex size-16 items-center justify-center rounded-md bg-default sm:group-data-[size=default]/alert-dialog-content:row-span-2 *:[svg:not([class*='size-'])]:size-8",
+        "mb-2 inline-flex size-16 items-center justify-center rounded-md bg-default *:[svg:not([class*='size-'])]:size-8",
         className,
       )}
       {...props}
@@ -127,49 +123,55 @@ function AlertDialogMedia({ className, ...props }: React.ComponentProps<"div">) 
   );
 }
 
-function AlertDialogAction({
-  className,
-  variant = "primary",
-  ...props
-}: React.ComponentProps<typeof AlertDialogPrimitive.Action> & {
+/** Action button styled via buttonClass; the close behavior is up to the caller. */
+export type AlertDialogActionProps = AnyProps & {
   variant?: ButtonVariants["variant"];
-}) {
+  className?: string;
+  children?: ReactNode;
+  onClick?: (event: { preventDefault: () => void }) => void;
+};
+export function AlertDialogAction({
+  variant = "primary",
+  className,
+  ...props
+}: AlertDialogActionProps) {
   return (
-    <AlertDialogPrimitive.Action
+    <button
+      type="button"
       data-slot="alert-dialog-action"
       className={buttonClass({ variant, className })}
-      {...props}
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      {...(props as any)}
     />
   );
 }
 
-function AlertDialogCancel({
-  className,
-  variant = "outline",
-  ...props
-}: React.ComponentProps<typeof AlertDialogPrimitive.Cancel> & {
+export type AlertDialogCancelProps = AnyProps & {
   variant?: ButtonVariants["variant"];
-}) {
+  className?: string;
+  children?: ReactNode;
+  onClick?: (event: { preventDefault: () => void }) => void;
+};
+export function AlertDialogCancel({
+  variant = "outline",
+  className,
+  ...props
+}: AlertDialogCancelProps) {
   return (
-    <AlertDialogPrimitive.Cancel
+    <button
+      type="button"
       data-slot="alert-dialog-cancel"
       className={buttonClass({ variant, className })}
-      {...props}
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      {...(props as any)}
     />
   );
 }
 
-export {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogMedia,
-  AlertDialogOverlay,
-  AlertDialogPortal,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-};
+/** Stub — Hero UI mounts the dialog via AlertDialogContainer internally. */
+export function AlertDialogPortal({ children }: { children?: ReactNode }) {
+  return <>{children}</>;
+}
+export function AlertDialogOverlay() {
+  return null;
+}
