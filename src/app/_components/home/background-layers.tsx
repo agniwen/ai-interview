@@ -50,21 +50,6 @@ export function BackgroundLayers() {
           </>
         ) : (
           <>
-            <div className="absolute inset-0">
-              {/* <Waves
-                backgroundColor="transparent"
-                friction={0.57}
-                lineColor="#f5f5f5"
-                maxCursorMove={20}
-                tension={0.01}
-                waveAmpX={40}
-                waveAmpY={0}
-                waveSpeedX={0}
-                waveSpeedY={0}
-                xGap={18}
-                yGap={36}
-              /> */}
-            </div>
             <div className="absolute inset-0 opacity-100">
               <Grainient
                 color1="#b9d6e6"
@@ -91,8 +76,6 @@ export function BackgroundLayers() {
                 zoom={0.9}
               />
             </div>
-            {/* 亮色模式 hover 交互层：流体 ASCII canvas，叠在 Grainient 之上、bg-mask 之下
-                Light-mode hover layer: fluid ASCII canvas, sits above Grainient and below bg-mask. */}
             <div className="absolute inset-0">
               <AsciiHero />
             </div>
