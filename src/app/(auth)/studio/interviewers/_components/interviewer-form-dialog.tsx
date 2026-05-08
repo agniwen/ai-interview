@@ -5,7 +5,7 @@ import { interviewerFormSchema } from "@/lib/interviewers";
 import type { InterviewerFormValues, InterviewerRecord } from "@/lib/interviewers";
 import { useForm, useStore } from "@tanstack/react-form";
 import { useEffect } from "react";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/sonner";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
 import { Field, FieldContent, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";

@@ -4,7 +4,7 @@ import { toBlob } from "html-to-image";
 import { CopyIcon, QrCodeIcon } from "lucide-react";
 import { QRCodeCanvas } from "qrcode.react";
 import { useRef, useState } from "react";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/sonner";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { copyTextToClipboard } from "@/lib/clipboard";

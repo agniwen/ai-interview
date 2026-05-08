@@ -11,7 +11,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { ListChecksIcon, PencilIcon, PlusIcon, Trash2Icon } from "lucide-react";
 import { parseAsString, useQueryState } from "nuqs";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/sonner";
 import {
   AlertDialog,
   AlertDialogAction,

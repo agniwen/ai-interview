@@ -14,13 +14,12 @@ import {
   Volume2Icon,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { toast } from "sonner";
 import { AgentSessionProvider } from "@/components/agents-ui/agent-session-provider";
 import { AgentSessionView_01 } from "@/components/agents-ui/blocks/agent-session-view-01";
 import { StartAudioButton } from "@/components/agents-ui/start-audio-button";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
-import { Toaster } from "@/components/ui/sonner";
+import { toast, Toaster } from "@/components/ui/sonner";
 import { InterviewTimer } from "./interview-timer";
 import { PreInterviewFormsView } from "./pre-interview-forms-view";
 

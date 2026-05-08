@@ -2,7 +2,7 @@
 
 import { UploadIcon } from "lucide-react";
 import { useEffect } from "react";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/sonner";
 import {
   PromptInput,
   PromptInputBody,

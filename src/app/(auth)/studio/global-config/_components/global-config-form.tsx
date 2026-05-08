@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/sonner";
 import type { GlobalConfigRecord } from "@/lib/global-config";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";

@@ -12,7 +12,7 @@ import {
 } from "@/lib/api";
 import { MessageSquareTextIcon, RotateCcwIcon, Share2Icon } from "lucide-react";
 import { useState } from "react";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/sonner";
 import { DATE_TIME_DISPLAY_OPTIONS, TimeDisplay } from "@/components/time-display";
 import {
   Accordion,

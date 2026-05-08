@@ -11,7 +11,7 @@
 
 import { PlayIcon } from "lucide-react";
 import { useState } from "react";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/sonner";
 import { Button } from "@/components/ui/button";
 import { fetchStudioInterviewRecordingUrl } from "@/lib/api";
 import { ApiError } from "@/lib/api/errors";

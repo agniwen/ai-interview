@@ -6,7 +6,7 @@ import type { PaginatedInterviewerResult } from "@/server/queries/interviewers";
 import { useQueryClient } from "@tanstack/react-query";
 import { PencilIcon, PlusIcon, Trash2Icon, UserCircleIcon } from "lucide-react";
 import { useMemo, useState } from "react";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/sonner";
 import {
   AlertDialog,
   AlertDialogAction,

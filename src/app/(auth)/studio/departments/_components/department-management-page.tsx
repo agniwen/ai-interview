@@ -5,7 +5,7 @@ import type { PaginatedDepartmentResult } from "@/server/queries/departments";
 import { useQueryClient } from "@tanstack/react-query";
 import { Building2Icon, PencilIcon, PlusIcon, Trash2Icon } from "lucide-react";
 import { useMemo, useState } from "react";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/sonner";
 import {
   AlertDialog,
   AlertDialogAction,

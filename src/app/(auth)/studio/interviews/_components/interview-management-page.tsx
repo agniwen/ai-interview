@@ -11,7 +11,7 @@ import dynamic from "next/dynamic";
 import { useSearchParams } from "next/navigation";
 import { BotIcon, CopyIcon, EyeIcon, PencilIcon, Trash2Icon } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/sonner";
 import {
   AlertDialog,
   AlertDialogAction,

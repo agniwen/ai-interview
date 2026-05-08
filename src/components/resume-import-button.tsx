@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useCallback, useRef, useState } from "react";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/sonner";
 import { InterviewDetailDialog } from "@/app/(auth)/studio/interviews/_components/interview-detail-dialog";
 import { JobDescriptionSelectField } from "@/app/(auth)/studio/interviews/_components/job-description-select-field";
 import { Button } from "@/components/ui/button";

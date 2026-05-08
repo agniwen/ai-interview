@@ -7,7 +7,7 @@ import { useStore } from "@tanstack/react-form";
 import { CheckIcon, FileUpIcon, LoaderCircleIcon, SparklesIcon, WrenchIcon } from "lucide-react";
 import { motion } from "motion/react";
 import { useCallback, useRef, useState } from "react";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/sonner";
 import { TextFlip } from "@/components/text-flip";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";

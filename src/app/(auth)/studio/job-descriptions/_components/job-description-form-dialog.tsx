@@ -11,7 +11,7 @@ import { useForm, useStore } from "@tanstack/react-form";
 import { ClipboardListIcon, ExternalLinkIcon, ListChecksIcon } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonClass } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";

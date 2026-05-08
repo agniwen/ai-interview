@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect } from "react";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/sonner";
 import { buttonClass } from "@/components/ui/button";
 import { subscribeChatFinish } from "../_lib/chat-registry";
 

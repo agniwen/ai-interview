@@ -7,7 +7,7 @@ import type { PaginatedJobDescriptionResult } from "@/server/queries/job-descrip
 import { useQueryClient } from "@tanstack/react-query";
 import { FileTextIcon, PencilIcon, PlusIcon, Trash2Icon } from "lucide-react";
 import { useMemo, useState } from "react";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/sonner";
 import {
   AlertDialog,
   AlertDialogAction,

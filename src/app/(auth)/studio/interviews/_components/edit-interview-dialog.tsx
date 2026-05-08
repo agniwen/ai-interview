@@ -4,7 +4,7 @@ import type { ScheduleEntryStatus, StudioInterviewRecord } from "@/lib/studio-in
 import { useStore } from "@tanstack/react-form";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useRef, useState } from "react";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/sonner";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
 import { FieldGroup, FieldLabel } from "@/components/ui/field";

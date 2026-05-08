@@ -1,54 +1,57 @@
 "use client";
 
-import type { ToasterProps } from "sonner";
-import {
-  CircleCheckIcon,
-  InfoIcon,
-  Loader2Icon,
-  OctagonXIcon,
-  TriangleAlertIcon,
-} from "lucide-react";
-import { useTheme } from "next-themes";
-import { Toaster as Sonner } from "sonner";
+import type { ReactNode } from "react";
+import { toast as heroToast } from "@heroui/react";
 
-function Toaster({ ...props }: ToasterProps) {
-  const { theme = "system" } = useTheme();
+/**
+ * Sonner-compatible shim around Hero UI v3 Toast.
+ * Re-exports `toast` and a `Toaster` no-op so call sites importing from
+ * `@/components/ui/sonner` keep working without rewrites. The actual
+ * <ToastProvider /> is mounted in `src/app/layout.tsx`.
+ */
 
-  return (
-    <Sonner
-      className="toaster group"
-      icons={{
-        error: <OctagonXIcon className="size-4" />,
-        info: <InfoIcon className="size-4" />,
-        loading: <Loader2Icon className="size-4 animate-spin" />,
-        success: <CircleCheckIcon className="size-4" />,
-        warning: <TriangleAlertIcon className="size-4" />,
-      }}
-      style={
-        {
-          "--border-radius": "18px",
-          "--normal-bg": "color-mix(in oklab, white 78%, transparent)",
-          "--normal-border": "color-mix(in oklab, white 52%, var(--border))",
-          "--normal-text": "oklch(0.24 0.02 248)",
-        } as React.CSSProperties
-      }
-      toastOptions={{
-        classNames: {
-          actionButton: "bg-white/80 text-foreground hover:bg-white",
-          cancelButton: "bg-black/5 text-foreground hover:bg-black/10",
-          closeButton:
-            "border-white/50 bg-white/70 text-foreground/70 hover:bg-white hover:text-foreground",
-          description: "text-foreground/75",
-          title: "font-medium text-foreground",
-          toast:
-            "border border-white/55 bg-white/68 text-foreground shadow-[0_18px_48px_-26px_rgba(36,62,110,0.35)] backdrop-blur-xl",
-        },
-      }}
-      position="top-center"
-      theme={theme as ToasterProps["theme"]}
-      {...props}
-    />
-  );
+type ToastOptions = {
+  description?: ReactNode;
+  duration?: number;
+  /** Sonner extras we silently drop (Hero UI doesn't use them). */
+  id?: string | number;
+  position?: string;
+  important?: boolean;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  action?: any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  cancel?: any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  [key: string]: any;
+};
+
+function toHeroOpts(opts?: ToastOptions) {
+  if (!opts) return undefined;
+  const { description, duration } = opts;
+  return { description, timeout: duration };
 }
 
-export { Toaster };
+const callable = (message: ReactNode, opts?: ToastOptions) => heroToast(message, toHeroOpts(opts));
+
+export const toast = Object.assign(callable, {
+  success: (message: ReactNode, opts?: ToastOptions) =>
+    heroToast.success(message, toHeroOpts(opts)),
+  /** Sonner uses `error`; Hero UI uses `danger`. */
+  error: (message: ReactNode, opts?: ToastOptions) => heroToast.danger(message, toHeroOpts(opts)),
+  warning: (message: ReactNode, opts?: ToastOptions) =>
+    heroToast.warning(message, toHeroOpts(opts)),
+  info: (message: ReactNode, opts?: ToastOptions) => heroToast.info(message, toHeroOpts(opts)),
+  loading: (message: ReactNode, opts?: ToastOptions) =>
+    heroToast(message, { ...toHeroOpts(opts), isLoading: true }),
+  dismiss: (key?: string) => {
+    if (key) heroToast.close(key);
+    else heroToast.clear();
+  },
+  promise: heroToast.promise,
+});
+
+/** No-op — Hero UI v3 mounts its own ToastProvider in layout.tsx. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function Toaster(_props?: Record<string, any>) {
+  return null;
+}

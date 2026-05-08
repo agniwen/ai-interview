@@ -3,7 +3,7 @@
 import type { ChatModelOption } from "@/lib/api";
 import { CheckIcon, ChevronDownIcon, CpuIcon } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/sonner";
 import { Button } from "@/components/ui/button";
 import {
   Command,
