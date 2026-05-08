@@ -34,7 +34,7 @@ function mediaTypeToExtension(mediaType: string): string {
 
 // 构造上传/preflight 共用的响应结构。
 // Build the upload/preflight shared response shape.
-export function buildUploadResponse(args: {
+function buildUploadResponse(args: {
   attachmentId: string;
   parsedStatus: "ready" | "failed" | "pending";
   parsedPageCount: number | null;
@@ -268,10 +268,12 @@ export const chatRouter = factory
     // The server always computes the hash itself; client claims are ignored.
     const contentHash = await sha256HexOfBytes(original);
 
-    // 命中既有行：复制 storageKey + 解析结果，新建一条独立 attachment 行。
+    // 命中既有行：按 hash 全局查 chat_attachment（不做 userId 过滤），命中后给
+    // 当前用户新建一条独立 attachment 行——读路径仍按 userId+id 鉴权。
     // 并发 miss：两个请求各自 PUT 同一 hash 命名的 S3 对象（幂等覆盖）+
     // 各自 INSERT 独立 attachmentId，不冲突。
-    // Hash hit: reuse storageKey and parse result; insert a fresh per-user row.
+    // Hash hit: lookup is global (no userId filter); on hit we insert a fresh
+    // per-user row — the read path remains userId+id scoped, so isolation holds.
     // Concurrent miss: two requests each PUT the same hash-named S3 key
     // (idempotent overwrite) and INSERT independent attachmentIds — no conflict.
     const existing = await findAttachmentByContentHash(contentHash);
