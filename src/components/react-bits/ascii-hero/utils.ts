@@ -84,3 +84,28 @@ export function advect(args: AdvectArgs): void {
 export function dissipate(arr: Float32Array, factor: number): void {
   for (let i = 0; i < arr.length; i++) arr[i] *= factor;
 }
+
+export interface ComposeArgs {
+  luma: Float32Array;
+  density: Float32Array;
+  noise: (x: number, y: number, t: number) => number; // 中文：返回 [-1, 1] / English: returns [-1, 1]
+  W: number;
+  H: number;
+  noiseScale: number;
+  noiseSpeed: number;
+  t: number;
+}
+
+export function compose(args: ComposeArgs): void {
+  const { luma, density, noise, W, H, noiseScale, noiseSpeed, t } = args;
+  const tScaled = t * noiseSpeed;
+
+  for (let j = 0; j < H; j++) {
+    for (let i = 0; i < W; i++) {
+      const idx = j * W + i;
+      const n = (noise(i * noiseScale, j * noiseScale, tScaled) + 1) * 0.5;
+      const v = n + density[idx];
+      luma[idx] = v < 0 ? 0 : v > 1 ? 1 : v;
+    }
+  }
+}

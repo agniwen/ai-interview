@@ -158,3 +158,97 @@ describe("dissipate", () => {
     expect(sum).toBeCloseTo(98.5, 5);
   });
 });
+
+import { compose } from "./utils";
+
+describe("compose", () => {
+  it("with zero density and zero noise, luma is 0.5 everywhere", () => {
+    const W = 2;
+    const H = 2;
+    const luma = new Float32Array(W * H);
+    const density = new Float32Array(W * H);
+    const noise = () => 0;
+
+    compose({
+      luma,
+      density,
+      noise,
+      W,
+      H,
+      noiseScale: 1,
+      noiseSpeed: 1,
+      t: 0,
+    });
+
+    for (let i = 0; i < luma.length; i++) expect(luma[i]).toBeCloseTo(0.5, 5);
+  });
+
+  it("density saturates to 1 even with negative noise", () => {
+    const W = 2;
+    const H = 2;
+    const luma = new Float32Array(W * H);
+    const density = new Float32Array(W * H).fill(2);
+    const noise = () => -1;
+
+    compose({
+      luma,
+      density,
+      noise,
+      W,
+      H,
+      noiseScale: 1,
+      noiseSpeed: 1,
+      t: 0,
+    });
+
+    for (let i = 0; i < luma.length; i++) expect(luma[i]).toBe(1);
+  });
+
+  it("clamps to 0 when noise is -1 and density is 0", () => {
+    const W = 1;
+    const H = 1;
+    const luma = new Float32Array(1);
+    const density = new Float32Array(1);
+    const noise = () => -1;
+
+    compose({
+      luma,
+      density,
+      noise,
+      W,
+      H,
+      noiseScale: 1,
+      noiseSpeed: 1,
+      t: 0,
+    });
+
+    expect(luma[0]).toBe(0);
+  });
+
+  it("passes scaled coordinates to noise", () => {
+    const W = 2;
+    const H = 2;
+    const luma = new Float32Array(W * H);
+    const density = new Float32Array(W * H);
+    const calls: Array<[number, number, number]> = [];
+    const noise = (x: number, y: number, z: number) => {
+      calls.push([x, y, z]);
+      return 0;
+    };
+
+    compose({
+      luma,
+      density,
+      noise,
+      W,
+      H,
+      noiseScale: 0.1,
+      noiseSpeed: 0.01,
+      t: 100,
+    });
+
+    expect(calls[0]).toEqual([0, 0, 1]);
+    expect(calls[1]).toEqual([0.1, 0, 1]);
+    expect(calls[3]).toEqual([0.1, 0.1, 1]);
+  });
+});
