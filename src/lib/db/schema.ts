@@ -221,7 +221,7 @@ export const studioInterview = pgTable(
     index("studio_interview_created_at_idx").on(table.createdAt),
     index("studio_interview_created_by_idx").on(table.createdBy),
     index("studio_interview_job_description_idx").on(table.jobDescriptionId),
-    index("studio_interview_resume_hash_idx").on(table.resumeContentHash),
+    index("studio_interview_resume_content_hash_idx").on(table.resumeContentHash),
   ],
 );
 

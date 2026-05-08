@@ -1,0 +1,1 @@
+ALTER INDEX "studio_interview_resume_hash_idx" RENAME TO "studio_interview_resume_content_hash_idx";
