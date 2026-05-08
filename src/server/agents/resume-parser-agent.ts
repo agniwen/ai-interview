@@ -61,4 +61,22 @@ export function toResumeProfile(structured: ResumeParserStructured): ResumeProfi
   };
 }
 
+// 把 chat_attachment 行的 superset parsedStructured 投影到 ResumeProfile，
+// 调用方据此判断是否能跳过 parseResumeFast。形状不符时静默返回 null
+// ——让调用方走完整 parse 兜底。
+// Project a chat_attachment row's superset parsedStructured down to
+// ResumeProfile. Callers use this to decide whether they can skip
+// parseResumeFast. Returns null on shape mismatch so callers fall back
+// to a full parse.
+export function projectAttachmentToResumeProfile(parsedStructured: unknown): ResumeProfile | null {
+  if (parsedStructured === null || parsedStructured === undefined) {
+    return null;
+  }
+  const parsed = structuredSchema.safeParse(parsedStructured);
+  if (!parsed.success) {
+    return null;
+  }
+  return toResumeProfile(parsed.data);
+}
+
 export { readPdfBytes };
