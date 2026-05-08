@@ -55,6 +55,32 @@ export function CreateInterviewDialog({
   const [partialFields, setPartialFields] = useState<{ label: string; value: string }[]>([]);
   const accumulatedTextRef = useRef("");
   const abortControllerRef = useRef<AbortController | null>(null);
+
+  // 清空 dialog 内除表单之外的所有临时态：简历文件、分析中间结果、进度、文件
+  // input 的 DOM value、活动 tab，并 abort 任何还在跑的请求。表单字段由调用
+  // 方紧随其后用 form.reset(createInterviewFormValues()) 重置——拆开避免和
+  // 同一渲染中后定义的 form 形成循环引用。
+  // Reset all transient dialog state EXCEPT the form. Callers follow this with
+  // form.reset(createInterviewFormValues()). The split avoids a circular
+  // reference with the form created later in the same render.
+  const resetTransientDialogState = useCallback(() => {
+    abortControllerRef.current?.abort();
+    abortControllerRef.current = null;
+    setResumeFile(null);
+    setResumePayload(null);
+    setIsAnalyzingResume(false);
+    setIsGeneratingQuestions(false);
+    setProgressStatus("");
+    setProgressTools([]);
+    setPartialFields([]);
+    accumulatedTextRef.current = "";
+    setActiveTab("basic");
+    const fileInput = document.querySelector("#resume-upload") as HTMLInputElement | null;
+    if (fileInput) {
+      fileInput.value = "";
+    }
+  }, []);
+
   const form = useInterviewForm({
     defaultValues: createInterviewFormValues(),
     onSubmit: async (values) => {
@@ -89,8 +115,7 @@ export function CreateInterviewDialog({
         });
         onCreated(created);
         setOpen(false);
-        setResumeFile(null);
-        setResumePayload(null);
+        resetTransientDialogState();
         form.reset(createInterviewFormValues());
         toast.success("面试记录已创建");
       } catch (error) {
@@ -389,8 +414,13 @@ export function CreateInterviewDialog({
         <Modal
           open={open}
           onOpenChange={(value) => {
-            if (!isBusy) {
-              setOpen(value);
+            if (isBusy) {
+              return;
+            }
+            setOpen(value);
+            if (!value) {
+              resetTransientDialogState();
+              form.reset(createInterviewFormValues());
             }
           }}
           title="新建面试记录"
