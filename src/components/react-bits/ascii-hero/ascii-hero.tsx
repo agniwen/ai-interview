@@ -181,6 +181,36 @@ export function AsciiHero(props: AsciiHeroProps) {
     });
     observer.observe(container);
 
+    let inViewport = true;
+    let tabVisible = !document.hidden;
+
+    const start = () => {
+      if (!rafId && inViewport && tabVisible) {
+        lastFrame = performance.now();
+        rafId = requestAnimationFrame(tick);
+      }
+    };
+    const stop = () => {
+      if (rafId) {
+        cancelAnimationFrame(rafId);
+        rafId = 0;
+      }
+    };
+
+    const intersection = new IntersectionObserver((entries) => {
+      inViewport = entries[0]?.isIntersecting ?? true;
+      if (inViewport) start();
+      else stop();
+    });
+    intersection.observe(container);
+
+    const onVisibility = () => {
+      tabVisible = !document.hidden;
+      if (tabVisible) start();
+      else stop();
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+
     // 中文：监听全局指针移动，将坐标转换为 cell 单位并记录速度 / English: track pointer in cell coords with velocity
     const handlePointerMove = (e: PointerEvent) => {
       const rect = container.getBoundingClientRect();
@@ -205,13 +235,15 @@ export function AsciiHero(props: AsciiHeroProps) {
     window.addEventListener("pointermove", handlePointerMove);
     window.addEventListener("pointerleave", handlePointerLeave);
 
-    rafId = requestAnimationFrame(tick);
+    start();
 
     return () => {
       // 中文：清除指针监听，避免组件卸载后泄漏 / English: remove pointer listeners to avoid leaks after unmount
       window.removeEventListener("pointermove", handlePointerMove);
       window.removeEventListener("pointerleave", handlePointerLeave);
-      cancelAnimationFrame(rafId);
+      stop();
+      intersection.disconnect();
+      document.removeEventListener("visibilitychange", onVisibility);
       if (timer) clearTimeout(timer);
       observer.disconnect();
     };
