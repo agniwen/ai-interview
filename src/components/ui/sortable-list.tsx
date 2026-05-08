@@ -238,7 +238,7 @@ export function SortableDragHandle({
   return (
     <button
       className={cn(
-        "inline-flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50",
+        "inline-flex size-7 shrink-0 items-center justify-center rounded-md text-muted transition-colors hover:bg-default hover:text-default-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus/50 disabled:cursor-not-allowed disabled:opacity-50",
         className,
       )}
       type="button"

@@ -184,7 +184,7 @@ export function TileLayout({ chatOpen }: TileLayoutProps) {
                     trackRef={cameraTrack || screenShareTrack}
                     width={(cameraTrack || screenShareTrack)?.publication.dimensions?.width ?? 0}
                     height={(cameraTrack || screenShareTrack)?.publication.dimensions?.height ?? 0}
-                    className="bg-muted aspect-square size-[90px] rounded-md object-cover"
+                    className="bg-default aspect-square size-[90px] rounded-md object-cover"
                   />
                 </motion.div>
               )}

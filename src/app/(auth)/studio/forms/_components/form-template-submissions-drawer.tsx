@@ -46,7 +46,7 @@ function renderAnswer(
     rawValue === "" ||
     (Array.isArray(rawValue) && rawValue.length === 0)
   ) {
-    return <span className="text-muted-foreground italic">（未作答）</span>;
+    return <span className="text-muted italic">（未作答）</span>;
   }
   if (question.type === "multi") {
     const values = Array.isArray(rawValue) ? rawValue : [rawValue];
@@ -97,31 +97,31 @@ export function CandidateFormTemplateSubmissionsDrawer({
   return (
     <Sheet onOpenChange={onOpenChange} open={open}>
       <SheetContent className="w-full gap-0 overflow-y-auto p-0 sm:max-w-2xl">
-        <SheetHeader className="border-border/60 border-b px-6 pt-6 pb-4">
+        <SheetHeader className="border-separator/60 border-b px-6 pt-6 pb-4">
           <SheetTitle>填写记录</SheetTitle>
           <SheetDescription>{template ? `面试表单：${template.title}` : null}</SheetDescription>
         </SheetHeader>
         <div className="space-y-4 p-6">
           {isLoading ? (
-            <div className="flex items-center justify-center gap-2 py-10 text-muted-foreground text-sm">
+            <div className="flex items-center justify-center gap-2 py-10 text-muted text-sm">
               <Loader2Icon className="size-4 animate-spin" />
               加载中...
             </div>
           ) : null}
           {isError ? (
-            <p className="py-10 text-center text-destructive text-sm">
+            <p className="py-10 text-center text-danger text-sm">
               {(error as Error)?.message ?? "加载失败"}
             </p>
           ) : null}
           {data && data.length === 0 ? (
-            <div className="flex flex-col items-center gap-2 py-10 text-muted-foreground text-sm">
+            <div className="flex flex-col items-center gap-2 py-10 text-muted text-sm">
               <InboxIcon className="size-6" />
               还没有候选人填写过这份面试表单
             </div>
           ) : null}
           {data?.map((submission) => (
             <div
-              className="space-y-3 rounded-lg border border-border/60 bg-card p-4"
+              className="space-y-3 rounded-lg border border-separator/60 bg-surface p-4"
               key={submission.id}
             >
               <div className="flex items-center justify-between">
@@ -129,7 +129,7 @@ export function CandidateFormTemplateSubmissionsDrawer({
                   <span className="font-medium">{submission.candidateName ?? "未命名候选人"}</span>
                   <Badge variant="outline">v{submission.version}</Badge>
                 </div>
-                <span className="text-muted-foreground text-xs tabular-nums">
+                <span className="text-muted text-xs tabular-nums">
                   <TimeDisplay options={DATE_TIME_DISPLAY_OPTIONS} value={submission.submittedAt} />
                 </span>
               </div>
@@ -138,7 +138,7 @@ export function CandidateFormTemplateSubmissionsDrawer({
                   <div className="space-y-1" key={question.id}>
                     <p className="font-medium text-sm">
                       {question.label}
-                      {question.required ? <span className="ml-1 text-destructive">*</span> : null}
+                      {question.required ? <span className="ml-1 text-danger">*</span> : null}
                     </p>
                     <div className="pl-2 text-sm">
                       {renderAnswer(question, submission.answers[question.id])}

@@ -58,15 +58,13 @@ export function Composer({
       <DarkModeBeam active={isStreaming} className="w-full">
         <PromptInput
           accept="application/pdf"
-          className="**:data-[slot=input-group]:cursor-text **:data-[slot=input-group]:rounded-[1.3rem] **:data-[slot=input-group]:border-border/65 **:data-[slot=input-group]:bg-white **:data-[slot=input-group]:shadow-[0_8px_18px_-20px_rgba(60,44,23,0.5)]"
+          className="**:data-[slot=input-group]:cursor-text **:data-[slot=input-group]:rounded-[1.3rem] **:data-[slot=input-group]:border-separator/65 **:data-[slot=input-group]:bg-white **:data-[slot=input-group]:shadow-[0_8px_18px_-20px_rgba(60,44,23,0.5)]"
           dragOverlay={
-            <div className="flex h-full w-full items-center justify-center rounded-[1.15rem] border-2 border-dashed border-primary/60 bg-background px-6 py-8 text-center transition-colors">
+            <div className="flex h-full w-full items-center justify-center rounded-[1.15rem] border-2 border-dashed border-accent/60 bg-background px-6 py-8 text-center transition-colors">
               <div className="flex flex-col items-center gap-2">
-                <UploadIcon className="size-8 text-primary/50" />
+                <UploadIcon className="size-8 text-accent/50" />
                 <p className="font-medium text-sm">拖拽 PDF 简历到这里</p>
-                <p className="text-muted-foreground text-xs">
-                  支持多个文件，系统只会加入 PDF 格式的文件
-                </p>
+                <p className="text-muted text-xs">支持多个文件，系统只会加入 PDF 格式的文件</p>
               </div>
             </div>
           }

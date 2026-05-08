@@ -51,14 +51,14 @@ export function getPinningStyles<TData>(
 /**
  * className for pinned cells/headers — 关键点：
  *   1) `bg-background` 与本项目里 `<Card>` 实际用的 token 一致
- *      (本项目 `Card` 的 className 是 `bg-background` 而非 `bg-card`)，
+ *      (本项目 `Card` 的 className 是 `bg-background` 而非 `bg-surface`)，
  *      用错 token 会在 Card 内出现一条色差明显的"色带"
  *   2) hover/selected 用 `[tbody_tr…]` 作用域到 body，避免 thead 行
  *      hover 时只有固定列变色、其他不变的视觉错位
  *   3) padding 不在这里加，统一交给 DataGrid 顶层
  *
  * 1) Use `bg-background` to match this project's `<Card>` surface — the local
- *    `Card` component is built with `bg-background`, NOT `bg-card`. Picking the
+ *    `Card` component is built with `bg-background`, NOT `bg-surface`. Picking the
  *    wrong token shows up as a grey stripe across the pinned column.
  * 2) Hover/selected descendant rules are scoped to `tbody` so they only fire
  *    for body rows — thead pinned cells stay flat alongside non-pinned thead
@@ -67,7 +67,7 @@ export function getPinningStyles<TData>(
  *    every cell so pinned and non-pinned columns line up.
  */
 export const PINNED_CELL_CLASS =
-  "bg-background transition-colors [tbody_tr:hover_&]:bg-muted [tbody_tr[data-state=selected]_&]:bg-muted";
+  "bg-background transition-colors [tbody_tr:hover_&]:bg-default [tbody_tr[data-state=selected]_&]:bg-default";
 
 /**
  * 表头粘性定位 className：粘在滚动容器顶部，bg 用 `bg-background` 与 Card 一致。

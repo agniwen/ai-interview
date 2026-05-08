@@ -73,7 +73,7 @@ function formatElapsedTime(seconds: number): string {
 function renderSegments(segments: string[]) {
   return segments.map((segment, i) => (
     <span key={i}>
-      <span className="text-muted-foreground/40"> · </span>
+      <span className="text-muted/40"> · </span>
       {segment}
     </span>
   ));
@@ -150,7 +150,7 @@ export function ToolCallsSummaryBar({
         aria-label={fullSummary}
         title={fullSummary}
         className={cn(
-          "group flex w-full max-w-full items-center gap-2 rounded-md py-px text-left text-sm text-muted-foreground tabular-nums transition-colors hover:text-foreground sm:inline-flex sm:w-auto",
+          "group flex w-full max-w-full items-center gap-2 rounded-md py-px text-left text-sm text-muted tabular-nums transition-colors hover:text-foreground sm:inline-flex sm:w-auto",
           isStreaming && "text-foreground/90",
         )}
       >
@@ -158,7 +158,7 @@ export function ToolCallsSummaryBar({
           <span
             className={cn(
               "inline-block size-2 rounded-full",
-              isStreaming ? "animate-pulse bg-muted-foreground" : "bg-muted-foreground/50",
+              isStreaming ? "animate-pulse bg-default" : "bg-default/50",
             )}
           />
         </span>
@@ -180,7 +180,7 @@ export function ToolCallsSummaryBar({
         </span>
         <ChevronRight
           className={cn(
-            "size-3 shrink-0 text-muted-foreground/50 transition-transform duration-200 ease-out motion-reduce:transition-none",
+            "size-3 shrink-0 text-muted/50 transition-transform duration-200 ease-out motion-reduce:transition-none",
             isExpanded && "rotate-90",
           )}
         />

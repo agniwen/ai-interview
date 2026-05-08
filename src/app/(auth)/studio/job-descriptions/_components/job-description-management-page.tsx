@@ -172,9 +172,7 @@ export function JobDescriptionManagementPage({
       }),
       customColumn<JobDescriptionListRecord>({
         cell: (r) => (
-          <span className="max-w-sm truncate text-muted-foreground text-sm">
-            {r.description || "—"}
-          </span>
+          <span className="max-w-sm truncate text-muted text-sm">{r.description || "—"}</span>
         ),
         key: "description",
         title: "描述",
@@ -246,9 +244,7 @@ export function JobDescriptionManagementPage({
       <div className="space-y-6">
         <header className="flex flex-col gap-2">
           <h1 className="font-semibold text-2xl">在招岗位管理</h1>
-          <p className="text-muted-foreground text-sm">
-            配置岗位描述 prompt，并指定面试时要启用的面试官。
-          </p>
+          <p className="text-muted text-sm">配置岗位描述 prompt，并指定面试时要启用的面试官。</p>
         </header>
 
         <DataGrid<JobDescriptionListRecord>
@@ -264,7 +260,7 @@ export function JobDescriptionManagementPage({
           }
           empty={
             missingRefs ? (
-              <Empty className="border-border/60">
+              <Empty className="border-separator/60">
                 <EmptyHeader>
                   <EmptyMedia variant="icon">
                     <FileTextIcon className="size-5" />
@@ -276,7 +272,7 @@ export function JobDescriptionManagementPage({
                 </EmptyHeader>
               </Empty>
             ) : (
-              <Empty className="border-border/60">
+              <Empty className="border-separator/60">
                 <EmptyHeader>
                   <EmptyMedia variant="icon">
                     <FileTextIcon className="size-5" />

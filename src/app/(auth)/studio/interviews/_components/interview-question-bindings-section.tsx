@@ -142,24 +142,24 @@ export function InterviewQuestionBindingsSection({
     <div className="space-y-3">
       <div>
         <p className="font-medium text-sm">面试题</p>
-        <p className="mt-1 text-muted-foreground text-xs">
+        <p className="mt-1 text-muted text-xs">
           AI
           面试官会按顺序必问下列已开启的面试题；面试创建瞬间的题目内容已被冻结为快照，之后编辑不影响本面试。
         </p>
       </div>
 
       {isLoading ? (
-        <p className="rounded-xl border border-dashed border-border/60 bg-muted/20 px-4 py-6 text-center text-muted-foreground text-sm">
+        <p className="rounded-xl border border-dashed border-separator/60 bg-default/20 px-4 py-6 text-center text-muted text-sm">
           正在加载…
         </p>
       ) : null}
       {isError ? (
-        <p className="rounded-xl border border-destructive/40 bg-destructive/5 px-4 py-6 text-center text-destructive text-sm">
+        <p className="rounded-xl border border-danger/40 bg-danger/5 px-4 py-6 text-center text-danger text-sm">
           加载失败，请刷新重试。
         </p>
       ) : null}
       {!isLoading && !isError && data && data.applicable.length === 0 ? (
-        <p className="rounded-xl border border-dashed border-border/60 bg-muted/20 px-4 py-6 text-center text-muted-foreground text-sm">
+        <p className="rounded-xl border border-dashed border-separator/60 bg-default/20 px-4 py-6 text-center text-muted text-sm">
           没有适用的面试题（全局或当前岗位绑定）。
         </p>
       ) : null}
@@ -169,26 +169,26 @@ export function InterviewQuestionBindingsSection({
             const isEnabled = enabledIds.has(template.id);
             return (
               <div
-                className={`overflow-hidden rounded-xl border bg-muted/20 transition-opacity ${
-                  isEnabled ? "border-border/60" : "border-border/40 opacity-60"
+                className={`overflow-hidden rounded-xl border bg-default/20 transition-opacity ${
+                  isEnabled ? "border-separator/60" : "border-separator/40 opacity-60"
                 }`}
                 key={template.id}
               >
                 <div className="flex items-start justify-between gap-3 px-3 py-2.5">
                   <div className="flex min-w-0 items-start gap-3">
-                    <ListChecksIcon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                    <ListChecksIcon className="mt-0.5 size-4 shrink-0 text-muted" />
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
                         <p className="truncate font-medium text-sm">{template.title}</p>
                         <Badge variant={template.scope === "global" ? "default" : "secondary"}>
                           {template.scope === "global" ? "全局" : "岗位绑定"}
                         </Badge>
-                        <span className="text-muted-foreground text-xs tabular-nums">
+                        <span className="text-muted text-xs tabular-nums">
                           {template.questions.length} 题
                         </span>
                       </div>
                       {template.description ? (
-                        <p className="mt-0.5 line-clamp-2 text-muted-foreground text-xs">
+                        <p className="mt-0.5 line-clamp-2 text-muted text-xs">
                           {template.description}
                         </p>
                       ) : null}
@@ -203,12 +203,12 @@ export function InterviewQuestionBindingsSection({
                 </div>
 
                 {template.questions.length > 0 ? (
-                  <ol className="space-y-1 border-border/60 border-t bg-background/40 px-3 py-2.5">
+                  <ol className="space-y-1 border-separator/60 border-t bg-background/40 px-3 py-2.5">
                     {template.questions.map((question, index) => {
                       const difficulty = question.difficulty ?? "easy";
                       return (
                         <li className="flex items-start gap-2 text-sm" key={question.id}>
-                          <span className="mt-0.5 w-6 shrink-0 font-mono text-[11px] text-muted-foreground/70 tabular-nums">
+                          <span className="mt-0.5 w-6 shrink-0 font-mono text-[11px] text-muted/70 tabular-nums">
                             {String(index + 1).padStart(2, "0")}
                           </span>
                           <span

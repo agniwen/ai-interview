@@ -102,10 +102,10 @@ export function ApplyJobDescriptionCard({
     // flashing a "missing data" message before the real card arrives.
     if (!hasOutput && !isTerminalWithoutOutput) {
       return (
-        <div className="my-2 border border-border/70 bg-background/60 px-4 py-3 rounded">
+        <div className="my-2 border border-separator/70 bg-background/60 px-4 py-3 rounded">
           <div className="flex items-center gap-2">
-            <TargetIcon className="mt-0.5 size-4 shrink-0 text-primary" />
-            <div className="min-w-0 flex-1 text-muted-foreground text-xs">
+            <TargetIcon className="mt-0.5 size-4 shrink-0 text-accent" />
+            <div className="min-w-0 flex-1 text-muted text-xs">
               <Shimmer duration={1.2}>正在生成岗位推荐…</Shimmer>
             </div>
           </div>
@@ -115,7 +115,7 @@ export function ApplyJobDescriptionCard({
     // Truly broken: output arrived (or the tool errored) but the input
     // payload is unusable. Render a muted notice instead of a full card.
     return (
-      <div className="my-2 rounded border border-border/60 bg-muted/30 px-3 py-2 text-muted-foreground text-xs">
+      <div className="my-2 rounded border border-separator/60 bg-default/30 px-3 py-2 text-muted text-xs">
         岗位推荐数据缺失，跳过审批。
       </div>
     );
@@ -131,23 +131,21 @@ export function ApplyJobDescriptionCard({
   const toolCallId = part.toolCallId ?? "";
 
   return (
-    <div className="my-2  border border-border/70 bg-background/60 px-4 py-3 rounded">
+    <div className="my-2  border border-separator/70 bg-background/60 px-4 py-3 rounded">
       <div className="flex items-start gap-2">
-        <TargetIcon className="mt-0.5 size-4 shrink-0 text-primary" />
+        <TargetIcon className="mt-0.5 size-4 shrink-0 text-accent" />
         <div className="min-w-0 flex-1 space-y-3">
           <div>
             <div className="font-medium text-sm">
               {isResolved ? "在招岗位匹配结果" : "是否将以下在招岗位设置为本次对话上下文？"}
             </div>
             {input.reasoning ? (
-              <div className="mt-1 text-muted-foreground text-xs leading-relaxed">
-                {input.reasoning}
-              </div>
+              <div className="mt-1 text-muted text-xs leading-relaxed">{input.reasoning}</div>
             ) : null}
           </div>
 
           {isResolved ? (
-            <div className="rounded-xs border border-border/60 bg-muted/30 px-3 py-2 text-xs">
+            <div className="rounded-xs border border-separator/60 bg-default/30 px-3 py-2 text-xs">
               {isConfirmed && confirmedCandidate ? (
                 <div className="space-y-0.5">
                   <div className="font-medium text-foreground">
@@ -158,11 +156,11 @@ export function ApplyJobDescriptionCard({
                     {confirmedCandidate.name}
                   </div>
                   {confirmedCandidate.reasons ? (
-                    <div className="text-muted-foreground">{confirmedCandidate.reasons}</div>
+                    <div className="text-muted">{confirmedCandidate.reasons}</div>
                   ) : null}
                 </div>
               ) : (
-                <div className="text-muted-foreground">已忽略，未设置在招岗位。</div>
+                <div className="text-muted">已忽略，未设置在招岗位。</div>
               )}
             </div>
           ) : (
@@ -183,18 +181,18 @@ export function ApplyJobDescriptionCard({
                               {candidate.name}
                             </span>
                             {isRecommended ? (
-                              <span className="rounded bg-primary/10 px-1.5 py-0.5 font-medium text-[10px] text-primary">
+                              <span className="rounded bg-accent/10 px-1.5 py-0.5 font-medium text-[10px] text-accent">
                                 推荐
                               </span>
                             ) : null}
                             {typeof candidate.score === "number" ? (
-                              <span className="text-muted-foreground text-[10px]">
+                              <span className="text-muted text-[10px]">
                                 匹配度 {candidate.score}
                               </span>
                             ) : null}
                           </span>
                           {candidate.reasons ? (
-                            <span className="line-clamp-1 text-muted-foreground text-xs">
+                            <span className="line-clamp-1 text-muted text-xs">
                               {candidate.reasons}
                             </span>
                           ) : null}
@@ -206,7 +204,7 @@ export function ApplyJobDescriptionCard({
               </Select>
 
               {/* {currentSelection?.reasons ? (
-                <div className="rounded-lg bg-muted/40 px-3 py-2 text-muted-foreground text-xs">
+                <div className="rounded-lg bg-default/40 px-3 py-2 text-muted text-xs">
                   {currentSelection.reasons}
                 </div>
               ) : null} */}

@@ -222,14 +222,14 @@ export function CandidateFormTemplateManagementPage({
         cell: (r) =>
           r.submissionCount > 0 ? (
             <button
-              className="text-primary text-sm underline-offset-4 hover:underline tabular-nums"
+              className="text-accent text-sm underline-offset-4 hover:underline tabular-nums"
               onClick={() => setSubmissionsRecord(r)}
               type="button"
             >
               {r.submissionCount}
             </button>
           ) : (
-            <span className="text-muted-foreground tabular-nums">0</span>
+            <span className="text-muted tabular-nums">0</span>
           ),
         key: "submissionCount",
         title: "已填写",
@@ -303,7 +303,7 @@ export function CandidateFormTemplateManagementPage({
       <div className="space-y-6">
         <header className="flex flex-col gap-2">
           <h1 className="font-semibold text-2xl">面试表单</h1>
-          <p className="text-muted-foreground text-sm">
+          <p className="text-muted text-sm">
             配置候选人在面试前需要填写的表单。可以设为全局或绑定到在招岗位；候选人提交后会冻结为快照，之后编辑不影响历史填写记录。
           </p>
         </header>
@@ -320,7 +320,7 @@ export function CandidateFormTemplateManagementPage({
             </Button>
           }
           empty={
-            <Empty className="border-border/60">
+            <Empty className="border-separator/60">
               <EmptyHeader>
                 <EmptyMedia variant="icon">
                   <ClipboardListIcon className="size-5" />

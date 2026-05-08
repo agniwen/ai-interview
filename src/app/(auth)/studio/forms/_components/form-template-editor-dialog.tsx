@@ -196,7 +196,7 @@ export function CandidateFormTemplateEditorDialog({
                 return (
                   <Field data-invalid={hasFieldErrors(field.state.meta.errors) || undefined}>
                     <FieldLabel htmlFor={field.name}>
-                      表单标题 <span className="text-destructive">*</span>
+                      表单标题 <span className="text-danger">*</span>
                     </FieldLabel>
                     <FieldContent className="gap-2">
                       <Input
@@ -243,7 +243,7 @@ export function CandidateFormTemplateEditorDialog({
                 {(field) => (
                   <Field>
                     <FieldLabel htmlFor={field.name}>
-                      作用范围 <span className="text-destructive">*</span>
+                      作用范围 <span className="text-danger">*</span>
                     </FieldLabel>
                     <FieldContent className="gap-2">
                       <Select
@@ -275,7 +275,7 @@ export function CandidateFormTemplateEditorDialog({
                     return (
                       <Field data-invalid={hasFieldErrors(field.state.meta.errors) || undefined}>
                         <FieldLabel htmlFor={field.name}>
-                          绑定岗位 <span className="text-destructive">*</span>
+                          绑定岗位 <span className="text-danger">*</span>
                         </FieldLabel>
                         <FieldContent className="gap-2">
                           <SearchableMultiSelect
@@ -305,7 +305,7 @@ export function CandidateFormTemplateEditorDialog({
             <div className="flex items-center justify-between">
               <h3 className="font-medium text-sm">题目列表</h3>
               <form.Subscribe selector={(state) => state.values.questions.length}>
-                {(len) => <span className="text-muted-foreground text-xs">共 {len} 道</span>}
+                {(len) => <span className="text-muted text-xs">共 {len} 道</span>}
               </form.Subscribe>
             </div>
             <form.Field mode="array" name="questions">
@@ -404,11 +404,11 @@ function QuestionEditorRow({
 
   return (
     <div
-      className={`space-y-3 rounded-lg border border-border/60 bg-muted/20 p-3 ${isDragging ? "ring-2 ring-primary/50" : ""}`}
+      className={`space-y-3 rounded-lg border border-separator/60 bg-default/20 p-3 ${isDragging ? "ring-2 ring-accent/50" : ""}`}
     >
       <div className="flex items-center gap-2">
         <SortableDragHandle {...handleProps} aria-label="拖动以调整题目顺序" />
-        <span className="font-medium text-muted-foreground text-sm">#{index + 1}</span>
+        <span className="font-medium text-muted text-sm">#{index + 1}</span>
         <div className="ml-auto flex items-center gap-0.5">
           <Button
             aria-label="删除题目"

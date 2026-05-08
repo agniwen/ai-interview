@@ -267,9 +267,7 @@ export function AgentSessionView_01({
       >
         <AgentStateIndicator
           state={agentState}
-          className={cn([
-            chatOpen ? "rounded-full px-2 bg-secondary border border-primary/20" : "",
-          ])}
+          className={cn([chatOpen ? "rounded-full px-2 bg-default border border-accent/20" : ""])}
         />
       </div>
       {/* Bottom */}

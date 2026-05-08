@@ -73,8 +73,8 @@ export function ThinkingBlock({ text, isStreaming = false, partCount = 1 }: Thin
   const summary = !isStreaming && elapsed > 0 ? `${elapsed} 秒` : "";
 
   const expandedContent = hasContent ? (
-    <div className=" border-t border-b border-border bg-muted/40 px-3 py-2">
-      <p className="whitespace-pre-wrap break-words text-xs text-muted-foreground">{text}</p>
+    <div className=" border-t border-b border-separator bg-default/40 px-3 py-2">
+      <p className="whitespace-pre-wrap break-words text-xs text-muted">{text}</p>
     </div>
   ) : undefined;
 

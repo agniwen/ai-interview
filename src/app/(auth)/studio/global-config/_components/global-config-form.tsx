@@ -43,7 +43,7 @@ export function GlobalConfigForm({ initial }: Props) {
     <div className="flex flex-col gap-6 max-w-3xl">
       <div>
         <h1 className="text-2xl font-semibold">全局配置</h1>
-        <p className="text-sm text-muted-foreground mt-1">
+        <p className="text-sm text-muted mt-1">
           这些指令会注入到所有面试 agent。留空则使用系统默认文案。
         </p>
       </div>
@@ -57,9 +57,9 @@ export function GlobalConfigForm({ initial }: Props) {
           onChange={(e) => setOpening(e.target.value)}
           placeholder='例如：用候选人的名字"{候选人姓名}"打招呼，介绍你是 XX 公司"{岗位}"的面试官…'
         />
-        <p className="text-xs text-muted-foreground">
-          可用占位符：<code className="rounded bg-muted px-1">{"{候选人姓名}"}</code>、
-          <code className="rounded bg-muted px-1">{"{岗位}"}</code>
+        <p className="text-xs text-muted">
+          可用占位符：<code className="rounded bg-default px-1">{"{候选人姓名}"}</code>、
+          <code className="rounded bg-default px-1">{"{岗位}"}</code>
           ，将在面试开始时自动替换为本场面试的真实值。
         </p>
       </div>
@@ -73,9 +73,9 @@ export function GlobalConfigForm({ initial }: Props) {
           onChange={(e) => setClosing(e.target.value)}
           placeholder="例如：感谢候选人参加本次面试，祝你一切顺利。"
         />
-        <p className="text-xs text-muted-foreground">
-          可用占位符：<code className="rounded bg-muted px-1">{"{候选人姓名}"}</code>、
-          <code className="rounded bg-muted px-1">{"{岗位}"}</code>
+        <p className="text-xs text-muted">
+          可用占位符：<code className="rounded bg-default px-1">{"{候选人姓名}"}</code>、
+          <code className="rounded bg-default px-1">{"{岗位}"}</code>
           ，将在面试结束时自动替换为本场面试的真实值。
         </p>
       </div>

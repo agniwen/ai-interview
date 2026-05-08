@@ -62,13 +62,13 @@ export function QuestionView({
     return (
       <RadioGroup
         aria-invalid={invalidProp}
-        className={invalid ? "gap-1.5 rounded-md p-2 ring-2 ring-destructive/40" : "gap-1.5"}
+        className={invalid ? "gap-1.5 rounded-md p-2 ring-2 ring-danger/40" : "gap-1.5"}
         onValueChange={(next) => onChange(next)}
         value={typeof value === "string" ? value : ""}
       >
         {question.options.map((option) => (
           <Label
-            className="flex min-h-11 cursor-pointer items-center gap-3 rounded-md border border-transparent px-3 py-2 font-normal transition-colors hover:bg-accent has-[button[data-state=checked]]:border-primary/40 has-[button[data-state=checked]]:bg-accent/60"
+            className="flex min-h-11 cursor-pointer items-center gap-3 rounded-md border border-transparent px-3 py-2 font-normal transition-colors hover:bg-default has-[button[data-state=checked]]:border-accent/40 has-[button[data-state=checked]]:bg-default/60"
             htmlFor={`${inputId}-${option.value}`}
             key={option.value}
           >
@@ -103,15 +103,13 @@ export function QuestionView({
     return (
       <div
         aria-invalid={invalidProp}
-        className={
-          invalid ? "space-y-1.5 rounded-md p-2 ring-2 ring-destructive/40" : "space-y-1.5"
-        }
+        className={invalid ? "space-y-1.5 rounded-md p-2 ring-2 ring-danger/40" : "space-y-1.5"}
       >
         {question.options.map((option) => {
           const checked = selected.has(option.value);
           return (
             <Label
-              className="flex min-h-11 cursor-pointer items-center gap-3 rounded-md border border-transparent px-3 py-2 font-normal transition-colors hover:bg-accent has-[button[data-state=checked]]:border-primary/40 has-[button[data-state=checked]]:bg-accent/60"
+              className="flex min-h-11 cursor-pointer items-center gap-3 rounded-md border border-transparent px-3 py-2 font-normal transition-colors hover:bg-default has-[button[data-state=checked]]:border-accent/40 has-[button[data-state=checked]]:bg-default/60"
               htmlFor={`${inputId}-${option.value}`}
               key={option.value}
             >

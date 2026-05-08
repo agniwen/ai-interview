@@ -74,9 +74,9 @@ export function MobileChoicePicker({
     <Drawer onOpenChange={setOpen} open={open}>
       <button
         className={cn(
-          "flex h-10 w-full items-center justify-between gap-2 rounded-md border border-input bg-transparent px-3 py-2 text-left text-sm shadow-xs transition-[color,box-shadow]",
-          "data-[invalid=true]:border-destructive data-[invalid=true]:ring-[3px] data-[invalid=true]:ring-destructive/20",
-          "focus-visible:border-ring focus-visible:outline-hidden focus-visible:ring-[3px] focus-visible:ring-ring/50",
+          "flex h-10 w-full items-center justify-between gap-2 rounded-md border border-separator bg-transparent px-3 py-2 text-left text-sm shadow-xs transition-[color,box-shadow]",
+          "data-[invalid=true]:border-danger data-[invalid=true]:ring-[3px] data-[invalid=true]:ring-danger/20",
+          "focus-visible:border-focus focus-visible:outline-hidden focus-visible:ring-[3px] focus-visible:ring-focus/50",
         )}
         data-invalid={invalid ? true : undefined}
         id={inputId}
@@ -84,10 +84,7 @@ export function MobileChoicePicker({
         type="button"
       >
         <span
-          className={cn(
-            "min-w-0 flex-1 truncate",
-            selectedValues.size === 0 ? "text-muted-foreground" : "",
-          )}
+          className={cn("min-w-0 flex-1 truncate", selectedValues.size === 0 ? "text-muted" : "")}
         >
           {triggerLabel}
         </span>
@@ -97,7 +94,7 @@ export function MobileChoicePicker({
         <DrawerHeader className="text-left">
           <div className="flex items-center gap-2">
             <Badge variant="secondary">{isMulti ? "多选" : "单选"}</Badge>
-            {question.required ? <span className="text-destructive text-xs">必填</span> : null}
+            {question.required ? <span className="text-danger text-xs">必填</span> : null}
           </div>
           <DrawerTitle className="leading-snug">{question.label}</DrawerTitle>
           {question.helperText ? (
@@ -113,8 +110,8 @@ export function MobileChoicePicker({
                   className={cn(
                     "flex min-h-12 items-center gap-3 rounded-md border px-3 py-2 text-left text-sm transition-colors",
                     checked
-                      ? "border-primary/50 bg-accent/60"
-                      : "border-transparent hover:bg-accent",
+                      ? "border-accent/50 bg-default/60"
+                      : "border-transparent hover:bg-default",
                   )}
                   key={option.value}
                   onClick={() => {
@@ -136,7 +133,7 @@ export function MobileChoicePicker({
                   type="button"
                 >
                   <span className="flex-1">{option.label}</span>
-                  {checked ? <CheckIcon className="size-4 shrink-0 text-primary" /> : null}
+                  {checked ? <CheckIcon className="size-4 shrink-0 text-accent" /> : null}
                 </button>
               );
             })}

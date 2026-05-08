@@ -19,7 +19,7 @@ export function TrustStrip() {
       <ul className="mx-auto grid max-w-4xl grid-cols-2 place-items-center gap-x-6 gap-y-3 text-foreground/70 text-xs sm:flex sm:flex-wrap sm:items-center sm:justify-center sm:gap-x-10 sm:text-sm">
         {items.map(({ Icon, label }) => (
           <li className="inline-flex items-center gap-2" key={label}>
-            <span className="inline-flex size-7 items-center justify-center rounded-lg border border-primary/15 bg-primary/8 text-primary">
+            <span className="inline-flex size-7 items-center justify-center rounded-lg border border-accent/15 bg-accent/8 text-accent">
               <Icon aria-hidden="true" className="size-4" />
             </span>
             <span className="font-medium">{label}</span>

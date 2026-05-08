@@ -34,8 +34,8 @@ function Field({ label, value }: { label: string; value: string | null | undefin
   const display = value?.trim();
   return (
     <div className="flex items-baseline gap-2 text-sm">
-      <span className="shrink-0 text-muted-foreground text-xs">{label}</span>
-      <span className={cn("truncate", display ? "text-foreground" : "text-muted-foreground/60")}>
+      <span className="shrink-0 text-muted text-xs">{label}</span>
+      <span className={cn("truncate", display ? "text-foreground" : "text-muted/60")}>
         {display || "—"}
       </span>
     </div>
@@ -47,7 +47,7 @@ function ChipList({ items }: { items: string[] }) {
     <div className="flex flex-wrap gap-1.5">
       {items.map((item, idx) => (
         <span
-          className="rounded-full border bg-muted/40 px-2 py-0.5 text-foreground text-xs"
+          className="rounded-full border bg-default/40 px-2 py-0.5 text-foreground text-xs"
           key={`chip-${idx}`}
         >
           {item}
@@ -58,7 +58,7 @@ function ChipList({ items }: { items: string[] }) {
 }
 
 function EmptyHint() {
-  return <p className="text-muted-foreground/70 text-xs">暂无</p>;
+  return <p className="text-muted/70 text-xs">暂无</p>;
 }
 
 function ExperienceCard({
@@ -75,12 +75,12 @@ function ExperienceCard({
   extra?: React.ReactNode;
 }) {
   return (
-    <div className="rounded-md border bg-card p-3">
+    <div className="rounded-md border bg-surface p-3">
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
         <h5 className="font-medium text-foreground text-sm">{title}</h5>
-        {period ? <span className="text-muted-foreground text-xs">{period}</span> : null}
+        {period ? <span className="text-muted text-xs">{period}</span> : null}
       </div>
-      {role ? <p className="mt-0.5 text-muted-foreground text-xs">{role}</p> : null}
+      {role ? <p className="mt-0.5 text-muted text-xs">{role}</p> : null}
       {summary ? (
         <p className="mt-2 whitespace-pre-wrap text-foreground text-sm leading-relaxed">
           {summary}
@@ -184,7 +184,7 @@ function SummaryView({ structured }: { structured: ResumeParserStructured }) {
         </FieldGrid>
         {structured.timelineSummary.dateRanges.length > 0 ? (
           <div className="mt-2">
-            <p className="mb-1 text-muted-foreground text-xs">原文时间区间</p>
+            <p className="mb-1 text-muted text-xs">原文时间区间</p>
             <ChipList items={structured.timelineSummary.dateRanges} />
           </div>
         ) : null}
@@ -206,7 +206,7 @@ function SummaryView({ structured }: { structured: ResumeParserStructured }) {
             {structured.links.map((link, idx) => (
               <li key={`link-${idx}`}>
                 <a
-                  className="text-primary underline underline-offset-2 hover:opacity-80"
+                  className="text-accent underline underline-offset-2 hover:opacity-80"
                   href={`#${link}`}
                   rel="noopener noreferrer"
                 >
@@ -258,13 +258,13 @@ export function ParsedResumeButton({
             <span className="truncate">{filename}</span>
             {pageCount ? (
               <>
-                <span className="text-muted-foreground/60">·</span>
+                <span className="text-muted/60">·</span>
                 <span>{pageCount} 页</span>
               </>
             ) : null}
             {sourceLabel ? (
               <>
-                <span className="text-muted-foreground/60">·</span>
+                <span className="text-muted/60">·</span>
                 <span>来源 {sourceLabel}</span>
               </>
             ) : null}
@@ -298,12 +298,12 @@ export function ParsedResumeButton({
       >
         {tab === "summary" ? <SummaryView structured={structured} /> : null}
         {tab === "json" ? (
-          <pre className="overflow-x-auto rounded-md border bg-muted/40 p-3 font-mono text-xs leading-5">
+          <pre className="overflow-x-auto rounded-md border bg-default/40 p-3 font-mono text-xs leading-5">
             {JSON.stringify(structured, null, 2)}
           </pre>
         ) : null}
         {tab === "text" && parsedText ? (
-          <pre className="overflow-x-auto whitespace-pre-wrap rounded-md border bg-muted/40 p-3 font-mono text-xs leading-5">
+          <pre className="overflow-x-auto whitespace-pre-wrap rounded-md border bg-default/40 p-3 font-mono text-xs leading-5">
             {parsedText}
           </pre>
         ) : null}

@@ -131,7 +131,7 @@ export function PdfPreviewDialog({ open, onOpenChange, url, filename }: PdfPrevi
       description={pageCountLabel}
       headerLayout="row"
       headerClassName="px-5 py-3"
-      bodyClassName="flex justify-center overflow-auto bg-muted/30 px-0 py-3"
+      bodyClassName="flex justify-center overflow-auto bg-default/30 px-0 py-3"
       headerExtra={
         <div className="flex items-center gap-1">
           {renderAllPages ? null : (
@@ -170,7 +170,7 @@ export function PdfPreviewDialog({ open, onOpenChange, url, filename }: PdfPrevi
           >
             <ZoomOutIcon className="size-4" />
           </Button>
-          <span className="w-12 text-center text-muted-foreground text-xs tabular-nums">
+          <span className="w-12 text-center text-muted text-xs tabular-nums">
             {Math.round(scale * 100)}%
           </span>
           <Button
@@ -213,14 +213,14 @@ export function PdfPreviewDialog({ open, onOpenChange, url, filename }: PdfPrevi
     >
       <div className={cn("flex w-full justify-center")} ref={scrollRef}>
         {loadError ? (
-          <div className="flex h-full w-full items-center justify-center p-8 text-center text-muted-foreground text-sm">
+          <div className="flex h-full w-full items-center justify-center p-8 text-center text-muted text-sm">
             {loadError}
           </div>
         ) : (
           <Document
             file={url}
             loading={
-              <div className="flex h-full w-full items-center justify-center gap-2 text-muted-foreground text-sm">
+              <div className="flex h-full w-full items-center justify-center gap-2 text-muted text-sm">
                 <LoaderCircleIcon className="size-4 animate-spin" />
                 正在加载 PDF...
               </div>

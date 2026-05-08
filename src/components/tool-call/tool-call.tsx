@@ -135,7 +135,7 @@ function buildExpandedContent(part: ToolPart, state: ToolRenderState) {
   }
 
   return (
-    <pre className="max-h-64 overflow-auto whitespace-pre-wrap break-all  border-t border-b border-border bg-muted/40 px-3 py-2 font-mono text-xs leading-relaxed text-muted-foreground">
+    <pre className="max-h-64 overflow-auto whitespace-pre-wrap break-all  border-t border-b border-separator bg-default/40 px-3 py-2 font-mono text-xs leading-relaxed text-muted">
       {formatted.length > 2000 ? `${formatted.slice(0, 2000)}…` : formatted}
     </pre>
   );

@@ -107,10 +107,10 @@ export function JobDescriptionDialog({
         </>
       }
     >
-      <div className="flex items-center justify-between gap-3 rounded-xl border border-border/60 bg-muted/40 px-4 py-3">
+      <div className="flex items-center justify-between gap-3 rounded-xl border border-separator/60 bg-default/40 px-4 py-3">
         <div className="space-y-0.5">
           <div className="font-medium text-sm">从在招岗位中选择</div>
-          <div className="text-muted-foreground text-xs">关闭则手动填写自定义 JD</div>
+          <div className="text-muted text-xs">关闭则手动填写自定义 JD</div>
         </div>
         <Switch
           checked={mode === "select"}
@@ -137,12 +137,12 @@ export function JobDescriptionDialog({
             value={selectedId || null}
           />
           {selectedPreview ? (
-            <div className="max-h-48 overflow-auto rounded-lg border border-border/60 bg-muted/30 p-3 text-muted-foreground text-xs">
+            <div className="max-h-48 overflow-auto rounded-lg border border-separator/60 bg-default/30 p-3 text-muted text-xs">
               <div className="mb-1 font-medium text-foreground">{selectedPreview.name}</div>
               <pre className="whitespace-pre-wrap font-sans">{selectedPreview.prompt}</pre>
             </div>
           ) : (
-            <p className="text-muted-foreground text-xs">
+            <p className="text-muted text-xs">
               选中后会把岗位名称与 prompt 作为评估上下文传给 Agent。
             </p>
           )}
@@ -154,7 +154,7 @@ export function JobDescriptionDialog({
           </label>
           <textarea
             autoComplete="off"
-            className="mt-2 min-h-40 w-full rounded-xl border border-border/70 bg-background p-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="mt-2 min-h-40 w-full rounded-xl border border-separator/70 bg-background p-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-focus"
             id="job-description"
             name="jobDescription"
             onChange={(event) => setDraft(event.currentTarget.value)}

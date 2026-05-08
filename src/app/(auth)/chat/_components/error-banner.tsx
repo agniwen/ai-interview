@@ -26,7 +26,7 @@ export function ErrorBanner({
       {error ? (
         <div
           aria-live="polite"
-          className="flex flex-col gap-2 rounded-xl border border-destructive/25 bg-destructive/6 px-3 py-2 text-destructive text-sm sm:flex-row sm:items-center sm:gap-3 sm:px-4"
+          className="flex flex-col gap-2 rounded-xl border border-danger/25 bg-danger/6 px-3 py-2 text-danger text-sm sm:flex-row sm:items-center sm:gap-3 sm:px-4"
         >
           <div className="flex min-w-0 items-start gap-2">
             <AlertCircleIcon className="mt-0.5 size-4 shrink-0" />
@@ -50,7 +50,7 @@ export function ErrorBanner({
       {uploadErrorMessage ? (
         <div
           aria-live="polite"
-          className="mb-2 flex items-center gap-2 rounded-md border border-destructive/25 bg-destructive/6 px-3 py-2 text-destructive text-sm sm:px-4"
+          className="mb-2 flex items-center gap-2 rounded-md border border-danger/25 bg-danger/6 px-3 py-2 text-danger text-sm sm:px-4"
         >
           <AlertCircleIcon className="mt-0.5 size-4 shrink-0" />
           <p className="leading-relaxed">{uploadErrorMessage}</p>
@@ -60,7 +60,7 @@ export function ErrorBanner({
       {historyErrorMessage ? (
         <div
           aria-live="polite"
-          className="mb-2 flex items-center gap-2 rounded-md border border-destructive/25 bg-destructive/6 px-3 py-2 text-destructive text-sm sm:px-4"
+          className="mb-2 flex items-center gap-2 rounded-md border border-danger/25 bg-danger/6 px-3 py-2 text-danger text-sm sm:px-4"
         >
           <AlertCircleIcon className="mt-0.5 size-4 shrink-0" />
           <p className="leading-relaxed">{historyErrorMessage}</p>

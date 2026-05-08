@@ -192,14 +192,14 @@ export function InterviewManagementPage({
             </button>
             {r.candidateEmail ? (
               <a
-                className="block max-w-full truncate text-muted-foreground text-xs underline-offset-4 hover:underline"
+                className="block max-w-full truncate text-muted text-xs underline-offset-4 hover:underline"
                 href={`mailto:${r.candidateEmail}`}
                 onClick={(e) => e.stopPropagation()}
               >
                 {r.candidateEmail}
               </a>
             ) : (
-              <p className="truncate text-muted-foreground text-xs">未填写邮箱</p>
+              <p className="truncate text-muted text-xs">未填写邮箱</p>
             )}
           </div>
         ),
@@ -223,7 +223,7 @@ export function InterviewManagementPage({
               {r.jobDescriptionName}
             </button>
           ) : (
-            <span className="text-muted-foreground">—</span>
+            <span className="text-muted">—</span>
           ),
         key: "jobDescriptionName",
         title: "关联岗位",
@@ -356,7 +356,7 @@ export function InterviewManagementPage({
             <CardTitle className="text-3xl">{item.value}</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-muted-foreground text-sm">{item.hint}</p>
+            <p className="text-muted text-sm">{item.hint}</p>
           </CardContent>
         </Card>
       ))}
@@ -420,7 +420,7 @@ export function InterviewManagementPage({
               </Button>
             )}
             empty={
-              <Empty className="border-border/60">
+              <Empty className="border-separator/60">
                 <EmptyHeader>
                   <EmptyMedia variant="icon">
                     <BotIcon className="size-5" />

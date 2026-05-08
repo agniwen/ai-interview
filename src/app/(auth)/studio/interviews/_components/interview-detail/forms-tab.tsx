@@ -36,7 +36,7 @@ function ReadOnlyAnswer({
     answer === undefined || answer === "" || (Array.isArray(answer) && answer.length === 0);
 
   if (isEmpty) {
-    return <p className="text-muted-foreground text-sm italic">候选人未作答</p>;
+    return <p className="text-muted text-sm italic">候选人未作答</p>;
   }
 
   if (question.type === "single" && question.displayMode === "radio") {
@@ -142,22 +142,21 @@ export function FormsTab({
 }) {
   if (submissions.length === 0) {
     return (
-      <div className="py-10 text-center text-muted-foreground text-sm">
-        候选人没有填写过任何面试表单。
-      </div>
+      <div className="py-10 text-center text-muted text-sm">候选人没有填写过任何面试表单。</div>
     );
   }
   return (
     <div className="space-y-5">
       {submissions.map((submission) => (
-        <div className="rounded-2xl border border-border/60 bg-muted/30 p-4" key={submission.id}>
+        <div
+          className="rounded-2xl border border-separator/60 bg-default/30 p-4"
+          key={submission.id}
+        >
           <div className="mb-3 flex items-center justify-between gap-2">
             <div>
               <h3 className="font-medium text-sm">{submission.snapshot.title}</h3>
               {submission.snapshot.description ? (
-                <p className="mt-1 text-muted-foreground text-xs">
-                  {submission.snapshot.description}
-                </p>
+                <p className="mt-1 text-muted text-xs">{submission.snapshot.description}</p>
               ) : null}
             </div>
             <div className="flex items-center gap-2">
@@ -178,13 +177,13 @@ export function FormsTab({
             {submission.snapshot.questions.map((question, index) => (
               <Field key={question.id}>
                 <FieldLabel htmlFor={`sub-${submission.id}-${question.id}`}>
-                  <span className="mr-1 text-muted-foreground">{index + 1}.</span>
+                  <span className="mr-1 text-muted">{index + 1}.</span>
                   {question.label}
-                  {question.required ? <span className="ml-1 text-destructive">*</span> : null}
+                  {question.required ? <span className="ml-1 text-danger">*</span> : null}
                 </FieldLabel>
                 <FieldContent className="gap-2">
                   {question.helperText ? (
-                    <p className="text-muted-foreground text-xs">{question.helperText}</p>
+                    <p className="text-muted text-xs">{question.helperText}</p>
                   ) : null}
                   <ReadOnlyAnswer
                     answer={submission.answers[question.id]}
@@ -195,7 +194,7 @@ export function FormsTab({
               </Field>
             ))}
           </div>
-          <p className="mt-3 text-muted-foreground text-xs">
+          <p className="mt-3 text-muted text-xs">
             该记录基于 v{submission.version} 的快照；如已更新，请到「面试表单」查看当前版本。
           </p>
         </div>

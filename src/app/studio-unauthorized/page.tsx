@@ -54,8 +54,8 @@ export default function StudioUnauthorizedPage() {
 
       {isRedirecting && (
         <>
-          <LoaderCircleIcon className="size-6 animate-spin text-muted-foreground" />
-          <p className="text-muted-foreground text-sm">正在退出当前账号并返回首页...</p>
+          <LoaderCircleIcon className="size-6 animate-spin text-muted" />
+          <p className="text-muted text-sm">正在退出当前账号并返回首页...</p>
         </>
       )}
     </main>

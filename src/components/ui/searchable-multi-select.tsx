@@ -89,7 +89,7 @@ export function SearchableMultiSelect({
             aria-expanded={open}
             aria-invalid={invalid ? true : undefined}
             className={cn(
-              "flex h-10 w-full items-center justify-between rounded-md border border-input bg-transparent px-3 py-2 text-left text-sm shadow-xs transition-[color,box-shadow] focus-visible:border-ring focus-visible:outline-hidden focus-visible:ring-[3px] focus-visible:ring-ring/50 data-[invalid=true]:border-destructive data-[invalid=true]:ring-[3px] data-[invalid=true]:ring-destructive/20 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-input/30",
+              "flex h-10 w-full items-center justify-between rounded-md border border-separator bg-transparent px-3 py-2 text-left text-sm shadow-xs transition-[color,box-shadow] focus-visible:border-focus focus-visible:outline-hidden focus-visible:ring-[3px] focus-visible:ring-focus/50 data-[invalid=true]:border-danger data-[invalid=true]:ring-[3px] data-[invalid=true]:ring-danger/20 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-default/30",
               triggerClassName,
             )}
             data-invalid={invalid ? true : undefined}
@@ -100,7 +100,7 @@ export function SearchableMultiSelect({
             <span
               className={cn(
                 "min-w-0 flex-1 truncate",
-                selectedItems.length === 0 ? "text-muted-foreground" : "",
+                selectedItems.length === 0 ? "text-muted" : "",
               )}
             >
               {selectedItems.length === 0 ? placeholder : selectedFormat(selectedItems.length)}
@@ -133,9 +133,7 @@ export function SearchableMultiSelect({
                       <div className="flex min-w-0 flex-col leading-tight">
                         <span className="truncate">{option.label}</span>
                         {option.description ? (
-                          <span className="truncate text-muted-foreground text-xs">
-                            {option.description}
-                          </span>
+                          <span className="truncate text-muted text-xs">{option.description}</span>
                         ) : null}
                       </div>
                     </CommandItem>

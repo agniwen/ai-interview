@@ -96,7 +96,7 @@ export function Toolbar(props: ToolbarProps) {
                   key={filter.key}
                   style={filter.minWidth ? { minWidth: filter.minWidth } : undefined}
                 >
-                  <SearchIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+                  <SearchIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted" />
                   <Input
                     className="pr-9 pl-9"
                     onChange={(event) => onFilterChange?.(filter.key, event.target.value)}
@@ -104,7 +104,7 @@ export function Toolbar(props: ToolbarProps) {
                     value={value}
                   />
                   {searchLoading ? (
-                    <Loader2Icon className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 animate-spin text-muted-foreground" />
+                    <Loader2Icon className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 animate-spin text-muted" />
                   ) : null}
                 </div>
               );

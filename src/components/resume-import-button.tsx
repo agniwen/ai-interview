@@ -158,16 +158,16 @@ function PhaseTracker({ phase }: { phase: ImportPhase }) {
                 "inline-flex size-5 items-center justify-center rounded-full border font-medium",
                 done &&
                   "border-emerald-400/70 bg-emerald-50 text-emerald-600 dark:border-emerald-700/60 dark:bg-emerald-950/40 dark:text-emerald-300",
-                active && "border-primary bg-primary/10 text-primary",
-                !done && !active && "border-border text-muted-foreground",
+                active && "border-accent bg-accent/10 text-accent",
+                !done && !active && "border-separator text-muted",
               )}
             >
               {done ? <CheckIcon className="size-3" /> : index + 1}
             </span>
-            <span className={cn(active ? "font-medium text-foreground" : "text-muted-foreground")}>
+            <span className={cn(active ? "font-medium text-foreground" : "text-muted")}>
               {item.label}
             </span>
-            {index < PHASES.length - 1 ? <span className="text-muted-foreground/50">›</span> : null}
+            {index < PHASES.length - 1 ? <span className="text-muted/50">›</span> : null}
           </div>
         );
       })}
@@ -617,7 +617,7 @@ export function ResumeImportButton({
             value={selectedJdId}
           />
           {isAnalyzingMatch ? (
-            <div className="flex items-center gap-2 rounded-md border border-dashed bg-muted/40 px-3 py-2 text-muted-foreground text-xs">
+            <div className="flex items-center gap-2 rounded-md border border-dashed bg-default/40 px-3 py-2 text-muted text-xs">
               <LoaderCircleIcon className="size-3.5 animate-spin" />
               <span>正在分析简历并匹配最合适的在招岗位…</span>
             </div>
@@ -646,13 +646,13 @@ export function ResumeImportButton({
         bodyClassName="px-6 py-7"
       >
         <div className="flex flex-col items-center gap-5">
-          <LoaderCircleIcon className="size-7 animate-spin text-muted-foreground" />
+          <LoaderCircleIcon className="size-7 animate-spin text-muted" />
           <p className="text-center text-foreground text-sm">{progressStatus || "正在处理…"}</p>
 
           <PhaseTracker phase={phase} />
 
           {progressTools.length > 0 ? (
-            <div className="flex flex-col gap-1.5 text-muted-foreground text-xs">
+            <div className="flex flex-col gap-1.5 text-muted text-xs">
               {progressTools.map((tool) => (
                 <div className="flex items-center gap-1.5" key={tool.name}>
                   {tool.done ? (
@@ -676,7 +676,7 @@ export function ResumeImportButton({
               >
                 {partialFields.map((field) => (
                   <div className="contents" key={field.label}>
-                    <span className="text-muted-foreground">{field.label}</span>
+                    <span className="text-muted">{field.label}</span>
                     <span className="truncate font-medium text-foreground">{field.value}</span>
                   </div>
                 ))}

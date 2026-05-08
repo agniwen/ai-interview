@@ -147,7 +147,7 @@ export function InterviewQuestionTemplateEditorDialog({
                 return (
                   <Field data-invalid={hasFieldErrors(field.state.meta.errors) || undefined}>
                     <FieldLabel htmlFor={field.name}>
-                      标题 <span className="text-destructive">*</span>
+                      标题 <span className="text-danger">*</span>
                     </FieldLabel>
                     <FieldContent className="gap-2">
                       <Input
@@ -194,7 +194,7 @@ export function InterviewQuestionTemplateEditorDialog({
                 {(field) => (
                   <Field>
                     <FieldLabel htmlFor={field.name}>
-                      作用范围 <span className="text-destructive">*</span>
+                      作用范围 <span className="text-danger">*</span>
                     </FieldLabel>
                     <FieldContent className="gap-2">
                       <Select
@@ -226,7 +226,7 @@ export function InterviewQuestionTemplateEditorDialog({
                     return (
                       <Field data-invalid={hasFieldErrors(field.state.meta.errors) || undefined}>
                         <FieldLabel htmlFor={field.name}>
-                          绑定岗位 <span className="text-destructive">*</span>
+                          绑定岗位 <span className="text-danger">*</span>
                         </FieldLabel>
                         <FieldContent className="gap-2">
                           <SearchableMultiSelect
@@ -256,7 +256,7 @@ export function InterviewQuestionTemplateEditorDialog({
             <div className="flex items-center justify-between">
               <h3 className="font-medium text-sm">题目列表</h3>
               <form.Subscribe selector={(state) => state.values.questions.length}>
-                {(len) => <span className="text-muted-foreground text-xs">共 {len} 道</span>}
+                {(len) => <span className="text-muted text-xs">共 {len} 道</span>}
               </form.Subscribe>
             </div>
             <SortableQuestionListEditor

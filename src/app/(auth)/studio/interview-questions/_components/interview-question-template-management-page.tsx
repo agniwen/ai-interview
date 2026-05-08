@@ -226,7 +226,7 @@ export function InterviewQuestionTemplateManagementPage({
           r.bindingCount > 0 ? (
             <span className="tabular-nums">{r.bindingCount}</span>
           ) : (
-            <span className="text-muted-foreground tabular-nums">0</span>
+            <span className="text-muted tabular-nums">0</span>
           ),
         key: "bindingCount",
         title: "已绑定面试",
@@ -295,7 +295,7 @@ export function InterviewQuestionTemplateManagementPage({
       <div className="space-y-6">
         <header className="flex flex-col gap-2">
           <h1 className="font-semibold text-2xl">面试题</h1>
-          <p className="text-muted-foreground text-sm">
+          <p className="text-muted text-sm">
             配置面试官在面试中向候选人必问的题目。可以设为全局或绑定到在招岗位；面试创建时会冻结当前题目快照，之后编辑不影响已开始的面试。
           </p>
         </header>
@@ -312,7 +312,7 @@ export function InterviewQuestionTemplateManagementPage({
             </Button>
           }
           empty={
-            <Empty className="border-border/60">
+            <Empty className="border-separator/60">
               <EmptyHeader>
                 <EmptyMedia variant="icon">
                   <ListChecksIcon className="size-5" />

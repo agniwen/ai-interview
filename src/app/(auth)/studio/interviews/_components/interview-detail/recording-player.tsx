@@ -58,9 +58,9 @@ export function RecordingPlayer({
 
   if (status !== "completed") {
     return (
-      <div className="rounded-2xl border border-border/60 bg-background p-4">
+      <div className="rounded-2xl border border-separator/60 bg-background p-4">
         <h4 className="font-medium text-sm">面试录像</h4>
-        <p className="mt-2 text-muted-foreground text-sm">{statusLabel(status)}</p>
+        <p className="mt-2 text-muted text-sm">{statusLabel(status)}</p>
       </div>
     );
   }
@@ -81,12 +81,12 @@ export function RecordingPlayer({
   const durationText = formatDuration(durationSecs);
 
   return (
-    <div className="rounded-2xl border border-border/60 bg-background p-4">
+    <div className="rounded-2xl border border-separator/60 bg-background p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h4 className="font-medium text-sm">
           面试录像
           {durationText ? (
-            <span className="ml-2 text-muted-foreground text-xs">时长 {durationText}</span>
+            <span className="ml-2 text-muted text-xs">时长 {durationText}</span>
           ) : null}
         </h4>
         {!url && (
@@ -99,13 +99,13 @@ export function RecordingPlayer({
       {url ? (
         // oxlint-disable-next-line jsx-a11y/media-has-caption -- 面试录像无字幕轨道可挂载；候选人音视频原始记录，不存在 captions 资源。
         <video
-          className="mt-3 w-full rounded-xl border border-border/60"
+          className="mt-3 w-full rounded-xl border border-separator/60"
           controls
           preload="metadata"
           src={url}
         />
       ) : (
-        <p className="mt-2 text-muted-foreground text-sm">点击"加载录像"开始播放。</p>
+        <p className="mt-2 text-muted text-sm">点击"加载录像"开始播放。</p>
       )}
     </div>
   );

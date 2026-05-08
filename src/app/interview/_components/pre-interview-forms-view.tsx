@@ -191,27 +191,25 @@ export function PreInterviewFormsView({
         <ScrollArea className="h-full w-full">
           <div className="mx-auto flex w-full max-w-2xl flex-col px-5 pt-12  sm:px-2 sm:pt-20 md:pt-16">
             <section className="mb-8">
-              <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1 text-primary text-xs">
+              <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-accent/10 px-3 py-1 text-accent text-xs">
                 <ClipboardListIcon className="size-3.5" />
                 开始前的面试表单
               </div>
               <h1 className="font-semibold text-2xl tracking-tight sm:text-3xl">
                 开始前请先填写面试表单
               </h1>
-              <p className="mt-2 text-muted-foreground text-sm sm:text-base">
-                完成全部面试表单后进入面试。
-              </p>
+              <p className="mt-2 text-muted text-sm sm:text-base">完成全部面试表单后进入面试。</p>
             </section>
 
             {loading ? (
-              <div className="flex items-center justify-center gap-2 py-16 text-muted-foreground text-sm">
+              <div className="flex items-center justify-center gap-2 py-16 text-muted text-sm">
                 <Loader2Icon className="size-4 animate-spin" />
                 正在检查面试表单填写情况
               </div>
             ) : null}
 
             {loadError ? (
-              <p className="py-10 text-center text-destructive text-sm">{loadError}</p>
+              <p className="py-10 text-center text-danger text-sm">{loadError}</p>
             ) : null}
 
             {!loading && !loadError ? (
@@ -229,7 +227,7 @@ export function PreInterviewFormsView({
                   />
                 ))}
 
-                <div className="sticky bottom-0 z-10 -mx-5 border-border/60 border-t px-5 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] backdrop-blur sm:-mx-2 sm:px-2">
+                <div className="sticky bottom-0 z-10 -mx-5 border-separator/60 border-t px-5 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] backdrop-blur sm:-mx-2 sm:px-2">
                   <Button
                     className="h-11 w-full"
                     isDisabled={pendingTemplates.length === 0}

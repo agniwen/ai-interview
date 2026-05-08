@@ -45,12 +45,12 @@ export function PaginationBar(props: PaginationBarProps) {
 
   return (
     <div className="flex flex-col items-center justify-between gap-4 px-2 sm:flex-row">
-      <p className="text-muted-foreground text-sm tabular-nums">
+      <p className="text-muted text-sm tabular-nums">
         显示第 {startRow}–{endRow} 条，共 {total} 条记录
       </p>
       <div className="flex items-center gap-4">
         <div className="flex items-center gap-2">
-          <span className="text-muted-foreground text-sm">每页</span>
+          <span className="text-muted text-sm">每页</span>
           <Select
             onValueChange={(value) => onPageSizeChange(Number(value))}
             value={String(pageSize)}
@@ -68,7 +68,7 @@ export function PaginationBar(props: PaginationBarProps) {
           </Select>
         </div>
 
-        <span className="text-muted-foreground text-sm tabular-nums">
+        <span className="text-muted text-sm tabular-nums">
           第 {page} / {totalPages} 页
         </span>
 

@@ -88,12 +88,10 @@ function QuestionListBody({
 
   if (items.length === 0) {
     return (
-      <div className="flex min-h-44 flex-col items-center justify-center rounded-xl border border-dashed border-border/60 bg-muted/10 px-6 py-10 text-center">
+      <div className="flex min-h-44 flex-col items-center justify-center rounded-xl border border-dashed border-separator/60 bg-default/10 px-6 py-10 text-center">
         <p className="font-medium text-sm">{emptyTitle}</p>
         {emptyDescription ? (
-          <p className="mt-1.5 max-w-md text-muted-foreground text-xs leading-relaxed">
-            {emptyDescription}
-          </p>
+          <p className="mt-1.5 max-w-md text-muted text-xs leading-relaxed">{emptyDescription}</p>
         ) : null}
         <Button
           className="mt-5"
@@ -128,10 +126,10 @@ function QuestionListBody({
             <SortableItem disabled={disabled} id={id} key={id}>
               {({ handleProps, isDragging }) => (
                 <div
-                  className={`group flex flex-col gap-2 rounded-xl border bg-card/30 p-3 transition-all hover:bg-card/60 ${
+                  className={`group flex flex-col gap-2 rounded-xl border bg-surface/30 p-3 transition-all hover:bg-surface/60 ${
                     isDragging
-                      ? "border-primary/30 bg-card shadow-sm"
-                      : "border-border/60 hover:border-border"
+                      ? "border-accent/30 bg-surface shadow-sm"
+                      : "border-separator/60 hover:border-separator"
                   }`}
                 >
                   {/* Top: drag handle, index, difficulty, delete */}
@@ -141,7 +139,7 @@ function QuestionListBody({
                       aria-label={`拖动以调整第 ${index + 1} 题的顺序`}
                       className="-ml-1 size-7 opacity-50 transition-opacity group-hover:opacity-100"
                     />
-                    <span className="font-medium font-mono text-[11px] text-muted-foreground/80 tabular-nums">
+                    <span className="font-medium font-mono text-[11px] text-muted/80 tabular-nums">
                       {String(index + 1).padStart(2, "0")}
                     </span>
                     <div className="ml-auto flex items-center gap-0.5">
@@ -178,7 +176,7 @@ function QuestionListBody({
 
                       <Button
                         aria-label={`删除第 ${index + 1} 题`}
-                        className="size-7 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                        className="size-7 text-muted hover:bg-danger/10 hover:text-danger"
                         isDisabled={disabled}
                         isIconOnly
                         onClick={() => {
@@ -202,7 +200,7 @@ function QuestionListBody({
                         <div data-invalid={hasFieldErrors(subField.state.meta.errors) || undefined}>
                           <Textarea
                             aria-invalid={!!errors?.length}
-                            className="min-h-14 max-h-40 resize-none bg-transparent p-1 border-transparent focus:border text-sm shadow-none placeholder:text-muted-foreground/50 focus-visible:ring-0 dark:bg-transparent"
+                            className="min-h-14 max-h-40 resize-none bg-transparent p-1 border-transparent focus:border text-sm shadow-none placeholder:text-muted/50 focus-visible:ring-0 dark:bg-transparent"
                             disabled={disabled}
                             onBlur={subField.handleBlur}
                             onChange={(event) => subField.handleChange(event.target.value)}
@@ -223,7 +221,7 @@ function QuestionListBody({
       </SortableList>
 
       <Button
-        className="w-full border-dashed text-muted-foreground hover:text-foreground"
+        className="w-full border-dashed text-muted hover:text-foreground"
         isDisabled={disabled}
         onClick={addItem}
         size="sm"

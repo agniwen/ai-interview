@@ -99,7 +99,7 @@ export function ProcessTabs() {
                       <span
                         className={cn(
                           "font-mono text-xs transition-colors",
-                          isActive ? "text-primary" : "text-foreground/40",
+                          isActive ? "text-accent" : "text-foreground/40",
                         )}
                       >
                         {step.number}

@@ -80,7 +80,7 @@ function TestimonialCard({ name, role, quote }: Testimonial) {
         <FallbackAvatar className="shrink-0 ring-1 ring-foreground/[0.06]" name={name} size={36} />
         <div className="min-w-0">
           <p className="truncate font-medium text-foreground text-sm">{name}</p>
-          <p className="truncate text-muted-foreground text-xs">{role}</p>
+          <p className="truncate text-muted text-xs">{role}</p>
         </div>
       </div>
     </div>

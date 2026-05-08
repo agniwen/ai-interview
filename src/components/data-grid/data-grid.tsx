@@ -171,7 +171,7 @@ export function DataGrid<TData>(props: DataGridProps<TData>) {
           >
             <TableHeader>
               {table.getHeaderGroups().map((headerGroup) => (
-                // 表头行不响应 hover：基础 TableRow 自带 `hover:bg-muted`，
+                // 表头行不响应 hover：基础 TableRow 自带 `hover:bg-default`，
                 // 但表头不应该跟随光标变色（否则非固定列变 muted、固定列保持 card 会撕裂）。
                 // Override the base TableRow hover so the whole header stays flat —
                 // otherwise non-pinned header cells would tint while pinned ones don't.

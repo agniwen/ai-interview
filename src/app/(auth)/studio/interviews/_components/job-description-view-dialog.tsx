@@ -32,24 +32,22 @@ export function JobDescriptionViewDialog({
 
   function renderBody() {
     if (isLoading && !record) {
-      return (
-        <div className="py-10 text-center text-muted-foreground text-sm">正在加载岗位信息...</div>
-      );
+      return <div className="py-10 text-center text-muted text-sm">正在加载岗位信息...</div>;
     }
     if (!record) {
-      return <div className="py-10 text-center text-muted-foreground text-sm">未找到该岗位。</div>;
+      return <div className="py-10 text-center text-muted text-sm">未找到该岗位。</div>;
     }
     return (
       <div className="space-y-5 text-sm">
         <section className="space-y-1.5">
-          <h3 className="font-medium text-muted-foreground text-xs">岗位描述</h3>
+          <h3 className="font-medium text-muted text-xs">岗位描述</h3>
           <p className="whitespace-pre-wrap">
-            {record.description?.trim() || <span className="text-muted-foreground">未填写</span>}
+            {record.description?.trim() || <span className="text-muted">未填写</span>}
           </p>
         </section>
 
         <section className="space-y-1.5">
-          <h3 className="font-medium text-muted-foreground text-xs">面试官</h3>
+          <h3 className="font-medium text-muted text-xs">面试官</h3>
           {record.interviewers.length > 0 ? (
             <div className="flex flex-wrap gap-1.5">
               {record.interviewers.map((person) => (
@@ -59,13 +57,13 @@ export function JobDescriptionViewDialog({
               ))}
             </div>
           ) : (
-            <p className="text-muted-foreground">未配置面试官</p>
+            <p className="text-muted">未配置面试官</p>
           )}
         </section>
 
         <section className="space-y-1.5">
-          <h3 className="font-medium text-muted-foreground text-xs">岗位 Prompt</h3>
-          <pre className="whitespace-pre-wrap rounded-md border border-border/60 bg-muted/40 p-3 font-sans text-sm">
+          <h3 className="font-medium text-muted text-xs">岗位 Prompt</h3>
+          <pre className="whitespace-pre-wrap rounded-md border border-separator/60 bg-default/40 p-3 font-sans text-sm">
             {record.prompt}
           </pre>
         </section>

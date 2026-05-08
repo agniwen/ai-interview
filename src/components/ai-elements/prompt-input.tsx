@@ -1116,7 +1116,7 @@ export function PromptInputButton({
       <TooltipTrigger asChild>{button}</TooltipTrigger>
       <TooltipContent side={side}>
         {tooltipContent}
-        {shortcut && <span className="ml-2 text-muted-foreground">{shortcut}</span>}
+        {shortcut && <span className="ml-2 text-muted">{shortcut}</span>}
       </TooltipContent>
     </Tooltip>
   );
@@ -1225,8 +1225,8 @@ export function PromptInputSelectTrigger({ className, ...props }: PromptInputSel
   return (
     <SelectTrigger
       className={cn(
-        "border-none bg-transparent font-medium text-muted-foreground shadow-none transition-colors",
-        "hover:bg-accent hover:text-foreground aria-expanded:bg-accent aria-expanded:text-foreground",
+        "border-none bg-transparent font-medium text-muted shadow-none transition-colors",
+        "hover:bg-default hover:text-foreground aria-expanded:bg-default aria-expanded:text-foreground",
         className,
       )}
       {...props}
@@ -1294,10 +1294,7 @@ export type PromptInputTabLabelProps = HTMLAttributes<HTMLHeadingElement>;
 export function PromptInputTabLabel({ className, ...props }: PromptInputTabLabelProps) {
   return (
     // oxlint-disable-next-line jsx-a11y/heading-has-content -- Children come via spread props at the call site.
-    <h3
-      className={cn("mb-2 px-3 font-medium text-muted-foreground text-xs", className)}
-      {...props}
-    />
+    <h3 className={cn("mb-2 px-3 font-medium text-muted text-xs", className)} {...props} />
   );
 }
 
@@ -1312,7 +1309,7 @@ export type PromptInputTabItemProps = HTMLAttributes<HTMLDivElement>;
 export function PromptInputTabItem({ className, ...props }: PromptInputTabItemProps) {
   return (
     <div
-      className={cn("flex items-center gap-2 px-3 py-2 text-xs hover:bg-accent", className)}
+      className={cn("flex items-center gap-2 px-3 py-2 text-xs hover:bg-default", className)}
       {...props}
     />
   );

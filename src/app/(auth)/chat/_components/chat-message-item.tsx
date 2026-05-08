@@ -138,7 +138,7 @@ export function ChatMessageItem({
     <div>
       {isChatRole ? (
         <p
-          className={`mb-2.5 text-muted-foreground text-xs ${message.role === "user" ? "text-right" : "text-left"}`}
+          className={`mb-2.5 text-muted text-xs ${message.role === "user" ? "text-right" : "text-left"}`}
         >
           {messageAuthor}
           {messageTime ? (
@@ -180,7 +180,7 @@ export function ChatMessageItem({
                 if (isPdf) {
                   return (
                     <div
-                      className="flex w-full flex-col gap-3 rounded-lg border bg-card p-3 hover:bg-accent/30"
+                      className="flex w-full flex-col gap-3 rounded-lg border bg-surface p-3 hover:bg-default/30"
                       key={part.id}
                     >
                       <div className="flex min-w-0 items-center gap-3">
@@ -191,7 +191,7 @@ export function ChatMessageItem({
                           <p className="truncate font-medium text-sm">
                             {part.filename || "resume.pdf"}
                           </p>
-                          <p className="truncate text-muted-foreground text-xs">{part.mediaType}</p>
+                          <p className="truncate text-muted text-xs">{part.mediaType}</p>
                         </div>
                       </div>
                       <div className="flex items-stretch gap-2 border-t pt-3">
@@ -298,7 +298,7 @@ export function ChatMessageItem({
                     if (part.type === "step-start" && isExpanded) {
                       return (
                         <div
-                          className="border-border border-t opacity-50"
+                          className="border-separator border-t opacity-50"
                           key={`${message.id}-step-${index}`}
                         />
                       );

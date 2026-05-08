@@ -66,9 +66,9 @@ export function SidebarUserSection({
 
   if (showLoading) {
     content = collapsed ? (
-      <div className="h-9 w-full animate-pulse rounded-md bg-muted" />
+      <div className="h-9 w-full animate-pulse rounded-md bg-default" />
     ) : (
-      <div className="h-9 w-full animate-pulse rounded-full bg-muted" />
+      <div className="h-9 w-full animate-pulse rounded-full bg-default" />
     );
   } else if (session?.user) {
     content = collapsed ? (
@@ -84,9 +84,9 @@ export function SidebarUserSection({
         <DropdownMenuContent align="end" className="w-56">
           <DropdownMenuLabel className="space-y-0.5">
             <p className="truncate font-medium text-sm">{userName}</p>
-            <p className="truncate text-muted-foreground text-xs">{userEmail}</p>
+            <p className="truncate text-muted text-xs">{userEmail}</p>
             {organizationName ? (
-              <p className="truncate text-muted-foreground text-xs">{organizationName}</p>
+              <p className="truncate text-muted text-xs">{organizationName}</p>
             ) : null}
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
@@ -119,19 +119,17 @@ export function SidebarUserSection({
             </Avatar>
             <div className="min-w-0 flex-1 text-left">
               <p className="truncate font-medium text-sm">{userName}</p>
-              <p className="truncate text-muted-foreground text-xs">
-                {organizationName ?? userEmail}
-              </p>
+              <p className="truncate text-muted text-xs">{organizationName ?? userEmail}</p>
             </div>
-            <ChevronsUpDownIcon className="size-4 text-muted-foreground" />
+            <ChevronsUpDownIcon className="size-4 text-muted" />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-56">
           <DropdownMenuLabel className="space-y-0.5">
             <p className="truncate font-medium text-sm">{userName}</p>
-            <p className="truncate text-muted-foreground text-xs">{userEmail}</p>
+            <p className="truncate text-muted text-xs">{userEmail}</p>
             {organizationName ? (
-              <p className="truncate text-muted-foreground text-xs">{organizationName}</p>
+              <p className="truncate text-muted text-xs">{organizationName}</p>
             ) : null}
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
@@ -174,7 +172,7 @@ export function SidebarUserSection({
   }
 
   return (
-    <div className="border-border/65 border-t px-2 py-2">
+    <div className="border-separator/65 border-t px-2 py-2">
       {collapsed ? content : <div className="flex items-center gap-2">{content}</div>}
     </div>
   );

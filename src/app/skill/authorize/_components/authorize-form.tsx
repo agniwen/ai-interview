@@ -91,7 +91,7 @@ export function AuthorizeForm({ initialUserCode, userName }: AuthorizeFormProps)
 
   return (
     <div className="space-y-4">
-      <p className="text-muted-foreground text-sm">
+      <p className="text-muted text-sm">
         当前登录账号：<span className="font-medium text-foreground">{userName}</span>
       </p>
       <div className="space-y-2">
@@ -105,7 +105,7 @@ export function AuthorizeForm({ initialUserCode, userName }: AuthorizeFormProps)
           placeholder="ABCD-EFGH"
           value={userCode}
         />
-        <p className="text-muted-foreground text-xs">请确认上方授权码与终端中显示的一致。</p>
+        <p className="text-muted text-xs">请确认上方授权码与终端中显示的一致。</p>
       </div>
 
       {errorMessage ? (

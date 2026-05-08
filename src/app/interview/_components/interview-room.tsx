@@ -124,10 +124,10 @@ function RuleItem({
 }) {
   return (
     <li className="flex gap-3 py-4 sm:gap-4 sm:py-5">
-      <Icon className="mt-0.5 size-4 shrink-0 text-muted-foreground sm:size-4.5" />
+      <Icon className="mt-0.5 size-4 shrink-0 text-muted sm:size-4.5" />
       <div className="flex flex-col gap-1">
         <div className="font-medium text-sm sm:text-base">{title}</div>
-        <p className="text-muted-foreground text-xs leading-relaxed sm:text-sm">{description}</p>
+        <p className="text-muted text-xs leading-relaxed sm:text-sm">{description}</p>
       </div>
     </li>
   );
@@ -191,15 +191,13 @@ function WaitingView({
             <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
               {isRecovering ? "正在恢复面试连接" : resolveTitle(isRoundCompleted, candidateName)}
             </h1>
-            <p className="mt-2 text-muted-foreground text-sm sm:text-base">{subheadingText}</p>
+            <p className="mt-2 text-muted text-sm sm:text-base">{subheadingText}</p>
           </section>
 
           {showRulesAndButtons && (
             <section className="mt-10 sm:mt-14">
-              <h2 className="mb-4 font-medium text-muted-foreground text-sm sm:mb-5">
-                开始前，请留意
-              </h2>
-              <ul className="divide-y divide-border/60 border-border/60 border-y">
+              <h2 className="mb-4 font-medium text-muted text-sm sm:mb-5">开始前，请留意</h2>
+              <ul className="divide-y divide-border/60 border-separator/60 border-y">
                 <RuleItem
                   description="建议佩戴耳机并在网络稳定的地方作答。若环境嘈杂，可选择「静音开始」，以文字方式与面试官沟通。"
                   icon={Volume2Icon}
@@ -255,7 +253,7 @@ function WaitingView({
         </div>
 
         {showRulesAndButtons && (
-          <div className="fixed inset-x-0 bottom-0 z-10 border-border/60 border-t bg-background/90 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur md:hidden">
+          <div className="fixed inset-x-0 bottom-0 z-10 border-separator/60 border-t bg-background/90 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur md:hidden">
             <div className="mx-auto flex w-full max-w-md items-center gap-3">
               <Button
                 className="h-11 flex-1 gap-2"

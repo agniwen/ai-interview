@@ -59,7 +59,7 @@ export function DialogHeader({ className, ...props }: DialogHeaderProps) {
   return (
     <ModalHeader
       className={cn(
-        "flex shrink-0 flex-col gap-1.5 border-b border-divider px-6 pt-5 pb-4",
+        "flex shrink-0 flex-col gap-1.5 border-b border-separator px-6 pt-5 pb-4",
         className,
       )}
       {...props}
@@ -100,7 +100,7 @@ export function DialogFooter({
   return (
     <ModalFooter
       className={cn(
-        "flex shrink-0 flex-col-reverse gap-2 border-t border-divider px-6 py-4 sm:flex-row sm:justify-end",
+        "flex shrink-0 flex-col-reverse gap-2 border-t border-separator px-6 py-4 sm:flex-row sm:justify-end",
         className,
       )}
       {...props}

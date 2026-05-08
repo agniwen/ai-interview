@@ -411,7 +411,7 @@ function BarVisualizerComponent({
       className={cn(
         "relative flex justify-center gap-1.5",
         centerAlign ? "items-center" : "items-end",
-        "bg-muted h-32 w-full overflow-hidden rounded-lg p-4",
+        "bg-default h-32 w-full overflow-hidden rounded-lg p-4",
         className,
       )}
       style={{
@@ -441,8 +441,8 @@ const Bar = React.memo<{
     className={cn(
       "max-w-[12px] min-w-[8px] flex-1 transition-all duration-150",
       "rounded-full",
-      "bg-border data-[highlighted=true]:bg-primary",
-      state === "speaking" && "bg-primary",
+      "bg-border data-[highlighted=true]:bg-accent",
+      state === "speaking" && "bg-accent",
       state === "thinking" && isHighlighted && "animate-pulse",
     )}
     style={{

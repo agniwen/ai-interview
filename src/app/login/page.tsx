@@ -25,7 +25,7 @@ export default async function LoginPage() {
         id="main-content"
       >
         <div className="w-full max-w-md">
-          <Card className="border-border/60 bg-background/92 shadow-[0_24px_64px_-40px_rgba(15,23,42,0.35)]">
+          <Card className="border-separator/60 bg-background/92 shadow-[0_24px_64px_-40px_rgba(15,23,42,0.35)]">
             <CardHeader>
               <CardTitle>登录</CardTitle>
               <CardDescription>使用飞书账号登录，登录后即可使用完整功能。</CardDescription>
@@ -41,8 +41,8 @@ export default async function LoginPage() {
             </CardContent>
           </Card>
 
-          <p className="mt-4 text-center text-muted-foreground text-xs leading-relaxed">
-            <Link className="font-medium text-primary hover:underline" href="/">
+          <p className="mt-4 text-center text-muted text-xs leading-relaxed">
+            <Link className="font-medium text-accent hover:underline" href="/">
               返回首页
             </Link>
           </p>

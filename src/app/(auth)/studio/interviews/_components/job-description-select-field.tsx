@@ -59,7 +59,7 @@ export function JobDescriptionSelectField({
   return (
     <Field data-invalid={error ? true : undefined}>
       <FieldLabel htmlFor="interview-jd-select">
-        关联在招岗位 <span className="text-destructive">*</span>
+        关联在招岗位 <span className="text-danger">*</span>
       </FieldLabel>
       <FieldContent className="gap-2">
         <div className="flex items-start gap-2">

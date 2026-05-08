@@ -95,7 +95,10 @@ export function MicSelector({
         <Button
           variant="ghost"
           size="sm"
-          className={cn("hover:bg-accent flex w-48 cursor-pointer items-center gap-1.5", className)}
+          className={cn(
+            "hover:bg-default flex w-48 cursor-pointer items-center gap-1.5",
+            className,
+          )}
           isDisabled={loading || disabled}
         >
           {isMuted ? (
@@ -144,7 +147,7 @@ export function MicSelector({
                 {isMuted ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
                 <span className="text-sm">{isMuted ? "取消静音" : "静音"}</span>
               </Button>
-              <div className="bg-accent ml-auto w-16 overflow-hidden rounded-md p-1.5">
+              <div className="bg-default ml-auto w-16 overflow-hidden rounded-md p-1.5">
                 <LiveWaveform
                   active={isPreviewActive}
                   deviceId={selectedDevice || defaultDeviceId}

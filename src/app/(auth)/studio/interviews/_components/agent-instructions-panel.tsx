@@ -37,7 +37,7 @@ export function AgentInstructionsPanel({
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center gap-2 py-10 text-muted-foreground text-sm">
+      <div className="flex items-center justify-center gap-2 py-10 text-muted text-sm">
         <Loader2Icon className="size-4 animate-spin" />
         正在生成提示词...
       </div>
@@ -45,16 +45,14 @@ export function AgentInstructionsPanel({
   }
 
   if (variants.length === 0) {
-    return (
-      <div className="py-10 text-center text-muted-foreground text-sm">暂无可生成的提示词。</div>
-    );
+    return <div className="py-10 text-center text-muted text-sm">暂无可生成的提示词。</div>;
   }
 
   return (
     <div className="space-y-5">
       {variants.map((variant, index) => (
         <div
-          className="space-y-4 rounded-2xl border border-border/60 bg-muted/30 p-4"
+          className="space-y-4 rounded-2xl border border-separator/60 bg-default/30 p-4"
           key={variant.interviewerName ?? `variant-${index}`}
         >
           <h3 className="font-medium text-sm">
@@ -67,7 +65,7 @@ export function AgentInstructionsPanel({
             <h4 className="font-medium text-foreground/80 text-xs uppercase tracking-wide">
               系统提示词 (system prompt)
             </h4>
-            <pre className="whitespace-pre-wrap rounded-md bg-background/60 p-3 font-sans text-muted-foreground text-sm leading-relaxed">
+            <pre className="whitespace-pre-wrap rounded-md bg-background/60 p-3 font-sans text-muted text-sm leading-relaxed">
               {variant.instructions}
             </pre>
           </section>
@@ -76,7 +74,7 @@ export function AgentInstructionsPanel({
             <h4 className="font-medium text-foreground/80 text-xs uppercase tracking-wide">
               开场白 prompt
             </h4>
-            <pre className="whitespace-pre-wrap rounded-md bg-background/60 p-3 font-sans text-muted-foreground text-sm leading-relaxed">
+            <pre className="whitespace-pre-wrap rounded-md bg-background/60 p-3 font-sans text-muted text-sm leading-relaxed">
               {variant.openingPrompt}
             </pre>
           </section>
@@ -85,7 +83,7 @@ export function AgentInstructionsPanel({
             <h4 className="font-medium text-foreground/80 text-xs uppercase tracking-wide">
               结束语 prompt
             </h4>
-            <pre className="whitespace-pre-wrap rounded-md bg-background/60 p-3 font-sans text-muted-foreground text-sm leading-relaxed">
+            <pre className="whitespace-pre-wrap rounded-md bg-background/60 p-3 font-sans text-muted text-sm leading-relaxed">
               {variant.closingPrompt}
             </pre>
           </section>

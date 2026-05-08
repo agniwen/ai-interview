@@ -218,7 +218,7 @@ export function JobDescriptionFormDialog({
                     return (
                       <Field data-invalid={hasFieldErrors(field.state.meta.errors) || undefined}>
                         <FieldLabel htmlFor={field.name}>
-                          岗位名称 <span className="text-destructive">*</span>
+                          岗位名称 <span className="text-danger">*</span>
                         </FieldLabel>
                         <FieldContent className="gap-2">
                           <Input
@@ -242,7 +242,7 @@ export function JobDescriptionFormDialog({
                     return (
                       <Field data-invalid={hasFieldErrors(field.state.meta.errors) || undefined}>
                         <FieldLabel htmlFor={field.name}>
-                          所属部门 <span className="text-destructive">*</span>
+                          所属部门 <span className="text-danger">*</span>
                         </FieldLabel>
                         <FieldContent className="gap-2">
                           <SearchableSelect
@@ -273,8 +273,8 @@ export function JobDescriptionFormDialog({
                         data-invalid={hasFieldErrors(field.state.meta.errors) || undefined}
                       >
                         <FieldLabel>
-                          面试官 <span className="text-destructive">*</span>
-                          <span className="ml-2 font-normal text-muted-foreground text-xs">
+                          面试官 <span className="text-danger">*</span>
+                          <span className="ml-2 font-normal text-muted text-xs">
                             （可多选，面试时会随机挑选一位；不限定部门）
                           </span>
                         </FieldLabel>
@@ -326,7 +326,7 @@ export function JobDescriptionFormDialog({
                   return (
                     <Field data-invalid={hasFieldErrors(field.state.meta.errors) || undefined}>
                       <FieldLabel htmlFor={field.name}>
-                        岗位 Prompt <span className="text-destructive">*</span>
+                        岗位 Prompt <span className="text-danger">*</span>
                       </FieldLabel>
                       <FieldContent className="gap-2">
                         <Textarea
@@ -389,7 +389,7 @@ function LinkedFormsList({
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="font-medium text-sm">岗位关联的面试表单</p>
-          <p className="mt-1 text-muted-foreground text-xs">
+          <p className="mt-1 text-muted text-xs">
             候选人进入面试前需要填写下列表单；全局面试表单在「面试表单」菜单中维护。
           </p>
         </div>
@@ -405,12 +405,12 @@ function LinkedFormsList({
       </div>
 
       {isLoading ? (
-        <p className="rounded-xl border border-dashed border-border/60 bg-muted/20 px-4 py-6 text-center text-muted-foreground text-sm">
+        <p className="rounded-xl border border-dashed border-separator/60 bg-default/20 px-4 py-6 text-center text-muted text-sm">
           正在加载关联表单…
         </p>
       ) : null}
       {!isLoading && templates.length === 0 ? (
-        <p className="rounded-xl border border-dashed border-border/60 bg-muted/20 px-4 py-6 text-center text-muted-foreground text-sm">
+        <p className="rounded-xl border border-dashed border-separator/60 bg-default/20 px-4 py-6 text-center text-muted text-sm">
           暂无该岗位专属的面试表单。
         </p>
       ) : null}
@@ -418,21 +418,19 @@ function LinkedFormsList({
         <div className="space-y-2">
           {templates.map((template) => (
             <Link
-              className="flex items-start justify-between gap-3 rounded-xl border border-border/60 bg-muted/20 p-3 transition-colors hover:bg-muted/40"
+              className="flex items-start justify-between gap-3 rounded-xl border border-separator/60 bg-default/20 p-3 transition-colors hover:bg-default/40"
               href={`/studio/forms?templateId=${template.id}`}
               key={template.id}
               target="_blank"
             >
               <div className="flex min-w-0 items-start gap-3">
-                <ClipboardListIcon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                <ClipboardListIcon className="mt-0.5 size-4 shrink-0 text-muted" />
                 <div className="min-w-0">
                   <p className="truncate font-medium text-sm">{template.title}</p>
                   {template.description ? (
-                    <p className="mt-0.5 line-clamp-2 text-muted-foreground text-xs">
-                      {template.description}
-                    </p>
+                    <p className="mt-0.5 line-clamp-2 text-muted text-xs">{template.description}</p>
                   ) : null}
-                  <p className="mt-1 text-muted-foreground text-xs">
+                  <p className="mt-1 text-muted text-xs">
                     {template.questionCount} 题 · {template.submissionCount} 份答复
                   </p>
                 </div>
@@ -462,7 +460,7 @@ function LinkedInterviewQuestionTemplatesList({
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="font-medium text-sm">岗位关联的面试题</p>
-          <p className="mt-1 text-muted-foreground text-xs">
+          <p className="mt-1 text-muted text-xs">
             面试创建时会自动绑定到下列面试题的最新版本；全局面试题在「面试题」菜单中维护。
           </p>
         </div>
@@ -478,12 +476,12 @@ function LinkedInterviewQuestionTemplatesList({
       </div>
 
       {isLoading ? (
-        <p className="rounded-xl border border-dashed border-border/60 bg-muted/20 px-4 py-6 text-center text-muted-foreground text-sm">
+        <p className="rounded-xl border border-dashed border-separator/60 bg-default/20 px-4 py-6 text-center text-muted text-sm">
           正在加载关联模版…
         </p>
       ) : null}
       {!isLoading && templates.length === 0 ? (
-        <p className="rounded-xl border border-dashed border-border/60 bg-muted/20 px-4 py-6 text-center text-muted-foreground text-sm">
+        <p className="rounded-xl border border-dashed border-separator/60 bg-default/20 px-4 py-6 text-center text-muted text-sm">
           暂无该岗位专属的面试题。
         </p>
       ) : null}
@@ -491,21 +489,19 @@ function LinkedInterviewQuestionTemplatesList({
         <div className="space-y-2">
           {templates.map((template) => (
             <Link
-              className="flex items-start justify-between gap-3 rounded-xl border border-border/60 bg-muted/20 p-3 transition-colors hover:bg-muted/40"
+              className="flex items-start justify-between gap-3 rounded-xl border border-separator/60 bg-default/20 p-3 transition-colors hover:bg-default/40"
               href={`/studio/interview-questions?templateId=${template.id}`}
               key={template.id}
               target="_blank"
             >
               <div className="flex min-w-0 items-start gap-3">
-                <ListChecksIcon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                <ListChecksIcon className="mt-0.5 size-4 shrink-0 text-muted" />
                 <div className="min-w-0">
                   <p className="truncate font-medium text-sm">{template.title}</p>
                   {template.description ? (
-                    <p className="mt-0.5 line-clamp-2 text-muted-foreground text-xs">
-                      {template.description}
-                    </p>
+                    <p className="mt-0.5 line-clamp-2 text-muted text-xs">{template.description}</p>
                   ) : null}
-                  <p className="mt-1 text-muted-foreground text-xs">
+                  <p className="mt-1 text-muted text-xs">
                     {template.questionCount} 题 · {template.bindingCount} 个面试已绑定
                   </p>
                 </div>

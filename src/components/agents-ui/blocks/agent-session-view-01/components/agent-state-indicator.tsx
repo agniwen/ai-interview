@@ -33,7 +33,7 @@ export function AgentStateIndicator({ state, className }: AgentStateIndicatorPro
         exit={{ opacity: 0, y: -4 }}
         transition={{ duration: 0.2 }}
         className={cn(
-          "flex items-center justify-center gap-2 text-sm font-medium text-muted-foreground",
+          "flex items-center justify-center gap-2 text-sm font-medium text-muted",
           className,
         )}
       >

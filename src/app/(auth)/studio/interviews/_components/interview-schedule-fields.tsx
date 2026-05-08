@@ -41,7 +41,7 @@ export function InterviewScheduleFields({
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div className="min-w-0">
                 <h3 className="font-medium text-sm">面试安排</h3>
-                <p className="mt-1 text-muted-foreground text-xs">
+                <p className="mt-1 text-muted text-xs">
                   支持添加一面、二面、三面等多个轮次，并维护计划时间。
                 </p>
               </div>
@@ -79,7 +79,7 @@ export function InterviewScheduleFields({
 
                 return (
                   <div
-                    className="rounded-xl border border-border/60 bg-muted/20 p-4"
+                    className="rounded-xl border border-separator/60 bg-default/20 p-4"
                     key={entry.id || `schedule-${index}`}
                   >
                     <div className="mb-3 flex items-center justify-between gap-3">
@@ -89,7 +89,7 @@ export function InterviewScheduleFields({
                           <Badge variant={statusMeta.tone}>{statusMeta.label}</Badge>
                         ) : null}
                         {isLocked ? (
-                          <span className="flex items-center gap-1 text-muted-foreground text-xs">
+                          <span className="flex items-center gap-1 text-muted text-xs">
                             <LockIcon className="size-3" />
                             不可编辑
                           </span>
@@ -163,7 +163,7 @@ export function InterviewScheduleFields({
                               <FieldLabel htmlFor={field.name}>面试时间</FieldLabel>
                               <FieldContent className="gap-2">
                                 <div className="relative">
-                                  <CalendarDaysIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+                                  <CalendarDaysIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted" />
                                   <Input
                                     aria-invalid={!!errors?.length}
                                     className="w-full pl-9"

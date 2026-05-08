@@ -32,7 +32,7 @@ const motionAnimationProps = {
   },
 };
 
-const agentChatIndicatorVariants = cva("bg-muted-foreground inline-block size-2.5 rounded-full", {
+const agentChatIndicatorVariants = cva("bg-default inline-block size-2.5 rounded-full", {
   defaultVariants: {
     size: "md",
   },

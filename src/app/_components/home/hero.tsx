@@ -21,7 +21,7 @@ interface HeroProps {
 //   t=0.10   sub paragraph fade
 //   t=0.20   CTA buttons fade
 const BRAND_MARK_CLASS =
-  "mb-3 block font-mono font-bold text-base text-primary uppercase tracking-[0.22em] sm:mb-4 sm:text-base lg:text-lg";
+  "mb-3 block font-mono font-bold text-base text-accent uppercase tracking-[0.22em] sm:mb-4 sm:text-base lg:text-lg";
 
 export function Hero({ isPending, onResumeFiltering, onWorkbench }: HeroProps) {
   const reducedMotion = useReducedMotion();
@@ -31,7 +31,7 @@ export function Hero({ isPending, onResumeFiltering, onWorkbench }: HeroProps) {
       <FadeContent>
         {/* 中文官方名放在标语徽章里，承担本地化品牌识别。
             Chinese official name lives in the eyebrow badge for localized brand recall. */}
-        <p className="inline-flex items-center gap-1.5 rounded-full border border-primary/15 bg-primary/8 px-3 py-1 font-medium text-[11px] text-primary sm:text-xs">
+        <p className="inline-flex items-center gap-1.5 rounded-full border border-accent/15 bg-accent/8 px-3 py-1 font-medium text-[11px] text-accent sm:text-xs">
           <SparklesIcon aria-hidden="true" className="size-3" />
           招聘 AI 协同工作台
         </p>
@@ -60,7 +60,7 @@ export function Hero({ isPending, onResumeFiltering, onWorkbench }: HeroProps) {
       </h1>
 
       <FadeContent className="mt-5 mx-auto max-w-2xl sm:mt-7" delay={0.1}>
-        <p className="font-serif text-sm text-muted-foreground leading-relaxed sm:text-lg sm:leading-[1.8]">
+        <p className="font-serif text-sm text-muted leading-relaxed sm:text-lg sm:leading-[1.8]">
           先用聊天式方式完成简历初筛，再进入实时语音模拟面试，连续查看候选人的亮点、风险、追问过程与回答表现，让招聘判断更完整。
         </p>
       </FadeContent>
@@ -68,7 +68,7 @@ export function Hero({ isPending, onResumeFiltering, onWorkbench }: HeroProps) {
       <FadeContent className="mt-8 flex items-center justify-center sm:mt-10" delay={0.2}>
         <div className="inline-flex items-stretch">
           <Button
-            className="group h-11 min-w-[12em] gap-0 rounded-l-xl rounded-r-none border-primary/40 bg-primary/20! px-8 text-sm backdrop-blur-md hover:bg-primary/40! sm:h-12 sm:px-10 sm:text-base"
+            className="group h-11 min-w-[12em] gap-0 rounded-l-xl rounded-r-none border-accent/40 bg-accent/20! px-8 text-sm backdrop-blur-md hover:bg-accent/40! sm:h-12 sm:px-10 sm:text-base"
             isDisabled={isPending}
             onClick={onResumeFiltering}
             type="button"

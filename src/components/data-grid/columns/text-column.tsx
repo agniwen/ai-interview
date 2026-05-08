@@ -36,7 +36,7 @@ export function textColumn<TData>(opts: TextColumnOptions<TData>): ColumnDef<TDa
         return (
           <div className={cn("min-w-0", truncateClass)}>
             <p className={cn("truncate", opts.primary && "font-medium")}>{display}</p>
-            <p className="truncate text-muted-foreground text-xs">{opts.secondary(row.original)}</p>
+            <p className="truncate text-muted text-xs">{opts.secondary(row.original)}</p>
           </div>
         );
       }
@@ -45,7 +45,7 @@ export function textColumn<TData>(opts: TextColumnOptions<TData>): ColumnDef<TDa
         <span
           className={cn(
             opts.primary && "font-medium",
-            opts.muted && "text-muted-foreground",
+            opts.muted && "text-muted",
             truncateClass && `block ${truncateClass}`,
           )}
         >

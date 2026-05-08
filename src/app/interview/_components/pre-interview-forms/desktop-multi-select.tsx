@@ -57,20 +57,15 @@ export function DesktopMultiSelect({
         <button
           aria-expanded={open}
           className={cn(
-            "flex h-10 w-full items-center justify-between gap-2 rounded-md border border-input bg-transparent px-3 py-2 text-left text-sm shadow-xs transition-[color,box-shadow]",
-            "data-[invalid=true]:border-destructive data-[invalid=true]:ring-[3px] data-[invalid=true]:ring-destructive/20",
-            "focus-visible:border-ring focus-visible:outline-hidden focus-visible:ring-[3px] focus-visible:ring-ring/50",
+            "flex h-10 w-full items-center justify-between gap-2 rounded-md border border-separator bg-transparent px-3 py-2 text-left text-sm shadow-xs transition-[color,box-shadow]",
+            "data-[invalid=true]:border-danger data-[invalid=true]:ring-[3px] data-[invalid=true]:ring-danger/20",
+            "focus-visible:border-focus focus-visible:outline-hidden focus-visible:ring-[3px] focus-visible:ring-focus/50",
           )}
           data-invalid={invalid ? true : undefined}
           id={inputId}
           type="button"
         >
-          <span
-            className={cn(
-              "min-w-0 flex-1 truncate",
-              selected.size === 0 ? "text-muted-foreground" : "",
-            )}
-          >
+          <span className={cn("min-w-0 flex-1 truncate", selected.size === 0 ? "text-muted" : "")}>
             {triggerLabel}
           </span>
           <ChevronDownIcon className="size-4 shrink-0 opacity-50" />
@@ -81,15 +76,15 @@ export function DesktopMultiSelect({
         className="w-(--radix-popover-trigger-width) min-w-56 p-1"
         onOpenAutoFocus={(event) => event.preventDefault()}
       >
-        <p className="px-2 pt-1 pb-1.5 text-muted-foreground text-xs">可多选</p>
+        <p className="px-2 pt-1 pb-1.5 text-muted text-xs">可多选</p>
         <div className="max-h-64 overflow-y-auto">
           {question.options.map((option) => {
             const checked = selected.has(option.value);
             return (
               <button
                 className={cn(
-                  "flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm transition-colors hover:bg-accent",
-                  checked ? "bg-accent/50" : "",
+                  "flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm transition-colors hover:bg-default",
+                  checked ? "bg-default/50" : "",
                 )}
                 key={option.value}
                 onClick={() => toggle(option.value)}
@@ -97,7 +92,7 @@ export function DesktopMultiSelect({
               >
                 <CheckIcon
                   className={cn(
-                    "size-4 shrink-0 text-primary",
+                    "size-4 shrink-0 text-accent",
                     checked ? "opacity-100" : "opacity-0",
                   )}
                 />

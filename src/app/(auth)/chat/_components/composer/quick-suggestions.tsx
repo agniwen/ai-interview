@@ -22,7 +22,7 @@ export function QuickSuggestions() {
 
   return (
     <section className="mx-auto mb-0.5 w-full max-w-5xl px-2 sm:px-3">
-      <p className="mb-2 px-1 font-medium text-muted-foreground text-xs">快速提问</p>
+      <p className="mb-2 px-1 font-medium text-muted text-xs">快速提问</p>
       {/*
         左右两侧 32px 的渐隐遮罩，跟首页 Marquee 的视觉一致。
         Suggestions 内层是 ScrollArea，遮罩放在外层 wrapper 上，scroll 时内容
@@ -42,7 +42,7 @@ export function QuickSuggestions() {
         <Suggestions className="gap-2.5 px-1 pb-1">
           {QUICK_SUGGESTIONS.map((suggestion) => (
             <Suggestion
-              className="h-auto whitespace-normal rounded-2xl border-border/70 bg-card/70 px-4 py-2 text-left text-xs leading-relaxed hover:bg-accent"
+              className="h-auto whitespace-normal rounded-2xl border-separator/70 bg-surface/70 px-4 py-2 text-left text-xs leading-relaxed hover:bg-default"
               isDisabled={isStreaming}
               key={suggestion}
               onClick={(text) => {

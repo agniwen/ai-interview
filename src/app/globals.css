@@ -1,38 +1,20 @@
 /* HeroUI v3 + Tailwind v4 setup.
    Per HeroUI v3 docs: import tailwindcss first, then @heroui/styles.
-   @heroui/styles itself re-imports tailwindcss + tw-animate-css and registers
+   @heroui/styles re-imports tailwindcss + tw-animate-css and registers
    @theme inline mappings for HeroUI's semantic tokens (--color-accent,
    --color-surface, --color-muted, --color-separator, --color-focus, etc.).
 
-   We override HeroUI's default token values with the project's brand palette,
-   add backward-compat @theme inline aliases for the shadcn token names that
-   are still in widespread use (--color-primary, --color-destructive,
-   --color-card, etc.), and keep a separate sidebar token family for the
-   preserved <Sidebar> component. */
+   We override HeroUI's default token values with the project's brand palette
+   and keep a separate sidebar token family for the preserved <Sidebar>
+   component (HeroUI has no equivalent). All shadcn-era class names have been
+   swept across the codebase to HeroUI-native names — there is no alias layer. */
 
 @import "tailwindcss";
 @import "@heroui/styles";
 @source "../node_modules/streamdown/dist/*.js";
 
-/* Backward-compat: shadcn token names → HeroUI tokens.
-   HeroUI's shared/theme.css already registers the HeroUI-native names
-   (background/foreground/surface/accent/muted/separator/border/focus/...).
-   We add the shadcn-style aliases that the existing codebase still references. */
+/* Sidebar tokens — preserved component, kept distinct from the HeroUI palette. */
 @theme inline {
-  --color-card: var(--surface);
-  --color-card-foreground: var(--surface-foreground);
-  --color-popover: var(--overlay);
-  --color-popover-foreground: var(--overlay-foreground);
-  --color-primary: var(--accent);
-  --color-primary-foreground: var(--accent-foreground);
-  --color-secondary: var(--surface-secondary);
-  --color-secondary-foreground: var(--surface-secondary-foreground);
-  --color-destructive: var(--danger);
-  --color-destructive-foreground: var(--danger-foreground);
-  --color-muted-foreground: var(--muted);
-  --color-input: var(--separator);
-  --color-ring: var(--focus);
-
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar-primary: var(--sidebar-primary);
@@ -150,7 +132,7 @@
     min-height: 100%;
   }
   * {
-    @apply border-border outline-focus/50;
+    @apply border-separator outline-focus/50;
   }
   body {
     @apply font-sans text-foreground;

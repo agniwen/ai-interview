@@ -85,7 +85,7 @@ const LINE_NUMBER_CLASSES = cn(
   "before:w-8",
   "before:mr-4",
   "before:text-right",
-  "before:text-muted-foreground/50",
+  "before:text-muted/50",
   "before:font-mono",
   "before:select-none",
 );
@@ -323,7 +323,7 @@ export function CodeBlockHeader({ children, className, ...props }: HTMLAttribute
   return (
     <div
       className={cn(
-        "flex items-center justify-between border-b bg-muted/80 px-3 py-2 text-muted-foreground text-xs",
+        "flex items-center justify-between border-b bg-default/80 px-3 py-2 text-muted text-xs",
         className,
       )}
       {...props}

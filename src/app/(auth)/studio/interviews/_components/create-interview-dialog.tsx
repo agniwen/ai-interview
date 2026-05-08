@@ -465,19 +465,19 @@ export function CreateInterviewDialog({
                       onChange={(event) => void handleResumeChange(event.target.files?.[0] ?? null)}
                       type="file"
                     />
-                    <p className="text-muted-foreground text-sm">
+                    <p className="text-muted text-sm">
                       选填。上传后会调用现有简历分析接口，自动回填候选人姓名、岗位和题目数据。
                     </p>
                     {resumeFile ? (
-                      <p className="break-all text-muted-foreground text-sm">{resumeFile.name}</p>
+                      <p className="break-all text-muted text-sm">{resumeFile.name}</p>
                     ) : null}
                     {resumePayload ? (
-                      <div className="rounded-xl border border-border/60 bg-background/80 px-4 py-3 text-sm">
+                      <div className="rounded-xl border border-separator/60 bg-background/80 px-4 py-3 text-sm">
                         <p className="flex items-center gap-2 font-medium">
                           <SparklesIcon className="size-4 text-amber-500" />
                           已完成简历分析
                         </p>
-                        <p className="mt-1 break-words text-muted-foreground leading-relaxed">
+                        <p className="mt-1 break-words text-muted leading-relaxed">
                           {resumePayload.resumeProfile.name}
                           {" · "}
                           {resumePayload.resumeProfile.targetRoles[0] ?? "待识别岗位"}
@@ -512,7 +512,7 @@ export function CreateInterviewDialog({
                 initial={{ opacity: 0 }}
                 transition={{ duration: 0.2 }}
               >
-                <LoaderCircleIcon className="size-7 animate-spin text-muted-foreground" />
+                <LoaderCircleIcon className="size-7 animate-spin text-muted" />
                 {progressStatus ? (
                   <p className="font-medium text-foreground text-sm">{progressStatus}</p>
                 ) : (
@@ -530,7 +530,7 @@ export function CreateInterviewDialog({
                   </motion.div>
                 )}
                 {progressTools.length > 0 && (
-                  <div className="flex flex-col gap-1.5 text-muted-foreground text-xs">
+                  <div className="flex flex-col gap-1.5 text-muted text-xs">
                     {progressTools.map((t) => (
                       <div className="flex items-center gap-1.5" key={t.name}>
                         {t.done ? (
@@ -547,7 +547,7 @@ export function CreateInterviewDialog({
                   <div className="mx-auto grid w-full max-w-xs grid-cols-[auto_1fr] gap-x-3 gap-y-1 rounded-lg border bg-background/80 px-4 py-3 text-xs">
                     {partialFields.map((f) => (
                       <div className="contents" key={f.label}>
-                        <span className="text-muted-foreground">{f.label}</span>
+                        <span className="text-muted">{f.label}</span>
                         <span className="truncate font-medium text-foreground">{f.value}</span>
                       </div>
                     ))}

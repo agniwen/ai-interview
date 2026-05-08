@@ -192,7 +192,7 @@ export function EditInterviewDialog({
         }
       >
         {isLoadingRecord ? (
-          <div className="flex min-h-[320px] items-center justify-center text-muted-foreground text-sm">
+          <div className="flex min-h-[320px] items-center justify-center text-muted text-sm">
             正在加载编辑数据...
           </div>
         ) : (
@@ -216,12 +216,12 @@ export function EditInterviewDialog({
                       onChange={(event) => handleResumeChange(event.target.files?.[0] ?? null)}
                       type="file"
                     />
-                    <p className="text-muted-foreground text-sm">
+                    <p className="text-muted text-sm">
                       仅替换关联的简历
                       PDF，不会重新解析简历或覆盖已维护的候选人信息、面试题与轮次安排。
                     </p>
                     {resumeFile ? (
-                      <p className="break-all text-muted-foreground text-sm">{resumeFile.name}</p>
+                      <p className="break-all text-muted text-sm">{resumeFile.name}</p>
                     ) : null}
                   </FieldGroup>
                 </div>
@@ -250,7 +250,7 @@ export function EditInterviewDialog({
               <div className="space-y-3">
                 <div>
                   <p className="font-medium text-sm">候选人专属面试题</p>
-                  <p className="mt-1 text-muted-foreground text-xs">
+                  <p className="mt-1 text-muted text-xs">
                     基于该候选人的简历单独维护的题目，仅用于本次面试。
                   </p>
                 </div>

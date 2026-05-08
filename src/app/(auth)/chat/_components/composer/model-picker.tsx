@@ -60,7 +60,7 @@ const PROVIDER_LOGO_SLUG: Record<ChatModelOption["provider"], string | null> = {
 function ProviderIcon({ provider }: { provider: ChatModelOption["provider"] }) {
   const slug = PROVIDER_LOGO_SLUG[provider];
   if (!slug) {
-    return <CpuIcon className="size-3.5 text-muted-foreground" />;
+    return <CpuIcon className="size-3.5 text-muted" />;
   }
   return (
     // oxlint-disable-next-line next/no-img-element -- External SVG; next/image adds no value here and would require whitelisting models.dev.
@@ -171,7 +171,7 @@ export function ModelPicker({ className }: ModelPickerProps) {
             <Button
               aria-label="选择模型"
               className={cn(
-                "h-7 gap-1.5 rounded-md border-0 bg-transparent px-2 font-normal text-xs hover:bg-accent",
+                "h-7 gap-1.5 rounded-md border-0 bg-transparent px-2 font-normal text-xs hover:bg-default",
                 className,
               )}
               isDisabled={isLoading || models.length === 0}
@@ -193,7 +193,7 @@ export function ModelPicker({ className }: ModelPickerProps) {
 
       <PopoverContent align="start" className="w-80 p-0" sideOffset={6}>
         {!upstreamReachable && (
-          <div className="border-b bg-muted/60 px-3 py-1.5 text-[11px] text-muted-foreground">
+          <div className="border-b bg-default/60 px-3 py-1.5 text-[11px] text-muted">
             无法连接百炼 /models 接口，可稍后重试。
           </div>
         )}
@@ -223,11 +223,11 @@ export function ModelPicker({ className }: ModelPickerProps) {
                       <ProviderIcon provider={model.provider} />
                       <span className="flex-1 truncate font-mono">{model.label}</span>
                       {model.id === defaultId && (
-                        <span className="rounded-sm bg-primary/10 px-1 py-0 font-medium text-[9px] text-primary">
+                        <span className="rounded-sm bg-accent/10 px-1 py-0 font-medium text-[9px] text-accent">
                           默认
                         </span>
                       )}
-                      {isSelected && <CheckIcon className="size-3.5 text-primary" />}
+                      {isSelected && <CheckIcon className="size-3.5 text-accent" />}
                     </CommandItem>
                   );
                 })}

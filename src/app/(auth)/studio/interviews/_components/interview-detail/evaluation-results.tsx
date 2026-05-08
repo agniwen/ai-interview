@@ -34,15 +34,18 @@ function KeyValueEntries({ entries }: { entries: Record<string, unknown> }) {
   );
 
   if (items.length === 0) {
-    return <p className="text-muted-foreground text-sm">暂无结构化结果。</p>;
+    return <p className="text-muted text-sm">暂无结构化结果。</p>;
   }
 
   return (
     <div className="space-y-2">
       {items.map(([key, value]) => (
-        <div className="rounded-xl border border-border/60 bg-muted/20 px-3 py-2 text-sm" key={key}>
+        <div
+          className="rounded-xl border border-separator/60 bg-default/20 px-3 py-2 text-sm"
+          key={key}
+        >
           <p className="font-medium">{key}</p>
-          <p className="mt-1 break-words text-muted-foreground leading-relaxed">
+          <p className="mt-1 break-words text-muted leading-relaxed">
             {typeof value === "string" ? value : JSON.stringify(value)}
           </p>
         </div>
@@ -60,7 +63,7 @@ function KeyValueEntries({ entries }: { entries: Record<string, unknown> }) {
  */
 export function EvaluationResults({ data }: { data: Record<string, unknown> }) {
   if (!data || Object.keys(data).length === 0) {
-    return <p className="text-muted-foreground text-sm">暂无结构化结果。</p>;
+    return <p className="text-muted text-sm">暂无结构化结果。</p>;
   }
 
   if (!isAgentEvaluation(data)) {
@@ -70,9 +73,9 @@ export function EvaluationResults({ data }: { data: Record<string, unknown> }) {
   return (
     <div className="space-y-3">
       {typeof data.overallScore === "number" && (
-        <div className="flex items-center gap-3 rounded-xl border border-border/60 bg-muted/20 px-3 py-2.5">
+        <div className="flex items-center gap-3 rounded-xl border border-separator/60 bg-default/20 px-3 py-2.5">
           <span className="font-semibold text-2xl">{data.overallScore}</span>
-          <span className="text-muted-foreground text-sm">/ 100</span>
+          <span className="text-muted text-sm">/ 100</span>
           {data.recommendation && (
             <Badge className="ml-auto" variant={resolveRecommendationVariant(data.recommendation)}>
               {data.recommendation}
@@ -81,13 +84,13 @@ export function EvaluationResults({ data }: { data: Record<string, unknown> }) {
         </div>
       )}
       {data.overallAssessment && (
-        <p className="text-muted-foreground text-sm leading-relaxed">{data.overallAssessment}</p>
+        <p className="text-muted text-sm leading-relaxed">{data.overallAssessment}</p>
       )}
       {data.questions.length > 0 && (
         <div className="space-y-2">
           {data.questions.map((q, i) => (
             <div
-              className="rounded-xl border border-border/60 bg-muted/20 px-3 py-2.5 text-sm"
+              className="rounded-xl border border-separator/60 bg-default/20 px-3 py-2.5 text-sm"
               key={q.order ?? i}
             >
               <div className="flex items-start justify-between gap-2">
@@ -97,12 +100,10 @@ export function EvaluationResults({ data }: { data: Record<string, unknown> }) {
                 </p>
                 <span className="shrink-0 font-semibold">
                   {q.score ?? "-"}
-                  <span className="font-normal text-muted-foreground">/{q.maxScore ?? 10}</span>
+                  <span className="font-normal text-muted">/{q.maxScore ?? 10}</span>
                 </span>
               </div>
-              {q.assessment && (
-                <p className="mt-1.5 text-muted-foreground leading-relaxed">{q.assessment}</p>
-              )}
+              {q.assessment && <p className="mt-1.5 text-muted leading-relaxed">{q.assessment}</p>}
             </div>
           ))}
         </div>

@@ -60,7 +60,7 @@ export function Screenshot({
       </div>
       <Image
         alt={alt}
-        className="h-auto w-full border border-border/60 rounded-md"
+        className="h-auto w-full border border-separator/60 rounded-md"
         height={height}
         priority={priority}
         src={src}

@@ -224,7 +224,7 @@ function renderSessionItem({
 
       <Button
         aria-label="删除聊天记录"
-        className="size-7 rounded-md opacity-0 transition-opacity group-hover/session-item:opacity-100 hover:bg-destructive/12 hover:text-destructive"
+        className="size-7 rounded-md opacity-0 transition-opacity group-hover/session-item:opacity-100 hover:bg-danger/12 hover:text-danger"
         isIconOnly
         onClick={(event) => {
           event.stopPropagation();
@@ -269,7 +269,7 @@ function ChatSidebarBody({
       return null;
     }
 
-    return <p className="px-3 py-3 text-muted-foreground text-xs">暂无聊天记录</p>;
+    return <p className="px-3 py-3 text-muted text-xs">暂无聊天记录</p>;
   }
 
   if (isCollapsed) {
@@ -297,9 +297,7 @@ function ChatSidebarBody({
                       <div
                         className={cn(
                           "h-1.5 rounded-full",
-                          isActive
-                            ? "bg-sidebar-foreground/40 w-full"
-                            : "bg-muted-foreground/20 w-3/4",
+                          isActive ? "bg-sidebar-foreground/40 w-full" : "bg-default/20 w-3/4",
                         )}
                       />
                     </Link>
@@ -326,7 +324,7 @@ function ChatSidebarBody({
         const itemBody = (
           <div className="min-w-0 flex-1 rounded-md px-2 py-1.5 text-left">
             <p className="truncate font-medium text-sm">{visibleTitle}</p>
-            <p className="mt-1 truncate text-muted-foreground text-xs">
+            <p className="mt-1 truncate text-muted text-xs">
               <TimeDisplay
                 as="span"
                 options={DATE_TIME_DISPLAY_OPTIONS}

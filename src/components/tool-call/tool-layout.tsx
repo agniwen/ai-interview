@@ -86,7 +86,7 @@ function getSummaryToneClass(showErrorHeader: boolean, showInterruptedHeader: bo
   if (showInterruptedHeader) {
     return "text-yellow-400/80";
   }
-  return "text-muted-foreground";
+  return "text-muted";
 }
 
 interface HeaderIconArgs {
@@ -107,9 +107,9 @@ function renderHeaderIcon({
   showInterruptedHeader,
 }: HeaderIconArgs) {
   const expandToggle = isExpandedPanelVisible ? (
-    <Minus className="hidden h-3.5 w-3.5 text-muted-foreground group-hover/tool:block" />
+    <Minus className="hidden h-3.5 w-3.5 text-muted group-hover/tool:block" />
   ) : (
-    <Plus className="hidden h-3.5 w-3.5 text-muted-foreground group-hover/tool:block" />
+    <Plus className="hidden h-3.5 w-3.5 text-muted group-hover/tool:block" />
   );
 
   if (showErrorHeader) {
@@ -222,7 +222,7 @@ export function ToolLayout({
 
   const isRunning = state.running;
   const resolvedIcon = isRunning ? (
-    <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+    <Loader2 className="h-3.5 w-3.5 animate-spin text-muted" />
   ) : (
     (icon ?? <StatusIndicator state={state} />)
   );
@@ -232,7 +232,7 @@ export function ToolLayout({
       <div
         className={cn(
           "group/tool flex min-w-0 select-none items-center gap-2  px-1.5 py-1 text-sm",
-          hasExpandedDetails && "cursor-pointer transition-colors hover:bg-muted/50",
+          hasExpandedDetails && "cursor-pointer transition-colors hover:bg-default/50",
         )}
         {...(hasExpandedDetails && {
           "aria-expanded": isExpanded,
@@ -248,7 +248,7 @@ export function ToolLayout({
         })}
       >
         {/* Icon area */}
-        <span className="flex size-4 shrink-0 items-center justify-center text-muted-foreground/70">
+        <span className="flex size-4 shrink-0 items-center justify-center text-muted/70">
           {renderHeaderIcon({
             hasExpandedDetails,
             isExpandedPanelVisible,
@@ -294,7 +294,7 @@ export function ToolLayout({
           )}
 
           {hasTrailingMeta && (
-            <span className="inline-flex shrink-0 items-center gap-1.5 font-mono text-[12px] leading-none text-muted-foreground/60">
+            <span className="inline-flex shrink-0 items-center gap-1.5 font-mono text-[12px] leading-none text-muted/60">
               {meta}
             </span>
           )}
@@ -303,7 +303,7 @@ export function ToolLayout({
 
       {children}
 
-      {showRunningNotice && <div className="mt-2 text-sm text-muted-foreground">运行中...</div>}
+      {showRunningNotice && <div className="mt-2 text-sm text-muted">运行中...</div>}
 
       {showApprovalButtons && state.approvalId && (
         <div
@@ -316,7 +316,7 @@ export function ToolLayout({
       )}
 
       {hasOutput && !state.approvalRequested && !state.denied && !state.interrupted && (
-        <div className="mt-2 text-sm text-muted-foreground">{output}</div>
+        <div className="mt-2 text-sm text-muted">{output}</div>
       )}
 
       {state.denied && (

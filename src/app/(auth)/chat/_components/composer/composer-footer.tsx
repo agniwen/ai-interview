@@ -87,7 +87,7 @@ function ConversationDownloadButton() {
       <TooltipTrigger asChild>
         <ConversationDownload
           aria-label="导出聊天记录"
-          className="static rounded-md border-0 bg-transparent shadow-none hover:bg-accent"
+          className="static rounded-md border-0 bg-transparent shadow-none hover:bg-default"
           isDisabled={downloadable.length === 0}
           messages={downloadable}
           size="sm"
@@ -198,7 +198,7 @@ export function ComposerFooter({
       </PromptInputTools>
 
       <div className="flex items-center gap-2">
-        <span className="pointer-events-none hidden select-none text-muted-foreground text-xs sm:inline">
+        <span className="pointer-events-none hidden select-none text-muted text-xs sm:inline">
           {getComposerStatusLabel(effectiveStatus, hasJobDescription, jobDescriptionLabel)}
         </span>
         <PromptInputSubmit

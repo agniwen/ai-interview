@@ -75,11 +75,5 @@ export function PopoverTitle({ className, ...props }: ComponentProps<"h2">) {
 }
 
 export function PopoverDescription({ className, ...props }: ComponentProps<"p">) {
-  return (
-    <p
-      data-slot="popover-description"
-      className={cn("text-muted-foreground", className)}
-      {...props}
-    />
-  );
+  return <p data-slot="popover-description" className={cn("text-muted", className)} {...props} />;
 }

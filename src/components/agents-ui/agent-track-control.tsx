@@ -21,10 +21,10 @@ import { cn } from "@/lib/utils";
 const selectVariants = cva(
   [
     "rounded-l-none shadow-none pl-2 ",
-    "text-foreground hover:text-muted-foreground",
-    "peer-data-[state=on]/track:bg-muted peer-data-[state=on]/track:hover:bg-foreground/10",
-    "peer-data-[state=off]/track:text-destructive",
-    "peer-data-[state=off]/track:focus-visible:border-destructive peer-data-[state=off]/track:focus-visible:ring-destructive/30",
+    "text-foreground hover:text-muted",
+    "peer-data-[state=on]/track:bg-default peer-data-[state=on]/track:hover:bg-foreground/10",
+    "peer-data-[state=off]/track:text-danger",
+    "peer-data-[state=off]/track:focus-visible:border-danger peer-data-[state=off]/track:focus-visible:ring-danger/30",
     "[&_svg]:opacity-100",
   ],
   {
@@ -40,26 +40,26 @@ const selectVariants = cva(
       variant: {
         default: [
           "border-none",
-          "peer-data-[state=off]/track:bg-destructive/10",
-          "peer-data-[state=off]/track:hover:bg-destructive/15",
-          "peer-data-[state=off]/track:[&_svg]:text-destructive!",
+          "peer-data-[state=off]/track:bg-danger/10",
+          "peer-data-[state=off]/track:hover:bg-danger/15",
+          "peer-data-[state=off]/track:[&_svg]:text-danger!",
 
-          "dark:peer-data-[state=on]/track:bg-accent",
+          "dark:peer-data-[state=on]/track:bg-default",
           "dark:peer-data-[state=on]/track:hover:bg-foreground/10",
-          "dark:peer-data-[state=off]/track:bg-destructive/10",
-          "dark:peer-data-[state=off]/track:hover:bg-destructive/15",
+          "dark:peer-data-[state=off]/track:bg-danger/10",
+          "dark:peer-data-[state=off]/track:hover:bg-danger/15",
         ],
         outline: [
           "border border-l-0",
-          "peer-data-[state=off]/track:border-destructive/20",
-          "peer-data-[state=off]/track:bg-destructive/10",
-          "peer-data-[state=off]/track:hover:bg-destructive/15",
-          "peer-data-[state=off]/track:[&_svg]:text-destructive!",
+          "peer-data-[state=off]/track:border-danger/20",
+          "peer-data-[state=off]/track:bg-danger/10",
+          "peer-data-[state=off]/track:hover:bg-danger/15",
+          "peer-data-[state=off]/track:[&_svg]:text-danger!",
           "peer-data-[state=on]/track:hover:border-foreground/12",
 
-          "dark:peer-data-[state=off]/track:bg-destructive/10",
-          "dark:peer-data-[state=off]/track:hover:bg-destructive/15",
-          "dark:peer-data-[state=on]/track:bg-accent",
+          "dark:peer-data-[state=off]/track:bg-danger/10",
+          "dark:peer-data-[state=off]/track:hover:bg-danger/15",
+          "dark:peer-data-[state=on]/track:bg-default",
           "dark:peer-data-[state=on]/track:hover:bg-foreground/10",
         ],
       },
@@ -295,8 +295,8 @@ export function AgentTrackControl({
             <span
               className={cn([
                 "h-full min-h-0.5 w-0.5 origin-center",
-                "group-data-[state=on]/track:bg-foreground group-data-[state=off]/track:bg-destructive",
-                "data-lk-muted:bg-muted",
+                "group-data-[state=on]/track:bg-foreground group-data-[state=off]/track:bg-danger",
+                "data-lk-muted:bg-default",
               ])}
             />
           </AgentAudioVisualizerBar>
@@ -313,7 +313,7 @@ export function AgentTrackControl({
           className={cn([
             "relative",
             'before:bg-border before:absolute before:inset-y-0 before:left-0 before:my-2.5 before:w-px has-[~_button]:before:content-[""]',
-            !pressed && "before:bg-destructive/20",
+            !pressed && "before:bg-danger/20",
           ])}
         />
       )}

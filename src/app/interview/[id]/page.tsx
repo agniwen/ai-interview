@@ -34,7 +34,7 @@ export default async function InterviewByIdPage({ params }: { params: Promise<{ 
         <ThemeToggle />
       </div>
       <div className="flex min-h-dvh items-center justify-center">
-        <p className="text-muted-foreground">当前面试链接不可用。</p>
+        <p className="text-muted">当前面试链接不可用。</p>
       </div>
     </>
   );

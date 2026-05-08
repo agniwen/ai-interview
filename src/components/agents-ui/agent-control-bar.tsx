@@ -31,19 +31,19 @@ import { useInputControls, usePublishPermissions } from "@/hooks/agents-ui/use-a
 import { cn } from "@/lib/utils";
 
 const LK_TOGGLE_VARIANT_1 = [
-  "data-[state=off]:bg-accent data-[state=off]:hover:bg-foreground/10",
-  "data-[state=off]:[&_~_button]:bg-accent data-[state=off]:[&_~_button]:hover:bg-foreground/10",
-  "data-[state=off]:border-border data-[state=off]:hover:border-foreground/12",
-  "data-[state=off]:[&_~_button]:border-border data-[state=off]:[&_~_button]:hover:border-foreground/12",
-  "data-[state=off]:text-destructive data-[state=off]:hover:text-destructive data-[state=off]:focus:text-destructive",
-  "data-[state=off]:focus-visible:ring-foreground/12 data-[state=off]:focus-visible:border-ring",
-  "dark:data-[state=off]:[&_~_button]:bg-accent dark:data-[state=off]:[&_~_button]:hover:bg-foreground/10",
+  "data-[state=off]:bg-default data-[state=off]:hover:bg-foreground/10",
+  "data-[state=off]:[&_~_button]:bg-default data-[state=off]:[&_~_button]:hover:bg-foreground/10",
+  "data-[state=off]:border-separator data-[state=off]:hover:border-foreground/12",
+  "data-[state=off]:[&_~_button]:border-separator data-[state=off]:[&_~_button]:hover:border-foreground/12",
+  "data-[state=off]:text-danger data-[state=off]:hover:text-danger data-[state=off]:focus:text-danger",
+  "data-[state=off]:focus-visible:ring-foreground/12 data-[state=off]:focus-visible:border-focus",
+  "dark:data-[state=off]:[&_~_button]:bg-default dark:data-[state=off]:[&_~_button]:hover:bg-foreground/10",
 ];
 
 const LK_TOGGLE_VARIANT_2 = [
-  "data-[state=off]:bg-accent data-[state=off]:hover:bg-foreground/10",
-  "data-[state=off]:border-border data-[state=off]:hover:border-foreground/12",
-  "data-[state=off]:focus-visible:border-ring data-[state=off]:focus-visible:ring-foreground/12",
+  "data-[state=off]:bg-default data-[state=off]:hover:bg-foreground/10",
+  "data-[state=off]:border-separator data-[state=off]:hover:border-foreground/12",
+  "data-[state=off]:focus-visible:border-focus data-[state=off]:focus-visible:ring-foreground/12",
   "data-[state=off]:text-foreground data-[state=off]:hover:text-foreground data-[state=off]:focus:text-foreground",
   "data-[state=on]:bg-blue-500/20 data-[state=on]:hover:bg-blue-500/30",
   "data-[state=on]:border-blue-700/10 data-[state=on]:text-blue-700 data-[state=on]:ring-blue-700/30",
@@ -358,7 +358,7 @@ export function AgentControlBar({
     <div
       aria-label="Voice assistant controls"
       className={cn(
-        "bg-background border-input/50 dark:border-muted flex flex-col border p-3 drop-shadow-md/3",
+        "bg-background border-separator/50 dark:border-default flex flex-col border p-3 drop-shadow-md/3",
         variant === "livekit" ? "rounded-[31px]" : "rounded-lg",
         className,
       )}
@@ -368,7 +368,7 @@ export function AgentControlBar({
         {...MOTION_PROPS}
         inert={!isChatOpenEffective}
         animate={isChatOpenEffective ? "visible" : "hidden"}
-        className="border-input/50 flex w-full items-start overflow-hidden border-b"
+        className="border-separator/50 flex w-full items-start overflow-hidden border-b"
       >
         <AgentChatInput
           chatOpen={isChatOpenEffective}
@@ -477,7 +477,7 @@ export function AgentControlBar({
                 disabled={!isConnected}
                 className={cn(
                   variant === "livekit" &&
-                    "bg-destructive/10 dark:bg-destructive/10 text-destructive hover:bg-destructive/20 dark:hover:bg-destructive/20 focus:bg-destructive/20 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/4 rounded-full font-mono text-xs font-bold tracking-wider",
+                    "bg-danger/10 dark:bg-danger/10 text-danger hover:bg-danger/20 dark:hover:bg-danger/20 focus:bg-danger/20 focus-visible:ring-danger/20 dark:focus-visible:ring-danger/4 rounded-full font-mono text-xs font-bold tracking-wider",
                 )}
               >
                 <span className="hidden md:inline">结束面试</span>

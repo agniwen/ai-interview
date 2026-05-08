@@ -29,18 +29,16 @@ export function ComposerAttachments() {
         const isError = uploadStatus === "error";
         return (
           <Attachment
-            className={cn(isUploading && "opacity-70", isError && "border-destructive")}
+            className={cn(isUploading && "opacity-70", isError && "border-danger")}
             data={file}
             key={file.id}
             onRemove={() => attachments.remove(file.id)}
           >
             <AttachmentPreview />
             <AttachmentInfo />
-            {isUploading ? (
-              <Spinner aria-label="上传中" className="size-3 text-muted-foreground" />
-            ) : null}
+            {isUploading ? <Spinner aria-label="上传中" className="size-3 text-muted" /> : null}
             {isError ? (
-              <AlertCircleIcon aria-label="上传失败" className="size-3 text-destructive" />
+              <AlertCircleIcon aria-label="上传失败" className="size-3 text-danger" />
             ) : null}
             <AttachmentRemove />
           </Attachment>

@@ -144,9 +144,7 @@ export function InterviewerManagementPage({
               <span className="font-medium text-foreground text-sm">
                 {voiceMeta?.label ?? r.voice}
               </span>
-              <span className="truncate text-muted-foreground text-xs">
-                {voiceMeta?.description ?? ""}
-              </span>
+              <span className="truncate text-muted text-xs">{voiceMeta?.description ?? ""}</span>
             </div>
           );
         },
@@ -203,7 +201,7 @@ export function InterviewerManagementPage({
       <div className="space-y-6">
         <header className="flex flex-col gap-2">
           <h1 className="font-semibold text-2xl">面试官管理</h1>
-          <p className="text-muted-foreground text-sm">
+          <p className="text-muted text-sm">
             配置 AI 面试官的 prompt 和 TTS 音色，在招岗位会引用这些面试官。
           </p>
         </header>
@@ -221,7 +219,7 @@ export function InterviewerManagementPage({
           }
           empty={
             noDepartments ? (
-              <Empty className="border-border/60">
+              <Empty className="border-separator/60">
                 <EmptyHeader>
                   <EmptyMedia variant="icon">
                     <UserCircleIcon className="size-5" />
@@ -233,7 +231,7 @@ export function InterviewerManagementPage({
                 </EmptyHeader>
               </Empty>
             ) : (
-              <Empty className="border-border/60">
+              <Empty className="border-separator/60">
                 <EmptyHeader>
                   <EmptyMedia variant="icon">
                     <UserCircleIcon className="size-5" />

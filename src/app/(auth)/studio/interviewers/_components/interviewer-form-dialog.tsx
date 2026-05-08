@@ -138,7 +138,7 @@ export function InterviewerFormDialog({
                 return (
                   <Field data-invalid={hasFieldErrors(field.state.meta.errors) || undefined}>
                     <FieldLabel htmlFor={field.name}>
-                      名称 <span className="text-destructive">*</span>
+                      名称 <span className="text-danger">*</span>
                     </FieldLabel>
                     <FieldContent className="gap-2">
                       <Input
@@ -162,7 +162,7 @@ export function InterviewerFormDialog({
                 return (
                   <Field data-invalid={hasFieldErrors(field.state.meta.errors) || undefined}>
                     <FieldLabel htmlFor={field.name}>
-                      所属部门 <span className="text-destructive">*</span>
+                      所属部门 <span className="text-danger">*</span>
                     </FieldLabel>
                     <FieldContent className="gap-2">
                       <SearchableSelect
@@ -194,7 +194,7 @@ export function InterviewerFormDialog({
                     data-invalid={hasFieldErrors(field.state.meta.errors) || undefined}
                   >
                     <FieldLabel htmlFor={field.name}>
-                      音色（TTS）<span className="text-destructive">*</span>
+                      音色（TTS）<span className="text-danger">*</span>
                     </FieldLabel>
                     <FieldContent className="gap-2">
                       <Select
@@ -215,9 +215,7 @@ export function InterviewerFormDialog({
                             <SelectItem key={voice.id} value={voice.id}>
                               <div className="flex flex-col">
                                 <span>{voice.label}</span>
-                                <span className="text-muted-foreground text-xs">
-                                  {voice.description}
-                                </span>
+                                <span className="text-muted text-xs">{voice.description}</span>
                               </div>
                             </SelectItem>
                           ))}
@@ -261,7 +259,7 @@ export function InterviewerFormDialog({
               return (
                 <Field data-invalid={hasFieldErrors(field.state.meta.errors) || undefined}>
                   <FieldLabel htmlFor={field.name}>
-                    Prompt <span className="text-destructive">*</span>
+                    Prompt <span className="text-danger">*</span>
                   </FieldLabel>
                   <FieldContent className="gap-2">
                     <Textarea

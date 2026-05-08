@@ -239,13 +239,13 @@ export function Attachment({ data, onRemove, className, children, ...props }: At
           variant === "grid" && "size-24 overflow-hidden rounded-lg",
           variant === "inline" && [
             "flex h-8 cursor-pointer select-none items-center gap-1.5",
-            "rounded-md border border-border px-1.5",
+            "rounded-md border border-separator px-1.5",
             "font-medium text-sm transition-all",
-            "hover:bg-accent hover:text-accent-foreground dark:hover:bg-accent/50",
+            "hover:bg-default hover:text-default-foreground dark:hover:bg-default/50",
           ],
           variant === "list" && [
             "flex w-full items-center gap-3 rounded-lg border p-3",
-            "hover:bg-accent/50",
+            "hover:bg-default/50",
           ],
           className,
         )}
@@ -271,9 +271,7 @@ export function AttachmentPreview({ fallbackIcon, className, ...props }: Attachm
 
   const iconSize = variant === "inline" ? "size-3" : "size-4";
 
-  const renderIcon = (Icon: typeof ImageIcon) => (
-    <Icon className={cn(iconSize, "text-muted-foreground")} />
-  );
+  const renderIcon = (Icon: typeof ImageIcon) => <Icon className={cn(iconSize, "text-muted")} />;
 
   const renderContent = () => {
     if (mediaCategory === "image" && data.type === "file" && data.url) {
@@ -296,11 +294,11 @@ export function AttachmentPreview({ fallbackIcon, className, ...props }: Attachm
     <div
       className={cn(
         "flex shrink-0 items-center justify-center overflow-hidden",
-        variant === "grid" && "size-full bg-muted",
+        variant === "grid" && "size-full bg-default",
         variant === "inline" && "size-5 rounded",
         variant === "inline" && !isPdf && "bg-background",
         variant === "list" && "size-12 rounded",
-        variant === "list" && !isPdf && "bg-muted",
+        variant === "list" && !isPdf && "bg-default",
         className,
       )}
       {...props}
@@ -334,7 +332,7 @@ export function AttachmentInfo({
     <div className={cn("min-w-0 flex-1", className)} {...props}>
       <span className="block truncate">{label}</span>
       {showMediaType && data.mediaType && (
-        <span className="block truncate text-muted-foreground text-xs">{data.mediaType}</span>
+        <span className="block truncate text-muted text-xs">{data.mediaType}</span>
       )}
     </div>
   );
@@ -437,10 +435,7 @@ export type AttachmentEmptyProps = HTMLAttributes<HTMLDivElement>;
 export function AttachmentEmpty({ className, children, ...props }: AttachmentEmptyProps) {
   return (
     <div
-      className={cn(
-        "flex items-center justify-center p-4 text-muted-foreground text-sm",
-        className,
-      )}
+      className={cn("flex items-center justify-center p-4 text-muted text-sm", className)}
       {...props}
     >
       {children ?? "No attachments"}

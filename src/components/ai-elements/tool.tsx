@@ -81,11 +81,11 @@ export function ToolHeader({ className, title, type, state, toolName, ...props }
       {...props}
     >
       <div className="flex items-center gap-2">
-        <WrenchIcon className="size-4 text-muted-foreground" />
+        <WrenchIcon className="size-4 text-muted" />
         <span className="font-medium text-sm">{title ?? derivedName}</span>
         {getStatusBadge(state)}
       </div>
-      <ChevronDownIcon className="size-4 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
+      <ChevronDownIcon className="size-4 text-muted transition-transform group-data-[state=open]:rotate-180" />
     </CollapsibleTrigger>
   );
 }
@@ -96,7 +96,7 @@ export function ToolContent({ className, ...props }: ToolContentProps) {
   return (
     <CollapsibleContent
       className={cn(
-        "data-[state=closed]:fade-out-0 data-[state=closed]:slide-out-to-top-2 data-[state=open]:slide-in-from-top-2 space-y-4 p-4 text-popover-foreground outline-none data-[state=closed]:animate-out data-[state=open]:animate-in",
+        "data-[state=closed]:fade-out-0 data-[state=closed]:slide-out-to-top-2 data-[state=open]:slide-in-from-top-2 space-y-4 p-4 text-foreground outline-none data-[state=closed]:animate-out data-[state=open]:animate-in",
         className,
       )}
       {...props}
@@ -111,10 +111,8 @@ export type ToolInputProps = ComponentProps<"div"> & {
 export function ToolInput({ className, input, ...props }: ToolInputProps) {
   return (
     <div className={cn("space-y-2 overflow-hidden", className)} {...props}>
-      <h4 className="font-medium text-muted-foreground text-xs uppercase tracking-wide">
-        Parameters
-      </h4>
-      <div className="rounded-md bg-muted/50">
+      <h4 className="font-medium text-muted text-xs uppercase tracking-wide">Parameters</h4>
+      <div className="rounded-md bg-default/50">
         <CodeBlock code={JSON.stringify(input, null, 2)} language="json" />
       </div>
     </div>
@@ -141,13 +139,13 @@ export function ToolOutput({ className, output, errorText, ...props }: ToolOutpu
 
   return (
     <div className={cn("space-y-2", className)} {...props}>
-      <h4 className="font-medium text-muted-foreground text-xs uppercase tracking-wide">
+      <h4 className="font-medium text-muted text-xs uppercase tracking-wide">
         {errorText ? "Error" : "Result"}
       </h4>
       <div
         className={cn(
           "overflow-x-auto rounded-md text-xs [&_table]:w-full",
-          errorText ? "bg-destructive/10 text-destructive" : "bg-muted/50 text-foreground",
+          errorText ? "bg-danger/10 text-danger" : "bg-default/50 text-foreground",
         )}
       >
         {errorText && <div>{errorText}</div>}

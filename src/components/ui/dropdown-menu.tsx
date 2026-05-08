@@ -136,10 +136,7 @@ export function DropdownMenuSeparator({ className }: { className?: string }) {
 
 export function DropdownMenuShortcut({ className, ...props }: ComponentProps<"span">) {
   return (
-    <span
-      className={cn("ml-auto text-xs tracking-widest text-default-500", className)}
-      {...props}
-    />
+    <span className={cn("ml-auto text-xs tracking-widest text-muted", className)} {...props} />
   );
 }
 

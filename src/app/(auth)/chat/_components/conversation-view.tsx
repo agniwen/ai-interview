@@ -33,7 +33,7 @@ function ResumeScreeningIllustration() {
   return (
     <svg
       aria-hidden="true"
-      className="size-20 text-primary sm:size-24"
+      className="size-20 text-accent sm:size-24"
       fill="none"
       viewBox="0 0 112 112"
       xmlns="http://www.w3.org/2000/svg"
@@ -145,12 +145,12 @@ function buildRenderEntries(messages: UIMessage[]): MessageRenderEntry[] {
 function AssistantThinkingBubble() {
   return (
     <div>
-      <p className="mb-2 text-left text-muted-foreground text-xs">
+      <p className="mb-2 text-left text-muted text-xs">
         简历筛选助手 · <TimeDisplay as="span" options={TIME_DISPLAY_OPTIONS} value={Date.now()} />
       </p>
       <Message from="assistant">
         <MessageContent className="px-0 py-1">
-          <div aria-label="简历筛选助手正在思考" className="text-muted-foreground/80" role="status">
+          <div aria-label="简历筛选助手正在思考" className="text-muted/80" role="status">
             <Shimmer duration={1.2}>思考中...</Shimmer>
           </div>
         </MessageContent>
@@ -178,7 +178,7 @@ export function ConversationView({
         <ConversationContent className="mx-auto w-full max-w-5xl px-2 py-4 sm:py-6 md:px-6">
           {entries.length === 0 ? (
             <ConversationEmptyState
-              className="my-10 rounded-[1.75rem] border border-border/45 bg-background/28 backdrop-blur-md"
+              className="my-10 rounded-[1.75rem] border border-separator/45 bg-background/28 backdrop-blur-md"
               description="上传候选人简历（最多 8 份）或输入筛选要求，助手会给出评分与推荐结论。"
               icon={<ResumeScreeningIllustration />}
               title="开始筛选简历"

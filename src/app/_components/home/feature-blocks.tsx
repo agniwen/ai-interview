@@ -87,8 +87,7 @@ interface SceneProps {
 // Shared rhythm — same title scale across all scenes keeps vertical alignment coherent
 const titleClass =
   "font-bold text-3xl text-foreground tracking-tight leading-[1.15] sm:text-4xl lg:text-[2.5rem] lg:leading-[1.18]";
-const leadClass =
-  "text-base text-muted-foreground leading-relaxed sm:text-[1.0625rem] lg:text-[1.0625rem]";
+const leadClass = "text-base text-muted leading-relaxed sm:text-[1.0625rem] lg:text-[1.0625rem]";
 
 // 编号 bullet 卡片：与下方 CapabilityGrid BentoTile 同款毛玻璃材质（背景 60%、淡边、轻投影、blur）
 // Bullet card material — matches the CapabilityGrid BentoTile glass: bg-background/60, faint border, soft drop, backdrop-blur
@@ -97,7 +96,7 @@ const bulletCardClass =
 // 序号与正文用同字号 / 行高，items-start 后首行自然对齐
 // Index & body share text-sm + leading-relaxed so first lines align without manual offsets
 const bulletIndexClass =
-  "shrink-0 font-mono font-semibold text-primary text-sm leading-relaxed tabular-nums";
+  "shrink-0 font-mono font-semibold text-accent text-sm leading-relaxed tabular-nums";
 const bulletBodyClass = "text-foreground/85 text-sm leading-relaxed";
 
 // 场景 A：聊天式 — 左文右图，文案竖排带编号卡片，截图浮一个 Live 徽标
@@ -145,7 +144,7 @@ function SceneChat({ block }: SceneProps) {
           className="-top-3 -left-3 absolute flex items-center gap-1.5 rounded-full border border-foreground/[0.06] bg-background/80 px-3 py-1.5 font-mono text-[10px] text-foreground tracking-[0.18em] shadow-[0_4px_18px_-12px_rgba(0,0,0,0.18)] backdrop-blur"
           data-reveal="badge"
         >
-          <span className="size-1.5 animate-pulse rounded-full bg-primary" />
+          <span className="size-1.5 animate-pulse rounded-full bg-accent" />
           LIVE CHAT
         </div>
       </div>
@@ -252,7 +251,7 @@ function SceneInterview({ block }: SceneProps) {
           <span className="flex h-3.5 items-end gap-[2px]">
             {[3, 5, 2, 6, 4, 3, 5].map((h, i) => (
               <span
-                className="w-[2px] animate-pulse rounded-full bg-primary"
+                className="w-[2px] animate-pulse rounded-full bg-accent"
                 // biome-ignore lint/suspicious/noArrayIndexKey: static decorative bars
                 key={i}
                 style={{ animationDelay: `${i * 90}ms`, height: `${h * 2}px` }}
@@ -312,7 +311,7 @@ function SceneCard({ block }: { block: Block }) {
       <ul className="mt-auto space-y-2">
         {block.bullets.map((bullet, i) => (
           <li className="flex items-start gap-3" key={bullet}>
-            <span className="shrink-0 font-mono font-semibold text-primary text-sm leading-relaxed tabular-nums">
+            <span className="shrink-0 font-mono font-semibold text-accent text-sm leading-relaxed tabular-nums">
               0{i + 1}
             </span>
             <span className="text-foreground/85 text-sm leading-relaxed">{bullet}</span>

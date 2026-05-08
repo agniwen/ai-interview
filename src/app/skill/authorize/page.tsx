@@ -38,7 +38,7 @@ export default async function SkillAuthorizePage({ searchParams }: PageProps) {
       id="main-content"
     >
       <div className="w-full max-w-md">
-        <Card className="border-border/60 bg-background/92 shadow-[0_24px_64px_-40px_rgba(15,23,42,0.35)]">
+        <Card className="border-separator/60 bg-background/92 shadow-[0_24px_64px_-40px_rgba(15,23,42,0.35)]">
           <CardHeader>
             <CardTitle>授权 Resume Parser Skill</CardTitle>
             <CardDescription>
@@ -51,13 +51,13 @@ export default async function SkillAuthorizePage({ searchParams }: PageProps) {
               <AuthorizeForm initialUserCode={userCode} userName={session.user.name} />
             ) : (
               <div className="space-y-3">
-                <p className="text-muted-foreground text-sm">
+                <p className="text-muted text-sm">
                   授权码：
-                  <span className="ml-1 rounded bg-muted px-2 py-1 font-mono text-foreground">
+                  <span className="ml-1 rounded bg-default px-2 py-1 font-mono text-foreground">
                     {userCode || "（请在终端复制）"}
                   </span>
                 </p>
-                <p className="text-muted-foreground text-sm">请先登录，登录后会回到本页继续。</p>
+                <p className="text-muted text-sm">请先登录，登录后会回到本页继续。</p>
                 <FeishuSignInButton callbackURL={returnTo} />
                 <FeishuSignInButton
                   callbackURL={returnTo}
@@ -70,8 +70,8 @@ export default async function SkillAuthorizePage({ searchParams }: PageProps) {
           </CardContent>
         </Card>
 
-        <p className="mt-4 text-center text-muted-foreground text-xs leading-relaxed">
-          <Link className="font-medium text-primary hover:underline" href="/">
+        <p className="mt-4 text-center text-muted text-xs leading-relaxed">
+          <Link className="font-medium text-accent hover:underline" href="/">
             返回首页
           </Link>
         </p>

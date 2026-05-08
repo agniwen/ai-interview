@@ -9,9 +9,7 @@ import { cn } from "@/lib/utils";
 export type SourcesProps = ComponentProps<"div">;
 
 export function Sources({ className, ...props }: SourcesProps) {
-  return (
-    <Collapsible className={cn("not-prose mb-4 text-primary text-xs", className)} {...props} />
-  );
+  return <Collapsible className={cn("not-prose mb-4 text-accent text-xs", className)} {...props} />;
 }
 
 export type SourcesTriggerProps = ComponentProps<typeof CollapsibleTrigger> & {

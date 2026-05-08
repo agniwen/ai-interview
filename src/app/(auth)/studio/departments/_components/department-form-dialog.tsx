@@ -110,7 +110,7 @@ export function DepartmentFormDialog({
               return (
                 <Field data-invalid={hasFieldErrors(field.state.meta.errors) || undefined}>
                   <FieldLabel htmlFor={field.name}>
-                    部门名称 <span className="text-destructive">*</span>
+                    部门名称 <span className="text-danger">*</span>
                   </FieldLabel>
                   <FieldContent className="gap-2">
                     <Input

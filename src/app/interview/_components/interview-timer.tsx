@@ -51,11 +51,11 @@ export function InterviewTimer({
     <div
       aria-label="面试时长"
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-background/80 px-3 py-1.5 font-mono text-sm tabular-nums shadow-sm backdrop-blur",
+        "inline-flex items-center gap-1.5 rounded-full border border-separator/60 bg-background/80 px-3 py-1.5 font-mono text-sm tabular-nums shadow-sm backdrop-blur",
         className,
       )}
     >
-      <TimerIcon className="size-3.5 text-muted-foreground" />
+      <TimerIcon className="size-3.5 text-muted" />
       <span>{formatElapsed(elapsedSeconds)}</span>
     </div>
   );

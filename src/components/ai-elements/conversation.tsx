@@ -52,10 +52,10 @@ export function ConversationEmptyState({
     >
       {children ?? (
         <>
-          {icon && <div className="text-muted-foreground">{icon}</div>}
+          {icon && <div className="text-muted">{icon}</div>}
           <div className="space-y-1">
             <h3 className="font-medium text-sm">{title}</h3>
-            {description && <p className="text-muted-foreground text-sm">{description}</p>}
+            {description && <p className="text-muted text-sm">{description}</p>}
           </div>
         </>
       )}
@@ -76,7 +76,7 @@ export function ConversationScrollButton({ className, ...props }: ConversationSc
     !isAtBottom && (
       <Button
         className={cn(
-          "absolute bottom-4 left-[50%] translate-x-[-50%] rounded-full border-border/70 bg-background/85 shadow-xs backdrop-blur-sm hover:bg-accent/60",
+          "absolute bottom-4 left-[50%] translate-x-[-50%] rounded-full border-separator/70 bg-background/85 shadow-xs backdrop-blur-sm hover:bg-default/60",
           className,
         )}
         isIconOnly
@@ -143,7 +143,7 @@ export function ConversationDownload({
       {...props}
       ref={ref}
       className={cn(
-        "absolute top-4 right-4 rounded-full border-border/70 bg-background/85 shadow-xs backdrop-blur-sm hover:bg-accent/60",
+        "absolute top-4 right-4 rounded-full border-separator/70 bg-background/85 shadow-xs backdrop-blur-sm hover:bg-default/60",
         className,
       )}
       isIconOnly

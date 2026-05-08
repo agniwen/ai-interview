@@ -29,19 +29,19 @@ export function FormCard({
     <section
       className={
         submitted
-          ? "rounded-xl border border-border/60 bg-card/60 p-5 opacity-70"
-          : "rounded-xl border border-border/60 bg-card p-5"
+          ? "rounded-xl border border-separator/60 bg-surface/60 p-5 opacity-70"
+          : "rounded-xl border border-separator/60 bg-surface p-5"
       }
     >
       <header className="mb-4 flex items-start justify-between gap-3">
         <div>
           <h2 className="font-semibold text-lg">{template.snapshot.title}</h2>
           {template.snapshot.description ? (
-            <p className="mt-1 text-muted-foreground text-sm">{template.snapshot.description}</p>
+            <p className="mt-1 text-muted text-sm">{template.snapshot.description}</p>
           ) : null}
         </div>
         {submitted ? (
-          <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-primary text-xs">
+          <span className="shrink-0 rounded-full bg-accent/10 px-2 py-0.5 text-accent text-xs">
             已提交
           </span>
         ) : null}
@@ -52,13 +52,13 @@ export function FormCard({
           return (
             <Field data-invalid={error ? true : undefined} key={question.id}>
               <FieldLabel htmlFor={`q-${question.id}`}>
-                <span className="mr-1 text-muted-foreground">{index + 1}.</span>
+                <span className="mr-1 text-muted">{index + 1}.</span>
                 {question.label}
-                {question.required ? <span className="ml-1 text-destructive">*</span> : null}
+                {question.required ? <span className="ml-1 text-danger">*</span> : null}
               </FieldLabel>
               <FieldContent className="gap-2">
                 {question.helperText ? (
-                  <p className="text-muted-foreground text-xs">{question.helperText}</p>
+                  <p className="text-muted text-xs">{question.helperText}</p>
                 ) : null}
                 <QuestionView
                   invalid={!!error}
