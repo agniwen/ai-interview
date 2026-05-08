@@ -169,7 +169,7 @@ importers:
         version: 1.0.11
       openai:
         specifier: ^6.33.0
-        version: 6.36.0(zod@4.4.3)
+        version: 6.36.0(ws@8.20.0)(zod@4.4.3)
       overlayscrollbars:
         specifier: ^2.15.1
         version: 2.15.1
@@ -218,6 +218,9 @@ importers:
       shiki:
         specifier: ^4.0.2
         version: 4.0.2
+      simplex-noise:
+        specifier: ^4.0.3
+        version: 4.0.3
       sonner:
         specifier: ^2.0.7
         version: 2.0.7(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
@@ -5428,6 +5431,9 @@ packages:
     resolution: {integrity: sha512-bzyZ1e88w9O1iNJbKnOlvYTrWPDl46O1bG0D3XInv+9tkPrxrN8jUUTiFlDkkmKWgn1M6CfIA13SuGqOa9Korw==}
     engines: {node: '>=14'}
 
+  simplex-noise@4.0.3:
+    resolution: {integrity: sha512-qSE2I4AngLQG7BXqoZj51jokT4WUXe8mOBrvfOXpci8+6Yu44+/dD5zqDpOx3Ux792eamTd2lLcI8jqFntk/lg==}
+
   sisteransi@1.0.5:
     resolution: {integrity: sha512-bLGGlR1QxBcynn2d5YmDX4MGjlZvy2MRBDRNHLJ8VI6l6+9FUiyTFNJ0IveOSP0bcXgVDPRcfGqA0pjaqUpfVg==}
 
@@ -10586,8 +10592,9 @@ snapshots:
       regex: 6.1.0
       regex-recursion: 6.0.2
 
-  openai@6.36.0(zod@4.4.3):
+  openai@6.36.0(ws@8.20.0)(zod@4.4.3):
     optionalDependencies:
+      ws: 8.20.0
       zod: 4.4.3
 
   overlayscrollbars-react@0.5.6(overlayscrollbars@2.15.1)(react@19.2.3):
@@ -11224,6 +11231,8 @@ snapshots:
   siginfo@2.0.0: {}
 
   signal-exit@4.1.0: {}
+
+  simplex-noise@4.0.3: {}
 
   sisteransi@1.0.5: {}
 
