@@ -39,3 +39,44 @@ export function splat(args: SplatArgs): void {
     }
   }
 }
+
+export interface AdvectArgs {
+  density: Float32Array; // 中文：本帧输出 / English: output this frame
+  prevDensity: Float32Array; // 中文：上一帧密度（采样源）/ English: source from prev frame
+  velocity: Float32Array;
+  W: number;
+  H: number;
+  dt: number;
+}
+
+export function advect(args: AdvectArgs): void {
+  const { density, prevDensity, velocity, W, H, dt } = args;
+  const wMax = W - 1;
+  const hMax = H - 1;
+
+  for (let j = 0; j < H; j++) {
+    for (let i = 0; i < W; i++) {
+      const idx = j * W + i;
+      const vx = velocity[idx * 2];
+      const vy = velocity[idx * 2 + 1];
+      let x = i - vx * dt;
+      let y = j - vy * dt;
+      if (x < 0) x = 0;
+      else if (x > wMax) x = wMax;
+      if (y < 0) y = 0;
+      else if (y > hMax) y = hMax;
+
+      const i0 = Math.floor(x);
+      const j0 = Math.floor(y);
+      const i1 = i0 < wMax ? i0 + 1 : i0;
+      const j1 = j0 < hMax ? j0 + 1 : j0;
+      const tx = x - i0;
+      const ty = y - j0;
+      const a = prevDensity[j0 * W + i0];
+      const b = prevDensity[j0 * W + i1];
+      const c = prevDensity[j1 * W + i0];
+      const d = prevDensity[j1 * W + i1];
+      density[idx] = (1 - tx) * (1 - ty) * a + tx * (1 - ty) * b + (1 - tx) * ty * c + tx * ty * d;
+    }
+  }
+}
