@@ -7,9 +7,15 @@ import { stepCountIs } from "ai";
 import { generatedInterviewQuestionsSchema } from "@/lib/interview/types";
 import { parseResumeFast } from "@/lib/resume-parse-pipeline";
 import type { ResumeTextSource } from "@/lib/resume-parse-pipeline";
+import { sha256HexOfBytes } from "@/lib/file-hash";
+import { findAttachmentByContentHash } from "@/server/queries/chat-attachments";
 import { parseJsonOutput } from "./json-output";
 import { createResumeAgent } from "./resume-agent";
-import { structuredSchema, toResumeProfile } from "./resume-parser-agent";
+import {
+  projectAttachmentToResumeProfile,
+  structuredSchema,
+  toResumeProfile,
+} from "./resume-parser-agent";
 import type { ResumeParserStructured } from "./resume-parser-agent";
 
 // ---------------------------------------------------------------------------
@@ -192,6 +198,19 @@ export function streamParseResumeProfile(file: File): ReadableStream<Uint8Array>
     emit({ message: "正在解析 PDF 简历…", type: "status" });
 
     const bytes = new Uint8Array(await file.arrayBuffer());
+
+    // 命中注册表：直接返回缓存的 ResumeProfile，跳过 OCR + 结构化两步。
+    // Registry hit: return cached ResumeProfile and skip OCR + structured stages.
+    const contentHash = await sha256HexOfBytes(bytes);
+    const existing = await findAttachmentByContentHash(contentHash);
+    if (existing) {
+      const cached = projectAttachmentToResumeProfile(existing.parsedStructured);
+      if (cached) {
+        emit({ message: "命中已有简历缓存，跳过解析。", type: "status" });
+        emit({ data: { fileName: file.name, resumeProfile: cached }, type: "result" });
+        return;
+      }
+    }
 
     emit({ index: 1, type: "step" });
     emit({ name: PARSE_STAGE_LABELS.ocr, type: "tool-start" });
