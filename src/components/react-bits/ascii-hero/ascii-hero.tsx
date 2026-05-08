@@ -5,7 +5,7 @@
 import { useTheme } from "next-themes";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createNoise3D } from "simplex-noise";
-import { compose, dissipate, splat } from "./utils";
+import { advect, compose, dissipate, splat } from "./utils";
 
 export interface AsciiHeroProps {
   cellSize?: number;
@@ -75,6 +75,7 @@ export function AsciiHero(props: AsciiHeroProps) {
     let cssW = 0;
     let cssH = 0;
     let density = new Float32Array(0);
+    let prevDensity = new Float32Array(0);
     let luma = new Float32Array(0);
     let charBuffer = new Uint8Array(0);
     // 中文：速度场（每格存 vx/vy 两分量）和指针状态 / English: velocity field (vx,vy per cell) and pointer state
@@ -102,6 +103,7 @@ export function AsciiHero(props: AsciiHeroProps) {
       W = Math.max(1, Math.ceil(cssW / cfg.cellSize));
       H = Math.max(1, Math.ceil(cssH / cfg.cellSize));
       density = new Float32Array(W * H);
+      prevDensity = new Float32Array(W * H);
       velocity = new Float32Array(W * H * 2);
       luma = new Float32Array(W * H);
       charBuffer = new Uint8Array(W * H).fill(255);
@@ -111,7 +113,8 @@ export function AsciiHero(props: AsciiHeroProps) {
       if (now - lastFrame >= frameInterval) {
         lastFrame = now;
 
-        // 中文：消费待处理的指针事件，注入密度+速度，然后整体衰减 / English: consume pending pointer event, inject density+velocity, then decay both fields
+        // 1. splat
+        // 中文：消费待处理的指针事件，注入密度+速度 / English: consume pending pointer event, inject density+velocity
         if (pointer) {
           splat({
             density,
@@ -127,9 +130,19 @@ export function AsciiHero(props: AsciiHeroProps) {
           });
           pointer = null;
         }
+
+        // 2. swap then advect: density → prevDensity, then write fresh density from prevDensity using current velocity
+        // 中文：交换乒乓缓冲区，再用速度场对前一帧密度做半拉格朗日平流，写入当前帧 / English: ping-pong buffers, then semi-Lagrangian advect from prevDensity into density using velocity
+        const swap = density;
+        density = prevDensity;
+        prevDensity = swap;
+        advect({ density, prevDensity, velocity, W, H, dt: 1 });
+
+        // 3. dissipate
         dissipate(density, cfg.densityDissipation);
         dissipate(velocity, cfg.velocityDissipation);
 
+        // 4. compose
         compose({
           luma,
           density,
@@ -141,6 +154,7 @@ export function AsciiHero(props: AsciiHeroProps) {
           t: now,
         });
 
+        // 5. render (unchanged from task 7)
         const charsetLen = cfg.charset.length;
         const cellSize = cfg.cellSize;
         for (let j = 0; j < H; j++) {
