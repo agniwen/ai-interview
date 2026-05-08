@@ -3,7 +3,9 @@
 "use client";
 
 import { useTheme } from "next-themes";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { createNoise3D } from "simplex-noise";
+import { compose } from "./utils";
 
 export interface AsciiHeroProps {
   cellSize?: number;
@@ -32,6 +34,23 @@ const DEFAULTS = {
 } as const;
 
 export function AsciiHero(props: AsciiHeroProps) {
+  // 中文：用 useMemo 稳定 cfg 引用，避免 effect 在每次渲染时重建（无 prop 改变时引用恒定）
+  // English: stabilize cfg reference via useMemo so the effect doesn't re-mount on every render.
+  const cfg = useMemo(
+    () => ({ ...DEFAULTS, ...props }),
+    [
+      props.cellSize,
+      props.charset,
+      props.color,
+      props.noiseScale,
+      props.noiseSpeed,
+      props.splatRadius,
+      props.splatStrength,
+      props.densityDissipation,
+      props.velocityDissipation,
+      props.fps,
+    ],
+  );
   const { resolvedTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -41,46 +60,98 @@ export function AsciiHero(props: AsciiHeroProps) {
     setMounted(true);
   }, []);
 
-  // 中文：监听父容器尺寸变化，同步 canvas 物理像素 + CSS 像素
-  // English: track parent size, sync canvas backing-store + CSS size.
   useEffect(() => {
+    if (!mounted || resolvedTheme !== "light") return;
     const container = containerRef.current;
     const canvas = canvasRef.current;
     if (!container || !canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
 
-    let timer: ReturnType<typeof setTimeout> | null = null;
+    const noise3D = createNoise3D();
+
+    let W = 0;
+    let H = 0;
+    let cssW = 0;
+    let cssH = 0;
+    let density = new Float32Array(0);
+    let luma = new Float32Array(0);
+    let charBuffer = new Uint8Array(0);
+    let rafId = 0;
+    let lastFrame = 0;
+    const frameInterval = 1000 / cfg.fps;
+
     const resize = () => {
       const rect = container.getBoundingClientRect();
       const dpr = window.devicePixelRatio || 1;
-      const cssW = Math.max(1, Math.floor(rect.width));
-      const cssH = Math.max(1, Math.floor(rect.height));
+      cssW = Math.max(1, Math.floor(rect.width));
+      cssH = Math.max(1, Math.floor(rect.height));
       canvas.width = cssW * dpr;
       canvas.height = cssH * dpr;
       canvas.style.width = `${cssW}px`;
       canvas.style.height = `${cssH}px`;
-      const ctx = canvas.getContext("2d");
-      if (ctx) {
-        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.font = `${cfg.cellSize}px ui-monospace, SF Mono, monospace`;
+      ctx.textBaseline = "top";
+      ctx.fillStyle = cfg.color;
+
+      W = Math.max(1, Math.ceil(cssW / cfg.cellSize));
+      H = Math.max(1, Math.ceil(cssH / cfg.cellSize));
+      density = new Float32Array(W * H);
+      luma = new Float32Array(W * H);
+      charBuffer = new Uint8Array(W * H).fill(255);
+    };
+
+    const tick = (now: number) => {
+      if (now - lastFrame >= frameInterval) {
+        lastFrame = now;
+
+        compose({
+          luma,
+          density,
+          noise: noise3D,
+          W,
+          H,
+          noiseScale: cfg.noiseScale,
+          noiseSpeed: cfg.noiseSpeed,
+          t: now,
+        });
+
+        const charsetLen = cfg.charset.length;
+        const cellSize = cfg.cellSize;
+        for (let j = 0; j < H; j++) {
+          for (let i = 0; i < W; i++) {
+            const idx = j * W + i;
+            const v = luma[idx];
+            const cidx = Math.min(charsetLen - 1, Math.max(0, Math.floor(v * charsetLen)));
+            if (cidx === charBuffer[idx]) continue;
+            charBuffer[idx] = cidx;
+            ctx.clearRect(i * cellSize, j * cellSize, cellSize, cellSize);
+            const ch = cfg.charset[cidx];
+            if (ch !== " ") ctx.fillText(ch, i * cellSize, j * cellSize);
+          }
+        }
       }
+      rafId = requestAnimationFrame(tick);
     };
 
     resize();
+    let timer: ReturnType<typeof setTimeout> | null = null;
     const observer = new ResizeObserver(() => {
       if (timer) clearTimeout(timer);
       timer = setTimeout(resize, 200);
     });
     observer.observe(container);
+    rafId = requestAnimationFrame(tick);
 
     return () => {
+      cancelAnimationFrame(rafId);
       if (timer) clearTimeout(timer);
       observer.disconnect();
     };
-  }, [mounted]);
+  }, [mounted, resolvedTheme, cfg]);
 
   if (!mounted || resolvedTheme !== "light") return null;
-
-  // 中文：消费 props（暂时未使用，避免 lint 警告）/ English: consume props placeholder
-  void props;
 
   return (
     <div
