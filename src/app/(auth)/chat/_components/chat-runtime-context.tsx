@@ -57,9 +57,16 @@ interface ActionsValue {
   sendMessage: (input: SendMessageInput) => Promise<void>;
 }
 
+interface SessionValue {
+  /** 当前激活的 conversation id；空 `/chat` 页（未发首条消息）时为 null。
+   *  Active conversation id; null on the empty `/chat` shell before first send. */
+  chatId: string | null;
+}
+
 const MessagesContext = createContext<MessagesValue | null>(null);
 const StreamingContext = createContext<StreamingValue | null>(null);
 const ActionsContext = createContext<ActionsValue | null>(null);
+const SessionContext = createContext<SessionValue | null>(null);
 
 export function useChatMessagesContext(): MessagesValue {
   const value = use(MessagesContext);
@@ -85,7 +92,16 @@ export function useChatActionsContext(): ActionsValue {
   return value;
 }
 
-export interface ChatRuntimeProviderProps extends MessagesValue, StreamingValue, ActionsValue {
+export function useChatSessionContext(): SessionValue {
+  const value = use(SessionContext);
+  if (!value) {
+    throw new Error("useChatSessionContext must be used within ChatRuntimeProvider");
+  }
+  return value;
+}
+
+export interface ChatRuntimeProviderProps
+  extends MessagesValue, StreamingValue, ActionsValue, SessionValue {
   children: ReactNode;
 }
 
@@ -101,6 +117,7 @@ export function ChatRuntimeProvider({
   setMessages,
   addToolOutput,
   sendMessage,
+  chatId,
   children,
 }: ChatRuntimeProviderProps) {
   // Explicit useMemo so that the context value identity only changes when
@@ -125,12 +142,15 @@ export function ChatRuntimeProvider({
     }),
     [addToolOutput, clearError, effectiveStatus, error, regenerate, sendMessage, setMessages, stop],
   );
+  const sessionValue = useMemo<SessionValue>(() => ({ chatId }), [chatId]);
 
   return (
-    <ActionsContext.Provider value={actionsValue}>
-      <StreamingContext.Provider value={streamingValue}>
-        <MessagesContext.Provider value={messagesValue}>{children}</MessagesContext.Provider>
-      </StreamingContext.Provider>
-    </ActionsContext.Provider>
+    <SessionContext.Provider value={sessionValue}>
+      <ActionsContext.Provider value={actionsValue}>
+        <StreamingContext.Provider value={streamingValue}>
+          <MessagesContext.Provider value={messagesValue}>{children}</MessagesContext.Provider>
+        </StreamingContext.Provider>
+      </ActionsContext.Provider>
+    </SessionContext.Provider>
   );
 }

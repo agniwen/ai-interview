@@ -26,6 +26,12 @@ export interface ResumeScreeningInput {
   jobDescription?: string;
   enableThinking?: boolean;
   userId?: string | null;
+  /**
+   * 已经过白名单收敛的模型 id；缺省时由 `createResumeAgent` 走环境变量默认值。
+   * Whitelist-clamped model id; when omitted, `createResumeAgent` falls back to
+   * its env-driven default.
+   */
+  modelId?: string;
 }
 
 const ATTACHMENT_URL_REGEX = /\/api\/chat\/attachments\/([^/?#]+)/;
@@ -96,7 +102,7 @@ function injectParsedResumesIntoMessages(messages: UIMessage[]): UIMessage[] {
  * direct iteration over `fullStream`, etc.).
  */
 export async function runResumeScreening(input: ResumeScreeningInput) {
-  const { messages, jobDescription, enableThinking } = input;
+  const { messages, jobDescription, enableThinking, modelId } = input;
   const thinkingEnabled = enableThinking !== false;
   const normalizedJobDescription = jobDescription?.trim();
   const uploadedResumePdfs = collectUploadedResumePdfs(messages);
@@ -181,6 +187,7 @@ export async function runResumeScreening(input: ResumeScreeningInput) {
 
   const agent = createResumeAgent({
     enableThinking: thinkingEnabled,
+    ...(modelId && { modelId }),
     instructions: `你是一名智能招聘助手。你的核心能力是帮助招聘人员快速评估候选人简历，但你也可以和用户进行日常对话、回答问题、提供建议。回答保持简洁友好。
 
 【核心要求】

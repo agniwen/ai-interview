@@ -3,7 +3,7 @@
 import type { ChatStatus, FileUIPart, UIMessage } from "ai";
 import type { JobDescriptionConfig } from "@/lib/job-description-config";
 import { useChat } from "@ai-sdk/react";
-import { useAtomValue } from "jotai";
+import { useAtom, useAtomValue } from "jotai";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { requestResumeChatTitle } from "@/lib/api";
 import { authClient } from "@/lib/auth-client";
@@ -12,6 +12,7 @@ import {
   patchConversation,
   upsertConversation as upsertConversationOnServer,
 } from "@/lib/chat-api";
+import { chatModelByIdAtom, DRAFT_CHAT_KEY } from "../_atoms/model";
 import { thinkingModeAtom } from "../_atoms/thinking";
 import { CHAT_EVENTS, notifyConversationsChanged } from "../_lib/chat-events";
 import { setChatMeta } from "../_lib/chat-meta";
@@ -59,6 +60,7 @@ function getConversationTitleFromMessages(
 export default function ChatWorkspace({ initialSessionId }: { initialSessionId: string | null }) {
   const { data: session } = authClient.useSession();
   const thinkingMode = useAtomValue(thinkingModeAtom);
+  const [chatModelByChatId, setChatModelByChatId] = useAtom(chatModelByIdAtom);
 
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const [isHistoryReady, setIsHistoryReady] = useState(false);
@@ -111,9 +113,14 @@ export default function ChatWorkspace({ initialSessionId }: { initialSessionId: 
     [],
   );
 
-  // Push latest JD + thinking mode into the registry for every active
-  // conversation, so the transport body always reflects the user's current
-  // settings — including when the stream is running in the background.
+  // 当前 session 的模型选择：从 atom map 中按 chatId 取，未设则空串（让服务端回落）。
+  // Per-session model: read from the atom map by chatId, empty string defers
+  // to the server default.
+  const sessionModel = activeConversationId ? (chatModelByChatId[activeConversationId] ?? "") : "";
+
+  // Push latest JD + thinking mode + session model into the registry for every
+  // active conversation, so the transport body always reflects the user's
+  // current settings — including when the stream is running in the background.
   useEffect(() => {
     if (!activeConversationId) {
       return;
@@ -121,8 +128,9 @@ export default function ChatWorkspace({ initialSessionId }: { initialSessionId: 
     setChatMeta(activeConversationId, {
       enableThinking: thinkingMode,
       jobDescription: jobDescriptionText,
+      model: sessionModel,
     });
-  }, [activeConversationId, jobDescriptionText, thinkingMode]);
+  }, [activeConversationId, jobDescriptionText, sessionModel, thinkingMode]);
 
   // Resolve the Chat instance for this conversation from the module-level
   // registry. The instance outlives ChatWorkspace's mount — stream state is
@@ -241,12 +249,25 @@ export default function ChatWorkspace({ initialSessionId }: { initialSessionId: 
       });
       notifyConversationsChanged();
 
+      // Draft → 新 chatId 转移：用户在空 `/chat` 页选过模型时，把草稿槽里的值
+      // 搬到新建会话名下并清空草稿，让选择跟着会话走。
+      // Hand off the pre-conversation draft to the freshly created chatId so
+      // the user's pick survives the empty-shell → real-conversation transition.
+      const draftModel = chatModelByChatId[DRAFT_CHAT_KEY];
+      if (draftModel) {
+        setChatModelByChatId((prev) => {
+          const { [DRAFT_CHAT_KEY]: _draft, ...rest } = prev;
+          return { ...rest, [id]: draftModel };
+        });
+      }
+
       // Seed the registry's meta before the first request so transport.body()
-      // picks up the right JD / thinking mode even though the useEffect that
-      // normally syncs meta has not run yet for this new id.
+      // picks up the right JD / thinking mode / model even though the useEffect
+      // that normally syncs meta has not run yet for this new id.
       setChatMeta(id, {
         enableThinking: thinkingMode,
         jobDescription: jobDescriptionText,
+        model: draftModel ?? "",
       });
       updateSessionInUrl(id);
       setActiveConversationId(id);
@@ -254,9 +275,11 @@ export default function ChatWorkspace({ initialSessionId }: { initialSessionId: 
     },
     [
       activeConversationId,
+      chatModelByChatId,
       jobDescriptionConfig,
       jobDescriptionText,
       resumeImports,
+      setChatModelByChatId,
       thinkingMode,
       updateSessionInUrl,
     ],
@@ -611,6 +634,7 @@ export default function ChatWorkspace({ initialSessionId }: { initialSessionId: 
     <div className="relative flex h-full w-full flex-col pb-4 pt-4 sm:pb-4 sm:pt-4">
       <ChatRuntimeProvider
         addToolOutput={addToolOutput}
+        chatId={activeConversationId}
         clearError={clearError}
         effectiveStatus={effectiveStatus}
         error={error}

@@ -13,6 +13,7 @@ export function createChatTransport(chatId: string) {
         chatId,
         enableThinking: meta.enableThinking,
         ...(jd && { jobDescription: jd }),
+        ...(meta.model && { model: meta.model }),
       };
     },
     fetch: async (fetchInput, init) => {

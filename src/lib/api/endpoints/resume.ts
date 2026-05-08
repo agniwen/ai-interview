@@ -28,6 +28,34 @@ export interface ResumeChatTitleRequest {
 }
 
 /**
+ * 单个可选模型的元数据（id 直接来自百炼 `/models`，分组/厂商由 id 推断）。
+ * Single model option; id comes straight from DashScope `/models` and the
+ * provider/group fields are inferred from the id pattern.
+ */
+export interface ChatModelOption {
+  id: string;
+  label: string;
+  provider: "alibaba" | "deepseek" | "moonshot" | "zhipu" | "minimax" | "other";
+  group: "fast" | "balanced" | "reasoning" | "long";
+}
+
+export interface ChatModelsResponse {
+  defaultId: string;
+  models: ChatModelOption[];
+  /** 上游 `/models` 是否成功响应；为 false 时 models 列表会是空。
+   *  Whether the upstream `/models` call succeeded; `models` is empty otherwise. */
+  upstreamReachable: boolean;
+}
+
+/**
+ * 拉取允许在 composer 中选择的模型列表。
+ * Fetch the list of models exposed in the chat composer picker.
+ */
+export function fetchChatModels(): Promise<ChatModelsResponse> {
+  return apiFetch<ChatModelsResponse>("/api/resume/models");
+}
+
+/**
  * 智能标题生成请求；失败时调用方应回退到默认标题。
  * Generate a smart title; callers should fall back to a default on failure.
  */

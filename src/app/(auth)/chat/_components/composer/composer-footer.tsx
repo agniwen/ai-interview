@@ -24,6 +24,7 @@ import { thinkingModeAtom } from "../../_atoms/thinking";
 import { toDownloadMessage } from "../../_lib/chat-message-utils";
 import { useChatActionsContext, useChatMessagesContext } from "../chat-runtime-context";
 import { useComposerInputContext } from "../composer-input-context";
+import { ModelPicker } from "./model-picker";
 
 const focusTextareaOnMenuClose = (event: Event) => {
   event.preventDefault();
@@ -193,6 +194,8 @@ export function ComposerFooter({
         </PromptInputActionMenu>
 
         <ConversationDownloadButton />
+
+        <ModelPicker />
       </PromptInputTools>
 
       <div className="flex items-center gap-2">

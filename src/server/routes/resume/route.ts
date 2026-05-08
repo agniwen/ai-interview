@@ -3,6 +3,14 @@ import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { zValidator } from "@hono/zod-validator";
 import { generateText } from "ai";
 import { withDevTools } from "@/server/agents/devtools";
+import { listUpstreamModelIds } from "@/server/agents/list-upstream-models";
+import {
+  describeModelId,
+  HARDCODED_DEFAULT_MODEL_ID,
+  isChatCapableId,
+  resolveChatModelId,
+  SECONDARY_DEFAULT_MODEL_ID,
+} from "@/server/agents/model-catalog";
 import { factory } from "@/server/factory";
 import {
   checkConversationOwner,
@@ -15,17 +23,72 @@ import { resumeChatRequestSchema, resumeTitleRequestSchema } from "./schema";
 import { runResumeScreening } from "./screening";
 import { sanitizeTitle } from "./utils";
 
+const DASHSCOPE_DEFAULT_BASE_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1";
+
+/**
+ * 把客户端传入的 model id 收敛到上游最近一次成功列表内。
+ * Clamp the client-supplied model id against the latest upstream snapshot.
+ */
+async function resolveModelForChat(requestedModel: string | undefined): Promise<string> {
+  const apiKey = process.env.ALIBABA_API_KEY;
+  const baseURL = process.env.ALIBABA_BASE_URL?.trim() || DASHSCOPE_DEFAULT_BASE_URL;
+  const upstreamIds = apiKey ? await listUpstreamModelIds({ apiKey, baseURL }) : null;
+  const fallbackId = process.env.ALIBABA_MODEL?.trim() || HARDCODED_DEFAULT_MODEL_ID;
+  return resolveChatModelId(requestedModel, upstreamIds, fallbackId);
+}
+
 export const resumeRouter = factory
   .createApp()
+  .get("/models", async (c) => {
+    const apiKey = process.env.ALIBABA_API_KEY;
+    if (!apiKey) {
+      return c.json({ error: "Missing ALIBABA_API_KEY" }, 500);
+    }
+    const baseURL = process.env.ALIBABA_BASE_URL?.trim() || DASHSCOPE_DEFAULT_BASE_URL;
+
+    const upstreamIds = await listUpstreamModelIds({ apiKey, baseURL });
+
+    // 完全跟随上游：能拉到就过滤掉非聊天 id 后展示，拉不到就返回空 + reachable=false。
+    // Source of truth = upstream `/models`. Filter out non-chat ids; on failure
+    // we return an empty list and surface `upstreamReachable: false` to the UI.
+    const models = upstreamIds
+      ? [...upstreamIds]
+          .filter((id) => isChatCapableId(id))
+          .toSorted()
+          .map(describeModelId)
+      : [];
+
+    // 默认 id 兜底链：硬编码 > 二级兜底（qwen-plus-latest）> 列表第一个。
+    // Default id fallback chain: HARDCODED → SECONDARY (qwen-plus-latest) →
+    // first listed model.
+    const defaultId = (() => {
+      if (models.some((m) => m.id === HARDCODED_DEFAULT_MODEL_ID)) {
+        return HARDCODED_DEFAULT_MODEL_ID;
+      }
+      if (models.some((m) => m.id === SECONDARY_DEFAULT_MODEL_ID)) {
+        return SECONDARY_DEFAULT_MODEL_ID;
+      }
+      return models[0]?.id ?? HARDCODED_DEFAULT_MODEL_ID;
+    })();
+
+    return c.json({
+      defaultId,
+      models,
+      upstreamReachable: upstreamIds !== null,
+    });
+  })
   .post("/chat", zValidator("json", resumeChatRequestSchema), async (c) => {
     const {
       chatId,
       enableThinking,
       jobDescription,
       messages: rawMessages,
+      model,
       trigger,
       messageId,
     } = c.req.valid("json");
+
+    const resolvedModel = await resolveModelForChat(model);
     const userId = c.var.user?.id;
 
     const conversationOwned =
@@ -96,6 +159,7 @@ export const resumeRouter = factory
       enableThinking,
       jobDescription,
       messages: messagesForModel,
+      modelId: resolvedModel,
       userId: userId ?? null,
     });
 
