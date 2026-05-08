@@ -9,6 +9,7 @@
 
 import type { UIMessage } from "ai";
 import type { JobDescriptionConfig } from "@/lib/job-description-config";
+import { sha256HexOfFile } from "@/lib/file-hash";
 import { apiFetch } from "../client";
 
 /**
@@ -149,16 +150,66 @@ export async function upsertChatMessageOnServer(
   });
 }
 
+type UploadPreflightResponse = { hit: false } | (UploadedAttachment & { hit: true });
+
 /**
- * 上传附件（PDF / 图片等）；自动包装成 multipart/form-data。
- * Upload an attachment (PDF / image / ...); transparently wrapped as multipart/form-data.
+ * 仅对 PDF 尝试预检请求：命中缓存则直接返回已有附件，避免重复上传。
+ * Try a preflight request for PDFs only: return the cached attachment on a hit,
+ * skipping the redundant upload entirely.
+ *
+ * 任何失败（哈希计算、网络、服务端错误）都安静降级到 multipart 路径——保持上传可用性。
+ * Any failure (hash computation, network, server error) silently degrades to the
+ * multipart path to keep uploads available.
  */
-export function uploadAttachment(blob: Blob, filename: string): Promise<UploadedAttachment> {
-  const form = new FormData();
+async function tryUploadPreflight(file: File): Promise<UploadedAttachment | null> {
+  if (file.type !== "application/pdf") {
+    return null;
+  }
+  let hash: string;
+  try {
+    hash = await sha256HexOfFile(file);
+  } catch {
+    return null;
+  }
+  try {
+    const result = await apiFetch<UploadPreflightResponse>("/api/chat/uploads/preflight", {
+      body: {
+        filename: file.name || "attachment.pdf",
+        hash,
+        mediaType: file.type,
+        size: file.size,
+      },
+      method: "POST",
+    });
+    if (!result.hit) {
+      return null;
+    }
+    const { hit: _hit, ...rest } = result;
+    return rest;
+  } catch {
+    // preflight 任何失败都安静降级到 multipart 路径——保持上传可用性。
+    // Any preflight failure silently degrades to the multipart path.
+    return null;
+  }
+}
+
+/**
+ * 上传附件（PDF / 图片等）；PDF 文件先走预检去重，缓存命中则跳过字节传输；否则降级为 multipart/form-data。
+ * Upload an attachment (PDF / image / ...); PDF files attempt a preflight dedup first —
+ * a cache hit skips byte transfer entirely; otherwise falls back to multipart/form-data.
+ */
+export async function uploadAttachment(blob: Blob, filename: string): Promise<UploadedAttachment> {
   const file =
     blob instanceof File
       ? blob
       : new File([blob], filename, { type: blob.type || "application/pdf" });
+
+  const hit = await tryUploadPreflight(file);
+  if (hit) {
+    return hit;
+  }
+
+  const form = new FormData();
   form.append("file", file, filename);
 
   return apiFetch<UploadedAttachment>("/api/chat/uploads", {
