@@ -87,7 +87,7 @@ export function SidebarTabs({ canAccessAdmin }: { canAccessAdmin: boolean }) {
 
   return (
     <Tabs
-      className="w-full group-data-[collapsible=icon]:hidden"
+      className="w-full"
       onSelectionChange={(key) => handleChange(String(key))}
       selectedKey={activeTab ?? "chat"}
     >
