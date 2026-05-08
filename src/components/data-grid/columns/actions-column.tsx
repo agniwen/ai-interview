@@ -4,12 +4,12 @@ import type { LucideIcon } from "lucide-react";
 import { MoreHorizontalIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
+  Dropdown,
+  DropdownItem,
   DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
+  DropdownPopover,
+  DropdownSection,
+  DropdownTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
@@ -76,32 +76,53 @@ export function actionsColumn<TData>(opts: ActionsColumnOptions<TData>): ColumnD
             );
           })}
           {visibleMenu.length > 0 ? (
-            <DropdownMenu modal={false}>
-              <DropdownMenuTrigger asChild>
+            <Dropdown>
+              <DropdownTrigger>
                 <Button aria-label="更多操作" className="size-8" isIconOnly variant="ghost">
                   <MoreHorizontalIcon className="size-4" />
                 </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-44">
-                <DropdownMenuLabel>{opts.menuLabel ?? "更多操作"}</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                {visibleMenu.map((item, index) => {
-                  const Icon = item.icon;
-                  return (
-                    <div key={item.label}>
-                      {item.separator === "before" && index > 0 ? <DropdownMenuSeparator /> : null}
-                      <DropdownMenuItem
-                        onSelect={() => void item.onClick(record)}
-                        variant={item.variant}
-                      >
-                        {Icon ? <Icon className="size-4" /> : null}
-                        {item.label}
-                      </DropdownMenuItem>
-                    </div>
-                  );
-                })}
-              </DropdownMenuContent>
-            </DropdownMenu>
+              </DropdownTrigger>
+              <DropdownPopover placement="bottom end">
+                <DropdownMenu className="w-44">
+                  <DropdownSection>
+                    {visibleMenu
+                      .filter((item) => item.separator !== "before")
+                      .map((item) => {
+                        const Icon = item.icon;
+                        return (
+                          <DropdownItem
+                            key={item.label}
+                            className={item.variant === "destructive" ? "text-danger" : undefined}
+                            onAction={() => void item.onClick(record)}
+                          >
+                            {Icon ? <Icon className="size-4" /> : null}
+                            {item.label}
+                          </DropdownItem>
+                        );
+                      })}
+                  </DropdownSection>
+                  {visibleMenu.some((item) => item.separator === "before") ? (
+                    <DropdownSection>
+                      {visibleMenu
+                        .filter((item) => item.separator === "before")
+                        .map((item) => {
+                          const Icon = item.icon;
+                          return (
+                            <DropdownItem
+                              key={item.label}
+                              className={item.variant === "destructive" ? "text-danger" : undefined}
+                              onAction={() => void item.onClick(record)}
+                            >
+                              {Icon ? <Icon className="size-4" /> : null}
+                              {item.label}
+                            </DropdownItem>
+                          );
+                        })}
+                    </DropdownSection>
+                  ) : null}
+                </DropdownMenu>
+              </DropdownPopover>
+            </Dropdown>
           ) : null}
         </div>
       );

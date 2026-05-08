@@ -9,12 +9,12 @@ import { FeishuSignInButton } from "@/components/auth/feishu-sign-in-button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button, buttonClass } from "@/components/ui/button";
 import {
+  Dropdown,
+  DropdownItem,
   DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
+  DropdownPopover,
+  DropdownSection,
+  DropdownTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useHydrated } from "@/hooks/use-hydrated";
 import { authClient } from "@/lib/auth-client";
@@ -71,43 +71,51 @@ export function SidebarUserSection({
       <div className="h-9 w-full animate-pulse rounded-full bg-default" />
     );
   } else if (session?.user) {
+    const menuContent = (
+      <DropdownPopover placement="bottom end">
+        <DropdownMenu className="w-56">
+          <DropdownSection>
+            <DropdownItem isDisabled>
+              <div className="space-y-0.5">
+                <p className="truncate font-medium text-sm">{userName}</p>
+                <p className="truncate text-muted text-xs">{userEmail}</p>
+                {organizationName ? (
+                  <p className="truncate text-muted text-xs">{organizationName}</p>
+                ) : null}
+              </div>
+            </DropdownItem>
+          </DropdownSection>
+          <DropdownSection>
+            {showHomeLink ? (
+              <DropdownItem onAction={() => void router.push("/")}>
+                <HouseIcon className="mr-2 size-4" />
+                返回首页
+              </DropdownItem>
+            ) : null}
+            <DropdownItem className="text-danger" onAction={handleSignOut}>
+              <LogOutIcon className="mr-2 size-4" />
+              退出登录
+            </DropdownItem>
+          </DropdownSection>
+        </DropdownMenu>
+      </DropdownPopover>
+    );
+
     content = collapsed ? (
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
+      <Dropdown>
+        <DropdownTrigger>
           <Button aria-label="用户菜单" className="w-full" isIconOnly type="button" variant="ghost">
             <Avatar size="sm">
               <AvatarImage alt={userName} src={session.user.image ?? undefined} />
               <AvatarFallback>{userInitials}</AvatarFallback>
             </Avatar>
           </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-56">
-          <DropdownMenuLabel className="space-y-0.5">
-            <p className="truncate font-medium text-sm">{userName}</p>
-            <p className="truncate text-muted text-xs">{userEmail}</p>
-            {organizationName ? (
-              <p className="truncate text-muted text-xs">{organizationName}</p>
-            ) : null}
-          </DropdownMenuLabel>
-          <DropdownMenuSeparator />
-          {showHomeLink ? (
-            <DropdownMenuItem asChild>
-              <Link href="/">
-                <HouseIcon className="mr-2 size-4" />
-                返回首页
-              </Link>
-            </DropdownMenuItem>
-          ) : null}
-          {showHomeLink ? <DropdownMenuSeparator /> : null}
-          <DropdownMenuItem onClick={handleSignOut} variant="destructive">
-            <LogOutIcon className="mr-2 size-4" />
-            退出登录
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+        </DropdownTrigger>
+        {menuContent}
+      </Dropdown>
     ) : (
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
+      <Dropdown>
+        <DropdownTrigger>
           <Button
             className="w-full justify-start gap-2 p-1! rounded-full"
             type="button"
@@ -123,31 +131,9 @@ export function SidebarUserSection({
             </div>
             <ChevronsUpDownIcon className="size-4 text-muted" />
           </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-56">
-          <DropdownMenuLabel className="space-y-0.5">
-            <p className="truncate font-medium text-sm">{userName}</p>
-            <p className="truncate text-muted text-xs">{userEmail}</p>
-            {organizationName ? (
-              <p className="truncate text-muted text-xs">{organizationName}</p>
-            ) : null}
-          </DropdownMenuLabel>
-          <DropdownMenuSeparator />
-          {showHomeLink ? (
-            <DropdownMenuItem asChild>
-              <Link href="/">
-                <HouseIcon className="mr-2 size-4" />
-                返回首页
-              </Link>
-            </DropdownMenuItem>
-          ) : null}
-          {showHomeLink ? <DropdownMenuSeparator /> : null}
-          <DropdownMenuItem onClick={handleSignOut} variant="destructive">
-            <LogOutIcon className="mr-2 size-4" />
-            退出登录
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+        </DropdownTrigger>
+        {menuContent}
+      </Dropdown>
     );
   } else {
     content = collapsed ? (

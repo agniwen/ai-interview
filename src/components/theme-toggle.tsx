@@ -4,14 +4,12 @@ import { MonitorIcon, MoonIcon, SunIcon } from "lucide-react";
 import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
 import {
+  Dropdown,
+  DropdownItem,
   DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
-  DropdownMenuTrigger,
+  DropdownPopover,
+  DropdownSection,
+  DropdownTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useHydrated } from "@/hooks/use-hydrated";
 
@@ -43,8 +41,8 @@ export function ThemeToggle({
   const activeTheme = isHydrated ? (theme ?? "system") : "system";
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
+    <Dropdown>
+      <DropdownTrigger>
         <Button
           aria-label="切换主题"
           className={className}
@@ -56,49 +54,53 @@ export function ThemeToggle({
           <SunIcon className="size-4 dark:hidden" />
           <MoonIcon className="hidden size-4 dark:block" />
         </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-40">
-        <DropdownMenuRadioGroup onValueChange={setTheme} value={activeTheme}>
+      </DropdownTrigger>
+      <DropdownPopover placement="bottom end">
+        <DropdownMenu className="w-40">
           {THEME_OPTIONS.map((option) => {
             const Icon = option.icon;
             return (
-              <DropdownMenuRadioItem key={option.value} value={option.value}>
+              <DropdownItem
+                key={option.value}
+                className={activeTheme === option.value ? "font-medium" : undefined}
+                onAction={() => setTheme(option.value)}
+              >
                 <Icon className="mr-2 size-4" />
                 {option.label}
-              </DropdownMenuRadioItem>
+              </DropdownItem>
             );
           })}
-        </DropdownMenuRadioGroup>
-      </DropdownMenuContent>
-    </DropdownMenu>
+        </DropdownMenu>
+      </DropdownPopover>
+    </Dropdown>
   );
 }
 
+/**
+ * A flat section of theme items to embed inside a parent DropdownMenu.
+ * Previously a sub-menu; now rendered as a DropdownSection since Hero UI
+ * sub-menu composition is handled at the Dropdown root level.
+ */
 export function ThemeSubMenu() {
   const { theme, setTheme } = useTheme();
   const isHydrated = useHydrated();
   const activeTheme = isHydrated ? (theme ?? "system") : "system";
 
   return (
-    <DropdownMenuSub>
-      <DropdownMenuSubTrigger>
-        <SunIcon className="mr-2 size-4 dark:hidden" />
-        <MoonIcon className="mr-2 hidden size-4 dark:block" />
-        主题
-      </DropdownMenuSubTrigger>
-      <DropdownMenuSubContent className="w-40">
-        <DropdownMenuRadioGroup onValueChange={setTheme} value={activeTheme}>
-          {THEME_OPTIONS.map((option) => {
-            const Icon = option.icon;
-            return (
-              <DropdownMenuRadioItem key={option.value} value={option.value}>
-                <Icon className="mr-2 size-4" />
-                {option.label}
-              </DropdownMenuRadioItem>
-            );
-          })}
-        </DropdownMenuRadioGroup>
-      </DropdownMenuSubContent>
-    </DropdownMenuSub>
+    <DropdownSection>
+      {THEME_OPTIONS.map((option) => {
+        const Icon = option.icon;
+        return (
+          <DropdownItem
+            key={option.value}
+            className={activeTheme === option.value ? "font-medium" : undefined}
+            onAction={() => setTheme(option.value)}
+          >
+            <Icon className="mr-2 size-4" />
+            {option.label}
+          </DropdownItem>
+        );
+      })}
+    </DropdownSection>
   );
 }

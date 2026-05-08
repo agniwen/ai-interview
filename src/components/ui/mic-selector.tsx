@@ -4,11 +4,11 @@ import { Check, ChevronsUpDown, Mic, MicOff } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
+  Dropdown,
+  DropdownItem,
   DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
+  DropdownPopover,
+  DropdownTrigger,
 } from "@/components/ui/dropdown-menu";
 import { LiveWaveform } from "@/components/ui/live-waveform";
 import { cn } from "@/lib/utils";
@@ -90,8 +90,8 @@ export function MicSelector({
   const isPreviewActive = isDropdownOpen && !isMuted;
 
   return (
-    <DropdownMenu onOpenChange={handleDropdownOpenChange}>
-      <DropdownMenuTrigger asChild>
+    <Dropdown isOpen={isDropdownOpen} onOpenChange={handleDropdownOpenChange}>
+      <DropdownTrigger>
         <Button
           variant="ghost"
           size="sm"
@@ -109,59 +109,51 @@ export function MicSelector({
           <span className="flex-1 truncate text-left">{currentDevice.label}</span>
           <ChevronsUpDown className="h-3 w-3 flex-shrink-0" />
         </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="center" side="top" className="w-72">
-        {loading ? (
-          <DropdownMenuItem disabled>加载设备中...</DropdownMenuItem>
-        ) : error ? (
-          <DropdownMenuItem disabled>
-            错误:
-            {error}
-          </DropdownMenuItem>
-        ) : (
-          devices.map((device) => (
-            <DropdownMenuItem
-              key={device.deviceId}
-              onClick={(e) => handleDeviceSelect(device.deviceId, e)}
-              onSelect={(e) => e.preventDefault()}
-              className="flex items-center justify-between"
-            >
-              <span className="truncate">{device.label}</span>
-              {selectedDevice === device.deviceId && <Check className="h-4 w-4 flex-shrink-0" />}
-            </DropdownMenuItem>
-          ))
-        )}
-        {devices.length > 0 && (
-          <>
-            <DropdownMenuSeparator />
-            <div className="flex items-center gap-2 p-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={(e) => {
-                  e.preventDefault();
-                  toggleMute();
-                }}
-                className="h-8 gap-2"
+      </DropdownTrigger>
+      <DropdownPopover placement="top">
+        <DropdownMenu className="w-72">
+          {loading ? (
+            <DropdownItem isDisabled>加载设备中...</DropdownItem>
+          ) : error ? (
+            <DropdownItem isDisabled>
+              错误:
+              {error}
+            </DropdownItem>
+          ) : (
+            devices.map((device) => (
+              <DropdownItem
+                key={device.deviceId}
+                className="flex items-center justify-between"
+                onAction={() => handleDeviceSelect(device.deviceId)}
               >
-                {isMuted ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
-                <span className="text-sm">{isMuted ? "取消静音" : "静音"}</span>
-              </Button>
-              <div className="bg-default ml-auto w-16 overflow-hidden rounded-md p-1.5">
-                <LiveWaveform
-                  active={isPreviewActive}
-                  deviceId={selectedDevice || defaultDeviceId}
-                  mode="static"
-                  height={15}
-                  barWidth={3}
-                  barGap={1}
-                />
+                <span className="truncate">{device.label}</span>
+                {selectedDevice === device.deviceId && <Check className="h-4 w-4 flex-shrink-0" />}
+              </DropdownItem>
+            ))
+          )}
+          {devices.length > 0 && (
+            <DropdownItem isDisabled className="p-0">
+              <div className="flex w-full items-center gap-2 p-2">
+                <Button variant="ghost" size="sm" onClick={toggleMute} className="h-8 gap-2">
+                  {isMuted ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+                  <span className="text-sm">{isMuted ? "取消静音" : "静音"}</span>
+                </Button>
+                <div className="bg-default ml-auto w-16 overflow-hidden rounded-md p-1.5">
+                  <LiveWaveform
+                    active={isPreviewActive}
+                    deviceId={selectedDevice || defaultDeviceId}
+                    mode="static"
+                    height={15}
+                    barWidth={3}
+                    barGap={1}
+                  />
+                </div>
               </div>
-            </div>
-          </>
-        )}
-      </DropdownMenuContent>
-    </DropdownMenu>
+            </DropdownItem>
+          )}
+        </DropdownMenu>
+      </DropdownPopover>
+    </Dropdown>
   );
 }
 

@@ -30,10 +30,11 @@ import {
   CommandSeparator,
 } from "@/components/ui/command";
 import {
+  Dropdown,
+  DropdownItem,
   DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
+  DropdownPopover,
+  DropdownTrigger,
 } from "@/components/ui/dropdown-menu";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import {
@@ -341,7 +342,7 @@ export function usePromptInputReferencedSources() {
   return ctx;
 }
 
-export type PromptInputActionAddAttachmentsProps = ComponentProps<typeof DropdownMenuItem> & {
+export type PromptInputActionAddAttachmentsProps = ComponentProps<typeof DropdownItem> & {
   label?: string;
 };
 
@@ -351,18 +352,14 @@ export function PromptInputActionAddAttachments({
 }: PromptInputActionAddAttachmentsProps) {
   const attachments = usePromptInputAttachments();
 
-  const handleSelect = useCallback(
-    (e: Event) => {
-      e.preventDefault();
-      attachments.openFileDialog();
-    },
-    [attachments],
-  );
+  const handleAction = useCallback(() => {
+    attachments.openFileDialog();
+  }, [attachments]);
 
   return (
-    <DropdownMenuItem {...props} onSelect={handleSelect}>
+    <DropdownItem {...props} onAction={handleAction}>
       <ImageIcon className="mr-2 size-4" /> {label}
-    </DropdownMenuItem>
+    </DropdownItem>
   );
 }
 
@@ -1122,9 +1119,21 @@ export function PromptInputButton({
   );
 }
 
-export type PromptInputActionMenuProps = ComponentProps<typeof DropdownMenu>;
-export function PromptInputActionMenu(props: PromptInputActionMenuProps) {
-  return <DropdownMenu {...props} />;
+export interface PromptInputActionMenuProps {
+  children?: ReactNode;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+}
+export function PromptInputActionMenu({
+  open,
+  onOpenChange,
+  children,
+}: PromptInputActionMenuProps) {
+  return (
+    <Dropdown isOpen={open} onOpenChange={onOpenChange}>
+      {children}
+    </Dropdown>
+  );
 }
 
 export type PromptInputActionMenuTriggerProps = PromptInputButtonProps;
@@ -1135,25 +1144,63 @@ export function PromptInputActionMenuTrigger({
   ...props
 }: PromptInputActionMenuTriggerProps) {
   return (
-    <DropdownMenuTrigger asChild>
+    <DropdownTrigger>
       <PromptInputButton className={className} {...props}>
         {children ?? <PlusIcon className="size-4" />}
       </PromptInputButton>
-    </DropdownMenuTrigger>
+    </DropdownTrigger>
   );
 }
 
-export type PromptInputActionMenuContentProps = ComponentProps<typeof DropdownMenuContent>;
+export interface PromptInputActionMenuContentProps {
+  children?: ReactNode;
+  className?: string;
+  /** @deprecated Hero UI handles focus return natively — this prop is ignored. */
+  onCloseAutoFocus?: (event: Event) => void;
+}
 export function PromptInputActionMenuContent({
   className,
-  ...props
+  children,
 }: PromptInputActionMenuContentProps) {
-  return <DropdownMenuContent align="start" className={cn(className)} {...props} />;
+  return (
+    <DropdownPopover placement="bottom start">
+      <DropdownMenu className={cn(className)}>{children}</DropdownMenu>
+    </DropdownPopover>
+  );
 }
 
-export type PromptInputActionMenuItemProps = ComponentProps<typeof DropdownMenuItem>;
-export function PromptInputActionMenuItem({ className, ...props }: PromptInputActionMenuItemProps) {
-  return <DropdownMenuItem className={cn(className)} {...props} />;
+export interface PromptInputActionMenuItemProps {
+  children?: ReactNode;
+  className?: string;
+  /** @deprecated Use onAction instead. Mapped to onAction (event arg is ignored). */
+  onSelect?: (event: Event) => void;
+  onAction?: () => void;
+  disabled?: boolean;
+  variant?: "default" | "destructive";
+}
+export function PromptInputActionMenuItem({
+  className,
+  onSelect,
+  onAction,
+  disabled,
+  children,
+  variant,
+}: PromptInputActionMenuItemProps) {
+  const handleAction = useCallback(() => {
+    onAction?.();
+    // onSelect compatibility: call without event arg (Hero UI has no Event here)
+    onSelect?.(new Event("action"));
+  }, [onAction, onSelect]);
+
+  return (
+    <DropdownItem
+      className={cn(variant === "destructive" && "text-danger", className)}
+      isDisabled={disabled}
+      onAction={handleAction}
+    >
+      {children}
+    </DropdownItem>
+  );
 }
 
 // Note: Actions that perform side-effects (like opening a file dialog)

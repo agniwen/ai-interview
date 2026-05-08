@@ -16,7 +16,6 @@ import {
   usePromptInputAttachments,
 } from "@/components/ai-elements/prompt-input";
 import type { ManagedAttachment } from "@/components/ai-elements/prompt-input";
-import { DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useHydrated } from "@/hooks/use-hydrated";
@@ -187,7 +186,6 @@ export function ComposerFooter({
               <Trash2Icon className="mr-2 size-4" />
               清空在招岗位信息
             </PromptInputActionMenuItem>
-            <DropdownMenuSeparator />
             <ThinkingModeMenuItem />
           </PromptInputActionMenuContent>
         </PromptInputActionMenu>
