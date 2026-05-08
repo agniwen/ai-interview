@@ -2,7 +2,7 @@
 import type { ColumnDef } from "@tanstack/react-table";
 import type { LucideIcon } from "lucide-react";
 import { MoreHorizontalIcon } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Button, buttonClass } from "@/components/ui/button";
 import {
   Dropdown,
   DropdownItem,
@@ -77,10 +77,11 @@ export function actionsColumn<TData>(opts: ActionsColumnOptions<TData>): ColumnD
           })}
           {visibleMenu.length > 0 ? (
             <Dropdown>
-              <DropdownTrigger>
-                <Button aria-label="更多操作" className="size-8" isIconOnly variant="ghost">
-                  <MoreHorizontalIcon className="size-4" />
-                </Button>
+              <DropdownTrigger
+                aria-label="更多操作"
+                className={buttonClass({ className: "size-8", isIconOnly: true, variant: "ghost" })}
+              >
+                <MoreHorizontalIcon className="size-4" />
               </DropdownTrigger>
               <DropdownPopover placement="bottom end">
                 <DropdownMenu className="w-44">

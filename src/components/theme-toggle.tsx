@@ -2,7 +2,7 @@
 
 import { MonitorIcon, MoonIcon, SunIcon } from "lucide-react";
 import { useTheme } from "next-themes";
-import { Button } from "@/components/ui/button";
+import { buttonClass } from "@/components/ui/button";
 import {
   Dropdown,
   DropdownItem,
@@ -42,18 +42,17 @@ export function ThemeToggle({
 
   return (
     <Dropdown>
-      <DropdownTrigger>
-        <Button
-          aria-label="切换主题"
-          className={className}
-          isIconOnly
-          size={resolveSize(size)}
-          type="button"
-          variant="ghost"
-        >
-          <SunIcon className="size-4 dark:hidden" />
-          <MoonIcon className="hidden size-4 dark:block" />
-        </Button>
+      <DropdownTrigger
+        aria-label="切换主题"
+        className={buttonClass({
+          className,
+          isIconOnly: true,
+          size: resolveSize(size),
+          variant: "ghost",
+        })}
+      >
+        <SunIcon className="size-4 dark:hidden" />
+        <MoonIcon className="hidden size-4 dark:block" />
       </DropdownTrigger>
       <DropdownPopover placement="bottom end">
         <DropdownMenu className="w-40">

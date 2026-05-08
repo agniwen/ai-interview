@@ -2,7 +2,7 @@
 
 import { Check, ChevronsUpDown, Mic, MicOff } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
-import { Button } from "@/components/ui/button";
+import { Button, buttonClass } from "@/components/ui/button";
 import {
   Dropdown,
   DropdownItem,
@@ -91,24 +91,24 @@ export function MicSelector({
 
   return (
     <Dropdown isOpen={isDropdownOpen} onOpenChange={handleDropdownOpenChange}>
-      <DropdownTrigger>
-        <Button
-          variant="ghost"
-          size="sm"
-          className={cn(
+      <DropdownTrigger
+        className={buttonClass({
+          variant: "ghost",
+          size: "sm",
+          className: cn(
             "hover:bg-default flex w-48 cursor-pointer items-center gap-1.5",
             className,
-          )}
-          isDisabled={loading || disabled}
-        >
-          {isMuted ? (
-            <MicOff className="h-4 w-4 flex-shrink-0" />
-          ) : (
-            <Mic className="h-4 w-4 flex-shrink-0" />
-          )}
-          <span className="flex-1 truncate text-left">{currentDevice.label}</span>
-          <ChevronsUpDown className="h-3 w-3 flex-shrink-0" />
-        </Button>
+          ),
+        })}
+        isDisabled={loading || disabled}
+      >
+        {isMuted ? (
+          <MicOff className="h-4 w-4 flex-shrink-0" />
+        ) : (
+          <Mic className="h-4 w-4 flex-shrink-0" />
+        )}
+        <span className="flex-1 truncate text-left">{currentDevice.label}</span>
+        <ChevronsUpDown className="h-3 w-3 flex-shrink-0" />
       </DropdownTrigger>
       <DropdownPopover placement="top">
         <DropdownMenu className="w-72">

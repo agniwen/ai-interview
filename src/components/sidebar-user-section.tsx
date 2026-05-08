@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import { useCallback } from "react";
 import { FeishuSignInButton } from "@/components/auth/feishu-sign-in-button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Button, buttonClass } from "@/components/ui/button";
+import { buttonClass } from "@/components/ui/button";
 import {
   Dropdown,
   DropdownItem,
@@ -103,34 +103,34 @@ export function SidebarUserSection({
 
     content = collapsed ? (
       <Dropdown>
-        <DropdownTrigger>
-          <Button aria-label="用户菜单" className="w-full" isIconOnly type="button" variant="ghost">
-            <Avatar size="sm">
-              <AvatarImage alt={userName} src={session.user.image ?? undefined} />
-              <AvatarFallback>{userInitials}</AvatarFallback>
-            </Avatar>
-          </Button>
+        <DropdownTrigger
+          aria-label="用户菜单"
+          className={buttonClass({ className: "w-full", isIconOnly: true, variant: "ghost" })}
+        >
+          <Avatar size="sm">
+            <AvatarImage alt={userName} src={session.user.image ?? undefined} />
+            <AvatarFallback>{userInitials}</AvatarFallback>
+          </Avatar>
         </DropdownTrigger>
         {menuContent}
       </Dropdown>
     ) : (
       <Dropdown>
-        <DropdownTrigger>
-          <Button
-            className="w-full justify-start gap-2 p-1! rounded-full"
-            type="button"
-            variant="ghost"
-          >
-            <Avatar size="default">
-              <AvatarImage alt={userName} src={session.user.image ?? undefined} />
-              <AvatarFallback>{userInitials}</AvatarFallback>
-            </Avatar>
-            <div className="min-w-0 flex-1 text-left">
-              <p className="truncate font-medium text-sm">{userName}</p>
-              <p className="truncate text-muted text-xs">{organizationName ?? userEmail}</p>
-            </div>
-            <ChevronsUpDownIcon className="size-4 text-muted" />
-          </Button>
+        <DropdownTrigger
+          className={buttonClass({
+            className: "w-full justify-start gap-2 p-1! rounded-full",
+            variant: "ghost",
+          })}
+        >
+          <Avatar size="default">
+            <AvatarImage alt={userName} src={session.user.image ?? undefined} />
+            <AvatarFallback>{userInitials}</AvatarFallback>
+          </Avatar>
+          <div className="min-w-0 flex-1 text-left">
+            <p className="truncate font-medium text-sm">{userName}</p>
+            <p className="truncate text-muted text-xs">{organizationName ?? userEmail}</p>
+          </div>
+          <ChevronsUpDownIcon className="size-4 text-muted" />
         </DropdownTrigger>
         {menuContent}
       </Dropdown>

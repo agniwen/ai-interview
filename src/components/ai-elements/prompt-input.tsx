@@ -20,6 +20,7 @@ import type {
 import { CornerDownLeftIcon, ImageIcon, PlusIcon, SquareIcon, XIcon } from "lucide-react";
 import { nanoid } from "nanoid";
 import { createContext, use, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { buttonClass } from "@/components/ui/button";
 import {
   Command,
   CommandEmpty,
@@ -1138,16 +1139,52 @@ export function PromptInputActionMenu({
 
 export type PromptInputActionMenuTriggerProps = PromptInputButtonProps;
 
+const LEGACY_VARIANT_TO_HERO: Record<
+  string,
+  "primary" | "secondary" | "danger" | "danger-soft" | "outline" | "ghost" | "tertiary"
+> = {
+  default: "primary",
+  destructive: "danger",
+  link: "ghost",
+};
+
 export function PromptInputActionMenuTrigger({
   className,
+  variant = "ghost",
+  size,
   children,
   ...props
 }: PromptInputActionMenuTriggerProps) {
+  const childCount = countPromptInputChildren(children ?? <PlusIcon className="size-4" />);
+  const resolvedSize = size ?? (childCount > 1 ? "sm" : "icon-sm");
+  // Map InputGroupButton size tokens to buttonClass size tokens
+  const buttonSizeMap: Record<string, "sm" | "md" | "lg"> = {
+    "icon-sm": "sm",
+    "icon-xs": "sm",
+    sm: "sm",
+    xs: "sm",
+  };
+  const heroSize = buttonSizeMap[resolvedSize] ?? "sm";
+  const isIconOnly = resolvedSize === "icon-sm" || resolvedSize === "icon-xs";
+  // Normalise legacy shadcn variant names (e.g. "default" → "primary")
+  const heroVariant =
+    variant && variant in LEGACY_VARIANT_TO_HERO
+      ? LEGACY_VARIANT_TO_HERO[variant]
+      : (variant as
+          | "primary"
+          | "secondary"
+          | "danger"
+          | "danger-soft"
+          | "outline"
+          | "ghost"
+          | "tertiary");
+
   return (
-    <DropdownTrigger>
-      <PromptInputButton className={className} {...props}>
-        {children ?? <PlusIcon className="size-4" />}
-      </PromptInputButton>
+    <DropdownTrigger
+      className={buttonClass({ className, isIconOnly, size: heroSize, variant: heroVariant })}
+      {...(props as object)}
+    >
+      {children ?? <PlusIcon className="size-4" />}
     </DropdownTrigger>
   );
 }
