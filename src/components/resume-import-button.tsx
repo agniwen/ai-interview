@@ -1,43 +1,39 @@
 "use client";
 
 import type { FileUIPart } from "ai";
-import type {
-  InterviewQuestion,
-  ResumeAnalysisResult,
-  ResumeProfile,
-} from "@/lib/shared/interview/types";
+import type { InterviewQuestion, ResumeAnalysisResult } from "@/lib/shared/interview/types";
 import type { StudioInterviewRecord } from "@/lib/shared/studio-interviews";
 import type { AnalysisStreamEvent } from "@/server/agents/resume-analysis-agent";
-import {
-  CheckIcon,
-  DatabaseIcon,
-  EyeIcon,
-  LoaderCircleIcon,
-  SparklesIcon,
-  WrenchIcon,
-} from "lucide-react";
-import { AnimatePresence, motion } from "motion/react";
+import { CheckIcon, DatabaseIcon, EyeIcon, LoaderCircleIcon } from "lucide-react";
+import dynamic from "next/dynamic";
 import { useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
-import { InterviewDetailDialog } from "@/app/(auth)/studio/interviews/_components/interview-detail-dialog";
-import { JobDescriptionSelectField } from "@/app/(auth)/studio/interviews/_components/job-description-select-field";
-import { ResumeDedupOverlay } from "@/components/resume-dedup-overlay";
+import { ImportProgressModal } from "@/components/resume-import/import-progress-modal";
+import { JdPickModal } from "@/components/resume-import/jd-pick-modal";
+import type {
+  ImportPhase,
+  ParseResult,
+  PartialField,
+  ProgressTool,
+} from "@/components/resume-import/types";
+import { dataUrlToFile, tryExtractPartialFields } from "@/components/resume-import/utils";
 import { Button } from "@/components/ui/button";
-import { Modal } from "@/components/ui/modal";
 import type { DedupMatchRecord } from "@/lib/client/api";
 import { fetchInterviewDedup } from "@/lib/client/api";
-import { rpc } from "@/lib/client/rpc";
 import { readNdjsonStream } from "@/lib/client/ndjson-stream";
+import { rpc } from "@/lib/client/rpc";
 import { cn } from "@/lib/shared/utils";
 
-const LEADING_DIGIT_RE = /^\d/;
-const LEADING_DIGITS_RE = /^(\d+)/;
-
-interface ParseResult {
-  fileName: string;
-  resumeProfile: ResumeProfile;
-}
-type ImportPhase = "idle" | "preparing" | "parsing" | "generating" | "saving";
+// 详情弹窗只在入库成功后才打开；动态加载省初始 bundle。
+// Dialog only opens after a successful import; dynamic import keeps it out
+// of the initial bundle.
+const InterviewDetailDialog = dynamic(
+  async () => {
+    const mod = await import("@/app/(auth)/studio/interviews/_components/interview-detail-dialog");
+    return mod.InterviewDetailDialog;
+  },
+  { ssr: false },
+);
 
 interface ResumeImportButtonProps {
   filePart: FileUIPart & { id: string };
@@ -46,78 +42,6 @@ interface ResumeImportButtonProps {
   onMissing?: (partId: string) => void;
   className?: string;
 }
-
-async function dataUrlToFile(url: string, filename: string) {
-  const response = await fetch(url);
-  const blob = await response.blob();
-  return new File([blob], filename, { type: blob.type || "application/pdf" });
-}
-
-function tryExtractPartialFields(text: string) {
-  const fields: { label: string; value: string }[] = [];
-  const FIELD_MAP: { key: string; label: string }[] = [
-    { key: '"name"', label: "姓名" },
-    { key: '"gender"', label: "性别" },
-    { key: '"age"', label: "年龄" },
-    { key: '"workYears"', label: "工作年限" },
-    { key: '"targetRoles"', label: "目标岗位" },
-    { key: '"skills"', label: "技能" },
-    { key: '"schools"', label: "院校" },
-  ];
-
-  for (const { key, label } of FIELD_MAP) {
-    const idx = text.indexOf(key);
-    if (idx === -1) {
-      continue;
-    }
-
-    const afterColon = text.indexOf(":", idx + key.length);
-    if (afterColon === -1) {
-      continue;
-    }
-
-    const rest = text.slice(afterColon + 1).trimStart();
-    if (!rest) {
-      continue;
-    }
-
-    if (rest.startsWith('"')) {
-      const endQuote = rest.indexOf('"', 1);
-      if (endQuote > 1) {
-        const value = rest.slice(1, endQuote);
-        if (value && value !== "未发现信息") {
-          fields.push({ label, value });
-        }
-      }
-    } else if (LEADING_DIGIT_RE.test(rest)) {
-      const match = rest.match(LEADING_DIGITS_RE);
-      if (match) {
-        fields.push({ label, value: match[1] });
-      }
-    } else if (rest.startsWith("[")) {
-      const endBracket = rest.indexOf("]");
-      if (endBracket > 1) {
-        try {
-          const arr = JSON.parse(rest.slice(0, endBracket + 1)) as string[];
-          if (arr.length > 0) {
-            fields.push({ label, value: arr.slice(0, 5).join("、") });
-          }
-        } catch {
-          /* partial array — ignore */
-        }
-      }
-    }
-  }
-
-  return fields;
-}
-
-const PHASES: { key: Exclude<ImportPhase, "idle">; label: string }[] = [
-  { key: "preparing", label: "准备文件" },
-  { key: "parsing", label: "解析简历" },
-  { key: "generating", label: "生成面试题" },
-  { key: "saving", label: "写入简历库" },
-];
 
 function renderImportButtonContent({
   importedInterviewId,
@@ -151,38 +75,6 @@ function renderImportButtonContent({
   );
 }
 
-function PhaseTracker({ phase }: { phase: ImportPhase }) {
-  const currentIndex = phase === "idle" ? -1 : PHASES.findIndex((p) => p.key === phase);
-
-  return (
-    <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1.5 text-xs">
-      {PHASES.map((item, index) => {
-        const done = index < currentIndex;
-        const active = index === currentIndex;
-        return (
-          <div className="flex items-center gap-1.5" key={item.key}>
-            <span
-              className={cn(
-                "inline-flex size-5 items-center justify-center rounded-full border font-medium",
-                done &&
-                  "border-emerald-400/70 bg-emerald-50 text-emerald-600 dark:border-emerald-700/60 dark:bg-emerald-950/40 dark:text-emerald-300",
-                active && "border-primary bg-primary/10 text-primary",
-                !done && !active && "border-border text-muted-foreground",
-              )}
-            >
-              {done ? <CheckIcon className="size-3" /> : index + 1}
-            </span>
-            <span className={cn(active ? "font-medium text-foreground" : "text-muted-foreground")}>
-              {item.label}
-            </span>
-            {index < PHASES.length - 1 ? <span className="text-muted-foreground/50">›</span> : null}
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
 export function ResumeImportButton({
   filePart,
   importedInterviewId,
@@ -192,8 +84,8 @@ export function ResumeImportButton({
 }: ResumeImportButtonProps) {
   const [phase, setPhase] = useState<ImportPhase>("idle");
   const [progressStatus, setProgressStatus] = useState("");
-  const [progressTools, setProgressTools] = useState<{ name: string; done: boolean }[]>([]);
-  const [partialFields, setPartialFields] = useState<{ label: string; value: string }[]>([]);
+  const [progressTools, setProgressTools] = useState<ProgressTool[]>([]);
+  const [partialFields, setPartialFields] = useState<PartialField[]>([]);
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailRecordId, setDetailRecordId] = useState<string | null>(null);
   const [isPickingJd, setIsPickingJd] = useState(false);
@@ -633,8 +525,11 @@ export function ResumeImportButton({
     void runImport(selectedJdId);
   }
 
-  function handleDetailOpenChange(open: boolean) {
-    setDetailOpen(open);
+  function handleSelectJd(next: string) {
+    setSelectedJdId(next);
+    if (next) {
+      setJdError(undefined);
+    }
   }
 
   return (
@@ -655,149 +550,34 @@ export function ResumeImportButton({
         {renderImportButtonContent({ importedInterviewId, isImporting })}
       </Button>
 
-      <Modal
-        open={isPickingJd}
+      <JdPickModal
+        filename={filePart.filename}
+        isAnalyzingMatch={isAnalyzingMatch}
+        jdError={jdError}
+        matchReason={matchReason}
+        onAnalyze={() => void analyzeAndMatchJd()}
+        onCancelAnalyze={handleCancelAnalysis}
+        onConfirm={handleConfirmImport}
         onOpenChange={handlePickDialogOpenChange}
-        title="选择在招岗位后入库"
-        description={filePart.filename ?? "候选人简历.pdf"}
-        size="md"
-        dismissible={!isAnalyzingMatch}
-        footer={
-          <>
-            <Button
-              onClick={() => handlePickDialogOpenChange(false)}
-              type="button"
-              variant="outline"
-            >
-              取消
-            </Button>
-            <Button disabled={isAnalyzingMatch} onClick={handleConfirmImport} type="button">
-              确认入库
-            </Button>
-          </>
-        }
-      >
-        <div className="space-y-3">
-          <JobDescriptionSelectField
-            action={
-              isAnalyzingMatch ? (
-                <Button
-                  className="h-13 gap-1.5"
-                  onClick={handleCancelAnalysis}
-                  size="sm"
-                  type="button"
-                  variant="outline"
-                >
-                  <LoaderCircleIcon className="size-3.5 animate-spin" />
-                  取消分析
-                </Button>
-              ) : (
-                <Button
-                  className="h-13 gap-1.5"
-                  onClick={() => void analyzeAndMatchJd()}
-                  size="sm"
-                  type="button"
-                  variant="outline"
-                >
-                  <SparklesIcon className="size-3.5" />
-                  自动分析
-                </Button>
-              )
-            }
-            disabled={isAnalyzingMatch}
-            error={jdError}
-            onChange={(next) => {
-              setSelectedJdId(next);
-              if (next) {
-                setJdError(undefined);
-              }
-            }}
-            value={selectedJdId}
-          />
-          {isAnalyzingMatch ? (
-            <div className="flex items-center gap-2 rounded-md border border-dashed bg-muted/40 px-3 py-2 text-muted-foreground text-xs">
-              <LoaderCircleIcon className="size-3.5 animate-spin" />
-              <span>正在分析简历并匹配最合适的在招岗位…</span>
-            </div>
-          ) : null}
-          {!isAnalyzingMatch && matchReason ? (
-            <div className="flex items-start gap-2 rounded-md border border-amber-200/70 bg-amber-50/70 px-3 py-2 text-amber-800 text-xs dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-200">
-              <SparklesIcon className="mt-0.5 size-3.5 shrink-0" />
-              <span>已根据简历匹配到建议岗位：{matchReason}</span>
-            </div>
-          ) : null}
-        </div>
-      </Modal>
+        onSelectChange={handleSelectJd}
+        open={isPickingJd}
+        selectedJdId={selectedJdId}
+      />
 
-      <Modal
+      <ImportProgressModal
+        dedupMatches={dedupMatches}
+        filename={filePart.filename}
+        onCancel={handleCancel}
+        onDedupContinue={handleDedupContinue}
         open={isImporting}
-        onOpenChange={(open) => {
-          if (!open) {
-            handleCancel();
-          }
-        }}
-        title={dedupMatches ? "疑似重复的候选人" : "入库候选人简历"}
-        description={filePart.filename ?? "候选人简历.pdf"}
-        size={dedupMatches ? "lg" : "md"}
-        dismissible={false}
-        showCloseButton={false}
-        bodyClassName="px-6 py-7"
-      >
-        {dedupMatches ? (
-          <ResumeDedupOverlay
-            matches={dedupMatches}
-            onCancel={handleCancel}
-            onContinue={handleDedupContinue}
-          />
-        ) : (
-          <div className="flex flex-col items-center gap-5">
-            <LoaderCircleIcon className="size-7 animate-spin text-muted-foreground" />
-            <p className="text-center text-foreground text-sm">{progressStatus || "正在处理…"}</p>
-
-            <PhaseTracker phase={phase} />
-
-            {progressTools.length > 0 ? (
-              <div className="flex flex-col gap-1.5 text-muted-foreground text-xs">
-                {progressTools.map((tool) => (
-                  <div className="flex items-center gap-1.5" key={tool.name}>
-                    {tool.done ? (
-                      <CheckIcon className="size-3 text-emerald-500" />
-                    ) : (
-                      <WrenchIcon className="size-3 animate-pulse" />
-                    )}
-                    <span>{tool.name}</span>
-                  </div>
-                ))}
-              </div>
-            ) : null}
-
-            <AnimatePresence>
-              {partialFields.length > 0 ? (
-                <motion.div
-                  animate={{ opacity: 1, y: 0 }}
-                  className="mx-auto grid w-full max-w-xs grid-cols-[auto_1fr] gap-x-3 gap-y-1 rounded-lg border bg-background/80 px-4 py-3 text-xs"
-                  exit={{ opacity: 0, y: -6 }}
-                  initial={{ opacity: 0, y: 6 }}
-                >
-                  {partialFields.map((field) => (
-                    <div className="contents" key={field.label}>
-                      <span className="text-muted-foreground">{field.label}</span>
-                      <span className="truncate font-medium text-foreground">{field.value}</span>
-                    </div>
-                  ))}
-                </motion.div>
-              ) : null}
-            </AnimatePresence>
-
-            <Button onClick={handleCancel} size="sm" type="button" variant="outline">
-              取消入库
-            </Button>
-          </div>
-        )}
-      </Modal>
+        partialFields={partialFields}
+        phase={phase}
+        progressStatus={progressStatus}
+        progressTools={progressTools}
+      />
 
       <InterviewDetailDialog
-        onOpenChange={handleDetailOpenChange}
+        onOpenChange={setDetailOpen}
         onUpdated={() => {
           if (importedInterviewId && !detailRecordId) {
             return;
