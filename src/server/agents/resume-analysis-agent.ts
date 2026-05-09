@@ -107,9 +107,11 @@ function normalizeNumber(value: number | null) {
 export function normalizeResumeProfile(profile: ResumeProfile): ResumeProfile {
   return {
     age: normalizeNumber(profile.age),
+    email: trimToNull(profile.email),
     gender: trimToNull(profile.gender),
     name: profile.name.trim() || "未发现信息",
     personalStrengths: uniqueStrings(profile.personalStrengths),
+    phone: trimToNull(profile.phone),
     projectExperiences: profile.projectExperiences.map((experience) => ({
       name: trimToNull(experience.name),
       period: trimToNull(experience.period),

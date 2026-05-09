@@ -49,9 +49,11 @@ export async function fileToUploadedResumePdf(file: File): Promise<UploadedResum
 export function toResumeProfile(structured: ResumeParserStructured): ResumeProfile {
   return {
     age: structured.age,
+    email: structured.email,
     gender: structured.gender,
     name: structured.name?.trim() || "未发现信息",
     personalStrengths: structured.personalStrengths,
+    phone: structured.phone,
     projectExperiences: structured.projectExperiences,
     schools: structured.schools,
     skills: structured.skills,

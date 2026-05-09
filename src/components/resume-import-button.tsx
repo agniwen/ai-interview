@@ -17,8 +17,11 @@ import { useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
 import { InterviewDetailDialog } from "@/app/(auth)/studio/interviews/_components/interview-detail-dialog";
 import { JobDescriptionSelectField } from "@/app/(auth)/studio/interviews/_components/job-description-select-field";
+import { ResumeDedupOverlay } from "@/components/resume-dedup-overlay";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
+import type { DedupMatchRecord } from "@/lib/api";
+import { fetchInterviewDedup } from "@/lib/api";
 import { readNdjsonStream } from "@/lib/ndjson-stream";
 import { cn } from "@/lib/utils";
 
@@ -193,18 +196,26 @@ export function ResumeImportButton({
   const [jdError, setJdError] = useState<string | undefined>();
   const [isAnalyzingMatch, setIsAnalyzingMatch] = useState(false);
   const [matchReason, setMatchReason] = useState<string | null>(null);
+  const [dedupMatches, setDedupMatches] = useState<DedupMatchRecord[] | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const matchAbortControllerRef = useRef<AbortController | null>(null);
   const cachedParseResultRef = useRef<ParseResult | null>(null);
   const accumulatedTextRef = useRef("");
+  // 暂存身份查重命中时的状态：用户点"继续解析"才会真正进入 Step 2/3。
+  // Cached state for the dedup-pause flow so "继续解析" can resume Step 2/3.
+  const pendingResumeFileRef = useRef<File | null>(null);
+  const pendingJobDescriptionIdRef = useRef<string | null>(null);
 
-  const isImporting = phase !== "idle";
+  const isImporting = phase !== "idle" || Boolean(dedupMatches);
 
   const resetProgress = useCallback(() => {
     setPhase("idle");
     setProgressStatus("");
     setProgressTools([]);
     setPartialFields([]);
+    setDedupMatches(null);
+    pendingResumeFileRef.current = null;
+    pendingJobDescriptionIdRef.current = null;
     accumulatedTextRef.current = "";
   }, []);
 
@@ -300,8 +311,77 @@ export function ResumeImportButton({
         }
       }
 
-      const { fileName, resumeProfile } = parseResult as ParseResult;
+      const { resumeProfile } = parseResult as ParseResult;
 
+      // 身份维度查重：失败时静默继续。命中时缓存状态、暂停流程，等用户决策。
+      // Identity dedup; on failure proceed silently. On hit, stash state and
+      // wait for the user to "继续解析" or "取消上传".
+      try {
+        const { matches } = await fetchInterviewDedup({
+          email: resumeProfile.email,
+          name: resumeProfile.name,
+          phone: resumeProfile.phone,
+        });
+        if (matches.length > 0) {
+          cachedParseResultRef.current = parseResult;
+          pendingResumeFileRef.current = file;
+          pendingJobDescriptionIdRef.current = jobDescriptionId;
+          setDedupMatches(matches);
+          setPhase("idle");
+          setProgressStatus("");
+          setProgressTools([]);
+          setPartialFields([]);
+          accumulatedTextRef.current = "";
+          // 主动 abort 当前 controller — 用户点"继续解析"时会用新的 controller。
+          // Abort the current controller; "继续解析" allocates a fresh one.
+          abortControllerRef.current = null;
+          return;
+        }
+      } catch (error) {
+        if (!abortController.signal.aborted) {
+          toast.warning(
+            error instanceof Error
+              ? `身份查重失败，已跳过：${error.message}`
+              : "身份查重失败，已跳过",
+          );
+        }
+      }
+
+      // oxlint-disable-next-line no-use-before-define -- runQuestionsAndSave is declared just below; hoisting via function declaration.
+      await runQuestionsAndSave(
+        file,
+        parseResult as ParseResult,
+        jobDescriptionId,
+        abortController,
+      );
+    } catch (error) {
+      if (abortController.signal.aborted) {
+        return;
+      }
+      toast.error(error instanceof Error ? error.message : "入库失败");
+      cachedParseResultRef.current = null;
+      resetProgress();
+    } finally {
+      // 走到查重 pause 分支时已主动设为 null；此处仅在尚未清理时收尾。
+      // The dedup-pause branch already nulls the ref; this is a no-op fallthrough.
+      if (abortControllerRef.current === abortController) {
+        abortControllerRef.current = null;
+      }
+    }
+  }
+
+  // oxlint-disable-next-line complexity -- Mirrors the original Step 2 + Step 3 sequence; extracted so the dedup-paused path can resume it.
+  async function runQuestionsAndSave(
+    file: File,
+    parseResult: ParseResult,
+    jobDescriptionId: string,
+    existingController?: AbortController,
+  ) {
+    const abortController = existingController ?? new AbortController();
+    abortControllerRef.current = abortController;
+    const { fileName, resumeProfile } = parseResult;
+
+    try {
       // Step 2: stream generate interview questions
       setPhase("generating");
       setProgressStatus("正在生成面试题…");
@@ -324,7 +404,7 @@ export function ResumeImportButton({
       }
 
       let questions: InterviewQuestion[] | null = null;
-      streamError = null;
+      let streamError: string | null = null;
 
       await readNdjsonStream<AnalysisStreamEvent>(
         questionsResponse,
@@ -360,7 +440,8 @@ export function ResumeImportButton({
 
       const saveForm = new FormData();
       saveForm.append("candidateName", resumeProfile.name || "未命名候选人");
-      saveForm.append("candidateEmail", "");
+      saveForm.append("candidateEmail", resumeProfile.email ?? "");
+      saveForm.append("candidatePhone", resumeProfile.phone ?? "");
       saveForm.append("targetRole", resumeProfile.targetRoles[0] ?? "");
       saveForm.append("notes", "");
       saveForm.append("status", "ready");
@@ -406,7 +487,21 @@ export function ResumeImportButton({
       cachedParseResultRef.current = null;
       resetProgress();
     } finally {
-      abortControllerRef.current = null;
+      if (abortControllerRef.current === abortController) {
+        abortControllerRef.current = null;
+      }
+    }
+  }
+
+  function handleDedupContinue() {
+    const file = pendingResumeFileRef.current;
+    const parseResult = cachedParseResultRef.current;
+    const jobDescriptionId = pendingJobDescriptionIdRef.current;
+    setDedupMatches(null);
+    pendingResumeFileRef.current = null;
+    pendingJobDescriptionIdRef.current = null;
+    if (file && parseResult && jobDescriptionId) {
+      void runQuestionsAndSave(file, parseResult, jobDescriptionId);
     }
   }
 
@@ -638,56 +733,64 @@ export function ResumeImportButton({
             handleCancel();
           }
         }}
-        title="入库候选人简历"
+        title={dedupMatches ? "疑似重复的候选人" : "入库候选人简历"}
         description={filePart.filename ?? "候选人简历.pdf"}
-        size="md"
+        size={dedupMatches ? "lg" : "md"}
         dismissible={false}
         showCloseButton={false}
         bodyClassName="px-6 py-7"
       >
-        <div className="flex flex-col items-center gap-5">
-          <LoaderCircleIcon className="size-7 animate-spin text-muted-foreground" />
-          <p className="text-center text-foreground text-sm">{progressStatus || "正在处理…"}</p>
+        {dedupMatches ? (
+          <ResumeDedupOverlay
+            matches={dedupMatches}
+            onCancel={handleCancel}
+            onContinue={handleDedupContinue}
+          />
+        ) : (
+          <div className="flex flex-col items-center gap-5">
+            <LoaderCircleIcon className="size-7 animate-spin text-muted-foreground" />
+            <p className="text-center text-foreground text-sm">{progressStatus || "正在处理…"}</p>
 
-          <PhaseTracker phase={phase} />
+            <PhaseTracker phase={phase} />
 
-          {progressTools.length > 0 ? (
-            <div className="flex flex-col gap-1.5 text-muted-foreground text-xs">
-              {progressTools.map((tool) => (
-                <div className="flex items-center gap-1.5" key={tool.name}>
-                  {tool.done ? (
-                    <CheckIcon className="size-3 text-emerald-500" />
-                  ) : (
-                    <WrenchIcon className="size-3 animate-pulse" />
-                  )}
-                  <span>{tool.name}</span>
-                </div>
-              ))}
-            </div>
-          ) : null}
-
-          <AnimatePresence>
-            {partialFields.length > 0 ? (
-              <motion.div
-                animate={{ opacity: 1, y: 0 }}
-                className="mx-auto grid w-full max-w-xs grid-cols-[auto_1fr] gap-x-3 gap-y-1 rounded-lg border bg-background/80 px-4 py-3 text-xs"
-                exit={{ opacity: 0, y: -6 }}
-                initial={{ opacity: 0, y: 6 }}
-              >
-                {partialFields.map((field) => (
-                  <div className="contents" key={field.label}>
-                    <span className="text-muted-foreground">{field.label}</span>
-                    <span className="truncate font-medium text-foreground">{field.value}</span>
+            {progressTools.length > 0 ? (
+              <div className="flex flex-col gap-1.5 text-muted-foreground text-xs">
+                {progressTools.map((tool) => (
+                  <div className="flex items-center gap-1.5" key={tool.name}>
+                    {tool.done ? (
+                      <CheckIcon className="size-3 text-emerald-500" />
+                    ) : (
+                      <WrenchIcon className="size-3 animate-pulse" />
+                    )}
+                    <span>{tool.name}</span>
                   </div>
                 ))}
-              </motion.div>
+              </div>
             ) : null}
-          </AnimatePresence>
 
-          <Button onClick={handleCancel} size="sm" type="button" variant="outline">
-            取消入库
-          </Button>
-        </div>
+            <AnimatePresence>
+              {partialFields.length > 0 ? (
+                <motion.div
+                  animate={{ opacity: 1, y: 0 }}
+                  className="mx-auto grid w-full max-w-xs grid-cols-[auto_1fr] gap-x-3 gap-y-1 rounded-lg border bg-background/80 px-4 py-3 text-xs"
+                  exit={{ opacity: 0, y: -6 }}
+                  initial={{ opacity: 0, y: 6 }}
+                >
+                  {partialFields.map((field) => (
+                    <div className="contents" key={field.label}>
+                      <span className="text-muted-foreground">{field.label}</span>
+                      <span className="truncate font-medium text-foreground">{field.value}</span>
+                    </div>
+                  ))}
+                </motion.div>
+              ) : null}
+            </AnimatePresence>
+
+            <Button onClick={handleCancel} size="sm" type="button" variant="outline">
+              取消入库
+            </Button>
+          </div>
+        )}
       </Modal>
 
       <InterviewDetailDialog

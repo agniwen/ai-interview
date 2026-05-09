@@ -20,6 +20,7 @@ export function createInterviewFormValues(): InterviewFormValues {
   return {
     candidateEmail: "",
     candidateName: "",
+    candidatePhone: "",
     interviewQuestions: [],
     jobDescriptionId: "",
     notes: "",
@@ -34,6 +35,7 @@ export function toInterviewFormValues(
     StudioInterviewRecord,
     | "candidateName"
     | "candidateEmail"
+    | "candidatePhone"
     | "targetRole"
     | "notes"
     | "status"
@@ -45,6 +47,7 @@ export function toInterviewFormValues(
   return {
     candidateEmail: record.candidateEmail ?? "",
     candidateName: record.candidateName,
+    candidatePhone: record.candidatePhone ?? "",
     interviewQuestions: record.interviewQuestions ?? [],
     jobDescriptionId: record.jobDescriptionId ?? "",
     notes: record.notes ?? "",

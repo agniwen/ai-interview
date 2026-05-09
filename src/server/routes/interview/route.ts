@@ -2,6 +2,7 @@ import type { ContentfulStatusCode } from "hono/utils/http-status";
 import type { ResumeProfile } from "@/lib/interview/types";
 import { RoomAgentDispatch, RoomConfiguration } from "@livekit/protocol";
 import { and, eq, inArray, ne } from "drizzle-orm";
+import { z } from "zod";
 import { AccessToken } from "livekit-server-sdk";
 import { db } from "@/lib/db";
 import {
@@ -58,6 +59,7 @@ import {
 } from "@/server/queries/interview-question-templates";
 import { queryInterviewConversationReports } from "@/server/queries/interview-conversations";
 import {
+  queryInterviewDedup,
   queryPaginatedStudioInterviewRecords,
   queryStudioInterviewSummary,
 } from "@/server/queries/studio-interviews";
@@ -614,11 +616,30 @@ export const interviewRouter = factory
     return c.json({ success: true });
   });
 
+const dedupCheckInputSchema = z.object({
+  email: z.string().trim().max(200).nullable().optional(),
+  name: z.string().trim().max(200).nullable().optional(),
+  phone: z.string().trim().max(40).nullable().optional(),
+});
+
 export const studioInterviewsRouter = factory
   .createApp()
   .get("/summary", async (c) => {
     const summary = await queryStudioInterviewSummary();
     return c.json(summary);
+  })
+  .post("/dedup-check", async (c) => {
+    const body = (await c.req.json().catch(() => null)) as unknown;
+    const input = dedupCheckInputSchema.safeParse(body ?? {});
+    if (!input.success) {
+      return c.json({ error: input.error.issues[0]?.message ?? "请求参数无效。" }, 400);
+    }
+    const matches = await queryInterviewDedup({
+      email: input.data.email ?? null,
+      name: input.data.name ?? null,
+      phone: input.data.phone ?? null,
+    });
+    return c.json({ matches });
   })
   .get("/", async (c) => {
     const result = await queryPaginatedStudioInterviewRecords(
@@ -653,6 +674,7 @@ export const studioInterviewsRouter = factory
       const input = studioInterviewFormSchema.safeParse({
         candidateEmail: toNullableString(formData.get("candidateEmail")) ?? "",
         candidateName: toNullableString(formData.get("candidateName")) ?? "",
+        candidatePhone: toNullableString(formData.get("candidatePhone")) ?? "",
         jobDescriptionId: toNullableString(formData.get("jobDescriptionId")),
         notes: toNullableString(formData.get("notes")) ?? "",
         scheduleEntries: parsedScheduleEntries,
@@ -697,6 +719,7 @@ export const studioInterviewsRouter = factory
       const record = {
         candidateEmail: input.data.candidateEmail || null,
         candidateName: input.data.candidateName || analysis?.resumeProfile.name || "未命名候选人",
+        candidatePhone: input.data.candidatePhone || analysis?.resumeProfile.phone || null,
         createdAt: now,
         createdBy: c.var.user?.id ?? null,
         id: interviewRecordId,
@@ -975,6 +998,7 @@ export const studioInterviewsRouter = factory
       const input = studioInterviewUpdateSchema.safeParse({
         candidateEmail: toNullableString(formData.get("candidateEmail")) ?? "",
         candidateName: toNullableString(formData.get("candidateName")) ?? "",
+        candidatePhone: toNullableString(formData.get("candidatePhone")) ?? "",
         jobDescriptionId: toNullableString(formData.get("jobDescriptionId")),
         notes: toNullableString(formData.get("notes")) ?? "",
         scheduleEntries: parsedScheduleEntries,
@@ -1028,6 +1052,8 @@ export const studioInterviewsRouter = factory
         candidateEmail: input.data.candidateEmail || null,
         candidateName:
           input.data.candidateName || analysis?.resumeProfile.name || existing.candidateName,
+        candidatePhone:
+          input.data.candidatePhone || analysis?.resumeProfile.phone || existing.candidatePhone,
         interviewQuestions:
           analysis?.interviewQuestions ?? editedQuestions ?? existing.interviewQuestions,
         jobDescriptionId: input.data.jobDescriptionId || null,

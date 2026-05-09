@@ -1,0 +1,1 @@
+ALTER TABLE "studio_interview" ADD COLUMN "candidate_phone" text;

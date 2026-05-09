@@ -193,6 +193,7 @@ export const studioInterview = pgTable(
   {
     candidateEmail: text("candidate_email"),
     candidateName: text("candidate_name").notNull(),
+    candidatePhone: text("candidate_phone"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
     id: text("id").primaryKey(),

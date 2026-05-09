@@ -12,8 +12,34 @@
 
 import type { CandidateFormSubmissionWithSnapshot } from "@/lib/candidate-forms";
 import type { StudioInterviewConversationReport } from "@/lib/interview-session";
-import type { StudioInterviewListRecord, StudioInterviewRecord } from "@/lib/studio-interviews";
+import type {
+  StudioInterviewListRecord,
+  StudioInterviewRecord,
+  StudioInterviewStatus,
+} from "@/lib/studio-interviews";
 import { apiFetch } from "../client";
+
+/**
+ * 身份维度查重命中字段。
+ * Identity-dedup matched-field keys.
+ */
+export type DedupMatchedField = "name" | "email" | "phone";
+
+/**
+ * 身份维度查重单条命中。
+ * A single identity-dedup match entry.
+ */
+export interface DedupMatchRecord {
+  id: string;
+  candidateName: string;
+  candidateEmail: string | null;
+  candidatePhone: string | null;
+  targetRole: string | null;
+  jobDescriptionName: string | null;
+  status: StudioInterviewStatus;
+  createdAt: string;
+  matchedFields: DedupMatchedField[];
+}
 
 /**
  * 列表分页参数。
@@ -61,6 +87,21 @@ export function fetchStudioInterviews(
  */
 export function fetchStudioInterviewSummary(): Promise<Record<string, unknown>> {
   return apiFetch("/api/studio/interviews/summary");
+}
+
+/**
+ * 按姓名/邮箱/电话查重，任一字段命中即返回。
+ * Look up potential duplicates by name / email / phone (any one suffices).
+ */
+export function fetchInterviewDedup(input: {
+  name: string | null;
+  email: string | null;
+  phone: string | null;
+}): Promise<{ matches: DedupMatchRecord[] }> {
+  return apiFetch<{ matches: DedupMatchRecord[] }>("/api/studio/interviews/dedup-check", {
+    body: input,
+    method: "POST",
+  });
 }
 
 /**

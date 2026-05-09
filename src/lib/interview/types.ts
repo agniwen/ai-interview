@@ -47,6 +47,7 @@ export const resumeProjectExperienceSchema = z.object({
  */
 export const resumeProfileSchema = z.object({
   age: z.number().nullable().describe("候选人年龄，只有简历明确给出时才填写，否则为 null"),
+  email: nullableStringSchema.describe("候选人邮箱地址，简历中明确给出时填写；无法确认时返回 null"),
   gender: nullableStringSchema.describe('候选人性别；无法从简历中确认时，优先返回"未发现信息"'),
   name: nonEmptyStringSchema.describe(
     '候选人姓名，必须非空；如果简历中无法确认姓名，返回"未发现信息"',
@@ -54,6 +55,9 @@ export const resumeProfileSchema = z.object({
   personalStrengths: z
     .array(nonEmptyStringSchema)
     .describe("个人优势列表，基于简历归纳，未知时返回空数组"),
+  phone: nullableStringSchema.describe(
+    "候选人手机号或联系电话，简历中明确给出时填写；无法确认时返回 null",
+  ),
   projectExperiences: z
     .array(resumeProjectExperienceSchema)
     .describe("项目经历列表，没有则返回空数组"),

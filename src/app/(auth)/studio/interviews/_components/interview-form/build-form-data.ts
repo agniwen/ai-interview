@@ -37,6 +37,7 @@ export function buildInterviewFormData(
   const formData = new FormData();
   formData.append("candidateName", values.candidateName);
   formData.append("candidateEmail", values.candidateEmail);
+  formData.append("candidatePhone", values.candidatePhone);
   formData.append("targetRole", values.targetRole);
   formData.append("notes", values.notes);
   formData.append("status", values.status);

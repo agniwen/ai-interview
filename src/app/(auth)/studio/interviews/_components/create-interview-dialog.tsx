@@ -8,13 +8,15 @@ import { CheckIcon, FileUpIcon, LoaderCircleIcon, SparklesIcon, WrenchIcon } fro
 import { motion } from "motion/react";
 import { useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
+import { ResumeDedupOverlay } from "@/components/resume-dedup-overlay";
 import { TextFlip } from "@/components/text-flip";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
 import { FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { apiFetch } from "@/lib/api";
+import type { DedupMatchRecord } from "@/lib/api";
+import { apiFetch, fetchInterviewDedup } from "@/lib/api";
 import { readNdjsonStream } from "@/lib/ndjson-stream";
 import {
   createInterviewFormValues,
@@ -53,8 +55,13 @@ export function CreateInterviewDialog({
   const [progressStatus, setProgressStatus] = useState<string>("");
   const [progressTools, setProgressTools] = useState<{ name: string; done: boolean }[]>([]);
   const [partialFields, setPartialFields] = useState<{ label: string; value: string }[]>([]);
+  const [dedupMatches, setDedupMatches] = useState<DedupMatchRecord[] | null>(null);
   const accumulatedTextRef = useRef("");
   const abortControllerRef = useRef<AbortController | null>(null);
+  // 缓存 Step 1 解析结果，用户在身份查重弹窗点"继续解析"时再驱动 Step 2。
+  // Cache the Step 1 parse result so we can resume Step 2 after the user
+  // clicks "继续解析" on the dedup overlay.
+  const pendingProfileRef = useRef<ResumeProfile | null>(null);
 
   // 清空 dialog 内除表单之外的所有临时态：简历文件、分析中间结果、进度、文件
   // input 的 DOM value、活动 tab，并 abort 任何还在跑的请求。表单字段由调用
@@ -73,6 +80,8 @@ export function CreateInterviewDialog({
     setProgressStatus("");
     setProgressTools([]);
     setPartialFields([]);
+    setDedupMatches(null);
+    pendingProfileRef.current = null;
     accumulatedTextRef.current = "";
     setActiveTab("basic");
     const fileInput = document.querySelector("#resume-upload") as HTMLInputElement | null;
@@ -219,9 +228,75 @@ export function CreateInterviewDialog({
     }
   }
 
+  async function runQuestionGeneration(resumeProfile: ResumeProfile) {
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
+    setIsGeneratingQuestions(true);
+    setProgressStatus("正在生成面试题…");
+    setProgressTools([]);
+    setPartialFields([]);
+    accumulatedTextRef.current = "";
+
+    try {
+      const qResponse = await fetch("/api/interview/generate-questions", {
+        body: JSON.stringify({ resumeProfile }),
+        headers: { "Content-Type": "application/json" },
+        method: "POST",
+        signal: abortController.signal,
+      });
+
+      if (!qResponse.ok) {
+        const errBody = (await qResponse.json().catch(() => null)) as { error?: string } | null;
+        throw new Error(errBody?.error ?? "面试题生成失败");
+      }
+
+      let questions: InterviewQuestion[] | null = null;
+      let streamError: string | null = null;
+
+      await readNdjsonStream<AnalysisStreamEvent>(
+        qResponse,
+        (event) => {
+          handleStreamEvent(event);
+          if (event.type === "result") {
+            const data = event.data as { interviewQuestions?: InterviewQuestion[] };
+            questions = data.interviewQuestions ?? null;
+          }
+          if (event.type === "error") {
+            streamError = event.message;
+          }
+        },
+        abortController.signal,
+      );
+
+      if (streamError) {
+        throw new Error(streamError);
+      }
+
+      if (questions) {
+        form.setFieldValue("interviewQuestions", questions);
+        toast.success("面试题生成完成");
+      }
+    } catch (error) {
+      if (abortController.signal.aborted) {
+        return;
+      }
+      toast.error(error instanceof Error ? error.message : "面试题生成失败");
+    } finally {
+      abortControllerRef.current = null;
+      setIsGeneratingQuestions(false);
+      setProgressStatus("");
+      setProgressTools([]);
+      setPartialFields([]);
+      accumulatedTextRef.current = "";
+    }
+  }
+
+  // oxlint-disable-next-line complexity -- Orchestrates parse → fill form → JD match → dedup branch → optional Step 2; extracting fragments the shared state.
   async function handleResumeChange(file: File | null) {
     setResumeFile(file);
     setResumePayload(null);
+    setDedupMatches(null);
+    pendingProfileRef.current = null;
     form.setFieldValue("interviewQuestions", []);
     setProgressStatus("");
     setProgressTools([]);
@@ -285,6 +360,8 @@ export function CreateInterviewDialog({
 
       // Fill form immediately with profile
       form.setFieldValue("candidateName", resumeProfile.name);
+      form.setFieldValue("candidateEmail", resumeProfile.email ?? "");
+      form.setFieldValue("candidatePhone", resumeProfile.phone ?? "");
       form.setFieldValue("targetRole", resumeProfile.targetRoles[0] ?? "");
       setResumePayload({
         fileName,
@@ -323,47 +400,78 @@ export function CreateInterviewDialog({
         }
       })();
 
-      // Step 2: stream generate interview questions
-      setIsGeneratingQuestions(true);
-      setProgressStatus("正在生成面试题…");
-
-      const qResponse = await fetch("/api/interview/generate-questions", {
-        body: JSON.stringify({ resumeProfile }),
-        headers: { "Content-Type": "application/json" },
-        method: "POST",
-        signal: abortController.signal,
-      });
-
-      if (!qResponse.ok) {
-        const errBody = (await qResponse.json().catch(() => null)) as { error?: string } | null;
-        throw new Error(errBody?.error ?? "面试题生成失败");
+      // 身份维度查重：simple OR-match by name/email/phone。失败时静默继续。
+      // Identity dedup check; on failure proceed silently (don't block the upload).
+      let dedupHit = false;
+      try {
+        const { matches } = await fetchInterviewDedup({
+          email: resumeProfile.email,
+          name: resumeProfile.name,
+          phone: resumeProfile.phone,
+        });
+        if (matches.length > 0) {
+          dedupHit = true;
+          pendingProfileRef.current = resumeProfile;
+          setDedupMatches(matches);
+          // 此处不抛、不继续 Step 2 —— finally 会把 abortController 清掉，
+          // 等用户点"继续解析"时再用新的 abortController 启动 Step 2。
+          // Don't throw, don't run Step 2 — the finally block clears the
+          // abortController; "继续解析" spins up a fresh one for Step 2.
+          return;
+        }
+      } catch (error) {
+        if (!abortController.signal.aborted) {
+          toast.warning(
+            error instanceof Error
+              ? `身份查重失败，已跳过：${error.message}`
+              : "身份查重失败，已跳过",
+          );
+        }
       }
 
-      let questions: InterviewQuestion[] | null = null;
-      streamError = null;
+      if (!dedupHit) {
+        // Step 2 inline (fresh-controller branch handled by runQuestionGeneration on continue).
+        setIsGeneratingQuestions(true);
+        setProgressStatus("正在生成面试题…");
 
-      await readNdjsonStream<AnalysisStreamEvent>(
-        qResponse,
-        (event) => {
-          handleStreamEvent(event);
-          if (event.type === "result") {
-            const data = event.data as { interviewQuestions?: InterviewQuestion[] };
-            questions = data.interviewQuestions ?? null;
-          }
-          if (event.type === "error") {
-            streamError = event.message;
-          }
-        },
-        abortController.signal,
-      );
+        const qResponse = await fetch("/api/interview/generate-questions", {
+          body: JSON.stringify({ resumeProfile }),
+          headers: { "Content-Type": "application/json" },
+          method: "POST",
+          signal: abortController.signal,
+        });
 
-      if (streamError) {
-        throw new Error(streamError);
-      }
+        if (!qResponse.ok) {
+          const errBody = (await qResponse.json().catch(() => null)) as { error?: string } | null;
+          throw new Error(errBody?.error ?? "面试题生成失败");
+        }
 
-      if (questions) {
-        form.setFieldValue("interviewQuestions", questions);
-        toast.success("面试题生成完成");
+        let questions: InterviewQuestion[] | null = null;
+        streamError = null;
+
+        await readNdjsonStream<AnalysisStreamEvent>(
+          qResponse,
+          (event) => {
+            handleStreamEvent(event);
+            if (event.type === "result") {
+              const data = event.data as { interviewQuestions?: InterviewQuestion[] };
+              questions = data.interviewQuestions ?? null;
+            }
+            if (event.type === "error") {
+              streamError = event.message;
+            }
+          },
+          abortController.signal,
+        );
+
+        if (streamError) {
+          throw new Error(streamError);
+        }
+
+        if (questions) {
+          form.setFieldValue("interviewQuestions", questions);
+          toast.success("面试题生成完成");
+        }
       }
     } catch (error) {
       if (abortController.signal.aborted) {
@@ -385,6 +493,15 @@ export function CreateInterviewDialog({
     }
   }
 
+  function handleDedupContinue() {
+    const profile = pendingProfileRef.current;
+    setDedupMatches(null);
+    pendingProfileRef.current = null;
+    if (profile) {
+      void runQuestionGeneration(profile);
+    }
+  }
+
   const handleCancelAnalysis = useCallback(() => {
     abortControllerRef.current?.abort();
     setResumeFile(null);
@@ -394,6 +511,8 @@ export function CreateInterviewDialog({
     setProgressStatus("");
     setProgressTools([]);
     setPartialFields([]);
+    setDedupMatches(null);
+    pendingProfileRef.current = null;
     accumulatedTextRef.current = "";
     const fileInput = document.querySelector("#resume-upload") as HTMLInputElement | null;
     if (fileInput) {
@@ -402,7 +521,10 @@ export function CreateInterviewDialog({
     toast.info("已取消简历分析");
   }, []);
 
-  const isBusy = isAnalyzingResume || isGeneratingQuestions;
+  // 等待用户决定时的 overlay 也算"忙"——禁止关闭外层弹窗，避免在用户决定前丢状态。
+  // The dedup-confirmation overlay also counts as "busy" so the outer modal
+  // cannot be dismissed before the user decides.
+  const isBusy = isAnalyzingResume || isGeneratingQuestions || Boolean(dedupMatches);
 
   return (
     <>
@@ -509,54 +631,64 @@ export function CreateInterviewDialog({
             {isBusy && (
               <motion.div
                 animate={{ opacity: 1 }}
-                className="absolute inset-0 z-50 flex flex-col items-center justify-center gap-5 bg-white/60 backdrop-blur-sm dark:bg-black/40"
+                className="absolute inset-0 z-50 flex flex-col items-center justify-center gap-5 overflow-y-auto bg-white/80 px-6 py-8 backdrop-blur-sm dark:bg-black/50"
                 initial={{ opacity: 0 }}
                 transition={{ duration: 0.2 }}
               >
-                <LoaderCircleIcon className="size-7 animate-spin text-muted-foreground" />
-                {progressStatus ? (
-                  <p className="font-medium text-foreground text-sm">{progressStatus}</p>
+                {dedupMatches ? (
+                  <ResumeDedupOverlay
+                    matches={dedupMatches}
+                    onCancel={handleCancelAnalysis}
+                    onContinue={handleDedupContinue}
+                  />
                 ) : (
-                  <motion.div
-                    className="flex items-center font-medium text-foreground text-lg"
-                    layout
-                  >
-                    <span>正在</span>
-                    <TextFlip as={motion.span} interval={2.5} layout>
-                      <span>解析简历</span>
-                      <span>提取信息</span>
-                      <span>分析简历</span>
-                      <span>评估技能</span>
-                    </TextFlip>
-                  </motion.div>
-                )}
-                {progressTools.length > 0 && (
-                  <div className="flex flex-col gap-1.5 text-muted-foreground text-xs">
-                    {progressTools.map((t) => (
-                      <div className="flex items-center gap-1.5" key={t.name}>
-                        {t.done ? (
-                          <CheckIcon className="size-3 text-green-500" />
-                        ) : (
-                          <WrenchIcon className="size-3 animate-pulse" />
-                        )}
-                        <span>{t.name}</span>
+                  <>
+                    <LoaderCircleIcon className="size-7 animate-spin text-muted-foreground" />
+                    {progressStatus ? (
+                      <p className="font-medium text-foreground text-sm">{progressStatus}</p>
+                    ) : (
+                      <motion.div
+                        className="flex items-center font-medium text-foreground text-lg"
+                        layout
+                      >
+                        <span>正在</span>
+                        <TextFlip as={motion.span} interval={2.5} layout>
+                          <span>解析简历</span>
+                          <span>提取信息</span>
+                          <span>分析简历</span>
+                          <span>评估技能</span>
+                        </TextFlip>
+                      </motion.div>
+                    )}
+                    {progressTools.length > 0 && (
+                      <div className="flex flex-col gap-1.5 text-muted-foreground text-xs">
+                        {progressTools.map((t) => (
+                          <div className="flex items-center gap-1.5" key={t.name}>
+                            {t.done ? (
+                              <CheckIcon className="size-3 text-green-500" />
+                            ) : (
+                              <WrenchIcon className="size-3 animate-pulse" />
+                            )}
+                            <span>{t.name}</span>
+                          </div>
+                        ))}
                       </div>
-                    ))}
-                  </div>
-                )}
-                {partialFields.length > 0 && (
-                  <div className="mx-auto grid w-full max-w-xs grid-cols-[auto_1fr] gap-x-3 gap-y-1 rounded-lg border bg-background/80 px-4 py-3 text-xs">
-                    {partialFields.map((f) => (
-                      <div className="contents" key={f.label}>
-                        <span className="text-muted-foreground">{f.label}</span>
-                        <span className="truncate font-medium text-foreground">{f.value}</span>
+                    )}
+                    {partialFields.length > 0 && (
+                      <div className="mx-auto grid w-full max-w-xs grid-cols-[auto_1fr] gap-x-3 gap-y-1 rounded-lg border bg-background/80 px-4 py-3 text-xs">
+                        {partialFields.map((f) => (
+                          <div className="contents" key={f.label}>
+                            <span className="text-muted-foreground">{f.label}</span>
+                            <span className="truncate font-medium text-foreground">{f.value}</span>
+                          </div>
+                        ))}
                       </div>
-                    ))}
-                  </div>
+                    )}
+                    <Button onClick={handleCancelAnalysis} size="sm" variant="outline">
+                      取消
+                    </Button>
+                  </>
                 )}
-                <Button onClick={handleCancelAnalysis} size="sm" variant="outline">
-                  取消
-                </Button>
               </motion.div>
             )}
           </form>

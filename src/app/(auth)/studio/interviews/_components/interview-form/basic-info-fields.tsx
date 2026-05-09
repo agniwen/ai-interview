@@ -1,13 +1,6 @@
 "use client";
 
-import {
-  Field,
-  FieldContent,
-  FieldDescription,
-  FieldError,
-  FieldGroup,
-  FieldLabel,
-} from "@/components/ui/field";
+import { Field, FieldContent, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -89,7 +82,29 @@ export function InterviewBasicInfoFields({ form }: { form: InterviewFormApi }) {
                     placeholder="candidate@example.com"
                     value={field.state.value}
                   />
-                  <FieldDescription>可选，方便后台检索与跟进。</FieldDescription>
+                  <FieldError errors={errors} />
+                </FieldContent>
+              </Field>
+            );
+          }}
+        </form.Field>
+
+        <form.Field name="candidatePhone">
+          {(field) => {
+            const errors = toFieldErrors(field.state.meta.errors);
+            return (
+              <Field data-invalid={hasFieldErrors(field.state.meta.errors) || undefined}>
+                <FieldLabel htmlFor={field.name}>候选人电话</FieldLabel>
+                <FieldContent className="gap-2">
+                  <Input
+                    aria-invalid={!!errors?.length}
+                    className="w-full"
+                    id={field.name}
+                    onBlur={field.handleBlur}
+                    onChange={(event) => field.handleChange(event.target.value)}
+                    placeholder="可选，简历上传后会自动回填"
+                    value={field.state.value}
+                  />
                   <FieldError errors={errors} />
                 </FieldContent>
               </Field>
