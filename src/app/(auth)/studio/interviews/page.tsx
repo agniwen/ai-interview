@@ -4,7 +4,7 @@ import { InterviewManagementPage } from "@/app/(auth)/studio/interviews/_compone
 import {
   listStudioInterviewRecords,
   queryStudioInterviewSummary,
-} from "@/server/queries/studio-interviews";
+} from "@/server/routes/studio/routes/interviews/dao/studio-interviews";
 
 export const metadata: Metadata = {
   title: "AI 面试",

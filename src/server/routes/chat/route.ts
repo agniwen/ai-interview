@@ -7,7 +7,7 @@ import {
   createAttachment,
   findAttachmentByContentHash,
   getUserAttachment,
-} from "@/server/queries/chat-attachments";
+} from "@/server/routes/chat/dao/chat-attachments";
 import {
   checkConversationOwner,
   deleteUserConversation,
@@ -15,7 +15,7 @@ import {
   listUserConversations,
   upsertChatMessage,
   upsertConversation,
-} from "@/server/queries/chat";
+} from "@/server/routes/chat/dao/chat";
 import { factory } from "@/server/factory";
 import { authMiddleware } from "@/server/middlewares/auth";
 import {

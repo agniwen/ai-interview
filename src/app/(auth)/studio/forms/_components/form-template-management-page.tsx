@@ -7,7 +7,7 @@ import type {
   CandidateFormTemplateRecord,
 } from "@/lib/candidate-forms";
 import type { JobDescriptionListRecord } from "@/lib/job-descriptions";
-import type { PaginatedCandidateFormTemplateResult } from "@/server/queries/candidate-forms";
+import type { PaginatedCandidateFormTemplateResult } from "@/server/routes/studio/routes/forms/dao";
 import { useQueryClient } from "@tanstack/react-query";
 import { ClipboardListIcon, InboxIcon, PencilIcon, PlusIcon, Trash2Icon } from "lucide-react";
 import { parseAsString, useQueryState } from "nuqs";

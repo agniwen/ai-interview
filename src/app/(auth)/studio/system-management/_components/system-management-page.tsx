@@ -22,7 +22,7 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { authClient } from "@/lib/auth-client";
-import type { AdminUserListResult, AdminUserRecord } from "@/server/queries/admin-users";
+import type { AdminUserListResult, AdminUserRecord } from "@/server/routes/studio/routes/users/dao";
 import { BanUserDialog } from "./ban-user-dialog";
 import { SetPasswordDialog } from "./set-password-dialog";
 

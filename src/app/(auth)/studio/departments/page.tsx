@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { connection } from "next/server";
-import { listDepartments } from "@/server/queries/departments";
+import { listDepartments } from "@/server/routes/studio/routes/departments/dao";
 import { DepartmentManagementPage } from "./_components/department-management-page";
 
 export const metadata: Metadata = {

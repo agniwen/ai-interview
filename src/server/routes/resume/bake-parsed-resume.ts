@@ -8,7 +8,7 @@
 
 import type { UIMessage } from "ai";
 import type { ResumeParserStructured } from "@/server/agents/resume-parser-schema";
-import { getUserAttachments } from "@/server/queries/chat-attachments";
+import { getUserAttachments } from "@/server/routes/chat/dao/chat-attachments";
 
 const ATTACHMENT_URL_REGEX = /\/api\/chat\/attachments\/([^/?#]+)/;
 

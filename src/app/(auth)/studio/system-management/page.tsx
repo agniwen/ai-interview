@@ -3,7 +3,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { connection } from "next/server";
 import { auth } from "@/lib/auth";
-import { listAdminUsers } from "@/server/queries/admin-users";
+import { listAdminUsers } from "@/server/routes/studio/routes/users/dao";
 import { SystemManagementPage } from "./_components/system-management-page";
 
 export const metadata: Metadata = {

@@ -4,7 +4,7 @@
 import { globalConfigRouter } from "../route";
 import { describe, expect, it, vi } from "vitest";
 
-vi.mock("@/server/queries/global-config", () => ({
+vi.mock("@/server/routes/studio/routes/global-config/dao", () => ({
   getGlobalConfig: vi.fn(() => ({
     closingInstructions: "",
     companyContext: "",

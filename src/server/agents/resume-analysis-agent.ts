@@ -8,7 +8,7 @@ import { generatedInterviewQuestionsSchema } from "@/lib/interview/types";
 import { parseResumeFast } from "@/lib/resume-parse-pipeline";
 import type { ResumeTextSource } from "@/lib/resume-parse-pipeline";
 import { sha256HexOfBytes } from "@/lib/file-hash";
-import { findAttachmentByContentHash } from "@/server/queries/chat-attachments";
+import { findAttachmentByContentHash } from "@/server/routes/chat/dao/chat-attachments";
 import { parseJsonOutput } from "./json-output";
 import { createResumeAgent } from "./resume-agent";
 import {

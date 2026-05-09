@@ -9,7 +9,7 @@ import {
   loadInterviewerReferenceCounts,
   queryPaginatedInterviewers,
   serializeInterviewer,
-} from "@/server/queries/interviewers";
+} from "@/server/routes/studio/routes/interviewers/dao";
 import { safeUpdateTag } from "@/server/routes/interview/utils";
 
 async function validateDepartmentExists(departmentId: string): Promise<boolean> {

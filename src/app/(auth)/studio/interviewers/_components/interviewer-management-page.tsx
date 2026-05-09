@@ -3,7 +3,7 @@
 import { PageHeader } from "@/app/(auth)/studio/_components/page-header";
 import type { DepartmentRecord } from "@/lib/departments";
 import type { InterviewerListRecord, InterviewerRecord } from "@/lib/interviewers";
-import type { PaginatedInterviewerResult } from "@/server/queries/interviewers";
+import type { PaginatedInterviewerResult } from "@/server/routes/studio/routes/interviewers/dao";
 import { useQueryClient } from "@tanstack/react-query";
 import { PencilIcon, PlusIcon, Trash2Icon, UserCircleIcon } from "lucide-react";
 import { useMemo, useState } from "react";

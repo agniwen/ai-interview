@@ -14,7 +14,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { apiFetch, ApiError } from "@/lib/api";
-import type { AdminUserRecord } from "@/server/queries/admin-users";
+import type { AdminUserRecord } from "@/server/routes/studio/routes/users/dao";
 
 interface SetPasswordDialogProps {
   user: AdminUserRecord | null;

@@ -17,7 +17,7 @@ import {
   checkConversationOwner,
   deleteMessagesFromId,
   upsertChatMessage,
-} from "@/server/queries/chat";
+} from "@/server/routes/chat/dao/chat";
 import { bakeParsedResumesIntoMessage } from "./bake-parsed-resume";
 import { inlineAttachmentsForModel } from "./inline-attachments";
 import { resumeChatRequestSchema, resumeTitleRequestSchema } from "./schema";

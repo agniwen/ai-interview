@@ -29,8 +29,8 @@ import {
   generateInterviewQuestionsForProfile,
 } from "@/server/agents/resume-analysis-agent";
 import { factory } from "@/server/factory";
-import { getGlobalConfig } from "@/server/queries/global-config";
-import { loadSubmissionsByInterview } from "@/server/queries/candidate-forms";
+import { getGlobalConfig } from "@/server/routes/studio/routes/global-config/dao";
+import { loadSubmissionsByInterview } from "@/server/routes/studio/routes/forms/dao";
 import {
   autoBindApplicableTemplates,
   dropJobDescriptionBindings,
@@ -39,13 +39,13 @@ import {
   loadInterviewQuestionTemplateBindings,
   refreshInterviewBindingsToLatest,
   replaceInterviewBindings,
-} from "@/server/queries/interview-question-templates";
-import { queryInterviewConversationReports } from "@/server/queries/interview-conversations";
+} from "@/server/routes/studio/routes/interview-questions/dao";
+import { queryInterviewConversationReports } from "@/server/routes/studio/routes/interviews/dao/interview-conversations";
 import {
   queryInterviewDedup,
   queryPaginatedStudioInterviewRecords,
   queryStudioInterviewSummary,
-} from "@/server/queries/studio-interviews";
+} from "@/server/routes/studio/routes/interviews/dao/studio-interviews";
 import {
   buildScheduleRows,
   loadRecordById,

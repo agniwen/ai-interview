@@ -4,7 +4,7 @@ import { PageHeader } from "@/app/(auth)/studio/_components/page-header";
 import type { DepartmentRecord } from "@/lib/departments";
 import type { InterviewerListRecord } from "@/lib/interviewers";
 import type { JobDescriptionListRecord, JobDescriptionRecord } from "@/lib/job-descriptions";
-import type { PaginatedJobDescriptionResult } from "@/server/queries/job-descriptions";
+import type { PaginatedJobDescriptionResult } from "@/server/routes/studio/routes/job-descriptions/dao";
 import { useQueryClient } from "@tanstack/react-query";
 import { FileTextIcon, PencilIcon, PlusIcon, Trash2Icon } from "lucide-react";
 import { useMemo, useState } from "react";

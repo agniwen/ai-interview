@@ -6,7 +6,7 @@ import type { StudioInterviewListRecord } from "@/lib/studio-interviews";
 import type {
   PaginatedStudioInterviewResult,
   StudioInterviewSummary,
-} from "@/server/queries/studio-interviews";
+} from "@/server/routes/studio/routes/interviews/dao/studio-interviews";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import dynamic from "next/dynamic";
 import { useSearchParams } from "next/navigation";

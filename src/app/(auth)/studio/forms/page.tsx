@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { connection } from "next/server";
-import { listCandidateFormTemplates } from "@/server/queries/candidate-forms";
-import { listAllJobDescriptions } from "@/server/queries/job-descriptions";
+import { listCandidateFormTemplates } from "@/server/routes/studio/routes/forms/dao";
+import { listAllJobDescriptions } from "@/server/routes/studio/routes/job-descriptions/dao";
 import { CandidateFormTemplateManagementPage } from "./_components/form-template-management-page";
 
 export const metadata: Metadata = {

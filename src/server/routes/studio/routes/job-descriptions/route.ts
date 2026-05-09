@@ -13,7 +13,7 @@ import {
   loadJobDescriptionById,
   queryPaginatedJobDescriptions,
   serializeJobDescription,
-} from "@/server/queries/job-descriptions";
+} from "@/server/routes/studio/routes/job-descriptions/dao";
 import { safeUpdateTag } from "@/server/routes/interview/utils";
 
 async function validateReferences(departmentId: string, interviewerIds: string[]) {

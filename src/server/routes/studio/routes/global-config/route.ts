@@ -1,6 +1,9 @@
 import { globalConfigSchema } from "@/lib/global-config";
 import { factory } from "@/server/factory";
-import { getGlobalConfig, upsertGlobalConfig } from "@/server/queries/global-config";
+import {
+  getGlobalConfig,
+  upsertGlobalConfig,
+} from "@/server/routes/studio/routes/global-config/dao";
 
 export const globalConfigRouter = factory
   .createApp()

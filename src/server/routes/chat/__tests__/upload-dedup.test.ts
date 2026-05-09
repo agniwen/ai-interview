@@ -2,7 +2,10 @@
 // Unit tests for the chat-attachment dedup query layer — covers contentHash
 // persistence and findAttachmentByContentHash (including failed-row exclusion).
 
-import { createAttachment, findAttachmentByContentHash } from "@/server/queries/chat-attachments";
+import {
+  createAttachment,
+  findAttachmentByContentHash,
+} from "@/server/routes/chat/dao/chat-attachments";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 interface DbRow {

@@ -16,14 +16,14 @@ import { matchJobDescriptionForResume } from "@/server/agents/job-description-ma
 import { factory } from "@/server/factory";
 import { authMiddleware } from "@/server/middlewares/auth";
 import { resumeProfileSchema } from "@/lib/interview/types";
-import { listAllJobDescriptions } from "@/server/queries/job-descriptions";
-import { getGlobalConfig } from "@/server/queries/global-config";
+import { listAllJobDescriptions } from "@/server/routes/studio/routes/job-descriptions/dao";
+import { getGlobalConfig } from "@/server/routes/studio/routes/global-config/dao";
 import {
   loadApplicableCandidateFormTemplates,
   loadCandidateFormTemplateVersionById,
   loadSubmittedTemplateIds,
   resolveOrCreateTemplateVersion,
-} from "@/server/queries/candidate-forms";
+} from "@/server/routes/studio/routes/forms/dao";
 import {
   buildTokenErrorResponse,
   loadCandidateInterviewRecord,

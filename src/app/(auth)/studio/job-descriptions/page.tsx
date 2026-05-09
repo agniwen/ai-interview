@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import { connection } from "next/server";
-import { listAllDepartments } from "@/server/queries/departments";
-import { listAllInterviewers } from "@/server/queries/interviewers";
-import { listJobDescriptions } from "@/server/queries/job-descriptions";
+import { listAllDepartments } from "@/server/routes/studio/routes/departments/dao";
+import { listAllInterviewers } from "@/server/routes/studio/routes/interviewers/dao";
+import { listJobDescriptions } from "@/server/routes/studio/routes/job-descriptions/dao";
 import { JobDescriptionManagementPage } from "./_components/job-description-management-page";
 
 export const metadata: Metadata = {

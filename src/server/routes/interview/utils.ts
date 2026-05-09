@@ -21,11 +21,14 @@ import {
   ResumeAnalysisError,
 } from "@/server/agents/resume-analysis-agent";
 import { projectAttachmentToResumeProfile } from "@/server/agents/resume-parser-agent";
-import { createAttachment, findAttachmentByContentHash } from "@/server/queries/chat-attachments";
+import {
+  createAttachment,
+  findAttachmentByContentHash,
+} from "@/server/routes/chat/dao/chat-attachments";
 import {
   ensureApplicableBindings,
   loadInterviewPresetQuestions,
-} from "@/server/queries/interview-question-templates";
+} from "@/server/routes/studio/routes/interview-questions/dao";
 import { sha256HexOfBytes } from "@/lib/file-hash";
 import { buildAttachmentKeyByHash, putObjectBytes } from "@/lib/s3";
 

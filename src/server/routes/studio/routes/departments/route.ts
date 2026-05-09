@@ -9,7 +9,7 @@ import {
   loadDepartmentReferenceCounts,
   queryPaginatedDepartments,
   serializeDepartment,
-} from "@/server/queries/departments";
+} from "@/server/routes/studio/routes/departments/dao";
 import { safeUpdateTag } from "@/server/routes/interview/utils";
 
 export const departmentsRouter = factory

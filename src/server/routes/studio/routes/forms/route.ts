@@ -15,7 +15,7 @@ import {
   loadCandidateFormTemplateVersionById,
   loadSubmissionsByTemplate,
   queryPaginatedCandidateFormTemplates,
-} from "@/server/queries/candidate-forms";
+} from "@/server/routes/studio/routes/forms/dao";
 import { safeUpdateTag } from "@/server/routes/interview/utils";
 
 async function validateJobDescriptionsExist(ids: string[]) {

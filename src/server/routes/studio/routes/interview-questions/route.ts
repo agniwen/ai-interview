@@ -14,7 +14,7 @@ import {
   loadInterviewQuestionTemplateById,
   loadInterviewQuestionTemplateVersionById,
   queryPaginatedInterviewQuestionTemplates,
-} from "@/server/queries/interview-question-templates";
+} from "@/server/routes/studio/routes/interview-questions/dao";
 import { safeUpdateTag } from "@/server/routes/interview/utils";
 
 async function validateJobDescriptionsExist(ids: string[]) {

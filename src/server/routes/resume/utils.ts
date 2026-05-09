@@ -6,7 +6,7 @@ import { clipResumeText, selectUploadedResumePdfs } from "@/lib/resume-pdf";
 import { createResumeAgent } from "@/server/agents/resume-agent";
 import type { ResumeParserResult } from "@/server/agents/resume-parser-agent";
 import type { ResumeParserStructured } from "@/server/agents/resume-parser-schema";
-import { listAllJobDescriptions } from "@/server/queries/job-descriptions";
+import { listAllJobDescriptions } from "@/server/routes/studio/routes/job-descriptions/dao";
 
 /**
  * 已经在 message 里 baked 的简历解析结果，suggest_job_description 直接拿来用。

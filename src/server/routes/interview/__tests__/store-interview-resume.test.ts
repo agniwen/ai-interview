@@ -19,7 +19,7 @@ vi.mock("@/lib/s3", () => ({
   buildAttachmentKeyByHash: mocks.buildAttachmentKeyByHash,
   putObjectBytes: mocks.putObjectBytes,
 }));
-vi.mock("@/server/queries/chat-attachments", () => ({
+vi.mock("@/server/routes/chat/dao/chat-attachments", () => ({
   createAttachment: mocks.createAttachment,
   findAttachmentByContentHash: mocks.findAttachmentByContentHash,
 }));
@@ -59,7 +59,7 @@ vi.mock("@/lib/interview/interview-record", () => ({
   pickCurrentScheduleEntry: vi.fn(),
   sortScheduleEntries: vi.fn(),
 }));
-vi.mock("@/server/queries/interview-question-templates", () => ({
+vi.mock("@/server/routes/studio/routes/interview-questions/dao", () => ({
   ensureApplicableBindings: vi.fn(),
   loadInterviewPresetQuestions: vi.fn(),
 }));

@@ -2,7 +2,7 @@
 
 import { PageHeader } from "@/app/(auth)/studio/_components/page-header";
 import type { DepartmentListRecord, DepartmentRecord } from "@/lib/departments";
-import type { PaginatedDepartmentResult } from "@/server/queries/departments";
+import type { PaginatedDepartmentResult } from "@/server/routes/studio/routes/departments/dao";
 import { useQueryClient } from "@tanstack/react-query";
 import { Building2Icon, PencilIcon, PlusIcon, Trash2Icon } from "lucide-react";
 import { useMemo, useState } from "react";

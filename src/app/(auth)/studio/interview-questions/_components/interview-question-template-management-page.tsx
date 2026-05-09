@@ -7,7 +7,7 @@ import type {
   InterviewQuestionTemplateScope,
 } from "@/lib/interview-question-templates";
 import type { JobDescriptionListRecord } from "@/lib/job-descriptions";
-import type { PaginatedInterviewQuestionTemplateResult } from "@/server/queries/interview-question-templates";
+import type { PaginatedInterviewQuestionTemplateResult } from "@/server/routes/studio/routes/interview-questions/dao";
 import { useQueryClient } from "@tanstack/react-query";
 import { ListChecksIcon, PencilIcon, PlusIcon, Trash2Icon } from "lucide-react";
 import { parseAsString, useQueryState } from "nuqs";
