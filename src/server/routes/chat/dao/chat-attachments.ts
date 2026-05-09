@@ -1,3 +1,4 @@
+import { structuredSchema } from "@/server/agents/resume-parser-schema";
 import type { ResumeParserStructured } from "@/server/agents/resume-parser-schema";
 import { and, eq, inArray, ne } from "drizzle-orm";
 import { db } from "@/lib/server/db";
@@ -8,6 +9,26 @@ import { chatAttachment } from "@/lib/server/db/schema";
 export type ChatAttachmentRow = typeof chatAttachment.$inferSelect;
 
 type ChatAttachmentInsert = typeof chatAttachment.$inferInsert;
+
+// 把可能畸形的 parsedStructured 在写入前过一遍 zod schema；通过的留下，
+// 不通过的丢回 null 并打 warn——读路径的下游 (projectAttachmentToResumeProfile)
+// 同样会用 safeParse 兜底，所以即使历史数据里有脏数据也不会污染 LLM 输入。
+// Validate parsedStructured before writing — pass keeps it, fail returns null
+// with a warn. Read paths already safeParse downstream, so historical bad
+// rows can't contaminate LLM input either way.
+function sanitizeParsedStructured(
+  value: ResumeParserStructured | null | undefined,
+): ResumeParserStructured | null {
+  if (value === null || value === undefined) {
+    return null;
+  }
+  const parsed = structuredSchema.safeParse(value);
+  if (parsed.success) {
+    return parsed.data;
+  }
+  console.warn("[chat-attachments] discarding malformed parsedStructured", parsed.error.issues);
+  return null;
+}
 
 export interface CreateAttachmentInput {
   id: string;
@@ -36,7 +57,7 @@ export async function createAttachment(input: CreateAttachmentInput): Promise<vo
     parsedError: input.parsedError ?? null,
     parsedPageCount: input.parsedPageCount ?? null,
     parsedStatus: input.parsedStatus ?? "pending",
-    parsedStructured: input.parsedStructured ?? null,
+    parsedStructured: sanitizeParsedStructured(input.parsedStructured),
     parsedText: input.parsedText ?? null,
     parsedTextSource: input.parsedTextSource ?? null,
     size: input.size,
@@ -66,7 +87,7 @@ export async function updateAttachmentParseResult(
       parsedError: input.parsedError ?? null,
       parsedPageCount: input.parsedPageCount ?? null,
       parsedStatus: input.parsedStatus,
-      parsedStructured: input.parsedStructured ?? null,
+      parsedStructured: sanitizeParsedStructured(input.parsedStructured),
       parsedText: input.parsedText ?? null,
       parsedTextSource: input.parsedTextSource ?? null,
     })

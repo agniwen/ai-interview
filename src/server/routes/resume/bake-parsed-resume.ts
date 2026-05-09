@@ -8,6 +8,7 @@
 
 import type { UIMessage } from "ai";
 import type { AttachmentTextSource } from "@/lib/shared/db-enums";
+import { structuredSchema } from "@/server/agents/resume-parser-schema";
 import type { ResumeParserStructured } from "@/server/agents/resume-parser-schema";
 import { getUserAttachments } from "@/server/routes/chat/dao/chat-attachments";
 
@@ -26,6 +27,20 @@ export interface ResumeParsedPartData {
 
 function extractAttachmentId(url: string): string | null {
   return url.match(ATTACHMENT_URL_REGEX)?.[1] ?? null;
+}
+
+// 历史脏数据兜底：写入侧已经 sanitize，但 jsonb 列没有数据库层约束，
+// 所以读取时再 safeParse 一次，失败/不齐全的 row 直接跳过——下游不再接到坏 LLM 输入。
+// Belt-and-suspenders for legacy rows: writes are sanitized, but jsonb has no
+// DB-level constraint, so we safeParse on read and skip rows that fail.
+function readValidatedStructured(
+  row: { parsedStatus: string; parsedStructured: unknown } | undefined,
+): ResumeParserStructured | null {
+  if (!row || row.parsedStatus !== "ready" || !row.parsedStructured) {
+    return null;
+  }
+  const parsed = structuredSchema.safeParse(row.parsedStructured);
+  return parsed.success ? parsed.data : null;
 }
 
 interface ResumeParsedPart {
@@ -87,7 +102,8 @@ export async function bakeParsedResumesIntoMessage(
       continue;
     }
     const row = rows.get(attachmentId);
-    if (!row || row.parsedStatus !== "ready" || !row.parsedStructured) {
+    const validated = readValidatedStructured(row);
+    if (!row || !validated) {
       continue;
     }
 
@@ -97,7 +113,7 @@ export async function bakeParsedResumesIntoMessage(
         attachmentId,
         filename,
         parsedPageCount: row.parsedPageCount,
-        parsedStructured: row.parsedStructured,
+        parsedStructured: validated,
         parsedText: row.parsedText,
         parsedTextSource: row.parsedTextSource ?? "qwen-ocr",
       },
