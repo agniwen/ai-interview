@@ -71,8 +71,10 @@ export function ProcessTabs() {
     <Section width="wide">
       <div className="max-w-3xl">
         <Eyebrow>How It Works</Eyebrow>
-        <SectionTitle>从一份 JD 到一次完整评估，四步贯通</SectionTitle>
-        <SectionLead>每一步都在同一个产品里完成，候选人上下文与团队判断不会断开。</SectionLead>
+        <SectionTitle>JD 进来。评估出去。中间四步，连得很顺。</SectionTitle>
+        <SectionLead>
+          每一步都长在同一个产品里。候选人的上下文和团队的判断，不再各走各的。
+        </SectionLead>
       </div>
 
       <div className="mt-12 grid grid-cols-1 items-stretch gap-10 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:gap-16">

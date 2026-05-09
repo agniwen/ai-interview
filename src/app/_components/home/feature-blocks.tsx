@@ -38,9 +38,9 @@ const blocks: Block[] = [
     imageAlt: "聊天式简历初筛界面",
     imageHeight: 900,
     imageWidth: 1440,
-    lead: "把简历筛选变成一次自然的对话：上传简历后直接和 AI 讨论候选人的匹配度、亮点和风险，节省阅读全文的时间。",
+    lead: "把简历筛选搬进对话框。上传完直接和 AI 讨论：这位候选人哪儿亮、哪儿可疑、和岗位贴不贴。不必从头读到尾。",
     lightSrc: "/landing/chat-light.png",
-    title: "聊天式简历初筛，按岗位语境追问",
+    title: "看简历这件事。聊几句就清楚。",
   },
   {
     bullets: [
@@ -53,9 +53,9 @@ const blocks: Block[] = [
     imageAlt: "工作台岗位与全局配置界面",
     imageHeight: 900,
     imageWidth: 1440,
-    lead: "在工作台里组织岗位描述、面试官人设和题库，让每一次评估都建立在真实招聘语境上，而不是孤立的关键词匹配。",
+    lead: "工作台是招聘的主场。岗位、JD、面试官人设、题库都在这儿安家，每一次评估都长在真实语境之上，不再悬空在关键词表面。",
     lightSrc: "/landing/studio-light.png",
-    title: "围绕真实岗位语境的统一工作台",
+    title: "岗位、JD、人设、题库。安顿在一处。",
   },
   {
     bullets: [
@@ -68,9 +68,9 @@ const blocks: Block[] = [
     imageAlt: "实时语音模拟面试界面",
     imageHeight: 900,
     imageWidth: 1440,
-    lead: "把链接发给候选人，即可进入与人类节奏接近的语音模拟面试。AI 会根据简历与岗位语境追问，并给出结构化评估。",
+    lead: "把链接发给候选人，对方开口，AI 接话。节奏接近真人，追问咬着简历和岗位走。面试落幕，结构化评估同步出炉。",
     lightSrc: "/landing/interview-light.png",
-    title: "实时语音模拟面试，沉淀完整对话",
+    title: "面试这件事。让 AI 先开口。",
   },
 ];
 

@@ -349,8 +349,8 @@ export function CapabilityGrid() {
     <Section width="wide">
       <div className="max-w-3xl">
         <Eyebrow>Capabilities</Eyebrow>
-        <SectionTitle>面向招聘场景设计的全部能力</SectionTitle>
-        <SectionLead>从筛选、面试到评估，AI 协助你在每一个环节做出更可解释的判断。</SectionLead>
+        <SectionTitle>招聘要用的，一件没少。</SectionTitle>
+        <SectionLead>从筛简历、问问题、判作答到下结论，AI 在每一环都把推理摊开给你看。</SectionLead>
       </div>
 
       <CapabilityBento />

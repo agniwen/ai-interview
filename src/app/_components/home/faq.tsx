@@ -41,7 +41,7 @@ export function Faq() {
   return (
     <Section width="wide">
       <Eyebrow>FAQ</Eyebrow>
-      <SectionTitle>常见问题</SectionTitle>
+      <SectionTitle>心里那些问号。</SectionTitle>
       <Accordion
         className="mt-10 w-full"
         defaultValue={["faq-0", "faq-1", "faq-2", "faq-3", "faq-4"]}

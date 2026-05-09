@@ -91,9 +91,9 @@ export function Testimonials() {
   return (
     <Section width="wide">
       <Eyebrow>Loved by Hiring Teams</Eyebrow>
-      <SectionTitle>HR、面试官与候选人，都给出了真实的反馈</SectionTitle>
+      <SectionTitle>HR 说省事。面试官说稳。候选人说不紧张。</SectionTitle>
       <SectionLead>
-        从初筛到模拟面试，从结构化评估到团队协作，听听一线招聘团队和候选人正在如何使用我们的产品。
+        从筛简历到模拟面试，从结构化评估到团队对齐，一线的人是怎么把这套工具用起来的——他们自己说。
       </SectionLead>
 
       <FadeContent>

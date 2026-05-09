@@ -56,12 +56,13 @@ export function Hero({ isPending, onResumeFiltering, onWorkbench }: HeroProps) {
             AI Recruitment Copilot
           </motion.span>
         )}
-        <SplitText text="从简历筛选到模拟面试，用同一套工作流完成候选人评估" />
+        <SplitText text="简历，先聊清楚。面试，一开口就来。" />
       </h1>
 
       <FadeContent className="mt-5 mx-auto max-w-2xl sm:mt-7" delay={0.1}>
         <p className="font-serif text-sm text-muted-foreground leading-normal sm:text-lg sm:leading-[1.8]">
-          先用聊天式方式完成简历初筛，再进入实时语音模拟面试，连续查看候选人的亮点、风险、追问过程与回答表现，让招聘判断更完整。
+          上传简历，和 AI
+          先聊几句。把面试链接发出去，让候选人开口面对面。亮点、风险、追问过程、回答表现，一条工作流里全程在场。
         </p>
       </FadeContent>
 

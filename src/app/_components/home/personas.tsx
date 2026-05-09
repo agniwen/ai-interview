@@ -42,9 +42,10 @@ export function Personas() {
   return (
     <Section width="wide">
       <Eyebrow>For Every Role</Eyebrow>
-      <SectionTitle>不同角色，同一套招聘工作流</SectionTitle>
+      <SectionTitle>三种角色。一张工作台。</SectionTitle>
       <SectionLead>
-        从招聘负责人配置流程，到面试官评估候选人，再到候选人参与模拟面试，每一步都在同一个产品里完成，记录与上下文不再分散。
+        招聘负责人在配置流程，面试官在评估候选人，候选人在面对 AI
+        答题。三个人各做各的，所有上下文在同一处同步。
       </SectionLead>
 
       <div className="mt-12 grid grid-cols-1 gap-5 sm:gap-6 md:grid-cols-3">
