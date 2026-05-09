@@ -6,7 +6,7 @@ import type {
   ResumeProfile,
 } from "@/lib/shared/interview/types";
 import type { StudioInterviewRecord } from "@/lib/shared/studio-interviews";
-import type { AnalysisStreamEvent } from "@/server/agents/resume-analysis-agent";
+import type { AnalysisStreamEvent } from "@/types/api";
 import { useStore } from "@tanstack/react-form";
 import { CheckIcon, FileUpIcon, LoaderCircleIcon, SparklesIcon, WrenchIcon } from "lucide-react";
 import { motion } from "motion/react";

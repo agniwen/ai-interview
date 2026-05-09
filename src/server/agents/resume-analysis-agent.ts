@@ -19,17 +19,13 @@ import {
 import type { ResumeParserStructured } from "./resume-parser-agent";
 
 // ---------------------------------------------------------------------------
-// NDJSON streaming event types
+// NDJSON streaming event types — shape lives in @/types/api so the client
+// can import it without reaching into server-only modules.
 // ---------------------------------------------------------------------------
 
-export type AnalysisStreamEvent =
-  | { type: "status"; message: string }
-  | { type: "tool-start"; name: string }
-  | { type: "tool-end"; name: string }
-  | { type: "text-delta"; text: string }
-  | { type: "step"; index: number }
-  | { type: "result"; data: unknown }
-  | { type: "error"; message: string };
+import type { AnalysisStreamEvent } from "@/types/api";
+
+export type { AnalysisStreamEvent };
 
 const PARSE_STAGE_LABELS = {
   ocr: "Qwen-VL OCR 识别简历",

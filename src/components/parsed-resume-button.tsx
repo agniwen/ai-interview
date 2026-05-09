@@ -5,7 +5,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import type { ResumeParserStructured } from "@/server/agents/resume-parser-schema";
+import type { ResumeParserStructured } from "@/types/api";
 import type { AttachmentTextSource } from "@/lib/shared/db-enums";
 import { cn } from "@/lib/shared/utils";
 
