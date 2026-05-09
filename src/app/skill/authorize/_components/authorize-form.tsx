@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { rpc } from "@/lib/rpc";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,12 +35,14 @@ export function AuthorizeForm({ initialUserCode, userName }: AuthorizeFormProps)
     setErrorMessage(null);
 
     try {
-      const res = await fetch(`/api/skill/v1/auth/device/${action}`, {
-        body: JSON.stringify({ user_code: trimmed }),
-        credentials: "same-origin",
-        headers: { "Content-Type": "application/json" },
-        method: "POST",
-      });
+      const res =
+        action === "approve"
+          ? await rpc.api.skill.v1.auth.device.approve.$post({
+              json: { user_code: trimmed },
+            })
+          : await rpc.api.skill.v1.auth.device.deny.$post({
+              json: { user_code: trimmed },
+            });
       const payload = (await res.json().catch(() => ({}))) as {
         ok?: boolean;
         error?: string;

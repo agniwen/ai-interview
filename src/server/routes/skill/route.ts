@@ -1,3 +1,4 @@
+import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
 import { renderProfileReport } from "@/lib/interview/report";
 import { fileToUploadedResumePdf, parseResumeSubagent } from "@/server/agents/resume-parser-agent";
@@ -38,51 +39,74 @@ const approveBodySchema = z.object({
   user_code: z.string().min(1),
 });
 
+// 中文：通用 zValidator 错误响应钩子，保留 { error: string } 形状以匹配现网客户端期望。
+// English: Shared zValidator error hook that preserves { error: string } shape
+// for current callers.
+interface ZodValidationResult {
+  success: false;
+  error: { issues: { message: string }[] };
+}
+function jsonValidatorError(fallback: string) {
+  return (
+    result: { success: true } | ZodValidationResult,
+    c: { json: (body: unknown, status: 400) => Response },
+  ) => {
+    if (!result.success) {
+      return c.json({ error: result.error.issues[0]?.message ?? fallback }, 400);
+    }
+  };
+}
+
 export const skillRouter = factory
   .createApp()
-  .post("/v1/auth/device/code", async (c) => {
-    const raw = await c.req.json().catch(() => ({}));
-    const parsed = issueCodeBodySchema.safeParse(raw);
-    const scope = parsed.success && parsed.data.scope ? parsed.data.scope : SCOPE_RESUME_PARSE;
-    if (scope !== SCOPE_RESUME_PARSE) {
-      return c.json({ error: `不支持的 scope：${scope}` }, 400);
-    }
-    const result = await issueDeviceCode(scope);
-    return c.json(result);
-  })
-  .post("/v1/auth/device/token", async (c) => {
-    const raw = await c.req.json().catch(() => ({}));
-    const parsed = pollTokenBodySchema.safeParse(raw);
-    if (!parsed.success) {
-      return c.json({ error: "device_code 不能为空。" }, 400);
-    }
-    const { body, status } = await pollDeviceCode(parsed.data.device_code);
-    return c.json(body, status as 200 | 400);
-  })
-  .post("/v1/auth/device/approve", authMiddleware, async (c) => {
-    const raw = await c.req.json().catch(() => ({}));
-    const parsed = approveBodySchema.safeParse(raw);
-    if (!parsed.success) {
-      return c.json({ error: "缺少 user_code。" }, 400);
-    }
-    // authMiddleware 已保证 c.var.user 非空，仅做类型收窄。
-    // authMiddleware guarantees c.var.user — this guard is just type-narrowing.
-    const userId = c.var.user?.id;
-    if (!userId) {
-      return c.json({ error: "Unauthorized" }, 401);
-    }
-    const { body, status } = await approveDeviceCode(parsed.data.user_code, userId);
-    return c.json(body, status as 200 | 400 | 404 | 409 | 410);
-  })
-  .post("/v1/auth/device/deny", authMiddleware, async (c) => {
-    const raw = await c.req.json().catch(() => ({}));
-    const parsed = approveBodySchema.safeParse(raw);
-    if (!parsed.success) {
-      return c.json({ error: "缺少 user_code。" }, 400);
-    }
-    const { body, status } = await denyDeviceCode(parsed.data.user_code);
-    return c.json(body, status as 200 | 400 | 404 | 409);
-  })
+  .post(
+    "/v1/auth/device/code",
+    zValidator("json", issueCodeBodySchema, jsonValidatorError("请求体格式错误。")),
+    async (c) => {
+      const input = c.req.valid("json");
+      const scope = input.scope ?? SCOPE_RESUME_PARSE;
+      if (scope !== SCOPE_RESUME_PARSE) {
+        return c.json({ error: `不支持的 scope：${scope}` }, 400);
+      }
+      const result = await issueDeviceCode(scope);
+      return c.json(result, 200);
+    },
+  )
+  .post(
+    "/v1/auth/device/token",
+    zValidator("json", pollTokenBodySchema, jsonValidatorError("device_code 不能为空。")),
+    async (c) => {
+      const input = c.req.valid("json");
+      const { body, status } = await pollDeviceCode(input.device_code);
+      return c.json(body, status as 200 | 400);
+    },
+  )
+  .post(
+    "/v1/auth/device/approve",
+    authMiddleware,
+    zValidator("json", approveBodySchema, jsonValidatorError("缺少 user_code。")),
+    async (c) => {
+      const input = c.req.valid("json");
+      // authMiddleware 已保证 c.var.user 非空，仅做类型收窄。
+      // authMiddleware guarantees c.var.user — this guard is just type-narrowing.
+      const userId = c.var.user?.id;
+      if (!userId) {
+        return c.json({ error: "Unauthorized" }, 401);
+      }
+      const { body, status } = await approveDeviceCode(input.user_code, userId);
+      return c.json(body, status as 200 | 400 | 404 | 409 | 410);
+    },
+  )
+  .post(
+    "/v1/auth/device/deny",
+    authMiddleware,
+    zValidator("json", approveBodySchema, jsonValidatorError("缺少 user_code。")),
+    async (c) => {
+      const input = c.req.valid("json");
+      const { body, status } = await denyDeviceCode(input.user_code);
+      return c.json(body, status as 200 | 400 | 404 | 409);
+    },
+  )
   .post(
     "/v1/parse-resume",
     requireSkillToken(SCOPE_RESUME_PARSE),
