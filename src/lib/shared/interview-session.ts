@@ -6,12 +6,14 @@
  * Focus: shape of session snapshots, transcript turns, and reports — no runtime logic.
  */
 
+import type { InterviewMessageRole, InterviewRecordingStatus } from "@/lib/shared/db-enums";
+
 /**
  * 实时对话中收到的一轮 transcript（来自 Agent webhook / 流）。
  * A transcript turn received in real time (from agent webhook / stream).
  */
 export interface InterviewTranscriptTurn {
-  role: "agent" | "user";
+  role: InterviewMessageRole;
   message: string;
   timeInCallSecs?: number;
 }
@@ -24,7 +26,7 @@ export interface PersistedInterviewTurn {
   id: string;
   conversationId: string;
   interviewRecordId: string | null;
-  role: "agent" | "user";
+  role: InterviewMessageRole;
   message: string;
   source: string;
   timeInCallSecs: number | null;
@@ -91,6 +93,6 @@ export interface StudioInterviewConversationReport {
   // 录像相关元信息: file_key 仅服务端可见, 前端通过预签名 URL 接口换取播放地址
   // Recording metadata; the file_key is server-side only — the browser fetches a
   // presigned URL via /recordings/:conversationId.
-  recordingStatus: "pending" | "active" | "completed" | "failed" | null;
+  recordingStatus: InterviewRecordingStatus | null;
   recordingDurationSecs: number | null;
 }

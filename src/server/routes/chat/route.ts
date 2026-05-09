@@ -1,6 +1,7 @@
 import type { UIMessage } from "ai";
 import { zValidator } from "@hono/zod-validator";
 import { parseResumeFast } from "@/lib/server/resume-parse-pipeline";
+import type { AttachmentParseStatus, AttachmentTextSource } from "@/lib/shared/db-enums";
 import { sha256HexOfBytes } from "@/lib/shared/file-hash";
 import { buildAttachmentKeyByHash, getObjectStream, putObjectBytes } from "@/lib/server/s3";
 import {
@@ -37,11 +38,11 @@ function mediaTypeToExtension(mediaType: string): string {
 // Build the upload/preflight shared response shape.
 function buildUploadResponse(args: {
   attachmentId: string;
-  parsedStatus: "ready" | "failed" | "pending";
+  parsedStatus: AttachmentParseStatus;
   parsedPageCount: number | null;
   parsedStructured: unknown;
   parsedText: string | null;
-  parsedTextSource: "pdf-parse" | "qwen-ocr" | null;
+  parsedTextSource: AttachmentTextSource | null;
 }) {
   const {
     attachmentId,

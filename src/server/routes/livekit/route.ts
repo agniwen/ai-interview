@@ -1,14 +1,13 @@
 import { EgressStatus } from "@livekit/protocol";
 import { eq } from "drizzle-orm";
 import { WebhookReceiver } from "livekit-server-sdk";
+import type { InterviewRecordingStatus } from "@/lib/shared/db-enums";
 import { db } from "@/lib/server/db";
 import { interviewConversation } from "@/lib/server/db/schema";
 import { factory } from "@/server/factory";
 import { safeUpdateTag } from "@/server/routes/interview/utils";
 
-type RecordingStatus = "pending" | "active" | "completed" | "failed";
-
-function mapEgressStatus(status: EgressStatus): RecordingStatus {
+function mapEgressStatus(status: EgressStatus): InterviewRecordingStatus {
   if (status === EgressStatus.EGRESS_COMPLETE) {
     return "completed";
   }

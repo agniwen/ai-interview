@@ -7,6 +7,7 @@
 // consumes them (see `injectParsedResumesIntoMessages` in screening.ts).
 
 import type { UIMessage } from "ai";
+import type { AttachmentTextSource } from "@/lib/shared/db-enums";
 import type { ResumeParserStructured } from "@/server/agents/resume-parser-schema";
 import { getUserAttachments } from "@/server/routes/chat/dao/chat-attachments";
 
@@ -20,7 +21,7 @@ export interface ResumeParsedPartData {
   parsedText: string | null;
   parsedStructured: ResumeParserStructured;
   parsedPageCount: number | null;
-  parsedTextSource: "pdf-parse" | "qwen-ocr";
+  parsedTextSource: AttachmentTextSource;
 }
 
 function extractAttachmentId(url: string): string | null {

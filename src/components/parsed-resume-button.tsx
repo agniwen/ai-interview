@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { ResumeParserStructured } from "@/server/agents/resume-parser-schema";
+import type { AttachmentTextSource } from "@/lib/shared/db-enums";
 import { cn } from "@/lib/shared/utils";
 
 export interface ParsedResumeButtonProps {
@@ -13,7 +14,7 @@ export interface ParsedResumeButtonProps {
   structured: ResumeParserStructured;
   parsedText?: string | null;
   pageCount?: number | null;
-  textSource?: "pdf-parse" | "qwen-ocr" | null;
+  textSource?: AttachmentTextSource | null;
   className?: string;
 }
 

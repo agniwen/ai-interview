@@ -11,6 +11,16 @@ import type {
   CandidateFormTemplateSnapshot,
 } from "@/lib/shared/candidate-forms";
 import type {
+  AgentNotificationStatus,
+  AgentNotificationType,
+  AttachmentParseStatus,
+  AttachmentTextSource,
+  InterviewMessageRole,
+  InterviewRecordingStatus,
+  InterviewSummaryStatus,
+  SkillDeviceAuthStatus,
+} from "@/lib/shared/db-enums";
+import type {
   InterviewQuestionTemplateDifficulty,
   InterviewQuestionTemplateScope,
   InterviewQuestionTemplateSnapshot,
@@ -388,9 +398,7 @@ export const interviewConversation = pgTable(
     recordingDurationSecs: integer("recording_duration_secs"),
     recordingEgressId: text("recording_egress_id"),
     recordingFileKey: text("recording_file_key"),
-    recordingStatus: text("recording_status").$type<
-      "pending" | "active" | "completed" | "failed"
-    >(),
+    recordingStatus: text("recording_status").$type<InterviewRecordingStatus>(),
     scheduleEntryId: text("schedule_entry_id").references(() => studioInterviewSchedule.id, {
       onDelete: "set null",
     }),
@@ -400,7 +408,7 @@ export const interviewConversation = pgTable(
     summaryError: text("summary_error"),
     summaryStartedAt: timestamp("summary_started_at"),
     summaryStatus: text("summary_status")
-      .$type<"pending" | "running" | "ready" | "failed">()
+      .$type<InterviewSummaryStatus>()
       .notNull()
       .default("pending"),
     transcript: jsonb("transcript").$type<InterviewTranscriptTurn[]>().notNull().default([]),
@@ -432,7 +440,7 @@ export const interviewConversationTurn = pgTable(
     }),
     message: text("message").notNull(),
     receivedAt: timestamp("received_at").defaultNow().notNull(),
-    role: text("role").$type<"agent" | "user">().notNull(),
+    role: text("role").$type<InterviewMessageRole>().notNull(),
     source: text("source").notNull().default("client_event"),
     timeInCallSecs: integer("time_in_call_secs"),
   },
@@ -495,13 +503,10 @@ export const chatAttachment = pgTable(
     parsedAt: timestamp("parsed_at"),
     parsedError: text("parsed_error"),
     parsedPageCount: integer("parsed_page_count"),
-    parsedStatus: text("parsed_status")
-      .$type<"pending" | "ready" | "failed">()
-      .default("pending")
-      .notNull(),
+    parsedStatus: text("parsed_status").$type<AttachmentParseStatus>().default("pending").notNull(),
     parsedStructured: jsonb("parsed_structured").$type<ResumeParserStructured>(),
     parsedText: text("parsed_text"),
-    parsedTextSource: text("parsed_text_source").$type<"pdf-parse" | "qwen-ocr">(),
+    parsedTextSource: text("parsed_text_source").$type<AttachmentTextSource>(),
     size: integer("size").notNull(),
     storageKey: text("storage_key").notNull(),
     userId: text("user_id")
@@ -552,8 +557,8 @@ export const interviewNotification = pgTable(
     recipientOpenId: text("recipient_open_id").notNull(),
     recipientUserId: text("recipient_user_id").references(() => user.id, { onDelete: "set null" }),
     sentAt: timestamp("sent_at"),
-    status: text("status").$type<"pending" | "sent" | "failed">().notNull().default("pending"),
-    type: text("type").$type<"summary_ready">().notNull(),
+    status: text("status").$type<AgentNotificationStatus>().notNull().default("pending"),
+    type: text("type").$type<AgentNotificationType>().notNull(),
     updatedAt: timestamp("updated_at")
       .defaultNow()
       .$onUpdate(() => /* @__PURE__ */ new Date())
@@ -892,10 +897,7 @@ export const skillDeviceAuthCode = pgTable(
     expiresAt: timestamp("expires_at").notNull(),
     pollAfter: timestamp("poll_after"),
     scope: text("scope").notNull(),
-    status: text("status")
-      .$type<"pending" | "approved" | "denied" | "expired">()
-      .default("pending")
-      .notNull(),
+    status: text("status").$type<SkillDeviceAuthStatus>().default("pending").notNull(),
     userCode: text("user_code").notNull(),
     userId: text("user_id").references(() => user.id, { onDelete: "set null" }),
   },

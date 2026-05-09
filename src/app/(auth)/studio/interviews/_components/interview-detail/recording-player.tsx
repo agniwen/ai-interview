@@ -15,11 +15,12 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { fetchStudioInterviewRecordingUrl } from "@/lib/client/api";
 import { ApiError } from "@/lib/client/api/errors";
+import type { InterviewRecordingStatus } from "@/lib/shared/db-enums";
 
 interface RecordingPlayerProps {
   recordId: string;
   conversationId: string;
-  status: "pending" | "active" | "completed" | "failed" | null;
+  status: InterviewRecordingStatus | null;
   durationSecs: number | null;
 }
 

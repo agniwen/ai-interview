@@ -22,6 +22,7 @@ import { AssistantMessageGroups } from "@/components/assistant-message-groups";
 import { ParsedResumeButton } from "@/components/parsed-resume-button";
 import { PdfPreviewButton } from "@/components/pdf-preview-button";
 import { ResumeImportButton } from "@/components/resume-import-button";
+import type { AttachmentTextSource } from "@/lib/shared/db-enums";
 import type { ResumeParserStructured } from "@/server/agents/resume-parser-schema";
 import { ThinkingBlock } from "@/components/thinking-block";
 import { TIME_DISPLAY_OPTIONS, TimeDisplay } from "@/components/time-display";
@@ -86,7 +87,7 @@ export function ChatMessageItem({
       parsedStructured: ResumeParserStructured;
       parsedText: string | null;
       parsedPageCount: number | null;
-      parsedTextSource: "pdf-parse" | "qwen-ocr";
+      parsedTextSource: AttachmentTextSource;
     }
   >();
   let assistantText = "";
