@@ -8,7 +8,7 @@ export function HomeFooter() {
     <footer className="mx-auto w-full max-w-7xl px-5 pb-12 sm:px-8">
       <Separator className="mb-8 bg-border/60" />
       <div className="flex flex-col items-center justify-between gap-4 text-foreground/70 text-xs sm:flex-row sm:text-sm">
-        <p>© {new Date().getFullYear()} 招聘协作工作台</p>
+        <p>© {new Date().getFullYear()} AI Recruitment Copilot</p>
         <nav className="flex items-center gap-5">
           <Link className="transition-colors hover:text-foreground" href="/chat">
             产品

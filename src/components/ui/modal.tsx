@@ -105,7 +105,7 @@ function DialogModal({
         >
           <div
             className={cn(
-              "relative flex max-h-[90vh] flex-col overflow-hidden rounded-lg border bg-background shadow-lg",
+              "relative flex max-h-[90vh] flex-col overflow-hidden rounded-3xl border bg-background shadow-lg",
               className,
             )}
           >
@@ -189,7 +189,7 @@ function DrawerModal({
         >
           <div
             className={cn(
-              "relative flex h-full max-h-[90vh] flex-col overflow-hidden rounded-t-lg border-t bg-background",
+              "relative flex h-full max-h-[90vh] flex-col overflow-hidden rounded-t-3xl border-t bg-background",
               className,
             )}
           >

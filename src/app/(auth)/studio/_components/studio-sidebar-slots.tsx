@@ -8,6 +8,7 @@ import {
   ListChecksIcon,
   SettingsIcon,
   UserCircleIcon,
+  UserCogIcon,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -25,8 +26,22 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar";
+import { authClient } from "@/lib/auth-client";
 
-const navGroups = [
+interface NavItem {
+  href: string;
+  icon: typeof BotIcon;
+  title: string;
+  /** 仅 better-auth 角色为 admin 时可见。 / Only visible when role === "admin". */
+  adminOnly?: boolean;
+}
+
+interface NavGroup {
+  label: string;
+  items: NavItem[];
+}
+
+const navGroups: NavGroup[] = [
   {
     items: [
       {
@@ -75,6 +90,12 @@ const navGroups = [
   {
     items: [
       {
+        adminOnly: true,
+        href: "/studio/system-management",
+        icon: UserCogIcon,
+        title: "用户管理",
+      },
+      {
         href: "/studio/global-config",
         icon: SettingsIcon,
         title: "全局配置",
@@ -82,18 +103,27 @@ const navGroups = [
     ],
     label: "系统配置",
   },
-] as const;
+];
 
 export function StudioSidebarSlots() {
   const pathname = usePathname();
   const { state } = useSidebar();
+  const { data: session } = authClient.useSession();
+  const isAdmin = session?.user?.role === "admin";
 
   const isActive = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
+
+  const visibleGroups = navGroups
+    .map((group) => ({
+      ...group,
+      items: group.items.filter((item) => !item.adminOnly || isAdmin),
+    }))
+    .filter((group) => group.items.length > 0);
 
   return (
     <>
       <SidebarBodyPortalContent>
-        {navGroups.map((group) => (
+        {visibleGroups.map((group) => (
           <SidebarGroup key={group.label}>
             <SidebarGroupLabel>{group.label}</SidebarGroupLabel>
             <SidebarGroupContent>

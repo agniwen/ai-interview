@@ -198,8 +198,28 @@ export const auth = betterAuth({
     provider: "pg",
     schema,
   }),
+  // 开启邮箱+密码登录。注册入口关闭——账号只能通过飞书 OAuth 自动创建，
+  // 或由 admin 在「用户管理」里调 setUserPassword 设定登录密码。
+  // Email+password sign-in. Public sign-up is disabled — accounts are only
+  // created via Feishu OAuth or by admin's setUserPassword from the user-mgmt page.
+  emailAndPassword: {
+    autoSignIn: true,
+    disableSignUp: true,
+    enabled: true,
+    minPasswordLength: 8,
+  },
+  // 被封禁用户走 OAuth 回调时 better-auth 会重定向到 `${errorURL}?error=banned&...`。
+  // 指向自定义的 /banned 页给出中文提示，没配置时默认会跳到不存在的 /error。
+  // For OAuth callbacks of banned accounts better-auth redirects to
+  // `${errorURL}?error=banned&...`. Point at our custom /banned page;
+  // the default is a non-existent /error route.
+  onAPIError: {
+    errorURL: "/banned",
+  },
   plugins: [
-    admin(),
+    admin({
+      bannedUserMessage: "你的账号已被封禁，请联系管理员。",
+    }),
     genericOAuth({
       config: [
         buildFeishuOAuthProvider({

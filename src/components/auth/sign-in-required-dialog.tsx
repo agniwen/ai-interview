@@ -1,7 +1,7 @@
 "use client";
 
 import { Modal } from "@/components/ui/modal";
-import { FeishuSignInButton } from "./feishu-sign-in-button";
+import { SignInTabs } from "./sign-in-tabs";
 
 interface SignInRequiredDialogProps {
   callbackURL: string;
@@ -21,19 +21,13 @@ export function SignInRequiredDialog({
       open={open}
       onOpenChange={onOpenChange}
       title={title}
-      description="为了保存你的会话、同步简历分析记录和面试结果，请先使用飞书账号登录。"
+      description="为了保存你的会话、同步简历分析记录和面试结果，请先使用飞书账号或账号密码登录。"
       size="sm"
-      className="rounded-3xl border-border/70 bg-card/95 shadow-[0_30px_90px_-42px_rgba(30,72,132,0.55)] backdrop-blur-xl"
+      className="border-border/70 bg-card/95 shadow-[0_30px_90px_-42px_rgba(30,72,132,0.55)] backdrop-blur-xl"
       headerClassName="space-y-1 border-b-0 pb-2"
-      bodyClassName="px-7 pb-7 pt-2 space-y-3"
+      bodyClassName="px-7 pb-7 pt-2"
     >
-      <FeishuSignInButton callbackURL={callbackURL} />
-      <FeishuSignInButton
-        callbackURL={callbackURL}
-        label="极光 HR 飞书登录"
-        providerId="feishu-jiguang-hr"
-        variant="default"
-      />
+      <SignInTabs callbackURL={callbackURL} />
     </Modal>
   );
 }

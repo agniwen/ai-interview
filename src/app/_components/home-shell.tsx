@@ -66,7 +66,7 @@ export default function HomeShell() {
         open={pendingPath !== null}
         title={
           pendingPath === "/studio/interviews"
-            ? "登录后即可进入模拟面试工作台"
+            ? "登录后即可使用 AI Recruitment Copilot"
             : "登录后即可进入简历筛选"
         }
       />

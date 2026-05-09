@@ -3,7 +3,7 @@ import { headers } from "next/headers";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { connection } from "next/server";
-import { FeishuSignInButton } from "@/components/auth/feishu-sign-in-button";
+import { SignInTabs } from "@/components/auth/sign-in-tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { auth } from "@/lib/auth";
 import { canAccessAdmin } from "@/lib/auth-roles";
@@ -28,16 +28,10 @@ export default async function LoginPage() {
           <Card className="border-border/60 bg-background/92 shadow-[0_24px_64px_-40px_rgba(15,23,42,0.35)]">
             <CardHeader>
               <CardTitle>登录</CardTitle>
-              <CardDescription>使用飞书账号登录，登录后即可使用完整功能。</CardDescription>
+              <CardDescription>使用飞书账号登录，或用管理员分配的账号密码登录。</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-3">
-              <FeishuSignInButton callbackURL="/login" />
-              <FeishuSignInButton
-                variant="default"
-                callbackURL="/login"
-                label="极光 HR 飞书登录"
-                providerId="feishu-jiguang-hr"
-              />
+            <CardContent>
+              <SignInTabs callbackURL="/login" />
             </CardContent>
           </Card>
 
