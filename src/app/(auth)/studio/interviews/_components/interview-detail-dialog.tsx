@@ -100,18 +100,21 @@ export function InterviewDetailDialog({
     enabled: open && !!recordId,
     queryFn: () => fetchStudioInterview(recordId as string),
     queryKey: ["studio-interview", recordId],
+    refetchOnWindowFocus: true,
   });
 
   const { data: reports = [] } = useQuery({
     enabled: open && !!recordId,
     queryFn: () => fetchStudioInterviewReports(recordId as string),
     queryKey: ["studio-interview-reports", recordId],
+    refetchOnWindowFocus: true,
   });
 
   const { data: formSubmissions = [] } = useQuery({
     enabled: open && !!recordId,
     queryFn: () => fetchStudioInterviewFormSubmissions(recordId as string),
     queryKey: ["studio-interview-form-submissions", recordId],
+    refetchOnWindowFocus: true,
   });
 
   const isLoading = isRecordLoading;

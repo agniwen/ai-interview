@@ -33,6 +33,7 @@ export function AgentInstructionsPanel({
       return payload.variants;
     },
     queryKey: ["studio-interview-agent-instructions", recordId],
+    refetchOnWindowFocus: true,
   });
 
   if (isLoading) {
