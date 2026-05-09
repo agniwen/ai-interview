@@ -3,6 +3,7 @@
 import { ClipboardListIcon, Loader2Icon } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
+import { rpc } from "@/lib/rpc";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -16,10 +17,12 @@ import type {
 } from "./pre-interview-forms/types";
 
 async function fetchForms(interviewId: string, roundId: string): Promise<FormsPayload> {
-  const response = await fetch(`/api/interview/${interviewId}/${roundId}/forms`);
-  const payload = await response.json();
+  const response = await rpc.api.interview[":id"][":roundId"].forms.$get({
+    param: { id: interviewId, roundId },
+  });
+  const payload = (await response.json()) as FormsPayload | { error?: string };
   if (!response.ok) {
-    throw new Error(payload?.error ?? "加载面试表单失败");
+    throw new Error("error" in payload && payload.error ? payload.error : "加载面试表单失败");
   }
   return payload as FormsPayload;
 }
@@ -31,14 +34,10 @@ async function submitForm(
   versionId: string,
   answers: Record<string, AnswerValue>,
 ): Promise<{ success: boolean; error?: string }> {
-  const response = await fetch(
-    `/api/interview/${interviewId}/${roundId}/forms/${templateId}/submit`,
-    {
-      body: JSON.stringify({ answers, versionId }),
-      headers: { "Content-Type": "application/json" },
-      method: "POST",
-    },
-  );
+  const response = await rpc.api.interview[":id"][":roundId"].forms[":templateId"].submit.$post({
+    json: { answers, versionId },
+    param: { id: interviewId, roundId, templateId },
+  });
   const payload = (await response.json().catch(() => null)) as { error?: string } | null;
   if (!response.ok) {
     return { error: payload?.error ?? "提交失败", success: false };

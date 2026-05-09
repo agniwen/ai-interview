@@ -17,6 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { DedupMatchRecord } from "@/lib/api";
 import { apiFetch, fetchInterviewDedup } from "@/lib/api";
+import { rpc } from "@/lib/rpc";
 import { readNdjsonStream } from "@/lib/ndjson-stream";
 import {
   createInterviewFormValues,
@@ -376,12 +377,10 @@ export function CreateInterviewDialog({
       // Match best in-flight job description; non-fatal on failure.
       void (async () => {
         try {
-          const matchResponse = await fetch("/api/interview/match-job-description", {
-            body: JSON.stringify({ resumeProfile }),
-            headers: { "Content-Type": "application/json" },
-            method: "POST",
-            signal: abortController.signal,
-          });
+          const matchResponse = await rpc.api.interview["match-job-description"].$post(
+            { json: { resumeProfile } },
+            { init: { signal: abortController.signal } },
+          );
           if (!matchResponse.ok) {
             return;
           }

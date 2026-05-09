@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
+import { rpc } from "@/lib/rpc";
 import { AgentSessionProvider } from "@/components/agents-ui/agent-session-provider";
 import { AgentSessionView_01 } from "@/components/agents-ui/blocks/agent-session-view-01";
 import { StartAudioButton } from "@/components/agents-ui/start-audio-button";
@@ -307,7 +308,9 @@ export default function InterviewRoom({ interviewId, roundId }: InterviewRoomPro
 
     async function fetchStatus() {
       try {
-        const res = await fetch(`/api/interview/${interviewId}/${roundId}`);
+        const res = await rpc.api.interview[":id"][":roundId"].$get({
+          param: { id: interviewId, roundId },
+        });
         if (!res.ok) {
           return;
         }
@@ -364,8 +367,8 @@ export default function InterviewRoom({ interviewId, roundId }: InterviewRoomPro
         if (isLoadingStatusRef.current) {
           throw new Error("interview status not loaded yet");
         }
-        const response = await fetch(`/api/interview/${interviewId}/${roundId}/livekit-token`, {
-          method: "POST",
+        const response = await rpc.api.interview[":id"][":roundId"]["livekit-token"].$post({
+          param: { id: interviewId, roundId },
         });
 
         if (!response.ok) {
@@ -426,10 +429,10 @@ export default function InterviewRoom({ interviewId, roundId }: InterviewRoomPro
         userEndedRef.current = false;
         return;
       }
-      void fetch(`/api/interview/${interviewId}/${roundId}/complete?mode=interrupt`, {
-        keepalive: true,
-        method: "POST",
-      });
+      void rpc.api.interview[":id"][":roundId"].complete.$post(
+        { param: { id: interviewId, roundId }, query: { mode: "interrupt" } },
+        { init: { keepalive: true } },
+      );
     }
   }, [session.connectionState, interviewId, roundId]);
 
@@ -556,10 +559,10 @@ export default function InterviewRoom({ interviewId, roundId }: InterviewRoomPro
     setRoundStatus("completed");
     autoRejoinTriggeredRef.current = true;
     try {
-      await fetch(`/api/interview/${interviewId}/${roundId}/complete?mode=final`, {
-        keepalive: true,
-        method: "POST",
-      });
+      await rpc.api.interview[":id"][":roundId"].complete.$post(
+        { param: { id: interviewId, roundId }, query: { mode: "final" } },
+        { init: { keepalive: true } },
+      );
     } catch {
       // 上报失败不阻断 session.end —— agent 端 grace 超时仍会兜底落 completed。
       // Report failure must not block teardown; agent's grace timeout finalises.

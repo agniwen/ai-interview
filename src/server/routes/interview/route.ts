@@ -13,7 +13,9 @@ import {
   streamParseResumeProfile,
 } from "@/server/agents/resume-analysis-agent";
 import { matchJobDescriptionForResume } from "@/server/agents/job-description-match-agent";
-import { factory } from "@/server/factory";
+import { zValidator } from "@hono/zod-validator";
+import { z } from "zod";
+import { factory, jsonValidatorError } from "@/server/factory";
 import { authMiddleware } from "@/server/middlewares/auth";
 import { resumeProfileSchema } from "@/lib/interview/types";
 import { listAllJobDescriptions } from "@/server/routes/studio/routes/job-descriptions/dao";
@@ -62,32 +64,36 @@ export const interviewRouter = factory
       return c.json({ error: "Failed to parse resume.", stage: "resume-parsing" }, 500);
     }
   })
-  .post("/match-job-description", async (c) => {
-    const body = await c.req
-      .json<{ resumeProfile?: unknown }>()
-      .catch(() => ({}) as { resumeProfile?: unknown });
+  .post(
+    "/match-job-description",
+    zValidator(
+      "json",
+      z.object({ resumeProfile: resumeProfileSchema }),
+      jsonValidatorError("缺少候选人信息 (resumeProfile)。"),
+    ),
+    async (c) => {
+      const { resumeProfile } = c.req.valid("json");
 
-    const profileInput = resumeProfileSchema.safeParse(body.resumeProfile);
-    if (!profileInput.success) {
-      return c.json({ error: "缺少候选人信息 (resumeProfile)。" }, 400);
-    }
+      try {
+        const jobDescriptions = await listAllJobDescriptions();
+        if (jobDescriptions.length === 0) {
+          return c.json({ matchedId: null, reason: null }, 200);
+        }
 
-    try {
-      const jobDescriptions = await listAllJobDescriptions();
-      if (jobDescriptions.length === 0) {
-        return c.json({ matchedId: null, reason: null });
+        const match = await matchJobDescriptionForResume(resumeProfile, jobDescriptions);
+        if (!match) {
+          return c.json({ matchedId: null, reason: null }, 200);
+        }
+
+        return c.json({ matchedId: match.jobDescriptionId, reason: match.reason }, 200);
+      } catch (error) {
+        return c.json(
+          { error: error instanceof Error ? error.message : "在招岗位匹配失败。" },
+          500,
+        );
       }
-
-      const match = await matchJobDescriptionForResume(profileInput.data, jobDescriptions);
-      if (!match) {
-        return c.json({ matchedId: null, reason: null });
-      }
-
-      return c.json({ matchedId: match.jobDescriptionId, reason: match.reason });
-    } catch (error) {
-      return c.json({ error: error instanceof Error ? error.message : "在招岗位匹配失败。" }, 500);
-    }
-  })
+    },
+  )
   .post("/generate-questions", async (c) => {
     const body = await c.req
       .json<{ resumeProfile?: unknown }>()
@@ -321,13 +327,7 @@ export const interviewRouter = factory
 
       const participantToken = await at.toJwt();
 
-      return c.json({
-        isReconnect,
-        participantName,
-        participantToken,
-        roomName,
-        serverUrl,
-      });
+      return c.json({ isReconnect, participantName, participantToken, roomName, serverUrl }, 200);
     } catch (error) {
       return c.json(
         {
@@ -346,7 +346,7 @@ export const interviewRouter = factory
       return c.json({ error: "Interview not available." }, 404);
     }
 
-    return c.json({ interviewId: id, roundId: entry.id });
+    return c.json({ interviewId: id, roundId: entry.id }, 200);
   })
   .get("/:id/:roundId", async (c) => {
     const id = c.req.param("id");
@@ -357,7 +357,7 @@ export const interviewRouter = factory
       return c.json({ error: "Interview not available." }, 404);
     }
 
-    return c.json(interviewRecord);
+    return c.json(interviewRecord, 200);
   })
   .get("/:id/:roundId/forms", async (c) => {
     const id = c.req.param("id");
@@ -375,7 +375,7 @@ export const interviewRouter = factory
     ];
 
     if (templates.length === 0) {
-      return c.json({ required: [], submitted: {} });
+      return c.json({ required: [], submitted: {} as Record<string, true> }, 200);
     }
 
     const templateIds = templates.map((t) => t.id);
@@ -408,164 +408,160 @@ export const interviewRouter = factory
       submitted[templateId] = true;
     }
 
-    return c.json({ required, submitted });
+    return c.json({ required, submitted }, 200);
   })
-  .post("/:id/:roundId/forms/:templateId/submit", async (c) => {
-    const id = c.req.param("id");
-    const roundId = c.req.param("roundId");
-    const templateId = c.req.param("templateId");
+  .post(
+    "/:id/:roundId/forms/:templateId/submit",
+    zValidator(
+      "json",
+      // 中文：answers 形状由 templateVersion 动态决定，这里只做粗校验。
+      // English: answers shape is dynamic per templateVersion — only shallow check here.
+      z.object({ answers: z.record(z.string(), z.unknown()), versionId: z.string().min(1) }),
+      jsonValidatorError("请求参数缺失。"),
+    ),
+    async (c) => {
+      const id = c.req.param("id");
+      const roundId = c.req.param("roundId");
+      const templateId = c.req.param("templateId");
 
-    const interviewRecord = await loadCandidateInterviewRecord(id, roundId);
-    if (!interviewRecord) {
-      return c.json({ error: "Interview not available." }, 404);
-    }
-    if (interviewRecord.currentRoundStatus === "completed") {
-      return c.json({ error: "当前面试轮次已结束，无法再提交面试表单。" }, 403);
-    }
-
-    const body = (await c.req.json().catch(() => null)) as {
-      versionId?: unknown;
-      answers?: unknown;
-    } | null;
-    if (
-      !body ||
-      typeof body.versionId !== "string" ||
-      body.answers === null ||
-      typeof body.answers !== "object"
-    ) {
-      return c.json({ error: "请求参数缺失。" }, 400);
-    }
-    const { versionId } = body;
-    const rawAnswers = body.answers as Record<string, unknown>;
-
-    const applicable = await loadApplicableCandidateFormTemplates(id);
-    const applicableIds = new Set(
-      [...applicable.global, ...applicable.jobSpecific].map((t) => t.id),
-    );
-    if (!applicableIds.has(templateId)) {
-      return c.json({ error: "该面试表单不适用于当前面试。" }, 400);
-    }
-
-    const version = await loadCandidateFormTemplateVersionById(templateId, versionId);
-    if (!version) {
-      return c.json({ error: "面试表单版本不存在。" }, 400);
-    }
-
-    const answersSchema = buildCandidateFormAnswersSchema(version.snapshot);
-    const parsed = answersSchema.safeParse(rawAnswers);
-    if (!parsed.success) {
-      return c.json({ error: parsed.error.issues[0]?.message ?? "面试表单填写不完整。" }, 400);
-    }
-
-    const now = new Date();
-    const submissionId = crypto.randomUUID();
-    try {
-      await db.insert(candidateFormSubmission).values({
-        answers: parsed.data,
-        id: submissionId,
-        interviewRecordId: id,
-        submittedAt: now,
-        templateId,
-        versionId,
-      });
-    } catch {
-      // Unique (templateId, interviewRecordId) — treat as already submitted.
-      return c.json({ error: "该面试表单已提交过。" }, 409);
-    }
-
-    return c.json({
-      submissionId,
-      success: true,
-      version: version.version,
-      versionId,
-    });
-  })
-  .post("/:id/:roundId/complete", async (c) => {
-    // 浏览器侧发出的「会话状态变更」信号，按 mode 区分：
-    //   mode=interrupt（默认）：候选人断连。把状态置为 interrupted 并写入
-    //     首次断开时间，开启 3 分钟热重连窗口；不级联面试整体状态。
-    //   mode=final：候选人主动结束（保留接口未来扩展）。立刻置 completed
-    //     并级联面试整体状态，与 /api/agent/report 的写入路径保持兼容。
-    // Agent grace 超时后由 shutdown 回调走 /api/agent/report 把轮次最终
-    // 落到 completed，因此 interrupt 不需要做任何兜底「结束」工作。
-    //
-    // Browser-side session-state signal. mode=interrupt (default) marks the
-    // round "interrupted" with disconnectedAt to open the 3-minute rejoin
-    // window; mode=final retains the original cascade-to-completed semantics
-    // for any future "leave interview" button. Final completion is normally
-    // driven by /api/agent/report after the agent's grace timer fires.
-    const roundId = c.req.param("roundId");
-    const mode = c.req.query("mode") === "final" ? "final" : "interrupt";
-    const now = new Date();
-
-    const [entry] = await db
-      .select({
-        disconnectedAt: studioInterviewSchedule.disconnectedAt,
-        id: studioInterviewSchedule.id,
-        interviewRecordId: studioInterviewSchedule.interviewRecordId,
-        status: studioInterviewSchedule.status,
-      })
-      .from(studioInterviewSchedule)
-      .where(eq(studioInterviewSchedule.id, roundId))
-      .limit(1);
-
-    if (!entry) {
-      return c.json({ error: "Round not found." }, 404);
-    }
-
-    if (entry.status === "completed") {
-      return c.json({ success: true });
-    }
-
-    if (mode === "interrupt") {
-      // 每次断连都覆盖 disconnectedAt = now，让 3 分钟宽限窗口与 agent 端的
-      // grace 计时器（每次 participant_disconnected 重启）保持同步。
-      // 之前"只在首次写"的策略会让多次断连时两端窗口错位 —— 例如用户首次断
-      // 30 秒后重连，又过 60 秒再次断开，agent 重启 grace 等 180 秒，但 web
-      // 仍按首次断的时间算（剩余 90 秒）就会过早判 410。
-      // pending 没有 anchor 不能重连，忽略；completed 已结束，忽略。
-      // Always overwrite disconnectedAt = now on every drop so the web grace
-      // window stays in lockstep with agent's grace timer (which restarts on
-      // each participant_disconnected). The earlier "first-drop only" rule
-      // caused the two windows to drift apart on multiple reconnects.
-      if (entry.status === "in_progress" || entry.status === "interrupted") {
-        await db
-          .update(studioInterviewSchedule)
-          .set({
-            disconnectedAt: now,
-            status: "interrupted" as const,
-            updatedAt: now,
-          })
-          .where(eq(studioInterviewSchedule.id, roundId));
-        safeUpdateTag("studio-interviews");
+      const interviewRecord = await loadCandidateInterviewRecord(id, roundId);
+      if (!interviewRecord) {
+        return c.json({ error: "Interview not available." }, 404);
       }
-      return c.json({ success: true });
-    }
+      if (interviewRecord.currentRoundStatus === "completed") {
+        return c.json({ error: "当前面试轮次已结束，无法再提交面试表单。" }, 403);
+      }
 
-    await db.transaction(async (tx) => {
-      await tx
-        .update(studioInterviewSchedule)
-        .set({ status: "completed" as const, updatedAt: now })
-        .where(eq(studioInterviewSchedule.id, roundId));
+      const { versionId, answers: rawAnswers } = c.req.valid("json");
 
-      const pendingRounds = await tx
-        .select({ id: studioInterviewSchedule.id })
+      const applicable = await loadApplicableCandidateFormTemplates(id);
+      const applicableIds = new Set(
+        [...applicable.global, ...applicable.jobSpecific].map((t) => t.id),
+      );
+      if (!applicableIds.has(templateId)) {
+        return c.json({ error: "该面试表单不适用于当前面试。" }, 400);
+      }
+
+      const version = await loadCandidateFormTemplateVersionById(templateId, versionId);
+      if (!version) {
+        return c.json({ error: "面试表单版本不存在。" }, 400);
+      }
+
+      const answersSchema = buildCandidateFormAnswersSchema(version.snapshot);
+      const parsed = answersSchema.safeParse(rawAnswers);
+      if (!parsed.success) {
+        return c.json({ error: parsed.error.issues[0]?.message ?? "面试表单填写不完整。" }, 400);
+      }
+
+      const now = new Date();
+      const submissionId = crypto.randomUUID();
+      try {
+        await db.insert(candidateFormSubmission).values({
+          answers: parsed.data,
+          id: submissionId,
+          interviewRecordId: id,
+          submittedAt: now,
+          templateId,
+          versionId,
+        });
+      } catch {
+        // Unique (templateId, interviewRecordId) — treat as already submitted.
+        return c.json({ error: "该面试表单已提交过。" }, 409);
+      }
+
+      return c.json({ submissionId, success: true, version: version.version, versionId }, 200);
+    },
+  )
+  .post(
+    "/:id/:roundId/complete",
+    zValidator("query", z.object({ mode: z.enum(["interrupt", "final"]).optional() })),
+    async (c) => {
+      // 浏览器侧发出的「会话状态变更」信号，按 mode 区分：
+      //   mode=interrupt（默认）：候选人断连。把状态置为 interrupted 并写入
+      //     首次断开时间，开启 3 分钟热重连窗口；不级联面试整体状态。
+      //   mode=final：候选人主动结束（保留接口未来扩展）。立刻置 completed
+      //     并级联面试整体状态，与 /api/agent/report 的写入路径保持兼容。
+      // Agent grace 超时后由 shutdown 回调走 /api/agent/report 把轮次最终
+      // 落到 completed，因此 interrupt 不需要做任何兜底「结束」工作。
+      //
+      // Browser-side session-state signal. mode=interrupt (default) marks the
+      // round "interrupted" with disconnectedAt to open the 3-minute rejoin
+      // window; mode=final retains the original cascade-to-completed semantics
+      // for any future "leave interview" button. Final completion is normally
+      // driven by /api/agent/report after the agent's grace timer fires.
+      const roundId = c.req.param("roundId");
+      const mode = c.req.valid("query").mode === "final" ? "final" : "interrupt";
+      const now = new Date();
+
+      const [entry] = await db
+        .select({
+          disconnectedAt: studioInterviewSchedule.disconnectedAt,
+          id: studioInterviewSchedule.id,
+          interviewRecordId: studioInterviewSchedule.interviewRecordId,
+          status: studioInterviewSchedule.status,
+        })
         .from(studioInterviewSchedule)
-        .where(
-          and(
-            eq(studioInterviewSchedule.interviewRecordId, entry.interviewRecordId),
-            ne(studioInterviewSchedule.status, "completed"),
-          ),
-        );
+        .where(eq(studioInterviewSchedule.id, roundId))
+        .limit(1);
 
-      if (pendingRounds.length === 0) {
-        await tx
-          .update(studioInterview)
-          .set({ status: "completed" as const, updatedAt: now })
-          .where(eq(studioInterview.id, entry.interviewRecordId));
+      if (!entry) {
+        return c.json({ error: "Round not found." }, 404);
       }
-    });
 
-    safeUpdateTag("studio-interviews");
-    return c.json({ success: true });
-  });
+      if (entry.status === "completed") {
+        return c.json({ success: true }, 200);
+      }
+
+      if (mode === "interrupt") {
+        // 每次断连都覆盖 disconnectedAt = now，让 3 分钟宽限窗口与 agent 端的
+        // grace 计时器（每次 participant_disconnected 重启）保持同步。
+        // 之前"只在首次写"的策略会让多次断连时两端窗口错位 —— 例如用户首次断
+        // 30 秒后重连，又过 60 秒再次断开，agent 重启 grace 等 180 秒，但 web
+        // 仍按首次断的时间算（剩余 90 秒）就会过早判 410。
+        // pending 没有 anchor 不能重连，忽略；completed 已结束，忽略。
+        // Always overwrite disconnectedAt = now on every drop so the web grace
+        // window stays in lockstep with agent's grace timer (which restarts on
+        // each participant_disconnected). The earlier "first-drop only" rule
+        // caused the two windows to drift apart on multiple reconnects.
+        if (entry.status === "in_progress" || entry.status === "interrupted") {
+          await db
+            .update(studioInterviewSchedule)
+            .set({
+              disconnectedAt: now,
+              status: "interrupted" as const,
+              updatedAt: now,
+            })
+            .where(eq(studioInterviewSchedule.id, roundId));
+          safeUpdateTag("studio-interviews");
+        }
+        return c.json({ success: true }, 200);
+      }
+
+      await db.transaction(async (tx) => {
+        await tx
+          .update(studioInterviewSchedule)
+          .set({ status: "completed" as const, updatedAt: now })
+          .where(eq(studioInterviewSchedule.id, roundId));
+
+        const pendingRounds = await tx
+          .select({ id: studioInterviewSchedule.id })
+          .from(studioInterviewSchedule)
+          .where(
+            and(
+              eq(studioInterviewSchedule.interviewRecordId, entry.interviewRecordId),
+              ne(studioInterviewSchedule.status, "completed"),
+            ),
+          );
+
+        if (pendingRounds.length === 0) {
+          await tx
+            .update(studioInterview)
+            .set({ status: "completed" as const, updatedAt: now })
+            .where(eq(studioInterview.id, entry.interviewRecordId));
+        }
+      });
+
+      safeUpdateTag("studio-interviews");
+      return c.json({ success: true }, 200);
+    },
+  );

@@ -22,6 +22,7 @@ import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
 import type { DedupMatchRecord } from "@/lib/api";
 import { fetchInterviewDedup } from "@/lib/api";
+import { rpc } from "@/lib/rpc";
 import { readNdjsonStream } from "@/lib/ndjson-stream";
 import { cn } from "@/lib/utils";
 
@@ -557,12 +558,10 @@ export function ResumeImportButton({
 
       cachedParseResultRef.current = parseResult;
 
-      const matchResponse = await fetch("/api/interview/match-job-description", {
-        body: JSON.stringify({ resumeProfile: (parseResult as ParseResult).resumeProfile }),
-        headers: { "Content-Type": "application/json" },
-        method: "POST",
-        signal: abortController.signal,
-      });
+      const matchResponse = await rpc.api.interview["match-job-description"].$post(
+        { json: { resumeProfile: (parseResult as ParseResult).resumeProfile } },
+        { init: { signal: abortController.signal } },
+      );
 
       if (!matchResponse.ok) {
         // Fall back to no preselection — user can still pick manually.
