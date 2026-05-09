@@ -175,31 +175,24 @@ export function DataGrid<TData>(props: DataGridProps<TData>) {
                 // 但表头不应该跟随光标变色（否则非固定列变 muted、固定列保持 card 会撕裂）。
                 // Override the base TableRow hover so the whole header stays flat —
                 // otherwise non-pinned header cells would tint while pinned ones don't.
-                <TableRow className="hover:bg-transparent" key={headerGroup.id}>
-                  {headerGroup.headers.map((header) => {
-                    const isPinned = header.column.getIsPinned();
-                    return (
-                      <TableHead
-                        className={cn(
-                          // 统一 12px 水平 padding；shadcn `<TableHead>` 自带的
-                          // `[&:has([role=checkbox])]:pr-0` 会让 checkbox 列变成 pl:12 / pr:0
-                          // 的不对称形态，这里用同变体的 `pr-3` 把右内距找回来。
-                          // Force symmetric horizontal padding even for checkbox cells —
-                          // shadcn's base `<TableHead>` zeroes pr for checkbox cells, which
-                          // makes the column visibly off-center; restore pr-3 to match px-3.
-                          "px-3 [&:has([role=checkbox])]:pr-3",
-                          maxHeight && STICKY_HEADER_CLASS,
-                          isPinned && PINNED_CELL_CLASS,
-                        )}
-                        key={header.id}
-                        style={getPinningStyles(header.column, { isHeader: !!maxHeight })}
-                      >
-                        {header.isPlaceholder
-                          ? null
-                          : flexRender(header.column.columnDef.header, header.getContext())}
-                      </TableHead>
-                    );
-                  })}
+                <TableRow className="" key={headerGroup.id}>
+                  {headerGroup.headers.map((header) => (
+                    <TableHead
+                      className={cn(
+                        // 统一 12px 水平 padding；shadcn `<TableHead>` 自带的
+                        // `[&:has([role=checkbox])]:pr-0` 会让 checkbox 列变成 pl:12 / pr:0
+                        // 的不对称形态，这里用同变体的 `pr-3` 把右内距找回来。
+                        "px-3 [&:has([role=checkbox])]:pr-3 bg-background",
+                        maxHeight && STICKY_HEADER_CLASS,
+                      )}
+                      key={header.id}
+                      style={getPinningStyles(header.column, { isHeader: !!maxHeight })}
+                    >
+                      {header.isPlaceholder
+                        ? null
+                        : flexRender(header.column.columnDef.header, header.getContext())}
+                    </TableHead>
+                  ))}
                 </TableRow>
               ))}
             </TableHeader>

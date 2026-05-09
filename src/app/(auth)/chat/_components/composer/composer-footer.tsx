@@ -206,7 +206,7 @@ export function ComposerFooter({
           disabled={effectiveStatus === "ready" ? !canSubmit : false}
           onStop={stop}
           status={effectiveStatus}
-          variant="outline"
+          variant="default"
         />
       </div>
     </PromptInputFooter>
