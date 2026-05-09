@@ -202,7 +202,7 @@ export function InterviewerManagementPage({
     <>
       <div className="space-y-6">
         <header className="flex flex-col gap-2">
-          <h1 className="font-semibold text-2xl">面试官管理</h1>
+          <h1 className="text-2xl">面试官管理</h1>
           <p className="text-muted-foreground text-sm">
             配置 AI 面试官的 prompt 和 TTS 音色，在招岗位会引用这些面试官。
           </p>

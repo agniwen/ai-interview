@@ -42,7 +42,7 @@ export function QuickSuggestions() {
         <Suggestions className="gap-2.5 px-1 pb-1">
           {QUICK_SUGGESTIONS.map((suggestion) => (
             <Suggestion
-              className="h-auto whitespace-normal rounded-2xl border-border/70 bg-card/70 px-4 py-2 text-left text-xs leading-relaxed hover:bg-accent"
+              className="h-auto whitespace-normal rounded-2xl border-border/70 bg-card/70 px-4 py-2 text-left text-xs leading-normal hover:bg-accent"
               disabled={isStreaming}
               key={suggestion}
               onClick={(text) => {

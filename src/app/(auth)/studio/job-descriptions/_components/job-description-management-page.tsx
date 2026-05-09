@@ -245,7 +245,7 @@ export function JobDescriptionManagementPage({
     <>
       <div className="space-y-6">
         <header className="flex flex-col gap-2">
-          <h1 className="font-semibold text-2xl">在招岗位管理</h1>
+          <h1 className="text-2xl">在招岗位管理</h1>
           <p className="text-muted-foreground text-sm">
             配置岗位描述 prompt，并指定面试时要启用的面试官。
           </p>

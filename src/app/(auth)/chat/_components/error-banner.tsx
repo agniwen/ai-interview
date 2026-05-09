@@ -30,7 +30,7 @@ export function ErrorBanner({
         >
           <div className="flex min-w-0 items-start gap-2">
             <AlertCircleIcon className="mt-0.5 size-4 shrink-0" />
-            <span className="leading-relaxed">
+            <span className="leading-normal">
               请求失败，这一步没有完成。可以继续跑完剩下的步骤，或从头重新生成。
             </span>
           </div>
@@ -53,7 +53,7 @@ export function ErrorBanner({
           className="mb-2 flex items-center gap-2 rounded-md border border-destructive/25 bg-destructive/6 px-3 py-2 text-destructive text-sm sm:px-4"
         >
           <AlertCircleIcon className="mt-0.5 size-4 shrink-0" />
-          <p className="leading-relaxed">{uploadErrorMessage}</p>
+          <p className="leading-normal">{uploadErrorMessage}</p>
         </div>
       ) : null}
 
@@ -63,7 +63,7 @@ export function ErrorBanner({
           className="mb-2 flex items-center gap-2 rounded-md border border-destructive/25 bg-destructive/6 px-3 py-2 text-destructive text-sm sm:px-4"
         >
           <AlertCircleIcon className="mt-0.5 size-4 shrink-0" />
-          <p className="leading-relaxed">{historyErrorMessage}</p>
+          <p className="leading-normal">{historyErrorMessage}</p>
         </div>
       ) : null}
     </div>

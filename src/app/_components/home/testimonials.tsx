@@ -75,7 +75,7 @@ const testimonialsRow2: Testimonial[] = [
 function TestimonialCard({ name, role, quote }: Testimonial) {
   return (
     <div className="mx-3 flex h-full w-[320px] flex-col rounded-2xl border border-foreground/[0.06] bg-background/60 p-5 shadow-[0_4px_18px_-12px_rgba(0,0,0,0.18)] backdrop-blur sm:w-[360px] sm:p-6">
-      <p className="text-foreground/80 text-sm leading-relaxed sm:text-[15px]">“{quote}”</p>
+      <p className="text-foreground/80 text-sm leading-normal sm:text-[15px]">“{quote}”</p>
       <div className="mt-auto flex items-center gap-3 pt-5">
         <FallbackAvatar className="shrink-0 ring-1 ring-foreground/[0.06]" name={name} size={36} />
         <div className="min-w-0">

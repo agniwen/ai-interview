@@ -355,7 +355,7 @@ export function InterviewDetailDialog({
                                   ) : null}
                                 </div>
                               </div>
-                              <p className="mt-2 text-muted-foreground text-sm leading-relaxed">
+                              <p className="mt-2 text-muted-foreground text-sm leading-normal">
                                 {truncateText(entry.notes, 180) || "暂无轮次备注"}
                               </p>
                               <div className="mt-3 flex items-center justify-between gap-3 rounded-lg border border-border/50 bg-background/80 px-3 py-2">
@@ -378,7 +378,7 @@ export function InterviewDetailDialog({
                               </div>
                               <div className="mt-3 rounded-lg border border-border/50 bg-background/80 px-3 py-2">
                                 <p className="text-muted-foreground text-xs">完整面试链接</p>
-                                <p className="mt-1 break-all font-mono text-xs leading-relaxed">
+                                <p className="mt-1 break-all font-mono text-xs leading-normal">
                                   {interviewLink}
                                 </p>
                               </div>
@@ -393,19 +393,19 @@ export function InterviewDetailDialog({
 
                   <div className="rounded-2xl border border-border/60 bg-background p-5">
                     <h3 className="font-medium text-sm">技能与优势</h3>
-                    <p className="mt-3 text-muted-foreground text-sm leading-relaxed">
+                    <p className="mt-3 text-muted-foreground text-sm leading-normal">
                       技能：
                       <span className="wrap-break-word">
                         {visibleSkills.join("、") || "未发现信息"}
                       </span>
                     </p>
-                    <p className="mt-2 text-muted-foreground text-sm leading-relaxed">
+                    <p className="mt-2 text-muted-foreground text-sm leading-normal">
                       优势：
                       <span className="wrap-break-word">
                         {visiblePersonalStrengths.join("、") || "未发现信息"}
                       </span>
                     </p>
-                    <p className="mt-2 text-muted-foreground text-sm leading-relaxed">
+                    <p className="mt-2 text-muted-foreground text-sm leading-normal">
                       学校：
                       <span className="wrap-break-word">
                         {visibleSchools.join("、") || "未发现信息"}
@@ -415,7 +415,7 @@ export function InterviewDetailDialog({
 
                   <div className="rounded-2xl border border-border/60 bg-background p-5">
                     <h3 className="font-medium text-sm">备注</h3>
-                    <p className="mt-3 text-muted-foreground text-sm leading-relaxed">
+                    <p className="mt-3 text-muted-foreground text-sm leading-normal">
                       {truncateText(record.notes, 600) || "暂无备注"}
                     </p>
                   </div>
@@ -431,7 +431,7 @@ export function InterviewDetailDialog({
                         {latestReport ? formatReportStatus(latestReport.status) : "暂无报告"}
                       </Badge>
                     </div>
-                    <p className="mt-3 text-muted-foreground text-sm leading-relaxed">
+                    <p className="mt-3 text-muted-foreground text-sm leading-normal">
                       {latestReport?.transcriptSummary ?? "候选人完成面试后，这里会显示通话总结。"}
                     </p>
                   </div>
@@ -443,23 +443,25 @@ export function InterviewDetailDialog({
                   <div className="grid gap-4 md:grid-cols-4">
                     <div className="rounded-2xl border border-border/60 bg-background p-4">
                       <p className="text-muted-foreground text-xs">面试次数</p>
-                      <p className="mt-2 font-semibold text-2xl">{reports.length}</p>
+                      <p className="mt-2 font-medium text-2xl text-primary tabular-nums">
+                        {reports.length}
+                      </p>
                     </div>
                     <div className="rounded-2xl border border-border/60 bg-background p-4">
                       <p className="text-muted-foreground text-xs">已完成</p>
-                      <p className="mt-2 font-semibold text-2xl">
+                      <p className="mt-2 font-medium text-2xl text-primary tabular-nums">
                         {reports.filter((report) => report.status === "done").length}
                       </p>
                     </div>
                     <div className="rounded-2xl border border-border/60 bg-background p-4">
                       <p className="text-muted-foreground text-xs">失败</p>
-                      <p className="mt-2 font-semibold text-2xl">
+                      <p className="mt-2 font-medium text-2xl text-primary tabular-nums">
                         {reports.filter((report) => report.status === "failed").length}
                       </p>
                     </div>
                     <div className="rounded-2xl border border-border/60 bg-background p-4">
                       <p className="text-muted-foreground text-xs">累计对话轮次</p>
-                      <p className="mt-2 font-semibold text-2xl">
+                      <p className="mt-2 font-medium text-2xl text-primary tabular-nums">
                         {reports.reduce((sum, report) => sum + report.turnCount, 0)}
                       </p>
                     </div>
@@ -469,7 +471,7 @@ export function InterviewDetailDialog({
                     <div className="flex min-h-60 flex-col items-center justify-center rounded-2xl border border-dashed border-border/70 bg-muted/20 px-6 py-10 text-center">
                       <MessageSquareTextIcon className="size-8 text-muted-foreground" />
                       <p className="mt-4 font-medium text-sm">暂无面试报告</p>
-                      <p className="mt-2 max-w-xl text-muted-foreground text-sm leading-relaxed">
+                      <p className="mt-2 max-w-xl text-muted-foreground text-sm leading-normal">
                         候选人开始并结束语音面试后，这里会展示逐场面试的总结、状态和完整对话记录。
                       </p>
                     </div>
@@ -504,7 +506,7 @@ export function InterviewDetailDialog({
                                     <Badge variant="outline">{report.callSuccessful}</Badge>
                                   ) : null}
                                 </div>
-                                <p className="mt-2 line-clamp-2 text-muted-foreground text-sm leading-relaxed">
+                                <p className="mt-2 line-clamp-2 text-muted-foreground text-sm leading-normal">
                                   {report.transcriptSummary ??
                                     report.latestError ??
                                     "暂无总结，等待后续同步。"}
@@ -578,7 +580,7 @@ export function InterviewDetailDialog({
 
                                   <div className="rounded-2xl border border-border/60 bg-background p-4">
                                     <h4 className="font-medium text-sm">最终总结</h4>
-                                    <p className="mt-3 text-muted-foreground text-sm leading-relaxed">
+                                    <p className="mt-3 text-muted-foreground text-sm leading-normal">
                                       {report.transcriptSummary ?? "暂无总结。"}
                                     </p>
                                     {report.latestError ? (
@@ -633,7 +635,7 @@ export function InterviewDetailDialog({
                                                 </span>
                                               ) : null}
                                             </div>
-                                            <p className="mt-2 text-sm leading-relaxed">
+                                            <p className="mt-2 text-sm leading-normal">
                                               {turn.message}
                                             </p>
                                           </div>
@@ -672,7 +674,7 @@ export function InterviewDetailDialog({
                               {question.difficulty}
                             </span>
                           </div>
-                          <p className="mt-2 text-sm leading-relaxed">
+                          <p className="mt-2 text-sm leading-normal">
                             {truncateText(question.question, 240)}
                           </p>
                         </div>
@@ -702,7 +704,7 @@ export function InterviewDetailDialog({
                             <p className="mt-1 text-muted-foreground text-xs">
                               {formatValue(item.period)}
                             </p>
-                            <p className="mt-2 text-sm leading-relaxed">
+                            <p className="mt-2 text-sm leading-normal">
                               {truncateText(item.summary, 280)}
                             </p>
                             {index < visibleWorkExperiences.length - 1 ? (
@@ -730,7 +732,7 @@ export function InterviewDetailDialog({
                             <p className="mt-1 text-muted-foreground text-xs">
                               {formatValue(item.period)}
                             </p>
-                            <p className="mt-2 text-sm leading-relaxed">
+                            <p className="mt-2 text-sm leading-normal">
                               {truncateText(item.summary, 280)}
                             </p>
                             <p className="mt-2 text-muted-foreground text-xs">

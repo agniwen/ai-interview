@@ -128,7 +128,7 @@ function RuleItem({
       <Icon className="mt-0.5 size-4 shrink-0 text-muted-foreground sm:size-4.5" />
       <div className="flex flex-col gap-1">
         <div className="font-medium text-sm sm:text-base">{title}</div>
-        <p className="text-muted-foreground text-xs leading-relaxed sm:text-sm">{description}</p>
+        <p className="text-muted-foreground text-xs leading-normal sm:text-sm">{description}</p>
       </div>
     </li>
   );
@@ -189,7 +189,7 @@ function WaitingView({
       <main className="relative flex min-h-dvh w-full select-none flex-col md:items-center md:justify-center">
         <div className="mx-auto flex w-full max-w-2xl flex-col px-5 pt-12  sm:px-2 sm:pt-20 md:pt-16">
           <section>
-            <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
+            <h1 className="text-2xl tracking-tight sm:text-3xl">
               {isRecovering ? "正在恢复面试连接" : resolveTitle(isRoundCompleted, candidateName)}
             </h1>
             <p className="mt-2 text-muted-foreground text-sm sm:text-base">{subheadingText}</p>

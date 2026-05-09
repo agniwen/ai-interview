@@ -400,7 +400,7 @@ export function InterviewManagementPage({
     <>
       <div className="space-y-6">
         <section className="space-y-4">
-          <h2 className="font-semibold text-lg">AI 面试</h2>
+          <h2 className="text-lg">AI 面试</h2>
           <DataGrid<StudioInterviewListRecord>
             {...grid.bind}
             columns={columns}

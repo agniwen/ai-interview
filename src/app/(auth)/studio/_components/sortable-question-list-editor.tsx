@@ -91,7 +91,7 @@ function QuestionListBody({
       <div className="flex min-h-44 flex-col items-center justify-center rounded-xl border border-dashed border-border/60 bg-muted/10 px-6 py-10 text-center">
         <p className="font-medium text-sm">{emptyTitle}</p>
         {emptyDescription ? (
-          <p className="mt-1.5 max-w-md text-muted-foreground text-xs leading-relaxed">
+          <p className="mt-1.5 max-w-md text-muted-foreground text-xs leading-normal">
             {emptyDescription}
           </p>
         ) : null}

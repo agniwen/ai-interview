@@ -40,10 +40,10 @@ function BentoTile({
   const head = (
     <div>
       <Icon aria-hidden="true" className="size-6 text-foreground/55" strokeWidth={1.25} />
-      <h3 className="mt-6 font-semibold text-foreground text-lg leading-tight tracking-tight">
+      <h3 className="mt-6 font-medium text-foreground text-lg leading-tight tracking-tight">
         {title}
       </h3>
-      <p className="mt-2 text-foreground/70 text-sm leading-relaxed">{description}</p>
+      <p className="mt-2 text-foreground/70 text-sm leading-normal">{description}</p>
     </div>
   );
 

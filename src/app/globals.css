@@ -54,6 +54,17 @@
   --radius-2xl: calc(var(--radius) + 8px);
   --radius-3xl: calc(var(--radius) + 12px);
   --radius-4xl: calc(var(--radius) + 16px);
+
+  /* kami "whisper shadow" 阶梯：取代硬投影，纸张般的轻微抬升。
+     kami invariant #9 — depth via soft long-blur whispers, never hard drop shadows. */
+  --shadow-2xs: 0 1px 2px 0 rgb(0 0 0 / 0.025);
+  --shadow-xs: 0 1px 3px 0 rgb(0 0 0 / 0.03);
+  --shadow-sm: 0 2px 8px -2px rgb(0 0 0 / 0.04);
+  --shadow-DEFAULT: 0 4px 16px -4px rgb(0 0 0 / 0.05);
+  --shadow-md: 0 6px 20px -6px rgb(0 0 0 / 0.05);
+  --shadow-lg: 0 10px 32px -8px rgb(0 0 0 / 0.06);
+  --shadow-xl: 0 16px 48px -12px rgb(0 0 0 / 0.07);
+  --shadow-2xl: 0 24px 64px -16px rgb(0 0 0 / 0.08);
 }
 
 :root {
@@ -147,6 +158,35 @@
     text-rendering: optimizeLegibility;
     touch-action: manipulation;
     -webkit-tap-highlight-color: rgba(61, 142, 238, 0.14);
+    /* kami: 段落孤儿/寡妇行最少 3 行，避免页底/段尾零散单行。
+       kami: minimum 3 lines for widows and orphans — no stranded single lines. */
+    widows: 3;
+    orphans: 3;
+  }
+
+  /* kami 标题阶梯改造版：保留 kami 节奏（字重 500、紧凑 line-height、tracking-tight），
+     字体沿用全局 MiSans（不切换到 serif）。靠字号和颜色建立 hierarchy，不靠粗体。
+     kami heading scale (MiSans variant): keep weight 500, tight line-height,
+     tracking-tight from kami; font-family stays global MiSans (project preference,
+     overrides kami's serif-headlines rule). Components with explicit utility
+     classes still win — these only style bare h1-h4 tags. */
+  h1 {
+    @apply text-3xl leading-tight tracking-tight text-foreground;
+    font-weight: 500;
+  }
+  h2 {
+    @apply text-2xl leading-tight tracking-tight text-foreground;
+    font-weight: 500;
+  }
+  h3 {
+    @apply text-lg text-foreground;
+    font-weight: 500;
+    line-height: 1.3;
+  }
+  h4 {
+    @apply text-sm text-foreground;
+    font-weight: 500;
+    line-height: 1.4;
   }
 
   ::selection {
@@ -179,6 +219,31 @@
     background: oklch(0.45 0 0 / 65%);
     background-clip: content-box;
   }
+}
+
+/* kami section title — 左侧 2.5px 墨蓝竖条 + 字重 500 标题，
+   用于页面/卡片内的小节起首，替代纯 font-bold 的层级表达。
+   字体沿用全局 MiSans（不走 serif）。
+   kami section title — 2.5px brand left bar + weight 500 (MiSans).
+   Use to open subsections in place of plain font-bold headings. */
+@utility kami-section-title {
+  font-weight: 500;
+  font-size: 0.95rem;
+  line-height: 1.3;
+  color: var(--foreground);
+  border-left: 2.5px solid var(--primary);
+  border-radius: 1.5px;
+  padding-left: 0.625rem;
+}
+
+/* kami eyebrow — 全大写小标签 + 字距，用作 section 上方的 meta。
+   kami eyebrow — uppercase tracked label for section meta. */
+@utility kami-eyebrow {
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
 }
 
 @media (prefers-reduced-motion: reduce) {

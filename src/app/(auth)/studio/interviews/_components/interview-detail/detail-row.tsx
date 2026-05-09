@@ -17,7 +17,7 @@ export function DetailRow({
     <div className="grid grid-cols-[88px_minmax(0,1fr)] items-start gap-3">
       <span className="pt-0.5 text-muted-foreground">{label}</span>
       <span
-        className={`min-w-0 break-words text-foreground leading-relaxed ${valueClassName ?? ""}`}
+        className={`min-w-0 break-words text-foreground leading-normal ${valueClassName ?? ""}`}
       >
         {value}
       </span>

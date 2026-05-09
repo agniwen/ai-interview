@@ -68,7 +68,7 @@ export function AgentInstructionsPanel({
             <h4 className="font-medium text-foreground/80 text-xs uppercase tracking-wide">
               系统提示词 (system prompt)
             </h4>
-            <pre className="whitespace-pre-wrap rounded-md bg-background/60 p-3 font-sans text-muted-foreground text-sm leading-relaxed">
+            <pre className="whitespace-pre-wrap rounded-md bg-background/60 p-3 font-sans text-muted-foreground text-sm leading-normal">
               {variant.instructions}
             </pre>
           </section>
@@ -77,7 +77,7 @@ export function AgentInstructionsPanel({
             <h4 className="font-medium text-foreground/80 text-xs uppercase tracking-wide">
               开场白 prompt
             </h4>
-            <pre className="whitespace-pre-wrap rounded-md bg-background/60 p-3 font-sans text-muted-foreground text-sm leading-relaxed">
+            <pre className="whitespace-pre-wrap rounded-md bg-background/60 p-3 font-sans text-muted-foreground text-sm leading-normal">
               {variant.openingPrompt}
             </pre>
           </section>
@@ -86,7 +86,7 @@ export function AgentInstructionsPanel({
             <h4 className="font-medium text-foreground/80 text-xs uppercase tracking-wide">
               结束语 prompt
             </h4>
-            <pre className="whitespace-pre-wrap rounded-md bg-background/60 p-3 font-sans text-muted-foreground text-sm leading-relaxed">
+            <pre className="whitespace-pre-wrap rounded-md bg-background/60 p-3 font-sans text-muted-foreground text-sm leading-normal">
               {variant.closingPrompt}
             </pre>
           </section>

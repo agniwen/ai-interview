@@ -42,7 +42,7 @@ function KeyValueEntries({ entries }: { entries: Record<string, unknown> }) {
       {items.map(([key, value]) => (
         <div className="rounded-xl border border-border/60 bg-muted/20 px-3 py-2 text-sm" key={key}>
           <p className="font-medium">{key}</p>
-          <p className="mt-1 break-words text-muted-foreground leading-relaxed">
+          <p className="mt-1 break-words text-muted-foreground leading-normal">
             {typeof value === "string" ? value : JSON.stringify(value)}
           </p>
         </div>
@@ -71,7 +71,9 @@ export function EvaluationResults({ data }: { data: Record<string, unknown> }) {
     <div className="space-y-3">
       {typeof data.overallScore === "number" && (
         <div className="flex items-center gap-3 rounded-xl border border-border/60 bg-muted/20 px-3 py-2.5">
-          <span className="font-semibold text-2xl">{data.overallScore}</span>
+          <span className="font-medium text-2xl text-primary tabular-nums">
+            {data.overallScore}
+          </span>
           <span className="text-muted-foreground text-sm">/ 100</span>
           {data.recommendation && (
             <Badge className="ml-auto" variant={resolveRecommendationVariant(data.recommendation)}>
@@ -81,7 +83,7 @@ export function EvaluationResults({ data }: { data: Record<string, unknown> }) {
         </div>
       )}
       {data.overallAssessment && (
-        <p className="text-muted-foreground text-sm leading-relaxed">{data.overallAssessment}</p>
+        <p className="text-muted-foreground text-sm leading-normal">{data.overallAssessment}</p>
       )}
       {data.questions.length > 0 && (
         <div className="space-y-2">
@@ -91,7 +93,7 @@ export function EvaluationResults({ data }: { data: Record<string, unknown> }) {
               key={q.order ?? i}
             >
               <div className="flex items-start justify-between gap-2">
-                <p className="min-w-0 font-medium leading-relaxed">
+                <p className="min-w-0 font-medium leading-normal">
                   {q.order === null || q.order === undefined ? "" : `${q.order}. `}
                   {q.question ?? "未知题目"}
                 </p>
@@ -101,7 +103,7 @@ export function EvaluationResults({ data }: { data: Record<string, unknown> }) {
                 </span>
               </div>
               {q.assessment && (
-                <p className="mt-1.5 text-muted-foreground leading-relaxed">{q.assessment}</p>
+                <p className="mt-1.5 text-muted-foreground leading-normal">{q.assessment}</p>
               )}
             </div>
           ))}

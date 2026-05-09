@@ -600,7 +600,7 @@ export function CreateInterviewDialog({
                           <SparklesIcon className="size-4 text-amber-500" />
                           已完成简历分析
                         </p>
-                        <p className="mt-1 break-words text-muted-foreground leading-relaxed">
+                        <p className="mt-1 break-words text-muted-foreground leading-normal">
                           {resumePayload.resumeProfile.name}
                           {" · "}
                           {resumePayload.resumeProfile.targetRoles[0] ?? "待识别岗位"}

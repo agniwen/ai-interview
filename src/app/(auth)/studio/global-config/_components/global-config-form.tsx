@@ -42,7 +42,7 @@ export function GlobalConfigForm({ initial }: Props) {
   return (
     <div className="flex flex-col gap-6 max-w-3xl">
       <div>
-        <h1 className="text-2xl font-semibold">全局配置</h1>
+        <h1 className="text-2xl">全局配置</h1>
         <p className="text-sm text-muted-foreground mt-1">
           这些指令会注入到所有面试 agent。留空则使用系统默认文案。
         </p>

@@ -55,10 +55,10 @@ export function Personas() {
               <p className="mt-6 font-medium text-foreground/55 text-xs uppercase tracking-[0.16em]">
                 {role}
               </p>
-              <h3 className="mt-2 min-h-[2lh] font-semibold text-foreground text-xl leading-tight tracking-tight sm:text-2xl">
+              <h3 className="mt-2 min-h-[2lh] font-medium text-foreground text-xl leading-tight tracking-tight sm:text-2xl">
                 {title}
               </h3>
-              <p className="mt-3 text-foreground/75 text-sm leading-relaxed sm:text-[15px]">
+              <p className="mt-3 text-foreground/75 text-sm leading-normal sm:text-[15px]">
                 {description}
               </p>
             </article>

@@ -82,9 +82,7 @@ function ExperienceCard({
       </div>
       {role ? <p className="mt-0.5 text-muted-foreground text-xs">{role}</p> : null}
       {summary ? (
-        <p className="mt-2 whitespace-pre-wrap text-foreground text-sm leading-relaxed">
-          {summary}
-        </p>
+        <p className="mt-2 whitespace-pre-wrap text-foreground text-sm leading-normal">{summary}</p>
       ) : null}
       {extra ? <div className="mt-2">{extra}</div> : null}
     </div>

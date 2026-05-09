@@ -35,7 +35,7 @@ export function FormCard({
     >
       <header className="mb-4 flex items-start justify-between gap-3">
         <div>
-          <h2 className="font-semibold text-lg">{template.snapshot.title}</h2>
+          <h2 className="text-lg">{template.snapshot.title}</h2>
           {template.snapshot.description ? (
             <p className="mt-1 text-muted-foreground text-sm">{template.snapshot.description}</p>
           ) : null}

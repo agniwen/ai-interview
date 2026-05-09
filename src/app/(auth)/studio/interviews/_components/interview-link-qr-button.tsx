@@ -91,11 +91,11 @@ export function InterviewLinkQrButton({
             className="flex w-72 flex-col items-center gap-3 rounded-lg border border-slate-200 bg-white p-4 text-slate-900"
             ref={cardRef}
           >
-            <p className="w-full text-left text-sm leading-relaxed">{greeting}</p>
+            <p className="w-full text-left text-sm leading-normal">{greeting}</p>
             <div className="rounded-md bg-white p-2">
               <QRCodeCanvas level="M" size={QR_SIZE} value={url} />
             </div>
-            <p className="w-full break-all text-center font-mono text-[11px] text-slate-500 leading-relaxed">
+            <p className="w-full break-all text-center font-mono text-[11px] text-slate-500 leading-normal">
               {url}
             </p>
           </div>

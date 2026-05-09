@@ -38,7 +38,7 @@ export default async function SkillAuthorizePage({ searchParams }: PageProps) {
       id="main-content"
     >
       <div className="w-full max-w-md">
-        <Card className="border-border/60 bg-background/92 shadow-[0_24px_64px_-40px_rgba(15,23,42,0.35)]">
+        <Card className="border-border/60 bg-background/92 shadow-lg">
           <CardHeader>
             <CardTitle>授权 Resume Parser Skill</CardTitle>
             <CardDescription>
@@ -70,7 +70,7 @@ export default async function SkillAuthorizePage({ searchParams }: PageProps) {
           </CardContent>
         </Card>
 
-        <p className="mt-4 text-center text-muted-foreground text-xs leading-relaxed">
+        <p className="mt-4 text-center text-muted-foreground text-xs leading-normal">
           <Link className="font-medium text-primary hover:underline" href="/">
             返回首页
           </Link>

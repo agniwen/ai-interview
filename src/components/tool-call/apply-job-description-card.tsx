@@ -140,7 +140,7 @@ export function ApplyJobDescriptionCard({
               {isResolved ? "在招岗位匹配结果" : "是否将以下在招岗位设置为本次对话上下文？"}
             </div>
             {input.reasoning ? (
-              <div className="mt-1 text-muted-foreground text-xs leading-relaxed">
+              <div className="mt-1 text-muted-foreground text-xs leading-normal">
                 {input.reasoning}
               </div>
             ) : null}

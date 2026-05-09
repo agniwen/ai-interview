@@ -216,7 +216,7 @@ export function InterviewQuestionBindingsSection({
                           >
                             {DIFFICULTY_LABEL[difficulty]}
                           </span>
-                          <p className="min-w-0 flex-1 leading-relaxed">{question.content}</p>
+                          <p className="min-w-0 flex-1 leading-normal">{question.content}</p>
                         </li>
                       );
                     })}

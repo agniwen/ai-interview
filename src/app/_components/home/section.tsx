@@ -30,7 +30,7 @@ interface EyebrowProps {
 }
 export function Eyebrow({ children }: EyebrowProps) {
   return (
-    <p className="font-mono font-semibold text-primary text-sm uppercase tracking-[0.22em] sm:text-base">
+    <p className="font-mono font-medium text-primary text-sm uppercase tracking-[0.22em] sm:text-base">
       {children}
     </p>
   );
@@ -44,7 +44,7 @@ export function SectionTitle({ children, className }: SectionTitleProps) {
   return (
     <h2
       className={cn(
-        "mt-3 max-w-3xl font-bold text-3xl text-foreground leading-[1.2] tracking-tight sm:text-4xl lg:text-5xl",
+        "mt-3 max-w-3xl font-medium text-3xl text-foreground leading-[1.2] tracking-tight sm:text-4xl lg:text-5xl",
         className,
       )}
     >
@@ -61,7 +61,7 @@ export function SectionLead({ children, className }: SectionLeadProps) {
   return (
     <p
       className={cn(
-        "mt-4 max-w-2xl text-base text-muted-foreground leading-relaxed sm:text-lg",
+        "mt-4 max-w-2xl text-base text-muted-foreground leading-normal sm:text-lg",
         className,
       )}
     >

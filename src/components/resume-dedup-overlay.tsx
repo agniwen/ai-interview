@@ -62,7 +62,7 @@ export function ResumeDedupOverlay({ matches, onContinue, onCancel }: ResumeDedu
           <AlertTriangleIcon className="mt-0.5 size-5 shrink-0" />
           <div className="space-y-1">
             <p className="font-medium text-sm">检测到 {matches.length} 条疑似重复的候选人记录</p>
-            <p className="text-xs leading-relaxed opacity-80">
+            <p className="text-xs leading-normal opacity-80">
               依据简历中的姓名 / 邮箱 /
               电话匹配。请确认这些记录是否为同一候选人——你可以选择继续解析，或取消本次上传。
             </p>

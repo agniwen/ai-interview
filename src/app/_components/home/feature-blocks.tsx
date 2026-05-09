@@ -86,19 +86,19 @@ interface SceneProps {
 // 共用样式：标题 / 描述（统一尺寸节奏，避免三段视觉权重失衡）
 // Shared rhythm — same title scale across all scenes keeps vertical alignment coherent
 const titleClass =
-  "font-bold text-3xl text-foreground tracking-tight leading-[1.15] sm:text-4xl lg:text-[2.5rem] lg:leading-[1.18]";
+  "font-medium text-3xl text-foreground tracking-tight leading-[1.15] sm:text-4xl lg:text-[2.5rem] lg:leading-[1.18]";
 const leadClass =
-  "text-base text-muted-foreground leading-relaxed sm:text-[1.0625rem] lg:text-[1.0625rem]";
+  "text-base text-muted-foreground leading-normal sm:text-[1.0625rem] lg:text-[1.0625rem]";
 
 // 编号 bullet 卡片：与下方 CapabilityGrid BentoTile 同款毛玻璃材质（背景 60%、淡边、轻投影、blur）
 // Bullet card material — matches the CapabilityGrid BentoTile glass: bg-background/60, faint border, soft drop, backdrop-blur
 const bulletCardClass =
   "flex items-start gap-3 rounded-xl border border-foreground/[0.06] bg-background/60 p-3.5 shadow-[0_4px_18px_-12px_rgba(0,0,0,0.18)] backdrop-blur";
 // 序号与正文用同字号 / 行高，items-start 后首行自然对齐
-// Index & body share text-sm + leading-relaxed so first lines align without manual offsets
+// Index & body share text-sm + leading-normal so first lines align without manual offsets
 const bulletIndexClass =
-  "shrink-0 font-mono font-semibold text-primary text-sm leading-relaxed tabular-nums";
-const bulletBodyClass = "text-foreground/85 text-sm leading-relaxed";
+  "shrink-0 font-mono font-medium text-primary text-sm leading-normal tabular-nums";
+const bulletBodyClass = "text-foreground/85 text-sm leading-normal";
 
 // 场景 A：聊天式 — 左文右图，文案竖排带编号卡片，截图浮一个 Live 徽标
 // Scene A: chat — text-left/image-right, numbered cards, floating Live badge
@@ -294,10 +294,10 @@ function SceneCard({ block }: { block: Block }) {
     <article className="flex h-full w-full flex-col gap-4 overflow-hidden rounded-3xl border border-foreground/[0.06] bg-background/60 p-5 shadow-[0_4px_18px_-12px_rgba(0,0,0,0.18)] backdrop-blur sm:gap-5 sm:p-6">
       <div className="space-y-2">
         <Eyebrow>{block.eyebrow}</Eyebrow>
-        <h3 className="font-bold text-2xl text-foreground leading-[1.2] tracking-tight sm:text-[1.75rem]">
+        <h3 className="font-medium text-2xl text-foreground leading-[1.2] tracking-tight sm:text-[1.75rem]">
           {block.title}
         </h3>
-        <p className="text-foreground/70 text-sm leading-relaxed sm:text-[0.95rem]">{block.lead}</p>
+        <p className="text-foreground/70 text-sm leading-normal sm:text-[0.95rem]">{block.lead}</p>
       </div>
       {/* 卡片自带阴影，截图内部不再叠 shadow-xl，否则会被 article 的 overflow-hidden 裁切出黑边 */}
       {/* Card has its own shadow; suppress Screenshot's shadow-xl so it doesn't get clipped by the article's overflow-hidden */}
@@ -312,10 +312,10 @@ function SceneCard({ block }: { block: Block }) {
       <ul className="mt-auto space-y-2">
         {block.bullets.map((bullet, i) => (
           <li className="flex items-start gap-3" key={bullet}>
-            <span className="shrink-0 font-mono font-semibold text-primary text-sm leading-relaxed tabular-nums">
+            <span className="shrink-0 font-mono font-medium text-primary text-sm leading-normal tabular-nums">
               0{i + 1}
             </span>
-            <span className="text-foreground/85 text-sm leading-relaxed">{bullet}</span>
+            <span className="text-foreground/85 text-sm leading-normal">{bullet}</span>
           </li>
         ))}
       </ul>

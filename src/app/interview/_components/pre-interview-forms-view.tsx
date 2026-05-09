@@ -195,9 +195,7 @@ export function PreInterviewFormsView({
                 <ClipboardListIcon className="size-3.5" />
                 开始前的面试表单
               </div>
-              <h1 className="font-semibold text-2xl tracking-tight sm:text-3xl">
-                开始前请先填写面试表单
-              </h1>
+              <h1 className="text-2xl tracking-tight sm:text-3xl">开始前请先填写面试表单</h1>
               <p className="mt-2 text-muted-foreground text-sm sm:text-base">
                 完成全部面试表单后进入面试。
               </p>

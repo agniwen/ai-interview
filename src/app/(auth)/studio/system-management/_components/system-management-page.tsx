@@ -289,7 +289,7 @@ export function SystemManagementPage({ initialData }: { initialData: AdminUserLi
     <>
       <div className="space-y-6">
         <header className="flex flex-col gap-2">
-          <h1 className="font-semibold text-2xl">用户管理</h1>
+          <h1 className="text-2xl">用户管理</h1>
           <p className="text-muted-foreground text-sm">
             查看系统用户、封禁/解封违规账号。管理员角色仅由数据库直接调整。
           </p>

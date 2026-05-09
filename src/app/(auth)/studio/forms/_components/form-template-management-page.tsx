@@ -302,7 +302,7 @@ export function CandidateFormTemplateManagementPage({
     <>
       <div className="space-y-6">
         <header className="flex flex-col gap-2">
-          <h1 className="font-semibold text-2xl">面试表单</h1>
+          <h1 className="text-2xl">面试表单</h1>
           <p className="text-muted-foreground text-sm">
             配置候选人在面试前需要填写的表单。可以设为全局或绑定到在招岗位；候选人提交后会冻结为快照，之后编辑不影响历史填写记录。
           </p>

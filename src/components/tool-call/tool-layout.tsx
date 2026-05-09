@@ -341,12 +341,12 @@ export function ToolLayout({
             {shouldRenderExpandedContent && (
               <div className="space-y-2 pb-1">
                 {showErrorExpanded && !hasRenderableContent(expandedContent) && (
-                  <pre className="max-h-48 overflow-auto whitespace-pre-wrap break-all rounded-md border border-red-500/20 bg-red-500/5 px-3 py-2 font-mono text-xs leading-relaxed text-red-400">
+                  <pre className="max-h-48 overflow-auto whitespace-pre-wrap break-all rounded-md border border-red-500/20 bg-red-500/5 px-3 py-2 font-mono text-xs leading-normal text-red-400">
                     {errorMessage}
                   </pre>
                 )}
                 {showInterruptedExpanded && (
-                  <pre className="rounded mt-0.5 border border-yellow-500/20 bg-yellow-500/5 px-3 py-2 font-mono text-xs leading-relaxed text-yellow-500">
+                  <pre className="rounded mt-0.5 border border-yellow-500/20 bg-yellow-500/5 px-3 py-2 font-mono text-xs leading-normal text-yellow-500">
                     已中断
                   </pre>
                 )}

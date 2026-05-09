@@ -106,7 +106,7 @@ export function ProcessTabs() {
                       </span>
                       <span
                         className={cn(
-                          "font-semibold text-base transition-colors sm:text-lg",
+                          "font-medium text-base transition-colors sm:text-lg",
                           isActive ? "text-foreground" : "text-foreground/55",
                         )}
                       >
@@ -115,7 +115,7 @@ export function ProcessTabs() {
                     </div>
                     <p
                       className={cn(
-                        "grid overflow-hidden text-foreground/70 text-sm leading-relaxed transition-[grid-template-rows,opacity,margin] duration-300",
+                        "grid overflow-hidden text-foreground/70 text-sm leading-normal transition-[grid-template-rows,opacity,margin] duration-300",
                         isActive
                           ? "mt-3 grid-rows-[1fr] opacity-100"
                           : "mt-0 grid-rows-[0fr] opacity-0",

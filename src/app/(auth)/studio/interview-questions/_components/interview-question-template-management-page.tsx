@@ -294,7 +294,7 @@ export function InterviewQuestionTemplateManagementPage({
     <>
       <div className="space-y-6">
         <header className="flex flex-col gap-2">
-          <h1 className="font-semibold text-2xl">面试题</h1>
+          <h1 className="text-2xl">面试题</h1>
           <p className="text-muted-foreground text-sm">
             配置面试官在面试中向候选人必问的题目。可以设为全局或绑定到在招岗位；面试创建时会冻结当前题目快照，之后编辑不影响已开始的面试。
           </p>

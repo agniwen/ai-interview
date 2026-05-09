@@ -21,7 +21,7 @@ interface HeroProps {
 //   t=0.10   sub paragraph fade
 //   t=0.20   CTA buttons fade
 const BRAND_MARK_CLASS =
-  "mb-3 block font-mono font-bold text-base text-primary uppercase tracking-[0.22em] sm:mb-4 sm:text-base lg:text-lg";
+  "mb-3 block font-mono font-medium text-base text-primary uppercase tracking-[0.22em] sm:mb-4 sm:text-base lg:text-lg";
 
 export function Hero({ isPending, onResumeFiltering, onWorkbench }: HeroProps) {
   const reducedMotion = useReducedMotion();
@@ -37,7 +37,7 @@ export function Hero({ isPending, onResumeFiltering, onWorkbench }: HeroProps) {
         </p>
       </FadeContent>
 
-      <h1 className="mt-5 mx-auto max-w-5xl text-balance font-bold text-[2rem] text-foreground leading-[1.12] tracking-tight sm:mt-6 sm:text-5xl lg:text-[3.5rem]">
+      <h1 className="mt-5 mx-auto max-w-5xl text-balance font-medium text-[2rem] text-foreground leading-[1.12] tracking-tight sm:mt-6 sm:text-5xl lg:text-[3.5rem]">
         {/* 品牌行用 motion.span（不能用 FadeContent，它会渲染 <div> 嵌进 <h1> 不合法）。
             延迟 0.15s 卡在 eyebrow 起势之后、SplitText 标语字符 stagger 起点(0.1s) 附近，
             形成 eyebrow → 品牌行 → 标语字符 → 副标题 → CTA 的连贯入场。
@@ -60,7 +60,7 @@ export function Hero({ isPending, onResumeFiltering, onWorkbench }: HeroProps) {
       </h1>
 
       <FadeContent className="mt-5 mx-auto max-w-2xl sm:mt-7" delay={0.1}>
-        <p className="font-serif text-sm text-muted-foreground leading-relaxed sm:text-lg sm:leading-[1.8]">
+        <p className="font-serif text-sm text-muted-foreground leading-normal sm:text-lg sm:leading-[1.8]">
           先用聊天式方式完成简历初筛，再进入实时语音模拟面试，连续查看候选人的亮点、风险、追问过程与回答表现，让招聘判断更完整。
         </p>
       </FadeContent>

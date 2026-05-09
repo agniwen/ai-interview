@@ -78,7 +78,7 @@ function DialogModal({
       <DialogPrimitive.Portal>
         <DialogPrimitive.Overlay
           className={cn(
-            "fixed inset-0 z-50 bg-background/50",
+            "fixed inset-0 z-50 bg-background/60",
             "data-[state=closed]:animate-out data-[state=closed]:fade-out-0",
             "data-[state=open]:animate-in data-[state=open]:fade-in-0",
           )}
@@ -171,7 +171,7 @@ function DrawerModal({
       <DrawerPrimitive.Portal>
         <DrawerPrimitive.Overlay
           className={cn(
-            "fixed inset-0 z-50 bg-background/50",
+            "fixed inset-0 z-50 bg-background/60",
             "data-[state=closed]:animate-out data-[state=closed]:fade-out-0",
             "data-[state=open]:animate-in data-[state=open]:fade-in-0",
           )}
