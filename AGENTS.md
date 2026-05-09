@@ -1,157 +1,70 @@
-# ai-tool-demo Development Guidelines
+# AGENTS.md
 
-Auto-generated from all feature plans. Last updated: 2026-03-10
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Active Technologies
+## Project Overview
 
-- TypeScript 5.x on Node.js with Next.js 16 / React 19 + Next.js App Router, Hono, Drizzle ORM, Postgres, Zod, React Hook Form, TanStack Table, Better Auth, ElevenLabs clien (001-interview-resume-library)
+AI-powered voice interview/resume screening application. Chinese-first locale — agent instructions and interview prompts are in Simplified Chinese.
 
-## Project Structure
+## Architecture
 
-```text
-backend/
-frontend/
-tests/
-```
+- **Web app** (`src/`): Next.js 16 + React 19, App Router, Hono API routes, Drizzle ORM + PostgreSQL, Better Auth, shadcn/ui + Tailwind CSS v4
+- **Voice agent** (`agent/`): Python LiveKit Agents SDK with OpenAI / Google / ElevenLabs / Minimax plugins, Silero VAD, turn-detector
+- **Monorepo**: pnpm workspace; shared packages in `packages/` (e.g. `@repo/adapter-feishu`)
+
+Two separate package managers: **pnpm** for web, **uv** for Python agent. Do not mix them.
 
 ## Commands
 
-npm test && npm run lint
+### Web (from project root)
+
+- `pnpm dev` — dev server
+- `pnpm hooks` — install lefthook git hooks (run once after clone)
+- `pnpm build` — production build
+- `pnpm typecheck` — TypeScript type checking
+- `pnpm check` — Ultracite (oxlint + oxfmt) check
+- `pnpm fix` — Ultracite autofix (also runs via lefthook on commit)
+- `pnpm test` / `pnpm test:watch` — Vitest
+- `pnpm db:generate` — generate a versioned migration from schema changes
+- `pnpm db:migrate` — apply migrations
+- `pnpm db:seed` — seed via `scripts/seed.ts`
+- `pnpm db:studio` — Drizzle Studio UI
+
+### Agent (from `agent/`)
+
+- `uv sync` — install dependencies
+- `uv run src/agent.py download-files` — download VAD + turn-detector models (required before first run)
+- `uv run src/agent.py dev` — dev mode with hot reload
+- `uv run src/agent.py console` — interactive terminal chat
+- `uv run pytest` — run tests
+- `uv run ruff format` — format Python code
+- `uv run ruff check` — lint Python code
+
+### Unified (Makefile)
+
+- `make install` — full setup: web deps + agent + model downloads
+- `make dev` — run web + agent in parallel
+- `make agent-console` — terminal chat without web
 
 ## Code Style
 
-TypeScript 5.x on Node.js with Next.js 16 / React 19: Follow standard conventions
+- **Conventional commits**: `feat:`, `fix:`, `chore:`, `refactor:`, etc.
+- **TypeScript**: Ultracite enforces formatting/linting via oxlint + oxfmt — run `pnpm fix` before committing
+- **Python**: Ruff — double quotes, 88 char line length
+- **Components**: shadcn/ui with new-york style, CSS variables for theming
 
-## Recent Changes
+## Environment Setup
 
-- 001-interview-resume-library: Added TypeScript 5.x on Node.js with Next.js 16 / React 19 + Next.js App Router, Hono, Drizzle ORM, Postgres, Zod, React Hook Form, TanStack Table, Better Auth, ElevenLabs clien
+Copy `.env.example` to `.env` and populate required keys. See `.env.example` for the full list. Key requirements:
 
-<!-- MANUAL ADDITIONS START -->
-<!-- MANUAL ADDITIONS END -->
+- LiveKit Cloud credentials (`LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`)
+- Google OAuth (`GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`)
+- Database (`DATABASE_URL`)
+- AI providers (`OPENAI_API_KEY`, `GOOGLE_GENERATIVE_AI_API_KEY`, `ELEVENLABS_API_KEY`, `MINIMAX_API_KEY`) — see `.env.example` for the authoritative list
 
-# Ultracite Code Standards
+## Gotchas
 
-This project uses **Ultracite**, a zero-config preset that enforces strict code quality standards through automated formatting and linting.
-
-## Quick Reference
-
-- **Format code**: `pnpm dlx ultracite fix`
-- **Check for issues**: `pnpm dlx ultracite check`
-- **Diagnose setup**: `pnpm dlx ultracite doctor`
-
-Oxlint + Oxfmt (the underlying engine) provides robust linting and formatting. Most issues are automatically fixable.
-
----
-
-## Core Principles
-
-Write code that is **accessible, performant, type-safe, and maintainable**. Focus on clarity and explicit intent over brevity.
-
-### Type Safety & Explicitness
-
-- Use explicit types for function parameters and return values when they enhance clarity
-- Prefer `unknown` over `any` when the type is genuinely unknown
-- Use const assertions (`as const`) for immutable values and literal types
-- Leverage TypeScript's type narrowing instead of type assertions
-- Use meaningful variable names instead of magic numbers - extract constants with descriptive names
-
-### Modern JavaScript/TypeScript
-
-- Use arrow functions for callbacks and short functions
-- Prefer `for...of` loops over `.forEach()` and indexed `for` loops
-- Use optional chaining (`?.`) and nullish coalescing (`??`) for safer property access
-- Prefer template literals over string concatenation
-- Use destructuring for object and array assignments
-- Use `const` by default, `let` only when reassignment is needed, never `var`
-
-### Async & Promises
-
-- Always `await` promises in async functions - don't forget to use the return value
-- Use `async/await` syntax instead of promise chains for better readability
-- Handle errors appropriately in async code with try-catch blocks
-- Don't use async functions as Promise executors
-
-### React & JSX
-
-- Use function components over class components
-- Call hooks at the top level only, never conditionally
-- Specify all dependencies in hook dependency arrays correctly
-- Use the `key` prop for elements in iterables (prefer unique IDs over array indices)
-- Nest children between opening and closing tags instead of passing as props
-- Don't define components inside other components
-- Use semantic HTML and ARIA attributes for accessibility:
-  - Provide meaningful alt text for images
-  - Use proper heading hierarchy
-  - Add labels for form inputs
-  - Include keyboard event handlers alongside mouse events
-  - Use semantic elements (`<button>`, `<nav>`, etc.) instead of divs with roles
-
-### Error Handling & Debugging
-
-- Remove `console.log`, `debugger`, and `alert` statements from production code
-- Throw `Error` objects with descriptive messages, not strings or other values
-- Use `try-catch` blocks meaningfully - don't catch errors just to rethrow them
-- Prefer early returns over nested conditionals for error cases
-
-### Code Organization
-
-- Keep functions focused and under reasonable cognitive complexity limits
-- Extract complex conditions into well-named boolean variables
-- Use early returns to reduce nesting
-- Prefer simple conditionals over nested ternary operators
-- Group related code together and separate concerns
-
-### Security
-
-- Add `rel="noopener"` when using `target="_blank"` on links
-- Avoid `dangerouslySetInnerHTML` unless absolutely necessary
-- Don't use `eval()` or assign directly to `document.cookie`
-- Validate and sanitize user input
-
-### Performance
-
-- Avoid spread syntax in accumulators within loops
-- Use top-level regex literals instead of creating them in loops
-- Prefer specific imports over namespace imports
-- Avoid barrel files (index files that re-export everything)
-- Use proper image components (e.g., Next.js `<Image>`) over `<img>` tags
-
-### Framework-Specific Guidance
-
-**Next.js:**
-
-- Use Next.js `<Image>` component for images
-- Use `next/head` or App Router metadata API for head elements
-- Use Server Components for async data fetching instead of async Client Components
-
-**React 19+:**
-
-- Use ref as a prop instead of `React.forwardRef`
-
-**Solid/Svelte/Vue/Qwik:**
-
-- Use `class` and `for` attributes (not `className` or `htmlFor`)
-
----
-
-## Testing
-
-- Write assertions inside `it()` or `test()` blocks
-- Avoid done callbacks in async tests - use async/await instead
-- Don't use `.only` or `.skip` in committed code
-- Keep test suites reasonably flat - avoid excessive `describe` nesting
-
-## When Oxlint + Oxfmt Can't Help
-
-Oxlint + Oxfmt's linter will catch most issues automatically. Focus your attention on:
-
-1. **Business logic correctness** - Oxlint + Oxfmt can't validate your algorithms
-2. **Meaningful naming** - Use descriptive names for functions, variables, and types
-3. **Architecture decisions** - Component structure, data flow, and API design
-4. **Edge cases** - Handle boundary conditions and error states
-5. **User experience** - Accessibility, performance, and usability considerations
-6. **Documentation** - Add comments for complex logic, but prefer self-documenting code
-
----
-
-Most formatting and common issues are automatically fixed by Oxlint + Oxfmt. Run `pnpm dlx ultracite fix` before committing to ensure compliance.
+- Must run `uv run src/agent.py download-files` before first agent run to download Silero VAD and turn-detector models
+- Generated/upstream UI is excluded from oxlint: `src/components/agents-ui/`, `src/hooks/agents-ui/`, `src/components/ui/`, `src/components/react-bits/`, `src/components/spell-ui/` — avoid hand-editing these
+- Next.js config uses `output: 'standalone'` for Docker deployment
+- Drizzle ORM is on RC (`1.0.0-rc.1`) — pin carefully when upgrading
