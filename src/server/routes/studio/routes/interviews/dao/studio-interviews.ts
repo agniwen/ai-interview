@@ -182,6 +182,24 @@ function serializeDate(value: string | Date): string {
   return value instanceof Date ? value.toISOString() : value;
 }
 
+// 把 schedule entries 按 interviewRecordId 分桶，避免 N×M 内存过滤。
+// Bucket schedule entries by interviewRecordId so the per-record transform is O(1)
+// instead of filtering the full list for every record.
+function groupScheduleEntries(
+  entries: StudioInterviewScheduleRow[],
+): Map<string, StudioInterviewScheduleRow[]> {
+  const map = new Map<string, StudioInterviewScheduleRow[]>();
+  for (const entry of entries) {
+    const bucket = map.get(entry.interviewRecordId);
+    if (bucket) {
+      bucket.push(entry);
+    } else {
+      map.set(entry.interviewRecordId, [entry]);
+    }
+  }
+  return map;
+}
+
 function toStudioInterviewListRecord(
   record: StudioInterviewListRow,
   scheduleEntries: StudioInterviewScheduleRow[],
@@ -204,14 +222,12 @@ function toStudioInterviewListRecord(
     resumeContentHash: record.resumeContentHash,
     resumeFileName: record.resumeFileName,
     scheduleEntries: sortScheduleEntries(
-      scheduleEntries
-        .filter((entry) => entry.interviewRecordId === record.id)
-        .map((entry) => ({
-          ...entry,
-          createdAt: serializeDate(entry.createdAt),
-          scheduledAt: entry.scheduledAt ? serializeDate(entry.scheduledAt) : null,
-          updatedAt: serializeDate(entry.updatedAt),
-        })),
+      scheduleEntries.map((entry) => ({
+        ...entry,
+        createdAt: serializeDate(entry.createdAt),
+        scheduledAt: entry.scheduledAt ? serializeDate(entry.scheduledAt) : null,
+        updatedAt: serializeDate(entry.updatedAt),
+      })),
     ),
     status: record.status,
     targetRole: record.targetRole,
@@ -268,8 +284,11 @@ async function queryStudioInterviewRecords(filters?: {
   const { search, statuses } = parseFilters(filters);
   const records = await listStudioInterviewRows({ search, statuses });
   const scheduleEntries = await loadScheduleEntries(records.map((record) => record.id));
+  const entriesByRecordId = groupScheduleEntries(scheduleEntries);
 
-  return records.map((record) => toStudioInterviewListRecord(record, scheduleEntries));
+  return records.map((record) =>
+    toStudioInterviewListRecord(record, entriesByRecordId.get(record.id) ?? []),
+  );
 }
 
 async function queryPaginatedStudioInterviewRecords(
@@ -286,11 +305,14 @@ async function queryPaginatedStudioInterviewRecords(
   ]);
 
   const scheduleEntries = await loadScheduleEntries(records.map((record) => record.id));
+  const entriesByRecordId = groupScheduleEntries(scheduleEntries);
 
   return {
     page,
     pageSize,
-    records: records.map((record) => toStudioInterviewListRecord(record, scheduleEntries)),
+    records: records.map((record) =>
+      toStudioInterviewListRecord(record, entriesByRecordId.get(record.id) ?? []),
+    ),
     total,
     totalPages: Math.max(1, Math.ceil(total / pageSize)),
   };
