@@ -73,11 +73,7 @@ export const resumeRouter = factory
       return models[0]?.id ?? HARDCODED_DEFAULT_MODEL_ID;
     })();
 
-    return c.json({
-      defaultId,
-      models,
-      upstreamReachable: upstreamIds !== null,
-    });
+    return c.json({ defaultId, models, upstreamReachable: upstreamIds !== null }, 200);
   })
   .post("/chat", zValidator("json", resumeChatRequestSchema), async (c) => {
     const {
@@ -243,11 +239,11 @@ ${text}`,
       const safeTitle = sanitizeTitle(titleText);
 
       if (!safeTitle) {
-        return c.json({ title: "新对话" });
+        return c.json({ title: "新对话" }, 200);
       }
 
-      return c.json({ title: safeTitle });
+      return c.json({ title: safeTitle }, 200);
     } catch {
-      return c.json({ title: "新对话" });
+      return c.json({ title: "新对话" }, 200);
     }
   });
