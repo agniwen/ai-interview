@@ -46,6 +46,18 @@ Two separate package managers: **pnpm** for web, **uv** for Python agent. Do not
 - `make dev` — run web + agent in parallel
 - `make agent-console` — terminal chat without web
 
+## Server Route Layout (`src/server/routes/`)
+
+Every route folder is a self-contained unit:
+
+- **Required**: `route.ts` exporting a Hono router. Middleware must be declared **inside** the router via `.use(...)` at the closest common-ancestor route (the GCD of paths it applies to). Do **not** add per-feature `.use(...)` calls in `app.ts` — `app.ts` is mount-only.
+- **Optional**: `schema.ts` (Zod schemas), `dao.ts` or `dao/` (database queries), `utils.ts` or `utils/` (feature-internal helpers, services, AI processing).
+- **Nested children**: when a route needs to split into multiple sub-routers (e.g. `/studio` → `interviews`, `departments`, …), put each child under a `routes/` subfolder (`routes/studio/routes/interviews/`). The same convention applies recursively.
+
+Do **not** create top-level `src/server/queries/` or `src/server/services/` directories — co-locate DAOs/services with the route that owns them. Cross-route consumption is fine; just import from the owning route's `dao`/`utils`.
+
+Exceptions: `src/server/agents/` (shared by frontend + multiple routes) and `src/server/middlewares/` (shared middleware library) intentionally remain at server root.
+
 ## Code Style
 
 - **Conventional commits**: `feat:`, `fix:`, `chore:`, `refactor:`, etc.
