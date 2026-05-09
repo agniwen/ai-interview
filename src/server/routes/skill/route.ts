@@ -2,6 +2,7 @@ import { z } from "zod";
 import { renderProfileReport } from "@/lib/interview/report";
 import { fileToUploadedResumePdf, parseResumeSubagent } from "@/server/agents/resume-parser-agent";
 import { factory } from "@/server/factory";
+import { authMiddleware } from "@/server/middlewares/auth";
 import {
   approveDeviceCode,
   denyDeviceCode,
@@ -16,8 +17,8 @@ import {
 // 鉴权策略：
 //   - /v1/auth/device/code      公开（设备发起授权流）
 //   - /v1/auth/device/token     公开（设备轮询取 token）
-//   - /v1/auth/device/approve   要求登录（authMiddleware 在 app.ts 上挂）
-//   - /v1/auth/device/deny      要求登录（authMiddleware 在 app.ts 上挂）
+//   - /v1/auth/device/approve   要求登录（authMiddleware 直接绑在 handler 上）
+//   - /v1/auth/device/deny      要求登录（authMiddleware 直接绑在 handler 上）
 //   - /v1/parse-resume          Bearer token (scope=resume:parse) + 限流
 // =====================================================================
 
@@ -58,22 +59,22 @@ export const skillRouter = factory
     const { body, status } = await pollDeviceCode(parsed.data.device_code);
     return c.json(body, status as 200 | 400);
   })
-  .post("/v1/auth/device/approve", async (c) => {
-    if (!c.var.user) {
-      return c.json({ error: "Unauthorized" }, 401);
-    }
+  .post("/v1/auth/device/approve", authMiddleware, async (c) => {
     const raw = await c.req.json().catch(() => ({}));
     const parsed = approveBodySchema.safeParse(raw);
     if (!parsed.success) {
       return c.json({ error: "缺少 user_code。" }, 400);
     }
-    const { body, status } = await approveDeviceCode(parsed.data.user_code, c.var.user.id);
-    return c.json(body, status as 200 | 400 | 404 | 409 | 410);
-  })
-  .post("/v1/auth/device/deny", async (c) => {
-    if (!c.var.user) {
+    // authMiddleware 已保证 c.var.user 非空，仅做类型收窄。
+    // authMiddleware guarantees c.var.user — this guard is just type-narrowing.
+    const userId = c.var.user?.id;
+    if (!userId) {
       return c.json({ error: "Unauthorized" }, 401);
     }
+    const { body, status } = await approveDeviceCode(parsed.data.user_code, userId);
+    return c.json(body, status as 200 | 400 | 404 | 409 | 410);
+  })
+  .post("/v1/auth/device/deny", authMiddleware, async (c) => {
     const raw = await c.req.json().catch(() => ({}));
     const parsed = approveBodySchema.safeParse(raw);
     if (!parsed.success) {

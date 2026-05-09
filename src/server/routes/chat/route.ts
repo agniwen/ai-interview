@@ -17,6 +17,7 @@ import {
   upsertConversation,
 } from "@/server/queries/chat";
 import { factory } from "@/server/factory";
+import { authMiddleware } from "@/server/middlewares/auth";
 import {
   MAX_ATTACHMENT_SIZE,
   patchConversationSchema,
@@ -67,6 +68,7 @@ function buildUploadResponse(args: {
 
 export const chatRouter = factory
   .createApp()
+  .use("*", authMiddleware)
   .get("/conversations", async (c) => {
     const { user } = c.var;
     if (!user) {

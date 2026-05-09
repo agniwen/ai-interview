@@ -3,23 +3,20 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { auth } from "@/lib/auth";
 import { getFeishuBot } from "./feishu/bot";
-import { adminMiddleware } from "./middlewares/admin";
-import { authMiddleware } from "./middlewares/auth";
 import { betterAuthMiddleware } from "./middlewares/better-auth";
-import { adminUsersRouter } from "./routes/admin-users/route";
 import { agentRouter } from "./routes/agent/route";
-import { candidateFormsRouter } from "./routes/candidate-forms/route";
 import { chatRouter } from "./routes/chat/route";
-import { departmentsRouter } from "./routes/department/route";
-import { globalConfigRouter } from "./routes/global-config/route";
-import { interviewRouter, studioInterviewsRouter } from "./routes/interview/route";
-import { interviewersRouter } from "./routes/interviewer/route";
-import { interviewQuestionTemplatesRouter } from "./routes/interview-question-templates/route";
-import { jobDescriptionsRouter } from "./routes/job-description/route";
+import { interviewRouter } from "./routes/interview/route";
 import { livekitRouter } from "./routes/livekit/route";
 import { resumeRouter } from "./routes/resume/route";
 import { skillRouter } from "./routes/skill/route";
+import { studioRouter } from "./routes/studio/route";
 
+// 中文：app.ts 只做 CORS、better-auth handler、顶层路由挂载。
+// 业务中间件（auth/admin）请在各自 route 内部声明，不要在这里 .use(...)。
+// English: app.ts is mount-only — CORS, the better-auth handler, and top-level
+// .route(...) calls. Business middleware (auth/admin) belongs inside each
+// router; do NOT add per-feature .use(...) lines here.
 export const app = new Hono<Env>()
   .use(
     "/api/auth/*",
@@ -34,29 +31,6 @@ export const app = new Hono<Env>()
   )
   .on(["POST", "GET"], "/api/auth/*", (c) => auth.handler(c.req.raw))
   .use(betterAuthMiddleware)
-  .use("/api/resume", authMiddleware)
-  .use("/api/resume/*", authMiddleware)
-  .use("/api/chat", authMiddleware)
-  .use("/api/chat/*", authMiddleware)
-  .use("/api/interview/parse-resume", authMiddleware)
-  .use("/api/skill/v1/auth/device/approve", authMiddleware)
-  .use("/api/skill/v1/auth/device/deny", authMiddleware)
-  .use("/api/studio/interviews", authMiddleware, adminMiddleware)
-  .use("/api/studio/interviews/*", authMiddleware, adminMiddleware)
-  .use("/api/studio/departments", authMiddleware, adminMiddleware)
-  .use("/api/studio/departments/*", authMiddleware, adminMiddleware)
-  .use("/api/studio/global-config", authMiddleware, adminMiddleware)
-  .use("/api/studio/global-config/*", authMiddleware, adminMiddleware)
-  .use("/api/studio/interviewers", authMiddleware, adminMiddleware)
-  .use("/api/studio/interviewers/*", authMiddleware, adminMiddleware)
-  .use("/api/studio/job-descriptions", authMiddleware, adminMiddleware)
-  .use("/api/studio/job-descriptions/*", authMiddleware, adminMiddleware)
-  .use("/api/studio/forms", authMiddleware, adminMiddleware)
-  .use("/api/studio/forms/*", authMiddleware, adminMiddleware)
-  .use("/api/studio/interview-questions", authMiddleware, adminMiddleware)
-  .use("/api/studio/interview-questions/*", authMiddleware, adminMiddleware)
-  .use("/api/studio/users", authMiddleware, adminMiddleware)
-  .use("/api/studio/users/*", authMiddleware, adminMiddleware)
   .basePath("/api")
   .post("/feishu/webhook", async (c) => {
     const bot = getFeishuBot();
@@ -84,14 +58,7 @@ export const app = new Hono<Env>()
   .route("/resume", resumeRouter)
   .route("/interview", interviewRouter)
   .route("/skill", skillRouter)
-  .route("/studio/interviews", studioInterviewsRouter)
-  .route("/studio/departments", departmentsRouter)
-  .route("/studio/global-config", globalConfigRouter)
-  .route("/studio/interviewers", interviewersRouter)
-  .route("/studio/job-descriptions", jobDescriptionsRouter)
-  .route("/studio/forms", candidateFormsRouter)
-  .route("/studio/interview-questions", interviewQuestionTemplatesRouter)
-  .route("/studio/users", adminUsersRouter);
+  .route("/studio", studioRouter);
 
 app.notFound((c) => c.json({ error: "Not Found" }, 404));
 

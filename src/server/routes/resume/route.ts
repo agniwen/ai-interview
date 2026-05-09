@@ -12,6 +12,7 @@ import {
   SECONDARY_DEFAULT_MODEL_ID,
 } from "@/server/agents/model-catalog";
 import { factory } from "@/server/factory";
+import { authMiddleware } from "@/server/middlewares/auth";
 import {
   checkConversationOwner,
   deleteMessagesFromId,
@@ -39,6 +40,7 @@ async function resolveModelForChat(requestedModel: string | undefined): Promise<
 
 export const resumeRouter = factory
   .createApp()
+  .use("*", authMiddleware)
   .get("/models", async (c) => {
     const apiKey = process.env.ALIBABA_API_KEY;
     if (!apiKey) {
