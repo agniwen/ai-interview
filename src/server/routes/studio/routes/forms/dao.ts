@@ -9,6 +9,7 @@ import type {
   CandidateFormTemplateVersionRecord,
   JobDescriptionRef,
 } from "@/lib/shared/candidate-forms";
+import type { SQL } from "drizzle-orm";
 import { and, asc, count, desc, eq, exists, ilike, inArray, or } from "drizzle-orm";
 import { cacheLife, cacheTag } from "next/cache";
 import { z } from "zod";
@@ -65,10 +66,7 @@ function buildWhereConditions({
   scopes?: CandidateFormScope[];
   jobDescriptionIds?: string[];
 }) {
-  // 用 any[] 容纳 exists() 等 SQL chunk
-  // Mixed condition kinds (eq / ilike / exists) need a permissive container.
-  // oxlint-disable-next-line no-explicit-any
-  const conditions: any[] = [];
+  const conditions: SQL<unknown>[] = [];
   if (search) {
     const searchCond = or(
       ilike(candidateFormTemplate.title, `%${search}%`),
