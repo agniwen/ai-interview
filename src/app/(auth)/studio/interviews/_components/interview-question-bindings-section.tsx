@@ -8,6 +8,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ListChecksIcon } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
+import { rpc } from "@/lib/rpc";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 
@@ -34,10 +35,12 @@ interface BindingsResponse {
 }
 
 async function fetchBindings(interviewId: string): Promise<BindingsResponse> {
-  const response = await fetch(`/api/studio/interviews/${interviewId}/question-template-bindings`);
-  const payload = await response.json();
+  const response = await rpc.api.studio.interviews[":id"]["question-template-bindings"].$get({
+    param: { id: interviewId },
+  });
+  const payload = (await response.json()) as BindingsResponse | { error?: string };
   if (!response.ok) {
-    throw new Error(payload?.error ?? "加载面试题绑定失败");
+    throw new Error("error" in payload && payload.error ? payload.error : "加载面试题绑定失败");
   }
   return payload as BindingsResponse;
 }
@@ -46,14 +49,13 @@ async function updateBindings(
   interviewId: string,
   enabledTemplateIds: string[],
 ): Promise<BindingsResponse> {
-  const response = await fetch(`/api/studio/interviews/${interviewId}/question-template-bindings`, {
-    body: JSON.stringify({ enabledTemplateIds }),
-    headers: { "Content-Type": "application/json" },
-    method: "PUT",
+  const response = await rpc.api.studio.interviews[":id"]["question-template-bindings"].$put({
+    json: { enabledTemplateIds },
+    param: { id: interviewId },
   });
-  const payload = await response.json();
+  const payload = (await response.json()) as BindingsResponse | { error?: string };
   if (!response.ok) {
-    throw new Error(payload?.error ?? "更新失败");
+    throw new Error("error" in payload && payload.error ? payload.error : "更新失败");
   }
   return payload as BindingsResponse;
 }

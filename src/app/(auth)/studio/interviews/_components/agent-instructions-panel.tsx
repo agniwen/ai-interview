@@ -2,6 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { Loader2Icon } from "lucide-react";
+import { rpc } from "@/lib/rpc";
 
 interface AgentInstructionVariant {
   interviewerName: string | null;
@@ -21,7 +22,9 @@ export function AgentInstructionsPanel({
   const { data: variants = [], isLoading } = useQuery({
     enabled: enabled && !!recordId,
     queryFn: async () => {
-      const response = await fetch(`/api/studio/interviews/${recordId}/agent-instructions`);
+      const response = await rpc.api.studio.interviews[":id"]["agent-instructions"].$get({
+        param: { id: recordId ?? "" },
+      });
       const payload = (await response.json()) as
         | { variants: AgentInstructionVariant[] }
         | { error?: string };

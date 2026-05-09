@@ -1,4 +1,5 @@
 import type { ContentfulStatusCode } from "hono/utils/http-status";
+import { zValidator } from "@hono/zod-validator";
 import { and, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/db";
@@ -28,7 +29,7 @@ import {
   analyzeResumeFile,
   generateInterviewQuestionsForProfile,
 } from "@/server/agents/resume-analysis-agent";
-import { factory } from "@/server/factory";
+import { factory, jsonValidatorError } from "@/server/factory";
 import { getGlobalConfig } from "@/server/routes/studio/routes/global-config/dao";
 import { loadSubmissionsByInterview } from "@/server/routes/studio/routes/forms/dao";
 import {
@@ -67,21 +68,21 @@ export const studioInterviewsRouter = factory
   .createApp()
   .get("/summary", async (c) => {
     const summary = await queryStudioInterviewSummary();
-    return c.json(summary);
+    return c.json(summary, 200);
   })
-  .post("/dedup-check", async (c) => {
-    const body = (await c.req.json().catch(() => null)) as unknown;
-    const input = dedupCheckInputSchema.safeParse(body ?? {});
-    if (!input.success) {
-      return c.json({ error: input.error.issues[0]?.message ?? "请求参数无效。" }, 400);
-    }
-    const matches = await queryInterviewDedup({
-      email: input.data.email ?? null,
-      name: input.data.name ?? null,
-      phone: input.data.phone ?? null,
-    });
-    return c.json({ matches });
-  })
+  .post(
+    "/dedup-check",
+    zValidator("json", dedupCheckInputSchema, jsonValidatorError("请求参数无效。")),
+    async (c) => {
+      const input = c.req.valid("json");
+      const matches = await queryInterviewDedup({
+        email: input.email ?? null,
+        name: input.name ?? null,
+        phone: input.phone ?? null,
+      });
+      return c.json({ matches }, 200);
+    },
+  )
   .get("/", async (c) => {
     const result = await queryPaginatedStudioInterviewRecords(
       {
@@ -96,7 +97,7 @@ export const studioInterviewsRouter = factory
       },
     );
 
-    return c.json(result);
+    return c.json(result, 200);
   })
   // oxlint-disable-next-line complexity -- CRUD handler orchestrates parse → validate → persist in one flow.
   .post("/", async (c) => {
@@ -198,7 +199,7 @@ export const studioInterviewsRouter = factory
       return c.json({ error: "记录不存在。" }, 404);
     }
 
-    return c.json(record);
+    return c.json(record, 200);
   })
   .get("/:id/resume", async (c) => {
     const id = c.req.param("id");
@@ -314,7 +315,7 @@ export const studioInterviewsRouter = factory
             },
           ];
 
-    return c.json({ variants });
+    return c.json({ variants }, 200);
   })
   .get("/:id/reports", async (c) => {
     const id = c.req.param("id");
@@ -325,7 +326,7 @@ export const studioInterviewsRouter = factory
     }
 
     const reports = await queryInterviewConversationReports(id);
-    return c.json(reports);
+    return c.json(reports, 200);
   })
   .get("/:id/recordings/:conversationId", async (c) => {
     // 返回该轮面试录像的 S3 预签名播放 URL (10 分钟有效).
@@ -369,7 +370,7 @@ export const studioInterviewsRouter = factory
 
     try {
       const url = await presignGetObjectUrl(conversation.recordingFileKey, 600);
-      return c.json({ expiresInSeconds: 600, url });
+      return c.json({ expiresInSeconds: 600, url }, 200);
     } catch (error) {
       return c.json(
         {
@@ -389,7 +390,7 @@ export const studioInterviewsRouter = factory
     }
 
     const submissions = await loadSubmissionsByInterview(id);
-    return c.json({ submissions });
+    return c.json({ submissions }, 200);
   })
   .delete("/:id/form-submissions/:submissionId", async (c) => {
     const id = c.req.param("id");
@@ -414,7 +415,7 @@ export const studioInterviewsRouter = factory
       return c.json({ error: "答卷不存在或已被重置。" }, 404);
     }
 
-    return c.json({ success: true });
+    return c.json({ success: true }, 200);
   })
   // oxlint-disable-next-line complexity -- Patch handler validates, normalizes, and coordinates schedule updates in one flow.
   .patch("/:id", async (c) => {
@@ -529,7 +530,7 @@ export const studioInterviewsRouter = factory
 
       safeUpdateTag("studio-interviews");
       const updatedRecord = await loadRecordById(id);
-      return c.json(updatedRecord);
+      return c.json(updatedRecord, 200);
     } catch (error) {
       const result = toBadRequest(error);
       return c.json({ error: result.error }, { status: result.status as ContentfulStatusCode });
@@ -545,32 +546,31 @@ export const studioInterviewsRouter = factory
     // up in the section UI without requiring manual re-attach.
     await ensureApplicableBindings(id);
     const data = await loadInterviewQuestionTemplateBindings(id);
-    return c.json(data);
+    return c.json(data, 200);
   })
-  .put("/:id/question-template-bindings", async (c) => {
-    const id = c.req.param("id");
-    const existing = await loadRecordById(id);
-    if (!existing) {
-      return c.json({ error: "记录不存在。" }, 404);
-    }
+  .put(
+    "/:id/question-template-bindings",
+    zValidator(
+      "json",
+      z.object({ enabledTemplateIds: z.array(z.string().min(1)) }),
+      jsonValidatorError("请求参数缺失。"),
+    ),
+    async (c) => {
+      const id = c.req.param("id");
+      const existing = await loadRecordById(id);
+      if (!existing) {
+        return c.json({ error: "记录不存在。" }, 404);
+      }
 
-    const body = (await c.req.json().catch(() => null)) as {
-      enabledTemplateIds?: unknown;
-    } | null;
-    if (!body || !Array.isArray(body.enabledTemplateIds)) {
-      return c.json({ error: "请求参数缺失。" }, 400);
-    }
-    const enabledTemplateIds = body.enabledTemplateIds.filter(
-      (v): v is string => typeof v === "string" && v.length > 0,
-    );
+      const { enabledTemplateIds } = c.req.valid("json");
+      await db.transaction(async (tx) => {
+        await replaceInterviewBindings(tx, id, enabledTemplateIds, existing.jobDescriptionId);
+      });
 
-    await db.transaction(async (tx) => {
-      await replaceInterviewBindings(tx, id, enabledTemplateIds, existing.jobDescriptionId);
-    });
-
-    const data = await loadInterviewQuestionTemplateBindings(id);
-    return c.json(data);
-  })
+      const data = await loadInterviewQuestionTemplateBindings(id);
+      return c.json(data, 200);
+    },
+  )
   .post("/:id/rounds/:roundId/reset", async (c) => {
     const id = c.req.param("id");
     const roundId = c.req.param("roundId");
@@ -644,48 +644,51 @@ export const studioInterviewsRouter = factory
     safeUpdateTag("studio-interviews");
     safeUpdateTag("interview-conversations");
     const updatedRecord = await loadRecordById(id);
-    return c.json(updatedRecord);
+    return c.json(updatedRecord, 200);
   })
-  .patch("/:id/rounds/:roundId", async (c) => {
-    // 单轮次内联编辑：当前仅支持切换"是否允许文本输入"。
-    // Per-round inline edit: currently only toggles allowTextInput.
-    const id = c.req.param("id");
-    const roundId = c.req.param("roundId");
+  .patch(
+    "/:id/rounds/:roundId",
+    zValidator(
+      "json",
+      z.object({ allowTextInput: z.boolean() }),
+      jsonValidatorError("请求体格式不正确。"),
+    ),
+    async (c) => {
+      // 单轮次内联编辑：当前仅支持切换"是否允许文本输入"。
+      // Per-round inline edit: currently only toggles allowTextInput.
+      const id = c.req.param("id");
+      const roundId = c.req.param("roundId");
+      const { allowTextInput } = c.req.valid("json");
 
-    const body = (await c.req.json().catch(() => null)) as { allowTextInput?: unknown } | null;
+      const existing = await loadRecordById(id);
 
-    if (!body || typeof body.allowTextInput !== "boolean") {
-      return c.json({ error: "请求体格式不正确。" }, 400);
-    }
+      if (!existing) {
+        return c.json({ error: "记录不存在。" }, 404);
+      }
 
-    const existing = await loadRecordById(id);
+      const targetEntry = existing.scheduleEntries.find((e) => e.id === roundId);
 
-    if (!existing) {
-      return c.json({ error: "记录不存在。" }, 404);
-    }
+      if (!targetEntry) {
+        return c.json({ error: "轮次不存在。" }, 404);
+      }
 
-    const targetEntry = existing.scheduleEntries.find((e) => e.id === roundId);
+      if (targetEntry.status === "completed") {
+        return c.json({ error: "已结束的轮次无法修改设置。" }, 400);
+      }
 
-    if (!targetEntry) {
-      return c.json({ error: "轮次不存在。" }, 404);
-    }
+      await db
+        .update(studioInterviewSchedule)
+        .set({
+          allowTextInput,
+          updatedAt: new Date(),
+        })
+        .where(eq(studioInterviewSchedule.id, roundId));
 
-    if (targetEntry.status === "completed") {
-      return c.json({ error: "已结束的轮次无法修改设置。" }, 400);
-    }
-
-    await db
-      .update(studioInterviewSchedule)
-      .set({
-        allowTextInput: body.allowTextInput,
-        updatedAt: new Date(),
-      })
-      .where(eq(studioInterviewSchedule.id, roundId));
-
-    safeUpdateTag("studio-interviews");
-    const updatedRecord = await loadRecordById(id);
-    return c.json(updatedRecord);
-  })
+      safeUpdateTag("studio-interviews");
+      const updatedRecord = await loadRecordById(id);
+      return c.json(updatedRecord, 200);
+    },
+  )
   .delete("/:id", async (c) => {
     const id = c.req.param("id");
     const existing = await loadRecordById(id);
@@ -696,29 +699,31 @@ export const studioInterviewsRouter = factory
 
     await db.delete(studioInterview).where(eq(studioInterview.id, id));
     safeUpdateTag("studio-interviews");
-    return c.json({ success: true });
+    return c.json({ success: true }, 200);
   })
-  .post("/bulk-delete", async (c) => {
-    const body = (await c.req.json().catch(() => null)) as { ids?: unknown } | null;
-    const rawIds = Array.isArray(body?.ids) ? body.ids : null;
+  .post(
+    "/bulk-delete",
+    zValidator(
+      "json",
+      z.object({ ids: z.array(z.string()).nonempty() }),
+      jsonValidatorError("缺少待删除的记录 ID。"),
+    ),
+    async (c) => {
+      const { ids: rawIds } = c.req.valid("json");
+      const ids = rawIds.filter(
+        (value): value is string => typeof value === "string" && value.length > 0,
+      );
 
-    if (!rawIds || rawIds.length === 0) {
-      return c.json({ error: "缺少待删除的记录 ID。" }, 400);
-    }
+      if (ids.length === 0) {
+        return c.json({ error: "缺少待删除的记录 ID。" }, 400);
+      }
 
-    const ids = rawIds.filter(
-      (value): value is string => typeof value === "string" && value.length > 0,
-    );
+      const result = await db
+        .delete(studioInterview)
+        .where(inArray(studioInterview.id, ids))
+        .returning({ id: studioInterview.id });
 
-    if (ids.length === 0) {
-      return c.json({ error: "缺少待删除的记录 ID。" }, 400);
-    }
-
-    const result = await db
-      .delete(studioInterview)
-      .where(inArray(studioInterview.id, ids))
-      .returning({ id: studioInterview.id });
-
-    safeUpdateTag("studio-interviews");
-    return c.json({ deletedCount: result.length, success: true });
-  });
+      safeUpdateTag("studio-interviews");
+      return c.json({ deletedCount: result.length, success: true }, 200);
+    },
+  );
