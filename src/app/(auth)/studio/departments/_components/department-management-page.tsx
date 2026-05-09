@@ -1,5 +1,6 @@
 "use client";
 
+import { PageHeader } from "@/app/(auth)/studio/_components/page-header";
 import type { DepartmentListRecord, DepartmentRecord } from "@/lib/departments";
 import type { PaginatedDepartmentResult } from "@/server/queries/departments";
 import { useQueryClient } from "@tanstack/react-query";
@@ -170,12 +171,10 @@ export function DepartmentManagementPage({
   return (
     <>
       <div className="space-y-6">
-        <header className="flex flex-col gap-2">
-          <h1 className="text-2xl">部门管理</h1>
-          <p className="text-muted-foreground text-sm">
-            维护组织下的业务部门，作为面试官和在招岗位的分组维度。
-          </p>
-        </header>
+        <PageHeader
+          title="部门管理"
+          description="维护组织下的业务部门，作为面试官和在招岗位的分组维度。"
+        />
 
         <DataGrid<DepartmentListRecord>
           {...grid.bind}

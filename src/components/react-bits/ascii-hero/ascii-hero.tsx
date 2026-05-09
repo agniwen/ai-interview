@@ -20,7 +20,7 @@ export interface AsciiHeroProps {
 const DEFAULTS = {
   cellSize: 16,
   charset: " ·∙-+*▒▓",
-  color: "rgba(255, 255, 255, 0.4)",
+  color: "rgba(255, 255, 255, 0.6)",
   noiseScale: 0.05,
   noiseSpeed: 0.0003,
   fps: 60,

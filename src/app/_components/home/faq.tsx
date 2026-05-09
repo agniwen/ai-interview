@@ -42,9 +42,22 @@ export function Faq() {
     <Section width="wide">
       <Eyebrow>FAQ</Eyebrow>
       <SectionTitle>常见问题</SectionTitle>
-      <Accordion className="mt-10 w-full" defaultValue={["faq-0"]} type="multiple">
+      <Accordion
+        className="mt-10 w-full"
+        defaultValue={["faq-0", "faq-1", "faq-2", "faq-3", "faq-4"]}
+        type="multiple"
+      >
         {faqs.map((item, index) => (
-          <AccordionItem key={item.question} value={`faq-${index}`}>
+          <AccordionItem
+            key={item.question}
+            value={`faq-${index}`}
+            // FAQ 在首页 grainient 背景之上，默认 border-border 灰会显得脏；
+            // 亮色模式改用纯白分界线，深色保持默认 token。
+            // FAQ sits on the light-mode grainient background; the default gray
+            // border looks dirty against it. Force white in light mode, keep
+            // default token in dark mode.
+            className="border-white/20 dark:border-border"
+          >
             <AccordionTrigger className="text-left text-base sm:text-lg">
               {item.question}
             </AccordionTrigger>

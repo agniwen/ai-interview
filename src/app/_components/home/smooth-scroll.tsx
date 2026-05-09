@@ -57,6 +57,22 @@ export function HomeSmoothScroll({ children }: { children: ReactNode }) {
       // 启用基于滚动方向的 effects（data-speed / data-lag 暂未使用，留接口）。
       // Enable speed/lag effects (we don't use data-speed yet but keep the option open).
       effects: true,
+      // 阻止 smoother 把 #smooth-content 之外的焦点元素卷进视口。
+      // 触发场景：Radix 把 DropdownMenu / Popover / Dialog 的内容 portal 到 <body>，
+      // 焦点先飞到 menu item，但 Popper 还没把它定到正确位置 —— smoother 读到的
+      // boundingRect 在视口外，于是自动 scroll 过去，视觉上就是页面"往上跳一段"。
+      // 同理覆盖右上角 fixed 定位的 ThemeToggle 按钮（也不在 smooth-content 里）。
+      // Prevent smoother from scroll-into-view'ing focus targets outside
+      // #smooth-content. Trigger: Radix portals DropdownMenu / Popover / Dialog
+      // content into <body>; focus moves to a menu item before Popper places it,
+      // smoother reads an off-viewport rect and scrolls toward it — looks like a
+      // jump up. Same fix covers the fixed-position ThemeToggle in the corner.
+      onFocusIn: () => {
+        const target = document.activeElement;
+        if (target && contentRef.current && !contentRef.current.contains(target)) {
+          return false;
+        }
+      },
       // 内容滚动 lerp 时长（秒），数值越大越"飘"；1 是 GSAP demo 推荐值。
       // Scroll lerp duration in seconds — higher = floatier. 1 matches GSAP's demo.
       smooth: 1,

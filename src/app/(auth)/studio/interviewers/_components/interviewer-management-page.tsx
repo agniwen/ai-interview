@@ -1,5 +1,6 @@
 "use client";
 
+import { PageHeader } from "@/app/(auth)/studio/_components/page-header";
 import type { DepartmentRecord } from "@/lib/departments";
 import type { InterviewerListRecord, InterviewerRecord } from "@/lib/interviewers";
 import type { PaginatedInterviewerResult } from "@/server/queries/interviewers";
@@ -201,12 +202,10 @@ export function InterviewerManagementPage({
   return (
     <>
       <div className="space-y-6">
-        <header className="flex flex-col gap-2">
-          <h1 className="text-2xl">面试官管理</h1>
-          <p className="text-muted-foreground text-sm">
-            配置 AI 面试官的 prompt 和 TTS 音色，在招岗位会引用这些面试官。
-          </p>
-        </header>
+        <PageHeader
+          title="面试官管理"
+          description="配置 AI 面试官的 prompt 和 TTS 音色，在招岗位会引用这些面试官。"
+        />
 
         <DataGrid<InterviewerListRecord>
           {...grid.bind}

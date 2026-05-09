@@ -1,5 +1,6 @@
 "use client";
 
+import { PageHeader } from "@/app/(auth)/studio/_components/page-header";
 import type {
   InterviewQuestionTemplateListRecord,
   InterviewQuestionTemplateRecord,
@@ -293,12 +294,10 @@ export function InterviewQuestionTemplateManagementPage({
   return (
     <>
       <div className="space-y-6">
-        <header className="flex flex-col gap-2">
-          <h1 className="text-2xl">面试题</h1>
-          <p className="text-muted-foreground text-sm">
-            配置面试官在面试中向候选人必问的题目。可以设为全局或绑定到在招岗位；面试创建时会冻结当前题目快照，之后编辑不影响已开始的面试。
-          </p>
-        </header>
+        <PageHeader
+          title="面试题"
+          description="配置面试官在面试中向候选人必问的题目。可以设为全局或绑定到在招岗位；面试创建时会冻结当前题目快照，之后编辑不影响已开始的面试。"
+        />
 
         <DataGrid<InterviewQuestionTemplateListRecord>
           {...grid.bind}

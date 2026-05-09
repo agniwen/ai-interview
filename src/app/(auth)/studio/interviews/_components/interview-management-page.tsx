@@ -1,6 +1,7 @@
 // src/app/(auth)/studio/interviews/_components/interview-management-page.tsx
 "use client";
 
+import { PageHeader } from "@/app/(auth)/studio/_components/page-header";
 import type { StudioInterviewListRecord } from "@/lib/studio-interviews";
 import type {
   PaginatedStudioInterviewResult,
@@ -399,45 +400,45 @@ export function InterviewManagementPage({
   return (
     <>
       <div className="space-y-6">
-        <section className="space-y-4">
-          <h2 className="text-lg">AI 面试</h2>
-          <DataGrid<StudioInterviewListRecord>
-            {...grid.bind}
-            columns={columns}
-            getRowId={(r) => r.id}
-            columnPinning={{ left: ["select", "candidateName"], right: ["actions"] }}
-            filters={filtersConfig}
-            headerExtra={stats}
-            toolbarRight={<CreateInterviewDialog onCreated={invalidateAll} />}
-            bulkActions={({ selectedIds }) => (
-              <Button
-                className="flex-1 sm:flex-none"
-                onClick={() => setBulkDeleteOpen(true)}
-                variant="destructive"
-              >
-                <Trash2Icon className="size-4" />
-                批量删除 ({selectedIds.length})
-              </Button>
-            )}
-            empty={
-              <Empty className="border-border/60">
-                <EmptyHeader>
-                  <EmptyMedia variant="icon">
-                    <BotIcon className="size-5" />
-                  </EmptyMedia>
-                  <EmptyTitle>还没有候选人面试记录</EmptyTitle>
-                  <EmptyDescription>
-                    先创建一条候选人面试记录，可以直接手动录入，也可以上传 PDF
-                    自动分析并生成面试题。
-                  </EmptyDescription>
-                </EmptyHeader>
-                <EmptyContent>
-                  <CreateInterviewDialog onCreated={invalidateAll} />
-                </EmptyContent>
-              </Empty>
-            }
-          />
-        </section>
+        <PageHeader
+          title="AI 面试"
+          description="为候选人创建 AI 语音面试，跟踪面试进度并查看评估报告。"
+        />
+        <DataGrid<StudioInterviewListRecord>
+          {...grid.bind}
+          columns={columns}
+          getRowId={(r) => r.id}
+          columnPinning={{ left: ["select", "candidateName"], right: ["actions"] }}
+          filters={filtersConfig}
+          headerExtra={stats}
+          toolbarRight={<CreateInterviewDialog onCreated={invalidateAll} />}
+          bulkActions={({ selectedIds }) => (
+            <Button
+              className="flex-1 sm:flex-none"
+              onClick={() => setBulkDeleteOpen(true)}
+              variant="destructive"
+            >
+              <Trash2Icon className="size-4" />
+              批量删除 ({selectedIds.length})
+            </Button>
+          )}
+          empty={
+            <Empty className="border-border/60">
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  <BotIcon className="size-5" />
+                </EmptyMedia>
+                <EmptyTitle>还没有候选人面试记录</EmptyTitle>
+                <EmptyDescription>
+                  先创建一条候选人面试记录，可以直接手动录入，也可以上传 PDF 自动分析并生成面试题。
+                </EmptyDescription>
+              </EmptyHeader>
+              <EmptyContent>
+                <CreateInterviewDialog onCreated={invalidateAll} />
+              </EmptyContent>
+            </Empty>
+          }
+        />
       </div>
 
       <InterviewDetailDialog

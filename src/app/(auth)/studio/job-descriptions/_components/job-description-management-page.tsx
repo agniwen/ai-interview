@@ -1,5 +1,6 @@
 "use client";
 
+import { PageHeader } from "@/app/(auth)/studio/_components/page-header";
 import type { DepartmentRecord } from "@/lib/departments";
 import type { InterviewerListRecord } from "@/lib/interviewers";
 import type { JobDescriptionListRecord, JobDescriptionRecord } from "@/lib/job-descriptions";
@@ -244,12 +245,10 @@ export function JobDescriptionManagementPage({
   return (
     <>
       <div className="space-y-6">
-        <header className="flex flex-col gap-2">
-          <h1 className="text-2xl">在招岗位管理</h1>
-          <p className="text-muted-foreground text-sm">
-            配置岗位描述 prompt，并指定面试时要启用的面试官。
-          </p>
-        </header>
+        <PageHeader
+          title="在招岗位管理"
+          description="配置岗位描述 prompt，并指定面试时要启用的面试官。"
+        />
 
         <DataGrid<JobDescriptionListRecord>
           {...grid.bind}

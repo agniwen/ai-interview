@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
+import { PageHeader } from "@/app/(auth)/studio/_components/page-header";
 import type { GlobalConfigRecord } from "@/lib/global-config";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -41,12 +42,10 @@ export function GlobalConfigForm({ initial }: Props) {
 
   return (
     <div className="flex flex-col gap-6 max-w-3xl">
-      <div>
-        <h1 className="text-2xl">全局配置</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          这些指令会注入到所有面试 agent。留空则使用系统默认文案。
-        </p>
-      </div>
+      <PageHeader
+        title="全局配置"
+        description="这些指令会注入到所有面试 agent。留空则使用系统默认文案。"
+      />
 
       <div className="flex flex-col gap-2">
         <Label htmlFor="opening">开场白 prompt</Label>

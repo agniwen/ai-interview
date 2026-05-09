@@ -1,6 +1,7 @@
 "use client";
 
 import { BanIcon, KeyRoundIcon, ShieldCheckIcon, UsersIcon } from "lucide-react";
+import { PageHeader } from "@/app/(auth)/studio/_components/page-header";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
@@ -288,12 +289,10 @@ export function SystemManagementPage({ initialData }: { initialData: AdminUserLi
   return (
     <>
       <div className="space-y-6">
-        <header className="flex flex-col gap-2">
-          <h1 className="text-2xl">用户管理</h1>
-          <p className="text-muted-foreground text-sm">
-            查看系统用户、封禁/解封违规账号。管理员角色仅由数据库直接调整。
-          </p>
-        </header>
+        <PageHeader
+          title="用户管理"
+          description="查看系统用户、封禁/解封违规账号。管理员角色仅由数据库直接调整。"
+        />
 
         <DataGrid<AdminUserRecord>
           {...grid.bind}
