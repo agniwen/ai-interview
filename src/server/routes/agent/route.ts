@@ -10,8 +10,8 @@ import {
 } from "@/lib/db/schema";
 import { factory } from "@/server/factory";
 import { safeUpdateTag } from "@/server/routes/interview/utils";
-import { retryFailedInterviewSummaryNotifications } from "@/server/services/feishu-interview-notifications";
-import { runSummaryJob } from "@/server/services/interview-summary-job";
+import { retryFailedInterviewSummaryNotifications } from "@/server/routes/agent/utils/feishu-interview-notifications";
+import { runSummaryJob } from "@/server/routes/agent/utils/interview-summary-job";
 
 const transcriptTurnSchema = z.object({
   message: z.string(),
