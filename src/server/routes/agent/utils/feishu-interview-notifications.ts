@@ -6,12 +6,12 @@ import {
   studioInterview,
 } from "@/lib/db/schema";
 import { db } from "@/lib/db";
-import { FEISHU_PROVIDER_IDS, postFeishuDirectCard } from "@/server/feishu/bot";
-import type { FeishuProviderId } from "@/server/feishu/bot";
+import { FEISHU_PROVIDER_IDS, postFeishuDirectCard } from "@/server/routes/feishu/utils/bot";
+import type { FeishuProviderId } from "@/server/routes/feishu/utils/bot";
 import {
   InterviewSummaryCard,
   resolveHeaderTemplate,
-} from "@/server/feishu/interview-summary-card";
+} from "@/server/routes/feishu/utils/interview-summary-card";
 
 const LOG_PREFIX = "[feishu-interview-notification]";
 const RETRY_BATCH_SIZE = 20;

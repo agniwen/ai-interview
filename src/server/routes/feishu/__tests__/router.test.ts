@@ -1,7 +1,7 @@
 // 中文：router 测试 — 任何 inbound DM 都回复引导文案，bot 不再做对话
 // English: router test — any inbound DM gets a static greeter; the bot does not chat
 import { describe, expect, it, vi } from "vitest";
-import { routeDM, routeGroupMention } from "../router";
+import { routeDM, routeGroupMention } from "../utils/router";
 
 function makeThread(id = "th-1") {
   const postSpy = vi.fn((_arg: unknown) => Promise.resolve());
