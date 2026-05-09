@@ -2,6 +2,7 @@
 
 import { departmentFormSchema } from "@/lib/departments";
 import type { DepartmentFormValues, DepartmentRecord } from "@/lib/departments";
+import { rpc } from "@/lib/rpc";
 import { useForm, useStore } from "@tanstack/react-form";
 import { LoaderCircleIcon } from "lucide-react";
 import { useEffect } from "react";
@@ -45,14 +46,12 @@ export function DepartmentFormDialog({
         name: value.name.trim(),
       };
 
-      const response = await fetch(
-        isEdit ? `/api/studio/departments/${record.id}` : "/api/studio/departments",
-        {
-          body: JSON.stringify(body),
-          headers: { "Content-Type": "application/json" },
-          method: isEdit ? "PATCH" : "POST",
-        },
-      );
+      const response = isEdit
+        ? await rpc.api.studio.departments[":id"].$patch({
+            json: body,
+            param: { id: record.id },
+          })
+        : await rpc.api.studio.departments.$post({ json: body });
 
       const payload = (await response.json().catch(() => null)) as {
         error?: string;

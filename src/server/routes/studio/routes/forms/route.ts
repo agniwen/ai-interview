@@ -1,3 +1,4 @@
+import { zValidator } from "@hono/zod-validator";
 import { eq, inArray } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
@@ -8,7 +9,7 @@ import {
   jobDescription,
 } from "@/lib/db/schema";
 import { candidateFormTemplateSchema } from "@/lib/candidate-forms";
-import { factory } from "@/server/factory";
+import { factory, jsonValidatorError } from "@/server/factory";
 import {
   listAllCandidateFormTemplates,
   loadCandidateFormTemplateById,
@@ -74,125 +75,123 @@ export const candidateFormsRouter = factory
         sortOrder: c.req.query("sortOrder"),
       },
     );
-    return c.json(result);
+    return c.json(result, 200);
   })
   .get("/all", async (c) => {
     const records = await listAllCandidateFormTemplates();
-    return c.json({ records });
+    return c.json({ records }, 200);
   })
-  .post("/", async (c) => {
-    const body = (await c.req.json().catch(() => null)) as Record<string, unknown> | null;
-    const input = candidateFormTemplateSchema.safeParse(body ?? {});
-    if (!input.success) {
-      return c.json({ error: input.error.issues[0]?.message ?? "表单校验失败。" }, 400);
-    }
-    const jobDescriptionIds =
-      input.data.scope === "job_description" ? input.data.jobDescriptionIds : [];
-    if (jobDescriptionIds.length > 0) {
-      const ok = await validateJobDescriptionsExist(jobDescriptionIds);
-      if (!ok) {
-        return c.json({ error: "所选在招岗位中存在无效项。" }, 400);
-      }
-    }
-
-    const now = new Date();
-    const templateId = crypto.randomUUID();
-    const record = {
-      createdAt: now,
-      createdBy: c.var.user?.id ?? null,
-      description: input.data.description?.trim() || null,
-      id: templateId,
-      scope: input.data.scope,
-      title: input.data.title.trim(),
-      updatedAt: now,
-    } satisfies typeof candidateFormTemplate.$inferInsert;
-
-    const questions = normalizeQuestions(input.data.questions, templateId, now);
-
-    await db.transaction(async (tx) => {
-      await tx.insert(candidateFormTemplate).values(record);
-      if (questions.length > 0) {
-        await tx.insert(candidateFormTemplateQuestion).values(questions);
-      }
+  .post(
+    "/",
+    zValidator("json", candidateFormTemplateSchema, jsonValidatorError("表单校验失败。")),
+    async (c) => {
+      const input = c.req.valid("json");
+      const jobDescriptionIds = input.scope === "job_description" ? input.jobDescriptionIds : [];
       if (jobDescriptionIds.length > 0) {
-        await tx
-          .insert(candidateFormTemplateJobDescription)
-          .values(jobDescriptionIds.map((jdId) => ({ jobDescriptionId: jdId, templateId })));
+        const ok = await validateJobDescriptionsExist(jobDescriptionIds);
+        if (!ok) {
+          return c.json({ error: "所选在招岗位中存在无效项。" }, 400);
+        }
       }
-    });
 
-    safeUpdateTag("candidate-form-templates");
-    const created = await loadCandidateFormTemplateById(templateId);
-    return c.json(created, 201);
-  })
+      const now = new Date();
+      const templateId = crypto.randomUUID();
+      const record = {
+        createdAt: now,
+        createdBy: c.var.user?.id ?? null,
+        description: input.description?.trim() || null,
+        id: templateId,
+        scope: input.scope,
+        title: input.title.trim(),
+        updatedAt: now,
+      } satisfies typeof candidateFormTemplate.$inferInsert;
+
+      const questions = normalizeQuestions(input.questions, templateId, now);
+
+      await db.transaction(async (tx) => {
+        await tx.insert(candidateFormTemplate).values(record);
+        if (questions.length > 0) {
+          await tx.insert(candidateFormTemplateQuestion).values(questions);
+        }
+        if (jobDescriptionIds.length > 0) {
+          await tx
+            .insert(candidateFormTemplateJobDescription)
+            .values(jobDescriptionIds.map((jdId) => ({ jobDescriptionId: jdId, templateId })));
+        }
+      });
+
+      safeUpdateTag("candidate-form-templates");
+      const created = await loadCandidateFormTemplateById(templateId);
+      return c.json(created, 201);
+    },
+  )
   .get("/:id", async (c) => {
     const id = c.req.param("id");
     const record = await loadCandidateFormTemplateById(id);
     if (!record) {
       return c.json({ error: "面试表单不存在。" }, 404);
     }
-    return c.json(record);
+    return c.json(record, 200);
   })
-  .patch("/:id", async (c) => {
-    const id = c.req.param("id");
-    const existing = await loadCandidateFormTemplateById(id);
-    if (!existing) {
-      return c.json({ error: "面试表单不存在。" }, 404);
-    }
-
-    const body = (await c.req.json().catch(() => null)) as Record<string, unknown> | null;
-    const input = candidateFormTemplateSchema.safeParse(body ?? {});
-    if (!input.success) {
-      return c.json({ error: input.error.issues[0]?.message ?? "表单校验失败。" }, 400);
-    }
-    const jobDescriptionIds =
-      input.data.scope === "job_description" ? input.data.jobDescriptionIds : [];
-    if (jobDescriptionIds.length > 0) {
-      const ok = await validateJobDescriptionsExist(jobDescriptionIds);
-      if (!ok) {
-        return c.json({ error: "所选在招岗位中存在无效项。" }, 400);
-      }
-    }
-
-    const now = new Date();
-    const questions = normalizeQuestions(input.data.questions, id, now);
-
-    await db.transaction(async (tx) => {
-      await tx
-        .update(candidateFormTemplate)
-        .set({
-          description: input.data.description?.trim() || null,
-          scope: input.data.scope,
-          title: input.data.title.trim(),
-          updatedAt: now,
-        })
-        .where(eq(candidateFormTemplate.id, id));
-
-      // Replace the question set atomically. Since downstream snapshots are
-      // already frozen, we do not need to preserve old question ids.
-      await tx
-        .delete(candidateFormTemplateQuestion)
-        .where(eq(candidateFormTemplateQuestion.templateId, id));
-      if (questions.length > 0) {
-        await tx.insert(candidateFormTemplateQuestion).values(questions);
+  .patch(
+    "/:id",
+    zValidator("json", candidateFormTemplateSchema, jsonValidatorError("表单校验失败。")),
+    async (c) => {
+      const id = c.req.param("id");
+      const existing = await loadCandidateFormTemplateById(id);
+      if (!existing) {
+        return c.json({ error: "面试表单不存在。" }, 404);
       }
 
-      // 重写岗位绑定关系
-      // Replace JD links wholesale.
-      await tx
-        .delete(candidateFormTemplateJobDescription)
-        .where(eq(candidateFormTemplateJobDescription.templateId, id));
+      const input = c.req.valid("json");
+      const jobDescriptionIds = input.scope === "job_description" ? input.jobDescriptionIds : [];
       if (jobDescriptionIds.length > 0) {
-        await tx
-          .insert(candidateFormTemplateJobDescription)
-          .values(jobDescriptionIds.map((jdId) => ({ jobDescriptionId: jdId, templateId: id })));
+        const ok = await validateJobDescriptionsExist(jobDescriptionIds);
+        if (!ok) {
+          return c.json({ error: "所选在招岗位中存在无效项。" }, 400);
+        }
       }
-    });
 
-    safeUpdateTag("candidate-form-templates");
-    const updated = await loadCandidateFormTemplateById(id);
-    return c.json(updated);
-  })
+      const now = new Date();
+      const questions = normalizeQuestions(input.questions, id, now);
+
+      await db.transaction(async (tx) => {
+        await tx
+          .update(candidateFormTemplate)
+          .set({
+            description: input.description?.trim() || null,
+            scope: input.scope,
+            title: input.title.trim(),
+            updatedAt: now,
+          })
+          .where(eq(candidateFormTemplate.id, id));
+
+        // Replace the question set atomically. Since downstream snapshots are
+        // already frozen, we do not need to preserve old question ids.
+        await tx
+          .delete(candidateFormTemplateQuestion)
+          .where(eq(candidateFormTemplateQuestion.templateId, id));
+        if (questions.length > 0) {
+          await tx.insert(candidateFormTemplateQuestion).values(questions);
+        }
+
+        // 重写岗位绑定关系
+        // Replace JD links wholesale.
+        await tx
+          .delete(candidateFormTemplateJobDescription)
+          .where(eq(candidateFormTemplateJobDescription.templateId, id));
+        if (jobDescriptionIds.length > 0) {
+          await tx
+            .insert(candidateFormTemplateJobDescription)
+            .values(jobDescriptionIds.map((jdId) => ({ jobDescriptionId: jdId, templateId: id })));
+        }
+      });
+
+      safeUpdateTag("candidate-form-templates");
+      const updated = await loadCandidateFormTemplateById(id);
+      return c.json(updated, 200);
+    },
+  )
   .delete("/:id", async (c) => {
     const id = c.req.param("id");
     const existing = await loadCandidateFormTemplateById(id);
@@ -211,7 +210,7 @@ export const candidateFormsRouter = factory
 
     await db.delete(candidateFormTemplate).where(eq(candidateFormTemplate.id, id));
     safeUpdateTag("candidate-form-templates");
-    return c.json({ success: true });
+    return c.json({ success: true }, 200);
   })
   .get("/:id/submissions", async (c) => {
     const id = c.req.param("id");
@@ -220,7 +219,7 @@ export const candidateFormsRouter = factory
       return c.json({ error: "面试表单不存在。" }, 404);
     }
     const submissions = await loadSubmissionsByTemplate(id);
-    return c.json({ submissions });
+    return c.json({ submissions }, 200);
   })
   .get("/:id/versions/:versionId", async (c) => {
     const id = c.req.param("id");
@@ -229,5 +228,5 @@ export const candidateFormsRouter = factory
     if (!version) {
       return c.json({ error: "版本不存在。" }, 404);
     }
-    return c.json(version);
+    return c.json(version, 200);
   });

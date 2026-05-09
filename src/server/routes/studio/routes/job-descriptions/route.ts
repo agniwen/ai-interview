@@ -1,3 +1,4 @@
+import { zValidator } from "@hono/zod-validator";
 import { eq, inArray } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
@@ -7,7 +8,7 @@ import {
   jobDescriptionInterviewer,
 } from "@/lib/db/schema";
 import { jobDescriptionFormSchema, jobDescriptionUpdateSchema } from "@/lib/job-descriptions";
-import { factory } from "@/server/factory";
+import { factory, jsonValidatorError } from "@/server/factory";
 import {
   listAllJobDescriptions,
   loadJobDescriptionById,
@@ -60,134 +61,132 @@ export const jobDescriptionsRouter = factory
         sortOrder: c.req.query("sortOrder"),
       },
     );
-    return c.json(result);
+    return c.json(result, 200);
   })
   .get("/all", async (c) => {
     const records = await listAllJobDescriptions();
-    return c.json({ records });
+    return c.json({ records }, 200);
   })
-  .post("/", async (c) => {
-    const body = (await c.req.json().catch(() => null)) as Record<string, unknown> | null;
-    const input = jobDescriptionFormSchema.safeParse(body ?? {});
-    if (!input.success) {
-      return c.json({ error: input.error.issues[0]?.message ?? "表单校验失败。" }, 400);
-    }
+  .post(
+    "/",
+    zValidator("json", jobDescriptionFormSchema, jsonValidatorError("表单校验失败。")),
+    async (c) => {
+      const input = c.req.valid("json");
+      const interviewerIds = dedupeInterviewerIds(input.interviewerIds);
+      if (interviewerIds.length === 0) {
+        return c.json({ error: "请至少选择一位面试官。" }, 400);
+      }
 
-    const interviewerIds = dedupeInterviewerIds(input.data.interviewerIds);
-    if (interviewerIds.length === 0) {
-      return c.json({ error: "请至少选择一位面试官。" }, 400);
-    }
+      const { error } = await validateReferences(input.departmentId, interviewerIds);
+      if (error) {
+        return c.json({ error }, 400);
+      }
 
-    const { error } = await validateReferences(input.data.departmentId, interviewerIds);
-    if (error) {
-      return c.json({ error }, 400);
-    }
+      const now = new Date();
+      // `record` is passed both to `tx.insert().values()` AND directly to
+      // `serializeJobDescription`, which expects the full select shape — so we
+      // use `$inferSelect` (not `$inferInsert`) to satisfy that consumer without
+      // a DB round-trip.  The three nullable Feishu columns must be explicitly
+      // set to `null` here because `$inferSelect` requires them to be present.
+      //
+      // `record` 同时用于 `tx.insert().values()` 和 `serializeJobDescription`，
+      // 后者要求完整的 select 类型，因此使用 `$inferSelect` 而非 `$inferInsert`，
+      // 避免额外的数据库查询。三个可空飞书列需显式设为 `null` 以满足该类型。
+      const record = {
+        createdAt: now,
+        createdBy: c.var.user?.id ?? null,
+        departmentId: input.departmentId,
+        description: input.description?.trim() || null,
+        feishuChatBoundAt: null,
+        feishuChatBoundBy: null,
+        feishuChatId: null,
+        id: crypto.randomUUID(),
+        name: input.name.trim(),
+        // presetQuestions is deprecated — column kept with default [] for legacy
+        // data; new rows always store an empty array.
+        presetQuestions: [],
+        prompt: input.prompt.trim(),
+        updatedAt: now,
+      } satisfies typeof jobDescription.$inferSelect;
 
-    const now = new Date();
-    // `record` is passed both to `tx.insert().values()` AND directly to
-    // `serializeJobDescription`, which expects the full select shape — so we
-    // use `$inferSelect` (not `$inferInsert`) to satisfy that consumer without
-    // a DB round-trip.  The three nullable Feishu columns must be explicitly
-    // set to `null` here because `$inferSelect` requires them to be present.
-    //
-    // `record` 同时用于 `tx.insert().values()` 和 `serializeJobDescription`，
-    // 后者要求完整的 select 类型，因此使用 `$inferSelect` 而非 `$inferInsert`，
-    // 避免额外的数据库查询。三个可空飞书列需显式设为 `null` 以满足该类型。
-    const record = {
-      createdAt: now,
-      createdBy: c.var.user?.id ?? null,
-      departmentId: input.data.departmentId,
-      description: input.data.description?.trim() || null,
-      feishuChatBoundAt: null,
-      feishuChatBoundBy: null,
-      feishuChatId: null,
-      id: crypto.randomUUID(),
-      name: input.data.name.trim(),
-      // presetQuestions is deprecated — column kept with default [] for legacy
-      // data; new rows always store an empty array.
-      presetQuestions: [],
-      prompt: input.data.prompt.trim(),
-      updatedAt: now,
-    } satisfies typeof jobDescription.$inferSelect;
+      await db.transaction(async (tx) => {
+        await tx.insert(jobDescription).values(record);
+        await tx.insert(jobDescriptionInterviewer).values(
+          interviewerIds.map((id) => ({
+            createdAt: now,
+            interviewerId: id,
+            jobDescriptionId: record.id,
+          })),
+        );
+      });
 
-    await db.transaction(async (tx) => {
-      await tx.insert(jobDescription).values(record);
-      await tx.insert(jobDescriptionInterviewer).values(
-        interviewerIds.map((id) => ({
-          createdAt: now,
-          interviewerId: id,
-          jobDescriptionId: record.id,
-        })),
-      );
-    });
+      safeUpdateTag("job-descriptions");
+      safeUpdateTag("interviewers");
 
-    safeUpdateTag("job-descriptions");
-    safeUpdateTag("interviewers");
-
-    return c.json(serializeJobDescription(record, interviewerIds), 201);
-  })
+      return c.json(serializeJobDescription(record, interviewerIds), 201);
+    },
+  )
   .get("/:id", async (c) => {
     const id = c.req.param("id");
     const record = await loadJobDescriptionById(id);
     if (!record) {
       return c.json({ error: "在招岗位不存在。" }, 404);
     }
-    return c.json(record);
+    return c.json(record, 200);
   })
-  .patch("/:id", async (c) => {
-    const id = c.req.param("id");
-    const existing = await loadJobDescriptionById(id);
-    if (!existing) {
-      return c.json({ error: "在招岗位不存在。" }, 404);
-    }
+  .patch(
+    "/:id",
+    zValidator("json", jobDescriptionUpdateSchema, jsonValidatorError("表单校验失败。")),
+    async (c) => {
+      const id = c.req.param("id");
+      const existing = await loadJobDescriptionById(id);
+      if (!existing) {
+        return c.json({ error: "在招岗位不存在。" }, 404);
+      }
 
-    const body = (await c.req.json().catch(() => null)) as Record<string, unknown> | null;
-    const input = jobDescriptionUpdateSchema.safeParse(body ?? {});
-    if (!input.success) {
-      return c.json({ error: input.error.issues[0]?.message ?? "表单校验失败。" }, 400);
-    }
+      const input = c.req.valid("json");
+      const interviewerIds = dedupeInterviewerIds(input.interviewerIds);
+      if (interviewerIds.length === 0) {
+        return c.json({ error: "请至少选择一位面试官。" }, 400);
+      }
 
-    const interviewerIds = dedupeInterviewerIds(input.data.interviewerIds);
-    if (interviewerIds.length === 0) {
-      return c.json({ error: "请至少选择一位面试官。" }, 400);
-    }
+      const { error } = await validateReferences(input.departmentId, interviewerIds);
+      if (error) {
+        return c.json({ error }, 400);
+      }
 
-    const { error } = await validateReferences(input.data.departmentId, interviewerIds);
-    if (error) {
-      return c.json({ error }, 400);
-    }
+      const now = new Date();
+      await db.transaction(async (tx) => {
+        await tx
+          .update(jobDescription)
+          .set({
+            departmentId: input.departmentId,
+            description: input.description?.trim() || null,
+            name: input.name.trim(),
+            prompt: input.prompt.trim(),
+            updatedAt: now,
+          })
+          .where(eq(jobDescription.id, id));
 
-    const now = new Date();
-    await db.transaction(async (tx) => {
-      await tx
-        .update(jobDescription)
-        .set({
-          departmentId: input.data.departmentId,
-          description: input.data.description?.trim() || null,
-          name: input.data.name.trim(),
-          prompt: input.data.prompt.trim(),
-          updatedAt: now,
-        })
-        .where(eq(jobDescription.id, id));
+        // Replace junction links atomically.
+        await tx
+          .delete(jobDescriptionInterviewer)
+          .where(eq(jobDescriptionInterviewer.jobDescriptionId, id));
+        await tx.insert(jobDescriptionInterviewer).values(
+          interviewerIds.map((interviewerId) => ({
+            createdAt: now,
+            interviewerId,
+            jobDescriptionId: id,
+          })),
+        );
+      });
 
-      // Replace junction links atomically.
-      await tx
-        .delete(jobDescriptionInterviewer)
-        .where(eq(jobDescriptionInterviewer.jobDescriptionId, id));
-      await tx.insert(jobDescriptionInterviewer).values(
-        interviewerIds.map((interviewerId) => ({
-          createdAt: now,
-          interviewerId,
-          jobDescriptionId: id,
-        })),
-      );
-    });
-
-    safeUpdateTag("job-descriptions");
-    safeUpdateTag("interviewers");
-    const updated = await loadJobDescriptionById(id);
-    return c.json(updated);
-  })
+      safeUpdateTag("job-descriptions");
+      safeUpdateTag("interviewers");
+      const updated = await loadJobDescriptionById(id);
+      return c.json(updated, 200);
+    },
+  )
   .delete("/:id", async (c) => {
     const id = c.req.param("id");
     const existing = await loadJobDescriptionById(id);
@@ -200,5 +199,5 @@ export const jobDescriptionsRouter = factory
     safeUpdateTag("job-descriptions");
     safeUpdateTag("studio-interviews");
     safeUpdateTag("interviewers");
-    return c.json({ success: true });
+    return c.json({ success: true }, 200);
   });

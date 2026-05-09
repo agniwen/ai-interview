@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { apiFetch, ApiError } from "@/lib/api";
+import { rpc } from "@/lib/rpc";
 import type { AdminUserRecord } from "@/server/routes/studio/routes/users/dao";
 
 interface SetPasswordDialogProps {
@@ -58,14 +58,18 @@ export function SetPasswordDialog({ user, onOpenChange, onSuccess }: SetPassword
       // upsert credential account 的自定义实现。
       // Use our custom endpoint; better-auth's setUserPassword silently no-ops for
       // users without a credential account (Feishu OAuth users).
-      await apiFetch(`/api/studio/users/${user.id}/password`, {
-        body: { password },
-        method: "POST",
+      const res = await rpc.api.studio.users[":id"].password.$post({
+        json: { password },
+        param: { id: user.id },
       });
+      if (!res.ok) {
+        const payload = (await res.json().catch(() => null)) as { error?: string } | null;
+        throw new Error(payload?.error ?? "密码设置失败");
+      }
       toast.success("密码已更新");
       onSuccess();
     } catch (error) {
-      const message = error instanceof ApiError ? error.message : "密码设置失败";
+      const message = error instanceof Error ? error.message : "密码设置失败";
       toast.error(message);
     } finally {
       setSubmitting(false);

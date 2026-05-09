@@ -1,8 +1,9 @@
+import { zValidator } from "@hono/zod-validator";
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { department } from "@/lib/db/schema";
 import { departmentFormSchema, departmentUpdateSchema } from "@/lib/departments";
-import { factory } from "@/server/factory";
+import { factory, jsonValidatorError } from "@/server/factory";
 import {
   listAllDepartments,
   loadDepartmentById,
@@ -24,69 +25,67 @@ export const departmentsRouter = factory
         sortOrder: c.req.query("sortOrder"),
       },
     );
-    return c.json(result);
+    return c.json(result, 200);
   })
   .get("/all", async (c) => {
     const records = await listAllDepartments();
-    return c.json({ records });
+    return c.json({ records }, 200);
   })
-  .post("/", async (c) => {
-    const body = (await c.req.json().catch(() => null)) as Record<string, unknown> | null;
-    const input = departmentFormSchema.safeParse(body ?? {});
-    if (!input.success) {
-      return c.json({ error: input.error.issues[0]?.message ?? "表单校验失败。" }, 400);
-    }
+  .post(
+    "/",
+    zValidator("json", departmentFormSchema, jsonValidatorError("表单校验失败。")),
+    async (c) => {
+      const input = c.req.valid("json");
+      const now = new Date();
+      const record = {
+        createdAt: now,
+        createdBy: c.var.user?.id ?? null,
+        description: input.description?.trim() || null,
+        id: crypto.randomUUID(),
+        name: input.name.trim(),
+        updatedAt: now,
+      } satisfies typeof department.$inferInsert;
 
-    const now = new Date();
-    const record = {
-      createdAt: now,
-      createdBy: c.var.user?.id ?? null,
-      description: input.data.description?.trim() || null,
-      id: crypto.randomUUID(),
-      name: input.data.name.trim(),
-      updatedAt: now,
-    } satisfies typeof department.$inferInsert;
+      await db.insert(department).values(record);
+      safeUpdateTag("departments");
 
-    await db.insert(department).values(record);
-    safeUpdateTag("departments");
-
-    return c.json(serializeDepartment(record), 201);
-  })
+      return c.json(serializeDepartment(record), 201);
+    },
+  )
   .get("/:id", async (c) => {
     const id = c.req.param("id");
     const record = await loadDepartmentById(id);
     if (!record) {
       return c.json({ error: "部门不存在。" }, 404);
     }
-    return c.json(record);
+    return c.json(record, 200);
   })
-  .patch("/:id", async (c) => {
-    const id = c.req.param("id");
-    const existing = await loadDepartmentById(id);
-    if (!existing) {
-      return c.json({ error: "部门不存在。" }, 404);
-    }
+  .patch(
+    "/:id",
+    zValidator("json", departmentUpdateSchema, jsonValidatorError("表单校验失败。")),
+    async (c) => {
+      const id = c.req.param("id");
+      const existing = await loadDepartmentById(id);
+      if (!existing) {
+        return c.json({ error: "部门不存在。" }, 404);
+      }
 
-    const body = (await c.req.json().catch(() => null)) as Record<string, unknown> | null;
-    const input = departmentUpdateSchema.safeParse(body ?? {});
-    if (!input.success) {
-      return c.json({ error: input.error.issues[0]?.message ?? "表单校验失败。" }, 400);
-    }
+      const input = c.req.valid("json");
+      const now = new Date();
+      await db
+        .update(department)
+        .set({
+          description: input.description?.trim() || null,
+          name: input.name.trim(),
+          updatedAt: now,
+        })
+        .where(eq(department.id, id));
 
-    const now = new Date();
-    await db
-      .update(department)
-      .set({
-        description: input.data.description?.trim() || null,
-        name: input.data.name.trim(),
-        updatedAt: now,
-      })
-      .where(eq(department.id, id));
-
-    safeUpdateTag("departments");
-    const updated = await loadDepartmentById(id);
-    return c.json(updated);
-  })
+      safeUpdateTag("departments");
+      const updated = await loadDepartmentById(id);
+      return c.json(updated, 200);
+    },
+  )
   .delete("/:id", async (c) => {
     const id = c.req.param("id");
     const existing = await loadDepartmentById(id);
@@ -96,16 +95,10 @@ export const departmentsRouter = factory
 
     const refs = await loadDepartmentReferenceCounts(id);
     if (refs.interviewerCount > 0 || refs.jobDescriptionCount > 0) {
-      return c.json(
-        {
-          error: "该部门下仍有面试官或在招岗位，无法删除。",
-          refs,
-        },
-        400,
-      );
+      return c.json({ error: "该部门下仍有面试官或在招岗位，无法删除。", refs }, 400);
     }
 
     await db.delete(department).where(eq(department.id, id));
     safeUpdateTag("departments");
-    return c.json({ success: true });
+    return c.json({ success: true }, 200);
   });

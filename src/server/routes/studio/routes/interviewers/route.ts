@@ -1,8 +1,9 @@
+import { zValidator } from "@hono/zod-validator";
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { department, interviewer } from "@/lib/db/schema";
 import { interviewerFormSchema, interviewerUpdateSchema } from "@/lib/interviewers";
-import { factory } from "@/server/factory";
+import { factory, jsonValidatorError } from "@/server/factory";
 import {
   listAllInterviewers,
   loadInterviewerById,
@@ -36,87 +37,85 @@ export const interviewersRouter = factory
         sortOrder: c.req.query("sortOrder"),
       },
     );
-    return c.json(result);
+    return c.json(result, 200);
   })
   .get("/all", async (c) => {
     const records = await listAllInterviewers();
-    return c.json({ records });
+    return c.json({ records }, 200);
   })
-  .post("/", async (c) => {
-    const body = (await c.req.json().catch(() => null)) as Record<string, unknown> | null;
-    const input = interviewerFormSchema.safeParse(body ?? {});
-    if (!input.success) {
-      return c.json({ error: input.error.issues[0]?.message ?? "表单校验失败。" }, 400);
-    }
+  .post(
+    "/",
+    zValidator("json", interviewerFormSchema, jsonValidatorError("表单校验失败。")),
+    async (c) => {
+      const input = c.req.valid("json");
+      const hasDepartment = await validateDepartmentExists(input.departmentId);
+      if (!hasDepartment) {
+        return c.json({ error: "所选部门不存在。" }, 400);
+      }
 
-    const hasDepartment = await validateDepartmentExists(input.data.departmentId);
-    if (!hasDepartment) {
-      return c.json({ error: "所选部门不存在。" }, 400);
-    }
+      const now = new Date();
+      const record = {
+        createdAt: now,
+        createdBy: c.var.user?.id ?? null,
+        departmentId: input.departmentId,
+        description: input.description?.trim() || null,
+        id: crypto.randomUUID(),
+        name: input.name.trim(),
+        prompt: input.prompt.trim(),
+        updatedAt: now,
+        voice: input.voice,
+      } satisfies typeof interviewer.$inferInsert;
 
-    const now = new Date();
-    const record = {
-      createdAt: now,
-      createdBy: c.var.user?.id ?? null,
-      departmentId: input.data.departmentId,
-      description: input.data.description?.trim() || null,
-      id: crypto.randomUUID(),
-      name: input.data.name.trim(),
-      prompt: input.data.prompt.trim(),
-      updatedAt: now,
-      voice: input.data.voice,
-    } satisfies typeof interviewer.$inferInsert;
+      await db.insert(interviewer).values(record);
+      safeUpdateTag("interviewers");
 
-    await db.insert(interviewer).values(record);
-    safeUpdateTag("interviewers");
-
-    return c.json(serializeInterviewer(record), 201);
-  })
+      return c.json(serializeInterviewer(record), 201);
+    },
+  )
   .get("/:id", async (c) => {
     const id = c.req.param("id");
     const record = await loadInterviewerById(id);
     if (!record) {
       return c.json({ error: "面试官不存在。" }, 404);
     }
-    return c.json(record);
+    return c.json(record, 200);
   })
-  .patch("/:id", async (c) => {
-    const id = c.req.param("id");
-    const existing = await loadInterviewerById(id);
-    if (!existing) {
-      return c.json({ error: "面试官不存在。" }, 404);
-    }
-
-    const body = (await c.req.json().catch(() => null)) as Record<string, unknown> | null;
-    const input = interviewerUpdateSchema.safeParse(body ?? {});
-    if (!input.success) {
-      return c.json({ error: input.error.issues[0]?.message ?? "表单校验失败。" }, 400);
-    }
-
-    if (input.data.departmentId !== existing.departmentId) {
-      const hasDepartment = await validateDepartmentExists(input.data.departmentId);
-      if (!hasDepartment) {
-        return c.json({ error: "所选部门不存在。" }, 400);
+  .patch(
+    "/:id",
+    zValidator("json", interviewerUpdateSchema, jsonValidatorError("表单校验失败。")),
+    async (c) => {
+      const id = c.req.param("id");
+      const existing = await loadInterviewerById(id);
+      if (!existing) {
+        return c.json({ error: "面试官不存在。" }, 404);
       }
-    }
 
-    const now = new Date();
-    await db
-      .update(interviewer)
-      .set({
-        departmentId: input.data.departmentId,
-        description: input.data.description?.trim() || null,
-        name: input.data.name.trim(),
-        prompt: input.data.prompt.trim(),
-        updatedAt: now,
-        voice: input.data.voice,
-      })
-      .where(eq(interviewer.id, id));
+      const input = c.req.valid("json");
+      if (input.departmentId !== existing.departmentId) {
+        const hasDepartment = await validateDepartmentExists(input.departmentId);
+        if (!hasDepartment) {
+          return c.json({ error: "所选部门不存在。" }, 400);
+        }
+      }
 
-    safeUpdateTag("interviewers");
-    const updated = await loadInterviewerById(id);
-    return c.json(updated);
-  })
+      const now = new Date();
+      await db
+        .update(interviewer)
+        .set({
+          departmentId: input.departmentId,
+          description: input.description?.trim() || null,
+          name: input.name.trim(),
+          prompt: input.prompt.trim(),
+          updatedAt: now,
+          voice: input.voice,
+        })
+        .where(eq(interviewer.id, id));
+
+      safeUpdateTag("interviewers");
+      const updated = await loadInterviewerById(id);
+      return c.json(updated, 200);
+    },
+  )
   .delete("/:id", async (c) => {
     const id = c.req.param("id");
     const existing = await loadInterviewerById(id);
@@ -126,16 +125,10 @@ export const interviewersRouter = factory
 
     const refs = await loadInterviewerReferenceCounts(id);
     if (refs.jobDescriptionCount > 0) {
-      return c.json(
-        {
-          error: "该面试官仍被在招岗位引用，无法删除。",
-          refs,
-        },
-        400,
-      );
+      return c.json({ error: "该面试官仍被在招岗位引用，无法删除。", refs }, 400);
     }
 
     await db.delete(interviewer).where(eq(interviewer.id, id));
     safeUpdateTag("interviewers");
-    return c.json({ success: true });
+    return c.json({ success: true }, 200);
   });

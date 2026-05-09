@@ -2,7 +2,7 @@ import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
 import { renderProfileReport } from "@/lib/interview/report";
 import { fileToUploadedResumePdf, parseResumeSubagent } from "@/server/agents/resume-parser-agent";
-import { factory } from "@/server/factory";
+import { factory, jsonValidatorError } from "@/server/factory";
 import { authMiddleware } from "@/server/middlewares/auth";
 import {
   approveDeviceCode,
@@ -38,24 +38,6 @@ const pollTokenBodySchema = z.object({
 const approveBodySchema = z.object({
   user_code: z.string().min(1),
 });
-
-// 中文：通用 zValidator 错误响应钩子，保留 { error: string } 形状以匹配现网客户端期望。
-// English: Shared zValidator error hook that preserves { error: string } shape
-// for current callers.
-interface ZodValidationResult {
-  success: false;
-  error: { issues: { message: string }[] };
-}
-function jsonValidatorError(fallback: string) {
-  return (
-    result: { success: true } | ZodValidationResult,
-    c: { json: (body: unknown, status: 400) => Response },
-  ) => {
-    if (!result.success) {
-      return c.json({ error: result.error.issues[0]?.message ?? fallback }, 400);
-    }
-  };
-}
 
 export const skillRouter = factory
   .createApp()

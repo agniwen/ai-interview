@@ -1,9 +1,10 @@
+import { zValidator } from "@hono/zod-validator";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { account } from "@/lib/db/schema";
-import { factory } from "@/server/factory";
+import { factory, jsonValidatorError } from "@/server/factory";
 
 // =====================================================================
 // 自建 admin 用户密码端点。
@@ -23,46 +24,48 @@ const setPasswordSchema = z.object({
   password: z.string().min(8).max(128),
 });
 
-export const adminUsersRouter = factory.createApp().post("/:id/password", async (c) => {
-  // 仅 better-auth role==='admin' 可以为他人设密码（Hono 的 adminMiddleware 只校验
-  // 飞书组织白名单，这里再叠加一层 role 检查）。
-  // Only better-auth role==='admin' may reset others' passwords. The Hono
-  // adminMiddleware only enforces Feishu-org allowlisting; layer role on top.
-  if (c.var.user?.role !== "admin") {
-    return c.json({ error: "仅管理员可以为其他用户设置密码" }, 403);
-  }
+export const adminUsersRouter = factory
+  .createApp()
+  .post(
+    "/:id/password",
+    zValidator("json", setPasswordSchema, jsonValidatorError("密码格式不合法")),
+    async (c) => {
+      // 仅 better-auth role==='admin' 可以为他人设密码（Hono 的 adminMiddleware 只校验
+      // 飞书组织白名单，这里再叠加一层 role 检查）。
+      // Only better-auth role==='admin' may reset others' passwords. The Hono
+      // adminMiddleware only enforces Feishu-org allowlisting; layer role on top.
+      if (c.var.user?.role !== "admin") {
+        return c.json({ error: "仅管理员可以为其他用户设置密码" }, 403);
+      }
 
-  const userId = c.req.param("id");
-  const body = (await c.req.json().catch(() => null)) as Record<string, unknown> | null;
-  const parsed = setPasswordSchema.safeParse(body ?? {});
-  if (!parsed.success) {
-    return c.json({ error: parsed.error.issues[0]?.message ?? "密码格式不合法" }, 400);
-  }
+      const userId = c.req.param("id");
+      const input = c.req.valid("json");
 
-  const ctx = await auth.$context;
-  const hashed = await ctx.password.hash(parsed.data.password);
+      const ctx = await auth.$context;
+      const hashed = await ctx.password.hash(input.password);
 
-  const [existing] = await db
-    .select({ id: account.id })
-    .from(account)
-    .where(and(eq(account.userId, userId), eq(account.providerId, "credential")))
-    .limit(1);
+      const [existing] = await db
+        .select({ id: account.id })
+        .from(account)
+        .where(and(eq(account.userId, userId), eq(account.providerId, "credential")))
+        .limit(1);
 
-  const now = new Date();
-  await (existing
-    ? db
-        .update(account)
-        .set({ password: hashed, updatedAt: now })
-        .where(eq(account.id, existing.id))
-    : db.insert(account).values({
-        accountId: userId,
-        createdAt: now,
-        id: crypto.randomUUID(),
-        password: hashed,
-        providerId: "credential",
-        updatedAt: now,
-        userId,
-      }));
+      const now = new Date();
+      await (existing
+        ? db
+            .update(account)
+            .set({ password: hashed, updatedAt: now })
+            .where(eq(account.id, existing.id))
+        : db.insert(account).values({
+            accountId: userId,
+            createdAt: now,
+            id: crypto.randomUUID(),
+            password: hashed,
+            providerId: "credential",
+            updatedAt: now,
+            userId,
+          }));
 
-  return c.json({ success: true });
-});
+      return c.json({ success: true }, 200);
+    },
+  );

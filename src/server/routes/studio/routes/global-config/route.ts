@@ -1,6 +1,6 @@
 import { zValidator } from "@hono/zod-validator";
 import { globalConfigSchema } from "@/lib/global-config";
-import { factory } from "@/server/factory";
+import { factory, jsonValidatorError } from "@/server/factory";
 import {
   getGlobalConfig,
   upsertGlobalConfig,
@@ -14,11 +14,7 @@ export const globalConfigRouter = factory
   })
   .put(
     "/",
-    zValidator("json", globalConfigSchema, (result, c) => {
-      if (!result.success) {
-        return c.json({ error: result.error.issues[0]?.message ?? "表单校验失败。" }, 400);
-      }
-    }),
+    zValidator("json", globalConfigSchema, jsonValidatorError("表单校验失败。")),
     async (c) => {
       const input = c.req.valid("json");
       const record = await upsertGlobalConfig(input, c.var.user?.id ?? null);

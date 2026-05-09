@@ -6,6 +6,7 @@ import type {
   InterviewQuestionTemplateScope,
 } from "@/lib/interview-question-templates";
 import type { JobDescriptionListRecord } from "@/lib/job-descriptions";
+import { rpc } from "@/lib/rpc";
 import { useForm, useStore } from "@tanstack/react-form";
 import { LoaderCircleIcon } from "lucide-react";
 import { useEffect } from "react";
@@ -84,14 +85,12 @@ export function InterviewQuestionTemplateEditorDialog({
         title: value.title.trim(),
       };
 
-      const response = await fetch(
-        isEdit ? `/api/studio/interview-questions/${record.id}` : "/api/studio/interview-questions",
-        {
-          body: JSON.stringify(body),
-          headers: { "Content-Type": "application/json" },
-          method: isEdit ? "PATCH" : "POST",
-        },
-      );
+      const response = isEdit
+        ? await rpc.api.studio["interview-questions"][":id"].$patch({
+            json: body,
+            param: { id: record.id },
+          })
+        : await rpc.api.studio["interview-questions"].$post({ json: body });
       const payload = (await response.json().catch(() => null)) as { error?: string } | null;
       if (!response.ok) {
         toast.error(payload?.error ?? (isEdit ? "更新失败" : "创建失败"));

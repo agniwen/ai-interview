@@ -37,36 +37,38 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
-import { apiFetch } from "@/lib/api";
+import { rpc } from "@/lib/rpc";
 import { JobDescriptionFormDialog } from "./job-description-form-dialog";
 
-function fetchJobDescriptions(params: {
+async function fetchJobDescriptions(params: {
   search: string;
   page: number;
   pageSize: number;
   filters: { departmentId: string; interviewerId: string };
 }): Promise<PaginatedJobDescriptionResult> {
-  const qs = new URLSearchParams();
-  if (params.search) {
-    qs.set("search", params.search);
+  const res = await rpc.api.studio["job-descriptions"].$get({
+    query: {
+      page: String(params.page),
+      pageSize: String(params.pageSize),
+      ...(params.search ? { search: params.search } : {}),
+      // 多选过滤：CSV 形式，例如 "a,b,c"。空串表示不筛选。
+      // / Multi-select filters serialize to CSV; empty string means "no filter".
+      ...(params.filters.departmentId ? { departmentId: params.filters.departmentId } : {}),
+      ...(params.filters.interviewerId ? { interviewerId: params.filters.interviewerId } : {}),
+      sortBy: "createdAt",
+      sortOrder: "desc",
+    },
+  });
+  if (!res.ok) {
+    throw new Error("加载在招岗位列表失败");
   }
-  // 多选过滤：CSV 形式，例如 "a,b,c"。空串表示不筛选。
-  // / Multi-select filters serialize to CSV; empty string means "no filter".
-  if (params.filters.departmentId) {
-    qs.set("departmentId", params.filters.departmentId);
-  }
-  if (params.filters.interviewerId) {
-    qs.set("interviewerId", params.filters.interviewerId);
-  }
-  qs.set("page", String(params.page));
-  qs.set("pageSize", String(params.pageSize));
-  qs.set("sortBy", "createdAt");
-  qs.set("sortOrder", "desc");
-  return apiFetch<PaginatedJobDescriptionResult>(`/api/studio/job-descriptions?${qs.toString()}`);
+  return (await res.json()) as PaginatedJobDescriptionResult;
 }
 
 async function loadJobDescriptionDetail(id: string): Promise<JobDescriptionRecord | null> {
-  const response = await fetch(`/api/studio/job-descriptions/${id}`);
+  const response = await rpc.api.studio["job-descriptions"][":id"].$get({
+    param: { id },
+  });
   if (!response.ok) {
     return null;
   }
@@ -125,8 +127,8 @@ export function JobDescriptionManagementPage({
     if (!deleteRecord) {
       return;
     }
-    const response = await fetch(`/api/studio/job-descriptions/${deleteRecord.id}`, {
-      method: "DELETE",
+    const response = await rpc.api.studio["job-descriptions"][":id"].$delete({
+      param: { id: deleteRecord.id },
     });
     const payload = (await response.json().catch(() => null)) as { error?: string } | null;
     if (!response.ok) {

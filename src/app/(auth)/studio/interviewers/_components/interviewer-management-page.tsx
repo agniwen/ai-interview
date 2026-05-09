@@ -36,29 +36,35 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
-import { apiFetch } from "@/lib/api";
+import { rpc } from "@/lib/rpc";
 import { getMinimaxVoiceMeta } from "@/lib/minimax-voices";
 import { InterviewerFormDialog } from "./interviewer-form-dialog";
 
-function fetchInterviewers(params: {
+async function fetchInterviewers(params: {
   search: string;
   page: number;
   pageSize: number;
   filters: Record<string, never>;
 }): Promise<PaginatedInterviewerResult> {
-  const qs = new URLSearchParams();
-  if (params.search) {
-    qs.set("search", params.search);
+  const res = await rpc.api.studio.interviewers.$get({
+    query: {
+      page: String(params.page),
+      pageSize: String(params.pageSize),
+      ...(params.search ? { search: params.search } : {}),
+      sortBy: "createdAt",
+      sortOrder: "desc",
+    },
+  });
+  if (!res.ok) {
+    throw new Error("加载面试官列表失败");
   }
-  qs.set("page", String(params.page));
-  qs.set("pageSize", String(params.pageSize));
-  qs.set("sortBy", "createdAt");
-  qs.set("sortOrder", "desc");
-  return apiFetch<PaginatedInterviewerResult>(`/api/studio/interviewers?${qs.toString()}`);
+  return (await res.json()) as PaginatedInterviewerResult;
 }
 
 async function loadInterviewerDetail(id: string): Promise<InterviewerRecord | null> {
-  const response = await fetch(`/api/studio/interviewers/${id}`);
+  const response = await rpc.api.studio.interviewers[":id"].$get({
+    param: { id },
+  });
   if (!response.ok) {
     return null;
   }
@@ -111,8 +117,8 @@ export function InterviewerManagementPage({
     if (!deleteRecord) {
       return;
     }
-    const response = await fetch(`/api/studio/interviewers/${deleteRecord.id}`, {
-      method: "DELETE",
+    const response = await rpc.api.studio.interviewers[":id"].$delete({
+      param: { id: deleteRecord.id },
     });
     const payload = (await response.json().catch(() => null)) as { error?: string } | null;
     if (!response.ok) {

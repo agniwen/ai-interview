@@ -41,7 +41,7 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
-import { apiFetch } from "@/lib/api";
+import { rpc } from "@/lib/rpc";
 import { CandidateFormTemplateEditorDialog } from "./form-template-editor-dialog";
 import { CandidateFormTemplateSubmissionsDrawer } from "./form-template-submissions-drawer";
 
@@ -49,32 +49,34 @@ function scopeLabel(scope: CandidateFormScope) {
   return scope === "global" ? "全局" : "岗位绑定";
 }
 
-function fetchTemplates(params: {
+async function fetchTemplates(params: {
   search: string;
   page: number;
   pageSize: number;
   filters: { scope: string; jobDescriptionId: string };
 }): Promise<PaginatedCandidateFormTemplateResult> {
-  const qs = new URLSearchParams();
-  if (params.search) {
-    qs.set("search", params.search);
+  const res = await rpc.api.studio.forms.$get({
+    query: {
+      page: String(params.page),
+      pageSize: String(params.pageSize),
+      ...(params.search ? { search: params.search } : {}),
+      // 多选过滤：CSV 形式 / Multi-select filters: CSV serialization.
+      ...(params.filters.scope ? { scope: params.filters.scope } : {}),
+      ...(params.filters.jobDescriptionId
+        ? { jobDescriptionId: params.filters.jobDescriptionId }
+        : {}),
+      sortBy: "createdAt",
+      sortOrder: "desc",
+    },
+  });
+  if (!res.ok) {
+    throw new Error("加载面试表单列表失败");
   }
-  // 多选过滤：CSV 形式 / Multi-select filters: CSV serialization.
-  if (params.filters.scope) {
-    qs.set("scope", params.filters.scope);
-  }
-  if (params.filters.jobDescriptionId) {
-    qs.set("jobDescriptionId", params.filters.jobDescriptionId);
-  }
-  qs.set("page", String(params.page));
-  qs.set("pageSize", String(params.pageSize));
-  qs.set("sortBy", "createdAt");
-  qs.set("sortOrder", "desc");
-  return apiFetch<PaginatedCandidateFormTemplateResult>(`/api/studio/forms?${qs.toString()}`);
+  return (await res.json()) as PaginatedCandidateFormTemplateResult;
 }
 
 async function loadTemplateDetail(id: string): Promise<CandidateFormTemplateRecord | null> {
-  const response = await fetch(`/api/studio/forms/${id}`);
+  const response = await rpc.api.studio.forms[":id"].$get({ param: { id } });
   if (!response.ok) {
     return null;
   }
@@ -165,7 +167,9 @@ export function CandidateFormTemplateManagementPage({
     if (!deleteRecord) {
       return;
     }
-    const response = await fetch(`/api/studio/forms/${deleteRecord.id}`, { method: "DELETE" });
+    const response = await rpc.api.studio.forms[":id"].$delete({
+      param: { id: deleteRecord.id },
+    });
     const payload = (await response.json().catch(() => null)) as { error?: string } | null;
     if (!response.ok) {
       toast.error(payload?.error ?? "删除失败");

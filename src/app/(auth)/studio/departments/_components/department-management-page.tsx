@@ -35,24 +35,28 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
-import { apiFetch } from "@/lib/api";
+import { rpc } from "@/lib/rpc";
 import { DepartmentFormDialog } from "./department-form-dialog";
 
-function fetchDepartments(params: {
+async function fetchDepartments(params: {
   search: string;
   page: number;
   pageSize: number;
   filters: Record<string, never>;
 }): Promise<PaginatedDepartmentResult> {
-  const qs = new URLSearchParams();
-  if (params.search) {
-    qs.set("search", params.search);
+  const res = await rpc.api.studio.departments.$get({
+    query: {
+      page: String(params.page),
+      pageSize: String(params.pageSize),
+      ...(params.search ? { search: params.search } : {}),
+      sortBy: "createdAt",
+      sortOrder: "desc",
+    },
+  });
+  if (!res.ok) {
+    throw new Error("加载部门列表失败");
   }
-  qs.set("page", String(params.page));
-  qs.set("pageSize", String(params.pageSize));
-  qs.set("sortBy", "createdAt");
-  qs.set("sortOrder", "desc");
-  return apiFetch<PaginatedDepartmentResult>(`/api/studio/departments?${qs.toString()}`);
+  return (await res.json()) as PaginatedDepartmentResult;
 }
 
 export function DepartmentManagementPage({
@@ -92,8 +96,8 @@ export function DepartmentManagementPage({
     if (!deleteRecord) {
       return;
     }
-    const response = await fetch(`/api/studio/departments/${deleteRecord.id}`, {
-      method: "DELETE",
+    const response = await rpc.api.studio.departments[":id"].$delete({
+      param: { id: deleteRecord.id },
     });
     const payload = (await response.json().catch(() => null)) as { error?: string } | null;
 

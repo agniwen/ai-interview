@@ -6,6 +6,7 @@ import type { InterviewerListRecord } from "@/lib/interviewers";
 import type { InterviewQuestionTemplateListRecord } from "@/lib/interview-question-templates";
 import { jobDescriptionFormSchema } from "@/lib/job-descriptions";
 import type { JobDescriptionFormValues, JobDescriptionRecord } from "@/lib/job-descriptions";
+import { rpc } from "@/lib/rpc";
 import { useQuery } from "@tanstack/react-query";
 import { useForm, useStore } from "@tanstack/react-form";
 import {
@@ -79,14 +80,15 @@ export function JobDescriptionFormDialog({
   const { data: linkedForms = [], isLoading: isFormsLoading } = useQuery({
     enabled: open && isEdit && !!record?.id,
     queryFn: async () => {
-      const qs = new URLSearchParams({
-        jobDescriptionId: record?.id ?? "",
-        page: "1",
-        pageSize: "100",
-        sortBy: "createdAt",
-        sortOrder: "desc",
+      const response = await rpc.api.studio.forms.$get({
+        query: {
+          jobDescriptionId: record?.id ?? "",
+          page: "1",
+          pageSize: "100",
+          sortBy: "createdAt",
+          sortOrder: "desc",
+        },
       });
-      const response = await fetch(`/api/studio/forms?${qs.toString()}`);
       const payload = (await response.json()) as {
         records?: CandidateFormTemplateListRecord[];
         error?: string;
@@ -102,14 +104,15 @@ export function JobDescriptionFormDialog({
   const { data: linkedInterviewQuestions = [], isLoading: isInterviewQuestionsLoading } = useQuery({
     enabled: open && isEdit && !!record?.id,
     queryFn: async () => {
-      const qs = new URLSearchParams({
-        jobDescriptionId: record?.id ?? "",
-        page: "1",
-        pageSize: "100",
-        sortBy: "createdAt",
-        sortOrder: "desc",
+      const response = await rpc.api.studio["interview-questions"].$get({
+        query: {
+          jobDescriptionId: record?.id ?? "",
+          page: "1",
+          pageSize: "100",
+          sortBy: "createdAt",
+          sortOrder: "desc",
+        },
       });
-      const response = await fetch(`/api/studio/interview-questions?${qs.toString()}`);
       const payload = (await response.json()) as {
         records?: InterviewQuestionTemplateListRecord[];
         error?: string;
@@ -133,14 +136,12 @@ export function JobDescriptionFormDialog({
         prompt: value.prompt.trim(),
       };
 
-      const response = await fetch(
-        isEdit ? `/api/studio/job-descriptions/${record.id}` : "/api/studio/job-descriptions",
-        {
-          body: JSON.stringify(body),
-          headers: { "Content-Type": "application/json" },
-          method: isEdit ? "PATCH" : "POST",
-        },
-      );
+      const response = isEdit
+        ? await rpc.api.studio["job-descriptions"][":id"].$patch({
+            json: body,
+            param: { id: record.id },
+          })
+        : await rpc.api.studio["job-descriptions"].$post({ json: body });
       const payload = (await response.json().catch(() => null)) as { error?: string } | null;
       if (!response.ok) {
         toast.error(payload?.error ?? (isEdit ? "更新失败" : "创建失败"));

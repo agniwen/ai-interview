@@ -6,6 +6,7 @@ import type {
 } from "@/lib/candidate-forms";
 import { useQuery } from "@tanstack/react-query";
 import { InboxIcon, Loader2Icon } from "lucide-react";
+import { rpc } from "@/lib/rpc";
 import { DATE_TIME_DISPLAY_OPTIONS, TimeDisplay } from "@/components/time-display";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -29,8 +30,13 @@ interface SubmissionRow {
 }
 
 async function fetchSubmissions(templateId: string): Promise<SubmissionRow[]> {
-  const response = await fetch(`/api/studio/forms/${templateId}/submissions`);
-  const payload = await response.json();
+  const response = await rpc.api.studio.forms[":id"].submissions.$get({
+    param: { id: templateId },
+  });
+  const payload = (await response.json()) as {
+    submissions?: SubmissionRow[];
+    error?: string;
+  };
   if (!response.ok) {
     throw new Error(payload?.error ?? "加载填写记录失败");
   }

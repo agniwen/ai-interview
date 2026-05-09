@@ -1,12 +1,13 @@
 "use client";
 
 import type { JobDescriptionListRecord } from "@/lib/job-descriptions";
+import { rpc } from "@/lib/rpc";
 import { useQuery } from "@tanstack/react-query";
 
 const QUERY_KEY = ["job-descriptions", "all"] as const;
 
 async function fetchJobDescriptionOptions(): Promise<JobDescriptionListRecord[]> {
-  const response = await fetch("/api/studio/job-descriptions/all");
+  const response = await rpc.api.studio["job-descriptions"].all.$get();
   if (!response.ok) {
     throw new Error("加载在招岗位列表失败");
   }
