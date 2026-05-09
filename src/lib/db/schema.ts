@@ -18,6 +18,7 @@ import type { InterviewQuestion, ResumeProfile } from "@/lib/interview/types";
 import type { JobDescriptionConfig } from "@/lib/job-description-config";
 import type { MinimaxVoiceId } from "@/lib/minimax-voices";
 import type { ScheduleEntryStatus, StudioInterviewStatus } from "@/lib/studio-interviews";
+import type { ResumeParserStructured } from "@/server/agents/resume-parser-schema";
 import {
   bigserial,
   boolean,
@@ -496,7 +497,7 @@ export const chatAttachment = pgTable(
       .$type<"pending" | "ready" | "failed">()
       .default("pending")
       .notNull(),
-    parsedStructured: jsonb("parsed_structured"),
+    parsedStructured: jsonb("parsed_structured").$type<ResumeParserStructured>(),
     parsedText: text("parsed_text"),
     parsedTextSource: text("parsed_text_source").$type<"pdf-parse" | "qwen-ocr">(),
     size: integer("size").notNull(),

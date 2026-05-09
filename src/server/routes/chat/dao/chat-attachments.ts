@@ -1,25 +1,13 @@
-import type { ResumeParserStructured } from "@/server/agents/resume-parser-agent";
+import type { ResumeParserStructured } from "@/server/agents/resume-parser-schema";
 import { and, eq, inArray, ne } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { chatAttachment } from "@/lib/db/schema";
 
-export interface ChatAttachmentRow {
-  id: string;
-  userId: string;
-  filename: string;
-  mediaType: string;
-  size: number;
-  storageKey: string;
-  createdAt: Date;
-  parsedStatus: "pending" | "ready" | "failed";
-  parsedText: string | null;
-  parsedStructured: ResumeParserStructured | null;
-  parsedPageCount: number | null;
-  parsedTextSource: "pdf-parse" | "qwen-ocr" | null;
-  parsedError: string | null;
-  parsedAt: Date | null;
-  contentHash: string | null;
-}
+// 行级类型直接来自 Drizzle schema —— 单一来源，schema 改动会自动传导到这里。
+// Row type derived from the Drizzle schema so column changes propagate automatically.
+export type ChatAttachmentRow = typeof chatAttachment.$inferSelect;
+
+type ChatAttachmentInsert = typeof chatAttachment.$inferInsert;
 
 export interface CreateAttachmentInput {
   id: string;
@@ -28,11 +16,11 @@ export interface CreateAttachmentInput {
   mediaType: string;
   size: number;
   storageKey: string;
-  parsedStatus?: "pending" | "ready" | "failed";
+  parsedStatus?: ChatAttachmentInsert["parsedStatus"];
   parsedText?: string | null;
   parsedStructured?: ResumeParserStructured | null;
   parsedPageCount?: number | null;
-  parsedTextSource?: "pdf-parse" | "qwen-ocr" | null;
+  parsedTextSource?: ChatAttachmentInsert["parsedTextSource"];
   parsedError?: string | null;
   parsedAt?: Date | null;
   contentHash?: string | null;
@@ -60,11 +48,11 @@ export async function createAttachment(input: CreateAttachmentInput): Promise<vo
 export interface UpdateAttachmentParseInput {
   attachmentId: string;
   userId: string;
-  parsedStatus: "ready" | "failed";
+  parsedStatus: Exclude<ChatAttachmentInsert["parsedStatus"], "pending">;
   parsedText?: string | null;
   parsedStructured?: ResumeParserStructured | null;
   parsedPageCount?: number | null;
-  parsedTextSource?: "pdf-parse" | "qwen-ocr" | null;
+  parsedTextSource?: ChatAttachmentInsert["parsedTextSource"];
   parsedError?: string | null;
 }
 
@@ -94,7 +82,7 @@ export async function getUserAttachment(
     .from(chatAttachment)
     .where(and(eq(chatAttachment.id, attachmentId), eq(chatAttachment.userId, userId)))
     .limit(1);
-  return (row as ChatAttachmentRow | undefined) ?? null;
+  return row ?? null;
 }
 
 export async function getUserAttachments(
@@ -104,12 +92,10 @@ export async function getUserAttachments(
   if (attachmentIds.length === 0) {
     return new Map();
   }
-  const rows = (await db
+  const rows = await db
     .select()
     .from(chatAttachment)
-    .where(
-      and(inArray(chatAttachment.id, attachmentIds), eq(chatAttachment.userId, userId)),
-    )) as ChatAttachmentRow[];
+    .where(and(inArray(chatAttachment.id, attachmentIds), eq(chatAttachment.userId, userId)));
   return new Map(rows.map((row) => [row.id, row]));
 }
 
@@ -124,5 +110,5 @@ export async function findAttachmentByContentHash(hash: string): Promise<ChatAtt
     .from(chatAttachment)
     .where(and(eq(chatAttachment.contentHash, hash), ne(chatAttachment.parsedStatus, "failed")))
     .limit(1);
-  return (row as ChatAttachmentRow | undefined) ?? null;
+  return row ?? null;
 }
