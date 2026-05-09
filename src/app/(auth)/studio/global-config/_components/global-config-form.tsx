@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { PageHeader } from "@/app/(auth)/studio/_components/page-header";
 import type { GlobalConfigRecord } from "@/lib/global-config";
+import { rpc } from "@/lib/rpc";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -20,14 +21,12 @@ export function GlobalConfigForm({ initial }: Props) {
 
   const onSave = () => {
     startTransition(async () => {
-      const res = await fetch("/api/studio/global-config", {
-        body: JSON.stringify({
+      const res = await rpc.api.studio["global-config"].$put({
+        json: {
           closingInstructions: closing,
           companyContext: company,
           openingInstructions: opening,
-        }),
-        headers: { "content-type": "application/json" },
-        method: "PUT",
+        },
       });
       if (!res.ok) {
         const { error } = (await res.json().catch(() => ({ error: "保存失败" }))) as {

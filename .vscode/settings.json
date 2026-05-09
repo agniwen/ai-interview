@@ -63,5 +63,5 @@
   "editor.codeActionsOnSave": {
     "source.fixAll.oxc": "always"
   },
-  "cSpell.words": ["oxlint"]
+  "cSpell.words": ["feishu", "livekit", "oxlint"]
 }
