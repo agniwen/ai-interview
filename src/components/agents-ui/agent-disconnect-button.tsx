@@ -6,7 +6,7 @@ import type { buttonVariants } from "@/components/ui/button";
 import { useSessionContext } from "@livekit/components-react";
 import { PhoneOffIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { cn } from "@/lib/shared/utils";
 
 /**
  * Props for the AgentDisconnectButton component.

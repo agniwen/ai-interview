@@ -2,12 +2,12 @@ import type {
   GeneratedInterviewQuestion,
   ResumeAnalysisResult,
   ResumeProfile,
-} from "@/lib/interview/types";
+} from "@/lib/shared/interview/types";
 import { stepCountIs } from "ai";
-import { generatedInterviewQuestionsSchema } from "@/lib/interview/types";
-import { parseResumeFast } from "@/lib/resume-parse-pipeline";
-import type { ResumeTextSource } from "@/lib/resume-parse-pipeline";
-import { sha256HexOfBytes } from "@/lib/file-hash";
+import { generatedInterviewQuestionsSchema } from "@/lib/shared/interview/types";
+import { parseResumeFast } from "@/lib/server/resume-parse-pipeline";
+import type { ResumeTextSource } from "@/lib/server/resume-parse-pipeline";
+import { sha256HexOfBytes } from "@/lib/shared/file-hash";
 import { findAttachmentByContentHash } from "@/server/routes/chat/dao/chat-attachments";
 import { parseJsonOutput } from "./json-output";
 import { createResumeAgent } from "./resume-agent";

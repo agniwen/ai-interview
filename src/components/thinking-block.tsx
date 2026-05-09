@@ -1,6 +1,6 @@
 "use client";
 
-import type { ToolRenderState } from "@/lib/tool-state";
+import type { ToolRenderState } from "@/lib/shared/tool-state";
 import { Brain } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { ToolLayout } from "./tool-call/tool-layout";

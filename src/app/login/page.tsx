@@ -5,8 +5,8 @@ import { redirect } from "next/navigation";
 import { connection } from "next/server";
 import { SignInTabs } from "@/components/auth/sign-in-tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { auth } from "@/lib/auth";
-import { canAccessAdmin } from "@/lib/auth-roles";
+import { auth } from "@/lib/server/auth";
+import { canAccessAdmin } from "@/lib/server/auth-roles";
 
 export const metadata: Metadata = {
   title: "登录",

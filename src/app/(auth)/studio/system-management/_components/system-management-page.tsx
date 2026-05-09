@@ -21,7 +21,7 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
-import { authClient } from "@/lib/auth-client";
+import { authClient } from "@/lib/client/auth-client";
 import type { AdminUserListResult, AdminUserRecord } from "@/server/routes/studio/routes/users/dao";
 import { BanUserDialog } from "./ban-user-dialog";
 import { SetPasswordDialog } from "./set-password-dialog";

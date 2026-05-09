@@ -1,4 +1,4 @@
-import type { ChatModelOption } from "@/lib/api";
+import type { ChatModelOption } from "@/lib/client/api";
 import { SESSION_MODEL_FALLBACK_ID } from "../_atoms/model";
 
 /**

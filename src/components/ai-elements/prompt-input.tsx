@@ -51,13 +51,13 @@ import {
 } from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { cn } from "@/lib/utils";
+import { cn } from "@/lib/shared/utils";
 
 // ============================================================================
 // Helpers
 // ============================================================================
 
-import { uploadAttachment } from "@/lib/chat-api";
+import { uploadAttachment } from "@/lib/shared/chat-api";
 
 export interface AttachmentParsed {
   attachmentId: string;

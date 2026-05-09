@@ -8,9 +8,9 @@
 import { eq, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
-import { relations } from "@/lib/db/relations";
-import * as schema from "@/lib/db/schema";
-import type { MinimaxVoiceId } from "@/lib/minimax-voices";
+import { relations } from "@/lib/server/db/relations";
+import * as schema from "@/lib/server/db/schema";
+import type { MinimaxVoiceId } from "@/lib/shared/minimax-voices";
 
 if (!process.env.DATABASE_URL) {
   throw new Error("DATABASE_URL is not set. 请确保 .env 已配置。");

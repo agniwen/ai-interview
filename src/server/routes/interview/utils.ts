@@ -1,21 +1,24 @@
-import type { parseScheduleEntriesInput, StudioInterviewRecord } from "@/lib/studio-interviews";
-import type { ResumeProfile } from "@/lib/interview/types";
+import type {
+  parseScheduleEntriesInput,
+  StudioInterviewRecord,
+} from "@/lib/shared/studio-interviews";
+import type { ResumeProfile } from "@/lib/shared/interview/types";
 import { eq, inArray } from "drizzle-orm";
 import { updateTag } from "next/cache";
-import { db } from "@/lib/db";
+import { db } from "@/lib/server/db";
 import {
   interviewer,
   jobDescription,
   jobDescriptionInterviewer,
   studioInterview,
   studioInterviewSchedule,
-} from "@/lib/db/schema";
+} from "@/lib/server/db/schema";
 import {
   buildCandidateInterviewView,
   buildInterviewLink,
   pickCurrentScheduleEntry,
   sortScheduleEntries,
-} from "@/lib/interview/interview-record";
+} from "@/lib/shared/interview/interview-record";
 import {
   parseResumeFastToProfile,
   ResumeAnalysisError,
@@ -29,8 +32,8 @@ import {
   ensureApplicableBindings,
   loadInterviewPresetQuestions,
 } from "@/server/routes/studio/routes/interview-questions/dao";
-import { sha256HexOfBytes } from "@/lib/file-hash";
-import { buildAttachmentKeyByHash, putObjectBytes } from "@/lib/s3";
+import { sha256HexOfBytes } from "@/lib/shared/file-hash";
+import { buildAttachmentKeyByHash, putObjectBytes } from "@/lib/server/s3";
 
 export type StudioInterviewRow = typeof studioInterview.$inferSelect;
 export type StudioInterviewScheduleRow = typeof studioInterviewSchedule.$inferSelect;

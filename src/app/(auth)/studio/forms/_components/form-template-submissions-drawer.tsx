@@ -3,10 +3,10 @@
 import type {
   CandidateFormTemplateListRecord,
   CandidateFormTemplateSnapshot,
-} from "@/lib/candidate-forms";
+} from "@/lib/shared/candidate-forms";
 import { useQuery } from "@tanstack/react-query";
 import { InboxIcon, Loader2Icon } from "lucide-react";
-import { rpc } from "@/lib/rpc";
+import { rpc } from "@/lib/client/rpc";
 import { DATE_TIME_DISPLAY_OPTIONS, TimeDisplay } from "@/components/time-display";
 import { Badge } from "@/components/ui/badge";
 import {

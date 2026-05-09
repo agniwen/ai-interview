@@ -4,9 +4,9 @@ import type {
   InterviewQuestionTemplateInput,
   InterviewQuestionTemplateRecord,
   InterviewQuestionTemplateScope,
-} from "@/lib/interview-question-templates";
-import type { JobDescriptionListRecord } from "@/lib/job-descriptions";
-import { rpc } from "@/lib/rpc";
+} from "@/lib/shared/interview-question-templates";
+import type { JobDescriptionListRecord } from "@/lib/shared/job-descriptions";
+import { rpc } from "@/lib/client/rpc";
 import { useForm, useStore } from "@tanstack/react-form";
 import { LoaderCircleIcon } from "lucide-react";
 import { useEffect } from "react";
@@ -24,7 +24,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { interviewQuestionTemplateSchema } from "@/lib/interview-question-templates";
+import { interviewQuestionTemplateSchema } from "@/lib/shared/interview-question-templates";
 import { hasFieldErrors, toFieldErrors } from "../../interviews/_components/interview-form";
 import { SortableQuestionListEditor } from "../../_components/sortable-question-list-editor";
 

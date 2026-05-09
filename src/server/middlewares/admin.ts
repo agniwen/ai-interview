@@ -1,4 +1,4 @@
-import { canAccessAdmin } from "@/lib/auth-roles";
+import { canAccessAdmin } from "@/lib/server/auth-roles";
 import { factory } from "../factory";
 
 // oxlint-disable-next-line require-await -- Hono middleware signature expects an async handler.

@@ -1,12 +1,12 @@
 "use client";
 
-import type { CandidateFormTemplateListRecord } from "@/lib/candidate-forms";
-import type { DepartmentRecord } from "@/lib/departments";
-import type { InterviewerListRecord } from "@/lib/interviewers";
-import type { InterviewQuestionTemplateListRecord } from "@/lib/interview-question-templates";
-import { jobDescriptionFormSchema } from "@/lib/job-descriptions";
-import type { JobDescriptionFormValues, JobDescriptionRecord } from "@/lib/job-descriptions";
-import { rpc } from "@/lib/rpc";
+import type { CandidateFormTemplateListRecord } from "@/lib/shared/candidate-forms";
+import type { DepartmentRecord } from "@/lib/shared/departments";
+import type { InterviewerListRecord } from "@/lib/shared/interviewers";
+import type { InterviewQuestionTemplateListRecord } from "@/lib/shared/interview-question-templates";
+import { jobDescriptionFormSchema } from "@/lib/shared/job-descriptions";
+import type { JobDescriptionFormValues, JobDescriptionRecord } from "@/lib/shared/job-descriptions";
+import { rpc } from "@/lib/client/rpc";
 import { useQuery } from "@tanstack/react-query";
 import { useForm, useStore } from "@tanstack/react-form";
 import {

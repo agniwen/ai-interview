@@ -2,7 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { Loader2Icon } from "lucide-react";
-import { rpc } from "@/lib/rpc";
+import { rpc } from "@/lib/client/rpc";
 
 interface AgentInstructionVariant {
   interviewerName: string | null;

@@ -1,6 +1,6 @@
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
-import { renderProfileReport } from "@/lib/interview/report";
+import { renderProfileReport } from "@/lib/shared/interview/report";
 import { fileToUploadedResumePdf, parseResumeSubagent } from "@/server/agents/resume-parser-agent";
 import { factory, jsonValidatorError } from "@/server/factory";
 import { authMiddleware } from "@/server/middlewares/auth";

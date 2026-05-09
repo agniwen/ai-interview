@@ -2,7 +2,7 @@
 "use client";
 
 import { PageHeader } from "@/app/(auth)/studio/_components/page-header";
-import type { StudioInterviewListRecord } from "@/lib/studio-interviews";
+import type { StudioInterviewListRecord } from "@/lib/shared/studio-interviews";
 import type {
   PaginatedStudioInterviewResult,
   StudioInterviewSummary,
@@ -42,13 +42,13 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
-import { apiFetch, bulkDeleteStudioInterviews, deleteStudioInterview } from "@/lib/api";
-import { copyTextToClipboard, toAbsoluteUrl } from "@/lib/clipboard";
+import { apiFetch, bulkDeleteStudioInterviews, deleteStudioInterview } from "@/lib/client/api";
+import { copyTextToClipboard, toAbsoluteUrl } from "@/lib/client/clipboard";
 import {
   scheduleEntryStatusMeta,
   studioInterviewStatusMeta,
   studioInterviewStatusValues,
-} from "@/lib/studio-interviews";
+} from "@/lib/shared/studio-interviews";
 import { Badge } from "@/components/ui/badge";
 import { CreateInterviewDialog } from "./create-interview-dialog";
 import { EditInterviewDialog } from "./edit-interview-dialog";

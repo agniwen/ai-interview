@@ -1,13 +1,16 @@
 import { zValidator } from "@hono/zod-validator";
 import { eq, inArray } from "drizzle-orm";
-import { db } from "@/lib/db";
+import { db } from "@/lib/server/db";
 import {
   department,
   interviewer,
   jobDescription,
   jobDescriptionInterviewer,
-} from "@/lib/db/schema";
-import { jobDescriptionFormSchema, jobDescriptionUpdateSchema } from "@/lib/job-descriptions";
+} from "@/lib/server/db/schema";
+import {
+  jobDescriptionFormSchema,
+  jobDescriptionUpdateSchema,
+} from "@/lib/shared/job-descriptions";
 import { factory, jsonValidatorError } from "@/server/factory";
 import {
   listAllJobDescriptions,

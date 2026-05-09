@@ -8,7 +8,7 @@
  * On mobile we route `select`-mode questions to `MobileChoicePicker` for better small-screen UX.
  */
 
-import type { CandidateFormTemplateSnapshot } from "@/lib/candidate-forms";
+import type { CandidateFormTemplateSnapshot } from "@/lib/shared/candidate-forms";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";

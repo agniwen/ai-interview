@@ -15,4 +15,4 @@ export type {
   PatchConversationPayload,
   UploadedAttachment,
   UpsertConversationPayload,
-} from "@/lib/chat-api";
+} from "@/lib/shared/chat-api";

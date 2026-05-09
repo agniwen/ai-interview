@@ -1,15 +1,20 @@
 import { and, asc, count, desc, eq, ilike, inArray, or, sql } from "drizzle-orm";
 import { cacheLife, cacheTag } from "next/cache";
 import { z } from "zod";
-import { db } from "@/lib/db";
-import { jobDescription, studioInterview, studioInterviewSchedule, user } from "@/lib/db/schema";
-import { buildInterviewLink, sortScheduleEntries } from "@/lib/interview/interview-record";
-import { studioInterviewStatusValues } from "@/lib/studio-interviews";
+import { db } from "@/lib/server/db";
+import {
+  jobDescription,
+  studioInterview,
+  studioInterviewSchedule,
+  user,
+} from "@/lib/server/db/schema";
+import { buildInterviewLink, sortScheduleEntries } from "@/lib/shared/interview/interview-record";
+import { studioInterviewStatusValues } from "@/lib/shared/studio-interviews";
 import type {
   StudioInterviewListRecord,
   StudioInterviewStatus,
   studioInterviewStatusSchema,
-} from "@/lib/studio-interviews";
+} from "@/lib/shared/studio-interviews";
 
 // ---------------------------------------------------------------------------
 // Schemas

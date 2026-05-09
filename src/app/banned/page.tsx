@@ -12,7 +12,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { authClient } from "@/lib/auth-client";
+import { authClient } from "@/lib/client/auth-client";
 
 // =====================================================================
 // 飞书 OAuth 回调时若 better-auth admin 检测到用户被封禁，会重定向到这里，

@@ -10,7 +10,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { studioInterviewStatusMeta, studioInterviewStatusValues } from "@/lib/studio-interviews";
+import {
+  studioInterviewStatusMeta,
+  studioInterviewStatusValues,
+} from "@/lib/shared/studio-interviews";
 import { JobDescriptionSelectField } from "../job-description-select-field";
 import { hasFieldErrors, toFieldErrors } from "./index";
 import type { InterviewFormApi } from "./index";

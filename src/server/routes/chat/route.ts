@@ -1,8 +1,8 @@
 import type { UIMessage } from "ai";
 import { zValidator } from "@hono/zod-validator";
-import { parseResumeFast } from "@/lib/resume-parse-pipeline";
-import { sha256HexOfBytes } from "@/lib/file-hash";
-import { buildAttachmentKeyByHash, getObjectStream, putObjectBytes } from "@/lib/s3";
+import { parseResumeFast } from "@/lib/server/resume-parse-pipeline";
+import { sha256HexOfBytes } from "@/lib/shared/file-hash";
+import { buildAttachmentKeyByHash, getObjectStream, putObjectBytes } from "@/lib/server/s3";
 import {
   createAttachment,
   findAttachmentByContentHash,

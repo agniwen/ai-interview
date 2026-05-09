@@ -4,7 +4,7 @@ import { EyeIcon } from "lucide-react";
 import dynamic from "next/dynamic";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { cn } from "@/lib/shared/utils";
 
 // Load the dialog (and therefore pdfjs-dist) only in the browser. pdfjs-dist
 // touches browser-only globals (DOMMatrix, Path2D, ImageData) at module

@@ -1,6 +1,6 @@
 import type { FileUIPart, UIMessage } from "ai";
 import type { ChatAttachmentRow } from "@/server/routes/chat/dao/chat-attachments";
-import { getObjectBytes } from "@/lib/s3";
+import { getObjectBytes } from "@/lib/server/s3";
 import { getUserAttachments } from "@/server/routes/chat/dao/chat-attachments";
 
 const ATTACHMENT_URL_PATTERN = /^\/api\/chat\/attachments\/([A-Za-z0-9-]+)$/;

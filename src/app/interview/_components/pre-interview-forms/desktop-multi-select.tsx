@@ -8,11 +8,11 @@
  * `<SelectTrigger>`, so multi-select and single-select line up visually.
  */
 
-import type { CandidateFormTemplateSnapshot } from "@/lib/candidate-forms";
+import type { CandidateFormTemplateSnapshot } from "@/lib/shared/candidate-forms";
 import { CheckIcon, ChevronDownIcon } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { cn } from "@/lib/utils";
+import { cn } from "@/lib/shared/utils";
 import type { AnswerValue } from "./types";
 
 export function DesktopMultiSelect({

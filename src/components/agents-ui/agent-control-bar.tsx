@@ -28,7 +28,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Toggle } from "@/components/ui/toggle";
 import { useInputControls, usePublishPermissions } from "@/hooks/agents-ui/use-agent-control-bar";
-import { cn } from "@/lib/utils";
+import { cn } from "@/lib/shared/utils";
 
 const LK_TOGGLE_VARIANT_1 = [
   "data-[state=off]:bg-accent data-[state=off]:hover:bg-foreground/10",

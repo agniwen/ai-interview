@@ -2,7 +2,7 @@ import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { zValidator } from "@hono/zod-validator";
 import { and, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
-import { db } from "@/lib/db";
+import { db } from "@/lib/server/db";
 import {
   candidateFormSubmission,
   interviewAuditLog,
@@ -12,19 +12,19 @@ import {
   jobDescriptionInterviewer,
   studioInterview,
   studioInterviewSchedule,
-} from "@/lib/db/schema";
+} from "@/lib/server/db/schema";
 import {
   buildAgentInstructions,
   resolveClosingPrompt,
   resolveOpeningPrompt,
-} from "@/lib/interview/agent-instructions";
+} from "@/lib/shared/interview/agent-instructions";
 import {
   parseResumePayloadInput,
   parseScheduleEntriesInput,
   studioInterviewFormSchema,
   studioInterviewUpdateSchema,
   toNullableString,
-} from "@/lib/studio-interviews";
+} from "@/lib/shared/studio-interviews";
 import {
   analyzeResumeFile,
   generateInterviewQuestionsForProfile,
@@ -56,7 +56,7 @@ import {
   storeInterviewResume,
   toBadRequest,
 } from "@/server/routes/interview/utils";
-import { getObjectStream, presignGetObjectUrl } from "@/lib/s3";
+import { getObjectStream, presignGetObjectUrl } from "@/lib/server/s3";
 
 const dedupCheckInputSchema = z.object({
   email: z.string().trim().max(200).nullable().optional(),

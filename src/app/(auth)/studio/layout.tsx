@@ -6,8 +6,8 @@ import { connection } from "next/server";
 import { SiteHeader } from "@/app/(auth)/studio/_components/site-header";
 import { StudioSidebarSlots } from "@/app/(auth)/studio/_components/studio-sidebar-slots";
 import { SidebarInset } from "@/components/ui/sidebar";
-import { auth } from "@/lib/auth";
-import { canAccessAdmin } from "@/lib/auth-roles";
+import { auth } from "@/lib/server/auth";
+import { canAccessAdmin } from "@/lib/server/auth-roles";
 
 export const metadata: Metadata = {
   description: "Studio 管理后台。",

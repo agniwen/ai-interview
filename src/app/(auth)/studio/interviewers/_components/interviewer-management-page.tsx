@@ -1,8 +1,8 @@
 "use client";
 
 import { PageHeader } from "@/app/(auth)/studio/_components/page-header";
-import type { DepartmentRecord } from "@/lib/departments";
-import type { InterviewerListRecord, InterviewerRecord } from "@/lib/interviewers";
+import type { DepartmentRecord } from "@/lib/shared/departments";
+import type { InterviewerListRecord, InterviewerRecord } from "@/lib/shared/interviewers";
 import type { PaginatedInterviewerResult } from "@/server/routes/studio/routes/interviewers/dao";
 import { useQueryClient } from "@tanstack/react-query";
 import { PencilIcon, PlusIcon, Trash2Icon, UserCircleIcon } from "lucide-react";
@@ -36,8 +36,8 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
-import { rpc } from "@/lib/rpc";
-import { getMinimaxVoiceMeta } from "@/lib/minimax-voices";
+import { rpc } from "@/lib/client/rpc";
+import { getMinimaxVoiceMeta } from "@/lib/shared/minimax-voices";
 import { InterviewerFormDialog } from "./interviewer-form-dialog";
 
 async function fetchInterviewers(params: {

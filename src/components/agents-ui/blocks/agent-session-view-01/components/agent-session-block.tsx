@@ -9,7 +9,7 @@ import { useEffect, useRef, useState } from "react";
 import { AgentChatTranscript } from "@/components/agents-ui/agent-chat-transcript";
 import { AgentControlBar } from "@/components/agents-ui/agent-control-bar";
 import { Shimmer } from "@/components/ai-elements/shimmer";
-import { cn } from "@/lib/utils";
+import { cn } from "@/lib/shared/utils";
 import { AgentStateIndicator } from "./agent-state-indicator";
 import { TileLayout } from "./tile-view";
 

@@ -5,8 +5,8 @@ import type {
   InterviewQuestionTemplateListRecord,
   InterviewQuestionTemplateRecord,
   InterviewQuestionTemplateScope,
-} from "@/lib/interview-question-templates";
-import type { JobDescriptionListRecord } from "@/lib/job-descriptions";
+} from "@/lib/shared/interview-question-templates";
+import type { JobDescriptionListRecord } from "@/lib/shared/job-descriptions";
 import type { PaginatedInterviewQuestionTemplateResult } from "@/server/routes/studio/routes/interview-questions/dao";
 import { useQueryClient } from "@tanstack/react-query";
 import { ListChecksIcon, PencilIcon, PlusIcon, Trash2Icon } from "lucide-react";
@@ -41,7 +41,7 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
-import { rpc } from "@/lib/rpc";
+import { rpc } from "@/lib/client/rpc";
 import { InterviewQuestionTemplateEditorDialog } from "./interview-question-template-editor-dialog";
 
 function scopeLabel(scope: InterviewQuestionTemplateScope) {

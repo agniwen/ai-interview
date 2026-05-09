@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { connection } from "next/server";
-import { auth } from "@/lib/auth";
+import { auth } from "@/lib/server/auth";
 import { listAdminUsers } from "@/server/routes/studio/routes/users/dao";
 import { SystemManagementPage } from "./_components/system-management-page";
 

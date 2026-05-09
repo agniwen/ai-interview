@@ -1,5 +1,5 @@
 import { headers as nextHeaders } from "next/headers";
-import { auth } from "@/lib/auth";
+import { auth } from "@/lib/server/auth";
 
 // =====================================================================
 // 包装 better-auth admin 插件的 listUsers，将其响应整形为 DataGrid 期望的

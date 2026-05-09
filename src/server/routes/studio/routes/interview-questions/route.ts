@@ -1,13 +1,13 @@
 import { zValidator } from "@hono/zod-validator";
 import { eq, inArray } from "drizzle-orm";
-import { db } from "@/lib/db";
+import { db } from "@/lib/server/db";
 import {
   interviewQuestionTemplate,
   interviewQuestionTemplateJobDescription,
   interviewQuestionTemplateQuestion,
   jobDescription,
-} from "@/lib/db/schema";
-import { interviewQuestionTemplateSchema } from "@/lib/interview-question-templates";
+} from "@/lib/server/db/schema";
+import { interviewQuestionTemplateSchema } from "@/lib/shared/interview-question-templates";
 import { factory, jsonValidatorError } from "@/server/factory";
 import {
   countBindingsByTemplate,

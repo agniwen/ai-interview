@@ -2,18 +2,18 @@ import type {
   JobDescriptionInterviewerSummary,
   JobDescriptionListRecord,
   JobDescriptionRecord,
-} from "@/lib/job-descriptions";
-import type { MinimaxVoiceId } from "@/lib/minimax-voices";
+} from "@/lib/shared/job-descriptions";
+import type { MinimaxVoiceId } from "@/lib/shared/minimax-voices";
 import { and, asc, count, desc, eq, ilike, inArray, or } from "drizzle-orm";
 import { cacheLife, cacheTag } from "next/cache";
 import { z } from "zod";
-import { db } from "@/lib/db";
+import { db } from "@/lib/server/db";
 import {
   department,
   interviewer,
   jobDescription,
   jobDescriptionInterviewer,
-} from "@/lib/db/schema";
+} from "@/lib/server/db/schema";
 
 const jobDescriptionListFiltersSchema = z.object({
   departmentId: z.string().trim().max(120).optional().nullable(),

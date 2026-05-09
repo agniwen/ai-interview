@@ -60,10 +60,22 @@ Exceptions: `src/server/agents/` (shared by frontend + multiple routes) and `src
 
 ## Frontend HTTP Calls
 
-- **JSON endpoints** → use the typed Hono RPC client at `@/lib/rpc` (e.g. `rpc.api.studio.interviews[':id'].$get({ param: { id } })`). Server handlers must declare explicit status codes (`c.json(data, 200)`) and use `zValidator("json"|"query", schema, jsonValidatorError("..."))` for typed inputs — without those, hc loses type inference.
-- **File uploads** (multipart/FormData), **streaming** (NDJSON / SSE / `new Response(stream)`), and **binary** responses (PDF, recordings) cannot use RPC — keep them on plain `fetch` or the existing `apiFetch` wrapper from `@/lib/api`.
+- **JSON endpoints** → use the typed Hono RPC client at `@/lib/client/rpc` (e.g. `rpc.api.studio.interviews[':id'].$get({ param: { id } })`). Server handlers must declare explicit status codes (`c.json(data, 200)`) and use `zValidator("json"|"query", schema, jsonValidatorError("..."))` for typed inputs — without those, hc loses type inference.
+- **File uploads** (multipart/FormData), **streaming** (NDJSON / SSE / `new Response(stream)`), and **binary** responses (PDF, recordings) cannot use RPC — keep them on plain `fetch` or the existing `apiFetch` wrapper from `@/lib/client/api`.
 - **Server Components** that need absolute URLs at SSR time (e.g. `/api/interview/[id]/resolve` in `app/interview/[id]/page.tsx`) stay on plain `fetch` with `NEXT_PUBLIC_APP_URL`. The rpc singleton is browser-relative.
 - Date fields cross the wire as ISO strings; DAOs should `.toISOString()` Date columns before returning so the response DTO is `string` and the inferred client type matches reality.
+
+## Lib Layout (`src/lib/`)
+
+`src/lib/` is split by runtime so it's obvious from the import path which side a module is meant to run on. The bundler enforces the boundary at build time via `import "server-only"` / `import "client-only"` directives.
+
+- **`@/lib/server/*`** — Node-only. DB client (`db/`), Better Auth (`auth.ts`), S3 (`s3.ts`), PDF rasterization, Qwen OCR, resume parsing pipeline, server-side hash helpers, anything reading server secrets. Each file starts with `import "server-only";`. Importing one of these from a Client Component fails the build.
+- **`@/lib/client/*`** — Browser-only. `rpc.ts`, `auth-client.ts`, `query-client.ts`, `clipboard.ts`, `ndjson-stream.ts`, the `api/` wrapper layer. Each file starts with `import "client-only";`.
+- **`@/lib/shared/*`** — Pure types, Zod schemas, and isomorphic utilities (no Node-/browser-only APIs). Examples: `candidate-forms.ts`, `studio-interviews.ts`, `interview/`, `utils/`, `data-url.ts`, `file-hash.ts` (Web Crypto), `interview-question-templates.ts`. No directive — safe to import from either side.
+
+When a module _mostly_ fits one bucket but has one server-only function (e.g. `hashTemplateSnapshot` using `node:crypto`), extract that function into a sibling `*-hash.ts` (or similar) under `@/lib/server/` and keep the rest in `@/lib/shared/`. Don't pull `node:*` imports into a shared file.
+
+Vitest runs in Node, so it stubs `server-only` / `client-only` to a no-op module via the alias in `vitest.config.ts`. Real isolation is enforced by Next at build time.
 
 ## Code Style
 

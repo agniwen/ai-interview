@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { rpc } from "@/lib/rpc";
+import { rpc } from "@/lib/client/rpc";
 import type { AdminUserRecord } from "@/server/routes/studio/routes/users/dao";
 
 interface SetPasswordDialogProps {

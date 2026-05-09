@@ -1,14 +1,14 @@
 import { zValidator } from "@hono/zod-validator";
 import { eq, inArray } from "drizzle-orm";
-import { db } from "@/lib/db";
+import { db } from "@/lib/server/db";
 import {
   candidateFormSubmission,
   candidateFormTemplate,
   candidateFormTemplateJobDescription,
   candidateFormTemplateQuestion,
   jobDescription,
-} from "@/lib/db/schema";
-import { candidateFormTemplateSchema } from "@/lib/candidate-forms";
+} from "@/lib/server/db/schema";
+import { candidateFormTemplateSchema } from "@/lib/shared/candidate-forms";
 import { factory, jsonValidatorError } from "@/server/factory";
 import {
   listAllCandidateFormTemplates,

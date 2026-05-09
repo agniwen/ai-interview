@@ -7,11 +7,11 @@ import type {
   InterviewQuestionTemplateSnapshot,
   InterviewQuestionTemplateVersionRecord,
   JobDescriptionRef,
-} from "@/lib/interview-question-templates";
+} from "@/lib/shared/interview-question-templates";
 import { and, asc, count, desc, eq, exists, ilike, inArray, or } from "drizzle-orm";
 import { cacheLife, cacheTag } from "next/cache";
 import { z } from "zod";
-import { db } from "@/lib/db";
+import { db } from "@/lib/server/db";
 import {
   interviewQuestionTemplate,
   interviewQuestionTemplateBinding,
@@ -20,8 +20,9 @@ import {
   interviewQuestionTemplateVersion,
   jobDescription,
   studioInterview,
-} from "@/lib/db/schema";
-import { buildTemplateSnapshot, hashTemplateSnapshot } from "@/lib/interview-question-templates";
+} from "@/lib/server/db/schema";
+import { buildTemplateSnapshot } from "@/lib/shared/interview-question-templates";
+import { hashTemplateSnapshot } from "@/lib/server/interview-question-templates-hash";
 
 // =====================================================================
 // Pagination + filters

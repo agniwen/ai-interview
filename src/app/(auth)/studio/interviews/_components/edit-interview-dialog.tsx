@@ -1,6 +1,6 @@
 "use client";
 
-import type { ScheduleEntryStatus, StudioInterviewRecord } from "@/lib/studio-interviews";
+import type { ScheduleEntryStatus, StudioInterviewRecord } from "@/lib/shared/studio-interviews";
 import { useStore } from "@tanstack/react-form";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { LoaderCircleIcon } from "lucide-react";
@@ -11,7 +11,7 @@ import { Modal } from "@/components/ui/modal";
 import { FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { apiFetch, fetchStudioInterview, resetStudioInterviewRound } from "@/lib/api";
+import { apiFetch, fetchStudioInterview, resetStudioInterviewRound } from "@/lib/client/api";
 import {
   createInterviewFormValues,
   toInterviewFormValues,

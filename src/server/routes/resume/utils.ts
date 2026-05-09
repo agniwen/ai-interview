@@ -1,8 +1,8 @@
 import type { ModelMessage, UIMessage } from "ai";
-import type { ParsedResumePdf, UploadedResumePdf } from "@/lib/resume-pdf";
+import type { ParsedResumePdf, UploadedResumePdf } from "@/lib/shared/resume-pdf";
 import { tool } from "ai";
 import { z } from "zod";
-import { clipResumeText, selectUploadedResumePdfs } from "@/lib/resume-pdf";
+import { clipResumeText, selectUploadedResumePdfs } from "@/lib/shared/resume-pdf";
 import { createResumeAgent } from "@/server/agents/resume-agent";
 import type { ResumeParserResult } from "@/server/agents/resume-parser-agent";
 import type { ResumeParserStructured } from "@/server/agents/resume-parser-schema";

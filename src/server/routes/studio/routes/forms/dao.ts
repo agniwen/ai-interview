@@ -8,11 +8,11 @@ import type {
   CandidateFormTemplateSnapshot,
   CandidateFormTemplateVersionRecord,
   JobDescriptionRef,
-} from "@/lib/candidate-forms";
+} from "@/lib/shared/candidate-forms";
 import { and, asc, count, desc, eq, exists, ilike, inArray, or } from "drizzle-orm";
 import { cacheLife, cacheTag } from "next/cache";
 import { z } from "zod";
-import { db } from "@/lib/db";
+import { db } from "@/lib/server/db";
 import {
   candidateFormSubmission,
   candidateFormTemplate,
@@ -21,8 +21,9 @@ import {
   candidateFormTemplateVersion,
   jobDescription,
   studioInterview,
-} from "@/lib/db/schema";
-import { buildTemplateSnapshot, hashTemplateSnapshot } from "@/lib/candidate-forms";
+} from "@/lib/server/db/schema";
+import { buildTemplateSnapshot } from "@/lib/shared/candidate-forms";
+import { hashTemplateSnapshot } from "@/lib/server/candidate-forms-hash";
 
 // =====================================================================
 // Pagination + filters

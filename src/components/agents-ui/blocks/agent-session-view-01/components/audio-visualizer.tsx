@@ -9,7 +9,7 @@ import { AgentAudioVisualizerBar } from "@/components/agents-ui/agent-audio-visu
 import { AgentAudioVisualizerGrid } from "@/components/agents-ui/agent-audio-visualizer-grid";
 import { AgentAudioVisualizerRadial } from "@/components/agents-ui/agent-audio-visualizer-radial";
 import { AgentAudioVisualizerWave } from "@/components/agents-ui/agent-audio-visualizer-wave";
-import { cn } from "@/lib/utils";
+import { cn } from "@/lib/shared/utils";
 
 const MotionAgentAudioVisualizerAura = motion.create(AgentAudioVisualizerAura);
 const MotionAgentAudioVisualizerBar = motion.create(AgentAudioVisualizerBar);

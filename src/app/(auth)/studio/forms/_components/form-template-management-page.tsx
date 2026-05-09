@@ -5,8 +5,8 @@ import type {
   CandidateFormScope,
   CandidateFormTemplateListRecord,
   CandidateFormTemplateRecord,
-} from "@/lib/candidate-forms";
-import type { JobDescriptionListRecord } from "@/lib/job-descriptions";
+} from "@/lib/shared/candidate-forms";
+import type { JobDescriptionListRecord } from "@/lib/shared/job-descriptions";
 import type { PaginatedCandidateFormTemplateResult } from "@/server/routes/studio/routes/forms/dao";
 import { useQueryClient } from "@tanstack/react-query";
 import { ClipboardListIcon, InboxIcon, PencilIcon, PlusIcon, Trash2Icon } from "lucide-react";
@@ -41,7 +41,7 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
-import { rpc } from "@/lib/rpc";
+import { rpc } from "@/lib/client/rpc";
 import { CandidateFormTemplateEditorDialog } from "./form-template-editor-dialog";
 import { CandidateFormTemplateSubmissionsDrawer } from "./form-template-submissions-drawer";
 

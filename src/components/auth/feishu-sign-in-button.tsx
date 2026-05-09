@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { authClient } from "@/lib/auth-client";
-import { cn } from "@/lib/utils";
+import { authClient } from "@/lib/client/auth-client";
+import { cn } from "@/lib/shared/utils";
 import { FeishuIcon } from "./feishu-icon";
 
 interface FeishuSignInButtonProps {

@@ -14,8 +14,8 @@
 
 import { AlertTriangleIcon, ExternalLinkIcon } from "lucide-react";
 import { useState } from "react";
-import type { DedupMatchedField, DedupMatchRecord } from "@/lib/api";
-import { studioInterviewStatusMeta } from "@/lib/studio-interviews";
+import type { DedupMatchedField, DedupMatchRecord } from "@/lib/client/api";
+import { studioInterviewStatusMeta } from "@/lib/shared/studio-interviews";
 import { InterviewDetailDialog } from "@/app/(auth)/studio/interviews/_components/interview-detail-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";

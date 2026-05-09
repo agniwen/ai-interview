@@ -14,8 +14,8 @@ const mocks = vi.hoisted(() => ({
   sha256HexOfBytes: vi.fn(),
 }));
 
-vi.mock("@/lib/file-hash", () => ({ sha256HexOfBytes: mocks.sha256HexOfBytes }));
-vi.mock("@/lib/s3", () => ({
+vi.mock("@/lib/shared/file-hash", () => ({ sha256HexOfBytes: mocks.sha256HexOfBytes }));
+vi.mock("@/lib/server/s3", () => ({
   buildAttachmentKeyByHash: mocks.buildAttachmentKeyByHash,
   putObjectBytes: mocks.putObjectBytes,
 }));
@@ -44,8 +44,8 @@ vi.mock("@/server/agents/resume-parser-agent", () => ({
 // 的封装），但 utils.ts 顶层 import 用到 — 给个最小 stub。
 // db isn't on the function's hot path (the cross-table query goes through the
 // chat-attachments wrapper), but utils.ts top-level imports it — minimal stub.
-vi.mock("@/lib/db", () => ({ db: {} }));
-vi.mock("@/lib/db/schema", () => ({
+vi.mock("@/lib/server/db", () => ({ db: {} }));
+vi.mock("@/lib/server/db/schema", () => ({
   interviewer: {},
   jobDescription: {},
   jobDescriptionInterviewer: {},
@@ -53,7 +53,7 @@ vi.mock("@/lib/db/schema", () => ({
   studioInterviewSchedule: {},
 }));
 vi.mock("next/cache", () => ({ updateTag: vi.fn() }));
-vi.mock("@/lib/interview/interview-record", () => ({
+vi.mock("@/lib/shared/interview/interview-record", () => ({
   buildCandidateInterviewView: vi.fn(),
   buildInterviewLink: vi.fn(),
   pickCurrentScheduleEntry: vi.fn(),

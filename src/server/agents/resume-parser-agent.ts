@@ -1,7 +1,7 @@
-import type { ParsedResumePdf, UploadedResumePdf } from "@/lib/resume-pdf";
-import type { ResumeProfile } from "@/lib/interview/types";
-import { parseResumeFastFromUrl } from "@/lib/resume-parse-pipeline";
-import { readPdfBytes } from "@/lib/resume-pdf";
+import type { ParsedResumePdf, UploadedResumePdf } from "@/lib/shared/resume-pdf";
+import type { ResumeProfile } from "@/lib/shared/interview/types";
+import { parseResumeFastFromUrl } from "@/lib/server/resume-parse-pipeline";
+import { readPdfBytes } from "@/lib/shared/resume-pdf";
 import { structuredSchema } from "./resume-parser-schema";
 import type { ResumeParserResult, ResumeParserStructured } from "./resume-parser-schema";
 

@@ -1,6 +1,6 @@
 "use client";
 
-import type { StudioInterviewRecord } from "@/lib/studio-interviews";
+import type { StudioInterviewRecord } from "@/lib/shared/studio-interviews";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   deleteStudioInterviewFormSubmission,
@@ -9,7 +9,7 @@ import {
   fetchStudioInterviewReports,
   resetStudioInterviewRound,
   updateStudioInterviewRound,
-} from "@/lib/api";
+} from "@/lib/client/api";
 import { MessageSquareTextIcon, RotateCcwIcon, Share2Icon } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -37,8 +37,8 @@ import { Modal } from "@/components/ui/modal";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { copyTextToClipboard, toAbsoluteUrl } from "@/lib/clipboard";
-import { scheduleEntryStatusMeta } from "@/lib/studio-interviews";
+import { copyTextToClipboard, toAbsoluteUrl } from "@/lib/client/clipboard";
+import { scheduleEntryStatusMeta } from "@/lib/shared/studio-interviews";
 import { AgentInstructionsPanel } from "./agent-instructions-panel";
 import { InterviewLinkQrButton } from "./interview-link-qr-button";
 import { DetailRow } from "./interview-detail/detail-row";

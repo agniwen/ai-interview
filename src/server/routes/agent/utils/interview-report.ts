@@ -1,7 +1,7 @@
 import { gateway, generateObject, generateText } from "ai";
 import { z } from "zod";
-import type { InterviewTranscriptTurn } from "@/lib/interview-session";
-import type { InterviewQuestion } from "@/lib/interview/types";
+import type { InterviewTranscriptTurn } from "@/lib/shared/interview-session";
+import type { InterviewQuestion } from "@/lib/shared/interview/types";
 import { createAlibabaProvider } from "@/server/agents/provider";
 
 const SUMMARY_PROMPT = `你是一位面试报告撰写助手。请根据以下面试对话记录，用中文撰写一段 200-300 字的面试摘要。

@@ -7,9 +7,9 @@ import type {
   CandidateFormScope,
   CandidateFormTemplateInput,
   CandidateFormTemplateRecord,
-} from "@/lib/candidate-forms";
-import type { JobDescriptionListRecord } from "@/lib/job-descriptions";
-import { rpc } from "@/lib/rpc";
+} from "@/lib/shared/candidate-forms";
+import type { JobDescriptionListRecord } from "@/lib/shared/job-descriptions";
+import { rpc } from "@/lib/client/rpc";
 import { useForm, useStore } from "@tanstack/react-form";
 import { LoaderCircleIcon, PlusIcon, XIcon } from "lucide-react";
 import { useEffect, useMemo } from "react";
@@ -34,7 +34,7 @@ import {
   candidateFormTemplateSchema,
   DEFAULT_DISPLAY_MODE,
   DISPLAY_MODES_BY_TYPE,
-} from "@/lib/candidate-forms";
+} from "@/lib/shared/candidate-forms";
 import { useSortableItemIds } from "@/hooks/use-sortable-item-ids";
 import { hasFieldErrors, toFieldErrors } from "../../interviews/_components/interview-form";
 

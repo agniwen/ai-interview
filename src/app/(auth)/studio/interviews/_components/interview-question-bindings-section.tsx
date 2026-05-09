@@ -3,12 +3,12 @@
 import type {
   InterviewQuestionTemplateDifficulty,
   InterviewQuestionTemplateRecord,
-} from "@/lib/interview-question-templates";
+} from "@/lib/shared/interview-question-templates";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ListChecksIcon } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { rpc } from "@/lib/rpc";
+import { rpc } from "@/lib/client/rpc";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 

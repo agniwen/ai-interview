@@ -13,8 +13,8 @@ import { Loader2Icon, PlayIcon } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { fetchStudioInterviewRecordingUrl } from "@/lib/api";
-import { ApiError } from "@/lib/api/errors";
+import { fetchStudioInterviewRecordingUrl } from "@/lib/client/api";
+import { ApiError } from "@/lib/client/api/errors";
 
 interface RecordingPlayerProps {
   recordId: string;

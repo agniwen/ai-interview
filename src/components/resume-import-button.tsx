@@ -1,8 +1,12 @@
 "use client";
 
 import type { FileUIPart } from "ai";
-import type { InterviewQuestion, ResumeAnalysisResult, ResumeProfile } from "@/lib/interview/types";
-import type { StudioInterviewRecord } from "@/lib/studio-interviews";
+import type {
+  InterviewQuestion,
+  ResumeAnalysisResult,
+  ResumeProfile,
+} from "@/lib/shared/interview/types";
+import type { StudioInterviewRecord } from "@/lib/shared/studio-interviews";
 import type { AnalysisStreamEvent } from "@/server/agents/resume-analysis-agent";
 import {
   CheckIcon,
@@ -20,11 +24,11 @@ import { JobDescriptionSelectField } from "@/app/(auth)/studio/interviews/_compo
 import { ResumeDedupOverlay } from "@/components/resume-dedup-overlay";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
-import type { DedupMatchRecord } from "@/lib/api";
-import { fetchInterviewDedup } from "@/lib/api";
-import { rpc } from "@/lib/rpc";
-import { readNdjsonStream } from "@/lib/ndjson-stream";
-import { cn } from "@/lib/utils";
+import type { DedupMatchRecord } from "@/lib/client/api";
+import { fetchInterviewDedup } from "@/lib/client/api";
+import { rpc } from "@/lib/client/rpc";
+import { readNdjsonStream } from "@/lib/client/ndjson-stream";
+import { cn } from "@/lib/shared/utils";
 
 const LEADING_DIGIT_RE = /^\d/;
 const LEADING_DIGITS_RE = /^(\d+)/;

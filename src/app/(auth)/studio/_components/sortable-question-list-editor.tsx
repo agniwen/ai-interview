@@ -13,8 +13,8 @@ import {
 import { SortableDragHandle, SortableItem, SortableList } from "@/components/ui/sortable-list";
 import { Textarea } from "@/components/ui/textarea";
 import { useSortableItemIds } from "@/hooks/use-sortable-item-ids";
-import { INTERVIEW_QUESTION_DIFFICULTY_OPTIONS } from "@/lib/interview-question-templates";
-import type { InterviewQuestionTemplateDifficulty } from "@/lib/interview-question-templates";
+import { INTERVIEW_QUESTION_DIFFICULTY_OPTIONS } from "@/lib/shared/interview-question-templates";
+import type { InterviewQuestionTemplateDifficulty } from "@/lib/shared/interview-question-templates";
 import { hasFieldErrors, toFieldErrors } from "../interviews/_components/interview-form";
 
 const DIFFICULTY_PILL: Record<InterviewQuestionTemplateDifficulty, string> = {

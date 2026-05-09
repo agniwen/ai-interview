@@ -1,9 +1,9 @@
-import type { DepartmentListRecord, DepartmentRecord } from "@/lib/departments";
+import type { DepartmentListRecord, DepartmentRecord } from "@/lib/shared/departments";
 import { asc, count, desc, eq, ilike, inArray, or } from "drizzle-orm";
 import { cacheLife, cacheTag } from "next/cache";
 import { z } from "zod";
-import { db } from "@/lib/db";
-import { department, interviewer, jobDescription } from "@/lib/db/schema";
+import { db } from "@/lib/server/db";
+import { department, interviewer, jobDescription } from "@/lib/server/db/schema";
 
 const departmentListFiltersSchema = z.object({
   search: z.string().trim().max(120).optional().nullable(),

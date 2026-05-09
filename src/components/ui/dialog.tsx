@@ -7,7 +7,7 @@ import { Drawer as DrawerPrimitive } from "vaul";
 
 import { Button } from "@/components/ui/button";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { cn } from "@/lib/utils";
+import { cn } from "@/lib/shared/utils";
 
 type ResponsiveDialogContextValue = { isMobile: boolean };
 const ResponsiveDialogContext = React.createContext<ResponsiveDialogContextValue>({

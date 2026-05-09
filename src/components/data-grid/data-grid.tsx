@@ -13,7 +13,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { cn } from "@/lib/utils";
+import { cn } from "@/lib/shared/utils";
 import { PaginationBar } from "./parts/pagination-bar";
 import { getPinningStyles, PINNED_CELL_CLASS, STICKY_HEADER_CLASS } from "./parts/pinned-cell";
 import { Toolbar } from "./parts/toolbar";

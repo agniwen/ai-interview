@@ -1,5 +1,5 @@
-import type { JobDescriptionListRecord } from "@/lib/job-descriptions";
-import type { ResumeProfile } from "@/lib/interview/types";
+import type { JobDescriptionListRecord } from "@/lib/shared/job-descriptions";
+import type { ResumeProfile } from "@/lib/shared/interview/types";
 import { z } from "zod";
 import { createResumeAgent } from "./resume-agent";
 

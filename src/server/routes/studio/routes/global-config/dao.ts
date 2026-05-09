@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
-import { db } from "@/lib/db";
-import { globalConfig } from "@/lib/db/schema";
-import type { GlobalConfigInput, GlobalConfigRecord } from "@/lib/global-config";
+import { db } from "@/lib/server/db";
+import { globalConfig } from "@/lib/server/db/schema";
+import type { GlobalConfigInput, GlobalConfigRecord } from "@/lib/shared/global-config";
 
 const SINGLETON_ID = "singleton";
 

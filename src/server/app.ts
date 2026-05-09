@@ -1,7 +1,7 @@
 import type { Env } from "@/server/type";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import { auth } from "@/lib/auth";
+import { auth } from "@/lib/server/auth";
 import { factory } from "./factory";
 import { betterAuthMiddleware } from "./middlewares/better-auth";
 import { agentRouter } from "./routes/agent/route";

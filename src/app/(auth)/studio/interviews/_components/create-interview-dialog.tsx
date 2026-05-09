@@ -1,7 +1,11 @@
 "use client";
 
-import type { InterviewQuestion, ResumeAnalysisResult, ResumeProfile } from "@/lib/interview/types";
-import type { StudioInterviewRecord } from "@/lib/studio-interviews";
+import type {
+  InterviewQuestion,
+  ResumeAnalysisResult,
+  ResumeProfile,
+} from "@/lib/shared/interview/types";
+import type { StudioInterviewRecord } from "@/lib/shared/studio-interviews";
 import type { AnalysisStreamEvent } from "@/server/agents/resume-analysis-agent";
 import { useStore } from "@tanstack/react-form";
 import { CheckIcon, FileUpIcon, LoaderCircleIcon, SparklesIcon, WrenchIcon } from "lucide-react";
@@ -15,10 +19,10 @@ import { Modal } from "@/components/ui/modal";
 import { FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import type { DedupMatchRecord } from "@/lib/api";
-import { apiFetch, fetchInterviewDedup } from "@/lib/api";
-import { rpc } from "@/lib/rpc";
-import { readNdjsonStream } from "@/lib/ndjson-stream";
+import type { DedupMatchRecord } from "@/lib/client/api";
+import { apiFetch, fetchInterviewDedup } from "@/lib/client/api";
+import { rpc } from "@/lib/client/rpc";
+import { readNdjsonStream } from "@/lib/client/ndjson-stream";
 import {
   createInterviewFormValues,
   normalizeInterviewQuestions,

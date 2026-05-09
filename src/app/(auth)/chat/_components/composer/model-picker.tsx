@@ -1,6 +1,6 @@
 "use client";
 
-import type { ChatModelOption } from "@/lib/api";
+import type { ChatModelOption } from "@/lib/client/api";
 import { CheckIcon, ChevronDownIcon, CpuIcon } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { cn } from "@/lib/utils";
+import { cn } from "@/lib/shared/utils";
 import { useChatModelsQuery } from "../../_lib/use-chat-models";
 import { resolveEffectiveModel } from "../../_lib/resolve-effective-model";
 import { useSessionModel } from "../../_lib/use-session-model";

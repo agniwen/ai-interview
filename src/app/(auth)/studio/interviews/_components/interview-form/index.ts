@@ -1,13 +1,13 @@
 "use client";
 
-import type { StudioInterviewRecord } from "@/lib/studio-interviews";
+import type { StudioInterviewRecord } from "@/lib/shared/studio-interviews";
 import { useForm } from "@tanstack/react-form";
 import type { z } from "zod";
 import {
   createDefaultScheduleEntry,
   getScheduleEntryDateValue,
   studioInterviewClientFormSchema,
-} from "@/lib/studio-interviews";
+} from "@/lib/shared/studio-interviews";
 
 export type InterviewFormValues = z.infer<typeof studioInterviewClientFormSchema>;
 export type InterviewFormApi = ReturnType<typeof useInterviewForm>;

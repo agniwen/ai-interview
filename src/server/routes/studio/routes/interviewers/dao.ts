@@ -1,10 +1,10 @@
-import type { InterviewerListRecord, InterviewerRecord } from "@/lib/interviewers";
-import type { MinimaxVoiceId } from "@/lib/minimax-voices";
+import type { InterviewerListRecord, InterviewerRecord } from "@/lib/shared/interviewers";
+import type { MinimaxVoiceId } from "@/lib/shared/minimax-voices";
 import { and, asc, count, desc, eq, ilike, inArray, or } from "drizzle-orm";
 import { cacheLife, cacheTag } from "next/cache";
 import { z } from "zod";
-import { db } from "@/lib/db";
-import { department, interviewer, jobDescriptionInterviewer } from "@/lib/db/schema";
+import { db } from "@/lib/server/db";
+import { department, interviewer, jobDescriptionInterviewer } from "@/lib/server/db/schema";
 
 const interviewerListFiltersSchema = z.object({
   departmentId: z.string().trim().max(120).optional().nullable(),

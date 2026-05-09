@@ -1,8 +1,8 @@
 "use client";
 
-import { departmentFormSchema } from "@/lib/departments";
-import type { DepartmentFormValues, DepartmentRecord } from "@/lib/departments";
-import { rpc } from "@/lib/rpc";
+import { departmentFormSchema } from "@/lib/shared/departments";
+import type { DepartmentFormValues, DepartmentRecord } from "@/lib/shared/departments";
+import { rpc } from "@/lib/client/rpc";
 import { useForm, useStore } from "@tanstack/react-form";
 import { LoaderCircleIcon } from "lucide-react";
 import { useEffect } from "react";

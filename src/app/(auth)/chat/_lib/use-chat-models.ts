@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { fetchChatModels } from "@/lib/api";
+import { fetchChatModels } from "@/lib/client/api";
 
 const QUERY_KEY = ["chat", "models"] as const;
 

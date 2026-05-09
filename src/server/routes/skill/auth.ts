@@ -1,8 +1,8 @@
 import type { Env } from "@/server/type";
 import { createHash, randomBytes } from "node:crypto";
 import { and, eq, lt } from "drizzle-orm";
-import { db } from "@/lib/db";
-import { skillAccessToken, skillDeviceAuthCode } from "@/lib/db/schema";
+import { db } from "@/lib/server/db";
+import { skillAccessToken, skillDeviceAuthCode } from "@/lib/server/db/schema";
 import { factory } from "@/server/factory";
 
 // =====================================================================

@@ -1,8 +1,8 @@
 import { EgressStatus } from "@livekit/protocol";
 import { eq } from "drizzle-orm";
 import { WebhookReceiver } from "livekit-server-sdk";
-import { db } from "@/lib/db";
-import { interviewConversation } from "@/lib/db/schema";
+import { db } from "@/lib/server/db";
+import { interviewConversation } from "@/lib/server/db/schema";
 import { factory } from "@/server/factory";
 import { safeUpdateTag } from "@/server/routes/interview/utils";
 

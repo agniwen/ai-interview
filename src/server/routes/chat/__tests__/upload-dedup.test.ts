@@ -23,7 +23,7 @@ interface WhereCondition {
   matches: (row: DbRow) => boolean;
 }
 
-vi.mock("@/lib/db", () => ({
+vi.mock("@/lib/server/db", () => ({
   db: {
     // insert(table).values(record) — push to in-memory store.
     // insert(table).values(record) — 写入内存存储。
@@ -65,7 +65,7 @@ vi.mock("drizzle-orm", () => ({
 // Mock schema: expose camelCase column objects whose `.name` matches the
 // camelCase keys used in the in-memory row objects above.
 // Mock schema：列对象的 .name 与内存行中的 camelCase 键名一致。
-vi.mock("@/lib/db/schema", () => ({
+vi.mock("@/lib/server/db/schema", () => ({
   chatAttachment: {
     contentHash: { name: "contentHash" },
     id: { name: "id" },

@@ -1,7 +1,7 @@
 "use client";
 
-import type { JobDescriptionListRecord } from "@/lib/job-descriptions";
-import { rpc } from "@/lib/rpc";
+import type { JobDescriptionListRecord } from "@/lib/shared/job-descriptions";
+import { rpc } from "@/lib/client/rpc";
 import { useQuery } from "@tanstack/react-query";
 
 const QUERY_KEY = ["job-descriptions", "all"] as const;

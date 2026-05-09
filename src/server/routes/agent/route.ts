@@ -1,13 +1,13 @@
 import { and, eq, inArray, lt, ne, or } from "drizzle-orm";
 import { z } from "zod";
-import { db } from "@/lib/db";
+import { db } from "@/lib/server/db";
 import {
   interviewAuditLog,
   interviewConversation,
   interviewConversationTurn,
   studioInterview,
   studioInterviewSchedule,
-} from "@/lib/db/schema";
+} from "@/lib/server/db/schema";
 import { factory } from "@/server/factory";
 import { safeUpdateTag } from "@/server/routes/interview/utils";
 import { retryFailedInterviewSummaryNotifications } from "@/server/routes/agent/utils/feishu-interview-notifications";

@@ -1,8 +1,8 @@
 import { zValidator } from "@hono/zod-validator";
 import { eq } from "drizzle-orm";
-import { db } from "@/lib/db";
-import { department } from "@/lib/db/schema";
-import { departmentFormSchema, departmentUpdateSchema } from "@/lib/departments";
+import { db } from "@/lib/server/db";
+import { department } from "@/lib/server/db/schema";
+import { departmentFormSchema, departmentUpdateSchema } from "@/lib/shared/departments";
 import { factory, jsonValidatorError } from "@/server/factory";
 import {
   listAllDepartments,

@@ -1,5 +1,5 @@
 import { zValidator } from "@hono/zod-validator";
-import { globalConfigSchema } from "@/lib/global-config";
+import { globalConfigSchema } from "@/lib/shared/global-config";
 import { factory, jsonValidatorError } from "@/server/factory";
 import {
   getGlobalConfig,

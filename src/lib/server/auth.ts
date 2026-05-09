@@ -1,0 +1,255 @@
+import "server-only";
+
+import { betterAuth } from "better-auth";
+import { drizzleAdapter } from "better-auth/adapters/drizzle";
+import { admin, genericOAuth } from "better-auth/plugins";
+import type { GenericOAuthConfig } from "better-auth/plugins";
+import { db } from "./db";
+import * as schema from "./db/schema";
+
+const baseURL = process.env.BETTER_AUTH_URL ?? "http://localhost:3000";
+const trustedOrigins = [...new Set([baseURL, "http://localhost:3000"])];
+
+function pickFirstNonEmpty(...values: (string | undefined)[]): string | undefined {
+  return values.find((v) => typeof v === "string" && v.length > 0);
+}
+
+interface FeishuTokenResponse {
+  code?: number;
+  msg?: string;
+  access_token?: string;
+  refresh_token?: string;
+  expires_in?: number;
+  refresh_token_expires_in?: number;
+  token_type?: string;
+  scope?: string;
+}
+
+interface FeishuUserInfoResponse {
+  code: number;
+  msg: string;
+  data?: {
+    open_id: string;
+    union_id?: string;
+    user_id?: string;
+    tenant_key?: string;
+    name?: string;
+    en_name?: string;
+    email?: string;
+    enterprise_email?: string;
+    mobile?: string;
+    avatar_url?: string;
+  };
+}
+
+interface FeishuTenantTokenResponse {
+  code: number;
+  msg: string;
+  tenant_access_token?: string;
+  expire?: number;
+}
+
+interface FeishuTenantQueryResponse {
+  code: number;
+  msg: string;
+  data?: {
+    tenant?: {
+      name?: string;
+      display_id?: string;
+      tenant_tag?: number;
+      tenant_key?: string;
+      avatar?: Record<string, string>;
+    };
+  };
+}
+
+// Short-lived in-memory cache to avoid minting a new tenant_access_token on every login.
+// Keyed by appId so each registered Feishu app has its own cached token.
+const tenantTokenCache = new Map<string, { token: string; expiresAt: number }>();
+
+async function fetchFeishuTenantToken(appId: string, appSecret: string): Promise<string | null> {
+  const now = Date.now();
+  const cached = tenantTokenCache.get(appId);
+  if (cached && cached.expiresAt > now + 60_000) {
+    return cached.token;
+  }
+  const res = await fetch("https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal", {
+    body: JSON.stringify({
+      app_id: appId,
+      app_secret: appSecret,
+    }),
+    headers: { "content-type": "application/json; charset=utf-8" },
+    method: "POST",
+  });
+  const json = (await res.json()) as FeishuTenantTokenResponse;
+  if (json.code !== 0 || !json.tenant_access_token) {
+    return null;
+  }
+  tenantTokenCache.set(appId, {
+    expiresAt: now + (json.expire ?? 7200) * 1000,
+    token: json.tenant_access_token,
+  });
+  return json.tenant_access_token;
+}
+
+async function fetchFeishuOrganizationName(
+  appId: string,
+  appSecret: string,
+): Promise<string | null> {
+  try {
+    const token = await fetchFeishuTenantToken(appId, appSecret);
+    if (!token) {
+      return null;
+    }
+    const res = await fetch("https://open.feishu.cn/open-apis/tenant/v2/tenant/query", {
+      headers: { authorization: `Bearer ${token}` },
+    });
+    const json = (await res.json()) as FeishuTenantQueryResponse;
+    if (json.code !== 0) {
+      return null;
+    }
+    return json.data?.tenant?.name ?? null;
+  } catch {
+    // Org name is best-effort; don't block login on failure.
+    return null;
+  }
+}
+
+interface FeishuOAuthProviderOptions {
+  providerId: string;
+  appId: string;
+  appSecret: string;
+}
+
+function buildFeishuOAuthProvider(opts: FeishuOAuthProviderOptions): GenericOAuthConfig {
+  const { appId, appSecret, providerId } = opts;
+  // oxlint-disable-next-line sort-keys -- OAuth config keeps related fields grouped (id/secret, token/endpoints), not alphabetical.
+  return {
+    providerId,
+    clientId: appId,
+    clientSecret: appSecret,
+    authorizationUrl: "https://accounts.feishu.cn/open-apis/authen/v1/authorize",
+    // Required by the plugin's config validation, but not actually called —
+    // `getToken` below handles the JSON-only v2 token exchange.
+    tokenUrl: "https://open.feishu.cn/open-apis/authen/v2/oauth/token",
+    scopes: ["contact:user.base:readonly", "contact:user.email:readonly"],
+    async getToken({ code, redirectURI }) {
+      const res = await fetch("https://open.feishu.cn/open-apis/authen/v2/oauth/token", {
+        body: JSON.stringify({
+          client_id: appId,
+          client_secret: appSecret,
+          code,
+          grant_type: "authorization_code",
+          redirect_uri: redirectURI,
+        }),
+        headers: { "content-type": "application/json; charset=utf-8" },
+        method: "POST",
+      });
+      const json = (await res.json()) as FeishuTokenResponse;
+      if (!res.ok || !json.access_token) {
+        throw new Error(
+          `Feishu token exchange failed: ${json.code ?? res.status} ${json.msg ?? ""}`,
+        );
+      }
+      return {
+        accessToken: json.access_token,
+        accessTokenExpiresAt: json.expires_in
+          ? new Date(Date.now() + json.expires_in * 1000)
+          : undefined,
+        raw: json as unknown as Record<string, unknown>,
+        refreshToken: json.refresh_token,
+        refreshTokenExpiresAt: json.refresh_token_expires_in
+          ? new Date(Date.now() + json.refresh_token_expires_in * 1000)
+          : undefined,
+        scopes: json.scope?.split(" ").filter(Boolean),
+        tokenType: json.token_type ?? "Bearer",
+      };
+    },
+    async getUserInfo(tokens) {
+      const [userInfoRes, organizationName] = await Promise.all([
+        fetch("https://open.feishu.cn/open-apis/authen/v1/user_info", {
+          headers: { authorization: `Bearer ${tokens.accessToken}` },
+        }),
+        fetchFeishuOrganizationName(appId, appSecret),
+      ]);
+      const json = (await userInfoRes.json()) as FeishuUserInfoResponse;
+      if (json.code !== 0 || !json.data) {
+        return null;
+      }
+      const { data } = json;
+      const email =
+        pickFirstNonEmpty(data.enterprise_email, data.email) ?? `${data.open_id}@feishu.local`;
+      const name = pickFirstNonEmpty(data.name, data.en_name) ?? data.open_id;
+      return {
+        email,
+        emailVerified: false,
+        id: data.open_id,
+        image: pickFirstNonEmpty(data.avatar_url),
+        name,
+        organizationId: pickFirstNonEmpty(data.tenant_key),
+        organizationName: organizationName ?? undefined,
+      };
+    },
+  };
+}
+
+export const auth = betterAuth({
+  appName: "招聘 AI 协同工作台",
+  baseURL,
+  database: drizzleAdapter(db, {
+    provider: "pg",
+    schema,
+  }),
+  // 开启邮箱+密码登录。注册入口关闭——账号只能通过飞书 OAuth 自动创建，
+  // 或由 admin 在「用户管理」里调 setUserPassword 设定登录密码。
+  // Email+password sign-in. Public sign-up is disabled — accounts are only
+  // created via Feishu OAuth or by admin's setUserPassword from the user-mgmt page.
+  emailAndPassword: {
+    autoSignIn: true,
+    disableSignUp: true,
+    enabled: true,
+    minPasswordLength: 8,
+  },
+  // 被封禁用户走 OAuth 回调时 better-auth 会重定向到 `${errorURL}?error=banned&...`。
+  // 指向自定义的 /banned 页给出中文提示，没配置时默认会跳到不存在的 /error。
+  // For OAuth callbacks of banned accounts better-auth redirects to
+  // `${errorURL}?error=banned&...`. Point at our custom /banned page;
+  // the default is a non-existent /error route.
+  onAPIError: {
+    errorURL: "/banned",
+  },
+  plugins: [
+    admin({
+      bannedUserMessage: "你的账号已被封禁，请联系管理员。",
+    }),
+    genericOAuth({
+      config: [
+        buildFeishuOAuthProvider({
+          appId: process.env.FEISHU_APP_ID ?? "",
+          appSecret: process.env.FEISHU_APP_SECRET ?? "",
+          providerId: "feishu",
+        }),
+        buildFeishuOAuthProvider({
+          appId: process.env.FEISHU_APP_ID2 ?? "",
+          appSecret: process.env.FEISHU_APP_SECRET2 ?? "",
+          providerId: "feishu-jiguang-hr",
+        }),
+      ],
+    }),
+  ],
+  trustedOrigins,
+  user: {
+    additionalFields: {
+      organizationId: {
+        input: false,
+        required: false,
+        type: "string",
+      },
+      organizationName: {
+        input: false,
+        required: false,
+        type: "string",
+      },
+    },
+  },
+});

@@ -3,8 +3,8 @@
  * Pure helpers for the candidate pre-interview forms.
  */
 
-import type { CandidateFormTemplateSnapshot } from "@/lib/candidate-forms";
-import { buildCandidateFormAnswersSchema } from "@/lib/candidate-forms";
+import type { CandidateFormTemplateSnapshot } from "@/lib/shared/candidate-forms";
+import { buildCandidateFormAnswersSchema } from "@/lib/shared/candidate-forms";
 import type { AnswerValue, FieldErrorMap } from "./types";
 
 /**

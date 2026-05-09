@@ -11,7 +11,7 @@ import {
 import { usePromptInputAttachments } from "@/components/ai-elements/prompt-input";
 import type { ManagedAttachment } from "@/components/ai-elements/prompt-input";
 import { Spinner } from "@/components/ui/spinner";
-import { cn } from "@/lib/utils";
+import { cn } from "@/lib/shared/utils";
 
 export function ComposerAttachments() {
   const attachments = usePromptInputAttachments();

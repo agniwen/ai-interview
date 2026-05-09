@@ -21,4 +21,4 @@ export type {
   CandidateFormTemplateSnapshot,
   CandidateFormTemplateSnapshotQuestion,
   CandidateFormTemplateVersionRecord,
-} from "@/lib/candidate-forms";
+} from "@/lib/shared/candidate-forms";

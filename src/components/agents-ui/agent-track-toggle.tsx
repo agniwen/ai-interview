@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import { Fragment, useMemo, useState } from "react";
 import { Toggle } from "@/components/ui/toggle";
-import { cn } from "@/lib/utils";
+import { cn } from "@/lib/shared/utils";
 
 export const agentTrackToggleVariants = cva(["size-9"], {
   defaultVariants: {

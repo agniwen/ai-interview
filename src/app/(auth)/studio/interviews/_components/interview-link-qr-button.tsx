@@ -7,7 +7,7 @@ import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { copyTextToClipboard } from "@/lib/clipboard";
+import { copyTextToClipboard } from "@/lib/client/clipboard";
 
 const QR_SIZE = 192;
 

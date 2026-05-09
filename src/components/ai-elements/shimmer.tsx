@@ -3,7 +3,7 @@
 import type { CSSProperties, ElementType, JSX } from "react";
 import { motion } from "motion/react";
 import { memo, useMemo } from "react";
-import { cn } from "@/lib/utils";
+import { cn } from "@/lib/shared/utils";
 
 export interface TextShimmerProps {
   children: string;

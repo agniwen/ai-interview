@@ -4,7 +4,7 @@ import Link from "next/link";
 import { connection } from "next/server";
 import { FeishuSignInButton } from "@/components/auth/feishu-sign-in-button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { auth } from "@/lib/auth";
+import { auth } from "@/lib/server/auth";
 import { AuthorizeForm } from "./_components/authorize-form";
 
 export const metadata: Metadata = {

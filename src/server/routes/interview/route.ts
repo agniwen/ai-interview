@@ -1,13 +1,17 @@
 import type { ContentfulStatusCode } from "hono/utils/http-status";
-import type { ResumeProfile } from "@/lib/interview/types";
+import type { ResumeProfile } from "@/lib/shared/interview/types";
 import { RoomAgentDispatch, RoomConfiguration } from "@livekit/protocol";
 import { and, eq, ne } from "drizzle-orm";
 import { AccessToken } from "livekit-server-sdk";
-import { db } from "@/lib/db";
-import { candidateFormSubmission, studioInterview, studioInterviewSchedule } from "@/lib/db/schema";
-import { buildCandidateFormAnswersSchema } from "@/lib/candidate-forms";
-import type { CandidateFormTemplateRecord } from "@/lib/candidate-forms";
-import { RECONNECT_GRACE_MS } from "@/lib/studio-interviews";
+import { db } from "@/lib/server/db";
+import {
+  candidateFormSubmission,
+  studioInterview,
+  studioInterviewSchedule,
+} from "@/lib/server/db/schema";
+import { buildCandidateFormAnswersSchema } from "@/lib/shared/candidate-forms";
+import type { CandidateFormTemplateRecord } from "@/lib/shared/candidate-forms";
+import { RECONNECT_GRACE_MS } from "@/lib/shared/studio-interviews";
 import {
   streamGenerateInterviewQuestions,
   streamParseResumeProfile,
@@ -17,7 +21,7 @@ import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
 import { factory, jsonValidatorError } from "@/server/factory";
 import { authMiddleware } from "@/server/middlewares/auth";
-import { resumeProfileSchema } from "@/lib/interview/types";
+import { resumeProfileSchema } from "@/lib/shared/interview/types";
 import { listAllJobDescriptions } from "@/server/routes/studio/routes/job-descriptions/dao";
 import { getGlobalConfig } from "@/server/routes/studio/routes/global-config/dao";
 import {

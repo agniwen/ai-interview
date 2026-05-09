@@ -14,12 +14,12 @@ export type {
   InterviewQuestion,
   ResumeAnalysisResult,
   ResumeProfile,
-} from "@/lib/interview/types";
+} from "@/lib/shared/interview/types";
 
 export type {
   CandidateInterviewView,
   InterviewScheduleEntry,
-} from "@/lib/interview/interview-record";
+} from "@/lib/shared/interview/interview-record";
 
 export type {
   ScheduleEntryStatus,
@@ -29,4 +29,4 @@ export type {
   StudioInterviewScheduleEntryFormValue,
   StudioInterviewStatus,
   StudioInterviewUpdateValues,
-} from "@/lib/studio-interviews";
+} from "@/lib/shared/studio-interviews";

@@ -7,7 +7,7 @@ import { gsap } from "gsap";
 import { ScrollSmoother } from "gsap/ScrollSmoother";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { useCallback, useRef } from "react";
-import { cn } from "@/lib/utils";
+import { cn } from "@/lib/shared/utils";
 import { CenterCarousel } from "./center-carousel";
 import { Screenshot } from "./screenshot";
 import { Eyebrow, Section } from "./section";

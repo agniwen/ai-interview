@@ -1,7 +1,7 @@
 "use client";
 
 import type { InterviewFormApi } from "./interview-form";
-import type { ScheduleEntryStatus } from "@/lib/studio-interviews";
+import type { ScheduleEntryStatus } from "@/lib/shared/studio-interviews";
 import { CalendarDaysIcon, LockIcon, PlusIcon, RotateCcwIcon, Trash2Icon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -17,7 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { scheduleEntryStatusMeta } from "@/lib/studio-interviews";
+import { scheduleEntryStatusMeta } from "@/lib/shared/studio-interviews";
 import { hasFieldErrors, toFieldErrors } from "./interview-form";
 
 export function InterviewScheduleFields({

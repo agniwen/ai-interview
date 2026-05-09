@@ -4,7 +4,7 @@
 
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useState } from "react";
-import { cn } from "@/lib/utils";
+import { cn } from "@/lib/shared/utils";
 import { Screenshot } from "./screenshot";
 import { Eyebrow, Section, SectionLead, SectionTitle } from "./section";
 

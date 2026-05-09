@@ -2,10 +2,10 @@
 
 import type * as React from "react";
 import type { ReactNode } from "react";
-import type { ToolRenderState } from "@/lib/tool-state";
+import type { ToolRenderState } from "@/lib/shared/tool-state";
 import { CircleX, Loader2, Minus, OctagonPause, Plus } from "lucide-react";
 import { useEffect, useState } from "react";
-import { cn } from "@/lib/utils";
+import { cn } from "@/lib/shared/utils";
 import { ApprovalButtons } from "./approval-buttons";
 
 export interface ToolLayoutProps {

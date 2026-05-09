@@ -12,8 +12,11 @@
  */
 
 import { useCallback, useState } from "react";
-import { deriveJobDescriptionText, getJobDescriptionLabel } from "@/lib/job-description-config";
-import type { JobDescriptionConfig } from "@/lib/job-description-config";
+import {
+  deriveJobDescriptionText,
+  getJobDescriptionLabel,
+} from "@/lib/shared/job-description-config";
+import type { JobDescriptionConfig } from "@/lib/shared/job-description-config";
 
 export interface UseJobDescriptionConfigResult {
   config: JobDescriptionConfig | null;

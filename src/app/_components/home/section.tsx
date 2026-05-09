@@ -1,7 +1,7 @@
 // 用途：统一长落地页各分区的纵向节奏与排版
 // Purpose: consistent vertical rhythm + typography for landing sections.
 import type { ReactNode } from "react";
-import { cn } from "@/lib/utils";
+import { cn } from "@/lib/shared/utils";
 
 interface SectionProps {
   children: ReactNode;

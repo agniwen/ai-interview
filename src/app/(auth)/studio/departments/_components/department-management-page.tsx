@@ -1,7 +1,7 @@
 "use client";
 
 import { PageHeader } from "@/app/(auth)/studio/_components/page-header";
-import type { DepartmentListRecord, DepartmentRecord } from "@/lib/departments";
+import type { DepartmentListRecord, DepartmentRecord } from "@/lib/shared/departments";
 import type { PaginatedDepartmentResult } from "@/server/routes/studio/routes/departments/dao";
 import { useQueryClient } from "@tanstack/react-query";
 import { Building2Icon, PencilIcon, PlusIcon, Trash2Icon } from "lucide-react";
@@ -35,7 +35,7 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
-import { rpc } from "@/lib/rpc";
+import { rpc } from "@/lib/client/rpc";
 import { DepartmentFormDialog } from "./department-form-dialog";
 
 async function fetchDepartments(params: {
