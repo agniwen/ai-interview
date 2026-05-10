@@ -14,7 +14,16 @@ import {
 } from "@/components/ui/alert-dialog";
 import { authClient } from "@/lib/client/auth-client";
 
-export default function StudioUnauthorizedPage() {
+/**
+ * "已登录但权限不足"提示弹窗。点击确认后退出当前账号并返回首页。
+ * 直接 redirect 回 /login 会立刻被服务端的会话检查再次甩到这里 → 死循环，
+ * 所以必须先 signOut 再 navigate。
+ *
+ * "Logged in but lacks admin permission" notice. Confirming signs the user
+ * out and sends them home. Cannot redirect to /login directly because the
+ * server-side session check would loop us back here.
+ */
+export function UnauthorizedNotice() {
   const router = useRouter();
   const [open, setOpen] = useState(true);
   const [isRedirecting, setIsRedirecting] = useState(false);

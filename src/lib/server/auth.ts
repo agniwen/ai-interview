@@ -211,12 +211,13 @@ export const auth = betterAuth({
     minPasswordLength: 8,
   },
   // 被封禁用户走 OAuth 回调时 better-auth 会重定向到 `${errorURL}?error=banned&...`。
-  // 指向自定义的 /banned 页给出中文提示，没配置时默认会跳到不存在的 /error。
+  // 指向 /login —— 那边的 LoginErrorToast 会把 error_description 弹成 toast，
+  // 顺手清掉 URL 参数防止刷新重复弹。
   // For OAuth callbacks of banned accounts better-auth redirects to
-  // `${errorURL}?error=banned&...`. Point at our custom /banned page;
-  // the default is a non-existent /error route.
+  // `${errorURL}?error=banned&...`. Point at /login — its LoginErrorToast
+  // surfaces the message via toast and strips the params from the URL.
   onAPIError: {
-    errorURL: "/banned",
+    errorURL: "/login",
   },
   plugins: [
     admin({

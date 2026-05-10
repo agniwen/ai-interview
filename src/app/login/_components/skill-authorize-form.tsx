@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-interface AuthorizeFormProps {
+interface SkillAuthorizeFormProps {
   initialUserCode: string;
   userName: string;
 }
@@ -18,7 +18,7 @@ type Phase = "idle" | "submitting" | "approved" | "denied";
 
 const USER_CODE_PATTERN = /^[A-Z2-9]{4}-[A-Z2-9]{4}$/;
 
-export function AuthorizeForm({ initialUserCode, userName }: AuthorizeFormProps) {
+export function SkillAuthorizeForm({ initialUserCode, userName }: SkillAuthorizeFormProps) {
   const router = useRouter();
   const [userCode, setUserCode] = useState(initialUserCode);
   const [phase, setPhase] = useState<Phase>("idle");

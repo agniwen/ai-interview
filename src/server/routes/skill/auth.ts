@@ -133,8 +133,12 @@ export async function issueDeviceCode(scope: string): Promise<IssueDeviceCodeRes
   });
 
   const baseURL = resolveBaseURL();
-  const verificationUri = `${baseURL}/skill/authorize`;
-  const verificationUriComplete = `${verificationUri}?user_code=${encodeURIComponent(userCode)}`;
+  // /skill/authorize 已合并进 /login?action=approve-skill。verification_uri 仍是
+  // 用户在终端可复制的「干净」URL；verification_uri_complete 带 user_code。
+  // The dedicated /skill/authorize page was merged into /login; the device
+  // grant flow now points at the unified /login route with an action param.
+  const verificationUri = `${baseURL}/login?action=approve-skill`;
+  const verificationUriComplete = `${verificationUri}&user_code=${encodeURIComponent(userCode)}`;
 
   return {
     device_code: deviceCode,

@@ -28,7 +28,11 @@ export default async function StudioLayout({ children }: { children: ReactNode }
   }
 
   if (!canAccessAdmin(session.user)) {
-    redirect("/studio-unauthorized");
+    // /login 自己会识别"已登录但非 admin"状态并渲染 UnauthorizedNotice；
+    // 这里不能直接渲染 UI（layout 是 server component，且需要先签出）。
+    // /login renders UnauthorizedNotice itself when it sees a logged-in
+    // non-admin session — keep the redirect so sign-out flow is centralized.
+    redirect("/login");
   }
 
   return (
