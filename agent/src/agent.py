@@ -11,6 +11,7 @@ from livekit.agents import (
     AgentServer,
     AgentSession,
     ChatMessage,
+    CloseReason,
     JobContext,
     JobProcess,
     cli,
@@ -54,7 +55,78 @@ def prewarm(proc: JobProcess):
 server.setup_fnc = prewarm
 
 
-@server.rtc_session(agent_name="giaogiao")
+# 与 web 端 POST /api/agent/report 的 callSuccessful 字段约定:
+# success / failed 用于驱动候选人侧的状态徽章. 这里只把"正常完成 / 用户主动结束 /
+# 候选人离线"视为成功, 其余 (ERROR / JOB_SHUTDOWN) 都算失败.
+# Contract with the web-side POST /api/agent/report: callSuccessful drives the
+# candidate-facing status badge. Treat normal completion, user-initiated end,
+# and participant disconnect as success; everything else (ERROR / JOB_SHUTDOWN)
+# is a failure.
+_SUCCESS_REASONS = frozenset(
+    {
+        CloseReason.TASK_COMPLETED,
+        CloseReason.USER_INITIATED,
+        CloseReason.PARTICIPANT_DISCONNECTED,
+    }
+)
+
+
+async def _on_session_end(ctx: JobContext) -> None:
+    """Frame: send transcript + stop egress after the voice pipeline closes.
+
+    The framework guarantees session.history is finalized before this fires
+    and gives us up to ``session_end_timeout`` (default 5 min) to complete,
+    so the HTTP retry path in send_report has plenty of headroom.
+    Recording stop runs concurrently and is best-effort because the
+    egress_ended webhook on the web side reconciles the final status.
+    """
+    state: dict = ctx.primary_session.userdata
+    lkapi: lkapi_module.LiveKitAPI = state["lkapi"]
+    interview_context: dict = state["interview_context"]
+    recording_info: dict = state.get("recording_info") or {}
+    close_reason: CloseReason | None = state.get("close_reason")
+    ended_at = state.get("ended_at") or time.time()
+
+    call_successful = "success" if close_reason in _SUCCESS_REASONS else "failed"
+
+    recording_payload: dict | None = None
+    if recording_info:
+        recording_payload = {
+            "egressId": recording_info["egressId"],
+            "fileKey": recording_info["fileKey"],
+            "status": "active",
+            "durationSecs": None,
+        }
+
+    async def _stop_recording_best_effort() -> None:
+        if not recording_info:
+            return
+        try:
+            await stop_recording(lkapi, recording_info["egressId"])
+        except Exception:
+            logger.exception("stop_recording during shutdown failed")
+
+    await asyncio.gather(
+        send_report(
+            interview_context=interview_context,
+            room_name=ctx.room.name,
+            turns=state["turns"],
+            call_successful=call_successful,
+            started_at=state["started_at"],
+            ended_at=ended_at,
+            close_reason=close_reason.value if close_reason else "unknown",
+            recording=recording_payload,
+        ),
+        _stop_recording_best_effort(),
+    )
+
+    try:
+        await lkapi.aclose()
+    except Exception:
+        logger.debug("lkapi.aclose failed", exc_info=True)
+
+
+@server.rtc_session(agent_name="giaogiao", on_session_end=_on_session_end)
 async def my_agent(ctx: JobContext):
     ctx.log_context_fields = {
         "room": ctx.room.name,
@@ -105,6 +177,26 @@ async def my_agent(ctx: JobContext):
             selected_voice,
         )
 
+    # 录像收尾策略: 不再阻塞 send_report 等待 stop_egress.
+    # report 直接用启动时拿到的 egressId / fileKey 写 status="active",
+    # 由 web 端的 LiveKit egress_ended webhook 兜底回填最终 status / durationSecs.
+    # 这样即使 LiveKit Egress API 抖动或 list_egress fallback 慢, 报告也能稳定回填.
+    #
+    # Recording wrap-up: do NOT block send_report on stop_egress. The report
+    # carries the egressId/fileKey we already have from start time with
+    # status="active"; the web-side LiveKit egress_ended webhook handler is
+    # responsible for backfilling the final status / durationSecs once the
+    # MP4 finishes uploading. _on_session_end (top-level) uses this state.
+    state: dict = {
+        "lkapi": lkapi,
+        "interview_context": interview_context,
+        "recording_info": recording_info,
+        "started_at": time.time(),
+        "turns": [],
+        "close_reason": None,
+        "ended_at": None,
+    }
+
     session = AgentSession(
         stt=elevenlabs.STT(
             model_id="scribe_v2",
@@ -122,6 +214,7 @@ async def my_agent(ctx: JobContext):
             voice=selected_voice,
         ),
         vad=ctx.proc.userdata["vad"],
+        userdata=state,
         preemptive_generation=True,
         turn_handling={
             "turn_detection": MultilingualModel(),
@@ -140,8 +233,6 @@ async def my_agent(ctx: JobContext):
         },
     )
 
-    collected_turns: list[dict] = []
-    session_start_time = time.time()
     timeout_task: asyncio.Task | None = None
     # 热重连宽限期任务: 候选人断连后等候同 identity 在 3 分钟内重连.
     # Hot-reconnect grace task: wait up to 3 min for the same identity to rejoin.
@@ -163,8 +254,8 @@ async def my_agent(ctx: JobContext):
         elif role_str != "user":
             return
 
-        elapsed = max(0, item.created_at - session_start_time)
-        collected_turns.append(
+        elapsed = max(0, item.created_at - state["started_at"])
+        state["turns"].append(
             {
                 "role": role_str,
                 "message": text.strip(),
@@ -173,17 +264,14 @@ async def my_agent(ctx: JobContext):
         )
         logger.debug("turn collected: %s (%.0fs)", role_str, elapsed)
 
-    close_info: dict = {}
-
     @session.on("close")
     def _on_close(event):
-        close_info["ended_at"] = time.time()
-        close_info["reason_value"] = event.reason.value if event.reason else "unknown"
-        close_info["reason_name"] = event.reason.name if event.reason else "UNKNOWN"
+        state["ended_at"] = time.time()
+        state["close_reason"] = event.reason
         logger.info(
             "session closed: reason=%s, turns=%d",
-            close_info["reason_value"],
-            len(collected_turns),
+            event.reason.value if event.reason else "unknown",
+            len(state["turns"]),
         )
         if timeout_task is not None and not timeout_task.done():
             timeout_task.cancel()
@@ -191,76 +279,6 @@ async def my_agent(ctx: JobContext):
         # Prevent the grace task from running after the session is already closed.
         if grace_task is not None and not grace_task.done():
             grace_task.cancel()
-
-    # Use shutdown callback to guarantee report is sent before process exits.
-    # Unlike the close event handler, shutdown callbacks are awaited by the
-    # framework before the job process terminates.
-    async def _on_shutdown():
-        ended_at = close_info.get("ended_at", time.time())
-        close_reason = close_info.get("reason_value", "unknown")
-        reason_name = close_info.get("reason_name", "UNKNOWN")
-
-        # Align with ElevenLabs convention: "success" / "failed"
-        if reason_name in (
-            "TASK_COMPLETED",
-            "USER_INITIATED",
-            "PARTICIPANT_DISCONNECTED",
-        ):
-            call_successful = "success"
-        else:
-            call_successful = "failed"
-
-        # 录像收尾策略: 不再阻塞 send_report 等待 stop_egress.
-        # report 直接用启动时拿到的 egressId / fileKey 写 status="active",
-        # 由 web 端的 LiveKit egress_ended webhook 兜底回填最终 status / durationSecs.
-        # 这样即使 LiveKit Egress API 抖动或 list_egress fallback 慢, 报告也能稳定回填.
-        #
-        # Recording wrap-up: do NOT block send_report on stop_egress. The report
-        # carries the egressId/fileKey we already have from start time with
-        # status="active"; the web-side LiveKit egress_ended webhook handler is
-        # responsible for backfilling the final status / durationSecs once the
-        # MP4 finishes uploading. This keeps shutdown resilient even when the
-        # LiveKit Egress API is slow.
-        recording_payload: dict | None = None
-        if recording_info:
-            recording_payload = {
-                "egressId": recording_info["egressId"],
-                "fileKey": recording_info["fileKey"],
-                "status": "active",
-                "durationSecs": None,
-            }
-
-        async def _stop_recording_best_effort() -> None:
-            if not recording_info:
-                return
-            try:
-                await stop_recording(lkapi, recording_info["egressId"])
-            except Exception:
-                logger.exception("stop_recording during shutdown failed")
-
-        # Run report send + recording stop concurrently. send_report finishes
-        # in <1s when the backend is healthy, so the framework's shutdown
-        # grace period is no longer pressured by Egress API latency.
-        await asyncio.gather(
-            send_report(
-                interview_context=interview_context,
-                room_name=ctx.room.name,
-                turns=collected_turns,
-                call_successful=call_successful,
-                started_at=session_start_time,
-                ended_at=ended_at,
-                close_reason=close_reason,
-                recording=recording_payload,
-            ),
-            _stop_recording_best_effort(),
-        )
-
-        try:
-            await lkapi.aclose()
-        except Exception:
-            logger.debug("lkapi.aclose failed", exc_info=True)
-
-    ctx.add_shutdown_callback(_on_shutdown)
 
     interview_agent = InterviewAgent(interview_context, selected_interviewer)
 
@@ -295,7 +313,7 @@ async def my_agent(ctx: JobContext):
     )
 
     # Anchor the elapsed-time clock on the agent so per-turn time hints align
-    # with actual session start (matches session_start_time above).
+    # with actual session start (matches state["started_at"] above).
     interview_agent.mark_started()
 
     # Hard timeout safety net. Per-turn instructions wind the interview down
@@ -391,8 +409,6 @@ async def my_agent(ctx: JobContext):
 
     ctx.room.on("participant_disconnected", _on_participant_disconnected)
     ctx.room.on("participant_connected", _on_participant_connected)
-
-    await ctx.connect()
 
 
 if __name__ == "__main__":
