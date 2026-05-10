@@ -3,7 +3,7 @@
 import type { LucideIcon } from "lucide-react";
 import type { CandidateInterviewView } from "@/lib/shared/interview/interview-record";
 import { useAgent, useSession } from "@livekit/components-react";
-import { ConnectionState, TokenSource } from "livekit-client";
+import { ConnectionState, DisconnectReason, RoomEvent, TokenSource } from "livekit-client";
 import {
   MessageSquareTextIcon,
   MicIcon,
@@ -410,12 +410,48 @@ export default function InterviewRoom({ interviewId, roundId }: InterviewRoomPro
   // Set when the user clicks "End interview". Distinguishes a deliberate end
   // (final) from a transient drop (interrupt + grace window).
   const userEndedRef = useRef(false);
+  // Set when the server (agent's end_call → DeleteRoom, or admin RemoveParticipant)
+  // initiates a final disconnect. We can't rely on roundStatus alone because
+  // setState propagates async — the auto-rejoin effect may run before the
+  // updated isRoundCompleted is observable. The ref short-circuits both the
+  // interrupt POST and the rejoin attempt synchronously.
+  const agentEndedRef = useRef(false);
+
+  // 订阅 Room 的 disconnected 事件以拿到 reason: agent 调 end_call(delete_room=True)
+  // 触发 LiveKit Cloud DeleteRoom, 候选人侧收到 reason=ROOM_DELETED;
+  // PARTICIPANT_REMOVED 是管理员 RemoveParticipant. 两者都属于服务端发起的
+  // 终态结束, 不应当再走 interrupt + auto-rejoin 流程. ref 同步置位以避免
+  // 与 setRoundStatus 的异步渲染竞争.
+  // Detect server-initiated final disconnect via the room event's reason
+  // (ROOM_DELETED from agent end_call, PARTICIPANT_REMOVED from admin kick).
+  // Set the ref synchronously so the connectionState/auto-rejoin effects
+  // see it on the same tick, ahead of the async setRoundStatus update.
+  useEffect(() => {
+    const { room } = session;
+    if (!room) {
+      return;
+    }
+    const onDisconnected = (reason?: DisconnectReason) => {
+      if (
+        reason === DisconnectReason.ROOM_DELETED ||
+        reason === DisconnectReason.PARTICIPANT_REMOVED
+      ) {
+        agentEndedRef.current = true;
+        setRoundStatus("completed");
+      }
+    };
+    room.on(RoomEvent.Disconnected, onDisconnected);
+    return () => {
+      room.off(RoomEvent.Disconnected, onDisconnected);
+    };
+  }, [session.room]);
 
   // 监听硬断连：
   // - 主动结束（userEndedRef=true）：handleEndInterview 已经发过 final，这里跳过；
+  // - agent / 管理员结束（agentEndedRef=true）：上面的 onDisconnected 已置 completed，这里跳过；
   // - 被动断连：发 ?mode=interrupt 进入 3 分钟宽限。
-  // Distinguish deliberate end from passive drop: the former already sent
-  // ?mode=final via handleEndInterview before disconnecting, so skip here.
+  // Distinguish deliberate end (user/agent/admin) from passive drop: only
+  // passive drops trigger the interrupt POST that opens the grace window.
   useEffect(() => {
     if (session.connectionState === ConnectionState.Connected) {
       wasConnectedRef.current = true;
@@ -427,6 +463,12 @@ export default function InterviewRoom({ interviewId, roundId }: InterviewRoomPro
         // 主动结束：完成态由 handleEndInterview 写入，这里只清标记。
         // Deliberate end: final state already persisted, just clear the flag.
         userEndedRef.current = false;
+        return;
+      }
+      if (agentEndedRef.current) {
+        // 服务端结束: agent 的 _on_session_end 会回写 /api/agent/report 把
+        // 轮次置为 completed; 这里不再走 interrupt 路径, 也不重置 flag (留给
+        // auto-rejoin effect 再读一次), 避免与短时间内的连续状态翻转打架.
         return;
       }
       void rpc.api.interview[":id"][":roundId"].complete.$post(
@@ -486,22 +528,26 @@ export default function InterviewRoom({ interviewId, roundId }: InterviewRoomPro
           },
         });
       } catch (error) {
-        // session.start 内部先连 room 再发布轨道。摄像头轨道发布失败（无摄像头、
-        // 被占用、缓存的 deviceId 在当前机器找不到等 OverconstrainedError /
-        // NotFoundError）会让整个 promise reject，但此时 room 通常已连上、
-        // agent 也会照常加入。这种情况下吞掉错误，让面试继续走纯音频。
-        // 真正的失败（token 403/410、网络断、麦克风也没拿到）才需要 toast +
-        // reset latch 让用户重试。
-        // Track-publish failures (camera missing/busy/stale deviceId) reject
-        // session.start even though the room is already connected — swallow
-        // those and continue audio-only. Only surface real failures.
+        // session.start 内部把 getUserMedia(摄像头/麦克风) 和 room.connect 一起跑.
+        // 摄像头侧的 NotFoundError / OverconstrainedError 是纯本机硬件状态
+        // (无摄像头、被占用、缓存 deviceId 失效), 跟连接通路无关; 这种情况下
+        // 麦克风轨道仍然能发, room 也会照常连上, 应当吞掉错误让面试纯音频继续.
+        // 注意 connectionState 不能用来判断: getUserMedia 可能在 room.connect
+        // 完成前就 reject, 此时状态还停在 Connecting 甚至 Disconnected.
+        // 真正需要 toast + reset latch 的失败是 token 403/410、网络断、
+        // 麦克风权限拒绝等连接级错误.
+        // session.start runs camera/mic getUserMedia in parallel with
+        // room.connect, so connectionState is unreliable when the error
+        // surfaces. Device errors are local-only and never break room
+        // connectivity, so swallow them unconditionally and continue
+        // audio-only. Only network/token/permission failures should toast.
         const isDeviceError =
           error instanceof Error &&
           (error.name === "NotFoundError" ||
             error.name === "OverconstrainedError" ||
             error.name === "DeviceUnsupportedError" ||
             /device not found|requested device/i.test(error.message));
-        if (isDeviceError && session.connectionState === ConnectionState.Connected) {
+        if (isDeviceError) {
           // eslint-disable-next-line no-console
           console.warn("[interview] camera publish skipped, continuing audio-only:", error);
           return;
@@ -515,10 +561,6 @@ export default function InterviewRoom({ interviewId, roundId }: InterviewRoomPro
         const message = error instanceof Error ? error.message : "连接失败，请重试";
         // eslint-disable-next-line no-console
         console.error("[interview] session.start failed:", error);
-        if (message === "Requested device not found") {
-          console.error("[Requested device not found] session.start failed:", error);
-          return;
-        }
         toast.error(message);
       }
     },
@@ -528,13 +570,16 @@ export default function InterviewRoom({ interviewId, roundId }: InterviewRoomPro
   // 刷新返回时若 canResume 为 true：跳过 RuleItem 自动 handleStart 续连。
   // 加 isRoundCompleted 保护，防止主动结束流程里 setRoundStatus("completed")
   // 与 connectionState 变 Disconnected 之间的 race 让 effect 误触发。
+  // 同时用 agentEndedRef 兜底: setRoundStatus 是异步的, ref 在 onDisconnected
+  // 里同步置位, 这样即使本 effect 在 setRoundStatus 渲染前抢跑也不会自动续连.
   // Auto-trigger handleStart only when the round is genuinely resumable.
-  // The isRoundCompleted guard prevents a race during deliberate-end where
-  // the disconnect arrives before interviewView refreshes.
+  // The isRoundCompleted guard plus agentEndedRef short-circuit cover the
+  // race where this effect runs before setRoundStatus("completed") commits.
   useEffect(() => {
     if (
       !isLoadingStatus &&
       !isRoundCompleted &&
+      !agentEndedRef.current &&
       isRecoverable &&
       !autoRejoinTriggeredRef.current &&
       session.connectionState === ConnectionState.Disconnected

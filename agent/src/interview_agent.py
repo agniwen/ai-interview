@@ -8,6 +8,7 @@ from livekit.agents import Agent, ChatContext, ChatMessage, ModelSettings, stt
 from livekit.agents.beta.tools import EndCallTool
 
 from prompts import build_instructions
+from ready_check_task import ReadyCheckTask
 
 logger = logging.getLogger("agent")
 
@@ -148,7 +149,36 @@ class InterviewAgent(Agent):
         turn_ctx.add_message(role="system", content=hint)
 
     async def on_enter(self):
-        await self.session.generate_reply(instructions=self._opening_instructions)
+        # 开场寒暄 + "准备好了吗"确认拆到 ReadyCheckTask 里执行: 该 task 只暴露
+        # confirm_ready / decline_interview 两个工具, 让小模型 (Qwen-turbo /
+        # DeepSeek-V4-flash) 在受限工具集中做出明确判断, 避免在确认前抢跑提问.
+        # The greeting + ready confirmation runs inside ReadyCheckTask, which
+        # exposes only confirm_ready / decline_interview. Bounding the tool
+        # set keeps small models from jumping into the first question before
+        # the candidate has actually confirmed.
+        ready = await ReadyCheckTask(
+            opening_instructions=self._opening_instructions,
+        )
+        if not ready:
+            handle = self.session.generate_reply(
+                instructions=self._closing_instructions,
+                allow_interruptions=False,
+            )
+            await handle.wait_for_playout()
+            await self.session.aclose()
+            return
+
+        # 候选人确认就绪后, 用一句轻量指令把控制权交回 InterviewAgent 的主 prompt,
+        # 由它按系统提示中的题目顺序进入第一道岗位预设题. 不要再次寒暄.
+        # Hand control back to the main interview prompt: the system prompt
+        # already contains the question list, so we only nudge it into the
+        # first preset question without repeating the greeting.
+        await self.session.generate_reply(
+            instructions=(
+                "候选人已确认准备好，并且上个阶段已经说过类似‘好的，那正式开始’之类的话了。直接开始按系统提示中的题目列表顺序，"
+                "向候选人提出第一道岗位预设题。直接进入提问，不要再次寒暄或自我介绍。"
+            ),
+        )
 
     async def stt_node(
         self,
