@@ -1,24 +1,15 @@
 "use client";
 
 import { PageHeader } from "@/app/(auth)/studio/_components/page-header";
+import { EntityDeleteDialog } from "@/app/(auth)/studio/_components/entity-delete-dialog";
+import { useEntityCrud } from "@/app/(auth)/studio/_components/use-entity-crud";
 import type { DepartmentRecord } from "@/lib/shared/departments";
 import type { InterviewerListRecord } from "@/lib/shared/interviewers";
 import type { JobDescriptionListRecord, JobDescriptionRecord } from "@/lib/shared/job-descriptions";
 import type { PaginatedJobDescriptionResult } from "@/server/routes/studio/routes/job-descriptions/dao";
 import { useQueryClient } from "@tanstack/react-query";
 import { FileTextIcon, PencilIcon, PlusIcon, Trash2Icon } from "lucide-react";
-import { useMemo, useState } from "react";
-import { toast } from "sonner";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+import { useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -65,9 +56,11 @@ async function fetchJobDescriptions(params: {
   return (await res.json()) as PaginatedJobDescriptionResult;
 }
 
-async function loadJobDescriptionDetail(id: string): Promise<JobDescriptionRecord | null> {
+async function loadJobDescriptionDetail(
+  record: JobDescriptionListRecord,
+): Promise<JobDescriptionRecord | null> {
   const response = await rpc.api.studio["job-descriptions"][":id"].$get({
-    param: { id },
+    param: { id: record.id },
   });
   if (!response.ok) {
     return null;
@@ -96,49 +89,22 @@ export function JobDescriptionManagementPage({
     namespace: "job-descriptions",
   });
 
-  const [formDialogOpen, setFormDialogOpen] = useState(false);
-  const [editingRecord, setEditingRecord] = useState<JobDescriptionRecord | null>(null);
-  const [deleteRecord, setDeleteRecord] = useState<JobDescriptionListRecord | null>(null);
-
   const missingRefs = departments.length === 0 || interviewers.length === 0;
 
-  function invalidateAll() {
-    grid.invalidate();
-    void queryClient.invalidateQueries({ queryKey: ["interviewers"] });
-    void queryClient.invalidateQueries({ queryKey: ["departments"] });
-  }
-
-  function openCreate() {
-    setEditingRecord(null);
-    setFormDialogOpen(true);
-  }
-
-  async function openEdit(record: JobDescriptionListRecord) {
-    const full = await loadJobDescriptionDetail(record.id);
-    if (!full) {
-      toast.error("加载在招岗位失败");
-      return;
-    }
-    setEditingRecord(full);
-    setFormDialogOpen(true);
-  }
-
-  async function handleDelete() {
-    if (!deleteRecord) {
-      return;
-    }
-    const response = await rpc.api.studio["job-descriptions"][":id"].$delete({
-      param: { id: deleteRecord.id },
-    });
-    const payload = (await response.json().catch(() => null)) as { error?: string } | null;
-    if (!response.ok) {
-      toast.error(payload?.error ?? "删除失败");
-      return;
-    }
-    setDeleteRecord(null);
-    toast.success("在招岗位已删除");
-    invalidateAll();
-  }
+  const crud = useEntityCrud<JobDescriptionListRecord, JobDescriptionRecord>({
+    deleteEntity: (record) =>
+      rpc.api.studio["job-descriptions"][":id"].$delete({ param: { id: record.id } }),
+    invalidate: () => {
+      grid.invalidate();
+      void queryClient.invalidateQueries({ queryKey: ["interviewers"] });
+      void queryClient.invalidateQueries({ queryKey: ["departments"] });
+    },
+    loadDetail: loadJobDescriptionDetail,
+    messages: {
+      deleteSuccess: "在招岗位已删除",
+      loadDetailError: "加载在招岗位失败",
+    },
+  });
 
   const columns = useMemo(
     () => [
@@ -192,7 +158,7 @@ export function JobDescriptionManagementPage({
             icon: PencilIcon,
             label: "编辑岗位",
             onClick: (r) => {
-              void openEdit(r);
+              void crud.openEdit(r);
             },
           },
         ],
@@ -200,13 +166,13 @@ export function JobDescriptionManagementPage({
           {
             icon: Trash2Icon,
             label: "删除",
-            onClick: (r) => setDeleteRecord(r),
+            onClick: (r) => crud.setDeleteRecord(r),
             variant: "destructive",
           },
         ],
       }),
     ],
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // oxlint-disable-next-line react-hooks/exhaustive-deps
     [],
   );
 
@@ -248,21 +214,13 @@ export function JobDescriptionManagementPage({
     <>
       <div className="space-y-6">
         <PageHeader
-          title="在招岗位管理"
           description="配置岗位描述 prompt，并指定面试时要启用的面试官。"
+          title="在招岗位管理"
         />
 
         <DataGrid<JobDescriptionListRecord>
           {...grid.bind}
           columns={columns}
-          filters={filtersConfig}
-          getRowId={(r) => r.id}
-          toolbarRight={
-            <Button className="flex-1 sm:flex-none" disabled={missingRefs} onClick={openCreate}>
-              <PlusIcon className="size-4" />
-              新建在招岗位
-            </Button>
-          }
           empty={
             missingRefs ? (
               <Empty className="border-border/60">
@@ -288,7 +246,7 @@ export function JobDescriptionManagementPage({
                   </EmptyDescription>
                 </EmptyHeader>
                 <EmptyContent>
-                  <Button onClick={openCreate}>
+                  <Button onClick={crud.openCreate}>
                     <PlusIcon className="size-4" />
                     新建在招岗位
                   </Button>
@@ -296,42 +254,43 @@ export function JobDescriptionManagementPage({
               </Empty>
             )
           }
+          filters={filtersConfig}
+          getRowId={(r) => r.id}
+          toolbarRight={
+            <Button
+              className="flex-1 sm:flex-none"
+              disabled={missingRefs}
+              onClick={crud.openCreate}
+            >
+              <PlusIcon className="size-4" />
+              新建在招岗位
+            </Button>
+          }
         />
       </div>
 
       <JobDescriptionFormDialog
         departments={departments}
         interviewers={interviewers}
-        onOpenChange={(value) => {
-          setFormDialogOpen(value);
-          if (!value) {
-            setEditingRecord(null);
-          }
+        onOpenChange={crud.onFormOpenChange}
+        onSaved={() => {
+          grid.invalidate();
+          void queryClient.invalidateQueries({ queryKey: ["interviewers"] });
+          void queryClient.invalidateQueries({ queryKey: ["departments"] });
         }}
-        onSaved={() => invalidateAll()}
-        open={formDialogOpen}
-        record={editingRecord}
+        open={crud.formDialogOpen}
+        record={crud.editingRecord}
       />
 
-      <AlertDialog
-        onOpenChange={(value) => !value && setDeleteRecord(null)}
-        open={deleteRecord !== null}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>确认删除这个在招岗位？</AlertDialogTitle>
-            <AlertDialogDescription>
-              即将删除岗位：{deleteRecord?.name ?? ""}，引用该岗位的面试记录的关联岗位字段会被清空。
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>取消</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} variant="destructive">
-              删除
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <EntityDeleteDialog
+        description={(record) =>
+          `即将删除岗位：${record.name}，引用该岗位的面试记录的关联岗位字段会被清空。`
+        }
+        onClose={() => crud.setDeleteRecord(null)}
+        onConfirm={crud.handleDelete}
+        record={crud.deleteRecord}
+        title="确认删除这个在招岗位？"
+      />
     </>
   );
 }

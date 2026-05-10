@@ -4,7 +4,7 @@ import { generateText } from "ai";
 import { withDevTools } from "@/server/agents/devtools";
 import { factory } from "@/server/factory";
 import { resumeTitleRequestSchema } from "@/server/routes/resume/schema";
-import { sanitizeTitle } from "@/server/routes/resume/utils";
+import { sanitizeTitle } from "@/server/routes/resume/utils/title";
 
 export const titleRouter = factory
   .createApp()

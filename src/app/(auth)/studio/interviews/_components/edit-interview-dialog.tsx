@@ -6,6 +6,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { LoaderCircleIcon } from "lucide-react";
 import { useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
+import { AnimatedHeight } from "@/components/animated-height";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
 import { FieldGroup, FieldLabel } from "@/components/ui/field";
@@ -208,70 +209,72 @@ export function EditInterviewDialog({
               void form.handleSubmit();
             }}
           >
-            <TabsContent className="mt-0" value="basic">
-              <div className="space-y-5">
-                <div className="grid gap-4">
-                  <FieldGroup className="gap-2">
-                    <FieldLabel htmlFor="edit-resume-upload">替换简历 PDF</FieldLabel>
-                    <Input
-                      accept="application/pdf"
-                      disabled={isLoadingRecord || isSubmitting}
-                      id="edit-resume-upload"
-                      onChange={(event) => handleResumeChange(event.target.files?.[0] ?? null)}
-                      type="file"
-                    />
-                    <p className="text-muted-foreground text-sm">
-                      仅替换关联的简历
-                      PDF，不会重新解析简历或覆盖已维护的候选人信息、面试题与轮次安排。
+            <AnimatedHeight>
+              <TabsContent className="mt-0" value="basic">
+                <div className="space-y-5">
+                  <div className="grid gap-4">
+                    <FieldGroup className="gap-2">
+                      <FieldLabel htmlFor="edit-resume-upload">替换简历 PDF</FieldLabel>
+                      <Input
+                        accept="application/pdf"
+                        disabled={isLoadingRecord || isSubmitting}
+                        id="edit-resume-upload"
+                        onChange={(event) => handleResumeChange(event.target.files?.[0] ?? null)}
+                        type="file"
+                      />
+                      <p className="text-muted-foreground text-sm">
+                        仅替换关联的简历
+                        PDF，不会重新解析简历或覆盖已维护的候选人信息、面试题与轮次安排。
+                      </p>
+                      {resumeFile ? (
+                        <p className="break-all text-muted-foreground text-sm">{resumeFile.name}</p>
+                      ) : null}
+                    </FieldGroup>
+                  </div>
+
+                  <InterviewBasicInfoFields form={form} />
+
+                  <InterviewScheduleFields
+                    form={form}
+                    onResetRound={handleResetRound}
+                    resettingRoundId={resettingRoundId}
+                    roundStatuses={roundStatuses}
+                  />
+
+                  <InterviewNotesField form={form} />
+                </div>
+              </TabsContent>
+
+              <TabsContent className="mt-0 space-y-6" value="questions">
+                {recordId ? (
+                  <InterviewQuestionBindingsSection
+                    disabled={isSubmitting || isLoadingRecord}
+                    interviewId={recordId}
+                  />
+                ) : null}
+
+                <div className="space-y-3">
+                  <div>
+                    <p className="font-medium text-sm">候选人专属面试题</p>
+                    <p className="mt-1 text-muted-foreground text-xs">
+                      基于该候选人的简历单独维护的题目，仅用于本次面试。
                     </p>
-                    {resumeFile ? (
-                      <p className="break-all text-muted-foreground text-sm">{resumeFile.name}</p>
-                    ) : null}
-                  </FieldGroup>
+                  </div>
+                  <InterviewQuestionsFields
+                    disabled={isSubmitting || isLoadingRecord}
+                    form={form}
+                    resetKey={recordId ?? "new"}
+                  />
                 </div>
+              </TabsContent>
 
-                <InterviewBasicInfoFields form={form} />
-
-                <InterviewScheduleFields
-                  form={form}
-                  onResetRound={handleResetRound}
-                  resettingRoundId={resettingRoundId}
-                  roundStatuses={roundStatuses}
+              <TabsContent className="mt-0" value="instructions">
+                <AgentInstructionsPanel
+                  enabled={open && activeTab === "instructions"}
+                  recordId={recordId}
                 />
-
-                <InterviewNotesField form={form} />
-              </div>
-            </TabsContent>
-
-            <TabsContent className="mt-0 space-y-6" value="questions">
-              {recordId ? (
-                <InterviewQuestionBindingsSection
-                  disabled={isSubmitting || isLoadingRecord}
-                  interviewId={recordId}
-                />
-              ) : null}
-
-              <div className="space-y-3">
-                <div>
-                  <p className="font-medium text-sm">候选人专属面试题</p>
-                  <p className="mt-1 text-muted-foreground text-xs">
-                    基于该候选人的简历单独维护的题目，仅用于本次面试。
-                  </p>
-                </div>
-                <InterviewQuestionsFields
-                  disabled={isSubmitting || isLoadingRecord}
-                  form={form}
-                  resetKey={recordId ?? "new"}
-                />
-              </div>
-            </TabsContent>
-
-            <TabsContent className="mt-0" value="instructions">
-              <AgentInstructionsPanel
-                enabled={open && activeTab === "instructions"}
-                recordId={recordId}
-              />
-            </TabsContent>
+              </TabsContent>
+            </AnimatedHeight>
           </form>
         )}
       </Modal>

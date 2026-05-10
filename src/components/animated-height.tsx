@@ -1,0 +1,71 @@
+"use client";
+
+import { motion, useReducedMotion } from "motion/react";
+import type { ReactNode } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useIsMobile } from "@/hooks/use-mobile";
+
+interface AnimatedHeightProps {
+  children: ReactNode;
+  /** 默认 250ms ease，跟 Radix popover 的入场曲线一致。 */
+  duration?: number;
+  /** 自定义 className（一般不需要传）。 */
+  className?: string;
+}
+
+/**
+ * 监测子节点真实高度，用 CSS height 平滑过渡的容器。
+ * 比 motion 的 `layout` 更可靠，因为它依赖 ResizeObserver + 显式 animate({ height })，
+ * 不受 flex 容器、overflow:hidden、Radix 子树 unmount/remount 等影响。
+ *
+ * Resize-aware container that smoothly animates its height to match its
+ * children's measured size. More reliable than `motion.div layout` here
+ * because it leans on `ResizeObserver` + explicit `animate({ height })`,
+ * sidestepping flex sizing, scroll containers, and Radix sub-tree
+ * unmount/remount that can defeat FLIP-based layout animations.
+ */
+export function AnimatedHeight({ children, duration = 0.25, className }: AnimatedHeightProps) {
+  const innerRef = useRef<HTMLDivElement>(null);
+  const [height, setHeight] = useState<number | "auto">("auto");
+  const reduceMotion = useReducedMotion();
+  const isMobile = useIsMobile();
+
+  useEffect(() => {
+    // 移动端 Modal 会切到 Drawer，自带高度策略与拖拽手势，强行动画反而冲突。
+    // 桌面端才需要平滑过渡 tab 切换的高度跳变。
+    // Mobile Modal swaps to Drawer with its own sizing/gesture; layering an
+    // animation here fights the drawer. Only desktop needs this transition.
+    if (isMobile) {
+      return;
+    }
+    const el = innerRef.current;
+    if (!el) {
+      return;
+    }
+    // ResizeObserver fires once on observe with the current size, so we
+    // get the initial measurement for free (no useLayoutEffect needed).
+    const observer = new ResizeObserver(([entry]) => {
+      if (entry) {
+        setHeight(entry.contentRect.height);
+      }
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [isMobile]);
+
+  if (isMobile) {
+    return <div className={className}>{children}</div>;
+  }
+
+  return (
+    <motion.div
+      animate={{ height }}
+      className={className}
+      initial={false}
+      style={{ overflow: "hidden" }}
+      transition={reduceMotion ? { duration: 0 } : { duration, ease: [0.32, 0.72, 0, 1] as const }}
+    >
+      <div ref={innerRef}>{children}</div>
+    </motion.div>
+  );
+}

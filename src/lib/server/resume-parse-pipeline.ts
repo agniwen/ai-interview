@@ -8,8 +8,8 @@ import { generateText } from "ai";
 import { readPdfBytes } from "@/lib/shared/resume-pdf";
 import { parseJsonOutput } from "@/server/agents/json-output";
 import { createAlibabaProvider } from "@/server/agents/provider";
-import { structuredSchema } from "@/server/agents/resume-parser-schema";
-import type { ResumeParserStructured } from "@/server/agents/resume-parser-schema";
+import { structuredSchema } from "@/lib/shared/resume-parser-schema";
+import type { ResumeParserStructured } from "@/lib/shared/resume-parser-schema";
 import { rasterizePdfWithMeta } from "./pdf-rasterize";
 import { isQwenOcrConfigured, qwenVlOcr } from "./qwen-ocr";
 

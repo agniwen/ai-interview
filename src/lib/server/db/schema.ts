@@ -30,7 +30,7 @@ import type { InterviewQuestion, ResumeProfile } from "@/lib/shared/interview/ty
 import type { JobDescriptionConfig } from "@/lib/shared/job-description-config";
 import type { MinimaxVoiceId } from "@/lib/shared/minimax-voices";
 import type { ScheduleEntryStatus, StudioInterviewStatus } from "@/lib/shared/studio-interviews";
-import type { ResumeParserStructured } from "@/server/agents/resume-parser-schema";
+import type { ResumeParserStructured } from "@/lib/shared/resume-parser-schema";
 import {
   bigserial,
   boolean,

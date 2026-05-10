@@ -1,12 +1,8 @@
 import type {
   CandidateFormScope,
-  CandidateFormSubmissionRecord,
-  CandidateFormSubmissionWithSnapshot,
   CandidateFormTemplateListRecord,
   CandidateFormTemplateQuestionRecord,
   CandidateFormTemplateRecord,
-  CandidateFormTemplateSnapshot,
-  CandidateFormTemplateVersionRecord,
   JobDescriptionRef,
 } from "@/lib/shared/candidate-forms";
 import type { SQL } from "drizzle-orm";
@@ -19,12 +15,9 @@ import {
   candidateFormTemplate,
   candidateFormTemplateJobDescription,
   candidateFormTemplateQuestion,
-  candidateFormTemplateVersion,
   jobDescription,
   studioInterview,
 } from "@/lib/server/db/schema";
-import { buildTemplateSnapshot } from "@/lib/shared/candidate-forms";
-import { hashTemplateSnapshot } from "@/lib/server/candidate-forms-hash";
 
 // =====================================================================
 // Pagination + filters
@@ -147,7 +140,7 @@ function buildOrderBy(sortBy: SortColumn, sortOrder: "asc" | "desc") {
   return sortOrder === "asc" ? asc(column) : desc(column);
 }
 
-function serializeDate(value: string | Date): string {
+export function serializeDate(value: string | Date): string {
   return value instanceof Date ? value.toISOString() : value;
 }
 
@@ -316,7 +309,7 @@ function parseFilters(filters?: {
   };
 }
 
-export function parseCandidateFormTemplatePagination(
+function parseCandidateFormTemplatePagination(
   params?: Record<string, unknown>,
 ): CandidateFormTemplatePaginationParams {
   return templatePaginationSchema.parse(params ?? {});
@@ -413,7 +406,7 @@ export async function listAllCandidateFormTemplates(): Promise<CandidateFormTemp
   );
 }
 
-function mapQuestionRow(
+export function mapQuestionRow(
   row: typeof candidateFormTemplateQuestion.$inferSelect,
 ): CandidateFormTemplateQuestionRecord {
   return {
@@ -559,244 +552,4 @@ export async function loadApplicableCandidateFormTemplates(interviewRecordId: st
     }
   }
   return { global, jobSpecific };
-}
-
-/**
- * Compute the snapshot for the template's current state and return a matching
- * version (creating a new one if no hash match exists).
- *
- * Must be called inside a transaction. The `(templateId, contentHash)` unique
- * index guarantees that concurrent callers converge on the same version row
- * even if they both try to insert.
- */
-export async function resolveOrCreateTemplateVersion(
-  tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
-  templateId: string,
-): Promise<CandidateFormTemplateVersionRecord> {
-  const [templateRow] = await tx
-    .select()
-    .from(candidateFormTemplate)
-    .where(eq(candidateFormTemplate.id, templateId))
-    .limit(1);
-  if (!templateRow) {
-    throw new Error(`模版 ${templateId} 不存在`);
-  }
-  const [questionRows, linkRows] = await Promise.all([
-    tx
-      .select()
-      .from(candidateFormTemplateQuestion)
-      .where(eq(candidateFormTemplateQuestion.templateId, templateId))
-      .orderBy(asc(candidateFormTemplateQuestion.sortOrder)),
-    tx
-      .select({ jobDescriptionId: candidateFormTemplateJobDescription.jobDescriptionId })
-      .from(candidateFormTemplateJobDescription)
-      .where(eq(candidateFormTemplateJobDescription.templateId, templateId)),
-  ]);
-
-  const snapshot: CandidateFormTemplateSnapshot = buildTemplateSnapshot({
-    description: templateRow.description,
-    jobDescriptionIds: linkRows.map((row) => row.jobDescriptionId),
-    questions: questionRows.map(mapQuestionRow),
-    scope: templateRow.scope,
-    templateId: templateRow.id,
-    title: templateRow.title,
-  });
-  const contentHash = hashTemplateSnapshot(snapshot);
-
-  const [existing] = await tx
-    .select()
-    .from(candidateFormTemplateVersion)
-    .where(
-      and(
-        eq(candidateFormTemplateVersion.templateId, templateId),
-        eq(candidateFormTemplateVersion.contentHash, contentHash),
-      ),
-    )
-    .limit(1);
-  if (existing) {
-    return {
-      contentHash: existing.contentHash,
-      createdAt: serializeDate(existing.createdAt),
-      id: existing.id,
-      snapshot: existing.snapshot,
-      templateId: existing.templateId,
-      version: existing.version,
-    };
-  }
-
-  const [maxRow] = await tx
-    .select({ maxVersion: candidateFormTemplateVersion.version })
-    .from(candidateFormTemplateVersion)
-    .where(eq(candidateFormTemplateVersion.templateId, templateId))
-    .orderBy(desc(candidateFormTemplateVersion.version))
-    .limit(1);
-  const nextVersion = (maxRow?.maxVersion ?? 0) + 1;
-
-  try {
-    const [inserted] = await tx
-      .insert(candidateFormTemplateVersion)
-      .values({
-        contentHash,
-        createdAt: new Date(),
-        id: crypto.randomUUID(),
-        snapshot,
-        templateId,
-        version: nextVersion,
-      })
-      .returning();
-    if (!inserted) {
-      throw new Error("版本写入失败");
-    }
-    return {
-      contentHash: inserted.contentHash,
-      createdAt: serializeDate(inserted.createdAt),
-      id: inserted.id,
-      snapshot: inserted.snapshot,
-      templateId: inserted.templateId,
-      version: inserted.version,
-    };
-  } catch (error) {
-    // Lost the race to another concurrent submitter — re-read by hash.
-    const [loser] = await tx
-      .select()
-      .from(candidateFormTemplateVersion)
-      .where(
-        and(
-          eq(candidateFormTemplateVersion.templateId, templateId),
-          eq(candidateFormTemplateVersion.contentHash, contentHash),
-        ),
-      )
-      .limit(1);
-    if (!loser) {
-      throw error;
-    }
-    return {
-      contentHash: loser.contentHash,
-      createdAt: serializeDate(loser.createdAt),
-      id: loser.id,
-      snapshot: loser.snapshot,
-      templateId: loser.templateId,
-      version: loser.version,
-    };
-  }
-}
-
-export async function loadSubmittedTemplateIds(
-  interviewRecordId: string,
-  templateIds: string[],
-): Promise<Set<string>> {
-  if (templateIds.length === 0) {
-    return new Set();
-  }
-  const rows = await db
-    .select({ templateId: candidateFormSubmission.templateId })
-    .from(candidateFormSubmission)
-    .where(
-      and(
-        eq(candidateFormSubmission.interviewRecordId, interviewRecordId),
-        inArray(candidateFormSubmission.templateId, templateIds),
-      ),
-    );
-  return new Set(rows.map((row) => row.templateId));
-}
-
-export async function loadSubmissionsByInterview(
-  interviewRecordId: string,
-): Promise<CandidateFormSubmissionWithSnapshot[]> {
-  const rows = await db
-    .select({
-      answers: candidateFormSubmission.answers,
-      id: candidateFormSubmission.id,
-      interviewRecordId: candidateFormSubmission.interviewRecordId,
-      snapshot: candidateFormTemplateVersion.snapshot,
-      submittedAt: candidateFormSubmission.submittedAt,
-      templateId: candidateFormSubmission.templateId,
-      version: candidateFormTemplateVersion.version,
-      versionId: candidateFormSubmission.versionId,
-    })
-    .from(candidateFormSubmission)
-    .innerJoin(
-      candidateFormTemplateVersion,
-      eq(candidateFormSubmission.versionId, candidateFormTemplateVersion.id),
-    )
-    .where(eq(candidateFormSubmission.interviewRecordId, interviewRecordId))
-    .orderBy(asc(candidateFormSubmission.submittedAt));
-
-  return rows.map((row) => ({
-    answers: row.answers,
-    id: row.id,
-    interviewRecordId: row.interviewRecordId,
-    snapshot: row.snapshot,
-    submittedAt: serializeDate(row.submittedAt),
-    templateId: row.templateId,
-    version: row.version,
-    versionId: row.versionId,
-  }));
-}
-
-export async function loadSubmissionsByTemplate(templateId: string): Promise<
-  (CandidateFormSubmissionRecord & {
-    candidateName: string | null;
-    snapshot: CandidateFormTemplateSnapshot;
-  })[]
-> {
-  const rows = await db
-    .select({
-      answers: candidateFormSubmission.answers,
-      candidateName: studioInterview.candidateName,
-      id: candidateFormSubmission.id,
-      interviewRecordId: candidateFormSubmission.interviewRecordId,
-      snapshot: candidateFormTemplateVersion.snapshot,
-      submittedAt: candidateFormSubmission.submittedAt,
-      templateId: candidateFormSubmission.templateId,
-      version: candidateFormTemplateVersion.version,
-      versionId: candidateFormSubmission.versionId,
-    })
-    .from(candidateFormSubmission)
-    .innerJoin(
-      candidateFormTemplateVersion,
-      eq(candidateFormSubmission.versionId, candidateFormTemplateVersion.id),
-    )
-    .leftJoin(studioInterview, eq(candidateFormSubmission.interviewRecordId, studioInterview.id))
-    .where(eq(candidateFormSubmission.templateId, templateId))
-    .orderBy(desc(candidateFormSubmission.submittedAt));
-
-  return rows.map((row) => ({
-    answers: row.answers,
-    candidateName: row.candidateName,
-    id: row.id,
-    interviewRecordId: row.interviewRecordId,
-    snapshot: row.snapshot,
-    submittedAt: serializeDate(row.submittedAt),
-    templateId: row.templateId,
-    version: row.version,
-    versionId: row.versionId,
-  }));
-}
-
-export async function loadCandidateFormTemplateVersionById(
-  templateId: string,
-  versionId: string,
-): Promise<CandidateFormTemplateVersionRecord | null> {
-  const [row] = await db
-    .select()
-    .from(candidateFormTemplateVersion)
-    .where(
-      and(
-        eq(candidateFormTemplateVersion.id, versionId),
-        eq(candidateFormTemplateVersion.templateId, templateId),
-      ),
-    )
-    .limit(1);
-  if (!row) {
-    return null;
-  }
-  return {
-    contentHash: row.contentHash,
-    createdAt: serializeDate(row.createdAt),
-    id: row.id,
-    snapshot: row.snapshot,
-    templateId: row.templateId,
-    version: row.version,
-  };
 }

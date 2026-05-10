@@ -2,10 +2,11 @@
 
 import { FileTextIcon, SparklesIcon } from "lucide-react";
 import { useState } from "react";
+import { AnimatedHeight } from "@/components/animated-height";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import type { ResumeParserStructured } from "@/types/api";
+import type { ResumeParserStructured } from "@/lib/shared/resume-parser-schema";
 import type { AttachmentTextSource } from "@/lib/shared/db-enums";
 import { cn } from "@/lib/shared/utils";
 
@@ -295,17 +296,19 @@ export function ParsedResumeButton({
           </span>
         }
       >
-        {tab === "summary" ? <SummaryView structured={structured} /> : null}
-        {tab === "json" ? (
-          <pre className="overflow-x-auto rounded-md border bg-muted/40 p-3 font-mono text-xs leading-5">
-            {JSON.stringify(structured, null, 2)}
-          </pre>
-        ) : null}
-        {tab === "text" && parsedText ? (
-          <pre className="overflow-x-auto whitespace-pre-wrap rounded-md border bg-muted/40 p-3 font-mono text-xs leading-5">
-            {parsedText}
-          </pre>
-        ) : null}
+        <AnimatedHeight>
+          {tab === "summary" ? <SummaryView structured={structured} /> : null}
+          {tab === "json" ? (
+            <pre className="overflow-x-auto rounded-md border bg-muted/40 p-3 font-mono text-xs leading-5">
+              {JSON.stringify(structured, null, 2)}
+            </pre>
+          ) : null}
+          {tab === "text" && parsedText ? (
+            <pre className="overflow-x-auto whitespace-pre-wrap rounded-md border bg-muted/40 p-3 font-mono text-xs leading-5">
+              {parsedText}
+            </pre>
+          ) : null}
+        </AnimatedHeight>
       </Modal>
     </>
   );

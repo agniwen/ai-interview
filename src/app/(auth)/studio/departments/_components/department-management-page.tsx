@@ -1,22 +1,13 @@
 "use client";
 
 import { PageHeader } from "@/app/(auth)/studio/_components/page-header";
+import { EntityDeleteDialog } from "@/app/(auth)/studio/_components/entity-delete-dialog";
+import { useEntityCrud } from "@/app/(auth)/studio/_components/use-entity-crud";
 import type { DepartmentListRecord, DepartmentRecord } from "@/lib/shared/departments";
 import type { PaginatedDepartmentResult } from "@/server/routes/studio/routes/departments/dao";
 import { useQueryClient } from "@tanstack/react-query";
 import { Building2Icon, PencilIcon, PlusIcon, Trash2Icon } from "lucide-react";
-import { useMemo, useState } from "react";
-import { toast } from "sonner";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+import { useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -73,42 +64,18 @@ export function DepartmentManagementPage({
     namespace: "departments",
   });
 
-  const [formDialogOpen, setFormDialogOpen] = useState(false);
-  const [editingRecord, setEditingRecord] = useState<DepartmentRecord | null>(null);
-  const [deleteRecord, setDeleteRecord] = useState<DepartmentListRecord | null>(null);
-
-  function invalidateAll() {
-    grid.invalidate();
-    void queryClient.invalidateQueries({ queryKey: ["departments"] });
-  }
-
-  function openCreate() {
-    setEditingRecord(null);
-    setFormDialogOpen(true);
-  }
-
-  function openEdit(record: DepartmentListRecord) {
-    setEditingRecord(record);
-    setFormDialogOpen(true);
-  }
-
-  async function handleDelete() {
-    if (!deleteRecord) {
-      return;
-    }
-    const response = await rpc.api.studio.departments[":id"].$delete({
-      param: { id: deleteRecord.id },
-    });
-    const payload = (await response.json().catch(() => null)) as { error?: string } | null;
-
-    if (!response.ok) {
-      toast.error(payload?.error ?? "删除失败");
-      return;
-    }
-    setDeleteRecord(null);
-    toast.success("部门已删除");
-    invalidateAll();
-  }
+  const crud = useEntityCrud<DepartmentListRecord, DepartmentRecord>({
+    deleteEntity: (record) =>
+      rpc.api.studio.departments[":id"].$delete({ param: { id: record.id } }),
+    detailFromList: (record) => record as unknown as DepartmentRecord,
+    invalidate: () => {
+      grid.invalidate();
+      void queryClient.invalidateQueries({ queryKey: ["departments"] });
+    },
+    messages: {
+      deleteSuccess: "部门已删除",
+    },
+  });
 
   const columns = useMemo(
     () => [
@@ -143,20 +110,20 @@ export function DepartmentManagementPage({
           {
             icon: PencilIcon,
             label: "编辑部门",
-            onClick: (r) => openEdit(r),
+            onClick: (r) => void crud.openEdit(r),
           },
         ],
         menu: [
           {
             icon: Trash2Icon,
             label: "删除",
-            onClick: (r) => setDeleteRecord(r),
+            onClick: (r) => crud.setDeleteRecord(r),
             variant: "destructive",
           },
         ],
       }),
     ],
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // oxlint-disable-next-line react-hooks/exhaustive-deps -- columns 不应每次 crud 引用变化都重建
     [],
   );
 
@@ -176,21 +143,13 @@ export function DepartmentManagementPage({
     <>
       <div className="space-y-6">
         <PageHeader
-          title="部门管理"
           description="维护组织下的业务部门，作为面试官和在招岗位的分组维度。"
+          title="部门管理"
         />
 
         <DataGrid<DepartmentListRecord>
           {...grid.bind}
           columns={columns}
-          filters={filtersConfig}
-          getRowId={(r) => r.id}
-          toolbarRight={
-            <Button className="flex-1 sm:flex-none" onClick={openCreate}>
-              <PlusIcon className="size-4" />
-              新建部门
-            </Button>
-          }
           empty={
             <Empty className="border-border/60">
               <EmptyHeader>
@@ -203,50 +162,45 @@ export function DepartmentManagementPage({
                 </EmptyDescription>
               </EmptyHeader>
               <EmptyContent>
-                <Button onClick={openCreate}>
+                <Button onClick={crud.openCreate}>
                   <PlusIcon className="size-4" />
                   新建部门
                 </Button>
               </EmptyContent>
             </Empty>
           }
+          filters={filtersConfig}
+          getRowId={(r) => r.id}
+          toolbarRight={
+            <Button className="flex-1 sm:flex-none" onClick={crud.openCreate}>
+              <PlusIcon className="size-4" />
+              新建部门
+            </Button>
+          }
         />
       </div>
 
       <DepartmentFormDialog
-        onOpenChange={(value) => {
-          setFormDialogOpen(value);
-          if (!value) {
-            setEditingRecord(null);
-          }
+        onOpenChange={crud.onFormOpenChange}
+        onSaved={() => {
+          grid.invalidate();
+          void queryClient.invalidateQueries({ queryKey: ["departments"] });
         }}
-        onSaved={() => invalidateAll()}
-        open={formDialogOpen}
-        record={editingRecord}
+        open={crud.formDialogOpen}
+        record={crud.editingRecord}
       />
 
-      <AlertDialog
-        onOpenChange={(value) => !value && setDeleteRecord(null)}
-        open={deleteRecord !== null}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>确认删除这个部门？</AlertDialogTitle>
-            <AlertDialogDescription>
-              {deleteRecord &&
-              (deleteRecord.interviewerCount > 0 || deleteRecord.jobDescriptionCount > 0)
-                ? "该部门下仍有面试官或在招岗位，将无法删除。"
-                : `即将删除部门：${deleteRecord?.name ?? ""}，删除后无法恢复。`}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>取消</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} variant="destructive">
-              删除
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <EntityDeleteDialog
+        description={(record) =>
+          record.interviewerCount > 0 || record.jobDescriptionCount > 0
+            ? "该部门下仍有面试官或在招岗位，将无法删除。"
+            : `即将删除部门：${record.name}，删除后无法恢复。`
+        }
+        onClose={() => crud.setDeleteRecord(null)}
+        onConfirm={crud.handleDelete}
+        record={crud.deleteRecord}
+        title="确认删除这个部门？"
+      />
     </>
   );
 }

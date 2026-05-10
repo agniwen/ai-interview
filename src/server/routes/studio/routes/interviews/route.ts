@@ -31,7 +31,7 @@ import {
 } from "@/server/agents/resume-analysis-agent";
 import { factory, jsonValidatorError } from "@/server/factory";
 import { getGlobalConfig } from "@/server/routes/studio/routes/global-config/dao";
-import { loadSubmissionsByInterview } from "@/server/routes/studio/routes/forms/dao";
+import { loadSubmissionsByInterview } from "@/server/routes/studio/routes/forms/dao/submissions";
 import {
   autoBindApplicableTemplates,
   dropJobDescriptionBindings,
@@ -40,7 +40,7 @@ import {
   loadInterviewQuestionTemplateBindings,
   refreshInterviewBindingsToLatest,
   replaceInterviewBindings,
-} from "@/server/routes/studio/routes/interview-questions/dao";
+} from "@/server/routes/studio/routes/interview-questions/dao/bindings";
 import { queryInterviewConversationReports } from "@/server/routes/studio/routes/interviews/dao/interview-conversations";
 import {
   queryInterviewDedup,
@@ -51,11 +51,11 @@ import {
   buildScheduleRows,
   loadRecordById,
   normalizeResumeFile,
-  safeUpdateTag,
   serializeRecord,
   storeInterviewResume,
   toBadRequest,
 } from "@/server/routes/interview/utils";
+import { safeUpdateTag } from "@/server/cache-tags";
 import { getObjectStream, presignGetObjectUrl } from "@/lib/server/s3";
 
 const dedupCheckInputSchema = z.object({

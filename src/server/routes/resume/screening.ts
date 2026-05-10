@@ -3,19 +3,21 @@ import { convertToModelMessages, stepCountIs } from "ai";
 import { createResumeAgent } from "@/server/agents/resume-agent";
 import { readResumeParsedPartsFromMessage, RESUME_PARSED_PART_TYPE } from "./bake-parsed-resume";
 import type { ResumeParsedPartData } from "./bake-parsed-resume";
+import type { BakedParsedResume } from "./utils/agent-helpers";
 import {
-  applyJobDescriptionTool,
-  buildAutoJobDescription,
-  createListUploadedResumePdfsTool,
-  createSuggestJobDescriptionTool,
   extractUserText,
-  getResumeReviewFrameworkTool,
-  getServerTimeTool,
   inferRoleFromText,
   SERVER_TIME_ZONE,
   stripNonImageFileParts,
-} from "./utils";
-import type { BakedParsedResume } from "./utils";
+} from "./utils/agent-helpers";
+import {
+  applyJobDescriptionTool,
+  createListUploadedResumePdfsTool,
+  createSuggestJobDescriptionTool,
+  getResumeReviewFrameworkTool,
+  getServerTimeTool,
+} from "./utils/agent-tools";
+import { buildAutoJobDescription } from "./utils/job-description-presets";
 
 export interface ResumeScreeningInput {
   messages: UIMessage[];

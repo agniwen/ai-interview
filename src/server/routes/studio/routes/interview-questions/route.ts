@@ -1,33 +1,22 @@
 import { zValidator } from "@hono/zod-validator";
-import { eq, inArray } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { db } from "@/lib/server/db";
 import {
   interviewQuestionTemplate,
   interviewQuestionTemplateJobDescription,
   interviewQuestionTemplateQuestion,
-  jobDescription,
 } from "@/lib/server/db/schema";
 import { interviewQuestionTemplateSchema } from "@/lib/shared/interview-question-templates";
 import { factory, jsonValidatorError } from "@/server/factory";
+import { countBindingsByTemplate } from "@/server/routes/studio/routes/interview-questions/dao/bindings";
 import {
-  countBindingsByTemplate,
   listAllInterviewQuestionTemplates,
   loadInterviewQuestionTemplateById,
-  loadInterviewQuestionTemplateVersionById,
   queryPaginatedInterviewQuestionTemplates,
-} from "@/server/routes/studio/routes/interview-questions/dao";
-import { safeUpdateTag } from "@/server/routes/interview/utils";
-
-async function validateJobDescriptionsExist(ids: string[]) {
-  if (ids.length === 0) {
-    return true;
-  }
-  const rows = await db
-    .select({ id: jobDescription.id })
-    .from(jobDescription)
-    .where(inArray(jobDescription.id, ids));
-  return rows.length === new Set(ids).size;
-}
+} from "@/server/routes/studio/routes/interview-questions/dao/queries";
+import { loadInterviewQuestionTemplateVersionById } from "@/server/routes/studio/routes/interview-questions/dao/versions";
+import { jobDescriptionIdsExist } from "@/server/routes/studio/routes/job-descriptions/dao";
+import { safeUpdateTag } from "@/server/cache-tags";
 
 function normalizeQuestions(
   questions: {
@@ -79,7 +68,7 @@ export const interviewQuestionTemplatesRouter = factory
       const input = c.req.valid("json");
       const jobDescriptionIds = input.scope === "job_description" ? input.jobDescriptionIds : [];
       if (jobDescriptionIds.length > 0) {
-        const ok = await validateJobDescriptionsExist(jobDescriptionIds);
+        const ok = await jobDescriptionIdsExist(jobDescriptionIds);
         if (!ok) {
           return c.json({ error: "所选在招岗位中存在无效项。" }, 400);
         }
@@ -137,7 +126,7 @@ export const interviewQuestionTemplatesRouter = factory
       const input = c.req.valid("json");
       const jobDescriptionIds = input.scope === "job_description" ? input.jobDescriptionIds : [];
       if (jobDescriptionIds.length > 0) {
-        const ok = await validateJobDescriptionsExist(jobDescriptionIds);
+        const ok = await jobDescriptionIdsExist(jobDescriptionIds);
         if (!ok) {
           return c.json({ error: "所选在招岗位中存在无效项。" }, 400);
         }

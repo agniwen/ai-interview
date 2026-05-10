@@ -57,7 +57,7 @@ import { cn } from "@/lib/shared/utils";
 // Helpers
 // ============================================================================
 
-import { uploadAttachment } from "@/lib/shared/chat-api";
+import { uploadAttachment } from "@/lib/client/api";
 
 export interface AttachmentParsed {
   attachmentId: string;

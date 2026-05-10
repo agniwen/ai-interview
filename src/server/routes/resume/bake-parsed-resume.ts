@@ -8,8 +8,8 @@
 
 import type { UIMessage } from "ai";
 import type { AttachmentTextSource } from "@/lib/shared/db-enums";
-import { structuredSchema } from "@/server/agents/resume-parser-schema";
-import type { ResumeParserStructured } from "@/server/agents/resume-parser-schema";
+import { structuredSchema } from "@/lib/shared/resume-parser-schema";
+import type { ResumeParserStructured } from "@/lib/shared/resume-parser-schema";
 import { getUserAttachments } from "@/server/routes/chat/dao/chat-attachments";
 
 const ATTACHMENT_URL_REGEX = /\/api\/chat\/attachments\/([^/?#]+)/;

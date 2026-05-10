@@ -1,17 +1,14 @@
 "use client";
 
-import { departmentFormSchema } from "@/lib/shared/departments";
 import type { DepartmentFormValues, DepartmentRecord } from "@/lib/shared/departments";
+import { departmentFormSchema } from "@/lib/shared/departments";
 import { rpc } from "@/lib/client/rpc";
-import { useForm, useStore } from "@tanstack/react-form";
-import { LoaderCircleIcon } from "lucide-react";
-import { useEffect } from "react";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
-import { Modal } from "@/components/ui/modal";
-import { Field, FieldContent, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
+import { Field, FieldContent, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { EntityFormDialog } from "@/app/(auth)/studio/_components/entity-form-dialog";
+import { useEntityForm } from "@/app/(auth)/studio/_components/entity-form";
 import { hasFieldErrors, toFieldErrors } from "../../interviews/_components/interview-form";
 
 function defaultValues(): DepartmentFormValues {
@@ -38,9 +35,9 @@ export function DepartmentFormDialog({
 }) {
   const isEdit = record !== null;
 
-  const form = useForm({
-    defaultValues: record ? toFormValues(record) : defaultValues(),
-    onSubmit: async ({ value }) => {
+  const { form, isSubmitting } = useEntityForm<DepartmentFormValues>({
+    buildValues: () => (record ? toFormValues(record) : defaultValues()),
+    onSubmit: async (value) => {
       const body = {
         description: value.description?.trim() || "",
         name: value.name.trim(),
@@ -66,94 +63,69 @@ export function DepartmentFormDialog({
       onSaved();
       onOpenChange(false);
     },
-    validators: { onSubmit: departmentFormSchema },
+    open,
+    schema: departmentFormSchema,
   });
 
-  const isSubmitting = useStore(form.store, (state) => state.isSubmitting);
-
-  useEffect(() => {
-    if (open) {
-      form.reset(record ? toFormValues(record) : defaultValues());
-    }
-  }, [open, record, form]);
-
   return (
-    <Modal
-      open={open}
-      onOpenChange={onOpenChange}
-      title={isEdit ? "编辑部门" : "新建部门"}
+    <EntityFormDialog
       description="部门用于对面试官和在招岗位进行组织分组。"
+      formId="department-form"
+      isEdit={isEdit}
+      isSubmitting={isSubmitting}
+      onOpenChange={onOpenChange}
+      onSubmit={() => void form.handleSubmit()}
+      open={open}
       size="md"
-      footer={
-        <>
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-            取消
-          </Button>
-          <Button disabled={isSubmitting} form="department-form" type="submit">
-            {isSubmitting ? <LoaderCircleIcon className="size-4 animate-spin" /> : null}
-            {isEdit ? "保存" : "创建"}
-          </Button>
-        </>
-      }
+      title={isEdit ? "编辑部门" : "新建部门"}
     >
-      <form
-        id="department-form"
-        onSubmit={(event) => {
-          event.preventDefault();
-          event.stopPropagation();
-          void form.handleSubmit();
+      <form.Field name="name">
+        {(field) => {
+          const errors = toFieldErrors(field.state.meta.errors);
+          return (
+            <Field data-invalid={hasFieldErrors(field.state.meta.errors) || undefined}>
+              <FieldLabel htmlFor={field.name}>
+                部门名称 <span className="text-destructive">*</span>
+              </FieldLabel>
+              <FieldContent className="gap-2">
+                <Input
+                  aria-invalid={!!errors?.length}
+                  id={field.name}
+                  onBlur={field.handleBlur}
+                  onChange={(event) => field.handleChange(event.target.value)}
+                  placeholder="如：研发部、产品部"
+                  value={field.state.value}
+                />
+                <FieldError errors={errors} />
+              </FieldContent>
+            </Field>
+          );
         }}
-      >
-        <FieldGroup className="gap-5">
-          <form.Field name="name">
-            {(field) => {
-              const errors = toFieldErrors(field.state.meta.errors);
-              return (
-                <Field data-invalid={hasFieldErrors(field.state.meta.errors) || undefined}>
-                  <FieldLabel htmlFor={field.name}>
-                    部门名称 <span className="text-destructive">*</span>
-                  </FieldLabel>
-                  <FieldContent className="gap-2">
-                    <Input
-                      aria-invalid={!!errors?.length}
-                      id={field.name}
-                      onBlur={field.handleBlur}
-                      onChange={(event) => field.handleChange(event.target.value)}
-                      placeholder="如：研发部、产品部"
-                      value={field.state.value}
-                    />
-                    <FieldError errors={errors} />
-                  </FieldContent>
-                </Field>
-              );
-            }}
-          </form.Field>
+      </form.Field>
 
-          <form.Field name="description">
-            {(field) => {
-              const errors = toFieldErrors(field.state.meta.errors);
-              return (
-                <Field data-invalid={hasFieldErrors(field.state.meta.errors) || undefined}>
-                  <FieldLabel htmlFor={field.name}>描述（可选）</FieldLabel>
-                  <FieldContent className="gap-2">
-                    <Textarea
-                      aria-invalid={!!errors?.length}
-                      className="max-h-48 min-h-24 resize-none"
-                      id={field.name}
-                      onBlur={field.handleBlur}
-                      onChange={(event) => field.handleChange(event.target.value)}
-                      placeholder="简要说明该部门的职责或定位"
-                      rows={3}
-                      value={field.state.value ?? ""}
-                    />
-                    <FieldError errors={errors} />
-                  </FieldContent>
-                </Field>
-              );
-            }}
-          </form.Field>
-        </FieldGroup>
-      </form>
-    </Modal>
+      <form.Field name="description">
+        {(field) => {
+          const errors = toFieldErrors(field.state.meta.errors);
+          return (
+            <Field data-invalid={hasFieldErrors(field.state.meta.errors) || undefined}>
+              <FieldLabel htmlFor={field.name}>描述（可选）</FieldLabel>
+              <FieldContent className="gap-2">
+                <Textarea
+                  aria-invalid={!!errors?.length}
+                  className="max-h-48 min-h-24 resize-none"
+                  id={field.name}
+                  onBlur={field.handleBlur}
+                  onChange={(event) => field.handleChange(event.target.value)}
+                  placeholder="简要说明该部门的职责或定位"
+                  rows={3}
+                  value={field.state.value ?? ""}
+                />
+                <FieldError errors={errors} />
+              </FieldContent>
+            </Field>
+          );
+        }}
+      </form.Field>
+    </EntityFormDialog>
   );
 }

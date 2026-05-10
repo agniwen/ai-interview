@@ -60,10 +60,37 @@ Exceptions: `src/server/agents/` (shared by frontend + multiple routes) and `src
 
 ## Frontend HTTP Calls
 
-- **JSON endpoints** → use the typed Hono RPC client at `@/lib/client/rpc` (e.g. `rpc.api.studio.interviews[':id'].$get({ param: { id } })`). Server handlers must declare explicit status codes (`c.json(data, 200)`) and use `zValidator("json"|"query", schema, jsonValidatorError("..."))` for typed inputs — without those, hc loses type inference.
-- **File uploads** (multipart/FormData), **streaming** (NDJSON / SSE / `new Response(stream)`), and **binary** responses (PDF, recordings) cannot use RPC — keep them on plain `fetch` or the existing `apiFetch` wrapper from `@/lib/client/api`.
+- **JSON endpoints** → call the typed Hono RPC client at `@/lib/client/rpc` and pipe the result through `rpcFetch` from `@/lib/client/api`:
+
+  ```ts
+  import { rpcFetch } from "@/lib/client/api";
+  import { rpc } from "@/lib/client/rpc";
+
+  // happy path: returns typed body, throws ApiError on non-2xx
+  return rpcFetch<StudioInterview>(
+    rpc.api.studio.interviews[":id"].$get({ param: { id } }),
+    "加载面试详情失败",
+  );
+
+  // idempotent reads/deletes: 404 resolves to null instead of throwing
+  return rpcFetch<StudioInterview>(call, fallback, { allow404: true });
+  ```
+
+  `rpcFetch` is a thin wrapper around Hono's official `parseResponse` / `DetailedError` (from `hono/client`); on non-OK it re-throws the project's `ApiError` with `status` + `payload` + a Chinese fallback message so existing UI catch-blocks keep working.
+
+- Server handlers must declare explicit status codes (`c.json(data, 200)`) and use `zValidator("json"|"query", schema, jsonValidatorError("..."))` for typed inputs — without those, hc loses type inference.
+- **File uploads** (multipart/FormData), **streaming** (NDJSON / SSE / `new Response(stream)`), and **binary** responses (PDF, recordings) cannot use RPC — keep them on plain `fetch` or `apiFetch` from `@/lib/client/api`.
 - **Server Components** that need absolute URLs at SSR time (e.g. `/api/interview/[id]/resolve` in `app/interview/[id]/page.tsx`) stay on plain `fetch` with `NEXT_PUBLIC_APP_URL`. The rpc singleton is browser-relative.
 - Date fields cross the wire as ISO strings; DAOs should `.toISOString()` Date columns before returning so the response DTO is `string` and the inferred client type matches reality.
+
+## External Documentation
+
+When changes touch Hono or Next.js APIs, consult the canonical `llms.txt` indices instead of relying on training-data recall — both projects move quickly and the bundles track the current stable release:
+
+- **Hono**: <https://hono.dev/llms.txt> (index) / <https://hono.dev/llms-full.txt> (full reference). The RPC guide at <https://hono.dev/docs/guides/rpc> covers `hc`, `parseResponse`, `DetailedError`, `InferResponseType`, `testClient`, etc.
+- **Next.js**: <https://nextjs.org/docs/llms.txt>. Covers App Router, Server Components, caching, server actions, etc.
+
+Use the official Hono `parseResponse` / `DetailedError` rather than rolling new helpers — `rpcFetch` already wraps them; extend `rpcFetch` if you need new semantics rather than reimplementing.
 
 ## Lib Layout (`src/lib/`)
 

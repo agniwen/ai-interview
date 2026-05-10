@@ -11,7 +11,7 @@ import {
   queryPaginatedDepartments,
   serializeDepartment,
 } from "@/server/routes/studio/routes/departments/dao";
-import { safeUpdateTag } from "@/server/routes/interview/utils";
+import { safeUpdateTag } from "@/server/cache-tags";
 
 export const departmentsRouter = factory
   .createApp()

@@ -11,7 +11,7 @@ import {
   queryPaginatedInterviewers,
   serializeInterviewer,
 } from "@/server/routes/studio/routes/interviewers/dao";
-import { safeUpdateTag } from "@/server/routes/interview/utils";
+import { safeUpdateTag } from "@/server/cache-tags";
 
 async function validateDepartmentExists(departmentId: string): Promise<boolean> {
   const [row] = await db

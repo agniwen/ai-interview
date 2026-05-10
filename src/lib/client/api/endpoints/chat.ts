@@ -4,15 +4,19 @@ import "client-only";
  * 聊天会话相关的 API 调用集合。
  * Chat-conversation API call collection.
  *
- * 全部经由 {@link apiFetch} 走统一错误 / 编解码逻辑；类型在 `@/types/chat` 中聚合。
- * All calls go through {@link apiFetch} for uniform error / decoding behavior; types are
- * aggregated in `@/types/chat`.
+ * JSON 端点全部走 Hono RPC（{@link rpc}）+ {@link rpcFetch}；上传 (`uploadAttachment`)
+ * 走 `apiFetch` + multipart 因为 RPC 不支持 FormData。
+ *
+ * JSON endpoints use Hono RPC (`rpc`) + `rpcFetch`. The multipart upload path
+ * (`uploadAttachment`) stays on `apiFetch` because RPC doesn't support FormData.
  */
 
 import type { UIMessage } from "ai";
 import type { JobDescriptionConfig } from "@/lib/shared/job-description-config";
+import { rpc } from "@/lib/client/rpc";
 import { sha256HexOfFile } from "@/lib/shared/file-hash";
 import { apiFetch } from "../client";
+import { rpcFetch } from "../rpc-fetch";
 
 /**
  * 会话摘要：用于侧边栏 / 列表展示。
@@ -22,8 +26,8 @@ export interface ChatConversationSummary {
   id: string;
   title: string;
   isTitleGenerating: boolean;
-  updatedAt: number;
-  createdAt: number;
+  updatedAt: string;
+  createdAt: string;
 }
 
 /**
@@ -87,8 +91,9 @@ export interface UploadedAttachment {
  * Fetch the full list of conversation summaries.
  */
 export async function fetchConversations(): Promise<ChatConversationSummary[]> {
-  const data = await apiFetch<{ conversations: ChatConversationSummary[] }>(
-    "/api/chat/conversations",
+  const data = await rpcFetch<{ conversations: ChatConversationSummary[] }>(
+    rpc.api.chat.conversations.$get(),
+    "加载会话列表失败",
   );
   return data.conversations;
 }
@@ -98,8 +103,9 @@ export async function fetchConversations(): Promise<ChatConversationSummary[]> {
  * Fetch a single conversation; returns null when not found (404 swallowed).
  */
 export async function fetchConversation(id: string): Promise<ChatConversationDetail | null> {
-  const data = await apiFetch<{ conversation: ChatConversationDetail } | null>(
-    `/api/chat/conversations/${encodeURIComponent(id)}`,
+  const data = await rpcFetch<{ conversation: ChatConversationDetail }>(
+    rpc.api.chat.conversations[":id"].$get({ param: { id } }),
+    "加载会话失败",
     { allow404: true },
   );
   return data?.conversation ?? null;
@@ -110,7 +116,7 @@ export async function fetchConversation(id: string): Promise<ChatConversationDet
  * Create or update a conversation.
  */
 export async function upsertConversation(payload: UpsertConversationPayload): Promise<void> {
-  await apiFetch("/api/chat/conversations", { body: payload, method: "POST" });
+  await rpcFetch<{ ok: true }>(rpc.api.chat.conversations.$post({ json: payload }), "保存会话失败");
 }
 
 /**
@@ -121,10 +127,10 @@ export async function patchConversation(
   id: string,
   payload: PatchConversationPayload,
 ): Promise<void> {
-  await apiFetch(`/api/chat/conversations/${encodeURIComponent(id)}`, {
-    body: payload,
-    method: "PATCH",
-  });
+  await rpcFetch<{ ok: true }>(
+    rpc.api.chat.conversations[":id"].$patch({ json: payload, param: { id } }),
+    "更新会话失败",
+  );
 }
 
 /**
@@ -132,10 +138,11 @@ export async function patchConversation(
  * Delete a conversation; 404 from the server is treated as success (idempotent).
  */
 export async function deleteConversation(id: string): Promise<void> {
-  await apiFetch(`/api/chat/conversations/${encodeURIComponent(id)}`, {
-    allow404: true,
-    method: "DELETE",
-  });
+  await rpcFetch<{ ok: true }>(
+    rpc.api.chat.conversations[":id"].$delete({ param: { id } }),
+    "删除会话失败",
+    { allow404: true },
+  );
 }
 
 /**
@@ -146,10 +153,23 @@ export async function upsertChatMessageOnServer(
   conversationId: string,
   message: UIMessage,
 ): Promise<void> {
-  await apiFetch(`/api/chat/conversations/${encodeURIComponent(conversationId)}/messages`, {
-    body: { message },
-    method: "POST",
-  });
+  // hc 把 z.loose() 推断成 `{ [x: string]: unknown; id; role }`，UIMessage 没有
+  // 字符串索引签名，所以这里需要一次明确的 cast；运行时仍由 server 端 zValidator 校验。
+  // hc infers z.loose() as `{ [x: string]: unknown; id; role }`. UIMessage has
+  // no string index signature, so a one-shot cast bridges them; runtime
+  // validation still enforced by the server's zValidator.
+  const wireMessage = message as unknown as {
+    [x: string]: unknown;
+    id: string;
+    role: typeof message.role;
+  };
+  await rpcFetch<{ ok: true }>(
+    rpc.api.chat.conversations[":id"].messages.$post({
+      json: { message: wireMessage },
+      param: { id: conversationId },
+    }),
+    "保存消息失败",
+  );
 }
 
 type UploadPreflightResponse = { hit: false } | (UploadedAttachment & { hit: true });

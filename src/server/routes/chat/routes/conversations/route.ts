@@ -26,11 +26,11 @@ export const conversationsRouter = factory
     const rows = await listUserConversations(user.id);
     return c.json({
       conversations: rows.map((row) => ({
-        createdAt: row.createdAt.getTime(),
+        createdAt: row.createdAt.toISOString(),
         id: row.id,
         isTitleGenerating: row.isTitleGenerating,
         title: row.title,
-        updatedAt: row.updatedAt.getTime(),
+        updatedAt: row.updatedAt.toISOString(),
       })),
     });
   })
@@ -72,7 +72,7 @@ export const conversationsRouter = factory
 
     return c.json({
       conversation: {
-        createdAt: conversation.createdAt.getTime(),
+        createdAt: conversation.createdAt.toISOString(),
         id: conversation.id,
         isTitleGenerating: conversation.isTitleGenerating,
         jobDescription: conversation.jobDescription,
@@ -80,7 +80,7 @@ export const conversationsRouter = factory
         messages: conversation.messages,
         resumeImports: conversation.resumeImports,
         title: conversation.title,
-        updatedAt: conversation.updatedAt.getTime(),
+        updatedAt: conversation.updatedAt.toISOString(),
       },
     });
   })

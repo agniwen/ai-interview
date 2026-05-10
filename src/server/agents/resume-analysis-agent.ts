@@ -18,12 +18,7 @@ import {
 } from "./resume-parser-agent";
 import type { ResumeParserStructured } from "./resume-parser-agent";
 
-// ---------------------------------------------------------------------------
-// NDJSON streaming event types — shape lives in @/types/api so the client
-// can import it without reaching into server-only modules.
-// ---------------------------------------------------------------------------
-
-import type { AnalysisStreamEvent } from "@/types/api";
+import type { AnalysisStreamEvent } from "@/lib/shared/api-stream";
 
 export type { AnalysisStreamEvent };
 

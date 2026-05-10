@@ -14,19 +14,18 @@ import "client-only";
  *     requestResumeChatTitle,
  *   } from "@/lib/client/api";
  *
- * 中文：纯 JSON 端点请优先用 `@/lib/rpc` 的 hc 客户端；apiFetch 仅保留给
- * FormData / 流式 / 二进制等 RPC 不支持的调用，以及 `endpoints/chat.ts` 等
- * 暂未迁移的旧 wrapper。candidate-side `endpoints/interview.ts` 已经全部
- * 走 rpc，文件被删除。
+ * 中文：纯 JSON 端点全部走 `@/lib/client/rpc` 的 hc 客户端 + `rpcFetch`；
+ * apiFetch 仅保留给 FormData / 流式 / 二进制等 RPC 不支持的调用
+ * （目前只剩 `uploadAttachment` 的 multipart 上传 + 它的 preflight）。
  *
- * English: prefer the hc client from `@/lib/rpc` for JSON endpoints. apiFetch
- * stays for FormData / streaming / binary endpoints (unsupported by RPC) and
- * for not-yet-migrated wrappers in `endpoints/chat.ts`. The candidate
- * `endpoints/interview.ts` was fully RPC-migrated and deleted.
+ * English: all JSON endpoints go through `@/lib/client/rpc`'s hc client +
+ * `rpcFetch`. apiFetch stays for FormData / streaming / binary endpoints
+ * unsupported by RPC (now down to `uploadAttachment` multipart + preflight).
  */
 
 export { ApiError, isApiError } from "./errors";
 export { apiFetch, type ApiFetchOptions } from "./client";
+export { rpcFetch } from "./rpc-fetch";
 export * from "./endpoints/chat";
 export * from "./endpoints/studio-interviews";
 export * from "./endpoints/resume";

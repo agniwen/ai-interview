@@ -1,28 +1,20 @@
 "use client";
 
 import { PageHeader } from "@/app/(auth)/studio/_components/page-header";
+import { EntityDeleteDialog } from "@/app/(auth)/studio/_components/entity-delete-dialog";
+import { useEntityCrud } from "@/app/(auth)/studio/_components/use-entity-crud";
 import type {
   InterviewQuestionTemplateListRecord,
   InterviewQuestionTemplateRecord,
   InterviewQuestionTemplateScope,
 } from "@/lib/shared/interview-question-templates";
 import type { JobDescriptionListRecord } from "@/lib/shared/job-descriptions";
-import type { PaginatedInterviewQuestionTemplateResult } from "@/server/routes/studio/routes/interview-questions/dao";
+import type { PaginatedInterviewQuestionTemplateResult } from "@/server/routes/studio/routes/interview-questions/dao/queries";
 import { useQueryClient } from "@tanstack/react-query";
 import { ListChecksIcon, PencilIcon, PlusIcon, Trash2Icon } from "lucide-react";
 import { parseAsString, useQueryState } from "nuqs";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { toast } from "sonner";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -74,7 +66,7 @@ async function fetchTemplates(params: {
   return (await res.json()) as PaginatedInterviewQuestionTemplateResult;
 }
 
-async function loadTemplateDetail(id: string): Promise<InterviewQuestionTemplateRecord | null> {
+async function loadTemplateDetailById(id: string): Promise<InterviewQuestionTemplateRecord | null> {
   const response = await rpc.api.studio["interview-questions"][":id"].$get({
     param: { id },
   });
@@ -110,15 +102,24 @@ export function InterviewQuestionTemplateManagementPage({
     parseAsString.withDefault("").withOptions({ clearOnDefault: true }),
   );
 
-  const [editorOpen, setEditorOpen] = useState(false);
-  const [editingRecord, setEditingRecord] = useState<InterviewQuestionTemplateRecord | null>(null);
-  const [deleteRecord, setDeleteRecord] = useState<InterviewQuestionTemplateListRecord | null>(
-    null,
-  );
+  const crud = useEntityCrud<InterviewQuestionTemplateListRecord, InterviewQuestionTemplateRecord>({
+    deleteEntity: (record) =>
+      rpc.api.studio["interview-questions"][":id"].$delete({ param: { id: record.id } }),
+    invalidate: () => {
+      grid.invalidate();
+      void queryClient.invalidateQueries({ queryKey: ["interview-question-templates"] });
+    },
+    loadDetail: (record) => loadTemplateDetailById(record.id),
+    messages: {
+      deleteSuccess: "模版已删除",
+      loadDetailError: "加载模版失败",
+    },
+  });
 
   // When the URL carries `?templateId=...` (e.g. clicked from the JD dialog),
   // load the detail and pop the editor open.
   const lastLoadedTemplateRef = useRef<string | null>(null);
+  const { setEditingRecord, setFormDialogOpen } = crud;
   useEffect(() => {
     if (!activeTemplateId || lastLoadedTemplateRef.current === activeTemplateId) {
       return;
@@ -126,7 +127,7 @@ export function InterviewQuestionTemplateManagementPage({
     lastLoadedTemplateRef.current = activeTemplateId;
     let cancelled = false;
     void (async () => {
-      const detail = await loadTemplateDetail(activeTemplateId);
+      const detail = await loadTemplateDetailById(activeTemplateId);
       if (cancelled) {
         return;
       }
@@ -137,48 +138,19 @@ export function InterviewQuestionTemplateManagementPage({
         return;
       }
       setEditingRecord(detail);
-      setEditorOpen(true);
+      setFormDialogOpen(true);
     })();
     return () => {
       cancelled = true;
     };
-  }, [activeTemplateId, setActiveTemplateId]);
+  }, [activeTemplateId, setActiveTemplateId, setEditingRecord, setFormDialogOpen]);
 
-  function invalidateAll() {
-    grid.invalidate();
-    void queryClient.invalidateQueries({ queryKey: ["interview-question-templates"] });
-  }
-
-  function openCreate() {
-    setEditingRecord(null);
-    setEditorOpen(true);
-  }
-
-  async function openEdit(record: InterviewQuestionTemplateListRecord) {
-    const full = await loadTemplateDetail(record.id);
-    if (!full) {
-      toast.error("加载模版失败");
-      return;
+  function onEditorOpenChange(next: boolean) {
+    crud.onFormOpenChange(next);
+    if (!next) {
+      lastLoadedTemplateRef.current = null;
+      void setActiveTemplateId(null);
     }
-    setEditingRecord(full);
-    setEditorOpen(true);
-  }
-
-  async function handleDelete() {
-    if (!deleteRecord) {
-      return;
-    }
-    const response = await rpc.api.studio["interview-questions"][":id"].$delete({
-      param: { id: deleteRecord.id },
-    });
-    const payload = (await response.json().catch(() => null)) as { error?: string } | null;
-    if (!response.ok) {
-      toast.error(payload?.error ?? "删除失败");
-      return;
-    }
-    setDeleteRecord(null);
-    toast.success("模版已删除");
-    invalidateAll();
   }
 
   const columns = useMemo(
@@ -244,7 +216,7 @@ export function InterviewQuestionTemplateManagementPage({
             icon: PencilIcon,
             label: "编辑模版",
             onClick: (r) => {
-              void openEdit(r);
+              void crud.openEdit(r);
             },
           },
         ],
@@ -252,13 +224,13 @@ export function InterviewQuestionTemplateManagementPage({
           {
             icon: Trash2Icon,
             label: "删除",
-            onClick: (r) => setDeleteRecord(r),
+            onClick: (r) => crud.setDeleteRecord(r),
             variant: "destructive",
           },
         ],
       }),
     ],
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // oxlint-disable-next-line react-hooks/exhaustive-deps
     [],
   );
 
@@ -297,21 +269,13 @@ export function InterviewQuestionTemplateManagementPage({
     <>
       <div className="space-y-6">
         <PageHeader
-          title="面试题"
           description="配置面试官在面试中向候选人必问的题目。可以设为全局或绑定到在招岗位；面试创建时会冻结当前题目快照，之后编辑不影响已开始的面试。"
+          title="面试题"
         />
 
         <DataGrid<InterviewQuestionTemplateListRecord>
           {...grid.bind}
           columns={columns}
-          filters={filtersConfig}
-          getRowId={(r) => r.id}
-          toolbarRight={
-            <Button className="flex-1 sm:flex-none" onClick={openCreate}>
-              <PlusIcon className="size-4" />
-              新建面试题
-            </Button>
-          }
           empty={
             <Empty className="border-border/60">
               <EmptyHeader>
@@ -324,50 +288,42 @@ export function InterviewQuestionTemplateManagementPage({
                 </EmptyDescription>
               </EmptyHeader>
               <EmptyContent>
-                <Button onClick={openCreate}>
+                <Button onClick={crud.openCreate}>
                   <PlusIcon className="size-4" />
                   新建面试题
                 </Button>
               </EmptyContent>
             </Empty>
           }
+          filters={filtersConfig}
+          getRowId={(r) => r.id}
+          toolbarRight={
+            <Button className="flex-1 sm:flex-none" onClick={crud.openCreate}>
+              <PlusIcon className="size-4" />
+              新建面试题
+            </Button>
+          }
         />
       </div>
 
       <InterviewQuestionTemplateEditorDialog
         jobDescriptions={jobDescriptions}
-        onOpenChange={(value) => {
-          setEditorOpen(value);
-          if (!value) {
-            setEditingRecord(null);
-            lastLoadedTemplateRef.current = null;
-            void setActiveTemplateId(null);
-          }
+        onOpenChange={onEditorOpenChange}
+        onSaved={() => {
+          grid.invalidate();
+          void queryClient.invalidateQueries({ queryKey: ["interview-question-templates"] });
         }}
-        onSaved={() => invalidateAll()}
-        open={editorOpen}
-        record={editingRecord}
+        open={crud.formDialogOpen}
+        record={crud.editingRecord}
       />
 
-      <AlertDialog
-        onOpenChange={(value) => !value && setDeleteRecord(null)}
-        open={deleteRecord !== null}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>确认删除这组面试题？</AlertDialogTitle>
-            <AlertDialogDescription>
-              即将删除：{deleteRecord?.title ?? ""}。 如果已被某个面试绑定，将无法删除。
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>取消</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} variant="destructive">
-              删除
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <EntityDeleteDialog
+        description={(record) => `即将删除：${record.title}。 如果已被某个面试绑定，将无法删除。`}
+        onClose={() => crud.setDeleteRecord(null)}
+        onConfirm={crud.handleDelete}
+        record={crud.deleteRecord}
+        title="确认删除这组面试题？"
+      />
     </>
   );
 }

@@ -5,13 +5,13 @@ import type { JobDescriptionConfig } from "@/lib/shared/job-description-config";
 import { useChat } from "@ai-sdk/react";
 import { useAtom, useAtomValue } from "jotai";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { requestResumeChatTitle } from "@/lib/client/api";
-import { authClient } from "@/lib/client/auth-client";
 import {
   fetchConversation,
   patchConversation,
+  requestResumeChatTitle,
   upsertConversation as upsertConversationOnServer,
-} from "@/lib/shared/chat-api";
+} from "@/lib/client/api";
+import { authClient } from "@/lib/client/auth-client";
 import { chatModelByIdAtom, DRAFT_CHAT_KEY } from "../_atoms/model";
 import { thinkingModeAtom } from "../_atoms/thinking";
 import { useChatModelsQuery } from "../_lib/use-chat-models";

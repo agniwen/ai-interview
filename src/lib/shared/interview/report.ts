@@ -1,7 +1,4 @@
-import type {
-  ResumeParserResult,
-  ResumeParserStructured,
-} from "@/server/agents/resume-parser-agent";
+import type { ResumeParserResult, ResumeParserStructured } from "@/lib/shared/resume-parser-schema";
 
 // =====================================================================
 // 把简历解析结果渲染成中文 Markdown 报告。

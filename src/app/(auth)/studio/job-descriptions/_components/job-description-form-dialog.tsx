@@ -19,6 +19,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
+import { AnimatedHeight } from "@/components/animated-height";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
 import { Field, FieldContent, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
@@ -215,25 +216,110 @@ export function JobDescriptionFormDialog({
             void form.handleSubmit();
           }}
         >
-          <TabsContent value="basic">
-            <FieldGroup className="mt-4 gap-5">
-              <div className="grid gap-5 md:grid-cols-2">
-                <form.Field name="name">
+          <AnimatedHeight>
+            <TabsContent value="basic">
+              <FieldGroup className="mt-4 gap-5">
+                <div className="grid gap-5 md:grid-cols-2">
+                  <form.Field name="name">
+                    {(field) => {
+                      const errors = toFieldErrors(field.state.meta.errors);
+                      return (
+                        <Field data-invalid={hasFieldErrors(field.state.meta.errors) || undefined}>
+                          <FieldLabel htmlFor={field.name}>
+                            岗位名称 <span className="text-destructive">*</span>
+                          </FieldLabel>
+                          <FieldContent className="gap-2">
+                            <Input
+                              aria-invalid={!!errors?.length}
+                              id={field.name}
+                              onBlur={field.handleBlur}
+                              onChange={(event) => field.handleChange(event.target.value)}
+                              placeholder="如：高级前端工程师"
+                              value={field.state.value}
+                            />
+                            <FieldError errors={errors} />
+                          </FieldContent>
+                        </Field>
+                      );
+                    }}
+                  </form.Field>
+
+                  <form.Field name="departmentId">
+                    {(field) => {
+                      const errors = toFieldErrors(field.state.meta.errors);
+                      return (
+                        <Field data-invalid={hasFieldErrors(field.state.meta.errors) || undefined}>
+                          <FieldLabel htmlFor={field.name}>
+                            所属部门 <span className="text-destructive">*</span>
+                          </FieldLabel>
+                          <FieldContent className="gap-2">
+                            <SearchableSelect
+                              id={field.name}
+                              invalid={!!errors?.length}
+                              onChange={(value) => field.handleChange(value ?? "")}
+                              options={departments.map((dept) => ({
+                                label: dept.name,
+                                value: dept.id,
+                              }))}
+                              placeholder="选择部门"
+                              searchPlaceholder="搜索部门…"
+                              value={field.state.value || null}
+                            />
+                            <FieldError errors={errors} />
+                          </FieldContent>
+                        </Field>
+                      );
+                    }}
+                  </form.Field>
+
+                  <form.Field name="interviewerIds">
+                    {(field) => {
+                      const errors = toFieldErrors(field.state.meta.errors);
+                      return (
+                        <Field
+                          className="md:col-span-2"
+                          data-invalid={hasFieldErrors(field.state.meta.errors) || undefined}
+                        >
+                          <FieldLabel>
+                            面试官 <span className="text-destructive">*</span>
+                            <span className="ml-2 font-normal text-muted-foreground text-xs">
+                              （可多选，面试时会随机挑选一位；不限定部门）
+                            </span>
+                          </FieldLabel>
+                          <FieldContent className="gap-2">
+                            <SearchableMultiSelect
+                              emptyMessage="没有匹配的面试官"
+                              invalid={!!errors?.length}
+                              onChange={(next) => field.handleChange(next)}
+                              options={buildInterviewerOptions(interviewers)}
+                              placeholder="选择面试官…"
+                              searchPlaceholder="搜索面试官…"
+                              selectedFormat={(count) => `已选 ${count} 位面试官`}
+                              value={field.state.value}
+                            />
+                            <FieldError errors={errors} />
+                          </FieldContent>
+                        </Field>
+                      );
+                    }}
+                  </form.Field>
+                </div>
+
+                <form.Field name="description">
                   {(field) => {
                     const errors = toFieldErrors(field.state.meta.errors);
                     return (
                       <Field data-invalid={hasFieldErrors(field.state.meta.errors) || undefined}>
-                        <FieldLabel htmlFor={field.name}>
-                          岗位名称 <span className="text-destructive">*</span>
-                        </FieldLabel>
+                        <FieldLabel htmlFor={field.name}>描述（可选）</FieldLabel>
                         <FieldContent className="gap-2">
-                          <Input
+                          <Textarea
                             aria-invalid={!!errors?.length}
+                            className="min-h-20"
                             id={field.name}
                             onBlur={field.handleBlur}
                             onChange={(event) => field.handleChange(event.target.value)}
-                            placeholder="如：高级前端工程师"
-                            value={field.state.value}
+                            placeholder="简要描述岗位职责、要求等"
+                            value={field.state.value ?? ""}
                           />
                           <FieldError errors={errors} />
                         </FieldContent>
@@ -242,57 +328,23 @@ export function JobDescriptionFormDialog({
                   }}
                 </form.Field>
 
-                <form.Field name="departmentId">
+                <form.Field name="prompt">
                   {(field) => {
                     const errors = toFieldErrors(field.state.meta.errors);
                     return (
                       <Field data-invalid={hasFieldErrors(field.state.meta.errors) || undefined}>
                         <FieldLabel htmlFor={field.name}>
-                          所属部门 <span className="text-destructive">*</span>
+                          岗位 Prompt <span className="text-destructive">*</span>
                         </FieldLabel>
                         <FieldContent className="gap-2">
-                          <SearchableSelect
+                          <Textarea
+                            aria-invalid={!!errors?.length}
+                            className="min-h-24 max-h-60 font-mono text-sm resize-none"
                             id={field.name}
-                            invalid={!!errors?.length}
-                            onChange={(value) => field.handleChange(value ?? "")}
-                            options={departments.map((dept) => ({
-                              label: dept.name,
-                              value: dept.id,
-                            }))}
-                            placeholder="选择部门"
-                            searchPlaceholder="搜索部门…"
-                            value={field.state.value || null}
-                          />
-                          <FieldError errors={errors} />
-                        </FieldContent>
-                      </Field>
-                    );
-                  }}
-                </form.Field>
-
-                <form.Field name="interviewerIds">
-                  {(field) => {
-                    const errors = toFieldErrors(field.state.meta.errors);
-                    return (
-                      <Field
-                        className="md:col-span-2"
-                        data-invalid={hasFieldErrors(field.state.meta.errors) || undefined}
-                      >
-                        <FieldLabel>
-                          面试官 <span className="text-destructive">*</span>
-                          <span className="ml-2 font-normal text-muted-foreground text-xs">
-                            （可多选，面试时会随机挑选一位；不限定部门）
-                          </span>
-                        </FieldLabel>
-                        <FieldContent className="gap-2">
-                          <SearchableMultiSelect
-                            emptyMessage="没有匹配的面试官"
-                            invalid={!!errors?.length}
-                            onChange={(next) => field.handleChange(next)}
-                            options={buildInterviewerOptions(interviewers)}
-                            placeholder="选择面试官…"
-                            searchPlaceholder="搜索面试官…"
-                            selectedFormat={(count) => `已选 ${count} 位面试官`}
+                            rows={4}
+                            onBlur={field.handleBlur}
+                            onChange={(event) => field.handleChange(event.target.value)}
+                            placeholder="岗位关键职责、技术栈要求、期望的考察维度……"
                             value={field.state.value}
                           />
                           <FieldError errors={errors} />
@@ -301,78 +353,29 @@ export function JobDescriptionFormDialog({
                     );
                   }}
                 </form.Field>
-              </div>
-
-              <form.Field name="description">
-                {(field) => {
-                  const errors = toFieldErrors(field.state.meta.errors);
-                  return (
-                    <Field data-invalid={hasFieldErrors(field.state.meta.errors) || undefined}>
-                      <FieldLabel htmlFor={field.name}>描述（可选）</FieldLabel>
-                      <FieldContent className="gap-2">
-                        <Textarea
-                          aria-invalid={!!errors?.length}
-                          className="min-h-20"
-                          id={field.name}
-                          onBlur={field.handleBlur}
-                          onChange={(event) => field.handleChange(event.target.value)}
-                          placeholder="简要描述岗位职责、要求等"
-                          value={field.state.value ?? ""}
-                        />
-                        <FieldError errors={errors} />
-                      </FieldContent>
-                    </Field>
-                  );
-                }}
-              </form.Field>
-
-              <form.Field name="prompt">
-                {(field) => {
-                  const errors = toFieldErrors(field.state.meta.errors);
-                  return (
-                    <Field data-invalid={hasFieldErrors(field.state.meta.errors) || undefined}>
-                      <FieldLabel htmlFor={field.name}>
-                        岗位 Prompt <span className="text-destructive">*</span>
-                      </FieldLabel>
-                      <FieldContent className="gap-2">
-                        <Textarea
-                          aria-invalid={!!errors?.length}
-                          className="min-h-24 max-h-60 font-mono text-sm resize-none"
-                          id={field.name}
-                          rows={4}
-                          onBlur={field.handleBlur}
-                          onChange={(event) => field.handleChange(event.target.value)}
-                          placeholder="岗位关键职责、技术栈要求、期望的考察维度……"
-                          value={field.state.value}
-                        />
-                        <FieldError errors={errors} />
-                      </FieldContent>
-                    </Field>
-                  );
-                }}
-              </form.Field>
-            </FieldGroup>
-          </TabsContent>
-          {isEdit ? (
-            <TabsContent value="interview-questions">
-              {/* oxlint-disable-next-line no-use-before-define */}
-              <LinkedInterviewQuestionTemplatesList
-                isLoading={isInterviewQuestionsLoading}
-                jobDescriptionId={record?.id ?? ""}
-                templates={linkedInterviewQuestions}
-              />
+              </FieldGroup>
             </TabsContent>
-          ) : null}
-          {isEdit ? (
-            <TabsContent value="forms">
-              {/* oxlint-disable-next-line no-use-before-define */}
-              <LinkedFormsList
-                isLoading={isFormsLoading}
-                jobDescriptionId={record?.id ?? ""}
-                templates={linkedForms}
-              />
-            </TabsContent>
-          ) : null}
+            {isEdit ? (
+              <TabsContent value="interview-questions">
+                {/* oxlint-disable-next-line no-use-before-define */}
+                <LinkedInterviewQuestionTemplatesList
+                  isLoading={isInterviewQuestionsLoading}
+                  jobDescriptionId={record?.id ?? ""}
+                  templates={linkedInterviewQuestions}
+                />
+              </TabsContent>
+            ) : null}
+            {isEdit ? (
+              <TabsContent value="forms">
+                {/* oxlint-disable-next-line no-use-before-define */}
+                <LinkedFormsList
+                  isLoading={isFormsLoading}
+                  jobDescriptionId={record?.id ?? ""}
+                  templates={linkedForms}
+                />
+              </TabsContent>
+            ) : null}
+          </AnimatedHeight>
         </form>
       </Modal>
     </Tabs>

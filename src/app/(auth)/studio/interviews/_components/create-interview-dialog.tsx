@@ -6,12 +6,13 @@ import type {
   ResumeProfile,
 } from "@/lib/shared/interview/types";
 import type { StudioInterviewRecord } from "@/lib/shared/studio-interviews";
-import type { AnalysisStreamEvent } from "@/types/api";
+import type { AnalysisStreamEvent } from "@/lib/shared/api-stream";
 import { useStore } from "@tanstack/react-form";
 import { CheckIcon, FileUpIcon, LoaderCircleIcon, SparklesIcon, WrenchIcon } from "lucide-react";
 import { motion } from "motion/react";
 import { useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
+import { AnimatedHeight } from "@/components/animated-height";
 import { ResumeDedupOverlay } from "@/components/resume-dedup-overlay";
 import { TextFlip } from "@/components/text-flip";
 import { Button } from "@/components/ui/button";
@@ -579,57 +580,61 @@ export function CreateInterviewDialog({
               void form.handleSubmit();
             }}
           >
-            <TabsContent className="mt-0" value="basic">
-              <div className="space-y-5">
-                <div className="grid gap-4">
-                  <FieldGroup className="gap-2">
-                    <FieldLabel htmlFor="resume-upload">简历 PDF</FieldLabel>
-                    <Input
-                      accept="application/pdf"
-                      disabled={isAnalyzingResume || isSubmitting}
-                      id="resume-upload"
-                      onChange={(event) => void handleResumeChange(event.target.files?.[0] ?? null)}
-                      type="file"
-                    />
-                    <p className="text-muted-foreground text-sm">
-                      选填。上传后会调用现有简历分析接口，自动回填候选人姓名、岗位和题目数据。
-                    </p>
-                    {resumeFile ? (
-                      <p className="break-all text-muted-foreground text-sm">{resumeFile.name}</p>
-                    ) : null}
-                    {resumePayload ? (
-                      <div className="rounded-xl border border-border/60 bg-background/80 px-4 py-3 text-sm">
-                        <p className="flex items-center gap-2 font-medium">
-                          <SparklesIcon className="size-4 text-amber-500" />
-                          已完成简历分析
-                        </p>
-                        <p className="mt-1 break-words text-muted-foreground leading-normal">
-                          {resumePayload.resumeProfile.name}
-                          {" · "}
-                          {resumePayload.resumeProfile.targetRoles[0] ?? "待识别岗位"}
-                          {" · "}
-                          {questionCount} 道题
-                        </p>
-                      </div>
-                    ) : null}
-                  </FieldGroup>
+            <AnimatedHeight>
+              <TabsContent className="mt-0" value="basic">
+                <div className="space-y-5">
+                  <div className="grid gap-4">
+                    <FieldGroup className="gap-2">
+                      <FieldLabel htmlFor="resume-upload">简历 PDF</FieldLabel>
+                      <Input
+                        accept="application/pdf"
+                        disabled={isAnalyzingResume || isSubmitting}
+                        id="resume-upload"
+                        onChange={(event) =>
+                          void handleResumeChange(event.target.files?.[0] ?? null)
+                        }
+                        type="file"
+                      />
+                      <p className="text-muted-foreground text-sm">
+                        选填。上传后会调用现有简历分析接口，自动回填候选人姓名、岗位和题目数据。
+                      </p>
+                      {resumeFile ? (
+                        <p className="break-all text-muted-foreground text-sm">{resumeFile.name}</p>
+                      ) : null}
+                      {resumePayload ? (
+                        <div className="rounded-xl border border-border/60 bg-background/80 px-4 py-3 text-sm">
+                          <p className="flex items-center gap-2 font-medium">
+                            <SparklesIcon className="size-4 text-amber-500" />
+                            已完成简历分析
+                          </p>
+                          <p className="mt-1 break-words text-muted-foreground leading-normal">
+                            {resumePayload.resumeProfile.name}
+                            {" · "}
+                            {resumePayload.resumeProfile.targetRoles[0] ?? "待识别岗位"}
+                            {" · "}
+                            {questionCount} 道题
+                          </p>
+                        </div>
+                      ) : null}
+                    </FieldGroup>
+                  </div>
+
+                  <InterviewBasicInfoFields form={form} />
+
+                  <InterviewScheduleFields form={form} />
+
+                  <InterviewNotesField form={form} />
                 </div>
+              </TabsContent>
 
-                <InterviewBasicInfoFields form={form} />
-
-                <InterviewScheduleFields form={form} />
-
-                <InterviewNotesField form={form} />
-              </div>
-            </TabsContent>
-
-            <TabsContent className="mt-0" value="questions">
-              <InterviewQuestionsFields
-                disabled={isSubmitting || isAnalyzingResume || isGeneratingQuestions}
-                form={form}
-                resetKey={open ? "create-open" : "create-closed"}
-              />
-            </TabsContent>
+              <TabsContent className="mt-0" value="questions">
+                <InterviewQuestionsFields
+                  disabled={isSubmitting || isAnalyzingResume || isGeneratingQuestions}
+                  form={form}
+                  resetKey={open ? "create-open" : "create-closed"}
+                />
+              </TabsContent>
+            </AnimatedHeight>
 
             {isBusy && (
               <motion.div

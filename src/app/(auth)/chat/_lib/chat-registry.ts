@@ -5,7 +5,7 @@ import {
   lastAssistantMessageIsCompleteWithToolCalls,
 } from "ai";
 import { LRUCache } from "lru-cache";
-import { upsertChatMessageOnServer } from "@/lib/shared/chat-api";
+import { upsertChatMessageOnServer } from "@/lib/client/api";
 import { notifyConversationsChanged } from "./chat-events";
 import { clearChatMeta } from "./chat-meta";
 import { createChatTransport } from "./chat-transport";

@@ -5,7 +5,7 @@ import type { InterviewRecordingStatus } from "@/lib/shared/db-enums";
 import { db } from "@/lib/server/db";
 import { interviewConversation } from "@/lib/server/db/schema";
 import { factory } from "@/server/factory";
-import { safeUpdateTag } from "@/server/routes/interview/utils";
+import { safeUpdateTag } from "@/server/cache-tags";
 
 function mapEgressStatus(status: EgressStatus): InterviewRecordingStatus {
   if (status === EgressStatus.EGRESS_COMPLETE) {

@@ -23,7 +23,7 @@ import { ParsedResumeButton } from "@/components/parsed-resume-button";
 import { PdfPreviewButton } from "@/components/pdf-preview-button";
 import { ResumeImportButton } from "@/components/resume-import-button";
 import type { AttachmentTextSource } from "@/lib/shared/db-enums";
-import type { ResumeParserStructured } from "@/types/api";
+import type { ResumeParserStructured } from "@/lib/shared/resume-parser-schema";
 import { ThinkingBlock } from "@/components/thinking-block";
 import { TIME_DISPLAY_OPTIONS, TimeDisplay } from "@/components/time-display";
 import { ApplyJobDescriptionCard } from "@/components/tool-call/apply-job-description-card";

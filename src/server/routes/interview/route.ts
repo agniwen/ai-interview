@@ -24,17 +24,17 @@ import { authMiddleware } from "@/server/middlewares/auth";
 import { resumeProfileSchema } from "@/lib/shared/interview/types";
 import { listAllJobDescriptions } from "@/server/routes/studio/routes/job-descriptions/dao";
 import { getGlobalConfig } from "@/server/routes/studio/routes/global-config/dao";
+import { loadApplicableCandidateFormTemplates } from "@/server/routes/studio/routes/forms/dao/queries";
+import { loadSubmittedTemplateIds } from "@/server/routes/studio/routes/forms/dao/submissions";
 import {
-  loadApplicableCandidateFormTemplates,
   loadCandidateFormTemplateVersionById,
-  loadSubmittedTemplateIds,
   resolveOrCreateTemplateVersion,
-} from "@/server/routes/studio/routes/forms/dao";
+} from "@/server/routes/studio/routes/forms/dao/versions";
+import { safeUpdateTag } from "@/server/cache-tags";
 import {
   buildTokenErrorResponse,
   loadCandidateInterviewRecord,
   loadScheduleEntriesForRedirect,
-  safeUpdateTag,
 } from "./utils";
 
 export const interviewRouter = factory

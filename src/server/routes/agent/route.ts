@@ -9,7 +9,7 @@ import {
   studioInterviewSchedule,
 } from "@/lib/server/db/schema";
 import { factory } from "@/server/factory";
-import { safeUpdateTag } from "@/server/routes/interview/utils";
+import { safeUpdateTag } from "@/server/cache-tags";
 import { retryFailedInterviewSummaryNotifications } from "@/server/routes/agent/utils/feishu-interview-notifications";
 import { runSummaryJob } from "@/server/routes/agent/utils/interview-summary-job";
 

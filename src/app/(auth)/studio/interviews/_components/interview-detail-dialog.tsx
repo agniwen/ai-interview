@@ -20,6 +20,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import { AnimatedHeight } from "@/components/animated-height";
 import { PdfPreviewButton } from "@/components/pdf-preview-button";
 import {
   AlertDialog,
@@ -278,7 +279,7 @@ export function InterviewDetailDialog({
             </div>
           ) : /* oxlint-disable-next-line no-nested-ternary -- Secondary branch renders based on record presence. */
           record ? (
-            <>
+            <AnimatedHeight>
               <TabsContent value="overview">
                 <div className="space-y-6">
                   <div className="rounded-2xl border border-border/60 bg-muted/30 p-5">
@@ -763,7 +764,7 @@ export function InterviewDetailDialog({
                   submissions={formSubmissions}
                 />
               </TabsContent>
-            </>
+            </AnimatedHeight>
           ) : (
             <div className="flex min-h-[240px] items-center justify-center text-muted-foreground text-sm">
               暂无可展示的候选人详情。

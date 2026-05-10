@@ -23,7 +23,7 @@ import type {
   StudioInterviewStatus,
 } from "@/lib/shared/studio-interviews";
 import { rpc } from "@/lib/client/rpc";
-import { ApiError } from "../errors";
+import { rpcFetch } from "../rpc-fetch";
 
 /**
  * 身份维度查重命中字段。
@@ -63,95 +63,91 @@ export interface StudioInterviewListResponse {
   total: number;
 }
 
-// 中文：通用响应解码 — 把 hc 的 Response-like 返回值转成 throw / value 模式。
-// English: shared response decoder — turn hc's Response-like return into throw/value.
-async function decode<T>(res: Response, errorFallback: string): Promise<T> {
-  if (!res.ok) {
-    const body = await res.json().catch(() => null);
-    const message =
-      (body && typeof body === "object" && "error" in body && typeof body.error === "string"
-        ? body.error
-        : null) ?? errorFallback;
-    throw new ApiError(message, { payload: body, status: res.status });
-  }
-  return (await res.json()) as T;
-}
-
 /**
  * 拉取面试列表（支持分页 / 关键词 / 状态筛选）。
  * Fetch the interview list (supports pagination / keyword / status filtering).
  */
-export async function fetchStudioInterviews(
+export function fetchStudioInterviews(
   params: StudioInterviewListParams = {},
 ): Promise<StudioInterviewListResponse> {
-  const res = await rpc.api.studio.interviews.$get({
-    query: {
-      ...(params.page === undefined ? {} : { page: String(params.page) }),
-      ...(params.pageSize === undefined ? {} : { pageSize: String(params.pageSize) }),
-      ...(params.search ? { search: params.search } : {}),
-      ...(params.status ? { status: params.status } : {}),
-    },
-  });
-  return decode<StudioInterviewListResponse>(res, "加载面试列表失败");
+  return rpcFetch<StudioInterviewListResponse>(
+    rpc.api.studio.interviews.$get({
+      query: {
+        ...(params.page === undefined ? {} : { page: String(params.page) }),
+        ...(params.pageSize === undefined ? {} : { pageSize: String(params.pageSize) }),
+        ...(params.search ? { search: params.search } : {}),
+        ...(params.status ? { status: params.status } : {}),
+      },
+    }),
+    "加载面试列表失败",
+  );
 }
 
 /**
  * 拉取列表概览数据（按状态聚合的计数等）。
  * Fetch the list summary (status counts and other aggregates).
  */
-export async function fetchStudioInterviewSummary(): Promise<Record<string, unknown>> {
-  const res = await rpc.api.studio.interviews.summary.$get();
-  return decode<Record<string, unknown>>(res, "加载概览失败");
+export function fetchStudioInterviewSummary(): Promise<Record<string, unknown>> {
+  return rpcFetch<Record<string, unknown>>(
+    rpc.api.studio.interviews.summary.$get(),
+    "加载概览失败",
+  );
 }
 
 /**
  * 按姓名/邮箱/电话查重，任一字段命中即返回。
  * Look up potential duplicates by name / email / phone (any one suffices).
  */
-export async function fetchInterviewDedup(input: {
+export function fetchInterviewDedup(input: {
   name: string | null;
   email: string | null;
   phone: string | null;
 }): Promise<{ matches: DedupMatchRecord[] }> {
-  const res = await rpc.api.studio.interviews["dedup-check"].$post({ json: input });
-  return decode<{ matches: DedupMatchRecord[] }>(res, "查重失败");
+  return rpcFetch<{ matches: DedupMatchRecord[] }>(
+    rpc.api.studio.interviews["dedup-check"].$post({ json: input }),
+    "查重失败",
+  );
 }
 
 /**
  * 拉取单条面试详情；不存在时返回 null。
  * Fetch a single interview by id; returns null when not found.
  */
-export async function fetchStudioInterview(id: string): Promise<StudioInterviewRecord | null> {
-  const res = await rpc.api.studio.interviews[":id"].$get({ param: { id } });
-  if (res.status === 404) {
-    return null;
-  }
-  return decode<StudioInterviewRecord>(res, "加载面试详情失败");
+export function fetchStudioInterview(id: string): Promise<StudioInterviewRecord | null> {
+  return rpcFetch<StudioInterviewRecord>(
+    rpc.api.studio.interviews[":id"].$get({ param: { id } }),
+    "加载面试详情失败",
+    { allow404: true },
+  );
 }
 
 /**
  * 拉取面试报告列表（按时间倒序）。
  * Fetch the interview reports (newest first).
  */
-export async function fetchStudioInterviewReports(
+export function fetchStudioInterviewReports(
   id: string,
 ): Promise<StudioInterviewConversationReport[]> {
-  const res = await rpc.api.studio.interviews[":id"].reports.$get({ param: { id } });
-  return decode<StudioInterviewConversationReport[]>(res, "加载面试报告失败");
+  return rpcFetch<StudioInterviewConversationReport[]>(
+    rpc.api.studio.interviews[":id"].reports.$get({ param: { id } }),
+    "加载面试报告失败",
+  );
 }
 
 /**
  * 获取某轮录像的 S3 预签名播放 URL (10 分钟有效).
  * Fetch a 10-min presigned URL for the round's recording mp4.
  */
-export async function fetchStudioInterviewRecordingUrl(
+export function fetchStudioInterviewRecordingUrl(
   id: string,
   conversationId: string,
 ): Promise<{ url: string; expiresInSeconds: number }> {
-  const res = await rpc.api.studio.interviews[":id"].recordings[":conversationId"].$get({
-    param: { conversationId, id },
-  });
-  return decode<{ url: string; expiresInSeconds: number }>(res, "加载录像链接失败");
+  return rpcFetch<{ url: string; expiresInSeconds: number }>(
+    rpc.api.studio.interviews[":id"].recordings[":conversationId"].$get({
+      param: { conversationId, id },
+    }),
+    "加载录像链接失败",
+  );
 }
 
 /**
@@ -161,11 +157,8 @@ export async function fetchStudioInterviewRecordingUrl(
 export async function fetchStudioInterviewFormSubmissions(
   id: string,
 ): Promise<CandidateFormSubmissionWithSnapshot[]> {
-  const res = await rpc.api.studio.interviews[":id"]["form-submissions"].$get({
-    param: { id },
-  });
-  const data = await decode<{ submissions: CandidateFormSubmissionWithSnapshot[] }>(
-    res,
+  const data = await rpcFetch<{ submissions: CandidateFormSubmissionWithSnapshot[] }>(
+    rpc.api.studio.interviews[":id"]["form-submissions"].$get({ param: { id } }),
     "加载面试表单填写失败",
   );
   return data.submissions;
@@ -175,44 +168,50 @@ export async function fetchStudioInterviewFormSubmissions(
  * 删除某次面试表单回答（重置候选人填写）。
  * Delete a candidate form submission (resets the candidate's fill).
  */
-export async function deleteStudioInterviewFormSubmission(
+export function deleteStudioInterviewFormSubmission(
   interviewId: string,
   submissionId: string,
 ): Promise<{ success: boolean }> {
-  const res = await rpc.api.studio.interviews[":id"]["form-submissions"][":submissionId"].$delete({
-    param: { id: interviewId, submissionId },
-  });
-  return decode<{ success: boolean }>(res, "删除答卷失败");
+  return rpcFetch<{ success: boolean }>(
+    rpc.api.studio.interviews[":id"]["form-submissions"][":submissionId"].$delete({
+      param: { id: interviewId, submissionId },
+    }),
+    "删除答卷失败",
+  );
 }
 
 /**
  * 重置一轮面试为「待开始」状态。
  * Reset a single interview round back to the "pending" state.
  */
-export async function resetStudioInterviewRound(
+export function resetStudioInterviewRound(
   interviewId: string,
   roundId: string,
 ): Promise<StudioInterviewRecord> {
-  const res = await rpc.api.studio.interviews[":id"].rounds[":roundId"].reset.$post({
-    param: { id: interviewId, roundId },
-  });
-  return decode<StudioInterviewRecord>(res, "重置轮次失败");
+  return rpcFetch<StudioInterviewRecord>(
+    rpc.api.studio.interviews[":id"].rounds[":roundId"].reset.$post({
+      param: { id: interviewId, roundId },
+    }),
+    "重置轮次失败",
+  );
 }
 
 /**
  * 切换单轮面试的"允许面试者文本输入"开关。
  * Toggle the per-round "allow candidate text input" flag.
  */
-export async function updateStudioInterviewRound(
+export function updateStudioInterviewRound(
   interviewId: string,
   roundId: string,
   payload: { allowTextInput: boolean },
 ): Promise<StudioInterviewRecord> {
-  const res = await rpc.api.studio.interviews[":id"].rounds[":roundId"].$patch({
-    json: payload,
-    param: { id: interviewId, roundId },
-  });
-  return decode<StudioInterviewRecord>(res, "更新轮次设置失败");
+  return rpcFetch<StudioInterviewRecord>(
+    rpc.api.studio.interviews[":id"].rounds[":roundId"].$patch({
+      json: payload,
+      param: { id: interviewId, roundId },
+    }),
+    "更新轮次设置失败",
+  );
 }
 
 /**
@@ -220,8 +219,10 @@ export async function updateStudioInterviewRound(
  * Delete a single interview record.
  */
 export async function deleteStudioInterview(id: string): Promise<void> {
-  const res = await rpc.api.studio.interviews[":id"].$delete({ param: { id } });
-  await decode<{ success: boolean }>(res, "删除面试失败");
+  await rpcFetch<{ success: boolean }>(
+    rpc.api.studio.interviews[":id"].$delete({ param: { id } }),
+    "删除面试失败",
+  );
 }
 
 /**
@@ -231,9 +232,11 @@ export async function deleteStudioInterview(id: string): Promise<void> {
 export async function bulkDeleteStudioInterviews(
   ids: string[],
 ): Promise<{ deleted: number; deletedCount?: number; success?: boolean }> {
-  const res = await rpc.api.studio.interviews["bulk-delete"].$post({
-    json: { ids: ids as [string, ...string[]] },
-  });
-  const data = await decode<{ deletedCount: number; success: boolean }>(res, "批量删除失败");
+  const data = await rpcFetch<{ deletedCount: number; success: boolean }>(
+    rpc.api.studio.interviews["bulk-delete"].$post({
+      json: { ids: ids as [string, ...string[]] },
+    }),
+    "批量删除失败",
+  );
   return { deleted: data.deletedCount, ...data };
 }

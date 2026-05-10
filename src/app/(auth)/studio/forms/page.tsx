@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { connection } from "next/server";
-import { listCandidateFormTemplates } from "@/server/routes/studio/routes/forms/dao";
+import { listCandidateFormTemplates } from "@/server/routes/studio/routes/forms/dao/queries";
 import { listAllJobDescriptions } from "@/server/routes/studio/routes/job-descriptions/dao";
 import { CandidateFormTemplateManagementPage } from "./_components/form-template-management-page";
 

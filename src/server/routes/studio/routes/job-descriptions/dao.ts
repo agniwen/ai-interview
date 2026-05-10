@@ -347,6 +347,21 @@ export async function listAllJobDescriptions(): Promise<JobDescriptionListRecord
   return rows.map((row) => toJobDescriptionListRecord(row, interviewersMap.get(row.id) ?? []));
 }
 
+/**
+ * 校验给定 ids 全部存在于 jobDescription 表。空数组视作合法。
+ * Validate that every id in `ids` exists in jobDescription. Empty input is valid.
+ */
+export async function jobDescriptionIdsExist(ids: string[]): Promise<boolean> {
+  if (ids.length === 0) {
+    return true;
+  }
+  const rows = await db
+    .select({ id: jobDescription.id })
+    .from(jobDescription)
+    .where(inArray(jobDescription.id, ids));
+  return rows.length === new Set(ids).size;
+}
+
 export async function loadJobDescriptionById(id: string): Promise<JobDescriptionRecord | null> {
   const [row] = await db.select().from(jobDescription).where(eq(jobDescription.id, id)).limit(1);
   if (!row) {

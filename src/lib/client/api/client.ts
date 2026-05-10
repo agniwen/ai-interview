@@ -14,7 +14,7 @@ import "client-only";
  * 1) auto-serialize plain objects to JSON (FormData / Blob / string passes through);
  * 2) inject default headers and `credentials: "same-origin"`;
  * 3) throw {@link ApiError} on non-OK responses;
- * 4) decode responses as JSON by default (with raw / text / blob escape hatches).
+ * 4) decode responses as JSON by default (use `raw` to handle the Response yourself).
  */
 
 import { ApiError } from "./errors";
@@ -34,7 +34,7 @@ export interface ApiFetchOptions extends Omit<RequestInit, "body"> {
    * 解码方式，默认为 `json`。设为 `raw` 时返回原始 Response 给调用方自行处理。
    * Response decoder, defaults to `json`. `raw` returns the Response itself.
    */
-  decode?: "json" | "text" | "blob" | "raw";
+  decode?: "json" | "raw";
 
   /**
    * 是否允许 404 静默：返回 `null` 而不是抛出。
@@ -151,12 +151,6 @@ export async function apiFetch<T = unknown>(
 
   if (decode === "raw") {
     return response as unknown as T;
-  }
-  if (decode === "text") {
-    return (await response.text()) as unknown as T;
-  }
-  if (decode === "blob") {
-    return (await response.blob()) as unknown as T;
   }
 
   // `json` 默认；空响应安全降级为 null。

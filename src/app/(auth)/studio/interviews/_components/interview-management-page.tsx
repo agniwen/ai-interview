@@ -42,7 +42,8 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
-import { apiFetch, bulkDeleteStudioInterviews, deleteStudioInterview } from "@/lib/client/api";
+import { bulkDeleteStudioInterviews, deleteStudioInterview, rpcFetch } from "@/lib/client/api";
+import { rpc } from "@/lib/client/rpc";
 import { copyTextToClipboard, toAbsoluteUrl } from "@/lib/client/clipboard";
 import {
   scheduleEntryStatusMeta,
@@ -74,24 +75,23 @@ interface FetchParams {
 }
 
 function fetchInterviews(params: FetchParams): Promise<PaginatedStudioInterviewResult> {
-  const qs = new URLSearchParams();
+  const query: Record<string, string> = {
+    page: String(params.page),
+    pageSize: String(params.pageSize),
+    sortBy: params.sortBy ?? "createdAt",
+    sortOrder: params.sortBy ? (params.sortOrder ?? "asc") : "desc",
+  };
   if (params.search) {
-    qs.set("search", params.search);
+    query.search = params.search;
   }
   // 多选过滤：CSV 形式 / Multi-select filters: CSV serialization.
   if (params.filters.status) {
-    qs.set("status", params.filters.status);
+    query.status = params.filters.status;
   }
-  qs.set("page", String(params.page));
-  qs.set("pageSize", String(params.pageSize));
-  if (params.sortBy) {
-    qs.set("sortBy", params.sortBy);
-    qs.set("sortOrder", params.sortOrder ?? "asc");
-  } else {
-    qs.set("sortBy", "createdAt");
-    qs.set("sortOrder", "desc");
-  }
-  return apiFetch<PaginatedStudioInterviewResult>(`/api/studio/interviews?${qs.toString()}`);
+  return rpcFetch<PaginatedStudioInterviewResult>(
+    rpc.api.studio.interviews.$get({ query }),
+    "加载面试列表失败",
+  );
 }
 
 export function InterviewManagementPage({
@@ -114,7 +114,8 @@ export function InterviewManagementPage({
   // Summary query (independent of grid state)
   const summaryQuery = useQuery({
     placeholderData: (prev) => prev,
-    queryFn: () => apiFetch<StudioInterviewSummary>("/api/studio/interviews/summary"),
+    queryFn: () =>
+      rpcFetch<StudioInterviewSummary>(rpc.api.studio.interviews.summary.$get(), "加载概览失败"),
     queryKey: ["studio-interviews", "summary"] as const,
     refetchOnWindowFocus: true,
     staleTime: 30 * 1000,

@@ -1,5 +1,5 @@
-import { structuredSchema } from "@/server/agents/resume-parser-schema";
-import type { ResumeParserStructured } from "@/server/agents/resume-parser-schema";
+import { structuredSchema } from "@/lib/shared/resume-parser-schema";
+import type { ResumeParserStructured } from "@/lib/shared/resume-parser-schema";
 import { and, eq, inArray, ne } from "drizzle-orm";
 import { db } from "@/lib/server/db";
 import { chatAttachment } from "@/lib/server/db/schema";

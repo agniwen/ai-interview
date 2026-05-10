@@ -30,14 +30,14 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { deleteConversation, fetchConversations } from "@/lib/shared/chat-api";
+import { deleteConversation, fetchConversations } from "@/lib/client/api";
 import { cn } from "@/lib/shared/utils";
 import { CHAT_EVENTS, notifyConversationsChanged } from "../_lib/chat-events";
 
 interface ConversationListItem {
   id: string;
   title: string;
-  updatedAt: number;
+  updatedAt: string;
   isTitleGenerating: boolean;
 }
 

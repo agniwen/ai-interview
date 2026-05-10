@@ -3,7 +3,7 @@
 import type { FileUIPart } from "ai";
 import type { InterviewQuestion, ResumeAnalysisResult } from "@/lib/shared/interview/types";
 import type { StudioInterviewRecord } from "@/lib/shared/studio-interviews";
-import type { AnalysisStreamEvent } from "@/types/api";
+import type { AnalysisStreamEvent } from "@/lib/shared/api-stream";
 import { CheckIcon, DatabaseIcon, EyeIcon, LoaderCircleIcon } from "lucide-react";
 import dynamic from "next/dynamic";
 import { useCallback, useRef, useState } from "react";

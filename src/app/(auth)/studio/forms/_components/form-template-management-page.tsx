@@ -1,28 +1,20 @@
 "use client";
 
 import { PageHeader } from "@/app/(auth)/studio/_components/page-header";
+import { EntityDeleteDialog } from "@/app/(auth)/studio/_components/entity-delete-dialog";
+import { useEntityCrud } from "@/app/(auth)/studio/_components/use-entity-crud";
 import type {
   CandidateFormScope,
   CandidateFormTemplateListRecord,
   CandidateFormTemplateRecord,
 } from "@/lib/shared/candidate-forms";
 import type { JobDescriptionListRecord } from "@/lib/shared/job-descriptions";
-import type { PaginatedCandidateFormTemplateResult } from "@/server/routes/studio/routes/forms/dao";
+import type { PaginatedCandidateFormTemplateResult } from "@/server/routes/studio/routes/forms/dao/queries";
 import { useQueryClient } from "@tanstack/react-query";
 import { ClipboardListIcon, InboxIcon, PencilIcon, PlusIcon, Trash2Icon } from "lucide-react";
 import { parseAsString, useQueryState } from "nuqs";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -75,7 +67,7 @@ async function fetchTemplates(params: {
   return (await res.json()) as PaginatedCandidateFormTemplateResult;
 }
 
-async function loadTemplateDetail(id: string): Promise<CandidateFormTemplateRecord | null> {
+async function loadTemplateDetailById(id: string): Promise<CandidateFormTemplateRecord | null> {
   const response = await rpc.api.studio.forms[":id"].$get({ param: { id } });
   if (!response.ok) {
     return null;
@@ -109,15 +101,26 @@ export function CandidateFormTemplateManagementPage({
     parseAsString.withDefault("").withOptions({ clearOnDefault: true }),
   );
 
-  const [editorOpen, setEditorOpen] = useState(false);
-  const [editingRecord, setEditingRecord] = useState<CandidateFormTemplateRecord | null>(null);
-  const [deleteRecord, setDeleteRecord] = useState<CandidateFormTemplateListRecord | null>(null);
+  const crud = useEntityCrud<CandidateFormTemplateListRecord, CandidateFormTemplateRecord>({
+    deleteEntity: (record) => rpc.api.studio.forms[":id"].$delete({ param: { id: record.id } }),
+    invalidate: () => {
+      grid.invalidate();
+      void queryClient.invalidateQueries({ queryKey: ["candidate-form-templates"] });
+    },
+    loadDetail: (record) => loadTemplateDetailById(record.id),
+    messages: {
+      deleteSuccess: "模版已删除",
+      loadDetailError: "加载模版失败",
+    },
+  });
+
   const [submissionsRecord, setSubmissionsRecord] =
     useState<CandidateFormTemplateListRecord | null>(null);
 
   // When the URL carries `?templateId=...` (e.g. clicked from the JD dialog),
   // load the detail and pop the editor open.
   const lastLoadedTemplateRef = useRef<string | null>(null);
+  const { setEditingRecord, setFormDialogOpen } = crud;
   useEffect(() => {
     if (!activeTemplateId || lastLoadedTemplateRef.current === activeTemplateId) {
       return;
@@ -125,7 +128,7 @@ export function CandidateFormTemplateManagementPage({
     lastLoadedTemplateRef.current = activeTemplateId;
     let cancelled = false;
     void (async () => {
-      const detail = await loadTemplateDetail(activeTemplateId);
+      const detail = await loadTemplateDetailById(activeTemplateId);
       if (cancelled) {
         return;
       }
@@ -136,48 +139,19 @@ export function CandidateFormTemplateManagementPage({
         return;
       }
       setEditingRecord(detail);
-      setEditorOpen(true);
+      setFormDialogOpen(true);
     })();
     return () => {
       cancelled = true;
     };
-  }, [activeTemplateId, setActiveTemplateId]);
+  }, [activeTemplateId, setActiveTemplateId, setEditingRecord, setFormDialogOpen]);
 
-  function invalidateAll() {
-    grid.invalidate();
-    void queryClient.invalidateQueries({ queryKey: ["candidate-form-templates"] });
-  }
-
-  function openCreate() {
-    setEditingRecord(null);
-    setEditorOpen(true);
-  }
-
-  async function openEdit(record: CandidateFormTemplateListRecord) {
-    const full = await loadTemplateDetail(record.id);
-    if (!full) {
-      toast.error("加载模版失败");
-      return;
+  function onEditorOpenChange(next: boolean) {
+    crud.onFormOpenChange(next);
+    if (!next) {
+      lastLoadedTemplateRef.current = null;
+      void setActiveTemplateId(null);
     }
-    setEditingRecord(full);
-    setEditorOpen(true);
-  }
-
-  async function handleDelete() {
-    if (!deleteRecord) {
-      return;
-    }
-    const response = await rpc.api.studio.forms[":id"].$delete({
-      param: { id: deleteRecord.id },
-    });
-    const payload = (await response.json().catch(() => null)) as { error?: string } | null;
-    if (!response.ok) {
-      toast.error(payload?.error ?? "删除失败");
-      return;
-    }
-    setDeleteRecord(null);
-    toast.success("模版已删除");
-    invalidateAll();
   }
 
   const columns = useMemo(
@@ -249,7 +223,7 @@ export function CandidateFormTemplateManagementPage({
             icon: PencilIcon,
             label: "编辑模版",
             onClick: (r) => {
-              void openEdit(r);
+              void crud.openEdit(r);
             },
           },
         ],
@@ -262,13 +236,13 @@ export function CandidateFormTemplateManagementPage({
           {
             icon: Trash2Icon,
             label: "删除",
-            onClick: (r) => setDeleteRecord(r),
+            onClick: (r) => crud.setDeleteRecord(r),
             variant: "destructive",
           },
         ],
       }),
     ],
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // oxlint-disable-next-line react-hooks/exhaustive-deps
     [],
   );
 
@@ -307,21 +281,13 @@ export function CandidateFormTemplateManagementPage({
     <>
       <div className="space-y-6">
         <PageHeader
-          title="面试表单"
           description="配置候选人在面试前需要填写的表单。可以设为全局或绑定到在招岗位；候选人提交后会冻结为快照，之后编辑不影响历史填写记录。"
+          title="面试表单"
         />
 
         <DataGrid<CandidateFormTemplateListRecord>
           {...grid.bind}
           columns={columns}
-          filters={filtersConfig}
-          getRowId={(r) => r.id}
-          toolbarRight={
-            <Button className="flex-1 sm:flex-none" onClick={openCreate}>
-              <PlusIcon className="size-4" />
-              新建面试表单
-            </Button>
-          }
           empty={
             <Empty className="border-border/60">
               <EmptyHeader>
@@ -334,29 +300,33 @@ export function CandidateFormTemplateManagementPage({
                 </EmptyDescription>
               </EmptyHeader>
               <EmptyContent>
-                <Button onClick={openCreate}>
+                <Button onClick={crud.openCreate}>
                   <PlusIcon className="size-4" />
                   新建面试表单
                 </Button>
               </EmptyContent>
             </Empty>
           }
+          filters={filtersConfig}
+          getRowId={(r) => r.id}
+          toolbarRight={
+            <Button className="flex-1 sm:flex-none" onClick={crud.openCreate}>
+              <PlusIcon className="size-4" />
+              新建面试表单
+            </Button>
+          }
         />
       </div>
 
       <CandidateFormTemplateEditorDialog
         jobDescriptions={jobDescriptions}
-        onOpenChange={(value) => {
-          setEditorOpen(value);
-          if (!value) {
-            setEditingRecord(null);
-            lastLoadedTemplateRef.current = null;
-            void setActiveTemplateId(null);
-          }
+        onOpenChange={onEditorOpenChange}
+        onSaved={() => {
+          grid.invalidate();
+          void queryClient.invalidateQueries({ queryKey: ["candidate-form-templates"] });
         }}
-        onSaved={() => invalidateAll()}
-        open={editorOpen}
-        record={editingRecord}
+        open={crud.formDialogOpen}
+        record={crud.editingRecord}
       />
 
       <CandidateFormTemplateSubmissionsDrawer
@@ -365,26 +335,15 @@ export function CandidateFormTemplateManagementPage({
         template={submissionsRecord}
       />
 
-      <AlertDialog
-        onOpenChange={(value) => !value && setDeleteRecord(null)}
-        open={deleteRecord !== null}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>确认删除这个面试表单？</AlertDialogTitle>
-            <AlertDialogDescription>
-              即将删除：{deleteRecord?.title ?? ""}。 如果已有候选人填写过，将无法删除 ——
-              请先清理相关面试记录。
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>取消</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} variant="destructive">
-              删除
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <EntityDeleteDialog
+        description={(record) =>
+          `即将删除：${record.title}。 如果已有候选人填写过，将无法删除 —— 请先清理相关面试记录。`
+        }
+        onClose={() => crud.setDeleteRecord(null)}
+        onConfirm={crud.handleDelete}
+        record={crud.deleteRecord}
+        title="确认删除这个面试表单？"
+      />
     </>
   );
 }

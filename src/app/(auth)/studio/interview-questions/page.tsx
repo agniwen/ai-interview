@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { connection } from "next/server";
 import { listAllJobDescriptions } from "@/server/routes/studio/routes/job-descriptions/dao";
-import { listInterviewQuestionTemplates } from "@/server/routes/studio/routes/interview-questions/dao";
+import { listInterviewQuestionTemplates } from "@/server/routes/studio/routes/interview-questions/dao/queries";
 import { InterviewQuestionTemplateManagementPage } from "./_components/interview-question-template-management-page";
 
 export const metadata: Metadata = {

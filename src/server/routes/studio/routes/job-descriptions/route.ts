@@ -18,7 +18,7 @@ import {
   queryPaginatedJobDescriptions,
   serializeJobDescription,
 } from "@/server/routes/studio/routes/job-descriptions/dao";
-import { safeUpdateTag } from "@/server/routes/interview/utils";
+import { safeUpdateTag } from "@/server/cache-tags";
 
 async function validateReferences(departmentId: string, interviewerIds: string[]) {
   const [[departmentRow], interviewerRows] = await Promise.all([

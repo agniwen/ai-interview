@@ -19,7 +19,7 @@ import "client-only";
  */
 
 import { rpc } from "@/lib/client/rpc";
-import { ApiError } from "../errors";
+import { rpcFetch } from "../rpc-fetch";
 
 /**
  * 简历筛选会话的智能标题生成请求体。
@@ -54,24 +54,19 @@ export interface ChatModelsResponse {
  * 拉取允许在 composer 中选择的模型列表。
  * Fetch the list of models exposed in the chat composer picker.
  */
-export async function fetchChatModels(): Promise<ChatModelsResponse> {
-  const res = await rpc.api.resume.models.$get();
-  if (!res.ok) {
-    throw new ApiError("加载模型列表失败", { status: res.status });
-  }
-  return (await res.json()) as ChatModelsResponse;
+export function fetchChatModels(): Promise<ChatModelsResponse> {
+  return rpcFetch<ChatModelsResponse>(rpc.api.resume.models.$get(), "加载模型列表失败");
 }
 
 /**
  * 智能标题生成请求；失败时调用方应回退到默认标题。
  * Generate a smart title; callers should fall back to a default on failure.
  */
-export async function requestResumeChatTitle(
+export function requestResumeChatTitle(
   payload: ResumeChatTitleRequest,
 ): Promise<{ title?: string }> {
-  const res = await rpc.api.resume.title.$post({ json: payload });
-  if (!res.ok) {
-    throw new ApiError("生成标题失败", { status: res.status });
-  }
-  return (await res.json()) as { title?: string };
+  return rpcFetch<{ title?: string }>(
+    rpc.api.resume.title.$post({ json: payload }),
+    "生成标题失败",
+  );
 }

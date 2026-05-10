@@ -1,23 +1,14 @@
 "use client";
 
 import { PageHeader } from "@/app/(auth)/studio/_components/page-header";
+import { EntityDeleteDialog } from "@/app/(auth)/studio/_components/entity-delete-dialog";
+import { useEntityCrud } from "@/app/(auth)/studio/_components/use-entity-crud";
 import type { DepartmentRecord } from "@/lib/shared/departments";
 import type { InterviewerListRecord, InterviewerRecord } from "@/lib/shared/interviewers";
 import type { PaginatedInterviewerResult } from "@/server/routes/studio/routes/interviewers/dao";
 import { useQueryClient } from "@tanstack/react-query";
 import { PencilIcon, PlusIcon, Trash2Icon, UserCircleIcon } from "lucide-react";
-import { useMemo, useState } from "react";
-import { toast } from "sonner";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+import { useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -61,9 +52,11 @@ async function fetchInterviewers(params: {
   return (await res.json()) as PaginatedInterviewerResult;
 }
 
-async function loadInterviewerDetail(id: string): Promise<InterviewerRecord | null> {
+async function loadInterviewerDetail(
+  record: InterviewerListRecord,
+): Promise<InterviewerRecord | null> {
   const response = await rpc.api.studio.interviewers[":id"].$get({
-    param: { id },
+    param: { id: record.id },
   });
   if (!response.ok) {
     return null;
@@ -87,48 +80,21 @@ export function InterviewerManagementPage({
     namespace: "interviewers",
   });
 
-  const [formDialogOpen, setFormDialogOpen] = useState(false);
-  const [editingRecord, setEditingRecord] = useState<InterviewerRecord | null>(null);
-  const [deleteRecord, setDeleteRecord] = useState<InterviewerListRecord | null>(null);
-
   const noDepartments = departments.length === 0;
 
-  function invalidateAll() {
-    grid.invalidate();
-    void queryClient.invalidateQueries({ queryKey: ["departments"] });
-  }
-
-  function openCreate() {
-    setEditingRecord(null);
-    setFormDialogOpen(true);
-  }
-
-  async function openEdit(record: InterviewerListRecord) {
-    const full = await loadInterviewerDetail(record.id);
-    if (!full) {
-      toast.error("加载面试官失败");
-      return;
-    }
-    setEditingRecord(full);
-    setFormDialogOpen(true);
-  }
-
-  async function handleDelete() {
-    if (!deleteRecord) {
-      return;
-    }
-    const response = await rpc.api.studio.interviewers[":id"].$delete({
-      param: { id: deleteRecord.id },
-    });
-    const payload = (await response.json().catch(() => null)) as { error?: string } | null;
-    if (!response.ok) {
-      toast.error(payload?.error ?? "删除失败");
-      return;
-    }
-    setDeleteRecord(null);
-    toast.success("面试官已删除");
-    invalidateAll();
-  }
+  const crud = useEntityCrud<InterviewerListRecord, InterviewerRecord>({
+    deleteEntity: (record) =>
+      rpc.api.studio.interviewers[":id"].$delete({ param: { id: record.id } }),
+    invalidate: () => {
+      grid.invalidate();
+      void queryClient.invalidateQueries({ queryKey: ["departments"] });
+    },
+    loadDetail: loadInterviewerDetail,
+    messages: {
+      deleteSuccess: "面试官已删除",
+      loadDetailError: "加载面试官失败",
+    },
+  });
 
   const columns = useMemo(
     () => [
@@ -175,7 +141,7 @@ export function InterviewerManagementPage({
             icon: PencilIcon,
             label: "编辑面试官",
             onClick: (r) => {
-              void openEdit(r);
+              void crud.openEdit(r);
             },
           },
         ],
@@ -183,13 +149,13 @@ export function InterviewerManagementPage({
           {
             icon: Trash2Icon,
             label: "删除",
-            onClick: (r) => setDeleteRecord(r),
+            onClick: (r) => crud.setDeleteRecord(r),
             variant: "destructive",
           },
         ],
       }),
     ],
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // oxlint-disable-next-line react-hooks/exhaustive-deps -- columns 不应跟着 crud 引用变化重建
     [],
   );
 
@@ -209,21 +175,13 @@ export function InterviewerManagementPage({
     <>
       <div className="space-y-6">
         <PageHeader
-          title="面试官管理"
           description="配置 AI 面试官的 prompt 和 TTS 音色，在招岗位会引用这些面试官。"
+          title="面试官管理"
         />
 
         <DataGrid<InterviewerListRecord>
           {...grid.bind}
           columns={columns}
-          filters={filtersConfig}
-          getRowId={(r) => r.id}
-          toolbarRight={
-            <Button className="flex-1 sm:flex-none" disabled={noDepartments} onClick={openCreate}>
-              <PlusIcon className="size-4" />
-              新建面试官
-            </Button>
-          }
           empty={
             noDepartments ? (
               <Empty className="border-border/60">
@@ -249,7 +207,7 @@ export function InterviewerManagementPage({
                   </EmptyDescription>
                 </EmptyHeader>
                 <EmptyContent>
-                  <Button onClick={openCreate}>
+                  <Button onClick={crud.openCreate}>
                     <PlusIcon className="size-4" />
                     新建面试官
                   </Button>
@@ -257,43 +215,43 @@ export function InterviewerManagementPage({
               </Empty>
             )
           }
+          filters={filtersConfig}
+          getRowId={(r) => r.id}
+          toolbarRight={
+            <Button
+              className="flex-1 sm:flex-none"
+              disabled={noDepartments}
+              onClick={crud.openCreate}
+            >
+              <PlusIcon className="size-4" />
+              新建面试官
+            </Button>
+          }
         />
       </div>
 
       <InterviewerFormDialog
         departments={departments}
-        onOpenChange={(value) => {
-          setFormDialogOpen(value);
-          if (!value) {
-            setEditingRecord(null);
-          }
+        onOpenChange={crud.onFormOpenChange}
+        onSaved={() => {
+          grid.invalidate();
+          void queryClient.invalidateQueries({ queryKey: ["departments"] });
         }}
-        onSaved={() => invalidateAll()}
-        open={formDialogOpen}
-        record={editingRecord}
+        open={crud.formDialogOpen}
+        record={crud.editingRecord}
       />
 
-      <AlertDialog
-        onOpenChange={(value) => !value && setDeleteRecord(null)}
-        open={deleteRecord !== null}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>确认删除这个面试官？</AlertDialogTitle>
-            <AlertDialogDescription>
-              {deleteRecord && deleteRecord.jobDescriptionCount > 0
-                ? "该面试官仍被在招岗位引用，将无法删除。"
-                : `即将删除面试官：${deleteRecord?.name ?? ""}，删除后无法恢复。`}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>取消</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} variant="destructive">
-              删除
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <EntityDeleteDialog
+        description={(record) =>
+          record.jobDescriptionCount > 0
+            ? "该面试官仍被在招岗位引用，将无法删除。"
+            : `即将删除面试官：${record.name}，删除后无法恢复。`
+        }
+        onClose={() => crud.setDeleteRecord(null)}
+        onConfirm={crud.handleDelete}
+        record={crud.deleteRecord}
+        title="确认删除这个面试官？"
+      />
     </>
   );
 }

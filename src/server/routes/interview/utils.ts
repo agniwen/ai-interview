@@ -4,7 +4,6 @@ import type {
 } from "@/lib/shared/studio-interviews";
 import type { ResumeProfile } from "@/lib/shared/interview/types";
 import { eq, inArray } from "drizzle-orm";
-import { updateTag } from "next/cache";
 import { db } from "@/lib/server/db";
 import {
   interviewer,
@@ -31,24 +30,12 @@ import {
 import {
   ensureApplicableBindings,
   loadInterviewPresetQuestions,
-} from "@/server/routes/studio/routes/interview-questions/dao";
+} from "@/server/routes/studio/routes/interview-questions/dao/bindings";
 import { sha256HexOfBytes } from "@/lib/shared/file-hash";
 import { buildAttachmentKeyByHash, putObjectBytes } from "@/lib/server/s3";
 
 export type StudioInterviewRow = typeof studioInterview.$inferSelect;
 export type StudioInterviewScheduleRow = typeof studioInterviewSchedule.$inferSelect;
-
-// =====================================================================
-// Cache tag helper
-// =====================================================================
-
-export function safeUpdateTag(tag: string) {
-  try {
-    updateTag(tag);
-  } catch {
-    // updateTag may throw in certain route handler contexts — non-critical
-  }
-}
 
 // =====================================================================
 // Candidate interview record loaders

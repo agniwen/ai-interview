@@ -1,16 +1,11 @@
 "use client";
 
 import type { DepartmentRecord } from "@/lib/shared/departments";
-import { interviewerFormSchema } from "@/lib/shared/interviewers";
 import type { InterviewerFormValues, InterviewerRecord } from "@/lib/shared/interviewers";
+import { interviewerFormSchema } from "@/lib/shared/interviewers";
 import { rpc } from "@/lib/client/rpc";
-import { useForm, useStore } from "@tanstack/react-form";
-import { LoaderCircleIcon } from "lucide-react";
-import { useEffect } from "react";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
-import { Modal } from "@/components/ui/modal";
-import { Field, FieldContent, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
+import { Field, FieldContent, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import {
@@ -22,6 +17,8 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { DEFAULT_MINIMAX_VOICE_ID, MINIMAX_VOICES } from "@/lib/shared/minimax-voices";
+import { EntityFormDialog } from "@/app/(auth)/studio/_components/entity-form-dialog";
+import { useEntityForm } from "@/app/(auth)/studio/_components/entity-form";
 import { hasFieldErrors, toFieldErrors } from "../../interviews/_components/interview-form";
 
 function defaultValues(departmentId: string): InterviewerFormValues {
@@ -59,10 +56,11 @@ export function InterviewerFormDialog({
 }) {
   const isEdit = record !== null;
   const fallbackDepartmentId = departments[0]?.id ?? "";
+  const noDepartments = departments.length === 0;
 
-  const form = useForm({
-    defaultValues: record ? toFormValues(record) : defaultValues(fallbackDepartmentId),
-    onSubmit: async ({ value }) => {
+  const { form, isSubmitting } = useEntityForm<InterviewerFormValues>({
+    buildValues: () => (record ? toFormValues(record) : defaultValues(fallbackDepartmentId)),
+    onSubmit: async (value) => {
       const body = {
         departmentId: value.departmentId,
         description: value.description?.trim() || "",
@@ -86,198 +84,170 @@ export function InterviewerFormDialog({
       onSaved();
       onOpenChange(false);
     },
-    validators: { onSubmit: interviewerFormSchema },
+    open,
+    schema: interviewerFormSchema,
   });
 
-  const isSubmitting = useStore(form.store, (state) => state.isSubmitting);
-
-  useEffect(() => {
-    if (open) {
-      form.reset(record ? toFormValues(record) : defaultValues(fallbackDepartmentId));
-    }
-  }, [open, record, form, fallbackDepartmentId]);
-
-  const noDepartments = departments.length === 0;
-
   return (
-    <Modal
-      open={open}
-      onOpenChange={onOpenChange}
-      title={isEdit ? "编辑面试官" : "新建面试官"}
+    <EntityFormDialog
       description="面试官 prompt 与音色会在开始面试时传给语音 agent。"
+      formId="interviewer-form"
+      isEdit={isEdit}
+      isSubmitting={isSubmitting}
+      onOpenChange={onOpenChange}
+      onSubmit={() => void form.handleSubmit()}
+      open={open}
       size="lg"
-      footer={
-        <>
-          <Button onClick={() => onOpenChange(false)} type="button" variant="outline">
-            取消
-          </Button>
-          <Button disabled={isSubmitting || noDepartments} form="interviewer-form" type="submit">
-            {isSubmitting ? <LoaderCircleIcon className="size-4 animate-spin" /> : null}
-            {isEdit ? "保存" : "创建"}
-          </Button>
-        </>
-      }
+      submitDisabled={noDepartments}
+      title={isEdit ? "编辑面试官" : "新建面试官"}
     >
-      <form
-        id="interviewer-form"
-        onSubmit={(event) => {
-          event.preventDefault();
-          event.stopPropagation();
-          void form.handleSubmit();
-        }}
-      >
-        <FieldGroup className="gap-5">
-          <div className="grid gap-5 md:grid-cols-2">
-            <form.Field name="name">
-              {(field) => {
-                const errors = toFieldErrors(field.state.meta.errors);
-                return (
-                  <Field data-invalid={hasFieldErrors(field.state.meta.errors) || undefined}>
-                    <FieldLabel htmlFor={field.name}>
-                      名称 <span className="text-destructive">*</span>
-                    </FieldLabel>
-                    <FieldContent className="gap-2">
-                      <Input
-                        aria-invalid={!!errors?.length}
-                        id={field.name}
-                        onBlur={field.handleBlur}
-                        onChange={(event) => field.handleChange(event.target.value)}
-                        placeholder="如：技术面试官 · 后端方向"
-                        value={field.state.value}
-                      />
-                      <FieldError errors={errors} />
-                    </FieldContent>
-                  </Field>
-                );
-              }}
-            </form.Field>
+      <div className="grid gap-5 md:grid-cols-2">
+        <form.Field name="name">
+          {(field) => {
+            const errors = toFieldErrors(field.state.meta.errors);
+            return (
+              <Field data-invalid={hasFieldErrors(field.state.meta.errors) || undefined}>
+                <FieldLabel htmlFor={field.name}>
+                  名称 <span className="text-destructive">*</span>
+                </FieldLabel>
+                <FieldContent className="gap-2">
+                  <Input
+                    aria-invalid={!!errors?.length}
+                    id={field.name}
+                    onBlur={field.handleBlur}
+                    onChange={(event) => field.handleChange(event.target.value)}
+                    placeholder="如：技术面试官 · 后端方向"
+                    value={field.state.value}
+                  />
+                  <FieldError errors={errors} />
+                </FieldContent>
+              </Field>
+            );
+          }}
+        </form.Field>
 
-            <form.Field name="departmentId">
-              {(field) => {
-                const errors = toFieldErrors(field.state.meta.errors);
-                return (
-                  <Field data-invalid={hasFieldErrors(field.state.meta.errors) || undefined}>
-                    <FieldLabel htmlFor={field.name}>
-                      所属部门 <span className="text-destructive">*</span>
-                    </FieldLabel>
-                    <FieldContent className="gap-2">
-                      <SearchableSelect
-                        disabled={noDepartments}
-                        id={field.name}
-                        invalid={!!errors?.length}
-                        onChange={(value) => field.handleChange(value ?? "")}
-                        options={departments.map((dept) => ({
-                          label: dept.name,
-                          value: dept.id,
-                        }))}
-                        placeholder={noDepartments ? "请先创建部门" : "选择部门"}
-                        searchPlaceholder="搜索部门…"
-                        value={field.state.value || null}
-                      />
-                      <FieldError errors={errors} />
-                    </FieldContent>
-                  </Field>
-                );
-              }}
-            </form.Field>
+        <form.Field name="departmentId">
+          {(field) => {
+            const errors = toFieldErrors(field.state.meta.errors);
+            return (
+              <Field data-invalid={hasFieldErrors(field.state.meta.errors) || undefined}>
+                <FieldLabel htmlFor={field.name}>
+                  所属部门 <span className="text-destructive">*</span>
+                </FieldLabel>
+                <FieldContent className="gap-2">
+                  <SearchableSelect
+                    disabled={noDepartments}
+                    id={field.name}
+                    invalid={!!errors?.length}
+                    onChange={(value) => field.handleChange(value ?? "")}
+                    options={departments.map((dept) => ({
+                      label: dept.name,
+                      value: dept.id,
+                    }))}
+                    placeholder={noDepartments ? "请先创建部门" : "选择部门"}
+                    searchPlaceholder="搜索部门…"
+                    value={field.state.value || null}
+                  />
+                  <FieldError errors={errors} />
+                </FieldContent>
+              </Field>
+            );
+          }}
+        </form.Field>
 
-            <form.Field name="voice">
-              {(field) => {
-                const errors = toFieldErrors(field.state.meta.errors);
-                return (
-                  <Field
-                    className="md:col-span-2"
-                    data-invalid={hasFieldErrors(field.state.meta.errors) || undefined}
+        <form.Field name="voice">
+          {(field) => {
+            const errors = toFieldErrors(field.state.meta.errors);
+            return (
+              <Field
+                className="md:col-span-2"
+                data-invalid={hasFieldErrors(field.state.meta.errors) || undefined}
+              >
+                <FieldLabel htmlFor={field.name}>
+                  音色（TTS）<span className="text-destructive">*</span>
+                </FieldLabel>
+                <FieldContent className="gap-2">
+                  <Select
+                    onValueChange={(value) => field.handleChange(value as typeof field.state.value)}
+                    value={field.state.value}
                   >
-                    <FieldLabel htmlFor={field.name}>
-                      音色（TTS）<span className="text-destructive">*</span>
-                    </FieldLabel>
-                    <FieldContent className="gap-2">
-                      <Select
-                        onValueChange={(value) =>
-                          field.handleChange(value as typeof field.state.value)
-                        }
-                        value={field.state.value}
-                      >
-                        <SelectTrigger
-                          aria-invalid={!!errors?.length}
-                          className="w-full h-13! text-left"
-                          id={field.name}
-                        >
-                          <SelectValue placeholder="选择音色" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {MINIMAX_VOICES.map((voice) => (
-                            <SelectItem key={voice.id} value={voice.id}>
-                              <div className="flex flex-col">
-                                <span>{voice.label}</span>
-                                <span className="text-muted-foreground text-xs">
-                                  {voice.description}
-                                </span>
-                              </div>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FieldError errors={errors} />
-                    </FieldContent>
-                  </Field>
-                );
-              }}
-            </form.Field>
-          </div>
-
-          <form.Field name="description">
-            {(field) => {
-              const errors = toFieldErrors(field.state.meta.errors);
-              return (
-                <Field data-invalid={hasFieldErrors(field.state.meta.errors) || undefined}>
-                  <FieldLabel htmlFor={field.name}>描述（可选）</FieldLabel>
-                  <FieldContent className="gap-2">
-                    <Textarea
+                    <SelectTrigger
                       aria-invalid={!!errors?.length}
-                      className="max-h-40 min-h-20 resize-none"
+                      className="w-full h-13! text-left"
                       id={field.name}
-                      onBlur={field.handleBlur}
-                      onChange={(event) => field.handleChange(event.target.value)}
-                      placeholder="简要说明该面试官的定位或擅长领域"
-                      rows={3}
-                      value={field.state.value ?? ""}
-                    />
-                    <FieldError errors={errors} />
-                  </FieldContent>
-                </Field>
-              );
-            }}
-          </form.Field>
+                    >
+                      <SelectValue placeholder="选择音色" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {MINIMAX_VOICES.map((voice) => (
+                        <SelectItem key={voice.id} value={voice.id}>
+                          <div className="flex flex-col">
+                            <span>{voice.label}</span>
+                            <span className="text-muted-foreground text-xs">
+                              {voice.description}
+                            </span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FieldError errors={errors} />
+                </FieldContent>
+              </Field>
+            );
+          }}
+        </form.Field>
+      </div>
 
-          <form.Field name="prompt">
-            {(field) => {
-              const errors = toFieldErrors(field.state.meta.errors);
-              return (
-                <Field data-invalid={hasFieldErrors(field.state.meta.errors) || undefined}>
-                  <FieldLabel htmlFor={field.name}>
-                    Prompt <span className="text-destructive">*</span>
-                  </FieldLabel>
-                  <FieldContent className="gap-2">
-                    <Textarea
-                      aria-invalid={!!errors?.length}
-                      className="max-h-60 min-h-24 resize-none font-mono text-sm"
-                      id={field.name}
-                      onBlur={field.handleBlur}
-                      onChange={(event) => field.handleChange(event.target.value)}
-                      placeholder="你是一位资深的后端技术面试官……（描述面试官人设、风格、关注点）"
-                      rows={4}
-                      value={field.state.value}
-                    />
-                    <FieldError errors={errors} />
-                  </FieldContent>
-                </Field>
-              );
-            }}
-          </form.Field>
-        </FieldGroup>
-      </form>
-    </Modal>
+      <form.Field name="description">
+        {(field) => {
+          const errors = toFieldErrors(field.state.meta.errors);
+          return (
+            <Field data-invalid={hasFieldErrors(field.state.meta.errors) || undefined}>
+              <FieldLabel htmlFor={field.name}>描述（可选）</FieldLabel>
+              <FieldContent className="gap-2">
+                <Textarea
+                  aria-invalid={!!errors?.length}
+                  className="max-h-40 min-h-20 resize-none"
+                  id={field.name}
+                  onBlur={field.handleBlur}
+                  onChange={(event) => field.handleChange(event.target.value)}
+                  placeholder="简要说明该面试官的定位或擅长领域"
+                  rows={3}
+                  value={field.state.value ?? ""}
+                />
+                <FieldError errors={errors} />
+              </FieldContent>
+            </Field>
+          );
+        }}
+      </form.Field>
+
+      <form.Field name="prompt">
+        {(field) => {
+          const errors = toFieldErrors(field.state.meta.errors);
+          return (
+            <Field data-invalid={hasFieldErrors(field.state.meta.errors) || undefined}>
+              <FieldLabel htmlFor={field.name}>
+                Prompt <span className="text-destructive">*</span>
+              </FieldLabel>
+              <FieldContent className="gap-2">
+                <Textarea
+                  aria-invalid={!!errors?.length}
+                  className="max-h-60 min-h-24 resize-none font-mono text-sm"
+                  id={field.name}
+                  onBlur={field.handleBlur}
+                  onChange={(event) => field.handleChange(event.target.value)}
+                  placeholder="你是一位资深的后端技术面试官……（描述面试官人设、风格、关注点）"
+                  rows={4}
+                  value={field.state.value}
+                />
+                <FieldError errors={errors} />
+              </FieldContent>
+            </Field>
+          );
+        }}
+      </form.Field>
+    </EntityFormDialog>
   );
 }
