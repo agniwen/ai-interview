@@ -1,5 +1,5 @@
 import type { DepartmentListRecord, DepartmentRecord } from "@/lib/shared/departments";
-import { and, asc, count, desc, eq, ilike, inArray, or } from "drizzle-orm";
+import { asc, count, desc, eq, ilike, inArray, or } from "drizzle-orm";
 import { cacheLife, cacheTag } from "next/cache";
 import { z } from "zod";
 import { db } from "@/lib/server/db";
@@ -29,22 +29,12 @@ export interface PaginatedDepartmentResult {
   totalPages: number;
 }
 
-function buildWhereConditions({
-  organizationId,
-  search,
-}: {
-  organizationId: string;
-  search?: string;
-}) {
-  const orgFilter = eq(department.organizationId, organizationId);
+function buildWhereConditions({ search }: { search?: string }) {
   if (!search) {
-    return orgFilter;
+    return;
   }
 
-  return and(
-    orgFilter,
-    or(ilike(department.name, `%${search}%`), ilike(department.description, `%${search}%`)),
-  );
+  return or(ilike(department.name, `%${search}%`), ilike(department.description, `%${search}%`));
 }
 
 function buildOrderBy(sortBy: SortColumn, sortOrder: "asc" | "desc") {
@@ -58,21 +48,19 @@ function buildOrderBy(sortBy: SortColumn, sortOrder: "asc" | "desc") {
 }
 
 function listDepartmentRows({
-  organizationId,
   search,
   sortBy = "createdAt",
   sortOrder = "desc",
   limit,
   offset,
 }: {
-  organizationId: string;
   search?: string;
   sortBy?: SortColumn;
   sortOrder?: "asc" | "desc";
   limit?: number;
   offset?: number;
 }) {
-  const where = buildWhereConditions({ organizationId, search });
+  const where = buildWhereConditions({ search });
 
   let query = db
     .select()
@@ -91,14 +79,8 @@ function listDepartmentRows({
   return query;
 }
 
-async function countDepartmentRows({
-  organizationId,
-  search,
-}: {
-  organizationId: string;
-  search?: string;
-}) {
-  const where = buildWhereConditions({ organizationId, search });
+async function countDepartmentRows({ search }: { search?: string }) {
+  const where = buildWhereConditions({ search });
   const [result] = await db.select({ count: count() }).from(department).where(where);
   return result?.count ?? 0;
 }
@@ -182,17 +164,16 @@ export function parseDepartmentPagination(
 }
 
 export async function queryPaginatedDepartments(
-  filters: { organizationId: string; search?: string | null },
+  filters?: { search?: string | null },
   pagination?: Record<string, unknown>,
 ): Promise<PaginatedDepartmentResult> {
   const { search } = parseFilters(filters);
-  const { organizationId } = filters;
   const { page, pageSize, sortBy, sortOrder } = parseDepartmentPagination(pagination);
   const offset = (page - 1) * pageSize;
 
   const [records, total] = await Promise.all([
-    listDepartmentRows({ limit: pageSize, offset, organizationId, search, sortBy, sortOrder }),
-    countDepartmentRows({ organizationId, search }),
+    listDepartmentRows({ limit: pageSize, offset, search, sortBy, sortOrder }),
+    countDepartmentRows({ search }),
   ]);
 
   const refsMap = await loadReferenceCounts(records.map((record) => record.id));
@@ -213,7 +194,7 @@ export async function queryPaginatedDepartments(
 
 // oxlint-disable-next-line require-await -- "use cache" requires the function be async.
 export async function listDepartments(
-  filters: { organizationId: string; search?: string | null },
+  filters?: { search?: string | null },
   pagination?: Record<string, unknown>,
 ) {
   "use cache";
@@ -225,16 +206,12 @@ export async function listDepartments(
 
 /** Load all departments (small list, used for selects). */
 // oxlint-disable-next-line require-await
-export async function listAllDepartments(organizationId: string): Promise<DepartmentRecord[]> {
+export async function listAllDepartments(): Promise<DepartmentRecord[]> {
   "use cache";
   cacheTag("departments");
   cacheLife("minutes");
 
-  const rows = await db
-    .select()
-    .from(department)
-    .where(eq(department.organizationId, organizationId))
-    .orderBy(asc(department.name));
+  const rows = await db.select().from(department).orderBy(asc(department.name));
   return rows.map((row) => ({
     createdAt: serializeDate(row.createdAt),
     createdBy: row.createdBy,
@@ -257,15 +234,8 @@ export async function loadDepartmentReferenceCounts(id: string) {
   };
 }
 
-export async function loadDepartmentById(
-  id: string,
-  organizationId: string,
-): Promise<DepartmentRecord | null> {
-  const [row] = await db
-    .select()
-    .from(department)
-    .where(and(eq(department.id, id), eq(department.organizationId, organizationId)))
-    .limit(1);
+export async function loadDepartmentById(id: string): Promise<DepartmentRecord | null> {
+  const [row] = await db.select().from(department).where(eq(department.id, id)).limit(1);
   if (!row) {
     return null;
   }

@@ -51,17 +51,15 @@ export interface PaginatedCandidateFormTemplateResult {
 }
 
 function buildWhereConditions({
-  organizationId,
   search,
   scopes,
   jobDescriptionIds,
 }: {
-  organizationId: string;
   search?: string;
   scopes?: CandidateFormScope[];
   jobDescriptionIds?: string[];
 }) {
-  const conditions: SQL<unknown>[] = [eq(candidateFormTemplate.organizationId, organizationId)];
+  const conditions: SQL<unknown>[] = [];
   if (search) {
     const searchCond = or(
       ilike(candidateFormTemplate.title, `%${search}%`),
@@ -88,6 +86,9 @@ function buildWhereConditions({
           ),
       ),
     );
+  }
+  if (conditions.length === 0) {
+    return;
   }
   return and(...conditions);
 }
@@ -148,7 +149,6 @@ export function serializeDate(value: string | Date): string {
 // =====================================================================
 
 function listTemplateRows({
-  organizationId,
   search,
   scopes,
   jobDescriptionIds,
@@ -157,7 +157,6 @@ function listTemplateRows({
   limit,
   offset,
 }: {
-  organizationId: string;
   search?: string;
   scopes?: CandidateFormScope[];
   jobDescriptionIds?: string[];
@@ -166,7 +165,7 @@ function listTemplateRows({
   limit?: number;
   offset?: number;
 }) {
-  const where = buildWhereConditions({ jobDescriptionIds, organizationId, scopes, search });
+  const where = buildWhereConditions({ jobDescriptionIds, scopes, search });
 
   let query = db
     .select({
@@ -194,17 +193,15 @@ function listTemplateRows({
 }
 
 async function countTemplateRows({
-  organizationId,
   search,
   scopes,
   jobDescriptionIds,
 }: {
-  organizationId: string;
   search?: string;
   scopes?: CandidateFormScope[];
   jobDescriptionIds?: string[];
 }) {
-  const where = buildWhereConditions({ jobDescriptionIds, organizationId, scopes, search });
+  const where = buildWhereConditions({ jobDescriptionIds, scopes, search });
   const [result] = await db.select({ count: count() }).from(candidateFormTemplate).where(where);
   return result?.count ?? 0;
 }
@@ -323,7 +320,6 @@ function parseCandidateFormTemplatePagination(
 // =====================================================================
 
 export async function queryPaginatedCandidateFormTemplates(
-  organizationId: string,
   filters?: {
     search?: string | null;
     scope?: string | null;
@@ -340,13 +336,12 @@ export async function queryPaginatedCandidateFormTemplates(
       jobDescriptionIds,
       limit: pageSize,
       offset,
-      organizationId,
       scopes,
       search,
       sortBy,
       sortOrder,
     }),
-    countTemplateRows({ jobDescriptionIds, organizationId, scopes, search }),
+    countTemplateRows({ jobDescriptionIds, scopes, search }),
   ]);
 
   const ids = rows.map((row) => row.id);
@@ -374,7 +369,6 @@ export async function queryPaginatedCandidateFormTemplates(
 
 // oxlint-disable-next-line require-await -- "use cache" requires the function be async.
 export async function listCandidateFormTemplates(
-  organizationId: string,
   filters?: {
     search?: string | null;
     scope?: string | null;
@@ -386,18 +380,16 @@ export async function listCandidateFormTemplates(
   cacheTag("candidate-form-templates");
   cacheLife("minutes");
 
-  return queryPaginatedCandidateFormTemplates(organizationId, filters, pagination);
+  return queryPaginatedCandidateFormTemplates(filters, pagination);
 }
 
 // oxlint-disable-next-line require-await
-export async function listAllCandidateFormTemplates(
-  organizationId: string,
-): Promise<CandidateFormTemplateListRecord[]> {
+export async function listAllCandidateFormTemplates(): Promise<CandidateFormTemplateListRecord[]> {
   "use cache";
   cacheTag("candidate-form-templates");
   cacheLife("minutes");
 
-  const rows = await listTemplateRows({ organizationId, sortBy: "title", sortOrder: "asc" });
+  const rows = await listTemplateRows({ sortBy: "title", sortOrder: "asc" });
   const ids = rows.map((row) => row.id);
   const [questionCounts, submissionCounts, jdsByTemplate] = await Promise.all([
     loadQuestionCountsByTemplate(ids),
@@ -433,18 +425,12 @@ export function mapQuestionRow(
 }
 
 export async function loadCandidateFormTemplateById(
-  organizationId: string,
   id: string,
 ): Promise<CandidateFormTemplateRecord | null> {
   const [row] = await db
     .select()
     .from(candidateFormTemplate)
-    .where(
-      and(
-        eq(candidateFormTemplate.id, id),
-        eq(candidateFormTemplate.organizationId, organizationId),
-      ),
-    )
+    .where(eq(candidateFormTemplate.id, id))
     .limit(1);
   if (!row) {
     return null;

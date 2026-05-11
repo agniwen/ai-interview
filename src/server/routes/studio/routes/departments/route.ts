@@ -1,11 +1,9 @@
 import { zValidator } from "@hono/zod-validator";
-import { and, eq } from "drizzle-orm";
-import { z } from "zod";
+import { eq } from "drizzle-orm";
 import { db } from "@/lib/server/db";
 import { department } from "@/lib/shared/db/schema";
 import { departmentFormSchema, departmentUpdateSchema } from "@/lib/shared/departments";
 import { factory, jsonValidatorError } from "@/server/factory";
-import { requirePermission } from "@/server/middlewares/permission";
 import {
   listAllDepartments,
   loadDepartmentById,
@@ -15,55 +13,28 @@ import {
 } from "@/server/routes/studio/routes/departments/dao";
 import { safeUpdateTag } from "@/server/cache-tags";
 
-const departmentListQuerySchema = z.object({
-  page: z.string().optional(),
-  pageSize: z.string().optional(),
-  search: z.string().optional(),
-  sortBy: z.string().optional(),
-  sortOrder: z.string().optional(),
-});
-
 export const departmentsRouter = factory
   .createApp()
-  .get(
-    "/",
-    requirePermission("department", "read"),
-    zValidator("query", departmentListQuerySchema, jsonValidatorError("查询参数无效。")),
-    async (c) => {
-      const { activeOrg } = c.var;
-      if (!activeOrg) {
-        return c.json({ message: "Unauthorized" }, 401);
-      }
-      const q = c.req.valid("query");
-      const result = await queryPaginatedDepartments(
-        { organizationId: activeOrg.id, search: q.search },
-        {
-          page: q.page,
-          pageSize: q.pageSize,
-          sortBy: q.sortBy,
-          sortOrder: q.sortOrder,
-        },
-      );
-      return c.json(result, 200);
-    },
-  )
-  .get("/all", requirePermission("department", "read"), async (c) => {
-    const { activeOrg } = c.var;
-    if (!activeOrg) {
-      return c.json({ message: "Unauthorized" }, 401);
-    }
-    const records = await listAllDepartments(activeOrg.id);
+  .get("/", async (c) => {
+    const result = await queryPaginatedDepartments(
+      { search: c.req.query("search") },
+      {
+        page: c.req.query("page"),
+        pageSize: c.req.query("pageSize"),
+        sortBy: c.req.query("sortBy"),
+        sortOrder: c.req.query("sortOrder"),
+      },
+    );
+    return c.json(result, 200);
+  })
+  .get("/all", async (c) => {
+    const records = await listAllDepartments();
     return c.json({ records }, 200);
   })
   .post(
     "/",
-    requirePermission("department", "create"),
     zValidator("json", departmentFormSchema, jsonValidatorError("表单校验失败。")),
     async (c) => {
-      const { activeOrg } = c.var;
-      if (!activeOrg) {
-        return c.json({ message: "Unauthorized" }, 401);
-      }
       const input = c.req.valid("json");
       const now = new Date();
       const record = {
@@ -72,7 +43,6 @@ export const departmentsRouter = factory
         description: input.description?.trim() || null,
         id: crypto.randomUUID(),
         name: input.name.trim(),
-        organizationId: activeOrg.id,
         updatedAt: now,
       } satisfies typeof department.$inferInsert;
 
@@ -82,13 +52,9 @@ export const departmentsRouter = factory
       return c.json(serializeDepartment(record), 201);
     },
   )
-  .get("/:id", requirePermission("department", "read"), async (c) => {
-    const { activeOrg } = c.var;
-    if (!activeOrg) {
-      return c.json({ message: "Unauthorized" }, 401);
-    }
+  .get("/:id", async (c) => {
     const id = c.req.param("id");
-    const record = await loadDepartmentById(id, activeOrg.id);
+    const record = await loadDepartmentById(id);
     if (!record) {
       return c.json({ error: "部门不存在。" }, 404);
     }
@@ -96,15 +62,10 @@ export const departmentsRouter = factory
   })
   .patch(
     "/:id",
-    requirePermission("department", "update"),
     zValidator("json", departmentUpdateSchema, jsonValidatorError("表单校验失败。")),
     async (c) => {
-      const { activeOrg } = c.var;
-      if (!activeOrg) {
-        return c.json({ message: "Unauthorized" }, 401);
-      }
       const id = c.req.param("id");
-      const existing = await loadDepartmentById(id, activeOrg.id);
+      const existing = await loadDepartmentById(id);
       if (!existing) {
         return c.json({ error: "部门不存在。" }, 404);
       }
@@ -118,20 +79,16 @@ export const departmentsRouter = factory
           name: input.name.trim(),
           updatedAt: now,
         })
-        .where(and(eq(department.id, id), eq(department.organizationId, activeOrg.id)));
+        .where(eq(department.id, id));
 
       safeUpdateTag("departments");
-      const updated = await loadDepartmentById(id, activeOrg.id);
+      const updated = await loadDepartmentById(id);
       return c.json(updated, 200);
     },
   )
-  .delete("/:id", requirePermission("department", "delete"), async (c) => {
-    const { activeOrg } = c.var;
-    if (!activeOrg) {
-      return c.json({ message: "Unauthorized" }, 401);
-    }
+  .delete("/:id", async (c) => {
     const id = c.req.param("id");
-    const existing = await loadDepartmentById(id, activeOrg.id);
+    const existing = await loadDepartmentById(id);
     if (!existing) {
       return c.json({ error: "部门不存在。" }, 404);
     }
@@ -141,9 +98,7 @@ export const departmentsRouter = factory
       return c.json({ error: "该部门下仍有面试官或在招岗位，无法删除。", refs }, 400);
     }
 
-    await db
-      .delete(department)
-      .where(and(eq(department.id, id), eq(department.organizationId, activeOrg.id)));
+    await db.delete(department).where(eq(department.id, id));
     safeUpdateTag("departments");
     return c.json({ success: true }, 200);
   });

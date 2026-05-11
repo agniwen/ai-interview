@@ -6,23 +6,13 @@ import { useEffect, useMemo } from "react";
 import type { ChatSessionPathUpdatedDetail } from "@/app/(auth)/chat/_lib/chat-events";
 import { CHAT_EVENTS } from "@/app/(auth)/chat/_lib/chat-events";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { authClient } from "@/lib/client/auth-client";
 
 type SidebarTabValue = "chat" | "studio";
 
-// 从 pathname 解析当前 workspace slug；非 /w/[slug]/* 路径返回 null。
-// Studio 已经平移到 /w/[slug]/studio/*，所以切到 Studio tab 时必须带上 slug。
-// Chat 仍然挂在顶层 /chat,不与 workspace 路径耦合。
-function extractWorkspaceSlug(pathname: string): string | null {
-  const match = pathname.match(/^\/w\/([^/]+)(?:\/|$)/);
-  return match?.[1] ?? null;
-}
-
-function studioDefaultPath(slug: string | null): string | null {
-  return slug ? `/w/${slug}/studio/interviews` : null;
-}
-
-const CHAT_DEFAULT_PATH = "/chat";
+const TAB_ROUTES: Record<SidebarTabValue, string> = {
+  chat: "/chat",
+  studio: "/studio/interviews",
+};
 
 const tabLastPathAtom = atom<Record<SidebarTabValue, string | null>>({
   chat: null,
@@ -30,7 +20,7 @@ const tabLastPathAtom = atom<Record<SidebarTabValue, string | null>>({
 });
 
 function resolveActiveTab(pathname: string): SidebarTabValue | null {
-  if (pathname.startsWith("/w/") && pathname.includes("/studio")) {
+  if (pathname.startsWith("/studio")) {
     return "studio";
   }
 
@@ -41,13 +31,11 @@ function resolveActiveTab(pathname: string): SidebarTabValue | null {
   return null;
 }
 
-export function SidebarTabs() {
+export function SidebarTabs({ canAccessAdmin }: { canAccessAdmin: boolean }) {
   const pathname = usePathname();
   const router = useRouter();
   const activeTab = useMemo(() => resolveActiveTab(pathname), [pathname]);
-  const currentSlug = useMemo(() => extractWorkspaceSlug(pathname), [pathname]);
   const [tabLastPath, setTabLastPath] = useAtom(tabLastPathAtom);
-  const activeOrganization = authClient.useActiveOrganization();
 
   // Keep the active tab's last-visited path in sync so that tab switching
   // can restore it on return.
@@ -67,14 +55,11 @@ export function SidebarTabs() {
   // first switch. Re-runs when the remembered last-path changes.
   // 预取另一侧 tab 的路由，避免首次切换时拉 chunk + RSC 造成卡顿。
   useEffect(() => {
-    const studioDefault = studioDefaultPath(currentSlug || activeOrganization.data?.slug || null);
-    const chatTarget = tabLastPath.chat ?? CHAT_DEFAULT_PATH;
-    const studioTarget = tabLastPath.studio ?? studioDefault;
+    const chatTarget = tabLastPath.chat ?? TAB_ROUTES.chat;
+    const studioTarget = tabLastPath.studio ?? TAB_ROUTES.studio;
     const otherTarget = activeTab === "studio" ? chatTarget : studioTarget;
-    if (otherTarget) {
-      router.prefetch(otherTarget);
-    }
-  }, [activeTab, currentSlug, router, tabLastPath.chat, tabLastPath.studio, activeOrganization]);
+    router.prefetch(otherTarget);
+  }, [activeTab, router, tabLastPath.chat, tabLastPath.studio]);
 
   // The chat page transitions from `/chat` to `/chat/[sessionId]` via
   // `history.replaceState` (soft URL update, invisible to Next's router)
@@ -99,25 +84,15 @@ export function SidebarTabs() {
     };
   }, [setTabLastPath]);
 
+  if (!canAccessAdmin) {
+    return null;
+  }
+
   const handleChange = (value: string) => {
     const nextTab = value as SidebarTabValue;
+    const target = tabLastPath[nextTab] ?? TAB_ROUTES[nextTab];
 
-    // tab 上次记录的路径优先；否则用默认值（studio 必须依赖当前 slug）。
-    let target = tabLastPath[nextTab];
-    if (!target) {
-      target =
-        nextTab === "chat"
-          ? CHAT_DEFAULT_PATH
-          : studioDefaultPath(currentSlug || activeOrganization.data?.slug || null);
-    }
-
-    // studio 切换缺 slug 时无法构造路径——返回首页让根路由解析活跃 workspace。
-    if (!target) {
-      router.push("/");
-      return;
-    }
-
-    if (target !== pathname) {
+    if (target && target !== pathname) {
       router.push(target);
     }
   };
@@ -130,8 +105,8 @@ export function SidebarTabs() {
       // would route us back to the wrong tab.
       activationMode="manual"
       className="w-full group-data-[collapsible=icon]:hidden"
-      value={activeTab ?? "chat"}
       onValueChange={handleChange}
+      value={activeTab ?? "chat"}
     >
       <TabsList className="w-full">
         <TabsTrigger value="chat">Chat</TabsTrigger>

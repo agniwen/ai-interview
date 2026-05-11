@@ -118,7 +118,7 @@ const SELECTED_COLUMNS = {
   createdAt: studioInterview.createdAt,
   createdBy: studioInterview.createdBy,
   creatorName: user.name,
-  creatorOrganizationName: user.feishuTenantName,
+  creatorOrganizationName: user.organizationName,
   id: studioInterview.id,
   interviewQuestions: studioInterview.interviewQuestions,
   jobDescriptionId: studioInterview.jobDescriptionId,
@@ -133,7 +133,6 @@ const SELECTED_COLUMNS = {
 } as const;
 
 async function listStudioInterviewRows({
-  organizationId,
   search,
   statuses,
   sortBy = "createdAt",
@@ -141,7 +140,6 @@ async function listStudioInterviewRows({
   limit,
   offset,
 }: {
-  organizationId: string;
   search?: string;
   statuses?: z.infer<typeof studioInterviewStatusSchema>[];
   sortBy?: SortColumn;
@@ -150,8 +148,7 @@ async function listStudioInterviewRows({
   offset?: number;
 }) {
   const matchingScheduleRecordIds = search ? await findMatchingScheduleRecordIds(search) : [];
-  const filterWhere = buildWhereConditions({ matchingScheduleRecordIds, search, statuses });
-  const where = and(eq(studioInterview.organizationId, organizationId), filterWhere);
+  const where = buildWhereConditions({ matchingScheduleRecordIds, search, statuses });
 
   let query = db
     .select(SELECTED_COLUMNS)
@@ -173,17 +170,14 @@ async function listStudioInterviewRows({
 }
 
 async function countStudioInterviewRows({
-  organizationId,
   search,
   statuses,
 }: {
-  organizationId: string;
   search?: string;
   statuses?: z.infer<typeof studioInterviewStatusSchema>[];
 }) {
   const matchingScheduleRecordIds = search ? await findMatchingScheduleRecordIds(search) : [];
-  const filterWhere = buildWhereConditions({ matchingScheduleRecordIds, search, statuses });
-  const where = and(eq(studioInterview.organizationId, organizationId), filterWhere);
+  const where = buildWhereConditions({ matchingScheduleRecordIds, search, statuses });
 
   const [result] = await db.select({ count: count() }).from(studioInterview).where(where);
   return result?.count ?? 0;
@@ -288,15 +282,12 @@ export function parsePagination(params?: Record<string, unknown>): StudioIntervi
   return studioInterviewPaginationSchema.parse(params ?? {});
 }
 
-async function queryStudioInterviewRecords(
-  organizationId: string,
-  filters?: {
-    search?: string | null;
-    status?: string | null;
-  },
-) {
+async function queryStudioInterviewRecords(filters?: {
+  search?: string | null;
+  status?: string | null;
+}) {
   const { search, statuses } = parseFilters(filters);
-  const records = await listStudioInterviewRows({ organizationId, search, statuses });
+  const records = await listStudioInterviewRows({ search, statuses });
   const scheduleEntries = await loadScheduleEntries(records.map((record) => record.id));
   const entriesByRecordId = groupScheduleEntries(scheduleEntries);
 
@@ -306,7 +297,6 @@ async function queryStudioInterviewRecords(
 }
 
 async function queryPaginatedStudioInterviewRecords(
-  organizationId: string,
   filters?: { search?: string | null; status?: string | null },
   pagination?: Record<string, unknown>,
 ): Promise<PaginatedStudioInterviewResult> {
@@ -315,16 +305,8 @@ async function queryPaginatedStudioInterviewRecords(
   const offset = (page - 1) * pageSize;
 
   const [records, total] = await Promise.all([
-    listStudioInterviewRows({
-      limit: pageSize,
-      offset,
-      organizationId,
-      search,
-      sortBy,
-      sortOrder,
-      statuses,
-    }),
-    countStudioInterviewRows({ organizationId, search, statuses }),
+    listStudioInterviewRows({ limit: pageSize, offset, search, sortBy, sortOrder, statuses }),
+    countStudioInterviewRows({ search, statuses }),
   ]);
 
   const scheduleEntries = await loadScheduleEntries(records.map((record) => record.id));
@@ -348,19 +330,13 @@ export interface StudioInterviewSummary {
   rounds: number;
 }
 
-async function queryStudioInterviewSummary(
-  organizationId: string,
-): Promise<StudioInterviewSummary> {
+async function queryStudioInterviewSummary(): Promise<StudioInterviewSummary> {
   const [statusRows, [roundsRow]] = await Promise.all([
     db
       .select({ count: count(), status: studioInterview.status })
       .from(studioInterview)
-      .where(eq(studioInterview.organizationId, organizationId))
       .groupBy(studioInterview.status),
-    db
-      .select({ count: count() })
-      .from(studioInterviewSchedule)
-      .where(eq(studioInterviewSchedule.organizationId, organizationId)),
+    db.select({ count: count() }).from(studioInterviewSchedule),
   ]);
 
   let total = 0;
@@ -386,7 +362,6 @@ async function queryStudioInterviewSummary(
 /** Cached version for Server Components */
 // oxlint-disable-next-line require-await -- "use cache" requires the function be async.
 export async function listStudioInterviewRecords(
-  organizationId: string,
   filters?: { search?: string | null; status?: string | null },
   pagination?: Record<string, unknown>,
 ) {
@@ -394,7 +369,7 @@ export async function listStudioInterviewRecords(
   cacheTag("studio-interviews");
   cacheLife("minutes");
 
-  return queryPaginatedStudioInterviewRecords(organizationId, filters, pagination);
+  return queryPaginatedStudioInterviewRecords(filters, pagination);
 }
 
 // ---------------------------------------------------------------------------
@@ -424,14 +399,11 @@ function normalizeForDedup(value: string | null) {
   return value?.trim().toLowerCase() ?? "";
 }
 
-async function queryInterviewDedup(
-  organizationId: string,
-  input: {
-    name?: string | null;
-    email?: string | null;
-    phone?: string | null;
-  },
-): Promise<DedupMatchRecord[]> {
+async function queryInterviewDedup(input: {
+  name?: string | null;
+  email?: string | null;
+  phone?: string | null;
+}): Promise<DedupMatchRecord[]> {
   const name = input.name?.trim();
   const email = input.email?.trim();
   const phone = input.phone?.trim();
@@ -469,7 +441,7 @@ async function queryInterviewDedup(
     })
     .from(studioInterview)
     .leftJoin(jobDescription, eq(studioInterview.jobDescriptionId, jobDescription.id))
-    .where(and(eq(studioInterview.organizationId, organizationId), or(...conditions)))
+    .where(or(...conditions))
     .orderBy(desc(studioInterview.createdAt))
     .limit(DEDUP_LIMIT);
 

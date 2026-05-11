@@ -3,7 +3,6 @@ import {
   account,
   interviewConversation,
   interviewNotification,
-  organization,
   studioInterview,
 } from "@/lib/shared/db/schema";
 import { db } from "@/lib/server/db";
@@ -32,20 +31,17 @@ function isFeishuProviderId(value: string): value is FeishuProviderId {
   return (FEISHU_PROVIDER_IDS as readonly string[]).includes(value);
 }
 
-function buildStudioUrl(interviewRecordId: string, organizationSlug: string | null): string {
+function buildStudioUrl(interviewRecordId: string): string {
   const baseUrl = process.env.BETTER_AUTH_URL ?? "http://localhost:3000";
-  // 多租户路径：/w/[slug]/studio/interviews。
-  // organizationSlug 缺失时仍可生成根路径,由 src/app/page.tsx 解析活跃 workspace。
-  const root = baseUrl.replace(/\/$/, "");
-  const prefix = organizationSlug ? `/w/${encodeURIComponent(organizationSlug)}` : "";
-  return `${root}${prefix}/studio/interviews?recordId=${encodeURIComponent(interviewRecordId)}`;
+  return `${baseUrl.replace(/\/$/, "")}/studio/interviews?recordId=${encodeURIComponent(
+    interviewRecordId,
+  )}`;
 }
 
 interface NotificationCardInput {
   candidateName: string;
   evaluation: Record<string, unknown>;
   interviewRecordId: string;
-  organizationSlug: string | null;
   summary: string | null;
   targetRole: string | null;
 }
@@ -67,7 +63,7 @@ function buildNotificationCard(input: NotificationCardInput) {
   const card = InterviewSummaryCard({
     assessment,
     candidateName: input.candidateName,
-    detailUrl: buildStudioUrl(input.interviewRecordId, input.organizationSlug),
+    detailUrl: buildStudioUrl(input.interviewRecordId),
     overallScore,
     recommendation,
     summary: input.summary,
@@ -83,15 +79,12 @@ async function loadNotificationContext(options: SummaryReadyNotificationOptions)
       candidateName: studioInterview.candidateName,
       createdBy: studioInterview.createdBy,
       evaluationCriteriaResults: interviewConversation.evaluationCriteriaResults,
-      organizationId: studioInterview.organizationId,
-      organizationSlug: organization.slug,
       summaryStatus: interviewConversation.summaryStatus,
       targetRole: studioInterview.targetRole,
       transcriptSummary: interviewConversation.transcriptSummary,
     })
     .from(interviewConversation)
     .innerJoin(studioInterview, eq(interviewConversation.interviewRecordId, studioInterview.id))
-    .leftJoin(organization, eq(studioInterview.organizationId, organization.id))
     .where(eq(interviewConversation.conversationId, options.conversationId))
     .limit(1);
 
@@ -134,12 +127,10 @@ async function loadRecipientAccounts(userId: string): Promise<RecipientAccount[]
 async function claimNotification({
   conversationId,
   interviewRecordId,
-  organizationId,
   recipient,
 }: {
   conversationId: string;
   interviewRecordId: string;
-  organizationId: string | null;
   recipient: RecipientAccount;
 }) {
   const [existing] = await db
@@ -185,7 +176,6 @@ async function claimNotification({
       conversationId,
       id: crypto.randomUUID(),
       interviewRecordId,
-      organizationId: organizationId ?? "org_default",
       providerId: recipient.providerId,
       recipientOpenId: recipient.accountId,
       recipientUserId: recipient.userId,
@@ -246,7 +236,6 @@ export async function notifyInterviewSummaryReady(
     candidateName: context.candidateName,
     evaluation: context.evaluationCriteriaResults ?? {},
     interviewRecordId: options.interviewRecordId,
-    organizationSlug: context.organizationSlug ?? null,
     summary: context.transcriptSummary,
     targetRole: context.targetRole,
   });
@@ -255,7 +244,6 @@ export async function notifyInterviewSummaryReady(
     const notificationId = await claimNotification({
       conversationId: options.conversationId,
       interviewRecordId: options.interviewRecordId,
-      organizationId: context.organizationId ?? null,
       recipient,
     });
     if (!notificationId) {

@@ -1,6 +1,5 @@
 import { zValidator } from "@hono/zod-validator";
-import { and, eq } from "drizzle-orm";
-import { z } from "zod";
+import { eq } from "drizzle-orm";
 import { db } from "@/lib/server/db";
 import { department, interviewer } from "@/lib/shared/db/schema";
 import { interviewerFormSchema, interviewerUpdateSchema } from "@/lib/shared/interviewers";
@@ -13,7 +12,6 @@ import {
   serializeInterviewer,
 } from "@/server/routes/studio/routes/interviewers/dao";
 import { safeUpdateTag } from "@/server/cache-tags";
-import { requirePermission } from "@/server/middlewares/permission";
 
 async function validateDepartmentExists(departmentId: string): Promise<boolean> {
   const [row] = await db
@@ -24,60 +22,31 @@ async function validateDepartmentExists(departmentId: string): Promise<boolean> 
   return !!row;
 }
 
-const interviewerListQuerySchema = z.object({
-  departmentId: z.string().optional(),
-  page: z.string().optional(),
-  pageSize: z.string().optional(),
-  search: z.string().optional(),
-  sortBy: z.string().optional(),
-  sortOrder: z.string().optional(),
-});
-
 export const interviewersRouter = factory
   .createApp()
-  .get(
-    "/",
-    requirePermission("interviewer", "read"),
-    zValidator("query", interviewerListQuerySchema, jsonValidatorError("查询参数无效。")),
-    async (c) => {
-      const { activeOrg } = c.var;
-      if (!activeOrg) {
-        return c.json({ message: "Unauthorized" }, 401);
-      }
-      const q = c.req.valid("query");
-      const result = await queryPaginatedInterviewers(
-        activeOrg.id,
-        {
-          departmentId: q.departmentId,
-          search: q.search,
-        },
-        {
-          page: q.page,
-          pageSize: q.pageSize,
-          sortBy: q.sortBy,
-          sortOrder: q.sortOrder,
-        },
-      );
-      return c.json(result, 200);
-    },
-  )
-  .get("/all", requirePermission("interviewer", "read"), async (c) => {
-    const { activeOrg } = c.var;
-    if (!activeOrg) {
-      return c.json({ message: "Unauthorized" }, 401);
-    }
-    const records = await listAllInterviewers(activeOrg.id);
+  .get("/", async (c) => {
+    const result = await queryPaginatedInterviewers(
+      {
+        departmentId: c.req.query("departmentId"),
+        search: c.req.query("search"),
+      },
+      {
+        page: c.req.query("page"),
+        pageSize: c.req.query("pageSize"),
+        sortBy: c.req.query("sortBy"),
+        sortOrder: c.req.query("sortOrder"),
+      },
+    );
+    return c.json(result, 200);
+  })
+  .get("/all", async (c) => {
+    const records = await listAllInterviewers();
     return c.json({ records }, 200);
   })
   .post(
     "/",
-    requirePermission("interviewer", "create"),
     zValidator("json", interviewerFormSchema, jsonValidatorError("表单校验失败。")),
     async (c) => {
-      const { activeOrg } = c.var;
-      if (!activeOrg) {
-        return c.json({ message: "Unauthorized" }, 401);
-      }
       const input = c.req.valid("json");
       const hasDepartment = await validateDepartmentExists(input.departmentId);
       if (!hasDepartment) {
@@ -92,7 +61,6 @@ export const interviewersRouter = factory
         description: input.description?.trim() || null,
         id: crypto.randomUUID(),
         name: input.name.trim(),
-        organizationId: activeOrg.id,
         prompt: input.prompt.trim(),
         updatedAt: now,
         voice: input.voice,
@@ -104,13 +72,9 @@ export const interviewersRouter = factory
       return c.json(serializeInterviewer(record), 201);
     },
   )
-  .get("/:id", requirePermission("interviewer", "read"), async (c) => {
-    const { activeOrg } = c.var;
-    if (!activeOrg) {
-      return c.json({ message: "Unauthorized" }, 401);
-    }
+  .get("/:id", async (c) => {
     const id = c.req.param("id");
-    const record = await loadInterviewerById(id, activeOrg.id);
+    const record = await loadInterviewerById(id);
     if (!record) {
       return c.json({ error: "面试官不存在。" }, 404);
     }
@@ -118,15 +82,10 @@ export const interviewersRouter = factory
   })
   .patch(
     "/:id",
-    requirePermission("interviewer", "update"),
     zValidator("json", interviewerUpdateSchema, jsonValidatorError("表单校验失败。")),
     async (c) => {
-      const { activeOrg } = c.var;
-      if (!activeOrg) {
-        return c.json({ message: "Unauthorized" }, 401);
-      }
       const id = c.req.param("id");
-      const existing = await loadInterviewerById(id, activeOrg.id);
+      const existing = await loadInterviewerById(id);
       if (!existing) {
         return c.json({ error: "面试官不存在。" }, 404);
       }
@@ -150,20 +109,16 @@ export const interviewersRouter = factory
           updatedAt: now,
           voice: input.voice,
         })
-        .where(and(eq(interviewer.id, id), eq(interviewer.organizationId, activeOrg.id)));
+        .where(eq(interviewer.id, id));
 
       safeUpdateTag("interviewers");
-      const updated = await loadInterviewerById(id, activeOrg.id);
+      const updated = await loadInterviewerById(id);
       return c.json(updated, 200);
     },
   )
-  .delete("/:id", requirePermission("interviewer", "delete"), async (c) => {
-    const { activeOrg } = c.var;
-    if (!activeOrg) {
-      return c.json({ message: "Unauthorized" }, 401);
-    }
+  .delete("/:id", async (c) => {
     const id = c.req.param("id");
-    const existing = await loadInterviewerById(id, activeOrg.id);
+    const existing = await loadInterviewerById(id);
     if (!existing) {
       return c.json({ error: "面试官不存在。" }, 404);
     }
@@ -173,9 +128,7 @@ export const interviewersRouter = factory
       return c.json({ error: "该面试官仍被在招岗位引用，无法删除。", refs }, 400);
     }
 
-    await db
-      .delete(interviewer)
-      .where(and(eq(interviewer.id, id), eq(interviewer.organizationId, activeOrg.id)));
+    await db.delete(interviewer).where(eq(interviewer.id, id));
     safeUpdateTag("interviewers");
     return c.json({ success: true }, 200);
   });

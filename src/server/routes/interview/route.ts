@@ -72,26 +72,14 @@ export const interviewRouter = factory
     "/match-job-description",
     zValidator(
       "json",
-      z.object({
-        interviewRecordId: z.string().optional(),
-        resumeProfile: resumeProfileSchema,
-      }),
+      z.object({ resumeProfile: resumeProfileSchema }),
       jsonValidatorError("缺少候选人信息 (resumeProfile)。"),
     ),
     async (c) => {
-      const { interviewRecordId, resumeProfile } = c.req.valid("json");
+      const { resumeProfile } = c.req.valid("json");
 
       try {
-        let orgId = "org_default";
-        if (interviewRecordId) {
-          const [row] = await db
-            .select({ organizationId: studioInterview.organizationId })
-            .from(studioInterview)
-            .where(eq(studioInterview.id, interviewRecordId))
-            .limit(1);
-          orgId = row?.organizationId ?? "org_default";
-        }
-        const jobDescriptions = await listAllJobDescriptions(orgId);
+        const jobDescriptions = await listAllJobDescriptions();
         if (jobDescriptions.length === 0) {
           return c.json({ matchedId: null, reason: null }, 200);
         }
@@ -287,12 +275,7 @@ export const interviewRouter = factory
     // When the JD has multiple interviewers, the agent picks one at random.
     // 全局配置（公司背景、开场/结束指令）在颁发 token 前读取并注入。
     // Global config (company context, opening/closing instructions) is read before token issuance and injected here.
-    // Candidate-facing route has no authenticated org context; derive the org from the
-    // interview record itself. Records without an organizationId are pre-migration legacy
-    // rows whose config lives under the "singleton" PK — "org_default" resolves to that
-    // backfill bucket and returns empty defaults gracefully when no row exists.
-    const globalCfgOrgId = interviewRecord.organizationId ?? "org_default";
-    const globalCfg = await getGlobalConfig(globalCfgOrgId);
+    const globalCfg = await getGlobalConfig();
     // 录像开关：S3 凭据齐全才让 Agent 启动 Egress；候选人浏览器拒绝摄像头时
     // 由前端在 /api/interview/.../recording-skipped 之类的通道反馈（这里只判服务端能力）。
     // Recording switch: only enable when S3 creds are present so the agent can write to storage.
@@ -481,7 +464,6 @@ export const interviewRouter = factory
           answers: parsed.data,
           id: submissionId,
           interviewRecordId: id,
-          organizationId: interviewRecord.organizationId ?? "org_default",
           submittedAt: now,
           templateId,
           versionId,

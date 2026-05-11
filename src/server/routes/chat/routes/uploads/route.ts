@@ -53,11 +53,8 @@ function buildUploadResponse(args: {
 export const uploadsRouter = factory
   .createApp()
   .post("/preflight", zValidator("json", uploadPreflightSchema), async (c) => {
-    const { user, activeOrg } = c.var;
+    const { user } = c.var;
     if (!user) {
-      return c.json({ error: "Unauthorized" }, 401);
-    }
-    if (!activeOrg) {
       return c.json({ error: "Unauthorized" }, 401);
     }
 
@@ -74,7 +71,6 @@ export const uploadsRouter = factory
       filename: filename.slice(0, 255),
       id: attachmentId,
       mediaType,
-      organizationId: activeOrg.id,
       parsedAt: existing.parsedAt,
       parsedError: existing.parsedError,
       parsedPageCount: existing.parsedPageCount,
@@ -100,11 +96,8 @@ export const uploadsRouter = factory
     });
   })
   .post("/", async (c) => {
-    const { user, activeOrg } = c.var;
+    const { user } = c.var;
     if (!user) {
-      return c.json({ error: "Unauthorized" }, 401);
-    }
-    if (!activeOrg) {
       return c.json({ error: "Unauthorized" }, 401);
     }
 
@@ -143,7 +136,6 @@ export const uploadsRouter = factory
         filename,
         id: attachmentId,
         mediaType: file.type,
-        organizationId: activeOrg.id,
         parsedAt: existing.parsedAt,
         parsedError: existing.parsedError,
         parsedPageCount: existing.parsedPageCount,
@@ -219,7 +211,6 @@ export const uploadsRouter = factory
       filename,
       id: attachmentId,
       mediaType: file.type,
-      organizationId: activeOrg.id,
       size: file.size,
       storageKey,
       userId: user.id,

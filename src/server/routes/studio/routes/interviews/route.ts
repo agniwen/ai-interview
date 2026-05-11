@@ -55,7 +55,6 @@ import {
   storeInterviewResume,
   toBadRequest,
 } from "@/server/routes/interview/utils";
-import { requirePermission } from "@/server/middlewares/permission";
 import { safeUpdateTag } from "@/server/cache-tags";
 import { getObjectStream, presignGetObjectUrl } from "@/lib/server/s3";
 
@@ -67,25 +66,16 @@ const dedupCheckInputSchema = z.object({
 
 export const studioInterviewsRouter = factory
   .createApp()
-  .get("/summary", requirePermission("interview", "read"), async (c) => {
-    const { activeOrg } = c.var;
-    if (!activeOrg) {
-      return c.json({ message: "Unauthorized" }, 401);
-    }
-    const summary = await queryStudioInterviewSummary(activeOrg.id);
+  .get("/summary", async (c) => {
+    const summary = await queryStudioInterviewSummary();
     return c.json(summary, 200);
   })
   .post(
     "/dedup-check",
-    requirePermission("interview", "read"),
     zValidator("json", dedupCheckInputSchema, jsonValidatorError("请求参数无效。")),
     async (c) => {
-      const { activeOrg } = c.var;
-      if (!activeOrg) {
-        return c.json({ message: "Unauthorized" }, 401);
-      }
       const input = c.req.valid("json");
-      const matches = await queryInterviewDedup(activeOrg.id, {
+      const matches = await queryInterviewDedup({
         email: input.email ?? null,
         name: input.name ?? null,
         phone: input.phone ?? null,
@@ -93,50 +83,24 @@ export const studioInterviewsRouter = factory
       return c.json({ matches }, 200);
     },
   )
-  .get(
-    "/",
-    requirePermission("interview", "read"),
-    zValidator(
-      "query",
-      z.object({
-        page: z.string().optional(),
-        pageSize: z.string().optional(),
-        search: z.string().optional(),
-        sortBy: z.string().optional(),
-        sortOrder: z.string().optional(),
-        status: z.string().optional(),
-      }),
-      jsonValidatorError("查询参数无效。"),
-    ),
-    async (c) => {
-      const { activeOrg } = c.var;
-      if (!activeOrg) {
-        return c.json({ message: "Unauthorized" }, 401);
-      }
-      const q = c.req.valid("query");
-      const result = await queryPaginatedStudioInterviewRecords(
-        activeOrg.id,
-        {
-          search: q.search,
-          status: q.status,
-        },
-        {
-          page: q.page,
-          pageSize: q.pageSize,
-          sortBy: q.sortBy,
-          sortOrder: q.sortOrder,
-        },
-      );
+  .get("/", async (c) => {
+    const result = await queryPaginatedStudioInterviewRecords(
+      {
+        search: c.req.query("search"),
+        status: c.req.query("status"),
+      },
+      {
+        page: c.req.query("page"),
+        pageSize: c.req.query("pageSize"),
+        sortBy: c.req.query("sortBy"),
+        sortOrder: c.req.query("sortOrder"),
+      },
+    );
 
-      return c.json(result, 200);
-    },
-  )
+    return c.json(result, 200);
+  })
   // oxlint-disable-next-line complexity -- CRUD handler orchestrates parse → validate → persist in one flow.
-  .post("/", requirePermission("interview", "create"), async (c) => {
-    const { activeOrg } = c.var;
-    if (!activeOrg) {
-      return c.json({ message: "Unauthorized" }, 401);
-    }
+  .post("/", async (c) => {
     try {
       const formData = await c.req.formData();
       const resume = normalizeResumeFile(formData.get("resume"));
@@ -172,7 +136,7 @@ export const studioInterviewsRouter = factory
       const interviewRecordId = crypto.randomUUID();
       const uploadResult =
         resume && c.var.user
-          ? await storeInterviewResume(interviewRecordId, resume, c.var.user.id, activeOrg.id)
+          ? await storeInterviewResume(interviewRecordId, resume, c.var.user.id)
           : null;
       const resumeStorageKey = uploadResult?.storageKey ?? null;
       const resumeContentHash = uploadResult?.contentHash ?? null;
@@ -204,7 +168,6 @@ export const studioInterviewsRouter = factory
         interviewQuestions: analysis?.interviewQuestions ?? manualInterviewQuestions ?? [],
         jobDescriptionId: input.data.jobDescriptionId || null,
         notes: input.data.notes || null,
-        organizationId: activeOrg.id,
         resumeContentHash,
         resumeFileName: analysis?.fileName ?? resume?.name ?? null,
         resumeProfile: analysis?.resumeProfile ?? null,
@@ -213,12 +176,7 @@ export const studioInterviewsRouter = factory
         targetRole: input.data.targetRole || analysis?.resumeProfile.targetRoles[0] || null,
         updatedAt: now,
       } satisfies typeof studioInterview.$inferInsert;
-      const scheduleRows = buildScheduleRows(
-        activeOrg.id,
-        interviewRecordId,
-        input.data.scheduleEntries,
-        now,
-      );
+      const scheduleRows = buildScheduleRows(interviewRecordId, input.data.scheduleEntries, now);
 
       await db.transaction(async (tx) => {
         await tx.insert(studioInterview).values(record);
@@ -233,13 +191,9 @@ export const studioInterviewsRouter = factory
       return c.json({ error: result.error }, { status: result.status as ContentfulStatusCode });
     }
   })
-  .get("/:id", requirePermission("interview", "read"), async (c) => {
-    const { activeOrg } = c.var;
-    if (!activeOrg) {
-      return c.json({ message: "Unauthorized" }, 401);
-    }
+  .get("/:id", async (c) => {
     const id = c.req.param("id");
-    const record = await loadRecordById(id, activeOrg.id);
+    const record = await loadRecordById(id);
 
     if (!record) {
       return c.json({ error: "记录不存在。" }, 404);
@@ -247,13 +201,9 @@ export const studioInterviewsRouter = factory
 
     return c.json(record, 200);
   })
-  .get("/:id/resume", requirePermission("interview", "read"), async (c) => {
-    const { activeOrg } = c.var;
-    if (!activeOrg) {
-      return c.json({ message: "Unauthorized" }, 401);
-    }
+  .get("/:id/resume", async (c) => {
     const id = c.req.param("id");
-    const existing = await loadRecordById(id, activeOrg.id);
+    const existing = await loadRecordById(id);
 
     if (!existing) {
       return c.json({ error: "记录不存在。" }, 404);
@@ -280,13 +230,9 @@ export const studioInterviewsRouter = factory
       },
     });
   })
-  .get("/:id/agent-instructions", requirePermission("interview", "read"), async (c) => {
-    const { activeOrg } = c.var;
-    if (!activeOrg) {
-      return c.json({ message: "Unauthorized" }, 401);
-    }
+  .get("/:id/agent-instructions", async (c) => {
     const id = c.req.param("id");
-    const existing = await loadRecordById(id, activeOrg.id);
+    const existing = await loadRecordById(id);
 
     if (!existing) {
       return c.json({ error: "记录不存在。" }, 404);
@@ -322,7 +268,7 @@ export const studioInterviewsRouter = factory
 
     // 注入全局配置（公司情况 / 开场白 / 结束语），保证预览与运行时一致。
     // Inject global config so the preview matches what the agent will receive.
-    const globalCfg = await getGlobalConfig(activeOrg.id);
+    const globalCfg = await getGlobalConfig();
     const candidateName = existing.candidateName?.trim() || "候选人";
     const targetRole = existing.targetRole?.trim() || "未指定岗位";
     const openingPrompt = resolveOpeningPrompt(
@@ -371,13 +317,9 @@ export const studioInterviewsRouter = factory
 
     return c.json({ variants }, 200);
   })
-  .get("/:id/reports", requirePermission("interview", "read"), async (c) => {
-    const { activeOrg } = c.var;
-    if (!activeOrg) {
-      return c.json({ message: "Unauthorized" }, 401);
-    }
+  .get("/:id/reports", async (c) => {
     const id = c.req.param("id");
-    const existing = await loadRecordById(id, activeOrg.id);
+    const existing = await loadRecordById(id);
 
     if (!existing) {
       return c.json({ error: "记录不存在。" }, 404);
@@ -386,18 +328,14 @@ export const studioInterviewsRouter = factory
     const reports = await queryInterviewConversationReports(id);
     return c.json(reports, 200);
   })
-  .get("/:id/recordings/:conversationId", requirePermission("interview", "read"), async (c) => {
+  .get("/:id/recordings/:conversationId", async (c) => {
     // 返回该轮面试录像的 S3 预签名播放 URL (10 分钟有效).
     // Return a 10-min presigned URL so the browser can stream the round's
     // recording mp4 directly from S3.
-    const { activeOrg } = c.var;
-    if (!activeOrg) {
-      return c.json({ message: "Unauthorized" }, 401);
-    }
     const id = c.req.param("id");
     const conversationId = c.req.param("conversationId");
 
-    const existing = await loadRecordById(id, activeOrg.id);
+    const existing = await loadRecordById(id);
     if (!existing) {
       return c.json({ error: "记录不存在。" }, 404);
     }
@@ -443,13 +381,9 @@ export const studioInterviewsRouter = factory
       );
     }
   })
-  .get("/:id/form-submissions", requirePermission("interview", "read"), async (c) => {
-    const { activeOrg } = c.var;
-    if (!activeOrg) {
-      return c.json({ message: "Unauthorized" }, 401);
-    }
+  .get("/:id/form-submissions", async (c) => {
     const id = c.req.param("id");
-    const existing = await loadRecordById(id, activeOrg.id);
+    const existing = await loadRecordById(id);
 
     if (!existing) {
       return c.json({ error: "记录不存在。" }, 404);
@@ -458,49 +392,37 @@ export const studioInterviewsRouter = factory
     const submissions = await loadSubmissionsByInterview(id);
     return c.json({ submissions }, 200);
   })
-  .delete(
-    "/:id/form-submissions/:submissionId",
-    requirePermission("interview", "update"),
-    async (c) => {
-      const { activeOrg } = c.var;
-      if (!activeOrg) {
-        return c.json({ message: "Unauthorized" }, 401);
-      }
-      const id = c.req.param("id");
-      const submissionId = c.req.param("submissionId");
+  .delete("/:id/form-submissions/:submissionId", async (c) => {
+    const id = c.req.param("id");
+    const submissionId = c.req.param("submissionId");
 
-      const existing = await loadRecordById(id, activeOrg.id);
-      if (!existing) {
-        return c.json({ error: "记录不存在。" }, 404);
-      }
-
-      const result = await db
-        .delete(candidateFormSubmission)
-        .where(
-          and(
-            eq(candidateFormSubmission.id, submissionId),
-            eq(candidateFormSubmission.interviewRecordId, id),
-          ),
-        )
-        .returning({ id: candidateFormSubmission.id });
-
-      if (result.length === 0) {
-        return c.json({ error: "答卷不存在或已被重置。" }, 404);
-      }
-
-      return c.json({ success: true }, 200);
-    },
-  )
-  // oxlint-disable-next-line complexity -- Patch handler validates, normalizes, and coordinates schedule updates in one flow.
-  .patch("/:id", requirePermission("interview", "update"), async (c) => {
-    const { activeOrg } = c.var;
-    if (!activeOrg) {
-      return c.json({ message: "Unauthorized" }, 401);
+    const existing = await loadRecordById(id);
+    if (!existing) {
+      return c.json({ error: "记录不存在。" }, 404);
     }
+
+    const result = await db
+      .delete(candidateFormSubmission)
+      .where(
+        and(
+          eq(candidateFormSubmission.id, submissionId),
+          eq(candidateFormSubmission.interviewRecordId, id),
+        ),
+      )
+      .returning({ id: candidateFormSubmission.id });
+
+    if (result.length === 0) {
+      return c.json({ error: "答卷不存在或已被重置。" }, 404);
+    }
+
+    return c.json({ success: true }, 200);
+  })
+  // oxlint-disable-next-line complexity -- Patch handler validates, normalizes, and coordinates schedule updates in one flow.
+  .patch("/:id", async (c) => {
     const id = c.req.param("id");
 
     try {
-      const existing = await loadRecordById(id, activeOrg.id);
+      const existing = await loadRecordById(id);
 
       if (!existing) {
         return c.json({ error: "记录不存在。" }, 404);
@@ -544,9 +466,7 @@ export const studioInterviewsRouter = factory
       // and PUTting a hash-keyed object on a miss. analysis comes from
       // parsedResumePayload or remains the existing snapshot.
       const uploadResult =
-        resume && c.var.user
-          ? await storeInterviewResume(id, resume, c.var.user.id, activeOrg.id)
-          : null;
+        resume && c.var.user ? await storeInterviewResume(id, resume, c.var.user.id) : null;
       const resumeStorageKey = uploadResult?.storageKey ?? existing.resumeStorageKey;
       const resumeContentHash = resume
         ? (uploadResult?.contentHash ?? existing.resumeContentHash)
@@ -557,7 +477,6 @@ export const studioInterviewsRouter = factory
         .from(studioInterviewSchedule)
         .where(eq(studioInterviewSchedule.interviewRecordId, id));
       const scheduleRows = buildScheduleRows(
-        activeOrg.id,
         id,
         input.data.scheduleEntries,
         now,
@@ -610,20 +529,16 @@ export const studioInterviewsRouter = factory
       });
 
       safeUpdateTag("studio-interviews");
-      const updatedRecord = await loadRecordById(id, activeOrg.id);
+      const updatedRecord = await loadRecordById(id);
       return c.json(updatedRecord, 200);
     } catch (error) {
       const result = toBadRequest(error);
       return c.json({ error: result.error }, { status: result.status as ContentfulStatusCode });
     }
   })
-  .get("/:id/question-template-bindings", requirePermission("interview", "read"), async (c) => {
-    const { activeOrg } = c.var;
-    if (!activeOrg) {
-      return c.json({ message: "Unauthorized" }, 401);
-    }
+  .get("/:id/question-template-bindings", async (c) => {
     const id = c.req.param("id");
-    const existing = await loadRecordById(id, activeOrg.id);
+    const existing = await loadRecordById(id);
     if (!existing) {
       return c.json({ error: "记录不存在。" }, 404);
     }
@@ -635,19 +550,14 @@ export const studioInterviewsRouter = factory
   })
   .put(
     "/:id/question-template-bindings",
-    requirePermission("interview", "update"),
     zValidator(
       "json",
       z.object({ enabledTemplateIds: z.array(z.string().min(1)) }),
       jsonValidatorError("请求参数缺失。"),
     ),
     async (c) => {
-      const { activeOrg } = c.var;
-      if (!activeOrg) {
-        return c.json({ message: "Unauthorized" }, 401);
-      }
       const id = c.req.param("id");
-      const existing = await loadRecordById(id, activeOrg.id);
+      const existing = await loadRecordById(id);
       if (!existing) {
         return c.json({ error: "记录不存在。" }, 404);
       }
@@ -661,16 +571,12 @@ export const studioInterviewsRouter = factory
       return c.json(data, 200);
     },
   )
-  .post("/:id/rounds/:roundId/reset", requirePermission("interview", "update"), async (c) => {
-    const { activeOrg } = c.var;
-    if (!activeOrg) {
-      return c.json({ message: "Unauthorized" }, 401);
-    }
+  .post("/:id/rounds/:roundId/reset", async (c) => {
     const id = c.req.param("id");
     const roundId = c.req.param("roundId");
     const operatorId = c.var.user?.id ?? null;
 
-    const existing = await loadRecordById(id, activeOrg.id);
+    const existing = await loadRecordById(id);
 
     if (!existing) {
       return c.json({ error: "记录不存在。" }, 404);
@@ -731,19 +637,17 @@ export const studioInterviewsRouter = factory
         id: crypto.randomUUID(),
         interviewRecordId: id,
         operatorId,
-        organizationId: activeOrg.id,
         scheduleEntryId: roundId,
       });
     });
 
     safeUpdateTag("studio-interviews");
     safeUpdateTag("interview-conversations");
-    const updatedRecord = await loadRecordById(id, activeOrg.id);
+    const updatedRecord = await loadRecordById(id);
     return c.json(updatedRecord, 200);
   })
   .patch(
     "/:id/rounds/:roundId",
-    requirePermission("interview", "update"),
     zValidator(
       "json",
       z.object({ allowTextInput: z.boolean() }),
@@ -752,15 +656,11 @@ export const studioInterviewsRouter = factory
     async (c) => {
       // 单轮次内联编辑：当前仅支持切换"是否允许文本输入"。
       // Per-round inline edit: currently only toggles allowTextInput.
-      const { activeOrg } = c.var;
-      if (!activeOrg) {
-        return c.json({ message: "Unauthorized" }, 401);
-      }
       const id = c.req.param("id");
       const roundId = c.req.param("roundId");
       const { allowTextInput } = c.req.valid("json");
 
-      const existing = await loadRecordById(id, activeOrg.id);
+      const existing = await loadRecordById(id);
 
       if (!existing) {
         return c.json({ error: "记录不存在。" }, 404);
@@ -785,41 +685,30 @@ export const studioInterviewsRouter = factory
         .where(eq(studioInterviewSchedule.id, roundId));
 
       safeUpdateTag("studio-interviews");
-      const updatedRecord = await loadRecordById(id, activeOrg.id);
+      const updatedRecord = await loadRecordById(id);
       return c.json(updatedRecord, 200);
     },
   )
-  .delete("/:id", requirePermission("interview", "delete"), async (c) => {
-    const { activeOrg } = c.var;
-    if (!activeOrg) {
-      return c.json({ message: "Unauthorized" }, 401);
-    }
+  .delete("/:id", async (c) => {
     const id = c.req.param("id");
-    const existing = await loadRecordById(id, activeOrg.id);
+    const existing = await loadRecordById(id);
 
     if (!existing) {
       return c.json({ error: "记录不存在。" }, 404);
     }
 
-    await db
-      .delete(studioInterview)
-      .where(and(eq(studioInterview.id, id), eq(studioInterview.organizationId, activeOrg.id)));
+    await db.delete(studioInterview).where(eq(studioInterview.id, id));
     safeUpdateTag("studio-interviews");
     return c.json({ success: true }, 200);
   })
   .post(
     "/bulk-delete",
-    requirePermission("interview", "delete"),
     zValidator(
       "json",
       z.object({ ids: z.array(z.string()).nonempty() }),
       jsonValidatorError("缺少待删除的记录 ID。"),
     ),
     async (c) => {
-      const { activeOrg } = c.var;
-      if (!activeOrg) {
-        return c.json({ message: "Unauthorized" }, 401);
-      }
       const { ids: rawIds } = c.req.valid("json");
       const ids = rawIds.filter(
         (value): value is string => typeof value === "string" && value.length > 0,
@@ -831,9 +720,7 @@ export const studioInterviewsRouter = factory
 
       const result = await db
         .delete(studioInterview)
-        .where(
-          and(inArray(studioInterview.id, ids), eq(studioInterview.organizationId, activeOrg.id)),
-        )
+        .where(inArray(studioInterview.id, ids))
         .returning({ id: studioInterview.id });
 
       safeUpdateTag("studio-interviews");

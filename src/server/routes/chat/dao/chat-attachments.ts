@@ -32,7 +32,6 @@ function sanitizeParsedStructured(
 
 export interface CreateAttachmentInput {
   id: string;
-  organizationId: string;
   userId: string;
   filename: string;
   mediaType: string;
@@ -54,7 +53,6 @@ export async function createAttachment(input: CreateAttachmentInput): Promise<vo
     filename: input.filename,
     id: input.id,
     mediaType: input.mediaType,
-    organizationId: input.organizationId,
     parsedAt: input.parsedAt ?? null,
     parsedError: input.parsedError ?? null,
     parsedPageCount: input.parsedPageCount ?? null,

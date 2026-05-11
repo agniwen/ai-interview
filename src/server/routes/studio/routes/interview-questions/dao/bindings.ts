@@ -191,14 +191,6 @@ export async function autoBindApplicableTemplates(
     return;
   }
 
-  // 从 parent studio_interview 拿 organizationId, 新 binding 行必须打戳 (NOT NULL)。
-  const [parent] = await tx
-    .select({ organizationId: studioInterview.organizationId })
-    .from(studioInterview)
-    .where(eq(studioInterview.id, interviewRecordId))
-    .limit(1);
-  const organizationId = parent?.organizationId ?? "org_default";
-
   const existingBindings = await tx
     .select({ templateId: interviewQuestionTemplateBinding.templateId })
     .from(interviewQuestionTemplateBinding)
@@ -225,7 +217,6 @@ export async function autoBindApplicableTemplates(
       disabledByUser: false,
       id: crypto.randomUUID(),
       interviewRecordId,
-      organizationId,
       sortOrder: nextOrder,
       templateId: meta.id,
       versionId: version.id,

@@ -19,16 +19,6 @@ vi.mock("@/server/routes/studio/routes/global-config/dao", () => ({
   })),
 }));
 
-// Mock requirePermission to bypass auth check AND inject activeOrg so the
-// handler's guard does not return 401 in unit-test context.
-vi.mock("@/server/middlewares/permission", () => ({
-  requirePermission:
-    () => async (c: { set: (key: string, value: unknown) => void }, next: () => Promise<void>) => {
-      c.set("activeOrg", { id: "test-org" });
-      await next();
-    },
-}));
-
 function makeGetRequest() {
   return new Request("http://test/", {
     headers: { "content-type": "application/json" },
