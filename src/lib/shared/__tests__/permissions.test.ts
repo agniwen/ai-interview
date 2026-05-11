@@ -107,4 +107,40 @@ describe("permissions matrix", () => {
       expect(roles.hr.statements.auditLog).toBeUndefined();
     });
   });
+
+  describe("viewer role", () => {
+    it("exists", () => {
+      expect(roles.viewer).toBeDefined();
+    });
+
+    it("is read-only across business resources", () => {
+      const { viewer } = roles;
+      const readOnly = [
+        "interview",
+        "jd",
+        "department",
+        "interviewer",
+        "candidateForm",
+        "questionTemplate",
+      ] as const;
+      for (const r of readOnly) {
+        expect(viewer.statements[r]).toEqual(["read"]);
+      }
+    });
+
+    it("still has full chat CRUD", () => {
+      expect(roles.viewer.statements.chat).toEqual(
+        expect.arrayContaining(["create", "read", "update", "delete"]),
+      );
+    });
+
+    it("can read globalConfig but not update", () => {
+      const { viewer } = roles;
+      expect(viewer.statements.globalConfig).toEqual(["read"]);
+    });
+
+    it("has no auditLog access", () => {
+      expect(roles.viewer.statements.auditLog).toBeUndefined();
+    });
+  });
 });

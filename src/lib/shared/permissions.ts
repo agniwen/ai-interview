@@ -71,5 +71,17 @@ export const hr = ac.newRole({
   questionTemplate: ["create", "read", "update", "delete"],
 });
 
-export const roles = { admin, hr, owner } as const;
+export const viewer = ac.newRole({
+  ...memberAc.statements,
+  candidateForm: ["read"],
+  chat: ["create", "read", "update", "delete"],
+  department: ["read"],
+  globalConfig: ["read"],
+  interview: ["read"],
+  interviewer: ["read"],
+  jd: ["read"],
+  questionTemplate: ["read"],
+});
+
+export const roles = { admin, hr, owner, viewer } as const;
 export type AppRole = keyof typeof roles;
