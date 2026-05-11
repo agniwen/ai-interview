@@ -92,6 +92,11 @@ const navGroups: NavGroup[] = [
   {
     items: [
       {
+        icon: UserCogIcon,
+        path: "/studio/members",
+        title: "成员管理",
+      },
+      {
         adminOnly: true,
         icon: UserCogIcon,
         path: "/studio/system-management",
