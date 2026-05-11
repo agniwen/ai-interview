@@ -42,17 +42,21 @@ export interface PaginatedJobDescriptionResult {
 }
 
 function buildWhereConditions({
+  organizationId,
   search,
   departmentIds,
   interviewerIds,
   jdIdsForInterviewers,
 }: {
+  organizationId: string;
   search?: string;
   departmentIds?: string[];
   interviewerIds?: string[];
   jdIdsForInterviewers?: string[];
 }) {
-  const conditions = [] as (ReturnType<typeof ilike> | ReturnType<typeof eq>)[];
+  const conditions: (ReturnType<typeof ilike> | ReturnType<typeof eq>)[] = [
+    eq(jobDescription.organizationId, organizationId),
+  ];
   if (search) {
     const searchCond = or(
       ilike(jobDescription.name, `%${search}%`),
@@ -104,6 +108,7 @@ async function resolveJdIdsForInterviewers(
 }
 
 function listJobDescriptionRows({
+  organizationId,
   search,
   departmentIds,
   interviewerIds,
@@ -113,6 +118,7 @@ function listJobDescriptionRows({
   limit,
   offset,
 }: {
+  organizationId: string;
   search?: string;
   departmentIds?: string[];
   interviewerIds?: string[];
@@ -126,6 +132,7 @@ function listJobDescriptionRows({
     departmentIds,
     interviewerIds,
     jdIdsForInterviewers,
+    organizationId,
     search,
   });
 
@@ -159,11 +166,13 @@ function listJobDescriptionRows({
 }
 
 async function countJobDescriptionRows({
+  organizationId,
   search,
   departmentIds,
   interviewerIds,
   jdIdsForInterviewers,
 }: {
+  organizationId: string;
   search?: string;
   departmentIds?: string[];
   interviewerIds?: string[];
@@ -173,6 +182,7 @@ async function countJobDescriptionRows({
     departmentIds,
     interviewerIds,
     jdIdsForInterviewers,
+    organizationId,
     search,
   });
   const [result] = await db.select({ count: count() }).from(jobDescription).where(where);
@@ -274,6 +284,7 @@ export function parseJobDescriptionPagination(
 }
 
 export async function queryPaginatedJobDescriptions(
+  organizationId: string,
   filters?: {
     search?: string | null;
     departmentId?: string | null;
@@ -293,6 +304,7 @@ export async function queryPaginatedJobDescriptions(
       jdIdsForInterviewers,
       limit: pageSize,
       offset,
+      organizationId,
       search,
       sortBy,
       sortOrder,
@@ -301,6 +313,7 @@ export async function queryPaginatedJobDescriptions(
       departmentIds,
       interviewerIds,
       jdIdsForInterviewers,
+      organizationId,
       search,
     }),
   ]);
@@ -322,6 +335,7 @@ export async function queryPaginatedJobDescriptions(
 
 // oxlint-disable-next-line require-await -- "use cache" requires the function be async.
 export async function listJobDescriptions(
+  organizationId: string,
   filters?: {
     search?: string | null;
     departmentId?: string | null;
@@ -333,16 +347,18 @@ export async function listJobDescriptions(
   cacheTag("job-descriptions");
   cacheLife("minutes");
 
-  return queryPaginatedJobDescriptions(filters, pagination);
+  return queryPaginatedJobDescriptions(organizationId, filters, pagination);
 }
 
 // oxlint-disable-next-line require-await
-export async function listAllJobDescriptions(): Promise<JobDescriptionListRecord[]> {
+export async function listAllJobDescriptions(
+  organizationId: string,
+): Promise<JobDescriptionListRecord[]> {
   "use cache";
   cacheTag("job-descriptions");
   cacheLife("minutes");
 
-  const rows = await listJobDescriptionRows({ sortBy: "name", sortOrder: "asc" });
+  const rows = await listJobDescriptionRows({ organizationId, sortBy: "name", sortOrder: "asc" });
   const interviewersMap = await loadInterviewersForJobDescriptions(rows.map((row) => row.id));
   return rows.map((row) => toJobDescriptionListRecord(row, interviewersMap.get(row.id) ?? []));
 }
@@ -362,8 +378,15 @@ export async function jobDescriptionIdsExist(ids: string[]): Promise<boolean> {
   return rows.length === new Set(ids).size;
 }
 
-export async function loadJobDescriptionById(id: string): Promise<JobDescriptionRecord | null> {
-  const [row] = await db.select().from(jobDescription).where(eq(jobDescription.id, id)).limit(1);
+export async function loadJobDescriptionById(
+  organizationId: string,
+  id: string,
+): Promise<JobDescriptionRecord | null> {
+  const [row] = await db
+    .select()
+    .from(jobDescription)
+    .where(and(eq(jobDescription.id, id), eq(jobDescription.organizationId, organizationId)))
+    .limit(1);
   if (!row) {
     return null;
   }

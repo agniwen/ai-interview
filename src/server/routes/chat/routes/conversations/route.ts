@@ -35,8 +35,11 @@ export const conversationsRouter = factory
     });
   })
   .post("/", zValidator("json", upsertConversationSchema), async (c) => {
-    const { user } = c.var;
+    const { user, activeOrg } = c.var;
     if (!user) {
+      return c.json({ error: "Unauthorized" }, 401);
+    }
+    if (!activeOrg) {
       return c.json({ error: "Unauthorized" }, 401);
     }
 
@@ -47,6 +50,7 @@ export const conversationsRouter = factory
       isTitleGenerating: input.isTitleGenerating,
       jobDescription: input.jobDescription,
       jobDescriptionConfig: input.jobDescriptionConfig,
+      organizationId: activeOrg.id,
       resumeImports: input.resumeImports,
       title: input.title,
       userId: user.id,
@@ -85,8 +89,11 @@ export const conversationsRouter = factory
     });
   })
   .patch("/:id", zValidator("json", patchConversationSchema), async (c) => {
-    const { user } = c.var;
+    const { user, activeOrg } = c.var;
     if (!user) {
+      return c.json({ error: "Unauthorized" }, 401);
+    }
+    if (!activeOrg) {
       return c.json({ error: "Unauthorized" }, 401);
     }
 
@@ -97,6 +104,7 @@ export const conversationsRouter = factory
       isTitleGenerating: input.isTitleGenerating,
       jobDescription: input.jobDescription,
       jobDescriptionConfig: input.jobDescriptionConfig,
+      organizationId: activeOrg.id,
       resumeImports: input.resumeImports,
       title: input.title,
       userId: user.id,
@@ -123,8 +131,11 @@ export const conversationsRouter = factory
     return c.json({ ok: true });
   })
   .post("/:id/messages", zValidator("json", upsertChatMessageSchema), async (c) => {
-    const { user } = c.var;
+    const { user, activeOrg } = c.var;
     if (!user) {
+      return c.json({ error: "Unauthorized" }, 401);
+    }
+    if (!activeOrg) {
       return c.json({ error: "Unauthorized" }, 401);
     }
 
@@ -142,6 +153,7 @@ export const conversationsRouter = factory
       await upsertChatMessage({
         conversationId,
         message: message as unknown as UIMessage,
+        organizationId: activeOrg.id,
       });
     } catch (error) {
       console.error("[chat] failed to upsert message", error);

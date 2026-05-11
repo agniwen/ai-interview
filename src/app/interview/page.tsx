@@ -7,5 +7,6 @@ export const metadata: Metadata = {
 };
 
 export default function InterviewQuickStartPage() {
-  redirect("/studio/interviews");
+  // 转到根路径,由 src/app/page.tsx 解析活跃 workspace 后跳到 /w/[slug]/studio/interviews。
+  redirect("/");
 }

@@ -14,19 +14,13 @@ const sidebarStyle = {
   "--sidebar-width": "calc(var(--spacing) * 72)",
 } as CSSProperties;
 
-export function AppSidebarShell({
-  canAccessAdmin,
-  children,
-}: {
-  canAccessAdmin: boolean;
-  children: ReactNode;
-}) {
+export function AppSidebarShell({ children }: { children: ReactNode }) {
   return (
     <SidebarHeaderPortalProvider>
       <SidebarBodyPortalProvider>
         <SidebarFooterPortalProvider>
           <SidebarProvider style={sidebarStyle}>
-            <AppSidebar canAccessAdmin={canAccessAdmin} />
+            <AppSidebar />
             {children}
           </SidebarProvider>
         </SidebarFooterPortalProvider>
