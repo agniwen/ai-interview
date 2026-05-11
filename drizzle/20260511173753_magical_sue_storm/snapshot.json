@@ -1,8 +1,8 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "0d816996-c13c-4096-88b2-79f8b4bd7fad",
-  "prevIds": ["3d8a43b0-ed03-447b-93b6-c4a785e3d6f1"],
+  "id": "8cbce917-2895-4b1e-942e-b2f2ff3e5008",
+  "prevIds": ["0d816996-c13c-4096-88b2-79f8b4bd7fad"],
   "ddl": [
     {
       "isRlsEnabled": false,
@@ -7449,6 +7449,5 @@
       "entityType": "uniques"
     }
   ],
-  "renames": [],
-  "prevId": "e99e5e0c-9ba5-4289-961f-b89fa7d9f43a"
+  "renames": []
 }

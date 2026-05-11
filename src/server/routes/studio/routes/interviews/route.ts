@@ -731,6 +731,7 @@ export const studioInterviewsRouter = factory
         id: crypto.randomUUID(),
         interviewRecordId: id,
         operatorId,
+        organizationId: activeOrg.id,
         scheduleEntryId: roundId,
       });
     });

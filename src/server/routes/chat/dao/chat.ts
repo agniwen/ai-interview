@@ -164,9 +164,13 @@ export async function deleteUserConversation(
 /**
  * Idempotent upsert by message id. The caller must have already verified
  * conversation ownership — this function does not re-check.
+ *
+ * organizationId 必传 (chat_message.organization_id NOT NULL)；调用方从
+ * c.var.activeOrg.id 或从父 chat_conversation 解出。
  */
 export async function upsertChatMessage(input: {
   conversationId: string;
+  organizationId: string;
   message: UIMessage;
   createdAt?: Date;
 }): Promise<void> {
@@ -178,6 +182,7 @@ export async function upsertChatMessage(input: {
       conversationId: input.conversationId,
       createdAt: input.createdAt ?? now,
       id: input.message.id,
+      organizationId: input.organizationId,
       role: input.message.role,
       updatedAt: now,
     })

@@ -481,6 +481,7 @@ export const interviewRouter = factory
           answers: parsed.data,
           id: submissionId,
           interviewRecordId: id,
+          organizationId: interviewRecord.organizationId ?? "org_default",
           submittedAt: now,
           templateId,
           versionId,

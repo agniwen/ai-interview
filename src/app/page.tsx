@@ -4,13 +4,12 @@ import { auth } from "@/lib/server/auth";
 import { db } from "@/lib/server/db";
 import { member, organization } from "@/lib/shared/db/schema";
 import HomeShell from "./_components/home-shell";
+import { headers } from "next/headers";
 
 export default async function HomePage() {
   // Resolve session without the cached helper — this page lives outside (auth)
   // and needs its own headers() call.
-  const { headers } = await import("next/headers");
   const session = await auth.api.getSession({ headers: await headers() });
-
   if (session?.user) {
     let targetSlug: string | null = null;
 

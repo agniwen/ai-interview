@@ -6,6 +6,7 @@ import { useEffect, useMemo } from "react";
 import type { ChatSessionPathUpdatedDetail } from "@/app/(auth)/chat/_lib/chat-events";
 import { CHAT_EVENTS } from "@/app/(auth)/chat/_lib/chat-events";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { authClient } from "@/lib/client/auth-client";
 
 type SidebarTabValue = "chat" | "studio";
 
@@ -46,6 +47,7 @@ export function SidebarTabs() {
   const activeTab = useMemo(() => resolveActiveTab(pathname), [pathname]);
   const currentSlug = useMemo(() => extractWorkspaceSlug(pathname), [pathname]);
   const [tabLastPath, setTabLastPath] = useAtom(tabLastPathAtom);
+  const activeOrganization = authClient.useActiveOrganization();
 
   // Keep the active tab's last-visited path in sync so that tab switching
   // can restore it on return.
@@ -65,14 +67,14 @@ export function SidebarTabs() {
   // first switch. Re-runs when the remembered last-path changes.
   // 预取另一侧 tab 的路由，避免首次切换时拉 chunk + RSC 造成卡顿。
   useEffect(() => {
-    const studioDefault = studioDefaultPath(currentSlug);
+    const studioDefault = studioDefaultPath(currentSlug || activeOrganization.data?.slug || null);
     const chatTarget = tabLastPath.chat ?? CHAT_DEFAULT_PATH;
     const studioTarget = tabLastPath.studio ?? studioDefault;
     const otherTarget = activeTab === "studio" ? chatTarget : studioTarget;
     if (otherTarget) {
       router.prefetch(otherTarget);
     }
-  }, [activeTab, currentSlug, router, tabLastPath.chat, tabLastPath.studio]);
+  }, [activeTab, currentSlug, router, tabLastPath.chat, tabLastPath.studio, activeOrganization]);
 
   // The chat page transitions from `/chat` to `/chat/[sessionId]` via
   // `history.replaceState` (soft URL update, invisible to Next's router)
@@ -103,7 +105,10 @@ export function SidebarTabs() {
     // tab 上次记录的路径优先；否则用默认值（studio 必须依赖当前 slug）。
     let target = tabLastPath[nextTab];
     if (!target) {
-      target = nextTab === "chat" ? CHAT_DEFAULT_PATH : studioDefaultPath(currentSlug);
+      target =
+        nextTab === "chat"
+          ? CHAT_DEFAULT_PATH
+          : studioDefaultPath(currentSlug || activeOrganization.data?.slug || null);
     }
 
     // studio 切换缺 slug 时无法构造路径——返回首页让根路由解析活跃 workspace。
@@ -125,8 +130,8 @@ export function SidebarTabs() {
       // would route us back to the wrong tab.
       activationMode="manual"
       className="w-full group-data-[collapsible=icon]:hidden"
-      onValueChange={handleChange}
       value={activeTab ?? "chat"}
+      onValueChange={handleChange}
     >
       <TabsList className="w-full">
         <TabsTrigger value="chat">Chat</TabsTrigger>

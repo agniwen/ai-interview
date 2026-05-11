@@ -131,8 +131,11 @@ export const conversationsRouter = factory
     return c.json({ ok: true });
   })
   .post("/:id/messages", zValidator("json", upsertChatMessageSchema), async (c) => {
-    const { user } = c.var;
+    const { user, activeOrg } = c.var;
     if (!user) {
+      return c.json({ error: "Unauthorized" }, 401);
+    }
+    if (!activeOrg) {
       return c.json({ error: "Unauthorized" }, 401);
     }
 
@@ -150,6 +153,7 @@ export const conversationsRouter = factory
       await upsertChatMessage({
         conversationId,
         message: message as unknown as UIMessage,
+        organizationId: activeOrg.id,
       });
     } catch (error) {
       console.error("[chat] failed to upsert message", error);
