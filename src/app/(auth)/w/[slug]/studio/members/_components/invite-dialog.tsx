@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -23,7 +24,12 @@ import { authClient } from "@/lib/client/auth-client";
 
 const ROLE_OPTIONS = ["admin", "hr", "viewer"] as const;
 
-export function InviteDialog() {
+interface InviteDialogProps {
+  /** 自定义触发节点；省略则用默认"邀请成员"按钮。 */
+  trigger?: ReactNode;
+}
+
+export function InviteDialog({ trigger }: InviteDialogProps = {}) {
   const [open, setOpen] = useState(false);
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<(typeof ROLE_OPTIONS)[number]>("hr");
@@ -53,9 +59,7 @@ export function InviteDialog() {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button>邀请成员</Button>
-      </DialogTrigger>
+      <DialogTrigger asChild>{trigger ?? <Button>邀请成员</Button>}</DialogTrigger>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>邀请新成员</DialogTitle>
