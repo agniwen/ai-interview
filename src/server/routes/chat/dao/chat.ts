@@ -89,6 +89,7 @@ export async function checkConversationOwner(
 
 export interface UpsertConversationInput {
   id: string;
+  organizationId: string;
   userId: string;
   title?: string;
   isTitleGenerating?: boolean;
@@ -117,6 +118,7 @@ export async function upsertConversation(input: UpsertConversationInput): Promis
       isTitleGenerating: input.isTitleGenerating ?? false,
       jobDescription: input.jobDescription ?? "",
       jobDescriptionConfig: input.jobDescriptionConfig ?? null,
+      organizationId: input.organizationId,
       resumeImports: input.resumeImports ?? {},
       title: input.title ?? "",
       updatedAt: now,

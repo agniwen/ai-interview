@@ -79,6 +79,7 @@ async function loadNotificationContext(options: SummaryReadyNotificationOptions)
       candidateName: studioInterview.candidateName,
       createdBy: studioInterview.createdBy,
       evaluationCriteriaResults: interviewConversation.evaluationCriteriaResults,
+      organizationId: studioInterview.organizationId,
       summaryStatus: interviewConversation.summaryStatus,
       targetRole: studioInterview.targetRole,
       transcriptSummary: interviewConversation.transcriptSummary,
@@ -127,10 +128,12 @@ async function loadRecipientAccounts(userId: string): Promise<RecipientAccount[]
 async function claimNotification({
   conversationId,
   interviewRecordId,
+  organizationId,
   recipient,
 }: {
   conversationId: string;
   interviewRecordId: string;
+  organizationId: string | null;
   recipient: RecipientAccount;
 }) {
   const [existing] = await db
@@ -176,6 +179,7 @@ async function claimNotification({
       conversationId,
       id: crypto.randomUUID(),
       interviewRecordId,
+      organizationId: organizationId ?? "org_default",
       providerId: recipient.providerId,
       recipientOpenId: recipient.accountId,
       recipientUserId: recipient.userId,
@@ -244,6 +248,7 @@ export async function notifyInterviewSummaryReady(
     const notificationId = await claimNotification({
       conversationId: options.conversationId,
       interviewRecordId: options.interviewRecordId,
+      organizationId: context.organizationId ?? null,
       recipient,
     });
     if (!notificationId) {

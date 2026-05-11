@@ -13,6 +13,17 @@ import { safeUpdateTag } from "@/server/cache-tags";
 import { retryFailedInterviewSummaryNotifications } from "@/server/routes/agent/utils/feishu-interview-notifications";
 import { runSummaryJob } from "@/server/routes/agent/utils/interview-summary-job";
 
+const FALLBACK_ORG_ID = "org_default";
+
+async function resolveOrgFromInterview(interviewRecordId: string): Promise<string> {
+  const [row] = await db
+    .select({ organizationId: studioInterview.organizationId })
+    .from(studioInterview)
+    .where(eq(studioInterview.id, interviewRecordId))
+    .limit(1);
+  return row?.organizationId ?? FALLBACK_ORG_ID;
+}
+
 const transcriptTurnSchema = z.object({
   message: z.string(),
   role: z.enum(["agent", "user"]),
@@ -71,6 +82,10 @@ export const agentRouter = factory
     const { data } = body;
     const now = new Date();
 
+    // Resolve organization from the interview record so all child rows carry
+    // the correct tenant scope even though this webhook has no user session.
+    const orgId = await resolveOrgFromInterview(data.interviewRecordId);
+
     // Look up the existing conversation (if any) to decide whether the
     // incoming POST is a fresh transcript or an idempotent re-delivery.
     // - Fresh transcript → reset summary state so LLM re-runs.
@@ -126,6 +141,7 @@ export const agentRouter = factory
           metadata: data.metadata ?? {},
           metrics: data.metrics ?? {},
           mode: "voice",
+          organizationId: orgId,
           scheduleEntryId: data.scheduleEntryId,
           startedAt: data.startedAt ? new Date(data.startedAt) : null,
           status: data.status,
@@ -166,6 +182,7 @@ export const agentRouter = factory
             id: `${data.conversationId}:turn:${index}`,
             interviewRecordId: data.interviewRecordId,
             message: turn.message,
+            organizationId: orgId,
             receivedAt: now,
             role: turn.role,
             source: "agent_report" as const,
@@ -241,6 +258,7 @@ export const agentRouter = factory
         id: crypto.randomUUID(),
         interviewRecordId: data.interviewRecordId,
         operatorId: null,
+        organizationId: orgId,
         scheduleEntryId: data.scheduleEntryId,
       });
     });

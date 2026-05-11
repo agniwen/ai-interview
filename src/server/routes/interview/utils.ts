@@ -160,6 +160,7 @@ export async function storeInterviewResume(
   _interviewRecordId: string,
   file: File,
   userId: string,
+  organizationId: string,
 ): Promise<{
   storageKey: string;
   contentHash: string;
@@ -217,6 +218,7 @@ export async function storeInterviewResume(
       filename: file.name.slice(0, 255) || "resume.pdf",
       id: crypto.randomUUID(),
       mediaType: file.type || "application/pdf",
+      organizationId,
       parsedAt: new Date(),
       parsedPageCount: parsed.parsedPageCount,
       parsedStatus: "ready",

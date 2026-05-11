@@ -155,7 +155,7 @@ export const studioInterviewsRouter = factory
       const interviewRecordId = crypto.randomUUID();
       const uploadResult =
         resume && c.var.user
-          ? await storeInterviewResume(interviewRecordId, resume, c.var.user.id)
+          ? await storeInterviewResume(interviewRecordId, resume, c.var.user.id, activeOrg.id)
           : null;
       const resumeStorageKey = uploadResult?.storageKey ?? null;
       const resumeContentHash = uploadResult?.contentHash ?? null;
@@ -527,7 +527,9 @@ export const studioInterviewsRouter = factory
       // and PUTting a hash-keyed object on a miss. analysis comes from
       // parsedResumePayload or remains the existing snapshot.
       const uploadResult =
-        resume && c.var.user ? await storeInterviewResume(id, resume, c.var.user.id) : null;
+        resume && c.var.user
+          ? await storeInterviewResume(id, resume, c.var.user.id, activeOrg.id)
+          : null;
       const resumeStorageKey = uploadResult?.storageKey ?? existing.resumeStorageKey;
       const resumeContentHash = resume
         ? (uploadResult?.contentHash ?? existing.resumeContentHash)
