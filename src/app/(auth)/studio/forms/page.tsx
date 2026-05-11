@@ -14,7 +14,7 @@ export default async function StudioCandidateFormsPage() {
   const activeOrg = await getActiveOrg();
   const organizationId = activeOrg?.id ?? "org_default";
   const [initialData, jobDescriptions] = await Promise.all([
-    listCandidateFormTemplates(),
+    listCandidateFormTemplates(organizationId),
     listAllJobDescriptions(organizationId),
   ]);
 
