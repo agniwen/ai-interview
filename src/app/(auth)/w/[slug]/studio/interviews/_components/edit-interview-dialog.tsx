@@ -58,7 +58,7 @@ export function EditInterviewDialog({
 
       try {
         const updated = await apiFetch<StudioInterviewRecord>(
-          `/api/studio/interviews/${recordId}`,
+          `/api/w/${slug}/studio/interviews/${recordId}`,
           { body: formData, method: "PATCH" },
         );
         onUpdated(updated);

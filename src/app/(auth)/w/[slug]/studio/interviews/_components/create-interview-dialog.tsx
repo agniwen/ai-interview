@@ -126,7 +126,7 @@ export function CreateInterviewDialog({
       }
 
       try {
-        const created = await apiFetch<StudioInterviewRecord>("/api/studio/interviews", {
+        const created = await apiFetch<StudioInterviewRecord>(`/api/w/${slug}/studio/interviews`, {
           body: formData,
           method: "POST",
         });

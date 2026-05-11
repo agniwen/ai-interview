@@ -522,7 +522,7 @@ export function InterviewManagementPage({
           filename={previewRecord.resumeFileName ?? undefined}
           onOpenChange={(open) => !open && setPreviewRecord(null)}
           open={previewRecord !== null}
-          url={`/api/studio/interviews/${previewRecord.id}/resume`}
+          url={`/api/w/${slug}/studio/interviews/${previewRecord.id}/resume`}
         />
       ) : null}
 
