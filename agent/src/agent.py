@@ -37,6 +37,7 @@ from recording import (
     stop_recording,
 )
 from report import send_report
+from transcript_replay import replay_turns_to
 
 logger = logging.getLogger("agent")
 
@@ -295,6 +296,10 @@ async def my_agent(ctx: JobContext):
     # 热重连宽限期任务: 候选人断连后等候同 identity 在 3 分钟内重连.
     # Hot-reconnect grace task: wait up to 3 min for the same identity to rejoin.
     grace_task: asyncio.Task | None = None
+    # 重连后的 resume 任务 (重放历史 + 欢迎致辞). 保留引用避免被 GC.
+    # Holds the post-reconnect resume task (replay + welcome) to keep it
+    # alive — asyncio garbage-collects unreferenced tasks (RUF006).
+    resume_task: asyncio.Task | None = None
 
     @session.on("metrics_collected")
     def _on_metrics_collected(event):
@@ -522,13 +527,23 @@ async def my_agent(ctx: JobContext):
             logger.exception("session.interrupt() during grace start failed")
         grace_task = asyncio.create_task(_grace_finalize())
 
-    def _on_participant_connected(p: rtc.RemoteParticipant):
-        nonlocal grace_task
-        if p.identity != candidate_identity or grace_task is None:
-            return
-        logger.info("candidate %s reconnected; cancelling grace", p.identity)
-        grace_task.cancel()
-        grace_task = None
+    async def _resume_after_reconnect(target_identity: str) -> None:
+        # 先重放历史再 say "欢迎回来": 前端 useSessionMessages 用首次到达时间排序,
+        # 不是消息 timestamp; 如果 say 抢先, 历史会出现在欢迎气泡之后, 顺序错乱.
+        # Replay BEFORE the welcome line: the frontend hook orders messages
+        # by first-seen client time, not by their `timestamp` field, so any
+        # history that arrives after the welcome bubble would render below
+        # it and break the conversation order.
+        try:
+            await replay_turns_to(
+                ctx.room.local_participant,
+                turns=list(state["turns"]),
+                target_identity=target_identity,
+                agent_identity=ctx.room.local_participant.identity,
+                candidate_identity=candidate_identity,
+            )
+        except Exception:
+            logger.exception("transcript replay coroutine failed")
         # 用 session.say 直接走 TTS 念一句固定话, 不通过 LLM. 之前用
         # generate_reply(instructions=...) 让 LLM 生成致意话语, 但小模型
         # (Qwen-turbo / deepseek-v4-flash 等) 会把"候选人刚才因网络问题短暂离线"
@@ -542,6 +557,15 @@ async def my_agent(ctx: JobContext):
             session.say("欢迎回来，我们继续刚才的话题。", allow_interruptions=True)
         except Exception:
             logger.exception("re-greeting after reconnect failed")
+
+    def _on_participant_connected(p: rtc.RemoteParticipant):
+        nonlocal grace_task, resume_task
+        if p.identity != candidate_identity or grace_task is None:
+            return
+        logger.info("candidate %s reconnected; cancelling grace", p.identity)
+        grace_task.cancel()
+        grace_task = None
+        resume_task = asyncio.create_task(_resume_after_reconnect(p.identity))
 
     ctx.room.on("participant_disconnected", _on_participant_disconnected)
     ctx.room.on("participant_connected", _on_participant_connected)
