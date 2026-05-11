@@ -1,8 +1,6 @@
 import type { Metadata } from "next";
-import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { connection } from "next/server";
-import { auth } from "@/lib/server/auth";
+import { getCurrentSession } from "@/lib/server/auth-session";
 import { listAdminUsers } from "@/server/routes/studio/routes/users/dao";
 import { SystemManagementPage } from "./_components/system-management-page";
 
@@ -11,11 +9,9 @@ export const metadata: Metadata = {
 };
 
 export default async function StudioSystemManagementPage() {
-  await connection();
-
   // Studio layout 已经做了 canAccessAdmin 校验，这里再叠加 admin 角色检查。
   // The studio layout already enforces canAccessAdmin; layer admin-role on top.
-  const session = await auth.api.getSession({ headers: await headers() });
+  const session = await getCurrentSession();
   if (session?.user?.role !== "admin") {
     redirect("/studio");
   }

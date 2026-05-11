@@ -39,6 +39,7 @@ export function SidebarTabs({ canAccessAdmin }: { canAccessAdmin: boolean }) {
 
   // Keep the active tab's last-visited path in sync so that tab switching
   // can restore it on return.
+  // 同步记录当前 tab 最近访问的路径，便于回切时还原。
   useEffect(() => {
     if (!activeTab) {
       return;
@@ -48,6 +49,17 @@ export function SidebarTabs({ canAccessAdmin }: { canAccessAdmin: boolean }) {
       prev[activeTab] === pathname ? prev : { ...prev, [activeTab]: pathname },
     );
   }, [activeTab, pathname, setTabLastPath]);
+
+  // Warm up the *other* tab's route so clicking the tab feels instant —
+  // without this, router.push pays the full chunk + RSC payload cost on
+  // first switch. Re-runs when the remembered last-path changes.
+  // 预取另一侧 tab 的路由，避免首次切换时拉 chunk + RSC 造成卡顿。
+  useEffect(() => {
+    const chatTarget = tabLastPath.chat ?? TAB_ROUTES.chat;
+    const studioTarget = tabLastPath.studio ?? TAB_ROUTES.studio;
+    const otherTarget = activeTab === "studio" ? chatTarget : studioTarget;
+    router.prefetch(otherTarget);
+  }, [activeTab, router, tabLastPath.chat, tabLastPath.studio]);
 
   // The chat page transitions from `/chat` to `/chat/[sessionId]` via
   // `history.replaceState` (soft URL update, invisible to Next's router)

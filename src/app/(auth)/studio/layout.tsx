@@ -1,13 +1,11 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
-import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { connection } from "next/server";
 import { SiteHeader } from "@/app/(auth)/studio/_components/site-header";
 import { StudioSidebarSlots } from "@/app/(auth)/studio/_components/studio-sidebar-slots";
 import { SidebarInset } from "@/components/ui/sidebar";
-import { auth } from "@/lib/server/auth";
 import { canAccessAdmin } from "@/lib/server/auth-roles";
+import { getCurrentSession } from "@/lib/server/auth-session";
 
 export const metadata: Metadata = {
   description: "Studio 管理后台。",
@@ -18,10 +16,7 @@ export const metadata: Metadata = {
 };
 
 export default async function StudioLayout({ children }: { children: ReactNode }) {
-  await connection();
-  const session = await auth.api.getSession({
-    headers: await headers(),
-  });
+  const session = await getCurrentSession();
 
   if (!session) {
     redirect("/login");
