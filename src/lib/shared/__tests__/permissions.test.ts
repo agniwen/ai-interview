@@ -35,4 +35,35 @@ describe("permissions matrix", () => {
       expect(owner.statements.auditLog).toEqual(expect.arrayContaining(["read"]));
     });
   });
+
+  describe("admin role", () => {
+    it("exists", () => {
+      expect(roles.admin).toBeDefined();
+    });
+
+    it("can write all business resources like owner", () => {
+      const { admin } = roles;
+      const resources = [
+        "interview",
+        "jd",
+        "department",
+        "interviewer",
+        "candidateForm",
+        "questionTemplate",
+        "chat",
+      ] as const;
+      for (const r of resources) {
+        expect(admin.statements[r]).toEqual(
+          expect.arrayContaining(["create", "read", "update", "delete"]),
+        );
+      }
+    });
+
+    it("can update globalConfig and read auditLog", () => {
+      expect(roles.admin.statements.globalConfig).toEqual(
+        expect.arrayContaining(["read", "update"]),
+      );
+      expect(roles.admin.statements.auditLog).toEqual(expect.arrayContaining(["read"]));
+    });
+  });
 });
