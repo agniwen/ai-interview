@@ -79,7 +79,9 @@ export const interviewRouter = factory
       const { resumeProfile } = c.req.valid("json");
 
       try {
-        const jobDescriptions = await listAllJobDescriptions();
+        // Candidate-facing matcher: workspace not yet plumbed through this route — use the
+        // default workspace for now; future work threads the interview record's organization.
+        const jobDescriptions = await listAllJobDescriptions("org_default");
         if (jobDescriptions.length === 0) {
           return c.json({ matchedId: null, reason: null }, 200);
         }

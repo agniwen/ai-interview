@@ -185,7 +185,9 @@ export function createSuggestJobDescriptionTool({ resumes }: { resumes: BakedPar
         return { availableResumes: availableResumeNames, status: "no-resume" as const };
       }
 
-      const jobDescriptions = await listAllJobDescriptions();
+      // Feishu bot tool currently runs without a workspace context — fall back to the default
+      // workspace. Future work will thread the bound JD's organization through.
+      const jobDescriptions = await listAllJobDescriptions("org_default");
       if (jobDescriptions.length === 0) {
         return { status: "no-jds" as const };
       }

@@ -15,7 +15,7 @@ export default async function StudioJobDescriptionsPage() {
   const activeOrg = await getActiveOrg();
   const organizationId = activeOrg?.id ?? "org_default";
   const [initialData, departments, interviewers] = await Promise.all([
-    listJobDescriptions(),
+    listJobDescriptions(organizationId),
     listAllDepartments(organizationId),
     listAllInterviewers(organizationId),
   ]);
