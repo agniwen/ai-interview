@@ -3,7 +3,7 @@ import type {
   StudioInterviewRecord,
 } from "@/lib/shared/studio-interviews";
 import type { ResumeProfile } from "@/lib/shared/interview/types";
-import { eq, inArray } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { db } from "@/lib/server/db";
 import {
   interviewer,
@@ -249,6 +249,7 @@ export async function storeInterviewResume(
 function buildSingleScheduleRow(
   entry: ReturnType<typeof parseScheduleEntriesInput>[number],
   index: number,
+  orgId: string,
   interviewRecordId: string,
   now: Date,
   existingMap: Map<string, StudioInterviewScheduleRow>,
@@ -265,7 +266,7 @@ function buildSingleScheduleRow(
     liveKitParticipantIdentity: existing?.liveKitParticipantIdentity ?? null,
     liveKitRoomName: existing?.liveKitRoomName ?? null,
     notes: entry.notes?.trim() || null,
-    organizationId: existing?.organizationId ?? null,
+    organizationId: existing?.organizationId ?? orgId,
     roundLabel: entry.roundLabel.trim(),
     scheduledAt: entry.scheduledAt ? new Date(entry.scheduledAt) : null,
     sessionStartedAt: existing?.sessionStartedAt ?? null,
@@ -276,6 +277,7 @@ function buildSingleScheduleRow(
 }
 
 export function buildScheduleRows(
+  orgId: string,
   interviewRecordId: string,
   entries: ReturnType<typeof parseScheduleEntriesInput>,
   now: Date,
@@ -284,7 +286,7 @@ export function buildScheduleRows(
   const existingMap = new Map((existingRows ?? []).map((row) => [row.id, row]));
 
   return entries.map((entry, index) =>
-    buildSingleScheduleRow(entry, index, interviewRecordId, now, existingMap),
+    buildSingleScheduleRow(entry, index, orgId, interviewRecordId, now, existingMap),
   );
 }
 
@@ -317,7 +319,11 @@ export function serializeRecord(
   };
 }
 
-export async function loadRecordById(id: string) {
+export async function loadRecordById(id: string, organizationId?: string) {
+  const where = organizationId
+    ? and(eq(studioInterview.id, id), eq(studioInterview.organizationId, organizationId))
+    : eq(studioInterview.id, id);
+
   const [row] = await db
     .select({
       jobDescriptionName: jobDescription.name,
@@ -325,7 +331,7 @@ export async function loadRecordById(id: string) {
     })
     .from(studioInterview)
     .leftJoin(jobDescription, eq(studioInterview.jobDescriptionId, jobDescription.id))
-    .where(eq(studioInterview.id, id))
+    .where(where)
     .limit(1);
 
   if (!row) {

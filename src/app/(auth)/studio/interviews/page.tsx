@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { connection } from "next/server";
 import { InterviewManagementPage } from "@/app/(auth)/studio/interviews/_components/interview-management-page";
+import { getActiveOrg } from "@/lib/server/workspace";
 import {
   listStudioInterviewRecords,
   queryStudioInterviewSummary,
@@ -12,9 +13,11 @@ export const metadata: Metadata = {
 
 export default async function StudioInterviewsPage() {
   await connection();
+  const activeOrg = await getActiveOrg();
+  const orgId = activeOrg?.id ?? "org_default";
   const [initialData, initialSummary] = await Promise.all([
-    listStudioInterviewRecords(),
-    queryStudioInterviewSummary(),
+    listStudioInterviewRecords(orgId),
+    queryStudioInterviewSummary(orgId),
   ]);
 
   return <InterviewManagementPage initialData={initialData} initialSummary={initialSummary} />;
