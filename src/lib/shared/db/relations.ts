@@ -13,6 +13,10 @@ export const relations = defineRelations(schema, (r) => ({
       from: r.candidateFormSubmission.interviewRecordId,
       to: r.studioInterview.id,
     }),
+    organization: r.one.organization({
+      from: r.candidateFormSubmission.organizationId,
+      to: r.organization.id,
+    }),
     template: r.one.candidateFormTemplate({
       from: r.candidateFormSubmission.templateId,
       to: r.candidateFormTemplate.id,
@@ -24,6 +28,10 @@ export const relations = defineRelations(schema, (r) => ({
   },
   candidateFormTemplate: {
     jobDescriptionLinks: r.many.candidateFormTemplateJobDescription(),
+    organization: r.one.organization({
+      from: r.candidateFormTemplate.organizationId,
+      to: r.organization.id,
+    }),
     questions: r.many.candidateFormTemplateQuestion(),
     submissions: r.many.candidateFormSubmission(),
     user: r.one.user({
@@ -56,6 +64,10 @@ export const relations = defineRelations(schema, (r) => ({
     }),
   },
   chatAttachment: {
+    organization: r.one.organization({
+      from: r.chatAttachment.organizationId,
+      to: r.organization.id,
+    }),
     user: r.one.user({
       from: r.chatAttachment.userId,
       to: r.user.id,
@@ -63,6 +75,10 @@ export const relations = defineRelations(schema, (r) => ({
   },
   chatConversation: {
     messages: r.many.chatMessage(),
+    organization: r.one.organization({
+      from: r.chatConversation.organizationId,
+      to: r.organization.id,
+    }),
     user: r.one.user({
       from: r.chatConversation.userId,
       to: r.user.id,
@@ -73,19 +89,49 @@ export const relations = defineRelations(schema, (r) => ({
       from: r.chatMessage.conversationId,
       to: r.chatConversation.id,
     }),
+    organization: r.one.organization({
+      from: r.chatMessage.organizationId,
+      to: r.organization.id,
+    }),
   },
   department: {
     interviewers: r.many.interviewer(),
     jobDescriptions: r.many.jobDescription(),
+    organization: r.one.organization({
+      from: r.department.organizationId,
+      to: r.organization.id,
+    }),
     user: r.one.user({
       from: r.department.createdBy,
       to: r.user.id,
+    }),
+  },
+  feishuThreadState: {
+    organization: r.one.organization({
+      from: r.feishuThreadState.organizationId,
+      to: r.organization.id,
+    }),
+  },
+  globalConfig: {
+    organization: r.one.organization({
+      from: r.globalConfig.organizationId,
+      to: r.organization.id,
+    }),
+  },
+  interviewAuditLog: {
+    organization: r.one.organization({
+      from: r.interviewAuditLog.organizationId,
+      to: r.organization.id,
     }),
   },
   interviewConversation: {
     interviewRecord: r.one.studioInterview({
       from: r.interviewConversation.interviewRecordId,
       to: r.studioInterview.id,
+    }),
+    organization: r.one.organization({
+      from: r.interviewConversation.organizationId,
+      to: r.organization.id,
     }),
     turns: r.many.interviewConversationTurn(),
   },
@@ -98,9 +144,29 @@ export const relations = defineRelations(schema, (r) => ({
       from: r.interviewConversationTurn.interviewRecordId,
       to: r.studioInterview.id,
     }),
+    organization: r.one.organization({
+      from: r.interviewConversationTurn.organizationId,
+      to: r.organization.id,
+    }),
+  },
+  interviewNotification: {
+    organization: r.one.organization({
+      from: r.interviewNotification.organizationId,
+      to: r.organization.id,
+    }),
   },
   interviewQuestionTemplate: {
     jobDescriptionLinks: r.many.interviewQuestionTemplateJobDescription(),
+    organization: r.one.organization({
+      from: r.interviewQuestionTemplate.organizationId,
+      to: r.organization.id,
+    }),
+  },
+  interviewQuestionTemplateBinding: {
+    organization: r.one.organization({
+      from: r.interviewQuestionTemplateBinding.organizationId,
+      to: r.organization.id,
+    }),
   },
   interviewQuestionTemplateJobDescription: {
     jobDescription: r.one.jobDescription({
@@ -118,6 +184,10 @@ export const relations = defineRelations(schema, (r) => ({
       to: r.department.id,
     }),
     jobDescriptionLinks: r.many.jobDescriptionInterviewer(),
+    organization: r.one.organization({
+      from: r.interviewer.organizationId,
+      to: r.organization.id,
+    }),
     user: r.one.user({
       from: r.interviewer.createdBy,
       to: r.user.id,
@@ -141,6 +211,10 @@ export const relations = defineRelations(schema, (r) => ({
     }),
     interviewQuestionTemplateLinks: r.many.interviewQuestionTemplateJobDescription(),
     interviewerLinks: r.many.jobDescriptionInterviewer(),
+    organization: r.one.organization({
+      from: r.jobDescription.organizationId,
+      to: r.organization.id,
+    }),
     studioInterviews: r.many.studioInterview(),
     user: r.one.user({
       from: r.jobDescription.createdBy,
@@ -168,8 +242,26 @@ export const relations = defineRelations(schema, (r) => ({
     }),
   },
   organization: {
+    candidateFormSubmissions: r.many.candidateFormSubmission(),
+    candidateFormTemplates: r.many.candidateFormTemplate(),
+    chatAttachments: r.many.chatAttachment(),
+    chatConversations: r.many.chatConversation(),
+    chatMessages: r.many.chatMessage(),
+    departments: r.many.department(),
+    feishuThreadStates: r.many.feishuThreadState(),
+    globalConfigs: r.many.globalConfig(),
+    interviewAuditLogs: r.many.interviewAuditLog(),
+    interviewConversationTurns: r.many.interviewConversationTurn(),
+    interviewConversations: r.many.interviewConversation(),
+    interviewNotifications: r.many.interviewNotification(),
+    interviewQuestionTemplateBindings: r.many.interviewQuestionTemplateBinding(),
+    interviewQuestionTemplates: r.many.interviewQuestionTemplate(),
+    interviewers: r.many.interviewer(),
     invitations: r.many.invitation(),
+    jobDescriptions: r.many.jobDescription(),
     members: r.many.member(),
+    studioInterviewSchedules: r.many.studioInterviewSchedule(),
+    studioInterviews: r.many.studioInterview(),
   },
   session: {
     user: r.one.user({
@@ -185,6 +277,10 @@ export const relations = defineRelations(schema, (r) => ({
       from: r.studioInterview.jobDescriptionId,
       to: r.jobDescription.id,
     }),
+    organization: r.one.organization({
+      from: r.studioInterview.organizationId,
+      to: r.organization.id,
+    }),
     scheduleEntries: r.many.studioInterviewSchedule(),
     user: r.one.user({
       from: r.studioInterview.createdBy,
@@ -195,6 +291,10 @@ export const relations = defineRelations(schema, (r) => ({
     interviewRecord: r.one.studioInterview({
       from: r.studioInterviewSchedule.interviewRecordId,
       to: r.studioInterview.id,
+    }),
+    organization: r.one.organization({
+      from: r.studioInterviewSchedule.organizationId,
+      to: r.organization.id,
     }),
   },
   user: {
