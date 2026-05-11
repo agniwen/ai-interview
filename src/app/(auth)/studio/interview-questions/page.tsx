@@ -14,7 +14,7 @@ export default async function StudioInterviewQuestionTemplatesPage() {
   const activeOrg = await getActiveOrg();
   const organizationId = activeOrg?.id ?? "org_default";
   const [initialData, jobDescriptions] = await Promise.all([
-    listInterviewQuestionTemplates(),
+    listInterviewQuestionTemplates(organizationId),
     listAllJobDescriptions(organizationId),
   ]);
 
