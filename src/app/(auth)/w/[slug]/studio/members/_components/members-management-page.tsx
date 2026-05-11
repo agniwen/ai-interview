@@ -31,11 +31,7 @@ import { InviteDialog } from "./invite-dialog";
 const ROLE_OPTIONS = ["owner", "admin", "hr", "viewer"] as const;
 type WorkspaceRole = (typeof ROLE_OPTIONS)[number];
 
-// 内存数据下分页不会被触发的 noop。函数体里放一行注释让 oxlint 的
-// no-empty-function 满意 (项目通行写法,见 src/hooks/use-hydrated.ts)。
-const noop = (_: number) => {
-  // intentional no-op — DataGrid pagination callbacks unused in static mode
-};
+const DEFAULT_PAGE_SIZE = 10;
 
 interface MemberRow {
   id: string;
@@ -70,10 +66,12 @@ const ROLE_BADGE_VARIANT: Record<WorkspaceRole, "default" | "secondary" | "outli
 export function MembersManagementPage() {
   const { data: org, refetch, isPending } = authClient.useActiveOrganization();
   const [pending, setPending] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const canUpdate = useHasPermission("member", "update");
   const canDelete = useHasPermission("member", "delete");
 
-  const rows: MemberRow[] = useMemo(() => {
+  const allRows: MemberRow[] = useMemo(() => {
     const list = org?.members ?? [];
     return list.map((m) => {
       const { user } = m as {
@@ -89,6 +87,17 @@ export function MembersManagementPage() {
       };
     });
   }, [org?.members]);
+
+  // 成员列表来自 authClient.useActiveOrganization() 内存数据,这里做客户端切片
+  // 让分页 UI 跟其他 studio 页面 (服务端分页) 视觉一致。
+  // total <= pageSize 时 totalPages 仍是 1, DataGrid 会隐藏页码控件。
+  const total = allRows.length;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const safePage = Math.min(page, totalPages);
+  const rows = useMemo(
+    () => allRows.slice((safePage - 1) * pageSize, safePage * pageSize),
+    [allRows, safePage, pageSize],
+  );
 
   async function changeRole(memberId: string, role: WorkspaceRole) {
     setPending(memberId);
@@ -234,11 +243,13 @@ export function MembersManagementPage() {
         getRowId={(r) => r.id}
         loading={isPending}
         pagination={{
-          // 成员列表来自 authClient.useActiveOrganization() 内存数据,不走分页。
-          onPageChange: noop,
-          onPageSizeChange: noop,
-          page: 1,
-          pageSize: Math.max(rows.length, 1),
+          onPageChange: setPage,
+          onPageSizeChange: (size) => {
+            setPageSize(size);
+            setPage(1);
+          },
+          page: safePage,
+          pageSize,
         }}
         toolbarRight={
           <PermissionGate action="create" resource="invitation">
@@ -252,8 +263,8 @@ export function MembersManagementPage() {
             />
           </PermissionGate>
         }
-        total={rows.length}
-        totalPages={1}
+        total={total}
+        totalPages={totalPages}
       />
     </div>
   );
