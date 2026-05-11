@@ -27,6 +27,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { authClient } from "@/lib/client/auth-client";
+import { WorkspaceSwitcher } from "@/components/workspace/workspace-switcher";
 
 interface NavItem {
   /** Path under /w/[slug]/studio — leading slash, no slug prefix. */
@@ -133,6 +134,11 @@ export function StudioSidebarSlots() {
   return (
     <>
       <SidebarBodyPortalContent>
+        <SidebarGroup>
+          <SidebarGroupContent>
+            <WorkspaceSwitcher />
+          </SidebarGroupContent>
+        </SidebarGroup>
         {visibleGroups.map((group) => (
           <SidebarGroup key={group.label}>
             <SidebarGroupLabel>{group.label}</SidebarGroupLabel>
