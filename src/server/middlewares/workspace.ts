@@ -12,7 +12,7 @@
 
 import { and, asc, eq } from "drizzle-orm";
 import { db } from "@/lib/server/db";
-import { member, organization } from "@/lib/shared/db/schema";
+import { member, organization, session as sessionTable } from "@/lib/shared/db/schema";
 import { factory } from "@/server/factory";
 
 const FALLBACK_ORG_ID = "org_default";
@@ -36,6 +36,20 @@ export const workspaceMiddleware = factory.createMiddleware(async (c, next) => {
   const activeOrgId =
     (c.var.session as { activeOrganizationId?: string | null } | null)?.activeOrganizationId ??
     (await pickDefaultOrgId(user.id));
+
+  // If the session row in DB has NULL active_organization_id (legacy session from before P0
+  // added the column, or a brand-new session that the better-auth org plugin hasn't yet
+  // auto-set), persist the resolved org so auth.api.hasPermission can use it on subsequent
+  // requests inside this same session.
+  if (
+    !(c.var.session as { activeOrganizationId?: string | null } | null)?.activeOrganizationId &&
+    c.var.session?.id
+  ) {
+    await db
+      .update(sessionTable)
+      .set({ activeOrganizationId: activeOrgId })
+      .where(eq(sessionTable.id, c.var.session.id));
+  }
 
   const result = await db
     .select({
