@@ -257,6 +257,16 @@ export const auth = betterAuth({
   trustedOrigins,
   user: {
     additionalFields: {
+      feishuTenantKey: {
+        input: false,
+        required: false,
+        type: "string",
+      },
+      feishuTenantName: {
+        input: false,
+        required: false,
+        type: "string",
+      },
       organizationId: {
         input: false,
         required: false,

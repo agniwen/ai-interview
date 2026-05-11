@@ -123,6 +123,8 @@ export const user = pgTable("user", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
   email: text("email").notNull().unique(),
   emailVerified: boolean("email_verified").default(false).notNull(),
+  feishuTenantKey: text("feishu_tenant_key"),
+  feishuTenantName: text("feishu_tenant_name"),
   id: text("id").primaryKey(),
   image: text("image"),
   name: text("name").notNull(),
