@@ -6,7 +6,7 @@ RUN corepack enable
 # --- Dependencies ---
 FROM base AS deps
 WORKDIR /app
-COPY package.json pnpm-lock.yaml .npmrc ./
+COPY package.json pnpm-lock.yaml ./
 # --ignore-scripts skips the `prepare` hook (lefthook install) which needs git
 # and is only used for local git hooks, not CI/runtime.
 RUN pnpm install --frozen-lockfile --ignore-scripts
