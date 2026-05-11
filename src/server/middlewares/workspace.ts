@@ -1,14 +1,4 @@
-// src/server/middlewares/workspace.ts
-//
-// 解析当前请求的活跃 workspace + 用户在该 workspace 中的 member 行,
-// 注入到 c.var.activeOrg / c.var.member.
-//
-// 数据来源 (按优先级):
-// 1. better-auth session 上的 activeOrganizationId
-// 2. 该用户在 DB 里 created_at 最早的 member 行
-// 3. fallback 到 'org_default' (P1 backfill 所建的默认 workspace, 兜底用)
-//
-// P3 将改造为从 URL slug 解析 (/w/[slug]/...).
+import "server-only";
 
 import { and, asc, eq } from "drizzle-orm";
 import { db } from "@/lib/server/db";
@@ -18,13 +8,13 @@ import { factory } from "@/server/factory";
 const FALLBACK_ORG_ID = "org_default";
 
 async function pickDefaultOrgId(userId: string): Promise<string> {
-  const rows = await db
+  const [row] = await db
     .select({ organizationId: member.organizationId })
     .from(member)
     .where(eq(member.userId, userId))
     .orderBy(asc(member.createdAt))
     .limit(1);
-  return rows[0]?.organizationId ?? FALLBACK_ORG_ID;
+  return row?.organizationId ?? FALLBACK_ORG_ID;
 }
 
 export const workspaceMiddleware = factory.createMiddleware(async (c, next) => {
@@ -33,25 +23,27 @@ export const workspaceMiddleware = factory.createMiddleware(async (c, next) => {
     return c.json({ message: "Unauthorized" }, 401);
   }
 
-  const activeOrgId =
-    (c.var.session as { activeOrganizationId?: string | null } | null)?.activeOrganizationId ??
-    (await pickDefaultOrgId(user.id));
-
-  // If the session row in DB has NULL active_organization_id (legacy session from before P0
-  // added the column, or a brand-new session that the better-auth org plugin hasn't yet
-  // auto-set), persist the resolved org so auth.api.hasPermission can use it on subsequent
-  // requests inside this same session.
-  if (
-    !(c.var.session as { activeOrganizationId?: string | null } | null)?.activeOrganizationId &&
-    c.var.session?.id
-  ) {
-    await db
-      .update(sessionTable)
-      .set({ activeOrganizationId: activeOrgId })
-      .where(eq(sessionTable.id, c.var.session.id));
+  // 解析顺序：
+  // 1. URL slug (/w/:slug/* — P3 主入口)
+  // 2. session.activeOrganizationId (P3 之前的入口，后兼)
+  // 3. 用户最早加入的 member 行 fallback
+  const slug = c.req.param("slug");
+  let activeOrgId: string;
+  if (slug) {
+    const [bySlug] = await db
+      .select({ id: organization.id })
+      .from(organization)
+      .where(eq(organization.slug, slug))
+      .limit(1);
+    if (!bySlug) {
+      return c.json({ message: "Workspace not found" }, 404);
+    }
+    activeOrgId = bySlug.id;
+  } else {
+    activeOrgId = c.var.session?.activeOrganizationId ?? (await pickDefaultOrgId(user.id));
   }
 
-  const result = await db
+  const [row] = await db
     .select({
       member: {
         createdAt: member.createdAt,
@@ -74,9 +66,17 @@ export const workspaceMiddleware = factory.createMiddleware(async (c, next) => {
     .where(and(eq(member.userId, user.id), eq(member.organizationId, activeOrgId)))
     .limit(1);
 
-  const [row] = result;
   if (!row) {
     return c.json({ message: "Forbidden: not a member of this workspace" }, 403);
+  }
+
+  // 如果 session 的 active_organization_id 与本次解析不一致 (例如用户走 slug 切换了 org),
+  // 写回 session 让后续 auth.api.hasPermission 用同一个 org。
+  if (c.var.session?.activeOrganizationId !== activeOrgId && c.var.session?.id) {
+    await db
+      .update(sessionTable)
+      .set({ activeOrganizationId: activeOrgId })
+      .where(eq(sessionTable.id, c.var.session.id));
   }
 
   c.set("activeOrg", row.organization);
