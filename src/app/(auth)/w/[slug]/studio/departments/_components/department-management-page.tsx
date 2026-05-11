@@ -27,35 +27,42 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { rpc } from "@/lib/client/rpc";
+import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { DepartmentFormDialog } from "./department-form-dialog";
-
-async function fetchDepartments(params: {
-  search: string;
-  page: number;
-  pageSize: number;
-  filters: Record<string, never>;
-}): Promise<PaginatedDepartmentResult> {
-  const res = await rpc.api.studio.departments.$get({
-    query: {
-      page: String(params.page),
-      pageSize: String(params.pageSize),
-      ...(params.search ? { search: params.search } : {}),
-      sortBy: "createdAt",
-      sortOrder: "desc",
-    },
-  });
-  if (!res.ok) {
-    throw new Error("加载部门列表失败");
-  }
-  return (await res.json()) as PaginatedDepartmentResult;
-}
 
 export function DepartmentManagementPage({
   initialData,
 }: {
   initialData: PaginatedDepartmentResult;
 }) {
+  const slug = useWorkspaceSlug();
   const queryClient = useQueryClient();
+
+  const fetchDepartments = useMemo(
+    () =>
+      async (params: {
+        search: string;
+        page: number;
+        pageSize: number;
+        filters: Record<string, never>;
+      }): Promise<PaginatedDepartmentResult> => {
+        const res = await rpc.api.w[":slug"].studio.departments.$get({
+          param: { slug },
+          query: {
+            page: String(params.page),
+            pageSize: String(params.pageSize),
+            ...(params.search ? { search: params.search } : {}),
+            sortBy: "createdAt",
+            sortOrder: "desc",
+          },
+        });
+        if (!res.ok) {
+          throw new Error("加载部门列表失败");
+        }
+        return (await res.json()) as PaginatedDepartmentResult;
+      },
+    [slug],
+  );
 
   const grid = useDataGridState<DepartmentListRecord, Record<string, never>>({
     fetcher: fetchDepartments,
@@ -66,7 +73,7 @@ export function DepartmentManagementPage({
 
   const crud = useEntityCrud<DepartmentListRecord, DepartmentRecord>({
     deleteEntity: (record) =>
-      rpc.api.studio.departments[":id"].$delete({ param: { id: record.id } }),
+      rpc.api.w[":slug"].studio.departments[":id"].$delete({ param: { id: record.id, slug } }),
     detailFromList: (record) => record as unknown as DepartmentRecord,
     invalidate: () => {
       grid.invalidate();

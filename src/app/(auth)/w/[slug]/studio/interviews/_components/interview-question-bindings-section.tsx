@@ -9,6 +9,7 @@ import { ListChecksIcon } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { rpc } from "@/lib/client/rpc";
+import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 
@@ -34,32 +35,6 @@ interface BindingsResponse {
   }[];
 }
 
-async function fetchBindings(interviewId: string): Promise<BindingsResponse> {
-  const response = await rpc.api.studio.interviews[":id"]["question-template-bindings"].$get({
-    param: { id: interviewId },
-  });
-  const payload = (await response.json()) as BindingsResponse | { error?: string };
-  if (!response.ok) {
-    throw new Error("error" in payload && payload.error ? payload.error : "加载面试题绑定失败");
-  }
-  return payload as BindingsResponse;
-}
-
-async function updateBindings(
-  interviewId: string,
-  enabledTemplateIds: string[],
-): Promise<BindingsResponse> {
-  const response = await rpc.api.studio.interviews[":id"]["question-template-bindings"].$put({
-    json: { enabledTemplateIds },
-    param: { id: interviewId },
-  });
-  const payload = (await response.json()) as BindingsResponse | { error?: string };
-  if (!response.ok) {
-    throw new Error("error" in payload && payload.error ? payload.error : "更新失败");
-  }
-  return payload as BindingsResponse;
-}
-
 export function InterviewQuestionBindingsSection({
   interviewId,
   disabled = false,
@@ -67,10 +42,39 @@ export function InterviewQuestionBindingsSection({
   interviewId: string;
   disabled?: boolean;
 }) {
+  const slug = useWorkspaceSlug();
   const queryClient = useQueryClient();
-  const queryKey = ["interview-question-bindings", interviewId] as const;
+  const queryKey = ["interview-question-bindings", slug, interviewId] as const;
+
+  async function fetchBindings(): Promise<BindingsResponse> {
+    const response = await rpc.api.w[":slug"].studio.interviews[":id"][
+      "question-template-bindings"
+    ].$get({
+      param: { id: interviewId, slug },
+    });
+    const payload = (await response.json()) as BindingsResponse | { error?: string };
+    if (!response.ok) {
+      throw new Error("error" in payload && payload.error ? payload.error : "加载面试题绑定失败");
+    }
+    return payload as BindingsResponse;
+  }
+
+  async function updateBindings(enabledTemplateIds: string[]): Promise<BindingsResponse> {
+    const response = await rpc.api.w[":slug"].studio.interviews[":id"][
+      "question-template-bindings"
+    ].$put({
+      json: { enabledTemplateIds },
+      param: { id: interviewId, slug },
+    });
+    const payload = (await response.json()) as BindingsResponse | { error?: string };
+    if (!response.ok) {
+      throw new Error("error" in payload && payload.error ? payload.error : "更新失败");
+    }
+    return payload as BindingsResponse;
+  }
+
   const { data, isLoading, isError } = useQuery({
-    queryFn: () => fetchBindings(interviewId),
+    queryFn: () => fetchBindings(),
     queryKey,
     refetchOnWindowFocus: true,
     staleTime: 30 * 1000,
@@ -101,7 +105,7 @@ export function InterviewQuestionBindingsSection({
   }, [data, pendingEnabled]);
 
   const mutation = useMutation({
-    mutationFn: (enabled: string[]) => updateBindings(interviewId, enabled),
+    mutationFn: (enabled: string[]) => updateBindings(enabled),
     onError: (error) => {
       toast.error(error instanceof Error ? error.message : "更新失败");
       setPendingEnabled(null);
@@ -113,7 +117,7 @@ export function InterviewQuestionBindingsSection({
       // flags we just toggled — invalidate it so the Agent 提示词 tab picks up
       // the change next time it renders.
       void queryClient.invalidateQueries({
-        queryKey: ["studio-interview-agent-instructions", interviewId],
+        queryKey: ["studio-interview-agent-instructions", slug, interviewId],
       });
       setPendingEnabled(null);
     },

@@ -13,7 +13,7 @@ import type { PaginatedCandidateFormTemplateResult } from "@/server/routes/studi
 import { useQueryClient } from "@tanstack/react-query";
 import { ClipboardListIcon, InboxIcon, PencilIcon, PlusIcon, Trash2Icon } from "lucide-react";
 import { parseAsString, useQueryState } from "nuqs";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -34,45 +34,12 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { rpc } from "@/lib/client/rpc";
+import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { CandidateFormTemplateEditorDialog } from "./form-template-editor-dialog";
 import { CandidateFormTemplateSubmissionsDrawer } from "./form-template-submissions-drawer";
 
 function scopeLabel(scope: CandidateFormScope) {
   return scope === "global" ? "全局" : "岗位绑定";
-}
-
-async function fetchTemplates(params: {
-  search: string;
-  page: number;
-  pageSize: number;
-  filters: { scope: string; jobDescriptionId: string };
-}): Promise<PaginatedCandidateFormTemplateResult> {
-  const res = await rpc.api.studio.forms.$get({
-    query: {
-      page: String(params.page),
-      pageSize: String(params.pageSize),
-      ...(params.search ? { search: params.search } : {}),
-      // 多选过滤：CSV 形式 / Multi-select filters: CSV serialization.
-      ...(params.filters.scope ? { scope: params.filters.scope } : {}),
-      ...(params.filters.jobDescriptionId
-        ? { jobDescriptionId: params.filters.jobDescriptionId }
-        : {}),
-      sortBy: "createdAt",
-      sortOrder: "desc",
-    },
-  });
-  if (!res.ok) {
-    throw new Error("加载面试表单列表失败");
-  }
-  return (await res.json()) as PaginatedCandidateFormTemplateResult;
-}
-
-async function loadTemplateDetailById(id: string): Promise<CandidateFormTemplateRecord | null> {
-  const response = await rpc.api.studio.forms[":id"].$get({ param: { id } });
-  if (!response.ok) {
-    return null;
-  }
-  return (await response.json()) as CandidateFormTemplateRecord;
 }
 
 // oxlint-disable-next-line complexity -- Page hosts list, filter, pagination, and dialog state together.
@@ -83,7 +50,52 @@ export function CandidateFormTemplateManagementPage({
   initialData: PaginatedCandidateFormTemplateResult;
   jobDescriptions: JobDescriptionListRecord[];
 }) {
+  const slug = useWorkspaceSlug();
   const queryClient = useQueryClient();
+
+  const fetchTemplates = useMemo(
+    () =>
+      async (params: {
+        search: string;
+        page: number;
+        pageSize: number;
+        filters: { scope: string; jobDescriptionId: string };
+      }): Promise<PaginatedCandidateFormTemplateResult> => {
+        const res = await rpc.api.w[":slug"].studio.forms.$get({
+          param: { slug },
+          query: {
+            page: String(params.page),
+            pageSize: String(params.pageSize),
+            ...(params.search ? { search: params.search } : {}),
+            // 多选过滤：CSV 形式 / Multi-select filters: CSV serialization.
+            ...(params.filters.scope ? { scope: params.filters.scope } : {}),
+            ...(params.filters.jobDescriptionId
+              ? { jobDescriptionId: params.filters.jobDescriptionId }
+              : {}),
+            sortBy: "createdAt",
+            sortOrder: "desc",
+          },
+        });
+        if (!res.ok) {
+          throw new Error("加载面试表单列表失败");
+        }
+        return (await res.json()) as PaginatedCandidateFormTemplateResult;
+      },
+    [slug],
+  );
+
+  const loadTemplateDetailById = useCallback(
+    async (id: string): Promise<CandidateFormTemplateRecord | null> => {
+      const response = await rpc.api.w[":slug"].studio.forms[":id"].$get({
+        param: { id, slug },
+      });
+      if (!response.ok) {
+        return null;
+      }
+      return (await response.json()) as CandidateFormTemplateRecord;
+    },
+    [slug],
+  );
 
   const grid = useDataGridState<
     CandidateFormTemplateListRecord,
@@ -102,7 +114,8 @@ export function CandidateFormTemplateManagementPage({
   );
 
   const crud = useEntityCrud<CandidateFormTemplateListRecord, CandidateFormTemplateRecord>({
-    deleteEntity: (record) => rpc.api.studio.forms[":id"].$delete({ param: { id: record.id } }),
+    deleteEntity: (record) =>
+      rpc.api.w[":slug"].studio.forms[":id"].$delete({ param: { id: record.id, slug } }),
     invalidate: () => {
       grid.invalidate();
       void queryClient.invalidateQueries({ queryKey: ["candidate-form-templates"] });
@@ -144,7 +157,13 @@ export function CandidateFormTemplateManagementPage({
     return () => {
       cancelled = true;
     };
-  }, [activeTemplateId, setActiveTemplateId, setEditingRecord, setFormDialogOpen]);
+  }, [
+    activeTemplateId,
+    loadTemplateDetailById,
+    setActiveTemplateId,
+    setEditingRecord,
+    setFormDialogOpen,
+  ]);
 
   function onEditorOpenChange(next: boolean) {
     crud.onFormOpenChange(next);

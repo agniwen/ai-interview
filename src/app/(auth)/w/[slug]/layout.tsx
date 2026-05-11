@@ -5,6 +5,7 @@ import { auth } from "@/lib/server/auth";
 import { db } from "@/lib/server/db";
 import { member, organization } from "@/lib/shared/db/schema";
 import { getCurrentSession } from "@/lib/server/auth-session";
+import { WorkspaceSlugProvider } from "@/lib/client/workspace-context";
 
 export default async function WorkspaceLayout({
   children,
@@ -48,5 +49,5 @@ export default async function WorkspaceLayout({
     });
   }
 
-  return <>{children}</>;
+  return <WorkspaceSlugProvider slug={slug}>{children}</WorkspaceSlugProvider>;
 }

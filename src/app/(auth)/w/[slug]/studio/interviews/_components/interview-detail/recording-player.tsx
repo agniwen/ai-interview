@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { fetchStudioInterviewRecordingUrl } from "@/lib/client/api";
 import { ApiError } from "@/lib/client/api/errors";
+import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import type { InterviewRecordingStatus } from "@/lib/shared/db-enums";
 
 interface RecordingPlayerProps {
@@ -54,6 +55,7 @@ export function RecordingPlayer({
   status,
   durationSecs,
 }: RecordingPlayerProps) {
+  const slug = useWorkspaceSlug();
   const [url, setUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -69,7 +71,7 @@ export function RecordingPlayer({
   async function loadUrl() {
     setLoading(true);
     try {
-      const res = await fetchStudioInterviewRecordingUrl(recordId, conversationId);
+      const res = await fetchStudioInterviewRecordingUrl(slug, recordId, conversationId);
       setUrl(res.url);
     } catch (error) {
       const message = error instanceof ApiError ? error.message : "录像加载失败, 请稍后重试。";

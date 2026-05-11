@@ -22,6 +22,7 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { DedupMatchRecord } from "@/lib/client/api";
 import { apiFetch, fetchInterviewDedup } from "@/lib/client/api";
+import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { rpc } from "@/lib/client/rpc";
 import { readNdjsonStream } from "@/lib/client/ndjson-stream";
 import {
@@ -52,6 +53,7 @@ export function CreateInterviewDialog({
 }: {
   onCreated: (record: StudioInterviewRecord) => void;
 }) {
+  const slug = useWorkspaceSlug();
   const [open, setOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<string>("basic");
   const [resumeFile, setResumeFile] = useState<File | null>(null);
@@ -408,7 +410,7 @@ export function CreateInterviewDialog({
       // Identity dedup check; on failure proceed silently (don't block the upload).
       let dedupHit = false;
       try {
-        const { matches } = await fetchInterviewDedup({
+        const { matches } = await fetchInterviewDedup(slug, {
           email: resumeProfile.email,
           name: resumeProfile.name,
           phone: resumeProfile.phone,

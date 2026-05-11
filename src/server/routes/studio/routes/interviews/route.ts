@@ -93,27 +93,44 @@ export const studioInterviewsRouter = factory
       return c.json({ matches }, 200);
     },
   )
-  .get("/", requirePermission("interview", "read"), async (c) => {
-    const { activeOrg } = c.var;
-    if (!activeOrg) {
-      return c.json({ message: "Unauthorized" }, 401);
-    }
-    const result = await queryPaginatedStudioInterviewRecords(
-      activeOrg.id,
-      {
-        search: c.req.query("search"),
-        status: c.req.query("status"),
-      },
-      {
-        page: c.req.query("page"),
-        pageSize: c.req.query("pageSize"),
-        sortBy: c.req.query("sortBy"),
-        sortOrder: c.req.query("sortOrder"),
-      },
-    );
+  .get(
+    "/",
+    requirePermission("interview", "read"),
+    zValidator(
+      "query",
+      z.object({
+        page: z.string().optional(),
+        pageSize: z.string().optional(),
+        search: z.string().optional(),
+        sortBy: z.string().optional(),
+        sortOrder: z.string().optional(),
+        status: z.string().optional(),
+      }),
+      jsonValidatorError("查询参数无效。"),
+    ),
+    async (c) => {
+      const { activeOrg } = c.var;
+      if (!activeOrg) {
+        return c.json({ message: "Unauthorized" }, 401);
+      }
+      const q = c.req.valid("query");
+      const result = await queryPaginatedStudioInterviewRecords(
+        activeOrg.id,
+        {
+          search: q.search,
+          status: q.status,
+        },
+        {
+          page: q.page,
+          pageSize: q.pageSize,
+          sortBy: q.sortBy,
+          sortOrder: q.sortOrder,
+        },
+      );
 
-    return c.json(result, 200);
-  })
+      return c.json(result, 200);
+    },
+  )
   // oxlint-disable-next-line complexity -- CRUD handler orchestrates parse → validate → persist in one flow.
   .post("/", requirePermission("interview", "create"), async (c) => {
     const { activeOrg } = c.var;

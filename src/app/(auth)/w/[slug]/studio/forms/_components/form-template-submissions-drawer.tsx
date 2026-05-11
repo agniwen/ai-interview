@@ -7,6 +7,7 @@ import type {
 import { useQuery } from "@tanstack/react-query";
 import { InboxIcon, Loader2Icon } from "lucide-react";
 import { rpc } from "@/lib/client/rpc";
+import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { DATE_TIME_DISPLAY_OPTIONS, TimeDisplay } from "@/components/time-display";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -27,20 +28,6 @@ interface SubmissionRow {
   snapshot: CandidateFormTemplateSnapshot;
   answers: Record<string, string | string[]>;
   submittedAt: string | Date;
-}
-
-async function fetchSubmissions(templateId: string): Promise<SubmissionRow[]> {
-  const response = await rpc.api.studio.forms[":id"].submissions.$get({
-    param: { id: templateId },
-  });
-  const payload = (await response.json()) as {
-    submissions?: SubmissionRow[];
-    error?: string;
-  };
-  if (!response.ok) {
-    throw new Error(payload?.error ?? "加载填写记录失败");
-  }
-  return (payload.submissions ?? []) as SubmissionRow[];
 }
 
 function renderAnswer(
@@ -89,6 +76,22 @@ export function CandidateFormTemplateSubmissionsDrawer({
   onOpenChange: (open: boolean) => void;
   template: CandidateFormTemplateListRecord | null;
 }) {
+  const slug = useWorkspaceSlug();
+
+  async function fetchSubmissions(templateId: string): Promise<SubmissionRow[]> {
+    const response = await rpc.api.w[":slug"].studio.forms[":id"].submissions.$get({
+      param: { id: templateId, slug },
+    });
+    const payload = (await response.json()) as {
+      submissions?: SubmissionRow[];
+      error?: string;
+    };
+    if (!response.ok) {
+      throw new Error(payload?.error ?? "加载填写记录失败");
+    }
+    return (payload.submissions ?? []) as SubmissionRow[];
+  }
+
   const { data, isLoading, isError, error } = useQuery({
     enabled: open && !!template,
     queryFn: () => {
@@ -97,7 +100,7 @@ export function CandidateFormTemplateSubmissionsDrawer({
       }
       return fetchSubmissions(template.id);
     },
-    queryKey: ["candidate-form-templates", template?.id, "submissions"],
+    queryKey: ["candidate-form-templates", slug, template?.id, "submissions"],
   });
 
   return (

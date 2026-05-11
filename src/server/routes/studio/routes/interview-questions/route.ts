@@ -1,5 +1,6 @@
 import { zValidator } from "@hono/zod-validator";
 import { eq } from "drizzle-orm";
+import { z } from "zod";
 import { db } from "@/lib/server/db";
 import {
   interviewQuestionTemplate,
@@ -40,29 +41,45 @@ function normalizeQuestions(
   }));
 }
 
+const interviewQuestionListQuerySchema = z.object({
+  jobDescriptionId: z.string().optional(),
+  page: z.string().optional(),
+  pageSize: z.string().optional(),
+  scope: z.string().optional(),
+  search: z.string().optional(),
+  sortBy: z.string().optional(),
+  sortOrder: z.string().optional(),
+});
+
 export const interviewQuestionTemplatesRouter = factory
   .createApp()
-  .get("/", requirePermission("questionTemplate", "read"), async (c) => {
-    const { activeOrg } = c.var;
-    if (!activeOrg) {
-      return c.json({ message: "Unauthorized" }, 401);
-    }
-    const result = await queryPaginatedInterviewQuestionTemplates(
-      activeOrg.id,
-      {
-        jobDescriptionId: c.req.query("jobDescriptionId"),
-        scope: c.req.query("scope"),
-        search: c.req.query("search"),
-      },
-      {
-        page: c.req.query("page"),
-        pageSize: c.req.query("pageSize"),
-        sortBy: c.req.query("sortBy"),
-        sortOrder: c.req.query("sortOrder"),
-      },
-    );
-    return c.json(result, 200);
-  })
+  .get(
+    "/",
+    requirePermission("questionTemplate", "read"),
+    zValidator("query", interviewQuestionListQuerySchema, jsonValidatorError("查询参数无效。")),
+    async (c) => {
+      const { activeOrg } = c.var;
+      if (!activeOrg) {
+        return c.json({ message: "Unauthorized" }, 401);
+      }
+      const q = c.req.valid("query");
+      const result = await queryPaginatedInterviewQuestionTemplates(
+        activeOrg.id,
+        {
+          jobDescriptionId: q.jobDescriptionId,
+          scope: q.scope,
+          search: q.search,
+        },
+        {
+          page: q.page,
+          pageSize: q.pageSize,
+          sortBy: q.sortBy,
+          sortOrder: q.sortOrder,
+        },
+      );
+      return c.json(result, 200);
+    },
+  )
   .get("/all", requirePermission("questionTemplate", "read"), async (c) => {
     const { activeOrg } = c.var;
     if (!activeOrg) {

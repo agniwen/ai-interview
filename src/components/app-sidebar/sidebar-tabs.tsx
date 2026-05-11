@@ -9,10 +9,19 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 type SidebarTabValue = "chat" | "studio";
 
-const TAB_ROUTES: Record<SidebarTabValue, string> = {
-  chat: "/chat",
-  studio: "/studio/interviews",
-};
+// 从 pathname 解析当前 workspace slug；非 /w/[slug]/* 路径返回 null。
+// Studio 已经平移到 /w/[slug]/studio/*，所以切到 Studio tab 时必须带上 slug。
+// Chat 仍然挂在顶层 /chat,不与 workspace 路径耦合。
+function extractWorkspaceSlug(pathname: string): string | null {
+  const match = pathname.match(/^\/w\/([^/]+)(?:\/|$)/);
+  return match?.[1] ?? null;
+}
+
+function studioDefaultPath(slug: string | null): string | null {
+  return slug ? `/w/${slug}/studio/interviews` : null;
+}
+
+const CHAT_DEFAULT_PATH = "/chat";
 
 const tabLastPathAtom = atom<Record<SidebarTabValue, string | null>>({
   chat: null,
@@ -20,7 +29,7 @@ const tabLastPathAtom = atom<Record<SidebarTabValue, string | null>>({
 });
 
 function resolveActiveTab(pathname: string): SidebarTabValue | null {
-  if (pathname.startsWith("/studio")) {
+  if (pathname.startsWith("/w/") && pathname.includes("/studio")) {
     return "studio";
   }
 
@@ -35,6 +44,7 @@ export function SidebarTabs({ canAccessAdmin }: { canAccessAdmin: boolean }) {
   const pathname = usePathname();
   const router = useRouter();
   const activeTab = useMemo(() => resolveActiveTab(pathname), [pathname]);
+  const currentSlug = useMemo(() => extractWorkspaceSlug(pathname), [pathname]);
   const [tabLastPath, setTabLastPath] = useAtom(tabLastPathAtom);
 
   // Keep the active tab's last-visited path in sync so that tab switching
@@ -55,11 +65,14 @@ export function SidebarTabs({ canAccessAdmin }: { canAccessAdmin: boolean }) {
   // first switch. Re-runs when the remembered last-path changes.
   // 预取另一侧 tab 的路由，避免首次切换时拉 chunk + RSC 造成卡顿。
   useEffect(() => {
-    const chatTarget = tabLastPath.chat ?? TAB_ROUTES.chat;
-    const studioTarget = tabLastPath.studio ?? TAB_ROUTES.studio;
+    const studioDefault = studioDefaultPath(currentSlug);
+    const chatTarget = tabLastPath.chat ?? CHAT_DEFAULT_PATH;
+    const studioTarget = tabLastPath.studio ?? studioDefault;
     const otherTarget = activeTab === "studio" ? chatTarget : studioTarget;
-    router.prefetch(otherTarget);
-  }, [activeTab, router, tabLastPath.chat, tabLastPath.studio]);
+    if (otherTarget) {
+      router.prefetch(otherTarget);
+    }
+  }, [activeTab, currentSlug, router, tabLastPath.chat, tabLastPath.studio]);
 
   // The chat page transitions from `/chat` to `/chat/[sessionId]` via
   // `history.replaceState` (soft URL update, invisible to Next's router)
@@ -90,9 +103,20 @@ export function SidebarTabs({ canAccessAdmin }: { canAccessAdmin: boolean }) {
 
   const handleChange = (value: string) => {
     const nextTab = value as SidebarTabValue;
-    const target = tabLastPath[nextTab] ?? TAB_ROUTES[nextTab];
 
-    if (target && target !== pathname) {
+    // tab 上次记录的路径优先；否则用默认值（studio 必须依赖当前 slug）。
+    let target = tabLastPath[nextTab];
+    if (!target) {
+      target = nextTab === "chat" ? CHAT_DEFAULT_PATH : studioDefaultPath(currentSlug);
+    }
+
+    // studio 切换缺 slug 时无法构造路径——返回首页让根路由解析活跃 workspace。
+    if (!target) {
+      router.push("/");
+      return;
+    }
+
+    if (target !== pathname) {
       router.push(target);
     }
   };

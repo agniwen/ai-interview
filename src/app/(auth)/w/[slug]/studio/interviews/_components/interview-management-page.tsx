@@ -44,6 +44,7 @@ import {
 } from "@/components/ui/empty";
 import { bulkDeleteStudioInterviews, deleteStudioInterview, rpcFetch } from "@/lib/client/api";
 import { rpc } from "@/lib/client/rpc";
+import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { copyTextToClipboard, toAbsoluteUrl } from "@/lib/client/clipboard";
 import {
   scheduleEntryStatusMeta,
@@ -74,26 +75,6 @@ interface FetchParams {
   sortOrder: "asc" | "desc" | undefined;
 }
 
-function fetchInterviews(params: FetchParams): Promise<PaginatedStudioInterviewResult> {
-  const query: Record<string, string> = {
-    page: String(params.page),
-    pageSize: String(params.pageSize),
-    sortBy: params.sortBy ?? "createdAt",
-    sortOrder: params.sortBy ? (params.sortOrder ?? "asc") : "desc",
-  };
-  if (params.search) {
-    query.search = params.search;
-  }
-  // 多选过滤：CSV 形式 / Multi-select filters: CSV serialization.
-  if (params.filters.status) {
-    query.status = params.filters.status;
-  }
-  return rpcFetch<PaginatedStudioInterviewResult>(
-    rpc.api.studio.interviews.$get({ query }),
-    "加载面试列表失败",
-  );
-}
-
 export function InterviewManagementPage({
   initialData,
   initialSummary,
@@ -101,7 +82,32 @@ export function InterviewManagementPage({
   initialData: PaginatedStudioInterviewResult;
   initialSummary: StudioInterviewSummary;
 }) {
+  const slug = useWorkspaceSlug();
   const queryClient = useQueryClient();
+
+  const fetchInterviews = useMemo(
+    () =>
+      (params: FetchParams): Promise<PaginatedStudioInterviewResult> => {
+        const query: Record<string, string> = {
+          page: String(params.page),
+          pageSize: String(params.pageSize),
+          sortBy: params.sortBy ?? "createdAt",
+          sortOrder: params.sortBy ? (params.sortOrder ?? "asc") : "desc",
+        };
+        if (params.search) {
+          query.search = params.search;
+        }
+        // 多选过滤：CSV 形式 / Multi-select filters: CSV serialization.
+        if (params.filters.status) {
+          query.status = params.filters.status;
+        }
+        return rpcFetch<PaginatedStudioInterviewResult>(
+          rpc.api.w[":slug"].studio.interviews.$get({ param: { slug }, query }),
+          "加载面试列表失败",
+        );
+      },
+    [slug],
+  );
 
   const grid = useDataGridState<StudioInterviewListRecord, { status: string }>({
     defaultSorting: [{ desc: true, id: "createdAt" }],
@@ -115,8 +121,11 @@ export function InterviewManagementPage({
   const summaryQuery = useQuery({
     placeholderData: (prev) => prev,
     queryFn: () =>
-      rpcFetch<StudioInterviewSummary>(rpc.api.studio.interviews.summary.$get(), "加载概览失败"),
-    queryKey: ["studio-interviews", "summary"] as const,
+      rpcFetch<StudioInterviewSummary>(
+        rpc.api.w[":slug"].studio.interviews.summary.$get({ param: { slug } }),
+        "加载概览失败",
+      ),
+    queryKey: ["studio-interviews", slug, "summary"] as const,
     refetchOnWindowFocus: true,
     staleTime: 30 * 1000,
   });
@@ -370,7 +379,7 @@ export function InterviewManagementPage({
       return;
     }
     try {
-      await deleteStudioInterview(deleteRecord.id);
+      await deleteStudioInterview(slug, deleteRecord.id);
       setDeleteRecord(null);
       toast.success("面试记录已删除");
       invalidateAll();
@@ -386,7 +395,7 @@ export function InterviewManagementPage({
     }
     setIsBulkDeleting(true);
     try {
-      const result = await bulkDeleteStudioInterviews(ids);
+      const result = await bulkDeleteStudioInterviews(slug, ids);
       toast.success(`已删除 ${result?.deleted ?? ids.length} 条记录`);
       grid.setRowSelection({});
       setBulkDeleteOpen(false);

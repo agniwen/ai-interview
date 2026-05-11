@@ -3,6 +3,7 @@
 import type { DepartmentFormValues, DepartmentRecord } from "@/lib/shared/departments";
 import { departmentFormSchema } from "@/lib/shared/departments";
 import { rpc } from "@/lib/client/rpc";
+import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { toast } from "sonner";
 import { Field, FieldContent, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
@@ -33,6 +34,7 @@ export function DepartmentFormDialog({
   record: DepartmentRecord | null;
   onSaved: () => void;
 }) {
+  const slug = useWorkspaceSlug();
   const isEdit = record !== null;
 
   const { form, isSubmitting } = useEntityForm<DepartmentFormValues>({
@@ -44,11 +46,11 @@ export function DepartmentFormDialog({
       };
 
       const response = isEdit
-        ? await rpc.api.studio.departments[":id"].$patch({
+        ? await rpc.api.w[":slug"].studio.departments[":id"].$patch({
             json: body,
-            param: { id: record.id },
+            param: { id: record.id, slug },
           })
-        : await rpc.api.studio.departments.$post({ json: body });
+        : await rpc.api.w[":slug"].studio.departments.$post({ json: body, param: { slug } });
 
       const payload = (await response.json().catch(() => null)) as {
         error?: string;

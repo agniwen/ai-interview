@@ -10,6 +10,7 @@ import {
   resetStudioInterviewRound,
   updateStudioInterviewRound,
 } from "@/lib/client/api";
+import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { MessageSquareTextIcon, RotateCcwIcon, Share2Icon } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -89,6 +90,7 @@ export function InterviewDetailDialog({
   onUpdated?: () => void;
   recordId: string | null;
 }) {
+  const slug = useWorkspaceSlug();
   const [resettingRoundId, setResettingRoundId] = useState<string | null>(null);
   const [updatingRoundId, setUpdatingRoundId] = useState<string | null>(null);
   const [resettingSubmissionId, setResettingSubmissionId] = useState<string | null>(null);
@@ -100,22 +102,22 @@ export function InterviewDetailDialog({
   // removing the duplicated unwrap-and-throw boilerplate.
   const { data: record, isLoading: isRecordLoading } = useQuery({
     enabled: open && !!recordId,
-    queryFn: () => fetchStudioInterview(recordId as string),
-    queryKey: ["studio-interview", recordId],
+    queryFn: () => fetchStudioInterview(slug, recordId as string),
+    queryKey: ["studio-interview", slug, recordId],
     refetchOnWindowFocus: true,
   });
 
   const { data: reports = [] } = useQuery({
     enabled: open && !!recordId,
-    queryFn: () => fetchStudioInterviewReports(recordId as string),
-    queryKey: ["studio-interview-reports", recordId],
+    queryFn: () => fetchStudioInterviewReports(slug, recordId as string),
+    queryKey: ["studio-interview-reports", slug, recordId],
     refetchOnWindowFocus: true,
   });
 
   const { data: formSubmissions = [] } = useQuery({
     enabled: open && !!recordId,
-    queryFn: () => fetchStudioInterviewFormSubmissions(recordId as string),
-    queryKey: ["studio-interview-form-submissions", recordId],
+    queryFn: () => fetchStudioInterviewFormSubmissions(slug, recordId as string),
+    queryKey: ["studio-interview-form-submissions", slug, recordId],
     refetchOnWindowFocus: true,
   });
 
@@ -151,9 +153,9 @@ export function InterviewDetailDialog({
     setUpdatingRoundId(roundId);
 
     try {
-      await updateStudioInterviewRound(recordId, roundId, { allowTextInput: next });
+      await updateStudioInterviewRound(slug, recordId, roundId, { allowTextInput: next });
       toast.success(next ? "已开启文本作答" : "已关闭文本作答");
-      await queryClient.invalidateQueries({ queryKey: ["studio-interview", recordId] });
+      await queryClient.invalidateQueries({ queryKey: ["studio-interview", slug, recordId] });
       onUpdated?.();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "更新失败");
@@ -170,10 +172,12 @@ export function InterviewDetailDialog({
     setResettingRoundId(roundId);
 
     try {
-      await resetStudioInterviewRound(recordId, roundId);
+      await resetStudioInterviewRound(slug, recordId, roundId);
       toast.success("轮次已重置为待开始");
-      await queryClient.invalidateQueries({ queryKey: ["studio-interview", recordId] });
-      await queryClient.invalidateQueries({ queryKey: ["studio-interview-reports", recordId] });
+      await queryClient.invalidateQueries({ queryKey: ["studio-interview", slug, recordId] });
+      await queryClient.invalidateQueries({
+        queryKey: ["studio-interview-reports", slug, recordId],
+      });
       onUpdated?.();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "重置失败");
@@ -192,10 +196,10 @@ export function InterviewDetailDialog({
     setPendingResetSubmissionId(null);
 
     try {
-      await deleteStudioInterviewFormSubmission(recordId, submissionId);
+      await deleteStudioInterviewFormSubmission(slug, recordId, submissionId);
       toast.success("已重置面试表单填写");
       await queryClient.invalidateQueries({
-        queryKey: ["studio-interview-form-submissions", recordId],
+        queryKey: ["studio-interview-form-submissions", slug, recordId],
       });
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "重置失败");

@@ -1,5 +1,6 @@
 import { zValidator } from "@hono/zod-validator";
 import { and, eq } from "drizzle-orm";
+import { z } from "zod";
 import { db } from "@/lib/server/db";
 import { department } from "@/lib/shared/db/schema";
 import { departmentFormSchema, departmentUpdateSchema } from "@/lib/shared/departments";
@@ -14,24 +15,38 @@ import {
 } from "@/server/routes/studio/routes/departments/dao";
 import { safeUpdateTag } from "@/server/cache-tags";
 
+const departmentListQuerySchema = z.object({
+  page: z.string().optional(),
+  pageSize: z.string().optional(),
+  search: z.string().optional(),
+  sortBy: z.string().optional(),
+  sortOrder: z.string().optional(),
+});
+
 export const departmentsRouter = factory
   .createApp()
-  .get("/", requirePermission("department", "read"), async (c) => {
-    const { activeOrg } = c.var;
-    if (!activeOrg) {
-      return c.json({ message: "Unauthorized" }, 401);
-    }
-    const result = await queryPaginatedDepartments(
-      { organizationId: activeOrg.id, search: c.req.query("search") },
-      {
-        page: c.req.query("page"),
-        pageSize: c.req.query("pageSize"),
-        sortBy: c.req.query("sortBy"),
-        sortOrder: c.req.query("sortOrder"),
-      },
-    );
-    return c.json(result, 200);
-  })
+  .get(
+    "/",
+    requirePermission("department", "read"),
+    zValidator("query", departmentListQuerySchema, jsonValidatorError("查询参数无效。")),
+    async (c) => {
+      const { activeOrg } = c.var;
+      if (!activeOrg) {
+        return c.json({ message: "Unauthorized" }, 401);
+      }
+      const q = c.req.valid("query");
+      const result = await queryPaginatedDepartments(
+        { organizationId: activeOrg.id, search: q.search },
+        {
+          page: q.page,
+          pageSize: q.pageSize,
+          sortBy: q.sortBy,
+          sortOrder: q.sortOrder,
+        },
+      );
+      return c.json(result, 200);
+    },
+  )
   .get("/all", requirePermission("department", "read"), async (c) => {
     const { activeOrg } = c.var;
     if (!activeOrg) {

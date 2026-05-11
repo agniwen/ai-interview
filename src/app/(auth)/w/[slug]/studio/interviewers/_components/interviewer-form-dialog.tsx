@@ -4,6 +4,7 @@ import type { DepartmentRecord } from "@/lib/shared/departments";
 import type { InterviewerFormValues, InterviewerRecord } from "@/lib/shared/interviewers";
 import { interviewerFormSchema } from "@/lib/shared/interviewers";
 import { rpc } from "@/lib/client/rpc";
+import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { toast } from "sonner";
 import { Field, FieldContent, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
@@ -54,6 +55,7 @@ export function InterviewerFormDialog({
   departments: DepartmentRecord[];
   onSaved: () => void;
 }) {
+  const slug = useWorkspaceSlug();
   const isEdit = record !== null;
   const fallbackDepartmentId = departments[0]?.id ?? "";
   const noDepartments = departments.length === 0;
@@ -70,11 +72,11 @@ export function InterviewerFormDialog({
       };
 
       const response = isEdit
-        ? await rpc.api.studio.interviewers[":id"].$patch({
+        ? await rpc.api.w[":slug"].studio.interviewers[":id"].$patch({
             json: body,
-            param: { id: record.id },
+            param: { id: record.id, slug },
           })
-        : await rpc.api.studio.interviewers.$post({ json: body });
+        : await rpc.api.w[":slug"].studio.interviewers.$post({ json: body, param: { slug } });
       const payload = (await response.json().catch(() => null)) as { error?: string } | null;
       if (!response.ok) {
         toast.error(payload?.error ?? (isEdit ? "更新失败" : "创建失败"));

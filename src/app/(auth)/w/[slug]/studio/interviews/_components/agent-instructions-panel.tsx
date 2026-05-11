@@ -3,6 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Loader2Icon } from "lucide-react";
 import { rpc } from "@/lib/client/rpc";
+import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 
 interface AgentInstructionVariant {
   interviewerName: string | null;
@@ -19,12 +20,15 @@ export function AgentInstructionsPanel({
   /** Pause fetching when the parent panel/tab isn't visible. */
   enabled?: boolean;
 }) {
+  const slug = useWorkspaceSlug();
   const { data: variants = [], isLoading } = useQuery({
     enabled: enabled && !!recordId,
     queryFn: async () => {
-      const response = await rpc.api.studio.interviews[":id"]["agent-instructions"].$get({
-        param: { id: recordId ?? "" },
-      });
+      const response = await rpc.api.w[":slug"].studio.interviews[":id"]["agent-instructions"].$get(
+        {
+          param: { id: recordId ?? "", slug },
+        },
+      );
       const payload = (await response.json()) as
         | { variants: AgentInstructionVariant[] }
         | { error?: string };
@@ -35,7 +39,7 @@ export function AgentInstructionsPanel({
       }
       return payload.variants;
     },
-    queryKey: ["studio-interview-agent-instructions", recordId],
+    queryKey: ["studio-interview-agent-instructions", slug, recordId],
     refetchOnWindowFocus: true,
   });
 

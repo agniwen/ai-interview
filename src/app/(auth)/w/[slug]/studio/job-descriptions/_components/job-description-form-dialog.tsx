@@ -7,6 +7,7 @@ import type { InterviewQuestionTemplateListRecord } from "@/lib/shared/interview
 import { jobDescriptionFormSchema } from "@/lib/shared/job-descriptions";
 import type { JobDescriptionFormValues, JobDescriptionRecord } from "@/lib/shared/job-descriptions";
 import { rpc } from "@/lib/client/rpc";
+import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { useQuery } from "@tanstack/react-query";
 import { useForm, useStore } from "@tanstack/react-form";
 import {
@@ -74,6 +75,7 @@ export function JobDescriptionFormDialog({
   interviewers: InterviewerListRecord[];
   onSaved: () => void;
 }) {
+  const slug = useWorkspaceSlug();
   const isEdit = record !== null;
   const fallbackDepartmentId = departments[0]?.id ?? "";
   const [activeTab, setActiveTab] = useState<"basic" | "interview-questions" | "forms">("basic");
@@ -81,7 +83,8 @@ export function JobDescriptionFormDialog({
   const { data: linkedForms = [], isLoading: isFormsLoading } = useQuery({
     enabled: open && isEdit && !!record?.id,
     queryFn: async () => {
-      const response = await rpc.api.studio.forms.$get({
+      const response = await rpc.api.w[":slug"].studio.forms.$get({
+        param: { slug },
         query: {
           jobDescriptionId: record?.id ?? "",
           page: "1",
@@ -99,13 +102,14 @@ export function JobDescriptionFormDialog({
       }
       return payload.records;
     },
-    queryKey: ["job-description-linked-forms", record?.id],
+    queryKey: ["job-description-linked-forms", slug, record?.id],
   });
 
   const { data: linkedInterviewQuestions = [], isLoading: isInterviewQuestionsLoading } = useQuery({
     enabled: open && isEdit && !!record?.id,
     queryFn: async () => {
-      const response = await rpc.api.studio["interview-questions"].$get({
+      const response = await rpc.api.w[":slug"].studio["interview-questions"].$get({
+        param: { slug },
         query: {
           jobDescriptionId: record?.id ?? "",
           page: "1",
@@ -123,7 +127,7 @@ export function JobDescriptionFormDialog({
       }
       return payload.records;
     },
-    queryKey: ["job-description-linked-interview-questions", record?.id],
+    queryKey: ["job-description-linked-interview-questions", slug, record?.id],
   });
 
   const form = useForm({
@@ -138,11 +142,14 @@ export function JobDescriptionFormDialog({
       };
 
       const response = isEdit
-        ? await rpc.api.studio["job-descriptions"][":id"].$patch({
+        ? await rpc.api.w[":slug"].studio["job-descriptions"][":id"].$patch({
             json: body,
-            param: { id: record.id },
+            param: { id: record.id, slug },
           })
-        : await rpc.api.studio["job-descriptions"].$post({ json: body });
+        : await rpc.api.w[":slug"].studio["job-descriptions"].$post({
+            json: body,
+            param: { slug },
+          });
       const payload = (await response.json().catch(() => null)) as { error?: string } | null;
       if (!response.ok) {
         toast.error(payload?.error ?? (isEdit ? "更新失败" : "创建失败"));

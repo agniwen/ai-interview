@@ -10,6 +10,7 @@ import type {
 } from "@/lib/shared/candidate-forms";
 import type { JobDescriptionListRecord } from "@/lib/shared/job-descriptions";
 import { rpc } from "@/lib/client/rpc";
+import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { useForm, useStore } from "@tanstack/react-form";
 import { LoaderCircleIcon, PlusIcon, XIcon } from "lucide-react";
 import { useEffect, useMemo } from "react";
@@ -111,6 +112,7 @@ export function CandidateFormTemplateEditorDialog({
   jobDescriptions: JobDescriptionListRecord[];
   onSaved: () => void;
 }) {
+  const slug = useWorkspaceSlug();
   const isEdit = record !== null;
 
   const form = useForm({
@@ -134,11 +136,11 @@ export function CandidateFormTemplateEditorDialog({
       };
 
       const response = isEdit
-        ? await rpc.api.studio.forms[":id"].$patch({
+        ? await rpc.api.w[":slug"].studio.forms[":id"].$patch({
             json: body,
-            param: { id: record.id },
+            param: { id: record.id, slug },
           })
-        : await rpc.api.studio.forms.$post({ json: body });
+        : await rpc.api.w[":slug"].studio.forms.$post({ json: body, param: { slug } });
       const payload = (await response.json().catch(() => null)) as { error?: string } | null;
       if (!response.ok) {
         toast.error(payload?.error ?? (isEdit ? "更新失败" : "创建失败"));

@@ -13,6 +13,7 @@ import { FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { apiFetch, fetchStudioInterview, resetStudioInterviewRound } from "@/lib/client/api";
+import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import {
   createInterviewFormValues,
   toInterviewFormValues,
@@ -36,6 +37,7 @@ export function EditInterviewDialog({
   recordId: string | null;
   onUpdated: (record: StudioInterviewRecord) => void;
 }) {
+  const slug = useWorkspaceSlug();
   const [resumeFile, setResumeFile] = useState<File | null>(null);
   const [activeTab, setActiveTab] = useState<string>("basic");
   const [roundStatuses, setRoundStatuses] = useState<Record<string, ScheduleEntryStatus>>({});
@@ -113,14 +115,14 @@ export function EditInterviewDialog({
     },
     queryFn: async () => {
       setResumeFile(null);
-      const record = await fetchStudioInterview(recordId as string);
+      const record = await fetchStudioInterview(slug, recordId as string);
       if (!record) {
         throw new Error("加载编辑数据失败");
       }
       resetForm(record);
       return record;
     },
-    queryKey: ["studio-interview-edit", recordId],
+    queryKey: ["studio-interview-edit", slug, recordId],
   });
 
   function handleResumeChange(file: File | null) {
@@ -135,7 +137,7 @@ export function EditInterviewDialog({
     setResettingRoundId(roundId);
 
     try {
-      const updated = await resetStudioInterviewRound(recordId, roundId);
+      const updated = await resetStudioInterviewRound(slug, recordId, roundId);
       toast.success("轮次已重置为待开始");
       // 仅在本地清掉该轮次的锁定状态，不重写表单值，
       // 避免覆盖用户在题目 / Agent 提示词等其他 tab 中尚未保存的修改。

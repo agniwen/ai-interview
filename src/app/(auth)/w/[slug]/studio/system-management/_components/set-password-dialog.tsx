@@ -14,6 +14,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { rpc } from "@/lib/client/rpc";
+import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import type { AdminUserRecord } from "@/server/routes/studio/routes/users/dao";
 
 interface SetPasswordDialogProps {
@@ -25,6 +26,7 @@ interface SetPasswordDialogProps {
 const MIN_PASSWORD_LENGTH = 8;
 
 export function SetPasswordDialog({ user, onOpenChange, onSuccess }: SetPasswordDialogProps) {
+  const slug = useWorkspaceSlug();
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -58,9 +60,9 @@ export function SetPasswordDialog({ user, onOpenChange, onSuccess }: SetPassword
       // upsert credential account 的自定义实现。
       // Use our custom endpoint; better-auth's setUserPassword silently no-ops for
       // users without a credential account (Feishu OAuth users).
-      const res = await rpc.api.studio.users[":id"].password.$post({
+      const res = await rpc.api.w[":slug"].studio.users[":id"].password.$post({
         json: { password },
-        param: { id: user.id },
+        param: { id: user.id, slug },
       });
       if (!res.ok) {
         const payload = (await res.json().catch(() => null)) as { error?: string } | null;

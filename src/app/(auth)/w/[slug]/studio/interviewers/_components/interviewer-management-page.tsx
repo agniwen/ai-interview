@@ -28,41 +28,9 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { rpc } from "@/lib/client/rpc";
+import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { getMinimaxVoiceMeta } from "@/lib/shared/minimax-voices";
 import { InterviewerFormDialog } from "./interviewer-form-dialog";
-
-async function fetchInterviewers(params: {
-  search: string;
-  page: number;
-  pageSize: number;
-  filters: Record<string, never>;
-}): Promise<PaginatedInterviewerResult> {
-  const res = await rpc.api.studio.interviewers.$get({
-    query: {
-      page: String(params.page),
-      pageSize: String(params.pageSize),
-      ...(params.search ? { search: params.search } : {}),
-      sortBy: "createdAt",
-      sortOrder: "desc",
-    },
-  });
-  if (!res.ok) {
-    throw new Error("加载面试官列表失败");
-  }
-  return (await res.json()) as PaginatedInterviewerResult;
-}
-
-async function loadInterviewerDetail(
-  record: InterviewerListRecord,
-): Promise<InterviewerRecord | null> {
-  const response = await rpc.api.studio.interviewers[":id"].$get({
-    param: { id: record.id },
-  });
-  if (!response.ok) {
-    return null;
-  }
-  return (await response.json()) as InterviewerRecord;
-}
 
 export function InterviewerManagementPage({
   initialData,
@@ -71,7 +39,46 @@ export function InterviewerManagementPage({
   initialData: PaginatedInterviewerResult;
   departments: DepartmentRecord[];
 }) {
+  const slug = useWorkspaceSlug();
   const queryClient = useQueryClient();
+
+  const fetchInterviewers = useMemo(
+    () =>
+      async (params: {
+        search: string;
+        page: number;
+        pageSize: number;
+        filters: Record<string, never>;
+      }): Promise<PaginatedInterviewerResult> => {
+        const res = await rpc.api.w[":slug"].studio.interviewers.$get({
+          param: { slug },
+          query: {
+            page: String(params.page),
+            pageSize: String(params.pageSize),
+            ...(params.search ? { search: params.search } : {}),
+            sortBy: "createdAt",
+            sortOrder: "desc",
+          },
+        });
+        if (!res.ok) {
+          throw new Error("加载面试官列表失败");
+        }
+        return (await res.json()) as PaginatedInterviewerResult;
+      },
+    [slug],
+  );
+
+  async function loadInterviewerDetail(
+    record: InterviewerListRecord,
+  ): Promise<InterviewerRecord | null> {
+    const response = await rpc.api.w[":slug"].studio.interviewers[":id"].$get({
+      param: { id: record.id, slug },
+    });
+    if (!response.ok) {
+      return null;
+    }
+    return (await response.json()) as InterviewerRecord;
+  }
 
   const grid = useDataGridState<InterviewerListRecord, Record<string, never>>({
     fetcher: fetchInterviewers,
@@ -84,7 +91,7 @@ export function InterviewerManagementPage({
 
   const crud = useEntityCrud<InterviewerListRecord, InterviewerRecord>({
     deleteEntity: (record) =>
-      rpc.api.studio.interviewers[":id"].$delete({ param: { id: record.id } }),
+      rpc.api.w[":slug"].studio.interviewers[":id"].$delete({ param: { id: record.id, slug } }),
     invalidate: () => {
       grid.invalidate();
       void queryClient.invalidateQueries({ queryKey: ["departments"] });
