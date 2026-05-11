@@ -27,9 +27,7 @@ const apiRoutes = factory
   .route("/chat", chatRouter)
   .route("/resume", resumeRouter)
   .route("/interview", interviewRouter)
-  // legacy mount — Task 21 will remove
-  .route("/w/:slug/studio", studioRouter)
-  .route("/studio", studioRouter);
+  .route("/w/:slug/studio", studioRouter);
 
 // 中文：app.ts 只做 CORS、better-auth handler、betterAuth 上下文注入、apiRoutes 挂载。
 // 业务中间件（auth/admin）请在各自 route 内部声明，不要在这里 .use(...)。

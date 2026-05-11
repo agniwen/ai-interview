@@ -1,13 +1,14 @@
 "use client";
 
 import type { JobDescriptionListRecord } from "@/lib/shared/job-descriptions";
+import { authClient } from "@/lib/client/auth-client";
 import { rpc } from "@/lib/client/rpc";
 import { useQuery } from "@tanstack/react-query";
 
-const QUERY_KEY = ["job-descriptions", "all"] as const;
-
-async function fetchJobDescriptionOptions(): Promise<JobDescriptionListRecord[]> {
-  const response = await rpc.api.studio["job-descriptions"].all.$get();
+async function fetchJobDescriptionOptions(slug: string): Promise<JobDescriptionListRecord[]> {
+  const response = await rpc.api.w[":slug"].studio["job-descriptions"].all.$get({
+    param: { slug },
+  });
   if (!response.ok) {
     throw new Error("加载在招岗位列表失败");
   }
@@ -21,9 +22,12 @@ async function fetchJobDescriptionOptions(): Promise<JobDescriptionListRecord[]>
  * the records for the select).
  */
 export function useJobDescriptionOptionsQuery() {
+  const { data: activeOrg } = authClient.useActiveOrganization();
+  const slug = activeOrg?.slug ?? "";
   return useQuery({
-    queryFn: fetchJobDescriptionOptions,
-    queryKey: QUERY_KEY,
+    enabled: !!slug,
+    queryFn: () => fetchJobDescriptionOptions(slug),
+    queryKey: ["job-descriptions", "all", slug],
     staleTime: 60_000,
   });
 }

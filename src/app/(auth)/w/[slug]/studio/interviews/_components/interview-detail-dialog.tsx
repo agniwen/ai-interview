@@ -271,7 +271,11 @@ export function InterviewDetailDialog({
                   disabled={!record.resumeStorageKey}
                   filename={record.resumeFileName ?? undefined}
                   label="预览简历"
-                  url={record.resumeStorageKey ? `/api/studio/interviews/${record.id}/resume` : ""}
+                  url={
+                    record.resumeStorageKey
+                      ? `/api/w/${slug}/studio/interviews/${record.id}/resume`
+                      : ""
+                  }
                 />
               </div>
             ) : null

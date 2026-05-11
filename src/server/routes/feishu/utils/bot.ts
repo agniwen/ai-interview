@@ -2,14 +2,17 @@ import { createPostgresState } from "@chat-adapter/state-pg";
 import { createFeishuAdapter } from "@repo/adapter-feishu";
 import type { CardToFeishuPayloadOptions } from "@repo/adapter-feishu";
 import { Chat } from "chat";
-import type { AdapterPostableMessage, CardElement } from "chat";
+import type { Adapter, AdapterPostableMessage, CardElement } from "chat";
 import { routeDM, routeGroupMention } from "./router";
 
 export const FEISHU_PROVIDER_IDS = ["feishu", "feishu-jiguang-hr"] as const;
 export type FeishuProviderId = (typeof FEISHU_PROVIDER_IDS)[number];
 
-type FeishuBot = Chat<{ feishu: ReturnType<typeof createFeishuAdapter> }>;
+// FeishuAdapter implements Adapter<FeishuThreadId, unknown>. encodeThreadId is in a
+// contravariant position so Adapter<FeishuThreadId, unknown> is not assignable to
+// Adapter<unknown, unknown> — the cast at construction site widens safely.
 type FeishuAdapter = ReturnType<typeof createFeishuAdapter>;
+type FeishuBot = Chat;
 
 const cached = new Map<FeishuProviderId, { adapter: FeishuAdapter; bot: FeishuBot }>();
 
@@ -81,7 +84,9 @@ export function getFeishuBot(providerId: FeishuProviderId = "feishu"): FeishuBot
 
   const bot = new Chat({
     adapters: {
-      feishu: adapter,
+      // cast: FeishuAdapter is Adapter<FeishuThreadId, unknown>; encodeThreadId's
+      // contravariant position prevents direct assignability to Adapter<unknown, unknown>
+      feishu: adapter as unknown as Adapter<unknown, unknown>,
     },
     concurrency: "queue",
     dedupeTtlMs: 600_000,

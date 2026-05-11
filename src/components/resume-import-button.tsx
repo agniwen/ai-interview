@@ -364,7 +364,10 @@ export function ResumeImportButton({
       saveForm.append("resume", file);
       saveForm.append("resumePayload", JSON.stringify(resumePayload));
 
-      const saveResponse = await fetch("/api/studio/interviews", {
+      if (!workspaceSlug) {
+        throw new Error("入库需要指定工作区，请在工作区页面中使用此功能");
+      }
+      const saveResponse = await fetch(`/api/w/${workspaceSlug}/studio/interviews`, {
         body: saveForm,
         method: "POST",
         signal: abortController.signal,

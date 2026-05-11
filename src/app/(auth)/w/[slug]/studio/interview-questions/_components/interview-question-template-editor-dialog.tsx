@@ -60,12 +60,14 @@ export function InterviewQuestionTemplateEditorDialog({
   record,
   jobDescriptions,
   onSaved,
+  slug,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   record: InterviewQuestionTemplateRecord | null;
   jobDescriptions: JobDescriptionListRecord[];
   onSaved: () => void;
+  slug: string;
 }) {
   const isEdit = record !== null;
 
@@ -86,11 +88,14 @@ export function InterviewQuestionTemplateEditorDialog({
       };
 
       const response = isEdit
-        ? await rpc.api.studio["interview-questions"][":id"].$patch({
+        ? await rpc.api.w[":slug"].studio["interview-questions"][":id"].$patch({
             json: body,
-            param: { id: record.id },
+            param: { id: record.id, slug },
           })
-        : await rpc.api.studio["interview-questions"].$post({ json: body });
+        : await rpc.api.w[":slug"].studio["interview-questions"].$post({
+            json: body,
+            param: { slug },
+          });
       const payload = (await response.json().catch(() => null)) as { error?: string } | null;
       if (!response.ok) {
         toast.error(payload?.error ?? (isEdit ? "更新失败" : "创建失败"));

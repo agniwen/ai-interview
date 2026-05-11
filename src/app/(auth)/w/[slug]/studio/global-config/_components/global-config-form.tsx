@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { PageHeader } from "@/app/(auth)/w/[slug]/studio/_components/page-header";
 import type { GlobalConfigRecord } from "@/lib/shared/global-config";
 import { rpc } from "@/lib/client/rpc";
+import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -14,6 +15,7 @@ interface Props {
 }
 
 export function GlobalConfigForm({ initial }: Props) {
+  const slug = useWorkspaceSlug();
   const [opening, setOpening] = useState(initial.openingInstructions);
   const [closing, setClosing] = useState(initial.closingInstructions);
   const [company, setCompany] = useState(initial.companyContext);
@@ -21,12 +23,13 @@ export function GlobalConfigForm({ initial }: Props) {
 
   const onSave = () => {
     startTransition(async () => {
-      const res = await rpc.api.studio["global-config"].$put({
+      const res = await rpc.api.w[":slug"].studio["global-config"].$put({
         json: {
           closingInstructions: closing,
           companyContext: company,
           openingInstructions: opening,
         },
+        param: { slug },
       });
       if (!res.ok) {
         const { error } = (await res.json().catch(() => ({ error: "保存失败" }))) as {
