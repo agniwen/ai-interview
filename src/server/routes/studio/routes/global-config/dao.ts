@@ -3,8 +3,6 @@ import { db } from "@/lib/server/db";
 import { globalConfig } from "@/lib/shared/db/schema";
 import type { GlobalConfigInput, GlobalConfigRecord } from "@/lib/shared/global-config";
 
-const SINGLETON_ID = "singleton";
-
 function serialize(row: typeof globalConfig.$inferSelect): GlobalConfigRecord {
   return {
     closingInstructions: row.closingInstructions,
@@ -15,54 +13,78 @@ function serialize(row: typeof globalConfig.$inferSelect): GlobalConfigRecord {
   };
 }
 
-// 读取全局配置；不存在时返回默认空配置（不写库）
-// Read singleton config; if missing, return empty defaults without writing.
-export async function getGlobalConfig(): Promise<GlobalConfigRecord> {
+// 按 organizationId 读取配置；不存在时懒创建一条空记录。
+// Read config scoped to organizationId; lazily inserts an empty row when absent.
+export async function getGlobalConfig(orgId: string): Promise<GlobalConfigRecord> {
   const [row] = await db
     .select()
     .from(globalConfig)
-    .where(eq(globalConfig.id, SINGLETON_ID))
+    .where(eq(globalConfig.organizationId, orgId))
     .limit(1);
-  if (!row) {
-    return {
-      closingInstructions: "",
-      companyContext: "",
-      openingInstructions: "",
-      updatedAt: new Date(0).toISOString(),
-      updatedBy: null,
-    };
+
+  if (row) {
+    return serialize(row);
   }
-  return serialize(row);
+
+  // Lazy-create a blank config row for workspaces that have none yet (new
+  // self-serve orgs or orgs created before this column was backfilled).
+  const fresh = {
+    closingInstructions: "",
+    companyContext: "",
+    id: `gc_${crypto.randomUUID()}`,
+    openingInstructions: "",
+    organizationId: orgId,
+    updatedAt: new Date(),
+    updatedBy: null as string | null,
+  };
+  await db.insert(globalConfig).values(fresh);
+  return serialize({ ...fresh });
 }
 
-// 单例 upsert（按固定 id 冲突更新）
-// Singleton upsert (conflict on fixed id).
+// 按 organizationId 更新配置；不存在时懒创建再更新。
+// Update config scoped to organizationId; lazily inserts if the row is absent.
 export async function upsertGlobalConfig(
   input: GlobalConfigInput,
   userId: string | null,
+  orgId: string,
 ): Promise<GlobalConfigRecord> {
   const now = new Date();
-  const values = {
-    closingInstructions: input.closingInstructions,
-    companyContext: input.companyContext,
-    id: SINGLETON_ID,
-    openingInstructions: input.openingInstructions,
-    updatedAt: now,
-    updatedBy: userId,
-  };
-  const [row] = await db
-    .insert(globalConfig)
-    .values(values)
-    .onConflictDoUpdate({
-      set: {
-        closingInstructions: values.closingInstructions,
-        companyContext: values.companyContext,
-        openingInstructions: values.openingInstructions,
-        updatedAt: values.updatedAt,
-        updatedBy: values.updatedBy,
-      },
-      target: globalConfig.id,
+
+  const [existing] = await db
+    .select({ id: globalConfig.id })
+    .from(globalConfig)
+    .where(eq(globalConfig.organizationId, orgId))
+    .limit(1);
+
+  if (!existing) {
+    const fresh = {
+      closingInstructions: input.closingInstructions,
+      companyContext: input.companyContext,
+      id: `gc_${crypto.randomUUID()}`,
+      openingInstructions: input.openingInstructions,
+      organizationId: orgId,
+      updatedAt: now,
+      updatedBy: userId,
+    };
+    await db.insert(globalConfig).values(fresh);
+    return serialize({ ...fresh });
+  }
+
+  await db
+    .update(globalConfig)
+    .set({
+      closingInstructions: input.closingInstructions,
+      companyContext: input.companyContext,
+      openingInstructions: input.openingInstructions,
+      updatedAt: now,
+      updatedBy: userId,
     })
-    .returning();
-  return serialize(row);
+    .where(eq(globalConfig.organizationId, orgId));
+
+  const [updated] = await db
+    .select()
+    .from(globalConfig)
+    .where(eq(globalConfig.organizationId, orgId))
+    .limit(1);
+  return serialize(updated);
 }

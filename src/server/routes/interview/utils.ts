@@ -99,6 +99,7 @@ export async function loadCandidateInterviewRecord(id: string, roundId: string) 
     interviewers,
     jobDescriptionPresetQuestions,
     jobDescriptionPrompt,
+    organizationId: record.organizationId,
   };
 }
 
