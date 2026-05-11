@@ -4,8 +4,9 @@ import { Trash2Icon, UserPlusIcon, UsersIcon } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { PageHeader } from "@/app/(auth)/w/[slug]/studio/_components/page-header";
-import { actionsColumn, customColumn, DataGrid, textColumn } from "@/components/data-grid";
+import { actionsColumn, customColumn, DataGrid } from "@/components/data-grid";
 import { PermissionGate } from "@/components/permission/permission-gate";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -32,7 +33,7 @@ type WorkspaceRole = (typeof ROLE_OPTIONS)[number];
 
 // 内存数据下分页不会被触发的 noop。函数体里放一行注释让 oxlint 的
 // no-empty-function 满意 (项目通行写法,见 src/hooks/use-hydrated.ts)。
-const noop: (..._: never[]) => void = () => {
+const noop = (_: number) => {
   // intentional no-op — DataGrid pagination callbacks unused in static mode
 };
 
@@ -40,8 +41,23 @@ interface MemberRow {
   id: string;
   email: string;
   name: string;
+  image: string | null;
   role: WorkspaceRole;
   createdAt: string | Date;
+}
+
+const WHITESPACE_REGEX = /\s+/u;
+
+function getInitials(name?: string | null, email?: string | null) {
+  const source = (name ?? email ?? "").trim();
+  if (!source) {
+    return "U";
+  }
+  const words = source.split(WHITESPACE_REGEX).filter(Boolean);
+  if (words.length >= 2) {
+    return `${words[0]?.[0] ?? ""}${words[1]?.[0] ?? ""}`.toUpperCase();
+  }
+  return source.slice(0, 2).toUpperCase();
 }
 
 const ROLE_BADGE_VARIANT: Record<WorkspaceRole, "default" | "secondary" | "outline"> = {
@@ -60,12 +76,15 @@ export function MembersManagementPage() {
   const rows: MemberRow[] = useMemo(() => {
     const list = org?.members ?? [];
     return list.map((m) => {
-      const { user } = m as { user?: { email?: string; name?: string } };
+      const { user } = m as {
+        user?: { email?: string; name?: string; image?: string | null };
+      };
       return {
         createdAt: m.createdAt as string | Date,
         email: user?.email ?? "—",
         id: m.id,
-        name: user?.name ?? "—",
+        image: user?.image ?? null,
+        name: user?.name ?? user?.email ?? "—",
         role: m.role as WorkspaceRole,
       };
     });
@@ -109,11 +128,21 @@ export function MembersManagementPage() {
 
   const columns = useMemo(
     () => [
-      textColumn<MemberRow>({
-        key: "email",
-        primary: true,
-        secondary: (r) => r.name,
-        title: "邮箱",
+      customColumn<MemberRow>({
+        cell: (r) => (
+          <div className="flex items-center gap-3 min-w-0">
+            <Avatar size="sm">
+              <AvatarImage alt={r.name} src={r.image ?? undefined} />
+              <AvatarFallback>{getInitials(r.name, r.email)}</AvatarFallback>
+            </Avatar>
+            <div className="min-w-0">
+              <p className="truncate font-medium">{r.name}</p>
+              <p className="truncate text-muted-foreground text-xs">{r.email}</p>
+            </div>
+          </div>
+        ),
+        key: "name",
+        title: "成员",
       }),
       customColumn<MemberRow>({
         cell: (r) =>
