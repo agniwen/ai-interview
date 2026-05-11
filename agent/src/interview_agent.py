@@ -184,10 +184,19 @@ class InterviewAgent(Agent):
         self,
         audio: AsyncIterable[rtc.AudioFrame],
         model_settings: ModelSettings,
-    ) -> AsyncIterable[stt.SpeechEvent] | None:
-        async def _filter():
+    ) -> AsyncIterable[stt.SpeechEvent | str]:
+        # 基类签名允许 yield SpeechEvent | str（增量转写片段会以 str 出现），  # noqa: RUF003
+        # 因此过滤逻辑需要先判类型再访问 SpeechEvent 字段，否则字符串会触发  # noqa: RUF003
+        # AttributeError。
+        # Base signature yields SpeechEvent | str (string chunks are emitted
+        # for incremental transcripts), so guard with isinstance before
+        # reading SpeechEvent-only fields and pass strings through unchanged.
+        async def _filter() -> AsyncIterable[stt.SpeechEvent | str]:
             async for event in Agent.default.stt_node(self, audio, model_settings):
-                if event.type == stt.SpeechEventType.FINAL_TRANSCRIPT:
+                if (
+                    isinstance(event, stt.SpeechEvent)
+                    and event.type == stt.SpeechEventType.FINAL_TRANSCRIPT
+                ):
                     text = (
                         event.alternatives[0].text.strip() if event.alternatives else ""
                     )

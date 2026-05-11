@@ -104,6 +104,37 @@ When a module _mostly_ fits one bucket but has one server-only function (e.g. `h
 
 Vitest runs in Node, so it stubs `server-only` / `client-only` to a no-op module via the alias in `vitest.config.ts`. Real isolation is enforced by Next at build time.
 
+## Voice Agent Development (`agent/`)
+
+### Entrypoint and structure
+
+- All Python agent code lives in `agent/src/`. **Keep `agent/src/agent.py` as the entrypoint** — the `Dockerfile` references it directly for production deployment, so do not rename or move it.
+- Use `uv` for everything (install, run, test) — never mix in `pip`/`poetry`. See the Commands section above for the canonical `uv run` invocations.
+- Format and lint Python with `uv run ruff format` and `uv run ruff check` before committing.
+
+### LiveKit documentation access
+
+LiveKit Agents evolves quickly; prefer the latest docs over training-data recall. Two access paths:
+
+- **LiveKit CLI** (`lk docs`, requires CLI 2.15.0+ — check `lk --version`):
+  - macOS: `brew install livekit-cli` (update: `brew update && brew upgrade livekit-cli`)
+  - Linux: `curl -sSL https://get.livekit.io/cli | bash`
+  - Windows: `winget install LiveKit.LiveKitCLI`
+  - Key subcommands: `lk docs overview`, `lk docs search`, `lk docs get-page`, `lk docs code-search`, `lk docs changelog`, `lk docs submit-feedback`. Prefer browsing (`overview`/`get-page`) over `search`, and `search` over `code-search`.
+- **LiveKit Docs MCP server**: Streamable HTTP transport at <https://docs.livekit.io/mcp> for IDE integration.
+
+If you spot doc gaps or broken examples while browsing, submit feedback via `lk docs submit-feedback` (or the MCP `submit_docs_feedback` tool).
+
+Beyond docs, `lk` also manages other LiveKit resources (e.g. SIP trunks for telephony). Run `lk --help` to explore.
+
+### Workflows: handoffs and tasks
+
+Voice agents are highly latency-sensitive. Avoid monolithic prompts that try to cover every conversation phase — they bloat each LLM request and hurt reliability. Use LiveKit's **handoffs** (one agent transfers control to another) and **tasks** (tightly-scoped prompts for a single outcome) to keep per-request context small and focused. See <https://docs.livekit.io/agents/build/workflows/>.
+
+### Testing core agent behavior (TDD)
+
+When modifying instructions, tool descriptions, or task / workflow / handoff definitions, **write tests in `agent/tests/` first** and iterate until they pass — don't guess at LLM behavior. Run with `uv run pytest`. See <https://docs.livekit.io/agents/start/testing/>.
+
 ## Code Style
 
 - **Conventional commits**: `feat:`, `fix:`, `chore:`, `refactor:`, etc.

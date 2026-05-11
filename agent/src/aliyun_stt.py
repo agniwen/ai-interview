@@ -21,6 +21,7 @@ from livekit.agents import (
     stt,
     utils,
 )
+from livekit.agents.language import LanguageCode
 from livekit.agents.types import NOT_GIVEN, NotGivenOr
 
 logger = logging.getLogger("aliyun-stt")
@@ -155,9 +156,14 @@ class STT(stt.STT):
     def stream(
         self,
         *,
-        language: str | None = None,
+        language: NotGivenOr[str] = NOT_GIVEN,
         conn_options: APIConnectOptions = DEFAULT_API_CONNECT_OPTIONS,
     ) -> SpeechStream:
+        # 基类用 NotGivenOr[str] 区分"未传"与"显式 None"，覆写需对齐 LSP。  # noqa: RUF003
+        # 实际生效的语言始终来自 self._opts.language（在 __init__ 中校验非空）。  # noqa: RUF003
+        # Match base-class signature (NotGivenOr[str]) for LSP compatibility;
+        # the effective language is taken from self._opts.language, which is
+        # validated as non-None in SpeechStream.__init__.
         return SpeechStream(
             stt=self,
             opts=self._opts,
@@ -178,6 +184,10 @@ class SpeechStream(stt.SpeechStream):
         if opts.language is None:
             raise ValueError("language detection is not supported in streaming mode")
         self._opts = opts
+        # 把已校验的非空语言包成 LanguageCode，避免下游 SpeechData 收到 str | None。  # noqa: RUF003
+        # Wrap the validated language in LanguageCode so downstream SpeechData
+        # calls get a concrete LanguageCode instead of `str | None`.
+        self._language: LanguageCode = LanguageCode(opts.language)
         self._speaking = False
         self._request_id = utils.shortuuid()
         self._reconnect_event = asyncio.Event()
@@ -300,7 +310,7 @@ class SpeechStream(stt.SpeechStream):
                     request_id=self._request_id,
                     alternatives=[
                         stt.SpeechData(
-                            language=self._opts.language,
+                            language=self._language,
                             text=text,
                             start_time=start_time,
                             end_time=end_time,
@@ -316,7 +326,7 @@ class SpeechStream(stt.SpeechStream):
                     request_id=self._request_id,
                     alternatives=[
                         stt.SpeechData(
-                            language=self._opts.language,
+                            language=self._language,
                             text=text,
                             start_time=start_time,
                             end_time=end_time,
