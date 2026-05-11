@@ -16,7 +16,6 @@ import type {
   InterviewMessageRole,
   InterviewRecordingStatus,
   InterviewSummaryStatus,
-  SkillDeviceAuthStatus,
 } from "@/lib/shared/db-enums";
 import type {
   InterviewQuestionTemplateDifficulty,
@@ -850,58 +849,3 @@ export const globalConfig = pgTable("global_config", {
     .notNull(),
   updatedBy: text("updated_by").references(() => user.id, { onDelete: "set null" }),
 });
-
-// =====================================================================
-// Skill access tokens — long-lived bearer tokens issued via OAuth Device
-// Authorization Grant (RFC 8628) for Claude Code skills (e.g. resume-parser)
-// to call our public APIs without a browser session.
-// 中文：技能访问令牌，用于 Claude Code skill 通过设备授权流（RFC 8628）拿到的
-// 长期 Bearer，调用我们的对外 API（如简历解析）。
-// =====================================================================
-
-export const skillAccessToken = pgTable(
-  "skill_access_token",
-  {
-    createdAt: timestamp("created_at").defaultNow().notNull(),
-    id: text("id").primaryKey(),
-    lastUsedAt: timestamp("last_used_at"),
-    name: text("name").default("Resume Parser Skill").notNull(),
-    revokedAt: timestamp("revoked_at"),
-    scope: text("scope").notNull(),
-    tokenHash: text("token_hash").notNull(),
-    userId: text("user_id")
-      .notNull()
-      .references(() => user.id, { onDelete: "cascade" }),
-  },
-  (table) => [
-    uniqueIndex("skill_access_token_hash_uq").on(table.tokenHash),
-    index("skill_access_token_user_idx").on(table.userId),
-  ],
-);
-
-// =====================================================================
-// Device authorization codes (RFC 8628) — short-lived rows tracking the
-// state machine: pending → approved/denied/expired. Once approved, the
-// row references the issued skillAccessToken row via approvedTokenId.
-// 中文：设备授权码（RFC 8628）短期记录，状态机：待审核 → 通过/拒绝/过期。
-// 通过后通过 approvedTokenId 关联到已签发的 skillAccessToken 行。
-// =====================================================================
-
-export const skillDeviceAuthCode = pgTable(
-  "skill_device_auth_code",
-  {
-    approvedTokenId: text("approved_token_id"),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
-    deviceCode: text("device_code").primaryKey(),
-    expiresAt: timestamp("expires_at").notNull(),
-    pollAfter: timestamp("poll_after"),
-    scope: text("scope").notNull(),
-    status: text("status").$type<SkillDeviceAuthStatus>().default("pending").notNull(),
-    userCode: text("user_code").notNull(),
-    userId: text("user_id").references(() => user.id, { onDelete: "set null" }),
-  },
-  (table) => [
-    uniqueIndex("skill_device_auth_code_user_code_uq").on(table.userCode),
-    index("skill_device_auth_code_expires_idx").on(table.expiresAt),
-  ],
-);

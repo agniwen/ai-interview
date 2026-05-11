@@ -27,7 +27,6 @@ Two separate package managers: **pnpm** for web, **uv** for Python agent. Do not
 - `pnpm test` / `pnpm test:watch` — Vitest
 - `pnpm db:generate` — generate a versioned migration from schema changes
 - `pnpm db:migrate` — apply migrations
-- `pnpm db:seed` — seed via `scripts/seed.ts`
 - `pnpm db:studio` — Drizzle Studio UI
 
 ### Agent (from `agent/`)

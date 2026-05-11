@@ -55,11 +55,3 @@ export type AgentNotificationStatus = z.infer<typeof agentNotificationStatusSche
 export const agentNotificationTypeValues = ["summary_ready"] as const;
 export const agentNotificationTypeSchema = z.enum(agentNotificationTypeValues);
 export type AgentNotificationType = z.infer<typeof agentNotificationTypeSchema>;
-
-// ---------------------------------------------------------------------------
-// Skill device authorization (RFC 8628 风格)
-// ---------------------------------------------------------------------------
-
-export const skillDeviceAuthStatusValues = ["pending", "approved", "denied", "expired"] as const;
-export const skillDeviceAuthStatusSchema = z.enum(skillDeviceAuthStatusValues);
-export type SkillDeviceAuthStatus = z.infer<typeof skillDeviceAuthStatusSchema>;

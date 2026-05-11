@@ -1,44 +1,10 @@
-import type { ParsedResumePdf, UploadedResumePdf } from "@/lib/shared/resume-pdf";
 import type { ResumeProfile } from "@/lib/shared/interview/types";
-import { parseResumeFastFromUrl } from "@/lib/server/resume-parse-pipeline";
 import { readPdfBytes } from "@/lib/shared/resume-pdf";
 import { structuredSchema } from "@/lib/shared/resume-parser-schema";
-import type { ResumeParserResult, ResumeParserStructured } from "@/lib/shared/resume-parser-schema";
+import type { ResumeParserStructured } from "@/lib/shared/resume-parser-schema";
 
-export type { ResumeParserResult, ResumeParserStructured };
+export type { ResumeParserStructured };
 export { structuredSchema };
-
-export interface ResumeParserOptions {
-  parseUploadedResume?: (file: UploadedResumePdf) => Promise<ParsedResumePdf>;
-}
-
-/**
- * Resume parsing subagent — non-streaming entry point used by `/chat` tools.
- * Runs the deterministic Qwen-VL OCR pipeline (rasterize → OCR → structured).
- */
-export async function parseResumeSubagent(
-  file: UploadedResumePdf,
-  _options: ResumeParserOptions = {},
-): Promise<ResumeParserResult> {
-  const result = await parseResumeFastFromUrl(file.url);
-  return {
-    filename: file.filename,
-    pageCount: result.pageCount,
-    structured: result.structured,
-    textSource: result.textSource,
-  };
-}
-
-export async function fileToUploadedResumePdf(file: File): Promise<UploadedResumePdf> {
-  const bytes = new Uint8Array(await file.arrayBuffer());
-  const base64 = Buffer.from(bytes).toString("base64");
-  return {
-    filename: file.name,
-    id: crypto.randomUUID(),
-    mediaType: file.type || "application/pdf",
-    url: `data:application/pdf;base64,${base64}`,
-  };
-}
 
 /**
  * Project the superset `ResumeParserStructured` down to the legacy

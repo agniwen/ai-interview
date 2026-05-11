@@ -1,5 +1,4 @@
 import { z } from "zod";
-import type { AttachmentTextSource } from "@/lib/shared/db-enums";
 
 const workExperienceSchema = z.object({
   company: z.string().nullable(),
@@ -43,10 +42,3 @@ export const structuredSchema = z.object({
 });
 
 export type ResumeParserStructured = z.infer<typeof structuredSchema>;
-
-export interface ResumeParserResult {
-  filename: string;
-  pageCount: number;
-  structured: ResumeParserStructured;
-  textSource: AttachmentTextSource;
-}

@@ -5,7 +5,6 @@ import "server-only";
 // candidate info via a single generateText / parseJsonOutput call.
 
 import { generateText } from "ai";
-import { readPdfBytes } from "@/lib/shared/resume-pdf";
 import { parseJsonOutput } from "@/server/agents/json-output";
 import { createAlibabaProvider } from "@/server/agents/provider";
 import { structuredSchema } from "@/lib/shared/resume-parser-schema";
@@ -128,9 +127,4 @@ export async function parseResumeFast(bytes: Uint8Array): Promise<ParsedResumeFa
   );
 
   return { pageCount, structured, text, textSource: "qwen-ocr" };
-}
-
-export async function parseResumeFastFromUrl(url: string): Promise<ParsedResumeFast> {
-  const bytes = await readPdfBytes(url);
-  return parseResumeFast(bytes);
 }

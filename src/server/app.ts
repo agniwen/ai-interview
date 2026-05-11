@@ -10,7 +10,6 @@ import { feishuRouter } from "./routes/feishu/route";
 import { interviewRouter } from "./routes/interview/route";
 import { livekitRouter } from "./routes/livekit/route";
 import { resumeRouter } from "./routes/resume/route";
-import { skillRouter } from "./routes/skill/route";
 import { studioRouter } from "./routes/studio/route";
 
 // 中文：所有业务路由都聚合到 apiRoutes，再以 .route("/api", apiRoutes) 挂上去。
@@ -28,7 +27,6 @@ const apiRoutes = factory
   .route("/chat", chatRouter)
   .route("/resume", resumeRouter)
   .route("/interview", interviewRouter)
-  .route("/skill", skillRouter)
   .route("/studio", studioRouter);
 
 // 中文：app.ts 只做 CORS、better-auth handler、betterAuth 上下文注入、apiRoutes 挂载。
