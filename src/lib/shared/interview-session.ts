@@ -49,6 +49,12 @@ export interface InterviewConversationSnapshot {
   evaluationCriteriaResults: Record<string, unknown>;
   dataCollectionResults: Record<string, unknown>;
   metadata: Record<string, unknown>;
+  // Agent 端 metrics_collected 聚合：STT/LLM/TTS/EOU/打断的会话级总览与 per-speech_id 明细。
+  // 结构与 agent.py 中 metrics_state 容器一致；Studio 详情页消费它渲染延迟/用量面板。
+  // STT/LLM/TTS/EOU/interruption aggregates from the agent's metrics_collected
+  // listener. Shape mirrors the metrics_state container in agent.py; the Studio
+  // detail dialog consumes it to render the latency/usage panel.
+  metrics: Record<string, unknown>;
   dynamicVariables: Record<string, unknown>;
   latestError: string | null;
   startedAt: string | Date | null;
@@ -78,6 +84,12 @@ export interface StudioInterviewConversationReport {
   evaluationCriteriaResults: Record<string, unknown>;
   dataCollectionResults: Record<string, unknown>;
   metadata: Record<string, unknown>;
+  // Agent 端 metrics_collected 聚合：STT/LLM/TTS/EOU/打断的会话级总览与 per-speech_id 明细。
+  // 结构与 agent.py 中 metrics_state 容器一致；Studio 详情页消费它渲染延迟/用量面板。
+  // STT/LLM/TTS/EOU/interruption aggregates from the agent's metrics_collected
+  // listener. Shape mirrors the metrics_state container in agent.py; the Studio
+  // detail dialog consumes it to render the latency/usage panel.
+  metrics: Record<string, unknown>;
   dynamicVariables: Record<string, unknown>;
   latestError: string | null;
   startedAt: string | Date | null;

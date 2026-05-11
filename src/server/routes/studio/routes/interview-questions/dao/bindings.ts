@@ -13,7 +13,7 @@ import {
   interviewQuestionTemplateQuestion,
   interviewQuestionTemplateVersion,
   studioInterview,
-} from "@/lib/server/db/schema";
+} from "@/lib/shared/db/schema";
 import { loadJobDescriptionsByTemplate, mapQuestionRow, serializeDate } from "./queries";
 import { resolveOrCreateInterviewQuestionTemplateVersion } from "./versions";
 

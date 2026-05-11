@@ -8,8 +8,8 @@
 import { eq, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
-import { relations } from "@/lib/server/db/relations";
-import * as schema from "@/lib/server/db/schema";
+import { relations } from "@/lib/shared/db/relations";
+import * as schema from "@/lib/shared/db/schema";
 import type { MinimaxVoiceId } from "@/lib/shared/minimax-voices";
 
 if (!process.env.DATABASE_URL) {

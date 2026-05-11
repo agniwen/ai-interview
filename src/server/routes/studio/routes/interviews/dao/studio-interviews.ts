@@ -7,7 +7,7 @@ import {
   studioInterview,
   studioInterviewSchedule,
   user,
-} from "@/lib/server/db/schema";
+} from "@/lib/shared/db/schema";
 import { buildInterviewLink, sortScheduleEntries } from "@/lib/shared/interview/interview-record";
 import { studioInterviewStatusValues } from "@/lib/shared/studio-interviews";
 import type {

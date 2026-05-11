@@ -4,7 +4,7 @@ import { and, asc, count, desc, eq, ilike, inArray, or } from "drizzle-orm";
 import { cacheLife, cacheTag } from "next/cache";
 import { z } from "zod";
 import { db } from "@/lib/server/db";
-import { department, interviewer, jobDescriptionInterviewer } from "@/lib/server/db/schema";
+import { department, interviewer, jobDescriptionInterviewer } from "@/lib/shared/db/schema";
 
 const interviewerListFiltersSchema = z.object({
   departmentId: z.string().trim().max(120).optional().nullable(),

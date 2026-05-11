@@ -6,7 +6,7 @@ import {
   candidateFormTemplate,
   candidateFormTemplateJobDescription,
   candidateFormTemplateQuestion,
-} from "@/lib/server/db/schema";
+} from "@/lib/shared/db/schema";
 import { candidateFormTemplateSchema } from "@/lib/shared/candidate-forms";
 import { factory, jsonValidatorError } from "@/server/factory";
 import {

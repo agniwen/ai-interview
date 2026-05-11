@@ -13,7 +13,7 @@ import {
   interviewer,
   jobDescription,
   jobDescriptionInterviewer,
-} from "@/lib/server/db/schema";
+} from "@/lib/shared/db/schema";
 
 const jobDescriptionListFiltersSchema = z.object({
   departmentId: z.string().trim().max(120).optional().nullable(),

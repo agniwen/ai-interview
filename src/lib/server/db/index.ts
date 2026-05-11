@@ -2,7 +2,7 @@ import "server-only";
 
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
-import { relations } from "./relations";
+import { relations } from "@/lib/shared/db/relations";
 
 if (!process.env.DATABASE_URL) {
   throw new Error("DATABASE_URL is not set.");

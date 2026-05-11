@@ -45,6 +45,7 @@ import { InterviewLinkQrButton } from "./interview-link-qr-button";
 import { DetailRow } from "./interview-detail/detail-row";
 import { EvaluationResults } from "./interview-detail/evaluation-results";
 import { FormsTab } from "./interview-detail/forms-tab";
+import { InterviewMetricsPanel } from "./interview-detail/interview-metrics-panel";
 import {
   ensureArray,
   ensureProjectExperiences,
@@ -604,6 +605,8 @@ export function InterviewDetailDialog({
                                       />
                                     </div>
                                   </div>
+
+                                  <InterviewMetricsPanel metrics={report.metrics ?? {}} />
                                 </div>
 
                                 <div className="lg:relative">

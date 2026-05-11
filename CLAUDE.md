@@ -96,9 +96,11 @@ Use the official Hono `parseResponse` / `DetailedError` rather than rolling new 
 
 `src/lib/` is split by runtime so it's obvious from the import path which side a module is meant to run on. The bundler enforces the boundary at build time via `import "server-only"` / `import "client-only"` directives.
 
-- **`@/lib/server/*`** — Node-only. DB client (`db/`), Better Auth (`auth.ts`), S3 (`s3.ts`), PDF rasterization, Qwen OCR, resume parsing pipeline, server-side hash helpers, anything reading server secrets. Each file starts with `import "server-only";`. Importing one of these from a Client Component fails the build.
+- **`@/lib/server/*`** — Node-only. DB client (`db/index.ts`), Better Auth (`auth.ts`), S3 (`s3.ts`), PDF rasterization, Qwen OCR, resume parsing pipeline, server-side hash helpers, anything reading server secrets. Each file starts with `import "server-only";`. Importing one of these from a Client Component fails the build.
 - **`@/lib/client/*`** — Browser-only. `rpc.ts`, `auth-client.ts`, `query-client.ts`, `clipboard.ts`, `ndjson-stream.ts`, the `api/` wrapper layer. Each file starts with `import "client-only";`.
-- **`@/lib/shared/*`** — Pure types, Zod schemas, and isomorphic utilities (no Node-/browser-only APIs). Examples: `candidate-forms.ts`, `studio-interviews.ts`, `interview/`, `utils/`, `data-url.ts`, `file-hash.ts` (Web Crypto), `interview-question-templates.ts`. No directive — safe to import from either side.
+- **`@/lib/shared/*`** — Pure types, Zod schemas, and isomorphic utilities (no Node-/browser-only APIs). Examples: `candidate-forms.ts`, `studio-interviews.ts`, `interview/`, `utils/`, `data-url.ts`, `file-hash.ts` (Web Crypto), `interview-question-templates.ts`, and the **Drizzle schema/relations** (`db/schema.ts`, `db/relations.ts`). No directive — safe to import from either side.
+
+**Drizzle schema lives in shared, not server.** `@/lib/shared/db/schema.ts` and `@/lib/shared/db/relations.ts` are pure column/relation metadata — they don't connect to the DB, don't read env, and have no runtime side effects. They live in `shared/` (without `import "server-only";`) so `drizzle-kit` can load them from its CLI subprocess, which doesn't honor Next's `react-server` export condition and otherwise crashes on the server-only guard. The actual DB connection lives in `@/lib/server/db/index.ts` (which does start with `import "server-only";`) and imports `relations` from shared.
 
 When a module _mostly_ fits one bucket but has one server-only function (e.g. `hashTemplateSnapshot` using `node:crypto`), extract that function into a sibling `*-hash.ts` (or similar) under `@/lib/server/` and keep the rest in `@/lib/shared/`. Don't pull `node:*` imports into a shared file.
 

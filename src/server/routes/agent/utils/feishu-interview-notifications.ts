@@ -4,7 +4,7 @@ import {
   interviewConversation,
   interviewNotification,
   studioInterview,
-} from "@/lib/server/db/schema";
+} from "@/lib/shared/db/schema";
 import { db } from "@/lib/server/db";
 import { FEISHU_PROVIDER_IDS, postFeishuDirectCard } from "@/server/routes/feishu/utils/bot";
 import type { FeishuProviderId } from "@/server/routes/feishu/utils/bot";

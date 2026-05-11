@@ -4,11 +4,19 @@ import time
 from collections.abc import AsyncIterable
 
 from livekit import rtc
-from livekit.agents import Agent, ChatContext, ChatMessage, ModelSettings, stt
+from livekit.agents import (
+    Agent,
+    ChatContext,
+    ChatMessage,
+    ModelSettings,
+    function_tool,
+    stt,
+)
 from livekit.agents.beta.tools import EndCallTool
 
 from prompts import build_instructions
 from ready_check_task import ReadyCheckTask
+from wrap_up_task import WrapUpTask
 
 logger = logging.getLogger("agent")
 
@@ -74,7 +82,7 @@ class InterviewAgent(Agent):
             closing or DEFAULT_CLOSING_INSTRUCTIONS, candidate_name, target_role
         )
 
-        end_call_tool = EndCallTool(
+        self._end_call_tool = EndCallTool(
             extra_description="当面试结束、候选人要求结束、候选人连续三次答非所问、态度恶劣，或系统计时提示已到时间上限时，调用此工具结束面试。",
             delete_room=True,
             end_instructions=self._closing_instructions,
@@ -82,13 +90,18 @@ class InterviewAgent(Agent):
 
         super().__init__(
             instructions=build_instructions(interview_context, interviewer),
-            tools=end_call_tool.tools,  # type: ignore
+            tools=self._end_call_tool.tools,  # type: ignore
         )
 
         self._candidate_name = candidate_name
         self._target_role = target_role
         self._time_limit = time_limit_seconds
         self._started_at: float | None = None
+        # 防止 enter_wrap_up 被重复调用: WrapUpTask 进入后会自行 end_call 关闭 session,
+        # 但模型在 hint 持续提示下可能在 wrap-up 还没生效前再次尝试调用本工具.
+        # Guard so enter_wrap_up only fires once. The model can spam the tool if
+        # hints keep firing before WrapUpTask actually takes over.
+        self._wrap_up_started = False
 
     def mark_started(self) -> None:
         """Anchor the elapsed-time clock. Call after session.start()."""
@@ -110,6 +123,30 @@ class InterviewAgent(Agent):
     @property
     def closing_instructions(self) -> str:
         return self._closing_instructions
+
+    @function_tool()
+    async def enter_wrap_up(self) -> str | None:
+        """系统计时提示出现"已进入收尾时间"后调用; 你会被转入收尾流程, 由其向候选人提出本场最后一个收尾问题并结束面试. 在还未达到收尾时间或主流程仍在进行时, 不要调用此工具."""
+        # 软门: 16 分钟前的误触直接驳回, 防止模型在 hint 出现前就抢跑进入收尾.
+        # Soft gate: reject premature invocations so the LLM cannot skip ahead
+        # into wrap-up before the soft-wrap hint actually fires.
+        if self.elapsed_seconds() < INTERVIEW_SOFT_WRAP_SECONDS - 30:
+            return "[拒绝] 还未到收尾时间, 请继续按系统提示中的题目列表提问。"
+        if self._wrap_up_started:
+            return "[拒绝] 收尾流程已经启动, 请等待 WrapUpTask 完成并调用 end_call。"
+        self._wrap_up_started = True
+        logger.info(
+            "wrap-up triggered at elapsed=%.0fs (limit=%ds)",
+            self.elapsed_seconds(),
+            self._time_limit,
+        )
+        # WrapUpTask 内部通过共享的 EndCallTool 自行 end_call 关闭 session,
+        # 正常路径下不会回到这里; 异常路径(任务被取消)由外层 session lifecycle 兜底.
+        # WrapUpTask drives the close via the shared EndCallTool, so under the
+        # happy path execution never returns here. Cancellation is handled by
+        # the outer session lifecycle (hard timeout / candidate disconnect).
+        await WrapUpTask(self._end_call_tool)
+        return None
 
     async def on_user_turn_completed(
         self, turn_ctx: ChatContext, new_message: ChatMessage
@@ -137,9 +174,9 @@ class InterviewAgent(Agent):
         elif elapsed >= INTERVIEW_SOFT_WRAP_SECONDS:
             hint = (
                 f"[计时提示] 面试已进行 {_format_mmss(elapsed)}，"
-                f"剩余约 {_format_mmss(remaining)}。请开始收尾："
-                "最多再问一个关键问题作为本场面试的最后一题，不要再展开新话题；"
-                "听完候选人的回答后，自然地向其告别并调用 end_call 结束面试。"
+                f"剩余约 {_format_mmss(remaining)}。已进入收尾时间："
+                "听完候选人对当前问题的回答后, 立即调用 enter_wrap_up 工具进入收尾流程；"
+                "不要在主流程里继续提出新问题。"
             )
         else:
             hint = (

@@ -8,7 +8,7 @@ import {
   candidateFormSubmission,
   studioInterview,
   studioInterviewSchedule,
-} from "@/lib/server/db/schema";
+} from "@/lib/shared/db/schema";
 import { buildCandidateFormAnswersSchema } from "@/lib/shared/candidate-forms";
 import type { CandidateFormTemplateRecord } from "@/lib/shared/candidate-forms";
 import { RECONNECT_GRACE_MS } from "@/lib/shared/studio-interviews";

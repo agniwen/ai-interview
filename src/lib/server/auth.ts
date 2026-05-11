@@ -5,7 +5,7 @@ import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { admin, genericOAuth } from "better-auth/plugins";
 import type { GenericOAuthConfig } from "better-auth/plugins";
 import { db } from "./db";
-import * as schema from "./db/schema";
+import * as schema from "@/lib/shared/db/schema";
 
 const baseURL = process.env.BETTER_AUTH_URL ?? "http://localhost:3000";
 const trustedOrigins = [...new Set([baseURL, "http://localhost:3000"])];

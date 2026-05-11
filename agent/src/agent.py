@@ -17,6 +17,9 @@ from livekit.agents import (
     cli,
     room_io,
 )
+from livekit.agents import (
+    metrics as lk_metrics,
+)
 from livekit.plugins import (
     ai_coustics,  # LiveKit Cloud only, disabled for self-hosted
     elevenlabs,
@@ -116,6 +119,7 @@ async def _on_session_end(ctx: JobContext) -> None:
             ended_at=ended_at,
             close_reason=close_reason.value if close_reason else "unknown",
             recording=recording_payload,
+            metrics=state.get("metrics"),
         ),
         _stop_recording_best_effort(),
     )
@@ -187,12 +191,66 @@ async def my_agent(ctx: JobContext):
     # status="active"; the web-side LiveKit egress_ended webhook handler is
     # responsible for backfilling the final status / durationSecs once the
     # MP4 finishes uploading. _on_session_end (top-level) uses this state.
+    # metrics 聚合容器: 监听 session.metrics_collected 后逐项累加, _on_session_end
+    # 直接拍扁送到 /api/agent/report. session 段为会话级总览, turns 段按 speech_id
+    # 累计单轮 e2e 与各 pipeline 子段耗时, 便于后续 p50/p95 统计.
+    # Metrics aggregator: filled in by the metrics_collected listener and flushed
+    # to /api/agent/report at session end. `session` holds totals; `turns` keys
+    # per-speech_id breakdowns (LLM ttft, TTS ttfb, EOU delays, e2e) so we can
+    # later compute p50/p95 latency on the web side.
+    metrics_state: dict = {
+        "session": {
+            "llm": {
+                "request_count": 0,
+                "total_completion_tokens": 0,
+                "total_prompt_tokens": 0,
+                "total_tokens": 0,
+                "total_duration": 0.0,
+                "ttft_sum": 0.0,
+                "ttft_count": 0,
+            },
+            "stt": {
+                "request_count": 0,
+                "total_audio_duration": 0.0,
+                "total_duration": 0.0,
+            },
+            "tts": {
+                "request_count": 0,
+                "total_audio_duration": 0.0,
+                "total_characters": 0,
+                "total_duration": 0.0,
+                "ttfb_sum": 0.0,
+                "ttfb_count": 0,
+            },
+            "eou": {
+                "count": 0,
+                "end_of_utterance_delay_sum": 0.0,
+                "transcription_delay_sum": 0.0,
+                "on_user_turn_completed_delay_sum": 0.0,
+            },
+            "interruption": {
+                "num_interruptions": 0,
+                "num_backchannels": 0,
+                "num_requests": 0,
+                "latest_detection_delay": 0.0,
+            },
+            "vad": {
+                "total_inference_duration": 0.0,
+                "total_inference_count": 0,
+            },
+        },
+        # speech_id -> {llm_ttft, llm_duration, llm_total_tokens, tts_ttfb,
+        # tts_duration, tts_characters, eou_delay, transcription_delay}
+        "turns": {},
+    }
+
     state: dict = {
         "lkapi": lkapi,
         "interview_context": interview_context,
         "recording_info": recording_info,
         "started_at": time.time(),
         "turns": [],
+        "metrics": metrics_state,
         "close_reason": None,
         "ended_at": None,
     }
@@ -237,6 +295,84 @@ async def my_agent(ctx: JobContext):
     # 热重连宽限期任务: 候选人断连后等候同 identity 在 3 分钟内重连.
     # Hot-reconnect grace task: wait up to 3 min for the same identity to rejoin.
     grace_task: asyncio.Task | None = None
+
+    @session.on("metrics_collected")
+    def _on_metrics_collected(event):
+        # 每个 pipeline 插件独立 emit 一次 *Metrics, 用 isinstance 分流到对应桶.
+        # speech_id 作为单轮关联键, 用来把 LLM/TTS/EOU 拼成一条轮次记录.
+        # Each pipeline plugin emits its own *Metrics subclass; dispatch by
+        # isinstance into the right bucket. speech_id is the join key that
+        # ties LLM/TTS/EOU back to a single user turn.
+        m = event.metrics
+        sess_metrics = metrics_state["session"]
+        turns_metrics: dict[str, dict] = metrics_state["turns"]
+
+        def _turn_bucket(speech_id: str | None) -> dict | None:
+            if not speech_id:
+                return None
+            bucket = turns_metrics.get(speech_id)
+            if bucket is None:
+                bucket = {}
+                turns_metrics[speech_id] = bucket
+            return bucket
+
+        if isinstance(m, lk_metrics.LLMMetrics):
+            llm = sess_metrics["llm"]
+            llm["request_count"] += 1
+            llm["total_completion_tokens"] += m.completion_tokens
+            llm["total_prompt_tokens"] += m.prompt_tokens
+            llm["total_tokens"] += m.total_tokens
+            llm["total_duration"] += m.duration
+            if m.ttft > 0:
+                llm["ttft_sum"] += m.ttft
+                llm["ttft_count"] += 1
+            bucket = _turn_bucket(m.speech_id)
+            if bucket is not None:
+                bucket["llm_ttft"] = m.ttft
+                bucket["llm_duration"] = m.duration
+                bucket["llm_total_tokens"] = m.total_tokens
+        elif isinstance(m, lk_metrics.STTMetrics):
+            stt = sess_metrics["stt"]
+            stt["request_count"] += 1
+            stt["total_audio_duration"] += m.audio_duration
+            stt["total_duration"] += m.duration
+        elif isinstance(m, lk_metrics.TTSMetrics):
+            tts = sess_metrics["tts"]
+            tts["request_count"] += 1
+            tts["total_audio_duration"] += m.audio_duration
+            tts["total_characters"] += m.characters_count
+            tts["total_duration"] += m.duration
+            if m.ttfb > 0:
+                tts["ttfb_sum"] += m.ttfb
+                tts["ttfb_count"] += 1
+            bucket = _turn_bucket(m.speech_id)
+            if bucket is not None:
+                bucket["tts_ttfb"] = m.ttfb
+                bucket["tts_duration"] = m.duration
+                bucket["tts_characters"] = m.characters_count
+        elif isinstance(m, lk_metrics.EOUMetrics):
+            eou = sess_metrics["eou"]
+            eou["count"] += 1
+            eou["end_of_utterance_delay_sum"] += m.end_of_utterance_delay
+            eou["transcription_delay_sum"] += m.transcription_delay
+            eou["on_user_turn_completed_delay_sum"] += m.on_user_turn_completed_delay
+            bucket = _turn_bucket(m.speech_id)
+            if bucket is not None:
+                bucket["eou_delay"] = m.end_of_utterance_delay
+                bucket["transcription_delay"] = m.transcription_delay
+        elif isinstance(m, lk_metrics.InterruptionMetrics):
+            # 框架按"累计"语义递增 num_*; 这里覆盖式写入, 取最新一次的累计值.
+            # The framework increments num_* cumulatively, so write-through to
+            # capture the latest totals rather than re-summing.
+            interruption = sess_metrics["interruption"]
+            interruption["num_interruptions"] = m.num_interruptions
+            interruption["num_backchannels"] = m.num_backchannels
+            interruption["num_requests"] = m.num_requests
+            interruption["latest_detection_delay"] = m.detection_delay
+        elif isinstance(m, lk_metrics.VADMetrics):
+            vad = sess_metrics["vad"]
+            vad["total_inference_duration"] = m.inference_duration_total
+            vad["total_inference_count"] = m.inference_count
 
     @session.on("conversation_item_added")
     def _on_conversation_item(event):

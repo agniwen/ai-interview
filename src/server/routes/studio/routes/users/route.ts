@@ -3,7 +3,7 @@ import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { auth } from "@/lib/server/auth";
 import { db } from "@/lib/server/db";
-import { account } from "@/lib/server/db/schema";
+import { account } from "@/lib/shared/db/schema";
 import { factory, jsonValidatorError } from "@/server/factory";
 
 // =====================================================================

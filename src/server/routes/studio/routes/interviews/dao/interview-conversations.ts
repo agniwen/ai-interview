@@ -2,7 +2,7 @@ import type { StudioInterviewConversationReport } from "@/lib/shared/interview-s
 import { asc, desc, eq, inArray } from "drizzle-orm";
 import { cacheLife, cacheTag } from "next/cache";
 import { db } from "@/lib/server/db";
-import { interviewConversation, interviewConversationTurn } from "@/lib/server/db/schema";
+import { interviewConversation, interviewConversationTurn } from "@/lib/shared/db/schema";
 
 type InterviewConversationRow = typeof interviewConversation.$inferSelect;
 type InterviewConversationTurnRow = typeof interviewConversationTurn.$inferSelect;
@@ -47,6 +47,7 @@ function serializeConversationReport(
     lastSyncedAt: conversation.lastSyncedAt,
     latestError: conversation.latestError,
     metadata: conversation.metadata ?? {},
+    metrics: conversation.metrics ?? {},
     mode: conversation.mode,
     recordingDurationSecs: conversation.recordingDurationSecs,
     recordingStatus: conversation.recordingStatus,

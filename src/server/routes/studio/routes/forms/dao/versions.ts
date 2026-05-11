@@ -9,7 +9,7 @@ import {
   candidateFormTemplateJobDescription,
   candidateFormTemplateQuestion,
   candidateFormTemplateVersion,
-} from "@/lib/server/db/schema";
+} from "@/lib/shared/db/schema";
 import { buildTemplateSnapshot } from "@/lib/shared/candidate-forms";
 import { hashTemplateSnapshot } from "@/lib/server/candidate-forms-hash";
 import { mapQuestionRow, serializeDate } from "./queries";

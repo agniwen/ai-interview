@@ -9,7 +9,7 @@ import {
   candidateFormSubmission,
   candidateFormTemplateVersion,
   studioInterview,
-} from "@/lib/server/db/schema";
+} from "@/lib/shared/db/schema";
 import { serializeDate } from "./queries";
 
 export async function loadSubmittedTemplateIds(

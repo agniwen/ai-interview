@@ -45,7 +45,7 @@ vi.mock("@/server/agents/resume-parser-agent", () => ({
 // db isn't on the function's hot path (the cross-table query goes through the
 // chat-attachments wrapper), but utils.ts top-level imports it — minimal stub.
 vi.mock("@/lib/server/db", () => ({ db: {} }));
-vi.mock("@/lib/server/db/schema", () => ({
+vi.mock("@/lib/shared/db/schema", () => ({
   interviewer: {},
   jobDescription: {},
   jobDescriptionInterviewer: {},

@@ -523,6 +523,14 @@ export default function InterviewRoom({ interviewId, roundId }: InterviewRoomPro
                   echoCancellation: true,
                   noiseSuppression: true,
                 },
+                // 让浏览器在 room.connect 完成前就开始采集麦克风，连上后通过
+                // lk.agent.pre-connect-audio-buffer byte stream 把这段音频喂给
+                // agent，避免候选人点"开始"后立刻说话的第一句被吃掉。
+                // Capture mic audio before the room connects; LiveKit replays the
+                // buffer to the agent on the lk.agent.pre-connect-audio-buffer
+                // byte stream so a candidate's first words aren't lost in the
+                // ~1-2s connection window.
+                preConnectBuffer: true,
               },
             },
           },

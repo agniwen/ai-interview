@@ -5,7 +5,7 @@ import {
   interviewQuestionTemplate,
   interviewQuestionTemplateJobDescription,
   interviewQuestionTemplateQuestion,
-} from "@/lib/server/db/schema";
+} from "@/lib/shared/db/schema";
 import { interviewQuestionTemplateSchema } from "@/lib/shared/interview-question-templates";
 import { factory, jsonValidatorError } from "@/server/factory";
 import { countBindingsByTemplate } from "@/server/routes/studio/routes/interview-questions/dao/bindings";

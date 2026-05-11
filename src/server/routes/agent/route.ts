@@ -7,7 +7,7 @@ import {
   interviewConversationTurn,
   studioInterview,
   studioInterviewSchedule,
-} from "@/lib/server/db/schema";
+} from "@/lib/shared/db/schema";
 import { factory } from "@/server/factory";
 import { safeUpdateTag } from "@/server/cache-tags";
 import { retryFailedInterviewSummaryNotifications } from "@/server/routes/agent/utils/feishu-interview-notifications";
@@ -35,6 +35,12 @@ const reportPayloadSchema = z.object({
   endedAt: z.string().nullish(),
   interviewRecordId: z.string().min(1),
   metadata: z.record(z.string(), z.unknown()).nullish(),
+  // Agent 端 metrics_collected 聚合：STT/LLM/TTS/EOU/打断的会话级总览与每轮 e2e。
+  // 原样落到 interview_conversation.metrics，后续 Studio 渲染延迟/用量面板时直接查。
+  // Aggregates emitted by the agent's metrics_collected listener: STT/LLM/TTS/
+  // EOU/interruption totals plus per-turn e2e latency. Persisted as-is so the
+  // Studio dashboard can render latency/usage panels without re-shaping.
+  metrics: z.record(z.string(), z.unknown()).nullish(),
   recording: recordingPayloadSchema,
   scheduleEntryId: z.string().min(1),
   startedAt: z.string().nullish(),
@@ -118,6 +124,7 @@ export const agentRouter = factory
           interviewRecordId: data.interviewRecordId,
           lastSyncedAt: now,
           metadata: data.metadata ?? {},
+          metrics: data.metrics ?? {},
           mode: "voice",
           scheduleEntryId: data.scheduleEntryId,
           startedAt: data.startedAt ? new Date(data.startedAt) : null,
@@ -133,6 +140,7 @@ export const agentRouter = factory
             endedAt: data.endedAt ? new Date(data.endedAt) : null,
             lastSyncedAt: now,
             metadata: data.metadata ?? {},
+            metrics: data.metrics ?? {},
             startedAt: data.startedAt ? new Date(data.startedAt) : null,
             status: data.status,
             transcript: data.transcript,

@@ -6,7 +6,7 @@ import {
   interviewer,
   jobDescription,
   jobDescriptionInterviewer,
-} from "@/lib/server/db/schema";
+} from "@/lib/shared/db/schema";
 import {
   jobDescriptionFormSchema,
   jobDescriptionUpdateSchema,

@@ -2,7 +2,7 @@ import { structuredSchema } from "@/lib/shared/resume-parser-schema";
 import type { ResumeParserStructured } from "@/lib/shared/resume-parser-schema";
 import { and, eq, inArray, ne } from "drizzle-orm";
 import { db } from "@/lib/server/db";
-import { chatAttachment } from "@/lib/server/db/schema";
+import { chatAttachment } from "@/lib/shared/db/schema";
 
 // 行级类型直接来自 Drizzle schema —— 单一来源，schema 改动会自动传导到这里。
 // Row type derived from the Drizzle schema so column changes propagate automatically.

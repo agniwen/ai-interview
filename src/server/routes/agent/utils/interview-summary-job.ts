@@ -1,6 +1,6 @@
 import { and, eq, inArray, lt, or, sql } from "drizzle-orm";
 import { db } from "@/lib/server/db";
-import { interviewConversation, studioInterview } from "@/lib/server/db/schema";
+import { interviewConversation, studioInterview } from "@/lib/shared/db/schema";
 import { notifyInterviewSummaryReady } from "@/server/routes/agent/utils/feishu-interview-notifications";
 import { safeUpdateTag } from "@/server/cache-tags";
 import { generateInterviewReport } from "@/server/routes/agent/utils/interview-report";

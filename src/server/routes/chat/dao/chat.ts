@@ -1,7 +1,7 @@
 import type { UIMessage } from "ai";
 import { and, desc, eq, gte } from "drizzle-orm";
 import { db } from "@/lib/server/db";
-import { chatConversation, chatMessage } from "@/lib/server/db/schema";
+import { chatConversation, chatMessage } from "@/lib/shared/db/schema";
 import type { JobDescriptionConfig } from "@/lib/shared/job-description-config";
 
 export interface ChatConversationSummary {

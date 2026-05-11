@@ -9,7 +9,7 @@ import {
   interviewQuestionTemplateJobDescription,
   interviewQuestionTemplateQuestion,
   interviewQuestionTemplateVersion,
-} from "@/lib/server/db/schema";
+} from "@/lib/shared/db/schema";
 import { buildTemplateSnapshot } from "@/lib/shared/interview-question-templates";
 import { hashTemplateSnapshot } from "@/lib/server/interview-question-templates-hash";
 import { mapQuestionRow, serializeDate } from "./queries";

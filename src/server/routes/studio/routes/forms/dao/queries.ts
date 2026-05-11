@@ -17,7 +17,7 @@ import {
   candidateFormTemplateQuestion,
   jobDescription,
   studioInterview,
-} from "@/lib/server/db/schema";
+} from "@/lib/shared/db/schema";
 
 // =====================================================================
 // Pagination + filters

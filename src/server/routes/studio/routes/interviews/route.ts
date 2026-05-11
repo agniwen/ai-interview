@@ -12,7 +12,7 @@ import {
   jobDescriptionInterviewer,
   studioInterview,
   studioInterviewSchedule,
-} from "@/lib/server/db/schema";
+} from "@/lib/shared/db/schema";
 import {
   buildAgentInstructions,
   resolveClosingPrompt,

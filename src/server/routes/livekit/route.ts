@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm";
 import { WebhookReceiver } from "livekit-server-sdk";
 import type { InterviewRecordingStatus } from "@/lib/shared/db-enums";
 import { db } from "@/lib/server/db";
-import { interviewConversation } from "@/lib/server/db/schema";
+import { interviewConversation } from "@/lib/shared/db/schema";
 import { factory } from "@/server/factory";
 import { safeUpdateTag } from "@/server/cache-tags";
 

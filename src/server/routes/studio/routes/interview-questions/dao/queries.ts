@@ -16,7 +16,7 @@ import {
   interviewQuestionTemplateJobDescription,
   interviewQuestionTemplateQuestion,
   jobDescription,
-} from "@/lib/server/db/schema";
+} from "@/lib/shared/db/schema";
 
 // =====================================================================
 // Pagination + filters

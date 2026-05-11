@@ -1,0 +1,1 @@
+ALTER TABLE "interview_conversation" ADD COLUMN "metrics" jsonb DEFAULT '{}' NOT NULL;
