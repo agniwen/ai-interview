@@ -43,6 +43,7 @@ export const departmentsRouter = factory
         description: input.description?.trim() || null,
         id: crypto.randomUUID(),
         name: input.name.trim(),
+        organizationId: null,
         updatedAt: now,
       } satisfies typeof department.$inferInsert;
 

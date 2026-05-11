@@ -105,6 +105,7 @@ export const jobDescriptionsRouter = factory
         feishuChatId: null,
         id: crypto.randomUUID(),
         name: input.name.trim(),
+        organizationId: null,
         // presetQuestions is deprecated — column kept with default [] for legacy
         // data; new rows always store an empty array.
         presetQuestions: [],

@@ -168,6 +168,7 @@ export const studioInterviewsRouter = factory
         interviewQuestions: analysis?.interviewQuestions ?? manualInterviewQuestions ?? [],
         jobDescriptionId: input.data.jobDescriptionId || null,
         notes: input.data.notes || null,
+        organizationId: null,
         resumeContentHash,
         resumeFileName: analysis?.fileName ?? resume?.name ?? null,
         resumeProfile: analysis?.resumeProfile ?? null,

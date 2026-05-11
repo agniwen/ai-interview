@@ -61,6 +61,7 @@ export const interviewersRouter = factory
         description: input.description?.trim() || null,
         id: crypto.randomUUID(),
         name: input.name.trim(),
+        organizationId: null,
         prompt: input.prompt.trim(),
         updatedAt: now,
         voice: input.voice,
