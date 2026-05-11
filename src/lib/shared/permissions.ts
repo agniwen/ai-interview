@@ -9,7 +9,12 @@
 // ac, and roles. Lives under shared/ because it has no node:* imports.
 
 import { createAccessControl } from "better-auth/plugins/access";
-import { adminAc, defaultStatements, ownerAc } from "better-auth/plugins/organization/access";
+import {
+  adminAc,
+  defaultStatements,
+  memberAc,
+  ownerAc,
+} from "better-auth/plugins/organization/access";
 
 export const statement = {
   ...defaultStatements,
@@ -54,5 +59,17 @@ export const admin = ac.newRole({
   questionTemplate: ["create", "read", "update", "delete"],
 });
 
-export const roles = { admin, owner } as const;
+export const hr = ac.newRole({
+  ...memberAc.statements,
+  candidateForm: ["create", "read", "update", "delete"],
+  chat: ["create", "read", "update", "delete"],
+  department: ["read"],
+  globalConfig: ["read"],
+  interview: ["create", "read", "update"],
+  interviewer: ["read"],
+  jd: ["create", "read", "update"],
+  questionTemplate: ["create", "read", "update", "delete"],
+});
+
+export const roles = { admin, hr, owner } as const;
 export type AppRole = keyof typeof roles;
