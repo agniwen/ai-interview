@@ -17,7 +17,7 @@ export default async function StudioJobDescriptionsPage() {
   const [initialData, departments, interviewers] = await Promise.all([
     listJobDescriptions(),
     listAllDepartments(organizationId),
-    listAllInterviewers(),
+    listAllInterviewers(organizationId),
   ]);
 
   return (
