@@ -107,11 +107,16 @@ export const resumeChatRouter = factory
       ? await inlineAttachmentsForModel(userId, bakedMessages)
       : bakedMessages;
 
+    const orgId =
+      (c.var.session as { activeOrganizationId?: string | null } | null)?.activeOrganizationId ??
+      undefined;
+
     const result = await runResumeScreening({
       enableThinking,
       jobDescription,
       messages: messagesForModel,
       modelId: resolvedModel,
+      orgId,
       userId: userId ?? null,
     });
 
