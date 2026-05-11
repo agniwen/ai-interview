@@ -42,11 +42,6 @@ export const resumeChatRouter = factory
 
     const resolvedModel = await resolveModelForChat(model);
     const userId = c.var.user?.id;
-    // 提前解出 orgId 供 upsertChatMessage / runResumeScreening 共用
-    // (chat_message.organization_id 现在 NOT NULL)。
-    const orgId =
-      (c.var.session as { activeOrganizationId?: string | null } | null)?.activeOrganizationId ??
-      "org_default";
 
     const conversationOwned =
       userId && chatId ? (await checkConversationOwner(userId, chatId)) === "ok" : false;
@@ -91,7 +86,6 @@ export const resumeChatRouter = factory
             await upsertChatMessage({
               conversationId: chatId,
               message: baked,
-              organizationId: orgId,
             });
           } catch (error) {
             console.error("[resume] failed to persist user message", error);
@@ -118,7 +112,6 @@ export const resumeChatRouter = factory
       jobDescription,
       messages: messagesForModel,
       modelId: resolvedModel,
-      orgId,
       userId: userId ?? null,
     });
 
@@ -140,7 +133,6 @@ export const resumeChatRouter = factory
           await upsertChatMessage({
             conversationId: chatId,
             message: responseMessage,
-            organizationId: orgId,
           });
         } catch (error) {
           console.error("[resume] failed to persist assistant message", error);

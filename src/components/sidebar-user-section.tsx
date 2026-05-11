@@ -59,7 +59,7 @@ export function SidebarUserSection({
   const showLoading = !isHydrated || isPending;
   const userName = session?.user?.name ?? "用户";
   const userEmail = session?.user?.email ?? "";
-  const organizationName = session?.user?.feishuTenantName ?? null;
+  const organizationName = session?.user?.organizationName ?? null;
   const userInitials = getInitials(session?.user?.name, session?.user?.email);
 
   let content: ReactNode;

@@ -1,5 +1,5 @@
 import { zValidator } from "@hono/zod-validator";
-import { and, eq, inArray } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { db } from "@/lib/server/db";
 import {
   department,
@@ -12,7 +12,6 @@ import {
   jobDescriptionUpdateSchema,
 } from "@/lib/shared/job-descriptions";
 import { factory, jsonValidatorError } from "@/server/factory";
-import { requirePermission } from "@/server/middlewares/permission";
 import {
   listAllJobDescriptions,
   loadJobDescriptionById,
@@ -21,27 +20,18 @@ import {
 } from "@/server/routes/studio/routes/job-descriptions/dao";
 import { safeUpdateTag } from "@/server/cache-tags";
 
-async function validateReferences(
-  organizationId: string,
-  departmentId: string,
-  interviewerIds: string[],
-) {
+async function validateReferences(departmentId: string, interviewerIds: string[]) {
   const [[departmentRow], interviewerRows] = await Promise.all([
     db
       .select({ id: department.id })
       .from(department)
-      .where(and(eq(department.id, departmentId), eq(department.organizationId, organizationId)))
+      .where(eq(department.id, departmentId))
       .limit(1),
     interviewerIds.length > 0
       ? db
           .select({ id: interviewer.id })
           .from(interviewer)
-          .where(
-            and(
-              inArray(interviewer.id, interviewerIds),
-              eq(interviewer.organizationId, organizationId),
-            ),
-          )
+          .where(inArray(interviewer.id, interviewerIds))
       : Promise.resolve([] as { id: string }[]),
   ]);
 
@@ -60,13 +50,8 @@ function dedupeInterviewerIds(ids: string[]): string[] {
 
 export const jobDescriptionsRouter = factory
   .createApp()
-  .get("/", requirePermission("jd", "read"), async (c) => {
-    const { activeOrg } = c.var;
-    if (!activeOrg) {
-      return c.json({ message: "Unauthorized" }, 401);
-    }
+  .get("/", async (c) => {
     const result = await queryPaginatedJobDescriptions(
-      activeOrg.id,
       {
         departmentId: c.req.query("departmentId"),
         interviewerId: c.req.query("interviewerId"),
@@ -81,35 +66,35 @@ export const jobDescriptionsRouter = factory
     );
     return c.json(result, 200);
   })
-  .get("/all", requirePermission("jd", "read"), async (c) => {
-    const { activeOrg } = c.var;
-    if (!activeOrg) {
-      return c.json({ message: "Unauthorized" }, 401);
-    }
-    const records = await listAllJobDescriptions(activeOrg.id);
+  .get("/all", async (c) => {
+    const records = await listAllJobDescriptions();
     return c.json({ records }, 200);
   })
   .post(
     "/",
-    requirePermission("jd", "create"),
     zValidator("json", jobDescriptionFormSchema, jsonValidatorError("表单校验失败。")),
     async (c) => {
-      const { activeOrg } = c.var;
-      if (!activeOrg) {
-        return c.json({ message: "Unauthorized" }, 401);
-      }
       const input = c.req.valid("json");
       const interviewerIds = dedupeInterviewerIds(input.interviewerIds);
       if (interviewerIds.length === 0) {
         return c.json({ error: "请至少选择一位面试官。" }, 400);
       }
 
-      const { error } = await validateReferences(activeOrg.id, input.departmentId, interviewerIds);
+      const { error } = await validateReferences(input.departmentId, interviewerIds);
       if (error) {
         return c.json({ error }, 400);
       }
 
       const now = new Date();
+      // `record` is passed both to `tx.insert().values()` AND directly to
+      // `serializeJobDescription`, which expects the full select shape — so we
+      // use `$inferSelect` (not `$inferInsert`) to satisfy that consumer without
+      // a DB round-trip.  The three nullable Feishu columns must be explicitly
+      // set to `null` here because `$inferSelect` requires them to be present.
+      //
+      // `record` 同时用于 `tx.insert().values()` 和 `serializeJobDescription`，
+      // 后者要求完整的 select 类型，因此使用 `$inferSelect` 而非 `$inferInsert`，
+      // 避免额外的数据库查询。三个可空飞书列需显式设为 `null` 以满足该类型。
       const record = {
         createdAt: now,
         createdBy: c.var.user?.id ?? null,
@@ -120,7 +105,6 @@ export const jobDescriptionsRouter = factory
         feishuChatId: null,
         id: crypto.randomUUID(),
         name: input.name.trim(),
-        organizationId: activeOrg.id,
         // presetQuestions is deprecated — column kept with default [] for legacy
         // data; new rows always store an empty array.
         presetQuestions: [],
@@ -145,13 +129,9 @@ export const jobDescriptionsRouter = factory
       return c.json(serializeJobDescription(record, interviewerIds), 201);
     },
   )
-  .get("/:id", requirePermission("jd", "read"), async (c) => {
-    const { activeOrg } = c.var;
-    if (!activeOrg) {
-      return c.json({ message: "Unauthorized" }, 401);
-    }
+  .get("/:id", async (c) => {
     const id = c.req.param("id");
-    const record = await loadJobDescriptionById(activeOrg.id, id);
+    const record = await loadJobDescriptionById(id);
     if (!record) {
       return c.json({ error: "在招岗位不存在。" }, 404);
     }
@@ -159,15 +139,10 @@ export const jobDescriptionsRouter = factory
   })
   .patch(
     "/:id",
-    requirePermission("jd", "update"),
     zValidator("json", jobDescriptionUpdateSchema, jsonValidatorError("表单校验失败。")),
     async (c) => {
-      const { activeOrg } = c.var;
-      if (!activeOrg) {
-        return c.json({ message: "Unauthorized" }, 401);
-      }
       const id = c.req.param("id");
-      const existing = await loadJobDescriptionById(activeOrg.id, id);
+      const existing = await loadJobDescriptionById(id);
       if (!existing) {
         return c.json({ error: "在招岗位不存在。" }, 404);
       }
@@ -178,7 +153,7 @@ export const jobDescriptionsRouter = factory
         return c.json({ error: "请至少选择一位面试官。" }, 400);
       }
 
-      const { error } = await validateReferences(activeOrg.id, input.departmentId, interviewerIds);
+      const { error } = await validateReferences(input.departmentId, interviewerIds);
       if (error) {
         return c.json({ error }, 400);
       }
@@ -194,7 +169,7 @@ export const jobDescriptionsRouter = factory
             prompt: input.prompt.trim(),
             updatedAt: now,
           })
-          .where(and(eq(jobDescription.id, id), eq(jobDescription.organizationId, activeOrg.id)));
+          .where(eq(jobDescription.id, id));
 
         // Replace junction links atomically.
         await tx
@@ -211,25 +186,19 @@ export const jobDescriptionsRouter = factory
 
       safeUpdateTag("job-descriptions");
       safeUpdateTag("interviewers");
-      const updated = await loadJobDescriptionById(activeOrg.id, id);
+      const updated = await loadJobDescriptionById(id);
       return c.json(updated, 200);
     },
   )
-  .delete("/:id", requirePermission("jd", "delete"), async (c) => {
-    const { activeOrg } = c.var;
-    if (!activeOrg) {
-      return c.json({ message: "Unauthorized" }, 401);
-    }
+  .delete("/:id", async (c) => {
     const id = c.req.param("id");
-    const existing = await loadJobDescriptionById(activeOrg.id, id);
+    const existing = await loadJobDescriptionById(id);
     if (!existing) {
       return c.json({ error: "在招岗位不存在。" }, 404);
     }
 
     // jobDescriptionInterviewer cascades on JD delete; studio_interview.job_description_id → SET NULL.
-    await db
-      .delete(jobDescription)
-      .where(and(eq(jobDescription.id, id), eq(jobDescription.organizationId, activeOrg.id)));
+    await db.delete(jobDescription).where(eq(jobDescription.id, id));
     safeUpdateTag("job-descriptions");
     safeUpdateTag("studio-interviews");
     safeUpdateTag("interviewers");

@@ -7,7 +7,9 @@ import type { ReactNode } from "react";
 import { SignInTabs } from "@/components/auth/sign-in-tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { auth } from "@/lib/server/auth";
+import { canAccessAdmin } from "@/lib/server/auth-roles";
 import { LoginErrorToast } from "./_components/login-error-toast";
+import { UnauthorizedNotice } from "./_components/unauthorized-notice";
 
 interface PageProps {
   searchParams: Promise<{
@@ -61,9 +63,10 @@ function AuthShell({
 }
 
 // =====================================================================
-// /login — 统一的登录入口：
+// /login — 统一的登录入口，承担三种状态：
 //   1. 未登录 → 渲染 SignInTabs
-//   2. 已登录 → redirect 到 /（根路由解析活跃 workspace）
+//   2. 已登录 admin → redirect 到 /studio
+//   3. 已登录但非 admin → 渲染 UnauthorizedNotice（退出账号后回首页）
 // =====================================================================
 
 export default async function LoginPage({ searchParams }: PageProps) {
@@ -87,7 +90,10 @@ export default async function LoginPage({ searchParams }: PageProps) {
     );
   }
 
-  // 已登录 —— 跳转首页，由根路由解析活跃 workspace。
-  // Already logged in — go home and let the root route resolve the active workspace.
-  redirect("/");
+  if (canAccessAdmin(session.user)) {
+    redirect("/studio");
+  }
+
+  // 已登录但非 admin —— 提示后强制 sign-out 再回首页（避免无限重定向）。
+  return <UnauthorizedNotice />;
 }

@@ -9,13 +9,15 @@ import {
 } from "./portals";
 import { SidebarTabs } from "./sidebar-tabs";
 
-type AppSidebarProps = ComponentProps<typeof Sidebar>;
+type AppSidebarProps = ComponentProps<typeof Sidebar> & {
+  canAccessAdmin: boolean;
+};
 
-export function AppSidebar({ ...props }: AppSidebarProps) {
+export function AppSidebar({ canAccessAdmin, ...props }: AppSidebarProps) {
   return (
     <Sidebar collapsible="icon" variant="inset" {...props}>
       <SidebarHeader className="gap-3">
-        <SidebarTabs />
+        <SidebarTabs canAccessAdmin={canAccessAdmin} />
         <SidebarHeaderPortalTarget className="contents" />
       </SidebarHeader>
       <SidebarContent>

@@ -4,8 +4,6 @@ import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { admin, genericOAuth } from "better-auth/plugins";
 import type { GenericOAuthConfig } from "better-auth/plugins";
-import { organization } from "better-auth/plugins/organization";
-import { ac, roles } from "@/lib/shared/permissions";
 import { db } from "./db";
 import * as schema from "@/lib/shared/db/schema";
 
@@ -185,11 +183,11 @@ function buildFeishuOAuthProvider(opts: FeishuOAuthProviderOptions): GenericOAut
       return {
         email,
         emailVerified: false,
-        feishuTenantKey: pickFirstNonEmpty(data.tenant_key),
-        feishuTenantName: organizationName ?? undefined,
         id: data.open_id,
         image: pickFirstNonEmpty(data.avatar_url),
         name,
+        organizationId: pickFirstNonEmpty(data.tenant_key),
+        organizationName: organizationName ?? undefined,
       };
     },
   };
@@ -239,30 +237,16 @@ export const auth = betterAuth({
         }),
       ],
     }),
-    organization({
-      ac,
-      roles,
-      // 第一期还没有发邀请邮件的通道；先 stub 成 console.log + 让 inviter 自己复制
-      // 链接。P2 接邮件后替换。
-      // No invitation email channel yet; stub to console.log so inviter can copy the
-      // link manually. Wire a real channel in P2.
-      sendInvitationEmail({ email, invitation, organization: org }) {
-        console.log(
-          `[invitation stub] org=${org.name} email=${email} invitationId=${invitation.id}`,
-        );
-        return Promise.resolve();
-      },
-    }),
   ],
   trustedOrigins,
   user: {
     additionalFields: {
-      feishuTenantKey: {
+      organizationId: {
         input: false,
         required: false,
         type: "string",
       },
-      feishuTenantName: {
+      organizationName: {
         input: false,
         required: false,
         type: "string",

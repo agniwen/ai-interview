@@ -165,13 +165,7 @@ function parseSuggestJdRanker(text: string) {
   return null;
 }
 
-export function createSuggestJobDescriptionTool({
-  orgId,
-  resumes,
-}: {
-  orgId?: string;
-  resumes: BakedParsedResume[];
-}) {
+export function createSuggestJobDescriptionTool({ resumes }: { resumes: BakedParsedResume[] }) {
   return tool({
     description:
       "当用户上传了简历 PDF 且当前未配置在招岗位时，调用此工具从后台已配置的在招岗位中智能匹配最接近的岗位。返回排序后的候选岗位列表与推荐岗位，供用户确认是否将其设置为当前对话的在招岗位。",
@@ -191,7 +185,7 @@ export function createSuggestJobDescriptionTool({
         return { availableResumes: availableResumeNames, status: "no-resume" as const };
       }
 
-      const jobDescriptions = await listAllJobDescriptions(orgId ?? "org_default");
+      const jobDescriptions = await listAllJobDescriptions();
       if (jobDescriptions.length === 0) {
         return { status: "no-jds" as const };
       }

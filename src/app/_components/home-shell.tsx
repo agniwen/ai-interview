@@ -22,9 +22,7 @@ export default function HomeShell() {
 
   const callbackURL = useMemo(() => pendingPath ?? "/chat", [pendingPath]);
   const onResumeFiltering = () => navigate("/chat");
-  // 工作台跳到根路径，由 src/app/page.tsx 解析当前用户活跃 workspace 后转到
-  // /w/[slug]/studio/interviews;避免在这里硬编已经废弃的 /studio/interviews 路径。
-  const onWorkbench = () => navigate("/");
+  const onWorkbench = () => navigate("/studio/interviews");
 
   return (
     <>
@@ -67,7 +65,9 @@ export default function HomeShell() {
         onOpenChange={(open) => !open && setPendingPath(null)}
         open={pendingPath !== null}
         title={
-          pendingPath === "/" ? "登录后即可使用 AI Recruitment Copilot" : "登录后即可进入简历筛选"
+          pendingPath === "/studio/interviews"
+            ? "登录后即可使用 AI Recruitment Copilot"
+            : "登录后即可进入简历筛选"
         }
       />
     </>

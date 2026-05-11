@@ -92,7 +92,7 @@ describe("storeInterviewResume", () => {
     });
     mocks.projectAttachmentToResumeProfile.mockReturnValue({ name: "张三" } as never);
 
-    const result = await storeInterviewResume("interview-1", makeFile(), "user-1", "org-test");
+    const result = await storeInterviewResume("interview-1", makeFile(), "user-1");
 
     expect(result).toEqual({
       cachedResumeProfile: { name: "张三" },
@@ -117,7 +117,7 @@ describe("storeInterviewResume", () => {
       resumeProfile: { name: "李四" } as never,
     });
 
-    const result = await storeInterviewResume("interview-2", makeFile(), "user-2", "org-test");
+    const result = await storeInterviewResume("interview-2", makeFile(), "user-2");
 
     expect(result).toEqual({
       cachedResumeProfile: { name: "李四" },
@@ -141,7 +141,7 @@ describe("storeInterviewResume", () => {
     mocks.putObjectBytes.mockResolvedValue(undefined as never);
     mocks.parseResumeFastToProfile.mockRejectedValue(new Error("OCR boom"));
 
-    const result = await storeInterviewResume("interview-3", makeFile(), "user-3", "org-test");
+    const result = await storeInterviewResume("interview-3", makeFile(), "user-3");
 
     expect(result).toEqual({
       cachedResumeProfile: null,
@@ -163,7 +163,7 @@ describe("storeInterviewResume", () => {
       resumeProfile: {} as never,
     });
 
-    const result = await storeInterviewResume("interview-4", makeFile(), "user-4", "org-test");
+    const result = await storeInterviewResume("interview-4", makeFile(), "user-4");
 
     expect(result).toBeNull();
     expect(mocks.createAttachment).not.toHaveBeenCalled();

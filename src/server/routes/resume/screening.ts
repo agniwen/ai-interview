@@ -23,12 +23,6 @@ export interface ResumeScreeningInput {
   messages: UIMessage[];
   jobDescription?: string;
   enableThinking?: boolean;
-  /**
-   * Active workspace id for the current user session. Scopes JD queries so the
-   * suggest_job_description tool only surfaces JDs belonging to this org.
-   * Falls back to "org_default" when omitted.
-   */
-  orgId?: string;
   userId?: string | null;
   /**
    * 已经过白名单收敛的模型 id；缺省时由 `createResumeAgent` 走环境变量默认值。
@@ -130,7 +124,7 @@ function injectParsedResumesIntoMessages(messages: UIMessage[]): UIMessage[] {
  * direct iteration over `fullStream`, etc.).
  */
 export async function runResumeScreening(input: ResumeScreeningInput) {
-  const { messages, jobDescription, enableThinking, modelId, orgId } = input;
+  const { messages, jobDescription, enableThinking, modelId } = input;
   const thinkingEnabled = enableThinking !== false;
   const normalizedJobDescription = jobDescription?.trim();
 
@@ -286,7 +280,6 @@ ${autoJdContext}
         availableResumeNames,
       }),
       suggest_job_description: createSuggestJobDescriptionTool({
-        orgId,
         resumes: bakedResumes,
       }),
     },
