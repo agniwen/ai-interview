@@ -1,7 +1,7 @@
 // src/app/(auth)/studio/interviews/_components/interview-management-page.tsx
 "use client";
 
-import { PageHeader } from "@/app/(auth)/studio/_components/page-header";
+import { PageHeader } from "@/app/(auth)/w/[slug]/studio/_components/page-header";
 import type { StudioInterviewListRecord } from "@/lib/shared/studio-interviews";
 import type {
   PaginatedStudioInterviewResult,

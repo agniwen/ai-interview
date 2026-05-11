@@ -1,7 +1,7 @@
 "use client";
 
 import { BanIcon, KeyRoundIcon, ShieldCheckIcon, UsersIcon } from "lucide-react";
-import { PageHeader } from "@/app/(auth)/studio/_components/page-header";
+import { PageHeader } from "@/app/(auth)/w/[slug]/studio/_components/page-header";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import {

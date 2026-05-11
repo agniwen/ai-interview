@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { connection } from "next/server";
-import { InterviewManagementPage } from "@/app/(auth)/studio/interviews/_components/interview-management-page";
+import { InterviewManagementPage } from "@/app/(auth)/w/[slug]/studio/interviews/_components/interview-management-page";
 import { getActiveOrg } from "@/lib/server/workspace";
 import {
   listStudioInterviewRecords,

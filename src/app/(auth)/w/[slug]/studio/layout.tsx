@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { redirect } from "next/navigation";
-import { SiteHeader } from "@/app/(auth)/studio/_components/site-header";
-import { StudioSidebarSlots } from "@/app/(auth)/studio/_components/studio-sidebar-slots";
+import { SiteHeader } from "@/app/(auth)/w/[slug]/studio/_components/site-header";
+import { StudioSidebarSlots } from "@/app/(auth)/w/[slug]/studio/_components/studio-sidebar-slots";
 import { SidebarInset } from "@/components/ui/sidebar";
 import { canAccessAdmin } from "@/lib/server/auth-roles";
 import { getCurrentSession } from "@/lib/server/auth-session";

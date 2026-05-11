@@ -29,7 +29,8 @@ import { cn } from "@/lib/shared/utils";
 // of the initial bundle.
 const InterviewDetailDialog = dynamic(
   async () => {
-    const mod = await import("@/app/(auth)/studio/interviews/_components/interview-detail-dialog");
+    const mod =
+      await import("@/app/(auth)/w/[slug]/studio/interviews/_components/interview-detail-dialog");
     return mod.InterviewDetailDialog;
   },
   { ssr: false },

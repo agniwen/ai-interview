@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
-import { PageHeader } from "@/app/(auth)/studio/_components/page-header";
+import { PageHeader } from "@/app/(auth)/w/[slug]/studio/_components/page-header";
 import type { GlobalConfigRecord } from "@/lib/shared/global-config";
 import { rpc } from "@/lib/client/rpc";
 import { Button } from "@/components/ui/button";

@@ -1,8 +1,8 @@
 "use client";
 
-import { PageHeader } from "@/app/(auth)/studio/_components/page-header";
-import { EntityDeleteDialog } from "@/app/(auth)/studio/_components/entity-delete-dialog";
-import { useEntityCrud } from "@/app/(auth)/studio/_components/use-entity-crud";
+import { PageHeader } from "@/app/(auth)/w/[slug]/studio/_components/page-header";
+import { EntityDeleteDialog } from "@/app/(auth)/w/[slug]/studio/_components/entity-delete-dialog";
+import { useEntityCrud } from "@/app/(auth)/w/[slug]/studio/_components/use-entity-crud";
 import type {
   InterviewQuestionTemplateListRecord,
   InterviewQuestionTemplateRecord,

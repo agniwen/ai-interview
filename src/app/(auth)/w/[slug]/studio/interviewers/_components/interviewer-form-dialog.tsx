@@ -17,8 +17,8 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { DEFAULT_MINIMAX_VOICE_ID, MINIMAX_VOICES } from "@/lib/shared/minimax-voices";
-import { EntityFormDialog } from "@/app/(auth)/studio/_components/entity-form-dialog";
-import { useEntityForm } from "@/app/(auth)/studio/_components/entity-form";
+import { EntityFormDialog } from "@/app/(auth)/w/[slug]/studio/_components/entity-form-dialog";
+import { useEntityForm } from "@/app/(auth)/w/[slug]/studio/_components/entity-form";
 import { hasFieldErrors, toFieldErrors } from "../../interviews/_components/interview-form";
 
 function defaultValues(departmentId: string): InterviewerFormValues {

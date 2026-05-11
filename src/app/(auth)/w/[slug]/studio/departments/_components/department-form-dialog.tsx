@@ -7,8 +7,8 @@ import { toast } from "sonner";
 import { Field, FieldContent, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { EntityFormDialog } from "@/app/(auth)/studio/_components/entity-form-dialog";
-import { useEntityForm } from "@/app/(auth)/studio/_components/entity-form";
+import { EntityFormDialog } from "@/app/(auth)/w/[slug]/studio/_components/entity-form-dialog";
+import { useEntityForm } from "@/app/(auth)/w/[slug]/studio/_components/entity-form";
 import { hasFieldErrors, toFieldErrors } from "../../interviews/_components/interview-form";
 
 function defaultValues(): DepartmentFormValues {
