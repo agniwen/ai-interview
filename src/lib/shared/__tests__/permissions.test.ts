@@ -144,3 +144,47 @@ describe("permissions matrix", () => {
     });
   });
 });
+
+describe("permission matrix cross-cut", () => {
+  // [role, resource, action, expected]
+  // 这张表跟 spec §3.2 1:1 对齐，是回归防线。
+  const cases: [keyof typeof roles, string, string, boolean][] = [
+    // interview
+    ["owner", "interview", "delete", true],
+    ["admin", "interview", "delete", true],
+    ["hr", "interview", "delete", false],
+    ["viewer", "interview", "delete", false],
+    ["viewer", "interview", "read", true],
+    // jd
+    ["hr", "jd", "update", true],
+    ["hr", "jd", "delete", false],
+    ["viewer", "jd", "update", false],
+    // department / interviewer
+    ["hr", "department", "create", false],
+    ["hr", "interviewer", "update", false],
+    ["admin", "department", "delete", true],
+    // candidateForm / questionTemplate
+    ["hr", "candidateForm", "delete", true],
+    ["viewer", "candidateForm", "delete", false],
+    ["hr", "questionTemplate", "delete", true],
+    // globalConfig
+    ["hr", "globalConfig", "update", false],
+    ["admin", "globalConfig", "update", true],
+    ["viewer", "globalConfig", "read", true],
+    // auditLog
+    ["owner", "auditLog", "read", true],
+    ["admin", "auditLog", "read", true],
+    ["hr", "auditLog", "read", false],
+    ["viewer", "auditLog", "read", false],
+    // chat — 全员可全 CRUD
+    ["viewer", "chat", "delete", true],
+  ];
+
+  for (const [role, resource, action, expected] of cases) {
+    it(`${role} ${expected ? "can" : "cannot"} ${action} ${resource}`, () => {
+      const stmts = roles[role].statements as Record<string, readonly string[] | undefined>;
+      const allowed = stmts[resource]?.includes(action) ?? false;
+      expect(allowed).toBe(expected);
+    });
+  }
+});
