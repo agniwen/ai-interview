@@ -35,6 +35,7 @@ const DEFAULT_PAGE_SIZE = 10;
 
 interface MemberRow {
   id: string;
+  userId: string;
   email: string;
   name: string;
   image: string | null;
@@ -65,6 +66,8 @@ const ROLE_BADGE_VARIANT: Record<WorkspaceRole, "default" | "secondary" | "outli
 
 export function MembersManagementPage() {
   const { data: org, refetch, isPending } = authClient.useActiveOrganization();
+  const { data: session } = authClient.useSession();
+  const currentUserId = session?.user?.id;
   const [pending, setPending] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
@@ -84,6 +87,7 @@ export function MembersManagementPage() {
         image: user?.image ?? null,
         name: user?.name ?? user?.email ?? "—",
         role: m.role as WorkspaceRole,
+        userId: m.userId,
       };
     });
   }, [org?.members]);
@@ -154,8 +158,14 @@ export function MembersManagementPage() {
         title: "成员",
       }),
       customColumn<MemberRow>({
-        cell: (r) =>
-          canUpdate ? (
+        cell: (r) => {
+          // owner 不能改自己的角色——避免唯一 owner 把自己降级把工作区锁死。
+          // 升其他人为 owner 走 transferOwnership 流程,本表单不处理。
+          const isSelfOwner = r.userId === currentUserId && r.role === "owner";
+          if (!canUpdate || isSelfOwner) {
+            return <Badge variant={ROLE_BADGE_VARIANT[r.role]}>{r.role}</Badge>;
+          }
+          return (
             <Select
               disabled={pending === r.id}
               onValueChange={(v) => void changeRole(r.id, v as WorkspaceRole)}
@@ -172,9 +182,8 @@ export function MembersManagementPage() {
                 ))}
               </SelectContent>
             </Select>
-          ) : (
-            <Badge variant={ROLE_BADGE_VARIANT[r.role]}>{r.role}</Badge>
-          ),
+          );
+        },
         key: "role",
         size: 160,
         title: "角色",
@@ -202,7 +211,7 @@ export function MembersManagementPage() {
       }),
     ],
     // oxlint-disable-next-line react-hooks/exhaustive-deps -- 列定义只依赖权限值，剧场切换时无需重建
-    [canUpdate, canDelete, pending],
+    [canUpdate, canDelete, pending, currentUserId],
   );
 
   return (

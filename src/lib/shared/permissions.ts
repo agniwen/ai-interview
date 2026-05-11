@@ -58,7 +58,7 @@ export const admin = ac.newRole({
   interview: ["create", "read", "update", "delete"],
   interviewer: ["create", "read", "update", "delete"],
   jd: ["create", "read", "update", "delete"],
-  member: ["create", "read", "delete"],
+  member: ["create", "delete"],
   questionTemplate: ["create", "read", "update", "delete"],
 });
 
