@@ -13,9 +13,9 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@chat-adapter/shared": "^4.26.0",
+    "@chat-adapter/shared": "^4.28.1",
     "@larksuiteoapi/node-sdk": "^1.59.0",
-    "chat": "^4.26.0"
+    "chat": "^4.28.1"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",

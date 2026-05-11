@@ -16,7 +16,13 @@ shellEmulator: true
 
 trustPolicy: no-downgrade
 
-# Known false positives — these packages were published before npm provenance
-# became available, so their "trust downgrade" is expected and safe.
+# Known false positives — earlier versions had CI-attached SLSA provenance,
+# but the current version was republished manually by a trusted maintainer
+# without provenance (signing key unchanged). pnpm flags this as a
+# downgrade; it is not.
 trustPolicyExclude:
   - "semver@6.3.1"
+  # @base-ui/utils@0.2.8 transitively pins reselect: ^5.1.1. 5.1.0 was
+  # CI-published with provenance; 5.1.1 was republished by Redux maintainer
+  # acemarke (Mark Erikson) from a local machine. Same npm signing key.
+  - "reselect@5.1.1"
