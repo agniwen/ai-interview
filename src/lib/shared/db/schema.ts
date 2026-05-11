@@ -969,6 +969,9 @@ export const globalConfig = pgTable("global_config", {
   companyContext: text("company_context").notNull().default(""),
   id: text("id").primaryKey().default("singleton"),
   openingInstructions: text("opening_instructions").notNull().default(""),
+  organizationId: text("organization_id").references(() => organization.id, {
+    onDelete: "cascade",
+  }),
   updatedAt: timestamp("updated_at")
     .defaultNow()
     .$onUpdate(() => /* @__PURE__ */ new Date())
