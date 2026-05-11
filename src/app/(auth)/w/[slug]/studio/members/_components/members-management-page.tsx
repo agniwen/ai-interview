@@ -31,6 +31,10 @@ import { InviteDialog } from "./invite-dialog";
 const ROLE_OPTIONS = ["owner", "admin", "hr", "viewer"] as const;
 type WorkspaceRole = (typeof ROLE_OPTIONS)[number];
 
+// 角色下拉里**不包含** owner——把别人提升为 owner 必须走 transferOwnership
+// 而非单纯改 role,避免把工作区变成无主或多 owner 状态。
+const ASSIGNABLE_ROLES: readonly WorkspaceRole[] = ["admin", "hr", "viewer"];
+
 const DEFAULT_PAGE_SIZE = 10;
 
 interface MemberRow {
@@ -159,10 +163,16 @@ export function MembersManagementPage() {
       }),
       customColumn<MemberRow>({
         cell: (r) => {
-          // owner 不能改自己的角色——避免唯一 owner 把自己降级把工作区锁死。
-          // 升其他人为 owner 走 transferOwnership 流程,本表单不处理。
+          // 渲染为只读 Badge 的两种情况:
+          // 1. 当前用户没有 member.update 权限 (按矩阵只有 owner 有);
+          // 2. 这一行就是当前用户自己且角色是 owner——owner 不能改自己的角色,
+          //    避免唯一 owner 把自己降级把工作区锁死;
+          // 3. 这一行的当前角色是 owner——把 owner 降级 / 把别人变 owner 都
+          //    必须走 authClient.organization.transferOwnership 流程,
+          //    本表单不处理。
           const isSelfOwner = r.userId === currentUserId && r.role === "owner";
-          if (!canUpdate || isSelfOwner) {
+          const isOwnerRow = r.role === "owner";
+          if (!canUpdate || isSelfOwner || isOwnerRow) {
             return <Badge variant={ROLE_BADGE_VARIANT[r.role]}>{r.role}</Badge>;
           }
           return (
@@ -175,7 +185,7 @@ export function MembersManagementPage() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {ROLE_OPTIONS.map((role) => (
+                {ASSIGNABLE_ROLES.map((role) => (
                   <SelectItem key={role} value={role}>
                     {role}
                   </SelectItem>
