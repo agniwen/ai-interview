@@ -123,11 +123,11 @@ export const user = pgTable("user", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
   email: text("email").notNull().unique(),
   emailVerified: boolean("email_verified").default(false).notNull(),
+  feishuTenantKey: text("feishu_tenant_key"),
+  feishuTenantName: text("feishu_tenant_name"),
   id: text("id").primaryKey(),
   image: text("image"),
   name: text("name").notNull(),
-  organizationId: text("organization_id"),
-  organizationName: text("organization_name"),
   role: text("role").default("user").notNull(),
   updatedAt: timestamp("updated_at")
     .defaultNow()
@@ -138,6 +138,7 @@ export const user = pgTable("user", {
 export const session = pgTable(
   "session",
   {
+    activeOrganizationId: text("active_organization_id"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     expiresAt: timestamp("expires_at").notNull(),
     id: text("id").primaryKey(),
@@ -198,6 +199,56 @@ export const verification = pgTable(
   (table) => [index("verification_identifier_idx").on(table.identifier)],
 );
 
+export const organization = pgTable("organization", {
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  id: text("id").primaryKey(),
+  logo: text("logo"),
+  metadata: text("metadata"),
+  name: text("name").notNull(),
+  slug: text("slug").notNull().unique(),
+});
+
+export const member = pgTable(
+  "member",
+  {
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    id: text("id").primaryKey(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    role: text("role").notNull(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+  },
+  (table) => [
+    uniqueIndex("member_user_org_uq").on(table.userId, table.organizationId),
+    index("member_organization_idx").on(table.organizationId),
+  ],
+);
+
+export const invitation = pgTable(
+  "invitation",
+  {
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    email: text("email").notNull(),
+    expiresAt: timestamp("expires_at").notNull(),
+    id: text("id").primaryKey(),
+    inviterId: text("inviter_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    role: text("role"),
+    status: text("status").notNull().default("pending"),
+  },
+  (table) => [
+    index("invitation_organization_idx").on(table.organizationId),
+    index("invitation_email_idx").on(table.email),
+  ],
+);
+
 export const studioInterview = pgTable(
   "studio_interview",
   {
@@ -216,6 +267,11 @@ export const studioInterview = pgTable(
       onDelete: "set null",
     }),
     notes: text("notes"),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, {
+        onDelete: "cascade",
+      }),
     resumeContentHash: text("resume_content_hash"),
     resumeFileName: text("resume_file_name"),
     resumeProfile: jsonb("resume_profile").$type<ResumeProfile | null>(),
@@ -232,6 +288,7 @@ export const studioInterview = pgTable(
     index("studio_interview_created_at_idx").on(table.createdAt),
     index("studio_interview_created_by_idx").on(table.createdBy),
     index("studio_interview_job_description_idx").on(table.jobDescriptionId),
+    index("studio_interview_organization_idx").on(table.organizationId),
     index("studio_interview_resume_content_hash_idx").on(table.resumeContentHash),
   ],
 );
@@ -244,6 +301,11 @@ export const department = pgTable(
     description: text("description"),
     id: text("id").primaryKey(),
     name: text("name").notNull(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, {
+        onDelete: "cascade",
+      }),
     updatedAt: timestamp("updated_at")
       .defaultNow()
       .$onUpdate(() => /* @__PURE__ */ new Date())
@@ -252,6 +314,7 @@ export const department = pgTable(
   (table) => [
     index("department_name_idx").on(table.name),
     index("department_created_at_idx").on(table.createdAt),
+    index("department_organization_idx").on(table.organizationId),
   ],
 );
 
@@ -266,6 +329,11 @@ export const interviewer = pgTable(
     description: text("description"),
     id: text("id").primaryKey(),
     name: text("name").notNull(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, {
+        onDelete: "cascade",
+      }),
     prompt: text("prompt").notNull(),
     updatedAt: timestamp("updated_at")
       .defaultNow()
@@ -277,6 +345,7 @@ export const interviewer = pgTable(
     index("interviewer_department_idx").on(table.departmentId),
     index("interviewer_name_idx").on(table.name),
     index("interviewer_created_at_idx").on(table.createdAt),
+    index("interviewer_organization_idx").on(table.organizationId),
   ],
 );
 
@@ -296,6 +365,11 @@ export const jobDescription = pgTable(
     feishuChatId: text("feishu_chat_id"),
     id: text("id").primaryKey(),
     name: text("name").notNull(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, {
+        onDelete: "cascade",
+      }),
     presetQuestions: jsonb("preset_questions").$type<string[]>().notNull().default([]),
     prompt: text("prompt").notNull(),
     updatedAt: timestamp("updated_at")
@@ -307,6 +381,7 @@ export const jobDescription = pgTable(
     index("job_description_department_idx").on(table.departmentId),
     index("job_description_name_idx").on(table.name),
     index("job_description_created_at_idx").on(table.createdAt),
+    index("job_description_organization_idx").on(table.organizationId),
   ],
 );
 
@@ -347,6 +422,11 @@ export const studioInterviewSchedule = pgTable(
     liveKitParticipantIdentity: text("livekit_participant_identity"),
     liveKitRoomName: text("livekit_room_name"),
     notes: text("notes"),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, {
+        onDelete: "cascade",
+      }),
     roundLabel: text("round_label").notNull(),
     scheduledAt: timestamp("scheduled_at"),
     sessionStartedAt: timestamp("session_started_at"),
@@ -360,6 +440,7 @@ export const studioInterviewSchedule = pgTable(
   (table) => [
     index("studio_interview_schedule_record_idx").on(table.interviewRecordId),
     index("studio_interview_schedule_sort_idx").on(table.interviewRecordId, table.sortOrder),
+    index("studio_interview_schedule_organization_idx").on(table.organizationId),
   ],
 );
 
@@ -391,6 +472,11 @@ export const interviewConversation = pgTable(
     metadata: jsonb("metadata").$type<Record<string, unknown>>().notNull().default({}),
     metrics: jsonb("metrics").$type<Record<string, unknown>>().notNull().default({}),
     mode: text("mode"),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, {
+        onDelete: "cascade",
+      }),
     // 录像相关：通过 LiveKit RoomCompositeEgress 直传 S3 后写回
     // Recording fields populated after LiveKit RoomCompositeEgress finishes uploading to S3
     recordingDurationSecs: integer("recording_duration_secs"),
@@ -422,6 +508,7 @@ export const interviewConversation = pgTable(
     index("interview_conversation_status_idx").on(table.status),
     index("interview_conversation_summary_status_idx").on(table.summaryStatus),
     index("interview_conversation_updated_at_idx").on(table.updatedAt),
+    index("interview_conversation_organization_idx").on(table.organizationId),
   ],
 );
 
@@ -437,6 +524,11 @@ export const interviewConversationTurn = pgTable(
       onDelete: "set null",
     }),
     message: text("message").notNull(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, {
+        onDelete: "cascade",
+      }),
     receivedAt: timestamp("received_at").defaultNow().notNull(),
     role: text("role").$type<InterviewMessageRole>().notNull(),
     source: text("source").notNull().default("client_event"),
@@ -445,6 +537,7 @@ export const interviewConversationTurn = pgTable(
   (table) => [
     index("interview_conversation_turn_conversation_idx").on(table.conversationId, table.createdAt),
     index("interview_conversation_turn_record_idx").on(table.interviewRecordId, table.createdAt),
+    index("interview_conversation_turn_organization_idx").on(table.organizationId),
   ],
 );
 
@@ -456,6 +549,11 @@ export const chatConversation = pgTable(
     isTitleGenerating: boolean("is_title_generating").default(false).notNull(),
     jobDescription: text("job_description").default("").notNull(),
     jobDescriptionConfig: jsonb("job_description_config").$type<JobDescriptionConfig>(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, {
+        onDelete: "cascade",
+      }),
     resumeImports: jsonb("resume_imports").$type<Record<string, string>>().default({}).notNull(),
     title: text("title").default("").notNull(),
     updatedAt: timestamp("updated_at")
@@ -469,6 +567,7 @@ export const chatConversation = pgTable(
   (table) => [
     index("chat_conversation_user_id_idx").on(table.userId),
     index("chat_conversation_user_updated_idx").on(table.userId, table.updatedAt),
+    index("chat_conversation_organization_idx").on(table.organizationId),
   ],
 );
 
@@ -481,13 +580,21 @@ export const chatMessage = pgTable(
       .references(() => chatConversation.id, { onDelete: "cascade" }),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     id: text("id").primaryKey(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, {
+        onDelete: "cascade",
+      }),
     role: text("role").$type<UIMessage["role"]>().notNull(),
     updatedAt: timestamp("updated_at")
       .defaultNow()
       .$onUpdate(() => /* @__PURE__ */ new Date())
       .notNull(),
   },
-  (table) => [index("chat_message_conversation_idx").on(table.conversationId, table.createdAt)],
+  (table) => [
+    index("chat_message_conversation_idx").on(table.conversationId, table.createdAt),
+    index("chat_message_organization_idx").on(table.organizationId),
+  ],
 );
 
 export const chatAttachment = pgTable(
@@ -498,6 +605,11 @@ export const chatAttachment = pgTable(
     filename: text("filename").notNull(),
     id: text("id").primaryKey(),
     mediaType: text("media_type").notNull(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, {
+        onDelete: "cascade",
+      }),
     parsedAt: timestamp("parsed_at"),
     parsedError: text("parsed_error"),
     parsedPageCount: integer("parsed_page_count"),
@@ -514,6 +626,7 @@ export const chatAttachment = pgTable(
   (table) => [
     index("chat_attachment_user_id_idx").on(table.userId),
     index("chat_attachment_content_hash_idx").on(table.contentHash),
+    index("chat_attachment_organization_idx").on(table.organizationId),
   ],
 );
 
@@ -528,6 +641,11 @@ export const interviewAuditLog = pgTable(
       .notNull()
       .references(() => studioInterview.id, { onDelete: "cascade" }),
     operatorId: text("operator_id").references(() => user.id, { onDelete: "set null" }),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, {
+        onDelete: "cascade",
+      }),
     scheduleEntryId: text("schedule_entry_id").references(() => studioInterviewSchedule.id, {
       onDelete: "set null",
     }),
@@ -535,6 +653,7 @@ export const interviewAuditLog = pgTable(
   (table) => [
     index("interview_audit_log_record_idx").on(table.interviewRecordId),
     index("interview_audit_log_created_at_idx").on(table.createdAt),
+    index("interview_audit_log_organization_idx").on(table.organizationId),
   ],
 );
 
@@ -551,6 +670,11 @@ export const interviewNotification = pgTable(
     interviewRecordId: text("interview_record_id")
       .notNull()
       .references(() => studioInterview.id, { onDelete: "cascade" }),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, {
+        onDelete: "cascade",
+      }),
     providerId: text("provider_id").notNull(),
     recipientOpenId: text("recipient_open_id").notNull(),
     recipientUserId: text("recipient_user_id").references(() => user.id, { onDelete: "set null" }),
@@ -572,6 +696,7 @@ export const interviewNotification = pgTable(
       table.recipientUserId,
       table.providerId,
     ),
+    index("interview_notification_organization_idx").on(table.organizationId),
   ],
 );
 
@@ -582,6 +707,11 @@ export const candidateFormTemplate = pgTable(
     createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
     description: text("description"),
     id: text("id").primaryKey(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, {
+        onDelete: "cascade",
+      }),
     scope: text("scope").$type<CandidateFormScope>().notNull(),
     title: text("title").notNull(),
     updatedAt: timestamp("updated_at")
@@ -592,6 +722,7 @@ export const candidateFormTemplate = pgTable(
   (table) => [
     index("candidate_form_template_scope_idx").on(table.scope),
     index("candidate_form_template_created_at_idx").on(table.createdAt),
+    index("candidate_form_template_organization_idx").on(table.organizationId),
   ],
 );
 
@@ -673,6 +804,11 @@ export const candidateFormSubmission = pgTable(
     interviewRecordId: text("interview_record_id")
       .notNull()
       .references(() => studioInterview.id, { onDelete: "cascade" }),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, {
+        onDelete: "cascade",
+      }),
     submittedAt: timestamp("submitted_at").defaultNow().notNull(),
     templateId: text("template_id")
       .notNull()
@@ -688,6 +824,7 @@ export const candidateFormSubmission = pgTable(
     ),
     index("candidate_form_submission_version_idx").on(table.versionId),
     index("candidate_form_submission_interview_idx").on(table.interviewRecordId),
+    index("candidate_form_submission_organization_idx").on(table.organizationId),
   ],
 );
 
@@ -705,6 +842,11 @@ export const interviewQuestionTemplate = pgTable(
     createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
     description: text("description"),
     id: text("id").primaryKey(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, {
+        onDelete: "cascade",
+      }),
     scope: text("scope").$type<InterviewQuestionTemplateScope>().notNull(),
     title: text("title").notNull(),
     updatedAt: timestamp("updated_at")
@@ -715,6 +857,7 @@ export const interviewQuestionTemplate = pgTable(
   (table) => [
     index("interview_question_template_scope_idx").on(table.scope),
     index("interview_question_template_created_at_idx").on(table.createdAt),
+    index("interview_question_template_organization_idx").on(table.organizationId),
   ],
 );
 
@@ -798,6 +941,11 @@ export const interviewQuestionTemplateBinding = pgTable(
     interviewRecordId: text("interview_record_id")
       .notNull()
       .references(() => studioInterview.id, { onDelete: "cascade" }),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, {
+        onDelete: "cascade",
+      }),
     sortOrder: integer("sort_order").notNull(),
     templateId: text("template_id")
       .notNull()
@@ -814,6 +962,7 @@ export const interviewQuestionTemplateBinding = pgTable(
     index("interview_question_template_binding_interview_idx").on(table.interviewRecordId),
     index("interview_question_template_binding_template_idx").on(table.templateId),
     index("interview_question_template_binding_version_idx").on(table.versionId),
+    index("interview_question_template_binding_organization_idx").on(table.organizationId),
   ],
 );
 
@@ -824,17 +973,26 @@ export const interviewQuestionTemplateBinding = pgTable(
 // 中文：飞书 bot 按 thread 维度的会话状态，目前用于记录 HR 在 DM 中激活的 JD。
 // =====================================================================
 
-export const feishuThreadState = pgTable("feishu_thread_state", {
-  activeJdId: text("active_jd_id").references(() => jobDescription.id, {
-    onDelete: "set null",
-  }),
-  activeJdSetAt: timestamp("active_jd_set_at"),
-  threadId: text("thread_id").primaryKey(),
-  updatedAt: timestamp("updated_at")
-    .defaultNow()
-    .$onUpdate(() => /* @__PURE__ */ new Date())
-    .notNull(),
-});
+export const feishuThreadState = pgTable(
+  "feishu_thread_state",
+  {
+    activeJdId: text("active_jd_id").references(() => jobDescription.id, {
+      onDelete: "set null",
+    }),
+    activeJdSetAt: timestamp("active_jd_set_at"),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, {
+        onDelete: "cascade",
+      }),
+    threadId: text("thread_id").primaryKey(),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+  },
+  (table) => [index("feishu_thread_state_organization_idx").on(table.organizationId)],
+);
 
 // 全局配置（单例表，固定 id="singleton"）
 // Global config (singleton table, id="singleton")
@@ -843,6 +1001,11 @@ export const globalConfig = pgTable("global_config", {
   companyContext: text("company_context").notNull().default(""),
   id: text("id").primaryKey().default("singleton"),
   openingInstructions: text("opening_instructions").notNull().default(""),
+  organizationId: text("organization_id")
+    .notNull()
+    .references(() => organization.id, {
+      onDelete: "cascade",
+    }),
   updatedAt: timestamp("updated_at")
     .defaultNow()
     .$onUpdate(() => /* @__PURE__ */ new Date())

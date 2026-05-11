@@ -29,7 +29,8 @@ import { cn } from "@/lib/shared/utils";
 // of the initial bundle.
 const InterviewDetailDialog = dynamic(
   async () => {
-    const mod = await import("@/app/(auth)/studio/interviews/_components/interview-detail-dialog");
+    const mod =
+      await import("@/app/(auth)/w/[slug]/studio/interviews/_components/interview-detail-dialog");
     return mod.InterviewDetailDialog;
   },
   { ssr: false },
@@ -41,6 +42,12 @@ interface ResumeImportButtonProps {
   onImported: (partId: string, interviewId: string) => void;
   onMissing?: (partId: string) => void;
   className?: string;
+  /**
+   * Workspace slug for slug-aware dedup RPC calls under /api/w/:slug/studio.
+   * When omitted (e.g. in the chat context without an active org), the dedup
+   * check is skipped and the import proceeds without the duplicate guard.
+   */
+  workspaceSlug?: string;
 }
 
 function renderImportButtonContent({
@@ -81,6 +88,7 @@ export function ResumeImportButton({
   onImported,
   onMissing,
   className,
+  workspaceSlug,
 }: ResumeImportButtonProps) {
   const [phase, setPhase] = useState<ImportPhase>("idle");
   const [progressStatus, setProgressStatus] = useState("");
@@ -213,12 +221,16 @@ export function ResumeImportButton({
       // 身份维度查重：失败时静默继续。命中时缓存状态、暂停流程，等用户决策。
       // Identity dedup; on failure proceed silently. On hit, stash state and
       // wait for the user to "继续解析" or "取消上传".
+      // Skipped when workspaceSlug is absent (e.g. chat page without an active org).
       try {
-        const { matches } = await fetchInterviewDedup({
-          email: resumeProfile.email,
-          name: resumeProfile.name,
-          phone: resumeProfile.phone,
-        });
+        const dedupResult = workspaceSlug
+          ? await fetchInterviewDedup(workspaceSlug, {
+              email: resumeProfile.email,
+              name: resumeProfile.name,
+              phone: resumeProfile.phone,
+            })
+          : null;
+        const matches = dedupResult?.matches ?? [];
         if (matches.length > 0) {
           cachedParseResultRef.current = parseResult;
           pendingResumeFileRef.current = file;
