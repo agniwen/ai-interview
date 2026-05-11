@@ -185,11 +185,11 @@ function buildFeishuOAuthProvider(opts: FeishuOAuthProviderOptions): GenericOAut
       return {
         email,
         emailVerified: false,
+        feishuTenantKey: pickFirstNonEmpty(data.tenant_key),
+        feishuTenantName: organizationName ?? undefined,
         id: data.open_id,
         image: pickFirstNonEmpty(data.avatar_url),
         name,
-        organizationId: pickFirstNonEmpty(data.tenant_key),
-        organizationName: organizationName ?? undefined,
       };
     },
   };
@@ -263,16 +263,6 @@ export const auth = betterAuth({
         type: "string",
       },
       feishuTenantName: {
-        input: false,
-        required: false,
-        type: "string",
-      },
-      organizationId: {
-        input: false,
-        required: false,
-        type: "string",
-      },
-      organizationName: {
         input: false,
         required: false,
         type: "string",

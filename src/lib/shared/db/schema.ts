@@ -128,8 +128,6 @@ export const user = pgTable("user", {
   id: text("id").primaryKey(),
   image: text("image"),
   name: text("name").notNull(),
-  organizationId: text("organization_id"),
-  organizationName: text("organization_name"),
   role: text("role").default("user").notNull(),
   updatedAt: timestamp("updated_at")
     .defaultNow()

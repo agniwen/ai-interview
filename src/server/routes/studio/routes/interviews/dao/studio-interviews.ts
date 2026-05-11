@@ -118,7 +118,7 @@ const SELECTED_COLUMNS = {
   createdAt: studioInterview.createdAt,
   createdBy: studioInterview.createdBy,
   creatorName: user.name,
-  creatorOrganizationName: user.organizationName,
+  creatorOrganizationName: user.feishuTenantName,
   id: studioInterview.id,
   interviewQuestions: studioInterview.interviewQuestions,
   jobDescriptionId: studioInterview.jobDescriptionId,
