@@ -104,7 +104,8 @@ describe("permissions matrix", () => {
     });
 
     it("has no auditLog access", () => {
-      expect(roles.hr.statements.auditLog).toBeUndefined();
+      const stmts = roles.hr.statements as Record<string, readonly string[] | undefined>;
+      expect(stmts.auditLog).toBeUndefined();
     });
   });
 
@@ -140,7 +141,8 @@ describe("permissions matrix", () => {
     });
 
     it("has no auditLog access", () => {
-      expect(roles.viewer.statements.auditLog).toBeUndefined();
+      const stmts = roles.viewer.statements as Record<string, readonly string[] | undefined>;
+      expect(stmts.auditLog).toBeUndefined();
     });
   });
 });
