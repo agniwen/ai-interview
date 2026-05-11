@@ -1,6 +1,7 @@
 import { factory } from "@/server/factory";
 import { adminMiddleware } from "@/server/middlewares/admin";
 import { authMiddleware } from "@/server/middlewares/auth";
+import { workspaceMiddleware } from "@/server/middlewares/workspace";
 import { departmentsRouter } from "./routes/departments/route";
 import { candidateFormsRouter } from "./routes/forms/route";
 import { globalConfigRouter } from "./routes/global-config/route";
@@ -16,7 +17,7 @@ import { adminUsersRouter } from "./routes/users/route";
 // middleware. Do NOT add per-/studio/<sub> .use(...) calls in app.ts.
 export const studioRouter = factory
   .createApp()
-  .use("*", authMiddleware, adminMiddleware)
+  .use("*", authMiddleware, adminMiddleware, workspaceMiddleware)
   .route("/interviews", studioInterviewsRouter)
   .route("/departments", departmentsRouter)
   .route("/global-config", globalConfigRouter)
