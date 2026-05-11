@@ -48,6 +48,8 @@ export const admin = ac.newRole({
   ...adminAc.statements,
   // admin 与 owner 业务能力一致；workspace delete / transferOwnership 由 better-auth
   // organization 插件内置只许 owner，admin 拿不到。
+  // member.update (改成员角色) 从 admin 拿走,只留给 owner——避免 admin 互相提权。
+  // invite (create) / 移除 (delete) / 读 (read) 保留,admin 仍能日常维护成员名单。
   auditLog: ["read"],
   candidateForm: ["create", "read", "update", "delete"],
   chat: ["create", "read", "update", "delete"],
@@ -56,6 +58,7 @@ export const admin = ac.newRole({
   interview: ["create", "read", "update", "delete"],
   interviewer: ["create", "read", "update", "delete"],
   jd: ["create", "read", "update", "delete"],
+  member: ["create", "read", "delete"],
   questionTemplate: ["create", "read", "update", "delete"],
 });
 

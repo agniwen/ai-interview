@@ -180,6 +180,13 @@ describe("permission matrix cross-cut", () => {
     ["viewer", "auditLog", "read", false],
     // chat — 全员可全 CRUD
     ["viewer", "chat", "delete", true],
+    // member — 改角色 (update) 只许 owner;邀请/移除 admin 也可。
+    ["owner", "member", "update", true],
+    ["admin", "member", "update", false],
+    ["hr", "member", "update", false],
+    ["viewer", "member", "update", false],
+    ["admin", "member", "create", true],
+    ["admin", "member", "delete", true],
   ];
 
   for (const [role, resource, action, expected] of cases) {
