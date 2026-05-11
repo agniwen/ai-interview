@@ -1,5 +1,6 @@
 import { zValidator } from "@hono/zod-validator";
 import { eq } from "drizzle-orm";
+import { z } from "zod";
 import { db } from "@/lib/server/db";
 import {
   candidateFormSubmission,
@@ -9,6 +10,7 @@ import {
 } from "@/lib/shared/db/schema";
 import { candidateFormTemplateSchema } from "@/lib/shared/candidate-forms";
 import { factory, jsonValidatorError } from "@/server/factory";
+import { requirePermission } from "@/server/middlewares/permission";
 import {
   listAllCandidateFormTemplates,
   loadCandidateFormTemplateById,
@@ -48,32 +50,62 @@ function normalizeQuestions(
   }));
 }
 
+const candidateFormListQuerySchema = z.object({
+  jobDescriptionId: z.string().optional(),
+  page: z.string().optional(),
+  pageSize: z.string().optional(),
+  scope: z.string().optional(),
+  search: z.string().optional(),
+  sortBy: z.string().optional(),
+  sortOrder: z.string().optional(),
+});
+
 export const candidateFormsRouter = factory
   .createApp()
-  .get("/", async (c) => {
-    const result = await queryPaginatedCandidateFormTemplates(
-      {
-        jobDescriptionId: c.req.query("jobDescriptionId"),
-        scope: c.req.query("scope"),
-        search: c.req.query("search"),
-      },
-      {
-        page: c.req.query("page"),
-        pageSize: c.req.query("pageSize"),
-        sortBy: c.req.query("sortBy"),
-        sortOrder: c.req.query("sortOrder"),
-      },
-    );
-    return c.json(result, 200);
-  })
-  .get("/all", async (c) => {
-    const records = await listAllCandidateFormTemplates();
+  .get(
+    "/",
+    requirePermission("candidateForm", "read"),
+    zValidator("query", candidateFormListQuerySchema, jsonValidatorError("查询参数无效。")),
+    async (c) => {
+      const { activeOrg } = c.var;
+      if (!activeOrg) {
+        return c.json({ message: "Unauthorized" }, 401);
+      }
+      const q = c.req.valid("query");
+      const result = await queryPaginatedCandidateFormTemplates(
+        activeOrg.id,
+        {
+          jobDescriptionId: q.jobDescriptionId,
+          scope: q.scope,
+          search: q.search,
+        },
+        {
+          page: q.page,
+          pageSize: q.pageSize,
+          sortBy: q.sortBy,
+          sortOrder: q.sortOrder,
+        },
+      );
+      return c.json(result, 200);
+    },
+  )
+  .get("/all", requirePermission("candidateForm", "read"), async (c) => {
+    const { activeOrg } = c.var;
+    if (!activeOrg) {
+      return c.json({ message: "Unauthorized" }, 401);
+    }
+    const records = await listAllCandidateFormTemplates(activeOrg.id);
     return c.json({ records }, 200);
   })
   .post(
     "/",
+    requirePermission("candidateForm", "create"),
     zValidator("json", candidateFormTemplateSchema, jsonValidatorError("表单校验失败。")),
     async (c) => {
+      const { activeOrg } = c.var;
+      if (!activeOrg) {
+        return c.json({ message: "Unauthorized" }, 401);
+      }
       const input = c.req.valid("json");
       const jobDescriptionIds = input.scope === "job_description" ? input.jobDescriptionIds : [];
       if (jobDescriptionIds.length > 0) {
@@ -90,6 +122,7 @@ export const candidateFormsRouter = factory
         createdBy: c.var.user?.id ?? null,
         description: input.description?.trim() || null,
         id: templateId,
+        organizationId: activeOrg.id,
         scope: input.scope,
         title: input.title.trim(),
         updatedAt: now,
@@ -110,13 +143,17 @@ export const candidateFormsRouter = factory
       });
 
       safeUpdateTag("candidate-form-templates");
-      const created = await loadCandidateFormTemplateById(templateId);
+      const created = await loadCandidateFormTemplateById(activeOrg.id, templateId);
       return c.json(created, 201);
     },
   )
-  .get("/:id", async (c) => {
+  .get("/:id", requirePermission("candidateForm", "read"), async (c) => {
+    const { activeOrg } = c.var;
+    if (!activeOrg) {
+      return c.json({ message: "Unauthorized" }, 401);
+    }
     const id = c.req.param("id");
-    const record = await loadCandidateFormTemplateById(id);
+    const record = await loadCandidateFormTemplateById(activeOrg.id, id);
     if (!record) {
       return c.json({ error: "面试表单不存在。" }, 404);
     }
@@ -124,10 +161,15 @@ export const candidateFormsRouter = factory
   })
   .patch(
     "/:id",
+    requirePermission("candidateForm", "update"),
     zValidator("json", candidateFormTemplateSchema, jsonValidatorError("表单校验失败。")),
     async (c) => {
+      const { activeOrg } = c.var;
+      if (!activeOrg) {
+        return c.json({ message: "Unauthorized" }, 401);
+      }
       const id = c.req.param("id");
-      const existing = await loadCandidateFormTemplateById(id);
+      const existing = await loadCandidateFormTemplateById(activeOrg.id, id);
       if (!existing) {
         return c.json({ error: "面试表单不存在。" }, 404);
       }
@@ -177,13 +219,17 @@ export const candidateFormsRouter = factory
       });
 
       safeUpdateTag("candidate-form-templates");
-      const updated = await loadCandidateFormTemplateById(id);
+      const updated = await loadCandidateFormTemplateById(activeOrg.id, id);
       return c.json(updated, 200);
     },
   )
-  .delete("/:id", async (c) => {
+  .delete("/:id", requirePermission("candidateForm", "delete"), async (c) => {
+    const { activeOrg } = c.var;
+    if (!activeOrg) {
+      return c.json({ message: "Unauthorized" }, 401);
+    }
     const id = c.req.param("id");
-    const existing = await loadCandidateFormTemplateById(id);
+    const existing = await loadCandidateFormTemplateById(activeOrg.id, id);
     if (!existing) {
       return c.json({ error: "面试表单不存在。" }, 404);
     }
@@ -201,18 +247,31 @@ export const candidateFormsRouter = factory
     safeUpdateTag("candidate-form-templates");
     return c.json({ success: true }, 200);
   })
-  .get("/:id/submissions", async (c) => {
+  .get("/:id/submissions", requirePermission("candidateForm", "read"), async (c) => {
+    const { activeOrg } = c.var;
+    if (!activeOrg) {
+      return c.json({ message: "Unauthorized" }, 401);
+    }
     const id = c.req.param("id");
-    const existing = await loadCandidateFormTemplateById(id);
+    const existing = await loadCandidateFormTemplateById(activeOrg.id, id);
     if (!existing) {
       return c.json({ error: "面试表单不存在。" }, 404);
     }
     const submissions = await loadSubmissionsByTemplate(id);
     return c.json({ submissions }, 200);
   })
-  .get("/:id/versions/:versionId", async (c) => {
+  .get("/:id/versions/:versionId", requirePermission("candidateForm", "read"), async (c) => {
+    const { activeOrg } = c.var;
+    if (!activeOrg) {
+      return c.json({ message: "Unauthorized" }, 401);
+    }
     const id = c.req.param("id");
     const versionId = c.req.param("versionId");
+    // Verify the template belongs to this org before serving the version.
+    const template = await loadCandidateFormTemplateById(activeOrg.id, id);
+    if (!template) {
+      return c.json({ error: "面试表单不存在。" }, 404);
+    }
     const version = await loadCandidateFormTemplateVersionById(id, versionId);
     if (!version) {
       return c.json({ error: "版本不存在。" }, 404);

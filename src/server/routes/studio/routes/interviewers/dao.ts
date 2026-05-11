@@ -32,13 +32,17 @@ export interface PaginatedInterviewerResult {
 }
 
 function buildWhereConditions({
+  organizationId,
   search,
   departmentId,
 }: {
+  organizationId: string;
   search?: string;
   departmentId?: string;
 }) {
-  const conditions = [] as (ReturnType<typeof ilike> | ReturnType<typeof eq>)[];
+  const orgFilter = eq(interviewer.organizationId, organizationId);
+  const conditions = [orgFilter] as ReturnType<typeof eq | typeof and | typeof or>[];
+
   if (search) {
     const searchCond = or(
       ilike(interviewer.name, `%${search}%`),
@@ -50,9 +54,6 @@ function buildWhereConditions({
   }
   if (departmentId) {
     conditions.push(eq(interviewer.departmentId, departmentId));
-  }
-  if (conditions.length === 0) {
-    return;
   }
   if (conditions.length === 1) {
     return conditions[0];
@@ -71,6 +72,7 @@ function buildOrderBy(sortBy: SortColumn, sortOrder: "asc" | "desc") {
 }
 
 function listInterviewerRows({
+  organizationId,
   search,
   departmentId,
   sortBy = "createdAt",
@@ -78,6 +80,7 @@ function listInterviewerRows({
   limit,
   offset,
 }: {
+  organizationId: string;
   search?: string;
   departmentId?: string;
   sortBy?: SortColumn;
@@ -85,7 +88,7 @@ function listInterviewerRows({
   limit?: number;
   offset?: number;
 }) {
-  const where = buildWhereConditions({ departmentId, search });
+  const where = buildWhereConditions({ departmentId, organizationId, search });
 
   let query = db
     .select({
@@ -117,13 +120,15 @@ function listInterviewerRows({
 }
 
 async function countInterviewerRows({
+  organizationId,
   search,
   departmentId,
 }: {
+  organizationId: string;
   search?: string;
   departmentId?: string;
 }) {
-  const where = buildWhereConditions({ departmentId, search });
+  const where = buildWhereConditions({ departmentId, organizationId, search });
   const [result] = await db.select({ count: count() }).from(interviewer).where(where);
   return result?.count ?? 0;
 }
@@ -193,6 +198,7 @@ export function parseInterviewerPagination(
 }
 
 export async function queryPaginatedInterviewers(
+  organizationId: string,
   filters?: { search?: string | null; departmentId?: string | null },
   pagination?: Record<string, unknown>,
 ): Promise<PaginatedInterviewerResult> {
@@ -201,8 +207,16 @@ export async function queryPaginatedInterviewers(
   const offset = (page - 1) * pageSize;
 
   const [records, total] = await Promise.all([
-    listInterviewerRows({ departmentId, limit: pageSize, offset, search, sortBy, sortOrder }),
-    countInterviewerRows({ departmentId, search }),
+    listInterviewerRows({
+      departmentId,
+      limit: pageSize,
+      offset,
+      organizationId,
+      search,
+      sortBy,
+      sortOrder,
+    }),
+    countInterviewerRows({ departmentId, organizationId, search }),
   ]);
 
   const countsMap = await loadJobDescriptionCounts(records.map((record) => record.id));
@@ -220,6 +234,7 @@ export async function queryPaginatedInterviewers(
 
 // oxlint-disable-next-line require-await -- "use cache" requires the function be async.
 export async function listInterviewers(
+  organizationId: string,
   filters?: { search?: string | null; departmentId?: string | null },
   pagination?: Record<string, unknown>,
 ) {
@@ -227,11 +242,13 @@ export async function listInterviewers(
   cacheTag("interviewers");
   cacheLife("minutes");
 
-  return queryPaginatedInterviewers(filters, pagination);
+  return queryPaginatedInterviewers(organizationId, filters, pagination);
 }
 
 // oxlint-disable-next-line require-await
-export async function listAllInterviewers(): Promise<InterviewerListRecord[]> {
+export async function listAllInterviewers(
+  organizationId: string,
+): Promise<InterviewerListRecord[]> {
   "use cache";
   cacheTag("interviewers");
   cacheLife("minutes");
@@ -251,6 +268,7 @@ export async function listAllInterviewers(): Promise<InterviewerListRecord[]> {
     })
     .from(interviewer)
     .leftJoin(department, eq(interviewer.departmentId, department.id))
+    .where(eq(interviewer.organizationId, organizationId))
     .orderBy(asc(interviewer.name));
 
   return rows.map((row) => ({
@@ -279,8 +297,15 @@ export async function loadInterviewerReferenceCounts(id: string) {
   };
 }
 
-export async function loadInterviewerById(id: string): Promise<InterviewerRecord | null> {
-  const [row] = await db.select().from(interviewer).where(eq(interviewer.id, id)).limit(1);
+export async function loadInterviewerById(
+  id: string,
+  organizationId: string,
+): Promise<InterviewerRecord | null> {
+  const [row] = await db
+    .select()
+    .from(interviewer)
+    .where(and(eq(interviewer.id, id), eq(interviewer.organizationId, organizationId)))
+    .limit(1);
   if (!row) {
     return null;
   }

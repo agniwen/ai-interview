@@ -50,15 +50,17 @@ export interface PaginatedInterviewQuestionTemplateResult {
 }
 
 function buildWhereConditions({
+  organizationId,
   search,
   scopes,
   jobDescriptionIds,
 }: {
+  organizationId: string;
   search?: string;
   scopes?: InterviewQuestionTemplateScope[];
   jobDescriptionIds?: string[];
 }) {
-  const conditions: SQL<unknown>[] = [];
+  const conditions: SQL<unknown>[] = [eq(interviewQuestionTemplate.organizationId, organizationId)];
   if (search) {
     const searchCond = or(
       ilike(interviewQuestionTemplate.title, `%${search}%`),
@@ -87,9 +89,6 @@ function buildWhereConditions({
           ),
       ),
     );
-  }
-  if (conditions.length === 0) {
-    return;
   }
   return and(...conditions);
 }
@@ -150,6 +149,7 @@ export function serializeDate(value: string | Date): string {
 // =====================================================================
 
 function listTemplateRows({
+  organizationId,
   search,
   scopes,
   jobDescriptionIds,
@@ -158,6 +158,7 @@ function listTemplateRows({
   limit,
   offset,
 }: {
+  organizationId: string;
   search?: string;
   scopes?: InterviewQuestionTemplateScope[];
   jobDescriptionIds?: string[];
@@ -166,7 +167,7 @@ function listTemplateRows({
   limit?: number;
   offset?: number;
 }) {
-  const where = buildWhereConditions({ jobDescriptionIds, scopes, search });
+  const where = buildWhereConditions({ jobDescriptionIds, organizationId, scopes, search });
 
   let query = db
     .select({
@@ -194,15 +195,17 @@ function listTemplateRows({
 }
 
 async function countTemplateRows({
+  organizationId,
   search,
   scopes,
   jobDescriptionIds,
 }: {
+  organizationId: string;
   search?: string;
   scopes?: InterviewQuestionTemplateScope[];
   jobDescriptionIds?: string[];
 }) {
-  const where = buildWhereConditions({ jobDescriptionIds, scopes, search });
+  const where = buildWhereConditions({ jobDescriptionIds, organizationId, scopes, search });
   const [result] = await db.select({ count: count() }).from(interviewQuestionTemplate).where(where);
   return result?.count ?? 0;
 }
@@ -321,6 +324,7 @@ function parseInterviewQuestionTemplatePagination(
 // =====================================================================
 
 export async function queryPaginatedInterviewQuestionTemplates(
+  organizationId: string,
   filters?: {
     search?: string | null;
     scope?: string | null;
@@ -338,12 +342,13 @@ export async function queryPaginatedInterviewQuestionTemplates(
       jobDescriptionIds,
       limit: pageSize,
       offset,
+      organizationId,
       scopes,
       search,
       sortBy,
       sortOrder,
     }),
-    countTemplateRows({ jobDescriptionIds, scopes, search }),
+    countTemplateRows({ jobDescriptionIds, organizationId, scopes, search }),
   ]);
 
   const ids = rows.map((row) => row.id);
@@ -371,6 +376,7 @@ export async function queryPaginatedInterviewQuestionTemplates(
 
 // oxlint-disable-next-line require-await -- "use cache" requires the function be async.
 export async function listInterviewQuestionTemplates(
+  organizationId: string,
   filters?: {
     search?: string | null;
     scope?: string | null;
@@ -382,18 +388,18 @@ export async function listInterviewQuestionTemplates(
   cacheTag("interview-question-templates");
   cacheLife("minutes");
 
-  return queryPaginatedInterviewQuestionTemplates(filters, pagination);
+  return queryPaginatedInterviewQuestionTemplates(organizationId, filters, pagination);
 }
 
 // oxlint-disable-next-line require-await
-export async function listAllInterviewQuestionTemplates(): Promise<
-  InterviewQuestionTemplateListRecord[]
-> {
+export async function listAllInterviewQuestionTemplates(
+  organizationId: string,
+): Promise<InterviewQuestionTemplateListRecord[]> {
   "use cache";
   cacheTag("interview-question-templates");
   cacheLife("minutes");
 
-  const rows = await listTemplateRows({ sortBy: "title", sortOrder: "asc" });
+  const rows = await listTemplateRows({ organizationId, sortBy: "title", sortOrder: "asc" });
   const ids = rows.map((row) => row.id);
   const [questionCounts, bindingCounts, jdsByTemplate] = await Promise.all([
     loadQuestionCountsByTemplate(ids),
@@ -425,12 +431,18 @@ export function mapQuestionRow(
 }
 
 export async function loadInterviewQuestionTemplateById(
+  organizationId: string,
   id: string,
 ): Promise<InterviewQuestionTemplateRecord | null> {
   const [row] = await db
     .select()
     .from(interviewQuestionTemplate)
-    .where(eq(interviewQuestionTemplate.id, id))
+    .where(
+      and(
+        eq(interviewQuestionTemplate.id, id),
+        eq(interviewQuestionTemplate.organizationId, organizationId),
+      ),
+    )
     .limit(1);
   if (!row) {
     return null;
