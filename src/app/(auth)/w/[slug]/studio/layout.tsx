@@ -4,7 +4,6 @@ import { redirect } from "next/navigation";
 import { SiteHeader } from "@/app/(auth)/w/[slug]/studio/_components/site-header";
 import { StudioSidebarSlots } from "@/app/(auth)/w/[slug]/studio/_components/studio-sidebar-slots";
 import { SidebarInset } from "@/components/ui/sidebar";
-import { canAccessAdmin } from "@/lib/server/auth-roles";
 import { getCurrentSession } from "@/lib/server/auth-session";
 
 export const metadata: Metadata = {
@@ -19,14 +18,6 @@ export default async function StudioLayout({ children }: { children: ReactNode }
   const session = await getCurrentSession();
 
   if (!session) {
-    redirect("/login");
-  }
-
-  if (!canAccessAdmin(session.user)) {
-    // /login 自己会识别"已登录但非 admin"状态并渲染 UnauthorizedNotice；
-    // 这里不能直接渲染 UI（layout 是 server component，且需要先签出）。
-    // /login renders UnauthorizedNotice itself when it sees a logged-in
-    // non-admin session — keep the redirect so sign-out flow is centralized.
     redirect("/login");
   }
 

@@ -40,7 +40,7 @@ function resolveActiveTab(pathname: string): SidebarTabValue | null {
   return null;
 }
 
-export function SidebarTabs({ canAccessAdmin }: { canAccessAdmin: boolean }) {
+export function SidebarTabs() {
   const pathname = usePathname();
   const router = useRouter();
   const activeTab = useMemo(() => resolveActiveTab(pathname), [pathname]);
@@ -96,10 +96,6 @@ export function SidebarTabs({ canAccessAdmin }: { canAccessAdmin: boolean }) {
       window.removeEventListener(CHAT_EVENTS.sessionPathUpdated, handleSessionPathUpdated);
     };
   }, [setTabLastPath]);
-
-  if (!canAccessAdmin) {
-    return null;
-  }
 
   const handleChange = (value: string) => {
     const nextTab = value as SidebarTabValue;
