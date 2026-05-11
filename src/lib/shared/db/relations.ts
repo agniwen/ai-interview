@@ -123,6 +123,16 @@ export const relations = defineRelations(schema, (r) => ({
       to: r.user.id,
     }),
   },
+  invitation: {
+    inviter: r.one.user({
+      from: r.invitation.inviterId,
+      to: r.user.id,
+    }),
+    organization: r.one.organization({
+      from: r.invitation.organizationId,
+      to: r.organization.id,
+    }),
+  },
   jobDescription: {
     candidateFormTemplateLinks: r.many.candidateFormTemplateJobDescription(),
     department: r.one.department({
@@ -146,6 +156,20 @@ export const relations = defineRelations(schema, (r) => ({
       from: r.jobDescriptionInterviewer.jobDescriptionId,
       to: r.jobDescription.id,
     }),
+  },
+  member: {
+    organization: r.one.organization({
+      from: r.member.organizationId,
+      to: r.organization.id,
+    }),
+    user: r.one.user({
+      from: r.member.userId,
+      to: r.user.id,
+    }),
+  },
+  organization: {
+    invitations: r.many.invitation(),
+    members: r.many.member(),
   },
   session: {
     user: r.one.user({
@@ -180,7 +204,9 @@ export const relations = defineRelations(schema, (r) => ({
     chatConversation: r.many.chatConversation(),
     departments: r.many.department(),
     interviewers: r.many.interviewer(),
+    invitationsSent: r.many.invitation(),
     jobDescriptions: r.many.jobDescription(),
+    memberships: r.many.member(),
     session: r.many.session(),
     studioInterview: r.many.studioInterview(),
   },

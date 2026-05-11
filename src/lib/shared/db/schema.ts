@@ -138,6 +138,7 @@ export const user = pgTable("user", {
 export const session = pgTable(
   "session",
   {
+    activeOrganizationId: text("active_organization_id"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     expiresAt: timestamp("expires_at").notNull(),
     id: text("id").primaryKey(),
@@ -196,6 +197,56 @@ export const verification = pgTable(
     value: text("value").notNull(),
   },
   (table) => [index("verification_identifier_idx").on(table.identifier)],
+);
+
+export const organization = pgTable("organization", {
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  id: text("id").primaryKey(),
+  logo: text("logo"),
+  metadata: text("metadata"),
+  name: text("name").notNull(),
+  slug: text("slug").notNull().unique(),
+});
+
+export const member = pgTable(
+  "member",
+  {
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    id: text("id").primaryKey(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    role: text("role").notNull(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+  },
+  (table) => [
+    uniqueIndex("member_user_org_uq").on(table.userId, table.organizationId),
+    index("member_organization_idx").on(table.organizationId),
+  ],
+);
+
+export const invitation = pgTable(
+  "invitation",
+  {
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    email: text("email").notNull(),
+    expiresAt: timestamp("expires_at").notNull(),
+    id: text("id").primaryKey(),
+    inviterId: text("inviter_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    role: text("role"),
+    status: text("status").notNull().default("pending"),
+  },
+  (table) => [
+    index("invitation_organization_idx").on(table.organizationId),
+    index("invitation_email_idx").on(table.email),
+  ],
 );
 
 export const studioInterview = pgTable(
