@@ -13,7 +13,7 @@ import type { PaginatedInterviewQuestionTemplateResult } from "@/server/routes/s
 import { useQueryClient } from "@tanstack/react-query";
 import { ListChecksIcon, PencilIcon, PlusIcon, Trash2Icon } from "lucide-react";
 import { parseAsString, useQueryState } from "nuqs";
-import { useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -34,46 +34,11 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { rpc } from "@/lib/client/rpc";
+import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { InterviewQuestionTemplateEditorDialog } from "./interview-question-template-editor-dialog";
 
 function scopeLabel(scope: InterviewQuestionTemplateScope) {
   return scope === "global" ? "全局" : "岗位绑定";
-}
-
-async function fetchTemplates(params: {
-  search: string;
-  page: number;
-  pageSize: number;
-  filters: { scope: string; jobDescriptionId: string };
-}): Promise<PaginatedInterviewQuestionTemplateResult> {
-  const res = await rpc.api.studio["interview-questions"].$get({
-    query: {
-      page: String(params.page),
-      pageSize: String(params.pageSize),
-      ...(params.search ? { search: params.search } : {}),
-      // 多选过滤：CSV 形式 / Multi-select filters: CSV serialization.
-      ...(params.filters.scope ? { scope: params.filters.scope } : {}),
-      ...(params.filters.jobDescriptionId
-        ? { jobDescriptionId: params.filters.jobDescriptionId }
-        : {}),
-      sortBy: "createdAt",
-      sortOrder: "desc",
-    },
-  });
-  if (!res.ok) {
-    throw new Error("加载面试题模板列表失败");
-  }
-  return (await res.json()) as PaginatedInterviewQuestionTemplateResult;
-}
-
-async function loadTemplateDetailById(id: string): Promise<InterviewQuestionTemplateRecord | null> {
-  const response = await rpc.api.studio["interview-questions"][":id"].$get({
-    param: { id },
-  });
-  if (!response.ok) {
-    return null;
-  }
-  return (await response.json()) as InterviewQuestionTemplateRecord;
 }
 
 // oxlint-disable-next-line complexity -- Page hosts list, filter, pagination, and dialog state together.
@@ -84,7 +49,51 @@ export function InterviewQuestionTemplateManagementPage({
   initialData: PaginatedInterviewQuestionTemplateResult;
   jobDescriptions: JobDescriptionListRecord[];
 }) {
+  const slug = useWorkspaceSlug();
   const queryClient = useQueryClient();
+
+  const fetchTemplates = useCallback(
+    async (params: {
+      search: string;
+      page: number;
+      pageSize: number;
+      filters: { scope: string; jobDescriptionId: string };
+    }): Promise<PaginatedInterviewQuestionTemplateResult> => {
+      const res = await rpc.api.w[":slug"].studio["interview-questions"].$get({
+        param: { slug },
+        query: {
+          page: String(params.page),
+          pageSize: String(params.pageSize),
+          ...(params.search ? { search: params.search } : {}),
+          // 多选过滤：CSV 形式 / Multi-select filters: CSV serialization.
+          ...(params.filters.scope ? { scope: params.filters.scope } : {}),
+          ...(params.filters.jobDescriptionId
+            ? { jobDescriptionId: params.filters.jobDescriptionId }
+            : {}),
+          sortBy: "createdAt",
+          sortOrder: "desc",
+        },
+      });
+      if (!res.ok) {
+        throw new Error("加载面试题模板列表失败");
+      }
+      return (await res.json()) as PaginatedInterviewQuestionTemplateResult;
+    },
+    [slug],
+  );
+
+  const loadTemplateDetailById = useCallback(
+    async (id: string): Promise<InterviewQuestionTemplateRecord | null> => {
+      const response = await rpc.api.w[":slug"].studio["interview-questions"][":id"].$get({
+        param: { id, slug },
+      });
+      if (!response.ok) {
+        return null;
+      }
+      return (await response.json()) as InterviewQuestionTemplateRecord;
+    },
+    [slug],
+  );
 
   const grid = useDataGridState<
     InterviewQuestionTemplateListRecord,
@@ -104,7 +113,9 @@ export function InterviewQuestionTemplateManagementPage({
 
   const crud = useEntityCrud<InterviewQuestionTemplateListRecord, InterviewQuestionTemplateRecord>({
     deleteEntity: (record) =>
-      rpc.api.studio["interview-questions"][":id"].$delete({ param: { id: record.id } }),
+      rpc.api.w[":slug"].studio["interview-questions"][":id"].$delete({
+        param: { id: record.id, slug },
+      }),
     invalidate: () => {
       grid.invalidate();
       void queryClient.invalidateQueries({ queryKey: ["interview-question-templates"] });
@@ -143,7 +154,13 @@ export function InterviewQuestionTemplateManagementPage({
     return () => {
       cancelled = true;
     };
-  }, [activeTemplateId, setActiveTemplateId, setEditingRecord, setFormDialogOpen]);
+  }, [
+    activeTemplateId,
+    loadTemplateDetailById,
+    setActiveTemplateId,
+    setEditingRecord,
+    setFormDialogOpen,
+  ]);
 
   function onEditorOpenChange(next: boolean) {
     crud.onFormOpenChange(next);
@@ -315,6 +332,7 @@ export function InterviewQuestionTemplateManagementPage({
         }}
         open={crud.formDialogOpen}
         record={crud.editingRecord}
+        slug={slug}
       />
 
       <EntityDeleteDialog

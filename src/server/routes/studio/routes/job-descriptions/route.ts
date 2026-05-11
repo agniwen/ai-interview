@@ -1,5 +1,6 @@
 import { zValidator } from "@hono/zod-validator";
 import { and, eq, inArray } from "drizzle-orm";
+import { z } from "zod";
 import { db } from "@/lib/server/db";
 import {
   department,
@@ -58,29 +59,45 @@ function dedupeInterviewerIds(ids: string[]): string[] {
   return [...new Set(ids.map((id) => id.trim()).filter(Boolean))];
 }
 
+const jobDescriptionListQuerySchema = z.object({
+  departmentId: z.string().optional(),
+  interviewerId: z.string().optional(),
+  page: z.string().optional(),
+  pageSize: z.string().optional(),
+  search: z.string().optional(),
+  sortBy: z.string().optional(),
+  sortOrder: z.string().optional(),
+});
+
 export const jobDescriptionsRouter = factory
   .createApp()
-  .get("/", requirePermission("jd", "read"), async (c) => {
-    const { activeOrg } = c.var;
-    if (!activeOrg) {
-      return c.json({ message: "Unauthorized" }, 401);
-    }
-    const result = await queryPaginatedJobDescriptions(
-      activeOrg.id,
-      {
-        departmentId: c.req.query("departmentId"),
-        interviewerId: c.req.query("interviewerId"),
-        search: c.req.query("search"),
-      },
-      {
-        page: c.req.query("page"),
-        pageSize: c.req.query("pageSize"),
-        sortBy: c.req.query("sortBy"),
-        sortOrder: c.req.query("sortOrder"),
-      },
-    );
-    return c.json(result, 200);
-  })
+  .get(
+    "/",
+    requirePermission("jd", "read"),
+    zValidator("query", jobDescriptionListQuerySchema, jsonValidatorError("查询参数无效。")),
+    async (c) => {
+      const { activeOrg } = c.var;
+      if (!activeOrg) {
+        return c.json({ message: "Unauthorized" }, 401);
+      }
+      const q = c.req.valid("query");
+      const result = await queryPaginatedJobDescriptions(
+        activeOrg.id,
+        {
+          departmentId: q.departmentId,
+          interviewerId: q.interviewerId,
+          search: q.search,
+        },
+        {
+          page: q.page,
+          pageSize: q.pageSize,
+          sortBy: q.sortBy,
+          sortOrder: q.sortOrder,
+        },
+      );
+      return c.json(result, 200);
+    },
+  )
   .get("/all", requirePermission("jd", "read"), async (c) => {
     const { activeOrg } = c.var;
     if (!activeOrg) {

@@ -9,7 +9,7 @@ import type { JobDescriptionListRecord, JobDescriptionRecord } from "@/lib/share
 import type { PaginatedJobDescriptionResult } from "@/server/routes/studio/routes/job-descriptions/dao";
 import { useQueryClient } from "@tanstack/react-query";
 import { FileTextIcon, PencilIcon, PlusIcon, Trash2Icon } from "lucide-react";
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -29,44 +29,8 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { rpc } from "@/lib/client/rpc";
+import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { JobDescriptionFormDialog } from "./job-description-form-dialog";
-
-async function fetchJobDescriptions(params: {
-  search: string;
-  page: number;
-  pageSize: number;
-  filters: { departmentId: string; interviewerId: string };
-}): Promise<PaginatedJobDescriptionResult> {
-  const res = await rpc.api.studio["job-descriptions"].$get({
-    query: {
-      page: String(params.page),
-      pageSize: String(params.pageSize),
-      ...(params.search ? { search: params.search } : {}),
-      // 多选过滤：CSV 形式，例如 "a,b,c"。空串表示不筛选。
-      // / Multi-select filters serialize to CSV; empty string means "no filter".
-      ...(params.filters.departmentId ? { departmentId: params.filters.departmentId } : {}),
-      ...(params.filters.interviewerId ? { interviewerId: params.filters.interviewerId } : {}),
-      sortBy: "createdAt",
-      sortOrder: "desc",
-    },
-  });
-  if (!res.ok) {
-    throw new Error("加载在招岗位列表失败");
-  }
-  return (await res.json()) as PaginatedJobDescriptionResult;
-}
-
-async function loadJobDescriptionDetail(
-  record: JobDescriptionListRecord,
-): Promise<JobDescriptionRecord | null> {
-  const response = await rpc.api.studio["job-descriptions"][":id"].$get({
-    param: { id: record.id },
-  });
-  if (!response.ok) {
-    return null;
-  }
-  return (await response.json()) as JobDescriptionRecord;
-}
 
 export function JobDescriptionManagementPage({
   initialData,
@@ -77,7 +41,50 @@ export function JobDescriptionManagementPage({
   departments: DepartmentRecord[];
   interviewers: InterviewerListRecord[];
 }) {
+  const slug = useWorkspaceSlug();
   const queryClient = useQueryClient();
+
+  const fetchJobDescriptions = useCallback(
+    async (params: {
+      search: string;
+      page: number;
+      pageSize: number;
+      filters: { departmentId: string; interviewerId: string };
+    }): Promise<PaginatedJobDescriptionResult> => {
+      const res = await rpc.api.w[":slug"].studio["job-descriptions"].$get({
+        param: { slug },
+        query: {
+          page: String(params.page),
+          pageSize: String(params.pageSize),
+          ...(params.search ? { search: params.search } : {}),
+          // 多选过滤：CSV 形式，例如 "a,b,c"。空串表示不筛选。
+          // / Multi-select filters serialize to CSV; empty string means "no filter".
+          ...(params.filters.departmentId ? { departmentId: params.filters.departmentId } : {}),
+          ...(params.filters.interviewerId ? { interviewerId: params.filters.interviewerId } : {}),
+          sortBy: "createdAt",
+          sortOrder: "desc",
+        },
+      });
+      if (!res.ok) {
+        throw new Error("加载在招岗位列表失败");
+      }
+      return (await res.json()) as PaginatedJobDescriptionResult;
+    },
+    [slug],
+  );
+
+  const loadJobDescriptionDetail = useCallback(
+    async (record: JobDescriptionListRecord): Promise<JobDescriptionRecord | null> => {
+      const response = await rpc.api.w[":slug"].studio["job-descriptions"][":id"].$get({
+        param: { id: record.id, slug },
+      });
+      if (!response.ok) {
+        return null;
+      }
+      return (await response.json()) as JobDescriptionRecord;
+    },
+    [slug],
+  );
 
   const grid = useDataGridState<
     JobDescriptionListRecord,
@@ -93,7 +100,9 @@ export function JobDescriptionManagementPage({
 
   const crud = useEntityCrud<JobDescriptionListRecord, JobDescriptionRecord>({
     deleteEntity: (record) =>
-      rpc.api.studio["job-descriptions"][":id"].$delete({ param: { id: record.id } }),
+      rpc.api.w[":slug"].studio["job-descriptions"][":id"].$delete({
+        param: { id: record.id, slug },
+      }),
     invalidate: () => {
       grid.invalidate();
       void queryClient.invalidateQueries({ queryKey: ["interviewers"] });

@@ -2,6 +2,7 @@
 
 import type { JobDescriptionListRecord } from "@/lib/shared/job-descriptions";
 import { rpc } from "@/lib/client/rpc";
+import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { useQuery } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import {
@@ -12,15 +13,6 @@ import {
   FieldLabel,
 } from "@/components/ui/field";
 import { SearchableSelect } from "@/components/ui/searchable-select";
-
-async function fetchJobDescriptions(): Promise<JobDescriptionListRecord[]> {
-  const response = await rpc.api.studio["job-descriptions"].all.$get();
-  if (!response.ok) {
-    throw new Error("加载在招岗位列表失败");
-  }
-  const payload = (await response.json()) as { records: JobDescriptionListRecord[] };
-  return payload.records;
-}
 
 function describeInterviewers(jd: JobDescriptionListRecord): string {
   if (jd.interviewers.length === 0) {
@@ -51,9 +43,19 @@ export function JobDescriptionSelectField({
   action?: ReactNode;
   disabled?: boolean;
 }) {
+  const slug = useWorkspaceSlug();
   const { data: jobDescriptions = [] } = useQuery({
-    queryFn: fetchJobDescriptions,
-    queryKey: ["job-descriptions", "all"],
+    queryFn: async () => {
+      const response = await rpc.api.w[":slug"].studio["job-descriptions"].all.$get({
+        param: { slug },
+      });
+      if (!response.ok) {
+        throw new Error("加载在招岗位列表失败");
+      }
+      const payload = (await response.json()) as { records: JobDescriptionListRecord[] };
+      return payload.records;
+    },
+    queryKey: ["job-descriptions", "all", slug],
     staleTime: 60_000,
   });
 

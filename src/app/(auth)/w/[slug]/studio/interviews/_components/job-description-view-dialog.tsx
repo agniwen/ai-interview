@@ -2,18 +2,10 @@
 
 import type { JobDescriptionListRecord } from "@/lib/shared/job-descriptions";
 import { rpc } from "@/lib/client/rpc";
+import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { useQuery } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { Modal } from "@/components/ui/modal";
-
-async function fetchJobDescriptions(): Promise<JobDescriptionListRecord[]> {
-  const response = await rpc.api.studio["job-descriptions"].all.$get();
-  if (!response.ok) {
-    throw new Error("加载在招岗位列表失败");
-  }
-  const payload = (await response.json()) as { records: JobDescriptionListRecord[] };
-  return payload.records;
-}
 
 export function JobDescriptionViewDialog({
   jobDescriptionId,
@@ -22,10 +14,20 @@ export function JobDescriptionViewDialog({
   jobDescriptionId: string | null;
   onOpenChange: (open: boolean) => void;
 }) {
+  const slug = useWorkspaceSlug();
   const { data: jobDescriptions = [], isLoading } = useQuery({
     enabled: jobDescriptionId !== null,
-    queryFn: fetchJobDescriptions,
-    queryKey: ["job-descriptions", "all"],
+    queryFn: async () => {
+      const response = await rpc.api.w[":slug"].studio["job-descriptions"].all.$get({
+        param: { slug },
+      });
+      if (!response.ok) {
+        throw new Error("加载在招岗位列表失败");
+      }
+      const payload = (await response.json()) as { records: JobDescriptionListRecord[] };
+      return payload.records;
+    },
+    queryKey: ["job-descriptions", "all", slug],
     staleTime: 60_000,
   });
 
