@@ -414,6 +414,9 @@ export const studioInterviewSchedule = pgTable(
     liveKitParticipantIdentity: text("livekit_participant_identity"),
     liveKitRoomName: text("livekit_room_name"),
     notes: text("notes"),
+    organizationId: text("organization_id").references(() => organization.id, {
+      onDelete: "cascade",
+    }),
     roundLabel: text("round_label").notNull(),
     scheduledAt: timestamp("scheduled_at"),
     sessionStartedAt: timestamp("session_started_at"),
@@ -427,6 +430,7 @@ export const studioInterviewSchedule = pgTable(
   (table) => [
     index("studio_interview_schedule_record_idx").on(table.interviewRecordId),
     index("studio_interview_schedule_sort_idx").on(table.interviewRecordId, table.sortOrder),
+    index("studio_interview_schedule_organization_idx").on(table.organizationId),
   ],
 );
 
@@ -458,6 +462,9 @@ export const interviewConversation = pgTable(
     metadata: jsonb("metadata").$type<Record<string, unknown>>().notNull().default({}),
     metrics: jsonb("metrics").$type<Record<string, unknown>>().notNull().default({}),
     mode: text("mode"),
+    organizationId: text("organization_id").references(() => organization.id, {
+      onDelete: "cascade",
+    }),
     // 录像相关：通过 LiveKit RoomCompositeEgress 直传 S3 后写回
     // Recording fields populated after LiveKit RoomCompositeEgress finishes uploading to S3
     recordingDurationSecs: integer("recording_duration_secs"),
@@ -489,6 +496,7 @@ export const interviewConversation = pgTable(
     index("interview_conversation_status_idx").on(table.status),
     index("interview_conversation_summary_status_idx").on(table.summaryStatus),
     index("interview_conversation_updated_at_idx").on(table.updatedAt),
+    index("interview_conversation_organization_idx").on(table.organizationId),
   ],
 );
 
@@ -504,6 +512,9 @@ export const interviewConversationTurn = pgTable(
       onDelete: "set null",
     }),
     message: text("message").notNull(),
+    organizationId: text("organization_id").references(() => organization.id, {
+      onDelete: "cascade",
+    }),
     receivedAt: timestamp("received_at").defaultNow().notNull(),
     role: text("role").$type<InterviewMessageRole>().notNull(),
     source: text("source").notNull().default("client_event"),
@@ -512,6 +523,7 @@ export const interviewConversationTurn = pgTable(
   (table) => [
     index("interview_conversation_turn_conversation_idx").on(table.conversationId, table.createdAt),
     index("interview_conversation_turn_record_idx").on(table.interviewRecordId, table.createdAt),
+    index("interview_conversation_turn_organization_idx").on(table.organizationId),
   ],
 );
 
@@ -552,13 +564,19 @@ export const chatMessage = pgTable(
       .references(() => chatConversation.id, { onDelete: "cascade" }),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     id: text("id").primaryKey(),
+    organizationId: text("organization_id").references(() => organization.id, {
+      onDelete: "cascade",
+    }),
     role: text("role").$type<UIMessage["role"]>().notNull(),
     updatedAt: timestamp("updated_at")
       .defaultNow()
       .$onUpdate(() => /* @__PURE__ */ new Date())
       .notNull(),
   },
-  (table) => [index("chat_message_conversation_idx").on(table.conversationId, table.createdAt)],
+  (table) => [
+    index("chat_message_conversation_idx").on(table.conversationId, table.createdAt),
+    index("chat_message_organization_idx").on(table.organizationId),
+  ],
 );
 
 export const chatAttachment = pgTable(
@@ -603,6 +621,9 @@ export const interviewAuditLog = pgTable(
       .notNull()
       .references(() => studioInterview.id, { onDelete: "cascade" }),
     operatorId: text("operator_id").references(() => user.id, { onDelete: "set null" }),
+    organizationId: text("organization_id").references(() => organization.id, {
+      onDelete: "cascade",
+    }),
     scheduleEntryId: text("schedule_entry_id").references(() => studioInterviewSchedule.id, {
       onDelete: "set null",
     }),
@@ -610,6 +631,7 @@ export const interviewAuditLog = pgTable(
   (table) => [
     index("interview_audit_log_record_idx").on(table.interviewRecordId),
     index("interview_audit_log_created_at_idx").on(table.createdAt),
+    index("interview_audit_log_organization_idx").on(table.organizationId),
   ],
 );
 
@@ -626,6 +648,9 @@ export const interviewNotification = pgTable(
     interviewRecordId: text("interview_record_id")
       .notNull()
       .references(() => studioInterview.id, { onDelete: "cascade" }),
+    organizationId: text("organization_id").references(() => organization.id, {
+      onDelete: "cascade",
+    }),
     providerId: text("provider_id").notNull(),
     recipientOpenId: text("recipient_open_id").notNull(),
     recipientUserId: text("recipient_user_id").references(() => user.id, { onDelete: "set null" }),
@@ -647,6 +672,7 @@ export const interviewNotification = pgTable(
       table.recipientUserId,
       table.providerId,
     ),
+    index("interview_notification_organization_idx").on(table.organizationId),
   ],
 );
 
@@ -752,6 +778,9 @@ export const candidateFormSubmission = pgTable(
     interviewRecordId: text("interview_record_id")
       .notNull()
       .references(() => studioInterview.id, { onDelete: "cascade" }),
+    organizationId: text("organization_id").references(() => organization.id, {
+      onDelete: "cascade",
+    }),
     submittedAt: timestamp("submitted_at").defaultNow().notNull(),
     templateId: text("template_id")
       .notNull()
@@ -767,6 +796,7 @@ export const candidateFormSubmission = pgTable(
     ),
     index("candidate_form_submission_version_idx").on(table.versionId),
     index("candidate_form_submission_interview_idx").on(table.interviewRecordId),
+    index("candidate_form_submission_organization_idx").on(table.organizationId),
   ],
 );
 
@@ -881,6 +911,9 @@ export const interviewQuestionTemplateBinding = pgTable(
     interviewRecordId: text("interview_record_id")
       .notNull()
       .references(() => studioInterview.id, { onDelete: "cascade" }),
+    organizationId: text("organization_id").references(() => organization.id, {
+      onDelete: "cascade",
+    }),
     sortOrder: integer("sort_order").notNull(),
     templateId: text("template_id")
       .notNull()
@@ -897,6 +930,7 @@ export const interviewQuestionTemplateBinding = pgTable(
     index("interview_question_template_binding_interview_idx").on(table.interviewRecordId),
     index("interview_question_template_binding_template_idx").on(table.templateId),
     index("interview_question_template_binding_version_idx").on(table.versionId),
+    index("interview_question_template_binding_organization_idx").on(table.organizationId),
   ],
 );
 

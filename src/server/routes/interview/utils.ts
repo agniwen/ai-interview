@@ -265,6 +265,7 @@ function buildSingleScheduleRow(
     liveKitParticipantIdentity: existing?.liveKitParticipantIdentity ?? null,
     liveKitRoomName: existing?.liveKitRoomName ?? null,
     notes: entry.notes?.trim() || null,
+    organizationId: existing?.organizationId ?? null,
     roundLabel: entry.roundLabel.trim(),
     scheduledAt: entry.scheduledAt ? new Date(entry.scheduledAt) : null,
     sessionStartedAt: existing?.sessionStartedAt ?? null,
