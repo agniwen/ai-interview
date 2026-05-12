@@ -7,6 +7,7 @@ import {
   FileTextIcon,
   ListChecksIcon,
   SettingsIcon,
+  UserIcon,
   UserCircleIcon,
   UserCogIcon,
 } from "lucide-react";
@@ -104,6 +105,11 @@ const navGroups: NavGroup[] = [
   },
   {
     items: [
+      {
+        icon: UserIcon,
+        path: "/studio/me",
+        title: "我的信息",
+      },
       {
         icon: UserCogIcon,
         path: "/studio/members",

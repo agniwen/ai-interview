@@ -1,17 +1,37 @@
 "use client";
 
+import { SaveIcon } from "lucide-react";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { PageHeader } from "@/app/(auth)/w/[slug]/studio/_components/page-header";
-import type { GlobalConfigRecord } from "@/lib/shared/global-config";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field";
+import { InputGroup, InputGroupTextarea } from "@/components/ui/input-group";
+import { Spinner } from "@/components/ui/spinner";
 import { rpc } from "@/lib/client/rpc";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
-import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+import type { GlobalConfigRecord } from "@/lib/shared/global-config";
 
 interface Props {
   initial: GlobalConfigRecord;
+}
+
+function PlaceholderDescription() {
+  return (
+    <FieldDescription>
+      可用占位符：<code className="rounded bg-muted px-1">{"{候选人姓名}"}</code>、
+      <code className="rounded bg-muted px-1">{"{岗位}"}</code>
+      ，将在面试开始或结束时自动替换为真实值。
+    </FieldDescription>
+  );
 }
 
 export function GlobalConfigForm({ initial }: Props) {
@@ -43,60 +63,74 @@ export function GlobalConfigForm({ initial }: Props) {
   };
 
   return (
-    <div className="flex flex-col gap-6 max-w-3xl">
+    <div className="flex flex-col gap-6">
       <PageHeader
         title="全局配置"
         description="这些指令会注入到所有面试 agent。留空则使用系统默认文案。"
       />
 
-      <div className="flex flex-col gap-2">
-        <Label htmlFor="opening">开场白 prompt</Label>
-        <Textarea
-          id="opening"
-          rows={4}
-          value={opening}
-          onChange={(e) => setOpening(e.target.value)}
-          placeholder='例如：用候选人的名字"{候选人姓名}"打招呼，介绍你是 XX 公司"{岗位}"的面试官…'
-        />
-        <p className="text-xs text-muted-foreground">
-          可用占位符：<code className="rounded bg-muted px-1">{"{候选人姓名}"}</code>、
-          <code className="rounded bg-muted px-1">{"{岗位}"}</code>
-          ，将在面试开始时自动替换为本场面试的真实值。
-        </p>
-      </div>
+      <Card className="rounded-lg">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">Agent 全局指令</CardTitle>
+          <CardDescription>配置面试话术和公司背景，所有面试都会默认继承。</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <FieldGroup className="gap-5">
+            <Field>
+              <FieldLabel htmlFor="opening">开场白 prompt</FieldLabel>
+              <InputGroup>
+                <InputGroupTextarea
+                  id="opening"
+                  disabled={pending}
+                  onChange={(event) => setOpening(event.target.value)}
+                  placeholder='例如：用候选人的名字"{候选人姓名}"打招呼，介绍你是 XX 公司"{岗位}"的面试官…'
+                  rows={5}
+                  value={opening}
+                />
+              </InputGroup>
+              <PlaceholderDescription />
+            </Field>
 
-      <div className="flex flex-col gap-2">
-        <Label htmlFor="closing">结束语 prompt</Label>
-        <Textarea
-          id="closing"
-          rows={3}
-          value={closing}
-          onChange={(e) => setClosing(e.target.value)}
-          placeholder="例如：感谢候选人参加本次面试，祝你一切顺利。"
-        />
-        <p className="text-xs text-muted-foreground">
-          可用占位符：<code className="rounded bg-muted px-1">{"{候选人姓名}"}</code>、
-          <code className="rounded bg-muted px-1">{"{岗位}"}</code>
-          ，将在面试结束时自动替换为本场面试的真实值。
-        </p>
-      </div>
+            <Field>
+              <FieldLabel htmlFor="closing">结束语 prompt</FieldLabel>
+              <InputGroup>
+                <InputGroupTextarea
+                  id="closing"
+                  disabled={pending}
+                  onChange={(event) => setClosing(event.target.value)}
+                  placeholder="例如：感谢候选人参加本次面试，祝你一切顺利。"
+                  rows={4}
+                  value={closing}
+                />
+              </InputGroup>
+              <PlaceholderDescription />
+            </Field>
 
-      <div className="flex flex-col gap-2">
-        <Label htmlFor="company">公司情况</Label>
-        <Textarea
-          id="company"
-          rows={8}
-          value={company}
-          onChange={(e) => setCompany(e.target.value)}
-          placeholder="公司业务、规模、文化等，候选人若问及可由此回答。"
-        />
-      </div>
-
-      <div>
-        <Button onClick={onSave} disabled={pending}>
-          {pending ? "保存中…" : "保存"}
-        </Button>
-      </div>
+            <Field>
+              <FieldLabel htmlFor="company">公司资料</FieldLabel>
+              <InputGroup>
+                <InputGroupTextarea
+                  id="company"
+                  disabled={pending}
+                  onChange={(event) => setCompany(event.target.value)}
+                  placeholder="公司业务、规模、文化等，候选人若问及可由此回答。"
+                  rows={8}
+                  value={company}
+                />
+              </InputGroup>
+              <FieldDescription>
+                候选人主动问到公司相关信息时，agent 会优先参考这里。
+              </FieldDescription>
+            </Field>
+          </FieldGroup>
+        </CardContent>
+        <CardFooter className="justify-end">
+          <Button disabled={pending} onClick={onSave}>
+            {pending ? <Spinner data-icon="inline-start" /> : <SaveIcon data-icon="inline-start" />}
+            {pending ? "保存中" : "保存配置"}
+          </Button>
+        </CardFooter>
+      </Card>
     </div>
   );
 }

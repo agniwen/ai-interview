@@ -21,6 +21,7 @@ const ROUTE_META: { prefix: string; meta: RouteMeta }[] = [
   { meta: { title: "在招岗位管理" }, prefix: "/studio/job-descriptions" },
   { meta: { title: "面试表单" }, prefix: "/studio/forms" },
   { meta: { title: "面试题" }, prefix: "/studio/interview-questions" },
+  { meta: { title: "我的信息" }, prefix: "/studio/me" },
   { meta: { title: "工作区管理" }, prefix: "/studio/members" },
   { meta: { title: "全局配置" }, prefix: "/studio/global-config" },
 ];
