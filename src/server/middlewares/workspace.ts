@@ -1,17 +1,33 @@
 import "server-only";
 
-import { and, asc, eq } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 import { db } from "@/lib/server/db";
-import { member, organization, session as sessionTable } from "@/lib/shared/db/schema";
+import { session as sessionTable } from "@/lib/shared/db/schema";
 import { factory } from "@/server/factory";
 
+const ACTIVE_ORG_COLUMNS = {
+  createdAt: true,
+  id: true,
+  logo: true,
+  metadata: true,
+  name: true,
+  slug: true,
+} as const;
+
+const ACTIVE_MEMBER_COLUMNS = {
+  createdAt: true,
+  id: true,
+  organizationId: true,
+  role: true,
+  userId: true,
+} as const;
+
 async function pickDefaultOrgId(userId: string): Promise<string | null> {
-  const [row] = await db
-    .select({ organizationId: member.organizationId })
-    .from(member)
-    .where(eq(member.userId, userId))
-    .orderBy(asc(member.createdAt))
-    .limit(1);
+  const row = await db.query.member.findFirst({
+    columns: { organizationId: true },
+    orderBy: (m) => asc(m.createdAt),
+    where: { userId },
+  });
   return row?.organizationId ?? null;
 }
 
@@ -28,11 +44,10 @@ export const workspaceMiddleware = factory.createMiddleware(async (c, next) => {
   const slug = c.req.param("slug");
   let activeOrgId: string | null;
   if (slug) {
-    const [bySlug] = await db
-      .select({ id: organization.id })
-      .from(organization)
-      .where(eq(organization.slug, slug))
-      .limit(1);
+    const bySlug = await db.query.organization.findFirst({
+      columns: { id: true },
+      where: { slug },
+    });
     if (!bySlug) {
       return c.json({ message: "Workspace not found" }, 404);
     }
@@ -45,28 +60,15 @@ export const workspaceMiddleware = factory.createMiddleware(async (c, next) => {
     return c.json({ message: "Forbidden: no active workspace" }, 403);
   }
 
-  const [row] = await db
-    .select({
-      member: {
-        createdAt: member.createdAt,
-        id: member.id,
-        organizationId: member.organizationId,
-        role: member.role,
-        userId: member.userId,
-      },
+  const row = await db.query.member.findFirst({
+    columns: ACTIVE_MEMBER_COLUMNS,
+    where: { organizationId: activeOrgId, userId: user.id },
+    with: {
       organization: {
-        createdAt: organization.createdAt,
-        id: organization.id,
-        logo: organization.logo,
-        metadata: organization.metadata,
-        name: organization.name,
-        slug: organization.slug,
+        columns: ACTIVE_ORG_COLUMNS,
       },
-    })
-    .from(member)
-    .innerJoin(organization, eq(member.organizationId, organization.id))
-    .where(and(eq(member.userId, user.id), eq(member.organizationId, activeOrgId)))
-    .limit(1);
+    },
+  });
 
   if (!row) {
     return c.json({ message: "Forbidden: not a member of this workspace" }, 403);
@@ -81,7 +83,8 @@ export const workspaceMiddleware = factory.createMiddleware(async (c, next) => {
       .where(eq(sessionTable.id, c.var.session.id));
   }
 
-  c.set("activeOrg", row.organization);
-  c.set("member", row.member);
+  const { organization: activeOrg, ...activeMember } = row;
+  c.set("activeOrg", activeOrg);
+  c.set("member", activeMember);
   return next();
 });
