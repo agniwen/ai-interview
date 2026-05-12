@@ -27,6 +27,7 @@ import {
 import { authClient } from "@/lib/shared/auth-client";
 import { useHasPermission } from "@/hooks/use-has-permission";
 import { InviteDialog } from "./invite-dialog";
+import { PermissionsExplanationDialog } from "./permissions-explanation-dialog";
 
 const ROLE_OPTIONS = ["owner", "admin", "hr", "viewer"] as const;
 type WorkspaceRole = (typeof ROLE_OPTIONS)[number];
@@ -271,16 +272,19 @@ export function MembersManagementPage() {
           pageSize,
         }}
         toolbarRight={
-          <PermissionGate action="create" resource="invitation">
-            <InviteDialog
-              trigger={
-                <Button className="flex-1 sm:flex-none">
-                  <UserPlusIcon className="size-4" />
-                  邀请成员
-                </Button>
-              }
-            />
-          </PermissionGate>
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+            <PermissionsExplanationDialog />
+            <PermissionGate action="create" resource="invitation">
+              <InviteDialog
+                trigger={
+                  <Button className="flex-1 sm:flex-none">
+                    <UserPlusIcon className="size-4" />
+                    邀请成员
+                  </Button>
+                }
+              />
+            </PermissionGate>
+          </div>
         }
         total={total}
         totalPages={totalPages}
