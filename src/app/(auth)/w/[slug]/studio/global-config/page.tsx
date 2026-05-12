@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
+import { notFound } from "next/navigation";
 import { connection } from "next/server";
-import { getActiveOrg } from "@/lib/server/workspace";
+import { resolveActiveOrganization } from "@/lib/server/auth-session";
 import { getGlobalConfig } from "@/server/routes/studio/routes/global-config/dao";
 import { GlobalConfigForm } from "./_components/global-config-form";
 
@@ -10,8 +11,10 @@ export const metadata: Metadata = {
 
 export default async function StudioGlobalConfigPage() {
   await connection();
-  const activeOrg = await getActiveOrg();
-  const organizationId = activeOrg?.id ?? "org_default";
-  const initial = await getGlobalConfig(organizationId);
+  const activeOrg = await resolveActiveOrganization();
+  if (!activeOrg) {
+    notFound();
+  }
+  const initial = await getGlobalConfig(activeOrg.id);
   return <GlobalConfigForm initial={initial} />;
 }

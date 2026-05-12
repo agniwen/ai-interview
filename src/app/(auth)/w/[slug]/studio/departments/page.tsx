@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
+import { notFound } from "next/navigation";
 import { connection } from "next/server";
-import { getActiveOrg } from "@/lib/server/workspace";
+import { resolveActiveOrganization } from "@/lib/server/auth-session";
 import { listDepartments } from "@/server/routes/studio/routes/departments/dao";
 import { DepartmentManagementPage } from "./_components/department-management-page";
 
@@ -10,9 +11,11 @@ export const metadata: Metadata = {
 
 export default async function StudioDepartmentsPage() {
   await connection();
-  const activeOrg = await getActiveOrg();
-  const organizationId = activeOrg?.id ?? "org_default";
-  const initialData = await listDepartments({ organizationId });
+  const activeOrg = await resolveActiveOrganization();
+  if (!activeOrg) {
+    notFound();
+  }
+  const initialData = await listDepartments({ organizationId: activeOrg.id });
 
   return <DepartmentManagementPage initialData={initialData} />;
 }

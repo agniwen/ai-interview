@@ -26,9 +26,8 @@ export interface ResumeScreeningInput {
   /**
    * Active workspace id for the current user session. Scopes JD queries so the
    * suggest_job_description tool only surfaces JDs belonging to this org.
-   * Falls back to "org_default" when omitted.
    */
-  orgId?: string;
+  orgId: string;
   userId?: string | null;
   /**
    * 已经过白名单收敛的模型 id；缺省时由 `createResumeAgent` 走环境变量默认值。

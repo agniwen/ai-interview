@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
+import { notFound } from "next/navigation";
 import { connection } from "next/server";
-import { getActiveOrg } from "@/lib/server/workspace";
-import { listAllJobDescriptions } from "@/server/routes/studio/routes/job-descriptions/dao";
+import { resolveActiveOrganization } from "@/lib/server/auth-session";
 import { listInterviewQuestionTemplates } from "@/server/routes/studio/routes/interview-questions/dao/queries";
+import { listAllJobDescriptions } from "@/server/routes/studio/routes/job-descriptions/dao";
 import { InterviewQuestionTemplateManagementPage } from "./_components/interview-question-template-management-page";
 
 export const metadata: Metadata = {
@@ -11,11 +12,13 @@ export const metadata: Metadata = {
 
 export default async function StudioInterviewQuestionTemplatesPage() {
   await connection();
-  const activeOrg = await getActiveOrg();
-  const organizationId = activeOrg?.id ?? "org_default";
+  const activeOrg = await resolveActiveOrganization();
+  if (!activeOrg) {
+    notFound();
+  }
   const [initialData, jobDescriptions] = await Promise.all([
-    listInterviewQuestionTemplates(organizationId),
-    listAllJobDescriptions(organizationId),
+    listInterviewQuestionTemplates(activeOrg.id),
+    listAllJobDescriptions(activeOrg.id),
   ]);
 
   return (

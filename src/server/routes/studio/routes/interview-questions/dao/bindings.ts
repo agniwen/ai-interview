@@ -192,12 +192,18 @@ export async function autoBindApplicableTemplates(
   }
 
   // 从 parent studio_interview 拿 organizationId, 新 binding 行必须打戳 (NOT NULL)。
+  // 父行不存在直接抛错——继续插入会留下孤儿 binding,且伪造的 organizationId 会污染数据。
+  // Parent row missing → throw. Inserting bindings without a real parent would
+  // orphan the rows and faking organizationId would poison cross-tenant queries.
   const [parent] = await tx
     .select({ organizationId: studioInterview.organizationId })
     .from(studioInterview)
     .where(eq(studioInterview.id, interviewRecordId))
     .limit(1);
-  const organizationId = parent?.organizationId ?? "org_default";
+  if (!parent) {
+    throw new Error(`autoBindApplicableTemplates: studio_interview ${interviewRecordId} not found`);
+  }
+  const { organizationId } = parent;
 
   const existingBindings = await tx
     .select({ templateId: interviewQuestionTemplateBinding.templateId })

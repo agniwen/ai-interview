@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
+import { notFound } from "next/navigation";
 import { connection } from "next/server";
-import { getActiveOrg } from "@/lib/server/workspace";
+import { resolveActiveOrganization } from "@/lib/server/auth-session";
 import { listAllDepartments } from "@/server/routes/studio/routes/departments/dao";
 import { listAllInterviewers } from "@/server/routes/studio/routes/interviewers/dao";
 import { listJobDescriptions } from "@/server/routes/studio/routes/job-descriptions/dao";
@@ -12,12 +13,14 @@ export const metadata: Metadata = {
 
 export default async function StudioJobDescriptionsPage() {
   await connection();
-  const activeOrg = await getActiveOrg();
-  const organizationId = activeOrg?.id ?? "org_default";
+  const activeOrg = await resolveActiveOrganization();
+  if (!activeOrg) {
+    notFound();
+  }
   const [initialData, departments, interviewers] = await Promise.all([
-    listJobDescriptions(organizationId),
-    listAllDepartments(organizationId),
-    listAllInterviewers(organizationId),
+    listJobDescriptions(activeOrg.id),
+    listAllDepartments(activeOrg.id),
+    listAllInterviewers(activeOrg.id),
   ]);
 
   return (

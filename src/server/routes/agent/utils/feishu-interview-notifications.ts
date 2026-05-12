@@ -139,7 +139,7 @@ async function claimNotification({
 }: {
   conversationId: string;
   interviewRecordId: string;
-  organizationId: string | null;
+  organizationId: string;
   recipient: RecipientAccount;
 }) {
   const [existing] = await db
@@ -185,7 +185,7 @@ async function claimNotification({
       conversationId,
       id: crypto.randomUUID(),
       interviewRecordId,
-      organizationId: organizationId ?? "org_default",
+      organizationId,
       providerId: recipient.providerId,
       recipientOpenId: recipient.accountId,
       recipientUserId: recipient.userId,
@@ -255,7 +255,7 @@ export async function notifyInterviewSummaryReady(
     const notificationId = await claimNotification({
       conversationId: options.conversationId,
       interviewRecordId: options.interviewRecordId,
-      organizationId: context.organizationId ?? null,
+      organizationId: context.organizationId,
       recipient,
     });
     if (!notificationId) {

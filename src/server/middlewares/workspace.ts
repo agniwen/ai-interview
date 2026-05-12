@@ -5,16 +5,14 @@ import { db } from "@/lib/server/db";
 import { member, organization, session as sessionTable } from "@/lib/shared/db/schema";
 import { factory } from "@/server/factory";
 
-const FALLBACK_ORG_ID = "org_default";
-
-async function pickDefaultOrgId(userId: string): Promise<string> {
+async function pickDefaultOrgId(userId: string): Promise<string | null> {
   const [row] = await db
     .select({ organizationId: member.organizationId })
     .from(member)
     .where(eq(member.userId, userId))
     .orderBy(asc(member.createdAt))
     .limit(1);
-  return row?.organizationId ?? FALLBACK_ORG_ID;
+  return row?.organizationId ?? null;
 }
 
 export const workspaceMiddleware = factory.createMiddleware(async (c, next) => {
@@ -28,7 +26,7 @@ export const workspaceMiddleware = factory.createMiddleware(async (c, next) => {
   // 2. session.activeOrganizationId (P3 之前的入口，后兼)
   // 3. 用户最早加入的 member 行 fallback
   const slug = c.req.param("slug");
-  let activeOrgId: string;
+  let activeOrgId: string | null;
   if (slug) {
     const [bySlug] = await db
       .select({ id: organization.id })
@@ -41,6 +39,10 @@ export const workspaceMiddleware = factory.createMiddleware(async (c, next) => {
     activeOrgId = bySlug.id;
   } else {
     activeOrgId = c.var.session?.activeOrganizationId ?? (await pickDefaultOrgId(user.id));
+  }
+
+  if (!activeOrgId) {
+    return c.json({ message: "Forbidden: no active workspace" }, 403);
   }
 
   const [row] = await db

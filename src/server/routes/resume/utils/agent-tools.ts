@@ -169,7 +169,7 @@ export function createSuggestJobDescriptionTool({
   orgId,
   resumes,
 }: {
-  orgId?: string;
+  orgId: string;
   resumes: BakedParsedResume[];
 }) {
   return tool({
@@ -191,7 +191,7 @@ export function createSuggestJobDescriptionTool({
         return { availableResumes: availableResumeNames, status: "no-resume" as const };
       }
 
-      const jobDescriptions = await listAllJobDescriptions(orgId ?? "org_default");
+      const jobDescriptions = await listAllJobDescriptions(orgId);
       if (jobDescriptions.length === 0) {
         return { status: "no-jds" as const };
       }

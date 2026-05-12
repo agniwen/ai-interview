@@ -20,7 +20,7 @@ function buildFallbackTurns(
     id: `${conversation.conversationId}:webhook:${index}`,
     interviewRecordId: conversation.interviewRecordId,
     message: turn.message,
-    organizationId: conversation.organizationId ?? "org_default",
+    organizationId: conversation.organizationId,
     receivedAt: fallbackReceivedAt,
     role: turn.role,
     source: "post_call_transcription",

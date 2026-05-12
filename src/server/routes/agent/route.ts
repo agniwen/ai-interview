@@ -13,15 +13,16 @@ import { safeUpdateTag } from "@/server/cache-tags";
 import { retryFailedInterviewSummaryNotifications } from "@/server/routes/agent/utils/feishu-interview-notifications";
 import { runSummaryJob } from "@/server/routes/agent/utils/interview-summary-job";
 
-const FALLBACK_ORG_ID = "org_default";
-
 async function resolveOrgFromInterview(interviewRecordId: string): Promise<string> {
   const [row] = await db
     .select({ organizationId: studioInterview.organizationId })
     .from(studioInterview)
     .where(eq(studioInterview.id, interviewRecordId))
     .limit(1);
-  return row?.organizationId ?? FALLBACK_ORG_ID;
+  if (!row) {
+    throw new Error(`resolveOrgFromInterview: studio_interview ${interviewRecordId} not found`);
+  }
+  return row.organizationId;
 }
 
 const transcriptTurnSchema = z.object({
