@@ -42,11 +42,17 @@ export const resumeChatRouter = factory
 
     const resolvedModel = await resolveModelForChat(model);
     const userId = c.var.user?.id;
-    // 提前解出 orgId 供 upsertChatMessage / runResumeScreening 共用
-    // (chat_message.organization_id 现在 NOT NULL)。
-    const orgId =
-      (c.var.session as { activeOrganizationId?: string | null } | null)?.activeOrganizationId ??
-      "org_default";
+    // 从 session 解出 orgId,供 upsertChatMessage / runResumeScreening 共用
+    // (chat_message.organization_id NOT NULL)。session 没有活跃 org 时直接拒,
+    // 不再用 "org_default" 兜底——那样消息会被盖到一个假 org 上。
+    // Resolve orgId from the session. chat_message.organization_id is NOT NULL,
+    // and we used to fall back to "org_default" which silently tagged messages
+    // with a fake org — reject instead so the caller knows session is unbound.
+    const orgId = (c.var.session as { activeOrganizationId?: string | null } | null)
+      ?.activeOrganizationId;
+    if (!orgId) {
+      return c.json({ error: "No active workspace" }, 400);
+    }
 
     const conversationOwned =
       userId && chatId ? (await checkConversationOwner(userId, chatId, orgId)) === "ok" : false;
