@@ -228,7 +228,7 @@ export function MembersManagementPage() {
     <div className="space-y-6">
       <PageHeader
         description="管理当前工作区的成员、角色与邀请。owner 与 admin 可邀请新成员、调整他人角色。"
-        title="成员管理"
+        title="工作区管理"
       />
 
       <DataGrid<MemberRow>

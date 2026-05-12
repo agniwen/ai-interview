@@ -21,14 +21,19 @@ const ROUTE_META: { prefix: string; meta: RouteMeta }[] = [
   { meta: { title: "在招岗位管理" }, prefix: "/studio/job-descriptions" },
   { meta: { title: "面试表单" }, prefix: "/studio/forms" },
   { meta: { title: "面试题" }, prefix: "/studio/interview-questions" },
+  { meta: { title: "工作区管理" }, prefix: "/studio/members" },
   { meta: { title: "全局配置" }, prefix: "/studio/global-config" },
 ];
 
 const DEFAULT_META: RouteMeta = { title: "AI 面试" };
+const WORKSPACE_PREFIX_REGEX = /^\/w\/[^/]+/;
 
 function resolveRouteMeta(pathname: string): RouteMeta {
+  // 实际 URL 形如 /w/[slug]/studio/...,匹配前先把 /w/[slug] 前缀去掉。
+  // Strip the /w/[slug] prefix so we can match against bare /studio/<section>.
+  const studioPath = pathname.replace(WORKSPACE_PREFIX_REGEX, "");
   for (const { prefix, meta } of ROUTE_META) {
-    if (pathname.startsWith(prefix)) {
+    if (studioPath.startsWith(prefix)) {
       return meta;
     }
   }
