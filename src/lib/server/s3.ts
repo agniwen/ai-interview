@@ -6,9 +6,18 @@ interface S3Config {
   accessKeyId: string;
   bucket: string;
   endpoint: string;
+  forcePathStyle: boolean;
   keyPrefix: string;
   region: string;
   secretAccessKey: string;
+}
+
+function readBooleanEnv(name: string, defaultValue: boolean): boolean {
+  const value = process.env[name]?.trim().toLowerCase();
+  if (!value) {
+    return defaultValue;
+  }
+  return value === "1" || value === "true" || value === "yes";
 }
 
 function readConfig(): S3Config {
@@ -28,10 +37,44 @@ function readConfig(): S3Config {
     accessKeyId,
     bucket,
     endpoint,
+    forcePathStyle: readBooleanEnv("S3_FORCE_PATH_STYLE", false),
     keyPrefix: process.env.S3_KEY_PREFIX?.trim() || "",
     region,
     secretAccessKey,
   };
+}
+
+function readRecordingConfig(): S3Config {
+  const bucket = process.env.RECORDING_R2_BUCKET_NAME;
+  const accessKeyId = process.env.RECORDING_R2_ACCESS_KEY_ID;
+  const secretAccessKey = process.env.RECORDING_R2_SECRET_ACCESS_KEY;
+  const endpoint = process.env.RECORDING_R2_ENDPOINT?.trim();
+  const region = process.env.RECORDING_R2_REGION?.trim() || "auto";
+
+  if (!(bucket && accessKeyId && secretAccessKey && endpoint)) {
+    throw new Error(
+      "Recording R2 storage is not configured. Set RECORDING_R2_BUCKET_NAME, RECORDING_R2_ACCESS_KEY_ID, RECORDING_R2_SECRET_ACCESS_KEY, RECORDING_R2_ENDPOINT.",
+    );
+  }
+
+  return {
+    accessKeyId,
+    bucket,
+    endpoint,
+    forcePathStyle: readBooleanEnv("RECORDING_R2_FORCE_PATH_STYLE", true),
+    keyPrefix: process.env.RECORDING_R2_KEY_PREFIX?.trim() || "",
+    region,
+    secretAccessKey,
+  };
+}
+
+export function isRecordingStorageConfigured(): boolean {
+  return Boolean(
+    process.env.RECORDING_R2_BUCKET_NAME &&
+    process.env.RECORDING_R2_ACCESS_KEY_ID &&
+    process.env.RECORDING_R2_SECRET_ACCESS_KEY &&
+    process.env.RECORDING_R2_ENDPOINT,
+  );
 }
 
 let cached: Promise<{ client: S3Client; config: S3Config }> | undefined;
@@ -45,6 +88,7 @@ async function buildClient() {
       secretAccessKey: config.secretAccessKey,
     },
     endpoint: config.endpoint,
+    forcePathStyle: config.forcePathStyle,
     region: config.region,
     // AWS SDK v3 defaults send x-amz-checksum-* + x-amz-sdk-checksum-algorithm
     // headers on PUT, which trigger CORS preflight on presigned URLs used from
@@ -53,6 +97,41 @@ async function buildClient() {
     responseChecksumValidation: "WHEN_REQUIRED",
   });
   return { client, config };
+}
+
+let recordingCached: Promise<{ client: S3Client; config: S3Config }> | undefined;
+
+function getRecordingClient() {
+  recordingCached ??= (async () => {
+    const { S3Client } = await import("@aws-sdk/client-s3");
+    const config = readRecordingConfig();
+    const client = new S3Client({
+      credentials: {
+        accessKeyId: config.accessKeyId,
+        secretAccessKey: config.secretAccessKey,
+      },
+      endpoint: config.endpoint,
+      forcePathStyle: config.forcePathStyle,
+      region: config.region,
+      requestChecksumCalculation: "WHEN_REQUIRED",
+      responseChecksumValidation: "WHEN_REQUIRED",
+    });
+    return { client, config };
+  })();
+  return recordingCached;
+}
+
+export async function buildRecordingFileKey(input: {
+  interviewRecordId: string;
+  roomName: string;
+  roundId: string;
+}): Promise<string> {
+  const { config } = await getRecordingClient();
+  const prefix = config.keyPrefix ? `${config.keyPrefix.replace(/\/+$/, "")}/` : "";
+  return `${prefix}interviews/${input.interviewRecordId}/${input.roundId}/${input.roomName}.mp4`.replace(
+    /^\/+/,
+    "",
+  );
 }
 
 function getClient() {
@@ -163,6 +242,20 @@ export async function presignGetObjectUrl(
     import("@aws-sdk/client-s3"),
     import("@aws-sdk/s3-request-presigner"),
     getClient(),
+  ]);
+  return getSignedUrl(client, new GetObjectCommand({ Bucket: config.bucket, Key: storageKey }), {
+    expiresIn: expiresInSeconds,
+  });
+}
+
+export async function presignRecordingGetObjectUrl(
+  storageKey: string,
+  expiresInSeconds = 600,
+): Promise<string> {
+  const [{ GetObjectCommand }, { getSignedUrl }, { client, config }] = await Promise.all([
+    import("@aws-sdk/client-s3"),
+    import("@aws-sdk/s3-request-presigner"),
+    getRecordingClient(),
   ]);
   return getSignedUrl(client, new GetObjectCommand({ Bucket: config.bucket, Key: storageKey }), {
     expiresIn: expiresInSeconds,

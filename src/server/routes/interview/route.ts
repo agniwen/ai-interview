@@ -4,6 +4,7 @@ import { RoomAgentDispatch, RoomConfiguration } from "@livekit/protocol";
 import { and, eq, ne } from "drizzle-orm";
 import { AccessToken } from "livekit-server-sdk";
 import { db } from "@/lib/server/db";
+import { buildRecordingFileKey, isRecordingStorageConfigured } from "@/lib/server/s3";
 import {
   candidateFormSubmission,
   studioInterview,
@@ -305,19 +306,16 @@ export const interviewRouter = factory
     // interview record itself. studio_interview.organization_id 已 NOT NULL,直接取。
     // studio_interview.organization_id is NOT NULL — read it directly.
     const globalCfg = await getGlobalConfig(interviewRecord.organizationId);
-    // 录像开关：S3 凭据齐全才让 Agent 启动 Egress；候选人浏览器拒绝摄像头时
+    // 录像开关：R2 录像桶凭据齐全才让 Agent 启动 Egress；候选人浏览器拒绝摄像头时
     // 由前端在 /api/interview/.../recording-skipped 之类的通道反馈（这里只判服务端能力）。
-    // Recording switch: only enable when S3 creds are present so the agent can write to storage.
-    const recordingEnabled = Boolean(
-      process.env.S3_BUCKET_NAME &&
-      process.env.S3_ACCESS_KEY_ID &&
-      process.env.S3_SECRET_ACCESS_KEY,
-    );
+    // Recording switch: only enable when R2 recording storage is present so the agent can write to storage.
+    const recordingEnabled = isRecordingStorageConfigured();
     const recordingFileKey = recordingEnabled
-      ? `${(process.env.S3_KEY_PREFIX ?? "").replace(/\/+$/, "")}/interviews/${id}/${roundId}/${roomName}.mp4`.replace(
-          /^\/+/,
-          "",
-        )
+      ? await buildRecordingFileKey({
+          interviewRecordId: id,
+          roomName,
+          roundId,
+        })
       : null;
     const participantMetadata = JSON.stringify({
       candidate_name: interviewRecord.candidateName,

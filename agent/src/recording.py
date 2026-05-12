@@ -1,11 +1,11 @@
 """LiveKit RoomCompositeEgress helpers.
 
 启动一段 RoomComposite 录像, 将房间内候选人摄像头画面 + 双方音频
-合成为一个 MP4, 直接写入项目共享的 S3 桶.
+合成为一个 MP4, 直接写入 Cloudflare R2 录像桶.
 
 Starts a RoomComposite egress that records the candidate's camera plus
-both-side audio into a single MP4, uploaded directly to the shared S3
-bucket configured for the web app.
+both-side audio into a single MP4, uploaded directly to the recording R2
+bucket.
 """
 
 import logging
@@ -16,26 +16,29 @@ from livekit import api
 logger = logging.getLogger("agent")
 
 
-def _s3_upload_from_env() -> api.S3Upload | None:
-    """读取与 web 端共用的 S3_* 环境变量. 任一关键字段缺失则禁用录像.
+def _recording_r2_upload_from_env() -> api.S3Upload | None:
+    """读取录像专用 RECORDING_R2_* 环境变量, 缺失则禁用录像.
 
-    Read the S3_* env vars shared with the web app; disable recording when
+    Read recording-specific RECORDING_R2_* env vars; disable recording when
     any required field is missing.
     """
-    access_key = os.environ.get("S3_ACCESS_KEY_ID")
-    secret = os.environ.get("S3_SECRET_ACCESS_KEY")
-    bucket = os.environ.get("S3_BUCKET_NAME")
+    access_key = os.environ.get("RECORDING_R2_ACCESS_KEY_ID")
+    secret = os.environ.get("RECORDING_R2_SECRET_ACCESS_KEY")
+    bucket = os.environ.get("RECORDING_R2_BUCKET_NAME")
+    endpoint = os.environ.get("RECORDING_R2_ENDPOINT")
 
-    if not (access_key and secret and bucket):
+    if not (access_key and secret and bucket and endpoint):
         return None
 
     return api.S3Upload(
         access_key=access_key,
         secret=secret,
         bucket=bucket,
-        region=os.environ.get("S3_REGION", "auto"),
-        endpoint=os.environ.get("S3_ENDPOINT", ""),
-        force_path_style=os.environ.get("S3_FORCE_PATH_STYLE", "false").lower()
+        region=os.environ.get("RECORDING_R2_REGION", "auto"),
+        endpoint=endpoint,
+        force_path_style=os.environ.get(
+            "RECORDING_R2_FORCE_PATH_STYLE", "true"
+        ).lower()
         == "true",
     )
 
@@ -50,9 +53,9 @@ async def start_room_recording(
     Start a RoomCompositeEgress; on failure, log and return None so the
     interview itself is unaffected.
     """
-    s3 = _s3_upload_from_env()
+    s3 = _recording_r2_upload_from_env()
     if s3 is None:
-        logger.info("recording skipped: S3 env vars not configured")
+        logger.info("recording skipped: RECORDING_R2 env vars not configured")
         return None
 
     request = api.RoomCompositeEgressRequest(

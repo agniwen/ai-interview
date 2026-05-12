@@ -57,7 +57,7 @@ import {
 } from "@/server/routes/interview/utils";
 import { requirePermission } from "@/server/middlewares/permission";
 import { safeUpdateTag } from "@/server/cache-tags";
-import { getObjectStream, presignGetObjectUrl } from "@/lib/server/s3";
+import { getObjectStream, presignRecordingGetObjectUrl } from "@/lib/server/s3";
 
 const dedupCheckInputSchema = z.object({
   email: z.string().trim().max(200).nullable().optional(),
@@ -431,7 +431,7 @@ export const studioInterviewsRouter = factory
     }
 
     try {
-      const url = await presignGetObjectUrl(conversation.recordingFileKey, 600);
+      const url = await presignRecordingGetObjectUrl(conversation.recordingFileKey, 600);
       return c.json({ expiresInSeconds: 600, url }, 200);
     } catch (error) {
       return c.json(
