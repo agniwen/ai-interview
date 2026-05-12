@@ -107,7 +107,7 @@ const navGroups: NavGroup[] = [
       {
         icon: UserCogIcon,
         path: "/studio/members",
-        title: "成员管理",
+        title: "工作区管理",
       },
       {
         action: "read",
