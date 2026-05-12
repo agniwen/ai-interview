@@ -64,13 +64,14 @@ export const admin = ac.newRole({
 
 export const hr = ac.newRole({
   ...memberAc.statements,
+  auditLog: ["read"],
   candidateForm: ["create", "read", "update", "delete"],
   chat: ["create", "read", "update", "delete"],
-  department: ["read"],
-  globalConfig: ["read"],
-  interview: ["create", "read", "update"],
-  interviewer: ["read"],
-  jd: ["create", "read", "update"],
+  department: ["create", "read", "update", "delete"],
+  globalConfig: ["read", "update"],
+  interview: ["create", "read", "update", "delete"],
+  interviewer: ["create", "read", "update", "delete"],
+  jd: ["create", "read", "update", "delete"],
   questionTemplate: ["create", "read", "update", "delete"],
 });
 

@@ -72,40 +72,32 @@ describe("permissions matrix", () => {
       expect(roles.hr).toBeDefined();
     });
 
-    it("can create+update interview/jd but not delete", () => {
+    it("can write all business resources like admin", () => {
       const { hr } = roles;
-      expect(hr.statements.interview).toEqual(expect.arrayContaining(["create", "read", "update"]));
-      expect(hr.statements.interview).not.toContain("delete");
-      expect(hr.statements.jd).toEqual(expect.arrayContaining(["create", "read", "update"]));
-      expect(hr.statements.jd).not.toContain("delete");
+      const resources = [
+        "interview",
+        "jd",
+        "department",
+        "interviewer",
+        "candidateForm",
+        "questionTemplate",
+        "chat",
+      ] as const;
+      for (const r of resources) {
+        expect(hr.statements[r]).toEqual(
+          expect.arrayContaining(["create", "read", "update", "delete"]),
+        );
+      }
     });
 
-    it("can fully manage candidateForm and questionTemplate", () => {
-      const { hr } = roles;
-      expect(hr.statements.candidateForm).toEqual(
-        expect.arrayContaining(["create", "read", "update", "delete"]),
-      );
-      expect(hr.statements.questionTemplate).toEqual(
-        expect.arrayContaining(["create", "read", "update", "delete"]),
-      );
+    it("can update globalConfig and read auditLog", () => {
+      expect(roles.hr.statements.globalConfig).toEqual(expect.arrayContaining(["read", "update"]));
+      expect(roles.hr.statements.auditLog).toEqual(expect.arrayContaining(["read"]));
     });
 
-    it("can only read department/interviewer/globalConfig, no write", () => {
-      const { hr } = roles;
-      expect(hr.statements.department).toEqual(["read"]);
-      expect(hr.statements.interviewer).toEqual(["read"]);
-      expect(hr.statements.globalConfig).toEqual(["read"]);
-    });
-
-    it("has full chat CRUD", () => {
-      expect(roles.hr.statements.chat).toEqual(
-        expect.arrayContaining(["create", "read", "update", "delete"]),
-      );
-    });
-
-    it("has no auditLog access", () => {
+    it("has no member management access", () => {
       const stmts = roles.hr.statements as Record<string, readonly string[] | undefined>;
-      expect(stmts.auditLog).toBeUndefined();
+      expect(stmts.member ?? []).toHaveLength(0);
     });
   });
 
@@ -154,29 +146,29 @@ describe("permission matrix cross-cut", () => {
     // interview
     ["owner", "interview", "delete", true],
     ["admin", "interview", "delete", true],
-    ["hr", "interview", "delete", false],
+    ["hr", "interview", "delete", true],
     ["viewer", "interview", "delete", false],
     ["viewer", "interview", "read", true],
     // jd
     ["hr", "jd", "update", true],
-    ["hr", "jd", "delete", false],
+    ["hr", "jd", "delete", true],
     ["viewer", "jd", "update", false],
     // department / interviewer
-    ["hr", "department", "create", false],
-    ["hr", "interviewer", "update", false],
+    ["hr", "department", "create", true],
+    ["hr", "interviewer", "update", true],
     ["admin", "department", "delete", true],
     // candidateForm / questionTemplate
     ["hr", "candidateForm", "delete", true],
     ["viewer", "candidateForm", "delete", false],
     ["hr", "questionTemplate", "delete", true],
     // globalConfig
-    ["hr", "globalConfig", "update", false],
+    ["hr", "globalConfig", "update", true],
     ["admin", "globalConfig", "update", true],
     ["viewer", "globalConfig", "read", true],
     // auditLog
     ["owner", "auditLog", "read", true],
     ["admin", "auditLog", "read", true],
-    ["hr", "auditLog", "read", false],
+    ["hr", "auditLog", "read", true],
     ["viewer", "auditLog", "read", false],
     // chat — 全员可全 CRUD
     ["viewer", "chat", "delete", true],
@@ -187,6 +179,8 @@ describe("permission matrix cross-cut", () => {
     ["viewer", "member", "update", false],
     ["admin", "member", "create", true],
     ["admin", "member", "delete", true],
+    ["hr", "member", "create", false],
+    ["hr", "member", "delete", false],
   ];
 
   for (const [role, resource, action, expected] of cases) {

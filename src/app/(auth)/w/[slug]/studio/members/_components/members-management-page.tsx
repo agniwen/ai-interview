@@ -28,13 +28,8 @@ import { authClient } from "@/lib/shared/auth-client";
 import { useHasPermission } from "@/hooks/use-has-permission";
 import { InviteDialog } from "./invite-dialog";
 import { PermissionsExplanationDialog } from "./permissions-explanation-dialog";
-
-const ROLE_OPTIONS = ["owner", "admin", "hr", "viewer"] as const;
-type WorkspaceRole = (typeof ROLE_OPTIONS)[number];
-
-// 角色下拉里**不包含** owner——把别人提升为 owner 必须走 transferOwnership
-// 而非单纯改 role,避免把工作区变成无主或多 owner 状态。
-const ASSIGNABLE_ROLES: readonly WorkspaceRole[] = ["admin", "hr", "viewer"];
+import { ASSIGNABLE_ROLES, getWorkspaceRoleLabel } from "./role-display";
+import type { WorkspaceRole } from "./role-display";
 
 const DEFAULT_PAGE_SIZE = 10;
 
@@ -174,7 +169,9 @@ export function MembersManagementPage() {
           const isSelfOwner = r.userId === currentUserId && r.role === "owner";
           const isOwnerRow = r.role === "owner";
           if (!canUpdate || isSelfOwner || isOwnerRow) {
-            return <Badge variant={ROLE_BADGE_VARIANT[r.role]}>{r.role}</Badge>;
+            return (
+              <Badge variant={ROLE_BADGE_VARIANT[r.role]}>{getWorkspaceRoleLabel(r.role)}</Badge>
+            );
           }
           return (
             <Select
@@ -188,7 +185,7 @@ export function MembersManagementPage() {
               <SelectContent>
                 {ASSIGNABLE_ROLES.map((role) => (
                   <SelectItem key={role} value={role}>
-                    {role}
+                    {getWorkspaceRoleLabel(role)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -228,7 +225,7 @@ export function MembersManagementPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        description="管理当前工作区的成员、角色与邀请。owner 与 admin 可邀请新成员、调整他人角色。"
+        description="管理当前工作区的成员、角色与邀请。拥有者可调整成员角色，管理员可邀请新成员。"
         title="工作区管理"
       />
 
@@ -243,7 +240,7 @@ export function MembersManagementPage() {
               </EmptyMedia>
               <EmptyTitle>暂无成员</EmptyTitle>
               <EmptyDescription>
-                邀请同事加入这个工作区，按角色分配 admin / hr / viewer 权限。
+                邀请同事加入这个工作区，按角色分配管理员、招聘成员或只读成员权限。
               </EmptyDescription>
             </EmptyHeader>
             <EmptyContent>

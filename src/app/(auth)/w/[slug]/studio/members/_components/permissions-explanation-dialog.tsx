@@ -19,13 +19,16 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { WORKSPACE_ROLES, getWorkspaceRoleLabel } from "./role-display";
 
-const ROLE_COLUMNS = [
-  { key: "owner", label: "Owner", name: "拥有者", summary: "完整管理权限" },
-  { key: "admin", label: "Admin", name: "管理员", summary: "日常管理权限" },
-  { key: "hr", label: "HR", name: "招聘成员", summary: "招聘协作权限" },
-  { key: "viewer", label: "Viewer", name: "只读成员", summary: "查看与聊天权限" },
-] as const;
+const ROLE_COLUMNS = WORKSPACE_ROLES;
+
+const ROLE_SUMMARIES = {
+  admin: "日常管理权限",
+  hr: "同管理员，除成员管理",
+  owner: "完整管理权限",
+  viewer: "查看与聊天权限",
+} as const satisfies Record<(typeof ROLE_COLUMNS)[number], string>;
 
 const PERMISSION_ROWS = [
   {
@@ -37,28 +40,28 @@ const PERMISSION_ROWS = [
   },
   {
     admin: "新增、查看、编辑、删除",
-    hr: "新增、查看、编辑",
+    hr: "新增、查看、编辑、删除",
     owner: "新增、查看、编辑、删除",
     resource: "面试",
     viewer: "查看",
   },
   {
     admin: "新增、查看、编辑、删除",
-    hr: "新增、查看、编辑",
+    hr: "新增、查看、编辑、删除",
     owner: "新增、查看、编辑、删除",
     resource: "职位 JD",
     viewer: "查看",
   },
   {
     admin: "新增、查看、编辑、删除",
-    hr: "查看",
+    hr: "新增、查看、编辑、删除",
     owner: "新增、查看、编辑、删除",
     resource: "部门",
     viewer: "查看",
   },
   {
     admin: "新增、查看、编辑、删除",
-    hr: "查看",
+    hr: "新增、查看、编辑、删除",
     owner: "新增、查看、编辑、删除",
     resource: "面试官",
     viewer: "查看",
@@ -79,7 +82,7 @@ const PERMISSION_ROWS = [
   },
   {
     admin: "查看、编辑",
-    hr: "查看",
+    hr: "查看、编辑",
     owner: "查看、编辑",
     resource: "全局配置",
     viewer: "查看",
@@ -93,7 +96,7 @@ const PERMISSION_ROWS = [
   },
   {
     admin: "查看",
-    hr: "无",
+    hr: "查看",
     owner: "查看",
     resource: "审计日志",
     viewer: "无",
@@ -133,16 +136,15 @@ export function PermissionsExplanationDialog() {
                   权限模块
                 </TableHead>
                 {ROLE_COLUMNS.map((role) => (
-                  <TableHead className="min-w-44 bg-muted px-4 py-3" key={role.key}>
+                  <TableHead className="min-w-44 bg-muted px-4 py-3" key={role}>
                     <div className="flex min-w-0 flex-col gap-1.5">
                       <div className="flex items-center gap-2">
-                        <span className="font-semibold text-foreground">{role.name}</span>
-                        <Badge className="w-fit font-normal" variant="outline">
-                          {role.label}
-                        </Badge>
+                        <span className="font-semibold text-foreground">
+                          {getWorkspaceRoleLabel(role)}
+                        </span>
                       </div>
                       <span className="font-normal text-muted-foreground text-xs">
-                        {role.summary}
+                        {ROLE_SUMMARIES[role]}
                       </span>
                     </div>
                   </TableHead>
@@ -158,8 +160,8 @@ export function PermissionsExplanationDialog() {
                     </Badge>
                   </TableCell>
                   {ROLE_COLUMNS.map((role) => (
-                    <TableCell className="px-4" key={role.key}>
-                      <PermissionCell value={row[role.key]} />
+                    <TableCell className="px-4" key={role}>
+                      <PermissionCell value={row[role]} />
                     </TableCell>
                   ))}
                 </TableRow>
