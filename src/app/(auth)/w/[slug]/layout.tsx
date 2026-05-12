@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { auth } from "@/lib/server/auth";
 import { getCurrentOrganizations, getCurrentSession } from "@/lib/server/auth-session";
 import { WorkspaceSlugProvider } from "@/lib/client/workspace-context";
+import { AppSidebarShell } from "@/components/app-sidebar/app-sidebar-shell";
 
 export default async function WorkspaceLayout({
   children,
@@ -38,5 +39,9 @@ export default async function WorkspaceLayout({
     });
   }
 
-  return <WorkspaceSlugProvider slug={slug}>{children}</WorkspaceSlugProvider>;
+  return (
+    <WorkspaceSlugProvider slug={slug}>
+      <AppSidebarShell>{children}</AppSidebarShell>
+    </WorkspaceSlugProvider>
+  );
 }

@@ -4,15 +4,14 @@ import type { ReactNode } from "react";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Separator } from "@/components/ui/separator";
 import { SidebarTrigger } from "@/components/ui/sidebar";
-import { WorkspaceSwitcher } from "@/components/workspace/workspace-switcher";
 import { cn } from "@/lib/shared/utils";
 
 interface SidebarInsetHeaderProps {
   // 左侧面包屑/标题。
   // Left-side breadcrumb / title content.
   breadcrumb?: ReactNode;
-  // 右侧扩展槽。追加在 WorkspaceSwitcher 与 ThemeToggle 之前。
-  // Right-side actions rendered before WorkspaceSwitcher + ThemeToggle.
+  // 右侧扩展槽。追加在 ThemeToggle 之前。
+  // Right-side actions rendered before ThemeToggle.
   actions?: ReactNode;
   className?: string;
 }
@@ -36,7 +35,6 @@ export function SidebarInsetHeader({ breadcrumb, actions, className }: SidebarIn
       </div>
       <div className="flex items-center gap-1">
         {actions}
-        <WorkspaceSwitcher />
         <ThemeToggle />
       </div>
     </header>

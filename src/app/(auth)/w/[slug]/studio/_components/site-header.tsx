@@ -2,6 +2,7 @@
 
 import { usePathname } from "next/navigation";
 import { SidebarInsetHeader } from "@/components/app-sidebar/sidebar-inset-header";
+import { WorkspaceSwitcher } from "@/components/workspace/workspace-switcher";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -48,6 +49,7 @@ export function SiteHeader() {
 
   return (
     <SidebarInsetHeader
+      actions={<WorkspaceSwitcher />}
       breadcrumb={
         <Breadcrumb>
           <BreadcrumbList>

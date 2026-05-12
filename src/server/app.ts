@@ -9,6 +9,7 @@ import { chatRouter } from "./routes/chat/route";
 import { feishuRouter } from "./routes/feishu/route";
 import { interviewRouter } from "./routes/interview/route";
 import { livekitRouter } from "./routes/livekit/route";
+import { platformRouter } from "./routes/platform/route";
 import { resumeRouter } from "./routes/resume/route";
 import { studioRouter } from "./routes/studio/route";
 
@@ -26,6 +27,7 @@ const apiRoutes = factory
   .route("/livekit", livekitRouter)
   .route("/resume", resumeRouter)
   .route("/interview", interviewRouter)
+  .route("/platform", platformRouter)
   .route("/w/:slug/studio", studioRouter)
   .route("/w/:slug/chat", chatRouter);
 

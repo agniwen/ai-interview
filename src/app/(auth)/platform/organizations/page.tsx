@@ -1,49 +1,51 @@
-import { count, eq, sql } from "drizzle-orm";
+import { count, eq, sql, desc } from "drizzle-orm";
 import type { Metadata } from "next";
 import { db } from "@/lib/server/db";
 import { member, organization } from "@/lib/shared/db/schema";
+import { OrganizationsGrid } from "./_components/organizations-grid";
 
 export const metadata: Metadata = {
   title: "平台 · 所有工作区",
 };
 
-export default async function PlatformOrganizationsPage() {
-  const rows = await db
-    .select({
-      createdAt: organization.createdAt,
-      id: organization.id,
-      memberCount: count(member.id),
-      name: organization.name,
-      slug: organization.slug,
-    })
-    .from(organization)
-    .leftJoin(member, eq(member.organizationId, organization.id))
-    .groupBy(organization.id, organization.name, organization.slug, organization.createdAt)
-    .orderBy(sql`${organization.createdAt} DESC`);
+const INITIAL_PAGE_SIZE = 10;
 
-  return (
-    <div className="mx-auto max-w-5xl p-8">
-      <h1 className="mb-4 text-2xl font-semibold">所有工作区 ({rows.length})</h1>
-      <table className="w-full border-collapse">
-        <thead>
-          <tr className="border-b text-left">
-            <th className="py-2 pr-4">名称</th>
-            <th className="py-2 pr-4">Slug</th>
-            <th className="py-2 pr-4">成员数</th>
-            <th className="py-2 pr-4">创建时间</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((r) => (
-            <tr className="border-b" key={r.id}>
-              <td className="py-2 pr-4 font-semibold">{r.name}</td>
-              <td className="py-2 pr-4 font-mono text-sm">{r.slug}</td>
-              <td className="py-2 pr-4">{r.memberCount}</td>
-              <td className="py-2 pr-4 text-sm">{new Date(r.createdAt).toLocaleString("zh-CN")}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
+export default async function PlatformOrganizationsPage() {
+  const memberCountSubquery = db
+    .select({ count: count(member.id).as("cnt"), organizationId: member.organizationId })
+    .from(member)
+    .groupBy(member.organizationId)
+    .as("mc");
+
+  const [rows, [{ total }]] = await Promise.all([
+    db
+      .select({
+        createdAt: organization.createdAt,
+        id: organization.id,
+        memberCount: sql<number>`coalesce("mc"."cnt", 0)`.as("member_count"),
+        name: organization.name,
+        slug: organization.slug,
+      })
+      .from(organization)
+      .leftJoin(memberCountSubquery, eq(memberCountSubquery.organizationId, organization.id))
+      .orderBy(desc(organization.createdAt))
+      .limit(INITIAL_PAGE_SIZE)
+      .offset(0),
+    db.select({ total: count() }).from(organization),
+  ]);
+
+  const totalPages = Math.max(1, Math.ceil(total / INITIAL_PAGE_SIZE));
+
+  const initialData = {
+    page: 1,
+    pageSize: INITIAL_PAGE_SIZE,
+    records: rows.map((r) => ({
+      ...r,
+      createdAt: r.createdAt.toISOString(),
+    })),
+    total,
+    totalPages,
+  };
+
+  return <OrganizationsGrid initialData={initialData} />;
 }
