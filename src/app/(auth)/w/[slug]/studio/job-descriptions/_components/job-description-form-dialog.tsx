@@ -29,7 +29,12 @@ import { SearchableMultiSelect } from "@/components/ui/searchable-multi-select";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { TextareaCounter } from "@/components/ui/textarea-counter";
 import { hasFieldErrors, toFieldErrors } from "../../interviews/_components/interview-form";
+
+const NAME_MAX_LENGTH = 120;
+const DESCRIPTION_MAX_LENGTH = 500;
+const PROMPT_MAX_LENGTH = 10_000;
 
 function defaultValues(departmentId: string): JobDescriptionFormValues {
   return {
@@ -239,6 +244,7 @@ export function JobDescriptionFormDialog({
                             <Input
                               aria-invalid={!!errors?.length}
                               id={field.name}
+                              maxLength={NAME_MAX_LENGTH}
                               onBlur={field.handleBlur}
                               onChange={(event) => field.handleChange(event.target.value)}
                               placeholder="如：高级前端工程师"
@@ -319,15 +325,22 @@ export function JobDescriptionFormDialog({
                       <Field data-invalid={hasFieldErrors(field.state.meta.errors) || undefined}>
                         <FieldLabel htmlFor={field.name}>描述（可选）</FieldLabel>
                         <FieldContent className="gap-2">
-                          <Textarea
-                            aria-invalid={!!errors?.length}
-                            className="min-h-20"
-                            id={field.name}
-                            onBlur={field.handleBlur}
-                            onChange={(event) => field.handleChange(event.target.value)}
-                            placeholder="简要描述岗位职责、要求等"
-                            value={field.state.value ?? ""}
-                          />
+                          <div className="relative">
+                            <Textarea
+                              aria-invalid={!!errors?.length}
+                              className="min-h-20 pb-6"
+                              id={field.name}
+                              maxLength={DESCRIPTION_MAX_LENGTH}
+                              onBlur={field.handleBlur}
+                              onChange={(event) => field.handleChange(event.target.value)}
+                              placeholder="简要描述岗位职责、要求等"
+                              value={field.state.value ?? ""}
+                            />
+                            <TextareaCounter
+                              maxLength={DESCRIPTION_MAX_LENGTH}
+                              value={field.state.value}
+                            />
+                          </div>
                           <FieldError errors={errors} />
                         </FieldContent>
                       </Field>
@@ -344,16 +357,23 @@ export function JobDescriptionFormDialog({
                           岗位 Prompt <span className="text-destructive">*</span>
                         </FieldLabel>
                         <FieldContent className="gap-2">
-                          <Textarea
-                            aria-invalid={!!errors?.length}
-                            className="min-h-24 max-h-60 font-mono text-sm resize-none"
-                            id={field.name}
-                            rows={4}
-                            onBlur={field.handleBlur}
-                            onChange={(event) => field.handleChange(event.target.value)}
-                            placeholder="岗位关键职责、技术栈要求、期望的考察维度……"
-                            value={field.state.value}
-                          />
+                          <div className="relative">
+                            <Textarea
+                              aria-invalid={!!errors?.length}
+                              className="min-h-24 max-h-60 resize-none pb-6 font-mono text-sm"
+                              id={field.name}
+                              maxLength={PROMPT_MAX_LENGTH}
+                              onBlur={field.handleBlur}
+                              onChange={(event) => field.handleChange(event.target.value)}
+                              placeholder="岗位关键职责、技术栈要求、期望的考察维度……"
+                              rows={4}
+                              value={field.state.value}
+                            />
+                            <TextareaCounter
+                              maxLength={PROMPT_MAX_LENGTH}
+                              value={field.state.value}
+                            />
+                          </div>
                           <FieldError errors={errors} />
                         </FieldContent>
                       </Field>

@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import { useState } from "react";
-import { MailIcon, ShieldCheckIcon } from "lucide-react";
+import { MailIcon } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -33,6 +33,8 @@ import {
   getWorkspaceRoleLabel,
 } from "./role-display";
 import type { WorkspaceRole } from "./role-display";
+
+const EMAIL_MAX_LENGTH = 200;
 
 interface InviteDialogProps {
   /** 自定义触发节点；省略则用默认"邀请成员"按钮。 */
@@ -78,9 +80,6 @@ export function InviteDialog({ trigger }: InviteDialogProps = {}) {
       <DialogTrigger asChild>{trigger ?? <Button>邀请成员</Button>}</DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <div className="mb-1 flex size-10 items-center justify-center rounded-md bg-muted text-foreground">
-            <ShieldCheckIcon />
-          </div>
           <DialogTitle>邀请新成员</DialogTitle>
           <DialogDescription>
             生成一次性邀请链接后会自动复制到剪贴板，可直接发给对方加入当前工作区。
@@ -98,6 +97,7 @@ export function InviteDialog({ trigger }: InviteDialogProps = {}) {
                 id="invite-email"
                 autoComplete="email"
                 inputMode="email"
+                maxLength={EMAIL_MAX_LENGTH}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="name@company.com"
                 type="email"

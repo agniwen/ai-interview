@@ -18,6 +18,9 @@ interface EmailPasswordSignInFormProps {
   className?: string;
 }
 
+const EMAIL_MAX_LENGTH = 200;
+const PASSWORD_MAX_LENGTH = 256;
+
 export function EmailPasswordSignInForm({
   callbackURL,
   submitLabel = "登录",
@@ -57,6 +60,7 @@ export function EmailPasswordSignInForm({
         <Input
           autoComplete="username"
           id="signin-email"
+          maxLength={EMAIL_MAX_LENGTH}
           onChange={(e) => setEmail(e.target.value)}
           placeholder="you@example.com"
           required
@@ -69,6 +73,7 @@ export function EmailPasswordSignInForm({
         <Input
           autoComplete="current-password"
           id="signin-password"
+          maxLength={PASSWORD_MAX_LENGTH}
           onChange={(e) => setPassword(e.target.value)}
           placeholder="请输入密码"
           required

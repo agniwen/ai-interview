@@ -9,7 +9,7 @@ export const jobDescriptionBaseSchema = z.object({
     .min(1, "请至少选择一位面试官")
     .max(20, "最多只能选择 20 位面试官"),
   name: z.string().trim().min(1, "请输入岗位名称").max(120, "岗位名称不能超过 120 个字符"),
-  prompt: z.string().trim().min(1, "请输入岗位 prompt").max(8000, "prompt 不能超过 8000 字"),
+  prompt: z.string().trim().min(1, "请输入岗位 prompt").max(10_000, "prompt 不能超过 10000 字"),
 });
 
 export const jobDescriptionFormSchema = jobDescriptionBaseSchema;

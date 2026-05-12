@@ -8,9 +8,13 @@ import { toast } from "sonner";
 import { Field, FieldContent, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { TextareaCounter } from "@/components/ui/textarea-counter";
 import { EntityFormDialog } from "@/app/(auth)/w/[slug]/studio/_components/entity-form-dialog";
 import { useEntityForm } from "@/app/(auth)/w/[slug]/studio/_components/entity-form";
 import { hasFieldErrors, toFieldErrors } from "../../interviews/_components/interview-form";
+
+const NAME_MAX_LENGTH = 120;
+const DESCRIPTION_MAX_LENGTH = 500;
 
 function defaultValues(): DepartmentFormValues {
   return { description: "", name: "" };
@@ -93,6 +97,7 @@ export function DepartmentFormDialog({
                 <Input
                   aria-invalid={!!errors?.length}
                   id={field.name}
+                  maxLength={NAME_MAX_LENGTH}
                   onBlur={field.handleBlur}
                   onChange={(event) => field.handleChange(event.target.value)}
                   placeholder="如：研发部、产品部"
@@ -112,16 +117,20 @@ export function DepartmentFormDialog({
             <Field data-invalid={hasFieldErrors(field.state.meta.errors) || undefined}>
               <FieldLabel htmlFor={field.name}>描述（可选）</FieldLabel>
               <FieldContent className="gap-2">
-                <Textarea
-                  aria-invalid={!!errors?.length}
-                  className="max-h-48 min-h-24 resize-none"
-                  id={field.name}
-                  onBlur={field.handleBlur}
-                  onChange={(event) => field.handleChange(event.target.value)}
-                  placeholder="简要说明该部门的职责或定位"
-                  rows={3}
-                  value={field.state.value ?? ""}
-                />
+                <div className="relative">
+                  <Textarea
+                    aria-invalid={!!errors?.length}
+                    className="max-h-48 min-h-24 resize-none pb-6"
+                    id={field.name}
+                    maxLength={DESCRIPTION_MAX_LENGTH}
+                    onBlur={field.handleBlur}
+                    onChange={(event) => field.handleChange(event.target.value)}
+                    placeholder="简要说明该部门的职责或定位"
+                    rows={3}
+                    value={field.state.value ?? ""}
+                  />
+                  <TextareaCounter maxLength={DESCRIPTION_MAX_LENGTH} value={field.state.value} />
+                </div>
                 <FieldError errors={errors} />
               </FieldContent>
             </Field>

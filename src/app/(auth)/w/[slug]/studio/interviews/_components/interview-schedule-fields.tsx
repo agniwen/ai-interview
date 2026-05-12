@@ -16,9 +16,13 @@ import {
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
+import { TextareaCounter } from "@/components/ui/textarea-counter";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { scheduleEntryStatusMeta } from "@/lib/shared/studio-interviews";
 import { hasFieldErrors, toFieldErrors } from "./interview-form";
+
+const ROUND_LABEL_MAX_LENGTH = 100;
+const ROUND_NOTES_MAX_LENGTH = 1000;
 
 export function InterviewScheduleFields({
   form,
@@ -140,6 +144,7 @@ export function InterviewScheduleFields({
                                   className="w-full"
                                   disabled={isLocked}
                                   id={field.name}
+                                  maxLength={ROUND_LABEL_MAX_LENGTH}
                                   onBlur={field.handleBlur}
                                   onChange={(event) => field.handleChange(event.target.value)}
                                   placeholder="如：一面、二面、HR 面"
@@ -222,16 +227,23 @@ export function InterviewScheduleFields({
                           >
                             <FieldLabel htmlFor={field.name}>轮次备注</FieldLabel>
                             <FieldContent className="gap-2">
-                              <Textarea
-                                aria-invalid={!!errors?.length}
-                                className="max-h-48 min-h-24 w-full resize-none"
-                                id={field.name}
-                                onBlur={field.handleBlur}
-                                onChange={(event) => field.handleChange(event.target.value)}
-                                placeholder="记录该轮次关注点、面试官、准备要求等"
-                                rows={3}
-                                value={field.state.value}
-                              />
+                              <div className="relative">
+                                <Textarea
+                                  aria-invalid={!!errors?.length}
+                                  className="max-h-48 min-h-24 w-full resize-none pb-6"
+                                  id={field.name}
+                                  maxLength={ROUND_NOTES_MAX_LENGTH}
+                                  onBlur={field.handleBlur}
+                                  onChange={(event) => field.handleChange(event.target.value)}
+                                  placeholder="记录该轮次关注点、面试官、准备要求等"
+                                  rows={3}
+                                  value={field.state.value}
+                                />
+                                <TextareaCounter
+                                  maxLength={ROUND_NOTES_MAX_LENGTH}
+                                  value={field.state.value}
+                                />
+                              </div>
                               <FieldError errors={errors} />
                             </FieldContent>
                           </Field>

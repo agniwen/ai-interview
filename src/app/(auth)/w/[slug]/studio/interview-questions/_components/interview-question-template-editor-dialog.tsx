@@ -24,9 +24,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { TextareaCounter } from "@/components/ui/textarea-counter";
 import { interviewQuestionTemplateSchema } from "@/lib/shared/interview-question-templates";
 import { hasFieldErrors, toFieldErrors } from "../../interviews/_components/interview-form";
 import { SortableQuestionListEditor } from "../../_components/sortable-question-list-editor";
+
+const TITLE_MAX_LENGTH = 120;
+const DESCRIPTION_MAX_LENGTH = 1000;
+const QUESTION_MAX_LENGTH = 1000;
 
 function defaultValues(): InterviewQuestionTemplateInput {
   return {
@@ -159,6 +164,7 @@ export function InterviewQuestionTemplateEditorDialog({
                       <Input
                         aria-invalid={!!errors?.length}
                         id={field.name}
+                        maxLength={TITLE_MAX_LENGTH}
                         onBlur={field.handleBlur}
                         onChange={(event) => field.handleChange(event.target.value)}
                         placeholder="例如：通用沟通题、前端深度题"
@@ -178,16 +184,23 @@ export function InterviewQuestionTemplateEditorDialog({
                   <Field data-invalid={hasFieldErrors(field.state.meta.errors) || undefined}>
                     <FieldLabel htmlFor={field.name}>说明（可选）</FieldLabel>
                     <FieldContent className="gap-2">
-                      <Textarea
-                        aria-invalid={!!errors?.length}
-                        className="max-h-32 min-h-16 resize-none"
-                        id={field.name}
-                        onBlur={field.handleBlur}
-                        onChange={(event) => field.handleChange(event.target.value)}
-                        placeholder="给团队的备注，例如这套题适用于哪种候选人"
-                        rows={2}
-                        value={field.state.value ?? ""}
-                      />
+                      <div className="relative">
+                        <Textarea
+                          aria-invalid={!!errors?.length}
+                          className="max-h-32 min-h-16 resize-none pb-6"
+                          id={field.name}
+                          maxLength={DESCRIPTION_MAX_LENGTH}
+                          onBlur={field.handleBlur}
+                          onChange={(event) => field.handleChange(event.target.value)}
+                          placeholder="给团队的备注，例如这套题适用于哪种候选人"
+                          rows={2}
+                          value={field.state.value ?? ""}
+                        />
+                        <TextareaCounter
+                          maxLength={DESCRIPTION_MAX_LENGTH}
+                          value={field.state.value}
+                        />
+                      </div>
                       <FieldError errors={errors} />
                     </FieldContent>
                   </Field>
@@ -268,6 +281,7 @@ export function InterviewQuestionTemplateEditorDialog({
             <SortableQuestionListEditor
               arrayFieldName="questions"
               contentFieldName="content"
+              contentMaxLength={QUESTION_MAX_LENGTH}
               contentPlaceholder="请输入一道必问题目…"
               createItem={(sortIndex) => ({
                 content: "",

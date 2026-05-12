@@ -17,10 +17,15 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { TextareaCounter } from "@/components/ui/textarea-counter";
 import { DEFAULT_MINIMAX_VOICE_ID, MINIMAX_VOICES } from "@/lib/shared/minimax-voices";
 import { EntityFormDialog } from "@/app/(auth)/w/[slug]/studio/_components/entity-form-dialog";
 import { useEntityForm } from "@/app/(auth)/w/[slug]/studio/_components/entity-form";
 import { hasFieldErrors, toFieldErrors } from "../../interviews/_components/interview-form";
+
+const NAME_MAX_LENGTH = 120;
+const DESCRIPTION_MAX_LENGTH = 500;
+const PROMPT_MAX_LENGTH = 10_000;
 
 function defaultValues(departmentId: string): InterviewerFormValues {
   return {
@@ -116,6 +121,7 @@ export function InterviewerFormDialog({
                   <Input
                     aria-invalid={!!errors?.length}
                     id={field.name}
+                    maxLength={NAME_MAX_LENGTH}
                     onBlur={field.handleBlur}
                     onChange={(event) => field.handleChange(event.target.value)}
                     placeholder="如：技术面试官 · 后端方向"
@@ -208,16 +214,20 @@ export function InterviewerFormDialog({
             <Field data-invalid={hasFieldErrors(field.state.meta.errors) || undefined}>
               <FieldLabel htmlFor={field.name}>描述（可选）</FieldLabel>
               <FieldContent className="gap-2">
-                <Textarea
-                  aria-invalid={!!errors?.length}
-                  className="max-h-40 min-h-20 resize-none"
-                  id={field.name}
-                  onBlur={field.handleBlur}
-                  onChange={(event) => field.handleChange(event.target.value)}
-                  placeholder="简要说明该面试官的定位或擅长领域"
-                  rows={3}
-                  value={field.state.value ?? ""}
-                />
+                <div className="relative">
+                  <Textarea
+                    aria-invalid={!!errors?.length}
+                    className="max-h-40 min-h-20 resize-none pb-6"
+                    id={field.name}
+                    maxLength={DESCRIPTION_MAX_LENGTH}
+                    onBlur={field.handleBlur}
+                    onChange={(event) => field.handleChange(event.target.value)}
+                    placeholder="简要说明该面试官的定位或擅长领域"
+                    rows={3}
+                    value={field.state.value ?? ""}
+                  />
+                  <TextareaCounter maxLength={DESCRIPTION_MAX_LENGTH} value={field.state.value} />
+                </div>
                 <FieldError errors={errors} />
               </FieldContent>
             </Field>
@@ -234,16 +244,20 @@ export function InterviewerFormDialog({
                 Prompt <span className="text-destructive">*</span>
               </FieldLabel>
               <FieldContent className="gap-2">
-                <Textarea
-                  aria-invalid={!!errors?.length}
-                  className="max-h-60 min-h-24 resize-none font-mono text-sm"
-                  id={field.name}
-                  onBlur={field.handleBlur}
-                  onChange={(event) => field.handleChange(event.target.value)}
-                  placeholder="你是一位资深的后端技术面试官……（描述面试官人设、风格、关注点）"
-                  rows={4}
-                  value={field.state.value}
-                />
+                <div className="relative">
+                  <Textarea
+                    aria-invalid={!!errors?.length}
+                    className="max-h-60 min-h-24 resize-none pb-6 font-mono text-sm"
+                    id={field.name}
+                    maxLength={PROMPT_MAX_LENGTH}
+                    onBlur={field.handleBlur}
+                    onChange={(event) => field.handleChange(event.target.value)}
+                    placeholder="你是一位资深的后端技术面试官……（描述面试官人设、风格、关注点）"
+                    rows={4}
+                    value={field.state.value}
+                  />
+                  <TextareaCounter maxLength={PROMPT_MAX_LENGTH} value={field.state.value} />
+                </div>
                 <FieldError errors={errors} />
               </FieldContent>
             </Field>

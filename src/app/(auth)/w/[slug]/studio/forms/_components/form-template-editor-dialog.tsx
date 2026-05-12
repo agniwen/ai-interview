@@ -31,6 +31,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { TextareaCounter } from "@/components/ui/textarea-counter";
 import {
   candidateFormTemplateSchema,
   DEFAULT_DISPLAY_MODE,
@@ -52,6 +53,12 @@ const QUESTION_TYPE_LABELS: Record<CandidateFormQuestionType, string> = {
   single: "单选题",
   text: "填写题",
 };
+
+const TITLE_MAX_LENGTH = 120;
+const DESCRIPTION_MAX_LENGTH = 1000;
+const QUESTION_LABEL_MAX_LENGTH = 500;
+const QUESTION_HELPER_MAX_LENGTH = 500;
+const OPTION_TEXT_MAX_LENGTH = 200;
 
 function makeDefaultQuestion(sortOrder: number): CandidateFormQuestionInput {
   return {
@@ -204,6 +211,7 @@ export function CandidateFormTemplateEditorDialog({
                       <Input
                         aria-invalid={!!errors?.length}
                         id={field.name}
+                        maxLength={TITLE_MAX_LENGTH}
                         onBlur={field.handleBlur}
                         onChange={(event) => field.handleChange(event.target.value)}
                         placeholder="例如：候选人背景调查表"
@@ -223,16 +231,23 @@ export function CandidateFormTemplateEditorDialog({
                   <Field data-invalid={hasFieldErrors(field.state.meta.errors) || undefined}>
                     <FieldLabel htmlFor={field.name}>说明（可选）</FieldLabel>
                     <FieldContent className="gap-2">
-                      <Textarea
-                        aria-invalid={!!errors?.length}
-                        className="max-h-32 min-h-16 resize-none"
-                        id={field.name}
-                        onBlur={field.handleBlur}
-                        onChange={(event) => field.handleChange(event.target.value)}
-                        placeholder="告知候选人这份表单的用途或填写须知"
-                        rows={2}
-                        value={field.state.value ?? ""}
-                      />
+                      <div className="relative">
+                        <Textarea
+                          aria-invalid={!!errors?.length}
+                          className="max-h-32 min-h-16 resize-none pb-6"
+                          id={field.name}
+                          maxLength={DESCRIPTION_MAX_LENGTH}
+                          onBlur={field.handleBlur}
+                          onChange={(event) => field.handleChange(event.target.value)}
+                          placeholder="告知候选人这份表单的用途或填写须知"
+                          rows={2}
+                          value={field.state.value ?? ""}
+                        />
+                        <TextareaCounter
+                          maxLength={DESCRIPTION_MAX_LENGTH}
+                          value={field.state.value}
+                        />
+                      </div>
                       <FieldError errors={errors} />
                     </FieldContent>
                   </Field>
@@ -542,15 +557,22 @@ function QuestionEditorRow({
             <Field data-invalid={hasFieldErrors(field.state.meta.errors) || undefined}>
               <FieldLabel>题目文本</FieldLabel>
               <FieldContent className="gap-2">
-                <Textarea
-                  aria-invalid={!!errors?.length}
-                  className="max-h-40 min-h-20 resize-none"
-                  onBlur={field.handleBlur}
-                  onChange={(event) => field.handleChange(event.target.value)}
-                  placeholder="请输入题目"
-                  rows={3}
-                  value={field.state.value}
-                />
+                <div className="relative">
+                  <Textarea
+                    aria-invalid={!!errors?.length}
+                    className="max-h-40 min-h-20 resize-none pb-6"
+                    maxLength={QUESTION_LABEL_MAX_LENGTH}
+                    onBlur={field.handleBlur}
+                    onChange={(event) => field.handleChange(event.target.value)}
+                    placeholder="请输入题目"
+                    rows={3}
+                    value={field.state.value}
+                  />
+                  <TextareaCounter
+                    maxLength={QUESTION_LABEL_MAX_LENGTH}
+                    value={field.state.value}
+                  />
+                </div>
                 <FieldError errors={errors} />
               </FieldContent>
             </Field>
@@ -565,6 +587,7 @@ function QuestionEditorRow({
             <FieldLabel>提示（可选）</FieldLabel>
             <FieldContent>
               <Input
+                maxLength={QUESTION_HELPER_MAX_LENGTH}
                 onBlur={field.handleBlur}
                 onChange={(event) => field.handleChange(event.target.value)}
                 placeholder="给候选人一点补充说明"
@@ -650,6 +673,7 @@ function OptionsList({
                       {(subField: any) => (
                         <Input
                           className="flex-1"
+                          maxLength={OPTION_TEXT_MAX_LENGTH}
                           onBlur={subField.handleBlur}
                           onChange={(event) => subField.handleChange(event.target.value)}
                           placeholder="显示文字"
@@ -662,6 +686,7 @@ function OptionsList({
                       {(subField: any) => (
                         <Input
                           className="w-32 font-mono text-xs"
+                          maxLength={OPTION_TEXT_MAX_LENGTH}
                           onBlur={subField.handleBlur}
                           onChange={(event) => subField.handleChange(event.target.value)}
                           placeholder="value"

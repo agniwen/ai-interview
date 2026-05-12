@@ -23,6 +23,8 @@ import { cn } from "@/lib/shared/utils";
 const SLUG_PATTERN = /^[a-z0-9-]+$/;
 const SLUG_CHECK_DEBOUNCE_MS = 400;
 const SLUG_HINT_DEFAULT = "仅可包含小写字母、数字与短横线。";
+const WORKSPACE_NAME_MAX_LENGTH = 120;
+const WORKSPACE_SLUG_MAX_LENGTH = 80;
 
 type SlugHintTone = "muted" | "error" | "success";
 
@@ -151,6 +153,7 @@ export function CreateWorkspaceDialog({
             <Input
               autoFocus
               id="ws-name"
+              maxLength={WORKSPACE_NAME_MAX_LENGTH}
               onChange={(e) => setName(e.target.value)}
               required
               value={name}
@@ -161,6 +164,7 @@ export function CreateWorkspaceDialog({
             <Input
               aria-invalid={slugStatus.hint.tone === "error" || undefined}
               id="ws-slug"
+              maxLength={WORKSPACE_SLUG_MAX_LENGTH}
               onChange={(e) => setSlug(e.target.value)}
               pattern="[a-z0-9-]+"
               placeholder="acme"

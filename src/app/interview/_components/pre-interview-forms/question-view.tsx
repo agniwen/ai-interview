@@ -21,10 +21,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { TextareaCounter } from "@/components/ui/textarea-counter";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { DesktopMultiSelect } from "./desktop-multi-select";
 import { MobileChoicePicker } from "./mobile-choice-picker";
 import type { AnswerValue } from "./types";
+
+const TEXT_ANSWER_MAX_LENGTH = 5000;
 
 // oxlint-disable-next-line complexity -- one branch per question type/display-mode combo, all flat conditionals.
 export function QuestionView({
@@ -147,21 +150,27 @@ export function QuestionView({
     );
   }
   if (question.type === "text" && question.displayMode === "textarea") {
+    const textValue = typeof value === "string" ? value : "";
     return (
-      <Textarea
-        aria-invalid={invalidProp}
-        className="min-h-24"
-        id={inputId}
-        onChange={(event) => onChange(event.target.value)}
-        placeholder="请输入你的回答"
-        value={typeof value === "string" ? value : ""}
-      />
+      <div className="relative">
+        <Textarea
+          aria-invalid={invalidProp}
+          className="min-h-24 pb-6"
+          id={inputId}
+          maxLength={TEXT_ANSWER_MAX_LENGTH}
+          onChange={(event) => onChange(event.target.value)}
+          placeholder="请输入你的回答"
+          value={textValue}
+        />
+        <TextareaCounter maxLength={TEXT_ANSWER_MAX_LENGTH} value={textValue} />
+      </div>
     );
   }
   return (
     <Input
       aria-invalid={invalidProp}
       id={inputId}
+      maxLength={TEXT_ANSWER_MAX_LENGTH}
       onChange={(event) => onChange(event.target.value)}
       placeholder="请输入你的回答"
       value={typeof value === "string" ? value : ""}

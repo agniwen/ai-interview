@@ -27,6 +27,9 @@ const ROLE_BADGE_VARIANT: Record<WorkspaceRole, "default" | "secondary" | "outli
   viewer: "outline",
 };
 
+const PROFILE_NAME_MAX_LENGTH = 120;
+const PROFILE_IMAGE_URL_MAX_LENGTH = 2048;
+
 function formatDate(value?: Date | string | null) {
   if (!value) {
     return "—";
@@ -110,6 +113,7 @@ function ProfileFields({
             id="profile-name"
             autoComplete="name"
             disabled={isPending}
+            maxLength={PROFILE_NAME_MAX_LENGTH}
             onChange={(event) => onNameChange(event.target.value)}
             placeholder="请输入姓名"
             value={name}
@@ -123,6 +127,7 @@ function ProfileFields({
         <Input
           id="profile-image"
           disabled={isPending}
+          maxLength={PROFILE_IMAGE_URL_MAX_LENGTH}
           onChange={(event) => onImageChange(event.target.value)}
           placeholder="https://example.com/avatar.png"
           type="url"

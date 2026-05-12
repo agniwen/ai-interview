@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/select";
 import { SortableDragHandle, SortableItem, SortableList } from "@/components/ui/sortable-list";
 import { Textarea } from "@/components/ui/textarea";
+import { TextareaCounter } from "@/components/ui/textarea-counter";
 import { useSortableItemIds } from "@/hooks/use-sortable-item-ids";
 import { INTERVIEW_QUESTION_DIFFICULTY_OPTIONS } from "@/lib/shared/interview-question-templates";
 import type { InterviewQuestionTemplateDifficulty } from "@/lib/shared/interview-question-templates";
@@ -40,6 +41,7 @@ interface SortableQuestionListEditorProps {
   resetKey: string;
   /** Factory invoked when the user clicks "添加题目" to mint a new item. */
   createItem: (sortIndex: number) => Record<string, unknown>;
+  contentMaxLength?: number;
   contentPlaceholder?: string;
   emptyTitle?: string;
   emptyDescription?: string;
@@ -65,6 +67,7 @@ function QuestionListBody({
   contentFieldName,
   resetKey,
   createItem,
+  contentMaxLength,
   contentPlaceholder = "请输入题目内容…",
   emptyTitle = "暂无面试题",
   emptyDescription = "添加面试官在面试中按顺序必问的题目，可单独标注难度。",
@@ -200,16 +203,25 @@ function QuestionListBody({
                       const errors = toFieldErrors(subField.state.meta.errors);
                       return (
                         <div data-invalid={hasFieldErrors(subField.state.meta.errors) || undefined}>
-                          <Textarea
-                            aria-invalid={!!errors?.length}
-                            className="min-h-14 max-h-40 resize-none bg-transparent p-1 border-transparent focus:border text-sm shadow-none placeholder:text-muted-foreground/50 focus-visible:ring-0 dark:bg-transparent"
-                            disabled={disabled}
-                            onBlur={subField.handleBlur}
-                            onChange={(event) => subField.handleChange(event.target.value)}
-                            placeholder={contentPlaceholder}
-                            rows={2}
-                            value={subField.state.value ?? ""}
-                          />
+                          <div className="relative">
+                            <Textarea
+                              aria-invalid={!!errors?.length}
+                              className="min-h-14 max-h-40 resize-none border-transparent bg-transparent p-1 pb-6 text-sm shadow-none placeholder:text-muted-foreground/50 focus:border focus-visible:ring-0 dark:bg-transparent"
+                              disabled={disabled}
+                              maxLength={contentMaxLength}
+                              onBlur={subField.handleBlur}
+                              onChange={(event) => subField.handleChange(event.target.value)}
+                              placeholder={contentPlaceholder}
+                              rows={2}
+                              value={subField.state.value ?? ""}
+                            />
+                            {contentMaxLength ? (
+                              <TextareaCounter
+                                maxLength={contentMaxLength}
+                                value={subField.state.value}
+                              />
+                            ) : null}
+                          </div>
                           <FieldError errors={errors} />
                         </div>
                       );
