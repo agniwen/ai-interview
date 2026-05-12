@@ -58,6 +58,7 @@ import { cn } from "@/lib/shared/utils";
 // ============================================================================
 
 import { uploadAttachment } from "@/lib/client/api";
+import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 
 export interface AttachmentParsed {
   attachmentId: string;
@@ -75,13 +76,14 @@ export type ManagedAttachment = FileUIPart & {
 };
 
 function beginAttachmentUpload(
+  slug: string,
   file: File,
   id: string,
   setList: Dispatch<SetStateAction<ManagedAttachment[]>>,
 ): void {
   void (async () => {
     try {
-      const prepared = await uploadAttachment(file, file.name);
+      const prepared = await uploadAttachment(slug, file, file.name);
       setList((prev) =>
         prev.map((item) =>
           item.id === id
@@ -187,6 +189,8 @@ export function PromptInputProvider({
   initialInput: initialTextInput = "",
   children,
 }: PromptInputProviderProps) {
+  const slug = useWorkspaceSlug();
+
   // ----- textInput state
   const [textInput, setTextInput] = useState(initialTextInput);
   const clearInput = useCallback(() => setTextInput(""), []);
@@ -197,23 +201,26 @@ export function PromptInputProvider({
   // oxlint-disable-next-line no-empty-function
   const openRef = useRef<() => void>(() => {});
 
-  const add = useCallback((files: File[] | FileList) => {
-    const incoming = [...files];
-    if (incoming.length === 0) {
-      return;
-    }
+  const add = useCallback(
+    (files: File[] | FileList) => {
+      const incoming = [...files];
+      if (incoming.length === 0) {
+        return;
+      }
 
-    const builtAttachments = incoming.map((file) => ({
-      attachment: buildManagedAttachment(file),
-      file,
-    }));
+      const builtAttachments = incoming.map((file) => ({
+        attachment: buildManagedAttachment(file),
+        file,
+      }));
 
-    setAttachmentFiles((prev) => [...prev, ...builtAttachments.map((b) => b.attachment)]);
+      setAttachmentFiles((prev) => [...prev, ...builtAttachments.map((b) => b.attachment)]);
 
-    for (const { attachment, file } of builtAttachments) {
-      beginAttachmentUpload(file, attachment.id, setAttachmentFiles);
-    }
-  }, []);
+      for (const { attachment, file } of builtAttachments) {
+        beginAttachmentUpload(slug, file, attachment.id, setAttachmentFiles);
+      }
+    },
+    [slug],
+  );
 
   const remove = useCallback((id: string) => {
     setAttachmentFiles((prev) => {
@@ -412,6 +419,7 @@ export function PromptInput({
   children,
   ...props
 }: PromptInputProps) {
+  const slug = useWorkspaceSlug();
   // Try to use a provider controller if present
   const controller = useOptionalPromptInputController();
   const usingProvider = !!controller;
@@ -517,10 +525,10 @@ export function PromptInput({
       setItems((prev) => [...prev, ...builtAttachments.map((b) => b.attachment)]);
 
       for (const { attachment, file } of builtAttachments) {
-        beginAttachmentUpload(file, attachment.id, setItems);
+        beginAttachmentUpload(slug, file, attachment.id, setItems);
       }
     },
-    [matchesAccept, maxFiles, maxFileSize, onError, items.length],
+    [matchesAccept, maxFiles, maxFileSize, onError, items.length, slug],
   );
 
   const removeLocal = useCallback(

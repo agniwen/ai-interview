@@ -24,10 +24,10 @@ const apiRoutes = factory
   .route("/", feishuRouter)
   .route("/agent", agentRouter)
   .route("/livekit", livekitRouter)
-  .route("/chat", chatRouter)
   .route("/resume", resumeRouter)
   .route("/interview", interviewRouter)
-  .route("/w/:slug/studio", studioRouter);
+  .route("/w/:slug/studio", studioRouter)
+  .route("/w/:slug/chat", chatRouter);
 
 // 中文：app.ts 只做 CORS、better-auth handler、betterAuth 上下文注入、apiRoutes 挂载。
 // 业务中间件（auth/admin）请在各自 route 内部声明，不要在这里 .use(...)。

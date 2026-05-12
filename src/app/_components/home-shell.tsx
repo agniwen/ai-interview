@@ -20,8 +20,12 @@ import { useProtectedNavigation } from "./home/use-protected-navigation";
 export default function HomeShell() {
   const { isPending, navigate, pendingPath, setPendingPath } = useProtectedNavigation();
 
-  const callbackURL = useMemo(() => pendingPath ?? "/chat", [pendingPath]);
-  const onResumeFiltering = () => navigate("/chat");
+  const callbackURL = useMemo(() => pendingPath ?? "/", [pendingPath]);
+  // chat 已挂在 /w/[slug]/chat 下,这里无法知道目标 workspace;
+  // 走根路径,由 src/app/page.tsx 解析活跃 workspace 后转到 /w/[slug]。
+  // Chat now lives under /w/[slug]/chat; we don't know the target workspace
+  // here, so route through `/` and let the root page redirect to /w/[slug].
+  const onResumeFiltering = () => navigate("/");
   // 工作台跳到根路径，由 src/app/page.tsx 解析当前用户活跃 workspace 后转到
   // /w/[slug]/studio/interviews;避免在这里硬编已经废弃的 /studio/interviews 路径。
   const onWorkbench = () => navigate("/");

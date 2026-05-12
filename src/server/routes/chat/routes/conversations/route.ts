@@ -18,12 +18,15 @@ import { factory } from "@/server/factory";
 export const conversationsRouter = factory
   .createApp()
   .get("/", async (c) => {
-    const { user } = c.var;
+    const { user, activeOrg } = c.var;
     if (!user) {
       return c.json({ error: "Unauthorized" }, 401);
     }
+    if (!activeOrg) {
+      return c.json({ error: "Unauthorized" }, 401);
+    }
 
-    const rows = await listUserConversations(user.id);
+    const rows = await listUserConversations(user.id, activeOrg.id);
     return c.json({
       conversations: rows.map((row) => ({
         createdAt: row.createdAt.toISOString(),
@@ -63,13 +66,16 @@ export const conversationsRouter = factory
     return c.json({ ok: true });
   })
   .get("/:id", async (c) => {
-    const { user } = c.var;
+    const { user, activeOrg } = c.var;
     if (!user) {
+      return c.json({ error: "Unauthorized" }, 401);
+    }
+    if (!activeOrg) {
       return c.json({ error: "Unauthorized" }, 401);
     }
 
     const id = c.req.param("id");
-    const conversation = await getUserConversation(user.id, id);
+    const conversation = await getUserConversation(user.id, id, activeOrg.id);
     if (!conversation) {
       return c.json({ error: "Not Found" }, 404);
     }
@@ -117,13 +123,16 @@ export const conversationsRouter = factory
     return c.json({ ok: true });
   })
   .delete("/:id", async (c) => {
-    const { user } = c.var;
+    const { user, activeOrg } = c.var;
     if (!user) {
+      return c.json({ error: "Unauthorized" }, 401);
+    }
+    if (!activeOrg) {
       return c.json({ error: "Unauthorized" }, 401);
     }
 
     const id = c.req.param("id");
-    const deleted = await deleteUserConversation(user.id, id);
+    const deleted = await deleteUserConversation(user.id, id, activeOrg.id);
     if (!deleted) {
       return c.json({ error: "Not Found" }, 404);
     }
@@ -140,7 +149,7 @@ export const conversationsRouter = factory
     }
 
     const conversationId = c.req.param("id");
-    const owner = await checkConversationOwner(user.id, conversationId);
+    const owner = await checkConversationOwner(user.id, conversationId, activeOrg.id);
     if (owner === "not_found") {
       return c.json({ error: "Not Found" }, 404);
     }

@@ -31,6 +31,7 @@ import {
 } from "@/components/ui/sidebar";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { deleteConversation, fetchConversations } from "@/lib/client/api";
+import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { cn } from "@/lib/shared/utils";
 import { CHAT_EVENTS, notifyConversationsChanged } from "../_lib/chat-events";
 
@@ -43,7 +44,7 @@ interface ConversationListItem {
 
 const GENERATING_CHAT_TITLE = "生成中...";
 
-function useActiveSessionId() {
+function useActiveSessionId(slug: string) {
   const pathname = usePathname();
   const params = useParams<{ sessionId?: string | string[] }>();
 
@@ -72,14 +73,15 @@ function useActiveSessionId() {
       return routeSessionId[0];
     }
 
-    if (!currentPathname.startsWith("/chat/")) {
+    const prefix = `/w/${slug}/chat/`;
+    if (!currentPathname.startsWith(prefix)) {
       return null;
     }
 
-    const [id] = currentPathname.slice("/chat/".length).split("/");
+    const [id] = currentPathname.slice(prefix.length).split("/");
 
     return id ? decodeURIComponent(id) : null;
-  }, [currentPathname, params.sessionId]);
+  }, [currentPathname, params.sessionId, slug]);
 }
 
 function ChatSidebarHeader({
@@ -180,6 +182,7 @@ function ChatSidebarHeader({
 
 function renderSessionItem({
   conversation,
+  chatRoot,
   editMode,
   isSelected,
   itemBody,
@@ -188,6 +191,7 @@ function renderSessionItem({
   onDelete,
 }: {
   conversation: ConversationListItem;
+  chatRoot: string;
   editMode: boolean;
   isSelected: boolean;
   itemBody: React.ReactNode;
@@ -216,7 +220,7 @@ function renderSessionItem({
         // Focus indicator lives on the wrapper (ring-inset, no clipping). Drop
         // the Link's own outline so it doesn't bleed into the sidebar edge.
         className="min-w-0 flex-1 rounded-md focus-visible:outline-none"
-        href={`/chat/${conversation.id}`}
+        href={`${chatRoot}/${conversation.id}`}
         onClick={closeOnNavigate}
       >
         {itemBody}
@@ -242,6 +246,7 @@ function renderSessionItem({
 function ChatSidebarBody({
   conversations,
   activeSessionId,
+  chatRoot,
   onDelete,
   editMode,
   selectedIds,
@@ -249,6 +254,7 @@ function ChatSidebarBody({
 }: {
   conversations: ConversationListItem[];
   activeSessionId: string | null;
+  chatRoot: string;
   onDelete: (conversation: ConversationListItem) => void;
   editMode: boolean;
   selectedIds: Set<string>;
@@ -290,7 +296,7 @@ function ChatSidebarBody({
                         "block rounded-md px-1.5 py-1.5 transition-colors",
                         isActive ? "bg-sidebar-accent" : "hover:bg-sidebar-accent/60",
                       )}
-                      href={`/chat/${conversation.id}`}
+                      href={`${chatRoot}/${conversation.id}`}
                       onClick={closeOnNavigate}
                     >
                       <div
@@ -351,6 +357,7 @@ function ChatSidebarBody({
               )}
             >
               {renderSessionItem({
+                chatRoot,
                 closeOnNavigate,
                 conversation,
                 editMode,
@@ -369,6 +376,8 @@ function ChatSidebarBody({
 
 export function ChatSidebarSlots() {
   const router = useRouter();
+  const slug = useWorkspaceSlug();
+  const chatRoot = `/w/${slug}/chat`;
   const { setOpenMobile, isMobile, state } = useSidebar();
   const [conversations, setConversations] = useState<ConversationListItem[]>([]);
   const [deleteTarget, setDeleteTarget] = useState<ConversationListItem | null>(null);
@@ -376,11 +385,11 @@ export function ChatSidebarSlots() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
   const [bulkConfirmOpen, setBulkConfirmOpen] = useState(false);
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
-  const activeSessionId = useActiveSessionId();
+  const activeSessionId = useActiveSessionId(slug);
 
   const refreshConversationList = useCallback(async () => {
     try {
-      const rows = await fetchConversations();
+      const rows = await fetchConversations(slug);
       setConversations(
         rows.map((item) => ({
           id: item.id,
@@ -392,15 +401,15 @@ export function ChatSidebarSlots() {
     } catch {
       // network failure — keep the previous list; the next tick will retry
     }
-  }, []);
+  }, [slug]);
 
   const handleStartNewConversation = useCallback(() => {
     if (isMobile) {
       setOpenMobile(false);
     }
     window.dispatchEvent(new CustomEvent(CHAT_EVENTS.startNewConversation));
-    router.replace("/chat");
-  }, [isMobile, router, setOpenMobile]);
+    router.replace(chatRoot);
+  }, [chatRoot, isMobile, router, setOpenMobile]);
 
   useEffect(() => {
     const initialTimerId = window.setTimeout(() => {
@@ -465,7 +474,7 @@ export function ChatSidebarSlots() {
     const ids = [...selectedIds];
     setIsBulkDeleting(true);
     try {
-      await Promise.allSettled(ids.map((id) => deleteConversation(id)));
+      await Promise.allSettled(ids.map((id) => deleteConversation(slug, id)));
     } finally {
       setIsBulkDeleting(false);
     }
@@ -477,9 +486,9 @@ export function ChatSidebarSlots() {
     await refreshConversationList();
 
     if (activeSessionId && ids.includes(activeSessionId)) {
-      router.replace("/chat");
+      router.replace(chatRoot);
     }
-  }, [activeSessionId, refreshConversationList, router, selectedIds]);
+  }, [activeSessionId, chatRoot, refreshConversationList, router, selectedIds, slug]);
 
   const confirmDelete = useCallback(async () => {
     if (!deleteTarget) {
@@ -489,7 +498,7 @@ export function ChatSidebarSlots() {
     const { id } = deleteTarget;
     setDeleteTarget(null);
     try {
-      await deleteConversation(id);
+      await deleteConversation(slug, id);
     } catch {
       // surface nothing — the UI will reflect server state on next refresh
     }
@@ -497,9 +506,9 @@ export function ChatSidebarSlots() {
     await refreshConversationList();
 
     if (activeSessionId === id) {
-      router.replace("/chat");
+      router.replace(chatRoot);
     }
-  }, [activeSessionId, deleteTarget, refreshConversationList, router]);
+  }, [activeSessionId, chatRoot, deleteTarget, refreshConversationList, router, slug]);
 
   return (
     <>
@@ -517,6 +526,7 @@ export function ChatSidebarSlots() {
       <SidebarBodyPortalContent>
         <ChatSidebarBody
           activeSessionId={activeSessionId}
+          chatRoot={chatRoot}
           conversations={conversations}
           editMode={editMode}
           onDelete={setDeleteTarget}
@@ -527,7 +537,7 @@ export function ChatSidebarSlots() {
 
       <SidebarFooterPortalContent>
         <SidebarUserSection
-          callbackURL="/chat"
+          callbackURL={chatRoot}
           collapsed={state === "collapsed"}
           showHomeLink={false}
         />

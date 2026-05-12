@@ -21,7 +21,10 @@ export interface ChatConversationDetail extends ChatConversationSummary {
 
 export type OwnershipResult = "ok" | "not_found" | "forbidden";
 
-export function listUserConversations(userId: string): Promise<ChatConversationSummary[]> {
+export function listUserConversations(
+  userId: string,
+  organizationId: string,
+): Promise<ChatConversationSummary[]> {
   return db
     .select({
       createdAt: chatConversation.createdAt,
@@ -31,18 +34,27 @@ export function listUserConversations(userId: string): Promise<ChatConversationS
       updatedAt: chatConversation.updatedAt,
     })
     .from(chatConversation)
-    .where(eq(chatConversation.userId, userId))
+    .where(
+      and(eq(chatConversation.userId, userId), eq(chatConversation.organizationId, organizationId)),
+    )
     .orderBy(desc(chatConversation.createdAt));
 }
 
 export async function getUserConversation(
   userId: string,
   conversationId: string,
+  organizationId: string,
 ): Promise<ChatConversationDetail | null> {
   const [row] = await db
     .select()
     .from(chatConversation)
-    .where(and(eq(chatConversation.id, conversationId), eq(chatConversation.userId, userId)))
+    .where(
+      and(
+        eq(chatConversation.id, conversationId),
+        eq(chatConversation.userId, userId),
+        eq(chatConversation.organizationId, organizationId),
+      ),
+    )
     .limit(1);
 
   if (!row) {
@@ -71,9 +83,13 @@ export async function getUserConversation(
 export async function checkConversationOwner(
   userId: string,
   conversationId: string,
+  organizationId: string,
 ): Promise<OwnershipResult> {
   const [row] = await db
-    .select({ userId: chatConversation.userId })
+    .select({
+      organizationId: chatConversation.organizationId,
+      userId: chatConversation.userId,
+    })
     .from(chatConversation)
     .where(eq(chatConversation.id, conversationId))
     .limit(1);
@@ -81,7 +97,7 @@ export async function checkConversationOwner(
   if (!row) {
     return "not_found";
   }
-  if (row.userId !== userId) {
+  if (row.userId !== userId || row.organizationId !== organizationId) {
     return "forbidden";
   }
   return "ok";
@@ -104,7 +120,7 @@ export interface UpsertConversationInput {
  * already exists under a different user.
  */
 export async function upsertConversation(input: UpsertConversationInput): Promise<OwnershipResult> {
-  const owner = await checkConversationOwner(input.userId, input.id);
+  const owner = await checkConversationOwner(input.userId, input.id, input.organizationId);
   if (owner === "forbidden") {
     return "forbidden";
   }
@@ -145,7 +161,13 @@ export async function upsertConversation(input: UpsertConversationInput): Promis
       }),
       updatedAt: now,
     })
-    .where(and(eq(chatConversation.id, input.id), eq(chatConversation.userId, input.userId)));
+    .where(
+      and(
+        eq(chatConversation.id, input.id),
+        eq(chatConversation.userId, input.userId),
+        eq(chatConversation.organizationId, input.organizationId),
+      ),
+    );
 
   return "ok";
 }
@@ -153,10 +175,17 @@ export async function upsertConversation(input: UpsertConversationInput): Promis
 export async function deleteUserConversation(
   userId: string,
   conversationId: string,
+  organizationId: string,
 ): Promise<boolean> {
   const deleted = await db
     .delete(chatConversation)
-    .where(and(eq(chatConversation.id, conversationId), eq(chatConversation.userId, userId)))
+    .where(
+      and(
+        eq(chatConversation.id, conversationId),
+        eq(chatConversation.userId, userId),
+        eq(chatConversation.organizationId, organizationId),
+      ),
+    )
     .returning({ id: chatConversation.id });
   return deleted.length > 0;
 }

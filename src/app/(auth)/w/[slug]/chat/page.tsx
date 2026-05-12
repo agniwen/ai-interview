@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import ChatWorkspace from "@/app/(auth)/chat/_components/chat-workspace";
+import ChatWorkspace from "@/app/(auth)/w/[slug]/chat/_components/chat-workspace";
 
 export const metadata: Metadata = {
   description: "支持上传候选人简历、整理筛选要求，并生成聊天式初筛建议。",

@@ -22,6 +22,7 @@ import type { DedupMatchRecord } from "@/lib/client/api";
 import { fetchInterviewDedup } from "@/lib/client/api";
 import { readNdjsonStream } from "@/lib/client/ndjson-stream";
 import { rpc } from "@/lib/client/rpc";
+import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { cn } from "@/lib/shared/utils";
 
 // 详情弹窗只在入库成功后才打开；动态加载省初始 bundle。
@@ -42,12 +43,6 @@ interface ResumeImportButtonProps {
   onImported: (partId: string, interviewId: string) => void;
   onMissing?: (partId: string) => void;
   className?: string;
-  /**
-   * Workspace slug for slug-aware dedup RPC calls under /api/w/:slug/studio.
-   * When omitted (e.g. in the chat context without an active org), the dedup
-   * check is skipped and the import proceeds without the duplicate guard.
-   */
-  workspaceSlug?: string;
 }
 
 function renderImportButtonContent({
@@ -88,8 +83,10 @@ export function ResumeImportButton({
   onImported,
   onMissing,
   className,
-  workspaceSlug,
 }: ResumeImportButtonProps) {
+  // chat layout 已在 WorkspaceSlugProvider 下,这里直接拿当前活跃工作区。
+  // The chat layout already wraps everything in WorkspaceSlugProvider.
+  const workspaceSlug = useWorkspaceSlug();
   const [phase, setPhase] = useState<ImportPhase>("idle");
   const [progressStatus, setProgressStatus] = useState("");
   const [progressTools, setProgressTools] = useState<ProgressTool[]>([]);
@@ -221,15 +218,12 @@ export function ResumeImportButton({
       // 身份维度查重：失败时静默继续。命中时缓存状态、暂停流程，等用户决策。
       // Identity dedup; on failure proceed silently. On hit, stash state and
       // wait for the user to "继续解析" or "取消上传".
-      // Skipped when workspaceSlug is absent (e.g. chat page without an active org).
       try {
-        const dedupResult = workspaceSlug
-          ? await fetchInterviewDedup(workspaceSlug, {
-              email: resumeProfile.email,
-              name: resumeProfile.name,
-              phone: resumeProfile.phone,
-            })
-          : null;
+        const dedupResult = await fetchInterviewDedup(workspaceSlug, {
+          email: resumeProfile.email,
+          name: resumeProfile.name,
+          phone: resumeProfile.phone,
+        });
         const matches = dedupResult?.matches ?? [];
         if (matches.length > 0) {
           cachedParseResultRef.current = parseResult;
@@ -364,9 +358,6 @@ export function ResumeImportButton({
       saveForm.append("resume", file);
       saveForm.append("resumePayload", JSON.stringify(resumePayload));
 
-      if (!workspaceSlug) {
-        throw new Error("入库需要指定工作区，请在工作区页面中使用此功能");
-      }
       const saveResponse = await fetch(`/api/w/${workspaceSlug}/studio/interviews`, {
         body: saveForm,
         method: "POST",

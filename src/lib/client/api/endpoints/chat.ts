@@ -90,9 +90,9 @@ export interface UploadedAttachment {
  * 拉取所有会话摘要。
  * Fetch the full list of conversation summaries.
  */
-export async function fetchConversations(): Promise<ChatConversationSummary[]> {
+export async function fetchConversations(slug: string): Promise<ChatConversationSummary[]> {
   const data = await rpcFetch<{ conversations: ChatConversationSummary[] }>(
-    rpc.api.chat.conversations.$get(),
+    rpc.api.w[":slug"].chat.conversations.$get({ param: { slug } }),
     "加载会话列表失败",
   );
   return data.conversations;
@@ -102,9 +102,12 @@ export async function fetchConversations(): Promise<ChatConversationSummary[]> {
  * 拉取单个会话；不存在时返回 null（404 静默）。
  * Fetch a single conversation; returns null when not found (404 swallowed).
  */
-export async function fetchConversation(id: string): Promise<ChatConversationDetail | null> {
+export async function fetchConversation(
+  slug: string,
+  id: string,
+): Promise<ChatConversationDetail | null> {
   const data = await rpcFetch<{ conversation: ChatConversationDetail }>(
-    rpc.api.chat.conversations[":id"].$get({ param: { id } }),
+    rpc.api.w[":slug"].chat.conversations[":id"].$get({ param: { id, slug } }),
     "加载会话失败",
     { allow404: true },
   );
@@ -115,8 +118,14 @@ export async function fetchConversation(id: string): Promise<ChatConversationDet
  * 创建或更新会话。
  * Create or update a conversation.
  */
-export async function upsertConversation(payload: UpsertConversationPayload): Promise<void> {
-  await rpcFetch<{ ok: true }>(rpc.api.chat.conversations.$post({ json: payload }), "保存会话失败");
+export async function upsertConversation(
+  slug: string,
+  payload: UpsertConversationPayload,
+): Promise<void> {
+  await rpcFetch<{ ok: true }>(
+    rpc.api.w[":slug"].chat.conversations.$post({ json: payload, param: { slug } }),
+    "保存会话失败",
+  );
 }
 
 /**
@@ -124,11 +133,15 @@ export async function upsertConversation(payload: UpsertConversationPayload): Pr
  * Patch selected fields of a conversation.
  */
 export async function patchConversation(
+  slug: string,
   id: string,
   payload: PatchConversationPayload,
 ): Promise<void> {
   await rpcFetch<{ ok: true }>(
-    rpc.api.chat.conversations[":id"].$patch({ json: payload, param: { id } }),
+    rpc.api.w[":slug"].chat.conversations[":id"].$patch({
+      json: payload,
+      param: { id, slug },
+    }),
     "更新会话失败",
   );
 }
@@ -137,9 +150,9 @@ export async function patchConversation(
  * 删除会话；服务端返回 404 时也视为成功（幂等）。
  * Delete a conversation; 404 from the server is treated as success (idempotent).
  */
-export async function deleteConversation(id: string): Promise<void> {
+export async function deleteConversation(slug: string, id: string): Promise<void> {
   await rpcFetch<{ ok: true }>(
-    rpc.api.chat.conversations[":id"].$delete({ param: { id } }),
+    rpc.api.w[":slug"].chat.conversations[":id"].$delete({ param: { id, slug } }),
     "删除会话失败",
     { allow404: true },
   );
@@ -150,6 +163,7 @@ export async function deleteConversation(id: string): Promise<void> {
  * Persist a UI message to the server.
  */
 export async function upsertChatMessageOnServer(
+  slug: string,
   conversationId: string,
   message: UIMessage,
 ): Promise<void> {
@@ -164,9 +178,9 @@ export async function upsertChatMessageOnServer(
     role: typeof message.role;
   };
   await rpcFetch<{ ok: true }>(
-    rpc.api.chat.conversations[":id"].messages.$post({
+    rpc.api.w[":slug"].chat.conversations[":id"].messages.$post({
       json: { message: wireMessage },
-      param: { id: conversationId },
+      param: { id: conversationId, slug },
     }),
     "保存消息失败",
   );
@@ -183,7 +197,7 @@ type UploadPreflightResponse = { hit: false } | (UploadedAttachment & { hit: tru
  * Any failure (hash computation, network, server error) silently degrades to the
  * multipart path to keep uploads available.
  */
-async function tryUploadPreflight(file: File): Promise<UploadedAttachment | null> {
+async function tryUploadPreflight(slug: string, file: File): Promise<UploadedAttachment | null> {
   if (file.type !== "application/pdf") {
     return null;
   }
@@ -194,15 +208,18 @@ async function tryUploadPreflight(file: File): Promise<UploadedAttachment | null
     return null;
   }
   try {
-    const result = await apiFetch<UploadPreflightResponse>("/api/chat/uploads/preflight", {
-      body: {
-        filename: file.name || "attachment.pdf",
-        hash,
-        mediaType: file.type,
-        size: file.size,
+    const result = await apiFetch<UploadPreflightResponse>(
+      `/api/w/${slug}/chat/uploads/preflight`,
+      {
+        body: {
+          filename: file.name || "attachment.pdf",
+          hash,
+          mediaType: file.type,
+          size: file.size,
+        },
+        method: "POST",
       },
-      method: "POST",
-    });
+    );
     if (!result.hit) {
       return null;
     }
@@ -220,13 +237,17 @@ async function tryUploadPreflight(file: File): Promise<UploadedAttachment | null
  * Upload an attachment (PDF / image / ...); PDF files attempt a preflight dedup first —
  * a cache hit skips byte transfer entirely; otherwise falls back to multipart/form-data.
  */
-export async function uploadAttachment(blob: Blob, filename: string): Promise<UploadedAttachment> {
+export async function uploadAttachment(
+  slug: string,
+  blob: Blob,
+  filename: string,
+): Promise<UploadedAttachment> {
   const file =
     blob instanceof File
       ? blob
       : new File([blob], filename, { type: blob.type || "application/pdf" });
 
-  const hit = await tryUploadPreflight(file);
+  const hit = await tryUploadPreflight(slug, file);
   if (hit) {
     return hit;
   }
@@ -234,7 +255,7 @@ export async function uploadAttachment(blob: Blob, filename: string): Promise<Up
   const form = new FormData();
   form.append("file", file, filename);
 
-  return apiFetch<UploadedAttachment>("/api/chat/uploads", {
+  return apiFetch<UploadedAttachment>(`/api/w/${slug}/chat/uploads`, {
     body: form,
     method: "POST",
   });

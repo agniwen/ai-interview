@@ -11,6 +11,7 @@ import {
   requestResumeChatTitle,
   upsertConversation as upsertConversationOnServer,
 } from "@/lib/client/api";
+import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { authClient } from "@/lib/shared/auth-client";
 import { chatModelByIdAtom, DRAFT_CHAT_KEY } from "../_atoms/model";
 import { thinkingModeAtom } from "../_atoms/thinking";
@@ -60,6 +61,7 @@ function getConversationTitleFromMessages(
 
 // eslint-disable-next-line complexity -- Top-level shell owns many pieces of orchestration state.
 export default function ChatWorkspace({ initialSessionId }: { initialSessionId: string | null }) {
+  const slug = useWorkspaceSlug();
   const { data: session } = authClient.useSession();
   const thinkingMode = useAtomValue(thinkingModeAtom);
   const [chatModelByChatId, setChatModelByChatId] = useAtom(chatModelByIdAtom);
@@ -159,8 +161,8 @@ export default function ChatWorkspace({ initialSessionId }: { initialSessionId: 
   // `/chat` shell) we hand useChat an empty init; it stands up a throwaway
   // internal Chat that never gets dispatched against.
   const boundChat = useMemo(
-    () => (activeConversationId ? getOrCreateChat(activeConversationId) : null),
-    [activeConversationId],
+    () => (activeConversationId ? getOrCreateChat(activeConversationId, slug) : null),
+    [activeConversationId, slug],
   );
 
   const { addToolOutput, messages, setMessages, status, stop, error, regenerate, clearError } =
@@ -218,34 +220,41 @@ export default function ChatWorkspace({ initialSessionId }: { initialSessionId: 
     setUserStopped(true);
   }, [stop]);
 
-  const updateSessionInUrl = useCallback((sessionId: string | null) => {
-    const nextUrl = sessionId ? `/chat/${encodeURIComponent(sessionId)}` : "/chat";
-    if (window.location.pathname === nextUrl) {
-      return;
-    }
-    window.history.replaceState(window.history.state, "", nextUrl);
-    window.dispatchEvent(
-      new CustomEvent(CHAT_EVENTS.sessionPathUpdated, {
-        detail: { pathname: nextUrl, sessionId },
-      }),
-    );
-  }, []);
+  const updateSessionInUrl = useCallback(
+    (sessionId: string | null) => {
+      const base = `/w/${slug}/chat`;
+      const nextUrl = sessionId ? `${base}/${encodeURIComponent(sessionId)}` : base;
+      if (window.location.pathname === nextUrl) {
+        return;
+      }
+      window.history.replaceState(window.history.state, "", nextUrl);
+      window.dispatchEvent(
+        new CustomEvent(CHAT_EVENTS.sessionPathUpdated, {
+          detail: { pathname: nextUrl, sessionId },
+        }),
+      );
+    },
+    [slug],
+  );
 
-  const updateConversationTitle = useCallback(async (id: string, title: string) => {
-    const normalizedTitle = title.trim().slice(0, MAX_CHAT_TITLE_LENGTH);
-    if (!normalizedTitle) {
-      return;
-    }
-    try {
-      await patchConversation(id, {
-        isTitleGenerating: false,
-        title: normalizedTitle,
-      });
-      notifyConversationsChanged();
-    } catch {
-      // ignore — the derived title fallback on the server remains
-    }
-  }, []);
+  const updateConversationTitle = useCallback(
+    async (id: string, title: string) => {
+      const normalizedTitle = title.trim().slice(0, MAX_CHAT_TITLE_LENGTH);
+      if (!normalizedTitle) {
+        return;
+      }
+      try {
+        await patchConversation(slug, id, {
+          isTitleGenerating: false,
+          title: normalizedTitle,
+        });
+        notifyConversationsChanged();
+      } catch {
+        // ignore — the derived title fallback on the server remains
+      }
+    },
+    [slug],
+  );
 
   const ensureConversation = useCallback(
     async ({ withGeneratingTitle }: { withGeneratingTitle?: boolean } = {}) => {
@@ -258,7 +267,7 @@ export default function ChatWorkspace({ initialSessionId }: { initialSessionId: 
         ? GENERATING_CHAT_TITLE
         : getConversationTitleFromMessages(messagesRef.current);
 
-      await upsertConversationOnServer({
+      await upsertConversationOnServer(slug, {
         createdAt: now,
         id,
         isTitleGenerating: withGeneratingTitle ?? false,
@@ -316,6 +325,7 @@ export default function ChatWorkspace({ initialSessionId }: { initialSessionId: 
       modelsData,
       resumeImports,
       setChatModelByChatId,
+      slug,
       thinkingMode,
       updateSessionInUrl,
     ],
@@ -407,22 +417,22 @@ export default function ChatWorkspace({ initialSessionId }: { initialSessionId: 
             });
           }
         }
-        await getOrCreateChat(conversationId).sendMessage({ parts });
+        await getOrCreateChat(conversationId, slug).sendMessage({ parts });
       } else {
-        await getOrCreateChat(conversationId).sendMessage({
+        await getOrCreateChat(conversationId, slug).sendMessage({
           files: filesArr as FileUIPart[],
           text,
         });
       }
     },
-    [activeConversationId, ensureConversation, updateConversationTitle],
+    [activeConversationId, ensureConversation, slug, updateConversationTitle],
   );
 
   const openConversation = useCallback(
     async (id: string, { shouldSyncUrl = true }: { shouldSyncUrl?: boolean } = {}) => {
       let conversation: Awaited<ReturnType<typeof fetchConversation>> = null;
       try {
-        conversation = await fetchConversation(id);
+        conversation = await fetchConversation(slug, id);
       } catch {
         setHistoryErrorMessage("无法加载聊天记录，请稍后重试。");
         return false;
@@ -445,7 +455,7 @@ export default function ChatWorkspace({ initialSessionId }: { initialSessionId: 
       // keeps its in-memory messages. Only cold-hydrate from the server when
       // the registry has no entry — that's the first mount after a refresh.
       if (!hasChat(id)) {
-        getOrCreateChat(id, { initialMessages: conversation.messages });
+        getOrCreateChat(id, slug, { initialMessages: conversation.messages });
       }
       setActiveConversationId(id);
       setHistoryErrorMessage(null);
@@ -468,6 +478,7 @@ export default function ChatWorkspace({ initialSessionId }: { initialSessionId: 
       replaceResumeImports,
       setJobDescriptionConfig,
       setIsJobDescriptionDialogOpen,
+      slug,
       updateSessionInUrl,
     ],
   );
@@ -537,7 +548,7 @@ export default function ChatWorkspace({ initialSessionId }: { initialSessionId: 
     const saveTimer = window.setTimeout(() => {
       void (async () => {
         try {
-          await patchConversation(activeConversationId, {
+          await patchConversation(slug, activeConversationId, {
             jobDescription: jobDescriptionText,
             jobDescriptionConfig,
             resumeImports,
@@ -554,6 +565,7 @@ export default function ChatWorkspace({ initialSessionId }: { initialSessionId: 
     jobDescriptionConfig,
     jobDescriptionText,
     resumeImports,
+    slug,
   ]);
 
   const { refetch: refetchJobDescriptionOptions } = useJobDescriptionOptionsQuery();

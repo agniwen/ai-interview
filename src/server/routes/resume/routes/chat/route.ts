@@ -49,7 +49,7 @@ export const resumeChatRouter = factory
       "org_default";
 
     const conversationOwned =
-      userId && chatId ? (await checkConversationOwner(userId, chatId)) === "ok" : false;
+      userId && chatId ? (await checkConversationOwner(userId, chatId, orgId)) === "ok" : false;
 
     // On regenerate, drop the assistant message being replaced (and anything
     // after it) so the LLM does not see its own prior reply and "continue"

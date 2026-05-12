@@ -12,6 +12,9 @@ import { createChatTransport } from "./chat-transport";
 
 export interface ChatFinishEvent {
   chatId: string;
+  // workspace slug the chat was created under;BackgroundStreamToaster 用它构造链接。
+  // Workspace slug the chat lives in; consumed by BackgroundStreamToaster for link building.
+  slug: string;
   message: UIMessage;
   isAbort: boolean;
   isDisconnect: boolean;
@@ -42,9 +45,9 @@ function emitFinish(event: ChatFinishEvent) {
   }
 }
 
-async function persistPartialMessage(chatId: string, message: UIMessage) {
+async function persistPartialMessage(slug: string, chatId: string, message: UIMessage) {
   try {
-    await upsertChatMessageOnServer(chatId, message);
+    await upsertChatMessageOnServer(slug, chatId, message);
   } catch (persistError) {
     console.error("[chat] client-side persist failed", persistError);
   }
@@ -52,6 +55,7 @@ async function persistPartialMessage(chatId: string, message: UIMessage) {
 
 export function getOrCreateChat(
   chatId: string,
+  slug: string,
   options: { initialMessages?: UIMessage[] } = {},
 ): Chat<UIMessage> {
   const existing = chats.get(chatId);
@@ -71,10 +75,10 @@ export function getOrCreateChat(
       notifyConversationsChanged();
 
       if (message.role === "assistant" && (isAbort || isDisconnect || isError)) {
-        void persistPartialMessage(chatId, message);
+        void persistPartialMessage(slug, chatId, message);
       }
 
-      emitFinish({ chatId, isAbort, isDisconnect, isError, message });
+      emitFinish({ chatId, isAbort, isDisconnect, isError, message, slug });
     },
     // 工具调用完成后自动续跑下一步;hook 层的 `sendAutomaticallyWhen`
     // 在外部 Chat 实例下会被忽略,必须配置在构造器上。

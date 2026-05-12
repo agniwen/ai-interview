@@ -10,7 +10,7 @@ export function HomeFooter() {
       <div className="flex flex-col items-center justify-between gap-4 text-foreground/70 text-xs sm:flex-row sm:text-sm">
         <p>© {new Date().getFullYear()} AI Recruitment Copilot</p>
         <nav className="flex items-center gap-5">
-          <Link className="transition-colors hover:text-foreground" href="/chat">
+          <Link className="transition-colors hover:text-foreground" href="/">
             产品
           </Link>
           <Link className="transition-colors hover:text-foreground" href="/login">

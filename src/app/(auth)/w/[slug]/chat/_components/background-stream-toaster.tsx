@@ -6,10 +6,10 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { subscribeChatFinish } from "../_lib/chat-registry";
 
-// The chat page promotes `/chat` to `/chat/[id]` via `history.replaceState`,
-// so Next's `useParams()` never observes the promotion. Parse the live
-// `window.location.pathname` at the moment a stream finishes instead.
-const CHAT_SESSION_PATH_PATTERN = /^\/chat\/([^/?#]+)/;
+// The chat page promotes `/w/[slug]/chat` to `/w/[slug]/chat/[id]` via
+// `history.replaceState`, so Next's `useParams()` never observes the
+// promotion. Parse the live `window.location.pathname` instead.
+const CHAT_SESSION_PATH_PATTERN = /^\/w\/[^/?#]+\/chat\/([^/?#]+)/;
 
 function getCurrentChatSessionId(): string | null {
   if (typeof window === "undefined") {
@@ -22,7 +22,7 @@ function getCurrentChatSessionId(): string | null {
 export function BackgroundStreamToaster() {
   useEffect(
     () =>
-      subscribeChatFinish(({ chatId, message, isAbort, isDisconnect, isError }) => {
+      subscribeChatFinish(({ chatId, slug, message, isAbort, isDisconnect, isError }) => {
         if (isAbort || isDisconnect || isError) {
           return;
         }
@@ -32,7 +32,7 @@ export function BackgroundStreamToaster() {
         if (chatId === getCurrentChatSessionId()) {
           return;
         }
-        const href = `/chat/${encodeURIComponent(chatId)}`;
+        const href = `/w/${slug}/chat/${encodeURIComponent(chatId)}`;
         const toastId = toast("新回复", {
           action: (
             <Button asChild className="ml-auto" size="sm">

@@ -1,5 +1,5 @@
 import { cacheLife } from "next/cache";
-import ChatWorkspace from "@/app/(auth)/chat/_components/chat-workspace";
+import ChatWorkspace from "@/app/(auth)/w/[slug]/chat/_components/chat-workspace";
 
 export default async function ChatSessionPage({
   params,

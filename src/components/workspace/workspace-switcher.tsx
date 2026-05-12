@@ -2,7 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { ChevronsUpDown, Plus } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -16,6 +16,27 @@ import { CreateWorkspaceDialog } from "@/components/workspace/create-workspace-d
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { authClient } from "@/lib/shared/auth-client";
 
+// 切换工作区时保留页面"类型",丢掉记录级别的 id——目标 workspace 没有同一个 id。
+// - /w/A/chat[/anything]              → /w/B/chat        (空会话)
+// - /w/A/studio/interviews[/anything] → /w/B/studio/interviews  (列表)
+// - /w/A/studio                       → /w/B
+// - /w/A                              → /w/B
+// Switching workspace preserves the page *kind*, not the specific record:
+// detail-page ids don't exist in the other workspace.
+function resolveSwitchTarget(currentPath: string, nextSlug: string): string {
+  const match = currentPath.match(/^\/w\/[^/]+(?:\/([^/]+)(?:\/([^/]+))?)?/);
+  const section = match?.[1];
+  const subsection = match?.[2];
+
+  if (section === "chat") {
+    return `/w/${nextSlug}/chat`;
+  }
+  if (section === "studio" && subsection) {
+    return `/w/${nextSlug}/studio/${subsection}`;
+  }
+  return `/w/${nextSlug}`;
+}
+
 /**
  * Sidebar inset header 里的工作区切换器。列出当前用户所在所有 workspace,
  * 点击切换会把 router 推到对应 slug 的 root,layout 里再 setActiveOrganization。
@@ -23,6 +44,7 @@ import { authClient } from "@/lib/shared/auth-client";
  */
 export function WorkspaceSwitcher() {
   const router = useRouter();
+  const pathname = usePathname();
   const currentSlug = useWorkspaceSlug();
   const [createOpen, setCreateOpen] = useState(false);
 
@@ -56,7 +78,7 @@ export function WorkspaceSwitcher() {
                 key={o.id}
                 onClick={() => {
                   if (o.slug !== currentSlug) {
-                    router.push(`/w/${o.slug}`);
+                    router.push(resolveSwitchTarget(pathname, o.slug));
                   }
                 }}
               >
