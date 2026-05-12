@@ -6,7 +6,7 @@ import { useEffect, useMemo } from "react";
 import type { ChatSessionPathUpdatedDetail } from "@/app/(auth)/chat/_lib/chat-events";
 import { CHAT_EVENTS } from "@/app/(auth)/chat/_lib/chat-events";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { authClient } from "@/lib/client/auth-client";
+import { authClient } from "@/lib/shared/auth-client";
 
 type SidebarTabValue = "chat" | "studio";
 

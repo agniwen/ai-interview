@@ -20,7 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { authClient } from "@/lib/client/auth-client";
+import { authClient } from "@/lib/shared/auth-client";
 
 const ROLE_OPTIONS = ["admin", "hr", "viewer"] as const;
 

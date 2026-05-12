@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { ThemeToggle } from "@/components/theme-toggle";
+import { SidebarInsetHeader } from "@/components/app-sidebar/sidebar-inset-header";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -9,8 +9,6 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
-import { Separator } from "@/components/ui/separator";
-import { SidebarTrigger } from "@/components/ui/sidebar";
 
 interface RouteMeta {
   title: string;
@@ -43,10 +41,8 @@ export function SiteHeader() {
   const { title } = resolveRouteMeta(pathname);
 
   return (
-    <header className="flex h-(--header-height) shrink-0 items-center justify-between gap-2 border-border/60 border-b px-4 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-(--header-height)">
-      <div className="flex items-center gap-2">
-        <SidebarTrigger className="-ml-1" />
-        <Separator className="mx-2 data-[orientation=vertical]:h-4" orientation="vertical" />
+    <SidebarInsetHeader
+      breadcrumb={
         <Breadcrumb>
           <BreadcrumbList>
             <BreadcrumbItem className="hidden md:block">Studio</BreadcrumbItem>
@@ -56,10 +52,7 @@ export function SiteHeader() {
             </BreadcrumbItem>
           </BreadcrumbList>
         </Breadcrumb>
-      </div>
-      <div className="flex items-center gap-1">
-        <ThemeToggle />
-      </div>
-    </header>
+      }
+    />
   );
 }

@@ -12,7 +12,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { authClient } from "@/lib/client/auth-client";
+import { authClient } from "@/lib/shared/auth-client";
 
 /**
  * "已登录但权限不足"提示弹窗。点击确认后退出当前账号并返回首页。

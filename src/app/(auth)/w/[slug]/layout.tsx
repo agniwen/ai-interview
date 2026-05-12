@@ -1,10 +1,7 @@
-import { notFound, redirect } from "next/navigation";
 import { headers } from "next/headers";
-import { and, eq } from "drizzle-orm";
+import { notFound, redirect } from "next/navigation";
 import { auth } from "@/lib/server/auth";
-import { db } from "@/lib/server/db";
-import { member, organization } from "@/lib/shared/db/schema";
-import { getCurrentSession } from "@/lib/server/auth-session";
+import { getCurrentOrganizations, getCurrentSession } from "@/lib/server/auth-session";
 import { WorkspaceSlugProvider } from "@/lib/client/workspace-context";
 
 export default async function WorkspaceLayout({
@@ -21,30 +18,22 @@ export default async function WorkspaceLayout({
     redirect("/login");
   }
 
-  const [row] = await db
-    .select({
-      organizationId: organization.id,
-      organizationSlug: organization.slug,
-    })
-    .from(organization)
-    .innerJoin(
-      member,
-      and(eq(member.organizationId, organization.id), eq(member.userId, session.user.id)),
-    )
-    .where(eq(organization.slug, slug))
-    .limit(1);
+  const orgs = await getCurrentOrganizations();
+  const matched = orgs.find((o) => o.slug === slug);
 
-  if (!row) {
+  if (!matched) {
     notFound();
   }
 
   // 持久化 activeOrganizationId，这样 client RPC 与 server actions 都对齐到当前 URL。
   // Better Auth 的 setActiveOrganization 会更新 session 行 + cookie。
+  // Persist activeOrganizationId so client RPC and server actions stay aligned
+  // with the current URL. setActiveOrganization updates the session row + cookie.
   const activeOrgId = (session.session as { activeOrganizationId?: string | null } | null)
     ?.activeOrganizationId;
-  if (activeOrgId !== row.organizationId) {
+  if (activeOrgId !== matched.id) {
     await auth.api.setActiveOrganization({
-      body: { organizationId: row.organizationId },
+      body: { organizationId: matched.id },
       headers: await headers(),
     });
   }

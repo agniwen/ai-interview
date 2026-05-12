@@ -3,7 +3,7 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef } from "react";
 import { toast } from "sonner";
-import { authClient } from "@/lib/client/auth-client";
+import { authClient } from "@/lib/shared/auth-client";
 
 interface LoginErrorToastProps {
   errorCode: string;

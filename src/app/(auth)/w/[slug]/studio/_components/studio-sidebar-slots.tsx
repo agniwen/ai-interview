@@ -27,7 +27,6 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { useHasPermission } from "@/hooks/use-has-permission";
-import { WorkspaceSwitcher } from "@/components/workspace/workspace-switcher";
 import type { statement } from "@/lib/shared/permissions";
 
 interface NavItem {
@@ -167,11 +166,6 @@ export function StudioSidebarSlots() {
   return (
     <>
       <SidebarBodyPortalContent>
-        <SidebarGroup>
-          <SidebarGroupContent>
-            <WorkspaceSwitcher />
-          </SidebarGroupContent>
-        </SidebarGroup>
         {navGroups.map((group) => (
           <SidebarGroup key={group.label}>
             <SidebarGroupLabel>{group.label}</SidebarGroupLabel>

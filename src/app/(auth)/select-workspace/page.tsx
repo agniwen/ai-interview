@@ -1,12 +1,10 @@
-import { eq } from "drizzle-orm";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { getCurrentSession } from "@/lib/server/auth-session";
-import { db } from "@/lib/server/db";
-import { member, organization } from "@/lib/shared/db/schema";
+import { CreateWorkspaceDialog } from "@/components/workspace/create-workspace-dialog";
+import { getCurrentOrganizations, getCurrentSession } from "@/lib/server/auth-session";
 
 export const metadata: Metadata = {
   title: "选择工作区",
@@ -18,11 +16,7 @@ export default async function SelectWorkspacePage() {
     redirect("/login");
   }
 
-  const rows = await db
-    .select({ name: organization.name, slug: organization.slug })
-    .from(organization)
-    .innerJoin(member, eq(member.organizationId, organization.id))
-    .where(eq(member.userId, session.user.id));
+  const rows = await getCurrentOrganizations();
 
   return (
     <div className="mx-auto max-w-md py-16">
@@ -34,7 +28,7 @@ export default async function SelectWorkspacePage() {
       ) : (
         <ul className="mb-6 space-y-2">
           {rows.map((r) => (
-            <li key={r.slug}>
+            <li key={r.id}>
               <Link href={`/w/${r.slug}`}>
                 <Card className="transition-colors hover:bg-accent">
                   <CardHeader>
@@ -49,9 +43,7 @@ export default async function SelectWorkspacePage() {
           ))}
         </ul>
       )}
-      <Button asChild>
-        <Link href="/create-workspace">创建新工作区</Link>
-      </Button>
+      <CreateWorkspaceDialog trigger={<Button>创建新工作区</Button>} />
     </div>
   );
 }

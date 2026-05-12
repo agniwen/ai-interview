@@ -1,7 +1,7 @@
 "use client";
 
 import type { JobDescriptionListRecord } from "@/lib/shared/job-descriptions";
-import { authClient } from "@/lib/client/auth-client";
+import { authClient } from "@/lib/shared/auth-client";
 import { rpc } from "@/lib/client/rpc";
 import { useQuery } from "@tanstack/react-query";
 

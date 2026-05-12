@@ -1,11 +1,8 @@
-import { asc, eq } from "drizzle-orm";
-import type { ReactNode } from "react";
 import { redirect } from "next/navigation";
+import type { ReactNode } from "react";
 import { SidebarInset } from "@/components/ui/sidebar";
-import { getCurrentSession } from "@/lib/server/auth-session";
-import { db } from "@/lib/server/db";
+import { resolveActiveOrganization } from "@/lib/server/auth-session";
 import { WorkspaceSlugProvider } from "@/lib/client/workspace-context";
-import { member, organization } from "@/lib/shared/db/schema";
 import { ChatHeader } from "./_components/chat-header";
 import { ChatSidebarSlots } from "./_components/chat-sidebar-slots";
 
@@ -13,37 +10,12 @@ import { ChatSidebarSlots } from "./_components/chat-sidebar-slots";
 // (ResumeImportButton / InterviewDetailDialog 等)，它们调用 useWorkspaceSlug。
 // 这里在服务端解出当前用户的活跃 workspace slug，再通过 WorkspaceSlugProvider
 // 注入到客户端组件树，让那些 studio 组件能正常构造 /w/[slug]/studio/... 链接。
-async function resolveActiveWorkspaceSlug(): Promise<string | null> {
-  const session = await getCurrentSession();
-  if (!session?.user?.id) {
-    return null;
-  }
-
-  const activeId = (session.session as { activeOrganizationId?: string | null } | null)
-    ?.activeOrganizationId;
-  if (activeId) {
-    const [org] = await db
-      .select({ slug: organization.slug })
-      .from(organization)
-      .where(eq(organization.id, activeId))
-      .limit(1);
-    if (org?.slug) {
-      return org.slug;
-    }
-  }
-
-  const [first] = await db
-    .select({ slug: organization.slug })
-    .from(organization)
-    .innerJoin(member, eq(member.organizationId, organization.id))
-    .where(eq(member.userId, session.user.id))
-    .orderBy(asc(member.createdAt))
-    .limit(1);
-  return first?.slug ?? null;
-}
-
+// Chat lives outside /w/[slug], but embedded studio components rely on
+// useWorkspaceSlug — resolve the active slug server-side and pipe it through
+// WorkspaceSlugProvider so those components can build /w/[slug]/studio/... links.
 export default async function ChatLayout({ children }: { children: ReactNode }) {
-  const slug = await resolveActiveWorkspaceSlug();
+  const active = await resolveActiveOrganization();
+  const slug = active?.slug ?? null;
   if (!slug) {
     // 已登录用户至少在 P1 backfill 后必有一个 member 关系；走到这里说明
     // session 失效或用户被踢出所有工作区，引导到选择/创建页。

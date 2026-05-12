@@ -4,7 +4,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { authClient } from "@/lib/client/auth-client";
+import { authClient } from "@/lib/shared/auth-client";
 
 export function useProtectedNavigation() {
   const router = useRouter();

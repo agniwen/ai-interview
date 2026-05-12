@@ -1,5 +1,3 @@
-import "client-only";
-
 import {
   adminClient,
   genericOAuthClient,
