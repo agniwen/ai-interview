@@ -56,7 +56,7 @@ import {
   toBadRequest,
 } from "@/server/routes/interview/utils";
 import { requirePermission } from "@/server/middlewares/permission";
-import { safeUpdateTag } from "@/server/cache-tags";
+import { invalidateStudioInterviewCaches, safeUpdateTag } from "@/server/cache-tags";
 import { getObjectStream, presignRecordingGetObjectUrl } from "@/lib/server/s3";
 
 const dedupCheckInputSchema = z.object({
@@ -226,7 +226,7 @@ export const studioInterviewsRouter = factory
         await autoBindApplicableTemplates(tx, interviewRecordId, record.jobDescriptionId);
       });
 
-      safeUpdateTag("studio-interviews");
+      invalidateStudioInterviewCaches();
       return c.json(serializeRecord(record, scheduleRows), 201);
     } catch (error) {
       const result = toBadRequest(error);
@@ -609,7 +609,7 @@ export const studioInterviewsRouter = factory
         }
       });
 
-      safeUpdateTag("studio-interviews");
+      invalidateStudioInterviewCaches();
       const updatedRecord = await loadRecordById(id, activeOrg.id);
       return c.json(updatedRecord, 200);
     } catch (error) {
@@ -736,7 +736,7 @@ export const studioInterviewsRouter = factory
       });
     });
 
-    safeUpdateTag("studio-interviews");
+    invalidateStudioInterviewCaches();
     safeUpdateTag("interview-conversations");
     const updatedRecord = await loadRecordById(id, activeOrg.id);
     return c.json(updatedRecord, 200);
@@ -784,7 +784,7 @@ export const studioInterviewsRouter = factory
         })
         .where(eq(studioInterviewSchedule.id, roundId));
 
-      safeUpdateTag("studio-interviews");
+      invalidateStudioInterviewCaches();
       const updatedRecord = await loadRecordById(id, activeOrg.id);
       return c.json(updatedRecord, 200);
     },
@@ -804,7 +804,7 @@ export const studioInterviewsRouter = factory
     await db
       .delete(studioInterview)
       .where(and(eq(studioInterview.id, id), eq(studioInterview.organizationId, activeOrg.id)));
-    safeUpdateTag("studio-interviews");
+    invalidateStudioInterviewCaches();
     return c.json({ success: true }, 200);
   })
   .post(
@@ -836,7 +836,7 @@ export const studioInterviewsRouter = factory
         )
         .returning({ id: studioInterview.id });
 
-      safeUpdateTag("studio-interviews");
+      invalidateStudioInterviewCaches();
       return c.json({ deletedCount: result.length, success: true }, 200);
     },
   );
