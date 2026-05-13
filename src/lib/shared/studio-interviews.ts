@@ -34,7 +34,7 @@ export const scheduleEntryStatusMeta: Record<
 > = {
   completed: { label: "已结束", tone: "default" },
   in_progress: { label: "进行中", tone: "secondary" },
-  interrupted: { label: "已中断（可在 3 分钟内继续）", tone: "secondary" },
+  interrupted: { label: "进行中", tone: "secondary" },
   pending: { label: "待开始", tone: "outline" },
 };
 
