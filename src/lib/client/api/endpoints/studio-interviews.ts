@@ -17,9 +17,14 @@ import "client-only";
 
 import type { CandidateFormSubmissionWithSnapshot } from "@/lib/shared/candidate-forms";
 import type { StudioInterviewConversationReport } from "@/lib/shared/interview-session";
-import type { PaginatedStudioInterviewRoundsResult } from "@/lib/shared/studio-interview-rounds";
-// 仍作为 StudioCandidateRecord 的别名被 T4/T5 消费，DedupMatchRecord 等也用到。
-// Still aliased to StudioCandidateRecord; consumed by remaining helpers in T4/T5.
+import type {
+  PaginatedStudioInterviewRoundsResult,
+  StudioInterviewRoundDetail,
+} from "@/lib/shared/studio-interview-rounds";
+// DedupMatchRecord 仍依赖 StudioInterviewStatus；resetStudioInterviewRound/updateStudioInterviewRound
+// (T5 scope) 仍返回 StudioInterviewRecord（别名桥，T6 清理）。
+// DedupMatchRecord still depends on StudioInterviewStatus; reset/update helpers (T5 scope)
+// still return StudioInterviewRecord (alias bridge, cleaned up in T6).
 import type { StudioInterviewRecord, StudioInterviewStatus } from "@/lib/shared/studio-interviews";
 import { rpc } from "@/lib/client/rpc";
 import { rpcFetch } from "../rpc-fetch";
@@ -121,30 +126,30 @@ export function fetchInterviewDedup(
 }
 
 /**
- * 拉取单条面试详情；不存在时返回 null。
- * Fetch a single interview by id; returns null when not found.
+ * 拉取单个轮次详情（round + 候选人快照）；不存在时返回 null。
+ * Fetch a single interview round detail (round + candidate snapshot); null when not found.
  */
-export function fetchStudioInterview(
+export function fetchStudioInterviewRound(
   slug: string,
-  id: string,
-): Promise<StudioInterviewRecord | null> {
-  return rpcFetch<StudioInterviewRecord>(
-    rpc.api.w[":slug"].studio.interviews[":id"].$get({ param: { id, slug } }),
+  roundId: string,
+): Promise<StudioInterviewRoundDetail | null> {
+  return rpcFetch<StudioInterviewRoundDetail>(
+    rpc.api.w[":slug"].studio.interviews[":id"].$get({ param: { id: roundId, slug } }),
     "加载面试详情失败",
     { allow404: true },
   );
 }
 
 /**
- * 拉取面试报告列表（按时间倒序）。
- * Fetch the interview reports (newest first).
+ * 拉取某轮次的面试报告列表（按时间倒序，仅含本轮次 conversations）。
+ * Fetch the interview reports for a single round (newest first, per-round only).
  */
-export function fetchStudioInterviewReports(
+export function fetchStudioInterviewRoundReports(
   slug: string,
-  id: string,
+  roundId: string,
 ): Promise<StudioInterviewConversationReport[]> {
   return rpcFetch<StudioInterviewConversationReport[]>(
-    rpc.api.w[":slug"].studio.interviews[":id"].reports.$get({ param: { id, slug } }),
+    rpc.api.w[":slug"].studio.interviews[":id"].reports.$get({ param: { id: roundId, slug } }),
     "加载面试报告失败",
   );
 }
@@ -155,27 +160,29 @@ export function fetchStudioInterviewReports(
  */
 export function fetchStudioInterviewRecordingUrl(
   slug: string,
-  id: string,
+  roundId: string,
   conversationId: string,
 ): Promise<{ url: string; expiresInSeconds: number }> {
   return rpcFetch<{ url: string; expiresInSeconds: number }>(
     rpc.api.w[":slug"].studio.interviews[":id"].recordings[":conversationId"].$get({
-      param: { conversationId, id, slug },
+      param: { conversationId, id: roundId, slug },
     }),
     "加载录像链接失败",
   );
 }
 
 /**
- * 拉取面试关联的表单回答（按提交时间倒序）。
- * Fetch the candidate form submissions for an interview (newest first).
+ * 拉取轮次关联的表单回答（候选人级别，按提交时间倒序）。
+ * Fetch the candidate form submissions for a round (candidate-level, newest first).
  */
-export async function fetchStudioInterviewFormSubmissions(
+export async function fetchStudioInterviewRoundFormSubmissions(
   slug: string,
-  id: string,
+  roundId: string,
 ): Promise<CandidateFormSubmissionWithSnapshot[]> {
   const data = await rpcFetch<{ submissions: CandidateFormSubmissionWithSnapshot[] }>(
-    rpc.api.w[":slug"].studio.interviews[":id"]["form-submissions"].$get({ param: { id, slug } }),
+    rpc.api.w[":slug"].studio.interviews[":id"]["form-submissions"].$get({
+      param: { id: roundId, slug },
+    }),
     "加载面试表单填写失败",
   );
   return data.submissions;
@@ -187,12 +194,12 @@ export async function fetchStudioInterviewFormSubmissions(
  */
 export function deleteStudioInterviewFormSubmission(
   slug: string,
-  interviewId: string,
+  roundId: string,
   submissionId: string,
 ): Promise<{ success: boolean }> {
   return rpcFetch<{ success: boolean }>(
     rpc.api.w[":slug"].studio.interviews[":id"]["form-submissions"][":submissionId"].$delete({
-      param: { id: interviewId, slug, submissionId },
+      param: { id: roundId, slug, submissionId },
     }),
     "删除答卷失败",
   );

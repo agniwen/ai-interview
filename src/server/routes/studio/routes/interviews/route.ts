@@ -40,10 +40,12 @@ import {
   refreshInterviewBindingsToLatest,
   replaceInterviewBindings,
 } from "@/server/routes/studio/routes/interview-questions/dao/bindings";
-import { queryInterviewConversationReports } from "@/server/routes/studio/routes/interviews/dao/interview-conversations";
+import { queryInterviewConversationReportsByRound } from "@/server/routes/studio/routes/interviews/dao/interview-conversations";
 import { queryInterviewDedup } from "@/server/routes/studio/routes/interviews/dao/studio-interviews";
 import {
+  loadInterviewRoundDetail,
   queryPaginatedInterviewRounds,
+  resolveCandidateIdForRound,
   summarizeInterviewRoundCounts,
 } from "@/server/routes/studio/routes/interviews/dao/interview-rounds";
 import {
@@ -224,26 +226,37 @@ export const studioInterviewsRouter = factory
     }
   })
   .get("/:id", requirePermission("interview", "read"), async (c) => {
+    // `:id` 现为 roundId；返回 StudioInterviewRoundDetail（round + 候选人快照）。
+    // `:id` is now roundId; returns StudioInterviewRoundDetail (round + candidate snapshot).
     const { activeOrg } = c.var;
     if (!activeOrg) {
       return c.json({ message: "Unauthorized" }, 401);
     }
+    // roundId
     const id = c.req.param("id");
-    const record = await loadRecordById(id, activeOrg.id);
+    const detail = await loadInterviewRoundDetail(id, activeOrg.id);
 
-    if (!record) {
+    if (!detail) {
       return c.json({ error: "记录不存在。" }, 404);
     }
 
-    return c.json(record, 200);
+    return c.json(detail, 200);
   })
   .get("/:id/resume", requirePermission("interview", "read"), async (c) => {
+    // `:id` 为 roundId；通过 resolveCandidateIdForRound 找到候选人再读简历。
+    // `:id` is roundId; resolve candidateId to read the resume.
     const { activeOrg } = c.var;
     if (!activeOrg) {
       return c.json({ message: "Unauthorized" }, 401);
     }
+    // roundId
     const id = c.req.param("id");
-    const existing = await loadRecordById(id, activeOrg.id);
+    const candidateId = await resolveCandidateIdForRound(id, activeOrg.id);
+    if (!candidateId) {
+      return c.json({ error: "记录不存在。" }, 404);
+    }
+
+    const existing = await loadRecordById(candidateId, activeOrg.id);
 
     if (!existing) {
       return c.json({ error: "记录不存在。" }, 404);
@@ -271,12 +284,19 @@ export const studioInterviewsRouter = factory
     });
   })
   .get("/:id/agent-instructions", requirePermission("interview", "read"), async (c) => {
+    // `:id` 为 roundId；通过 resolveCandidateIdForRound 解析候选人再生成指令。
+    // `:id` is roundId; resolve candidateId before building agent instructions.
     const { activeOrg } = c.var;
     if (!activeOrg) {
       return c.json({ message: "Unauthorized" }, 401);
     }
+    // roundId
     const id = c.req.param("id");
-    const existing = await loadRecordById(id, activeOrg.id);
+    const candidateId = await resolveCandidateIdForRound(id, activeOrg.id);
+    if (!candidateId) {
+      return c.json({ error: "记录不存在。" }, 404);
+    }
+    const existing = await loadRecordById(candidateId, activeOrg.id);
 
     if (!existing) {
       return c.json({ error: "记录不存在。" }, 404);
@@ -307,8 +327,10 @@ export const studioInterviewsRouter = factory
     // from the legacy `jobDescription.presetQuestions` column. Lazy-bind any
     // newly applicable templates so e.g. a global template created after this
     // interview shows up in the rendered prompt preview.
-    await ensureApplicableBindings(id);
-    const jobDescriptionPresetQuestions = await loadInterviewPresetQuestions(id);
+    // 绑定检查和预设题目均以 candidateId（interviewRecordId）为键。
+    // Bindings and preset questions are keyed by candidateId (interviewRecordId).
+    await ensureApplicableBindings(candidateId);
+    const jobDescriptionPresetQuestions = await loadInterviewPresetQuestions(candidateId);
 
     // 注入全局配置（公司情况 / 开场白 / 结束语），保证预览与运行时一致。
     // Inject global config so the preview matches what the agent will receive.
@@ -362,49 +384,58 @@ export const studioInterviewsRouter = factory
     return c.json({ variants }, 200);
   })
   .get("/:id/reports", requirePermission("interview", "read"), async (c) => {
+    // `:id` 为 roundId；报告按 scheduleEntryId 过滤，仅返回当前轮次的 conversations。
+    // `:id` is roundId; reports are filtered by scheduleEntryId (per-round, not per-candidate).
     const { activeOrg } = c.var;
     if (!activeOrg) {
       return c.json({ message: "Unauthorized" }, 401);
     }
-    const id = c.req.param("id");
-    const existing = await loadRecordById(id, activeOrg.id);
-
-    if (!existing) {
+    const roundId = c.req.param("id");
+    // 通过解析 candidateId 来验证 org 归属（不存在则 404）。
+    // Validate org scope by resolving the candidate (handles 404).
+    const candidateId = await resolveCandidateIdForRound(roundId, activeOrg.id);
+    if (!candidateId) {
       return c.json({ error: "记录不存在。" }, 404);
     }
-
-    const reports = await queryInterviewConversationReports(id);
+    const reports = await queryInterviewConversationReportsByRound(roundId);
     return c.json(reports, 200);
   })
   .get("/:id/recordings/:conversationId", requirePermission("interview", "read"), async (c) => {
-    // 返回该轮面试录像的 S3 预签名播放 URL (10 分钟有效).
-    // Return a 10-min presigned URL so the browser can stream the round's
-    // recording mp4 directly from S3.
+    // `:id` 为 roundId；返回该轮面试录像的 S3 预签名播放 URL (10 分钟有效).
+    // `:id` is roundId; return a 10-min presigned URL for the round's recording mp4.
     const { activeOrg } = c.var;
     if (!activeOrg) {
       return c.json({ message: "Unauthorized" }, 401);
     }
-    const id = c.req.param("id");
+    // roundId = scheduleEntryId
+    const roundId = c.req.param("id");
     const conversationId = c.req.param("conversationId");
 
-    const existing = await loadRecordById(id, activeOrg.id);
-    if (!existing) {
+    // 通过解析 candidateId 验证 org 归属。
+    // Validate org scope via candidateId resolution.
+    const candidateId = await resolveCandidateIdForRound(roundId, activeOrg.id);
+    if (!candidateId) {
       return c.json({ error: "记录不存在。" }, 404);
     }
 
     const [conversation] = await db
       .select({
-        interviewRecordId: interviewConversation.interviewRecordId,
         recordingFileKey: interviewConversation.recordingFileKey,
         recordingStatus: interviewConversation.recordingStatus,
+        scheduleEntryId: interviewConversation.scheduleEntryId,
       })
       .from(interviewConversation)
-      .where(eq(interviewConversation.conversationId, conversationId))
+      .where(
+        and(
+          eq(interviewConversation.conversationId, conversationId),
+          eq(interviewConversation.organizationId, activeOrg.id),
+        ),
+      )
       .limit(1);
 
-    // 防止跨面试访问: conversationId 必须挂在当前 interview 上.
-    // Prevent cross-record access: the conversation must belong to this interview.
-    if (!conversation || conversation.interviewRecordId !== id) {
+    // 防止跨轮次访问: conversation 必须属于当前 roundId (scheduleEntryId)。
+    // Prevent cross-round access: the conversation must belong to this roundId.
+    if (!conversation || conversation.scheduleEntryId !== roundId) {
       return c.json({ error: "未找到该轮录像。" }, 404);
     }
     if (!conversation.recordingFileKey) {
@@ -434,33 +465,36 @@ export const studioInterviewsRouter = factory
     }
   })
   .get("/:id/form-submissions", requirePermission("interview", "read"), async (c) => {
+    // `:id` 为 roundId；表单与 candidateId 绑定，通过解析后传给查询。
+    // `:id` is roundId; form submissions are keyed by candidateId — resolve it first.
     const { activeOrg } = c.var;
     if (!activeOrg) {
       return c.json({ message: "Unauthorized" }, 401);
     }
-    const id = c.req.param("id");
-    const existing = await loadRecordById(id, activeOrg.id);
-
-    if (!existing) {
+    const roundId = c.req.param("id");
+    const candidateId = await resolveCandidateIdForRound(roundId, activeOrg.id);
+    if (!candidateId) {
       return c.json({ error: "记录不存在。" }, 404);
     }
 
-    const submissions = await loadSubmissionsByInterview(id);
+    const submissions = await loadSubmissionsByInterview(candidateId);
     return c.json({ submissions }, 200);
   })
   .delete(
     "/:id/form-submissions/:submissionId",
     requirePermission("interview", "update"),
     async (c) => {
+      // `:id` 为 roundId；candidateFormSubmission 以 candidateId 为 FK。
+      // `:id` is roundId; candidateFormSubmission uses candidateId as FK.
       const { activeOrg } = c.var;
       if (!activeOrg) {
         return c.json({ message: "Unauthorized" }, 401);
       }
-      const id = c.req.param("id");
+      const roundId = c.req.param("id");
       const submissionId = c.req.param("submissionId");
 
-      const existing = await loadRecordById(id, activeOrg.id);
-      if (!existing) {
+      const candidateId = await resolveCandidateIdForRound(roundId, activeOrg.id);
+      if (!candidateId) {
         return c.json({ error: "记录不存在。" }, 404);
       }
 
@@ -469,7 +503,7 @@ export const studioInterviewsRouter = factory
         .where(
           and(
             eq(candidateFormSubmission.id, submissionId),
-            eq(candidateFormSubmission.interviewRecordId, id),
+            eq(candidateFormSubmission.interviewRecordId, candidateId),
           ),
         )
         .returning({ id: candidateFormSubmission.id });
@@ -569,19 +603,22 @@ export const studioInterviewsRouter = factory
     }
   })
   .get("/:id/question-template-bindings", requirePermission("interview", "read"), async (c) => {
+    // `:id` 为 roundId；绑定以 candidateId（interviewRecordId）为 FK。
+    // `:id` is roundId; bindings use candidateId (interviewRecordId) as FK.
     const { activeOrg } = c.var;
     if (!activeOrg) {
       return c.json({ message: "Unauthorized" }, 401);
     }
-    const id = c.req.param("id");
-    const existing = await loadRecordById(id, activeOrg.id);
-    if (!existing) {
+    const roundId = c.req.param("id");
+    const candidateId = await resolveCandidateIdForRound(roundId, activeOrg.id);
+    if (!candidateId) {
       return c.json({ error: "记录不存在。" }, 404);
     }
+    // 懒绑定：确保此面试记录的适用模板全部挂上。
     // Lazy-bind so applicable templates created *after* this interview show
     // up in the section UI without requiring manual re-attach.
-    await ensureApplicableBindings(id);
-    const data = await loadInterviewQuestionTemplateBindings(id);
+    await ensureApplicableBindings(candidateId);
+    const data = await loadInterviewQuestionTemplateBindings(candidateId);
     return c.json(data, 200);
   })
   .put(
@@ -593,22 +630,33 @@ export const studioInterviewsRouter = factory
       jsonValidatorError("请求参数缺失。"),
     ),
     async (c) => {
+      // `:id` 为 roundId；绑定以 candidateId（interviewRecordId）为 FK。
+      // `:id` is roundId; bindings use candidateId (interviewRecordId) as FK.
       const { activeOrg } = c.var;
       if (!activeOrg) {
         return c.json({ message: "Unauthorized" }, 401);
       }
-      const id = c.req.param("id");
-      const existing = await loadRecordById(id, activeOrg.id);
+      const roundId = c.req.param("id");
+      const candidateId = await resolveCandidateIdForRound(roundId, activeOrg.id);
+      if (!candidateId) {
+        return c.json({ error: "记录不存在。" }, 404);
+      }
+      const existing = await loadRecordById(candidateId, activeOrg.id);
       if (!existing) {
         return c.json({ error: "记录不存在。" }, 404);
       }
 
       const { enabledTemplateIds } = c.req.valid("json");
       await db.transaction(async (tx) => {
-        await replaceInterviewBindings(tx, id, enabledTemplateIds, existing.jobDescriptionId);
+        await replaceInterviewBindings(
+          tx,
+          candidateId,
+          enabledTemplateIds,
+          existing.jobDescriptionId,
+        );
       });
 
-      const data = await loadInterviewQuestionTemplateBindings(id);
+      const data = await loadInterviewQuestionTemplateBindings(candidateId);
       return c.json(data, 200);
     },
   )

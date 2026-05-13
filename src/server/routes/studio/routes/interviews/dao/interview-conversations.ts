@@ -97,5 +97,40 @@ export async function listInterviewConversationReports(interviewRecordId: string
   return queryInterviewConversationReports(interviewRecordId);
 }
 
+// 按轮次（scheduleEntryId）过滤 conversations，适用于 round-keyed 的报告端点。
+// Filter conversations by round (scheduleEntryId) for round-keyed report endpoints.
+async function queryInterviewConversationReportsByRound(scheduleEntryId: string) {
+  const conversations = await db
+    .select()
+    .from(interviewConversation)
+    .where(eq(interviewConversation.scheduleEntryId, scheduleEntryId))
+    .orderBy(desc(interviewConversation.updatedAt));
+
+  if (conversations.length === 0) {
+    return [] as StudioInterviewConversationReport[];
+  }
+
+  const conversationIds = conversations.map((conversation) => conversation.conversationId);
+  const turnRows = await db
+    .select()
+    .from(interviewConversationTurn)
+    .where(inArray(interviewConversationTurn.conversationId, conversationIds))
+    .orderBy(asc(interviewConversationTurn.createdAt), asc(interviewConversationTurn.receivedAt));
+
+  return conversations.map((conversation) => {
+    const turns = turnRows.filter((turn) => turn.conversationId === conversation.conversationId);
+    return serializeConversationReport(conversation, turns);
+  });
+}
+
+/** Cached version for Server Components */
+// oxlint-disable-next-line require-await -- "use cache" requires the function be async.
+export async function listInterviewConversationReportsByRound(scheduleEntryId: string) {
+  "use cache";
+  cacheTag("interview-conversations", `interview-conversations-round-${scheduleEntryId}`);
+  cacheLife("minutes");
+  return queryInterviewConversationReportsByRound(scheduleEntryId);
+}
+
 /** Uncached version for API route handlers */
-export { queryInterviewConversationReports };
+export { queryInterviewConversationReports, queryInterviewConversationReportsByRound };

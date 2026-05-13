@@ -4,17 +4,15 @@
 // Unified candidate detail dialog; the `mode` prop switches between resume-library
 // and AI-interview views without duplicating the shell or shared sub-components.
 
-import type { StudioInterviewRecord } from "@/lib/shared/studio-interviews";
+import type { StudioInterviewRoundDetail } from "@/lib/shared/studio-interview-rounds";
 import type { ResumeLibraryDetail } from "@/lib/shared/studio-resumes";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   deleteStudioInterviewFormSubmission,
-  fetchStudioInterview,
-  fetchStudioInterviewFormSubmissions,
-  fetchStudioInterviewReports,
+  fetchStudioInterviewRound,
+  fetchStudioInterviewRoundFormSubmissions,
+  fetchStudioInterviewRoundReports,
   fetchStudioResume,
-  resetStudioInterviewRound,
-  updateStudioInterviewRound,
 } from "@/lib/client/api";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import {
@@ -22,7 +20,6 @@ import {
   ExternalLinkIcon,
   MessageSquareTextIcon,
   PencilIcon,
-  RotateCcwIcon,
   Share2Icon,
 } from "lucide-react";
 import { useState } from "react";
@@ -57,7 +54,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { copyTextToClipboard, toAbsoluteUrl } from "@/lib/client/clipboard";
 import { scheduleEntryStatusMeta } from "@/lib/shared/studio-interviews";
 import { AgentInstructionsPanel } from "../interviews/_components/agent-instructions-panel";
-import { InterviewLinkQrButton } from "../interviews/_components/interview-link-qr-button";
 import { DetailRow } from "../interviews/_components/interview-detail/detail-row";
 import { EvaluationResults } from "../interviews/_components/interview-detail/evaluation-results";
 import { FormsTab } from "../interviews/_components/interview-detail/forms-tab";
@@ -69,21 +65,20 @@ import {
   truncateText,
 } from "../interviews/_components/interview-detail/helpers";
 import { RecordingPlayer } from "../interviews/_components/interview-detail/recording-player";
-import { InterviewStatusBadge } from "../interviews/_components/interview-status-badge";
 
 function renderHeaderDescription({
   isLoading,
-  record,
+  round,
 }: {
   isLoading: boolean;
-  record: StudioInterviewRecord | null | undefined;
+  round: StudioInterviewRoundDetail | null | undefined;
 }) {
-  if (record) {
+  if (round) {
     return (
       <>
-        {record.targetRole ?? "待识别岗位"}
+        {round.candidate.targetRole ?? "待识别岗位"}
         {" · "}
-        {record.resumeFileName ?? "未上传简历"}
+        {round.candidate.resumeFileName ?? "未上传简历"}
       </>
     );
   }
@@ -94,31 +89,30 @@ function renderHeaderDescription({
 export function StudioPersonDetailDialog({
   open,
   onOpenChange,
-  onUpdated,
+  onUpdated: _onUpdated,
   onEdit,
   recordId,
   mode,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** T5 将重新接入轮次级写操作后调用。/ Will be called once T5 rewires round-level writes. */
   onUpdated?: () => void;
   onEdit?: (recordId: string) => void;
   recordId: string | null;
   mode: "interview" | "resume";
 }) {
   const slug = useWorkspaceSlug();
-  const [resettingRoundId, setResettingRoundId] = useState<string | null>(null);
-  const [updatingRoundId, setUpdatingRoundId] = useState<string | null>(null);
   const [resettingSubmissionId, setResettingSubmissionId] = useState<string | null>(null);
   const [pendingResetSubmissionId, setPendingResetSubmissionId] = useState<string | null>(null);
   const queryClient = useQueryClient();
   const router = useRouter();
 
-  // 面试模式查询 / Interview-mode record query
-  const { data: interviewRecord, isLoading: isInterviewLoading } = useQuery({
+  // 面试模式查询（`:id` = roundId）/ Interview-mode query (`:id` = roundId)
+  const { data: round, isLoading: isInterviewLoading } = useQuery({
     enabled: open && !!recordId && mode === "interview",
-    queryFn: () => fetchStudioInterview(slug, recordId as string),
-    queryKey: ["studio-interview", slug, recordId],
+    queryFn: () => fetchStudioInterviewRound(slug, recordId as string),
+    queryKey: ["studio-interview-round", slug, recordId],
     refetchOnWindowFocus: true,
   });
 
@@ -133,23 +127,24 @@ export function StudioPersonDetailDialog({
   // 面试报告与表单仅面试模式查询 / Reports and form submissions only in interview mode
   const { data: reports = [] } = useQuery({
     enabled: open && !!recordId && mode === "interview",
-    queryFn: () => fetchStudioInterviewReports(slug, recordId as string),
-    queryKey: ["studio-interview-reports", slug, recordId],
+    queryFn: () => fetchStudioInterviewRoundReports(slug, recordId as string),
+    queryKey: ["studio-interview-round-reports", slug, recordId],
     refetchOnWindowFocus: true,
   });
 
   const { data: formSubmissions = [] } = useQuery({
     enabled: open && !!recordId && mode === "interview",
-    queryFn: () => fetchStudioInterviewFormSubmissions(slug, recordId as string),
-    queryKey: ["studio-interview-form-submissions", slug, recordId],
+    queryFn: () => fetchStudioInterviewRoundFormSubmissions(slug, recordId as string),
+    queryKey: ["studio-interview-round-form-submissions", slug, recordId],
     refetchOnWindowFocus: true,
   });
 
   const isLoading = mode === "interview" ? isInterviewLoading : isResumeLoading;
 
-  // 统一的 record 视图：面试模式取 interviewRecord，简历模式取 resumeRecord。
-  // Unified record view: interview mode uses interviewRecord, resume mode uses resumeRecord.
+  // 统一的 record 视图：面试模式取 round，简历模式取 resumeRecord。
+  // Unified record view: interview mode uses round, resume mode uses resumeRecord.
   interface UnifiedRecord {
+    // candidateId（编辑跳转 / resume-mode id）
     id: string;
     candidateName: string;
     candidateEmail: string | null;
@@ -161,31 +156,44 @@ export function StudioPersonDetailDialog({
     notes: string | null;
     hasResumeFile: boolean;
     creatorName: string | null;
-    // 面试模式专属 / interview-mode only
     resumeStorageKey?: string | null;
-    scheduleEntries?: StudioInterviewRecord["scheduleEntries"];
-    interviewQuestions?: StudioInterviewRecord["interviewQuestions"];
-    status?: StudioInterviewRecord["status"];
+    interviewQuestions?: StudioInterviewRoundDetail["candidate"]["interviewQuestions"];
+
+    // 面试模式轮次字段 / Interview-mode round fields
+    roundId?: string;
+    roundLabel?: string;
+    roundScheduledAt?: string | null;
+    roundStatus?: StudioInterviewRoundDetail["status"];
+    roundInterviewLink?: string;
+    roundAllowTextInput?: boolean;
+    roundHasReport?: boolean;
   }
 
   let record: UnifiedRecord | null = null;
-  if (mode === "interview" && interviewRecord) {
+  if (mode === "interview" && round) {
     record = {
-      candidateEmail: interviewRecord.candidateEmail,
-      candidateName: interviewRecord.candidateName,
-      candidatePhone: interviewRecord.candidatePhone,
-      creatorName: null,
-      hasResumeFile: Boolean(interviewRecord.resumeStorageKey),
-      id: interviewRecord.id,
-      interviewQuestions: interviewRecord.interviewQuestions,
-      jobDescriptionName: interviewRecord.jobDescriptionName,
-      notes: interviewRecord.notes,
-      resumeFileName: interviewRecord.resumeFileName,
-      resumeProfile: interviewRecord.resumeProfile ?? null,
-      resumeStorageKey: interviewRecord.resumeStorageKey,
-      scheduleEntries: interviewRecord.scheduleEntries,
-      status: interviewRecord.status,
-      targetRole: interviewRecord.targetRole,
+      candidateEmail: round.candidate.candidateEmail,
+      candidateName: round.candidate.candidateName,
+      candidatePhone: round.candidate.candidatePhone,
+      creatorName: round.candidate.creatorName,
+      hasResumeFile: Boolean(round.candidate.resumeStorageKey),
+      // id = candidateId，用于「编辑候选人信息」跳转和简历 URL。
+      // id = candidateId, used for the "edit candidate" deep-link and resume URL.
+      id: round.candidate.id,
+      interviewQuestions: round.candidate.interviewQuestions,
+      jobDescriptionName: round.candidate.jobDescriptionName,
+      notes: round.candidate.notes,
+      resumeFileName: round.candidate.resumeFileName,
+      resumeProfile: round.candidate.resumeProfile ?? null,
+      resumeStorageKey: round.candidate.resumeStorageKey,
+      roundAllowTextInput: round.allowTextInput,
+      roundHasReport: round.hasReport,
+      roundId: round.id,
+      roundInterviewLink: round.interviewLink,
+      roundLabel: round.roundLabel,
+      roundScheduledAt: round.scheduledAt,
+      roundStatus: round.status,
+      targetRole: round.candidate.targetRole,
     };
   } else if (mode === "resume" && resumeRecord) {
     record = {
@@ -226,47 +234,6 @@ export function StudioPersonDetailDialog({
     }
   }
 
-  async function handleToggleAllowTextInput(roundId: string, next: boolean) {
-    if (!recordId || updatingRoundId) {
-      return;
-    }
-
-    setUpdatingRoundId(roundId);
-
-    try {
-      await updateStudioInterviewRound(slug, recordId, roundId, { allowTextInput: next });
-      toast.success(next ? "已开启文本作答" : "已关闭文本作答");
-      await queryClient.invalidateQueries({ queryKey: ["studio-interview", slug, recordId] });
-      onUpdated?.();
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "更新失败");
-    } finally {
-      setUpdatingRoundId(null);
-    }
-  }
-
-  async function handleResetRound(roundId: string) {
-    if (!recordId || resettingRoundId) {
-      return;
-    }
-
-    setResettingRoundId(roundId);
-
-    try {
-      await resetStudioInterviewRound(slug, recordId, roundId);
-      toast.success("轮次已重置为待开始");
-      await queryClient.invalidateQueries({ queryKey: ["studio-interview", slug, recordId] });
-      await queryClient.invalidateQueries({
-        queryKey: ["studio-interview-reports", slug, recordId],
-      });
-      onUpdated?.();
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "重置失败");
-    } finally {
-      setResettingRoundId(null);
-    }
-  }
-
   async function confirmResetSubmission() {
     const submissionId = pendingResetSubmissionId;
     if (!recordId || !submissionId) {
@@ -280,7 +247,7 @@ export function StudioPersonDetailDialog({
       await deleteStudioInterviewFormSubmission(slug, recordId, submissionId);
       toast.success("已重置面试表单填写");
       await queryClient.invalidateQueries({
-        queryKey: ["studio-interview-form-submissions", slug, recordId],
+        queryKey: ["studio-interview-round-form-submissions", slug, recordId],
       });
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "重置失败");
@@ -289,17 +256,14 @@ export function StudioPersonDetailDialog({
     }
   }
 
-  const scheduleEntries = ensureArray<StudioInterviewRecord["scheduleEntries"][number]>(
-    record?.scheduleEntries,
-  );
-  const interviewQuestions = ensureArray<StudioInterviewRecord["interviewQuestions"][number]>(
-    record?.interviewQuestions,
-  );
+  const interviewQuestions = ensureArray<
+    StudioInterviewRoundDetail["candidate"]["interviewQuestions"][number]
+  >(record?.interviewQuestions);
   const visibleInterviewQuestions = interviewQuestions.slice(0, 20);
   const latestReport = reports[0] ?? null;
 
-  // 面试模式 footer：「编辑候选人信息」跳转到简历库。
-  // Interview-mode footer: "编辑候选人信息" navigates to resume library.
+  // 面试模式 footer：「编辑候选人信息」跳转到简历库（record.id = candidateId）。
+  // Interview-mode footer: "编辑候选人信息" navigates to resume library using candidateId.
   const interviewModeFooter = record ? (
     <Button
       onClick={() => {
@@ -361,14 +325,18 @@ export function StudioPersonDetailDialog({
             ) : (
               <span className="flex flex-wrap items-center gap-3">
                 <span className="break-words">{record?.candidateName ?? "候选人详情"}</span>
-                {record?.status ? <InterviewStatusBadge status={record.status} /> : null}
+                {record?.roundStatus ? (
+                  <Badge variant={scheduleEntryStatusMeta[record.roundStatus].tone}>
+                    {scheduleEntryStatusMeta[record.roundStatus].label}
+                  </Badge>
+                ) : null}
               </span>
             )
           }
           description={
             mode === "resume"
               ? "查看候选人基础信息与结构化简历。"
-              : renderHeaderDescription({ isLoading, record: interviewRecord })
+              : renderHeaderDescription({ isLoading, round })
           }
           headerExtra={
             record ? (
@@ -411,7 +379,11 @@ export function StudioPersonDetailDialog({
                   label="预览简历"
                   url={
                     record.hasResumeFile
-                      ? `/api/w/${slug}/studio/${mode === "resume" ? "resumes" : "interviews"}/${record.id}/resume`
+                      ? `/api/w/${slug}/studio/${mode === "resume" ? "resumes" : "interviews"}/${
+                          // 面试模式用 roundId（/:id/resume 已是 round-keyed），简历模式用 record.id。
+                          // Interview mode uses roundId (/:id/resume is now round-keyed); resume mode uses record.id.
+                          mode === "interview" ? (record.roundId ?? record.id) : record.id
+                        }/resume`
                       : ""
                   }
                 />
@@ -446,99 +418,59 @@ export function StudioPersonDetailDialog({
                     </div>
                   </div>
 
-                  {mode === "interview" ? (
+                  {/* 轮次概览（面试模式专属）/ Round overview (interview mode only) */}
+                  {mode === "interview" && record.roundId ? (
                     <div className="rounded-2xl border border-border/60 bg-background p-5">
-                      <h3 className="font-medium text-sm">面试安排</h3>
+                      <h3 className="font-medium text-sm">轮次概览</h3>
                       <div className="mt-4 space-y-3">
-                        {scheduleEntries.length > 0 ? (
-                          scheduleEntries.map((entry, index) => {
-                            const statusKey = (entry.status ??
-                              "pending") as keyof typeof scheduleEntryStatusMeta;
-                            const statusMeta =
-                              scheduleEntryStatusMeta[statusKey] ?? scheduleEntryStatusMeta.pending;
-                            const isLastEntry = index === scheduleEntries.length - 1;
-                            const interviewLink = toAbsoluteUrl(
-                              `/interview/${record.id}/${entry.id}`,
-                            );
-
-                            return (
-                              <div
-                                className="rounded-xl border border-border/60 bg-muted/30 p-3"
-                                key={entry.id}
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium text-sm">{record.roundLabel}</span>
+                            {record.roundStatus ? (
+                              <Badge variant={scheduleEntryStatusMeta[record.roundStatus].tone}>
+                                {scheduleEntryStatusMeta[record.roundStatus].label}
+                              </Badge>
+                            ) : null}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {record.roundScheduledAt ? (
+                              <TimeDisplay
+                                className="shrink-0 text-muted-foreground text-xs"
+                                options={DATE_TIME_DISPLAY_OPTIONS}
+                                value={record.roundScheduledAt}
+                              />
+                            ) : (
+                              <span className="text-muted-foreground text-xs">未排期</span>
+                            )}
+                            {record.roundInterviewLink ? (
+                              <Button
+                                onClick={() =>
+                                  void handleCopy(
+                                    toAbsoluteUrl(record.roundInterviewLink as string),
+                                  )
+                                }
+                                size="sm"
+                                type="button"
+                                variant="ghost"
                               >
-                                <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
-                                  <div className="flex items-center gap-2">
-                                    <span className="wrap-break-word font-medium text-sm">
-                                      {entry.roundLabel}
-                                    </span>
-                                    <Badge variant={statusMeta.tone}>{statusMeta.label}</Badge>
-                                  </div>
-                                  <div className="flex items-center gap-2">
-                                    <TimeDisplay
-                                      className="shrink-0 text-muted-foreground text-xs"
-                                      options={DATE_TIME_DISPLAY_OPTIONS}
-                                      value={entry.scheduledAt}
-                                    />
-                                    <Button
-                                      onClick={() => void handleCopy(interviewLink)}
-                                      size="sm"
-                                      type="button"
-                                      variant="ghost"
-                                    >
-                                      <Share2Icon className="size-3.5" />
-                                      复制链接
-                                    </Button>
-                                    <InterviewLinkQrButton
-                                      candidateName={record.candidateName}
-                                      url={interviewLink}
-                                    />
-                                    {isLastEntry && entry.status === "completed" ? (
-                                      <Button
-                                        disabled={resettingRoundId === entry.id}
-                                        onClick={() => void handleResetRound(entry.id)}
-                                        size="sm"
-                                        type="button"
-                                        variant="outline"
-                                      >
-                                        <RotateCcwIcon className="size-3.5" />
-                                        {resettingRoundId === entry.id ? "重置中..." : "重置轮次"}
-                                      </Button>
-                                    ) : null}
-                                  </div>
-                                </div>
-                                <p className="mt-2 text-muted-foreground text-sm leading-normal">
-                                  {truncateText(entry.notes, 180) || "暂无轮次备注"}
-                                </p>
-                                <div className="mt-3 flex items-center justify-between gap-3 rounded-lg border border-border/50 bg-background/80 px-3 py-2">
-                                  <div className="min-w-0">
-                                    {/* 允许面试者文本输入 / Allow candidate text input */}
-                                    <p className="font-medium text-sm">允许面试者文本输入</p>
-                                    <p className="mt-0.5 text-muted-foreground text-xs">
-                                      关闭时面试界面文字输入框被禁用，仅支持语音作答。
-                                    </p>
-                                  </div>
-                                  <Switch
-                                    checked={entry.allowTextInput}
-                                    disabled={
-                                      entry.status === "completed" || updatingRoundId === entry.id
-                                    }
-                                    onCheckedChange={(next) =>
-                                      void handleToggleAllowTextInput(entry.id, next)
-                                    }
-                                  />
-                                </div>
-                                <div className="mt-3 rounded-lg border border-border/50 bg-background/80 px-3 py-2">
-                                  <p className="text-muted-foreground text-xs">完整面试链接</p>
-                                  <p className="mt-1 break-all font-mono text-xs leading-normal">
-                                    {interviewLink}
-                                  </p>
-                                </div>
-                              </div>
-                            );
-                          })
-                        ) : (
-                          <p className="text-muted-foreground text-sm">暂无面试安排。</p>
-                        )}
+                                <Share2Icon className="size-3.5" />
+                                复制链接
+                              </Button>
+                            ) : null}
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-between gap-3 rounded-lg border border-border/50 bg-background/80 px-3 py-2">
+                          <div className="min-w-0">
+                            {/* 允许面试者文本输入 / Allow candidate text input */}
+                            <p className="font-medium text-sm">允许面试者文本输入</p>
+                            <p className="mt-0.5 text-muted-foreground text-xs">
+                              关闭时面试界面文字输入框被禁用，仅支持语音作答。
+                            </p>
+                          </div>
+                          {/* T5 将重新接入可交互的 Switch；此处只读以避免调用已废弃的候选人级别端点。 */}
+                          {/* T5 will rewire the interactive Switch; read-only here to avoid stale candidate-level endpoint. */}
+                          <Switch checked={record.roundAllowTextInput ?? false} disabled />
+                        </div>
                       </div>
                     </div>
                   ) : null}
@@ -576,7 +508,8 @@ export function StudioPersonDetailDialog({
                   <div className="space-y-6">
                     <div className="grid gap-4 md:grid-cols-4">
                       <div className="rounded-2xl border border-border/60 bg-background p-4">
-                        <p className="text-muted-foreground text-xs">面试次数</p>
+                        {/* 本轮通话次数 / Call count for this round */}
+                        <p className="text-muted-foreground text-xs">本轮通话次数</p>
                         <p className="mt-2 font-medium text-2xl text-primary tabular-nums">
                           {reports.length}
                         </p>
