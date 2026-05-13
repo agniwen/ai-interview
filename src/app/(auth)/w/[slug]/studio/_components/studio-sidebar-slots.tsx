@@ -10,6 +10,7 @@ import {
   UserIcon,
   UserCircleIcon,
   UserCogIcon,
+  UsersIcon,
 } from "lucide-react";
 import Link from "next/link";
 import { useParams, usePathname } from "next/navigation";
@@ -54,6 +55,13 @@ const navGroups: NavGroup[] = [
         path: "/studio/interviews",
         resource: "interview",
         title: "AI 面试",
+      },
+      {
+        action: "read",
+        icon: UsersIcon,
+        path: "/studio/resumes",
+        resource: "resume",
+        title: "简历库",
       },
     ],
     label: "工作台",
