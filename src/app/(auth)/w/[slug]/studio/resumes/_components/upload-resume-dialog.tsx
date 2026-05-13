@@ -94,9 +94,9 @@ export function CreateResumeRecordDialog({ onCreated }: CreateResumeRecordDialog
   const [open, setOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const submitModeRef = useRef<SubmitMode>("save-only");
-  // 同 CreateInterviewDialog：onSubmit 闭包早于 pipeline 声明捕获，用 ref 桥接。
-  // Same pattern as CreateInterviewDialog: onSubmit closure captures before
-  // pipeline is declared; a ref bridges the forward reference.
+  // onSubmit 闭包早于 pipeline 声明捕获，用 ref 桥接以读取最新值。
+  // The onSubmit closure captures before pipeline is declared; a ref bridges
+  // the forward reference so the latest pipeline is readable at call time.
   const pipelineRef = useRef<ResumeAnalysisPipeline | null>(null);
 
   const form = useForm({
