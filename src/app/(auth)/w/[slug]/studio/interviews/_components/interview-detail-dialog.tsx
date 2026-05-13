@@ -11,8 +11,11 @@ import {
   updateStudioInterviewRound,
 } from "@/lib/client/api";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
-import { MessageSquareTextIcon, RotateCcwIcon, Share2Icon } from "lucide-react";
+import { MessageSquareTextIcon, PencilIcon, RotateCcwIcon, Share2Icon } from "lucide-react";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { CandidateBasicInfoView } from "@/components/candidate-basic-info-view";
+import { ResumeProfileView } from "@/components/resume-profile-view";
 import { toast } from "sonner";
 import { DATE_TIME_DISPLAY_OPTIONS, TimeDisplay } from "@/components/time-display";
 import {
@@ -36,7 +39,6 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
-import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { copyTextToClipboard, toAbsoluteUrl } from "@/lib/client/clipboard";
@@ -49,10 +51,7 @@ import { FormsTab } from "./interview-detail/forms-tab";
 import { InterviewMetricsPanel } from "./interview-detail/interview-metrics-panel";
 import {
   ensureArray,
-  ensureProjectExperiences,
-  ensureStringArray,
   formatReportStatus,
-  formatValue,
   getReportBadgeVariant,
   truncateText,
 } from "./interview-detail/helpers";
@@ -96,6 +95,7 @@ export function InterviewDetailDialog({
   const [resettingSubmissionId, setResettingSubmissionId] = useState<string | null>(null);
   const [pendingResetSubmissionId, setPendingResetSubmissionId] = useState<string | null>(null);
   const queryClient = useQueryClient();
+  const router = useRouter();
 
   // 三个查询统一改走 @/lib/api 的端点，错误处理由 ApiError 统一接管，避免重复样板。
   // All three queries go through @/lib/api endpoints; ApiError handles failure paths,
@@ -214,19 +214,7 @@ export function InterviewDetailDialog({
   const interviewQuestions = ensureArray<StudioInterviewRecord["interviewQuestions"][number]>(
     record?.interviewQuestions,
   );
-  const workExperiences = ensureArray<
-    NonNullable<StudioInterviewRecord["resumeProfile"]>["workExperiences"][number]
-  >(record?.resumeProfile?.workExperiences);
-  const projectExperiences = ensureProjectExperiences(record?.resumeProfile?.projectExperiences);
-  const skills = ensureStringArray(record?.resumeProfile?.skills);
-  const personalStrengths = ensureStringArray(record?.resumeProfile?.personalStrengths);
-  const schools = ensureStringArray(record?.resumeProfile?.schools);
   const visibleInterviewQuestions = interviewQuestions.slice(0, 20);
-  const visibleWorkExperiences = workExperiences.slice(0, 12);
-  const visibleProjectExperiences = projectExperiences.slice(0, 12);
-  const visibleSkills = skills.slice(0, 40);
-  const visiblePersonalStrengths = personalStrengths.slice(0, 20);
-  const visibleSchools = schools.slice(0, 20);
   const latestReport = reports[0] ?? null;
 
   return (
@@ -292,17 +280,32 @@ export function InterviewDetailDialog({
               <TabsContent value="overview">
                 <div className="space-y-6">
                   <div className="rounded-2xl border border-border/60 bg-muted/30 p-5">
-                    <h3 className="font-medium text-sm">基础信息</h3>
-                    <div className="mt-4 grid gap-3 text-sm">
-                      <DetailRow label="邮箱" value={formatValue(record.candidateEmail)} />
-                      <DetailRow label="目标岗位" value={formatValue(record.targetRole)} />
-                      <DetailRow label="关联岗位" value={formatValue(record.jobDescriptionName)} />
-                      <DetailRow
-                        label="工作年限"
-                        value={formatValue(record.resumeProfile?.workYears)}
+                    <h3 className="font-medium text-sm">候选人信息</h3>
+                    <div className="mt-4">
+                      <CandidateBasicInfoView
+                        candidateName={record.candidateName}
+                        candidateEmail={record.candidateEmail}
+                        candidatePhone={record.candidatePhone}
+                        targetRole={record.targetRole}
+                        jobDescriptionName={record.jobDescriptionName}
+                        creatorName={null}
+                        resumeFileName={record.resumeFileName}
+                        hasResumeFile={Boolean(record.resumeStorageKey)}
+                        footer={
+                          <Button
+                            onClick={() => {
+                              router.push(`/w/${slug}/studio/resumes?recordId=${record.id}`);
+                              onOpenChange(false);
+                            }}
+                            size="sm"
+                            type="button"
+                            variant="outline"
+                          >
+                            <PencilIcon className="size-3.5" />
+                            编辑候选人信息
+                          </Button>
+                        }
                       />
-                      <DetailRow label="年龄" value={formatValue(record.resumeProfile?.age)} />
-                      <DetailRow label="性别" value={formatValue(record.resumeProfile?.gender)} />
                     </div>
                   </div>
 
@@ -402,31 +405,9 @@ export function InterviewDetailDialog({
                   </div>
 
                   <div className="rounded-2xl border border-border/60 bg-background p-5">
-                    <h3 className="font-medium text-sm">技能与优势</h3>
+                    <h3 className="font-medium text-sm">简历评价</h3>
                     <p className="mt-3 text-muted-foreground text-sm leading-normal">
-                      技能：
-                      <span className="wrap-break-word">
-                        {visibleSkills.join("、") || "未发现信息"}
-                      </span>
-                    </p>
-                    <p className="mt-2 text-muted-foreground text-sm leading-normal">
-                      优势：
-                      <span className="wrap-break-word">
-                        {visiblePersonalStrengths.join("、") || "未发现信息"}
-                      </span>
-                    </p>
-                    <p className="mt-2 text-muted-foreground text-sm leading-normal">
-                      学校：
-                      <span className="wrap-break-word">
-                        {visibleSchools.join("、") || "未发现信息"}
-                      </span>
-                    </p>
-                  </div>
-
-                  <div className="rounded-2xl border border-border/60 bg-background p-5">
-                    <h3 className="font-medium text-sm">备注</h3>
-                    <p className="mt-3 text-muted-foreground text-sm leading-normal">
-                      {truncateText(record.notes, 600) || "暂无备注"}
+                      {truncateText(record.notes, 600) || "暂无简历评价"}
                     </p>
                   </div>
 
@@ -701,66 +682,8 @@ export function InterviewDetailDialog({
               </TabsContent>
 
               <TabsContent value="experience">
-                <div className="space-y-6">
-                  <div className="rounded-2xl border border-border/60 bg-muted/30 p-5">
-                    <h3 className="font-medium text-sm">工作经历</h3>
-                    <div className="mt-4 space-y-4">
-                      {visibleWorkExperiences.length > 0 ? (
-                        visibleWorkExperiences.map((item, index) => (
-                          <div key={`${item.company ?? "company"}-${index}`}>
-                            <p className="flex flex-wrap items-center gap-x-2 gap-y-1 font-medium text-sm">
-                              {formatValue(item.company)}
-                              <span className="text-muted-foreground">·</span>
-                              {formatValue(item.role)}
-                            </p>
-                            <p className="mt-1 text-muted-foreground text-xs">
-                              {formatValue(item.period)}
-                            </p>
-                            <p className="mt-2 text-sm leading-normal">
-                              {truncateText(item.summary, 280)}
-                            </p>
-                            {index < visibleWorkExperiences.length - 1 ? (
-                              <Separator className="mt-4" />
-                            ) : null}
-                          </div>
-                        ))
-                      ) : (
-                        <p className="text-muted-foreground text-sm">暂无工作经历。</p>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="rounded-2xl border border-border/60 bg-background p-5">
-                    <h3 className="font-medium text-sm">项目经历</h3>
-                    <div className="mt-4 space-y-4">
-                      {visibleProjectExperiences.length > 0 ? (
-                        visibleProjectExperiences.map((item, index) => (
-                          <div key={`${item.name ?? "project"}-${index}`}>
-                            <p className="flex flex-wrap items-center gap-x-2 gap-y-1 font-medium text-sm">
-                              {formatValue(item.name)}
-                              <span className="text-muted-foreground">·</span>
-                              {formatValue(item.role)}
-                            </p>
-                            <p className="mt-1 text-muted-foreground text-xs">
-                              {formatValue(item.period)}
-                            </p>
-                            <p className="mt-2 text-sm leading-normal">
-                              {truncateText(item.summary, 280)}
-                            </p>
-                            <p className="mt-2 text-muted-foreground text-xs">
-                              技术栈：
-                              {item.techStack.slice(0, 20).join("、") || "未发现信息"}
-                            </p>
-                            {index < visibleProjectExperiences.length - 1 ? (
-                              <Separator className="mt-4" />
-                            ) : null}
-                          </div>
-                        ))
-                      ) : (
-                        <p className="text-muted-foreground text-sm">暂无项目经历。</p>
-                      )}
-                    </div>
-                  </div>
+                <div className="rounded-2xl border border-border/60 bg-background p-5">
+                  <ResumeProfileView profile={record.resumeProfile ?? null} />
                 </div>
               </TabsContent>
 
