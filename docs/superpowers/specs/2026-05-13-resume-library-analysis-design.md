@@ -5,23 +5,26 @@
 
 ## 1. Goal
 
-简历库「上传简历」对话框 (`UploadResumeDialog`) 接入与 AI 面试「新建面试记录」对话框 (`CreateInterviewDialog`) 等价的简历分析流水线：
+简历库的「上传简历」对话框 (`UploadResumeDialog`) 升级为「新建简历记录」对话框：
 
-1. 上传 PDF → **流式解析** ResumeProfile → 自动回填姓名 / 邮箱 / 电话 / 目标岗位，并显示流式进度（loader、tool calls、partial fields、TextFlip 动画）
-2. **自动匹配在招 JD**，命中后回填 `jobDescriptionId`
-3. 身份维度查重命中时弹 `ResumeDedupOverlay`，用户确认后继续
-4. **流式生成面试题** → 保存进 `studioInterview.interviewQuestions`
-
-简历评价 (`notes`) 字段保留。**不引入** schedule 字段、Agent 提示词字段 —— 这些仍是 AI 面试独有，简历库的产品边界保持「不发起面试、不维护排期、不写 Agent 提示词」。
+1. 接入与 AI 面试「新建面试记录」对话框 (`CreateInterviewDialog`) 等价的简历分析流水线
+   - 上传 PDF → **流式解析** ResumeProfile → 自动回填姓名 / 邮箱 / 电话 / 目标岗位，并显示流式进度
+   - **自动匹配在招 JD**，命中后回填 `jobDescriptionId`
+   - 身份维度查重命中时弹 `ResumeDedupOverlay`，用户确认后继续
+   - **流式生成面试题** → 保存进 `studioInterview.interviewQuestions`
+2. **双提交按钮**：
+   - 「保存」→ 仅入库（与当前简历库语义对齐）
+   - 「保存并发起面试」→ 入库 + 自动写入 1 条默认面试轮次（一键升格为 AI 面试）
 
 副产物：抽出 `useResumeAnalysisPipeline` hook 与 `<ResumeAnalysisOverlay>` 组件，简历库与 AI 面试两边复用，消除 ~200 行流式逻辑重复。
 
 ## 2. Non-goals
 
-- 不修改 AI 面试 `CreateInterviewDialog` 的对外行为（仅做内部重构以复用 hook）。
+- 不修改 AI 面试 `CreateInterviewDialog` 的对外行为（仅做内部重构以复用 hook）。AI 面试新建仍是「多轮 / 自定义排期 / Agent 提示词」的完整入口。
+- 简历库新建对话框**不内嵌** `<InterviewScheduleFields>`。「保存并发起面试」走默认 schedule，需要精细配置走 AI 面试详情页或 AI 面试新建入口。
 - 不改简历库 PATCH `/studio/resumes/:id` 的语义（编辑流程目前不重跑分析，本次保持现状）。
-- 不引入「简历库 → AI 面试」一键升级动作；仍走现有「发起 AI 面试」跳转按钮。
-- 不修改 `studioInterview` 表 schema。
+- 不修改 `studioInterview` 表 schema 或 `studioInterviewSchedule` 表 schema。
+- 不动详情弹窗中已有的「发起 AI 面试」跳转按钮（与本次双按钮共存，互补）。
 
 ## 3. Architecture
 
@@ -92,21 +95,52 @@ export function useResumeAnalysisPipeline(
 - 渲染 `<ResumeAnalysisOverlay>` 替换原 `motion.div` 块
 - 行为不变；做端到端回归（手动 + 单测覆盖）
 
-### 3.3 简历库侧改造 (UploadResumeDialog)
+### 3.3 简历库侧改造 (UploadResumeDialog → CreateResumeRecordDialog)
 
-`upload-resume-dialog.tsx` 改造：
+`upload-resume-dialog.tsx` 改造（文件保留原名以减小 diff，导出组件重命名为 `CreateResumeRecordDialog`，外部调用点同步改）：
 
 - 接入 `useResumeAnalysisPipeline`
 - `onProfileParsed` 回填 `candidateName / candidateEmail / candidatePhone / targetRole`
 - `onJobDescriptionMatched` 回填 `jobDescriptionId`
 - `onQuestionsGenerated` 不再 setState（hook 内 `resumePayload` 已含 questions），提交时直接附 hook 暴露的 `resumePayload`
 - 因 dedup 已由 hook 接管，删掉本文件内 `pendingFormDataRef` / `fetchResumeDedup` / `handleDedupContinue` / `handleDedupCancel` 旧分支
-- 提交时：组装 FormData 时附 `resumePayload`（结构同 AI 面试）
 - 沿用 `CandidateFormFields`，把 hook 的进度状态摘要挂到 `resumeFieldExtra`；完整浮层由 `<ResumeAnalysisOverlay>` 覆盖（绝对定位铺满 Modal）
 
-UI 副本调整见 §4。按钮文案 "上传简历" 保留。
+**Footer 双按钮**：
 
-### 3.4 后端 (POST `/api/w/:slug/studio/resumes`)
+```tsx
+<Button variant="outline" disabled={isBusy} onClick={() => void handleSubmit("save-only")}>
+  保存
+</Button>
+<Button disabled={isBusy} onClick={() => void handleSubmit("save-and-start")}>
+  保存并发起面试
+</Button>
+```
+
+`handleSubmit(mode)`：
+
+- `"save-only"` → 组装 FormData（含 `resumePayload`）→ POST `/api/w/:slug/studio/resumes` → `onCreated` 回调拿到 `ResumeLibraryDetail` → 列表/详情走 resume 路径
+- `"save-and-start"` → 组装 FormData（含 `resumePayload` + 默认 `scheduleEntries`，见 §3.4）→ POST `/api/w/:slug/studio/interviews` → `onCreated` 回调拿到 `StudioInterviewRecord` → 弹 toast「已创建并发起 1 轮面试」，可选跳转到 AI 面试详情页（见 §4 Open Items）
+
+`onCreated` 回调签名扩展为 union：
+
+```ts
+type CreateResumeRecordResult =
+  | { mode: "save-only"; detail: ResumeLibraryDetail }
+  | { mode: "save-and-start"; record: StudioInterviewRecord };
+
+interface CreateResumeRecordDialogProps {
+  onCreated: (result: CreateResumeRecordResult) => void;
+}
+```
+
+`ResumeLibraryPage` 处理 union：`save-only` 直接 prepend 到列表，`save-and-start` 也 prepend（同一张 `studioInterview` 表，列表 DTO 拿得到，targetRole/notes 等都还在）。
+
+UI 副本调整见 §4。
+
+### 3.4 后端
+
+#### 3.4.1 POST `/api/w/:slug/studio/resumes`（「保存」路径）
 
 当前 `route.ts:159-228` 行为：
 - 服务端从 `formData.get("resume")` 取文件 → `parseResumeFastToProfile` 兜底解析
@@ -120,11 +154,35 @@ UI 副本调整见 §4。按钮文案 "上传简历" 保留。
    - 没有时退回现行 `uploadResult.cachedResumeProfile` / `parseResumeFastToProfile`，**questions 仍保持空数组**（不在服务端补跑题目生成）
 3. 落库时 `interviewQuestions = resumePayload?.interviewQuestions ?? []`
 4. `resumeProfile`、`candidateName` 等回填策略不变（用户输入优先，profile fallback）
-5. 复用 AI 面试 route 已有的 `parseResumePayloadInput` helper（同一份 `@/server/routes/.../interview/utils` 或就近抽到 `@/server/routes/studio/utils`）
+5. 复用 AI 面试 route 已有的 `parseResumePayloadInput` helper（建议抽到 `@/server/routes/interview/utils` 或共享路径），避免重复实现 JSON 校验
 
 理由：本设计的题目生成全程在客户端流式完成，服务端兜底跑题既会重复 LLM 调用，又会让简单的 POST 变成长任务。如果前端不传 `resumePayload`（例如客户端在 Step 2 中途断网），那条简历记录的 `interviewQuestions` 就是空，与现状一致——后续可通过编辑流程补回。
 
-> 不需要 schema migration —— `studioInterview.interviewQuestions` 已是 JSON 数组，简历库行此前一直存空数组，现在可能存非空，DB 层无变化。
+#### 3.4.2 POST `/api/w/:slug/studio/interviews`（「保存并发起面试」路径）
+
+复用现有 `/studio/interviews` POST handler，**无后端改动**。前端组装 FormData 时附：
+
+- `resumePayload`（同上）
+- `scheduleEntries`（JSON string）—— 由前端注入**默认值**：
+
+```ts
+const DEFAULT_SCHEDULE_ENTRY: ScheduleEntryInput = {
+  roundLabel: "初轮",
+  scheduledAt: new Date().toISOString(), // 立即可面，候选人点开链接即可进入
+  notes: "",
+  allowTextInput: true,
+};
+```
+
+- `status` 字段：默认 `"ready"`（沿用 AI 面试 POST 的默认）
+
+> 之所以选 `scheduledAt = now`：现有 `studioInterviewSchedule` schema 中 `scheduledAt` 为 `NOT NULL`（见 `db/schema.ts`，本设计实施前需 grep 确认；若是 nullable 则改用 `null` 语义更清晰）。
+
+`autoBindApplicableTemplates` 等副作用沿用 AI 面试 POST 现有事务逻辑，不另写。
+
+#### 3.4.3 schema migration
+
+不需要 —— `studioInterview.interviewQuestions` 已是 JSON 数组，简历库行此前存空数组，现在可能存非空，DB 层无变化。schedule 表也无字段新增。
 
 ### 3.5 简历库详情 (StudioPersonDetailDialog mode="resume")
 
@@ -145,13 +203,23 @@ DTO 改动：
 
 ## 4. 文案改动
 
-`upload-resume-dialog.tsx` 弹窗副标题当前是「将候选人简历加入简历库。不会生成面试题，也不会发起 AI 面试。」改为：
+| 位置 | 旧 | 新 |
+|---|---|---|
+| 触发按钮（resume-library-page） | 「上传简历」 | 「新建简历记录」 |
+| Modal `title` | 「上传简历」 | 「新建简历记录」 |
+| Modal `description` | 「将候选人简历加入简历库。不会生成面试题，也不会发起 AI 面试。」 | 「上传 PDF 自动解析候选人信息、匹配岗位并生成面试题；可仅入库，或一键发起 AI 面试。」 |
+| Footer 主按钮 | 「确认上传」 | 「保存并发起面试」 |
+| Footer 次按钮 | （无） | 「保存」（variant=outline）|
+| 成功 toast (save-only) | 「简历已加入简历库」 | 「简历记录已创建」 |
+| 成功 toast (save-and-start) | （无） | 「已创建并发起 1 轮面试」 |
 
-> "将候选人简历加入简历库。系统会自动解析简历、匹配在招岗位并生成面试题，便于后续发起 AI 面试。"
+代码内注释维护双语（per CLAUDE.md memory）。
 
-(简体中文 + 英文版需要在代码注释里维护双语，per CLAUDE.md memory feedback。)
+### Open Items（文案 / UX 待你拍板）
 
-按钮文案 "上传简历" 保留。
+1. **「保存并发起面试」后是否跳转到 AI 面试详情页？** 默认 toast 提示，停留在简历库列表；如果想 push 到 `/studio/interviews?recordId=…`，需要从 `ResumeLibraryPage` 拿到 router 并在 onCreated 回调里处理。我的推荐：**不跳转**，列表 prepend + toast 即可，用户主动需要时再点详情进入。
+2. **默认 schedule 的 `scheduledAt`**：当前设计选了 `new Date().toISOString()`（立即可面）。备选：用户在弹窗里多加一个「面试时间」字段（DateTimePicker）作为「保存并发起面试」的必填项 —— 这会让简历库弹窗体积更接近 AI 面试新建，违背我们的轻量化目标。建议保持默认值，需要精细排期走 AI 面试详情页编辑。
+3. **`scheduledAt` 字段是否真的 NOT NULL** —— 实施前需 grep `db/schema.ts` 中 `studioInterviewSchedule.scheduledAt` 字段定义确认。若 nullable，默认值改为 `null`（语义为「未排期」）更准确。
 
 ## 5. 数据流
 
@@ -167,11 +235,18 @@ DTO 改动：
                   → 用户点"继续录入"
                      → runQuestionGeneration → onQuestionsGenerated → resumePayload 更新
          → 未命中 → 直接 runQuestionGeneration → onQuestionsGenerated
-用户点"确认上传"
-  → buildFormData (含 resumePayload from hook state)
+
+分支 A — 用户点"保存"
+  → buildFormData (含 resumePayload from hook state, 不含 scheduleEntries)
   → POST /api/w/:slug/studio/resumes
       → 服务端读 resumePayload → interviewQuestions 一并写入
-  → onCreated → toast → 关弹窗
+  → onCreated({ mode: "save-only", detail }) → toast「简历记录已创建」→ 关弹窗
+
+分支 B — 用户点"保存并发起面试"
+  → buildFormData (含 resumePayload + scheduleEntries=[DEFAULT_SCHEDULE_ENTRY] + status="ready")
+  → POST /api/w/:slug/studio/interviews
+      → 现有 handler 走完整事务（record + schedule rows + autoBindApplicableTemplates）
+  → onCreated({ mode: "save-and-start", record }) → toast「已创建并发起 1 轮面试」→ 关弹窗
 ```
 
 ## 6. 错误处理 / 边界情况
@@ -181,10 +256,12 @@ DTO 改动：
 | 简历解析流失败 | 沿用 hook 内 toast，文件被回滚为 null；用户可手动录入表单后直接 POST（与现状对齐：服务端兜底跑 `parseResumeFastToProfile`，questions 留空） |
 | JD 自动匹配失败 | 静默吞，用户可手动选 JD（沿用 AI 面试现有行为） |
 | dedup 检查失败 | toast.warning「身份查重失败，已跳过」，继续 Step 2（与 AI 面试一致） |
-| 题目生成失败 | toast 错误，`resumePayload.interviewQuestions = []`，用户仍可"确认上传"将记录入库（questions 字段为空） |
+| 题目生成失败 | toast 错误，`resumePayload.interviewQuestions = []`，用户仍可"保存"将记录入库（questions 字段为空） |
 | 用户中途取消 (`handleCancelAnalysis`) | abort 所有 in-flight 请求，清空 file/payload/dedup state，表单原值保留 |
-| 用户不上传 PDF | hook 不启动；表单直接 POST，行为与现状一致 |
+| 用户不上传 PDF | hook 不启动；两个按钮都可点 |
 | 用户上传 PDF 后改文件 | `handleResumeChange` 在开头 reset 所有相关 state；hook 内部行为不变 |
+| 用户不上传 PDF 直接「保存并发起面试」 | 允许 —— 默认 schedule 仍写入；候选人姓名走表单值（不会被 profile 兜底）；与 AI 面试现有「手动录入 + 不上传简历」路径一致 |
+| 「保存并发起面试」POST 失败 | toast 错误，弹窗不关，按钮恢复可点（用户可重试「保存」降级或重新「保存并发起面试」） |
 
 ## 7. Testing
 
@@ -200,21 +277,35 @@ Vitest + jsdom，mock `fetch`、`rpc`、`fetchInterviewDedup`、`readNdjsonStrea
 - `handleCancelAnalysis` → abort 后续不再触发回调
 - Step 1 失败 → 不进 Step 2
 
-### 7.2 后端测试 (`src/server/routes/studio/routes/resumes/__tests__/`)
+### 7.2 后端测试
 
-补一份 `route.create-with-payload.test.ts`：
+#### 简历库 POST (`src/server/routes/studio/routes/resumes/__tests__/route.create-with-payload.test.ts`)
 
 - POST 带 `resumePayload` → 记录的 `interviewQuestions` 与 payload 一致
 - POST 不带 `resumePayload` 但带 PDF → 走 `parseResumeFastToProfile`，`interviewQuestions` 为 `[]`
 - POST 不带 `resumePayload` 也不带 PDF → 行为同现状
 - payload JSON 非法 → 400
 
-### 7.3 端到端手动验收
+#### AI 面试 POST 回归 (`src/server/routes/studio/routes/interviews/__tests__/`)
 
-- 简历库点"上传简历" → 选 PDF → 看到流式进度 → 表单自动填好 → 弹窗"确认上传"
-- 列表新行出现，详情对话框可见姓名 / 简历 / 评价；切到"AI 题目" tab 看到生成的题
-- 在 AI 面试侧点"新建面试记录"做一遍同样动作，验证无回归
-- `pnpm typecheck` / `pnpm check` / `pnpm test` 全部通过
+复用现有 POST tests，确认接受简历库前端传来的同样 payload 形状（`resumePayload` + `scheduleEntries=[default]`）能成功写入 record + schedule row 1 条。
+
+### 7.3 前端端到端手动验收
+
+**简历库分支 A — 仅保存**：
+- 列表点「新建简历记录」→ 选 PDF → 看到流式进度 → 表单自动填好
+- 点「保存」→ toast「简历记录已创建」→ 列表新行
+- 打开详情，切到「AI 题目」tab 看到生成的题
+
+**简历库分支 B — 保存并发起面试**：
+- 同上至 hook 完成
+- 点「保存并发起面试」→ toast「已创建并发起 1 轮面试」→ 列表新行
+- 进 `/studio/interviews` 也能看到该记录，详情有 1 条 schedule 行（初轮，scheduledAt=刚才）
+
+**AI 面试回归**：
+- AI 面试侧点「新建面试记录」走完整流程，确认行为不变
+
+**质量门**：`pnpm typecheck` / `pnpm check` / `pnpm test` 全部通过
 
 ## 8. Migration & rollout
 
@@ -235,5 +326,6 @@ Vitest + jsdom，mock `fetch`、`rpc`、`fetchInterviewDedup`、`readNdjsonStrea
 
 ## 10. Open items
 
+- §4 列表中的 3 个文案 / UX 决策（跳转、默认 scheduledAt、schedule 字段可空性）。
 - 是否需要把简历库 dedup-check 路由 `/api/w/:slug/studio/resumes/dedup-check` 标 deprecated？—— 不在本次 spec 范围，保留。
-- AI 面试新建中"取消分析" UX 与简历库是否完全一致？—— 是。
+- AI 面试新建中「取消分析」UX 与简历库是否完全一致？—— 是。
