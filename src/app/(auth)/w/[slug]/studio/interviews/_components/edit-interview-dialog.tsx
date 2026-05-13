@@ -3,23 +3,22 @@
 import type { ScheduleEntryStatus, StudioInterviewRecord } from "@/lib/shared/studio-interviews";
 import { useStore } from "@tanstack/react-form";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { LoaderCircleIcon } from "lucide-react";
+import { LoaderCircleIcon, PencilIcon } from "lucide-react";
 import { useCallback, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { AnimatedHeight } from "@/components/animated-height";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
-import { FieldGroup, FieldLabel } from "@/components/ui/field";
-import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { apiFetch, fetchStudioInterview, resetStudioInterviewRound } from "@/lib/client/api";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
+import { CandidateBasicInfoView } from "@/components/candidate-basic-info-view";
 import {
   createInterviewFormValues,
   toInterviewFormValues,
   useInterviewForm,
 } from "./interview-form";
-import { InterviewBasicInfoFields, InterviewNotesField } from "./interview-form/basic-info-fields";
 import { buildInterviewFormData } from "./interview-form/build-form-data";
 import { AgentInstructionsPanel } from "./agent-instructions-panel";
 import { InterviewQuestionBindingsSection } from "./interview-question-bindings-section";
@@ -38,7 +37,7 @@ export function EditInterviewDialog({
   onUpdated: (record: StudioInterviewRecord) => void;
 }) {
   const slug = useWorkspaceSlug();
-  const [resumeFile, setResumeFile] = useState<File | null>(null);
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<string>("basic");
   const [roundStatuses, setRoundStatuses] = useState<Record<string, ScheduleEntryStatus>>({});
   const [resettingRoundId, setResettingRoundId] = useState<string | null>(null);
@@ -53,7 +52,7 @@ export function EditInterviewDialog({
 
       const formData = buildInterviewFormData(values, {
         questionsFieldName: "editedQuestions",
-        resumeFile,
+        resumeFile: null,
       });
 
       try {
@@ -63,7 +62,6 @@ export function EditInterviewDialog({
         );
         onUpdated(updated);
         onOpenChange(false);
-        setResumeFile(null);
         toast.success("面试记录已更新");
       } catch (error) {
         toast.error(error instanceof Error ? error.message : "更新失败");
@@ -105,7 +103,7 @@ export function EditInterviewDialog({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- form instance is stable
   }, []);
 
-  const { isLoading: isLoadingRecord } = useQuery({
+  const { data: recordEditing, isLoading: isLoadingRecord } = useQuery({
     enabled: open && !!recordId,
     meta: {
       onError: (error: Error) => {
@@ -114,7 +112,6 @@ export function EditInterviewDialog({
       },
     },
     queryFn: async () => {
-      setResumeFile(null);
       const record = await fetchStudioInterview(slug, recordId as string);
       if (!record) {
         throw new Error("加载编辑数据失败");
@@ -124,10 +121,6 @@ export function EditInterviewDialog({
     },
     queryKey: ["studio-interview-edit", slug, recordId],
   });
-
-  function handleResumeChange(file: File | null) {
-    setResumeFile(file);
-  }
 
   async function handleResetRound(roundId: string) {
     if (!recordId || resettingRoundId) {
@@ -166,7 +159,7 @@ export function EditInterviewDialog({
         open={open}
         onOpenChange={onOpenChange}
         title="编辑面试记录"
-        description="更新候选人资料、流程状态、面试安排，并支持替换关联的简历 PDF。"
+        description="维护面试流程：状态、安排、面试题、Agent 提示词。候选人资料请在简历库编辑。"
         size="2xl"
         headerExtra={
           isLoadingRecord ? null : (
@@ -214,27 +207,38 @@ export function EditInterviewDialog({
             <AnimatedHeight>
               <TabsContent className="mt-0" value="basic">
                 <div className="space-y-5">
-                  <div className="grid gap-4">
-                    <FieldGroup className="gap-2">
-                      <FieldLabel htmlFor="edit-resume-upload">替换简历 PDF</FieldLabel>
-                      <Input
-                        accept="application/pdf"
-                        disabled={isLoadingRecord || isSubmitting}
-                        id="edit-resume-upload"
-                        onChange={(event) => handleResumeChange(event.target.files?.[0] ?? null)}
-                        type="file"
+                  {recordEditing ? (
+                    <div className="rounded-2xl border border-border/60 bg-muted/30 p-4">
+                      <CandidateBasicInfoView
+                        candidateName={recordEditing.candidateName}
+                        candidateEmail={recordEditing.candidateEmail}
+                        candidatePhone={recordEditing.candidatePhone}
+                        targetRole={recordEditing.targetRole}
+                        jobDescriptionName={recordEditing.jobDescriptionName}
+                        creatorName={null}
+                        resumeFileName={recordEditing.resumeFileName}
+                        hasResumeFile={Boolean(recordEditing.resumeStorageKey)}
+                        footer={
+                          <Button
+                            onClick={() => {
+                              router.push(`/w/${slug}/studio/resumes?recordId=${recordEditing.id}`);
+                              onOpenChange(false);
+                            }}
+                            size="sm"
+                            type="button"
+                            variant="outline"
+                          >
+                            <PencilIcon className="size-3.5" />
+                            编辑候选人信息
+                          </Button>
+                        }
                       />
-                      <p className="text-muted-foreground text-sm">
-                        仅替换关联的简历
-                        PDF，不会重新解析简历或覆盖已维护的候选人信息、面试题与轮次安排。
+                      <p className="mt-3 text-muted-foreground text-xs">
+                        候选人姓名 / 邮箱 / 电话 / 目标岗位 / 关联岗位 / 简历 PDF
+                        在简历库统一维护，请在那里编辑。
                       </p>
-                      {resumeFile ? (
-                        <p className="break-all text-muted-foreground text-sm">{resumeFile.name}</p>
-                      ) : null}
-                    </FieldGroup>
-                  </div>
-
-                  <InterviewBasicInfoFields form={form} />
+                    </div>
+                  ) : null}
 
                   <InterviewScheduleFields
                     form={form}
@@ -242,8 +246,6 @@ export function EditInterviewDialog({
                     resettingRoundId={resettingRoundId}
                     roundStatuses={roundStatuses}
                   />
-
-                  <InterviewNotesField form={form} />
                 </div>
               </TabsContent>
 
