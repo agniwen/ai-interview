@@ -16,6 +16,7 @@ interface RouteMeta {
 }
 
 const ROUTE_META: { prefix: string; meta: RouteMeta }[] = [
+  { meta: { title: "简历库" }, prefix: "/studio/resumes" },
   { meta: { title: "AI 面试" }, prefix: "/studio/interviews" },
   { meta: { title: "部门管理" }, prefix: "/studio/departments" },
   { meta: { title: "面试官管理" }, prefix: "/studio/interviewers" },
@@ -27,7 +28,7 @@ const ROUTE_META: { prefix: string; meta: RouteMeta }[] = [
   { meta: { title: "全局配置" }, prefix: "/studio/global-config" },
 ];
 
-const DEFAULT_META: RouteMeta = { title: "AI 面试" };
+const DEFAULT_META: RouteMeta = { title: "简历库" };
 const WORKSPACE_PREFIX_REGEX = /^\/w\/[^/]+/;
 
 function resolveRouteMeta(pathname: string): RouteMeta {

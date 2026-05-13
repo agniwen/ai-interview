@@ -51,17 +51,17 @@ const navGroups: NavGroup[] = [
     items: [
       {
         action: "read",
-        icon: BotIcon,
-        path: "/studio/interviews",
-        resource: "interview",
-        title: "AI 面试",
-      },
-      {
-        action: "read",
         icon: UsersIcon,
         path: "/studio/resumes",
         resource: "resume",
         title: "简历库",
+      },
+      {
+        action: "read",
+        icon: BotIcon,
+        path: "/studio/interviews",
+        resource: "interview",
+        title: "AI 面试",
       },
     ],
     label: "工作台",

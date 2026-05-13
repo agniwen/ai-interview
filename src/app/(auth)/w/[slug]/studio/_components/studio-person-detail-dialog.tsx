@@ -314,36 +314,36 @@ export function StudioPersonDetailDialog({
     </Button>
   ) : null;
 
-  // 简历模式 footer：「编辑」触发父组件 onEdit，「发起 AI 面试」跳转到面试页。
-  // Resume-mode footer: "编辑" calls parent onEdit; "发起 AI 面试" navigates to interviews.
-  const resumeModeFooter = record ? (
-    <>
+  // 简历模式弹窗底部双按钮：两个按钮各占一半宽度，铺满 Modal footer。
+  // Resume-mode dialog footer: two buttons, each flex-1, filling the Modal footer.
+  const resumeModeModalFooter = record ? (
+    <div className="flex w-full gap-2">
       <Button
+        className="flex-1"
         onClick={() => {
           if (onEdit) {
             onEdit(record.id);
           }
         }}
-        size="sm"
         type="button"
         variant="outline"
       >
-        <PencilIcon className="size-3.5" />
+        <PencilIcon className="size-4" />
         编辑
       </Button>
       <Button
+        className="flex-1"
         onClick={() => {
           router.push(`/w/${slug}/studio/interviews?recordId=${record.id}`);
           onOpenChange(false);
         }}
-        size="sm"
         type="button"
       >
-        <BotIcon className="size-3.5" />
+        <BotIcon className="size-4" />
         发起 AI 面试
-        <ExternalLinkIcon className="size-3 opacity-70" />
+        <ExternalLinkIcon className="size-3.5 opacity-70" />
       </Button>
-    </>
+    </div>
   ) : null;
 
   return (
@@ -353,6 +353,7 @@ export function StudioPersonDetailDialog({
           open={open}
           onOpenChange={onOpenChange}
           size={mode === "resume" ? "lg" : "full"}
+          footer={mode === "resume" ? resumeModeModalFooter : undefined}
           title={
             mode === "resume" ? (
               "候选人详情"
@@ -439,7 +440,7 @@ export function StudioPersonDetailDialog({
                         creatorName={record.creatorName}
                         resumeFileName={record.resumeFileName}
                         hasResumeFile={record.hasResumeFile}
-                        footer={mode === "interview" ? interviewModeFooter : resumeModeFooter}
+                        footer={mode === "interview" ? interviewModeFooter : null}
                       />
                     </div>
                   </div>

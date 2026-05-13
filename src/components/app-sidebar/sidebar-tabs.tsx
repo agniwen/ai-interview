@@ -42,7 +42,7 @@ export function SidebarTabs() {
     }
 
     const nextTab = value as SidebarTabValue;
-    const target = nextTab === "chat" ? `/w/${slug}/chat` : `/w/${slug}/studio/interviews`;
+    const target = nextTab === "chat" ? `/w/${slug}/chat` : `/w/${slug}/studio/resumes`;
 
     if (target !== pathname) {
       router.push(target);
