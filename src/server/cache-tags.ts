@@ -17,3 +17,16 @@ export function safeUpdateTag(tag: string) {
     // best-effort cache invalidation — non-critical
   }
 }
+
+/**
+ * AI 面试与简历库共用同一张 studioInterview 表。任一侧写入后必须同时失效两个
+ * cache tag，否则另一个页面会读到旧投影。集中在此处避免调用方漏掉一个。
+ *
+ * AI 面试 and the resume library share one `studioInterview` table. Any
+ * mutation on either side must bust both cache tags or the other page reads
+ * a stale projection. Centralised here so call sites can't forget one.
+ */
+export function invalidateStudioInterviewCaches() {
+  safeUpdateTag("studio-interviews");
+  safeUpdateTag("studio-resumes");
+}
