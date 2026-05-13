@@ -41,11 +41,11 @@ import {
   replaceInterviewBindings,
 } from "@/server/routes/studio/routes/interview-questions/dao/bindings";
 import { queryInterviewConversationReports } from "@/server/routes/studio/routes/interviews/dao/interview-conversations";
+import { queryInterviewDedup } from "@/server/routes/studio/routes/interviews/dao/studio-interviews";
 import {
-  queryInterviewDedup,
-  queryPaginatedStudioInterviewRecords,
-  queryStudioInterviewSummary,
-} from "@/server/routes/studio/routes/interviews/dao/studio-interviews";
+  queryPaginatedInterviewRounds,
+  summarizeInterviewRoundCounts,
+} from "@/server/routes/studio/routes/interviews/dao/interview-rounds";
 import {
   buildScheduleRows,
   loadRecordById,
@@ -71,7 +71,7 @@ export const studioInterviewsRouter = factory
     if (!activeOrg) {
       return c.json({ message: "Unauthorized" }, 401);
     }
-    const summary = await queryStudioInterviewSummary(activeOrg.id);
+    const summary = await summarizeInterviewRoundCounts(activeOrg.id);
     return c.json(summary, 200);
   })
   .post(
@@ -113,20 +113,11 @@ export const studioInterviewsRouter = factory
         return c.json({ message: "Unauthorized" }, 401);
       }
       const q = c.req.valid("query");
-      const result = await queryPaginatedStudioInterviewRecords(
+      const result = await queryPaginatedInterviewRounds(
         activeOrg.id,
-        {
-          search: q.search,
-          status: q.status,
-        },
-        {
-          page: q.page,
-          pageSize: q.pageSize,
-          sortBy: q.sortBy,
-          sortOrder: q.sortOrder,
-        },
+        { search: q.search, status: q.status },
+        { page: q.page, pageSize: q.pageSize, sortBy: q.sortBy, sortOrder: q.sortOrder },
       );
-
       return c.json(result, 200);
     },
   )

@@ -17,11 +17,10 @@ import "client-only";
 
 import type { CandidateFormSubmissionWithSnapshot } from "@/lib/shared/candidate-forms";
 import type { StudioInterviewConversationReport } from "@/lib/shared/interview-session";
-import type {
-  StudioInterviewListRecord,
-  StudioInterviewRecord,
-  StudioInterviewStatus,
-} from "@/lib/shared/studio-interviews";
+import type { PaginatedStudioInterviewRoundsResult } from "@/lib/shared/studio-interview-rounds";
+// 仍作为 StudioCandidateRecord 的别名被 T4/T5 消费，DedupMatchRecord 等也用到。
+// Still aliased to StudioCandidateRecord; consumed by remaining helpers in T4/T5.
+import type { StudioInterviewRecord, StudioInterviewStatus } from "@/lib/shared/studio-interviews";
 import { rpc } from "@/lib/client/rpc";
 import { rpcFetch } from "../rpc-fetch";
 
@@ -48,30 +47,25 @@ export interface DedupMatchRecord {
 }
 
 /**
- * 列表分页参数。
- * List pagination / filter parameters.
+ * 面试轮次列表分页参数。
+ * Interview round list pagination / filter parameters.
  */
-export interface StudioInterviewListParams {
+export interface StudioInterviewRoundListParams {
   page?: number;
   pageSize?: number;
   search?: string;
   status?: string;
 }
 
-export interface StudioInterviewListResponse {
-  records: StudioInterviewListRecord[];
-  total: number;
-}
-
 /**
- * 拉取面试列表（支持分页 / 关键词 / 状态筛选）。
- * Fetch the interview list (supports pagination / keyword / status filtering).
+ * 拉取面试轮次列表（支持分页 / 关键词 / 状态筛选）。
+ * Fetch the interview round list (supports pagination / keyword / status filtering).
  */
-export function fetchStudioInterviews(
+export function fetchStudioInterviewRounds(
   slug: string,
-  params: StudioInterviewListParams = {},
-): Promise<StudioInterviewListResponse> {
-  return rpcFetch<StudioInterviewListResponse>(
+  params: StudioInterviewRoundListParams = {},
+): Promise<PaginatedStudioInterviewRoundsResult> {
+  return rpcFetch<PaginatedStudioInterviewRoundsResult>(
     rpc.api.w[":slug"].studio.interviews.$get({
       param: { slug },
       query: {
@@ -86,11 +80,23 @@ export function fetchStudioInterviews(
 }
 
 /**
- * 拉取列表概览数据（按状态聚合的计数等）。
- * Fetch the list summary (status counts and other aggregates).
+ * 面试轮次概览计数（按状态分组）。
+ * Interview round summary counts grouped by status.
  */
-export function fetchStudioInterviewSummary(slug: string): Promise<Record<string, unknown>> {
-  return rpcFetch<Record<string, unknown>>(
+export interface InterviewRoundSummaryResponse {
+  total: number;
+  pending: number;
+  inProgress: number;
+  completed: number;
+  interrupted: number;
+}
+
+/**
+ * 拉取轮次概览数据（各状态计数）。
+ * Fetch the round summary (status counts).
+ */
+export function fetchStudioInterviewSummary(slug: string): Promise<InterviewRoundSummaryResponse> {
+  return rpcFetch<InterviewRoundSummaryResponse>(
     rpc.api.w[":slug"].studio.interviews.summary.$get({ param: { slug } }),
     "加载概览失败",
   );

@@ -2,11 +2,17 @@
 "use client";
 
 import { PageHeader } from "@/app/(auth)/w/[slug]/studio/_components/page-header";
-import type { StudioInterviewListRecord } from "@/lib/shared/studio-interviews";
+import type { InterviewRoundSummaryResponse } from "@/lib/client/api";
+import {
+  bulkDeleteStudioInterviews,
+  deleteStudioInterview,
+  fetchStudioInterviewSummary,
+} from "@/lib/client/api";
 import type {
-  PaginatedStudioInterviewResult,
-  StudioInterviewSummary,
-} from "@/server/routes/studio/routes/interviews/dao/studio-interviews";
+  PaginatedStudioInterviewRoundsResult,
+  StudioInterviewRoundListRecord,
+} from "@/lib/shared/studio-interview-rounds";
+import { scheduleEntryStatusMeta } from "@/lib/shared/studio-interviews";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import dynamic from "next/dynamic";
 import Link from "next/link";
@@ -24,6 +30,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -35,6 +42,7 @@ import {
   textColumn,
   useDataGridState,
 } from "@/components/data-grid";
+import { DATE_TIME_DISPLAY_OPTIONS, TimeDisplay } from "@/components/time-display";
 import {
   Empty,
   EmptyContent,
@@ -43,20 +51,12 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
-import { bulkDeleteStudioInterviews, deleteStudioInterview, rpcFetch } from "@/lib/client/api";
 import { rpc } from "@/lib/client/rpc";
+import { rpcFetch } from "@/lib/client/api/rpc-fetch";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { copyTextToClipboard, toAbsoluteUrl } from "@/lib/client/clipboard";
-import {
-  scheduleEntryStatusMeta,
-  studioInterviewStatusMeta,
-  studioInterviewStatusValues,
-} from "@/lib/shared/studio-interviews";
-import { Badge } from "@/components/ui/badge";
 import { StudioPersonDetailDialog } from "@/app/(auth)/w/[slug]/studio/_components/studio-person-detail-dialog";
 import { StudioPersonEditDialog } from "@/app/(auth)/w/[slug]/studio/_components/studio-person-edit-dialog";
-import { InterviewStatusBadge } from "./interview-status-badge";
-import { JobDescriptionViewDialog } from "./job-description-view-dialog";
 
 const PdfPreviewDialog = dynamic(
   async () => {
@@ -79,29 +79,31 @@ export function InterviewManagementPage({
   initialData,
   initialSummary,
 }: {
-  initialData: PaginatedStudioInterviewResult;
-  initialSummary: StudioInterviewSummary;
+  initialData: PaginatedStudioInterviewRoundsResult;
+  initialSummary: InterviewRoundSummaryResponse;
 }) {
   const slug = useWorkspaceSlug();
   const queryClient = useQueryClient();
 
-  const fetchInterviews = useMemo(
+  // 拉取轮次列表（含分页 / 搜索 / 状态过滤）。
+  // Fetch the round list with pagination / search / status filtering.
+  const fetchRounds = useMemo(
     () =>
-      (params: FetchParams): Promise<PaginatedStudioInterviewResult> => {
+      (params: FetchParams): Promise<PaginatedStudioInterviewRoundsResult> => {
         const query: Record<string, string> = {
           page: String(params.page),
           pageSize: String(params.pageSize),
-          sortBy: params.sortBy ?? "createdAt",
+          sortBy: params.sortBy ?? "scheduledAt",
           sortOrder: params.sortBy ? (params.sortOrder ?? "asc") : "desc",
         };
         if (params.search) {
           query.search = params.search;
         }
-        // 多选过滤：CSV 形式 / Multi-select filters: CSV serialization.
+        // 多选过滤：CSV 形式传递给后端。/ Multi-select: CSV-serialised for the backend.
         if (params.filters.status) {
           query.status = params.filters.status;
         }
-        return rpcFetch<PaginatedStudioInterviewResult>(
+        return rpcFetch<PaginatedStudioInterviewRoundsResult>(
           rpc.api.w[":slug"].studio.interviews.$get({ param: { slug }, query }),
           "加载面试列表失败",
         );
@@ -109,22 +111,20 @@ export function InterviewManagementPage({
     [slug],
   );
 
-  const grid = useDataGridState<StudioInterviewListRecord, { status: string }>({
-    defaultSorting: [{ desc: true, id: "createdAt" }],
-    fetcher: fetchInterviews,
+  const grid = useDataGridState<StudioInterviewRoundListRecord, { status: string }>({
+    // 默认按排期时间降序。/ Default: scheduledAt descending.
+    defaultSorting: [{ desc: true, id: "scheduledAt" }],
+    fetcher: fetchRounds,
     initialData,
     initialFilters: { status: "" },
     namespace: "studio-interviews",
   });
 
-  // Summary query (independent of grid state)
+  // 概览计数独立轮询（与列表分页状态无关）。
+  // Summary query — independent of grid pagination state.
   const summaryQuery = useQuery({
     placeholderData: (prev) => prev,
-    queryFn: () =>
-      rpcFetch<StudioInterviewSummary>(
-        rpc.api.w[":slug"].studio.interviews.summary.$get({ param: { slug } }),
-        "加载概览失败",
-      ),
+    queryFn: () => fetchStudioInterviewSummary(slug),
     queryKey: ["studio-interviews", slug, "summary"] as const,
     refetchOnWindowFocus: true,
     staleTime: 30 * 1000,
@@ -134,17 +134,14 @@ export function InterviewManagementPage({
   // Dialog state
   const [detailRecordId, setDetailRecordId] = useState<string | null>(null);
   const [editRecordId, setEditRecordId] = useState<string | null>(null);
-  const [deleteRecord, setDeleteRecord] = useState<StudioInterviewListRecord | null>(null);
-  const [previewRecord, setPreviewRecord] = useState<StudioInterviewListRecord | null>(null);
-  const [viewJobDescriptionId, setViewJobDescriptionId] = useState<string | null>(null);
+  const [deleteRecord, setDeleteRecord] = useState<StudioInterviewRoundListRecord | null>(null);
+  const [previewRecord, setPreviewRecord] = useState<StudioInterviewRoundListRecord | null>(null);
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
 
-  // 中文：从飞书通知卡片等外部链接进入时，URL 形如 ?recordId=xxx；
-  // 自动打开详情 dialog 并清掉这个参数（避免刷新 / 分享时反复触发）。
-  // English: when entering via an external link (e.g. Feishu notification card)
-  // shaped like `?recordId=xxx`, auto-open the detail dialog and strip the
-  // param so refreshes or shared URLs don't re-trigger.
+  // 外部链接携带 ?recordId=xxx 时自动打开详情 dialog 并清掉参数。
+  // When arriving via external link with ?recordId=xxx, open the detail dialog
+  // and strip the param so it doesn't re-trigger on refresh.
   const searchParams = useSearchParams();
   const consumedRecordIdRef = useRef(false);
   useEffect(() => {
@@ -168,17 +165,19 @@ export function InterviewManagementPage({
     void queryClient.invalidateQueries({ queryKey: ["studio-interviews"] });
   }
 
-  async function copyInterviewLink(record: StudioInterviewListRecord) {
-    const lastEntry = record.scheduleEntries.at(-1);
-    const link = lastEntry ? `/interview/${record.id}/${lastEntry.id}` : record.interviewLink;
-    const fullLink = toAbsoluteUrl(link);
+  // 复制面试链接：直接读 row.interviewLink，无需扫描 scheduleEntries。
+  // Copy interview link: read row.interviewLink directly, no scheduleEntries scan needed.
+  async function copyInterviewLink(record: StudioInterviewRoundListRecord) {
+    const fullLink = toAbsoluteUrl(record.interviewLink);
     try {
       const result = await copyTextToClipboard(fullLink);
       if (result === "copied") {
-        return toast.success("面试链接已复制");
+        toast.success("面试链接已复制");
+        return;
       }
       if (result === "manual") {
-        return toast.info("已弹出链接，请手动复制");
+        toast.info("已弹出链接，请手动复制");
+        return;
       }
       if (result === "failed") {
         throw new Error("copy-failed");
@@ -188,10 +187,12 @@ export function InterviewManagementPage({
     }
   }
 
+  // 列定义：以 round 为主键，候选人信息作为快照列展示。
+  // Column definitions: round-keyed; candidate info shown as snapshot columns.
   const columns = useMemo(
     () => [
-      selectColumn<StudioInterviewListRecord>(),
-      customColumn<StudioInterviewListRecord>({
+      selectColumn<StudioInterviewRoundListRecord>(),
+      customColumn<StudioInterviewRoundListRecord>({
         cell: (r) => (
           <div className="min-w-0">
             <button
@@ -218,101 +219,52 @@ export function InterviewManagementPage({
         size: 180,
         title: "候选人",
       }),
-      textColumn<StudioInterviewListRecord>({
-        cell: (r) => r.targetRole || "待识别岗位",
-        key: "targetRole",
-        title: "目标岗位",
-      }),
-      customColumn<StudioInterviewListRecord>({
-        cell: (r) =>
-          r.jobDescriptionName ? (
-            <button
-              className="cursor-pointer truncate text-left underline-offset-4 hover:underline"
-              onClick={() => r.jobDescriptionId && setViewJobDescriptionId(r.jobDescriptionId)}
-              type="button"
-            >
-              {r.jobDescriptionName}
-            </button>
-          ) : (
-            <span className="text-muted-foreground">—</span>
-          ),
+      textColumn<StudioInterviewRoundListRecord>({
+        cell: (r) => r.jobDescriptionName ?? "—",
         key: "jobDescriptionName",
-        title: "关联岗位",
+        title: "在招岗位",
       }),
-      customColumn<StudioInterviewListRecord>({
+      textColumn<StudioInterviewRoundListRecord>({
+        cell: (r) => r.roundLabel,
+        key: "roundLabel",
+        title: "轮次",
+      }),
+      customColumn<StudioInterviewRoundListRecord>({
+        // null 排期显示占位文字，非 null 则复用标准时间格式。
+        // Null scheduledAt shows a placeholder; non-null uses the standard time format.
+        cell: (r) =>
+          r.scheduledAt ? (
+            <TimeDisplay options={DATE_TIME_DISPLAY_OPTIONS} value={r.scheduledAt} />
+          ) : (
+            <span className="text-muted-foreground">未排期</span>
+          ),
+        key: "scheduledAt",
+        title: "排期",
+      }),
+      customColumn<StudioInterviewRoundListRecord>({
         cell: (r) => {
-          const label = r.resumeFileName || "手动创建";
-          if (!r.hasResumeFile) {
-            return (
-              <div
-                aria-disabled
-                className="max-w-48 cursor-not-allowed truncate text-sm opacity-50"
-                title="暂无简历 PDF"
-              >
-                {label}
-              </div>
-            );
-          }
-          return (
-            <button
-              className="block max-w-48 cursor-pointer truncate text-left text-sm underline-offset-4 hover:underline"
-              onClick={() => setPreviewRecord(r)}
-              type="button"
-            >
-              {label}
-            </button>
-          );
+          const meta = scheduleEntryStatusMeta[r.status];
+          return <Badge variant={meta.tone}>{meta.label}</Badge>;
         },
-        key: "resumeFileName",
-        title: "简历文件",
-      }),
-      customColumn<StudioInterviewListRecord>({
-        cell: (r) => <InterviewStatusBadge status={r.status} />,
         key: "status",
         title: "状态",
       }),
-      customColumn<StudioInterviewListRecord>({
-        cell: (r) => {
-          const [currentEntry] = r.scheduleEntries;
-          if (!currentEntry) {
-            return "未安排";
-          }
-          const statusKey = (currentEntry.status ??
-            "pending") as keyof typeof scheduleEntryStatusMeta;
-          const statusMeta = scheduleEntryStatusMeta[statusKey] ?? scheduleEntryStatusMeta.pending;
-          return (
-            <div className="min-w-0">
-              <div className="flex items-center gap-1.5">
-                <p className="truncate font-medium text-sm">{currentEntry.roundLabel}</p>
-                <Badge variant={statusMeta.tone}>{statusMeta.label}</Badge>
-              </div>
-            </div>
-          );
-        },
-        key: "currentRound",
-        title: "当前轮次",
+      customColumn<StudioInterviewRoundListRecord>({
+        cell: (r) =>
+          r.hasReport ? (
+            <Badge variant="default">已生成</Badge>
+          ) : (
+            <span className="text-muted-foreground">—</span>
+          ),
+        key: "hasReport",
+        title: "报告",
       }),
-      customColumn<StudioInterviewListRecord>({
-        cell: (r) => `${r.questionCount} 题`,
-        key: "questionCount",
-        title: "题目数",
-      }),
-      textColumn<StudioInterviewListRecord>({
-        cell: (r) => r.creatorName ?? "—",
-        key: "creatorName",
-        title: "创建人",
-      }),
-      textColumn<StudioInterviewListRecord>({
-        cell: (r) => r.creatorOrganizationName ?? "—",
-        key: "creatorOrganizationName",
-        title: "创建人组织",
-      }),
-      dateColumn<StudioInterviewListRecord>({
+      dateColumn<StudioInterviewRoundListRecord>({
         key: "createdAt",
         sortable: true,
-        title: "创建时间",
+        title: "创建于",
       }),
-      actionsColumn<StudioInterviewListRecord>({
+      actionsColumn<StudioInterviewRoundListRecord>({
         inline: [
           { icon: EyeIcon, label: "查看详情", onClick: (r) => setDetailRecordId(r.id) },
           { icon: PencilIcon, label: "编辑记录", onClick: (r) => setEditRecordId(r.id) },
@@ -331,6 +283,8 @@ export function InterviewManagementPage({
     [],
   );
 
+  // 状态过滤选项：对应 round 级状态枚举。
+  // Status filter options: map to the round-level status enum.
   const filtersConfig = useMemo(
     () => [
       {
@@ -341,10 +295,12 @@ export function InterviewManagementPage({
       },
       {
         key: "status" as const,
-        options: studioInterviewStatusValues.map((status) => ({
-          label: studioInterviewStatusMeta[status].label,
-          value: status,
-        })),
+        options: [
+          { label: "待开始", value: "pending" },
+          { label: "进行中", value: "in_progress" },
+          { label: "已完成", value: "completed" },
+          { label: "已中断", value: "interrupted" },
+        ],
         placeholder: "全部状态",
         selectedFormat: (count: number) => `已选 ${count} 个状态`,
         type: "multi-select" as const,
@@ -353,13 +309,16 @@ export function InterviewManagementPage({
     [],
   );
 
+  // 概览统计卡：来自 round 级聚合计数。
+  // Summary stat cards: sourced from round-level aggregated counts.
   const stats = (
-    <section className="grid grid-cols-2 gap-4 xl:grid-cols-4">
+    <section className="grid grid-cols-2 gap-4 xl:grid-cols-5">
       {[
-        { hint: "所有候选人简历与流程记录", label: "总记录数", value: `${summary.total}` },
-        { hint: "流程已准备好，可发送链接开始面试", label: "待面试", value: `${summary.ready}` },
-        { hint: "全部轮次结束、已产出面试报告", label: "已完成", value: `${summary.completed}` },
-        { hint: "所有候选人累计安排的轮次总数", label: "面试轮次数", value: `${summary.rounds}` },
+        { hint: "该组织下所有面试轮次总数", label: "总轮数", value: `${summary.total}` },
+        { hint: "尚未开始的轮次", label: "待开始", value: `${summary.pending}` },
+        { hint: "正在进行或短暂中断的轮次", label: "进行中", value: `${summary.inProgress}` },
+        { hint: "全部完成的轮次", label: "已完成", value: `${summary.completed}` },
+        { hint: "已中断（会话断开）的轮次", label: "已中断", value: `${summary.interrupted}` },
       ].map((item) => (
         <Card key={item.label}>
           <CardHeader className="pb-2">
@@ -374,6 +333,8 @@ export function InterviewManagementPage({
     </section>
   );
 
+  // 删除单条：目前以 roundId 调用旧 candidateId 端点，T5 修正前暂时会 404。
+  // Delete single: calling old candidateId endpoint with roundId for now — will 404 until T5.
   async function handleDelete() {
     if (!deleteRecord) {
       return;
@@ -414,7 +375,7 @@ export function InterviewManagementPage({
           title="AI 面试"
           description="管理候选人的 AI 语音面试，跟踪进度并查看评估报告。新建请到简历库发起。"
         />
-        <DataGrid<StudioInterviewListRecord>
+        <DataGrid<StudioInterviewRoundListRecord>
           {...grid.bind}
           columns={columns}
           getRowId={(r) => r.id}
@@ -452,6 +413,8 @@ export function InterviewManagementPage({
         />
       </div>
 
+      {/* 详情 dialog：目前仍消费候选人详情，T4 切换到 round 视图。
+          Detail dialog: still consumes candidate detail today — T4 pivots it to round view. */}
       <StudioPersonDetailDialog
         mode="interview"
         onOpenChange={(open) => !open && setDetailRecordId(null)}
@@ -460,6 +423,7 @@ export function InterviewManagementPage({
         recordId={detailRecordId}
       />
 
+      {/* 编辑 dialog：T5 修正写入路径。/ Edit dialog: T5 fixes the write path. */}
       <StudioPersonEditDialog
         mode="interview"
         onOpenChange={(open) => !open && setEditRecordId(null)}
@@ -525,14 +489,9 @@ export function InterviewManagementPage({
           filename={previewRecord.resumeFileName ?? undefined}
           onOpenChange={(open) => !open && setPreviewRecord(null)}
           open={previewRecord !== null}
-          url={`/api/w/${slug}/studio/interviews/${previewRecord.id}/resume`}
+          url={`/api/w/${slug}/studio/interviews/${previewRecord.candidateId}/resume`}
         />
       ) : null}
-
-      <JobDescriptionViewDialog
-        jobDescriptionId={viewJobDescriptionId}
-        onOpenChange={(open) => !open && setViewJobDescriptionId(null)}
-      />
     </>
   );
 }

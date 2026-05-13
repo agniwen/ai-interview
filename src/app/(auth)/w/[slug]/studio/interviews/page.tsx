@@ -4,9 +4,9 @@ import { connection } from "next/server";
 import { InterviewManagementPage } from "@/app/(auth)/w/[slug]/studio/interviews/_components/interview-management-page";
 import { resolveActiveOrganization } from "@/lib/server/auth-session";
 import {
-  listStudioInterviewRecords,
-  queryStudioInterviewSummary,
-} from "@/server/routes/studio/routes/interviews/dao/studio-interviews";
+  listInterviewRounds,
+  summarizeInterviewRoundCounts,
+} from "@/server/routes/studio/routes/interviews/dao/interview-rounds";
 
 export const metadata: Metadata = {
   title: "AI 面试",
@@ -19,8 +19,8 @@ export default async function StudioInterviewsPage() {
     notFound();
   }
   const [initialData, initialSummary] = await Promise.all([
-    listStudioInterviewRecords(activeOrg.id),
-    queryStudioInterviewSummary(activeOrg.id),
+    listInterviewRounds(activeOrg.id),
+    summarizeInterviewRoundCounts(activeOrg.id),
   ]);
 
   return <InterviewManagementPage initialData={initialData} initialSummary={initialSummary} />;
