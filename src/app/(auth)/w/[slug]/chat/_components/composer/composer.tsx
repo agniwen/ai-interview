@@ -72,7 +72,7 @@ export function Composer({
           }
           dragOverlayClassName="bg-background rounded-[1.3rem]"
           globalDrop
-          maxFileSize={10 * 1024 * 1024}
+          maxFileSize={20 * 1024 * 1024}
           maxFiles={8}
           multiple
           onError={({ code, message }) => {
@@ -81,7 +81,7 @@ export function Composer({
               return;
             }
             if (code === "max_file_size") {
-              onUploadErrorChange("单个 PDF 文件不能超过 10 MB。");
+              onUploadErrorChange("单个 PDF 文件不能超过 20 MB。");
               return;
             }
             if (code === "max_files") {

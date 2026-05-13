@@ -41,7 +41,7 @@ export const patchConversationSchema = z.object({
   title: z.string().optional(),
 });
 
-export const MAX_ATTACHMENT_SIZE = 10 * 1024 * 1024;
+export const MAX_ATTACHMENT_SIZE = 20 * 1024 * 1024;
 
 const HASH_RE = /^[0-9a-f]{64}$/;
 

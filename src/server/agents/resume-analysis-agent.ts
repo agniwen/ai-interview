@@ -50,7 +50,7 @@ function createNdjsonStream(
   });
 }
 
-const MAX_RESUME_FILE_SIZE = 10 * 1024 * 1024;
+const MAX_RESUME_FILE_SIZE = 20 * 1024 * 1024;
 
 export class ResumeAnalysisError extends Error {
   stage: "resume-parsing" | "question-generation";
@@ -144,7 +144,7 @@ export function validateResumeFile(file: File) {
   }
 
   if (file.size > MAX_RESUME_FILE_SIZE) {
-    throw new Error("简历 PDF 不能超过 10 MB。");
+    throw new Error("简历 PDF 不能超过 20 MB。");
   }
 }
 

@@ -59,7 +59,7 @@ export const interviewRouter = factory
       });
     } catch (error) {
       if (error instanceof Error) {
-        const status = error.message.includes("PDF") || error.message.includes("10 MB") ? 400 : 500;
+        const status = error.message.includes("PDF") || error.message.includes("MB") ? 400 : 500;
         return c.json(
           { error: error.message, stage: "resume-parsing" },
           status as ContentfulStatusCode,

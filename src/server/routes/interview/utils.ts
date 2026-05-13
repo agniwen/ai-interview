@@ -351,7 +351,7 @@ export function toBadRequest(error: unknown) {
   }
 
   if (error instanceof Error) {
-    const status = error.message.includes("PDF") || error.message.includes("10 MB") ? 400 : 400;
+    const status = error.message.includes("PDF") || error.message.includes("MB") ? 400 : 400;
     return { error: error.message, status };
   }
 
