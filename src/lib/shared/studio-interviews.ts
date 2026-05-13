@@ -1,6 +1,9 @@
-import type { InterviewScheduleEntry } from "@/lib/shared/interview/interview-record";
 import type { ResumeAnalysisResult } from "@/lib/shared/interview/types";
 import { z } from "zod";
+
+// 临时桥接：旧 StudioInterviewRecord 名字 → 新 StudioCandidateRecord。Task 6 删除。
+// Temporary bridge: legacy StudioInterviewRecord → StudioCandidateRecord. Removed in Task 6.
+export type { StudioCandidateRecord as StudioInterviewRecord } from "@/lib/shared/studio-candidates";
 
 export const studioInterviewStatusValues = [
   "draft",
@@ -119,65 +122,6 @@ export type StudioInterviewScheduleEntryFormValue = z.infer<
 >;
 export type StudioInterviewFormValues = z.infer<typeof studioInterviewFormSchema>;
 export type StudioInterviewUpdateValues = z.infer<typeof studioInterviewUpdateSchema>;
-
-export interface StudioInterviewRecord {
-  id: string;
-  candidateName: string;
-  candidateEmail: string | null;
-  candidatePhone: string | null;
-  targetRole: string | null;
-  status: StudioInterviewStatus;
-  resumeContentHash: string | null;
-  resumeFileName: string | null;
-  resumeProfile: ResumeAnalysisResult["resumeProfile"] | null;
-  resumeStorageKey: string | null;
-  interviewQuestions: ResumeAnalysisResult["interviewQuestions"];
-  scheduleEntries: InterviewScheduleEntry[];
-  interviewLink: string;
-  jobDescriptionId: string | null;
-  notes: string | null;
-  createdBy: string | null;
-  jobDescriptionName: string | null;
-  createdAt: string | Date;
-  updatedAt: string | Date;
-}
-
-export type StudioInterviewListRecord = Omit<
-  StudioInterviewRecord,
-  "resumeProfile" | "interviewQuestions" | "resumeStorageKey"
-> & {
-  questionCount: number;
-  hasResumeFile: boolean;
-  creatorName: string | null;
-  creatorOrganizationName: string | null;
-};
-
-export function toStudioInterviewListRecord(
-  record: StudioInterviewRecord,
-): StudioInterviewListRecord {
-  return {
-    candidateEmail: record.candidateEmail,
-    candidateName: record.candidateName,
-    candidatePhone: record.candidatePhone,
-    createdAt: record.createdAt,
-    createdBy: record.createdBy,
-    creatorName: null,
-    creatorOrganizationName: null,
-    hasResumeFile: Boolean(record.resumeStorageKey),
-    id: record.id,
-    interviewLink: record.interviewLink,
-    jobDescriptionId: record.jobDescriptionId,
-    jobDescriptionName: null,
-    notes: record.notes,
-    questionCount: record.interviewQuestions.length,
-    resumeContentHash: record.resumeContentHash,
-    resumeFileName: record.resumeFileName,
-    scheduleEntries: record.scheduleEntries,
-    status: record.status,
-    targetRole: record.targetRole,
-    updatedAt: record.updatedAt,
-  };
-}
 
 export const studioInterviewStatusMeta: Record<
   StudioInterviewStatus,
