@@ -1,4 +1,5 @@
 import { and, asc, count, desc, eq, ilike, inArray, or, sql } from "drizzle-orm";
+import type { StudioCandidateRecord } from "@/lib/shared/studio-candidates";
 import { cacheLife, cacheTag } from "next/cache";
 import { z } from "zod";
 import { db } from "@/lib/server/db";
@@ -509,3 +510,69 @@ export {
   queryStudioInterviewRecords,
   queryStudioInterviewSummary,
 };
+
+/**
+ * Load a candidate (studio_interview row) with JD + creator info, without
+ * embedding scheduleEntries (those belong to the round-side view).
+ * 加载候选人聚合记录（不含 scheduleEntries —— 那是 round 维度的事）。
+ */
+export async function loadStudioCandidate(
+  candidateId: string,
+  organizationId: string,
+): Promise<StudioCandidateRecord | null> {
+  const [row] = await db
+    .select({
+      candidateEmail: studioInterview.candidateEmail,
+      candidateName: studioInterview.candidateName,
+      candidatePhone: studioInterview.candidatePhone,
+      createdAt: studioInterview.createdAt,
+      createdBy: studioInterview.createdBy,
+      creatorName: user.name,
+      creatorOrganizationName: user.feishuTenantName,
+      id: studioInterview.id,
+      interviewQuestions: studioInterview.interviewQuestions,
+      jobDescriptionId: studioInterview.jobDescriptionId,
+      jobDescriptionName: jobDescription.name,
+      notes: studioInterview.notes,
+      resumeContentHash: studioInterview.resumeContentHash,
+      resumeFileName: studioInterview.resumeFileName,
+      resumeProfile: studioInterview.resumeProfile,
+      resumeStorageKey: studioInterview.resumeStorageKey,
+      status: studioInterview.status,
+      targetRole: studioInterview.targetRole,
+      updatedAt: studioInterview.updatedAt,
+    })
+    .from(studioInterview)
+    .leftJoin(user, eq(studioInterview.createdBy, user.id))
+    .leftJoin(jobDescription, eq(studioInterview.jobDescriptionId, jobDescription.id))
+    .where(
+      and(eq(studioInterview.id, candidateId), eq(studioInterview.organizationId, organizationId)),
+    )
+    .limit(1);
+
+  if (!row) {
+    return null;
+  }
+
+  return {
+    candidateEmail: row.candidateEmail,
+    candidateName: row.candidateName,
+    candidatePhone: row.candidatePhone,
+    createdAt: row.createdAt instanceof Date ? row.createdAt.toISOString() : row.createdAt,
+    createdBy: row.createdBy,
+    creatorName: row.creatorName,
+    creatorOrganizationName: row.creatorOrganizationName,
+    id: row.id,
+    interviewQuestions: row.interviewQuestions ?? [],
+    jobDescriptionId: row.jobDescriptionId,
+    jobDescriptionName: row.jobDescriptionName,
+    notes: row.notes,
+    resumeContentHash: row.resumeContentHash,
+    resumeFileName: row.resumeFileName,
+    resumeProfile: row.resumeProfile,
+    resumeStorageKey: row.resumeStorageKey,
+    status: row.status,
+    targetRole: row.targetRole,
+    updatedAt: row.updatedAt instanceof Date ? row.updatedAt.toISOString() : row.updatedAt,
+  };
+}
