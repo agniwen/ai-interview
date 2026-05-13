@@ -175,6 +175,7 @@ export async function loadResumeDetail(
     .select({
       ...SELECTED_COLUMNS,
       resumeProfile: studioInterview.resumeProfile,
+      interviewQuestions: studioInterview.interviewQuestions,
     })
     .from(studioInterview)
     .leftJoin(user, eq(studioInterview.createdBy, user.id))
@@ -186,9 +187,10 @@ export async function loadResumeDetail(
     return null;
   }
 
-  const { resumeProfile, ...rest } = row;
+  const { resumeProfile, interviewQuestions, ...rest } = row;
   return {
     ...toRecord(rest),
     resumeProfile,
+    interviewQuestions: interviewQuestions ?? [],
   };
 }

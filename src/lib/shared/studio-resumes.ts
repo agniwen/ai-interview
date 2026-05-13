@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { ResumeProfile } from "@/lib/shared/interview/types";
+import type { ResumeAnalysisResult, ResumeProfile } from "@/lib/shared/interview/types";
 
 /**
  * 简历库列表行 DTO。AI 面试列表的精简投影：去掉 status / interviewQuestions /
@@ -29,13 +29,14 @@ export interface ResumeLibraryListRecord {
 }
 
 /**
- * 单条详情 DTO：列表字段 + resumeProfile 结构化简历。
+ * 单条详情 DTO：列表字段 + resumeProfile 结构化简历 + interviewQuestions。
  *
- * Detail DTO: list fields plus the structured `resumeProfile` for the detail
- * dialog. No interview-side data is included.
+ * Detail DTO: list fields plus the structured `resumeProfile` and any
+ * `interviewQuestions` generated during upload (may be empty for legacy rows).
  */
 export interface ResumeLibraryDetail extends ResumeLibraryListRecord {
   resumeProfile: ResumeProfile | null;
+  interviewQuestions: ResumeAnalysisResult["interviewQuestions"];
 }
 
 export interface PaginatedResumeLibraryResult {
