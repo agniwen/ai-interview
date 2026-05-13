@@ -14,6 +14,7 @@ import {
   loadResumeDetail,
   queryPaginatedResumeRecords,
 } from "@/server/routes/studio/routes/resumes/dao/resumes";
+import { parseResumePayloadInput } from "@/lib/shared/studio-interviews";
 import {
   normalizeResumeFile,
   storeInterviewResume,
@@ -164,6 +165,7 @@ export const resumeLibraryRouter = factory
     try {
       const formData = await c.req.formData();
       const resume = normalizeResumeFile(formData.get("resume"));
+      const parsedResumePayload = parseResumePayloadInput(formData.get("resumePayload"));
 
       const input = parseListFormInput(formData);
       if (!input.success) {
@@ -184,13 +186,14 @@ export const resumeLibraryRouter = factory
       const resumeStorageKey = uploadResult?.storageKey ?? null;
       const resumeContentHash = uploadResult?.contentHash ?? null;
 
-      // 简历库不生成面试题——只需解析出 ResumeProfile 供详情对话框使用。
-      // 优先复用注册表缓存，未命中时重新解析。跳过题目生成阶段。
-      // Resume library never generates interview questions — we only need a
-      // ResumeProfile for the detail dialog. Reuse the registry cache first;
-      // fall back to a fresh parse. The question-generation stage is skipped.
-      let resumeProfile = uploadResult?.cachedResumeProfile ?? null;
-      let parsedFileName: string | null = resume?.name ?? null;
+      // 解析复用顺序：客户端预制 payload > 注册表缓存 > 现场兜底解析。
+      // 服务端从不补跑题目生成——客户端没传 questions 就落库空数组。
+      // Reuse order: client-prebaked payload → registry cache → server fallback.
+      // Questions are NEVER generated server-side; if the client did not ship a
+      // resumePayload, the row stores an empty interviewQuestions array.
+      let resumeProfile =
+        parsedResumePayload?.resumeProfile ?? uploadResult?.cachedResumeProfile ?? null;
+      let parsedFileName: string | null = parsedResumePayload?.fileName ?? resume?.name ?? null;
       if (resume && !resumeProfile) {
         const parsed = await parseResumeFastToProfile(resume);
         ({ resumeProfile } = parsed);
@@ -204,7 +207,7 @@ export const resumeLibraryRouter = factory
         createdAt: now,
         createdBy: c.var.user?.id ?? null,
         id: recordId,
-        interviewQuestions: [],
+        interviewQuestions: parsedResumePayload?.interviewQuestions ?? [],
         jobDescriptionId: input.data.jobDescriptionId || null,
         notes: input.data.notes || null,
         organizationId: activeOrg.id,

@@ -68,7 +68,8 @@ describe("resume detail DTO", () => {
 
     const detail = await loadResumeDetail("ri_route_test", ORG);
     expect(detail).not.toBeNull();
-    expect(detail).not.toHaveProperty("interviewQuestions");
+    // interviewQuestions is now exposed by the detail DTO (Task 1).
+    // interviewQuestions 已由 Task 1 纳入详情 DTO，此处不再断言其缺失。
     expect(detail).not.toHaveProperty("scheduleEntries");
     expect(detail).not.toHaveProperty("status");
     expect(detail?.candidateName).toBe("测试");
