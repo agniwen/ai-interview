@@ -27,6 +27,7 @@ export const statement = {
   interviewer: ["create", "read", "update", "delete"],
   jd: ["create", "read", "update", "delete"],
   questionTemplate: ["create", "read", "update", "delete"],
+  resume: ["create", "read", "update", "delete"],
 } as const;
 
 export const ac = createAccessControl(statement);
@@ -42,6 +43,7 @@ export const owner = ac.newRole({
   interviewer: ["create", "read", "update", "delete"],
   jd: ["create", "read", "update", "delete"],
   questionTemplate: ["create", "read", "update", "delete"],
+  resume: ["create", "read", "update", "delete"],
 });
 
 export const admin = ac.newRole({
@@ -60,6 +62,7 @@ export const admin = ac.newRole({
   jd: ["create", "read", "update", "delete"],
   member: ["create", "delete"],
   questionTemplate: ["create", "read", "update", "delete"],
+  resume: ["create", "read", "update", "delete"],
 });
 
 export const hr = ac.newRole({
@@ -73,6 +76,7 @@ export const hr = ac.newRole({
   interviewer: ["create", "read", "update", "delete"],
   jd: ["create", "read", "update", "delete"],
   questionTemplate: ["create", "read", "update", "delete"],
+  resume: ["create", "read", "update", "delete"],
 });
 
 export const viewer = ac.newRole({
@@ -85,6 +89,7 @@ export const viewer = ac.newRole({
   interviewer: ["read"],
   jd: ["read"],
   questionTemplate: ["read"],
+  resume: ["read"],
 });
 
 export const roles = { admin, hr, owner, viewer } as const;
