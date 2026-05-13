@@ -34,7 +34,6 @@ import { getGlobalConfig } from "@/server/routes/studio/routes/global-config/dao
 import { loadSubmissionsByInterview } from "@/server/routes/studio/routes/forms/dao/submissions";
 import {
   autoBindApplicableTemplates,
-  dropJobDescriptionBindings,
   ensureApplicableBindings,
   loadInterviewPresetQuestions,
   loadInterviewQuestionTemplateBindings,
@@ -507,14 +506,17 @@ export const studioInterviewsRouter = factory
       }
 
       const formData = await c.req.formData();
-      const resume = normalizeResumeFile(formData.get("resume"));
       const parsedScheduleEntries = parseScheduleEntriesInput(formData.get("scheduleEntries"));
-      const parsedResumePayload = parseResumePayloadInput(formData.get("resumePayload"));
       const editedQuestionsRaw = toNullableString(formData.get("editedQuestions"));
       const editedQuestions = editedQuestionsRaw
         ? (JSON.parse(editedQuestionsRaw) as typeof existing.interviewQuestions)
         : null;
 
+      // 候选人身份字段（姓名、邮箱、电话、岗位、JD、备注、简历）由简历库 PATCH 专属管理，
+      // 此处仅校验 scheduleEntries 与 status，忽略请求中的候选人字段。
+      // Candidate-identity fields (name, email, phone, role, JD, notes, resume) are
+      // owned exclusively by the resume-library PATCH; only scheduleEntries and status
+      // are consumed here — any candidate fields in the request are silently ignored.
       const input = studioInterviewUpdateSchema.safeParse({
         candidateEmail: toNullableString(formData.get("candidateEmail")) ?? "",
         candidateName: toNullableString(formData.get("candidateName")) ?? "",
@@ -530,27 +532,7 @@ export const studioInterviewsRouter = factory
         return c.json({ error: input.error.issues[0]?.message ?? "表单校验失败。" }, 400);
       }
 
-      if (resume && !c.var.user) {
-        return c.json({ error: "Unauthorized" }, 401);
-      }
-
-      const analysis = parsedResumePayload;
       const now = new Date();
-      // 编辑分支不在此处重新分析简历——storeInterviewResume 会查 chat_attachment
-      // 注册表，命中复用 storageKey、未命中按 hash 命名 PUT 新对象。analysis 由
-      // parsedResumePayload 提供或保持原 record 上的快照。
-      // Edit path: do not re-analyze on resume swap. storeInterviewResume looks
-      // up the chat_attachment registry, reusing the storageKey on a hash hit
-      // and PUTting a hash-keyed object on a miss. analysis comes from
-      // parsedResumePayload or remains the existing snapshot.
-      const uploadResult =
-        resume && c.var.user
-          ? await storeInterviewResume(id, resume, c.var.user.id, activeOrg.id)
-          : null;
-      const resumeStorageKey = uploadResult?.storageKey ?? existing.resumeStorageKey;
-      const resumeContentHash = resume
-        ? (uploadResult?.contentHash ?? existing.resumeContentHash)
-        : existing.resumeContentHash;
 
       const existingScheduleRows = await db
         .select()
@@ -571,27 +553,13 @@ export const studioInterviewsRouter = factory
         resolvedStatus = "in_progress";
       }
 
+      // 仅写入面试侧字段；候选人身份字段不在此处修改。
+      // Only interview-owned fields are written; candidate-identity fields are never updated here.
       const nextRecord = {
-        candidateEmail: input.data.candidateEmail || null,
-        candidateName:
-          input.data.candidateName || analysis?.resumeProfile.name || existing.candidateName,
-        candidatePhone:
-          input.data.candidatePhone || analysis?.resumeProfile.phone || existing.candidatePhone,
-        interviewQuestions:
-          analysis?.interviewQuestions ?? editedQuestions ?? existing.interviewQuestions,
-        jobDescriptionId: input.data.jobDescriptionId || null,
-        notes: input.data.notes || null,
-        resumeContentHash,
-        resumeFileName: analysis?.fileName ?? resume?.name ?? existing.resumeFileName,
-        resumeProfile: analysis?.resumeProfile ?? existing.resumeProfile,
-        resumeStorageKey,
+        interviewQuestions: editedQuestions ?? existing.interviewQuestions,
         status: resolvedStatus,
-        targetRole: input.data.targetRole || analysis?.resumeProfile.targetRoles[0] || null,
         updatedAt: now,
       } satisfies Partial<typeof studioInterview.$inferInsert>;
-
-      const newJobDescriptionId = input.data.jobDescriptionId || null;
-      const jdChanged = newJobDescriptionId !== existing.jobDescriptionId;
 
       await db.transaction(async (tx) => {
         await tx.update(studioInterview).set(nextRecord).where(eq(studioInterview.id, id));
@@ -599,14 +567,6 @@ export const studioInterviewsRouter = factory
           .delete(studioInterviewSchedule)
           .where(eq(studioInterviewSchedule.interviewRecordId, id));
         await tx.insert(studioInterviewSchedule).values(scheduleRows);
-
-        // Re-evaluate JD-scoped bindings only when the job description
-        // actually changes. Global bindings (and their disabledByUser state)
-        // are preserved across this operation.
-        if (jdChanged) {
-          await dropJobDescriptionBindings(tx, id);
-          await autoBindApplicableTemplates(tx, id, newJobDescriptionId);
-        }
       });
 
       invalidateStudioInterviewCaches();
