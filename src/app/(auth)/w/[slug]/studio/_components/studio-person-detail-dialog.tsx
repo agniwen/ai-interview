@@ -402,19 +402,17 @@ export function StudioPersonDetailDialog({
                     </>
                   ) : null}
                 </TabsList>
-                {mode === "interview" ? (
-                  <PdfPreviewButton
-                    className="w-full sm:w-auto"
-                    disabled={!record.resumeStorageKey}
-                    filename={record.resumeFileName ?? undefined}
-                    label="预览简历"
-                    url={
-                      record.resumeStorageKey
-                        ? `/api/w/${slug}/studio/interviews/${record.id}/resume`
-                        : ""
-                    }
-                  />
-                ) : null}
+                <PdfPreviewButton
+                  className="w-full sm:w-auto"
+                  disabled={!record.hasResumeFile}
+                  filename={record.resumeFileName ?? undefined}
+                  label="预览简历"
+                  url={
+                    record.hasResumeFile
+                      ? `/api/w/${slug}/studio/${mode === "resume" ? "resumes" : "interviews"}/${record.id}/resume`
+                      : ""
+                  }
+                />
               </div>
             ) : null
           }
@@ -441,11 +439,6 @@ export function StudioPersonDetailDialog({
                         creatorName={record.creatorName}
                         resumeFileName={record.resumeFileName}
                         hasResumeFile={record.hasResumeFile}
-                        pdfPreviewUrl={
-                          mode === "resume" && record.hasResumeFile
-                            ? `/api/w/${slug}/studio/resumes/${record.id}/resume`
-                            : undefined
-                        }
                         footer={mode === "interview" ? interviewModeFooter : resumeModeFooter}
                       />
                     </div>
