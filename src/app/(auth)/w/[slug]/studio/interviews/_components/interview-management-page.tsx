@@ -53,8 +53,8 @@ import {
 } from "@/lib/shared/studio-interviews";
 import { Badge } from "@/components/ui/badge";
 import { StudioPersonDetailDialog } from "@/app/(auth)/w/[slug]/studio/_components/studio-person-detail-dialog";
+import { StudioPersonEditDialog } from "@/app/(auth)/w/[slug]/studio/_components/studio-person-edit-dialog";
 import { CreateInterviewDialog } from "./create-interview-dialog";
-import { EditInterviewDialog } from "./edit-interview-dialog";
 import { InterviewStatusBadge } from "./interview-status-badge";
 import { JobDescriptionViewDialog } from "./job-description-view-dialog";
 
@@ -459,7 +459,8 @@ export function InterviewManagementPage({
         recordId={detailRecordId}
       />
 
-      <EditInterviewDialog
+      <StudioPersonEditDialog
+        mode="interview"
         onOpenChange={(open) => !open && setEditRecordId(null)}
         onUpdated={invalidateAll}
         open={editRecordId !== null}

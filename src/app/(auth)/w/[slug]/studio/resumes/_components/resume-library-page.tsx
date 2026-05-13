@@ -43,7 +43,7 @@ import {
 import { bulkDeleteStudioResumes, deleteStudioResume, fetchStudioResumes } from "@/lib/client/api";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { StudioPersonDetailDialog } from "@/app/(auth)/w/[slug]/studio/_components/studio-person-detail-dialog";
-import { EditResumeDialog } from "./edit-resume-dialog";
+import { StudioPersonEditDialog } from "@/app/(auth)/w/[slug]/studio/_components/studio-person-edit-dialog";
 import { UploadResumeDialog } from "./upload-resume-dialog";
 
 const PdfPreviewDialog = dynamic(
@@ -349,9 +349,10 @@ export function ResumeLibraryPage({ initialData }: { initialData: PaginatedResum
         recordId={detailRecordId}
       />
 
-      {/* EditResumeDialog.onUpdated 需要接收 ResumeLibraryDetail 参数，此处忽略参数仅刷新列表。
-          EditResumeDialog.onUpdated receives the updated detail; we discard it and just invalidate. */}
-      <EditResumeDialog
+      {/* StudioPersonEditDialog.onUpdated 需要接收最新记录，此处忽略参数仅刷新列表。
+          StudioPersonEditDialog.onUpdated receives the updated record; we discard it and just invalidate. */}
+      <StudioPersonEditDialog
+        mode="resume"
         onOpenChange={(open) => !open && setEditRecordId(null)}
         onUpdated={() => invalidateAll()}
         open={editRecordId !== null}

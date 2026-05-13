@@ -1,41 +1,178 @@
 "use client";
 
+import type { ResumeLibraryDetail } from "@/lib/shared/studio-resumes";
 import type { ScheduleEntryStatus, StudioInterviewRecord } from "@/lib/shared/studio-interviews";
-import { useStore } from "@tanstack/react-form";
+import { useStore, useForm } from "@tanstack/react-form";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { LoaderCircleIcon, PencilIcon } from "lucide-react";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { AnimatedHeight } from "@/components/animated-height";
+import { CandidateBasicInfoView } from "@/components/candidate-basic-info-view";
+import { CandidateFormFields } from "@/components/candidate-form-fields";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { apiFetch, fetchStudioInterview, resetStudioInterviewRound } from "@/lib/client/api";
+import {
+  apiFetch,
+  fetchStudioInterview,
+  fetchStudioResume,
+  resetStudioInterviewRound,
+} from "@/lib/client/api";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
-import { CandidateBasicInfoView } from "@/components/candidate-basic-info-view";
+import {
+  createResumeLibraryFormValues,
+  resumeLibraryFormSchema,
+} from "@/lib/shared/studio-resumes";
+import { AgentInstructionsPanel } from "@/app/(auth)/w/[slug]/studio/interviews/_components/agent-instructions-panel";
+import { InterviewQuestionBindingsSection } from "@/app/(auth)/w/[slug]/studio/interviews/_components/interview-question-bindings-section";
+import { InterviewQuestionsFields } from "@/app/(auth)/w/[slug]/studio/interviews/_components/interview-questions-fields";
+import { InterviewScheduleFields } from "@/app/(auth)/w/[slug]/studio/interviews/_components/interview-schedule-fields";
 import {
   createInterviewFormValues,
   toInterviewFormValues,
   useInterviewForm,
-} from "./interview-form";
-import { buildInterviewFormData } from "./interview-form/build-form-data";
-import { AgentInstructionsPanel } from "./agent-instructions-panel";
-import { InterviewQuestionBindingsSection } from "./interview-question-bindings-section";
-import { InterviewQuestionsFields } from "./interview-questions-fields";
-import { InterviewScheduleFields } from "./interview-schedule-fields";
+} from "@/app/(auth)/w/[slug]/studio/interviews/_components/interview-form";
+import { buildInterviewFormData } from "@/app/(auth)/w/[slug]/studio/interviews/_components/interview-form/build-form-data";
 
-export function EditInterviewDialog({
+// 统一编辑对话框 props，通过 mode 分发到简历或面试模式。
+// Unified edit dialog props; dispatches to resume or interview body via mode.
+interface StudioPersonEditDialogProps {
+  mode: "resume" | "interview";
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  /** 要编辑的记录 ID，null 时不执行查询。Record id to edit; null skips the query. */
+  recordId: string | null;
+  /** 保存成功后回调，携带最新记录。Callback with updated record on success. */
+  onUpdated: (record: ResumeLibraryDetail | StudioInterviewRecord) => void;
+}
+
+// ---------------------------------------------------------------------------
+// Resume body — mirrors the old EditResumeDialog verbatim.
+// 简历编辑体 — 与原 EditResumeDialog 逻辑完全一致。
+// ---------------------------------------------------------------------------
+
+function ResumeEditBody({
   open,
   onOpenChange,
   recordId,
   onUpdated,
-}: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  recordId: string | null;
-  onUpdated: (record: StudioInterviewRecord) => void;
-}) {
+}: Omit<StudioPersonEditDialogProps, "mode">) {
+  const slug = useWorkspaceSlug();
+  const [resumeFile, setResumeFile] = useState<File | null>(null);
+
+  // 拉取当前记录详情，open + recordId 同时为真才触发。
+  // Fetch the existing record; only enabled when the dialog is open and has a target id.
+  const query = useQuery({
+    enabled: open && Boolean(recordId),
+    queryFn: () => fetchStudioResume(slug, recordId as string),
+    queryKey: ["studio-resumes", slug, "edit-detail", recordId] as const,
+    staleTime: 0,
+  });
+
+  const form = useForm({
+    defaultValues: createResumeLibraryFormValues(),
+    onSubmit: async ({ value }) => {
+      if (!recordId) {
+        return;
+      }
+      const formData = new FormData();
+      formData.append("candidateName", value.candidateName);
+      formData.append("candidateEmail", value.candidateEmail);
+      formData.append("candidatePhone", value.candidatePhone);
+      formData.append("targetRole", value.targetRole);
+      formData.append("jobDescriptionId", value.jobDescriptionId);
+      formData.append("notes", value.notes);
+      if (resumeFile) {
+        formData.append("resume", resumeFile);
+      }
+
+      try {
+        const detail = await apiFetch<ResumeLibraryDetail>(
+          `/api/w/${slug}/studio/resumes/${recordId}`,
+          { body: formData, method: "PATCH" },
+        );
+        toast.success("已保存");
+        onUpdated(detail);
+        onOpenChange(false);
+        setResumeFile(null);
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "保存失败");
+      }
+    },
+    validators: { onSubmit: resumeLibraryFormSchema },
+  });
+
+  // 详情加载完成后回填表单；query.data 引用变更即触发。
+  // Hydrate form once the detail resolves; keyed on query.data reference change.
+  useEffect(() => {
+    if (!query.data) {
+      return;
+    }
+    form.reset({
+      candidateEmail: query.data.candidateEmail ?? "",
+      candidateName: query.data.candidateName,
+      candidatePhone: query.data.candidatePhone ?? "",
+      jobDescriptionId: query.data.jobDescriptionId ?? "",
+      notes: query.data.notes ?? "",
+      targetRole: query.data.targetRole ?? "",
+    });
+    // form 实例在渲染间稳定，此处仅依赖 query.data 的引用变化。
+    // form instance is stable across renders; only depend on query.data identity.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [query.data]);
+
+  const isSubmitting = useStore(form.store, (s) => s.isSubmitting);
+
+  return (
+    <Modal onOpenChange={onOpenChange} open={open} size="md" title="编辑简历">
+      <form
+        className="space-y-5"
+        onSubmit={(e) => {
+          e.preventDefault();
+          void form.handleSubmit();
+        }}
+      >
+        <CandidateFormFields
+          disabled={isSubmitting}
+          existingResumeFileName={query.data?.resumeFileName ?? null}
+          form={form}
+          onResumeFileChange={setResumeFile}
+          resumeFile={resumeFile}
+          resumeFilePlaceholder="未上传 PDF，点击选择文件"
+        />
+
+        <div className="flex justify-end gap-2 pt-2">
+          <Button
+            disabled={isSubmitting}
+            onClick={() => onOpenChange(false)}
+            type="button"
+            variant="outline"
+          >
+            取消
+          </Button>
+          <Button disabled={isSubmitting} type="submit">
+            {isSubmitting ? <LoaderCircleIcon className="size-4 animate-spin" /> : null}
+            保存
+          </Button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Interview body — mirrors the old EditInterviewDialog verbatim.
+// 面试编辑体 — 与原 EditInterviewDialog 逻辑完全一致。
+// ---------------------------------------------------------------------------
+
+function InterviewEditBody({
+  open,
+  onOpenChange,
+  recordId,
+  onUpdated,
+}: Omit<StudioPersonEditDialogProps, "mode">) {
   const slug = useWorkspaceSlug();
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<string>("basic");
@@ -284,4 +421,21 @@ export function EditInterviewDialog({
       </Modal>
     </Tabs>
   );
+}
+
+// ---------------------------------------------------------------------------
+// Public dispatcher — defined last so both body components are in scope.
+// 公开分发入口 — 定义在两个 body 组件之后，确保引用合法。
+// ---------------------------------------------------------------------------
+
+/**
+ * 统一的候选人记录编辑对话框，mode="resume" 编辑简历库，mode="interview" 编辑 AI 面试。
+ * Unified edit dialog: mode="resume" edits a resume library record,
+ * mode="interview" edits an AI interview record.
+ */
+export function StudioPersonEditDialog(props: StudioPersonEditDialogProps) {
+  if (props.mode === "resume") {
+    return <ResumeEditBody {...props} />;
+  }
+  return <InterviewEditBody {...props} />;
 }
