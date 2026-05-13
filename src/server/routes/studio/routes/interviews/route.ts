@@ -21,8 +21,8 @@ import {
 import {
   parseResumePayloadInput,
   parseScheduleEntriesInput,
+  scheduleEntryStatusSchema,
   studioInterviewFormSchema,
-  studioInterviewUpdateSchema,
   toNullableString,
 } from "@/lib/shared/studio-interviews";
 import {
@@ -52,7 +52,6 @@ import {
   buildScheduleRows,
   loadRecordById,
   normalizeResumeFile,
-  serializeRecord,
   storeInterviewResume,
   toBadRequest,
 } from "@/server/routes/interview/utils";
@@ -219,7 +218,14 @@ export const studioInterviewsRouter = factory
       });
 
       invalidateStudioInterviewCaches();
-      return c.json(serializeRecord(record, scheduleRows), 201);
+      // POST / 返回新建轮次的完整 detail，供简历库 onCreated 直接使用。
+      // Return the first round's full detail so the resume library onCreated can use it directly.
+      const firstRoundId = scheduleRows[0]?.id;
+      if (!firstRoundId) {
+        return c.json({ error: "未生成面试轮次。" }, 400);
+      }
+      const detail = await loadInterviewRoundDetail(firstRoundId, activeOrg.id);
+      return c.json(detail, 201);
     } catch (error) {
       const result = toBadRequest(error);
       return c.json({ error: result.error }, { status: result.status as ContentfulStatusCode });
@@ -515,93 +521,66 @@ export const studioInterviewsRouter = factory
       return c.json({ success: true }, 200);
     },
   )
-  // oxlint-disable-next-line complexity -- Patch handler validates, normalizes, and coordinates schedule updates in one flow.
-  .patch("/:id", requirePermission("interview", "update"), async (c) => {
-    const { activeOrg } = c.var;
-    if (!activeOrg) {
-      return c.json({ message: "Unauthorized" }, 401);
-    }
-    const id = c.req.param("id");
+  .patch(
+    "/:id",
+    requirePermission("interview", "update"),
+    zValidator(
+      "json",
+      z.object({
+        allowTextInput: z.boolean().optional(),
+        notes: z.string().trim().max(1000).optional().or(z.literal("")),
+        scheduledAt: z.string().trim().optional().or(z.literal("")).nullable(),
+        status: scheduleEntryStatusSchema.optional(),
+      }),
+      jsonValidatorError("请求参数无效。"),
+    ),
+    async (c) => {
+      // 轮次级 PATCH：仅更新 round 字段（allowTextInput / notes / scheduledAt / status）。
+      // Round-level PATCH: updates only round fields (allowTextInput / notes / scheduledAt / status).
+      const { activeOrg } = c.var;
+      if (!activeOrg) {
+        return c.json({ message: "Unauthorized" }, 401);
+      }
+      const roundId = c.req.param("id");
+      const body = c.req.valid("json");
 
-    try {
-      const existing = await loadRecordById(id, activeOrg.id);
+      const update: Partial<typeof studioInterviewSchedule.$inferInsert> = {
+        updatedAt: new Date(),
+      };
+      if (body.allowTextInput !== undefined) {
+        update.allowTextInput = body.allowTextInput;
+      }
+      if (body.notes !== undefined) {
+        update.notes = body.notes || null;
+      }
+      if (body.scheduledAt !== undefined) {
+        update.scheduledAt =
+          body.scheduledAt && body.scheduledAt.length > 0 ? new Date(body.scheduledAt) : null;
+      }
+      if (body.status !== undefined) {
+        update.status = body.status;
+      }
 
-      if (!existing) {
+      const result = await db
+        .update(studioInterviewSchedule)
+        .set(update)
+        .where(
+          and(
+            eq(studioInterviewSchedule.id, roundId),
+            eq(studioInterviewSchedule.organizationId, activeOrg.id),
+          ),
+        )
+        .returning({ id: studioInterviewSchedule.id });
+
+      if (result.length === 0) {
         return c.json({ error: "记录不存在。" }, 404);
       }
 
-      const formData = await c.req.formData();
-      const parsedScheduleEntries = parseScheduleEntriesInput(formData.get("scheduleEntries"));
-      const editedQuestionsRaw = toNullableString(formData.get("editedQuestions"));
-      const editedQuestions = editedQuestionsRaw
-        ? (JSON.parse(editedQuestionsRaw) as typeof existing.interviewQuestions)
-        : null;
-
-      // 候选人身份字段（姓名、邮箱、电话、岗位、JD、备注、简历）由简历库 PATCH 专属管理，
-      // 此处仅校验 scheduleEntries 与 status，忽略请求中的候选人字段。
-      // Candidate-identity fields (name, email, phone, role, JD, notes, resume) are
-      // owned exclusively by the resume-library PATCH; only scheduleEntries and status
-      // are consumed here — any candidate fields in the request are silently ignored.
-      const input = studioInterviewUpdateSchema.safeParse({
-        candidateEmail: toNullableString(formData.get("candidateEmail")) ?? "",
-        candidateName: toNullableString(formData.get("candidateName")) ?? "",
-        candidatePhone: toNullableString(formData.get("candidatePhone")) ?? "",
-        jobDescriptionId: toNullableString(formData.get("jobDescriptionId")),
-        notes: toNullableString(formData.get("notes")) ?? "",
-        scheduleEntries: parsedScheduleEntries,
-        status: toNullableString(formData.get("status")) ?? existing.status,
-        targetRole: toNullableString(formData.get("targetRole")) ?? "",
-      });
-
-      if (!input.success) {
-        return c.json({ error: input.error.issues[0]?.message ?? "表单校验失败。" }, 400);
-      }
-
-      const now = new Date();
-
-      const existingScheduleRows = await db
-        .select()
-        .from(studioInterviewSchedule)
-        .where(eq(studioInterviewSchedule.interviewRecordId, id));
-      const scheduleRows = buildScheduleRows(
-        activeOrg.id,
-        id,
-        input.data.scheduleEntries,
-        now,
-        existingScheduleRows,
-      );
-
-      const hasPendingRounds = scheduleRows.some((r) => r.status === "pending");
-      let resolvedStatus = input.data.status;
-
-      if (resolvedStatus === "completed" && hasPendingRounds) {
-        resolvedStatus = "in_progress";
-      }
-
-      // 仅写入面试侧字段；候选人身份字段不在此处修改。
-      // Only interview-owned fields are written; candidate-identity fields are never updated here.
-      const nextRecord = {
-        interviewQuestions: editedQuestions ?? existing.interviewQuestions,
-        status: resolvedStatus,
-        updatedAt: now,
-      } satisfies Partial<typeof studioInterview.$inferInsert>;
-
-      await db.transaction(async (tx) => {
-        await tx.update(studioInterview).set(nextRecord).where(eq(studioInterview.id, id));
-        await tx
-          .delete(studioInterviewSchedule)
-          .where(eq(studioInterviewSchedule.interviewRecordId, id));
-        await tx.insert(studioInterviewSchedule).values(scheduleRows);
-      });
-
       invalidateStudioInterviewCaches();
-      const updatedRecord = await loadRecordById(id, activeOrg.id);
-      return c.json(updatedRecord, 200);
-    } catch (error) {
-      const result = toBadRequest(error);
-      return c.json({ error: result.error }, { status: result.status as ContentfulStatusCode });
-    }
-  })
+      const detail = await loadInterviewRoundDetail(roundId, activeOrg.id);
+      return c.json(detail, 200);
+    },
+  )
   .get("/:id/question-template-bindings", requirePermission("interview", "read"), async (c) => {
     // `:id` 为 roundId；绑定以 candidateId（interviewRecordId）为 FK。
     // `:id` is roundId; bindings use candidateId (interviewRecordId) as FK.
@@ -660,32 +639,51 @@ export const studioInterviewsRouter = factory
       return c.json(data, 200);
     },
   )
-  .post("/:id/rounds/:roundId/reset", requirePermission("interview", "update"), async (c) => {
+  .post("/:id/reset", requirePermission("interview", "update"), async (c) => {
+    // 平铺版重置：`:id` = roundId，保留绑定刷新 + 审计日志 + livekit 锚点清空。
+    // Flat reset endpoint: `:id` = roundId; preserves binding refresh, audit log, and livekit anchor clearing.
     const { activeOrg } = c.var;
     if (!activeOrg) {
       return c.json({ message: "Unauthorized" }, 401);
     }
-    const id = c.req.param("id");
-    const roundId = c.req.param("roundId");
+    const roundId = c.req.param("id");
     const operatorId = c.var.user?.id ?? null;
 
-    const existing = await loadRecordById(id, activeOrg.id);
+    // 加载轮次行 + 候选人上下文。/ Load round row + candidate context.
+    const [scheduleRow] = await db
+      .select()
+      .from(studioInterviewSchedule)
+      .where(
+        and(
+          eq(studioInterviewSchedule.id, roundId),
+          eq(studioInterviewSchedule.organizationId, activeOrg.id),
+        ),
+      )
+      .limit(1);
 
-    if (!existing) {
+    if (!scheduleRow) {
       return c.json({ error: "记录不存在。" }, 404);
     }
-
-    const targetEntry = existing.scheduleEntries.find((e) => e.id === roundId);
-
-    if (!targetEntry) {
-      return c.json({ error: "轮次不存在。" }, 404);
-    }
-
-    if (targetEntry.status !== "completed") {
+    if (scheduleRow.status !== "completed") {
       return c.json({ error: "只能重置已结束的轮次。" }, 400);
     }
 
+    const candidateId = scheduleRow.interviewRecordId;
+    const [candidateRow] = await db
+      .select({
+        jobDescriptionId: studioInterview.jobDescriptionId,
+        status: studioInterview.status,
+      })
+      .from(studioInterview)
+      .where(eq(studioInterview.id, candidateId))
+      .limit(1);
+    if (!candidateRow) {
+      return c.json({ error: "候选人记录不存在。" }, 404);
+    }
+
     const now = new Date();
+    const previousConversationId = scheduleRow.conversationId;
+    const previousStatus = scheduleRow.status;
 
     await db.transaction(async (tx) => {
       await tx
@@ -703,32 +701,27 @@ export const studioInterviewsRouter = factory
         })
         .where(eq(studioInterviewSchedule.id, roundId));
 
-      if (existing.status === "completed") {
+      if (candidateRow.status === "completed") {
         await tx
           .update(studioInterview)
-          .set({
-            status: "in_progress",
-            updatedAt: now,
-          })
-          .where(eq(studioInterview.id, id));
+          .set({ status: "in_progress", updatedAt: now })
+          .where(eq(studioInterview.id, candidateId));
       }
 
-      // 重置即「以当下为准」：把题库模板绑定的快照刷新到最新版本，
-      // 并补上自上次绑定以来新建的适用模板。
-      // Reset = "snapshot to now": refresh template bindings to the
-      // latest version and lazy-bind any newly-applicable templates.
-      await refreshInterviewBindingsToLatest(tx, id, existing.jobDescriptionId);
+      // 重置即「以当下为准」：把题库模板绑定的快照刷新到最新版本。
+      // Reset = "snapshot to now": refresh template bindings to the latest version.
+      await refreshInterviewBindingsToLatest(tx, candidateId, candidateRow.jobDescriptionId);
 
       await tx.insert(interviewAuditLog).values({
         action: "round_reset",
         createdAt: now,
         detail: {
-          previousConversationId: targetEntry.conversationId,
-          previousStatus: targetEntry.status,
-          roundLabel: targetEntry.roundLabel,
+          previousConversationId,
+          previousStatus,
+          roundLabel: scheduleRow.roundLabel,
         },
         id: crypto.randomUUID(),
-        interviewRecordId: id,
+        interviewRecordId: candidateId,
         operatorId,
         organizationId: activeOrg.id,
         scheduleEntryId: roundId,
@@ -737,72 +730,28 @@ export const studioInterviewsRouter = factory
 
     invalidateStudioInterviewCaches();
     safeUpdateTag("interview-conversations");
-    const updatedRecord = await loadRecordById(id, activeOrg.id);
-    return c.json(updatedRecord, 200);
+    const detail = await loadInterviewRoundDetail(roundId, activeOrg.id);
+    return c.json(detail, 200);
   })
-  .patch(
-    "/:id/rounds/:roundId",
-    requirePermission("interview", "update"),
-    zValidator(
-      "json",
-      z.object({ allowTextInput: z.boolean() }),
-      jsonValidatorError("请求体格式不正确。"),
-    ),
-    async (c) => {
-      // 单轮次内联编辑：当前仅支持切换"是否允许文本输入"。
-      // Per-round inline edit: currently only toggles allowTextInput.
-      const { activeOrg } = c.var;
-      if (!activeOrg) {
-        return c.json({ message: "Unauthorized" }, 401);
-      }
-      const id = c.req.param("id");
-      const roundId = c.req.param("roundId");
-      const { allowTextInput } = c.req.valid("json");
-
-      const existing = await loadRecordById(id, activeOrg.id);
-
-      if (!existing) {
-        return c.json({ error: "记录不存在。" }, 404);
-      }
-
-      const targetEntry = existing.scheduleEntries.find((e) => e.id === roundId);
-
-      if (!targetEntry) {
-        return c.json({ error: "轮次不存在。" }, 404);
-      }
-
-      if (targetEntry.status === "completed") {
-        return c.json({ error: "已结束的轮次无法修改设置。" }, 400);
-      }
-
-      await db
-        .update(studioInterviewSchedule)
-        .set({
-          allowTextInput,
-          updatedAt: new Date(),
-        })
-        .where(eq(studioInterviewSchedule.id, roundId));
-
-      invalidateStudioInterviewCaches();
-      const updatedRecord = await loadRecordById(id, activeOrg.id);
-      return c.json(updatedRecord, 200);
-    },
-  )
   .delete("/:id", requirePermission("interview", "delete"), async (c) => {
+    // 轮次级删除：`:id` = roundId。/ Round-level delete: `:id` = roundId.
     const { activeOrg } = c.var;
     if (!activeOrg) {
       return c.json({ message: "Unauthorized" }, 401);
     }
-    const id = c.req.param("id");
-    const existing = await loadRecordById(id, activeOrg.id);
-
-    if (!existing) {
+    const roundId = c.req.param("id");
+    const result = await db
+      .delete(studioInterviewSchedule)
+      .where(
+        and(
+          eq(studioInterviewSchedule.id, roundId),
+          eq(studioInterviewSchedule.organizationId, activeOrg.id),
+        ),
+      )
+      .returning({ id: studioInterviewSchedule.id });
+    if (result.length === 0) {
       return c.json({ error: "记录不存在。" }, 404);
     }
-
-    await db
-      .delete(studioInterview)
-      .where(and(eq(studioInterview.id, id), eq(studioInterview.organizationId, activeOrg.id)));
     invalidateStudioInterviewCaches();
     return c.json({ success: true }, 200);
   })
@@ -812,29 +761,24 @@ export const studioInterviewsRouter = factory
     zValidator(
       "json",
       z.object({ ids: z.array(z.string()).nonempty() }),
-      jsonValidatorError("缺少待删除的记录 ID。"),
+      jsonValidatorError("缺少待删除的轮次 ID。"),
     ),
     async (c) => {
+      // 批量轮次删除：ids 为 roundId 数组。/ Bulk round delete: ids are roundIds.
       const { activeOrg } = c.var;
       if (!activeOrg) {
         return c.json({ message: "Unauthorized" }, 401);
       }
-      const { ids: rawIds } = c.req.valid("json");
-      const ids = rawIds.filter(
-        (value): value is string => typeof value === "string" && value.length > 0,
-      );
-
-      if (ids.length === 0) {
-        return c.json({ error: "缺少待删除的记录 ID。" }, 400);
-      }
-
+      const { ids } = c.req.valid("json");
       const result = await db
-        .delete(studioInterview)
+        .delete(studioInterviewSchedule)
         .where(
-          and(inArray(studioInterview.id, ids), eq(studioInterview.organizationId, activeOrg.id)),
+          and(
+            inArray(studioInterviewSchedule.id, ids),
+            eq(studioInterviewSchedule.organizationId, activeOrg.id),
+          ),
         )
-        .returning({ id: studioInterview.id });
-
+        .returning({ id: studioInterviewSchedule.id });
       invalidateStudioInterviewCaches();
       return c.json({ deletedCount: result.length, success: true }, 200);
     },

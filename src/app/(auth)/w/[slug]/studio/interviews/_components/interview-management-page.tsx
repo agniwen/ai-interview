@@ -4,8 +4,8 @@
 import { PageHeader } from "@/app/(auth)/w/[slug]/studio/_components/page-header";
 import type { InterviewRoundSummaryResponse } from "@/lib/client/api";
 import {
-  bulkDeleteStudioInterviews,
-  deleteStudioInterview,
+  bulkDeleteStudioInterviewRounds,
+  deleteStudioInterviewRound,
   fetchStudioInterviewSummary,
 } from "@/lib/client/api";
 import type {
@@ -340,7 +340,7 @@ export function InterviewManagementPage({
       return;
     }
     try {
-      await deleteStudioInterview(slug, deleteRecord.id);
+      await deleteStudioInterviewRound(slug, deleteRecord.id);
       setDeleteRecord(null);
       toast.success("面试记录已删除");
       invalidateAll();
@@ -356,7 +356,7 @@ export function InterviewManagementPage({
     }
     setIsBulkDeleting(true);
     try {
-      const result = await bulkDeleteStudioInterviews(slug, ids);
+      const result = await bulkDeleteStudioInterviewRounds(slug, ids);
       toast.success(`已删除 ${result?.deleted ?? ids.length} 条记录`);
       grid.setRowSelection({});
       setBulkDeleteOpen(false);

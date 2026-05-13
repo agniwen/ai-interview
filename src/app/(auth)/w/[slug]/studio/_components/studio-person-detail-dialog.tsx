@@ -13,6 +13,8 @@ import {
   fetchStudioInterviewRoundFormSubmissions,
   fetchStudioInterviewRoundReports,
   fetchStudioResume,
+  resetStudioInterviewRound,
+  updateStudioInterviewRound,
 } from "@/lib/client/api";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import {
@@ -20,6 +22,7 @@ import {
   ExternalLinkIcon,
   MessageSquareTextIcon,
   PencilIcon,
+  RotateCcwIcon,
   Share2Icon,
 } from "lucide-react";
 import { useState } from "react";
@@ -89,14 +92,14 @@ function renderHeaderDescription({
 export function StudioPersonDetailDialog({
   open,
   onOpenChange,
-  onUpdated: _onUpdated,
+  onUpdated,
   onEdit,
   recordId,
   mode,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  /** T5 将重新接入轮次级写操作后调用。/ Will be called once T5 rewires round-level writes. */
+  /** 轮次级写操作（toggle / reset）成功后调用。/ Called after a round-level write (toggle / reset). */
   onUpdated?: () => void;
   onEdit?: (recordId: string) => void;
   recordId: string | null;
@@ -105,6 +108,8 @@ export function StudioPersonDetailDialog({
   const slug = useWorkspaceSlug();
   const [resettingSubmissionId, setResettingSubmissionId] = useState<string | null>(null);
   const [pendingResetSubmissionId, setPendingResetSubmissionId] = useState<string | null>(null);
+  const [resettingRoundId, setResettingRoundId] = useState<string | null>(null);
+  const [updatingRoundId, setUpdatingRoundId] = useState<string | null>(null);
   const queryClient = useQueryClient();
   const router = useRouter();
 
@@ -256,6 +261,42 @@ export function StudioPersonDetailDialog({
     }
   }
 
+  // 切换「允许文本输入」开关。Toggle the allowTextInput flag for a round.
+  async function handleToggleAllowTextInput(roundId: string, next: boolean) {
+    if (updatingRoundId) {
+      return;
+    }
+    setUpdatingRoundId(roundId);
+    try {
+      await updateStudioInterviewRound(slug, roundId, { allowTextInput: next });
+      toast.success(next ? "已开启文本作答" : "已关闭文本作答");
+      await queryClient.invalidateQueries({ queryKey: ["studio-interview-round", slug, recordId] });
+      onUpdated?.();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "更新失败");
+    } finally {
+      setUpdatingRoundId(null);
+    }
+  }
+
+  // 重置轮次为「待开始」状态。Reset a round back to pending.
+  async function handleResetRound(roundId: string) {
+    if (resettingRoundId) {
+      return;
+    }
+    setResettingRoundId(roundId);
+    try {
+      await resetStudioInterviewRound(slug, roundId);
+      toast.success("轮次已重置为待开始");
+      await queryClient.invalidateQueries({ queryKey: ["studio-interview-round", slug, recordId] });
+      onUpdated?.();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "重置失败");
+    } finally {
+      setResettingRoundId(null);
+    }
+  }
+
   const interviewQuestions = ensureArray<
     StudioInterviewRoundDetail["candidate"]["interviewQuestions"][number]
   >(record?.interviewQuestions);
@@ -299,7 +340,7 @@ export function StudioPersonDetailDialog({
       <Button
         className="flex-1"
         onClick={() => {
-          router.push(`/w/${slug}/studio/interviews?recordId=${record.id}`);
+          router.push(`/w/${slug}/studio/interviews`);
           onOpenChange(false);
         }}
         type="button"
@@ -467,9 +508,30 @@ export function StudioPersonDetailDialog({
                               关闭时面试界面文字输入框被禁用，仅支持语音作答。
                             </p>
                           </div>
-                          {/* T5 将重新接入可交互的 Switch；此处只读以避免调用已废弃的候选人级别端点。 */}
-                          {/* T5 will rewire the interactive Switch; read-only here to avoid stale candidate-level endpoint. */}
-                          <Switch checked={record.roundAllowTextInput ?? false} disabled />
+                          <div className="flex items-center gap-2">
+                            <Switch
+                              checked={record.roundAllowTextInput ?? false}
+                              disabled={
+                                record.roundStatus === "completed" ||
+                                updatingRoundId === record.roundId
+                              }
+                              onCheckedChange={(next) =>
+                                void handleToggleAllowTextInput(record.roundId as string, next)
+                              }
+                            />
+                            {record.roundStatus === "completed" ? (
+                              <Button
+                                disabled={resettingRoundId === record.roundId}
+                                onClick={() => void handleResetRound(record.roundId as string)}
+                                size="sm"
+                                type="button"
+                                variant="outline"
+                              >
+                                <RotateCcwIcon className="size-3.5" />
+                                {resettingRoundId === record.roundId ? "重置中..." : "重置轮次"}
+                              </Button>
+                            ) : null}
+                          </div>
                         </div>
                       </div>
                     </div>

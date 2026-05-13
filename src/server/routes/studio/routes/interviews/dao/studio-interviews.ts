@@ -12,7 +12,6 @@ import {
 import { buildInterviewLink, sortScheduleEntries } from "@/lib/shared/interview/interview-record";
 import { studioInterviewStatusValues } from "@/lib/shared/studio-interviews";
 import type {
-  StudioInterviewListRecord,
   StudioInterviewStatus,
   studioInterviewStatusSchema,
 } from "@/lib/shared/studio-interviews";
@@ -39,8 +38,10 @@ const studioInterviewPaginationSchema = z.object({
 
 export type StudioInterviewPaginationParams = z.infer<typeof studioInterviewPaginationSchema>;
 
+// PaginatedStudioInterviewResult は旧リスト API 用。T6 で削除予定。
+// PaginatedStudioInterviewResult is for the old list API; slated for removal in T6.
 export interface PaginatedStudioInterviewResult {
-  records: StudioInterviewListRecord[];
+  records: unknown[];
   total: number;
   page: number;
   pageSize: number;
@@ -215,7 +216,7 @@ function groupScheduleEntries(
 function toStudioInterviewListRecord(
   record: StudioInterviewListRow,
   scheduleEntries: StudioInterviewScheduleRow[],
-): StudioInterviewListRecord {
+): unknown {
   return {
     candidateEmail: record.candidateEmail,
     candidateName: record.candidateName,

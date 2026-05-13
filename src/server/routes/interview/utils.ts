@@ -14,7 +14,6 @@ import {
 } from "@/lib/shared/db/schema";
 import {
   buildCandidateInterviewView,
-  buildInterviewLink,
   pickCurrentScheduleEntry,
   sortScheduleEntries,
 } from "@/lib/shared/interview/interview-record";
@@ -304,21 +303,34 @@ export function loadScheduleEntries(interviewIds: string[]): Promise<StudioInter
     .where(inArray(studioInterviewSchedule.interviewRecordId, interviewIds));
 }
 
+// serializeRecord は候補者レベルのフィールドのみ返す（scheduleEntries・interviewLink は round 側）。
+// serializeRecord returns only candidate-level fields (scheduleEntries and interviewLink now
+// belong to the round-side type).
 export function serializeRecord(
   record: StudioInterviewRow,
-  scheduleRows: StudioInterviewScheduleRow[],
+  _scheduleRows: StudioInterviewScheduleRow[],
   jobDescriptionName: string | null = null,
 ): StudioInterviewRecord {
-  const scheduleEntries = sortScheduleEntries(
-    scheduleRows.filter((schedule) => schedule.interviewRecordId === record.id),
-  );
-
   return {
-    ...record,
-    interviewLink: buildInterviewLink(record.id),
+    candidateEmail: record.candidateEmail,
+    candidateName: record.candidateName,
+    candidatePhone: record.candidatePhone,
+    createdAt: record.createdAt instanceof Date ? record.createdAt.toISOString() : record.createdAt,
+    createdBy: record.createdBy,
+    creatorName: null,
+    creatorOrganizationName: null,
+    id: record.id,
     interviewQuestions: record.interviewQuestions ?? [],
+    jobDescriptionId: record.jobDescriptionId,
     jobDescriptionName,
-    scheduleEntries,
+    notes: record.notes,
+    resumeContentHash: record.resumeContentHash,
+    resumeFileName: record.resumeFileName,
+    resumeProfile: record.resumeProfile as StudioInterviewRecord["resumeProfile"],
+    resumeStorageKey: record.resumeStorageKey,
+    status: record.status,
+    targetRole: record.targetRole,
+    updatedAt: record.updatedAt instanceof Date ? record.updatedAt.toISOString() : record.updatedAt,
   };
 }
 
@@ -341,8 +353,7 @@ export async function loadRecordById(id: string, organizationId?: string) {
     return null;
   }
 
-  const scheduleEntries = await loadScheduleEntries([row.record.id]);
-  return serializeRecord(row.record, scheduleEntries, row.jobDescriptionName);
+  return serializeRecord(row.record, [], row.jobDescriptionName);
 }
 
 export function toBadRequest(error: unknown) {

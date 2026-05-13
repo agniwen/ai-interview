@@ -21,8 +21,8 @@ import { Modal } from "@/components/ui/modal";
 import { apiFetch } from "@/lib/client/api";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import type { ResumeAnalysisResult } from "@/lib/shared/interview/types";
+import type { StudioInterviewRoundDetail } from "@/lib/shared/studio-interview-rounds";
 import { createDefaultScheduleEntry } from "@/lib/shared/studio-interviews";
-import type { StudioInterviewRecord } from "@/lib/shared/studio-interviews";
 import {
   createResumeLibraryFormValues,
   resumeLibraryFormSchema,
@@ -31,7 +31,7 @@ import type { ResumeLibraryDetail, ResumeLibraryFormValues } from "@/lib/shared/
 
 export type CreateResumeRecordResult =
   | { mode: "save-only"; detail: ResumeLibraryDetail }
-  | { mode: "save-and-start"; record: StudioInterviewRecord };
+  | { mode: "save-and-start"; round: StudioInterviewRoundDetail };
 
 type SubmitMode = "save-only" | "save-and-start";
 
@@ -117,12 +117,15 @@ export function CreateResumeRecordDialog({ onCreated }: CreateResumeRecordDialog
           toast.success("简历记录已创建");
           onCreated({ detail, mode: "save-only" });
         } else {
-          const record = await apiFetch<StudioInterviewRecord>(`/api/w/${slug}/studio/interviews`, {
-            body: buildSaveAndStartFormData(value, file, payload),
-            method: "POST",
-          });
+          const round = await apiFetch<StudioInterviewRoundDetail>(
+            `/api/w/${slug}/studio/interviews`,
+            {
+              body: buildSaveAndStartFormData(value, file, payload),
+              method: "POST",
+            },
+          );
           toast.success("已创建并发起 1 轮面试");
-          onCreated({ mode: "save-and-start", record });
+          onCreated({ mode: "save-and-start", round });
         }
         setOpen(false);
         form.reset(createResumeLibraryFormValues());

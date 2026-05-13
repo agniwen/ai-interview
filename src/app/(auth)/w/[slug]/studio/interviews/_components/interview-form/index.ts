@@ -5,7 +5,6 @@ import { useForm } from "@tanstack/react-form";
 import type { z } from "zod";
 import {
   createDefaultScheduleEntry,
-  getScheduleEntryDateValue,
   studioInterviewClientFormSchema,
 } from "@/lib/shared/studio-interviews";
 
@@ -39,7 +38,6 @@ export function toInterviewFormValues(
     | "targetRole"
     | "notes"
     | "status"
-    | "scheduleEntries"
     | "jobDescriptionId"
     | "interviewQuestions"
   >,
@@ -51,14 +49,9 @@ export function toInterviewFormValues(
     interviewQuestions: record.interviewQuestions ?? [],
     jobDescriptionId: record.jobDescriptionId ?? "",
     notes: record.notes ?? "",
-    scheduleEntries: record.scheduleEntries.map((entry, index) => ({
-      allowTextInput: entry.allowTextInput ?? false,
-      id: entry.id,
-      notes: entry.notes ?? "",
-      roundLabel: entry.roundLabel,
-      scheduledAt: getScheduleEntryDateValue(entry.scheduledAt),
-      sortOrder: entry.sortOrder ?? index,
-    })),
+    // 新建面试时默认填入一条空排期；编辑轮次字段走单独的 InterviewEditBody。
+    // Default to one blank schedule entry on create; round-field edits use InterviewEditBody.
+    scheduleEntries: [createDefaultScheduleEntry()],
     status: record.status,
     targetRole: record.targetRole ?? "",
   };

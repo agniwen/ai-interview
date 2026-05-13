@@ -21,11 +21,9 @@ import type {
   PaginatedStudioInterviewRoundsResult,
   StudioInterviewRoundDetail,
 } from "@/lib/shared/studio-interview-rounds";
-// DedupMatchRecord 仍依赖 StudioInterviewStatus；resetStudioInterviewRound/updateStudioInterviewRound
-// (T5 scope) 仍返回 StudioInterviewRecord（别名桥，T6 清理）。
-// DedupMatchRecord still depends on StudioInterviewStatus; reset/update helpers (T5 scope)
-// still return StudioInterviewRecord (alias bridge, cleaned up in T6).
-import type { StudioInterviewRecord, StudioInterviewStatus } from "@/lib/shared/studio-interviews";
+// DedupMatchRecord 依赖 StudioInterviewStatus。
+// DedupMatchRecord depends on StudioInterviewStatus.
+import type { ScheduleEntryStatus, StudioInterviewStatus } from "@/lib/shared/studio-interviews";
 import { rpc } from "@/lib/client/rpc";
 import { rpcFetch } from "../rpc-fetch";
 
@@ -206,63 +204,64 @@ export function deleteStudioInterviewFormSubmission(
 }
 
 /**
- * 重置一轮面试为「待开始」状态。
- * Reset a single interview round back to the "pending" state.
+ * 重置面试轮次（:id 为 roundId）。
+ * Reset an interview round (the flat path; :id is the roundId).
  */
 export function resetStudioInterviewRound(
   slug: string,
-  interviewId: string,
   roundId: string,
-): Promise<StudioInterviewRecord> {
-  return rpcFetch<StudioInterviewRecord>(
-    rpc.api.w[":slug"].studio.interviews[":id"].rounds[":roundId"].reset.$post({
-      param: { id: interviewId, roundId, slug },
-    }),
+): Promise<StudioInterviewRoundDetail> {
+  return rpcFetch<StudioInterviewRoundDetail>(
+    rpc.api.w[":slug"].studio.interviews[":id"].reset.$post({ param: { id: roundId, slug } }),
     "重置轮次失败",
   );
 }
 
 /**
- * 切换单轮面试的"允许面试者文本输入"开关。
- * Toggle the per-round "allow candidate text input" flag.
+ * PATCH 单轮的可编辑字段（allowTextInput / notes / scheduledAt / status）。
+ * PATCH a round's editable fields.
  */
 export function updateStudioInterviewRound(
   slug: string,
-  interviewId: string,
   roundId: string,
-  payload: { allowTextInput: boolean },
-): Promise<StudioInterviewRecord> {
-  return rpcFetch<StudioInterviewRecord>(
-    rpc.api.w[":slug"].studio.interviews[":id"].rounds[":roundId"].$patch({
+  payload: {
+    allowTextInput?: boolean;
+    notes?: string;
+    scheduledAt?: string | null;
+    status?: ScheduleEntryStatus;
+  },
+): Promise<StudioInterviewRoundDetail> {
+  return rpcFetch<StudioInterviewRoundDetail>(
+    rpc.api.w[":slug"].studio.interviews[":id"].$patch({
       json: payload,
-      param: { id: interviewId, roundId, slug },
+      param: { id: roundId, slug },
     }),
     "更新轮次设置失败",
   );
 }
 
 /**
- * 删除单条面试记录。
- * Delete a single interview record.
+ * 删除单条面试轮次。
+ * Delete a single interview round.
  */
-export async function deleteStudioInterview(slug: string, id: string): Promise<void> {
+export async function deleteStudioInterviewRound(slug: string, roundId: string): Promise<void> {
   await rpcFetch<{ success: boolean }>(
-    rpc.api.w[":slug"].studio.interviews[":id"].$delete({ param: { id, slug } }),
-    "删除面试失败",
+    rpc.api.w[":slug"].studio.interviews[":id"].$delete({ param: { id: roundId, slug } }),
+    "删除轮次失败",
   );
 }
 
 /**
- * 批量删除面试记录。
- * Bulk-delete interview records.
+ * 批量删除面试轮次。
+ * Bulk-delete interview rounds.
  */
-export async function bulkDeleteStudioInterviews(
+export async function bulkDeleteStudioInterviewRounds(
   slug: string,
-  ids: string[],
+  roundIds: string[],
 ): Promise<{ deleted: number; deletedCount?: number; success?: boolean }> {
   const data = await rpcFetch<{ deletedCount: number; success: boolean }>(
     rpc.api.w[":slug"].studio.interviews["bulk-delete"].$post({
-      json: { ids: ids as [string, ...string[]] },
+      json: { ids: roundIds as [string, ...string[]] },
       param: { slug },
     }),
     "批量删除失败",

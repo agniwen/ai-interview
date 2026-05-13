@@ -1,40 +1,43 @@
 "use client";
 
 import type { ResumeLibraryDetail } from "@/lib/shared/studio-resumes";
-import type { ScheduleEntryStatus, StudioInterviewRecord } from "@/lib/shared/studio-interviews";
+import type { StudioInterviewRoundDetail } from "@/lib/shared/studio-interview-rounds";
+import type { ScheduleEntryStatus } from "@/lib/shared/studio-interviews";
 import { useStore, useForm } from "@tanstack/react-form";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { LoaderCircleIcon, PencilIcon } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
+import { LoaderCircleIcon } from "lucide-react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { AnimatedHeight } from "@/components/animated-height";
-import { CandidateBasicInfoView } from "@/components/candidate-basic-info-view";
 import { CandidateFormFields } from "@/components/candidate-form-fields";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Modal } from "@/components/ui/modal";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
 import {
   apiFetch,
-  fetchStudioInterview,
+  fetchStudioInterviewRound,
   fetchStudioResume,
-  resetStudioInterviewRound,
+  updateStudioInterviewRound,
 } from "@/lib/client/api";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import {
   createResumeLibraryFormValues,
   resumeLibraryFormSchema,
 } from "@/lib/shared/studio-resumes";
-import { AgentInstructionsPanel } from "@/app/(auth)/w/[slug]/studio/interviews/_components/agent-instructions-panel";
-import { InterviewQuestionBindingsSection } from "@/app/(auth)/w/[slug]/studio/interviews/_components/interview-question-bindings-section";
-import { InterviewQuestionsFields } from "@/app/(auth)/w/[slug]/studio/interviews/_components/interview-questions-fields";
-import { InterviewScheduleFields } from "@/app/(auth)/w/[slug]/studio/interviews/_components/interview-schedule-fields";
 import {
-  createInterviewFormValues,
-  toInterviewFormValues,
-  useInterviewForm,
-} from "@/app/(auth)/w/[slug]/studio/interviews/_components/interview-form";
-import { buildInterviewFormData } from "@/app/(auth)/w/[slug]/studio/interviews/_components/interview-form/build-form-data";
+  getScheduleEntryDateValue,
+  scheduleEntryStatusMeta,
+  scheduleEntryStatusSchema,
+} from "@/lib/shared/studio-interviews";
 
 // 统一编辑对话框 props，通过 mode 分发到简历或面试模式。
 // Unified edit dialog props; dispatches to resume or interview body via mode.
@@ -44,8 +47,8 @@ interface StudioPersonEditDialogProps {
   onOpenChange: (open: boolean) => void;
   /** 要编辑的记录 ID，null 时不执行查询。Record id to edit; null skips the query. */
   recordId: string | null;
-  /** 保存成功后回调，携带最新记录。Callback with updated record on success. */
-  onUpdated: (record: ResumeLibraryDetail | StudioInterviewRecord) => void;
+  /** 保存成功后回调。Callback on success. */
+  onUpdated?: () => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -89,12 +92,12 @@ function ResumeEditBody({
       }
 
       try {
-        const detail = await apiFetch<ResumeLibraryDetail>(
-          `/api/w/${slug}/studio/resumes/${recordId}`,
-          { body: formData, method: "PATCH" },
-        );
+        await apiFetch<ResumeLibraryDetail>(`/api/w/${slug}/studio/resumes/${recordId}`, {
+          body: formData,
+          method: "PATCH",
+        });
         toast.success("已保存");
-        onUpdated(detail);
+        onUpdated?.();
         onOpenChange(false);
         setResumeFile(null);
       } catch (error) {
@@ -163,9 +166,30 @@ function ResumeEditBody({
 }
 
 // ---------------------------------------------------------------------------
-// Interview body — mirrors the old EditInterviewDialog verbatim.
-// 面试编辑体 — 与原 EditInterviewDialog 逻辑完全一致。
+// Interview body — 编辑单轮次的可编辑字段（scheduledAt / allowTextInput / notes / status）。
+// Interview body — edits a single round's editable fields.
+// recordId 在 mode=interview 时为 roundId。
+// recordId is the roundId when mode=interview.
 // ---------------------------------------------------------------------------
+
+// 轮次表单值类型。Round edit form values.
+interface InterviewRoundFormValues {
+  scheduledAt: string;
+  allowTextInput: boolean;
+  notes: string;
+  status: ScheduleEntryStatus;
+}
+
+function createInterviewRoundFormValues(
+  round: StudioInterviewRoundDetail,
+): InterviewRoundFormValues {
+  return {
+    allowTextInput: round.allowTextInput,
+    notes: round.notes ?? "",
+    scheduledAt: getScheduleEntryDateValue(round.scheduledAt) ?? "",
+    status: round.status,
+  };
+}
 
 function InterviewEditBody({
   open,
@@ -174,252 +198,161 @@ function InterviewEditBody({
   onUpdated,
 }: Omit<StudioPersonEditDialogProps, "mode">) {
   const slug = useWorkspaceSlug();
-  const router = useRouter();
-  const [activeTab, setActiveTab] = useState<string>("basic");
-  const [roundStatuses, setRoundStatuses] = useState<Record<string, ScheduleEntryStatus>>({});
-  const [resettingRoundId, setResettingRoundId] = useState<string | null>(null);
-  const queryClient = useQueryClient();
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const form = useInterviewForm({
-    defaultValues: createInterviewFormValues(),
-    onSubmit: async (values) => {
-      if (!recordId) {
-        return;
-      }
-
-      const formData = buildInterviewFormData(values, {
-        questionsFieldName: "editedQuestions",
-        resumeFile: null,
-      });
-
-      try {
-        const updated = await apiFetch<StudioInterviewRecord>(
-          `/api/w/${slug}/studio/interviews/${recordId}`,
-          { body: formData, method: "PATCH" },
-        );
-        onUpdated(updated);
-        onOpenChange(false);
-        toast.success("面试记录已更新");
-      } catch (error) {
-        toast.error(error instanceof Error ? error.message : "更新失败");
-      }
-    },
-    onSubmitInvalid: (fieldMeta) => {
-      const hasQuestionError = Object.entries(fieldMeta).some(
-        ([key, value]) =>
-          key.startsWith("interviewQuestions") &&
-          ((value as { errors?: unknown[] })?.errors?.length ?? 0) > 0,
-      );
-      if (hasQuestionError) {
-        setActiveTab("questions");
-      }
-    },
-  });
-  const isSubmitting = useStore(form.store, (state) => state.isSubmitting);
-  const onOpenChangeRef = useRef(onOpenChange);
-  onOpenChangeRef.current = onOpenChange;
-  const closeDialog = useCallback(() => onOpenChangeRef.current(false), []);
-  const resetForm = useCallback((record: StudioInterviewRecord) => {
-    const values = toInterviewFormValues(record);
-    form.setFieldValue("candidateName", values.candidateName);
-    form.setFieldValue("candidateEmail", values.candidateEmail);
-    form.setFieldValue("targetRole", values.targetRole);
-    form.setFieldValue("notes", values.notes);
-    form.setFieldValue("status", values.status);
-    form.setFieldValue("jobDescriptionId", values.jobDescriptionId ?? "");
-    form.setFieldValue("scheduleEntries", values.scheduleEntries);
-    form.setFieldValue("interviewQuestions", values.interviewQuestions);
-
-    const statuses: Record<string, ScheduleEntryStatus> = {};
-    for (const entry of record.scheduleEntries) {
-      if (entry.id && entry.status) {
-        statuses[entry.id] = entry.status;
-      }
-    }
-    setRoundStatuses(statuses);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- form instance is stable
-  }, []);
-
-  const { data: recordEditing, isLoading: isLoadingRecord } = useQuery({
+  // 拉取轮次详情，open + recordId 同时为真才触发。
+  // Fetch round detail; only enabled when dialog is open with a target id.
+  const { data: round, isLoading } = useQuery({
     enabled: open && !!recordId,
-    meta: {
-      onError: (error: Error) => {
-        toast.error(error.message);
-        closeDialog();
-      },
-    },
-    queryFn: async () => {
-      const record = await fetchStudioInterview(slug, recordId as string);
-      if (!record) {
-        throw new Error("加载编辑数据失败");
-      }
-      resetForm(record);
-      return record;
-    },
-    queryKey: ["studio-interview-edit", slug, recordId],
+    queryFn: () => fetchStudioInterviewRound(slug, recordId as string),
+    queryKey: ["studio-interview-round-edit", slug, recordId],
+    staleTime: 0,
   });
 
-  async function handleResetRound(roundId: string) {
-    if (!recordId || resettingRoundId) {
+  // 表单默认值。Form default values.
+  const [formValues, setFormValues] = useState<InterviewRoundFormValues>({
+    allowTextInput: false,
+    notes: "",
+    scheduledAt: "",
+    status: "pending",
+  });
+
+  // 详情加载完成后回填表单。Hydrate form once round detail resolves.
+  useEffect(() => {
+    if (!round) {
       return;
     }
+    setFormValues(createInterviewRoundFormValues(round));
+  }, [round]);
 
-    setResettingRoundId(roundId);
-
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!recordId) {
+      return;
+    }
+    setIsSubmitting(true);
     try {
-      const updated = await resetStudioInterviewRound(slug, recordId, roundId);
-      toast.success("轮次已重置为待开始");
-      // 仅在本地清掉该轮次的锁定状态，不重写表单值，
-      // 避免覆盖用户在题目 / Agent 提示词等其他 tab 中尚未保存的修改。
-      // Drop the local lock for this round only — don't overwrite the form,
-      // so unsaved edits in other tabs (questions, agent instructions) survive.
-      setRoundStatuses((prev) => {
-        if (!(roundId in prev)) {
-          return prev;
-        }
-        const { [roundId]: _removed, ...rest } = prev;
-        return rest;
+      await updateStudioInterviewRound(slug, recordId, {
+        allowTextInput: formValues.allowTextInput,
+        notes: formValues.notes,
+        scheduledAt: formValues.scheduledAt || null,
+        status: formValues.status,
       });
-      await queryClient.invalidateQueries({ queryKey: ["studio-interview", recordId] });
-      await queryClient.invalidateQueries({ queryKey: ["studio-interview-reports", recordId] });
-      onUpdated(updated);
+      toast.success("已保存轮次");
+      onUpdated?.();
+      onOpenChange(false);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "重置失败");
+      toast.error(error instanceof Error ? error.message : "保存失败");
     } finally {
-      setResettingRoundId(null);
+      setIsSubmitting(false);
     }
   }
 
   return (
-    <Tabs onValueChange={setActiveTab} value={activeTab}>
-      <Modal
-        open={open}
-        onOpenChange={onOpenChange}
-        title="编辑面试记录"
-        description="维护面试流程：状态、安排、面试题、Agent 提示词。候选人资料请在简历库编辑。"
-        size="2xl"
-        headerExtra={
-          isLoadingRecord ? null : (
-            <TabsList className="mt-2">
-              <TabsTrigger className="min-w-[8em]" value="basic">
-                基础信息
-              </TabsTrigger>
-              <TabsTrigger className="min-w-[8em]" value="questions">
-                面试题目
-              </TabsTrigger>
-              <TabsTrigger className="min-w-[8em]" value="instructions">
-                Agent 提示词
-              </TabsTrigger>
-            </TabsList>
-          )
-        }
-        footer={
-          isLoadingRecord ? undefined : (
-            <Button
-              disabled={isSubmitting || isLoadingRecord}
-              form="edit-interview-form"
-              type="submit"
-            >
-              {isSubmitting || isLoadingRecord ? (
-                <LoaderCircleIcon className="size-4 animate-spin" />
-              ) : null}
-              保存更新
-            </Button>
-          )
-        }
-      >
-        {isLoadingRecord ? (
-          <div className="flex min-h-[320px] items-center justify-center text-muted-foreground text-sm">
-            正在加载编辑数据...
+    <Modal
+      description="编辑轮次排期、文本输入设置、备注和状态。候选人基础信息请在简历库编辑。"
+      footer={
+        isLoading ? undefined : (
+          <Button disabled={isSubmitting} form="edit-round-form" type="submit">
+            {isSubmitting ? <LoaderCircleIcon className="size-4 animate-spin" /> : null}
+            保存更新
+          </Button>
+        )
+      }
+      onOpenChange={onOpenChange}
+      open={open}
+      size="md"
+      title="编辑面试轮次"
+    >
+      {isLoading ? (
+        <div className="flex min-h-[240px] items-center justify-center text-muted-foreground text-sm">
+          正在加载轮次数据...
+        </div>
+      ) : (
+        <form className="space-y-5" id="edit-round-form" onSubmit={(e) => void handleSubmit(e)}>
+          {/* 候选人字段说明横幅 / Banner explaining where to edit candidate fields */}
+          <p className="text-muted-foreground text-sm">
+            候选人身份字段（姓名、邮箱、电话、岗位、JD、备注、简历）请到简历库编辑。
+          </p>
+
+          {/* 轮次标签（只读）/ Round label (read-only) */}
+          {round?.roundLabel ? (
+            <div className="space-y-1.5">
+              <Label>轮次</Label>
+              <p className="rounded-md border border-border/60 bg-muted/30 px-3 py-2 text-sm">
+                {round.roundLabel}
+              </p>
+            </div>
+          ) : null}
+
+          {/* 面试时间 / Scheduled time */}
+          <div className="space-y-1.5">
+            <Label htmlFor="round-scheduledAt">面试时间</Label>
+            <Input
+              id="round-scheduledAt"
+              onChange={(e) => setFormValues((prev) => ({ ...prev, scheduledAt: e.target.value }))}
+              type="datetime-local"
+              value={formValues.scheduledAt}
+            />
           </div>
-        ) : (
-          <form
-            id="edit-interview-form"
-            onSubmit={(event) => {
-              event.preventDefault();
-              event.stopPropagation();
-              void form.handleSubmit();
-            }}
-          >
-            <AnimatedHeight>
-              <TabsContent className="mt-0" value="basic">
-                <div className="space-y-5">
-                  {recordEditing ? (
-                    <div className="rounded-2xl border border-border/60 bg-muted/30 p-4">
-                      <CandidateBasicInfoView
-                        candidateName={recordEditing.candidateName}
-                        candidateEmail={recordEditing.candidateEmail}
-                        candidatePhone={recordEditing.candidatePhone}
-                        targetRole={recordEditing.targetRole}
-                        jobDescriptionName={recordEditing.jobDescriptionName}
-                        creatorName={null}
-                        resumeFileName={recordEditing.resumeFileName}
-                        hasResumeFile={Boolean(recordEditing.resumeStorageKey)}
-                        footer={
-                          <Button
-                            onClick={() => {
-                              router.push(`/w/${slug}/studio/resumes?recordId=${recordEditing.id}`);
-                              onOpenChange(false);
-                            }}
-                            size="sm"
-                            type="button"
-                            variant="outline"
-                          >
-                            <PencilIcon className="size-3.5" />
-                            编辑候选人信息
-                          </Button>
-                        }
-                      />
-                      <p className="mt-3 text-muted-foreground text-xs">
-                        候选人姓名 / 邮箱 / 电话 / 目标岗位 / 关联岗位 / 简历 PDF
-                        在简历库统一维护，请在那里编辑。
-                      </p>
-                    </div>
-                  ) : null}
 
-                  <InterviewScheduleFields
-                    form={form}
-                    onResetRound={handleResetRound}
-                    resettingRoundId={resettingRoundId}
-                    roundStatuses={roundStatuses}
-                  />
-                </div>
-              </TabsContent>
+          {/* 状态 / Status */}
+          <div className="space-y-1.5">
+            <Label htmlFor="round-status">状态</Label>
+            <Select
+              onValueChange={(v) =>
+                setFormValues((prev) => ({
+                  ...prev,
+                  status: scheduleEntryStatusSchema.parse(v),
+                }))
+              }
+              value={formValues.status}
+            >
+              <SelectTrigger id="round-status">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {Object.entries(scheduleEntryStatusMeta).map(([value, meta]) => (
+                  <SelectItem key={value} value={value}>
+                    {meta.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
-              <TabsContent className="mt-0 space-y-6" value="questions">
-                {recordId ? (
-                  <InterviewQuestionBindingsSection
-                    disabled={isSubmitting || isLoadingRecord}
-                    interviewId={recordId}
-                  />
-                ) : null}
+          {/* 允许文本输入 / Allow text input */}
+          <div className="flex items-center justify-between rounded-lg border border-border/50 px-3 py-2.5">
+            <div className="space-y-0.5">
+              <Label htmlFor="round-allowTextInput">允许面试者文本输入</Label>
+              <p className="text-muted-foreground text-xs">
+                关闭时面试界面文字输入框被禁用，仅支持语音作答。
+              </p>
+            </div>
+            <Switch
+              checked={formValues.allowTextInput}
+              id="round-allowTextInput"
+              onCheckedChange={(checked) =>
+                setFormValues((prev) => ({ ...prev, allowTextInput: checked }))
+              }
+            />
+          </div>
 
-                <div className="space-y-3">
-                  <div>
-                    <p className="font-medium text-sm">候选人专属面试题</p>
-                    <p className="mt-1 text-muted-foreground text-xs">
-                      基于该候选人的简历单独维护的题目，仅用于本次面试。
-                    </p>
-                  </div>
-                  <InterviewQuestionsFields
-                    disabled={isSubmitting || isLoadingRecord}
-                    form={form}
-                    resetKey={recordId ?? "new"}
-                  />
-                </div>
-              </TabsContent>
-
-              <TabsContent className="mt-0" value="instructions">
-                <AgentInstructionsPanel
-                  enabled={open && activeTab === "instructions"}
-                  recordId={recordId}
-                />
-              </TabsContent>
-            </AnimatedHeight>
-          </form>
-        )}
-      </Modal>
-    </Tabs>
+          {/* 备注 / Notes */}
+          <div className="space-y-1.5">
+            <Label htmlFor="round-notes">备注</Label>
+            <Textarea
+              id="round-notes"
+              maxLength={1000}
+              onChange={(e) => setFormValues((prev) => ({ ...prev, notes: e.target.value }))}
+              placeholder="可填写面试安排备注..."
+              rows={3}
+              value={formValues.notes}
+            />
+          </div>
+        </form>
+      )}
+    </Modal>
   );
 }
 
