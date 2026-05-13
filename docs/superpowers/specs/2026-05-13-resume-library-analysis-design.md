@@ -75,12 +75,14 @@ export function useResumeAnalysisPipeline(
 内部实现 = 把 `create-interview-dialog.tsx` 当前 `handleResumeChange` / `runQuestionGeneration` / `handleDedupContinue` / `handleCancelAnalysis` / `tryExtractPartialFields` / `handleStreamEvent` 原样搬过来，相关 `useState` / `useRef` 也搬到 hook 里。
 
 `useResumeAnalysisPipeline` 内部使用：
+
 - `useWorkspaceSlug()` 拿 slug
 - dedup 查重统一走 `fetchInterviewDedup`（命中 `/api/w/:slug/studio/interviews/dedup-check`），底层与 `fetchResumeDedup` 共用同一个 DAO `queryInterviewDedup`，结果等价；统一到一个端点避免维护两套客户端 helper
 - `/studio/resumes/dedup-check` 路由保留，不在本次清理范围
 
 **`src/app/(auth)/w/[slug]/studio/_components/resume-analysis-overlay.tsx`** — 新组件。
 封装"忙状态浮层"，参数为 `ResumeAnalysisPipelineState` 的子集 + `onCancel` / `onDedupContinue` 回调。内部含：
+
 - `motion.div` 半透明 backdrop
 - 命中 dedup → 渲染 `<ResumeDedupOverlay>`
 - 其余 → 渲染 loader、`progressStatus` / TextFlip、tool list、partialFields、取消按钮
@@ -88,6 +90,7 @@ export function useResumeAnalysisPipeline(
 ### 3.2 AI 面试侧重构 (CreateInterviewDialog)
 
 `create-interview-dialog.tsx` 改为：
+
 - 调用 `useResumeAnalysisPipeline` 拿状态 + 回调
 - `onProfileParsed` 里回填表单四个字段
 - `onJobDescriptionMatched` 回填 `jobDescriptionId`
@@ -143,6 +146,7 @@ UI 副本调整见 §4。
 #### 3.4.1 POST `/api/w/:slug/studio/resumes`（「保存」路径）
 
 当前 `route.ts:159-228` 行为：
+
 - 服务端从 `formData.get("resume")` 取文件 → `parseResumeFastToProfile` 兜底解析
 - `interviewQuestions: []` 硬编码
 
@@ -203,15 +207,15 @@ DTO 改动：
 
 ## 4. 文案改动
 
-| 位置 | 旧 | 新 |
-|---|---|---|
-| 触发按钮（resume-library-page） | 「上传简历」 | 「新建简历记录」 |
-| Modal `title` | 「上传简历」 | 「新建简历记录」 |
-| Modal `description` | 「将候选人简历加入简历库。不会生成面试题，也不会发起 AI 面试。」 | 「上传 PDF 自动解析候选人信息、匹配岗位并生成面试题；可仅入库，或一键发起 AI 面试。」 |
-| Footer 主按钮 | 「确认上传」 | 「保存并发起面试」 |
-| Footer 次按钮 | （无） | 「保存」（variant=outline）|
-| 成功 toast (save-only) | 「简历已加入简历库」 | 「简历记录已创建」 |
-| 成功 toast (save-and-start) | （无） | 「已创建并发起 1 轮面试」 |
+| 位置                            | 旧                                                               | 新                                                                                    |
+| ------------------------------- | ---------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| 触发按钮（resume-library-page） | 「上传简历」                                                     | 「新建简历记录」                                                                      |
+| Modal `title`                   | 「上传简历」                                                     | 「新建简历记录」                                                                      |
+| Modal `description`             | 「将候选人简历加入简历库。不会生成面试题，也不会发起 AI 面试。」 | 「上传 PDF 自动解析候选人信息、匹配岗位并生成面试题；可仅入库，或一键发起 AI 面试。」 |
+| Footer 主按钮                   | 「确认上传」                                                     | 「保存并发起面试」                                                                    |
+| Footer 次按钮                   | （无）                                                           | 「保存」（variant=outline）                                                           |
+| 成功 toast (save-only)          | 「简历已加入简历库」                                             | 「简历记录已创建」                                                                    |
+| 成功 toast (save-and-start)     | （无）                                                           | 「已创建并发起 1 轮面试」                                                             |
 
 代码内注释维护双语（per CLAUDE.md memory）。
 
@@ -251,17 +255,17 @@ DTO 改动：
 
 ## 6. 错误处理 / 边界情况
 
-| 场景 | 行为 |
-|---|---|
-| 简历解析流失败 | 沿用 hook 内 toast，文件被回滚为 null；用户可手动录入表单后直接 POST（与现状对齐：服务端兜底跑 `parseResumeFastToProfile`，questions 留空） |
-| JD 自动匹配失败 | 静默吞，用户可手动选 JD（沿用 AI 面试现有行为） |
-| dedup 检查失败 | toast.warning「身份查重失败，已跳过」，继续 Step 2（与 AI 面试一致） |
-| 题目生成失败 | toast 错误，`resumePayload.interviewQuestions = []`，用户仍可"保存"将记录入库（questions 字段为空） |
-| 用户中途取消 (`handleCancelAnalysis`) | abort 所有 in-flight 请求，清空 file/payload/dedup state，表单原值保留 |
-| 用户不上传 PDF | hook 不启动；两个按钮都可点 |
-| 用户上传 PDF 后改文件 | `handleResumeChange` 在开头 reset 所有相关 state；hook 内部行为不变 |
-| 用户不上传 PDF 直接「保存并发起面试」 | 允许 —— 默认 schedule 仍写入；候选人姓名走表单值（不会被 profile 兜底）；与 AI 面试现有「手动录入 + 不上传简历」路径一致 |
-| 「保存并发起面试」POST 失败 | toast 错误，弹窗不关，按钮恢复可点（用户可重试「保存」降级或重新「保存并发起面试」） |
+| 场景                                  | 行为                                                                                                                                        |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| 简历解析流失败                        | 沿用 hook 内 toast，文件被回滚为 null；用户可手动录入表单后直接 POST（与现状对齐：服务端兜底跑 `parseResumeFastToProfile`，questions 留空） |
+| JD 自动匹配失败                       | 静默吞，用户可手动选 JD（沿用 AI 面试现有行为）                                                                                             |
+| dedup 检查失败                        | toast.warning「身份查重失败，已跳过」，继续 Step 2（与 AI 面试一致）                                                                        |
+| 题目生成失败                          | toast 错误，`resumePayload.interviewQuestions = []`，用户仍可"保存"将记录入库（questions 字段为空）                                         |
+| 用户中途取消 (`handleCancelAnalysis`) | abort 所有 in-flight 请求，清空 file/payload/dedup state，表单原值保留                                                                      |
+| 用户不上传 PDF                        | hook 不启动；两个按钮都可点                                                                                                                 |
+| 用户上传 PDF 后改文件                 | `handleResumeChange` 在开头 reset 所有相关 state；hook 内部行为不变                                                                         |
+| 用户不上传 PDF 直接「保存并发起面试」 | 允许 —— 默认 schedule 仍写入；候选人姓名走表单值（不会被 profile 兜底）；与 AI 面试现有「手动录入 + 不上传简历」路径一致                    |
+| 「保存并发起面试」POST 失败           | toast 错误，弹窗不关，按钮恢复可点（用户可重试「保存」降级或重新「保存并发起面试」）                                                        |
 
 ## 7. Testing
 
@@ -293,16 +297,19 @@ Vitest + jsdom，mock `fetch`、`rpc`、`fetchInterviewDedup`、`readNdjsonStrea
 ### 7.3 前端端到端手动验收
 
 **简历库分支 A — 仅保存**：
+
 - 列表点「新建简历记录」→ 选 PDF → 看到流式进度 → 表单自动填好
 - 点「保存」→ toast「简历记录已创建」→ 列表新行
 - 打开详情，切到「AI 题目」tab 看到生成的题
 
 **简历库分支 B — 保存并发起面试**：
+
 - 同上至 hook 完成
 - 点「保存并发起面试」→ toast「已创建并发起 1 轮面试」→ 列表新行
 - 进 `/studio/interviews` 也能看到该记录，详情有 1 条 schedule 行（初轮，scheduledAt=刚才）
 
 **AI 面试回归**：
+
 - AI 面试侧点「新建面试记录」走完整流程，确认行为不变
 
 **质量门**：`pnpm typecheck` / `pnpm check` / `pnpm test` 全部通过

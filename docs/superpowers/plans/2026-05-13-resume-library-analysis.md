@@ -25,12 +25,14 @@
 ## File map
 
 ### 新增
+
 - `src/app/(auth)/w/[slug]/studio/_components/use-resume-analysis-pipeline.ts` — 简历解析流水线 hook
 - `src/app/(auth)/w/[slug]/studio/_components/resume-analysis-overlay.tsx` — 流式进度浮层
 - `src/app/(auth)/w/[slug]/studio/_components/__tests__/use-resume-analysis-pipeline.test.ts` — hook 单测
 - `src/server/routes/studio/routes/resumes/__tests__/route-resume-payload.test.ts` — 后端 resumePayload 集成测试
 
 ### 修改
+
 - `src/lib/shared/studio-resumes.ts` — `ResumeLibraryDetail` 增 `interviewQuestions`
 - `src/server/routes/studio/routes/resumes/dao/resumes.ts` — `loadResumeDetail` 拉 `interviewQuestions`
 - `src/server/routes/studio/routes/resumes/route.ts` — POST handler 接收 `resumePayload`
@@ -46,6 +48,7 @@
 ### Task 1: ResumeLibraryDetail 增加 interviewQuestions 字段
 
 **Files:**
+
 - Modify: `src/lib/shared/studio-resumes.ts:37-39`
 - Modify: `src/server/routes/studio/routes/resumes/dao/resumes.ts:170-194`
 
@@ -123,6 +126,7 @@ git commit -m "feat(resumes): surface interviewQuestions in ResumeLibraryDetail"
 ### Task 2: POST /studio/resumes 接收 resumePayload（红 → 绿）
 
 **Files:**
+
 - Test: `src/server/routes/studio/routes/resumes/__tests__/route-resume-payload.test.ts` (new)
 - Modify: `src/server/routes/studio/routes/resumes/route.ts:159-228`
 
@@ -237,6 +241,7 @@ Expected: PASS (Task 1 已让 DAO 暴露 `interviewQuestions`)
 Edit `src/server/routes/studio/routes/resumes/route.ts`:
 
 1. Add import:
+
 ```ts
 import { parseResumePayloadInput } from "@/lib/shared/studio-interviews";
 ```
@@ -337,6 +342,7 @@ git commit -m "feat(resumes): accept resumePayload to persist interviewQuestions
 ### Task 3: 编写 useResumeAnalysisPipeline hook + 单测（红）
 
 **Files:**
+
 - Test: `src/app/(auth)/w/[slug]/studio/_components/__tests__/use-resume-analysis-pipeline.test.ts` (new)
 - Create: `src/app/(auth)/w/[slug]/studio/_components/use-resume-analysis-pipeline.ts` (stub only)
 
@@ -454,9 +460,7 @@ import { useResumeAnalysisPipeline } from "../use-resume-analysis-pipeline";
 import { fetchInterviewDedup } from "@/lib/client/api";
 import { readNdjsonStream } from "@/lib/client/ndjson-stream";
 
-const QUESTIONS = [
-  { difficulty: "easy" as const, order: 1, question: "Tell me about yourself" },
-];
+const QUESTIONS = [{ difficulty: "easy" as const, order: 1, question: "Tell me about yourself" }];
 
 function stubParseResponse() {
   return new Response(JSON.stringify({}), { status: 200 });
@@ -478,7 +482,10 @@ describe("useResumeAnalysisPipeline", () => {
     vi.mocked(readNdjsonStream).mockImplementation(async (_response, onEvent) => {
       // First call drives parse-resume result.
       if ((readNdjsonStream as any).mock.calls.length === 1) {
-        onEvent({ type: "result", data: { fileName: FILE.name, resumeProfile: SAMPLE_PROFILE } } as any);
+        onEvent({
+          type: "result",
+          data: { fileName: FILE.name, resumeProfile: SAMPLE_PROFILE },
+        } as any);
         return;
       }
       // Second call drives generate-questions result.
@@ -592,6 +599,7 @@ git commit -m "test(studio): pin useResumeAnalysisPipeline contract (red)"
 ### Task 4: 实现 useResumeAnalysisPipeline（绿）
 
 **Files:**
+
 - Modify: `src/app/(auth)/w/[slug]/studio/_components/use-resume-analysis-pipeline.ts`
 
 - [ ] **Step 1: 实现 hook**
@@ -835,7 +843,9 @@ export function useResumeAnalysisPipeline(
           signal: abortController.signal,
         });
         if (!parseResponse.ok) {
-          const errBody = (await parseResponse.json().catch(() => null)) as { error?: string } | null;
+          const errBody = (await parseResponse.json().catch(() => null)) as {
+            error?: string;
+          } | null;
           throw new Error(errBody?.error ?? "简历解析失败");
         }
 
@@ -1022,6 +1032,7 @@ git commit -m "feat(studio): extract useResumeAnalysisPipeline hook"
 ### Task 5: 实现 ResumeAnalysisOverlay 组件
 
 **Files:**
+
 - Create: `src/app/(auth)/w/[slug]/studio/_components/resume-analysis-overlay.tsx`
 
 - [ ] **Step 1: 写组件**
@@ -1064,10 +1075,7 @@ export function ResumeAnalysisOverlay({ pipeline }: { pipeline: ResumeAnalysisPi
           {pipeline.progressStatus ? (
             <p className="font-medium text-foreground text-sm">{pipeline.progressStatus}</p>
           ) : (
-            <motion.div
-              className="flex items-center font-medium text-foreground text-lg"
-              layout
-            >
+            <motion.div className="flex items-center font-medium text-foreground text-lg" layout>
               <span>正在</span>
               <TextFlip as={motion.span} interval={2.5} layout>
                 <span>解析简历</span>
@@ -1128,11 +1136,13 @@ git commit -m "feat(studio): add ResumeAnalysisOverlay shared component"
 ### Task 6: 重构 CreateInterviewDialog 消费 hook + overlay
 
 **Files:**
+
 - Modify: `src/app/(auth)/w/[slug]/studio/interviews/_components/create-interview-dialog.tsx`
 
 - [ ] **Step 1: 删除 dialog 内被 hook 接管的所有本地状态与函数**
 
 Open `create-interview-dialog.tsx`. Delete:
+
 - `LEADING_DIGIT_RE`, `LEADING_DIGITS_RE` module constants
 - `useState` for `resumeFile`, `resumePayload`, `isAnalyzingResume`, `isGeneratingQuestions`, `progressStatus`, `progressTools`, `partialFields`, `dedupMatches`
 - `useRef` for `accumulatedTextRef`, `abortControllerRef`, `pendingProfileRef`
@@ -1164,6 +1174,7 @@ const pipeline = useResumeAnalysisPipeline({
 ```
 
 Replace all references to the deleted locals with `pipeline.*`:
+
 - `resumeFile` → `pipeline.resumeFile`
 - `resumePayload` → `pipeline.resumePayload`
 - `isAnalyzingResume` → `pipeline.isAnalyzingResume`
@@ -1202,16 +1213,19 @@ Remove now-unused imports (`CheckIcon`, `LoaderCircleIcon`, `SparklesIcon`, `Wre
 - [ ] **Step 5: typecheck + check + tests**
 
 Run:
+
 ```bash
 pnpm typecheck
 pnpm check
 pnpm test
 ```
+
 Expected: all PASS
 
 - [ ] **Step 6: 手动回归（关键）**
 
 启动 dev server: `pnpm dev`
+
 - 打开 `/studio/interviews`，点「新建面试记录」
 - 上传一份 PDF，观察：进度条 → 表单回填 → JD 匹配 → 题目生成
 - 命中查重场景：手动选择一个与现有候选人姓名重叠的简历（如需 fixture）
@@ -1233,6 +1247,7 @@ git commit -m "refactor(studio): consume useResumeAnalysisPipeline in CreateInte
 ### Task 7: 重写 UploadResumeDialog 为 CreateResumeRecordDialog（双 submit）
 
 **Files:**
+
 - Modify: `src/app/(auth)/w/[slug]/studio/resumes/_components/upload-resume-dialog.tsx`
 
 - [ ] **Step 1: 重写组件**
@@ -1333,23 +1348,17 @@ export function CreateResumeRecordDialog({ onCreated }: CreateResumeRecordDialog
       setSubmitting(true);
       try {
         if (mode === "save-only") {
-          const detail = await apiFetch<ResumeLibraryDetail>(
-            `/api/w/${slug}/studio/resumes`,
-            {
-              body: buildSaveOnlyFormData(value, pipeline.resumeFile, pipeline.resumePayload),
-              method: "POST",
-            },
-          );
+          const detail = await apiFetch<ResumeLibraryDetail>(`/api/w/${slug}/studio/resumes`, {
+            body: buildSaveOnlyFormData(value, pipeline.resumeFile, pipeline.resumePayload),
+            method: "POST",
+          });
           toast.success("简历记录已创建");
           onCreated({ detail, mode: "save-only" });
         } else {
-          const record = await apiFetch<StudioInterviewRecord>(
-            `/api/w/${slug}/studio/interviews`,
-            {
-              body: buildSaveAndStartFormData(value, pipeline.resumeFile, pipeline.resumePayload),
-              method: "POST",
-            },
-          );
+          const record = await apiFetch<StudioInterviewRecord>(`/api/w/${slug}/studio/interviews`, {
+            body: buildSaveAndStartFormData(value, pipeline.resumeFile, pipeline.resumePayload),
+            method: "POST",
+          });
           toast.success("已创建并发起 1 轮面试");
           onCreated({ mode: "save-and-start", record });
         }
@@ -1489,6 +1498,7 @@ git commit -m "feat(resumes): rewrite UploadResumeDialog as CreateResumeRecordDi
 ### Task 8: ResumeLibraryPage 处理 union onCreated
 
 **Files:**
+
 - Modify: `src/app/(auth)/w/[slug]/studio/resumes/_components/resume-library-page.tsx`
 
 - [ ] **Step 1: 更新 import 与调用点**
@@ -1502,10 +1512,7 @@ import { UploadResumeDialog } from "./upload-resume-dialog";
 Change to:
 
 ```tsx
-import {
-  CreateResumeRecordDialog,
-  type CreateResumeRecordResult,
-} from "./upload-resume-dialog";
+import { CreateResumeRecordDialog, type CreateResumeRecordResult } from "./upload-resume-dialog";
 ```
 
 - [ ] **Step 2: 添加 onCreated handler**
@@ -1527,19 +1534,25 @@ function handleCreated(result: CreateResumeRecordResult) {
 - [ ] **Step 3: 替换调用点**
 
 Find:
+
 ```tsx
 toolbarRight={<UploadResumeDialog onCreated={() => invalidateAll()} />}
 ```
+
 And:
+
 ```tsx
 <UploadResumeDialog onCreated={() => invalidateAll()} />
 ```
 
 Replace both with:
+
 ```tsx
 toolbarRight={<CreateResumeRecordDialog onCreated={handleCreated} />}
 ```
+
 And:
+
 ```tsx
 <CreateResumeRecordDialog onCreated={handleCreated} />
 ```
@@ -1551,10 +1564,12 @@ And:
 - [ ] **Step 5: typecheck + check**
 
 Run:
+
 ```bash
 pnpm typecheck
 pnpm check
 ```
+
 Expected: PASS
 
 - [ ] **Step 6: commit**
@@ -1572,6 +1587,7 @@ git commit -m "feat(resumes): wire ResumeLibraryPage to CreateResumeRecordDialog
 ### Task 9: StudioPersonDetailDialog 在 resume 模式展示面试题 tab
 
 **Files:**
+
 - Modify: `src/app/(auth)/w/[slug]/studio/_components/studio-person-detail-dialog.tsx`
 
 - [ ] **Step 1: UnifiedRecord 在 resume 分支也填 interviewQuestions**
@@ -1604,31 +1620,37 @@ Find the TabsList block (around `studio-person-detail-dialog.tsx:375-405`). The 
 Replace:
 
 ```tsx
-{mode === "interview" ? (
-  <>
-    <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="reports">
-      面试报告
-    </TabsTrigger>
-    <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="questions">
-      AI 题目
-    </TabsTrigger>
-  </>
-) : null}
+{
+  mode === "interview" ? (
+    <>
+      <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="reports">
+        面试报告
+      </TabsTrigger>
+      <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="questions">
+        AI 题目
+      </TabsTrigger>
+    </>
+  ) : null;
+}
 ```
 
 With:
 
 ```tsx
-{mode === "interview" ? (
-  <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="reports">
-    面试报告
-  </TabsTrigger>
-) : null}
-{(mode === "interview" || interviewQuestions.length > 0) ? (
-  <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="questions">
-    AI 题目
-  </TabsTrigger>
-) : null}
+{
+  mode === "interview" ? (
+    <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="reports">
+      面试报告
+    </TabsTrigger>
+  ) : null;
+}
+{
+  mode === "interview" || interviewQuestions.length > 0 ? (
+    <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="questions">
+      AI 题目
+    </TabsTrigger>
+  ) : null;
+}
 ```
 
 - [ ] **Step 3: TabsContent for questions 同步放开**
@@ -1636,11 +1658,11 @@ With:
 Find the existing `mode === "interview" ? <TabsContent value="questions"> … </TabsContent> : null` block (around `studio-person-detail-dialog.tsx:799-829`). Replace the gate:
 
 ```tsx
-{(mode === "interview" || interviewQuestions.length > 0) ? (
-  <TabsContent value="questions">
-    {/* keep existing inner JSX as-is */}
-  </TabsContent>
-) : null}
+{
+  mode === "interview" || interviewQuestions.length > 0 ? (
+    <TabsContent value="questions">{/* keep existing inner JSX as-is */}</TabsContent>
+  ) : null;
+}
 ```
 
 Don't change the inner JSX; the existing rendering already iterates `visibleInterviewQuestions` and shows the empty state. Resume-mode "暂无面试题" path is unreachable here because we gate on `length > 0` for visibility — but leaving the empty-state branch in is harmless.
@@ -1648,11 +1670,13 @@ Don't change the inner JSX; the existing rendering already iterates `visibleInte
 - [ ] **Step 4: typecheck + check + tests**
 
 Run:
+
 ```bash
 pnpm typecheck
 pnpm check
 pnpm test
 ```
+
 Expected: PASS
 
 - [ ] **Step 5: commit**
@@ -1677,6 +1701,7 @@ pnpm typecheck
 pnpm check
 pnpm test
 ```
+
 Expected: all PASS
 
 - [ ] **Step 2: dev 启动**
