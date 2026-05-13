@@ -29,3 +29,4 @@ export { rpcFetch } from "./rpc-fetch";
 export * from "./endpoints/chat";
 export * from "./endpoints/studio-interviews";
 export * from "./endpoints/resume";
+export * from "./endpoints/studio-resumes";
