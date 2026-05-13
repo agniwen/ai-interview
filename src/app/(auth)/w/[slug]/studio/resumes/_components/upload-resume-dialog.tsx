@@ -242,7 +242,3 @@ export function CreateResumeRecordDialog({ onCreated }: CreateResumeRecordDialog
     </>
   );
 }
-
-// 临时兼容别名：Task 8 切换 ResumeLibraryPage 的 import 后即可删除。
-// Temporary alias to keep ResumeLibraryPage compiling until Task 8 retires it.
-export const UploadResumeDialog = CreateResumeRecordDialog;

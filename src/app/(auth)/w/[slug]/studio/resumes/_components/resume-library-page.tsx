@@ -44,7 +44,8 @@ import { bulkDeleteStudioResumes, deleteStudioResume, fetchStudioResumes } from 
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { StudioPersonDetailDialog } from "@/app/(auth)/w/[slug]/studio/_components/studio-person-detail-dialog";
 import { StudioPersonEditDialog } from "@/app/(auth)/w/[slug]/studio/_components/studio-person-edit-dialog";
-import { UploadResumeDialog } from "./upload-resume-dialog";
+import { CreateResumeRecordDialog } from "./upload-resume-dialog";
+import type { CreateResumeRecordResult } from "./upload-resume-dialog";
 
 const PdfPreviewDialog = dynamic(
   async () => {
@@ -132,6 +133,14 @@ export function ResumeLibraryPage({ initialData }: { initialData: PaginatedResum
 
   function invalidateAll() {
     void queryClient.invalidateQueries({ queryKey: ["studio-resumes"] });
+  }
+
+  // 保存 / 保存并发起面试 都只需刷新列表 —— 不跳转到 AI 面试详情页。
+  // 「保存并发起面试」的记录也会出现在 /studio/interviews 列表，由用户自行查看。
+  // Both submit modes only refresh the list. Per spec, no redirect after
+  // save-and-start; the record will also appear in /studio/interviews on its own.
+  function handleResumeRecordCreated(_result: CreateResumeRecordResult) {
+    invalidateAll();
   }
 
   function startAiInterview(record: ResumeLibraryListRecord) {
@@ -310,7 +319,7 @@ export function ResumeLibraryPage({ initialData }: { initialData: PaginatedResum
           getRowId={(r) => r.id}
           columnPinning={{ left: ["select", "candidateName"], right: ["actions"] }}
           filters={filtersConfig}
-          toolbarRight={<UploadResumeDialog onCreated={() => invalidateAll()} />}
+          toolbarRight={<CreateResumeRecordDialog onCreated={handleResumeRecordCreated} />}
           bulkActions={({ selectedIds }) => (
             <Button
               className="flex-1 sm:flex-none"
@@ -331,7 +340,7 @@ export function ResumeLibraryPage({ initialData }: { initialData: PaginatedResum
                 <EmptyDescription>点击右上角「上传简历」加入第一份候选人简历。</EmptyDescription>
               </EmptyHeader>
               <EmptyContent>
-                <UploadResumeDialog onCreated={() => invalidateAll()} />
+                <CreateResumeRecordDialog onCreated={handleResumeRecordCreated} />
               </EmptyContent>
             </Empty>
           }
