@@ -9,6 +9,7 @@ import type {
 } from "@/server/routes/studio/routes/interviews/dao/studio-interviews";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import dynamic from "next/dynamic";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { BotIcon, CopyIcon, EyeIcon, PencilIcon, Trash2Icon } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -54,7 +55,6 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { StudioPersonDetailDialog } from "@/app/(auth)/w/[slug]/studio/_components/studio-person-detail-dialog";
 import { StudioPersonEditDialog } from "@/app/(auth)/w/[slug]/studio/_components/studio-person-edit-dialog";
-import { CreateInterviewDialog } from "./create-interview-dialog";
 import { InterviewStatusBadge } from "./interview-status-badge";
 import { JobDescriptionViewDialog } from "./job-description-view-dialog";
 
@@ -412,7 +412,7 @@ export function InterviewManagementPage({
       <div className="space-y-6">
         <PageHeader
           title="AI 面试"
-          description="为候选人创建 AI 语音面试，跟踪面试进度并查看评估报告。"
+          description="管理候选人的 AI 语音面试，跟踪进度并查看评估报告。新建请到简历库发起。"
         />
         <DataGrid<StudioInterviewListRecord>
           {...grid.bind}
@@ -421,7 +421,6 @@ export function InterviewManagementPage({
           columnPinning={{ left: ["select", "candidateName"], right: ["actions"] }}
           filters={filtersConfig}
           headerExtra={stats}
-          toolbarRight={<CreateInterviewDialog onCreated={invalidateAll} />}
           bulkActions={({ selectedIds }) => (
             <Button
               className="flex-1 sm:flex-none"
@@ -440,11 +439,13 @@ export function InterviewManagementPage({
                 </EmptyMedia>
                 <EmptyTitle>还没有候选人面试记录</EmptyTitle>
                 <EmptyDescription>
-                  先创建一条候选人面试记录，可以直接手动录入，也可以上传 PDF 自动分析并生成面试题。
+                  请前往简历库新建简历记录，选择「保存并发起面试」即可创建面试。
                 </EmptyDescription>
               </EmptyHeader>
               <EmptyContent>
-                <CreateInterviewDialog onCreated={invalidateAll} />
+                <Button asChild>
+                  <Link href={`/w/${slug}/studio/resumes`}>前往简历库</Link>
+                </Button>
               </EmptyContent>
             </Empty>
           }
