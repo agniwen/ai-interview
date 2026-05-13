@@ -69,7 +69,9 @@ describe("globalConfigRouter", () => {
   });
 
   it("PUT / rejects oversized payload", async () => {
-    const huge = "x".repeat(5000);
+    // schema 限制 openingInstructions 最多 10_000 字符，这里超一个字符触发校验。
+    // openingInstructions has a 10_000 char cap in the schema; +1 trips validation.
+    const huge = "x".repeat(10_001);
     const res = await globalConfigRouter.fetch(
       makePutRequest({
         closingInstructions: "",
