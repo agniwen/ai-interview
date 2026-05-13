@@ -127,7 +127,7 @@ function toRecord(row: Row): ResumeLibraryListRecord {
 export async function queryPaginatedResumeRecords(
   organizationId: string,
   filters?: { search?: string | null },
-  pagination?: Partial<Pagination>,
+  pagination?: Record<string, unknown>,
 ): Promise<PaginatedResumeLibraryResult> {
   const parsedFilters = filtersSchema.parse(filters ?? {});
   const parsedPagination = paginationSchema.parse(pagination ?? {});
