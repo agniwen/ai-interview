@@ -28,11 +28,11 @@ import { cn } from "@/lib/shared/utils";
 // 详情弹窗只在入库成功后才打开；动态加载省初始 bundle。
 // Dialog only opens after a successful import; dynamic import keeps it out
 // of the initial bundle.
-const InterviewDetailDialog = dynamic(
+const StudioPersonDetailDialog = dynamic(
   async () => {
     const mod =
-      await import("@/app/(auth)/w/[slug]/studio/interviews/_components/interview-detail-dialog");
-    return mod.InterviewDetailDialog;
+      await import("@/app/(auth)/w/[slug]/studio/_components/studio-person-detail-dialog");
+    return mod.StudioPersonDetailDialog;
   },
   { ssr: false },
 );
@@ -582,7 +582,8 @@ export function ResumeImportButton({
         progressTools={progressTools}
       />
 
-      <InterviewDetailDialog
+      <StudioPersonDetailDialog
+        mode="interview"
         onOpenChange={setDetailOpen}
         onUpdated={() => {
           if (importedInterviewId && !detailRecordId) {

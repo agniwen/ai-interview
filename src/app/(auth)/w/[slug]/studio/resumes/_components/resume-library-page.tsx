@@ -42,8 +42,8 @@ import {
 } from "@/components/ui/empty";
 import { bulkDeleteStudioResumes, deleteStudioResume, fetchStudioResumes } from "@/lib/client/api";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
+import { StudioPersonDetailDialog } from "@/app/(auth)/w/[slug]/studio/_components/studio-person-detail-dialog";
 import { EditResumeDialog } from "./edit-resume-dialog";
-import { ResumeDetailDialog } from "./resume-detail-dialog";
 import { UploadResumeDialog } from "./upload-resume-dialog";
 
 const PdfPreviewDialog = dynamic(
@@ -338,7 +338,8 @@ export function ResumeLibraryPage({ initialData }: { initialData: PaginatedResum
         />
       </div>
 
-      <ResumeDetailDialog
+      <StudioPersonDetailDialog
+        mode="resume"
         onEdit={(id) => {
           setDetailRecordId(null);
           setEditRecordId(id);

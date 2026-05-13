@@ -16,7 +16,7 @@ import { AlertTriangleIcon, ExternalLinkIcon } from "lucide-react";
 import { useState } from "react";
 import type { DedupMatchedField, DedupMatchRecord } from "@/lib/client/api";
 import { studioInterviewStatusMeta } from "@/lib/shared/studio-interviews";
-import { InterviewDetailDialog } from "@/app/(auth)/w/[slug]/studio/interviews/_components/interview-detail-dialog";
+import { StudioPersonDetailDialog } from "@/app/(auth)/w/[slug]/studio/_components/studio-person-detail-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
@@ -134,7 +134,8 @@ export function ResumeDedupOverlay({ matches, onContinue, onCancel }: ResumeDedu
         </div>
       </div>
 
-      <InterviewDetailDialog
+      <StudioPersonDetailDialog
+        mode="interview"
         onOpenChange={setDetailOpen}
         open={detailOpen}
         recordId={detailRecordId}

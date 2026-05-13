@@ -52,9 +52,9 @@ import {
   studioInterviewStatusValues,
 } from "@/lib/shared/studio-interviews";
 import { Badge } from "@/components/ui/badge";
+import { StudioPersonDetailDialog } from "@/app/(auth)/w/[slug]/studio/_components/studio-person-detail-dialog";
 import { CreateInterviewDialog } from "./create-interview-dialog";
 import { EditInterviewDialog } from "./edit-interview-dialog";
-import { InterviewDetailDialog } from "./interview-detail-dialog";
 import { InterviewStatusBadge } from "./interview-status-badge";
 import { JobDescriptionViewDialog } from "./job-description-view-dialog";
 
@@ -451,7 +451,8 @@ export function InterviewManagementPage({
         />
       </div>
 
-      <InterviewDetailDialog
+      <StudioPersonDetailDialog
+        mode="interview"
         onOpenChange={(open) => !open && setDetailRecordId(null)}
         onUpdated={invalidateAll}
         open={detailRecordId !== null}
