@@ -7,8 +7,8 @@ import type {
 import { useQueryClient } from "@tanstack/react-query";
 import dynamic from "next/dynamic";
 import { BotIcon, EyeIcon, PencilIcon, Trash2Icon, UsersIcon } from "lucide-react";
-import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { PageHeader } from "@/app/(auth)/w/[slug]/studio/_components/page-header";
 import { JobDescriptionViewDialog } from "@/app/(auth)/w/[slug]/studio/interviews/_components/job-description-view-dialog";
@@ -104,6 +104,31 @@ export function ResumeLibraryPage({ initialData }: { initialData: PaginatedResum
   const [viewJobDescriptionId, setViewJobDescriptionId] = useState<string | null>(null);
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+
+  // 中文：从 AI 面试详情/编辑里点「编辑候选人信息」跳转过来时，URL 为
+  // `/studio/resumes?recordId=xxx`；自动打开 EditResumeDialog 并清掉参数，
+  // 避免刷新/分享时反复触发。
+  // English: when arriving via an external link shaped like `?recordId=xxx`
+  // (from the AI 面试 dialog's edit-candidate jump), auto-open the edit
+  // dialog and strip the param so refresh/share doesn't re-trigger.
+  const searchParams = useSearchParams();
+  const consumedRecordIdRef = useRef(false);
+  useEffect(() => {
+    if (consumedRecordIdRef.current) {
+      return;
+    }
+    const recordIdFromUrl = searchParams.get("recordId");
+    if (!recordIdFromUrl) {
+      return;
+    }
+    consumedRecordIdRef.current = true;
+    setEditRecordId(recordIdFromUrl);
+    const remaining = new URLSearchParams(searchParams.toString());
+    remaining.delete("recordId");
+    const query = remaining.toString();
+    const nextUrl = query ? `${window.location.pathname}?${query}` : window.location.pathname;
+    window.history.replaceState(null, "", nextUrl);
+  }, [searchParams]);
 
   function invalidateAll() {
     void queryClient.invalidateQueries({ queryKey: ["studio-resumes"] });
