@@ -30,6 +30,7 @@ import { InviteDialog } from "./invite-dialog";
 import { PermissionsExplanationDialog } from "./permissions-explanation-dialog";
 import { ASSIGNABLE_ROLES, getWorkspaceRoleLabel } from "./role-display";
 import type { WorkspaceRole } from "./role-display";
+import { WorkspaceSettingsDialog } from "./workspace-settings-dialog";
 
 const DEFAULT_PAGE_SIZE = 10;
 
@@ -73,6 +74,7 @@ export function MembersManagementPage() {
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const canUpdate = useHasPermission("member", "update");
   const canDelete = useHasPermission("member", "delete");
+  const canUpdateWorkspace = useHasPermission("organization", "update");
 
   const allRows: MemberRow[] = useMemo(() => {
     const list = org?.members ?? [];
@@ -228,6 +230,16 @@ export function MembersManagementPage() {
         description="管理当前工作区的成员、角色与邀请。拥有者可调整成员角色，管理员可邀请新成员。"
         title="工作区管理"
       />
+
+      {org ? (
+        <div className="flex flex-col gap-3 rounded-lg border bg-background p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <p className="font-medium">{org.name}</p>
+            <p className="truncate text-muted-foreground text-sm">/w/{org.slug}</p>
+          </div>
+          {canUpdateWorkspace ? <WorkspaceSettingsDialog currentName={org.name} /> : null}
+        </div>
+      ) : null}
 
       <DataGrid<MemberRow>
         columns={columns}

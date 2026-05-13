@@ -8,6 +8,7 @@ import { interviewQuestionTemplatesRouter } from "./routes/interview-questions/r
 import { interviewersRouter } from "./routes/interviewers/route";
 import { studioInterviewsRouter } from "./routes/interviews/route";
 import { jobDescriptionsRouter } from "./routes/job-descriptions/route";
+import { workspaceRouter } from "./routes/workspace/route";
 
 // 中文：所有 /studio/* 子路由统一在此挂载，并注入 auth 中间件，
 // 不要在 app.ts 里再为各 /studio/<sub> 重复声明中间件。
@@ -22,4 +23,5 @@ export const studioRouter = factory
   .route("/interviewers", interviewersRouter)
   .route("/job-descriptions", jobDescriptionsRouter)
   .route("/forms", candidateFormsRouter)
-  .route("/interview-questions", interviewQuestionTemplatesRouter);
+  .route("/interview-questions", interviewQuestionTemplatesRouter)
+  .route("/workspace", workspaceRouter);
