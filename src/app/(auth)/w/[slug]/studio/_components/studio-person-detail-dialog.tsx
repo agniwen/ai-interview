@@ -195,6 +195,7 @@ export function StudioPersonDetailDialog({
       creatorName: resumeRecord.creatorName,
       hasResumeFile: resumeRecord.hasResumeFile,
       id: resumeRecord.id,
+      interviewQuestions: resumeRecord.interviewQuestions,
       jobDescriptionName: resumeRecord.jobDescriptionName,
       notes: resumeRecord.notes,
       resumeFileName: resumeRecord.resumeFileName,
@@ -377,14 +378,14 @@ export function StudioPersonDetailDialog({
                     概览
                   </TabsTrigger>
                   {mode === "interview" ? (
-                    <>
-                      <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="reports">
-                        面试报告
-                      </TabsTrigger>
-                      <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="questions">
-                        AI 题目
-                      </TabsTrigger>
-                    </>
+                    <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="reports">
+                      面试报告
+                    </TabsTrigger>
+                  ) : null}
+                  {mode === "interview" || interviewQuestions.length > 0 ? (
+                    <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="questions">
+                      AI 题目
+                    </TabsTrigger>
                   ) : null}
                   <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="experience">
                     经历
@@ -796,7 +797,7 @@ export function StudioPersonDetailDialog({
                 </TabsContent>
               ) : null}
 
-              {mode === "interview" ? (
+              {mode === "interview" || interviewQuestions.length > 0 ? (
                 <TabsContent value="questions">
                   <div className="rounded-2xl border border-border/60 bg-background p-4">
                     <h3 className="font-medium text-sm">AI 面试题</h3>
