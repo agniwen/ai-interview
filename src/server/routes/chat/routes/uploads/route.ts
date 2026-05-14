@@ -18,8 +18,14 @@ function mediaTypeToExtension(mediaType: string): string {
 }
 
 // 构造上传/preflight 共用的响应结构。
+// 多租户改造后 chat 路由挂在 /api/w/:slug/chat 下，必须把 slug 拼进附件 URL，
+// 否则浏览器拉 `/api/chat/attachments/:id` 直接 404，预览/下载全坏。
 // Build the upload/preflight shared response shape.
+// After the multi-tenant move, chat routes live under /api/w/:slug/chat, so the
+// slug must be embedded in the attachment URL — otherwise the browser hits
+// `/api/chat/attachments/:id` and 404s, breaking preview and download.
 function buildUploadResponse(args: {
+  slug: string;
   attachmentId: string;
   parsedStatus: AttachmentParseStatus;
   parsedPageCount: number | null;
@@ -28,6 +34,7 @@ function buildUploadResponse(args: {
   parsedTextSource: AttachmentTextSource | null;
 }) {
   const {
+    slug,
     attachmentId,
     parsedStatus,
     parsedPageCount,
@@ -46,7 +53,7 @@ function buildUploadResponse(args: {
         textSource: parsedTextSource,
       },
     }),
-    url: `/api/chat/attachments/${attachmentId}`,
+    url: `/api/w/${slug}/chat/attachments/${attachmentId}`,
   };
 }
 
@@ -96,6 +103,7 @@ export const uploadsRouter = factory
         parsedStructured: existing.parsedStructured,
         parsedText: existing.parsedText,
         parsedTextSource: existing.parsedTextSource,
+        slug: activeOrg.slug,
       }),
     });
   })
@@ -164,6 +172,7 @@ export const uploadsRouter = factory
           parsedStructured: existing.parsedStructured,
           parsedText: existing.parsedText,
           parsedTextSource: existing.parsedTextSource,
+          slug: activeOrg.slug,
         }),
       );
     }
@@ -236,6 +245,7 @@ export const uploadsRouter = factory
         parsedText: parseOutcome.status === "fulfilled" ? parseOutcome.value.text : null,
         parsedTextSource:
           parseOutcome.status === "fulfilled" ? parseOutcome.value.textSource : null,
+        slug: activeOrg.slug,
       }),
     );
   });

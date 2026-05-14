@@ -12,7 +12,12 @@ import { structuredSchema } from "@/lib/shared/resume-parser-schema";
 import type { ResumeParserStructured } from "@/lib/shared/resume-parser-schema";
 import { getUserAttachments } from "@/server/routes/chat/dao/chat-attachments";
 
-const ATTACHMENT_URL_REGEX = /\/api\/chat\/attachments\/([^/?#]+)/;
+// 多租户改造后 URL 形如 /api/w/<slug>/chat/attachments/<id>；旧消息仍是
+// /api/chat/attachments/<id>。两种前缀都需要识别，否则历史会话烘焙失败。
+// Post multi-tenant URLs are /api/w/<slug>/chat/attachments/<id>; legacy
+// messages still carry /api/chat/attachments/<id>. Match either prefix so
+// historical conversations still bake correctly.
+const ATTACHMENT_URL_REGEX = /\/api\/(?:w\/[^/]+\/)?chat\/attachments\/([^/?#]+)/;
 
 export const RESUME_PARSED_PART_TYPE = "data-resume-parsed" as const;
 

@@ -3,7 +3,12 @@ import type { ChatAttachmentRow } from "@/server/routes/chat/dao/chat-attachment
 import { getObjectBytes } from "@/lib/server/s3";
 import { getUserAttachments } from "@/server/routes/chat/dao/chat-attachments";
 
-const ATTACHMENT_URL_PATTERN = /^\/api\/chat\/attachments\/([A-Za-z0-9-]+)$/;
+// 多租户改造后 URL 形如 /api/w/<slug>/chat/attachments/<id>；旧消息仍持有
+// /api/chat/attachments/<id>。为了让历史会话回放也能 inline，两种前缀都接。
+// After the multi-tenant move URLs look like /api/w/<slug>/chat/attachments/<id>,
+// but legacy messages still hold /api/chat/attachments/<id>. Accept both so
+// history replays keep working.
+const ATTACHMENT_URL_PATTERN = /^\/api\/(?:w\/[^/]+\/)?chat\/attachments\/([A-Za-z0-9-]+)$/;
 
 function extractAttachmentId(url: string | undefined): string | null {
   if (!url) {
