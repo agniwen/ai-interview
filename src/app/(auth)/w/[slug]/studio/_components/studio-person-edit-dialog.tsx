@@ -307,13 +307,13 @@ function InterviewEditBody({
             候选人身份字段（姓名、邮箱、电话、岗位、JD、备注、简历）请到简历库编辑。
           </p>
 
-          {/* 轮次标签（只读）/ Round label (read-only) */}
-          {round?.roundLabel ? (
-            <div className="space-y-1.5">
-              <Label>轮次</Label>
-              <p className="rounded-md border border-border/60 bg-muted/30 px-3 py-2 text-sm">
-                {round.roundLabel}
-              </p>
+          {/* 轮次概览：roundLabel 与状态并排，与详情弹窗的「轮次概览」保持视觉一致。
+              Round overview — roundLabel + status side-by-side, mirroring the
+              detail dialog's 轮次概览 card for UI consistency. */}
+          {round ? (
+            <div className="flex items-center gap-2">
+              <span className="font-medium text-sm">{round.roundLabel}</span>
+              {statusMeta ? <Badge variant={statusMeta.tone}>{statusMeta.label}</Badge> : null}
             </div>
           ) : null}
 
@@ -327,16 +327,6 @@ function InterviewEditBody({
               value={formValues.scheduledAt}
             />
           </div>
-
-          {/* 状态（只读）/ Status (read-only) */}
-          {statusMeta ? (
-            <div className="space-y-1.5">
-              <Label>状态</Label>
-              <div className="rounded-md border border-border/60 bg-muted/30 px-3 py-2">
-                <Badge variant={statusMeta.tone}>{statusMeta.label}</Badge>
-              </div>
-            </div>
-          ) : null}
 
           {/* 允许文本输入 / Allow text input — 已结束的轮次不允许修改 */}
           <div className="flex items-center justify-between rounded-lg border border-border/50 px-3 py-2.5">
