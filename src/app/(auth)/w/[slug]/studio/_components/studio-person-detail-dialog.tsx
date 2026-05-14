@@ -57,6 +57,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { copyTextToClipboard, toAbsoluteUrl } from "@/lib/client/clipboard";
 import { scheduleEntryStatusMeta } from "@/lib/shared/studio-interviews";
 import { AgentInstructionsPanel } from "../interviews/_components/agent-instructions-panel";
+import { InterviewLinkQrButton } from "../interviews/_components/interview-link-qr-button";
 import { DetailRow } from "../interviews/_components/interview-detail/detail-row";
 import { EvaluationResults } from "../interviews/_components/interview-detail/evaluation-results";
 import { FormsTab } from "../interviews/_components/interview-detail/forms-tab";
@@ -484,19 +485,25 @@ export function StudioPersonDetailDialog({
                               <span className="text-muted-foreground text-xs">未排期</span>
                             )}
                             {record.roundInterviewLink ? (
-                              <Button
-                                onClick={() =>
-                                  void handleCopy(
-                                    toAbsoluteUrl(record.roundInterviewLink as string),
-                                  )
-                                }
-                                size="sm"
-                                type="button"
-                                variant="ghost"
-                              >
-                                <Share2Icon className="size-3.5" />
-                                复制链接
-                              </Button>
+                              <>
+                                <Button
+                                  onClick={() =>
+                                    void handleCopy(
+                                      toAbsoluteUrl(record.roundInterviewLink as string),
+                                    )
+                                  }
+                                  size="sm"
+                                  type="button"
+                                  variant="ghost"
+                                >
+                                  <Share2Icon className="size-3.5" />
+                                  复制链接
+                                </Button>
+                                <InterviewLinkQrButton
+                                  candidateName={record.candidateName}
+                                  url={toAbsoluteUrl(record.roundInterviewLink as string)}
+                                />
+                              </>
                             ) : null}
                           </div>
                         </div>
