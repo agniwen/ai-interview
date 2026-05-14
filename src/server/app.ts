@@ -56,19 +56,32 @@ export const app = new Hono<Env>()
   // path is sign-in → Google → /callback → set-session; any hop can 4xx/5xx
   // silently. These logs plus [better-auth:*] internal logs pinpoint the
   // failing step (typical case: redirect_uri_mismatch on the /callback hop).
-  .on(["POST", "GET"], "/api/auth/*", async (c) => {
+  .on(["POST", "GET"], "/api/auth/*", async (ctx) => {
     const start = Date.now();
-    const url = new URL(c.req.url);
+    const url = new URL(ctx.req.url);
     const path = url.pathname + url.search;
     const meta = {
-      method: c.req.method,
-      origin: c.req.header("origin") ?? null,
+      method: ctx.req.method,
+      origin: ctx.req.header("origin") ?? null,
       path,
-      referer: c.req.header("referer") ?? null,
+      referer: ctx.req.header("referer") ?? null,
     };
     console.log("[auth:req:start]", meta);
     try {
-      const response = await auth.handler(c.req.raw);
+      const response = await auth.handler(ctx.req.raw);
+      // 把所有 Set-Cookie 头收集起来打日志——OAuth state / PKCE cookie 的
+      // SameSite / Secure / Domain 属性若错一个，整条链路就会在浏览器侧悄悄断掉，
+      // 这里是唯一能在服务端直接看到 cookie 输出状态的地方。
+      // Collect every Set-Cookie header so we can verify the OAuth state /
+      // PKCE cookies' SameSite / Secure / Domain attributes — a single wrong
+      // attribute silently breaks the OAuth bounce on the browser side, and
+      // this is the only place we can inspect them server-side.
+      const setCookies: string[] = [];
+      for (const [key, value] of response.headers) {
+        if (key.toLowerCase() === "set-cookie") {
+          setCookies.push(value);
+        }
+      }
       console.log("[auth:req:end]", {
         ...meta,
         durationMs: Date.now() - start,
@@ -78,6 +91,8 @@ export const app = new Hono<Env>()
         // hop (Google authorize URL, app callbackURL, or error page) — critical
         // when chasing a misconfigured redirect.
         location: response.headers.get("location"),
+        setCookieCount: setCookies.length,
+        setCookies: setCookies.map((c) => c.split(";")[0]?.split("=")[0] ?? ""),
         status: response.status,
       });
       return response;

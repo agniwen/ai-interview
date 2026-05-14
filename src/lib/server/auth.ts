@@ -210,7 +210,36 @@ function buildFeishuOAuthProvider(opts: FeishuOAuthProviderOptions): GenericOAut
   };
 }
 
+// Docker / 反向代理 (Nginx, Caddy, Traefik 等) 部署专用：让 better-auth 信任反代
+// 转发的 x-forwarded-proto / x-forwarded-host，否则容器内只看到 http://localhost:3000，
+// 算出来的 baseURL 协议错 → cookie 的 Secure 维度对不上，OAuth state / PKCE cookie
+// 跨"浏览器 ↔ Google ↔ 我们站点"链路时被浏览器丢弃 → token exchange 拿不到
+// code_verifier → Google 返回 invalid_grant → better-auth 包装成 invalid_code。
+// production-only —— dev 环境（HTTP 本机）开了反而会让 cookie 走错协议。
+// For Docker / reverse-proxy deployments, trust the proxy's
+// x-forwarded-proto / x-forwarded-host. Otherwise the container only sees
+// http://localhost:3000, computed cookie attributes (Secure) don't match what
+// the browser expects on HTTPS, the OAuth state / PKCE cookies are dropped
+// across the browser ↔ Google ↔ our-site bounce, token exchange runs without
+// a valid code_verifier, Google returns invalid_grant and better-auth wraps
+// it as invalid_code. Production-only — enabling this in HTTP-dev would flip
+// cookies into the wrong protocol bucket.
+const advanced =
+  process.env.NODE_ENV === "production"
+    ? {
+        // 让 better-auth 把请求识别成它本来的样子 (https) 而不是反代上游的 http。
+        // Make better-auth see the original https scheme instead of the proxy's http hop.
+        trustedProxyHeaders: true,
+        // 显式声明使用 Secure cookie——配合 trustedProxyHeaders，能让 better-auth
+        // 同时把 Set-Cookie 带上 Secure 标记，浏览器才肯保存。
+        // Explicit Secure flag pairs with trustedProxyHeaders so Set-Cookie carries
+        // Secure and the browser persists it on https://...
+        useSecureCookies: true,
+      }
+    : undefined;
+
 export const auth = betterAuth({
+  advanced,
   appName: "招聘 AI 协同工作台",
   baseURL,
   database: drizzleAdapter(db, {
