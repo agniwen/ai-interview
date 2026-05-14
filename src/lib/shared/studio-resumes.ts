@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { ResumeAnalysisResult, ResumeProfile } from "@/lib/shared/interview/types";
+import type { StudioInterviewStatus } from "@/lib/shared/studio-interviews";
 
 /**
  * 简历库列表行 DTO。AI 面试列表的精简投影：去掉 status / interviewQuestions /
@@ -90,4 +91,23 @@ export function createResumeLibraryFormValues(): ResumeLibraryFormValues {
     notes: "",
     targetRole: "",
   };
+}
+
+/**
+ * 简历库页头部 chart 的聚合数据。
+ * - byStatus：各状态简历数量；archived 排除（详见 DAO 注释）。
+ * - dailyAdded：近 30 天每日新增；服务端只返回有数据的日期，零填充由客户端补。
+ * - conversion：是否已发起 AI 面试的对比（archived 排除）。
+ *
+ * Aggregations for the charts shown above the resume-library table.
+ * - byStatus: count per status (archived excluded — see DAO).
+ * - dailyAdded: daily new rows over the last 30 days; only non-empty days are
+ *   returned, the client zero-fills the gaps.
+ * - conversion: how many candidates have already launched an AI interview
+ *   round vs not (archived excluded).
+ */
+export interface ResumeLibraryMetrics {
+  byStatus: { status: StudioInterviewStatus; count: number }[];
+  dailyAdded: { day: string; count: number }[];
+  conversion: { withInterview: number; withoutInterview: number };
 }

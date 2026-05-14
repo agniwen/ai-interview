@@ -394,28 +394,42 @@ function QuestionEditorRow({
   isDragging: boolean;
   onRemove?: () => void;
 }) {
+  // form.reset / setFieldValue 把 questions 整段替换的过渡帧里，store selector 可能
+  // 读到 state.values.questions === undefined 或者新数组比当前 index 短。
+  // 三个 selector 都先把 questions 本身兜成 [] 再 index，再用 ?? fallback——
+  // 避免抛错被 useStore 吞掉后返回上次的 stale value，进而让下游 lookup 拿到非法 key。
+  // During a form.reset / setFieldValue race the questions array can briefly be
+  // undefined or shorter than `index`. Default questions to [] before indexing
+  // so the selector never throws (a thrown selector causes useStore to return a
+  // stale value, which can later index DISPLAY_MODES_BY_TYPE with garbage).
   const questionType = useStore(
     form.store,
     // oxlint-disable-next-line no-explicit-any
-    (state: any) => state.values.questions[index]?.type ?? "single",
-  ) as CandidateFormQuestionType;
+    (state: any) =>
+      ((state.values.questions ?? [])[index]?.type ?? "single") as CandidateFormQuestionType,
+  );
 
   const questionId = useStore(
     form.store,
     // oxlint-disable-next-line no-explicit-any
-    (state: any) => state.values.questions[index]?.id ?? "",
-  ) as string;
+    (state: any) => ((state.values.questions ?? [])[index]?.id ?? "") as string,
+  );
 
   const displayMode = useStore(
     form.store,
     // oxlint-disable-next-line no-explicit-any
     (state: any) =>
-      (state.values.questions[index]?.displayMode ??
+      ((state.values.questions ?? [])[index]?.displayMode ??
         DEFAULT_DISPLAY_MODE[questionType]) as CandidateFormDisplayMode,
   );
 
+  // questionType 理论上一定是合法枚举值，但旧数据 / schema 漂移可能塞入非法字符串。
+  // lookup 失败时退回 [] 让 Select 渲染空 dropdown 而不是炸掉整个题目编辑器。
+  // questionType is constrained to the enum in theory, but legacy rows /
+  // schema drift could leak invalid strings. Fall back to [] so the Select
+  // renders an empty dropdown instead of crashing the row.
   const allowedDisplayModes = useMemo(
-    () => DISPLAY_MODES_BY_TYPE[questionType] as readonly CandidateFormDisplayMode[],
+    () => (DISPLAY_MODES_BY_TYPE[questionType] ?? []) as readonly CandidateFormDisplayMode[],
     [questionType],
   );
 
@@ -638,7 +652,14 @@ function OptionsList({
   index: number;
   questionId: string;
 }) {
-  const items = field.state.value as { value: string; label: string }[];
+  // tanstack-form 数组字段在 modal 关闭 / 题目类型切换的过渡帧里会短暂返回 undefined
+  // （父字段 questions[index] 被整体替换时，options 子字段还在 mount 状态下抢渲染一次）。
+  // 用 ?? [] 兜底避免 .length 抛错——值为 undefined 时整个 SortableList 渲染空数组也无副作用。
+  // The array field briefly returns undefined during modal close / question-type
+  // swap (parent questions[index] is replaced wholesale while this child field is
+  // still mounted for one render). Default to [] so `.length` doesn't throw; an
+  // empty SortableList renders harmlessly during that transient frame.
+  const items = (field.state.value ?? []) as { value: string; label: string }[];
   const errors = toFieldErrors(field.state.meta.errors);
   const {
     ids: optionIds,

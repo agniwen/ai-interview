@@ -1,10 +1,11 @@
 import type {
   JobDescriptionInterviewerSummary,
   JobDescriptionListRecord,
+  JobDescriptionMetrics,
   JobDescriptionRecord,
 } from "@/lib/shared/job-descriptions";
 import type { MinimaxVoiceId } from "@/lib/shared/minimax-voices";
-import { and, asc, count, desc, eq, ilike, inArray, or } from "drizzle-orm";
+import { and, asc, count, desc, eq, ilike, inArray, notInArray, or, sql } from "drizzle-orm";
 import { cacheLife, cacheTag } from "next/cache";
 import { z } from "zod";
 import { db } from "@/lib/server/db";
@@ -13,6 +14,8 @@ import {
   interviewer,
   jobDescription,
   jobDescriptionInterviewer,
+  studioInterview,
+  studioInterviewSchedule,
 } from "@/lib/shared/db/schema";
 
 const jobDescriptionListFiltersSchema = z.object({
@@ -404,6 +407,158 @@ export async function loadJobDescriptionById(
     prompt: row.prompt,
     updatedAt: serializeDate(row.updatedAt),
   };
+}
+
+// =========================================================================
+// 头部 chart 聚合查询 / Header chart aggregations.
+// =========================================================================
+
+// 各卡片 Top N 上限：候选人分布卡用 treemap，撑得住 10 块；完成率 / 面试官负载
+// 是分类条形，超过 5 条就显拥挤。
+// Per-card Top N caps: the candidates treemap can host 10 cells comfortably,
+// while the completion-rate bar and interviewer-load bar collapse past 5 rows.
+const TOP_N_CANDIDATES = 10;
+const TOP_N_COMPLETION = 5;
+const TOP_N_LOAD = 5;
+
+async function loadCandidatesByJd(organizationId: string) {
+  // 每个 JD 关联的非归档简历数 Top N。LEFT JOIN 让没简历的 JD 也出现在结果集（0 候选）。
+  // Top N JDs by non-archived candidate count. LEFT JOIN keeps JDs with zero
+  // candidates in the result set (they'll surface only if Top N isn't filled).
+  const rows = await db
+    .select({
+      count: count(studioInterview.id),
+      id: jobDescription.id,
+      name: jobDescription.name,
+    })
+    .from(jobDescription)
+    .leftJoin(
+      studioInterview,
+      and(
+        eq(studioInterview.jobDescriptionId, jobDescription.id),
+        notInArray(studioInterview.status, ["archived"]),
+      ),
+    )
+    .where(eq(jobDescription.organizationId, organizationId))
+    .groupBy(jobDescription.id, jobDescription.name)
+    .orderBy(desc(count(studioInterview.id)), asc(jobDescription.name))
+    .limit(TOP_N_CANDIDATES);
+
+  return rows.map((row) => ({ count: row.count, id: row.id, name: row.name }));
+}
+
+async function loadCompletionByJd(organizationId: string) {
+  // 每个 JD 名下所有候选人的轮次完成率：completed 数 / 总数。
+  // HAVING total > 0 过滤掉完全没安排面试的 JD，避免 0/0 占满图。
+  // 排序按完成率 desc，名字 asc 兜底。
+  // Completion ratio per JD across all its candidates' schedule rows.
+  // HAVING total > 0 hides JDs that have no scheduled rounds at all so the
+  // chart doesn't fill up with 0/0 entries. Sorted by completion ratio desc.
+  const done =
+    sql<number>`COUNT(${studioInterviewSchedule.id}) FILTER (WHERE ${studioInterviewSchedule.status} = 'completed')`.mapWith(
+      Number,
+    );
+  const total = sql<number>`COUNT(${studioInterviewSchedule.id})`.mapWith(Number);
+
+  const rows = await db
+    .select({
+      done,
+      id: jobDescription.id,
+      name: jobDescription.name,
+      total,
+    })
+    .from(jobDescription)
+    .innerJoin(studioInterview, eq(studioInterview.jobDescriptionId, jobDescription.id))
+    .innerJoin(
+      studioInterviewSchedule,
+      eq(studioInterviewSchedule.interviewRecordId, studioInterview.id),
+    )
+    .where(
+      and(
+        eq(jobDescription.organizationId, organizationId),
+        notInArray(studioInterview.status, ["archived"]),
+      ),
+    )
+    .groupBy(jobDescription.id, jobDescription.name)
+    .having(sql`COUNT(${studioInterviewSchedule.id}) > 0`)
+    .orderBy(desc(sql`(${done})::float / NULLIF(${total}, 0)`), asc(jobDescription.name))
+    .limit(TOP_N_COMPLETION);
+
+  return rows.map((row) => ({
+    done: row.done,
+    id: row.id,
+    name: row.name,
+    total: row.total,
+  }));
+}
+
+async function loadLoadByInterviewer(organizationId: string) {
+  // 通过 job_description_interviewer 关联到 studio_interview，
+  // 统计每位面试官当前 status ∈ {ready, in_progress} 的候选人数 DISTINCT 计数。
+  // DISTINCT 是因为同一候选人可能落在多个 JD 的同一面试官关联上——但实际 schema
+  // 是 1 候选人:1 JD，DISTINCT 主要做保险。
+  // Walk interviewer → jobDescriptionInterviewer → studio_interview, counting
+  // active (ready / in_progress) candidates per interviewer. DISTINCT is a
+  // safety net — schema-wise a candidate maps to a single JD, so duplicates
+  // shouldn't appear in practice.
+  const rows = await db
+    .select({
+      activeCandidates: sql<number>`COUNT(DISTINCT ${studioInterview.id})`.mapWith(Number),
+      id: interviewer.id,
+      name: interviewer.name,
+    })
+    .from(interviewer)
+    .innerJoin(
+      jobDescriptionInterviewer,
+      eq(jobDescriptionInterviewer.interviewerId, interviewer.id),
+    )
+    .innerJoin(
+      studioInterview,
+      and(
+        eq(studioInterview.jobDescriptionId, jobDescriptionInterviewer.jobDescriptionId),
+        inArray(studioInterview.status, ["ready", "in_progress"]),
+      ),
+    )
+    .where(eq(interviewer.organizationId, organizationId))
+    .groupBy(interviewer.id, interviewer.name)
+    .having(sql`COUNT(DISTINCT ${studioInterview.id}) > 0`)
+    .orderBy(desc(sql`COUNT(DISTINCT ${studioInterview.id})`), asc(interviewer.name))
+    .limit(TOP_N_LOAD);
+
+  return rows.map((row) => ({
+    activeCandidates: row.activeCandidates,
+    id: row.id,
+    name: row.name,
+  }));
+}
+
+async function queryJobDescriptionMetrics(organizationId: string): Promise<JobDescriptionMetrics> {
+  const [candidatesByJd, completionByJd, loadByInterviewer] = await Promise.all([
+    loadCandidatesByJd(organizationId),
+    loadCompletionByJd(organizationId),
+    loadLoadByInterviewer(organizationId),
+  ]);
+  return { candidatesByJd, completionByJd, loadByInterviewer };
+}
+
+/**
+ * 在招岗位管理页头部 chart 聚合的缓存入口。
+ * cacheTag 与列表查询共用 `job-descriptions`，再额外打 `studio-resumes` —— 候选人维度
+ * 数据也会驱动 candidatesByJd / completionByJd / loadByInterviewer，简历库写操作必须能拉到新值。
+ *
+ * Cached entry for the JD-management header charts. Carries both the
+ * `job-descriptions` tag (list-query parity) and `studio-resumes` because the
+ * candidate-derived bars need to refresh whenever a resume row mutates.
+ */
+// oxlint-disable-next-line require-await -- "use cache" requires the function be async.
+export async function loadJobDescriptionMetrics(
+  organizationId: string,
+): Promise<JobDescriptionMetrics> {
+  "use cache";
+  cacheTag("job-descriptions");
+  cacheTag("studio-resumes");
+  cacheLife("minutes");
+  return queryJobDescriptionMetrics(organizationId);
 }
 
 export function serializeJobDescription(

@@ -5,8 +5,13 @@ import { EntityDeleteDialog } from "@/app/(auth)/w/[slug]/studio/_components/ent
 import { useEntityCrud } from "@/app/(auth)/w/[slug]/studio/_components/use-entity-crud";
 import type { DepartmentRecord } from "@/lib/shared/departments";
 import type { InterviewerListRecord } from "@/lib/shared/interviewers";
-import type { JobDescriptionListRecord, JobDescriptionRecord } from "@/lib/shared/job-descriptions";
+import type {
+  JobDescriptionListRecord,
+  JobDescriptionMetrics,
+  JobDescriptionRecord,
+} from "@/lib/shared/job-descriptions";
 import type { PaginatedJobDescriptionResult } from "@/server/routes/studio/routes/job-descriptions/dao";
+import { JobDescriptionCharts } from "./job-description-charts";
 import { useQueryClient } from "@tanstack/react-query";
 import { FileTextIcon, PencilIcon, PlusIcon, Trash2Icon } from "lucide-react";
 import { useCallback, useMemo } from "react";
@@ -36,10 +41,12 @@ export function JobDescriptionManagementPage({
   initialData,
   departments,
   interviewers,
+  metrics,
 }: {
   initialData: PaginatedJobDescriptionResult;
   departments: DepartmentRecord[];
   interviewers: InterviewerListRecord[];
+  metrics: JobDescriptionMetrics;
 }) {
   const slug = useWorkspaceSlug();
   const queryClient = useQueryClient();
@@ -226,6 +233,8 @@ export function JobDescriptionManagementPage({
           description="配置岗位描述 prompt，并指定面试时要启用的面试官。"
           title="在招岗位管理"
         />
+
+        <JobDescriptionCharts metrics={metrics} />
 
         <DataGrid<JobDescriptionListRecord>
           {...grid.bind}

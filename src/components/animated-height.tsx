@@ -65,7 +65,20 @@ export function AnimatedHeight({ children, duration = 0.25, className }: Animate
       style={{ overflow: "hidden" }}
       transition={reduceMotion ? { duration: 0 } : { duration, ease: [0.32, 0.72, 0, 1] as const }}
     >
-      <div ref={innerRef}>{children}</div>
+      {/*
+        `display: flow-root` 让 inner 自己开 BFC，否则子节点的 top/bottom margin
+        会"边距坍塌"穿过 inner 边界——ResizeObserver 测到的 contentRect 不含这部分
+        margin，结果是被测高度比真实占位小，外层 motion.div 把底部 margin 跨度的
+        内容用 overflow:hidden 裁掉、Modal body 也察觉不到溢出无法滚动。
+        `flow-root` opens a BFC on the inner div so child margins are contained;
+        otherwise top/bottom margins escape past its content-box, the
+        ResizeObserver reports a height short by those margins, and the outer
+        motion.div ends up clipping the trailing content while the Modal body
+        never realises it should scroll.
+      */}
+      <div ref={innerRef} style={{ display: "flow-root" }}>
+        {children}
+      </div>
     </motion.div>
   );
 }

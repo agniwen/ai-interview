@@ -3,6 +3,7 @@
 import type {
   PaginatedResumeLibraryResult,
   ResumeLibraryListRecord,
+  ResumeLibraryMetrics,
 } from "@/lib/shared/studio-resumes";
 import { useQueryClient } from "@tanstack/react-query";
 import dynamic from "next/dynamic";
@@ -47,6 +48,7 @@ import { StudioPersonEditDialog } from "@/app/(auth)/w/[slug]/studio/_components
 import { CreateResumeRecordDialog } from "./upload-resume-dialog";
 import type { CreateResumeRecordResult } from "./upload-resume-dialog";
 import { LaunchInterviewDialog } from "./launch-interview-dialog";
+import { ResumeLibraryCharts } from "./resume-library-charts";
 
 const PdfPreviewDialog = dynamic(
   async () => {
@@ -73,7 +75,13 @@ interface FetchParams {
   sortOrder: "asc" | "desc" | undefined;
 }
 
-export function ResumeLibraryPage({ initialData }: { initialData: PaginatedResumeLibraryResult }) {
+export function ResumeLibraryPage({
+  initialData,
+  metrics,
+}: {
+  initialData: PaginatedResumeLibraryResult;
+  metrics: ResumeLibraryMetrics;
+}) {
   const slug = useWorkspaceSlug();
   const queryClient = useQueryClient();
 
@@ -348,6 +356,7 @@ export function ResumeLibraryPage({ initialData }: { initialData: PaginatedResum
           title="简历库"
           description="集中管理所有候选人简历。在这里上传 PDF 不会自动生成面试题，需要时再发起 AI 面试。"
         />
+        <ResumeLibraryCharts metrics={metrics} />
         <DataGrid<ResumeLibraryListRecord>
           {...grid.bind}
           columns={columns}

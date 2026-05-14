@@ -42,3 +42,22 @@ export interface JobDescriptionListRecord extends JobDescriptionRecord {
   departmentName: string | null;
   interviewers: JobDescriptionInterviewerSummary[];
 }
+
+/**
+ * 在招岗位管理页头部 chart 的聚合数据。
+ * - candidatesByJd：各岗位非归档候选人数 Top 8。
+ * - completionByJd：各岗位面试轮次完成率 Top 8（仅纳入存在 schedule 的 JD）。
+ * - loadByInterviewer：每位面试官当前承接的进行中 / 待面试候选人数 Top 8。
+ *
+ * Aggregations for the charts shown above the JD management table.
+ * - candidatesByJd: top 8 JDs by non-archived candidate count.
+ * - completionByJd: top 8 JDs by completed-rounds / total-rounds ratio; only
+ *   JDs whose candidates have schedule rows are included.
+ * - loadByInterviewer: top 8 interviewers by active (ready / in_progress)
+ *   candidate count, summed across all JDs they are assigned to.
+ */
+export interface JobDescriptionMetrics {
+  candidatesByJd: { id: string; name: string; count: number }[];
+  completionByJd: { id: string; name: string; done: number; total: number }[];
+  loadByInterviewer: { id: string; name: string; activeCandidates: number }[];
+}
