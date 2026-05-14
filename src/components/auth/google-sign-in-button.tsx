@@ -36,12 +36,46 @@ export function GoogleSignInButton({ callbackURL, className }: GoogleSignInButto
 
   const handleClick = async () => {
     setIsSubmitting(true);
-    const result = await authClient.signIn.social({
-      callbackURL: toAbsoluteUrl(callbackURL),
-      errorCallbackURL: toAbsoluteUrl("/login?error=google"),
-      provider: "google",
+    const absoluteCallback = toAbsoluteUrl(callbackURL);
+    const absoluteErrorCallback = toAbsoluteUrl("/login?error=google");
+    // 把客户端解析出的关键 URL 打到浏览器 console，遇到生产 login 异常时让用户截 console
+    // 就能立刻看出 callbackURL host 是不是错的（最常见的问题是 NEXT_PUBLIC_APP_URL 漏配
+    // 导致 fallback 到 window.location.origin 或更糟）。
+    // Surface the resolved URLs in the browser console; if production login
+    // fails the user can screenshot the console to instantly verify whether
+    // callbackURL host matches the deployed domain (top cause: missing
+    // NEXT_PUBLIC_APP_URL, falling back to window.location.origin).
+    console.log("[google-signin:start]", {
+      absoluteCallback,
+      absoluteErrorCallback,
+      currentOrigin: typeof window === "undefined" ? null : window.location.origin,
+      inputCallbackURL: callbackURL,
+      // 注意 NEXT_PUBLIC_* 在客户端是构建时内联的——如果这里是 undefined 说明
+      // 构建镜像没拿到这个环境变量。
+      // NEXT_PUBLIC_* values are inlined at build time; `undefined` here means
+      // the build image didn't receive the env var.
+      nextPublicAppUrl: process.env.NEXT_PUBLIC_APP_URL ?? null,
     });
-    if (result.error) {
+    try {
+      const result = await authClient.signIn.social({
+        callbackURL: absoluteCallback,
+        errorCallbackURL: absoluteErrorCallback,
+        provider: "google",
+      });
+      if (result.error) {
+        console.error("[google-signin:error]", {
+          // result.error 通常是 { status, statusText, message, code } 形态；
+          // 整个对象打出来便于一眼看出是 400 (bad request) 还是 401/500。
+          // result.error is usually { status, statusText, message, code };
+          // dumping the whole object distinguishes 400-class from 5xx.
+          error: result.error,
+        });
+        setIsSubmitting(false);
+      } else {
+        console.log("[google-signin:ok]", { data: result.data });
+      }
+    } catch (error) {
+      console.error("[google-signin:throw]", error);
       setIsSubmitting(false);
     }
   };

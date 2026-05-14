@@ -11,7 +11,7 @@ import { ac, roles } from "@/lib/shared/permissions";
 export const authClient = createAuthClient({
   baseURL:
     typeof window === "undefined"
-      ? (process.env.BETTER_AUTH_URL ?? "http://localhost:3000")
+      ? (process.env.NEXT_PUBLIC_PUBLIC_URL ?? "http://localhost:3000")
       : window.location.origin,
   plugins: [
     adminClient(),
