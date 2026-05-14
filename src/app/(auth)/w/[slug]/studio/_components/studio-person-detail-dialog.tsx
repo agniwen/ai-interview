@@ -30,6 +30,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { CandidateBasicInfoView } from "@/components/candidate-basic-info-view";
 import { ResumeProfileView } from "@/components/resume-profile-view";
+import { ResumeOverviewPanel } from "@/app/(auth)/w/[slug]/studio/resumes/_components/resume-overview-panel";
 import { toast } from "sonner";
 import { DATE_TIME_DISPLAY_OPTIONS, TimeDisplay } from "@/components/time-display";
 import {
@@ -479,22 +480,30 @@ export function StudioPersonDetailDialog({
             <AnimatedHeight>
               <TabsContent value="overview">
                 <div className="space-y-6">
-                  <div className="rounded-2xl border border-border/60 bg-muted/30 p-5">
-                    <h3 className="font-medium text-sm">候选人信息</h3>
-                    <div className="mt-4">
-                      <CandidateBasicInfoView
-                        candidateName={record.candidateName}
-                        candidateEmail={record.candidateEmail}
-                        candidatePhone={record.candidatePhone}
-                        targetRole={record.targetRole}
-                        jobDescriptionName={record.jobDescriptionName}
-                        creatorName={record.creatorName}
-                        resumeFileName={record.resumeFileName}
-                        hasResumeFile={record.hasResumeFile}
-                        footer={mode === "interview" ? interviewModeFooter : null}
-                      />
+                  {/* 简历模式：复用 ResumeOverviewPanel —— 与「发起 AI 面试」
+                      弹窗的概览 tab 同一布局，后续要扩字段也只改一处。
+                      Resume mode: defer to ResumeOverviewPanel so the
+                      launch-interview dialog and this view stay in sync. */}
+                  {mode === "resume" && resumeRecord ? (
+                    <ResumeOverviewPanel detail={resumeRecord} />
+                  ) : (
+                    <div className="rounded-2xl border border-border/60 bg-muted/30 p-5">
+                      <h3 className="font-medium text-sm">候选人信息</h3>
+                      <div className="mt-4">
+                        <CandidateBasicInfoView
+                          candidateEmail={record.candidateEmail}
+                          candidateName={record.candidateName}
+                          candidatePhone={record.candidatePhone}
+                          creatorName={record.creatorName}
+                          footer={mode === "interview" ? interviewModeFooter : null}
+                          hasResumeFile={record.hasResumeFile}
+                          jobDescriptionName={record.jobDescriptionName}
+                          resumeFileName={record.resumeFileName}
+                          targetRole={record.targetRole}
+                        />
+                      </div>
                     </div>
-                  </div>
+                  )}
 
                   {/* 轮次概览（面试模式专属）/ Round overview (interview mode only) */}
                   {mode === "interview" && record.roundId ? (
@@ -580,12 +589,14 @@ export function StudioPersonDetailDialog({
                     </div>
                   ) : null}
 
-                  <div className="rounded-2xl border border-border/60 bg-background p-5">
-                    <h3 className="font-medium text-sm">简历评价</h3>
-                    <p className="mt-3 text-muted-foreground text-sm leading-normal">
-                      {truncateText(record.notes, 600) || "暂无简历评价"}
-                    </p>
-                  </div>
+                  {mode === "interview" ? (
+                    <div className="rounded-2xl border border-border/60 bg-background p-5">
+                      <h3 className="font-medium text-sm">简历评价</h3>
+                      <p className="mt-3 text-muted-foreground text-sm leading-normal">
+                        {truncateText(record.notes, 600) || "暂无简历评价"}
+                      </p>
+                    </div>
+                  ) : null}
 
                   {mode === "interview" ? (
                     <div className="rounded-2xl border border-border/60 bg-background p-5">

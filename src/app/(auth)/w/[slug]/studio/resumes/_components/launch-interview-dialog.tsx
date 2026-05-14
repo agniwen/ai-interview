@@ -18,14 +18,18 @@ import { motion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { SortableQuestionListEditor } from "@/app/(auth)/w/[slug]/studio/_components/sortable-question-list-editor";
+import { ResumeProfileView } from "@/components/resume-profile-view";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { fetchStudioResume, launchInterviewFromResume } from "@/lib/client/api";
 import { readNdjsonStream } from "@/lib/client/ndjson-stream";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import type { AnalysisStreamEvent } from "@/lib/shared/api-stream";
 import type { InterviewQuestion, ResumeProfile } from "@/lib/shared/interview/types";
 import type { StudioInterviewRoundDetail } from "@/lib/shared/studio-interview-rounds";
+import type { ResumeLibraryDetail } from "@/lib/shared/studio-resumes";
+import { ResumeOverviewPanel } from "./resume-overview-panel";
 
 interface LaunchFormValues {
   interviewQuestions: InterviewQuestion[];
@@ -111,9 +115,15 @@ export function LaunchInterviewDialog({
   const slug = useWorkspaceSlug();
   const [isGenerating, setIsGenerating] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  // 简历详情：渲染「概览」和「经历」tab，也用来取 resumeProfile 触发出题。
+  // Full resume detail backs the 概览/经历 tabs and seeds question generation.
+  const [resumeDetail, setResumeDetail] = useState<ResumeLibraryDetail | null>(null);
   // 解析阶段没有简历 PDF 可用（手动建档）时给出可见的兜底说明。
   // Banner shown when this candidate has no resumeProfile to seed generation.
   const [noProfileNotice, setNoProfileNotice] = useState(false);
+  // 默认停在「面试题」tab；用户可手动切到概览 / 经历查看候选人上下文。
+  // Default to the questions tab; users can flip to overview / experience.
+  const [activeTab, setActiveTab] = useState<"questions" | "overview" | "experience">("questions");
   const abortControllerRef = useRef<AbortController | null>(null);
   const onLaunchedRef = useRef(onLaunched);
   onLaunchedRef.current = onLaunched;
@@ -153,6 +163,8 @@ export function LaunchInterviewDialog({
     const abortController = new AbortController();
     abortControllerRef.current = abortController;
     setNoProfileNotice(false);
+    setResumeDetail(null);
+    setActiveTab("questions");
     form.reset(EMPTY_FORM_VALUES);
 
     void (async () => {
@@ -161,6 +173,7 @@ export function LaunchInterviewDialog({
         if (cancelled || abortController.signal.aborted) {
           return;
         }
+        setResumeDetail(detail);
         const profile = detail?.resumeProfile ?? null;
         if (!profile) {
           setNoProfileNotice(true);
@@ -232,26 +245,55 @@ export function LaunchInterviewDialog({
       }
     >
       <div className="relative">
-        {noProfileNotice ? (
-          <p className="mb-3 rounded-md border border-border/60 bg-muted/40 px-3 py-2 text-muted-foreground text-xs">
-            该候选人没有解析过的简历，无法自动生成面试题；可在下方手动添加题目。
-          </p>
-        ) : null}
-        <SortableQuestionListEditor
-          arrayFieldName="interviewQuestions"
-          contentFieldName="question"
-          contentPlaceholder="输入面试题目"
-          createItem={(sortIndex) => ({
-            difficulty: "easy",
-            order: sortIndex + 1,
-            question: "",
-          })}
-          disabled={isBusy}
-          emptyDescription="生成完成后会自动填入，也可以手动添加。"
-          emptyTitle="暂无面试题"
-          form={form}
-          resetKey={recordId ?? "new"}
-        />
+        <Tabs
+          onValueChange={(value) => setActiveTab(value as "questions" | "overview" | "experience")}
+          value={activeTab}
+        >
+          <TabsList>
+            <TabsTrigger className="min-w-[6em]" value="questions">
+              面试题
+            </TabsTrigger>
+            <TabsTrigger className="min-w-[6em]" disabled={!resumeDetail} value="overview">
+              概览
+            </TabsTrigger>
+            <TabsTrigger className="min-w-[6em]" disabled={!resumeDetail} value="experience">
+              经历
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent className="mt-4" value="questions">
+            {noProfileNotice ? (
+              <p className="mb-3 rounded-md border border-border/60 bg-muted/40 px-3 py-2 text-muted-foreground text-xs">
+                该候选人没有解析过的简历，无法自动生成面试题；可在下方手动添加题目。
+              </p>
+            ) : null}
+            <SortableQuestionListEditor
+              arrayFieldName="interviewQuestions"
+              contentFieldName="question"
+              contentPlaceholder="输入面试题目"
+              createItem={(sortIndex) => ({
+                difficulty: "easy",
+                order: sortIndex + 1,
+                question: "",
+              })}
+              disabled={isBusy}
+              emptyDescription="生成完成后会自动填入，也可以手动添加。"
+              emptyTitle="暂无面试题"
+              form={form}
+              resetKey={recordId ?? "new"}
+            />
+          </TabsContent>
+
+          <TabsContent className="mt-4" value="overview">
+            {resumeDetail ? <ResumeOverviewPanel detail={resumeDetail} /> : null}
+          </TabsContent>
+
+          <TabsContent className="mt-4" value="experience">
+            <div className="rounded-2xl border border-border/60 bg-background p-5">
+              <ResumeProfileView profile={resumeDetail?.resumeProfile ?? null} />
+            </div>
+          </TabsContent>
+        </Tabs>
 
         {isGenerating ? (
           <motion.div
