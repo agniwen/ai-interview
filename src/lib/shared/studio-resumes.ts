@@ -21,6 +21,9 @@ export interface ResumeLibraryListRecord {
   resumeFileName: string | null;
   resumeContentHash: string | null;
   hasResumeFile: boolean;
+  // 是否已存在至少一个 AI 面试轮次（studioInterviewSchedule）。
+  // Whether this candidate already has at least one AI interview round.
+  hasInterviewRounds: boolean;
   createdAt: string;
   updatedAt: string;
   createdBy: string | null;

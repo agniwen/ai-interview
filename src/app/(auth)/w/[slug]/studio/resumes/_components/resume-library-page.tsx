@@ -246,7 +246,16 @@ export function ResumeLibraryPage({ initialData }: { initialData: PaginatedResum
           { icon: PencilIcon, label: "编辑", onClick: (r) => setEditRecordId(r.id) },
         ],
         menu: [
-          { icon: BotIcon, label: "发起 AI 面试", onClick: startAiInterview },
+          {
+            icon: BotIcon,
+            label: "发起 AI 面试",
+            onClick: startAiInterview,
+            // 已存在任意 AI 面试轮次时隐藏，避免重复发起；用户应在「AI 面试」页面继续。
+            // Hide once the candidate already has any AI interview round to
+            // prevent duplicate starts; users should continue from the AI
+            // interview page instead.
+            show: (r) => !r.hasInterviewRounds,
+          },
           {
             icon: Trash2Icon,
             label: "删除",

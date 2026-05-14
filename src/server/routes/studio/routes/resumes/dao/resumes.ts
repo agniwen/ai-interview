@@ -1,10 +1,15 @@
 import "server-only";
 
-import { and, asc, count, desc, eq, ilike, or } from "drizzle-orm";
+import { and, asc, count, desc, eq, exists, ilike, or } from "drizzle-orm";
 import { cacheLife, cacheTag } from "next/cache";
 import { z } from "zod";
 import { db } from "@/lib/server/db";
-import { jobDescription, studioInterview, user } from "@/lib/shared/db/schema";
+import {
+  jobDescription,
+  studioInterview,
+  studioInterviewSchedule,
+  user,
+} from "@/lib/shared/db/schema";
 import type {
   PaginatedResumeLibraryResult,
   ResumeLibraryDetail,
@@ -59,6 +64,15 @@ function serializeDate(value: string | Date): string {
   return value instanceof Date ? value.toISOString() : value;
 }
 
+// 子查询：该候选人是否已有任意 AI 面试轮次。
+// Subquery: whether this candidate already has any AI interview round.
+const hasInterviewRoundsSql = exists(
+  db
+    .select({ one: studioInterviewSchedule.id })
+    .from(studioInterviewSchedule)
+    .where(eq(studioInterviewSchedule.interviewRecordId, studioInterview.id)),
+);
+
 const SELECTED_COLUMNS = {
   candidateEmail: studioInterview.candidateEmail,
   candidateName: studioInterview.candidateName,
@@ -67,6 +81,7 @@ const SELECTED_COLUMNS = {
   createdBy: studioInterview.createdBy,
   creatorName: user.name,
   creatorOrganizationName: user.feishuTenantName,
+  hasInterviewRounds: hasInterviewRoundsSql,
   id: studioInterview.id,
   jobDescriptionId: studioInterview.jobDescriptionId,
   jobDescriptionName: jobDescription.name,
@@ -112,6 +127,7 @@ function toRecord(row: Row): ResumeLibraryListRecord {
     createdBy: row.createdBy,
     creatorName: row.creatorName,
     creatorOrganizationName: row.creatorOrganizationName,
+    hasInterviewRounds: Boolean(row.hasInterviewRounds),
     hasResumeFile: Boolean(row.resumeStorageKey),
     id: row.id,
     jobDescriptionId: row.jobDescriptionId,
