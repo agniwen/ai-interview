@@ -12,21 +12,6 @@ import * as schema from "@/lib/shared/db/schema";
 const baseURL = process.env.BETTER_AUTH_URL ?? "http://localhost:3000";
 const trustedOrigins = [...new Set([baseURL, "http://localhost:3000"])];
 
-// 模块加载时一次性打印解析出的关键配置，便于在生产 logs 里反查 redirect_uri_mismatch
-// 与 callback host 偏移类问题（绝大部分 Google 登录失败都源于这三处 URL 不一致：
-// BETTER_AUTH_URL / Google Console 注册的 redirect URI / 浏览器实际 origin）。
-// One-shot startup log of the resolved auth URLs — most Google login failures
-// trace back to mismatches between these values, the Google Console redirect
-// URI, and the browser's actual origin.
-console.log("[auth:init]", {
-  baseURL,
-  expectedGoogleRedirectURI: `${baseURL}/api/auth/callback/google`,
-  hasGoogleClientId: Boolean(process.env.GOOGLE_CLIENT_ID),
-  hasGoogleClientSecret: Boolean(process.env.GOOGLE_CLIENT_SECRET),
-  nodeEnv: process.env.NODE_ENV,
-  trustedOrigins,
-});
-
 function pickFirstNonEmpty(...values: (string | undefined)[]): string | undefined {
   return values.find((v) => typeof v === "string" && v.length > 0);
 }
@@ -255,24 +240,6 @@ export const auth = betterAuth({
     disableSignUp: true,
     enabled: true,
     minPasswordLength: 8,
-  },
-  // 把 better-auth 内部日志（OAuth state、token 交换、callback 处理等）全部接出到 stdout。
-  // 生产环境查 Google 登录失败时，这里能看到 better-auth 是哪一步抛错——
-  // 不开就什么都看不到，错误只会以 4xx 返回给浏览器。
-  // Pipe better-auth's internal logs (OAuth state, token exchange, callback
-  // handling, etc.) to stdout. Without this, Google login failures surface only
-  // as opaque 4xx responses; with it, the failing step is visible in prod logs.
-  logger: {
-    level: "debug",
-    log: (level, message, ...args) => {
-      let fn: (...a: unknown[]) => void = console.log;
-      if (level === "error") {
-        fn = console.error;
-      } else if (level === "warn") {
-        fn = console.warn;
-      }
-      fn(`[better-auth:${level}]`, message, ...args);
-    },
   },
   // 被封禁用户走 OAuth 回调时 better-auth 会重定向到 `${errorURL}?error=banned&...`。
   // 指向 /login —— 那边的 LoginErrorToast 会把 error_description 弹成 toast，
