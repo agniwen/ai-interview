@@ -392,7 +392,7 @@ export function StudioPersonDetailDialog({
                       面试报告
                     </TabsTrigger>
                   ) : null}
-                  {mode === "interview" || interviewQuestions.length > 0 ? (
+                  {mode === "interview" ? (
                     <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="questions">
                       AI 题目
                     </TabsTrigger>
@@ -799,7 +799,7 @@ export function StudioPersonDetailDialog({
                 </TabsContent>
               ) : null}
 
-              {mode === "interview" || interviewQuestions.length > 0 ? (
+              {mode === "interview" ? (
                 <TabsContent value="questions">
                   <div className="rounded-2xl border border-border/60 bg-background p-4">
                     <h3 className="font-medium text-sm">AI 面试题</h3>
