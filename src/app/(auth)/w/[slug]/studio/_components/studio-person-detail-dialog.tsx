@@ -96,6 +96,7 @@ export function StudioPersonDetailDialog({
   onOpenChange,
   onUpdated,
   onEdit,
+  onLaunchInterview,
   recordId,
   mode,
 }: {
@@ -104,6 +105,14 @@ export function StudioPersonDetailDialog({
   /** 轮次级写操作（toggle / reset）成功后调用。/ Called after a round-level write (toggle / reset). */
   onUpdated?: () => void;
   onEdit?: (recordId: string) => void;
+  /**
+   * 简历模式下点「发起 AI 面试」时调用；提供后改为 in-place 弹出
+   * LaunchInterviewDialog，不再 router.push 到 /studio/interviews。
+   *
+   * Resume-mode "launch AI interview" callback. When provided, the button
+   * delegates to the caller's LaunchInterviewDialog instead of routing.
+   */
+  onLaunchInterview?: (input: { id: string; candidateName: string | null }) => void;
   recordId: string | null;
   mode: "interview" | "resume";
 }) {
@@ -351,6 +360,18 @@ export function StudioPersonDetailDialog({
       <Button
         className="flex-1"
         onClick={() => {
+          if (onLaunchInterview) {
+            // 简历库详情入口：交给外层 LaunchInterviewDialog 处理；关闭本弹窗
+            // 让 modal 切换显得自然。
+            // Resume-library entry: hand off to the parent LaunchInterviewDialog
+            // and close this dialog so the swap reads naturally.
+            onLaunchInterview({
+              candidateName: record.candidateName ?? null,
+              id: record.id,
+            });
+            onOpenChange(false);
+            return;
+          }
           router.push(`/w/${slug}/studio/interviews`);
           onOpenChange(false);
         }}
@@ -358,7 +379,7 @@ export function StudioPersonDetailDialog({
       >
         <BotIcon className="size-4" />
         发起 AI 面试
-        <ExternalLinkIcon className="size-3.5 opacity-70" />
+        {onLaunchInterview ? null : <ExternalLinkIcon className="size-3.5 opacity-70" />}
       </Button>
     </div>
   ) : null;

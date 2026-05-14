@@ -103,9 +103,14 @@ export function ResumeLibraryPage({ initialData }: { initialData: PaginatedResum
   // Round id whose AI interview detail dialog should pop after a successful
   // save-and-start; null hides the dialog.
   const [interviewRoundDetailId, setInterviewRoundDetailId] = useState<string | null>(null);
-  // 当前正在「发起 AI 面试」弹窗中处理的简历记录；null 则不展示。
-  // Resume record currently driving the launch-interview dialog; null hides it.
-  const [launchingRecord, setLaunchingRecord] = useState<ResumeLibraryListRecord | null>(null);
+  // 当前正在「发起 AI 面试」弹窗中处理的简历记录（最小投影：行菜单和详情
+  // 弹窗都通过这里触发）；null 则不展示。
+  // Minimal record handle driving the launch-interview dialog. Both the row
+  // menu and the resume detail dialog feed into this state; null hides it.
+  const [launchingRecord, setLaunchingRecord] = useState<{
+    id: string;
+    candidateName: string | null;
+  } | null>(null);
   const [editRecordId, setEditRecordId] = useState<string | null>(null);
   const [deleteRecord, setDeleteRecord] = useState<ResumeLibraryListRecord | null>(null);
   const [previewRecord, setPreviewRecord] = useState<ResumeLibraryListRecord | null>(null);
@@ -157,7 +162,7 @@ export function ResumeLibraryPage({ initialData }: { initialData: PaginatedResum
   }
 
   function startAiInterview(record: ResumeLibraryListRecord) {
-    setLaunchingRecord(record);
+    setLaunchingRecord({ candidateName: record.candidateName ?? null, id: record.id });
   }
 
   const columns = useMemo(
@@ -374,6 +379,10 @@ export function ResumeLibraryPage({ initialData }: { initialData: PaginatedResum
         onEdit={(id) => {
           setDetailRecordId(null);
           setEditRecordId(id);
+        }}
+        onLaunchInterview={({ id, candidateName }) => {
+          setDetailRecordId(null);
+          setLaunchingRecord({ candidateName, id });
         }}
         onOpenChange={(open) => !open && setDetailRecordId(null)}
         open={detailRecordId !== null}
