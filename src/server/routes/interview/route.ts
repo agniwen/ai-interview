@@ -1,5 +1,4 @@
 import type { ContentfulStatusCode } from "hono/utils/http-status";
-import type { ResumeProfile } from "@/lib/shared/interview/types";
 import { RoomAgentDispatch, RoomConfiguration } from "@livekit/protocol";
 import { and, eq, ne } from "drizzle-orm";
 import { AccessToken } from "livekit-server-sdk";
@@ -15,6 +14,7 @@ import type { CandidateFormTemplateRecord } from "@/lib/shared/candidate-forms";
 import { RECONNECT_GRACE_MS } from "@/lib/shared/studio-interviews";
 import {
   streamGenerateInterviewQuestions,
+  streamGenerateResumeReview,
   streamParseResumeProfile,
 } from "@/server/agents/resume-analysis-agent";
 import { matchJobDescriptionForResume } from "@/server/agents/job-description-match-agent";
@@ -23,7 +23,10 @@ import { z } from "zod";
 import { factory, jsonValidatorError } from "@/server/factory";
 import { authMiddleware } from "@/server/middlewares/auth";
 import { resumeProfileSchema } from "@/lib/shared/interview/types";
-import { listAllJobDescriptions } from "@/server/routes/studio/routes/job-descriptions/dao";
+import {
+  listAllJobDescriptions,
+  loadJobDescriptionById,
+} from "@/server/routes/studio/routes/job-descriptions/dao";
 import { getGlobalConfig } from "@/server/routes/studio/routes/global-config/dao";
 import { loadApplicableCandidateFormTemplates } from "@/server/routes/studio/routes/forms/dao/queries";
 import { loadSubmittedTemplateIds } from "@/server/routes/studio/routes/forms/dao/submissions";
@@ -125,25 +128,79 @@ export const interviewRouter = factory
       }
     },
   )
-  .post("/generate-questions", async (c) => {
-    const body = await c.req
-      .json<{ resumeProfile?: unknown }>()
-      .catch(() => ({}) as { resumeProfile?: unknown });
+  .post(
+    "/generate-questions",
+    zValidator(
+      "json",
+      z.object({ resumeProfile: resumeProfileSchema }),
+      jsonValidatorError("缺少候选人信息 (resumeProfile)。"),
+    ),
+    (c) => {
+      const { resumeProfile } = c.req.valid("json");
+      const stream = streamGenerateInterviewQuestions(resumeProfile);
+      return new Response(stream, {
+        headers: {
+          "Cache-Control": "no-cache",
+          "Content-Type": "application/x-ndjson",
+          "Transfer-Encoding": "chunked",
+        },
+      });
+    },
+  )
+  .post(
+    "/generate-review",
+    authMiddleware,
+    zValidator(
+      "json",
+      z.object({
+        jobDescriptionId: z.string().trim().optional().nullable(),
+        resumeProfile: resumeProfileSchema,
+      }),
+      jsonValidatorError("缺少候选人信息 (resumeProfile)。"),
+    ),
+    async (c) => {
+      const { jobDescriptionId, resumeProfile } = c.req.valid("json");
 
-    if (!body.resumeProfile || typeof body.resumeProfile !== "object") {
-      return c.json({ error: "缺少候选人信息 (resumeProfile)。" }, 400);
-    }
+      // 取 JD prompt 作为评价上下文。jobDescriptionId 来自前端 JD 匹配阶段的回填,
+      // org scope 用当前 session 的 activeOrganizationId（generate-review 跟在
+      // JD 匹配后调用，那时 active org 已经定）；查不到 JD 静默退化为无 JD 评价。
+      // Resolve the JD prompt as review context. The id comes from the
+      // pipeline's match-job-description step; org scoping uses the active
+      // organization on the session. Silently fall back to a JD-less review if
+      // the id resolves to nothing (org-mismatch / freshly-deleted JD / etc.).
+      let jobDescriptionText: string | null = null;
+      if (jobDescriptionId) {
+        const orgId =
+          (c.var.session as { activeOrganizationId?: string | null } | null)
+            ?.activeOrganizationId ?? null;
+        if (orgId) {
+          const jd = await loadJobDescriptionById(orgId, jobDescriptionId);
+          if (jd) {
+            jobDescriptionText = [
+              `岗位名称：${jd.name}`,
+              jd.description ? `岗位描述：${jd.description}` : null,
+              `岗位 Prompt：\n${jd.prompt}`,
+            ]
+              .filter(Boolean)
+              .join("\n\n");
+          }
+        }
+      }
 
-    const stream = streamGenerateInterviewQuestions(body.resumeProfile as ResumeProfile);
+      const stream = streamGenerateResumeReview({
+        jobDescription: jobDescriptionText,
+        resumeProfile,
+      });
 
-    return new Response(stream, {
-      headers: {
-        "Cache-Control": "no-cache",
-        "Content-Type": "application/x-ndjson",
-        "Transfer-Encoding": "chunked",
-      },
-    });
-  })
+      return new Response(stream, {
+        headers: {
+          "Cache-Control": "no-cache",
+          "Content-Type": "application/x-ndjson",
+          "Transfer-Encoding": "chunked",
+        },
+      });
+    },
+  )
   // oxlint-disable-next-line complexity -- Token issuance composes auth, form gate, and the hot-reconnect state machine in one flow.
   .post("/:id/:roundId/livekit-token", async (c) => {
     const id = c.req.param("id");

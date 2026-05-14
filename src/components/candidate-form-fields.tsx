@@ -287,7 +287,11 @@ export function CandidateFormFields({
               <FieldContent className="gap-2">
                 <div className="relative">
                   <Textarea
-                    className="min-h-24 pb-6"
+                    // 评价由 LLM 自动生成 + 用户可编辑，可能超长；限制高度 6-7 行，
+                    // 多出来的内容内部滚动，避免把整个弹窗撑得过高。
+                    // The auto-generated review can be long; cap height at ~7
+                    // rows and let it scroll internally instead of stretching the modal.
+                    className="max-h-44 min-h-24 overflow-y-auto pb-6"
                     disabled={disabled}
                     id={field.name}
                     maxLength={NOTES_MAX_LENGTH}

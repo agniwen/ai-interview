@@ -31,11 +31,19 @@ export interface ResumeAnalysisPipelineOptions {
   onProfileParsed: (input: { fileName: string; resumeProfile: ResumeProfile }) => void;
   onJobDescriptionMatched: (matchedId: string, reason: string | null) => void;
   onQuestionsGenerated: (questions: InterviewQuestion[]) => void;
+  /**
+   * JD 匹配完后基于（候选人 + 匹配岗位）生成的简历评价文本回调。可选——未传时
+   * pipeline 不会触发评价生成。
+   * Fired after the post-match resume-review generation. Optional; when omitted
+   * the pipeline skips review generation entirely.
+   */
+  onReviewGenerated?: (review: string) => void;
 }
 
 export interface ResumeAnalysisPipelineState {
   isAnalyzingResume: boolean;
   isGeneratingQuestions: boolean;
+  isGeneratingReview: boolean;
   progressStatus: string;
   progressTools: { name: string; done: boolean }[];
   partialFields: { label: string; value: string }[];
@@ -64,12 +72,14 @@ export function useResumeAnalysisPipeline(
   options: ResumeAnalysisPipelineOptions,
 ): ResumeAnalysisPipeline {
   const slug = useWorkspaceSlug();
-  const { onProfileParsed, onJobDescriptionMatched, onQuestionsGenerated } = options;
+  const { onProfileParsed, onJobDescriptionMatched, onQuestionsGenerated, onReviewGenerated } =
+    options;
 
   const [resumeFile, setResumeFile] = useState<File | null>(null);
   const [resumePayload, setResumePayload] = useState<ResumeAnalysisResult | null>(null);
   const [isAnalyzingResume, setIsAnalyzingResume] = useState(false);
   const [isGeneratingQuestions, setIsGeneratingQuestions] = useState(false);
+  const [isGeneratingReview, setIsGeneratingReview] = useState(false);
   const [progressStatus, setProgressStatus] = useState("");
   const [progressTools, setProgressTools] = useState<{ name: string; done: boolean }[]>([]);
   const [partialFields, setPartialFields] = useState<{ label: string; value: string }[]>([]);
@@ -176,12 +186,14 @@ export function useResumeAnalysisPipeline(
     accumulatedTextRef.current = "";
 
     try {
-      const qResponse = await fetch("/api/interview/generate-questions", {
-        body: JSON.stringify({ resumeProfile: profileBundle.resumeProfile }),
-        headers: { "Content-Type": "application/json" },
-        method: "POST",
-        signal: abortController.signal,
-      });
+      // 流式响应不能走 rpcFetch（parseResponse 会消费 body），但可以用 hc 客户端
+      // 拿 URL + 类型推断，直接 await 取 Response 自己读流。
+      // hc with streaming: route via the typed RPC for URL + body type-safety,
+      // then read response.body manually (rpcFetch would consume the stream).
+      const qResponse = await rpc.api.interview["generate-questions"].$post(
+        { json: { resumeProfile: profileBundle.resumeProfile } },
+        { init: { signal: abortController.signal } },
+      );
 
       if (!qResponse.ok) {
         const errBody = (await qResponse.json().catch(() => null)) as { error?: string } | null;
@@ -321,8 +333,13 @@ export function useResumeAnalysisPipeline(
         toast.success("简历解析完成，已回填候选人信息");
 
         // Match best in-flight job description; non-fatal on failure.
-        // 自动匹配在招岗位；失败时静默继续。
+        // 匹配完之后串行触发简历评价生成（按需），评价依赖匹配到的 JD 上下文。
+        // 自动匹配 / 评价生成失败都静默继续，不阻塞主流程。
+        // Match best in-flight JD, then chain resume-review generation using
+        // the matched JD as context. Both steps are best-effort; failures are
+        // swallowed so the main flow keeps going.
         void (async () => {
+          let matchedJdId: string | null = null;
           try {
             const matchResponse = await rpc.api.interview["match-job-description"].$post(
               { json: { resumeProfile } },
@@ -336,6 +353,7 @@ export function useResumeAnalysisPipeline(
               reason?: string | null;
             } | null;
             if (matchPayload?.matchedId) {
+              matchedJdId = matchPayload.matchedId;
               onJobDescriptionMatched(matchPayload.matchedId, matchPayload.reason ?? null);
               toast.success(
                 matchPayload.reason
@@ -345,6 +363,52 @@ export function useResumeAnalysisPipeline(
             }
           } catch {
             // swallow — user can still pick manually / 静默忽略，用户可手动选择
+          }
+
+          // 评价生成是可选步骤：调用方未传 onReviewGenerated 就不跑（保持原 pipeline 行为）。
+          // Skip review generation when the caller didn't opt in.
+          if (!onReviewGenerated || abortController.signal.aborted) {
+            return;
+          }
+          setIsGeneratingReview(true);
+          setProgressStatus("正在生成简历评价…");
+          try {
+            // 流式响应：用 hc 拿 URL/类型，body 自己读 NDJSON。
+            // Streaming endpoint: hc for URL + types, manually consume the
+            // ReadableStream body (rpcFetch would parse the whole body).
+            const reviewResponse = await rpc.api.interview["generate-review"].$post(
+              { json: { jobDescriptionId: matchedJdId, resumeProfile } },
+              { init: { signal: abortController.signal } },
+            );
+            if (!reviewResponse.ok) {
+              return;
+            }
+
+            let review: string | null = null;
+            await readNdjsonStream<AnalysisStreamEvent>(
+              reviewResponse,
+              (event) => {
+                if (event.type === "result") {
+                  const data = event.data as { review?: string };
+                  review = data.review ?? null;
+                }
+              },
+              abortController.signal,
+            );
+
+            if (review) {
+              onReviewGenerated(review);
+              toast.success("已生成简历评价");
+            }
+          } catch {
+            // 评价生成失败不打扰用户——属于增益步骤，用户仍可手动填写。
+            // Review generation is a bonus step; silent failure is fine since
+            // the user can still write the field manually.
+          } finally {
+            if (!abortController.signal.aborted) {
+              setIsGeneratingReview(false);
+              setProgressStatus("");
+            }
           }
         })();
 
@@ -384,13 +448,17 @@ export function useResumeAnalysisPipeline(
         abortControllerRef.current = null;
         setIsAnalyzingResume(false);
         setIsGeneratingQuestions(false);
+        // 不在 finally 里清 isGeneratingReview：评价生成是 fire-and-forget 在 IIFE 里跑，
+        // 主流程到达 finally 时它可能还在进行中。让评价的 IIFE 自己结束时清掉。
+        // Don't clear isGeneratingReview here — the review IIFE outlives this
+        // finally; it owns its own teardown.
         setProgressStatus("");
         setProgressTools([]);
         setPartialFields([]);
         accumulatedTextRef.current = "";
       }
     },
-    [onJobDescriptionMatched, onProfileParsed, slug],
+    [onJobDescriptionMatched, onProfileParsed, onReviewGenerated, slug],
   );
 
   const handleDedupContinue = useCallback(() => {
@@ -407,6 +475,7 @@ export function useResumeAnalysisPipeline(
     setResumePayload(null);
     setIsAnalyzingResume(false);
     setIsGeneratingQuestions(false);
+    setIsGeneratingReview(false);
     setProgressStatus("");
     setProgressTools([]);
     setPartialFields([]);
@@ -437,6 +506,7 @@ export function useResumeAnalysisPipeline(
     setResumePayload(null);
     setIsAnalyzingResume(false);
     setIsGeneratingQuestions(false);
+    setIsGeneratingReview(false);
     setProgressStatus("");
     setProgressTools([]);
     setPartialFields([]);
@@ -446,9 +516,11 @@ export function useResumeAnalysisPipeline(
   }, []);
 
   // 等待用户决定时的 overlay 也算"忙"——禁止关闭外层弹窗，避免在用户决定前丢状态。
-  // The dedup-confirmation overlay also counts as "busy" so the outer modal
-  // cannot be dismissed before the user decides.
-  const isBusy = isAnalyzingResume || isGeneratingQuestions || dedupMatches !== null;
+  // 评价生成也算"忙"：让保存按钮在评价回填前 disabled，避免用户先点保存把空 notes 落库。
+  // Block "save" while review is generating, otherwise the user can submit
+  // before the auto-fill lands and end up with an empty notes field.
+  const isBusy =
+    isAnalyzingResume || isGeneratingQuestions || isGeneratingReview || dedupMatches !== null;
 
   return {
     dedupMatches,
@@ -459,6 +531,7 @@ export function useResumeAnalysisPipeline(
     isAnalyzingResume,
     isBusy,
     isGeneratingQuestions,
+    isGeneratingReview,
     partialFields,
     progressStatus,
     progressTools,

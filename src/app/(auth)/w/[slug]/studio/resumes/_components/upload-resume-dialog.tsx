@@ -171,6 +171,16 @@ export function CreateResumeRecordDialog({ onCreated }: CreateResumeRecordDialog
       // resumePayload 由 hook 内部维护，弹窗不展示题目，故不需写入表单。
       // resumePayload is managed inside the hook; the dialog has no questions UI.
     },
+    // JD 匹配完后 pipeline 会基于（候选人 + 匹配岗位）生成简历评价，回填到「简历评价」字段。
+    // 仅在用户没自己写过 notes 时覆盖；避免覆盖用户已经输入的内容。
+    // Auto-fill the notes field with the post-match review only when it's
+    // still untouched, so we don't trample on text the user typed.
+    onReviewGenerated: (review) => {
+      const current = form.getFieldValue("notes")?.trim();
+      if (!current) {
+        form.setFieldValue("notes", review);
+      }
+    },
   });
   // 把最新 pipeline 写入 ref，供 form.onSubmit 闭包读取。
   // Sync the latest pipeline into the ref so form.onSubmit can read it.
