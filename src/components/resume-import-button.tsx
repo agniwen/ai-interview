@@ -2,7 +2,7 @@
 
 import type { FileUIPart } from "ai";
 import type { InterviewQuestion, ResumeAnalysisResult } from "@/lib/shared/interview/types";
-import type { StudioInterviewRecord } from "@/lib/shared/studio-interviews";
+import type { StudioCandidateRecord } from "@/lib/shared/studio-candidates";
 import type { AnalysisStreamEvent } from "@/lib/shared/api-stream";
 import { CheckIcon, DatabaseIcon, EyeIcon, LoaderCircleIcon } from "lucide-react";
 import dynamic from "next/dynamic";
@@ -365,7 +365,7 @@ export function ResumeImportButton({
       });
 
       const savedPayload = (await saveResponse.json().catch(() => null)) as
-        | StudioInterviewRecord
+        | StudioCandidateRecord
         | { error?: string }
         | null;
 
@@ -375,7 +375,7 @@ export function ResumeImportButton({
         );
       }
 
-      const record = savedPayload as StudioInterviewRecord;
+      const record = savedPayload as StudioCandidateRecord;
       onImported(filePart.id, record.id);
       toast.success("简历已加入简历库");
       cachedParseResultRef.current = null;

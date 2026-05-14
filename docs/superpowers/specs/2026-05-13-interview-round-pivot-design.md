@@ -22,16 +22,16 @@
 
 ## 4. Locked decisions
 
-| 项 | 决议 |
-|---|---|
-| 列表行的 `id` | `roundId`（`studio_interview_schedule.id`）；候选人 ID 作为 `candidateId` 单独字段 |
-| 列表列 | 候选人姓名 / JD 名 / 轮次（roundLabel）/ 排期时间 / round status / 是否有报告 / 是否允许文本输入 / 创建时间 / actions |
-| status 过滤 | round status（`pending` / `in_progress` / `completed` / `interrupted`）|
-| Summary 统计 | 按 round 统计：总轮数、已完成、进行中、待开始 |
-| 详情弹窗顶部 | 新增「轮次概览」区块（roundLabel + scheduledAt + status + 链接 + allowTextInput toggle）|
-| 详情 tabs | 概览 / 经历 / AI 题目 / Agent 提示词 / 表单答复 / 面试报告（数据源不变，只是按当前 round 取）|
-| 详情弹窗 footer | resume 模式现状不变；interview 模式继续指向 `/studio/resumes?recordId=<candidateId>` 编辑候选人 |
-| 简历库「保存并发起面试」 | 不变，仍走 POST `/studio/interviews` 创建 candidate + 默认 1 round |
+| 项                           | 决议                                                                                                                                                                                                                                        |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 列表行的 `id`                | `roundId`（`studio_interview_schedule.id`）；候选人 ID 作为 `candidateId` 单独字段                                                                                                                                                          |
+| 列表列                       | 候选人姓名 / JD 名 / 轮次（roundLabel）/ 排期时间 / round status / 是否有报告 / 是否允许文本输入 / 创建时间 / actions                                                                                                                       |
+| status 过滤                  | round status（`pending` / `in_progress` / `completed` / `interrupted`）                                                                                                                                                                     |
+| Summary 统计                 | 按 round 统计：总轮数、已完成、进行中、待开始                                                                                                                                                                                               |
+| 详情弹窗顶部                 | 新增「轮次概览」区块（roundLabel + scheduledAt + status + 链接 + allowTextInput toggle）                                                                                                                                                    |
+| 详情 tabs                    | 概览 / 经历 / AI 题目 / Agent 提示词 / 表单答复 / 面试报告（数据源不变，只是按当前 round 取）                                                                                                                                               |
+| 详情弹窗 footer              | resume 模式现状不变；interview 模式继续指向 `/studio/resumes?recordId=<candidateId>` 编辑候选人                                                                                                                                             |
+| 简历库「保存并发起面试」     | 不变，仍走 POST `/studio/interviews` 创建 candidate + 默认 1 round                                                                                                                                                                          |
 | `studio_interview.status` 列 | schema 不动；保留 `src/server/routes/interview/utils.ts` 的 `archived` gate 读取（公共面试链接禁用机制依赖它）；POST `/studio/interviews` 仍写入（schema 要求，简历库传 `"ready"`）；AI 面试列表 / 详情 / 编辑都不再读写。彻底拆列是后续 PR |
 
 ## 5. Architecture
@@ -57,6 +57,7 @@
   - `interface PaginatedStudioInterviewRoundsResult`
 
 被淘汰的旧符号（在 `studio-interviews.ts` 删除并迁移调用方）：
+
 - `StudioInterviewRecord` → 改为 `StudioCandidateRecord`（已在 `studio-candidates.ts`）
 - `StudioInterviewListRecord` → 删除（旧消费者全部切到 `StudioInterviewRoundListRecord`）
 - `toStudioInterviewListRecord` → 删除
@@ -77,26 +78,26 @@
 
 URL 路径不变（`/api/w/:slug/studio/interviews/*`），但 `:id` 在大多数 handler 里改为 `roundId`：
 
-| URL | 旧含义 | 新含义 |
-|---|---|---|
-| GET `/` | 候选人列表分页 | round 列表分页（来自 `queryPaginatedInterviewRounds`）|
-| GET `/summary` | candidate-status 计数 | round-status 计数 |
-| POST `/dedup-check` | 候选人查重（不变） | 候选人查重（不变，纯候选人字段输入，与 round 无关）|
-| POST `/` | 创建 candidate + N rounds | **不变**：简历库「保存并发起面试」仍走这里；handler 内部仍写 1 行 studio_interview + N 行 studio_interview_schedule。返回结构由 `StudioInterviewRecord` 改为 `StudioInterviewRoundListRecord`（取新写入的第一轮，让简历库前端处理一致的列表行类型）|
-| GET `/:id` | candidate 详情 | round 详情（含 candidate 快照）|
-| GET `/:id/resume` | 候选人简历 PDF | 通过 round → candidate 取简历 PDF |
-| GET `/:id/agent-instructions` | candidate-级 prompt | 通过 round → candidate 构造；候选人 + JD 信息不变；可附 round 的轮次提示（roundLabel）|
-| GET `/:id/reports` | candidate 的全部 reports（多 round 汇总） | **仅本 round 的 reports**（按 scheduleEntryId 过滤）|
-| GET `/:id/recordings/:conversationId` | 候选人下指定会话 | round 下指定会话（已经按 scheduleEntryId 校验过，逻辑不变）|
-| GET `/:id/form-submissions` | candidate 的全部提交 | **仅本 round 的提交** |
-| DELETE `/:id/form-submissions/:submissionId` | 删提交 | 不变 |
-| PATCH `/:id` | candidate-级 PATCH（status / JD / notes 等，不含身份） | **改写**：round-级 PATCH（`allowTextInput` / `notes` / `scheduledAt` / round `status`）。candidate-级 PATCH 整体下线 —— 候选人字段的修改走 `/studio/resumes/:id` |
-| GET `/:id/question-template-bindings` | candidate-级 | 通过 round → candidate 读取（候选人的题目模板绑定不变）|
-| PUT `/:id/question-template-bindings` | candidate-级 | 同上（写也仍是候选人维度，因为 questions 是候选人级数据）|
-| POST `/:id/rounds/:roundId/reset` | 嵌套路径 | **简化为** `POST /:id/reset`（`:id` = roundId）|
-| PATCH `/:id/rounds/:roundId` | 嵌套调整 round | **简化为** `PATCH /:id`（已合并到上面 PATCH 描述）。原路径删除 |
-| DELETE `/:id` | 删 candidate（cascade rounds）| **改写**：删 round 行（cascade reports/recordings via FK）；candidate 删除走简历库 |
-| POST `/bulk-delete` | 候选人批量删除 | round 批量删除（payload 改 `roundIds`）|
+| URL                                          | 旧含义                                                 | 新含义                                                                                                                                                                                                                                              |
+| -------------------------------------------- | ------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GET `/`                                      | 候选人列表分页                                         | round 列表分页（来自 `queryPaginatedInterviewRounds`）                                                                                                                                                                                              |
+| GET `/summary`                               | candidate-status 计数                                  | round-status 计数                                                                                                                                                                                                                                   |
+| POST `/dedup-check`                          | 候选人查重（不变）                                     | 候选人查重（不变，纯候选人字段输入，与 round 无关）                                                                                                                                                                                                 |
+| POST `/`                                     | 创建 candidate + N rounds                              | **不变**：简历库「保存并发起面试」仍走这里；handler 内部仍写 1 行 studio_interview + N 行 studio_interview_schedule。返回结构由 `StudioInterviewRecord` 改为 `StudioInterviewRoundListRecord`（取新写入的第一轮，让简历库前端处理一致的列表行类型） |
+| GET `/:id`                                   | candidate 详情                                         | round 详情（含 candidate 快照）                                                                                                                                                                                                                     |
+| GET `/:id/resume`                            | 候选人简历 PDF                                         | 通过 round → candidate 取简历 PDF                                                                                                                                                                                                                   |
+| GET `/:id/agent-instructions`                | candidate-级 prompt                                    | 通过 round → candidate 构造；候选人 + JD 信息不变；可附 round 的轮次提示（roundLabel）                                                                                                                                                              |
+| GET `/:id/reports`                           | candidate 的全部 reports（多 round 汇总）              | **仅本 round 的 reports**（按 `interview_conversation.scheduleEntryId = roundId` 过滤）。注意：`scheduleEntryId` 是 nullable，历史 conversation 行若没填该字段会从任何 round 视图消失，这是已知的可接受损失                                         |
+| GET `/:id/recordings/:conversationId`        | 候选人下指定会话                                       | round 下指定会话（额外校验 conversation 的 `scheduleEntryId` 必须等于 `:id`）                                                                                                                                                                       |
+| GET `/:id/form-submissions`                  | candidate 的全部提交                                   | **候选人级**（form_submissions 的 FK 是 `interviewRecordId` 即候选人 id）。handler 通过 round → candidate 解出 candidateId 再查 —— 一个 candidate 的多 round 共享同一份表单答复，符合数据模型                                                       |
+| DELETE `/:id/form-submissions/:submissionId` | 删提交                                                 | 同上：通过 round → candidate 解出 candidateId，按 candidateId + submissionId 删                                                                                                                                                                     |
+| PATCH `/:id`                                 | candidate-级 PATCH（status / JD / notes 等，不含身份） | **改写**：round-级 PATCH（`allowTextInput` / `notes` / `scheduledAt` / round `status`）。candidate-级 PATCH 整体下线 —— 候选人字段的修改走 `/studio/resumes/:id`                                                                                    |
+| GET `/:id/question-template-bindings`        | candidate-级                                           | 通过 round → candidate 解出 candidateId 后读取候选人的题目模板绑定                                                                                                                                                                                  |
+| PUT `/:id/question-template-bindings`        | candidate-级                                           | 同上                                                                                                                                                                                                                                                |
+| POST `/:id/rounds/:roundId/reset`            | 嵌套路径                                               | **简化为** `POST /:id/reset`（`:id` = roundId）                                                                                                                                                                                                     |
+| PATCH `/:id/rounds/:roundId`                 | 嵌套调整 round                                         | **简化为** `PATCH /:id`（已合并到上面 PATCH 描述）。原路径删除                                                                                                                                                                                      |
+| DELETE `/:id`                                | 删 candidate（cascade rounds）                         | **改写**：删 round 行（cascade reports/recordings via FK）；candidate 删除走简历库                                                                                                                                                                  |
+| POST `/bulk-delete`                          | 候选人批量删除                                         | round 批量删除（payload 改 `roundIds`）                                                                                                                                                                                                             |
 
 > 端点签名变化清单（迁移调用方 + 客户端 typed RPC）：见 §6。
 
@@ -167,16 +168,16 @@ router.push(`/w/${slug}/studio/interviews?recordId=${record.id}`);
 
 ## 6. API 迁移清单（前端要同步改）
 
-| 旧 | 新 |
-|---|---|
-| `fetchStudioInterviews` returns `StudioInterviewListRecord[]` | `fetchStudioInterviewRounds` returns `StudioInterviewRoundListRecord[]` |
+| 旧                                                                                  | 新                                                                                                     |
+| ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `fetchStudioInterviews` returns `StudioInterviewListRecord[]`                       | `fetchStudioInterviewRounds` returns `StudioInterviewRoundListRecord[]`                                |
 | `fetchStudioInterview(id)` returns `StudioInterviewRecord` (with scheduleEntries[]) | `fetchStudioInterviewRound(roundId)` returns `StudioInterviewRoundDetail` (round + candidate snapshot) |
-| `updateStudioInterviewRound(slug, recordId, roundId, body)` | `updateStudioInterviewRound(slug, roundId, body)` |
-| `resetStudioInterviewRound(slug, recordId, roundId)` | `resetStudioInterviewRound(slug, roundId)` |
-| `deleteStudioInterview(slug, candidateId)` | `deleteStudioInterviewRound(slug, roundId)` |
-| `bulkDeleteStudioInterviews(slug, candidateIds)` | `bulkDeleteStudioInterviewRounds(slug, roundIds)` |
-| `fetchStudioInterviewReports(slug, candidateId)` | `fetchStudioInterviewRoundReports(slug, roundId)` |
-| `fetchStudioInterviewFormSubmissions(slug, candidateId)` | `fetchStudioInterviewRoundFormSubmissions(slug, roundId)` |
+| `updateStudioInterviewRound(slug, recordId, roundId, body)`                         | `updateStudioInterviewRound(slug, roundId, body)`                                                      |
+| `resetStudioInterviewRound(slug, recordId, roundId)`                                | `resetStudioInterviewRound(slug, roundId)`                                                             |
+| `deleteStudioInterview(slug, candidateId)`                                          | `deleteStudioInterviewRound(slug, roundId)`                                                            |
+| `bulkDeleteStudioInterviews(slug, candidateIds)`                                    | `bulkDeleteStudioInterviewRounds(slug, roundIds)`                                                      |
+| `fetchStudioInterviewReports(slug, candidateId)`                                    | `fetchStudioInterviewRoundReports(slug, roundId)`                                                      |
+| `fetchStudioInterviewFormSubmissions(slug, candidateId)`                            | `fetchStudioInterviewRoundFormSubmissions(slug, roundId)`                                              |
 
 ## 7. Tests
 

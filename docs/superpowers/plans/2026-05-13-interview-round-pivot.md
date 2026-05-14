@@ -28,12 +28,14 @@
 ## File map
 
 ### 新增
+
 - `src/lib/shared/studio-candidates.ts` — 候选人聚合类型
 - `src/lib/shared/studio-interview-rounds.ts` — round 视图类型
 - `src/server/routes/studio/routes/interviews/dao/interview-rounds.ts` — round-keyed DAO
 - `src/server/routes/studio/routes/interviews/dao/__tests__/interview-rounds.test.ts` — 真实 DB 集成测试
 
 ### 修改
+
 - `src/lib/shared/studio-interviews.ts` — 瘦身保留 schema/枚举/parser；删旧 `StudioInterviewRecord` / `StudioInterviewListRecord` / `toStudioInterviewListRecord`
 - `src/server/routes/studio/routes/interviews/dao/studio-interviews.ts` — 留 `loadStudioCandidate` 等候选人取数；删 `queryPaginatedStudioInterviewRecords` / `queryStudioInterviewSummary` / `toStudioInterviewListRecord`
 - `src/server/routes/studio/routes/interviews/route.ts` — `:id` 重新解释为 roundId；handler 全面改造
@@ -53,6 +55,7 @@
 ### Task 1: 新增 `studio-candidates.ts` + `studio-interview-rounds.ts`，瘦身 `studio-interviews.ts`
 
 **Files:**
+
 - Create: `src/lib/shared/studio-candidates.ts`
 - Create: `src/lib/shared/studio-interview-rounds.ts`
 - Modify: `src/lib/shared/studio-interviews.ts`
@@ -167,6 +170,7 @@ export interface PaginatedStudioInterviewRoundsResult {
 - [ ] **Step 3: 瘦身 `studio-interviews.ts`**
 
 Open `src/lib/shared/studio-interviews.ts`. Delete:
+
 - `interface StudioInterviewRecord` (lines ~123-143)
 - `type StudioInterviewListRecord` (lines ~145-153)
 - `function toStudioInterviewListRecord` (lines ~155-180)
@@ -180,9 +184,7 @@ Run `pnpm typecheck` — you'll get many "Cannot find name 'StudioInterviewRecor
 // Task 6 cleanup 时删除。
 // Temporary bridge: legacy StudioInterviewRecord → new StudioCandidateRecord.
 // Removed in Task 6 cleanup.
-export type {
-  StudioCandidateRecord as StudioInterviewRecord,
-} from "@/lib/shared/studio-candidates";
+export type { StudioCandidateRecord as StudioInterviewRecord } from "@/lib/shared/studio-candidates";
 ```
 
 This keeps callers that import `StudioInterviewRecord` compiling even though it now lacks `scheduleEntries` / `interviewLink` — those callers will be migrated in T3-T5.
@@ -213,6 +215,7 @@ git commit -m "feat(studio): introduce StudioCandidateRecord + Round types"
 ### Task 2: 新增 `dao/interview-rounds.ts` + 集成测试
 
 **Files:**
+
 - Create: `src/server/routes/studio/routes/interviews/dao/interview-rounds.ts`
 - Create: `src/server/routes/studio/routes/interviews/dao/__tests__/interview-rounds.test.ts`
 - Modify: `src/server/routes/studio/routes/interviews/dao/studio-interviews.ts` — 新增 `loadStudioCandidate` 函数
@@ -249,9 +252,7 @@ const USER_ID = "test_user_interview_rounds";
 const NOW = new Date("2026-05-13T15:00:00.000Z");
 
 async function cleanup() {
-  await db
-    .delete(studioInterviewSchedule)
-    .where(eq(studioInterviewSchedule.organizationId, ORG));
+  await db.delete(studioInterviewSchedule).where(eq(studioInterviewSchedule.organizationId, ORG));
   await db.delete(studioInterview).where(eq(studioInterview.organizationId, ORG));
   await db.delete(member).where(eq(member.userId, USER_ID));
   await db.delete(organization).where(eq(organization.id, ORG));
@@ -525,7 +526,10 @@ function buildOrderBy(sortBy: SortColumn, sortOrder: "asc" | "desc") {
   return sortOrder === "asc" ? asc(column) : desc(column);
 }
 
-function buildWhere(organizationId: string, filters?: { search?: string; statuses?: ScheduleEntryStatus[] }) {
+function buildWhere(
+  organizationId: string,
+  filters?: { search?: string; statuses?: ScheduleEntryStatus[] },
+) {
   const conditions = [eq(studioInterviewSchedule.organizationId, organizationId)];
   if (filters?.search) {
     const term = `%${filters.search}%`;
@@ -784,7 +788,9 @@ export async function loadStudioCandidate(
     .from(studioInterview)
     .leftJoin(user, eq(studioInterview.createdBy, user.id))
     .leftJoin(jobDescription, eq(studioInterview.jobDescriptionId, jobDescription.id))
-    .where(and(eq(studioInterview.id, candidateId), eq(studioInterview.organizationId, organizationId)))
+    .where(
+      and(eq(studioInterview.id, candidateId), eq(studioInterview.organizationId, organizationId)),
+    )
     .limit(1);
 
   if (!row) return null;
@@ -818,6 +824,7 @@ export async function loadStudioCandidate(
 ```bash
 pnpm test src/server/routes/studio/routes/interviews/dao/__tests__/interview-rounds.test.ts
 ```
+
 Expected: 3 describe blocks × 多个 it = 全 PASS
 
 - [ ] **Step 5: typecheck**
@@ -825,6 +832,7 @@ Expected: 3 describe blocks × 多个 it = 全 PASS
 ```bash
 pnpm typecheck
 ```
+
 Expected: 与 Task 1 后状态相同（DAO 新代码自洽，旧 callers 还在用旧接口）。
 
 - [ ] **Step 6: commit**
@@ -843,6 +851,7 @@ git commit -m "feat(studio): add interview-rounds DAO + loadStudioCandidate"
 ### Task 3: GET `/` + GET `/summary` + 列表页（server + client + page）
 
 **Files:**
+
 - Modify: `src/server/routes/studio/routes/interviews/route.ts` (GET `/` and GET `/summary` handlers)
 - Modify: `src/lib/client/api/endpoints/studio-interviews.ts`
 - Modify: `src/app/(auth)/w/[slug]/studio/interviews/page.tsx`
@@ -955,9 +964,7 @@ export interface InterviewRoundSummaryResponse {
   interrupted: number;
 }
 
-export function fetchStudioInterviewSummary(
-  slug: string,
-): Promise<InterviewRoundSummaryResponse> {
+export function fetchStudioInterviewSummary(slug: string): Promise<InterviewRoundSummaryResponse> {
   return rpcFetch<InterviewRoundSummaryResponse>(
     rpc.api.w[":slug"].studio.interviews.summary.$get({ param: { slug } }),
     "加载概览失败",
@@ -972,7 +979,10 @@ Delete the legacy `fetchStudioInterviews` / `StudioInterviewListParams` / `Studi
 Open `src/app/(auth)/w/[slug]/studio/interviews/page.tsx`. Currently imports `listStudioInterviewRecords` and `queryStudioInterviewSummary`. Replace to use the new functions:
 
 ```ts
-import { listInterviewRounds, summarizeInterviewRoundCounts } from "@/server/routes/studio/routes/interviews/dao/interview-rounds";
+import {
+  listInterviewRounds,
+  summarizeInterviewRoundCounts,
+} from "@/server/routes/studio/routes/interviews/dao/interview-rounds";
 
 // ... inside the component ...
 const [initialData, initialSummary] = await Promise.all([
@@ -986,6 +996,7 @@ const [initialData, initialSummary] = await Promise.all([
 Open `src/app/(auth)/w/[slug]/studio/interviews/_components/interview-management-page.tsx`. The full rewrite is long; the key changes:
 
 1. Replace row type:
+
 ```ts
 import type {
   PaginatedStudioInterviewRoundsResult,
@@ -996,6 +1007,7 @@ import { fetchStudioInterviewRounds, fetchStudioInterviewSummary } from "@/lib/c
 ```
 
 2. Replace `initialData` / `initialSummary` types in props:
+
 ```ts
 export function InterviewManagementPage({
   initialData,
@@ -1062,6 +1074,7 @@ const columns = useMemo<ColumnDef<StudioInterviewRoundListRecord>[]>(
 > **Note**: `scheduleEntryStatusMeta` already exists in `studio-interviews.ts` (4 statuses). Import it.
 
 4. Replace `copyInterviewLink` body:
+
 ```ts
 async function copyInterviewLink(record: StudioInterviewRoundListRecord) {
   const fullLink = toAbsoluteUrl(record.interviewLink);
@@ -1070,6 +1083,7 @@ async function copyInterviewLink(record: StudioInterviewRoundListRecord) {
 ```
 
 5. Replace `filtersConfig` — keep search; change status filter to round statuses:
+
 ```ts
 const filtersConfig = useMemo(
   () => ({
@@ -1091,6 +1105,7 @@ const filtersConfig = useMemo(
 6. Replace Summary stats — use new shape (total / pending / inProgress / completed / interrupted).
 
 7. Single-delete + bulk-delete:
+
 ```ts
 async function handleConfirmDelete() {
   if (!deleteId) return;
@@ -1127,11 +1142,13 @@ async function handleBulkDelete(selectedIds: string[]) {
 ```bash
 pnpm typecheck
 ```
+
 Expected: list page paths typecheck clean.
 
 ```bash
 pnpm dev
 ```
+
 Open `/w/<slug>/studio/interviews` — list should render with new columns. Old detail dialog may still misbehave (next task).
 
 - [ ] **Step 7: commit**
@@ -1151,6 +1168,7 @@ git commit -m "feat(studio): pivot AI interview list + summary to round-keyed qu
 ### Task 4: GET `/:id` + sub-endpoints + detail dialog (server + client + dialog)
 
 **Files:**
+
 - Modify: `src/server/routes/studio/routes/interviews/route.ts` (GET `/:id`, GET `/:id/resume`, GET `/:id/agent-instructions`, GET `/:id/reports`, GET `/:id/recordings/:conversationId`, GET `/:id/form-submissions`, DELETE `/:id/form-submissions/:submissionId`, GET `/:id/question-template-bindings`, PUT `/:id/question-template-bindings`)
 - Modify: `src/lib/client/api/endpoints/studio-interviews.ts`
 - Modify: `src/app/(auth)/w/[slug]/studio/_components/studio-person-detail-dialog.tsx`
@@ -1281,8 +1299,8 @@ const submissions = await db
       eq(candidateFormSubmission.interviewRecordId, candidateId),
       eq(candidateFormSubmission.organizationId, activeOrg.id),
     ),
-  )
-  // ... existing leftJoin / orderBy ...
+  );
+// ... existing leftJoin / orderBy ...
 return c.json({ submissions }, 200);
 ```
 
@@ -1332,13 +1350,17 @@ export function fetchStudioInterviewRecordingUrl(
   slug: string,
   roundId: string,
   conversationId: string,
-) { /* body unchanged, just renamed param */ }
+) {
+  /* body unchanged, just renamed param */
+}
 
 // Replace fetchStudioInterviewFormSubmissions → fetchStudioInterviewRoundFormSubmissions
 export async function fetchStudioInterviewRoundFormSubmissions(
   slug: string,
   roundId: string,
-): Promise<CandidateFormSubmissionWithSnapshot[]> { /* body unchanged */ }
+): Promise<CandidateFormSubmissionWithSnapshot[]> {
+  /* body unchanged */
+}
 
 // Replace deleteStudioInterviewFormSubmission(slug, interviewId, submissionId) — rename param
 ```
@@ -1348,12 +1370,18 @@ export async function fetchStudioInterviewRoundFormSubmissions(
 Open the file. The structural change:
 
 a. Replace import:
+
 ```ts
-import { fetchStudioInterviewRound, fetchStudioInterviewRoundReports, fetchStudioInterviewRoundFormSubmissions } from "@/lib/client/api";
+import {
+  fetchStudioInterviewRound,
+  fetchStudioInterviewRoundReports,
+  fetchStudioInterviewRoundFormSubmissions,
+} from "@/lib/client/api";
 import type { StudioInterviewRoundDetail } from "@/lib/shared/studio-interview-rounds";
 ```
 
 b. Replace the `useQuery` for `interviewRecord`:
+
 ```ts
 const { data: round, isLoading: isInterviewLoading } = useQuery({
   enabled: open && !!recordId && mode === "interview",
@@ -1366,6 +1394,7 @@ const { data: round, isLoading: isInterviewLoading } = useQuery({
 c. Replace `reports` and `formSubmissions` queries to use `fetchStudioInterviewRoundReports` and `fetchStudioInterviewRoundFormSubmissions`.
 
 d. Replace the `UnifiedRecord` interview-mode branch:
+
 ```ts
 if (mode === "interview" && round) {
   record = {
@@ -1396,11 +1425,19 @@ if (mode === "interview" && round) {
 > Add the new fields to the `UnifiedRecord` interface accordingly.
 
 e. **Header description** + status badge: change to use round-side status:
+
 ```tsx
-{record?.roundStatus ? <Badge variant={scheduleEntryStatusMeta[record.roundStatus].tone}>{scheduleEntryStatusMeta[record.roundStatus].label}</Badge> : null}
+{
+  record?.roundStatus ? (
+    <Badge variant={scheduleEntryStatusMeta[record.roundStatus].tone}>
+      {scheduleEntryStatusMeta[record.roundStatus].label}
+    </Badge>
+  ) : null;
+}
 ```
 
 f. **Replace 「面试安排」 section** with a 「轮次概览」 card showing:
+
 - roundLabel + scheduledAt + status badge + complete interview link (copy button) + allowTextInput toggle + "重置轮次" button (only if status === "completed")
 
 ```tsx
@@ -1440,6 +1477,7 @@ git commit -m "feat(studio): pivot AI interview detail + sub-endpoints to round-
 ### Task 5: PATCH / DELETE / reset / POST shape + edit dialog + 简历库回调 type
 
 **Files:**
+
 - Modify: `src/server/routes/studio/routes/interviews/route.ts` (PATCH `/:id`, DELETE `/:id`, POST `/bulk-delete`, POST `/:id/reset`, POST `/`)
 - Modify: `src/lib/client/api/endpoints/studio-interviews.ts`
 - Modify: `src/app/(auth)/w/[slug]/studio/_components/studio-person-edit-dialog.tsx`
@@ -1508,6 +1546,7 @@ Replace the existing PATCH `/:id` (around line 494). New body:
 - [ ] **Step 2: 删除嵌套 round 路径**
 
 Remove the existing handlers:
+
 - `PATCH "/:id/rounds/:roundId"` (around line 704) — folded into PATCH `/:id` above
 - `POST "/:id/rounds/:roundId/reset"` (around line 624) — replaced below
 
@@ -1666,13 +1705,17 @@ export function resetStudioInterviewRound(
 }
 
 // Rename deleteStudioInterview → deleteStudioInterviewRound; body unchanged
-export async function deleteStudioInterviewRound(slug: string, roundId: string): Promise<void> { /* ... */ }
+export async function deleteStudioInterviewRound(slug: string, roundId: string): Promise<void> {
+  /* ... */
+}
 
 // Rename bulkDeleteStudioInterviews → bulkDeleteStudioInterviewRounds; body unchanged
 export async function bulkDeleteStudioInterviewRounds(
   slug: string,
   roundIds: string[],
-): Promise<{ deleted: number; deletedCount?: number; success?: boolean }> { /* ... */ }
+): Promise<{ deleted: number; deletedCount?: number; success?: boolean }> {
+  /* ... */
+}
 ```
 
 Where `ScheduleEntryStatus` is imported from `@/lib/shared/studio-interviews`.
@@ -1680,6 +1723,7 @@ Where `ScheduleEntryStatus` is imported from `@/lib/shared/studio-interviews`.
 - [ ] **Step 8: 重塑 `studio-person-edit-dialog.tsx` interview mode**
 
 The interview-mode form currently lets users edit candidate-level fields (status / JD / notes). After this task, the interview-mode form edits **round-level fields**:
+
 - roundLabel (read-only display)
 - scheduledAt (datetime input — reuse `getScheduleEntryDateValue` for value formatting)
 - allowTextInput (Switch)
@@ -1687,6 +1731,7 @@ The interview-mode form currently lets users edit candidate-level fields (status
 - status (select with `scheduleEntryStatusMeta` options: pending / in_progress / completed / interrupted)
 
 Data flow:
+
 1. On open, call `fetchStudioInterviewRound(slug, roundId)` to populate initial values from `round.allowTextInput / round.scheduledAt / round.notes / round.status`.
 2. On submit, call `updateStudioInterviewRound(slug, roundId, { allowTextInput, scheduledAt, notes, status })`.
 3. On success, invalidate parent list query and close.
@@ -1763,6 +1808,7 @@ git commit -m "feat(studio): round-level writes + edit dialog + resume library t
 ### Task 6: 删旧 types / DAO / 别名
 
 **Files:**
+
 - Modify: `src/lib/shared/studio-interviews.ts` — remove alias
 - Modify: `src/server/routes/studio/routes/interviews/dao/studio-interviews.ts` — remove old DAOs
 - Modify: `src/app/(auth)/w/[slug]/studio/interviews/_components/interview-form/index.ts` — likely needs cleanup if it referenced removed types
@@ -1775,6 +1821,7 @@ Open `src/lib/shared/studio-interviews.ts` and remove the temporary `export type
 - [ ] **Step 2: 删除旧 DAO**
 
 In `src/server/routes/studio/routes/interviews/dao/studio-interviews.ts`, delete:
+
 - `queryStudioInterviewRecords`
 - `queryPaginatedStudioInterviewRecords`
 - `queryStudioInterviewSummary`
@@ -1784,6 +1831,7 @@ In `src/server/routes/studio/routes/interviews/dao/studio-interviews.ts`, delete
 - The `PaginatedStudioInterviewResult` / `StudioInterviewSummary` interfaces if no consumers
 
 Keep:
+
 - `parsePagination` (if still consumed elsewhere — grep)
 - `loadStudioCandidate` (used by `loadInterviewRoundDetail`)
 - `queryInterviewDedup` (used by routes — DO NOT remove)
@@ -1808,6 +1856,7 @@ pnpm typecheck
 pnpm check
 pnpm test
 ```
+
 All MUST pass.
 
 - [ ] **Step 5: commit**
@@ -1832,6 +1881,7 @@ pnpm typecheck
 pnpm check
 pnpm test
 ```
+
 Expected: all PASS
 
 - [ ] **Step 2: dev server**

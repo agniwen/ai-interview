@@ -1,6 +1,6 @@
 "use client";
 
-import type { StudioInterviewRecord } from "@/lib/shared/studio-interviews";
+import type { StudioCandidateRecord } from "@/lib/shared/studio-candidates";
 import { useForm } from "@tanstack/react-form";
 import type { z } from "zod";
 import {
@@ -31,7 +31,7 @@ export function createInterviewFormValues(): InterviewFormValues {
 
 export function toInterviewFormValues(
   record: Pick<
-    StudioInterviewRecord,
+    StudioCandidateRecord,
     | "candidateName"
     | "candidateEmail"
     | "candidatePhone"

@@ -1,7 +1,5 @@
-import type {
-  parseScheduleEntriesInput,
-  StudioInterviewRecord,
-} from "@/lib/shared/studio-interviews";
+import type { parseScheduleEntriesInput } from "@/lib/shared/studio-interviews";
+import type { StudioCandidateRecord } from "@/lib/shared/studio-candidates";
 import type { ResumeProfile } from "@/lib/shared/interview/types";
 import { and, eq, inArray } from "drizzle-orm";
 import { db } from "@/lib/server/db";
@@ -310,7 +308,7 @@ export function serializeRecord(
   record: StudioInterviewRow,
   _scheduleRows: StudioInterviewScheduleRow[],
   jobDescriptionName: string | null = null,
-): StudioInterviewRecord {
+): StudioCandidateRecord {
   return {
     candidateEmail: record.candidateEmail,
     candidateName: record.candidateName,
@@ -326,7 +324,7 @@ export function serializeRecord(
     notes: record.notes,
     resumeContentHash: record.resumeContentHash,
     resumeFileName: record.resumeFileName,
-    resumeProfile: record.resumeProfile as StudioInterviewRecord["resumeProfile"],
+    resumeProfile: record.resumeProfile as StudioCandidateRecord["resumeProfile"],
     resumeStorageKey: record.resumeStorageKey,
     status: record.status,
     targetRole: record.targetRole,

@@ -1,10 +1,6 @@
 import type { ResumeAnalysisResult } from "@/lib/shared/interview/types";
 import { z } from "zod";
 
-// 临时桥接：旧 StudioInterviewRecord 名字 → 新 StudioCandidateRecord。Task 6 删除。
-// Temporary bridge: legacy StudioInterviewRecord → StudioCandidateRecord. Removed in Task 6.
-export type { StudioCandidateRecord as StudioInterviewRecord } from "@/lib/shared/studio-candidates";
-
 export const studioInterviewStatusValues = [
   "draft",
   "ready",
