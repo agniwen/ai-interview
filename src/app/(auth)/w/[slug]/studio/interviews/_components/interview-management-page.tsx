@@ -93,7 +93,7 @@ export function InterviewManagementPage({
         const query: Record<string, string> = {
           page: String(params.page),
           pageSize: String(params.pageSize),
-          sortBy: params.sortBy ?? "scheduledAt",
+          sortBy: params.sortBy ?? "createdAt",
           sortOrder: params.sortBy ? (params.sortOrder ?? "asc") : "desc",
         };
         if (params.search) {
@@ -112,8 +112,8 @@ export function InterviewManagementPage({
   );
 
   const grid = useDataGridState<StudioInterviewRoundListRecord, { status: string }>({
-    // 默认按排期时间降序。/ Default: scheduledAt descending.
-    defaultSorting: [{ desc: true, id: "scheduledAt" }],
+    // 默认按创建时间倒序。/ Default: createdAt descending.
+    defaultSorting: [{ desc: true, id: "createdAt" }],
     fetcher: fetchRounds,
     initialData,
     initialFilters: { status: "" },

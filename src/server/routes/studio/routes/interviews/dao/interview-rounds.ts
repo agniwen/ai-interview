@@ -32,7 +32,7 @@ type SortColumn = (typeof SORT_COLUMNS)[number];
 const roundsPaginationSchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(10),
-  sortBy: z.enum(SORT_COLUMNS).default("scheduledAt"),
+  sortBy: z.enum(SORT_COLUMNS).default("createdAt"),
   sortOrder: z.enum(["asc", "desc"]).default("desc"),
 });
 
