@@ -16,8 +16,10 @@ import { ResumeAnalysisOverlay } from "@/app/(auth)/w/[slug]/studio/_components/
 import { useResumeAnalysisPipeline } from "@/app/(auth)/w/[slug]/studio/_components/use-resume-analysis-pipeline";
 import type { ResumeAnalysisPipeline } from "@/app/(auth)/w/[slug]/studio/_components/use-resume-analysis-pipeline";
 import { CandidateFormFields } from "@/components/candidate-form-fields";
+import { ResumeProfileView } from "@/components/resume-profile-view";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { apiFetch } from "@/lib/client/api";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import type { ResumeAnalysisResult } from "@/lib/shared/interview/types";
@@ -93,6 +95,7 @@ export function CreateResumeRecordDialog({ onCreated }: CreateResumeRecordDialog
   const slug = useWorkspaceSlug();
   const [open, setOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [activeTab, setActiveTab] = useState<"basic" | "experience">("basic");
   const submitModeRef = useRef<SubmitMode>("save-only");
   // onSubmit 闭包早于 pipeline 声明捕获，用 ref 桥接以读取最新值。
   // The onSubmit closure captures before pipeline is declared; a ref bridges
@@ -190,6 +193,7 @@ export function CreateResumeRecordDialog({ onCreated }: CreateResumeRecordDialog
           if (!next) {
             pipeline.reset();
             form.reset(createResumeLibraryFormValues());
+            setActiveTab("basic");
           }
           setOpen(next);
         }}
@@ -232,12 +236,42 @@ export function CreateResumeRecordDialog({ onCreated }: CreateResumeRecordDialog
             e.preventDefault();
           }}
         >
-          <CandidateFormFields
-            disabled={isBusy}
-            form={form}
-            onResumeFileChange={(file) => void pipeline.handleResumeChange(file)}
-            resumeFile={pipeline.resumeFile}
-          />
+          {/* 「经历」tab 默认禁用，只有简历解析完成（pipeline.resumePayload 非空）后才可点击；
+              切到禁用 tab 时强制回退到「基本信息」，避免停留在空 tab。
+              The 经历 tab is disabled until the resume parse populates
+              pipeline.resumePayload; if it goes away (e.g. user re-uploads), we
+              force-fall back to 基本信息 instead of leaving the user on an empty
+              disabled tab. */}
+          <Tabs
+            onValueChange={(value) => setActiveTab(value as "basic" | "experience")}
+            value={pipeline.resumePayload ? activeTab : "basic"}
+          >
+            <TabsList>
+              <TabsTrigger className="min-w-[8em]" value="basic">
+                基本信息
+              </TabsTrigger>
+              <TabsTrigger
+                className="min-w-[8em]"
+                disabled={!pipeline.resumePayload}
+                value="experience"
+              >
+                经历
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent className="mt-4" value="basic">
+              <CandidateFormFields
+                disabled={isBusy}
+                form={form}
+                onResumeFileChange={(file) => void pipeline.handleResumeChange(file)}
+                resumeFile={pipeline.resumeFile}
+              />
+            </TabsContent>
+
+            <TabsContent className="mt-4" value="experience">
+              <ResumeProfileView profile={pipeline.resumePayload?.resumeProfile ?? null} />
+            </TabsContent>
+          </Tabs>
         </form>
 
         <ResumeAnalysisOverlay pipeline={pipeline} />
