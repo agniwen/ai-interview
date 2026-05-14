@@ -99,6 +99,10 @@ export function ResumeLibraryPage({ initialData }: { initialData: PaginatedResum
   });
 
   const [detailRecordId, setDetailRecordId] = useState<string | null>(null);
+  // 「保存并发起面试」成功后打开的 AI 面试详情弹窗对应的 round id；为 null 则不展示。
+  // Round id whose AI interview detail dialog should pop after a successful
+  // save-and-start; null hides the dialog.
+  const [interviewRoundDetailId, setInterviewRoundDetailId] = useState<string | null>(null);
   const [editRecordId, setEditRecordId] = useState<string | null>(null);
   const [deleteRecord, setDeleteRecord] = useState<ResumeLibraryListRecord | null>(null);
   const [previewRecord, setPreviewRecord] = useState<ResumeLibraryListRecord | null>(null);
@@ -135,12 +139,18 @@ export function ResumeLibraryPage({ initialData }: { initialData: PaginatedResum
     void queryClient.invalidateQueries({ queryKey: ["studio-resumes"] });
   }
 
-  // 保存 / 保存并发起面试 都只需刷新列表 —— 不跳转到 AI 面试详情页。
-  // 「保存并发起面试」的记录也会出现在 /studio/interviews 列表，由用户自行查看。
-  // Both submit modes only refresh the list. Per spec, no redirect after
-  // save-and-start; the record will also appear in /studio/interviews on its own.
-  function handleResumeRecordCreated(_result: CreateResumeRecordResult) {
+  // 保存：仅刷新列表。
+  // 保存并发起面试：刷新列表 + 立即打开该轮次的 AI 面试详情弹窗，
+  // 让用户能马上确认排期 / 复制邀请链接 / 查看生成的面试题。
+  //
+  // Save-only: refresh list. Save-and-start: refresh list AND pop the newly
+  // created round's AI interview detail dialog so the user can confirm the
+  // schedule, copy the invite link, and review generated questions in place.
+  function handleResumeRecordCreated(result: CreateResumeRecordResult) {
     invalidateAll();
+    if (result.mode === "save-and-start") {
+      setInterviewRoundDetailId(result.round.id);
+    }
   }
 
   function startAiInterview(record: ResumeLibraryListRecord) {
@@ -365,6 +375,18 @@ export function ResumeLibraryPage({ initialData }: { initialData: PaginatedResum
         onOpenChange={(open) => !open && setDetailRecordId(null)}
         open={detailRecordId !== null}
         recordId={detailRecordId}
+      />
+
+      {/* 「保存并发起面试」成功后弹出的 AI 面试详情弹窗。recordId 在 interview
+          模式下即 round id。
+          AI interview detail dialog opened after a successful save-and-start;
+          recordId is the round id when mode="interview". */}
+      <StudioPersonDetailDialog
+        mode="interview"
+        onOpenChange={(open) => !open && setInterviewRoundDetailId(null)}
+        onUpdated={invalidateAll}
+        open={interviewRoundDetailId !== null}
+        recordId={interviewRoundDetailId}
       />
 
       {/* StudioPersonEditDialog.onUpdated 需要接收最新记录，此处忽略参数仅刷新列表。
