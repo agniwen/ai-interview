@@ -1,9 +1,20 @@
 "use client";
 
+// 一键入库：把 chat 中的简历 PDF 解析后写入简历库（resume-only，不生成面试题、
+// 不创建排期）。「发起 AI 面试」改成在打开的简历详情弹窗里走 LaunchInterview
+// Dialog —— 与简历库行菜单 / 详情入口完全同一套 UX。
+//
+// One-click import: parse the chat resume PDF and persist it to the resume
+// library (no question generation, no schedule entries — those are deferred
+// to the launch-interview flow). Launching an interview happens through the
+// same LaunchInterviewDialog the resume library uses, opened from the resume
+// detail dialog this button pops.
+
 import type { FileUIPart } from "ai";
-import type { InterviewQuestion, ResumeAnalysisResult } from "@/lib/shared/interview/types";
-import type { StudioCandidateRecord } from "@/lib/shared/studio-candidates";
 import type { AnalysisStreamEvent } from "@/lib/shared/api-stream";
+import type { ResumeLibraryDetail } from "@/lib/shared/studio-resumes";
+import type { StudioInterviewRoundDetail } from "@/lib/shared/studio-interview-rounds";
+import { useQueryClient } from "@tanstack/react-query";
 import { CheckIcon, DatabaseIcon, EyeIcon, LoaderCircleIcon } from "lucide-react";
 import dynamic from "next/dynamic";
 import { useCallback, useRef, useState } from "react";
@@ -25,9 +36,8 @@ import { rpc } from "@/lib/client/rpc";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { cn } from "@/lib/shared/utils";
 
-// 详情弹窗只在入库成功后才打开；动态加载省初始 bundle。
-// Dialog only opens after a successful import; dynamic import keeps it out
-// of the initial bundle.
+// 详情 / 发起弹窗只在需要时才挂载；动态加载省初始 bundle。
+// Dynamically load both heavy dialogs — they only mount on user interaction.
 const StudioPersonDetailDialog = dynamic(
   async () => {
     const mod =
@@ -37,8 +47,20 @@ const StudioPersonDetailDialog = dynamic(
   { ssr: false },
 );
 
+const LaunchInterviewDialog = dynamic(
+  async () => {
+    const mod =
+      await import("@/app/(auth)/w/[slug]/studio/resumes/_components/launch-interview-dialog");
+    return mod.LaunchInterviewDialog;
+  },
+  { ssr: false },
+);
+
 interface ResumeImportButtonProps {
   filePart: FileUIPart & { id: string };
+  // 已导入的简历库行 id（旧字段名沿用，避免外部消费者再改一遍）。
+  // Resume row id for this part if previously imported; field name kept for
+  // compatibility with the existing chat layout state.
   importedInterviewId: string | null;
   onImported: (partId: string, interviewId: string) => void;
   onMissing?: (partId: string) => void;
@@ -77,22 +99,29 @@ function renderImportButtonContent({
   );
 }
 
+// oxlint-disable-next-line complexity -- single button orchestrates analyze + dedup + save + open detail + launch interview.
 export function ResumeImportButton({
   filePart,
   importedInterviewId,
   onImported,
-  onMissing,
+  onMissing: _onMissing,
   className,
 }: ResumeImportButtonProps) {
   // chat layout 已在 WorkspaceSlugProvider 下,这里直接拿当前活跃工作区。
   // The chat layout already wraps everything in WorkspaceSlugProvider.
   const workspaceSlug = useWorkspaceSlug();
+  const queryClient = useQueryClient();
   const [phase, setPhase] = useState<ImportPhase>("idle");
   const [progressStatus, setProgressStatus] = useState("");
   const [progressTools, setProgressTools] = useState<ProgressTool[]>([]);
   const [partialFields, setPartialFields] = useState<PartialField[]>([]);
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailRecordId, setDetailRecordId] = useState<string | null>(null);
+  const [launchingRecord, setLaunchingRecord] = useState<{
+    id: string;
+    candidateName: string | null;
+  } | null>(null);
+  const [interviewRoundDetailId, setInterviewRoundDetailId] = useState<string | null>(null);
   const [isPickingJd, setIsPickingJd] = useState(false);
   const [selectedJdId, setSelectedJdId] = useState("");
   const [jdError, setJdError] = useState<string | undefined>();
@@ -103,12 +132,18 @@ export function ResumeImportButton({
   const matchAbortControllerRef = useRef<AbortController | null>(null);
   const cachedParseResultRef = useRef<ParseResult | null>(null);
   const accumulatedTextRef = useRef("");
-  // 暂存身份查重命中时的状态：用户点"继续解析"才会真正进入 Step 2/3。
-  // Cached state for the dedup-pause flow so "继续解析" can resume Step 2/3.
+  // 暂存身份查重命中时的状态：用户点"继续解析"才会真正进入 Step 2。
+  // Cached state for the dedup-pause flow so "继续解析" can resume Step 2.
   const pendingResumeFileRef = useRef<File | null>(null);
   const pendingJobDescriptionIdRef = useRef<string | null>(null);
 
   const isImporting = phase !== "idle" || Boolean(dedupMatches);
+
+  const invalidateLibraryCaches = useCallback(() => {
+    void queryClient.invalidateQueries({ queryKey: ["studio-resumes"] });
+    void queryClient.invalidateQueries({ queryKey: ["studio-resume-rounds"] });
+    void queryClient.invalidateQueries({ queryKey: ["studio-interviews"] });
+  }, [queryClient]);
 
   const resetProgress = useCallback(() => {
     setPhase("idle");
@@ -149,10 +184,6 @@ export function ResumeImportButton({
   async function runImport(jobDescriptionId: string) {
     if (!filePart.url || !filePart.filename) {
       toast.error("简历文件不完整，无法入库");
-      return;
-    }
-    if (!jobDescriptionId) {
-      toast.error("请选择在招岗位后再入库");
       return;
     }
 
@@ -250,13 +281,8 @@ export function ResumeImportButton({
         }
       }
 
-      // oxlint-disable-next-line no-use-before-define -- runQuestionsAndSave is declared just below; hoisting via function declaration.
-      await runQuestionsAndSave(
-        file,
-        parseResult as ParseResult,
-        jobDescriptionId,
-        abortController,
-      );
+      // oxlint-disable-next-line no-use-before-define -- runSaveToLibrary is declared just below; hoisted via function declaration.
+      await runSaveToLibrary(file, parseResult as ParseResult, jobDescriptionId, abortController);
     } catch (error) {
       if (abortController.signal.aborted) {
         return;
@@ -273,8 +299,7 @@ export function ResumeImportButton({
     }
   }
 
-  // oxlint-disable-next-line complexity -- Mirrors the original Step 2 + Step 3 sequence; extracted so the dedup-paused path can resume it.
-  async function runQuestionsAndSave(
+  async function runSaveToLibrary(
     file: File,
     parseResult: ParseResult,
     jobDescriptionId: string,
@@ -285,59 +310,25 @@ export function ResumeImportButton({
     const { fileName, resumeProfile } = parseResult;
 
     try {
-      // Step 2: stream generate interview questions
-      setPhase("generating");
-      setProgressStatus("正在生成面试题…");
-      setProgressTools([]);
-      setPartialFields([]);
-      accumulatedTextRef.current = "";
-
-      const questionsResponse = await fetch("/api/interview/generate-questions", {
-        body: JSON.stringify({ resumeProfile }),
-        headers: { "Content-Type": "application/json" },
-        method: "POST",
-        signal: abortController.signal,
-      });
-
-      if (!questionsResponse.ok) {
-        const errBody = (await questionsResponse.json().catch(() => null)) as {
-          error?: string;
-        } | null;
-        throw new Error(errBody?.error ?? "面试题生成失败");
-      }
-
-      let questions: InterviewQuestion[] | null = null;
-      let streamError: string | null = null;
-
-      await readNdjsonStream<AnalysisStreamEvent>(
-        questionsResponse,
-        (event) => {
-          handleStreamEvent(event);
-          if (event.type === "result") {
-            const data = event.data as { interviewQuestions?: InterviewQuestion[] };
-            questions = data.interviewQuestions ?? null;
-          }
-          if (event.type === "error") {
-            streamError = event.message;
-          }
-        },
-        abortController.signal,
-      );
-
-      if (streamError) {
-        throw new Error(streamError);
-      }
-
-      // Step 3: persist the studio interview record
+      // 直接 POST /studio/resumes（save-only）：不生成面试题、不创建排期。
+      // 后续「发起 AI 面试」由用户在简历详情弹窗里点按钮触发 LaunchInterviewDialog。
+      //
+      // Save-only: POST /studio/resumes; no questions, no schedule. Launching
+      // the interview is deferred to the user clicking 「发起 AI 面试」 in the
+      // resume detail dialog, which routes into LaunchInterviewDialog.
       setPhase("saving");
       setProgressStatus("正在写入简历库…");
       setProgressTools([]);
       setPartialFields([]);
       accumulatedTextRef.current = "";
 
-      const resumePayload: ResumeAnalysisResult = {
+      // 服务端按 `parseResumePayloadInput` schema 解析 resumePayload；
+      // questions 为空数组即可（"一键入库" 不再预生成题目）。
+      // The server parses `resumePayload` via `parseResumePayloadInput`;
+      // questions stay empty until the user launches an interview later.
+      const resumePayload = {
         fileName,
-        interviewQuestions: questions ?? [],
+        interviewQuestions: [] as never[],
         resumeProfile,
       };
 
@@ -347,25 +338,18 @@ export function ResumeImportButton({
       saveForm.append("candidatePhone", resumeProfile.phone ?? "");
       saveForm.append("targetRole", resumeProfile.targetRoles[0] ?? "");
       saveForm.append("notes", "");
-      saveForm.append("status", "ready");
-      saveForm.append(
-        "scheduleEntries",
-        JSON.stringify([
-          { allowTextInput: false, notes: "", roundLabel: "一面", scheduledAt: "", sortOrder: 0 },
-        ]),
-      );
       saveForm.append("jobDescriptionId", jobDescriptionId);
       saveForm.append("resume", file);
       saveForm.append("resumePayload", JSON.stringify(resumePayload));
 
-      const saveResponse = await fetch(`/api/w/${workspaceSlug}/studio/interviews`, {
+      const saveResponse = await fetch(`/api/w/${workspaceSlug}/studio/resumes`, {
         body: saveForm,
         method: "POST",
         signal: abortController.signal,
       });
 
       const savedPayload = (await saveResponse.json().catch(() => null)) as
-        | StudioCandidateRecord
+        | ResumeLibraryDetail
         | { error?: string }
         | null;
 
@@ -375,7 +359,8 @@ export function ResumeImportButton({
         );
       }
 
-      const record = savedPayload as StudioCandidateRecord;
+      const record = savedPayload as ResumeLibraryDetail;
+      invalidateLibraryCaches();
       onImported(filePart.id, record.id);
       toast.success("简历已加入简历库");
       cachedParseResultRef.current = null;
@@ -399,12 +384,12 @@ export function ResumeImportButton({
   function handleDedupContinue() {
     const file = pendingResumeFileRef.current;
     const parseResult = cachedParseResultRef.current;
-    const jobDescriptionId = pendingJobDescriptionIdRef.current;
+    const jobDescriptionId = pendingJobDescriptionIdRef.current ?? "";
     setDedupMatches(null);
     pendingResumeFileRef.current = null;
     pendingJobDescriptionIdRef.current = null;
-    if (file && parseResult && jobDescriptionId) {
-      void runQuestionsAndSave(file, parseResult, jobDescriptionId);
+    if (file && parseResult) {
+      void runSaveToLibrary(file, parseResult, jobDescriptionId);
     }
   }
 
@@ -518,12 +503,12 @@ export function ResumeImportButton({
     }
   }
 
+  // JD 选不选都行 —— save-only 接受空 jobDescriptionId，后续可以在简历库 / 发起
+  // AI 面试时再补。
+  // JD is optional: the save-only endpoint accepts an empty string; users can
+  // attach a JD later from the resume library or the launch dialog.
   function handleConfirmImport() {
     if (isAnalyzingMatch) {
-      return;
-    }
-    if (!selectedJdId) {
-      setJdError("请选择在招岗位");
       return;
     }
     setJdError(undefined);
@@ -582,19 +567,49 @@ export function ResumeImportButton({
         progressTools={progressTools}
       />
 
+      {/* 入库后打开简历库详情弹窗（resume mode）。点「发起 AI 面试」会通过
+          onLaunchInterview 把控制权交给本地 LaunchInterviewDialog，避免把用户
+          从 chat 跳走到 /studio/resumes。
+          Opens the resume-mode detail dialog. Clicking 「发起 AI 面试」 forwards
+          to a locally mounted LaunchInterviewDialog so the user stays in chat. */}
       <StudioPersonDetailDialog
-        mode="interview"
+        mode="resume"
+        onLaunchInterview={({ id, candidateName }) => {
+          setDetailOpen(false);
+          setLaunchingRecord({ candidateName, id });
+        }}
         onOpenChange={setDetailOpen}
         onUpdated={() => {
-          if (importedInterviewId && !detailRecordId) {
-            return;
-          }
-          if (detailRecordId === null && importedInterviewId) {
-            onMissing?.(filePart.id);
-          }
+          invalidateLibraryCaches();
+          // 简历从库里被删（fetchStudioResume → null）时这里没有直接信号，
+          // 由 chat 端的「下次点开发现 404」兜底。详细的 missing 处理需要在
+          // detail dialog 内部暴露，目前作 best-effort：invalidate 后让 stale
+          // mapping 自然过期。
+          // No direct 404 signal here; we rely on follow-up clicks to surface
+          // a missing record. Hooking onMissing into a richer signal would
+          // require dialog-side plumbing, intentionally deferred.
         }}
         open={detailOpen}
         recordId={detailRecordId}
+      />
+
+      <LaunchInterviewDialog
+        candidateName={launchingRecord?.candidateName ?? null}
+        onLaunched={(round: StudioInterviewRoundDetail) => {
+          invalidateLibraryCaches();
+          setInterviewRoundDetailId(round.id);
+        }}
+        onOpenChange={(open) => !open && setLaunchingRecord(null)}
+        open={launchingRecord !== null}
+        recordId={launchingRecord?.id ?? null}
+      />
+
+      <StudioPersonDetailDialog
+        mode="interview"
+        onOpenChange={(open) => !open && setInterviewRoundDetailId(null)}
+        onUpdated={invalidateLibraryCaches}
+        open={interviewRoundDetailId !== null}
+        recordId={interviewRoundDetailId}
       />
     </>
   );

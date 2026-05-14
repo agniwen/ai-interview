@@ -7,7 +7,6 @@ import type { ImportPhase } from "./types";
 const PHASES: { key: Exclude<ImportPhase, "idle">; label: string }[] = [
   { key: "preparing", label: "准备文件" },
   { key: "parsing", label: "解析简历" },
-  { key: "generating", label: "生成面试题" },
   { key: "saving", label: "写入简历库" },
 ];
 

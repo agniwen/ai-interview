@@ -49,7 +49,7 @@ export function JdPickModal({
       onOpenChange={onOpenChange}
       open={open}
       size="md"
-      title="选择在招岗位后入库"
+      title="确认入库"
     >
       <div className="space-y-3">
         <JobDescriptionSelectField
