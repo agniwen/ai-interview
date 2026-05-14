@@ -161,8 +161,18 @@ export function InterviewManagementPage({
     window.history.replaceState(null, "", nextUrl);
   }, [searchParams]);
 
+  // 删除 / 重置 / 切轮次状态等写操作不仅影响 AI 面试列表，也会改变简历库的
+  // hasInterviewRounds 标记和简历详情弹窗里的「AI 面试」tab，所以同步失效
+  // studio-resumes / studio-resume-rounds，确保用户切回简历库立即看到更新。
+  //
+  // Writes on this page (delete / reset / round toggle) can flip
+  // hasInterviewRounds on the resume-library row and the resume detail
+  // dialog's AI-rounds tab — invalidate the resume-side keys too so the
+  // library reflects the change without a manual refetch.
   function invalidateAll() {
     void queryClient.invalidateQueries({ queryKey: ["studio-interviews"] });
+    void queryClient.invalidateQueries({ queryKey: ["studio-resumes"] });
+    void queryClient.invalidateQueries({ queryKey: ["studio-resume-rounds"] });
   }
 
   // 复制面试链接：直接读 row.interviewLink，无需扫描 scheduleEntries。

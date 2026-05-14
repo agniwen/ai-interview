@@ -143,8 +143,16 @@ export function ResumeLibraryPage({ initialData }: { initialData: PaginatedResum
     window.history.replaceState(null, "", nextUrl);
   }, [searchParams]);
 
+  // 删除简历会级联清掉关联的 AI 面试轮次；发起面试 / 保存并发起也会改动
+  // AI 面试列表。所以这里把两侧 key 一起失效，避免任意一侧停留在脏数据。
+  //
+  // Resume deletes cascade into interview rounds; launch-and-save also adds
+  // rows to the AI 面试 list. Invalidate both sides here so neither view goes
+  // stale after a mutation triggered from the resume library.
   function invalidateAll() {
     void queryClient.invalidateQueries({ queryKey: ["studio-resumes"] });
+    void queryClient.invalidateQueries({ queryKey: ["studio-resume-rounds"] });
+    void queryClient.invalidateQueries({ queryKey: ["studio-interviews"] });
   }
 
   // 保存：仅刷新列表。
