@@ -18,6 +18,7 @@ import { motion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { SortableQuestionListEditor } from "@/app/(auth)/w/[slug]/studio/_components/sortable-question-list-editor";
+import { AnimatedHeight } from "@/components/animated-height";
 import { ResumeProfileView } from "@/components/resume-profile-view";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
@@ -212,104 +213,122 @@ export function LaunchInterviewDialog({
   const isBusy = isGenerating || submitting;
 
   return (
-    <Modal
-      description={
-        candidateName ? `为 ${candidateName} 生成面试题并发起 AI 面试` : "生成面试题并发起 AI 面试"
-      }
-      dismissible={!isBusy}
-      onOpenChange={(next) => {
-        if (!next && isBusy) {
-          return;
-        }
-        onOpenChange(next);
-      }}
-      open={open}
-      showCloseButton={!isBusy}
-      size="lg"
-      title="发起 AI 面试"
-      footer={
-        <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
-          <Button
-            disabled={isBusy}
-            onClick={() => onOpenChange(false)}
-            type="button"
-            variant="outline"
-          >
-            取消
-          </Button>
-          <Button disabled={isBusy} onClick={() => void form.handleSubmit()} type="button">
-            {submitting ? <LoaderCircleIcon className="size-4 animate-spin" /> : null}
-            发起
-          </Button>
-        </div>
-      }
+    // 与简历库详情弹窗对齐：Tabs 包住整个 Modal，TabsList 放进 headerExtra；
+    // TabsContent 走 AnimatedHeight，切换时高度平滑过渡。
+    // Mirror the detail dialog: Tabs wraps Modal, TabsList sits in headerExtra,
+    // and AnimatedHeight gives the body a smooth height transition on switch.
+    <Tabs
+      key={recordId ?? "empty"}
+      onValueChange={(value) => setActiveTab(value as "questions" | "overview" | "experience")}
+      value={activeTab}
     >
-      <div className="relative">
-        <Tabs
-          onValueChange={(value) => setActiveTab(value as "questions" | "overview" | "experience")}
-          value={activeTab}
-        >
-          <TabsList>
-            <TabsTrigger className="min-w-[6em]" value="questions">
+      <Modal
+        description={
+          candidateName
+            ? `为 ${candidateName} 生成面试题并发起 AI 面试`
+            : "生成面试题并发起 AI 面试"
+        }
+        dismissible={!isBusy}
+        headerExtra={
+          <TabsList className="mt-0 w-full sm:w-auto">
+            <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="questions">
               面试题
             </TabsTrigger>
-            <TabsTrigger className="min-w-[6em]" disabled={!resumeDetail} value="overview">
+            <TabsTrigger
+              className="flex-1 sm:min-w-[6em] sm:flex-none"
+              disabled={!resumeDetail}
+              value="overview"
+            >
               概览
             </TabsTrigger>
-            <TabsTrigger className="min-w-[6em]" disabled={!resumeDetail} value="experience">
+            <TabsTrigger
+              className="flex-1 sm:min-w-[6em] sm:flex-none"
+              disabled={!resumeDetail}
+              value="experience"
+            >
               经历
             </TabsTrigger>
           </TabsList>
-
-          <TabsContent className="mt-4" value="questions">
-            {noProfileNotice ? (
-              <p className="mb-3 rounded-md border border-border/60 bg-muted/40 px-3 py-2 text-muted-foreground text-xs">
-                该候选人没有解析过的简历，无法自动生成面试题；可在下方手动添加题目。
-              </p>
-            ) : null}
-            <SortableQuestionListEditor
-              arrayFieldName="interviewQuestions"
-              contentFieldName="question"
-              contentPlaceholder="输入面试题目"
-              createItem={(sortIndex) => ({
-                difficulty: "easy",
-                order: sortIndex + 1,
-                question: "",
-              })}
+        }
+        onOpenChange={(next) => {
+          if (!next && isBusy) {
+            return;
+          }
+          onOpenChange(next);
+        }}
+        open={open}
+        showCloseButton={!isBusy}
+        size="lg"
+        title="发起 AI 面试"
+        footer={
+          <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+            <Button
               disabled={isBusy}
-              emptyDescription="生成完成后会自动填入，也可以手动添加。"
-              emptyTitle="暂无面试题"
-              form={form}
-              resetKey={recordId ?? "new"}
-            />
-          </TabsContent>
+              onClick={() => onOpenChange(false)}
+              type="button"
+              variant="outline"
+            >
+              取消
+            </Button>
+            <Button disabled={isBusy} onClick={() => void form.handleSubmit()} type="button">
+              {submitting ? <LoaderCircleIcon className="size-4 animate-spin" /> : null}
+              发起
+            </Button>
+          </div>
+        }
+      >
+        <div className="relative">
+          <AnimatedHeight>
+            <TabsContent value="questions">
+              {noProfileNotice ? (
+                <p className="mb-3 rounded-md border border-border/60 bg-muted/40 px-3 py-2 text-muted-foreground text-xs">
+                  该候选人没有解析过的简历，无法自动生成面试题；可在下方手动添加题目。
+                </p>
+              ) : null}
+              <SortableQuestionListEditor
+                arrayFieldName="interviewQuestions"
+                contentFieldName="question"
+                contentPlaceholder="输入面试题目"
+                createItem={(sortIndex) => ({
+                  difficulty: "easy",
+                  order: sortIndex + 1,
+                  question: "",
+                })}
+                disabled={isBusy}
+                emptyDescription="生成完成后会自动填入，也可以手动添加。"
+                emptyTitle="暂无面试题"
+                form={form}
+                resetKey={recordId ?? "new"}
+              />
+            </TabsContent>
 
-          <TabsContent className="mt-4" value="overview">
-            {resumeDetail ? <ResumeOverviewPanel detail={resumeDetail} /> : null}
-          </TabsContent>
+            <TabsContent value="overview">
+              {resumeDetail ? <ResumeOverviewPanel detail={resumeDetail} /> : null}
+            </TabsContent>
 
-          <TabsContent className="mt-4" value="experience">
-            <div className="rounded-2xl border border-border/60 bg-background p-5">
-              <ResumeProfileView profile={resumeDetail?.resumeProfile ?? null} />
-            </div>
-          </TabsContent>
-        </Tabs>
+            <TabsContent value="experience">
+              <div className="rounded-2xl border border-border/60 bg-background p-5">
+                <ResumeProfileView profile={resumeDetail?.resumeProfile ?? null} />
+              </div>
+            </TabsContent>
+          </AnimatedHeight>
 
-        {isGenerating ? (
-          <motion.div
-            animate={{ opacity: 1 }}
-            className="absolute inset-0 z-50 flex flex-col items-center justify-center gap-3 overflow-y-auto bg-background/85 px-6 py-8 backdrop-blur-sm"
-            initial={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
-          >
-            <LoaderCircleIcon className="size-7 animate-spin text-muted-foreground" />
-            <p className="font-medium text-foreground text-sm">正在生成面试题…</p>
-            <p className="text-muted-foreground text-xs">
-              生成完成后可在下方继续编辑，再点「发起」入库。
-            </p>
-          </motion.div>
-        ) : null}
-      </div>
-    </Modal>
+          {isGenerating ? (
+            <motion.div
+              animate={{ opacity: 1 }}
+              className="absolute inset-0 z-50 flex flex-col items-center justify-center gap-3 overflow-y-auto bg-background/85 px-6 py-8 backdrop-blur-sm"
+              initial={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+            >
+              <LoaderCircleIcon className="size-7 animate-spin text-muted-foreground" />
+              <p className="font-medium text-foreground text-sm">正在生成面试题…</p>
+              <p className="text-muted-foreground text-xs">
+                生成完成后可在下方继续编辑，再点「发起」入库。
+              </p>
+            </motion.div>
+          ) : null}
+        </div>
+      </Modal>
+    </Tabs>
   );
 }
