@@ -75,6 +75,17 @@ export interface CandidateFormFieldsProps {
   /** 候选人姓名字段的 placeholder。 Placeholder for the candidate name input. */
   candidateNamePlaceholder?: string;
   disabled?: boolean;
+  /**
+   * true 时：简历 PDF 字段显示为必填（红星 + 不再带"可选"），并且在未选 / 未上传过
+   * PDF 之前隐藏候选人姓名 / 邮箱 / 电话 / 目标岗位四个字段——避免用户在没解析依据时
+   * 手填一遍又被自动回填覆盖。新建简历记录走这条路；编辑场景保持原来的全字段展示。
+   * When true, mark the resume-PDF field as required (red asterisk, no "可选"
+   * label) and hide the candidate name / email / phone / target-role fields
+   * until a PDF is selected or already attached — keeps users from filling
+   * fields that will be overwritten by parse. The "create" flow opts in; the
+   * "edit" flow leaves it false so every field stays visible.
+   */
+  requireResumeFile?: boolean;
 }
 
 const NAME_MAX_LENGTH = 120;
@@ -110,6 +121,7 @@ export function CandidateFormFields({
   resumeFieldExtra,
   candidateNamePlaceholder = "可留空，自动从简历回填",
   disabled,
+  requireResumeFile = false,
 }: CandidateFormFieldsProps) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const resumeFieldLabel = describeResumeFileLabel({
@@ -117,11 +129,25 @@ export function CandidateFormFields({
     newFile: resumeFile,
     placeholder: resumeFilePlaceholder,
   });
+  // "上传过 PDF" 的判定：当次刚选的 File，或者编辑场景下后端已存好的 storageKey → fileName。
+  // "Has a resume" = either a freshly-picked File or an existing file name from
+  // the server (edit mode populates existingResumeFileName from resumeStorageKey).
+  const hasResume = Boolean(resumeFile) || Boolean(existingResumeFileName);
+  const showIdentityFields = !requireResumeFile || hasResume;
 
   return (
     <div className="space-y-5">
       <Field>
-        <FieldLabel htmlFor="candidate-resume-upload">简历 PDF（可选）</FieldLabel>
+        <FieldLabel htmlFor="candidate-resume-upload">
+          简历 PDF
+          {requireResumeFile ? (
+            <span aria-hidden className="ml-1 text-destructive">
+              *
+            </span>
+          ) : (
+            "（可选）"
+          )}
+        </FieldLabel>
         <FieldContent className="gap-2">
           <label
             className="flex cursor-pointer items-center gap-2 rounded-md border border-border/60 border-dashed px-3 py-3 text-sm transition-colors hover:border-border"
@@ -157,98 +183,100 @@ export function CandidateFormFields({
         }}
       </form.Field>
 
-      <FieldGroup className="grid gap-5 md:grid-cols-2 md:items-start">
-        <form.Field name="candidateName">
-          {(field) => {
-            const errors = toFieldErrors(field.state.meta.errors);
-            return (
-              <Field>
-                <FieldLabel htmlFor={field.name}>候选人姓名</FieldLabel>
-                <FieldContent className="gap-2">
-                  <Input
-                    disabled={disabled}
-                    id={field.name}
-                    maxLength={NAME_MAX_LENGTH}
-                    onBlur={field.handleBlur}
-                    onChange={(e) => field.handleChange(e.target.value)}
-                    placeholder={candidateNamePlaceholder}
-                    value={field.state.value}
-                  />
-                  <FieldError errors={errors} />
-                </FieldContent>
-              </Field>
-            );
-          }}
-        </form.Field>
+      {showIdentityFields ? (
+        <FieldGroup className="grid gap-5 md:grid-cols-2 md:items-start">
+          <form.Field name="candidateName">
+            {(field) => {
+              const errors = toFieldErrors(field.state.meta.errors);
+              return (
+                <Field>
+                  <FieldLabel htmlFor={field.name}>候选人姓名</FieldLabel>
+                  <FieldContent className="gap-2">
+                    <Input
+                      disabled={disabled}
+                      id={field.name}
+                      maxLength={NAME_MAX_LENGTH}
+                      onBlur={field.handleBlur}
+                      onChange={(e) => field.handleChange(e.target.value)}
+                      placeholder={candidateNamePlaceholder}
+                      value={field.state.value}
+                    />
+                    <FieldError errors={errors} />
+                  </FieldContent>
+                </Field>
+              );
+            }}
+          </form.Field>
 
-        <form.Field name="candidateEmail">
-          {(field) => {
-            const errors = toFieldErrors(field.state.meta.errors);
-            return (
-              <Field>
-                <FieldLabel htmlFor={field.name}>候选人邮箱</FieldLabel>
-                <FieldContent className="gap-2">
-                  <Input
-                    disabled={disabled}
-                    id={field.name}
-                    maxLength={EMAIL_MAX_LENGTH}
-                    onBlur={field.handleBlur}
-                    onChange={(e) => field.handleChange(e.target.value)}
-                    placeholder="candidate@example.com"
-                    value={field.state.value}
-                  />
-                  <FieldError errors={errors} />
-                </FieldContent>
-              </Field>
-            );
-          }}
-        </form.Field>
+          <form.Field name="candidateEmail">
+            {(field) => {
+              const errors = toFieldErrors(field.state.meta.errors);
+              return (
+                <Field>
+                  <FieldLabel htmlFor={field.name}>候选人邮箱</FieldLabel>
+                  <FieldContent className="gap-2">
+                    <Input
+                      disabled={disabled}
+                      id={field.name}
+                      maxLength={EMAIL_MAX_LENGTH}
+                      onBlur={field.handleBlur}
+                      onChange={(e) => field.handleChange(e.target.value)}
+                      placeholder="candidate@example.com"
+                      value={field.state.value}
+                    />
+                    <FieldError errors={errors} />
+                  </FieldContent>
+                </Field>
+              );
+            }}
+          </form.Field>
 
-        <form.Field name="candidatePhone">
-          {(field) => {
-            const errors = toFieldErrors(field.state.meta.errors);
-            return (
-              <Field>
-                <FieldLabel htmlFor={field.name}>联系电话</FieldLabel>
-                <FieldContent className="gap-2">
-                  <Input
-                    disabled={disabled}
-                    id={field.name}
-                    maxLength={PHONE_MAX_LENGTH}
-                    onBlur={field.handleBlur}
-                    onChange={(e) => field.handleChange(e.target.value)}
-                    value={field.state.value}
-                  />
-                  <FieldError errors={errors} />
-                </FieldContent>
-              </Field>
-            );
-          }}
-        </form.Field>
+          <form.Field name="candidatePhone">
+            {(field) => {
+              const errors = toFieldErrors(field.state.meta.errors);
+              return (
+                <Field>
+                  <FieldLabel htmlFor={field.name}>联系电话</FieldLabel>
+                  <FieldContent className="gap-2">
+                    <Input
+                      disabled={disabled}
+                      id={field.name}
+                      maxLength={PHONE_MAX_LENGTH}
+                      onBlur={field.handleBlur}
+                      onChange={(e) => field.handleChange(e.target.value)}
+                      value={field.state.value}
+                    />
+                    <FieldError errors={errors} />
+                  </FieldContent>
+                </Field>
+              );
+            }}
+          </form.Field>
 
-        <form.Field name="targetRole">
-          {(field) => {
-            const errors = toFieldErrors(field.state.meta.errors);
-            return (
-              <Field>
-                <FieldLabel htmlFor={field.name}>目标岗位</FieldLabel>
-                <FieldContent className="gap-2">
-                  <Input
-                    disabled={disabled}
-                    id={field.name}
-                    maxLength={TARGET_ROLE_MAX_LENGTH}
-                    onBlur={field.handleBlur}
-                    onChange={(e) => field.handleChange(e.target.value)}
-                    placeholder="如：前端工程师"
-                    value={field.state.value}
-                  />
-                  <FieldError errors={errors} />
-                </FieldContent>
-              </Field>
-            );
-          }}
-        </form.Field>
-      </FieldGroup>
+          <form.Field name="targetRole">
+            {(field) => {
+              const errors = toFieldErrors(field.state.meta.errors);
+              return (
+                <Field>
+                  <FieldLabel htmlFor={field.name}>目标岗位</FieldLabel>
+                  <FieldContent className="gap-2">
+                    <Input
+                      disabled={disabled}
+                      id={field.name}
+                      maxLength={TARGET_ROLE_MAX_LENGTH}
+                      onBlur={field.handleBlur}
+                      onChange={(e) => field.handleChange(e.target.value)}
+                      placeholder="如：前端工程师"
+                      value={field.state.value}
+                    />
+                    <FieldError errors={errors} />
+                  </FieldContent>
+                </Field>
+              );
+            }}
+          </form.Field>
+        </FieldGroup>
+      ) : null}
 
       <form.Field name="notes">
         {(field) => {

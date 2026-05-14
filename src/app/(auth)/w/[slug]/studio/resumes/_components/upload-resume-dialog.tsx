@@ -179,7 +179,23 @@ export function CreateResumeRecordDialog({ onCreated }: CreateResumeRecordDialog
   const isSubmitting = useStore(form.store, (s) => s.isSubmitting);
   const jobDescriptionId = useStore(form.store, (s) => s.values.jobDescriptionId);
   const isBusy = submitting || isSubmitting || pipeline.isBusy;
-  const canSaveAndStart = jobDescriptionId.trim().length > 0;
+  // 新建场景里简历 PDF 必填：没选 PDF 之前两个保存按钮都灰掉，强制走解析-回填-提交流程，
+  // 避免出现没有简历附件的"裸候选人"行。
+  // PDF is required in the create flow; both submit buttons stay disabled until
+  // a file is chosen so we never persist a candidate row without an attached resume.
+  const hasResumeFile = pipeline.resumeFile !== null;
+  const canSaveAndStart = jobDescriptionId.trim().length > 0 && hasResumeFile;
+
+  // "保存并发起面试" 按钮的禁用提示文案：未传 PDF / 未选 JD / 可点 三种状态。
+  // 拆成纯函数避免嵌套三元，oxlint 不允许 nested ternary。
+  // Tooltip text for the save-and-start button across the three disabled
+  // states (no PDF / no JD / ready). Flattened to avoid nested ternaries.
+  let saveAndStartHint: string | undefined;
+  if (!hasResumeFile) {
+    saveAndStartHint = "请先上传简历 PDF";
+  } else if (!canSaveAndStart) {
+    saveAndStartHint = "请先选择在招岗位";
+  }
 
   const triggerSubmit = useCallback(
     (mode: SubmitMode) => {
@@ -217,8 +233,9 @@ export function CreateResumeRecordDialog({ onCreated }: CreateResumeRecordDialog
         footer={
           <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
             <Button
-              disabled={isBusy}
+              disabled={isBusy || !hasResumeFile}
               onClick={() => triggerSubmit("save-only")}
+              title={hasResumeFile ? undefined : "请先上传简历 PDF"}
               type="button"
               variant="outline"
             >
@@ -230,7 +247,7 @@ export function CreateResumeRecordDialog({ onCreated }: CreateResumeRecordDialog
             <Button
               disabled={isBusy || !canSaveAndStart}
               onClick={() => triggerSubmit("save-and-start")}
-              title={canSaveAndStart ? undefined : "请先选择在招岗位"}
+              title={saveAndStartHint}
               type="button"
             >
               {isBusy && submitModeRef.current === "save-and-start" ? (
@@ -277,7 +294,9 @@ export function CreateResumeRecordDialog({ onCreated }: CreateResumeRecordDialog
                 disabled={isBusy}
                 form={form}
                 onResumeFileChange={(file) => void pipeline.handleResumeChange(file)}
+                requireResumeFile
                 resumeFile={pipeline.resumeFile}
+                resumeFilePlaceholder="请选择 PDF 简历"
               />
             </TabsContent>
 
