@@ -342,7 +342,14 @@ export function StudioPersonDetailDialog({
   ) : null;
 
   // 简历模式弹窗底部双按钮：两个按钮各占一半宽度，铺满 Modal footer。
-  // Resume-mode dialog footer: two buttons, each flex-1, filling the Modal footer.
+  // 已存在 AI 面试轮次的简历隐藏「发起 AI 面试」按钮，避免重复创建；
+  // 编辑按钮以 flex-1 自动撑满剩余空间。轮次列表加载中也先隐藏，避免闪烁。
+  //
+  // Resume-mode dialog footer: two buttons sharing flex space. Hide the launch
+  // button once the resume has any rounds (to prevent dup-creates) — the edit
+  // button stays flex-1 and naturally expands. Suppressed during rounds-load
+  // to avoid a flash-then-hide.
+  const showLaunchButton = mode === "resume" && !isRoundsLoading && candidateRounds.length === 0;
   const resumeModeModalFooter = record ? (
     <div className="flex w-full gap-2">
       <Button
@@ -358,30 +365,32 @@ export function StudioPersonDetailDialog({
         <PencilIcon className="size-4" />
         编辑
       </Button>
-      <Button
-        className="flex-1"
-        onClick={() => {
-          if (onLaunchInterview) {
-            // 简历库详情入口：交给外层 LaunchInterviewDialog 处理；关闭本弹窗
-            // 让 modal 切换显得自然。
-            // Resume-library entry: hand off to the parent LaunchInterviewDialog
-            // and close this dialog so the swap reads naturally.
-            onLaunchInterview({
-              candidateName: record.candidateName ?? null,
-              id: record.id,
-            });
+      {showLaunchButton ? (
+        <Button
+          className="flex-1"
+          onClick={() => {
+            if (onLaunchInterview) {
+              // 简历库详情入口：交给外层 LaunchInterviewDialog 处理；关闭本弹窗
+              // 让 modal 切换显得自然。
+              // Resume-library entry: hand off to the parent LaunchInterviewDialog
+              // and close this dialog so the swap reads naturally.
+              onLaunchInterview({
+                candidateName: record.candidateName ?? null,
+                id: record.id,
+              });
+              onOpenChange(false);
+              return;
+            }
+            router.push(`/w/${slug}/studio/interviews`);
             onOpenChange(false);
-            return;
-          }
-          router.push(`/w/${slug}/studio/interviews`);
-          onOpenChange(false);
-        }}
-        type="button"
-      >
-        <BotIcon className="size-4" />
-        发起 AI 面试
-        {onLaunchInterview ? null : <ExternalLinkIcon className="size-3.5 opacity-70" />}
-      </Button>
+          }}
+          type="button"
+        >
+          <BotIcon className="size-4" />
+          发起 AI 面试
+          {onLaunchInterview ? null : <ExternalLinkIcon className="size-3.5 opacity-70" />}
+        </Button>
+      ) : null}
     </div>
   ) : null;
 
