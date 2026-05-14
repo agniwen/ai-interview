@@ -4,7 +4,7 @@ import { and, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/server/db";
 import { getObjectStream } from "@/lib/server/s3";
-import { studioInterview } from "@/lib/shared/db/schema";
+import { studioInterview, studioInterviewSchedule } from "@/lib/shared/db/schema";
 import { resumeLibraryFormSchema } from "@/lib/shared/studio-resumes";
 import { invalidateStudioInterviewCaches } from "@/server/cache-tags";
 import { factory, jsonValidatorError } from "@/server/factory";
@@ -14,19 +14,44 @@ import {
   loadResumeDetail,
   queryPaginatedResumeRecords,
 } from "@/server/routes/studio/routes/resumes/dao/resumes";
-import { parseResumePayloadInput } from "@/lib/shared/studio-interviews";
 import {
+  createDefaultScheduleEntry,
+  parseResumePayloadInput,
+} from "@/lib/shared/studio-interviews";
+import {
+  buildScheduleRows,
   normalizeResumeFile,
   storeInterviewResume,
   toBadRequest,
 } from "@/server/routes/interview/utils";
-import { listInterviewRoundsForCandidate } from "@/server/routes/studio/routes/interviews/dao/interview-rounds";
+import {
+  listInterviewRoundsForCandidate,
+  loadInterviewRoundDetail,
+} from "@/server/routes/studio/routes/interviews/dao/interview-rounds";
 import { queryInterviewDedup } from "@/server/routes/studio/routes/interviews/dao/studio-interviews";
+import { autoBindApplicableTemplates } from "@/server/routes/studio/routes/interview-questions/dao/bindings";
 
 const dedupCheckInputSchema = z.object({
   email: z.string().trim().max(200).nullable().optional(),
   name: z.string().trim().max(200).nullable().optional(),
   phone: z.string().trim().max(40).nullable().optional(),
+});
+
+// 「发起 AI 面试」请求体：候选人侧已存在简历库行，只把（可能被用户编辑过的）
+// 面试题落库，并新建一条默认排期。零长度数组允许，方便日后扩展。
+// "Launch interview" payload — the candidate row already exists, so we just
+// persist the (possibly edited) questions and add a default schedule entry.
+// Zero-length is allowed.
+const launchInterviewSchema = z.object({
+  interviewQuestions: z
+    .array(
+      z.object({
+        difficulty: z.enum(["easy", "medium", "hard"]),
+        order: z.number().int().nonnegative(),
+        question: z.string().trim().min(1).max(500),
+      }),
+    )
+    .max(50),
 });
 
 function toNullableString(value: FormDataEntryValue | null): string | null {
@@ -129,6 +154,66 @@ export const resumeLibraryRouter = factory
     const rounds = await listInterviewRoundsForCandidate(candidateId, activeOrg.id);
     return c.json(rounds, 200);
   })
+  .post(
+    "/:id/launch-interview",
+    requirePermission("resume", "update"),
+    zValidator("json", launchInterviewSchema, jsonValidatorError("请求参数无效。")),
+    async (c) => {
+      // 从简历库「发起 AI 面试」：把（可能被用户编辑过的）面试题写回现有
+      // studioInterview 行，并新建一条默认排期。状态推到 "ready" 让候选人侧
+      // 状态与 AI 面试列表的语义一致。
+      //
+      // Launch AI interview from the resume library: write the (possibly
+      // edited) questions back to the existing studioInterview row and create
+      // a default schedule entry. Status is promoted to "ready" to align with
+      // save-and-start.
+      const { activeOrg } = c.var;
+      if (!activeOrg) {
+        return c.json({ message: "Unauthorized" }, 401);
+      }
+      const id = c.req.param("id");
+      const existing = await loadResumeDetail(id, activeOrg.id);
+      if (!existing) {
+        return c.json({ error: "记录不存在。" }, 404);
+      }
+
+      const { interviewQuestions } = c.req.valid("json");
+      const now = new Date();
+      const [scheduleRow] = buildScheduleRows(
+        activeOrg.id,
+        id,
+        [createDefaultScheduleEntry()],
+        now,
+      );
+      if (!scheduleRow) {
+        return c.json({ error: "未生成面试轮次。" }, 400);
+      }
+
+      try {
+        await db.transaction(async (tx) => {
+          await tx
+            .update(studioInterview)
+            .set({
+              interviewQuestions,
+              status: "ready",
+              updatedAt: now,
+            })
+            .where(
+              and(eq(studioInterview.id, id), eq(studioInterview.organizationId, activeOrg.id)),
+            );
+          await tx.insert(studioInterviewSchedule).values(scheduleRow);
+          await autoBindApplicableTemplates(tx, id, existing.jobDescriptionId);
+        });
+      } catch (error) {
+        const result = toBadRequest(error);
+        return c.json({ error: result.error }, { status: result.status as ContentfulStatusCode });
+      }
+
+      invalidateStudioInterviewCaches();
+      const detail = await loadInterviewRoundDetail(scheduleRow.id, activeOrg.id);
+      return c.json(detail, 201);
+    },
+  )
   .get("/:id/resume", requirePermission("resume", "read"), async (c) => {
     const { activeOrg } = c.var;
     if (!activeOrg) {

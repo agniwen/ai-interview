@@ -7,7 +7,7 @@ import type {
 import { useQueryClient } from "@tanstack/react-query";
 import dynamic from "next/dynamic";
 import { BotIcon, EyeIcon, PencilIcon, Trash2Icon, UsersIcon } from "lucide-react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { PageHeader } from "@/app/(auth)/w/[slug]/studio/_components/page-header";
@@ -46,6 +46,7 @@ import { StudioPersonDetailDialog } from "@/app/(auth)/w/[slug]/studio/_componen
 import { StudioPersonEditDialog } from "@/app/(auth)/w/[slug]/studio/_components/studio-person-edit-dialog";
 import { CreateResumeRecordDialog } from "./upload-resume-dialog";
 import type { CreateResumeRecordResult } from "./upload-resume-dialog";
+import { LaunchInterviewDialog } from "./launch-interview-dialog";
 
 const PdfPreviewDialog = dynamic(
   async () => {
@@ -74,7 +75,6 @@ interface FetchParams {
 
 export function ResumeLibraryPage({ initialData }: { initialData: PaginatedResumeLibraryResult }) {
   const slug = useWorkspaceSlug();
-  const router = useRouter();
   const queryClient = useQueryClient();
 
   const fetcher = useMemo(
@@ -103,6 +103,9 @@ export function ResumeLibraryPage({ initialData }: { initialData: PaginatedResum
   // Round id whose AI interview detail dialog should pop after a successful
   // save-and-start; null hides the dialog.
   const [interviewRoundDetailId, setInterviewRoundDetailId] = useState<string | null>(null);
+  // 当前正在「发起 AI 面试」弹窗中处理的简历记录；null 则不展示。
+  // Resume record currently driving the launch-interview dialog; null hides it.
+  const [launchingRecord, setLaunchingRecord] = useState<ResumeLibraryListRecord | null>(null);
   const [editRecordId, setEditRecordId] = useState<string | null>(null);
   const [deleteRecord, setDeleteRecord] = useState<ResumeLibraryListRecord | null>(null);
   const [previewRecord, setPreviewRecord] = useState<ResumeLibraryListRecord | null>(null);
@@ -154,7 +157,7 @@ export function ResumeLibraryPage({ initialData }: { initialData: PaginatedResum
   }
 
   function startAiInterview(record: ResumeLibraryListRecord) {
-    router.push(`/w/${slug}/studio/interviews?recordId=${record.id}`);
+    setLaunchingRecord(record);
   }
 
   const columns = useMemo(
@@ -275,7 +278,7 @@ export function ResumeLibraryPage({ initialData }: { initialData: PaginatedResum
         ],
       }),
     ],
-    // startAiInterview captures slug/router which are stable; safe to omit from deps.
+    // startAiInterview captures setLaunchingRecord which is stable; safe to omit from deps.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [],
   );
@@ -377,16 +380,28 @@ export function ResumeLibraryPage({ initialData }: { initialData: PaginatedResum
         recordId={detailRecordId}
       />
 
-      {/* 「保存并发起面试」成功后弹出的 AI 面试详情弹窗。recordId 在 interview
-          模式下即 round id。
-          AI interview detail dialog opened after a successful save-and-start;
-          recordId is the round id when mode="interview". */}
+      {/* 「保存并发起面试」/「发起 AI 面试」成功后弹出的 AI 面试详情弹窗。
+          recordId 在 interview 模式下即 round id。
+          AI interview detail dialog opened after save-and-start *or* the
+          launch-interview flow from the resume library row menu. recordId is
+          the round id when mode="interview". */}
       <StudioPersonDetailDialog
         mode="interview"
         onOpenChange={(open) => !open && setInterviewRoundDetailId(null)}
         onUpdated={invalidateAll}
         open={interviewRoundDetailId !== null}
         recordId={interviewRoundDetailId}
+      />
+
+      <LaunchInterviewDialog
+        candidateName={launchingRecord?.candidateName ?? null}
+        onLaunched={(round) => {
+          invalidateAll();
+          setInterviewRoundDetailId(round.id);
+        }}
+        onOpenChange={(open) => !open && setLaunchingRecord(null)}
+        open={launchingRecord !== null}
+        recordId={launchingRecord?.id ?? null}
       />
 
       {/* StudioPersonEditDialog.onUpdated 需要接收最新记录，此处忽略参数仅刷新列表。

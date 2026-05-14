@@ -10,11 +10,15 @@ import "client-only";
  * convention as studio-interviews.
  */
 
+import type { InterviewQuestion } from "@/lib/shared/interview/types";
+import type {
+  StudioInterviewRoundDetail,
+  StudioInterviewRoundListRecord,
+} from "@/lib/shared/studio-interview-rounds";
 import type {
   PaginatedResumeLibraryResult,
   ResumeLibraryDetail,
 } from "@/lib/shared/studio-resumes";
-import type { StudioInterviewRoundListRecord } from "@/lib/shared/studio-interview-rounds";
 import { rpc } from "@/lib/client/rpc";
 import { rpcFetch } from "../rpc-fetch";
 import type { DedupMatchRecord } from "./studio-interviews";
@@ -89,6 +93,28 @@ export function fetchResumeDedup(
   return rpcFetch<{ matches: DedupMatchRecord[] }>(
     rpc.api.w[":slug"].studio.resumes["dedup-check"].$post({ json: input, param: { slug } }),
     "查重失败",
+  );
+}
+
+/**
+ * 从简历库「发起 AI 面试」：把（可能被用户编辑过的）面试题写回该简历行，
+ * 并创建一条默认排期。返回新建轮次的详情，供调用方直接打开面试详情弹窗。
+ *
+ * Launch an AI interview from a resume library row — writes the questions
+ * onto the existing row and creates a default schedule entry. Returns the
+ * fresh round detail so callers can immediately open the detail dialog.
+ */
+export function launchInterviewFromResume(
+  slug: string,
+  id: string,
+  interviewQuestions: InterviewQuestion[],
+): Promise<StudioInterviewRoundDetail> {
+  return rpcFetch<StudioInterviewRoundDetail>(
+    rpc.api.w[":slug"].studio.resumes[":id"]["launch-interview"].$post({
+      json: { interviewQuestions },
+      param: { id, slug },
+    }),
+    "发起 AI 面试失败",
   );
 }
 
