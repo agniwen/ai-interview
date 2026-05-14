@@ -12,16 +12,12 @@
 // and hands the returned round detail back to the parent so it can open the AI
 // interview detail dialog in place.
 
+import { useForm } from "@tanstack/react-form";
 import { LoaderCircleIcon } from "lucide-react";
 import { motion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { InterviewQuestionsFields } from "@/app/(auth)/w/[slug]/studio/interviews/_components/interview-questions-fields";
-import {
-  createInterviewFormValues,
-  normalizeInterviewQuestions,
-  useInterviewForm,
-} from "@/app/(auth)/w/[slug]/studio/interviews/_components/interview-form";
+import { SortableQuestionListEditor } from "@/app/(auth)/w/[slug]/studio/_components/sortable-question-list-editor";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
 import { fetchStudioResume, launchInterviewFromResume } from "@/lib/client/api";
@@ -30,6 +26,27 @@ import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import type { AnalysisStreamEvent } from "@/lib/shared/api-stream";
 import type { InterviewQuestion, ResumeProfile } from "@/lib/shared/interview/types";
 import type { StudioInterviewRoundDetail } from "@/lib/shared/studio-interview-rounds";
+
+interface LaunchFormValues {
+  interviewQuestions: InterviewQuestion[];
+}
+
+const EMPTY_FORM_VALUES: LaunchFormValues = { interviewQuestions: [] };
+
+// 简历库的「发起 AI 面试」只编辑题目，所以走最小化的 useForm；不要复用
+// AI 面试侧的 useInterviewForm —— 它绑了 studioInterviewClientFormSchema，
+// 会因为本弹窗里没有候选人姓名 / JD / 排期字段而静默 invalid 阻塞提交。
+//
+// We use a stripped useForm rather than useInterviewForm because the latter
+// runs studioInterviewClientFormSchema which would silently fail on the
+// candidate / JD / schedule fields this dialog doesn't expose.
+function normalizeInterviewQuestions(values: InterviewQuestion[]): InterviewQuestion[] {
+  return values.map((question, index) => ({
+    ...question,
+    order: index + 1,
+    question: question.question.trim(),
+  }));
+}
 
 interface LaunchInterviewDialogProps {
   open: boolean;
@@ -101,9 +118,9 @@ export function LaunchInterviewDialog({
   const onLaunchedRef = useRef(onLaunched);
   onLaunchedRef.current = onLaunched;
 
-  const form = useInterviewForm({
-    defaultValues: createInterviewFormValues(),
-    onSubmit: async (value) => {
+  const form = useForm({
+    defaultValues: EMPTY_FORM_VALUES,
+    onSubmit: async ({ value }) => {
       if (!recordId) {
         return;
       }
@@ -136,7 +153,7 @@ export function LaunchInterviewDialog({
     const abortController = new AbortController();
     abortControllerRef.current = abortController;
     setNoProfileNotice(false);
-    form.reset(createInterviewFormValues());
+    form.reset(EMPTY_FORM_VALUES);
 
     void (async () => {
       try {
@@ -220,7 +237,21 @@ export function LaunchInterviewDialog({
             该候选人没有解析过的简历，无法自动生成面试题；可在下方手动添加题目。
           </p>
         ) : null}
-        <InterviewQuestionsFields disabled={isBusy} form={form} resetKey={recordId ?? "new"} />
+        <SortableQuestionListEditor
+          arrayFieldName="interviewQuestions"
+          contentFieldName="question"
+          contentPlaceholder="输入面试题目"
+          createItem={(sortIndex) => ({
+            difficulty: "easy",
+            order: sortIndex + 1,
+            question: "",
+          })}
+          disabled={isBusy}
+          emptyDescription="生成完成后会自动填入，也可以手动添加。"
+          emptyTitle="暂无面试题"
+          form={form}
+          resetKey={recordId ?? "new"}
+        />
 
         {isGenerating ? (
           <motion.div
