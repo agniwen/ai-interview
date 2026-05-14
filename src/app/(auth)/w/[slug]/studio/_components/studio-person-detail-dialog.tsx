@@ -864,7 +864,8 @@ export function StudioPersonDetailDialog({
                     {/* oxlint-disable-next-line no-nested-ternary -- 三态：loading / empty / list */}
                     {isRoundsLoading ? (
                       <p className="mt-4 text-muted-foreground text-sm">正在加载面试轮次...</p>
-                    ) : (candidateRounds.length === 0 ? (
+                    ) : /* oxlint-disable-next-line no-nested-ternary -- Secondary branch renders empty-state or list. */
+                    candidateRounds.length === 0 ? (
                       <p className="mt-4 text-muted-foreground text-sm leading-normal">
                         该候选人还没有发起面试。在简历库点「保存并发起面试」即可创建。
                       </p>
@@ -923,7 +924,7 @@ export function StudioPersonDetailDialog({
                           );
                         })}
                       </div>
-                    ))}
+                    )}
                   </div>
                 </TabsContent>
               ) : null}
