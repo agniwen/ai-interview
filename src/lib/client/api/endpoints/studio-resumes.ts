@@ -14,6 +14,7 @@ import type {
   PaginatedResumeLibraryResult,
   ResumeLibraryDetail,
 } from "@/lib/shared/studio-resumes";
+import type { StudioInterviewRoundListRecord } from "@/lib/shared/studio-interview-rounds";
 import { rpc } from "@/lib/client/rpc";
 import { rpcFetch } from "../rpc-fetch";
 import type { DedupMatchRecord } from "./studio-interviews";
@@ -58,6 +59,22 @@ export function fetchStudioResume(slug: string, id: string): Promise<ResumeLibra
     rpc.api.w[":slug"].studio.resumes[":id"].$get({ param: { id, slug } }),
     "加载简历详情失败",
     { allow404: true },
+  );
+}
+
+/**
+ * 拉取候选人的所有 AI 面试轮次（按 sortOrder 升序）。
+ * Fetch all AI interview rounds for a candidate (sortOrder asc).
+ */
+export function fetchStudioResumeRounds(
+  slug: string,
+  candidateId: string,
+): Promise<StudioInterviewRoundListRecord[]> {
+  return rpcFetch<StudioInterviewRoundListRecord[]>(
+    rpc.api.w[":slug"].studio.resumes[":id"].rounds.$get({
+      param: { id: candidateId, slug },
+    }),
+    "加载面试轮次失败",
   );
 }
 

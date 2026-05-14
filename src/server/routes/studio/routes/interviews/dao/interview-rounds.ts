@@ -215,6 +215,87 @@ export async function listInterviewRounds(
   return queryPaginatedInterviewRounds(organizationId, filters, pagination);
 }
 
+/**
+ * 按候选人取所有面试轮次（按 sortOrder 升序）。
+ * 用于简历库详情弹窗里的「AI 面试」tab。
+ *
+ * List all rounds for a given candidate, sorted by sortOrder asc. Used by the
+ * resume library detail dialog's "AI 面试" tab.
+ */
+export async function listInterviewRoundsForCandidate(
+  candidateId: string,
+  organizationId: string,
+): Promise<StudioInterviewRoundListRecord[]> {
+  const hasReportSql = exists(
+    db
+      .select({ one: interviewConversation.conversationId })
+      .from(interviewConversation)
+      .where(eq(interviewConversation.scheduleEntryId, studioInterviewSchedule.id)),
+  );
+
+  const rows = await db
+    .select({
+      allowTextInput: studioInterviewSchedule.allowTextInput,
+      candidateEmail: studioInterview.candidateEmail,
+      candidateId: studioInterview.id,
+      candidateName: studioInterview.candidateName,
+      candidatePhone: studioInterview.candidatePhone,
+      conversationId: studioInterviewSchedule.conversationId,
+      createdAt: studioInterviewSchedule.createdAt,
+      createdBy: studioInterview.createdBy,
+      creatorName: user.name,
+      creatorOrganizationName: user.feishuTenantName,
+      hasReport: hasReportSql,
+      id: studioInterviewSchedule.id,
+      jobDescriptionId: studioInterview.jobDescriptionId,
+      jobDescriptionName: jobDescription.name,
+      resumeFileName: studioInterview.resumeFileName,
+      resumeStorageKey: studioInterview.resumeStorageKey,
+      roundLabel: studioInterviewSchedule.roundLabel,
+      scheduledAt: studioInterviewSchedule.scheduledAt,
+      sortOrder: studioInterviewSchedule.sortOrder,
+      status: studioInterviewSchedule.status,
+      targetRole: studioInterview.targetRole,
+      updatedAt: studioInterviewSchedule.updatedAt,
+    })
+    .from(studioInterviewSchedule)
+    .leftJoin(studioInterview, eq(studioInterviewSchedule.interviewRecordId, studioInterview.id))
+    .leftJoin(jobDescription, eq(studioInterview.jobDescriptionId, jobDescription.id))
+    .leftJoin(user, eq(studioInterview.createdBy, user.id))
+    .where(
+      and(
+        eq(studioInterviewSchedule.interviewRecordId, candidateId),
+        eq(studioInterviewSchedule.organizationId, organizationId),
+      ),
+    )
+    .orderBy(asc(studioInterviewSchedule.sortOrder));
+
+  return rows.map((row) => ({
+    allowTextInput: row.allowTextInput,
+    candidateEmail: row.candidateEmail,
+    candidateId: row.candidateId ?? candidateId,
+    candidateName: row.candidateName ?? "",
+    candidatePhone: row.candidatePhone,
+    conversationId: row.conversationId,
+    createdAt: serializeDate(row.createdAt) ?? "",
+    creatorName: row.creatorName,
+    creatorOrganizationName: row.creatorOrganizationName,
+    hasReport: Boolean(row.hasReport),
+    hasResumeFile: Boolean(row.resumeStorageKey),
+    id: row.id,
+    interviewLink: buildInterviewLink(row.candidateId ?? candidateId, row.id),
+    jobDescriptionId: row.jobDescriptionId,
+    jobDescriptionName: row.jobDescriptionName,
+    resumeFileName: row.resumeFileName,
+    roundLabel: row.roundLabel,
+    scheduledAt: serializeDate(row.scheduledAt),
+    sortOrder: row.sortOrder,
+    status: row.status,
+    targetRole: row.targetRole,
+    updatedAt: serializeDate(row.updatedAt) ?? "",
+  }));
+}
+
 export async function loadInterviewRoundDetail(
   roundId: string,
   organizationId: string,

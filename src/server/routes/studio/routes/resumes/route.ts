@@ -20,6 +20,7 @@ import {
   storeInterviewResume,
   toBadRequest,
 } from "@/server/routes/interview/utils";
+import { listInterviewRoundsForCandidate } from "@/server/routes/studio/routes/interviews/dao/interview-rounds";
 import { queryInterviewDedup } from "@/server/routes/studio/routes/interviews/dao/studio-interviews";
 
 const dedupCheckInputSchema = z.object({
@@ -111,6 +112,22 @@ export const resumeLibraryRouter = factory
       return c.json({ error: "记录不存在。" }, 404);
     }
     return c.json(record, 200);
+  })
+  .get("/:id/rounds", requirePermission("resume", "read"), async (c) => {
+    // 拉取该候选人的所有面试轮次（按 sortOrder 升序），用于简历库详情弹窗的「AI 面试」tab。
+    // List all rounds for this candidate, sorted by sortOrder asc — used by
+    // the resume library detail dialog's "AI 面试" tab.
+    const { activeOrg } = c.var;
+    if (!activeOrg) {
+      return c.json({ message: "Unauthorized" }, 401);
+    }
+    const candidateId = c.req.param("id");
+    const existing = await loadResumeDetail(candidateId, activeOrg.id);
+    if (!existing) {
+      return c.json({ error: "记录不存在。" }, 404);
+    }
+    const rounds = await listInterviewRoundsForCandidate(candidateId, activeOrg.id);
+    return c.json(rounds, 200);
   })
   .get("/:id/resume", requirePermission("resume", "read"), async (c) => {
     const { activeOrg } = c.var;

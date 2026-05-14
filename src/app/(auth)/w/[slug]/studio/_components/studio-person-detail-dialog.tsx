@@ -13,6 +13,7 @@ import {
   fetchStudioInterviewRoundFormSubmissions,
   fetchStudioInterviewRoundReports,
   fetchStudioResume,
+  fetchStudioResumeRounds,
   resetStudioInterviewRound,
   updateStudioInterviewRound,
 } from "@/lib/client/api";
@@ -142,6 +143,15 @@ export function StudioPersonDetailDialog({
     enabled: open && !!recordId && mode === "interview",
     queryFn: () => fetchStudioInterviewRoundFormSubmissions(slug, recordId as string),
     queryKey: ["studio-interview-round-form-submissions", slug, recordId],
+    refetchOnWindowFocus: true,
+  });
+
+  // 简历模式：拉取该候选人的所有 AI 面试轮次，用于「AI 面试」tab。
+  // Resume-mode: list this candidate's AI interview rounds for the "AI 面试" tab.
+  const { data: candidateRounds = [], isLoading: isRoundsLoading } = useQuery({
+    enabled: open && !!recordId && mode === "resume",
+    queryFn: () => fetchStudioResumeRounds(slug, recordId as string),
+    queryKey: ["studio-resume-rounds", slug, recordId] as const,
     refetchOnWindowFocus: true,
   });
 
@@ -400,6 +410,11 @@ export function StudioPersonDetailDialog({
                   <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="experience">
                     经历
                   </TabsTrigger>
+                  {mode === "resume" ? (
+                    <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="rounds">
+                      AI 面试
+                    </TabsTrigger>
+                  ) : null}
                   {mode === "interview" ? (
                     <>
                       <TabsTrigger
@@ -836,6 +851,82 @@ export function StudioPersonDetailDialog({
                   <ResumeProfileView profile={record.resumeProfile ?? null} />
                 </div>
               </TabsContent>
+
+              {mode === "resume" ? (
+                <TabsContent value="rounds">
+                  <div className="rounded-2xl border border-border/60 bg-background p-5">
+                    <div className="flex items-center justify-between gap-3">
+                      <h3 className="font-medium text-sm">AI 面试轮次</h3>
+                      <span className="text-muted-foreground text-xs">
+                        共 {candidateRounds.length} 轮
+                      </span>
+                    </div>
+                    {/* oxlint-disable-next-line no-nested-ternary -- 三态：loading / empty / list */}
+                    {isRoundsLoading ? (
+                      <p className="mt-4 text-muted-foreground text-sm">正在加载面试轮次...</p>
+                    ) : (candidateRounds.length === 0 ? (
+                      <p className="mt-4 text-muted-foreground text-sm leading-normal">
+                        该候选人还没有发起面试。在简历库点「保存并发起面试」即可创建。
+                      </p>
+                    ) : (
+                      <div className="mt-4 space-y-3">
+                        {candidateRounds.map((entry) => {
+                          const statusMeta = scheduleEntryStatusMeta[entry.status];
+                          const fullLink = toAbsoluteUrl(entry.interviewLink);
+                          return (
+                            <div
+                              className="rounded-xl border border-border/60 bg-muted/30 p-3"
+                              key={entry.id}
+                            >
+                              <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+                                <div className="flex items-center gap-2">
+                                  <span className="wrap-break-word font-medium text-sm">
+                                    {entry.roundLabel}
+                                  </span>
+                                  <Badge variant={statusMeta.tone}>{statusMeta.label}</Badge>
+                                  {entry.hasReport ? (
+                                    <Badge variant="outline">已有报告</Badge>
+                                  ) : null}
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  {entry.scheduledAt ? (
+                                    <TimeDisplay
+                                      className="shrink-0 text-muted-foreground text-xs"
+                                      options={DATE_TIME_DISPLAY_OPTIONS}
+                                      value={entry.scheduledAt}
+                                    />
+                                  ) : (
+                                    <span className="text-muted-foreground text-xs">未排期</span>
+                                  )}
+                                  <Button
+                                    onClick={() => void handleCopy(fullLink)}
+                                    size="sm"
+                                    type="button"
+                                    variant="ghost"
+                                  >
+                                    <Share2Icon className="size-3.5" />
+                                    复制链接
+                                  </Button>
+                                  <InterviewLinkQrButton
+                                    candidateName={record.candidateName}
+                                    url={fullLink}
+                                  />
+                                </div>
+                              </div>
+                              <div className="mt-3 rounded-lg border border-border/50 bg-background/80 px-3 py-2">
+                                <p className="text-muted-foreground text-xs">完整面试链接</p>
+                                <p className="mt-1 break-all font-mono text-xs leading-normal">
+                                  {fullLink}
+                                </p>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ))}
+                  </div>
+                </TabsContent>
+              ) : null}
 
               {mode === "interview" ? (
                 <TabsContent value="instructions">
