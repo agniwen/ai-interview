@@ -33,11 +33,7 @@ import {
   createResumeLibraryFormValues,
   resumeLibraryFormSchema,
 } from "@/lib/shared/studio-resumes";
-import {
-  getScheduleEntryDateValue,
-  scheduleEntryStatusMeta,
-  scheduleEntryStatusSchema,
-} from "@/lib/shared/studio-interviews";
+import { getScheduleEntryDateValue, scheduleEntryStatusMeta } from "@/lib/shared/studio-interviews";
 
 // 统一编辑对话框 props，通过 mode 分发到简历或面试模式。
 // Unified edit dialog props; dispatches to resume or interview body via mode.
@@ -300,12 +296,14 @@ function InterviewEditBody({
           <div className="space-y-1.5">
             <Label htmlFor="round-status">状态</Label>
             <Select
-              onValueChange={(v) =>
-                setFormValues((prev) => ({
-                  ...prev,
-                  status: scheduleEntryStatusSchema.parse(v),
-                }))
-              }
+              onValueChange={(v) => {
+                // Radix Select 可能在关闭时回调空串；只接受有效枚举值。
+                // Radix Select may fire onValueChange("") on close — guard here.
+                if (!v) {
+                  return;
+                }
+                setFormValues((prev) => ({ ...prev, status: v as ScheduleEntryStatus }));
+              }}
               value={formValues.status}
             >
               <SelectTrigger id="round-status">
