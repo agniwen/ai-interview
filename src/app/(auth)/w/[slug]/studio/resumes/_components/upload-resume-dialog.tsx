@@ -108,7 +108,7 @@ export function CreateResumeRecordDialog({ onCreated }: CreateResumeRecordDialog
       const mode = submitModeRef.current;
       const p = pipelineRef.current;
       const file = p?.resumeFile ?? null;
-      const payload = p?.resumePayload ?? null;
+      let payload = p?.resumePayload ?? null;
 
       setSubmitting(true);
       try {
@@ -120,6 +120,19 @@ export function CreateResumeRecordDialog({ onCreated }: CreateResumeRecordDialog
           toast.success("简历记录已创建");
           onCreated({ detail, mode: "save-only" });
         } else {
+          // 「保存并发起面试」时按需生成面试题：解析阶段不再自动出题，所以在
+          // POST 之前先调一次 generateQuestions —— pipeline.isGeneratingQuestions
+          // 会让既有的 ResumeAnalysisOverlay 自动展示「正在生成面试题」遮罩。
+          // Question generation is on-demand: parse no longer auto-chains, so we
+          // call generateQuestions here before POST. The shared overlay shows
+          // the loading state via pipeline.isGeneratingQuestions.
+          if (p && payload && payload.interviewQuestions.length === 0) {
+            const updated = await p.generateQuestions();
+            if (updated) {
+              payload = updated;
+            }
+          }
+
           const round = await apiFetch<StudioInterviewRoundDetail>(
             `/api/w/${slug}/studio/interviews`,
             {

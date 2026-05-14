@@ -1,12 +1,14 @@
 "use client";
 
-// 简历分析流水线 hook：parse → JD 匹配 → 身份查重 → 出题。
-// 简历库与 AI 面试两个新建入口共用。组件层只负责回填表单 / 渲染 overlay；
-// 所有 NDJSON 流式解析、abortController、状态机都封装在这里。
+// 简历分析流水线 hook：parse → JD 匹配 → 身份查重。
+// 出题不再自动跟在解析之后，而是由组件层在「保存并发起面试」按下时显式调用
+// `generateQuestions()` 触发——按钮 loading 与流式 overlay 由本 hook 的 isBusy
+// 状态自然驱动。
 //
-// Resume analysis pipeline hook shared by the resume library and AI interview
-// create dialogs. Owns parse → JD match → dedup → questions state and all
-// abort/stream plumbing; consumers wire callbacks and render the overlay.
+// Resume analysis pipeline hook. Owns parse → JD match → dedup state and all
+// abort/stream plumbing. Question generation is NO LONGER auto-chained after
+// parse; consumers explicitly call `generateQuestions()` (e.g. on "save and
+// start interview"), which reuses the same overlay via isGeneratingQuestions.
 
 import type { DedupMatchRecord } from "@/lib/client/api";
 import { fetchInterviewDedup } from "@/lib/client/api";
@@ -48,6 +50,11 @@ export interface ResumeAnalysisPipelineHandlers {
   handleDedupContinue: () => void;
   handleCancelAnalysis: () => void;
   reset: () => void;
+  // 按需出题。组件层在「保存并发起面试」时显式调用，返回更新后的 payload；
+  // null 表示当前没有可用的 resumeProfile（例如完全手动录入）。
+  // Explicit, on-demand question generation. Returns the updated payload, or
+  // null if there is no resumeProfile to base questions on.
+  generateQuestions: () => Promise<ResumeAnalysisResult | null>;
 }
 
 export type ResumeAnalysisPipeline = ResumeAnalysisPipelineState & ResumeAnalysisPipelineHandlers;
@@ -159,7 +166,7 @@ export function useResumeAnalysisPipeline(
   async function runQuestionGeneration(profileBundle: {
     fileName: string;
     resumeProfile: ResumeProfile;
-  }) {
+  }): Promise<ResumeAnalysisResult | null> {
     const abortController = new AbortController();
     abortControllerRef.current = abortController;
     setIsGeneratingQuestions(true);
@@ -203,20 +210,25 @@ export function useResumeAnalysisPipeline(
         throw new Error(streamError);
       }
 
-      if (questions) {
-        setResumePayload({
-          fileName: profileBundle.fileName,
-          interviewQuestions: questions,
-          resumeProfile: profileBundle.resumeProfile,
-        });
-        onQuestionsGenerated(questions);
-        toast.success("面试题生成完成");
+      if (!questions) {
+        return null;
       }
+
+      const updated: ResumeAnalysisResult = {
+        fileName: profileBundle.fileName,
+        interviewQuestions: questions,
+        resumeProfile: profileBundle.resumeProfile,
+      };
+      setResumePayload(updated);
+      onQuestionsGenerated(questions);
+      toast.success("面试题生成完成");
+      return updated;
     } catch (error) {
       if (abortController.signal.aborted) {
-        return;
+        return null;
       }
       toast.error(error instanceof Error ? error.message : "面试题生成失败");
+      return null;
     } finally {
       abortControllerRef.current = null;
       setIsGeneratingQuestions(false);
@@ -337,8 +349,11 @@ export function useResumeAnalysisPipeline(
         })();
 
         // 身份维度查重：simple OR-match by name/email/phone。失败时静默继续。
-        // Identity dedup check; on failure proceed silently (don't block the upload).
-        let dedupHit = false;
+        // 命中时仅展示 overlay 让用户确认，不再继续触发任何流程；
+        // 出题挪到「保存并发起面试」时按需触发。
+        // Identity dedup check (OR-match). If hit, just surface the overlay
+        // for confirmation — no more chained question generation. Question
+        // generation is deferred to the "save and start interview" action.
         try {
           const { matches } = await fetchInterviewDedup(slug, {
             email: resumeProfile.email,
@@ -346,14 +361,8 @@ export function useResumeAnalysisPipeline(
             phone: resumeProfile.phone,
           });
           if (matches.length > 0) {
-            dedupHit = true;
             pendingProfileRef.current = resumeProfile;
             setDedupMatches(matches);
-            // 此处不抛、不继续 Step 2 —— finally 会把 abortController 清掉，
-            // 等用户点"继续解析"时再用新的 abortController 启动 Step 2。
-            // Don't throw, don't run Step 2 — the finally block clears the
-            // abortController; "继续解析" spins up a fresh one for Step 2.
-            return;
           }
         } catch (error) {
           if (!abortController.signal.aborted) {
@@ -363,10 +372,6 @@ export function useResumeAnalysisPipeline(
                 : "身份查重失败，已跳过",
             );
           }
-        }
-
-        if (!dedupHit) {
-          await runQuestionGeneration({ fileName, resumeProfile });
         }
       } catch (error) {
         if (abortController.signal.aborted) {
@@ -389,13 +394,12 @@ export function useResumeAnalysisPipeline(
   );
 
   const handleDedupContinue = useCallback(() => {
-    const profile = pendingProfileRef.current;
+    // 解析后再次确认入库 —— 出题已挪到「保存并发起面试」时，这里只清 overlay。
+    // Post-dedup confirmation simply dismisses the overlay; question generation
+    // happens later, on the save-and-start path.
     setDedupMatches(null);
     pendingProfileRef.current = null;
-    if (profile && resumePayload) {
-      void runQuestionGeneration({ fileName: resumePayload.fileName, resumeProfile: profile });
-    }
-  }, [resumePayload]);
+  }, []);
 
   const handleCancelAnalysis = useCallback(() => {
     abortControllerRef.current?.abort();
@@ -411,6 +415,20 @@ export function useResumeAnalysisPipeline(
     accumulatedTextRef.current = "";
     toast.info("已取消简历分析");
   }, []);
+
+  const generateQuestions = useCallback((): Promise<ResumeAnalysisResult | null> => {
+    if (!resumePayload) {
+      return Promise.resolve(null);
+    }
+    return runQuestionGeneration({
+      fileName: resumePayload.fileName,
+      resumeProfile: resumePayload.resumeProfile,
+    });
+    // runQuestionGeneration closes over fresh state via setResumePayload; it is
+    // stable enough to omit from deps. resumePayload is the only thing we read
+    // directly at call time.
+    // oxlint-disable-next-line react-hooks/exhaustive-deps
+  }, [resumePayload]);
 
   const reset = useCallback(() => {
     abortControllerRef.current?.abort();
@@ -434,6 +452,7 @@ export function useResumeAnalysisPipeline(
 
   return {
     dedupMatches,
+    generateQuestions,
     handleCancelAnalysis,
     handleDedupContinue,
     handleResumeChange,
