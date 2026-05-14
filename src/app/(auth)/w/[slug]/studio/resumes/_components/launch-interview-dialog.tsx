@@ -237,20 +237,30 @@ export function LaunchInterviewDialog({
           // sizes TabsList to its content. Rendering TabsList bare inside the
           // modal's stack-mode column would stretch it to 100% width.
           <div className="mt-2 flex flex-col items-stretch gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+            {/* 生成面试题期间锁住所有 tab，避免用户切到「概览/经历」时面试题
+                还没准备好，回来一脸空 list；overlay 已经覆盖 body，禁用 tab
+                让锁定看起来一致。
+                Lock all tabs during question generation so the user can't slip
+                away mid-stream — the overlay already blocks the body, this
+                keeps the header consistent. */}
             <TabsList className="mt-0 w-full sm:w-auto">
-              <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="questions">
+              <TabsTrigger
+                className="flex-1 sm:min-w-[6em] sm:flex-none"
+                disabled={isGenerating}
+                value="questions"
+              >
                 面试题
               </TabsTrigger>
               <TabsTrigger
                 className="flex-1 sm:min-w-[6em] sm:flex-none"
-                disabled={!resumeDetail}
+                disabled={isGenerating || !resumeDetail}
                 value="overview"
               >
                 概览
               </TabsTrigger>
               <TabsTrigger
                 className="flex-1 sm:min-w-[6em] sm:flex-none"
-                disabled={!resumeDetail}
+                disabled={isGenerating || !resumeDetail}
                 value="experience"
               >
                 经历
