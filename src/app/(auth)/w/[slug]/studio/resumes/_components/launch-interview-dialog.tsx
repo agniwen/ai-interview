@@ -25,6 +25,7 @@ import { Modal } from "@/components/ui/modal";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { fetchStudioResume, launchInterviewFromResume } from "@/lib/client/api";
 import { readNdjsonStream } from "@/lib/client/ndjson-stream";
+import { rpc } from "@/lib/client/rpc";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import type { AnalysisStreamEvent } from "@/lib/shared/api-stream";
 import type { InterviewQuestion, ResumeProfile } from "@/lib/shared/interview/types";
@@ -72,12 +73,14 @@ async function streamGenerateQuestions(
   resumeProfile: ResumeProfile,
   signal: AbortSignal,
 ): Promise<InterviewQuestion[] | null> {
-  const response = await fetch("/api/interview/generate-questions", {
-    body: JSON.stringify({ resumeProfile }),
-    headers: { "Content-Type": "application/json" },
-    method: "POST",
-    signal,
-  });
+  // 用 hc 客户端调流式接口：URL 常量化 + body 类型推断走 zValidator schema；
+  // body 自己 await 拿 Response 后用 readNdjsonStream 读流（rpcFetch 会消费整个 body）。
+  // Streaming via hc: URL + body types come from the zValidator schema. Consume
+  // the stream manually because rpcFetch would parse the whole body.
+  const response = await rpc.api.interview["generate-questions"].$post(
+    { json: { resumeProfile } },
+    { init: { signal } },
+  );
   if (!response.ok) {
     const errBody = (await response.json().catch(() => null)) as { error?: string } | null;
     throw new Error(errBody?.error ?? "面试题生成失败");
