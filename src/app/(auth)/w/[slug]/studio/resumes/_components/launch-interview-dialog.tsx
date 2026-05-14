@@ -230,25 +230,33 @@ export function LaunchInterviewDialog({
         }
         dismissible={!isBusy}
         headerExtra={
-          <TabsList className="mt-0 w-full sm:w-auto">
-            <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="questions">
-              面试题
-            </TabsTrigger>
-            <TabsTrigger
-              className="flex-1 sm:min-w-[6em] sm:flex-none"
-              disabled={!resumeDetail}
-              value="overview"
-            >
-              概览
-            </TabsTrigger>
-            <TabsTrigger
-              className="flex-1 sm:min-w-[6em] sm:flex-none"
-              disabled={!resumeDetail}
-              value="experience"
-            >
-              经历
-            </TabsTrigger>
-          </TabsList>
+          // 与详情弹窗 headerExtra 结构对齐：外层 flex row 让 TabsList 在桌面
+          // 端按内容自适应；不裸放 TabsList，否则 Modal 的 stack 列容器会把
+          // 它拉满宽度。
+          // Mirror the detail dialog's headerExtra wrapper so the desktop row
+          // sizes TabsList to its content. Rendering TabsList bare inside the
+          // modal's stack-mode column would stretch it to 100% width.
+          <div className="mt-2 flex flex-col items-stretch gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+            <TabsList className="mt-0 w-full sm:w-auto">
+              <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="questions">
+                面试题
+              </TabsTrigger>
+              <TabsTrigger
+                className="flex-1 sm:min-w-[6em] sm:flex-none"
+                disabled={!resumeDetail}
+                value="overview"
+              >
+                概览
+              </TabsTrigger>
+              <TabsTrigger
+                className="flex-1 sm:min-w-[6em] sm:flex-none"
+                disabled={!resumeDetail}
+                value="experience"
+              >
+                经历
+              </TabsTrigger>
+            </TabsList>
+          </div>
         }
         onOpenChange={(next) => {
           if (!next && isBusy) {
