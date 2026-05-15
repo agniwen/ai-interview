@@ -264,7 +264,14 @@ export const auth = betterAuth({
               return;
             }
             // 再验一次成员关系才回填，避免被踢出后仍试图落到老 org。
+            // 失效的话主动把 user.lastActiveOrganizationId 清成 null —— 配合
+            // resolveActiveOrganization 不再 fallback 到 orgs[0]，登录后会被
+            // 引导到 /select-workspace 让用户明确选择新工作区。
+            //
             // Re-verify membership so a kicked-out user can't be sent back.
+            // When membership is gone, proactively null out the stale pointer
+            // so the next page render flows to /select-workspace (the resolver
+            // no longer falls back to orgs[0]).
             const [m] = await db
               .select({ id: schema.member.id })
               .from(schema.member)
@@ -276,6 +283,10 @@ export const auth = betterAuth({
               )
               .limit(1);
             if (!m) {
+              await db
+                .update(schema.user)
+                .set({ lastActiveOrganizationId: null })
+                .where(eq(schema.user.id, newSession.userId));
               return;
             }
             await db

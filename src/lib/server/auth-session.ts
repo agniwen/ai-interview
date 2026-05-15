@@ -19,21 +19,22 @@ export const getCurrentOrganizations = cache(async () =>
   auth.api.listOrganizations({ headers: await headers() }),
 );
 
-// Resolve the user's active organization: prefer session.activeOrganizationId,
-// fall back to the first org so users with stale/unset active state still land
-// somewhere sensible. Returns null when the user has no orgs.
-// 解析当前活跃 org：优先 session.activeOrganizationId，未命中则回退到第一个 org。
+// Resolve the user's active organization strictly from session.activeOrganizationId.
+// 不再回退到 orgs[0] —— 这样上游（/page.tsx, /chat 等 legacy 入口）拿到 null 就
+// 统一引导到 /select-workspace，对新用户也显式 onboard、对"被踢出原 org 的回
+// 流用户"也能正确感知（auth.ts 的 session.create.after hook 会在 lastActive 失
+// 效时清掉 user.lastActiveOrganizationId 并跳过 session.activeOrg 回填）。
 //
-// ⚠️ 这个 helper 在 `/w/[slug]/...` 路径下会有"切换租户的请求里 session 还没刷新"
-// 的坑——layout.tsx 通过 setActiveOrganization 更新 DB/cookie，但同一个请求里
-// React cache() 锁住了 getCurrentSession 的旧结果。SSR pages 应该用
-// `resolveOrganizationBySlug(slug)` 改走 URL 权威，本 helper 只适合"没 slug
-// 上下文"的根入口（`src/app/page.tsx`）使用。
-// CAUTION: inside `/w/[slug]/...` SSR, this helper reads a stale session in
-// the very request that switches workspaces (layout updates DB/cookie but
-// React cache() pins the old session for the rest of the render). Slug-aware
-// pages should use `resolveOrganizationBySlug(slug)` instead; this helper is
-// fine for slugless entrypoints like `src/app/page.tsx`.
+// ⚠️ `/w/[slug]/...` 路径下这条 helper 会读到"切换租户请求里还没刷新"的旧
+// session（layout.tsx 通过 setActiveOrganization 更新 DB/cookie，但同一个请求
+// 里 React cache() 锁住了 getCurrentSession 的旧结果）。SSR pages 应该用
+// `resolveOrganizationBySlug(slug)` 走 URL 权威；本 helper 只适合"没 slug 上
+// 下文"的根入口（`src/app/page.tsx`）使用。
+//
+// Strict resolver: returns null when session.activeOrganizationId is missing
+// or doesn't match any of the user's orgs. Callers redirect to
+// /select-workspace on null — uniform handling for new users, recently-kicked
+// users, and corrupted-session scenarios.
 export const resolveActiveOrganization = cache(async () => {
   const session = await getCurrentSession();
   if (!session?.user) {
@@ -42,7 +43,10 @@ export const resolveActiveOrganization = cache(async () => {
   const orgs = await getCurrentOrganizations();
   const activeId = (session.session as { activeOrganizationId?: string | null } | null)
     ?.activeOrganizationId;
-  return orgs.find((o) => o.id === activeId) ?? orgs[0] ?? null;
+  if (!activeId) {
+    return null;
+  }
+  return orgs.find((o) => o.id === activeId) ?? null;
 });
 
 /**

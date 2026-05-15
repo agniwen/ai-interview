@@ -56,6 +56,18 @@ const LaunchInterviewDialog = dynamic(
   { ssr: false },
 );
 
+// 「已入库」详情弹窗里的「编辑」按钮要打开这个简历编辑 dialog。chat 入库流程
+// 不能让用户跳出去 /studio/resumes，所以这里跟 detail / launch 一样本地挂载。
+// Resume-edit dialog opened from the detail dialog's "编辑" button. Mounted
+// locally so the chat-side flow doesn't bounce users out to /studio/resumes.
+const StudioPersonEditDialog = dynamic(
+  async () => {
+    const mod = await import("@/app/(auth)/w/[slug]/studio/_components/studio-person-edit-dialog");
+    return mod.StudioPersonEditDialog;
+  },
+  { ssr: false },
+);
+
 interface ResumeImportButtonProps {
   filePart: FileUIPart & { id: string };
   // 已导入的简历库行 id（旧字段名沿用，避免外部消费者再改一遍）。
@@ -124,6 +136,9 @@ export function ResumeImportButton({
   const [partialFields, setPartialFields] = useState<PartialField[]>([]);
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailRecordId, setDetailRecordId] = useState<string | null>(null);
+  // 详情 dialog 里点"编辑"切到这个 state，触发本地 StudioPersonEditDialog 挂载。
+  // Driven by the detail dialog's onEdit; null = closed.
+  const [editingRecordId, setEditingRecordId] = useState<string | null>(null);
   const [launchingRecord, setLaunchingRecord] = useState<{
     id: string;
     candidateName: string | null;
@@ -584,6 +599,14 @@ export function ResumeImportButton({
           to a locally mounted LaunchInterviewDialog so the user stays in chat. */}
       <StudioPersonDetailDialog
         mode="resume"
+        onEdit={(id) => {
+          // 跟 resume-library-page 的处理对齐：关详情 dialog + 开编辑 dialog。
+          // Detail.onEdit 之前没接，导致按钮哑火。
+          // Mirrors resume-library-page: close detail → open edit. Detail.onEdit
+          // wasn't wired here previously, which is why the button did nothing.
+          setDetailOpen(false);
+          setEditingRecordId(id);
+        }}
         onLaunchInterview={({ id, candidateName }) => {
           setDetailOpen(false);
           setLaunchingRecord({ candidateName, id });
@@ -592,15 +615,22 @@ export function ResumeImportButton({
         onUpdated={() => {
           invalidateLibraryCaches();
           // 简历从库里被删（fetchStudioResume → null）时这里没有直接信号，
-          // 由 chat 端的「下次点开发现 404」兜底。详细的 missing 处理需要在
-          // detail dialog 内部暴露，目前作 best-effort：invalidate 后让 stale
-          // mapping 自然过期。
-          // No direct 404 signal here; we rely on follow-up clicks to surface
-          // a missing record. Hooking onMissing into a richer signal would
-          // require dialog-side plumbing, intentionally deferred.
+          // 由简历库 DELETE 路由触发的 chat_conversation.resumeImports 清理兜底
+          // （见 chat/dao/chat.ts removeImportedInterviewFromConversations）。
+          // No direct 404 signal here; the chat-side "已入库" badge state is
+          // swept server-side when the resume row is deleted (see
+          // removeImportedInterviewFromConversations in chat/dao/chat.ts).
         }}
         open={detailOpen}
         recordId={detailRecordId}
+      />
+
+      <StudioPersonEditDialog
+        mode="resume"
+        onOpenChange={(open) => !open && setEditingRecordId(null)}
+        onUpdated={invalidateLibraryCaches}
+        open={editingRecordId !== null}
+        recordId={editingRecordId}
       />
 
       <LaunchInterviewDialog

@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq, isNull, ne, or } from "drizzle-orm";
 import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import { db } from "@/lib/server/db";
@@ -40,17 +40,41 @@ export default async function WorkspaceLayout({
       body: { organizationId: matched.id },
       headers: await headers(),
     });
-    // 同步写 user.lastActiveOrganizationId —— 这是跨 session 的"上次访问"记忆，
-    // 退出登录重新登进来时 databaseHooks.session.create.after 会把它还原成
-    // 新 session 的 activeOrganizationId（见 src/lib/server/auth.ts）。
-    // Mirror to user.lastActiveOrganizationId so the next login restores this
-    // workspace (vs. falling back to the user's first org). The session-create
-    // hook in auth.ts reads this on the next login.
-    await db
-      .update(userTable)
-      .set({ lastActiveOrganizationId: matched.id })
-      .where(eq(userTable.id, session.user.id));
   }
+
+  // 写 user.lastActiveOrganizationId —— 跨 session 的"上次访问"记忆，退出登录
+  // 重新登进来时 databaseHooks.session.create.after 拿这个值还原 session.
+  // activeOrganizationId（见 src/lib/server/auth.ts）。
+  //
+  // ⚠️ 必须放在上面 if 块之外。sidebar 的 WorkspaceSwitcher 在点击切换时是先
+  // 在客户端调 setActive(B) 把 session.activeOrganizationId 写成 B，再硬跳到
+  // /w/B（见 workspace-switcher.tsx 的注释）。所以 layout 跑到这里时
+  // session.activeOrganizationId 已经是 B，`activeOrgId !== matched.id` 判定
+  // 为 false——上一版 UPDATE 放在 if 内会让"用 switcher 切的人"永远写不到
+  // user 表。
+  //
+  // WHERE 守卫 (IS NULL OR != matched.id) 让"同一个 workspace 内的页面切换"不
+  // 触发实际写入：PG 在 WHERE 0 行匹配时不会执行 SET，`$onUpdate` 也不会触发
+  // updatedAt。
+  //
+  // Must live OUTSIDE the `if` above: the sidebar switcher pre-syncs the
+  // session via authClient.organization.setActive before navigating, so by
+  // the time this layout runs, the `if` condition is already false. The
+  // previous iteration of this fix put the user-table update inside the if,
+  // which meant the switcher path never wrote it. The WHERE guard short-
+  // circuits unnecessary writes when navigating within the same workspace.
+  await db
+    .update(userTable)
+    .set({ lastActiveOrganizationId: matched.id })
+    .where(
+      and(
+        eq(userTable.id, session.user.id),
+        or(
+          isNull(userTable.lastActiveOrganizationId),
+          ne(userTable.lastActiveOrganizationId, matched.id),
+        ),
+      ),
+    );
 
   return (
     <WorkspaceSlugProvider slug={slug}>
