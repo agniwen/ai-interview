@@ -2,13 +2,14 @@
 
 import { PageHeader } from "@/app/(auth)/w/[slug]/studio/_components/page-header";
 import { EntityDeleteDialog } from "@/app/(auth)/w/[slug]/studio/_components/entity-delete-dialog";
+import { ScopedInterviewersModal } from "@/app/(auth)/w/[slug]/studio/_components/scoped-interviewers-modal";
+import { ScopedJobDescriptionsModal } from "@/app/(auth)/w/[slug]/studio/_components/scoped-job-descriptions-modal";
 import { useEntityCrud } from "@/app/(auth)/w/[slug]/studio/_components/use-entity-crud";
 import type { DepartmentListRecord, DepartmentRecord } from "@/lib/shared/departments";
 import type { PaginatedDepartmentResult } from "@/server/routes/studio/routes/departments/dao";
 import { useQueryClient } from "@tanstack/react-query";
 import { Building2Icon, PencilIcon, PlusIcon, Trash2Icon } from "lucide-react";
-import { useMemo } from "react";
-import { Badge } from "@/components/ui/badge";
+import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   actionsColumn,
@@ -71,6 +72,14 @@ export function DepartmentManagementPage({
     namespace: "departments",
   });
 
+  // 两类 scope 弹窗的当前目标部门；null 表示弹窗关闭。
+  // Track which department each scope modal is opened against; null = closed.
+  const [interviewersModalDept, setInterviewersModalDept] = useState<DepartmentListRecord | null>(
+    null,
+  );
+  const [jobDescriptionsModalDept, setJobDescriptionsModalDept] =
+    useState<DepartmentListRecord | null>(null);
+
   const crud = useEntityCrud<DepartmentListRecord, DepartmentRecord>({
     deleteEntity: (record) =>
       rpc.api.w[":slug"].studio.departments[":id"].$delete({ param: { id: record.id, slug } }),
@@ -99,14 +108,49 @@ export function DepartmentManagementPage({
         truncate: true,
       }),
       customColumn<DepartmentListRecord>({
-        cell: (r) => (
-          <div className="space-x-2">
-            <Badge variant="outline">面试官 {r.interviewerCount}</Badge>
-            <Badge variant="outline">在招岗位 {r.jobDescriptionCount}</Badge>
-          </div>
-        ),
-        key: "usage",
-        title: "引用情况",
+        cell: (r) => {
+          // 0 引用时纯文本（跟面试官页风格对齐）；>0 时 link 按钮，点击打开
+          // 只读的面试官列表弹窗。
+          // Zero → plain text (matches the interviewer page style); positive →
+          // link button opening the read-only interviewers modal.
+          if (r.interviewerCount === 0) {
+            return "0 位面试官";
+          }
+          return (
+            <Button
+              className="h-auto p-0 font-medium text-primary"
+              onClick={() => setInterviewersModalDept(r)}
+              type="button"
+              variant="link"
+            >
+              {r.interviewerCount} 位面试官
+            </Button>
+          );
+        },
+        key: "interviewerCount",
+        title: "面试官",
+      }),
+      customColumn<DepartmentListRecord>({
+        cell: (r) => {
+          // 0 引用时纯文本；>0 时 link 按钮，打开"删除/查看"语义的 JD 弹窗。
+          // Zero → plain text; positive → link button opening the JD scope
+          // modal which also supports row-level deletes.
+          if (r.jobDescriptionCount === 0) {
+            return "0 个岗位";
+          }
+          return (
+            <Button
+              className="h-auto p-0 font-medium text-primary"
+              onClick={() => setJobDescriptionsModalDept(r)}
+              type="button"
+              variant="link"
+            >
+              {r.jobDescriptionCount} 个岗位
+            </Button>
+          );
+        },
+        key: "jobDescriptionCount",
+        title: "在招岗位",
       }),
       dateColumn<DepartmentListRecord>({
         key: "createdAt",
@@ -207,6 +251,52 @@ export function DepartmentManagementPage({
         onConfirm={crud.handleDelete}
         record={crud.deleteRecord}
         title="确认删除这个部门？"
+      />
+
+      <ScopedInterviewersModal
+        departmentId={interviewersModalDept?.id ?? null}
+        departmentName={interviewersModalDept?.name ?? ""}
+        onChange={() => {
+          // 嵌套 JD 弹窗里删了岗位 → 部门的 jobDescriptionCount 可能变（被删的
+          // JD 所属部门会减 1，不一定是当前打开的部门）。整体 invalidate 部门表
+          // + JD 缓存最稳。
+          // A JD delete inside the nested modal can affect ANY department's
+          // jobDescriptionCount (the deleted JD belongs to one department, not
+          // necessarily the open one). Invalidate the whole grid + JD cache.
+          grid.invalidate();
+          void queryClient.invalidateQueries({ queryKey: ["job-descriptions"] });
+        }}
+        onOpenChange={(next) => {
+          if (!next) {
+            setInterviewersModalDept(null);
+          }
+        }}
+        open={interviewersModalDept !== null}
+      />
+
+      <ScopedJobDescriptionsModal
+        onChange={() => {
+          // 弹窗里删了岗位 → 部门表的 jobDescriptionCount 会变；顺手刷一下 JD 缓存。
+          // JD deletion inside the modal mutates the per-department count;
+          // refresh the parent grid + the JD cache to keep all surfaces honest.
+          grid.invalidate();
+          void queryClient.invalidateQueries({ queryKey: ["job-descriptions"] });
+        }}
+        onOpenChange={(next) => {
+          if (!next) {
+            setJobDescriptionsModalDept(null);
+          }
+        }}
+        open={jobDescriptionsModalDept !== null}
+        scope={
+          jobDescriptionsModalDept
+            ? {
+                id: jobDescriptionsModalDept.id,
+                name: jobDescriptionsModalDept.name,
+                type: "department",
+              }
+            : null
+        }
       />
     </>
   );

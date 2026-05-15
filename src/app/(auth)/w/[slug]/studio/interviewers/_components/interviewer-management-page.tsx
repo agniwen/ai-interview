@@ -8,7 +8,7 @@ import type { InterviewerListRecord, InterviewerRecord } from "@/lib/shared/inte
 import type { PaginatedInterviewerResult } from "@/server/routes/studio/routes/interviewers/dao";
 import { useQueryClient } from "@tanstack/react-query";
 import { PencilIcon, PlusIcon, Trash2Icon, UserCircleIcon } from "lucide-react";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -30,6 +30,7 @@ import {
 import { rpc } from "@/lib/client/rpc";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { getMinimaxVoiceMeta } from "@/lib/shared/minimax-voices";
+import { ScopedJobDescriptionsModal } from "@/app/(auth)/w/[slug]/studio/_components/scoped-job-descriptions-modal";
 import { InterviewerFormDialog } from "./interviewer-form-dialog";
 
 export function InterviewerManagementPage({
@@ -87,6 +88,12 @@ export function InterviewerManagementPage({
     namespace: "interviewers",
   });
 
+  // 当前正在查看其引用岗位的面试官；null 时弹窗关闭。
+  // The interviewer whose referenced JDs are being inspected; null = closed.
+  const [referencedInterviewer, setReferencedInterviewer] = useState<InterviewerListRecord | null>(
+    null,
+  );
+
   const noDepartments = departments.length === 0;
 
   const crud = useEntityCrud<InterviewerListRecord, InterviewerRecord>({
@@ -134,7 +141,25 @@ export function InterviewerManagementPage({
         title: "音色",
       }),
       customColumn<InterviewerListRecord>({
-        cell: (r) => <Badge variant="outline">{r.jobDescriptionCount}</Badge>,
+        cell: (r) => {
+          // 0 引用时保持纯展示 Badge（没有内容可弹）；>0 时改成 link 按钮，点击打开
+          // 详情弹窗，里面允许删除某条岗位。
+          // Zero references stay as a plain badge (nothing to open); positive
+          // counts become a link button that opens the JD detail modal.
+          if (r.jobDescriptionCount === 0) {
+            return "0个岗位";
+          }
+          return (
+            <Button
+              className="h-auto p-0 font-medium text-primary"
+              onClick={() => setReferencedInterviewer(r)}
+              type="button"
+              variant="link"
+            >
+              {r.jobDescriptionCount} 个岗位
+            </Button>
+          );
+        },
         key: "jobDescriptionCount",
         title: "引用岗位",
       }),
@@ -258,6 +283,31 @@ export function InterviewerManagementPage({
         onConfirm={crud.handleDelete}
         record={crud.deleteRecord}
         title="确认删除这个面试官？"
+      />
+
+      <ScopedJobDescriptionsModal
+        onChange={() => {
+          // 弹窗里删了岗位 → 主表的 jobDescriptionCount 会变，刷新一下。
+          // JD deletion inside the modal mutates jobDescriptionCount; refresh the
+          // parent grid so the count reflects reality.
+          grid.invalidate();
+          void queryClient.invalidateQueries({ queryKey: ["job-descriptions"] });
+        }}
+        onOpenChange={(next) => {
+          if (!next) {
+            setReferencedInterviewer(null);
+          }
+        }}
+        open={referencedInterviewer !== null}
+        scope={
+          referencedInterviewer
+            ? {
+                id: referencedInterviewer.id,
+                name: referencedInterviewer.name,
+                type: "interviewer",
+              }
+            : null
+        }
       />
     </>
   );
