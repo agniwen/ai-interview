@@ -1,13 +1,22 @@
 import "server-only";
 
 import { betterAuth } from "better-auth";
+import { APIError } from "better-auth/api";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { admin, genericOAuth } from "better-auth/plugins";
 import type { GenericOAuthConfig } from "better-auth/plugins";
 import { organization } from "better-auth/plugins/organization";
+import { and, eq } from "drizzle-orm";
+import { headers as nextHeaders } from "next/headers";
 import { ac, roles } from "@/lib/shared/permissions";
 import { db } from "./db";
 import * as schema from "@/lib/shared/db/schema";
+
+// admin 调整成员角色时允许的目标角色（hr 招聘成员 / viewer 只读成员）。
+// 真正禁止 admin 改 admin / owner / 自己的逻辑在下方 beforeUpdateMemberRole hook 中执行。
+// Allowed target roles when an admin updates a member. The hook below blocks
+// admin-on-admin/owner edits and self-edits.
+const ADMIN_ASSIGNABLE_ROLES = new Set(["hr", "viewer"] as const);
 
 const baseURL = process.env.BETTER_AUTH_URL ?? "http://localhost:3000";
 const trustedOrigins = [...new Set([baseURL, "http://localhost:3000"])];
@@ -270,6 +279,81 @@ export const auth = betterAuth({
     }),
     organization({
       ac,
+      // 服务端硬约束：admin 调整成员角色时，只允许把 hr/viewer 改成 hr/viewer。
+      //   - 不能改自己（防止自我提权）
+      //   - 不能改其他 admin / owner（防止互相提权 / 接管 workspace）
+      //   - 新角色必须是 hr/viewer（不能新建 admin/owner）
+      // owner 不走这套限制——owner 可以指派任何角色，唯一例外是 owner 角色的
+      // 转让由 better-auth 内置的 transferOwnership 单独处理。
+      // hr/viewer 理论上拿不到 member.update 权限（矩阵不给），所以请求根本到
+      // 不了这里；兜底仍然 reject。
+      //
+      // Server-side gate: admins can only downgrade hr/viewer members within
+      // {hr, viewer}. They can't touch themselves, other admins, or the owner,
+      // and they can't promote anyone to admin/owner. Owner is exempt (their
+      // own ownership transfer is its own flow). hr/viewer can't reach this
+      // path per the permission matrix, but we still reject as a defense-in-depth.
+      organizationHooks: {
+        beforeUpdateMemberRole: async ({ member, newRole, organization: org }) => {
+          // ⚠️ 注意：better-auth 这里的 `user` 参数实际是 **目标用户**（被改的人），
+          // 不是触发请求的人——文档跟实现不一致，源码里写的是
+          // `user: userBeingUpdated`（见 better-auth crud-members.mjs:283）。
+          // 所以这里完全不用 `user`，而是从 next/headers + auth.api.getSession
+          // 拿到真正的 invoker，再去 member 表查它在 org 里的角色。
+          //
+          // CAUTION: better-auth's `user` arg here is the TARGET user, not the
+          // caller (the docs are wrong; source assigns `user: userBeingUpdated`).
+          // Skip it entirely and pull the real invoker from the session.
+          const session = await auth.api.getSession({ headers: await nextHeaders() });
+          const invokerUserId = session?.user?.id;
+          if (!invokerUserId) {
+            throw new APIError("UNAUTHORIZED", { message: "未登录。" });
+          }
+          const [invoker] = await db
+            .select({ role: schema.member.role, userId: schema.member.userId })
+            .from(schema.member)
+            .where(
+              and(
+                eq(schema.member.userId, invokerUserId),
+                eq(schema.member.organizationId, org.id),
+              ),
+            )
+            .limit(1);
+
+          if (!invoker) {
+            throw new APIError("FORBIDDEN", { message: "你不在这个工作区中。" });
+          }
+
+          // owner 不受这条 hook 限制（其他业务规则由 better-auth 内置处理）。
+          // Owner is exempt here; other built-in rules still apply.
+          if (invoker.role === "owner") {
+            return;
+          }
+
+          if (invoker.role !== "admin") {
+            // hr / viewer 等：矩阵理论上拦不到这里，兜底拒绝。
+            // hr / viewer shouldn't reach this hook per the matrix; reject anyway.
+            throw new APIError("FORBIDDEN", { message: "无权调整成员角色。" });
+          }
+
+          if (member.userId === invokerUserId) {
+            throw new APIError("FORBIDDEN", { message: "管理员不能调整自己的角色。" });
+          }
+
+          if (member.role === "admin" || member.role === "owner") {
+            throw new APIError("FORBIDDEN", {
+              message: "管理员只能调整招聘成员或只读成员的角色。",
+            });
+          }
+
+          const nextRole = Array.isArray(newRole) ? newRole[0] : newRole;
+          if (!nextRole || !ADMIN_ASSIGNABLE_ROLES.has(nextRole as "hr" | "viewer")) {
+            throw new APIError("FORBIDDEN", {
+              message: "管理员只能将成员设置为招聘成员或只读成员。",
+            });
+          }
+        },
+      },
       roles,
       // 第一期还没有发邀请邮件的通道；先 stub 成 console.log + 让 inviter 自己复制
       // 链接。P2 接邮件后替换。

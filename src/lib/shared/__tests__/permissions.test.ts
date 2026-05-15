@@ -172,9 +172,14 @@ describe("permission matrix cross-cut", () => {
     ["viewer", "auditLog", "read", false],
     // chat — 全员可全 CRUD
     ["viewer", "chat", "delete", true],
-    // member — 改角色 (update) 只许 owner;邀请/移除 admin 也可。
+    // member — 改角色 (update) owner / admin 均可（admin 的目标范围由服务端
+    // hook 进一步限制为 hr/viewer，矩阵这里只给动词）；邀请/移除 admin 也可。
     ["owner", "member", "update", true],
-    ["admin", "member", "update", false],
+    // admin 现在拥有 member.update 这个动词权限；具体能改谁、能改成什么角色的
+    // 硬约束在服务端 hook（beforeUpdateMemberRole）里执行，矩阵这里只授予动词。
+    // admin can now perform member.update; the actual target/role ceiling
+    // (hr/viewer only, no self, no peer-admin) lives in the server-side hook.
+    ["admin", "member", "update", true],
     ["hr", "member", "update", false],
     ["viewer", "member", "update", false],
     ["admin", "member", "create", true],

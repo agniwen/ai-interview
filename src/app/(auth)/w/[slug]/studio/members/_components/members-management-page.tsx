@@ -65,6 +65,13 @@ const ROLE_BADGE_VARIANT: Record<WorkspaceRole, "default" | "secondary" | "outli
   viewer: "outline",
 };
 
+// admin 在工作区里只能把成员设置为这两个角色之一（hr / viewer）；
+// owner 可以设置全部 ASSIGNABLE_ROLES（admin/hr/viewer）。
+// owner 角色的转让由 better-auth 内置的 transferOwnership 流程处理，
+// 不在 ASSIGNABLE_ROLES 范围。
+// Admins can assign only hr/viewer; owners get the full ASSIGNABLE_ROLES set.
+const ADMIN_ASSIGNABLE_ROLES = ["hr", "viewer"] as const satisfies readonly WorkspaceRole[];
+
 export function MembersManagementPage() {
   const { data: org, refetch, isPending } = authClient.useActiveOrganization();
   const { data: session } = authClient.useSession();
@@ -75,6 +82,22 @@ export function MembersManagementPage() {
   const canUpdate = useHasPermission("member", "update");
   const canDelete = useHasPermission("member", "delete");
   const canUpdateWorkspace = useHasPermission("organization", "update");
+
+  // 当前用户在这个 org 的角色——决定 Select 给出哪些可选项 + 哪些行只读。
+  // 服务端硬约束已经在 beforeUpdateMemberRole hook 里执行；这里 UI 同步
+  // 同一套规则给出即时反馈，并隐藏不可达的选项。
+  // Current user's role inside this org — drives which options the Select
+  // shows and which rows render as read-only. The server-side hook is the
+  // real boundary; this is the matching UX.
+  const currentMemberRole = useMemo<WorkspaceRole | null>(() => {
+    const list = org?.members ?? [];
+    const me = list.find((m) => m.userId === currentUserId);
+    return (me?.role as WorkspaceRole | undefined) ?? null;
+  }, [org?.members, currentUserId]);
+  const assignableRoles = useMemo<readonly WorkspaceRole[]>(
+    () => (currentMemberRole === "admin" ? ADMIN_ASSIGNABLE_ROLES : ASSIGNABLE_ROLES),
+    [currentMemberRole],
+  );
 
   const allRows: MemberRow[] = useMemo(() => {
     const list = org?.members ?? [];
@@ -161,16 +184,20 @@ export function MembersManagementPage() {
       }),
       customColumn<MemberRow>({
         cell: (r) => {
-          // 渲染为只读 Badge 的两种情况:
-          // 1. 当前用户没有 member.update 权限 (按矩阵只有 owner 有);
-          // 2. 这一行就是当前用户自己且角色是 owner——owner 不能改自己的角色,
-          //    避免唯一 owner 把自己降级把工作区锁死;
-          // 3. 这一行的当前角色是 owner——把 owner 降级 / 把别人变 owner 都
-          //    必须走 authClient.organization.transferOwnership 流程,
-          //    本表单不处理。
-          const isSelfOwner = r.userId === currentUserId && r.role === "owner";
+          // 渲染为只读 Badge 的几种情况：
+          //   1. 当前用户没有 member.update 权限（hr / viewer）。
+          //   2. 这一行是 owner—— owner 的角色不在本表单处理（走 transferOwnership）。
+          //   3. 当前用户是 admin 且这一行是自己——admin 不能改自己的角色。
+          //   4. 当前用户是 admin 且这一行是另一个 admin——admin 不能改其他 admin。
+          // owner 改自己的早被规则 2 包住了（owner 改 owner = 改自己也是 owner，
+          // 落入"该行是 owner"路径）。
+          // Read-only render branches: no permission / target is owner / admin
+          // editing self / admin editing another admin. Owner editing self is
+          // already covered by the "target is owner" branch.
           const isOwnerRow = r.role === "owner";
-          if (!canUpdate || isSelfOwner || isOwnerRow) {
+          const isAdminEditingSelf = currentMemberRole === "admin" && r.userId === currentUserId;
+          const isAdminEditingAdmin = currentMemberRole === "admin" && r.role === "admin";
+          if (!canUpdate || isOwnerRow || isAdminEditingSelf || isAdminEditingAdmin) {
             return (
               <Badge variant={ROLE_BADGE_VARIANT[r.role]}>{getWorkspaceRoleLabel(r.role)}</Badge>
             );
@@ -185,7 +212,7 @@ export function MembersManagementPage() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {ASSIGNABLE_ROLES.map((role) => (
+                {assignableRoles.map((role) => (
                   <SelectItem key={role} value={role}>
                     {getWorkspaceRoleLabel(role)}
                   </SelectItem>
@@ -221,7 +248,7 @@ export function MembersManagementPage() {
       }),
     ],
     // oxlint-disable-next-line react-hooks/exhaustive-deps -- 列定义只依赖权限值，剧场切换时无需重建
-    [canUpdate, canDelete, pending, currentUserId],
+    [canUpdate, canDelete, pending, currentUserId, currentMemberRole, assignableRoles],
   );
 
   return (

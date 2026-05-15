@@ -50,8 +50,18 @@ export const admin = ac.newRole({
   ...adminAc.statements,
   // admin 与 owner 业务能力一致；workspace delete / transferOwnership 由 better-auth
   // organization 插件内置只许 owner，admin 拿不到。
-  // member.update (改成员角色) 从 admin 拿走,只留给 owner——避免 admin 互相提权。
-  // invite (create) / 移除 (delete) / 读 (read) 保留,admin 仍能日常维护成员名单。
+  //
+  // member.update：admin 可以调整成员角色，但**仅限降级到 hr / viewer**。
+  // 真正阻止 admin "互相提权 / 自我提权" 的硬约束在服务端 hook
+  // `organizationHooks.beforeUpdateMemberRole`（见 src/lib/server/auth.ts），
+  // 校验内容：(1) admin 不能改 admin/owner 角色；(2) admin 不能改自己；
+  // (3) admin 给出的新角色必须是 hr / viewer。矩阵这里开放 "update" 动词
+  // 只是为了让请求能到达 hook；具体策略由 hook 兜底，矩阵不承担安全边界。
+  //
+  // Admin gains member.update so the UI/hook code path becomes reachable, but
+  // the actual ceiling (target ∈ {hr,viewer}, no self-edit, no peer-admin
+  // edits) is enforced server-side in `beforeUpdateMemberRole`. The matrix
+  // only authorizes the verb; the hook is the security boundary.
   auditLog: ["read"],
   candidateForm: ["create", "read", "update", "delete"],
   chat: ["create", "read", "update", "delete"],
@@ -60,7 +70,7 @@ export const admin = ac.newRole({
   interview: ["create", "read", "update", "delete"],
   interviewer: ["create", "read", "update", "delete"],
   jd: ["create", "read", "update", "delete"],
-  member: ["create", "delete"],
+  member: ["create", "update", "delete"],
   questionTemplate: ["create", "read", "update", "delete"],
   resume: ["create", "read", "update", "delete"],
 });

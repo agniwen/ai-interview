@@ -32,9 +32,10 @@ const ROLE_SUMMARIES = {
 
 const PERMISSION_ROWS = [
   {
-    admin: "邀请、移除成员；不可调整角色",
+    admin:
+      "邀请、移除成员；可将其他成员调整为「招聘成员」或「只读成员」（不能调整其他管理员或自己）",
     hr: "无",
-    owner: "邀请、移除成员；调整角色；转让所有权",
+    owner: "邀请、移除成员；调整任意角色；转让所有权",
     resource: "成员管理",
     viewer: "无",
   },
