@@ -33,8 +33,17 @@ a LiveKit room. `make help` lists every Make target.
 
 ## Configuration
 
-All env vars live in a single `.env` at the repo root (the Python agent reads
-the same file). The example file is annotated; key requirements:
+Two separate `.env` files — each runtime loads its own:
+
+- `./.env` for the web app (Next.js reads via its built-in env loader)
+- `./agent/.env` for the Python agent (loaded by `dotenv.load_dotenv()` from
+  `agent/src/agent.py`)
+
+Each side has its own `.env.example` with bilingual inline comments. A handful
+of values (`LIVEKIT_*`, `CALLBACK_BASE_URL`, `AGENT_CALLBACK_SECRET`,
+`RECORDING_R2_*`) must be kept in lock-step across both files.
+
+Key requirements for the web `.env`:
 
 - **Database** — `DATABASE_URL` (Postgres connection string)
 - **Better Auth** — `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`,
