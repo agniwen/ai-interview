@@ -62,6 +62,12 @@ interface ResumeImportButtonProps {
   // Resume row id for this part if previously imported; field name kept for
   // compatibility with the existing chat layout state.
   importedInterviewId: string | null;
+  /**
+   * 当前对话已经选中的在招岗位 id —— 弹出入库弹窗时直接预选该岗位，避免用户再挑一次。
+   * Currently-applied JD id in the chat; used to preselect the import dialog's
+   * JD dropdown so the user doesn't have to pick again.
+   */
+  activeJobDescriptionId?: string | null;
   onImported: (partId: string, interviewId: string) => void;
   onMissing?: (partId: string) => void;
   className?: string;
@@ -103,6 +109,7 @@ function renderImportButtonContent({
 export function ResumeImportButton({
   filePart,
   importedInterviewId,
+  activeJobDescriptionId,
   onImported,
   onMissing: _onMissing,
   className,
@@ -483,7 +490,10 @@ export function ResumeImportButton({
       setDetailOpen(true);
       return;
     }
-    setSelectedJdId("");
+    // 当前对话已设置的 JD 直接作为下拉默认值；没有就退化成空字符串让用户挑。
+    // Preselect the chat's active JD when present; otherwise fall back to an
+    // empty selection so the user picks manually (or hits "自动分析").
+    setSelectedJdId(activeJobDescriptionId ?? "");
     setJdError(undefined);
     setMatchReason(null);
     cachedParseResultRef.current = null;

@@ -269,6 +269,11 @@ export function InterviewManagementPage({
         key: "hasReport",
         title: "报告",
       }),
+      textColumn<StudioInterviewRoundListRecord>({
+        cell: (r) => r.creatorName ?? "—",
+        key: "creatorName",
+        title: "创建人",
+      }),
       dateColumn<StudioInterviewRoundListRecord>({
         key: "createdAt",
         sortable: true,

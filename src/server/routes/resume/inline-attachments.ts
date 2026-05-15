@@ -28,7 +28,15 @@ function collectAttachmentIds(messages: UIMessage[]): string[] {
       if (part.type !== "file") {
         continue;
       }
-      const id = extractAttachmentId((part as FileUIPart).url);
+      // 只采集图片 attachment 的 id —— inlineMessage 也只 inline 图片，
+      // PDF 等被下游丢掉，没必要拉它们的 chat_attachment 行。
+      // Only collect image attachment ids — inlineMessage skips non-images,
+      // and they get stripped downstream, so don't fetch their rows.
+      const filePart = part as FileUIPart;
+      if (!filePart.mediaType?.startsWith("image/")) {
+        continue;
+      }
+      const id = extractAttachmentId(filePart.url);
       if (id) {
         ids.add(id);
       }
@@ -52,6 +60,17 @@ async function inlineMessage(
         return part;
       }
       const filePart = part as FileUIPart;
+      // 只对图片做 base64 inline —— 非图片(主要是 PDF)的 file part 会在下游
+      // stripNonImageFileParts 阶段被丢掉，inline 它们 = S3 读 + base64 编码全白做。
+      // 简历的解析内容已经通过 data-resume-parsed → text part 注入到消息里，
+      // 模型不需要拿到 PDF 原文件。
+      // Only base64-inline images. Non-image file parts (mainly PDFs) get
+      // dropped later by stripNonImageFileParts, so inlining them = wasted
+      // S3 read + base64 encode per request. Resume content is already
+      // surfaced into the message via the data-resume-parsed → text part path.
+      if (!filePart.mediaType?.startsWith("image/")) {
+        return part;
+      }
       const attachmentId = extractAttachmentId(filePart.url);
       if (!attachmentId) {
         return part;

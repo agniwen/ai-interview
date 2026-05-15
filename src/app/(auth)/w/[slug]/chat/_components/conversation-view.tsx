@@ -17,6 +17,13 @@ import { useChatMessagesContext, useChatStreamingContext } from "./chat-runtime-
 interface ConversationViewProps {
   userName: string;
   resumeImports: Record<string, string>;
+  /**
+   * 当前对话已设置的在招岗位 id（来自 apply_job_description 用户确认或 JD 弹窗）。
+   * 一键入库弹窗用它作为 JD 下拉的默认值。
+   * Currently-applied JD id for this chat — used to preselect the JD in the
+   * one-click import dialog.
+   */
+  activeJobDescriptionId: string | null;
   onResumeImported: (partId: string, interviewId: string) => void;
   onResumeImportMissing: (partId: string) => void;
   onApplyJDConfirm: (toolCallId: string, jobDescriptionId: string) => Promise<void>;
@@ -162,6 +169,7 @@ function AssistantThinkingBubble() {
 export function ConversationView({
   userName,
   resumeImports,
+  activeJobDescriptionId,
   onResumeImported,
   onResumeImportMissing,
   onApplyJDConfirm,
@@ -189,6 +197,7 @@ export function ConversationView({
                 const isLastMessage = messageIndex === entries.length - 1;
                 return (
                   <ChatMessageItem
+                    activeJobDescriptionId={activeJobDescriptionId}
                     isLastMessage={isLastMessage}
                     isStreaming={isStreaming}
                     key={message.id}

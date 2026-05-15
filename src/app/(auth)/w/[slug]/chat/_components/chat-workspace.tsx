@@ -698,6 +698,9 @@ export default function ChatWorkspace({ initialSessionId }: { initialSessionId: 
           <QuickSuggestions />
 
           <ConversationView
+            activeJobDescriptionId={
+              jobDescriptionConfig?.mode === "select" ? jobDescriptionConfig.jobDescriptionId : null
+            }
             onApplyJDConfirm={handleApplyJDConfirm}
             onApplyJDIgnore={handleApplyJDIgnore}
             onRegenerate={regenerateLastReply}

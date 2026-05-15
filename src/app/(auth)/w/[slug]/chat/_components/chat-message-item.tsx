@@ -45,6 +45,11 @@ interface ChatMessageItemProps {
   startedAt: string | null;
   userName: string;
   resumeImports: Record<string, string>;
+  /**
+   * 透传给 ResumeImportButton：用作一键入库弹窗的 JD 下拉默认值。
+   * Forwarded to ResumeImportButton — preselects the import dialog's JD dropdown.
+   */
+  activeJobDescriptionId: string | null;
   onResumeImported: (partId: string, interviewId: string) => void;
   onResumeImportMissing: (partId: string) => void;
   onApplyJDConfirm: (toolCallId: string, jobDescriptionId: string) => Promise<void>;
@@ -65,6 +70,7 @@ export function ChatMessageItem({
   startedAt,
   userName,
   resumeImports,
+  activeJobDescriptionId,
   onResumeImported,
   onResumeImportMissing,
   onApplyJDConfirm,
@@ -215,6 +221,7 @@ export function ChatMessageItem({
                         ) : null}
                         {showImportButton ? (
                           <ResumeImportButton
+                            activeJobDescriptionId={activeJobDescriptionId}
                             className="flex-1 basis-0"
                             filePart={part}
                             importedInterviewId={importedId}
