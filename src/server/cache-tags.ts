@@ -6,24 +6,29 @@ import { db } from "@/lib/server/db";
 import { studioInterview } from "@/lib/shared/db/schema";
 
 /**
- * `next/cache#updateTag` 在某些路由处理上下文中会 throw（例如非动态路由内调用）。
- * 缓存失效是 best-effort —— 失败不应连累主写入路径，所以全部吞掉。
+ * 当前阶段：org-scoped 业务 DAO 已经移除了 `"use cache"`（见 2026-05 commit
+ * "drop use cache from org-scoped DAOs"），所以本函数大多数调用现在是 no-op
+ * ——目标 tag 在缓存层没有任何 entry 对应。保留这条调用基础设施 + 它的现有调
+ * 用点，让"未来某天再启用 use cache"时能直接生效，不用重新拉一遍 invalidate
+ * 通路。`interview-conversations*` 类的 record-id-scoped tag 仍然在用（agent /
+ * livekit 写入侧），所以这函数不能删。
  *
- * 多租户隔离约定：业务 DAO 里的 cacheTag 已经按 `${tag}:${orgId}` 形态打标
- * （见 listDepartments / listInterviewers / … 等 "use cache" 函数）。所以调用方
- * 在 invalidate 时也必须传同样格式的 tag —— 直接 `safeUpdateTag("departments")`
- * 不带 org 后缀的话，对不上任何缓存桶（变成静默 no-op）。
+ * 错误处理改用 console.warn 替代静默吞：之前 try/catch 把 Hono context 里
+ * `updateTag` 抛的"not in route handler"错误默默吃掉，导致缓存失效不工作时
+ * 没线索。现在至少在日志里能看到。
  *
- * `updateTag` can throw in certain Next route contexts; swallow failures so
- * they don't block the main write path. Multi-tenant convention: DAOs tag
- * their cache entries as `${tag}:${orgId}` — callers must use the same shape
- * or invalidation silently no-ops.
+ * Status: most org-scoped DAOs no longer use "use cache" so most of these
+ * calls are now no-ops (no entry matches the tag). Kept anyway so re-enabling
+ * caching later doesn't require rebuilding the invalidation plumbing. The
+ * record-id-scoped `interview-conversations*` tags are still actively used.
+ * Replaced silent swallow with `console.warn` so we'd actually notice if
+ * updateTag throws in the Hono context the next time we wire caching back.
  */
 export function safeUpdateTag(tag: string) {
   try {
     updateTag(tag);
-  } catch {
-    // best-effort cache invalidation — non-critical
+  } catch (error) {
+    console.warn(`[cache-tags] updateTag("${tag}") failed:`, error);
   }
 }
 

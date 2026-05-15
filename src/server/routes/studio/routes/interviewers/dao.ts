@@ -1,7 +1,6 @@
 import type { InterviewerListRecord, InterviewerRecord } from "@/lib/shared/interviewers";
 import type { MinimaxVoiceId } from "@/lib/shared/minimax-voices";
 import { and, asc, count, desc, eq, ilike, inArray, or } from "drizzle-orm";
-import { cacheLife, cacheTag } from "next/cache";
 import { z } from "zod";
 import { db } from "@/lib/server/db";
 import { department, interviewer, jobDescriptionInterviewer } from "@/lib/shared/db/schema";
@@ -232,27 +231,17 @@ export async function queryPaginatedInterviewers(
   };
 }
 
-// oxlint-disable-next-line require-await -- "use cache" requires the function be async.
-export async function listInterviewers(
+export function listInterviewers(
   organizationId: string,
   filters?: { search?: string | null; departmentId?: string | null },
   pagination?: Record<string, unknown>,
 ) {
-  "use cache";
-  cacheTag(`interviewers:${organizationId}`);
-  cacheLife("minutes");
-
   return queryPaginatedInterviewers(organizationId, filters, pagination);
 }
 
-// oxlint-disable-next-line require-await
 export async function listAllInterviewers(
   organizationId: string,
 ): Promise<InterviewerListRecord[]> {
-  "use cache";
-  cacheTag(`interviewers:${organizationId}`);
-  cacheLife("minutes");
-
   const rows = await db
     .select({
       createdAt: interviewer.createdAt,

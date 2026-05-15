@@ -1,6 +1,5 @@
 import type { DepartmentListRecord, DepartmentRecord } from "@/lib/shared/departments";
 import { and, asc, count, desc, eq, ilike, inArray, or } from "drizzle-orm";
-import { cacheLife, cacheTag } from "next/cache";
 import { z } from "zod";
 import { db } from "@/lib/server/db";
 import { department, interviewer, jobDescription } from "@/lib/shared/db/schema";
@@ -211,25 +210,15 @@ export async function queryPaginatedDepartments(
   };
 }
 
-// oxlint-disable-next-line require-await -- "use cache" requires the function be async.
-export async function listDepartments(
+export function listDepartments(
   filters: { organizationId: string; search?: string | null },
   pagination?: Record<string, unknown>,
 ) {
-  "use cache";
-  cacheTag(`departments:${filters.organizationId}`);
-  cacheLife("minutes");
-
   return queryPaginatedDepartments(filters, pagination);
 }
 
 /** Load all departments (small list, used for selects). */
-// oxlint-disable-next-line require-await
 export async function listAllDepartments(organizationId: string): Promise<DepartmentRecord[]> {
-  "use cache";
-  cacheTag(`departments:${organizationId}`);
-  cacheLife("minutes");
-
   const rows = await db
     .select()
     .from(department)

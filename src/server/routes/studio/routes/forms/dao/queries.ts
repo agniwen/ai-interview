@@ -7,7 +7,6 @@ import type {
 } from "@/lib/shared/candidate-forms";
 import type { SQL } from "drizzle-orm";
 import { and, asc, count, desc, eq, exists, ilike, inArray, or } from "drizzle-orm";
-import { cacheLife, cacheTag } from "next/cache";
 import { z } from "zod";
 import { db } from "@/lib/server/db";
 import {
@@ -372,8 +371,7 @@ export async function queryPaginatedCandidateFormTemplates(
   };
 }
 
-// oxlint-disable-next-line require-await -- "use cache" requires the function be async.
-export async function listCandidateFormTemplates(
+export function listCandidateFormTemplates(
   organizationId: string,
   filters?: {
     search?: string | null;
@@ -382,21 +380,12 @@ export async function listCandidateFormTemplates(
   },
   pagination?: Record<string, unknown>,
 ) {
-  "use cache";
-  cacheTag(`candidate-form-templates:${organizationId}`);
-  cacheLife("minutes");
-
   return queryPaginatedCandidateFormTemplates(organizationId, filters, pagination);
 }
 
-// oxlint-disable-next-line require-await
 export async function listAllCandidateFormTemplates(
   organizationId: string,
 ): Promise<CandidateFormTemplateListRecord[]> {
-  "use cache";
-  cacheTag(`candidate-form-templates:${organizationId}`);
-  cacheLife("minutes");
-
   const rows = await listTemplateRows({ organizationId, sortBy: "title", sortOrder: "asc" });
   const ids = rows.map((row) => row.id);
   const [questionCounts, submissionCounts, jdsByTemplate] = await Promise.all([

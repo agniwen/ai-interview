@@ -6,7 +6,6 @@
 // the candidate row, JD, creator, and a "has at least one conversation" flag.
 
 import { and, asc, count, desc, eq, exists, ilike, inArray, or } from "drizzle-orm";
-import { cacheLife, cacheTag } from "next/cache";
 import { z } from "zod";
 import { db } from "@/lib/server/db";
 import {
@@ -203,15 +202,11 @@ export async function queryPaginatedInterviewRounds(
 }
 
 /** Cached version for Server Components */
-// oxlint-disable-next-line require-await -- "use cache" requires the function be async.
-export async function listInterviewRounds(
+export function listInterviewRounds(
   organizationId: string,
   filters?: { search?: string | null; status?: string | null },
   pagination?: Record<string, unknown>,
 ) {
-  "use cache";
-  cacheTag(`studio-interviews:${organizationId}`);
-  cacheLife("minutes");
   return queryPaginatedInterviewRounds(organizationId, filters, pagination);
 }
 

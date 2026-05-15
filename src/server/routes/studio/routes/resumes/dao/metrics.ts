@@ -1,7 +1,6 @@
 import "server-only";
 
 import { and, count, eq, exists, gte, ne, sql } from "drizzle-orm";
-import { cacheLife, cacheTag } from "next/cache";
 import { db } from "@/lib/server/db";
 import { studioInterview, studioInterviewSchedule } from "@/lib/shared/db/schema";
 import type { ResumeLibraryMetrics } from "@/lib/shared/studio-resumes";
@@ -118,13 +117,7 @@ async function queryResumeLibraryMetrics(organizationId: string): Promise<Resume
  * days, and AI-interview conversion. Shares the `studio-resumes` cache tag
  * with the list query so existing invalidation hooks already cover it.
  */
-// oxlint-disable-next-line require-await -- "use cache" requires the function be async.
-export async function loadResumeLibraryMetrics(
-  organizationId: string,
-): Promise<ResumeLibraryMetrics> {
-  "use cache";
-  cacheTag(`studio-resumes:${organizationId}`);
-  cacheLife("minutes");
+export function loadResumeLibraryMetrics(organizationId: string): Promise<ResumeLibraryMetrics> {
   return queryResumeLibraryMetrics(organizationId);
 }
 

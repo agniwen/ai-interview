@@ -7,7 +7,6 @@ import type {
 } from "@/lib/shared/interview-question-templates";
 import type { SQL } from "drizzle-orm";
 import { and, asc, count, desc, eq, exists, ilike, inArray, or } from "drizzle-orm";
-import { cacheLife, cacheTag } from "next/cache";
 import { z } from "zod";
 import { db } from "@/lib/server/db";
 import {
@@ -374,8 +373,7 @@ export async function queryPaginatedInterviewQuestionTemplates(
   };
 }
 
-// oxlint-disable-next-line require-await -- "use cache" requires the function be async.
-export async function listInterviewQuestionTemplates(
+export function listInterviewQuestionTemplates(
   organizationId: string,
   filters?: {
     search?: string | null;
@@ -384,21 +382,12 @@ export async function listInterviewQuestionTemplates(
   },
   pagination?: Record<string, unknown>,
 ) {
-  "use cache";
-  cacheTag(`interview-question-templates:${organizationId}`);
-  cacheLife("minutes");
-
   return queryPaginatedInterviewQuestionTemplates(organizationId, filters, pagination);
 }
 
-// oxlint-disable-next-line require-await
 export async function listAllInterviewQuestionTemplates(
   organizationId: string,
 ): Promise<InterviewQuestionTemplateListRecord[]> {
-  "use cache";
-  cacheTag(`interview-question-templates:${organizationId}`);
-  cacheLife("minutes");
-
   const rows = await listTemplateRows({ organizationId, sortBy: "title", sortOrder: "asc" });
   const ids = rows.map((row) => row.id);
   const [questionCounts, bindingCounts, jdsByTemplate] = await Promise.all([

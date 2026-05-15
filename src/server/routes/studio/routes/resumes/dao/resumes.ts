@@ -1,7 +1,6 @@
 import "server-only";
 
 import { and, asc, count, desc, eq, exists, ilike, or } from "drizzle-orm";
-import { cacheLife, cacheTag } from "next/cache";
 import { z } from "zod";
 import { db } from "@/lib/server/db";
 import {
@@ -171,15 +170,11 @@ export async function queryPaginatedResumeRecords(
 /** Cached version for Server Components.
  * 供 Server Component 使用的缓存版本，自动标记 "studio-resumes" cache tag。
  */
-// oxlint-disable-next-line require-await -- "use cache" requires the function be async.
-export async function listResumeRecords(
+export function listResumeRecords(
   organizationId: string,
   filters?: { search?: string | null },
   pagination?: Partial<Pagination>,
 ) {
-  "use cache";
-  cacheTag(`studio-resumes:${organizationId}`);
-  cacheLife("minutes");
   return queryPaginatedResumeRecords(organizationId, filters, pagination);
 }
 

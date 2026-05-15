@@ -6,7 +6,6 @@ import type {
 } from "@/lib/shared/job-descriptions";
 import type { MinimaxVoiceId } from "@/lib/shared/minimax-voices";
 import { and, asc, count, desc, eq, ilike, inArray, notInArray, or, sql } from "drizzle-orm";
-import { cacheLife, cacheTag } from "next/cache";
 import { z } from "zod";
 import { db } from "@/lib/server/db";
 import {
@@ -336,8 +335,7 @@ export async function queryPaginatedJobDescriptions(
   };
 }
 
-// oxlint-disable-next-line require-await -- "use cache" requires the function be async.
-export async function listJobDescriptions(
+export function listJobDescriptions(
   organizationId: string,
   filters?: {
     search?: string | null;
@@ -346,21 +344,12 @@ export async function listJobDescriptions(
   },
   pagination?: Record<string, unknown>,
 ) {
-  "use cache";
-  cacheTag(`job-descriptions:${organizationId}`);
-  cacheLife("minutes");
-
   return queryPaginatedJobDescriptions(organizationId, filters, pagination);
 }
 
-// oxlint-disable-next-line require-await
 export async function listAllJobDescriptions(
   organizationId: string,
 ): Promise<JobDescriptionListRecord[]> {
-  "use cache";
-  cacheTag(`job-descriptions:${organizationId}`);
-  cacheLife("minutes");
-
   const rows = await listJobDescriptionRows({ organizationId, sortBy: "name", sortOrder: "asc" });
   const interviewersMap = await loadInterviewersForJobDescriptions(rows.map((row) => row.id));
   return rows.map((row) => toJobDescriptionListRecord(row, interviewersMap.get(row.id) ?? []));
@@ -550,14 +539,7 @@ async function queryJobDescriptionMetrics(organizationId: string): Promise<JobDe
  * `job-descriptions` tag (list-query parity) and `studio-resumes` because the
  * candidate-derived bars need to refresh whenever a resume row mutates.
  */
-// oxlint-disable-next-line require-await -- "use cache" requires the function be async.
-export async function loadJobDescriptionMetrics(
-  organizationId: string,
-): Promise<JobDescriptionMetrics> {
-  "use cache";
-  cacheTag(`job-descriptions:${organizationId}`);
-  cacheTag(`studio-resumes:${organizationId}`);
-  cacheLife("minutes");
+export function loadJobDescriptionMetrics(organizationId: string): Promise<JobDescriptionMetrics> {
   return queryJobDescriptionMetrics(organizationId);
 }
 
