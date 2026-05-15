@@ -71,8 +71,67 @@ LLM behaviour is too hard to verify by eye. See the LiveKit
 
 ## Deployment
 
+### First-time setup (forking / cloning this repo)
+
+The committed `livekit.toml` and the `--project resume` flag in the root
+`Makefile` are bound to the original author's LiveKit Cloud project. A fresh
+clone needs to repoint both at your own project before `make agent-deploy`
+will work.
+
+1. **Install the LiveKit CLI** (2.15.0+) and log in:
+
+   ```bash
+   brew install livekit-cli                 # macOS
+   # or: curl -sSL https://get.livekit.io/cli | bash   # Linux
+   # or: winget install LiveKit.LiveKitCLI             # Windows
+   lk cloud auth                            # browser login
+   lk project add <your-project-alias>      # alias used by --project flags
+   ```
+
+2. **Reset the project binding.** Delete the upstream `agent/livekit.toml` so
+   the next `lk agent create` regenerates it against your project:
+
+   ```bash
+   rm agent/livekit.toml
+   ```
+
+3. **Update the Makefile project alias.** In the repo root `Makefile`, change
+   `--project resume` in the `agent-deploy` and `agent-update-secrets` targets
+   to your own alias (or drop the flag to use your default project).
+
+4. **Fill in secrets.** `.env.secrets` is what `lk agent deploy` uploads to
+   LiveKit Cloud (separate from the local `.env` used by
+   `uv run src/agent.py dev`). Copy and populate:
+
+   ```bash
+   cd agent
+   cp .env.example .env.secrets
+   # fill in LIVEKIT_*, DASHSCOPE_API_KEY, ELEVEN_API_KEY, MINIMAX_API_KEY,
+   #         CALLBACK_BASE_URL, AGENT_CALLBACK_SECRET, RECORDING_R2_*
+   ```
+
+   `CALLBACK_BASE_URL` must point at your deployed web service (the agent
+   POSTs session events back there). `AGENT_CALLBACK_SECRET`, `LIVEKIT_*`,
+   and `RECORDING_R2_*` must match the values in the web app's root `.env`.
+
+5. **Align the agent name with the web side.** The worker registers as
+   `agent_name="giaogiao"` (hardcoded in `src/agent.py`). Either keep that
+   string and set `AGENT_NAME` / `NEXT_PUBLIC_AGENT_NAME` to `giaogiao` on the
+   web side, or change all three in lock-step.
+
+6. **First deploy.** From `agent/`:
+
+   ```bash
+   lk agent create --secrets-file .env.secrets --project <your-alias>
+   ```
+
+   This builds the image, uploads secrets, and writes a fresh `livekit.toml`
+   bound to your project + new agent id. Commit that regenerated file.
+
+### Subsequent deploys
+
 ```bash
-make agent-deploy             # build + deploy to LiveKit Cloud (uses .env.secrets)
+make agent-deploy             # build + push new code (uses .env.secrets)
 make agent-update-secrets     # only refresh env vars and restart
 ```
 
