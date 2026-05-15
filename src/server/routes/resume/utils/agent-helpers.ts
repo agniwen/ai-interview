@@ -39,21 +39,22 @@ export function extractUserText(messages: UIMessage[]): string {
 }
 
 const NORMALIZE_WHITESPACE_REGEX = /\s+/g;
-const ROLE_KEYWORD_MAP: { keyword: RegExp; role: string }[] = [
-  { keyword: /行政/, role: "行政" },
-  { keyword: /人事|HR/, role: "人力资源" },
-  { keyword: /运营/, role: "运营" },
-  { keyword: /产品/, role: "产品" },
-  { keyword: /前端/, role: "前端开发" },
-  { keyword: /后端|服务端|后台/, role: "后端开发" },
-  { keyword: /测试|QA/, role: "测试" },
-  { keyword: /数据分析|数据/, role: "数据分析" },
-  { keyword: /设计|UI|UX/, role: "设计" },
-  { keyword: /财务/, role: "财务" },
-];
+// 仅在出现显式招聘意图（"招聘 X" / "我需要 X 岗位 / 工程师 / 开发"）时才推断 role。
+// 裸关键词（"前端"/"产品"/"数据"…）在候选人讨论里太常见，一旦命中就会触发自动 JD，
+// 把 step 0 的岗位推荐工具调用整个跳过 —— 这就是"选择器有时不出"的根因。
+// Only infer a role when the text carries explicit hiring intent. Bare keywords
+// like "前端"/"产品"/"数据" appear constantly in candidate discussion; matching
+// them auto-generates a JD and silently suppresses the suggest_job_description
+// tool call — which is exactly why the picker sometimes failed to appear.
 const ROLE_INFER_PATTERNS = [
+  // "招聘 X" / "我需要招聘 X" —— 最直接的招聘表述
+  // "招聘 X" / "我need to hire X" — most explicit hiring phrasing
   /(?:我需要招聘|我们需要招聘|需要招聘|招聘)\s*([^，。；\n]{1,24})/,
-  /(?:我需要|我们需要|需要)\s*([^，。；\n]{1,24})(?:岗位|职位|方向|人员)?/,
+  // "我需要 X" 类句式，必须以 岗位/职位/方向/人员/工程师/开发 等岗位后缀结尾，
+  // 否则 "我需要分析这份简历" 这种句子会被误判为招聘意图。
+  // "我需要 X" variants — suffix is mandatory so that "我需要分析这份简历" no
+  // longer slips through.
+  /(?:我需要|我们需要|需要)\s*([^，。；\n]{1,24}?)(?:岗位|职位|方向|人员|工程师|开发|的人)/,
 ];
 const ROLE_STRIP_TERMS_REGEX = /(一名|一位|一个|若干|岗位|职位|方向|人员|的)/g;
 
@@ -62,12 +63,6 @@ export function inferRoleFromText(text: string): string | null {
 
   if (!normalized) {
     return null;
-  }
-
-  for (const item of ROLE_KEYWORD_MAP) {
-    if (item.keyword.test(normalized)) {
-      return item.role;
-    }
   }
 
   for (const pattern of ROLE_INFER_PATTERNS) {
