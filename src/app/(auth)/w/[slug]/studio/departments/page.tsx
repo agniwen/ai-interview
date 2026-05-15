@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
-import { resolveActiveOrganization } from "@/lib/server/auth-session";
+import { resolveOrganizationBySlug } from "@/lib/server/auth-session";
 import { listDepartments } from "@/server/routes/studio/routes/departments/dao";
 import { DepartmentManagementPage } from "./_components/department-management-page";
 
@@ -9,9 +9,14 @@ export const metadata: Metadata = {
   title: "部门管理",
 };
 
-export default async function StudioDepartmentsPage() {
+export default async function StudioDepartmentsPage({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}) {
   await connection();
-  const activeOrg = await resolveActiveOrganization();
+  const { slug } = await params;
+  const activeOrg = await resolveOrganizationBySlug(slug);
   if (!activeOrg) {
     notFound();
   }

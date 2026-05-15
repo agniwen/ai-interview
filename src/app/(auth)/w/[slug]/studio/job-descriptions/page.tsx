@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
-import { resolveActiveOrganization } from "@/lib/server/auth-session";
+import { resolveOrganizationBySlug } from "@/lib/server/auth-session";
 import { listAllDepartments } from "@/server/routes/studio/routes/departments/dao";
 import { listAllInterviewers } from "@/server/routes/studio/routes/interviewers/dao";
 import {
@@ -14,9 +14,14 @@ export const metadata: Metadata = {
   title: "在招岗位管理",
 };
 
-export default async function StudioJobDescriptionsPage() {
+export default async function StudioJobDescriptionsPage({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}) {
   await connection();
-  const activeOrg = await resolveActiveOrganization();
+  const { slug } = await params;
+  const activeOrg = await resolveOrganizationBySlug(slug);
   if (!activeOrg) {
     notFound();
   }

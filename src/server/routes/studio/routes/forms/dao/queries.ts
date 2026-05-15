@@ -383,7 +383,7 @@ export async function listCandidateFormTemplates(
   pagination?: Record<string, unknown>,
 ) {
   "use cache";
-  cacheTag("candidate-form-templates");
+  cacheTag(`candidate-form-templates:${organizationId}`);
   cacheLife("minutes");
 
   return queryPaginatedCandidateFormTemplates(organizationId, filters, pagination);
@@ -394,7 +394,7 @@ export async function listAllCandidateFormTemplates(
   organizationId: string,
 ): Promise<CandidateFormTemplateListRecord[]> {
   "use cache";
-  cacheTag("candidate-form-templates");
+  cacheTag(`candidate-form-templates:${organizationId}`);
   cacheLife("minutes");
 
   const rows = await listTemplateRows({ organizationId, sortBy: "title", sortOrder: "asc" });

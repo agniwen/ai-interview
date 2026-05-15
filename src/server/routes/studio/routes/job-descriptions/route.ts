@@ -156,8 +156,8 @@ export const jobDescriptionsRouter = factory
         );
       });
 
-      safeUpdateTag("job-descriptions");
-      safeUpdateTag("interviewers");
+      safeUpdateTag(`job-descriptions:${activeOrg.id}`);
+      safeUpdateTag(`interviewers:${activeOrg.id}`);
 
       return c.json(serializeJobDescription(record, interviewerIds), 201);
     },
@@ -226,8 +226,8 @@ export const jobDescriptionsRouter = factory
         );
       });
 
-      safeUpdateTag("job-descriptions");
-      safeUpdateTag("interviewers");
+      safeUpdateTag(`job-descriptions:${activeOrg.id}`);
+      safeUpdateTag(`interviewers:${activeOrg.id}`);
       const updated = await loadJobDescriptionById(activeOrg.id, id);
       return c.json(updated, 200);
     },
@@ -247,8 +247,8 @@ export const jobDescriptionsRouter = factory
     await db
       .delete(jobDescription)
       .where(and(eq(jobDescription.id, id), eq(jobDescription.organizationId, activeOrg.id)));
-    safeUpdateTag("job-descriptions");
-    safeUpdateTag("studio-interviews");
-    safeUpdateTag("interviewers");
+    safeUpdateTag(`job-descriptions:${activeOrg.id}`);
+    safeUpdateTag(`studio-interviews:${activeOrg.id}`);
+    safeUpdateTag(`interviewers:${activeOrg.id}`);
     return c.json({ success: true }, 200);
   });

@@ -123,7 +123,7 @@ export async function loadResumeLibraryMetrics(
   organizationId: string,
 ): Promise<ResumeLibraryMetrics> {
   "use cache";
-  cacheTag("studio-resumes");
+  cacheTag(`studio-resumes:${organizationId}`);
   cacheLife("minutes");
   return queryResumeLibraryMetrics(organizationId);
 }

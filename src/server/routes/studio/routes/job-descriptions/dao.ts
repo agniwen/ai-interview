@@ -347,7 +347,7 @@ export async function listJobDescriptions(
   pagination?: Record<string, unknown>,
 ) {
   "use cache";
-  cacheTag("job-descriptions");
+  cacheTag(`job-descriptions:${organizationId}`);
   cacheLife("minutes");
 
   return queryPaginatedJobDescriptions(organizationId, filters, pagination);
@@ -358,7 +358,7 @@ export async function listAllJobDescriptions(
   organizationId: string,
 ): Promise<JobDescriptionListRecord[]> {
   "use cache";
-  cacheTag("job-descriptions");
+  cacheTag(`job-descriptions:${organizationId}`);
   cacheLife("minutes");
 
   const rows = await listJobDescriptionRows({ organizationId, sortBy: "name", sortOrder: "asc" });
@@ -555,8 +555,8 @@ export async function loadJobDescriptionMetrics(
   organizationId: string,
 ): Promise<JobDescriptionMetrics> {
   "use cache";
-  cacheTag("job-descriptions");
-  cacheTag("studio-resumes");
+  cacheTag(`job-descriptions:${organizationId}`);
+  cacheTag(`studio-resumes:${organizationId}`);
   cacheLife("minutes");
   return queryJobDescriptionMetrics(organizationId);
 }

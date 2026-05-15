@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
-import { resolveActiveOrganization } from "@/lib/server/auth-session";
+import { resolveOrganizationBySlug } from "@/lib/server/auth-session";
 import { listInterviewQuestionTemplates } from "@/server/routes/studio/routes/interview-questions/dao/queries";
 import { listAllJobDescriptions } from "@/server/routes/studio/routes/job-descriptions/dao";
 import { InterviewQuestionTemplateManagementPage } from "./_components/interview-question-template-management-page";
@@ -10,9 +10,14 @@ export const metadata: Metadata = {
   title: "面试题",
 };
 
-export default async function StudioInterviewQuestionTemplatesPage() {
+export default async function StudioInterviewQuestionTemplatesPage({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}) {
   await connection();
-  const activeOrg = await resolveActiveOrganization();
+  const { slug } = await params;
+  const activeOrg = await resolveOrganizationBySlug(slug);
   if (!activeOrg) {
     notFound();
   }

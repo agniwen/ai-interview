@@ -133,7 +133,7 @@ export const interviewQuestionTemplatesRouter = factory
         }
       });
 
-      safeUpdateTag("interview-question-templates");
+      safeUpdateTag(`interview-question-templates:${activeOrg.id}`);
       const created = await loadInterviewQuestionTemplateById(activeOrg.id, templateId);
       return c.json(created, 201);
     },
@@ -209,7 +209,7 @@ export const interviewQuestionTemplatesRouter = factory
         }
       });
 
-      safeUpdateTag("interview-question-templates");
+      safeUpdateTag(`interview-question-templates:${activeOrg.id}`);
       const updated = await loadInterviewQuestionTemplateById(activeOrg.id, id);
       return c.json(updated, 200);
     },
@@ -231,7 +231,7 @@ export const interviewQuestionTemplatesRouter = factory
     }
 
     await db.delete(interviewQuestionTemplate).where(eq(interviewQuestionTemplate.id, id));
-    safeUpdateTag("interview-question-templates");
+    safeUpdateTag(`interview-question-templates:${activeOrg.id}`);
     return c.json({ success: true }, 200);
   })
   .get("/:id/versions/:versionId", requirePermission("questionTemplate", "read"), async (c) => {

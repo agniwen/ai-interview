@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
-import { resolveActiveOrganization } from "@/lib/server/auth-session";
+import { resolveOrganizationBySlug } from "@/lib/server/auth-session";
 import { getGlobalConfig } from "@/server/routes/studio/routes/global-config/dao";
 import { GlobalConfigForm } from "./_components/global-config-form";
 
@@ -9,9 +9,14 @@ export const metadata: Metadata = {
   title: "全局配置",
 };
 
-export default async function StudioGlobalConfigPage() {
+export default async function StudioGlobalConfigPage({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}) {
   await connection();
-  const activeOrg = await resolveActiveOrganization();
+  const { slug } = await params;
+  const activeOrg = await resolveOrganizationBySlug(slug);
   if (!activeOrg) {
     notFound();
   }

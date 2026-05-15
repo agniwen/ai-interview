@@ -142,7 +142,7 @@ export const candidateFormsRouter = factory
         }
       });
 
-      safeUpdateTag("candidate-form-templates");
+      safeUpdateTag(`candidate-form-templates:${activeOrg.id}`);
       const created = await loadCandidateFormTemplateById(activeOrg.id, templateId);
       return c.json(created, 201);
     },
@@ -218,7 +218,7 @@ export const candidateFormsRouter = factory
         }
       });
 
-      safeUpdateTag("candidate-form-templates");
+      safeUpdateTag(`candidate-form-templates:${activeOrg.id}`);
       const updated = await loadCandidateFormTemplateById(activeOrg.id, id);
       return c.json(updated, 200);
     },
@@ -244,7 +244,7 @@ export const candidateFormsRouter = factory
     }
 
     await db.delete(candidateFormTemplate).where(eq(candidateFormTemplate.id, id));
-    safeUpdateTag("candidate-form-templates");
+    safeUpdateTag(`candidate-form-templates:${activeOrg.id}`);
     return c.json({ success: true }, 200);
   })
   .get(

@@ -217,7 +217,7 @@ export async function listDepartments(
   pagination?: Record<string, unknown>,
 ) {
   "use cache";
-  cacheTag("departments");
+  cacheTag(`departments:${filters.organizationId}`);
   cacheLife("minutes");
 
   return queryPaginatedDepartments(filters, pagination);
@@ -227,7 +227,7 @@ export async function listDepartments(
 // oxlint-disable-next-line require-await
 export async function listAllDepartments(organizationId: string): Promise<DepartmentRecord[]> {
   "use cache";
-  cacheTag("departments");
+  cacheTag(`departments:${organizationId}`);
   cacheLife("minutes");
 
   const rows = await db

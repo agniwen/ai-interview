@@ -212,7 +212,7 @@ export const resumeLibraryRouter = factory
         return c.json({ error: result.error }, { status: result.status as ContentfulStatusCode });
       }
 
-      invalidateStudioInterviewCaches();
+      invalidateStudioInterviewCaches(activeOrg.id);
       const detail = await loadInterviewRoundDetail(scheduleRow.id, activeOrg.id);
       return c.json(detail, 201);
     },
@@ -335,7 +335,7 @@ export const resumeLibraryRouter = factory
 
       await db.insert(studioInterview).values(row);
 
-      invalidateStudioInterviewCaches();
+      invalidateStudioInterviewCaches(activeOrg.id);
       const detail = await loadResumeDetail(recordId, activeOrg.id);
       return c.json(detail, 201);
     } catch (error) {
@@ -422,7 +422,7 @@ export const resumeLibraryRouter = factory
         .set(update)
         .where(and(eq(studioInterview.id, id), eq(studioInterview.organizationId, activeOrg.id)));
 
-      invalidateStudioInterviewCaches();
+      invalidateStudioInterviewCaches(activeOrg.id);
       const detail = await loadResumeDetail(id, activeOrg.id);
       return c.json(detail, 200);
     } catch (error) {
@@ -443,7 +443,7 @@ export const resumeLibraryRouter = factory
     if (result.length === 0) {
       return c.json({ error: "记录不存在。" }, 404);
     }
-    invalidateStudioInterviewCaches();
+    invalidateStudioInterviewCaches(activeOrg.id);
     return c.json({ success: true }, 200);
   })
   .post(
@@ -472,7 +472,7 @@ export const resumeLibraryRouter = factory
         )
         .returning({ id: studioInterview.id });
 
-      invalidateStudioInterviewCaches();
+      invalidateStudioInterviewCaches(activeOrg.id);
       return c.json({ deletedCount: result.length, success: true }, 200);
     },
   );

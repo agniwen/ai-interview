@@ -385,7 +385,7 @@ export async function listInterviewQuestionTemplates(
   pagination?: Record<string, unknown>,
 ) {
   "use cache";
-  cacheTag("interview-question-templates");
+  cacheTag(`interview-question-templates:${organizationId}`);
   cacheLife("minutes");
 
   return queryPaginatedInterviewQuestionTemplates(organizationId, filters, pagination);
@@ -396,7 +396,7 @@ export async function listAllInterviewQuestionTemplates(
   organizationId: string,
 ): Promise<InterviewQuestionTemplateListRecord[]> {
   "use cache";
-  cacheTag("interview-question-templates");
+  cacheTag(`interview-question-templates:${organizationId}`);
   cacheLife("minutes");
 
   const rows = await listTemplateRows({ organizationId, sortBy: "title", sortOrder: "asc" });

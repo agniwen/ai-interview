@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import { InterviewManagementPage } from "@/app/(auth)/w/[slug]/studio/interviews/_components/interview-management-page";
-import { resolveActiveOrganization } from "@/lib/server/auth-session";
+import { resolveOrganizationBySlug } from "@/lib/server/auth-session";
 import {
   listInterviewRounds,
   summarizeInterviewRoundCounts,
@@ -12,9 +12,14 @@ export const metadata: Metadata = {
   title: "AI 面试",
 };
 
-export default async function StudioInterviewsPage() {
+export default async function StudioInterviewsPage({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}) {
   await connection();
-  const activeOrg = await resolveActiveOrganization();
+  const { slug } = await params;
+  const activeOrg = await resolveOrganizationBySlug(slug);
   if (!activeOrg) {
     notFound();
   }

@@ -264,7 +264,11 @@ export const agentRouter = factory
       });
     });
 
-    safeUpdateTag("studio-interviews");
+    // studio-interviews 已按 org 隔离（见 cache-tags.ts）；interview-conversations
+    // 仍是全局 + record-id 两条，本来就足够 specific 无需 org 后缀。
+    // studio-interviews is org-scoped now; interview-conversations stays
+    // global + record-id (already specific enough).
+    safeUpdateTag(`studio-interviews:${orgId}`);
     safeUpdateTag("interview-conversations");
     safeUpdateTag(`interview-conversations-${data.interviewRecordId}`);
 

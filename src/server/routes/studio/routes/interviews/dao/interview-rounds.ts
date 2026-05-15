@@ -210,7 +210,7 @@ export async function listInterviewRounds(
   pagination?: Record<string, unknown>,
 ) {
   "use cache";
-  cacheTag("studio-interviews");
+  cacheTag(`studio-interviews:${organizationId}`);
   cacheLife("minutes");
   return queryPaginatedInterviewRounds(organizationId, filters, pagination);
 }

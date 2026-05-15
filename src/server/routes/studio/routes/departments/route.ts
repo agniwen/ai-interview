@@ -77,7 +77,7 @@ export const departmentsRouter = factory
       } satisfies typeof department.$inferInsert;
 
       await db.insert(department).values(record);
-      safeUpdateTag("departments");
+      safeUpdateTag(`departments:${activeOrg.id}`);
 
       return c.json(serializeDepartment(record), 201);
     },
@@ -120,7 +120,7 @@ export const departmentsRouter = factory
         })
         .where(and(eq(department.id, id), eq(department.organizationId, activeOrg.id)));
 
-      safeUpdateTag("departments");
+      safeUpdateTag(`departments:${activeOrg.id}`);
       const updated = await loadDepartmentById(id, activeOrg.id);
       return c.json(updated, 200);
     },
@@ -144,6 +144,6 @@ export const departmentsRouter = factory
     await db
       .delete(department)
       .where(and(eq(department.id, id), eq(department.organizationId, activeOrg.id)));
-    safeUpdateTag("departments");
+    safeUpdateTag(`departments:${activeOrg.id}`);
     return c.json({ success: true }, 200);
   });

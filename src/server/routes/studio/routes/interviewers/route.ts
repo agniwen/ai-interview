@@ -99,7 +99,7 @@ export const interviewersRouter = factory
       } satisfies typeof interviewer.$inferInsert;
 
       await db.insert(interviewer).values(record);
-      safeUpdateTag("interviewers");
+      safeUpdateTag(`interviewers:${activeOrg.id}`);
 
       return c.json(serializeInterviewer(record), 201);
     },
@@ -152,7 +152,7 @@ export const interviewersRouter = factory
         })
         .where(and(eq(interviewer.id, id), eq(interviewer.organizationId, activeOrg.id)));
 
-      safeUpdateTag("interviewers");
+      safeUpdateTag(`interviewers:${activeOrg.id}`);
       const updated = await loadInterviewerById(id, activeOrg.id);
       return c.json(updated, 200);
     },
@@ -176,6 +176,6 @@ export const interviewersRouter = factory
     await db
       .delete(interviewer)
       .where(and(eq(interviewer.id, id), eq(interviewer.organizationId, activeOrg.id)));
-    safeUpdateTag("interviewers");
+    safeUpdateTag(`interviewers:${activeOrg.id}`);
     return c.json({ success: true }, 200);
   });

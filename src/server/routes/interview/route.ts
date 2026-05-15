@@ -34,7 +34,7 @@ import {
   loadCandidateFormTemplateVersionById,
   resolveOrCreateTemplateVersion,
 } from "@/server/routes/studio/routes/forms/dao/versions";
-import { safeUpdateTag } from "@/server/cache-tags";
+import { lookupOrgIdByInterviewRecord, safeUpdateTag } from "@/server/cache-tags";
 import {
   buildTokenErrorResponse,
   loadCandidateInterviewRecord,
@@ -634,7 +634,14 @@ export const interviewRouter = factory
               updatedAt: now,
             })
             .where(eq(studioInterviewSchedule.id, roundId));
-          safeUpdateTag("studio-interviews");
+          // 候选人侧路由没有 activeOrg，反查 interview record 拿 orgId。
+          // 找不到时跳过失效（约定见 cache-tags.ts），等 cacheLife 自然过期。
+          // Candidate-side route has no activeOrg; reverse-lookup org from the
+          // interview record. Skip invalidation on miss; cacheLife will refresh.
+          const orgId = await lookupOrgIdByInterviewRecord(entry.interviewRecordId);
+          if (orgId) {
+            safeUpdateTag(`studio-interviews:${orgId}`);
+          }
         }
         return c.json({ success: true }, 200);
       }
@@ -663,7 +670,12 @@ export const interviewRouter = factory
         }
       });
 
-      safeUpdateTag("studio-interviews");
+      // 候选人侧路由没有 activeOrg —— 反查 org 拼 org-scoped tag。
+      // Reverse-lookup orgId on the candidate-side path; tag is org-scoped now.
+      const completedOrgId = await lookupOrgIdByInterviewRecord(entry.interviewRecordId);
+      if (completedOrgId) {
+        safeUpdateTag(`studio-interviews:${completedOrgId}`);
+      }
       return c.json({ success: true }, 200);
     },
   );

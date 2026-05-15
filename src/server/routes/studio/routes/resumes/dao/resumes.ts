@@ -178,7 +178,7 @@ export async function listResumeRecords(
   pagination?: Partial<Pagination>,
 ) {
   "use cache";
-  cacheTag("studio-resumes");
+  cacheTag(`studio-resumes:${organizationId}`);
   cacheLife("minutes");
   return queryPaginatedResumeRecords(organizationId, filters, pagination);
 }

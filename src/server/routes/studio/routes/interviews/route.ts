@@ -217,7 +217,7 @@ export const studioInterviewsRouter = factory
         await autoBindApplicableTemplates(tx, interviewRecordId, record.jobDescriptionId);
       });
 
-      invalidateStudioInterviewCaches();
+      invalidateStudioInterviewCaches(activeOrg.id);
       // POST / 返回新建轮次的完整 detail，供简历库 onCreated 直接使用。
       // Return the first round's full detail so the resume library onCreated can use it directly.
       const firstRoundId = scheduleRows[0]?.id;
@@ -576,7 +576,7 @@ export const studioInterviewsRouter = factory
         return c.json({ error: "记录不存在。" }, 404);
       }
 
-      invalidateStudioInterviewCaches();
+      invalidateStudioInterviewCaches(activeOrg.id);
       const detail = await loadInterviewRoundDetail(roundId, activeOrg.id);
       return c.json(detail, 200);
     },
@@ -728,7 +728,7 @@ export const studioInterviewsRouter = factory
       });
     });
 
-    invalidateStudioInterviewCaches();
+    invalidateStudioInterviewCaches(activeOrg.id);
     safeUpdateTag("interview-conversations");
     const detail = await loadInterviewRoundDetail(roundId, activeOrg.id);
     return c.json(detail, 200);
@@ -752,7 +752,7 @@ export const studioInterviewsRouter = factory
     if (result.length === 0) {
       return c.json({ error: "记录不存在。" }, 404);
     }
-    invalidateStudioInterviewCaches();
+    invalidateStudioInterviewCaches(activeOrg.id);
     return c.json({ success: true }, 200);
   })
   .post(
@@ -779,7 +779,7 @@ export const studioInterviewsRouter = factory
           ),
         )
         .returning({ id: studioInterviewSchedule.id });
-      invalidateStudioInterviewCaches();
+      invalidateStudioInterviewCaches(activeOrg.id);
       return c.json({ deletedCount: result.length, success: true }, 200);
     },
   );

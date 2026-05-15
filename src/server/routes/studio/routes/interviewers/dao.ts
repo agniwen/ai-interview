@@ -239,7 +239,7 @@ export async function listInterviewers(
   pagination?: Record<string, unknown>,
 ) {
   "use cache";
-  cacheTag("interviewers");
+  cacheTag(`interviewers:${organizationId}`);
   cacheLife("minutes");
 
   return queryPaginatedInterviewers(organizationId, filters, pagination);
@@ -250,7 +250,7 @@ export async function listAllInterviewers(
   organizationId: string,
 ): Promise<InterviewerListRecord[]> {
   "use cache";
-  cacheTag("interviewers");
+  cacheTag(`interviewers:${organizationId}`);
   cacheLife("minutes");
 
   const rows = await db
