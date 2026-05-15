@@ -33,7 +33,13 @@ export default function InviteAcceptPage({ params }: { params: Promise<{ token: 
     }
     const orgId = data.invitation.organizationId;
     await authClient.organization.setActive({ organizationId: orgId });
-    router.push("/");
+    // 新加入的成员在 studio/resumes 看到的是空列表，体验割裂；让他们直接落到 chat，
+    // 跟 home shell "开始简历筛选" CTA 共用同一套 ?goto= 分流，
+    // 由根路径 page.tsx 解析活跃 workspace 后转到 /w/[slug]/chat。
+    // New members would land on an empty resume table in studio — jarring. Route
+    // them straight to chat, sharing the home-shell "begin screening" CTA's
+    // ?goto= dispatcher; root page.tsx resolves the active workspace.
+    router.push("/?goto=chat");
   }
 
   async function onReject() {

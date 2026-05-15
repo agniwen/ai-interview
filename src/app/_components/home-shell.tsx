@@ -21,14 +21,16 @@ export default function HomeShell() {
   const { isPending, navigate, pendingPath, setPendingPath } = useProtectedNavigation();
 
   const callbackURL = useMemo(() => pendingPath ?? "/", [pendingPath]);
-  // chat 已挂在 /w/[slug]/chat 下,这里无法知道目标 workspace;
-  // 走根路径,由 src/app/page.tsx 解析活跃 workspace 后转到 /w/[slug]。
-  // Chat now lives under /w/[slug]/chat; we don't know the target workspace
-  // here, so route through `/` and let the root page redirect to /w/[slug].
-  const onResumeFiltering = () => navigate("/");
-  // 工作台跳到根路径，由 src/app/page.tsx 解析当前用户活跃 workspace 后转到
-  // /w/[slug]/studio/interviews;避免在这里硬编已经废弃的 /studio/interviews 路径。
-  const onWorkbench = () => navigate("/");
+  // 客户端拿不到活跃 workspace slug，所以两条 CTA 都先走根路径，把意图通过 ?goto=
+  // 透传给 src/app/page.tsx，由它在服务端解析 workspace 后分别落到 chat / studio。
+  // 这套同时覆盖未登录回跳：sign-in 弹窗的 callbackURL 也是带 goto 的根路径，
+  // 登录完成后 page.tsx 仍能按 goto 路由。
+  // The client doesn't know the active workspace slug. Both CTAs route through
+  // `/` carrying intent via `?goto=`, and src/app/page.tsx resolves the
+  // workspace + redirects to chat / studio accordingly. This also survives the
+  // sign-in dialog round-trip because callbackURL preserves the query string.
+  const onResumeFiltering = () => navigate("/?goto=chat");
+  const onWorkbench = () => navigate("/?goto=studio");
 
   return (
     <>
@@ -71,7 +73,9 @@ export default function HomeShell() {
         onOpenChange={(open) => !open && setPendingPath(null)}
         open={pendingPath !== null}
         title={
-          pendingPath === "/" ? "登录后即可使用 AI Recruitment Copilot" : "登录后即可进入简历筛选"
+          pendingPath?.includes("goto=chat")
+            ? "登录后即可进入简历筛选"
+            : "登录后即可使用 AI Recruitment Copilot"
         }
       />
     </>
