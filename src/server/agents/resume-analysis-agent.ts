@@ -7,8 +7,12 @@ import { stepCountIs } from "ai";
 import { generatedInterviewQuestionsSchema } from "@/lib/shared/interview/types";
 import { parseResumeFast } from "@/lib/server/resume-parse-pipeline";
 import type { ResumeTextSource } from "@/lib/server/resume-parse-pipeline";
+import { buildAttachmentKeyByHash, putObjectBytes } from "@/lib/server/s3";
 import { sha256HexOfBytes } from "@/lib/shared/file-hash";
-import { findAttachmentByContentHash } from "@/server/routes/chat/dao/chat-attachments";
+import {
+  createAttachment,
+  findAttachmentByContentHash,
+} from "@/server/routes/chat/dao/chat-attachments";
 import { parseJsonOutput } from "./json-output";
 import { createResumeAgent } from "./resume-agent";
 import {
@@ -175,6 +179,69 @@ export interface ResumeParseResult {
   resumeProfile: ResumeProfile;
 }
 
+export interface StreamParseResumeContext {
+  /**
+   * 当前会话的 userId / activeOrganizationId。提供这两个值才会在 cache miss
+   * 时把解析结果回写 chat_attachment 注册表 + S3，否则只返回解析结果不落表。
+   * Provide both to populate the chat_attachment registry + S3 on cache miss;
+   * omit to keep this endpoint side-effect-free.
+   */
+  userId: string;
+  organizationId: string | null;
+}
+
+/**
+ * 在 parseResumeFast 成功后把解析结果回写 chat_attachment + S3，使后续
+ * /chat/uploads 与 storeInterviewResume 在同一份 PDF 上都能命中 hash cache。
+ * 任何失败都吞掉只 log —— /parse-resume 的本职是把 profile 还给客户端，缓存
+ * 写入是顺手副作用，不应让它阻塞主流程。
+ *
+ * Persist the parse result into chat_attachment + S3 after a successful
+ * parseResumeFast so subsequent chat uploads / studio saves hit the hash
+ * cache. Failures are swallowed and logged — populating the cache is a
+ * best-effort side effect of /parse-resume and must not block the response.
+ */
+async function persistParseToRegistry(args: {
+  bytes: Uint8Array;
+  contentHash: string;
+  file: File;
+  fast: Awaited<ReturnType<typeof parseResumeFast>>;
+  context: StreamParseResumeContext;
+}): Promise<void> {
+  if (!args.context.organizationId) {
+    return;
+  }
+  try {
+    const storageKey = await buildAttachmentKeyByHash(args.contentHash, "pdf");
+    // 顺序而非并行：S3 PUT 失败时不写 DB，避免注册表里出现指向不存在 key 的行。
+    // Sequential (not Promise.all) so a failed S3 PUT skips the DB insert and
+    // we never leave a registry row pointing at a missing storage key.
+    await putObjectBytes({
+      body: args.bytes,
+      contentType: args.file.type || "application/pdf",
+      storageKey,
+    });
+    await createAttachment({
+      contentHash: args.contentHash,
+      filename: args.file.name.slice(0, 255) || "resume.pdf",
+      id: crypto.randomUUID(),
+      mediaType: args.file.type || "application/pdf",
+      organizationId: args.context.organizationId,
+      parsedAt: new Date(),
+      parsedPageCount: args.fast.pageCount,
+      parsedStatus: "ready",
+      parsedStructured: args.fast.structured,
+      parsedText: args.fast.text,
+      parsedTextSource: args.fast.textSource,
+      size: args.bytes.byteLength,
+      storageKey,
+      userId: args.context.userId,
+    });
+  } catch (error) {
+    console.error("[parse-resume] failed to populate chat_attachment cache", error);
+  }
+}
+
 /**
  * Stage 1: Parse a PDF resume and extract structured profile information.
  *
@@ -183,8 +250,15 @@ export interface ResumeParseResult {
  * AnalysisStreamEvent progress events, then validates the final JSON against
  * the subagent's superset schema and projects it down to `ResumeProfile` via
  * `toResumeProfile`.
+ *
+ * When `context` is supplied, the parse result is also persisted into the
+ * shared chat_attachment registry on a cache miss so that later studio saves
+ * and chat uploads of the same file hit the hash cache instead of re-parsing.
  */
-export function streamParseResumeProfile(file: File): ReadableStream<Uint8Array> {
+export function streamParseResumeProfile(
+  file: File,
+  context?: StreamParseResumeContext,
+): ReadableStream<Uint8Array> {
   validateResumeFile(file);
 
   return createNdjsonStream(async (emit) => {
@@ -215,6 +289,10 @@ export function streamParseResumeProfile(file: File): ReadableStream<Uint8Array>
     emit({ index: 2, type: "step" });
     emit({ name: PARSE_STAGE_LABELS.structured, type: "tool-start" });
     emit({ name: PARSE_STAGE_LABELS.structured, type: "tool-end" });
+
+    if (context) {
+      await persistParseToRegistry({ bytes, contentHash, context, fast, file });
+    }
 
     const result: ResumeParseResult = {
       fileName: file.name,

@@ -8,7 +8,10 @@ import { studioInterview, studioInterviewSchedule } from "@/lib/shared/db/schema
 import { resumeLibraryFormSchema } from "@/lib/shared/studio-resumes";
 import { invalidateStudioInterviewCaches } from "@/server/cache-tags";
 import { factory, jsonValidatorError } from "@/server/factory";
-import { parseResumeFastToProfile } from "@/server/agents/resume-analysis-agent";
+import {
+  parseResumeFastToProfile,
+  validateResumeFile,
+} from "@/server/agents/resume-analysis-agent";
 import { requirePermission } from "@/server/middlewares/permission";
 import {
   loadResumeDetail,
@@ -267,6 +270,14 @@ export const resumeLibraryRouter = factory
     try {
       const formData = await c.req.formData();
       const resume = normalizeResumeFile(formData.get("resume"));
+      // 显式前置校验：原先依赖 parseResumeFastToProfile 顺手做的 PDF / 20MB 检查，
+      // 但客户端送了 resumePayload 或注册表命中时会跳过解析，那条校验就被绕过了。
+      // Explicit upfront validation — parseResumeFastToProfile used to be the
+      // gatekeeper, but client-supplied resumePayload or registry hits bypass
+      // it, letting non-PDF / oversized files slip through.
+      if (resume) {
+        validateResumeFile(resume);
+      }
       const parsedResumePayload = parseResumePayloadInput(formData.get("resumePayload"));
 
       const input = parseListFormInput(formData);
@@ -347,6 +358,12 @@ export const resumeLibraryRouter = factory
 
       const formData = await c.req.formData();
       const resume = normalizeResumeFile(formData.get("resume"));
+      // 与 POST 对齐：在任何短路路径（缓存命中）之前先把 PDF / 20MB 校验显式跑掉。
+      // Mirror POST — run the PDF / size gate before any short-circuit path
+      // (e.g. registry cache hit) skips the parser.
+      if (resume) {
+        validateResumeFile(resume);
+      }
       const input = parseListFormInput(formData);
       if (!input.success) {
         return c.json({ error: input.error.issues[0]?.message ?? "表单校验失败。" }, 400);
@@ -367,8 +384,16 @@ export const resumeLibraryRouter = factory
       const resumeContentHash = uploadResult?.contentHash ?? null;
 
       if (resume) {
-        const parsed = await parseResumeFastToProfile(resume);
-        resumeProfile = uploadResult?.cachedResumeProfile ?? parsed.resumeProfile;
+        // 命中注册表时 storeInterviewResume 已经返回 cachedResumeProfile，不再
+        // 无条件再跑一次 parseResumeFastToProfile —— 行为对齐 POST。
+        // When the registry hits, storeInterviewResume already returned a
+        // cached profile; skip the redundant parse to match POST semantics.
+        let nextResumeProfile = uploadResult?.cachedResumeProfile ?? null;
+        if (!nextResumeProfile) {
+          const parsed = await parseResumeFastToProfile(resume);
+          nextResumeProfile = parsed.resumeProfile;
+        }
+        resumeProfile = nextResumeProfile;
         resumeFileName = resume.name;
       }
 

@@ -51,8 +51,21 @@ export const interviewRouter = factory
       return c.json({ error: "缺少简历 PDF 文件。" }, 400);
     }
 
+    // 把 userId + activeOrganizationId 透传给流式解析器；缺任意一个就跳过缓存写入。
+    // 这里不挂 workspace 中间件，所以从 session 直接读 activeOrganizationId（与
+    // resume chat 路由的取法保持一致）。
+    // Forward userId + activeOrganizationId so the streamer can populate the
+    // chat_attachment registry on cache miss. We read activeOrganizationId off
+    // the session directly (no workspace middleware on this route), matching
+    // how the resume chat router resolves it.
+    const userId = c.var.user?.id;
+    const organizationId =
+      (c.var.session as { activeOrganizationId?: string | null } | null)?.activeOrganizationId ??
+      null;
+    const context = userId ? { organizationId, userId } : undefined;
+
     try {
-      const stream = streamParseResumeProfile(resume);
+      const stream = streamParseResumeProfile(resume, context);
       return new Response(stream, {
         headers: {
           "Cache-Control": "no-cache",
