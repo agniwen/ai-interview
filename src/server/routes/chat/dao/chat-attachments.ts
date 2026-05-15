@@ -1,6 +1,6 @@
 import { structuredSchema } from "@/lib/shared/resume-parser-schema";
 import type { ResumeParserStructured } from "@/lib/shared/resume-parser-schema";
-import { and, eq, inArray, ne } from "drizzle-orm";
+import { and, eq, inArray, isNull, ne } from "drizzle-orm";
 import { db } from "@/lib/server/db";
 import { chatAttachment } from "@/lib/shared/db/schema";
 
@@ -122,6 +122,20 @@ export async function getUserAttachments(
   return new Map(rows.map((row) => [row.id, row]));
 }
 
+// 按 attachmentId 查 contentHash —— 给那些手头只有 attachmentId、需要触达"同 hash 全部行"
+// 的调用方用（典型场景：聊天里的 suggest_job_description 工具 on-demand 跑结构化后想回填）。
+// Look up the contentHash for an attachmentId — for callers that hold only an
+// id but need to fan out to all rows with the same hash (e.g. the chat-side
+// suggest_job_description tool backfilling structured data on demand).
+export async function findContentHashByAttachmentId(attachmentId: string): Promise<string | null> {
+  const [row] = await db
+    .select({ contentHash: chatAttachment.contentHash })
+    .from(chatAttachment)
+    .where(eq(chatAttachment.id, attachmentId))
+    .limit(1);
+  return row?.contentHash ?? null;
+}
+
 // 全局按内容哈希查 chat_attachment——任意一行命中即可作为 storageKey + 解析结果的复用源。
 // 排除 parsedStatus === "failed" 的行：失败的解析不应永久污染后续上传。
 // Global lookup by content hash; any matching row is a reuse source for storageKey + parsed*.
@@ -134,4 +148,26 @@ export async function findAttachmentByContentHash(hash: string): Promise<ChatAtt
     .where(and(eq(chatAttachment.contentHash, hash), ne(chatAttachment.parsedStatus, "failed")))
     .limit(1);
   return row ?? null;
+}
+
+// 按 hash 回填结构化解析结果——只更新还没有 parsedStructured 的行。
+// 同一 hash 下可能有多个用户各自的行（chat 上传时复制行），这里一次性惠及所有。
+// `WHERE parsedStructured IS NULL` 让并发 / 重复调用幂等：已经有值的行保持不变。
+// Backfill structured data by content hash — only rows missing parsedStructured.
+// Multiple per-user rows may share the same hash (chat upload duplicates rows on
+// hit), so a single UPDATE benefits all of them. The IS NULL guard keeps the
+// call idempotent under concurrent writes — rows that already have structured
+// data are left untouched.
+export async function updateStructuredByHash(
+  hash: string,
+  structured: ResumeParserStructured,
+): Promise<void> {
+  const sanitized = sanitizeParsedStructured(structured);
+  if (!sanitized) {
+    return;
+  }
+  await db
+    .update(chatAttachment)
+    .set({ parsedStructured: sanitized })
+    .where(and(eq(chatAttachment.contentHash, hash), isNull(chatAttachment.parsedStructured)));
 }

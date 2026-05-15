@@ -2,14 +2,23 @@ import type { ModelMessage, UIMessage } from "ai";
 import type { ResumeParserStructured } from "@/lib/shared/resume-parser-schema";
 
 /**
- * 已经在 message 里 baked 的简历解析结果，suggest_job_description 直接拿来用。
- * Pre-baked resume parse data already in the user message — used by
- * suggest_job_description without any OCR / DB roundtrip.
+ * 已经在 message 里 baked 的简历解析结果。
+ *
+ * chat 上传切到 OCR-only 之后，`parsedStructured` 可能为 null —— 上传时只跑了
+ * Qwen-VL OCR，结构化抽取被推迟到 `suggest_job_description` 工具真正需要时再做。
+ * `parsedText` 始终随 message 烤入，保证下游有 OCR 原文可用。
+ *
+ * Pre-baked resume parse data on a user message.
+ * After chat upload was switched to OCR-only, `parsedStructured` may be null —
+ * upload runs only Qwen-VL OCR; the structured extraction is deferred until
+ * `suggest_job_description` actually needs it. `parsedText` is always baked so
+ * downstream consumers have the OCR text as the primary source.
  */
 export interface BakedParsedResume {
   attachmentId: string;
   filename: string;
-  parsedStructured: ResumeParserStructured;
+  parsedStructured: ResumeParserStructured | null;
+  parsedText: string | null;
 }
 
 export const SERVER_TIME_ZONE = "Asia/Shanghai";

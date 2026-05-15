@@ -5,13 +5,14 @@ import type {
 } from "@/lib/shared/interview/types";
 import { stepCountIs } from "ai";
 import { generatedInterviewQuestionsSchema } from "@/lib/shared/interview/types";
-import { parseResumeFast } from "@/lib/server/resume-parse-pipeline";
+import { generateResumeStructured, parseResumeFast } from "@/lib/server/resume-parse-pipeline";
 import type { ResumeTextSource } from "@/lib/server/resume-parse-pipeline";
 import { buildAttachmentKeyByHash, putObjectBytes } from "@/lib/server/s3";
 import { sha256HexOfBytes } from "@/lib/shared/file-hash";
 import {
   createAttachment,
   findAttachmentByContentHash,
+  updateStructuredByHash,
 } from "@/server/routes/chat/dao/chat-attachments";
 import { parseJsonOutput } from "./json-output";
 import { createResumeAgent } from "./resume-agent";
@@ -27,8 +28,8 @@ import type { AnalysisStreamEvent } from "@/lib/shared/api-stream";
 export type { AnalysisStreamEvent };
 
 const PARSE_STAGE_LABELS = {
-  ocr: "Qwen-VL OCR 识别简历",
-  structured: "DeepSeek V4 Flash 提取结构化字段",
+  ocr: "OCR 识别简历",
+  structured: "提取结构化字段",
 } as const;
 
 function createNdjsonStream(
@@ -266,17 +267,42 @@ export function streamParseResumeProfile(
 
     const bytes = new Uint8Array(await file.arrayBuffer());
 
-    // 命中注册表：直接返回缓存的 ResumeProfile，跳过 OCR + 结构化两步。
-    // Registry hit: return cached ResumeProfile and skip OCR + structured stages.
+    // 命中注册表：三种情况按"能省多少跳过多少"的顺序处理。
+    //   A. 已有结构化 → OCR + 结构化两步全跳过。
+    //   B. 仅有 OCR 文本（chat 上传后未结构化）→ 只跑结构化一步，并回填同 hash 所有行。
+    //   C. 都没有 → 落到完整 parseResumeFast。
+    // Registry hit, three cases ordered by "skip as much as possible":
+    //   A. structured already cached → skip both OCR and structured stages.
+    //   B. only OCR text cached (chat upload path, no structured yet) → run
+    //      structured extraction alone, then backfill all rows sharing the hash.
+    //   C. nothing usable → fall through to the full parseResumeFast.
     const contentHash = await sha256HexOfBytes(bytes);
     const existing = await findAttachmentByContentHash(contentHash);
-    if (existing) {
+    if (existing?.parsedStructured) {
       const cached = projectAttachmentToResumeProfile(existing.parsedStructured);
       if (cached) {
         emit({ message: "命中已有简历缓存，跳过解析。", type: "status" });
         emit({ data: { fileName: file.name, resumeProfile: cached }, type: "result" });
         return;
       }
+    }
+    if (existing?.parsedText && existing.parsedText.trim().length > 0) {
+      emit({ message: "命中 OCR 缓存，仅跑结构化…", type: "status" });
+      emit({ index: 2, type: "step" });
+      emit({ name: PARSE_STAGE_LABELS.structured, type: "tool-start" });
+
+      const structured = await generateResumeStructured(existing.parsedText);
+      await updateStructuredByHash(contentHash, structured);
+
+      emit({ name: PARSE_STAGE_LABELS.structured, type: "tool-end" });
+      emit({
+        data: {
+          fileName: file.name,
+          resumeProfile: normalizeResumeProfile(toResumeProfile(structured)),
+        },
+        type: "result",
+      });
+      return;
     }
 
     emit({ index: 1, type: "step" });

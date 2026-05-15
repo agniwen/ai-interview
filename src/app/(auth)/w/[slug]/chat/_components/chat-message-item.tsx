@@ -90,7 +90,10 @@ export function ChatMessageItem({
     string,
     {
       filename: string;
-      parsedStructured: ResumeParserStructured;
+      // OCR-only 上传后 structured 可能为 null —— UI 在该形态下仅展示原文 tab。
+      // After OCR-only upload, structured may be null — the UI degrades to the
+      // raw-text tab only in that case.
+      parsedStructured: ResumeParserStructured | null;
       parsedText: string | null;
       parsedPageCount: number | null;
       parsedTextSource: AttachmentTextSource;
@@ -115,12 +118,26 @@ export function ChatMessageItem({
       (part as { type?: unknown }).type === "data-resume-parsed"
     ) {
       const { data } = part as { data: Record<string, unknown> };
-      if (data && typeof data.attachmentId === "string" && data.parsedStructured) {
+      // 只要拿到 attachmentId 就尝试收下：structured 可能为 null（chat 切到
+      // OCR-only 之后的常态），但 parsedText 通常在；只要至少有一种内容，UI
+      // 都能让用户看（"结构化"按钮内部会按存在性禁用对应 tab）。
+      // Accept entries as long as attachmentId is present. structured may be
+      // null (the post-OCR-only norm); the button itself disables the unmet
+      // tabs based on what data is available.
+      if (data && typeof data.attachmentId === "string") {
+        const structured =
+          data.parsedStructured && typeof data.parsedStructured === "object"
+            ? (data.parsedStructured as ResumeParserStructured)
+            : null;
+        const text = typeof data.parsedText === "string" ? data.parsedText : null;
+        if (!(structured || text)) {
+          continue;
+        }
         parsedByAttachmentId.set(data.attachmentId, {
           filename: typeof data.filename === "string" ? data.filename : "resume.pdf",
           parsedPageCount: typeof data.parsedPageCount === "number" ? data.parsedPageCount : null,
-          parsedStructured: data.parsedStructured as ResumeParserStructured,
-          parsedText: typeof data.parsedText === "string" ? data.parsedText : null,
+          parsedStructured: structured,
+          parsedText: text,
           parsedTextSource:
             data.parsedTextSource === "pdf-parse" || data.parsedTextSource === "qwen-ocr"
               ? data.parsedTextSource

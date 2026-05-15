@@ -1,5 +1,5 @@
 import { zValidator } from "@hono/zod-validator";
-import { parseResumeFast } from "@/lib/server/resume-parse-pipeline";
+import { parseResumeOcrOnly } from "@/lib/server/resume-parse-pipeline";
 import { buildAttachmentKeyByHash, putObjectBytes } from "@/lib/server/s3";
 import type { AttachmentParseStatus, AttachmentTextSource } from "@/lib/shared/db-enums";
 import { sha256HexOfBytes } from "@/lib/shared/file-hash";
@@ -188,14 +188,17 @@ export const uploadsRouter = factory
     const bytesForUpload = new Uint8Array(original);
     const bytesForParse = new Uint8Array(original);
 
-    // 上传与解析并行：解析成本通常被用户输入窗口掩盖。S3 失败致命；解析失败记录后
-    // 由 LLM 调用时按需兜底解析。
-    // Run S3 upload + resume parsing in parallel; the parse cost is normally
-    // hidden by the user's typing window. S3 failure is fatal; parse failure
-    // is recorded and falls back to lazy parsing at LLM call time.
+    // 上传与 OCR 并行：S3 失败致命；OCR 失败记录后由后续 LLM 调用兜底。
+    // chat 路径不在这里跑结构化抽取 —— 结构化由简历库的 storeInterviewResume
+    // 或聊天里的 suggest_job_description 工具按需触发，命中同 hash 时复用并回填。
+    // S3 upload + OCR in parallel. S3 failure is fatal; OCR failure is logged
+    // and falls back at LLM call time.
+    // The chat path no longer runs structured extraction here — that's deferred
+    // to studio's storeInterviewResume or the chat-side suggest_job_description
+    // tool, both of which backfill the cache by content hash when they do run.
     const [uploadOutcome, parseOutcome] = await Promise.allSettled([
       putObjectBytes({ body: bytesForUpload, contentType: file.type, storageKey }),
-      parseResumeFast(bytesForParse),
+      parseResumeOcrOnly(bytesForParse),
     ]);
 
     if (uploadOutcome.status === "rejected") {
@@ -209,7 +212,11 @@ export const uploadsRouter = factory
             parsedAt: new Date(),
             parsedPageCount: parseOutcome.value.pageCount,
             parsedStatus: "ready" as const,
-            parsedStructured: parseOutcome.value.structured,
+            // 故意留 null：结构化抽取 lazily 在真正需要时再跑（见 storeInterviewResume
+            // 和 suggest_job_description 的 on-demand 分支）。
+            // Intentionally null — structured extraction is deferred to whoever
+            // actually needs it (see storeInterviewResume / suggest_job_description).
+            parsedStructured: null,
             parsedText: parseOutcome.value.text,
             parsedTextSource: parseOutcome.value.textSource,
           }
@@ -220,7 +227,7 @@ export const uploadsRouter = factory
           };
 
     if (parseOutcome.status === "rejected") {
-      console.error("[chat] resume preparse failed (non-fatal)", parseOutcome.reason);
+      console.error("[chat] resume OCR failed (non-fatal)", parseOutcome.reason);
     }
 
     await createAttachment({
@@ -240,8 +247,11 @@ export const uploadsRouter = factory
         attachmentId,
         parsedPageCount: parseOutcome.status === "fulfilled" ? parseOutcome.value.pageCount : null,
         parsedStatus: parseFields.parsedStatus,
-        parsedStructured:
-          parseOutcome.status === "fulfilled" ? parseOutcome.value.structured : null,
+        // OCR-only：响应里 structured 总为 null；前端 ParsedResumeButton 与
+        // chat-message-item 已兼容这种形态。
+        // OCR-only path: structured is always null in the response; the
+        // ParsedResumeButton and chat-message-item already handle this case.
+        parsedStructured: null,
         parsedText: parseOutcome.status === "fulfilled" ? parseOutcome.value.text : null,
         parsedTextSource:
           parseOutcome.status === "fulfilled" ? parseOutcome.value.textSource : null,

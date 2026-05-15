@@ -1,8 +1,13 @@
 import { tool } from "ai";
 import { z } from "zod";
+import { generateResumeStructured } from "@/lib/server/resume-parse-pipeline";
 import { selectUploadedResumePdfs } from "@/lib/shared/resume-pdf";
 import { matchJobDescriptionForResume } from "@/server/agents/job-description-match-agent";
 import { toResumeProfile } from "@/server/agents/resume-parser-agent";
+import {
+  findContentHashByAttachmentId,
+  updateStructuredByHash,
+} from "@/server/routes/chat/dao/chat-attachments";
 import { listAllJobDescriptions } from "@/server/routes/studio/routes/job-descriptions/dao";
 import type { BakedParsedResume } from "./agent-helpers";
 
@@ -165,11 +170,51 @@ export function createSuggestJobDescriptionTool({
         return { status: "no-resume" as const };
       }
 
-      // 复用简历库那条单步 matcher —— 同一份 prompt、同一个模型、同一段摘要。
-      // 单 JD 时 matchJobDescriptionForResume 内部自带短路（不调 LLM）。
-      // Reuse the resume-library matcher — same prompt, same model, same
-      // summarizer. It also short-circuits internally when there's only one JD.
-      const profile = toResumeProfile(primaryResume.parsedStructured);
+      // ResumeProfile 是 matcher 必需的输入。三分支处理：
+      //   - 烤入消息时已有 structured（老路径，或前次 on-demand 跑过）→ 直接投影
+      //   - 烤入只有 OCR 文本（新的 chat 上传 OCR-only 主路径）→ on-demand 跑
+      //     generateResumeStructured，并通过 updateStructuredByHash 把结果回填到
+      //     chat_attachment，下次再撞到同 hash 直接走 cache。
+      //   - 两者都没（极端情况）→ 当作"no-resume"返回
+      // matcher needs a ResumeProfile. Three sub-cases:
+      //   - structured already baked → project directly.
+      //   - only OCR text baked (the new OCR-only chat upload path) → run
+      //     generateResumeStructured on demand and write the result back via
+      //     updateStructuredByHash so the next hit on the same hash is cached.
+      //   - neither → return as "no-resume".
+      let profile;
+      if (primaryResume.parsedStructured) {
+        profile = toResumeProfile(primaryResume.parsedStructured);
+      } else if (primaryResume.parsedText && primaryResume.parsedText.trim().length > 0) {
+        try {
+          const structured = await generateResumeStructured(primaryResume.parsedText);
+          // 用 attachmentId 反查 contentHash（chat 上传时算的是 PDF 字节 hash，
+          // 这里手头只有 OCR 文本，不能重算），然后回填同 hash 全部行。
+          // Look up contentHash by attachmentId — the chat upload hash is over
+          // raw PDF bytes; we can't re-derive it from OCR text alone. Once we
+          // have the hash, fan out the backfill to every row sharing it.
+          const contentHash = await findContentHashByAttachmentId(primaryResume.attachmentId);
+          if (contentHash) {
+            await updateStructuredByHash(contentHash, structured).catch((error) => {
+              console.warn("[suggest_jd] updateStructuredByHash backfill failed:", error);
+            });
+          }
+          profile = toResumeProfile(structured);
+        } catch (error) {
+          // 区分"结构化抽取这一步失败"与"matcher 找不到合适岗位"——前者是 LLM
+          // 调用抖动/超时，应该建议重试；后者是数据层面没有匹配项。两者复用同一个
+          // reason 会让 LLM 把技术性失败说成"没有合适岗位"，误导用户。
+          // Distinguish "structured extraction step failed" from "matcher
+          // found nothing". The former is an LLM hiccup that warrants a retry
+          // hint; the latter is a real data shortage. Reusing one reason
+          // misled the LLM into framing transient failures as "no JD fits".
+          console.error("[suggest_jd] on-demand structured extraction failed:", error);
+          return { reason: "structured-extraction-failed" as const, status: "error" as const };
+        }
+      } else {
+        return { status: "no-resume" as const };
+      }
+
       const match = await matchJobDescriptionForResume(profile, jobDescriptions);
       if (!match) {
         return { reason: "no-valid-candidates", status: "error" as const };

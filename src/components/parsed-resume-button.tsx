@@ -12,7 +12,13 @@ import { cn } from "@/lib/shared/utils";
 
 export interface ParsedResumeButtonProps {
   filename: string;
-  structured: ResumeParserStructured;
+  // chat 上传切到 OCR-only 之后，结构化是 lazy 跑的，烤入消息时可能仍为 null。
+  // 此组件需要兼容这种"只有 OCR 原文"的形态：概览 / JSON 两个 tab 自动禁用，
+  // 默认落到"原文"tab。
+  // structured may be null when chat upload only ran OCR — structured
+  // extraction is lazy. The component handles this by disabling the summary /
+  // JSON tabs and defaulting to the "raw text" tab.
+  structured: ResumeParserStructured | null;
   parsedText?: string | null;
   pageCount?: number | null;
   textSource?: AttachmentTextSource | null;
@@ -230,7 +236,9 @@ export function ParsedResumeButton({
   className,
 }: ParsedResumeButtonProps) {
   const [open, setOpen] = useState(false);
-  const [tab, setTab] = useState<"summary" | "json" | "text">("summary");
+  // 没有结构化数据时直接落到"原文"tab —— 概览 / JSON 都依赖 structured。
+  // Default to the "text" tab when structured is missing; summary/json need it.
+  const [tab, setTab] = useState<"summary" | "json" | "text">(structured ? "summary" : "text");
 
   let sourceLabel: string | null = null;
   if (textSource === "qwen-ocr") {
@@ -273,10 +281,10 @@ export function ParsedResumeButton({
         headerExtra={
           <Tabs className="mt-2" onValueChange={(value) => setTab(value as typeof tab)} value={tab}>
             <TabsList>
-              <TabsTrigger className="min-w-20 px-4" value="summary">
+              <TabsTrigger className="min-w-20 px-4" disabled={!structured} value="summary">
                 概览
               </TabsTrigger>
-              <TabsTrigger className="min-w-20 px-4" value="json">
+              <TabsTrigger className="min-w-20 px-4" disabled={!structured} value="json">
                 JSON
               </TabsTrigger>
               <TabsTrigger className="min-w-20 px-4" disabled={!parsedText} value="text">
@@ -297,8 +305,8 @@ export function ParsedResumeButton({
         }
       >
         <AnimatedHeight>
-          {tab === "summary" ? <SummaryView structured={structured} /> : null}
-          {tab === "json" ? (
+          {tab === "summary" && structured ? <SummaryView structured={structured} /> : null}
+          {tab === "json" && structured ? (
             <pre className="overflow-x-auto rounded-md border bg-muted/40 p-3 font-mono text-xs leading-5">
               {JSON.stringify(structured, null, 2)}
             </pre>

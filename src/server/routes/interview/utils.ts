@@ -23,7 +23,9 @@ import { projectAttachmentToResumeProfile } from "@/server/agents/resume-parser-
 import {
   createAttachment,
   findAttachmentByContentHash,
+  updateStructuredByHash,
 } from "@/server/routes/chat/dao/chat-attachments";
+import { generateResumeStructured } from "@/lib/server/resume-parse-pipeline";
 import {
   ensureApplicableBindings,
   loadInterviewPresetQuestions,
@@ -167,15 +169,54 @@ export async function storeInterviewResume(
     const bytes = new Uint8Array(await file.arrayBuffer());
     const contentHash = await sha256HexOfBytes(bytes);
 
-    // 命中既有 chat_attachment 行（已过滤 failed）：复用 storageKey + 投影出 cached profile。
-    // Registry hit: reuse storageKey and project the cached superset down to ResumeProfile.
+    // 命中既有 chat_attachment 行（已过滤 failed）。三种子情况：
+    //   3A. 已有完整结构化 → 投影返回 cached profile（投影失败 = 历史脏数据，落到 3B）。
+    //   3B. 仅 OCR 文本可用 → 只跑 generateResumeStructured 一步，
+    //       结果通过 updateStructuredByHash 回填同 hash 所有行。
+    //   3C. 既没 structured 也没 text（理论上不应发生）→ 落到 miss 分支重跑完整 parse。
+    // Registry hit (failed rows already excluded). Three sub-cases:
+    //   3A. parsedStructured present → project to cached ResumeProfile;
+    //       if projection fails (legacy malformed row), fall through to 3B
+    //       so we still benefit from the cached OCR text.
+    //   3B. only OCR text available → run structured extraction only and
+    //       backfill all rows sharing the hash via updateStructuredByHash.
+    //   3C. neither structured nor text (shouldn't happen in practice) → fall
+    //       through to the miss branch and re-run the full parse.
     const existing = await findAttachmentByContentHash(contentHash);
-    if (existing) {
-      return {
-        cachedResumeProfile: projectAttachmentToResumeProfile(existing.parsedStructured),
-        contentHash,
-        storageKey: existing.storageKey,
-      };
+    if (existing?.parsedStructured) {
+      const cached = projectAttachmentToResumeProfile(existing.parsedStructured);
+      if (cached) {
+        return {
+          cachedResumeProfile: cached,
+          contentHash,
+          storageKey: existing.storageKey,
+        };
+      }
+      // 投影失败：parsedStructured 是历史脏数据。继续往下走 3B/3C 分支兜底。
+      // Projection failed (legacy malformed structured). Fall through to 3B/3C.
+    }
+    if (existing?.parsedText && existing.parsedText.trim().length > 0) {
+      try {
+        const structured = await generateResumeStructured(existing.parsedText);
+        await updateStructuredByHash(contentHash, structured);
+        return {
+          cachedResumeProfile: projectAttachmentToResumeProfile(structured),
+          contentHash,
+          storageKey: existing.storageKey,
+        };
+      } catch (error) {
+        // 结构化失败但 OCR 文本还在。不把行标 failed —— OCR 部分依然有效，
+        // 下次还能再尝试结构化。返回 cachedResumeProfile=null 让上层走 fallback。
+        // Structured failed but OCR text is still good. Don't mark the row
+        // failed — the OCR data remains valid for a retry. Return null so the
+        // caller falls back to the standard analysis path.
+        console.error("[studio-interview] structured-from-text failed:", error);
+        return {
+          cachedResumeProfile: null,
+          contentHash,
+          storageKey: existing.storageKey,
+        };
+      }
     }
 
     // 未命中：parse + PUT 并行。

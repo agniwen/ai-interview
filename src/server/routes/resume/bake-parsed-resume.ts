@@ -25,7 +25,9 @@ export interface ResumeParsedPartData {
   attachmentId: string;
   filename: string;
   parsedText: string | null;
-  parsedStructured: ResumeParserStructured;
+  // chat 上传切到 OCR-only 后可能为 null —— 见 BakedParsedResume 注释。
+  // May be null after chat upload moved to OCR-only — see BakedParsedResume note.
+  parsedStructured: ResumeParserStructured | null;
   parsedPageCount: number | null;
   parsedTextSource: AttachmentTextSource;
 }
@@ -35,17 +37,43 @@ function extractAttachmentId(url: string): string | null {
 }
 
 // 历史脏数据兜底：写入侧已经 sanitize，但 jsonb 列没有数据库层约束，
-// 所以读取时再 safeParse 一次，失败/不齐全的 row 直接跳过——下游不再接到坏 LLM 输入。
-// Belt-and-suspenders for legacy rows: writes are sanitized, but jsonb has no
-// DB-level constraint, so we safeParse on read and skip rows that fail.
-function readValidatedStructured(
-  row: { parsedStatus: string; parsedStructured: unknown } | undefined,
-): ResumeParserStructured | null {
-  if (!row || row.parsedStatus !== "ready" || !row.parsedStructured) {
+// 所以读取时再 safeParse 一次，失败/不齐全的 structured 用 null 兜底，由烤入逻辑
+// 自行决定是否仍可只凭 OCR 文本烤入。
+// Belt-and-suspenders for legacy rows. Writes are sanitized but jsonb has no
+// DB-level constraint, so we safeParse on read. Bad structured becomes null;
+// the bake logic decides whether the row still has enough (OCR text) to bake.
+function readValidatedStructured(parsedStructured: unknown): ResumeParserStructured | null {
+  if (parsedStructured === null || parsedStructured === undefined) {
     return null;
   }
-  const parsed = structuredSchema.safeParse(row.parsedStructured);
+  const parsed = structuredSchema.safeParse(parsedStructured);
   return parsed.success ? parsed.data : null;
+}
+
+// 把"这一行能否拿来烤"的判定独立出来 —— 让 bakeParsedResumesIntoMessage
+// 主循环保持在 oxlint 的圈复杂度上限内。
+// Extract the row-eligibility decision so the main loop stays under oxlint's
+// complexity cap.
+interface ChatAttachmentRowForBake {
+  parsedStatus: string;
+  parsedStructured: unknown;
+  parsedText: string | null;
+}
+
+interface BakeReady {
+  validated: ResumeParserStructured | null;
+}
+
+function evaluateRowForBake(row: ChatAttachmentRowForBake | undefined): BakeReady | null {
+  if (!row || row.parsedStatus !== "ready") {
+    return null;
+  }
+  const validated = readValidatedStructured(row.parsedStructured);
+  const hasText = typeof row.parsedText === "string" && row.parsedText.trim().length > 0;
+  if (!validated && !hasText) {
+    return null;
+  }
+  return { validated };
 }
 
 interface ResumeParsedPart {
@@ -107,11 +135,13 @@ export async function bakeParsedResumesIntoMessage(
       continue;
     }
     const row = rows.get(attachmentId);
-    const validated = readValidatedStructured(row);
-    if (!row || !validated) {
+    // OCR-only 之后烤入门槛：status=ready 且至少有 OCR 文本或结构化之一。
+    // After OCR-only: status=ready AND at least one of text / structured.
+    const ready = evaluateRowForBake(row);
+    if (!ready || !row) {
       continue;
     }
-
+    const { validated } = ready;
     const filename = part.filename || row.filename || "resume.pdf";
     newParts.push({
       data: {

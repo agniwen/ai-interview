@@ -62,11 +62,14 @@ const STRUCTURED_INSTRUCTIONS = `你是一名简历解析助手。给你一段�
 
 export type ResumeTextSource = "qwen-ocr";
 
-export interface ParsedResumeFast {
+export interface ParsedResumeOcr {
   text: string;
-  structured: ResumeParserStructured;
   pageCount: number;
   textSource: ResumeTextSource;
+}
+
+export interface ParsedResumeFast extends ParsedResumeOcr {
+  structured: ResumeParserStructured;
 }
 
 function clipForStructured(text: string): string {
@@ -93,7 +96,14 @@ export async function generateResumeStructured(text: string): Promise<ResumePars
   return parseJsonOutput(rawOutput, structuredSchema, "resume-parse-pipeline");
 }
 
-export async function parseResumeFast(bytes: Uint8Array): Promise<ParsedResumeFast> {
+/**
+ * OCR-only: rasterize PDF → Qwen-VL OCR → 返回纯文本与页数。
+ * 不跑结构化抽取，让调用方在真正需要 LLM 结构化时再单独跑。
+ *
+ * OCR-only path: rasterize + Qwen-VL OCR. Returns plain text & page count;
+ * callers run structured extraction separately when they actually need it.
+ */
+export async function parseResumeOcrOnly(bytes: Uint8Array): Promise<ParsedResumeOcr> {
   if (!isQwenOcrConfigured()) {
     throw new Error("Qwen OCR is not configured (missing ALIBABA_API_KEY).");
   }
@@ -114,7 +124,7 @@ export async function parseResumeFast(bytes: Uint8Array): Promise<ParsedResumeFa
   const ocrTexts = await Promise.all(pages.map((png) => qwenVlOcr(png)));
   const text = ocrTexts.filter((chunk) => chunk.trim().length > 0).join("\n\n");
   console.log(
-    `[resume-parse] qwen-ocr done: ${text.length} chars total across ${pages.length} pages, ${Date.now() - ocrStart}ms`,
+    `[resume-parse] qwen-ocr done: ${text.length} chars total across ${pages.length} pages, ${Date.now() - ocrStart}ms, totalMs=${Date.now() - startedAt}`,
   );
   console.log("[resume-parse] qwen-ocr text:\n", text);
 
@@ -122,14 +132,30 @@ export async function parseResumeFast(bytes: Uint8Array): Promise<ParsedResumeFa
     throw new Error("Qwen OCR returned empty text for every page.");
   }
 
+  return { pageCount, text, textSource: "qwen-ocr" };
+}
+
+/**
+ * 完整解析：OCR + 结构化抽取。
+ * 现在内部由 parseResumeOcrOnly + generateResumeStructured 两步组合而成，
+ * 行为与拆分前等价，保留导出以便那些一次性需要结构化结果的调用方继续用。
+ *
+ * Full pipeline: OCR + structured extraction. Now a composition of
+ * parseResumeOcrOnly + generateResumeStructured. Behavior is unchanged from
+ * the pre-split version; callers that want both in one shot keep using this.
+ */
+export async function parseResumeFast(bytes: Uint8Array): Promise<ParsedResumeFast> {
+  const startedAt = Date.now();
+  const ocr = await parseResumeOcrOnly(bytes);
+
   const structuredStart = Date.now();
-  const structured = await generateResumeStructured(text);
+  const structured = await generateResumeStructured(ocr.text);
   console.log(`[resume-parse] generateResumeStructured done in ${Date.now() - structuredStart}ms`);
   console.log("[resume-parse] structured:\n", JSON.stringify(structured, null, 2));
 
   console.log(
-    `[resume-parse] complete: pageCount=${pageCount}, finalChars=${text.length}, totalMs=${Date.now() - startedAt}`,
+    `[resume-parse] complete: pageCount=${ocr.pageCount}, finalChars=${ocr.text.length}, totalMs=${Date.now() - startedAt}`,
   );
 
-  return { pageCount, structured, text, textSource: "qwen-ocr" };
+  return { ...ocr, structured };
 }
