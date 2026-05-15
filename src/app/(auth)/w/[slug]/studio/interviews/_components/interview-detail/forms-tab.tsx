@@ -2,129 +2,53 @@ import type { CandidateFormSubmissionWithSnapshot } from "@/lib/shared/candidate
 import { RotateCcwIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Field, FieldContent, FieldLabel } from "@/components/ui/field";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
 
 type FormQuestion = CandidateFormSubmissionWithSnapshot["snapshot"]["questions"][number];
 
 /**
- * 只读模式下的候选人答题渲染：根据题目的 type / displayMode 走不同分支。
- * Read-only rendering of a candidate's answer; the branch depends on (type, displayMode).
+ * 候选人答案的纯展示渲染：跟 form-template-submissions-drawer 共用一套设计语言。
+ *   - 选项题（single / multi）→ Badge chips
+ *   - 自由文本 → bg-card 容器（外卡是 bg-muted/30，内层反相突出）
+ *   - 未作答 → 比 muted 更弱的灰，不斜体
+ * 注意外层卡片在 forms-tab 里是 bg-muted/30，跟 drawer 的 bg-card 是反相的，
+ * 所以这里的文本容器选 bg-card 来保持"答案在卡片里有独立视觉块"的对比。
+ *
+ * View-only answer rendering shared with the submissions drawer. The forms
+ * tab's outer card is bg-muted/30 (vs the drawer's bg-card), so the text
+ * answer container inverts to bg-card to keep the same "answer is its own
+ * block" contrast.
  */
-// oxlint-disable-next-line complexity -- one branch per (type, displayMode) combo, all flat conditionals.
-function ReadOnlyAnswer({
-  answer,
-  inputId,
-  question,
-}: {
-  answer: string | string[] | undefined;
-  inputId: string;
-  question: FormQuestion;
-}) {
-  const isEmpty =
-    answer === undefined || answer === "" || (Array.isArray(answer) && answer.length === 0);
-
-  if (isEmpty) {
-    return <p className="text-muted-foreground text-sm italic">候选人未作答</p>;
+function renderAnswer(question: FormQuestion, rawValue: string | string[] | undefined) {
+  if (
+    rawValue === undefined ||
+    rawValue === "" ||
+    (Array.isArray(rawValue) && rawValue.length === 0)
+  ) {
+    return <span className="text-muted-foreground/70 text-sm">候选人未作答</span>;
   }
-
-  if (question.type === "single" && question.displayMode === "radio") {
-    const value = Array.isArray(answer) ? (answer[0] ?? "") : answer;
+  if (question.type === "single" || question.type === "multi") {
+    const values = Array.isArray(rawValue) ? rawValue : [rawValue];
+    const labels = values.map((v) => question.options.find((opt) => opt.value === v)?.label ?? v);
     return (
-      <RadioGroup className="pointer-events-none" value={value}>
-        {question.options.map((option) => (
-          <div className="flex items-center gap-2" key={option.value}>
-            <RadioGroupItem disabled id={`${inputId}-${option.value}`} value={option.value} />
-            <Label className="font-normal" htmlFor={`${inputId}-${option.value}`}>
-              {option.label}
-            </Label>
-          </div>
-        ))}
-      </RadioGroup>
-    );
-  }
-
-  if (question.type === "single" && question.displayMode === "select") {
-    const value = Array.isArray(answer) ? (answer[0] ?? "") : answer;
-    return (
-      <Select disabled value={value}>
-        <SelectTrigger className="w-full" id={inputId}>
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          {question.options.map((option) => (
-            <SelectItem key={option.value} value={option.value}>
-              {option.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    );
-  }
-
-  if (question.type === "multi" && question.displayMode === "checkbox") {
-    const selected = new Set(Array.isArray(answer) ? answer : [answer]);
-    return (
-      <div className="space-y-2">
-        {question.options.map((option) => (
-          <div className="flex items-center gap-2" key={option.value}>
-            <Checkbox
-              checked={selected.has(option.value)}
-              disabled
-              id={`${inputId}-${option.value}`}
-            />
-            <Label className="font-normal" htmlFor={`${inputId}-${option.value}`}>
-              {option.label}
-            </Label>
-          </div>
+      <div className="flex flex-wrap gap-1.5">
+        {labels.map((label, index) => (
+          <Badge
+            // biome-ignore lint/suspicious/noArrayIndexKey: historical order is stable
+            className="font-normal"
+            key={index}
+            variant="secondary"
+          >
+            {label}
+          </Badge>
         ))}
       </div>
     );
   }
-
-  if (question.type === "multi" && question.displayMode === "select") {
-    const selected = new Set(Array.isArray(answer) ? answer : [answer]);
-    const selectedLabels = question.options
-      .filter((option) => selected.has(option.value))
-      .map((option) => option.label);
-    return (
-      <Select disabled value={selectedLabels[0] ?? ""}>
-        <SelectTrigger
-          className="h-auto min-h-10 w-full items-start whitespace-normal py-2"
-          id={inputId}
-        >
-          <span className="text-left text-sm">
-            {selectedLabels.length > 0 ? selectedLabels.join("、") : "请选择"}
-          </span>
-        </SelectTrigger>
-        <SelectContent />
-      </Select>
-    );
-  }
-
-  if (question.type === "text" && question.displayMode === "textarea") {
-    return (
-      <Textarea
-        className="min-h-24"
-        id={inputId}
-        readOnly
-        value={Array.isArray(answer) ? answer.join("\n") : answer}
-      />
-    );
-  }
-
-  return <Input id={inputId} readOnly value={Array.isArray(answer) ? answer.join(", ") : answer} />;
+  return (
+    <div className="whitespace-pre-wrap rounded-md border border-border/60 bg-card px-3 py-2 text-foreground text-sm leading-relaxed">
+      {Array.isArray(rawValue) ? rawValue.join(", ") : rawValue}
+    </div>
+  );
 }
 
 /**
@@ -150,18 +74,30 @@ export function FormsTab({
   return (
     <div className="space-y-5">
       {submissions.map((submission) => (
-        <div className="rounded-2xl border border-border/60 bg-muted/30 p-4" key={submission.id}>
-          <div className="mb-3 flex items-center justify-between gap-2">
-            <div>
-              <h3 className="font-medium text-sm">{submission.snapshot.title}</h3>
+        <article
+          className="space-y-4 rounded-2xl border border-border/60 bg-muted/30 p-5 shadow-xs"
+          key={submission.id}
+        >
+          {/* 头部：表单标题 + 描述为主信息；版本徽章 + 重置按钮在右侧操作区。
+              用 border-b 分隔头部和问答内容，跟 drawer 的卡片结构对齐。
+              Header: title + description as primary info; version + reset as
+              the right-side action area. The border-b mirrors the drawer
+              card structure so both surfaces feel consistent. */}
+          <header className="flex items-start justify-between gap-3 border-border/60 border-b pb-3">
+            <div className="min-w-0 space-y-1">
+              <h3 className="font-semibold text-base text-foreground leading-tight">
+                {submission.snapshot.title}
+              </h3>
               {submission.snapshot.description ? (
-                <p className="mt-1 text-muted-foreground text-xs">
+                <p className="text-muted-foreground text-xs leading-relaxed">
                   {submission.snapshot.description}
                 </p>
               ) : null}
             </div>
-            <div className="flex items-center gap-2">
-              <Badge variant="outline">v{submission.version}</Badge>
+            <div className="flex shrink-0 items-center gap-2">
+              <Badge className="font-mono text-[10px] tracking-wider" variant="outline">
+                v{submission.version}
+              </Badge>
               <Button
                 disabled={resettingId === submission.id}
                 onClick={() => onReset(submission.id)}
@@ -173,32 +109,39 @@ export function FormsTab({
                 {resettingId === submission.id ? "重置中..." : "重置填写"}
               </Button>
             </div>
-          </div>
-          <div className="space-y-5">
+          </header>
+
+          {/* 问答区：编号 + 问题为 muted label，答案为前景内容；跟 drawer 完全一致。
+              Numbered question = muted label; answer = foreground content. Same
+              Field-style hierarchy as the drawer card. */}
+          <div className="space-y-3.5">
             {submission.snapshot.questions.map((question, index) => (
-              <Field key={question.id}>
-                <FieldLabel htmlFor={`sub-${submission.id}-${question.id}`}>
-                  <span className="mr-1 text-muted-foreground">{index + 1}.</span>
-                  {question.label}
-                  {question.required ? <span className="ml-1 text-destructive">*</span> : null}
-                </FieldLabel>
-                <FieldContent className="gap-2">
-                  {question.helperText ? (
-                    <p className="text-muted-foreground text-xs">{question.helperText}</p>
+              <div className="space-y-1.5" key={question.id}>
+                <p className="flex items-baseline gap-1 text-muted-foreground text-xs">
+                  <span className="font-mono">{index + 1}.</span>
+                  <span>{question.label}</span>
+                  {question.required ? (
+                    <span aria-label="必填" className="text-destructive">
+                      *
+                    </span>
                   ) : null}
-                  <ReadOnlyAnswer
-                    answer={submission.answers[question.id]}
-                    inputId={`sub-${submission.id}-${question.id}`}
-                    question={question}
-                  />
-                </FieldContent>
-              </Field>
+                </p>
+                {question.helperText ? (
+                  <p className="text-muted-foreground/80 text-xs leading-relaxed">
+                    {question.helperText}
+                  </p>
+                ) : null}
+                <div>{renderAnswer(question, submission.answers[question.id])}</div>
+              </div>
             ))}
           </div>
-          <p className="mt-3 text-muted-foreground text-xs">
+
+          {/* 版本注脚：用 border-t 与上方问答区分开，跟头部 border-b 对称。
+              Version footnote separated by a border-t mirror of the header. */}
+          <p className="border-border/60 border-t pt-3 text-muted-foreground text-xs">
             该记录基于 v{submission.version} 的快照；如已更新，请到「面试表单」查看当前版本。
           </p>
-        </div>
+        </article>
       ))}
     </div>
   );

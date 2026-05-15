@@ -4,12 +4,14 @@ import type {
   CandidateFormTemplateListRecord,
   CandidateFormTemplateSnapshot,
 } from "@/lib/shared/candidate-forms";
-import { useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery } from "@tanstack/react-query";
 import { InboxIcon, Loader2Icon } from "lucide-react";
+import { useMemo } from "react";
 import { rpc } from "@/lib/client/rpc";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { DATE_TIME_DISPLAY_OPTIONS, TimeDisplay } from "@/components/time-display";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Sheet,
   SheetContent,
@@ -17,6 +19,11 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+
+// 跟后端 DAO 的 DEFAULT_LIMIT 保持一致，单一来源在后端，这里只是显式声明 UI 节奏。
+// Mirrors the backend DAO's DEFAULT_LIMIT; the server owns the cap, this just
+// names the UI cadence explicitly.
+const PAGE_SIZE = 20;
 
 interface SubmissionRow {
   id: string;
@@ -30,6 +37,11 @@ interface SubmissionRow {
   submittedAt: string | Date;
 }
 
+interface SubmissionsPage {
+  submissions: SubmissionRow[];
+  total: number;
+}
+
 function renderAnswer(
   question: CandidateFormTemplateSnapshot["questions"][number],
   rawValue: string | string[] | undefined,
@@ -39,31 +51,38 @@ function renderAnswer(
     rawValue === "" ||
     (Array.isArray(rawValue) && rawValue.length === 0)
   ) {
-    return <span className="text-muted-foreground italic">（未作答）</span>;
+    // 未作答用比 muted-foreground 更弱的颜色 + 不斜体，避免跟"输入提示"风格混淆。
+    // Use a softer-than-muted tone (no italic) so it reads as "missing data"
+    // rather than UI hint copy.
+    return <span className="text-muted-foreground/70 text-sm">（未作答）</span>;
   }
-  if (question.type === "multi") {
+  if (question.type === "multi" || question.type === "single") {
     const values = Array.isArray(rawValue) ? rawValue : [rawValue];
     const labels = values.map((v) => question.options.find((opt) => opt.value === v)?.label ?? v);
     return (
-      <div className="flex flex-wrap gap-1">
+      <div className="flex flex-wrap gap-1.5">
         {labels.map((label, index) => (
-          // biome-ignore lint/suspicious/noArrayIndexKey: historical order is stable
-          <Badge key={index} variant="secondary">
+          <Badge
+            // biome-ignore lint/suspicious/noArrayIndexKey: historical order is stable
+            className="font-normal"
+            key={index}
+            variant="secondary"
+          >
             {label}
           </Badge>
         ))}
       </div>
     );
   }
-  if (question.type === "single") {
-    const v = Array.isArray(rawValue) ? rawValue[0] : rawValue;
-    const label = question.options.find((opt) => opt.value === v)?.label ?? v;
-    return <Badge variant="secondary">{label}</Badge>;
-  }
+  // 自由文本：套一层 bg-muted/30 软容器（沿用 parsed-resume-button.tsx 里 ChipList
+  // 同款底色），多行内容有视觉框，跟"标签+值"的简短回答形成分级。
+  // Free-form text gets a soft container (same tonal family as the
+  // chip-list background elsewhere), giving multi-line answers a visual
+  // boundary that sets them apart from short option-style answers.
   return (
-    <p className="whitespace-pre-wrap text-sm">
+    <div className="whitespace-pre-wrap rounded-md border border-border/60 bg-muted/30 px-3 py-2 text-foreground text-sm leading-relaxed">
       {Array.isArray(rawValue) ? rawValue.join(", ") : rawValue}
-    </p>
+    </div>
   );
 }
 
@@ -78,30 +97,45 @@ export function CandidateFormTemplateSubmissionsDrawer({
 }) {
   const slug = useWorkspaceSlug();
 
-  async function fetchSubmissions(templateId: string): Promise<SubmissionRow[]> {
-    const response = await rpc.api.w[":slug"].studio.forms[":id"].submissions.$get({
-      param: { id: templateId, slug },
+  // useInfiniteQuery：每页 20 条，pageParam = 当前 offset。getNextPageParam 累计
+  // 已加载条数，达到 total 时返回 undefined 让 hasNextPage 变 false。
+  // useInfiniteQuery: 20 per page; pageParam = current offset. Stops when the
+  // accumulated count reaches `total` (returns undefined → hasNextPage=false).
+  const { data, isLoading, isError, error, hasNextPage, isFetchingNextPage, fetchNextPage } =
+    useInfiniteQuery<SubmissionsPage>({
+      enabled: open && !!template,
+      getNextPageParam: (lastPage, allPages) => {
+        const loaded = allPages.reduce((sum, p) => sum + p.submissions.length, 0);
+        return loaded < lastPage.total ? loaded : undefined;
+      },
+      initialPageParam: 0,
+      queryFn: async ({ pageParam }) => {
+        if (!template) {
+          return { submissions: [], total: 0 };
+        }
+        const response = await rpc.api.w[":slug"].studio.forms[":id"].submissions.$get({
+          param: { id: template.id, slug },
+          query: { limit: String(PAGE_SIZE), offset: String(pageParam ?? 0) },
+        });
+        const payload = (await response.json()) as Partial<SubmissionsPage> & {
+          error?: string;
+        };
+        if (!response.ok) {
+          throw new Error(payload?.error ?? "加载填写记录失败");
+        }
+        return {
+          submissions: (payload.submissions ?? []) as SubmissionRow[],
+          total: payload.total ?? 0,
+        };
+      },
+      queryKey: ["candidate-form-templates", slug, template?.id, "submissions"],
     });
-    const payload = (await response.json()) as {
-      submissions?: SubmissionRow[];
-      error?: string;
-    };
-    if (!response.ok) {
-      throw new Error(payload?.error ?? "加载填写记录失败");
-    }
-    return (payload.submissions ?? []) as SubmissionRow[];
-  }
 
-  const { data, isLoading, isError, error } = useQuery({
-    enabled: open && !!template,
-    queryFn: () => {
-      if (!template) {
-        return Promise.resolve([]);
-      }
-      return fetchSubmissions(template.id);
-    },
-    queryKey: ["candidate-form-templates", slug, template?.id, "submissions"],
-  });
+  // 把所有页面拍平为单列；后端已按 submittedAt desc 排序，所以累加顺序天然正确。
+  // Flatten all pages; backend already sorts by submittedAt desc so the
+  // concatenation is in the correct order.
+  const submissions = useMemo(() => data?.pages.flatMap((p) => p.submissions) ?? [], [data?.pages]);
+  const total = data?.pages[0]?.total ?? 0;
 
   return (
     <Sheet onOpenChange={onOpenChange} open={open}>
@@ -122,41 +156,84 @@ export function CandidateFormTemplateSubmissionsDrawer({
               {(error as Error)?.message ?? "加载失败"}
             </p>
           ) : null}
-          {data && data.length === 0 ? (
+          {!isLoading && submissions.length === 0 ? (
             <div className="flex flex-col items-center gap-2 py-10 text-muted-foreground text-sm">
               <InboxIcon className="size-6" />
               还没有候选人填写过这份面试表单
             </div>
           ) : null}
-          {data?.map((submission) => (
-            <div
-              className="space-y-3 rounded-lg border border-border/60 bg-card p-4"
+          {submissions.map((submission) => (
+            <article
+              className="space-y-4 rounded-2xl border border-border/60 bg-card p-5 shadow-xs"
               key={submission.id}
             >
-              <div className="flex items-center justify-between">
+              {/* 头部：候选人名称 + 版本徽章为一级元数据；提交时间为二级元数据，
+                  纵向排列让候选人姓名独占一行（长名字不会跟时间挤）。
+                  Header: name + version are the primary metadata stack; submitted-at
+                  is secondary, placed below so a long name no longer fights with
+                  the timestamp for horizontal space. */}
+              <header className="flex flex-col gap-1 border-border/60 border-b pb-3">
                 <div className="flex items-center gap-2">
-                  <span className="font-medium">{submission.candidateName ?? "未命名候选人"}</span>
-                  <Badge variant="outline">v{submission.version}</Badge>
+                  <h3 className="font-semibold text-base text-foreground leading-tight">
+                    {submission.candidateName ?? "未命名候选人"}
+                  </h3>
+                  <Badge className="font-mono text-[10px] tracking-wider" variant="outline">
+                    v{submission.version}
+                  </Badge>
                 </div>
-                <span className="text-muted-foreground text-xs tabular-nums">
+                <p className="text-muted-foreground text-xs tabular-nums">
+                  提交于{" "}
                   <TimeDisplay options={DATE_TIME_DISPLAY_OPTIONS} value={submission.submittedAt} />
-                </span>
-              </div>
-              <div className="space-y-2">
+                </p>
+              </header>
+
+              {/* 问答区：每题"问"作为 muted 标签 + "答"作为前景内容，
+                  跟 parsed-resume-button.tsx 的 Field 风格保持一致。
+                  Each Q&A pair styles "question" as a muted label and "answer"
+                  as the foreground value — same hierarchy as the parsed-resume
+                  Field component, so the visual language matches. */}
+              <div className="space-y-3.5">
                 {submission.snapshot.questions.map((question) => (
-                  <div className="space-y-1" key={question.id}>
-                    <p className="font-medium text-sm">
-                      {question.label}
-                      {question.required ? <span className="ml-1 text-destructive">*</span> : null}
+                  <div className="space-y-1.5" key={question.id}>
+                    <p className="flex items-baseline gap-1 text-muted-foreground text-xs">
+                      <span>{question.label}</span>
+                      {question.required ? (
+                        <span aria-label="必填" className="text-destructive">
+                          *
+                        </span>
+                      ) : null}
                     </p>
-                    <div className="pl-2 text-sm">
-                      {renderAnswer(question, submission.answers[question.id])}
-                    </div>
+                    <div>{renderAnswer(question, submission.answers[question.id])}</div>
                   </div>
                 ))}
               </div>
-            </div>
+            </article>
           ))}
+          {submissions.length > 0 ? (
+            <div className="flex flex-col items-center gap-2 pt-2 pb-1 text-muted-foreground text-xs">
+              {hasNextPage ? (
+                <Button
+                  className="min-w-32"
+                  disabled={isFetchingNextPage}
+                  onClick={() => void fetchNextPage()}
+                  size="sm"
+                  type="button"
+                  variant="outline"
+                >
+                  {isFetchingNextPage ? (
+                    <>
+                      <Loader2Icon className="size-4 animate-spin" />
+                      加载中...
+                    </>
+                  ) : (
+                    "加载更多"
+                  )}
+                </Button>
+              ) : (
+                <span>已加载全部 {total} 条记录</span>
+              )}
+            </div>
+          ) : null}
         </div>
       </SheetContent>
     </Sheet>

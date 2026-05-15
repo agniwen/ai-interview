@@ -198,13 +198,28 @@ export function CandidateFormTemplateManagementPage({
           if (r.jobDescriptions.length === 0) {
             return <Badge variant="outline">岗位已删除</Badge>;
           }
+          // 最多展示 12 个 badge，多余的折叠成 "+N"。
+          // 12 是经验值：DataGrid 行高有限，再多挤进来会换 4-5 行视觉太重；
+          // hover 在尾部 badge 上能看到全名提示，要看完整列表可以点编辑进表单详情。
+          // Cap at 12 badges; the rest collapses into a "+N" pill. 12 keeps the
+          // row height bounded — more would push the table into 4-5 lines per
+          // row, which crushes the rhythm. The full list is still reachable
+          // through the edit dialog.
+          const VISIBLE_LIMIT = 12;
+          const visible = r.jobDescriptions.slice(0, VISIBLE_LIMIT);
+          const overflow = r.jobDescriptions.length - VISIBLE_LIMIT;
           return (
             <div className="flex flex-wrap gap-1">
-              {r.jobDescriptions.map((jd) => (
+              {visible.map((jd) => (
                 <Badge key={jd.id} variant="secondary">
                   {jd.name}
                 </Badge>
               ))}
+              {overflow > 0 ? (
+                <Badge title={`还有 ${overflow} 个岗位未展示`} variant="outline">
+                  +{overflow}
+                </Badge>
+              ) : null}
             </div>
           );
         },

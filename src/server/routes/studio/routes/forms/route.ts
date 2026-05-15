@@ -247,19 +247,37 @@ export const candidateFormsRouter = factory
     safeUpdateTag("candidate-form-templates");
     return c.json({ success: true }, 200);
   })
-  .get("/:id/submissions", requirePermission("candidateForm", "read"), async (c) => {
-    const { activeOrg } = c.var;
-    if (!activeOrg) {
-      return c.json({ message: "Unauthorized" }, 401);
-    }
-    const id = c.req.param("id");
-    const existing = await loadCandidateFormTemplateById(activeOrg.id, id);
-    if (!existing) {
-      return c.json({ error: "面试表单不存在。" }, 404);
-    }
-    const submissions = await loadSubmissionsByTemplate(id);
-    return c.json({ submissions }, 200);
-  })
+  .get(
+    "/:id/submissions",
+    requirePermission("candidateForm", "read"),
+    zValidator(
+      "query",
+      z.object({
+        limit: z.string().optional(),
+        offset: z.string().optional(),
+      }),
+      jsonValidatorError("查询参数无效。"),
+    ),
+    async (c) => {
+      const { activeOrg } = c.var;
+      if (!activeOrg) {
+        return c.json({ message: "Unauthorized" }, 401);
+      }
+      const id = c.req.param("id");
+      const existing = await loadCandidateFormTemplateById(activeOrg.id, id);
+      if (!existing) {
+        return c.json({ error: "面试表单不存在。" }, 404);
+      }
+      const { limit, offset } = c.req.valid("query");
+      // 字符串 → number；NaN 或负值由 DAO 内部 clamp，路由这里只做最浅的解析。
+      // String → number; clamp lives in the DAO so route does minimal coercion.
+      const result = await loadSubmissionsByTemplate(id, {
+        limit: limit ? Number(limit) : undefined,
+        offset: offset ? Number(offset) : undefined,
+      });
+      return c.json(result, 200);
+    },
+  )
   .get("/:id/versions/:versionId", requirePermission("candidateForm", "read"), async (c) => {
     const { activeOrg } = c.var;
     if (!activeOrg) {
