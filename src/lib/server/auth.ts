@@ -240,6 +240,58 @@ export const auth = betterAuth({
     provider: "pg",
     schema,
   }),
+  // 新 session 创建后（即登录完成时）把 session.activeOrganizationId 还原成
+  // user.lastActiveOrganizationId —— 让"切到 B → 退出 → 重新登录"还落到 B，
+  // 而不是回到默认 fallback。校验：用户仍然是该 org 的 member 才生效，避免
+  // user 被踢出 org 后 session 还指着它。
+  // After a new session is created (= login completes), restore the
+  // session.activeOrganizationId from user.lastActiveOrganizationId so users
+  // land back on the workspace they last visited rather than the default
+  // fallback. Verified against current membership so a kicked-out user
+  // doesn't land in an org they no longer belong to.
+  databaseHooks: {
+    session: {
+      create: {
+        // oxlint-disable-next-line require-await -- hook contract requires async
+        async after(newSession) {
+          try {
+            const [u] = await db
+              .select({ lastActive: schema.user.lastActiveOrganizationId })
+              .from(schema.user)
+              .where(eq(schema.user.id, newSession.userId))
+              .limit(1);
+            if (!u?.lastActive) {
+              return;
+            }
+            // 再验一次成员关系才回填，避免被踢出后仍试图落到老 org。
+            // Re-verify membership so a kicked-out user can't be sent back.
+            const [m] = await db
+              .select({ id: schema.member.id })
+              .from(schema.member)
+              .where(
+                and(
+                  eq(schema.member.userId, newSession.userId),
+                  eq(schema.member.organizationId, u.lastActive),
+                ),
+              )
+              .limit(1);
+            if (!m) {
+              return;
+            }
+            await db
+              .update(schema.session)
+              .set({ activeOrganizationId: u.lastActive })
+              .where(eq(schema.session.id, newSession.id));
+          } catch (error) {
+            // 还原失败不影响登录主流程；最多回退到默认 org 的旧行为。
+            // Restore failure must not block login; worst case is the prior
+            // "default org" behaviour.
+            console.warn("[auth] failed to restore lastActiveOrganizationId", error);
+          }
+        },
+      },
+    },
+  },
   // 开启邮箱+密码登录。注册入口关闭——账号只能通过飞书 OAuth 自动创建，
   // 或由 admin 在「用户管理」里调 setUserPassword 设定登录密码。
   // Email+password sign-in. Public sign-up is disabled — accounts are only

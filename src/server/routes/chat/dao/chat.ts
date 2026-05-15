@@ -1,5 +1,5 @@
 import type { UIMessage } from "ai";
-import { and, desc, eq, gte } from "drizzle-orm";
+import { and, desc, eq, gte, sql } from "drizzle-orm";
 import { db } from "@/lib/server/db";
 import { chatConversation, chatMessage } from "@/lib/shared/db/schema";
 import type { JobDescriptionConfig } from "@/lib/shared/job-description-config";
@@ -263,4 +263,48 @@ export async function deleteMessagesFromId(input: {
         gte(chatMessage.createdAt, target.createdAt),
       ),
     );
+}
+
+/**
+ * 当简历库里某条 studio_interview 被删除时，把所有 chat_conversation 的
+ * `resumeImports` JSONB map 里指向这条 interview 的 entry 清掉——下次该会话
+ * 被读起来时，UI 不再显示「已入库」的假状态。
+ *
+ * jsonb_each_text 把 map 展开成 (key, value) 行；过滤掉 value 等于被删
+ * interview id 的行，再 jsonb_object_agg 聚合回 map。`COALESCE(... , '{}')`
+ * 兜底"清完所有 key 后 SELECT 返回 NULL"那种边界情况。
+ *
+ * Pre-filter 用 `resume_imports::text LIKE '%"id"%'` 让 PostgreSQL 跳过
+ * 大多数 conversation（不命中就不解构 jsonb），避免每删一条简历都对全表
+ * 做 jsonb_object_agg。这是粗筛，正确性仍由 WHERE value <> id 保证。
+ *
+ * After a studio_interview row is deleted, sweep the `resumeImports` JSONB
+ * map on every chat_conversation in the same org, dropping entries that
+ * pointed at the deleted interview. Next time the conversation is fetched
+ * the UI no longer renders a stale "已入库" badge.
+ *
+ * The LIKE pre-filter avoids touching conversations that can't possibly
+ * reference the id; the WHERE inside jsonb_each_text is the correctness
+ * boundary.
+ */
+export async function removeImportedInterviewFromConversations(
+  organizationId: string,
+  interviewId: string,
+): Promise<void> {
+  if (!interviewId) {
+    return;
+  }
+  await db.execute(sql`
+    UPDATE chat_conversation
+    SET resume_imports = COALESCE(
+      (
+        SELECT jsonb_object_agg(key, value)
+        FROM jsonb_each_text(resume_imports)
+        WHERE value <> ${interviewId}
+      ),
+      '{}'::jsonb
+    )
+    WHERE organization_id = ${organizationId}
+      AND resume_imports::text LIKE ${`%"${interviewId}"%`}
+  `);
 }

@@ -7,6 +7,7 @@ import { getObjectStream } from "@/lib/server/s3";
 import { studioInterview, studioInterviewSchedule } from "@/lib/shared/db/schema";
 import { resumeLibraryFormSchema } from "@/lib/shared/studio-resumes";
 import { invalidateStudioInterviewCaches } from "@/server/cache-tags";
+import { removeImportedInterviewFromConversations } from "@/server/routes/chat/dao/chat";
 import { factory, jsonValidatorError } from "@/server/factory";
 import {
   parseResumeFastToProfile,
@@ -444,6 +445,11 @@ export const resumeLibraryRouter = factory
       return c.json({ error: "记录不存在。" }, 404);
     }
     invalidateStudioInterviewCaches(activeOrg.id);
+    // 清理 chat 端的「已入库」状态：把所有 conversation 的 resumeImports
+    // map 里指向该 interview 的 entry 都移除，避免 chat UI 残留假状态。
+    // Sweep the chat-side "imported" badge state so the UI doesn't render
+    // a stale "已入库" indicator after the underlying row is gone.
+    await removeImportedInterviewFromConversations(activeOrg.id, id);
     return c.json({ success: true }, 200);
   })
   .post(
@@ -473,6 +479,15 @@ export const resumeLibraryRouter = factory
         .returning({ id: studioInterview.id });
 
       invalidateStudioInterviewCaches(activeOrg.id);
+      // 跟单删一样：清掉所有 chat conversation 里指向这批 interview 的「已入库」
+      // 残留。批量删除时简单串行 N 条小 UPDATE 即可——N 通常很小（手动选中）
+      // 且每条 UPDATE 都有 LIKE 预过滤，命不中的 conversation 不会被改。
+      // Same idea as single-delete; iterate per id with the LIKE-pre-filter
+      // doing most of the work. Sequential is fine for the bulk case (N is
+      // small and each UPDATE is essentially free when the LIKE misses).
+      for (const deletedId of result) {
+        await removeImportedInterviewFromConversations(activeOrg.id, deletedId.id);
+      }
       return c.json({ deletedCount: result.length, success: true }, 200);
     },
   );

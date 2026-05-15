@@ -127,6 +127,14 @@ export const user = pgTable("user", {
   feishuTenantName: text("feishu_tenant_name"),
   id: text("id").primaryKey(),
   image: text("image"),
+  // 跨 session 持久化的"最近访问的工作区"。session.activeOrganizationId
+  // 跟着 session 走，退出登录 session 会被销毁；这里挂在 user 行上，下次
+  // 登录能恢复到上次离开时所在的 org。删除 org 时 SET NULL（用户保留，
+  // 下次登录回退到默认 fallback 即可）。
+  // Cross-session "last visited workspace" for restore-on-login. Sits on
+  // user (vs session.activeOrganizationId which dies with the session). On
+  // org deletion the FK SETs NULL so the user row survives.
+  lastActiveOrganizationId: text("last_active_organization_id"),
   name: text("name").notNull(),
   role: text("role").default("user").notNull(),
   updatedAt: timestamp("updated_at")
