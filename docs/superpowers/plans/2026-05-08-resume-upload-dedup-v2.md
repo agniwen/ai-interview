@@ -207,7 +207,7 @@ export async function generateInterviewQuestionsForProfile(
   resumeProfile: ResumeProfile,
 ): Promise<ResumeAnalysisResult["interviewQuestions"]> {
   try {
-    const structuredModelId = process.env.ALIBABA_STRUCTURED_MODEL ?? "deepseek-v4-flash";
+    const structuredModelId = process.env.ALIBABA_STRUCTURED_MODEL ?? "deepseek-v4-pro";
     const questionAgent = createResumeAgent({
       enableThinking: false,
       instructions: QUESTION_INSTRUCTIONS,

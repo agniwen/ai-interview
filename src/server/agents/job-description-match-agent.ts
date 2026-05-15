@@ -113,7 +113,7 @@ export async function matchJobDescriptionForResume(
     return { jobDescriptionId: candidates[0].id, reason: "候选岗位只有一个，默认选择。" };
   }
 
-  const modelId = process.env.ALIBABA_STRUCTURED_MODEL ?? "deepseek-v4-flash";
+  const modelId = process.env.ALIBABA_STRUCTURED_MODEL ?? "deepseek-v4-pro";
   const agent = createResumeAgent({
     enableThinking: false,
     instructions: MATCH_INSTRUCTIONS,

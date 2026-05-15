@@ -234,7 +234,7 @@ export function createSuggestJobDescriptionTool({
 - 如果所有岗位都明显不匹配，仍然给出 recommendedId（取 score 最高的），并在 reasoning 中说明最匹配只是相对而言。
 - 不要编造岗位信息。`;
 
-      const rankerModelId = process.env.ALIBABA_STRUCTURED_MODEL ?? "deepseek-v4-flash";
+      const rankerModelId = process.env.ALIBABA_STRUCTURED_MODEL ?? "deepseek-v4-pro";
       const rankerAgent = createResumeAgent({
         enableThinking: false,
         instructions: rankerInstructions,

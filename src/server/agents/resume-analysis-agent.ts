@@ -235,7 +235,7 @@ export function streamGenerateInterviewQuestions(
   return createNdjsonStream(async (emit) => {
     emit({ message: "正在生成面试题…", type: "status" });
 
-    const structuredModelId = process.env.ALIBABA_STRUCTURED_MODEL ?? "deepseek-v4-flash";
+    const structuredModelId = process.env.ALIBABA_STRUCTURED_MODEL ?? "deepseek-v4-pro";
 
     const questionAgent = createResumeAgent({
       enableThinking: false,
@@ -318,7 +318,7 @@ export async function generateInterviewQuestionsForProfile(
   resumeProfile: ResumeProfile,
 ): Promise<ResumeAnalysisResult["interviewQuestions"]> {
   try {
-    const structuredModelId = process.env.ALIBABA_STRUCTURED_MODEL ?? "deepseek-v4-flash";
+    const structuredModelId = process.env.ALIBABA_STRUCTURED_MODEL ?? "deepseek-v4-pro";
     const questionAgent = createResumeAgent({
       enableThinking: false,
       instructions: QUESTION_INSTRUCTIONS,
@@ -396,7 +396,7 @@ export function streamGenerateResumeReview(input: {
   return createNdjsonStream(async (emit) => {
     emit({ message: "正在生成简历评价…", type: "status" });
 
-    const structuredModelId = process.env.ALIBABA_STRUCTURED_MODEL ?? "deepseek-v4-flash";
+    const structuredModelId = process.env.ALIBABA_STRUCTURED_MODEL ?? "deepseek-v4-pro";
     const reviewAgent = createResumeAgent({
       enableThinking: false,
       instructions: REVIEW_INSTRUCTIONS,
