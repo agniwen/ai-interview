@@ -5,14 +5,17 @@ import { EmailPasswordSignInForm } from "./email-password-sign-in-form";
 import { FeishuSignInButton } from "./feishu-sign-in-button";
 import { GoogleSignInButton } from "./google-sign-in-button";
 
-// 生产环境（国内 IDC）出口到 oauth2.googleapis.com 不通，token exchange 必超时。
-// 在没有可用代理 / 海外节点之前，把 Google OAuth 入口仅在本地 dev 暴露。
-// process.env.NODE_ENV 在 Next.js 客户端组件里是构建时内联值，安全可用。
-// Production runs from a domestic IDC whose egress can't reach
-// oauth2.googleapis.com — the OAuth token exchange always times out. Until
-// there's a working proxy / overseas node, expose the Google entry in dev only.
-// NODE_ENV is inlined at build time by Next.js so it's safe in a client file.
-const SHOW_OAUTH_TAB = process.env.NODE_ENV === "development";
+// 通过 NEXT_PUBLIC_ENABLE_GOOGLE_LOGIN 切换登录入口：设置后只暴露 Google OAuth，
+// 隐藏飞书；未设置则沿用默认（飞书）。生产环境（国内 IDC）出口到
+// oauth2.googleapis.com 不通，所以默认关闭；本地 dev 或有海外出口的部署可显式开启。
+// process.env 在 Next.js 客户端组件里是构建时内联值，安全可用。
+// Toggle login entry points via NEXT_PUBLIC_ENABLE_GOOGLE_LOGIN: when set, only
+// Google OAuth is exposed and Feishu is hidden; otherwise fall back to the
+// default (Feishu). Production runs from a domestic IDC whose egress can't
+// reach oauth2.googleapis.com, so it stays off by default; local dev or
+// overseas-egress deployments can opt in. NEXT_PUBLIC_* is inlined at build
+// time by Next.js, safe to read in a client file.
+const SHOW_GOOGLE_LOGIN = Boolean(process.env.NEXT_PUBLIC_ENABLE_GOOGLE_LOGIN);
 
 interface SignInTabsProps {
   /** 登录成功后跳转目标 / Where to navigate once signed in. */
@@ -20,33 +23,38 @@ interface SignInTabsProps {
 }
 
 export function SignInTabs({ callbackURL }: SignInTabsProps) {
-  // tab 数量随 OAuth 开关变化，grid-cols 跟着走；默认值兜到留下来的第一个 tab。
-  // Column count tracks the visible tab set; default value falls back to the
-  // first remaining tab when OAuth is hidden.
-  const gridColsClass = SHOW_OAUTH_TAB ? "grid-cols-3" : "grid-cols-2";
-  const defaultValue = SHOW_OAUTH_TAB ? "oauth" : "feishu";
+  // Google 与飞书互斥：开启 Google 时隐藏飞书，关闭时回到飞书；密码登录始终存在。
+  // 默认 tab 兜到当前可见的 OAuth/飞书 tab。
+  // Google and Feishu are mutually exclusive: enabling Google hides Feishu and
+  // vice versa; password sign-in is always present. The default tab falls back
+  // to whichever of the two is currently visible.
+  const defaultValue = SHOW_GOOGLE_LOGIN ? "oauth" : "feishu";
 
   return (
     <Tabs className="w-full" defaultValue={defaultValue}>
-      <TabsList className={`grid w-full ${gridColsClass}`}>
-        {SHOW_OAUTH_TAB ? <TabsTrigger value="oauth">OAuth 登录</TabsTrigger> : null}
-        <TabsTrigger value="feishu">飞书登录</TabsTrigger>
+      <TabsList className="grid w-full grid-cols-2">
+        {SHOW_GOOGLE_LOGIN ? (
+          <TabsTrigger value="oauth">Google 登录</TabsTrigger>
+        ) : (
+          <TabsTrigger value="feishu">飞书登录</TabsTrigger>
+        )}
         <TabsTrigger value="password">账号密码登录</TabsTrigger>
       </TabsList>
-      {SHOW_OAUTH_TAB ? (
+      {SHOW_GOOGLE_LOGIN ? (
         <TabsContent className="mt-4" value="oauth">
           <GoogleSignInButton callbackURL={callbackURL} />
         </TabsContent>
-      ) : null}
-      <TabsContent className="mt-4 space-y-3" value="feishu">
-        <FeishuSignInButton callbackURL={callbackURL} />
-        <FeishuSignInButton
-          callbackURL={callbackURL}
-          label="极光 HR 飞书登录"
-          providerId="feishu-jiguang-hr"
-          variant="default"
-        />
-      </TabsContent>
+      ) : (
+        <TabsContent className="mt-4 space-y-3" value="feishu">
+          <FeishuSignInButton callbackURL={callbackURL} />
+          <FeishuSignInButton
+            callbackURL={callbackURL}
+            label="极光 HR 飞书登录"
+            providerId="feishu-jiguang-hr"
+            variant="default"
+          />
+        </TabsContent>
+      )}
       <TabsContent className="mt-4" value="password">
         <EmailPasswordSignInForm callbackURL={callbackURL} />
       </TabsContent>
