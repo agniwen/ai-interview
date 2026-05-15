@@ -78,9 +78,14 @@ function clipForStructured(text: string): string {
 
 export async function generateResumeStructured(text: string): Promise<ResumeParserStructured> {
   const provider = createAlibabaProvider({ enableThinking: false });
-  const modelId = process.env.ALIBABA_STRUCTURED_MODEL ?? "deepseek-v4-flash";
+  const modelId = process.env.ALIBABA_STRUCTURED_MODEL ?? "deepseek-v4-pro";
   const { text: rawOutput } = await generateText({
-    maxOutputTokens: 4096,
+    // 中文简历每字约 1 token，加上 projectExperiences/workExperiences 等结构开销，
+    // 项目/经历较多的简历输出会很长，给到 16384 留足余量避免 summary 中途截断。
+    // Chinese resumes use ~1 token per character; with verbose project / work
+    // experience summaries the output can be very long, so allow 16384 to leave
+    // headroom and avoid truncating mid-string.
+    maxOutputTokens: 16_384,
     model: provider(modelId),
     prompt: `${STRUCTURED_INSTRUCTIONS}\n\n简历文本：\n${clipForStructured(text)}`,
     temperature: 0,
