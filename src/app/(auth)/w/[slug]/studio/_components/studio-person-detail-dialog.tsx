@@ -60,6 +60,7 @@ import { copyTextToClipboard, toAbsoluteUrl } from "@/lib/client/clipboard";
 import { scheduleEntryStatusMeta } from "@/lib/shared/studio-interviews";
 import { AgentInstructionsPanel } from "../interviews/_components/agent-instructions-panel";
 import { InterviewLinkQrButton } from "../interviews/_components/interview-link-qr-button";
+import { ConversationTranscript } from "../interviews/_components/interview-detail/conversation-transcript";
 import { DetailRow } from "../interviews/_components/interview-detail/detail-row";
 import { EvaluationResults } from "../interviews/_components/interview-detail/evaluation-results";
 import { FormsTab } from "../interviews/_components/interview-detail/forms-tab";
@@ -706,7 +707,7 @@ export function StudioPersonDetailDialog({
                                 </div>
                               </AccordionTrigger>
                               <AccordionContent className="px-5 pb-5">
-                                <div className="grid gap-4 lg:grid-cols-[minmax(0,0.95fr)_minmax(320px,0.75fr)]">
+                                <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(400px,1fr)]">
                                   <div className="space-y-4">
                                     <RecordingPlayer
                                       conversationId={report.conversationId}
@@ -783,67 +784,32 @@ export function StudioPersonDetailDialog({
                                         </div>
                                       ) : null}
                                     </div>
-
-                                    <div className="rounded-2xl border border-border/60 bg-background p-4">
-                                      <h4 className="font-medium text-sm">评估指标</h4>
-                                      <div className="mt-4 max-h-[420px] overflow-y-auto pr-1">
-                                        <EvaluationResults
-                                          data={
-                                            (report.evaluationCriteriaResults as Record<
-                                              string,
-                                              unknown
-                                            >) ?? {}
-                                          }
-                                        />
-                                      </div>
-                                    </div>
-
-                                    <InterviewMetricsPanel metrics={report.metrics ?? {}} />
                                   </div>
 
                                   <div className="lg:relative">
-                                    <div className="flex flex-col rounded-2xl border border-border/60 bg-background p-4 lg:absolute lg:inset-0">
-                                      <h4 className="font-medium text-sm">对话记录</h4>
-                                      <div className="mt-4 space-y-3 lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:pr-1">
-                                        {report.turns.length > 0 ? (
-                                          report.turns.map((turn) => (
-                                            <div
-                                              className="rounded-xl border border-border/60 bg-muted/20 p-3"
-                                              key={turn.id}
-                                            >
-                                              <div className="flex flex-wrap items-center gap-2 text-xs">
-                                                <Badge
-                                                  variant={
-                                                    turn.role === "user" ? "outline" : "secondary"
-                                                  }
-                                                >
-                                                  {turn.role === "user" ? "候选人" : "面试官"}
-                                                </Badge>
-                                                <TimeDisplay
-                                                  className="text-muted-foreground"
-                                                  options={DATE_TIME_DISPLAY_OPTIONS}
-                                                  value={turn.createdAt}
-                                                />
-                                                {typeof turn.timeInCallSecs === "number" ? (
-                                                  <span className="text-muted-foreground">
-                                                    通话
-                                                    {turn.timeInCallSecs}s
-                                                  </span>
-                                                ) : null}
-                                              </div>
-                                              <p className="mt-2 text-sm leading-normal">
-                                                {turn.message}
-                                              </p>
-                                            </div>
-                                          ))
-                                        ) : (
-                                          <p className="text-muted-foreground text-sm">
-                                            暂无对话记录。
-                                          </p>
-                                        )}
-                                      </div>
+                                    <div className="flex h-[480px] flex-col overflow-hidden rounded-2xl border border-border/60 bg-background lg:absolute lg:inset-0 lg:h-auto">
+                                      <h4 className="shrink-0 px-4 pt-4 pb-2 font-medium text-sm">
+                                        对话记录
+                                      </h4>
+                                      <ConversationTranscript turns={report.turns} />
                                     </div>
                                   </div>
+
+                                  <div className="rounded-2xl border border-border/60 bg-background p-4">
+                                    <h4 className="font-medium text-sm">评估指标</h4>
+                                    <div className="mt-4 max-h-[420px] overflow-y-auto pr-1">
+                                      <EvaluationResults
+                                        data={
+                                          (report.evaluationCriteriaResults as Record<
+                                            string,
+                                            unknown
+                                          >) ?? {}
+                                        }
+                                      />
+                                    </div>
+                                  </div>
+
+                                  <InterviewMetricsPanel metrics={report.metrics ?? {}} />
                                 </div>
                               </AccordionContent>
                             </AccordionItem>
