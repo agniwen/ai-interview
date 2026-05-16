@@ -69,7 +69,7 @@ export function GlobalConfigForm({ initial }: Props) {
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        title="全局配置"
+        title="系统设置"
         description="这些指令会注入到所有面试 agent。留空则使用系统默认文案。"
       />
 

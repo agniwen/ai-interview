@@ -338,7 +338,7 @@ export const studioInterviewsRouter = factory
     await ensureApplicableBindings(candidateId);
     const jobDescriptionPresetQuestions = await loadInterviewPresetQuestions(candidateId);
 
-    // 注入全局配置（公司情况 / 开场白 / 结束语），保证预览与运行时一致。
+    // 注入系统设置（公司情况 / 开场白 / 结束语），保证预览与运行时一致。
     // Inject global config so the preview matches what the agent will receive.
     const globalCfg = await getGlobalConfig(activeOrg.id);
     const candidateName = existing.candidateName?.trim() || "候选人";

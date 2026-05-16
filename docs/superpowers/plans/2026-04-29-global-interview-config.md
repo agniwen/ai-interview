@@ -46,7 +46,7 @@
 在 `src/lib/db/schema.ts` 末尾（与其他 table 同级）新增：
 
 ```ts
-// 全局配置（单例表，固定 id="singleton"）
+// 系统设置（单例表，固定 id="singleton"）
 // Global config (singleton table, id="singleton")
 export const globalConfig = pgTable("global_config", {
   id: text("id").primaryKey().default("singleton"),
@@ -140,7 +140,7 @@ function serialize(row: typeof globalConfig.$inferSelect): GlobalConfigRecord {
   };
 }
 
-// 读取全局配置；不存在时返回默认空配置（不写库）
+// 读取系统设置；不存在时返回默认空配置（不写库）
 // Read singleton config; if missing, return empty defaults without writing.
 export async function getGlobalConfig(): Promise<GlobalConfigRecord> {
   const row = await db.query.globalConfig.findFirst({
@@ -393,7 +393,7 @@ import {
     {
       href: "/studio/global-config",
       icon: SettingsIcon,
-      title: "全局配置",
+      title: "系统设置",
     },
   ],
   label: "系统配置",
@@ -432,7 +432,7 @@ import { getGlobalConfig } from "@/server/queries/global-config";
 import { GlobalConfigForm } from "./_components/global-config-form";
 
 export const metadata: Metadata = {
-  title: "全局配置",
+  title: "系统设置",
 };
 
 export default async function StudioGlobalConfigPage() {
@@ -504,7 +504,7 @@ export function GlobalConfigForm({ initial }: Props) {
   return (
     <div className="flex flex-col gap-6 max-w-3xl">
       <div>
-        <h1 className="text-2xl font-semibold">全局配置</h1>
+        <h1 className="text-2xl font-semibold">系统设置</h1>
         <p className="text-sm text-muted-foreground mt-1">
           这些指令会注入到所有面试 agent。留空则使用系统默认文案。
         </p>
@@ -980,7 +980,7 @@ cd agent && uv run pytest tests/test_prompts.py tests/test_interview_agent_init.
 
 - [ ] **Step 4：清空配置回归**
 
-清空全局配置三个字段并保存，再开启一场面试，验证回退到旧默认行为（agent 仍正常打招呼/告别）。
+清空系统设置三个字段并保存，再开启一场面试，验证回退到旧默认行为（agent 仍正常打招呼/告别）。
 
 - [ ] **Step 5：标记完成**
 

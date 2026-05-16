@@ -6,7 +6,7 @@ import { getGlobalConfig } from "@/server/routes/studio/routes/global-config/dao
 import { GlobalConfigForm } from "./_components/global-config-form";
 
 export const metadata: Metadata = {
-  title: "全局配置",
+  title: "系统设置",
 };
 
 export default async function StudioGlobalConfigPage({

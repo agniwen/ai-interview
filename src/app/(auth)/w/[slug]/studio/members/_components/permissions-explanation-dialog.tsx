@@ -85,7 +85,7 @@ const PERMISSION_ROWS = [
     admin: "查看、编辑",
     hr: "查看、编辑",
     owner: "查看、编辑",
-    resource: "全局配置",
+    resource: "系统设置",
     viewer: "查看",
   },
   {

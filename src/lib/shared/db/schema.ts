@@ -1002,7 +1002,7 @@ export const feishuThreadState = pgTable(
   (table) => [index("feishu_thread_state_organization_idx").on(table.organizationId)],
 );
 
-// 全局配置（单例表，固定 id="singleton"）
+// 系统设置（单例表，固定 id="singleton"）
 // Global config (singleton table, id="singleton")
 export const globalConfig = pgTable("global_config", {
   closingInstructions: text("closing_instructions").notNull().default(""),

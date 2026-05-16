@@ -370,7 +370,7 @@ export const interviewRouter = factory
     // Interview context is surfaced to the Python agent worker via participant metadata.
     // Python: `ctx.wait_for_participant()` → `participant.metadata` → JSON.parse.
     // When the JD has multiple interviewers, the agent picks one at random.
-    // 全局配置（公司背景、开场/结束指令）在颁发 token 前读取并注入。
+    // 系统设置（公司背景、开场/结束指令）在颁发 token 前读取并注入。
     // Global config (company context, opening/closing instructions) is read before token issuance and injected here.
     // Candidate-facing route has no authenticated org context; derive the org from the
     // interview record itself. studio_interview.organization_id 已 NOT NULL,直接取。

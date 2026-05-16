@@ -25,7 +25,7 @@ const ROUTE_META: { prefix: string; meta: RouteMeta }[] = [
   { meta: { title: "面试题" }, prefix: "/studio/interview-questions" },
   { meta: { title: "我的信息" }, prefix: "/studio/me" },
   { meta: { title: "工作区管理" }, prefix: "/studio/members" },
-  { meta: { title: "全局配置" }, prefix: "/studio/global-config" },
+  { meta: { title: "系统设置" }, prefix: "/studio/global-config" },
 ];
 
 const DEFAULT_META: RouteMeta = { title: "简历库" };

@@ -1227,7 +1227,7 @@ git commit -m "feat(ui): workspace members management page via authClient.organi
 
 - Modify: `src/components/app-sidebar/sidebar-tabs.tsx`
 
-**Goal:** 按当前 member.role 决定哪些 tab 可见。viewer 看不到"系统管理"、"全局配置 update"按钮等。
+**Goal:** 按当前 member.role 决定哪些 tab 可见。viewer 看不到"系统管理"、"系统设置 update"按钮等。
 
 - [ ] **Step 1: 把 tab 列表包 PermissionGate**
 

@@ -685,12 +685,12 @@ const blocks: Block[] = [
   {
     bullets: [
       "在工作台维护岗位、JD、面试官人设、面试问题",
-      "全局配置一次设定多次复用",
+      "系统设置一次设定多次复用",
       "JD 与候选人评估上下文打通",
     ],
     darkSrc: "/landing/studio-dark.png",
     eyebrow: "Workspace",
-    imageAlt: "工作台岗位与全局配置界面",
+    imageAlt: "工作台岗位与系统设置界面",
     imageHeight: 900,
     imageWidth: 1440,
     lead: "在工作台里组织岗位描述、面试官人设和题库，让每一次评估都建立在真实招聘语境上，而不是孤立的关键词匹配。",

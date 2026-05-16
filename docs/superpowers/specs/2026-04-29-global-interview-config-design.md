@@ -8,7 +8,7 @@
 - 结束语：`agent/src/interview_agent.py:44-48` `EndCallTool(end_instructions=...)` 与 `agent/src/agent.py:238` 的兜底告别文案
 - 公司情况：当前不存在
 
-需求是把这三项做成"全局配置"——管理员可在 Studio 后台编辑、整个系统共用同一份。
+需求是把这三项做成"系统设置"——管理员可在 Studio 后台编辑、整个系统共用同一份。
 
 ## 设计决策 / Decisions
 
@@ -52,7 +52,7 @@
 文件：`src/lib/db/schema.ts`
 
 ```ts
-// 全局配置（单例表）/ Global config (singleton table)
+// 系统设置（单例表）/ Global config (singleton table)
 export const globalConfig = pgTable("global_config", {
   id: text("id").primaryKey().default("singleton"),
   openingInstructions: text("opening_instructions").notNull().default(""),
@@ -120,7 +120,7 @@ export async function upsertGlobalConfig(input, userId): Promise<GlobalConfig> {
     {
       href: '/studio/global-config',
       icon: SettingsIcon,
-      title: '全局配置',
+      title: '系统设置',
     },
   ],
   label: '系统配置',
@@ -141,7 +141,7 @@ export async function upsertGlobalConfig(input, userId): Promise<GlobalConfig> {
 
 文件：`src/server/routes/interview/route.ts`（约 188 行 `participantMetadata` 构造处）
 
-token 颁发时同步读取一次全局配置：
+token 颁发时同步读取一次系统设置：
 
 ```ts
 const cfg = await getGlobalConfig();

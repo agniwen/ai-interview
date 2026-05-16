@@ -128,7 +128,7 @@ const navGroups: NavGroup[] = [
         icon: SettingsIcon,
         path: "/studio/global-config",
         resource: "globalConfig",
-        title: "全局配置",
+        title: "系统设置",
       },
     ],
     label: "系统配置",
