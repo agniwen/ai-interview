@@ -1,7 +1,18 @@
 "use client";
 
 import { useMemo } from "react";
-import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, XAxis, YAxis } from "recharts";
+import {
+  Area,
+  AreaChart,
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Pie,
+  PieChart,
+  XAxis,
+  YAxis,
+} from "recharts";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import type { ChartConfig } from "@/components/ui/chart";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -87,13 +98,21 @@ for (const status of STATUS_ORDER) {
   };
 }
 
+// 第二张：每日新增 — 绿色调；第三张：AI 面试转化 — 紫色调。
+// 项目的 --chart-* 都落在蓝色色相上，所以这里直接用 OKLCH 字面量。
+// Daily card uses green tones, conversion pie uses purple tones. Project's
+// --chart-* tokens are all on a blue hue, so we use OKLCH literals here.
+const DAILY_GREEN = "oklch(0.65 0.16 150)";
+const CONVERSION_PURPLE = "oklch(0.55 0.18 295)";
+const CONVERSION_PURPLE_LIGHT = "oklch(0.82 0.07 295)";
+
 const dailyChartConfig: ChartConfig = {
-  count: { color: "var(--chart-1)", label: "新增简历" },
+  count: { color: DAILY_GREEN, label: "新增简历" },
 };
 
 const conversionChartConfig: ChartConfig = {
-  withInterview: { color: "var(--chart-2)", label: "已发起 AI 面试" },
-  withoutInterview: { color: "var(--muted)", label: "仅入库" },
+  withInterview: { color: CONVERSION_PURPLE, label: "已发起 AI 面试" },
+  withoutInterview: { color: CONVERSION_PURPLE_LIGHT, label: "仅入库" },
 };
 
 function StatusCard({ byStatus }: { byStatus: ResumeLibraryMetrics["byStatus"] }) {
@@ -216,12 +235,16 @@ function ConversionCard({ conversion }: { conversion: ResumeLibraryMetrics["conv
   const percent = total > 0 ? Math.round((conversion.withInterview / total) * 100) : 0;
   const hasData = total > 0;
 
+  // Pie 需要 [{name, value}] 形态；用 key 命名以便 tooltip 和 config 对齐。
+  // Pie wants [{name, value}] rows; keys mirror conversionChartConfig keys
+  // so ChartTooltipContent can resolve labels/colors.
   const data = useMemo(
     () => [
+      { fill: CONVERSION_PURPLE, key: "withInterview", value: conversion.withInterview },
       {
-        label: "转化",
-        withInterview: conversion.withInterview,
-        withoutInterview: conversion.withoutInterview,
+        fill: CONVERSION_PURPLE_LIGHT,
+        key: "withoutInterview",
+        value: conversion.withoutInterview,
       },
     ],
     [conversion.withInterview, conversion.withoutInterview],
@@ -237,31 +260,40 @@ function ConversionCard({ conversion }: { conversion: ResumeLibraryMetrics["conv
             : "暂无可统计的简历"}
         </CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="flex flex-col gap-3">
         {hasData ? (
-          <ChartContainer className="aspect-auto h-16 w-full" config={conversionChartConfig}>
-            <BarChart accessibilityLayer data={data} layout="vertical" margin={{ left: 0 }}>
-              <XAxis hide type="number" />
-              <YAxis dataKey="label" hide type="category" />
-              <ChartTooltip content={<ChartTooltipContent indicator="dot" />} />
-              <Bar
-                dataKey="withInterview"
-                fill="var(--chart-2)"
-                radius={[4, 0, 0, 4]}
-                stackId="conversion"
-              >
-                <Cell fill="var(--chart-2)" />
-              </Bar>
-              <Bar
-                dataKey="withoutInterview"
-                fill="var(--muted)"
-                radius={[0, 4, 4, 0]}
-                stackId="conversion"
-              >
-                <Cell fill="var(--muted)" />
-              </Bar>
-            </BarChart>
-          </ChartContainer>
+          <>
+            <ChartContainer className="mx-auto aspect-square h-32" config={conversionChartConfig}>
+              <PieChart>
+                <ChartTooltip content={<ChartTooltipContent indicator="dot" nameKey="key" />} />
+                <Pie data={data} dataKey="value" innerRadius={32} nameKey="key" outerRadius={56}>
+                  {data.map((entry) => (
+                    <Cell fill={entry.fill} key={entry.key} />
+                  ))}
+                </Pie>
+              </PieChart>
+            </ChartContainer>
+            <ul className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-muted-foreground">
+              <li className="flex items-center gap-2">
+                <span
+                  aria-hidden
+                  className="size-2.5 rounded-sm"
+                  style={{ backgroundColor: CONVERSION_PURPLE }}
+                />
+                <span className="flex-1 truncate">已发起 AI 面试</span>
+                <span className="tabular-nums">{conversion.withInterview}</span>
+              </li>
+              <li className="flex items-center gap-2">
+                <span
+                  aria-hidden
+                  className="size-2.5 rounded-sm"
+                  style={{ backgroundColor: CONVERSION_PURPLE_LIGHT }}
+                />
+                <span className="flex-1 truncate">仅入库</span>
+                <span className="tabular-nums">{conversion.withoutInterview}</span>
+              </li>
+            </ul>
+          </>
         ) : (
           <EmptyHint message="还没有任何候选人" />
         )}

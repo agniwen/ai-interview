@@ -3,12 +3,17 @@
 import { useMemo } from "react";
 import { useHydrated } from "@/hooks/use-hydrated";
 
+// 表格内创建/更新时间统一显示为 `YY/MM/DD HH:mm`。
+// zh-CN 下 Intl.DateTimeFormat 的 2-digit 组合恰好渲染为 `YY/MM/DD HH:mm`。
+// Tables render created/updated timestamps as `YY/MM/DD HH:mm`. With locale
+// zh-CN, the all-2-digit option combo formats exactly that way.
 export const DATE_TIME_DISPLAY_OPTIONS = {
   day: "2-digit",
   hour: "2-digit",
   hour12: false,
   minute: "2-digit",
   month: "2-digit",
+  year: "2-digit",
 } satisfies Intl.DateTimeFormatOptions;
 
 export const TIME_DISPLAY_OPTIONS = {

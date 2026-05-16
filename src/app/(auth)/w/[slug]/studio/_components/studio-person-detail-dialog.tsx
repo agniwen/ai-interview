@@ -3,7 +3,7 @@
 // 统一的候选人详情弹窗，通过 mode prop 区分简历库模式和 AI 面试模式。
 // Unified candidate detail dialog; the `mode` prop switches between resume-library
 // and AI-interview views without duplicating the shell or shared sub-components.
-
+import Markdown from "react-markdown";
 import type { StudioInterviewRoundDetail } from "@/lib/shared/studio-interview-rounds";
 import type { ResumeLibraryDetail } from "@/lib/shared/studio-resumes";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -603,7 +603,7 @@ export function StudioPersonDetailDialog({
                     <div className="rounded-2xl border border-border/60 bg-background p-5">
                       <h3 className="font-medium text-sm">简历评价</h3>
                       <p className="mt-3 text-muted-foreground text-sm leading-normal">
-                        {truncateText(record.notes, 600) || "暂无简历评价"}
+                        <Markdown>{truncateText(record.notes) || "暂无简历评价"}</Markdown>
                       </p>
                     </div>
                   ) : null}
@@ -839,7 +839,7 @@ export function StudioPersonDetailDialog({
                               </span>
                             </div>
                             <p className="mt-2 text-sm leading-normal">
-                              {truncateText(question.question, 240)}
+                              <Markdown>{truncateText(question.question)}</Markdown>
                             </p>
                           </div>
                         ))

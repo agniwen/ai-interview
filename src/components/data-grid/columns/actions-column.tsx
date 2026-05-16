@@ -35,6 +35,8 @@ export interface ActionsColumnOptions<TData> {
   inline?: ActionInline<TData>[];
   menu?: ActionMenuItem<TData>[];
   menuLabel?: string;
+  /** Header label; defaults to "操作" so all tables get a consistent column title. */
+  title?: string;
   /** Override id (default 'actions') */
   id?: string;
   /** Override size; default = 36*inlineCount + 36 (menu) + padding */
@@ -108,6 +110,7 @@ export function actionsColumn<TData>(opts: ActionsColumnOptions<TData>): ColumnD
     },
     enableHiding: false,
     enableSorting: false,
+    header: () => <div className="text-right">{opts.title ?? "操作"}</div>,
     id: opts.id ?? "actions",
     size: opts.size ?? inferredSize,
   };

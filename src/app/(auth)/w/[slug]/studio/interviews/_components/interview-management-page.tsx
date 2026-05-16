@@ -30,6 +30,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { CreatorCell } from "@/components/cell/creator-cell";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -269,8 +270,8 @@ export function InterviewManagementPage({
         key: "hasReport",
         title: "报告",
       }),
-      textColumn<StudioInterviewRoundListRecord>({
-        cell: (r) => r.creatorName ?? "—",
+      customColumn<StudioInterviewRoundListRecord>({
+        cell: (r) => <CreatorCell image={r.creatorImage} name={r.creatorName} />,
         key: "creatorName",
         title: "创建人",
       }),

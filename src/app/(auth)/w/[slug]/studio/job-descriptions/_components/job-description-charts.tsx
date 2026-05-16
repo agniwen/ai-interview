@@ -184,8 +184,12 @@ function CandidatesCard({ rows }: { rows: JobDescriptionMetrics["candidatesByJd"
 // F · 各岗位面试完成率 —— 垂直 bar（0–100%）
 // =============================================================================
 
+// 第二张完成率走绿色调；与简历库每日新增 chart 的绿色保持一致。
+// Completion bar uses a green tone matching the resume-library daily-new chart.
+const COMPLETION_GREEN = "oklch(0.65 0.16 150)";
+
 const completionConfig: ChartConfig = {
-  percent: { color: "var(--chart-2)", label: "完成率" },
+  percent: { color: COMPLETION_GREEN, label: "完成率" },
 };
 
 function truncateAxis(value: string): string {
@@ -216,7 +220,12 @@ function CompletionCard({ rows }: { rows: JobDescriptionMetrics["completionByJd"
             <BarChart
               accessibilityLayer
               data={data}
-              margin={{ bottom: 4, left: -16, right: 8, top: 12 }}
+              // top 给足 24px：YAxis 顶端 100% 标签需要 ~6px 半高，柱子顶部的
+              // LabelList（offset=6）又额外占 ~16px，否则贴到容器上沿会被裁。
+              // top:24 leaves room for both the 100% Y-axis tick label and the
+              // bar-top LabelList; otherwise either gets clipped when bars hit
+              // the ceiling.
+              margin={{ bottom: 4, left: 4, right: 8, top: 24 }}
             >
               <CartesianGrid vertical={false} />
               <XAxis
@@ -233,7 +242,7 @@ function CompletionCard({ rows }: { rows: JobDescriptionMetrics["completionByJd"
                 tickLine={false}
                 tickMargin={4}
                 ticks={[0, 25, 50, 75, 100]}
-                width={40}
+                width={36}
               />
               <ChartTooltip
                 content={
@@ -274,8 +283,12 @@ function CompletionCard({ rows }: { rows: JobDescriptionMetrics["completionByJd"
 // H · 面试官负载 —— 横向 bar（保留排行榜语义）
 // =============================================================================
 
+// 第三张面试官负载走橙色调，与前两张拉开差异。
+// Interviewer-load bar uses an orange tone to distinguish from the other two cards.
+const LOAD_ORANGE = "oklch(0.72 0.16 55)";
+
 const loadConfig: ChartConfig = {
-  activeCandidates: { color: "var(--chart-3)", label: "进行中候选人" },
+  activeCandidates: { color: LOAD_ORANGE, label: "进行中候选人" },
 };
 
 // Recharts 类目轴在 layout=vertical 下需要根据数据条数手动估算高度，

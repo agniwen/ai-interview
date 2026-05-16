@@ -30,6 +30,7 @@ export interface StudioInterviewRoundListRecord {
   /** 完整面试链接相对路径 / Relative interview link path. */
   interviewLink: string;
   creatorName: string | null;
+  creatorImage: string | null;
   creatorOrganizationName: string | null;
   createdAt: string;
   updatedAt: string;

@@ -32,6 +32,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { CreatorCell } from "@/components/cell/creator-cell";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -270,8 +271,8 @@ export function ResumeLibraryPage({
         key: "hasInterviewRounds",
         title: "AI 面试",
       }),
-      textColumn<ResumeLibraryListRecord>({
-        cell: (r) => r.creatorName ?? "—",
+      customColumn<ResumeLibraryListRecord>({
+        cell: (r) => <CreatorCell image={r.creatorImage} name={r.creatorName} />,
         key: "creatorName",
         title: "创建人",
       }),

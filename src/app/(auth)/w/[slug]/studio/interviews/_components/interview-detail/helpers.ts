@@ -69,12 +69,9 @@ export function ensureProjectExperiences(value: unknown) {
  * 截断文本：超过 maxLength 则添加省略号；空值返回 formatValue 的占位符。
  * Truncate text; values longer than maxLength get an ellipsis. Empty falls back to "未填写".
  */
-export function truncateText(value: string | number | null | undefined, maxLength = 320) {
+export function truncateText(value: string | number | null | undefined) {
   const text = formatValue(value);
-  if (text === "未填写" || text.length <= maxLength) {
-    return text;
-  }
-  return `${text.slice(0, maxLength)}...`;
+  return text;
 }
 
 /**

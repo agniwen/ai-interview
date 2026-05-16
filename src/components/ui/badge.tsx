@@ -13,18 +13,23 @@ const badgeVariants = cva(
     },
     variants: {
       variant: {
-        // Solid / chrome variants (legacy)
-        default: "bg-primary text-primary-foreground [a&]:hover:bg-primary/90",
+        // 所有 variant 共用同一套 "tinted-soft" 视觉语言：低 alpha 填充 + 同色边框 + 高饱和文字。
+        // chrome 系（default/secondary/outline）走中性色，semantic 系（success/info/warning/danger）按状态语义着色，整体节奏与 status badge 完全一致。
+        // All variants share one "tinted-soft" visual language: low-alpha fill +
+        // matching border + saturated text. Chrome variants stay neutral; semantic
+        // variants carry meaning. Both groups now look consistent with status badges.
+        default:
+          "border-primary/25 bg-primary/10 text-primary dark:border-primary/35 dark:bg-primary/15 [a&]:hover:bg-primary/15",
+        secondary:
+          "border-foreground/15 bg-foreground/[0.06] text-foreground dark:border-foreground/20 dark:bg-foreground/10 [a&]:hover:bg-foreground/10",
+        outline:
+          "border-border bg-muted/40 text-foreground dark:bg-muted/30 [a&]:hover:bg-muted/60",
         destructive:
-          "bg-destructive text-white focus-visible:ring-destructive/20 dark:bg-destructive/60 dark:focus-visible:ring-destructive/40 [a&]:hover:bg-destructive/90",
+          "border-destructive/30 bg-destructive/10 text-destructive dark:border-destructive/40 dark:bg-destructive/15 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 [a&]:hover:bg-destructive/15",
         ghost: "[a&]:hover:bg-accent [a&]:hover:text-accent-foreground",
         link: "text-primary underline-offset-4 [a&]:hover:underline",
-        outline:
-          "border-border text-foreground [a&]:hover:bg-accent [a&]:hover:text-accent-foreground",
-        secondary: "bg-secondary text-secondary-foreground [a&]:hover:bg-secondary/90",
 
-        // Semantic tinted-soft variants: low-alpha fill + border + saturated text.
-        // Use these for status indicators; the chrome variants stay for chips/labels.
+        // 状态语义色。Tone helpers consumed by status meta dictionaries.
         success:
           "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:border-emerald-500/40 dark:bg-emerald-500/15 dark:text-emerald-300",
         info: "border-sky-500/30 bg-sky-500/10 text-sky-700 dark:border-sky-500/40 dark:bg-sky-500/15 dark:text-sky-300",

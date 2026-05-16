@@ -29,6 +29,7 @@ export interface ResumeLibraryListRecord {
   updatedAt: string;
   createdBy: string | null;
   creatorName: string | null;
+  creatorImage: string | null;
   creatorOrganizationName: string | null;
 }
 
