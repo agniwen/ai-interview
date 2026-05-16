@@ -4,6 +4,7 @@ import type { JobDescriptionListRecord } from "@/lib/shared/job-descriptions";
 import { rpc } from "@/lib/client/rpc";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { useQuery } from "@tanstack/react-query";
+import { MarkdownView } from "@/components/markdown-view";
 import { Badge } from "@/components/ui/badge";
 import { Modal } from "@/components/ui/modal";
 
@@ -68,9 +69,10 @@ export function JobDescriptionViewDialog({
 
         <section className="space-y-1.5">
           <h3 className="font-medium text-muted-foreground text-xs">岗位 Prompt</h3>
-          <pre className="whitespace-pre-wrap rounded-md border border-border/60 bg-muted/40 p-3 font-sans text-sm">
-            {record.prompt}
-          </pre>
+          <MarkdownView
+            className="rounded-md border border-border/60 bg-muted/40 p-3 text-sm"
+            content={record.prompt}
+          />
         </section>
       </div>
     );

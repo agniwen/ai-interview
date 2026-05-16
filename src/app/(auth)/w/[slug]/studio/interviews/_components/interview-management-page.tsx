@@ -58,6 +58,7 @@ import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { copyTextToClipboard, toAbsoluteUrl } from "@/lib/client/clipboard";
 import { StudioPersonDetailDialog } from "@/app/(auth)/w/[slug]/studio/_components/studio-person-detail-dialog";
 import { StudioPersonEditDialog } from "@/app/(auth)/w/[slug]/studio/_components/studio-person-edit-dialog";
+import { JobDescriptionViewDialog } from "./job-description-view-dialog";
 
 const PdfPreviewDialog = dynamic(
   async () => {
@@ -137,6 +138,7 @@ export function InterviewManagementPage({
   const [editRecordId, setEditRecordId] = useState<string | null>(null);
   const [deleteRecord, setDeleteRecord] = useState<StudioInterviewRoundListRecord | null>(null);
   const [previewRecord, setPreviewRecord] = useState<StudioInterviewRoundListRecord | null>(null);
+  const [viewJobDescriptionId, setViewJobDescriptionId] = useState<string | null>(null);
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
 
@@ -230,8 +232,19 @@ export function InterviewManagementPage({
         size: 180,
         title: "候选人",
       }),
-      textColumn<StudioInterviewRoundListRecord>({
-        cell: (r) => r.jobDescriptionName ?? "—",
+      customColumn<StudioInterviewRoundListRecord>({
+        cell: (r) =>
+          r.jobDescriptionName ? (
+            <button
+              className="cursor-pointer truncate text-left underline-offset-4 hover:underline"
+              onClick={() => r.jobDescriptionId && setViewJobDescriptionId(r.jobDescriptionId)}
+              type="button"
+            >
+              {r.jobDescriptionName}
+            </button>
+          ) : (
+            <span className="text-muted-foreground">—</span>
+          ),
         key: "jobDescriptionName",
         title: "在招岗位",
       }),
@@ -508,6 +521,11 @@ export function InterviewManagementPage({
           url={`/api/w/${slug}/studio/interviews/${previewRecord.candidateId}/resume`}
         />
       ) : null}
+
+      <JobDescriptionViewDialog
+        jobDescriptionId={viewJobDescriptionId}
+        onOpenChange={(open) => !open && setViewJobDescriptionId(null)}
+      />
     </>
   );
 }
