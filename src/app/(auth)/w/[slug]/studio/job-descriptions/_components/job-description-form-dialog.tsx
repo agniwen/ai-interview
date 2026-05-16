@@ -418,7 +418,8 @@ function LinkedFormsList({
   jobDescriptionId: string;
   templates: CandidateFormTemplateListRecord[];
 }) {
-  const newTemplateHref = `/studio/forms?jobDescriptionId=${encodeURIComponent(jobDescriptionId)}`;
+  const slug = useWorkspaceSlug();
+  const newTemplateHref = `/w/${slug}/studio/forms?jobDescriptionId=${encodeURIComponent(jobDescriptionId)}`;
 
   return (
     <div className="mt-4 space-y-3">
@@ -452,7 +453,7 @@ function LinkedFormsList({
           {templates.map((template) => (
             <Link
               className="flex items-start justify-between gap-3 rounded-xl border border-border/60 bg-muted/20 p-3 transition-colors hover:bg-muted/40"
-              href={`/studio/forms?templateId=${template.id}`}
+              href={`/w/${slug}/studio/forms?templateId=${template.id}`}
               key={template.id}
               target="_blank"
             >
@@ -488,7 +489,8 @@ function LinkedInterviewQuestionTemplatesList({
   jobDescriptionId: string;
   templates: InterviewQuestionTemplateListRecord[];
 }) {
-  const newTemplateHref = `/studio/interview-questions?jobDescriptionId=${encodeURIComponent(jobDescriptionId)}`;
+  const slug = useWorkspaceSlug();
+  const newTemplateHref = `/w/${slug}/studio/interview-questions?jobDescriptionId=${encodeURIComponent(jobDescriptionId)}`;
 
   return (
     <div className="mt-4 space-y-3">
@@ -522,7 +524,7 @@ function LinkedInterviewQuestionTemplatesList({
           {templates.map((template) => (
             <Link
               className="flex items-start justify-between gap-3 rounded-xl border border-border/60 bg-muted/20 p-3 transition-colors hover:bg-muted/40"
-              href={`/studio/interview-questions?templateId=${template.id}`}
+              href={`/w/${slug}/studio/interview-questions?templateId=${template.id}`}
               key={template.id}
               target="_blank"
             >
