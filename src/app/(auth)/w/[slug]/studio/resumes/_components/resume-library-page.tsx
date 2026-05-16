@@ -32,6 +32,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Empty,
@@ -258,6 +259,16 @@ export function ResumeLibraryPage({
         },
         key: "resumeFileName",
         title: "简历文件",
+      }),
+      customColumn<ResumeLibraryListRecord>({
+        cell: (r) =>
+          r.hasInterviewRounds ? (
+            <Badge variant="success">已发起</Badge>
+          ) : (
+            <Badge variant="outline">未发起</Badge>
+          ),
+        key: "hasInterviewRounds",
+        title: "AI 面试",
       }),
       textColumn<ResumeLibraryListRecord>({
         cell: (r) => r.creatorName ?? "—",

@@ -29,12 +29,12 @@ export type ScheduleEntryStatus = z.infer<typeof scheduleEntryStatusSchema>;
 
 export const scheduleEntryStatusMeta: Record<
   ScheduleEntryStatus,
-  { label: string; tone: "default" | "secondary" | "outline" }
+  { label: string; tone: "success" | "warning" | "info" | "outline" }
 > = {
-  completed: { label: "已结束", tone: "default" },
-  in_progress: { label: "进行中", tone: "secondary" },
-  interrupted: { label: "进行中", tone: "secondary" },
-  pending: { label: "待开始", tone: "outline" },
+  completed: { label: "已结束", tone: "success" },
+  in_progress: { label: "进行中", tone: "warning" },
+  interrupted: { label: "进行中", tone: "warning" },
+  pending: { label: "待开始", tone: "info" },
 };
 
 // 热重连宽限期：候选人断连后允许在该窗口内拿同一房间名续连。
@@ -121,13 +121,13 @@ export type StudioInterviewUpdateValues = z.infer<typeof studioInterviewUpdateSc
 
 export const studioInterviewStatusMeta: Record<
   StudioInterviewStatus,
-  { label: string; tone: "default" | "secondary" | "outline" }
+  { label: string; tone: "success" | "warning" | "info" | "outline" }
 > = {
   archived: { label: "已归档", tone: "outline" },
-  completed: { label: "已完成", tone: "secondary" },
+  completed: { label: "已完成", tone: "success" },
   draft: { label: "草稿", tone: "outline" },
-  in_progress: { label: "进行中", tone: "secondary" },
-  ready: { label: "待面试", tone: "default" },
+  in_progress: { label: "进行中", tone: "warning" },
+  ready: { label: "待面试", tone: "info" },
 };
 
 export function createDefaultScheduleEntry(sortOrder = 0): StudioInterviewScheduleEntryFormValue {

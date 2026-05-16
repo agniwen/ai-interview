@@ -114,17 +114,17 @@ export function formatReportStatus(status: string) {
  */
 export function getReportBadgeVariant(
   status: string,
-): "default" | "secondary" | "destructive" | "outline" {
+): "success" | "warning" | "danger" | "outline" {
   switch (status) {
     case "completed":
     case "done": {
-      return "default";
+      return "success";
     }
     case "failed": {
-      return "destructive";
+      return "danger";
     }
     case "connected": {
-      return "secondary";
+      return "warning";
     }
     default: {
       return "outline";
@@ -138,12 +138,12 @@ export function getReportBadgeVariant(
  */
 export function resolveRecommendationVariant(
   recommendation: string,
-): "default" | "secondary" | "destructive" {
+): "success" | "warning" | "danger" {
   if (recommendation.includes("不建议")) {
-    return "destructive";
+    return "danger";
   }
   if (recommendation.includes("待定")) {
-    return "secondary";
+    return "warning";
   }
-  return "default";
+  return "success";
 }

@@ -262,7 +262,7 @@ export function InterviewManagementPage({
       customColumn<StudioInterviewRoundListRecord>({
         cell: (r) =>
           r.hasReport ? (
-            <Badge variant="default">已生成</Badge>
+            <Badge variant="success">已生成</Badge>
           ) : (
             <span className="text-muted-foreground">—</span>
           ),

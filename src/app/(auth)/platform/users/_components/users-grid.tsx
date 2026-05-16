@@ -118,7 +118,7 @@ export function UsersGrid({ initialData }: { initialData: UsersResult }) {
       customColumn<UserRecord>({
         cell: (r) =>
           r.emailVerified ? (
-            <Badge variant="outline" className="text-green-600 border-green-200 bg-green-50">
+            <Badge variant="success">
               <CheckCircle2Icon className="mr-1 size-3" />
               已验证
             </Badge>
@@ -156,7 +156,7 @@ export function UsersGrid({ initialData }: { initialData: UsersResult }) {
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Badge variant="destructive">
+                  <Badge variant="danger">
                     <BanIcon className="mr-1 size-3" />
                     已封禁
                   </Badge>
@@ -173,9 +173,7 @@ export function UsersGrid({ initialData }: { initialData: UsersResult }) {
               </Tooltip>
             </TooltipProvider>
           ) : (
-            <Badge variant="outline" className="text-green-600 border-green-200 bg-green-50">
-              正常
-            </Badge>
+            <Badge variant="success">正常</Badge>
           ),
         key: "banned",
         title: "状态",
