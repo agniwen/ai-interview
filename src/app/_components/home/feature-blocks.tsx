@@ -113,7 +113,7 @@ function SceneChat({ block }: SceneProps) {
         </ul>
       </div>
       <div className="relative" data-reveal="image">
-        <div className="lg:rotate-[1.2deg] transform-gpu">
+        <div className="transform-gpu">
           {/* 入场放大缩到位的目标层：与 pin 时间轴解耦的独立 ScrollTrigger 控制 scale 1.25 → 1 */}
           {/* Entry-scale target — driven by a separate ScrollTrigger from 1.25 → 1 before the pin engages */}
           <div className="origin-center will-change-transform" data-entry-scale>
@@ -161,7 +161,7 @@ function SceneWorkspace({ block }: SceneProps) {
         </ul>
       </div>
       <div className="relative lg:order-1" data-reveal="image">
-        <div className="lg:-rotate-[1.2deg] transform-gpu">
+        <div className="transform-gpu">
           <block.Screen className="w-full" />
         </div>
         {/* JD READY 徽标：与 Chat 的 LIVE CHAT、Voice Interview 的 REC 形成同节奏的"压轴"标签 */}
@@ -207,7 +207,7 @@ function SceneInterview({ block }: SceneProps) {
         </ul>
       </div>
       <div className="relative lg:order-1" data-reveal="image">
-        <div className="lg:-rotate-[1.2deg] transform-gpu">
+        <div className="transform-gpu">
           <block.Screen className="w-full" />
         </div>
         <div
