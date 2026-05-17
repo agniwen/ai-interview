@@ -4,58 +4,50 @@
 
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useState } from "react";
+import { ChatScreen, EvaluationScreen, InterviewScreen, JdSetupScreen } from "@/components/screens";
 import { cn } from "@/lib/shared/utils";
-import { Screenshot } from "./screenshot";
 import { Eyebrow, Section, SectionLead, SectionTitle } from "./section";
 
 interface Step {
   body: string;
-  darkSrc: string;
-  imageAlt: string;
   label: string;
-  lightSrc: string;
   number: string;
+  // 该步骤对应的简化 UI 屏组件
+  // Screen component for this step
+  Screen: (props: { className?: string }) => React.ReactElement;
   title: string;
   value: string;
 }
 
 const steps: Step[] = [
   {
+    Screen: JdSetupScreen,
     body: "在工作台维护岗位描述、关键能力要求与面试官人设，作为后续筛选与面试的统一上下文。",
-    darkSrc: "/landing/process-1-dark.png",
-    imageAlt: "上传 JD 与岗位配置界面",
     label: "上传 JD",
-    lightSrc: "/landing/process-1-light.png",
     number: "01",
     title: "在工作台设定岗位语境",
     value: "step-1",
   },
   {
+    Screen: ChatScreen,
     body: "上传一批 PDF 简历，AI 围绕岗位要求展开聊天式追问，输出每位候选人的亮点、风险与建议。",
-    darkSrc: "/landing/process-2-dark.png",
-    imageAlt: "聊天式简历筛选界面",
     label: "简历筛选",
-    lightSrc: "/landing/process-2-light.png",
     number: "02",
     title: "聊天式完成简历初筛",
     value: "step-2",
   },
   {
+    Screen: InterviewScreen,
     body: "向候选人发送语音面试链接，AI 按岗位语境进行实时追问，完整记录对话节奏与作答内容。",
-    darkSrc: "/landing/process-3-dark.png",
-    imageAlt: "实时语音面试界面",
     label: "语音面试",
-    lightSrc: "/landing/process-3-light.png",
     number: "03",
     title: "发起实时语音模拟面试",
     value: "step-3",
   },
   {
+    Screen: EvaluationScreen,
     body: "面试结束后查看结构化评估、对话记录与时间线，与简历阶段的判断对照，做出最终决定。",
-    darkSrc: "/landing/process-4-dark.png",
-    imageAlt: "面试评估结果界面",
     label: "查看评估",
-    lightSrc: "/landing/process-4-light.png",
     number: "04",
     title: "查看完整评估与对话记录",
     value: "step-4",
@@ -144,13 +136,7 @@ export function ProcessTabs() {
               key={activeStep.value}
               transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
             >
-              <Screenshot
-                alt={activeStep.imageAlt}
-                darkSrc={activeStep.darkSrc}
-                height={900}
-                lightSrc={activeStep.lightSrc}
-                width={1440}
-              />
+              <activeStep.Screen />
             </motion.div>
           </AnimatePresence>
         </div>

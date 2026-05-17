@@ -7,69 +7,55 @@ import { gsap } from "gsap";
 import { ScrollSmoother } from "gsap/ScrollSmoother";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { useCallback, useRef } from "react";
+import { ChatScreen, InterviewScreen, JobsScreen } from "@/components/screens";
 import { cn } from "@/lib/shared/utils";
 import { CenterCarousel } from "./center-carousel";
-import { Screenshot } from "./screenshot";
 import { Eyebrow, Section } from "./section";
 
 gsap.registerPlugin(useGSAP, ScrollTrigger, ScrollSmoother);
 
 interface Block {
   bullets: string[];
-  darkSrc: string;
   eyebrow: string;
-  imageAlt: string;
-  imageHeight: number;
-  imageWidth: number;
   lead: string;
-  lightSrc: string;
+  // 该场景对应的简化 UI 屏组件（替代之前的截图 src）
+  // Screen component used for this scene (replaces the previous png src pair)
+  Screen: (props: { className?: string }) => React.ReactElement;
   title: string;
 }
 
 const blocks: Block[] = [
   {
+    Screen: ChatScreen,
     bullets: [
       "支持一次上传多份 PDF 简历",
       "围绕岗位要求持续追问候选人亮点与风险",
       "自动汇总筛选建议，便于团队对齐",
     ],
-    darkSrc: "/landing/chat-dark.png",
     eyebrow: "Resume Screening",
-    imageAlt: "聊天式简历初筛界面",
-    imageHeight: 900,
-    imageWidth: 1440,
     lead: "把简历筛选搬进对话框。上传完直接和 AI 讨论：这位候选人哪儿亮、哪儿可疑、和岗位贴不贴。不必从头读到尾。",
-    lightSrc: "/landing/chat-light.png",
     title: "看简历这件事。聊几句就清楚。",
   },
   {
+    Screen: JobsScreen,
     bullets: [
       "在工作台维护岗位、JD、面试官人设、面试问题",
       "系统设置一次设定多次复用",
       "JD 与候选人评估上下文打通",
     ],
-    darkSrc: "/landing/studio-dark.png",
     eyebrow: "Workspace",
-    imageAlt: "工作台岗位与系统设置界面",
-    imageHeight: 900,
-    imageWidth: 1440,
     lead: "工作台是招聘的主场。岗位、JD、面试官人设、题库都在这儿安家，每一次评估都长在真实语境之上，不再悬空在关键词表面。",
-    lightSrc: "/landing/studio-light.png",
     title: "岗位、JD、人设、题库。安顿在一处。",
   },
   {
+    Screen: InterviewScreen,
     bullets: [
       "实时语音对话，追问节奏可控",
       "自动记录候选人作答、节奏、停顿",
       "面试结束即获得结构化评估",
     ],
-    darkSrc: "/landing/interview-dark.png",
     eyebrow: "Voice Interview",
-    imageAlt: "实时语音模拟面试界面",
-    imageHeight: 900,
-    imageWidth: 1440,
     lead: "把链接发给候选人，对方开口，AI 接话。节奏接近真人，追问咬着简历和岗位走。面试落幕，结构化评估同步出炉。",
-    lightSrc: "/landing/interview-light.png",
     title: "面试这件事。让 AI 先开口。",
   },
 ];
@@ -131,14 +117,7 @@ function SceneChat({ block }: SceneProps) {
           {/* 入场放大缩到位的目标层：与 pin 时间轴解耦的独立 ScrollTrigger 控制 scale 1.25 → 1 */}
           {/* Entry-scale target — driven by a separate ScrollTrigger from 1.25 → 1 before the pin engages */}
           <div className="origin-center will-change-transform" data-entry-scale>
-            <Screenshot
-              alt={block.imageAlt}
-              className="w-full"
-              darkSrc={block.darkSrc}
-              height={block.imageHeight}
-              lightSrc={block.lightSrc}
-              width={block.imageWidth}
-            />
+            <block.Screen className="w-full" />
           </div>
         </div>
         <div
@@ -183,14 +162,7 @@ function SceneWorkspace({ block }: SceneProps) {
       </div>
       <div className="relative lg:order-1" data-reveal="image">
         <div className="lg:-rotate-[1.2deg] transform-gpu">
-          <Screenshot
-            alt={block.imageAlt}
-            className="w-full"
-            darkSrc={block.darkSrc}
-            height={block.imageHeight}
-            lightSrc={block.lightSrc}
-            width={block.imageWidth}
-          />
+          <block.Screen className="w-full" />
         </div>
         {/* JD READY 徽标：与 Chat 的 LIVE CHAT、Voice Interview 的 REC 形成同节奏的"压轴"标签 */}
         {/* JD READY badge — paired with Chat's LIVE CHAT and Voice Interview's REC, revealed last in the dwell */}
@@ -236,14 +208,7 @@ function SceneInterview({ block }: SceneProps) {
       </div>
       <div className="relative lg:order-1" data-reveal="image">
         <div className="lg:-rotate-[1.2deg] transform-gpu">
-          <Screenshot
-            alt={block.imageAlt}
-            className="w-full"
-            darkSrc={block.darkSrc}
-            height={block.imageHeight}
-            lightSrc={block.lightSrc}
-            width={block.imageWidth}
-          />
+          <block.Screen className="w-full" />
         </div>
         <div
           className="-bottom-3 -right-3 absolute flex items-center gap-2 rounded-full border border-foreground/[0.06] bg-background/80 px-3 py-1.5 shadow-[0_4px_18px_-12px_rgba(0,0,0,0.18)] backdrop-blur"
@@ -299,16 +264,9 @@ function SceneCard({ block }: { block: Block }) {
         </h3>
         <p className="text-foreground/70 text-sm leading-normal sm:text-[0.95rem]">{block.lead}</p>
       </div>
-      {/* 卡片自带阴影，截图内部不再叠 shadow-xl，否则会被 article 的 overflow-hidden 裁切出黑边 */}
-      {/* Card has its own shadow; suppress Screenshot's shadow-xl so it doesn't get clipped by the article's overflow-hidden */}
-      <Screenshot
-        alt={block.imageAlt}
-        className="w-full shadow-none ring-foreground/[0.06]"
-        darkSrc={block.darkSrc}
-        height={block.imageHeight}
-        lightSrc={block.lightSrc}
-        width={block.imageWidth}
-      />
+      {/* 卡片自带阴影，screen 内部不再叠 shadow-xl，否则会被 article 的 overflow-hidden 裁切出黑边 */}
+      {/* Card has its own shadow; suppress the inner shadow-xl so it doesn't get clipped by the article's overflow-hidden */}
+      <block.Screen className="w-full shadow-none ring-foreground/[0.06]" />
       <ul className="mt-auto space-y-2">
         {block.bullets.map((bullet, i) => (
           <li className="flex items-start gap-3" key={bullet}>

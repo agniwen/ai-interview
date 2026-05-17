@@ -7,7 +7,7 @@ import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { useRef } from "react";
 import { FadeContent } from "@/components/react-bits/fade-content";
-import { Screenshot } from "./screenshot";
+import { ResumesScreen } from "@/components/screens";
 import { Section } from "./section";
 
 gsap.registerPlugin(useGSAP, ScrollTrigger);
@@ -63,14 +63,7 @@ export function ProductShot() {
     <Section className="!pt-8 sm:!pt-10" width="wide">
       <FadeContent>
         <div ref={wrapperRef}>
-          <Screenshot
-            alt="工作台主界面预览"
-            darkSrc="/landing/studio-dark.png"
-            height={900}
-            lightSrc="/landing/studio-light.png"
-            priority
-            width={1440}
-          />
+          <ResumesScreen />
         </div>
       </FadeContent>
     </Section>
