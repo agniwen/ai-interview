@@ -1,122 +1,215 @@
-// 用途：landing 用「语音面试」简化版 UI，对齐真实 WaitingView：
-// 大标题「你好，[name]」+ 角色/轮次副标题 + 5 条 RuleItem + 静音开始/开始面试 按钮。
-// Purpose: simplified candidate-facing voice interview WaitingView mock.
+// 用途：landing 用「语音面试 · 进行中」简化版 UI，对齐真实 AgentSessionView_01：
+// - 顶层 fade gradient + 居中 agent 可视化器 (Aura) + 右下角候选人摄像头 tile
+// - AgentStateIndicator: dot (animate-ping) + label "面试官正在讲话"
+// - AgentControlBar (livekit variant): rounded-[31px] bg-background border + tools 左侧 +
+//   AgentTrackControl (2-button group, rounded-l-full / rounded-r-full) + Disconnect rounded-full font-mono
+// Purpose: simplified mid-interview UI mirroring AgentSessionView_01 + livekit AgentControlBar.
 import {
+  ChevronDownIcon,
   MessageSquareTextIcon,
   MicIcon,
-  MicOffIcon,
-  TriangleAlertIcon,
-  UserCheckIcon,
+  PhoneOffIcon,
+  UserIcon,
   VideoIcon,
-  Volume2Icon,
 } from "lucide-react";
-import type { LucideIcon } from "lucide-react";
 import { ScreenFrame } from "./screen-frame";
 
-interface Rule {
-  icon: LucideIcon;
-  title: string;
-  description: string;
+// ─────────────── Agent audio visualizer (bars) ───────────────
+// 对齐真实 AgentAudioVisualizerBar：横排等宽圆角竖条，各条高度独立 scaleY 起伏
+// 模拟 useMultibandTrackVolume 的实时音量分布。
+// Mirrors the real AgentAudioVisualizerBar: row of rounded bars whose scaleY
+// animates with offset delays to mimic real-time audio levels.
+const BAR_DELAYS = [-0.2, -0.6, -0.1, -0.45, 0, -0.35, -0.15, -0.5, -0.25];
+
+function AgentAudioBars() {
+  return (
+    <div className="relative flex h-[220px] items-center justify-center gap-3">
+      {/* keyframes 内联：避免改全局 globals.css */}
+      <style>{`
+        @keyframes audio-bar {
+          0%, 100% { transform: scaleY(0.18); }
+          50%      { transform: scaleY(1); }
+        }
+      `}</style>
+      {BAR_DELAYS.map((delay, i) => (
+        <span
+          aria-hidden="true"
+          className="block w-7 origin-center rounded-full bg-primary"
+          // biome-ignore lint/suspicious/noArrayIndexKey: stable decorative bars
+          key={i}
+          style={{
+            animation: "audio-bar 1.4s ease-in-out infinite",
+            animationDelay: `${delay}s`,
+            height: "180px",
+          }}
+        />
+      ))}
+    </div>
+  );
 }
 
-const RULES: Rule[] = [
-  {
-    description:
-      "建议佩戴耳机并在网络稳定的地方作答。若环境嘈杂，可选择「静音开始」，以文字方式与面试官沟通。",
-    icon: Volume2Icon,
-    title: "保持安静的环境",
-  },
-  {
-    description: "等面试官提完问题再作答，答完等下一题。请围绕问题展开，结合具体项目与经历说明。",
-    icon: MessageSquareTextIcon,
-    title: "一次只答一题",
-  },
-  {
-    description: "保持严肃与尊重；连续答非所问或跳过题目会影响评分，必要时面试官会结束面试。",
-    icon: UserCheckIcon,
-    title: "认真作答",
-  },
-  {
-    description: "面试将通过摄像头全程录制，开始后请保持摄像头开启，期间不能关闭。",
-    icon: VideoIcon,
-    title: "保持摄像头录制",
-  },
-  {
-    description:
-      "尽量不要刷新页面或关闭标签页。如遇网络中断，请在 3 分钟内回到本页面，可继续之前的对话；超过 3 分钟本轮将自动结束。",
-    icon: TriangleAlertIcon,
-    title: "保持稳定连接",
-  },
-];
-
-function RuleItem({ rule }: { rule: Rule }) {
-  const Icon = rule.icon;
+// ─────────────── Candidate camera tile ───────────────
+function CandidateCameraTile() {
+  // 真实 TileLayout 在 chat 关闭时把第二个 tile 放在 col-start-2 row-start-3 place-content-end，
+  // 也就是右下角靠下；这里用绝对定位放右下角，尺寸贴近真实小窗。
   return (
-    <li className="flex gap-4 py-5">
-      <Icon className="mt-0.5 size-4 shrink-0 text-muted-foreground" strokeWidth={1.75} />
-      <div className="flex flex-col gap-1">
-        <div className="font-medium text-[14px]">{rule.title}</div>
-        <p className="text-[12.5px] text-muted-foreground leading-relaxed">{rule.description}</p>
+    <div className="absolute right-6 bottom-[180px] z-30 h-[140px] w-[200px] overflow-hidden rounded-2xl border border-border/60 bg-gradient-to-br from-slate-700 to-slate-900 shadow-xl ring-1 ring-black/10">
+      <div className="-translate-x-1/2 absolute bottom-[-32px] left-1/2 grid size-[110px] place-items-center rounded-full bg-slate-600/60">
+        <UserIcon className="size-10 text-slate-400" strokeWidth={1.5} />
       </div>
-    </li>
+      <div className="absolute top-2 left-2 flex items-center gap-1.5 rounded-md bg-black/55 px-2 py-1 font-medium text-[10px] text-white backdrop-blur">
+        <span className="size-1.5 animate-pulse rounded-full bg-rose-500" />你
+      </div>
+    </div>
+  );
+}
+
+// ─────────────── Agent state indicator ───────────────
+function AgentStateIndicator() {
+  // 真实 AgentStateIndicator (speaking): 居中 + size-2.5 绿点 animate-ping + label "面试官正在讲话"
+  return (
+    <div className="-translate-x-1/2 absolute bottom-[170px] left-1/2 z-30 flex items-center justify-center gap-2 font-medium text-muted-foreground text-sm">
+      <span className="relative flex size-2.5">
+        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-500 opacity-75" />
+        <span className="relative inline-flex size-2.5 rounded-full bg-green-500" />
+      </span>
+      <span>面试官正在讲话</span>
+    </div>
+  );
+}
+
+// ─────────────── Track control: 2-button group (toggle + chevron) ───────────────
+interface TrackControlProps {
+  icon: React.ReactNode;
+  enabled?: boolean;
+  // off 态在 livekit variant 下变 destructive 红
+  // off → red destructive style (mic muted etc.)
+  ariaLabel: string;
+}
+
+function TrackControl({ icon, enabled = true, ariaLabel }: TrackControlProps) {
+  // 真实 LK_TOGGLE_VARIANT_1 (mic/camera):
+  //   on (data-state=on): default 灰 + foreground 字
+  //   off (data-state=off): bg-accent text-destructive border-border
+  // 2 个按钮拼接: 主 toggle (rounded-l-full) + 设备 chevron (rounded-r-full)
+  const baseClass = enabled
+    ? "bg-accent/40 text-foreground hover:bg-accent"
+    : "bg-accent text-destructive";
+  return (
+    <div
+      aria-label={ariaLabel}
+      className="inline-flex h-10 items-stretch overflow-hidden rounded-full border border-border"
+    >
+      <span
+        className={`flex items-center gap-1.5 rounded-l-full border-border/0 px-3.5 text-sm ${baseClass}`}
+      >
+        {icon}
+      </span>
+      <span className="w-px shrink-0 bg-border" />
+      <span className={`grid place-items-center rounded-r-full px-2 ${baseClass}`}>
+        <ChevronDownIcon className="size-3.5 opacity-60" />
+      </span>
+    </div>
+  );
+}
+
+// ─────────────── Chat toggle (LK variant 2 — pressed=blue) ───────────────
+function ChatToggle() {
+  // 真实 LK_TOGGLE_VARIANT_2 (chat toggle):
+  //   off: bg-accent text-foreground border-border
+  //   on:  bg-blue-500/20 text-blue-700 border-blue-700/10
+  return (
+    <span
+      aria-label="Toggle transcript"
+      className="grid h-10 w-10 place-items-center rounded-full border border-border bg-accent/40 text-foreground hover:bg-accent"
+    >
+      <MessageSquareTextIcon className="size-4" />
+    </span>
+  );
+}
+
+// ─────────────── Disconnect button ───────────────
+function DisconnectButton() {
+  // 真实: bg-destructive/10 text-destructive hover:bg-destructive/20 rounded-full font-mono text-xs font-bold tracking-wider
+  return (
+    <span className="inline-flex h-10 items-center gap-1.5 rounded-full bg-destructive/10 px-4 font-bold font-mono text-destructive text-xs tracking-wider">
+      <PhoneOffIcon className="size-3.5" />
+      结束面试
+    </span>
+  );
+}
+
+// ─────────────── Control bar (real livekit variant) ───────────────
+function ControlBar() {
+  // 真实 AgentControlBar:
+  // outer: bg-background border-input/50 dark:border-muted flex flex-col border p-3 drop-shadow-md/3 rounded-[31px]
+  // inner row: justify-between (tools-group + leave button)
+  return (
+    <div className="-translate-x-1/2 absolute bottom-6 left-1/2 z-50 w-fit">
+      <div className="flex flex-col rounded-[31px] border border-input/50 bg-background p-3 shadow-md/30 dark:border-muted">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <TrackControl ariaLabel="Toggle microphone" icon={<MicIcon className="size-4" />} />
+            <TrackControl ariaLabel="Toggle camera" icon={<VideoIcon className="size-4" />} />
+            <ChatToggle />
+          </div>
+          <DisconnectButton />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────── Theme toggle (top-right) ───────────────
+function ThemeMoonIcon() {
+  return (
+    <svg fill="none" height="14" viewBox="0 0 24 24" width="14">
+      <path
+        d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="2"
+      />
+    </svg>
   );
 }
 
 function InterviewCanvas() {
   return (
-    <div className="relative h-full w-full bg-background text-foreground">
-      {/* 顶部右侧主题按钮占位 / theme toggle placeholder */}
-      <div className="absolute top-4 right-4 z-20">
-        <span className="grid size-8 place-items-center rounded-md border border-border/60 bg-background/80 text-muted-foreground">
-          <svg fill="none" height="14" viewBox="0 0 24 24" width="14">
-            <path
-              d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"
-              stroke="currentColor"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="2"
-            />
-          </svg>
+    <div className="relative h-full w-full overflow-hidden bg-background text-foreground">
+      {/* Top-left: AgentSpeechTimer */}
+      <div className="absolute top-4 left-4 z-30 flex items-center gap-2 rounded-md border border-border/60 bg-background/80 px-2.5 py-1 font-mono text-[11px] tabular-nums backdrop-blur">
+        <span className="size-1.5 animate-pulse rounded-full bg-emerald-500" />
+        00:42
+      </div>
+
+      {/* Top-right: ThemeToggle */}
+      <div className="absolute top-4 right-4 z-30">
+        <span className="grid size-8 place-items-center rounded-md text-muted-foreground">
+          <ThemeMoonIcon />
         </span>
       </div>
 
-      {/* 背景柔光 — 替代真实的 /textures/interview-prep-* 图，保持氛围一致 */}
-      {/* Soft radial halo replacing the prep-page texture asset */}
+      {/* Top fade gradient — mirrors <Fade top /> */}
       <div
         aria-hidden="true"
-        className="-translate-x-1/2 pointer-events-none absolute top-[-180px] left-1/2 size-[680px] rounded-full bg-primary/10 blur-3xl"
+        className="pointer-events-none absolute inset-x-4 top-0 z-10 h-40 bg-gradient-to-b from-background to-transparent"
       />
 
-      <main className="relative flex h-full w-full select-none flex-col items-center justify-center px-8">
-        <div className="flex w-full max-w-2xl flex-col">
-          <section>
-            <h1 className="text-[32px] tracking-tight">你好，李铭</h1>
-            <p className="mt-2 text-[15px] text-muted-foreground">
-              资深前端工程师 · 一面 · 共 5 题，预计 20 分钟内完成。
-            </p>
-          </section>
+      {/* Center stage: agent aura visualizer */}
+      <div className="absolute inset-0 z-20 flex items-center justify-center">
+        <AgentAudioBars />
+      </div>
 
-          <section className="mt-10">
-            <h2 className="mb-4 font-medium text-[13px] text-muted-foreground">开始前，请留意</h2>
-            <ul className="divide-y divide-border/60 border-border/60 border-y">
-              {RULES.map((rule) => (
-                <RuleItem key={rule.title} rule={rule} />
-              ))}
-            </ul>
-          </section>
+      {/* Bottom-right: candidate camera tile */}
+      <CandidateCameraTile />
 
-          <div className="mt-10 flex items-center gap-3">
-            <span className="flex h-11 flex-1 items-center justify-center gap-2 rounded-md border border-border/70 bg-background text-[14px]">
-              <MicOffIcon className="size-4" strokeWidth={1.75} />
-              静音开始
-            </span>
-            <span className="flex h-11 flex-[2] items-center justify-center gap-2 rounded-md bg-primary text-[14px] text-primary-foreground">
-              <MicIcon className="size-4" strokeWidth={2} />
-              开始面试
-            </span>
-          </div>
-        </div>
-      </main>
+      {/* Above control bar: state indicator */}
+      <AgentStateIndicator />
+
+      {/* Bottom: control bar */}
+      <ControlBar />
     </div>
   );
 }
