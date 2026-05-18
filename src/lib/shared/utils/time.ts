@@ -2,32 +2,26 @@
  * 日期与时间工具。
  * Date / time helpers.
  *
- * 全部基于浏览器原生 Intl，无三方 moment / dayjs 依赖。
- * Built on the native Intl APIs—no moment / dayjs runtime dependency.
+ * 日期格式化基于 dayjs（全应用统一 `YY/MM/DD HH:mm`）；相对时间仍走原生 Intl
+ * 以保持 zh-CN 下"3 分钟前 / 昨天"等本地化文案。
+ * Date formatting goes through dayjs (unified `YY/MM/DD HH:mm` across the
+ * app); relative time still uses Intl.RelativeTimeFormat for the localized
+ * "3 minutes ago" phrasing.
  */
 
-/**
- * 默认 `formatDate` 选项：`YYYY-MM-DD HH:mm`。
- * Default options for `formatDate`: `YYYY-MM-DD HH:mm`.
- */
-const DEFAULT_DATE_TIME_OPTIONS: Intl.DateTimeFormatOptions = {
-  day: "2-digit",
-  hour: "2-digit",
-  hour12: false,
-  minute: "2-digit",
-  month: "2-digit",
-  year: "numeric",
-};
+import dayjs from "dayjs";
 
 /**
- * 仅日期的默认选项。
- * Default options for date-only formatting.
+ * 默认 `formatDate` 格式：`YY/MM/DD HH:mm`。
+ * Default `formatDate` pattern.
  */
-const DEFAULT_DATE_OPTIONS: Intl.DateTimeFormatOptions = {
-  day: "2-digit",
-  month: "2-digit",
-  year: "numeric",
-};
+export const DEFAULT_DATE_TIME_FORMAT = "YY/MM/DD HH:mm";
+
+/**
+ * 仅日期默认格式：`YY/MM/DD`。
+ * Default date-only pattern.
+ */
+export const DEFAULT_DATE_FORMAT = "YY/MM/DD";
 
 /**
  * `formatRelativeTime` 内部使用的时间单位阈值。
@@ -55,30 +49,26 @@ export function toDate(value: string | number | Date | null | undefined): Date |
 }
 
 /**
- * 友好格式化日期：默认 `2026-04-27 15:30`。
- * Format a date in a friendly way; defaults to `2026-04-27 15:30`.
+ * 友好格式化日期：默认 `YY/MM/DD HH:mm`。
+ * Format a date in a friendly way; defaults to `YY/MM/DD HH:mm`.
  */
 export function formatDate(
   value: string | number | Date | null | undefined,
-  options: Intl.DateTimeFormatOptions = DEFAULT_DATE_TIME_OPTIONS,
-  locale = "zh-CN",
+  format: string = DEFAULT_DATE_TIME_FORMAT,
 ): string {
   const date = toDate(value);
   if (!date) {
     return "—";
   }
-  return new Intl.DateTimeFormat(locale, options).format(date);
+  return dayjs(date).format(format);
 }
 
 /**
- * 仅日期（无时间）：默认 `2026-04-27`。
- * Date-only formatting; defaults to `2026-04-27`.
+ * 仅日期（无时间）：默认 `YY/MM/DD`。
+ * Date-only formatting; defaults to `YY/MM/DD`.
  */
-export function formatDateOnly(
-  value: string | number | Date | null | undefined,
-  locale = "zh-CN",
-): string {
-  return formatDate(value, DEFAULT_DATE_OPTIONS, locale);
+export function formatDateOnly(value: string | number | Date | null | undefined): string {
+  return formatDate(value, DEFAULT_DATE_FORMAT);
 }
 
 /**

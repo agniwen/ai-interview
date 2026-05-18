@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/empty";
 import { rpcFetch } from "@/lib/client/api";
 import { rpc } from "@/lib/client/rpc";
+import { formatDate } from "@/lib/shared/utils/time";
 
 const WHITESPACE_REGEX = /\s+/;
 
@@ -164,9 +165,7 @@ export function UsersGrid({ initialData }: { initialData: UsersResult }) {
                 <TooltipContent>
                   <div className="space-y-1">
                     {r.banReason && <p>原因：{r.banReason}</p>}
-                    {r.banExpires && (
-                      <p>解封时间：{new Date(r.banExpires).toLocaleString("zh-CN")}</p>
-                    )}
+                    {r.banExpires && <p>解封时间：{formatDate(r.banExpires)}</p>}
                     {!r.banReason && !r.banExpires && <p>永久封禁</p>}
                   </div>
                 </TooltipContent>

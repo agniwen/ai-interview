@@ -7,7 +7,8 @@ export interface DateColumnOptions<TData> {
   key: keyof TData & string;
   title: string;
   sortable?: boolean;
-  options?: Intl.DateTimeFormatOptions;
+  /** dayjs format string; defaults to DATE_TIME_DISPLAY_OPTIONS (`YY/MM/DD HH:mm`). */
+  options?: string;
 }
 
 export function dateColumn<TData>(opts: DateColumnOptions<TData>): ColumnDef<TData> {

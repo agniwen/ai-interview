@@ -1,26 +1,18 @@
 "use client";
 
+import dayjs from "dayjs";
 import { useMemo } from "react";
 import { useHydrated } from "@/hooks/use-hydrated";
 
-// 表格内创建/更新时间统一显示为 `YY/MM/DD HH:mm`。
-// zh-CN 下 Intl.DateTimeFormat 的 2-digit 组合恰好渲染为 `YY/MM/DD HH:mm`。
-// Tables render created/updated timestamps as `YY/MM/DD HH:mm`. With locale
-// zh-CN, the all-2-digit option combo formats exactly that way.
-export const DATE_TIME_DISPLAY_OPTIONS = {
-  day: "2-digit",
-  hour: "2-digit",
-  hour12: false,
-  minute: "2-digit",
-  month: "2-digit",
-  year: "2-digit",
-} satisfies Intl.DateTimeFormatOptions;
+// 表格内创建/更新时间统一展示为 `YY/MM/DD HH:mm`。
+// 改用 dayjs format 字符串而不是 Intl.DateTimeFormatOptions——格式更直观、
+// 避免不同 locale 下日期分隔符 / 排序漂移；全应用统一一个格式。
+// Tables render created/updated timestamps as `YY/MM/DD HH:mm`. Uses dayjs
+// format strings instead of Intl.DateTimeFormatOptions for one stable format
+// across locales (no separator / order drift).
+export const DATE_TIME_DISPLAY_OPTIONS = "YY/MM/DD HH:mm";
 
-export const TIME_DISPLAY_OPTIONS = {
-  hour: "2-digit",
-  hour12: false,
-  minute: "2-digit",
-} satisfies Intl.DateTimeFormatOptions;
+export const TIME_DISPLAY_OPTIONS = "HH:mm";
 
 type TimeValue = string | number | Date | null | undefined;
 
@@ -42,7 +34,6 @@ export function TimeDisplay({
   value,
   emptyText = "待定",
   pendingText = "--",
-  locale = "zh-CN",
   options = DATE_TIME_DISPLAY_OPTIONS,
   as = "time",
   className,
@@ -50,8 +41,8 @@ export function TimeDisplay({
   value: TimeValue;
   emptyText?: string;
   pendingText?: string;
-  locale?: string;
-  options?: Intl.DateTimeFormatOptions;
+  /** dayjs 格式字符串，默认 `YY/MM/DD HH:mm`。 dayjs format string. */
+  options?: string;
   as?: "span" | "time";
   className?: string;
 }) {
@@ -68,8 +59,8 @@ export function TimeDisplay({
       return pendingText;
     }
 
-    return new Intl.DateTimeFormat(locale, options).format(date);
-  }, [emptyText, isHydrated, locale, options, pendingText, value]);
+    return dayjs(date).format(options);
+  }, [emptyText, isHydrated, options, pendingText, value]);
 
   if (as === "span") {
     return <span className={className}>{text}</span>;

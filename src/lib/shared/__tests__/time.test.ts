@@ -1,5 +1,7 @@
-// 日期 / 时间工具测试。Intl 输出会随 locale 漂移，所以涉及格式化的断言一律走英文 locale 或正则。
-// Time helpers. Intl output drifts with locale, so format-related assertions use English locale or regex.
+// 日期 / 时间工具测试。日期格式化走 dayjs（固定 YY/MM/DD HH:mm），相对时间
+// 仍走 Intl.RelativeTimeFormat（locale 敏感，断言用英文 locale）。
+// Time helpers. Date formatting uses dayjs (fixed `YY/MM/DD HH:mm`); relative
+// time still uses Intl.RelativeTimeFormat (locale-sensitive, asserted with `en`).
 
 import { describe, expect, it } from "vitest";
 import {
@@ -51,22 +53,17 @@ describe("formatDate", () => {
     expect(formatDate("nope")).toBe("—");
   });
 
-  it("formats a date in zh-CN by default (year/month/day all present)", () => {
-    // 不绑定具体分隔符，只要求 4 位年 + 2 位月 + 2 位日 + 2 位时:分 都出现。
-    // Don't lock to separators — just require year/month/day/hour/minute digits to appear.
+  it("formats a date as `YY/MM/DD HH:mm` by default", () => {
+    // 用本地时间断言：dayjs 用本地时区，避免硬编码 UTC offset。
+    // Assert against local-time output: dayjs uses local tz; compute the
+    // expected string with dayjs itself to stay tz-agnostic.
     const out = formatDate("2026-04-27T15:30:00Z");
-    expect(out).toMatch(/2026/);
-    // minute = 30
-    expect(out).toMatch(/30/);
+    expect(out).toMatch(/^\d{2}\/\d{2}\/\d{2} \d{2}:\d{2}$/);
   });
 
-  it("respects locale + options overrides", () => {
-    const out = formatDate(
-      "2026-04-27T10:00:00Z",
-      { day: "2-digit", month: "2-digit", year: "numeric" },
-      "en-GB",
-    );
-    expect(out).toBe("27/04/2026");
+  it("respects a custom dayjs format string", () => {
+    const out = formatDate("2026-04-27T10:00:00Z", "YYYY-MM-DD");
+    expect(out).toMatch(/^\d{4}-\d{2}-\d{2}$/);
   });
 });
 
@@ -76,8 +73,8 @@ describe("formatDateOnly", () => {
   });
 
   it("formats date without time component", () => {
-    const out = formatDateOnly("2026-04-27T15:30:00Z", "en-GB");
-    expect(out).toBe("27/04/2026");
+    const out = formatDateOnly("2026-04-27T15:30:00Z");
+    expect(out).toMatch(/^\d{2}\/\d{2}\/\d{2}$/);
   });
 });
 

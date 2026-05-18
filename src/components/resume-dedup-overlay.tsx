@@ -16,6 +16,7 @@ import { AlertTriangleIcon, ExternalLinkIcon } from "lucide-react";
 import { useState } from "react";
 import type { DedupMatchedField, DedupMatchRecord } from "@/lib/client/api";
 import { studioInterviewStatusMeta } from "@/lib/shared/studio-interviews";
+import { formatDate } from "@/lib/shared/utils/time";
 import { StudioPersonDetailDialog } from "@/app/(auth)/w/[slug]/studio/_components/studio-person-detail-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -26,18 +27,11 @@ const FIELD_LABEL: Record<DedupMatchedField, string> = {
   phone: "电话",
 };
 
+// 直接走共享 formatDate（dayjs 实现，`YY/MM/DD HH:mm`），整库统一一个格式。
+// Delegate to the shared formatDate (dayjs-based `YY/MM/DD HH:mm`) for a single
+// unified format across the app.
 function formatCreatedAt(value: string) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return value;
-  }
-  return date.toLocaleString("zh-CN", {
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  });
+  return formatDate(value);
 }
 
 interface ResumeDedupOverlayProps {

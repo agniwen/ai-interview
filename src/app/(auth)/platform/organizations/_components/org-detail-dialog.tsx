@@ -16,6 +16,7 @@ import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { rpcFetch } from "@/lib/client/api";
 import { rpc } from "@/lib/client/rpc";
+import { formatDateOnly } from "@/lib/shared/utils/time";
 
 const WHITESPACE_REGEX = /\s+/;
 
@@ -189,7 +190,7 @@ export function OrgDetailDialog({
 
         {org && (
           <div className="flex items-center gap-4 text-sm text-muted-foreground">
-            <span>创建于 {new Date(org.createdAt).toLocaleDateString("zh-CN")}</span>
+            <span>创建于 {formatDateOnly(org.createdAt)}</span>
             <Separator orientation="vertical" className="h-4" />
             <span className="flex items-center gap-1">
               <UsersIcon className="size-4" />

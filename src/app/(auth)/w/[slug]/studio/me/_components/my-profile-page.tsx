@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { Separator } from "@/components/ui/separator";
 import { Spinner } from "@/components/ui/spinner";
+import { formatDateOnly } from "@/lib/shared/utils/time";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { authClient } from "@/lib/shared/auth-client";
 
@@ -30,16 +31,8 @@ const ROLE_BADGE_VARIANT: Record<WorkspaceRole, "default" | "secondary" | "outli
 const PROFILE_NAME_MAX_LENGTH = 120;
 const PROFILE_IMAGE_URL_MAX_LENGTH = 2048;
 
-function formatDate(value?: Date | string | null) {
-  if (!value) {
-    return "—";
-  }
-  return new Intl.DateTimeFormat("zh-CN", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  }).format(new Date(value));
-}
+// 用共享的 formatDateOnly 而不是页面本地版本，保证全应用日期格式一致 (`YY/MM/DD`)。
+// Use the shared formatDateOnly so dates render identically everywhere (`YY/MM/DD`).
 
 function getInitials(name?: string | null, email?: string | null) {
   const source = (name ?? email ?? "").trim();
@@ -197,7 +190,7 @@ function OrganizationCard({ currentRole, currentSlug, organizations }: Organizat
                     {isActive ? <Badge variant="secondary">当前</Badge> : null}
                   </div>
                   <p className="truncate text-muted-foreground text-xs">
-                    /w/{organization.slug} · 加入于 {formatDate(organization.createdAt)}
+                    /w/{organization.slug} · 加入于 {formatDateOnly(organization.createdAt)}
                   </p>
                 </div>
                 {isActive && currentRole ? (
