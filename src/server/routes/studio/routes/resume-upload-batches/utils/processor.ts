@@ -13,6 +13,8 @@ import {
   toItemDto,
 } from "@/server/routes/studio/routes/resume-upload-batches/dao/batches";
 import { matchJobDescriptionForResume } from "@/server/agents/job-description-match-agent";
+import { projectAttachmentToResumeProfile } from "@/server/agents/resume-parser-agent";
+import { findAttachmentByStorageKey } from "@/server/routes/chat/dao/chat-attachments";
 import { listAllJobDescriptions } from "@/server/routes/studio/routes/job-descriptions/dao";
 import { createResumeRecordFromStorage } from "@/server/routes/studio/routes/resumes/utils/create-from-storage";
 import { queryInterviewDedup } from "@/server/routes/studio/routes/interviews/dao/studio-interviews";
@@ -24,6 +26,30 @@ function truncate(s: string): string {
 }
 
 type ItemRow = Awaited<ReturnType<typeof claimNextPendingItem>>;
+
+// 拿到 resumeProfile 的两条路径：
+//   1) 命中注册表 → 投影 parsedStructured（零额外调用）
+//   2) 未命中 / 投影失败 → 从 S3 拉 PDF 现场跑 parseResumeFastToProfile
+// Two paths to obtaining resumeProfile: cache hit (projection) or live parse fallback.
+async function resolveResumeProfile(item: NonNullable<ItemRow>) {
+  const cached = await findAttachmentByStorageKey(item.storageKey);
+  const fromCache = cached?.parsedStructured
+    ? projectAttachmentToResumeProfile(cached.parsedStructured)
+    : null;
+  if (fromCache) {
+    return fromCache;
+  }
+  const object = await getObjectStream(item.storageKey);
+  if (!object) {
+    throw new Error("简历文件不可用（S3 对象缺失）。");
+  }
+  const arrayBuffer = await new Response(object.body).arrayBuffer();
+  const file = new File([new Uint8Array(arrayBuffer)], item.originalFileName, {
+    type: object.contentType ?? "application/pdf",
+  });
+  const parsed = await parseResumeFastToProfile(file);
+  return parsed.resumeProfile;
+}
 
 // S3 から PDF を取得してパースし、作成すべき studio_interview の情報を返す。
 // Fetch PDF from S3, parse it, and return the info needed to create a studio_interview.
@@ -41,15 +67,8 @@ async function fetchAndParse(
     // AWS SDK "No value provided for input HTTP label: Key" stack trace.
     throw new Error("简历文件存储路径为空，无法读取。请重试上传。");
   }
-  const object = await getObjectStream(item.storageKey);
-  if (!object) {
-    throw new Error("简历文件不可用（S3 对象缺失）。");
-  }
-  const arrayBuffer = await new Response(object.body).arrayBuffer();
-  const file = new File([new Uint8Array(arrayBuffer)], item.originalFileName, {
-    type: object.contentType ?? "application/pdf",
-  });
-  const { resumeProfile } = await parseResumeFastToProfile(file);
+
+  const resumeProfile = await resolveResumeProfile(item);
 
   // 查重 / Dedup check
   if (batchRow.dedupPolicy === "skip") {

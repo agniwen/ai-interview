@@ -163,6 +163,29 @@ export async function findAttachmentByContentHash(hash: string): Promise<ChatAtt
   return row ?? null;
 }
 
+// 按 storageKey 查 chat_attachment——批量上传的 processor 用这个跳过重复解析：
+// /uploads 阶段已经把 parsedStructured 写入注册表，processor 不需要再跑一次
+// parseResumeFastToProfile（OCR + 结构化抽取，~2 次 LLM）。
+//
+// Lookup by storageKey. Used by the bulk-upload processor to skip a second
+// parse: /uploads already wrote parsedStructured to chat_attachment, so the
+// processor doesn't need to re-run parseResumeFastToProfile (which is ~2 LLM calls).
+export async function findAttachmentByStorageKey(
+  storageKey: string,
+): Promise<ChatAttachmentRow | null> {
+  if (!storageKey) {
+    return null;
+  }
+  const [row] = await db
+    .select()
+    .from(chatAttachment)
+    .where(
+      and(eq(chatAttachment.storageKey, storageKey), ne(chatAttachment.parsedStatus, "failed")),
+    )
+    .limit(1);
+  return row ?? null;
+}
+
 // 按 hash 回填结构化解析结果——只更新还没有 parsedStructured 的行。
 // 同一 hash 下可能有多个用户各自的行（chat 上传时复制行），这里一次性惠及所有。
 // `WHERE parsedStructured IS NULL` 让并发 / 重复调用幂等：已经有值的行保持不变。
