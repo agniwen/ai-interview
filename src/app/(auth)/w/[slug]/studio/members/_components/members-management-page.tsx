@@ -31,7 +31,7 @@ import { authClient } from "@/lib/shared/auth-client";
 import { useHasPermission } from "@/hooks/use-has-permission";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { InviteDialog } from "./invite-dialog";
-import { PendingInvitationsSection } from "./pending-invitations-section";
+import { PendingInvitationsButton } from "./pending-invitations-section";
 import { PermissionsExplanationDialog } from "./permissions-explanation-dialog";
 import { ASSIGNABLE_ROLES, getWorkspaceRoleLabel } from "./role-display";
 import type { WorkspaceRole } from "./role-display";
@@ -360,6 +360,9 @@ export function MembersManagementPage() {
           <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
             <PermissionsExplanationDialog />
             <PermissionGate action="create" resource="invitation">
+              <PendingInvitationsButton organizationId={org?.id ?? null} />
+            </PermissionGate>
+            <PermissionGate action="create" resource="invitation">
               <InviteDialog
                 trigger={
                   <Button className="flex-1 sm:flex-none">
@@ -374,12 +377,6 @@ export function MembersManagementPage() {
         total={total}
         totalPages={totalPages}
       />
-
-      {/* 待处理邀请——只有能邀请的角色才看得到（与邀请按钮同权限）。 */}
-      {/* Pending invitations section, gated on the same permission as the invite button. */}
-      <PermissionGate action="create" resource="invitation">
-        <PendingInvitationsSection organizationId={org?.id ?? null} />
-      </PermissionGate>
     </div>
   );
 }

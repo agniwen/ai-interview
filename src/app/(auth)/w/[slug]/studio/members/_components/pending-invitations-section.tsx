@@ -1,13 +1,13 @@
 "use client";
 
-// 工作区「待处理邀请」列表 + 撤销。better-auth 的 listInvitations 不带过滤
-// 参数，会回 pending/accepted/rejected/canceled 全部状态——本组件只展示
-// status === "pending" 的行；其余视为历史。撤销走 cancelInvitation，
-// 服务端会把 status 改成 "canceled"，列表里会自动消失（refetch 后）。
+// 「待处理邀请」侧滑面板 + 触发按钮。原先做成主页底部一张大 Card，占位太重；
+// 改成右侧 Sheet：默认收起，按钮带未处理数量徽章，点击展开后看列表 + 撤销。
+// better-auth 的 listInvitations 不带状态过滤，返回 pending/accepted/...
+// 全部状态——本组件只在 UI 层过滤 status === "pending"。
 //
-// Workspace "pending invitations" list + cancel. better-auth's
-// listInvitations returns all statuses; we filter to pending here. Cancel
-// goes through cancelInvitation (status -> "canceled").
+// Pending-invitations side sheet + trigger button. Replaces the heavy
+// always-visible card with an on-demand drawer; the button shows a count
+// badge. listInvitations returns all statuses; we filter to pending here.
 
 import { useQuery } from "@tanstack/react-query";
 import { CopyIcon, MailIcon, XIcon } from "lucide-react";
@@ -15,7 +15,14 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 import { Spinner } from "@/components/ui/spinner";
 import { authClient } from "@/lib/shared/auth-client";
 import { formatDate } from "@/lib/shared/utils/time";
@@ -30,7 +37,7 @@ interface InvitationItem {
   expiresAt: string | Date;
 }
 
-function InvitationsBody({
+function InvitationsList({
   isPending,
   items,
   pending,
@@ -52,15 +59,16 @@ function InvitationsBody({
     );
   }
   if (items.length === 0) {
-    return <p className="text-muted-foreground text-sm">暂无待处理邀请。</p>;
+    return (
+      <div className="rounded-md border border-dashed py-12 text-center text-muted-foreground text-sm">
+        暂无待处理邀请。
+      </div>
+    );
   }
   return (
     <ul className="space-y-2">
       {items.map((inv) => (
-        <li
-          className="flex flex-col gap-2 rounded-md border p-3 sm:flex-row sm:items-center sm:justify-between"
-          key={inv.id}
-        >
+        <li className="rounded-md border bg-background p-3" key={inv.id}>
           <div className="min-w-0">
             <p className="truncate font-medium text-sm">{inv.email}</p>
             <div className="mt-1 flex flex-wrap items-center gap-2 text-muted-foreground text-xs">
@@ -72,12 +80,19 @@ function InvitationsBody({
               <span>过期：{formatDate(inv.expiresAt)}</span>
             </div>
           </div>
-          <div className="flex shrink-0 gap-2">
-            <Button onClick={() => copyLink(inv.id)} size="sm" type="button" variant="outline">
+          <div className="mt-3 flex gap-2">
+            <Button
+              className="flex-1"
+              onClick={() => copyLink(inv.id)}
+              size="sm"
+              type="button"
+              variant="outline"
+            >
               <CopyIcon className="size-4" />
               复制链接
             </Button>
             <Button
+              className="flex-1"
               disabled={pending === inv.id}
               onClick={() => cancel(inv.id)}
               size="sm"
@@ -94,7 +109,8 @@ function InvitationsBody({
   );
 }
 
-export function PendingInvitationsSection({ organizationId }: { organizationId: string | null }) {
+export function PendingInvitationsButton({ organizationId }: { organizationId: string | null }) {
+  const [open, setOpen] = useState(false);
   const [pending, setPending] = useState<string | null>(null);
   const { data, isPending, refetch } = useQuery({
     enabled: Boolean(organizationId),
@@ -110,6 +126,7 @@ export function PendingInvitationsSection({ organizationId }: { organizationId: 
   });
 
   const items = (data ?? []).filter((inv) => inv.status === "pending");
+  const count = items.length;
 
   async function copyLink(invitationId: string) {
     const url = `${window.location.origin}/invite/${invitationId}`;
@@ -138,25 +155,35 @@ export function PendingInvitationsSection({ organizationId }: { organizationId: 
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-base">
+    <Sheet onOpenChange={setOpen} open={open}>
+      <SheetTrigger asChild>
+        <Button className="flex-1 sm:flex-none" type="button" variant="outline">
           <MailIcon className="size-4" />
           待处理邀请
-        </CardTitle>
-        <CardDescription>
-          邀请发出后未接受、未过期的记录。可复制邀请链接发给对方，或随时撤销。
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <InvitationsBody
-          cancel={cancel}
-          copyLink={copyLink}
-          isPending={isPending}
-          items={items}
-          pending={pending}
-        />
-      </CardContent>
-    </Card>
+          {count > 0 ? (
+            <Badge className="ml-1" variant="secondary">
+              {count}
+            </Badge>
+          ) : null}
+        </Button>
+      </SheetTrigger>
+      <SheetContent className="w-[420px] sm:max-w-[420px]">
+        <SheetHeader>
+          <SheetTitle>待处理邀请</SheetTitle>
+          <SheetDescription>
+            邀请发出后未接受、未过期的记录。可复制邀请链接发给对方，或随时撤销。
+          </SheetDescription>
+        </SheetHeader>
+        <div className="px-4 pb-4">
+          <InvitationsList
+            cancel={cancel}
+            copyLink={copyLink}
+            isPending={isPending}
+            items={items}
+            pending={pending}
+          />
+        </div>
+      </SheetContent>
+    </Sheet>
   );
 }
