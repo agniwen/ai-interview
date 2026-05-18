@@ -46,7 +46,7 @@ interface MemberRow {
   image: string | null;
   role: WorkspaceRole;
   createdAt: string | Date;
-  lastLoginAt: string | null;
+  lastActiveAt: string | null;
 }
 
 const WHITESPACE_REGEX = /\s+/u;
@@ -84,31 +84,32 @@ export function MembersManagementPage() {
   const currentUserId = session?.user?.id;
   const [pending, setPending] = useState<string | null>(null);
 
-  // 最近登录时间从服务端 session 表聚合得到（MAX(session.createdAt) per userId）。
-  // 跟成员列表分开拉，better-auth 客户端缓存里没有这层数据。
-  // Last-login map keyed by userId. Sourced from the server (MAX session.createdAt);
-  // better-auth's in-memory member list doesn't carry session metadata.
-  const { data: lastLoginMap = {} } = useQuery({
+  // 「最近活跃」按 userId 索引：服务端取 COALESCE(MAX(session.updatedAt),
+  // user.lastActiveAt)——前者给当前活跃 session 5 分钟级的滚动更新，后者
+  // 在登出/过期后兜底。详见 routes/studio/workspace/dao.ts。
+  // Last-active map keyed by userId. The server returns
+  // COALESCE(MAX(session.updatedAt), user.lastActiveAt) so logout/expiry
+  // doesn't regress previously-seen users to "从未登录".
+  const { data: lastActiveMap = {} } = useQuery({
     enabled: Boolean(org?.id),
     queryFn: async () => {
-      const response = await rpc.api.w[":slug"].studio.workspace["member-last-logins"].$get({
+      const response = await rpc.api.w[":slug"].studio.workspace["member-last-actives"].$get({
         param: { slug },
       });
       const payload = (await response.json()) as
-        | { records: { userId: string; lastLoginAt: string | null }[] }
+        | { records: { userId: string; lastActiveAt: string | null }[] }
         | { message?: string };
       if (!response.ok || !("records" in payload)) {
         const message =
-          "message" in payload ? (payload.message ?? "加载登录时间失败") : "加载登录时间失败";
-        // biome-ignore lint/suspicious/noConsole: surface auth/network failures so the silent {} fallback is debuggable
-        console.error("[member-last-logins]", response.status, message, payload);
+          "message" in payload ? (payload.message ?? "加载活跃时间失败") : "加载活跃时间失败";
+        console.error("[member-last-actives]", response.status, message, payload);
         throw new Error(message);
       }
       return Object.fromEntries(
-        payload.records.map((row) => [row.userId, row.lastLoginAt]),
+        payload.records.map((row) => [row.userId, row.lastActiveAt]),
       ) as Record<string, string | null>;
     },
-    queryKey: ["workspace-member-last-logins", slug, org?.id],
+    queryKey: ["workspace-member-last-actives", slug, org?.id],
     refetchOnWindowFocus: false,
   });
   const [page, setPage] = useState(1);
@@ -144,13 +145,13 @@ export function MembersManagementPage() {
         email: user?.email ?? "—",
         id: m.id,
         image: user?.image ?? null,
-        lastLoginAt: lastLoginMap[m.userId] ?? null,
+        lastActiveAt: lastActiveMap[m.userId] ?? null,
         name: user?.name ?? user?.email ?? "—",
         role: m.role as WorkspaceRole,
         userId: m.userId,
       };
     });
-  }, [org?.members, lastLoginMap]);
+  }, [org?.members, lastActiveMap]);
 
   // 成员列表来自 authClient.useActiveOrganization() 内存数据,这里做客户端切片
   // 让分页 UI 跟其他 studio 页面 (服务端分页) 视觉一致。
@@ -271,14 +272,14 @@ export function MembersManagementPage() {
       }),
       customColumn<MemberRow>({
         cell: (r) =>
-          r.lastLoginAt ? (
+          r.lastActiveAt ? (
             <span className="text-muted-foreground text-sm">
-              <TimeDisplay value={r.lastLoginAt} />
+              <TimeDisplay value={r.lastActiveAt} />
             </span>
           ) : (
             <span className="text-muted-foreground text-sm">从未登录</span>
           ),
-        key: "lastLoginAt",
+        key: "lastActiveAt",
         title: "最近活跃",
       }),
       actionsColumn<MemberRow>({

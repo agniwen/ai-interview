@@ -254,6 +254,22 @@ export const auth = betterAuth({
       create: {
         // oxlint-disable-next-line require-await -- hook contract requires async
         async after(newSession) {
+          // 顺便刷新 user.lastActiveAt——这是"最近活跃"列的持久化兜底，session
+          // 行后续被登出/过期清理后仍能展示"该用户最后出现的时间"。失败不致命，
+          // 仅记日志，不影响 active-org 还原主流程。
+          // Update user.lastActiveAt alongside the org-restore work. This is the
+          // durable "last active" anchor that survives logout / expiry cleanup
+          // of session rows. Failure is non-fatal — log and continue so the
+          // org-restore path below still runs.
+          try {
+            await db
+              .update(schema.user)
+              .set({ lastActiveAt: newSession.createdAt ?? new Date() })
+              .where(eq(schema.user.id, newSession.userId));
+          } catch (error) {
+            console.warn("[auth] failed to stamp user.lastActiveAt", error);
+          }
+
           try {
             const [u] = await db
               .select({ lastActive: schema.user.lastActiveOrganizationId })
@@ -430,6 +446,20 @@ export const auth = betterAuth({
       },
     }),
   ],
+  // 显式声明 session 寿命 & 刷新间隔。默认 expiresIn=7d / updateAge=1d，
+  // 但 1 天的 updateAge 意味着 session.updatedAt 一天内顶多动一次——会让
+  // 「最近活跃」列分辨率降到 1 天。这里调到 5 分钟，DB 写频可控、用户体感
+  // 接近实时；expiresIn 维持 7 天。
+  // Explicit session lifetimes. Default updateAge=1d makes session.updatedAt
+  // bump at most once per day, which caps the "last active" column resolution
+  // at 1 day. 5 minutes is a balanced trade between DB write frequency and
+  // perceived freshness; expiresIn stays at 7 days.
+  session: {
+    // 7 天 = 60 * 60 * 24 * 7
+    expiresIn: 60 * 60 * 24 * 7,
+    // 5 分钟 = 60 * 5；让"最近活跃"列足够新鲜
+    updateAge: 60 * 5,
+  },
   socialProviders: {
     google: {
       clientId: process.env.GOOGLE_CLIENT_ID ?? "",

@@ -135,6 +135,13 @@ export const user = pgTable("user", {
   // Cross-session "last visited workspace" for restore-on-login. Sits on
   // user (vs session.activeOrganizationId which dies with the session). On
   // org deletion the FK SETs NULL so the user row survives.
+  // 跨 session 持久化的"最近活跃时间"。每次新建 session（登录）写一次；
+  // 在 session 行被删（登出 / 过期清理）后仍然作为兜底显示，避免成员列表里
+  // 出现"昨天还在用却显示从未登录"的错觉。
+  // Persistent last-active timestamp. Written on every new session (sign-in).
+  // Survives session-row deletion so the members list doesn't regress to
+  // "从未登录" for previously-seen users.
+  lastActiveAt: timestamp("last_active_at"),
   lastActiveOrganizationId: text("last_active_organization_id"),
   name: text("name").notNull(),
   role: text("role").default("user").notNull(),

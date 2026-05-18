@@ -4,17 +4,17 @@ import { db } from "@/lib/server/db";
 import { organization } from "@/lib/shared/db/schema";
 import { factory, jsonValidatorError } from "@/server/factory";
 import { requirePermission } from "@/server/middlewares/permission";
-import { listWorkspaceMemberLastLogins } from "./dao";
+import { listWorkspaceMemberLastActives } from "./dao";
 import { workspaceUpdateSchema } from "./schema";
 
 export const workspaceRouter = factory
   .createApp()
-  .get("/member-last-logins", async (c) => {
+  .get("/member-last-actives", async (c) => {
     const { activeOrg } = c.var;
     if (!activeOrg) {
       return c.json({ message: "Unauthorized" }, 401);
     }
-    const records = await listWorkspaceMemberLastLogins(activeOrg.id);
+    const records = await listWorkspaceMemberLastActives(activeOrg.id);
     return c.json({ records }, 200);
   })
   .patch(

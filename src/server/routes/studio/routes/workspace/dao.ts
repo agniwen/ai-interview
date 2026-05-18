@@ -2,12 +2,12 @@ import "server-only";
 
 import { desc, eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/lib/server/db";
-import { member, session } from "@/lib/shared/db/schema";
+import { member, session, user } from "@/lib/shared/db/schema";
 
-export interface MemberLastLoginRow {
+export interface MemberLastActiveRow {
   userId: string;
-  /** ISO 字符串 / null 代表该用户尚无活跃 session（已登出或从未登录）。 */
-  lastLoginAt: string | null;
+  /** ISO 字符串 / null 代表该用户从未登录过。 */
+  lastActiveAt: string | null;
 }
 
 function toIso(value: unknown): string | null {
@@ -22,21 +22,25 @@ function toIso(value: unknown): string | null {
 }
 
 /**
- * 取工作区每个成员"最近一次活跃"时间：以该用户名下 session 的最大 updatedAt 为准。
+ * 取工作区每个成员"最近一次活跃"时间。
  *
- * 为什么不用 createdAt：better-auth 的 session.createdAt 是首次 sign-in 时刻，
- * 之后即使用户每天都在用，会续期同一行 session（更新 updatedAt / expiresAt）也
- * 不会新建行。结果就是用户感觉"今天还在用"，但 max(createdAt) 显示几周前——
- * 这就是「有时间了但不准」的根因。session.updatedAt 才是 last-seen 语义。
+ * 数据源：`COALESCE(MAX(session.updated_at), user.last_active_at)`。
+ *   - `MAX(session.updatedAt)`：当前还有活跃 session 时给出滚动更新的细粒度时间
+ *     （受 `session.updateAge` 限制，配置成了 5 分钟）。
+ *   - `user.lastActiveAt`：每次新建 session 时由 databaseHooks.session.create.after
+ *     写入；session 行后续被登出/过期清理后这个值仍在，作为兜底。两者并存能
+ *     避免"昨天还在用今天却显示从未登录"的回归。
  *
- * Use MAX(session.updated_at), not created_at. better-auth refreshes the same
- * session row on activity (within sessionUpdateAge), so created_at sticks at
- * the first sign-in and stops reflecting recent usage; updated_at is the real
- * last-seen timestamp.
+ * Source: `COALESCE(MAX(session.updated_at), user.last_active_at)`. The
+ * session-side MAX gives sub-day granularity while there's an active session
+ * (capped by `session.updateAge`, set to 5min). user.lastActiveAt is the
+ * durable anchor written on every sign-in via the session.create.after hook,
+ * surviving logout/expiry so the column doesn't regress to "从未登录" after a
+ * previously-seen user logs out.
  */
-export async function listWorkspaceMemberLastLogins(
+export async function listWorkspaceMemberLastActives(
   organizationId: string,
-): Promise<MemberLastLoginRow[]> {
+): Promise<MemberLastActiveRow[]> {
   const memberIds = await db
     .select({ userId: member.userId })
     .from(member)
@@ -54,24 +58,19 @@ export async function listWorkspaceMemberLastLogins(
   // normalize to ISO in JS to dodge that.
   const rows = await db
     .select({
-      lastLoginAt: sql<string | null>`MAX(${session.updatedAt})::text`.as("last_login_at"),
-      userId: session.userId,
+      lastActiveAt: sql<
+        string | null
+      >`GREATEST(MAX(${session.updatedAt}), MAX(${user.lastActiveAt}))::text`.as("last_active_at"),
+      userId: user.id,
     })
-    .from(session)
-    .where(inArray(session.userId, userIds))
-    .groupBy(session.userId)
-    .orderBy(desc(sql`MAX(${session.updatedAt})`));
+    .from(user)
+    .leftJoin(session, eq(session.userId, user.id))
+    .where(inArray(user.id, userIds))
+    .groupBy(user.id)
+    .orderBy(desc(sql`GREATEST(MAX(${session.updatedAt}), MAX(${user.lastActiveAt}))`));
 
-  const seen = new Set(rows.map((row) => row.userId));
-  const filled: MemberLastLoginRow[] = rows.map((row) => ({
-    lastLoginAt: toIso(row.lastLoginAt),
+  return rows.map((row) => ({
+    lastActiveAt: toIso(row.lastActiveAt),
     userId: row.userId,
   }));
-  // 包含从未登录的成员，前端 join 时能展示「从未登录」而不是漏行。
-  for (const userId of userIds) {
-    if (!seen.has(userId)) {
-      filled.push({ lastLoginAt: null, userId });
-    }
-  }
-  return filled;
 }
