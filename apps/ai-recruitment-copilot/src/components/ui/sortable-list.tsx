@@ -6,13 +6,13 @@ import {
   closestCenter,
   defaultDropAnimationSideEffects,
   DndContext,
-  type DropAnimation,
   DragOverlay,
   KeyboardSensor,
   PointerSensor,
   useSensor,
   useSensors,
 } from "@dnd-kit/core";
+import type { DropAnimation } from "@dnd-kit/core";
 import { restrictToParentElement, restrictToVerticalAxis } from "@dnd-kit/modifiers";
 import {
   SortableContext,
@@ -42,15 +42,8 @@ const SCREEN_READER_INSTRUCTIONS: ScreenReaderInstructions = {
 
 function buildAnnouncements(total: number): Announcements {
   return {
-    onDragStart({ active }) {
-      return `开始拖动第 ${Number(active.data.current?.sortable?.index ?? 0) + 1} 项。`;
-    },
-    onDragOver({ active, over }) {
-      if (!over) {
-        return `第 ${Number(active.data.current?.sortable?.index ?? 0) + 1} 项不再悬停在可放置区域。`;
-      }
-      const toIndex = Number(over.data.current?.sortable?.index ?? 0) + 1;
-      return `已悬停到第 ${toIndex} / ${total} 项。`;
+    onDragCancel({ active }) {
+      return `取消拖动第 ${Number(active.data.current?.sortable?.index ?? 0) + 1} 项。`;
     },
     onDragEnd({ active, over }) {
       if (!over) {
@@ -60,8 +53,15 @@ function buildAnnouncements(total: number): Announcements {
       const toIndex = Number(over.data.current?.sortable?.index ?? 0) + 1;
       return `已把第 ${fromIndex} 项放到第 ${toIndex} 位。`;
     },
-    onDragCancel({ active }) {
-      return `取消拖动第 ${Number(active.data.current?.sortable?.index ?? 0) + 1} 项。`;
+    onDragOver({ active, over }) {
+      if (!over) {
+        return `第 ${Number(active.data.current?.sortable?.index ?? 0) + 1} 项不再悬停在可放置区域。`;
+      }
+      const toIndex = Number(over.data.current?.sortable?.index ?? 0) + 1;
+      return `已悬停到第 ${toIndex} / ${total} 项。`;
+    },
+    onDragStart({ active }) {
+      return `开始拖动第 ${Number(active.data.current?.sortable?.index ?? 0) + 1} 项。`;
     },
   };
 }
@@ -186,7 +186,7 @@ function SortableItemImpl({ id, disabled, className, children }: SortableItemPro
     transform,
     transition,
     isDragging,
-  } = useSortable({ id, disabled });
+  } = useSortable({ disabled, id });
 
   const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),

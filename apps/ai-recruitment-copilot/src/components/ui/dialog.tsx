@@ -9,7 +9,9 @@ import { Button } from "@/components/ui/button";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/shared/utils";
 
-type ResponsiveDialogContextValue = { isMobile: boolean };
+interface ResponsiveDialogContextValue {
+  isMobile: boolean;
+}
 const ResponsiveDialogContext = React.createContext<ResponsiveDialogContextValue>({
   isMobile: false,
 });

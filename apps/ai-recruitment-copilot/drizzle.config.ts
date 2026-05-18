@@ -1,4 +1,11 @@
+import path from "node:path";
+import { config as loadEnv } from "dotenv";
 import type { Config } from "drizzle-kit";
+
+// 中文：drizzle-kit 不会自动加载 .env，且 turbo 调度时 cwd 可能不在本目录，显式指向同级 .env。
+// English: drizzle-kit doesn't auto-load .env, and turbo may run from the repo root —
+// resolve the co-located .env explicitly so cwd doesn't matter.
+loadEnv({ path: path.resolve(import.meta.dirname, ".env") });
 
 const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl) {

@@ -73,7 +73,7 @@ void main(){
 }
 `;
 
-type Props = {
+interface Props {
   hueShift?: number;
   noiseIntensity?: number;
   scanlineIntensity?: number;
@@ -81,7 +81,7 @@ type Props = {
   scanlineFrequency?: number;
   warpAmount?: number;
   resolutionScale?: number;
-};
+}
 
 export function DarkVeil({
   hueShift = 0,
@@ -98,25 +98,25 @@ export function DarkVeil({
     const parent = canvas.parentElement as HTMLElement;
 
     const renderer = new Renderer({
-      dpr: Math.min(window.devicePixelRatio, 2),
       canvas,
+      dpr: Math.min(window.devicePixelRatio, 2),
     });
 
-    const gl = renderer.gl;
+    const { gl } = renderer;
     const geometry = new Triangle(gl);
 
     const program = new Program(gl, {
-      vertex,
       fragment,
       uniforms: {
-        uTime: { value: 0 },
-        uResolution: { value: new Vec2() },
         uHueShift: { value: hueShift },
         uNoise: { value: noiseIntensity },
+        uResolution: { value: new Vec2() },
         uScan: { value: scanlineIntensity },
         uScanFreq: { value: scanlineFrequency },
+        uTime: { value: 0 },
         uWarp: { value: warpAmount },
       },
+      vertex,
     });
 
     const mesh = new Mesh(gl, { geometry, program });

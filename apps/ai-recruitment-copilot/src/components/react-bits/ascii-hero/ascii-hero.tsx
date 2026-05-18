@@ -21,9 +21,9 @@ const DEFAULTS = {
   cellSize: 16,
   charset: " ·∙-+*▒▓",
   color: "rgba(255, 255, 255, 0.6)",
+  fps: 60,
   noiseScale: 0.05,
   noiseSpeed: 0.0003,
-  fps: 60,
 } as const;
 
 export function AsciiHero(props: AsciiHeroProps) {
@@ -44,12 +44,18 @@ export function AsciiHero(props: AsciiHeroProps) {
   }, []);
 
   useEffect(() => {
-    if (!mounted || resolvedTheme !== "light") return;
+    if (!mounted || resolvedTheme !== "light") {
+      return;
+    }
     const container = containerRef.current;
     const canvas = canvasRef.current;
-    if (!container || !canvas) return;
+    if (!container || !canvas) {
+      return;
+    }
     const ctx = canvas.getContext("2d");
-    if (!ctx) return;
+    if (!ctx) {
+      return;
+    }
 
     const noise3D = createNoise3D();
 
@@ -85,26 +91,30 @@ export function AsciiHero(props: AsciiHeroProps) {
 
     const renderFrame = (t: number) => {
       compose({
+        H,
+        W,
         luma,
         noise: noise3D,
-        W,
-        H,
         noiseScale: cfg.noiseScale,
         noiseSpeed: cfg.noiseSpeed,
         t,
       });
       const charsetLen = cfg.charset.length;
-      const cellSize = cfg.cellSize;
+      const { cellSize } = cfg;
       for (let j = 0; j < H; j++) {
         for (let i = 0; i < W; i++) {
           const idx = j * W + i;
           const v = luma[idx];
           const cidx = Math.min(charsetLen - 1, Math.max(0, Math.floor(v * charsetLen)));
-          if (cidx === charBuffer[idx]) continue;
+          if (cidx === charBuffer[idx]) {
+            continue;
+          }
           charBuffer[idx] = cidx;
           ctx.clearRect(i * cellSize, j * cellSize, cellSize, cellSize);
           const ch = cfg.charset[cidx];
-          if (ch !== " ") ctx.fillText(ch, i * cellSize, j * cellSize);
+          if (ch !== " ") {
+            ctx.fillText(ch, i * cellSize, j * cellSize);
+          }
         }
       }
     };
@@ -133,7 +143,9 @@ export function AsciiHero(props: AsciiHeroProps) {
     resize();
     let timer: ReturnType<typeof setTimeout> | null = null;
     const observer = new ResizeObserver(() => {
-      if (timer) clearTimeout(timer);
+      if (timer) {
+        clearTimeout(timer);
+      }
       timer = setTimeout(resize, 200);
     });
     observer.observe(container);
@@ -156,8 +168,11 @@ export function AsciiHero(props: AsciiHeroProps) {
     // 中文：标签页隐藏时暂停 rAF / English: pause rAF when tab is hidden.
     const onVisibility = () => {
       tabVisible = !document.hidden;
-      if (tabVisible) start();
-      else stop();
+      if (tabVisible) {
+        start();
+      } else {
+        stop();
+      }
     };
     document.addEventListener("visibilitychange", onVisibility);
 
@@ -166,12 +181,16 @@ export function AsciiHero(props: AsciiHeroProps) {
     return () => {
       stop();
       document.removeEventListener("visibilitychange", onVisibility);
-      if (timer) clearTimeout(timer);
+      if (timer) {
+        clearTimeout(timer);
+      }
       observer.disconnect();
     };
   }, [mounted, resolvedTheme, cfg, prefersReduced]);
 
-  if (!mounted || resolvedTheme !== "light") return null;
+  if (!mounted || resolvedTheme !== "light") {
+    return null;
+  }
 
   return (
     <div

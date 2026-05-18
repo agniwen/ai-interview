@@ -1,4 +1,5 @@
-import React, { useRef, useEffect, CSSProperties } from "react";
+import type { CSSProperties } from "react";
+import React, { useRef, useEffect } from "react";
 
 class Grad {
   x: number;
@@ -55,11 +56,15 @@ class Noise {
     this.seed(seed);
   }
   seed(seed: number) {
-    if (seed > 0 && seed < 1) seed *= 65536;
+    if (seed > 0 && seed < 1) {
+      seed *= 65_536;
+    }
     seed = Math.floor(seed);
-    if (seed < 256) seed |= seed << 8;
+    if (seed < 256) {
+      seed |= seed << 8;
+    }
     for (let i = 0; i < 256; i++) {
-      let v = i & 1 ? this.p[i] ^ (seed & 255) : this.p[i] ^ ((seed >> 8) & 255);
+      const v = i & 1 ? this.p[i] ^ (seed & 255) : this.p[i] ^ ((seed >> 8) & 255);
       this.perm[i] = this.perm[i + 256] = v;
       this.gradP[i] = this.gradP[i + 256] = this.grad3[v % 12];
     }
@@ -159,35 +164,35 @@ const Waves: React.FC<WavesProps> = ({
     left: number;
     top: number;
   }>({
-    width: 0,
     height: 0,
     left: 0,
     top: 0,
+    width: 0,
   });
   const noiseRef = useRef(new Noise(Math.random()));
   const linesRef = useRef<Point[][]>([]);
   const mouseRef = useRef<Mouse>({
-    x: -10,
-    y: 0,
+    a: 0,
     lx: 0,
     ly: 0,
+    set: false,
     sx: 0,
     sy: 0,
     v: 0,
     vs: 0,
-    a: 0,
-    set: false,
+    x: -10,
+    y: 0,
   });
 
   const configRef = useRef<Config>({
+    friction,
     lineColor,
-    waveSpeedX,
-    waveSpeedY,
+    maxCursorMove,
+    tension,
     waveAmpX,
     waveAmpY,
-    friction,
-    tension,
-    maxCursorMove,
+    waveSpeedX,
+    waveSpeedY,
     xGap,
     yGap,
   });
@@ -196,14 +201,14 @@ const Waves: React.FC<WavesProps> = ({
 
   useEffect(() => {
     configRef.current = {
+      friction,
       lineColor,
-      waveSpeedX,
-      waveSpeedY,
+      maxCursorMove,
+      tension,
       waveAmpX,
       waveAmpY,
-      friction,
-      tension,
-      maxCursorMove,
+      waveSpeedX,
+      waveSpeedY,
       xGap,
       yGap,
     };
@@ -223,17 +228,21 @@ const Waves: React.FC<WavesProps> = ({
   useEffect(() => {
     const canvas = canvasRef.current;
     const container = containerRef.current;
-    if (!canvas || !container) return;
+    if (!canvas || !container) {
+      return;
+    }
     ctxRef.current = canvas.getContext("2d");
 
     function setSize() {
-      if (!container || !canvas) return;
+      if (!container || !canvas) {
+        return;
+      }
       const rect = container.getBoundingClientRect();
       boundingRef.current = {
-        width: rect.width,
         height: rect.height,
         left: rect.left,
         top: rect.top,
+        width: rect.width,
       };
       canvas.width = rect.width;
       canvas.height = rect.height;
@@ -253,10 +262,10 @@ const Waves: React.FC<WavesProps> = ({
         const pts: Point[] = [];
         for (let j = 0; j <= totalPoints; j++) {
           pts.push({
+            cursor: { vx: 0, vy: 0, x: 0, y: 0 },
+            wave: { x: 0, y: 0 },
             x: xStart + xGap * i,
             y: yStart + yGap * j,
-            wave: { x: 0, y: 0 },
-            cursor: { x: 0, y: 0, vx: 0, vy: 0 },
           });
         }
         linesRef.current.push(pts);
@@ -284,8 +293,8 @@ const Waves: React.FC<WavesProps> = ({
           if (dist < l) {
             const s = 1 - dist / l;
             const f = Math.cos(dist * 0.001) * s;
-            p.cursor.vx += Math.cos(mouse.a) * f * l * mouse.vs * 0.00065;
-            p.cursor.vy += Math.sin(mouse.a) * f * l * mouse.vs * 0.00065;
+            p.cursor.vx += Math.cos(mouse.a) * f * l * mouse.vs * 0.000_65;
+            p.cursor.vy += Math.sin(mouse.a) * f * l * mouse.vs * 0.000_65;
           }
 
           p.cursor.vx += (0 - p.cursor.x) * tension;
@@ -309,7 +318,9 @@ const Waves: React.FC<WavesProps> = ({
     function drawLines() {
       const { width, height } = boundingRef.current;
       const ctx = ctxRef.current;
-      if (!ctx) return;
+      if (!ctx) {
+        return;
+      }
       ctx.clearRect(0, 0, width, height);
       ctx.beginPath();
       ctx.strokeStyle = configRef.current.lineColor;
@@ -319,16 +330,20 @@ const Waves: React.FC<WavesProps> = ({
         points.forEach((p, idx) => {
           const isLast = idx === points.length - 1;
           p1 = moved(p, !isLast);
-          const p2 = moved(points[idx + 1] || points[points.length - 1], !isLast);
+          const p2 = moved(points[idx + 1] || points.at(-1), !isLast);
           ctx.lineTo(p1.x, p1.y);
-          if (isLast) ctx.moveTo(p2.x, p2.y);
+          if (isLast) {
+            ctx.moveTo(p2.x, p2.y);
+          }
         });
       });
       ctx.stroke();
     }
 
     function tick(t: number) {
-      if (!container) return;
+      if (!container) {
+        return;
+      }
       const mouse = mouseRef.current;
       mouse.sx += (mouse.x - mouse.sx) * 0.1;
       mouse.sy += (mouse.y - mouse.sy) * 0.1;

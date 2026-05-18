@@ -7,7 +7,7 @@ gsap.registerPlugin(InertiaPlugin);
 
 const throttle = (func: (...args: any[]) => void, limit: number) => {
   let lastCall = 0;
-  return function (this: any, ...args: any[]) {
+  return function throttle(this: any, ...args: any[]) {
     const now = performance.now();
     if (now - lastCall >= limit) {
       lastCall = now;
@@ -42,11 +42,13 @@ export interface DotGridProps {
 
 function hexToRgb(hex: string) {
   const m = hex.match(/^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i);
-  if (!m) return { r: 0, g: 0, b: 0 };
+  if (!m) {
+    return { b: 0, g: 0, r: 0 };
+  }
   return {
-    r: parseInt(m[1], 16),
-    g: parseInt(m[2], 16),
-    b: parseInt(m[3], 16),
+    b: Number.parseInt(m[3], 16),
+    g: Number.parseInt(m[2], 16),
+    r: Number.parseInt(m[1], 16),
   };
 }
 
@@ -69,21 +71,23 @@ const DotGrid: React.FC<DotGridProps> = ({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const dotsRef = useRef<Dot[]>([]);
   const pointerRef = useRef({
-    x: 0,
-    y: 0,
-    vx: 0,
-    vy: 0,
-    speed: 0,
     lastTime: 0,
     lastX: 0,
     lastY: 0,
+    speed: 0,
+    vx: 0,
+    vy: 0,
+    x: 0,
+    y: 0,
   });
 
   const baseRgb = useMemo(() => hexToRgb(baseColor), [baseColor]);
   const activeRgb = useMemo(() => hexToRgb(activeColor), [activeColor]);
 
   const circlePath = useMemo(() => {
-    if (typeof window === "undefined" || !window.Path2D) return null;
+    if (typeof window === "undefined" || !window.Path2D) {
+      return null;
+    }
 
     const p = new Path2D();
     p.arc(0, 0, dotSize / 2, 0, Math.PI * 2);
@@ -93,7 +97,9 @@ const DotGrid: React.FC<DotGridProps> = ({
   const buildGrid = useCallback(() => {
     const wrap = wrapperRef.current;
     const canvas = canvasRef.current;
-    if (!wrap || !canvas) return;
+    if (!wrap || !canvas) {
+      return;
+    }
 
     const { width, height } = wrap.getBoundingClientRect();
     const dpr = window.devicePixelRatio || 1;
@@ -103,7 +109,9 @@ const DotGrid: React.FC<DotGridProps> = ({
     canvas.style.width = `${width}px`;
     canvas.style.height = `${height}px`;
     const ctx = canvas.getContext("2d");
-    if (ctx) ctx.scale(dpr, dpr);
+    if (ctx) {
+      ctx.scale(dpr, dpr);
+    }
 
     const cols = Math.floor((width + gap) / (dotSize + gap));
     const rows = Math.floor((height + gap) / (dotSize + gap));
@@ -123,23 +131,29 @@ const DotGrid: React.FC<DotGridProps> = ({
       for (let x = 0; x < cols; x++) {
         const cx = startX + x * cell;
         const cy = startY + y * cell;
-        dots.push({ cx, cy, xOffset: 0, yOffset: 0, _inertiaApplied: false });
+        dots.push({ _inertiaApplied: false, cx, cy, xOffset: 0, yOffset: 0 });
       }
     }
     dotsRef.current = dots;
   }, [dotSize, gap]);
 
   useEffect(() => {
-    if (!circlePath) return;
+    if (!circlePath) {
+      return;
+    }
 
     let rafId: number;
     const proxSq = proximity * proximity;
 
     const draw = () => {
       const canvas = canvasRef.current;
-      if (!canvas) return;
+      if (!canvas) {
+        return;
+      }
       const ctx = canvas.getContext("2d");
-      if (!ctx) return;
+      if (!ctx) {
+        return;
+      }
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
       const { x: px, y: py } = pointerRef.current;
@@ -185,8 +199,11 @@ const DotGrid: React.FC<DotGridProps> = ({
       (window as Window).addEventListener("resize", buildGrid);
     }
     return () => {
-      if (ro) ro.disconnect();
-      else window.removeEventListener("resize", buildGrid);
+      if (ro) {
+        ro.disconnect();
+      } else {
+        window.removeEventListener("resize", buildGrid);
+      }
     };
   }, [buildGrid]);
 
@@ -225,13 +242,13 @@ const DotGrid: React.FC<DotGridProps> = ({
           const pushX = dot.cx - pr.x + vx * 0.005;
           const pushY = dot.cy - pr.y + vy * 0.005;
           gsap.to(dot, {
-            inertia: { xOffset: pushX, yOffset: pushY, resistance },
+            inertia: { resistance, xOffset: pushX, yOffset: pushY },
             onComplete: () => {
               gsap.to(dot, {
-                xOffset: 0,
-                yOffset: 0,
                 duration: returnDuration,
                 ease: "elastic.out(1,0.75)",
+                xOffset: 0,
+                yOffset: 0,
               });
               dot._inertiaApplied = false;
             },
@@ -253,13 +270,13 @@ const DotGrid: React.FC<DotGridProps> = ({
           const pushX = (dot.cx - cx) * shockStrength * falloff;
           const pushY = (dot.cy - cy) * shockStrength * falloff;
           gsap.to(dot, {
-            inertia: { xOffset: pushX, yOffset: pushY, resistance },
+            inertia: { resistance, xOffset: pushX, yOffset: pushY },
             onComplete: () => {
               gsap.to(dot, {
-                xOffset: 0,
-                yOffset: 0,
                 duration: returnDuration,
                 ease: "elastic.out(1,0.75)",
+                xOffset: 0,
+                yOffset: 0,
               });
               dot._inertiaApplied = false;
             },

@@ -518,18 +518,18 @@ export function ReactShaderToy({
   const glRef = useRef<WebGLRenderingContext | null>(null);
   const squareVerticesBufferRef = useRef<WebGLBuffer | null>(null);
   const shaderProgramRef = useRef<WebGLProgram | null>(null);
-  const vertexPositionAttributeRef = useRef<number | undefined>(undefined);
-  const animFrameIdRef = useRef<number | undefined>(undefined);
-  const initFrameIdRef = useRef<number | undefined>(undefined);
+  const vertexPositionAttributeRef = useRef<number | undefined>();
+  const animFrameIdRef = useRef<number | undefined>();
+  const initFrameIdRef = useRef<number | undefined>();
   const isVisibleRef = useRef(true);
   const animateWhenNotVisibleRef = useRef(animateWhenNotVisible);
   const mousedownRef = useRef(false);
-  const canvasPositionRef = useRef<DOMRect | undefined>(undefined);
+  const canvasPositionRef = useRef<DOMRect | undefined>();
   const timerRef = useRef(0);
   const lastMouseArrRef = useRef<number[]>([0, 0]);
   const texturesArrRef = useRef<Texture[]>([]);
   const lastTimeRef = useRef(0);
-  const resizeObserverRef = useRef<ResizeObserver | undefined>(undefined);
+  const resizeObserverRef = useRef<ResizeObserver | undefined>();
   const uniformsRef = useRef<
     Record<
       string,

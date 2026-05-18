@@ -40,33 +40,33 @@ export function BlurReveal({
   const baseDuration = 0.3 / speedSegment;
 
   const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: {
-      opacity: 1,
-      transition: {
-        staggerChildren: stagger,
-        delayChildren: delay,
-      },
-    },
     exit: {
       transition: {
         staggerChildren: stagger,
         staggerDirection: -1,
       },
     },
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: {
+        delayChildren: delay,
+        staggerChildren: stagger,
+      },
+    },
   };
 
   const itemVariants = {
-    hidden: { opacity: 0, filter: "blur(12px)", y: 10 },
+    exit: { filter: "blur(12px)", opacity: 0, y: 10 },
+    hidden: { filter: "blur(12px)", opacity: 0, y: 10 },
     visible: {
-      opacity: 1,
       filter: "blur(0px)",
-      y: 0,
+      opacity: 1,
       transition: {
         duration: baseDuration,
       },
+      y: 0,
     },
-    exit: { opacity: 0, filter: "blur(12px)", y: 10 },
   };
 
   return (
@@ -92,7 +92,7 @@ export function BlurReveal({
                 className="inline-block whitespace-nowrap"
                 key={`word-${wordIndex}`}
               >
-                {word.split("").map((char, charIndex) => (
+                {[...word].map((char, charIndex) => (
                   <motion.span
                     className="inline-block"
                     key={`char-${wordIndex}-${charIndex}`}

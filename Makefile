@@ -1,4 +1,5 @@
-AGENT_DIR := agent
+AGENT_DIR := apps/livekit-agent
+WEB_DIR   := apps/ai-recruitment-copilot
 VENV      := $(AGENT_DIR)/.venv
 PY        := uv run --project $(AGENT_DIR)
 AGENT_SCRIPT := src/agent.py
@@ -32,7 +33,7 @@ dev: ## 并行启动 Next.js + LiveKit agent worker (Ctrl-C 同时停止)
 	@$(MAKE) -j2 web-dev agent-dev
 
 web-dev: ## 仅启动 Next.js dev server
-	pnpm dev
+	pnpm --filter ai-recruitment-copilot dev
 
 agent-dev: ## 仅启动 LiveKit agent worker (dev 模式，热重载)
 	cd $(AGENT_DIR) && uv run $(AGENT_SCRIPT) dev

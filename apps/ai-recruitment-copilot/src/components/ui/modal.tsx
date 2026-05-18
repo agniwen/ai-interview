@@ -14,12 +14,12 @@ type HeaderLayout = "stack" | "row";
 // 不同尺寸映射到 Tailwind max-width 类，"full" 对应详情类弹窗的近全屏样态。
 // Size → max-width class mapping; "full" mirrors the detail-dialog near-fullscreen layout.
 const SIZE_CLASS: Record<ModalSize, string> = {
-  sm: "sm:max-w-md",
-  md: "sm:max-w-lg",
-  lg: "sm:max-w-2xl",
-  xl: "sm:max-w-3xl",
   "2xl": "sm:max-w-5xl",
   full: "sm:w-[min(96vw,1440px)] sm:max-w-none",
+  lg: "sm:max-w-2xl",
+  md: "sm:max-w-lg",
+  sm: "sm:max-w-md",
+  xl: "sm:max-w-3xl",
 };
 
 export interface ModalProps {

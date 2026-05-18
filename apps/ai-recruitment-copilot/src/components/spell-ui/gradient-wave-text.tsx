@@ -1,15 +1,7 @@
 "use client";
 
-import {
-  type CSSProperties,
-  type MouseEvent as ReactMouseEvent,
-  type ReactNode,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { CSSProperties, MouseEvent as ReactMouseEvent, ReactNode } from "react";
 import { cn } from "@/lib/shared/utils";
 
 type Align = "left" | "center" | "right";
@@ -85,13 +77,17 @@ export function GradientWaveText({
     }
 
     const node = elRef.current;
-    if (!node) return;
+    if (!node) {
+      return;
+    }
 
     const observer = new IntersectionObserver(
       (entries) => {
         for (const entry of entries) {
           if (entry.isIntersecting) {
-            if (once && hasPlayedRef.current) continue;
+            if (once && hasPlayedRef.current) {
+              continue;
+            }
             setIsInView(true);
             hasPlayedRef.current = true;
           } else if (!once) {
@@ -135,14 +131,20 @@ export function GradientWaveText({
 
   useEffect(() => {
     const node = elRef.current;
-    if (node) node.style.setProperty("--gi", "-25");
+    if (node) {
+      node.style.setProperty("--gi", "-25");
+    }
   }, []);
 
   useEffect(() => {
-    if (!isInView) return;
+    if (!isInView) {
+      return;
+    }
 
     const node = elRef.current;
-    if (!node) return;
+    if (!node) {
+      return;
+    }
 
     tRef.current = -25;
     cyclesDoneRef.current = 0;
@@ -154,13 +156,17 @@ export function GradientWaveText({
 
   useEffect(() => {
     const node = elRef.current;
-    if (!(node && isInView)) return;
+    if (!(node && isInView)) {
+      return;
+    }
 
     const RANGE = 200;
     let last = performance.now();
 
     const tick = (now: number) => {
-      if (finishedRef.current) return;
+      if (finishedRef.current) {
+        return;
+      }
 
       if (!startedRef.current) {
         if (now >= startAtRef.current) {
@@ -180,7 +186,9 @@ export function GradientWaveText({
         let next = tRef.current + increment;
 
         if (cycles === 0) {
-          if (next >= RANGE) next %= RANGE;
+          if (next >= RANGE) {
+            next %= RANGE;
+          }
           tRef.current = next;
           node.style.setProperty("--gi", String(next));
         } else {
@@ -243,21 +251,21 @@ export function GradientWaveText({
       style={
         {
           "--gi": -25,
-          textAlign: align,
-          backgroundImage: gradient,
-          WebkitBackgroundClip: "text",
-          backgroundClip: "text",
-          WebkitTextFillColor: "transparent",
-          color: "transparent",
-          display: "inline-block",
-          WebkitFontSmoothing: "antialiased",
           MozOsxFontSmoothing: "grayscale",
           WebkitBackfaceVisibility: "hidden",
+          WebkitBackgroundClip: "text",
+          WebkitFontSmoothing: "antialiased",
+          WebkitTextFillColor: "transparent",
           backfaceVisibility: "hidden",
-          transform: "translateZ(0)",
-          paddingBottom: `${bottomOffset}%`,
+          backgroundClip: "text",
+          backgroundImage: gradient,
+          color: "transparent",
+          display: "inline-block",
           marginBottom: `-${bottomOffset}%`,
+          paddingBottom: `${bottomOffset}%`,
           paddingInline: 2,
+          textAlign: align,
+          transform: "translateZ(0)",
         } as CSSProperties
       }
     >

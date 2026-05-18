@@ -1,4 +1,4 @@
-# AGENTS.md
+# CLAUDE.md
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
@@ -8,28 +8,33 @@ AI-powered voice interview/resume screening application. Chinese-first locale �
 
 ## Architecture
 
-- **Web app** (`src/`): Next.js 16 + React 19, App Router, Hono API routes, Drizzle ORM + PostgreSQL, Better Auth, shadcn/ui + Tailwind CSS v4
-- **Voice agent** (`agent/`): Python LiveKit Agents SDK with OpenAI / Google / ElevenLabs / Minimax plugins, Silero VAD, turn-detector
-- **Monorepo**: pnpm workspace; shared packages in `packages/` (e.g. `@repo/adapter-feishu`)
+- **Web app** (`apps/ai-recruitment-copilot/`): Next.js 16 + React 19, App Router, Hono API routes, Drizzle ORM + PostgreSQL, Better Auth, shadcn/ui + Tailwind CSS v4
+- **Voice agent** (`apps/livekit-agent/`): Python LiveKit Agents SDK with OpenAI / Google / ElevenLabs / Minimax plugins, Silero VAD, turn-detector
+- **Monorepo**: pnpm workspace + Turborepo at the root; shared packages in `packages/` (e.g. `@repo/adapter-feishu`)
 
 Two separate package managers: **pnpm** for web, **uv** for Python agent. Do not mix them.
 
 ## Commands
 
-### Web (from project root)
+### Root (Turborepo)
 
-- `pnpm dev` — dev server
+- `pnpm dev` — turbo run dev across apps
+- `pnpm build` / `pnpm typecheck` / `pnpm test` — fan-out via turbo
+- `pnpm check` / `pnpm fix` — Ultracite lint/format across the whole repo
 - `pnpm hooks` — install lefthook git hooks (run once after clone)
-- `pnpm build` — production build
-- `pnpm typecheck` — TypeScript type checking
-- `pnpm check` — Ultracite (oxlint + oxfmt) check
-- `pnpm fix` — Ultracite autofix (also runs via lefthook on commit)
-- `pnpm test` / `pnpm test:watch` — Vitest
-- `pnpm db:generate` — generate a versioned migration from schema changes
-- `pnpm db:migrate` — apply migrations
-- `pnpm db:studio` — Drizzle Studio UI
+- `pnpm db:generate` / `pnpm db:migrate` / `pnpm db:studio` — proxy to the web app's drizzle scripts
 
-### Agent (from `agent/`)
+### Web (`apps/ai-recruitment-copilot/`)
+
+Either run via turbo from the root, or directly:
+
+- `pnpm --filter ai-recruitment-copilot dev` — Next.js dev server
+- `pnpm --filter ai-recruitment-copilot build` — production build
+- `pnpm --filter ai-recruitment-copilot typecheck`
+- `pnpm --filter ai-recruitment-copilot test` / `test:watch` — Vitest
+- `pnpm --filter ai-recruitment-copilot db:generate` / `db:migrate` / `db:studio`
+
+### Agent (from `apps/livekit-agent/`)
 
 - `uv sync` — install dependencies
 - `uv run src/agent.py download-files` — download VAD + turn-detector models (required before first run)
@@ -105,11 +110,11 @@ When a module _mostly_ fits one bucket but has one server-only function (e.g. `h
 
 Vitest runs in Node, so it stubs `server-only` / `client-only` to a no-op module via the alias in `vitest.config.ts`. Real isolation is enforced by Next at build time.
 
-## Voice Agent Development (`agent/`)
+## Voice Agent Development (`apps/livekit-agent/`)
 
 ### Entrypoint and structure
 
-- All Python agent code lives in `agent/src/`. **Keep `agent/src/agent.py` as the entrypoint** — the `Dockerfile` references it directly for production deployment, so do not rename or move it.
+- All Python agent code lives in `apps/livekit-agent/src/`. **Keep `apps/livekit-agent/src/agent.py` as the entrypoint** — the `Dockerfile` references it directly for production deployment, so do not rename or move it.
 - Use `uv` for everything (install, run, test) — never mix in `pip`/`poetry`. See the Commands section above for the canonical `uv run` invocations.
 - Format and lint Python with `uv run ruff format` and `uv run ruff check` before committing.
 
@@ -145,7 +150,7 @@ When modifying instructions, tool descriptions, or task / workflow / handoff def
 
 ## Environment Setup
 
-Copy `.env.example` to `.env` and populate required keys. See `.env.example` for the full list. Key requirements:
+Copy `apps/ai-recruitment-copilot/.env.example` to `apps/ai-recruitment-copilot/.env` and populate required keys. The voice agent has its own `apps/livekit-agent/.env.example` if it needs separate secrets. See those `.env.example` files for the full list. Key requirements:
 
 - LiveKit Cloud credentials (`LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`)
 - Google OAuth (`GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`)

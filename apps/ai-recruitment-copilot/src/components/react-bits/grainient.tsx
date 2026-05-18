@@ -29,11 +29,13 @@ interface GrainientProps {
 
 const hexToRgb = (hex: string): [number, number, number] => {
   const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-  if (!result) return [1, 1, 1];
+  if (!result) {
+    return [1, 1, 1];
+  }
   return [
-    parseInt(result[1], 16) / 255,
-    parseInt(result[2], 16) / 255,
-    parseInt(result[3], 16) / 255,
+    Number.parseInt(result[1], 16) / 255,
+    Number.parseInt(result[2], 16) / 255,
+    Number.parseInt(result[3], 16) / 255,
   ];
 };
 
@@ -130,23 +132,23 @@ void main(){
 
 const Grainient: React.FC<GrainientProps> = ({
   timeSpeed = 0.25,
-  colorBalance = 0.0,
-  warpStrength = 1.0,
-  warpFrequency = 5.0,
-  warpSpeed = 2.0,
-  warpAmplitude = 50.0,
-  blendAngle = 0.0,
+  colorBalance = 0,
+  warpStrength = 1,
+  warpFrequency = 5,
+  warpSpeed = 2,
+  warpAmplitude = 50,
+  blendAngle = 0,
   blendSoftness = 0.05,
-  rotationAmount = 500.0,
-  noiseScale = 2.0,
+  rotationAmount = 500,
+  noiseScale = 2,
   grainAmount = 0.1,
-  grainScale = 2.0,
+  grainScale = 2,
   grainAnimated = false,
   contrast = 1.5,
-  gamma = 1.0,
-  saturation = 1.0,
-  centerX = 0.0,
-  centerY = 0.0,
+  gamma = 1,
+  saturation = 1,
+  centerX = 0,
+  centerY = 0,
   zoom = 0.9,
   color1 = "#FF9FFC",
   color2 = "#5227FF",
@@ -156,53 +158,55 @@ const Grainient: React.FC<GrainientProps> = ({
   const containerRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    if (!containerRef.current) return;
+    if (!containerRef.current) {
+      return;
+    }
 
     const renderer = new Renderer({
-      webgl: 2,
       alpha: true,
       antialias: false,
       dpr: Math.min(window.devicePixelRatio || 1, 2),
+      webgl: 2,
     });
 
-    const gl = renderer.gl;
+    const { gl } = renderer;
     const canvas = gl.canvas as HTMLCanvasElement;
     canvas.style.width = "100%";
     canvas.style.height = "100%";
     canvas.style.display = "block";
 
     const container = containerRef.current;
-    container.appendChild(canvas);
+    container.append(canvas);
 
     const geometry = new Triangle(gl);
     const program = new Program(gl, {
-      vertex,
       fragment,
       uniforms: {
-        iTime: { value: 0 },
         iResolution: { value: new Float32Array([1, 1]) },
-        uTimeSpeed: { value: timeSpeed },
-        uColorBalance: { value: colorBalance },
-        uWarpStrength: { value: warpStrength },
-        uWarpFrequency: { value: warpFrequency },
-        uWarpSpeed: { value: warpSpeed },
-        uWarpAmplitude: { value: warpAmplitude },
+        iTime: { value: 0 },
         uBlendAngle: { value: blendAngle },
         uBlendSoftness: { value: blendSoftness },
-        uRotationAmount: { value: rotationAmount },
-        uNoiseScale: { value: noiseScale },
-        uGrainAmount: { value: grainAmount },
-        uGrainScale: { value: grainScale },
-        uGrainAnimated: { value: grainAnimated ? 1.0 : 0.0 },
-        uContrast: { value: contrast },
-        uGamma: { value: gamma },
-        uSaturation: { value: saturation },
         uCenterOffset: { value: new Float32Array([centerX, centerY]) },
-        uZoom: { value: zoom },
         uColor1: { value: new Float32Array(hexToRgb(color1)) },
         uColor2: { value: new Float32Array(hexToRgb(color2)) },
         uColor3: { value: new Float32Array(hexToRgb(color3)) },
+        uColorBalance: { value: colorBalance },
+        uContrast: { value: contrast },
+        uGamma: { value: gamma },
+        uGrainAmount: { value: grainAmount },
+        uGrainAnimated: { value: grainAnimated ? 1 : 0 },
+        uGrainScale: { value: grainScale },
+        uNoiseScale: { value: noiseScale },
+        uRotationAmount: { value: rotationAmount },
+        uSaturation: { value: saturation },
+        uTimeSpeed: { value: timeSpeed },
+        uWarpAmplitude: { value: warpAmplitude },
+        uWarpFrequency: { value: warpFrequency },
+        uWarpSpeed: { value: warpSpeed },
+        uWarpStrength: { value: warpStrength },
+        uZoom: { value: zoom },
       },
+      vertex,
     });
 
     const mesh = new Mesh(gl, { geometry, program });

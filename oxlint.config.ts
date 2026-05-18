@@ -7,11 +7,11 @@ import react from "ultracite/oxlint/react";
 export default defineConfig({
   extends: [core, react, next],
   ignorePatterns: [
-    "src/components/agents-ui/**",
-    "src/hooks/agents-ui/**",
-    "src/components/ui/**",
-    "src/components/react-bits/**",
-    "src/components/spell-ui/**",
+    "**/src/components/agents-ui/**",
+    "**/src/hooks/agents-ui/**",
+    "**/src/components/ui/**",
+    "**/src/components/react-bits/**",
+    "**/src/components/spell-ui/**",
   ],
   rules: {
     "func-style": "off",
