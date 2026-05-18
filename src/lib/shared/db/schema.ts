@@ -798,6 +798,9 @@ export const interviewNotification = pgTable(
 export const candidateFormTemplate = pgTable(
   "candidate_form_template",
   {
+    // 归档时间戳，软删除标记。NULL = 未归档，有值 = 已归档于该时间。
+    // Archive timestamp acting as a soft-delete marker. NULL = active.
+    archivedAt: timestamp("archived_at"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
     description: text("description"),
@@ -818,6 +821,7 @@ export const candidateFormTemplate = pgTable(
     index("candidate_form_template_scope_idx").on(table.scope),
     index("candidate_form_template_created_at_idx").on(table.createdAt),
     index("candidate_form_template_organization_idx").on(table.organizationId),
+    index("candidate_form_template_org_archived_idx").on(table.organizationId, table.archivedAt),
   ],
 );
 
@@ -933,6 +937,9 @@ export const candidateFormSubmission = pgTable(
 export const interviewQuestionTemplate = pgTable(
   "interview_question_template",
   {
+    // 归档时间戳，软删除标记。NULL = 未归档，有值 = 已归档于该时间。
+    // Archive timestamp acting as a soft-delete marker. NULL = active.
+    archivedAt: timestamp("archived_at"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
     description: text("description"),
@@ -953,6 +960,10 @@ export const interviewQuestionTemplate = pgTable(
     index("interview_question_template_scope_idx").on(table.scope),
     index("interview_question_template_created_at_idx").on(table.createdAt),
     index("interview_question_template_organization_idx").on(table.organizationId),
+    index("interview_question_template_org_archived_idx").on(
+      table.organizationId,
+      table.archivedAt,
+    ),
   ],
 );
 

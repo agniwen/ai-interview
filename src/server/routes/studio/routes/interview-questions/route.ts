@@ -10,7 +10,6 @@ import {
 import { interviewQuestionTemplateSchema } from "@/lib/shared/interview-question-templates";
 import { factory, jsonValidatorError } from "@/server/factory";
 import { requirePermission } from "@/server/middlewares/permission";
-import { countBindingsByTemplate } from "@/server/routes/studio/routes/interview-questions/dao/bindings";
 import {
   listAllInterviewQuestionTemplates,
   loadInterviewQuestionTemplateById,
@@ -42,6 +41,9 @@ function normalizeQuestions(
 }
 
 const interviewQuestionListQuerySchema = z.object({
+  // "1" / "true" → 把已归档的也带回来；默认仅返回未归档。
+  // "1"/"true" includes archived rows in the response; default lists active only.
+  includeArchived: z.string().optional(),
   jobDescriptionId: z.string().optional(),
   page: z.string().optional(),
   pageSize: z.string().optional(),
@@ -50,6 +52,10 @@ const interviewQuestionListQuerySchema = z.object({
   sortBy: z.string().optional(),
   sortOrder: z.string().optional(),
 });
+
+function parseIncludeArchived(value: string | undefined): boolean {
+  return value === "1" || value === "true";
+}
 
 export const interviewQuestionTemplatesRouter = factory
   .createApp()
@@ -66,6 +72,7 @@ export const interviewQuestionTemplatesRouter = factory
       const result = await queryPaginatedInterviewQuestionTemplates(
         activeOrg.id,
         {
+          includeArchived: parseIncludeArchived(q.includeArchived),
           jobDescriptionId: q.jobDescriptionId,
           scope: q.scope,
           search: q.search,
@@ -214,6 +221,13 @@ export const interviewQuestionTemplatesRouter = factory
       return c.json(updated, 200);
     },
   )
+  // DELETE 现在是「归档」(软删除)：把 archivedAt 写为当前时间。归档后的模板
+  // 不再出现在「选择模板」的列表里，但已经绑定它的面试 / 排期 / JD 不动，
+  // 避免误删进行中的面试。需要彻底清空时直接走数据库。
+  //
+  // DELETE is now a soft-delete: set archivedAt = now(). Archived templates are
+  // hidden from picker lists but existing bindings stay intact so in-flight
+  // interviews aren't broken. Hard delete is no longer exposed via API.
   .delete("/:id", requirePermission("questionTemplate", "delete"), async (c) => {
     const { activeOrg } = c.var;
     if (!activeOrg) {
@@ -224,13 +238,33 @@ export const interviewQuestionTemplatesRouter = factory
     if (!existing) {
       return c.json({ error: "面试题不存在。" }, 404);
     }
-
-    const bindingCount = await countBindingsByTemplate(id);
-    if (bindingCount > 0) {
-      return c.json({ error: "已有面试绑定该模板，无法删除。" }, 400);
+    if (existing.archivedAt) {
+      return c.json({ error: "该模板已归档。" }, 400);
     }
-
-    await db.delete(interviewQuestionTemplate).where(eq(interviewQuestionTemplate.id, id));
+    await db
+      .update(interviewQuestionTemplate)
+      .set({ archivedAt: new Date() })
+      .where(eq(interviewQuestionTemplate.id, id));
+    safeUpdateTag(`interview-question-templates:${activeOrg.id}`);
+    return c.json({ success: true }, 200);
+  })
+  .post("/:id/unarchive", requirePermission("questionTemplate", "update"), async (c) => {
+    const { activeOrg } = c.var;
+    if (!activeOrg) {
+      return c.json({ message: "Unauthorized" }, 401);
+    }
+    const id = c.req.param("id");
+    const existing = await loadInterviewQuestionTemplateById(activeOrg.id, id);
+    if (!existing) {
+      return c.json({ error: "面试题不存在。" }, 404);
+    }
+    if (!existing.archivedAt) {
+      return c.json({ error: "该模板未归档。" }, 400);
+    }
+    await db
+      .update(interviewQuestionTemplate)
+      .set({ archivedAt: null })
+      .where(eq(interviewQuestionTemplate.id, id));
     safeUpdateTag(`interview-question-templates:${activeOrg.id}`);
     return c.json({ success: true }, 200);
   })

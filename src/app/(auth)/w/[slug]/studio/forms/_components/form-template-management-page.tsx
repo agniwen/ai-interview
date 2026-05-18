@@ -11,12 +11,21 @@ import type {
 import type { JobDescriptionListRecord } from "@/lib/shared/job-descriptions";
 import type { PaginatedCandidateFormTemplateResult } from "@/server/routes/studio/routes/forms/dao/queries";
 import { useQueryClient } from "@tanstack/react-query";
-import { ClipboardListIcon, InboxIcon, PencilIcon, PlusIcon, Trash2Icon } from "lucide-react";
-import { parseAsString, useQueryState } from "nuqs";
+import {
+  ArchiveIcon,
+  ArchiveRestoreIcon,
+  ClipboardListIcon,
+  InboxIcon,
+  PencilIcon,
+  PlusIcon,
+} from "lucide-react";
+import { parseAsBoolean, parseAsString, useQueryState } from "nuqs";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import {
   actionsColumn,
   customColumn,
@@ -53,6 +62,13 @@ export function CandidateFormTemplateManagementPage({
   const slug = useWorkspaceSlug();
   const queryClient = useQueryClient();
 
+  // 「显示已归档」开关，URL 持久化便于刷新 / 分享。
+  // "Show archived" toggle, URL-persisted for refresh/share.
+  const [showArchived, setShowArchived] = useQueryState(
+    "archived",
+    parseAsBoolean.withDefault(false).withOptions({ clearOnDefault: true }),
+  );
+
   const fetchTemplates = useMemo(
     () =>
       async (params: {
@@ -72,6 +88,7 @@ export function CandidateFormTemplateManagementPage({
             ...(params.filters.jobDescriptionId
               ? { jobDescriptionId: params.filters.jobDescriptionId }
               : {}),
+            ...(showArchived ? { includeArchived: "1" } : {}),
             sortBy: "createdAt",
             sortOrder: "desc",
           },
@@ -81,7 +98,7 @@ export function CandidateFormTemplateManagementPage({
         }
         return (await res.json()) as PaginatedCandidateFormTemplateResult;
       },
-    [slug],
+    [slug, showArchived],
   );
 
   const loadTemplateDetailById = useCallback(
@@ -122,10 +139,29 @@ export function CandidateFormTemplateManagementPage({
     },
     loadDetail: (record) => loadTemplateDetailById(record.id),
     messages: {
-      deleteSuccess: "模版已删除",
+      // 实际是软删除（归档）：后端 DELETE 现在把 archivedAt 写为当前时间。
+      // Backend DELETE is now soft (set archivedAt); reword the toast.
+      deleteSuccess: "表单已归档",
       loadDetailError: "加载模版失败",
     },
   });
+
+  const unarchiveTemplate = useCallback(
+    async (record: CandidateFormTemplateListRecord) => {
+      const res = await rpc.api.w[":slug"].studio.forms[":id"].unarchive.$post({
+        param: { id: record.id, slug },
+      });
+      if (!res.ok) {
+        const body = (await res.json().catch(() => ({}))) as { error?: string };
+        toast.error(body.error ?? "取消归档失败");
+        return;
+      }
+      toast.success("表单已取消归档");
+      grid.invalidate();
+      void queryClient.invalidateQueries({ queryKey: ["candidate-form-templates"] });
+    },
+    [grid, queryClient, slug],
+  );
 
   const [submissionsRecord, setSubmissionsRecord] =
     useState<CandidateFormTemplateListRecord | null>(null);
@@ -180,6 +216,16 @@ export function CandidateFormTemplateManagementPage({
         primary: true,
         secondary: (r) => r.description ?? undefined,
         title: "标题",
+      }),
+      customColumn<CandidateFormTemplateListRecord>({
+        cell: (r) =>
+          r.archivedAt ? (
+            <Badge variant="outline">已归档</Badge>
+          ) : (
+            <Badge variant="success">使用中</Badge>
+          ),
+        key: "archivedAt",
+        title: "状态",
       }),
       customColumn<CandidateFormTemplateListRecord>({
         cell: (r) => (
@@ -261,6 +307,8 @@ export function CandidateFormTemplateManagementPage({
             },
           },
         ],
+        // 行的归档态决定显示「归档」还是「取消归档」；show 回调按状态二选一。
+        // The row's archived state picks one of the two: archive vs unarchive.
         menu: [
           {
             icon: InboxIcon,
@@ -268,10 +316,17 @@ export function CandidateFormTemplateManagementPage({
             onClick: (r) => setSubmissionsRecord(r),
           },
           {
-            icon: Trash2Icon,
-            label: "删除",
+            icon: ArchiveIcon,
+            label: "归档",
             onClick: (r) => crud.setDeleteRecord(r),
+            show: (r) => !r.archivedAt,
             variant: "destructive",
+          },
+          {
+            icon: ArchiveRestoreIcon,
+            label: "取消归档",
+            onClick: (r) => void unarchiveTemplate(r),
+            show: (r) => Boolean(r.archivedAt),
           },
         ],
       }),
@@ -344,10 +399,22 @@ export function CandidateFormTemplateManagementPage({
           filters={filtersConfig}
           getRowId={(r) => r.id}
           toolbarRight={
-            <Button className="flex-1 sm:flex-none" onClick={crud.openCreate}>
-              <PlusIcon className="size-4" />
-              新建面试表单
-            </Button>
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="flex items-center gap-2">
+                <Switch
+                  checked={showArchived}
+                  id="show-archived"
+                  onCheckedChange={(next) => void setShowArchived(next)}
+                />
+                <Label className="cursor-pointer font-normal text-sm" htmlFor="show-archived">
+                  显示已归档
+                </Label>
+              </div>
+              <Button className="flex-1 sm:flex-none" onClick={crud.openCreate}>
+                <PlusIcon className="size-4" />
+                新建面试表单
+              </Button>
+            </div>
           }
         />
       </div>
@@ -371,12 +438,12 @@ export function CandidateFormTemplateManagementPage({
 
       <EntityDeleteDialog
         description={(record) =>
-          `即将删除：${record.title}。 如果已有候选人填写过，将无法删除 —— 请先清理相关面试记录。`
+          `即将归档：${record.title}。归档后候选人侧不再看到该表单，但已收到的填写记录保留；之后可在「显示已归档」开关下取消归档。`
         }
         onClose={() => crud.setDeleteRecord(null)}
         onConfirm={crud.handleDelete}
         record={crud.deleteRecord}
-        title="确认删除这个面试表单？"
+        title="确认归档这个面试表单？"
       />
     </>
   );

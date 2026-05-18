@@ -6,7 +6,7 @@ import type {
   JobDescriptionRef,
 } from "@/lib/shared/candidate-forms";
 import type { SQL } from "drizzle-orm";
-import { and, asc, count, desc, eq, exists, ilike, inArray, or } from "drizzle-orm";
+import { and, asc, count, desc, eq, exists, ilike, inArray, isNull, or } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/server/db";
 import {
@@ -54,13 +54,20 @@ function buildWhereConditions({
   search,
   scopes,
   jobDescriptionIds,
+  includeArchived,
 }: {
   organizationId: string;
   search?: string;
   scopes?: CandidateFormScope[];
   jobDescriptionIds?: string[];
+  // 默认仅列未归档；includeArchived=true 时把归档一同返回（前端通过徽章区分）。
+  // Default lists active only; pass true to surface archived rows alongside.
+  includeArchived?: boolean;
 }) {
   const conditions: SQL<unknown>[] = [eq(candidateFormTemplate.organizationId, organizationId)];
+  if (!includeArchived) {
+    conditions.push(isNull(candidateFormTemplate.archivedAt));
+  }
   if (search) {
     const searchCond = or(
       ilike(candidateFormTemplate.title, `%${search}%`),
@@ -151,6 +158,7 @@ function listTemplateRows({
   search,
   scopes,
   jobDescriptionIds,
+  includeArchived,
   sortBy = "createdAt",
   sortOrder = "desc",
   limit,
@@ -160,15 +168,23 @@ function listTemplateRows({
   search?: string;
   scopes?: CandidateFormScope[];
   jobDescriptionIds?: string[];
+  includeArchived?: boolean;
   sortBy?: SortColumn;
   sortOrder?: "asc" | "desc";
   limit?: number;
   offset?: number;
 }) {
-  const where = buildWhereConditions({ jobDescriptionIds, organizationId, scopes, search });
+  const where = buildWhereConditions({
+    includeArchived,
+    jobDescriptionIds,
+    organizationId,
+    scopes,
+    search,
+  });
 
   let query = db
     .select({
+      archivedAt: candidateFormTemplate.archivedAt,
       createdAt: candidateFormTemplate.createdAt,
       createdBy: candidateFormTemplate.createdBy,
       description: candidateFormTemplate.description,
@@ -197,13 +213,21 @@ async function countTemplateRows({
   search,
   scopes,
   jobDescriptionIds,
+  includeArchived,
 }: {
   organizationId: string;
   search?: string;
   scopes?: CandidateFormScope[];
   jobDescriptionIds?: string[];
+  includeArchived?: boolean;
 }) {
-  const where = buildWhereConditions({ jobDescriptionIds, organizationId, scopes, search });
+  const where = buildWhereConditions({
+    includeArchived,
+    jobDescriptionIds,
+    organizationId,
+    scopes,
+    search,
+  });
   const [result] = await db.select({ count: count() }).from(candidateFormTemplate).where(where);
   return result?.count ?? 0;
 }
@@ -253,6 +277,7 @@ function toListRecord(
   jobDescriptions: JobDescriptionRef[],
 ): CandidateFormTemplateListRecord {
   return {
+    archivedAt: row.archivedAt ? serializeDate(row.archivedAt) : null,
     createdAt: serializeDate(row.createdAt),
     createdBy: row.createdBy,
     description: row.description,
@@ -327,15 +352,18 @@ export async function queryPaginatedCandidateFormTemplates(
     search?: string | null;
     scope?: string | null;
     jobDescriptionId?: string | null;
+    includeArchived?: boolean;
   },
   pagination?: Record<string, unknown>,
 ): Promise<PaginatedCandidateFormTemplateResult> {
   const { search, scopes, jobDescriptionIds } = parseFilters(filters);
+  const includeArchived = filters?.includeArchived === true;
   const { page, pageSize, sortBy, sortOrder } = parseCandidateFormTemplatePagination(pagination);
   const offset = (page - 1) * pageSize;
 
   const [rows, total] = await Promise.all([
     listTemplateRows({
+      includeArchived,
       jobDescriptionIds,
       limit: pageSize,
       offset,
@@ -345,7 +373,7 @@ export async function queryPaginatedCandidateFormTemplates(
       sortBy,
       sortOrder,
     }),
-    countTemplateRows({ jobDescriptionIds, organizationId, scopes, search }),
+    countTemplateRows({ includeArchived, jobDescriptionIds, organizationId, scopes, search }),
   ]);
 
   const ids = rows.map((row) => row.id);
@@ -377,6 +405,7 @@ export function listCandidateFormTemplates(
     search?: string | null;
     scope?: string | null;
     jobDescriptionId?: string | null;
+    includeArchived?: boolean;
   },
   pagination?: Record<string, unknown>,
 ) {
@@ -447,6 +476,7 @@ export async function loadCandidateFormTemplateById(
     loadJobDescriptionRefs(id),
   ]);
   return {
+    archivedAt: row.archivedAt ? serializeDate(row.archivedAt) : null,
     createdAt: serializeDate(row.createdAt),
     createdBy: row.createdBy,
     description: row.description,
@@ -485,24 +515,34 @@ export async function loadApplicableCandidateFormTemplates(interviewRecordId: st
     .select()
     .from(candidateFormTemplate)
     .where(
-      or(
-        eq(candidateFormTemplate.scope, "global"),
-        jobDescriptionId
-          ? and(
-              eq(candidateFormTemplate.scope, "job_description"),
-              exists(
-                db
-                  .select({ one: candidateFormTemplateJobDescription.templateId })
-                  .from(candidateFormTemplateJobDescription)
-                  .where(
-                    and(
-                      eq(candidateFormTemplateJobDescription.templateId, candidateFormTemplate.id),
-                      eq(candidateFormTemplateJobDescription.jobDescriptionId, jobDescriptionId),
+      and(
+        // 已归档的表单不出现在候选人面前；归档 = 不再向新候选人推送，但
+        // 已经填过的 submission 仍保留，互不影响。
+        // Archived templates are hidden from candidates; existing submissions
+        // remain intact.
+        isNull(candidateFormTemplate.archivedAt),
+        or(
+          eq(candidateFormTemplate.scope, "global"),
+          jobDescriptionId
+            ? and(
+                eq(candidateFormTemplate.scope, "job_description"),
+                exists(
+                  db
+                    .select({ one: candidateFormTemplateJobDescription.templateId })
+                    .from(candidateFormTemplateJobDescription)
+                    .where(
+                      and(
+                        eq(
+                          candidateFormTemplateJobDescription.templateId,
+                          candidateFormTemplate.id,
+                        ),
+                        eq(candidateFormTemplateJobDescription.jobDescriptionId, jobDescriptionId),
+                      ),
                     ),
-                  ),
-              ),
-            )
-          : undefined,
+                ),
+              )
+            : undefined,
+        ),
       ),
     )
     .orderBy(asc(candidateFormTemplate.scope), asc(candidateFormTemplate.createdAt));
@@ -532,6 +572,7 @@ export async function loadApplicableCandidateFormTemplates(interviewRecordId: st
   const toRecord = (row: (typeof templateRows)[number]): CandidateFormTemplateRecord => {
     const jds = jdsByTemplate.get(row.id) ?? [];
     return {
+      archivedAt: row.archivedAt ? serializeDate(row.archivedAt) : null,
       createdAt: serializeDate(row.createdAt),
       createdBy: row.createdBy,
       description: row.description,

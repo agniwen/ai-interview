@@ -6,7 +6,7 @@ import type {
   JobDescriptionRef,
 } from "@/lib/shared/interview-question-templates";
 import type { SQL } from "drizzle-orm";
-import { and, asc, count, desc, eq, exists, ilike, inArray, or } from "drizzle-orm";
+import { and, asc, count, desc, eq, exists, ilike, inArray, isNull, or } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/server/db";
 import {
@@ -53,13 +53,20 @@ function buildWhereConditions({
   search,
   scopes,
   jobDescriptionIds,
+  includeArchived,
 }: {
   organizationId: string;
   search?: string;
   scopes?: InterviewQuestionTemplateScope[];
   jobDescriptionIds?: string[];
+  // 默认只列未归档；includeArchived=true 时把所有行都返回（归档状态由前端徽章区分）。
+  // Default lists only active rows; set true to include archived rows.
+  includeArchived?: boolean;
 }) {
   const conditions: SQL<unknown>[] = [eq(interviewQuestionTemplate.organizationId, organizationId)];
+  if (!includeArchived) {
+    conditions.push(isNull(interviewQuestionTemplate.archivedAt));
+  }
   if (search) {
     const searchCond = or(
       ilike(interviewQuestionTemplate.title, `%${search}%`),
@@ -152,6 +159,7 @@ function listTemplateRows({
   search,
   scopes,
   jobDescriptionIds,
+  includeArchived,
   sortBy = "createdAt",
   sortOrder = "desc",
   limit,
@@ -161,15 +169,23 @@ function listTemplateRows({
   search?: string;
   scopes?: InterviewQuestionTemplateScope[];
   jobDescriptionIds?: string[];
+  includeArchived?: boolean;
   sortBy?: SortColumn;
   sortOrder?: "asc" | "desc";
   limit?: number;
   offset?: number;
 }) {
-  const where = buildWhereConditions({ jobDescriptionIds, organizationId, scopes, search });
+  const where = buildWhereConditions({
+    includeArchived,
+    jobDescriptionIds,
+    organizationId,
+    scopes,
+    search,
+  });
 
   let query = db
     .select({
+      archivedAt: interviewQuestionTemplate.archivedAt,
       createdAt: interviewQuestionTemplate.createdAt,
       createdBy: interviewQuestionTemplate.createdBy,
       description: interviewQuestionTemplate.description,
@@ -198,13 +214,21 @@ async function countTemplateRows({
   search,
   scopes,
   jobDescriptionIds,
+  includeArchived,
 }: {
   organizationId: string;
   search?: string;
   scopes?: InterviewQuestionTemplateScope[];
   jobDescriptionIds?: string[];
+  includeArchived?: boolean;
 }) {
-  const where = buildWhereConditions({ jobDescriptionIds, organizationId, scopes, search });
+  const where = buildWhereConditions({
+    includeArchived,
+    jobDescriptionIds,
+    organizationId,
+    scopes,
+    search,
+  });
   const [result] = await db.select({ count: count() }).from(interviewQuestionTemplate).where(where);
   return result?.count ?? 0;
 }
@@ -254,6 +278,7 @@ function toListRecord(
   jobDescriptions: JobDescriptionRef[],
 ): InterviewQuestionTemplateListRecord {
   return {
+    archivedAt: row.archivedAt ? serializeDate(row.archivedAt) : null,
     bindingCount,
     createdAt: serializeDate(row.createdAt),
     createdBy: row.createdBy,
@@ -328,16 +353,19 @@ export async function queryPaginatedInterviewQuestionTemplates(
     search?: string | null;
     scope?: string | null;
     jobDescriptionId?: string | null;
+    includeArchived?: boolean;
   },
   pagination?: Record<string, unknown>,
 ): Promise<PaginatedInterviewQuestionTemplateResult> {
   const { search, scopes, jobDescriptionIds } = parseFilters(filters);
+  const includeArchived = filters?.includeArchived === true;
   const { page, pageSize, sortBy, sortOrder } =
     parseInterviewQuestionTemplatePagination(pagination);
   const offset = (page - 1) * pageSize;
 
   const [rows, total] = await Promise.all([
     listTemplateRows({
+      includeArchived,
       jobDescriptionIds,
       limit: pageSize,
       offset,
@@ -347,7 +375,7 @@ export async function queryPaginatedInterviewQuestionTemplates(
       sortBy,
       sortOrder,
     }),
-    countTemplateRows({ jobDescriptionIds, organizationId, scopes, search }),
+    countTemplateRows({ includeArchived, jobDescriptionIds, organizationId, scopes, search }),
   ]);
 
   const ids = rows.map((row) => row.id);
@@ -379,6 +407,7 @@ export function listInterviewQuestionTemplates(
     search?: string | null;
     scope?: string | null;
     jobDescriptionId?: string | null;
+    includeArchived?: boolean;
   },
   pagination?: Record<string, unknown>,
 ) {
@@ -445,6 +474,7 @@ export async function loadInterviewQuestionTemplateById(
     loadJobDescriptionRefs(id),
   ]);
   return {
+    archivedAt: row.archivedAt ? serializeDate(row.archivedAt) : null,
     createdAt: serializeDate(row.createdAt),
     createdBy: row.createdBy,
     description: row.description,

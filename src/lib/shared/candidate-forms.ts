@@ -163,6 +163,7 @@ export interface CandidateFormTemplateRecord {
   createdBy: string | null;
   createdAt: string | Date;
   updatedAt: string | Date;
+  archivedAt: string | Date | null;
   questions: CandidateFormTemplateQuestionRecord[];
 }
 
@@ -178,6 +179,7 @@ export interface CandidateFormTemplateListRecord {
   createdBy: string | null;
   createdAt: string | Date;
   updatedAt: string | Date;
+  archivedAt: string | Date | null;
 }
 
 export interface CandidateFormTemplateSnapshotQuestion {

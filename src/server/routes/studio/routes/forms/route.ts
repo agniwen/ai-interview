@@ -3,7 +3,6 @@ import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/server/db";
 import {
-  candidateFormSubmission,
   candidateFormTemplate,
   candidateFormTemplateJobDescription,
   candidateFormTemplateQuestion,
@@ -51,6 +50,9 @@ function normalizeQuestions(
 }
 
 const candidateFormListQuerySchema = z.object({
+  // "1"/"true" → 把已归档的也带回来；默认仅返回未归档。
+  // "1"/"true" includes archived rows; default lists active only.
+  includeArchived: z.string().optional(),
   jobDescriptionId: z.string().optional(),
   page: z.string().optional(),
   pageSize: z.string().optional(),
@@ -59,6 +61,10 @@ const candidateFormListQuerySchema = z.object({
   sortBy: z.string().optional(),
   sortOrder: z.string().optional(),
 });
+
+function parseIncludeArchived(value: string | undefined): boolean {
+  return value === "1" || value === "true";
+}
 
 export const candidateFormsRouter = factory
   .createApp()
@@ -75,6 +81,7 @@ export const candidateFormsRouter = factory
       const result = await queryPaginatedCandidateFormTemplates(
         activeOrg.id,
         {
+          includeArchived: parseIncludeArchived(q.includeArchived),
           jobDescriptionId: q.jobDescriptionId,
           scope: q.scope,
           search: q.search,
@@ -223,6 +230,13 @@ export const candidateFormsRouter = factory
       return c.json(updated, 200);
     },
   )
+  // DELETE 现在是「归档」(软删除)：写 archivedAt = now()。归档后的表单不再向
+  // 候选人推送 / 不再出现在「选择模板」列表，但已经收到的 submission 与 JD
+  // 绑定都保留——避免误删进行中的流程。需要彻底清理直接走数据库。
+  //
+  // DELETE is now a soft-delete: set archivedAt = now(). Archived templates are
+  // hidden from candidate-side rendering and from picker lists, but existing
+  // submissions and JD bindings stay intact so in-flight flows aren't broken.
   .delete("/:id", requirePermission("candidateForm", "delete"), async (c) => {
     const { activeOrg } = c.var;
     if (!activeOrg) {
@@ -233,17 +247,33 @@ export const candidateFormsRouter = factory
     if (!existing) {
       return c.json({ error: "面试表单不存在。" }, 404);
     }
-
-    const [submissionCountRow] = await db
-      .select({ count: candidateFormSubmission.id })
-      .from(candidateFormSubmission)
-      .where(eq(candidateFormSubmission.templateId, id))
-      .limit(1);
-    if (submissionCountRow) {
-      return c.json({ error: "已有候选人填写该面试表单，无法删除。" }, 400);
+    if (existing.archivedAt) {
+      return c.json({ error: "该表单已归档。" }, 400);
     }
-
-    await db.delete(candidateFormTemplate).where(eq(candidateFormTemplate.id, id));
+    await db
+      .update(candidateFormTemplate)
+      .set({ archivedAt: new Date() })
+      .where(eq(candidateFormTemplate.id, id));
+    safeUpdateTag(`candidate-form-templates:${activeOrg.id}`);
+    return c.json({ success: true }, 200);
+  })
+  .post("/:id/unarchive", requirePermission("candidateForm", "update"), async (c) => {
+    const { activeOrg } = c.var;
+    if (!activeOrg) {
+      return c.json({ message: "Unauthorized" }, 401);
+    }
+    const id = c.req.param("id");
+    const existing = await loadCandidateFormTemplateById(activeOrg.id, id);
+    if (!existing) {
+      return c.json({ error: "面试表单不存在。" }, 404);
+    }
+    if (!existing.archivedAt) {
+      return c.json({ error: "该表单未归档。" }, 400);
+    }
+    await db
+      .update(candidateFormTemplate)
+      .set({ archivedAt: null })
+      .where(eq(candidateFormTemplate.id, id));
     safeUpdateTag(`candidate-form-templates:${activeOrg.id}`);
     return c.json({ success: true }, 200);
   })

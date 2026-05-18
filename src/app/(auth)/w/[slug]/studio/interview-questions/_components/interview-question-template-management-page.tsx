@@ -11,12 +11,20 @@ import type {
 import type { JobDescriptionListRecord } from "@/lib/shared/job-descriptions";
 import type { PaginatedInterviewQuestionTemplateResult } from "@/server/routes/studio/routes/interview-questions/dao/queries";
 import { useQueryClient } from "@tanstack/react-query";
-import { ListChecksIcon, PencilIcon, PlusIcon, Trash2Icon } from "lucide-react";
-import { parseAsString, useQueryState } from "nuqs";
+import {
+  ArchiveIcon,
+  ArchiveRestoreIcon,
+  ListChecksIcon,
+  PencilIcon,
+  PlusIcon,
+} from "lucide-react";
+import { parseAsBoolean, parseAsString, useQueryState } from "nuqs";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import {
   actionsColumn,
   customColumn,
@@ -52,6 +60,13 @@ export function InterviewQuestionTemplateManagementPage({
   const slug = useWorkspaceSlug();
   const queryClient = useQueryClient();
 
+  // 「显示已归档」开关，URL 持久化便于刷新 / 分享。
+  // "Show archived" toggle, URL-persisted for refresh/share.
+  const [showArchived, setShowArchived] = useQueryState(
+    "archived",
+    parseAsBoolean.withDefault(false).withOptions({ clearOnDefault: true }),
+  );
+
   const fetchTemplates = useCallback(
     async (params: {
       search: string;
@@ -70,6 +85,7 @@ export function InterviewQuestionTemplateManagementPage({
           ...(params.filters.jobDescriptionId
             ? { jobDescriptionId: params.filters.jobDescriptionId }
             : {}),
+          ...(showArchived ? { includeArchived: "1" } : {}),
           sortBy: "createdAt",
           sortOrder: "desc",
         },
@@ -79,7 +95,7 @@ export function InterviewQuestionTemplateManagementPage({
       }
       return (await res.json()) as PaginatedInterviewQuestionTemplateResult;
     },
-    [slug],
+    [slug, showArchived],
   );
 
   const loadTemplateDetailById = useCallback(
@@ -122,10 +138,30 @@ export function InterviewQuestionTemplateManagementPage({
     },
     loadDetail: (record) => loadTemplateDetailById(record.id),
     messages: {
-      deleteSuccess: "模版已删除",
+      // 实际是软删除（归档）：后端 DELETE 现在把 archivedAt 写为当前时间，
+      // 把文案与现实对齐避免误导。
+      // Backend DELETE is now soft (set archivedAt); reword the toast accordingly.
+      deleteSuccess: "模版已归档",
       loadDetailError: "加载模版失败",
     },
   });
+
+  const unarchiveTemplate = useCallback(
+    async (record: InterviewQuestionTemplateListRecord) => {
+      const res = await rpc.api.w[":slug"].studio["interview-questions"][":id"].unarchive.$post({
+        param: { id: record.id, slug },
+      });
+      if (!res.ok) {
+        const body = (await res.json().catch(() => ({}))) as { error?: string };
+        toast.error(body.error ?? "取消归档失败");
+        return;
+      }
+      toast.success("模版已取消归档");
+      grid.invalidate();
+      void queryClient.invalidateQueries({ queryKey: ["interview-question-templates"] });
+    },
+    [grid, queryClient, slug],
+  );
 
   // When the URL carries `?templateId=...` (e.g. clicked from the JD dialog),
   // load the detail and pop the editor open.
@@ -177,6 +213,16 @@ export function InterviewQuestionTemplateManagementPage({
         primary: true,
         secondary: (r) => r.description ?? undefined,
         title: "标题",
+      }),
+      customColumn<InterviewQuestionTemplateListRecord>({
+        cell: (r) =>
+          r.archivedAt ? (
+            <Badge variant="outline">已归档</Badge>
+          ) : (
+            <Badge variant="success">使用中</Badge>
+          ),
+        key: "archivedAt",
+        title: "状态",
       }),
       customColumn<InterviewQuestionTemplateListRecord>({
         cell: (r) => (
@@ -237,12 +283,21 @@ export function InterviewQuestionTemplateManagementPage({
             },
           },
         ],
+        // 行的归档态决定显示「归档」还是「取消归档」；show 回调按状态二选一。
+        // The row's archived state picks one of the two: archive vs unarchive.
         menu: [
           {
-            icon: Trash2Icon,
-            label: "删除",
+            icon: ArchiveIcon,
+            label: "归档",
             onClick: (r) => crud.setDeleteRecord(r),
+            show: (r) => !r.archivedAt,
             variant: "destructive",
+          },
+          {
+            icon: ArchiveRestoreIcon,
+            label: "取消归档",
+            onClick: (r) => void unarchiveTemplate(r),
+            show: (r) => Boolean(r.archivedAt),
           },
         ],
       }),
@@ -315,10 +370,22 @@ export function InterviewQuestionTemplateManagementPage({
           filters={filtersConfig}
           getRowId={(r) => r.id}
           toolbarRight={
-            <Button className="flex-1 sm:flex-none" onClick={crud.openCreate}>
-              <PlusIcon className="size-4" />
-              新建面试题
-            </Button>
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="flex items-center gap-2">
+                <Switch
+                  checked={showArchived}
+                  id="show-archived"
+                  onCheckedChange={(next) => void setShowArchived(next)}
+                />
+                <Label className="cursor-pointer font-normal text-sm" htmlFor="show-archived">
+                  显示已归档
+                </Label>
+              </div>
+              <Button className="flex-1 sm:flex-none" onClick={crud.openCreate}>
+                <PlusIcon className="size-4" />
+                新建面试题
+              </Button>
+            </div>
           }
         />
       </div>
@@ -336,11 +403,13 @@ export function InterviewQuestionTemplateManagementPage({
       />
 
       <EntityDeleteDialog
-        description={(record) => `即将删除：${record.title}。 如果已被某个面试绑定，将无法删除。`}
+        description={(record) =>
+          `即将归档：${record.title}。归档后不再出现在「选择模板」列表，但已绑定的面试不受影响；之后可在「显示已归档」开关下取消归档。`
+        }
         onClose={() => crud.setDeleteRecord(null)}
         onConfirm={crud.handleDelete}
         record={crud.deleteRecord}
-        title="确认删除这组面试题？"
+        title="确认归档这组面试题？"
       />
     </>
   );

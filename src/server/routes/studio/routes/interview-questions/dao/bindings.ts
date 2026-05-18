@@ -4,7 +4,7 @@ import type {
   InterviewQuestionTemplateRecord,
   InterviewQuestionTemplateScope,
 } from "@/lib/shared/interview-question-templates";
-import { and, asc, count, desc, eq, exists, inArray, or } from "drizzle-orm";
+import { and, asc, count, desc, eq, exists, inArray, isNull, or } from "drizzle-orm";
 import { db } from "@/lib/server/db";
 import {
   interviewQuestionTemplate,
@@ -92,6 +92,7 @@ async function loadApplicableInterviewQuestionTemplates(interviewRecordId: strin
   const toRecord = (row: (typeof templateRows)[number]): InterviewQuestionTemplateRecord => {
     const jds = jdsByTemplate.get(row.id) ?? [];
     return {
+      archivedAt: row.archivedAt ? serializeDate(row.archivedAt) : null,
       createdAt: serializeDate(row.createdAt),
       createdBy: row.createdBy,
       description: row.description,
@@ -139,30 +140,37 @@ async function listApplicableTemplateMetas(
     })
     .from(interviewQuestionTemplate)
     .where(
-      or(
-        eq(interviewQuestionTemplate.scope, "global"),
-        jobDescriptionId
-          ? and(
-              eq(interviewQuestionTemplate.scope, "job_description"),
-              exists(
-                tx
-                  .select({ one: interviewQuestionTemplateJobDescription.templateId })
-                  .from(interviewQuestionTemplateJobDescription)
-                  .where(
-                    and(
-                      eq(
-                        interviewQuestionTemplateJobDescription.templateId,
-                        interviewQuestionTemplate.id,
-                      ),
-                      eq(
-                        interviewQuestionTemplateJobDescription.jobDescriptionId,
-                        jobDescriptionId,
+      and(
+        // 自动绑定时跳过已归档的模板：保留对老 binding 的兼容，但新面试不再
+        // 自动应用归档模板。
+        // Auto-binding skips archived templates: existing bindings remain intact
+        // but new interviews no longer auto-apply archived ones.
+        isNull(interviewQuestionTemplate.archivedAt),
+        or(
+          eq(interviewQuestionTemplate.scope, "global"),
+          jobDescriptionId
+            ? and(
+                eq(interviewQuestionTemplate.scope, "job_description"),
+                exists(
+                  tx
+                    .select({ one: interviewQuestionTemplateJobDescription.templateId })
+                    .from(interviewQuestionTemplateJobDescription)
+                    .where(
+                      and(
+                        eq(
+                          interviewQuestionTemplateJobDescription.templateId,
+                          interviewQuestionTemplate.id,
+                        ),
+                        eq(
+                          interviewQuestionTemplateJobDescription.jobDescriptionId,
+                          jobDescriptionId,
+                        ),
                       ),
                     ),
-                  ),
-              ),
-            )
-          : undefined,
+                ),
+              )
+            : undefined,
+        ),
       ),
     );
 

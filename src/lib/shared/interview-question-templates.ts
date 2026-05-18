@@ -88,6 +88,7 @@ export interface InterviewQuestionTemplateRecord {
   createdBy: string | null;
   createdAt: string | Date;
   updatedAt: string | Date;
+  archivedAt: string | Date | null;
   questions: InterviewQuestionTemplateQuestionRecord[];
 }
 
@@ -103,6 +104,7 @@ export interface InterviewQuestionTemplateListRecord {
   createdBy: string | null;
   createdAt: string | Date;
   updatedAt: string | Date;
+  archivedAt: string | Date | null;
 }
 
 export interface InterviewQuestionTemplateSnapshotQuestion {
