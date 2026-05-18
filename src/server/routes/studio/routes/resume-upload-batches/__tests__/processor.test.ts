@@ -20,7 +20,7 @@ import { insertBatchWithItems } from "@/server/routes/studio/routes/resume-uploa
 import { processNextItem } from "@/server/routes/studio/routes/resume-upload-batches/utils/processor";
 
 vi.mock("@/lib/server/s3", async () => {
-  const actual = await vi.importActual<S3Module>("@/lib/server/s3");
+  const actual = await vi.importActual<typeof S3Module>("@/lib/server/s3");
   return {
     ...actual,
     getObjectStream: vi.fn(),
@@ -28,7 +28,9 @@ vi.mock("@/lib/server/s3", async () => {
 });
 
 vi.mock("@/server/agents/resume-analysis-agent", async () => {
-  const actual = await vi.importActual<ResumeAgentModule>("@/server/agents/resume-analysis-agent");
+  const actual = await vi.importActual<typeof ResumeAgentModule>(
+    "@/server/agents/resume-analysis-agent",
+  );
   return {
     ...actual,
     parseResumeFastToProfile: vi.fn(),
