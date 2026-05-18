@@ -11,6 +11,13 @@ import { BotIcon, EyeIcon, PencilIcon, Trash2Icon, UsersIcon } from "lucide-reac
 import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
+import { cancelBulkResumeBatch } from "@/lib/client/api/endpoints/bulk-resume-upload";
+import { ActiveBatchBanner } from "./active-batch-banner";
+import { BulkUploadButton } from "./bulk-upload-button";
+import { BulkUploadConfirmDialog } from "./bulk-upload-confirm-dialog";
+import type { BulkUploadConfirmConfig } from "./bulk-upload-confirm-dialog";
+import { BulkUploadProgressDialog } from "./bulk-upload-progress-dialog";
+import { useBulkUpload } from "./use-bulk-upload";
 import { PageHeader } from "@/app/(auth)/w/[slug]/studio/_components/page-header";
 import { JobDescriptionViewDialog } from "@/app/(auth)/w/[slug]/studio/interviews/_components/job-description-view-dialog";
 import {
@@ -86,6 +93,29 @@ export function ResumeLibraryPage({
 }) {
   const slug = useWorkspaceSlug();
   const queryClient = useQueryClient();
+
+  const bulk = useBulkUpload();
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [progressOpen, setProgressOpen] = useState(false);
+
+  // 继续之前没跑完的批次：复活孤儿 → 打开进度 dialog → 拉起循环。
+  // Resume a stale batch: revive orphans, open progress, restart loop.
+  async function handleContinueBatch(batchId: string) {
+    setProgressOpen(true);
+    await bulk.resume(batchId);
+  }
+
+  async function handleCancelActiveBatch(batchId: string) {
+    try {
+      await cancelBulkResumeBatch(slug, batchId);
+      toast.success("批次已取消");
+      void queryClient.invalidateQueries({ queryKey: ["active-bulk-batch", slug] });
+      void queryClient.invalidateQueries({ queryKey: ["studio-resumes"] });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "取消失败");
+    }
+  }
 
   const fetcher = useMemo(
     () =>
@@ -369,13 +399,30 @@ export function ResumeLibraryPage({
           description="集中管理所有候选人简历。在这里上传 PDF 不会自动生成面试题，需要时再发起 AI 面试。"
         />
         <ResumeLibraryCharts metrics={metrics} />
+        <ActiveBatchBanner onCancel={handleCancelActiveBatch} onContinue={handleContinueBatch} />
         <DataGrid<ResumeLibraryListRecord>
           {...grid.bind}
           columns={columns}
           getRowId={(r) => r.id}
           columnPinning={{ left: ["select", "candidateName"], right: ["actions"] }}
           filters={filtersConfig}
-          toolbarRight={<CreateResumeRecordDialog onCreated={handleResumeRecordCreated} />}
+          toolbarRight={
+            <div className="flex flex-wrap gap-2">
+              <BulkUploadButton
+                disabled={
+                  Boolean(bulk.state.detail) &&
+                  bulk.state.phase !== "idle" &&
+                  bulk.state.phase !== "completed" &&
+                  bulk.state.phase !== "cancelled"
+                }
+                onFilesPicked={(files) => {
+                  setPendingFiles(files);
+                  setConfirmOpen(true);
+                }}
+              />
+              <CreateResumeRecordDialog onCreated={handleResumeRecordCreated} />
+            </div>
+          }
           bulkActions={({ selectedIds }) => (
             <Button
               className="flex-1 sm:flex-none"
@@ -512,6 +559,47 @@ export function ResumeLibraryPage({
       <JobDescriptionViewDialog
         jobDescriptionId={viewJobDescriptionId}
         onOpenChange={(open) => !open && setViewJobDescriptionId(null)}
+      />
+
+      <BulkUploadConfirmDialog
+        files={pendingFiles}
+        onConfirmed={async (files, config: BulkUploadConfirmConfig) => {
+          setConfirmOpen(false);
+          setProgressOpen(true);
+          await bulk.start(files, config);
+        }}
+        onOpenChange={setConfirmOpen}
+        onRemoveFile={(idx) => setPendingFiles((prev) => prev.filter((_, i) => i !== idx))}
+        open={confirmOpen}
+      />
+
+      <BulkUploadProgressDialog
+        onAbort={() => {
+          bulk.abort();
+          setProgressOpen(false);
+        }}
+        onCancel={async () => {
+          await bulk.cancel();
+          setProgressOpen(false);
+          toast.success("批次已取消");
+        }}
+        onOpenChange={(open) => {
+          if (!open) {
+            // 关闭=暂停（非终态时）；用户已经在 dialog 内点过取消则状态已是终态。
+            // Closing == pause (non-terminal); cancel button handled by the dialog itself.
+            if (bulk.state.phase !== "completed" && bulk.state.phase !== "cancelled") {
+              bulk.abort();
+            }
+            setProgressOpen(false);
+          }
+        }}
+        onResume={async () => {
+          if (bulk.state.detail) {
+            await bulk.resume(bulk.state.detail.batch.id);
+          }
+        }}
+        open={progressOpen}
+        state={bulk.state}
       />
     </>
   );
