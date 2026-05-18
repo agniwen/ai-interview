@@ -52,7 +52,7 @@ vi.mock("@/lib/shared/db/schema", () => ({
   studioInterview: {},
   studioInterviewSchedule: {},
 }));
-vi.mock("next/cache", () => ({ updateTag: vi.fn() }));
+vi.mock("next/cache", () => ({ revalidateTag: vi.fn() }));
 vi.mock("@/lib/shared/interview/interview-record", () => ({
   buildCandidateInterviewView: vi.fn(),
   buildInterviewLink: vi.fn(),

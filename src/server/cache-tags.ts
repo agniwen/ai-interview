@@ -1,7 +1,7 @@
 import "server-only";
 
 import { eq } from "drizzle-orm";
-import { updateTag } from "next/cache";
+import { revalidateTag } from "next/cache";
 import { db } from "@/lib/server/db";
 import { studioInterview } from "@/lib/shared/db/schema";
 
@@ -13,22 +13,33 @@ import { studioInterview } from "@/lib/shared/db/schema";
  * 通路。`interview-conversations*` 类的 record-id-scoped tag 仍然在用（agent /
  * livekit 写入侧），所以这函数不能删。
  *
- * 错误处理改用 console.warn 替代静默吞：之前 try/catch 把 Hono context 里
- * `updateTag` 抛的"not in route handler"错误默默吃掉，导致缓存失效不工作时
- * 没线索。现在至少在日志里能看到。
+ * 用 `revalidateTag` 而不是 `updateTag`：本项目所有写入路径都在 Hono Route
+ * Handler 里（不是 Server Action），`updateTag` 只能在 Server Action 里调，
+ * 否则 Next.js 直接抛 "updateTag can only be called from within a Server
+ * Action"。`revalidateTag` 在 Route Handler / Server Action / 后台任务里都
+ * 可用，语义同样是把对应 tag 标记为过期。
+ *
+ * Use `revalidateTag` instead of `updateTag`: every writer in this codebase
+ * runs in a Hono Route Handler, not a Server Action. `updateTag` only works
+ * inside Server Actions and throws otherwise; `revalidateTag` is the correct
+ * API for Route Handlers and gives the same "mark tag stale" semantics.
  *
  * Status: most org-scoped DAOs no longer use "use cache" so most of these
  * calls are now no-ops (no entry matches the tag). Kept anyway so re-enabling
  * caching later doesn't require rebuilding the invalidation plumbing. The
  * record-id-scoped `interview-conversations*` tags are still actively used.
- * Replaced silent swallow with `console.warn` so we'd actually notice if
- * updateTag throws in the Hono context the next time we wire caching back.
+ * `console.warn` on the off-chance Next.js changes the contract again.
  */
 export function safeUpdateTag(tag: string) {
   try {
-    updateTag(tag);
+    // Next.js 16 的 revalidateTag 第二参是 "profile"——用来匹配缓存项当初的
+    // cacheLife 档位；"default" 等于"按目标 entry 自身的过期策略立即失效"，
+    // 不需要调用方知道写入时用了哪个 profile。
+    // The second arg is the cache-life profile to invalidate against; "default"
+    // makes the call agnostic to whatever cacheLife the cached entries used.
+    revalidateTag(tag, "default");
   } catch (error) {
-    console.warn(`[cache-tags] updateTag("${tag}") failed:`, error);
+    console.warn(`[cache-tags] revalidateTag("${tag}") failed:`, error);
   }
 }
 
