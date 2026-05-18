@@ -55,6 +55,13 @@ export interface DataGridProps<TData> {
   filters?: ToolbarFilterConfig[];
   filterValues?: Record<string, string>;
   onFilterChange?: (key: string, value: string) => void;
+  /**
+   * 渲染在配置式 filters 之后、左侧 filter 区内的额外节点。
+   * 用于在不扩展 ToolbarFilterConfig 类型的前提下，把页面定制的筛选器
+   * （比如 DropdownMenu 单选）和搜索/多选挤在同一行。
+   * Extra node rendered after the configured filters in the left filter region.
+   */
+  filtersExtra?: ReactNode;
   toolbarRight?: ReactNode;
   bulkActions?: (ctx: BulkActionContext<TData>) => ReactNode;
   headerExtra?: ReactNode;
@@ -85,6 +92,7 @@ export function DataGrid<TData>(props: DataGridProps<TData>) {
     empty,
     filterValues,
     filters,
+    filtersExtra,
     getRowId,
     headerExtra,
     loading,
@@ -155,6 +163,7 @@ export function DataGrid<TData>(props: DataGridProps<TData>) {
         canResetFilters={canResetFilters}
         filterValues={filterValues}
         filters={filters}
+        filtersExtra={filtersExtra}
         onFilterChange={onFilterChange}
         onRefresh={onRefresh}
         onResetFilters={onResetFilters}

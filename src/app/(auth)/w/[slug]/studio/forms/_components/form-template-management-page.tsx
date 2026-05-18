@@ -414,32 +414,32 @@ export function CandidateFormTemplateManagementPage({
             </Empty>
           }
           filters={filtersConfig}
+          filtersExtra={
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button type="button" variant="outline">
+                  {archivedFilterLabel}
+                  <ChevronDownIcon className="size-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start">
+                <DropdownMenuRadioGroup
+                  onValueChange={(v) => grid.setFilter("archivedFilter", v)}
+                  value={archivedFilter}
+                >
+                  <DropdownMenuRadioItem value="active">未归档</DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="archived">已归档</DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="all">全部</DropdownMenuRadioItem>
+                </DropdownMenuRadioGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          }
           getRowId={(r) => r.id}
           toolbarRight={
-            <div className="flex flex-wrap items-center gap-2">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button size="sm" type="button" variant="outline">
-                    {archivedFilterLabel}
-                    <ChevronDownIcon className="size-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuRadioGroup
-                    onValueChange={(v) => grid.setFilter("archivedFilter", v)}
-                    value={archivedFilter}
-                  >
-                    <DropdownMenuRadioItem value="active">未归档</DropdownMenuRadioItem>
-                    <DropdownMenuRadioItem value="archived">已归档</DropdownMenuRadioItem>
-                    <DropdownMenuRadioItem value="all">全部</DropdownMenuRadioItem>
-                  </DropdownMenuRadioGroup>
-                </DropdownMenuContent>
-              </DropdownMenu>
-              <Button className="flex-1 sm:flex-none" onClick={crud.openCreate}>
-                <PlusIcon className="size-4" />
-                新建面试表单
-              </Button>
-            </div>
+            <Button className="flex-1 sm:flex-none" onClick={crud.openCreate}>
+              <PlusIcon className="size-4" />
+              新建面试表单
+            </Button>
           }
         />
       </div>

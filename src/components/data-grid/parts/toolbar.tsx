@@ -47,6 +47,16 @@ export interface ToolbarProps {
   /** Whether any filter currently deviates from defaults. Drives reset button disabled state. */
   canResetFilters?: boolean;
   toolbarRight?: ReactNode;
+  /**
+   * 渲染在配置式 filters 之后、仍位于左侧 filter 区的额外节点。
+   * 用于把页面级的自定义筛选器（如归档下拉）和搜索/多选放在一起，
+   * 而不是混进右侧按钮区。
+   * Extra node rendered after the configured filters, still inside the
+   * left-side filter region. Lets pages drop in custom filters (e.g. an
+   * archived dropdown) next to the search/multi-selects instead of mixing
+   * them with action buttons on the right.
+   */
+  filtersExtra?: ReactNode;
   bulkActionsSlot?: ReactNode;
 }
 
@@ -70,6 +80,7 @@ export function Toolbar(props: ToolbarProps) {
     canResetFilters,
     filterValues,
     filters,
+    filtersExtra,
     onFilterChange,
     onRefresh,
     onResetFilters,
@@ -79,15 +90,22 @@ export function Toolbar(props: ToolbarProps) {
   } = props;
 
   const hasFilters = filters && filters.length > 0;
-  if (!hasFilters && !toolbarRight && !onRefresh && !onResetFilters && !bulkActionsSlot) {
+  const hasFiltersExtra = Boolean(filtersExtra);
+  if (
+    !(hasFilters || hasFiltersExtra) &&
+    !toolbarRight &&
+    !onRefresh &&
+    !onResetFilters &&
+    !bulkActionsSlot
+  ) {
     return null;
   }
 
   return (
     <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-      {hasFilters ? (
-        <div className="flex flex-col gap-3 sm:flex-row">
-          {filters.map((filter) => {
+      {hasFilters || hasFiltersExtra ? (
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          {filters?.map((filter) => {
             const value = filterValues?.[filter.key] ?? "";
             if (filter.type === "search") {
               return (
@@ -140,6 +158,7 @@ export function Toolbar(props: ToolbarProps) {
               </div>
             );
           })}
+          {filtersExtra}
         </div>
       ) : null}
 
