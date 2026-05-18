@@ -21,10 +21,11 @@ RUN pnpm install --frozen-lockfile --ignore-scripts
 # --- Build ---
 FROM base AS builder
 WORKDIR /repo
-COPY --from=deps /repo/node_modules ./node_modules
-COPY --from=deps /repo/apps/ai-recruitment-copilot/node_modules ./apps/ai-recruitment-copilot/node_modules
-COPY pnpm-lock.yaml pnpm-workspace.yaml package.json turbo.json ./
-COPY packages packages
+# Carry over the fully-installed workspace from deps (root + per-workspace node_modules,
+# including packages/*/node_modules that pnpm symlinks into each package).
+COPY --from=deps /repo /repo
+# Layer in root config / lockfile / shared tsconfig and the app source.
+COPY pnpm-lock.yaml pnpm-workspace.yaml package.json turbo.json tsconfig.base.json ./
 COPY apps/ai-recruitment-copilot ./apps/ai-recruitment-copilot
 
 ENV NEXT_TELEMETRY_DISABLED=1
