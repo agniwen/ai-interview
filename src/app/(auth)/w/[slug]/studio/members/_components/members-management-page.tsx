@@ -31,6 +31,7 @@ import { authClient } from "@/lib/shared/auth-client";
 import { useHasPermission } from "@/hooks/use-has-permission";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { InviteDialog } from "./invite-dialog";
+import { PendingInvitationsSection } from "./pending-invitations-section";
 import { PermissionsExplanationDialog } from "./permissions-explanation-dialog";
 import { ASSIGNABLE_ROLES, getWorkspaceRoleLabel } from "./role-display";
 import type { WorkspaceRole } from "./role-display";
@@ -373,6 +374,12 @@ export function MembersManagementPage() {
         total={total}
         totalPages={totalPages}
       />
+
+      {/* 待处理邀请——只有能邀请的角色才看得到（与邀请按钮同权限）。 */}
+      {/* Pending invitations section, gated on the same permission as the invite button. */}
+      <PermissionGate action="create" resource="invitation">
+        <PendingInvitationsSection organizationId={org?.id ?? null} />
+      </PermissionGate>
     </div>
   );
 }
