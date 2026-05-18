@@ -357,7 +357,12 @@ export function MembersManagementPage() {
           pageSize,
         }}
         toolbarRight={
-          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+          // 移动端按钮自然换行：用 flex-wrap 替代之前的"强制 col → sm:row"，
+          // 不再让每颗按钮占满一行；按钮按自身宽度从左到右排，放不下就换行。
+          // Mobile-friendly wrap: replace the "force column under sm" pattern
+          // with flex-wrap so buttons sit by their intrinsic width and wrap as
+          // needed instead of stacking full-width.
+          <div className="flex flex-wrap gap-2">
             <PermissionsExplanationDialog />
             <PermissionGate action="create" resource="invitation">
               <PendingInvitationsButton organizationId={org?.id ?? null} />
@@ -365,7 +370,7 @@ export function MembersManagementPage() {
             <PermissionGate action="create" resource="invitation">
               <InviteDialog
                 trigger={
-                  <Button className="flex-1 sm:flex-none">
+                  <Button>
                     <UserPlusIcon className="size-4" />
                     邀请成员
                   </Button>

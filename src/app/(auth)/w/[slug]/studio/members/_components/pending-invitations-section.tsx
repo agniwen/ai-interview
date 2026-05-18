@@ -157,7 +157,7 @@ export function PendingInvitationsButton({ organizationId }: { organizationId: s
   return (
     <Sheet onOpenChange={setOpen} open={open}>
       <SheetTrigger asChild>
-        <Button className="flex-1 sm:flex-none" type="button" variant="outline">
+        <Button type="button" variant="outline">
           <MailIcon className="size-4" />
           待处理邀请
           {count > 0 ? (
