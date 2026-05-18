@@ -33,9 +33,9 @@ export function ResumeOverviewPanel({ detail }: { detail: ResumeLibraryDetail })
 
       <div className="rounded-2xl border border-border/60 bg-background p-5">
         <h3 className="font-medium text-sm">简历评价</h3>
-        <p className="mt-3 text-muted-foreground text-sm leading-normal">
+        <div className="mt-3 text-muted-foreground text-sm leading-normal">
           <Markdown>{truncateText(detail.notes) || "暂无简历评价"}</Markdown>
-        </p>
+        </div>
       </div>
     </div>
   );
