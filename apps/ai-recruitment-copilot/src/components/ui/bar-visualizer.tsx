@@ -49,7 +49,7 @@ export function useAudioVolume(
 ) {
   const [volume, setVolume] = useState(0);
   const volumeRef = useRef(0);
-  const frameId = useRef<number | undefined>();
+  const frameId = useRef<number | undefined>(undefined);
 
   const memoizedOptions = useMemo(
     () => options,
@@ -150,7 +150,7 @@ export function useMultibandVolume(
     new Array(opts.bands).fill(0),
   );
   const bandsRef = useRef<number[]>(new Array(opts.bands).fill(0));
-  const frameId = useRef<number | undefined>();
+  const frameId = useRef<number | undefined>(undefined);
 
   useEffect(() => {
     if (!mediaStream) {
@@ -329,7 +329,7 @@ function BarVisualizerComponent({
   const [fakeVolumeBands, setFakeVolumeBands] = useState<number[]>(() =>
     new Array(barCount).fill(0.2),
   );
-  const fakeAnimationRef = useRef<number | undefined>();
+  const fakeAnimationRef = useRef<number | undefined>(undefined);
 
   useEffect(() => {
     if (!demo) {
