@@ -64,6 +64,31 @@ export function useBulkUpload() {
       abortRef.current = false;
       setState((s) => ({ ...s, phase: "processing" }));
       while (!abortRef.current) {
+        // 乐观把下一个 pending item 标为 processing，让 badge 立刻出现 loading
+        // 状态。服务端响应回来时会用真实状态覆盖（succeeded / failed / duplicate_skipped）。
+        // Optimistically flip the next pending item to "processing" so the loading
+        // badge shows up immediately. The server response will overwrite with the
+        // real terminal status when process-next returns.
+        setState((prev) => {
+          if (!prev.detail) {
+            return prev;
+          }
+          const nextPending = prev.detail.items.find((it) => it.status === "pending");
+          if (!nextPending) {
+            return prev;
+          }
+          return {
+            ...prev,
+            detail: {
+              batch: prev.detail.batch,
+              items: prev.detail.items.map((it) =>
+                it.id === nextPending.id
+                  ? { ...it, startedAt: new Date().toISOString(), status: "processing" }
+                  : it,
+              ),
+            },
+          };
+        });
         try {
           const res = await processNextBulkResumeBatch(slug, batchId);
           setState((prev) => {

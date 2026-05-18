@@ -12,6 +12,8 @@ import {
   toBatchDto,
   toItemDto,
 } from "@/server/routes/studio/routes/resume-upload-batches/dao/batches";
+import { matchJobDescriptionForResume } from "@/server/agents/job-description-match-agent";
+import { listAllJobDescriptions } from "@/server/routes/studio/routes/job-descriptions/dao";
 import { createResumeRecordFromStorage } from "@/server/routes/studio/routes/resumes/utils/create-from-storage";
 import { queryInterviewDedup } from "@/server/routes/studio/routes/interviews/dao/studio-interviews";
 
@@ -61,9 +63,34 @@ async function fetchAndParse(
     }
   }
 
-  // jdMode v1: "bind" uses batch.jobDescriptionId; "auto" and "none" → null.
-  // "auto" agent-based matching is reserved for a future iteration.
-  const jobDescriptionId = batchRow.jdMode === "bind" ? batchRow.jobDescriptionId : null;
+  // jdMode 分支：
+  //   "bind" → 直接用 batch.jobDescriptionId
+  //   "auto" → 复用已解析的 resumeProfile + 全部在招岗位，调用 matchJobDescriptionForResume
+  //            agent 选一个最匹配的；只有 0 个候选岗位或 agent 无匹配时回退到 null
+  //   "none" → 不绑定
+  // 注意：auto 路径不会重新解析 PDF，沿用上面 parseResumeFastToProfile 的结果。
+  //
+  // jdMode dispatch:
+  //   "bind" → use batch.jobDescriptionId verbatim
+  //   "auto" → reuse the already-parsed resumeProfile to run the JD-match agent
+  //            against this org's JD list; falls back to null when there are no
+  //            JDs or the agent returns no match
+  //   "none" → no JD binding
+  // The auto path does NOT re-parse the PDF — it reuses the profile parsed above.
+  let jobDescriptionId: string | null = null;
+  if (batchRow.jdMode === "bind") {
+    ({ jobDescriptionId } = batchRow);
+  } else if (batchRow.jdMode === "auto" && resumeProfile) {
+    try {
+      const jds = await listAllJobDescriptions(organizationId);
+      const match = await matchJobDescriptionForResume(resumeProfile, jds);
+      jobDescriptionId = match?.jobDescriptionId ?? null;
+    } catch (error) {
+      // 自动匹配失败不算致命错误：简历仍然入库，只是不绑定岗位。
+      // Auto-match failure is non-fatal: the resume still gets imported, just without a JD.
+      console.error("[bulk-upload] auto JD match failed:", error);
+    }
+  }
   const succeededRecordId = await createResumeRecordFromStorage({
     candidateEmail: null,
     candidateName: null,

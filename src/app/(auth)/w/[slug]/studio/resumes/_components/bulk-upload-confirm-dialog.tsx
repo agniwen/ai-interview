@@ -124,7 +124,7 @@ export function BulkUploadConfirmDialog({
             <div className="flex items-center gap-2">
               <RadioGroupItem id="jdMode-auto" value="auto" />
               <Label className="font-normal" htmlFor="jdMode-auto">
-                自动匹配岗位（v1 暂未启用，将不绑定岗位）
+                自动匹配岗位（每份简历由 AI 选最合适的在招岗位，耗时更长）
               </Label>
             </div>
             <div className="flex items-center gap-2">
