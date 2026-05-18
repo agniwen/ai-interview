@@ -373,6 +373,35 @@ export const auth = betterAuth({
       // own ownership transfer is its own flow). hr/viewer can't reach this
       // path per the permission matrix, but we still reject as a defense-in-depth.
       organizationHooks: {
+        // 成员被移除后：清掉该用户名下 session.activeOrganizationId 仍指向这个 org 的
+        // 记录，让他们下一次请求被 workspaceMiddleware 拒之门外（成员表已经没他）。
+        // 不删 session 行——用户可能还属于其他 workspace，删了等于把所有 workspace
+        // 一起强制下线。activeOrganizationId 设为 null 即可，下次访问会被引导到
+        // /select-workspace，那边的 resolver 自然过滤掉无 membership 的 org。
+        //
+        // Clear session.activeOrganizationId for the removed user where it
+        // still points at this org. Their next request will fail the
+        // workspace-membership middleware and bounce to /select-workspace.
+        // We don't delete session rows because the user may belong to other
+        // workspaces; nulling the active pointer is the minimum effective fix.
+        afterRemoveMember: async ({ member: removed, organization: org }) => {
+          try {
+            await db
+              .update(schema.session)
+              .set({ activeOrganizationId: null })
+              .where(
+                and(
+                  eq(schema.session.userId, removed.userId),
+                  eq(schema.session.activeOrganizationId, org.id),
+                ),
+              );
+          } catch (error) {
+            // 清理失败不影响移除主流程；最差情况是用户下一次请求看到 stale
+            // active-org，middleware 仍会因为没 membership 拒绝。
+            // Cleanup failure is non-fatal; middleware still blocks access.
+            console.warn("[auth] failed to clear stale session.activeOrg", error);
+          }
+        },
         beforeUpdateMemberRole: async ({ member, newRole, organization: org }) => {
           // ⚠️ 注意：better-auth 这里的 `user` 参数实际是 **目标用户**（被改的人），
           // 不是触发请求的人——文档跟实现不一致，源码里写的是
