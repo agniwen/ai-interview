@@ -28,6 +28,7 @@ import type { JobDescriptionConfig } from "@/lib/shared/job-description-config";
 import type { MinimaxVoiceId } from "@/lib/shared/minimax-voices";
 import type { ScheduleEntryStatus, StudioInterviewStatus } from "@/lib/shared/studio-interviews";
 import type { ResumeParserStructured } from "@/lib/shared/resume-parser-schema";
+import { sql } from "drizzle-orm";
 import {
   bigserial,
   boolean,
@@ -449,6 +450,92 @@ export const studioInterviewSchedule = pgTable(
     index("studio_interview_schedule_record_idx").on(table.interviewRecordId),
     index("studio_interview_schedule_sort_idx").on(table.interviewRecordId, table.sortOrder),
     index("studio_interview_schedule_organization_idx").on(table.organizationId),
+  ],
+);
+
+export type ResumeUploadBatchStatus = "pending" | "running" | "completed" | "cancelled";
+export type ResumeUploadBatchJdMode = "bind" | "auto" | "none";
+export type ResumeUploadBatchDedupPolicy = "skip" | "create";
+export type ResumeUploadBatchItemStatus =
+  | "pending"
+  | "processing"
+  | "succeeded"
+  | "failed"
+  | "duplicate_skipped"
+  | "cancelled";
+
+export const resumeUploadBatch = pgTable(
+  "resume_upload_batch",
+  {
+    completedAt: timestamp("completed_at"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    createdBy: text("created_by")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    dedupPolicy: text("dedup_policy").$type<ResumeUploadBatchDedupPolicy>().notNull(),
+    failedCount: integer("failed_count").notNull().default(0),
+    id: text("id").primaryKey(),
+    jdMode: text("jd_mode").$type<ResumeUploadBatchJdMode>().notNull(),
+    // oxlint-disable-next-line no-use-before-define
+    jobDescriptionId: text("job_description_id").references(() => jobDescription.id, {
+      onDelete: "set null",
+    }),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    processedCount: integer("processed_count").notNull().default(0),
+    skippedCount: integer("skipped_count").notNull().default(0),
+    status: text("status").$type<ResumeUploadBatchStatus>().notNull(),
+    succeededCount: integer("succeeded_count").notNull().default(0),
+    totalCount: integer("total_count").notNull(),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+  },
+  (table) => [
+    index("resume_upload_batch_org_user_status_idx").on(
+      table.organizationId,
+      table.createdBy,
+      table.status,
+    ),
+    index("resume_upload_batch_org_user_created_idx").on(
+      table.organizationId,
+      table.createdBy,
+      table.createdAt,
+    ),
+    // 单用户单租户活跃批次唯一约束（partial unique index）。
+    // Active-batch uniqueness per (org, user); only one pending/running allowed.
+    uniqueIndex("resume_upload_batch_active_unique_idx")
+      .on(table.organizationId, table.createdBy)
+      .where(sql`${table.status} in ('pending','running')`),
+  ],
+);
+
+export const resumeUploadBatchItem = pgTable(
+  "resume_upload_batch_item",
+  {
+    batchId: text("batch_id")
+      .notNull()
+      .references(() => resumeUploadBatch.id, { onDelete: "cascade" }),
+    dedupMatchSnapshot: jsonb("dedup_match_snapshot"),
+    errorMessage: text("error_message"),
+    fileSize: integer("file_size").notNull(),
+    finishedAt: timestamp("finished_at"),
+    id: text("id").primaryKey(),
+    orderIndex: integer("order_index").notNull(),
+    organizationId: text("organization_id").notNull(),
+    originalFileName: text("original_file_name").notNull(),
+    resumeRecordId: text("resume_record_id").references(() => studioInterview.id, {
+      onDelete: "set null",
+    }),
+    startedAt: timestamp("started_at"),
+    status: text("status").$type<ResumeUploadBatchItemStatus>().notNull(),
+    storageKey: text("storage_key").notNull(),
+  },
+  (table) => [
+    index("resume_upload_batch_item_batch_order_idx").on(table.batchId, table.orderIndex),
+    index("resume_upload_batch_item_batch_status_idx").on(table.batchId, table.status),
   ],
 );
 
