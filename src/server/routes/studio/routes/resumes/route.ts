@@ -34,6 +34,7 @@ import {
 } from "@/server/routes/studio/routes/interviews/dao/interview-rounds";
 import { queryInterviewDedup } from "@/server/routes/studio/routes/interviews/dao/studio-interviews";
 import { autoBindApplicableTemplates } from "@/server/routes/studio/routes/interview-questions/dao/bindings";
+import { createResumeRecordFromStorage } from "@/server/routes/studio/routes/resumes/utils/create-from-storage";
 
 const dedupCheckInputSchema = z.object({
   email: z.string().trim().max(200).nullable().optional(),
@@ -290,12 +291,9 @@ export const resumeLibraryRouter = factory
         return c.json({ error: "Unauthorized" }, 401);
       }
 
-      const now = new Date();
-      const recordId = crypto.randomUUID();
-
       const uploadResult =
         resume && c.var.user
-          ? await storeInterviewResume(recordId, resume, c.var.user.id, activeOrg.id)
+          ? await storeInterviewResume(crypto.randomUUID(), resume, c.var.user.id, activeOrg.id)
           : null;
       const resumeStorageKey = uploadResult?.storageKey ?? null;
       const resumeContentHash = uploadResult?.contentHash ?? null;
@@ -314,27 +312,21 @@ export const resumeLibraryRouter = factory
         parsedFileName = resume.name;
       }
 
-      const row = {
+      const recordId = await createResumeRecordFromStorage({
         candidateEmail: input.data.candidateEmail || null,
-        candidateName: input.data.candidateName || resumeProfile?.name || "未命名候选人",
-        candidatePhone: input.data.candidatePhone || resumeProfile?.phone || null,
-        createdAt: now,
-        createdBy: c.var.user?.id ?? null,
-        id: recordId,
+        candidateName: input.data.candidateName || null,
+        candidatePhone: input.data.candidatePhone || null,
+        contentHash: resumeContentHash,
         interviewQuestions: parsedResumePayload?.interviewQuestions ?? [],
         jobDescriptionId: input.data.jobDescriptionId || null,
         notes: input.data.notes || null,
         organizationId: activeOrg.id,
-        resumeContentHash,
         resumeFileName: parsedFileName,
         resumeProfile,
-        resumeStorageKey,
-        status: "draft" as const,
-        targetRole: input.data.targetRole || resumeProfile?.targetRoles[0] || null,
-        updatedAt: now,
-      } satisfies typeof studioInterview.$inferInsert;
-
-      await db.insert(studioInterview).values(row);
+        storageKey: resumeStorageKey,
+        targetRole: input.data.targetRole || null,
+        userId: c.var.user?.id ?? null,
+      });
 
       invalidateStudioInterviewCaches(activeOrg.id);
       const detail = await loadResumeDetail(recordId, activeOrg.id);
