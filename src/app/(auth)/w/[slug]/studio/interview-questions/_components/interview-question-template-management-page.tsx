@@ -19,7 +19,7 @@ import {
   PencilIcon,
   PlusIcon,
 } from "lucide-react";
-import { parseAsString, parseAsStringEnum, useQueryState } from "nuqs";
+import { parseAsString, useQueryState } from "nuqs";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -76,22 +76,12 @@ export function InterviewQuestionTemplateManagementPage({
   const slug = useWorkspaceSlug();
   const queryClient = useQueryClient();
 
-  // 归档过滤三态，URL 持久化便于刷新 / 分享。
-  // Tri-state archived filter, URL-persisted for refresh/share.
-  const [archivedFilter, setArchivedFilter] = useQueryState(
-    "archived",
-    parseAsStringEnum(["active", "archived", "all"])
-      .withDefault("active")
-      .withOptions({ clearOnDefault: true }),
-  );
-  const archivedFilterLabel = archivedFilterLabelOf(archivedFilter);
-
   const fetchTemplates = useCallback(
     async (params: {
       search: string;
       page: number;
       pageSize: number;
-      filters: { scope: string; jobDescriptionId: string };
+      filters: { scope: string; jobDescriptionId: string; archivedFilter: string };
     }): Promise<PaginatedInterviewQuestionTemplateResult> => {
       const res = await rpc.api.w[":slug"].studio["interview-questions"].$get({
         param: { slug },
@@ -104,7 +94,13 @@ export function InterviewQuestionTemplateManagementPage({
           ...(params.filters.jobDescriptionId
             ? { jobDescriptionId: params.filters.jobDescriptionId }
             : {}),
-          ...(archivedFilter === "active" ? {} : { archived: archivedFilter }),
+          // archivedFilter 走 DataGrid 的 filter 通道，这样能自动进 queryKey，
+          // 变更时触发 react-query 重新拉取（避免出现"换了过滤态但列表不刷新"）。
+          // Archived filter goes through the DataGrid filter channel so it's
+          // part of the queryKey and changes trigger a fresh fetch.
+          ...(params.filters.archivedFilter === "active"
+            ? {}
+            : { archived: params.filters.archivedFilter }),
           sortBy: "createdAt",
           sortOrder: "desc",
         },
@@ -114,7 +110,7 @@ export function InterviewQuestionTemplateManagementPage({
       }
       return (await res.json()) as PaginatedInterviewQuestionTemplateResult;
     },
-    [slug, archivedFilter],
+    [slug],
   );
 
   const loadTemplateDetailById = useCallback(
@@ -132,13 +128,15 @@ export function InterviewQuestionTemplateManagementPage({
 
   const grid = useDataGridState<
     InterviewQuestionTemplateListRecord,
-    { scope: string; jobDescriptionId: string }
+    { scope: string; jobDescriptionId: string; archivedFilter: string }
   >({
     fetcher: fetchTemplates,
     initialData,
-    initialFilters: { jobDescriptionId: "", scope: "" },
+    initialFilters: { archivedFilter: "active", jobDescriptionId: "", scope: "" },
     namespace: "interview-question-templates",
   });
+  const archivedFilter = (grid.filters.archivedFilter as "active" | "archived" | "all") || "active";
+  const archivedFilterLabel = archivedFilterLabelOf(archivedFilter);
 
   // URL-bound drawer state — not a list filter; kept independent of DataGrid.
   const [activeTemplateId, setActiveTemplateId] = useQueryState(
@@ -399,9 +397,7 @@ export function InterviewQuestionTemplateManagementPage({
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   <DropdownMenuRadioGroup
-                    onValueChange={(v) =>
-                      void setArchivedFilter(v as "active" | "archived" | "all")
-                    }
+                    onValueChange={(v) => grid.setFilter("archivedFilter", v)}
                     value={archivedFilter}
                   >
                     <DropdownMenuRadioItem value="active">未归档</DropdownMenuRadioItem>

@@ -39,30 +39,39 @@ async function loadApplicableInterviewQuestionTemplates(interviewRecordId: strin
     .select()
     .from(interviewQuestionTemplate)
     .where(
-      or(
-        eq(interviewQuestionTemplate.scope, "global"),
-        jobDescriptionId
-          ? and(
-              eq(interviewQuestionTemplate.scope, "job_description"),
-              exists(
-                db
-                  .select({ one: interviewQuestionTemplateJobDescription.templateId })
-                  .from(interviewQuestionTemplateJobDescription)
-                  .where(
-                    and(
-                      eq(
-                        interviewQuestionTemplateJobDescription.templateId,
-                        interviewQuestionTemplate.id,
-                      ),
-                      eq(
-                        interviewQuestionTemplateJobDescription.jobDescriptionId,
-                        jobDescriptionId,
+      and(
+        // 面试详情页的「面试题绑定」picker 不展示已归档模板。已经绑定它的
+        // binding 行不动（在下游 loadInterviewQuestionTemplateBindings 里
+        // 仍然能回显），只是新的 enable/disable 选择面不再列出归档模板。
+        // The interview detail binding picker hides archived templates. Pre-
+        // existing binding rows pointing at archived templates remain readable
+        // downstream; only the "available to bind" surface drops them.
+        isNull(interviewQuestionTemplate.archivedAt),
+        or(
+          eq(interviewQuestionTemplate.scope, "global"),
+          jobDescriptionId
+            ? and(
+                eq(interviewQuestionTemplate.scope, "job_description"),
+                exists(
+                  db
+                    .select({ one: interviewQuestionTemplateJobDescription.templateId })
+                    .from(interviewQuestionTemplateJobDescription)
+                    .where(
+                      and(
+                        eq(
+                          interviewQuestionTemplateJobDescription.templateId,
+                          interviewQuestionTemplate.id,
+                        ),
+                        eq(
+                          interviewQuestionTemplateJobDescription.jobDescriptionId,
+                          jobDescriptionId,
+                        ),
                       ),
                     ),
-                  ),
-              ),
-            )
-          : undefined,
+                ),
+              )
+            : undefined,
+        ),
       ),
     )
     .orderBy(asc(interviewQuestionTemplate.scope), asc(interviewQuestionTemplate.createdAt));
