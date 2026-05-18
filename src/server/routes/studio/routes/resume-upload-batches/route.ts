@@ -35,9 +35,25 @@ export const resumeUploadBatchesRouter = factory
     } catch (error) {
       return c.json({ error: error instanceof Error ? error.message : "文件无效。" }, 400);
     }
-    const result = await storeInterviewResume("bulk-upload", file, user.id, activeOrg.id);
+    let result: Awaited<ReturnType<typeof storeInterviewResume>>;
+    try {
+      result = await storeInterviewResume("bulk-upload", file, user.id, activeOrg.id);
+    } catch (error) {
+      // S3 / 注册表写入抛错时给个人类可读的中文反馈，避免 AWS SDK 原始堆栈泄露到前端。
+      // Surface a friendly Chinese error instead of leaking the raw AWS SDK trace.
+      console.error("[bulk-upload] /uploads failed:", error);
+      return c.json({ error: error instanceof Error ? error.message : "文件上传失败。" }, 500);
+    }
     if (!result) {
-      return c.json({ error: "存储未配置。" }, 500);
+      return c.json({ error: "文件上传失败，请重试。" }, 500);
+    }
+    if (!result.storageKey || result.storageKey.length === 0) {
+      // 防御性：极少数情况下注册表命中的旧行可能 storageKey 缺失。直接报错，
+      // 避免把空字符串塞回客户端导致后续 process-next 失败。
+      // Defensive: a legacy registry hit could theoretically have an empty
+      // storageKey; reject here rather than poisoning the batch downstream.
+      console.error("[bulk-upload] storeInterviewResume returned empty storageKey", result);
+      return c.json({ error: "存储路径异常，请重试上传。" }, 500);
     }
     return c.json(
       {

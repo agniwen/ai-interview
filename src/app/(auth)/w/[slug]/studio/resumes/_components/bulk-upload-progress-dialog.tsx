@@ -194,7 +194,9 @@ export function BulkUploadProgressDialog({
                   // 上传阶段无 id，用 index 作 key。Upload phase has no id; use index as key.
                   key={`upload-${idx}`}
                 >
-                  <span className="text-muted-foreground">文件 {idx + 1}</span>
+                  <span className="min-w-0 truncate" title={state.uploadFileNames[idx]}>
+                    {state.uploadFileNames[idx] ?? `文件 ${idx + 1}`}
+                  </span>
                   <span className="text-muted-foreground text-xs">
                     {s === "uploaded" ? "已上传" : null}
                     {s === "failed" ? "上传失败" : null}

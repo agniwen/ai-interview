@@ -28,6 +28,8 @@ export interface BulkUploadState {
   detail: BulkResumeBatchDetailDto | null;
   /** 上传阶段每个文件的状态，按用户传入 files 的 index 索引。 Upload-phase status per file, indexed by the position in the user-supplied files array. */
   uploadStatus: ("pending" | "uploaded" | "failed")[];
+  /** 上传阶段对应的原始文件名，索引与 uploadStatus 对齐。 Original file names captured at start; aligned with uploadStatus. */
+  uploadFileNames: string[];
   uploadError: string | null;
 }
 
@@ -42,6 +44,7 @@ export function useBulkUpload() {
     detail: null,
     phase: "idle",
     uploadError: null,
+    uploadFileNames: [],
     uploadStatus: [],
   });
   const abortRef = useRef(false);
@@ -101,6 +104,7 @@ export function useBulkUpload() {
         detail: null,
         phase: "uploading",
         uploadError: null,
+        uploadFileNames: files.map((f) => f.name),
         uploadStatus: files.map(() => "pending"),
       });
       const descriptors: ({
@@ -182,6 +186,7 @@ export function useBulkUpload() {
         detail,
         phase: "processing",
         uploadError: null,
+        uploadFileNames: [],
         uploadStatus: [],
       });
       void runLoop(batchId);
@@ -208,7 +213,13 @@ export function useBulkUpload() {
 
   const reset = useCallback(() => {
     abortRef.current = true;
-    setState({ detail: null, phase: "idle", uploadError: null, uploadStatus: [] });
+    setState({
+      detail: null,
+      phase: "idle",
+      uploadError: null,
+      uploadFileNames: [],
+      uploadStatus: [],
+    });
   }, []);
 
   return { abort, cancel, reset, resume, start, state };

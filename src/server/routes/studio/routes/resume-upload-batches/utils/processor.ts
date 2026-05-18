@@ -31,6 +31,14 @@ async function fetchAndParse(
   organizationId: string,
   userId: string,
 ): Promise<{ succeededRecordId: string | null; dedupSnapshot: unknown; isDuplicateSkip: boolean }> {
+  if (!item.storageKey || item.storageKey.length === 0) {
+    // 防御性检查：理论上 Zod + chat_attachment notNull 都已校验，但兜底一次
+    // 给出可读错误信息，避免被 AWS SDK 抛"No value provided for input HTTP label: Key"。
+    // Defensive: storageKey should be guaranteed non-empty by zod + chat_attachment
+    // notNull, but guard once more so we surface a readable message instead of the
+    // AWS SDK "No value provided for input HTTP label: Key" stack trace.
+    throw new Error("简历文件存储路径为空，无法读取。请重试上传。");
+  }
   const object = await getObjectStream(item.storageKey);
   if (!object) {
     throw new Error("简历文件不可用（S3 对象缺失）。");

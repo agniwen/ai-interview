@@ -174,7 +174,7 @@ export async function claimNextPendingItem(tx: Tx, batchId: string): Promise<Ite
     limit 1
     for update skip locked
   `);
-  const [row] = (result as unknown as { rows: ItemRow[] }).rows;
+  const [row] = result as unknown as ItemRow[];
   if (!row) {
     return null;
   }
