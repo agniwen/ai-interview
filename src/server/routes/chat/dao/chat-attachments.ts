@@ -137,15 +137,28 @@ export async function findContentHashByAttachmentId(attachmentId: string): Promi
 }
 
 // 全局按内容哈希查 chat_attachment——任意一行命中即可作为 storageKey + 解析结果的复用源。
-// 排除 parsedStatus === "failed" 的行：失败的解析不应永久污染后续上传。
+// 排除条件：
+//   1. parsedStatus === "failed"：失败的解析不应永久污染后续上传。
+//   2. storage_key === ""：列虽然 notNull 但允许空串；历史脏数据可能写入空 key，
+//      若被命中会让 storeInterviewResume 返回空 storageKey，下游 S3 调用直接
+//      抛 "No value provided for input HTTP label: Key"，所以这里一并过滤。
 // Global lookup by content hash; any matching row is a reuse source for storageKey + parsed*.
-// Rows with parsedStatus === "failed" are excluded so a one-time parse error doesn't
-// permanently poison every subsequent upload of the same file.
+// Rows excluded:
+//   1. parsedStatus === "failed": a one-time parse error shouldn't poison future uploads.
+//   2. storage_key === "": column is notNull but allows empty strings; legacy data
+//      with empty keys would cause storeInterviewResume to return an empty key and
+//      crash downstream S3 calls. Filter them out here so callers always get a usable row.
 export async function findAttachmentByContentHash(hash: string): Promise<ChatAttachmentRow | null> {
   const [row] = await db
     .select()
     .from(chatAttachment)
-    .where(and(eq(chatAttachment.contentHash, hash), ne(chatAttachment.parsedStatus, "failed")))
+    .where(
+      and(
+        eq(chatAttachment.contentHash, hash),
+        ne(chatAttachment.parsedStatus, "failed"),
+        ne(chatAttachment.storageKey, ""),
+      ),
+    )
     .limit(1);
   return row ?? null;
 }

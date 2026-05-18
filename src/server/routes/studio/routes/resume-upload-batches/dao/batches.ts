@@ -162,19 +162,24 @@ type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
 // 用 FOR UPDATE SKIP LOCKED 在事务内锁定一个 pending item，并把它标为 processing。
 // 返回 null 时表示该 batch 已无待处理项（或被并发拿走）。
-// Locks one pending item with FOR UPDATE SKIP LOCKED and flips it to processing,
-// inside the caller-supplied transaction. Returns null when no pending item remains
-// (or it was concurrently claimed elsewhere).
+// 使用 drizzle 的 .for("update", { skipLocked: true }) 而不是 tx.execute(sql`...`)，
+// 因为后者返回的行字段是 snake_case（storage_key / order_index / ...），
+// 调用方按 camelCase 读会全部得到 undefined，触发 AWS SDK
+// "No value provided for input HTTP label: Key" 之类的级联错误。
+// Use drizzle's .for("update", { skipLocked: true }) instead of a raw
+// tx.execute(sql`...`). The raw path returns snake_case columns and callers
+// reading camelCase fields silently get undefined — which surfaces downstream
+// as obscure errors like AWS SDK's "No value provided for input HTTP label: Key".
 export async function claimNextPendingItem(tx: Tx, batchId: string): Promise<ItemRow | null> {
-  const result = await tx.execute(sql`
-    select * from ${resumeUploadBatchItem}
-    where ${resumeUploadBatchItem.batchId} = ${batchId}
-      and ${resumeUploadBatchItem.status} = 'pending'
-    order by ${resumeUploadBatchItem.orderIndex} asc
-    limit 1
-    for update skip locked
-  `);
-  const [row] = result as unknown as ItemRow[];
+  const [row] = await tx
+    .select()
+    .from(resumeUploadBatchItem)
+    .where(
+      and(eq(resumeUploadBatchItem.batchId, batchId), eq(resumeUploadBatchItem.status, "pending")),
+    )
+    .orderBy(asc(resumeUploadBatchItem.orderIndex))
+    .limit(1)
+    .for("update", { skipLocked: true });
   if (!row) {
     return null;
   }

@@ -70,6 +70,7 @@ vi.mock("@/lib/shared/db/schema", () => ({
     contentHash: { name: "contentHash" },
     id: { name: "id" },
     parsedStatus: { name: "parsedStatus" },
+    storageKey: { name: "storageKey" },
     userId: { name: "userId" },
   },
 }));
