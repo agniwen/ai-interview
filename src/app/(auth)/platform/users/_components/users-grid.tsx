@@ -1,11 +1,36 @@
 "use client";
 
-import { BanIcon, CheckCircle2Icon, ShieldCheckIcon, UsersIcon, XCircleIcon } from "lucide-react";
-import { useMemo } from "react";
+import {
+  BanIcon,
+  CheckCircle2Icon,
+  LogOutIcon,
+  ShieldCheckIcon,
+  UsersIcon,
+  XCircleIcon,
+} from "lucide-react";
+import { useMemo, useState } from "react";
+import { toast } from "sonner";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { customColumn, DataGrid, dateColumn, useDataGridState } from "@/components/data-grid";
+import {
+  actionsColumn,
+  customColumn,
+  DataGrid,
+  dateColumn,
+  useDataGridState,
+} from "@/components/data-grid";
+import { authClient } from "@/lib/shared/auth-client";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   Empty,
   EmptyDescription,
@@ -86,6 +111,26 @@ export function UsersGrid({ initialData }: { initialData: UsersResult }) {
     initialFilters: {},
     namespace: "platform-users",
   });
+
+  const [forceLogoutTarget, setForceLogoutTarget] = useState<UserRecord | null>(null);
+  const [forceLogoutPending, setForceLogoutPending] = useState(false);
+
+  async function confirmForceLogout() {
+    if (!forceLogoutTarget) {
+      return;
+    }
+    setForceLogoutPending(true);
+    const { error } = await authClient.admin.revokeUserSessions({
+      userId: forceLogoutTarget.id,
+    });
+    setForceLogoutPending(false);
+    if (error) {
+      toast.error(error.message ?? "强制下线失败");
+      return;
+    }
+    toast.success(`${forceLogoutTarget.name || forceLogoutTarget.email} 的所有 session 已撤销`);
+    setForceLogoutTarget(null);
+  }
 
   const columns = useMemo(
     () => [
@@ -185,34 +230,74 @@ export function UsersGrid({ initialData }: { initialData: UsersResult }) {
         key: "updatedAt",
         title: "更新时间",
       }),
+      actionsColumn<UserRecord>({
+        menu: [
+          {
+            icon: LogOutIcon,
+            label: "强制下线",
+            onClick: (r) => setForceLogoutTarget(r),
+            variant: "destructive",
+          },
+        ],
+      }),
     ],
     [],
   );
 
   return (
-    <DataGrid<UserRecord>
-      {...grid.bind}
-      columns={columns}
-      empty={
-        <Empty className="border-border/60">
-          <EmptyHeader>
-            <EmptyMedia variant="icon">
-              <UsersIcon className="size-5" />
-            </EmptyMedia>
-            <EmptyTitle>还没有用户</EmptyTitle>
-            <EmptyDescription>平台上暂无任何用户记录。</EmptyDescription>
-          </EmptyHeader>
-        </Empty>
-      }
-      filters={[
-        {
-          key: "search",
-          minWidth: "20rem",
-          placeholder: "搜索邮箱或姓名",
-          type: "search",
-        },
-      ]}
-      getRowId={(r) => r.id}
-    />
+    <>
+      <DataGrid<UserRecord>
+        {...grid.bind}
+        columns={columns}
+        empty={
+          <Empty className="border-border/60">
+            <EmptyHeader>
+              <EmptyMedia variant="icon">
+                <UsersIcon className="size-5" />
+              </EmptyMedia>
+              <EmptyTitle>还没有用户</EmptyTitle>
+              <EmptyDescription>平台上暂无任何用户记录。</EmptyDescription>
+            </EmptyHeader>
+          </Empty>
+        }
+        filters={[
+          {
+            key: "search",
+            minWidth: "20rem",
+            placeholder: "搜索邮箱或姓名",
+            type: "search",
+          },
+        ]}
+        getRowId={(r) => r.id}
+      />
+
+      <AlertDialog
+        onOpenChange={(open) => !open && setForceLogoutTarget(null)}
+        open={forceLogoutTarget !== null}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>确认强制下线？</AlertDialogTitle>
+            <AlertDialogDescription>
+              将撤销「{forceLogoutTarget?.name || forceLogoutTarget?.email}」名下所有
+              session（不分工作区），下次访问时需要重新登录。封禁账号请用「封禁」操作。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={forceLogoutPending}>取消</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={forceLogoutPending}
+              onClick={(e) => {
+                e.preventDefault();
+                void confirmForceLogout();
+              }}
+              variant="destructive"
+            >
+              {forceLogoutPending ? "处理中…" : "确认下线"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }
