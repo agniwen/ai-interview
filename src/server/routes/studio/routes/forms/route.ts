@@ -50,9 +50,9 @@ function normalizeQuestions(
 }
 
 const candidateFormListQuerySchema = z.object({
-  // "1"/"true" → 把已归档的也带回来；默认仅返回未归档。
-  // "1"/"true" includes archived rows; default lists active only.
-  includeArchived: z.string().optional(),
+  // 三态：active=仅未归档（默认）/ archived=仅已归档 / all=全部。
+  // Tri-state: active=active only (default) / archived=archived only / all=both.
+  archived: z.string().optional(),
   jobDescriptionId: z.string().optional(),
   page: z.string().optional(),
   pageSize: z.string().optional(),
@@ -62,8 +62,11 @@ const candidateFormListQuerySchema = z.object({
   sortOrder: z.string().optional(),
 });
 
-function parseIncludeArchived(value: string | undefined): boolean {
-  return value === "1" || value === "true";
+function parseArchivedFilter(value: string | undefined): "active" | "archived" | "all" {
+  if (value === "archived" || value === "all") {
+    return value;
+  }
+  return "active";
 }
 
 export const candidateFormsRouter = factory
@@ -81,7 +84,7 @@ export const candidateFormsRouter = factory
       const result = await queryPaginatedCandidateFormTemplates(
         activeOrg.id,
         {
-          includeArchived: parseIncludeArchived(q.includeArchived),
+          archivedFilter: parseArchivedFilter(q.archived),
           jobDescriptionId: q.jobDescriptionId,
           scope: q.scope,
           search: q.search,

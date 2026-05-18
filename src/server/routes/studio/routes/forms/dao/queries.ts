@@ -6,7 +6,19 @@ import type {
   JobDescriptionRef,
 } from "@/lib/shared/candidate-forms";
 import type { SQL } from "drizzle-orm";
-import { and, asc, count, desc, eq, exists, ilike, inArray, isNull, or } from "drizzle-orm";
+import {
+  and,
+  asc,
+  count,
+  desc,
+  eq,
+  exists,
+  ilike,
+  inArray,
+  isNotNull,
+  isNull,
+  or,
+} from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/server/db";
 import {
@@ -49,24 +61,28 @@ export interface PaginatedCandidateFormTemplateResult {
   totalPages: number;
 }
 
+export type ArchivedFilter = "active" | "archived" | "all";
+
 function buildWhereConditions({
   organizationId,
   search,
   scopes,
   jobDescriptionIds,
-  includeArchived,
+  archivedFilter,
 }: {
   organizationId: string;
   search?: string;
   scopes?: CandidateFormScope[];
   jobDescriptionIds?: string[];
-  // 默认仅列未归档；includeArchived=true 时把归档一同返回（前端通过徽章区分）。
-  // Default lists active only; pass true to surface archived rows alongside.
-  includeArchived?: boolean;
+  // 三态：active = 仅未归档（默认），archived = 仅已归档，all = 全部。
+  // Tri-state filter: active = active only (default), archived = archived only, all = both.
+  archivedFilter?: ArchivedFilter;
 }) {
   const conditions: SQL<unknown>[] = [eq(candidateFormTemplate.organizationId, organizationId)];
-  if (!includeArchived) {
+  if (!archivedFilter || archivedFilter === "active") {
     conditions.push(isNull(candidateFormTemplate.archivedAt));
+  } else if (archivedFilter === "archived") {
+    conditions.push(isNotNull(candidateFormTemplate.archivedAt));
   }
   if (search) {
     const searchCond = or(
@@ -158,7 +174,7 @@ function listTemplateRows({
   search,
   scopes,
   jobDescriptionIds,
-  includeArchived,
+  archivedFilter,
   sortBy = "createdAt",
   sortOrder = "desc",
   limit,
@@ -168,14 +184,14 @@ function listTemplateRows({
   search?: string;
   scopes?: CandidateFormScope[];
   jobDescriptionIds?: string[];
-  includeArchived?: boolean;
+  archivedFilter?: ArchivedFilter;
   sortBy?: SortColumn;
   sortOrder?: "asc" | "desc";
   limit?: number;
   offset?: number;
 }) {
   const where = buildWhereConditions({
-    includeArchived,
+    archivedFilter,
     jobDescriptionIds,
     organizationId,
     scopes,
@@ -213,16 +229,16 @@ async function countTemplateRows({
   search,
   scopes,
   jobDescriptionIds,
-  includeArchived,
+  archivedFilter,
 }: {
   organizationId: string;
   search?: string;
   scopes?: CandidateFormScope[];
   jobDescriptionIds?: string[];
-  includeArchived?: boolean;
+  archivedFilter?: ArchivedFilter;
 }) {
   const where = buildWhereConditions({
-    includeArchived,
+    archivedFilter,
     jobDescriptionIds,
     organizationId,
     scopes,
@@ -352,18 +368,18 @@ export async function queryPaginatedCandidateFormTemplates(
     search?: string | null;
     scope?: string | null;
     jobDescriptionId?: string | null;
-    includeArchived?: boolean;
+    archivedFilter?: ArchivedFilter;
   },
   pagination?: Record<string, unknown>,
 ): Promise<PaginatedCandidateFormTemplateResult> {
   const { search, scopes, jobDescriptionIds } = parseFilters(filters);
-  const includeArchived = filters?.includeArchived === true;
+  const archivedFilter: ArchivedFilter = filters?.archivedFilter ?? "active";
   const { page, pageSize, sortBy, sortOrder } = parseCandidateFormTemplatePagination(pagination);
   const offset = (page - 1) * pageSize;
 
   const [rows, total] = await Promise.all([
     listTemplateRows({
-      includeArchived,
+      archivedFilter,
       jobDescriptionIds,
       limit: pageSize,
       offset,
@@ -373,7 +389,7 @@ export async function queryPaginatedCandidateFormTemplates(
       sortBy,
       sortOrder,
     }),
-    countTemplateRows({ includeArchived, jobDescriptionIds, organizationId, scopes, search }),
+    countTemplateRows({ archivedFilter, jobDescriptionIds, organizationId, scopes, search }),
   ]);
 
   const ids = rows.map((row) => row.id);
@@ -405,7 +421,7 @@ export function listCandidateFormTemplates(
     search?: string | null;
     scope?: string | null;
     jobDescriptionId?: string | null;
-    includeArchived?: boolean;
+    archivedFilter?: ArchivedFilter;
   },
   pagination?: Record<string, unknown>,
 ) {

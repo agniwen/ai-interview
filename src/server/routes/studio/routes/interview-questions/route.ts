@@ -41,9 +41,9 @@ function normalizeQuestions(
 }
 
 const interviewQuestionListQuerySchema = z.object({
-  // "1" / "true" → 把已归档的也带回来；默认仅返回未归档。
-  // "1"/"true" includes archived rows in the response; default lists active only.
-  includeArchived: z.string().optional(),
+  // 三态：active=仅未归档（默认）/ archived=仅已归档 / all=全部；其他取值降级为 active。
+  // Tri-state: active=active only (default) / archived=archived only / all=both.
+  archived: z.string().optional(),
   jobDescriptionId: z.string().optional(),
   page: z.string().optional(),
   pageSize: z.string().optional(),
@@ -53,8 +53,11 @@ const interviewQuestionListQuerySchema = z.object({
   sortOrder: z.string().optional(),
 });
 
-function parseIncludeArchived(value: string | undefined): boolean {
-  return value === "1" || value === "true";
+function parseArchivedFilter(value: string | undefined): "active" | "archived" | "all" {
+  if (value === "archived" || value === "all") {
+    return value;
+  }
+  return "active";
 }
 
 export const interviewQuestionTemplatesRouter = factory
@@ -72,7 +75,7 @@ export const interviewQuestionTemplatesRouter = factory
       const result = await queryPaginatedInterviewQuestionTemplates(
         activeOrg.id,
         {
-          includeArchived: parseIncludeArchived(q.includeArchived),
+          archivedFilter: parseArchivedFilter(q.archived),
           jobDescriptionId: q.jobDescriptionId,
           scope: q.scope,
           search: q.search,

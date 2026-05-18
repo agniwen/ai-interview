@@ -14,18 +14,24 @@ import { useQueryClient } from "@tanstack/react-query";
 import {
   ArchiveIcon,
   ArchiveRestoreIcon,
+  ChevronDownIcon,
   ClipboardListIcon,
   InboxIcon,
   PencilIcon,
   PlusIcon,
 } from "lucide-react";
-import { parseAsBoolean, parseAsString, useQueryState } from "nuqs";
+import { parseAsString, parseAsStringEnum, useQueryState } from "nuqs";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   actionsColumn,
   customColumn,
@@ -51,6 +57,16 @@ function scopeLabel(scope: CandidateFormScope) {
   return scope === "global" ? "全局" : "岗位绑定";
 }
 
+function archivedFilterLabelOf(value: "active" | "archived" | "all"): string {
+  if (value === "archived") {
+    return "已归档";
+  }
+  if (value === "all") {
+    return "全部";
+  }
+  return "未归档";
+}
+
 // oxlint-disable-next-line complexity -- Page hosts list, filter, pagination, and dialog state together.
 export function CandidateFormTemplateManagementPage({
   initialData,
@@ -62,12 +78,15 @@ export function CandidateFormTemplateManagementPage({
   const slug = useWorkspaceSlug();
   const queryClient = useQueryClient();
 
-  // 「显示已归档」开关，URL 持久化便于刷新 / 分享。
-  // "Show archived" toggle, URL-persisted for refresh/share.
-  const [showArchived, setShowArchived] = useQueryState(
+  // 归档过滤三态，URL 持久化便于刷新 / 分享。
+  // Tri-state archived filter, URL-persisted for refresh/share.
+  const [archivedFilter, setArchivedFilter] = useQueryState(
     "archived",
-    parseAsBoolean.withDefault(false).withOptions({ clearOnDefault: true }),
+    parseAsStringEnum(["active", "archived", "all"])
+      .withDefault("active")
+      .withOptions({ clearOnDefault: true }),
   );
+  const archivedFilterLabel = archivedFilterLabelOf(archivedFilter);
 
   const fetchTemplates = useMemo(
     () =>
@@ -88,7 +107,7 @@ export function CandidateFormTemplateManagementPage({
             ...(params.filters.jobDescriptionId
               ? { jobDescriptionId: params.filters.jobDescriptionId }
               : {}),
-            ...(showArchived ? { includeArchived: "1" } : {}),
+            ...(archivedFilter === "active" ? {} : { archived: archivedFilter }),
             sortBy: "createdAt",
             sortOrder: "desc",
           },
@@ -98,7 +117,7 @@ export function CandidateFormTemplateManagementPage({
         }
         return (await res.json()) as PaginatedCandidateFormTemplateResult;
       },
-    [slug, showArchived],
+    [slug, archivedFilter],
   );
 
   const loadTemplateDetailById = useCallback(
@@ -399,17 +418,27 @@ export function CandidateFormTemplateManagementPage({
           filters={filtersConfig}
           getRowId={(r) => r.id}
           toolbarRight={
-            <div className="flex flex-wrap items-center gap-3">
-              <div className="flex items-center gap-2">
-                <Switch
-                  checked={showArchived}
-                  id="show-archived"
-                  onCheckedChange={(next) => void setShowArchived(next)}
-                />
-                <Label className="cursor-pointer font-normal text-sm" htmlFor="show-archived">
-                  显示已归档
-                </Label>
-              </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button size="sm" type="button" variant="outline">
+                    {archivedFilterLabel}
+                    <ChevronDownIcon className="size-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuRadioGroup
+                    onValueChange={(v) =>
+                      void setArchivedFilter(v as "active" | "archived" | "all")
+                    }
+                    value={archivedFilter}
+                  >
+                    <DropdownMenuRadioItem value="active">未归档</DropdownMenuRadioItem>
+                    <DropdownMenuRadioItem value="archived">已归档</DropdownMenuRadioItem>
+                    <DropdownMenuRadioItem value="all">全部</DropdownMenuRadioItem>
+                  </DropdownMenuRadioGroup>
+                </DropdownMenuContent>
+              </DropdownMenu>
               <Button className="flex-1 sm:flex-none" onClick={crud.openCreate}>
                 <PlusIcon className="size-4" />
                 新建面试表单

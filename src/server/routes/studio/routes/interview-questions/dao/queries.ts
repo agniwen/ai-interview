@@ -6,7 +6,19 @@ import type {
   JobDescriptionRef,
 } from "@/lib/shared/interview-question-templates";
 import type { SQL } from "drizzle-orm";
-import { and, asc, count, desc, eq, exists, ilike, inArray, isNull, or } from "drizzle-orm";
+import {
+  and,
+  asc,
+  count,
+  desc,
+  eq,
+  exists,
+  ilike,
+  inArray,
+  isNotNull,
+  isNull,
+  or,
+} from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/server/db";
 import {
@@ -48,24 +60,28 @@ export interface PaginatedInterviewQuestionTemplateResult {
   totalPages: number;
 }
 
+export type ArchivedFilter = "active" | "archived" | "all";
+
 function buildWhereConditions({
   organizationId,
   search,
   scopes,
   jobDescriptionIds,
-  includeArchived,
+  archivedFilter,
 }: {
   organizationId: string;
   search?: string;
   scopes?: InterviewQuestionTemplateScope[];
   jobDescriptionIds?: string[];
-  // 默认只列未归档；includeArchived=true 时把所有行都返回（归档状态由前端徽章区分）。
-  // Default lists only active rows; set true to include archived rows.
-  includeArchived?: boolean;
+  // 三态：active = 仅未归档（默认），archived = 仅已归档，all = 全部。
+  // Tri-state filter: active = active only (default), archived = archived only, all = both.
+  archivedFilter?: ArchivedFilter;
 }) {
   const conditions: SQL<unknown>[] = [eq(interviewQuestionTemplate.organizationId, organizationId)];
-  if (!includeArchived) {
+  if (!archivedFilter || archivedFilter === "active") {
     conditions.push(isNull(interviewQuestionTemplate.archivedAt));
+  } else if (archivedFilter === "archived") {
+    conditions.push(isNotNull(interviewQuestionTemplate.archivedAt));
   }
   if (search) {
     const searchCond = or(
@@ -159,7 +175,7 @@ function listTemplateRows({
   search,
   scopes,
   jobDescriptionIds,
-  includeArchived,
+  archivedFilter,
   sortBy = "createdAt",
   sortOrder = "desc",
   limit,
@@ -169,14 +185,14 @@ function listTemplateRows({
   search?: string;
   scopes?: InterviewQuestionTemplateScope[];
   jobDescriptionIds?: string[];
-  includeArchived?: boolean;
+  archivedFilter?: ArchivedFilter;
   sortBy?: SortColumn;
   sortOrder?: "asc" | "desc";
   limit?: number;
   offset?: number;
 }) {
   const where = buildWhereConditions({
-    includeArchived,
+    archivedFilter,
     jobDescriptionIds,
     organizationId,
     scopes,
@@ -214,16 +230,16 @@ async function countTemplateRows({
   search,
   scopes,
   jobDescriptionIds,
-  includeArchived,
+  archivedFilter,
 }: {
   organizationId: string;
   search?: string;
   scopes?: InterviewQuestionTemplateScope[];
   jobDescriptionIds?: string[];
-  includeArchived?: boolean;
+  archivedFilter?: ArchivedFilter;
 }) {
   const where = buildWhereConditions({
-    includeArchived,
+    archivedFilter,
     jobDescriptionIds,
     organizationId,
     scopes,
@@ -353,19 +369,19 @@ export async function queryPaginatedInterviewQuestionTemplates(
     search?: string | null;
     scope?: string | null;
     jobDescriptionId?: string | null;
-    includeArchived?: boolean;
+    archivedFilter?: ArchivedFilter;
   },
   pagination?: Record<string, unknown>,
 ): Promise<PaginatedInterviewQuestionTemplateResult> {
   const { search, scopes, jobDescriptionIds } = parseFilters(filters);
-  const includeArchived = filters?.includeArchived === true;
+  const archivedFilter: ArchivedFilter = filters?.archivedFilter ?? "active";
   const { page, pageSize, sortBy, sortOrder } =
     parseInterviewQuestionTemplatePagination(pagination);
   const offset = (page - 1) * pageSize;
 
   const [rows, total] = await Promise.all([
     listTemplateRows({
-      includeArchived,
+      archivedFilter,
       jobDescriptionIds,
       limit: pageSize,
       offset,
@@ -375,7 +391,7 @@ export async function queryPaginatedInterviewQuestionTemplates(
       sortBy,
       sortOrder,
     }),
-    countTemplateRows({ includeArchived, jobDescriptionIds, organizationId, scopes, search }),
+    countTemplateRows({ archivedFilter, jobDescriptionIds, organizationId, scopes, search }),
   ]);
 
   const ids = rows.map((row) => row.id);
@@ -407,7 +423,7 @@ export function listInterviewQuestionTemplates(
     search?: string | null;
     scope?: string | null;
     jobDescriptionId?: string | null;
-    includeArchived?: boolean;
+    archivedFilter?: ArchivedFilter;
   },
   pagination?: Record<string, unknown>,
 ) {
