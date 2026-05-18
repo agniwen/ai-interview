@@ -8,6 +8,7 @@ import { interviewQuestionTemplatesRouter } from "./routes/interview-questions/r
 import { interviewersRouter } from "./routes/interviewers/route";
 import { studioInterviewsRouter } from "./routes/interviews/route";
 import { jobDescriptionsRouter } from "./routes/job-descriptions/route";
+import { resumeUploadBatchesRouter } from "./routes/resume-upload-batches/route";
 import { resumeLibraryRouter } from "./routes/resumes/route";
 import { workspaceRouter } from "./routes/workspace/route";
 
@@ -20,6 +21,7 @@ export const studioRouter = factory
   .use("*", authMiddleware, workspaceMiddleware)
   .route("/interviews", studioInterviewsRouter)
   .route("/resumes", resumeLibraryRouter)
+  .route("/resume-upload-batches", resumeUploadBatchesRouter)
   .route("/departments", departmentsRouter)
   .route("/global-config", globalConfigRouter)
   .route("/interviewers", interviewersRouter)
