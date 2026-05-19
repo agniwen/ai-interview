@@ -1,7 +1,7 @@
 "use client";
 
 import type { RoundEmailSummary } from "@arc/db-schema/round-email-log";
-import { MailIcon } from "lucide-react";
+import { Loader2Icon, MailIcon } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import {
@@ -50,7 +50,11 @@ export function RoundEmailAction({
       size="sm"
       variant="ghost"
     >
-      <MailIcon className="size-4" />
+      {mutation.isPending ? (
+        <Loader2Icon className="size-4 animate-spin" />
+      ) : (
+        <MailIcon className="size-4" />
+      )}
       <span className="ml-1">{hasSent ? "重发" : "发送邮件"}</span>
       {hasSent ? (
         <span className="ml-1 text-muted-foreground text-xs">
@@ -117,6 +121,7 @@ export function RoundEmailAction({
                 }
               }}
             >
+              {mutation.isPending ? <Loader2Icon className="mr-1 size-4 animate-spin" /> : null}
               {hasSent ? "重发" : "发送"}
             </AlertDialogAction>
           </AlertDialogFooter>

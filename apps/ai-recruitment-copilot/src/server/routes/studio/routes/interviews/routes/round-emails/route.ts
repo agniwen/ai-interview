@@ -93,6 +93,11 @@ export const roundEmailsRouter = factory
         });
       } catch (error) {
         const message = error instanceof Error ? error.message : "Resend 调用异常";
+        console.error("[round-email] send failed", {
+          error: message,
+          organizationId: activeOrg.id,
+          roundId,
+        });
         const log = await insertRoundEmailLog({
           errorMessage: message,
           interviewRecordId: row.interviewRecordId,
@@ -111,6 +116,11 @@ export const roundEmailsRouter = factory
       // On Resend error: write a failed log and return 400.
       if (sendResult.error || !sendResult.data) {
         const message = sendResult.error?.message ?? "Resend 未返回 message id";
+        console.error("[round-email] send failed", {
+          error: message,
+          organizationId: activeOrg.id,
+          roundId,
+        });
         const log = await insertRoundEmailLog({
           errorMessage: message,
           interviewRecordId: row.interviewRecordId,

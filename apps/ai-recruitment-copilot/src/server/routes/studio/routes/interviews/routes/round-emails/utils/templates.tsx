@@ -19,6 +19,11 @@ interface RoundInviteEmailProps {
   scheduledAt: Date | null;
 }
 
+// 中文：候选人收到邮件时一律按上海时区展示，与产品的中文优先定位一致。
+// 如果未来要支持多时区，应改成从面试记录里读取候选人时区。
+// English: Render the schedule time in Shanghai time for all recipients —
+// matches the product's Chinese-first audience. If multi-timezone support
+// is ever needed, pull the candidate's tz from the interview record.
 function formatScheduledAt(date: Date): string {
   return new Intl.DateTimeFormat("zh-CN", {
     dateStyle: "long",

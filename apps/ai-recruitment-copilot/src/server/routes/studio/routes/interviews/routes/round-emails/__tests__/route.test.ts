@@ -44,6 +44,7 @@ vi.mock("@/server/middlewares/permission", () => ({
 // ── 测试数据常量（后缀 _route，避免与 dao.test 冲突）────────────────────────
 // Test data constants (suffix _route to avoid collision with dao.test data).
 const ORG = "test_org_round_emails_route";
+const OTHER_ORG = "test_org_round_emails_route_other";
 const USER_ID = "test_user_round_emails_route";
 const INTERVIEW_WITH_EMAIL = "test_int_re_route_with_email";
 const INTERVIEW_NO_EMAIL = "test_int_re_route_no_email";
@@ -57,21 +58,22 @@ async function cleanup() {
   await db.delete(studioInterviewSchedule).where(eq(studioInterviewSchedule.organizationId, ORG));
   await db.delete(studioInterview).where(eq(studioInterview.organizationId, ORG));
   await db.delete(organization).where(eq(organization.id, ORG));
+  await db.delete(organization).where(eq(organization.id, OTHER_ORG));
   await db.delete(user).where(eq(user.id, USER_ID));
 }
 
 // ── 注入 c.var 的测试用 Hono 包装应用 ──────────────────────────────────────
 // Test wrapper app that injects c.var.activeOrg + c.var.user then mounts the router.
-function buildTestApp() {
+function buildTestAppForOrg(orgId: string) {
   const app = new Hono<Env>();
   app.use("*", async (c, next) => {
     c.set("activeOrg", {
       createdAt: NOW,
-      id: ORG,
+      id: orgId,
       logo: null,
       metadata: null,
       name: "Test Org",
-      slug: ORG,
+      slug: orgId,
     });
     c.set("user", {
       createdAt: NOW.toISOString(),
@@ -88,6 +90,10 @@ function buildTestApp() {
   });
   app.route("/", roundEmailsRouter);
   return app;
+}
+
+function buildTestApp() {
+  return buildTestAppForOrg(ORG);
 }
 
 beforeAll(async () => {
@@ -107,6 +113,12 @@ beforeAll(async () => {
     id: ORG,
     name: "Test Org",
     slug: ORG,
+  });
+  await db.insert(organization).values({
+    createdAt: NOW,
+    id: OTHER_ORG,
+    name: "Other Org",
+    slug: OTHER_ORG,
   });
 
   // 候选人 A：有邮箱 / Candidate A: has email
@@ -220,6 +232,28 @@ describe("POST /:roundId/send", () => {
       .where(eq(studioRoundEmailLog.id, body.logId));
     expect(log?.status).toBe("failed");
     expect(log?.errorMessage).toContain("rate limit");
+  });
+
+  it("returns 404 when activeOrg does not own the round; no log written", async () => {
+    // 使用 OTHER_ORG 身份访问属于 ORG 的轮次，应返回 404 而不泄露存在性。
+    // Access a round belonging to ORG via OTHER_ORG credentials — must return 404
+    // and must not write any log row.
+    const logsBefore = await db
+      .select()
+      .from(studioRoundEmailLog)
+      .where(eq(studioRoundEmailLog.organizationId, OTHER_ORG));
+
+    const app = buildTestAppForOrg(OTHER_ORG);
+    const res = await app.request(`/${ROUND_WITH_EMAIL}/send`, { method: "POST" });
+    expect(res.status).toBe(404);
+
+    // 验证 OTHER_ORG 名下没有新增日志。
+    // Assert no new log rows were written under OTHER_ORG.
+    const logsAfter = await db
+      .select()
+      .from(studioRoundEmailLog)
+      .where(eq(studioRoundEmailLog.organizationId, OTHER_ORG));
+    expect(logsAfter).toHaveLength(logsBefore.length);
   });
 
   it("POST /:roundId/send -> 500 when Resend client throws, writes failed log", async () => {
