@@ -57,7 +57,14 @@ async function cleanup() {
 function buildTestApp() {
   const app = new Hono<Env>();
   app.use("*", async (c, next) => {
-    c.set("activeOrg", { createdAt: NOW, id: ORG, metadata: null, name: "Test Org", slug: ORG });
+    c.set("activeOrg", {
+      createdAt: NOW,
+      id: ORG,
+      logo: null,
+      metadata: null,
+      name: "Test Org",
+      slug: ORG,
+    });
     c.set("user", {
       createdAt: NOW.toISOString(),
       email: "route-test@example.com",
