@@ -48,6 +48,7 @@ import {
   resolveCandidateIdForRound,
   summarizeInterviewRoundCounts,
 } from "@/server/routes/studio/routes/interviews/dao/interview-rounds";
+import { roundEmailsRouter } from "@/server/routes/studio/routes/interviews/routes/round-emails/route";
 import {
   buildScheduleRows,
   loadRecordById,
@@ -782,4 +783,5 @@ export const studioInterviewsRouter = factory
       invalidateStudioInterviewCaches(activeOrg.id);
       return c.json({ deletedCount: result.length, success: true }, 200);
     },
-  );
+  )
+  .route("/round-emails", roundEmailsRouter);
