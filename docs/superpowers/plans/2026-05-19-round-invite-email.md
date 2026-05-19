@@ -810,7 +810,7 @@ async function cleanup() {
 }
 
 beforeAll(async () => {
-  process.env.NEXT_PUBLIC_PUBLIC_URL = "https://app.example.com";
+  process.env.NEXT_PUBLIC_BASE_URL = "https://app.example.com";
   await cleanup();
   await db.insert(user).values({
     createdAt: NOW,
@@ -968,8 +968,8 @@ import { renderRoundInviteEmail } from "@/server/routes/studio/routes/interviews
 const sendParamsSchema = z.object({ roundId: z.string().min(1) });
 
 function getAppUrl(): string {
-  const v = process.env.NEXT_PUBLIC_PUBLIC_URL;
-  if (!v) throw new Error("NEXT_PUBLIC_PUBLIC_URL 未配置");
+  const v = process.env.NEXT_PUBLIC_BASE_URL;
+  if (!v) throw new Error("NEXT_PUBLIC_BASE_URL 未配置");
   return v.replace(/\/$/, "");
 }
 

@@ -47,7 +47,7 @@ Key requirements for the web `.env`:
 
 - **Database** — `DATABASE_URL` (Postgres connection string)
 - **Better Auth** — `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`,
-  `NEXT_PUBLIC_PUBLIC_URL`, plus `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` for
+  `NEXT_PUBLIC_BASE_URL`, plus `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` for
   OAuth
 - **LLM provider** — `ALIBABA_API_KEY` (DashScope; Qwen for chat + OCR,
   DeepSeek V4 for ranking)

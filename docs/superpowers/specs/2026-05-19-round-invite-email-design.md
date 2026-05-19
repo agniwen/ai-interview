@@ -89,8 +89,8 @@ RESEND_FROM=noreply@yourdomain.com
   - `text`：`await render(<RoundInviteEmail {...props} />, { plainText: true })`
 - route 处理器直接 `import { resend } from "@/lib/server/resend"`，不在子路由 utils 再包一层。
 
-面试 URL：`${process.env.NEXT_PUBLIC_PUBLIC_URL}/interview/${interviewRecordId}/${roundId}`。
-若 `NEXT_PUBLIC_PUBLIC_URL` 缺失，抛 500（部署配置错误）。
+面试 URL：`${process.env.NEXT_PUBLIC_BASE_URL}/interview/${interviewRecordId}/${roundId}`。
+若 `NEXT_PUBLIC_BASE_URL` 缺失，抛 500（部署配置错误）。
 
 ## API
 
@@ -149,7 +149,7 @@ last status via window function 或子查询），结果 map 化返回。
 ## Error handling
 
 - `RESEND_API_KEY` / `RESEND_FROM` 未配置 → 500 + 明确错误信息（开发者可见）
-- `NEXT_PUBLIC_PUBLIC_URL` 未配置 → 500
+- `NEXT_PUBLIC_BASE_URL` 未配置 → 500
 - 候选人邮箱为空 → 400（前端 button 本来就 disable，是双重保险）
 - Resend 4xx/5xx → 400，落 `status='failed'` 日志，UI toast
 - 跨 organization 越权访问 round → 404（不泄露存在性）
