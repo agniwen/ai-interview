@@ -26,7 +26,7 @@ import {
   RotateCcwIcon,
   Share2Icon,
 } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { CandidateBasicInfoView } from "@/components/candidate-basic-info-view";
 import { ResumeProfileView } from "@/components/resume-profile-view";
@@ -59,6 +59,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { copyTextToClipboard, toAbsoluteUrl } from "@/lib/client/clipboard";
 import { scheduleEntryStatusMeta } from "@arc/db-schema/studio-interviews";
 import { AgentInstructionsPanel } from "../interviews/_components/agent-instructions-panel";
+import { RoundEmailAction } from "../interviews/_components/round-email/round-email-action";
+import { useRoundEmailSummary } from "../interviews/_components/round-email/use-round-email-summary";
 import { InterviewLinkQrButton } from "../interviews/_components/interview-link-qr-button";
 import { ConversationTranscript } from "../interviews/_components/interview-detail/conversation-transcript";
 import { DetailRow } from "../interviews/_components/interview-detail/detail-row";
@@ -165,6 +167,18 @@ export function StudioPersonDetailDialog({
     queryKey: ["studio-resume-rounds", slug, recordId] as const,
     refetchOnWindowFocus: true,
   });
+
+  // 中文：当前轮次的邮件发送摘要 — 用于轮次概览里发送按钮显示发送次数与最后一次时间。
+  // 仅在 interview 模式且有 roundId 时启用。
+  // English: Email-send summary for the current round, powering the "send"
+  // button's count + last-sent timestamp in the round overview. Only fires
+  // in interview mode when a roundId is present.
+  const roundEmailSummaryRoundIds = useMemo(
+    () => (mode === "interview" && round?.id ? [round.id] : []),
+    [mode, round?.id],
+  );
+  const roundEmailSummaryQuery = useRoundEmailSummary(slug, roundEmailSummaryRoundIds);
+  const roundEmailSummary = round?.id ? roundEmailSummaryQuery.data?.[round.id] : undefined;
 
   const isLoading = mode === "interview" ? isInterviewLoading : isResumeLoading;
 
@@ -539,6 +553,14 @@ export function StudioPersonDetailDialog({
                             ) : (
                               <span className="text-muted-foreground text-xs">未排期</span>
                             )}
+                            {record.roundId ? (
+                              <RoundEmailAction
+                                candidateEmail={record.candidateEmail}
+                                roundId={record.roundId}
+                                slug={slug}
+                                summary={roundEmailSummary}
+                              />
+                            ) : null}
                             {record.roundInterviewLink ? (
                               <>
                                 <Button

@@ -58,10 +58,7 @@ import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { copyTextToClipboard, toAbsoluteUrl } from "@/lib/client/clipboard";
 import { StudioPersonDetailDialog } from "@/app/(auth)/w/[slug]/studio/_components/studio-person-detail-dialog";
 import { StudioPersonEditDialog } from "@/app/(auth)/w/[slug]/studio/_components/studio-person-edit-dialog";
-import type { RoundEmailSummary } from "@arc/db-schema/round-email-log";
 import { JobDescriptionViewDialog } from "./job-description-view-dialog";
-import { RoundEmailAction } from "./round-email/round-email-action";
-import { useRoundEmailSummary } from "./round-email/use-round-email-summary";
 
 const PdfPreviewDialog = dynamic(
   async () => {
@@ -203,15 +200,6 @@ export function InterviewManagementPage({
     }
   }
 
-  // 邮件发送汇总：按 roundId 索引，供列渲染使用。
-  // Email send summaries indexed by roundId, consumed by the column renderer.
-  const roundIds = grid.data.records.map((r) => r.id);
-  const roundEmailSummaryQuery = useRoundEmailSummary(slug, roundIds);
-  const summaryMap: Record<string, RoundEmailSummary> = useMemo(
-    () => roundEmailSummaryQuery.data ?? {},
-    [roundEmailSummaryQuery.data],
-  );
-
   // 列定义：以 round 为主键，候选人信息作为快照列展示。
   // Column definitions: round-keyed; candidate info shown as snapshot columns.
   const columns = useMemo(
@@ -305,19 +293,6 @@ export function InterviewManagementPage({
         sortable: true,
         title: "创建于",
       }),
-      customColumn<StudioInterviewRoundListRecord>({
-        cell: (r) => (
-          <RoundEmailAction
-            candidateEmail={r.candidateEmail}
-            roundId={r.id}
-            slug={slug}
-            summary={summaryMap[r.id]}
-          />
-        ),
-        key: "roundEmail",
-        size: 220,
-        title: "邮件",
-      }),
       actionsColumn<StudioInterviewRoundListRecord>({
         inline: [
           { icon: EyeIcon, label: "查看详情", onClick: (r) => setDetailRecordId(r.id) },
@@ -334,7 +309,7 @@ export function InterviewManagementPage({
         ],
       }),
     ],
-    [slug, summaryMap],
+    [slug],
   );
 
   // 状态过滤选项：对应 round 级状态枚举。
