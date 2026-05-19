@@ -7,7 +7,15 @@ import type {
 } from "@/lib/shared/studio-resumes";
 import { useQueryClient } from "@tanstack/react-query";
 import dynamic from "next/dynamic";
-import { BotIcon, EyeIcon, PencilIcon, Trash2Icon, UsersIcon } from "lucide-react";
+import {
+  BotIcon,
+  CircleCheckIcon,
+  CircleDashedIcon,
+  EyeIcon,
+  PencilIcon,
+  Trash2Icon,
+  UsersIcon,
+} from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -308,11 +316,15 @@ export function ResumeLibraryPage({
               type="button"
             >
               <Badge className="cursor-pointer hover:bg-emerald-600/15" variant="success">
+                <CircleCheckIcon className="size-3" />
                 已发起
               </Badge>
             </button>
           ) : (
-            <Badge variant="outline">未发起</Badge>
+            <Badge variant="outline">
+              <CircleDashedIcon className="size-3" />
+              未发起
+            </Badge>
           ),
         key: "hasInterviewRounds",
         title: "AI 面试",
@@ -491,8 +503,11 @@ export function ResumeLibraryPage({
           }
         }}
         onViewRoundDetail={(roundId) => {
-          setDetailRecordId(null);
-          setDetailDefaultTab("overview");
+          // 中文：不要关闭简历详情弹窗 — 用户可能看完单轮后还想回来看其他轮次。
+          // 两个 Dialog 叠着放，Radix 自动处理 stacking。
+          // English: Keep the resume detail dialog open underneath — user may
+          // want to come back to view other rounds after viewing one.
+          // Radix Dialogs stack natively.
           setInterviewRoundDetailId(roundId);
         }}
         open={detailRecordId !== null}
