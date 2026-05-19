@@ -24,6 +24,10 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/server/resend", () => ({
+  buildSenderFromAddress: (companyName?: string) => {
+    const display = companyName?.trim() ? `${companyName.trim()} AI HR` : "AI HR";
+    return `${display} <noreply@example.com>`;
+  },
   getResendClient: () => {
     if (mocks.throwOnClient) {
       throw new Error("RESEND_API_KEY 未配置");

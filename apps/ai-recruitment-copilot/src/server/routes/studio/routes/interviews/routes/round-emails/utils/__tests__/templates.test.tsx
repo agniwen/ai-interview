@@ -29,16 +29,37 @@ describe("renderRoundInviteEmail", () => {
     });
     expect(result.subject).toBe("AI 面试 | 初筛 邀请");
     expect(result.text).toContain("AI 面试");
-    expect(result.text).not.toMatch(/排期|预计时间/);
   });
 
-  it("omits time block when scheduledAt is null", async () => {
+  it("includes interview tips section", async () => {
     const result = await renderRoundInviteEmail({
       candidateName: "王五",
+      companyName: "Acme",
       interviewUrl: "https://example.com/x/z",
       roundLabel: "初筛",
+      scheduledAt: new Date("2026-05-21T02:00:00.000Z"),
+    });
+    expect(result.text).toContain("面试前请准备");
+    expect(result.text).toContain("麦克风");
+    expect(result.text).toContain("网络");
+  });
+
+  it("renders scheduledAt label when provided, otherwise shows 准备好后随时", async () => {
+    const withTime = await renderRoundInviteEmail({
+      candidateName: "甲",
+      interviewUrl: "https://x/y",
+      roundLabel: "Round",
+      scheduledAt: new Date("2026-05-22T01:00:00.000Z"),
+    });
+    expect(withTime.text).toContain("预计时间");
+
+    const noTime = await renderRoundInviteEmail({
+      candidateName: "乙",
+      interviewUrl: "https://x/y",
+      roundLabel: "Round",
       scheduledAt: null,
     });
-    expect(result.text).not.toMatch(/排期|预计时间/);
+    expect(noTime.text).not.toContain("预计时间");
+    expect(noTime.text).toContain("准备好后");
   });
 });

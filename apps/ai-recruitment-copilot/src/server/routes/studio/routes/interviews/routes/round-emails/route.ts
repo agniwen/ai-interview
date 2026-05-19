@@ -6,7 +6,7 @@ import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 
 import { db } from "@/lib/server/db";
-import { getResendClient, getResendFrom } from "@/lib/server/resend";
+import { buildSenderFromAddress, getResendClient } from "@/lib/server/resend";
 import { factory, jsonValidatorError } from "@/server/factory";
 import { requirePermission } from "@/server/middlewares/permission";
 import { getGlobalConfig } from "@/server/routes/studio/routes/global-config/dao";
@@ -89,7 +89,7 @@ export const roundEmailsRouter = factory
       let sendResult: Awaited<ReturnType<ReturnType<typeof getResendClient>["emails"]["send"]>>;
       try {
         const resend = getResendClient();
-        const from = getResendFrom();
+        const from = buildSenderFromAddress(config.companyName);
         sendResult = await resend.emails.send({
           from,
           html,
