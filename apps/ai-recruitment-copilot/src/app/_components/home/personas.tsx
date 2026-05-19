@@ -51,7 +51,7 @@ export function Personas() {
       <div className="mt-12 grid grid-cols-1 gap-5 sm:gap-6 md:grid-cols-3">
         {personas.map(({ Icon, description, role, title }, index) => (
           <FadeContent delay={0.1 * index} key={role}>
-            <article className="group relative flex h-full flex-col overflow-hidden rounded-3xl border border-foreground/[0.06] bg-background/60 p-7 shadow-[0_4px_18px_-12px_rgba(0,0,0,0.18)] backdrop-blur transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_12px_28px_-22px_rgba(0,0,0,0.25)] sm:p-8">
+            <article className="group relative flex h-full flex-col overflow-hidden rounded-3xl ring-1 ring-foreground/5 bg-background/60 p-7 shadow-[0_4px_18px_-12px_rgba(0,0,0,0.18)] backdrop-blur transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_12px_28px_-22px_rgba(0,0,0,0.25)] sm:p-8">
               <Icon aria-hidden="true" className="size-6 text-foreground/55" strokeWidth={1.25} />
               <p className="mt-6 font-medium text-foreground/55 text-xs uppercase tracking-[0.16em]">
                 {role}

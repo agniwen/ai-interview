@@ -79,7 +79,7 @@ const leadClass =
 // 编号 bullet 卡片：与下方 CapabilityGrid BentoTile 同款毛玻璃材质（背景 60%、淡边、轻投影、blur）
 // Bullet card material — matches the CapabilityGrid BentoTile glass: bg-background/60, faint border, soft drop, backdrop-blur
 const bulletCardClass =
-  "flex items-start gap-3 rounded-xl border border-foreground/[0.06] bg-background/60 p-3.5 shadow-[0_4px_18px_-12px_rgba(0,0,0,0.18)] backdrop-blur";
+  "flex items-start gap-3 rounded-xl   ring-1 ring-foreground/5 bg-background/60 p-3.5 shadow-[0_4px_18px_-12px_rgba(0,0,0,0.18)] backdrop-blur";
 // 序号与正文用同字号 / 行高，items-start 后首行自然对齐
 // Index & body share text-sm + leading-normal so first lines align without manual offsets
 const bulletIndexClass =
@@ -121,7 +121,7 @@ function SceneChat({ block }: SceneProps) {
           </div>
         </div>
         <div
-          className="-top-3 -left-3 absolute flex items-center gap-1.5 rounded-full border border-foreground/[0.06] bg-background/80 px-3 py-1.5 font-mono text-[10px] text-foreground tracking-[0.18em] shadow-[0_4px_18px_-12px_rgba(0,0,0,0.18)] backdrop-blur"
+          className="-top-3 -left-3 absolute flex items-center gap-1.5 rounded-full ring-1 ring-foreground/5 bg-background/80 px-3 py-1.5 font-mono text-[10px] text-foreground tracking-[0.18em] shadow-[0_4px_18px_-12px_rgba(0,0,0,0.18)] backdrop-blur"
           data-reveal="badge"
         >
           <span className="size-1.5 animate-pulse rounded-full bg-primary" />
@@ -167,7 +167,7 @@ function SceneWorkspace({ block }: SceneProps) {
         {/* JD READY 徽标：与 Chat 的 LIVE CHAT、Voice Interview 的 REC 形成同节奏的"压轴"标签 */}
         {/* JD READY badge — paired with Chat's LIVE CHAT and Voice Interview's REC, revealed last in the dwell */}
         <div
-          className="-top-3 -right-3 absolute flex items-center gap-1.5 rounded-full border border-foreground/[0.06] bg-background/80 px-3 py-1.5 font-mono text-[10px] text-foreground tracking-[0.18em] shadow-[0_4px_18px_-12px_rgba(0,0,0,0.18)] backdrop-blur"
+          className="-top-3 -right-3 absolute flex items-center gap-1.5 rounded-full ring-1 ring-foreground/5 bg-background/80 px-3 py-1.5 font-mono text-[10px] text-foreground tracking-[0.18em] shadow-[0_4px_18px_-12px_rgba(0,0,0,0.18)] backdrop-blur"
           data-reveal="badge"
         >
           <span className="size-1.5 rounded-full bg-emerald-500" />
@@ -211,7 +211,7 @@ function SceneInterview({ block }: SceneProps) {
           <block.Screen className="w-full" />
         </div>
         <div
-          className="-bottom-3 -right-3 absolute flex items-center gap-2 rounded-full border border-foreground/[0.06] bg-background/80 px-3 py-1.5 shadow-[0_4px_18px_-12px_rgba(0,0,0,0.18)] backdrop-blur"
+          className="-bottom-3 -right-3 absolute flex items-center gap-2 rounded-full ring-1 ring-foreground/5 bg-background/80 px-3 py-1.5 shadow-[0_4px_18px_-12px_rgba(0,0,0,0.18)] backdrop-blur"
           data-reveal="badge"
         >
           <span className="flex h-3.5 items-end gap-[2px]">
@@ -256,7 +256,7 @@ const getBadge = (sceneEl: HTMLElement) =>
 // Mobile carousel card — compresses each scene into a uniform article: eyebrow → title → lead → screenshot → numbered bullets
 function SceneCard({ block }: { block: Block }) {
   return (
-    <article className="flex h-full w-full flex-col gap-4 overflow-hidden rounded-3xl border border-foreground/[0.06] bg-background/60 p-5 shadow-[0_4px_18px_-12px_rgba(0,0,0,0.18)] backdrop-blur sm:gap-5 sm:p-6">
+    <article className="flex h-full w-full flex-col gap-4 overflow-hidden rounded-3xl ring-1 ring-foreground/5 bg-background/60 p-5 shadow-[0_4px_18px_-12px_rgba(0,0,0,0.18)] backdrop-blur sm:gap-5 sm:p-6">
       <div className="space-y-2">
         <Eyebrow>{block.eyebrow}</Eyebrow>
         <h3 className="font-medium text-2xl text-foreground leading-[1.2] tracking-tight sm:text-[1.75rem]">

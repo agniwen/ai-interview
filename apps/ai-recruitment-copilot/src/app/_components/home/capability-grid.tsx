@@ -52,7 +52,7 @@ function BentoTile({
       className={cn(
         // 与 FeatureBlocks SceneCard 同款边距与材质：p-5 sm:p-6 / 同款圆角、淡边、轻投影、毛玻璃
         // Match FeatureBlocks SceneCard padding & material: p-5 sm:p-6, same rounded / faint border / soft drop / blur
-        "group relative flex h-full flex-col overflow-hidden rounded-3xl border border-foreground/[0.06] bg-background/60 p-5 shadow-[0_4px_18px_-12px_rgba(0,0,0,0.18)] backdrop-blur transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_12px_28px_-22px_rgba(0,0,0,0.25)] sm:p-6",
+        "group relative flex h-full flex-col overflow-hidden rounded-3xl ring-1 ring-foreground/5 bg-background/60 p-5 shadow-[0_4px_18px_-12px_rgba(0,0,0,0.18)] backdrop-blur transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_12px_28px_-22px_rgba(0,0,0,0.25)] sm:p-6",
         className,
       )}
     >
@@ -76,19 +76,19 @@ function BentoTile({
 function ChatBubblesVisual() {
   return (
     <div className="flex flex-col gap-2.5">
-      <div className="ml-auto max-w-[78%] rounded-2xl rounded-br-md border border-foreground/[0.06] bg-foreground/[0.04] px-3.5 py-2 text-right font-medium text-[13px] text-foreground/85 shadow-sm">
+      <div className="ml-auto max-w-[78%] rounded-2xl rounded-br-md ring-1 ring-foreground/5 bg-foreground/[0.04] px-3.5 py-2 text-right font-medium text-[13px] text-foreground/85 shadow-sm">
         这位候选人有 SaaS 出海经验吗？
       </div>
-      <div className="max-w-[88%] rounded-2xl rounded-bl-md border border-foreground/[0.06] bg-background/80 px-3.5 py-2 text-[13px] text-foreground/80 shadow-sm">
+      <div className="max-w-[88%] rounded-2xl rounded-bl-md ring-1 ring-foreground/5 bg-background/80 px-3.5 py-2 text-[13px] text-foreground/80 shadow-sm">
         近 3 年在新加坡与马来负责 B2B 出海，主导过 2 次定价策略调整。
         <span className="mt-1 block text-foreground/55 text-xs">
           ↳ 追问：定价调整带来的留存影响？
         </span>
       </div>
-      <div className="ml-auto max-w-[82%] rounded-2xl rounded-br-md border border-foreground/[0.06] bg-foreground/[0.04] px-3.5 py-2 text-right font-medium text-[13px] text-foreground/85 shadow-sm">
+      <div className="ml-auto max-w-[82%] rounded-2xl rounded-br-md ring-1 ring-foreground/5 bg-foreground/[0.04] px-3.5 py-2 text-right font-medium text-[13px] text-foreground/85 shadow-sm">
         他和上一位候选人，在出海经验上的差异？
       </div>
-      <div className="max-w-[90%] rounded-2xl rounded-bl-md border border-foreground/[0.06] bg-background/80 px-3.5 py-2 text-[13px] text-foreground/80 shadow-sm">
+      <div className="max-w-[90%] rounded-2xl rounded-bl-md ring-1 ring-foreground/5 bg-background/80 px-3.5 py-2 text-[13px] text-foreground/80 shadow-sm">
         <span className="block">他更偏战略与定价；上一位偏渠道执行。</span>
         <span className="mt-1.5 flex flex-wrap gap-1.5">
           <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 font-medium text-[11px] text-emerald-600 dark:text-emerald-300">
@@ -99,7 +99,7 @@ function ChatBubblesVisual() {
           </span>
         </span>
       </div>
-      <div className="ml-auto max-w-[70%] rounded-2xl rounded-br-md border border-foreground/[0.06] bg-foreground/[0.04] px-3.5 py-2 text-right font-medium text-[13px] text-foreground/85 shadow-sm">
+      <div className="ml-auto max-w-[70%] rounded-2xl rounded-br-md ring-1 ring-foreground/5 bg-foreground/[0.04] px-3.5 py-2 text-right font-medium text-[13px] text-foreground/85 shadow-sm">
         把他加入复试名单
       </div>
       <div className="inline-flex items-center gap-1 self-start text-foreground/45 text-xs">
@@ -120,7 +120,7 @@ function WorkbenchVisual() {
     { count: 6, name: "数据分析师", status: "草稿" },
   ];
   return (
-    <ul className="flex flex-col divide-y divide-foreground/[0.06] overflow-hidden rounded-xl border border-foreground/[0.06] bg-background/70 shadow-sm">
+    <ul className="flex flex-col divide-y divide-foreground/[0.06] overflow-hidden rounded-xl ring-1 ring-foreground/5 bg-background/70 shadow-sm">
       {positions.map((p) => (
         <li
           className="flex items-center justify-between gap-3 px-3.5 py-2.5 text-[13px]"
@@ -150,13 +150,13 @@ function WorkbenchVisual() {
 function FollowUpVisual() {
   return (
     <div className="flex flex-col gap-1.5 font-mono text-[12px]">
-      <div className="rounded-md border border-foreground/[0.06] bg-background/80 px-2.5 py-1.5 text-foreground/80 shadow-sm">
+      <div className="rounded-md ring-1 ring-foreground/5 bg-background/80 px-2.5 py-1.5 text-foreground/80 shadow-sm">
         Q · 状态管理选型？
       </div>
-      <div className="ml-3 rounded-md border border-foreground/[0.06] bg-background/60 px-2.5 py-1.5 text-foreground/65 shadow-sm">
+      <div className="ml-3 rounded-md ring-1 ring-foreground/5 bg-background/60 px-2.5 py-1.5 text-foreground/65 shadow-sm">
         ↳ 选 Zustand 的考量？
       </div>
-      <div className="ml-6 rounded-md border border-foreground/[0.06] bg-background/40 px-2.5 py-1.5 text-foreground/55 shadow-sm">
+      <div className="ml-6 rounded-md ring-1 ring-foreground/5 bg-background/40 px-2.5 py-1.5 text-foreground/55 shadow-sm">
         ↳ 团队迁移成本？
       </div>
     </div>
@@ -189,7 +189,7 @@ function LiveVoiceVisual() {
           />
         ))}
       </div>
-      <p className="truncate rounded-md border border-foreground/[0.06] bg-background/70 px-2.5 py-1.5 text-[12px] text-foreground/70 shadow-sm">
+      <p className="truncate rounded-md ring-1 ring-foreground/5 bg-background/70 px-2.5 py-1.5 text-[12px] text-foreground/70 shadow-sm">
         “…让我介绍最近主导的项目”
       </p>
       <style>{`
@@ -241,7 +241,7 @@ function PrivacyVisual() {
     <ul className="flex flex-col gap-1.5">
       {items.map((t) => (
         <li
-          className="flex items-center gap-2 rounded-md border border-foreground/[0.06] bg-background/70 px-2.5 py-1.5 text-[12px] text-foreground/75 shadow-sm"
+          className="flex items-center gap-2 rounded-md ring-1 ring-foreground/5 bg-background/70 px-2.5 py-1.5 text-[12px] text-foreground/75 shadow-sm"
           key={t}
         >
           <span className="inline-flex size-4 shrink-0 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-300">

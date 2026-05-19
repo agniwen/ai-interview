@@ -201,7 +201,7 @@ function JdSetupContent() {
   return (
     <div className="relative h-full">
       <DimmedJobsBackground />
-      <div className="absolute inset-0 bg-foreground/30 backdrop-blur-[1px]" />
+      <div className="absolute inset-0 bg-foreground/30 dark:bg-foreground/5 backdrop-blur-[1px]" />
       <JdFormDialog />
     </div>
   );

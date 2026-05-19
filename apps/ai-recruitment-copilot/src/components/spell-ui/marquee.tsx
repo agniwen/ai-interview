@@ -66,7 +66,7 @@ export function Marquee({
         }
       `}</style>
       <div
-        className={cn("flex w-full overflow-hidden", isVertical && "flex-col", className)}
+        className={cn("flex w-full overflow-hidden py-1", isVertical && "flex-col", className)}
         onMouseEnter={() => pauseOnHover && setIsPaused(true)}
         onMouseLeave={() => pauseOnHover && setIsPaused(false)}
         ref={containerRef}
