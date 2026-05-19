@@ -94,7 +94,7 @@ RESEND_FROM="Acme <noreply@yourdomain.com>"
 
 ## API
 
-挂载前缀：`/api/studio/interviews/round-emails`，复用 interviews 路由树上现有的
+挂载前缀：`/api/w/:slug/studio/interviews/round-emails`，复用 interviews 路由树上现有的
 workspace + auth 中间件。
 
 | Method | Path                      | 入参              | 出参                                                                                                       |
@@ -135,7 +135,7 @@ last status via window function 或子查询），结果 map 化返回。
 
 - 首次发送：confirm dialog「将发送邮件到 `xxx@xx.com`，确认？」
 - 重发：confirm dialog「已发送过 N 次，最近一次 X 时间，确认重发？」
-- 提交后调用 `rpc.api.studio.interviews["round-emails"][":roundId"].send.$post`
+- 提交后调用 `rpc.api.w[":slug"].studio.interviews["round-emails"][":roundId"].send.$post`
 - 成功：toast「邮件已发送」+ invalidate round summary query
 - 失败：toast 显示后端错误信息
 
