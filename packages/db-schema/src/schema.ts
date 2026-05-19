@@ -1142,6 +1142,7 @@ export const studioRoundEmailLog = pgTable(
 export const globalConfig = pgTable("global_config", {
   closingInstructions: text("closing_instructions").notNull().default(""),
   companyContext: text("company_context").notNull().default(""),
+  companyName: text("company_name").notNull().default(""),
   id: text("id").primaryKey().default("singleton"),
   openingInstructions: text("opening_instructions").notNull().default(""),
   organizationId: text("organization_id")

@@ -7,6 +7,7 @@ function serialize(row: typeof globalConfig.$inferSelect): GlobalConfigRecord {
   return {
     closingInstructions: row.closingInstructions,
     companyContext: row.companyContext,
+    companyName: row.companyName,
     openingInstructions: row.openingInstructions,
     updatedAt: row.updatedAt.toISOString(),
     updatedBy: row.updatedBy,
@@ -31,6 +32,7 @@ export async function getGlobalConfig(orgId: string): Promise<GlobalConfigRecord
   const fresh = {
     closingInstructions: "",
     companyContext: "",
+    companyName: "",
     id: `gc_${crypto.randomUUID()}`,
     openingInstructions: "",
     organizationId: orgId,
@@ -60,6 +62,7 @@ export async function upsertGlobalConfig(
     const fresh = {
       closingInstructions: input.closingInstructions,
       companyContext: input.companyContext,
+      companyName: input.companyName,
       id: `gc_${crypto.randomUUID()}`,
       openingInstructions: input.openingInstructions,
       organizationId: orgId,
@@ -75,6 +78,7 @@ export async function upsertGlobalConfig(
     .set({
       closingInstructions: input.closingInstructions,
       companyContext: input.companyContext,
+      companyName: input.companyName,
       openingInstructions: input.openingInstructions,
       updatedAt: now,
       updatedBy: userId,

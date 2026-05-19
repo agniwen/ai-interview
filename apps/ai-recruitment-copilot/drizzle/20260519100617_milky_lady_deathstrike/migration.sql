@@ -1,0 +1,1 @@
+ALTER TABLE "global_config" ADD COLUMN "company_name" text DEFAULT '' NOT NULL;

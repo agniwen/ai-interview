@@ -9,6 +9,7 @@ import { db } from "@/lib/server/db";
 import { getResendClient, getResendFrom } from "@/lib/server/resend";
 import { factory, jsonValidatorError } from "@/server/factory";
 import { requirePermission } from "@/server/middlewares/permission";
+import { getGlobalConfig } from "@/server/routes/studio/routes/global-config/dao";
 import {
   insertRoundEmailLog,
   summarizeRoundEmailLogs,
@@ -73,8 +74,13 @@ export const roundEmailsRouter = factory
       }
 
       const interviewUrl = `${getAppUrl()}/interview/${row.interviewRecordId}/${roundId}`;
+      // 中文：从系统设置里读公司名称作为标题/正文前缀；为空时模板会回退到「AI 面试」。
+      // English: Pull companyName from global config as subject/body prefix;
+      // template falls back to "AI 面试" when blank.
+      const config = await getGlobalConfig(activeOrg.id);
       const { html, subject, text } = await renderRoundInviteEmail({
         candidateName: row.candidateName,
+        companyName: config.companyName,
         interviewUrl,
         roundLabel: row.roundLabel,
         scheduledAt: row.scheduledAt,

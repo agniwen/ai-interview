@@ -14,7 +14,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field";
-import { InputGroup, InputGroupTextarea } from "@/components/ui/input-group";
+import { InputGroup, InputGroupInput, InputGroupTextarea } from "@/components/ui/input-group";
 import { Spinner } from "@/components/ui/spinner";
 import { TextareaCounter } from "@/components/ui/textarea-counter";
 import { rpc } from "@/lib/client/rpc";
@@ -23,6 +23,7 @@ import type { GlobalConfigRecord } from "@/lib/shared/global-config";
 
 const PROMPT_MAX_LENGTH = 10_000;
 const COMPANY_CONTEXT_MAX_LENGTH = 8000;
+const COMPANY_NAME_MAX_LENGTH = 120;
 
 interface Props {
   initial: GlobalConfigRecord;
@@ -43,6 +44,7 @@ export function GlobalConfigForm({ initial }: Props) {
   const [opening, setOpening] = useState(initial.openingInstructions);
   const [closing, setClosing] = useState(initial.closingInstructions);
   const [company, setCompany] = useState(initial.companyContext);
+  const [companyName, setCompanyName] = useState(initial.companyName);
   const [pending, startTransition] = useTransition();
 
   const onSave = () => {
@@ -51,6 +53,7 @@ export function GlobalConfigForm({ initial }: Props) {
         json: {
           closingInstructions: closing,
           companyContext: company,
+          companyName,
           openingInstructions: opening,
         },
         param: { slug },
@@ -80,6 +83,23 @@ export function GlobalConfigForm({ initial }: Props) {
         </CardHeader>
         <CardContent>
           <FieldGroup className="gap-5">
+            <Field>
+              <FieldLabel htmlFor="company-name">公司名称</FieldLabel>
+              <InputGroup>
+                <InputGroupInput
+                  disabled={pending}
+                  id="company-name"
+                  maxLength={COMPANY_NAME_MAX_LENGTH}
+                  onChange={(event) => setCompanyName(event.target.value)}
+                  placeholder="例如：Acme 科技"
+                  value={companyName}
+                />
+              </InputGroup>
+              <FieldDescription>
+                用于面试邀请邮件的主题和正文，以及候选人面前展示的发件方名称。
+              </FieldDescription>
+            </Field>
+
             <Field>
               <FieldLabel htmlFor="opening">开场白 prompt</FieldLabel>
               <InputGroup>
