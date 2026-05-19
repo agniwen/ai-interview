@@ -20,12 +20,12 @@ import { studioInterview, studioInterviewSchedule } from "@arc/db-schema/schema"
 
 const sendParamsSchema = z.object({ roundId: z.string().min(1) });
 
-// NEXT_PUBLIC_APP_URL 未配置时抛出明确错误。
-// Throws a clear error when NEXT_PUBLIC_APP_URL is not configured.
+// NEXT_PUBLIC_PUBLIC_URL 未配置时抛出明确错误。
+// Throws a clear error when NEXT_PUBLIC_PUBLIC_URL is not configured.
 function getAppUrl(): string {
-  const v = process.env.NEXT_PUBLIC_APP_URL;
+  const v = process.env.NEXT_PUBLIC_PUBLIC_URL;
   if (!v) {
-    throw new Error("NEXT_PUBLIC_APP_URL 未配置");
+    throw new Error("NEXT_PUBLIC_PUBLIC_URL 未配置");
   }
   return v.replace(/\/$/, "");
 }

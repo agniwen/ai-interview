@@ -97,7 +97,7 @@ function buildTestApp() {
 }
 
 beforeAll(async () => {
-  process.env.NEXT_PUBLIC_APP_URL = "https://app.example.com";
+  process.env.NEXT_PUBLIC_PUBLIC_URL = "https://app.example.com";
   await cleanup();
 
   await db.insert(user).values({

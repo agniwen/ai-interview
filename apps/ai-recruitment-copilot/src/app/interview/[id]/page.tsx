@@ -9,7 +9,7 @@ export default async function InterviewByIdPage({ params }: { params: Promise<{ 
 
   try {
     const response = await fetch(
-      `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/api/interview/${id}/resolve`,
+      `${process.env.NEXT_PUBLIC_PUBLIC_URL || "http://localhost:3000"}/api/interview/${id}/resolve`,
       {
         cache: "no-store",
       },

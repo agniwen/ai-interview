@@ -84,7 +84,7 @@ Exceptions: `src/server/agents/` (shared by frontend + multiple routes) and `src
 
 - Server handlers must declare explicit status codes (`c.json(data, 200)`) and use `zValidator("json"|"query", schema, jsonValidatorError("..."))` for typed inputs — without those, hc loses type inference.
 - **File uploads** (multipart/FormData), **streaming** (NDJSON / SSE / `new Response(stream)`), and **binary** responses (PDF, recordings) cannot use RPC — keep them on plain `fetch` or `apiFetch` from `@/lib/client/api`.
-- **Server Components** that need absolute URLs at SSR time (e.g. `/api/interview/[id]/resolve` in `app/interview/[id]/page.tsx`) stay on plain `fetch` with `NEXT_PUBLIC_APP_URL`. The rpc singleton is browser-relative.
+- **Server Components** that need absolute URLs at SSR time (e.g. `/api/interview/[id]/resolve` in `app/interview/[id]/page.tsx`) stay on plain `fetch` with `NEXT_PUBLIC_PUBLIC_URL`. The rpc singleton is browser-relative.
 - Date fields cross the wire as ISO strings; DAOs should `.toISOString()` Date columns before returning so the response DTO is `string` and the inferred client type matches reality.
 
 ## External Documentation
