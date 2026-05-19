@@ -1,6 +1,6 @@
 # Round Invite Email (Resend) — Design Spec
 
-**Status**: approved (brainstorm)
+**Status**: implemented
 **Date**: 2026-05-19
 **Owner**: allen
 
