@@ -18,10 +18,18 @@ import {
 
 // vi.mock 被 Vitest 提升（hoisted）；sendMock 用 vi.hoisted 确保在提升后可用。
 // vi.mock is hoisted by Vitest; use vi.hoisted so sendMock is available in the factory.
-const { sendMock } = vi.hoisted(() => ({ sendMock: vi.fn() }));
+const mocks = vi.hoisted(() => ({
+  sendMock: vi.fn(),
+  throwOnClient: false,
+}));
 
 vi.mock("@/lib/server/resend", () => ({
-  getResendClient: () => ({ emails: { send: sendMock } }),
+  getResendClient: () => {
+    if (mocks.throwOnClient) {
+      throw new Error("RESEND_API_KEY 未配置");
+    }
+    return { emails: { send: mocks.sendMock } };
+  },
   getResendFrom: () => "Acme <noreply@example.com>",
 }));
 
@@ -156,7 +164,8 @@ beforeAll(async () => {
 afterAll(cleanup);
 
 beforeEach(() => {
-  sendMock.mockReset();
+  mocks.sendMock.mockReset();
+  mocks.throwOnClient = false;
 });
 
 describe("POST /:roundId/send", () => {
@@ -166,12 +175,12 @@ describe("POST /:roundId/send", () => {
     expect(res.status).toBe(400);
     const body = (await res.json()) as { error: string };
     expect(body.error).toContain("邮箱");
-    expect(sendMock).not.toHaveBeenCalled();
+    expect(mocks.sendMock).not.toHaveBeenCalled();
   });
 
   it("returns 200 on success and persists a sent log in DB", async () => {
     // Resend 返回成功 / Resend returns success
-    sendMock.mockResolvedValueOnce({ data: { id: "msg_abc" }, error: null });
+    mocks.sendMock.mockResolvedValueOnce({ data: { id: "msg_abc" }, error: null });
 
     const app = buildTestApp();
     const res = await app.request(`/${ROUND_WITH_EMAIL}/send`, { method: "POST" });
@@ -193,7 +202,7 @@ describe("POST /:roundId/send", () => {
 
   it("returns 400 and persists a failed log when Resend returns an error", async () => {
     // Resend 返回 rate limit 错误 / Resend returns rate limit error
-    sendMock.mockResolvedValueOnce({ data: null, error: { message: "rate limit exceeded" } });
+    mocks.sendMock.mockResolvedValueOnce({ data: null, error: { message: "rate limit exceeded" } });
 
     const app = buildTestApp();
     const res = await app.request(`/${ROUND_WITH_EMAIL}/send`, { method: "POST" });
@@ -212,13 +221,38 @@ describe("POST /:roundId/send", () => {
     expect(log?.status).toBe("failed");
     expect(log?.errorMessage).toContain("rate limit");
   });
+
+  it("POST /:roundId/send -> 500 when Resend client throws, writes failed log", async () => {
+    mocks.throwOnClient = true;
+    try {
+      await db.delete(studioRoundEmailLog).where(eq(studioRoundEmailLog.roundId, ROUND_WITH_EMAIL));
+      const app = buildTestApp();
+      const res = await app.request(`/${ROUND_WITH_EMAIL}/send`, { method: "POST" });
+      expect(res.status).toBe(500);
+
+      const body = (await res.json()) as { error: string; logId: string };
+      expect(body.logId).toBeTruthy();
+
+      // 验证 DB 中有 status='failed' 且 errorMessage 包含 'RESEND_API_KEY' 的日志。
+      // Assert DB has a failed log with the env error message.
+      const logs = await db
+        .select()
+        .from(studioRoundEmailLog)
+        .where(eq(studioRoundEmailLog.roundId, ROUND_WITH_EMAIL));
+      expect(logs).toHaveLength(1);
+      expect(logs[0].status).toBe("failed");
+      expect(logs[0].errorMessage).toContain("RESEND_API_KEY");
+    } finally {
+      mocks.throwOnClient = false;
+    }
+  });
 });
 
 describe("GET /summary", () => {
   it("returns 200 with correct count for rounds with logs, zero for others", async () => {
     // 先发送一封邮件来为 ROUND_WITH_EMAIL 创建日志。
     // Send one email to create a log for ROUND_WITH_EMAIL.
-    sendMock.mockResolvedValueOnce({ data: { id: "msg_summary" }, error: null });
+    mocks.sendMock.mockResolvedValueOnce({ data: { id: "msg_summary" }, error: null });
     const app = buildTestApp();
     await app.request(`/${ROUND_WITH_EMAIL}/send`, { method: "POST" });
 

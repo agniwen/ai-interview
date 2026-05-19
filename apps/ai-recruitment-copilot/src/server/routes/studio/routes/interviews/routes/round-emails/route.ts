@@ -80,15 +80,32 @@ export const roundEmailsRouter = factory
         scheduledAt: row.scheduledAt,
       });
 
-      const resend = getResendClient();
-      const from = getResendFrom();
-      const sendResult = await resend.emails.send({
-        from,
-        html,
-        subject,
-        text,
-        to: row.candidateEmail,
-      });
+      let sendResult: Awaited<ReturnType<ReturnType<typeof getResendClient>["emails"]["send"]>>;
+      try {
+        const resend = getResendClient();
+        const from = getResendFrom();
+        sendResult = await resend.emails.send({
+          from,
+          html,
+          subject,
+          text,
+          to: row.candidateEmail,
+        });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Resend 调用异常";
+        const log = await insertRoundEmailLog({
+          errorMessage: message,
+          interviewRecordId: row.interviewRecordId,
+          organizationId: activeOrg.id,
+          resendMessageId: null,
+          roundId,
+          sentBy: user?.id ?? null,
+          status: "failed",
+          subject,
+          toEmail: row.candidateEmail,
+        });
+        return c.json({ error: `邮件发送失败：${message}`, logId: log.id }, 500);
+      }
 
       // Resend 返回错误时写入 failed 日志并返回 400。
       // On Resend error: write a failed log and return 400.
