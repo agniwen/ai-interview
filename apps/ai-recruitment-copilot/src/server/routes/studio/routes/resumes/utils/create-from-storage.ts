@@ -3,6 +3,7 @@ import "server-only";
 import { db } from "@/lib/server/db";
 import { studioInterview } from "@arc/db-schema/schema";
 import type { InterviewQuestion, ResumeProfile } from "@arc/db-schema/interview/types";
+import { syncResumeSkills } from "../dao/skills";
 
 export interface CreateResumeRecordFromStorageInput {
   candidateEmail: string | null;
@@ -31,24 +32,31 @@ export async function createResumeRecordFromStorage(
 ): Promise<string> {
   const now = new Date();
   const recordId = crypto.randomUUID();
-  await db.insert(studioInterview).values({
-    candidateEmail: input.candidateEmail,
-    candidateName: input.candidateName?.trim() || input.resumeProfile?.name || "未命名候选人",
-    candidatePhone: input.candidatePhone ?? input.resumeProfile?.phone ?? null,
-    createdAt: now,
-    createdBy: input.userId,
-    id: recordId,
-    interviewQuestions: input.interviewQuestions ?? [],
-    jobDescriptionId: input.jobDescriptionId,
-    notes: input.notes,
-    organizationId: input.organizationId,
-    resumeContentHash: input.contentHash,
-    resumeFileName: input.resumeFileName,
-    resumeProfile: input.resumeProfile,
-    resumeStorageKey: input.storageKey,
-    status: "draft" as const,
-    targetRole: input.targetRole?.trim() || input.resumeProfile?.targetRoles?.[0] || null,
-    updatedAt: now,
+  await db.transaction(async (tx) => {
+    await tx.insert(studioInterview).values({
+      candidateEmail: input.candidateEmail,
+      candidateName: input.candidateName?.trim() || input.resumeProfile?.name || "未命名候选人",
+      candidatePhone: input.candidatePhone ?? input.resumeProfile?.phone ?? null,
+      createdAt: now,
+      createdBy: input.userId,
+      id: recordId,
+      interviewQuestions: input.interviewQuestions ?? [],
+      jobDescriptionId: input.jobDescriptionId,
+      notes: input.notes,
+      organizationId: input.organizationId,
+      resumeContentHash: input.contentHash,
+      resumeFileName: input.resumeFileName,
+      resumeProfile: input.resumeProfile,
+      resumeStorageKey: input.storageKey,
+      status: "draft" as const,
+      targetRole: input.targetRole?.trim() || input.resumeProfile?.targetRoles?.[0] || null,
+      updatedAt: now,
+    });
+    await syncResumeSkills(tx, {
+      interviewId: recordId,
+      organizationId: input.organizationId,
+      skills: input.resumeProfile?.skills,
+    });
   });
   return recordId;
 }

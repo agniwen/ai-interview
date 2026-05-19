@@ -292,6 +292,15 @@ export const studioInterview = pgTable(
     resumeFileName: text("resume_file_name"),
     resumeProfile: jsonb("resume_profile").$type<ResumeProfile | null>(),
     resumeStorageKey: text("resume_storage_key"),
+    // 派生自 resume_profile->'skills'：trim + 连续空白折叠为单空格 + lowercase 后的数组。
+    // GIN 索引支持 `@>` 包含匹配。display 形态保存在 studioOrgSkill 表里，每 org 一份。
+    // Derived from resume_profile->'skills': trim + collapse whitespace + lowercase.
+    // GIN-indexed so `@>` contains-all matching is index-driven. Display strings
+    // live once per org in studioOrgSkill, not duplicated per candidate.
+    skillsNormalized: text("skills_normalized")
+      .array()
+      .notNull()
+      .default(sql`'{}'::text[]`),
     status: text("status").$type<StudioInterviewStatus>().notNull(),
     targetRole: text("target_role"),
     updatedAt: timestamp("updated_at")
@@ -306,6 +315,44 @@ export const studioInterview = pgTable(
     index("studio_interview_job_description_idx").on(table.jobDescriptionId),
     index("studio_interview_organization_idx").on(table.organizationId),
     index("studio_interview_resume_content_hash_idx").on(table.resumeContentHash),
+    index("studio_interview_skills_normalized_idx")
+      .using("gin", table.skillsNormalized)
+      .concurrently(),
+  ],
+);
+
+// 每组织的技能 canonical 表：
+// - `normalized` 是归一化键（lowercase + 折叠空白），作为 PK 的一部分
+// - `display` 保留 UI 展示用的原始大小写写法；每个 normalized 全 org 只存一次
+// - `candidateCount` 由 syncResumeSkills 维护（增减时增量 ± 1），DELETE 由触发器兜底
+// - `aliasOf` 为 Phase 2 同义词预留：null 表示自身即规范名
+//
+// Per-org canonical skill table:
+// - `normalized` is the matching key (lowercase + collapsed spaces)
+// - `display` holds the UI form; stored once per org rather than once per candidate
+// - `candidateCount` is maintained by syncResumeSkills (delta on every write);
+//   a BEFORE DELETE trigger on studio_interview decrements when rows are cascaded
+// - `aliasOf` reserves space for Phase 2 synonyms (TS → TypeScript); null means
+//   this row is its own canonical
+export const studioOrgSkill = pgTable(
+  "studio_org_skill",
+  {
+    aliasOf: text("alias_of"),
+    candidateCount: integer("candidate_count").notNull().default(0),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    display: text("display").notNull(),
+    normalized: text("normalized").notNull(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.organizationId, table.normalized] }),
+    index("studio_org_skill_count_idx").on(table.organizationId, table.candidateCount),
   ],
 );
 

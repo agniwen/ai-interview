@@ -42,6 +42,7 @@ import {
 } from "@/server/routes/studio/routes/interview-questions/dao/bindings";
 import { queryInterviewConversationReportsByRound } from "@/server/routes/studio/routes/interviews/dao/interview-conversations";
 import { queryInterviewDedup } from "@/server/routes/studio/routes/interviews/dao/studio-interviews";
+import { syncResumeSkills } from "@/server/routes/studio/routes/resumes/dao/skills";
 import {
   loadInterviewRoundDetail,
   queryPaginatedInterviewRounds,
@@ -216,6 +217,11 @@ export const studioInterviewsRouter = factory
         await tx.insert(studioInterview).values(record);
         await tx.insert(studioInterviewSchedule).values(scheduleRows);
         await autoBindApplicableTemplates(tx, interviewRecordId, record.jobDescriptionId);
+        await syncResumeSkills(tx, {
+          interviewId: interviewRecordId,
+          organizationId: activeOrg.id,
+          skills: analysis?.resumeProfile.skills,
+        });
       });
 
       invalidateStudioInterviewCaches(activeOrg.id);

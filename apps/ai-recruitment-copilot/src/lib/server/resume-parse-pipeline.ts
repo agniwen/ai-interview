@@ -53,6 +53,17 @@ const STRUCTURED_INSTRUCTIONS = `你是一名简历解析助手。给你一段�
 - 无法从简历中确认的字段返回 null 或空数组，禁止编造。
 - personalStrengths 必须有简历依据。
 - skills / links / schools / targetRoles / personalStrengths 去重；skills 最多 18 项，其余最多 6 项。
+- skills 字段必须使用业内通用规范名（保留通行大小写），不要写候选人简历里的别名 / 缩写 / 版本号 / .js 后缀：
+    · "Vue 3" / "Vue.js" / "VueJS" / "vue" → "Vue"
+    · "React.js" / "ReactJS" / "react" → "React"
+    · "TS" → "TypeScript"
+    · "JS" → "JavaScript"
+    · "Node" / "NodeJS" / "node.js" → "Node.js"
+    · "K8s" / "kubernetes" → "Kubernetes"
+    · "Tailwind" / "TailwindCSS" → "Tailwind CSS"
+    · "PG" / "Postgres" / "postgresql" → "PostgreSQL"
+    · 当原文里出现品牌组合名时不要省略空格："ClaudeCode" → "Claude Code"。
+    · 当某项无法判断业内规范名时，保留原文并 trim，不要瞎改。
 - workExperiences / projectExperiences 按简历原文顺序排列；summary 保留关键职责、成果或内容，不扩写。
 - projectExperiences 的每一项必须包含 techStack 字段（string[]），即使为空也要写 []。
 - timelineSummary.dateRanges 保留原文时间表达。
@@ -108,25 +119,14 @@ export async function parseResumeOcrOnly(bytes: Uint8Array): Promise<ParsedResum
     throw new Error("Qwen OCR is not configured (missing ALIBABA_API_KEY).");
   }
 
-  const startedAt = Date.now();
-
-  const rasterStart = Date.now();
   const { pages, pageCount } = await rasterizePdfWithMeta(bytes, { maxPages: 6, scale: 2 });
-  console.log(
-    `[resume-parse] rasterized ${pages.length}/${pageCount} pages in ${Date.now() - rasterStart}ms`,
-  );
 
   if (pages.length === 0) {
     throw new Error("Rasterization produced no pages; PDF may be empty or unreadable.");
   }
 
-  const ocrStart = Date.now();
   const ocrTexts = await Promise.all(pages.map((png) => qwenVlOcr(png)));
   const text = ocrTexts.filter((chunk) => chunk.trim().length > 0).join("\n\n");
-  console.log(
-    `[resume-parse] qwen-ocr done: ${text.length} chars total across ${pages.length} pages, ${Date.now() - ocrStart}ms, totalMs=${Date.now() - startedAt}`,
-  );
-  console.log("[resume-parse] qwen-ocr text:\n", text);
 
   if (text.trim().length === 0) {
     throw new Error("Qwen OCR returned empty text for every page.");
@@ -145,17 +145,7 @@ export async function parseResumeOcrOnly(bytes: Uint8Array): Promise<ParsedResum
  * the pre-split version; callers that want both in one shot keep using this.
  */
 export async function parseResumeFast(bytes: Uint8Array): Promise<ParsedResumeFast> {
-  const startedAt = Date.now();
   const ocr = await parseResumeOcrOnly(bytes);
-
-  const structuredStart = Date.now();
   const structured = await generateResumeStructured(ocr.text);
-  console.log(`[resume-parse] generateResumeStructured done in ${Date.now() - structuredStart}ms`);
-  console.log("[resume-parse] structured:\n", JSON.stringify(structured, null, 2));
-
-  console.log(
-    `[resume-parse] complete: pageCount=${ocr.pageCount}, finalChars=${ocr.text.length}, totalMs=${Date.now() - startedAt}`,
-  );
-
   return { ...ocr, structured };
 }

@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, asc, count, desc, eq, exists, ilike, or } from "drizzle-orm";
+import { and, arrayContains, asc, count, desc, eq, exists, ilike, inArray, or } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/server/db";
 import {
@@ -14,6 +14,7 @@ import type {
   ResumeLibraryDetail,
   ResumeLibraryListRecord,
 } from "@/lib/shared/studio-resumes";
+import { normalizeSkill } from "./skills";
 
 const SORT_COLUMNS = ["createdAt", "candidateName", "updatedAt"] as const;
 type SortColumn = (typeof SORT_COLUMNS)[number];
@@ -25,29 +26,60 @@ const paginationSchema = z.object({
   sortOrder: z.enum(["asc", "desc"]).default("desc"),
 });
 
+// 允许调用方原样传入 CSV 拆分结果（可能含空串）；buildWhere 内统一 trim + drop blank。
+// Accept caller-supplied arrays that may contain empty/whitespace entries —
+// buildWhere drops blanks before using them so we don't need to error here.
 const filtersSchema = z.object({
+  jobDescriptionIds: z.array(z.string()).max(50).optional().nullable(),
   search: z.string().trim().max(120).optional().nullable(),
+  skills: z.array(z.string()).max(20).optional().nullable(),
 });
 
 type Pagination = z.infer<typeof paginationSchema>;
 type Filters = z.infer<typeof filtersSchema>;
 
 function buildWhere(organizationId: string, filters?: Filters) {
+  const conditions = [eq(studioInterview.organizationId, organizationId)];
+
   const search = filters?.search?.trim();
-  if (!search) {
-    return eq(studioInterview.organizationId, organizationId);
-  }
-  const like = `%${search}%`;
-  return and(
-    eq(studioInterview.organizationId, organizationId),
-    or(
+  if (search) {
+    const like = `%${search}%`;
+    const searchClause = or(
       ilike(studioInterview.candidateName, like),
       ilike(studioInterview.candidateEmail, like),
       ilike(studioInterview.candidatePhone, like),
       ilike(studioInterview.resumeFileName, like),
       ilike(studioInterview.targetRole, like),
+    );
+    if (searchClause) {
+      conditions.push(searchClause);
+    }
+  }
+
+  // 输入按存储归一化规则同样处理后再 dedupe；空字符串丢弃。
+  // candidate 行上的 skills_normalized 列已经是 lowercase + 折叠空白，所以用户输入
+  // 也要走同一套归一化函数。AND（交集）语义直接用 PG 的 `@>` 包含运算符——一句话搞定，
+  // GIN 索引直接命中，无需 EXISTS / GROUP BY / HAVING 三层嵌套。
+  //
+  // Same normalization as the write path. AND (intersection) semantics are
+  // expressed by PG's `@>` (contains-all) operator over the GIN-indexed
+  // skills_normalized array — single index lookup, no EXISTS / GROUP BY /
+  // HAVING gymnastics required.
+  const skills = [
+    ...new Set(
+      (filters?.skills ?? []).map((s) => normalizeSkill(s).normalized).filter((s) => s.length > 0),
     ),
-  );
+  ];
+  if (skills.length > 0) {
+    conditions.push(arrayContains(studioInterview.skillsNormalized, skills));
+  }
+
+  const jdIds = filters?.jobDescriptionIds?.filter((id) => id.trim().length > 0) ?? [];
+  if (jdIds.length > 0) {
+    conditions.push(inArray(studioInterview.jobDescriptionId, jdIds));
+  }
+
+  return conditions.length === 1 ? conditions[0] : and(...conditions);
 }
 
 function buildOrderBy(sortBy: SortColumn, sortOrder: "asc" | "desc") {
@@ -143,7 +175,11 @@ function toRecord(row: Row): ResumeLibraryListRecord {
 
 export async function queryPaginatedResumeRecords(
   organizationId: string,
-  filters?: { search?: string | null },
+  filters?: {
+    search?: string | null;
+    skills?: string[] | null;
+    jobDescriptionIds?: string[] | null;
+  },
   pagination?: Record<string, unknown>,
 ): Promise<PaginatedResumeLibraryResult> {
   const parsedFilters = filtersSchema.parse(filters ?? {});
@@ -174,7 +210,11 @@ export async function queryPaginatedResumeRecords(
  */
 export function listResumeRecords(
   organizationId: string,
-  filters?: { search?: string | null },
+  filters?: {
+    search?: string | null;
+    skills?: string[] | null;
+    jobDescriptionIds?: string[] | null;
+  },
   pagination?: Partial<Pagination>,
 ) {
   return queryPaginatedResumeRecords(organizationId, filters, pagination);

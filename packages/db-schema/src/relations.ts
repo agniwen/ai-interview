@@ -262,6 +262,7 @@ export const relations = defineRelations(schema, (r) => ({
     members: r.many.member(),
     studioInterviewSchedules: r.many.studioInterviewSchedule(),
     studioInterviews: r.many.studioInterview(),
+    studioOrgSkills: r.many.studioOrgSkill(),
     studioRoundEmailLogs: r.many.studioRoundEmailLog(),
   },
   session: {
@@ -297,6 +298,12 @@ export const relations = defineRelations(schema, (r) => ({
     }),
     organization: r.one.organization({
       from: r.studioInterviewSchedule.organizationId,
+      to: r.organization.id,
+    }),
+  },
+  studioOrgSkill: {
+    organization: r.one.organization({
+      from: r.studioOrgSkill.organizationId,
       to: r.organization.id,
     }),
   },

@@ -27,13 +27,17 @@ export interface ResumeListParams {
   page?: number;
   pageSize?: number;
   search?: string;
+  /** 任一匹配的技能（CSV-encoded on the wire）。Any-of skill filter. */
+  skills?: string[];
+  /** 关联岗位 id 列表。 Job-description id filter (OR semantics). */
+  jobDescriptionIds?: string[];
   sortBy?: string;
   sortOrder?: "asc" | "desc";
 }
 
 /**
- * 拉取简历列表（支持分页 / 关键词 / 排序）。
- * Fetch the resume list (supports pagination / keyword / sorting).
+ * 拉取简历列表（支持分页 / 关键词 / 排序 / 技能 / 关联岗位筛选）。
+ * Fetch the resume list (pagination / keyword / sort / skills / JD filters).
  */
 export function fetchStudioResumes(
   slug: string,
@@ -46,11 +50,40 @@ export function fetchStudioResumes(
         ...(params.page === undefined ? {} : { page: String(params.page) }),
         ...(params.pageSize === undefined ? {} : { pageSize: String(params.pageSize) }),
         ...(params.search ? { search: params.search } : {}),
+        ...(params.skills && params.skills.length > 0 ? { skills: params.skills.join(",") } : {}),
+        ...(params.jobDescriptionIds && params.jobDescriptionIds.length > 0
+          ? { jdIds: params.jobDescriptionIds.join(",") }
+          : {}),
         ...(params.sortBy ? { sortBy: params.sortBy } : {}),
         ...(params.sortOrder ? { sortOrder: params.sortOrder } : {}),
       },
     }),
     "加载简历列表失败",
+  );
+}
+
+export interface SkillSuggestion {
+  skill: string;
+  count: number;
+}
+
+/**
+ * 拉取组织内的技能建议（按候选人计数倒序）。
+ * Fetch skill suggestions for the org, sorted by candidate count desc.
+ */
+export function fetchStudioResumeSkillSuggestions(
+  slug: string,
+  params: { prefix?: string; limit?: number } = {},
+): Promise<{ records: SkillSuggestion[] }> {
+  return rpcFetch<{ records: SkillSuggestion[] }>(
+    rpc.api.w[":slug"].studio.resumes["skill-suggestions"].$get({
+      param: { slug },
+      query: {
+        ...(params.prefix ? { prefix: params.prefix } : {}),
+        ...(params.limit === undefined ? {} : { limit: String(params.limit) }),
+      },
+    }),
+    "加载技能建议失败",
   );
 }
 

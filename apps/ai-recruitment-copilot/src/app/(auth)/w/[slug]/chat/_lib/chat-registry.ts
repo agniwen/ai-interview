@@ -31,7 +31,6 @@ const MAX_ACTIVE_CHATS = 8;
 // still persisted to the DB before the instance is discarded.
 const chats = new LRUCache<string, Chat<UIMessage>>({
   dispose: (chat, chatId) => {
-    console.log("[chat-registry] evicting chat", chatId);
     chat.stop();
     clearChatMeta(chatId);
   },

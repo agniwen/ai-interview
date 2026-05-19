@@ -19,6 +19,10 @@ import {
   queryPaginatedResumeRecords,
 } from "@/server/routes/studio/routes/resumes/dao/resumes";
 import {
+  listOrgSkillSuggestions,
+  syncResumeSkills,
+} from "@/server/routes/studio/routes/resumes/dao/skills";
+import {
   createDefaultScheduleEntry,
   parseResumePayloadInput,
 } from "@arc/db-schema/studio-interviews";
@@ -78,6 +82,18 @@ function parseListFormInput(formData: FormData) {
   });
 }
 
+// CSV → string[]：与 data-grid 工具栏的 multi-select 编码方式一致。
+// CSV → string[] — matches the data-grid toolbar's multi-select encoding.
+function csvToArray(value: string | undefined): string[] {
+  if (!value) {
+    return [];
+  }
+  return value
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
 export const resumeLibraryRouter = factory
   .createApp()
   .get(
@@ -86,9 +102,11 @@ export const resumeLibraryRouter = factory
     zValidator(
       "query",
       z.object({
+        jdIds: z.string().optional(),
         page: z.string().optional(),
         pageSize: z.string().optional(),
         search: z.string().optional(),
+        skills: z.string().optional(),
         sortBy: z.string().optional(),
         sortOrder: z.string().optional(),
       }),
@@ -102,7 +120,11 @@ export const resumeLibraryRouter = factory
       const q = c.req.valid("query");
       const result = await queryPaginatedResumeRecords(
         activeOrg.id,
-        { search: q.search },
+        {
+          jobDescriptionIds: csvToArray(q.jdIds),
+          search: q.search,
+          skills: csvToArray(q.skills),
+        },
         {
           page: q.page,
           pageSize: q.pageSize,
@@ -111,6 +133,30 @@ export const resumeLibraryRouter = factory
         },
       );
       return c.json(result, 200);
+    },
+  )
+  .get(
+    "/skill-suggestions",
+    requirePermission("resume", "read"),
+    zValidator(
+      "query",
+      z.object({
+        limit: z.coerce.number().int().min(1).max(100).default(50),
+        prefix: z.string().trim().max(80).optional(),
+      }),
+      jsonValidatorError("查询参数无效。"),
+    ),
+    async (c) => {
+      const { activeOrg } = c.var;
+      if (!activeOrg) {
+        return c.json({ message: "Unauthorized" }, 401);
+      }
+      const q = c.req.valid("query");
+      const records = await listOrgSkillSuggestions(activeOrg.id, {
+        limit: q.limit,
+        prefix: q.prefix,
+      });
+      return c.json({ records }, 200);
     },
   )
   .post(
@@ -410,10 +456,23 @@ export const resumeLibraryRouter = factory
           : {}),
       } satisfies Partial<typeof studioInterview.$inferInsert>;
 
-      await db
-        .update(studioInterview)
-        .set(update)
-        .where(and(eq(studioInterview.id, id), eq(studioInterview.organizationId, activeOrg.id)));
+      await db.transaction(async (tx) => {
+        await tx
+          .update(studioInterview)
+          .set(update)
+          .where(and(eq(studioInterview.id, id), eq(studioInterview.organizationId, activeOrg.id)));
+        // 仅当本次写入实际触达了 resumeProfile 时才重刷技能索引。
+        // 「resume」分支才把 resumeProfile 列入 update；其他字段编辑不动技能。
+        // Only refresh the skill index when the request actually mutated
+        // resume_profile. Editing other fields shouldn't touch skills.
+        if (resume) {
+          await syncResumeSkills(tx, {
+            interviewId: id,
+            organizationId: activeOrg.id,
+            skills: resumeProfile?.skills,
+          });
+        }
+      });
 
       invalidateStudioInterviewCaches(activeOrg.id);
       const detail = await loadResumeDetail(id, activeOrg.id);

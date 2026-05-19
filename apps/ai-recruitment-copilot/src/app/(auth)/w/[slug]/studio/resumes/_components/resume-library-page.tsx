@@ -5,7 +5,7 @@ import type {
   ResumeLibraryListRecord,
   ResumeLibraryMetrics,
 } from "@/lib/shared/studio-resumes";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import dynamic from "next/dynamic";
 import {
   BotIcon,
@@ -58,7 +58,13 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
-import { bulkDeleteStudioResumes, deleteStudioResume, fetchStudioResumes } from "@/lib/client/api";
+import {
+  bulkDeleteStudioResumes,
+  deleteStudioResume,
+  fetchStudioResumeSkillSuggestions,
+  fetchStudioResumes,
+} from "@/lib/client/api";
+import { rpc } from "@/lib/client/rpc";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { StudioPersonDetailDialog } from "@/app/(auth)/w/[slug]/studio/_components/studio-person-detail-dialog";
 import { StudioPersonEditDialog } from "@/app/(auth)/w/[slug]/studio/_components/studio-person-edit-dialog";
@@ -75,13 +81,28 @@ const PdfPreviewDialog = dynamic(
   { ssr: false },
 );
 
-// 简历库不需要额外的下拉过滤器（只有 search）；类型用最小占位以满足 useDataGridState
-// 的 `F extends Record<string, string>` 约束。
-// The resume library has no extra dropdown filters (search only); the placeholder
-// type keeps `useDataGridState`'s `F extends Record<string, string>` constraint
-// happy without adding any UI controls.
-type ResumeFilters = Record<string, string>;
-const EMPTY_FILTERS: ResumeFilters = {};
+// 工具栏多选下拉在 state/URL 里以 CSV 字符串编码，符合 data-grid 工具栏约定。
+// 「skills」= 候选人必须同时拥有所有选中的技能（AND）；
+// 「jdIds」= 关联岗位为所选中任一（OR，因为一份简历只能绑一个岗位）。
+// Multi-select toolbar filters are CSV-encoded per the data-grid convention.
+// skills = candidate must have ALL selected skills (intersection / AND);
+// jdIds = candidate's linked JD is one of the selection (OR — a resume can
+//          link to only one JD, so AND would always be empty for >1).
+interface ResumeFilters extends Record<string, string> {
+  skills: string;
+  jdIds: string;
+}
+const EMPTY_FILTERS: ResumeFilters = { jdIds: "", skills: "" };
+
+function csvToArray(value: string | undefined): string[] {
+  if (!value) {
+    return [];
+  }
+  return value
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
 
 interface FetchParams {
   page: number;
@@ -129,14 +150,46 @@ export function ResumeLibraryPage({
     () =>
       (params: FetchParams): Promise<PaginatedResumeLibraryResult> =>
         fetchStudioResumes(slug, {
+          jobDescriptionIds: csvToArray(params.filters.jdIds),
           page: params.page,
           pageSize: params.pageSize,
           search: params.search || undefined,
+          skills: csvToArray(params.filters.skills),
           sortBy: params.sortBy,
           sortOrder: params.sortOrder,
         }),
     [slug],
   );
+
+  // 关联岗位 + 技能两组下拉建议数据；都是 staleTime 60s 的轻量查询，
+  // 单独缓存以便其他页面（发起面试 dialog 等）复用 ["job-descriptions","all"] key。
+  // JD list + skill suggestions for the two filter dropdowns. Reusing the
+  // ["job-descriptions","all"] cache key keeps it shared with other consumers.
+  const { data: jobDescriptions = [] } = useQuery({
+    queryFn: async () => {
+      const response = await rpc.api.w[":slug"].studio["job-descriptions"].all.$get({
+        param: { slug },
+      });
+      if (!response.ok) {
+        throw new Error("加载在招岗位列表失败");
+      }
+      const payload = (await response.json()) as {
+        records: { id: string; name: string; departmentName: string | null }[];
+      };
+      return payload.records;
+    },
+    queryKey: ["job-descriptions", "all", slug],
+    staleTime: 60_000,
+  });
+
+  const { data: skillSuggestions = [] } = useQuery({
+    queryFn: async () => {
+      const result = await fetchStudioResumeSkillSuggestions(slug, { limit: 100 });
+      return result.records;
+    },
+    queryKey: ["studio-resumes", "skill-suggestions", slug],
+    staleTime: 60_000,
+  });
 
   const grid = useDataGridState<ResumeLibraryListRecord, ResumeFilters>({
     defaultSorting: [{ desc: true, id: "createdAt" }],
@@ -389,8 +442,33 @@ export function ResumeLibraryPage({
         placeholder: "搜索候选人、邮箱、电话、简历名或目标岗位",
         type: "search" as const,
       },
+      {
+        emptyMessage: "没有匹配的技能",
+        key: "skills" as const,
+        options: skillSuggestions.map((item) => ({
+          description: `${item.count} 位候选人`,
+          label: item.skill,
+          value: item.skill,
+        })),
+        placeholder: "按技能筛选（需同时具备）",
+        searchPlaceholder: "搜索技能…",
+        selectedFormat: (count: number) => `已选 ${count} 个技能（同时具备）`,
+        type: "multi-select" as const,
+      },
+      {
+        emptyMessage: "没有匹配的岗位",
+        key: "jdIds" as const,
+        options: jobDescriptions.map((jd) => ({
+          label: jd.departmentName ? `${jd.departmentName} / ${jd.name}` : jd.name,
+          value: jd.id,
+        })),
+        placeholder: "按关联岗位筛选",
+        searchPlaceholder: "搜索岗位或部门…",
+        selectedFormat: (count: number) => `已选 ${count} 个岗位`,
+        type: "multi-select" as const,
+      },
     ],
-    [],
+    [skillSuggestions, jobDescriptions],
   );
 
   async function handleDelete() {
