@@ -38,7 +38,7 @@ Append to `apps/ai-recruitment-copilot/.env.example`:
 ```
 # Resend (transactional email)
 RESEND_API_KEY=
-RESEND_FROM="Acme <noreply@yourdomain.com>"
+RESEND_FROM=noreply@yourdomain.com
 ```
 
 - [ ] **Step 3: Verify typecheck still passes**

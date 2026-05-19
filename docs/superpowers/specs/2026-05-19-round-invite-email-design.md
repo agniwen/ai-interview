@@ -73,7 +73,7 @@ DAO 都和 round 本身解耦，未来扩展（webhook、批量、其他模板�
 
 ```
 RESEND_API_KEY=
-RESEND_FROM="Acme <noreply@yourdomain.com>"
+RESEND_FROM=noreply@yourdomain.com
 ```
 
 启动时不强校验（保持本地无 key 也能跑），首次调用 `resend.emails.send()` 时若缺失抛
