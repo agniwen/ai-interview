@@ -2,9 +2,9 @@ import type {
   GeneratedInterviewQuestion,
   ResumeAnalysisResult,
   ResumeProfile,
-} from "@/lib/shared/interview/types";
+} from "@arc/db-schema/interview/types";
 import { stepCountIs } from "ai";
-import { generatedInterviewQuestionsSchema } from "@/lib/shared/interview/types";
+import { generatedInterviewQuestionsSchema } from "@arc/db-schema/interview/types";
 import { generateResumeStructured, parseResumeFast } from "@/lib/server/resume-parse-pipeline";
 import type { ResumeTextSource } from "@/lib/server/resume-parse-pipeline";
 import { buildAttachmentKeyByHash, putObjectBytes } from "@/lib/server/s3";

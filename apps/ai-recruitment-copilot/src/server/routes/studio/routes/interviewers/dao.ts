@@ -1,9 +1,9 @@
 import type { InterviewerListRecord, InterviewerRecord } from "@/lib/shared/interviewers";
-import type { MinimaxVoiceId } from "@/lib/shared/minimax-voices";
+import type { MinimaxVoiceId } from "@arc/db-schema/minimax-voices";
 import { and, asc, count, desc, eq, ilike, inArray, or } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/server/db";
-import { department, interviewer, jobDescriptionInterviewer } from "@/lib/shared/db/schema";
+import { department, interviewer, jobDescriptionInterviewer } from "@arc/db-schema/schema";
 
 const interviewerListFiltersSchema = z.object({
   departmentId: z.string().trim().max(120).optional().nullable(),

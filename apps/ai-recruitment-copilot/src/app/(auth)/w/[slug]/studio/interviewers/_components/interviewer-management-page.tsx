@@ -29,7 +29,7 @@ import {
 } from "@/components/ui/empty";
 import { rpc } from "@/lib/client/rpc";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
-import { getMinimaxVoiceMeta } from "@/lib/shared/minimax-voices";
+import { getMinimaxVoiceMeta } from "@arc/db-schema/minimax-voices";
 import { ScopedJobDescriptionsModal } from "@/app/(auth)/w/[slug]/studio/_components/scoped-job-descriptions-modal";
 import { InterviewerFormDialog } from "./interviewer-form-dialog";
 

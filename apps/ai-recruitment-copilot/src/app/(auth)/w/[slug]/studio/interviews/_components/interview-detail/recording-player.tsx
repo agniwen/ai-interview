@@ -16,7 +16,7 @@ import { Button } from "@/components/ui/button";
 import { fetchStudioInterviewRecordingUrl } from "@/lib/client/api";
 import { ApiError } from "@/lib/client/api/errors";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
-import type { InterviewRecordingStatus } from "@/lib/shared/db-enums";
+import type { InterviewRecordingStatus } from "@arc/db-schema/db-enums";
 
 interface RecordingPlayerProps {
   recordId: string;

@@ -7,7 +7,7 @@ import type {
   InterviewQuestionTemplateListRecord,
   InterviewQuestionTemplateRecord,
   InterviewQuestionTemplateScope,
-} from "@/lib/shared/interview-question-templates";
+} from "@arc/db-schema/interview-question-templates";
 import type { JobDescriptionListRecord } from "@/lib/shared/job-descriptions";
 import type { PaginatedInterviewQuestionTemplateResult } from "@/server/routes/studio/routes/interview-questions/dao/queries";
 import { useQueryClient } from "@tanstack/react-query";

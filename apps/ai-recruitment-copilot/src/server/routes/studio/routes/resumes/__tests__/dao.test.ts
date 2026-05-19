@@ -4,7 +4,7 @@
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { db } from "@/lib/server/db";
-import { member, organization, studioInterview, user } from "@/lib/shared/db/schema";
+import { member, organization, studioInterview, user } from "@arc/db-schema/schema";
 import { queryPaginatedResumeRecords } from "@/server/routes/studio/routes/resumes/dao/resumes";
 
 const ORG_A = "test_org_resume_dao_a";

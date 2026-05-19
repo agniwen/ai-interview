@@ -22,9 +22,9 @@ import { Modal } from "@/components/ui/modal";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { apiFetch } from "@/lib/client/api";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
-import type { ResumeAnalysisResult } from "@/lib/shared/interview/types";
+import type { ResumeAnalysisResult } from "@arc/db-schema/interview/types";
 import type { StudioInterviewRoundDetail } from "@/lib/shared/studio-interview-rounds";
-import { createDefaultScheduleEntry } from "@/lib/shared/studio-interviews";
+import { createDefaultScheduleEntry } from "@arc/db-schema/studio-interviews";
 import {
   createResumeLibraryFormValues,
   resumeLibraryFormSchema,

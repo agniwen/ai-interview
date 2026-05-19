@@ -1,6 +1,6 @@
 import { z } from "zod";
-import { minimaxVoiceSchema } from "@/lib/shared/minimax-voices";
-import type { MinimaxVoiceId } from "@/lib/shared/minimax-voices";
+import { minimaxVoiceSchema } from "@arc/db-schema/minimax-voices";
+import type { MinimaxVoiceId } from "@arc/db-schema/minimax-voices";
 
 export const interviewerBaseSchema = z.object({
   departmentId: z.string().trim().min(1, "请选择所属部门"),

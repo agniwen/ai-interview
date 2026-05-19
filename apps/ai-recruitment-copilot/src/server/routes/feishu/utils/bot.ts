@@ -1,6 +1,6 @@
 import { createPostgresState } from "@chat-adapter/state-pg";
-import { createFeishuAdapter } from "@repo/adapter-feishu";
-import type { CardToFeishuPayloadOptions } from "@repo/adapter-feishu";
+import { createFeishuAdapter } from "@arc/adapter-feishu";
+import type { CardToFeishuPayloadOptions } from "@arc/adapter-feishu";
 import { Chat } from "chat";
 import type { Adapter, AdapterPostableMessage, CardElement } from "chat";
 import { routeDM, routeGroupMention } from "./router";

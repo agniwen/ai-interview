@@ -2,7 +2,7 @@ import "server-only";
 
 import { asc, eq } from "drizzle-orm";
 import { db } from "@/lib/server/db";
-import { session as sessionTable } from "@/lib/shared/db/schema";
+import { session as sessionTable } from "@arc/db-schema/schema";
 import { factory } from "@/server/factory";
 
 const ACTIVE_ORG_COLUMNS = {

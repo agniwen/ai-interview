@@ -65,7 +65,7 @@ vi.mock("drizzle-orm", () => ({
 // Mock schema: expose camelCase column objects whose `.name` matches the
 // camelCase keys used in the in-memory row objects above.
 // Mock schema：列对象的 .name 与内存行中的 camelCase 键名一致。
-vi.mock("@/lib/shared/db/schema", () => ({
+vi.mock("@arc/db-schema/schema", () => ({
   chatAttachment: {
     contentHash: { name: "contentHash" },
     id: { name: "id" },

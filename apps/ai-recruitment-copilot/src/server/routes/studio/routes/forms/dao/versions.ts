@@ -1,7 +1,7 @@
 import type {
   CandidateFormTemplateSnapshot,
   CandidateFormTemplateVersionRecord,
-} from "@/lib/shared/candidate-forms";
+} from "@arc/db-schema/candidate-forms";
 import { and, asc, desc, eq } from "drizzle-orm";
 import { db } from "@/lib/server/db";
 import {
@@ -9,8 +9,8 @@ import {
   candidateFormTemplateJobDescription,
   candidateFormTemplateQuestion,
   candidateFormTemplateVersion,
-} from "@/lib/shared/db/schema";
-import { buildTemplateSnapshot } from "@/lib/shared/candidate-forms";
+} from "@arc/db-schema/schema";
+import { buildTemplateSnapshot } from "@arc/db-schema/candidate-forms";
 import { hashTemplateSnapshot } from "@/lib/server/candidate-forms-hash";
 import { mapQuestionRow, serializeDate } from "./queries";
 

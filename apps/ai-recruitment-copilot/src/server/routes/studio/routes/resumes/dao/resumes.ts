@@ -8,7 +8,7 @@ import {
   studioInterview,
   studioInterviewSchedule,
   user,
-} from "@/lib/shared/db/schema";
+} from "@arc/db-schema/schema";
 import type {
   PaginatedResumeLibraryResult,
   ResumeLibraryDetail,

@@ -7,7 +7,7 @@ import {
   interviewer,
   jobDescription,
   jobDescriptionInterviewer,
-} from "@/lib/shared/db/schema";
+} from "@arc/db-schema/schema";
 import {
   jobDescriptionFormSchema,
   jobDescriptionUpdateSchema,

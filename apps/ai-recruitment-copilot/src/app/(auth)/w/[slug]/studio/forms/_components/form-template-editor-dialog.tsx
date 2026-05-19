@@ -7,7 +7,7 @@ import type {
   CandidateFormScope,
   CandidateFormTemplateInput,
   CandidateFormTemplateRecord,
-} from "@/lib/shared/candidate-forms";
+} from "@arc/db-schema/candidate-forms";
 import type { JobDescriptionListRecord } from "@/lib/shared/job-descriptions";
 import { rpc } from "@/lib/client/rpc";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
@@ -36,7 +36,7 @@ import {
   candidateFormTemplateSchema,
   DEFAULT_DISPLAY_MODE,
   DISPLAY_MODES_BY_TYPE,
-} from "@/lib/shared/candidate-forms";
+} from "@arc/db-schema/candidate-forms";
 import { useSortableItemIds } from "@/hooks/use-sortable-item-ids";
 import { hasFieldErrors, toFieldErrors } from "../../interviews/_components/interview-form";
 

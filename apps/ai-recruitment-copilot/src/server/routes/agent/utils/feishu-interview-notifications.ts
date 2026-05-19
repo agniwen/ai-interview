@@ -5,7 +5,7 @@ import {
   interviewNotification,
   organization,
   studioInterview,
-} from "@/lib/shared/db/schema";
+} from "@arc/db-schema/schema";
 import { db } from "@/lib/server/db";
 import { FEISHU_PROVIDER_IDS, postFeishuDirectCard } from "@/server/routes/feishu/utils/bot";
 import type { FeishuProviderId } from "@/server/routes/feishu/utils/bot";

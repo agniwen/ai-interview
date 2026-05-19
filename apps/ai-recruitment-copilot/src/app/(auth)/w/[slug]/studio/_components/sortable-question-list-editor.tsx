@@ -14,8 +14,8 @@ import { SortableDragHandle, SortableItem, SortableList } from "@/components/ui/
 import { Textarea } from "@/components/ui/textarea";
 import { TextareaCounter } from "@/components/ui/textarea-counter";
 import { useSortableItemIds } from "@/hooks/use-sortable-item-ids";
-import { INTERVIEW_QUESTION_DIFFICULTY_OPTIONS } from "@/lib/shared/interview-question-templates";
-import type { InterviewQuestionTemplateDifficulty } from "@/lib/shared/interview-question-templates";
+import { INTERVIEW_QUESTION_DIFFICULTY_OPTIONS } from "@arc/db-schema/interview-question-templates";
+import type { InterviewQuestionTemplateDifficulty } from "@arc/db-schema/interview-question-templates";
 import { hasFieldErrors, toFieldErrors } from "../interviews/_components/interview-form";
 
 const DIFFICULTY_PILL: Record<InterviewQuestionTemplateDifficulty, string> = {

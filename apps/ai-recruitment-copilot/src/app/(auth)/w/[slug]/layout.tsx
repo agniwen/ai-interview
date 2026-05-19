@@ -4,7 +4,7 @@ import { notFound, redirect } from "next/navigation";
 import { db } from "@/lib/server/db";
 import { auth } from "@/lib/server/auth";
 import { getCurrentOrganizations, getCurrentSession } from "@/lib/server/auth-session";
-import { user as userTable } from "@/lib/shared/db/schema";
+import { user as userTable } from "@arc/db-schema/schema";
 import { WorkspaceSlugProvider } from "@/lib/client/workspace-context";
 import { AppSidebarShell } from "@/components/app-sidebar/app-sidebar-shell";
 

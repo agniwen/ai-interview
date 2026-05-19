@@ -6,7 +6,7 @@
  * Focus: shape of session snapshots, transcript turns, and reports — no runtime logic.
  */
 
-import type { InterviewMessageRole, InterviewRecordingStatus } from "@/lib/shared/db-enums";
+import type { InterviewMessageRole, InterviewRecordingStatus } from "./db-enums";
 
 /**
  * 实时对话中收到的一轮 transcript（来自 Agent webhook / 流）。

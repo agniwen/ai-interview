@@ -7,7 +7,7 @@ import {
   interviewConversationTurn,
   studioInterview,
   studioInterviewSchedule,
-} from "@/lib/shared/db/schema";
+} from "@arc/db-schema/schema";
 import { factory } from "@/server/factory";
 import { safeUpdateTag } from "@/server/cache-tags";
 import { retryFailedInterviewSummaryNotifications } from "@/server/routes/agent/utils/feishu-interview-notifications";

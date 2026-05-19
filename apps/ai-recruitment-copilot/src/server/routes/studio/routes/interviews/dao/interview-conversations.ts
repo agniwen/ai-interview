@@ -1,8 +1,8 @@
-import type { StudioInterviewConversationReport } from "@/lib/shared/interview-session";
+import type { StudioInterviewConversationReport } from "@arc/db-schema/interview-session";
 import { asc, desc, eq, inArray } from "drizzle-orm";
 import { cacheLife, cacheTag } from "next/cache";
 import { db } from "@/lib/server/db";
-import { interviewConversation, interviewConversationTurn } from "@/lib/shared/db/schema";
+import { interviewConversation, interviewConversationTurn } from "@arc/db-schema/schema";
 
 type InterviewConversationRow = typeof interviewConversation.$inferSelect;
 type InterviewConversationTurnRow = typeof interviewConversationTurn.$inferSelect;

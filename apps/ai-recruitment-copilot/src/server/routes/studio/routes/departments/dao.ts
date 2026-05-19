@@ -2,7 +2,7 @@ import type { DepartmentListRecord, DepartmentRecord } from "@/lib/shared/depart
 import { and, asc, count, desc, eq, ilike, inArray, or } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/server/db";
-import { department, interviewer, jobDescription } from "@/lib/shared/db/schema";
+import { department, interviewer, jobDescription } from "@arc/db-schema/schema";
 
 const departmentListFiltersSchema = z.object({
   search: z.string().trim().max(120).optional().nullable(),

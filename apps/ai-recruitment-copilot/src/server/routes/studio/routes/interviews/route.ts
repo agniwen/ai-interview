@@ -12,7 +12,7 @@ import {
   jobDescriptionInterviewer,
   studioInterview,
   studioInterviewSchedule,
-} from "@/lib/shared/db/schema";
+} from "@arc/db-schema/schema";
 import {
   buildAgentInstructions,
   resolveClosingPrompt,
@@ -24,7 +24,7 @@ import {
   scheduleEntryStatusSchema,
   studioInterviewFormSchema,
   toNullableString,
-} from "@/lib/shared/studio-interviews";
+} from "@arc/db-schema/studio-interviews";
 import {
   analyzeResumeFile,
   generateInterviewQuestionsForProfile,

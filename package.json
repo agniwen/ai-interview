@@ -11,9 +11,9 @@
     "check": "ultracite check",
     "fix": "ultracite fix",
     "hooks": "lefthook install",
-    "db:generate": "pnpm --filter ai-recruitment-copilot db:generate",
-    "db:migrate": "pnpm --filter ai-recruitment-copilot db:migrate",
-    "db:studio": "pnpm --filter ai-recruitment-copilot db:studio"
+    "db:generate": "pnpm --filter @arc/ai-recruitment-copilot db:generate",
+    "db:migrate": "pnpm --filter @arc/ai-recruitment-copilot db:migrate",
+    "db:studio": "pnpm --filter @arc/ai-recruitment-copilot db:studio"
   },
   "devDependencies": {
     "lefthook": "^2.1.6",

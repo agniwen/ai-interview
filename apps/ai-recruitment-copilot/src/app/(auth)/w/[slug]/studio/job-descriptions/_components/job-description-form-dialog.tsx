@@ -1,9 +1,9 @@
 "use client";
 
-import type { CandidateFormTemplateListRecord } from "@/lib/shared/candidate-forms";
+import type { CandidateFormTemplateListRecord } from "@arc/db-schema/candidate-forms";
 import type { DepartmentRecord } from "@/lib/shared/departments";
 import type { InterviewerListRecord } from "@/lib/shared/interviewers";
-import type { InterviewQuestionTemplateListRecord } from "@/lib/shared/interview-question-templates";
+import type { InterviewQuestionTemplateListRecord } from "@arc/db-schema/interview-question-templates";
 import { jobDescriptionFormSchema } from "@/lib/shared/job-descriptions";
 import type { JobDescriptionFormValues, JobDescriptionRecord } from "@/lib/shared/job-descriptions";
 import { rpc } from "@/lib/client/rpc";

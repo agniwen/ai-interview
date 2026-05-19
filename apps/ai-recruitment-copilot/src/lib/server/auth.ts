@@ -10,7 +10,7 @@ import { and, eq } from "drizzle-orm";
 import { headers as nextHeaders } from "next/headers";
 import { ac, roles } from "@/lib/shared/permissions";
 import { db } from "./db";
-import * as schema from "@/lib/shared/db/schema";
+import * as schema from "@arc/db-schema/schema";
 
 // admin 调整成员角色时允许的目标角色（hr 招聘成员 / viewer 只读成员）。
 // 真正禁止 admin 改 admin / owner / 自己的逻辑在下方 beforeUpdateMemberRole hook 中执行。

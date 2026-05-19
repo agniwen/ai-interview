@@ -2,7 +2,7 @@
 /** @jsxImportSource chat */
 // 中文：面试报告通知卡片。header 颜色由 recommendation 决定（绿/黄/红/灰）
 // English: interview summary notification card; header color reflects recommendation
-import type { FeishuHeaderTemplate } from "@repo/adapter-feishu";
+import type { FeishuHeaderTemplate } from "@arc/adapter-feishu";
 import { Card, CardText, Divider, Field, Fields, Section } from "chat";
 
 export interface InterviewSummaryCardProps {

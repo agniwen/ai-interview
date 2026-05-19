@@ -15,7 +15,7 @@ import {
   resumeUploadBatchItem,
   studioInterview,
   user,
-} from "@/lib/shared/db/schema";
+} from "@arc/db-schema/schema";
 import { insertBatchWithItems } from "@/server/routes/studio/routes/resume-upload-batches/dao/batches";
 import { processNextItem } from "@/server/routes/studio/routes/resume-upload-batches/utils/processor";
 

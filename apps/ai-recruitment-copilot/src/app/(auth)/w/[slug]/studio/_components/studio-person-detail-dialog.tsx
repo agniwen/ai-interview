@@ -57,7 +57,7 @@ import { Modal } from "@/components/ui/modal";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { copyTextToClipboard, toAbsoluteUrl } from "@/lib/client/clipboard";
-import { scheduleEntryStatusMeta } from "@/lib/shared/studio-interviews";
+import { scheduleEntryStatusMeta } from "@arc/db-schema/studio-interviews";
 import { AgentInstructionsPanel } from "../interviews/_components/agent-instructions-panel";
 import { InterviewLinkQrButton } from "../interviews/_components/interview-link-qr-button";
 import { ConversationTranscript } from "../interviews/_components/interview-detail/conversation-transcript";

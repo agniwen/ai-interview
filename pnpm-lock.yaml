@@ -35,6 +35,12 @@ importers:
       '@ai-sdk/react':
         specifier: ^3.0.179
         version: 3.0.179(react@19.2.3)(zod@4.4.3)
+      '@arc/adapter-feishu':
+        specifier: workspace:*
+        version: link:../../packages/adapter-feishu
+      '@arc/db-schema':
+        specifier: workspace:*
+        version: link:../../packages/db-schema
       '@aws-sdk/client-s3':
         specifier: ^3.1045.0
         version: 3.1045.0
@@ -74,9 +80,6 @@ importers:
       '@radix-ui/react-use-controllable-state':
         specifier: ^1.2.2
         version: 1.2.2(@types/react@19.2.14)(react@19.2.3)
-      '@repo/adapter-feishu':
-        specifier: workspace:*
-        version: link:../../packages/adapter-feishu
       '@streamdown/cjk':
         specifier: ^1.0.3
         version: 1.0.3(@types/mdast@4.0.4)(micromark-util-types@2.0.2)(micromark@4.0.2)(react@19.2.3)(unified@11.0.5)
@@ -340,6 +343,22 @@ importers:
       vitest:
         specifier: ^2.1.8
         version: 2.1.9(@types/node@22.19.17)(lightningcss@1.32.0)
+
+  packages/db-schema:
+    dependencies:
+      ai:
+        specifier: ^6.0.177
+        version: 6.0.177(zod@4.4.3)
+      drizzle-orm:
+        specifier: 1.0.0-rc.1
+        version: 1.0.0-rc.1(@opentelemetry/api@1.9.0)(@types/pg@8.20.0)(pg@8.20.0)(postgres@3.4.9)(zod@4.4.3)
+      zod:
+        specifier: ^4.4.3
+        version: 4.4.3
+    devDependencies:
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
 
 packages:
 

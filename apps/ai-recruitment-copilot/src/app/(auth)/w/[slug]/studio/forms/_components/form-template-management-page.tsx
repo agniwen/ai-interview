@@ -7,7 +7,7 @@ import type {
   CandidateFormScope,
   CandidateFormTemplateListRecord,
   CandidateFormTemplateRecord,
-} from "@/lib/shared/candidate-forms";
+} from "@arc/db-schema/candidate-forms";
 import type { JobDescriptionListRecord } from "@/lib/shared/job-descriptions";
 import type { PaginatedCandidateFormTemplateResult } from "@/server/routes/studio/routes/forms/dao/queries";
 import { useQueryClient } from "@tanstack/react-query";

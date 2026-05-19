@@ -2,9 +2,9 @@ import "server-only";
 
 import { and, count, eq, exists, gte, ne, sql } from "drizzle-orm";
 import { db } from "@/lib/server/db";
-import { studioInterview, studioInterviewSchedule } from "@/lib/shared/db/schema";
+import { studioInterview, studioInterviewSchedule } from "@arc/db-schema/schema";
 import type { ResumeLibraryMetrics } from "@/lib/shared/studio-resumes";
-import type { StudioInterviewStatus } from "@/lib/shared/studio-interviews";
+import type { StudioInterviewStatus } from "@arc/db-schema/studio-interviews";
 
 // 近 N 天的窗口宽度，与 UI 卡片标题保持一致。
 // Lookback window used by the 「近 N 天每日新增」 chart.

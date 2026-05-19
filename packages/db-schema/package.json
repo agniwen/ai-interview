@@ -1,0 +1,21 @@
+{
+  "name": "@arc/db-schema",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Shared Drizzle schema/relations and DB-adjacent shared types",
+  "type": "module",
+  "exports": {
+    "./*": "./src/*.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "ai": "^6.0.177",
+    "drizzle-orm": "1.0.0-rc.1",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3"
+  }
+}

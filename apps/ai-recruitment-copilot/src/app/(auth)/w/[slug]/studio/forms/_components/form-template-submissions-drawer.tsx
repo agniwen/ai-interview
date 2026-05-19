@@ -3,7 +3,7 @@
 import type {
   CandidateFormTemplateListRecord,
   CandidateFormTemplateSnapshot,
-} from "@/lib/shared/candidate-forms";
+} from "@arc/db-schema/candidate-forms";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { InboxIcon, Loader2Icon } from "lucide-react";
 import { useMemo } from "react";

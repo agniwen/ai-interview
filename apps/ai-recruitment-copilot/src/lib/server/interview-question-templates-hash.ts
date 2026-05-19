@@ -1,7 +1,7 @@
 import "server-only";
 
 import { createHash } from "node:crypto";
-import type { InterviewQuestionTemplateSnapshot } from "@/lib/shared/interview-question-templates";
+import type { InterviewQuestionTemplateSnapshot } from "@arc/db-schema/interview-question-templates";
 import { stableStringify } from "./stable-stringify";
 
 export function hashTemplateSnapshot(snapshot: InterviewQuestionTemplateSnapshot): string {

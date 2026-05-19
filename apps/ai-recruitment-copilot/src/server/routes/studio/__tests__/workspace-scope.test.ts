@@ -7,7 +7,7 @@
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { db } from "@/lib/server/db";
-import { department, member, organization, user } from "@/lib/shared/db/schema";
+import { department, member, organization, user } from "@arc/db-schema/schema";
 
 const TEST_ORG_A = "test_org_scope_a";
 const TEST_ORG_B = "test_org_scope_b";

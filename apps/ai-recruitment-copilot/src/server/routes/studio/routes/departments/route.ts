@@ -2,7 +2,7 @@ import { zValidator } from "@hono/zod-validator";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/server/db";
-import { department } from "@/lib/shared/db/schema";
+import { department } from "@arc/db-schema/schema";
 import { departmentFormSchema, departmentUpdateSchema } from "@/lib/shared/departments";
 import { factory, jsonValidatorError } from "@/server/factory";
 import { requirePermission } from "@/server/middlewares/permission";

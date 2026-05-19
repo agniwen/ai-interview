@@ -3,7 +3,7 @@ import "server-only";
 import { eq } from "drizzle-orm";
 import { revalidateTag } from "next/cache";
 import { db } from "@/lib/server/db";
-import { studioInterview } from "@/lib/shared/db/schema";
+import { studioInterview } from "@arc/db-schema/schema";
 
 /**
  * 当前阶段：org-scoped 业务 DAO 已经移除了 `"use cache"`（见 2026-05 commit

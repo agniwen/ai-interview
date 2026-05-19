@@ -1,8 +1,8 @@
 import "server-only";
 
 import { db } from "@/lib/server/db";
-import { studioInterview } from "@/lib/shared/db/schema";
-import type { InterviewQuestion, ResumeProfile } from "@/lib/shared/interview/types";
+import { studioInterview } from "@arc/db-schema/schema";
+import type { InterviewQuestion, ResumeProfile } from "@arc/db-schema/interview/types";
 
 export interface CreateResumeRecordFromStorageInput {
   candidateEmail: string | null;

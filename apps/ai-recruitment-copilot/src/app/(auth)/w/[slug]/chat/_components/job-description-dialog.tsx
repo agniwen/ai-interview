@@ -1,6 +1,6 @@
 "use client";
 
-import type { JobDescriptionConfig } from "@/lib/shared/job-description-config";
+import type { JobDescriptionConfig } from "@arc/db-schema/job-description-config";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";

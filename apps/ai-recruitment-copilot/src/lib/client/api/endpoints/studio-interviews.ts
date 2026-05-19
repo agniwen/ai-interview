@@ -15,15 +15,15 @@ import "client-only";
  * fetch+FormData inside their dialog components.
  */
 
-import type { CandidateFormSubmissionWithSnapshot } from "@/lib/shared/candidate-forms";
-import type { StudioInterviewConversationReport } from "@/lib/shared/interview-session";
+import type { CandidateFormSubmissionWithSnapshot } from "@arc/db-schema/candidate-forms";
+import type { StudioInterviewConversationReport } from "@arc/db-schema/interview-session";
 import type {
   PaginatedStudioInterviewRoundsResult,
   StudioInterviewRoundDetail,
 } from "@/lib/shared/studio-interview-rounds";
 // DedupMatchRecord 依赖 StudioInterviewStatus。
 // DedupMatchRecord depends on StudioInterviewStatus.
-import type { ScheduleEntryStatus, StudioInterviewStatus } from "@/lib/shared/studio-interviews";
+import type { ScheduleEntryStatus, StudioInterviewStatus } from "@arc/db-schema/studio-interviews";
 import { rpc } from "@/lib/client/rpc";
 import { rpcFetch } from "../rpc-fetch";
 

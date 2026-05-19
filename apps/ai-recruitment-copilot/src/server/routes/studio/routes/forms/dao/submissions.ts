@@ -2,14 +2,14 @@ import type {
   CandidateFormSubmissionRecord,
   CandidateFormSubmissionWithSnapshot,
   CandidateFormTemplateSnapshot,
-} from "@/lib/shared/candidate-forms";
+} from "@arc/db-schema/candidate-forms";
 import { and, asc, count, desc, eq, inArray } from "drizzle-orm";
 import { db } from "@/lib/server/db";
 import {
   candidateFormSubmission,
   candidateFormTemplateVersion,
   studioInterview,
-} from "@/lib/shared/db/schema";
+} from "@arc/db-schema/schema";
 import { serializeDate } from "./queries";
 
 // 默认 / 上限的页大小。Drawer 一次加载 20 条已经够；100 是 hard cap，给 API

@@ -4,7 +4,7 @@ import type {
   InterviewQuestionTemplateInput,
   InterviewQuestionTemplateRecord,
   InterviewQuestionTemplateScope,
-} from "@/lib/shared/interview-question-templates";
+} from "@arc/db-schema/interview-question-templates";
 import type { JobDescriptionListRecord } from "@/lib/shared/job-descriptions";
 import { rpc } from "@/lib/client/rpc";
 import { useForm, useStore } from "@tanstack/react-form";
@@ -25,7 +25,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { TextareaCounter } from "@/components/ui/textarea-counter";
-import { interviewQuestionTemplateSchema } from "@/lib/shared/interview-question-templates";
+import { interviewQuestionTemplateSchema } from "@arc/db-schema/interview-question-templates";
 import { hasFieldErrors, toFieldErrors } from "../../interviews/_components/interview-form";
 import { SortableQuestionListEditor } from "../../_components/sortable-question-list-editor";
 

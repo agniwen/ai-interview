@@ -1,4 +1,4 @@
-import type { ResumeProfile } from "@/lib/shared/interview/types";
+import type { ResumeProfile } from "@arc/db-schema/interview/types";
 
 interface ResumeProfileViewProps {
   profile: ResumeProfile | null;

@@ -17,7 +17,7 @@ const nextConfig: NextConfig = {
   outputFileTracingRoot: path.join(import.meta.dirname, "../.."),
   reactCompiler: true,
   serverExternalPackages: ["@napi-rs/canvas", "pdf-parse"],
-  transpilePackages: ["@repo/adapter-feishu"],
+  transpilePackages: ["@arc/adapter-feishu", "@arc/db-schema"],
 };
 
 export default nextConfig;

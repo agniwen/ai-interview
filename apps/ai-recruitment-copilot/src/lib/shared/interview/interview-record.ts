@@ -1,6 +1,6 @@
-import type { InterviewQuestion, ResumeProfile } from "@/lib/shared/interview/types";
-import type { ScheduleEntryStatus } from "@/lib/shared/studio-interviews";
-import { RECONNECT_GRACE_MS } from "@/lib/shared/studio-interviews";
+import type { InterviewQuestion, ResumeProfile } from "@arc/db-schema/interview/types";
+import type { ScheduleEntryStatus } from "@arc/db-schema/studio-interviews";
+import { RECONNECT_GRACE_MS } from "@arc/db-schema/studio-interviews";
 
 /**
  * 单轮面试安排记录（来自数据库 schedule_entries 表的视图）。

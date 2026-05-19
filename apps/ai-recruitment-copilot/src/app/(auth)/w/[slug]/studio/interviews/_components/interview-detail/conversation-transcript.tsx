@@ -1,6 +1,6 @@
 "use client";
 
-import type { PersistedInterviewTurn } from "@/lib/shared/interview-session";
+import type { PersistedInterviewTurn } from "@arc/db-schema/interview-session";
 import { MessageSquareTextIcon } from "lucide-react";
 import {
   Conversation,

@@ -10,7 +10,7 @@ import "client-only";
  * convention as studio-interviews.
  */
 
-import type { InterviewQuestion } from "@/lib/shared/interview/types";
+import type { InterviewQuestion } from "@arc/db-schema/interview/types";
 import type {
   StudioInterviewRoundDetail,
   StudioInterviewRoundListRecord,

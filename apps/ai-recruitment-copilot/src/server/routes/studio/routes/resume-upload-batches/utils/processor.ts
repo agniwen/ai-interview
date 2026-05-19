@@ -2,7 +2,7 @@ import "server-only";
 
 import { and, eq } from "drizzle-orm";
 import { db } from "@/lib/server/db";
-import { resumeUploadBatch, resumeUploadBatchItem } from "@/lib/shared/db/schema";
+import { resumeUploadBatch, resumeUploadBatchItem } from "@arc/db-schema/schema";
 import type { ProcessNextResult } from "@/lib/shared/bulk-resume-upload";
 import { getObjectStream } from "@/lib/server/s3";
 import { parseResumeFastToProfile } from "@/server/agents/resume-analysis-agent";

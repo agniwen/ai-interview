@@ -1,5 +1,5 @@
 import type { ModelMessage, UIMessage } from "ai";
-import type { ResumeParserStructured } from "@/lib/shared/resume-parser-schema";
+import type { ResumeParserStructured } from "@arc/db-schema/resume-parser-schema";
 
 /**
  * 已经在 message 里 baked 的简历解析结果。

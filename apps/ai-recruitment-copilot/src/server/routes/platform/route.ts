@@ -4,7 +4,7 @@ import { zValidator } from "@hono/zod-validator";
 import { factory, jsonValidatorError } from "@/server/factory";
 import { adminMiddleware } from "@/server/middlewares/admin";
 import { db } from "@/lib/server/db";
-import { organization, member, user } from "@/lib/shared/db/schema";
+import { organization, member, user } from "@arc/db-schema/schema";
 
 // --- Organizations list ---
 const orgQuerySchema = z.object({

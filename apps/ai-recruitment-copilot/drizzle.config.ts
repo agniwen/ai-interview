@@ -25,7 +25,7 @@ export default {
     table: "__drizzle_migrations",
   },
   out: "./drizzle",
-  schema: "./src/lib/shared/db/schema.ts",
+  schema: "../../packages/db-schema/src/schema.ts",
   // 仅扫描 public schema：库里另有 drizzle.__drizzle_migrations 与历史的
   // graphile_worker / workflow（已删除）等外部 schema，不归 drizzle 管。
   // 跳过它们避免误判 drift。

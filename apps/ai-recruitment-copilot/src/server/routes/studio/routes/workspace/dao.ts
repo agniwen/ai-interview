@@ -2,7 +2,7 @@ import "server-only";
 
 import { desc, eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/lib/server/db";
-import { member, session, user } from "@/lib/shared/db/schema";
+import { member, session, user } from "@arc/db-schema/schema";
 
 export interface MemberLastActiveRow {
   userId: string;

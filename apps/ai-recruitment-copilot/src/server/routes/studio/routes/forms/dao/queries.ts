@@ -4,7 +4,7 @@ import type {
   CandidateFormTemplateQuestionRecord,
   CandidateFormTemplateRecord,
   JobDescriptionRef,
-} from "@/lib/shared/candidate-forms";
+} from "@arc/db-schema/candidate-forms";
 import type { SQL } from "drizzle-orm";
 import {
   and,
@@ -28,7 +28,7 @@ import {
   candidateFormTemplateQuestion,
   jobDescription,
   studioInterview,
-} from "@/lib/shared/db/schema";
+} from "@arc/db-schema/schema";
 
 // =====================================================================
 // Pagination + filters

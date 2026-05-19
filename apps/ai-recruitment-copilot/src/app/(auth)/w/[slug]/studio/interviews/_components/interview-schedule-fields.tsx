@@ -1,7 +1,7 @@
 "use client";
 
 import type { InterviewFormApi } from "./interview-form";
-import type { ScheduleEntryStatus } from "@/lib/shared/studio-interviews";
+import type { ScheduleEntryStatus } from "@arc/db-schema/studio-interviews";
 import { CalendarDaysIcon, LockIcon, PlusIcon, RotateCcwIcon, Trash2Icon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -18,7 +18,7 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { TextareaCounter } from "@/components/ui/textarea-counter";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { scheduleEntryStatusMeta } from "@/lib/shared/studio-interviews";
+import { scheduleEntryStatusMeta } from "@arc/db-schema/studio-interviews";
 import { hasFieldErrors, toFieldErrors } from "./interview-form";
 
 const ROUND_LABEL_MAX_LENGTH = 100;

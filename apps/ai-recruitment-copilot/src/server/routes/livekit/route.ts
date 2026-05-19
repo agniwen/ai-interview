@@ -1,9 +1,9 @@
 import { EgressStatus } from "@livekit/protocol";
 import { eq } from "drizzle-orm";
 import { WebhookReceiver } from "livekit-server-sdk";
-import type { InterviewRecordingStatus } from "@/lib/shared/db-enums";
+import type { InterviewRecordingStatus } from "@arc/db-schema/db-enums";
 import { db } from "@/lib/server/db";
-import { interviewConversation } from "@/lib/shared/db/schema";
+import { interviewConversation } from "@arc/db-schema/schema";
 import { factory } from "@/server/factory";
 import { safeUpdateTag } from "@/server/cache-tags";
 

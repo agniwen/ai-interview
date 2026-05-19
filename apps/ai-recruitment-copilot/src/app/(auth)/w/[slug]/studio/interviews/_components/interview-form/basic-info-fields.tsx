@@ -14,7 +14,7 @@ import { TextareaCounter } from "@/components/ui/textarea-counter";
 import {
   studioInterviewStatusMeta,
   studioInterviewStatusValues,
-} from "@/lib/shared/studio-interviews";
+} from "@arc/db-schema/studio-interviews";
 import { JobDescriptionSelectField } from "../job-description-select-field";
 import { hasFieldErrors, toFieldErrors } from "./index";
 import type { InterviewFormApi } from "./index";

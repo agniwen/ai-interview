@@ -29,7 +29,7 @@ COPY pnpm-lock.yaml pnpm-workspace.yaml package.json turbo.json tsconfig.base.js
 COPY apps/ai-recruitment-copilot ./apps/ai-recruitment-copilot
 
 ENV NEXT_TELEMETRY_DISABLED=1
-RUN pnpm --filter ai-recruitment-copilot build
+RUN pnpm --filter @arc/ai-recruitment-copilot build
 
 # --- Production ---
 FROM base AS runner

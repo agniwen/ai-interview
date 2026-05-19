@@ -10,8 +10,8 @@
  * otherwise the preview shown in the UI will differ from what the agent actually receives.
  */
 
-import type { InterviewQuestion, ResumeProfile } from "@/lib/shared/interview/types";
-import type { InterviewQuestionTemplateDifficulty } from "@/lib/shared/interview-question-templates";
+import type { InterviewQuestion, ResumeProfile } from "@arc/db-schema/interview/types";
+import type { InterviewQuestionTemplateDifficulty } from "@arc/db-schema/interview-question-templates";
 
 export interface AgentInstructionPresetQuestion {
   content: string;

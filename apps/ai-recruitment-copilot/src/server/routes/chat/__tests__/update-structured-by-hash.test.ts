@@ -1,7 +1,7 @@
 // updateStructuredByHash 单测 —— 覆盖回填、跨行扩散、幂等、hash 隔离 4 个场景。
 // Unit tests for updateStructuredByHash — backfill, multi-row spread, idempotency, hash isolation.
 
-import type { ResumeParserStructured } from "@/lib/shared/resume-parser-schema";
+import type { ResumeParserStructured } from "@arc/db-schema/resume-parser-schema";
 import { updateStructuredByHash } from "@/server/routes/chat/dao/chat-attachments";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -55,7 +55,7 @@ vi.mock("drizzle-orm", () => ({
   }),
 }));
 
-vi.mock("@/lib/shared/db/schema", () => ({
+vi.mock("@arc/db-schema/schema", () => ({
   chatAttachment: {
     contentHash: { name: "contentHash" },
     parsedStructured: { name: "parsedStructured" },

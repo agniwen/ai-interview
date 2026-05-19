@@ -1,7 +1,7 @@
 import { zValidator } from "@hono/zod-validator";
 import { parseResumeOcrOnly } from "@/lib/server/resume-parse-pipeline";
 import { buildAttachmentKeyByHash, putObjectBytes } from "@/lib/server/s3";
-import type { AttachmentParseStatus, AttachmentTextSource } from "@/lib/shared/db-enums";
+import type { AttachmentParseStatus, AttachmentTextSource } from "@arc/db-schema/db-enums";
 import { sha256HexOfBytes } from "@/lib/shared/file-hash";
 import {
   createAttachment,

@@ -3,7 +3,7 @@
 import type {
   InterviewQuestionTemplateDifficulty,
   InterviewQuestionTemplateRecord,
-} from "@/lib/shared/interview-question-templates";
+} from "@arc/db-schema/interview-question-templates";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ListChecksIcon } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";

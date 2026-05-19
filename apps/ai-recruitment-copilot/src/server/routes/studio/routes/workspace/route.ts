@@ -1,7 +1,7 @@
 import { zValidator } from "@hono/zod-validator";
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/server/db";
-import { organization } from "@/lib/shared/db/schema";
+import { organization } from "@arc/db-schema/schema";
 import { factory, jsonValidatorError } from "@/server/factory";
 import { requirePermission } from "@/server/middlewares/permission";
 import { listWorkspaceMemberLastActives } from "./dao";

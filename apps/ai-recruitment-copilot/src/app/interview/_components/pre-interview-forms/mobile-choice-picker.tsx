@@ -9,7 +9,7 @@
  * multi share the same interaction.
  */
 
-import type { CandidateFormTemplateSnapshot } from "@/lib/shared/candidate-forms";
+import type { CandidateFormTemplateSnapshot } from "@arc/db-schema/candidate-forms";
 import { CheckIcon, ChevronDownIcon } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";

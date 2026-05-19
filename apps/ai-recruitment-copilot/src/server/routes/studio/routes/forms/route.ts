@@ -6,8 +6,8 @@ import {
   candidateFormTemplate,
   candidateFormTemplateJobDescription,
   candidateFormTemplateQuestion,
-} from "@/lib/shared/db/schema";
-import { candidateFormTemplateSchema } from "@/lib/shared/candidate-forms";
+} from "@arc/db-schema/schema";
+import { candidateFormTemplateSchema } from "@arc/db-schema/candidate-forms";
 import { factory, jsonValidatorError } from "@/server/factory";
 import { requirePermission } from "@/server/middlewares/permission";
 import {

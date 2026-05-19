@@ -2,8 +2,8 @@ import "server-only";
 
 import { and, asc, desc, eq, inArray, lt, sql } from "drizzle-orm";
 import { db } from "@/lib/server/db";
-import { resumeUploadBatch, resumeUploadBatchItem } from "@/lib/shared/db/schema";
-import type { ResumeUploadBatchItemStatus, ResumeUploadBatchStatus } from "@/lib/shared/db/schema";
+import { resumeUploadBatch, resumeUploadBatchItem } from "@arc/db-schema/schema";
+import type { ResumeUploadBatchItemStatus, ResumeUploadBatchStatus } from "@arc/db-schema/schema";
 import { ORPHAN_THRESHOLD_SECONDS } from "@/lib/shared/bulk-resume-upload";
 import type {
   BulkResumeBatchDetailDto,

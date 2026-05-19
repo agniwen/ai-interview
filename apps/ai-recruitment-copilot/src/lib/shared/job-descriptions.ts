@@ -1,4 +1,4 @@
-import type { MinimaxVoiceId } from "@/lib/shared/minimax-voices";
+import type { MinimaxVoiceId } from "@arc/db-schema/minimax-voices";
 import { z } from "zod";
 
 export const jobDescriptionBaseSchema = z.object({

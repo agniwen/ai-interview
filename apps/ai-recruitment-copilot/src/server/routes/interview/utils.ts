@@ -1,6 +1,6 @@
-import type { parseScheduleEntriesInput } from "@/lib/shared/studio-interviews";
+import type { parseScheduleEntriesInput } from "@arc/db-schema/studio-interviews";
 import type { StudioCandidateRecord } from "@/lib/shared/studio-candidates";
-import type { ResumeProfile } from "@/lib/shared/interview/types";
+import type { ResumeProfile } from "@arc/db-schema/interview/types";
 import { and, eq, inArray } from "drizzle-orm";
 import { db } from "@/lib/server/db";
 import {
@@ -9,7 +9,7 @@ import {
   jobDescriptionInterviewer,
   studioInterview,
   studioInterviewSchedule,
-} from "@/lib/shared/db/schema";
+} from "@arc/db-schema/schema";
 import {
   buildCandidateInterviewView,
   pickCurrentScheduleEntry,

@@ -1,4 +1,4 @@
-import type { ResumeProfile } from "@/lib/shared/interview/types";
+import type { ResumeProfile } from "@arc/db-schema/interview/types";
 
 export interface ParseResult {
   fileName: string;

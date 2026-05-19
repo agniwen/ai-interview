@@ -1,8 +1,8 @@
 import { and, desc, eq, or, sql } from "drizzle-orm";
 import type { StudioCandidateRecord } from "@/lib/shared/studio-candidates";
 import { db } from "@/lib/server/db";
-import { jobDescription, studioInterview, user } from "@/lib/shared/db/schema";
-import type { StudioInterviewStatus } from "@/lib/shared/studio-interviews";
+import { jobDescription, studioInterview, user } from "@arc/db-schema/schema";
+import type { StudioInterviewStatus } from "@arc/db-schema/studio-interviews";
 
 // ---------------------------------------------------------------------------
 // 身份维度查重：按姓名/邮箱/电话 OR 命中。

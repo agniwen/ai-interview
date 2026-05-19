@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { TextareaCounter } from "@/components/ui/textarea-counter";
-import { DEFAULT_MINIMAX_VOICE_ID, MINIMAX_VOICES } from "@/lib/shared/minimax-voices";
+import { DEFAULT_MINIMAX_VOICE_ID, MINIMAX_VOICES } from "@arc/db-schema/minimax-voices";
 import { EntityFormDialog } from "@/app/(auth)/w/[slug]/studio/_components/entity-form-dialog";
 import { useEntityForm } from "@/app/(auth)/w/[slug]/studio/_components/entity-form";
 import { hasFieldErrors, toFieldErrors } from "../../interviews/_components/interview-form";

@@ -4,7 +4,7 @@ import type {
   JobDescriptionMetrics,
   JobDescriptionRecord,
 } from "@/lib/shared/job-descriptions";
-import type { MinimaxVoiceId } from "@/lib/shared/minimax-voices";
+import type { MinimaxVoiceId } from "@arc/db-schema/minimax-voices";
 import { and, asc, count, desc, eq, ilike, inArray, notInArray, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/server/db";
@@ -15,7 +15,7 @@ import {
   jobDescriptionInterviewer,
   studioInterview,
   studioInterviewSchedule,
-} from "@/lib/shared/db/schema";
+} from "@arc/db-schema/schema";
 
 const jobDescriptionListFiltersSchema = z.object({
   departmentId: z.string().trim().max(120).optional().nullable(),

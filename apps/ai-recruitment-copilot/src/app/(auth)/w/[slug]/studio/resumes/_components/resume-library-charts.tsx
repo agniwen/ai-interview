@@ -17,8 +17,8 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/
 import type { ChartConfig } from "@/components/ui/chart";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import type { ResumeLibraryMetrics } from "@/lib/shared/studio-resumes";
-import { studioInterviewStatusMeta } from "@/lib/shared/studio-interviews";
-import type { StudioInterviewStatus } from "@/lib/shared/studio-interviews";
+import { studioInterviewStatusMeta } from "@arc/db-schema/studio-interviews";
+import type { StudioInterviewStatus } from "@arc/db-schema/studio-interviews";
 
 // "漏斗序"：从待开始 → 已完成。归档不进图。
 // Funnel order from pending → completed; archived stays out of the chart.

@@ -1,4 +1,4 @@
-import type { ResumeAnalysisResult } from "@/lib/shared/interview/types";
+import type { ResumeAnalysisResult } from "./interview/types";
 import { z } from "zod";
 
 export const studioInterviewStatusValues = [

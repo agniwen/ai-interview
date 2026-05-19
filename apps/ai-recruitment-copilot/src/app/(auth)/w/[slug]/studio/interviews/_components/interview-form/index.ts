@@ -6,7 +6,7 @@ import type { z } from "zod";
 import {
   createDefaultScheduleEntry,
   studioInterviewClientFormSchema,
-} from "@/lib/shared/studio-interviews";
+} from "@arc/db-schema/studio-interviews";
 
 export type InterviewFormValues = z.infer<typeof studioInterviewClientFormSchema>;
 export type InterviewFormApi = ReturnType<typeof useInterviewForm>;

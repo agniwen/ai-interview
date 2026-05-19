@@ -4,7 +4,7 @@ import type {
   InterviewQuestionTemplateRecord,
   InterviewQuestionTemplateScope,
   JobDescriptionRef,
-} from "@/lib/shared/interview-question-templates";
+} from "@arc/db-schema/interview-question-templates";
 import type { SQL } from "drizzle-orm";
 import {
   and,
@@ -27,7 +27,7 @@ import {
   interviewQuestionTemplateJobDescription,
   interviewQuestionTemplateQuestion,
   jobDescription,
-} from "@/lib/shared/db/schema";
+} from "@arc/db-schema/schema";
 
 // =====================================================================
 // Pagination + filters

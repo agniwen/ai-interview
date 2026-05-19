@@ -7,9 +7,9 @@
 // consumes them (see `injectParsedResumesIntoMessages` in screening.ts).
 
 import type { UIMessage } from "ai";
-import type { AttachmentTextSource } from "@/lib/shared/db-enums";
-import { structuredSchema } from "@/lib/shared/resume-parser-schema";
-import type { ResumeParserStructured } from "@/lib/shared/resume-parser-schema";
+import type { AttachmentTextSource } from "@arc/db-schema/db-enums";
+import { structuredSchema } from "@arc/db-schema/resume-parser-schema";
+import type { ResumeParserStructured } from "@arc/db-schema/resume-parser-schema";
 import { getUserAttachments } from "@/server/routes/chat/dao/chat-attachments";
 
 // 多租户改造后 URL 形如 /api/w/<slug>/chat/attachments/<id>；旧消息仍是

@@ -10,7 +10,7 @@ AI-powered voice interview/resume screening application. Chinese-first locale �
 
 - **Web app** (`apps/ai-recruitment-copilot/`): Next.js 16 + React 19, App Router, Hono API routes, Drizzle ORM + PostgreSQL, Better Auth, shadcn/ui + Tailwind CSS v4
 - **Voice agent** (`apps/livekit-agent/`): Python LiveKit Agents SDK with OpenAI / Google / ElevenLabs / Minimax plugins, Silero VAD, turn-detector
-- **Monorepo**: pnpm workspace + Turborepo at the root; shared packages in `packages/` (e.g. `@repo/adapter-feishu`)
+- **Monorepo**: pnpm workspace + Turborepo at the root; shared packages in `packages/` (`@arc/db-schema` — Drizzle schema/relations + DB-adjacent shared types; `@arc/adapter-feishu` — Feishu chat adapter). Workspace packages are scoped under `@arc/*`.
 
 Two separate package managers: **pnpm** for web, **uv** for Python agent. Do not mix them.
 
@@ -28,11 +28,11 @@ Two separate package managers: **pnpm** for web, **uv** for Python agent. Do not
 
 Either run via turbo from the root, or directly:
 
-- `pnpm --filter ai-recruitment-copilot dev` — Next.js dev server
-- `pnpm --filter ai-recruitment-copilot build` — production build
-- `pnpm --filter ai-recruitment-copilot typecheck`
-- `pnpm --filter ai-recruitment-copilot test` / `test:watch` — Vitest
-- `pnpm --filter ai-recruitment-copilot db:generate` / `db:migrate` / `db:studio`
+- `pnpm --filter @arc/ai-recruitment-copilot dev` — Next.js dev server
+- `pnpm --filter @arc/ai-recruitment-copilot build` — production build
+- `pnpm --filter @arc/ai-recruitment-copilot typecheck`
+- `pnpm --filter @arc/ai-recruitment-copilot test` / `test:watch` — Vitest
+- `pnpm --filter @arc/ai-recruitment-copilot db:generate` / `db:migrate` / `db:studio`
 
 ### Agent (from `apps/livekit-agent/`)
 
@@ -102,9 +102,9 @@ Use the official Hono `parseResponse` / `DetailedError` rather than rolling new 
 
 - **`@/lib/server/*`** — Node-only. DB client (`db/index.ts`), Better Auth (`auth.ts`), S3 (`s3.ts`), PDF rasterization, Qwen OCR, resume parsing pipeline, server-side hash helpers, anything reading server secrets. Each file starts with `import "server-only";`. Importing one of these from a Client Component fails the build.
 - **`@/lib/client/*`** — Browser-only. `rpc.ts`, `auth-client.ts`, `query-client.ts`, `clipboard.ts`, `ndjson-stream.ts`, the `api/` wrapper layer. Each file starts with `import "client-only";`.
-- **`@/lib/shared/*`** — Pure types, Zod schemas, and isomorphic utilities (no Node-/browser-only APIs). Examples: `candidate-forms.ts`, `studio-interviews.ts`, `interview/`, `utils/`, `data-url.ts`, `file-hash.ts` (Web Crypto), `interview-question-templates.ts`, and the **Drizzle schema/relations** (`db/schema.ts`, `db/relations.ts`). No directive — safe to import from either side.
+- **`@/lib/shared/*`** — Pure types, Zod schemas, and isomorphic utilities (no Node-/browser-only APIs). Examples: `interview/agent-instructions.ts`, `utils/`, `data-url.ts`, `file-hash.ts` (Web Crypto), `departments.ts`, `studio-resumes.ts`, etc. No directive — safe to import from either side.
 
-**Drizzle schema lives in shared, not server.** `@/lib/shared/db/schema.ts` and `@/lib/shared/db/relations.ts` are pure column/relation metadata — they don't connect to the DB, don't read env, and have no runtime side effects. They live in `shared/` (without `import "server-only";`) so `drizzle-kit` can load them from its CLI subprocess, which doesn't honor Next's `react-server` export condition and otherwise crashes on the server-only guard. The actual DB connection lives in `@/lib/server/db/index.ts` (which does start with `import "server-only";`) and imports `relations` from shared.
+**Drizzle schema lives in the `@arc/db-schema` workspace package**, not under `src/lib/`. The package exports `schema`, `relations`, and the DB-adjacent shared types (`candidate-forms`, `db-enums`, `interview-question-templates`, `interview-session`, `interview/types`, `job-description-config`, `minimax-voices`, `studio-interviews`, `resume-parser-schema`) — anything imported by `schema.ts`. They live in a separate package (without `import "server-only";`) so `drizzle-kit` can load `schema.ts` from its CLI subprocess, which doesn't honor Next's `react-server` export condition and otherwise crashes on the server-only guard. Import as `@arc/db-schema/schema`, `@arc/db-schema/relations`, `@arc/db-schema/candidate-forms`, etc. The actual DB connection lives in `@/lib/server/db/index.ts` (which does start with `import "server-only";`) and imports `relations` from the package. `drizzle.config.ts` points at `../../packages/db-schema/src/schema.ts`. The package is listed in `next.config.ts` `transpilePackages` so Next compiles its TS sources.
 
 When a module _mostly_ fits one bucket but has one server-only function (e.g. `hashTemplateSnapshot` using `node:crypto`), extract that function into a sibling `*-hash.ts` (or similar) under `@/lib/server/` and keep the rest in `@/lib/shared/`. Don't pull `node:*` imports into a shared file.
 

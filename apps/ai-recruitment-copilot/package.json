@@ -1,5 +1,5 @@
 {
-  "name": "ai-recruitment-copilot",
+  "name": "@arc/ai-recruitment-copilot",
   "version": "2.0.1",
   "private": true,
   "type": "module",
@@ -20,6 +20,8 @@
     "@ai-sdk/devtools": "^0.0.15",
     "@ai-sdk/openai-compatible": "^2.0.47",
     "@ai-sdk/react": "^3.0.179",
+    "@arc/adapter-feishu": "workspace:*",
+    "@arc/db-schema": "workspace:*",
     "@aws-sdk/client-s3": "^3.1045.0",
     "@aws-sdk/s3-request-presigner": "^3.1045.0",
     "@base-ui/react": "^1.4.1",
@@ -33,7 +35,6 @@
     "@livekit/components-react": "^2.9.21",
     "@livekit/protocol": "^1.45.8",
     "@radix-ui/react-use-controllable-state": "^1.2.2",
-    "@repo/adapter-feishu": "workspace:*",
     "@streamdown/cjk": "^1.0.3",
     "@streamdown/code": "^1.1.1",
     "@streamdown/math": "^1.0.2",

@@ -11,7 +11,7 @@ import {
   resumeUploadBatch,
   resumeUploadBatchItem,
   user,
-} from "@/lib/shared/db/schema";
+} from "@arc/db-schema/schema";
 import {
   cancelBatch,
   claimNextPendingItem,

@@ -20,7 +20,7 @@ import type {
   InterviewQuestion,
   ResumeAnalysisResult,
   ResumeProfile,
-} from "@/lib/shared/interview/types";
+} from "@arc/db-schema/interview/types";
 import { useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
 

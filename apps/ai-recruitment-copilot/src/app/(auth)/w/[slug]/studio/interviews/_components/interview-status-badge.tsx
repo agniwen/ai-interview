@@ -1,5 +1,5 @@
 import { Badge } from "@/components/ui/badge";
-import { studioInterviewStatusMeta } from "@/lib/shared/studio-interviews";
+import { studioInterviewStatusMeta } from "@arc/db-schema/studio-interviews";
 
 export function InterviewStatusBadge({
   status,

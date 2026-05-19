@@ -1,4 +1,4 @@
-import type { CandidateFormSubmissionWithSnapshot } from "@/lib/shared/candidate-forms";
+import type { CandidateFormSubmissionWithSnapshot } from "@arc/db-schema/candidate-forms";
 import { RotateCcwIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";

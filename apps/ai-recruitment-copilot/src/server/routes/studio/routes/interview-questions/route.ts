@@ -6,8 +6,8 @@ import {
   interviewQuestionTemplate,
   interviewQuestionTemplateJobDescription,
   interviewQuestionTemplateQuestion,
-} from "@/lib/shared/db/schema";
-import { interviewQuestionTemplateSchema } from "@/lib/shared/interview-question-templates";
+} from "@arc/db-schema/schema";
+import { interviewQuestionTemplateSchema } from "@arc/db-schema/interview-question-templates";
 import { factory, jsonValidatorError } from "@/server/factory";
 import { requirePermission } from "@/server/middlewares/permission";
 import {

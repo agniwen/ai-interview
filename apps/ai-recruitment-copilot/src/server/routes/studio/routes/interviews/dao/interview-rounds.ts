@@ -14,10 +14,10 @@ import {
   studioInterview,
   studioInterviewSchedule,
   user,
-} from "@/lib/shared/db/schema";
+} from "@arc/db-schema/schema";
 import { buildInterviewLink } from "@/lib/shared/interview/interview-record";
-import { scheduleEntryStatusSchema } from "@/lib/shared/studio-interviews";
-import type { ScheduleEntryStatus } from "@/lib/shared/studio-interviews";
+import { scheduleEntryStatusSchema } from "@arc/db-schema/studio-interviews";
+import type { ScheduleEntryStatus } from "@arc/db-schema/studio-interviews";
 import type {
   PaginatedStudioInterviewRoundsResult,
   StudioInterviewRoundDetail,

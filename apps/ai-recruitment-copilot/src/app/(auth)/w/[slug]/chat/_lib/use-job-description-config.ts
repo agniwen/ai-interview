@@ -15,8 +15,8 @@ import { useCallback, useState } from "react";
 import {
   deriveJobDescriptionText,
   getJobDescriptionLabel,
-} from "@/lib/shared/job-description-config";
-import type { JobDescriptionConfig } from "@/lib/shared/job-description-config";
+} from "@arc/db-schema/job-description-config";
+import type { JobDescriptionConfig } from "@arc/db-schema/job-description-config";
 
 export interface UseJobDescriptionConfigResult {
   config: JobDescriptionConfig | null;

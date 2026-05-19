@@ -6,8 +6,8 @@ import { AnimatedHeight } from "@/components/animated-height";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import type { ResumeParserStructured } from "@/lib/shared/resume-parser-schema";
-import type { AttachmentTextSource } from "@/lib/shared/db-enums";
+import type { ResumeParserStructured } from "@arc/db-schema/resume-parser-schema";
+import type { AttachmentTextSource } from "@arc/db-schema/db-enums";
 import { cn } from "@/lib/shared/utils";
 
 export interface ParsedResumeButtonProps {

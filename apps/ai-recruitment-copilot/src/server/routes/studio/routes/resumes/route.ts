@@ -4,7 +4,7 @@ import { and, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/server/db";
 import { getObjectStream } from "@/lib/server/s3";
-import { studioInterview, studioInterviewSchedule } from "@/lib/shared/db/schema";
+import { studioInterview, studioInterviewSchedule } from "@arc/db-schema/schema";
 import { resumeLibraryFormSchema } from "@/lib/shared/studio-resumes";
 import { invalidateStudioInterviewCaches } from "@/server/cache-tags";
 import { removeImportedInterviewFromConversations } from "@/server/routes/chat/dao/chat";
@@ -21,7 +21,7 @@ import {
 import {
   createDefaultScheduleEntry,
   parseResumePayloadInput,
-} from "@/lib/shared/studio-interviews";
+} from "@arc/db-schema/studio-interviews";
 import {
   buildScheduleRows,
   normalizeResumeFile,

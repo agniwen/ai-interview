@@ -1,7 +1,7 @@
-import type { ResumeProfile } from "@/lib/shared/interview/types";
+import type { ResumeProfile } from "@arc/db-schema/interview/types";
 import { readPdfBytes } from "@/lib/shared/resume-pdf";
-import { structuredSchema } from "@/lib/shared/resume-parser-schema";
-import type { ResumeParserStructured } from "@/lib/shared/resume-parser-schema";
+import { structuredSchema } from "@arc/db-schema/resume-parser-schema";
+import type { ResumeParserStructured } from "@arc/db-schema/resume-parser-schema";
 
 export type { ResumeParserStructured };
 export { structuredSchema };

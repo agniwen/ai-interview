@@ -1,5 +1,5 @@
 {
-  "name": "@repo/adapter-feishu",
+  "name": "@arc/adapter-feishu",
   "version": "0.0.0",
   "private": true,
   "description": "Feishu (Lark) adapter for chat",

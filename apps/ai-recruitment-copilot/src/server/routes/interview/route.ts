@@ -8,10 +8,10 @@ import {
   candidateFormSubmission,
   studioInterview,
   studioInterviewSchedule,
-} from "@/lib/shared/db/schema";
-import { buildCandidateFormAnswersSchema } from "@/lib/shared/candidate-forms";
-import type { CandidateFormTemplateRecord } from "@/lib/shared/candidate-forms";
-import { RECONNECT_GRACE_MS } from "@/lib/shared/studio-interviews";
+} from "@arc/db-schema/schema";
+import { buildCandidateFormAnswersSchema } from "@arc/db-schema/candidate-forms";
+import type { CandidateFormTemplateRecord } from "@arc/db-schema/candidate-forms";
+import { RECONNECT_GRACE_MS } from "@arc/db-schema/studio-interviews";
 import {
   streamGenerateInterviewQuestions,
   streamGenerateResumeReview,
@@ -22,7 +22,7 @@ import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
 import { factory, jsonValidatorError } from "@/server/factory";
 import { authMiddleware } from "@/server/middlewares/auth";
-import { resumeProfileSchema } from "@/lib/shared/interview/types";
+import { resumeProfileSchema } from "@arc/db-schema/interview/types";
 import {
   listAllJobDescriptions,
   loadJobDescriptionById,

@@ -4,7 +4,7 @@
 // AI interview round-side types. Both list rows and detail are keyed by the
 // schedule row's id; candidate info is JOINed in as a snapshot.
 
-import type { ScheduleEntryStatus } from "@/lib/shared/studio-interviews";
+import type { ScheduleEntryStatus } from "@arc/db-schema/studio-interviews";
 import type { StudioCandidateRecord } from "@/lib/shared/studio-candidates";
 
 /** 列表行（精简投影）/ List row (light projection). */

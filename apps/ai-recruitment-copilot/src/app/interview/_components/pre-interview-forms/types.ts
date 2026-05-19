@@ -3,7 +3,7 @@
  * Internal shared types for the candidate's pre-interview forms.
  */
 
-import type { CandidateFormTemplateSnapshot } from "@/lib/shared/candidate-forms";
+import type { CandidateFormTemplateSnapshot } from "@arc/db-schema/candidate-forms";
 
 /**
  * 单题答案：单选 / 文本类题为字符串；多选题为字符串数组。

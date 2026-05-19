@@ -1,6 +1,6 @@
 import { z } from "zod";
-import type { ResumeAnalysisResult, ResumeProfile } from "@/lib/shared/interview/types";
-import type { StudioInterviewStatus } from "@/lib/shared/studio-interviews";
+import type { ResumeAnalysisResult, ResumeProfile } from "@arc/db-schema/interview/types";
+import type { StudioInterviewStatus } from "@arc/db-schema/studio-interviews";
 
 /**
  * 简历库列表行 DTO。AI 面试列表的精简投影：去掉 status / interviewQuestions /

@@ -13,7 +13,7 @@ import {
   studioInterview,
   studioInterviewSchedule,
   user,
-} from "@/lib/shared/db/schema";
+} from "@arc/db-schema/schema";
 
 const ORG = "test_org_patch_whitelist";
 const USER_ID = "test_user_patch_whitelist";

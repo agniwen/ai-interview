@@ -27,7 +27,10 @@ import {
   createResumeLibraryFormValues,
   resumeLibraryFormSchema,
 } from "@/lib/shared/studio-resumes";
-import { getScheduleEntryDateValue, scheduleEntryStatusMeta } from "@/lib/shared/studio-interviews";
+import {
+  getScheduleEntryDateValue,
+  scheduleEntryStatusMeta,
+} from "@arc/db-schema/studio-interviews";
 
 // 统一编辑对话框 props，通过 mode 分发到简历或面试模式。
 // Unified edit dialog props; dispatches to resume or interview body via mode.

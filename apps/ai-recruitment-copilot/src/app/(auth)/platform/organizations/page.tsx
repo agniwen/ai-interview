@@ -1,7 +1,7 @@
 import { count, eq, sql, desc } from "drizzle-orm";
 import type { Metadata } from "next";
 import { db } from "@/lib/server/db";
-import { member, organization } from "@/lib/shared/db/schema";
+import { member, organization } from "@arc/db-schema/schema";
 import { OrganizationsGrid } from "./_components/organizations-grid";
 
 export const metadata: Metadata = {

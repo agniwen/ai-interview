@@ -1,7 +1,7 @@
 import { zValidator } from "@hono/zod-validator";
 import { and, eq, inArray } from "drizzle-orm";
 import { db } from "@/lib/server/db";
-import { chatAttachment, jobDescription } from "@/lib/shared/db/schema";
+import { chatAttachment, jobDescription } from "@arc/db-schema/schema";
 import { factory, jsonValidatorError } from "@/server/factory";
 import { requirePermission } from "@/server/middlewares/permission";
 import { validateResumeFile } from "@/server/agents/resume-analysis-agent";

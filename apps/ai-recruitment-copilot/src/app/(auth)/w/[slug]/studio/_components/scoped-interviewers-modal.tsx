@@ -21,7 +21,7 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/u
 import { Modal } from "@/components/ui/modal";
 import { rpc } from "@/lib/client/rpc";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
-import { getMinimaxVoiceMeta } from "@/lib/shared/minimax-voices";
+import { getMinimaxVoiceMeta } from "@arc/db-schema/minimax-voices";
 import { ScopedJobDescriptionsModal } from "./scoped-job-descriptions-modal";
 
 interface ScopedInterviewersModalProps {

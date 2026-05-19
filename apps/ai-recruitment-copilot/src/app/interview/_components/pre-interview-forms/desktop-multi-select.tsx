@@ -8,7 +8,7 @@
  * `<SelectTrigger>`, so multi-select and single-select line up visually.
  */
 
-import type { CandidateFormTemplateSnapshot } from "@/lib/shared/candidate-forms";
+import type { CandidateFormTemplateSnapshot } from "@arc/db-schema/candidate-forms";
 import { CheckIcon, ChevronDownIcon } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";

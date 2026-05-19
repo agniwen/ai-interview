@@ -7,8 +7,8 @@ import "server-only";
 import { generateText } from "ai";
 import { parseJsonOutput } from "@/server/agents/json-output";
 import { createAlibabaProvider } from "@/server/agents/provider";
-import { structuredSchema } from "@/lib/shared/resume-parser-schema";
-import type { ResumeParserStructured } from "@/lib/shared/resume-parser-schema";
+import { structuredSchema } from "@arc/db-schema/resume-parser-schema";
+import type { ResumeParserStructured } from "@arc/db-schema/resume-parser-schema";
 import { rasterizePdfWithMeta } from "./pdf-rasterize";
 import { isQwenOcrConfigured, qwenVlOcr } from "./qwen-ocr";
 

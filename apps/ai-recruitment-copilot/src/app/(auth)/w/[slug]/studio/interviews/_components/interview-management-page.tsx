@@ -12,7 +12,7 @@ import type {
   PaginatedStudioInterviewRoundsResult,
   StudioInterviewRoundListRecord,
 } from "@/lib/shared/studio-interview-rounds";
-import { scheduleEntryStatusMeta } from "@/lib/shared/studio-interviews";
+import { scheduleEntryStatusMeta } from "@arc/db-schema/studio-interviews";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import dynamic from "next/dynamic";
 import Link from "next/link";

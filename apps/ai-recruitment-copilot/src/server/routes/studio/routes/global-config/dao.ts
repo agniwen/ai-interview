@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/server/db";
-import { globalConfig } from "@/lib/shared/db/schema";
+import { globalConfig } from "@arc/db-schema/schema";
 import type { GlobalConfigInput, GlobalConfigRecord } from "@/lib/shared/global-config";
 
 function serialize(row: typeof globalConfig.$inferSelect): GlobalConfigRecord {

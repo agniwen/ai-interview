@@ -7,7 +7,7 @@ import type {
   CandidateFormQuestionType,
   CandidateFormScope,
   CandidateFormTemplateSnapshot,
-} from "@/lib/shared/candidate-forms";
+} from "./candidate-forms";
 import type {
   AgentNotificationStatus,
   AgentNotificationType,
@@ -16,18 +16,18 @@ import type {
   InterviewMessageRole,
   InterviewRecordingStatus,
   InterviewSummaryStatus,
-} from "@/lib/shared/db-enums";
+} from "./db-enums";
 import type {
   InterviewQuestionTemplateDifficulty,
   InterviewQuestionTemplateScope,
   InterviewQuestionTemplateSnapshot,
-} from "@/lib/shared/interview-question-templates";
-import type { InterviewTranscriptTurn } from "@/lib/shared/interview-session";
-import type { InterviewQuestion, ResumeProfile } from "@/lib/shared/interview/types";
-import type { JobDescriptionConfig } from "@/lib/shared/job-description-config";
-import type { MinimaxVoiceId } from "@/lib/shared/minimax-voices";
-import type { ScheduleEntryStatus, StudioInterviewStatus } from "@/lib/shared/studio-interviews";
-import type { ResumeParserStructured } from "@/lib/shared/resume-parser-schema";
+} from "./interview-question-templates";
+import type { InterviewTranscriptTurn } from "./interview-session";
+import type { InterviewQuestion, ResumeProfile } from "./interview/types";
+import type { JobDescriptionConfig } from "./job-description-config";
+import type { MinimaxVoiceId } from "./minimax-voices";
+import type { ScheduleEntryStatus, StudioInterviewStatus } from "./studio-interviews";
+import type { ResumeParserStructured } from "./resume-parser-schema";
 import { sql } from "drizzle-orm";
 import {
   bigserial,
