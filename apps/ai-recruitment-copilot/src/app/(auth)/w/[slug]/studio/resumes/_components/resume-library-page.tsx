@@ -139,6 +139,10 @@ export function ResumeLibraryPage({
   });
 
   const [detailRecordId, setDetailRecordId] = useState<string | null>(null);
+  // 中文：打开简历详情弹窗时默认聚焦的 tab；点「已发起」直接跳到「AI 面试轮次」。
+  // English: Default tab when opening the resume detail dialog — clicking
+  // 已发起 jumps straight to the "AI 面试轮次" view.
+  const [detailDefaultTab, setDetailDefaultTab] = useState<"overview" | "rounds">("overview");
   // 「保存并发起面试」成功后打开的 AI 面试详情弹窗对应的 round id；为 null 则不展示。
   // Round id whose AI interview detail dialog should pop after a successful
   // save-and-start; null hides the dialog.
@@ -294,7 +298,19 @@ export function ResumeLibraryPage({
       customColumn<ResumeLibraryListRecord>({
         cell: (r) =>
           r.hasInterviewRounds ? (
-            <Badge variant="success">已发起</Badge>
+            <button
+              className="cursor-pointer"
+              onClick={(e) => {
+                e.stopPropagation();
+                setDetailDefaultTab("rounds");
+                setDetailRecordId(r.id);
+              }}
+              type="button"
+            >
+              <Badge className="cursor-pointer hover:bg-emerald-600/15" variant="success">
+                已发起
+              </Badge>
+            </button>
           ) : (
             <Badge variant="outline">未发起</Badge>
           ),
@@ -318,7 +334,14 @@ export function ResumeLibraryPage({
       }),
       actionsColumn<ResumeLibraryListRecord>({
         inline: [
-          { icon: EyeIcon, label: "查看详情", onClick: (r) => setDetailRecordId(r.id) },
+          {
+            icon: EyeIcon,
+            label: "查看详情",
+            onClick: (r) => {
+              setDetailDefaultTab("overview");
+              setDetailRecordId(r.id);
+            },
+          },
           { icon: PencilIcon, label: "编辑", onClick: (r) => setEditRecordId(r.id) },
         ],
         menu: [
@@ -451,6 +474,7 @@ export function ResumeLibraryPage({
       </div>
 
       <StudioPersonDetailDialog
+        defaultTab={detailDefaultTab}
         mode="resume"
         onEdit={(id) => {
           setDetailRecordId(null);
@@ -460,7 +484,17 @@ export function ResumeLibraryPage({
           setDetailRecordId(null);
           setLaunchingRecord({ candidateName, id });
         }}
-        onOpenChange={(open) => !open && setDetailRecordId(null)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDetailRecordId(null);
+            setDetailDefaultTab("overview");
+          }
+        }}
+        onViewRoundDetail={(roundId) => {
+          setDetailRecordId(null);
+          setDetailDefaultTab("overview");
+          setInterviewRoundDetailId(roundId);
+        }}
         open={detailRecordId !== null}
         recordId={detailRecordId}
       />

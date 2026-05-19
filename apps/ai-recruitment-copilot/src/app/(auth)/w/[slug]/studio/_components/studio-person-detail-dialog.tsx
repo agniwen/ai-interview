@@ -21,6 +21,7 @@ import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import {
   BotIcon,
   ExternalLinkIcon,
+  EyeIcon,
   MessageSquareTextIcon,
   PencilIcon,
   RotateCcwIcon,
@@ -103,6 +104,8 @@ export function StudioPersonDetailDialog({
   onLaunchInterview,
   recordId,
   mode,
+  defaultTab,
+  onViewRoundDetail,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -119,6 +122,26 @@ export function StudioPersonDetailDialog({
   onLaunchInterview?: (input: { id: string; candidateName: string | null }) => void;
   recordId: string | null;
   mode: "interview" | "resume";
+  /**
+   * 中文：打开时默认聚焦的 tab；不传时回退到 "overview"。
+   * English: Default-focused tab when opened; falls back to "overview".
+   */
+  defaultTab?:
+    | "overview"
+    | "rounds"
+    | "experience"
+    | "reports"
+    | "questions"
+    | "transcript"
+    | "forms";
+  /**
+   * 中文：在 resume 模式的「AI 面试轮次」tab 里点单条轮次的「查看详情」时触发。
+   * 调用方应自己关闭本弹窗并以 mode="interview" 重新打开。
+   * English: Fired from the per-round 查看详情 button inside the resume-mode
+   * "AI 面试轮次" tab. The caller should close this dialog and re-open it in
+   * mode="interview" using the given roundId.
+   */
+  onViewRoundDetail?: (roundId: string) => void;
 }) {
   const slug = useWorkspaceSlug();
   const [resettingSubmissionId, setResettingSubmissionId] = useState<string | null>(null);
@@ -411,7 +434,10 @@ export function StudioPersonDetailDialog({
 
   return (
     <>
-      <Tabs defaultValue="overview" key={recordId ?? "empty"}>
+      <Tabs
+        defaultValue={defaultTab ?? "overview"}
+        key={`${recordId ?? "empty"}-${defaultTab ?? "overview"}`}
+      >
         <Modal
           open={open}
           onOpenChange={onOpenChange}
@@ -928,6 +954,19 @@ export function StudioPersonDetailDialog({
                                   ) : (
                                     <span className="text-muted-foreground text-xs">未排期</span>
                                   )}
+                                  {/* 中文：仅在调用方提供回调时显示「查看详情」；不提供时避免渲染无用按钮。
+                                      English: Only render 查看详情 when the caller supplies a callback; skip it otherwise. */}
+                                  {onViewRoundDetail ? (
+                                    <Button
+                                      onClick={() => onViewRoundDetail(entry.id)}
+                                      size="sm"
+                                      type="button"
+                                      variant="ghost"
+                                    >
+                                      <EyeIcon className="size-3.5" />
+                                      查看详情
+                                    </Button>
+                                  ) : null}
                                   <Button
                                     onClick={() => void handleCopy(fullLink)}
                                     size="sm"
