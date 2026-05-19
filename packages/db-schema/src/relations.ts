@@ -262,6 +262,7 @@ export const relations = defineRelations(schema, (r) => ({
     members: r.many.member(),
     studioInterviewSchedules: r.many.studioInterviewSchedule(),
     studioInterviews: r.many.studioInterview(),
+    studioRoundEmailLogs: r.many.studioRoundEmailLog(),
   },
   session: {
     user: r.one.user({
@@ -281,6 +282,7 @@ export const relations = defineRelations(schema, (r) => ({
       from: r.studioInterview.organizationId,
       to: r.organization.id,
     }),
+    roundEmailLogs: r.many.studioRoundEmailLog(),
     scheduleEntries: r.many.studioInterviewSchedule(),
     user: r.one.user({
       from: r.studioInterview.createdBy,
@@ -288,6 +290,7 @@ export const relations = defineRelations(schema, (r) => ({
     }),
   },
   studioInterviewSchedule: {
+    emailLogs: r.many.studioRoundEmailLog(),
     interviewRecord: r.one.studioInterview({
       from: r.studioInterviewSchedule.interviewRecordId,
       to: r.studioInterview.id,
@@ -295,6 +298,24 @@ export const relations = defineRelations(schema, (r) => ({
     organization: r.one.organization({
       from: r.studioInterviewSchedule.organizationId,
       to: r.organization.id,
+    }),
+  },
+  studioRoundEmailLog: {
+    interviewRecord: r.one.studioInterview({
+      from: r.studioRoundEmailLog.interviewRecordId,
+      to: r.studioInterview.id,
+    }),
+    organization: r.one.organization({
+      from: r.studioRoundEmailLog.organizationId,
+      to: r.organization.id,
+    }),
+    round: r.one.studioInterviewSchedule({
+      from: r.studioRoundEmailLog.roundId,
+      to: r.studioInterviewSchedule.id,
+    }),
+    sentByUser: r.one.user({
+      from: r.studioRoundEmailLog.sentBy,
+      to: r.user.id,
     }),
   },
   user: {

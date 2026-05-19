@@ -1107,6 +1107,36 @@ export const feishuThreadState = pgTable(
   (table) => [index("feishu_thread_state_organization_idx").on(table.organizationId)],
 );
 
+export type StudioRoundEmailLogStatus = "sent" | "failed";
+
+export const studioRoundEmailLog = pgTable(
+  "studio_round_email_log",
+  {
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    errorMessage: text("error_message"),
+    id: text("id").primaryKey(),
+    interviewRecordId: text("interview_record_id")
+      .notNull()
+      .references(() => studioInterview.id, { onDelete: "cascade" }),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    resendMessageId: text("resend_message_id"),
+    roundId: text("round_id")
+      .notNull()
+      .references(() => studioInterviewSchedule.id, { onDelete: "cascade" }),
+    sentBy: text("sent_by").references(() => user.id, { onDelete: "set null" }),
+    status: text("status").$type<StudioRoundEmailLogStatus>().notNull(),
+    subject: text("subject").notNull(),
+    templateKey: text("template_key").notNull().default("round_invite"),
+    toEmail: text("to_email").notNull(),
+  },
+  (table) => [
+    index("studio_round_email_log_organization_idx").on(table.organizationId),
+    index("studio_round_email_log_round_created_idx").on(table.roundId, table.createdAt),
+  ],
+);
+
 // 系统设置（单例表，固定 id="singleton"）
 // Global config (singleton table, id="singleton")
 export const globalConfig = pgTable("global_config", {
