@@ -5,7 +5,7 @@
 // Round-keyed DAO. Drives off studio_interview_schedule and joins back to
 // the candidate row, JD, creator, and a "has at least one conversation" flag.
 
-import { and, asc, count, eq, exists, ilike, inArray, or } from "drizzle-orm";
+import { and, asc, count, desc, eq, exists, ilike, inArray, or } from "drizzle-orm";
 import { db } from "@/lib/server/db";
 import { buildOrderBy, calcTotalPages, makePaginationSchema } from "@/lib/server/db/pagination";
 import { serializeDate } from "@/lib/server/db/serialize";
@@ -379,6 +379,49 @@ export async function summarizeInterviewRoundCounts(
     }
   }
   return { completed, inProgress, interrupted, pending, total };
+}
+
+/**
+ * 把外部传入的 id 统一映射到 roundId(studio_interview_schedule.id)。
+ * 兼容历史飞书卡片里 recordId = studio_interview.id 的链接 ——
+ * 先按 roundId 命中,miss 后再按 candidateId 取该候选人最新一轮 schedule entry。
+ *
+ * Normalize an externally supplied id into a roundId. Tries
+ * studio_interview_schedule.id first, then falls back to studio_interview.id
+ * (picking the latest schedule entry) so historical Feishu links that pre-
+ * date the roundId switch still resolve. Returns null when neither matches
+ * within the org.
+ */
+export async function resolveRoundIdFromRecordId(
+  recordId: string,
+  organizationId: string,
+): Promise<string | null> {
+  const [asRound] = await db
+    .select({ id: studioInterviewSchedule.id })
+    .from(studioInterviewSchedule)
+    .where(
+      and(
+        eq(studioInterviewSchedule.id, recordId),
+        eq(studioInterviewSchedule.organizationId, organizationId),
+      ),
+    )
+    .limit(1);
+  if (asRound) {
+    return asRound.id;
+  }
+
+  const [asCandidate] = await db
+    .select({ id: studioInterviewSchedule.id })
+    .from(studioInterviewSchedule)
+    .where(
+      and(
+        eq(studioInterviewSchedule.interviewRecordId, recordId),
+        eq(studioInterviewSchedule.organizationId, organizationId),
+      ),
+    )
+    .orderBy(desc(studioInterviewSchedule.sortOrder), desc(studioInterviewSchedule.createdAt))
+    .limit(1);
+  return asCandidate?.id ?? null;
 }
 
 /** Resolve candidateId from roundId; null if not found. */

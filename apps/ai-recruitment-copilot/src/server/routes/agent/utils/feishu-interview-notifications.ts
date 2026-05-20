@@ -32,20 +32,27 @@ function isFeishuProviderId(value: string): value is FeishuProviderId {
   return (FEISHU_PROVIDER_IDS as readonly string[]).includes(value);
 }
 
-function buildStudioUrl(interviewRecordId: string, organizationSlug: string | null): string {
+function buildStudioUrl(roundId: string, organizationSlug: string | null): string {
   const baseUrl = process.env.BETTER_AUTH_URL ?? "http://localhost:3000";
-  // 多租户路径：/w/[slug]/studio/interviews。
+  // 多租户路径：/w/[slug]/studio/interviews。query 用 ?roundId= 让名字与
+  // 实际值 (studio_interview_schedule.id) 对齐。列表页 useEffect 会同时识别
+  // ?roundId= 与历史的 ?recordId=,Panel 内部 resolver 兼容两种 id 类型。
   // organizationSlug 缺失时仍可生成根路径,由 src/app/page.tsx 解析活跃 workspace。
+  //
+  // Path: /w/[slug]/studio/interviews. The query param uses ?roundId= so the
+  // key matches the value (studio_interview_schedule.id). The list page
+  // useEffect accepts both ?roundId= (new) and ?recordId= (legacy); the
+  // Panel resolves either id type internally.
   const root = baseUrl.replace(/\/$/, "");
   const prefix = organizationSlug ? `/w/${encodeURIComponent(organizationSlug)}` : "";
-  return `${root}${prefix}/studio/interviews?recordId=${encodeURIComponent(interviewRecordId)}`;
+  return `${root}${prefix}/studio/interviews?roundId=${encodeURIComponent(roundId)}`;
 }
 
 interface NotificationCardInput {
   candidateName: string;
   evaluation: Record<string, unknown>;
-  interviewRecordId: string;
   organizationSlug: string | null;
+  roundId: string;
   summary: string | null;
   targetRole: string | null;
 }
@@ -67,7 +74,7 @@ function buildNotificationCard(input: NotificationCardInput) {
   const card = InterviewSummaryCard({
     assessment,
     candidateName: input.candidateName,
-    detailUrl: buildStudioUrl(input.interviewRecordId, input.organizationSlug),
+    detailUrl: buildStudioUrl(input.roundId, input.organizationSlug),
     overallScore,
     recommendation,
     summary: input.summary,
@@ -85,6 +92,7 @@ async function loadNotificationContext(options: SummaryReadyNotificationOptions)
       evaluationCriteriaResults: interviewConversation.evaluationCriteriaResults,
       organizationId: studioInterview.organizationId,
       organizationSlug: organization.slug,
+      scheduleEntryId: interviewConversation.scheduleEntryId,
       summaryStatus: interviewConversation.summaryStatus,
       targetRole: studioInterview.targetRole,
       transcriptSummary: interviewConversation.transcriptSummary,
@@ -242,11 +250,20 @@ export async function notifyInterviewSummaryReady(
     return;
   }
 
+  // 没有 scheduleEntryId 时跳过通知 —— 链接会落到一个 404 的 dialog,不如不发,
+  // 让 retryFailedInterviewSummaryNotifications 后续重试 (届时 schedule 可能已回填)。
+  // Skip when scheduleEntryId is missing — the link would 404 inside the
+  // detail dialog. Leave the notification in `pending` so the retry pass
+  // picks it up once the schedule entry is backfilled.
+  if (!context.scheduleEntryId) {
+    return;
+  }
+
   const { card, headerTemplate } = buildNotificationCard({
     candidateName: context.candidateName,
     evaluation: context.evaluationCriteriaResults ?? {},
-    interviewRecordId: options.interviewRecordId,
     organizationSlug: context.organizationSlug ?? null,
+    roundId: context.scheduleEntryId,
     summary: context.transcriptSummary,
     targetRole: context.targetRole,
   });

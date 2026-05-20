@@ -134,34 +134,60 @@ export function InterviewManagementPage({
   const summary = summaryQuery.data ?? initialSummary;
 
   // Dialog state
+  // 详情弹窗支持两种入口:列表行点击直接给 roundId,外部链接 (?recordId=) 给候选人级 id,
+  // 互斥。Panel 内部会自动 resolve 出最终的 roundId。
+  // Detail dialog has two entry kinds: list rows pass roundId directly; legacy
+  // ?recordId= URLs pass a candidate-level id. They are mutually exclusive —
+  // the Panel resolves either to the same internal roundId.
+  const [detailRoundId, setDetailRoundId] = useState<string | null>(null);
   const [detailRecordId, setDetailRecordId] = useState<string | null>(null);
   const [editRecordId, setEditRecordId] = useState<string | null>(null);
+  const detailOpen = detailRoundId !== null || detailRecordId !== null;
+  function closeDetail() {
+    setDetailRoundId(null);
+    setDetailRecordId(null);
+  }
   const [deleteRecord, setDeleteRecord] = useState<StudioInterviewRoundListRecord | null>(null);
   const [previewRecord, setPreviewRecord] = useState<StudioInterviewRoundListRecord | null>(null);
   const [viewJobDescriptionId, setViewJobDescriptionId] = useState<string | null>(null);
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
 
-  // 外部链接携带 ?recordId=xxx 时自动打开详情 dialog 并清掉参数。
-  // When arriving via external link with ?recordId=xxx, open the detail dialog
-  // and strip the param so it doesn't re-trigger on refresh.
+  // 外部链接两种形态:
+  //  - ?roundId=<roundId>   新飞书卡片走这条
+  //  - ?recordId=<recordId> 历史飞书卡片 / 手动复制旧链接走这条
+  // 二选一,优先 roundId。读到后写入对应 state、清掉 URL 参数,Panel 内部
+  // 自己 resolve;不需要这里再额外 fetch。
+  //
+  // External-link entry has two query forms — ?roundId= (current Feishu
+  // cards) and ?recordId= (legacy cards / pasted older URLs). Prefer
+  // roundId, route into the matching state slot, and let the Panel's
+  // internal resolver handle whichever id we got.
   const searchParams = useSearchParams();
   const consumedRecordIdRef = useRef(false);
   useEffect(() => {
     if (consumedRecordIdRef.current) {
       return;
     }
+    const roundIdFromUrl = searchParams.get("roundId");
     const recordIdFromUrl = searchParams.get("recordId");
-    if (!recordIdFromUrl) {
+    if (!(roundIdFromUrl || recordIdFromUrl)) {
       return;
     }
     consumedRecordIdRef.current = true;
-    setDetailRecordId(recordIdFromUrl);
+
     const remaining = new URLSearchParams(searchParams.toString());
+    remaining.delete("roundId");
     remaining.delete("recordId");
     const query = remaining.toString();
     const nextUrl = query ? `${window.location.pathname}?${query}` : window.location.pathname;
     window.history.replaceState(null, "", nextUrl);
+
+    if (roundIdFromUrl) {
+      setDetailRoundId(roundIdFromUrl);
+    } else if (recordIdFromUrl) {
+      setDetailRecordId(recordIdFromUrl);
+    }
   }, [searchParams]);
 
   // 删除 / 重置 / 切轮次状态等写操作不仅影响 AI 面试列表，也会改变简历库的
@@ -210,7 +236,7 @@ export function InterviewManagementPage({
           <div className="min-w-0">
             <button
               className="block max-w-full cursor-pointer truncate text-left font-medium underline-offset-4 hover:underline"
-              onClick={() => setDetailRecordId(r.id)}
+              onClick={() => setDetailRoundId(r.id)}
               type="button"
             >
               {r.candidateName}
@@ -295,7 +321,7 @@ export function InterviewManagementPage({
       }),
       actionsColumn<StudioInterviewRoundListRecord>({
         inline: [
-          { icon: EyeIcon, label: "查看详情", onClick: (r) => setDetailRecordId(r.id) },
+          { icon: EyeIcon, label: "查看详情", onClick: (r) => setDetailRoundId(r.id) },
           { icon: PencilIcon, label: "编辑记录", onClick: (r) => setEditRecordId(r.id) },
         ],
         menu: [
@@ -442,14 +468,17 @@ export function InterviewManagementPage({
         />
       </div>
 
-      {/* 详情 dialog：目前仍消费候选人详情，T4 切换到 round 视图。
-          Detail dialog: still consumes candidate detail today — T4 pivots it to round view. */}
+      {/* 详情 dialog：列表行点击走 roundId(从 row.id 拿,语义对齐);
+          ?recordId= 外部链接走 recordId,Panel 内部 resolver 兜底。
+          Row clicks pass roundId (matches row.id semantics); legacy
+          ?recordId= URLs pass recordId and rely on the Panel resolver. */}
       <StudioPersonDetailDialog
         mode="interview"
-        onOpenChange={(open) => !open && setDetailRecordId(null)}
+        onOpenChange={(open) => !open && closeDetail()}
         onUpdated={invalidateAll}
-        open={detailRecordId !== null}
+        open={detailOpen}
         recordId={detailRecordId}
+        roundId={detailRoundId}
       />
 
       {/* 编辑 dialog：T5 修正写入路径。/ Edit dialog: T5 fixes the write path. */}

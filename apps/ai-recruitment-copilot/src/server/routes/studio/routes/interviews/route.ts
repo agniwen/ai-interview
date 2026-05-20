@@ -47,6 +47,7 @@ import {
   loadInterviewRoundDetail,
   queryPaginatedInterviewRounds,
   resolveCandidateIdForRound,
+  resolveRoundIdFromRecordId,
   summarizeInterviewRoundCounts,
 } from "@/server/routes/studio/routes/interviews/dao/interview-rounds";
 import { roundEmailsRouter } from "@/server/routes/studio/routes/interviews/routes/round-emails/route";
@@ -238,6 +239,31 @@ export const studioInterviewsRouter = factory
       return c.json({ error: result.error }, { status: result.status as ContentfulStatusCode });
     }
   })
+  .get(
+    "/resolve",
+    requirePermission("interview", "read"),
+    zValidator(
+      "query",
+      z.object({ id: z.string().trim().min(1) }),
+      jsonValidatorError("查询参数无效。"),
+    ),
+    async (c) => {
+      // 兼容历史链接：传入 id 既可能是 roundId,也可能是 candidateId
+      // (studio_interview.id),统一解析成 roundId。命中失败返回 404。
+      // Back-compat resolver: external id can be either a roundId or a
+      // legacy candidateId (studio_interview.id). Returns 404 on miss.
+      const { activeOrg } = c.var;
+      if (!activeOrg) {
+        return c.json({ message: "Unauthorized" }, 401);
+      }
+      const { id } = c.req.valid("query");
+      const roundId = await resolveRoundIdFromRecordId(id, activeOrg.id);
+      if (!roundId) {
+        return c.json({ error: "记录不存在。" }, 404);
+      }
+      return c.json({ roundId }, 200);
+    },
+  )
   .get("/:id", requirePermission("interview", "read"), async (c) => {
     // `:id` 现为 roundId；返回 StudioInterviewRoundDetail（round + 候选人快照）。
     // `:id` is now roundId; returns StudioInterviewRoundDetail (round + candidate snapshot).

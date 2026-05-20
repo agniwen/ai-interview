@@ -128,6 +128,29 @@ export function fetchInterviewDedup(
 }
 
 /**
+ * 把外部链接里的 recordId 解析成 roundId。兼容历史飞书卡片
+ * (recordId = studio_interview.id) 与新链接 (recordId = roundId)。命中失败
+ * (id 不存在 / 不在当前 org) 时返回 null,不抛错。
+ *
+ * Resolve an externally supplied recordId into a roundId. Handles both legacy
+ * Feishu cards (recordId = studio_interview.id) and current cards
+ * (recordId = roundId). Returns null on miss instead of throwing.
+ */
+export function resolveStudioInterviewRecordId(
+  slug: string,
+  recordId: string,
+): Promise<string | null> {
+  return rpcFetch<{ roundId: string }>(
+    rpc.api.w[":slug"].studio.interviews.resolve.$get({
+      param: { slug },
+      query: { id: recordId },
+    }),
+    "解析面试链接失败",
+    { allow404: true },
+  ).then((data) => data?.roundId ?? null);
+}
+
+/**
  * 拉取单个轮次详情（round + 候选人快照）；不存在时返回 null。
  * Fetch a single interview round detail (round + candidate snapshot); null when not found.
  */
