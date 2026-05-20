@@ -10,14 +10,9 @@ import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { rpc } from "@/lib/client/rpc";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
+import { DIFFICULTY_LABEL } from "@/lib/shared/interview-question-difficulty";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-
-const DIFFICULTY_LABEL: Record<InterviewQuestionTemplateDifficulty, string> = {
-  easy: "简单",
-  hard: "困难",
-  medium: "中等",
-};
 
 const DIFFICULTY_PILL: Record<InterviewQuestionTemplateDifficulty, string> = {
   easy: "border border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
