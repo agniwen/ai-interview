@@ -13,9 +13,12 @@ import { Loader2Icon, PlayIcon } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { fetchStudioInterviewRecordingUrl } from "@/lib/client/api";
+import {
+  fetchPublicInterviewRecordingUrl,
+  fetchStudioInterviewRecordingUrl,
+} from "@/lib/client/api";
 import { ApiError } from "@/lib/client/api/errors";
-import { useWorkspaceSlug } from "@/lib/client/workspace-context";
+import { useOptionalWorkspaceSlug } from "@/lib/client/workspace-context";
 import type { InterviewRecordingStatus } from "@arc/db-schema/db-enums";
 
 interface RecordingPlayerProps {
@@ -23,6 +26,14 @@ interface RecordingPlayerProps {
   conversationId: string;
   status: InterviewRecordingStatus | null;
   durationSecs: number | null;
+  /**
+   * "authed"：走 /api/w/:slug/studio 路径（默认）。
+   * "public"：走 /api/public 路径，无需 slug，用于 /r/[roundId] 等公开访问入口。
+   *
+   * "authed" routes through /api/w/:slug/studio (default).
+   * "public" hits /api/public, slug-less, used by public-access routes.
+   */
+  accessMode?: "authed" | "public";
 }
 
 function formatDuration(seconds: number | null): string {
@@ -54,8 +65,9 @@ export function RecordingPlayer({
   conversationId,
   status,
   durationSecs,
+  accessMode = "authed",
 }: RecordingPlayerProps) {
-  const slug = useWorkspaceSlug();
+  const slug = useOptionalWorkspaceSlug();
   const [url, setUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -71,7 +83,10 @@ export function RecordingPlayer({
   async function loadUrl() {
     setLoading(true);
     try {
-      const res = await fetchStudioInterviewRecordingUrl(slug, recordId, conversationId);
+      const res =
+        accessMode === "public"
+          ? await fetchPublicInterviewRecordingUrl(recordId, conversationId)
+          : await fetchStudioInterviewRecordingUrl(slug ?? "", recordId, conversationId);
       setUrl(res.url);
     } catch (error) {
       const message = error instanceof ApiError ? error.message : "录像加载失败, 请稍后重试。";

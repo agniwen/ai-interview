@@ -441,3 +441,65 @@ export async function resolveCandidateIdForRound(
     .limit(1);
   return row?.candidateId ?? null;
 }
+
+/**
+ * 给「公开访问」入口用：拿到一个 id（可能是 roundId 或 candidateId）后，反查出
+ * 它归属的 organizationId、最新的 roundId 与 candidateId。不需要预先知道 org。
+ *
+ * Public-access helper: given an id that may be a roundId or a candidateId,
+ * derive the owning organization plus the most-recent roundId & candidateId
+ * without requiring caller-side org scoping.
+ */
+export async function resolvePublicInterviewScope(id: string): Promise<{
+  organizationId: string;
+  roundId: string;
+  candidateId: string;
+} | null> {
+  const [asRound] = await db
+    .select({
+      candidateId: studioInterviewSchedule.interviewRecordId,
+      id: studioInterviewSchedule.id,
+      organizationId: studioInterviewSchedule.organizationId,
+    })
+    .from(studioInterviewSchedule)
+    .where(eq(studioInterviewSchedule.id, id))
+    .limit(1);
+  if (asRound) {
+    return {
+      candidateId: asRound.candidateId,
+      organizationId: asRound.organizationId,
+      roundId: asRound.id,
+    };
+  }
+
+  const [asCandidate] = await db
+    .select({
+      candidateId: studioInterviewSchedule.interviewRecordId,
+      id: studioInterviewSchedule.id,
+      organizationId: studioInterviewSchedule.organizationId,
+    })
+    .from(studioInterviewSchedule)
+    .where(eq(studioInterviewSchedule.interviewRecordId, id))
+    .orderBy(desc(studioInterviewSchedule.sortOrder), desc(studioInterviewSchedule.createdAt))
+    .limit(1);
+  return asCandidate
+    ? {
+        candidateId: asCandidate.candidateId,
+        organizationId: asCandidate.organizationId,
+        roundId: asCandidate.id,
+      }
+    : null;
+}
+
+/**
+ * 公开访问入口：仅给 candidateId（studio_interview.id）反查 organizationId。
+ * Public-access helper that resolves the owning org for a candidateId.
+ */
+export async function resolvePublicResumeOrgId(candidateId: string): Promise<string | null> {
+  const [row] = await db
+    .select({ organizationId: studioInterview.organizationId })
+    .from(studioInterview)
+    .where(eq(studioInterview.id, candidateId))
+    .limit(1);
+  return row?.organizationId ?? null;
+}
