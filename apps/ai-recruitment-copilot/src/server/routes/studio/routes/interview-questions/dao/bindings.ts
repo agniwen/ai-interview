@@ -14,7 +14,8 @@ import {
   interviewQuestionTemplateVersion,
   studioInterview,
 } from "@arc/db-schema/schema";
-import { loadJobDescriptionsByTemplate, mapQuestionRow, serializeDate } from "./queries";
+import { serializeDate } from "@/lib/server/db/serialize";
+import { loadJobDescriptionsByTemplate, mapQuestionRow } from "./queries";
 import { resolveOrCreateInterviewQuestionTemplateVersion } from "./versions";
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];

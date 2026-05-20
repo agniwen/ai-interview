@@ -41,6 +41,9 @@ export interface JobDescriptionRecord {
 export interface JobDescriptionListRecord extends JobDescriptionRecord {
   departmentName: string | null;
   interviewers: JobDescriptionInterviewerSummary[];
+  // 非归档候选人 / 简历计数；用于列表"简历关联"列。
+  // Non-archived candidate count; powers the "resume association" column.
+  resumeCount: number;
 }
 
 /**

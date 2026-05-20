@@ -14,7 +14,7 @@ from livekit.agents import (
 )
 from livekit.agents.beta.tools import EndCallTool
 
-from prompts import build_instructions
+from prompts import apply_placeholders, build_instructions
 from ready_check_task import ReadyCheckTask
 from wrap_up_task import WrapUpTask
 
@@ -45,13 +45,6 @@ def _format_mmss(seconds: float) -> str:
     return f"{total // 60} 分 {total % 60:02d} 秒"
 
 
-# 占位符字面替换：{候选人姓名} 与 {岗位}，避免 str.format 对其他花括号报错  # noqa: RUF003
-# Literal placeholder substitution; using str.replace avoids str.format errors
-# on any other braces in the user-authored prompt.
-def _apply_placeholders(text: str, candidate_name: str, target_role: str) -> str:
-    return text.replace("{候选人姓名}", candidate_name).replace("{岗位}", target_role)
-
-
 _NOISE_PATTERN = re.compile(
     r"^[\s，。、？！,.?!]*"
     r"(嗯+|哦+|啊+|呃+|唔+|哎+|噢+|嘶+|哼+|呵+|额+|emmm*|hmm*|uh+|um+|oh+|ah+)"
@@ -75,10 +68,10 @@ class InterviewAgent(Agent):
         # empty, then apply literal placeholder substitution.
         opening = (interview_context.get("global_opening_instructions") or "").strip()
         closing = (interview_context.get("global_closing_instructions") or "").strip()
-        self._opening_instructions = _apply_placeholders(
+        self._opening_instructions = apply_placeholders(
             opening or DEFAULT_OPENING_INSTRUCTIONS, candidate_name, target_role
         )
-        self._closing_instructions = _apply_placeholders(
+        self._closing_instructions = apply_placeholders(
             closing or DEFAULT_CLOSING_INSTRUCTIONS, candidate_name, target_role
         )
 

@@ -20,6 +20,7 @@ import { customColumn, DataGrid, textColumn } from "@/components/data-grid";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { Modal } from "@/components/ui/modal";
 import { rpc } from "@/lib/client/rpc";
+import { useModalPagination } from "@/lib/client/use-modal-pagination";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { getMinimaxVoiceMeta } from "@arc/db-schema/minimax-voices";
 import { ScopedJobDescriptionsModal } from "./scoped-job-descriptions-modal";
@@ -50,8 +51,7 @@ export function ScopedInterviewersModal({
 }: ScopedInterviewersModalProps) {
   const slug = useWorkspaceSlug();
   const queryClient = useQueryClient();
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
+  const { page, pageSize, setPage, setPageSize } = useModalPagination(DEFAULT_PAGE_SIZE);
   // 当前点开"引用岗位"的那位面试官；null 时嵌套 JD 弹窗关闭。
   // The interviewer whose referenced JDs are being inspected; null = closed.
   const [nestedInterviewer, setNestedInterviewer] = useState<InterviewerListRecord | null>(null);
@@ -167,10 +167,7 @@ export function ScopedInterviewersModal({
           maxHeight={null}
           pagination={{
             onPageChange: setPage,
-            onPageSizeChange: (s) => {
-              setPageSize(s);
-              setPage(1);
-            },
+            onPageSizeChange: setPageSize,
             page: data.page,
             pageSize: data.pageSize,
           }}

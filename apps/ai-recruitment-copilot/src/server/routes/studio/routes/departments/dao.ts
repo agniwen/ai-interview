@@ -1,7 +1,10 @@
 import type { DepartmentListRecord, DepartmentRecord } from "@/lib/shared/departments";
-import { and, asc, count, desc, eq, ilike, inArray, or } from "drizzle-orm";
+import { and, asc, count, eq, ilike, inArray, or } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/server/db";
+import { buildOrderBy, calcTotalPages, makePaginationSchema } from "@/lib/server/db/pagination";
+import type { PaginatedResult, PaginationParams } from "@/lib/server/db/pagination";
+import { serializeDate } from "@/lib/server/db/serialize";
 import { department, interviewer, jobDescription } from "@arc/db-schema/schema";
 
 const departmentListFiltersSchema = z.object({
@@ -11,22 +14,17 @@ const departmentListFiltersSchema = z.object({
 const SORT_COLUMNS = ["createdAt", "name", "updatedAt"] as const;
 type SortColumn = (typeof SORT_COLUMNS)[number];
 
-const departmentPaginationSchema = z.object({
-  page: z.coerce.number().int().min(1).default(1),
-  pageSize: z.coerce.number().int().min(1).max(100).default(10),
-  sortBy: z.enum(SORT_COLUMNS).default("createdAt"),
-  sortOrder: z.enum(["asc", "desc"]).default("desc"),
-});
+const ORDER_COLUMNS = {
+  createdAt: department.createdAt,
+  name: department.name,
+  updatedAt: department.updatedAt,
+} as const;
 
-export type DepartmentPaginationParams = z.infer<typeof departmentPaginationSchema>;
+const departmentPaginationSchema = makePaginationSchema(SORT_COLUMNS);
 
-export interface PaginatedDepartmentResult {
-  records: DepartmentListRecord[];
-  total: number;
-  page: number;
-  pageSize: number;
-  totalPages: number;
-}
+export type DepartmentPaginationParams = PaginationParams<SortColumn>;
+
+export type PaginatedDepartmentResult = PaginatedResult<DepartmentListRecord>;
 
 function buildWhereConditions({
   organizationId,
@@ -44,16 +42,6 @@ function buildWhereConditions({
     orgFilter,
     or(ilike(department.name, `%${search}%`), ilike(department.description, `%${search}%`)),
   );
-}
-
-function buildOrderBy(sortBy: SortColumn, sortOrder: "asc" | "desc") {
-  const columnMap = {
-    createdAt: department.createdAt,
-    name: department.name,
-    updatedAt: department.updatedAt,
-  } as const;
-  const column = columnMap[sortBy];
-  return sortOrder === "asc" ? asc(column) : desc(column);
 }
 
 function listDepartmentRows({
@@ -77,7 +65,7 @@ function listDepartmentRows({
     .select()
     .from(department)
     .where(where)
-    .orderBy(buildOrderBy(sortBy, sortOrder))
+    .orderBy(buildOrderBy(ORDER_COLUMNS, sortBy, sortOrder))
     .$dynamic();
 
   if (limit !== undefined) {
@@ -146,10 +134,6 @@ async function loadReferenceCounts(departmentIds: string[]) {
   return map;
 }
 
-function serializeDate(value: string | Date): string {
-  return value instanceof Date ? value.toISOString() : value;
-}
-
 function toDepartmentListRecord(
   row: typeof department.$inferSelect,
   refs: { interviewerCount: number; jobDescriptionCount: number },
@@ -206,7 +190,7 @@ export async function queryPaginatedDepartments(
       ),
     ),
     total,
-    totalPages: Math.max(1, Math.ceil(total / pageSize)),
+    totalPages: calcTotalPages(total, pageSize),
   };
 }
 

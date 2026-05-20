@@ -303,6 +303,7 @@ export function CreateResumeRecordDialog({ onCreated }: CreateResumeRecordDialog
               <CandidateFormFields
                 disabled={isBusy}
                 form={form}
+                isJobDescriptionMatching={pipeline.isMatchingJobDescription}
                 onResumeFileChange={(file) => void pipeline.handleResumeChange(file)}
                 requireResumeFile
                 resumeFile={pipeline.resumeFile}

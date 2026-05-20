@@ -6,21 +6,12 @@ import type {
   JobDescriptionRef,
 } from "@arc/db-schema/interview-question-templates";
 import type { SQL } from "drizzle-orm";
-import {
-  and,
-  asc,
-  count,
-  desc,
-  eq,
-  exists,
-  ilike,
-  inArray,
-  isNotNull,
-  isNull,
-  or,
-} from "drizzle-orm";
+import { and, asc, count, eq, exists, ilike, inArray, isNotNull, isNull, or } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/server/db";
+import { buildOrderBy, calcTotalPages, makePaginationSchema } from "@/lib/server/db/pagination";
+import type { PaginatedResult, PaginationParams } from "@/lib/server/db/pagination";
+import { serializeDate } from "@/lib/server/db/serialize";
 import {
   interviewQuestionTemplate,
   interviewQuestionTemplateBinding,
@@ -43,22 +34,18 @@ const templateListFiltersSchema = z.object({
 const SORT_COLUMNS = ["createdAt", "title", "updatedAt"] as const;
 type SortColumn = (typeof SORT_COLUMNS)[number];
 
-const templatePaginationSchema = z.object({
-  page: z.coerce.number().int().min(1).default(1),
-  pageSize: z.coerce.number().int().min(1).max(100).default(10),
-  sortBy: z.enum(SORT_COLUMNS).default("createdAt"),
-  sortOrder: z.enum(["asc", "desc"]).default("desc"),
-});
+const ORDER_COLUMNS = {
+  createdAt: interviewQuestionTemplate.createdAt,
+  title: interviewQuestionTemplate.title,
+  updatedAt: interviewQuestionTemplate.updatedAt,
+} as const;
 
-export type InterviewQuestionTemplatePaginationParams = z.infer<typeof templatePaginationSchema>;
+const templatePaginationSchema = makePaginationSchema(SORT_COLUMNS);
 
-export interface PaginatedInterviewQuestionTemplateResult {
-  records: InterviewQuestionTemplateListRecord[];
-  total: number;
-  page: number;
-  pageSize: number;
-  totalPages: number;
-}
+export type InterviewQuestionTemplatePaginationParams = PaginationParams<SortColumn>;
+
+export type PaginatedInterviewQuestionTemplateResult =
+  PaginatedResult<InterviewQuestionTemplateListRecord>;
 
 export type ArchivedFilter = "active" | "archived" | "all";
 
@@ -152,20 +139,6 @@ async function loadJobDescriptionRefs(templateId: string): Promise<JobDescriptio
   return refs.get(templateId) ?? [];
 }
 
-function buildOrderBy(sortBy: SortColumn, sortOrder: "asc" | "desc") {
-  const columnMap = {
-    createdAt: interviewQuestionTemplate.createdAt,
-    title: interviewQuestionTemplate.title,
-    updatedAt: interviewQuestionTemplate.updatedAt,
-  } as const;
-  const column = columnMap[sortBy];
-  return sortOrder === "asc" ? asc(column) : desc(column);
-}
-
-export function serializeDate(value: string | Date): string {
-  return value instanceof Date ? value.toISOString() : value;
-}
-
 // =====================================================================
 // Row loaders (shared)
 // =====================================================================
@@ -212,7 +185,7 @@ function listTemplateRows({
     })
     .from(interviewQuestionTemplate)
     .where(where)
-    .orderBy(buildOrderBy(sortBy, sortOrder))
+    .orderBy(buildOrderBy(ORDER_COLUMNS, sortBy, sortOrder))
     .$dynamic();
 
   if (limit !== undefined) {
@@ -413,7 +386,7 @@ export async function queryPaginatedInterviewQuestionTemplates(
       ),
     ),
     total,
-    totalPages: Math.max(1, Math.ceil(total / pageSize)),
+    totalPages: calcTotalPages(total, pageSize),
   };
 }
 

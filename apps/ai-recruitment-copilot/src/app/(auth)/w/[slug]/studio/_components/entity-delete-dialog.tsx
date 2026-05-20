@@ -32,6 +32,14 @@ interface EntityDeleteDialogProps<TRecord> {
   confirmLabel?: ReactNode;
   /** 默认"取消"。 */
   cancelLabel?: ReactNode;
+  /**
+   * 是否禁用"删除"按钮。可以是静态布尔，也可以根据 record 动态判断
+   * （比如"还有关联数据时不可删"）。
+   *
+   * Disables the confirm button. Static boolean or record-dependent fn
+   * (e.g. "still has dependents, cannot delete").
+   */
+  confirmDisabled?: boolean | ((record: TRecord) => boolean);
 }
 
 /**
@@ -47,13 +55,19 @@ export function EntityDeleteDialog<TRecord>({
   description,
   confirmLabel = "删除",
   cancelLabel = "取消",
+  confirmDisabled = false,
 }: EntityDeleteDialogProps<TRecord>) {
   let resolvedDescription: ReactNode = null;
+  let resolvedDisabled = false;
   if (record !== null) {
     resolvedDescription =
       typeof description === "function"
         ? (description as (r: TRecord) => ReactNode)(record)
         : description;
+    resolvedDisabled =
+      typeof confirmDisabled === "function"
+        ? (confirmDisabled as (r: TRecord) => boolean)(record)
+        : confirmDisabled;
   }
 
   return (
@@ -72,7 +86,11 @@ export function EntityDeleteDialog<TRecord>({
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel>{cancelLabel}</AlertDialogCancel>
-          <AlertDialogAction onClick={() => void onConfirm()} variant="destructive">
+          <AlertDialogAction
+            disabled={resolvedDisabled}
+            onClick={() => void onConfirm()}
+            variant="destructive"
+          >
             {confirmLabel}
           </AlertDialogAction>
         </AlertDialogFooter>

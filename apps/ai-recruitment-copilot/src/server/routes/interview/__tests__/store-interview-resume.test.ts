@@ -46,6 +46,7 @@ vi.mock("@/server/agents/resume-parser-agent", () => ({
 // chat-attachments wrapper), but utils.ts top-level imports it — minimal stub.
 vi.mock("@/lib/server/db", () => ({ db: {} }));
 vi.mock("@arc/db-schema/schema", () => ({
+  interviewQuestionTemplate: {},
   interviewer: {},
   jobDescription: {},
   jobDescriptionInterviewer: {},

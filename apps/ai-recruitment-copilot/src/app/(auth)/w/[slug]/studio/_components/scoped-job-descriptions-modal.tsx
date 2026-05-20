@@ -22,12 +22,13 @@ import type { JobDescriptionListRecord } from "@/lib/shared/job-descriptions";
 import type { PaginatedJobDescriptionResult } from "@/server/routes/studio/routes/job-descriptions/dao";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Trash2Icon } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
 import { actionsColumn, customColumn, DataGrid, textColumn } from "@/components/data-grid";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { Modal } from "@/components/ui/modal";
 import { rpc } from "@/lib/client/rpc";
+import { useModalPagination } from "@/lib/client/use-modal-pagination";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 
 // 二选一的 scope：决定按什么维度过滤 JD，以及弹窗 title 怎么拼。
@@ -79,8 +80,7 @@ export function ScopedJobDescriptionsModal({
   const slug = useWorkspaceSlug();
   const queryClient = useQueryClient();
 
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
+  const { page, pageSize, setPage, setPageSize } = useModalPagination(DEFAULT_PAGE_SIZE);
 
   const listQuery = useQuery({
     enabled: open && scope !== null,
@@ -220,10 +220,7 @@ export function ScopedJobDescriptionsModal({
           maxHeight={null}
           pagination={{
             onPageChange: setPage,
-            onPageSizeChange: (s) => {
-              setPageSize(s);
-              setPage(1);
-            },
+            onPageSizeChange: setPageSize,
             page: data.page,
             pageSize: data.pageSize,
           }}

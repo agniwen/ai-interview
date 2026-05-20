@@ -44,6 +44,13 @@ export interface ResumeAnalysisPipelineState {
   isAnalyzingResume: boolean;
   isGeneratingQuestions: boolean;
   isGeneratingReview: boolean;
+  // 简历解析完成后会异步调一次「按候选人匹配在招岗位」；这个 flag 在那段
+  // 网络请求期间为 true，供 JD 下拉框展示 loading 状态。不计入 isBusy（用户
+  // 仍可手动选择，匹配完成会回填）。
+  // True while the best-fit JD lookup runs (post-parse, async IIFE). Used by
+  // the JD select to render a loading state. Intentionally NOT part of isBusy
+  // so the user can still pick a JD manually mid-flight.
+  isMatchingJobDescription: boolean;
   progressStatus: string;
   progressTools: { name: string; done: boolean }[];
   partialFields: { label: string; value: string }[];
@@ -80,6 +87,7 @@ export function useResumeAnalysisPipeline(
   const [isAnalyzingResume, setIsAnalyzingResume] = useState(false);
   const [isGeneratingQuestions, setIsGeneratingQuestions] = useState(false);
   const [isGeneratingReview, setIsGeneratingReview] = useState(false);
+  const [isMatchingJobDescription, setIsMatchingJobDescription] = useState(false);
   const [progressStatus, setProgressStatus] = useState("");
   const [progressTools, setProgressTools] = useState<{ name: string; done: boolean }[]>([]);
   const [partialFields, setPartialFields] = useState<{ label: string; value: string }[]>([]);
@@ -340,6 +348,7 @@ export function useResumeAnalysisPipeline(
         // swallowed so the main flow keeps going.
         void (async () => {
           let matchedJdId: string | null = null;
+          setIsMatchingJobDescription(true);
           try {
             const matchResponse = await rpc.api.interview["match-job-description"].$post(
               { json: { resumeProfile } },
@@ -363,6 +372,10 @@ export function useResumeAnalysisPipeline(
             }
           } catch {
             // swallow — user can still pick manually / 静默忽略，用户可手动选择
+          } finally {
+            if (!abortController.signal.aborted) {
+              setIsMatchingJobDescription(false);
+            }
           }
 
           // 评价生成是可选步骤：调用方未传 onReviewGenerated 就不跑（保持原 pipeline 行为）。
@@ -476,6 +489,7 @@ export function useResumeAnalysisPipeline(
     setIsAnalyzingResume(false);
     setIsGeneratingQuestions(false);
     setIsGeneratingReview(false);
+    setIsMatchingJobDescription(false);
     setProgressStatus("");
     setProgressTools([]);
     setPartialFields([]);
@@ -507,6 +521,7 @@ export function useResumeAnalysisPipeline(
     setIsAnalyzingResume(false);
     setIsGeneratingQuestions(false);
     setIsGeneratingReview(false);
+    setIsMatchingJobDescription(false);
     setProgressStatus("");
     setProgressTools([]);
     setPartialFields([]);
@@ -532,6 +547,7 @@ export function useResumeAnalysisPipeline(
     isBusy,
     isGeneratingQuestions,
     isGeneratingReview,
+    isMatchingJobDescription,
     partialFields,
     progressStatus,
     progressTools,

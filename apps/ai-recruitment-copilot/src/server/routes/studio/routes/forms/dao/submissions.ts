@@ -10,7 +10,7 @@ import {
   candidateFormTemplateVersion,
   studioInterview,
 } from "@arc/db-schema/schema";
-import { serializeDate } from "./queries";
+import { serializeDate } from "@/lib/server/db/serialize";
 
 // 默认 / 上限的页大小。Drawer 一次加载 20 条已经够；100 是 hard cap，给 API
 // 调用方留余地但不允许"一次性扫表"。

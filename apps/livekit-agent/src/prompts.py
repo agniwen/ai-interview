@@ -1,5 +1,13 @@
 import random
 
+
+# 占位符字面替换：{候选人姓名} 与 {岗位}，避免 str.format 对其他花括号报错  # noqa: RUF003
+# Literal placeholder substitution; using str.replace avoids str.format errors
+# on any other braces in the user-authored prompt.
+def apply_placeholders(text: str, candidate_name: str, target_role: str) -> str:
+    return text.replace("{候选人姓名}", candidate_name).replace("{岗位}", target_role)
+
+
 # NOTE: Summary/evaluation prompts previously lived here but were moved to the
 # TS backend (src/server/services/interview-report.ts) so the LLM call can run
 # fire-and-forget in the Node process after the agent shutdown completes.

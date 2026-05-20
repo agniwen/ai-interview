@@ -4,6 +4,7 @@ import type { JobDescriptionListRecord } from "@/lib/shared/job-descriptions";
 import { rpc } from "@/lib/client/rpc";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { useQuery } from "@tanstack/react-query";
+import { LoaderCircleIcon } from "lucide-react";
 import type { ReactNode } from "react";
 import {
   Field,
@@ -36,12 +37,20 @@ export function JobDescriptionSelectField({
   error,
   action,
   disabled,
+  matching = false,
 }: {
   value: string;
   onChange: (value: string) => void;
   error?: string;
   action?: ReactNode;
   disabled?: boolean;
+  /**
+   * 简历解析后自动匹配岗位期间为 true：禁用下拉、显示 spinner 与提示文案，
+   * 让用户知道结果即将自动回填。匹配完成后立即恢复可选。
+   * True while the auto-match request is in flight; disables the select and
+   * surfaces a spinner + hint so the user understands a value is incoming.
+   */
+  matching?: boolean;
 }) {
   const slug = useWorkspaceSlug();
   const { data: jobDescriptions = [] } = useQuery({
@@ -61,14 +70,22 @@ export function JobDescriptionSelectField({
 
   return (
     <Field data-invalid={error ? true : undefined}>
-      <FieldLabel htmlFor="interview-jd-select">
-        关联在招岗位 <span className="text-destructive">*</span>
+      <FieldLabel className="flex items-center gap-2" htmlFor="interview-jd-select">
+        <span>
+          关联在招岗位 <span className="text-destructive">*</span>
+        </span>
+        {matching ? (
+          <span className="inline-flex items-center gap-1 text-muted-foreground text-xs">
+            <LoaderCircleIcon className="size-3 animate-spin" />
+            正在为你匹配在招岗位…
+          </span>
+        ) : null}
       </FieldLabel>
       <FieldContent className="gap-2">
         <div className="flex items-start gap-2">
           <div className="min-w-0 flex-1">
             <SearchableSelect
-              disabled={disabled}
+              disabled={disabled || matching}
               id="interview-jd-select"
               invalid={!!error}
               onChange={(next) => onChange(next ?? "")}
@@ -77,7 +94,7 @@ export function JobDescriptionSelectField({
                 label: buildJdLabel(jd),
                 value: jd.id,
               }))}
-              placeholder="请选择在招岗位"
+              placeholder={matching ? "正在为你匹配在招岗位…" : "请选择在招岗位"}
               searchPlaceholder="搜索岗位…"
               triggerClassName="h-13!"
               value={value || null}

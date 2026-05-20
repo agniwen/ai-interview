@@ -1,5 +1,5 @@
 import { zValidator } from "@hono/zod-validator";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, count, eq, inArray, notInArray } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/server/db";
 import {
@@ -7,6 +7,7 @@ import {
   interviewer,
   jobDescription,
   jobDescriptionInterviewer,
+  studioInterview,
 } from "@arc/db-schema/schema";
 import {
   jobDescriptionFormSchema,
@@ -241,6 +242,30 @@ export const jobDescriptionsRouter = factory
     const existing = await loadJobDescriptionById(activeOrg.id, id);
     if (!existing) {
       return c.json({ error: "在招岗位不存在。" }, 404);
+    }
+
+    // 有非归档候选人关联到该岗位时禁止删除：候选人是业务实体，外键的 SET NULL
+    // 行为会让简历挂在"未知岗位"上，难以追溯，因此前置拦截。
+    // Block delete when non-archived candidates still reference this JD —
+    // SET NULL would orphan candidates onto an empty job-description column
+    // and make follow-up triage hard. Force the user to deal with them first.
+    const [resumeRow] = await db
+      .select({ count: count() })
+      .from(studioInterview)
+      .where(
+        and(
+          eq(studioInterview.jobDescriptionId, id),
+          notInArray(studioInterview.status, ["archived"]),
+        ),
+      );
+    const resumeCount = resumeRow?.count ?? 0;
+    if (resumeCount > 0) {
+      return c.json(
+        {
+          error: `当前有 ${resumeCount} 条简历关联到该在招岗位，无法删除；请先在简历库中调整或删除这些候选人。`,
+        },
+        409,
+      );
     }
 
     // jobDescriptionInterviewer cascades on JD delete; studio_interview.job_description_id → SET NULL.

@@ -1,8 +1,11 @@
 import type { InterviewerListRecord, InterviewerRecord } from "@/lib/shared/interviewers";
 import type { MinimaxVoiceId } from "@arc/db-schema/minimax-voices";
-import { and, asc, count, desc, eq, ilike, inArray, or } from "drizzle-orm";
+import { and, asc, count, eq, ilike, inArray, or } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/server/db";
+import { buildOrderBy, calcTotalPages, makePaginationSchema } from "@/lib/server/db/pagination";
+import type { PaginatedResult, PaginationParams } from "@/lib/server/db/pagination";
+import { serializeDate } from "@/lib/server/db/serialize";
 import { department, interviewer, jobDescriptionInterviewer } from "@arc/db-schema/schema";
 
 const interviewerListFiltersSchema = z.object({
@@ -13,22 +16,17 @@ const interviewerListFiltersSchema = z.object({
 const SORT_COLUMNS = ["createdAt", "name", "updatedAt"] as const;
 type SortColumn = (typeof SORT_COLUMNS)[number];
 
-const interviewerPaginationSchema = z.object({
-  page: z.coerce.number().int().min(1).default(1),
-  pageSize: z.coerce.number().int().min(1).max(100).default(10),
-  sortBy: z.enum(SORT_COLUMNS).default("createdAt"),
-  sortOrder: z.enum(["asc", "desc"]).default("desc"),
-});
+const ORDER_COLUMNS = {
+  createdAt: interviewer.createdAt,
+  name: interviewer.name,
+  updatedAt: interviewer.updatedAt,
+} as const;
 
-export type InterviewerPaginationParams = z.infer<typeof interviewerPaginationSchema>;
+const interviewerPaginationSchema = makePaginationSchema(SORT_COLUMNS);
 
-export interface PaginatedInterviewerResult {
-  records: InterviewerListRecord[];
-  total: number;
-  page: number;
-  pageSize: number;
-  totalPages: number;
-}
+export type InterviewerPaginationParams = PaginationParams<SortColumn>;
+
+export type PaginatedInterviewerResult = PaginatedResult<InterviewerListRecord>;
 
 function buildWhereConditions({
   organizationId,
@@ -58,16 +56,6 @@ function buildWhereConditions({
     return conditions[0];
   }
   return and(...conditions);
-}
-
-function buildOrderBy(sortBy: SortColumn, sortOrder: "asc" | "desc") {
-  const columnMap = {
-    createdAt: interviewer.createdAt,
-    name: interviewer.name,
-    updatedAt: interviewer.updatedAt,
-  } as const;
-  const column = columnMap[sortBy];
-  return sortOrder === "asc" ? asc(column) : desc(column);
 }
 
 function listInterviewerRows({
@@ -105,7 +93,7 @@ function listInterviewerRows({
     .from(interviewer)
     .leftJoin(department, eq(interviewer.departmentId, department.id))
     .where(where)
-    .orderBy(buildOrderBy(sortBy, sortOrder))
+    .orderBy(buildOrderBy(ORDER_COLUMNS, sortBy, sortOrder))
     .$dynamic();
 
   if (limit !== undefined) {
@@ -154,10 +142,6 @@ async function loadJobDescriptionCounts(interviewerIds: string[]) {
     map.set(row.interviewerId, row.count);
   }
   return map;
-}
-
-function serializeDate(value: string | Date): string {
-  return value instanceof Date ? value.toISOString() : value;
 }
 
 function toInterviewerListRecord(
@@ -227,7 +211,7 @@ export async function queryPaginatedInterviewers(
       toInterviewerListRecord(record, countsMap.get(record.id) ?? 0),
     ),
     total,
-    totalPages: Math.max(1, Math.ceil(total / pageSize)),
+    totalPages: calcTotalPages(total, pageSize),
   };
 }
 

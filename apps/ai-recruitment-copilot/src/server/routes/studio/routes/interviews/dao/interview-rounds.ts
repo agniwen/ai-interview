@@ -5,9 +5,10 @@
 // Round-keyed DAO. Drives off studio_interview_schedule and joins back to
 // the candidate row, JD, creator, and a "has at least one conversation" flag.
 
-import { and, asc, count, desc, eq, exists, ilike, inArray, or } from "drizzle-orm";
-import { z } from "zod";
+import { and, asc, count, eq, exists, ilike, inArray, or } from "drizzle-orm";
 import { db } from "@/lib/server/db";
+import { buildOrderBy, calcTotalPages, makePaginationSchema } from "@/lib/server/db/pagination";
+import { serializeDate } from "@/lib/server/db/serialize";
 import {
   interviewConversation,
   jobDescription,
@@ -26,13 +27,16 @@ import type {
 import { loadStudioCandidate } from "./studio-interviews";
 
 const SORT_COLUMNS = ["scheduledAt", "createdAt", "candidateName", "roundLabel"] as const;
-type SortColumn = (typeof SORT_COLUMNS)[number];
 
-const roundsPaginationSchema = z.object({
-  page: z.coerce.number().int().min(1).default(1),
-  pageSize: z.coerce.number().int().min(1).max(100).default(10),
-  sortBy: z.enum(SORT_COLUMNS).default("createdAt"),
-  sortOrder: z.enum(["asc", "desc"]).default("desc"),
+const ORDER_COLUMNS = {
+  candidateName: studioInterview.candidateName,
+  createdAt: studioInterviewSchedule.createdAt,
+  roundLabel: studioInterviewSchedule.roundLabel,
+  scheduledAt: studioInterviewSchedule.scheduledAt,
+} as const;
+
+const roundsPaginationSchema = makePaginationSchema(SORT_COLUMNS, {
+  defaultSortBy: "createdAt",
 });
 
 function parsePagination(params?: Record<string, unknown>) {
@@ -59,24 +63,6 @@ function parseStatusFilter(value?: string | null): ScheduleEntryStatus[] | undef
     scheduleEntryStatusSchema.options.includes(v as ScheduleEntryStatus),
   );
   return valid.length > 0 ? valid : undefined;
-}
-
-function serializeDate(value: string | Date | null): string | null {
-  if (value === null) {
-    return null;
-  }
-  return value instanceof Date ? value.toISOString() : value;
-}
-
-function buildOrderBy(sortBy: SortColumn, sortOrder: "asc" | "desc") {
-  const columnMap = {
-    candidateName: studioInterview.candidateName,
-    createdAt: studioInterviewSchedule.createdAt,
-    roundLabel: studioInterviewSchedule.roundLabel,
-    scheduledAt: studioInterviewSchedule.scheduledAt,
-  } as const;
-  const column = columnMap[sortBy];
-  return sortOrder === "asc" ? asc(column) : desc(column);
 }
 
 function buildWhere(
@@ -157,7 +143,7 @@ export async function queryPaginatedInterviewRounds(
       .leftJoin(jobDescription, eq(studioInterview.jobDescriptionId, jobDescription.id))
       .leftJoin(user, eq(studioInterview.createdBy, user.id))
       .where(where)
-      .orderBy(buildOrderBy(sortBy, sortOrder))
+      .orderBy(buildOrderBy(ORDER_COLUMNS, sortBy, sortOrder))
       .limit(pageSize)
       .offset(offset),
     db
@@ -199,7 +185,7 @@ export async function queryPaginatedInterviewRounds(
     pageSize,
     records,
     total,
-    totalPages: Math.max(1, Math.ceil(total / pageSize)),
+    totalPages: calcTotalPages(total, pageSize),
   };
 }
 

@@ -1,8 +1,10 @@
 import "server-only";
 
-import { and, arrayContains, asc, count, desc, eq, exists, ilike, inArray, or } from "drizzle-orm";
+import { and, arrayContains, count, eq, exists, ilike, inArray, or } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/server/db";
+import { buildOrderBy, calcTotalPages, makePaginationSchema } from "@/lib/server/db/pagination";
+import { serializeDate } from "@/lib/server/db/serialize";
 import {
   jobDescription,
   studioInterview,
@@ -17,14 +19,14 @@ import type {
 import { normalizeSkill } from "./skills";
 
 const SORT_COLUMNS = ["createdAt", "candidateName", "updatedAt"] as const;
-type SortColumn = (typeof SORT_COLUMNS)[number];
 
-const paginationSchema = z.object({
-  page: z.coerce.number().int().min(1).default(1),
-  pageSize: z.coerce.number().int().min(1).max(100).default(10),
-  sortBy: z.enum(SORT_COLUMNS).default("createdAt"),
-  sortOrder: z.enum(["asc", "desc"]).default("desc"),
-});
+const ORDER_COLUMNS = {
+  candidateName: studioInterview.candidateName,
+  createdAt: studioInterview.createdAt,
+  updatedAt: studioInterview.updatedAt,
+} as const;
+
+const paginationSchema = makePaginationSchema(SORT_COLUMNS);
 
 // 允许调用方原样传入 CSV 拆分结果（可能含空串）；buildWhere 内统一 trim + drop blank。
 // Accept caller-supplied arrays that may contain empty/whitespace entries —
@@ -82,19 +84,6 @@ function buildWhere(organizationId: string, filters?: Filters) {
   return conditions.length === 1 ? conditions[0] : and(...conditions);
 }
 
-function buildOrderBy(sortBy: SortColumn, sortOrder: "asc" | "desc") {
-  const map = {
-    candidateName: studioInterview.candidateName,
-    createdAt: studioInterview.createdAt,
-    updatedAt: studioInterview.updatedAt,
-  } as const;
-  return sortOrder === "asc" ? asc(map[sortBy]) : desc(map[sortBy]);
-}
-
-function serializeDate(value: string | Date): string {
-  return value instanceof Date ? value.toISOString() : value;
-}
-
 // 子查询：该候选人是否已有任意 AI 面试轮次。
 // Subquery: whether this candidate already has any AI interview round.
 const hasInterviewRoundsSql = exists(
@@ -145,7 +134,7 @@ function selectRows({
     .leftJoin(user, eq(studioInterview.createdBy, user.id))
     .leftJoin(jobDescription, eq(studioInterview.jobDescriptionId, jobDescription.id))
     .where(buildWhere(organizationId, filters))
-    .orderBy(buildOrderBy(sortBy, sortOrder))
+    .orderBy(buildOrderBy(ORDER_COLUMNS, sortBy, sortOrder))
     .limit(pageSize)
     .offset(offset);
 }
@@ -201,7 +190,7 @@ export async function queryPaginatedResumeRecords(
     pageSize: parsedPagination.pageSize,
     records: rows.map(toRecord),
     total,
-    totalPages: Math.max(1, Math.ceil(total / parsedPagination.pageSize)),
+    totalPages: calcTotalPages(total, parsedPagination.pageSize),
   };
 }
 

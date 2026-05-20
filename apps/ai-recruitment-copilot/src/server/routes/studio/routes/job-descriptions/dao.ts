@@ -8,6 +8,9 @@ import type { MinimaxVoiceId } from "@arc/db-schema/minimax-voices";
 import { and, asc, count, desc, eq, ilike, inArray, notInArray, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/server/db";
+import { buildOrderBy, calcTotalPages, makePaginationSchema } from "@/lib/server/db/pagination";
+import type { PaginatedResult, PaginationParams } from "@/lib/server/db/pagination";
+import { serializeDate } from "@/lib/server/db/serialize";
 import {
   department,
   interviewer,
@@ -26,22 +29,17 @@ const jobDescriptionListFiltersSchema = z.object({
 const SORT_COLUMNS = ["createdAt", "name", "updatedAt"] as const;
 type SortColumn = (typeof SORT_COLUMNS)[number];
 
-const jobDescriptionPaginationSchema = z.object({
-  page: z.coerce.number().int().min(1).default(1),
-  pageSize: z.coerce.number().int().min(1).max(100).default(10),
-  sortBy: z.enum(SORT_COLUMNS).default("createdAt"),
-  sortOrder: z.enum(["asc", "desc"]).default("desc"),
-});
+const ORDER_COLUMNS = {
+  createdAt: jobDescription.createdAt,
+  name: jobDescription.name,
+  updatedAt: jobDescription.updatedAt,
+} as const;
 
-export type JobDescriptionPaginationParams = z.infer<typeof jobDescriptionPaginationSchema>;
+const jobDescriptionPaginationSchema = makePaginationSchema(SORT_COLUMNS);
 
-export interface PaginatedJobDescriptionResult {
-  records: JobDescriptionListRecord[];
-  total: number;
-  page: number;
-  pageSize: number;
-  totalPages: number;
-}
+export type JobDescriptionPaginationParams = PaginationParams<SortColumn>;
+
+export type PaginatedJobDescriptionResult = PaginatedResult<JobDescriptionListRecord>;
 
 function buildWhereConditions({
   organizationId,
@@ -83,16 +81,6 @@ function buildWhereConditions({
     return;
   }
   return and(...conditions);
-}
-
-function buildOrderBy(sortBy: SortColumn, sortOrder: "asc" | "desc") {
-  const columnMap = {
-    createdAt: jobDescription.createdAt,
-    name: jobDescription.name,
-    updatedAt: jobDescription.updatedAt,
-  } as const;
-  const column = columnMap[sortBy];
-  return sortOrder === "asc" ? asc(column) : desc(column);
 }
 
 async function resolveJdIdsForInterviewers(
@@ -154,7 +142,7 @@ function listJobDescriptionRows({
     .from(jobDescription)
     .leftJoin(department, eq(jobDescription.departmentId, department.id))
     .where(where)
-    .orderBy(buildOrderBy(sortBy, sortOrder))
+    .orderBy(buildOrderBy(ORDER_COLUMNS, sortBy, sortOrder))
     .$dynamic();
 
   if (limit !== undefined) {
@@ -226,13 +214,44 @@ async function loadInterviewersForJobDescriptions(
   return map;
 }
 
-function serializeDate(value: string | Date): string {
-  return value instanceof Date ? value.toISOString() : value;
+async function loadResumeCountsForJobDescriptions(
+  jobDescriptionIds: string[],
+): Promise<Map<string, number>> {
+  const map = new Map<string, number>();
+  if (jobDescriptionIds.length === 0) {
+    return map;
+  }
+  // 与 candidatesByJd 卡片保持一致：归档候选人不计入。
+  // Mirror the candidatesByJd card: archived candidates are excluded.
+  const rows = await db
+    .select({
+      count: count(),
+      jobDescriptionId: studioInterview.jobDescriptionId,
+    })
+    .from(studioInterview)
+    .where(
+      and(
+        inArray(studioInterview.jobDescriptionId, jobDescriptionIds),
+        notInArray(studioInterview.status, ["archived"]),
+      ),
+    )
+    .groupBy(studioInterview.jobDescriptionId);
+
+  for (const id of jobDescriptionIds) {
+    map.set(id, 0);
+  }
+  for (const row of rows) {
+    if (row.jobDescriptionId) {
+      map.set(row.jobDescriptionId, row.count);
+    }
+  }
+  return map;
 }
 
 function toJobDescriptionListRecord(
   row: Awaited<ReturnType<typeof listJobDescriptionRows>>[number],
   interviewers: JobDescriptionInterviewerSummary[],
+  resumeCount: number,
 ): JobDescriptionListRecord {
   return {
     createdAt: serializeDate(row.createdAt),
@@ -246,6 +265,7 @@ function toJobDescriptionListRecord(
     name: row.name,
     presetQuestions: row.presetQuestions ?? [],
     prompt: row.prompt,
+    resumeCount,
     updatedAt: serializeDate(row.updatedAt),
   };
 }
@@ -320,18 +340,24 @@ export async function queryPaginatedJobDescriptions(
     }),
   ]);
 
-  const interviewersMap = await loadInterviewersForJobDescriptions(
-    records.map((record) => record.id),
-  );
+  const ids = records.map((record) => record.id);
+  const [interviewersMap, resumeCountsMap] = await Promise.all([
+    loadInterviewersForJobDescriptions(ids),
+    loadResumeCountsForJobDescriptions(ids),
+  ]);
 
   return {
     page,
     pageSize,
     records: records.map((record) =>
-      toJobDescriptionListRecord(record, interviewersMap.get(record.id) ?? []),
+      toJobDescriptionListRecord(
+        record,
+        interviewersMap.get(record.id) ?? [],
+        resumeCountsMap.get(record.id) ?? 0,
+      ),
     ),
     total,
-    totalPages: Math.max(1, Math.ceil(total / pageSize)),
+    totalPages: calcTotalPages(total, pageSize),
   };
 }
 
@@ -351,8 +377,18 @@ export async function listAllJobDescriptions(
   organizationId: string,
 ): Promise<JobDescriptionListRecord[]> {
   const rows = await listJobDescriptionRows({ organizationId, sortBy: "name", sortOrder: "asc" });
-  const interviewersMap = await loadInterviewersForJobDescriptions(rows.map((row) => row.id));
-  return rows.map((row) => toJobDescriptionListRecord(row, interviewersMap.get(row.id) ?? []));
+  const ids = rows.map((row) => row.id);
+  const [interviewersMap, resumeCountsMap] = await Promise.all([
+    loadInterviewersForJobDescriptions(ids),
+    loadResumeCountsForJobDescriptions(ids),
+  ]);
+  return rows.map((row) =>
+    toJobDescriptionListRecord(
+      row,
+      interviewersMap.get(row.id) ?? [],
+      resumeCountsMap.get(row.id) ?? 0,
+    ),
+  );
 }
 
 /**

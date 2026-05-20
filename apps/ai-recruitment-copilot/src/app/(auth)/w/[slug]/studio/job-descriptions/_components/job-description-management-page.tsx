@@ -12,9 +12,10 @@ import type {
 } from "@/lib/shared/job-descriptions";
 import type { PaginatedJobDescriptionResult } from "@/server/routes/studio/routes/job-descriptions/dao";
 import { JobDescriptionCharts } from "./job-description-charts";
+import { ScopedResumesModal } from "@/app/(auth)/w/[slug]/studio/_components/scoped-resumes-modal";
 import { useQueryClient } from "@tanstack/react-query";
 import { FileTextIcon, PencilIcon, PlusIcon, Trash2Icon } from "lucide-react";
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -50,6 +51,9 @@ export function JobDescriptionManagementPage({
 }) {
   const slug = useWorkspaceSlug();
   const queryClient = useQueryClient();
+  // 当前点开"简历关联"的那条 JD；null 表示弹窗关闭。
+  // The JD whose associated resumes are being inspected; null = closed.
+  const [resumesScope, setResumesScope] = useState<{ id: string; name: string } | null>(null);
 
   const fetchJobDescriptions = useCallback(
     async (params: {
@@ -154,6 +158,25 @@ export function JobDescriptionManagementPage({
         },
         key: "interviewers",
         title: "面试官",
+      }),
+      customColumn<JobDescriptionListRecord>({
+        cell: (r) => {
+          if (r.resumeCount === 0) {
+            return <span className="text-muted-foreground text-sm">关联了 0 个简历</span>;
+          }
+          return (
+            <Button
+              className="h-auto p-0 font-medium text-primary"
+              onClick={() => setResumesScope({ id: r.id, name: r.name })}
+              type="button"
+              variant="link"
+            >
+              关联了 {r.resumeCount} 个简历
+            </Button>
+          );
+        },
+        key: "resumeCount",
+        title: "简历关联",
       }),
       customColumn<JobDescriptionListRecord>({
         cell: (r) => (
@@ -301,13 +324,27 @@ export function JobDescriptionManagementPage({
       />
 
       <EntityDeleteDialog
-        description={(record) =>
-          `即将删除岗位：${record.name}，引用该岗位的面试记录的关联岗位字段会被清空。`
-        }
+        confirmDisabled={(record) => record.resumeCount > 0}
+        description={(record) => {
+          if (record.resumeCount > 0) {
+            return `当前有 ${record.resumeCount} 条简历关联到岗位「${record.name}」，无法删除；请先到简历库取消关联或删除这些候选人。`;
+          }
+          return `即将删除岗位：${record.name}，引用该岗位的面试记录的关联岗位字段会被清空。`;
+        }}
         onClose={() => crud.setDeleteRecord(null)}
         onConfirm={crud.handleDelete}
         record={crud.deleteRecord}
         title="确认删除这个在招岗位？"
+      />
+
+      <ScopedResumesModal
+        jobDescription={resumesScope}
+        onOpenChange={(next) => {
+          if (!next) {
+            setResumesScope(null);
+          }
+        }}
+        open={resumesScope !== null}
       />
     </>
   );

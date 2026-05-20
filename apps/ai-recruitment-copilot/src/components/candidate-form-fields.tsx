@@ -86,6 +86,13 @@ export interface CandidateFormFieldsProps {
    * "edit" flow leaves it false so every field stays visible.
    */
   requireResumeFile?: boolean;
+  /**
+   * true 时在「关联在招岗位」下拉框上显示 loading 状态（spinner + 占位提示）。
+   * 用于简历解析完成后自动匹配岗位的那一小段时间。
+   * When true, the JD select renders a loading affordance (spinner + hint).
+   * Used while the post-parse auto-match request is in flight.
+   */
+  isJobDescriptionMatching?: boolean;
 }
 
 const NAME_MAX_LENGTH = 120;
@@ -122,6 +129,7 @@ export function CandidateFormFields({
   candidateNamePlaceholder = "可留空，自动从简历回填",
   disabled,
   requireResumeFile = false,
+  isJobDescriptionMatching = false,
 }: CandidateFormFieldsProps) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const resumeFieldLabel = describeResumeFileLabel({
@@ -176,6 +184,7 @@ export function CandidateFormFields({
             <JobDescriptionSelectField
               disabled={disabled}
               error={errors?.[0]?.message}
+              matching={isJobDescriptionMatching}
               onChange={(next) => field.handleChange(next)}
               value={field.state.value ?? ""}
             />

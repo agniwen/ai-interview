@@ -12,7 +12,8 @@ import {
 } from "@arc/db-schema/schema";
 import { buildTemplateSnapshot } from "@arc/db-schema/candidate-forms";
 import { hashTemplateSnapshot } from "@/lib/server/candidate-forms-hash";
-import { mapQuestionRow, serializeDate } from "./queries";
+import { serializeDate } from "@/lib/server/db/serialize";
+import { mapQuestionRow } from "./queries";
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
