@@ -1001,9 +1001,9 @@ export function StudioPersonDetailPanel({
                         {DIFFICULTY_LABEL[question.difficulty] ?? question.difficulty}
                       </span>
                     </div>
-                    <p className="mt-2 text-sm leading-normal">
+                    <div className="mt-2 text-sm leading-normal">
                       <Markdown>{truncateText(question.question)}</Markdown>
-                    </p>
+                    </div>
                   </div>
                 ))
               ) : (
