@@ -229,6 +229,10 @@ export const member = pgTable(
   {
     createdAt: timestamp("created_at").defaultNow().notNull(),
     id: text("id").primaryKey(),
+    // oxlint-disable-next-line no-use-before-define -- drizzle-orm resolves refs lazily at runtime
+    inviteLinkId: text("invite_link_id").references(() => workspaceInviteLink.id, {
+      onDelete: "set null",
+    }),
     organizationId: text("organization_id")
       .notNull()
       .references(() => organization.id, { onDelete: "cascade" }),
@@ -241,6 +245,22 @@ export const member = pgTable(
     uniqueIndex("member_user_org_uq").on(table.userId, table.organizationId),
     index("member_organization_idx").on(table.organizationId),
   ],
+);
+
+export const workspaceInviteLink = pgTable(
+  "workspace_invite_link",
+  {
+    code: text("code").notNull().unique(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
+    disabledAt: timestamp("disabled_at"),
+    disabledBy: text("disabled_by").references(() => user.id, { onDelete: "set null" }),
+    id: text("id").primaryKey(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+  },
+  (table) => [index("workspace_invite_link_org_idx").on(table.organizationId, table.disabledAt)],
 );
 
 export const invitation = pgTable(

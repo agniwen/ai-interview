@@ -8,6 +8,7 @@ import { agentRouter } from "./routes/agent/route";
 import { chatRouter } from "./routes/chat/route";
 import { feishuRouter } from "./routes/feishu/route";
 import { interviewRouter } from "./routes/interview/route";
+import { joinRouter } from "./routes/join/route";
 import { livekitRouter } from "./routes/livekit/route";
 import { platformRouter } from "./routes/platform/route";
 import { publicRouter } from "./routes/public/route";
@@ -30,6 +31,7 @@ const apiRoutes = factory
   .route("/interview", interviewRouter)
   .route("/platform", platformRouter)
   .route("/public", publicRouter)
+  .route("/join", joinRouter)
   .route("/w/:slug/studio", studioRouter)
   .route("/w/:slug/chat", chatRouter);
 

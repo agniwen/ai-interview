@@ -31,6 +31,7 @@ import { authClient } from "@/lib/shared/auth-client";
 import { useHasPermission } from "@/hooks/use-has-permission";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { InviteDialog } from "./invite-dialog";
+import { InviteLinksDialog } from "./invite-links-dialog";
 import { PendingInvitationsButton } from "./pending-invitations-section";
 import { PermissionsExplanationDialog } from "./permissions-explanation-dialog";
 import { ASSIGNABLE_ROLES, getWorkspaceRoleLabel } from "./role-display";
@@ -376,6 +377,7 @@ export function MembersManagementPage() {
                   </Button>
                 }
               />
+              <InviteLinksDialog />
             </PermissionGate>
           </div>
         }
