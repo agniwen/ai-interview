@@ -5,10 +5,12 @@ import { organization } from "@arc/db-schema/schema";
 import { factory, jsonValidatorError } from "@/server/factory";
 import { requirePermission } from "@/server/middlewares/permission";
 import { listWorkspaceMemberLastActives } from "./dao";
+import { inviteLinksRouter } from "./routes/invite-links/route";
 import { workspaceUpdateSchema } from "./schema";
 
 export const workspaceRouter = factory
   .createApp()
+  .route("/invite-links", inviteLinksRouter)
   .get("/member-last-actives", async (c) => {
     const { activeOrg } = c.var;
     if (!activeOrg) {
