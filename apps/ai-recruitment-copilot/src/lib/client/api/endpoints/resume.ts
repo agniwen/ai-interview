@@ -31,23 +31,18 @@ export interface ResumeChatTitleRequest {
 }
 
 /**
- * 单个可选模型的元数据（id 直接来自百炼 `/models`，分组/厂商由 id 推断）。
- * Single model option; id comes straight from DashScope `/models` and the
- * provider/group fields are inferred from the id pattern.
+ * 单个可选模型的元数据。数据源由服务端的 `chat-models.config` 维护。
+ * Single model option. Source of truth is the server-side `chat-models.config`.
  */
 export interface ChatModelOption {
   id: string;
   label: string;
   provider: "alibaba" | "deepseek" | "moonshot" | "zhipu" | "minimax" | "other";
-  group: "fast" | "balanced" | "reasoning" | "long";
 }
 
 export interface ChatModelsResponse {
   defaultId: string;
   models: ChatModelOption[];
-  /** 上游 `/models` 是否成功响应；为 false 时 models 列表会是空。
-   *  Whether the upstream `/models` call succeeded; `models` is empty otherwise. */
-  upstreamReachable: boolean;
 }
 
 /**

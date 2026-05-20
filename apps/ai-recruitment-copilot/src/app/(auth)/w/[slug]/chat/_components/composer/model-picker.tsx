@@ -90,7 +90,6 @@ export function ModelPicker({ className }: ModelPickerProps) {
   // the memos below. Only flips when fetch returns new data.
   const models = useMemo(() => data?.models ?? EMPTY_MODELS, [data]);
   const defaultId = data?.defaultId ?? "";
-  const upstreamReachable = data?.upstreamReachable !== false;
 
   // 展示用的有效 id：先走兜底级联拿到"真实可用"id，空串再回退到 defaultId 给用户看。
   // 这一帧就给出最终值，避免出现"先闪 defaultId 再切 fallback"的抖动。
@@ -192,11 +191,6 @@ export function ModelPicker({ className }: ModelPickerProps) {
       </Tooltip>
 
       <PopoverContent align="start" className="w-80 p-0" sideOffset={6}>
-        {!upstreamReachable && (
-          <div className="border-b bg-muted/60 px-3 py-1.5 text-[11px] text-muted-foreground">
-            无法连接百炼 /models 接口，可稍后重试。
-          </div>
-        )}
         <Command
           // cmdk 默认按字符顺序排序匹配项；我们已经在 grouped 里按厂商分好序，
           // 关掉 sort 让分组顺序保持稳定。

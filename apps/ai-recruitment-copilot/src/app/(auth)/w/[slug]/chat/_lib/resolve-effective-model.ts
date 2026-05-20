@@ -9,7 +9,7 @@ import { SESSION_MODEL_FALLBACK_ID } from "../_atoms/model";
  *   - models 还没加载（length === 0）→ 原样返回，不抢跑
  *   - raw === ""（用户显式选"默认"）→ 仍返回 ""，调用方据此决定要不要用 defaultId
  *   - raw 在列表里 → 直接用
- *   - SESSION_MODEL_FALLBACK_ID（qwen-plus-latest）在列表里 → 用它
+ *   - SESSION_MODEL_FALLBACK_ID（见 _atoms/model.ts）在列表里 → 用它
  *   - 服务端 defaultId 在列表里 → 用它
  *   - 列表第一个 / 再不行回到 raw
  *

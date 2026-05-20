@@ -34,4 +34,4 @@ export const chatModelByIdAtom = atomWithStorage<Record<string, string>>(
  * latest /models response. Also used as the secondary fallback for the
  * server-side `defaultId`.
  */
-export const SESSION_MODEL_FALLBACK_ID = "qwen-plus-latest";
+export const SESSION_MODEL_FALLBACK_ID = "qwen3.6-plus";

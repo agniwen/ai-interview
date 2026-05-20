@@ -1,7 +1,6 @@
 import type { UIMessage } from "ai";
 import { zValidator } from "@hono/zod-validator";
-import { listUpstreamModelIds } from "@/server/agents/list-upstream-models";
-import { HARDCODED_DEFAULT_MODEL_ID, resolveChatModelId } from "@/server/agents/model-catalog";
+import { resolveChatModelId } from "@/server/agents/chat-models.config";
 import { factory } from "@/server/factory";
 import { bakeParsedResumesIntoMessage } from "@/server/routes/resume/bake-parsed-resume";
 import { inlineAttachmentsForModel } from "@/server/routes/resume/inline-attachments";
@@ -12,20 +11,6 @@ import {
   deleteMessagesFromId,
   upsertChatMessage,
 } from "@/server/routes/chat/dao/chat";
-
-const DASHSCOPE_DEFAULT_BASE_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1";
-
-/**
- * 把客户端传入的 model id 收敛到上游最近一次成功列表内。
- * Clamp the client-supplied model id against the latest upstream snapshot.
- */
-async function resolveModelForChat(requestedModel: string | undefined): Promise<string> {
-  const apiKey = process.env.ALIBABA_API_KEY;
-  const baseURL = process.env.ALIBABA_BASE_URL?.trim() || DASHSCOPE_DEFAULT_BASE_URL;
-  const upstreamIds = apiKey ? await listUpstreamModelIds({ apiKey, baseURL }) : null;
-  const fallbackId = process.env.ALIBABA_MODEL?.trim() || HARDCODED_DEFAULT_MODEL_ID;
-  return resolveChatModelId(requestedModel, upstreamIds, fallbackId);
-}
 
 export const resumeChatRouter = factory
   .createApp()
@@ -40,7 +25,7 @@ export const resumeChatRouter = factory
       messageId,
     } = c.req.valid("json");
 
-    const resolvedModel = await resolveModelForChat(model);
+    const resolvedModel = resolveChatModelId(model);
     const userId = c.var.user?.id;
     // 从 session 解出 orgId,供 upsertChatMessage / runResumeScreening 共用
     // (chat_message.organization_id NOT NULL)。session 没有活跃 org 时直接拒,
