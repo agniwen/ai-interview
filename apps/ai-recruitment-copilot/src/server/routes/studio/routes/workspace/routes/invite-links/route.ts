@@ -1,7 +1,13 @@
 import { zValidator } from "@hono/zod-validator";
 import { factory, jsonValidatorError } from "@/server/factory";
 import { requirePermission } from "@/server/middlewares/permission";
-import { createInviteLink, disableInviteLink, listInviteLinks, listLinkMembers } from "./dao";
+import {
+  createInviteLink,
+  disableInviteLink,
+  enableInviteLink,
+  listInviteLinks,
+  listLinkMembers,
+} from "./dao";
 import { inviteLinkIdParamsSchema } from "./schema";
 
 export const inviteLinksRouter = factory
@@ -53,6 +59,32 @@ export const inviteLinksRouter = factory
       const { id } = c.req.valid("param");
       const link = await disableInviteLink({
         disabledBy: user.id,
+        id,
+        organizationId: activeOrg.id,
+      });
+      if (!link) {
+        return c.json({ error: "链接不存在或不属于当前工作区。" }, 404);
+      }
+      return c.json(
+        {
+          ...link,
+          createdAt: link.createdAt.toISOString(),
+          disabledAt: link.disabledAt?.toISOString() ?? null,
+        },
+        200,
+      );
+    },
+  )
+  .patch(
+    "/:id/enable",
+    zValidator("param", inviteLinkIdParamsSchema, jsonValidatorError("参数错误。")),
+    async (c) => {
+      const { activeOrg } = c.var;
+      if (!activeOrg) {
+        return c.json({ message: "Unauthorized" }, 401);
+      }
+      const { id } = c.req.valid("param");
+      const link = await enableInviteLink({
         id,
         organizationId: activeOrg.id,
       });
