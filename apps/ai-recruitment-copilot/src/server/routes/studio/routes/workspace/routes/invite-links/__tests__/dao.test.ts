@@ -31,7 +31,7 @@ describe("invite-links dao", () => {
     await db.insert(user).values([
       {
         createdAt: new Date(),
-        email: "admin@test.local",
+        email: "admin@invite-links-test.local",
         emailVerified: true,
         id: ADMIN,
         name: "Admin",
@@ -39,7 +39,7 @@ describe("invite-links dao", () => {
       },
       {
         createdAt: new Date(),
-        email: "joiner@test.local",
+        email: "joiner@invite-links-test.local",
         emailVerified: true,
         id: JOINER,
         name: "Joiner",
@@ -112,6 +112,6 @@ describe("invite-links dao", () => {
     });
     const rows = await listLinkMembers({ id: link.id, organizationId: ORG });
     expect(rows).toHaveLength(1);
-    expect(rows[0]?.email).toBe("joiner@test.local");
+    expect(rows[0]?.email).toBe("joiner@invite-links-test.local");
   });
 });
