@@ -110,7 +110,7 @@ export function OrganizationsGrid({ initialData }: { initialData: OrganizationsR
         inline: [
           {
             icon: EyeIcon,
-            label: "查看详情",
+            label: "查看",
             onClick: handleViewDetail,
           },
         ],

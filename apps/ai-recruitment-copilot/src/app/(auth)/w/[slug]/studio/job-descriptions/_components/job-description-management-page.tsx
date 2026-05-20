@@ -195,7 +195,7 @@ export function JobDescriptionManagementPage({
         inline: [
           {
             icon: PencilIcon,
-            label: "编辑岗位",
+            label: "编辑",
             onClick: (r) => {
               void crud.openEdit(r);
             },

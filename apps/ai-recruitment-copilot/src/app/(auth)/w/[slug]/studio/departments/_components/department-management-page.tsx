@@ -160,7 +160,7 @@ export function DepartmentManagementPage({
         inline: [
           {
             icon: PencilIcon,
-            label: "编辑部门",
+            label: "编辑",
             onClick: (r) => void crud.openEdit(r),
           },
         ],

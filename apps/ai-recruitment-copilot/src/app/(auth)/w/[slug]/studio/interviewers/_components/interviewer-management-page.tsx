@@ -171,7 +171,7 @@ export function InterviewerManagementPage({
         inline: [
           {
             icon: PencilIcon,
-            label: "编辑面试官",
+            label: "编辑",
             onClick: (r) => {
               void crud.openEdit(r);
             },

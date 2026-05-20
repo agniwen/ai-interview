@@ -294,7 +294,7 @@ export function InterviewQuestionTemplateManagementPage({
         inline: [
           {
             icon: PencilIcon,
-            label: "编辑模版",
+            label: "编辑",
             onClick: (r) => {
               void crud.openEdit(r);
             },
