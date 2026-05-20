@@ -17,6 +17,7 @@ const ACTIVE_ORG_COLUMNS = {
 const ACTIVE_MEMBER_COLUMNS = {
   createdAt: true,
   id: true,
+  inviteLinkId: true,
   organizationId: true,
   role: true,
   userId: true,
