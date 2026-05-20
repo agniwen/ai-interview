@@ -268,6 +268,7 @@ export const relations = defineRelations(schema, (r) => ({
     studioInterviews: r.many.studioInterview(),
     studioOrgSkills: r.many.studioOrgSkill(),
     studioRoundEmailLogs: r.many.studioRoundEmailLog(),
+    workspaceInviteLinks: r.many.workspaceInviteLink(),
   },
   session: {
     user: r.one.user({
@@ -341,6 +342,14 @@ export const relations = defineRelations(schema, (r) => ({
     memberships: r.many.member(),
     session: r.many.session(),
     studioInterview: r.many.studioInterview(),
+    workspaceInviteLinksCreated: r.many.workspaceInviteLink({
+      from: r.user.id,
+      to: r.workspaceInviteLink.createdBy,
+    }),
+    workspaceInviteLinksDisabled: r.many.workspaceInviteLink({
+      from: r.user.id,
+      to: r.workspaceInviteLink.disabledBy,
+    }),
   },
   workspaceInviteLink: {
     creator: r.one.user({
