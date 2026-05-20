@@ -12,6 +12,7 @@
 import Markdown from "react-markdown";
 import type { StudioInterviewRoundDetail } from "@/lib/shared/studio-interview-rounds";
 import type { ResumeLibraryDetail } from "@/lib/shared/studio-resumes";
+import { DIFFICULTY_LABEL } from "@/lib/shared/interview-question-difficulty";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   deleteStudioInterviewFormSubmission,
@@ -996,8 +997,8 @@ export function StudioPersonDetailPanel({
                   >
                     <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
                       <span className="font-medium text-sm">第{question.order} 题</span>
-                      <span className="shrink-0 text-muted-foreground text-xs uppercase">
-                        {question.difficulty}
+                      <span className="shrink-0 text-muted-foreground text-xs">
+                        {DIFFICULTY_LABEL[question.difficulty] ?? question.difficulty}
                       </span>
                     </div>
                     <p className="mt-2 text-sm leading-normal">

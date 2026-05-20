@@ -11,11 +11,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 export interface ActionInline<TData> {
   icon: LucideIcon;
-  // tooltip + aria-label
+  /** 桌面态作为按钮文字 + 始终作为 aria-label；移动态隐藏文字时也提供 title 兜底。
+   *  Used as the visible label on ≥sm and as aria-label / title fallback otherwise. */
   label: string;
   onClick: (row: TData) => void | Promise<void>;
   disabled?: (row: TData) => boolean;
@@ -46,7 +46,9 @@ export interface ActionsColumnOptions<TData> {
 export function actionsColumn<TData>(opts: ActionsColumnOptions<TData>): ColumnDef<TData> {
   const inlineButtons = opts.inline ?? [];
   const menuItems = opts.menu ?? [];
-  const inferredSize = inlineButtons.length * 36 + (menuItems.length > 0 ? 36 : 0) + 32;
+  // 桌面态按钮带文字时占位更大（≈80px），列宽按桌面估算；移动态留白即可。
+  // Desktop buttons carry text → ≈80px each; size against the desktop layout.
+  const inferredSize = inlineButtons.length * 80 + (menuItems.length > 0 ? 36 : 0) + 32;
 
   return {
     cell: ({ row }) => {
@@ -60,21 +62,23 @@ export function actionsColumn<TData>(opts: ActionsColumnOptions<TData>): ColumnD
             const Icon = action.icon;
             const disabled = action.disabled?.(record) ?? false;
             return (
-              <Tooltip key={action.label}>
-                <TooltipTrigger asChild>
-                  <Button
-                    aria-label={action.label}
-                    className="size-8"
-                    disabled={disabled}
-                    onClick={() => void action.onClick(record)}
-                    size="icon"
-                    variant="ghost"
-                  >
-                    <Icon className="size-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>{action.label}</TooltipContent>
-              </Tooltip>
+              // 移动态（<sm）：保持 size-8 方形仅图标，跟旧版一致；
+              // 桌面态（≥sm）：自动宽度，图标 + 文字 (text-xs)，label 直接可见。
+              // <sm: keep the legacy size-8 icon-only square button;
+              // ≥sm: auto-width pill with icon + text-xs label.
+              <Button
+                aria-label={action.label}
+                className="size-8 sm:h-8 sm:w-auto sm:px-2.5"
+                disabled={disabled}
+                key={action.label}
+                onClick={() => void action.onClick(record)}
+                size="icon"
+                title={action.label}
+                variant="ghost"
+              >
+                <Icon className="size-4 sm:size-3.5" />
+                <span className="hidden text-xs sm:inline">{action.label}</span>
+              </Button>
             );
           })}
           {visibleMenu.length > 0 ? (
