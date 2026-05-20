@@ -401,7 +401,7 @@ export function ResumeLibraryPage({
         inline: [
           {
             icon: EyeIcon,
-            label: "查看详情",
+            label: "查看",
             onClick: (r) => {
               setDetailDefaultTab("overview");
               setDetailRecordId(r.id);

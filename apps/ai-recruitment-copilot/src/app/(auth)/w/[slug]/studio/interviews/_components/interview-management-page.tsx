@@ -348,8 +348,8 @@ export function InterviewManagementPage({
       }),
       actionsColumn<StudioInterviewRoundListRecord>({
         inline: [
-          { icon: EyeIcon, label: "查看详情", onClick: (r) => setDetailRoundId(r.id) },
-          { icon: PencilIcon, label: "编辑记录", onClick: (r) => setEditRecordId(r.id) },
+          { icon: EyeIcon, label: "查看", onClick: (r) => setDetailRoundId(r.id) },
+          { icon: PencilIcon, label: "编辑", onClick: (r) => setEditRecordId(r.id) },
         ],
         menu: [
           { icon: CopyIcon, label: "复制面试链接", onClick: (r) => void copyInterviewLink(r) },

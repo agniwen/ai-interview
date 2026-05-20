@@ -46,9 +46,11 @@ export interface ActionsColumnOptions<TData> {
 export function actionsColumn<TData>(opts: ActionsColumnOptions<TData>): ColumnDef<TData> {
   const inlineButtons = opts.inline ?? [];
   const menuItems = opts.menu ?? [];
-  // 桌面态按钮带文字时占位更大（≈80px），列宽按桌面估算；移动态留白即可。
-  // Desktop buttons carry text → ≈80px each; size against the desktop layout.
-  const inferredSize = inlineButtons.length * 80 + (menuItems.length > 0 ? 36 : 0) + 32;
+  // 桌面态按钮带文字时占位更大（≈72px inline、≈64px 更多），列宽按桌面估算；
+  // 移动态实际只用图标，留白即可。
+  // Desktop carries text → ≈72px per inline + ≈64px for the "更多" trigger;
+  // mobile is icon-only and uses the slack.
+  const inferredSize = inlineButtons.length * 72 + (menuItems.length > 0 ? 64 : 0) + 32;
 
   return {
     cell: ({ row }) => {
@@ -84,8 +86,15 @@ export function actionsColumn<TData>(opts: ActionsColumnOptions<TData>): ColumnD
           {visibleMenu.length > 0 ? (
             <DropdownMenu modal={false}>
               <DropdownMenuTrigger asChild>
-                <Button aria-label="更多操作" className="size-8" size="icon" variant="ghost">
-                  <MoreHorizontalIcon className="size-4" />
+                <Button
+                  aria-label="更多操作"
+                  className="size-8 sm:h-8 sm:w-auto sm:px-2.5"
+                  size="icon"
+                  title="更多操作"
+                  variant="ghost"
+                >
+                  <MoreHorizontalIcon className="size-4 sm:size-3.5" />
+                  <span className="hidden text-xs sm:inline">更多</span>
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-44">

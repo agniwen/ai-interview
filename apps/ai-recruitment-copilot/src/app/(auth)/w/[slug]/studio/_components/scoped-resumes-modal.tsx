@@ -142,7 +142,7 @@ export function ScopedResumesModal({
         inline: [
           {
             icon: EyeIcon,
-            label: "查看详情",
+            label: "查看",
             onClick: (r) => setDetailRecordId(r.id),
           },
         ],
