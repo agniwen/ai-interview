@@ -309,7 +309,7 @@ export function InterviewManagementPage({
         ],
       }),
     ],
-    [slug],
+    [],
   );
 
   // 状态过滤选项：对应 round 级状态枚举。
