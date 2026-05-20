@@ -115,7 +115,7 @@ export function PdfPreviewDialog({ open, onOpenChange, url, filename }: PdfPrevi
   const canZoomIn = scale < MAX_SCALE - 1e-6;
   const canZoomOut = scale > MIN_SCALE + 1e-6;
 
-  let pageCountLabel = "加载中...";
+  let pageCountLabel = "加载中…";
   if (numPages) {
     pageCountLabel = renderAllPages ? `共 ${numPages} 页` : `第 ${pageNumber} / ${numPages} 页`;
   }
@@ -217,7 +217,7 @@ export function PdfPreviewDialog({ open, onOpenChange, url, filename }: PdfPrevi
             loading={
               <div className="flex h-full w-full items-center justify-center gap-2 text-muted-foreground text-sm">
                 <LoaderCircleIcon className="size-4 animate-spin" />
-                正在加载 PDF...
+                正在加载 PDF…
               </div>
             }
             onLoadError={(error) => {

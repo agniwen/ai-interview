@@ -82,6 +82,7 @@ export function ProcessTabs() {
                     aria-current={isActive ? "step" : undefined}
                     className={cn(
                       "group relative w-full border-foreground/10 border-l-2 py-5 pl-6 text-left transition-colors lg:flex lg:h-full lg:flex-col lg:justify-center",
+                      "focus-visible:outline focus-visible:outline-2 focus-visible:outline-foreground/40 focus-visible:outline-offset-2",
                       isActive ? "border-l-primary" : "hover:border-l-foreground/30",
                     )}
                     onClick={() => setActiveValue(step.value)}

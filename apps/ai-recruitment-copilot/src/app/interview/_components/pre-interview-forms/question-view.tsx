@@ -159,7 +159,7 @@ export function QuestionView({
           id={inputId}
           maxLength={TEXT_ANSWER_MAX_LENGTH}
           onChange={(event) => onChange(event.target.value)}
-          placeholder="请输入你的回答"
+          placeholder="请输入你的回答…"
           value={textValue}
         />
         <TextareaCounter maxLength={TEXT_ANSWER_MAX_LENGTH} value={textValue} />
@@ -172,7 +172,7 @@ export function QuestionView({
       id={inputId}
       maxLength={TEXT_ANSWER_MAX_LENGTH}
       onChange={(event) => onChange(event.target.value)}
-      placeholder="请输入你的回答"
+      placeholder="请输入你的回答…"
       value={typeof value === "string" ? value : ""}
     />
   );

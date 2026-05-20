@@ -64,6 +64,7 @@ export function EmailPasswordSignInForm({
           onChange={(e) => setEmail(e.target.value)}
           placeholder="you@example.com"
           required
+          spellCheck={false}
           type="email"
           value={email}
         />
@@ -77,6 +78,7 @@ export function EmailPasswordSignInForm({
           onChange={(e) => setPassword(e.target.value)}
           placeholder="请输入密码"
           required
+          spellCheck={false}
           type="password"
           value={password}
         />

@@ -36,6 +36,10 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
+  themeColor: [
+    { color: "#ffffff", media: "(prefers-color-scheme: light)" },
+    { color: "#0a0a0a", media: "(prefers-color-scheme: dark)" },
+  ],
   viewportFit: "cover",
 };
 
@@ -49,6 +53,9 @@ export default function RootLayout({
   return (
     <html lang="zh-CN" suppressHydrationWarning>
       <head>
+        {/* 与 jsDelivr 提前建立连接，缩短 MiSans 字体首字节时间。
+            Preconnect to jsDelivr to shave MiSans font TTFB. */}
+        <link crossOrigin="anonymous" href="https://cdn.jsdelivr.net" rel="preconnect" />
         {/* 通过 jsDelivr 加载小米 MiSans 中英文字体（4 档常用字重）。
             Load MiSans CJK + Latin webfont via jsDelivr CDN (4 common weights). */}
         <link

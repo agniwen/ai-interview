@@ -11,9 +11,13 @@ import { ResumeDedupOverlay } from "@/components/resume-dedup-overlay";
 import { TextFlip } from "@/components/text-flip";
 import { Button } from "@/components/ui/button";
 import { CheckIcon, LoaderCircleIcon, WrenchIcon } from "lucide-react";
-import { motion } from "motion/react";
+import { motion, useReducedMotion } from "motion/react";
 
 export function ResumeAnalysisOverlay({ pipeline }: { pipeline: ResumeAnalysisPipeline }) {
+  // 尊重系统的"减少动效"偏好：reduced-motion 用户跳过淡入。
+  // Honor the OS reduced-motion preference by skipping the fade-in.
+  const prefersReducedMotion = useReducedMotion();
+
   if (!pipeline.isBusy) {
     return null;
   }
@@ -22,8 +26,8 @@ export function ResumeAnalysisOverlay({ pipeline }: { pipeline: ResumeAnalysisPi
     <motion.div
       animate={{ opacity: 1 }}
       className="absolute inset-0 z-50 flex flex-col items-center justify-center gap-5 overflow-y-auto bg-white/80 px-6 py-8 backdrop-blur-sm dark:bg-black/50"
-      initial={{ opacity: 0 }}
-      transition={{ duration: 0.2 }}
+      initial={{ opacity: prefersReducedMotion ? 1 : 0 }}
+      transition={{ duration: prefersReducedMotion ? 0 : 0.2 }}
     >
       {pipeline.dedupMatches ? (
         <ResumeDedupOverlay
