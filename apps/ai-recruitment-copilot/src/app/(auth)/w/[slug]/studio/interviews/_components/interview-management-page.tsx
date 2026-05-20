@@ -367,13 +367,12 @@ export function InterviewManagementPage({
   // 概览统计卡：来自 round 级聚合计数。
   // Summary stat cards: sourced from round-level aggregated counts.
   const stats = (
-    <section className="grid grid-cols-2 gap-4 xl:grid-cols-5">
+    <section className="grid grid-cols-2 gap-4 xl:grid-cols-4">
       {[
         { hint: "该组织下所有面试轮次总数", label: "总轮数", value: `${summary.total}` },
         { hint: "尚未开始的轮次", label: "待开始", value: `${summary.pending}` },
         { hint: "正在进行或短暂中断的轮次", label: "进行中", value: `${summary.inProgress}` },
         { hint: "全部完成的轮次", label: "已完成", value: `${summary.completed}` },
-        { hint: "已中断（会话断开）的轮次", label: "已中断", value: `${summary.interrupted}` },
       ].map((item) => (
         <Card key={item.label}>
           <CardHeader className="pb-2">
