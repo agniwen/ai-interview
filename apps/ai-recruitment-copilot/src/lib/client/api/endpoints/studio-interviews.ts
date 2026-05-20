@@ -116,9 +116,13 @@ export function fetchInterviewDedup(
     email: string | null;
     phone: string | null;
   },
+  options?: { signal?: AbortSignal },
 ): Promise<{ matches: DedupMatchRecord[] }> {
   return rpcFetch<{ matches: DedupMatchRecord[] }>(
-    rpc.api.w[":slug"].studio.interviews["dedup-check"].$post({ json: input, param: { slug } }),
+    rpc.api.w[":slug"].studio.interviews["dedup-check"].$post(
+      { json: input, param: { slug } },
+      { init: { signal: options?.signal } },
+    ),
     "查重失败",
   );
 }

@@ -432,11 +432,15 @@ export function useResumeAnalysisPipeline(
         // for confirmation — no more chained question generation. Question
         // generation is deferred to the "save and start interview" action.
         try {
-          const { matches } = await fetchInterviewDedup(slug, {
-            email: resumeProfile.email,
-            name: resumeProfile.name,
-            phone: resumeProfile.phone,
-          });
+          const { matches } = await fetchInterviewDedup(
+            slug,
+            {
+              email: resumeProfile.email,
+              name: resumeProfile.name,
+              phone: resumeProfile.phone,
+            },
+            { signal: abortController.signal },
+          );
           if (matches.length > 0) {
             pendingProfileRef.current = resumeProfile;
             setDedupMatches(matches);
@@ -458,7 +462,19 @@ export function useResumeAnalysisPipeline(
         setResumeFile(null);
         toast.error(error instanceof Error ? error.message : "简历分析失败");
       } finally {
-        abortControllerRef.current = null;
+        // 不在这里把 abortControllerRef.current 置 null：上面的"匹配岗位 + 简历评价"
+        // 是 fire-and-forget 的 IIFE，复用同一个 abortController；如果在外层 finally
+        // 提前置 null，用户在 review 流式阶段点「取消」就找不到 controller，
+        // 导致 abort() 失效、网络请求继续跑、结果照样回填表单。
+        // ref 让它继续指向同一个 controller 即可——abort() 对已结束的 controller
+        // 是 no-op，下次 handleResumeChange 会自然覆盖。
+        // Do NOT null abortControllerRef here: the match-JD + review IIFE is
+        // fire-and-forget and shares this controller. Clearing the ref while
+        // it's still alive means the 取消 button can't reach it during the
+        // review stream — abort() becomes a silent no-op and the request
+        // keeps running. Leaving the ref pointed at the same controller is
+        // safe (abort() on a settled controller is a no-op) and a fresh
+        // handleResumeChange call will overwrite it.
         setIsAnalyzingResume(false);
         setIsGeneratingQuestions(false);
         // 不在 finally 里清 isGeneratingReview：评价生成是 fire-and-forget 在 IIFE 里跑，

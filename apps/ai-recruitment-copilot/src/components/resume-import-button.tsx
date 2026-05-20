@@ -272,11 +272,15 @@ export function ResumeImportButton({
       // Identity dedup; on failure proceed silently. On hit, stash state and
       // wait for the user to "继续解析" or "取消上传".
       try {
-        const dedupResult = await fetchInterviewDedup(workspaceSlug, {
-          email: resumeProfile.email,
-          name: resumeProfile.name,
-          phone: resumeProfile.phone,
-        });
+        const dedupResult = await fetchInterviewDedup(
+          workspaceSlug,
+          {
+            email: resumeProfile.email,
+            name: resumeProfile.name,
+            phone: resumeProfile.phone,
+          },
+          { signal: abortController.signal },
+        );
         const matches = dedupResult?.matches ?? [];
         if (matches.length > 0) {
           cachedParseResultRef.current = parseResult;
