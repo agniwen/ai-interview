@@ -369,6 +369,7 @@ export function MembersManagementPage() {
               <PendingInvitationsButton organizationId={org?.id ?? null} />
             </PermissionGate>
             <PermissionGate action="create" resource="invitation">
+              <InviteLinksDialog />
               <InviteDialog
                 trigger={
                   <Button>
@@ -377,7 +378,6 @@ export function MembersManagementPage() {
                   </Button>
                 }
               />
-              <InviteLinksDialog />
             </PermissionGate>
           </div>
         }
