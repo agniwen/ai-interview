@@ -98,6 +98,37 @@ export async function disableInviteLink(
   return row ?? existing;
 }
 
+export interface EnableInviteLinkInput {
+  id: string;
+  organizationId: string;
+}
+
+export async function enableInviteLink(
+  input: EnableInviteLinkInput,
+): Promise<InviteLinkRow | null> {
+  // 幂等：未禁用直接读出来返回，不更新。
+  const existing = await db.query.workspaceInviteLink.findFirst({
+    where: { id: input.id, organizationId: input.organizationId },
+  });
+  if (!existing) {
+    return null;
+  }
+  if (!existing.disabledAt) {
+    return existing;
+  }
+  const [row] = await db
+    .update(workspaceInviteLink)
+    .set({ disabledAt: null, disabledBy: null })
+    .where(
+      and(
+        eq(workspaceInviteLink.id, input.id),
+        eq(workspaceInviteLink.organizationId, input.organizationId),
+      ),
+    )
+    .returning();
+  return row ?? existing;
+}
+
 export async function listInviteLinks(organizationId: string): Promise<InviteLinkListRow[]> {
   const rows = await db
     .select({

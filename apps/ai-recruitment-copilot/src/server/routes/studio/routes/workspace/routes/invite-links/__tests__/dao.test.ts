@@ -5,6 +5,7 @@ import { member, organization, user, workspaceInviteLink } from "@arc/db-schema/
 import {
   createInviteLink,
   disableInviteLink,
+  enableInviteLink,
   findActiveLinkByCode,
   listInviteLinks,
   listLinkMembers,
@@ -83,6 +84,24 @@ describe("invite-links dao", () => {
     const first = await disableInviteLink({ disabledBy: ADMIN, id: link.id, organizationId: ORG });
     const second = await disableInviteLink({ disabledBy: ADMIN, id: link.id, organizationId: ORG });
     expect(first?.disabledAt?.getTime()).toBe(second?.disabledAt?.getTime());
+  });
+
+  it("enable clears disabledAt/disabledBy on a disabled link", async () => {
+    const link = await createInviteLink({ createdBy: ADMIN, organizationId: ORG });
+    await disableInviteLink({ disabledBy: ADMIN, id: link.id, organizationId: ORG });
+    const enabled = await enableInviteLink({ id: link.id, organizationId: ORG });
+    expect(enabled?.disabledAt).toBeNull();
+    expect(enabled?.disabledBy).toBeNull();
+    // 重新进入 active 名单
+    const hit = await findActiveLinkByCode(link.code);
+    expect(hit?.id).toBe(link.id);
+  });
+
+  it("enable is idempotent on an already-active link", async () => {
+    const link = await createInviteLink({ createdBy: ADMIN, organizationId: ORG });
+    const result = await enableInviteLink({ id: link.id, organizationId: ORG });
+    expect(result?.id).toBe(link.id);
+    expect(result?.disabledAt).toBeNull();
   });
 
   it("listInviteLinks returns joinedCount", async () => {

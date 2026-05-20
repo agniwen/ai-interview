@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CopyIcon, LinkIcon, PowerOffIcon, UsersIcon } from "lucide-react";
+import { BanIcon, CopyIcon, LinkIcon, PlayIcon, UsersIcon } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { TimeDisplay } from "@/components/time-display";
@@ -77,14 +77,24 @@ interface LinkRowProps {
   slug: string;
   onCopy: () => void;
   onDisable: () => void;
+  onEnable: () => void;
   onToggleExpand: () => void;
 }
 
-function LinkRow({ link, expanded, slug, onCopy, onDisable, onToggleExpand }: LinkRowProps) {
+function LinkRow({
+  link,
+  expanded,
+  slug,
+  onCopy,
+  onDisable,
+  onEnable,
+  onToggleExpand,
+}: LinkRowProps) {
   const url =
     typeof window === "undefined"
       ? `/join/${link.code}`
       : `${window.location.origin}/join/${link.code}`;
+  const disabled = Boolean(link.disabledAt);
   return (
     <div className="rounded-lg border p-3">
       <div className="flex items-center justify-between gap-2">
@@ -92,18 +102,22 @@ function LinkRow({ link, expanded, slug, onCopy, onDisable, onToggleExpand }: Li
           <div className="truncate font-mono text-sm">{url}</div>
           <div className="mt-1 text-xs text-muted-foreground">
             {link.creatorName ?? "已删除用户"} · <TimeDisplay value={link.createdAt} />
-            {link.disabledAt ? " · 已禁用" : ""}
+            {disabled ? " · 已禁用" : ""}
           </div>
         </div>
-        <Button onClick={onCopy} size="sm" variant="ghost">
+        <Button aria-label="复制链接" onClick={onCopy} size="sm" variant="ghost">
           <CopyIcon />
         </Button>
-        <Button onClick={onToggleExpand} size="sm" variant="ghost">
+        <Button aria-label="查看加入成员" onClick={onToggleExpand} size="sm" variant="ghost">
           <UsersIcon /> {link.joinedCount}
         </Button>
-        {link.disabledAt ? null : (
-          <Button onClick={onDisable} size="sm" variant="ghost">
-            <PowerOffIcon />
+        {disabled ? (
+          <Button aria-label="启用链接" onClick={onEnable} size="sm" variant="ghost">
+            <PlayIcon />
+          </Button>
+        ) : (
+          <Button aria-label="禁用链接" onClick={onDisable} size="sm" variant="ghost">
+            <BanIcon />
           </Button>
         )}
       </div>
@@ -162,6 +176,21 @@ export function InviteLinksDialog() {
     },
   });
 
+  const enableMutation = useMutation({
+    mutationFn: (id: string) =>
+      rpcFetch<InviteLinkDto>(
+        rpc.api.w[":slug"].studio.workspace["invite-links"][":id"].enable.$patch({
+          param: { id, slug },
+        }),
+        "启用失败",
+      ),
+    onError: (err) => toast.error(err instanceof Error ? err.message : "启用失败"),
+    onSuccess: () => {
+      toast.success("已启用");
+      queryClient.invalidateQueries({ queryKey: QUERY_KEY(slug) });
+    },
+  });
+
   async function copyUrl(code: string) {
     const url = `${window.location.origin}/join/${code}`;
     try {
@@ -210,6 +239,7 @@ export function InviteLinksDialog() {
                   link={link}
                   onCopy={() => copyUrl(link.code)}
                   onDisable={() => disableMutation.mutate(link.id)}
+                  onEnable={() => enableMutation.mutate(link.id)}
                   onToggleExpand={() => setExpandedId((cur) => (cur === link.id ? null : link.id))}
                   slug={slug}
                 />
