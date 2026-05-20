@@ -316,17 +316,20 @@ export const studioInterviewsRouter = factory
     }
 
     let jobDescriptionPrompt: string | null = null;
+    let jobDescriptionName: string | null = null;
     let interviewers: { name: string; prompt: string }[] = [];
 
     if (existing.jobDescriptionId) {
       const [jdRow] = await db
         .select({
+          name: jobDescription.name,
           prompt: jobDescription.prompt,
         })
         .from(jobDescription)
         .where(eq(jobDescription.id, existing.jobDescriptionId))
         .limit(1);
       jobDescriptionPrompt = jdRow?.prompt ?? null;
+      jobDescriptionName = jdRow?.name ?? null;
 
       const interviewerRows = await db
         .select({ name: interviewer.name, prompt: interviewer.prompt })
@@ -349,7 +352,7 @@ export const studioInterviewsRouter = factory
     // Inject global config so the preview matches what the agent will receive.
     const globalCfg = await getGlobalConfig(activeOrg.id);
     const candidateName = existing.candidateName?.trim() || "候选人";
-    const targetRole = existing.targetRole?.trim() || "未指定岗位";
+    const targetRole = jobDescriptionName?.trim() || "未指定岗位";
     const openingPrompt = resolveOpeningPrompt(
       globalCfg.openingInstructions,
       candidateName,
@@ -368,7 +371,7 @@ export const studioInterviewsRouter = factory
       jobDescriptionPresetQuestions,
       jobDescriptionPrompt,
       resumeProfile: existing.resumeProfile,
-      targetRole: existing.targetRole,
+      targetRole: jobDescriptionName,
     } as const;
 
     const variants =

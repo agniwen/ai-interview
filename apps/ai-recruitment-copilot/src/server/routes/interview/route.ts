@@ -401,7 +401,7 @@ export const interviewRouter = factory
       recording_enabled: recordingEnabled,
       recording_file_key: recordingFileKey,
       round_id: roundId,
-      target_role: interviewRecord.targetRole,
+      target_role: interviewRecord.jobDescriptionName?.trim() || "未指定岗位",
     });
 
     try {
