@@ -15,16 +15,22 @@ import type { ResumeLibraryDetail } from "@/lib/shared/studio-resumes";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   deleteStudioInterviewFormSubmission,
+  fetchPublicInterviewRound,
+  fetchPublicInterviewRoundFormSubmissions,
+  fetchPublicInterviewRoundReports,
+  fetchPublicResume,
+  fetchPublicResumeRounds,
   fetchStudioInterviewRound,
   fetchStudioInterviewRoundFormSubmissions,
   fetchStudioInterviewRoundReports,
   fetchStudioResume,
   fetchStudioResumeRounds,
   resetStudioInterviewRound,
+  resolvePublicInterviewRecordId,
   resolveStudioInterviewRecordId,
   updateStudioInterviewRound,
 } from "@/lib/client/api";
-import { useWorkspaceSlug } from "@/lib/client/workspace-context";
+import { useOptionalWorkspaceSlug } from "@/lib/client/workspace-context";
 import {
   BotIcon,
   ExternalLinkIcon,
@@ -85,6 +91,16 @@ import { RecordingPlayer } from "../interviews/_components/interview-detail/reco
 
 export type StudioPersonDetailMode = "interview" | "resume";
 
+/**
+ * 数据来源 + 是否可写。"authed" 走 `/api/w/:slug/studio/*` 既有路由族；
+ * "public" 走 `/api/public/*`，所有写操作 UI 被隐藏。
+ *
+ * Data source + write capability.
+ * "authed" routes through the existing workspace-scoped API; "public" hits
+ * the slug-less `/api/public/*` mirrors and hides all write UI.
+ */
+export type StudioPersonDetailAccessMode = "authed" | "public";
+
 export type StudioPersonDetailTab =
   | "overview"
   | "rounds"
@@ -136,6 +152,7 @@ export function StudioPersonDetailPanel({
   mode,
   enabled = true,
   defaultTab,
+  accessMode = "authed",
   onUpdated,
   onEdit,
   onLaunchInterview,
@@ -167,6 +184,11 @@ export function StudioPersonDetailPanel({
    */
   enabled?: boolean;
   defaultTab?: StudioPersonDetailTab;
+  /**
+   * 是否走公开访问数据源 + 隐藏所有写 UI。默认 "authed"。
+   * Whether to use the public data source and hide all write UI. Defaults to "authed".
+   */
+  accessMode?: StudioPersonDetailAccessMode;
   /** 轮次级写操作（toggle / reset）成功后调用。/ Called after a round-level write (toggle / reset). */
   onUpdated?: () => void;
   onEdit?: (recordId: string) => void;
@@ -194,7 +216,18 @@ export function StudioPersonDetailPanel({
   onClose?: () => void;
   renderShell: (slots: StudioPersonDetailSlots) => ReactNode;
 }) {
-  const slug = useWorkspaceSlug();
+  const optionalSlug = useOptionalWorkspaceSlug();
+  const isPublic = accessMode === "public";
+  // 公开模式下故意不依赖 slug；authed 模式下我们仍要求 workspace 上下文。
+  // Public mode is slug-agnostic by design; authed mode still needs the workspace ctx.
+  if (!isPublic && !optionalSlug) {
+    throw new Error(
+      'StudioPersonDetailPanel(accessMode="authed") must run under a /w/[slug] route',
+    );
+  }
+  // 仅 authed 路径下使用 slug；以变量形式保留，方便下文 string-only 接口拼接。
+  // Slug is only consumed on the authed path; declare as string for downstream callers.
+  const slug = optionalSlug ?? "";
   const [resettingSubmissionId, setResettingSubmissionId] = useState<string | null>(null);
   const [pendingResetSubmissionId, setPendingResetSubmissionId] = useState<string | null>(null);
   const [resettingRoundId, setResettingRoundId] = useState<string | null>(null);
@@ -214,8 +247,11 @@ export function StudioPersonDetailPanel({
   const needsResolve = mode === "interview" && !roundId && !!recordId;
   const { data: resolvedRoundId, isLoading: isResolvingRoundId } = useQuery({
     enabled: enabled && needsResolve,
-    queryFn: () => resolveStudioInterviewRecordId(slug, recordId as string),
-    queryKey: ["studio-interview-resolve", slug, recordId],
+    queryFn: () =>
+      isPublic
+        ? resolvePublicInterviewRecordId(recordId as string)
+        : resolveStudioInterviewRecordId(slug, recordId as string),
+    queryKey: ["studio-interview-resolve", slug, recordId, accessMode],
   });
 
   // 当前生效的 roundId / recordId —— 后续所有查询、删除、播放器路径都基于
@@ -227,31 +263,43 @@ export function StudioPersonDetailPanel({
   // 面试模式查询（`:id` = roundId）/ Interview-mode query (`:id` = roundId)
   const { data: round, isLoading: isInterviewLoading } = useQuery({
     enabled: enabled && !!effectiveRoundId && mode === "interview",
-    queryFn: () => fetchStudioInterviewRound(slug, effectiveRoundId as string),
-    queryKey: ["studio-interview-round", slug, effectiveRoundId],
+    queryFn: () =>
+      isPublic
+        ? fetchPublicInterviewRound(effectiveRoundId as string)
+        : fetchStudioInterviewRound(slug, effectiveRoundId as string),
+    queryKey: ["studio-interview-round", slug, effectiveRoundId, accessMode],
     refetchOnWindowFocus: true,
   });
 
   // 简历库模式查询 / Resume-mode record query
   const { data: resumeRecord, isLoading: isResumeLoading } = useQuery({
     enabled: enabled && !!effectiveRecordId && mode === "resume",
-    queryFn: () => fetchStudioResume(slug, effectiveRecordId as string),
-    queryKey: ["studio-resumes", slug, "detail", effectiveRecordId] as const,
+    queryFn: () =>
+      isPublic
+        ? fetchPublicResume(effectiveRecordId as string)
+        : fetchStudioResume(slug, effectiveRecordId as string),
+    queryKey: ["studio-resumes", slug, "detail", effectiveRecordId, accessMode] as const,
     staleTime: 30 * 1000,
   });
 
   // 面试报告与表单仅面试模式查询 / Reports and form submissions only in interview mode
   const { data: reports = [] } = useQuery({
     enabled: enabled && !!effectiveRoundId && mode === "interview",
-    queryFn: () => fetchStudioInterviewRoundReports(slug, effectiveRoundId as string),
-    queryKey: ["studio-interview-round-reports", slug, effectiveRoundId],
+    queryFn: () =>
+      isPublic
+        ? fetchPublicInterviewRoundReports(effectiveRoundId as string)
+        : fetchStudioInterviewRoundReports(slug, effectiveRoundId as string),
+    queryKey: ["studio-interview-round-reports", slug, effectiveRoundId, accessMode],
     refetchOnWindowFocus: true,
   });
 
   const { data: formSubmissions = [] } = useQuery({
     enabled: enabled && !!effectiveRoundId && mode === "interview",
-    queryFn: () => fetchStudioInterviewRoundFormSubmissions(slug, effectiveRoundId as string),
-    queryKey: ["studio-interview-round-form-submissions", slug, effectiveRoundId],
+    queryFn: () =>
+      isPublic
+        ? fetchPublicInterviewRoundFormSubmissions(effectiveRoundId as string)
+        : fetchStudioInterviewRoundFormSubmissions(slug, effectiveRoundId as string),
+    queryKey: ["studio-interview-round-form-submissions", slug, effectiveRoundId, accessMode],
     refetchOnWindowFocus: true,
   });
 
@@ -259,8 +307,11 @@ export function StudioPersonDetailPanel({
   // Resume-mode: list this candidate's AI interview rounds for the "AI 面试" tab.
   const { data: candidateRounds = [], isLoading: isRoundsLoading } = useQuery({
     enabled: enabled && !!effectiveRecordId && mode === "resume",
-    queryFn: () => fetchStudioResumeRounds(slug, effectiveRecordId as string),
-    queryKey: ["studio-resume-rounds", slug, effectiveRecordId] as const,
+    queryFn: () =>
+      isPublic
+        ? fetchPublicResumeRounds(effectiveRecordId as string)
+        : fetchStudioResumeRounds(slug, effectiveRecordId as string),
+    queryKey: ["studio-resume-rounds", slug, effectiveRecordId, accessMode] as const,
     refetchOnWindowFocus: true,
   });
 
@@ -441,21 +492,24 @@ export function StudioPersonDetailPanel({
   const latestReport = reports[0] ?? null;
 
   // 面试模式 footer：「编辑候选人信息」跳转到简历库（record.id = candidateId）。
-  // Interview-mode footer: "编辑候选人信息" navigates to resume library using candidateId.
-  const interviewModeFooter = record ? (
-    <Button
-      onClick={() => {
-        router.push(`/w/${slug}/studio/resumes?recordId=${record.id}`);
-        onClose?.();
-      }}
-      size="sm"
-      type="button"
-      variant="outline"
-    >
-      <PencilIcon className="size-3.5" />
-      编辑候选人信息
-    </Button>
-  ) : null;
+  // 公开访问下不允许编辑，footer 直接置空。
+  // Interview-mode footer: "编辑候选人信息" deep-links to the resume library.
+  // Public access has no edit capability, so the footer is dropped entirely.
+  const interviewModeFooter =
+    record && !isPublic ? (
+      <Button
+        onClick={() => {
+          router.push(`/w/${slug}/studio/resumes?recordId=${record.id}`);
+          onClose?.();
+        }}
+        size="sm"
+        type="button"
+        variant="outline"
+      >
+        <PencilIcon className="size-3.5" />
+        编辑候选人信息
+      </Button>
+    ) : null;
 
   // 简历模式底部双按钮：两个按钮各占一半宽度。
   // 已存在 AI 面试轮次的简历隐藏「发起 AI 面试」按钮，避免重复创建；
@@ -555,9 +609,13 @@ export function StudioPersonDetailPanel({
         ) : null}
         {mode === "interview" ? (
           <>
-            <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="instructions">
-              Agent 提示词
-            </TabsTrigger>
+            {/* 公开访问下不暴露 Agent 提示词面板 —— 这是面试官调试用，不属于候选人侧/对外可见信息。
+                Agent prompts are admin tooling (no public mirror) and are hidden from public access. */}
+            {isPublic ? null : (
+              <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="instructions">
+                Agent 提示词
+              </TabsTrigger>
+            )}
             <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="forms">
               表单答复
             </TabsTrigger>
@@ -570,12 +628,15 @@ export function StudioPersonDetailPanel({
         filename={record.resumeFileName ?? undefined}
         label="预览简历"
         url={
+          // oxlint-disable-next-line no-nested-ternary -- Public vs authed PDF URL switch inlined for readability.
           record.hasResumeFile
-            ? `/api/w/${slug}/studio/${mode === "resume" ? "resumes" : "interviews"}/${
-                // 面试模式用 roundId（/:id/resume 已是 round-keyed），简历模式用 record.id。
-                // Interview mode uses roundId (/:id/resume is now round-keyed); resume mode uses record.id.
-                mode === "interview" ? (record.roundId ?? record.id) : record.id
-              }/resume`
+            ? (isPublic
+              ? `/api/public/interview-rounds/${record.roundId ?? record.id}/resume`
+              : `/api/w/${slug}/studio/${mode === "resume" ? "resumes" : "interviews"}/${
+                  // 面试模式用 roundId（/:id/resume 已是 round-keyed），简历模式用 record.id。
+                  // Interview mode uses roundId (/:id/resume is now round-keyed); resume mode uses record.id.
+                  mode === "interview" ? (record.roundId ?? record.id) : record.id
+                }/resume`)
             : ""
         }
       />
@@ -641,7 +702,7 @@ export function StudioPersonDetailPanel({
                     ) : (
                       <span className="text-muted-foreground text-xs">未排期</span>
                     )}
-                    {record.roundId ? (
+                    {record.roundId && !isPublic ? (
                       <RoundEmailAction
                         candidateEmail={record.candidateEmail}
                         roundId={record.roundId}
@@ -649,7 +710,7 @@ export function StudioPersonDetailPanel({
                         summary={roundEmailSummary}
                       />
                     ) : null}
-                    {record.roundInterviewLink ? (
+                    {record.roundInterviewLink && !isPublic ? (
                       <>
                         <Button
                           onClick={() =>
@@ -670,38 +731,40 @@ export function StudioPersonDetailPanel({
                     ) : null}
                   </div>
                 </div>
-                <div className="flex items-center justify-between gap-3 rounded-lg border border-border/50 bg-background/80 px-3 py-2">
-                  <div className="min-w-0">
-                    {/* 允许面试者文本输入 / Allow candidate text input */}
-                    <p className="font-medium text-sm">允许面试者文本输入</p>
-                    <p className="mt-0.5 text-muted-foreground text-xs">
-                      关闭时面试界面文字输入框被禁用，仅支持语音作答。
-                    </p>
+                {isPublic ? null : (
+                  <div className="flex items-center justify-between gap-3 rounded-lg border border-border/50 bg-background/80 px-3 py-2">
+                    <div className="min-w-0">
+                      {/* 允许面试者文本输入 / Allow candidate text input */}
+                      <p className="font-medium text-sm">允许面试者文本输入</p>
+                      <p className="mt-0.5 text-muted-foreground text-xs">
+                        关闭时面试界面文字输入框被禁用，仅支持语音作答。
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Switch
+                        checked={record.roundAllowTextInput ?? false}
+                        disabled={
+                          record.roundStatus === "completed" || updatingRoundId === record.roundId
+                        }
+                        onCheckedChange={(next) =>
+                          void handleToggleAllowTextInput(record.roundId as string, next)
+                        }
+                      />
+                      {record.roundStatus === "completed" ? (
+                        <Button
+                          disabled={resettingRoundId === record.roundId}
+                          onClick={() => void handleResetRound(record.roundId as string)}
+                          size="sm"
+                          type="button"
+                          variant="outline"
+                        >
+                          <RotateCcwIcon className="size-3.5" />
+                          {resettingRoundId === record.roundId ? "重置中..." : "重置轮次"}
+                        </Button>
+                      ) : null}
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Switch
-                      checked={record.roundAllowTextInput ?? false}
-                      disabled={
-                        record.roundStatus === "completed" || updatingRoundId === record.roundId
-                      }
-                      onCheckedChange={(next) =>
-                        void handleToggleAllowTextInput(record.roundId as string, next)
-                      }
-                    />
-                    {record.roundStatus === "completed" ? (
-                      <Button
-                        disabled={resettingRoundId === record.roundId}
-                        onClick={() => void handleResetRound(record.roundId as string)}
-                        size="sm"
-                        type="button"
-                        variant="outline"
-                      >
-                        <RotateCcwIcon className="size-3.5" />
-                        {resettingRoundId === record.roundId ? "重置中..." : "重置轮次"}
-                      </Button>
-                    ) : null}
-                  </div>
-                </div>
+                )}
               </div>
             </div>
           ) : null}
@@ -814,6 +877,7 @@ export function StudioPersonDetailPanel({
                         <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(400px,1fr)]">
                           <div className="space-y-4">
                             <RecordingPlayer
+                              accessMode={accessMode}
                               conversationId={report.conversationId}
                               durationSecs={report.recordingDurationSecs}
                               recordId={effectiveRoundId ?? ""}
@@ -1043,7 +1107,7 @@ export function StudioPersonDetailPanel({
         </TabsContent>
       ) : null}
 
-      {mode === "interview" ? (
+      {mode === "interview" && !isPublic ? (
         <TabsContent value="instructions">
           <AgentInstructionsPanel enabled={enabled} recordId={effectiveRoundId} />
         </TabsContent>
@@ -1052,7 +1116,9 @@ export function StudioPersonDetailPanel({
       {mode === "interview" ? (
         <TabsContent value="forms">
           <FormsTab
-            onReset={(submissionId) => setPendingResetSubmissionId(submissionId)}
+            onReset={
+              isPublic ? undefined : (submissionId) => setPendingResetSubmissionId(submissionId)
+            }
             resettingId={resettingSubmissionId}
             submissions={formSubmissions}
           />
@@ -1075,7 +1141,7 @@ export function StudioPersonDetailPanel({
       >
         {renderShell({ body, description, footer, headerExtra, title })}
       </Tabs>
-      {mode === "interview" ? (
+      {mode === "interview" && !isPublic ? (
         <AlertDialog
           onOpenChange={(next) => {
             if (!next) {

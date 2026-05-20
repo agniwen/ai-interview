@@ -62,7 +62,11 @@ export function FormsTab({
 }: {
   submissions: CandidateFormSubmissionWithSnapshot[];
   resettingId: string | null;
-  onReset: (submissionId: string) => void;
+  /**
+   * 重置回调。传 undefined 时隐藏「重置填写」按钮（公开访问入口下没有写权限）。
+   * When undefined, the per-row reset button is hidden (used by public access).
+   */
+  onReset?: (submissionId: string) => void;
 }) {
   if (submissions.length === 0) {
     return (
@@ -98,16 +102,18 @@ export function FormsTab({
               <Badge className="font-mono text-[10px] tracking-wider" variant="outline">
                 v{submission.version}
               </Badge>
-              <Button
-                disabled={resettingId === submission.id}
-                onClick={() => onReset(submission.id)}
-                size="sm"
-                type="button"
-                variant="outline"
-              >
-                <RotateCcwIcon className="size-3.5" />
-                {resettingId === submission.id ? "重置中..." : "重置填写"}
-              </Button>
+              {onReset ? (
+                <Button
+                  disabled={resettingId === submission.id}
+                  onClick={() => onReset(submission.id)}
+                  size="sm"
+                  type="button"
+                  variant="outline"
+                >
+                  <RotateCcwIcon className="size-3.5" />
+                  {resettingId === submission.id ? "重置中..." : "重置填写"}
+                </Button>
+              ) : null}
             </div>
           </header>
 

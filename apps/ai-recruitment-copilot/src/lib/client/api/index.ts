@@ -27,6 +27,7 @@ export { ApiError, isApiError } from "./errors";
 export { apiFetch, type ApiFetchOptions } from "./client";
 export { rpcFetch } from "./rpc-fetch";
 export * from "./endpoints/chat";
+export * from "./endpoints/public-interview";
 export * from "./endpoints/studio-interviews";
 export * from "./endpoints/resume";
 export * from "./endpoints/studio-resumes";
