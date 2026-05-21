@@ -445,7 +445,7 @@ export function ResumeLibraryPage({
           return <Badge variant={meta.tone}>{meta.label}</Badge>;
         },
         key: "progress",
-        title: "面试进度",
+        title: "状态",
       }),
       customColumn<ResumeLibraryListRecord>({
         cell: (r) => <CreatorCell image={r.creatorImage} name={r.creatorName} />,
@@ -606,7 +606,10 @@ export function ResumeLibraryPage({
           value={grid.filters.stage || "all"}
         >
           <TabsList className="h-auto flex-wrap items-stretch group-data-[orientation=horizontal]/tabs:h-auto">
-            <TabsTrigger className="h-auto flex-col items-start gap-0.5 px-3 py-1.5" value="all">
+            <TabsTrigger
+              className="h-auto flex-col items-start gap-0.5 px-3 py-1.5 sm:px-8"
+              value="all"
+            >
               <span className="text-sm leading-tight">全部</span>
               <span className="hidden text-[11px] font-normal leading-tight text-muted-foreground sm:inline">
                 {PIPELINE_STAGE_TAB_DESCRIPTIONS.all}
@@ -614,7 +617,7 @@ export function ResumeLibraryPage({
             </TabsTrigger>
             {VISIBLE_PIPELINE_STAGES.map((s) => (
               <TabsTrigger
-                className="h-auto flex-col items-start gap-0.5 px-3 py-1.5"
+                className="h-auto flex-col items-start gap-0.5 px-3 py-1.5 sm:px-8"
                 key={s}
                 value={s}
               >

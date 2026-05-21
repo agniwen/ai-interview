@@ -132,6 +132,7 @@ export function JobDescriptionManagementPage({
         key: "name",
         primary: true,
         title: "岗位名称",
+        truncate: "max-w-[14rem]",
       }),
       customColumn<JobDescriptionListRecord>({
         cell: (r) => r.departmentName ?? <Badge variant="outline">未知</Badge>,
@@ -180,7 +181,7 @@ export function JobDescriptionManagementPage({
       }),
       customColumn<JobDescriptionListRecord>({
         cell: (r) => (
-          <span className="max-w-sm truncate text-muted-foreground text-sm">
+          <span className="block max-w-sm truncate text-muted-foreground text-sm">
             {r.description || "—"}
           </span>
         ),
@@ -261,6 +262,7 @@ export function JobDescriptionManagementPage({
 
         <DataGrid<JobDescriptionListRecord>
           {...grid.bind}
+          columnPinning={{ right: ["actions"] }}
           columns={columns}
           empty={
             missingRefs ? (
