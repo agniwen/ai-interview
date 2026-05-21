@@ -667,6 +667,7 @@ export default function InterviewRoom({ interviewId, roundId }: InterviewRoomPro
       <main className="relative h-dvh w-full select-none overflow-hidden">
         <AgentSessionView_01
           defaultChatOpen={startedMuted}
+          autoOpenChatOnAgentActive={true}
           supportsVideoInput={true}
           supportsScreenShare={false}
           chatInputEnabled={interviewView?.currentRoundAllowTextInput ?? false}

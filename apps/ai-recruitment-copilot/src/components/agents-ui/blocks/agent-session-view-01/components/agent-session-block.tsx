@@ -157,6 +157,14 @@ export interface AgentSessionView_01Props {
   /** When true, the chat/message panel opens immediately on mount. */
   defaultChatOpen?: boolean;
   /**
+   * One-shot auto-open: when true, opens the chat panel the first time the
+   * agent reaches an active state (listening / thinking / speaking). After
+   * the user closes the panel they won't be forced back in.
+   * 为 true 时，agent 首次进入活跃状态（listening/thinking/speaking）会自动
+   * 打开消息面板；之后用户可手动关闭且不会被再次强制打开。
+   */
+  autoOpenChatOnAgentActive?: boolean;
+  /**
    * Whether the candidate may type text replies. When false the textarea is
    * rendered disabled (the chat panel toggle is still visible so users can
    * read the transcript). Defaults to true.
@@ -199,6 +207,7 @@ export function AgentSessionView_01({
   audioVisualizerRadialRadius,
   audioVisualizerWaveLineWidth,
   defaultChatOpen = false,
+  autoOpenChatOnAgentActive = false,
   chatInputEnabled = true,
   onCameraDisableAttempt,
   onDisconnect,
@@ -211,6 +220,17 @@ export function AgentSessionView_01({
   const [chatOpen, setChatOpen] = useState(defaultChatOpen);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const { state: agentState } = useAgent();
+  const hasAutoOpenedChatRef = useRef(false);
+
+  useEffect(() => {
+    if (!autoOpenChatOnAgentActive || hasAutoOpenedChatRef.current) {
+      return;
+    }
+    if (agentState === "listening" || agentState === "thinking" || agentState === "speaking") {
+      hasAutoOpenedChatRef.current = true;
+      setChatOpen(true);
+    }
+  }, [agentState, autoOpenChatOnAgentActive]);
 
   const controls: AgentControlBarControls = {
     camera: supportsVideoInput,
