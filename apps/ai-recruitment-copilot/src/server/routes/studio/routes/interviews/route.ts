@@ -19,8 +19,16 @@ import {
   resolveOpeningPrompt,
 } from "@/lib/shared/interview/agent-instructions";
 import {
+  candidateExpectationsMetaSchema,
+  candidateOutcomeSchema,
+  closedMetaSchema,
+  humanInterviewRoundInputSchema,
+  humanInterviewRoundOutcomeSchema,
+  offerDraftInputSchema,
+  offerResponseInputSchema,
   parseResumePayloadInput,
   parseScheduleEntriesInput,
+  pipelineStageSchema,
   scheduleEntryStatusSchema,
   studioInterviewFormSchema,
   toNullableString,
@@ -41,6 +49,25 @@ import {
   replaceInterviewBindings,
 } from "@/server/routes/studio/routes/interview-questions/dao/bindings";
 import { queryInterviewConversationReportsByRound } from "@/server/routes/studio/routes/interviews/dao/interview-conversations";
+import {
+  cancelHumanInterviewRound,
+  completeHumanInterviewRound,
+  createHumanInterviewRound,
+  editHumanInterviewRound,
+  EditRoundError,
+  listHumanInterviewRounds,
+  maybeAdvanceToHumanInterview,
+} from "@/server/routes/studio/routes/interviews/dao/human-interview-rounds";
+import {
+  cancelOfferDraft,
+  createOfferDraft,
+  editOfferDraft,
+  listOfferDrafts,
+  maybeAdvanceToOffer,
+  OfferDraftError,
+  respondOfferDraft,
+  sendOfferDraft,
+} from "@/server/routes/studio/routes/interviews/dao/offer-drafts";
 import { queryInterviewDedup } from "@/server/routes/studio/routes/interviews/dao/studio-interviews";
 import { syncResumeSkills } from "@/server/routes/studio/routes/resumes/dao/skills";
 import {
@@ -66,6 +93,58 @@ const dedupCheckInputSchema = z.object({
   email: z.string().trim().max(200).nullable().optional(),
   name: z.string().trim().max(200).nullable().optional(),
   phone: z.string().trim().max(40).nullable().optional(),
+});
+
+// 候选人阶段流转输入。强制 outcome 与 pipelineStage 的不变量：
+//   pipelineStage='closed' ⇔ outcome ∈ {hired,rejected,withdrawn,archived}
+// 其余阶段下 outcome 必须省略或为 in_pipeline；closedReason 仅 closed 阶段允许。
+//
+// Candidate stage transition input. Encodes the (pipelineStage, outcome)
+// invariant: closed ⇔ a terminal outcome; everything else stays in_pipeline.
+const transitionInputSchema = z
+  .object({
+    // 结案元数据；只在 pipelineStage='closed' 时使用，partial 写入（merge 进现有）。
+    // previousStage 不接受用户输入——服务端自动写当前 stage。
+    closedMeta: closedMetaSchema.omit({ previousStage: true }).partial().optional(),
+    // @deprecated 旧字段，HR 端逐步迁移到 closedMeta.internalNotes；保留以兼容。
+    closedReason: z.string().trim().max(500, "结案原因不能超过 500 字").optional().nullable(),
+    outcome: candidateOutcomeSchema.optional(),
+    pipelineStage: pipelineStageSchema,
+  })
+  .refine(
+    (v) => {
+      if (v.pipelineStage === "closed") {
+        return v.outcome !== undefined && v.outcome !== "in_pipeline";
+      }
+      return v.outcome === undefined || v.outcome === "in_pipeline";
+    },
+    {
+      message:
+        "结案阶段必须指定一个终态 outcome（hired/rejected/withdrawn/archived）；非结案阶段 outcome 必须为 in_pipeline。",
+      path: ["outcome"],
+    },
+  )
+  .refine((v) => v.pipelineStage === "closed" || !v.closedReason, {
+    message: "closedReason 仅在结案时允许。",
+    path: ["closedReason"],
+  })
+  .refine((v) => v.pipelineStage === "closed" || !v.closedMeta, {
+    message: "closedMeta 仅在结案时允许。",
+    path: ["closedMeta"],
+  });
+
+// 真人复面：「标记完成」的 input。outcome 必填，score / feedback 可选。
+// Human interview "mark complete" input. Outcome required.
+const completeHumanRoundSchema = z.object({
+  feedback: z.string().trim().max(5000).nullable().optional(),
+  outcome: humanInterviewRoundOutcomeSchema,
+  score: z.number().int().min(0).max(100).nullable().optional(),
+});
+
+// 真人复面：「取消」的 input。reason 可选，便于后续审计 / 通知候选人。
+// Human interview "cancel" input; reason optional.
+const cancelHumanRoundSchema = z.object({
+  reason: z.string().trim().max(500).nullable().optional(),
 });
 
 export const studioInterviewsRouter = factory
@@ -199,6 +278,9 @@ export const studioInterviewsRouter = factory
         jobDescriptionId: input.data.jobDescriptionId || null,
         notes: input.data.notes || null,
         organizationId: activeOrg.id,
+        // 从 AI 面试页面直接创建：起步就在 ai_interview 阶段。
+        // Created from the AI interview page → record starts at ai_interview.
+        pipelineStage: "ai_interview" as const,
         resumeContentHash,
         resumeFileName: analysis?.fileName ?? resume?.name ?? null,
         resumeProfile: analysis?.resumeProfile ?? null,
@@ -708,6 +790,7 @@ export const studioInterviewsRouter = factory
     const [candidateRow] = await db
       .select({
         jobDescriptionId: studioInterview.jobDescriptionId,
+        pipelineStage: studioInterview.pipelineStage,
         status: studioInterview.status,
       })
       .from(studioInterview)
@@ -715,6 +798,13 @@ export const studioInterviewsRouter = factory
       .limit(1);
     if (!candidateRow) {
       return c.json({ error: "候选人记录不存在。" }, 404);
+    }
+    // 已结案的候选人不可直接 reset 轮次；HR 需要先「重新激活」再操作。
+    // 这样避免 outcome=rejected/hired 还能默默被 reset 改回 in_progress。
+    // Closed candidates must be reactivated before any round can be reset;
+    // prevents silently clobbering an outcome the HR already finalized.
+    if (candidateRow.pipelineStage === "closed") {
+      return c.json({ error: "已结案的候选人请先重新激活再重置轮次。" }, 400);
     }
 
     const now = new Date();
@@ -769,6 +859,444 @@ export const studioInterviewsRouter = factory
     const detail = await loadInterviewRoundDetail(roundId, activeOrg.id);
     return c.json(detail, 200);
   })
+  .post(
+    "/:id/transition",
+    requirePermission("interview", "update"),
+    zValidator("json", transitionInputSchema, jsonValidatorError("阶段流转参数无效。")),
+    async (c) => {
+      // 候选人阶段流转：用于「标记结案 + outcome」「重新激活」「推进到下一阶段」。
+      // Candidate stage transition: covers close-with-outcome, reactivate, and stage advance.
+      const { activeOrg } = c.var;
+      if (!activeOrg) {
+        return c.json({ message: "Unauthorized" }, 401);
+      }
+      const candidateId = c.req.param("id");
+      const operatorId = c.var.user?.id ?? null;
+      const input = c.req.valid("json");
+
+      const [existing] = await db
+        .select({
+          closedMeta: studioInterview.closedMeta,
+          outcome: studioInterview.outcome,
+          pipelineStage: studioInterview.pipelineStage,
+        })
+        .from(studioInterview)
+        .where(
+          and(
+            eq(studioInterview.id, candidateId),
+            eq(studioInterview.organizationId, activeOrg.id),
+          ),
+        )
+        .limit(1);
+      if (!existing) {
+        return c.json({ error: "候选人记录不存在。" }, 404);
+      }
+      // 同态写入直接 204，避免无谓审计噪音。
+      // No-op writes return 204 to keep the audit log clean.
+      if (
+        existing.pipelineStage === input.pipelineStage &&
+        existing.outcome === (input.outcome ?? "in_pipeline")
+      ) {
+        return c.json({ ok: true }, 200);
+      }
+
+      const now = new Date();
+      const isClosing = input.pipelineStage === "closed";
+      const wasClosed = existing.pipelineStage === "closed";
+
+      // closed metadata 生命周期：
+      //   进入 closed → 写 closedAt + closedReason + closedMeta（含 previousStage = 当前阶段）
+      //   从 closed 回退 → 清空所有 closed metadata（审计在 interviewAuditLog 留底）
+      //   非 closed 之间切换 → 保持不变（undefined）
+      // Lifecycle: enter closed → write all closed metadata + previousStage;
+      // exit closed → clear everything (audit log retains history).
+      let closedAtUpdate: Date | null | undefined;
+      let closedReasonUpdate: string | null | undefined;
+      let closedMetaUpdate: typeof studioInterview.$inferInsert.closedMeta | undefined;
+      if (isClosing) {
+        closedAtUpdate = now;
+        closedReasonUpdate = input.closedReason ?? null;
+        // closedMeta merge：保留之前用户输入的字段（previousStage 自动覆写）。
+        // Merge existing meta + input partial; previousStage is server-controlled.
+        closedMetaUpdate = {
+          ...existing.closedMeta,
+          ...input.closedMeta,
+          previousStage: existing.pipelineStage,
+        };
+      } else if (wasClosed) {
+        closedAtUpdate = null;
+        closedReasonUpdate = null;
+        closedMetaUpdate = null;
+      }
+
+      await db.transaction(async (tx) => {
+        await tx
+          .update(studioInterview)
+          .set({
+            closedAt: closedAtUpdate,
+            closedMeta: closedMetaUpdate,
+            closedReason: closedReasonUpdate,
+            outcome: input.outcome ?? "in_pipeline",
+            pipelineStage: input.pipelineStage,
+            updatedAt: now,
+          })
+          .where(eq(studioInterview.id, candidateId));
+
+        await tx.insert(interviewAuditLog).values({
+          action: "candidate_transition",
+          createdAt: now,
+          detail: {
+            closedMeta: closedMetaUpdate ?? null,
+            fromOutcome: existing.outcome,
+            fromStage: existing.pipelineStage,
+            reason: input.closedReason ?? null,
+            toOutcome: input.outcome ?? "in_pipeline",
+            toStage: input.pipelineStage,
+          },
+          id: crypto.randomUUID(),
+          interviewRecordId: candidateId,
+          operatorId,
+          organizationId: activeOrg.id,
+          scheduleEntryId: null,
+        });
+      });
+
+      invalidateStudioInterviewCaches(activeOrg.id);
+      return c.json({ ok: true }, 200);
+    },
+  )
+  // ── 候选人期望 PATCH ──
+  // partial merge：传啥更新啥，没传的保留旧值。
+  // Candidate expectations PATCH; partial merge semantics.
+  .patch(
+    "/:id/candidate-expectations",
+    requirePermission("interview", "update"),
+    zValidator(
+      "json",
+      candidateExpectationsMetaSchema.partial(),
+      jsonValidatorError("候选人期望参数无效。"),
+    ),
+    async (c) => {
+      const { activeOrg } = c.var;
+      if (!activeOrg) {
+        return c.json({ message: "Unauthorized" }, 401);
+      }
+      const recordId = c.req.param("id");
+      const input = c.req.valid("json");
+
+      const [existing] = await db
+        .select({ candidateExpectationsMeta: studioInterview.candidateExpectationsMeta })
+        .from(studioInterview)
+        .where(
+          and(eq(studioInterview.id, recordId), eq(studioInterview.organizationId, activeOrg.id)),
+        )
+        .limit(1);
+      if (!existing) {
+        return c.json({ error: "候选人记录不存在。" }, 404);
+      }
+
+      const merged = { ...existing.candidateExpectationsMeta, ...input };
+      const now = new Date();
+      await db
+        .update(studioInterview)
+        .set({ candidateExpectationsMeta: merged, updatedAt: now })
+        .where(eq(studioInterview.id, recordId));
+      invalidateStudioInterviewCaches(activeOrg.id);
+      return c.json({ candidateExpectationsMeta: merged }, 200);
+    },
+  )
+  // ── 真人复面单轮 endpoints ──
+  // 注：这里的 `:id` 是 interviewRecordId（候选人级），跟 `/:id/reset` 的 roundId 语义不同。
+  // 历史遗留——下次重构时统一改成 `/:recordId/...`。
+  // Note: `:id` here = interview record id (candidate-level), unlike `/:id/reset`
+  // which treats `:id` as roundId. Historical mismatch; clean up next refactor.
+  .get("/:id/human-interview-rounds", requirePermission("interview", "read"), async (c) => {
+    const { activeOrg } = c.var;
+    if (!activeOrg) {
+      return c.json({ message: "Unauthorized" }, 401);
+    }
+    const recordId = c.req.param("id");
+    const rounds = await listHumanInterviewRounds(recordId, activeOrg.id);
+    return c.json(rounds, 200);
+  })
+  .post(
+    "/:id/human-interview-rounds",
+    requirePermission("interview", "update"),
+    zValidator(
+      "json",
+      humanInterviewRoundInputSchema,
+      jsonValidatorError("真人复面轮次参数无效。"),
+    ),
+    async (c) => {
+      const { activeOrg } = c.var;
+      if (!activeOrg) {
+        return c.json({ message: "Unauthorized" }, 401);
+      }
+      const recordId = c.req.param("id");
+
+      // 候选人必须存在、归属当前组织、且未结案（已结案需先重新激活）。
+      // Candidate must exist, belong to active org, and not be closed.
+      const [candidate] = await db
+        .select({ id: studioInterview.id, pipelineStage: studioInterview.pipelineStage })
+        .from(studioInterview)
+        .where(
+          and(eq(studioInterview.id, recordId), eq(studioInterview.organizationId, activeOrg.id)),
+        )
+        .limit(1);
+      if (!candidate) {
+        return c.json({ error: "候选人记录不存在。" }, 404);
+      }
+      if (candidate.pipelineStage === "closed") {
+        return c.json({ error: "已结案的候选人请先重新激活。" }, 400);
+      }
+
+      const input = c.req.valid("json");
+      const created = await createHumanInterviewRound({
+        input,
+        interviewRecordId: recordId,
+        organizationId: activeOrg.id,
+      });
+      // 创建第一轮时自动把 pipelineStage 推进到 human_interview（screening/ai_interview 等才推）。
+      // Auto-advance pipelineStage when the first round goes in.
+      await maybeAdvanceToHumanInterview(recordId, activeOrg.id);
+      invalidateStudioInterviewCaches(activeOrg.id);
+      return c.json(created, 200);
+    },
+  )
+  .patch(
+    "/:id/human-interview-rounds/:roundId",
+    requirePermission("interview", "update"),
+    zValidator(
+      "json",
+      humanInterviewRoundInputSchema.partial(),
+      jsonValidatorError("真人复面轮次参数无效。"),
+    ),
+    async (c) => {
+      const { activeOrg } = c.var;
+      if (!activeOrg) {
+        return c.json({ message: "Unauthorized" }, 401);
+      }
+      const roundId = c.req.param("roundId");
+      const input = c.req.valid("json");
+      try {
+        const updated = await editHumanInterviewRound({
+          input,
+          organizationId: activeOrg.id,
+          roundId,
+        });
+        invalidateStudioInterviewCaches(activeOrg.id);
+        return c.json(updated, 200);
+      } catch (error) {
+        if (error instanceof EditRoundError) {
+          return c.json({ error: error.message }, error.status);
+        }
+        throw error;
+      }
+    },
+  )
+  .post(
+    "/:id/human-interview-rounds/:roundId/complete",
+    requirePermission("interview", "update"),
+    zValidator("json", completeHumanRoundSchema, jsonValidatorError("标记完成参数无效。")),
+    async (c) => {
+      const { activeOrg } = c.var;
+      if (!activeOrg) {
+        return c.json({ message: "Unauthorized" }, 401);
+      }
+      const roundId = c.req.param("roundId");
+      const { outcome, score, feedback } = c.req.valid("json");
+      try {
+        const updated = await completeHumanInterviewRound({
+          feedback,
+          organizationId: activeOrg.id,
+          outcome,
+          roundId,
+          score,
+        });
+        invalidateStudioInterviewCaches(activeOrg.id);
+        return c.json(updated, 200);
+      } catch (error) {
+        if (error instanceof EditRoundError) {
+          return c.json({ error: error.message }, error.status);
+        }
+        throw error;
+      }
+    },
+  )
+  .post(
+    "/:id/human-interview-rounds/:roundId/cancel",
+    requirePermission("interview", "update"),
+    zValidator("json", cancelHumanRoundSchema, jsonValidatorError("取消参数无效。")),
+    async (c) => {
+      const { activeOrg } = c.var;
+      if (!activeOrg) {
+        return c.json({ message: "Unauthorized" }, 401);
+      }
+      const roundId = c.req.param("roundId");
+      const { reason } = c.req.valid("json");
+      try {
+        const updated = await cancelHumanInterviewRound({
+          organizationId: activeOrg.id,
+          reason,
+          roundId,
+        });
+        invalidateStudioInterviewCaches(activeOrg.id);
+        return c.json(updated, 200);
+      } catch (error) {
+        if (error instanceof EditRoundError) {
+          return c.json({ error: error.message }, error.status);
+        }
+        throw error;
+      }
+    },
+  )
+  // ── Offer 草稿 endpoints ──
+  // `:id` 同上：interviewRecordId（候选人级）。/ `:id` = candidate id.
+  .get("/:id/offer-drafts", requirePermission("interview", "read"), async (c) => {
+    const { activeOrg } = c.var;
+    if (!activeOrg) {
+      return c.json({ message: "Unauthorized" }, 401);
+    }
+    const recordId = c.req.param("id");
+    const drafts = await listOfferDrafts(recordId, activeOrg.id);
+    return c.json(drafts, 200);
+  })
+  .post(
+    "/:id/offer-drafts",
+    requirePermission("interview", "update"),
+    zValidator(
+      "json",
+      offerDraftInputSchema.extend({
+        sendImmediately: z.boolean().optional(),
+      }),
+      jsonValidatorError("Offer 参数无效。"),
+    ),
+    async (c) => {
+      const { activeOrg } = c.var;
+      if (!activeOrg) {
+        return c.json({ message: "Unauthorized" }, 401);
+      }
+      const recordId = c.req.param("id");
+
+      const [candidate] = await db
+        .select({ id: studioInterview.id, pipelineStage: studioInterview.pipelineStage })
+        .from(studioInterview)
+        .where(
+          and(eq(studioInterview.id, recordId), eq(studioInterview.organizationId, activeOrg.id)),
+        )
+        .limit(1);
+      if (!candidate) {
+        return c.json({ error: "候选人记录不存在。" }, 404);
+      }
+      if (candidate.pipelineStage === "closed") {
+        return c.json({ error: "已结案的候选人请先重新激活。" }, 400);
+      }
+
+      const { sendImmediately, ...input } = c.req.valid("json");
+      const created = await createOfferDraft({
+        input,
+        interviewRecordId: recordId,
+        organizationId: activeOrg.id,
+        sendImmediately,
+      });
+      await maybeAdvanceToOffer(recordId, activeOrg.id);
+      invalidateStudioInterviewCaches(activeOrg.id);
+      return c.json(created, 200);
+    },
+  )
+  .patch(
+    "/:id/offer-drafts/:draftId",
+    requirePermission("interview", "update"),
+    zValidator("json", offerDraftInputSchema.partial(), jsonValidatorError("Offer 参数无效。")),
+    async (c) => {
+      const { activeOrg } = c.var;
+      if (!activeOrg) {
+        return c.json({ message: "Unauthorized" }, 401);
+      }
+      const draftId = c.req.param("draftId");
+      const input = c.req.valid("json");
+      try {
+        const updated = await editOfferDraft({
+          draftId,
+          input,
+          organizationId: activeOrg.id,
+        });
+        invalidateStudioInterviewCaches(activeOrg.id);
+        return c.json(updated, 200);
+      } catch (error) {
+        if (error instanceof OfferDraftError) {
+          return c.json({ error: error.message }, error.status);
+        }
+        throw error;
+      }
+    },
+  )
+  .post("/:id/offer-drafts/:draftId/send", requirePermission("interview", "update"), async (c) => {
+    const { activeOrg } = c.var;
+    if (!activeOrg) {
+      return c.json({ message: "Unauthorized" }, 401);
+    }
+    const draftId = c.req.param("draftId");
+    try {
+      const updated = await sendOfferDraft(draftId, activeOrg.id);
+      invalidateStudioInterviewCaches(activeOrg.id);
+      return c.json(updated, 200);
+    } catch (error) {
+      if (error instanceof OfferDraftError) {
+        return c.json({ error: error.message }, error.status);
+      }
+      throw error;
+    }
+  })
+  .post(
+    "/:id/offer-drafts/:draftId/respond",
+    requirePermission("interview", "update"),
+    zValidator("json", offerResponseInputSchema, jsonValidatorError("响应参数无效。")),
+    async (c) => {
+      const { activeOrg } = c.var;
+      if (!activeOrg) {
+        return c.json({ message: "Unauthorized" }, 401);
+      }
+      const draftId = c.req.param("draftId");
+      const { response, candidateCounter } = c.req.valid("json");
+      try {
+        const updated = await respondOfferDraft({
+          candidateCounter,
+          draftId,
+          organizationId: activeOrg.id,
+          response,
+        });
+        invalidateStudioInterviewCaches(activeOrg.id);
+        return c.json(updated, 200);
+      } catch (error) {
+        if (error instanceof OfferDraftError) {
+          return c.json({ error: error.message }, error.status);
+        }
+        throw error;
+      }
+    },
+  )
+  .post(
+    "/:id/offer-drafts/:draftId/cancel",
+    requirePermission("interview", "update"),
+    async (c) => {
+      const { activeOrg } = c.var;
+      if (!activeOrg) {
+        return c.json({ message: "Unauthorized" }, 401);
+      }
+      const draftId = c.req.param("draftId");
+      try {
+        const updated = await cancelOfferDraft(draftId, activeOrg.id);
+        invalidateStudioInterviewCaches(activeOrg.id);
+        return c.json(updated, 200);
+      } catch (error) {
+        if (error instanceof OfferDraftError) {
+          return c.json({ error: error.message }, error.status);
+        }
+        throw error;
+      }
+    },
+  )
   .delete("/:id", requirePermission("interview", "delete"), async (c) => {
     // 轮次级删除：`:id` = roundId。/ Round-level delete: `:id` = roundId.
     const { activeOrg } = c.var;

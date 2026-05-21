@@ -9,7 +9,10 @@ import {
   jobDescription,
   member,
   organization,
+  studioHumanInterviewRound,
   studioInterview,
+  studioInterviewSchedule,
+  studioOfferDraft,
   studioOrgSkill,
   user,
 } from "@arc/db-schema/schema";
@@ -190,7 +193,7 @@ describe("queryPaginatedResumeRecords", () => {
     }
     expect(sample).not.toHaveProperty("interviewQuestions");
     expect(sample).not.toHaveProperty("scheduleEntries");
-    expect(sample).not.toHaveProperty("status");
+    expect(sample.status).toBeTypeOf("string");
     expect(sample.hasResumeFile).toBeTypeOf("boolean");
     expect(typeof sample.createdAt).toBe("string");
   });
@@ -265,5 +268,250 @@ describe("queryPaginatedResumeRecords", () => {
       jobDescriptionIds: [JD_FRONTEND],
     });
     expect(result.total).toBe(0);
+  });
+
+  // 派生 stageProgress 字段的端到端验证：从 studio_interview_schedule 聚合 totalRounds /
+  // completedRounds / hasStarted / activeRound。覆盖三种典型形态：无排期、轮间等待、全部完成。
+  // End-to-end verification of the derived stageProgress aggregation. Covers
+  // three shapes: no schedule rows, between-rounds, and all-completed.
+  it("aggregates stageProgress from studio_interview_schedule", async () => {
+    // 给李四（ri_test_a_2）安排 3 轮：第 1 轮 completed、第 2 轮 in_progress、第 3 轮 pending。
+    // Schedule 3 rounds for Li: round-1 completed, round-2 in_progress, round-3 pending.
+    await db.insert(studioInterviewSchedule).values([
+      {
+        allowTextInput: false,
+        createdAt: NOW,
+        id: "sched_test_a2_r1",
+        interviewRecordId: "ri_test_a_2",
+        organizationId: ORG_A,
+        roundLabel: "一面",
+        sortOrder: 0,
+        status: "completed",
+        updatedAt: NOW,
+      },
+      {
+        allowTextInput: false,
+        createdAt: NOW,
+        id: "sched_test_a2_r2",
+        interviewRecordId: "ri_test_a_2",
+        organizationId: ORG_A,
+        roundLabel: "二面",
+        sortOrder: 1,
+        status: "in_progress",
+        updatedAt: NOW,
+      },
+      {
+        allowTextInput: false,
+        createdAt: NOW,
+        id: "sched_test_a2_r3",
+        interviewRecordId: "ri_test_a_2",
+        organizationId: ORG_A,
+        roundLabel: "三面",
+        sortOrder: 2,
+        status: "pending",
+        updatedAt: NOW,
+      },
+    ]);
+
+    try {
+      const result = await queryPaginatedResumeRecords(ORG_A);
+      const li = result.records.find((r) => r.id === "ri_test_a_2");
+      const zhang = result.records.find((r) => r.id === "ri_test_a_1");
+      if (!li || !zhang) {
+        throw new Error("seed rows missing");
+      }
+
+      // 李四：3 轮、1 个 completed、有过 in_progress（hasStarted=true）、activeRound = 第 2 轮 in_progress。
+      // Li: 3 rounds, 1 completed, hasStarted=true, activeRound = round-2 in_progress.
+      expect(li.stageProgress.aiInterview).toEqual({
+        activeRound: {
+          roundLabel: "二面",
+          sortOrder: 1,
+          status: "in_progress",
+        },
+        completedRounds: 1,
+        hasStarted: true,
+        totalRounds: 3,
+      });
+      // 李四没真人复面 / Offer 子表数据 → 这两段为 null。
+      // Li has no human-interview / offer rows yet → those branches are null.
+      expect(li.stageProgress.humanInterview).toBeNull();
+      expect(li.stageProgress.offer).toBeNull();
+
+      // 张三：没排期 → 三段都 null（DAO 用 HAVING 过滤出真正有数据的子结构）。
+      // Zhang: no schedule rows at all → all three branches null.
+      expect(zhang.stageProgress).toEqual({
+        aiInterview: null,
+        humanInterview: null,
+        offer: null,
+      });
+    } finally {
+      await db
+        .delete(studioInterviewSchedule)
+        .where(eq(studioInterviewSchedule.interviewRecordId, "ri_test_a_2"));
+    }
+  });
+
+  // 真人复面聚合：覆盖「混合状态 + 取消轮不计入 total」「全部 completed」「无数据」三种形态。
+  // Human-interview aggregation: mixed statuses (cancelled excluded), all-done,
+  // and empty.
+  it("aggregates humanInterview branch and excludes cancelled rounds from totals", async () => {
+    // 李四：4 轮真人复面 —— pending（已安排）+ completed/pass + completed/fail + cancelled。
+    // cancelled 应被 total 排除；activeRound 取最低 sort_order 的 pending 那条。
+    // Li: 4 rounds — pending(scheduled) + pass + fail + cancelled. cancelled
+    // excluded from totals; activeRound = lowest sortOrder pending.
+    await db.insert(studioHumanInterviewRound).values([
+      {
+        completedAt: NOW,
+        createdAt: NOW,
+        format: "online",
+        id: "hr_li_1",
+        interviewRecordId: "ri_test_a_2",
+        label: "技术复面",
+        organizationId: ORG_A,
+        outcome: "pass",
+        score: 85,
+        sortOrder: 0,
+        status: "completed",
+        updatedAt: NOW,
+      },
+      {
+        completedAt: NOW,
+        createdAt: NOW,
+        format: "online",
+        id: "hr_li_2",
+        interviewRecordId: "ri_test_a_2",
+        label: "HR 复面",
+        organizationId: ORG_A,
+        outcome: "fail",
+        sortOrder: 1,
+        status: "completed",
+        updatedAt: NOW,
+      },
+      {
+        createdAt: NOW,
+        format: "onsite",
+        id: "hr_li_3",
+        interviewRecordId: "ri_test_a_2",
+        label: "总监终面",
+        location: "上海办公室",
+        organizationId: ORG_A,
+        scheduledAt: new Date("2026-05-30T10:00:00.000Z"),
+        sortOrder: 2,
+        status: "pending",
+        updatedAt: NOW,
+      },
+      {
+        cancelReason: "候选人时间冲突",
+        cancelledAt: NOW,
+        createdAt: NOW,
+        format: "online",
+        id: "hr_li_4",
+        interviewRecordId: "ri_test_a_2",
+        label: "Cross 面",
+        organizationId: ORG_A,
+        sortOrder: 3,
+        status: "cancelled",
+        updatedAt: NOW,
+      },
+    ]);
+
+    try {
+      const result = await queryPaginatedResumeRecords(ORG_A);
+      const li = result.records.find((r) => r.id === "ri_test_a_2");
+      const zhang = result.records.find((r) => r.id === "ri_test_a_1");
+      if (!li || !zhang) {
+        throw new Error("seed rows missing");
+      }
+
+      // cancelled 不计入 total，所以 totalRounds=3；passed=1, failed=1, completed=2;
+      // activeRound = sort_order=2 的 pending 行。
+      // PG 的 timestamp without timezone 走 json_build_object 时格式是 "YYYY-MM-DDTHH:mm:ss"
+      // （没有 .000Z 后缀），所以这里期望值不能用 toISOString()。
+      // cancelled excluded → total=3; passed=1; failed=1; completed=2; active=hr_li_3.
+      // PG serializes timestamp-without-tz as "YYYY-MM-DDTHH:mm:ss" inside JSON.
+      expect(li.stageProgress.humanInterview).toEqual({
+        activeRound: {
+          id: "hr_li_3",
+          label: "总监终面",
+          outcome: null,
+          scheduledAt: "2026-05-30T10:00:00",
+          sortOrder: 2,
+          status: "pending",
+        },
+        completedRounds: 2,
+        failedRounds: 1,
+        passedRounds: 1,
+        totalRounds: 3,
+      });
+
+      // 张三没复面记录 → 空 null。
+      // Zhang has no human rounds → null.
+      expect(zhang.stageProgress.humanInterview).toBeNull();
+    } finally {
+      await db
+        .delete(studioHumanInterviewRound)
+        .where(eq(studioHumanInterviewRound.interviewRecordId, "ri_test_a_2"));
+    }
+  });
+
+  // Offer 聚合：多版本时 latestDraft = 最高 version 且非 superseded；
+  // totalVersions 不含 superseded（不污染计数）。
+  // Offer aggregation: latestDraft = highest non-superseded version; total
+  // excludes superseded versions.
+  it("aggregates offer branch and excludes superseded versions from latest pointer", async () => {
+    await db.insert(studioOfferDraft).values([
+      {
+        baseSalary: 30_000,
+        createdAt: NOW,
+        currency: "CNY",
+        id: "od_li_v1",
+        interviewRecordId: "ri_test_a_2",
+        organizationId: ORG_A,
+        position: "高级前端",
+        sentAt: NOW,
+        status: "superseded",
+        updatedAt: NOW,
+        version: 1,
+      },
+      {
+        baseSalary: 32_000,
+        createdAt: NOW,
+        currency: "CNY",
+        id: "od_li_v2",
+        interviewRecordId: "ri_test_a_2",
+        organizationId: ORG_A,
+        position: "高级前端",
+        sentAt: NOW,
+        status: "sent",
+        updatedAt: NOW,
+        version: 2,
+      },
+    ]);
+
+    try {
+      const result = await queryPaginatedResumeRecords(ORG_A);
+      const li = result.records.find((r) => r.id === "ri_test_a_2");
+      if (!li) {
+        throw new Error("seed row missing");
+      }
+
+      // totalVersions=1（superseded 不算），latestDraft 指向 v2 sent。
+      // sentAt 格式同上：PG timestamp-without-tz JSON 化无 .000Z 后缀。
+      expect(li.stageProgress.offer).toEqual({
+        latestDraft: {
+          id: "od_li_v2",
+          responseAt: null,
+          sentAt: "2026-05-13T10:00:00",
+          status: "sent",
+          version: 2,
+        },
+        totalVersions: 1,
+      });
+    } finally {
+      await db
+        .delete(studioOfferDraft)
+        .where(eq(studioOfferDraft.interviewRecordId, "ri_test_a_2"));
+    }
   });
 });

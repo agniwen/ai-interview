@@ -239,11 +239,31 @@ export const agentRouter = factory
             ),
           );
 
+        // 两个分支跑不同 UPDATE（一个置 record completed，一个防御性抬到 in_progress），
+        // 改成 ternary 会牺牲可读性，故保留 if/else 并禁掉本规则。
+        // Two branches issue different UPDATEs; collapsing into a ternary loses
+        // clarity, so keep if/else and suppress the lint rule here.
+        // oxlint-disable-next-line unicorn/prefer-ternary
         if (pendingRounds.length === 0) {
           await tx
             .update(studioInterview)
             .set({ status: "completed" as const, updatedAt: now })
             .where(eq(studioInterview.id, data.interviewRecordId));
+        } else {
+          // 还有未完成轮次：保底把 record 从 ready 抬到 in_progress。
+          // 正常路径下 token 路由首次开始时已写过；此处兜底极端情况（候选人首次
+          // 进场前 agent 已经把轮次报完成，理论上不会发生但留个安全网）。
+          // Defensive: still pending rounds left. Bump record to in_progress if
+          // it somehow remained at "ready" (token route normally handles it).
+          await tx
+            .update(studioInterview)
+            .set({ status: "in_progress" as const, updatedAt: now })
+            .where(
+              and(
+                eq(studioInterview.id, data.interviewRecordId),
+                eq(studioInterview.status, "ready"),
+              ),
+            );
         }
       }
 

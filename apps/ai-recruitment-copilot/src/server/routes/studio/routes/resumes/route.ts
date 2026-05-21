@@ -103,12 +103,15 @@ export const resumeLibraryRouter = factory
       "query",
       z.object({
         jdIds: z.string().optional(),
+        outcomes: z.string().optional(),
         page: z.string().optional(),
         pageSize: z.string().optional(),
+        pipelineStages: z.string().optional(),
         search: z.string().optional(),
         skills: z.string().optional(),
         sortBy: z.string().optional(),
         sortOrder: z.string().optional(),
+        statuses: z.string().optional(),
       }),
       jsonValidatorError("查询参数无效。"),
     ),
@@ -122,8 +125,11 @@ export const resumeLibraryRouter = factory
         activeOrg.id,
         {
           jobDescriptionIds: csvToArray(q.jdIds),
+          outcomes: csvToArray(q.outcomes),
+          pipelineStages: csvToArray(q.pipelineStages),
           search: q.search,
           skills: csvToArray(q.skills),
+          statuses: csvToArray(q.statuses),
         },
         {
           page: q.page,
@@ -246,6 +252,9 @@ export const resumeLibraryRouter = factory
             .update(studioInterview)
             .set({
               interviewQuestions,
+              // 新模型：从 screening 推进到 ai_interview；保留 status 以兼容旧消费方。
+              // New model: advance from screening to ai_interview; keep legacy status for old readers.
+              pipelineStage: "ai_interview",
               status: "ready",
               updatedAt: now,
             })

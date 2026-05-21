@@ -17,6 +17,8 @@ export function StudioPersonDetailDialog({
   onUpdated,
   onEdit,
   onLaunchInterview,
+  onRequestClose,
+  onRequestReactivate,
   recordId,
   roundId,
   mode,
@@ -36,6 +38,14 @@ export function StudioPersonDetailDialog({
    * delegates to the caller's LaunchInterviewDialog instead of routing.
    */
   onLaunchInterview?: (input: { id: string; candidateName: string | null }) => void;
+  /** 简历模式 action bar 点「标记结案」时回调。/ Action-bar 标记结案 callback. */
+  onRequestClose?: (input: {
+    id: string;
+    candidateName: string | null;
+    initialOutcome?: "hired" | "rejected" | "withdrawn" | "archived";
+  }) => void;
+  /** 简历模式 action bar 点「重新激活」时回调。/ Action-bar 重新激活 callback. */
+  onRequestReactivate?: (input: { id: string; candidateName: string | null }) => void;
   /**
    * 候选人级 id (studio_interview.id)。简历模式必传;面试模式可作为兜底入口,
    * Panel 会通过 resolver 转成最新一轮 roundId。
@@ -72,6 +82,8 @@ export function StudioPersonDetailDialog({
       onClose={() => onOpenChange(false)}
       onEdit={onEdit}
       onLaunchInterview={onLaunchInterview}
+      onRequestClose={onRequestClose}
+      onRequestReactivate={onRequestReactivate}
       onUpdated={onUpdated}
       onViewRoundDetail={onViewRoundDetail}
       recordId={recordId}

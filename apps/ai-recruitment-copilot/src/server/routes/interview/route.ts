@@ -349,6 +349,14 @@ export const interviewRouter = factory
           updatedAt: now,
         })
         .where(eq(studioInterviewSchedule.id, roundId));
+      // 记录级 status 跟着抬一档：候选人真的进场了，整条记录就不再是「待面试」。
+      // 守卫 status='ready' 避免覆盖 archived/completed 等终态（极端 race 下可能命中）。
+      // Bump the record-level status to mirror that interviewing has actually
+      // begun. Guard on status='ready' so we never overwrite terminal states.
+      await tx
+        .update(studioInterview)
+        .set({ status: "in_progress" as const, updatedAt: now })
+        .where(and(eq(studioInterview.id, id), eq(studioInterview.status, "ready")));
       return {
         isReconnect: false,
         participantIdentity: freshIdentity,
@@ -662,11 +670,31 @@ export const interviewRouter = factory
             ),
           );
 
+        // 两个分支跑不同 UPDATE：completed vs 防御性抬到 in_progress；不能 ternary 化。
+        // Two different UPDATEs branch here; can't collapse into a ternary.
+        // oxlint-disable-next-line unicorn/prefer-ternary
         if (pendingRounds.length === 0) {
           await tx
             .update(studioInterview)
             .set({ status: "completed" as const, updatedAt: now })
             .where(eq(studioInterview.id, entry.interviewRecordId));
+        } else {
+          // 防御性写入：本轮已结束但仍有未完成轮次。正常路径下 record 在首轮开始
+          // 时已置 in_progress；但 agent /report 兜底完成的轮次可能跳过 token 路由，
+          // 这里再补一刀，保证 record 不会停留在 ready。
+          // Defensive: a round finished but the candidate still has pending
+          // rounds. The first-round-start path normally bumps the record to
+          // in_progress, but agent-side completions can bypass it; ensure the
+          // record can never linger at "ready" once any round has finished.
+          await tx
+            .update(studioInterview)
+            .set({ status: "in_progress" as const, updatedAt: now })
+            .where(
+              and(
+                eq(studioInterview.id, entry.interviewRecordId),
+                eq(studioInterview.status, "ready"),
+              ),
+            );
         }
       });
 

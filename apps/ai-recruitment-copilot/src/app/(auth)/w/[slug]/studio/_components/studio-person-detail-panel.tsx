@@ -71,8 +71,11 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { HumanInterviewStagePanel } from "./human-interview-stage-panel";
+import { OfferStagePanel } from "./offer-stage-panel";
+import { PipelineStageActionBar } from "./pipeline-stage-action-bar";
 import { copyTextToClipboard, toAbsoluteUrl } from "@/lib/client/clipboard";
-import { scheduleEntryStatusMeta } from "@arc/db-schema/studio-interviews";
+import { pipelineStageMeta, scheduleEntryStatusMeta } from "@arc/db-schema/studio-interviews";
 import { AgentInstructionsPanel } from "../interviews/_components/agent-instructions-panel";
 import { RoundEmailAction } from "../interviews/_components/round-email/round-email-action";
 import { useRoundEmailSummary } from "../interviews/_components/round-email/use-round-email-summary";
@@ -105,11 +108,31 @@ export type StudioPersonDetailAccessMode = "authed" | "public";
 export type StudioPersonDetailTab =
   | "overview"
   | "rounds"
+  | "human-interview"
+  | "offer"
   | "experience"
   | "reports"
   | "questions"
   | "transcript"
   | "forms";
+
+// 真人复面 / Offer tab 的可见性：阶段已到达或经过时才显示，避免新候选人页面噪音。
+// 关闭后仍显示（HR 想回看历史 / 重新激活时直接点）。
+// Human-interview tab is visible once the candidate has reached or passed that
+// stage; remains visible after close for HR audit and reactivation.
+function shouldShowHumanInterviewTab(record: { pipelineStage?: string } | null): boolean {
+  if (!record?.pipelineStage) {
+    return false;
+  }
+  return ["human_interview", "offer", "closed"].includes(record.pipelineStage);
+}
+
+function shouldShowOfferTab(record: { pipelineStage?: string } | null): boolean {
+  if (!record?.pipelineStage) {
+    return false;
+  }
+  return ["offer", "closed"].includes(record.pipelineStage);
+}
 
 /**
  * renderShell 接收的可填槽位。footer 仅简历模式有值 ——
@@ -159,6 +182,8 @@ export function StudioPersonDetailPanel({
   onLaunchInterview,
   onViewRoundDetail,
   onClose,
+  onRequestClose,
+  onRequestReactivate,
   renderShell,
 }: {
   /**
@@ -215,6 +240,20 @@ export function StudioPersonDetailPanel({
    * the page route can omit it.
    */
   onClose?: () => void;
+  /**
+   * 简历模式 action bar 点「标记结案」时触发，调用方负责弹结案 dialog。
+   * Fired from the resume-mode action bar's 「标记结案」 button.
+   */
+  onRequestClose?: (input: {
+    id: string;
+    candidateName: string | null;
+    initialOutcome?: "hired" | "rejected" | "withdrawn" | "archived";
+  }) => void;
+  /**
+   * 简历模式 action bar 点「重新激活」时触发（仅 pipelineStage=closed 时显示）。
+   * Fired from the resume-mode action bar's 「重新激活」 button.
+   */
+  onRequestReactivate?: (input: { id: string; candidateName: string | null }) => void;
   renderShell: (slots: StudioPersonDetailSlots) => ReactNode;
 }) {
   const optionalSlug = useOptionalWorkspaceSlug();
@@ -348,6 +387,10 @@ export function StudioPersonDetailPanel({
     creatorName: string | null;
     resumeStorageKey?: string | null;
     interviewQuestions?: StudioInterviewRoundDetail["candidate"]["interviewQuestions"];
+    // pipeline 维度（resume 模式可用；interview 模式没有，留 undefined）
+    // Pipeline axes (populated in resume mode; absent in interview mode).
+    pipelineStage?: ResumeLibraryDetail["pipelineStage"];
+    outcome?: ResumeLibraryDetail["outcome"];
 
     // 面试模式轮次字段 / Interview-mode round fields
     roundId?: string;
@@ -396,6 +439,8 @@ export function StudioPersonDetailPanel({
       interviewQuestions: resumeRecord.interviewQuestions,
       jobDescriptionName: resumeRecord.jobDescriptionName,
       notes: resumeRecord.notes,
+      outcome: resumeRecord.outcome,
+      pipelineStage: resumeRecord.pipelineStage,
       resumeFileName: resumeRecord.resumeFileName,
       resumeProfile: resumeRecord.resumeProfile,
       targetRole: resumeRecord.targetRole,
@@ -608,6 +653,18 @@ export function StudioPersonDetailPanel({
             AI 面试
           </TabsTrigger>
         ) : null}
+        {/* 真人复面 / Offer tab：阶段已到达或经过时才显示，避免新候选人页面过于喧闹。
+            Human interview / Offer tabs surface only once the candidate has reached that stage. */}
+        {mode === "resume" && shouldShowHumanInterviewTab(record) ? (
+          <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="human-interview">
+            真人复面
+          </TabsTrigger>
+        ) : null}
+        {mode === "resume" && shouldShowOfferTab(record) ? (
+          <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="offer">
+            Offer
+          </TabsTrigger>
+        ) : null}
         {mode === "interview" ? (
           <>
             {/* 公开访问下不暴露 Agent 提示词面板 —— 这是面试官调试用，不属于候选人侧/对外可见信息。
@@ -644,6 +701,50 @@ export function StudioPersonDetailPanel({
     </div>
   ) : null;
 
+  // resume 模式下且非公开访问时，渲染 action bar；其他场景不显示。
+  // Action bar shows only on the authed resume-mode view.
+  const actionBar =
+    mode === "resume" && record && !isPublic && record.pipelineStage && record.outcome ? (
+      <PipelineStageActionBar
+        aiInterviewDone={Boolean(
+          resumeRecord?.stageProgress.aiInterview &&
+          resumeRecord.stageProgress.aiInterview.totalRounds > 0 &&
+          resumeRecord.stageProgress.aiInterview.activeRound === null,
+        )}
+        humanInterviewDone={Boolean(
+          resumeRecord?.stageProgress.humanInterview &&
+          resumeRecord.stageProgress.humanInterview.totalRounds > 0 &&
+          resumeRecord.stageProgress.humanInterview.activeRound === null,
+        )}
+        onAdvance={(target) => {
+          // 行内推进（不带元数据）：直接调 transition API，刷新缓存。
+          // Inline advance: call transition + invalidate so the bar/tabs update.
+          void (async () => {
+            try {
+              const { transitionInterviewRecord } = await import("@/lib/client/api");
+              await transitionInterviewRecord(slug, record.id, { pipelineStage: target });
+              toast.success(`已推进到「${pipelineStageMeta[target].label}」`);
+              await queryClient.invalidateQueries({ queryKey: ["studio-resumes"] });
+              await queryClient.invalidateQueries({
+                queryKey: ["studio-resumes", slug, "detail", record.id],
+              });
+              onUpdated?.();
+            } catch (error) {
+              toast.error(error instanceof Error ? error.message : "推进失败");
+            }
+          })();
+        }}
+        onRequestClose={() =>
+          onRequestClose?.({ candidateName: record.candidateName, id: record.id })
+        }
+        onRequestReactivate={() =>
+          onRequestReactivate?.({ candidateName: record.candidateName, id: record.id })
+        }
+        outcome={record.outcome}
+        pipelineStage={record.pipelineStage}
+      />
+    ) : null;
+
   // oxlint-disable-next-line no-nested-ternary -- Splitting this tri-state body into a helper balloons JSX context; keeping inline.
   const body = isLoading ? (
     <div className="flex min-h-80 items-center justify-center text-muted-foreground text-sm">
@@ -652,6 +753,7 @@ export function StudioPersonDetailPanel({
   ) : // oxlint-disable-next-line no-nested-ternary -- Secondary branch renders based on record presence.
   record ? (
     <AnimatedHeight>
+      {actionBar ? <div className="mb-4">{actionBar}</div> : null}
       <TabsContent value="overview">
         <div className="space-y-6">
           {/* 简历模式：复用 ResumeOverviewPanel —— 与「发起 AI 面试」
@@ -1107,6 +1209,33 @@ export function StudioPersonDetailPanel({
               </div>
             )}
           </div>
+        </TabsContent>
+      ) : null}
+
+      {mode === "resume" && shouldShowHumanInterviewTab(record) ? (
+        <TabsContent value="human-interview">
+          <HumanInterviewStagePanel
+            candidateId={record.id}
+            candidateName={record.candidateName}
+            disabled={record.pipelineStage === "closed"}
+          />
+        </TabsContent>
+      ) : null}
+
+      {mode === "resume" && shouldShowOfferTab(record) ? (
+        <TabsContent value="offer">
+          <OfferStagePanel
+            candidateId={record.id}
+            candidateName={record.candidateName}
+            disabled={record.pipelineStage === "closed"}
+            onRequestCloseAsHired={() =>
+              onRequestClose?.({
+                candidateName: record.candidateName,
+                id: record.id,
+                initialOutcome: "hired",
+              })
+            }
+          />
         </TabsContent>
       ) : null}
 

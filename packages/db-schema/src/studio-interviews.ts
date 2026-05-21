@@ -1,6 +1,10 @@
 import type { ResumeAnalysisResult } from "./interview/types";
 import { z } from "zod";
 
+// ⚠️ DEPRECATED — 旧的 record 级 status，被 pipelineStage + outcome 两维取代。
+// 仍然保留导出 + DB 列继续被写入，等所有读侧切到新字段后再说删除。
+// Legacy single-axis status. Superseded by pipelineStage + outcome. Kept
+// exported and dual-written from app code until consumers fully migrate.
 export const studioInterviewStatusValues = [
   "draft",
   "ready",
@@ -10,6 +14,242 @@ export const studioInterviewStatusValues = [
 ] as const;
 
 export const studioInterviewStatusSchema = z.enum(studioInterviewStatusValues);
+
+// ── 新模型：pipelineStage（候选人在 pipeline 哪个阶段）+ outcome（最终结论）──
+// Two-axis replacement for the legacy status enum: an explicit "where in the
+// hiring pipeline" stage, plus a separate "what's the verdict" outcome.
+
+// 顺序对应招聘漏斗：简历筛选 → 笔试 → AI 面试 → 真人复面 → offer → 结案。
+// closed 是终态，outcome 字段决定具体结局（hired/rejected/withdrawn/archived）。
+// Funnel order: screening → written_test → ai_interview → human_interview →
+// offer → closed (terminal; outcome describes the verdict).
+export const pipelineStageValues = [
+  "screening",
+  "written_test",
+  "ai_interview",
+  "human_interview",
+  "offer",
+  "closed",
+] as const;
+
+export const pipelineStageSchema = z.enum(pipelineStageValues);
+export type PipelineStage = z.infer<typeof pipelineStageSchema>;
+
+export const pipelineStageMeta: Record<
+  PipelineStage,
+  { label: string; tone: "success" | "warning" | "info" | "outline" }
+> = {
+  ai_interview: { label: "AI 面试", tone: "warning" },
+  closed: { label: "已结案", tone: "outline" },
+  human_interview: { label: "真人复面", tone: "warning" },
+  offer: { label: "Offer", tone: "info" },
+  screening: { label: "简历筛选", tone: "outline" },
+  written_test: { label: "笔试", tone: "info" },
+};
+
+// 候选人最终结论：in_pipeline 表示还在流程中（默认），其余四种都对应 pipelineStage='closed'。
+// withdrawn = 候选人主动撤回；archived = 冷藏（不删但不在主视图）。
+// Outcome verdicts: in_pipeline is the default (still active); the other four
+// always pair with pipelineStage='closed'.
+export const candidateOutcomeValues = [
+  "in_pipeline",
+  "hired",
+  "rejected",
+  "withdrawn",
+  "archived",
+] as const;
+
+export const candidateOutcomeSchema = z.enum(candidateOutcomeValues);
+export type CandidateOutcome = z.infer<typeof candidateOutcomeSchema>;
+
+export const candidateOutcomeMeta: Record<
+  CandidateOutcome,
+  { label: string; tone: "success" | "warning" | "info" | "outline" }
+> = {
+  archived: { label: "已归档", tone: "outline" },
+  hired: { label: "已录用", tone: "success" },
+  in_pipeline: { label: "进行中", tone: "info" },
+  rejected: { label: "已淘汰", tone: "outline" },
+  withdrawn: { label: "已撤回", tone: "outline" },
+};
+
+// 不变量：outcome !== 'in_pipeline' ⇔ pipelineStage === 'closed'。
+// DB 端用 CHECK 约束兜底，应用层在写入时也应当一致。
+// Invariant: outcome !== 'in_pipeline' iff pipelineStage === 'closed'.
+// Enforced by a CHECK constraint at the DB layer; app-layer writers should
+// keep the pair consistent.
+
+// ── 真人复面阶段 / Human Interview Stage ──
+
+// 单轮状态：pending（已排期/未排期）→ completed / cancelled（终态）。
+// 不区分 in_progress——线下面试由 HR 手动标完成，没有「正在进行」的实时态。
+// Round states: pending → completed/cancelled (terminal). No in_progress
+// because human interviews are marked done manually by HR, no live signal.
+export const humanInterviewRoundStatusValues = ["pending", "completed", "cancelled"] as const;
+export const humanInterviewRoundStatusSchema = z.enum(humanInterviewRoundStatusValues);
+export type HumanInterviewRoundStatus = z.infer<typeof humanInterviewRoundStatusSchema>;
+
+export const humanInterviewRoundOutcomeValues = ["pass", "fail", "inconclusive"] as const;
+export const humanInterviewRoundOutcomeSchema = z.enum(humanInterviewRoundOutcomeValues);
+export type HumanInterviewRoundOutcome = z.infer<typeof humanInterviewRoundOutcomeSchema>;
+
+export const humanInterviewRoundOutcomeMeta: Record<
+  HumanInterviewRoundOutcome,
+  { label: string; tone: "success" | "warning" | "info" | "outline" }
+> = {
+  fail: { label: "未通过", tone: "outline" },
+  inconclusive: { label: "待定", tone: "info" },
+  pass: { label: "通过", tone: "success" },
+};
+
+export const humanInterviewFormatValues = ["online", "onsite", "phone"] as const;
+export const humanInterviewFormatSchema = z.enum(humanInterviewFormatValues);
+export type HumanInterviewFormat = z.infer<typeof humanInterviewFormatSchema>;
+
+export const humanInterviewFormatMeta: Record<HumanInterviewFormat, { label: string }> = {
+  online: { label: "线上" },
+  onsite: { label: "线下" },
+  phone: { label: "电话" },
+};
+
+// 复面轮次输入 schema（创建 + 编辑共用，部分字段编辑时可选）。
+// 至少一名面试官；时间可空（未定档）；评分 0-100，可空。
+// Round input schema; interviewers must be non-empty, scheduledAt may be null,
+// score range 0-100.
+export const humanInterviewRoundInputSchema = z.object({
+  feedback: z.string().trim().max(5000, "面试反馈不能超过 5000 字").nullable().optional(),
+  format: humanInterviewFormatSchema,
+  interviewerIds: z
+    .array(z.string().trim().min(1))
+    .min(1, "至少添加 1 位面试官")
+    .max(10, "面试官最多 10 人"),
+  label: z.string().trim().min(1, "请输入轮次名称").max(50, "轮次名称不能超过 50 字"),
+  location: z.string().trim().max(200).nullable().optional(),
+  meetingUrl: z.string().trim().max(500).nullable().optional(),
+  notes: z.string().trim().max(500).nullable().optional(),
+  outcome: humanInterviewRoundOutcomeSchema.nullable().optional(),
+  scheduledAt: z.string().trim().nullable().optional(),
+  score: z.number().int().min(0).max(100).nullable().optional(),
+  sortOrder: z.number().int().min(0).optional(),
+});
+export type HumanInterviewRoundInput = z.infer<typeof humanInterviewRoundInputSchema>;
+
+// ── Offer 阶段 / Offer Stage ──
+
+// Offer 状态机：
+//   draft → sent → (accepted / declined / expired)
+//   任意时刻可被新版本 supersede（旧版状态变 superseded，新版从 draft 开始）
+// Offer state machine; any draft can be superseded when a new version is issued.
+export const offerDraftStatusValues = [
+  "draft",
+  "sent",
+  "accepted",
+  "declined",
+  "expired",
+  "superseded",
+] as const;
+export const offerDraftStatusSchema = z.enum(offerDraftStatusValues);
+export type OfferDraftStatus = z.infer<typeof offerDraftStatusSchema>;
+
+export const offerDraftStatusMeta: Record<
+  OfferDraftStatus,
+  { label: string; tone: "success" | "warning" | "info" | "outline" }
+> = {
+  accepted: { label: "已接受", tone: "success" },
+  declined: { label: "已拒绝", tone: "outline" },
+  draft: { label: "草稿", tone: "outline" },
+  expired: { label: "已过期", tone: "outline" },
+  sent: { label: "已发送", tone: "info" },
+  superseded: { label: "已被新版替代", tone: "outline" },
+};
+
+// Offer 输入 schema：薪资以「元」为单位（integer），currency 默认 CNY。
+// Salary stored as integer "元" (CNY cents not used early-stage; CNY is dominant).
+export const offerDraftInputSchema = z.object({
+  baseSalary: z.number().int().min(0, "Base salary 不能为负"),
+  bonus: z.number().int().min(0).nullable().optional(),
+  candidateCounter: z.string().trim().max(2000).nullable().optional(),
+  currency: z.string().trim().min(1).max(8).default("CNY").optional(),
+  equity: z.string().trim().max(500).nullable().optional(),
+  expiresAt: z.string().trim().nullable().optional(),
+  joiningDate: z.string().trim().nullable().optional(),
+  notes: z.string().trim().max(2000).nullable().optional(),
+  position: z.string().trim().min(1, "请填写职位").max(200),
+});
+export type OfferDraftInput = z.infer<typeof offerDraftInputSchema>;
+
+// 响应 offer 时的 patch shape：HR 录入候选人反馈。
+// HR records the candidate's response to a sent offer.
+export const offerResponseInputSchema = z.object({
+  candidateCounter: z.string().trim().max(2000).nullable().optional(),
+  response: z.enum(["accepted", "declined", "counter"]),
+});
+export type OfferResponseInput = z.infer<typeof offerResponseInputSchema>;
+
+// ── 候选人期望 / 结案元数据（单行 JSONB，不需要子表）──
+
+// 候选人期望（在 offer 阶段录入，后续 dialog prefill 用）。
+// Candidate expectations; populated during the offer flow and used to prefill.
+export const candidateExpectationsMetaSchema = z.object({
+  currentSalary: z.number().int().min(0).nullable().optional(),
+  earliestJoiningDate: z.string().trim().nullable().optional(),
+  expectedSalary: z.number().int().min(0).nullable().optional(),
+  notes: z.string().trim().max(1000).nullable().optional(),
+});
+export type CandidateExpectationsMeta = z.infer<typeof candidateExpectationsMetaSchema>;
+
+// 结案大类（淘汰原因 / 撤回原因等的归一化分类）。
+// Normalized closure category for downstream stats and recall flows.
+export const closeCategoryValues = [
+  "skills_mismatch",
+  "culture_fit",
+  "comp_disagreement",
+  "candidate_withdrew",
+  "position_filled",
+  "other",
+] as const;
+export const closeCategorySchema = z.enum(closeCategoryValues);
+export type CloseCategory = z.infer<typeof closeCategorySchema>;
+
+export const closeCategoryMeta: Record<CloseCategory, { label: string }> = {
+  candidate_withdrew: { label: "候选人放弃" },
+  comp_disagreement: { label: "薪资分歧" },
+  culture_fit: { label: "文化不符" },
+  other: { label: "其他" },
+  position_filled: { label: "岗位已招满" },
+  skills_mismatch: { label: "技能不匹配" },
+};
+
+// 录用专属细节（outcome=hired 时填）。
+// Hired-only details; recorded when outcome=hired.
+export const closedHiredDetailsSchema = z.object({
+  actualJoiningDate: z.string().trim().nullable().optional(),
+  finalBaseSalary: z.number().int().min(0).nullable().optional(),
+  finalPosition: z.string().trim().max(200).nullable().optional(),
+  onboardingContact: z.string().trim().max(200).nullable().optional(),
+});
+export type ClosedHiredDetails = z.infer<typeof closedHiredDetailsSchema>;
+
+// 淘汰专属细节（outcome=rejected 时填）。
+// Rejected-only details; recorded when outcome=rejected.
+export const closedRejectionDetailsSchema = z.object({
+  revisitAfter: z.string().trim().nullable().optional(),
+  talentPoolEligible: z.boolean().default(false).optional(),
+});
+export type ClosedRejectionDetails = z.infer<typeof closedRejectionDetailsSchema>;
+
+// 结案元数据合并 schema：所有字段都可选，按 outcome 类型有意义不同的子树。
+// 同时记 previousStage，给 reactivate 恢复用。
+// Aggregated closed metadata; previousStage powers reactivate-restore.
+export const closedMetaSchema = z.object({
+  category: closeCategorySchema.nullable().optional(),
+  feedbackToCandidate: z.string().trim().max(5000).nullable().optional(),
+  hiredDetails: closedHiredDetailsSchema.nullable().optional(),
+  internalNotes: z.string().trim().max(5000).nullable().optional(),
+  previousStage: pipelineStageSchema.nullable().optional(),
+  rejectionDetails: closedRejectionDetailsSchema.nullable().optional(),
+});
+export type ClosedMeta = z.infer<typeof closedMetaSchema>;
 
 // 轮次状态机：pending → in_progress → (interrupted ↔ in_progress) → completed。
 // interrupted 表示候选人临时断连，仍可在 3 分钟宽限内回到同一房间继续。
@@ -112,6 +352,7 @@ export const studioInterviewResumePayloadSchema = z.object({
   resumeProfile: z.custom<ResumeAnalysisResult["resumeProfile"]>(),
 });
 
+/** @deprecated Use `PipelineStage` + `CandidateOutcome` instead. */
 export type StudioInterviewStatus = z.infer<typeof studioInterviewStatusSchema>;
 export type StudioInterviewScheduleEntryFormValue = z.infer<
   typeof studioInterviewScheduleEntrySchema
@@ -119,6 +360,7 @@ export type StudioInterviewScheduleEntryFormValue = z.infer<
 export type StudioInterviewFormValues = z.infer<typeof studioInterviewFormSchema>;
 export type StudioInterviewUpdateValues = z.infer<typeof studioInterviewUpdateSchema>;
 
+/** @deprecated Use `pipelineStageMeta` + `candidateOutcomeMeta` instead. */
 export const studioInterviewStatusMeta: Record<
   StudioInterviewStatus,
   { label: string; tone: "success" | "warning" | "info" | "outline" }

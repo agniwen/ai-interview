@@ -1,18 +1,22 @@
 "use client";
 
+import { describeResumeProgress } from "@/lib/shared/studio-resumes";
 import type {
   PaginatedResumeLibraryResult,
   ResumeLibraryListRecord,
   ResumeLibraryMetrics,
 } from "@/lib/shared/studio-resumes";
+import { pipelineStageMeta, pipelineStageValues } from "@arc/db-schema/studio-interviews";
+import type { PipelineStage } from "@arc/db-schema/studio-interviews";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import dynamic from "next/dynamic";
 import {
   BotIcon,
-  CircleCheckIcon,
-  CircleDashedIcon,
+  CircleSlashIcon,
   EyeIcon,
   PencilIcon,
+  RotateCcwIcon,
   Trash2Icon,
   UsersIcon,
 } from "lucide-react";
@@ -72,6 +76,7 @@ import { CreateResumeRecordDialog } from "./upload-resume-dialog";
 import type { CreateResumeRecordResult } from "./upload-resume-dialog";
 import { LaunchInterviewDialog } from "./launch-interview-dialog";
 import { ResumeLibraryCharts } from "./resume-library-charts";
+import { TransitionCandidateDialog } from "./transition-candidate-dialog";
 
 const PdfPreviewDialog = dynamic(
   async () => {
@@ -91,8 +96,48 @@ const PdfPreviewDialog = dynamic(
 interface ResumeFilters extends Record<string, string> {
   skills: string;
   jdIds: string;
+  stage: string;
 }
-const EMPTY_FILTERS: ResumeFilters = { jdIds: "", skills: "" };
+const EMPTY_FILTERS: ResumeFilters = { jdIds: "", skills: "", stage: "" };
+
+// pipelineStage tab 副标题文案——简短，避免 tab 撑得过宽，移动端会隐藏。
+// Short helper text shown inside each pipelineStage tab; hidden on mobile so
+// tabs stay compact in narrow viewports.
+const PIPELINE_STAGE_TAB_DESCRIPTIONS: Record<string, string> = {
+  ai_interview: "AI 面试阶段",
+  all: "全部候选人",
+  closed: "已结案候选人",
+  human_interview: "等候真人复面",
+  offer: "Offer 协商中",
+  screening: "简历筛选中",
+  written_test: "笔试阶段",
+};
+
+// 笔试阶段暂未启用对应的入口/元数据 UI，先在 tabs 中隐藏，避免点进去发现啥也没有。
+// schema、后端 API 仍保留，把 UI 建出来后只要从这里删掉对应 key 即可。
+// Stages without a working entry UI are hidden from the tabs to avoid empty
+// drilldowns. Schema + backend support stays; remove from this set once the
+// stage's UI is built.
+const HIDDEN_PIPELINE_STAGE_TABS = new Set<string>(["written_test"]);
+
+// 点进度 badge 跳到哪个 tab；null 表示纯展示（screening / closed）。
+// 复用 describeResumeProgress 已经确认能渲染对应数据的前提。
+// Map current stage → drilldown tab; null = static badge (no detail page).
+function progressBadgeTargetTab(record: ResumeLibraryListRecord) {
+  if (record.pipelineStage === "ai_interview" && record.hasInterviewRounds) {
+    return "rounds" as const;
+  }
+  if (record.pipelineStage === "human_interview") {
+    return "human-interview" as const;
+  }
+  if (record.pipelineStage === "offer") {
+    return "offer" as const;
+  }
+  return null;
+}
+const VISIBLE_PIPELINE_STAGES = pipelineStageValues.filter(
+  (s) => !HIDDEN_PIPELINE_STAGE_TABS.has(s),
+);
 
 function csvToArray(value: string | undefined): string[] {
   if (!value) {
@@ -113,6 +158,11 @@ interface FetchParams {
   sortOrder: "asc" | "desc" | undefined;
 }
 
+// 页面组件天然汇聚多种 dialog/state，复杂度阈值（20）会被踩到。
+// 这是 UI 编排层，不是业务逻辑层；拆成更小组件会牺牲就近可读性。
+// Page-level orchestrator naturally aggregates dialogs and state; splitting
+// would harm local readability without reducing real complexity.
+// oxlint-disable-next-line eslint/complexity
 export function ResumeLibraryPage({
   initialData,
   metrics,
@@ -153,6 +203,7 @@ export function ResumeLibraryPage({
           jobDescriptionIds: csvToArray(params.filters.jdIds),
           page: params.page,
           pageSize: params.pageSize,
+          pipelineStages: params.filters.stage ? [params.filters.stage] : undefined,
           search: params.search || undefined,
           skills: csvToArray(params.filters.skills),
           sortBy: params.sortBy,
@@ -203,7 +254,9 @@ export function ResumeLibraryPage({
   // 中文：打开简历详情弹窗时默认聚焦的 tab；点「已发起」直接跳到「AI 面试轮次」。
   // English: Default tab when opening the resume detail dialog — clicking
   // 已发起 jumps straight to the "AI 面试轮次" view.
-  const [detailDefaultTab, setDetailDefaultTab] = useState<"overview" | "rounds">("overview");
+  const [detailDefaultTab, setDetailDefaultTab] = useState<
+    "overview" | "rounds" | "human-interview" | "offer"
+  >("overview");
   // 「保存并发起面试」成功后打开的 AI 面试详情弹窗对应的 round id；为 null 则不展示。
   // Round id whose AI interview detail dialog should pop after a successful
   // save-and-start; null hides the dialog.
@@ -217,6 +270,15 @@ export function ResumeLibraryPage({
     candidateName: string | null;
   } | null>(null);
   const [editRecordId, setEditRecordId] = useState<string | null>(null);
+  // 标记结案 / 重新激活 dialog 的目标候选人；mode 决定 UI 内容。
+  // initialOutcome 用于「Offer 接受后一键标记录用」等场景，dialog 打开时预选。
+  // Close-or-reactivate dialog target. initialOutcome pre-selects an outcome
+  // for flows like "offer accepted → mark as hired".
+  const [transitionTarget, setTransitionTarget] = useState<{
+    candidate: { id: string; candidateName: string | null };
+    mode: "close" | "reactivate";
+    initialOutcome?: "hired" | "rejected" | "withdrawn" | "archived";
+  } | null>(null);
   const [deleteRecord, setDeleteRecord] = useState<ResumeLibraryListRecord | null>(null);
   const [previewRecord, setPreviewRecord] = useState<ResumeLibraryListRecord | null>(null);
   const [viewJobDescriptionId, setViewJobDescriptionId] = useState<string | null>(null);
@@ -357,30 +419,33 @@ export function ResumeLibraryPage({
         title: "简历文件",
       }),
       customColumn<ResumeLibraryListRecord>({
-        cell: (r) =>
-          r.hasInterviewRounds ? (
-            <button
-              className="cursor-pointer"
-              onClick={(e) => {
-                e.stopPropagation();
-                setDetailDefaultTab("rounds");
-                setDetailRecordId(r.id);
-              }}
-              type="button"
-            >
-              <Badge className="cursor-pointer hover:bg-emerald-600/15" variant="success">
-                <CircleCheckIcon className="size-3" />
-                已发起
-              </Badge>
-            </button>
-          ) : (
-            <Badge variant="outline">
-              <CircleDashedIcon className="size-3" />
-              未发起
-            </Badge>
-          ),
-        key: "hasInterviewRounds",
-        title: "AI 面试",
+        cell: (r) => {
+          const meta = describeResumeProgress(r);
+          // 根据当前阶段决定点 badge 跳到哪个 tab。closed 与 screening 没有专属 tab，纯展示。
+          // Badge click jumps to the stage's dedicated tab; closed / screening
+          // have no drilldown, render as static badge.
+          const targetTab = progressBadgeTargetTab(r);
+          if (targetTab) {
+            return (
+              <button
+                className="cursor-pointer"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setDetailDefaultTab(targetTab);
+                  setDetailRecordId(r.id);
+                }}
+                type="button"
+              >
+                <Badge className="cursor-pointer" variant={meta.tone}>
+                  {meta.label}
+                </Badge>
+              </button>
+            );
+          }
+          return <Badge variant={meta.tone}>{meta.label}</Badge>;
+        },
+        key: "progress",
+        title: "面试进度",
       }),
       customColumn<ResumeLibraryListRecord>({
         cell: (r) => <CreatorCell image={r.creatorImage} name={r.creatorName} />,
@@ -414,11 +479,34 @@ export function ResumeLibraryPage({
             icon: BotIcon,
             label: "发起 AI 面试",
             onClick: startAiInterview,
-            // 已存在任意 AI 面试轮次时隐藏，避免重复发起；用户应在「AI 面试」页面继续。
-            // Hide once the candidate already has any AI interview round to
-            // prevent duplicate starts; users should continue from the AI
-            // interview page instead.
-            show: (r) => !r.hasInterviewRounds,
+            // 已存在任意 AI 面试轮次 或 已结案 时隐藏（已结案的人需要先重新激活）。
+            // Hide when the candidate already has any AI interview round OR is
+            // closed (closed candidates must be reactivated first).
+            show: (r) => !r.hasInterviewRounds && r.pipelineStage !== "closed",
+          },
+          {
+            icon: CircleSlashIcon,
+            label: "标记结案",
+            onClick: (r) =>
+              setTransitionTarget({
+                candidate: { candidateName: r.candidateName, id: r.id },
+                mode: "close",
+              }),
+            // 只在未结案候选人上显示。
+            // Only available on non-closed candidates.
+            show: (r) => r.pipelineStage !== "closed",
+          },
+          {
+            icon: RotateCcwIcon,
+            label: "重新激活",
+            onClick: (r) =>
+              setTransitionTarget({
+                candidate: { candidateName: r.candidateName, id: r.id },
+                mode: "reactivate",
+              }),
+            // 仅对已结案候选人可见。
+            // Only visible for closed candidates.
+            show: (r) => r.pipelineStage === "closed",
           },
           {
             icon: Trash2Icon,
@@ -513,6 +601,31 @@ export function ResumeLibraryPage({
         />
         <ResumeLibraryCharts metrics={metrics} />
         <ActiveBatchBanner onCancel={handleCancelActiveBatch} onContinue={handleContinueBatch} />
+        <Tabs
+          onValueChange={(value) => grid.setFilter("stage", value === "all" ? "" : value)}
+          value={grid.filters.stage || "all"}
+        >
+          <TabsList className="h-auto flex-wrap items-stretch group-data-[orientation=horizontal]/tabs:h-auto">
+            <TabsTrigger className="h-auto flex-col items-start gap-0.5 px-3 py-1.5" value="all">
+              <span className="text-sm leading-tight">全部</span>
+              <span className="hidden text-[11px] font-normal leading-tight text-muted-foreground sm:inline">
+                {PIPELINE_STAGE_TAB_DESCRIPTIONS.all}
+              </span>
+            </TabsTrigger>
+            {VISIBLE_PIPELINE_STAGES.map((s) => (
+              <TabsTrigger
+                className="h-auto flex-col items-start gap-0.5 px-3 py-1.5"
+                key={s}
+                value={s}
+              >
+                <span className="text-sm leading-tight">{pipelineStageMeta[s].label}</span>
+                <span className="hidden text-[11px] font-normal leading-tight text-muted-foreground sm:inline">
+                  {PIPELINE_STAGE_TAB_DESCRIPTIONS[s]}
+                </span>
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
         <DataGrid<ResumeLibraryListRecord>
           {...grid.bind}
           columns={columns}
@@ -547,18 +660,35 @@ export function ResumeLibraryPage({
             </Button>
           )}
           empty={
-            <Empty className="border-border/60">
-              <EmptyHeader>
-                <EmptyMedia variant="icon">
-                  <UsersIcon className="size-5" />
-                </EmptyMedia>
-                <EmptyTitle>简历库还没有任何候选人</EmptyTitle>
-                <EmptyDescription>点击右上角「上传简历」加入第一份候选人简历。</EmptyDescription>
-              </EmptyHeader>
-              <EmptyContent>
-                <CreateResumeRecordDialog onCreated={handleResumeRecordCreated} />
-              </EmptyContent>
-            </Empty>
+            grid.filters.stage ? (
+              <Empty className="border-border/60">
+                <EmptyHeader>
+                  <EmptyMedia variant="icon">
+                    <UsersIcon className="size-5" />
+                  </EmptyMedia>
+                  <EmptyTitle>
+                    暂无处于「
+                    {pipelineStageMeta[grid.filters.stage as PipelineStage]?.label ??
+                      grid.filters.stage}
+                    」阶段的候选人
+                  </EmptyTitle>
+                  <EmptyDescription>切换到其他阶段或「全部」查看更多候选人。</EmptyDescription>
+                </EmptyHeader>
+              </Empty>
+            ) : (
+              <Empty className="border-border/60">
+                <EmptyHeader>
+                  <EmptyMedia variant="icon">
+                    <UsersIcon className="size-5" />
+                  </EmptyMedia>
+                  <EmptyTitle>简历库还没有任何候选人</EmptyTitle>
+                  <EmptyDescription>点击右上角「上传简历」加入第一份候选人简历。</EmptyDescription>
+                </EmptyHeader>
+                <EmptyContent>
+                  <CreateResumeRecordDialog onCreated={handleResumeRecordCreated} />
+                </EmptyContent>
+              </Empty>
+            )
           }
         />
       </div>
@@ -580,6 +710,23 @@ export function ResumeLibraryPage({
             setDetailDefaultTab("overview");
           }
         }}
+        // Action bar 触发：复用现有 transitionTarget state + TransitionCandidateDialog。
+        // 不关详情面板——dialog 用 Radix stacking 叠在上面。
+        // Action bar reuses the existing TransitionCandidateDialog stacked over the detail panel.
+        onRequestClose={({ id, candidateName, initialOutcome }) =>
+          setTransitionTarget({
+            candidate: { candidateName, id },
+            initialOutcome,
+            mode: "close",
+          })
+        }
+        onRequestReactivate={(candidate) =>
+          setTransitionTarget({
+            candidate,
+            mode: "reactivate",
+          })
+        }
+        onUpdated={invalidateAll}
         onViewRoundDetail={(roundId) => {
           // 中文：不要关闭简历详情弹窗 — 用户可能看完单轮后还想回来看其他轮次。
           // 两个 Dialog 叠着放，Radix 自动处理 stacking。
@@ -614,6 +761,15 @@ export function ResumeLibraryPage({
         onOpenChange={(open) => !open && setLaunchingRecord(null)}
         open={launchingRecord !== null}
         recordId={launchingRecord?.id ?? null}
+      />
+
+      <TransitionCandidateDialog
+        candidate={transitionTarget?.candidate ?? null}
+        initialOutcome={transitionTarget?.initialOutcome}
+        mode={transitionTarget?.mode ?? "close"}
+        onCompleted={invalidateAll}
+        onOpenChange={(open) => !open && setTransitionTarget(null)}
+        open={transitionTarget !== null}
       />
 
       {/* StudioPersonEditDialog.onUpdated 需要接收最新记录，此处忽略参数仅刷新列表。

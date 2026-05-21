@@ -1,8 +1,37 @@
 import "server-only";
 
-import { desc, eq, inArray, sql } from "drizzle-orm";
+import { asc, desc, eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/lib/server/db";
 import { member, session, user } from "@arc/db-schema/schema";
+
+// 给「面试官多选」用的精简 member DTO。
+// Lightweight member DTO for interviewer multi-select pickers.
+export interface WorkspaceMemberRow {
+  id: string;
+  name: string;
+  email: string;
+  image: string | null;
+}
+
+export async function listWorkspaceMembers(organizationId: string): Promise<WorkspaceMemberRow[]> {
+  const rows = await db
+    .select({
+      email: user.email,
+      id: user.id,
+      image: user.image,
+      name: user.name,
+    })
+    .from(member)
+    .innerJoin(user, eq(member.userId, user.id))
+    .where(eq(member.organizationId, organizationId))
+    .orderBy(asc(user.name));
+  return rows.map((row) => ({
+    email: row.email,
+    id: row.id,
+    image: row.image,
+    name: row.name ?? "未命名",
+  }));
+}
 
 export interface MemberLastActiveRow {
   userId: string;

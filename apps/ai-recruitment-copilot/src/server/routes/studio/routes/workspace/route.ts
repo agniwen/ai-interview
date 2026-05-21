@@ -4,7 +4,7 @@ import { db } from "@/lib/server/db";
 import { organization } from "@arc/db-schema/schema";
 import { factory, jsonValidatorError } from "@/server/factory";
 import { requirePermission } from "@/server/middlewares/permission";
-import { listWorkspaceMemberLastActives } from "./dao";
+import { listWorkspaceMemberLastActives, listWorkspaceMembers } from "./dao";
 import { inviteLinksRouter } from "./routes/invite-links/route";
 import { workspaceUpdateSchema } from "./schema";
 
@@ -17,6 +17,16 @@ export const workspaceRouter = factory
       return c.json({ message: "Unauthorized" }, 401);
     }
     const records = await listWorkspaceMemberLastActives(activeOrg.id);
+    return c.json({ records }, 200);
+  })
+  // 列出工作区成员（id + name + email + image），用于「面试官多选」picker。
+  // List workspace members for the interviewer multi-select picker.
+  .get("/members", async (c) => {
+    const { activeOrg } = c.var;
+    if (!activeOrg) {
+      return c.json({ message: "Unauthorized" }, 401);
+    }
+    const records = await listWorkspaceMembers(activeOrg.id);
     return c.json({ records }, 200);
   })
   .patch(

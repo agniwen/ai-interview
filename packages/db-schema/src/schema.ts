@@ -26,7 +26,18 @@ import type { InterviewTranscriptTurn } from "./interview-session";
 import type { InterviewQuestion, ResumeProfile } from "./interview/types";
 import type { JobDescriptionConfig } from "./job-description-config";
 import type { MinimaxVoiceId } from "./minimax-voices";
-import type { ScheduleEntryStatus, StudioInterviewStatus } from "./studio-interviews";
+import type {
+  CandidateExpectationsMeta,
+  CandidateOutcome,
+  ClosedMeta,
+  HumanInterviewFormat,
+  HumanInterviewRoundOutcome,
+  HumanInterviewRoundStatus,
+  OfferDraftStatus,
+  PipelineStage,
+  ScheduleEntryStatus,
+  StudioInterviewStatus,
+} from "./studio-interviews";
 import type { ResumeParserStructured } from "./resume-parser-schema";
 import { sql } from "drizzle-orm";
 import {
@@ -289,10 +300,31 @@ export const studioInterview = pgTable(
   "studio_interview",
   {
     candidateEmail: text("candidate_email"),
+    // 候选人期望（薪资 / 现 base / 最早入职日 / 备注），单行 JSONB；
+    // 在 offer 阶段录入，便于 dialog prefill。结构见 candidateExpectationsMetaSchema。
+    // Candidate-expectations JSON, populated during the offer flow.
+    candidateExpectationsMeta: jsonb(
+      "candidate_expectations_meta",
+    ).$type<CandidateExpectationsMeta | null>(),
     candidateName: text("candidate_name").notNull(),
     candidatePhone: text("candidate_phone"),
+    closedAt: timestamp("closed_at"),
+    // 结案元数据：分类、内部备注、对外反馈话术、录用细节、淘汰细节、previousStage。
+    // 结构见 closedMetaSchema；reactivate 时读 previousStage 恢复阶段。
+    // Closed-stage JSON metadata; previousStage drives reactivation restore.
+    closedMeta: jsonb("closed_meta").$type<ClosedMeta | null>(),
+    // ⚠️ DEPRECATED — 旧 closedReason 字段被 closedMeta.internalNotes 取代。
+    // Superseded by closedMeta; kept for backwards compat.
+    closedReason: text("closed_reason"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
+    // ⚠️ DEPRECATED — 真人复面信息现在落到 studioHumanInterviewRound 子表（多轮 + 多面试官）。
+    // 这两列留着兜底但应用层不再写入。
+    // Superseded by studioHumanInterviewRound subtable; not written anymore.
+    humanInterviewScheduledAt: timestamp("human_interview_scheduled_at"),
+    humanInterviewerId: text("human_interviewer_id").references(() => user.id, {
+      onDelete: "set null",
+    }),
     id: text("id").primaryKey(),
     interviewQuestions: jsonb("interview_questions")
       .$type<InterviewQuestion[]>()
@@ -303,11 +335,23 @@ export const studioInterview = pgTable(
       onDelete: "set null",
     }),
     notes: text("notes"),
+    // ⚠️ DEPRECATED — Offer 信息现在落到 studioOfferDraft 子表（多版本 + 议价历史）。
+    // Superseded by studioOfferDraft subtable; not written anymore.
+    offerAcceptedAt: timestamp("offer_accepted_at"),
+    offerSentAt: timestamp("offer_sent_at"),
     organizationId: text("organization_id")
       .notNull()
       .references(() => organization.id, {
         onDelete: "cascade",
       }),
+    // 新模型：候选人最终结论（默认 in_pipeline）。
+    // outcome != 'in_pipeline' ⇔ pipelineStage = 'closed'（DB CHECK 强制）。
+    // Verdict axis; CHECK constraint pairs non-'in_pipeline' with stage='closed'.
+    outcome: text("outcome").$type<CandidateOutcome>().notNull().default("in_pipeline"),
+    // 新模型：候选人所在 pipeline 阶段（默认 screening）。
+    // default 让 prod 旧 INSERT 路径不传值时也能写入。
+    // Stage axis; default lets pre-migration INSERTs succeed.
+    pipelineStage: text("pipeline_stage").$type<PipelineStage>().notNull().default("screening"),
     resumeContentHash: text("resume_content_hash"),
     resumeFileName: text("resume_file_name"),
     resumeProfile: jsonb("resume_profile").$type<ResumeProfile | null>(),
@@ -321,15 +365,29 @@ export const studioInterview = pgTable(
       .array()
       .notNull()
       .default(sql`'{}'::text[]`),
+    // ⚠️ DEPRECATED — 旧的 record 级 status，由 pipelineStage + outcome 替代。
+    // 共享数据库期间继续保留并被应用层 dual-write，待全部消费方下线后再 drop。
+    // Legacy single-axis status. Kept dual-written from app code while
+    // pipelineStage + outcome roll out across all consumers.
     status: text("status").$type<StudioInterviewStatus>().notNull(),
     targetRole: text("target_role"),
     updatedAt: timestamp("updated_at")
       .defaultNow()
       .$onUpdate(() => /* @__PURE__ */ new Date())
       .notNull(),
+    // ⚠️ 笔试阶段当前在 tabs 中隐藏（UI 没建）；这两列暂存，未来真要做笔试时再决定保留 / 子表化。
+    // Written-test scalars; the stage is hidden in UI for now, columns reserved.
+    writtenTestScheduledAt: timestamp("written_test_scheduled_at"),
+    writtenTestScore: text("written_test_score"),
   },
   (table) => [
+    // ⚠️ DEPRECATED — 旧的 status index，与旧列一并保留至 drop 阶段。
+    // Kept alongside the deprecated column until consumers fully migrate.
     index("studio_interview_status_idx").on(table.status),
+    // 新模型的索引：tabs 通常 WHERE pipeline_stage = ? AND outcome = ?。
+    index("studio_interview_pipeline_stage_idx").on(table.pipelineStage),
+    index("studio_interview_outcome_idx").on(table.outcome),
+    index("studio_interview_stage_outcome_idx").on(table.pipelineStage, table.outcome),
     index("studio_interview_created_at_idx").on(table.createdAt),
     index("studio_interview_created_by_idx").on(table.createdBy),
     index("studio_interview_job_description_idx").on(table.jobDescriptionId),
@@ -524,6 +582,118 @@ export const studioInterviewSchedule = pgTable(
     index("studio_interview_schedule_record_idx").on(table.interviewRecordId),
     index("studio_interview_schedule_sort_idx").on(table.interviewRecordId, table.sortOrder),
     index("studio_interview_schedule_organization_idx").on(table.organizationId),
+  ],
+);
+
+// 真人复面单轮记录。一名候选人可以多轮（label 例：技术复面/HR 复面/总监终面）。
+// status 走 pending → completed/cancelled 终态机；outcome/score/feedback 在完成时填。
+// 多面试官走 junction table studioHumanInterviewRoundInterviewer。
+//
+// Per-round human interview record. Each candidate can have multiple rounds.
+// Status: pending → completed/cancelled. Outcome/score/feedback captured on
+// completion. Many-to-many interviewers via the junction table below.
+export const studioHumanInterviewRound = pgTable(
+  "studio_human_interview_round",
+  {
+    cancelReason: text("cancel_reason"),
+    cancelledAt: timestamp("cancelled_at"),
+    completedAt: timestamp("completed_at"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    feedback: text("feedback"),
+    format: text("format").$type<HumanInterviewFormat>().notNull(),
+    id: text("id").primaryKey(),
+    interviewRecordId: text("interview_record_id")
+      .notNull()
+      .references(() => studioInterview.id, { onDelete: "cascade" }),
+    label: text("label").notNull(),
+    location: text("location"),
+    meetingUrl: text("meeting_url"),
+    notes: text("notes"),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    outcome: text("outcome").$type<HumanInterviewRoundOutcome>(),
+    scheduledAt: timestamp("scheduled_at"),
+    score: integer("score"),
+    sortOrder: integer("sort_order").notNull().default(0),
+    status: text("status").$type<HumanInterviewRoundStatus>().notNull().default("pending"),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+  },
+  (table) => [
+    index("studio_human_interview_round_record_idx").on(table.interviewRecordId),
+    index("studio_human_interview_round_sort_idx").on(table.interviewRecordId, table.sortOrder),
+    index("studio_human_interview_round_org_idx").on(table.organizationId),
+    index("studio_human_interview_round_status_idx").on(table.status),
+  ],
+);
+
+// 真人复面面试官 junction：(roundId, userId) 复合 PK；删用户级联，删轮次级联。
+// 单独索引 userId 让「查询某面试官面过的所有候选人」走索引。
+// Junction for (round, interviewer) many-to-many. userId index supports the
+// "all rounds interviewed by user X" query.
+export const studioHumanInterviewRoundInterviewer = pgTable(
+  "studio_human_interview_round_interviewer",
+  {
+    roundId: text("round_id")
+      .notNull()
+      .references(() => studioHumanInterviewRound.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+  },
+  (table) => [
+    primaryKey({ columns: [table.roundId, table.userId] }),
+    index("studio_human_interview_round_interviewer_user_idx").on(table.userId),
+  ],
+);
+
+// Offer 草稿（多版本）。version 在同一候选人内单调递增；新版本发出时旧版置 superseded。
+// status 状态机：draft → sent → (accepted/declined/expired)；任意态都可被 superseded。
+// 候选人议价记在 candidateCounter（自由文本，描述本版回复内容）。
+//
+// Versioned offer drafts. Version is monotonically increasing per candidate;
+// new versions supersede earlier ones. Status: draft → sent → terminal.
+// Candidate counter-offers recorded as free text on the draft they respond to.
+export const studioOfferDraft = pgTable(
+  "studio_offer_draft",
+  {
+    baseSalary: integer("base_salary").notNull(),
+    bonus: integer("bonus"),
+    candidateCounter: text("candidate_counter"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    currency: text("currency").notNull().default("CNY"),
+    equity: text("equity"),
+    expiresAt: timestamp("expires_at"),
+    id: text("id").primaryKey(),
+    interviewRecordId: text("interview_record_id")
+      .notNull()
+      .references(() => studioInterview.id, { onDelete: "cascade" }),
+    joiningDate: timestamp("joining_date"),
+    notes: text("notes"),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    position: text("position").notNull(),
+    responseAt: timestamp("response_at"),
+    sentAt: timestamp("sent_at"),
+    status: text("status").$type<OfferDraftStatus>().notNull().default("draft"),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+    version: integer("version").notNull(),
+  },
+  (table) => [
+    uniqueIndex("studio_offer_draft_record_version_uniq").on(
+      table.interviewRecordId,
+      table.version,
+    ),
+    index("studio_offer_draft_record_idx").on(table.interviewRecordId),
+    index("studio_offer_draft_org_idx").on(table.organizationId),
+    index("studio_offer_draft_status_idx").on(table.status),
   ],
 );
 

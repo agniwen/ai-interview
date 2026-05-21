@@ -276,14 +276,37 @@ export const relations = defineRelations(schema, (r) => ({
       to: r.user.id,
     }),
   },
+  studioHumanInterviewRound: {
+    interviewRecord: r.one.studioInterview({
+      from: r.studioHumanInterviewRound.interviewRecordId,
+      to: r.studioInterview.id,
+    }),
+    interviewers: r.many.studioHumanInterviewRoundInterviewer(),
+    organization: r.one.organization({
+      from: r.studioHumanInterviewRound.organizationId,
+      to: r.organization.id,
+    }),
+  },
+  studioHumanInterviewRoundInterviewer: {
+    round: r.one.studioHumanInterviewRound({
+      from: r.studioHumanInterviewRoundInterviewer.roundId,
+      to: r.studioHumanInterviewRound.id,
+    }),
+    user: r.one.user({
+      from: r.studioHumanInterviewRoundInterviewer.userId,
+      to: r.user.id,
+    }),
+  },
   studioInterview: {
     candidateFormSubmissions: r.many.candidateFormSubmission(),
     conversationTurns: r.many.interviewConversationTurn(),
     conversations: r.many.interviewConversation(),
+    humanInterviewRounds: r.many.studioHumanInterviewRound(),
     jobDescription: r.one.jobDescription({
       from: r.studioInterview.jobDescriptionId,
       to: r.jobDescription.id,
     }),
+    offerDrafts: r.many.studioOfferDraft(),
     organization: r.one.organization({
       from: r.studioInterview.organizationId,
       to: r.organization.id,
@@ -303,6 +326,16 @@ export const relations = defineRelations(schema, (r) => ({
     }),
     organization: r.one.organization({
       from: r.studioInterviewSchedule.organizationId,
+      to: r.organization.id,
+    }),
+  },
+  studioOfferDraft: {
+    interviewRecord: r.one.studioInterview({
+      from: r.studioOfferDraft.interviewRecordId,
+      to: r.studioInterview.id,
+    }),
+    organization: r.one.organization({
+      from: r.studioOfferDraft.organizationId,
       to: r.organization.id,
     }),
   },
