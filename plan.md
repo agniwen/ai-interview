@@ -7,6 +7,7 @@
 ## ✅ 已完成
 
 ### A. 数据展示层切换到新模型
+
 - [x] **简历库分布图**：`ResumeLibraryMetrics.byStatus`（旧 enum）→ `byPipeline: { stage, outcome, count }[]`
   - `src/lib/shared/studio-resumes.ts` — 类型替换
   - `src/server/routes/studio/routes/resumes/dao/metrics.ts` — `loadByStatus → loadByPipeline`，GROUP BY pipelineStage × outcome；`loadConversion` 排除 `outcome='archived'`
@@ -14,11 +15,13 @@
   - Card 标题：「简历状态分布」→「面试流程分布」
 
 ### B. 数据修正（一次性 SQL 已落库）
+
 - [x] **宋涛 + 李中鑫**：有 AI schedule 但 `pipeline_stage='screening'` → 修正为 `ai_interview`
 - [x] **张慧 + 白一凡**：`pipeline_stage='ai_interview'` 但无任何 round → 回退为 `screening`
 - [x] **代码兜底**：`DELETE /interviews/:id` + `/bulk-delete` 删完轮次后调用 `resetOrphanedAiInterviewParents` 自动回退候选人到 screening，防止再生孤儿
 
 ### C. AI 阶段锁的 UI 完整化
+
 - [x] `studio-person-detail-panel.tsx` — interview 模式「轮次概览」+ resume 模式「AI 面试轮次」tab 内：发送邮件 / 复制链接 / 二维码 / 重置轮次 全部按 `aiStageLockedReason` 禁用 + 显示锁定原因文本
 - [x] `RoundEmailAction` / `InterviewLinkQrButton` 新增 `lockedReason` / `disabled` props
 - [x] `actions-column.tsx` ActionMenuItem 支持 `disabled` + `disabledReason`
@@ -26,6 +29,7 @@
 - [x] `StudioCandidateRecord` + `StudioInterviewRoundListRecord` 增加 `pipelineStage / outcome` 字段并在 DAO 中 SELECT
 
 ### D. 审计 Batch 1 — 关键安全收口（低成本高价值）
+
 - [x] **S1**：`/api/interview/match-job-description` + `/generate-questions` 加 `authMiddleware`
   - 之前任何人都可烧 LLM token / 枚举 JD
 - [x] **S3**：`loadCandidateInterviewRecord` + `loadScheduleEntriesForRedirect` 加 `pipelineStage === 'closed'` 守卫
@@ -40,6 +44,7 @@
 - [~] **L3**：暂不修 — `resolvePublicInterviewScope` 返回的 candidateId 仅服务端内部使用，真实泄露面在 `loadInterviewRoundDetail.candidate.id`，跟 [S2] 一起统筹
 
 ### E. 审计 Batch 2 — 事务 / 原子性硬伤
+
 - [x] **S7**：`maybeAdvanceToHumanInterview` + `maybeAdvanceToOffer`
   - 把 select + check + update 的 TOCTOU 序列改成单条 UPDATE 带 WHERE（`pipelineStage IN (advanceable) AND outcome='in_pipeline'`）
   - 并发 close 现在变成 no-op，不再触发 DB CHECK 约束的 23514
@@ -61,6 +66,7 @@
   - UPDATE 带 WHERE `pipelineStage='offer' AND outcome='in_pipeline'` 兜底
 
 ### 验证
+
 - typecheck ✅ / lint ✅ / 396 tests passing
 
 ---
@@ -68,6 +74,7 @@
 ## ⏳ 待做
 
 ### F. 审计 Batch 3 — 中等优先（建议下一批做）
+
 - [ ] **M1**：PATCH 接口的 nullable 字段无法清空
   - `editHumanInterviewRound` / `editOfferDraft` / 其他 PATCH 路径：`input.x ?? existing.x` 把显式传入的 `null` 吞掉，feedback/score/notes/bonus/equity 等无法清空
   - 修法：要么 Zod 检测「字段存在但为 null」走清空分支，要么显式比较 `input.x === undefined ? existing.x : input.x`
@@ -86,6 +93,7 @@
   - 修法：加 `excludeId?` 参数；前端 patch 路径调用时传当前 record id
 
 ### G. 决策类（需要先对齐再做）
+
 - [ ] **S2** — 公开链接安全收口（**大改**）
   - 问题：`/api/public/*` 暴露候选人完整 PII、面试 transcript、录像 10 分钟 presigned URL；无签名、无过期、无撤销
   - 需要决策：
@@ -105,6 +113,7 @@
   - 备选：定期 GC 任务 / 引用计数 / 直接同步删除
 
 ### H. 轻微改进（L1-L7，单独时间窗集中扫）
+
 - [ ] **L1**：`transition` 路由的 outcome 默认值推断改为显式必填或文档化
 - [ ] **L2**：`manualInterviewQuestions` JSON.parse 后没 zod 校验
 - [ ] **L4**：`scheduleEntries` superRefine 第一个错误就 return（UX 改进）
@@ -113,6 +122,7 @@
 - [ ] **L7**：`cancelHumanInterviewRound` 取消唯一人面轮次不回退 stage（与 M5 同形，可一并修）
 
 ### I. 一致性收尾
+
 - [ ] `src/components/screens/resumes-screen.tsx` 是 landing 用的 mock 截图，标签还是旧的「草稿/待开始/进行中/已完成」；与生产图表不一致
 
 ---
