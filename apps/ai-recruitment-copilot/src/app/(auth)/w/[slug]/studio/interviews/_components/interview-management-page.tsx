@@ -12,7 +12,7 @@ import type {
   PaginatedStudioInterviewRoundsResult,
   StudioInterviewRoundListRecord,
 } from "@/lib/shared/studio-interview-rounds";
-import { scheduleEntryStatusMeta } from "@arc/db-schema/studio-interviews";
+import { pipelineStageMeta, scheduleEntryStatusMeta } from "@arc/db-schema/studio-interviews";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import dynamic from "next/dynamic";
 import Link from "next/link";
@@ -75,6 +75,19 @@ interface FetchParams {
   filters: { status: string };
   sortBy: string | undefined;
   sortOrder: "asc" | "desc" | undefined;
+}
+
+// AI 阶段锁：候选人推进到真人复面/Offer/已结案后，AI 面试相关写动作禁用。
+// AI-stage lock: once the candidate moves past ai_interview, AI round write actions are disabled.
+function isAiStageLocked(row: StudioInterviewRoundListRecord): boolean {
+  return row.pipelineStage !== "screening" && row.pipelineStage !== "ai_interview";
+}
+
+function aiStageLockedReason(row: StudioInterviewRoundListRecord): string | null {
+  if (!isAiStageLocked(row)) {
+    return null;
+  }
+  return `候选人已进入「${pipelineStageMeta[row.pipelineStage].label}」阶段，AI 面试相关操作已锁定。如需修改请先回退阶段或重新激活。`;
 }
 
 export function InterviewManagementPage({
@@ -349,10 +362,22 @@ export function InterviewManagementPage({
       actionsColumn<StudioInterviewRoundListRecord>({
         inline: [
           { icon: EyeIcon, label: "查看", onClick: (r) => setDetailRoundId(r.id) },
-          { icon: PencilIcon, label: "编辑", onClick: (r) => setEditRecordId(r.id) },
+          {
+            disabled: isAiStageLocked,
+            disabledReason: aiStageLockedReason,
+            icon: PencilIcon,
+            label: "编辑",
+            onClick: (r) => setEditRecordId(r.id),
+          },
         ],
         menu: [
-          { icon: CopyIcon, label: "复制面试链接", onClick: (r) => void copyInterviewLink(r) },
+          {
+            disabled: isAiStageLocked,
+            disabledReason: aiStageLockedReason,
+            icon: CopyIcon,
+            label: "复制面试链接",
+            onClick: (r) => void copyInterviewLink(r),
+          },
           {
             icon: Link2Icon,
             label: "复制公共访问链接",

@@ -24,9 +24,13 @@ function buildGreeting(candidateName?: string | null) {
 export function InterviewLinkQrButton({
   url,
   candidateName,
+  disabled,
 }: {
   url: string;
   candidateName?: string | null;
+  // 外部锁定（如候选人已推进到 AI 面试之后的阶段）。
+  // External lock (e.g. candidate has moved past AI interview).
+  disabled?: boolean;
 }) {
   const cardRef = useRef<HTMLDivElement | null>(null);
   const [isCopying, setIsCopying] = useState(false);
@@ -76,7 +80,7 @@ export function InterviewLinkQrButton({
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button size="sm" type="button" variant="ghost">
+        <Button disabled={disabled} size="sm" type="button" variant="ghost">
           <QrCodeIcon className="size-3.5" />
           二维码
         </Button>

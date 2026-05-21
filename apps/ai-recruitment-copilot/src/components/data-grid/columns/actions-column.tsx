@@ -19,6 +19,8 @@ export interface ActionInline<TData> {
   label: string;
   onClick: (row: TData) => void | Promise<void>;
   disabled?: (row: TData) => boolean;
+  /** 禁用时显示在 title 里的解释文字。/ Reason shown in title when disabled. */
+  disabledReason?: (row: TData) => string | null;
   show?: (row: TData) => boolean;
 }
 
@@ -29,6 +31,9 @@ export interface ActionMenuItem<TData> {
   variant?: "default" | "destructive";
   separator?: "before";
   show?: (row: TData) => boolean;
+  disabled?: (row: TData) => boolean;
+  /** 禁用时显示在 title 里的解释文字。/ Reason shown in title when disabled. */
+  disabledReason?: (row: TData) => string | null;
 }
 
 export interface ActionsColumnOptions<TData> {
@@ -63,6 +68,7 @@ export function actionsColumn<TData>(opts: ActionsColumnOptions<TData>): ColumnD
           {visibleInline.map((action) => {
             const Icon = action.icon;
             const disabled = action.disabled?.(record) ?? false;
+            const reason = disabled ? (action.disabledReason?.(record) ?? null) : null;
             return (
               // 移动态（<sm）：保持 size-8 方形仅图标，跟旧版一致；
               // 桌面态（≥sm）：自动宽度，图标 + 文字 (text-xs)，label 直接可见。
@@ -75,7 +81,7 @@ export function actionsColumn<TData>(opts: ActionsColumnOptions<TData>): ColumnD
                 key={action.label}
                 onClick={() => void action.onClick(record)}
                 size="icon"
-                title={action.label}
+                title={reason ?? action.label}
                 variant="ghost"
               >
                 <Icon className="size-4 sm:size-3.5" />
@@ -102,11 +108,15 @@ export function actionsColumn<TData>(opts: ActionsColumnOptions<TData>): ColumnD
                 <DropdownMenuSeparator />
                 {visibleMenu.map((item, index) => {
                   const Icon = item.icon;
+                  const itemDisabled = item.disabled?.(record) ?? false;
+                  const itemReason = itemDisabled ? (item.disabledReason?.(record) ?? null) : null;
                   return (
                     <div key={item.label}>
                       {item.separator === "before" && index > 0 ? <DropdownMenuSeparator /> : null}
                       <DropdownMenuItem
+                        disabled={itemDisabled}
                         onSelect={() => void item.onClick(record)}
+                        title={itemReason ?? undefined}
                         variant={item.variant}
                       >
                         {Icon ? <Icon className="size-4" /> : null}

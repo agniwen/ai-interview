@@ -4,7 +4,7 @@ import { and, count, eq, exists, gte, ne, sql } from "drizzle-orm";
 import { db } from "@/lib/server/db";
 import { studioInterview, studioInterviewSchedule } from "@arc/db-schema/schema";
 import type { ResumeLibraryMetrics } from "@/lib/shared/studio-resumes";
-import type { StudioInterviewStatus } from "@arc/db-schema/studio-interviews";
+import type { CandidateOutcome, PipelineStage } from "@arc/db-schema/studio-interviews";
 
 // 近 N 天的窗口宽度，与 UI 卡片标题保持一致。
 // Lookback window used by the 「近 N 天每日新增」 chart.
@@ -21,27 +21,30 @@ const hasInterviewRoundsSql = exists(
     .where(eq(studioInterviewSchedule.interviewRecordId, studioInterview.id)),
 );
 
-async function loadByStatus(organizationId: string) {
-  // 状态分布：archived 不纳入"漏斗"语义，避免长尾把进行中状态压扁。
-  // Status distribution excludes archived so the funnel-style bar isn't
-  // dominated by long-tail archived rows.
+async function loadByPipeline(organizationId: string) {
+  // 漏斗分布：按 (pipelineStage, outcome) 分桶；outcome='archived' 排除，避免
+  // 冷藏长尾压扁主流程展示。其他 closed outcome（hired / rejected / withdrawn）保留。
+  // Pipeline funnel: bucket by (pipelineStage, outcome); archived outcomes are
+  // excluded so cold-storage long-tail doesn't crush the live funnel.
   const rows = await db
     .select({
       count: count(),
-      status: studioInterview.status,
+      outcome: studioInterview.outcome,
+      pipelineStage: studioInterview.pipelineStage,
     })
     .from(studioInterview)
     .where(
       and(
         eq(studioInterview.organizationId, organizationId),
-        ne(studioInterview.status, "archived"),
+        ne(studioInterview.outcome, "archived"),
       ),
     )
-    .groupBy(studioInterview.status);
+    .groupBy(studioInterview.pipelineStage, studioInterview.outcome);
 
   return rows.map((row) => ({
     count: row.count,
-    status: row.status as StudioInterviewStatus,
+    outcome: row.outcome as CandidateOutcome,
+    stage: row.pipelineStage as PipelineStage,
   }));
 }
 
@@ -89,7 +92,7 @@ async function loadConversion(organizationId: string) {
     .where(
       and(
         eq(studioInterview.organizationId, organizationId),
-        ne(studioInterview.status, "archived"),
+        ne(studioInterview.outcome, "archived"),
       ),
     );
 
@@ -100,12 +103,12 @@ async function loadConversion(organizationId: string) {
 }
 
 async function queryResumeLibraryMetrics(organizationId: string): Promise<ResumeLibraryMetrics> {
-  const [byStatus, dailyAdded, conversion] = await Promise.all([
-    loadByStatus(organizationId),
+  const [byPipeline, dailyAdded, conversion] = await Promise.all([
+    loadByPipeline(organizationId),
     loadDailyAdded(organizationId),
     loadConversion(organizationId),
   ]);
-  return { byStatus, conversion, dailyAdded };
+  return { byPipeline, conversion, dailyAdded };
 }
 
 /**

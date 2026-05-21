@@ -47,7 +47,15 @@ export async function loadCandidateInterviewRecord(id: string, roundId: string) 
     .where(eq(studioInterview.id, id))
     .limit(1);
 
-  if (!record || record.status === "archived") {
+  // 候选人侧入口的 stage 守卫：
+  // - legacy `status='archived'` 是历史回退（迁移期保留）。
+  // - 新模型用 `pipelineStage='closed'` 表示已结案（rejected / hired / withdrawn / archived）。
+  //   结案后不应允许候选人继续打开面试页/拿 token。
+  // Candidate-side stage guard:
+  // - legacy `status='archived'` is the pre-migration fallback.
+  // - new model uses `pipelineStage='closed'` for any terminal verdict; once
+  //   closed, the candidate must not be able to load the interview view.
+  if (!record || record.status === "archived" || record.pipelineStage === "closed") {
     return null;
   }
 
@@ -108,12 +116,18 @@ export async function loadCandidateInterviewRecord(id: string, roundId: string) 
 
 export async function loadScheduleEntriesForRedirect(id: string) {
   const [record] = await db
-    .select({ id: studioInterview.id, status: studioInterview.status })
+    .select({
+      id: studioInterview.id,
+      pipelineStage: studioInterview.pipelineStage,
+      status: studioInterview.status,
+    })
     .from(studioInterview)
     .where(eq(studioInterview.id, id))
     .limit(1);
 
-  if (!record || record.status === "archived") {
+  // 与 loadCandidateInterviewRecord 同步的 stage 守卫；详见上方注释。
+  // Mirrors the guard in loadCandidateInterviewRecord above.
+  if (!record || record.status === "archived" || record.pipelineStage === "closed") {
     return null;
   }
 
@@ -367,6 +381,8 @@ export function serializeRecord(
     jobDescriptionId: record.jobDescriptionId,
     jobDescriptionName,
     notes: record.notes,
+    outcome: record.outcome,
+    pipelineStage: record.pipelineStage,
     resumeContentHash: record.resumeContentHash,
     resumeFileName: record.resumeFileName,
     resumeProfile: record.resumeProfile as StudioCandidateRecord["resumeProfile"],

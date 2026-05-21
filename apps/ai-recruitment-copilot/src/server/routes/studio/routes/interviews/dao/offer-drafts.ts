@@ -9,10 +9,19 @@ import "server-only";
 // existing non-terminal (draft/sent) drafts so HR's offer history stays
 // linear without manual cleanup.
 
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, ne } from "drizzle-orm";
 import { db } from "@/lib/server/db";
-import { studioInterview, studioOfferDraft } from "@arc/db-schema/schema";
-import type { OfferDraftInput, OfferDraftStatus } from "@arc/db-schema/studio-interviews";
+import {
+  studioHumanInterviewRound,
+  studioInterview,
+  studioInterviewSchedule,
+  studioOfferDraft,
+} from "@arc/db-schema/schema";
+import type {
+  OfferDraftInput,
+  OfferDraftStatus,
+  PipelineStage,
+} from "@arc/db-schema/studio-interviews";
 import type { OfferDraftRecord } from "@/lib/shared/studio-pipeline-stages";
 
 export type { OfferDraftRecord };
@@ -197,28 +206,46 @@ export async function editOfferDraft({
   organizationId,
   input,
 }: EditDraftOptions): Promise<OfferDraftRecord> {
-  const existing = await loadDraftById(draftId, organizationId);
-  if (!existing) {
-    throw new OfferDraftError("Offer 草稿不存在", 404);
-  }
-  if (existing.status !== "draft") {
-    throw new OfferDraftError("只有草稿状态的 Offer 可以编辑", 400);
-  }
   const now = new Date();
-  await db
-    .update(studioOfferDraft)
-    .set({
-      baseSalary: input.baseSalary ?? existing.baseSalary,
-      bonus: input.bonus ?? existing.bonus,
-      currency: input.currency ?? existing.currency,
-      equity: input.equity ?? existing.equity,
-      expiresAt: resolveDateField(input.expiresAt, existing.expiresAt),
-      joiningDate: resolveDateField(input.joiningDate, existing.joiningDate),
-      notes: input.notes ?? existing.notes,
-      position: input.position ?? existing.position,
-      updatedAt: now,
-    })
-    .where(eq(studioOfferDraft.id, draftId));
+
+  // 事务 + FOR UPDATE：read existing → 校验 status → merge → write。
+  // 防止两名 HR 同时编辑同一份草稿造成 (input ?? existing) merge 字段相互覆盖。
+  // Transaction + FOR UPDATE: serialize read → validate → merge → write so
+  // concurrent edits to the same draft can't lose each other's writes.
+  await db.transaction(async (tx) => {
+    const [existing] = await tx
+      .select()
+      .from(studioOfferDraft)
+      .where(
+        and(eq(studioOfferDraft.id, draftId), eq(studioOfferDraft.organizationId, organizationId)),
+      )
+      .for("update")
+      .limit(1);
+    if (!existing) {
+      throw new OfferDraftError("Offer 草稿不存在", 404);
+    }
+    if (existing.status !== "draft") {
+      throw new OfferDraftError("只有草稿状态的 Offer 可以编辑", 400);
+    }
+    // existing.expiresAt / joiningDate 是 Date，resolveDateField 期待 string | null。
+    // existing.expiresAt / joiningDate are Date columns; resolveDateField wants strings.
+    const existingExpiresAtIso = existing.expiresAt ? existing.expiresAt.toISOString() : null;
+    const existingJoiningDateIso = existing.joiningDate ? existing.joiningDate.toISOString() : null;
+    await tx
+      .update(studioOfferDraft)
+      .set({
+        baseSalary: input.baseSalary ?? existing.baseSalary,
+        bonus: input.bonus ?? existing.bonus,
+        currency: input.currency ?? existing.currency,
+        equity: input.equity ?? existing.equity,
+        expiresAt: resolveDateField(input.expiresAt, existingExpiresAtIso),
+        joiningDate: resolveDateField(input.joiningDate, existingJoiningDateIso),
+        notes: input.notes ?? existing.notes,
+        position: input.position ?? existing.position,
+        updatedAt: now,
+      })
+      .where(eq(studioOfferDraft.id, draftId));
+  });
   const updated = await loadDraftById(draftId, organizationId);
   if (!updated) {
     throw new Error("更新后查询失败");
@@ -298,25 +325,109 @@ export async function respondOfferDraft({
 
 // Sent Offer 撤回：HR 主动把已发出的 Offer 置为 expired（语义：撤回 / 过期 / 不再有效）。
 // 没用 declined 是因为 declined 是候选人拒绝的语义。
+// 撤回后如果是「最后一份非终态 offer」，把候选人 pipelineStage 回退到合适的前置阶段，
+// 避免 UI 出现「在 offer 阶段但没有可见 offer」的虚状态。
 //
 // HR-side withdrawal of a sent offer; uses 'expired' instead of 'declined' to
-// keep semantics distinct (declined = candidate said no).
+// keep semantics distinct (declined = candidate said no). When the cancelled
+// draft was the last active one, roll the candidate back to a sensible
+// pre-offer stage so the UI doesn't show "offer stage with no offers".
 export async function cancelOfferDraft(
   draftId: string,
   organizationId: string,
 ): Promise<OfferDraftRecord> {
-  const existing = await loadDraftById(draftId, organizationId);
-  if (!existing) {
-    throw new OfferDraftError("Offer 草稿不存在", 404);
-  }
-  if (existing.status !== "sent" && existing.status !== "draft") {
-    throw new OfferDraftError("已结状态的 Offer 不可撤回", 400);
-  }
   const now = new Date();
-  await db
-    .update(studioOfferDraft)
-    .set({ status: "expired", updatedAt: now })
-    .where(eq(studioOfferDraft.id, draftId));
+
+  await db.transaction(async (tx) => {
+    // 1. 锁住草稿行 + 校验。
+    // 1. Lock the draft row + validate.
+    const [existing] = await tx
+      .select()
+      .from(studioOfferDraft)
+      .where(
+        and(eq(studioOfferDraft.id, draftId), eq(studioOfferDraft.organizationId, organizationId)),
+      )
+      .for("update")
+      .limit(1);
+    if (!existing) {
+      throw new OfferDraftError("Offer 草稿不存在", 404);
+    }
+    if (existing.status !== "sent" && existing.status !== "draft") {
+      throw new OfferDraftError("已结状态的 Offer 不可撤回", 400);
+    }
+
+    // 2. 把这份草稿改成 expired。
+    // 2. Mark the cancelled draft as expired.
+    await tx
+      .update(studioOfferDraft)
+      .set({ status: "expired", updatedAt: now })
+      .where(eq(studioOfferDraft.id, draftId));
+
+    // 3. 同候选人是否还有其它非终态 (draft/sent) 草稿？还有则不回退。
+    // 3. Any other non-terminal drafts for the same candidate? If so, no rollback.
+    const remaining = await tx
+      .select({ id: studioOfferDraft.id })
+      .from(studioOfferDraft)
+      .where(
+        and(
+          eq(studioOfferDraft.interviewRecordId, existing.interviewRecordId),
+          eq(studioOfferDraft.organizationId, organizationId),
+          inArray(studioOfferDraft.status, ["draft", "sent"]),
+        ),
+      )
+      .limit(1);
+    if (remaining.length > 0) {
+      return;
+    }
+
+    // 4. 派生回退目标阶段：有非取消的真人复面 → human_interview；否则有 AI schedule → ai_interview；
+    //    都没有就回 screening。Closed / 非 offer 阶段直接不动（守卫在下方 UPDATE 的 WHERE）。
+    // 4. Derive rollback target: human rounds win, else AI schedules, else screening.
+    const [humanRound] = await tx
+      .select({ id: studioHumanInterviewRound.id })
+      .from(studioHumanInterviewRound)
+      .where(
+        and(
+          eq(studioHumanInterviewRound.interviewRecordId, existing.interviewRecordId),
+          eq(studioHumanInterviewRound.organizationId, organizationId),
+          ne(studioHumanInterviewRound.status, "cancelled"),
+        ),
+      )
+      .limit(1);
+    let targetStage: PipelineStage;
+    if (humanRound) {
+      targetStage = "human_interview";
+    } else {
+      const [schedule] = await tx
+        .select({ id: studioInterviewSchedule.id })
+        .from(studioInterviewSchedule)
+        .where(
+          and(
+            eq(studioInterviewSchedule.interviewRecordId, existing.interviewRecordId),
+            eq(studioInterviewSchedule.organizationId, organizationId),
+          ),
+        )
+        .limit(1);
+      targetStage = schedule ? "ai_interview" : "screening";
+    }
+
+    // 5. 只在 (pipelineStage='offer', outcome='in_pipeline') 时回退。
+    //    其它阶段（closed / 已被人挪走）一律不动；WHERE 守卫让并发竞争变成 no-op。
+    // 5. Roll back only when still in offer/in_pipeline. WHERE guard makes
+    //    concurrent close (already past offer) a no-op rather than CHECK violation.
+    await tx
+      .update(studioInterview)
+      .set({ pipelineStage: targetStage, updatedAt: now })
+      .where(
+        and(
+          eq(studioInterview.id, existing.interviewRecordId),
+          eq(studioInterview.organizationId, organizationId),
+          eq(studioInterview.pipelineStage, "offer"),
+          eq(studioInterview.outcome, "in_pipeline"),
+        ),
+      );
+  });
+
   const updated = await loadDraftById(draftId, organizationId);
   if (!updated) {
     throw new Error("撤回后查询失败");
@@ -347,25 +458,24 @@ export async function maybeAdvanceToOffer(
   if (drafts.length !== 1) {
     return;
   }
-  const [row] = await db
-    .select({ pipelineStage: studioInterview.pipelineStage })
-    .from(studioInterview)
-    .where(eq(studioInterview.id, interviewRecordId))
-    .limit(1);
-  if (!row) {
-    return;
-  }
-  const advanceable: (typeof row.pipelineStage)[] = [
-    "screening",
-    "written_test",
-    "ai_interview",
-    "human_interview",
-  ];
-  if (!advanceable.includes(row.pipelineStage)) {
-    return;
-  }
+  // 同 maybeAdvanceToHumanInterview：把守卫推到 UPDATE 的 WHERE 上，避免与
+  // 并发 close 之间的 TOCTOU 触发 DB CHECK 约束。
+  // Mirrors maybeAdvanceToHumanInterview — guard via UPDATE's WHERE clause so
+  // a concurrent close becomes a no-op instead of violating the CHECK.
   await db
     .update(studioInterview)
     .set({ pipelineStage: "offer", updatedAt: new Date() })
-    .where(eq(studioInterview.id, interviewRecordId));
+    .where(
+      and(
+        eq(studioInterview.id, interviewRecordId),
+        eq(studioInterview.organizationId, organizationId),
+        inArray(studioInterview.pipelineStage, [
+          "screening",
+          "written_test",
+          "ai_interview",
+          "human_interview",
+        ]),
+        eq(studioInterview.outcome, "in_pipeline"),
+      ),
+    );
 }

@@ -344,19 +344,20 @@ export function createResumeLibraryFormValues(): ResumeLibraryFormValues {
 
 /**
  * 简历库页头部 chart 的聚合数据。
- * - byStatus：各状态简历数量；archived 排除（详见 DAO 注释）。
+ * - byPipeline：按 pipelineStage × outcome 分组的候选人数；outcome='archived' 排除。
  * - dailyAdded：近 30 天每日新增；服务端只返回有数据的日期，零填充由客户端补。
  * - conversion：是否已发起 AI 面试的对比（archived 排除）。
  *
  * Aggregations for the charts shown above the resume-library table.
- * - byStatus: count per status (archived excluded — see DAO).
+ * - byPipeline: candidate count grouped by (pipelineStage, outcome). Archived
+ *   outcomes are excluded so the funnel reflects the live pool.
  * - dailyAdded: daily new rows over the last 30 days; only non-empty days are
  *   returned, the client zero-fills the gaps.
  * - conversion: how many candidates have already launched an AI interview
  *   round vs not (archived excluded).
  */
 export interface ResumeLibraryMetrics {
-  byStatus: { status: StudioInterviewStatus; count: number }[];
+  byPipeline: { stage: PipelineStage; outcome: CandidateOutcome; count: number }[];
   dailyAdded: { day: string; count: number }[];
   conversion: { withInterview: number; withoutInterview: number };
 }

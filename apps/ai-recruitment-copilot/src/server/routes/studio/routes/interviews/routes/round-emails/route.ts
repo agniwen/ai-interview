@@ -44,12 +44,14 @@ export const roundEmailsRouter = factory
       }
       const { roundId } = c.req.valid("param");
 
-      // 联查轮次 + 候选人邮箱。/ Join round with candidate email.
+      // 联查轮次 + 候选人邮箱 + pipelineStage（用于阶段守卫）。
+      // Join round with candidate email + pipelineStage for the stage guard.
       const [row] = await db
         .select({
           candidateEmail: studioInterview.candidateEmail,
           candidateName: studioInterview.candidateName,
           interviewRecordId: studioInterviewSchedule.interviewRecordId,
+          pipelineStage: studioInterview.pipelineStage,
           roundLabel: studioInterviewSchedule.roundLabel,
           scheduledAt: studioInterviewSchedule.scheduledAt,
         })
@@ -68,6 +70,20 @@ export const roundEmailsRouter = factory
 
       if (!row) {
         return c.json({ error: "面试轮次不存在" }, 404);
+      }
+      // 候选人已超过 AI 面试阶段后禁止发送 AI 面试邀请邮件。
+      // UI 端已禁用按钮（aiStageLockedReason）；这里是服务端兜底，防止绕过 UI 调用。
+      // Reject sending AI interview invites once the candidate has moved past
+      // the AI stage. The UI already disables the button — this is the
+      // server-side guard preventing direct API calls.
+      if (row.pipelineStage !== "screening" && row.pipelineStage !== "ai_interview") {
+        return c.json(
+          {
+            error:
+              "候选人已不在 AI 面试阶段，无法发送邀请邮件。如需重新发送，请先回退阶段或重新激活。",
+          },
+          409,
+        );
       }
       if (!row.candidateEmail) {
         return c.json({ error: "候选人邮箱未填写" }, 400);

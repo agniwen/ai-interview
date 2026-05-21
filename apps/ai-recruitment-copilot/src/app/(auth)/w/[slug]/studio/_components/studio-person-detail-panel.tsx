@@ -416,6 +416,10 @@ export function StudioPersonDetailPanel({
       interviewQuestions: round.candidate.interviewQuestions,
       jobDescriptionName: round.candidate.jobDescriptionName,
       notes: round.candidate.notes,
+      // 透传 pipeline 轴，让面试模式也能感知 AI 阶段锁。
+      // Forward pipeline axes so interview mode honors the AI-stage lock.
+      outcome: round.candidate.outcome,
+      pipelineStage: round.candidate.pipelineStage,
       resumeFileName: round.candidate.resumeFileName,
       resumeProfile: round.candidate.resumeProfile ?? null,
       resumeStorageKey: round.candidate.resumeStorageKey,
@@ -530,6 +534,16 @@ export function StudioPersonDetailPanel({
       setResettingRoundId(null);
     }
   }
+
+  // AI 面试阶段锁：候选人推进到真人复面/Offer/已结案后，AI 轮次相关写操作全部禁用。
+  // AI-stage lock: once the candidate moves past ai_interview, all AI round write actions are disabled.
+  const aiStageLockedReason: string | null =
+    record?.pipelineStage &&
+    record.pipelineStage !== "screening" &&
+    record.pipelineStage !== "ai_interview"
+      ? `候选人已进入「${pipelineStageMeta[record.pipelineStage].label}」阶段，AI 面试相关操作已锁定。如需修改请先回退阶段或重新激活。`
+      : null;
+  const isAiStageLocked = aiStageLockedReason !== null;
 
   const interviewQuestions = ensureArray<
     StudioInterviewRoundDetail["candidate"]["interviewQuestions"][number]
@@ -785,6 +799,11 @@ export function StudioPersonDetailPanel({
           {mode === "interview" && record.roundId ? (
             <div className="rounded-2xl border border-border/60 bg-background p-5">
               <h3 className="font-medium text-sm">轮次概览</h3>
+              {isAiStageLocked ? (
+                <p className="mt-2 rounded-md border border-border/50 bg-muted/40 px-3 py-2 text-muted-foreground text-xs leading-normal">
+                  {aiStageLockedReason}
+                </p>
+              ) : null}
               <div className="mt-4 space-y-3">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
@@ -808,6 +827,7 @@ export function StudioPersonDetailPanel({
                     {record.roundId && !isPublic ? (
                       <RoundEmailAction
                         candidateEmail={record.candidateEmail}
+                        lockedReason={aiStageLockedReason}
                         roundId={record.roundId}
                         slug={slug}
                         summary={roundEmailSummary}
@@ -816,6 +836,7 @@ export function StudioPersonDetailPanel({
                     {record.roundInterviewLink && !isPublic ? (
                       <>
                         <Button
+                          disabled={isAiStageLocked}
                           onClick={() =>
                             void handleCopy(toAbsoluteUrl(record.roundInterviewLink as string))
                           }
@@ -828,6 +849,7 @@ export function StudioPersonDetailPanel({
                         </Button>
                         <InterviewLinkQrButton
                           candidateName={record.candidateName}
+                          disabled={isAiStageLocked}
                           url={toAbsoluteUrl(record.roundInterviewLink as string)}
                         />
                       </>
@@ -855,9 +877,10 @@ export function StudioPersonDetailPanel({
                       />
                       {record.roundStatus === "completed" ? (
                         <Button
-                          disabled={resettingRoundId === record.roundId}
+                          disabled={resettingRoundId === record.roundId || isAiStageLocked}
                           onClick={() => void handleResetRound(record.roundId as string)}
                           size="sm"
+                          title={aiStageLockedReason ?? undefined}
                           type="button"
                           variant="outline"
                         >
@@ -1133,6 +1156,11 @@ export function StudioPersonDetailPanel({
               <h3 className="font-medium text-sm">AI 面试轮次</h3>
               <span className="text-muted-foreground text-xs">共 {candidateRounds.length} 轮</span>
             </div>
+            {isAiStageLocked ? (
+              <p className="mt-3 rounded-md border border-border/50 bg-muted/40 px-3 py-2 text-muted-foreground text-xs leading-normal">
+                {aiStageLockedReason}
+              </p>
+            ) : null}
             {/* oxlint-disable-next-line no-nested-ternary -- 三态：loading / empty / list */}
             {isRoundsLoading ? (
               <p className="mt-4 text-muted-foreground text-sm">正在加载面试轮次...</p>
@@ -1183,8 +1211,10 @@ export function StudioPersonDetailPanel({
                             </Button>
                           ) : null}
                           <Button
+                            disabled={isAiStageLocked}
                             onClick={() => void handleCopy(fullLink)}
                             size="sm"
+                            title={aiStageLockedReason ?? undefined}
                             type="button"
                             variant="ghost"
                           >
@@ -1193,6 +1223,7 @@ export function StudioPersonDetailPanel({
                           </Button>
                           <InterviewLinkQrButton
                             candidateName={record.candidateName}
+                            disabled={isAiStageLocked}
                             url={fullLink}
                           />
                         </div>

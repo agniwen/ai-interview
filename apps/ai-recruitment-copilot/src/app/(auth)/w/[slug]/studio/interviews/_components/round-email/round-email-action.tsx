@@ -28,6 +28,9 @@ interface RoundEmailActionProps {
   slug: string;
   // 该轮次的邮件发送汇总，未加载时为 undefined。/ Round email summary; undefined while loading.
   summary: RoundEmailSummary | undefined;
+  // 外部锁定（如候选人已推进到真人复面/Offer/结案）。
+  // External lock (e.g. candidate has advanced past AI interview stage).
+  lockedReason?: string | null;
 }
 
 export function RoundEmailAction({
@@ -35,13 +38,16 @@ export function RoundEmailAction({
   roundId,
   slug,
   summary,
+  lockedReason,
 }: RoundEmailActionProps) {
   const [open, setOpen] = useState(false);
   const mutation = useSendRoundEmail(slug);
   const count = summary?.count ?? 0;
   const lastSentAt = summary?.lastSentAt ?? null;
   const hasSent = count > 0;
-  const disabled = !candidateEmail;
+  const missingEmail = !candidateEmail;
+  const locked = Boolean(lockedReason);
+  const disabled = missingEmail || locked;
 
   const button = (
     <Button
@@ -70,9 +76,17 @@ export function RoundEmailAction({
     </Button>
   );
 
-  // 无邮箱时用 Tooltip 解释原因，有邮箱时直接渲染按钮。
-  // When email is missing, wrap in a Tooltip to explain; otherwise render the button directly.
-  const trigger = disabled ? (
+  // 禁用时用 Tooltip 解释原因（外部锁定优先于缺邮箱）。
+  // Tooltip explains why the button is disabled; the lock reason wins over missing-email.
+  // oxlint-disable-next-line no-nested-ternary -- 三态：locked / missing email / enabled
+  const trigger = locked ? (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span>{button}</span>
+      </TooltipTrigger>
+      <TooltipContent>{lockedReason}</TooltipContent>
+    </Tooltip>
+  ) : (missingEmail ? (
     <Tooltip>
       <TooltipTrigger asChild>
         <span>{button}</span>
@@ -81,7 +95,7 @@ export function RoundEmailAction({
     </Tooltip>
   ) : (
     button
-  );
+  ));
 
   return (
     <>

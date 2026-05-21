@@ -233,25 +233,31 @@ export async function editHumanInterviewRound({
   organizationId,
   input,
 }: EditRoundOptions): Promise<HumanInterviewRoundRecord> {
-  const existing = await loadRoundById(roundId, organizationId);
-  if (!existing) {
-    throw new EditRoundError("轮次不存在", 404);
-  }
-  if (existing.status === "cancelled") {
-    throw new EditRoundError("已取消的轮次无法编辑", 400);
-  }
-
   const now = new Date();
-  // 把 input.scheduledAt（string）解析成 Date；input 没传时退回 existing 的值。
-  // existing.scheduledAt 在 DTO 里是 ISO 字符串，所以也要 new Date 一次。
-  // Resolve scheduledAt with fallback to existing; both are stringified upstream.
-  const resolveScheduledAt = (): Date | null => {
-    if (input.scheduledAt) {
-      return new Date(input.scheduledAt);
-    }
-    return existing.scheduledAt ? new Date(existing.scheduledAt) : null;
-  };
+
+  // 事务 + FOR UPDATE：读 existing → 校验 status → 计算 merge → 写。
+  // 防止两个 HR 同时编辑同一轮次时 (input ?? existing) merge 互相覆盖。
+  // Transaction + FOR UPDATE: serialize read → validate → merge → write so
+  // concurrent HR edits can't lose each other's writes.
   await db.transaction(async (tx) => {
+    const [existing] = await tx
+      .select()
+      .from(studioHumanInterviewRound)
+      .where(
+        and(
+          eq(studioHumanInterviewRound.id, roundId),
+          eq(studioHumanInterviewRound.organizationId, organizationId),
+        ),
+      )
+      .for("update")
+      .limit(1);
+    if (!existing) {
+      throw new EditRoundError("轮次不存在", 404);
+    }
+    if (existing.status === "cancelled") {
+      throw new EditRoundError("已取消的轮次无法编辑", 400);
+    }
+
     if (existing.status === "completed") {
       // completed：只允许修订 feedback / score。
       // completed → feedback + score only.
@@ -268,6 +274,11 @@ export async function editHumanInterviewRound({
 
     // pending：除 status / outcome / completedAt 外都能改；interviewers 全量替换。
     // pending → most fields editable; interviewer set replaced wholesale.
+    // input.scheduledAt（string）→ Date；input 没传时退回 existing 值（Date 列直接复用）。
+    // input.scheduledAt (string) → Date; falls back to the existing Date value.
+    const nextScheduledAt: Date | null = input.scheduledAt
+      ? new Date(input.scheduledAt)
+      : existing.scheduledAt;
     await tx
       .update(studioHumanInterviewRound)
       .set({
@@ -277,7 +288,7 @@ export async function editHumanInterviewRound({
         location: input.location ?? existing.location,
         meetingUrl: input.meetingUrl ?? existing.meetingUrl,
         notes: input.notes ?? existing.notes,
-        scheduledAt: resolveScheduledAt(),
+        scheduledAt: nextScheduledAt,
         score: input.score ?? existing.score,
         updatedAt: now,
       })
@@ -407,20 +418,20 @@ export async function maybeAdvanceToHumanInterview(
   if (rounds.length !== 1) {
     return;
   }
-  const [row] = await db
-    .select({ pipelineStage: studioInterview.pipelineStage })
-    .from(studioInterview)
-    .where(eq(studioInterview.id, interviewRecordId))
-    .limit(1);
-  if (!row) {
-    return;
-  }
-  const advanceable: (typeof row.pipelineStage)[] = ["screening", "written_test", "ai_interview"];
-  if (!advanceable.includes(row.pipelineStage)) {
-    return;
-  }
+  // 单条 UPDATE 自带 WHERE 守卫：只在可推进的阶段 + 仍 in_pipeline 时才命中。
+  // 这样 race（另一个 HR 同时把候选人结案）不会触发 CHECK 约束，而是 no-op。
+  // Single UPDATE guarded by WHERE: only fires when the candidate is still in
+  // an advanceable stage and active. A concurrent close becomes a no-op instead
+  // of violating the (pipeline_stage='closed' ⇔ outcome ≠ 'in_pipeline') CHECK.
   await db
     .update(studioInterview)
     .set({ pipelineStage: "human_interview", updatedAt: new Date() })
-    .where(eq(studioInterview.id, interviewRecordId));
+    .where(
+      and(
+        eq(studioInterview.id, interviewRecordId),
+        eq(studioInterview.organizationId, organizationId),
+        inArray(studioInterview.pipelineStage, ["screening", "written_test", "ai_interview"]),
+        eq(studioInterview.outcome, "in_pipeline"),
+      ),
+    );
 }

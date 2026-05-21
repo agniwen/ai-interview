@@ -1,6 +1,6 @@
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { zValidator } from "@hono/zod-validator";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, notExists } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/server/db";
 import {
@@ -33,6 +33,7 @@ import {
   studioInterviewFormSchema,
   toNullableString,
 } from "@arc/db-schema/studio-interviews";
+import type { StudioInterviewStatus } from "@arc/db-schema/studio-interviews";
 import {
   analyzeResumeFile,
   generateInterviewQuestionsForProfile,
@@ -146,6 +147,43 @@ const completeHumanRoundSchema = z.object({
 const cancelHumanRoundSchema = z.object({
   reason: z.string().trim().max(500).nullable().optional(),
 });
+
+// 删除 AI 轮次后回退 parent：若候选人已无任何 schedule entry 且仍处于
+// pipeline_stage='ai_interview' / outcome='in_pipeline'，回退到 'screening'。
+// 已经被推进到 human_interview/offer/closed 的候选人保持原状（HR 已显式推进）。
+// After deleting rounds, roll parent back to 'screening' when no schedules remain
+// and the candidate is still active in AI stage. Stages past ai_interview stay put
+// because HR has already manually advanced them.
+type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+async function resetOrphanedAiInterviewParents(
+  tx: Tx,
+  organizationId: string,
+  candidateIds: readonly string[],
+): Promise<void> {
+  const unique = [...new Set(candidateIds.filter(Boolean))];
+  if (unique.length === 0) {
+    return;
+  }
+  // 唯一一个 SQL，安全且无 N+1：用 NOT EXISTS 子查询过滤掉还有 schedule 的候选人。
+  // Single SQL guarded by NOT EXISTS — no N+1 and won't touch candidates with surviving rounds.
+  await tx
+    .update(studioInterview)
+    .set({ pipelineStage: "screening", updatedAt: new Date() })
+    .where(
+      and(
+        inArray(studioInterview.id, unique),
+        eq(studioInterview.organizationId, organizationId),
+        eq(studioInterview.pipelineStage, "ai_interview"),
+        eq(studioInterview.outcome, "in_pipeline"),
+        notExists(
+          tx
+            .select({ one: studioInterviewSchedule.id })
+            .from(studioInterviewSchedule)
+            .where(eq(studioInterviewSchedule.interviewRecordId, studioInterview.id)),
+        ),
+      ),
+    );
+}
 
 export const studioInterviewsRouter = factory
   .createApp()
@@ -662,6 +700,36 @@ export const studioInterviewsRouter = factory
       const roundId = c.req.param("id");
       const body = c.req.valid("json");
 
+      // 服务端 AI 阶段守卫：候选人已超过 AI 面试阶段后，禁止改 schedule entry 字段。
+      // UI 已禁用按钮（aiStageLockedReason），但仍要服务端兜底防止绕过 UI 调用。
+      // Server-side AI-stage guard: once the candidate is past AI interview,
+      // schedule-entry mutations are rejected even if a client bypasses the UI.
+      const [parent] = await db
+        .select({ pipelineStage: studioInterview.pipelineStage })
+        .from(studioInterviewSchedule)
+        .innerJoin(
+          studioInterview,
+          eq(studioInterview.id, studioInterviewSchedule.interviewRecordId),
+        )
+        .where(
+          and(
+            eq(studioInterviewSchedule.id, roundId),
+            eq(studioInterviewSchedule.organizationId, activeOrg.id),
+          ),
+        )
+        .limit(1);
+      if (!parent) {
+        return c.json({ error: "记录不存在。" }, 404);
+      }
+      if (parent.pipelineStage !== "screening" && parent.pipelineStage !== "ai_interview") {
+        return c.json(
+          {
+            error: "候选人已不在 AI 面试阶段，无法修改面试轮次。如需修改请先回退阶段或重新激活。",
+          },
+          409,
+        );
+      }
+
       const update: Partial<typeof studioInterviewSchedule.$inferInsert> = {
         updatedAt: new Date(),
       };
@@ -874,71 +942,109 @@ export const studioInterviewsRouter = factory
       const operatorId = c.var.user?.id ?? null;
       const input = c.req.valid("json");
 
-      const [existing] = await db
-        .select({
-          closedMeta: studioInterview.closedMeta,
-          outcome: studioInterview.outcome,
-          pipelineStage: studioInterview.pipelineStage,
-        })
-        .from(studioInterview)
-        .where(
-          and(
-            eq(studioInterview.id, candidateId),
-            eq(studioInterview.organizationId, activeOrg.id),
-          ),
-        )
-        .limit(1);
-      if (!existing) {
-        return c.json({ error: "候选人记录不存在。" }, 404);
-      }
-      // 同态写入直接 204，避免无谓审计噪音。
-      // No-op writes return 204 to keep the audit log clean.
-      if (
-        existing.pipelineStage === input.pipelineStage &&
-        existing.outcome === (input.outcome ?? "in_pipeline")
-      ) {
-        return c.json({ ok: true }, 200);
-      }
-
       const now = new Date();
-      const isClosing = input.pipelineStage === "closed";
-      const wasClosed = existing.pipelineStage === "closed";
 
-      // closed metadata 生命周期：
-      //   进入 closed → 写 closedAt + closedReason + closedMeta（含 previousStage = 当前阶段）
-      //   从 closed 回退 → 清空所有 closed metadata（审计在 interviewAuditLog 留底）
-      //   非 closed 之间切换 → 保持不变（undefined）
-      // Lifecycle: enter closed → write all closed metadata + previousStage;
-      // exit closed → clear everything (audit log retains history).
-      let closedAtUpdate: Date | null | undefined;
-      let closedReasonUpdate: string | null | undefined;
-      let closedMetaUpdate: typeof studioInterview.$inferInsert.closedMeta | undefined;
-      if (isClosing) {
-        closedAtUpdate = now;
-        closedReasonUpdate = input.closedReason ?? null;
-        // closedMeta merge：保留之前用户输入的字段（previousStage 自动覆写）。
-        // Merge existing meta + input partial; previousStage is server-controlled.
-        closedMetaUpdate = {
-          ...existing.closedMeta,
-          ...input.closedMeta,
-          previousStage: existing.pipelineStage,
-        };
-      } else if (wasClosed) {
-        closedAtUpdate = null;
-        closedReasonUpdate = null;
-        closedMetaUpdate = null;
-      }
+      // 事务 + FOR UPDATE：读 + 计算 closedMeta merge + 写 + 审计 全部串行化。
+      // 防止两个 HR 同时 close / reactivate 时 closedMeta.previousStage 写错。
+      // Transaction + FOR UPDATE: serialize read → merge → write → audit so
+      // concurrent close/reactivate calls can't mangle closedMeta.previousStage.
+      const result = await db.transaction(async (tx) => {
+        const [existing] = await tx
+          .select({
+            closedMeta: studioInterview.closedMeta,
+            outcome: studioInterview.outcome,
+            pipelineStage: studioInterview.pipelineStage,
+          })
+          .from(studioInterview)
+          .where(
+            and(
+              eq(studioInterview.id, candidateId),
+              eq(studioInterview.organizationId, activeOrg.id),
+            ),
+          )
+          .for("update")
+          .limit(1);
+        if (!existing) {
+          return { kind: "not_found" as const };
+        }
+        // 同态写入直接 200，避免无谓审计噪音。
+        // No-op writes short-circuit to keep the audit log clean.
+        if (
+          existing.pipelineStage === input.pipelineStage &&
+          existing.outcome === (input.outcome ?? "in_pipeline")
+        ) {
+          return { kind: "noop" as const };
+        }
 
-      await db.transaction(async (tx) => {
+        const isClosing = input.pipelineStage === "closed";
+        const wasClosed = existing.pipelineStage === "closed";
+
+        // closed metadata 生命周期：
+        //   进入 closed → 写 closedAt + closedReason + closedMeta（含 previousStage = 当前阶段）
+        //   从 closed 回退 → 清空所有 closed metadata + 旧 schema 的 deprecated 标量字段
+        //   非 closed 之间切换 → 保持不变（undefined）
+        // Lifecycle: enter closed → write all closed metadata + previousStage;
+        // exit closed → clear everything + scrub deprecated legacy scalars so the
+        // reactivated record has no stale humanInterview/offer/writtenTest data.
+        let closedAtUpdate: Date | null | undefined;
+        let closedReasonUpdate: string | null | undefined;
+        let closedMetaUpdate: typeof studioInterview.$inferInsert.closedMeta | undefined;
+        // legacy 字段在结案/重新激活时一并 dual-write，避免 (新模型已 closed) 与
+        // (legacy status 仍是 ready/in_progress) 造成的下游守卫漏洞（参见 livekit-token / forms）。
+        // Dual-write the legacy scalars during closing/reactivating so downstream
+        // consumers that still read the old columns see a consistent terminal state.
+        let legacyStatusUpdate: StudioInterviewStatus | undefined;
+        let humanInterviewScheduledAtUpdate: Date | null | undefined;
+        let humanInterviewerIdUpdate: string | null | undefined;
+        let offerSentAtUpdate: Date | null | undefined;
+        let offerAcceptedAtUpdate: Date | null | undefined;
+        let writtenTestScheduledAtUpdate: Date | null | undefined;
+        let writtenTestScoreUpdate: string | null | undefined;
+        if (isClosing) {
+          closedAtUpdate = now;
+          closedReasonUpdate = input.closedReason ?? null;
+          // closedMeta merge：保留之前用户输入的字段（previousStage 自动覆写）。
+          // Merge existing meta + input partial; previousStage is server-controlled.
+          closedMetaUpdate = {
+            ...existing.closedMeta,
+            ...input.closedMeta,
+            previousStage: existing.pipelineStage,
+          };
+          legacyStatusUpdate = "archived";
+        } else if (wasClosed) {
+          closedAtUpdate = null;
+          closedReasonUpdate = null;
+          closedMetaUpdate = null;
+          // 重新激活：把 legacy 标量字段全部回到 null，避免 dialog prefill 看到陈旧值。
+          // legacy status 回到非终态；UI 后续操作（如 launch-interview）会按需 dual-write 覆盖。
+          // Reactivate: null out all deprecated scalars; legacy status returns to
+          // a non-terminal value so downstream guards stop treating the candidate
+          // as archived.
+          humanInterviewScheduledAtUpdate = null;
+          humanInterviewerIdUpdate = null;
+          offerSentAtUpdate = null;
+          offerAcceptedAtUpdate = null;
+          writtenTestScheduledAtUpdate = null;
+          writtenTestScoreUpdate = null;
+          legacyStatusUpdate = "ready";
+        }
+
         await tx
           .update(studioInterview)
           .set({
             closedAt: closedAtUpdate,
             closedMeta: closedMetaUpdate,
             closedReason: closedReasonUpdate,
+            humanInterviewScheduledAt: humanInterviewScheduledAtUpdate,
+            humanInterviewerId: humanInterviewerIdUpdate,
+            offerAcceptedAt: offerAcceptedAtUpdate,
+            offerSentAt: offerSentAtUpdate,
             outcome: input.outcome ?? "in_pipeline",
             pipelineStage: input.pipelineStage,
+            status: legacyStatusUpdate,
             updatedAt: now,
+            writtenTestScheduledAt: writtenTestScheduledAtUpdate,
+            writtenTestScore: writtenTestScoreUpdate,
           })
           .where(eq(studioInterview.id, candidateId));
 
@@ -959,9 +1065,17 @@ export const studioInterviewsRouter = factory
           organizationId: activeOrg.id,
           scheduleEntryId: null,
         });
+        return { kind: "ok" as const };
       });
 
-      invalidateStudioInterviewCaches(activeOrg.id);
+      if (result.kind === "not_found") {
+        return c.json({ error: "候选人记录不存在。" }, 404);
+      }
+      // noop 路径不写库也不刷缓存，但仍返回 200 让客户端把请求当作成功完成。
+      // No-op path skips cache invalidation but still returns 200 to clients.
+      if (result.kind === "ok") {
+        invalidateStudioInterviewCaches(activeOrg.id);
+      }
       return c.json({ ok: true }, 200);
     },
   )
@@ -983,24 +1097,36 @@ export const studioInterviewsRouter = factory
       }
       const recordId = c.req.param("id");
       const input = c.req.valid("json");
+      const now = new Date();
 
-      const [existing] = await db
-        .select({ candidateExpectationsMeta: studioInterview.candidateExpectationsMeta })
-        .from(studioInterview)
-        .where(
-          and(eq(studioInterview.id, recordId), eq(studioInterview.organizationId, activeOrg.id)),
-        )
-        .limit(1);
-      if (!existing) {
+      // 事务 + 行锁：partial merge `{...existing, ...input}` 在并发下会丢字段，
+      //   两个 HR 同时改不同字段会互相覆盖。FOR UPDATE 串行化合并；事务外读会等。
+      // Transaction + row lock: the partial merge would otherwise lose
+      // concurrent writes (two HRs editing different fields would overwrite
+      // each other). FOR UPDATE serializes merges on the same record.
+      const merged = await db.transaction(async (tx) => {
+        const [existing] = await tx
+          .select({ candidateExpectationsMeta: studioInterview.candidateExpectationsMeta })
+          .from(studioInterview)
+          .where(
+            and(eq(studioInterview.id, recordId), eq(studioInterview.organizationId, activeOrg.id)),
+          )
+          .for("update")
+          .limit(1);
+        if (!existing) {
+          return null;
+        }
+        const next = { ...existing.candidateExpectationsMeta, ...input };
+        await tx
+          .update(studioInterview)
+          .set({ candidateExpectationsMeta: next, updatedAt: now })
+          .where(eq(studioInterview.id, recordId));
+        return next;
+      });
+
+      if (!merged) {
         return c.json({ error: "候选人记录不存在。" }, 404);
       }
-
-      const merged = { ...existing.candidateExpectationsMeta, ...input };
-      const now = new Date();
-      await db
-        .update(studioInterview)
-        .set({ candidateExpectationsMeta: merged, updatedAt: now })
-        .where(eq(studioInterview.id, recordId));
       invalidateStudioInterviewCaches(activeOrg.id);
       return c.json({ candidateExpectationsMeta: merged }, 200);
     },
@@ -1304,19 +1430,70 @@ export const studioInterviewsRouter = factory
       return c.json({ message: "Unauthorized" }, 401);
     }
     const roundId = c.req.param("id");
-    const result = await db
-      .delete(studioInterviewSchedule)
-      .where(
-        and(
-          eq(studioInterviewSchedule.id, roundId),
-          eq(studioInterviewSchedule.organizationId, activeOrg.id),
-        ),
-      )
-      .returning({ id: studioInterviewSchedule.id });
-    if (result.length === 0) {
+    const orgId = activeOrg.id;
+    const result = await db.transaction(async (tx) => {
+      // 阶段守卫：候选人已不在 AI 面试阶段时不允许删除 AI 轮次（防 UI 绕过）。
+      // FOR UPDATE 串行化 parent 行，与并发 transition / launch-interview 互斥。
+      // Stage guard against UI bypass; FOR UPDATE serializes against concurrent
+      // transition / launch-interview on the same parent.
+      const [parent] = await tx
+        .select({
+          pipelineStage: studioInterview.pipelineStage,
+        })
+        .from(studioInterviewSchedule)
+        .innerJoin(
+          studioInterview,
+          eq(studioInterview.id, studioInterviewSchedule.interviewRecordId),
+        )
+        .where(
+          and(
+            eq(studioInterviewSchedule.id, roundId),
+            eq(studioInterviewSchedule.organizationId, orgId),
+          ),
+        )
+        .for("update", { of: studioInterview })
+        .limit(1);
+      if (!parent) {
+        return { kind: "not_found" as const };
+      }
+      if (parent.pipelineStage !== "screening" && parent.pipelineStage !== "ai_interview") {
+        return { kind: "locked" as const };
+      }
+      const removed = await tx
+        .delete(studioInterviewSchedule)
+        .where(
+          and(
+            eq(studioInterviewSchedule.id, roundId),
+            eq(studioInterviewSchedule.organizationId, orgId),
+          ),
+        )
+        .returning({
+          interviewRecordId: studioInterviewSchedule.interviewRecordId,
+        });
+      if (removed.length === 0) {
+        // 极端 race：parent 命中但 round 在 FOR UPDATE 之间被另一个事务删了。返 404。
+        // Edge race: round vanished between the SELECT and DELETE; treat as not-found.
+        return { kind: "not_found" as const };
+      }
+      await resetOrphanedAiInterviewParents(
+        tx,
+        orgId,
+        removed.map((r) => r.interviewRecordId),
+      );
+      return { kind: "ok" as const };
+    });
+    if (result.kind === "not_found") {
       return c.json({ error: "记录不存在。" }, 404);
     }
-    invalidateStudioInterviewCaches(activeOrg.id);
+    if (result.kind === "locked") {
+      return c.json(
+        {
+          error: "候选人已不在 AI 面试阶段，无法删除面试轮次。如需删除请先回退阶段或重新激活。",
+        },
+        409,
+      );
+    }
+    invalidateStudioInterviewCaches(orgId);
     return c.json({ success: true }, 200);
   })
   .post(
@@ -1334,17 +1511,65 @@ export const studioInterviewsRouter = factory
         return c.json({ message: "Unauthorized" }, 401);
       }
       const { ids } = c.req.valid("json");
-      const result = await db
-        .delete(studioInterviewSchedule)
-        .where(
-          and(
-            inArray(studioInterviewSchedule.id, ids),
-            eq(studioInterviewSchedule.organizationId, activeOrg.id),
-          ),
-        )
-        .returning({ id: studioInterviewSchedule.id });
-      invalidateStudioInterviewCaches(activeOrg.id);
-      return c.json({ deletedCount: result.length, success: true }, 200);
+      const orgId = activeOrg.id;
+      const result = await db.transaction(async (tx) => {
+        // 联查每个 round 对应 parent 的 pipelineStage；任意一个超过 AI 阶段就拒整批，
+        // 避免 partial 删除导致前端看到不一致状态。FOR UPDATE 锁 parent 行。
+        // Join each round to its parent stage; reject the whole batch if any parent
+        // is past AI to keep client view consistent. FOR UPDATE locks parents.
+        const targets = await tx
+          .select({
+            pipelineStage: studioInterview.pipelineStage,
+            roundId: studioInterviewSchedule.id,
+          })
+          .from(studioInterviewSchedule)
+          .innerJoin(
+            studioInterview,
+            eq(studioInterview.id, studioInterviewSchedule.interviewRecordId),
+          )
+          .where(
+            and(
+              inArray(studioInterviewSchedule.id, ids),
+              eq(studioInterviewSchedule.organizationId, orgId),
+            ),
+          )
+          .for("update", { of: studioInterview });
+        const locked = targets.find(
+          (t) => t.pipelineStage !== "screening" && t.pipelineStage !== "ai_interview",
+        );
+        if (locked) {
+          return { kind: "locked" as const };
+        }
+        const rows = await tx
+          .delete(studioInterviewSchedule)
+          .where(
+            and(
+              inArray(studioInterviewSchedule.id, ids),
+              eq(studioInterviewSchedule.organizationId, orgId),
+            ),
+          )
+          .returning({
+            interviewRecordId: studioInterviewSchedule.interviewRecordId,
+          });
+        if (rows.length > 0) {
+          await resetOrphanedAiInterviewParents(
+            tx,
+            orgId,
+            rows.map((r) => r.interviewRecordId),
+          );
+        }
+        return { kind: "ok" as const, removed: rows };
+      });
+      if (result.kind === "locked") {
+        return c.json(
+          {
+            error: "存在已超过 AI 面试阶段的候选人，无法批量删除。请先回退阶段或拆分操作。",
+          },
+          409,
+        );
+      }
+      invalidateStudioInterviewCaches(orgId);
+      return c.json({ deletedCount: result.removed.length, success: true }, 200);
     },
   )
   .route("/round-emails", roundEmailsRouter);

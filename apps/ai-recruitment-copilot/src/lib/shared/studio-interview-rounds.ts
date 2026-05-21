@@ -4,7 +4,11 @@
 // AI interview round-side types. Both list rows and detail are keyed by the
 // schedule row's id; candidate info is JOINed in as a snapshot.
 
-import type { ScheduleEntryStatus } from "@arc/db-schema/studio-interviews";
+import type {
+  CandidateOutcome,
+  PipelineStage,
+  ScheduleEntryStatus,
+} from "@arc/db-schema/studio-interviews";
 import type { StudioCandidateRecord } from "@/lib/shared/studio-candidates";
 
 /** 列表行（精简投影）/ List row (light projection). */
@@ -34,6 +38,10 @@ export interface StudioInterviewRoundListRecord {
   creatorOrganizationName: string | null;
   createdAt: string;
   updatedAt: string;
+  // candidate 的 pipeline 轴；让列表行能判断 AI 阶段是否已锁。
+  // Candidate-side pipeline axes; lets list rows know if AI stage is locked.
+  pipelineStage: PipelineStage;
+  outcome: CandidateOutcome;
 }
 
 /** 单 round 详情 + 候选人快照 / Single-round detail with candidate snapshot. */

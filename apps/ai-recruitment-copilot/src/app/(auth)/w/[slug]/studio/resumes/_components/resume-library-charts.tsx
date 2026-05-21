@@ -17,21 +17,48 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/
 import type { ChartConfig } from "@/components/ui/chart";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import type { ResumeLibraryMetrics } from "@/lib/shared/studio-resumes";
-import { studioInterviewStatusMeta } from "@arc/db-schema/studio-interviews";
-import type { StudioInterviewStatus } from "@arc/db-schema/studio-interviews";
 
-// "漏斗序"：从待开始 → 已完成。归档不进图。
-// Funnel order from pending → completed; archived stays out of the chart.
-const STATUS_ORDER: StudioInterviewStatus[] = ["draft", "ready", "in_progress", "completed"];
+// 漏斗桶：把 (pipelineStage, outcome) 二维分组压成一维展示桶。
+// closed 阶段按 outcome 拆成「已录用」「已淘汰/撤回」两段；archived outcome 不进图（DAO 已排除）。
+// written_test 当前 UI 隐藏，进 ai_interview 桶。
+// Funnel buckets: collapse (pipelineStage, outcome) into a single display
+// axis. Closed splits into hired vs rejected/withdrawn; archived is excluded
+// upstream. written_test merges into ai_interview (hidden tab).
+type PipelineBucket =
+  | "screening"
+  | "ai_interview"
+  | "human_interview"
+  | "offer"
+  | "closed_hired"
+  | "closed_rejected";
 
-// 状态对应的色卡变量（与 shadcn chart 调色板对齐）。
-// Map each status to a chart palette CSS variable (shadcn chart tokens).
-const STATUS_COLORS: Record<StudioInterviewStatus, string> = {
-  archived: "var(--muted-foreground)",
-  completed: "var(--chart-4)",
-  draft: "var(--chart-1)",
-  in_progress: "var(--chart-3)",
-  ready: "var(--chart-2)",
+const BUCKET_ORDER: PipelineBucket[] = [
+  "screening",
+  "ai_interview",
+  "human_interview",
+  "offer",
+  "closed_hired",
+  "closed_rejected",
+];
+
+const BUCKET_LABEL: Record<PipelineBucket, string> = {
+  ai_interview: "AI 面试",
+  closed_hired: "已录用",
+  closed_rejected: "已淘汰 / 撤回",
+  human_interview: "真人复面",
+  offer: "Offer",
+  screening: "简历筛选",
+};
+
+// 颜色：前 4 个用项目的 chart palette（一致性），后两个用 success / muted。
+// First four use the project chart palette; the closed pair uses success / muted.
+const BUCKET_COLORS: Record<PipelineBucket, string> = {
+  ai_interview: "var(--chart-2)",
+  closed_hired: "oklch(0.65 0.16 150)",
+  closed_rejected: "var(--muted-foreground)",
+  human_interview: "var(--chart-3)",
+  offer: "var(--chart-4)",
+  screening: "var(--chart-1)",
 };
 
 const DAILY_LOOKBACK_DAYS = 30;
@@ -75,26 +102,67 @@ function buildDailySeries(rows: ResumeLibraryMetrics["dailyAdded"]) {
   return series;
 }
 
-// 把 byStatus 投影成单行数据，每个状态一个 dataKey；空状态留作 0 让 Bar 不消失。
-// Project byStatus into one row whose keys are the status ids; zero-fill so a
-// missing status doesn't make the stacked bar disappear.
-function buildStatusRow(rows: ResumeLibraryMetrics["byStatus"]) {
-  const lookup = new Map(rows.map((row) => [row.status, row.count]));
-  const data: Record<string, number | string> = { label: "总计" };
-  let total = 0;
-  for (const status of STATUS_ORDER) {
-    const value = lookup.get(status) ?? 0;
-    data[status] = value;
-    total += value;
+// 把 (pipelineStage, outcome) 行折叠到 6 个桶，再投影成单行数据。
+// Fold (pipelineStage, outcome) rows into the 6 display buckets and project
+// them into a single row keyed by bucket id; zero-fill keeps the stacked bar
+// from collapsing when a bucket is empty.
+function bucketForRow(row: ResumeLibraryMetrics["byPipeline"][number]): PipelineBucket | null {
+  if (row.stage === "closed") {
+    if (row.outcome === "hired") {
+      return "closed_hired";
+    }
+    // archived 在 DAO 已排除；rejected / withdrawn 统一进「淘汰/撤回」桶。
+    // archived already filtered by the DAO; rejected & withdrawn share a bucket.
+    if (row.outcome === "rejected" || row.outcome === "withdrawn") {
+      return "closed_rejected";
+    }
+    return null;
   }
-  return { data: [data], total };
+  // written_test 隐藏，并入 AI 面试；其余非 closed 阶段直接对应同名桶。
+  // written_test merges into ai_interview; other non-closed stages map 1:1.
+  if (row.stage === "written_test") {
+    return "ai_interview";
+  }
+  if (
+    row.stage === "screening" ||
+    row.stage === "ai_interview" ||
+    row.stage === "human_interview" ||
+    row.stage === "offer"
+  ) {
+    return row.stage;
+  }
+  return null;
+}
+
+function buildPipelineRow(rows: ResumeLibraryMetrics["byPipeline"]) {
+  const counts: Record<PipelineBucket, number> = {
+    ai_interview: 0,
+    closed_hired: 0,
+    closed_rejected: 0,
+    human_interview: 0,
+    offer: 0,
+    screening: 0,
+  };
+  let total = 0;
+  for (const row of rows) {
+    const bucket = bucketForRow(row);
+    if (bucket) {
+      counts[bucket] += row.count;
+      total += row.count;
+    }
+  }
+  const data: Record<string, number | string> = { label: "总计" };
+  for (const bucket of BUCKET_ORDER) {
+    data[bucket] = counts[bucket];
+  }
+  return { counts, data: [data], total };
 }
 
 const statusChartConfig: ChartConfig = {};
-for (const status of STATUS_ORDER) {
-  statusChartConfig[status] = {
-    color: STATUS_COLORS[status],
-    label: studioInterviewStatusMeta[status].label,
+for (const bucket of BUCKET_ORDER) {
+  statusChartConfig[bucket] = {
+    color: BUCKET_COLORS[bucket],
+    label: BUCKET_LABEL[bucket],
   };
 }
 
@@ -115,15 +183,17 @@ const conversionChartConfig: ChartConfig = {
   withoutInterview: { color: CONVERSION_PURPLE_LIGHT, label: "仅入库" },
 };
 
-function StatusCard({ byStatus }: { byStatus: ResumeLibraryMetrics["byStatus"] }) {
-  const { data, total } = useMemo(() => buildStatusRow(byStatus), [byStatus]);
+function StatusCard({ byPipeline }: { byPipeline: ResumeLibraryMetrics["byPipeline"] }) {
+  const { counts, data, total } = useMemo(() => buildPipelineRow(byPipeline), [byPipeline]);
   const hasData = total > 0;
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>简历状态分布</CardTitle>
-        <CardDescription>{hasData ? `共 ${total} 份（不含归档）` : "暂无简历"}</CardDescription>
+        <CardTitle>面试流程分布</CardTitle>
+        <CardDescription>
+          {hasData ? `共 ${total} 位候选人（不含归档）` : "暂无候选人"}
+        </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
         {hasData ? (
@@ -133,27 +203,27 @@ function StatusCard({ byStatus }: { byStatus: ResumeLibraryMetrics["byStatus"] }
                 <XAxis hide type="number" />
                 <YAxis dataKey="label" hide type="category" />
                 <ChartTooltip content={<ChartTooltipContent indicator="dot" />} />
-                {STATUS_ORDER.map((status, index) => (
+                {BUCKET_ORDER.map((bucket, index) => (
                   <Bar
-                    dataKey={status}
-                    fill={STATUS_COLORS[status]}
-                    key={status}
-                    radius={stackRadius(index, STATUS_ORDER.length)}
-                    stackId="status"
+                    dataKey={bucket}
+                    fill={BUCKET_COLORS[bucket]}
+                    key={bucket}
+                    radius={stackRadius(index, BUCKET_ORDER.length)}
+                    stackId="pipeline"
                   />
                 ))}
               </BarChart>
             </ChartContainer>
             <ul className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-muted-foreground">
-              {STATUS_ORDER.map((status) => (
-                <li className="flex items-center gap-2" key={status}>
+              {BUCKET_ORDER.map((bucket) => (
+                <li className="flex items-center gap-2" key={bucket}>
                   <span
                     aria-hidden
                     className="size-2.5 rounded-sm"
-                    style={{ backgroundColor: STATUS_COLORS[status] }}
+                    style={{ backgroundColor: BUCKET_COLORS[bucket] }}
                   />
-                  <span className="flex-1 truncate">{studioInterviewStatusMeta[status].label}</span>
-                  <span className="tabular-nums">{data[0]?.[status] ?? 0}</span>
+                  <span className="flex-1 truncate">{BUCKET_LABEL[bucket]}</span>
+                  <span className="tabular-nums">{counts[bucket]}</span>
                 </li>
               ))}
             </ul>
@@ -305,7 +375,7 @@ function ConversionCard({ conversion }: { conversion: ResumeLibraryMetrics["conv
 export function ResumeLibraryCharts({ metrics }: { metrics: ResumeLibraryMetrics }) {
   return (
     <div className="grid gap-4 lg:grid-cols-3">
-      <StatusCard byStatus={metrics.byStatus} />
+      <StatusCard byPipeline={metrics.byPipeline} />
       <DailyAddedCard dailyAdded={metrics.dailyAdded} />
       <ConversionCard conversion={metrics.conversion} />
     </div>

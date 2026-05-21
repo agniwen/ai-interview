@@ -87,6 +87,7 @@ export const interviewRouter = factory
   })
   .post(
     "/match-job-description",
+    authMiddleware,
     zValidator(
       "json",
       z.object({
@@ -143,6 +144,7 @@ export const interviewRouter = factory
   )
   .post(
     "/generate-questions",
+    authMiddleware,
     zValidator(
       "json",
       z.object({ resumeProfile: resumeProfileSchema }),
