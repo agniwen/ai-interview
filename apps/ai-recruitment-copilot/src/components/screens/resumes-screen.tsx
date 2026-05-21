@@ -38,39 +38,57 @@ function CardContent({ children, className }: { children: React.ReactNode; class
   return <div className={`px-4 ${className ?? ""}`}>{children}</div>;
 }
 
-// ─────────────────── 简历状态分布 (stacked horizontal bar) ───────────────────
-const STATUS_ORDER = ["draft", "ready", "in_progress", "completed"] as const;
-const STATUS_LABEL: Record<(typeof STATUS_ORDER)[number], string> = {
-  completed: "已完成",
-  draft: "草稿",
-  in_progress: "进行中",
-  ready: "待开始",
+// ─────────────────── 面试流程分布 (stacked horizontal bar) ───────────────────
+// 对齐生产 ResumeLibraryCharts.StatusCard：6 桶漏斗 = screening / ai_interview /
+// human_interview / offer / closed_hired / closed_rejected。颜色 / label 与
+// resume-library-charts.tsx 的 BUCKET_LABEL / BUCKET_COLORS 一致。
+// Mirrors the production StatusCard: 6-bucket funnel matching the real chart's
+// labels and colors verbatim.
+const PIPELINE_ORDER = [
+  "screening",
+  "ai_interview",
+  "human_interview",
+  "offer",
+  "closed_hired",
+  "closed_rejected",
+] as const;
+const PIPELINE_LABEL: Record<(typeof PIPELINE_ORDER)[number], string> = {
+  ai_interview: "AI 面试",
+  closed_hired: "已录用",
+  closed_rejected: "已淘汰 / 撤回",
+  human_interview: "真人复面",
+  offer: "Offer",
+  screening: "简历筛选",
 };
-const STATUS_COUNT: Record<(typeof STATUS_ORDER)[number], number> = {
-  completed: 30,
-  draft: 18,
-  in_progress: 14,
-  ready: 22,
+const PIPELINE_COUNT: Record<(typeof PIPELINE_ORDER)[number], number> = {
+  ai_interview: 18,
+  closed_hired: 4,
+  closed_rejected: 19,
+  human_interview: 10,
+  offer: 5,
+  screening: 28,
 };
-const STATUS_COLOR: Record<(typeof STATUS_ORDER)[number], string> = {
-  completed: "var(--chart-4)",
-  draft: "var(--chart-1)",
-  in_progress: "var(--chart-3)",
-  ready: "var(--chart-2)",
+const PIPELINE_COLOR: Record<(typeof PIPELINE_ORDER)[number], string> = {
+  ai_interview: "var(--chart-2)",
+  closed_hired: "oklch(0.65 0.16 150)",
+  closed_rejected: "var(--muted-foreground)",
+  human_interview: "var(--chart-3)",
+  offer: "var(--chart-4)",
+  screening: "var(--chart-1)",
 };
 
 function StatusCard() {
-  const total = STATUS_ORDER.reduce((acc, s) => acc + STATUS_COUNT[s], 0);
+  const total = PIPELINE_ORDER.reduce((acc, s) => acc + PIPELINE_COUNT[s], 0);
   return (
     <Card>
-      <CardHeader description={`共 ${total} 份（不含归档）`} title="简历状态分布" />
+      <CardHeader description={`共 ${total} 位候选人（不含归档）`} title="面试流程分布" />
       <CardContent className="flex flex-col gap-2">
         <div className="flex h-3 w-full overflow-hidden rounded-full bg-muted/40">
-          {STATUS_ORDER.map((s, i) => {
+          {PIPELINE_ORDER.map((s, i) => {
             let rad = "";
             if (i === 0) {
               rad = "rounded-l-full";
-            } else if (i === STATUS_ORDER.length - 1) {
+            } else if (i === PIPELINE_ORDER.length - 1) {
               rad = "rounded-r-full";
             }
             return (
@@ -78,23 +96,23 @@ function StatusCard() {
                 className={rad}
                 key={s}
                 style={{
-                  backgroundColor: STATUS_COLOR[s],
-                  width: `${(STATUS_COUNT[s] / total) * 100}%`,
+                  backgroundColor: PIPELINE_COLOR[s],
+                  width: `${(PIPELINE_COUNT[s] / total) * 100}%`,
                 }}
               />
             );
           })}
         </div>
         <ul className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground">
-          {STATUS_ORDER.map((s) => (
+          {PIPELINE_ORDER.map((s) => (
             <li className="flex items-center gap-1.5" key={s}>
               <span
                 aria-hidden="true"
                 className="size-2 rounded-sm"
-                style={{ backgroundColor: STATUS_COLOR[s] }}
+                style={{ backgroundColor: PIPELINE_COLOR[s] }}
               />
-              <span className="flex-1 truncate">{STATUS_LABEL[s]}</span>
-              <span className="tabular-nums">{STATUS_COUNT[s]}</span>
+              <span className="flex-1 truncate">{PIPELINE_LABEL[s]}</span>
+              <span className="tabular-nums">{PIPELINE_COUNT[s]}</span>
             </li>
           ))}
         </ul>
