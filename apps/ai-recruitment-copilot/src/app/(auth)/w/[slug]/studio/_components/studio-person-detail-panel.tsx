@@ -789,9 +789,11 @@ export function StudioPersonDetailPanel({
                   {latestReport ? formatReportStatus(latestReport.status) : "暂无报告"}
                 </Badge>
               </div>
-              <p className="mt-3 text-muted-foreground text-sm leading-normal">
-                {latestReport?.transcriptSummary ?? "候选人完成面试后，这里会显示通话总结。"}
-              </p>
+              <div className="mt-3 text-muted-foreground text-sm leading-normal">
+                <Markdown>
+                  {latestReport?.transcriptSummary ?? "候选人完成面试后，这里会显示通话总结。"}
+                </Markdown>
+              </div>
             </div>
           ) : null}
         </div>
@@ -940,9 +942,9 @@ export function StudioPersonDetailPanel({
 
                             <div className="rounded-2xl border border-border/60 bg-background p-4">
                               <h4 className="font-medium text-sm">最终总结</h4>
-                              <p className="mt-3 text-muted-foreground text-sm leading-normal">
-                                {report.transcriptSummary ?? "暂无总结。"}
-                              </p>
+                              <div className="mt-3 text-muted-foreground text-sm leading-normal">
+                                <Markdown>{report.transcriptSummary ?? "暂无总结。"}</Markdown>
+                              </div>
                               {report.latestError ? (
                                 <div className="mt-3 rounded-xl border border-destructive/30 bg-destructive/5 px-3 py-2 text-destructive text-sm">
                                   {report.latestError}

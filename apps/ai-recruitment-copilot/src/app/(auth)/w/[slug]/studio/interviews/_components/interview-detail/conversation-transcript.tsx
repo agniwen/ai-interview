@@ -8,6 +8,7 @@ import {
   ConversationEmptyState,
   ConversationScrollButton,
 } from "@/components/ai-elements/conversation";
+import Markdown from "react-markdown";
 import { Message, MessageContent } from "@/components/ai-elements/message";
 import { DATE_TIME_DISPLAY_OPTIONS, TimeDisplay } from "@/components/time-display";
 import { cn } from "@/lib/shared/utils";
@@ -57,7 +58,11 @@ export function ConversationTranscript({ turns, className }: ConversationTranscr
                     : "group-[.is-assistant]:w-fit group-[.is-assistant]:max-w-[88%] group-[.is-assistant]:rounded-2xl group-[.is-assistant]:border group-[.is-assistant]:border-border/70 group-[.is-assistant]:bg-muted/40 group-[.is-assistant]:px-3 group-[.is-assistant]:py-2"
                 }
               >
-                <span className="whitespace-pre-wrap">{turn.message}</span>
+                {isUser ? (
+                  <span className="whitespace-pre-wrap">{turn.message}</span>
+                ) : (
+                  <Markdown>{turn.message}</Markdown>
+                )}
               </MessageContent>
             </Message>
           );
