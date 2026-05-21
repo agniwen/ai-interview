@@ -51,7 +51,7 @@ def prewarm(proc: JobProcess):
     proc.userdata["vad"] = silero.VAD.load(
         activation_threshold=0.7,
         min_speech_duration=0.25,
-        min_silence_duration=1.0,
+        min_silence_duration=1.5,
         prefix_padding_duration=0.3,
     )
 
@@ -274,13 +274,13 @@ async def my_agent(ctx: JobContext):
         ),
         vad=ctx.proc.userdata["vad"],
         userdata=state,
-        preemptive_generation=True,
+        preemptive_generation=False,
         turn_handling={
             "turn_detection": MultilingualModel(),
             "endpointing": {
                 "mode": "dynamic",
                 "min_delay": 0.5,
-                "max_delay": 4.0,
+                "max_delay": 8.0,
             },
             "interruption": {
                 "mode": "adaptive",
