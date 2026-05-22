@@ -63,11 +63,23 @@ server = AgentServer()
 
 
 def prewarm(proc: JobProcess):
+    # Silero VAD: 回归官方默认值 (除 min_silence_duration 保留 1.5s).
+    # 之前 activation_threshold=0.7 / min_speech_duration=0.25 / prefix_padding=0.3
+    # 偏保守, 会漏抓候选人轻声"嗯/呃"等填充音 → STT 拿不到对应文本 → turn
+    # detector 看到的句子貌似"已说完" → 用 min_delay=0.5s 立即回, 抢答风险高;
+    # 反向上长 user turn 也跟这条相关 (filler 被 VAD 吞了, 句子断成多段累积).
+    # min_silence_duration 保持 1.5s: 与 turn detector + max_delay=5s 的兜底
+    # 协同, 1.5s 是给真实思考停顿的最小窗口, 短于这个值会让正常停顿被切碎.
+    # Revert Silero VAD to official defaults except min_silence_duration. The
+    # previous strict thresholds dropped soft fillers ("嗯/呃") from STT, so the
+    # turn detector saw deceptively "complete" text and either responded too
+    # fast (min_delay) or chained broken sentences into long user turns. Keep
+    # min_silence at 1.5s to give real think-pauses room before VAD ends speech.
     proc.userdata["vad"] = silero.VAD.load(
-        activation_threshold=0.7,
-        min_speech_duration=0.25,
+        activation_threshold=0.5,
+        min_speech_duration=0.05,
         min_silence_duration=1.5,
-        prefix_padding_duration=0.3,
+        prefix_padding_duration=0.5,
     )
 
 
@@ -117,7 +129,27 @@ async def _on_session_end(ctx: JobContext) -> None:
             "durationSecs": None,
         }
 
+    eager_stop_task: asyncio.Task | None = state.get("_eager_stop_task")
+
     async def _stop_recording_best_effort() -> None:
+        # 优先 await close listener 里启起来的 eager stop task: 它在 close
+        # 事件触发瞬间就发 stop_egress, 通常 _on_session_end 跑到这里时已经
+        # 完成. 如果还没完成就显式 await, 让 LiveKit Agents 框架的
+        # session_end_timeout (默认 5 min) 兜底等它结束, 而不是 fire-and-forget
+        # 让 worker 退出时被 cancel — 后者会让某些极端 case 下 egress 没停成,
+        # 录像继续录直到 LiveKit 服务端自身超时.
+        # Prefer awaiting the eager-stop task fired from the close listener.
+        # By the time _on_session_end runs it's usually done; await it
+        # explicitly so the framework's session_end_timeout (5min default)
+        # covers any slow LiveKit egress API. Fire-and-forget would let the
+        # worker exit mid-request and leave egress running until LiveKit's
+        # own server-side timeout reaps it.
+        if eager_stop_task is not None:
+            try:
+                await eager_stop_task
+            except Exception:
+                logger.exception("eager stop_recording task raised")
+            return
         if not recording_info:
             return
         try:
@@ -331,6 +363,13 @@ async def my_agent(ctx: JobContext):
     # 热重连宽限期任务: 候选人断连后等候同 identity 在 3 分钟内重连.
     # Hot-reconnect grace task: wait up to 3 min for the same identity to rejoin.
     grace_task: asyncio.Task | None = None
+    # 保证 _finalize_via_shutdown 只执行一次. 多个并发兜底路径 (硬切定时器 /
+    # grace 到期 / _on_close 中的 eager 路径) 可能同时落地, 重复 ctx.shutdown
+    # 会抛错; 用 flag + state["close_reason"] 双重判定.
+    # Idempotency guard for _finalize_via_shutdown: hard cutoff timer, grace
+    # expiry, and close-event paths can race; ctx.shutdown is not safe to call
+    # twice. Combined with state["close_reason"] for cross-path coordination.
+    shutdown_initiated = False
     # 重连后的 resume 任务 (重放历史 + 欢迎致辞). 保留引用避免被 GC.
     # Holds the post-reconnect resume task (replay + welcome) to keep it
     # alive — asyncio garbage-collects unreferenced tasks (RUF006).
@@ -536,9 +575,62 @@ async def my_agent(ctx: JobContext):
     time_limit = interview_agent.time_limit_seconds
     hard_grace = interview_agent.hard_grace_seconds
 
+    async def _finalize_via_shutdown(reason: str) -> None:
+        """走 LiveKit 框架完整 shutdown 序列, 让前端正确退出 + 触发 on_session_end.
+
+        复刻 EndCallTool 的关闭顺序 (end_call.py:111-129):
+          1) session.shutdown() 触发 graceful drain
+          2) 注册 delete_room 为 shutdown 回调, 在框架 lifecycle 末尾执行
+          3) ctx.shutdown(reason) 解锁 worker 的 _shutdown_fut, 进入官方关闭流程
+
+        所有兜底路径 (硬切定时器 / grace 到期) 都走这条, 否则裸 session.aclose()
+        无法触发 on_session_end → send_report 不会发 → 录像不会停 → 前端卡在
+        "面试中".
+
+        Mirror EndCallTool's shutdown sequence so all fallback paths exit
+        cleanly. Calling session.aclose() alone skips the worker shutdown_fut,
+        which means on_session_end never fires and the frontend never sees the
+        end-of-call signal.
+        """
+        nonlocal shutdown_initiated
+        if shutdown_initiated:
+            logger.debug("_finalize_via_shutdown skipped (already initiated)")
+            return
+        shutdown_initiated = True
+
+        async def _delete_room_on_shutdown() -> None:
+            logger.info("deleting room (finalize shutdown callback, reason=%s)", reason)
+            try:
+                await ctx.delete_room()
+            except Exception:
+                logger.exception("delete_room in shutdown callback failed")
+
+        ctx.add_shutdown_callback(_delete_room_on_shutdown)
+        try:
+            session.shutdown()
+        except Exception:
+            logger.exception("session.shutdown() in _finalize_via_shutdown failed")
+        try:
+            ctx.shutdown(reason=reason)
+        except Exception:
+            logger.exception("ctx.shutdown() in _finalize_via_shutdown failed")
+
     async def _enforce_time_limit():
         try:
             await asyncio.sleep(time_limit + hard_grace)
+            # 防 race: close 事件可能在 sleep 即将返回的同一 tick 已经触发,
+            # _on_close 也会 cancel 本 task, 但若调度顺序让 cancel 慢一步,
+            # 还是会进入下面的 interrupt / shutdown 流程, 对已关闭的 session
+            # 重复操作会抛 / log 噪音. 提前回收.
+            # Race guard: a close event landing on the same tick the sleep
+            # returns may not cancel this task before we proceed. Bail out
+            # if the session has already entered close to avoid duplicate
+            # interrupt + ctx.shutdown calls.
+            if state.get("close_reason") is not None or shutdown_initiated:
+                logger.info(
+                    "time-limit timer fired but session already closing; skipping"
+                )
+                return
             logger.warning("interview exceeded time limit; forcing shutdown")
             # 1) 先打断任何正在播放的 agent 语音, 并清空当前 user turn 缓冲.
             #    候选人可能仍在断续说话占着 pipeline, 不抢占的话 generate_reply
@@ -594,41 +686,7 @@ async def my_agent(ctx: JobContext):
             except Exception:
                 logger.exception("timeout final-reply failed")
 
-            # 复刻 EndCallTool 的关闭流程 (end_call.py:111-129) 让前端能正确
-            # 退出. 之前只 await session.aclose() + ctx.delete_room(), 前端
-            # 仍停留在"面试中" —— 因为 worker job 没有进入正式 shutdown 流程,
-            # 框架的 on_session_end / shutdown_callbacks 链路没启动, room 删除
-            # 信号也没经过框架的 lifecycle 传出去.
-            # 正确顺序 (与 EndCallTool 完全一致):
-            #   1) session.shutdown() 触发 graceful close (drain=True);
-            #   2) add_shutdown_callback(delete_room) 注册兜底删 room;
-            #   3) ctx.shutdown(reason) 设置 _shutdown_fut, 让 worker 走
-            #      job_proc_lazy_main:359 之后的标准关闭流程 ——
-            #      session 关 → on_session_end (发 report + 停 egress)
-            #      → 顺序执行 shutdown_callbacks (delete_room 让前端断开).
-            # Mirror EndCallTool's shutdown sequence (end_call.py:111-129).
-            # Previously calling session.aclose() + ctx.delete_room() didn't
-            # actually end the call for the frontend because the worker job
-            # never entered the framework's official shutdown flow — neither
-            # on_session_end nor the shutdown_callbacks ran in the expected
-            # order. Now we follow exactly what EndCallTool does:
-            #   1) session.shutdown() for a graceful drain;
-            #   2) add_shutdown_callback(delete_room) so the framework runs
-            #      it during normal teardown;
-            #   3) ctx.shutdown(reason) sets _shutdown_fut so the worker
-            #      proceeds through its standard close → on_session_end →
-            #      shutdown_callbacks pipeline, finally disconnecting the
-            #      frontend via delete_room.
-            async def _delete_room_on_shutdown() -> None:
-                logger.info("deleting room (hard cutoff shutdown callback)")
-                try:
-                    await ctx.delete_room()
-                except Exception:
-                    logger.exception("delete_room in shutdown callback failed")
-
-            ctx.add_shutdown_callback(_delete_room_on_shutdown)
-            session.shutdown()
-            ctx.shutdown(reason="task_completed")
+            await _finalize_via_shutdown(reason="task_completed")
         except asyncio.CancelledError:
             pass
 
@@ -640,6 +698,14 @@ async def my_agent(ctx: JobContext):
             # 模型已经自己进入收尾流程 -> 不抢话, 直接退出.
             # Model already entered wrap-up on its own — let it run.
             if interview_agent.wrap_up_started:
+                return
+            # 同 _enforce_time_limit 的 race guard: session 已开始关闭就别再
+            # 念收尾词, 避免对已 drain 的 session 调 interrupt.
+            # Race guard: skip the cue if the session is already winding down.
+            if state.get("close_reason") is not None or shutdown_initiated:
+                logger.info(
+                    "wind-down timer fired but session already closing; skipping"
+                )
                 return
             logger.info("forcing wind-down cue at final wrap time")
             try:
@@ -688,11 +754,28 @@ async def my_agent(ctx: JobContext):
     async def _grace_finalize():
         try:
             await asyncio.sleep(grace_seconds)
+            # 防 race: 候选人恰好在 grace 到点同 tick 重连, _on_participant_connected
+            # 已经 cancel 本 task, 但调度顺序不保证; 显式确认 session 未在关闭.
+            # Race guard: a reconnect landing on the same tick may not cancel
+            # us in time. Skip if the session has already started closing.
+            if state.get("close_reason") is not None or shutdown_initiated:
+                logger.info(
+                    "grace timer expired for %s but session already closing; skipping",
+                    candidate_identity,
+                )
+                return
             logger.info(
-                "hot-reconnect grace expired for %s; closing session",
+                "hot-reconnect grace expired for %s; finalising via framework shutdown",
                 candidate_identity,
             )
-            await session.aclose()
+            # 走完整 shutdown 序列, 不再用裸 session.aclose():
+            #   - aclose 不会触发 worker shutdown_fut → on_session_end 不跑
+            #     → send_report 不发 → 前端永远收不到结束信号 (即使前端早已断开,
+            #     web 端 round status 也回填不到 completed).
+            # Use the full shutdown sequence instead of bare session.aclose() so
+            # on_session_end fires, send_report posts to /api/agent/report, and
+            # the web-side round is finalised to "completed".
+            await _finalize_via_shutdown(reason="participant_disconnected")
         except asyncio.CancelledError:
             pass
 
