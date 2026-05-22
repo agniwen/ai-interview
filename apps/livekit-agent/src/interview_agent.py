@@ -1,4 +1,5 @@
 import logging
+import os
 import re
 import time
 from collections.abc import AsyncIterable
@@ -21,13 +22,48 @@ from wrap_up_task import WrapUpTask
 logger = logging.getLogger("agent")
 
 
-INTERVIEW_TIME_LIMIT_SECONDS = 20 * 60
-INTERVIEW_SOFT_WRAP_SECONDS = 16 * 60
-INTERVIEW_FINAL_WRAP_SECONDS = 18 * 60 + 30
-# Hard cutoff is enforced in agent.py; allow ~3 min after the soft limit so
-# the LLM has time to ask the closing question, hear the answer, and say
-# goodbye without being interrupted mid-sentence.
-INTERVIEW_HARD_GRACE_SECONDS = 3 * 60
+# 调试开关: 设置 INTERVIEW_DEBUG_FAST=1 时把整套计时压到 1 分钟级别, 用来在本地
+# 快速跑完 "soft wrap -> final wrap -> time limit -> hard cutoff" 完整流程, 不
+# 必真等 23 分钟. 生产环境保持默认即可.
+# Debug switch: setting INTERVIEW_DEBUG_FAST=1 compresses the whole timeline to
+# ~1 minute so local dev can exercise the full soft-wrap -> final-wrap -> time-
+# limit -> hard-cutoff path without waiting 23 minutes. Production stays on the
+# default schedule.
+_DEBUG_FAST = os.environ.get("INTERVIEW_DEBUG_FAST", "").lower() in (
+    "1",
+    "true",
+    "yes",
+    "on",
+)
+
+if _DEBUG_FAST:
+    # 数值挑选: 与生产 16/18.5/20/3min 同形比例 (大致 1/45 缩放), 同时保证
+    # 相邻两阶段之间留出至少 10s 间隙, 给 _force_wind_down / _enforce_time_limit
+    # 的 wait_for_playout 有播放窗口. 硬切总时长 = 45 + 15 = 60s.
+    # Values chosen to keep the same shape as the prod 16/18.5/20/3min timeline
+    # (~1/45 scale) while leaving ≥10s between adjacent phases so the playout
+    # windows for _force_wind_down / _enforce_time_limit don't overlap. Total
+    # hard cutoff lands at 45 + 15 = 60s.
+    INTERVIEW_SOFT_WRAP_SECONDS = 20
+    INTERVIEW_FINAL_WRAP_SECONDS = 30
+    INTERVIEW_TIME_LIMIT_SECONDS = 45
+    INTERVIEW_HARD_GRACE_SECONDS = 15
+    logger.warning(
+        "INTERVIEW_DEBUG_FAST is ON: compressed timeline "
+        "(soft=%ds final=%ds limit=%ds hard_cutoff=%ds)",
+        INTERVIEW_SOFT_WRAP_SECONDS,
+        INTERVIEW_FINAL_WRAP_SECONDS,
+        INTERVIEW_TIME_LIMIT_SECONDS,
+        INTERVIEW_TIME_LIMIT_SECONDS + INTERVIEW_HARD_GRACE_SECONDS,
+    )
+else:
+    INTERVIEW_TIME_LIMIT_SECONDS = 20 * 60
+    INTERVIEW_SOFT_WRAP_SECONDS = 16 * 60
+    INTERVIEW_FINAL_WRAP_SECONDS = 18 * 60 + 30
+    # Hard cutoff is enforced in agent.py; allow ~3 min after the soft limit so
+    # the LLM has time to ask the closing question, hear the answer, and say
+    # goodbye without being interrupted mid-sentence.
+    INTERVIEW_HARD_GRACE_SECONDS = 3 * 60
 
 # 默认开场白指令 / Default opening instructions when none are configured globally
 DEFAULT_OPENING_INSTRUCTIONS = (
@@ -116,6 +152,14 @@ class InterviewAgent(Agent):
     @property
     def closing_instructions(self) -> str:
         return self._closing_instructions
+
+    @property
+    def wrap_up_started(self) -> bool:
+        # 暴露给外层定时器: 18:30 强制收尾任务在拿到 True 时就跳过, 避免和
+        # 模型自己调起的 enter_wrap_up 重复发声.
+        # Exposed for the outer force-wind-down task to skip when the model
+        # has already entered wrap-up on its own.
+        return self._wrap_up_started
 
     @function_tool()
     async def enter_wrap_up(self) -> str | None:

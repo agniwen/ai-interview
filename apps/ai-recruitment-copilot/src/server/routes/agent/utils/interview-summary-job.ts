@@ -96,11 +96,24 @@ export async function runSummaryJob(options: RunSummaryJobOptions): Promise<void
     // must not retroactively appear in past reports.
     const presetQuestions = await loadInterviewPresetQuestionsWithScope(interviewRecordId);
 
+    // 给每条候选人个性化题在 question 文本前加 `[个性化]` 前缀, 评估模型回写到
+    // evaluationCriteriaResults.questions[].question 时, 这段前缀就成了报告里
+    // 题目来源的标签 —— HR 端可以直接看出哪条评分对应哪类题.
+    // Prefix each personalized question with `[个性化]`. The evaluator echoes
+    // the question text back into the persisted evaluation, so the prefix
+    // doubles as a source label in the HR-facing report.
     const personalizedQuestions: InterviewQuestion[] = baseQuestions.map((q) => ({
       ...q,
       question: `[个性化] ${q.question}`,
     }));
 
+    // 预设题 order 接续在个性化题最大 order 之后, 避免和个性化题 order 冲突.
+    // baseQuestions 为空时基底为 0, 预设题从 1 开始. 不去重, 同题在两侧都会
+    // 被模型分别评 (与本次设计明确选择保持一致).
+    // Preset orders continue past the max personalized order to avoid clashes;
+    // base 0 means presets start from 1 when the candidate has no personalized
+    // questions. Intentionally no dedupe: a question appearing in both lists
+    // gets scored twice (matches the choice locked in during design).
     const presetOrderBase =
       personalizedQuestions.length > 0 ? Math.max(...personalizedQuestions.map((q) => q.order)) : 0;
 

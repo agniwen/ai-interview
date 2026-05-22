@@ -30,7 +30,7 @@ from livekit.plugins import (
 )
 from livekit.plugins.turn_detector.multilingual import MultilingualModel
 
-from interview_agent import InterviewAgent
+from interview_agent import INTERVIEW_FINAL_WRAP_SECONDS, InterviewAgent
 from prompts import pick_interviewer
 from recording import (
     start_room_recording,
@@ -42,6 +42,21 @@ from transcript_replay import replay_turns_to
 logger = logging.getLogger("agent")
 
 load_dotenv()
+
+
+# 本地 dev 时设置 INTERVIEW_DISABLE_NOISE_CANCELLATION=1 关掉噪声抑制. 默认
+# ai_coustics QUAIL_VF_L 需要 LiveKit Cloud 在 dispatch 时下发凭证, 本地直连
+# 跑 `uv run src/agent.py dev` 拿不到这段凭证, 插件会对每一帧音频报错
+# "Missing configuration", 每 5s 一次, 把日志刷得很厉害. 关掉之后只是不做
+# 语音隔离, 不影响对话流程, 也不影响时间线调试.
+# Set INTERVIEW_DISABLE_NOISE_CANCELLATION=1 locally to silence the ai_coustics
+# "Missing configuration" log spam. The Cloud-only credential push that ai_coustics
+# relies on doesn't reach standalone dev runs, so the plugin logs an error per
+# audio frame. Disabling it just turns voice isolation off — call flow itself is
+# unaffected.
+_DISABLE_NOISE_CANCELLATION = os.environ.get(
+    "INTERVIEW_DISABLE_NOISE_CANCELLATION", ""
+).lower() in ("1", "true", "yes", "on")
 
 
 server = AgentServer()
@@ -280,7 +295,18 @@ async def my_agent(ctx: JobContext):
             "endpointing": {
                 "mode": "dynamic",
                 "min_delay": 0.5,
-                "max_delay": 8.0,
+                # 单轮 EOT 最长等 5s. 之前 8s 在结合候选人大量"嗯/呃"的破碎
+                # 表达时, 会把一连串中途停顿累积成几分钟不关闭的 user turn,
+                # 期间 agent 完全沉默, 体感像模型卡死. 5s 已经足够等正常
+                # 思考停顿, 同时把"破碎表达"切成多个短 turn, 让 agent 能
+                # 及时回应或追问.
+                # Cap per-turn EOT wait at 5s. Previously 8s would chain a
+                # candidate's filler-heavy pauses into multi-minute user
+                # turns where the agent stays silent — looking like a stuck
+                # model. 5s still tolerates a normal think pause and breaks
+                # filler-heavy speech into short turns the agent can react
+                # to in time.
+                "max_delay": 5.0,
             },
             "interruption": {
                 "mode": "adaptive",
@@ -293,6 +319,15 @@ async def my_agent(ctx: JobContext):
     )
 
     timeout_task: asyncio.Task | None = None
+    # 18:30 主动收尾定时器: 软提示走 on_user_turn_completed, 但只在用户说话
+    # 时触发. 候选人沉默或 turn detector 把长 user turn 一直挂着时, 该提示
+    # 永远到不了模型, 模型不会调 enter_wrap_up. 这里独立计时, 时间到点强制
+    # 让 agent 开口提示收尾.
+    # Active wind-down trigger at 18:30 (INTERVIEW_FINAL_WRAP_SECONDS). The
+    # soft hint in on_user_turn_completed only fires on user turns; a silent
+    # candidate or a long stuck user turn means the hint never reaches the
+    # model. This independent timer forces the agent to vocalize the cue.
+    final_wrap_task: asyncio.Task | None = None
     # 热重连宽限期任务: 候选人断连后等候同 identity 在 3 分钟内重连.
     # Hot-reconnect grace task: wait up to 3 min for the same identity to rejoin.
     grace_task: asyncio.Task | None = None
@@ -416,10 +451,32 @@ async def my_agent(ctx: JobContext):
         )
         if timeout_task is not None and not timeout_task.done():
             timeout_task.cancel()
+        if final_wrap_task is not None and not final_wrap_task.done():
+            final_wrap_task.cancel()
         # 防止 grace 任务在 session 已关闭后仍跑完触发重复 aclose。
         # Prevent the grace task from running after the session is already closed.
         if grace_task is not None and not grace_task.done():
             grace_task.cancel()
+        # 主动 stop egress: close 事件之后框架还要等 session_host 内部 aclose,
+        # 期间 _on_session_end 不会被调用, 录像继续录空房间. 实测可拖 12 分钟+.
+        # 这里立刻起一个后台任务把 egress 停掉, _on_session_end 那次再调
+        # stop_recording 时 list_egress 回退路径会直接拿到 ended 状态, 不重复请求.
+        # Eager stop_egress: between this close event and _on_session_end the
+        # framework still awaits internal session_host aclose, during which
+        # recording keeps rolling against an empty room (observed: 12+ min).
+        # Fire stop_recording now; the later _on_session_end call falls back to
+        # list_egress because stop_egress will already report "ended".
+        if recording_info:
+
+            async def _eager_stop_recording():
+                try:
+                    await stop_recording(lkapi, recording_info["egressId"])
+                    logger.info("eager stop_recording dispatched from close listener")
+                except Exception:
+                    logger.exception("eager stop_recording from close listener failed")
+
+            # Hold the reference on state to avoid RUF006 garbage-collection.
+            state["_eager_stop_task"] = asyncio.create_task(_eager_stop_recording())
 
     interview_agent = InterviewAgent(interview_context, selected_interviewer)
 
@@ -429,15 +486,30 @@ async def my_agent(ctx: JobContext):
         # LiveKit Cloud only, disabled for self-hosted
         room_options=room_io.RoomOptions(
             audio_input=room_io.AudioInputOptions(
-                noise_cancellation=lambda params: (
-                    noise_cancellation.BVCTelephony()
-                    if params.participant.kind
-                    == rtc.ParticipantKind.PARTICIPANT_KIND_SIP
-                    else ai_coustics.audio_enhancement(
-                        model=ai_coustics.EnhancerModel.QUAIL_VF_L,
-                        model_parameters=ai_coustics.ModelParameters(
-                            enhancement_level=0.7,
-                        ),
+                # 选择器: SIP 路径用窄带优化的 Krisp BVCTelephony, WebRTC 路径
+                # 用 ai_coustics QUAIL_VF_L (顶配语音隔离). 本地 dev 拿不到
+                # Cloud 凭证下发, 走 _DISABLE_NOISE_CANCELLATION 关掉避免日志
+                # 刷屏 (插件源码 plugin.py:117-119 会逐帧报 "Missing configuration").
+                # Selector: SIP participants get telephony-tuned Krisp; WebRTC
+                # participants get ai_coustics QUAIL_VF_L for voice isolation.
+                # Local dev doesn't receive the Cloud credential push, so flip
+                # _DISABLE_NOISE_CANCELLATION to None it out and avoid the
+                # per-frame "Missing configuration" log spam from plugin.py:117.
+                noise_cancellation=(
+                    None
+                    if _DISABLE_NOISE_CANCELLATION
+                    else (
+                        lambda params: (
+                            noise_cancellation.BVCTelephony()
+                            if params.participant.kind
+                            == rtc.ParticipantKind.PARTICIPANT_KIND_SIP
+                            else ai_coustics.audio_enhancement(
+                                model=ai_coustics.EnhancerModel.QUAIL_VF_L,
+                                model_parameters=ai_coustics.ModelParameters(
+                                    enhancement_level=0.7,
+                                ),
+                            )
+                        )
                     )
                 ),
             ),
@@ -468,23 +540,139 @@ async def my_agent(ctx: JobContext):
         try:
             await asyncio.sleep(time_limit + hard_grace)
             logger.warning("interview exceeded time limit; forcing shutdown")
+            # 1) 先打断任何正在播放的 agent 语音, 并清空当前 user turn 缓冲.
+            #    候选人可能仍在断续说话占着 pipeline, 不抢占的话 generate_reply
+            #    会被 enqueue 到下一个 turn, 实测可能导致告别词永远不被播放.
+            # 1) Pre-empt the pipeline: interrupt any agent speech in flight
+            #    and abandon any in-progress user turn buffer. Without this,
+            #    generate_reply gets queued behind an open user turn and the
+            #    goodbye can stall until session aclose forcibly stops it.
             try:
-                handle = session.generate_reply(
-                    instructions=(
-                        "面试时间已到。请用一两句温暖的话感谢候选人参与并体面告别，"
-                        f"参考用语：{interview_agent.closing_instructions}。"
-                        "然后告知面试到此结束，不要继续提问。"
-                    ),
+                session.interrupt()
+            except Exception:
+                logger.exception("session.interrupt() before timeout reply failed")
+            try:
+                session.clear_user_turn()
+            except Exception:
+                logger.exception(
+                    "session.clear_user_turn() before timeout reply failed"
+                )
+
+            try:
+                # 不走 generate_reply: instructions 会被注入 role="system",
+                # 在压缩时间线 + 多个 system overlay 叠加下, fast LLM 容易角色
+                # 错乱回成候选人. 这里直接 session.say 播固定告别词, 绕过 LLM,
+                # 杜绝角色漂移. add_to_chat_ctx 默认 True, 历史里会留下这段
+                # assistant 消息以备转录归档.
+                #
+                # 注意: 不能直接拼 interview_agent.closing_instructions, 那是
+                # 给 LLM 看的"指令文本"(常以"对候选人说:"开头), 字面 TTS 会
+                # 把这种指令前缀一起念出来. 固定字面话术覆盖所有场景.
+                # Bypass generate_reply: its instructions land as role="system"
+                # and a fast LLM in a compressed timeline with multiple system
+                # overlays sometimes drifts into the candidate role. say()
+                # speaks literal text via TTS — no LLM call, no role drift.
+                # We can't reuse closing_instructions verbatim: it's authored
+                # as an LLM directive (e.g. "对候选人说: ...") so a literal
+                # TTS read of it would speak the directive prefix out loud.
+                handle = session.say(
+                    "非常感谢你今天的分享。因为时间关系，本场面试到此结束。"
+                    "我们会综合评估你的表现并尽快反馈结果，祝你一切顺利。",
                     allow_interruptions=False,
                 )
-                await handle.wait_for_playout()
+                # 2) 给 TTS 一个有限窗口播完告别词. 卡住超时就直接进入
+                #    session.aclose, 避免 wait_for_playout 永久阻塞导致
+                #    aclose 永远不被调用, 进而连带录像无法及时停止.
+                # 2) Bound playout: a hung TTS must not block session.aclose
+                #    forever — that previously left the recording running for
+                #    minutes after the call should have ended.
+                await asyncio.wait_for(handle.wait_for_playout(), timeout=20.0)
+            except asyncio.TimeoutError:
+                logger.warning(
+                    "timeout final-reply playout exceeded 20s; closing anyway"
+                )
             except Exception:
                 logger.exception("timeout final-reply failed")
-            await session.aclose()
+
+            # 复刻 EndCallTool 的关闭流程 (end_call.py:111-129) 让前端能正确
+            # 退出. 之前只 await session.aclose() + ctx.delete_room(), 前端
+            # 仍停留在"面试中" —— 因为 worker job 没有进入正式 shutdown 流程,
+            # 框架的 on_session_end / shutdown_callbacks 链路没启动, room 删除
+            # 信号也没经过框架的 lifecycle 传出去.
+            # 正确顺序 (与 EndCallTool 完全一致):
+            #   1) session.shutdown() 触发 graceful close (drain=True);
+            #   2) add_shutdown_callback(delete_room) 注册兜底删 room;
+            #   3) ctx.shutdown(reason) 设置 _shutdown_fut, 让 worker 走
+            #      job_proc_lazy_main:359 之后的标准关闭流程 ——
+            #      session 关 → on_session_end (发 report + 停 egress)
+            #      → 顺序执行 shutdown_callbacks (delete_room 让前端断开).
+            # Mirror EndCallTool's shutdown sequence (end_call.py:111-129).
+            # Previously calling session.aclose() + ctx.delete_room() didn't
+            # actually end the call for the frontend because the worker job
+            # never entered the framework's official shutdown flow — neither
+            # on_session_end nor the shutdown_callbacks ran in the expected
+            # order. Now we follow exactly what EndCallTool does:
+            #   1) session.shutdown() for a graceful drain;
+            #   2) add_shutdown_callback(delete_room) so the framework runs
+            #      it during normal teardown;
+            #   3) ctx.shutdown(reason) sets _shutdown_fut so the worker
+            #      proceeds through its standard close → on_session_end →
+            #      shutdown_callbacks pipeline, finally disconnecting the
+            #      frontend via delete_room.
+            async def _delete_room_on_shutdown() -> None:
+                logger.info("deleting room (hard cutoff shutdown callback)")
+                try:
+                    await ctx.delete_room()
+                except Exception:
+                    logger.exception("delete_room in shutdown callback failed")
+
+            ctx.add_shutdown_callback(_delete_room_on_shutdown)
+            session.shutdown()
+            ctx.shutdown(reason="task_completed")
         except asyncio.CancelledError:
             pass
 
     timeout_task = asyncio.create_task(_enforce_time_limit())
+
+    async def _force_wind_down():
+        try:
+            await asyncio.sleep(INTERVIEW_FINAL_WRAP_SECONDS)
+            # 模型已经自己进入收尾流程 -> 不抢话, 直接退出.
+            # Model already entered wrap-up on its own — let it run.
+            if interview_agent.wrap_up_started:
+                return
+            logger.info("forcing wind-down cue at final wrap time")
+            try:
+                session.interrupt()
+            except Exception:
+                logger.exception("session.interrupt() before wind-down cue failed")
+            try:
+                session.clear_user_turn()
+            except Exception:
+                logger.exception(
+                    "session.clear_user_turn() before wind-down cue failed"
+                )
+            try:
+                # 同 _enforce_time_limit: 不让 LLM 自由发挥, 避免 fast 模型在
+                # 压缩时间线下角色错乱回成候选人. 这里说一句固定提醒, 候选人
+                # 听到后再回话, 下一轮 on_user_turn_completed 会注入正式收尾
+                # 提示让模型自己调 enter_wrap_up.
+                # Bypass LLM: speak a literal cue. The next user turn will
+                # trigger on_user_turn_completed which injects the formal
+                # wind-down hint so the model can call enter_wrap_up itself.
+                handle = session.say(
+                    "时间快到了，咱们准备进入收尾环节，请简单回答一下当前问题。",
+                    allow_interruptions=True,
+                )
+                await asyncio.wait_for(handle.wait_for_playout(), timeout=15.0)
+            except asyncio.TimeoutError:
+                logger.warning("wind-down cue playout exceeded 15s")
+            except Exception:
+                logger.exception("wind-down cue failed")
+        except asyncio.CancelledError:
+            pass
+
+    final_wrap_task = asyncio.create_task(_force_wind_down())
 
     # 热重连: 候选人断连不再立即 aclose, 启动 3 分钟宽限计时器, 等同 identity
     # 重新加入则取消计时、继续对话; 否则计时到时再走 aclose -> shutdown 回调

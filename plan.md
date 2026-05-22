@@ -71,6 +71,84 @@
 
 ---
 
+### J. 面试报告评估扩展（岗位绑定 + 全局绑定题）
+
+- [x] **报告评估纳入预设题**
+  - 之前 `runSummaryJob` 只读 `studioInterview.interviewQuestions`（候选人级简历个性化题），岗位绑定 / 全局绑定的模板题虽然在面试中被问过，但**不参与结构化打分**（只可能被模型在 `overallScore` / `overallAssessment` 里隐式糅合）
+  - 新增 `loadInterviewPresetQuestionsWithScope`（`apps/.../studio/routes/interview-questions/dao/bindings.ts`）：在原 `loadInterviewPresetQuestions` 基础上多 join 一次 `interview_question_template`，让每条预设题携带 `scope: "global" | "job_description"`
+  - `interview-summary-job.ts` 把"个性化题 + 岗位题 + 全局题"按源前缀（`[个性化]` / `[岗位题]` / `[全局题]`）合并后传给 `generateInterviewReport`；模型对每条独立打分，前缀写入 `evaluationCriteriaResults.questions[].question` 字段
+  - **故意不调** `ensureApplicableBindings`：面试已结束，只评估当时实际绑定且未禁用的题；新建的全局模板不应回灌历史报告
+  - 不去重；同题在个性化和模板里同时存在则被分别评
+
+### K. Voice Agent — 计时收口 / 录像 bug / 角色错乱 / 调试开关
+
+> 全部代码改动在 `apps/livekit-agent/src/agent.py` 和 `apps/livekit-agent/src/interview_agent.py`。
+
+#### K.1 线上事故诊断（数据驱动）
+
+事故场景：候选人面试到 23+ 分钟，**模型完全无响应**，**录屏继续录到 35:57**，最终 web 端 `webhook_received_at` 比 `ended_at` 晚 12 分钟到达。
+
+通过 SQL（`interview_conversation` 行）+ 转录 timeInCallSecs + LiveKit Agents 源码反查得到的根因：
+
+| 现象                            | 根因                                                                                                                                                                                                            |
+| ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "模型不响应"                    | `turn_detector + endpointing` **过宽容**：候选人破碎中文表达（"嗯/呃/那个..." + 中途停顿）被 turn detector 持续判为"还没说完"，累积成最长 **4 分 44 秒不关闭的 user turn**，期间 agent 全程沉默                 |
+| 23 min 硬切告别词从未播出       | `_enforce_time_limit` 在 23 min 触发 `generate_reply` 想说告别词，但当时 user turn 仍被占用，回复被 enqueue 在用户 turn 之后；session 在 23:51 直接被关，告别词没机会播                                         |
+| 录屏比 session 长 12 分钟       | LiveKit 框架 `agent_session.py:988` emit `close` 事件后**还要 await `session_host.aclose()` 的内部清理**；这段实测能拖 12 分钟。`_on_session_end` 因此延迟，里面的 `stop_recording` 也延迟，egress 一直录空房间 |
+| `webhook_received_at` 晚 12 min | 同上 — `_on_session_end` 里调 `send_report` 才发 webhook                                                                                                                                                        |
+
+**这反转了原 `todo.md` 的优化方向**：早期假设是"抢答"，要抬高 `unlikely_threshold` / `endpointing.min_delay`；真实数据显示症状是相反的"过宽容"。`todo.md` 里那几条（unlikely_threshold=0.35 / min_delay=1.0 / Silero VAD 默认值 / `on_user_turn_completed` 规则兜底）**作废**，对应改动方向反过来。
+
+#### K.2 时间线收口（避免长 user turn 僵局 + 修硬切告别词没机会播）
+
+- [x] **`max_delay` 8s → 5s**（`agent.py:283`）：单次 EOT 长等上限砍到 5s，避免破碎表达累积出多分钟僵局
+- [x] **`_enforce_time_limit` 加 `session.interrupt()` + `session.clear_user_turn()` + 有限 `wait_for_playout`**：硬切前先把 pipeline 抢回来（之前会被 user turn 阻塞），告别词播 20s 超时就放弃直接关
+- [x] **新增 `_force_wind_down` 18:30 主动收尾定时器**：原 `on_user_turn_completed` 注入的收尾提示只在用户说话时触发；候选人沉默或 user turn 被挂住时模型永远收不到。定时器到点强制让 agent 开口提示收尾，命中 `wrap_up_started=True` 时静默退出（避免和模型自调的 `enter_wrap_up` 重复发声）
+- [x] **`InterviewAgent.wrap_up_started` property**：暴露 `_wrap_up_started` 给 agent.py 外层定时器读取
+
+#### K.3 LLM 角色错乱修复
+
+- [x] **`_enforce_time_limit` + `_force_wind_down` 都改用 `session.say` 而非 `generate_reply`**
+  - 源码确认 `agent_activity.py:2237` `chat_ctx.add_message(role="system", content=[instructions])`：`generate_reply(instructions=...)` 会**多注入一条 `role="system"`**
+  - 在压缩调试时间线 + 多个 system overlay 叠加下，`deepseek-v4-flash` 会丢失对"面试官"角色的锚定，回成候选人口吻
+  - `session.say()` 走纯 TTS，0 LLM 调用，无角色漂移
+- [x] **硬切告别词不再拼 `interview_agent.closing_instructions`**：那是给 LLM 看的指令文本（常以"对候选人说："开头），字面 TTS 播会念出指令前缀。改用固定字面话术："非常感谢你今天的分享。因为时间关系，本场面试到此结束。我们会综合评估你的表现并尽快反馈结果，祝你一切顺利。"
+  - 注意只有**硬切兜底**改了；模型走 `end_call` 工具正常结束的路径仍然走 LLM + `closing_instructions`，候选人体验跟全局结束语配置一致
+
+#### K.4 录像多录 12 分钟修复 + 前端无法退出修复
+
+- [x] **close listener 即时 `stop_recording`**（`agent.py:_on_close`）：close 事件触发瞬间起 `asyncio.create_task` 调 `stop_recording`，不等框架内部 `session_host.aclose` 清理完。`stop_recording` 本来就幂等（`recording.py:99-109` 已 ended 时回退到 list_egress），`_on_session_end` 那次重复调安全
+- [x] **`_enforce_time_limit` 复刻 `EndCallTool` 的完整关闭序列**（`end_call.py:111-129`）
+  - 之前 `session.aclose()` + 直接 `ctx.delete_room()`：room API 调用发出去了，但 **`_shutdown_fut` 永远没被解锁** → worker job 没进入官方关闭流程 → 前端 SDK 收到的生命周期事件不完整 → UI 卡在"面试中"
+  - 现在按官方做法：
+    1. `session.shutdown()` 触发 graceful drain
+    2. `ctx.add_shutdown_callback(_delete_room_on_shutdown)` 把删 room 注册成 shutdown 回调
+    3. `ctx.shutdown(reason="task_completed")` 设置 `_shutdown_fut`，让 worker 走完 `session 关 → on_session_end → shutdown_callbacks` 标准链路
+  - 前端在 shutdown_callbacks 阶段收到 `RoomDeleted` 事件，正确切换到"已结束"
+
+#### K.5 调试 / 本地化开关
+
+- [x] **`INTERVIEW_DEBUG_FAST=1`**（`interview_agent.py`）：把 20/16/18.5/3 min 时间线压缩到 20/30/45/15 秒，本地 1 分 15 秒能跑完完整 soft_wrap → final_wrap → time_limit → hard_cutoff 流程
+- [x] **`INTERVIEW_DISABLE_NOISE_CANCELLATION=1`**（`agent.py`）：本地 dev 模式跑 `uv run src/agent.py dev` 时不接 LiveKit Cloud 的 ai_coustics 凭证下发，插件每 5 秒报一次 `Missing configuration`（源码 `plugin.py:117-119` 印证）；本开关让 `noise_cancellation=None`，消除日志噪声。**生产 LiveKit Cloud 上自动有凭证**，此 var 不需要设
+
+#### K.6 验证
+
+- ruff format / check 全过
+- 用 `INTERVIEW_DEBUG_FAST=1 INTERVIEW_DISABLE_NOISE_CANCELLATION=1 uv run src/agent.py dev` 本地跑 console 验证：
+  - 30s `_force_wind_down` 念固定提醒
+  - 60s `_enforce_time_limit` 念固定告别 + 完整 EndCallTool 关闭序列 + 前端正确退出
+  - 不再出现 ai_coustics 日志刷屏
+  - 不再有 LLM 角色漂移
+
+#### K.7 仍待评估
+
+- [ ] **角色错乱根因是否仅限于 `generate_reply` 注入路径**：现在压缩时间线下未观察到漂移，但生产 LLM 用 `end_call` 工具正常结束时 instructions 仍走 LLM，仍有理论上的漂移面。需要在生产场景持续观察。如果偶发，可以把 `EndCallTool` 的 `end_instructions` 也换成纯字面话术（牺牲 HR 端"全局结束语"配置）
+- [ ] **`_force_wind_down` 的固定提醒是否打断模型当前思路**：实际测试看，当 candidate 正在长 user turn 时，30s 时被打断 + 听到收尾提醒后再继续答，体感是否割裂；如果割裂可以把 `allow_interruptions=False`，但代价是 candidate 想插话也插不进来
+- [ ] **`_grace_finalize`（候选人断线 3 分钟宽限到期）是否也要补 `EndCallTool` 完整关闭序列**：当前还是裸 `session.aclose()`。候选人断了之后房间没人，前端也不在，影响小但不一致。建议下一轮顺手补
+- [ ] **测试已经退役的「过宽容」假设是否会反弹**：`max_delay=5s` 是否对真正长思考型回答（"我想想"+10 秒）造成抢答；如果反弹再加 `unlikely_threshold` 抬高（但只针对 turn detector 模型层，不动 endpointing）
+
+---
+
 ## ⏳ 待做
 
 ### F. 审计 Batch 3 — 中等优先（建议下一批做）

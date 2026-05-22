@@ -457,6 +457,15 @@ export interface InterviewPresetQuestionWithScope extends InterviewPresetQuestio
 export async function loadInterviewPresetQuestionsWithScope(
   interviewRecordId: string,
 ): Promise<InterviewPresetQuestionWithScope[]> {
+  // 与 loadInterviewPresetQuestions 相比多 join 一次 interviewQuestionTemplate,
+  // 是为了拿到每个 binding 背后的模板 scope (global vs job_description). 评估
+  // 报告需要按源给题加前缀, 用了 disabledByUser=false 过滤跟旧函数一致, 保证
+  // "面试期间实际会被问到的题" 才进打分.
+  // Adds an extra join against interviewQuestionTemplate (compared to
+  // loadInterviewPresetQuestions) so we can carry each binding's template
+  // scope through to the evaluator. The disabledByUser filter matches the
+  // sibling query so only questions that were actually live during the
+  // interview reach scoring.
   const rows = await db
     .select({
       bindingSortOrder: interviewQuestionTemplateBinding.sortOrder,
@@ -480,6 +489,13 @@ export async function loadInterviewPresetQuestionsWithScope(
     )
     .orderBy(asc(interviewQuestionTemplateBinding.sortOrder));
 
+  // 展平 snapshot: 每个 binding 对应一份 template 快照, 内部还有自己的
+  // 题目排序 sortOrder. 外层按 binding sortOrder 排, 内层按 snapshot question
+  // sortOrder 排, 保证 agent 提问顺序与评估表里题目顺序一致.
+  // Flatten snapshots: each binding holds a versioned template snapshot
+  // with its own per-question sortOrder. Outer loop respects binding order;
+  // inner loop respects intra-template order — matches the order the agent
+  // actually asked the questions during the call.
   const out: InterviewPresetQuestionWithScope[] = [];
   for (const row of rows) {
     const snapshotQuestions = [...row.snapshot.questions].toSorted(
