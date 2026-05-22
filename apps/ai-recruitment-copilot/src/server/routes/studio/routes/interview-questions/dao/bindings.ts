@@ -446,6 +446,56 @@ export async function loadInterviewPresetQuestions(
 }
 
 /**
+ * 带 scope 的预设题读取：用于面试报告评估，按源（岗位 / 全局）分别标注。
+ * Preset questions tagged with template scope — used by the interview report
+ * evaluator so each question carries its source (job-bound vs global).
+ */
+export interface InterviewPresetQuestionWithScope extends InterviewPresetQuestion {
+  scope: InterviewQuestionTemplateScope;
+}
+
+export async function loadInterviewPresetQuestionsWithScope(
+  interviewRecordId: string,
+): Promise<InterviewPresetQuestionWithScope[]> {
+  const rows = await db
+    .select({
+      bindingSortOrder: interviewQuestionTemplateBinding.sortOrder,
+      scope: interviewQuestionTemplate.scope,
+      snapshot: interviewQuestionTemplateVersion.snapshot,
+    })
+    .from(interviewQuestionTemplateBinding)
+    .innerJoin(
+      interviewQuestionTemplateVersion,
+      eq(interviewQuestionTemplateBinding.versionId, interviewQuestionTemplateVersion.id),
+    )
+    .innerJoin(
+      interviewQuestionTemplate,
+      eq(interviewQuestionTemplateBinding.templateId, interviewQuestionTemplate.id),
+    )
+    .where(
+      and(
+        eq(interviewQuestionTemplateBinding.interviewRecordId, interviewRecordId),
+        eq(interviewQuestionTemplateBinding.disabledByUser, false),
+      ),
+    )
+    .orderBy(asc(interviewQuestionTemplateBinding.sortOrder));
+
+  const out: InterviewPresetQuestionWithScope[] = [];
+  for (const row of rows) {
+    const snapshotQuestions = [...row.snapshot.questions].toSorted(
+      (a, b) => a.sortOrder - b.sortOrder,
+    );
+    for (const q of snapshotQuestions) {
+      const trimmed = q.content?.trim();
+      if (trimmed) {
+        out.push({ content: trimmed, difficulty: q.difficulty, scope: row.scope });
+      }
+    }
+  }
+  return out;
+}
+
+/**
  * Read the binding state surfaced to the interview detail page UI.
  * Returns the full `applicable` set (global + JD-bound) and a map of
  * which are currently bound + their disabled state.

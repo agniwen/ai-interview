@@ -1,9 +1,11 @@
 import { and, eq, inArray, lt, or, sql } from "drizzle-orm";
+import type { InterviewQuestion } from "@arc/db-schema/interview/types";
 import { db } from "@/lib/server/db";
 import { interviewConversation, studioInterview } from "@arc/db-schema/schema";
 import { notifyInterviewSummaryReady } from "@/server/routes/agent/utils/feishu-interview-notifications";
 import { safeUpdateTag } from "@/server/cache-tags";
 import { generateInterviewReport } from "@/server/routes/agent/utils/interview-report";
+import { loadInterviewPresetQuestionsWithScope } from "@/server/routes/studio/routes/interview-questions/dao/bindings";
 
 const LOG_PREFIX = "[interview-summary]";
 
@@ -82,7 +84,33 @@ export async function runSummaryJob(options: RunSummaryJobOptions): Promise<void
       .where(eq(studioInterview.id, interviewRecordId))
       .limit(1);
 
-    const questions = interview?.questions ?? [];
+    const baseQuestions = interview?.questions ?? [];
+
+    // 把候选人个性化题 + 岗位绑定 / 全局绑定的预设题合并后再交给评估模型。
+    // 不调用 ensureApplicableBindings：面试已经结束，只评估当时实际绑定且
+    // 未被禁用的题；新增的全局模板不应回灌进历史报告。
+    // Merge candidate-personalized questions with job-bound + global preset
+    // questions before handing them to the evaluator. Intentionally skip
+    // ensureApplicableBindings — the interview is over, so we evaluate only
+    // the bindings that were live at runtime; newly created global templates
+    // must not retroactively appear in past reports.
+    const presetQuestions = await loadInterviewPresetQuestionsWithScope(interviewRecordId);
+
+    const personalizedQuestions: InterviewQuestion[] = baseQuestions.map((q) => ({
+      ...q,
+      question: `[个性化] ${q.question}`,
+    }));
+
+    const presetOrderBase =
+      personalizedQuestions.length > 0 ? Math.max(...personalizedQuestions.map((q) => q.order)) : 0;
+
+    const taggedPresetQuestions: InterviewQuestion[] = presetQuestions.map((q, index) => ({
+      difficulty: q.difficulty,
+      order: presetOrderBase + index + 1,
+      question: `[${q.scope === "job_description" ? "岗位题" : "全局题"}] ${q.content}`,
+    }));
+
+    const questions: InterviewQuestion[] = [...personalizedQuestions, ...taggedPresetQuestions];
 
     const report = await generateInterviewReport({ questions, transcript });
 
