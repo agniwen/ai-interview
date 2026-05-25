@@ -14,9 +14,9 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field";
-import { InputGroup, InputGroupInput, InputGroupTextarea } from "@/components/ui/input-group";
+import { MarkdownEditor } from "@/components/markdown-editor";
+import { InputGroup, InputGroupInput } from "@/components/ui/input-group";
 import { Spinner } from "@/components/ui/spinner";
-import { TextareaCounter } from "@/components/ui/textarea-counter";
 import { rpc } from "@/lib/client/rpc";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import type { GlobalConfigRecord } from "@/lib/shared/global-config";
@@ -102,55 +102,40 @@ export function GlobalConfigForm({ initial }: Props) {
 
             <Field>
               <FieldLabel htmlFor="opening">开场白 prompt</FieldLabel>
-              <InputGroup>
-                <InputGroupTextarea
-                  className="pb-6"
-                  id="opening"
-                  disabled={pending}
-                  maxLength={PROMPT_MAX_LENGTH}
-                  onChange={(event) => setOpening(event.target.value)}
-                  placeholder='例如：用候选人的名字"{候选人姓名}"打招呼，介绍你是 XX 公司"{岗位}"的面试官…'
-                  rows={5}
-                  value={opening}
-                />
-                <TextareaCounter maxLength={PROMPT_MAX_LENGTH} value={opening} />
-              </InputGroup>
+              <MarkdownEditor
+                disabled={pending}
+                id="opening"
+                maxLength={PROMPT_MAX_LENGTH}
+                onChange={setOpening}
+                placeholder='例如：用候选人的名字"{候选人姓名}"打招呼，介绍你是 XX 公司"{岗位}"的面试官…'
+                value={opening}
+              />
               <PlaceholderDescription />
             </Field>
 
             <Field>
               <FieldLabel htmlFor="closing">结束语 prompt</FieldLabel>
-              <InputGroup>
-                <InputGroupTextarea
-                  className="pb-6"
-                  id="closing"
-                  disabled={pending}
-                  maxLength={PROMPT_MAX_LENGTH}
-                  onChange={(event) => setClosing(event.target.value)}
-                  placeholder="例如：感谢候选人参加本次面试，祝你一切顺利。"
-                  rows={4}
-                  value={closing}
-                />
-                <TextareaCounter maxLength={PROMPT_MAX_LENGTH} value={closing} />
-              </InputGroup>
+              <MarkdownEditor
+                disabled={pending}
+                id="closing"
+                maxLength={PROMPT_MAX_LENGTH}
+                onChange={setClosing}
+                placeholder="例如：感谢候选人参加本次面试，祝你一切顺利。"
+                value={closing}
+              />
               <PlaceholderDescription />
             </Field>
 
             <Field>
               <FieldLabel htmlFor="company">公司资料</FieldLabel>
-              <InputGroup>
-                <InputGroupTextarea
-                  className="pb-6"
-                  id="company"
-                  disabled={pending}
-                  maxLength={COMPANY_CONTEXT_MAX_LENGTH}
-                  onChange={(event) => setCompany(event.target.value)}
-                  placeholder="公司业务、规模、文化等，候选人若问及可由此回答。"
-                  rows={8}
-                  value={company}
-                />
-                <TextareaCounter maxLength={COMPANY_CONTEXT_MAX_LENGTH} value={company} />
-              </InputGroup>
+              <MarkdownEditor
+                disabled={pending}
+                id="company"
+                maxLength={COMPANY_CONTEXT_MAX_LENGTH}
+                onChange={setCompany}
+                placeholder="公司业务、规模、文化等，候选人若问及可由此回答。"
+                value={company}
+              />
               <FieldDescription>
                 候选人主动问到公司相关信息时，agent 会优先参考这里。
               </FieldDescription>

@@ -28,6 +28,7 @@ import { Input } from "@/components/ui/input";
 import { SearchableMultiSelect } from "@/components/ui/searchable-multi-select";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { MarkdownEditor } from "@/components/markdown-editor";
 import { Textarea } from "@/components/ui/textarea";
 import { TextareaCounter } from "@/components/ui/textarea-counter";
 import { hasFieldErrors, toFieldErrors } from "../../interviews/_components/interview-form";
@@ -357,23 +358,15 @@ export function JobDescriptionFormDialog({
                           岗位 Prompt <span className="text-destructive">*</span>
                         </FieldLabel>
                         <FieldContent className="gap-2">
-                          <div className="relative">
-                            <Textarea
-                              aria-invalid={!!errors?.length}
-                              className="min-h-24 max-h-60 resize-none pb-6 font-mono text-sm"
-                              id={field.name}
-                              maxLength={PROMPT_MAX_LENGTH}
-                              onBlur={field.handleBlur}
-                              onChange={(event) => field.handleChange(event.target.value)}
-                              placeholder="岗位关键职责、技术栈要求、期望的考察维度……"
-                              rows={4}
-                              value={field.state.value}
-                            />
-                            <TextareaCounter
-                              maxLength={PROMPT_MAX_LENGTH}
-                              value={field.state.value}
-                            />
-                          </div>
+                          <MarkdownEditor
+                            aria-invalid={!!errors?.length}
+                            id={field.name}
+                            maxLength={PROMPT_MAX_LENGTH}
+                            onBlur={field.handleBlur}
+                            onChange={field.handleChange}
+                            placeholder="岗位关键职责、技术栈要求、期望的考察维度……"
+                            value={field.state.value}
+                          />
                           <FieldError errors={errors} />
                         </FieldContent>
                       </Field>
