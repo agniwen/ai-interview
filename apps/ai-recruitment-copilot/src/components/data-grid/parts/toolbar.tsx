@@ -102,9 +102,12 @@ export function Toolbar(props: ToolbarProps) {
   }
 
   return (
-    <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+    <div className="flex flex-wrap items-start gap-3" data-slot="data-grid-toolbar">
       {hasFilters || hasFiltersExtra ? (
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+        <div
+          className="flex min-w-0 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center"
+          data-slot="data-grid-toolbar-filters"
+        >
           {filters?.map((filter) => {
             const value = filterValues?.[filter.key] ?? "";
             if (filter.type === "search") {
@@ -162,7 +165,10 @@ export function Toolbar(props: ToolbarProps) {
         </div>
       ) : null}
 
-      <div className="flex flex-wrap items-center gap-2">
+      <div
+        className="flex min-w-fit shrink-0 flex-wrap items-center gap-2 sm:flex-nowrap"
+        data-slot="data-grid-toolbar-actions"
+      >
         {onRefresh ? (
           <Button
             className="shrink-0"

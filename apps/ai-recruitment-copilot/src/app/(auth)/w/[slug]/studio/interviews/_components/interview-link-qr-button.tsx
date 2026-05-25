@@ -24,10 +24,12 @@ function buildGreeting(candidateName?: string | null) {
 export function InterviewLinkQrButton({
   url,
   candidateName,
+  className,
   disabled,
 }: {
   url: string;
   candidateName?: string | null;
+  className?: string;
   // 外部锁定（如候选人已推进到 AI 面试之后的阶段）。
   // External lock (e.g. candidate has moved past AI interview).
   disabled?: boolean;
@@ -80,7 +82,7 @@ export function InterviewLinkQrButton({
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button disabled={disabled} size="sm" type="button" variant="ghost">
+        <Button className={className} disabled={disabled} size="sm" type="button" variant="ghost">
           <QrCodeIcon className="size-3.5" />
           二维码
         </Button>

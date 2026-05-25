@@ -20,7 +20,7 @@ export default async function PlatformLayout({ children }: { children: ReactNode
       <PlatformSidebarSlots />
       <SidebarInset className="h-dvh overflow-hidden md:h-[calc(100dvh-1rem)] border border-border/60">
         <PlatformHeader />
-        <div className="@container/main flex min-h-0 flex-1 flex-col overflow-y-auto bg-sidebar dark:bg-background">
+        <div className="@container/main flex min-h-0 flex-1 flex-col overflow-y-auto bg-sidebar">
           <div className="flex flex-col gap-4 px-4 py-4 md:gap-6 md:px-6 md:py-6">{children}</div>
         </div>
       </SidebarInset>

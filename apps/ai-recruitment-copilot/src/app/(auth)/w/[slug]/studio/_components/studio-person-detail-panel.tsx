@@ -1180,59 +1180,62 @@ export function StudioPersonDetailPanel({
                       key={entry.id}
                     >
                       <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
                           <span className="wrap-break-word font-medium text-sm">
                             {entry.roundLabel}
                           </span>
                           <Badge variant={statusMeta.tone}>{statusMeta.label}</Badge>
                           {entry.hasReport ? <Badge variant="outline">已有报告</Badge> : null}
                         </div>
-                        <div className="flex items-center gap-2">
-                          {entry.scheduledAt ? (
-                            <TimeDisplay
-                              className="shrink-0 text-muted-foreground text-xs"
-                              options={DATE_TIME_DISPLAY_OPTIONS}
-                              value={entry.scheduledAt}
-                            />
-                          ) : (
-                            <span className="text-muted-foreground text-xs">未排期</span>
-                          )}
-                          {/* 中文：仅在调用方提供回调时显示「查看详情」；不提供时避免渲染无用按钮。
-                              English: Only render 查看详情 when the caller supplies a callback; skip it otherwise. */}
-                          {onViewRoundDetail ? (
-                            <Button
-                              onClick={() => onViewRoundDetail(entry.id)}
-                              size="sm"
-                              type="button"
-                              variant="ghost"
-                            >
-                              <EyeIcon className="size-3.5" />
-                              查看详情
-                            </Button>
-                          ) : null}
-                          <Button
-                            disabled={isAiStageLocked}
-                            onClick={() => void handleCopy(fullLink)}
-                            size="sm"
-                            title={aiStageLockedReason ?? undefined}
-                            type="button"
-                            variant="ghost"
-                          >
-                            <Share2Icon className="size-3.5" />
-                            复制链接
-                          </Button>
-                          <InterviewLinkQrButton
-                            candidateName={record.candidateName}
-                            disabled={isAiStageLocked}
-                            url={fullLink}
+                        {entry.scheduledAt ? (
+                          <TimeDisplay
+                            className="shrink-0 text-muted-foreground text-xs"
+                            options={DATE_TIME_DISPLAY_OPTIONS}
+                            value={entry.scheduledAt}
                           />
-                        </div>
+                        ) : (
+                          <span className="text-muted-foreground text-xs">未排期</span>
+                        )}
                       </div>
                       <div className="mt-3 rounded-lg border border-border/50 bg-background/80 px-3 py-2">
                         <p className="text-muted-foreground text-xs">完整面试链接</p>
                         <p className="mt-1 break-all font-mono text-xs leading-normal">
                           {fullLink}
                         </p>
+                      </div>
+                      <div className="mt-3 flex flex-wrap items-center justify-end gap-2">
+                        {/* 中文：仅在调用方提供回调时显示「查看详情」；不提供时避免渲染无用按钮。
+                            English: Only render 查看详情 when the caller supplies a callback; skip it otherwise. */}
+                        {onViewRoundDetail ? (
+                          <Button
+                            className="flex-1 sm:flex-none"
+                            onClick={() => onViewRoundDetail(entry.id)}
+                            size="sm"
+                            type="button"
+                            variant="ghost"
+                          >
+                            <EyeIcon className="size-3.5" />
+                            查看详情
+                          </Button>
+                        ) : null}
+                        <InterviewLinkQrButton
+                          candidateName={record.candidateName}
+                          className="flex-1 sm:flex-none"
+                          disabled={isAiStageLocked}
+                          url={fullLink}
+                        />
+                        <Button
+                          className="flex-1 sm:flex-none"
+                          disabled={isAiStageLocked}
+                          onClick={() => void handleCopy(fullLink)}
+                          size="sm"
+                          title={aiStageLockedReason ?? undefined}
+                          type="button"
+                          variant="ghost"
+                        >
+                          <Share2Icon className="size-3.5" />
+                          复制链接
+                        </Button>
                       </div>
                     </div>
                   );
