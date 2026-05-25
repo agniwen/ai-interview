@@ -224,17 +224,22 @@ const stageProgressSql = sql<ResumeStageProgress>`(
   )
 )`;
 
-// 中文：「最近面试时间」= 跟简历详情面板里面试报告 accordion 头部展示的同一个
-// 时间字段（report.startedAt ?? report.createdAt），过滤条件也对齐：只看 status
-// 是 'completed' / 'done' 的 conversation（即 UI 上挂"已完成"徽章那批）。
-// 单个 correlated MAX 子查询，走 interview_conversation_record_idx 索引，每行
-// 只在该候选人对应的极小数据集里筛 status + 取 MAX，开销可忽略。
-// English: matches the timestamp shown next to the "已完成" badge in the
-// interview-report accordion (started_at, with created_at fallback). Filter
-// status to the completed set so unfinished sessions don't surface. Single
-// correlated MAX over the per-record index — minimal cost per row.
+// 中文：「最近面试时间」= 简历详情面板「面试报告 / 会话概览」里展示的开始时间
+// （report.startedAt ?? report.createdAt），且只看 status 是 'completed'/'done'
+// 的 conversation（UI 挂"已完成"徽章那批）。
+// 关键细节：用 raw `sql<Date>` 时 pg driver 把 `timestamp without time zone`
+// 按 **Node 进程本地时区** 解析（Drizzle 自带的 timestamp() column reader 会
+// 强制按 UTC 解释，但 raw SQL 绕过这层）。这里显式 AT TIME ZONE 'UTC' 把
+// naive timestamp 转成 timestamptz，pg driver 就能拿到正确的 UTC 时刻，前端
+// TimeDisplay 再统一锁到东八区，全链路时区一致。
+// English: when read through Drizzle's `timestamp()` column type, naive
+// timestamps are normalized as UTC; raw `sql<Date>` skips that, letting the
+// pg driver fall back to the Node process timezone (which is wrong on local
+// dev / certain hosts and produces an 8-hour drift). Wrap the MAX in
+// `AT TIME ZONE 'UTC'` to coerce to timestamptz before it leaves Postgres,
+// so the Date returned to Node is the right instant.
 const lastInterviewAtSql = sql<Date | null>`(
-  SELECT MAX(COALESCE(ic.started_at, ic.created_at))
+  SELECT MAX(COALESCE(ic.started_at, ic.created_at)) AT TIME ZONE 'UTC'
     FROM interview_conversation ic
     WHERE ic.interview_record_id = ${studioInterview.id}
       AND ic.status IN ('completed', 'done')
