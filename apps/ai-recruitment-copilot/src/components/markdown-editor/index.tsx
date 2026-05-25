@@ -84,8 +84,22 @@ export function MarkdownEditor({
           <>
             <EditorContent
               className={cn(
-                "prose-sm h-full min-h-[inherit] px-3 py-2 text-sm outline-none",
+                "h-full min-h-[inherit] px-3 py-2 text-sm outline-none",
                 "[&_.ProseMirror]:min-h-[inherit] [&_.ProseMirror]:outline-none",
+                // 中文：覆盖浏览器 UA 的标题大小，与 MarkdownView 预览侧保持一致。
+                // English: override browser UA heading sizes; keep parity with
+                // the preview-side MarkdownView typography.
+                "[&_.ProseMirror_p]:my-2 [&_.ProseMirror_p]:leading-relaxed",
+                "[&_.ProseMirror_h1]:mt-3 [&_.ProseMirror_h1]:mb-2 [&_.ProseMirror_h1]:font-semibold [&_.ProseMirror_h1]:text-lg",
+                "[&_.ProseMirror_h2]:mt-3 [&_.ProseMirror_h2]:mb-2 [&_.ProseMirror_h2]:font-semibold [&_.ProseMirror_h2]:text-base",
+                "[&_.ProseMirror_h3]:mt-2 [&_.ProseMirror_h3]:mb-1 [&_.ProseMirror_h3]:font-semibold [&_.ProseMirror_h3]:text-[15px]",
+                "[&_.ProseMirror_strong]:font-semibold",
+                "[&_.ProseMirror_em]:italic",
+                "[&_.ProseMirror_code]:rounded [&_.ProseMirror_code]:bg-muted [&_.ProseMirror_code]:px-1 [&_.ProseMirror_code]:py-0.5 [&_.ProseMirror_code]:font-mono [&_.ProseMirror_code]:text-[0.85em]",
+                "[&_.ProseMirror_ul]:my-2 [&_.ProseMirror_ul]:list-disc [&_.ProseMirror_ul]:pl-5",
+                "[&_.ProseMirror_ol]:my-2 [&_.ProseMirror_ol]:list-decimal [&_.ProseMirror_ol]:pl-5",
+                "[&_.ProseMirror_li]:my-0.5",
+                // Placeholder pseudo-element styling.
                 "[&_.ProseMirror_p.is-editor-empty:first-child::before]:pointer-events-none",
                 "[&_.ProseMirror_p.is-editor-empty:first-child::before]:float-left",
                 "[&_.ProseMirror_p.is-editor-empty:first-child::before]:h-0",
