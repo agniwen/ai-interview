@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { TextareaCounter } from "@/components/ui/textarea-counter";
+import { MarkdownEditor } from "@/components/markdown-editor";
 import { DEFAULT_MINIMAX_VOICE_ID, MINIMAX_VOICES } from "@arc/db-schema/minimax-voices";
 import { EntityFormDialog } from "@/app/(auth)/w/[slug]/studio/_components/entity-form-dialog";
 import { useEntityForm } from "@/app/(auth)/w/[slug]/studio/_components/entity-form";
@@ -244,20 +245,15 @@ export function InterviewerFormDialog({
                 Prompt <span className="text-destructive">*</span>
               </FieldLabel>
               <FieldContent className="gap-2">
-                <div className="relative">
-                  <Textarea
-                    aria-invalid={!!errors?.length}
-                    className="max-h-60 min-h-24 resize-none pb-6 font-mono text-sm"
-                    id={field.name}
-                    maxLength={PROMPT_MAX_LENGTH}
-                    onBlur={field.handleBlur}
-                    onChange={(event) => field.handleChange(event.target.value)}
-                    placeholder="你是一位资深的后端技术面试官……（描述面试官人设、风格、关注点）"
-                    rows={4}
-                    value={field.state.value}
-                  />
-                  <TextareaCounter maxLength={PROMPT_MAX_LENGTH} value={field.state.value} />
-                </div>
+                <MarkdownEditor
+                  aria-invalid={!!errors?.length}
+                  id={field.name}
+                  maxLength={PROMPT_MAX_LENGTH}
+                  onBlur={field.handleBlur}
+                  onChange={field.handleChange}
+                  placeholder="你是一位资深的后端技术面试官……（描述面试官人设、风格、关注点）"
+                  value={field.state.value}
+                />
                 <FieldError errors={errors} />
               </FieldContent>
             </Field>
