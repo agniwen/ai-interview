@@ -1,7 +1,8 @@
-// 中文：顶部工具栏。第一行始终展示 编辑/预览/Raw 模式切换；
-// 第二行仅在编辑模式渲染格式化按钮（预览与 Raw 不需要）。
-// English: top toolbar. Row 1 always shows the edit/preview/raw mode tabs;
-// row 2 (formatting buttons) renders only in edit mode.
+// 中文：顶部工具栏。第一行是 编辑/预览/Raw 的 segmented 切换（三等分占满宽度）；
+// 第二行仅在编辑模式渲染精简后的格式化按钮，针对 prompt 写作场景保留必需项。
+// English: top toolbar. Row 1 is the edit/preview/raw segmented switcher
+// (full-width, 3 equal cells). Row 2 (formatting) renders only in edit mode
+// and is trimmed to what's actually useful for prompt authoring.
 "use client";
 
 import type { Editor } from "@tiptap/react";
@@ -12,14 +13,9 @@ import {
   Heading2Icon,
   Heading3Icon,
   ItalicIcon,
-  LinkIcon,
   ListIcon,
   ListOrderedIcon,
-  MinusIcon,
-  QuoteIcon,
   RedoIcon,
-  SquareCodeIcon,
-  StrikethroughIcon,
   UndoIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -57,6 +53,7 @@ function Divider() {
 
 // 中文：模式标签映射。English: mode label map.
 const MODE_LABELS: Record<EditorMode, string> = { edit: "编辑", preview: "预览", raw: "Raw" };
+const MODES: readonly EditorMode[] = ["edit", "preview", "raw"];
 
 export function MarkdownEditorToolbar({ editor, mode, onModeChange, disabled }: Props) {
   // 中文：格式化按钮在没有 editor 或外部禁用时不可用；mode 已经由外层条件渲染保证。
@@ -65,23 +62,23 @@ export function MarkdownEditorToolbar({ editor, mode, onModeChange, disabled }: 
 
   return (
     <div className="flex flex-col border-b bg-muted/30">
-      <div className="flex justify-end px-2 py-1">
-        <div className="flex items-center gap-0 rounded-md border bg-background p-0.5">
-          {(["edit", "preview", "raw"] as const).map((m) => (
-            <button
-              aria-pressed={mode === m}
-              className={cn(
-                "rounded px-2 py-0.5 text-xs",
-                mode === m ? "bg-muted font-medium" : "text-muted-foreground hover:bg-muted/50",
-              )}
-              key={m}
-              onClick={() => onModeChange(m)}
-              type="button"
-            >
-              {MODE_LABELS[m]}
-            </button>
-          ))}
-        </div>
+      <div className="grid grid-cols-3">
+        {MODES.map((m) => (
+          <button
+            aria-pressed={mode === m}
+            className={cn(
+              "border-b-2 px-3 py-1.5 text-sm transition-colors",
+              mode === m
+                ? "border-primary bg-background font-medium text-foreground"
+                : "border-transparent text-muted-foreground hover:bg-muted/50",
+            )}
+            key={m}
+            onClick={() => onModeChange(m)}
+            type="button"
+          >
+            {MODE_LABELS[m]}
+          </button>
+        ))}
       </div>
 
       {mode === "edit" && (
@@ -116,14 +113,6 @@ export function MarkdownEditorToolbar({ editor, mode, onModeChange, disabled }: 
             onClick={() => editor?.chain().focus().toggleItalic().run()}
           >
             <ItalicIcon className="size-4" />
-          </IconBtn>
-          <IconBtn
-            active={editor?.isActive("strike")}
-            aria-label="删除线"
-            disabled={editDisabled}
-            onClick={() => editor?.chain().focus().toggleStrike().run()}
-          >
-            <StrikethroughIcon className="size-4" />
           </IconBtn>
           <IconBtn
             active={editor?.isActive("code")}
@@ -174,49 +163,6 @@ export function MarkdownEditorToolbar({ editor, mode, onModeChange, disabled }: 
             onClick={() => editor?.chain().focus().toggleOrderedList().run()}
           >
             <ListOrderedIcon className="size-4" />
-          </IconBtn>
-          <IconBtn
-            active={editor?.isActive("blockquote")}
-            aria-label="引用"
-            disabled={editDisabled}
-            onClick={() => editor?.chain().focus().toggleBlockquote().run()}
-          >
-            <QuoteIcon className="size-4" />
-          </IconBtn>
-          <IconBtn
-            active={editor?.isActive("codeBlock")}
-            aria-label="代码块"
-            disabled={editDisabled}
-            onClick={() => editor?.chain().focus().toggleCodeBlock().run()}
-          >
-            <SquareCodeIcon className="size-4" />
-          </IconBtn>
-          <IconBtn
-            active={editor?.isActive("link")}
-            aria-label="链接"
-            disabled={editDisabled}
-            onClick={() => {
-              const previous = editor?.getAttributes("link").href as string | undefined;
-              // eslint-disable-next-line no-alert
-              const url = window.prompt("链接地址", previous ?? "https://");
-              if (url === null) {
-                return;
-              }
-              if (url === "") {
-                editor?.chain().focus().unsetLink().run();
-                return;
-              }
-              editor?.chain().focus().setLink({ href: url }).run();
-            }}
-          >
-            <LinkIcon className="size-4" />
-          </IconBtn>
-          <IconBtn
-            aria-label="分隔线"
-            disabled={editDisabled}
-            onClick={() => editor?.chain().focus().setHorizontalRule().run()}
-          >
-            <MinusIcon className="size-4" />
           </IconBtn>
         </div>
       )}

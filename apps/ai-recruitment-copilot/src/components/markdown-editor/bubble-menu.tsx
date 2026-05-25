@@ -1,10 +1,11 @@
-// 中文：选中文本时浮现的快捷格式工具栏。
-// English: floating formatting menu that appears when text is selected.
+// 中文：选中文本时浮现的快捷格式工具栏，prompt 场景仅保留粗体/斜体/行内代码。
+// English: floating formatting menu on selection — kept minimal (bold / italic
+// / inline code) for the prompt-authoring use case.
 "use client";
 
-import { BubbleMenu } from "@tiptap/react/menus";
 import type { Editor } from "@tiptap/react";
-import { BoldIcon, CodeIcon, ItalicIcon, LinkIcon, StrikethroughIcon } from "lucide-react";
+import { BubbleMenu } from "@tiptap/react/menus";
+import { BoldIcon, CodeIcon, ItalicIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/shared/utils";
 
@@ -51,37 +52,11 @@ export function MarkdownEditorBubbleMenu({ editor }: { editor: Editor | null }) 
         <ItalicIcon className="size-4" />
       </BubbleBtn>
       <BubbleBtn
-        active={editor.isActive("strike")}
-        aria-label="删除线"
-        onClick={() => editor.chain().focus().toggleStrike().run()}
-      >
-        <StrikethroughIcon className="size-4" />
-      </BubbleBtn>
-      <BubbleBtn
         active={editor.isActive("code")}
         aria-label="行内代码"
         onClick={() => editor.chain().focus().toggleCode().run()}
       >
         <CodeIcon className="size-4" />
-      </BubbleBtn>
-      <BubbleBtn
-        active={editor.isActive("link")}
-        aria-label="链接"
-        onClick={() => {
-          const previous = editor.getAttributes("link").href as string | undefined;
-          // eslint-disable-next-line no-alert
-          const url = window.prompt("链接地址", previous ?? "https://");
-          if (url === null) {
-            return;
-          }
-          if (url === "") {
-            editor.chain().focus().unsetLink().run();
-            return;
-          }
-          editor.chain().focus().setLink({ href: url }).run();
-        }}
-      >
-        <LinkIcon className="size-4" />
       </BubbleBtn>
     </BubbleMenu>
   );
