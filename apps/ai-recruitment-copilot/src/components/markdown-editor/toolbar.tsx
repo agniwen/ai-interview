@@ -36,7 +36,14 @@ function IconBtn({
 }: React.ComponentProps<typeof Button> & { active?: boolean }) {
   return (
     <Button
-      className={cn("size-7", active && "bg-muted")}
+      // 中文：active 用 primary/15 底色 + primary 文字，明显区别于 ghost button 的
+      // hover 态 (bg-accent)，让用户看清当前格式状态。
+      // English: active uses a primary tint + primary text so it stays distinct
+      // from the ghost button's hover (bg-accent).
+      className={cn(
+        "size-7",
+        active && "bg-primary/15 text-primary hover:bg-primary/20 hover:text-primary",
+      )}
       size="icon"
       type="button"
       variant="ghost"

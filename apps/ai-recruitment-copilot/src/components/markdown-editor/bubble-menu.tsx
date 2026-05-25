@@ -16,7 +16,10 @@ function BubbleBtn({
 }: React.ComponentProps<typeof Button> & { active?: boolean }) {
   return (
     <Button
-      className={cn("size-7", active && "bg-muted")}
+      className={cn(
+        "size-7",
+        active && "bg-primary/15 text-primary hover:bg-primary/20 hover:text-primary",
+      )}
       size="icon"
       type="button"
       variant="ghost"
