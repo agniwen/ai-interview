@@ -135,7 +135,7 @@ export function MarkdownEditor({
       {typeof maxLength === "number" && (
         <div
           className={cn(
-            "flex justify-end border-t px-3 py-1 text-xs",
+            "flex justify-end border-t px-3 py-1.5 text-xs",
             over ? "text-destructive" : "text-muted-foreground",
           )}
         >

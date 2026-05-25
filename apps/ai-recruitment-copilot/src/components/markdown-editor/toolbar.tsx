@@ -108,7 +108,7 @@ export function MarkdownEditorToolbar({ editor, mode, onModeChange, disabled }: 
       </div>
 
       {mode === "edit" && (
-        <div className="flex flex-wrap items-center gap-0.5 border-t px-2 py-1">
+        <div className="flex flex-wrap items-center gap-0.5 border-t px-3 py-1.5">
           <IconBtn
             aria-label="撤销"
             disabled={editDisabled}
