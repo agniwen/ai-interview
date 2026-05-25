@@ -224,29 +224,20 @@ const stageProgressSql = sql<ResumeStageProgress>`(
   )
 )`;
 
-// 中文：取候选人最近一次「面试报告生成时间」。语义上：报告生成 = 面试已结束且
-// 后续 summary/feedback 已就位。
-//   - AI 面试：interview_conversation 的 summary_status='ready' 表示报告已生成，
-//     用 ended_at 作为时间锚点（session 结束时刻，report 紧随其后产出）。
-//   - 真人面试：studio_human_interview_round 的 status='completed' 表示 feedback
-//     已填，用 completed_at 作为时间锚点。
-// 两个 MAX 子查询都走对应表的 `interview_record_id` 索引；外层 GREATEST 自动忽略
-// NULL（两边都没数据时整体为 NULL）。
-// English: latest interview-report generation time.
-//   - AI: from interview_conversation rows whose summary_status='ready', take
-//     ended_at (session-end, when the report is about to be finalized).
-//   - Human: from studio_human_interview_round rows whose status='completed',
-//     take completed_at (feedback recorded).
-// Both correlated MAX queries hit per-record indexes; GREATEST ignores NULLs.
-const lastInterviewAtSql = sql<Date | null>`GREATEST(
-  (SELECT MAX(ic.ended_at)
-     FROM interview_conversation ic
-     WHERE ic.interview_record_id = ${studioInterview.id}
-       AND ic.summary_status = 'ready'),
-  (SELECT MAX(shr.completed_at)
-     FROM studio_human_interview_round shr
-     WHERE shr.interview_record_id = ${studioInterview.id}
-       AND shr.status = 'completed')
+// 中文：「最近面试时间」= 跟简历详情面板里面试报告 accordion 头部展示的同一个
+// 时间字段（report.startedAt ?? report.createdAt），过滤条件也对齐：只看 status
+// 是 'completed' / 'done' 的 conversation（即 UI 上挂"已完成"徽章那批）。
+// 单个 correlated MAX 子查询，走 interview_conversation_record_idx 索引，每行
+// 只在该候选人对应的极小数据集里筛 status + 取 MAX，开销可忽略。
+// English: matches the timestamp shown next to the "已完成" badge in the
+// interview-report accordion (started_at, with created_at fallback). Filter
+// status to the completed set so unfinished sessions don't surface. Single
+// correlated MAX over the per-record index — minimal cost per row.
+const lastInterviewAtSql = sql<Date | null>`(
+  SELECT MAX(COALESCE(ic.started_at, ic.created_at))
+    FROM interview_conversation ic
+    WHERE ic.interview_record_id = ${studioInterview.id}
+      AND ic.status IN ('completed', 'done')
 )`;
 
 const SELECTED_COLUMNS = {
