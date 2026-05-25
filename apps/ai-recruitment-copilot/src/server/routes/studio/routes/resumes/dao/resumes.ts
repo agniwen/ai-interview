@@ -224,21 +224,29 @@ const stageProgressSql = sql<ResumeStageProgress>`(
   )
 )`;
 
-// 中文：取候选人最近一次面试时间 = MAX(scheduledAt) 跨 AI 轮次 + 真人轮次（排除已取消）。
-// 两个 correlated MAX 子查询都走 `*_record_idx` 索引，每行只触发两次极小的索引扫描；
-// 外层 GREATEST 自动忽略 NULL（两边都没数据时整体为 NULL）。
-// English: latest interview time = MAX(scheduledAt) across AI schedule rounds
-// and human rounds (excluding cancelled). Both correlated MAX subqueries hit
-// the per-record index, so each row costs two tiny index scans. PG's GREATEST
-// ignores NULL — if both sides have no rows, the whole expression is NULL.
+// 中文：取候选人最近一次「面试报告生成时间」。语义上：报告生成 = 面试已结束且
+// 后续 summary/feedback 已就位。
+//   - AI 面试：interview_conversation 的 summary_status='ready' 表示报告已生成，
+//     用 ended_at 作为时间锚点（session 结束时刻，report 紧随其后产出）。
+//   - 真人面试：studio_human_interview_round 的 status='completed' 表示 feedback
+//     已填，用 completed_at 作为时间锚点。
+// 两个 MAX 子查询都走对应表的 `interview_record_id` 索引；外层 GREATEST 自动忽略
+// NULL（两边都没数据时整体为 NULL）。
+// English: latest interview-report generation time.
+//   - AI: from interview_conversation rows whose summary_status='ready', take
+//     ended_at (session-end, when the report is about to be finalized).
+//   - Human: from studio_human_interview_round rows whose status='completed',
+//     take completed_at (feedback recorded).
+// Both correlated MAX queries hit per-record indexes; GREATEST ignores NULLs.
 const lastInterviewAtSql = sql<Date | null>`GREATEST(
-  (SELECT MAX(sis.scheduled_at)
-     FROM studio_interview_schedule sis
-     WHERE sis.interview_record_id = ${studioInterview.id}),
-  (SELECT MAX(shr.scheduled_at)
+  (SELECT MAX(ic.ended_at)
+     FROM interview_conversation ic
+     WHERE ic.interview_record_id = ${studioInterview.id}
+       AND ic.summary_status = 'ready'),
+  (SELECT MAX(shr.completed_at)
      FROM studio_human_interview_round shr
      WHERE shr.interview_record_id = ${studioInterview.id}
-       AND shr.status <> 'cancelled')
+       AND shr.status = 'completed')
 )`;
 
 const SELECTED_COLUMNS = {
