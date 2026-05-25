@@ -452,6 +452,7 @@ export function ResumeLibraryPage({
         title: "创建时间",
       }),
       dateColumn<ResumeLibraryListRecord>({
+        emptyText: "—",
         key: "lastInterviewAt",
         title: "最近面试时间",
       }),

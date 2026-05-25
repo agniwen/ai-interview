@@ -9,6 +9,8 @@ export interface DateColumnOptions<TData> {
   sortable?: boolean;
   /** dayjs format string; defaults to DATE_TIME_DISPLAY_OPTIONS (`YY/MM/DD HH:mm`). */
   options?: string;
+  /** Text rendered when the value is null / empty. Defaults to TimeDisplay's default ("待定"). */
+  emptyText?: string;
 }
 
 export function dateColumn<TData>(opts: DateColumnOptions<TData>): ColumnDef<TData> {
@@ -18,6 +20,7 @@ export function dateColumn<TData>(opts: DateColumnOptions<TData>): ColumnDef<TDa
     accessorKey: opts.key,
     cell: ({ row }) => (
       <TimeDisplay
+        emptyText={opts.emptyText}
         options={formatOptions}
         value={row.original[opts.key] as string | number | Date}
       />
