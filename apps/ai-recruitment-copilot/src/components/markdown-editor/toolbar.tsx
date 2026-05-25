@@ -5,6 +5,7 @@
 // and is trimmed to what's actually useful for prompt authoring.
 "use client";
 
+import { useEditorState } from "@tiptap/react";
 import type { Editor } from "@tiptap/react";
 import {
   BoldIcon,
@@ -67,6 +68,24 @@ export function MarkdownEditorToolbar({ editor, mode, onModeChange, disabled }: 
   // English: formatting buttons disabled when editor unmounted or externally disabled.
   const editDisabled = !editor || disabled;
 
+  // 中文：Tiptap v3 默认不会随每次 transaction 重渲染，所以 editor.isActive(...)
+  // 拿到的是初始状态。用 useEditorState 选出我们需要的 active 标志，按需重渲染。
+  // English: Tiptap v3 doesn't auto-rerender on every transaction. Use
+  // useEditorState to subscribe to the specific active flags we care about.
+  const activeState = useEditorState({
+    editor,
+    selector: ({ editor: e }) => ({
+      bold: e?.isActive("bold") ?? false,
+      bulletList: e?.isActive("bulletList") ?? false,
+      code: e?.isActive("code") ?? false,
+      h1: e?.isActive("heading", { level: 1 }) ?? false,
+      h2: e?.isActive("heading", { level: 2 }) ?? false,
+      h3: e?.isActive("heading", { level: 3 }) ?? false,
+      italic: e?.isActive("italic") ?? false,
+      orderedList: e?.isActive("orderedList") ?? false,
+    }),
+  });
+
   return (
     <div className="flex flex-col border-b bg-muted/30">
       <div className="grid grid-cols-3">
@@ -106,7 +125,7 @@ export function MarkdownEditorToolbar({ editor, mode, onModeChange, disabled }: 
           </IconBtn>
           <Divider />
           <IconBtn
-            active={editor?.isActive("bold")}
+            active={activeState?.bold}
             aria-label="粗体"
             disabled={editDisabled}
             onClick={() => editor?.chain().focus().toggleBold().run()}
@@ -114,7 +133,7 @@ export function MarkdownEditorToolbar({ editor, mode, onModeChange, disabled }: 
             <BoldIcon className="size-4" />
           </IconBtn>
           <IconBtn
-            active={editor?.isActive("italic")}
+            active={activeState?.italic}
             aria-label="斜体"
             disabled={editDisabled}
             onClick={() => editor?.chain().focus().toggleItalic().run()}
@@ -122,7 +141,7 @@ export function MarkdownEditorToolbar({ editor, mode, onModeChange, disabled }: 
             <ItalicIcon className="size-4" />
           </IconBtn>
           <IconBtn
-            active={editor?.isActive("code")}
+            active={activeState?.code}
             aria-label="行内代码"
             disabled={editDisabled}
             onClick={() => editor?.chain().focus().toggleCode().run()}
@@ -131,7 +150,7 @@ export function MarkdownEditorToolbar({ editor, mode, onModeChange, disabled }: 
           </IconBtn>
           <Divider />
           <IconBtn
-            active={editor?.isActive("heading", { level: 1 })}
+            active={activeState?.h1}
             aria-label="H1"
             disabled={editDisabled}
             onClick={() => editor?.chain().focus().toggleHeading({ level: 1 }).run()}
@@ -139,7 +158,7 @@ export function MarkdownEditorToolbar({ editor, mode, onModeChange, disabled }: 
             <Heading1Icon className="size-4" />
           </IconBtn>
           <IconBtn
-            active={editor?.isActive("heading", { level: 2 })}
+            active={activeState?.h2}
             aria-label="H2"
             disabled={editDisabled}
             onClick={() => editor?.chain().focus().toggleHeading({ level: 2 }).run()}
@@ -147,7 +166,7 @@ export function MarkdownEditorToolbar({ editor, mode, onModeChange, disabled }: 
             <Heading2Icon className="size-4" />
           </IconBtn>
           <IconBtn
-            active={editor?.isActive("heading", { level: 3 })}
+            active={activeState?.h3}
             aria-label="H3"
             disabled={editDisabled}
             onClick={() => editor?.chain().focus().toggleHeading({ level: 3 }).run()}
@@ -156,7 +175,7 @@ export function MarkdownEditorToolbar({ editor, mode, onModeChange, disabled }: 
           </IconBtn>
           <Divider />
           <IconBtn
-            active={editor?.isActive("bulletList")}
+            active={activeState?.bulletList}
             aria-label="无序列表"
             disabled={editDisabled}
             onClick={() => editor?.chain().focus().toggleBulletList().run()}
@@ -164,7 +183,7 @@ export function MarkdownEditorToolbar({ editor, mode, onModeChange, disabled }: 
             <ListIcon className="size-4" />
           </IconBtn>
           <IconBtn
-            active={editor?.isActive("orderedList")}
+            active={activeState?.orderedList}
             aria-label="有序列表"
             disabled={editDisabled}
             onClick={() => editor?.chain().focus().toggleOrderedList().run()}
