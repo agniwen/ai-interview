@@ -96,8 +96,13 @@ export function MarkdownEditor({
                 "[&_.ProseMirror_strong]:font-semibold",
                 "[&_.ProseMirror_em]:italic",
                 "[&_.ProseMirror_code]:rounded [&_.ProseMirror_code]:bg-muted [&_.ProseMirror_code]:px-1 [&_.ProseMirror_code]:py-0.5 [&_.ProseMirror_code]:font-mono [&_.ProseMirror_code]:text-[0.85em]",
-                "[&_.ProseMirror_ul]:my-2 [&_.ProseMirror_ul]:list-disc [&_.ProseMirror_ul]:pl-5",
-                "[&_.ProseMirror_ol]:my-2 [&_.ProseMirror_ol]:list-decimal [&_.ProseMirror_ol]:pl-5",
+                // 中文：编辑模式下我们用 markdown-markers 自己渲染 "- " / "1. "，
+                // 关掉浏览器自带的 bullet/number 避免双重显示；保留 pl-5 缩进。
+                // English: in edit mode we render "- " / "1. " ourselves via
+                // markdown-markers, so suppress the UA bullet/number to avoid
+                // double markers; keep pl-5 for the indent.
+                "[&_.ProseMirror_ul]:my-2 [&_.ProseMirror_ul]:list-none [&_.ProseMirror_ul]:pl-5",
+                "[&_.ProseMirror_ol]:my-2 [&_.ProseMirror_ol]:list-none [&_.ProseMirror_ol]:pl-5",
                 "[&_.ProseMirror_li]:my-0.5",
                 // Placeholder pseudo-element styling.
                 "[&_.ProseMirror_p.is-editor-empty:first-child::before]:pointer-events-none",
