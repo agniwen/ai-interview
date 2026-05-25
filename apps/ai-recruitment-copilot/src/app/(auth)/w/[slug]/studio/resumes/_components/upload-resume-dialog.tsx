@@ -223,6 +223,10 @@ export function CreateResumeRecordDialog({ onCreated }: CreateResumeRecordDialog
       </Button>
 
       <Modal
+        // 中文：给 Modal 一个固定高度，让 body 可滚动而 footer 始终贴在底边。
+        // English: pin Modal height so the body scrolls but the footer stays
+        // at the bottom edge regardless of how tall the form grows.
+        className="h-[85vh]"
         description="上传 PDF 自动解析候选人信息、匹配岗位并生成面试题；可仅入库，或一键发起 AI 面试。"
         dismissible={!isBusy}
         onOpenChange={(next) => {
