@@ -354,9 +354,10 @@ def _accumulate_metrics(metrics_state: dict[str, Any], m: Any) -> None:
     bucket. speech_id 把 LLM/TTS/EOU 串成单轮记录, 没有 speech_id 的事件
     (例如 VAD / Interruption) 只更新 session 桶.
 
-    NOTE: 用 isinstance 链而不是 Python 3.10+ `match` 是因为项目的 ruff 配置
-    锁在 ``target-version = "py39"``, 启用 match 会触发 invalid-syntax 警告.
-    Why isinstance rather than ``match``: ruff is pinned at py39 in pyproject.
+    NOTE: 用 isinstance 链而非 `match`: 历史原因, 不阻碍后续迁移. ruff target
+    已升到 py310, 改用 match 不会触发 lint 错误, 但与现行格式一致优先.
+    Historical isinstance chain; ruff target is py310 now so `match` is valid,
+    but kept for consistency with current style.
     """
     sess = metrics_state["session"]
     turns: dict[str, dict[str, Any]] = metrics_state["turns"]
@@ -639,7 +640,7 @@ async def my_agent(ctx: JobContext) -> None:
             event.reason.value if event.reason else "unknown",
             len(state.turns),
         )
-        for t in (timeout_task, final_wrap_task, grace_task):
+        for t in (timeout_task, final_wrap_task, grace_task, resume_task):
             if t is not None and not t.done():
                 t.cancel()
         if recording_info:

@@ -62,8 +62,15 @@ async def send_report(
 
     # Short timeout — the backend is supposed to return as soon as the
     # transcript is saved; the LLM summary runs in the background.
+    # 退避 1s / 2s: 总共 3 次尝试, 失败后不再 sleep 直接落到末尾错误日志.
+    # 之前固定 1s 间隔两次重试会撞在同一后端压力窗口里.
+    # Exponential backoff (1s, 2s): 3 total attempts, no trailing sleep after
+    # the last failure. The previous fixed-1s strategy landed both retries
+    # inside the same backend pressure window during transient overload.
+    backoff_seconds = (1, 2)
+    total_attempts = len(backoff_seconds) + 1
     async with httpx.AsyncClient(timeout=15) as client:
-        for attempt in range(2):
+        for attempt in range(total_attempts):
             try:
                 resp = await client.post(url, json=payload, headers=headers)
                 if resp.status_code < 300:
@@ -73,8 +80,8 @@ async def send_report(
             except Exception:
                 logger.exception("failed to send report (attempt %d)", attempt + 1)
 
-            if attempt == 0:
-                await asyncio.sleep(1)
+            if attempt < len(backoff_seconds):
+                await asyncio.sleep(backoff_seconds[attempt])
 
     logger.error(
         "report send failed after retries, payload: %s",

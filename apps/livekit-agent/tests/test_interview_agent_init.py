@@ -2,8 +2,8 @@ from interview_agent import (
     DEFAULT_CLOSING_INSTRUCTIONS,
     DEFAULT_OPENING_INSTRUCTIONS,
     InterviewAgent,
-    _apply_placeholders,
 )
+from prompts import apply_placeholders
 
 
 def _ctx(**overrides):
@@ -30,7 +30,7 @@ def test_uses_custom_opening_when_provided():
 
 def test_falls_back_to_default_opening_when_empty():
     a = InterviewAgent(_ctx(global_opening_instructions=""))
-    expected = _apply_placeholders(DEFAULT_OPENING_INSTRUCTIONS, "张三", "后端工程师")
+    expected = apply_placeholders(DEFAULT_OPENING_INSTRUCTIONS, "张三", "后端工程师")
     assert a._opening_instructions == expected
 
 
