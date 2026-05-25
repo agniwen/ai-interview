@@ -5,6 +5,7 @@ import type { Extensions } from "@tiptap/core";
 import { Placeholder } from "@tiptap/extension-placeholder";
 import { StarterKit } from "@tiptap/starter-kit";
 import { Markdown } from "tiptap-markdown";
+import { MarkdownMarkers } from "./markdown-markers";
 
 // 中文：覆盖 Enter 键，沿用列表 / 代码块的原有处理顺序，最后用
 // `splitBlock({ keepMarks: false })` 让新段落不再继承 bold/italic/code 等
@@ -32,6 +33,7 @@ const EnterClearStoredMarks = Extension.create({
 export function createMarkdownExtensions(opts?: { placeholder?: string }): Extensions {
   return [
     EnterClearStoredMarks,
+    MarkdownMarkers,
     StarterKit.configure({
       // 中文：Link 通过 StarterKit 配置，避免重复注册扩展。
       // English: Link is configured via StarterKit to avoid duplicate extension registration.
