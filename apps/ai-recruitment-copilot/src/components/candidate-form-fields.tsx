@@ -5,10 +5,9 @@ import type { ReactFormExtendedApi } from "@tanstack/react-form";
 import { FileUpIcon } from "lucide-react";
 import { useRef } from "react";
 import { JobDescriptionSelectField } from "@/app/(auth)/w/[slug]/studio/interviews/_components/job-description-select-field";
+import { MarkdownEditor } from "@/components/markdown-editor";
 import { Field, FieldContent, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { TextareaCounter } from "@/components/ui/textarea-counter";
 import type { ResumeLibraryFormValues } from "@/lib/shared/studio-resumes";
 
 /**
@@ -294,24 +293,17 @@ export function CandidateFormFields({
             <Field>
               <FieldLabel htmlFor={field.name}>简历评价</FieldLabel>
               <FieldContent className="gap-2">
-                <div className="relative">
-                  <Textarea
-                    // 评价由 LLM 自动生成 + 用户可编辑，可能超长；限制高度 6-7 行，
-                    // 多出来的内容内部滚动，避免把整个弹窗撑得过高。
-                    // The auto-generated review can be long; cap height at ~7
-                    // rows and let it scroll internally instead of stretching the modal.
-                    className="max-h-44 min-h-24 overflow-y-auto pb-6"
-                    disabled={disabled}
-                    id={field.name}
-                    maxLength={NOTES_MAX_LENGTH}
-                    onBlur={field.handleBlur}
-                    onChange={(e) => field.handleChange(e.target.value)}
-                    placeholder="对候选人简历的评价、来源、业务线、关注点等"
-                    rows={4}
-                    value={field.state.value}
-                  />
-                  <TextareaCounter maxLength={NOTES_MAX_LENGTH} value={field.state.value} />
-                </div>
+                <MarkdownEditor
+                  aria-invalid={!!errors?.length}
+                  disabled={disabled}
+                  id={field.name}
+                  maxLength={NOTES_MAX_LENGTH}
+                  minHeight={180}
+                  onBlur={field.handleBlur}
+                  onChange={field.handleChange}
+                  placeholder="对候选人简历的评价、来源、业务线、关注点等"
+                  value={field.state.value}
+                />
                 <FieldError errors={errors} />
               </FieldContent>
             </Field>

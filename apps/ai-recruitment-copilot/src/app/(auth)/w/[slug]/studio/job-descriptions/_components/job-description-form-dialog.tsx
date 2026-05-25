@@ -197,7 +197,7 @@ export function JobDescriptionFormDialog({
         onOpenChange={onOpenChange}
         title={isEdit ? "编辑在招岗位" : "新建在招岗位"}
         description="为在招岗位指定部门和面试官，prompt 在面试时会传给语音 agent。"
-        size="lg"
+        size="xl"
         headerExtra={
           <TabsList className="mt-2">
             <TabsTrigger value="basic">基本信息</TabsTrigger>

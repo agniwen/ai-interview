@@ -122,7 +122,7 @@ function ResumeEditBody({
   const isSubmitting = useStore(form.store, (s) => s.isSubmitting);
 
   return (
-    <Modal onOpenChange={onOpenChange} open={open} size="md" title="编辑简历">
+    <Modal onOpenChange={onOpenChange} open={open} size="xl" title="编辑简历">
       <form
         className="space-y-5"
         onSubmit={(e) => {

@@ -238,7 +238,7 @@ export function CreateResumeRecordDialog({ onCreated }: CreateResumeRecordDialog
         }}
         open={open}
         showCloseButton={!isBusy}
-        size="md"
+        size="xl"
         title="新建简历记录"
         footer={
           <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">

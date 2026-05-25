@@ -105,7 +105,7 @@ export function InterviewerFormDialog({
       onOpenChange={onOpenChange}
       onSubmit={() => void form.handleSubmit()}
       open={open}
-      size="lg"
+      size="xl"
       submitDisabled={noDepartments}
       title={isEdit ? "编辑面试官" : "新建面试官"}
     >
