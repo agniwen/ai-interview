@@ -122,9 +122,31 @@ function ResumeEditBody({
   const isSubmitting = useStore(form.store, (s) => s.isSubmitting);
 
   return (
-    <Modal onOpenChange={onOpenChange} open={open} size="xl" title="编辑简历">
+    <Modal
+      footer={
+        <>
+          <Button
+            disabled={isSubmitting}
+            onClick={() => onOpenChange(false)}
+            type="button"
+            variant="outline"
+          >
+            取消
+          </Button>
+          <Button disabled={isSubmitting} form="resume-edit-form" type="submit">
+            {isSubmitting ? <LoaderCircleIcon className="size-4 animate-spin" /> : null}
+            保存
+          </Button>
+        </>
+      }
+      onOpenChange={onOpenChange}
+      open={open}
+      size="xl"
+      title="编辑简历"
+    >
       <form
         className="space-y-5"
+        id="resume-edit-form"
         onSubmit={(e) => {
           e.preventDefault();
           void form.handleSubmit();
@@ -138,21 +160,6 @@ function ResumeEditBody({
           resumeFile={resumeFile}
           resumeFilePlaceholder="未上传 PDF，点击选择文件"
         />
-
-        <div className="flex justify-end gap-2 pt-2">
-          <Button
-            disabled={isSubmitting}
-            onClick={() => onOpenChange(false)}
-            type="button"
-            variant="outline"
-          >
-            取消
-          </Button>
-          <Button disabled={isSubmitting} type="submit">
-            {isSubmitting ? <LoaderCircleIcon className="size-4 animate-spin" /> : null}
-            保存
-          </Button>
-        </div>
       </form>
     </Modal>
   );
