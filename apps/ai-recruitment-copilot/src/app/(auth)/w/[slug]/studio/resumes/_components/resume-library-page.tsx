@@ -38,7 +38,6 @@ import {
   DataGrid,
   dateColumn,
   selectColumn,
-  textColumn,
   useDataGridState,
 } from "@/components/data-grid";
 import {
@@ -370,11 +369,6 @@ export function ResumeLibraryPage({
         size: 200,
         title: "候选人",
       }),
-      textColumn<ResumeLibraryListRecord>({
-        cell: (r) => r.targetRole || "—",
-        key: "targetRole",
-        title: "目标岗位",
-      }),
       customColumn<ResumeLibraryListRecord>({
         cell: (r) =>
           r.jobDescriptionName ? (
@@ -452,15 +446,14 @@ export function ResumeLibraryPage({
         key: "creatorName",
         title: "创建人",
       }),
-      textColumn<ResumeLibraryListRecord>({
-        cell: (r) => r.creatorOrganizationName ?? "—",
-        key: "creatorOrganizationName",
-        title: "创建人组织",
-      }),
       dateColumn<ResumeLibraryListRecord>({
         key: "createdAt",
         sortable: true,
         title: "创建时间",
+      }),
+      dateColumn<ResumeLibraryListRecord>({
+        key: "lastInterviewAt",
+        title: "最近面试时间",
       }),
       actionsColumn<ResumeLibraryListRecord>({
         inline: [

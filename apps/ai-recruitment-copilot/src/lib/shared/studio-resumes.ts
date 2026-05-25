@@ -134,6 +134,9 @@ export interface ResumeLibraryListRecord {
   closedMeta: ClosedMeta | null;
   createdAt: string;
   updatedAt: string;
+  // 最近一次面试时间（AI 轮次或真人轮次的 max scheduledAt），无任何轮次则为 null。
+  // Latest interview scheduledAt across AI + human rounds, or null when none exist.
+  lastInterviewAt: string | null;
   createdBy: string | null;
   creatorName: string | null;
   creatorImage: string | null;

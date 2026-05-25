@@ -224,6 +224,23 @@ const stageProgressSql = sql<ResumeStageProgress>`(
   )
 )`;
 
+// 中文：取候选人最近一次面试时间 = MAX(scheduledAt) 跨 AI 轮次 + 真人轮次（排除已取消）。
+// 两个 correlated MAX 子查询都走 `*_record_idx` 索引，每行只触发两次极小的索引扫描；
+// 外层 GREATEST 自动忽略 NULL（两边都没数据时整体为 NULL）。
+// English: latest interview time = MAX(scheduledAt) across AI schedule rounds
+// and human rounds (excluding cancelled). Both correlated MAX subqueries hit
+// the per-record index, so each row costs two tiny index scans. PG's GREATEST
+// ignores NULL — if both sides have no rows, the whole expression is NULL.
+const lastInterviewAtSql = sql<Date | null>`GREATEST(
+  (SELECT MAX(sis.scheduled_at)
+     FROM studio_interview_schedule sis
+     WHERE sis.interview_record_id = ${studioInterview.id}),
+  (SELECT MAX(shr.scheduled_at)
+     FROM studio_human_interview_round shr
+     WHERE shr.interview_record_id = ${studioInterview.id}
+       AND shr.status <> 'cancelled')
+)`;
+
 const SELECTED_COLUMNS = {
   candidateEmail: studioInterview.candidateEmail,
   candidateExpectationsMeta: studioInterview.candidateExpectationsMeta,
@@ -243,6 +260,7 @@ const SELECTED_COLUMNS = {
   id: studioInterview.id,
   jobDescriptionId: studioInterview.jobDescriptionId,
   jobDescriptionName: jobDescription.name,
+  lastInterviewAt: lastInterviewAtSql,
   notes: studioInterview.notes,
   offerAcceptedAt: studioInterview.offerAcceptedAt,
   offerSentAt: studioInterview.offerSentAt,
@@ -314,6 +332,7 @@ function toRecord(row: Row): ResumeLibraryListRecord {
     id: row.id,
     jobDescriptionId: row.jobDescriptionId,
     jobDescriptionName: row.jobDescriptionName,
+    lastInterviewAt: serializeDate(row.lastInterviewAt),
     notes: row.notes,
     offerAcceptedAt: serializeDate(row.offerAcceptedAt),
     offerSentAt: serializeDate(row.offerSentAt),
