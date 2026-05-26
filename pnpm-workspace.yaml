@@ -1,6 +1,23 @@
 packages:
   - "apps/*"
   - "packages/*"
+
+catalog:
+  "@vitest/coverage-v8": ^2.1.9
+  "@types/react": ^19.2.14
+  "@types/react-dom": ^19.2.3
+  ai: ^6.0.177
+  chat: ^4.28.1
+  drizzle-kit: 1.0.0-rc.1
+  drizzle-orm: 1.0.0-rc.1
+  next: 16.1.6
+  react: 19.2.3
+  react-dom: 19.2.3
+  typescript: ^5.9.3
+  vite: 5.4.21
+  vitest: ^2.1.9
+  zod: ^4.4.3
+
 allowBuilds:
   canvas: set this to true or false
   cbor-extract: true

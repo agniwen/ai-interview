@@ -15,11 +15,11 @@
   "dependencies": {
     "@chat-adapter/shared": "^4.28.1",
     "@larksuiteoapi/node-sdk": "^1.59.0",
-    "chat": "^4.28.1"
+    "chat": "catalog:"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",
-    "typescript": "^5.9.3",
-    "vitest": "^2.1.8"
+    "typescript": "catalog:",
+    "vitest": "catalog:"
   }
 }
