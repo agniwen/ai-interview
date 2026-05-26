@@ -77,7 +77,12 @@ export async function loadCandidateInterviewRecord(id: string, roundId: string) 
         prompt: jobDescription.prompt,
       })
       .from(jobDescription)
-      .where(eq(jobDescription.id, record.jobDescriptionId))
+      .where(
+        and(
+          eq(jobDescription.id, record.jobDescriptionId),
+          eq(jobDescription.organizationId, record.organizationId),
+        ),
+      )
       .limit(1);
     jobDescriptionPrompt = jdRow?.prompt ?? null;
     jobDescriptionName = jdRow?.name ?? null;
@@ -90,7 +95,12 @@ export async function loadCandidateInterviewRecord(id: string, roundId: string) 
       })
       .from(jobDescriptionInterviewer)
       .innerJoin(interviewer, eq(jobDescriptionInterviewer.interviewerId, interviewer.id))
-      .where(eq(jobDescriptionInterviewer.jobDescriptionId, record.jobDescriptionId));
+      .where(
+        and(
+          eq(jobDescriptionInterviewer.jobDescriptionId, record.jobDescriptionId),
+          eq(interviewer.organizationId, record.organizationId),
+        ),
+      );
 
     interviewers.push(...interviewerRows);
   }
@@ -155,13 +165,45 @@ export function normalizeResumeFile(value: FormDataEntryValue | null) {
   return value instanceof File && value.size > 0 ? value : null;
 }
 
+async function copyCachedAttachmentForRequester({
+  contentHash,
+  existing,
+  file,
+  organizationId,
+  userId,
+}: {
+  contentHash: string;
+  existing: NonNullable<Awaited<ReturnType<typeof findAttachmentByContentHash>>>;
+  file: File;
+  organizationId: string;
+  userId: string;
+}) {
+  await createAttachment({
+    contentHash,
+    filename: file.name.slice(0, 255) || existing.filename || "resume.pdf",
+    id: crypto.randomUUID(),
+    mediaType: file.type || existing.mediaType || "application/pdf",
+    organizationId,
+    parsedAt: existing.parsedAt,
+    parsedError: existing.parsedError,
+    parsedPageCount: existing.parsedPageCount,
+    parsedStatus: existing.parsedStatus,
+    parsedStructured: existing.parsedStructured,
+    parsedText: existing.parsedText,
+    parsedTextSource: existing.parsedTextSource,
+    size: file.size,
+    storageKey: existing.storageKey,
+    userId,
+  });
+}
+
 /**
  * 把简历 PDF 写入"统一注册表"（chat_attachment 表）并返回 storageKey
  * + contentHash + 命中时的 cachedResumeProfile。
  *
  * 1. 算 hash → 查 chat_attachment 是否已存在（任意用户、任意路径写入）。
  * 2. 命中：复用 storageKey；从 superset parsedStructured 投影到 ResumeProfile
- *    供调用方判断是否能跳过 parseResumeFast。**不**额外写 chat_attachment 行。
+ *    供调用方判断是否能跳过 parseResumeFast，并补写当前操作者的 attachment 行。
  * 3. 未命中：并行跑 parseResumeFastToProfile + S3 PUT。两者都成功才写一行
  *    chat_attachment（userId = 当前操作者）；S3 失败致命，parse 失败时不
  *    写注册行（避免污染），返回 cachedResumeProfile=null 让调用方兜底。
@@ -204,6 +246,13 @@ export async function storeInterviewResume(
     if (existing?.parsedStructured) {
       const cached = projectAttachmentToResumeProfile(existing.parsedStructured);
       if (cached) {
+        await copyCachedAttachmentForRequester({
+          contentHash,
+          existing,
+          file,
+          organizationId,
+          userId,
+        });
         return {
           cachedResumeProfile: cached,
           contentHash,
@@ -217,6 +266,13 @@ export async function storeInterviewResume(
       try {
         const structured = await generateResumeStructured(existing.parsedText);
         await updateStructuredByHash(contentHash, structured);
+        await copyCachedAttachmentForRequester({
+          contentHash,
+          existing: { ...existing, parsedStructured: structured },
+          file,
+          organizationId,
+          userId,
+        });
         return {
           cachedResumeProfile: projectAttachmentToResumeProfile(structured),
           contentHash,
@@ -229,6 +285,13 @@ export async function storeInterviewResume(
         // failed — the OCR data remains valid for a retry. Return null so the
         // caller falls back to the standard analysis path.
         console.error("[studio-interview] structured-from-text failed:", error);
+        await copyCachedAttachmentForRequester({
+          contentHash,
+          existing,
+          file,
+          organizationId,
+          userId,
+        });
         return {
           cachedResumeProfile: null,
           contentHash,
@@ -404,7 +467,13 @@ export async function loadRecordById(id: string, organizationId?: string) {
       record: studioInterview,
     })
     .from(studioInterview)
-    .leftJoin(jobDescription, eq(studioInterview.jobDescriptionId, jobDescription.id))
+    .leftJoin(
+      jobDescription,
+      and(
+        eq(studioInterview.jobDescriptionId, jobDescription.id),
+        eq(jobDescription.organizationId, studioInterview.organizationId),
+      ),
+    )
     .where(where)
     .limit(1);
 

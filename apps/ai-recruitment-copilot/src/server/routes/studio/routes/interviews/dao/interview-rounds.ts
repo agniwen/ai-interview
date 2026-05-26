@@ -142,7 +142,13 @@ export async function queryPaginatedInterviewRounds(
       })
       .from(studioInterviewSchedule)
       .leftJoin(studioInterview, eq(studioInterviewSchedule.interviewRecordId, studioInterview.id))
-      .leftJoin(jobDescription, eq(studioInterview.jobDescriptionId, jobDescription.id))
+      .leftJoin(
+        jobDescription,
+        and(
+          eq(studioInterview.jobDescriptionId, jobDescription.id),
+          eq(jobDescription.organizationId, studioInterview.organizationId),
+        ),
+      )
       .leftJoin(user, eq(studioInterview.createdBy, user.id))
       .where(where)
       .orderBy(buildOrderBy(ORDER_COLUMNS, sortBy, sortOrder))
@@ -250,7 +256,13 @@ export async function listInterviewRoundsForCandidate(
     })
     .from(studioInterviewSchedule)
     .leftJoin(studioInterview, eq(studioInterviewSchedule.interviewRecordId, studioInterview.id))
-    .leftJoin(jobDescription, eq(studioInterview.jobDescriptionId, jobDescription.id))
+    .leftJoin(
+      jobDescription,
+      and(
+        eq(studioInterview.jobDescriptionId, jobDescription.id),
+        eq(jobDescription.organizationId, studioInterview.organizationId),
+      ),
+    )
     .leftJoin(user, eq(studioInterview.createdBy, user.id))
     .where(
       and(

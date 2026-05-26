@@ -100,7 +100,13 @@ export const resumeUploadBatchesRouter = factory
       const found = await db
         .select({ storageKey: chatAttachment.storageKey })
         .from(chatAttachment)
-        .where(inArray(chatAttachment.storageKey, keys));
+        .where(
+          and(
+            inArray(chatAttachment.storageKey, keys),
+            eq(chatAttachment.organizationId, activeOrg.id),
+            eq(chatAttachment.userId, user.id),
+          ),
+        );
       const foundSet = new Set(found.map((r) => r.storageKey));
       const missing = keys.filter((k) => !foundSet.has(k));
       if (missing.length > 0) {

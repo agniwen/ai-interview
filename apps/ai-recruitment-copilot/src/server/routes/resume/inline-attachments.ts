@@ -114,10 +114,11 @@ async function inlineMessage(
  * Returns new message objects; the input is not mutated.
  */
 export async function inlineAttachmentsForModel(
+  organizationId: string,
   userId: string,
   messages: UIMessage[],
 ): Promise<UIMessage[]> {
   const attachmentIds = collectAttachmentIds(messages);
-  const attachments = await getUserAttachments(userId, attachmentIds);
+  const attachments = await getUserAttachments(userId, organizationId, attachmentIds);
   return Promise.all(messages.map((message) => inlineMessage(message, attachments)));
 }

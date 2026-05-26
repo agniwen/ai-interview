@@ -88,10 +88,15 @@ function buildWhereConditions({
         db
           .select({ one: candidateFormTemplateJobDescription.templateId })
           .from(candidateFormTemplateJobDescription)
+          .innerJoin(
+            jobDescription,
+            eq(candidateFormTemplateJobDescription.jobDescriptionId, jobDescription.id),
+          )
           .where(
             and(
               eq(candidateFormTemplateJobDescription.templateId, candidateFormTemplate.id),
               inArray(candidateFormTemplateJobDescription.jobDescriptionId, jobDescriptionIds),
+              eq(jobDescription.organizationId, candidateFormTemplate.organizationId),
             ),
           ),
       ),
@@ -115,8 +120,15 @@ async function loadJobDescriptionsByTemplate(
     })
     .from(candidateFormTemplateJobDescription)
     .innerJoin(
+      candidateFormTemplate,
+      eq(candidateFormTemplateJobDescription.templateId, candidateFormTemplate.id),
+    )
+    .innerJoin(
       jobDescription,
-      eq(candidateFormTemplateJobDescription.jobDescriptionId, jobDescription.id),
+      and(
+        eq(candidateFormTemplateJobDescription.jobDescriptionId, jobDescription.id),
+        eq(jobDescription.organizationId, candidateFormTemplate.organizationId),
+      ),
     )
     .where(inArray(candidateFormTemplateJobDescription.templateId, templateIds))
     .orderBy(asc(jobDescription.name));
@@ -527,6 +539,10 @@ export async function loadApplicableCandidateFormTemplates(interviewRecordId: st
                   db
                     .select({ one: candidateFormTemplateJobDescription.templateId })
                     .from(candidateFormTemplateJobDescription)
+                    .innerJoin(
+                      jobDescription,
+                      eq(candidateFormTemplateJobDescription.jobDescriptionId, jobDescription.id),
+                    )
                     .where(
                       and(
                         eq(
@@ -534,6 +550,7 @@ export async function loadApplicableCandidateFormTemplates(interviewRecordId: st
                           candidateFormTemplate.id,
                         ),
                         eq(candidateFormTemplateJobDescription.jobDescriptionId, jobDescriptionId),
+                        eq(jobDescription.organizationId, candidateFormTemplate.organizationId),
                       ),
                     ),
                 ),

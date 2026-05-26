@@ -3,13 +3,16 @@ import { getUserAttachment } from "@/server/routes/chat/dao/chat-attachments";
 import { factory } from "@/server/factory";
 
 export const attachmentsRouter = factory.createApp().get("/:id", async (c) => {
-  const { user } = c.var;
+  const { activeOrg, user } = c.var;
   if (!user) {
+    return c.json({ error: "Unauthorized" }, 401);
+  }
+  if (!activeOrg) {
     return c.json({ error: "Unauthorized" }, 401);
   }
 
   const id = c.req.param("id");
-  const attachment = await getUserAttachment(user.id, id);
+  const attachment = await getUserAttachment(user.id, activeOrg.id, id);
   if (!attachment) {
     return c.json({ error: "Not Found" }, 404);
   }

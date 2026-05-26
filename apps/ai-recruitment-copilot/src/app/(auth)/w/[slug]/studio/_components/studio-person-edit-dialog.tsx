@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Modal } from "@/components/ui/modal";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -42,6 +43,67 @@ interface StudioPersonEditDialogProps {
   recordId: string | null;
   /** 保存成功后回调。Callback on success. */
   onUpdated?: () => void;
+}
+
+function ResumeEditSkeleton() {
+  return (
+    <div className="flex flex-col gap-5">
+      <div className="grid gap-4 sm:grid-cols-2">
+        {Array.from({ length: 4 }).map((_, index) => (
+          <div className="flex flex-col gap-2" key={index}>
+            <Skeleton className="h-4 w-20" />
+            <Skeleton className="h-10 w-full" />
+          </div>
+        ))}
+      </div>
+      <div className="flex flex-col gap-2">
+        <Skeleton className="h-4 w-16" />
+        <Skeleton className="h-10 w-full" />
+      </div>
+      <div className="flex flex-col gap-2">
+        <Skeleton className="h-4 w-14" />
+        <Skeleton className="h-24 w-full" />
+      </div>
+      <div className="rounded-xl border border-border/60 p-4">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex flex-col gap-2">
+            <Skeleton className="h-4 w-24" />
+            <Skeleton className="h-4 w-40" />
+          </div>
+          <Skeleton className="h-9 w-24" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function InterviewEditSkeleton() {
+  return (
+    <div className="flex flex-col gap-5">
+      <Skeleton className="h-4 w-72 max-w-full" />
+      <div className="flex items-center gap-2">
+        <Skeleton className="h-5 w-32" />
+        <Skeleton className="h-6 w-16" />
+      </div>
+      <div className="flex flex-col gap-2">
+        <Skeleton className="h-4 w-20" />
+        <Skeleton className="h-10 w-full" />
+      </div>
+      <div className="rounded-lg border border-border/50 px-3 py-2.5">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex flex-col gap-2">
+            <Skeleton className="h-4 w-36" />
+            <Skeleton className="h-3 w-64 max-w-full" />
+          </div>
+          <Skeleton className="h-6 w-11" />
+        </div>
+      </div>
+      <div className="flex flex-col gap-2">
+        <Skeleton className="h-4 w-12" />
+        <Skeleton className="h-24 w-full" />
+      </div>
+    </div>
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -126,14 +188,14 @@ function ResumeEditBody({
       footer={
         <>
           <Button
-            disabled={isSubmitting}
+            disabled={isSubmitting || query.isLoading}
             onClick={() => onOpenChange(false)}
             type="button"
             variant="outline"
           >
             取消
           </Button>
-          <Button disabled={isSubmitting} form="resume-edit-form" type="submit">
+          <Button disabled={isSubmitting || query.isLoading} form="resume-edit-form" type="submit">
             {isSubmitting ? <LoaderCircleIcon className="size-4 animate-spin" /> : null}
             保存
           </Button>
@@ -144,23 +206,27 @@ function ResumeEditBody({
       size="xl"
       title="编辑简历"
     >
-      <form
-        className="space-y-5"
-        id="resume-edit-form"
-        onSubmit={(e) => {
-          e.preventDefault();
-          void form.handleSubmit();
-        }}
-      >
-        <CandidateFormFields
-          disabled={isSubmitting}
-          existingResumeFileName={query.data?.resumeFileName ?? null}
-          form={form}
-          onResumeFileChange={setResumeFile}
-          resumeFile={resumeFile}
-          resumeFilePlaceholder="未上传 PDF，点击选择文件"
-        />
-      </form>
+      {query.isLoading ? (
+        <ResumeEditSkeleton />
+      ) : (
+        <form
+          className="space-y-5"
+          id="resume-edit-form"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void form.handleSubmit();
+          }}
+        >
+          <CandidateFormFields
+            disabled={isSubmitting}
+            existingResumeFileName={query.data?.resumeFileName ?? null}
+            form={form}
+            onResumeFileChange={setResumeFile}
+            resumeFile={resumeFile}
+            resumeFilePlaceholder="未上传 PDF，点击选择文件"
+          />
+        </form>
+      )}
     </Modal>
   );
 }
@@ -307,9 +373,7 @@ function InterviewEditBody({
       title="编辑面试轮次"
     >
       {isLoading ? (
-        <div className="flex min-h-[240px] items-center justify-center text-muted-foreground text-sm">
-          正在加载轮次数据...
-        </div>
+        <InterviewEditSkeleton />
       ) : (
         <form className="space-y-5" id="edit-round-form" onSubmit={(e) => void handleSubmit(e)}>
           {/* 候选人字段说明横幅 / Banner explaining where to edit candidate fields */}

@@ -15,11 +15,14 @@ import {
 import { safeUpdateTag } from "@/server/cache-tags";
 import { requirePermission } from "@/server/middlewares/permission";
 
-async function validateDepartmentExists(departmentId: string): Promise<boolean> {
+async function validateDepartmentExists(
+  departmentId: string,
+  organizationId: string,
+): Promise<boolean> {
   const [row] = await db
     .select({ id: department.id })
     .from(department)
-    .where(eq(department.id, departmentId))
+    .where(and(eq(department.id, departmentId), eq(department.organizationId, organizationId)))
     .limit(1);
   return !!row;
 }
@@ -79,7 +82,7 @@ export const interviewersRouter = factory
         return c.json({ message: "Unauthorized" }, 401);
       }
       const input = c.req.valid("json");
-      const hasDepartment = await validateDepartmentExists(input.departmentId);
+      const hasDepartment = await validateDepartmentExists(input.departmentId, activeOrg.id);
       if (!hasDepartment) {
         return c.json({ error: "所选部门不存在。" }, 400);
       }
@@ -133,7 +136,7 @@ export const interviewersRouter = factory
 
       const input = c.req.valid("json");
       if (input.departmentId !== existing.departmentId) {
-        const hasDepartment = await validateDepartmentExists(input.departmentId);
+        const hasDepartment = await validateDepartmentExists(input.departmentId, activeOrg.id);
         if (!hasDepartment) {
           return c.json({ error: "所选部门不存在。" }, 400);
         }

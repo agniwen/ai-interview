@@ -75,7 +75,13 @@ export async function queryInterviewDedup(
       targetRole: studioInterview.targetRole,
     })
     .from(studioInterview)
-    .leftJoin(jobDescription, eq(studioInterview.jobDescriptionId, jobDescription.id))
+    .leftJoin(
+      jobDescription,
+      and(
+        eq(studioInterview.jobDescriptionId, jobDescription.id),
+        eq(jobDescription.organizationId, studioInterview.organizationId),
+      ),
+    )
     .where(and(eq(studioInterview.organizationId, organizationId), or(...conditions)))
     .orderBy(desc(studioInterview.createdAt))
     .limit(DEDUP_LIMIT);
@@ -144,7 +150,13 @@ export async function loadStudioCandidate(
     })
     .from(studioInterview)
     .leftJoin(user, eq(studioInterview.createdBy, user.id))
-    .leftJoin(jobDescription, eq(studioInterview.jobDescriptionId, jobDescription.id))
+    .leftJoin(
+      jobDescription,
+      and(
+        eq(studioInterview.jobDescriptionId, jobDescription.id),
+        eq(jobDescription.organizationId, studioInterview.organizationId),
+      ),
+    )
     .where(
       and(eq(studioInterview.id, candidateId), eq(studioInterview.organizationId, organizationId)),
     )

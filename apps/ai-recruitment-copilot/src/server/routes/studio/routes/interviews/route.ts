@@ -70,6 +70,7 @@ import {
   sendOfferDraft,
 } from "@/server/routes/studio/routes/interviews/dao/offer-drafts";
 import { queryInterviewDedup } from "@/server/routes/studio/routes/interviews/dao/studio-interviews";
+import { jobDescriptionIdsExist } from "@/server/routes/studio/routes/job-descriptions/dao";
 import { syncResumeSkills } from "@/server/routes/studio/routes/resumes/dao/skills";
 import {
   loadInterviewRoundDetail,
@@ -278,6 +279,12 @@ export const studioInterviewsRouter = factory
       if (resume && !c.var.user) {
         return c.json({ error: "Unauthorized" }, 401);
       }
+      if (input.data.jobDescriptionId) {
+        const ok = await jobDescriptionIdsExist([input.data.jobDescriptionId], activeOrg.id);
+        if (!ok) {
+          return c.json({ error: "所选在招岗位不存在。" }, 400);
+        }
+      }
 
       const now = new Date();
       const interviewRecordId = crypto.randomUUID();
@@ -472,7 +479,12 @@ export const studioInterviewsRouter = factory
           prompt: jobDescription.prompt,
         })
         .from(jobDescription)
-        .where(eq(jobDescription.id, existing.jobDescriptionId))
+        .where(
+          and(
+            eq(jobDescription.id, existing.jobDescriptionId),
+            eq(jobDescription.organizationId, activeOrg.id),
+          ),
+        )
         .limit(1);
       jobDescriptionPrompt = jdRow?.prompt ?? null;
       jobDescriptionName = jdRow?.name ?? null;
@@ -481,7 +493,12 @@ export const studioInterviewsRouter = factory
         .select({ name: interviewer.name, prompt: interviewer.prompt })
         .from(jobDescriptionInterviewer)
         .innerJoin(interviewer, eq(jobDescriptionInterviewer.interviewerId, interviewer.id))
-        .where(eq(jobDescriptionInterviewer.jobDescriptionId, existing.jobDescriptionId));
+        .where(
+          and(
+            eq(jobDescriptionInterviewer.jobDescriptionId, existing.jobDescriptionId),
+            eq(interviewer.organizationId, activeOrg.id),
+          ),
+        );
       interviewers = interviewerRows;
     }
 

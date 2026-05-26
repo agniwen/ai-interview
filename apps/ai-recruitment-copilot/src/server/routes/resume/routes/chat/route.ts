@@ -77,7 +77,7 @@ export const resumeChatRouter = factory
         void (async () => {
           try {
             const baked = userId
-              ? await bakeParsedResumesIntoMessage(userId, latestUser)
+              ? await bakeParsedResumesIntoMessage(orgId, userId, latestUser)
               : latestUser;
             await upsertChatMessage({
               conversationId: chatId,
@@ -96,12 +96,12 @@ export const resumeChatRouter = factory
     let bakedMessages = messages;
     if (userId) {
       bakedMessages = await Promise.all(
-        messages.map((m) => bakeParsedResumesIntoMessage(userId, m)),
+        messages.map((m) => bakeParsedResumesIntoMessage(orgId, userId, m)),
       );
     }
 
     const messagesForModel = userId
-      ? await inlineAttachmentsForModel(userId, bakedMessages)
+      ? await inlineAttachmentsForModel(orgId, userId, bakedMessages)
       : bakedMessages;
 
     const result = await runResumeScreening({

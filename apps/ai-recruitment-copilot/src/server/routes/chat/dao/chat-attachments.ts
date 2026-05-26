@@ -98,18 +98,26 @@ export async function updateAttachmentParseResult(
 
 export async function getUserAttachment(
   userId: string,
+  organizationId: string,
   attachmentId: string,
 ): Promise<ChatAttachmentRow | null> {
   const [row] = await db
     .select()
     .from(chatAttachment)
-    .where(and(eq(chatAttachment.id, attachmentId), eq(chatAttachment.userId, userId)))
+    .where(
+      and(
+        eq(chatAttachment.id, attachmentId),
+        eq(chatAttachment.userId, userId),
+        eq(chatAttachment.organizationId, organizationId),
+      ),
+    )
     .limit(1);
   return row ?? null;
 }
 
 export async function getUserAttachments(
   userId: string,
+  organizationId: string,
   attachmentIds: string[],
 ): Promise<Map<string, ChatAttachmentRow>> {
   if (attachmentIds.length === 0) {
@@ -118,7 +126,13 @@ export async function getUserAttachments(
   const rows = await db
     .select()
     .from(chatAttachment)
-    .where(and(inArray(chatAttachment.id, attachmentIds), eq(chatAttachment.userId, userId)));
+    .where(
+      and(
+        inArray(chatAttachment.id, attachmentIds),
+        eq(chatAttachment.userId, userId),
+        eq(chatAttachment.organizationId, organizationId),
+      ),
+    );
   return new Map(rows.map((row) => [row.id, row]));
 }
 

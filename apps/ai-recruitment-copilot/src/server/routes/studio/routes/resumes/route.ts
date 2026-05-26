@@ -38,6 +38,7 @@ import {
 } from "@/server/routes/studio/routes/interviews/dao/interview-rounds";
 import { queryInterviewDedup } from "@/server/routes/studio/routes/interviews/dao/studio-interviews";
 import { autoBindApplicableTemplates } from "@/server/routes/studio/routes/interview-questions/dao/bindings";
+import { jobDescriptionIdsExist } from "@/server/routes/studio/routes/job-descriptions/dao";
 import { createResumeRecordFromStorage } from "@/server/routes/studio/routes/resumes/utils/create-from-storage";
 
 const dedupCheckInputSchema = z.object({
@@ -355,6 +356,12 @@ export const resumeLibraryRouter = factory
       if (resume && !c.var.user) {
         return c.json({ error: "Unauthorized" }, 401);
       }
+      if (input.data.jobDescriptionId) {
+        const ok = await jobDescriptionIdsExist([input.data.jobDescriptionId], activeOrg.id);
+        if (!ok) {
+          return c.json({ error: "所选在招岗位不存在。" }, 400);
+        }
+      }
 
       const uploadResult =
         resume && c.var.user
@@ -429,6 +436,12 @@ export const resumeLibraryRouter = factory
 
       if (resume && !c.var.user) {
         return c.json({ error: "Unauthorized" }, 401);
+      }
+      if (input.data.jobDescriptionId) {
+        const ok = await jobDescriptionIdsExist([input.data.jobDescriptionId], activeOrg.id);
+        if (!ok) {
+          return c.json({ error: "所选在招岗位不存在。" }, 400);
+        }
       }
 
       const uploadResult =

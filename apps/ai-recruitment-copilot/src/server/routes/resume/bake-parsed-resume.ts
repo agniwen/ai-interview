@@ -96,6 +96,7 @@ function isResumeParsedPart(part: unknown): part is ResumeParsedPart {
  * already carry a baked-in part. Idempotent.
  */
 export async function bakeParsedResumesIntoMessage(
+  organizationId: string,
   userId: string,
   message: UIMessage,
 ): Promise<UIMessage> {
@@ -122,7 +123,7 @@ export async function bakeParsedResumesIntoMessage(
     return message;
   }
 
-  const rows = await getUserAttachments(userId, pendingIds);
+  const rows = await getUserAttachments(userId, organizationId, pendingIds);
   const newParts: typeof message.parts = [...message.parts];
   let appended = false;
 

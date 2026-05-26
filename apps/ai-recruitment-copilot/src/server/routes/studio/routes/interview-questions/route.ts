@@ -110,7 +110,7 @@ export const interviewQuestionTemplatesRouter = factory
       const input = c.req.valid("json");
       const jobDescriptionIds = input.scope === "job_description" ? input.jobDescriptionIds : [];
       if (jobDescriptionIds.length > 0) {
-        const ok = await jobDescriptionIdsExist(jobDescriptionIds);
+        const ok = await jobDescriptionIdsExist(jobDescriptionIds, activeOrg.id);
         if (!ok) {
           return c.json({ error: "所选在招岗位中存在无效项。" }, 400);
         }
@@ -178,7 +178,7 @@ export const interviewQuestionTemplatesRouter = factory
       const input = c.req.valid("json");
       const jobDescriptionIds = input.scope === "job_description" ? input.jobDescriptionIds : [];
       if (jobDescriptionIds.length > 0) {
-        const ok = await jobDescriptionIdsExist(jobDescriptionIds);
+        const ok = await jobDescriptionIdsExist(jobDescriptionIds, activeOrg.id);
         if (!ok) {
           return c.json({ error: "所选在招岗位中存在无效项。" }, 400);
         }
@@ -278,6 +278,10 @@ export const interviewQuestionTemplatesRouter = factory
     }
     const id = c.req.param("id");
     const versionId = c.req.param("versionId");
+    const template = await loadInterviewQuestionTemplateById(activeOrg.id, id);
+    if (!template) {
+      return c.json({ error: "面试题不存在。" }, 404);
+    }
     const version = await loadInterviewQuestionTemplateVersionById(id, versionId);
     if (!version) {
       return c.json({ error: "版本不存在。" }, 404);

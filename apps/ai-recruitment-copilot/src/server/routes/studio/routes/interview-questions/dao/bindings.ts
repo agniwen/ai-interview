@@ -12,6 +12,7 @@ import {
   interviewQuestionTemplateJobDescription,
   interviewQuestionTemplateQuestion,
   interviewQuestionTemplateVersion,
+  jobDescription,
   studioInterview,
 } from "@arc/db-schema/schema";
 import { serializeDate } from "@/lib/server/db/serialize";
@@ -66,6 +67,13 @@ async function loadApplicableInterviewQuestionTemplates(interviewRecordId: strin
                   db
                     .select({ one: interviewQuestionTemplateJobDescription.templateId })
                     .from(interviewQuestionTemplateJobDescription)
+                    .innerJoin(
+                      jobDescription,
+                      eq(
+                        interviewQuestionTemplateJobDescription.jobDescriptionId,
+                        jobDescription.id,
+                      ),
+                    )
                     .where(
                       and(
                         eq(
@@ -76,6 +84,7 @@ async function loadApplicableInterviewQuestionTemplates(interviewRecordId: strin
                           interviewQuestionTemplateJobDescription.jobDescriptionId,
                           jobDescriptionId,
                         ),
+                        eq(jobDescription.organizationId, interviewQuestionTemplate.organizationId),
                       ),
                     ),
                 ),
@@ -176,6 +185,13 @@ async function listApplicableTemplateMetas(
                   tx
                     .select({ one: interviewQuestionTemplateJobDescription.templateId })
                     .from(interviewQuestionTemplateJobDescription)
+                    .innerJoin(
+                      jobDescription,
+                      eq(
+                        interviewQuestionTemplateJobDescription.jobDescriptionId,
+                        jobDescription.id,
+                      ),
+                    )
                     .where(
                       and(
                         eq(
@@ -186,6 +202,7 @@ async function listApplicableTemplateMetas(
                           interviewQuestionTemplateJobDescription.jobDescriptionId,
                           jobDescriptionId,
                         ),
+                        eq(jobDescription.organizationId, interviewQuestionTemplate.organizationId),
                       ),
                     ),
                 ),

@@ -299,7 +299,13 @@ function selectRows({
     .select(SELECTED_COLUMNS)
     .from(studioInterview)
     .leftJoin(user, eq(studioInterview.createdBy, user.id))
-    .leftJoin(jobDescription, eq(studioInterview.jobDescriptionId, jobDescription.id))
+    .leftJoin(
+      jobDescription,
+      and(
+        eq(studioInterview.jobDescriptionId, jobDescription.id),
+        eq(jobDescription.organizationId, studioInterview.organizationId),
+      ),
+    )
     .where(buildWhere(organizationId, filters))
     .orderBy(buildOrderBy(ORDER_COLUMNS, sortBy, sortOrder))
     .limit(pageSize)
@@ -418,7 +424,13 @@ export async function loadResumeDetail(
     })
     .from(studioInterview)
     .leftJoin(user, eq(studioInterview.createdBy, user.id))
-    .leftJoin(jobDescription, eq(studioInterview.jobDescriptionId, jobDescription.id))
+    .leftJoin(
+      jobDescription,
+      and(
+        eq(studioInterview.jobDescriptionId, jobDescription.id),
+        eq(jobDescription.organizationId, studioInterview.organizationId),
+      ),
+    )
     .where(and(eq(studioInterview.id, id), eq(studioInterview.organizationId, organizationId)))
     .limit(1);
 

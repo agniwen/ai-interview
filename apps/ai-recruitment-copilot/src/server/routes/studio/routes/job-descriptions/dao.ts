@@ -84,6 +84,7 @@ function buildWhereConditions({
 }
 
 async function resolveJdIdsForInterviewers(
+  organizationId: string,
   interviewerIds?: string[],
 ): Promise<string[] | undefined> {
   if (!interviewerIds || interviewerIds.length === 0) {
@@ -92,7 +93,13 @@ async function resolveJdIdsForInterviewers(
   const rows = await db
     .select({ jobDescriptionId: jobDescriptionInterviewer.jobDescriptionId })
     .from(jobDescriptionInterviewer)
-    .where(inArray(jobDescriptionInterviewer.interviewerId, interviewerIds));
+    .innerJoin(interviewer, eq(jobDescriptionInterviewer.interviewerId, interviewer.id))
+    .where(
+      and(
+        inArray(jobDescriptionInterviewer.interviewerId, interviewerIds),
+        eq(interviewer.organizationId, organizationId),
+      ),
+    );
   // 任意一个面试官 → 该 JD 命中（OR 语义）/ Any matching interviewer surfaces the JD.
   return [...new Set(rows.map((row) => row.jobDescriptionId))];
 }
@@ -194,8 +201,14 @@ async function loadInterviewersForJobDescriptions(
       jobDescriptionId: jobDescriptionInterviewer.jobDescriptionId,
     })
     .from(jobDescriptionInterviewer)
+    .innerJoin(jobDescription, eq(jobDescriptionInterviewer.jobDescriptionId, jobDescription.id))
     .innerJoin(interviewer, eq(jobDescriptionInterviewer.interviewerId, interviewer.id))
-    .where(inArray(jobDescriptionInterviewer.jobDescriptionId, jobDescriptionIds))
+    .where(
+      and(
+        inArray(jobDescriptionInterviewer.jobDescriptionId, jobDescriptionIds),
+        eq(interviewer.organizationId, jobDescription.organizationId),
+      ),
+    )
     .orderBy(asc(interviewer.name));
 
   for (const id of jobDescriptionIds) {
@@ -317,7 +330,7 @@ export async function queryPaginatedJobDescriptions(
   const { search, departmentIds, interviewerIds } = parseFilters(filters);
   const { page, pageSize, sortBy, sortOrder } = parseJobDescriptionPagination(pagination);
   const offset = (page - 1) * pageSize;
-  const jdIdsForInterviewers = await resolveJdIdsForInterviewers(interviewerIds);
+  const jdIdsForInterviewers = await resolveJdIdsForInterviewers(organizationId, interviewerIds);
 
   const [records, total] = await Promise.all([
     listJobDescriptionRows({
@@ -395,14 +408,17 @@ export async function listAllJobDescriptions(
  * 校验给定 ids 全部存在于 jobDescription 表。空数组视作合法。
  * Validate that every id in `ids` exists in jobDescription. Empty input is valid.
  */
-export async function jobDescriptionIdsExist(ids: string[]): Promise<boolean> {
+export async function jobDescriptionIdsExist(
+  ids: string[],
+  organizationId: string,
+): Promise<boolean> {
   if (ids.length === 0) {
     return true;
   }
   const rows = await db
     .select({ id: jobDescription.id })
     .from(jobDescription)
-    .where(inArray(jobDescription.id, ids));
+    .where(and(inArray(jobDescription.id, ids), eq(jobDescription.organizationId, organizationId)));
   return rows.length === new Set(ids).size;
 }
 
@@ -461,6 +477,7 @@ async function loadCandidatesByJd(organizationId: string) {
       studioInterview,
       and(
         eq(studioInterview.jobDescriptionId, jobDescription.id),
+        eq(studioInterview.organizationId, organizationId),
         notInArray(studioInterview.status, ["archived"]),
       ),
     )
@@ -493,7 +510,13 @@ async function loadCompletionByJd(organizationId: string) {
       total,
     })
     .from(jobDescription)
-    .innerJoin(studioInterview, eq(studioInterview.jobDescriptionId, jobDescription.id))
+    .innerJoin(
+      studioInterview,
+      and(
+        eq(studioInterview.jobDescriptionId, jobDescription.id),
+        eq(studioInterview.organizationId, organizationId),
+      ),
+    )
     .innerJoin(
       studioInterviewSchedule,
       eq(studioInterviewSchedule.interviewRecordId, studioInterview.id),
@@ -541,6 +564,7 @@ async function loadLoadByInterviewer(organizationId: string) {
       studioInterview,
       and(
         eq(studioInterview.jobDescriptionId, jobDescriptionInterviewer.jobDescriptionId),
+        eq(studioInterview.organizationId, organizationId),
         inArray(studioInterview.status, ["ready", "in_progress"]),
       ),
     )

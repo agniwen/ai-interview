@@ -90,10 +90,15 @@ function buildWhereConditions({
         db
           .select({ one: interviewQuestionTemplateJobDescription.templateId })
           .from(interviewQuestionTemplateJobDescription)
+          .innerJoin(
+            jobDescription,
+            eq(interviewQuestionTemplateJobDescription.jobDescriptionId, jobDescription.id),
+          )
           .where(
             and(
               eq(interviewQuestionTemplateJobDescription.templateId, interviewQuestionTemplate.id),
               inArray(interviewQuestionTemplateJobDescription.jobDescriptionId, jobDescriptionIds),
+              eq(jobDescription.organizationId, interviewQuestionTemplate.organizationId),
             ),
           ),
       ),
@@ -117,8 +122,15 @@ export async function loadJobDescriptionsByTemplate(
     })
     .from(interviewQuestionTemplateJobDescription)
     .innerJoin(
+      interviewQuestionTemplate,
+      eq(interviewQuestionTemplateJobDescription.templateId, interviewQuestionTemplate.id),
+    )
+    .innerJoin(
       jobDescription,
-      eq(interviewQuestionTemplateJobDescription.jobDescriptionId, jobDescription.id),
+      and(
+        eq(interviewQuestionTemplateJobDescription.jobDescriptionId, jobDescription.id),
+        eq(jobDescription.organizationId, interviewQuestionTemplate.organizationId),
+      ),
     )
     .where(inArray(interviewQuestionTemplateJobDescription.templateId, templateIds))
     .orderBy(asc(jobDescription.name));
