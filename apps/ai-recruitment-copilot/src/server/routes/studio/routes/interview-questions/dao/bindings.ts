@@ -29,12 +29,20 @@ async function loadApplicableInterviewQuestionTemplates(interviewRecordId: strin
   jobSpecific: InterviewQuestionTemplateRecord[];
 }> {
   const [interviewRow] = await db
-    .select({ jobDescriptionId: studioInterview.jobDescriptionId })
+    .select({
+      jobDescriptionId: studioInterview.jobDescriptionId,
+      organizationId: studioInterview.organizationId,
+    })
     .from(studioInterview)
     .where(eq(studioInterview.id, interviewRecordId))
     .limit(1);
 
+  if (!interviewRow) {
+    return { global: [], jobSpecific: [] };
+  }
+
   const jobDescriptionId = interviewRow?.jobDescriptionId ?? null;
+  const { organizationId } = interviewRow;
 
   const templateRows = await db
     .select()
@@ -48,6 +56,7 @@ async function loadApplicableInterviewQuestionTemplates(interviewRecordId: strin
         // existing binding rows pointing at archived templates remain readable
         // downstream; only the "available to bind" surface drops them.
         isNull(interviewQuestionTemplate.archivedAt),
+        eq(interviewQuestionTemplate.organizationId, organizationId),
         or(
           eq(interviewQuestionTemplate.scope, "global"),
           jobDescriptionId
@@ -140,6 +149,7 @@ interface ApplicableTemplateMeta {
 
 async function listApplicableTemplateMetas(
   tx: Tx,
+  organizationId: string,
   jobDescriptionId: string | null,
 ): Promise<ApplicableTemplateMeta[]> {
   const rows = await tx
@@ -156,6 +166,7 @@ async function listApplicableTemplateMetas(
         // Auto-binding skips archived templates: existing bindings remain intact
         // but new interviews no longer auto-apply archived ones.
         isNull(interviewQuestionTemplate.archivedAt),
+        eq(interviewQuestionTemplate.organizationId, organizationId),
         or(
           eq(interviewQuestionTemplate.scope, "global"),
           jobDescriptionId
@@ -204,11 +215,6 @@ export async function autoBindApplicableTemplates(
   interviewRecordId: string,
   jobDescriptionId: string | null,
 ): Promise<void> {
-  const applicable = await listApplicableTemplateMetas(tx, jobDescriptionId);
-  if (applicable.length === 0) {
-    return;
-  }
-
   // 从 parent studio_interview 拿 organizationId, 新 binding 行必须打戳 (NOT NULL)。
   // 父行不存在直接抛错——继续插入会留下孤儿 binding,且伪造的 organizationId 会污染数据。
   // Parent row missing → throw. Inserting bindings without a real parent would
@@ -222,6 +228,11 @@ export async function autoBindApplicableTemplates(
     throw new Error(`autoBindApplicableTemplates: studio_interview ${interviewRecordId} not found`);
   }
   const { organizationId } = parent;
+
+  const applicable = await listApplicableTemplateMetas(tx, organizationId, jobDescriptionId);
+  if (applicable.length === 0) {
+    return;
+  }
 
   const existingBindings = await tx
     .select({ templateId: interviewQuestionTemplateBinding.templateId })

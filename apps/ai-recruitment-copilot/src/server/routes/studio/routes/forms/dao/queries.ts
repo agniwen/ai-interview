@@ -492,12 +492,20 @@ export async function loadApplicableCandidateFormTemplates(interviewRecordId: st
   jobSpecific: CandidateFormTemplateRecord[];
 }> {
   const [interviewRow] = await db
-    .select({ jobDescriptionId: studioInterview.jobDescriptionId })
+    .select({
+      jobDescriptionId: studioInterview.jobDescriptionId,
+      organizationId: studioInterview.organizationId,
+    })
     .from(studioInterview)
     .where(eq(studioInterview.id, interviewRecordId))
     .limit(1);
 
+  if (!interviewRow) {
+    return { global: [], jobSpecific: [] };
+  }
+
   const jobDescriptionId = interviewRow?.jobDescriptionId ?? null;
+  const { organizationId } = interviewRow;
 
   const templateRows = await db
     .select()
@@ -509,6 +517,7 @@ export async function loadApplicableCandidateFormTemplates(interviewRecordId: st
         // Archived templates are hidden from candidates; existing submissions
         // remain intact.
         isNull(candidateFormTemplate.archivedAt),
+        eq(candidateFormTemplate.organizationId, organizationId),
         or(
           eq(candidateFormTemplate.scope, "global"),
           jobDescriptionId

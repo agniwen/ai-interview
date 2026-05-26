@@ -45,11 +45,9 @@ export interface ResumeAnalysisPipelineState {
   isGeneratingQuestions: boolean;
   isGeneratingReview: boolean;
   // 简历解析完成后会异步调一次「按候选人匹配在招岗位」；这个 flag 在那段
-  // 网络请求期间为 true，供 JD 下拉框展示 loading 状态。不计入 isBusy（用户
-  // 仍可手动选择，匹配完成会回填）。
-  // True while the best-fit JD lookup runs (post-parse, async IIFE). Used by
-  // the JD select to render a loading state. Intentionally NOT part of isBusy
-  // so the user can still pick a JD manually mid-flight.
+  // 网络请求期间为 true，并纳入 isBusy，让三段分析遮罩连续展示。
+  // True while the best-fit JD lookup runs (post-parse, async IIFE). It is part
+  // of isBusy so the parse → match → review overlay feels continuous.
   isMatchingJobDescription: boolean;
   progressStatus: string;
   progressTools: { name: string; done: boolean }[];
@@ -278,6 +276,7 @@ export function useResumeAnalysisPipeline(
       const abortController = new AbortController();
       abortControllerRef.current = abortController;
       setIsAnalyzingResume(true);
+      let postParseAnalysisStarted = false;
 
       try {
         // Step 1: stream parse resume profile
@@ -346,9 +345,11 @@ export function useResumeAnalysisPipeline(
         // Match best in-flight JD, then chain resume-review generation using
         // the matched JD as context. Both steps are best-effort; failures are
         // swallowed so the main flow keeps going.
+        postParseAnalysisStarted = true;
         void (async () => {
           let matchedJdId: string | null = null;
           setIsMatchingJobDescription(true);
+          setProgressStatus("正在分析匹配岗位…");
           try {
             const matchResponse = await rpc.api.interview["match-job-description"].$post(
               { json: { resumeProfile } },
@@ -375,6 +376,9 @@ export function useResumeAnalysisPipeline(
           } finally {
             if (!abortController.signal.aborted) {
               setIsMatchingJobDescription(false);
+              if (!onReviewGenerated) {
+                setProgressStatus("");
+              }
             }
           }
 
@@ -481,9 +485,11 @@ export function useResumeAnalysisPipeline(
         // 主流程到达 finally 时它可能还在进行中。让评价的 IIFE 自己结束时清掉。
         // Don't clear isGeneratingReview here — the review IIFE outlives this
         // finally; it owns its own teardown.
-        setProgressStatus("");
-        setProgressTools([]);
-        setPartialFields([]);
+        if (!postParseAnalysisStarted) {
+          setProgressStatus("");
+          setProgressTools([]);
+          setPartialFields([]);
+        }
         accumulatedTextRef.current = "";
       }
     },
@@ -551,7 +557,11 @@ export function useResumeAnalysisPipeline(
   // Block "save" while review is generating, otherwise the user can submit
   // before the auto-fill lands and end up with an empty notes field.
   const isBusy =
-    isAnalyzingResume || isGeneratingQuestions || isGeneratingReview || dedupMatches !== null;
+    isAnalyzingResume ||
+    isMatchingJobDescription ||
+    isGeneratingQuestions ||
+    isGeneratingReview ||
+    dedupMatches !== null;
 
   return {
     dedupMatches,

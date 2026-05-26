@@ -10,13 +10,30 @@ import type { ResumeAnalysisPipeline } from "@/app/(auth)/w/[slug]/studio/_compo
 import { ResumeDedupOverlay } from "@/components/resume-dedup-overlay";
 import { TextFlip } from "@/components/text-flip";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/shared/utils";
 import { CheckIcon, LoaderCircleIcon, WrenchIcon } from "lucide-react";
 import { motion, useReducedMotion } from "motion/react";
+
+const ANALYSIS_STEPS = ["分析简历基础信息", "分析匹配岗位", "生成简历评价"] as const;
+
+function getAnalysisStepIndex(pipeline: ResumeAnalysisPipeline) {
+  if (pipeline.isGeneratingReview) {
+    return 2;
+  }
+  if (pipeline.isMatchingJobDescription) {
+    return 1;
+  }
+  if (pipeline.isAnalyzingResume) {
+    return 0;
+  }
+  return -1;
+}
 
 export function ResumeAnalysisOverlay({ pipeline }: { pipeline: ResumeAnalysisPipeline }) {
   // 尊重系统的"减少动效"偏好：reduced-motion 用户跳过淡入。
   // Honor the OS reduced-motion preference by skipping the fade-in.
   const prefersReducedMotion = useReducedMotion();
+  const analysisStepIndex = getAnalysisStepIndex(pipeline);
 
   if (!pipeline.isBusy) {
     return null;
@@ -51,6 +68,39 @@ export function ResumeAnalysisOverlay({ pipeline }: { pipeline: ResumeAnalysisPi
               </TextFlip>
             </motion.div>
           )}
+          {analysisStepIndex >= 0 ? (
+            <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1.5 text-xs">
+              {ANALYSIS_STEPS.map((label, index) => {
+                const done = index < analysisStepIndex;
+                const active = index === analysisStepIndex;
+                return (
+                  <div className="flex items-center gap-1.5" key={label}>
+                    <span
+                      className={cn(
+                        "inline-flex size-5 items-center justify-center rounded-full border font-medium",
+                        done &&
+                          "border-emerald-400/70 bg-emerald-50 text-emerald-600 dark:border-emerald-700/60 dark:bg-emerald-950/40 dark:text-emerald-300",
+                        active && "border-primary bg-primary/10 text-primary",
+                        !done && !active && "border-border text-muted-foreground",
+                      )}
+                    >
+                      {done ? <CheckIcon className="size-3" /> : index + 1}
+                    </span>
+                    <span
+                      className={cn(
+                        active ? "font-medium text-foreground" : "text-muted-foreground",
+                      )}
+                    >
+                      {label}
+                    </span>
+                    {index < ANALYSIS_STEPS.length - 1 ? (
+                      <span className="text-muted-foreground/50">›</span>
+                    ) : null}
+                  </div>
+                );
+              })}
+            </div>
+          ) : null}
           {pipeline.progressTools.length > 0 && (
             <div className="flex flex-col gap-1.5 text-muted-foreground text-xs">
               {pipeline.progressTools.map((t) => (
