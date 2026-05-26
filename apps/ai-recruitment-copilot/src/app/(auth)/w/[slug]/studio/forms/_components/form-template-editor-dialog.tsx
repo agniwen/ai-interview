@@ -248,7 +248,7 @@ export function CandidateFormTemplateEditorDialog({
       description="候选人在面试开始前根据作用域填写该表单；提交瞬间的题目结构会被冻结为快照。"
       size="full"
       className="h-[90vh]"
-      bodyClassName="flex overflow-hidden p-0"
+      bodyClassName="overflow-y-auto p-0"
       footer={
         <>
           <Button onClick={() => onOpenChange(false)} type="button" variant="outline">
@@ -262,7 +262,7 @@ export function CandidateFormTemplateEditorDialog({
       }
     >
       <form
-        className="flex min-h-0 flex-1 flex-col"
+        className="flex min-h-full flex-col"
         id="form-template-form"
         onSubmit={(event) => {
           event.preventDefault();
@@ -270,137 +270,134 @@ export function CandidateFormTemplateEditorDialog({
           void form.handleSubmit();
         }}
       >
-        <div className="min-h-0 flex-1 overflow-hidden">
-          <div className="flex h-full min-h-0 flex-col">
-            <div className="shrink-0 border-b bg-muted/10 px-6 py-4">
-              <FieldGroup className="gap-5">
-                <form.Field name="title">
-                  {(field) => {
-                    const errors = toFieldErrors(field.state.meta.errors);
-                    return (
-                      <Field data-invalid={hasFieldErrors(field.state.meta.errors) || undefined}>
-                        <FieldLabel htmlFor={field.name}>
-                          表单标题 <span className="text-destructive">*</span>
-                        </FieldLabel>
-                        <FieldContent className="gap-2">
-                          <Input
+        <div className="flex min-h-full flex-col">
+          <div className="shrink-0 border-b bg-muted/10 px-6 py-4">
+            <FieldGroup className="gap-5">
+              <form.Field name="title">
+                {(field) => {
+                  const errors = toFieldErrors(field.state.meta.errors);
+                  return (
+                    <Field data-invalid={hasFieldErrors(field.state.meta.errors) || undefined}>
+                      <FieldLabel htmlFor={field.name}>
+                        表单标题 <span className="text-destructive">*</span>
+                      </FieldLabel>
+                      <FieldContent className="gap-2">
+                        <Input
+                          aria-invalid={!!errors?.length}
+                          id={field.name}
+                          maxLength={TITLE_MAX_LENGTH}
+                          onBlur={field.handleBlur}
+                          onChange={(event) => field.handleChange(event.target.value)}
+                          placeholder="例如：候选人背景调查表"
+                          value={field.state.value}
+                        />
+                        <FieldError errors={errors} />
+                      </FieldContent>
+                    </Field>
+                  );
+                }}
+              </form.Field>
+
+              <form.Field name="description">
+                {(field) => {
+                  const errors = toFieldErrors(field.state.meta.errors);
+                  return (
+                    <Field data-invalid={hasFieldErrors(field.state.meta.errors) || undefined}>
+                      <FieldLabel htmlFor={field.name}>说明（可选）</FieldLabel>
+                      <FieldContent className="gap-2">
+                        <div className="relative">
+                          <Textarea
                             aria-invalid={!!errors?.length}
+                            className="max-h-32 min-h-16 resize-none pb-6"
                             id={field.name}
-                            maxLength={TITLE_MAX_LENGTH}
+                            maxLength={DESCRIPTION_MAX_LENGTH}
                             onBlur={field.handleBlur}
                             onChange={(event) => field.handleChange(event.target.value)}
-                            placeholder="例如：候选人背景调查表"
+                            placeholder="告知候选人这份表单的用途或填写须知"
+                            rows={2}
+                            value={field.state.value ?? ""}
+                          />
+                          <TextareaCounter
+                            maxLength={DESCRIPTION_MAX_LENGTH}
                             value={field.state.value}
                           />
-                          <FieldError errors={errors} />
-                        </FieldContent>
-                      </Field>
-                    );
-                  }}
+                        </div>
+                        <FieldError errors={errors} />
+                      </FieldContent>
+                    </Field>
+                  );
+                }}
+              </form.Field>
+
+              <div className="grid gap-5 md:grid-cols-2">
+                <form.Field name="scope">
+                  {(field) => (
+                    <Field>
+                      <FieldLabel htmlFor={field.name}>
+                        作用范围 <span className="text-destructive">*</span>
+                      </FieldLabel>
+                      <FieldContent className="gap-2">
+                        <Select
+                          onValueChange={(value) => {
+                            field.handleChange(value as CandidateFormScope);
+                            if (value === "global") {
+                              form.setFieldValue("jobDescriptionIds", []);
+                            }
+                          }}
+                          value={field.state.value}
+                        >
+                          <SelectTrigger className="w-full" id={field.name}>
+                            <SelectValue placeholder="选择作用范围" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="global">全局（所有面试）</SelectItem>
+                            <SelectItem value="job_description">指定在招岗位</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </FieldContent>
+                    </Field>
+                  )}
                 </form.Field>
 
-                <form.Field name="description">
-                  {(field) => {
-                    const errors = toFieldErrors(field.state.meta.errors);
-                    return (
-                      <Field data-invalid={hasFieldErrors(field.state.meta.errors) || undefined}>
-                        <FieldLabel htmlFor={field.name}>说明（可选）</FieldLabel>
-                        <FieldContent className="gap-2">
-                          <div className="relative">
-                            <Textarea
-                              aria-invalid={!!errors?.length}
-                              className="max-h-32 min-h-16 resize-none pb-6"
-                              id={field.name}
-                              maxLength={DESCRIPTION_MAX_LENGTH}
-                              onBlur={field.handleBlur}
-                              onChange={(event) => field.handleChange(event.target.value)}
-                              placeholder="告知候选人这份表单的用途或填写须知"
-                              rows={2}
-                              value={field.state.value ?? ""}
+                {currentScope === "job_description" ? (
+                  <form.Field name="jobDescriptionIds">
+                    {(field) => {
+                      const errors = toFieldErrors(field.state.meta.errors);
+                      return (
+                        <Field data-invalid={hasFieldErrors(field.state.meta.errors) || undefined}>
+                          <FieldLabel htmlFor={field.name}>
+                            绑定岗位 <span className="text-destructive">*</span>
+                          </FieldLabel>
+                          <FieldContent className="gap-2">
+                            <SearchableMultiSelect
+                              emptyMessage="没有匹配的岗位"
+                              invalid={!!errors?.length}
+                              onChange={(next) => field.handleChange(next)}
+                              options={jobDescriptions.map((jd) => ({
+                                label: jd.name,
+                                value: jd.id,
+                              }))}
+                              placeholder="选择岗位…"
+                              searchPlaceholder="搜索岗位…"
+                              selectedBadgeLimit={12}
+                              selectedFormat={(count) => `已选 ${count} 个岗位`}
+                              value={field.state.value ?? []}
                             />
-                            <TextareaCounter
-                              maxLength={DESCRIPTION_MAX_LENGTH}
-                              value={field.state.value}
-                            />
-                          </div>
-                          <FieldError errors={errors} />
-                        </FieldContent>
-                      </Field>
-                    );
-                  }}
-                </form.Field>
-
-                <div className="grid gap-5 md:grid-cols-2">
-                  <form.Field name="scope">
-                    {(field) => (
-                      <Field>
-                        <FieldLabel htmlFor={field.name}>
-                          作用范围 <span className="text-destructive">*</span>
-                        </FieldLabel>
-                        <FieldContent className="gap-2">
-                          <Select
-                            onValueChange={(value) => {
-                              field.handleChange(value as CandidateFormScope);
-                              if (value === "global") {
-                                form.setFieldValue("jobDescriptionIds", []);
-                              }
-                            }}
-                            value={field.state.value}
-                          >
-                            <SelectTrigger className="w-full" id={field.name}>
-                              <SelectValue placeholder="选择作用范围" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="global">全局（所有面试）</SelectItem>
-                              <SelectItem value="job_description">指定在招岗位</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </FieldContent>
-                      </Field>
-                    )}
+                            <FieldError errors={errors} />
+                          </FieldContent>
+                        </Field>
+                      );
+                    }}
                   </form.Field>
-
-                  {currentScope === "job_description" ? (
-                    <form.Field name="jobDescriptionIds">
-                      {(field) => {
-                        const errors = toFieldErrors(field.state.meta.errors);
-                        return (
-                          <Field
-                            data-invalid={hasFieldErrors(field.state.meta.errors) || undefined}
-                          >
-                            <FieldLabel htmlFor={field.name}>
-                              绑定岗位 <span className="text-destructive">*</span>
-                            </FieldLabel>
-                            <FieldContent className="gap-2">
-                              <SearchableMultiSelect
-                                emptyMessage="没有匹配的岗位"
-                                invalid={!!errors?.length}
-                                onChange={(next) => field.handleChange(next)}
-                                options={jobDescriptions.map((jd) => ({
-                                  label: jd.name,
-                                  value: jd.id,
-                                }))}
-                                placeholder="选择岗位…"
-                                searchPlaceholder="搜索岗位…"
-                                selectedFormat={(count) => `已选 ${count} 个岗位`}
-                                value={field.state.value ?? []}
-                              />
-                              <FieldError errors={errors} />
-                            </FieldContent>
-                          </Field>
-                        );
-                      }}
-                    </form.Field>
-                  ) : null}
-                </div>
-              </FieldGroup>
-            </div>
-            <QuestionBuilderWorkspace
-              form={form}
-              selectedQuestionId={selectedQuestionId}
-              setSelectedQuestionId={setSelectedQuestionId}
-            />
+                ) : null}
+              </div>
+            </FieldGroup>
           </div>
+          <QuestionBuilderWorkspace
+            form={form}
+            selectedQuestionId={selectedQuestionId}
+            setSelectedQuestionId={setSelectedQuestionId}
+          />
         </div>
       </form>
     </Modal>
@@ -517,7 +514,7 @@ function QuestionBuilderBody({
         </div>
       </div>
 
-      <div className="hidden min-h-[560px] flex-1 grid-cols-[220px_minmax(0,1fr)_360px] overflow-hidden md:grid">
+      <div className="hidden h-[58vh] min-h-[460px] max-h-[876px] flex-none grid-cols-[220px_minmax(0,1fr)_360px] overflow-hidden md:grid">
         <aside className="flex min-h-0 flex-col gap-3 border-r bg-background px-4 py-4">
           <div className="flex items-center gap-2">
             <PlusIcon className="size-4 text-muted-foreground" />
@@ -706,11 +703,11 @@ function QuestionCanvasCard({
       role="button"
       tabIndex={0}
     >
-      <div className="flex items-start gap-3">
+      <div className="grid grid-cols-[2rem_minmax(0,1fr)_2rem] items-start gap-2.5">
         <SortableDragHandle
           {...handleProps}
           aria-label={`拖动以调整第 ${index + 1} 题的顺序`}
-          className="-ml-1 mt-0.5 opacity-45 transition-opacity group-hover:opacity-100"
+          className="size-8 opacity-45 transition-opacity group-hover:opacity-100"
           onClick={handleDragHandleClick}
           onKeyDown={handleDragHandleKeyDown}
         />
@@ -734,7 +731,7 @@ function QuestionCanvasCard({
         </div>
         <Button
           aria-label={`删除第 ${index + 1} 题`}
-          className="mt-0.5 size-7 shrink-0 text-muted-foreground opacity-0 transition-opacity hover:bg-destructive/10 hover:text-destructive focus-visible:opacity-100 group-hover:opacity-100"
+          className="size-8 shrink-0 text-muted-foreground opacity-0 transition-opacity hover:bg-destructive/10 hover:text-destructive focus-visible:opacity-100 group-hover:opacity-100"
           disabled={!onRemove}
           onClick={handleRemoveClick}
           onKeyDown={(event) => event.stopPropagation()}
@@ -742,7 +739,7 @@ function QuestionCanvasCard({
           type="button"
           variant="ghost"
         >
-          <Trash2Icon className="size-3.5" />
+          <Trash2Icon className="size-4" />
         </Button>
       </div>
     </div>

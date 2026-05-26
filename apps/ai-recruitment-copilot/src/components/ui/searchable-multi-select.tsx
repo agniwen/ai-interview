@@ -37,6 +37,8 @@ export interface SearchableMultiSelectProps {
   disabled?: boolean;
   /** 是否在触发器下方显示已选项 badge 列表 / Show selected badges below trigger. */
   showBadges?: boolean;
+  /** Limit selected badges; overflow is rendered as a "+N" badge. */
+  selectedBadgeLimit?: number;
   triggerClassName?: string;
   id?: string;
 }
@@ -52,6 +54,7 @@ export function SearchableMultiSelect({
   invalid,
   disabled,
   showBadges = true,
+  selectedBadgeLimit,
   triggerClassName,
   id,
 }: SearchableMultiSelectProps) {
@@ -64,6 +67,11 @@ export function SearchableMultiSelect({
     () => options.filter((item) => selectedSet.has(item.value)),
     [options, selectedSet],
   );
+  const visibleSelectedItems =
+    typeof selectedBadgeLimit === "number"
+      ? selectedItems.slice(0, selectedBadgeLimit)
+      : selectedItems;
+  const hiddenSelectedCount = selectedItems.length - visibleSelectedItems.length;
 
   const toggle = (next: string) => {
     if (selectedSet.has(next)) {
@@ -148,7 +156,7 @@ export function SearchableMultiSelect({
       </Popover>
       {showBadges && selectedItems.length > 0 ? (
         <div className="flex flex-wrap gap-1.5">
-          {selectedItems.map((item) => (
+          {visibleSelectedItems.map((item) => (
             <Badge className="gap-1 pr-0.5" key={item.value} variant="secondary">
               {item.label}
               <button
@@ -162,6 +170,11 @@ export function SearchableMultiSelect({
               </button>
             </Badge>
           ))}
+          {hiddenSelectedCount > 0 ? (
+            <Badge title={`还有 ${hiddenSelectedCount} 项未展示`} variant="outline">
+              +{hiddenSelectedCount}
+            </Badge>
+          ) : null}
         </div>
       ) : null}
     </div>
