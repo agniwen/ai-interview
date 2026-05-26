@@ -90,6 +90,55 @@ function aiStageLockedReason(row: StudioInterviewRoundListRecord): string | null
   return `候选人已进入「${pipelineStageMeta[row.pipelineStage].label}」阶段，AI 面试相关操作已锁定。如需修改请先回退阶段或重新激活。`;
 }
 
+// 复制面试链接：直接读 row.interviewLink，无需扫描 scheduleEntries。
+// Copy interview link: read row.interviewLink directly, no scheduleEntries scan needed.
+async function copyInterviewLink(record: StudioInterviewRoundListRecord) {
+  const fullLink = toAbsoluteUrl(record.interviewLink);
+  try {
+    const result = await copyTextToClipboard(fullLink);
+    if (result === "copied") {
+      toast.success("面试链接已复制");
+      return;
+    }
+    if (result === "manual") {
+      toast.info("已弹出链接，请手动复制");
+      return;
+    }
+    if (result === "failed") {
+      throw new Error("copy-failed");
+    }
+  } catch {
+    toast.error("复制失败，请手动复制");
+  }
+}
+
+// 复制「公共访问链接」：候选人面试详情的免登录页 /r/[roundId]，给招聘经理或外部
+// 干系人查看完整面试快照（候选人信息、简历 PDF、评估报告、录像）。任何拿到链接
+// 的人都能访问，不做 token 校验。
+//
+// Copy the public-access link: /r/[roundId] — a no-auth view of the full
+// interview snapshot (candidate, resume, reports, recording) intended for
+// hiring managers / external stakeholders. Anyone with the URL can view it.
+async function copyPublicLink(record: StudioInterviewRoundListRecord) {
+  const fullLink = toAbsoluteUrl(`/r/${record.id}`);
+  try {
+    const result = await copyTextToClipboard(fullLink);
+    if (result === "copied") {
+      toast.success("公共访问链接已复制");
+      return;
+    }
+    if (result === "manual") {
+      toast.info("已弹出链接，请手动复制");
+      return;
+    }
+    if (result === "failed") {
+      throw new Error("copy-failed");
+    }
+  } catch {
+    toast.error("复制失败，请手动复制");
+  }
+}
+
 export function InterviewManagementPage({
   initialData,
   initialSummary,
@@ -215,55 +264,6 @@ export function InterviewManagementPage({
     void queryClient.invalidateQueries({ queryKey: ["studio-interviews"] });
     void queryClient.invalidateQueries({ queryKey: ["studio-resumes"] });
     void queryClient.invalidateQueries({ queryKey: ["studio-resume-rounds"] });
-  }
-
-  // 复制面试链接：直接读 row.interviewLink，无需扫描 scheduleEntries。
-  // Copy interview link: read row.interviewLink directly, no scheduleEntries scan needed.
-  async function copyInterviewLink(record: StudioInterviewRoundListRecord) {
-    const fullLink = toAbsoluteUrl(record.interviewLink);
-    try {
-      const result = await copyTextToClipboard(fullLink);
-      if (result === "copied") {
-        toast.success("面试链接已复制");
-        return;
-      }
-      if (result === "manual") {
-        toast.info("已弹出链接，请手动复制");
-        return;
-      }
-      if (result === "failed") {
-        throw new Error("copy-failed");
-      }
-    } catch {
-      toast.error("复制失败，请手动复制");
-    }
-  }
-
-  // 复制「公共访问链接」：候选人面试详情的免登录页 /r/[roundId]，给招聘经理或外部
-  // 干系人查看完整面试快照（候选人信息、简历 PDF、评估报告、录像）。任何拿到链接
-  // 的人都能访问，不做 token 校验。
-  //
-  // Copy the public-access link: /r/[roundId] — a no-auth view of the full
-  // interview snapshot (candidate, resume, reports, recording) intended for
-  // hiring managers / external stakeholders. Anyone with the URL can view it.
-  async function copyPublicLink(record: StudioInterviewRoundListRecord) {
-    const fullLink = toAbsoluteUrl(`/r/${record.id}`);
-    try {
-      const result = await copyTextToClipboard(fullLink);
-      if (result === "copied") {
-        toast.success("公共访问链接已复制");
-        return;
-      }
-      if (result === "manual") {
-        toast.info("已弹出链接，请手动复制");
-        return;
-      }
-      if (result === "failed") {
-        throw new Error("copy-failed");
-      }
-    } catch {
-      toast.error("复制失败，请手动复制");
-    }
   }
 
   // 列定义：以 round 为主键，候选人信息作为快照列展示。

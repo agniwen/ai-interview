@@ -109,6 +109,16 @@ function InvitationsList({
   );
 }
 
+async function copyInvitationLink(invitationId: string) {
+  const url = `${window.location.origin}/invite/${invitationId}`;
+  try {
+    await navigator.clipboard.writeText(url);
+    toast.success("邀请链接已复制");
+  } catch {
+    toast.error(`复制失败，请手动复制：${url}`);
+  }
+}
+
 export function PendingInvitationsButton({ organizationId }: { organizationId: string | null }) {
   const [open, setOpen] = useState(false);
   const [pending, setPending] = useState<string | null>(null);
@@ -127,16 +137,6 @@ export function PendingInvitationsButton({ organizationId }: { organizationId: s
 
   const items = (data ?? []).filter((inv) => inv.status === "pending");
   const count = items.length;
-
-  async function copyLink(invitationId: string) {
-    const url = `${window.location.origin}/invite/${invitationId}`;
-    try {
-      await navigator.clipboard.writeText(url);
-      toast.success("邀请链接已复制");
-    } catch {
-      toast.error(`复制失败，请手动复制：${url}`);
-    }
-  }
 
   async function cancel(invitationId: string) {
     setPending(invitationId);
@@ -177,7 +177,7 @@ export function PendingInvitationsButton({ organizationId }: { organizationId: s
         <div className="px-4 pb-4">
           <InvitationsList
             cancel={cancel}
-            copyLink={copyLink}
+            copyLink={copyInvitationLink}
             isPending={isPending}
             items={items}
             pending={pending}

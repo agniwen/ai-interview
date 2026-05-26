@@ -22,10 +22,5 @@
     "turbo": "^2.5.0",
     "ultracite": "7.6.0"
   },
-  "packageManager": "pnpm@11.0.0",
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "canvas"
-    ]
-  }
+  "packageManager": "pnpm@11.3.0"
 }

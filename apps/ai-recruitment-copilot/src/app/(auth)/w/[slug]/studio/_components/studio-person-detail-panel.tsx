@@ -324,6 +324,28 @@ function FormsSkeleton() {
   );
 }
 
+async function copyInterviewLink(link: string) {
+  try {
+    const result = await copyTextToClipboard(link);
+
+    if (result === "copied") {
+      toast.success("面试链接已复制");
+      return;
+    }
+
+    if (result === "manual") {
+      toast.info("已弹出链接，请手动复制");
+      return;
+    }
+
+    if (result === "failed") {
+      throw new Error("copy-failed");
+    }
+  } catch {
+    toast.error("复制失败，请手动复制");
+  }
+}
+
 // oxlint-disable-next-line complexity -- Panel orchestrates many conditional sections driven by record state and mode; flattening adds noise.
 export function StudioPersonDetailPanel({
   recordId,
@@ -609,28 +631,6 @@ export function StudioPersonDetailPanel({
       resumeProfile: resumeRecord.resumeProfile,
       targetRole: resumeRecord.targetRole,
     };
-  }
-
-  async function handleCopy(link: string) {
-    try {
-      const result = await copyTextToClipboard(link);
-
-      if (result === "copied") {
-        toast.success("面试链接已复制");
-        return;
-      }
-
-      if (result === "manual") {
-        toast.info("已弹出链接，请手动复制");
-        return;
-      }
-
-      if (result === "failed") {
-        throw new Error("copy-failed");
-      }
-    } catch {
-      toast.error("复制失败，请手动复制");
-    }
   }
 
   async function confirmResetSubmission() {
@@ -1002,7 +1002,9 @@ export function StudioPersonDetailPanel({
                         <Button
                           disabled={isAiStageLocked}
                           onClick={() =>
-                            void handleCopy(toAbsoluteUrl(record.roundInterviewLink as string))
+                            void copyInterviewLink(
+                              toAbsoluteUrl(record.roundInterviewLink as string),
+                            )
                           }
                           size="sm"
                           type="button"
@@ -1415,7 +1417,7 @@ export function StudioPersonDetailPanel({
                         <Button
                           className="flex-1 sm:flex-none"
                           disabled={isAiStageLocked}
-                          onClick={() => void handleCopy(fullLink)}
+                          onClick={() => void copyInterviewLink(fullLink)}
                           size="sm"
                           title={aiStageLockedReason ?? undefined}
                           type="button"

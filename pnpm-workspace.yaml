@@ -3,7 +3,6 @@ packages:
   - "packages/*"
 
 catalog:
-  "@vitest/coverage-v8": ^2.1.9
   "@types/react": ^19.2.14
   "@types/react-dom": ^19.2.3
   ai: ^6.0.177
@@ -14,8 +13,8 @@ catalog:
   react: 19.2.3
   react-dom: 19.2.3
   typescript: ^5.9.3
-  vite: 5.4.21
-  vitest: ^2.1.9
+  vite: ^8.0.14
+  vitest: ^4.1.7
   zod: ^4.4.3
 
 allowBuilds:
@@ -44,3 +43,7 @@ trustPolicyExclude:
   # CI-published with provenance; 5.1.1 was republished by Redux maintainer
   # acemarke (Mark Erikson) from a local machine. Same npm signing key.
   - "reselect@5.1.1"
+  # vitest@4.x pulls tinyexec@^1.0.2. 1.2.2 was published with provenance
+  # attestation and the same npm registry signing key as earlier 1.x releases;
+  # pnpm flags the publisher/provenance evidence change as a downgrade.
+  - "tinyexec@1.2.2"

@@ -126,6 +126,16 @@ function LinkRow({
   );
 }
 
+async function copyInviteUrl(code: string) {
+  const url = `${window.location.origin}/join/${code}`;
+  try {
+    await navigator.clipboard.writeText(url);
+    toast.success("已复制链接");
+  } catch {
+    toast.error("复制失败，请手动复制");
+  }
+}
+
 export function InviteLinksDialog() {
   const [open, setOpen] = useState(false);
   const slug = useWorkspaceSlug();
@@ -191,16 +201,6 @@ export function InviteLinksDialog() {
     },
   });
 
-  async function copyUrl(code: string) {
-    const url = `${window.location.origin}/join/${code}`;
-    try {
-      await navigator.clipboard.writeText(url);
-      toast.success("已复制链接");
-    } catch {
-      toast.error("复制失败，请手动复制");
-    }
-  }
-
   const links = linksData?.links ?? [];
 
   return (
@@ -237,7 +237,7 @@ export function InviteLinksDialog() {
                   expanded={expandedId === link.id}
                   key={link.id}
                   link={link}
-                  onCopy={() => copyUrl(link.code)}
+                  onCopy={() => copyInviteUrl(link.code)}
                   onDisable={() => disableMutation.mutate(link.id)}
                   onEnable={() => enableMutation.mutate(link.id)}
                   onToggleExpand={() => setExpandedId((cur) => (cur === link.id ? null : link.id))}
