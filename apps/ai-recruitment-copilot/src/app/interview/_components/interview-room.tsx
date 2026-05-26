@@ -16,7 +16,7 @@ import {
   Volume2Icon,
   WifiIcon,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { rpc } from "@/lib/client/rpc";
 import { AgentSessionProvider } from "@/components/agents-ui/agent-session-provider";
@@ -56,7 +56,9 @@ interface InterviewRoomProps {
   roundId: string;
 }
 
-interface StartOptions { muted?: boolean }
+interface StartOptions {
+  muted?: boolean;
+}
 
 function resolveStartButtonLabel({
   isConnecting,
@@ -359,6 +361,7 @@ function InterviewNoticeDialog({
   open: boolean;
   startOptions: StartOptions;
 }) {
+  const acknowledgementId = useId();
   const startDisabled = !acknowledged || isConnecting || isLoadingStatus;
   const startLabel = resolveStartButtonLabel({
     isConnecting,
@@ -400,13 +403,16 @@ function InterviewNoticeDialog({
             title="保持稳定连接"
           />
         </ul>
-        <label className="flex cursor-pointer items-center gap-2 text-sm">
+        <div className="flex items-center gap-2 text-sm">
           <Checkbox
+            id={acknowledgementId}
             checked={acknowledged}
             onCheckedChange={(checked) => onAcknowledgedChange(checked === true)}
           />
-          <span>我已清楚并同意按上述注意事项完成面试</span>
-        </label>
+          <label className="cursor-pointer" htmlFor={acknowledgementId}>
+            我已清楚并同意按上述注意事项完成面试
+          </label>
+        </div>
         <DialogFooter>
           <Button disabled={startDisabled} onClick={onConfirm} type="button">
             {startOptions.muted ? (

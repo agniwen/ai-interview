@@ -78,24 +78,33 @@ export function RoundEmailAction({
 
   // 禁用时用 Tooltip 解释原因（外部锁定优先于缺邮箱）。
   // Tooltip explains why the button is disabled; the lock reason wins over missing-email.
-  // oxlint-disable-next-line no-nested-ternary -- 三态：locked / missing email / enabled
-  const trigger = locked ? (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <span>{button}</span>
-      </TooltipTrigger>
-      <TooltipContent>{lockedReason}</TooltipContent>
-    </Tooltip>
-  ) : (missingEmail ? (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <span>{button}</span>
-      </TooltipTrigger>
-      <TooltipContent>请先在面试信息中填写候选人邮箱</TooltipContent>
-    </Tooltip>
-  ) : (
-    button
-  ));
+  function renderTrigger() {
+    if (locked) {
+      return (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span>{button}</span>
+          </TooltipTrigger>
+          <TooltipContent>{lockedReason}</TooltipContent>
+        </Tooltip>
+      );
+    }
+
+    if (missingEmail) {
+      return (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span>{button}</span>
+          </TooltipTrigger>
+          <TooltipContent>请先在面试信息中填写候选人邮箱</TooltipContent>
+        </Tooltip>
+      );
+    }
+
+    return button;
+  }
+
+  const trigger = renderTrigger();
 
   return (
     <>

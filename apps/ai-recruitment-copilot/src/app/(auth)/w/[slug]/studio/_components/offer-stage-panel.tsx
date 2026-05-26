@@ -90,6 +90,49 @@ export function OfferStagePanel({
   const [respondTarget, setRespondTarget] = useState<OfferDraftRecord | null>(null);
   const [acceptedConfirm, setAcceptedConfirm] = useState<OfferDraftRecord | null>(null);
 
+  function renderDraftsContent() {
+    if (isLoading) {
+      return (
+        <div className="rounded-lg border border-border/60 bg-muted/30 p-6 text-center text-muted-foreground text-sm">
+          加载中…
+        </div>
+      );
+    }
+
+    if (drafts.length === 0) {
+      return (
+        <Empty className="border-border/60">
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <HandshakeIcon className="size-5" />
+            </EmptyMedia>
+            <EmptyTitle>尚未发出 Offer</EmptyTitle>
+            <EmptyDescription>
+              {disabled ? "已结案候选人不可新建 Offer。" : "点「新建 Offer」起草第一版。"}
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
+      );
+    }
+
+    return (
+      <div className="space-y-3">
+        {drafts.map((draft) => (
+          <OfferCard
+            candidateId={candidateId}
+            disabled={disabled}
+            draft={draft}
+            key={draft.id}
+            onCancelled={invalidateDrafts}
+            onEdit={() => setEditTarget(draft)}
+            onRespond={() => setRespondTarget(draft)}
+            onSent={invalidateDrafts}
+          />
+        ))}
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-5">
       <CandidateExpectationsBlock candidateId={candidateId} disabled={disabled} />
@@ -109,39 +152,7 @@ export function OfferStagePanel({
         )}
       </div>
 
-      {/* oxlint-disable-next-line no-nested-ternary -- three-state body: loading / empty / list. */}
-      {isLoading ? (
-        <div className="rounded-lg border border-border/60 bg-muted/30 p-6 text-center text-muted-foreground text-sm">
-          加载中…
-        </div>
-      ) : (drafts.length === 0 ? (
-        <Empty className="border-border/60">
-          <EmptyHeader>
-            <EmptyMedia variant="icon">
-              <HandshakeIcon className="size-5" />
-            </EmptyMedia>
-            <EmptyTitle>尚未发出 Offer</EmptyTitle>
-            <EmptyDescription>
-              {disabled ? "已结案候选人不可新建 Offer。" : "点「新建 Offer」起草第一版。"}
-            </EmptyDescription>
-          </EmptyHeader>
-        </Empty>
-      ) : (
-        <div className="space-y-3">
-          {drafts.map((draft) => (
-            <OfferCard
-              candidateId={candidateId}
-              disabled={disabled}
-              draft={draft}
-              key={draft.id}
-              onCancelled={invalidateDrafts}
-              onEdit={() => setEditTarget(draft)}
-              onRespond={() => setRespondTarget(draft)}
-              onSent={invalidateDrafts}
-            />
-          ))}
-        </div>
-      ))}
+      {renderDraftsContent()}
 
       <CreateOrEditOfferDialog
         candidateId={candidateId}

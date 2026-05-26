@@ -82,8 +82,8 @@ import { useRoundEmailSummary } from "../interviews/_components/round-email/use-
 import { InterviewLinkQrButton } from "../interviews/_components/interview-link-qr-button";
 import { ConversationTranscript } from "../interviews/_components/interview-detail/conversation-transcript";
 import { DetailRow } from "../interviews/_components/interview-detail/detail-row";
-import { EvaluationResults } from '../interviews/_components/interview-detail/evaluation-results';
-import type { EvidenceQuote } from '../interviews/_components/interview-detail/evaluation-results';
+import { EvaluationResults } from "../interviews/_components/interview-detail/evaluation-results";
+import type { EvidenceQuote } from "../interviews/_components/interview-detail/evaluation-results";
 import { FormsTab } from "../interviews/_components/interview-detail/forms-tab";
 import { InterviewMetricsPanel } from "../interviews/_components/interview-detail/interview-metrics-panel";
 import {
@@ -648,6 +648,16 @@ export function StudioPersonDetailPanel({
     mode === "resume"
       ? "查看候选人基础信息与结构化简历。"
       : renderHeaderDescription({ isLoading, round });
+  const resumePreviewUrl = (() => {
+    if (!record?.hasResumeFile) {
+      return "";
+    }
+    if (isPublic) {
+      return `/api/public/interview-rounds/${record.roundId ?? record.id}/resume`;
+    }
+    const previewRecordId = mode === "interview" ? (record.roundId ?? record.id) : record.id;
+    return `/api/w/${slug}/studio/${mode === "resume" ? "resumes" : "interviews"}/${previewRecordId}/resume`;
+  })();
 
   const headerExtra = record ? (
     <div className="mt-2 flex flex-col items-stretch gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
@@ -705,18 +715,7 @@ export function StudioPersonDetailPanel({
         disabled={!record.hasResumeFile}
         filename={record.resumeFileName ?? undefined}
         label="预览简历"
-        url={
-          // oxlint-disable-next-line no-nested-ternary -- Public vs authed PDF URL switch inlined for readability.
-          record.hasResumeFile
-            ? (isPublic
-              ? `/api/public/interview-rounds/${record.roundId ?? record.id}/resume`
-              : `/api/w/${slug}/studio/${mode === "resume" ? "resumes" : "interviews"}/${
-                  // 面试模式用 roundId（/:id/resume 已是 round-keyed），简历模式用 record.id。
-                  // Interview mode uses roundId (/:id/resume is now round-keyed); resume mode uses record.id.
-                  mode === "interview" ? (record.roundId ?? record.id) : record.id
-                }/resume`)
-            : ""
-        }
+        url={resumePreviewUrl}
       />
     </div>
   ) : null;

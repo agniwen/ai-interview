@@ -115,6 +115,48 @@ export function HumanInterviewStagePanel({ candidateId, candidateName, disabled 
   const [completeTarget, setCompleteTarget] = useState<HumanInterviewRoundRecord | null>(null);
   const [cancelTarget, setCancelTarget] = useState<HumanInterviewRoundRecord | null>(null);
 
+  function renderRoundsContent() {
+    if (isLoading) {
+      return (
+        <div className="rounded-lg border border-border/60 bg-muted/30 p-6 text-center text-muted-foreground text-sm">
+          加载中…
+        </div>
+      );
+    }
+
+    if (rounds.length === 0) {
+      return (
+        <Empty className="border-border/60">
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <UsersIcon className="size-5" />
+            </EmptyMedia>
+            <EmptyTitle>尚未安排真人复面</EmptyTitle>
+            <EmptyDescription>
+              {disabled
+                ? "已结案候选人不可新增复面，请先重新激活。"
+                : "点「新建一轮」开始安排第一次复面。"}
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
+      );
+    }
+
+    return (
+      <div className="space-y-3">
+        {rounds.map((round) => (
+          <RoundCard
+            disabled={disabled}
+            key={round.id}
+            onCancel={() => setCancelTarget(round)}
+            onComplete={() => setCompleteTarget(round)}
+            round={round}
+          />
+        ))}
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -132,38 +174,7 @@ export function HumanInterviewStagePanel({ candidateId, candidateName, disabled 
         )}
       </div>
 
-      {/* oxlint-disable-next-line no-nested-ternary -- three-state body: loading / empty / list. */}
-      {isLoading ? (
-        <div className="rounded-lg border border-border/60 bg-muted/30 p-6 text-center text-muted-foreground text-sm">
-          加载中…
-        </div>
-      ) : (rounds.length === 0 ? (
-        <Empty className="border-border/60">
-          <EmptyHeader>
-            <EmptyMedia variant="icon">
-              <UsersIcon className="size-5" />
-            </EmptyMedia>
-            <EmptyTitle>尚未安排真人复面</EmptyTitle>
-            <EmptyDescription>
-              {disabled
-                ? "已结案候选人不可新增复面，请先重新激活。"
-                : "点「新建一轮」开始安排第一次复面。"}
-            </EmptyDescription>
-          </EmptyHeader>
-        </Empty>
-      ) : (
-        <div className="space-y-3">
-          {rounds.map((round) => (
-            <RoundCard
-              disabled={disabled}
-              key={round.id}
-              onCancel={() => setCancelTarget(round)}
-              onComplete={() => setCompleteTarget(round)}
-              round={round}
-            />
-          ))}
-        </div>
-      ))}
+      {renderRoundsContent()}
 
       <ScheduleRoundDialog
         candidateId={candidateId}
