@@ -15,16 +15,15 @@ import {
   agentTrackToggleVariants,
 } from "@/components/agents-ui/agent-track-toggle";
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Toggle } from "@/components/ui/toggle";
 import { useInputControls, usePublishPermissions } from "@/hooks/agents-ui/use-agent-control-bar";
@@ -471,8 +470,8 @@ export function AgentControlBar({
 
         {/* Disconnect */}
         {visibleControls.leave && (
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
+          <Dialog>
+            <DialogTrigger asChild>
               <AgentDisconnectButton
                 disabled={!isConnected}
                 className={cn(
@@ -483,20 +482,26 @@ export function AgentControlBar({
                 <span className="hidden md:inline">结束面试</span>
                 <span className="inline md:hidden">结束</span>
               </AgentDisconnectButton>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>确认结束面试</AlertDialogTitle>
-                <AlertDialogDescription>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>确认结束面试</DialogTitle>
+                <DialogDescription>
                   面试结束后将无法继续对话，确定要结束本次面试吗？
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>继续面试</AlertDialogCancel>
-                <AlertDialogAction onClick={onDisconnect}>确认结束</AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter>
+                <DialogClose asChild>
+                  <Button variant="outline">继续面试</Button>
+                </DialogClose>
+                <DialogClose asChild>
+                  <Button onClick={onDisconnect} variant="destructive">
+                    确认结束
+                  </Button>
+                </DialogClose>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         )}
       </div>
     </div>

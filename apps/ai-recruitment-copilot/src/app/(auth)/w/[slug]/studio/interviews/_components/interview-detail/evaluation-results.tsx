@@ -1,5 +1,12 @@
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { resolveRecommendationVariant } from "./helpers";
+
+export interface EvidenceQuote {
+  quote?: string;
+  timeInCallSecs?: number | null;
+  turnIndex?: number | null;
+}
 
 interface EvaluationQuestion {
   order?: number;
@@ -7,6 +14,7 @@ interface EvaluationQuestion {
   score?: number;
   maxScore?: number;
   assessment?: string;
+  evidence?: EvidenceQuote[];
 }
 
 /**
@@ -51,6 +59,41 @@ function KeyValueEntries({ entries }: { entries: Record<string, unknown> }) {
   );
 }
 
+function EvidenceList({
+  evidence,
+  onEvidenceSelect,
+}: {
+  evidence: EvidenceQuote[];
+  onEvidenceSelect?: (evidence: EvidenceQuote) => void;
+}) {
+  const items = evidence.filter((item) => item.quote);
+  if (items.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="mt-2 flex flex-col gap-1.5">
+      {items.map((item, index) => (
+        <Button
+          className="h-auto justify-start gap-2 px-2 py-1.5 text-left font-normal leading-normal"
+          key={`${item.turnIndex ?? "unknown"}-${index}`}
+          onClick={() => onEvidenceSelect?.(item)}
+          size="sm"
+          type="button"
+          variant="outline"
+        >
+          <span className="min-w-0 flex-1 truncate">“{item.quote}”</span>
+          {typeof item.timeInCallSecs === "number" ? (
+            <span className="shrink-0 text-muted-foreground tabular-nums">
+              {item.timeInCallSecs}s
+            </span>
+          ) : null}
+        </Button>
+      ))}
+    </div>
+  );
+}
+
 /**
  * 渲染 Agent 评估结果：识别"标准评估"格式（含 questions[]）则渲染富视图，
  * 否则降级为通用键值对展示。
@@ -58,7 +101,13 @@ function KeyValueEntries({ entries }: { entries: Record<string, unknown> }) {
  * Render an agent evaluation: if the payload is the standard shape (with `questions[]`),
  * render the rich view; otherwise fall back to a generic key/value list.
  */
-export function EvaluationResults({ data }: { data: Record<string, unknown> }) {
+export function EvaluationResults({
+  data,
+  onEvidenceSelect,
+}: {
+  data: Record<string, unknown>;
+  onEvidenceSelect?: (evidence: EvidenceQuote) => void;
+}) {
   if (!data || Object.keys(data).length === 0) {
     return <p className="text-muted-foreground text-sm">暂无结构化结果。</p>;
   }
@@ -105,6 +154,9 @@ export function EvaluationResults({ data }: { data: Record<string, unknown> }) {
               {q.assessment && (
                 <p className="mt-1.5 text-muted-foreground leading-normal">{q.assessment}</p>
               )}
+              {Array.isArray(q.evidence) ? (
+                <EvidenceList evidence={q.evidence} onEvidenceSelect={onEvidenceSelect} />
+              ) : null}
             </div>
           ))}
         </div>

@@ -10,7 +10,7 @@
  */
 
 import { Loader2Icon, PlayIcon } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -26,6 +26,7 @@ interface RecordingPlayerProps {
   conversationId: string;
   status: InterviewRecordingStatus | null;
   durationSecs: number | null;
+  seekToSecs?: number | null;
   /**
    * "authed"：走 /api/w/:slug/studio 路径（默认）。
    * "public"：走 /api/public 路径，无需 slug，用于 /r/[roundId] 等公开访问入口。
@@ -65,11 +66,20 @@ export function RecordingPlayer({
   conversationId,
   status,
   durationSecs,
+  seekToSecs,
   accessMode = "authed",
 }: RecordingPlayerProps) {
   const slug = useOptionalWorkspaceSlug();
   const [url, setUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+
+  useEffect(() => {
+    if (typeof seekToSecs !== "number" || !videoRef.current) {
+      return;
+    }
+    videoRef.current.currentTime = seekToSecs;
+  }, [seekToSecs, url]);
 
   if (status !== "completed") {
     return (
@@ -124,6 +134,7 @@ export function RecordingPlayer({
           className="mt-3 w-full rounded-xl border border-border/60"
           controls
           preload="metadata"
+          ref={videoRef}
           src={url}
         />
       ) : (

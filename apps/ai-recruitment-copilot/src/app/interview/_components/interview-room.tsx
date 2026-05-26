@@ -5,13 +5,16 @@ import type { CandidateInterviewView } from "@/lib/shared/interview/interview-re
 import { useAgent, useSession } from "@livekit/components-react";
 import { ConnectionState, DisconnectReason, RoomEvent, TokenSource } from "livekit-client";
 import {
+  CheckCircle2Icon,
   MessageSquareTextIcon,
   MicIcon,
   MicOffIcon,
+  RefreshCwIcon,
   TriangleAlertIcon,
   UserCheckIcon,
   VideoIcon,
   Volume2Icon,
+  WifiIcon,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -20,7 +23,17 @@ import { AgentSessionProvider } from "@/components/agents-ui/agent-session-provi
 import { AgentSessionView_01 } from "@/components/agents-ui/blocks/agent-session-view-01";
 import { StartAudioButton } from "@/components/agents-ui/start-audio-button";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Toaster } from "@/components/ui/sonner";
 import { InterviewTimer } from "./interview-timer";
 import { PreInterviewFormsView } from "./pre-interview-forms-view";
@@ -42,6 +55,8 @@ interface InterviewRoomProps {
   interviewId: string;
   roundId: string;
 }
+
+interface StartOptions { muted?: boolean }
 
 function resolveStartButtonLabel({
   isConnecting,
@@ -135,6 +150,278 @@ function RuleItem({
   );
 }
 
+type DeviceCheckStatus = "idle" | "checking" | "passed" | "warning" | "failed";
+
+interface DeviceCheckResult {
+  camera: DeviceCheckStatus;
+  microphone: DeviceCheckStatus;
+  network: DeviceCheckStatus;
+  message: string | null;
+}
+
+function stopStream(stream: MediaStream) {
+  for (const track of stream.getTracks()) {
+    track.stop();
+  }
+}
+
+function formatMediaError(error: unknown) {
+  if (!(error instanceof Error)) {
+    return "设备不可用";
+  }
+  if (error.name === "NotAllowedError" || error.name === "PermissionDeniedError") {
+    return "浏览器权限未允许";
+  }
+  if (error.name === "NotFoundError" || error.name === "DevicesNotFoundError") {
+    return "未找到可用设备";
+  }
+  if (error.name === "NotReadableError") {
+    return "设备可能被其他应用占用";
+  }
+  return error.message || "设备不可用";
+}
+
+async function checkMediaDevice(constraints: MediaStreamConstraints) {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia(constraints);
+    stopStream(stream);
+    return { ok: true, reason: null };
+  } catch (error) {
+    return { ok: false, reason: formatMediaError(error) };
+  }
+}
+
+function DeviceCheckBadge({ status }: { status: DeviceCheckStatus }) {
+  switch (status) {
+    case "checking": {
+      return <Badge variant="info">检测中</Badge>;
+    }
+    case "passed": {
+      return <Badge variant="success">正常</Badge>;
+    }
+    case "warning": {
+      return <Badge variant="warning">需留意</Badge>;
+    }
+    case "failed": {
+      return <Badge variant="destructive">异常</Badge>;
+    }
+    default: {
+      return <Badge variant="outline">未检测</Badge>;
+    }
+  }
+}
+
+function DeviceCheckItem({
+  detail,
+  icon: Icon,
+  status,
+  title,
+}: {
+  detail: string;
+  icon: LucideIcon;
+  status: DeviceCheckStatus;
+  title: string;
+}) {
+  return (
+    <div className="rounded-xl border border-border/60 bg-background/70 p-3">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <Icon className="size-4 text-muted-foreground" />
+          <span className="font-medium text-sm">{title}</span>
+        </div>
+        <DeviceCheckBadge status={status} />
+      </div>
+      <p className="mt-2 text-muted-foreground text-xs leading-normal">{detail}</p>
+    </div>
+  );
+}
+
+function DevicePreflightCard() {
+  const [checking, setChecking] = useState(false);
+  const [result, setResult] = useState<DeviceCheckResult>({
+    camera: "idle",
+    message: null,
+    microphone: "idle",
+    network: "idle",
+  });
+
+  const runChecks = useCallback(async () => {
+    setChecking(true);
+    setResult({
+      camera: "checking",
+      message: "正在检测设备状态...",
+      microphone: "checking",
+      network: navigator.onLine ? "checking" : "failed",
+    });
+
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setResult({
+        camera: "failed",
+        message: "当前浏览器不支持媒体设备检测，请换用新版 Chrome、Edge 或 Safari。",
+        microphone: "failed",
+        network: navigator.onLine ? "passed" : "failed",
+      });
+      setChecking(false);
+      return;
+    }
+
+    const [microphone, camera] = await Promise.all([
+      checkMediaDevice({
+        audio: { autoGainControl: true, echoCancellation: true, noiseSuppression: true },
+      }),
+      checkMediaDevice({ video: true }),
+    ]);
+
+    const networkStatus = navigator.onLine ? "passed" : "failed";
+    const message = (() => {
+      if (!microphone.ok) {
+        return `麦克风不可用：${microphone.reason}。可以先检查权限，或使用「静音开始」进入文字沟通。`;
+      }
+      if (!camera.ok) {
+        return `摄像头暂不可用：${camera.reason}。面试仍可继续，但录像可能只有音频。`;
+      }
+      if (networkStatus === "failed") {
+        return "浏览器报告当前离线，请恢复网络后再开始。";
+      }
+      return "设备检测通过，可以开始面试。";
+    })();
+
+    setResult({
+      camera: camera.ok ? "passed" : "warning",
+      message,
+      microphone: microphone.ok ? "passed" : "failed",
+      network: networkStatus,
+    });
+    setChecking(false);
+  }, []);
+
+  return (
+    <section className="mt-6 rounded-2xl border border-border/60 bg-background/70 p-4 backdrop-blur">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="font-medium text-sm">设备检测</h2>
+          <p className="mt-1 text-muted-foreground text-xs leading-normal">
+            开始前可快速确认麦克风、摄像头和网络状态。
+          </p>
+        </div>
+        <Button disabled={checking} onClick={runChecks} size="sm" type="button" variant="outline">
+          {checking ? (
+            <RefreshCwIcon className="size-4 animate-spin" />
+          ) : (
+            <CheckCircle2Icon className="size-4" />
+          )}
+          检测设备
+        </Button>
+      </div>
+      <div className="mt-4 grid gap-2 sm:grid-cols-3">
+        <DeviceCheckItem
+          detail="确认浏览器可采集你的声音。"
+          icon={MicIcon}
+          status={result.microphone}
+          title="麦克风"
+        />
+        <DeviceCheckItem
+          detail="确认摄像头可用于面试录像。"
+          icon={VideoIcon}
+          status={result.camera}
+          title="摄像头"
+        />
+        <DeviceCheckItem
+          detail="读取浏览器当前联网状态。"
+          icon={WifiIcon}
+          status={result.network}
+          title="网络"
+        />
+      </div>
+      <p className="mt-3 min-h-8 text-muted-foreground text-xs leading-normal">
+        {result.message ?? "\u00A0"}
+      </p>
+    </section>
+  );
+}
+
+function InterviewNoticeDialog({
+  acknowledged,
+  isLoadingStatus,
+  isConnecting,
+  onAcknowledgedChange,
+  onConfirm,
+  onOpenChange,
+  open,
+  startOptions,
+}: {
+  acknowledged: boolean;
+  isLoadingStatus: boolean;
+  isConnecting: boolean;
+  onAcknowledgedChange: (checked: boolean) => void;
+  onConfirm: () => void;
+  onOpenChange: (open: boolean) => void;
+  open: boolean;
+  startOptions: StartOptions;
+}) {
+  const startDisabled = !acknowledged || isConnecting || isLoadingStatus;
+  const startLabel = resolveStartButtonLabel({
+    isConnecting,
+    isLoadingStatus,
+    muted: !!startOptions.muted,
+  });
+
+  return (
+    <Dialog onOpenChange={onOpenChange} open={open}>
+      <DialogContent className="sm:max-w-xl">
+        <DialogHeader>
+          <DialogTitle>面试注意事项</DialogTitle>
+          <DialogDescription>开始后请按以下规则完成本轮 AI 面试。</DialogDescription>
+        </DialogHeader>
+        <ul className="divide-y divide-border/60 border-border/60 border-y">
+          <RuleItem
+            description="建议佩戴耳机并在网络稳定的地方作答。若环境嘈杂，可选择「静音开始」，以文字方式与面试官沟通。"
+            icon={Volume2Icon}
+            title="保持安静的环境"
+          />
+          <RuleItem
+            description="等面试官提完问题再作答，答完等下一题。请围绕问题展开，结合具体项目与经历说明。"
+            icon={MessageSquareTextIcon}
+            title="一次只答一题"
+          />
+          <RuleItem
+            description="保持严肃与尊重；连续答非所问或跳过题目会影响评分，必要时面试官会结束面试。"
+            icon={UserCheckIcon}
+            title="认真作答"
+          />
+          <RuleItem
+            description="面试将通过摄像头全程录制，开始后请保持摄像头开启，期间不能关闭。"
+            icon={VideoIcon}
+            title="保持摄像头录制"
+          />
+          <RuleItem
+            description="尽量不要刷新页面或关闭标签页。如遇网络中断，请在 3 分钟内回到本页面，可继续之前的对话；超过 3 分钟本轮将自动结束。"
+            icon={TriangleAlertIcon}
+            title="保持稳定连接"
+          />
+        </ul>
+        <label className="flex cursor-pointer items-center gap-2 text-sm">
+          <Checkbox
+            checked={acknowledged}
+            onCheckedChange={(checked) => onAcknowledgedChange(checked === true)}
+          />
+          <span>我已清楚并同意按上述注意事项完成面试</span>
+        </label>
+        <DialogFooter>
+          <Button disabled={startDisabled} onClick={onConfirm} type="button">
+            {startOptions.muted ? (
+              <MicOffIcon className="size-4" />
+            ) : (
+              <MicIcon className="size-4" />
+            )}
+            {startLabel}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function WaitingView({
   interviewView,
   isConnecting,
@@ -157,7 +444,10 @@ function WaitingView({
   const roundLabel = interviewView?.currentRoundLabel ?? null;
   const questionCount = interviewView?.interviewQuestions?.length ?? 0;
   const startDisabled = isConnecting || isLoadingStatus;
-  const showRulesAndButtons = !isRoundCompleted && !isRecovering;
+  const showPreparation = !isRoundCompleted && !isRecovering;
+  const [noticeOpen, setNoticeOpen] = useState(false);
+  const [acknowledged, setAcknowledged] = useState(false);
+  const [pendingStartOptions, setPendingStartOptions] = useState<StartOptions>({});
   const subheadingText = resolveSubheading({
     isRecovering,
     isRoundCompleted,
@@ -175,6 +465,18 @@ function WaitingView({
     isLoadingStatus,
     muted: true,
   });
+  const openNotice = (options: StartOptions = {}) => {
+    setPendingStartOptions(options);
+    setAcknowledged(false);
+    setNoticeOpen(true);
+  };
+  const confirmStart = () => {
+    if (!acknowledged) {
+      return;
+    }
+    setNoticeOpen(false);
+    onStart(pendingStartOptions);
+  };
 
   return (
     <>
@@ -196,47 +498,14 @@ function WaitingView({
             <p className="mt-2 text-muted-foreground text-sm sm:text-base">{subheadingText}</p>
           </section>
 
-          {showRulesAndButtons && (
-            <section className="mt-10 sm:mt-14">
-              <h2 className="mb-4 font-medium text-muted-foreground text-sm sm:mb-5">
-                开始前，请留意
-              </h2>
-              <ul className="divide-y divide-border/60 border-border/60 border-y">
-                <RuleItem
-                  description="建议佩戴耳机并在网络稳定的地方作答。若环境嘈杂，可选择「静音开始」，以文字方式与面试官沟通。"
-                  icon={Volume2Icon}
-                  title="保持安静的环境"
-                />
-                <RuleItem
-                  description="等面试官提完问题再作答，答完等下一题。请围绕问题展开，结合具体项目与经历说明。"
-                  icon={MessageSquareTextIcon}
-                  title="一次只答一题"
-                />
-                <RuleItem
-                  description="保持严肃与尊重；连续答非所问或跳过题目会影响评分，必要时面试官会结束面试。"
-                  icon={UserCheckIcon}
-                  title="认真作答"
-                />
-                <RuleItem
-                  description="面试将通过摄像头全程录制，开始后请保持摄像头开启，期间不能关闭。"
-                  icon={VideoIcon}
-                  title="保持摄像头录制"
-                />
-                <RuleItem
-                  description="尽量不要刷新页面或关闭标签页。如遇网络中断，请在 3 分钟内回到本页面，可继续之前的对话；超过 3 分钟本轮将自动结束。"
-                  icon={TriangleAlertIcon}
-                  title="保持稳定连接"
-                />
-              </ul>
-            </section>
-          )}
+          {showPreparation ? <DevicePreflightCard /> : null}
 
-          {showRulesAndButtons && (
+          {showPreparation && (
             <div className="mt-10 hidden items-center gap-3 sm:mt-12 md:flex">
               <Button
                 className="h-11 flex-1 gap-2"
                 disabled={startDisabled}
-                onClick={() => onStart({ muted: true })}
+                onClick={() => openNotice({ muted: true })}
                 size="lg"
                 variant="outline"
               >
@@ -246,7 +515,7 @@ function WaitingView({
               <Button
                 className="h-11 flex-[2] gap-2"
                 disabled={startDisabled}
-                onClick={() => onStart()}
+                onClick={() => openNotice()}
                 size="lg"
               >
                 <MicIcon className="size-4" />
@@ -256,13 +525,13 @@ function WaitingView({
           )}
         </div>
 
-        {showRulesAndButtons && (
+        {showPreparation && (
           <div className="fixed inset-x-0 bottom-0 z-10 border-border/60 border-t bg-background/90 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur md:hidden">
             <div className="mx-auto flex w-full max-w-md items-center gap-3">
               <Button
                 className="h-11 flex-1 gap-2"
                 disabled={startDisabled}
-                onClick={() => onStart({ muted: true })}
+                onClick={() => openNotice({ muted: true })}
                 variant="outline"
               >
                 <MicOffIcon className="size-4" />
@@ -271,7 +540,7 @@ function WaitingView({
               <Button
                 className="h-11 flex-[2] gap-2"
                 disabled={startDisabled}
-                onClick={() => onStart()}
+                onClick={() => openNotice()}
               >
                 <MicIcon className="size-4" />
                 {primaryLabel}
@@ -280,6 +549,21 @@ function WaitingView({
           </div>
         )}
       </main>
+      <InterviewNoticeDialog
+        acknowledged={acknowledged}
+        isConnecting={isConnecting}
+        isLoadingStatus={isLoadingStatus}
+        onAcknowledgedChange={setAcknowledged}
+        onConfirm={confirmStart}
+        onOpenChange={(open) => {
+          setNoticeOpen(open);
+          if (!open) {
+            setAcknowledged(false);
+          }
+        }}
+        open={noticeOpen}
+        startOptions={pendingStartOptions}
+      />
     </>
   );
 }

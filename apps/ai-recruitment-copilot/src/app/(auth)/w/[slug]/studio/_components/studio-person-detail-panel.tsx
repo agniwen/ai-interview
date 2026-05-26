@@ -82,7 +82,8 @@ import { useRoundEmailSummary } from "../interviews/_components/round-email/use-
 import { InterviewLinkQrButton } from "../interviews/_components/interview-link-qr-button";
 import { ConversationTranscript } from "../interviews/_components/interview-detail/conversation-transcript";
 import { DetailRow } from "../interviews/_components/interview-detail/detail-row";
-import { EvaluationResults } from "../interviews/_components/interview-detail/evaluation-results";
+import { EvaluationResults } from '../interviews/_components/interview-detail/evaluation-results';
+import type { EvidenceQuote } from '../interviews/_components/interview-detail/evaluation-results';
 import { FormsTab } from "../interviews/_components/interview-detail/forms-tab";
 import { InterviewMetricsPanel } from "../interviews/_components/interview-detail/interview-metrics-panel";
 import {
@@ -272,6 +273,11 @@ export function StudioPersonDetailPanel({
   const [pendingResetSubmissionId, setPendingResetSubmissionId] = useState<string | null>(null);
   const [resettingRoundId, setResettingRoundId] = useState<string | null>(null);
   const [updatingRoundId, setUpdatingRoundId] = useState<string | null>(null);
+  const [selectedEvidence, setSelectedEvidence] = useState<{
+    conversationId: string;
+    timeInCallSecs: number | null;
+    turnIndex: number | null;
+  } | null>(null);
   const queryClient = useQueryClient();
   const router = useRouter();
 
@@ -972,6 +978,17 @@ export function StudioPersonDetailPanel({
                 {reports.map((report) => {
                   const startedAt = report.startedAt ?? report.createdAt;
                   const endedAt = report.endedAt ?? report.updatedAt;
+                  const activeEvidence =
+                    selectedEvidence?.conversationId === report.conversationId
+                      ? selectedEvidence
+                      : null;
+                  const handleEvidenceSelect = (evidence: EvidenceQuote) => {
+                    setSelectedEvidence({
+                      conversationId: report.conversationId,
+                      timeInCallSecs: evidence.timeInCallSecs ?? null,
+                      turnIndex: evidence.turnIndex ?? null,
+                    });
+                  };
 
                   return (
                     <AccordionItem
@@ -1009,6 +1026,7 @@ export function StudioPersonDetailPanel({
                               conversationId={report.conversationId}
                               durationSecs={report.recordingDurationSecs}
                               recordId={effectiveRoundId ?? ""}
+                              seekToSecs={activeEvidence?.timeInCallSecs ?? null}
                               status={report.recordingStatus}
                             />
                             <div className="rounded-2xl border border-border/60 bg-background p-4">
@@ -1083,7 +1101,10 @@ export function StudioPersonDetailPanel({
                               <h4 className="shrink-0 px-4 pt-4 pb-2 font-medium text-sm">
                                 对话记录
                               </h4>
-                              <ConversationTranscript turns={report.turns} />
+                              <ConversationTranscript
+                                activeTurnIndex={activeEvidence?.turnIndex ?? null}
+                                turns={report.turns}
+                              />
                             </div>
                           </div>
 
@@ -1095,6 +1116,7 @@ export function StudioPersonDetailPanel({
                                   (report.evaluationCriteriaResults as Record<string, unknown>) ??
                                   {}
                                 }
+                                onEvidenceSelect={handleEvidenceSelect}
                               />
                             </div>
                           </div>

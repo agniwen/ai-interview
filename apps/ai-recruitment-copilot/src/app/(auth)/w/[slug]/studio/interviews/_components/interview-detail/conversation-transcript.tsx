@@ -2,6 +2,7 @@
 
 import type { PersistedInterviewTurn } from "@arc/db-schema/interview-session";
 import { MessageSquareTextIcon } from "lucide-react";
+import { useEffect, useRef } from "react";
 import {
   Conversation,
   ConversationContent,
@@ -15,10 +16,24 @@ import { cn } from "@/lib/shared/utils";
 
 interface ConversationTranscriptProps {
   turns: PersistedInterviewTurn[];
+  activeTurnIndex?: number | null;
   className?: string;
 }
 
-export function ConversationTranscript({ turns, className }: ConversationTranscriptProps) {
+export function ConversationTranscript({
+  turns,
+  activeTurnIndex,
+  className,
+}: ConversationTranscriptProps) {
+  const turnRefs = useRef<Record<number, HTMLDivElement | null>>({});
+
+  useEffect(() => {
+    if (!activeTurnIndex) {
+      return;
+    }
+    turnRefs.current[activeTurnIndex]?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [activeTurnIndex]);
+
   if (turns.length === 0) {
     return (
       <ConversationEmptyState
@@ -33,9 +48,11 @@ export function ConversationTranscript({ turns, className }: ConversationTranscr
   return (
     <Conversation className={cn("min-h-0", className)} initial={false}>
       <ConversationContent className="gap-6 px-4 pt-2 pb-4">
-        {turns.map((turn) => {
+        {turns.map((turn, index) => {
           const from = turn.role === "user" ? "user" : "assistant";
           const isUser = from === "user";
+          const turnIndex = index + 1;
+          const isActive = activeTurnIndex === turnIndex;
 
           return (
             <Message from={from} key={turn.id}>
@@ -51,19 +68,26 @@ export function ConversationTranscript({ turns, className }: ConversationTranscr
                   <span>· 通话 {turn.timeInCallSecs}s</span>
                 ) : null}
               </div>
-              <MessageContent
-                className={
-                  isUser
-                    ? undefined
-                    : "group-[.is-assistant]:w-fit group-[.is-assistant]:max-w-[88%] group-[.is-assistant]:rounded-2xl group-[.is-assistant]:border group-[.is-assistant]:border-border/70 group-[.is-assistant]:bg-muted/40 group-[.is-assistant]:px-3 group-[.is-assistant]:py-2"
-                }
+              <div
+                ref={(node) => {
+                  turnRefs.current[turnIndex] = node;
+                }}
               >
-                {isUser ? (
-                  <span className="whitespace-pre-wrap">{turn.message}</span>
-                ) : (
-                  <Markdown>{turn.message}</Markdown>
-                )}
-              </MessageContent>
+                <MessageContent
+                  className={cn(
+                    isUser
+                      ? undefined
+                      : "group-[.is-assistant]:w-fit group-[.is-assistant]:max-w-[88%] group-[.is-assistant]:rounded-2xl group-[.is-assistant]:border group-[.is-assistant]:border-border/70 group-[.is-assistant]:bg-muted/40 group-[.is-assistant]:px-3 group-[.is-assistant]:py-2",
+                    isActive && "ring-2 ring-primary/40 ring-offset-2 ring-offset-background",
+                  )}
+                >
+                  {isUser ? (
+                    <span className="whitespace-pre-wrap">{turn.message}</span>
+                  ) : (
+                    <Markdown>{turn.message}</Markdown>
+                  )}
+                </MessageContent>
+              </div>
             </Message>
           );
         })}

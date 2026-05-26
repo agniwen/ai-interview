@@ -23,7 +23,15 @@ const EVALUATION_PROMPT = `你是一位专业的面试评估专家。请根据�
 注意：
 - 只评估面试中实际提问到的题目
 - score 范围 0-10，overallScore 范围 0-100
-- 评价要客观具体，引用候选人的实际回答`;
+- 评价要客观具体，引用候选人的实际回答
+- 面试记录每行包含 turnIndex 和可能存在的 time；每题 evidence 最多给 2 条候选人原话证据
+- evidence.quote 必须来自候选人的实际回答，turnIndex / timeInCallSecs 能定位时必须填写，无法定位时可留空`;
+
+const evidenceSchema = z.object({
+  quote: z.string().min(1).max(500).describe("候选人原话片段"),
+  timeInCallSecs: z.number().int().min(0).nullable().optional().describe("通话内秒数"),
+  turnIndex: z.number().int().min(1).nullable().optional().describe("对话记录中的 1-based 行号"),
+});
 
 const evaluationSchema = z.object({
   overallAssessment: z.string().describe("候选人整体表现的综合评价，2-3 句话"),
@@ -31,6 +39,7 @@ const evaluationSchema = z.object({
   questions: z.array(
     z.object({
       assessment: z.string().describe("对候选人该题回答的评价"),
+      evidence: z.array(evidenceSchema).default([]).describe("支撑该题评分的候选人原话证据"),
       maxScore: z.number().int().default(10),
       order: z.number().int(),
       question: z.string(),
@@ -44,9 +53,11 @@ export type InterviewEvaluation = z.infer<typeof evaluationSchema>;
 
 function formatTranscript(turns: InterviewTranscriptTurn[]): string {
   return turns
-    .map((turn) => {
+    .map((turn, index) => {
       const role = turn.role === "agent" ? "面试官" : "候选人";
-      return `${role}: ${turn.message}`;
+      const time =
+        typeof turn.timeInCallSecs === "number" ? ` time=${Math.round(turn.timeInCallSecs)}s` : "";
+      return `[turnIndex=${index + 1}${time}] ${role}: ${turn.message}`;
     })
     .join("\n");
 }
