@@ -39,7 +39,6 @@ import {
   MessageSquareTextIcon,
   PencilIcon,
   RotateCcwIcon,
-  Share2Icon,
 } from "lucide-react";
 import { useMemo, useState } from "react";
 import type { ReactNode } from "react";
@@ -75,7 +74,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { HumanInterviewStagePanel } from "./human-interview-stage-panel";
 import { OfferStagePanel } from "./offer-stage-panel";
 import { PipelineStageActionBar } from "./pipeline-stage-action-bar";
-import { copyTextToClipboard, toAbsoluteUrl } from "@/lib/client/clipboard";
+import { toAbsoluteUrl } from "@/lib/client/clipboard";
 import { pipelineStageMeta, scheduleEntryStatusMeta } from "@arc/db-schema/studio-interviews";
 import { AgentInstructionsPanel } from "../interviews/_components/agent-instructions-panel";
 import { RoundEmailAction } from "../interviews/_components/round-email/round-email-action";
@@ -91,6 +90,7 @@ import {
   ensureArray,
   formatReportStatus,
   getReportBadgeVariant,
+  resolveRecommendationVariant,
   truncateText,
 } from "../interviews/_components/interview-detail/helpers";
 import { RecordingPlayer } from "../interviews/_components/interview-detail/recording-player";
@@ -324,26 +324,42 @@ function FormsSkeleton() {
   );
 }
 
-async function copyInterviewLink(link: string) {
-  try {
-    const result = await copyTextToClipboard(link);
+interface EvaluationSummary {
+  overallScore: number | null;
+  recommendation: string | null;
+  overallAssessment: string | null;
+}
 
-    if (result === "copied") {
-      toast.success("面试链接已复制");
-      return;
-    }
-
-    if (result === "manual") {
-      toast.info("已弹出链接，请手动复制");
-      return;
-    }
-
-    if (result === "failed") {
-      throw new Error("copy-failed");
-    }
-  } catch {
-    toast.error("复制失败，请手动复制");
+function getEvaluationSummary(data: Record<string, unknown> | null | undefined): EvaluationSummary {
+  if (!data) {
+    return {
+      overallAssessment: null,
+      overallScore: null,
+      recommendation: null,
+    };
   }
+
+  return {
+    overallAssessment: typeof data.overallAssessment === "string" ? data.overallAssessment : null,
+    overallScore: typeof data.overallScore === "number" ? data.overallScore : null,
+    recommendation: typeof data.recommendation === "string" ? data.recommendation : null,
+  };
+}
+
+function compactText(value: string | null | undefined, fallback: string, limit = 420) {
+  if (!value?.trim()) {
+    return fallback;
+  }
+  return value.length > limit ? `${value.slice(0, limit)}...` : value;
+}
+
+function SummaryMetric({ label, value }: { label: string; value: ReactNode }) {
+  return (
+    <div className="min-w-0 rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
+      <p className="text-muted-foreground text-xs">{label}</p>
+      <p className="mt-1 truncate font-medium text-sm">{value}</p>
+    </div>
+  );
 }
 
 // oxlint-disable-next-line complexity -- Panel orchestrates many conditional sections driven by record state and mode; flattening adds noise.
@@ -710,26 +726,14 @@ export function StudioPersonDetailPanel({
   >(record?.interviewQuestions);
   const visibleInterviewQuestions = interviewQuestions.slice(0, 20);
   const latestReport = reports[0] ?? null;
-
-  // 面试模式 footer：「编辑候选人信息」跳转到简历库（record.id = candidateId）。
-  // 公开访问下不允许编辑，footer 直接置空。
-  // Interview-mode footer: "编辑候选人信息" deep-links to the resume library.
-  // Public access has no edit capability, so the footer is dropped entirely.
-  const interviewModeFooter =
-    record && !isPublic ? (
-      <Button
-        onClick={() => {
-          router.push(`/w/${slug}/studio/resumes?recordId=${record.id}`);
-          onClose?.();
-        }}
-        size="sm"
-        type="button"
-        variant="outline"
-      >
-        <PencilIcon className="size-3.5" />
-        编辑候选人信息
-      </Button>
-    ) : null;
+  const latestEvaluationSummary = getEvaluationSummary(
+    latestReport?.evaluationCriteriaResults as Record<string, unknown> | undefined,
+  );
+  const isRoundCompleted = record?.roundStatus === "completed";
+  const isRoundLive =
+    record?.roundStatus === "in_progress" || record?.roundStatus === "interrupted";
+  const roundActionLockedReason = isRoundLive ? "面试正在进行中，结束后才能发送或复制链接。" : null;
+  const roundActionDisabledReason = roundActionLockedReason ?? aiStageLockedReason;
 
   // 简历模式底部双按钮：两个按钮各占一半宽度。
   // 已存在 AI 面试轮次的简历隐藏「发起 AI 面试」按钮，避免重复创建；
@@ -821,7 +825,7 @@ export function StudioPersonDetailPanel({
       <div className="mt-2 flex flex-col items-stretch gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
         <TabsList className="mt-0 w-full sm:w-auto">
           <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="overview">
-            概览
+            {mode === "interview" ? "结果" : "概览"}
           </TabsTrigger>
           {mode === "interview" ? (
             <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="reports">
@@ -931,7 +935,6 @@ export function StudioPersonDetailPanel({
   ) : // oxlint-disable-next-line no-nested-ternary -- Secondary branch renders based on record presence.
   record ? (
     <AnimatedHeight>
-      {actionBar ? <div className="mb-4">{actionBar}</div> : null}
       <TabsContent value="overview">
         <div className="space-y-6">
           {/* 简历模式：复用 ResumeOverviewPanel —— 与「发起 AI 面试」
@@ -939,22 +942,81 @@ export function StudioPersonDetailPanel({
               Resume mode: defer to ResumeOverviewPanel so the
               launch-interview dialog and this view stay in sync. */}
           {mode === "resume" && resumeRecord ? (
-            <ResumeOverviewPanel detail={resumeRecord} />
+            <>
+              <ResumeOverviewPanel detail={resumeRecord} />
+              {actionBar}
+            </>
           ) : (
-            <div className="rounded-2xl border border-border/60 bg-muted/30 p-5">
-              <h3 className="font-medium text-sm">候选人信息</h3>
-              <div className="mt-4">
-                <CandidateBasicInfoView
-                  candidateEmail={record.candidateEmail}
-                  candidateName={record.candidateName}
-                  candidatePhone={record.candidatePhone}
-                  creatorName={record.creatorName}
-                  footer={mode === "interview" ? interviewModeFooter : null}
-                  hasResumeFile={record.hasResumeFile}
-                  jobDescriptionName={record.jobDescriptionName}
-                  resumeFileName={record.resumeFileName}
-                  targetRole={record.targetRole}
-                />
+            <div className="grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)]">
+              <div className="h-full rounded-2xl border border-border/60 bg-background p-5">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <h3 className="font-medium text-sm">面试结果</h3>
+                  <Badge
+                    variant={latestReport ? getReportBadgeVariant(latestReport.status) : "outline"}
+                  >
+                    {latestReport ? formatReportStatus(latestReport.status) : "暂无报告"}
+                  </Badge>
+                </div>
+                <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                  <SummaryMetric
+                    label="评分"
+                    value={
+                      latestEvaluationSummary.overallScore === null
+                        ? "—"
+                        : `${latestEvaluationSummary.overallScore} / 100`
+                    }
+                  />
+                  <SummaryMetric
+                    label="建议"
+                    value={
+                      latestEvaluationSummary.recommendation ? (
+                        <Badge
+                          variant={resolveRecommendationVariant(
+                            latestEvaluationSummary.recommendation,
+                          )}
+                        >
+                          {latestEvaluationSummary.recommendation}
+                        </Badge>
+                      ) : (
+                        "待生成"
+                      )
+                    }
+                  />
+                  <SummaryMetric
+                    label="对话"
+                    value={
+                      latestReport
+                        ? `${latestReport.userTurnCount} 次候选人回复`
+                        : "候选人完成后生成"
+                    }
+                  />
+                </div>
+                <div className="mt-4 text-muted-foreground text-sm leading-normal">
+                  <Markdown>
+                    {compactText(
+                      latestEvaluationSummary.overallAssessment ??
+                        latestReport?.transcriptSummary ??
+                        null,
+                      "候选人完成面试后，这里会优先显示结论、评分和关键摘要。",
+                    )}
+                  </Markdown>
+                </div>
+              </div>
+
+              <div className="h-full rounded-2xl border border-border/60 bg-background p-5">
+                <h3 className="font-medium text-sm">候选人信息</h3>
+                <div className="mt-4">
+                  <CandidateBasicInfoView
+                    candidateEmail={record.candidateEmail}
+                    candidateName={record.candidateName}
+                    candidatePhone={record.candidatePhone}
+                    creatorName={record.creatorName}
+                    hasResumeFile={record.hasResumeFile}
+                    jobDescriptionName={record.jobDescriptionName}
+                    resumeFileName={record.resumeFileName}
+                    targetRole={record.targetRole}
+                  />
+                </div>
               </div>
             </div>
           )}
@@ -988,37 +1050,21 @@ export function StudioPersonDetailPanel({
                     ) : (
                       <span className="text-muted-foreground text-xs">未排期</span>
                     )}
-                    {record.roundId && !isPublic ? (
+                    {record.roundId && !isPublic && !isRoundCompleted ? (
                       <RoundEmailAction
                         candidateEmail={record.candidateEmail}
-                        lockedReason={aiStageLockedReason}
+                        lockedReason={roundActionDisabledReason}
                         roundId={record.roundId}
                         slug={slug}
                         summary={roundEmailSummary}
                       />
                     ) : null}
-                    {record.roundInterviewLink && !isPublic ? (
-                      <>
-                        <Button
-                          disabled={isAiStageLocked}
-                          onClick={() =>
-                            void copyInterviewLink(
-                              toAbsoluteUrl(record.roundInterviewLink as string),
-                            )
-                          }
-                          size="sm"
-                          type="button"
-                          variant="ghost"
-                        >
-                          <Share2Icon className="size-3.5" />
-                          复制链接
-                        </Button>
-                        <InterviewLinkQrButton
-                          candidateName={record.candidateName}
-                          disabled={isAiStageLocked}
-                          url={toAbsoluteUrl(record.roundInterviewLink as string)}
-                        />
-                      </>
+                    {record.roundInterviewLink && !isPublic && !isRoundCompleted ? (
+                      <InterviewLinkQrButton
+                        candidateName={record.candidateName}
+                        disabled={Boolean(roundActionDisabledReason)}
+                        url={toAbsoluteUrl(record.roundInterviewLink as string)}
+                      />
                     ) : null}
                   </div>
                 </div>
@@ -1066,24 +1112,6 @@ export function StudioPersonDetailPanel({
               <h3 className="font-medium text-sm">简历评价</h3>
               <div className="mt-3 text-muted-foreground text-sm leading-normal">
                 <Markdown>{truncateText(record.notes) || "暂无简历评价"}</Markdown>
-              </div>
-            </div>
-          ) : null}
-
-          {mode === "interview" ? (
-            <div className="rounded-2xl border border-border/60 bg-background p-5">
-              <div className="flex items-center justify-between gap-3">
-                <h3 className="font-medium text-sm">最近一次面试结果</h3>
-                <Badge
-                  variant={latestReport ? getReportBadgeVariant(latestReport.status) : "outline"}
-                >
-                  {latestReport ? formatReportStatus(latestReport.status) : "暂无报告"}
-                </Badge>
-              </div>
-              <div className="mt-3 text-muted-foreground text-sm leading-normal">
-                <Markdown>
-                  {latestReport?.transcriptSummary ?? "候选人完成面试后，这里会显示通话总结。"}
-                </Markdown>
               </div>
             </div>
           ) : null}
@@ -1414,18 +1442,6 @@ export function StudioPersonDetailPanel({
                           disabled={isAiStageLocked}
                           url={fullLink}
                         />
-                        <Button
-                          className="flex-1 sm:flex-none"
-                          disabled={isAiStageLocked}
-                          onClick={() => void copyInterviewLink(fullLink)}
-                          size="sm"
-                          title={aiStageLockedReason ?? undefined}
-                          type="button"
-                          variant="ghost"
-                        >
-                          <Share2Icon className="size-3.5" />
-                          复制链接
-                        </Button>
                       </div>
                     </div>
                   );

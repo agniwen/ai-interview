@@ -4,10 +4,21 @@ import type { ResumeLibraryDetail } from "@/lib/shared/studio-resumes";
 import type { StudioInterviewRoundDetail } from "@/lib/shared/studio-interview-rounds";
 import { useStore, useForm } from "@tanstack/react-form";
 import { useQuery } from "@tanstack/react-query";
-import { LoaderCircleIcon, RotateCcwIcon } from "lucide-react";
+import { LoaderCircleIcon, PencilIcon, RotateCcwIcon } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { CandidateFormFields } from "@/components/candidate-form-fields";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -263,8 +274,10 @@ function InterviewEditBody({
   onUpdated,
 }: Omit<StudioPersonEditDialogProps, "mode">) {
   const slug = useWorkspaceSlug();
+  const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
+  const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
 
   // 拉取轮次详情，open + recordId 同时为真才触发。
   // Fetch round detail; only enabled when dialog is open with a target id.
@@ -326,6 +339,7 @@ function InterviewEditBody({
     if (!recordId || isResetting) {
       return;
     }
+    setResetConfirmOpen(false);
     setIsResetting(true);
     try {
       await resetStudioInterviewRound(slug, recordId);
@@ -340,101 +354,136 @@ function InterviewEditBody({
   }
 
   return (
-    <Modal
-      description="编辑轮次排期、文本输入设置和备注。状态由系统流转，只读展示；候选人基础信息请在简历库编辑。"
-      footer={
-        isLoading ? undefined : (
-          <div className="flex w-full flex-wrap items-center justify-end gap-2">
-            {isRoundCompleted ? (
-              <Button
-                disabled={isResetting || isSubmitting}
-                onClick={() => void handleReset()}
-                type="button"
-                variant="outline"
-              >
-                {isResetting ? (
-                  <LoaderCircleIcon className="size-4 animate-spin" />
-                ) : (
-                  <RotateCcwIcon className="size-3.5" />
-                )}
-                重置面试
+    <>
+      <Modal
+        description="编辑轮次排期、文本输入设置和备注。状态由系统流转，只读展示；候选人基础信息请在简历库编辑。"
+        footer={
+          isLoading ? undefined : (
+            <div className="flex w-full flex-wrap items-center justify-end gap-2">
+              {isRoundCompleted ? (
+                <Button
+                  disabled={isResetting || isSubmitting}
+                  onClick={() => setResetConfirmOpen(true)}
+                  type="button"
+                  variant="outline"
+                >
+                  {isResetting ? (
+                    <LoaderCircleIcon className="size-4 animate-spin" />
+                  ) : (
+                    <RotateCcwIcon className="size-3.5" />
+                  )}
+                  重置面试
+                </Button>
+              ) : null}
+              <Button disabled={isSubmitting || isResetting} form="edit-round-form" type="submit">
+                {isSubmitting ? <LoaderCircleIcon className="size-4 animate-spin" /> : null}
+                保存更新
               </Button>
-            ) : null}
-            <Button disabled={isSubmitting || isResetting} form="edit-round-form" type="submit">
-              {isSubmitting ? <LoaderCircleIcon className="size-4 animate-spin" /> : null}
-              保存更新
-            </Button>
-          </div>
-        )
-      }
-      onOpenChange={onOpenChange}
-      open={open}
-      size="md"
-      title="编辑面试轮次"
-    >
-      {isLoading ? (
-        <InterviewEditSkeleton />
-      ) : (
-        <form className="space-y-5" id="edit-round-form" onSubmit={(e) => void handleSubmit(e)}>
-          {/* 候选人字段说明横幅 / Banner explaining where to edit candidate fields */}
-          <p className="text-muted-foreground text-sm">
-            候选人身份字段（姓名、邮箱、电话、岗位、JD、备注、简历）请到简历库编辑。
-          </p>
+            </div>
+          )
+        }
+        onOpenChange={onOpenChange}
+        open={open}
+        size="md"
+        title="编辑面试轮次"
+      >
+        {isLoading ? (
+          <InterviewEditSkeleton />
+        ) : (
+          <form className="space-y-5" id="edit-round-form" onSubmit={(e) => void handleSubmit(e)}>
+            {/* 候选人字段说明横幅 / Banner explaining where to edit candidate fields */}
+            <div className="flex flex-col gap-3 rounded-lg border border-border/60 bg-muted/20 px-3 py-3 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-muted-foreground text-sm leading-normal">
+                候选人身份字段、关联岗位、简历和简历评价统一在简历库维护。
+              </p>
+              {round?.candidate.id ? (
+                <Button
+                  className="shrink-0"
+                  onClick={() => {
+                    router.push(`/w/${slug}/studio/resumes?recordId=${round.candidate.id}`);
+                    onOpenChange(false);
+                  }}
+                  size="sm"
+                  type="button"
+                  variant="outline"
+                >
+                  <PencilIcon className="size-3.5" />
+                  编辑候选人资料
+                </Button>
+              ) : null}
+            </div>
 
-          {/* 轮次概览：roundLabel 与状态并排，与详情弹窗的「轮次概览」保持视觉一致。
+            {/* 轮次概览：roundLabel 与状态并排，与详情弹窗的「轮次概览」保持视觉一致。
               Round overview — roundLabel + status side-by-side, mirroring the
               detail dialog's 轮次概览 card for UI consistency. */}
-          {round ? (
-            <div className="flex items-center gap-2">
-              <span className="font-medium text-sm">{round.roundLabel}</span>
-              {statusMeta ? <Badge variant={statusMeta.tone}>{statusMeta.label}</Badge> : null}
+            {round ? (
+              <div className="flex items-center gap-2">
+                <span className="font-medium text-sm">{round.roundLabel}</span>
+                {statusMeta ? <Badge variant={statusMeta.tone}>{statusMeta.label}</Badge> : null}
+              </div>
+            ) : null}
+
+            {/* 面试时间 / Scheduled time */}
+            <div className="space-y-1.5">
+              <Label htmlFor="round-scheduledAt">面试时间</Label>
+              <Input
+                id="round-scheduledAt"
+                onChange={(e) =>
+                  setFormValues((prev) => ({ ...prev, scheduledAt: e.target.value }))
+                }
+                type="datetime-local"
+                value={formValues.scheduledAt}
+              />
             </div>
-          ) : null}
 
-          {/* 面试时间 / Scheduled time */}
-          <div className="space-y-1.5">
-            <Label htmlFor="round-scheduledAt">面试时间</Label>
-            <Input
-              id="round-scheduledAt"
-              onChange={(e) => setFormValues((prev) => ({ ...prev, scheduledAt: e.target.value }))}
-              type="datetime-local"
-              value={formValues.scheduledAt}
-            />
-          </div>
-
-          {/* 允许文本输入 / Allow text input — 已结束的轮次不允许修改 */}
-          <div className="flex items-center justify-between rounded-lg border border-border/50 px-3 py-2.5">
-            <div className="space-y-0.5">
-              <Label htmlFor="round-allowTextInput">允许面试者文本输入</Label>
-              <p className="text-muted-foreground text-xs">
-                关闭时面试界面文字输入框被禁用，仅支持语音作答。已结束的轮次不可修改。
-              </p>
+            {/* 允许文本输入 / Allow text input — 已结束的轮次不允许修改 */}
+            <div className="flex items-center justify-between rounded-lg border border-border/50 px-3 py-2.5">
+              <div className="space-y-0.5">
+                <Label htmlFor="round-allowTextInput">允许面试者文本输入</Label>
+                <p className="text-muted-foreground text-xs">
+                  关闭时面试界面文字输入框被禁用，仅支持语音作答。已结束的轮次不可修改。
+                </p>
+              </div>
+              <Switch
+                checked={formValues.allowTextInput}
+                disabled={isRoundCompleted}
+                id="round-allowTextInput"
+                onCheckedChange={(checked) =>
+                  setFormValues((prev) => ({ ...prev, allowTextInput: checked }))
+                }
+              />
             </div>
-            <Switch
-              checked={formValues.allowTextInput}
-              disabled={isRoundCompleted}
-              id="round-allowTextInput"
-              onCheckedChange={(checked) =>
-                setFormValues((prev) => ({ ...prev, allowTextInput: checked }))
-              }
-            />
-          </div>
 
-          {/* 备注 / Notes */}
-          <div className="space-y-1.5">
-            <Label htmlFor="round-notes">备注</Label>
-            <Textarea
-              id="round-notes"
-              maxLength={1000}
-              onChange={(e) => setFormValues((prev) => ({ ...prev, notes: e.target.value }))}
-              placeholder="可填写面试安排备注..."
-              rows={3}
-              value={formValues.notes}
-            />
-          </div>
-        </form>
-      )}
-    </Modal>
+            {/* 备注 / Notes */}
+            <div className="space-y-1.5">
+              <Label htmlFor="round-notes">备注</Label>
+              <Textarea
+                id="round-notes"
+                maxLength={1000}
+                onChange={(e) => setFormValues((prev) => ({ ...prev, notes: e.target.value }))}
+                placeholder="可填写面试安排备注..."
+                rows={3}
+                value={formValues.notes}
+              />
+            </div>
+          </form>
+        )}
+      </Modal>
+      <AlertDialog onOpenChange={setResetConfirmOpen} open={resetConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>重置这轮 AI 面试？</AlertDialogTitle>
+            <AlertDialogDescription>
+              轮次会回到待开始状态，候选人需要重新进入面试。请确认当前报告和对话记录不再作为本轮结果使用。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction onClick={() => void handleReset()}>确认重置</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }
 

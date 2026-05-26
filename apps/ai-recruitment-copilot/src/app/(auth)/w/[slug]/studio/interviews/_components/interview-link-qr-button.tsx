@@ -1,24 +1,39 @@
 "use client";
 
-import { toBlob } from "html-to-image";
-import { CopyIcon, QrCodeIcon } from "lucide-react";
+import { snapdom } from "@zumer/snapdom";
+import { ChevronDownIcon, LinkIcon, QrCodeIcon, SendIcon } from "lucide-react";
 import { QRCodeCanvas } from "qrcode.react";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { ButtonGroup } from "@/components/ui/button-group";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { copyTextToClipboard } from "@/lib/client/clipboard";
 
 const QR_SIZE = 192;
 
-function buildGreeting(candidateName?: string | null) {
+function buildSalutation(candidateName?: string | null) {
   const name = candidateName?.trim();
   // 候选人姓名缺失时退回到通用称呼，避免出现「您好，：」这种空白尾巴。
   // Fallback to a generic salutation when no candidate name is available.
   if (!name) {
-    return "您好！欢迎参加本次面试，请扫描下方二维码进入";
+    return "您好";
   }
-  return `${name} 您好！欢迎参加本次面试，请扫描下方二维码进入`;
+  return `${name} 您好`;
+}
+
+function buildQrGreeting(candidateName?: string | null) {
+  return `${buildSalutation(candidateName)}！欢迎参加本次面试，请扫描下方二维码进入`;
+}
+
+function buildCandidateMessage(url: string, candidateName?: string | null) {
+  const greeting = `${buildSalutation(candidateName)}！欢迎参加本次面试，请通过下方链接进入`;
+  return `${greeting}\n\n面试链接：${url}`;
 }
 
 export function InterviewLinkQrButton({
@@ -36,9 +51,44 @@ export function InterviewLinkQrButton({
 }) {
   const cardRef = useRef<HTMLDivElement | null>(null);
   const [isCopying, setIsCopying] = useState(false);
-  const greeting = buildGreeting(candidateName);
+  const greeting = buildQrGreeting(candidateName);
+  const candidateMessage = buildCandidateMessage(url, candidateName);
 
-  async function handleCopy() {
+  async function copyPlainLink() {
+    try {
+      const result = await copyTextToClipboard(url);
+      if (result === "copied") {
+        toast.success("面试链接已复制");
+        return;
+      }
+      if (result === "manual") {
+        toast.info("已弹出链接，请手动复制");
+        return;
+      }
+      toast.error("复制失败，请手动复制");
+    } catch {
+      toast.error("复制失败，请手动复制");
+    }
+  }
+
+  async function copyCandidateMessage() {
+    try {
+      const result = await copyTextToClipboard(candidateMessage);
+      if (result === "copied") {
+        toast.success("已复制给候选人的消息");
+        return;
+      }
+      if (result === "manual") {
+        toast.info("已弹出消息，请手动复制");
+        return;
+      }
+      toast.error("复制失败，请手动复制");
+    } catch {
+      toast.error("复制失败，请手动复制");
+    }
+  }
+
+  async function copyQrImage() {
     if (isCopying) {
       return;
     }
@@ -54,19 +104,23 @@ export function InterviewLinkQrButton({
       if (node && supportsClipboardItem) {
         // pixelRatio = 2 让生成的 PNG 在高分屏上仍然清晰、扫码无锯齿。
         // pixelRatio = 2 keeps the PNG sharp on retina displays so scans stay reliable.
-        const blob = await toBlob(node, { cacheBust: true, pixelRatio: 2 });
+        const blob = await snapdom.toBlob(node, {
+          backgroundColor: "#ffffff",
+          scale: 2,
+          type: "png",
+        });
         if (blob) {
           await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
-          toast.success("分享卡片已复制为图片");
+          toast.success("二维码已复制为图片");
           return;
         }
       }
 
       // 降级：图片复制不可用时，至少把问候语 + 链接以文本复制出去。
       // Fallback: copy greeting + URL as plain text when image clipboard isn't available.
-      const result = await copyTextToClipboard(`${greeting}\n${url}`);
+      const result = await copyTextToClipboard(candidateMessage);
       if (result === "copied") {
-        toast.info("当前浏览器不支持复制图片，已复制问候语与链接");
+        toast.info("当前浏览器不支持复制图片，已复制候选人消息");
       } else if (result === "manual") {
         toast.info("已弹出文本，请手动复制");
       } else {
@@ -80,43 +134,54 @@ export function InterviewLinkQrButton({
   }
 
   return (
-    <Popover>
-      <PopoverTrigger asChild>
-        <Button className={className} disabled={disabled} size="sm" type="button" variant="ghost">
-          <QrCodeIcon className="size-3.5" />
-          二维码
+    <>
+      <ButtonGroup className={className}>
+        <Button
+          disabled={disabled}
+          onClick={() => void copyPlainLink()}
+          size="sm"
+          type="button"
+          variant="ghost"
+        >
+          <LinkIcon className="size-3.5" />
+          复制链接
         </Button>
-      </PopoverTrigger>
-      <PopoverContent align="end" className="w-auto p-3">
-        <div className="flex flex-col items-center gap-3">
-          {/* 这张卡片是被截图复制的内容；样式都用直接颜色而非 CSS 变量，
-              避免 html-to-image 在跨主题时拿不到正确背景色。*/}
-          {/* This card is the screenshotted payload; we use literal colors instead of
-              CSS variables so html-to-image renders correctly across themes. */}
-          <div
-            className="flex w-72 flex-col items-center gap-3 rounded-lg border border-slate-200 bg-white p-4 text-slate-900"
-            ref={cardRef}
-          >
-            <p className="w-full text-left text-sm leading-normal">{greeting}</p>
-            <div className="rounded-md bg-white p-2">
-              <QRCodeCanvas level="M" size={QR_SIZE} value={url} />
-            </div>
-            <p className="w-full break-all text-center font-mono text-[11px] text-slate-500 leading-normal">
-              {url}
-            </p>
+        <DropdownMenu modal={false}>
+          <DropdownMenuTrigger asChild>
+            <Button disabled={disabled} size="icon-sm" type="button" variant="ghost">
+              <ChevronDownIcon className="size-3.5" />
+              <span className="sr-only">打开分享选项</span>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-44">
+            <DropdownMenuItem disabled={isCopying} onClick={() => void copyQrImage()}>
+              <QrCodeIcon className="size-3.5" />
+              {isCopying ? "正在生成..." : "复制二维码"}
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => void copyCandidateMessage()}>
+              <SendIcon className="size-3.5" />
+              复制给候选人
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </ButtonGroup>
+
+      {/* 这张离屏卡片是 snapdom 截图源；用直接颜色避免跨主题变量解析偏差。 */}
+      {/* Offscreen snapdom source; literal colors keep rendering stable across themes. */}
+      <div aria-hidden className="pointer-events-none fixed top-0 left-[-10000px] opacity-0">
+        <div
+          className="flex w-72 flex-col items-center gap-3 rounded-lg border border-slate-200 bg-white p-4 text-slate-900"
+          ref={cardRef}
+        >
+          <p className="w-full text-left text-sm leading-normal">{greeting}</p>
+          <div className="rounded-md bg-white p-2">
+            <QRCodeCanvas level="M" size={QR_SIZE} value={url} />
           </div>
-          <Button
-            className="w-full"
-            disabled={isCopying}
-            onClick={() => void handleCopy()}
-            size="sm"
-            type="button"
-          >
-            <CopyIcon className="size-3.5" />
-            {isCopying ? "正在生成图片..." : "复制为图片"}
-          </Button>
+          <p className="w-full break-all text-center font-mono text-[11px] text-slate-500 leading-normal">
+            {url}
+          </p>
         </div>
-      </PopoverContent>
-    </Popover>
+      </div>
+    </>
   );
 }

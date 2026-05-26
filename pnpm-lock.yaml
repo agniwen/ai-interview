@@ -167,6 +167,9 @@ importers:
       '@vercel/analytics':
         specifier: ^1.6.1
         version: 1.6.1(next@16.1.6(@opentelemetry/api@1.9.1)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(react@19.2.3)
+      '@zumer/snapdom':
+        specifier: ^2.12.0
+        version: 2.12.0
       ai:
         specifier: 'catalog:'
         version: 6.0.191(zod@4.4.3)
@@ -3407,6 +3410,9 @@ packages:
 
   '@workflow/serde@4.1.0-beta.2':
     resolution: {integrity: sha512-8kkeoQKLDaKXefjV5dbhBj2aErfKp1Mc4pb6tj8144cF+Em5SPbyMbyLCHp+BVrFfFVCBluCtMx+jjvaFVZGww==}
+
+  '@zumer/snapdom@2.12.0':
+    resolution: {integrity: sha512-TdLGu+1RkKI3JKfMFvn1gRPD/rl8hrAeN6aFjjd0w7S39nulbd94ChxSlfH7nSCm8kzuQkeWFxIsij4+Mk1RDg==}
 
   ai@6.0.191:
     resolution: {integrity: sha512-zAxvjKebQE7YkSyyNIl0OM7i6/zygnKeF+yNUjD4nWOelYrG+LpDd6RnH6mjySI4zUpZ7o4wbnmAy8jc6u98vQ==}
@@ -8722,6 +8728,8 @@ snapshots:
   '@webgpu/types@0.1.70': {}
 
   '@workflow/serde@4.1.0-beta.2': {}
+
+  '@zumer/snapdom@2.12.0': {}
 
   ai@6.0.191(zod@4.4.3):
     dependencies:
