@@ -4,6 +4,7 @@ import { motion, useReducedMotion } from "motion/react";
 import type { ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { cn } from "@/lib/shared/utils";
 
 interface AnimatedHeightProps {
   children: ReactNode;
@@ -60,9 +61,9 @@ export function AnimatedHeight({ children, duration = 0.25, className }: Animate
   return (
     <motion.div
       animate={{ height }}
-      className={className}
+      className={cn("-m-1 p-1", className)}
       initial={false}
-      style={{ overflow: "hidden" }}
+      style={{ boxSizing: "content-box", overflow: "hidden" }}
       transition={reduceMotion ? { duration: 0 } : { duration, ease: [0.32, 0.72, 0, 1] as const }}
     >
       {/*
@@ -75,6 +76,12 @@ export function AnimatedHeight({ children, duration = 0.25, className }: Animate
         ResizeObserver reports a height short by those margins, and the outer
         motion.div ends up clipping the trailing content while the Modal body
         never realises it should scroll.
+
+        The outer motion.div also keeps a 4px gutter inside its clipping area.
+        Form controls render focus rings as box-shadow, which is visual overflow
+        and not part of ResizeObserver's measured size. Without this gutter,
+        inputs that fill the animated container can have their ring/shadow cut
+        off by overflow:hidden during focus.
       */}
       <div ref={innerRef} style={{ display: "flow-root" }}>
         {children}

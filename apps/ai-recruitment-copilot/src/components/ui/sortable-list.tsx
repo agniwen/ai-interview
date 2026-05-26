@@ -189,7 +189,7 @@ function SortableItemImpl({ id, disabled, className, children }: SortableItemPro
   } = useSortable({ disabled, id });
 
   const style: React.CSSProperties = {
-    transform: CSS.Transform.toString(transform),
+    transform: CSS.Translate.toString(transform),
     transition,
     // While dragging, keep the row in layout but fade it — the overlay (if
     // any) shows the moving copy. Without a visual cue users lose track of

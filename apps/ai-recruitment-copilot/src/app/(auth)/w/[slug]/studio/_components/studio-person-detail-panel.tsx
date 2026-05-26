@@ -675,9 +675,11 @@ export function StudioPersonDetailPanel({
             AI 题目
           </TabsTrigger>
         ) : null}
-        <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="experience">
-          经历
-        </TabsTrigger>
+        {mode === "interview" ? (
+          <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="experience">
+            经历
+          </TabsTrigger>
+        ) : null}
         {mode === "resume" ? (
           <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="rounds">
             AI 面试
@@ -1164,11 +1166,13 @@ export function StudioPersonDetailPanel({
         </TabsContent>
       ) : null}
 
-      <TabsContent value="experience">
-        <div className="rounded-2xl border border-border/60 bg-background p-5">
-          <ResumeProfileView profile={record.resumeProfile ?? null} />
-        </div>
-      </TabsContent>
+      {mode === "interview" ? (
+        <TabsContent value="experience">
+          <div className="rounded-2xl border border-border/60 bg-background p-5">
+            <ResumeProfileView profile={record.resumeProfile ?? null} />
+          </div>
+        </TabsContent>
+      ) : null}
 
       {mode === "resume" ? (
         <TabsContent value="rounds">

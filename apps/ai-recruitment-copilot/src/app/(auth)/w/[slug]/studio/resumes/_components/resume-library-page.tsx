@@ -260,6 +260,9 @@ export function ResumeLibraryPage({
   // Round id whose AI interview detail dialog should pop after a successful
   // save-and-start; null hides the dialog.
   const [interviewRoundDetailId, setInterviewRoundDetailId] = useState<string | null>(null);
+  const [interviewDetailDefaultTab, setInterviewDetailDefaultTab] = useState<
+    "overview" | "reports"
+  >("overview");
   // 当前正在「发起 AI 面试」弹窗中处理的简历记录（最小投影：行菜单和详情
   // 弹窗都通过这里触发）；null 则不展示。
   // Minimal record handle driving the launch-interview dialog. Both the row
@@ -331,6 +334,7 @@ export function ResumeLibraryPage({
   function handleResumeRecordCreated(result: CreateResumeRecordResult) {
     invalidateAll();
     if (result.mode === "save-and-start") {
+      setInterviewDetailDefaultTab("overview");
       setInterviewRoundDetailId(result.round.id);
     }
   }
@@ -730,6 +734,7 @@ export function ResumeLibraryPage({
           // English: Keep the resume detail dialog open underneath — user may
           // want to come back to view other rounds after viewing one.
           // Radix Dialogs stack natively.
+          setInterviewDetailDefaultTab("reports");
           setInterviewRoundDetailId(roundId);
         }}
         open={detailRecordId !== null}
@@ -742,8 +747,14 @@ export function ResumeLibraryPage({
           launch-interview flow from the resume library row menu. recordId is
           the round id when mode="interview". */}
       <StudioPersonDetailDialog
+        defaultTab={interviewDetailDefaultTab}
         mode="interview"
-        onOpenChange={(open) => !open && setInterviewRoundDetailId(null)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setInterviewRoundDetailId(null);
+            setInterviewDetailDefaultTab("overview");
+          }
+        }}
         onUpdated={invalidateAll}
         open={interviewRoundDetailId !== null}
         recordId={interviewRoundDetailId}
@@ -753,6 +764,7 @@ export function ResumeLibraryPage({
         candidateName={launchingRecord?.candidateName ?? null}
         onLaunched={(round) => {
           invalidateAll();
+          setInterviewDetailDefaultTab("overview");
           setInterviewRoundDetailId(round.id);
         }}
         onOpenChange={(open) => !open && setLaunchingRecord(null)}

@@ -22,6 +22,7 @@ import { candidateOutcomeMeta, pipelineStageMeta } from "@arc/db-schema/studio-i
 import type { CandidateOutcome, PipelineStage } from "@arc/db-schema/studio-interviews";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/shared/utils";
 
 export interface PipelineStageActionBarProps {
   pipelineStage: PipelineStage;
@@ -60,27 +61,181 @@ export function PipelineStageActionBar({
     onRequestReactivate,
     pipelineStage,
   });
-
-  if (buttons.length === 0) {
-    return null;
-  }
+  const routeSteps = getRouteSteps(pipelineStage);
+  const currentIndex = routeSteps.indexOf(pipelineStage);
+  const nextLabel = getNextStepLabel({
+    aiInterviewDone,
+    humanInterviewDone,
+    outcome,
+    pipelineStage,
+    routeSteps,
+  });
 
   return (
-    <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border/60 bg-muted/30 px-3 py-2">
-      <div className="flex items-center gap-2 text-sm">
-        <span className="text-muted-foreground">当前阶段：</span>
-        <Badge variant={pipelineStageMeta[pipelineStage].tone}>
-          {pipelineStageMeta[pipelineStage].label}
-        </Badge>
-        {outcome === "in_pipeline" ? null : (
-          <Badge variant={candidateOutcomeMeta[outcome].tone}>
-            {candidateOutcomeMeta[outcome].label}
+    <div className="space-y-3 rounded-2xl border border-border/60 bg-background p-4 shadow-xs">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="font-medium text-sm">招聘流程</span>
+          <Badge variant={pipelineStageMeta[pipelineStage].tone}>
+            当前：{pipelineStageMeta[pipelineStage].label}
           </Badge>
-        )}
+          {outcome === "in_pipeline" ? null : (
+            <Badge variant={candidateOutcomeMeta[outcome].tone}>
+              {candidateOutcomeMeta[outcome].label}
+            </Badge>
+          )}
+        </div>
+        <span className="rounded-full bg-muted px-2.5 py-1 text-muted-foreground text-xs">
+          {nextLabel}
+        </span>
       </div>
-      <div className="ml-auto flex flex-wrap gap-2">{buttons}</div>
+
+      <div
+        aria-label={`当前阶段：${pipelineStageMeta[pipelineStage].label}。${nextLabel}`}
+        className="grid overflow-x-auto rounded-xl bg-muted/30 px-3 py-3"
+        role="list"
+        style={{ gridTemplateColumns: `repeat(${routeSteps.length}, minmax(5.75rem, 1fr))` }}
+      >
+        {routeSteps.map((stage, index) => {
+          const status = getStepStatus(index, currentIndex, pipelineStage);
+          const isLast = index === routeSteps.length - 1;
+          return (
+            <div
+              className="relative flex min-w-[5.75rem] flex-col items-center gap-2 px-1 text-center"
+              key={stage}
+              role="listitem"
+            >
+              {isLast ? null : (
+                <span
+                  aria-hidden
+                  className={cn(
+                    "-translate-y-1/2 absolute top-3 left-1/2 h-px w-full",
+                    status === "done" || status === "current" ? "bg-primary/70" : "bg-border",
+                  )}
+                />
+              )}
+              <span
+                className={cn(
+                  "relative z-10 flex size-6 items-center justify-center rounded-full border bg-background text-[11px]",
+                  status === "done" && "border-primary bg-primary text-primary-foreground",
+                  status === "current" &&
+                    "border-primary bg-background text-primary ring-4 ring-primary/10",
+                  status === "next" && "border-primary/50 bg-primary/10 text-primary",
+                  status === "todo" && "border-border text-muted-foreground",
+                )}
+              >
+                {index + 1}
+              </span>
+              <div className="min-w-0">
+                <p
+                  className={cn(
+                    "truncate font-medium text-xs",
+                    status === "current" ? "text-foreground" : "text-muted-foreground",
+                    status === "next" && "text-primary",
+                  )}
+                >
+                  {pipelineStageMeta[stage].label}
+                </p>
+                <p className="mt-0.5 text-[11px] text-muted-foreground">{getStepCaption(status)}</p>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="flex flex-wrap justify-end gap-2 border-border/60 border-t pt-3">
+        {buttons.length > 0 ? buttons : null}
+      </div>
     </div>
   );
+}
+
+const DEFAULT_ROUTE_STEPS: PipelineStage[] = [
+  "screening",
+  "ai_interview",
+  "human_interview",
+  "offer",
+  "closed",
+];
+
+const ROUTE_WITH_WRITTEN_TEST: PipelineStage[] = [
+  "screening",
+  "written_test",
+  "ai_interview",
+  "human_interview",
+  "offer",
+  "closed",
+];
+
+function getRouteSteps(pipelineStage: PipelineStage): PipelineStage[] {
+  return pipelineStage === "written_test" ? ROUTE_WITH_WRITTEN_TEST : DEFAULT_ROUTE_STEPS;
+}
+
+function getStepStatus(
+  index: number,
+  currentIndex: number,
+  pipelineStage: PipelineStage,
+): "done" | "current" | "next" | "todo" {
+  if (pipelineStage === "closed") {
+    if (index < currentIndex) {
+      return "done";
+    }
+    if (index === currentIndex) {
+      return "current";
+    }
+    return "todo";
+  }
+  if (index < currentIndex) {
+    return "done";
+  }
+  if (index === currentIndex) {
+    return "current";
+  }
+  return index === currentIndex + 1 ? "next" : "todo";
+}
+
+function getStepCaption(status: "done" | "current" | "next" | "todo") {
+  if (status === "done") {
+    return "已完成";
+  }
+  if (status === "current") {
+    return "当前";
+  }
+  if (status === "next") {
+    return "下一步";
+  }
+  return "待进行";
+}
+
+function getNextStepLabel({
+  pipelineStage,
+  outcome,
+  routeSteps,
+  aiInterviewDone,
+  humanInterviewDone,
+}: {
+  pipelineStage: PipelineStage;
+  outcome: CandidateOutcome;
+  routeSteps: PipelineStage[];
+  aiInterviewDone?: boolean;
+  humanInterviewDone?: boolean;
+}) {
+  if (pipelineStage === "closed") {
+    return `流程已结束：${candidateOutcomeMeta[outcome].label}`;
+  }
+  if (pipelineStage === "ai_interview" && !aiInterviewDone) {
+    return "接下来：等待候选人完成 AI 面试";
+  }
+  if (pipelineStage === "human_interview" && !humanInterviewDone) {
+    return "接下来：完成真人复面";
+  }
+  if (pipelineStage === "offer") {
+    return "接下来：等待 Offer 回复并结案";
+  }
+
+  const currentIndex = routeSteps.indexOf(pipelineStage);
+  const next = routeSteps[currentIndex + 1];
+  return next ? `接下来：${pipelineStageMeta[next].label}` : "接下来：确认最终结论";
 }
 
 interface StageButton {
