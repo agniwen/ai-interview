@@ -1,7 +1,7 @@
-import { count, desc } from "drizzle-orm";
+import { count, desc, eq, sql } from "drizzle-orm";
 import type { Metadata } from "next";
 import { db } from "@/lib/server/db";
-import { user } from "@arc/db-schema/schema";
+import { session, user } from "@arc/db-schema/schema";
 import { UsersGrid } from "./_components/users-grid";
 
 export const metadata: Metadata = {
@@ -9,6 +9,17 @@ export const metadata: Metadata = {
 };
 
 const INITIAL_PAGE_SIZE = 10;
+
+function toIsoString(value: Date | string | null | undefined) {
+  if (!value) {
+    return null;
+  }
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+}
 
 export default async function PlatformUsersPage() {
   const [rows, [{ total }]] = await Promise.all([
@@ -23,11 +34,18 @@ export default async function PlatformUsersPage() {
         feishuTenantName: user.feishuTenantName,
         id: user.id,
         image: user.image,
+        lastActiveAt: sql<
+          Date | string | null
+        >`GREATEST(MAX(${session.updatedAt}), MAX(${user.lastActiveAt})) AT TIME ZONE 'UTC'`.as(
+          "last_active_at",
+        ),
         name: user.name,
         role: user.role,
         updatedAt: user.updatedAt,
       })
       .from(user)
+      .leftJoin(session, eq(session.userId, user.id))
+      .groupBy(user.id)
       .orderBy(desc(user.createdAt))
       .limit(INITIAL_PAGE_SIZE)
       .offset(0),
@@ -43,6 +61,7 @@ export default async function PlatformUsersPage() {
       ...r,
       banExpires: r.banExpires?.toISOString() ?? null,
       createdAt: r.createdAt.toISOString(),
+      lastActiveAt: toIsoString(r.lastActiveAt),
       updatedAt: r.updatedAt.toISOString(),
     })),
     total,

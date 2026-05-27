@@ -4,7 +4,7 @@ import { zValidator } from "@hono/zod-validator";
 import { factory, jsonValidatorError } from "@/server/factory";
 import { adminMiddleware } from "@/server/middlewares/admin";
 import { db } from "@/lib/server/db";
-import { organization, member, user } from "@arc/db-schema/schema";
+import { organization, member, session, user } from "@arc/db-schema/schema";
 
 // --- Organizations list ---
 const orgQuerySchema = z.object({
@@ -186,6 +186,17 @@ function userOrderExpr(sortBy: string) {
   return user.createdAt;
 }
 
+function toIsoString(value: Date | string | null | undefined) {
+  if (!value) {
+    return null;
+  }
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+}
+
 const platformUsers = factory
   .createApp()
   .get(
@@ -213,12 +224,19 @@ const platformUsers = factory
             feishuTenantName: user.feishuTenantName,
             id: user.id,
             image: user.image,
+            lastActiveAt: sql<
+              Date | string | null
+            >`GREATEST(MAX(${session.updatedAt}), MAX(${user.lastActiveAt})) AT TIME ZONE 'UTC'`.as(
+              "last_active_at",
+            ),
             name: user.name,
             role: user.role,
             updatedAt: user.updatedAt,
           })
           .from(user)
+          .leftJoin(session, eq(session.userId, user.id))
           .where(searchFilter)
+          .groupBy(user.id)
           .orderBy(orderDir(userOrderExpr(sortBy)))
           .limit(pageSize)
           .offset(offset),
@@ -235,6 +253,7 @@ const platformUsers = factory
             ...r,
             banExpires: r.banExpires?.toISOString() ?? null,
             createdAt: r.createdAt.toISOString(),
+            lastActiveAt: toIsoString(r.lastActiveAt),
             updatedAt: r.updatedAt.toISOString(),
           })),
           total,

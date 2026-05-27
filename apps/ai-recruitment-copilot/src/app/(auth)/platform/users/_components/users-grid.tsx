@@ -79,6 +79,7 @@ interface UserRecord {
   emailVerified: boolean;
   feishuTenantName: string | null;
   createdAt: string;
+  lastActiveAt: string | null;
   updatedAt: string;
 }
 
@@ -380,6 +381,11 @@ export function UsersGrid({ initialData }: { initialData: UsersResult }) {
       dateColumn<UserRecord>({
         key: "updatedAt",
         title: "更新时间",
+      }),
+      dateColumn<UserRecord>({
+        emptyText: "从未登录",
+        key: "lastActiveAt",
+        title: "最近活跃",
       }),
       actionsColumn<UserRecord>({
         menu: [
