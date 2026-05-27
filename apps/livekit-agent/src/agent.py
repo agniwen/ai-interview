@@ -279,8 +279,14 @@ def _build_session(
     """
     return AgentSession(
         stt=elevenlabs.STT(
-            model_id="scribe_v2",
+            model_id="scribe_v2_realtime",
             language_code="zh",
+            server_vad={
+                "vad_silence_threshold_secs": 1.2,
+                "vad_threshold": 0.4,
+                "min_speech_duration_ms": 100,
+                "min_silence_duration_ms": 500,
+            },
             tag_audio_events=False,
         ),
         llm=openai.LLM(
