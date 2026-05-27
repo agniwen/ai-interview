@@ -90,20 +90,18 @@ export function PipelineStageActionBar({
         </span>
       </div>
 
-      <div
+      <ol
         aria-label={`当前阶段：${pipelineStageMeta[pipelineStage].label}。${nextLabel}`}
-        className="grid overflow-x-auto rounded-xl bg-muted/30 px-3 py-3"
-        role="list"
+        className="grid list-none overflow-x-auto rounded-xl bg-muted/30 px-3 py-3"
         style={{ gridTemplateColumns: `repeat(${routeSteps.length}, minmax(5.75rem, 1fr))` }}
       >
         {routeSteps.map((stage, index) => {
           const status = getStepStatus(index, currentIndex, pipelineStage);
           const isLast = index === routeSteps.length - 1;
           return (
-            <div
+            <li
               className="relative flex min-w-[5.75rem] flex-col items-center gap-2 px-1 text-center"
               key={stage}
-              role="listitem"
             >
               {isLast ? null : (
                 <span
@@ -138,10 +136,10 @@ export function PipelineStageActionBar({
                 </p>
                 <p className="mt-0.5 text-[11px] text-muted-foreground">{getStepCaption(status)}</p>
               </div>
-            </div>
+            </li>
           );
         })}
-      </div>
+      </ol>
 
       <div className="flex flex-wrap justify-end gap-2 border-border/60 border-t pt-3">
         {buttons.length > 0 ? buttons : null}
