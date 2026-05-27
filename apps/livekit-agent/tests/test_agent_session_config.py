@@ -1,7 +1,7 @@
 from types import SimpleNamespace
 
 import agent as agent_module
-from agent import _build_session
+from agent import _build_room_options, _build_session
 
 
 class _FakeAgentSession:
@@ -14,7 +14,7 @@ class _FakeComponent:
         self.kwargs = kwargs
 
 
-def test_agent_session_uses_realtime_stt_with_server_vad(monkeypatch):
+def test_agent_session_uses_scribe_v2_stt(monkeypatch):
     monkeypatch.setattr(agent_module, "AgentSession", _FakeAgentSession)
     monkeypatch.setattr(agent_module.elevenlabs, "STT", _FakeComponent)
     monkeypatch.setattr(agent_module.openai, "LLM", _FakeComponent)
@@ -29,11 +29,13 @@ def test_agent_session_uses_realtime_stt_with_server_vad(monkeypatch):
 
     stt = session.kwargs["stt"]
 
-    assert stt.kwargs["model_id"] == "scribe_v2_realtime"
+    assert stt.kwargs["model_id"] == "scribe_v2"
     assert stt.kwargs["language_code"] == "zh"
-    assert stt.kwargs["server_vad"] == {
-        "vad_silence_threshold_secs": 1.2,
-        "vad_threshold": 0.4,
-        "min_speech_duration_ms": 100,
-        "min_silence_duration_ms": 500,
-    }
+    assert "server_vad" not in stt.kwargs
+
+
+def test_room_options_disable_text_input():
+    options = _build_room_options()
+
+    assert options.text_input is False
+    assert options.close_on_disconnect is False

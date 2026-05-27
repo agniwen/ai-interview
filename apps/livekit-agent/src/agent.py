@@ -279,14 +279,8 @@ def _build_session(
     """
     return AgentSession(
         stt=elevenlabs.STT(
-            model_id="scribe_v2_realtime",
+            model_id="scribe_v2",
             language_code="zh",
-            server_vad={
-                "vad_silence_threshold_secs": 1.2,
-                "vad_threshold": 0.4,
-                "min_speech_duration_ms": 100,
-                "min_silence_duration_ms": 500,
-            },
             tag_audio_events=False,
         ),
         llm=openai.LLM(
@@ -339,6 +333,7 @@ def _build_room_options() -> room_io.RoomOptions:
     lifecycle instead of the framework auto-closing on first drop.
     """
     return room_io.RoomOptions(
+        text_input=False,
         audio_input=room_io.AudioInputOptions(
             noise_cancellation=(
                 None if _DISABLE_NOISE_CANCELLATION else _pick_noise_cancellation
