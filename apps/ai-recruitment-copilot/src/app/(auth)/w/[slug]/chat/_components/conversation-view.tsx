@@ -157,9 +157,9 @@ function AssistantThinkingBubble() {
       </p>
       <Message from="assistant">
         <MessageContent className="px-0 py-1">
-          <div aria-label="简历筛选助手正在思考" className="text-muted-foreground/80" role="status">
+          <output aria-label="简历筛选助手正在思考" className="text-muted-foreground/80">
             <Shimmer duration={1.2}>思考中...</Shimmer>
-          </div>
+          </output>
         </MessageContent>
       </Message>
     </div>

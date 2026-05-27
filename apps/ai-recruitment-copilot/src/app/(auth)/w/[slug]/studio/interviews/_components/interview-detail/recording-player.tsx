@@ -131,6 +131,7 @@ export function RecordingPlayer({
       {url ? (
         // oxlint-disable-next-line jsx-a11y/media-has-caption -- 面试录像无字幕轨道可挂载；候选人音视频原始记录，不存在 captions 资源。
         <video
+          aria-label="面试录像"
           className="mt-3 w-full rounded-xl border border-border/60"
           controls
           preload="metadata"

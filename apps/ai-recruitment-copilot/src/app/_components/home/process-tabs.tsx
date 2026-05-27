@@ -80,6 +80,7 @@ export function ProcessTabs() {
                 <li className="lg:flex lg:flex-1 lg:flex-col" key={step.value}>
                   <button
                     aria-current={isActive ? "step" : undefined}
+                    aria-label={`查看步骤：${step.label}`}
                     className={cn(
                       "group relative w-full border-foreground/10 border-l-2 py-5 pl-6 text-left transition-colors lg:flex lg:h-full lg:flex-col lg:justify-center",
                       "focus-visible:outline focus-visible:outline-2 focus-visible:outline-foreground/40 focus-visible:outline-offset-2",

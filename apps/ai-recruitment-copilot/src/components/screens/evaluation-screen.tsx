@@ -120,15 +120,21 @@ function InterviewListBackground() {
               <th className="h-10 px-3 text-left font-medium text-muted-foreground">状态</th>
               <th className="h-10 px-3 text-left font-medium text-muted-foreground">耗时</th>
               <th className="h-10 px-3 text-left font-medium text-muted-foreground">创建时间</th>
-              <th className="h-10 px-3 text-right font-medium text-muted-foreground" />
+              <th
+                aria-label="操作"
+                className="h-10 px-3 text-right font-medium text-muted-foreground"
+              />
             </tr>
           </thead>
           <tbody>
             {INTERVIEWS.map((r) => (
               <tr className="border-border border-b last:border-b-0" key={r.candidate}>
-                <td className="px-3 py-3">
+                <td aria-label={`候选人：${r.candidate}`} className="px-3 py-3">
                   <div className="flex items-center gap-2.5">
-                    <span className="size-7 rounded-full bg-gradient-to-br from-sky-400/70 to-indigo-500/70" />
+                    <span
+                      aria-hidden="true"
+                      className="size-7 rounded-full bg-gradient-to-br from-sky-400/70 to-indigo-500/70"
+                    />
                     <div className="min-w-0">
                       <div className="truncate font-medium">{r.candidate}</div>
                       <div className="truncate text-muted-foreground text-xs">{r.email}</div>
@@ -148,10 +154,16 @@ function InterviewListBackground() {
                 <td className="px-3 py-3 text-muted-foreground tabular-nums">{r.scheduledAt}</td>
                 <td className="px-3 py-3">
                   <div className="flex items-center justify-end gap-0.5">
-                    <span className="grid size-7 place-items-center rounded-md text-muted-foreground">
+                    <span
+                      aria-label="编辑面试记录"
+                      className="grid size-7 place-items-center rounded-md text-muted-foreground"
+                    >
                       <PencilIcon className="size-4" />
                     </span>
-                    <span className="grid size-7 place-items-center rounded-md text-muted-foreground">
+                    <span
+                      aria-label="更多面试记录操作"
+                      className="grid size-7 place-items-center rounded-md text-muted-foreground"
+                    >
                       <MoreHorizontalIcon className="size-4" />
                     </span>
                   </div>

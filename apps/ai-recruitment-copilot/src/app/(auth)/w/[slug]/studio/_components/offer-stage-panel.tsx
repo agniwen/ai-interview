@@ -718,6 +718,7 @@ function CreateOrEditOfferDialog({
           {mode === "create" ? (
             <div className="flex items-center gap-2 sm:col-span-2">
               <input
+                aria-label="立即发送 Offer"
                 checked={sendImmediately}
                 className="size-4 accent-foreground"
                 id="offer-send-now"

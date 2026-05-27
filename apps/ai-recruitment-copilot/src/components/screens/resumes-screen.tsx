@@ -378,8 +378,11 @@ function ResumeTable() {
       <table className="w-full text-sm">
         <thead>
           <tr className="border-border border-b bg-muted/40">
-            <th className="h-10 px-3 text-left font-medium text-muted-foreground">
-              <span className="size-4 rounded-[3px] border border-foreground/30 inline-block" />
+            <th aria-label="选择" className="h-10 px-3 text-left font-medium text-muted-foreground">
+              <span
+                aria-hidden="true"
+                className="size-4 rounded-[3px] border border-foreground/30 inline-block"
+              />
             </th>
             <th className="h-10 px-3 text-left font-medium text-muted-foreground">候选人</th>
             <th className="h-10 px-3 text-left font-medium text-muted-foreground">目标岗位</th>
@@ -388,16 +391,22 @@ function ResumeTable() {
             <th className="h-10 px-3 text-left font-medium text-muted-foreground">AI 面试</th>
             <th className="h-10 px-3 text-left font-medium text-muted-foreground">创建人</th>
             <th className="h-10 px-3 text-left font-medium text-muted-foreground">创建时间</th>
-            <th className="h-10 px-3 text-right font-medium text-muted-foreground" />
+            <th
+              aria-label="操作"
+              className="h-10 px-3 text-right font-medium text-muted-foreground"
+            />
           </tr>
         </thead>
         <tbody>
           {RESUMES.map((r) => (
             <tr className="border-border border-b last:border-b-0 hover:bg-muted/30" key={r.name}>
-              <td className="px-3 py-2.5">
-                <span className="inline-block size-4 rounded-[3px] border border-foreground/30" />
+              <td aria-label="选择简历" className="px-3 py-2.5">
+                <span
+                  aria-hidden="true"
+                  className="inline-block size-4 rounded-[3px] border border-foreground/30"
+                />
               </td>
-              <td className="px-3 py-2.5">
+              <td aria-label={`候选人：${r.name}`} className="px-3 py-2.5">
                 <div className="min-w-0">
                   <div className="truncate font-medium text-foreground underline-offset-4 hover:underline">
                     {r.name}
@@ -409,10 +418,10 @@ function ResumeTable() {
               </td>
               <td className="px-3 py-2.5">{r.role}</td>
               <td className="px-3 py-2.5 underline-offset-4 hover:underline">{r.jobLink}</td>
-              <td className="px-3 py-2.5">
+              <td aria-label={`简历文件：${r.resumeFile}`} className="px-3 py-2.5">
                 <span className="truncate underline-offset-4 hover:underline">{r.resumeFile}</span>
               </td>
-              <td className="px-3 py-2.5">
+              <td aria-label={`创建人：${r.creator}`} className="px-3 py-2.5">
                 {r.hasInterview ? (
                   // 真实 Badge variant="success": 绿色填充
                   <span className="inline-flex items-center rounded-md border border-transparent bg-emerald-500/15 px-1.5 py-0.5 font-medium text-emerald-700 text-xs dark:text-emerald-300">
@@ -425,22 +434,34 @@ function ResumeTable() {
                   </span>
                 )}
               </td>
-              <td className="px-3 py-2.5">
+              <td aria-label={`创建人：${r.creator}`} className="px-3 py-2.5">
                 <div className="flex items-center gap-2">
-                  <span className="size-5 rounded-full bg-gradient-to-br from-sky-400/70 to-indigo-500/70" />
+                  <span
+                    aria-hidden="true"
+                    className="size-5 rounded-full bg-gradient-to-br from-sky-400/70 to-indigo-500/70"
+                  />
                   <span>{r.creator}</span>
                 </div>
               </td>
               <td className="px-3 py-2.5 text-muted-foreground tabular-nums">{r.createdAt}</td>
               <td className="px-3 py-2.5">
                 <div className="flex items-center justify-end gap-0.5">
-                  <span className="grid size-7 place-items-center rounded-md text-muted-foreground hover:bg-accent">
+                  <span
+                    aria-label="查看简历"
+                    className="grid size-7 place-items-center rounded-md text-muted-foreground hover:bg-accent"
+                  >
                     <EyeIcon className="size-4" />
                   </span>
-                  <span className="grid size-7 place-items-center rounded-md text-muted-foreground hover:bg-accent">
+                  <span
+                    aria-label="编辑简历"
+                    className="grid size-7 place-items-center rounded-md text-muted-foreground hover:bg-accent"
+                  >
                     <PencilIcon className="size-4" />
                   </span>
-                  <span className="grid size-7 place-items-center rounded-md text-muted-foreground hover:bg-accent">
+                  <span
+                    aria-label="更多简历操作"
+                    className="grid size-7 place-items-center rounded-md text-muted-foreground hover:bg-accent"
+                  >
                     <MoreHorizontalIcon className="size-4" />
                   </span>
                 </div>

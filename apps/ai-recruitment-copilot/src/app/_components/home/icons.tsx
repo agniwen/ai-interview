@@ -8,7 +8,6 @@ export const ResumeRadarIcon = ({ className, ...props }: FeatureIconProps) => (
   <svg
     className={className}
     fill="none"
-    role="img"
     viewBox="0 0 48 48"
     xmlns="http://www.w3.org/2000/svg"
     {...props}
@@ -51,7 +50,6 @@ export const RoleContextIcon = ({ className, ...props }: FeatureIconProps) => (
   <svg
     className={className}
     fill="none"
-    role="img"
     viewBox="0 0 48 48"
     xmlns="http://www.w3.org/2000/svg"
     {...props}
@@ -91,7 +89,6 @@ export const VoiceInterviewIcon = ({ className, ...props }: FeatureIconProps) =>
   <svg
     className={className}
     fill="none"
-    role="img"
     viewBox="0 0 48 48"
     xmlns="http://www.w3.org/2000/svg"
     {...props}
@@ -139,7 +136,6 @@ export const WorkflowLinkIcon = ({ className, ...props }: FeatureIconProps) => (
   <svg
     className={className}
     fill="none"
-    role="img"
     viewBox="0 0 48 48"
     xmlns="http://www.w3.org/2000/svg"
     {...props}

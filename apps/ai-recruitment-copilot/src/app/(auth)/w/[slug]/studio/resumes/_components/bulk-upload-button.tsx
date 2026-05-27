@@ -45,6 +45,7 @@ export function BulkUploadButton({ disabled, onFilesPicked }: Props) {
     <>
       <input
         accept="application/pdf,.pdf"
+        aria-label="选择要批量上传的简历 PDF"
         className="hidden"
         multiple
         onChange={handleChange}

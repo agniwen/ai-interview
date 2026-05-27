@@ -165,6 +165,7 @@ export function CandidateFormFields({
           </label>
           <input
             accept="application/pdf"
+            aria-label="上传候选人简历 PDF"
             className="sr-only"
             disabled={disabled}
             id="candidate-resume-upload"

@@ -294,26 +294,33 @@ function JobsTable() {
             <th className="h-10 px-3 text-left font-medium text-muted-foreground">面试表单</th>
             <th className="h-10 px-3 text-left font-medium text-muted-foreground">面试题</th>
             <th className="h-10 px-3 text-left font-medium text-muted-foreground">创建时间</th>
-            <th className="h-10 px-3 text-right font-medium text-muted-foreground" />
+            <th
+              aria-label="操作"
+              className="h-10 px-3 text-right font-medium text-muted-foreground"
+            />
           </tr>
         </thead>
         <tbody>
           {JOBS.map((j) => (
             <tr className="border-border border-b last:border-b-0 hover:bg-muted/30" key={j.name}>
-              <td className="px-3 py-3">
+              <td aria-label={`岗位：${j.name}`} className="px-3 py-3">
                 <div className="flex items-center gap-2.5">
-                  <span className="grid size-7 place-items-center rounded-md bg-foreground/[0.05] text-foreground/70">
+                  <span
+                    aria-hidden="true"
+                    className="grid size-7 place-items-center rounded-md bg-foreground/[0.05] text-foreground/70"
+                  >
                     <FileTextIcon className="size-3.5" />
                   </span>
                   <span className="truncate font-medium">{j.name}</span>
                 </div>
               </td>
               <td className="px-3 py-3 text-foreground/80">{j.department}</td>
-              <td className="px-3 py-3">
+              <td aria-label={`面试官：${j.interviewers.join("、")}`} className="px-3 py-3">
                 <div className="flex items-center gap-2">
                   <div className="flex">
                     {j.interviewers.slice(0, 3).map((name, idx) => (
                       <span
+                        aria-hidden="true"
                         className="-ml-1.5 size-6 rounded-full bg-gradient-to-br from-sky-400/70 to-indigo-500/70 ring-2 ring-background first:ml-0"
                         key={`${j.name}-${name}-${idx}`}
                       />
@@ -327,13 +334,22 @@ function JobsTable() {
               <td className="px-3 py-3 text-muted-foreground tabular-nums">{j.createdAt}</td>
               <td className="px-3 py-3">
                 <div className="flex items-center justify-end gap-0.5">
-                  <span className="grid size-7 place-items-center rounded-md text-muted-foreground hover:bg-accent">
+                  <span
+                    aria-label="编辑岗位"
+                    className="grid size-7 place-items-center rounded-md text-muted-foreground hover:bg-accent"
+                  >
                     <PencilIcon className="size-4" />
                   </span>
-                  <span className="grid size-7 place-items-center rounded-md text-muted-foreground hover:bg-accent">
+                  <span
+                    aria-label="删除岗位"
+                    className="grid size-7 place-items-center rounded-md text-muted-foreground hover:bg-accent"
+                  >
                     <Trash2Icon className="size-4" />
                   </span>
-                  <span className="grid size-7 place-items-center rounded-md text-muted-foreground hover:bg-accent">
+                  <span
+                    aria-label="更多岗位操作"
+                    className="grid size-7 place-items-center rounded-md text-muted-foreground hover:bg-accent"
+                  >
                     <MoreHorizontalIcon className="size-4" />
                   </span>
                 </div>

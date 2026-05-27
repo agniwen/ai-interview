@@ -299,6 +299,7 @@ function CloseDialog({
               </div>
               <div className="flex items-center gap-2">
                 <input
+                  aria-label="进入人才库"
                   checked={talentPoolEligible}
                   className="size-4 accent-foreground"
                   id="talent-pool"

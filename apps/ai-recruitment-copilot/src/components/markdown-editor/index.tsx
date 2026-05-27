@@ -126,6 +126,7 @@ export function MarkdownEditor({
 
         {mode === "raw" && (
           <textarea
+            aria-label="Markdown 原始内容"
             className="block h-full w-full resize-none border-0 bg-transparent px-3 py-2 font-mono text-sm outline-none"
             disabled={disabled}
             onBlur={onBlur}

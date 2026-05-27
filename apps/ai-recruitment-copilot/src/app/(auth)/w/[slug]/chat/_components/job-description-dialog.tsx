@@ -153,6 +153,7 @@ export function JobDescriptionDialog({
             自定义 JD 内容
           </label>
           <textarea
+            aria-label="自定义 JD 内容"
             autoComplete="off"
             className="mt-2 min-h-40 w-full rounded-xl border border-border/70 bg-background p-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
             id="job-description"

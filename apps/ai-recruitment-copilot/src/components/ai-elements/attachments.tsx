@@ -281,7 +281,14 @@ export function AttachmentPreview({ fallbackIcon, className, ...props }: Attachm
     }
 
     if (mediaCategory === "video" && data.type === "file" && data.url) {
-      return <video className="size-full object-cover" muted src={data.url} />;
+      return (
+        <video
+          aria-label={data.filename ?? "视频附件"}
+          className="size-full object-cover"
+          muted
+          src={data.url}
+        />
+      );
     }
 
     if (isPdf) {
