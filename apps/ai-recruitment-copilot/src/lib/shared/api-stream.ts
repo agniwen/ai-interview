@@ -14,4 +14,5 @@ export type AnalysisStreamEvent =
   | { type: "text-delta"; text: string }
   | { type: "step"; index: number }
   | { type: "result"; data: unknown }
-  | { type: "error"; message: string };
+  | { type: "error"; message: string }
+  | { type: "heartbeat"; timestamp: number };

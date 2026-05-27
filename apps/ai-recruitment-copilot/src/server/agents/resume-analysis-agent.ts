@@ -31,6 +31,7 @@ const PARSE_STAGE_LABELS = {
   ocr: "OCR 识别简历",
   structured: "提取结构化字段",
 } as const;
+const NDJSON_HEARTBEAT_INTERVAL_MS = 10_000;
 
 function createNdjsonStream(
   run: (emit: (event: AnalysisStreamEvent) => void) => Promise<void>,
@@ -41,6 +42,9 @@ function createNdjsonStream(
       const emit = (event: AnalysisStreamEvent) => {
         controller.enqueue(encoder.encode(`${JSON.stringify(event)}\n`));
       };
+      const heartbeat = setInterval(() => {
+        emit({ timestamp: Date.now(), type: "heartbeat" });
+      }, NDJSON_HEARTBEAT_INTERVAL_MS);
       try {
         await run(emit);
       } catch (error) {
@@ -49,6 +53,7 @@ function createNdjsonStream(
           type: "error",
         });
       } finally {
+        clearInterval(heartbeat);
         controller.close();
       }
     },
