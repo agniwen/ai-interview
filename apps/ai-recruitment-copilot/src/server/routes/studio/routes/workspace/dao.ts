@@ -80,16 +80,18 @@ export async function listWorkspaceMemberLastActives(
     return [];
   }
 
-  // drizzle 1.0-rc 的 `max()` 在 timestamp 列上有时返回原始字符串而不是 Date，
-  // 不同 driver 下行为不稳定；这里强制 ::text 取出，到 JS 层再统一标准化为 ISO。
-  // drizzle 1.0-rc's `max()` on a timestamp column can leak the raw driver
-  // string instead of going through the column decoder. Force ::text and
-  // normalize to ISO in JS to dodge that.
+  // Raw SQL 聚合会绕过 Drizzle timestamp column reader；这些 auth 表时间列是
+  // timestamp without time zone，直接取出时容易被 pg driver 按 Node 本地时区解析。
+  // 显式 AT TIME ZONE 'UTC' 后返回 timestamptz，再由前端 TimeDisplay 固定按东八区展示。
+  // Raw SQL aggregates bypass Drizzle's timestamp column reader. These auth
+  // columns are timestamp without time zone, so coerce the aggregated value to
+  // timestamptz before it leaves Postgres; the client then renders it in UTC+8.
   const rows = await db
     .select({
-      lastActiveAt: sql<
-        string | null
-      >`GREATEST(MAX(${session.updatedAt}), MAX(${user.lastActiveAt}))::text`.as("last_active_at"),
+      lastActiveAt:
+        sql<Date | null>`GREATEST(MAX(${session.updatedAt}), MAX(${user.lastActiveAt})) AT TIME ZONE 'UTC'`.as(
+          "last_active_at",
+        ),
       userId: user.id,
     })
     .from(user)

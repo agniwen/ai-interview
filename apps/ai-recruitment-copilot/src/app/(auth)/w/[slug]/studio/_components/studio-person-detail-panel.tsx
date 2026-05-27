@@ -1399,6 +1399,11 @@ export function StudioPersonDetailPanel({
                   {candidateRounds.map((entry) => {
                     const statusMeta = scheduleEntryStatusMeta[entry.status];
                     const fullLink = toAbsoluteUrl(entry.interviewLink);
+                    const isEntryLive =
+                      entry.status === "in_progress" || entry.status === "interrupted";
+                    const entryActionDisabledReason = isEntryLive
+                      ? roundActionLockedReason
+                      : aiStageLockedReason;
                     return (
                       <div
                         className="rounded-xl border border-border/60 bg-muted/30 p-3"
@@ -1446,7 +1451,7 @@ export function StudioPersonDetailPanel({
                           <InterviewLinkQrButton
                             candidateName={record.candidateName}
                             className="flex-1 sm:flex-none"
-                            disabled={isAiStageLocked}
+                            disabled={Boolean(entryActionDisabledReason)}
                             url={fullLink}
                           />
                         </div>
