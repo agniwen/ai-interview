@@ -7,12 +7,14 @@
 // is non-null, otherwise shows the loader / status / tools / partial fields.
 
 import type { ResumeAnalysisPipeline } from "@/app/(auth)/w/[slug]/studio/_components/use-resume-analysis-pipeline";
+import { MarkdownView } from "@/components/markdown-view";
 import { ResumeDedupOverlay } from "@/components/resume-dedup-overlay";
 import { TextFlip } from "@/components/text-flip";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/shared/utils";
 import { CheckIcon, LoaderCircleIcon, WrenchIcon } from "lucide-react";
 import { motion, useReducedMotion } from "motion/react";
+import { useEffect, useRef } from "react";
 
 const ANALYSIS_STEPS = ["分析简历基础信息", "分析匹配岗位", "生成简历评价"] as const;
 
@@ -34,6 +36,23 @@ export function ResumeAnalysisOverlay({ pipeline }: { pipeline: ResumeAnalysisPi
   // Honor the OS reduced-motion preference by skipping the fade-in.
   const prefersReducedMotion = useReducedMotion();
   const analysisStepIndex = getAnalysisStepIndex(pipeline);
+  const hasReviewPreview = pipeline.reviewPreview.trim().length > 0;
+  const reviewPreviewRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!(pipeline.isGeneratingReview && hasReviewPreview)) {
+      return;
+    }
+
+    const frame = requestAnimationFrame(() => {
+      const preview = reviewPreviewRef.current;
+      if (preview) {
+        preview.scrollTop = preview.scrollHeight;
+      }
+    });
+
+    return () => cancelAnimationFrame(frame);
+  }, [hasReviewPreview, pipeline.isGeneratingReview, pipeline.reviewPreview]);
 
   if (!pipeline.isBusy) {
     return null;
@@ -115,6 +134,24 @@ export function ResumeAnalysisOverlay({ pipeline }: { pipeline: ResumeAnalysisPi
               ))}
             </div>
           )}
+          {hasReviewPreview ? (
+            <div className="w-full max-w-lg rounded-lg border bg-background/85 p-4 text-left shadow-sm">
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <p className="font-medium text-foreground text-sm">简历评价预览</p>
+                {pipeline.isGeneratingReview ? (
+                  <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 font-medium text-[11px] text-primary">
+                    生成中
+                  </span>
+                ) : null}
+              </div>
+              <div className="max-h-56 overflow-y-auto pr-2" ref={reviewPreviewRef}>
+                <MarkdownView
+                  className="text-muted-foreground text-sm [&_h1]:text-base [&_h2]:text-[15px] [&_h3]:text-sm"
+                  content={pipeline.reviewPreview}
+                />
+              </div>
+            </div>
+          ) : null}
           {pipeline.partialFields.length > 0 && (
             <div className="mx-auto grid w-full max-w-xs grid-cols-[auto_1fr] gap-x-3 gap-y-1 rounded-lg border bg-background/80 px-4 py-3 text-xs">
               {pipeline.partialFields.map((f) => (

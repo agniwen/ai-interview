@@ -52,6 +52,7 @@ export interface ResumeAnalysisPipelineState {
   progressStatus: string;
   progressTools: { name: string; done: boolean }[];
   partialFields: { label: string; value: string }[];
+  reviewPreview: string;
   dedupMatches: DedupMatchRecord[] | null;
   resumePayload: ResumeAnalysisResult | null;
   resumeFile: File | null;
@@ -89,8 +90,10 @@ export function useResumeAnalysisPipeline(
   const [progressStatus, setProgressStatus] = useState("");
   const [progressTools, setProgressTools] = useState<{ name: string; done: boolean }[]>([]);
   const [partialFields, setPartialFields] = useState<{ label: string; value: string }[]>([]);
+  const [reviewPreview, setReviewPreview] = useState("");
   const [dedupMatches, setDedupMatches] = useState<DedupMatchRecord[] | null>(null);
   const accumulatedTextRef = useRef("");
+  const reviewTextRef = useRef("");
   const abortControllerRef = useRef<AbortController | null>(null);
   // 缓存 Step 1 解析结果，用户在身份查重弹窗点"继续解析"时再驱动 Step 2。
   // Cache the Step 1 parse result so we can resume Step 2 after the user
@@ -189,7 +192,9 @@ export function useResumeAnalysisPipeline(
     setProgressStatus("正在生成面试题…");
     setProgressTools([]);
     setPartialFields([]);
+    setReviewPreview("");
     accumulatedTextRef.current = "";
+    reviewTextRef.current = "";
 
     try {
       // 流式响应不能走 rpcFetch（parseResponse 会消费 body），但可以用 hc 客户端
@@ -253,7 +258,9 @@ export function useResumeAnalysisPipeline(
       setProgressStatus("");
       setProgressTools([]);
       setPartialFields([]);
+      setReviewPreview("");
       accumulatedTextRef.current = "";
+      reviewTextRef.current = "";
     }
   }
 
@@ -267,7 +274,9 @@ export function useResumeAnalysisPipeline(
       setProgressStatus("");
       setProgressTools([]);
       setPartialFields([]);
+      setReviewPreview("");
       accumulatedTextRef.current = "";
+      reviewTextRef.current = "";
 
       if (!file) {
         return;
@@ -389,6 +398,8 @@ export function useResumeAnalysisPipeline(
           }
           setIsGeneratingReview(true);
           setProgressStatus("正在生成简历评价…");
+          setReviewPreview("");
+          reviewTextRef.current = "";
           try {
             // 流式响应：用 hc 拿 URL/类型，body 自己读 NDJSON。
             // Streaming endpoint: hc for URL + types, manually consume the
@@ -405,9 +416,16 @@ export function useResumeAnalysisPipeline(
             await readNdjsonStream<AnalysisStreamEvent>(
               reviewResponse,
               (event) => {
+                if (event.type === "text-delta") {
+                  reviewTextRef.current += event.text;
+                  setReviewPreview(reviewTextRef.current);
+                }
                 if (event.type === "result") {
                   const data = event.data as { review?: string };
                   review = data.review ?? null;
+                  if (review) {
+                    setReviewPreview(review);
+                  }
                 }
               },
               abortController.signal,
@@ -515,9 +533,11 @@ export function useResumeAnalysisPipeline(
     setProgressStatus("");
     setProgressTools([]);
     setPartialFields([]);
+    setReviewPreview("");
     setDedupMatches(null);
     pendingProfileRef.current = null;
     accumulatedTextRef.current = "";
+    reviewTextRef.current = "";
     toast.info("已取消简历分析");
   }, []);
 
@@ -547,9 +567,11 @@ export function useResumeAnalysisPipeline(
     setProgressStatus("");
     setProgressTools([]);
     setPartialFields([]);
+    setReviewPreview("");
     setDedupMatches(null);
     pendingProfileRef.current = null;
     accumulatedTextRef.current = "";
+    reviewTextRef.current = "";
   }, []);
 
   // 等待用户决定时的 overlay 也算"忙"——禁止关闭外层弹窗，避免在用户决定前丢状态。
@@ -580,5 +602,6 @@ export function useResumeAnalysisPipeline(
     reset,
     resumeFile,
     resumePayload,
+    reviewPreview,
   };
 }
