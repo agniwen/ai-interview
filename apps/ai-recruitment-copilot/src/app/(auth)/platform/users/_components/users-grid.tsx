@@ -2,13 +2,15 @@
 
 import {
   BanIcon,
+  Building2Icon,
   CheckCircle2Icon,
+  EyeIcon,
   LogOutIcon,
   ShieldCheckIcon,
   UsersIcon,
   XCircleIcon,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -38,9 +40,18 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Separator } from "@/components/ui/separator";
+import { Skeleton } from "@/components/ui/skeleton";
 import { rpcFetch } from "@/lib/client/api";
 import { rpc } from "@/lib/client/rpc";
-import { formatDate } from "@/lib/shared/utils/time";
+import { formatDate, formatDateOnly } from "@/lib/shared/utils/time";
 
 const WHITESPACE_REGEX = /\s+/;
 
@@ -79,6 +90,145 @@ interface UsersResult {
   pageSize: number;
 }
 
+interface UserWorkspacesResult {
+  records: {
+    id: string;
+    organizationId: string;
+    organizationName: string;
+    organizationSlug: string;
+    organizationCreatedAt: string;
+    role: string;
+    createdAt: string;
+  }[];
+  total: number;
+  user: {
+    id: string;
+    name: string;
+    email: string;
+    image: string | null;
+  };
+}
+
+const ROLE_BADGE_VARIANT: Record<string, "default" | "secondary" | "outline"> = {
+  admin: "default",
+  hr: "secondary",
+  owner: "default",
+  viewer: "outline",
+};
+
+const ROLE_LABEL: Record<string, string> = {
+  admin: "管理员",
+  hr: "HR",
+  owner: "所有者",
+  viewer: "只读",
+};
+
+function UserWorkspacesSkeleton() {
+  return (
+    <div className="space-y-3">
+      {Array.from({ length: 3 }).map((_, index) => (
+        <div className="rounded-lg border p-3" key={index}>
+          <Skeleton className="mb-2 h-4 w-40" />
+          <Skeleton className="h-3 w-56" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function UserWorkspacesList({ data }: { data: UserWorkspacesResult }) {
+  if (data.records.length === 0) {
+    return <div className="py-8 text-center text-muted-foreground text-sm">暂未加入工作区</div>;
+  }
+
+  return (
+    <div className="space-y-2">
+      {data.records.map((workspace) => (
+        <div className="rounded-lg border p-3" key={workspace.id}>
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="truncate font-medium text-sm">{workspace.organizationName}</p>
+              <p className="truncate font-mono text-muted-foreground text-xs">
+                /w/{workspace.organizationSlug}
+              </p>
+            </div>
+            <Badge variant={ROLE_BADGE_VARIANT[workspace.role] ?? "outline"}>
+              {ROLE_LABEL[workspace.role] ?? workspace.role}
+            </Badge>
+          </div>
+          <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-muted-foreground text-xs">
+            <span>加入于 {formatDateOnly(workspace.createdAt)}</span>
+            <span>工作区创建于 {formatDateOnly(workspace.organizationCreatedAt)}</span>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function UserWorkspacesDialog({
+  onOpenChange,
+  open,
+  user,
+}: {
+  onOpenChange: (open: boolean) => void;
+  open: boolean;
+  user: UserRecord | null;
+}) {
+  const [data, setData] = useState<UserWorkspacesResult | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const fetchWorkspaces = useCallback(async () => {
+    if (!user) {
+      return;
+    }
+    setLoading(true);
+    try {
+      const result = await rpcFetch<UserWorkspacesResult>(
+        rpc.api.platform.users[":userId"].workspaces.$get({
+          param: { userId: user.id },
+        }),
+        "加载用户工作区失败",
+      );
+      setData(result);
+    } finally {
+      setLoading(false);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (open && user) {
+      void fetchWorkspaces();
+    }
+    if (!open) {
+      setData(null);
+    }
+  }, [fetchWorkspaces, open, user]);
+
+  return (
+    <Dialog onOpenChange={onOpenChange} open={open}>
+      <DialogContent className="max-h-[80vh] max-w-2xl flex flex-col">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Building2Icon className="size-5" />
+            用户加入的工作区
+          </DialogTitle>
+          <DialogDescription>
+            {user ? `${user.name || user.email} · ${data?.total ?? 0} 个工作区` : "用户工作区"}
+          </DialogDescription>
+        </DialogHeader>
+
+        <Separator />
+
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          {loading && !data ? <UserWorkspacesSkeleton /> : null}
+          {data ? <UserWorkspacesList data={data} /> : null}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export function UsersGrid({ initialData }: { initialData: UsersResult }) {
   const fetchUsers = useMemo(
     () =>
@@ -114,6 +264,7 @@ export function UsersGrid({ initialData }: { initialData: UsersResult }) {
 
   const [forceLogoutTarget, setForceLogoutTarget] = useState<UserRecord | null>(null);
   const [forceLogoutPending, setForceLogoutPending] = useState(false);
+  const [workspacesTarget, setWorkspacesTarget] = useState<UserRecord | null>(null);
 
   async function confirmForceLogout() {
     if (!forceLogoutTarget) {
@@ -233,6 +384,11 @@ export function UsersGrid({ initialData }: { initialData: UsersResult }) {
       actionsColumn<UserRecord>({
         menu: [
           {
+            icon: EyeIcon,
+            label: "查看加入的工作区",
+            onClick: (r) => setWorkspacesTarget(r),
+          },
+          {
             icon: LogOutIcon,
             label: "强制下线",
             onClick: (r) => setForceLogoutTarget(r),
@@ -298,6 +454,11 @@ export function UsersGrid({ initialData }: { initialData: UsersResult }) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      <UserWorkspacesDialog
+        onOpenChange={(open) => !open && setWorkspacesTarget(null)}
+        open={workspacesTarget !== null}
+        user={workspacesTarget}
+      />
     </>
   );
 }

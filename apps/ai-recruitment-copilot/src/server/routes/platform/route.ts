@@ -243,7 +243,53 @@ const platformUsers = factory
         200,
       );
     },
-  );
+  )
+  .get("/users/:userId/workspaces", async (c) => {
+    const userId = c.req.param("userId");
+
+    const [targetUser] = await db
+      .select({
+        email: user.email,
+        id: user.id,
+        image: user.image,
+        name: user.name,
+      })
+      .from(user)
+      .where(eq(user.id, userId))
+      .limit(1);
+
+    if (!targetUser) {
+      return c.json({ error: "用户不存在" }, 404);
+    }
+
+    const memberships = await db
+      .select({
+        createdAt: member.createdAt,
+        id: member.id,
+        organizationCreatedAt: organization.createdAt,
+        organizationId: organization.id,
+        organizationName: organization.name,
+        organizationSlug: organization.slug,
+        role: member.role,
+      })
+      .from(member)
+      .innerJoin(organization, eq(member.organizationId, organization.id))
+      .where(eq(member.userId, userId))
+      .orderBy(desc(member.createdAt));
+
+    return c.json(
+      {
+        records: memberships.map((row) => ({
+          ...row,
+          createdAt: row.createdAt.toISOString(),
+          organizationCreatedAt: row.organizationCreatedAt.toISOString(),
+        })),
+        total: memberships.length,
+        user: targetUser,
+      },
+      200,
+    );
+  });
 
 export const platformRouter = factory
   .createApp()
