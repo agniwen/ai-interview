@@ -1,11 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { renderRoundInviteEmail } from "../templates";
+import { renderInterviewSummaryEmail, renderRoundInviteEmail } from "../templates";
 
 describe("renderRoundInviteEmail", () => {
   it("uses companyName as subject + body prefix when provided", async () => {
     const result = await renderRoundInviteEmail({
       candidateName: "张三",
       companyName: "Acme 科技",
+      heroImageUrl: "https://example.com/email/interview-clouds-monet.jpg",
       interviewUrl: "https://example.com/interview/abc/r1",
       roundLabel: "技术终面",
       scheduledAt: new Date("2026-05-20T10:00:00.000Z"),
@@ -17,6 +18,7 @@ describe("renderRoundInviteEmail", () => {
     expect(result.html).toContain("https://example.com/interview/abc/r1");
     expect(result.text).toContain("Acme 科技");
     expect(result.text).toContain("AI 面试");
+    expect(result.html).toContain("interview-clouds-monet.jpg");
   });
 
   it("falls back to 'AI 面试' subject when companyName is blank", async () => {
@@ -61,5 +63,26 @@ describe("renderRoundInviteEmail", () => {
     });
     expect(noTime.text).not.toContain("预计时间");
     expect(noTime.text).toContain("准备好后");
+  });
+
+  it("renders summary-ready email with report fields and hero image", async () => {
+    const result = await renderInterviewSummaryEmail({
+      assessment: "基础扎实，沟通清晰。",
+      candidateName: "赵六",
+      companyName: "Acme 科技",
+      detailUrl: "https://example.com/w/acme/studio/interviews?roundId=r1",
+      heroImageUrl: "https://example.com/email/interview-clouds-monet.jpg",
+      overallScore: "86/100",
+      recommendation: "建议进入下一轮",
+      summary: "候选人完整回答了项目经历与协作问题。",
+      targetRole: "前端工程师",
+    });
+
+    expect(result.subject).toBe("Acme 科技 | 赵六 的 AI 面试报告已生成");
+    expect(result.text).toContain("赵六");
+    expect(result.text).toContain("86/100");
+    expect(result.text).toContain("建议进入下一轮");
+    expect(result.text).toContain("前端工程师");
+    expect(result.html).toContain("interview-clouds-monet.jpg");
   });
 });

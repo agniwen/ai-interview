@@ -1,21 +1,27 @@
-import { and, desc, eq, inArray, isNull, or } from "drizzle-orm";
+import { and, desc, eq, inArray, isNotNull, isNull, notExists, or } from "drizzle-orm";
 import {
   account,
   interviewConversation,
   interviewNotification,
   organization,
   studioInterview,
+  studioInterviewSchedule,
+  user,
 } from "@arc/db-schema/schema";
 import { db } from "@/lib/server/db";
+import { buildSenderFromAddress, getResendClient } from "@/lib/server/resend";
 import { FEISHU_PROVIDER_IDS, postFeishuDirectCard } from "@/server/routes/feishu/utils/bot";
 import type { FeishuProviderId } from "@/server/routes/feishu/utils/bot";
 import {
   InterviewSummaryCard,
   resolveHeaderTemplate,
 } from "@/server/routes/feishu/utils/interview-summary-card";
+import { getGlobalConfig } from "@/server/routes/studio/routes/global-config/dao";
+import { renderInterviewSummaryEmail } from "@/server/routes/studio/routes/interviews/routes/round-emails/utils/templates";
 
 const LOG_PREFIX = "[feishu-interview-notification]";
 const RETRY_BATCH_SIZE = 20;
+const GOOGLE_PROVIDER_ID = "google";
 
 interface SummaryReadyNotificationOptions {
   conversationId: string;
@@ -26,6 +32,18 @@ interface RecipientAccount {
   accountId: string;
   providerId: FeishuProviderId;
   userId: string;
+}
+
+interface EmailRecipient {
+  accountId: string;
+  email: string;
+  providerId: typeof GOOGLE_PROVIDER_ID;
+  userId: string;
+}
+
+interface NotificationTarget {
+  conversationId: string;
+  interviewRecordId: string;
 }
 
 function isFeishuProviderId(value: string): value is FeishuProviderId {
@@ -57,7 +75,7 @@ interface NotificationCardInput {
   targetRole: string | null;
 }
 
-function buildNotificationCard(input: NotificationCardInput) {
+function buildSummaryPayload(input: NotificationCardInput) {
   const overallScore =
     typeof input.evaluation.overallScore === "number"
       ? `${input.evaluation.overallScore}/100`
@@ -70,6 +88,12 @@ function buildNotificationCard(input: NotificationCardInput) {
     typeof input.evaluation.overallAssessment === "string"
       ? input.evaluation.overallAssessment
       : null;
+
+  return { assessment, overallScore, recommendation };
+}
+
+function buildNotificationCard(input: NotificationCardInput) {
+  const { assessment, overallScore, recommendation } = buildSummaryPayload(input);
 
   const card = InterviewSummaryCard({
     assessment,
@@ -139,6 +163,36 @@ async function loadRecipientAccounts(userId: string): Promise<RecipientAccount[]
   });
 }
 
+function isGoogleLoginEnabled() {
+  return Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET);
+}
+
+async function loadGoogleEmailRecipient(userId: string): Promise<EmailRecipient | null> {
+  if (!isGoogleLoginEnabled()) {
+    return null;
+  }
+  const [row] = await db
+    .select({
+      email: user.email,
+      userId: user.id,
+    })
+    .from(account)
+    .innerJoin(user, eq(user.id, account.userId))
+    .where(and(eq(account.userId, userId), eq(account.providerId, GOOGLE_PROVIDER_ID)))
+    .orderBy(desc(account.updatedAt))
+    .limit(1);
+
+  if (!row?.email) {
+    return null;
+  }
+  return {
+    accountId: row.email,
+    email: row.email,
+    providerId: GOOGLE_PROVIDER_ID,
+    userId: row.userId,
+  };
+}
+
 async function claimNotification({
   conversationId,
   interviewRecordId,
@@ -148,7 +202,7 @@ async function claimNotification({
   conversationId: string;
   interviewRecordId: string;
   organizationId: string;
-  recipient: RecipientAccount;
+  recipient: { accountId: string; providerId: string; userId: string };
 }) {
   const [existing] = await db
     .select({
@@ -214,6 +268,12 @@ async function claimNotification({
   return row?.id ?? null;
 }
 
+function buildPublicAssetUrl(path: string): string {
+  const baseUrl =
+    process.env.NEXT_PUBLIC_BASE_URL ?? process.env.BETTER_AUTH_URL ?? "http://localhost:3000";
+  return `${baseUrl.replace(/\/$/, "")}${path}`;
+}
+
 async function markNotificationSent(notificationId: string, messageId: string | null) {
   await db
     .update(interviewNotification)
@@ -237,6 +297,132 @@ async function markNotificationFailed(notificationId: string, error: unknown) {
     .where(eq(interviewNotification.id, notificationId));
 }
 
+async function sendGoogleSummaryEmail({
+  conversationId,
+  context,
+  detailUrl,
+  interviewRecordId,
+  input,
+  recipient,
+}: {
+  conversationId: string;
+  context: NonNullable<Awaited<ReturnType<typeof loadNotificationContext>>>;
+  detailUrl: string;
+  interviewRecordId: string;
+  input: NotificationCardInput;
+  recipient: EmailRecipient;
+}) {
+  const notificationId = await claimNotification({
+    conversationId,
+    interviewRecordId,
+    organizationId: context.organizationId,
+    recipient,
+  });
+  if (!notificationId) {
+    return;
+  }
+
+  try {
+    const config = await getGlobalConfig(context.organizationId);
+    const { assessment, overallScore, recommendation } = buildSummaryPayload(input);
+    const { html, subject, text } = await renderInterviewSummaryEmail({
+      assessment,
+      candidateName: input.candidateName,
+      companyName: config.companyName,
+      detailUrl,
+      heroImageUrl: buildPublicAssetUrl("/email/interview-clouds-monet.jpg"),
+      overallScore,
+      recommendation,
+      summary: input.summary,
+      targetRole: input.targetRole,
+    });
+    const resend = getResendClient();
+    const sendResult = await resend.emails.send({
+      from: buildSenderFromAddress(config.companyName),
+      html,
+      subject,
+      text,
+      to: recipient.email,
+    });
+
+    if (sendResult.error || !sendResult.data) {
+      throw new Error(sendResult.error?.message ?? "Resend 未返回 message id");
+    }
+    await markNotificationSent(notificationId, sendResult.data.id);
+  } catch (error) {
+    await markNotificationFailed(notificationId, error);
+    // eslint-disable-next-line no-console
+    console.error(`${LOG_PREFIX} email failed for ${input.roundId}:`, error);
+  }
+}
+
+async function loadMissingGoogleEmailNotificationTargets(
+  limit: number,
+): Promise<NotificationTarget[]> {
+  if (!isGoogleLoginEnabled() || limit <= 0) {
+    return [];
+  }
+
+  const rows = await db
+    .select({
+      conversationId: interviewConversation.conversationId,
+      interviewRecordId: interviewConversation.interviewRecordId,
+    })
+    .from(interviewConversation)
+    .innerJoin(studioInterview, eq(interviewConversation.interviewRecordId, studioInterview.id))
+    .innerJoin(
+      studioInterviewSchedule,
+      and(
+        eq(studioInterviewSchedule.id, interviewConversation.scheduleEntryId),
+        eq(studioInterviewSchedule.conversationId, interviewConversation.conversationId),
+      ),
+    )
+    .innerJoin(
+      account,
+      and(
+        eq(account.userId, studioInterview.createdBy),
+        eq(account.providerId, GOOGLE_PROVIDER_ID),
+      ),
+    )
+    .innerJoin(user, eq(studioInterview.createdBy, user.id))
+    .where(
+      and(
+        eq(interviewConversation.summaryStatus, "ready"),
+        isNotNull(interviewConversation.interviewRecordId),
+        isNotNull(studioInterview.createdBy),
+        isNotNull(user.email),
+        notExists(
+          db
+            .select({ id: interviewNotification.id })
+            .from(interviewNotification)
+            .where(
+              and(
+                eq(interviewNotification.interviewRecordId, studioInterview.id),
+                eq(interviewNotification.conversationId, interviewConversation.conversationId),
+                eq(interviewNotification.type, "summary_ready"),
+                eq(interviewNotification.recipientUserId, studioInterview.createdBy),
+                eq(interviewNotification.providerId, GOOGLE_PROVIDER_ID),
+              ),
+            ),
+        ),
+      ),
+    )
+    .orderBy(desc(interviewConversation.updatedAt))
+    .limit(limit);
+
+  return rows.flatMap((row) => {
+    if (!row.interviewRecordId) {
+      return [];
+    }
+    return [
+      {
+        conversationId: row.conversationId,
+        interviewRecordId: row.interviewRecordId,
+      },
+    ];
+  });
+}
+
 export async function notifyInterviewSummaryReady(
   options: SummaryReadyNotificationOptions,
 ): Promise<void> {
@@ -246,9 +432,6 @@ export async function notifyInterviewSummaryReady(
   }
 
   const recipients = await loadRecipientAccounts(context.createdBy);
-  if (recipients.length === 0) {
-    return;
-  }
 
   // 没有 scheduleEntryId 时跳过通知 —— 链接会落到一个 404 的 dialog,不如不发,
   // 让 retryFailedInterviewSummaryNotifications 后续重试 (届时 schedule 可能已回填)。
@@ -259,14 +442,16 @@ export async function notifyInterviewSummaryReady(
     return;
   }
 
-  const { card, headerTemplate } = buildNotificationCard({
+  const notificationInput = {
     candidateName: context.candidateName,
     evaluation: context.evaluationCriteriaResults ?? {},
     organizationSlug: context.organizationSlug ?? null,
     roundId: context.scheduleEntryId,
     summary: context.transcriptSummary,
     targetRole: context.targetRole,
-  });
+  };
+  const detailUrl = buildStudioUrl(context.scheduleEntryId, context.organizationSlug ?? null);
+  const { card, headerTemplate } = buildNotificationCard(notificationInput);
 
   for (const recipient of recipients) {
     const notificationId = await claimNotification({
@@ -290,6 +475,18 @@ export async function notifyInterviewSummaryReady(
       console.error(`${LOG_PREFIX} failed for ${options.conversationId}:`, error);
     }
   }
+
+  const emailRecipient = await loadGoogleEmailRecipient(context.createdBy);
+  if (emailRecipient) {
+    await sendGoogleSummaryEmail({
+      context,
+      conversationId: options.conversationId,
+      detailUrl,
+      input: notificationInput,
+      interviewRecordId: options.interviewRecordId,
+      recipient: emailRecipient,
+    });
+  }
 }
 
 export async function retryFailedInterviewSummaryNotifications(): Promise<{
@@ -308,10 +505,11 @@ export async function retryFailedInterviewSummaryNotifications(): Promise<{
       ),
     )
     .limit(RETRY_BATCH_SIZE);
+  const missingGoogleEmailRows = await loadMissingGoogleEmailNotificationTargets(RETRY_BATCH_SIZE);
 
   let retried = 0;
   const seen = new Set<string>();
-  for (const row of failedRows) {
+  for (const row of [...failedRows, ...missingGoogleEmailRows]) {
     if (!row.conversationId) {
       continue;
     }

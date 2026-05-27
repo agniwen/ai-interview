@@ -97,6 +97,7 @@ export const roundEmailsRouter = factory
       const { html, subject, text } = await renderRoundInviteEmail({
         candidateName: row.candidateName,
         companyName: config.companyName,
+        heroImageUrl: `${getAppUrl()}/email/interview-clouds-monet.jpg`,
         interviewUrl,
         roundLabel: row.roundLabel,
         scheduledAt: row.scheduledAt,

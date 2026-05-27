@@ -10,7 +10,10 @@ import {
 } from "@arc/db-schema/schema";
 import { factory } from "@/server/factory";
 import { safeUpdateTag } from "@/server/cache-tags";
-import { retryFailedInterviewSummaryNotifications } from "@/server/routes/agent/utils/feishu-interview-notifications";
+import {
+  notifyInterviewSummaryReady,
+  retryFailedInterviewSummaryNotifications,
+} from "@/server/routes/agent/utils/feishu-interview-notifications";
 import { runSummaryJob } from "@/server/routes/agent/utils/interview-summary-job";
 
 async function resolveOrgFromInterview(interviewRecordId: string): Promise<string> {
@@ -59,6 +62,13 @@ const reportPayloadSchema = z.object({
   status: z.string().default("completed"),
   transcript: z.array(transcriptTurnSchema).default([]),
 });
+
+const retryNotificationPayloadSchema = z
+  .object({
+    conversationId: z.string().min(1),
+    interviewRecordId: z.string().min(1),
+  })
+  .partial();
 
 const RECOVERY_STALE_MINUTES = 10;
 const RECOVERY_BATCH_SIZE = 20;
@@ -369,6 +379,20 @@ export const agentRouter = factory
 
     if (!expectedSecret || secret !== expectedSecret) {
       return c.json({ error: "Unauthorized" }, 401);
+    }
+
+    const rawBody = await c.req.json().catch(() => null);
+    const body = retryNotificationPayloadSchema.safeParse(rawBody ?? {});
+    if (!body.success) {
+      return c.json({ details: body.error.flatten(), error: "Invalid payload" }, 400);
+    }
+
+    if (body.data.conversationId && body.data.interviewRecordId) {
+      await notifyInterviewSummaryReady({
+        conversationId: body.data.conversationId,
+        interviewRecordId: body.data.interviewRecordId,
+      });
+      return c.json({ retried: 1, scoped: true });
     }
 
     const result = await retryFailedInterviewSummaryNotifications();
