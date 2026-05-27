@@ -13,6 +13,7 @@ import { rasterizePdfWithMeta } from "./pdf-rasterize";
 import { isQwenOcrConfigured, qwenVlOcr } from "./qwen-ocr";
 
 const STRUCTURED_TEXT_MAX_CHARS = 16_000;
+const DEV_OCR_LOG_PREFIX = "[resume-ocr]";
 
 const STRUCTURED_INSTRUCTIONS = `你是一名简历解析助手。给你一段简历文本，请严格按照下方 JSON 结构输出结构化候选人档案。
 
@@ -90,7 +91,28 @@ function clipForStructured(text: string): string {
   return `${text.slice(0, STRUCTURED_TEXT_MAX_CHARS)}\n\n[...content truncated...]`;
 }
 
+function isDevOcrLogEnabled(): boolean {
+  return process.env.NODE_ENV === "development";
+}
+
+function nowMs(): number {
+  return performance.now();
+}
+
+function formatDuration(startedAt: number): string {
+  return `${Math.round(nowMs() - startedAt)}ms`;
+}
+
+function devOcrLog(message: string, data?: Record<string, unknown>): void {
+  if (!isDevOcrLogEnabled()) {
+    return;
+  }
+  // eslint-disable-next-line no-console
+  console.info(DEV_OCR_LOG_PREFIX, message, data ?? "");
+}
+
 export async function generateResumeStructured(text: string): Promise<ResumeParserStructured> {
+  const startedAt = nowMs();
   const provider = createAlibabaProvider({ enableThinking: false });
   const modelId = process.env.ALIBABA_STRUCTURED_MODEL ?? "deepseek-v4-pro";
   const { text: rawOutput } = await generateText({
@@ -104,6 +126,12 @@ export async function generateResumeStructured(text: string): Promise<ResumePars
     prompt: `${STRUCTURED_INSTRUCTIONS}\n\n简历文本：\n${clipForStructured(text)}`,
     temperature: 0,
   });
+  devOcrLog("structured completed", {
+    duration: formatDuration(startedAt),
+    inputChars: text.length,
+    model: modelId,
+    outputChars: rawOutput.length,
+  });
   return parseJsonOutput(rawOutput, structuredSchema, "resume-parse-pipeline");
 }
 
@@ -115,23 +143,56 @@ export async function generateResumeStructured(text: string): Promise<ResumePars
  * callers run structured extraction separately when they actually need it.
  */
 export async function parseResumeOcrOnly(bytes: Uint8Array): Promise<ParsedResumeOcr> {
+  const totalStartedAt = nowMs();
   if (!isQwenOcrConfigured()) {
     throw new Error("Qwen OCR is not configured (missing ALIBABA_API_KEY).");
   }
 
+  devOcrLog("start", { bytes: bytes.byteLength, maxPages: 6, scale: 2 });
+  const rasterizeStartedAt = nowMs();
   const { pages, pageCount } = await rasterizePdfWithMeta(bytes, { maxPages: 6, scale: 2 });
+  devOcrLog("rasterize completed", {
+    duration: formatDuration(rasterizeStartedAt),
+    pageCount,
+    renderedPages: pages.length,
+    renderedSizes: pages.map((page) => page.byteLength),
+  });
 
   if (pages.length === 0) {
     throw new Error("Rasterization produced no pages; PDF may be empty or unreadable.");
   }
 
-  const ocrTexts = await Promise.all(pages.map((png) => qwenVlOcr(png)));
+  const ocrStartedAt = nowMs();
+  const ocrTexts = await Promise.all(
+    pages.map(async (png, index) => {
+      const pageStartedAt = nowMs();
+      const text = await qwenVlOcr(png);
+      devOcrLog("page completed", {
+        chars: text.length,
+        duration: formatDuration(pageStartedAt),
+        page: index + 1,
+        pngBytes: png.byteLength,
+      });
+      return text;
+    }),
+  );
   const text = ocrTexts.filter((chunk) => chunk.trim().length > 0).join("\n\n");
+  devOcrLog("ocr completed", {
+    duration: formatDuration(ocrStartedAt),
+    outputChars: text.length,
+    pages: pages.length,
+  });
 
   if (text.trim().length === 0) {
     throw new Error("Qwen OCR returned empty text for every page.");
   }
 
+  devOcrLog("completed", {
+    duration: formatDuration(totalStartedAt),
+    outputChars: text.length,
+    pageCount,
+    renderedPages: pages.length,
+  });
   return { pageCount, text, textSource: "qwen-ocr" };
 }
 
@@ -145,7 +206,13 @@ export async function parseResumeOcrOnly(bytes: Uint8Array): Promise<ParsedResum
  * the pre-split version; callers that want both in one shot keep using this.
  */
 export async function parseResumeFast(bytes: Uint8Array): Promise<ParsedResumeFast> {
+  const startedAt = nowMs();
   const ocr = await parseResumeOcrOnly(bytes);
   const structured = await generateResumeStructured(ocr.text);
+  devOcrLog("full parse completed", {
+    duration: formatDuration(startedAt),
+    outputChars: ocr.text.length,
+    pageCount: ocr.pageCount,
+  });
   return { ...ocr, structured };
 }
