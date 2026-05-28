@@ -32,7 +32,7 @@ import {
 } from "lucide-react";
 import { ConnectionState, RoomEvent, Track } from "livekit-client";
 import type { MouseEvent } from "react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useReducer, useRef, useState } from "react";
 import { toast } from "sonner";
 import type {
   HumanInterviewMeetingTokenResponse,
@@ -120,19 +120,20 @@ const interviewerRoleLabel = {
   observer: "旁听",
 } as const;
 const EARLY_JOIN_WINDOW_MS = 5 * 60 * 1000;
+const dateTimeFormatter = new Intl.DateTimeFormat("zh-CN", {
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+  month: "2-digit",
+  year: "numeric",
+});
 
 function formatDateTime(iso: string | null): string {
   if (!iso) {
     return "时间未定";
   }
   const value = new Date(iso);
-  return new Intl.DateTimeFormat("zh-CN", {
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  }).format(value);
+  return dateTimeFormatter.format(value);
 }
 
 function getRoomTitle(props: HumanMeetingRoomProps): string {
@@ -216,12 +217,101 @@ function getParticipantBadge(trackRef: TrackReferenceOrPlaceholder): {
   };
 }
 
+async function loadMeetingToken(
+  props: HumanMeetingRoomProps,
+): Promise<
+  { token: HumanInterviewMeetingTokenResponse; error: null } | { token: null; error: string }
+> {
+  try {
+    const token =
+      props.mode === "candidate"
+        ? await fetchCandidateToken(props.inviteToken)
+        : await fetchInterviewerToken(props.inviteToken);
+    return { error: null, token };
+  } catch (error) {
+    return {
+      error: error instanceof Error ? error.message : "进入会议失败",
+      token: null,
+    };
+  }
+}
+
+async function finishInterviewerMeeting(inviteToken: string): Promise<{ error: string | null }> {
+  try {
+    await endInterviewerMeeting(inviteToken);
+    return { error: null };
+  } catch (error) {
+    return {
+      error: error instanceof Error ? error.message : "结束会议失败",
+    };
+  }
+}
+
+async function runEndMeeting(onEndMeeting: () => Promise<void> | void): Promise<boolean> {
+  try {
+    await onEndMeeting();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+interface MeetingRoomState {
+  isEnding: boolean;
+  isJoining: boolean;
+  joinError: string | null;
+  token: HumanInterviewMeetingTokenResponse | null;
+}
+
+type MeetingRoomAction =
+  | { type: "disconnected" }
+  | { type: "endingFinished" }
+  | { type: "endingStarted" }
+  | { message: string; type: "joinBlocked" }
+  | { message: string; type: "joinFailed" }
+  | { token: HumanInterviewMeetingTokenResponse; type: "joinSucceeded" }
+  | { type: "joinStarted" }
+  | { message: string; type: "roomError" };
+
+const initialMeetingRoomState: MeetingRoomState = {
+  isEnding: false,
+  isJoining: false,
+  joinError: null,
+  token: null,
+};
+
+function meetingRoomReducer(state: MeetingRoomState, action: MeetingRoomAction): MeetingRoomState {
+  switch (action.type) {
+    case "disconnected": {
+      return { ...state, token: null };
+    }
+    case "endingFinished": {
+      return { ...state, isEnding: false };
+    }
+    case "endingStarted": {
+      return { ...state, isEnding: true };
+    }
+    case "joinBlocked":
+    case "joinFailed":
+    case "roomError": {
+      return { ...state, isJoining: false, joinError: action.message };
+    }
+    case "joinStarted": {
+      return { ...state, isJoining: true, joinError: null };
+    }
+    case "joinSucceeded": {
+      return { ...state, isJoining: false, token: action.token };
+    }
+    default: {
+      return state;
+    }
+  }
+}
+
 export function HumanMeetingRoom(props: HumanMeetingRoomProps) {
-  const [token, setToken] = useState<HumanInterviewMeetingTokenResponse | null>(null);
-  const [isJoining, setIsJoining] = useState(false);
-  const [isEnding, setIsEnding] = useState(false);
-  const [joinError, setJoinError] = useState<string | null>(null);
+  const [state, dispatch] = useReducer(meetingRoomReducer, initialMeetingRoomState);
   const [nowMs, setNowMs] = useState(() => Date.now());
+  const { isEnding, isJoining, joinError, token } = state;
   const startBlockMessage = getStartBlockMessage(
     props.preview.scheduledAt,
     props.preview.status,
@@ -235,7 +325,6 @@ export function HumanMeetingRoom(props: HumanMeetingRoomProps) {
     }
     const remainingMs = timestamp - Date.now();
     if (remainingMs <= 0) {
-      setNowMs(Date.now());
       return;
     }
     const timer = window.setTimeout(
@@ -247,45 +336,36 @@ export function HumanMeetingRoom(props: HumanMeetingRoomProps) {
     return () => window.clearTimeout(timer);
   }, [props.preview.scheduledAt, props.preview.status, nowMs]);
 
-  const joinMeeting = useCallback(async () => {
+  async function joinMeeting() {
     if (startBlockMessage) {
-      setJoinError(startBlockMessage);
+      dispatch({ message: startBlockMessage, type: "joinBlocked" });
       toast.warning(startBlockMessage);
       return;
     }
-    setIsJoining(true);
-    setJoinError(null);
-    try {
-      const nextToken =
-        props.mode === "candidate"
-          ? await fetchCandidateToken(props.inviteToken)
-          : await fetchInterviewerToken(props.inviteToken);
-      setToken(nextToken);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "进入会议失败";
-      setJoinError(message);
-      toast.error(message);
-    } finally {
-      setIsJoining(false);
+    dispatch({ type: "joinStarted" });
+    const result = await loadMeetingToken(props);
+    if (result.token) {
+      dispatch({ token: result.token, type: "joinSucceeded" });
+      return;
     }
-  }, [props, startBlockMessage]);
+    dispatch({ message: result.error, type: "joinFailed" });
+    toast.error(result.error);
+  }
 
-  const endMeeting = useCallback(async () => {
+  async function endMeeting(): Promise<void> {
     if (props.mode !== "interviewer") {
       return;
     }
-    setIsEnding(true);
-    try {
-      await endInterviewerMeeting(props.inviteToken);
-      toast.success("会议已结束");
-      setToken(null);
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "结束会议失败");
-      throw error;
-    } finally {
-      setIsEnding(false);
+    dispatch({ type: "endingStarted" });
+    const result = await finishInterviewerMeeting(props.inviteToken);
+    dispatch({ type: "endingFinished" });
+    if (result.error) {
+      toast.error(result.error);
+      throw new Error(result.error);
     }
-  }, [props]);
+    toast.success("会议已结束");
+    dispatch({ type: "disconnected" });
+  }
 
   if (!token) {
     const entryMessage = startBlockMessage ?? joinError;
@@ -339,9 +419,9 @@ export function HumanMeetingRoom(props: HumanMeetingRoomProps) {
       audio={false}
       className="h-dvh overflow-hidden bg-zinc-950 text-white"
       connect
-      onDisconnected={() => setToken(null)}
+      onDisconnected={() => dispatch({ type: "disconnected" })}
       onError={(e) => {
-        setJoinError(e.message);
+        dispatch({ message: e.message, type: "roomError" });
         toast.error(e.message);
       }}
       serverUrl={token.serverUrl}
@@ -432,11 +512,9 @@ function HumanMeetingStage({
 
   async function handleEndConfirm(event: MouseEvent<HTMLButtonElement>) {
     event.preventDefault();
-    try {
-      await onEndMeeting();
+    const ended = await runEndMeeting(onEndMeeting);
+    if (ended) {
       setEndConfirmOpen(false);
-    } catch {
-      // Toast is handled by the parent mutation wrapper.
     }
   }
 
@@ -444,7 +522,7 @@ function HumanMeetingStage({
     <div className="flex h-full min-h-0 flex-col overflow-hidden">
       <header className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-white/10 border-b px-4 py-3">
         <div>
-          <h1 className="font-medium text-base tracking-normal">{title}</h1>
+          <h1 className="font-medium text-xl text-white tracking-normal">{title}</h1>
           <p className="text-white/60 text-xs">{participantName}</p>
         </div>
         <div className="inline-flex items-center gap-2 rounded-md border border-white/10 bg-white/5 px-2.5 py-1 text-white/70 text-xs">

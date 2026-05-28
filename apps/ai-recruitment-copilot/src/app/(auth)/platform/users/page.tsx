@@ -9,6 +9,11 @@ export const metadata: Metadata = {
 };
 
 const INITIAL_PAGE_SIZE = 10;
+const LAST_ACTIVE_AT_SQL = sql<
+  Date | string | null
+>`GREATEST(MAX(${session.updatedAt}), MAX(${user.lastActiveAt})) AT TIME ZONE 'UTC'`.as(
+  "last_active_at",
+);
 
 function toIsoString(value: Date | string | null | undefined) {
   if (!value) {
@@ -34,11 +39,7 @@ export default async function PlatformUsersPage() {
         feishuTenantName: user.feishuTenantName,
         id: user.id,
         image: user.image,
-        lastActiveAt: sql<
-          Date | string | null
-        >`GREATEST(MAX(${session.updatedAt}), MAX(${user.lastActiveAt})) AT TIME ZONE 'UTC'`.as(
-          "last_active_at",
-        ),
+        lastActiveAt: LAST_ACTIVE_AT_SQL,
         name: user.name,
         role: user.role,
         updatedAt: user.updatedAt,

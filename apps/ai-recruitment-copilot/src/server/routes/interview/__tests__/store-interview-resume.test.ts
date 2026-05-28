@@ -86,7 +86,7 @@ describe("storeInterviewResume", () => {
     mocks.buildAttachmentKeyByHash.mockResolvedValue(STORAGE_KEY);
   });
 
-  it("registry hit: reuses storageKey + cached profile, no PUT, no createAttachment", async () => {
+  it("registry hit: reuses storageKey + cached profile, no PUT, copies attachment row", async () => {
     mocks.findAttachmentByContentHash.mockResolvedValue({
       parsedStructured: { name: "张三" },
       storageKey: STORAGE_KEY,
@@ -102,7 +102,13 @@ describe("storeInterviewResume", () => {
     });
     expect(mocks.putObjectBytes).not.toHaveBeenCalled();
     expect(mocks.parseResumeFastToProfile).not.toHaveBeenCalled();
-    expect(mocks.createAttachment).not.toHaveBeenCalled();
+    expect(mocks.createAttachment).toHaveBeenCalledTimes(1);
+    expect(mocks.createAttachment.mock.calls[0]?.[0]).toMatchObject({
+      contentHash: HASH,
+      parsedStructured: { name: "张三" },
+      storageKey: STORAGE_KEY,
+      userId: "user-1",
+    });
   });
 
   it("miss + both succeed: PUT + parse + createAttachment, returns fresh profile", async () => {

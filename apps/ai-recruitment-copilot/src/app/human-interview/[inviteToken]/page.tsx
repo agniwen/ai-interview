@@ -26,14 +26,23 @@ async function loadPreview(
   }
 }
 
+async function loadPreviewFromParams(params: Promise<{ inviteToken: string }>) {
+  const { inviteToken } = await params;
+  return {
+    inviteToken,
+    preview: await loadPreview(inviteToken),
+  };
+}
+
 export default async function PublicHumanInterviewPage({
   params,
 }: {
   params: Promise<{ inviteToken: string }>;
 }) {
-  await connection();
-  const { inviteToken } = await params;
-  const preview = await loadPreview(inviteToken);
+  const [{ inviteToken, preview }] = await Promise.all([
+    loadPreviewFromParams(params),
+    connection(),
+  ]);
 
   if (!preview) {
     return (

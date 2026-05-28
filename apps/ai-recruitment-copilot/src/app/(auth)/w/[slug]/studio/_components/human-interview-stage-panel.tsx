@@ -25,8 +25,8 @@ import {
   UsersIcon,
   VideoIcon,
 } from "lucide-react";
-import type { MouseEvent } from "react";
-import { useState } from "react";
+import type { MouseEvent, ReactNode } from "react";
+import { useReducer, useState } from "react";
 import { toast } from "sonner";
 import {
   humanInterviewFormatMeta,
@@ -119,6 +119,58 @@ interface PanelProps {
   disabled?: boolean;
 }
 
+interface DialogState {
+  cancelTarget: HumanInterviewRoundRecord | null;
+  completeTarget: HumanInterviewRoundRecord | null;
+  deleteTarget: HumanInterviewMeetingRecord | null;
+  endTarget: HumanInterviewMeetingRecord | null;
+  linksTarget: HumanInterviewMeetingRecord | null;
+  scheduleOpen: boolean;
+}
+
+type DialogAction =
+  | { open: boolean; type: "scheduleOpenChanged" }
+  | { target: HumanInterviewRoundRecord | null; type: "cancelTargetChanged" }
+  | { target: HumanInterviewRoundRecord | null; type: "completeTargetChanged" }
+  | { target: HumanInterviewMeetingRecord | null; type: "deleteTargetChanged" }
+  | { target: HumanInterviewMeetingRecord | null; type: "endTargetChanged" }
+  | { target: HumanInterviewMeetingRecord | null; type: "linksTargetChanged" };
+
+const initialDialogState: DialogState = {
+  cancelTarget: null,
+  completeTarget: null,
+  deleteTarget: null,
+  endTarget: null,
+  linksTarget: null,
+  scheduleOpen: false,
+};
+
+function dialogReducer(state: DialogState, action: DialogAction): DialogState {
+  switch (action.type) {
+    case "cancelTargetChanged": {
+      return { ...state, cancelTarget: action.target };
+    }
+    case "completeTargetChanged": {
+      return { ...state, completeTarget: action.target };
+    }
+    case "deleteTargetChanged": {
+      return { ...state, deleteTarget: action.target };
+    }
+    case "endTargetChanged": {
+      return { ...state, endTarget: action.target };
+    }
+    case "linksTargetChanged": {
+      return { ...state, linksTarget: action.target };
+    }
+    case "scheduleOpenChanged": {
+      return { ...state, scheduleOpen: action.open };
+    }
+    default: {
+      return state;
+    }
+  }
+}
+
 export function HumanInterviewStagePanel({ candidateId, candidateName, disabled }: PanelProps) {
   const slug = useWorkspaceSlug();
   const queryClient = useQueryClient();
@@ -143,19 +195,22 @@ export function HumanInterviewStagePanel({ candidateId, candidateName, disabled 
     void queryClient.invalidateQueries({ queryKey: ["studio-resumes"] });
   }
 
-  const [scheduleOpen, setScheduleOpen] = useState(false);
-  const [completeTarget, setCompleteTarget] = useState<HumanInterviewRoundRecord | null>(null);
-  const [cancelTarget, setCancelTarget] = useState<HumanInterviewRoundRecord | null>(null);
-  const [linksTarget, setLinksTarget] = useState<HumanInterviewMeetingRecord | null>(null);
-  const [endTarget, setEndTarget] = useState<HumanInterviewMeetingRecord | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<HumanInterviewMeetingRecord | null>(null);
+  const [dialogState, dispatchDialog] = useReducer(dialogReducer, initialDialogState);
+  const { cancelTarget, completeTarget, deleteTarget, endTarget, linksTarget, scheduleOpen } =
+    dialogState;
   const endMeetingMutation = useMutation({
     mutationFn: (meetingId: string) => endHumanInterviewMeeting(slug, meetingId),
     onError: (e) => toast.error(e instanceof Error ? e.message : "结束会议失败"),
     onSuccess: () => {
       toast.success("会议已结束");
-      setEndTarget(null);
-      invalidateRounds();
+      dispatchDialog({ target: null, type: "endTargetChanged" });
+      void queryClient.invalidateQueries({
+        queryKey: ["human-interview-rounds", slug, candidateId],
+      });
+      void queryClient.invalidateQueries({
+        queryKey: ["human-interview-meetings", slug, candidateId],
+      });
+      void queryClient.invalidateQueries({ queryKey: ["studio-resumes"] });
     },
   });
   const deleteMeetingMutation = useMutation({
@@ -163,8 +218,14 @@ export function HumanInterviewStagePanel({ candidateId, candidateName, disabled 
     onError: (e) => toast.error(e instanceof Error ? e.message : "删除会议失败"),
     onSuccess: () => {
       toast.success("会议已删除");
-      setDeleteTarget(null);
-      invalidateRounds();
+      dispatchDialog({ target: null, type: "deleteTargetChanged" });
+      void queryClient.invalidateQueries({
+        queryKey: ["human-interview-rounds", slug, candidateId],
+      });
+      void queryClient.invalidateQueries({
+        queryKey: ["human-interview-meetings", slug, candidateId],
+      });
+      void queryClient.invalidateQueries({ queryKey: ["studio-resumes"] });
     },
   });
   const createMeetingMutation = useMutation({
@@ -179,38 +240,41 @@ export function HumanInterviewStagePanel({ candidateId, candidateName, disabled 
     onError: (e) => toast.error(e instanceof Error ? e.message : "创建视频会议失败"),
     onSuccess: () => {
       toast.success("已创建视频会议");
-      invalidateRounds();
+      void queryClient.invalidateQueries({
+        queryKey: ["human-interview-rounds", slug, candidateId],
+      });
+      void queryClient.invalidateQueries({
+        queryKey: ["human-interview-meetings", slug, candidateId],
+      });
+      void queryClient.invalidateQueries({ queryKey: ["studio-resumes"] });
     },
   });
 
-  function renderRoundsContent() {
-    if (isLoading) {
-      return (
-        <div className="rounded-lg border border-border/60 bg-muted/30 p-6 text-center text-muted-foreground text-sm">
-          加载中…
-        </div>
-      );
-    }
-
-    if (rounds.length === 0) {
-      return (
-        <Empty className="border-border/60">
-          <EmptyHeader>
-            <EmptyMedia variant="icon">
-              <UsersIcon className="size-5" />
-            </EmptyMedia>
-            <EmptyTitle>尚未安排真人复面</EmptyTitle>
-            <EmptyDescription>
-              {disabled
-                ? "已结案候选人不可新增复面，请先重新激活。"
-                : "点「安排真人复面」创建线上复面会议。"}
-            </EmptyDescription>
-          </EmptyHeader>
-        </Empty>
-      );
-    }
-
-    return (
+  let roundsContent: ReactNode;
+  if (isLoading) {
+    roundsContent = (
+      <div className="rounded-lg border border-border/60 bg-muted/30 p-6 text-center text-muted-foreground text-sm">
+        加载中…
+      </div>
+    );
+  } else if (rounds.length === 0) {
+    roundsContent = (
+      <Empty className="border-border/60">
+        <EmptyHeader>
+          <EmptyMedia variant="icon">
+            <UsersIcon className="size-5" />
+          </EmptyMedia>
+          <EmptyTitle>尚未安排真人复面</EmptyTitle>
+          <EmptyDescription>
+            {disabled
+              ? "已结案候选人不可新增复面，请先重新激活。"
+              : "点「安排真人复面」创建线上复面会议。"}
+          </EmptyDescription>
+        </EmptyHeader>
+      </Empty>
+    );
+  } else {
+    roundsContent = (
       <div className="space-y-3">
         {rounds.map((round) => (
           <RoundCard
@@ -219,12 +283,18 @@ export function HumanInterviewStagePanel({ candidateId, candidateName, disabled 
             meetings={meetings.filter((meeting) =>
               meeting.rounds.some((meetingRound) => meetingRound.roundId === round.id),
             )}
-            onCancel={() => setCancelTarget(round)}
-            onComplete={() => setCompleteTarget(round)}
+            onCancel={() => dispatchDialog({ target: round, type: "cancelTargetChanged" })}
+            onComplete={() => dispatchDialog({ target: round, type: "completeTargetChanged" })}
             onCreateMeeting={() => createMeetingMutation.mutate(round)}
-            onDeleteMeeting={(meeting) => setDeleteTarget(meeting)}
-            onEndMeeting={(meeting) => setEndTarget(meeting)}
-            onOpenLinks={(meeting) => setLinksTarget(meeting)}
+            onDeleteMeeting={(meeting) =>
+              dispatchDialog({ target: meeting, type: "deleteTargetChanged" })
+            }
+            onEndMeeting={(meeting) =>
+              dispatchDialog({ target: meeting, type: "endTargetChanged" })
+            }
+            onOpenLinks={(meeting) =>
+              dispatchDialog({ target: meeting, type: "linksTargetChanged" })
+            }
             round={round}
           />
         ))}
@@ -242,48 +312,59 @@ export function HumanInterviewStagePanel({ candidateId, candidateName, disabled 
           </p>
         </div>
         {disabled ? null : (
-          <Button onClick={() => setScheduleOpen(true)} size="sm">
+          <Button
+            onClick={() => dispatchDialog({ open: true, type: "scheduleOpenChanged" })}
+            size="sm"
+          >
             <PlusIcon className="size-4" />
             安排真人复面
           </Button>
         )}
       </div>
 
-      {renderRoundsContent()}
+      {roundsContent}
 
       <ScheduleRoundDialog
         candidateId={candidateId}
         existingCount={rounds.length}
-        onOpenChange={setScheduleOpen}
+        onOpenChange={(open) => dispatchDialog({ open, type: "scheduleOpenChanged" })}
         onScheduled={invalidateRounds}
         open={scheduleOpen}
       />
       <CompleteRoundDialog
         candidateId={candidateId}
         onCompleted={invalidateRounds}
-        onOpenChange={(open) => !open && setCompleteTarget(null)}
+        onOpenChange={(open) =>
+          !open && dispatchDialog({ target: null, type: "completeTargetChanged" })
+        }
         round={completeTarget}
       />
       <CancelRoundDialog
         candidateId={candidateId}
         onCancelled={invalidateRounds}
-        onOpenChange={(open) => !open && setCancelTarget(null)}
+        onOpenChange={(open) =>
+          !open && dispatchDialog({ target: null, type: "cancelTargetChanged" })
+        }
         round={cancelTarget}
       />
       <MeetingLinksDialog
         meeting={linksTarget}
-        onOpenChange={(open) => !open && setLinksTarget(null)}
+        onOpenChange={(open) =>
+          !open && dispatchDialog({ target: null, type: "linksTargetChanged" })
+        }
       />
       <EndMeetingDialog
         isPending={endMeetingMutation.isPending}
         meeting={endTarget}
         onConfirm={(meeting) => endMeetingMutation.mutateAsync(meeting.id)}
-        onOpenChange={(open) => !open && setEndTarget(null)}
+        onOpenChange={(open) => !open && dispatchDialog({ target: null, type: "endTargetChanged" })}
       />
       <DeleteMeetingDialog
         meeting={deleteTarget}
         onConfirm={(meeting) => deleteMeetingMutation.mutate(meeting.id)}
-        onOpenChange={(open) => !open && setDeleteTarget(null)}
+        onOpenChange={(open) =>
+          !open && dispatchDialog({ target: null, type: "deleteTargetChanged" })
+        }
       />
     </div>
   );
@@ -755,6 +836,7 @@ function ScheduleRoundDialog({
   onScheduled,
 }: ScheduleDialogProps) {
   const slug = useWorkspaceSlug();
+  const queryClient = useQueryClient();
   const { data: members } = useWorkspaceMembers();
   const [label, setLabel] = useState("");
   const [scheduledAt, setScheduledAt] = useState("");
@@ -799,6 +881,13 @@ function ScheduleRoundDialog({
     onError: (e) => toast.error(e instanceof Error ? e.message : "创建失败"),
     onSuccess: () => {
       toast.success("已安排线上真人复面");
+      void queryClient.invalidateQueries({
+        queryKey: ["human-interview-rounds", slug, candidateId],
+      });
+      void queryClient.invalidateQueries({
+        queryKey: ["human-interview-meetings", slug, candidateId],
+      });
+      void queryClient.invalidateQueries({ queryKey: ["studio-resumes"] });
       onScheduled();
       handleOpenChange(false);
     },
@@ -910,6 +999,7 @@ function CompleteRoundDialog({
   onCompleted,
 }: CompleteDialogProps) {
   const slug = useWorkspaceSlug();
+  const queryClient = useQueryClient();
   const [outcome, setOutcome] = useState<HumanInterviewRoundOutcome>("pass");
   const [score, setScore] = useState("");
   const [feedback, setFeedback] = useState("");
@@ -944,6 +1034,13 @@ function CompleteRoundDialog({
     onError: (e) => toast.error(e instanceof Error ? e.message : "标记完成失败"),
     onSuccess: () => {
       toast.success("已标记完成");
+      void queryClient.invalidateQueries({
+        queryKey: ["human-interview-rounds", slug, candidateId],
+      });
+      void queryClient.invalidateQueries({
+        queryKey: ["human-interview-meetings", slug, candidateId],
+      });
+      void queryClient.invalidateQueries({ queryKey: ["studio-resumes"] });
       onCompleted();
       handleOpenChange(false);
     },
@@ -1039,6 +1136,7 @@ interface CancelDialogProps {
 
 function CancelRoundDialog({ round, candidateId, onOpenChange, onCancelled }: CancelDialogProps) {
   const slug = useWorkspaceSlug();
+  const queryClient = useQueryClient();
   const [reason, setReason] = useState("");
 
   function handleOpenChange(next: boolean) {
@@ -1060,6 +1158,13 @@ function CancelRoundDialog({ round, candidateId, onOpenChange, onCancelled }: Ca
     onError: (e) => toast.error(e instanceof Error ? e.message : "取消失败"),
     onSuccess: () => {
       toast.success("已取消该轮");
+      void queryClient.invalidateQueries({
+        queryKey: ["human-interview-rounds", slug, candidateId],
+      });
+      void queryClient.invalidateQueries({
+        queryKey: ["human-interview-meetings", slug, candidateId],
+      });
+      void queryClient.invalidateQueries({ queryKey: ["studio-resumes"] });
       onCancelled();
       handleOpenChange(false);
     },

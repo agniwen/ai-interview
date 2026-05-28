@@ -88,7 +88,7 @@ export function StudioPersonDetailDialog({
       onViewRoundDetail={onViewRoundDetail}
       recordId={recordId}
       roundId={roundId}
-      renderShell={({ body, description, footer, headerExtra, title }) => (
+      shell={({ body, description, footer, headerExtra, title }) => (
         <Modal
           description={description}
           footer={mode === "resume" ? footer : undefined}

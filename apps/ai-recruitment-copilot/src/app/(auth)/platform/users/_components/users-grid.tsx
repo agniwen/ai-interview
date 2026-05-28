@@ -10,7 +10,7 @@ import {
   UsersIcon,
   XCircleIcon,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -124,6 +124,25 @@ const ROLE_LABEL: Record<string, string> = {
   viewer: "只读",
 };
 
+async function loadUserWorkspaces(
+  userId: string,
+): Promise<{ data: UserWorkspacesResult; error: null } | { data: null; error: string }> {
+  try {
+    const data = await rpcFetch<UserWorkspacesResult>(
+      rpc.api.platform.users[":userId"].workspaces.$get({
+        param: { userId },
+      }),
+      "加载用户工作区失败",
+    );
+    return { data, error: null };
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error.message : "加载用户工作区失败",
+    };
+  }
+}
+
 function UserWorkspacesSkeleton() {
   return (
     <div className="space-y-3">
@@ -167,6 +186,54 @@ function UserWorkspacesList({ data }: { data: UserWorkspacesResult }) {
   );
 }
 
+function UserWorkspacesContent({ user }: { user: UserRecord }) {
+  const [data, setData] = useState<UserWorkspacesResult | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+
+    async function load() {
+      const result = await loadUserWorkspaces(user.id);
+      if (!active) {
+        return;
+      }
+      if (result.error) {
+        toast.error(result.error);
+      } else {
+        setData(result.data);
+      }
+      setLoading(false);
+    }
+
+    void load();
+    return () => {
+      active = false;
+    };
+  }, [user.id]);
+
+  return (
+    <>
+      <DialogHeader>
+        <DialogTitle className="flex items-center gap-2">
+          <Building2Icon className="size-5" />
+          用户加入的工作区
+        </DialogTitle>
+        <DialogDescription>
+          {`${user.name || user.email} · ${data?.total ?? 0} 个工作区`}
+        </DialogDescription>
+      </DialogHeader>
+
+      <Separator />
+
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        {loading && !data ? <UserWorkspacesSkeleton /> : null}
+        {data ? <UserWorkspacesList data={data} /> : null}
+      </div>
+    </>
+  );
+}
+
 function UserWorkspacesDialog({
   onOpenChange,
   open,
@@ -176,85 +243,37 @@ function UserWorkspacesDialog({
   open: boolean;
   user: UserRecord | null;
 }) {
-  const [data, setData] = useState<UserWorkspacesResult | null>(null);
-  const [loading, setLoading] = useState(false);
-
-  const fetchWorkspaces = useCallback(async () => {
-    if (!user) {
-      return;
-    }
-    setLoading(true);
-    try {
-      const result = await rpcFetch<UserWorkspacesResult>(
-        rpc.api.platform.users[":userId"].workspaces.$get({
-          param: { userId: user.id },
-        }),
-        "加载用户工作区失败",
-      );
-      setData(result);
-    } finally {
-      setLoading(false);
-    }
-  }, [user]);
-
-  useEffect(() => {
-    if (open && user) {
-      void fetchWorkspaces();
-    }
-    if (!open) {
-      setData(null);
-    }
-  }, [fetchWorkspaces, open, user]);
-
   return (
     <Dialog onOpenChange={onOpenChange} open={open}>
       <DialogContent className="max-h-[80vh] max-w-2xl flex flex-col">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Building2Icon className="size-5" />
-            用户加入的工作区
-          </DialogTitle>
-          <DialogDescription>
-            {user ? `${user.name || user.email} · ${data?.total ?? 0} 个工作区` : "用户工作区"}
-          </DialogDescription>
-        </DialogHeader>
-
-        <Separator />
-
-        <div className="min-h-0 flex-1 overflow-y-auto">
-          {loading && !data ? <UserWorkspacesSkeleton /> : null}
-          {data ? <UserWorkspacesList data={data} /> : null}
-        </div>
+        {user ? <UserWorkspacesContent key={user.id} user={user} /> : null}
       </DialogContent>
     </Dialog>
   );
 }
 
 export function UsersGrid({ initialData }: { initialData: UsersResult }) {
-  const fetchUsers = useMemo(
-    () =>
-      (params: {
-        search: string;
-        page: number;
-        pageSize: number;
-        filters: Record<string, never>;
-        sortBy?: string;
-        sortOrder?: "asc" | "desc";
-      }): Promise<UsersResult> =>
-        rpcFetch<UsersResult>(
-          rpc.api.platform.users.$get({
-            query: {
-              page: String(params.page),
-              pageSize: String(params.pageSize),
-              ...(params.search ? { search: params.search } : {}),
-              sortBy: (params.sortBy as "createdAt") ?? "createdAt",
-              sortOrder: params.sortOrder ?? "desc",
-            },
-          }),
-          "加载用户列表失败",
-        ),
-    [],
-  );
+  function fetchUsers(params: {
+    search: string;
+    page: number;
+    pageSize: number;
+    filters: Record<string, never>;
+    sortBy?: string;
+    sortOrder?: "asc" | "desc";
+  }): Promise<UsersResult> {
+    return rpcFetch<UsersResult>(
+      rpc.api.platform.users.$get({
+        query: {
+          page: String(params.page),
+          pageSize: String(params.pageSize),
+          ...(params.search ? { search: params.search } : {}),
+          sortBy: (params.sortBy as "createdAt") ?? "createdAt",
+          sortOrder: params.sortOrder ?? "desc",
+        },
+      }),
+      "加载用户列表失败",
+    );
+  }
 
   const grid = useDataGridState<UserRecord, Record<string, never>>({
     fetcher: fetchUsers,
@@ -284,127 +303,124 @@ export function UsersGrid({ initialData }: { initialData: UsersResult }) {
     setForceLogoutTarget(null);
   }
 
-  const columns = useMemo(
-    () => [
-      customColumn<UserRecord>({
-        cell: (r) => (
-          <div className="flex items-center gap-3">
-            <Avatar className="size-8">
-              <AvatarImage alt={r.name} src={r.image ?? undefined} />
-              <AvatarFallback>{getInitials(r.name, r.email)}</AvatarFallback>
-            </Avatar>
-            <div className="min-w-0 flex-1">
-              <p className="truncate font-medium text-sm">{r.name}</p>
-              <p className="truncate text-muted-foreground text-xs">{r.email}</p>
-            </div>
+  const columns = [
+    customColumn<UserRecord>({
+      cell: (r) => (
+        <div className="flex items-center gap-3">
+          <Avatar className="size-8">
+            <AvatarImage alt={r.name} src={r.image ?? undefined} />
+            <AvatarFallback>{getInitials(r.name, r.email)}</AvatarFallback>
+          </Avatar>
+          <div className="min-w-0 flex-1">
+            <p className="truncate font-medium text-sm">{r.name}</p>
+            <p className="truncate text-muted-foreground text-xs">{r.email}</p>
           </div>
-        ),
-        key: "user",
-        title: "用户",
-      }),
-      customColumn<UserRecord>({
-        accessorKey: "role",
-        cell: (r) => (
-          <Badge variant={r.role === "admin" ? "default" : "outline"}>
-            {r.role === "admin" ? <ShieldCheckIcon className="mr-1 size-3" /> : null}
-            {r.role}
+        </div>
+      ),
+      key: "user",
+      title: "用户",
+    }),
+    customColumn<UserRecord>({
+      accessorKey: "role",
+      cell: (r) => (
+        <Badge variant={r.role === "admin" ? "default" : "outline"}>
+          {r.role === "admin" ? <ShieldCheckIcon className="mr-1 size-3" /> : null}
+          {r.role}
+        </Badge>
+      ),
+      key: "role",
+      title: "平台角色",
+    }),
+    customColumn<UserRecord>({
+      cell: (r) =>
+        r.emailVerified ? (
+          <Badge variant="success">
+            <CheckCircle2Icon className="mr-1 size-3" />
+            已验证
+          </Badge>
+        ) : (
+          <Badge variant="outline" className="text-muted-foreground">
+            <XCircleIcon className="mr-1 size-3" />
+            未验证
           </Badge>
         ),
-        key: "role",
-        title: "平台角色",
-      }),
-      customColumn<UserRecord>({
-        cell: (r) =>
-          r.emailVerified ? (
-            <Badge variant="success">
-              <CheckCircle2Icon className="mr-1 size-3" />
-              已验证
-            </Badge>
-          ) : (
-            <Badge variant="outline" className="text-muted-foreground">
-              <XCircleIcon className="mr-1 size-3" />
-              未验证
-            </Badge>
-          ),
-        key: "emailVerified",
-        title: "邮箱验证",
-      }),
-      customColumn<UserRecord>({
-        cell: (r) =>
-          r.feishuTenantName ? (
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Badge variant="outline" className="max-w-[200px] truncate">
-                    {r.feishuTenantName}
-                  </Badge>
-                </TooltipTrigger>
-                <TooltipContent>{r.feishuTenantName}</TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          ) : (
-            <span className="text-muted-foreground text-xs">—</span>
-          ),
-        key: "feishuTenantName",
-        title: "飞书租户",
-      }),
-      customColumn<UserRecord>({
-        cell: (r) =>
-          r.banned ? (
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Badge variant="danger">
-                    <BanIcon className="mr-1 size-3" />
-                    已封禁
-                  </Badge>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <div className="space-y-1">
-                    {r.banReason && <p>原因：{r.banReason}</p>}
-                    {r.banExpires && <p>解封时间：{formatDate(r.banExpires)}</p>}
-                    {!r.banReason && !r.banExpires && <p>永久封禁</p>}
-                  </div>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          ) : (
-            <Badge variant="success">正常</Badge>
-          ),
-        key: "banned",
-        title: "状态",
-      }),
-      dateColumn<UserRecord>({
-        key: "createdAt",
-        title: "创建时间",
-      }),
-      dateColumn<UserRecord>({
-        key: "updatedAt",
-        title: "更新时间",
-      }),
-      dateColumn<UserRecord>({
-        emptyText: "从未登录",
-        key: "lastActiveAt",
-        title: "最近活跃",
-      }),
-      actionsColumn<UserRecord>({
-        menu: [
-          {
-            icon: EyeIcon,
-            label: "查看加入的工作区",
-            onClick: (r) => setWorkspacesTarget(r),
-          },
-          {
-            icon: LogOutIcon,
-            label: "强制下线",
-            onClick: (r) => setForceLogoutTarget(r),
-            variant: "destructive",
-          },
-        ],
-      }),
-    ],
-    [],
-  );
+      key: "emailVerified",
+      title: "邮箱验证",
+    }),
+    customColumn<UserRecord>({
+      cell: (r) =>
+        r.feishuTenantName ? (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Badge variant="outline" className="max-w-[200px] truncate">
+                  {r.feishuTenantName}
+                </Badge>
+              </TooltipTrigger>
+              <TooltipContent>{r.feishuTenantName}</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        ) : (
+          <span className="text-muted-foreground text-xs">未绑定</span>
+        ),
+      key: "feishuTenantName",
+      title: "飞书租户",
+    }),
+    customColumn<UserRecord>({
+      cell: (r) =>
+        r.banned ? (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Badge variant="danger">
+                  <BanIcon className="mr-1 size-3" />
+                  已封禁
+                </Badge>
+              </TooltipTrigger>
+              <TooltipContent>
+                <div className="space-y-1">
+                  {r.banReason && <p>原因：{r.banReason}</p>}
+                  {r.banExpires && <p>解封时间：{formatDate(r.banExpires)}</p>}
+                  {!r.banReason && !r.banExpires && <p>永久封禁</p>}
+                </div>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        ) : (
+          <Badge variant="success">正常</Badge>
+        ),
+      key: "banned",
+      title: "状态",
+    }),
+    dateColumn<UserRecord>({
+      key: "createdAt",
+      title: "创建时间",
+    }),
+    dateColumn<UserRecord>({
+      key: "updatedAt",
+      title: "更新时间",
+    }),
+    dateColumn<UserRecord>({
+      emptyText: "从未登录",
+      key: "lastActiveAt",
+      title: "最近活跃",
+    }),
+    actionsColumn<UserRecord>({
+      menu: [
+        {
+          icon: EyeIcon,
+          label: "查看加入的工作区",
+          onClick: (r) => setWorkspacesTarget(r),
+        },
+        {
+          icon: LogOutIcon,
+          label: "强制下线",
+          onClick: (r) => setForceLogoutTarget(r),
+          variant: "destructive",
+        },
+      ],
+    }),
+  ];
 
   return (
     <>

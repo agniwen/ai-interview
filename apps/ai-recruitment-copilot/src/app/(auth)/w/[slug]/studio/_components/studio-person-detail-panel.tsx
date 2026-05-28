@@ -2,18 +2,19 @@
 
 // 候选人详情视图的共享主体 —— 把数据获取、tab 切换、各 section 渲染抽离出来,
 // 让弹窗版本 (StudioPersonDetailDialog) 和独立页面版本同时复用。调用方通过
-// renderShell 自己决定 chrome:Modal、全屏页面布局,甚至嵌入式抽屉都行。
+// shell 自己决定 chrome:Modal、全屏页面布局,甚至嵌入式抽屉都行。
 //
 // Shared body for the candidate detail view. Owns data fetching, tab state,
 // and section rendering so both the modal version (StudioPersonDetailDialog)
 // and the full-page route version share one implementation. Callers control
-// chrome via renderShell — Modal, full-page layout, or any custom frame.
+// chrome via shell — Modal, full-page layout, or any custom frame.
 
 import Markdown from "react-markdown";
 import type { StudioInterviewRoundDetail } from "@/lib/shared/studio-interview-rounds";
 import type { ResumeLibraryDetail } from "@/lib/shared/studio-resumes";
 import { DIFFICULTY_LABEL } from "@/lib/shared/interview-question-difficulty";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import type { QueryClient } from "@tanstack/react-query";
 import {
   deleteStudioInterviewFormSubmission,
   fetchPublicInterviewRound,
@@ -29,6 +30,7 @@ import {
   resetStudioInterviewRound,
   resolvePublicInterviewRecordId,
   resolveStudioInterviewRecordId,
+  transitionInterviewRecord,
   updateStudioInterviewRound,
 } from "@/lib/client/api";
 import { useOptionalWorkspaceSlug } from "@/lib/client/workspace-context";
@@ -40,7 +42,7 @@ import {
   PencilIcon,
   RotateCcwIcon,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useReducer } from "react";
 import type { ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { CandidateBasicInfoView } from "@/components/candidate-basic-info-view";
@@ -68,14 +70,22 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { HumanInterviewStagePanel } from "./human-interview-stage-panel";
 import { OfferStagePanel } from "./offer-stage-panel";
 import { PipelineStageActionBar } from "./pipeline-stage-action-bar";
+import {
+  DetailBodySkeleton,
+  DetailHeaderSkeleton,
+  FormsSkeleton,
+  ReportsSkeleton,
+  RoundsSkeleton,
+  SummaryMetric,
+} from "./studio-person-detail-skeletons";
 import { toAbsoluteUrl } from "@/lib/client/clipboard";
 import { pipelineStageMeta, scheduleEntryStatusMeta } from "@arc/db-schema/studio-interviews";
+import type { PipelineStage } from "@arc/db-schema/studio-interviews";
 import { AgentInstructionsPanel } from "../interviews/_components/agent-instructions-panel";
 import { RoundEmailAction } from "../interviews/_components/round-email/round-email-action";
 import { useRoundEmailSummary } from "../interviews/_components/round-email/use-round-email-summary";
@@ -137,10 +147,10 @@ function shouldShowOfferTab(record: { pipelineStage?: string } | null): boolean 
 }
 
 /**
- * renderShell 接收的可填槽位。footer 仅简历模式有值 ——
+ * shell 接收的可填槽位。footer 仅简历模式有值 ——
  * 面试模式的「编辑候选人信息」按钮是嵌在概览 tab 内部的,不走 footer。
  *
- * Slots passed to renderShell. footer is only populated in resume mode —
+ * Slots passed to shell. footer is only populated in resume mode —
  * the interview-mode "edit candidate" button is embedded inside the overview
  * tab and does not flow through this slot.
  */
@@ -169,159 +179,6 @@ function renderHeaderDescription({
     );
   }
   return isLoading ? "正在加载候选人详情..." : "暂无可展示的候选人详情。";
-}
-
-function DetailHeaderSkeleton({ mode }: { mode: StudioPersonDetailMode }) {
-  return (
-    <div className="mt-2 flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
-      <div className="flex w-full gap-2 sm:w-auto">
-        <Skeleton className="h-9 flex-1 sm:w-20 sm:flex-none" />
-        {mode === "interview" ? (
-          <>
-            <Skeleton className="h-9 flex-1 sm:w-24 sm:flex-none" />
-            <Skeleton className="h-9 flex-1 sm:w-20 sm:flex-none" />
-          </>
-        ) : (
-          <Skeleton className="h-9 flex-1 sm:w-24 sm:flex-none" />
-        )}
-      </div>
-      <Skeleton className="h-9 w-full sm:w-28" />
-    </div>
-  );
-}
-
-function DetailBodySkeleton({ mode }: { mode: StudioPersonDetailMode }) {
-  return (
-    <div className="flex flex-col gap-6">
-      {mode === "resume" ? (
-        <div className="rounded-2xl border border-border/60 bg-background p-5">
-          <div className="flex flex-col gap-4">
-            <div className="flex items-center justify-between gap-3">
-              <Skeleton className="h-5 w-28" />
-              <Skeleton className="h-8 w-32" />
-            </div>
-            <div className="grid gap-3 sm:grid-cols-3">
-              {Array.from({ length: 6 }).map((_, index) => (
-                <div className="flex flex-col gap-2" key={index}>
-                  <Skeleton className="h-3 w-16" />
-                  <Skeleton className="h-5 w-full" />
-                </div>
-              ))}
-            </div>
-            <Skeleton className="h-24 w-full" />
-          </div>
-        </div>
-      ) : (
-        <>
-          <div className="rounded-2xl border border-border/60 bg-muted/30 p-5">
-            <div className="flex flex-col gap-4">
-              <Skeleton className="h-5 w-24" />
-              <div className="grid gap-3 sm:grid-cols-2">
-                {Array.from({ length: 6 }).map((_, index) => (
-                  <div className="flex flex-col gap-2" key={index}>
-                    <Skeleton className="h-3 w-16" />
-                    <Skeleton className="h-5 w-full" />
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-          <div className="rounded-2xl border border-border/60 bg-background p-5">
-            <div className="flex flex-col gap-4">
-              <div className="flex items-center justify-between gap-3">
-                <Skeleton className="h-5 w-24" />
-                <Skeleton className="h-7 w-28" />
-              </div>
-              <Skeleton className="h-16 w-full" />
-            </div>
-          </div>
-        </>
-      )}
-      <div className="rounded-2xl border border-border/60 bg-background p-5">
-        <div className="flex flex-col gap-3">
-          <Skeleton className="h-5 w-28" />
-          <Skeleton className="h-4 w-full" />
-          <Skeleton className="h-4 w-10/12" />
-          <Skeleton className="h-4 w-2/3" />
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function ReportsSkeleton() {
-  return (
-    <div className="flex flex-col gap-6">
-      <div className="grid gap-4 md:grid-cols-4">
-        {Array.from({ length: 4 }).map((_, index) => (
-          <div className="rounded-2xl border border-border/60 bg-background p-4" key={index}>
-            <div className="flex flex-col gap-3">
-              <Skeleton className="h-3 w-20" />
-              <Skeleton className="h-8 w-12" />
-            </div>
-          </div>
-        ))}
-      </div>
-      <div className="rounded-2xl border border-border/60 bg-background p-5">
-        <div className="flex flex-col gap-4">
-          <div className="flex items-center justify-between gap-3">
-            <Skeleton className="h-5 w-48" />
-            <Skeleton className="h-6 w-20" />
-          </div>
-          <Skeleton className="h-4 w-full" />
-          <Skeleton className="h-4 w-11/12" />
-          <div className="grid gap-4 lg:grid-cols-2">
-            <Skeleton className="h-48 w-full" />
-            <Skeleton className="h-48 w-full" />
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function RoundsSkeleton() {
-  return (
-    <div className="mt-4 flex flex-col gap-3">
-      {Array.from({ length: 3 }).map((_, index) => (
-        <div className="rounded-xl border border-border/60 bg-muted/30 p-3" key={index}>
-          <div className="flex flex-col gap-3">
-            <div className="flex items-center justify-between gap-3">
-              <Skeleton className="h-5 w-36" />
-              <Skeleton className="h-4 w-28" />
-            </div>
-            <Skeleton className="h-12 w-full" />
-            <div className="flex justify-end gap-2">
-              <Skeleton className="h-8 w-20" />
-              <Skeleton className="h-8 w-20" />
-            </div>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function FormsSkeleton() {
-  return (
-    <div className="rounded-2xl border border-border/60 bg-background p-5">
-      <div className="flex flex-col gap-4">
-        <div className="flex items-center justify-between gap-3">
-          <Skeleton className="h-5 w-28" />
-          <Skeleton className="h-8 w-20" />
-        </div>
-        {Array.from({ length: 3 }).map((_, index) => (
-          <div className="rounded-xl border border-border/60 bg-muted/30 p-3" key={index}>
-            <div className="flex flex-col gap-2">
-              <Skeleton className="h-4 w-48" />
-              <Skeleton className="h-4 w-full" />
-              <Skeleton className="h-4 w-8/12" />
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
 }
 
 interface EvaluationSummary {
@@ -353,17 +210,156 @@ function compactText(value: string | null | undefined, fallback: string, limit =
   return value.length > limit ? `${value.slice(0, limit)}...` : value;
 }
 
-function SummaryMetric({ label, value }: { label: string; value: ReactNode }) {
-  return (
-    <div className="min-w-0 rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
-      <p className="text-muted-foreground text-xs">{label}</p>
-      <p className="mt-1 truncate font-medium text-sm">{value}</p>
-    </div>
-  );
+async function resetInterviewFormSubmission({
+  effectiveRoundId,
+  queryClient,
+  slug,
+  submissionId,
+}: {
+  effectiveRoundId: string;
+  queryClient: QueryClient;
+  slug: string;
+  submissionId: string;
+}): Promise<string | null> {
+  try {
+    await deleteStudioInterviewFormSubmission(slug, effectiveRoundId, submissionId);
+    await queryClient.invalidateQueries({
+      queryKey: ["studio-interview-round-form-submissions", slug, effectiveRoundId],
+    });
+    return null;
+  } catch (error) {
+    return error instanceof Error ? error.message : "重置失败";
+  }
+}
+
+async function updateAllowTextInput({
+  effectiveRoundId,
+  next,
+  queryClient,
+  slug,
+  targetRoundId,
+}: {
+  effectiveRoundId: string | null;
+  next: boolean;
+  queryClient: QueryClient;
+  slug: string;
+  targetRoundId: string;
+}): Promise<string | null> {
+  try {
+    await updateStudioInterviewRound(slug, targetRoundId, { allowTextInput: next });
+    await queryClient.invalidateQueries({
+      queryKey: ["studio-interview-round", slug, effectiveRoundId],
+    });
+    return null;
+  } catch (error) {
+    return error instanceof Error ? error.message : "更新失败";
+  }
+}
+
+async function resetInterviewRound({
+  effectiveRoundId,
+  queryClient,
+  slug,
+  targetRoundId,
+}: {
+  effectiveRoundId: string | null;
+  queryClient: QueryClient;
+  slug: string;
+  targetRoundId: string;
+}): Promise<string | null> {
+  try {
+    await resetStudioInterviewRound(slug, targetRoundId);
+    await queryClient.invalidateQueries({
+      queryKey: ["studio-interview-round", slug, effectiveRoundId],
+    });
+    return null;
+  } catch (error) {
+    return error instanceof Error ? error.message : "重置失败";
+  }
+}
+
+async function advancePipelineStage({
+  queryClient,
+  recordId,
+  slug,
+  target,
+}: {
+  queryClient: QueryClient;
+  recordId: string;
+  slug: string;
+  target: PipelineStage;
+}): Promise<string | null> {
+  try {
+    await transitionInterviewRecord(slug, recordId, { pipelineStage: target });
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["studio-resumes"] }),
+      queryClient.invalidateQueries({
+        queryKey: ["studio-resumes", slug, "detail", recordId],
+      }),
+    ]);
+    return null;
+  } catch (error) {
+    return error instanceof Error ? error.message : "推进失败";
+  }
+}
+
+interface SelectedEvidenceState {
+  conversationId: string;
+  timeInCallSecs: number | null;
+  turnIndex: number | null;
+}
+
+interface DetailPanelUiState {
+  pendingResetSubmissionId: string | null;
+  resettingRoundId: string | null;
+  resettingSubmissionId: string | null;
+  selectedEvidence: SelectedEvidenceState | null;
+  updatingRoundId: string | null;
+}
+
+type DetailPanelUiAction =
+  | { id: string | null; type: "pendingResetSubmissionChanged" }
+  | { id: string | null; type: "resettingRoundChanged" }
+  | { id: string | null; type: "resettingSubmissionChanged" }
+  | { evidence: SelectedEvidenceState | null; type: "selectedEvidenceChanged" }
+  | { id: string | null; type: "updatingRoundChanged" };
+
+const initialDetailPanelUiState: DetailPanelUiState = {
+  pendingResetSubmissionId: null,
+  resettingRoundId: null,
+  resettingSubmissionId: null,
+  selectedEvidence: null,
+  updatingRoundId: null,
+};
+
+function detailPanelUiReducer(
+  state: DetailPanelUiState,
+  action: DetailPanelUiAction,
+): DetailPanelUiState {
+  switch (action.type) {
+    case "pendingResetSubmissionChanged": {
+      return { ...state, pendingResetSubmissionId: action.id };
+    }
+    case "resettingRoundChanged": {
+      return { ...state, resettingRoundId: action.id };
+    }
+    case "resettingSubmissionChanged": {
+      return { ...state, resettingSubmissionId: action.id };
+    }
+    case "selectedEvidenceChanged": {
+      return { ...state, selectedEvidence: action.evidence };
+    }
+    case "updatingRoundChanged": {
+      return { ...state, updatingRoundId: action.id };
+    }
+    default: {
+      return state;
+    }
+  }
 }
 
 // oxlint-disable-next-line complexity -- Panel orchestrates many conditional sections driven by record state and mode; flattening adds noise.
-export function StudioPersonDetailPanel({
+function useStudioPersonDetailPanel({
   recordId,
   roundId,
   mode,
@@ -377,7 +373,7 @@ export function StudioPersonDetailPanel({
   onClose,
   onRequestClose,
   onRequestReactivate,
-  renderShell,
+  shell,
 }: {
   /**
    * 候选人级 id (studio_interview.id)。简历模式必传;面试模式作为兜底入口,
@@ -447,7 +443,7 @@ export function StudioPersonDetailPanel({
    * Fired from the resume-mode action bar's 「重新激活」 button.
    */
   onRequestReactivate?: (input: { id: string; candidateName: string | null }) => void;
-  renderShell: (slots: StudioPersonDetailSlots) => ReactNode;
+  shell: (slots: StudioPersonDetailSlots) => ReactNode;
 }) {
   const optionalSlug = useOptionalWorkspaceSlug();
   const isPublic = accessMode === "public";
@@ -461,17 +457,16 @@ export function StudioPersonDetailPanel({
   // 仅 authed 路径下使用 slug；以变量形式保留，方便下文 string-only 接口拼接。
   // Slug is only consumed on the authed path; declare as string for downstream callers.
   const slug = optionalSlug ?? "";
-  const [resettingSubmissionId, setResettingSubmissionId] = useState<string | null>(null);
-  const [pendingResetSubmissionId, setPendingResetSubmissionId] = useState<string | null>(null);
-  const [resettingRoundId, setResettingRoundId] = useState<string | null>(null);
-  const [updatingRoundId, setUpdatingRoundId] = useState<string | null>(null);
-  const [selectedEvidence, setSelectedEvidence] = useState<{
-    conversationId: string;
-    timeInCallSecs: number | null;
-    turnIndex: number | null;
-  } | null>(null);
+  const [uiState, dispatchUi] = useReducer(detailPanelUiReducer, initialDetailPanelUiState);
+  const {
+    pendingResetSubmissionId,
+    resettingRoundId,
+    resettingSubmissionId,
+    selectedEvidence,
+    updatingRoundId,
+  } = uiState;
   const queryClient = useQueryClient();
-  const router = useRouter();
+  const { push } = useRouter();
 
   // 面试模式需要 roundId 来驱动 round-keyed 查询。优先用显式传入的 roundId,
   // 缺失时走 resolver 把 recordId(候选人级) 换成最新一轮的 roundId ——
@@ -558,10 +553,7 @@ export function StudioPersonDetailPanel({
   // English: Email-send summary for the current round, powering the "send"
   // button's count + last-sent timestamp in the round overview. Only fires
   // in interview mode when a roundId is present.
-  const roundEmailSummaryRoundIds = useMemo(
-    () => (mode === "interview" && round?.id ? [round.id] : []),
-    [mode, round?.id],
-  );
+  const roundEmailSummaryRoundIds = mode === "interview" && round?.id ? [round.id] : [];
   const roundEmailSummaryQuery = useRoundEmailSummary(slug, roundEmailSummaryRoundIds);
   const roundEmailSummary = round?.id ? roundEmailSummaryQuery.data?.[round.id] : undefined;
 
@@ -655,20 +647,21 @@ export function StudioPersonDetailPanel({
       return;
     }
 
-    setResettingSubmissionId(submissionId);
-    setPendingResetSubmissionId(null);
+    dispatchUi({ id: submissionId, type: "resettingSubmissionChanged" });
+    dispatchUi({ id: null, type: "pendingResetSubmissionChanged" });
 
-    try {
-      await deleteStudioInterviewFormSubmission(slug, effectiveRoundId, submissionId);
+    const error = await resetInterviewFormSubmission({
+      effectiveRoundId,
+      queryClient,
+      slug,
+      submissionId,
+    });
+    if (error) {
+      toast.error(error);
+    } else {
       toast.success("已重置面试表单填写");
-      await queryClient.invalidateQueries({
-        queryKey: ["studio-interview-round-form-submissions", slug, effectiveRoundId],
-      });
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "重置失败");
-    } finally {
-      setResettingSubmissionId(null);
     }
+    dispatchUi({ id: null, type: "resettingSubmissionChanged" });
   }
 
   // 切换「允许文本输入」开关。Toggle the allowTextInput flag for a round.
@@ -676,19 +669,21 @@ export function StudioPersonDetailPanel({
     if (updatingRoundId) {
       return;
     }
-    setUpdatingRoundId(targetRoundId);
-    try {
-      await updateStudioInterviewRound(slug, targetRoundId, { allowTextInput: next });
+    dispatchUi({ id: targetRoundId, type: "updatingRoundChanged" });
+    const error = await updateAllowTextInput({
+      effectiveRoundId,
+      next,
+      queryClient,
+      slug,
+      targetRoundId,
+    });
+    if (error) {
+      toast.error(error);
+    } else {
       toast.success(next ? "已开启文本作答" : "已关闭文本作答");
-      await queryClient.invalidateQueries({
-        queryKey: ["studio-interview-round", slug, effectiveRoundId],
-      });
       onUpdated?.();
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "更新失败");
-    } finally {
-      setUpdatingRoundId(null);
     }
+    dispatchUi({ id: null, type: "updatingRoundChanged" });
   }
 
   // 重置轮次为「待开始」状态。Reset a round back to pending.
@@ -696,19 +691,20 @@ export function StudioPersonDetailPanel({
     if (resettingRoundId) {
       return;
     }
-    setResettingRoundId(targetRoundId);
-    try {
-      await resetStudioInterviewRound(slug, targetRoundId);
+    dispatchUi({ id: targetRoundId, type: "resettingRoundChanged" });
+    const error = await resetInterviewRound({
+      effectiveRoundId,
+      queryClient,
+      slug,
+      targetRoundId,
+    });
+    if (error) {
+      toast.error(error);
+    } else {
       toast.success("轮次已重置为待开始");
-      await queryClient.invalidateQueries({
-        queryKey: ["studio-interview-round", slug, effectiveRoundId],
-      });
       onUpdated?.();
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "重置失败");
-    } finally {
-      setResettingRoundId(null);
     }
+    dispatchUi({ id: null, type: "resettingRoundChanged" });
   }
 
   // AI 面试阶段锁：候选人推进到真人复面/Offer/已结案后，AI 轮次相关写操作全部禁用。
@@ -775,7 +771,7 @@ export function StudioPersonDetailPanel({
               onClose?.();
               return;
             }
-            router.push(`/w/${slug}/studio/interviews`);
+            push(`/w/${slug}/studio/interviews`);
             onClose?.();
           }}
           type="button"
@@ -838,17 +834,17 @@ export function StudioPersonDetailPanel({
           // 行内推进（不带元数据）：直接调 transition API，刷新缓存。
           // Inline advance: call transition + invalidate so the bar/tabs update.
           void (async () => {
-            try {
-              const { transitionInterviewRecord } = await import("@/lib/client/api");
-              await transitionInterviewRecord(slug, record.id, { pipelineStage: target });
+            const error = await advancePipelineStage({
+              queryClient,
+              recordId: record.id,
+              slug,
+              target,
+            });
+            if (error) {
+              toast.error(error);
+            } else {
               toast.success(`已推进到「${pipelineStageMeta[target].label}」`);
-              await queryClient.invalidateQueries({ queryKey: ["studio-resumes"] });
-              await queryClient.invalidateQueries({
-                queryKey: ["studio-resumes", slug, "detail", record.id],
-              });
               onUpdated?.();
-            } catch (error) {
-              toast.error(error instanceof Error ? error.message : "推进失败");
             }
           })();
         }}
@@ -1177,10 +1173,13 @@ export function StudioPersonDetailPanel({
                           ? selectedEvidence
                           : null;
                       const handleEvidenceSelect = (evidence: EvidenceQuote) => {
-                        setSelectedEvidence({
-                          conversationId: report.conversationId,
-                          timeInCallSecs: evidence.timeInCallSecs ?? null,
-                          turnIndex: evidence.turnIndex ?? null,
+                        dispatchUi({
+                          evidence: {
+                            conversationId: report.conversationId,
+                            timeInCallSecs: evidence.timeInCallSecs ?? null,
+                            turnIndex: evidence.turnIndex ?? null,
+                          },
+                          type: "selectedEvidenceChanged",
                         });
                       };
 
@@ -1504,7 +1503,13 @@ export function StudioPersonDetailPanel({
             ) : (
               <FormsTab
                 onReset={
-                  isPublic ? undefined : (submissionId) => setPendingResetSubmissionId(submissionId)
+                  isPublic
+                    ? undefined
+                    : (submissionId) =>
+                        dispatchUi({
+                          id: submissionId,
+                          type: "pendingResetSubmissionChanged",
+                        })
                 }
                 resettingId={resettingSubmissionId}
                 submissions={formSubmissions}
@@ -1528,13 +1533,13 @@ export function StudioPersonDetailPanel({
         defaultValue={defaultTab ?? "overview"}
         key={`${roundId ?? recordId ?? "empty"}-${defaultTab ?? "overview"}`}
       >
-        {renderShell({ body, description, footer, headerExtra, title })}
+        {shell({ body, description, footer, headerExtra, title })}
       </Tabs>
       {mode === "interview" && !isPublic ? (
         <AlertDialog
           onOpenChange={(next) => {
             if (!next) {
-              setPendingResetSubmissionId(null);
+              dispatchUi({ id: null, type: "pendingResetSubmissionChanged" });
             }
           }}
           open={pendingResetSubmissionId !== null}
@@ -1557,4 +1562,8 @@ export function StudioPersonDetailPanel({
       ) : null}
     </>
   );
+}
+
+export function StudioPersonDetailPanel(props: Parameters<typeof useStudioPersonDetailPanel>[0]) {
+  return useStudioPersonDetailPanel(props);
 }

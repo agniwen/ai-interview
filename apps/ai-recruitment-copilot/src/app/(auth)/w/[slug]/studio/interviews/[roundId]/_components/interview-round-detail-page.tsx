@@ -15,7 +15,7 @@ import { Button } from "@/components/ui/button";
 import { StudioPersonDetailPanel } from "@/app/(auth)/w/[slug]/studio/_components/studio-person-detail-panel";
 
 export function InterviewRoundDetailPage({ slug, roundId }: { slug: string; roundId: string }) {
-  const router = useRouter();
+  const { push } = useRouter();
   const queryClient = useQueryClient();
 
   return (
@@ -36,12 +36,12 @@ export function InterviewRoundDetailPage({ slug, roundId }: { slug: string; roun
         void queryClient.invalidateQueries({ queryKey: ["studio-resume-rounds"] });
       }}
       recordId={roundId}
-      renderShell={({ body, description, headerExtra, title }) => (
+      shell={({ body, description, headerExtra, title }) => (
         <div className="flex flex-col gap-4">
           <div className="flex flex-col gap-3">
             <div>
               <Button
-                onClick={() => router.push(`/w/${slug}/studio/interviews`)}
+                onClick={() => push(`/w/${slug}/studio/interviews`)}
                 size="sm"
                 type="button"
                 variant="ghost"
