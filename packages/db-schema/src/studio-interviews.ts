@@ -112,6 +112,30 @@ export const humanInterviewFormatMeta: Record<HumanInterviewFormat, { label: str
   phone: { label: "电话" },
 };
 
+// 真人复面会议状态：会议级生命周期，和候选人单轮评价状态分开。
+// Human-interview meeting lifecycle. Kept separate from per-candidate round
+// verdicts so a group interview can produce multiple independent evaluations.
+export const humanInterviewMeetingStatusValues = [
+  "scheduled",
+  "in_progress",
+  "ended",
+  "cancelled",
+] as const;
+export const humanInterviewMeetingStatusSchema = z.enum(humanInterviewMeetingStatusValues);
+export type HumanInterviewMeetingStatus = z.infer<typeof humanInterviewMeetingStatusSchema>;
+
+export const humanInterviewMeetingInterviewerRoleValues = [
+  "host",
+  "interviewer",
+  "observer",
+] as const;
+export const humanInterviewMeetingInterviewerRoleSchema = z.enum(
+  humanInterviewMeetingInterviewerRoleValues,
+);
+export type HumanInterviewMeetingInterviewerRole = z.infer<
+  typeof humanInterviewMeetingInterviewerRoleSchema
+>;
+
 // 复面轮次输入 schema（创建 + 编辑共用，部分字段编辑时可选）。
 // 至少一名面试官；时间可空（未定档）；评分 0-100，可空。
 // Round input schema; interviewers must be non-empty, scheduledAt may be null,
@@ -133,6 +157,21 @@ export const humanInterviewRoundInputSchema = z.object({
   sortOrder: z.number().int().min(0).optional(),
 });
 export type HumanInterviewRoundInput = z.infer<typeof humanInterviewRoundInputSchema>;
+
+export const humanInterviewMeetingInputSchema = z.object({
+  interviewerIds: z
+    .array(z.string().trim().min(1))
+    .min(1, "至少添加 1 位面试官")
+    .max(20, "面试官最多 20 人"),
+  notes: z.string().trim().max(1000, "会议备注不能超过 1000 字").nullable().optional(),
+  roundIds: z
+    .array(z.string().trim().min(1))
+    .min(1, "至少添加 1 位候选人")
+    .max(20, "候选人最多 20 人"),
+  scheduledAt: z.string().trim().nullable().optional(),
+  title: z.string().trim().min(1, "请输入会议名称").max(100, "会议名称不能超过 100 字"),
+});
+export type HumanInterviewMeetingInput = z.infer<typeof humanInterviewMeetingInputSchema>;
 
 // ── Offer 阶段 / Offer Stage ──
 

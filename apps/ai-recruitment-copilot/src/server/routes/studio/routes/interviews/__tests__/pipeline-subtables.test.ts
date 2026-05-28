@@ -11,6 +11,7 @@ import { db } from "@/lib/server/db";
 import {
   member,
   organization,
+  studioHumanInterviewMeeting,
   studioHumanInterviewRound,
   studioHumanInterviewRoundInterviewer,
   studioInterview,
@@ -25,6 +26,12 @@ import {
   listHumanInterviewRounds,
   maybeAdvanceToHumanInterview,
 } from "@/server/routes/studio/routes/interviews/dao/human-interview-rounds";
+import {
+  createHumanInterviewMeeting,
+  endHumanInterviewMeetingsByRound,
+  HumanInterviewMeetingError,
+  listHumanInterviewMeetings,
+} from "@/server/routes/studio/routes/interviews/dao/human-interview-meetings";
 import {
   cancelOfferDraft,
   createOfferDraft,
@@ -41,6 +48,7 @@ const HR_USER = "test_user_pipeline_hr";
 const INTERVIEWER_A = "test_user_pipeline_int_a";
 const INTERVIEWER_B = "test_user_pipeline_int_b";
 const RECORD_ID = "ri_pipeline_subtables_1";
+const RECORD_ID_B = "ri_pipeline_subtables_2";
 const NOW = new Date("2026-05-22T08:00:00.000Z");
 
 async function cleanup() {
@@ -93,17 +101,30 @@ beforeAll(async () => {
     role: "owner",
     userId: HR_USER,
   });
-  await db.insert(studioInterview).values({
-    candidateName: "复面测试",
-    createdAt: NOW,
-    createdBy: HR_USER,
-    id: RECORD_ID,
-    interviewQuestions: [],
-    organizationId: ORG,
-    pipelineStage: "ai_interview",
-    status: "completed",
-    updatedAt: NOW,
-  });
+  await db.insert(studioInterview).values([
+    {
+      candidateName: "复面测试",
+      createdAt: NOW,
+      createdBy: HR_USER,
+      id: RECORD_ID,
+      interviewQuestions: [],
+      organizationId: ORG,
+      pipelineStage: "ai_interview",
+      status: "completed",
+      updatedAt: NOW,
+    },
+    {
+      candidateName: "群面候选人",
+      createdAt: NOW,
+      createdBy: HR_USER,
+      id: RECORD_ID_B,
+      interviewQuestions: [],
+      organizationId: ORG,
+      pipelineStage: "human_interview",
+      status: "completed",
+      updatedAt: NOW,
+    },
+  ]);
 });
 
 afterAll(async () => {
@@ -119,13 +140,16 @@ async function resetCandidateStage(stage: "ai_interview" | "human_interview" | "
 
 async function clearSubtables() {
   await db
+    .delete(studioHumanInterviewMeeting)
+    .where(eq(studioHumanInterviewMeeting.organizationId, ORG));
+  await db
     .delete(studioHumanInterviewRoundInterviewer)
     .where(
-      sql`round_id IN (SELECT id FROM studio_human_interview_round WHERE interview_record_id = ${RECORD_ID})`,
+      sql`round_id IN (SELECT id FROM studio_human_interview_round WHERE organization_id = ${ORG})`,
     );
   await db
     .delete(studioHumanInterviewRound)
-    .where(eq(studioHumanInterviewRound.interviewRecordId, RECORD_ID));
+    .where(eq(studioHumanInterviewRound.organizationId, ORG));
   await db.delete(studioOfferDraft).where(eq(studioOfferDraft.interviewRecordId, RECORD_ID));
 }
 
@@ -273,6 +297,119 @@ describe("human interview rounds DAO", () => {
     expect(list.map((r) => r.id)).toEqual([r1.id, r2.id]);
     expect(list[0]?.status).toBe("cancelled");
     expect(list[1]?.status).toBe("pending");
+  });
+});
+
+describe("human interview meetings DAO", () => {
+  it("createHumanInterviewMeeting 关联多个候选人轮次和多个面试官", async () => {
+    await clearSubtables();
+
+    const roundA = await createHumanInterviewRound({
+      input: { format: "online", interviewerIds: [INTERVIEWER_A], label: "技术复面" },
+      interviewRecordId: RECORD_ID,
+      organizationId: ORG,
+    });
+    const roundB = await createHumanInterviewRound({
+      input: { format: "online", interviewerIds: [INTERVIEWER_B], label: "技术复面" },
+      interviewRecordId: RECORD_ID_B,
+      organizationId: ORG,
+    });
+
+    const meeting = await createHumanInterviewMeeting({
+      createdBy: HR_USER,
+      input: {
+        interviewerIds: [INTERVIEWER_A, INTERVIEWER_B],
+        roundIds: [roundA.id, roundB.id],
+        scheduledAt: "2026-05-30T10:00:00.000Z",
+        title: "技术群面",
+      },
+      organizationId: ORG,
+    });
+
+    expect(meeting.liveKitRoomName).toMatch(/^human_/);
+    expect(meeting.rounds.map((r) => r.interviewRecordId).toSorted()).toEqual(
+      [RECORD_ID, RECORD_ID_B].toSorted(),
+    );
+    expect(meeting.interviewers.map((i) => i.id).toSorted()).toEqual(
+      [INTERVIEWER_A, INTERVIEWER_B].toSorted(),
+    );
+    expect(meeting.interviewers.find((i) => i.id === INTERVIEWER_A)?.role).toBe("host");
+
+    const forCandidate = await listHumanInterviewMeetings({
+      interviewRecordId: RECORD_ID,
+      organizationId: ORG,
+    });
+    expect(forCandidate).toHaveLength(1);
+    expect(forCandidate[0]?.id).toBe(meeting.id);
+
+    await expect(
+      createHumanInterviewMeeting({
+        createdBy: HR_USER,
+        input: {
+          interviewerIds: [INTERVIEWER_A],
+          roundIds: [roundA.id],
+          title: "重复会议",
+        },
+        organizationId: ORG,
+      }),
+    ).rejects.toBeInstanceOf(HumanInterviewMeetingError);
+  });
+
+  it("createHumanInterviewMeeting 拒绝已完成轮次", async () => {
+    await clearSubtables();
+    const round = await createHumanInterviewRound({
+      input: { format: "online", interviewerIds: [INTERVIEWER_A], label: "已完成" },
+      interviewRecordId: RECORD_ID,
+      organizationId: ORG,
+    });
+    await completeHumanInterviewRound({
+      organizationId: ORG,
+      outcome: "pass",
+      roundId: round.id,
+    });
+
+    await expect(
+      createHumanInterviewMeeting({
+        createdBy: HR_USER,
+        input: {
+          interviewerIds: [INTERVIEWER_A],
+          roundIds: [round.id],
+          title: "不应创建",
+        },
+        organizationId: ORG,
+      }),
+    ).rejects.toBeInstanceOf(HumanInterviewMeetingError);
+  });
+
+  it("endHumanInterviewMeetingsByRound 结束该轮次关联的未结束会议", async () => {
+    await clearSubtables();
+    const round = await createHumanInterviewRound({
+      input: { format: "online", interviewerIds: [INTERVIEWER_A], label: "技术复面" },
+      interviewRecordId: RECORD_ID,
+      organizationId: ORG,
+    });
+    const meeting = await createHumanInterviewMeeting({
+      createdBy: HR_USER,
+      input: {
+        interviewerIds: [INTERVIEWER_A],
+        roundIds: [round.id],
+        title: "技术复面会议",
+      },
+      organizationId: ORG,
+    });
+
+    const roomNames = await endHumanInterviewMeetingsByRound({
+      organizationId: ORG,
+      roundId: round.id,
+    });
+
+    expect(roomNames).toEqual([meeting.liveKitRoomName]);
+    const [ended] = await listHumanInterviewMeetings({
+      interviewRecordId: RECORD_ID,
+      organizationId: ORG,
+    });
+    expect(ended?.status).toBe("ended");
+    expect(ended?.endedAt).not.toBeNull();
   });
 });
 

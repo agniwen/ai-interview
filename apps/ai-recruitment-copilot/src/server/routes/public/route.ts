@@ -1,12 +1,14 @@
 // 中文：公开访问入口的只读路由族。挂在 /api/public 下，不依赖 workspace
-// auth；对 roundId/candidateId 做一次反查拿到 organizationId，然后复用
+// auth；对 roundId/candidateId/邀请 token 做一次反查拿到 organizationId，然后复用
 // studio 路由族里既有的 DAO 返回完整数据（候选人姓名、简历 PDF、面试报告、
-// 录像、表单答卷……）。任何写操作都不走这里。
+// 录像、表单答卷……）。真人复面的公开入场/结束接口也在这里，因为链接本身
+// 已经绑定候选人/面试官身份。
 //
 // English: Read-only public-access router mounted at /api/public. No
 // workspace auth — each handler resolves the owning organizationId from the
 // supplied id, then defers to the same studio DAOs the authed routes use.
-// No write endpoints live here.
+// Human-interview public join/end endpoints also live here because the invite
+// token binds the candidate/interviewer identity.
 
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
@@ -15,18 +17,181 @@ import { db } from "@/lib/server/db";
 import { getObjectStream, presignRecordingGetObjectUrl } from "@/lib/server/s3";
 import { interviewConversation, studioInterview } from "@arc/db-schema/schema";
 import { factory, jsonValidatorError } from "@/server/factory";
+import { buildTokenErrorResponse } from "@/server/routes/interview/utils";
 import { loadSubmissionsByInterview } from "@/server/routes/studio/routes/forms/dao/submissions";
 import { queryInterviewConversationReportsByRound } from "@/server/routes/studio/routes/interviews/dao/interview-conversations";
+import {
+  endHumanInterviewMeeting,
+  isHumanInterviewMeetingBeforeScheduledStart,
+  markHumanInterviewMeetingInProgress,
+  resolveHumanInterviewMeetingInterviewerInviteToken,
+  resolveHumanInterviewMeetingInviteToken,
+} from "@/server/routes/studio/routes/interviews/dao/human-interview-meetings";
 import {
   listInterviewRoundsForCandidate,
   loadInterviewRoundDetail,
   resolvePublicInterviewScope,
   resolvePublicResumeOrgId,
 } from "@/server/routes/studio/routes/interviews/dao/interview-rounds";
+import {
+  deleteHumanInterviewLiveKitRoom,
+  HumanInterviewLiveKitConfigError,
+  signHumanInterviewMeetingToken,
+} from "@/server/routes/studio/routes/interviews/utils/human-interview-livekit";
 import { loadResumeDetail } from "@/server/routes/studio/routes/resumes/dao/resumes";
 
 export const publicRouter = factory
   .createApp()
+  .get("/human-interview-meetings/interviewer/:inviteToken", async (c) => {
+    const scope = await resolveHumanInterviewMeetingInterviewerInviteToken(
+      c.req.param("inviteToken"),
+    );
+    if (!scope) {
+      return c.json({ error: "真人复面链接不可用。" }, 404);
+    }
+    return c.json(
+      {
+        interviewerName: scope.interviewerName,
+        meetingId: scope.meetingId,
+        role: scope.role,
+        scheduledAt: scope.scheduledAt,
+        status: scope.status,
+        title: scope.title,
+      },
+      200,
+    );
+  })
+  .post("/human-interview-meetings/interviewer/:inviteToken/livekit-token", async (c) => {
+    const scope = await resolveHumanInterviewMeetingInterviewerInviteToken(
+      c.req.param("inviteToken"),
+    );
+    if (!scope) {
+      return c.json({ error: "真人复面链接不可用。" }, 404);
+    }
+    if (scope.status === "cancelled" || scope.status === "ended") {
+      return c.json({ error: "该真人复面会议已结束或取消。" }, 403);
+    }
+    if (
+      scope.status === "scheduled" &&
+      isHumanInterviewMeetingBeforeScheduledStart(scope.scheduledAt)
+    ) {
+      return c.json({ error: "未到入会时间，面试开始前 5 分钟可进入会议。" }, 403);
+    }
+    if (!scope.liveKitRoomName) {
+      return c.json({ error: "会议房间尚未初始化。" }, 409);
+    }
+
+    try {
+      const token = await signHumanInterviewMeetingToken({
+        canPublish: scope.role !== "observer",
+        metadata: {
+          human_interview_meeting_id: scope.meetingId,
+          participant_role: scope.role,
+          participant_type: "interviewer",
+          user_id: scope.userId,
+        },
+        participantIdentity: `interviewer_${scope.userId}`,
+        participantName: scope.interviewerName,
+        participantRole: scope.role,
+        roomName: scope.liveKitRoomName,
+      });
+      await markHumanInterviewMeetingInProgress(scope.meetingId);
+      return c.json(token, 200);
+    } catch (error) {
+      if (error instanceof HumanInterviewLiveKitConfigError) {
+        return c.json(buildTokenErrorResponse(), 500);
+      }
+      return c.json(
+        {
+          detail: error instanceof Error ? error.message : "Unknown error",
+          error: "Failed to sign LiveKit token.",
+        },
+        500,
+      );
+    }
+  })
+  .post("/human-interview-meetings/interviewer/:inviteToken/end", async (c) => {
+    const scope = await resolveHumanInterviewMeetingInterviewerInviteToken(
+      c.req.param("inviteToken"),
+    );
+    if (!scope) {
+      return c.json({ error: "真人复面链接不可用。" }, 404);
+    }
+    const roomName = await endHumanInterviewMeeting({ meetingId: scope.meetingId });
+    try {
+      await deleteHumanInterviewLiveKitRoom(roomName);
+    } catch (error) {
+      if (!(error instanceof HumanInterviewLiveKitConfigError)) {
+        console.warn("failed to delete livekit human interview room", error);
+      }
+    }
+    return c.json({ ok: true }, 200);
+  })
+  .get("/human-interview-meetings/:inviteToken", async (c) => {
+    const scope = await resolveHumanInterviewMeetingInviteToken(c.req.param("inviteToken"));
+    if (!scope) {
+      return c.json({ error: "真人复面链接不可用。" }, 404);
+    }
+    return c.json(
+      {
+        candidateName: scope.candidateName,
+        meetingId: scope.meetingId,
+        roundLabel: scope.roundLabel,
+        scheduledAt: scope.scheduledAt,
+        status: scope.status,
+        title: scope.title,
+      },
+      200,
+    );
+  })
+  .post("/human-interview-meetings/:inviteToken/livekit-token", async (c) => {
+    const scope = await resolveHumanInterviewMeetingInviteToken(c.req.param("inviteToken"));
+    if (!scope) {
+      return c.json({ error: "真人复面链接不可用。" }, 404);
+    }
+    if (scope.status === "cancelled" || scope.status === "ended") {
+      return c.json({ error: "该真人复面会议已结束或取消。" }, 403);
+    }
+    if (
+      scope.status === "scheduled" &&
+      isHumanInterviewMeetingBeforeScheduledStart(scope.scheduledAt)
+    ) {
+      return c.json({ error: "未到入会时间，面试开始前 5 分钟可进入会议。" }, 403);
+    }
+    if (!scope.liveKitRoomName) {
+      return c.json({ error: "会议房间尚未初始化。" }, 409);
+    }
+
+    try {
+      const token = await signHumanInterviewMeetingToken({
+        canPublish: true,
+        metadata: {
+          human_interview_meeting_id: scope.meetingId,
+          interview_record_id: scope.interviewRecordId,
+          participant_role: "candidate",
+          participant_type: "candidate",
+          round_id: scope.roundId,
+        },
+        participantIdentity: `candidate_${scope.roundId}`,
+        participantName: scope.candidateName,
+        participantRole: "candidate",
+        roomName: scope.liveKitRoomName,
+      });
+      await markHumanInterviewMeetingInProgress(scope.meetingId);
+      return c.json(token, 200);
+    } catch (error) {
+      if (error instanceof HumanInterviewLiveKitConfigError) {
+        return c.json(buildTokenErrorResponse(), 500);
+      }
+      return c.json(
+        {
+          detail: error instanceof Error ? error.message : "Unknown error",
+          error: "Failed to sign LiveKit token.",
+        },
+        500,
+      );
+    }
+  })
   .get(
     "/interview-rounds/resolve",
     zValidator(

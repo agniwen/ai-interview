@@ -4,6 +4,8 @@
 // Imported by both DAO and client; single source of truth.
 
 import type {
+  HumanInterviewMeetingInterviewerRole,
+  HumanInterviewMeetingStatus,
   HumanInterviewFormat,
   HumanInterviewRoundOutcome,
   HumanInterviewRoundStatus,
@@ -38,6 +40,101 @@ export interface HumanInterviewRoundRecord {
   createdAt: string;
   updatedAt: string;
   interviewers: { id: string; name: string; image: string | null }[];
+}
+
+export interface HumanInterviewMeetingRoundRecord {
+  roundId: string;
+  interviewRecordId: string;
+  candidateName: string;
+  label: string;
+  sortOrder: number;
+  status: HumanInterviewRoundStatus;
+  candidateInviteExpiresAt: string | null;
+  hasCandidateInvite: boolean;
+  joinedAt: string | null;
+  leftAt: string | null;
+}
+
+export interface HumanInterviewMeetingInterviewerRecord {
+  id: string;
+  name: string;
+  image: string | null;
+  role: HumanInterviewMeetingInterviewerRole;
+  joinedAt: string | null;
+  leftAt: string | null;
+}
+
+export interface HumanInterviewMeetingRecord {
+  id: string;
+  organizationId: string;
+  title: string;
+  liveKitRoomName: string | null;
+  scheduledAt: string | null;
+  status: HumanInterviewMeetingStatus;
+  startedAt: string | null;
+  endedAt: string | null;
+  cancelledAt: string | null;
+  recordingEgressId: string | null;
+  recordingFileKey: string | null;
+  notes: string | null;
+  createdBy: string | null;
+  createdAt: string;
+  updatedAt: string;
+  rounds: HumanInterviewMeetingRoundRecord[];
+  interviewers: HumanInterviewMeetingInterviewerRecord[];
+}
+
+export interface HumanInterviewMeetingCandidateLinkRecord {
+  candidateName: string;
+  expiresAt: string;
+  interviewRecordId: string;
+  roundId: string;
+  roundLabel: string;
+  url: string;
+}
+
+export interface HumanInterviewMeetingInterviewerLinkRecord {
+  name: string;
+  role: HumanInterviewMeetingInterviewerRole;
+  url: string;
+  userId: string;
+}
+
+export interface HumanInterviewMeetingLinkBundle {
+  candidateLinks: HumanInterviewMeetingCandidateLinkRecord[];
+  interviewerLinks: HumanInterviewMeetingInterviewerLinkRecord[];
+  meetingId: string;
+  title: string;
+}
+
+export type HumanInterviewMeetingParticipantRole =
+  | "candidate"
+  | HumanInterviewMeetingInterviewerRole;
+
+export interface HumanInterviewMeetingTokenResponse {
+  participantName: string;
+  participantRole: HumanInterviewMeetingParticipantRole;
+  participantToken: string;
+  roomName: string;
+  serverUrl: string;
+}
+
+export interface PublicHumanInterviewMeetingPreview {
+  candidateName: string;
+  meetingId: string;
+  roundLabel: string;
+  scheduledAt: string | null;
+  status: HumanInterviewMeetingStatus;
+  title: string;
+}
+
+export interface PublicHumanInterviewInterviewerPreview {
+  interviewerName: string;
+  meetingId: string;
+  role: HumanInterviewMeetingInterviewerRole;
+  scheduledAt: string | null;
+  status: HumanInterviewMeetingStatus;
+  title: string;
 }
 
 /**

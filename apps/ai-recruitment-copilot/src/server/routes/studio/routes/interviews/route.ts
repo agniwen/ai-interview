@@ -22,6 +22,7 @@ import {
   candidateExpectationsMetaSchema,
   candidateOutcomeSchema,
   closedMetaSchema,
+  humanInterviewMeetingInputSchema,
   humanInterviewRoundInputSchema,
   humanInterviewRoundOutcomeSchema,
   offerDraftInputSchema,
@@ -60,6 +61,23 @@ import {
   maybeAdvanceToHumanInterview,
 } from "@/server/routes/studio/routes/interviews/dao/human-interview-rounds";
 import {
+  createHumanInterviewMeeting,
+  deleteHumanInterviewMeeting,
+  endHumanInterviewMeeting,
+  endHumanInterviewMeetingsByRound,
+  HumanInterviewMeetingError,
+  isHumanInterviewMeetingBeforeScheduledStart,
+  issueHumanInterviewMeetingLinks,
+  listHumanInterviewMeetings,
+  loadHumanInterviewMeetingById,
+  markHumanInterviewMeetingInProgress,
+} from "@/server/routes/studio/routes/interviews/dao/human-interview-meetings";
+import {
+  deleteHumanInterviewLiveKitRoom,
+  HumanInterviewLiveKitConfigError,
+  signHumanInterviewMeetingToken,
+} from "@/server/routes/studio/routes/interviews/utils/human-interview-livekit";
+import {
   cancelOfferDraft,
   createOfferDraft,
   editOfferDraft,
@@ -81,6 +99,7 @@ import {
 } from "@/server/routes/studio/routes/interviews/dao/interview-rounds";
 import { roundEmailsRouter } from "@/server/routes/studio/routes/interviews/routes/round-emails/route";
 import {
+  buildTokenErrorResponse,
   buildScheduleRows,
   loadRecordById,
   normalizeResumeFile,
@@ -147,6 +166,10 @@ const completeHumanRoundSchema = z.object({
 // Human interview "cancel" input; reason optional.
 const cancelHumanRoundSchema = z.object({
   reason: z.string().trim().max(500).nullable().optional(),
+});
+
+const humanMeetingTokenInputSchema = z.object({
+  interviewerId: z.string().trim().min(1).optional(),
 });
 
 // 删除 AI 轮次后回退 parent：若候选人已无任何 schedule entry 且仍处于
@@ -389,6 +412,228 @@ export const studioInterviewsRouter = factory
         return c.json({ error: "记录不存在。" }, 404);
       }
       return c.json({ roundId }, 200);
+    },
+  )
+  // ── 真人复面会议 endpoints ──
+  // 静态路径必须放在 `/:id` 前面，否则会被当作 roundId 命中详情路由。
+  // Static routes must stay before `/:id`; otherwise Hono treats the segment as a roundId.
+  .get(
+    "/human-interview-meetings",
+    requirePermission("interview", "read"),
+    zValidator(
+      "query",
+      z.object({
+        interviewRecordId: z.string().trim().optional(),
+      }),
+      jsonValidatorError("查询参数无效。"),
+    ),
+    async (c) => {
+      const { activeOrg } = c.var;
+      if (!activeOrg) {
+        return c.json({ message: "Unauthorized" }, 401);
+      }
+      const { interviewRecordId } = c.req.valid("query");
+      const meetings = await listHumanInterviewMeetings({
+        interviewRecordId,
+        organizationId: activeOrg.id,
+      });
+      return c.json(meetings, 200);
+    },
+  )
+  .post(
+    "/human-interview-meetings",
+    requirePermission("interview", "update"),
+    zValidator(
+      "json",
+      humanInterviewMeetingInputSchema,
+      jsonValidatorError("真人复面会议参数无效。"),
+    ),
+    async (c) => {
+      const { activeOrg, user } = c.var;
+      if (!activeOrg) {
+        return c.json({ message: "Unauthorized" }, 401);
+      }
+      try {
+        const created = await createHumanInterviewMeeting({
+          createdBy: user?.id ?? null,
+          input: c.req.valid("json"),
+          organizationId: activeOrg.id,
+        });
+        invalidateStudioInterviewCaches(activeOrg.id);
+        return c.json(created, 200);
+      } catch (error) {
+        if (error instanceof HumanInterviewMeetingError) {
+          return c.json({ error: error.message }, error.status);
+        }
+        throw error;
+      }
+    },
+  )
+  .post(
+    "/human-interview-meetings/:meetingId/links",
+    requirePermission("interview", "update"),
+    async (c) => {
+      const { activeOrg } = c.var;
+      if (!activeOrg) {
+        return c.json({ message: "Unauthorized" }, 401);
+      }
+      try {
+        const links = await issueHumanInterviewMeetingLinks({
+          meetingId: c.req.param("meetingId"),
+          organizationId: activeOrg.id,
+        });
+        return c.json(links, 200);
+      } catch (error) {
+        if (error instanceof HumanInterviewMeetingError) {
+          return c.json({ error: error.message }, error.status);
+        }
+        throw error;
+      }
+    },
+  )
+  .post(
+    "/human-interview-meetings/:meetingId/livekit-token",
+    requirePermission("interview", "read"),
+    zValidator("json", humanMeetingTokenInputSchema, jsonValidatorError("会议入场参数无效。")),
+    async (c) => {
+      const { activeOrg, user } = c.var;
+      if (!activeOrg || !user) {
+        return c.json({ message: "Unauthorized" }, 401);
+      }
+
+      const meeting = await loadHumanInterviewMeetingById(c.req.param("meetingId"), activeOrg.id);
+      if (!meeting) {
+        return c.json({ error: "真人复面会议不存在。" }, 404);
+      }
+      if (meeting.status === "cancelled" || meeting.status === "ended") {
+        return c.json({ error: "该真人复面会议已结束或取消。" }, 403);
+      }
+      if (
+        meeting.status === "scheduled" &&
+        isHumanInterviewMeetingBeforeScheduledStart(meeting.scheduledAt)
+      ) {
+        return c.json({ error: "未到入会时间，面试开始前 5 分钟可进入会议。" }, 403);
+      }
+
+      const { interviewerId } = c.req.valid("json");
+      const resolvedInterviewerId = interviewerId ?? user.id;
+      if (resolvedInterviewerId !== user.id) {
+        return c.json({ error: "请使用本人账号打开该面试官链接。" }, 403);
+      }
+
+      const meetingInterviewer = meeting.interviewers.find(
+        (item) => item.id === resolvedInterviewerId,
+      );
+      if (!meetingInterviewer) {
+        return c.json({ error: "你不是该会议的面试官。" }, 403);
+      }
+      if (!meeting.liveKitRoomName) {
+        return c.json({ error: "会议房间尚未初始化。" }, 409);
+      }
+
+      try {
+        const token = await signHumanInterviewMeetingToken({
+          canPublish: meetingInterviewer.role !== "observer",
+          metadata: {
+            human_interview_meeting_id: meeting.id,
+            participant_role: meetingInterviewer.role,
+            participant_type: "interviewer",
+            user_id: meetingInterviewer.id,
+          },
+          participantIdentity: `interviewer_${meetingInterviewer.id}`,
+          participantName: meetingInterviewer.name,
+          participantRole: meetingInterviewer.role,
+          roomName: meeting.liveKitRoomName,
+        });
+        await markHumanInterviewMeetingInProgress(meeting.id);
+        return c.json(token, 200);
+      } catch (error) {
+        if (error instanceof HumanInterviewLiveKitConfigError) {
+          return c.json(buildTokenErrorResponse(), 500);
+        }
+        return c.json(
+          {
+            detail: error instanceof Error ? error.message : "Unknown error",
+            error: "Failed to sign LiveKit token.",
+          },
+          500,
+        );
+      }
+    },
+  )
+  .post(
+    "/human-interview-meetings/:meetingId/end",
+    requirePermission("interview", "update"),
+    async (c) => {
+      const { activeOrg } = c.var;
+      if (!activeOrg) {
+        return c.json({ message: "Unauthorized" }, 401);
+      }
+      try {
+        const roomName = await endHumanInterviewMeeting({
+          meetingId: c.req.param("meetingId"),
+          organizationId: activeOrg.id,
+        });
+        try {
+          await deleteHumanInterviewLiveKitRoom(roomName);
+        } catch (error) {
+          if (!(error instanceof HumanInterviewLiveKitConfigError)) {
+            console.warn("failed to delete livekit human interview room", error);
+          }
+        }
+        invalidateStudioInterviewCaches(activeOrg.id);
+        return c.json({ ok: true }, 200);
+      } catch (error) {
+        if (error instanceof HumanInterviewMeetingError) {
+          return c.json({ error: error.message }, error.status);
+        }
+        throw error;
+      }
+    },
+  )
+  .delete(
+    "/human-interview-meetings/:meetingId",
+    requirePermission("interview", "update"),
+    async (c) => {
+      const { activeOrg } = c.var;
+      if (!activeOrg) {
+        return c.json({ message: "Unauthorized" }, 401);
+      }
+      try {
+        const roomName = await deleteHumanInterviewMeeting({
+          meetingId: c.req.param("meetingId"),
+          organizationId: activeOrg.id,
+        });
+        try {
+          await deleteHumanInterviewLiveKitRoom(roomName);
+        } catch (error) {
+          if (!(error instanceof HumanInterviewLiveKitConfigError)) {
+            console.warn("failed to delete livekit human interview room", error);
+          }
+        }
+        invalidateStudioInterviewCaches(activeOrg.id);
+        return c.json({ ok: true }, 200);
+      } catch (error) {
+        if (error instanceof HumanInterviewMeetingError) {
+          return c.json({ error: error.message }, error.status);
+        }
+        throw error;
+      }
+    },
+  )
+  .get(
+    "/human-interview-meetings/:meetingId",
+    requirePermission("interview", "read"),
+    async (c) => {
+      const { activeOrg } = c.var;
+      if (!activeOrg) {
+        return c.json({ message: "Unauthorized" }, 401);
+      }
+      const meeting = await loadHumanInterviewMeetingById(c.req.param("meetingId"), activeOrg.id);
+      if (!meeting) {
+        return c.json({ error: "真人复面会议不存在。" }, 404);
+      }
+      return c.json(meeting, 200);
     },
   )
   .get("/:id", requirePermission("interview", "read"), async (c) => {
@@ -1195,7 +1440,12 @@ export const studioInterviewsRouter = factory
 
       const input = c.req.valid("json");
       const created = await createHumanInterviewRound({
-        input,
+        input: {
+          ...input,
+          format: "online",
+          location: null,
+          meetingUrl: null,
+        },
         interviewRecordId: recordId,
         organizationId: activeOrg.id,
       });
@@ -1256,6 +1506,21 @@ export const studioInterviewsRouter = factory
           roundId,
           score,
         });
+        const roomNames = await endHumanInterviewMeetingsByRound({
+          organizationId: activeOrg.id,
+          roundId,
+        });
+        await Promise.all(
+          roomNames.map(async (roomName) => {
+            try {
+              await deleteHumanInterviewLiveKitRoom(roomName);
+            } catch (error) {
+              if (!(error instanceof HumanInterviewLiveKitConfigError)) {
+                console.warn("failed to delete livekit human interview room", error);
+              }
+            }
+          }),
+        );
         invalidateStudioInterviewCaches(activeOrg.id);
         return c.json(updated, 200);
       } catch (error) {

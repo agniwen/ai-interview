@@ -31,6 +31,8 @@ import type {
   CandidateOutcome,
   ClosedMeta,
   HumanInterviewFormat,
+  HumanInterviewMeetingInterviewerRole,
+  HumanInterviewMeetingStatus,
   HumanInterviewRoundOutcome,
   HumanInterviewRoundStatus,
   OfferDraftStatus,
@@ -627,6 +629,99 @@ export const studioHumanInterviewRound = pgTable(
     index("studio_human_interview_round_sort_idx").on(table.interviewRecordId, table.sortOrder),
     index("studio_human_interview_round_org_idx").on(table.organizationId),
     index("studio_human_interview_round_status_idx").on(table.status),
+  ],
+);
+
+// 真人复面会议：一场会议对应一个 LiveKit room，可包含多个候选人的 round 和多个面试官。
+// 评价结果仍然写在 studioHumanInterviewRound；这里仅保存会议级生命周期/录制信息。
+//
+// Human-interview meeting. One meeting maps to one LiveKit room and can include
+// multiple candidate rounds plus multiple interviewers. Per-candidate verdicts
+// remain on studioHumanInterviewRound.
+export const studioHumanInterviewMeeting = pgTable(
+  "studio_human_interview_meeting",
+  {
+    cancelledAt: timestamp("cancelled_at"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
+    endedAt: timestamp("ended_at"),
+    id: text("id").primaryKey(),
+    liveKitRoomName: text("livekit_room_name"),
+    notes: text("notes"),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    recordingEgressId: text("recording_egress_id"),
+    recordingFileKey: text("recording_file_key"),
+    scheduledAt: timestamp("scheduled_at"),
+    startedAt: timestamp("started_at"),
+    status: text("status").$type<HumanInterviewMeetingStatus>().notNull().default("scheduled"),
+    title: text("title").notNull(),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+  },
+  (table) => [
+    index("studio_human_interview_meeting_org_idx").on(table.organizationId),
+    index("studio_human_interview_meeting_schedule_idx").on(
+      table.organizationId,
+      table.scheduledAt,
+    ),
+    index("studio_human_interview_meeting_status_idx").on(table.organizationId, table.status),
+    uniqueIndex("studio_human_interview_meeting_livekit_room_idx").on(table.liveKitRoomName),
+  ],
+);
+
+// 会议 ↔ 候选人轮次 junction。每个 round 仍然指向 studio_interview 简历/候选人记录；
+// 这里承载候选人参加同一场会议的邀请和入离会时间。
+//
+// Meeting ↔ candidate-round junction. The round itself links back to the resume
+// record; this table stores candidate-specific invite/join metadata for the meeting.
+export const studioHumanInterviewMeetingRound = pgTable(
+  "studio_human_interview_meeting_round",
+  {
+    candidateInviteExpiresAt: timestamp("candidate_invite_expires_at"),
+    candidateInviteTokenHash: text("candidate_invite_token_hash"),
+    joinedAt: timestamp("joined_at"),
+    leftAt: timestamp("left_at"),
+    meetingId: text("meeting_id")
+      .notNull()
+      .references(() => studioHumanInterviewMeeting.id, { onDelete: "cascade" }),
+    roundId: text("round_id")
+      .notNull()
+      .references(() => studioHumanInterviewRound.id, { onDelete: "cascade" }),
+  },
+  (table) => [
+    primaryKey({ columns: [table.meetingId, table.roundId] }),
+    index("studio_human_interview_meeting_round_round_idx").on(table.roundId),
+    uniqueIndex("studio_human_interview_meeting_round_invite_token_idx").on(
+      table.candidateInviteTokenHash,
+    ),
+  ],
+);
+
+// 会议 ↔ 面试官 junction。保留 role 以支持主持人/旁听者等会议级权限。
+// Meeting ↔ interviewer junction. role leaves room for host/observer permissions.
+export const studioHumanInterviewMeetingInterviewer = pgTable(
+  "studio_human_interview_meeting_interviewer",
+  {
+    joinedAt: timestamp("joined_at"),
+    leftAt: timestamp("left_at"),
+    meetingId: text("meeting_id")
+      .notNull()
+      .references(() => studioHumanInterviewMeeting.id, { onDelete: "cascade" }),
+    role: text("role")
+      .$type<HumanInterviewMeetingInterviewerRole>()
+      .notNull()
+      .default("interviewer"),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+  },
+  (table) => [
+    primaryKey({ columns: [table.meetingId, table.userId] }),
+    index("studio_human_interview_meeting_interviewer_user_idx").on(table.userId),
   ],
 );
 

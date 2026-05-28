@@ -27,6 +27,7 @@ import type {
   CandidateExpectationsMeta,
   CandidateOutcome,
   ClosedMeta,
+  HumanInterviewMeetingInput,
   HumanInterviewRoundInput,
   HumanInterviewRoundOutcome,
   OfferDraftInput,
@@ -35,6 +36,9 @@ import type {
   StudioInterviewStatus,
 } from "@arc/db-schema/studio-interviews";
 import type {
+  HumanInterviewMeetingLinkBundle,
+  HumanInterviewMeetingRecord,
+  HumanInterviewMeetingTokenResponse,
   HumanInterviewRoundRecord,
   OfferDraftRecord,
 } from "@/lib/shared/studio-pipeline-stages";
@@ -331,6 +335,96 @@ export function updateCandidateExpectations(
 }
 
 // ── 真人复面 client wrappers ──
+
+export function listHumanInterviewMeetings(
+  slug: string,
+  input: { interviewRecordId?: string } = {},
+): Promise<HumanInterviewMeetingRecord[]> {
+  return rpcFetch<HumanInterviewMeetingRecord[]>(
+    rpc.api.w[":slug"].studio.interviews["human-interview-meetings"].$get({
+      param: { slug },
+      query: input,
+    }),
+    "加载真人复面会议失败",
+  );
+}
+
+export function createHumanInterviewMeeting(
+  slug: string,
+  input: HumanInterviewMeetingInput,
+): Promise<HumanInterviewMeetingRecord> {
+  return rpcFetch<HumanInterviewMeetingRecord>(
+    rpc.api.w[":slug"].studio.interviews["human-interview-meetings"].$post({
+      json: input,
+      param: { slug },
+    }),
+    "新建真人复面会议失败",
+  );
+}
+
+export function getHumanInterviewMeeting(
+  slug: string,
+  meetingId: string,
+): Promise<HumanInterviewMeetingRecord> {
+  return rpcFetch<HumanInterviewMeetingRecord>(
+    rpc.api.w[":slug"].studio.interviews["human-interview-meetings"][":meetingId"].$get({
+      param: { meetingId, slug },
+    }),
+    "加载真人复面会议失败",
+  );
+}
+
+export function issueHumanInterviewMeetingLinks(
+  slug: string,
+  meetingId: string,
+): Promise<HumanInterviewMeetingLinkBundle> {
+  return rpcFetch<HumanInterviewMeetingLinkBundle>(
+    rpc.api.w[":slug"].studio.interviews["human-interview-meetings"][":meetingId"].links.$post({
+      param: { meetingId, slug },
+    }),
+    "生成真人复面链接失败",
+  );
+}
+
+export function endHumanInterviewMeeting(
+  slug: string,
+  meetingId: string,
+): Promise<{ ok: boolean }> {
+  return rpcFetch<{ ok: boolean }>(
+    rpc.api.w[":slug"].studio.interviews["human-interview-meetings"][":meetingId"].end.$post({
+      param: { meetingId, slug },
+    }),
+    "结束真人复面会议失败",
+  );
+}
+
+export function deleteHumanInterviewMeeting(
+  slug: string,
+  meetingId: string,
+): Promise<{ ok: boolean }> {
+  return rpcFetch<{ ok: boolean }>(
+    rpc.api.w[":slug"].studio.interviews["human-interview-meetings"][":meetingId"].$delete({
+      param: { meetingId, slug },
+    }),
+    "删除真人复面会议失败",
+  );
+}
+
+export function getHumanInterviewMeetingLiveKitToken(
+  slug: string,
+  meetingId: string,
+  input: { interviewerId?: string } = {},
+): Promise<HumanInterviewMeetingTokenResponse> {
+  return rpcFetch<HumanInterviewMeetingTokenResponse>(
+    rpc.api.w[":slug"].studio.interviews["human-interview-meetings"][":meetingId"][
+      "livekit-token"
+    ].$post({
+      json: input,
+      param: { meetingId, slug },
+    }),
+    "进入真人复面会议失败",
+  );
+}
 
 /**
  * 列出候选人所有真人复面轮次（含 cancelled）。

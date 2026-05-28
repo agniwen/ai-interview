@@ -16,11 +16,16 @@ import {
   BanIcon,
   CalendarIcon,
   CheckCircle2Icon,
-  ExternalLinkIcon,
-  MapPinIcon,
+  CircleStopIcon,
+  CopyIcon,
+  LinkIcon,
+  Loader2Icon,
   PlusIcon,
+  Trash2Icon,
   UsersIcon,
+  VideoIcon,
 } from "lucide-react";
+import type { MouseEvent } from "react";
 import { useState } from "react";
 import { toast } from "sonner";
 import {
@@ -28,19 +33,39 @@ import {
   humanInterviewRoundOutcomeMeta,
 } from "@arc/db-schema/studio-interviews";
 import type {
-  HumanInterviewFormat,
+  HumanInterviewMeetingInterviewerRole,
   HumanInterviewRoundOutcome,
 } from "@arc/db-schema/studio-interviews";
-import type { HumanInterviewRoundRecord } from "@/lib/shared/studio-pipeline-stages";
+import type {
+  HumanInterviewMeetingLinkBundle,
+  HumanInterviewMeetingRecord,
+  HumanInterviewRoundRecord,
+} from "@/lib/shared/studio-pipeline-stages";
 import {
   cancelHumanInterviewRound,
   completeHumanInterviewRound,
+  createHumanInterviewMeeting,
   createHumanInterviewRound,
+  deleteHumanInterviewMeeting,
+  endHumanInterviewMeeting,
+  issueHumanInterviewMeetingLinks,
+  listHumanInterviewMeetings,
   listHumanInterviewRounds,
 } from "@/lib/client/api";
+import { copyTextToClipboard, toAbsoluteUrl } from "@/lib/client/clipboard";
 import { rpc } from "@/lib/client/rpc";
 import { rpcFetch } from "@/lib/client/api/rpc-fetch";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -101,10 +126,17 @@ export function HumanInterviewStagePanel({ candidateId, candidateName, disabled 
     queryFn: () => listHumanInterviewRounds(slug, candidateId),
     queryKey: ["human-interview-rounds", slug, candidateId],
   });
+  const { data: meetings = [] } = useQuery({
+    queryFn: () => listHumanInterviewMeetings(slug, { interviewRecordId: candidateId }),
+    queryKey: ["human-interview-meetings", slug, candidateId],
+  });
 
   function invalidateRounds() {
     void queryClient.invalidateQueries({
       queryKey: ["human-interview-rounds", slug, candidateId],
+    });
+    void queryClient.invalidateQueries({
+      queryKey: ["human-interview-meetings", slug, candidateId],
     });
     // 顶级简历库列表也要刷新（进度列依赖派生聚合）。
     // The resume library progress column depends on aggregated counts.
@@ -114,6 +146,42 @@ export function HumanInterviewStagePanel({ candidateId, candidateName, disabled 
   const [scheduleOpen, setScheduleOpen] = useState(false);
   const [completeTarget, setCompleteTarget] = useState<HumanInterviewRoundRecord | null>(null);
   const [cancelTarget, setCancelTarget] = useState<HumanInterviewRoundRecord | null>(null);
+  const [linksTarget, setLinksTarget] = useState<HumanInterviewMeetingRecord | null>(null);
+  const [endTarget, setEndTarget] = useState<HumanInterviewMeetingRecord | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<HumanInterviewMeetingRecord | null>(null);
+  const endMeetingMutation = useMutation({
+    mutationFn: (meetingId: string) => endHumanInterviewMeeting(slug, meetingId),
+    onError: (e) => toast.error(e instanceof Error ? e.message : "结束会议失败"),
+    onSuccess: () => {
+      toast.success("会议已结束");
+      setEndTarget(null);
+      invalidateRounds();
+    },
+  });
+  const deleteMeetingMutation = useMutation({
+    mutationFn: (meetingId: string) => deleteHumanInterviewMeeting(slug, meetingId),
+    onError: (e) => toast.error(e instanceof Error ? e.message : "删除会议失败"),
+    onSuccess: () => {
+      toast.success("会议已删除");
+      setDeleteTarget(null);
+      invalidateRounds();
+    },
+  });
+  const createMeetingMutation = useMutation({
+    mutationFn: (round: HumanInterviewRoundRecord) =>
+      createHumanInterviewMeeting(slug, {
+        interviewerIds: round.interviewers.map((interviewer) => interviewer.id),
+        notes: round.notes,
+        roundIds: [round.id],
+        scheduledAt: round.scheduledAt,
+        title: round.label,
+      }),
+    onError: (e) => toast.error(e instanceof Error ? e.message : "创建视频会议失败"),
+    onSuccess: () => {
+      toast.success("已创建视频会议");
+      invalidateRounds();
+    },
+  });
 
   function renderRoundsContent() {
     if (isLoading) {
@@ -135,7 +203,7 @@ export function HumanInterviewStagePanel({ candidateId, candidateName, disabled 
             <EmptyDescription>
               {disabled
                 ? "已结案候选人不可新增复面，请先重新激活。"
-                : "点「新建一轮」开始安排第一次复面。"}
+                : "点「安排真人复面」创建线上复面会议。"}
             </EmptyDescription>
           </EmptyHeader>
         </Empty>
@@ -148,8 +216,15 @@ export function HumanInterviewStagePanel({ candidateId, candidateName, disabled 
           <RoundCard
             disabled={disabled}
             key={round.id}
+            meetings={meetings.filter((meeting) =>
+              meeting.rounds.some((meetingRound) => meetingRound.roundId === round.id),
+            )}
             onCancel={() => setCancelTarget(round)}
             onComplete={() => setCompleteTarget(round)}
+            onCreateMeeting={() => createMeetingMutation.mutate(round)}
+            onDeleteMeeting={(meeting) => setDeleteTarget(meeting)}
+            onEndMeeting={(meeting) => setEndTarget(meeting)}
+            onOpenLinks={(meeting) => setLinksTarget(meeting)}
             round={round}
           />
         ))}
@@ -169,7 +244,7 @@ export function HumanInterviewStagePanel({ candidateId, candidateName, disabled 
         {disabled ? null : (
           <Button onClick={() => setScheduleOpen(true)} size="sm">
             <PlusIcon className="size-4" />
-            新建一轮
+            安排真人复面
           </Button>
         )}
       </div>
@@ -195,6 +270,21 @@ export function HumanInterviewStagePanel({ candidateId, candidateName, disabled 
         onOpenChange={(open) => !open && setCancelTarget(null)}
         round={cancelTarget}
       />
+      <MeetingLinksDialog
+        meeting={linksTarget}
+        onOpenChange={(open) => !open && setLinksTarget(null)}
+      />
+      <EndMeetingDialog
+        isPending={endMeetingMutation.isPending}
+        meeting={endTarget}
+        onConfirm={(meeting) => endMeetingMutation.mutateAsync(meeting.id)}
+        onOpenChange={(open) => !open && setEndTarget(null)}
+      />
+      <DeleteMeetingDialog
+        meeting={deleteTarget}
+        onConfirm={(meeting) => deleteMeetingMutation.mutate(meeting.id)}
+        onOpenChange={(open) => !open && setDeleteTarget(null)}
+      />
     </div>
   );
 }
@@ -204,15 +294,26 @@ export function HumanInterviewStagePanel({ candidateId, candidateName, disabled 
 function RoundCard({
   round,
   disabled,
+  meetings,
   onComplete,
   onCancel,
+  onCreateMeeting,
+  onDeleteMeeting,
+  onEndMeeting,
+  onOpenLinks,
 }: {
   round: HumanInterviewRoundRecord;
   disabled?: boolean;
+  meetings: HumanInterviewMeetingRecord[];
   onComplete: () => void;
   onCancel: () => void;
+  onCreateMeeting: () => void;
+  onDeleteMeeting: (meeting: HumanInterviewMeetingRecord) => void;
+  onEndMeeting: (meeting: HumanInterviewMeetingRecord) => void;
+  onOpenLinks: (meeting: HumanInterviewMeetingRecord) => void;
 }) {
   const statusBadge = describeRoundStatus(round);
+  const hasMeetings = meetings.length > 0;
 
   return (
     <div className="rounded-lg border border-border/60 bg-card p-4">
@@ -235,24 +336,13 @@ function RoundCard({
             )}
             <span className="inline-flex items-center gap-1">
               {humanInterviewFormatMeta[round.format].label}
-              {round.format === "onsite" && round.location ? (
-                <>
-                  <MapPinIcon className="ml-1 size-3" />
-                  {round.location}
-                </>
-              ) : null}
-              {round.format === "online" && round.meetingUrl ? (
-                <a
-                  className="ml-1 inline-flex items-center gap-0.5 underline-offset-2 hover:underline"
-                  href={round.meetingUrl}
-                  rel="noopener"
-                  target="_blank"
-                >
-                  会议链接
-                  <ExternalLinkIcon className="size-3" />
-                </a>
-              ) : null}
             </span>
+            {hasMeetings ? (
+              <span className="inline-flex items-center gap-1">
+                <VideoIcon className="size-3" />
+                已创建 {meetings.length} 个会议
+              </span>
+            ) : null}
             <span className="inline-flex items-center gap-1">
               <UsersIcon className="size-3" />
               {round.interviewers.map((i) => i.name).join("、") || "未指派面试官"}
@@ -261,6 +351,12 @@ function RoundCard({
         </div>
         {round.status === "pending" && !disabled ? (
           <div className="flex gap-2">
+            {hasMeetings ? null : (
+              <Button onClick={onCreateMeeting} size="sm" variant="outline">
+                <VideoIcon className="size-4" />
+                创建会议
+              </Button>
+            )}
             <Button onClick={onComplete} size="sm" variant="outline">
               <CheckCircle2Icon className="size-4" />
               标记完成
@@ -272,6 +368,21 @@ function RoundCard({
           </div>
         ) : null}
       </div>
+
+      {hasMeetings ? (
+        <div className="mt-3 space-y-2 border-border/40 border-t pt-3">
+          {meetings.map((meeting) => (
+            <MeetingInlineCard
+              disabled={disabled}
+              key={meeting.id}
+              meeting={meeting}
+              onDelete={() => onDeleteMeeting(meeting)}
+              onEnd={() => onEndMeeting(meeting)}
+              onOpenLinks={() => onOpenLinks(meeting)}
+            />
+          ))}
+        </div>
+      ) : null}
 
       {hasRoundDetails(round) ? (
         <div className="mt-3 space-y-1 border-border/40 border-t pt-3 text-sm">
@@ -294,6 +405,275 @@ function RoundCard({
   );
 }
 
+function MeetingInlineCard({
+  disabled,
+  meeting,
+  onDelete,
+  onEnd,
+  onOpenLinks,
+}: {
+  disabled?: boolean;
+  meeting: HumanInterviewMeetingRecord;
+  onDelete: () => void;
+  onEnd: () => void;
+  onOpenLinks: () => void;
+}) {
+  const status = describeMeetingStatus(meeting);
+  const canEnd = meeting.status === "scheduled" || meeting.status === "in_progress";
+  const canWrite = disabled !== true;
+  const isEnded = meeting.status === "ended";
+  const canOpenLinks = !isEnded;
+  const canDelete = canWrite && !isEnded && meeting.status !== "in_progress";
+
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border/60 bg-muted/20 p-3">
+      <div className="min-w-0 space-y-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="font-medium text-sm">{meeting.title}</span>
+          <Badge variant={status.tone}>{status.label}</Badge>
+        </div>
+        <p className="truncate text-muted-foreground text-xs">
+          {meeting.rounds.map((round) => round.candidateName).join("、")} ·{" "}
+          {meeting.interviewers.map((interviewer) => interviewer.name).join("、")}
+        </p>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {canOpenLinks ? (
+          <Button onClick={onOpenLinks} size="sm" variant="outline">
+            <CopyIcon className="size-4" />
+            复制链接
+          </Button>
+        ) : null}
+        {canEnd && canWrite ? (
+          <Button onClick={onEnd} size="sm" variant="outline">
+            <CircleStopIcon className="size-4" />
+            结束会议
+          </Button>
+        ) : null}
+        {canDelete ? (
+          <Button onClick={onDelete} size="sm" variant="outline">
+            <Trash2Icon className="size-4" />
+            删除
+          </Button>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function EndMeetingDialog({
+  isPending,
+  meeting,
+  onConfirm,
+  onOpenChange,
+}: {
+  isPending: boolean;
+  meeting: HumanInterviewMeetingRecord | null;
+  onConfirm: (meeting: HumanInterviewMeetingRecord) => Promise<unknown>;
+  onOpenChange: (open: boolean) => void;
+}) {
+  async function handleConfirm(event: MouseEvent<HTMLButtonElement>) {
+    event.preventDefault();
+    if (meeting) {
+      try {
+        await onConfirm(meeting);
+      } catch {
+        // The mutation already surfaces the error toast; keep the dialog open.
+      }
+    }
+  }
+
+  return (
+    <AlertDialog onOpenChange={onOpenChange} open={meeting !== null}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>结束真人复面会议？</AlertDialogTitle>
+          <AlertDialogDescription>
+            结束后会关闭当前视频房间，已拿到链接的候选人和面试官将不能继续进入该会议。
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={isPending}>取消</AlertDialogCancel>
+          <AlertDialogAction disabled={isPending} onClick={handleConfirm} variant="destructive">
+            {isPending ? <Loader2Icon className="size-4 animate-spin" /> : null}
+            确认结束
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
+
+function DeleteMeetingDialog({
+  meeting,
+  onConfirm,
+  onOpenChange,
+}: {
+  meeting: HumanInterviewMeetingRecord | null;
+  onConfirm: (meeting: HumanInterviewMeetingRecord) => void;
+  onOpenChange: (open: boolean) => void;
+}) {
+  function handleConfirm() {
+    if (meeting) {
+      onConfirm(meeting);
+    }
+  }
+
+  return (
+    <AlertDialog onOpenChange={onOpenChange} open={meeting !== null}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>删除真人复面会议？</AlertDialogTitle>
+          <AlertDialogDescription>
+            删除后会移除该会议和对应入场链接，但不会删除候选人的真人复面轮次记录。
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>取消</AlertDialogCancel>
+          <AlertDialogAction onClick={handleConfirm} variant="destructive">
+            确认删除
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
+
+const interviewerRoleLabel: Record<HumanInterviewMeetingInterviewerRole, string> = {
+  host: "主持人",
+  interviewer: "面试官",
+  observer: "旁听",
+};
+
+function MeetingLinksDialog({
+  meeting,
+  onOpenChange,
+}: {
+  meeting: HumanInterviewMeetingRecord | null;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const slug = useWorkspaceSlug();
+  const { data, error, isFetching } = useQuery({
+    enabled: Boolean(meeting),
+    queryFn: () => {
+      if (!meeting) {
+        throw new Error("missing meeting");
+      }
+      return issueHumanInterviewMeetingLinks(slug, meeting.id);
+    },
+    queryKey: ["human-interview-meeting-links", slug, meeting?.id],
+  });
+
+  return (
+    <Dialog onOpenChange={onOpenChange} open={meeting !== null}>
+      <DialogContent className="sm:max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>复制面试链接</DialogTitle>
+          <DialogDescription>
+            {meeting?.title ?? "真人复面会议"} 的候选人和面试官入场链接。
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="max-h-[60dvh] space-y-5 overflow-y-auto py-1">
+          {isFetching ? (
+            <div className="flex items-center justify-center gap-2 rounded-lg border border-border/60 p-6 text-muted-foreground text-sm">
+              <Loader2Icon className="size-4 animate-spin" />
+              生成链接中…
+            </div>
+          ) : null}
+          {error ? (
+            <p className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-destructive text-sm">
+              {error instanceof Error ? error.message : "生成链接失败"}
+            </p>
+          ) : null}
+          {data ? <MeetingLinksContent links={data} /> : null}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function MeetingLinksContent({ links }: { links: HumanInterviewMeetingLinkBundle }) {
+  return (
+    <div className="space-y-5">
+      <section className="space-y-2">
+        <h4 className="flex items-center gap-2 font-medium text-sm">
+          <UsersIcon className="size-4" />
+          候选人链接
+        </h4>
+        <div className="space-y-2">
+          {links.candidateLinks.map((link) => (
+            <MeetingLinkRow
+              description={`${link.roundLabel} · 有效至 ${formatDateTime(link.expiresAt)}`}
+              key={link.roundId}
+              label={link.candidateName}
+              url={link.url}
+            />
+          ))}
+        </div>
+      </section>
+
+      <section className="space-y-2">
+        <h4 className="flex items-center gap-2 font-medium text-sm">
+          <LinkIcon className="size-4" />
+          面试官链接
+        </h4>
+        <div className="space-y-2">
+          {links.interviewerLinks.map((link) => (
+            <MeetingLinkRow
+              description={interviewerRoleLabel[link.role]}
+              key={link.userId}
+              label={link.name}
+              url={link.url}
+            />
+          ))}
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function MeetingLinkRow({
+  description,
+  label,
+  url,
+}: {
+  description: string;
+  label: string;
+  url: string;
+}) {
+  const absoluteUrl = toAbsoluteUrl(url);
+
+  async function handleCopy() {
+    const result = await copyTextToClipboard(absoluteUrl);
+    if (result === "copied") {
+      toast.success("链接已复制");
+      return;
+    }
+    if (result === "manual") {
+      toast.info("已打开手动复制窗口");
+      return;
+    }
+    toast.error("复制失败，请手动选择链接");
+  }
+
+  return (
+    <div className="grid gap-2 rounded-lg border border-border/60 p-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
+      <div className="min-w-0 space-y-1">
+        <div className="flex items-center gap-2">
+          <span className="font-medium text-sm">{label}</span>
+          <Badge variant="outline">{description}</Badge>
+        </div>
+        <Input className="h-8 text-xs" readOnly value={absoluteUrl} />
+      </div>
+      <Button className="md:self-end" onClick={handleCopy} size="sm" variant="outline">
+        <CopyIcon className="size-4" />
+        复制
+      </Button>
+    </div>
+  );
+}
+
 function describeRoundStatus(round: HumanInterviewRoundRecord): {
   label: string;
   tone: "success" | "warning" | "info" | "outline";
@@ -312,6 +692,22 @@ function describeRoundStatus(round: HumanInterviewRoundRecord): {
   }
   // pending
   return { label: round.scheduledAt ? "已安排" : "待安排", tone: "info" };
+}
+
+function describeMeetingStatus(meeting: HumanInterviewMeetingRecord): {
+  label: string;
+  tone: "success" | "warning" | "info" | "outline";
+} {
+  if (meeting.status === "cancelled") {
+    return { label: "已取消", tone: "outline" };
+  }
+  if (meeting.status === "ended") {
+    return { label: "已结束", tone: "outline" };
+  }
+  if (meeting.status === "in_progress") {
+    return { label: "进行中", tone: "success" };
+  }
+  return { label: "待开始", tone: "info" };
 }
 
 function pad2(n: number): string {
@@ -361,19 +757,13 @@ function ScheduleRoundDialog({
   const slug = useWorkspaceSlug();
   const { data: members } = useWorkspaceMembers();
   const [label, setLabel] = useState("");
-  const [format, setFormat] = useState<HumanInterviewFormat>("online");
   const [scheduledAt, setScheduledAt] = useState("");
-  const [meetingUrl, setMeetingUrl] = useState("");
-  const [location, setLocation] = useState("");
   const [interviewerIds, setInterviewerIds] = useState<string[]>([]);
   const [notes, setNotes] = useState("");
 
   function reset() {
     setLabel("");
-    setFormat("online");
     setScheduledAt("");
-    setMeetingUrl("");
-    setLocation("");
     setInterviewerIds([]);
     setNotes("");
   }
@@ -386,19 +776,29 @@ function ScheduleRoundDialog({
   }
 
   const mutation = useMutation({
-    mutationFn: () =>
-      createHumanInterviewRound(slug, candidateId, {
-        format,
+    mutationFn: async () => {
+      const roundLabel = label.trim() || defaultRoundLabel(existingCount);
+      const round = await createHumanInterviewRound(slug, candidateId, {
+        format: "online",
         interviewerIds,
-        label: label.trim() || defaultRoundLabel(existingCount),
-        location: format === "onsite" ? location.trim() || null : null,
-        meetingUrl: format === "online" ? meetingUrl.trim() || null : null,
+        label: roundLabel,
+        location: null,
+        meetingUrl: null,
         notes: notes.trim() || null,
         scheduledAt: scheduledAt || null,
-      }),
+      });
+      await createHumanInterviewMeeting(slug, {
+        interviewerIds,
+        notes: notes.trim() || null,
+        roundIds: [round.id],
+        scheduledAt: scheduledAt || null,
+        title: roundLabel,
+      });
+      return round;
+    },
     onError: (e) => toast.error(e instanceof Error ? e.message : "创建失败"),
     onSuccess: () => {
-      toast.success("已安排新一轮真人复面");
+      toast.success("已安排线上真人复面");
       onScheduled();
       handleOpenChange(false);
     },
@@ -415,7 +815,7 @@ function ScheduleRoundDialog({
         <DialogHeader>
           <DialogTitle>安排真人复面</DialogTitle>
           <DialogDescription>
-            填好基础信息后保存。面试官至少 1 位；时间可以暂不填，后续再补。
+            填好基础信息后保存。系统会创建线上复面会议；时间可以暂不填，后续再补。
           </DialogDescription>
         </DialogHeader>
 
@@ -432,51 +832,6 @@ function ScheduleRoundDialog({
               value={label}
             />
           </div>
-
-          <div className="grid gap-1.5">
-            <Label className="text-sm">面试形式</Label>
-            <RadioGroup
-              className="grid grid-cols-3 gap-2"
-              onValueChange={(v) => setFormat(v as HumanInterviewFormat)}
-              value={format}
-            >
-              {(Object.keys(humanInterviewFormatMeta) as HumanInterviewFormat[]).map((v) => (
-                <div className="flex items-center gap-2" key={v}>
-                  <RadioGroupItem id={`format-${v}`} value={v} />
-                  <Label className="cursor-pointer text-sm" htmlFor={`format-${v}`}>
-                    {humanInterviewFormatMeta[v].label}
-                  </Label>
-                </div>
-              ))}
-            </RadioGroup>
-          </div>
-
-          {format === "online" ? (
-            <div className="grid gap-1.5">
-              <Label className="text-sm" htmlFor="meeting-url">
-                会议链接（可选）
-              </Label>
-              <Input
-                id="meeting-url"
-                onChange={(e) => setMeetingUrl(e.target.value)}
-                placeholder="https://..."
-                value={meetingUrl}
-              />
-            </div>
-          ) : null}
-          {format === "onsite" ? (
-            <div className="grid gap-1.5">
-              <Label className="text-sm" htmlFor="onsite-location">
-                地点（可选）
-              </Label>
-              <Input
-                id="onsite-location"
-                onChange={(e) => setLocation(e.target.value)}
-                placeholder="如 上海办公室 3F"
-                value={location}
-              />
-            </div>
-          ) : null}
 
           <div className="grid gap-1.5">
             <Label className="text-sm" htmlFor="scheduled-at">
@@ -527,11 +882,7 @@ function ScheduleRoundDialog({
             取消
           </Button>
           <Button
-            disabled={
-              mutation.isPending ||
-              interviewerIds.length === 0 ||
-              (!label.trim() && existingCount === 0 && false)
-            }
+            disabled={mutation.isPending || interviewerIds.length === 0}
             onClick={() => mutation.mutate()}
           >
             {mutation.isPending ? "保存中…" : "保存"}
@@ -604,7 +955,7 @@ function CompleteRoundDialog({
         <DialogHeader>
           <DialogTitle>标记完成：{round?.label}</DialogTitle>
           <DialogDescription>
-            录入面试结果。完成后只能修改评分和反馈，不能改时间或面试官。
+            录入面试结果。完成后会自动结束该轮次下的会议，且只能修改评分和反馈。
           </DialogDescription>
         </DialogHeader>
 

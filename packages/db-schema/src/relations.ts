@@ -264,6 +264,7 @@ export const relations = defineRelations(schema, (r) => ({
     invitations: r.many.invitation(),
     jobDescriptions: r.many.jobDescription(),
     members: r.many.member(),
+    studioHumanInterviewMeetings: r.many.studioHumanInterviewMeeting(),
     studioInterviewSchedules: r.many.studioInterviewSchedule(),
     studioInterviews: r.many.studioInterview(),
     studioOrgSkills: r.many.studioOrgSkill(),
@@ -276,12 +277,45 @@ export const relations = defineRelations(schema, (r) => ({
       to: r.user.id,
     }),
   },
+  studioHumanInterviewMeeting: {
+    createdByUser: r.one.user({
+      from: r.studioHumanInterviewMeeting.createdBy,
+      to: r.user.id,
+    }),
+    interviewers: r.many.studioHumanInterviewMeetingInterviewer(),
+    organization: r.one.organization({
+      from: r.studioHumanInterviewMeeting.organizationId,
+      to: r.organization.id,
+    }),
+    rounds: r.many.studioHumanInterviewMeetingRound(),
+  },
+  studioHumanInterviewMeetingInterviewer: {
+    meeting: r.one.studioHumanInterviewMeeting({
+      from: r.studioHumanInterviewMeetingInterviewer.meetingId,
+      to: r.studioHumanInterviewMeeting.id,
+    }),
+    user: r.one.user({
+      from: r.studioHumanInterviewMeetingInterviewer.userId,
+      to: r.user.id,
+    }),
+  },
+  studioHumanInterviewMeetingRound: {
+    meeting: r.one.studioHumanInterviewMeeting({
+      from: r.studioHumanInterviewMeetingRound.meetingId,
+      to: r.studioHumanInterviewMeeting.id,
+    }),
+    round: r.one.studioHumanInterviewRound({
+      from: r.studioHumanInterviewMeetingRound.roundId,
+      to: r.studioHumanInterviewRound.id,
+    }),
+  },
   studioHumanInterviewRound: {
     interviewRecord: r.one.studioInterview({
       from: r.studioHumanInterviewRound.interviewRecordId,
       to: r.studioInterview.id,
     }),
     interviewers: r.many.studioHumanInterviewRoundInterviewer(),
+    meetingLinks: r.many.studioHumanInterviewMeetingRound(),
     organization: r.one.organization({
       from: r.studioHumanInterviewRound.organizationId,
       to: r.organization.id,
@@ -374,6 +408,11 @@ export const relations = defineRelations(schema, (r) => ({
     jobDescriptions: r.many.jobDescription(),
     memberships: r.many.member(),
     session: r.many.session(),
+    studioHumanInterviewMeetingInterviewer: r.many.studioHumanInterviewMeetingInterviewer(),
+    studioHumanInterviewMeetingsCreated: r.many.studioHumanInterviewMeeting({
+      from: r.user.id,
+      to: r.studioHumanInterviewMeeting.createdBy,
+    }),
     studioInterview: r.many.studioInterview(),
     workspaceInviteLinksCreated: r.many.workspaceInviteLink({
       from: r.user.id,
