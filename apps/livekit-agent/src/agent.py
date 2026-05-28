@@ -221,7 +221,8 @@ def prewarm(proc: JobProcess) -> None:
         句子已说完 → 用 min_delay=0.5s 立即回, 抢答风险高; 反向上长 user turn
         也跟这条相关 (filler 被 VAD 吞了, 句子断成多段累积).
         min_silence 1.5s 与 turn detector + max_delay=5s 兜底协同, 是给真实
-        思考停顿的最小窗口.
+        思考停顿的最小窗口. max_buffered_speech 提到 180s, 覆盖面试里
+        2-3 分钟长答, 避免默认 60s buffer 把候选人半句话切成完整 user turn.
 
         Reverted to official defaults except min_silence. The previous strict
         thresholds dropped soft fillers ("嗯/呃") from STT, so the turn detector
@@ -232,6 +233,7 @@ def prewarm(proc: JobProcess) -> None:
         activation_threshold=0.5,
         min_speech_duration=0.05,
         min_silence_duration=1.5,
+        max_buffered_speech=180.0,
         prefix_padding_duration=0.5,
     )
 
@@ -304,7 +306,7 @@ def _build_session(
             "turn_detection": MultilingualModel(),
             "endpointing": {
                 "mode": "dynamic",
-                "min_delay": 0.5,
+                "min_delay": 1.5,
                 # 单轮 EOT 最长等 5s. 之前 8s 在结合候选人大量"嗯/呃"破碎
                 # 表达时, 会把一连串中途停顿累积成几分钟不关闭的 user turn,
                 # 期间 agent 完全沉默, 体感像模型卡死.
