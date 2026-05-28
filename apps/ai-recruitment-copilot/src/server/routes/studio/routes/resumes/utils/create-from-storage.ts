@@ -32,11 +32,13 @@ export async function createResumeRecordFromStorage(
 ): Promise<string> {
   const now = new Date();
   const recordId = crypto.randomUUID();
+  const candidateEmail = input.candidateEmail?.trim() || input.resumeProfile?.email || null;
+  const candidatePhone = input.candidatePhone?.trim() || input.resumeProfile?.phone || null;
   await db.transaction(async (tx) => {
     await tx.insert(studioInterview).values({
-      candidateEmail: input.candidateEmail,
+      candidateEmail,
       candidateName: input.candidateName?.trim() || input.resumeProfile?.name || "未命名候选人",
-      candidatePhone: input.candidatePhone ?? input.resumeProfile?.phone ?? null,
+      candidatePhone,
       createdAt: now,
       createdBy: input.userId,
       id: recordId,

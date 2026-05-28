@@ -17,6 +17,7 @@ import {
 } from "@livekit/components-react";
 import type { TrackReferenceOrPlaceholder } from "@livekit/components-react";
 import {
+  AudioLinesIcon,
   CheckIcon,
   ChevronDownIcon,
   CircleStopIcon,
@@ -29,8 +30,10 @@ import {
   UsersIcon,
   VideoOffIcon,
   VideoIcon,
+  WandSparklesIcon,
 } from "lucide-react";
-import { ConnectionState, RoomEvent, Track } from "livekit-client";
+import { ConnectionState, LocalAudioTrack, RoomEvent, Track } from "livekit-client";
+import type { Room } from "livekit-client";
 import type { MouseEvent } from "react";
 import { useEffect, useReducer, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -54,9 +57,12 @@ import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { createVoiceEffectProcessor } from "./human-voice-effects";
+import type { VoiceEffectId } from "./human-voice-effects";
 
 type HumanMeetingRoomProps =
   | {
@@ -119,6 +125,14 @@ const interviewerRoleLabel = {
   interviewer: "面试官",
   observer: "旁听",
 } as const;
+const voiceEffectOptions = [
+  { id: "none", label: "原声" },
+  { id: "warmLight", label: "轻微低沉" },
+  { id: "warmDeep", label: "稳重低沉" },
+  { id: "phoneClear", label: "清晰电话音" },
+  { id: "robotLight", label: "轻机器人" },
+  { id: "cartoonHigh", label: "卡通高音" },
+] satisfies { id: VoiceEffectId; label: string }[];
 const EARLY_JOIN_WINDOW_MS = 5 * 60 * 1000;
 const dateTimeFormatter = new Intl.DateTimeFormat("zh-CN", {
   day: "2-digit",
@@ -431,6 +445,7 @@ export function HumanMeetingRoom(props: HumanMeetingRoomProps) {
       <DefaultMicrophoneStarter enabled={token.participantRole !== "observer"} />
       <HumanMeetingStage
         canPublish={token.participantRole !== "observer"}
+        canUseVoiceEffects={props.mode === "interviewer" && token.participantRole !== "observer"}
         canEndMeeting={props.mode === "interviewer"}
         isEnding={isEnding}
         onEndMeeting={endMeeting}
@@ -487,6 +502,7 @@ function DefaultMicrophoneStarter({ enabled }: { enabled: boolean }) {
 
 function HumanMeetingStage({
   canPublish,
+  canUseVoiceEffects,
   canEndMeeting,
   isEnding,
   onEndMeeting,
@@ -494,6 +510,7 @@ function HumanMeetingStage({
   title,
 }: {
   canPublish: boolean;
+  canUseVoiceEffects: boolean;
   canEndMeeting: boolean;
   isEnding: boolean;
   onEndMeeting: () => Promise<void> | void;
@@ -559,6 +576,7 @@ function HumanMeetingStage({
               <span className="toggle-off">已静音</span>
             </TrackToggle>
             <MicrophoneDeviceMenu />
+            {canUseVoiceEffects ? <VoiceEffectMenu /> : null}
             <TrackToggle
               className={mediaToggleButtonClass}
               showIcon={false}
@@ -659,22 +677,115 @@ function MicrophoneDeviceMenu() {
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="center" className="w-72" side="top">
-        {devices.length === 0 ? (
-          <DropdownMenuItem disabled>未检测到麦克风</DropdownMenuItem>
-        ) : (
-          devices.map((device, index) => (
+        <DropdownMenuGroup>
+          {devices.length === 0 ? (
+            <DropdownMenuItem disabled>未检测到麦克风</DropdownMenuItem>
+          ) : (
+            devices.map((device, index) => (
+              <DropdownMenuItem
+                className="flex items-center justify-between gap-2"
+                key={device.deviceId}
+                onSelect={() => void handleSelect(device.deviceId)}
+              >
+                <span className="truncate">{getDeviceLabel(device, index)}</span>
+                {device.deviceId === activeDeviceId ? (
+                  <CheckIcon className="size-4 shrink-0" />
+                ) : null}
+              </DropdownMenuItem>
+            ))
+          )}
+        </DropdownMenuGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+function getVoiceEffectLabel(effect: VoiceEffectId): string {
+  return voiceEffectOptions.find((option) => option.id === effect)?.label ?? "原声";
+}
+
+function getLocalMicrophoneTrack(room: Room): LocalAudioTrack | null {
+  const publication = room.localParticipant.getTrackPublication(Track.Source.Microphone);
+  return publication?.track instanceof LocalAudioTrack ? publication.track : null;
+}
+
+async function getOrCreateLocalMicrophoneTrack(room: Room): Promise<LocalAudioTrack> {
+  const existingTrack = getLocalMicrophoneTrack(room);
+  if (existingTrack) {
+    return existingTrack;
+  }
+  const publication = await room.localParticipant.setMicrophoneEnabled(true, {
+    deviceId: "default",
+  });
+  if (publication?.track instanceof LocalAudioTrack) {
+    return publication.track;
+  }
+  const nextTrack = getLocalMicrophoneTrack(room);
+  if (nextTrack) {
+    return nextTrack;
+  }
+  throw new Error("未找到本地麦克风");
+}
+
+function VoiceEffectMenu() {
+  const room = useRoomContext();
+  const [selectedEffect, setSelectedEffect] = useState<VoiceEffectId>("none");
+  const [isApplying, setIsApplying] = useState(false);
+  const selectedLabel = getVoiceEffectLabel(selectedEffect);
+
+  async function handleSelect(effect: VoiceEffectId) {
+    if (isApplying || effect === selectedEffect) {
+      return;
+    }
+    setIsApplying(true);
+    try {
+      if (effect === "none") {
+        await getLocalMicrophoneTrack(room)?.stopProcessor();
+        setSelectedEffect("none");
+        toast.success("已恢复原声");
+        return;
+      }
+
+      const track = await getOrCreateLocalMicrophoneTrack(room);
+      await track.setProcessor(createVoiceEffectProcessor(effect));
+      setSelectedEffect(effect);
+      toast.success(`已启用${getVoiceEffectLabel(effect)}`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "开启声音效果失败");
+    } finally {
+      setIsApplying(false);
+    }
+  }
+
+  let triggerIcon = <AudioLinesIcon className="size-4" />;
+  if (isApplying) {
+    triggerIcon = <Loader2Icon className="size-4 animate-spin" />;
+  } else if (selectedEffect !== "none") {
+    triggerIcon = <WandSparklesIcon className="size-4" />;
+  }
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button className={deviceButtonClass} disabled={isApplying} type="button">
+          {triggerIcon}
+          <span>{selectedLabel}</span>
+          <ChevronDownIcon className="size-3.5 opacity-70" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="center" className="w-44" side="top">
+        <DropdownMenuGroup>
+          {voiceEffectOptions.map((option) => (
             <DropdownMenuItem
               className="flex items-center justify-between gap-2"
-              key={device.deviceId}
-              onSelect={() => void handleSelect(device.deviceId)}
+              key={option.id}
+              onSelect={() => void handleSelect(option.id)}
             >
-              <span className="truncate">{getDeviceLabel(device, index)}</span>
-              {device.deviceId === activeDeviceId ? (
-                <CheckIcon className="size-4 shrink-0" />
-              ) : null}
+              <span>{option.label}</span>
+              {option.id === selectedEffect ? <CheckIcon className="size-4 shrink-0" /> : null}
             </DropdownMenuItem>
-          ))
-        )}
+          ))}
+        </DropdownMenuGroup>
       </DropdownMenuContent>
     </DropdownMenu>
   );
@@ -720,7 +831,7 @@ const controlButtonClass =
 const mediaToggleButtonClass = `${controlButtonClass} [&[data-lk-enabled='true']_.toggle-off]:hidden [&[data-lk-enabled='false']_.toggle-on]:hidden`;
 
 const deviceButtonClass =
-  "inline-flex h-9 max-w-48 items-center gap-2 rounded-md border border-white/15 bg-white/10 px-3 text-sm text-white transition hover:bg-white/15";
+  "inline-flex h-9 max-w-48 items-center gap-2 rounded-md border border-white/15 bg-white/10 px-3 text-sm text-white transition hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-60";
 
 const leaveButtonClass =
   "inline-flex h-9 items-center gap-2 rounded-md border border-red-400/40 bg-red-500 px-3 text-sm text-white transition hover:bg-red-500/90";

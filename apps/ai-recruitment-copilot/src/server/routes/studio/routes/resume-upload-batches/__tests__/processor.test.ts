@@ -175,7 +175,7 @@ describe("processNextItem — happy path", () => {
     mockParseOK({
       email: "test@example.com",
       name: "Test User",
-      phone: null,
+      phone: "13800000000",
       targetRoles: ["Engineer"],
     });
 
@@ -197,6 +197,10 @@ describe("processNextItem — happy path", () => {
       .where(eq(studioInterview.id, recordId));
     expect(interview).toBeDefined();
     expect(interview?.organizationId).toBe(ORG_A);
+    expect(interview?.candidateEmail).toBe("test@example.com");
+    expect(interview?.candidateName).toBe("Test User");
+    expect(interview?.candidatePhone).toBe("13800000000");
+    expect(interview?.targetRole).toBe("Engineer");
 
     // 验证 batch 计数器更新正确。
     // Verify batch counters are updated correctly.

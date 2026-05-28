@@ -338,6 +338,9 @@ importers:
       tiptap-markdown:
         specifier: ^0.9.0
         version: 0.9.0(@tiptap/core@3.23.6(@tiptap/pm@3.23.6))
+      tone:
+        specifier: ^15.1.22
+        version: 15.1.22
       use-stick-to-bottom:
         specifier: ^1.1.4
         version: 1.1.4(react@19.2.3)
@@ -3438,6 +3441,10 @@ packages:
   asynckit@0.4.0:
     resolution: {integrity: sha512-Oei9OH4tRh0YqU3GxhX79dM/mwVgvbZJaSNaRk+bshkj0S5cfHcgYakreBjrHwatXKbz+IoIdYLxrKim2MjW0Q==}
 
+  automation-events@7.1.19:
+    resolution: {integrity: sha512-cD+TLhJTI0q4AI3ktd353lrGZiVa9AchowSDzQzzGjSoYe22js4vlS32VUtWuaulghi1Yq0KYNWKk9wWuGymPA==}
+    engines: {node: '>=18.2.0'}
+
   axios@1.13.6:
     resolution: {integrity: sha512-ChTCHMouEe2kn713WHbQGcuYrr6fXTBiu460OTwWrWob16g1bXn4vtz07Ope7ewMozJAnEquLk5lWQWtBig9DQ==}
 
@@ -5530,6 +5537,9 @@ packages:
   stackback@0.0.2:
     resolution: {integrity: sha512-1XMJE5fQo1jGH6Y/7ebnwPOBEkIEnT4QF32d5R1+VXdXveM0IBMJt8zfaxX1P3QhVwrYe+576+jkANtSS2mBbw==}
 
+  standardized-audio-context@25.3.77:
+    resolution: {integrity: sha512-Ki9zNz6pKcC5Pi+QPjPyVsD9GwJIJWgryji0XL9cAJXMGyn+dPOf6Qik1AHei0+UNVcc4BOCa0hWLBzlwqsW/A==}
+
   standardwebhooks@1.0.0:
     resolution: {integrity: sha512-BbHGOQK9olHPMvQNHWul6MYlrRTAOKn03rOe4A8O3CLWhNf4YHBqq2HJKKC+sfqpxiBY52pNeesD6jIiLDz8jg==}
 
@@ -5635,6 +5645,9 @@ packages:
   tldts@7.4.0:
     resolution: {integrity: sha512-yHBe+zVfzNZ3QfTPW/Z6KK1G2t340gFjMHqI/4KKSt/abzYydzuCnpqdaF5gCCABby+9Yfbj59oR5F2Fd5CBzg==}
     hasBin: true
+
+  tone@15.1.22:
+    resolution: {integrity: sha512-TCScAGD4sLsama5DjvTUXlLDXSqPealhL64nsdV1hhr6frPWve0DeSo63AKnSJwgfg55fhvxj0iPPRwPN5o0ag==}
 
   tough-cookie@6.0.1:
     resolution: {integrity: sha512-LktZQb3IeoUWB9lqR5EWTHgW/VTITCXg4D21M+lvybRVdylLrRMnqaIONLVb5mav8vM19m44HIcGq4qASeu2Qw==}
@@ -8751,6 +8764,11 @@ snapshots:
 
   asynckit@0.4.0: {}
 
+  automation-events@7.1.19:
+    dependencies:
+      '@babel/runtime': 7.29.7
+      tslib: 2.8.1
+
   axios@1.13.6:
     dependencies:
       follow-redirects: 1.16.0
@@ -11154,6 +11172,12 @@ snapshots:
 
   stackback@0.0.2: {}
 
+  standardized-audio-context@25.3.77:
+    dependencies:
+      '@babel/runtime': 7.29.7
+      automation-events: 7.1.19
+      tslib: 2.8.1
+
   standardwebhooks@1.0.0:
     dependencies:
       '@stablelib/base64': 1.0.1
@@ -11260,6 +11284,11 @@ snapshots:
   tldts@7.4.0:
     dependencies:
       tldts-core: 7.4.0
+
+  tone@15.1.22:
+    dependencies:
+      standardized-audio-context: 25.3.77
+      tslib: 2.8.1
 
   tough-cookie@6.0.1:
     dependencies:
