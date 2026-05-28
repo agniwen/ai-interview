@@ -79,6 +79,10 @@ export function useMarkdownEditor({
     shouldRerenderOnTransaction: false,
   });
 
+  useEffect(() => {
+    editor?.setEditable(!disabled);
+  }, [disabled, editor]);
+
   // 中文：外部 value 与编辑器内部不同步时（如表单 reset、模式切换回 edit），
   // 用 setContent 重建一次。
   // English: when external value diverges from the editor's, rebuild via

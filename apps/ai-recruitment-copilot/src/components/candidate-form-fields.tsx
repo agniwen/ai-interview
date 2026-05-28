@@ -6,6 +6,7 @@ import { FileUpIcon } from "lucide-react";
 import { useRef } from "react";
 import { JobDescriptionSelectField } from "@/app/(auth)/w/[slug]/studio/interviews/_components/job-description-select-field";
 import { MarkdownEditor } from "@/components/markdown-editor";
+import { Button } from "@/components/ui/button";
 import { Field, FieldContent, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import type { ResumeLibraryFormValues } from "@/lib/shared/studio-resumes";
@@ -74,6 +75,8 @@ export interface CandidateFormFieldsProps {
   /** 候选人姓名字段的 placeholder。 Placeholder for the candidate name input. */
   candidateNamePlaceholder?: string;
   disabled?: boolean;
+  /** false 时只显示简历 PDF 字段；用于新建弹窗解析完成前的初始状态。 */
+  showDetails?: boolean;
   /**
    * true 时：简历 PDF 字段显示为必填（红星 + 不再带"可选"），并且在未选 / 未上传过
    * PDF 之前隐藏候选人姓名 / 邮箱 / 电话 / 目标岗位四个字段——避免用户在没解析依据时
@@ -127,6 +130,7 @@ export function CandidateFormFields({
   resumeFieldExtra,
   candidateNamePlaceholder = "可留空，自动从简历回填",
   disabled,
+  showDetails = true,
   requireResumeFile = false,
   isJobDescriptionMatching = false,
 }: CandidateFormFieldsProps) {
@@ -140,7 +144,7 @@ export function CandidateFormFields({
   // "Has a resume" = either a freshly-picked File or an existing file name from
   // the server (edit mode populates existingResumeFileName from resumeStorageKey).
   const hasResume = Boolean(resumeFile) || Boolean(existingResumeFileName);
-  const showIdentityFields = !requireResumeFile || hasResume;
+  const showIdentityFields = showDetails && (!requireResumeFile || hasResume);
 
   return (
     <div className="space-y-5">
@@ -156,13 +160,16 @@ export function CandidateFormFields({
           )}
         </FieldLabel>
         <FieldContent className="gap-2">
-          <label
-            className="flex cursor-pointer items-center gap-2 rounded-md border border-border/60 border-dashed px-3 py-3 text-sm transition-colors hover:border-border"
-            htmlFor="candidate-resume-upload"
+          <Button
+            className="w-full justify-start overflow-hidden"
+            disabled={disabled}
+            onClick={() => fileInputRef.current?.click()}
+            type="button"
+            variant="outline"
           >
-            <FileUpIcon className="size-4" />
-            <span>{resumeFieldLabel}</span>
-          </label>
+            <FileUpIcon data-icon="inline-start" />
+            <span className="min-w-0 truncate">{resumeFieldLabel}</span>
+          </Button>
           <input
             accept="application/pdf"
             aria-label="上传候选人简历 PDF"
@@ -177,20 +184,22 @@ export function CandidateFormFields({
         </FieldContent>
       </Field>
 
-      <form.Field name="jobDescriptionId">
-        {(field) => {
-          const errors = toFieldErrors(field.state.meta.errors);
-          return (
-            <JobDescriptionSelectField
-              disabled={disabled}
-              error={errors?.[0]?.message}
-              matching={isJobDescriptionMatching}
-              onChange={(next) => field.handleChange(next)}
-              value={field.state.value ?? ""}
-            />
-          );
-        }}
-      </form.Field>
+      {showDetails ? (
+        <form.Field name="jobDescriptionId">
+          {(field) => {
+            const errors = toFieldErrors(field.state.meta.errors);
+            return (
+              <JobDescriptionSelectField
+                disabled={disabled}
+                error={errors?.[0]?.message}
+                matching={isJobDescriptionMatching}
+                onChange={(next) => field.handleChange(next)}
+                value={field.state.value ?? ""}
+              />
+            );
+          }}
+        </form.Field>
+      ) : null}
 
       {showIdentityFields ? (
         <FieldGroup className="grid gap-5 md:grid-cols-2 md:items-start">
@@ -287,30 +296,32 @@ export function CandidateFormFields({
         </FieldGroup>
       ) : null}
 
-      <form.Field name="notes">
-        {(field) => {
-          const errors = toFieldErrors(field.state.meta.errors);
-          return (
-            <Field>
-              <FieldLabel htmlFor={field.name}>简历评价</FieldLabel>
-              <FieldContent className="gap-2">
-                <MarkdownEditor
-                  aria-invalid={!!errors?.length}
-                  disabled={disabled}
-                  id={field.name}
-                  maxLength={NOTES_MAX_LENGTH}
-                  minHeight={180}
-                  onBlur={field.handleBlur}
-                  onChange={field.handleChange}
-                  placeholder="对候选人简历的评价、来源、业务线、关注点等"
-                  value={field.state.value}
-                />
-                <FieldError errors={errors} />
-              </FieldContent>
-            </Field>
-          );
-        }}
-      </form.Field>
+      {showDetails ? (
+        <form.Field name="notes">
+          {(field) => {
+            const errors = toFieldErrors(field.state.meta.errors);
+            return (
+              <Field>
+                <FieldLabel htmlFor={field.name}>简历评价</FieldLabel>
+                <FieldContent className="gap-2">
+                  <MarkdownEditor
+                    aria-invalid={!!errors?.length}
+                    disabled={disabled}
+                    id={field.name}
+                    maxLength={NOTES_MAX_LENGTH}
+                    minHeight={180}
+                    onBlur={field.handleBlur}
+                    onChange={field.handleChange}
+                    placeholder="对候选人简历的评价、来源、业务线、关注点等"
+                    value={field.state.value}
+                  />
+                  <FieldError errors={errors} />
+                </FieldContent>
+              </Field>
+            );
+          }}
+        </form.Field>
+      ) : null}
     </div>
   );
 }

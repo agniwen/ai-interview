@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import { ResumeAnalysisOverlay } from "@/app/(auth)/w/[slug]/studio/_components/resume-analysis-overlay";
 import { useResumeAnalysisPipeline } from "@/app/(auth)/w/[slug]/studio/_components/use-resume-analysis-pipeline";
 import type { ResumeAnalysisPipeline } from "@/app/(auth)/w/[slug]/studio/_components/use-resume-analysis-pipeline";
+import { AnimatedHeight } from "@/components/animated-height";
 import { CandidateFormFields } from "@/components/candidate-form-fields";
 import { ResumeProfileView } from "@/components/resume-profile-view";
 import { Button } from "@/components/ui/button";
@@ -171,15 +172,16 @@ export function CreateResumeRecordDialog({ onCreated }: CreateResumeRecordDialog
       // resumePayload 由 hook 内部维护，弹窗不展示题目，故不需写入表单。
       // resumePayload is managed inside the hook; the dialog has no questions UI.
     },
-    // JD 匹配完后 pipeline 会基于（候选人 + 匹配岗位）生成简历评价，回填到「简历评价」字段。
-    // 仅在用户没自己写过 notes 时覆盖；避免覆盖用户已经输入的内容。
-    // Auto-fill the notes field with the post-match review only when it's
-    // still untouched, so we don't trample on text the user typed.
+    // JD 匹配完后 pipeline 会基于（候选人 + 匹配岗位）生成简历评价，并流式回填到「简历评价」字段。
+    // 生成期间外层遮罩会阻止编辑，最终 result 再覆盖一次，保证编辑器里拿到完整文本。
+    // The review is streamed into notes while the analysis overlay blocks
+    // editing, then the final result overwrites it once to guarantee a complete
+    // editor value.
+    onReviewDraftChange: (review) => {
+      form.setFieldValue("notes", review);
+    },
     onReviewGenerated: (review) => {
-      const current = form.getFieldValue("notes")?.trim();
-      if (!current) {
-        form.setFieldValue("notes", review);
-      }
+      form.setFieldValue("notes", review);
     },
   });
   // 把最新 pipeline 写入 ref，供 form.onSubmit 闭包读取。
@@ -189,12 +191,14 @@ export function CreateResumeRecordDialog({ onCreated }: CreateResumeRecordDialog
   const isSubmitting = useStore(form.store, (s) => s.isSubmitting);
   const jobDescriptionId = useStore(form.store, (s) => s.values.jobDescriptionId);
   const isBusy = submitting || isSubmitting || pipeline.isBusy;
-  // 新建场景里简历 PDF 必填：没选 PDF 之前两个保存按钮都灰掉，强制走解析-回填-提交流程，
-  // 避免出现没有简历附件的"裸候选人"行。
-  // PDF is required in the create flow; both submit buttons stay disabled until
-  // a file is chosen so we never persist a candidate row without an attached resume.
-  const hasResumeFile = pipeline.resumeFile !== null;
-  const canSaveAndStart = jobDescriptionId.trim().length > 0 && hasResumeFile;
+  // 新建场景里简历 PDF 必填，且解析完成前不允许保存，强制走解析-回填-提交流程。
+  // PDF is required in the create flow, and saving stays disabled until parsing
+  // finishes so the record is created from structured resume data.
+  const { resumeFile, resumePayload } = pipeline;
+  const hasResumeFile = resumeFile !== null;
+  const hasParsedResume = resumePayload !== null;
+  const canSaveOnly = hasResumeFile && hasParsedResume;
+  const canSaveAndStart = jobDescriptionId.trim().length > 0 && canSaveOnly;
 
   // "保存并发起面试" 按钮的禁用提示文案：未传 PDF / 未选 JD / 可点 三种状态。
   // 拆成纯函数避免嵌套三元，oxlint 不允许 nested ternary。
@@ -203,6 +207,8 @@ export function CreateResumeRecordDialog({ onCreated }: CreateResumeRecordDialog
   let saveAndStartHint: string | undefined;
   if (!hasResumeFile) {
     saveAndStartHint = "请先上传简历 PDF";
+  } else if (!hasParsedResume) {
+    saveAndStartHint = "请等待简历解析完成";
   } else if (!canSaveAndStart) {
     saveAndStartHint = "请先选择在招岗位";
   }
@@ -238,14 +244,14 @@ export function CreateResumeRecordDialog({ onCreated }: CreateResumeRecordDialog
         }}
         open={open}
         showCloseButton={!isBusy}
-        size="xl"
+        size={hasParsedResume ? "xl" : "md"}
         title="新建简历记录"
         footer={
           <>
             <Button
-              disabled={isBusy || !hasResumeFile}
+              disabled={isBusy || !canSaveOnly}
               onClick={() => triggerSubmit("save-only")}
-              title={hasResumeFile ? undefined : "请先上传简历 PDF"}
+              title={canSaveOnly ? undefined : "请先上传并完成简历解析"}
               type="button"
               variant="outline"
             >
@@ -276,45 +282,58 @@ export function CreateResumeRecordDialog({ onCreated }: CreateResumeRecordDialog
             e.preventDefault();
           }}
         >
-          {/* 「经历」tab 默认禁用，只有简历解析完成（pipeline.resumePayload 非空）后才可点击；
-              切到禁用 tab 时强制回退到「基本信息」，避免停留在空 tab。
-              The 经历 tab is disabled until the resume parse populates
-              pipeline.resumePayload; if it goes away (e.g. user re-uploads), we
-              force-fall back to 基本信息 instead of leaving the user on an empty
-              disabled tab. */}
-          <Tabs
-            onValueChange={(value) => setActiveTab(value as "basic" | "experience")}
-            value={pipeline.resumePayload ? activeTab : "basic"}
-          >
-            <TabsList>
-              <TabsTrigger className="min-w-[8em]" value="basic">
-                基本信息
-              </TabsTrigger>
-              <TabsTrigger
-                className="min-w-[8em]"
-                disabled={!pipeline.resumePayload}
-                value="experience"
+          <AnimatedHeight>
+            {hasParsedResume ? (
+              <Tabs
+                onValueChange={(value) => setActiveTab(value as "basic" | "experience")}
+                value={activeTab}
               >
-                经历
-              </TabsTrigger>
-            </TabsList>
+                <TabsList>
+                  <TabsTrigger className="min-w-[8em]" value="basic">
+                    基本信息
+                  </TabsTrigger>
+                  <TabsTrigger className="min-w-[8em]" value="experience">
+                    经历
+                  </TabsTrigger>
+                </TabsList>
 
-            <TabsContent className="mt-4" value="basic">
-              <CandidateFormFields
-                disabled={isBusy}
-                form={form}
-                isJobDescriptionMatching={pipeline.isMatchingJobDescription}
-                onResumeFileChange={(file) => void pipeline.handleResumeChange(file)}
-                requireResumeFile
-                resumeFile={pipeline.resumeFile}
-                resumeFilePlaceholder="请选择 PDF 简历"
-              />
-            </TabsContent>
+                <TabsContent className="mt-4" value="basic">
+                  <CandidateFormFields
+                    disabled={isBusy}
+                    form={form}
+                    isJobDescriptionMatching={pipeline.isMatchingJobDescription}
+                    onResumeFileChange={(file) => {
+                      setActiveTab("basic");
+                      void pipeline.handleResumeChange(file);
+                    }}
+                    requireResumeFile
+                    resumeFile={resumeFile}
+                    resumeFilePlaceholder="请选择 PDF 简历"
+                  />
+                </TabsContent>
 
-            <TabsContent className="mt-4" value="experience">
-              <ResumeProfileView profile={pipeline.resumePayload?.resumeProfile ?? null} />
-            </TabsContent>
-          </Tabs>
+                <TabsContent className="mt-4" value="experience">
+                  <ResumeProfileView profile={resumePayload.resumeProfile} />
+                </TabsContent>
+              </Tabs>
+            ) : (
+              <div className="pt-1">
+                <CandidateFormFields
+                  disabled={isBusy}
+                  form={form}
+                  isJobDescriptionMatching={pipeline.isMatchingJobDescription}
+                  onResumeFileChange={(file) => {
+                    setActiveTab("basic");
+                    void pipeline.handleResumeChange(file);
+                  }}
+                  requireResumeFile
+                  resumeFile={resumeFile}
+                  resumeFilePlaceholder="请选择 PDF 简历"
+                  showDetails={false}
+                />
+              </div>
+            )}
+          </AnimatedHeight>
         </form>
 
         <ResumeAnalysisOverlay pipeline={pipeline} />

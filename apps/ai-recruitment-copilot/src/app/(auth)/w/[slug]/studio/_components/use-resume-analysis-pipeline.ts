@@ -37,6 +37,7 @@ export interface ResumeAnalysisPipelineOptions {
    * Fired after the post-match resume-review generation. Optional; when omitted
    * the pipeline skips review generation entirely.
    */
+  onReviewDraftChange?: (review: string) => void;
   onReviewGenerated?: (review: string) => void;
 }
 
@@ -78,8 +79,13 @@ export function useResumeAnalysisPipeline(
   options: ResumeAnalysisPipelineOptions,
 ): ResumeAnalysisPipeline {
   const slug = useWorkspaceSlug();
-  const { onProfileParsed, onJobDescriptionMatched, onQuestionsGenerated, onReviewGenerated } =
-    options;
+  const {
+    onProfileParsed,
+    onJobDescriptionMatched,
+    onQuestionsGenerated,
+    onReviewDraftChange,
+    onReviewGenerated,
+  } = options;
 
   const [resumeFile, setResumeFile] = useState<File | null>(null);
   const [resumePayload, setResumePayload] = useState<ResumeAnalysisResult | null>(null);
@@ -418,13 +424,16 @@ export function useResumeAnalysisPipeline(
               (event) => {
                 if (event.type === "text-delta") {
                   reviewTextRef.current += event.text;
-                  setReviewPreview(reviewTextRef.current);
+                  const draft = reviewTextRef.current;
+                  setReviewPreview(draft);
+                  onReviewDraftChange?.(draft);
                 }
                 if (event.type === "result") {
                   const data = event.data as { review?: string };
                   review = data.review ?? null;
                   if (review) {
                     setReviewPreview(review);
+                    onReviewDraftChange?.(review);
                   }
                 }
               },
@@ -511,7 +520,7 @@ export function useResumeAnalysisPipeline(
         accumulatedTextRef.current = "";
       }
     },
-    [onJobDescriptionMatched, onProfileParsed, onReviewGenerated, slug],
+    [onJobDescriptionMatched, onProfileParsed, onReviewDraftChange, onReviewGenerated, slug],
   );
 
   const handleDedupContinue = useCallback(() => {
