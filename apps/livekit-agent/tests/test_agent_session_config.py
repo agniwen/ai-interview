@@ -30,7 +30,7 @@ def test_prewarm_allows_long_interview_answers(monkeypatch):
     assert calls == [
         {
             "activation_threshold": 0.5,
-            "max_buffered_speech": 180.0,
+            "max_buffered_speech": 600.0,
             "min_silence_duration": 1.5,
             "min_speech_duration": 0.05,
             "prefix_padding_duration": 0.5,
@@ -38,7 +38,7 @@ def test_prewarm_allows_long_interview_answers(monkeypatch):
     ]
 
 
-def test_agent_session_uses_scribe_v2_stt(monkeypatch):
+def test_agent_session_uses_scribe_v2_realtime_stt(monkeypatch):
     monkeypatch.setattr(agent_module, "AgentSession", _FakeAgentSession)
     monkeypatch.setattr(agent_module.elevenlabs, "STT", _FakeComponent)
     monkeypatch.setattr(agent_module.openai, "LLM", _FakeComponent)
@@ -53,9 +53,10 @@ def test_agent_session_uses_scribe_v2_stt(monkeypatch):
 
     stt = session.kwargs["stt"]
 
-    assert stt.kwargs["model_id"] == "scribe_v2"
+    assert stt.kwargs["model_id"] == "scribe_v2_realtime"
     assert stt.kwargs["language_code"] == "zh"
-    assert "server_vad" not in stt.kwargs
+    assert stt.kwargs["tag_audio_events"] is False
+    assert "api_key" not in stt.kwargs
 
 
 def test_agent_session_endpointing_waits_for_interview_pauses(monkeypatch):

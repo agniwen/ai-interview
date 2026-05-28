@@ -1,6 +1,10 @@
 from interview_agent import (
     DEFAULT_CLOSING_INSTRUCTIONS,
     DEFAULT_OPENING_INSTRUCTIONS,
+    INTERVIEW_FINAL_WRAP_SECONDS,
+    INTERVIEW_HARD_GRACE_SECONDS,
+    INTERVIEW_SOFT_WRAP_SECONDS,
+    INTERVIEW_TIME_LIMIT_SECONDS,
     InterviewAgent,
 )
 from prompts import apply_placeholders
@@ -73,3 +77,12 @@ def test_default_opening_substitutes_placeholders():
     assert "数据工程师" in a._opening_instructions
     assert "{候选人姓名}" not in a._opening_instructions
     assert "{岗位}" not in a._opening_instructions
+
+
+def test_default_timeline_warns_at_21_and_hard_cuts_at_25():
+    a = InterviewAgent(_ctx())
+
+    assert INTERVIEW_SOFT_WRAP_SECONDS == 18 * 60 + 30
+    assert INTERVIEW_FINAL_WRAP_SECONDS == 21 * 60
+    assert a.time_limit_seconds == 24 * 60
+    assert INTERVIEW_TIME_LIMIT_SECONDS + INTERVIEW_HARD_GRACE_SECONDS == 25 * 60

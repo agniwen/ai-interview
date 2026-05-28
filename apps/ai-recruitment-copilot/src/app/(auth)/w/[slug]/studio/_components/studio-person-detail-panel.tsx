@@ -42,7 +42,7 @@ import {
   PencilIcon,
   RotateCcwIcon,
 } from "lucide-react";
-import { useReducer } from "react";
+import { useMemo, useReducer } from "react";
 import type { ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { CandidateBasicInfoView } from "@/components/candidate-basic-info-view";
@@ -84,6 +84,7 @@ import {
   SummaryMetric,
 } from "./studio-person-detail-skeletons";
 import { toAbsoluteUrl } from "@/lib/client/clipboard";
+import { countDisplayInterviewTurns } from "@/lib/shared/interview-transcript-turns";
 import { pipelineStageMeta, scheduleEntryStatusMeta } from "@arc/db-schema/studio-interviews";
 import type { PipelineStage } from "@arc/db-schema/studio-interviews";
 import { AgentInstructionsPanel } from "../interviews/_components/agent-instructions-panel";
@@ -208,6 +209,17 @@ function compactText(value: string | null | undefined, fallback: string, limit =
     return fallback;
   }
   return value.length > limit ? `${value.slice(0, limit)}...` : value;
+}
+
+function resolveDisplayTurnStats(
+  report: { agentTurnCount: number; turnCount: number; userTurnCount: number },
+  stats: ReturnType<typeof countDisplayInterviewTurns> | undefined,
+) {
+  return {
+    displayAgentTurnCount: stats?.agentTurnCount ?? report.agentTurnCount,
+    displayTurnCount: stats?.turnCount ?? report.turnCount,
+    displayUserTurnCount: stats?.userTurnCount ?? report.userTurnCount,
+  };
 }
 
 async function resetInterviewFormSubmission({
@@ -525,6 +537,20 @@ function useStudioPersonDetailPanel({
     queryKey: ["studio-interview-round-reports", slug, effectiveRoundId, accessMode],
     refetchOnWindowFocus: true,
   });
+  const reportTranscriptStats = useMemo(() => {
+    const stats = new Map<string, ReturnType<typeof countDisplayInterviewTurns>>();
+    for (const report of reports) {
+      stats.set(report.conversationId, countDisplayInterviewTurns(report.turns));
+    }
+    return stats;
+  }, [reports]);
+  const totalDisplayTurnCount = useMemo(() => {
+    let total = 0;
+    for (const stats of reportTranscriptStats.values()) {
+      total += stats.turnCount;
+    }
+    return total;
+  }, [reportTranscriptStats]);
 
   const { data: formSubmissions = [], isLoading: isFormSubmissionsLoading } = useQuery({
     enabled: enabled && !!effectiveRoundId && mode === "interview",
@@ -1146,7 +1172,7 @@ function useStudioPersonDetailPanel({
                   <div className="rounded-2xl border border-border/60 bg-background p-4">
                     <p className="text-muted-foreground text-xs">累计对话轮次</p>
                     <p className="mt-2 font-medium text-2xl text-primary tabular-nums">
-                      {reports.reduce((sum, report) => sum + report.turnCount, 0)}
+                      {totalDisplayTurnCount}
                     </p>
                   </div>
                 </div>
@@ -1168,6 +1194,11 @@ function useStudioPersonDetailPanel({
                     {reports.map((report) => {
                       const startedAt = report.startedAt ?? report.createdAt;
                       const endedAt = report.endedAt ?? report.updatedAt;
+                      const { displayAgentTurnCount, displayTurnCount, displayUserTurnCount } =
+                        resolveDisplayTurnStats(
+                          report,
+                          reportTranscriptStats.get(report.conversationId),
+                        );
                       const activeEvidence =
                         selectedEvidence?.conversationId === report.conversationId
                           ? selectedEvidence
@@ -1251,7 +1282,7 @@ function useStudioPersonDetailPanel({
                                     />
                                     <DetailRow
                                       label="消息统计"
-                                      value={`共 ${report.turnCount} 条 · 候选人 ${report.userTurnCount} 条 · 面试官 ${report.agentTurnCount} 条`}
+                                      value={`共 ${displayTurnCount} 条 · 候选人 ${displayUserTurnCount} 条 · 面试官 ${displayAgentTurnCount} 条`}
                                     />
                                     <DetailRow
                                       label="同步时间"

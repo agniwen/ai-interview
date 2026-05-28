@@ -2,7 +2,7 @@
 
 import type { PersistedInterviewTurn } from "@arc/db-schema/interview-session";
 import { MessageSquareTextIcon } from "lucide-react";
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import {
   Conversation,
   ConversationContent,
@@ -12,6 +12,7 @@ import {
 import Markdown from "react-markdown";
 import { Message, MessageContent } from "@/components/ai-elements/message";
 import { DATE_TIME_DISPLAY_OPTIONS, TimeDisplay } from "@/components/time-display";
+import { coalescePersistedInterviewTurns } from "@/lib/shared/interview-transcript-turns";
 import { cn } from "@/lib/shared/utils";
 
 interface ConversationTranscriptProps {
@@ -26,15 +27,16 @@ export function ConversationTranscript({
   className,
 }: ConversationTranscriptProps) {
   const turnRefs = useRef<Record<number, HTMLDivElement | null>>({});
+  const displayTurns = useMemo(() => coalescePersistedInterviewTurns(turns), [turns]);
 
   useEffect(() => {
-    if (!activeTurnIndex) {
+    if (activeTurnIndex === null || activeTurnIndex === undefined) {
       return;
     }
     turnRefs.current[activeTurnIndex]?.scrollIntoView({ behavior: "smooth", block: "center" });
   }, [activeTurnIndex]);
 
-  if (turns.length === 0) {
+  if (displayTurns.length === 0) {
     return (
       <ConversationEmptyState
         className={className}
@@ -48,11 +50,13 @@ export function ConversationTranscript({
   return (
     <Conversation className={cn("min-h-0", className)} initial={false}>
       <ConversationContent className="gap-6 px-4 pt-2 pb-4">
-        {turns.map((turn, index) => {
+        {displayTurns.map((turn) => {
           const from = turn.role === "user" ? "user" : "assistant";
           const isUser = from === "user";
-          const turnIndex = index + 1;
-          const isActive = activeTurnIndex === turnIndex;
+          const isActive =
+            activeTurnIndex !== null &&
+            activeTurnIndex !== undefined &&
+            turn.rawTurnIndexes.includes(activeTurnIndex);
 
           return (
             <Message from={from} key={turn.id}>
@@ -70,7 +74,9 @@ export function ConversationTranscript({
               </div>
               <div
                 ref={(node) => {
-                  turnRefs.current[turnIndex] = node;
+                  for (const turnIndex of turn.rawTurnIndexes) {
+                    turnRefs.current[turnIndex] = node;
+                  }
                 }}
               >
                 <MessageContent

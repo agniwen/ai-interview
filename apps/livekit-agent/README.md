@@ -11,7 +11,7 @@ For repo-wide setup (web + agent together), see the root [`README.md`](../README
 
 | Stage          | Provider                                          | Notes                           |
 | -------------- | ------------------------------------------------- | ------------------------------- |
-| STT            | ElevenLabs (`scribe_v2`, language `zh`)           | livekit-plugins-elevenlabs      |
+| STT            | ElevenLabs (`scribe_v2_realtime`, language `zh`)  | livekit-plugins-elevenlabs      |
 | LLM            | Aliyun DashScope (`deepseek-v4-flash` by default) | OpenAI-compatible endpoint      |
 | TTS            | Minimax                                           | livekit-plugins-minimax-ai      |
 | VAD            | Silero                                            | downloaded via `download-files` |
@@ -38,6 +38,10 @@ cp .env.example .env                     # then fill in values (see comments ins
 lives **inside `agent/`**, separate from the web app's root `.env`. Several
 secrets (`LIVEKIT_*`, `CALLBACK_BASE_URL`, `AGENT_CALLBACK_SECRET`,
 `RECORDING_R2_*`) need to be in lock-step across both files.
+
+If local `dev` runs print `ai_coustics Missing configuration`, set
+`INTERVIEW_DISABLE_NOISE_CANCELLATION=1` in the local `.env`. Keep it unset in
+deployed LiveKit Cloud workers so Cloud audio enhancement remains active.
 
 ## Running
 
@@ -106,7 +110,8 @@ will work.
    ```bash
    cd agent
    cp .env.example .env.secrets
-   # fill in LIVEKIT_*, DASHSCOPE_API_KEY, ELEVEN_API_KEY, MINIMAX_API_KEY,
+   # fill in LIVEKIT_*, DASHSCOPE_API_KEY, ELEVEN_API_KEY, DEEPGRAM_API_KEY,
+   #         MINIMAX_API_KEY,
    #         CALLBACK_BASE_URL, AGENT_CALLBACK_SECRET, RECORDING_R2_*
    ```
 

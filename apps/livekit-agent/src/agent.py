@@ -221,8 +221,8 @@ def prewarm(proc: JobProcess) -> None:
         句子已说完 → 用 min_delay=0.5s 立即回, 抢答风险高; 反向上长 user turn
         也跟这条相关 (filler 被 VAD 吞了, 句子断成多段累积).
         min_silence 1.5s 与 turn detector + max_delay=5s 兜底协同, 是给真实
-        思考停顿的最小窗口. max_buffered_speech 提到 180s, 覆盖面试里
-        2-3 分钟长答, 避免默认 60s buffer 把候选人半句话切成完整 user turn.
+        思考停顿的最小窗口. max_buffered_speech 提到 600s, 覆盖面试里
+        长答场景; Silero 达到该上限后会忽略当前 speech input 的后续音频.
 
         Reverted to official defaults except min_silence. The previous strict
         thresholds dropped soft fillers ("嗯/呃") from STT, so the turn detector
@@ -233,7 +233,7 @@ def prewarm(proc: JobProcess) -> None:
         activation_threshold=0.5,
         min_speech_duration=0.05,
         min_silence_duration=1.5,
-        max_buffered_speech=180.0,
+        max_buffered_speech=600.0,
         prefix_padding_duration=0.5,
     )
 
@@ -281,7 +281,7 @@ def _build_session(
     """
     return AgentSession(
         stt=elevenlabs.STT(
-            model_id="scribe_v2",
+            model_id="scribe_v2_realtime",
             language_code="zh",
             tag_audio_events=False,
         ),
@@ -822,7 +822,7 @@ async def my_agent(ctx: JobContext) -> None:
         run=_enforce_time_limit,
     )
 
-    # 18:30 主动收尾提示: 软提示走 on_user_turn_completed, 但只在用户说话时
+    # 21:00 主动收尾提示: 软提示走 on_user_turn_completed, 但只在用户说话时
     # 触发. 候选人沉默或 turn detector 把长 user turn 一直挂着时, 该提示永远
     # 到不了模型, 模型不会调 enter_wrap_up. 这里独立计时强制 agent 开口提示.
     # Active wind-down trigger at INTERVIEW_FINAL_WRAP_SECONDS. The soft hint
