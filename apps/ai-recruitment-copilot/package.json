@@ -14,7 +14,8 @@
     "db:studio": "drizzle-kit studio",
     "auth:generate": "npx @better-auth/cli@latest generate",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "doctor": "npx react-doctor@latest"
   },
   "dependencies": {
     "@ai-sdk/devtools": "^0.0.15",

@@ -9,24 +9,30 @@ import {
   RoomAudioRenderer,
   TrackLoop,
   TrackToggle,
+  useMediaDeviceSelect,
+  useRoomContext,
   useTrackRefContext,
   useParticipants,
   useTracks,
 } from "@livekit/components-react";
 import type { TrackReferenceOrPlaceholder } from "@livekit/components-react";
 import {
+  CheckIcon,
+  ChevronDownIcon,
   CircleStopIcon,
   Loader2Icon,
   LogInIcon,
+  MicOffIcon,
   MicIcon,
   MonitorUpIcon,
   PhoneOffIcon,
   UsersIcon,
+  VideoOffIcon,
   VideoIcon,
 } from "lucide-react";
-import { Track } from "livekit-client";
+import { ConnectionState, RoomEvent, Track } from "livekit-client";
 import type { MouseEvent } from "react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import type {
   HumanInterviewMeetingTokenResponse,
@@ -45,6 +51,12 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 type HumanMeetingRoomProps =
   | {
@@ -324,7 +336,7 @@ export function HumanMeetingRoom(props: HumanMeetingRoomProps) {
 
   return (
     <LiveKitRoom
-      audio={token.participantRole !== "observer"}
+      audio={false}
       className="h-dvh overflow-hidden bg-zinc-950 text-white"
       connect
       onDisconnected={() => setToken(null)}
@@ -334,8 +346,9 @@ export function HumanMeetingRoom(props: HumanMeetingRoomProps) {
       }}
       serverUrl={token.serverUrl}
       token={token.participantToken}
-      video={token.participantRole !== "observer"}
+      video={false}
     >
+      <DefaultMicrophoneStarter enabled={token.participantRole !== "observer"} />
       <HumanMeetingStage
         canPublish={token.participantRole !== "observer"}
         canEndMeeting={props.mode === "interviewer"}
@@ -347,6 +360,49 @@ export function HumanMeetingRoom(props: HumanMeetingRoomProps) {
       <RoomAudioRenderer />
     </LiveKitRoom>
   );
+}
+
+function DefaultMicrophoneStarter({ enabled }: { enabled: boolean }) {
+  const room = useRoomContext();
+  const hasTriedStart = useRef(false);
+
+  useEffect(() => {
+    if (!enabled) {
+      return;
+    }
+
+    let cancelled = false;
+    async function startDefaultMicrophone() {
+      if (cancelled || hasTriedStart.current) {
+        return;
+      }
+      const publication = room.localParticipant.getTrackPublication(Track.Source.Microphone);
+      if (publication?.isEnabled && !publication.isMuted) {
+        hasTriedStart.current = true;
+        return;
+      }
+
+      hasTriedStart.current = true;
+      try {
+        await room.localParticipant.setMicrophoneEnabled(true, { deviceId: "default" });
+      } catch (error) {
+        hasTriedStart.current = false;
+        toast.error(error instanceof Error ? error.message : "默认麦克风启用失败");
+      }
+    }
+
+    if (room.state === ConnectionState.Connected) {
+      void startDefaultMicrophone();
+    }
+    room.on(RoomEvent.Connected, startDefaultMicrophone);
+
+    return () => {
+      cancelled = true;
+      room.off(RoomEvent.Connected, startDefaultMicrophone);
+    };
+  }, [enabled, room]);
+
+  return null;
 }
 
 function HumanMeetingStage({
@@ -414,15 +470,32 @@ function HumanMeetingStage({
       <footer className="flex shrink-0 flex-wrap items-center justify-center gap-2 border-white/10 border-t px-4 py-3">
         {canPublish ? (
           <>
-            <TrackToggle className={controlButtonClass} source={Track.Source.Microphone}>
-              <MicIcon className="size-4" />
-              麦克风
+            <TrackToggle
+              className={mediaToggleButtonClass}
+              showIcon={false}
+              source={Track.Source.Microphone}
+            >
+              <MicIcon className="toggle-on size-4" />
+              <MicOffIcon className="toggle-off size-4" />
+              <span className="toggle-on">麦克风</span>
+              <span className="toggle-off">已静音</span>
             </TrackToggle>
-            <TrackToggle className={controlButtonClass} source={Track.Source.Camera}>
-              <VideoIcon className="size-4" />
-              摄像头
+            <MicrophoneDeviceMenu />
+            <TrackToggle
+              className={mediaToggleButtonClass}
+              showIcon={false}
+              source={Track.Source.Camera}
+            >
+              <VideoIcon className="toggle-on size-4" />
+              <VideoOffIcon className="toggle-off size-4" />
+              <span className="toggle-on">摄像头</span>
+              <span className="toggle-off">摄像头已关</span>
             </TrackToggle>
-            <TrackToggle className={controlButtonClass} source={Track.Source.ScreenShare}>
+            <TrackToggle
+              className={controlButtonClass}
+              showIcon={false}
+              source={Track.Source.ScreenShare}
+            >
               <MonitorUpIcon className="size-4" />
               共享屏幕
             </TrackToggle>
@@ -469,6 +542,66 @@ function HumanMeetingStage({
   );
 }
 
+function getDeviceLabel(device: MediaDeviceInfo, index: number): string {
+  if (device.label) {
+    return device.label;
+  }
+  if (device.deviceId === "default") {
+    return "系统默认麦克风";
+  }
+  return `麦克风 ${index + 1}`;
+}
+
+function MicrophoneDeviceMenu() {
+  const { activeDeviceId, devices, setActiveMediaDevice } = useMediaDeviceSelect({
+    kind: "audioinput",
+    requestPermissions: false,
+  });
+  const selectedDevice = devices.find((device) => device.deviceId === activeDeviceId);
+  const selectedLabel = selectedDevice
+    ? getDeviceLabel(selectedDevice, devices.indexOf(selectedDevice))
+    : "系统默认麦克风";
+
+  async function handleSelect(deviceId: string) {
+    try {
+      await setActiveMediaDevice(deviceId);
+      toast.success("已切换麦克风");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "切换麦克风失败");
+    }
+  }
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button className={deviceButtonClass} type="button">
+          <MicIcon className="size-4" />
+          <span className="max-w-36 truncate">{selectedLabel}</span>
+          <ChevronDownIcon className="size-3.5 opacity-70" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="center" className="w-72" side="top">
+        {devices.length === 0 ? (
+          <DropdownMenuItem disabled>未检测到麦克风</DropdownMenuItem>
+        ) : (
+          devices.map((device, index) => (
+            <DropdownMenuItem
+              className="flex items-center justify-between gap-2"
+              key={device.deviceId}
+              onSelect={() => void handleSelect(device.deviceId)}
+            >
+              <span className="truncate">{getDeviceLabel(device, index)}</span>
+              {device.deviceId === activeDeviceId ? (
+                <CheckIcon className="size-4 shrink-0" />
+              ) : null}
+            </DropdownMenuItem>
+          ))
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
 function HumanParticipantTile() {
   const trackRef = useTrackRefContext();
   const badge = getParticipantBadge(trackRef);
@@ -505,6 +638,11 @@ function HumanParticipantTile() {
 
 const controlButtonClass =
   "inline-flex h-9 items-center gap-2 rounded-md border border-white/15 bg-white/10 px-3 text-sm text-white transition hover:bg-white/15";
+
+const mediaToggleButtonClass = `${controlButtonClass} [&[data-lk-enabled='true']_.toggle-off]:hidden [&[data-lk-enabled='false']_.toggle-on]:hidden`;
+
+const deviceButtonClass =
+  "inline-flex h-9 max-w-48 items-center gap-2 rounded-md border border-white/15 bg-white/10 px-3 text-sm text-white transition hover:bg-white/15";
 
 const leaveButtonClass =
   "inline-flex h-9 items-center gap-2 rounded-md border border-red-400/40 bg-red-500 px-3 text-sm text-white transition hover:bg-red-500/90";
