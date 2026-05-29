@@ -4,6 +4,7 @@ import { CheckIcon, LoaderCircleIcon, WrenchIcon } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { ResumeDedupOverlay } from "@/components/resume-dedup-overlay";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { Modal } from "@/components/ui/modal";
 import type { DedupMatchRecord } from "@/lib/client/api";
 import { PhaseTracker } from "./phase-tracker";
@@ -79,16 +80,20 @@ export function ImportProgressModal({
             {partialFields.length > 0 ? (
               <motion.div
                 animate={{ opacity: 1, y: 0 }}
-                className="mx-auto grid w-full max-w-xs grid-cols-[auto_1fr] gap-x-3 gap-y-1 rounded-lg border bg-background/80 px-4 py-3 text-xs"
+                className="mx-auto w-full max-w-xs"
                 exit={{ opacity: 0, y: -6 }}
                 initial={{ opacity: 0, y: 6 }}
               >
-                {partialFields.map((field) => (
-                  <div className="contents" key={field.label}>
-                    <span className="text-muted-foreground">{field.label}</span>
-                    <span className="truncate font-medium text-foreground">{field.value}</span>
-                  </div>
-                ))}
+                <Card className="gap-0 rounded-lg py-0">
+                  <CardContent className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 bg-background/80 px-4 py-3 text-xs">
+                    {partialFields.map((field) => (
+                      <div className="contents" key={field.label}>
+                        <span className="text-muted-foreground">{field.label}</span>
+                        <span className="truncate font-medium text-foreground">{field.value}</span>
+                      </div>
+                    ))}
+                  </CardContent>
+                </Card>
               </motion.div>
             ) : null}
           </AnimatePresence>

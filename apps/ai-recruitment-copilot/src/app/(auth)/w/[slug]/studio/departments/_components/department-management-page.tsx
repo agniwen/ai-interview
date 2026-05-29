@@ -8,7 +8,7 @@ import { useEntityCrud } from "@/app/(auth)/w/[slug]/studio/_components/use-enti
 import type { DepartmentListRecord, DepartmentRecord } from "@/lib/shared/departments";
 import type { PaginatedDepartmentResult } from "@/server/routes/studio/routes/departments/dao";
 import { useQueryClient } from "@tanstack/react-query";
-import { Building2Icon, PencilIcon, PlusIcon, Trash2Icon } from "lucide-react";
+import { Building2Icon, PlusIcon } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -159,14 +159,12 @@ export function DepartmentManagementPage({
       actionsColumn<DepartmentListRecord>({
         inline: [
           {
-            icon: PencilIcon,
             label: "编辑",
             onClick: (r) => void crud.openEdit(r),
           },
         ],
         menu: [
           {
-            icon: Trash2Icon,
             label: "删除",
             onClick: (r) => crud.setDeleteRecord(r),
             variant: "destructive",
@@ -202,7 +200,7 @@ export function DepartmentManagementPage({
           {...grid.bind}
           columns={columns}
           empty={
-            <Empty className="border-border/60">
+            <Empty className="border-border">
               <EmptyHeader>
                 <EmptyMedia variant="icon">
                   <Building2Icon className="size-5" />

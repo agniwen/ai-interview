@@ -31,7 +31,7 @@ export function ScreenFrame({ children, className, chrome = true }: ScreenFrameP
         </div>
       ) : null}
       <div
-        className="relative aspect-[1440/900] w-full overflow-hidden rounded-md border border-border/60 bg-background"
+        className="relative aspect-[1440/900] w-full overflow-hidden rounded-md border border-border bg-background"
         style={{ containerType: "inline-size" }}
       >
         <div

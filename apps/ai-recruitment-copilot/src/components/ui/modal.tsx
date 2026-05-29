@@ -78,7 +78,7 @@ function DialogModal({
       <DialogPrimitive.Portal>
         <DialogPrimitive.Overlay
           className={cn(
-            "fixed inset-0 z-50 backdrop-blur-xs bg-background/60",
+            "fixed inset-0 z-50 backdrop-blur bg-background/60",
             "data-[state=closed]:animate-out data-[state=closed]:fade-out-0",
             "data-[state=open]:animate-in data-[state=open]:fade-in-0",
           )}
@@ -105,7 +105,7 @@ function DialogModal({
         >
           <div
             className={cn(
-              "relative flex max-h-[90vh] flex-col overflow-hidden rounded-3xl border bg-background shadow-lg",
+              "relative flex max-h-[90vh] flex-col overflow-hidden  rounded-3xl border border-border bg-background shadow-2xl",
               className,
             )}
           >
@@ -171,7 +171,7 @@ function DrawerModal({
       <DrawerPrimitive.Portal>
         <DrawerPrimitive.Overlay
           className={cn(
-            "fixed inset-0 z-50 backdrop-blur-xs bg-background/60",
+            "fixed inset-0 z-50 backdrop-blur bg-background/60",
             "data-[state=closed]:animate-out data-[state=closed]:fade-out-0",
             "data-[state=open]:animate-in data-[state=open]:fade-in-0",
           )}

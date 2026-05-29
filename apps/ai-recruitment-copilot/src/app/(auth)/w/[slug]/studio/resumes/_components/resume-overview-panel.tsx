@@ -28,7 +28,7 @@ function textOrDash(value: string | number | null | undefined) {
 
 function SummaryItem({ label, value }: { label: string; value: string | number | null }) {
   return (
-    <div className="min-w-0 rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
+    <div className="min-w-0 rounded-lg border border-border bg-muted/20 px-3 py-2">
       <p className="text-muted-foreground text-xs">{label}</p>
       <p className="mt-1 truncate font-medium text-sm">{textOrDash(value)}</p>
     </div>
@@ -78,7 +78,7 @@ export function ResumeOverviewPanel({ detail }: { detail: ResumeLibraryDetail })
 
   return (
     <div className="space-y-6">
-      <div className="rounded-2xl border border-border/60 bg-background p-5">
+      <div className="rounded-2xl border border-border bg-background p-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
@@ -103,7 +103,7 @@ export function ResumeOverviewPanel({ detail }: { detail: ResumeLibraryDetail })
                 <ul className="flex flex-wrap gap-2">
                   {skills.map((skill) => (
                     <li
-                      className="rounded-full border border-border/60 px-2.5 py-0.5 text-xs"
+                      className="rounded-full border border-border px-2.5 py-0.5 text-xs"
                       key={skill}
                     >
                       {skill}
@@ -131,14 +131,14 @@ export function ResumeOverviewPanel({ detail }: { detail: ResumeLibraryDetail })
         ) : null}
       </div>
 
-      <div className="rounded-2xl border border-border/60 bg-background p-5">
+      <div className="rounded-2xl border border-border bg-background p-5">
         <h3 className="font-medium text-sm">结构化信息</h3>
         <div className="mt-4">
           <ResumeProfileView profile={detail.resumeProfile ?? null} />
         </div>
       </div>
 
-      <div className="rounded-2xl border border-border/60 bg-background p-5">
+      <div className="rounded-2xl border border-border bg-background p-5">
         <h3 className="font-medium text-sm">简历评价</h3>
         <div className="mt-3 text-muted-foreground text-sm leading-normal">
           <Markdown>{truncateText(detail.notes) || "暂无简历评价"}</Markdown>

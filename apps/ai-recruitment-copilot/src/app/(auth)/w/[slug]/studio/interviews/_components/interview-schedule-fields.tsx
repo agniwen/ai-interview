@@ -83,7 +83,7 @@ export function InterviewScheduleFields({
 
                 return (
                   <div
-                    className="rounded-xl border border-border/60 bg-muted/20 p-4"
+                    className="rounded-xl border border-border bg-muted/20 p-4"
                     key={entry.id || `schedule-${index}`}
                   >
                     <div className="mb-3 flex items-center justify-between gap-3">

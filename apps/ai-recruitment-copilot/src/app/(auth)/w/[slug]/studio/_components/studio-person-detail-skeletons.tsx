@@ -26,7 +26,7 @@ export function DetailBodySkeleton({ mode }: { mode: DetailSkeletonMode }) {
   return (
     <div className="flex flex-col gap-6">
       {mode === "resume" ? (
-        <div className="rounded-2xl border border-border/60 bg-background p-5">
+        <div className="rounded-2xl border border-border bg-background p-5">
           <div className="flex flex-col gap-4">
             <div className="flex items-center justify-between gap-3">
               <Skeleton className="h-5 w-28" />
@@ -45,7 +45,7 @@ export function DetailBodySkeleton({ mode }: { mode: DetailSkeletonMode }) {
         </div>
       ) : (
         <>
-          <div className="rounded-2xl border border-border/60 bg-muted/30 p-5">
+          <div className="rounded-2xl border border-border bg-muted/30 p-5">
             <div className="flex flex-col gap-4">
               <Skeleton className="h-5 w-24" />
               <div className="grid gap-3 sm:grid-cols-2">
@@ -58,7 +58,7 @@ export function DetailBodySkeleton({ mode }: { mode: DetailSkeletonMode }) {
               </div>
             </div>
           </div>
-          <div className="rounded-2xl border border-border/60 bg-background p-5">
+          <div className="rounded-2xl border border-border bg-background p-5">
             <div className="flex flex-col gap-4">
               <div className="flex items-center justify-between gap-3">
                 <Skeleton className="h-5 w-24" />
@@ -69,7 +69,7 @@ export function DetailBodySkeleton({ mode }: { mode: DetailSkeletonMode }) {
           </div>
         </>
       )}
-      <div className="rounded-2xl border border-border/60 bg-background p-5">
+      <div className="rounded-2xl border border-border bg-background p-5">
         <div className="flex flex-col gap-3">
           <Skeleton className="h-5 w-28" />
           <Skeleton className="h-4 w-full" />
@@ -86,7 +86,7 @@ export function ReportsSkeleton() {
     <div className="flex flex-col gap-6">
       <div className="grid gap-4 md:grid-cols-4">
         {Array.from({ length: 4 }).map((_, index) => (
-          <div className="rounded-2xl border border-border/60 bg-background p-4" key={index}>
+          <div className="rounded-2xl border border-border bg-background p-4" key={index}>
             <div className="flex flex-col gap-3">
               <Skeleton className="h-3 w-20" />
               <Skeleton className="h-8 w-12" />
@@ -94,7 +94,7 @@ export function ReportsSkeleton() {
           </div>
         ))}
       </div>
-      <div className="rounded-2xl border border-border/60 bg-background p-5">
+      <div className="rounded-2xl border border-border bg-background p-5">
         <div className="flex flex-col gap-4">
           <div className="flex items-center justify-between gap-3">
             <Skeleton className="h-5 w-48" />
@@ -116,7 +116,7 @@ export function RoundsSkeleton() {
   return (
     <div className="mt-4 flex flex-col gap-3">
       {Array.from({ length: 3 }).map((_, index) => (
-        <div className="rounded-xl border border-border/60 bg-muted/30 p-3" key={index}>
+        <div className="rounded-xl border border-border bg-muted/30 p-3" key={index}>
           <div className="flex flex-col gap-3">
             <div className="flex items-center justify-between gap-3">
               <Skeleton className="h-5 w-36" />
@@ -136,14 +136,14 @@ export function RoundsSkeleton() {
 
 export function FormsSkeleton() {
   return (
-    <div className="rounded-2xl border border-border/60 bg-background p-5">
+    <div className="rounded-2xl border border-border bg-background p-5">
       <div className="flex flex-col gap-4">
         <div className="flex items-center justify-between gap-3">
           <Skeleton className="h-5 w-28" />
           <Skeleton className="h-8 w-20" />
         </div>
         {Array.from({ length: 3 }).map((_, index) => (
-          <div className="rounded-xl border border-border/60 bg-muted/30 p-3" key={index}>
+          <div className="rounded-xl border border-border bg-muted/30 p-3" key={index}>
             <div className="flex flex-col gap-2">
               <Skeleton className="h-4 w-48" />
               <Skeleton className="h-4 w-full" />
@@ -158,7 +158,7 @@ export function FormsSkeleton() {
 
 export function SummaryMetric({ label, value }: { label: string; value: ReactNode }) {
   return (
-    <div className="min-w-0 rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
+    <div className="min-w-0 rounded-lg border border-border bg-muted/20 px-3 py-2">
       <p className="text-muted-foreground text-xs">{label}</p>
       <p className="mt-1 truncate font-medium text-sm">{value}</p>
     </div>

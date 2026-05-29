@@ -2,7 +2,7 @@
 // AI 面试列表页之上；当前选中 tab：面试报告，对齐真实 EvaluationResults 的卡片结构。
 // Purpose: simplified UI of StudioPersonDetailDialog (mode="interview", size="full")
 // laid over the AI 面试 list page. Active tab "面试报告" mirrors EvaluationResults.
-import { FileTextIcon, MoreHorizontalIcon, PencilIcon, SearchIcon, XIcon } from "lucide-react";
+import { FileTextIcon, SearchIcon, XIcon } from "lucide-react";
 import { AppShell, StudioNav } from "./_parts/app-shell";
 import type { BreadcrumbCrumb } from "./_parts/app-shell";
 import { ScreenFrame } from "./screen-frame";
@@ -156,15 +156,15 @@ function InterviewListBackground() {
                   <div className="flex items-center justify-end gap-0.5">
                     <span
                       aria-label="编辑面试记录"
-                      className="grid size-7 place-items-center rounded-md text-muted-foreground"
+                      className="inline-flex h-7 items-center rounded-md px-2 text-muted-foreground text-xs"
                     >
-                      <PencilIcon className="size-4" />
+                      编辑
                     </span>
                     <span
                       aria-label="更多面试记录操作"
-                      className="grid size-7 place-items-center rounded-md text-muted-foreground"
+                      className="inline-flex h-7 items-center rounded-md px-2 text-muted-foreground text-xs"
                     >
-                      <MoreHorizontalIcon className="size-4" />
+                      更多
                     </span>
                   </div>
                 </td>
@@ -255,17 +255,17 @@ const QUESTIONS: QuestionEval[] = [
 
 function EvaluationContent() {
   // 真实 EvaluationResults: <div className="space-y-3">
-  // overallScore 行: flex items-center gap-3 rounded-xl border border-border/60 bg-muted/20 px-3 py-2.5
+  // overallScore 行: flex items-center gap-3 rounded-xl border border-border bg-muted/20 px-3 py-2.5
   //   - text-2xl text-primary tabular-nums font-medium
   //   - text-muted-foreground text-sm "/ 100"
   //   - Badge ml-auto (success variant)
   // overallAssessment: text-muted-foreground text-sm leading-normal
-  // questions: each rounded-xl border border-border/60 bg-muted/20 px-3 py-2.5 text-sm
+  // questions: each rounded-xl border border-border bg-muted/20 px-3 py-2.5 text-sm
   //   - flex items-start justify-between gap-2: "1. question" + score "92/100"
   //   - assessment: mt-1.5 text-muted-foreground leading-normal
   return (
     <div className="space-y-3">
-      <div className="flex items-center gap-3 rounded-xl border border-border/60 bg-muted/20 px-3 py-2.5">
+      <div className="flex items-center gap-3 rounded-xl border border-border bg-muted/20 px-3 py-2.5">
         <span className="font-medium text-2xl text-primary tabular-nums">86</span>
         <span className="text-muted-foreground text-sm">/ 100</span>
         <span className="ml-auto inline-flex items-center rounded-md border border-transparent bg-emerald-500/15 px-1.5 py-0.5 font-medium text-emerald-700 text-xs dark:text-emerald-300">
@@ -278,7 +278,7 @@ function EvaluationContent() {
       <div className="space-y-2">
         {QUESTIONS.map((q) => (
           <div
-            className="rounded-xl border border-border/60 bg-muted/20 px-3 py-2.5 text-sm"
+            className="rounded-xl border border-border bg-muted/20 px-3 py-2.5 text-sm"
             key={q.order}
           >
             <div className="flex items-start justify-between gap-2">

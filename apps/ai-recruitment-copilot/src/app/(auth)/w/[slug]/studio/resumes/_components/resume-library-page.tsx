@@ -11,15 +11,7 @@ import type { PipelineStage } from "@arc/db-schema/studio-interviews";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import dynamic from "next/dynamic";
-import {
-  BotIcon,
-  CircleSlashIcon,
-  EyeIcon,
-  PencilIcon,
-  RotateCcwIcon,
-  Trash2Icon,
-  UsersIcon,
-} from "lucide-react";
+import { Trash2Icon, UsersIcon } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -549,18 +541,16 @@ export function ResumeLibraryPage({
       actionsColumn<ResumeLibraryListRecord>({
         inline: [
           {
-            icon: EyeIcon,
             label: "查看",
             onClick: (r) => {
               setDetailDefaultTab("overview");
               setDetailRecordId(r.id);
             },
           },
-          { icon: PencilIcon, label: "编辑", onClick: (r) => setEditRecordId(r.id) },
+          { label: "编辑", onClick: (r) => setEditRecordId(r.id) },
         ],
         menu: [
           {
-            icon: BotIcon,
             label: "发起 AI 面试",
             onClick: startAiInterview,
             // 已存在任意 AI 面试轮次 或 已结案 时隐藏（已结案的人需要先重新激活）。
@@ -569,7 +559,6 @@ export function ResumeLibraryPage({
             show: (r) => !r.hasInterviewRounds && r.pipelineStage !== "closed",
           },
           {
-            icon: CircleSlashIcon,
             label: "标记结案",
             onClick: (r) =>
               setTransitionTarget({
@@ -581,7 +570,6 @@ export function ResumeLibraryPage({
             show: (r) => r.pipelineStage !== "closed",
           },
           {
-            icon: RotateCcwIcon,
             label: "重新激活",
             onClick: (r) =>
               setTransitionTarget({
@@ -593,7 +581,6 @@ export function ResumeLibraryPage({
             show: (r) => r.pipelineStage === "closed",
           },
           {
-            icon: Trash2Icon,
             label: "删除",
             onClick: (r) => setDeleteRecord(r),
             variant: "destructive",
@@ -748,7 +735,7 @@ export function ResumeLibraryPage({
           )}
           empty={
             grid.filters.stage ? (
-              <Empty className="border-border/60">
+              <Empty className="border-border">
                 <EmptyHeader>
                   <EmptyMedia variant="icon">
                     <UsersIcon className="size-5" />
@@ -763,7 +750,7 @@ export function ResumeLibraryPage({
                 </EmptyHeader>
               </Empty>
             ) : (
-              <Empty className="border-border/60">
+              <Empty className="border-border">
                 <EmptyHeader>
                   <EmptyMedia variant="icon">
                     <UsersIcon className="size-5" />

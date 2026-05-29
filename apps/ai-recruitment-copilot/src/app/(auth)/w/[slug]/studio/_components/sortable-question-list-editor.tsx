@@ -91,7 +91,7 @@ function QuestionListBody({
 
   if (items.length === 0) {
     return (
-      <div className="flex min-h-44 flex-col items-center justify-center rounded-xl border border-dashed border-border/60 bg-muted/10 px-6 py-10 text-center">
+      <div className="flex min-h-44 flex-col items-center justify-center rounded-xl border border-dashed border-border bg-muted/10 px-6 py-10 text-center">
         <p className="font-medium text-sm">{emptyTitle}</p>
         {emptyDescription ? (
           <p className="mt-1.5 max-w-md text-muted-foreground text-xs leading-normal">
@@ -134,7 +134,7 @@ function QuestionListBody({
                   className={`group flex flex-col gap-2 rounded-xl border bg-card/30 p-3 transition-all hover:bg-card/60 ${
                     isDragging
                       ? "border-primary/30 bg-card shadow-sm"
-                      : "border-border/60 hover:border-border"
+                      : "border-border hover:border-border"
                   }`}
                 >
                   {/* Top: drag handle, index, difficulty, delete */}

@@ -3,7 +3,7 @@
 // - ResumeLibraryCharts: lg:grid-cols-3, 3 张 Card (CardHeader text-2xl semibold + CardDescription + CardContent)
 // - DataGrid: <Card class="overflow-hidden py-0">，Toolbar 在外面 (filters 左 + button 右)
 // Purpose: simplified Studio resume library mock, mirroring the real components 1:1.
-import { EyeIcon, MoreHorizontalIcon, PencilIcon, SearchIcon, UploadIcon } from "lucide-react";
+import { SearchIcon, UploadIcon } from "lucide-react";
 import { AppShell, StudioNav } from "./_parts/app-shell";
 import type { BreadcrumbCrumb } from "./_parts/app-shell";
 import { ScreenFrame } from "./screen-frame";
@@ -448,21 +448,21 @@ function ResumeTable() {
                 <div className="flex items-center justify-end gap-0.5">
                   <span
                     aria-label="查看简历"
-                    className="grid size-7 place-items-center rounded-md text-muted-foreground hover:bg-accent"
+                    className="inline-flex h-7 items-center rounded-md px-2 text-muted-foreground text-xs hover:bg-accent"
                   >
-                    <EyeIcon className="size-4" />
+                    查看
                   </span>
                   <span
                     aria-label="编辑简历"
-                    className="grid size-7 place-items-center rounded-md text-muted-foreground hover:bg-accent"
+                    className="inline-flex h-7 items-center rounded-md px-2 text-muted-foreground text-xs hover:bg-accent"
                   >
-                    <PencilIcon className="size-4" />
+                    编辑
                   </span>
                   <span
                     aria-label="更多简历操作"
-                    className="grid size-7 place-items-center rounded-md text-muted-foreground hover:bg-accent"
+                    className="inline-flex h-7 items-center rounded-md px-2 text-muted-foreground text-xs hover:bg-accent"
                   >
-                    <MoreHorizontalIcon className="size-4" />
+                    更多
                   </span>
                 </div>
               </td>

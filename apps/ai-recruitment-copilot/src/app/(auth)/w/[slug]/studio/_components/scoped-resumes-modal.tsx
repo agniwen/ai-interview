@@ -23,7 +23,6 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { actionsColumn, customColumn, DataGrid, dateColumn } from "@/components/data-grid";
-import { EyeIcon } from "lucide-react";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { Modal } from "@/components/ui/modal";
 import { rpcFetch } from "@/lib/client/api";
@@ -141,7 +140,6 @@ export function ScopedResumesModal({
       actionsColumn<ResumeLibraryListRecord>({
         inline: [
           {
-            icon: EyeIcon,
             label: "查看",
             onClick: (r) => setDetailRecordId(r.id),
           },
@@ -165,7 +163,7 @@ export function ScopedResumesModal({
           columns={columns}
           data={data.records}
           empty={
-            <Empty className="border-border/60">
+            <Empty className="border-border">
               <EmptyHeader>
                 <EmptyTitle>暂无关联简历</EmptyTitle>
                 <EmptyDescription>

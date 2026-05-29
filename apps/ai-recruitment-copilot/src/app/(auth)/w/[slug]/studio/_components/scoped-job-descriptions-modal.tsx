@@ -21,7 +21,6 @@ import { EntityDeleteDialog } from "@/app/(auth)/w/[slug]/studio/_components/ent
 import type { JobDescriptionListRecord } from "@/lib/shared/job-descriptions";
 import type { PaginatedJobDescriptionResult } from "@/server/routes/studio/routes/job-descriptions/dao";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Trash2Icon } from "lucide-react";
 import { useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
 import { actionsColumn, customColumn, DataGrid, textColumn } from "@/components/data-grid";
@@ -182,7 +181,6 @@ export function ScopedJobDescriptionsModal({
       actionsColumn<JobDescriptionListRecord>({
         menu: [
           {
-            icon: Trash2Icon,
             label: "删除",
             onClick: (r) => crud.setDeleteRecord(r),
             variant: "destructive",
@@ -208,7 +206,7 @@ export function ScopedJobDescriptionsModal({
           columns={columns}
           data={data.records}
           empty={
-            <Empty className="border-border/60">
+            <Empty className="border-border">
               <EmptyHeader>
                 <EmptyTitle>暂无在招岗位</EmptyTitle>
                 <EmptyDescription>{scope ? buildEmptyDescription(scope) : ""}</EmptyDescription>

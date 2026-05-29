@@ -12,6 +12,7 @@ import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { DATE_TIME_DISPLAY_OPTIONS, TimeDisplay } from "@/components/time-display";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   Sheet,
   SheetContent,
@@ -80,9 +81,11 @@ function renderAnswer(
   // chip-list background elsewhere), giving multi-line answers a visual
   // boundary that sets them apart from short option-style answers.
   return (
-    <div className="whitespace-pre-wrap rounded-md border border-border/60 bg-muted/30 px-3 py-2 text-foreground text-sm leading-relaxed">
-      {Array.isArray(rawValue) ? rawValue.join(", ") : rawValue}
-    </div>
+    <Card className="gap-0 rounded-md py-0 shadow-none">
+      <CardContent className="whitespace-pre-wrap bg-muted/30 px-3 py-2 text-foreground text-sm leading-relaxed">
+        {Array.isArray(rawValue) ? rawValue.join(", ") : rawValue}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -140,7 +143,7 @@ export function CandidateFormTemplateSubmissionsDrawer({
   return (
     <Sheet onOpenChange={onOpenChange} open={open}>
       <SheetContent className="w-full gap-0 overflow-y-auto p-0 sm:max-w-2xl">
-        <SheetHeader className="border-border/60 border-b px-6 pt-6 pb-4">
+        <SheetHeader className="border-border border-b px-6 pt-6 pb-4">
           <SheetTitle>填写记录</SheetTitle>
           <SheetDescription>{template ? `面试表单：${template.title}` : null}</SheetDescription>
         </SheetHeader>
@@ -163,51 +166,53 @@ export function CandidateFormTemplateSubmissionsDrawer({
             </div>
           ) : null}
           {submissions.map((submission) => (
-            <article
-              className="space-y-4 rounded-2xl border border-border/60 bg-card p-5 shadow-xs"
-              key={submission.id}
-            >
-              {/* 头部：候选人名称 + 版本徽章为一级元数据；提交时间为二级元数据，
+            <Card className="gap-0 rounded-2xl border-border bg-card py-0" key={submission.id}>
+              <CardContent className="space-y-4 p-5">
+                {/* 头部：候选人名称 + 版本徽章为一级元数据；提交时间为二级元数据，
                   纵向排列让候选人姓名独占一行（长名字不会跟时间挤）。
                   Header: name + version are the primary metadata stack; submitted-at
                   is secondary, placed below so a long name no longer fights with
                   the timestamp for horizontal space. */}
-              <header className="flex flex-col gap-1 border-border/60 border-b pb-3">
-                <div className="flex items-center gap-2">
-                  <h3 className="font-semibold text-base text-foreground leading-tight">
-                    {submission.candidateName ?? "未命名候选人"}
-                  </h3>
-                  <Badge className="font-mono text-[10px] tracking-wider" variant="outline">
-                    v{submission.version}
-                  </Badge>
-                </div>
-                <p className="text-muted-foreground text-xs tabular-nums">
-                  提交于{" "}
-                  <TimeDisplay options={DATE_TIME_DISPLAY_OPTIONS} value={submission.submittedAt} />
-                </p>
-              </header>
+                <header className="flex flex-col gap-1 border-border border-b pb-3">
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-semibold text-base text-foreground leading-tight">
+                      {submission.candidateName ?? "未命名候选人"}
+                    </h3>
+                    <Badge className="font-mono text-[10px] tracking-wider" variant="outline">
+                      v{submission.version}
+                    </Badge>
+                  </div>
+                  <p className="text-muted-foreground text-xs tabular-nums">
+                    提交于{" "}
+                    <TimeDisplay
+                      options={DATE_TIME_DISPLAY_OPTIONS}
+                      value={submission.submittedAt}
+                    />
+                  </p>
+                </header>
 
-              {/* 问答区：每题"问"作为 muted 标签 + "答"作为前景内容，
+                {/* 问答区：每题"问"作为 muted 标签 + "答"作为前景内容，
                   跟 parsed-resume-button.tsx 的 Field 风格保持一致。
                   Each Q&A pair styles "question" as a muted label and "answer"
                   as the foreground value — same hierarchy as the parsed-resume
                   Field component, so the visual language matches. */}
-              <div className="space-y-3.5">
-                {submission.snapshot.questions.map((question) => (
-                  <div className="space-y-1.5" key={question.id}>
-                    <p className="flex items-baseline gap-1 text-muted-foreground text-xs">
-                      <span>{question.label}</span>
-                      {question.required ? (
-                        <span aria-label="必填" className="text-destructive">
-                          *
-                        </span>
-                      ) : null}
-                    </p>
-                    <div>{renderAnswer(question, submission.answers[question.id])}</div>
-                  </div>
-                ))}
-              </div>
-            </article>
+                <div className="space-y-3.5">
+                  {submission.snapshot.questions.map((question) => (
+                    <div className="space-y-1.5" key={question.id}>
+                      <p className="flex items-baseline gap-1 text-muted-foreground text-xs">
+                        <span>{question.label}</span>
+                        {question.required ? (
+                          <span aria-label="必填" className="text-destructive">
+                            *
+                          </span>
+                        ) : null}
+                      </p>
+                      <div>{renderAnswer(question, submission.answers[question.id])}</div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
           ))}
           {submissions.length > 0 ? (
             <div className="flex flex-col items-center gap-2 pt-2 pb-1 text-muted-foreground text-xs">

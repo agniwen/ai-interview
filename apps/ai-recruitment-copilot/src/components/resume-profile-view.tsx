@@ -26,7 +26,7 @@ function ChipList({ items }: { items: string[] }) {
   return (
     <ul className="flex flex-wrap gap-2">
       {items.map((item) => (
-        <li key={item} className="rounded-full border border-border/60 px-2.5 py-0.5 text-xs">
+        <li key={item} className="rounded-full border border-border px-2.5 py-0.5 text-xs">
           {item}
         </li>
       ))}
@@ -87,7 +87,7 @@ export function ResumeProfileView({ profile }: ResumeProfileViewProps) {
             {profile.workExperiences.map((exp, index) => (
               <li
                 key={`${exp.company ?? "company"}-${index}`}
-                className="rounded-md border border-border/60 p-3"
+                className="rounded-md border border-border p-3"
               >
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
                   <span className="font-medium text-sm">
@@ -118,7 +118,7 @@ export function ResumeProfileView({ profile }: ResumeProfileViewProps) {
             {profile.projectExperiences.map((proj, index) => (
               <li
                 key={`${proj.name ?? "project"}-${index}`}
-                className="rounded-md border border-border/60 p-3"
+                className="rounded-md border border-border p-3"
               >
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
                   <span className="font-medium text-sm">

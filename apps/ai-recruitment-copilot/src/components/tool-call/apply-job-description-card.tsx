@@ -84,7 +84,7 @@ function ResolvedView({
 }) {
   if (output.action !== "confirm") {
     return (
-      <div className="rounded-xs border border-border/60 bg-muted/30 px-3 py-2 text-xs">
+      <div className="rounded-xs border border-border bg-muted/30 px-3 py-2 text-xs">
         <div className="text-muted-foreground">已忽略，未设置在招岗位。</div>
       </div>
     );
@@ -99,7 +99,7 @@ function ResolvedView({
     ? formatJdLabel(confirmedJd.name, confirmedJd.departmentName)
     : formatJdLabel(recommended.name, recommended.departmentName);
   return (
-    <div className="rounded-xs border border-border/60 bg-muted/30 px-3 py-2 text-xs">
+    <div className="rounded-xs border border-border bg-muted/30 px-3 py-2 text-xs">
       <div className="font-medium text-foreground">已设置为：{displayName}</div>
     </div>
   );
@@ -245,7 +245,7 @@ export function ApplyJobDescriptionCard({
     // 终态但 input 不可用：降级提示，不渲染整张卡片。
     // Terminal but input is unusable — degrade to a muted notice.
     return (
-      <div className="my-2 rounded border border-border/60 bg-muted/30 px-3 py-2 text-muted-foreground text-xs">
+      <div className="my-2 rounded border border-border bg-muted/30 px-3 py-2 text-muted-foreground text-xs">
         岗位推荐数据缺失，跳过审批。
       </div>
     );

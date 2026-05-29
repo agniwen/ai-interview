@@ -83,7 +83,7 @@ export function RecordingPlayer({
 
   if (status !== "completed") {
     return (
-      <div className="rounded-2xl border border-border/60 bg-background p-4">
+      <div className="rounded-2xl border border-border bg-background p-4">
         <h4 className="font-medium text-sm">面试录像</h4>
         <p className="mt-2 text-muted-foreground text-sm">{statusLabel(status)}</p>
       </div>
@@ -109,7 +109,7 @@ export function RecordingPlayer({
   const durationText = formatDuration(durationSecs);
 
   return (
-    <div className="rounded-2xl border border-border/60 bg-background p-4">
+    <div className="rounded-2xl border border-border bg-background p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h4 className="font-medium text-sm">
           面试录像
@@ -132,7 +132,7 @@ export function RecordingPlayer({
         // oxlint-disable-next-line jsx-a11y/media-has-caption -- 面试录像无字幕轨道可挂载；候选人音视频原始记录，不存在 captions 资源。
         <video
           aria-label="面试录像"
-          className="mt-3 w-full rounded-xl border border-border/60"
+          className="mt-3 w-full rounded-xl border border-border"
           controls
           preload="metadata"
           ref={videoRef}

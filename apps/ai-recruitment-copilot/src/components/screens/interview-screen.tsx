@@ -53,7 +53,7 @@ function CandidateCameraTile() {
   // 真实 TileLayout 在 chat 关闭时把第二个 tile 放在 col-start-2 row-start-3 place-content-end，
   // 也就是右下角靠下；这里用绝对定位放右下角，尺寸贴近真实小窗。
   return (
-    <div className="absolute right-6 bottom-[180px] z-30 h-[140px] w-[200px] overflow-hidden rounded-2xl border border-border/60 bg-gradient-to-br from-slate-700 to-slate-900 shadow-xl ring-1 ring-black/10">
+    <div className="absolute right-6 bottom-[180px] z-30 h-[140px] w-[200px] overflow-hidden rounded-2xl border border-border bg-gradient-to-br from-slate-700 to-slate-900 shadow-xl ring-1 ring-black/10">
       <div className="-translate-x-1/2 absolute bottom-[-32px] left-1/2 grid size-[110px] place-items-center rounded-full bg-slate-600/60">
         <UserIcon className="size-10 text-slate-400" strokeWidth={1.5} />
       </div>
@@ -179,7 +179,7 @@ function InterviewCanvas() {
   return (
     <div className="relative h-full w-full overflow-hidden bg-background text-foreground">
       {/* Top-left: AgentSpeechTimer */}
-      <div className="absolute top-4 left-4 z-30 flex items-center gap-2 rounded-md border border-border/60 bg-background/80 px-2.5 py-1 font-mono text-[11px] tabular-nums backdrop-blur">
+      <div className="absolute top-4 left-4 z-30 flex items-center gap-2 rounded-md border border-border bg-background/80 px-2.5 py-1 font-mono text-[11px] tabular-nums backdrop-blur">
         <span className="size-1.5 animate-pulse rounded-full bg-emerald-500" />
         00:42
       </div>

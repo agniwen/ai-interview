@@ -225,7 +225,7 @@ function DeviceCheckItem({
   title: string;
 }) {
   return (
-    <div className="rounded-xl border border-border/60 bg-background/70 p-3">
+    <div className="rounded-xl border border-border bg-background/70 p-3">
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <Icon className="size-4 text-muted-foreground" />
@@ -298,7 +298,7 @@ function DevicePreflightCard() {
   }, []);
 
   return (
-    <section className="mt-6 rounded-2xl border border-border/60 bg-background/70 p-4 backdrop-blur">
+    <section className="mt-6 rounded-2xl border border-border bg-background/70 p-4 backdrop-blur">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="font-medium text-sm">设备检测</h2>
@@ -376,7 +376,7 @@ function InterviewNoticeDialog({
           <DialogTitle>面试注意事项</DialogTitle>
           <DialogDescription>开始后请按以下规则完成本轮 AI 面试。</DialogDescription>
         </DialogHeader>
-        <ul className="divide-y divide-border/60 border-border/60 border-y">
+        <ul className="divide-y divide-border/60 border-border border-y">
           <RuleItem
             description="建议佩戴耳机并在网络稳定的地方作答。若环境嘈杂，可选择「静音开始」，以文字方式与面试官沟通。"
             icon={Volume2Icon}
@@ -532,7 +532,7 @@ function WaitingView({
         </div>
 
         {showPreparation && (
-          <div className="fixed inset-x-0 bottom-0 z-10 border-border/60 border-t bg-background/90 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur md:hidden">
+          <div className="fixed inset-x-0 bottom-0 z-10 border-border border-t bg-background/90 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur md:hidden">
             <div className="mx-auto flex w-full max-w-md items-center gap-3">
               <Button
                 className="h-11 flex-1 gap-2"

@@ -6,6 +6,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { TimeDisplay } from "@/components/time-display";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -96,33 +97,35 @@ function LinkRow({
       : `${window.location.origin}/join/${link.code}`;
   const disabled = Boolean(link.disabledAt);
   return (
-    <div className="rounded-lg border p-3">
-      <div className="flex items-center justify-between gap-2">
-        <div className="min-w-0 flex-1">
-          <div className="truncate font-mono text-sm">{url}</div>
-          <div className="mt-1 text-xs text-muted-foreground">
-            {link.creatorName ?? "已删除用户"} · <TimeDisplay value={link.createdAt} />
-            {disabled ? " · 已禁用" : ""}
+    <Card className="gap-0 rounded-lg py-0">
+      <CardContent className="p-3">
+        <div className="flex items-center justify-between gap-2">
+          <div className="min-w-0 flex-1">
+            <div className="truncate font-mono text-sm">{url}</div>
+            <div className="mt-1 text-xs text-muted-foreground">
+              {link.creatorName ?? "已删除用户"} · <TimeDisplay value={link.createdAt} />
+              {disabled ? " · 已禁用" : ""}
+            </div>
           </div>
+          <Button aria-label="复制链接" onClick={onCopy} size="sm" variant="ghost">
+            <CopyIcon />
+          </Button>
+          <Button aria-label="查看加入成员" onClick={onToggleExpand} size="sm" variant="ghost">
+            <UsersIcon /> {link.joinedCount}
+          </Button>
+          {disabled ? (
+            <Button aria-label="启用链接" onClick={onEnable} size="sm" variant="ghost">
+              <PlayIcon />
+            </Button>
+          ) : (
+            <Button aria-label="禁用链接" onClick={onDisable} size="sm" variant="ghost">
+              <BanIcon />
+            </Button>
+          )}
         </div>
-        <Button aria-label="复制链接" onClick={onCopy} size="sm" variant="ghost">
-          <CopyIcon />
-        </Button>
-        <Button aria-label="查看加入成员" onClick={onToggleExpand} size="sm" variant="ghost">
-          <UsersIcon /> {link.joinedCount}
-        </Button>
-        {disabled ? (
-          <Button aria-label="启用链接" onClick={onEnable} size="sm" variant="ghost">
-            <PlayIcon />
-          </Button>
-        ) : (
-          <Button aria-label="禁用链接" onClick={onDisable} size="sm" variant="ghost">
-            <BanIcon />
-          </Button>
-        )}
-      </div>
-      {expanded ? <LinkMembers id={link.id} slug={slug} /> : null}
-    </div>
+        {expanded ? <LinkMembers id={link.id} slug={slug} /> : null}
+      </CardContent>
+    </Card>
   );
 }
 

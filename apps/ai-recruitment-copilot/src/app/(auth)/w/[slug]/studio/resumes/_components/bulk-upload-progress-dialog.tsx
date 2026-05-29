@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { Modal } from "@/components/ui/modal";
 import { Progress } from "@/components/ui/progress";
 import type { BulkResumeBatchItemDto } from "@/lib/shared/bulk-resume-upload";
@@ -186,50 +187,54 @@ export function BulkUploadProgressDialog({
           <Progress value={percent} />
         </div>
 
-        <ul className="max-h-72 space-y-1 overflow-y-auto rounded-md border bg-muted/20 p-2 text-sm">
-          {items.length === 0 && phase === "uploading"
-            ? state.uploadStatus.map((s, idx) => (
-                <li
-                  className="flex items-center justify-between rounded px-2 py-1"
-                  // 上传阶段无 id，用 index 作 key。Upload phase has no id; use index as key.
-                  key={`upload-${idx}`}
-                >
-                  <span className="min-w-0 truncate" title={state.uploadFileNames[idx]}>
-                    {state.uploadFileNames[idx] ?? `文件 ${idx + 1}`}
-                  </span>
-                  <span className="text-muted-foreground text-xs">
-                    {s === "uploaded" ? "已上传" : null}
-                    {s === "failed" ? "上传失败" : null}
-                    {s === "pending" ? "上传中" : null}
-                  </span>
-                </li>
-              ))
-            : items.map((item) => {
-                const meta = itemStatusLabel(item.status);
-                return (
-                  <li
-                    className="flex items-center justify-between gap-3 rounded px-2 py-1 hover:bg-background/60"
-                    key={item.id}
-                  >
-                    <span className="flex min-w-0 items-center gap-2">
-                      <ItemIcon status={item.status} />
-                      <span className="truncate">{item.originalFileName}</span>
-                    </span>
-                    <span className="flex shrink-0 items-center gap-2">
-                      {item.errorMessage ? (
-                        <span
-                          className="max-w-[14em] truncate text-destructive text-xs"
-                          title={item.errorMessage}
-                        >
-                          {item.errorMessage}
+        <Card className="gap-0 overflow-hidden rounded-md py-0">
+          <CardContent className="p-0">
+            <ul className="max-h-72 space-y-1 overflow-y-auto bg-muted/20 p-2 text-sm">
+              {items.length === 0 && phase === "uploading"
+                ? state.uploadStatus.map((s, idx) => (
+                    <li
+                      className="flex items-center justify-between rounded px-2 py-1"
+                      // 上传阶段无 id，用 index 作 key。Upload phase has no id; use index as key.
+                      key={`upload-${idx}`}
+                    >
+                      <span className="min-w-0 truncate" title={state.uploadFileNames[idx]}>
+                        {state.uploadFileNames[idx] ?? `文件 ${idx + 1}`}
+                      </span>
+                      <span className="text-muted-foreground text-xs">
+                        {s === "uploaded" ? "已上传" : null}
+                        {s === "failed" ? "上传失败" : null}
+                        {s === "pending" ? "上传中" : null}
+                      </span>
+                    </li>
+                  ))
+                : items.map((item) => {
+                    const meta = itemStatusLabel(item.status);
+                    return (
+                      <li
+                        className="flex items-center justify-between gap-3 rounded px-2 py-1 hover:bg-background/60"
+                        key={item.id}
+                      >
+                        <span className="flex min-w-0 items-center gap-2">
+                          <ItemIcon status={item.status} />
+                          <span className="truncate">{item.originalFileName}</span>
                         </span>
-                      ) : null}
-                      <Badge variant={meta.variant}>{meta.label}</Badge>
-                    </span>
-                  </li>
-                );
-              })}
-        </ul>
+                        <span className="flex shrink-0 items-center gap-2">
+                          {item.errorMessage ? (
+                            <span
+                              className="max-w-[14em] truncate text-destructive text-xs"
+                              title={item.errorMessage}
+                            >
+                              {item.errorMessage}
+                            </span>
+                          ) : null}
+                          <Badge variant={meta.variant}>{meta.label}</Badge>
+                        </span>
+                      </li>
+                    );
+                  })}
+            </ul>
+          </CardContent>
+        </Card>
 
         {state.uploadError && phase === "idle" ? (
           <p className="text-destructive text-sm">{state.uploadError}</p>

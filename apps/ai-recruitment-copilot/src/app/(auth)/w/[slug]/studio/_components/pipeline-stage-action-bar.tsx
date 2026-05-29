@@ -72,7 +72,7 @@ export function PipelineStageActionBar({
   });
 
   return (
-    <div className="space-y-3 rounded-2xl border border-border/60 bg-background p-4 shadow-xs">
+    <div className="space-y-3 rounded-2xl border border-border bg-background p-4 shadow-xs">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex flex-wrap items-center gap-2">
           <span className="font-medium text-sm">招聘流程</span>
@@ -141,7 +141,7 @@ export function PipelineStageActionBar({
         })}
       </ol>
 
-      <div className="flex flex-wrap items-center justify-end gap-2 border-border/60 border-t pt-3">
+      <div className="flex flex-wrap items-center justify-end gap-2 border-border border-t pt-3">
         {actions.left.length > 0 ? actions.left : null}
         {actions.right.length > 0 ? (
           <div className=" flex flex-wrap justify-end gap-2">{actions.right}</div>

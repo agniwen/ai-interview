@@ -207,7 +207,7 @@ function SidebarUserSection() {
   // 内容：Avatar size="default" (size-9) + 姓名/组织 + ChevronsUpDown
   // Real expanded state: border-t wrapper + ghost button (rounded-full p-1 gap-2)
   return (
-    <div className="border-border/65 border-t px-2 py-2">
+    <div className="border-border border-t px-2 py-2">
       <div className="flex w-full items-center gap-2">
         <div className="flex w-full items-center gap-2 rounded-full p-1">
           <div className="grid size-9 shrink-0 place-items-center rounded-full bg-gradient-to-br from-sky-400/80 to-indigo-500/80 font-medium text-[12px] text-white">
@@ -291,9 +291,9 @@ interface InsetHeaderProps {
 function InsetHeader({ breadcrumb, actions, className }: InsetHeaderProps) {
   return (
     <header
-      // 真实 SidebarInsetHeader: h-(--header-height) shrink-0 items-center justify-between gap-2 border-border/60 border-b px-4
+      // 真实 SidebarInsetHeader: h-(--header-height) shrink-0 items-center justify-between gap-2 border-border border-b px-4
       className={cn(
-        "flex h-12 shrink-0 items-center justify-between gap-2 border-border/60 border-b px-4",
+        "flex h-12 shrink-0 items-center justify-between gap-2 border-border border-b px-4",
         className,
       )}
     >
@@ -370,8 +370,8 @@ export function AppShell({
 
       {/* SidebarInset: relative flex w-full flex-1 flex-col bg-sidebar dark:bg-background
           + variant=inset: m-2 ml-0 rounded-xl shadow-sm
-          + layout 上还加了 border border-border/60 */}
-      <main className="relative m-2 ml-0 flex min-w-0 flex-1 flex-col overflow-hidden rounded-xl border border-border/60 bg-sidebar shadow-sm dark:bg-background">
+          + layout 上还加了 border border-border */}
+      <main className="relative m-2 ml-0 flex min-w-0 flex-1 flex-col overflow-hidden rounded-xl border border-border bg-sidebar shadow-sm dark:bg-background">
         <InsetHeader actions={headerActions} breadcrumb={breadcrumb} className={headerClassName} />
         {/* @container/main flex min-h-0 flex-1 flex-col overflow-y-auto bg-sidebar dark:bg-background */}
         <div

@@ -4,6 +4,7 @@ import { FileTextIcon, SparklesIcon } from "lucide-react";
 import { useState } from "react";
 import { AnimatedHeight } from "@/components/animated-height";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { Modal } from "@/components/ui/modal";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { ResumeParserStructured } from "@arc/db-schema/resume-parser-schema";
@@ -83,17 +84,21 @@ function ExperienceCard({
   extra?: React.ReactNode;
 }) {
   return (
-    <div className="rounded-md border bg-card p-3">
-      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-        <h5 className="font-medium text-foreground text-sm">{title}</h5>
-        {period ? <span className="text-muted-foreground text-xs">{period}</span> : null}
-      </div>
-      {role ? <p className="mt-0.5 text-muted-foreground text-xs">{role}</p> : null}
-      {summary ? (
-        <p className="mt-2 whitespace-pre-wrap text-foreground text-sm leading-normal">{summary}</p>
-      ) : null}
-      {extra ? <div className="mt-2">{extra}</div> : null}
-    </div>
+    <Card className="gap-0 rounded-md py-0">
+      <CardContent className="p-3">
+        <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+          <h5 className="font-medium text-foreground text-sm">{title}</h5>
+          {period ? <span className="text-muted-foreground text-xs">{period}</span> : null}
+        </div>
+        {role ? <p className="mt-0.5 text-muted-foreground text-xs">{role}</p> : null}
+        {summary ? (
+          <p className="mt-2 whitespace-pre-wrap text-foreground text-sm leading-normal">
+            {summary}
+          </p>
+        ) : null}
+        {extra ? <div className="mt-2">{extra}</div> : null}
+      </CardContent>
+    </Card>
   );
 }
 

@@ -48,7 +48,7 @@ function KeyValueEntries({ entries }: { entries: Record<string, unknown> }) {
   return (
     <div className="space-y-2">
       {items.map(([key, value]) => (
-        <div className="rounded-xl border border-border/60 bg-muted/20 px-3 py-2 text-sm" key={key}>
+        <div className="rounded-xl border border-border bg-muted/20 px-3 py-2 text-sm" key={key}>
           <p className="font-medium">{key}</p>
           <p className="mt-1 break-words text-muted-foreground leading-normal">
             {typeof value === "string" ? value : JSON.stringify(value)}
@@ -119,7 +119,7 @@ export function EvaluationResults({
   return (
     <div className="space-y-3">
       {typeof data.overallScore === "number" && (
-        <div className="flex items-center gap-3 rounded-xl border border-border/60 bg-muted/20 px-3 py-2.5">
+        <div className="flex items-center gap-3 rounded-xl border border-border bg-muted/20 px-3 py-2.5">
           <span className="font-medium text-2xl text-primary tabular-nums">
             {data.overallScore}
           </span>
@@ -138,7 +138,7 @@ export function EvaluationResults({
         <div className="space-y-2">
           {data.questions.map((q, i) => (
             <div
-              className="rounded-xl border border-border/60 bg-muted/20 px-3 py-2.5 text-sm"
+              className="rounded-xl border border-border bg-muted/20 px-3 py-2.5 text-sm"
               key={q.order ?? i}
             >
               <div className="flex items-start justify-between gap-2">

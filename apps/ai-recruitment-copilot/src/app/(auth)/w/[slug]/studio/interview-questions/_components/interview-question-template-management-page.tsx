@@ -11,14 +11,7 @@ import type {
 import type { JobDescriptionListRecord } from "@/lib/shared/job-descriptions";
 import type { PaginatedInterviewQuestionTemplateResult } from "@/server/routes/studio/routes/interview-questions/dao/queries";
 import { useQueryClient } from "@tanstack/react-query";
-import {
-  ArchiveIcon,
-  ArchiveRestoreIcon,
-  ChevronDownIcon,
-  ListChecksIcon,
-  PencilIcon,
-  PlusIcon,
-} from "lucide-react";
+import { ChevronDownIcon, ListChecksIcon, PlusIcon } from "lucide-react";
 import { parseAsString, useQueryState } from "nuqs";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { toast } from "sonner";
@@ -293,7 +286,6 @@ export function InterviewQuestionTemplateManagementPage({
       actionsColumn<InterviewQuestionTemplateListRecord>({
         inline: [
           {
-            icon: PencilIcon,
             label: "编辑",
             onClick: (r) => {
               void crud.openEdit(r);
@@ -304,14 +296,12 @@ export function InterviewQuestionTemplateManagementPage({
         // The row's archived state picks one of the two: archive vs unarchive.
         menu: [
           {
-            icon: ArchiveIcon,
             label: "归档",
             onClick: (r) => crud.setDeleteRecord(r),
             show: (r) => !r.archivedAt,
             variant: "destructive",
           },
           {
-            icon: ArchiveRestoreIcon,
             label: "取消归档",
             onClick: (r) => void unarchiveTemplate(r),
             show: (r) => Boolean(r.archivedAt),
@@ -366,7 +356,7 @@ export function InterviewQuestionTemplateManagementPage({
           {...grid.bind}
           columns={columns}
           empty={
-            <Empty className="border-border/60">
+            <Empty className="border-border">
               <EmptyHeader>
                 <EmptyMedia variant="icon">
                   <ListChecksIcon className="size-5" />

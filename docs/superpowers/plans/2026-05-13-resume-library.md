@@ -1548,7 +1548,7 @@ function ChipList({ items }: { items: string[] }) {
       {items.map((item) => (
         <li
           key={item}
-          className="rounded-full border border-border/60 px-2.5 py-0.5 text-xs"
+          className="rounded-full border border-border px-2.5 py-0.5 text-xs"
         >
           {item}
         </li>
@@ -1614,7 +1614,7 @@ export function ResumeProfileView({ profile }: ResumeProfileViewProps) {
             {profile.workExperiences.map((exp, index) => (
               <li
                 key={`${exp.company ?? "company"}-${index}`}
-                className="rounded-md border border-border/60 p-3"
+                className="rounded-md border border-border p-3"
               >
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
                   <span className="font-medium text-sm">
@@ -1645,7 +1645,7 @@ export function ResumeProfileView({ profile }: ResumeProfileViewProps) {
             {profile.projectExperiences.map((proj, index) => (
               <li
                 key={`${proj.name ?? "project"}-${index}`}
-                className="rounded-md border border-border/60 p-3"
+                className="rounded-md border border-border p-3"
               >
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
                   <span className="font-medium text-sm">
@@ -2016,7 +2016,7 @@ export function UploadResumeDialog({ onCreated }: { onCreated: (detail: ResumeLi
             <FieldLabel htmlFor="resume-upload">简历 PDF（可选）</FieldLabel>
             <FieldContent className="gap-2">
               <label
-                className="flex cursor-pointer items-center gap-2 rounded-md border border-border/60 border-dashed px-3 py-3 text-sm transition-colors hover:border-border"
+                className="flex cursor-pointer items-center gap-2 rounded-md border border-border border-dashed px-3 py-3 text-sm transition-colors hover:border-border"
                 htmlFor="resume-upload"
               >
                 <FileUpIcon className="size-4" />
@@ -2345,7 +2345,7 @@ export function EditResumeDialog({
           <FieldLabel htmlFor="resume-upload-edit">替换简历 PDF（可选）</FieldLabel>
           <FieldContent className="gap-2">
             <label
-              className="flex cursor-pointer items-center gap-2 rounded-md border border-border/60 border-dashed px-3 py-3 text-sm transition-colors hover:border-border"
+              className="flex cursor-pointer items-center gap-2 rounded-md border border-border border-dashed px-3 py-3 text-sm transition-colors hover:border-border"
               htmlFor="resume-upload-edit"
             >
               <FileUpIcon className="size-4" />
@@ -2776,7 +2776,7 @@ export function ResumeLibraryPage({ initialData }: { initialData: PaginatedResum
             </Button>
           )}
           empty={
-            <Empty className="border-border/60">
+            <Empty className="border-border">
               <EmptyHeader>
                 <EmptyMedia variant="icon">
                   <UsersIcon className="size-5" />

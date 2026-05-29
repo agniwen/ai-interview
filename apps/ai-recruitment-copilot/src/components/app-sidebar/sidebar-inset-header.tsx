@@ -20,7 +20,8 @@ export function SidebarInsetHeader({ breadcrumb, actions, className }: SidebarIn
   return (
     <header
       className={cn(
-        "flex h-(--header-height) shrink-0 items-center justify-between gap-2 border-border/60 border-b px-4 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-(--header-height)",
+        "flex h-(--header-height) shrink-0 bg-background items-center justify-between gap-2 border-border border-b px-4 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-(--header-height)",
+        // "flex h-(--header-height) shrink-0 bg-sidebar items-center justify-between gap-2 border-border border-b px-4 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-(--header-height)",
         className,
       )}
     >

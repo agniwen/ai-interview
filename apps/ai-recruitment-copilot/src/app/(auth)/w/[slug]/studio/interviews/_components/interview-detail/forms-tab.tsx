@@ -45,7 +45,7 @@ function renderAnswer(question: FormQuestion, rawValue: string | string[] | unde
     );
   }
   return (
-    <div className="whitespace-pre-wrap rounded-md border border-border/60 bg-card px-3 py-2 text-foreground text-sm leading-relaxed">
+    <div className="whitespace-pre-wrap rounded-md border border-border bg-card px-3 py-2 text-foreground text-sm leading-relaxed">
       {Array.isArray(rawValue) ? rawValue.join(", ") : rawValue}
     </div>
   );
@@ -79,7 +79,7 @@ export function FormsTab({
     <div className="space-y-5">
       {submissions.map((submission) => (
         <article
-          className="space-y-4 rounded-2xl border border-border/60 bg-muted/30 p-5 shadow-xs"
+          className="space-y-4 rounded-2xl border border-border bg-muted/30 p-5 shadow-xs"
           key={submission.id}
         >
           {/* 头部：表单标题 + 描述为主信息；版本徽章 + 重置按钮在右侧操作区。
@@ -87,7 +87,7 @@ export function FormsTab({
               Header: title + description as primary info; version + reset as
               the right-side action area. The border-b mirrors the drawer
               card structure so both surfaces feel consistent. */}
-          <header className="flex items-start justify-between gap-3 border-border/60 border-b pb-3">
+          <header className="flex items-start justify-between gap-3 border-border border-b pb-3">
             <div className="min-w-0 space-y-1">
               <h3 className="font-semibold text-base text-foreground leading-tight">
                 {submission.snapshot.title}
@@ -144,7 +144,7 @@ export function FormsTab({
 
           {/* 版本注脚：用 border-t 与上方问答区分开，跟头部 border-b 对称。
               Version footnote separated by a border-t mirror of the header. */}
-          <p className="border-border/60 border-t pt-3 text-muted-foreground text-xs">
+          <p className="border-border border-t pt-3 text-muted-foreground text-xs">
             该记录基于 v{submission.version} 的快照；如已更新，请到「面试表单」查看当前版本。
           </p>
         </article>

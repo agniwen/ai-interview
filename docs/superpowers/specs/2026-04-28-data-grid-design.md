@@ -368,7 +368,7 @@ return (
         </Button>
       }
       empty={
-        <Empty className="border-border/60">
+        <Empty className="border-border">
           <EmptyHeader>...</EmptyHeader>
           <EmptyContent><CreateInterviewDialog onCreated={grid.invalidate} /></EmptyContent>
         </Empty>

@@ -1,7 +1,5 @@
 // src/components/data-grid/columns/actions-column.tsx
 import type { ColumnDef } from "@tanstack/react-table";
-import type { LucideIcon } from "lucide-react";
-import { MoreHorizontalIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -13,9 +11,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 export interface ActionInline<TData> {
-  icon: LucideIcon;
-  /** 桌面态作为按钮文字 + 始终作为 aria-label；移动态隐藏文字时也提供 title 兜底。
-   *  Used as the visible label on ≥sm and as aria-label / title fallback otherwise. */
+  /** Visible button text and aria-label/title fallback. */
   label: string;
   onClick: (row: TData) => void | Promise<void>;
   disabled?: (row: TData) => boolean;
@@ -25,7 +21,6 @@ export interface ActionInline<TData> {
 }
 
 export interface ActionMenuItem<TData> {
-  icon?: LucideIcon;
   label: string;
   onClick: (row: TData) => void | Promise<void>;
   variant?: "default" | "destructive";
@@ -44,17 +39,15 @@ export interface ActionsColumnOptions<TData> {
   title?: string;
   /** Override id (default 'actions') */
   id?: string;
-  /** Override size; default = 36*inlineCount + 36 (menu) + padding */
+  /** Override size; default estimates text-only inline actions + menu trigger. */
   size?: number;
 }
 
 export function actionsColumn<TData>(opts: ActionsColumnOptions<TData>): ColumnDef<TData> {
   const inlineButtons = opts.inline ?? [];
   const menuItems = opts.menu ?? [];
-  // 桌面态按钮带文字时占位更大（≈72px inline、≈64px 更多），列宽按桌面估算；
-  // 移动态实际只用图标，留白即可。
-  // Desktop carries text → ≈72px per inline + ≈64px for the "更多" trigger;
-  // mobile is icon-only and uses the slack.
+  // Action buttons are text-only in tables; estimate enough width for labels.
+  // 表格 action 按钮统一纯文字展示，列宽按 label 文本估算。
   const inferredSize = inlineButtons.length * 72 + (menuItems.length > 0 ? 64 : 0) + 32;
 
   return {
@@ -66,26 +59,20 @@ export function actionsColumn<TData>(opts: ActionsColumnOptions<TData>): ColumnD
       return (
         <div className="flex items-center justify-end gap-0.5">
           {visibleInline.map((action) => {
-            const Icon = action.icon;
             const disabled = action.disabled?.(record) ?? false;
             const reason = disabled ? (action.disabledReason?.(record) ?? null) : null;
             return (
-              // 移动态（<sm）：保持 size-8 方形仅图标，跟旧版一致；
-              // 桌面态（≥sm）：自动宽度，图标 + 文字 (text-xs)，label 直接可见。
-              // <sm: keep the legacy size-8 icon-only square button;
-              // ≥sm: auto-width pill with icon + text-xs label.
               <Button
                 aria-label={action.label}
-                className="size-8 sm:h-8 sm:w-auto sm:px-2.5"
+                className="h-8 px-2.5 text-xs"
                 disabled={disabled}
                 key={action.label}
                 onClick={() => void action.onClick(record)}
-                size="icon"
+                size="sm"
                 title={reason ?? action.label}
                 variant="ghost"
               >
-                <Icon className="size-4 sm:size-3.5" />
-                <span className="hidden text-xs sm:inline">{action.label}</span>
+                {action.label}
               </Button>
             );
           })}
@@ -94,20 +81,18 @@ export function actionsColumn<TData>(opts: ActionsColumnOptions<TData>): ColumnD
               <DropdownMenuTrigger asChild>
                 <Button
                   aria-label="更多操作"
-                  className="size-8 sm:h-8 sm:w-auto sm:px-2.5"
-                  size="icon"
+                  className="h-8 pl-2.5 pr-0 text-xs"
+                  size="sm"
                   title="更多操作"
                   variant="ghost"
                 >
-                  <MoreHorizontalIcon className="size-4 sm:size-3.5" />
-                  <span className="hidden text-xs sm:inline">更多</span>
+                  更多
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-44">
                 <DropdownMenuLabel>{opts.menuLabel ?? "更多操作"}</DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 {visibleMenu.map((item, index) => {
-                  const Icon = item.icon;
                   const itemDisabled = item.disabled?.(record) ?? false;
                   const itemReason = itemDisabled ? (item.disabledReason?.(record) ?? null) : null;
                   return (
@@ -119,7 +104,6 @@ export function actionsColumn<TData>(opts: ActionsColumnOptions<TData>): ColumnD
                         title={itemReason ?? undefined}
                         variant={item.variant}
                       >
-                        {Icon ? <Icon className="size-4" /> : null}
                         {item.label}
                       </DropdownMenuItem>
                     </div>

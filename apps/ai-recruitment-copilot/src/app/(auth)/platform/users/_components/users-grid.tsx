@@ -4,8 +4,6 @@ import {
   BanIcon,
   Building2Icon,
   CheckCircle2Icon,
-  EyeIcon,
-  LogOutIcon,
   ShieldCheckIcon,
   UsersIcon,
   XCircleIcon,
@@ -14,6 +12,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   actionsColumn,
@@ -145,12 +144,14 @@ async function loadUserWorkspaces(
 
 function UserWorkspacesSkeleton() {
   return (
-    <div className="space-y-3">
+    <div className="flex flex-col gap-3">
       {Array.from({ length: 3 }).map((_, index) => (
-        <div className="rounded-lg border p-3" key={index}>
-          <Skeleton className="mb-2 h-4 w-40" />
-          <Skeleton className="h-3 w-56" />
-        </div>
+        <Card className="gap-0 rounded-lg py-0" key={index}>
+          <CardContent className="p-3">
+            <Skeleton className="mb-2 h-4 w-40" />
+            <Skeleton className="h-3 w-56" />
+          </CardContent>
+        </Card>
       ))}
     </div>
   );
@@ -162,25 +163,27 @@ function UserWorkspacesList({ data }: { data: UserWorkspacesResult }) {
   }
 
   return (
-    <div className="space-y-2">
+    <div className="flex flex-col gap-2">
       {data.records.map((workspace) => (
-        <div className="rounded-lg border p-3" key={workspace.id}>
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <p className="truncate font-medium text-sm">{workspace.organizationName}</p>
-              <p className="truncate font-mono text-muted-foreground text-xs">
-                /w/{workspace.organizationSlug}
-              </p>
+        <Card className="gap-0 rounded-lg py-0" key={workspace.id}>
+          <CardContent className="p-3">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="truncate font-medium text-sm">{workspace.organizationName}</p>
+                <p className="truncate font-mono text-muted-foreground text-xs">
+                  /w/{workspace.organizationSlug}
+                </p>
+              </div>
+              <Badge variant={ROLE_BADGE_VARIANT[workspace.role] ?? "outline"}>
+                {ROLE_LABEL[workspace.role] ?? workspace.role}
+              </Badge>
             </div>
-            <Badge variant={ROLE_BADGE_VARIANT[workspace.role] ?? "outline"}>
-              {ROLE_LABEL[workspace.role] ?? workspace.role}
-            </Badge>
-          </div>
-          <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-muted-foreground text-xs">
-            <span>加入于 {formatDateOnly(workspace.createdAt)}</span>
-            <span>工作区创建于 {formatDateOnly(workspace.organizationCreatedAt)}</span>
-          </div>
-        </div>
+            <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-muted-foreground text-xs">
+              <span>加入于 {formatDateOnly(workspace.createdAt)}</span>
+              <span>工作区创建于 {formatDateOnly(workspace.organizationCreatedAt)}</span>
+            </div>
+          </CardContent>
+        </Card>
       ))}
     </div>
   );
@@ -408,12 +411,10 @@ export function UsersGrid({ initialData }: { initialData: UsersResult }) {
     actionsColumn<UserRecord>({
       menu: [
         {
-          icon: EyeIcon,
           label: "查看加入的工作区",
           onClick: (r) => setWorkspacesTarget(r),
         },
         {
-          icon: LogOutIcon,
           label: "强制下线",
           onClick: (r) => setForceLogoutTarget(r),
           variant: "destructive",
@@ -428,7 +429,7 @@ export function UsersGrid({ initialData }: { initialData: UsersResult }) {
         {...grid.bind}
         columns={columns}
         empty={
-          <Empty className="border-border/60">
+          <Empty className="border-border">
             <EmptyHeader>
               <EmptyMedia variant="icon">
                 <UsersIcon className="size-5" />

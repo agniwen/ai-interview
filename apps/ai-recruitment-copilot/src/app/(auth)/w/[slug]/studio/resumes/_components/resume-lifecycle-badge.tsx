@@ -43,7 +43,7 @@ export function ResumeLifecycleBadge({
       type={type ?? "button"}
       {...props}
     >
-      <span className="shrink-0 font-semibold">{stageLabel}</span>
+      <span className="shrink-0 ">{stageLabel}</span>
       {hasDetail ? (
         <>
           <span aria-hidden className="shrink-0 opacity-45">

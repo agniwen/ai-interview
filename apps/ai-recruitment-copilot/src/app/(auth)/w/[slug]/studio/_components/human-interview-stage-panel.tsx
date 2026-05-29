@@ -66,6 +66,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -229,13 +230,15 @@ export function HumanInterviewStagePanel({ candidateId, candidateName, disabled 
   let roundsContent: ReactNode;
   if (isLoading) {
     roundsContent = (
-      <div className="rounded-lg border border-border/60 bg-muted/30 p-6 text-center text-muted-foreground text-sm">
-        加载中…
-      </div>
+      <Card className="gap-0 rounded-lg py-0">
+        <CardContent className="bg-muted/30 p-6 text-center text-muted-foreground text-sm">
+          加载中…
+        </CardContent>
+      </Card>
     );
   } else if (rounds.length === 0) {
     roundsContent = (
-      <Empty className="border-border/60">
+      <Empty className="border-border">
         <EmptyHeader>
           <EmptyMedia variant="icon">
             <UsersIcon className="size-5" />
@@ -366,67 +369,69 @@ function RoundCard({
   const canCompleteRound = canCompleteHumanInterviewRound(round, meeting, disabled);
 
   return (
-    <div className="flex flex-col gap-3 rounded-lg border border-border/60 bg-card p-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <span className="font-medium text-sm">
-              第 {round.sortOrder + 1} 轮 · {round.label}
-            </span>
-            <Badge variant={statusBadge.tone}>{statusBadge.label}</Badge>
-          </div>
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-muted-foreground text-xs">
-            {round.scheduledAt ? (
-              <span className="inline-flex items-center gap-1">
-                <CalendarIcon className="size-3" />
-                {formatDateTime(round.scheduledAt)}
+    <Card className="gap-0 rounded-lg py-0">
+      <CardContent className="flex flex-col gap-3 p-4">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <span className="font-medium text-sm">
+                第 {round.sortOrder + 1} 轮 · {round.label}
               </span>
-            ) : (
-              <span className="text-muted-foreground/70">时间未定</span>
-            )}
-            <span className="inline-flex items-center gap-1">
-              {humanInterviewFormatMeta[round.format].label}
-            </span>
-            <span className="inline-flex items-center gap-1">
-              <UsersIcon className="size-3" />
-              {round.interviewers.map((i) => i.name).join("、") || "未指派面试官"}
-            </span>
+              <Badge variant={statusBadge.tone}>{statusBadge.label}</Badge>
+            </div>
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-muted-foreground text-xs">
+              {round.scheduledAt ? (
+                <span className="inline-flex items-center gap-1">
+                  <CalendarIcon className="size-3" />
+                  {formatDateTime(round.scheduledAt)}
+                </span>
+              ) : (
+                <span className="text-muted-foreground/70">时间未定</span>
+              )}
+              <span className="inline-flex items-center gap-1">
+                {humanInterviewFormatMeta[round.format].label}
+              </span>
+              <span className="inline-flex items-center gap-1">
+                <UsersIcon className="size-3" />
+                {round.interviewers.map((i) => i.name).join("、") || "未指派面试官"}
+              </span>
+            </div>
           </div>
         </div>
-      </div>
 
-      {hasRoundDetails(round) ? (
-        <div className="space-y-1 border-border/40 border-t pt-3 text-sm">
-          {round.score === null ? null : (
-            <div className="text-muted-foreground text-xs">
-              评分：<span className="font-medium text-foreground">{round.score}</span>
-            </div>
-          )}
-          {round.feedback ? (
-            <p className="whitespace-pre-wrap text-foreground/90 text-xs leading-relaxed">
-              {round.feedback}
-            </p>
-          ) : null}
-          {round.cancelReason ? (
-            <p className="text-muted-foreground text-xs">取消原因：{round.cancelReason}</p>
-          ) : null}
-        </div>
-      ) : null}
+        {hasRoundDetails(round) ? (
+          <div className="space-y-1 border-border/40 border-t pt-3 text-sm">
+            {round.score === null ? null : (
+              <div className="text-muted-foreground text-xs">
+                评分：<span className="font-medium text-foreground">{round.score}</span>
+              </div>
+            )}
+            {round.feedback ? (
+              <p className="whitespace-pre-wrap text-foreground/90 text-xs leading-relaxed">
+                {round.feedback}
+              </p>
+            ) : null}
+            {round.cancelReason ? (
+              <p className="text-muted-foreground text-xs">取消原因：{round.cancelReason}</p>
+            ) : null}
+          </div>
+        ) : null}
 
-      <RoundCardActions
-        canCancelRound={canCancelRound}
-        canCompleteRound={canCompleteRound}
-        canCreateMeeting={canCreateMeeting}
-        canEndMeeting={canEndHumanInterviewMeeting(meeting, disabled)}
-        canOpenLinks={canOpenMeetingLinks(meeting)}
-        meeting={meeting}
-        onCancel={onCancel}
-        onComplete={onComplete}
-        onCreateMeeting={onCreateMeeting}
-        onEndMeeting={onEndMeeting}
-        onOpenLinks={onOpenLinks}
-      />
-    </div>
+        <RoundCardActions
+          canCancelRound={canCancelRound}
+          canCompleteRound={canCompleteRound}
+          canCreateMeeting={canCreateMeeting}
+          canEndMeeting={canEndHumanInterviewMeeting(meeting, disabled)}
+          canOpenLinks={canOpenMeetingLinks(meeting)}
+          meeting={meeting}
+          onCancel={onCancel}
+          onComplete={onComplete}
+          onCreateMeeting={onCreateMeeting}
+          onEndMeeting={onEndMeeting}
+          onOpenLinks={onOpenLinks}
+        />
+      </CardContent>
+    </Card>
   );
 }
 
@@ -589,10 +594,12 @@ function MeetingLinksDialog({
 
         <div className="max-h-[60dvh] space-y-5 overflow-y-auto py-1">
           {isFetching ? (
-            <div className="flex items-center justify-center gap-2 rounded-lg border border-border/60 p-6 text-muted-foreground text-sm">
-              <Loader2Icon className="size-4 animate-spin" />
-              生成链接中…
-            </div>
+            <Card className="gap-0 rounded-lg py-0">
+              <CardContent className="flex items-center justify-center gap-2 p-6 text-muted-foreground text-sm">
+                <Loader2Icon className="size-4 animate-spin" />
+                生成链接中…
+              </CardContent>
+            </Card>
           ) : null}
           {error ? (
             <p className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-destructive text-sm">
@@ -671,19 +678,21 @@ function MeetingLinkRow({
   }
 
   return (
-    <div className="grid gap-2 rounded-lg border border-border/60 p-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
-      <div className="min-w-0 space-y-1">
-        <div className="flex items-center gap-2">
-          <span className="font-medium text-sm">{label}</span>
-          <Badge variant="outline">{description}</Badge>
+    <Card className="gap-0 rounded-lg py-0">
+      <CardContent className="grid gap-2 p-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
+        <div className="min-w-0 space-y-1">
+          <div className="flex items-center gap-2">
+            <span className="font-medium text-sm">{label}</span>
+            <Badge variant="outline">{description}</Badge>
+          </div>
+          <Input className="h-8 text-xs" readOnly value={absoluteUrl} />
         </div>
-        <Input className="h-8 text-xs" readOnly value={absoluteUrl} />
-      </div>
-      <Button className="md:self-end" onClick={handleCopy} size="sm" variant="outline">
-        <CopyIcon className="size-4" />
-        复制
-      </Button>
-    </div>
+        <Button className="md:self-end" onClick={handleCopy} size="sm" variant="outline">
+          <CopyIcon className="size-4" />
+          复制
+        </Button>
+      </CardContent>
+    </Card>
   );
 }
 

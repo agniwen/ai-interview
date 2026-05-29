@@ -11,15 +11,7 @@ import type {
 import type { JobDescriptionListRecord } from "@/lib/shared/job-descriptions";
 import type { PaginatedCandidateFormTemplateResult } from "@/server/routes/studio/routes/forms/dao/queries";
 import { useQueryClient } from "@tanstack/react-query";
-import {
-  ArchiveIcon,
-  ArchiveRestoreIcon,
-  ChevronDownIcon,
-  ClipboardListIcon,
-  InboxIcon,
-  PencilIcon,
-  PlusIcon,
-} from "lucide-react";
+import { ChevronDownIcon, ClipboardListIcon, PlusIcon } from "lucide-react";
 import { parseAsString, useQueryState } from "nuqs";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -317,7 +309,6 @@ export function CandidateFormTemplateManagementPage({
       actionsColumn<CandidateFormTemplateListRecord>({
         inline: [
           {
-            icon: PencilIcon,
             label: "编辑",
             onClick: (r) => {
               void crud.openEdit(r);
@@ -328,19 +319,16 @@ export function CandidateFormTemplateManagementPage({
         // The row's archived state picks one of the two: archive vs unarchive.
         menu: [
           {
-            icon: InboxIcon,
             label: "查看填写记录",
             onClick: (r) => setSubmissionsRecord(r),
           },
           {
-            icon: ArchiveIcon,
             label: "归档",
             onClick: (r) => crud.setDeleteRecord(r),
             show: (r) => !r.archivedAt,
             variant: "destructive",
           },
           {
-            icon: ArchiveRestoreIcon,
             label: "取消归档",
             onClick: (r) => void unarchiveTemplate(r),
             show: (r) => Boolean(r.archivedAt),
@@ -395,7 +383,7 @@ export function CandidateFormTemplateManagementPage({
           {...grid.bind}
           columns={columns}
           empty={
-            <Empty className="border-border/60">
+            <Empty className="border-border">
               <EmptyHeader>
                 <EmptyMedia variant="icon">
                   <ClipboardListIcon className="size-5" />

@@ -155,7 +155,7 @@ export function ScopedInterviewersModal({
           columns={columns}
           data={data.records}
           empty={
-            <Empty className="border-border/60">
+            <Empty className="border-border">
               <EmptyHeader>
                 <EmptyTitle>暂无面试官</EmptyTitle>
                 <EmptyDescription>当前部门「{departmentName}」下没有任何面试官。</EmptyDescription>

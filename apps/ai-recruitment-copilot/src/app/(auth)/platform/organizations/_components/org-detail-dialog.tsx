@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -97,19 +98,21 @@ function MemberList({ data }: { data: OrgDetail }) {
   return (
     <>
       {members.records.map((m) => (
-        <div key={m.id} className="flex items-center gap-3 rounded-lg border p-3">
-          <Avatar className="size-9">
-            <AvatarImage alt={m.userName} src={m.userImage ?? undefined} />
-            <AvatarFallback>{getInitials(m.userName, m.userEmail)}</AvatarFallback>
-          </Avatar>
-          <div className="min-w-0 flex-1">
-            <p className="truncate font-medium text-sm">{m.userName}</p>
-            <p className="truncate text-muted-foreground text-xs">{m.userEmail}</p>
-          </div>
-          <Badge variant={ROLE_BADGE_VARIANT[m.role] ?? "outline"}>
-            {ROLE_LABEL[m.role] ?? m.role}
-          </Badge>
-        </div>
+        <Card className="gap-0 rounded-lg py-0" key={m.id}>
+          <CardContent className="flex items-center gap-3 p-3">
+            <Avatar className="size-9">
+              <AvatarImage alt={m.userName} src={m.userImage ?? undefined} />
+              <AvatarFallback>{getInitials(m.userName, m.userEmail)}</AvatarFallback>
+            </Avatar>
+            <div className="min-w-0 flex-1">
+              <p className="truncate font-medium text-sm">{m.userName}</p>
+              <p className="truncate text-muted-foreground text-xs">{m.userEmail}</p>
+            </div>
+            <Badge variant={ROLE_BADGE_VARIANT[m.role] ?? "outline"}>
+              {ROLE_LABEL[m.role] ?? m.role}
+            </Badge>
+          </CardContent>
+        </Card>
       ))}
     </>
   );

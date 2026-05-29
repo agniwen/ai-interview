@@ -150,7 +150,7 @@ export function InterviewQuestionBindingsSection({
       </div>
 
       {isLoading ? (
-        <p className="rounded-xl border border-dashed border-border/60 bg-muted/20 px-4 py-6 text-center text-muted-foreground text-sm">
+        <p className="rounded-xl border border-dashed border-border bg-muted/20 px-4 py-6 text-center text-muted-foreground text-sm">
           正在加载…
         </p>
       ) : null}
@@ -160,7 +160,7 @@ export function InterviewQuestionBindingsSection({
         </p>
       ) : null}
       {!isLoading && !isError && data && data.applicable.length === 0 ? (
-        <p className="rounded-xl border border-dashed border-border/60 bg-muted/20 px-4 py-6 text-center text-muted-foreground text-sm">
+        <p className="rounded-xl border border-dashed border-border bg-muted/20 px-4 py-6 text-center text-muted-foreground text-sm">
           没有适用的面试题（全局或当前岗位绑定）。
         </p>
       ) : null}
@@ -171,7 +171,7 @@ export function InterviewQuestionBindingsSection({
             return (
               <div
                 className={`overflow-hidden rounded-xl border bg-muted/20 transition-opacity ${
-                  isEnabled ? "border-border/60" : "border-border/40 opacity-60"
+                  isEnabled ? "border-border" : "border-border/40 opacity-60"
                 }`}
                 key={template.id}
               >
@@ -204,7 +204,7 @@ export function InterviewQuestionBindingsSection({
                 </div>
 
                 {template.questions.length > 0 ? (
-                  <ol className="space-y-1 border-border/60 border-t bg-background/40 px-3 py-2.5">
+                  <ol className="space-y-1 border-border border-t bg-background/40 px-3 py-2.5">
                     {template.questions.map((question, index) => {
                       const difficulty = question.difficulty ?? "easy";
                       return (

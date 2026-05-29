@@ -3,6 +3,7 @@
 import { LoaderCircleIcon, SparklesIcon } from "lucide-react";
 import { JobDescriptionSelectField } from "@/app/(auth)/w/[slug]/studio/interviews/_components/job-description-select-field";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { Modal } from "@/components/ui/modal";
 
 interface JdPickModalProps {
@@ -84,16 +85,20 @@ export function JdPickModal({
           value={selectedJdId}
         />
         {isAnalyzingMatch ? (
-          <div className="flex items-center gap-2 rounded-md border border-dashed bg-muted/40 px-3 py-2 text-muted-foreground text-xs">
-            <LoaderCircleIcon className="size-3.5 animate-spin" />
-            <span>正在分析简历并匹配最合适的在招岗位…</span>
-          </div>
+          <Card className="gap-0 rounded-md border-dashed py-0">
+            <CardContent className="flex items-center gap-2 bg-muted/40 px-3 py-2 text-muted-foreground text-xs">
+              <LoaderCircleIcon className="size-3.5 animate-spin" />
+              <span>正在分析简历并匹配最合适的在招岗位…</span>
+            </CardContent>
+          </Card>
         ) : null}
         {!isAnalyzingMatch && matchReason ? (
-          <div className="flex items-start gap-2 rounded-md border border-amber-200/70 bg-amber-50/70 px-3 py-2 text-amber-800 text-xs dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-200">
-            <SparklesIcon className="mt-0.5 size-3.5 shrink-0" />
-            <span>已根据简历匹配到建议岗位：{matchReason}</span>
-          </div>
+          <Card className="gap-0 rounded-md border-amber-200/70 bg-amber-50/70 py-0 text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-200">
+            <CardContent className="flex items-start gap-2 px-3 py-2 text-xs">
+              <SparklesIcon className="mt-0.5 size-3.5 shrink-0" />
+              <span>已根据简历匹配到建议岗位：{matchReason}</span>
+            </CardContent>
+          </Card>
         ) : null}
       </div>
     </Modal>

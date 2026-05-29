@@ -38,6 +38,7 @@ import {
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -93,15 +94,17 @@ export function OfferStagePanel({
   function renderDraftsContent() {
     if (isLoading) {
       return (
-        <div className="rounded-lg border border-border/60 bg-muted/30 p-6 text-center text-muted-foreground text-sm">
-          加载中…
-        </div>
+        <Card className="gap-0 rounded-lg py-0">
+          <CardContent className="bg-muted/30 p-6 text-center text-muted-foreground text-sm">
+            加载中…
+          </CardContent>
+        </Card>
       );
     }
 
     if (drafts.length === 0) {
       return (
-        <Empty className="border-border/60">
+        <Empty className="border-border">
           <EmptyHeader>
             <EmptyMedia variant="icon">
               <HandshakeIcon className="size-5" />
@@ -253,106 +256,112 @@ function CandidateExpectationsBlock({
 
   if (editing) {
     return (
-      <div className="rounded-lg border border-border/60 bg-card p-4">
-        <h4 className="mb-3 font-medium text-sm">编辑候选人期望</h4>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <div className="grid gap-1.5">
-            <Label className="text-sm" htmlFor="exp-salary">
-              期望月薪
-            </Label>
-            <Input
-              id="exp-salary"
-              inputMode="numeric"
-              min={0}
-              onChange={(e) => setExpectedSalary(e.target.value)}
-              placeholder="如 30000"
-              type="number"
-              value={expectedSalary}
-            />
+      <Card className="gap-0 rounded-lg py-0">
+        <CardContent className="p-4">
+          <h4 className="mb-3 font-medium text-sm">编辑候选人期望</h4>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid gap-1.5">
+              <Label className="text-sm" htmlFor="exp-salary">
+                期望月薪
+              </Label>
+              <Input
+                id="exp-salary"
+                inputMode="numeric"
+                min={0}
+                onChange={(e) => setExpectedSalary(e.target.value)}
+                placeholder="如 30000"
+                type="number"
+                value={expectedSalary}
+              />
+            </div>
+            <div className="grid gap-1.5">
+              <Label className="text-sm" htmlFor="cur-salary">
+                当前月薪
+              </Label>
+              <Input
+                id="cur-salary"
+                inputMode="numeric"
+                min={0}
+                onChange={(e) => setCurrentSalary(e.target.value)}
+                placeholder="如 25000"
+                type="number"
+                value={currentSalary}
+              />
+            </div>
+            <div className="grid gap-1.5 sm:col-span-2">
+              <Label className="text-sm" htmlFor="exp-joining">
+                最早入职日
+              </Label>
+              <Input
+                id="exp-joining"
+                onChange={(e) => setEarliestJoiningDate(e.target.value)}
+                type="date"
+                value={earliestJoiningDate}
+              />
+            </div>
+            <div className="grid gap-1.5 sm:col-span-2">
+              <Label className="text-sm" htmlFor="exp-notes">
+                备注
+              </Label>
+              <Textarea
+                id="exp-notes"
+                maxLength={1000}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="如「希望远程」「期权敏感」"
+                rows={2}
+                value={notes}
+              />
+            </div>
           </div>
-          <div className="grid gap-1.5">
-            <Label className="text-sm" htmlFor="cur-salary">
-              当前月薪
-            </Label>
-            <Input
-              id="cur-salary"
-              inputMode="numeric"
-              min={0}
-              onChange={(e) => setCurrentSalary(e.target.value)}
-              placeholder="如 25000"
-              type="number"
-              value={currentSalary}
-            />
+          <div className="mt-3 flex justify-end gap-2">
+            <Button
+              disabled={mutation.isPending}
+              onClick={() => setEditing(false)}
+              size="sm"
+              variant="outline"
+            >
+              取消
+            </Button>
+            <Button disabled={mutation.isPending} onClick={() => mutation.mutate()} size="sm">
+              {mutation.isPending ? "保存中…" : "保存"}
+            </Button>
           </div>
-          <div className="grid gap-1.5 sm:col-span-2">
-            <Label className="text-sm" htmlFor="exp-joining">
-              最早入职日
-            </Label>
-            <Input
-              id="exp-joining"
-              onChange={(e) => setEarliestJoiningDate(e.target.value)}
-              type="date"
-              value={earliestJoiningDate}
-            />
-          </div>
-          <div className="grid gap-1.5 sm:col-span-2">
-            <Label className="text-sm" htmlFor="exp-notes">
-              备注
-            </Label>
-            <Textarea
-              id="exp-notes"
-              maxLength={1000}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="如「希望远程」「期权敏感」"
-              rows={2}
-              value={notes}
-            />
-          </div>
-        </div>
-        <div className="mt-3 flex justify-end gap-2">
-          <Button
-            disabled={mutation.isPending}
-            onClick={() => setEditing(false)}
-            size="sm"
-            variant="outline"
-          >
-            取消
-          </Button>
-          <Button disabled={mutation.isPending} onClick={() => mutation.mutate()} size="sm">
-            {mutation.isPending ? "保存中…" : "保存"}
-          </Button>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
     );
   }
 
   return (
-    <div className="rounded-lg border border-border/60 bg-card p-4">
-      <div className="flex items-start justify-between gap-2">
-        <div>
-          <h4 className="font-medium text-sm">候选人期望</h4>
-          <p className="text-muted-foreground text-xs">发 Offer 前先收集候选人期望，做议价参考。</p>
+    <Card className="gap-0 rounded-lg py-0">
+      <CardContent className="p-4">
+        <div className="flex items-start justify-between gap-2">
+          <div>
+            <h4 className="font-medium text-sm">候选人期望</h4>
+            <p className="text-muted-foreground text-xs">
+              发 Offer 前先收集候选人期望，做议价参考。
+            </p>
+          </div>
+          {disabled ? null : (
+            <Button onClick={() => setEditing(true)} size="sm" variant="ghost">
+              <PencilIcon className="size-3.5" />
+              编辑
+            </Button>
+          )}
         </div>
-        {disabled ? null : (
-          <Button onClick={() => setEditing(true)} size="sm" variant="ghost">
-            <PencilIcon className="size-3.5" />
-            编辑
-          </Button>
-        )}
-      </div>
-      <dl className="mt-3 grid gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
-        <ExpectationField
-          label="期望月薪"
-          value={meta?.expectedSalary ? `¥ ${meta.expectedSalary.toLocaleString()}` : null}
-        />
-        <ExpectationField
-          label="当前月薪"
-          value={meta?.currentSalary ? `¥ ${meta.currentSalary.toLocaleString()}` : null}
-        />
-        <ExpectationField label="最早入职日" value={meta?.earliestJoiningDate ?? null} />
-        <ExpectationField label="备注" value={meta?.notes ?? null} />
-      </dl>
-    </div>
+        <dl className="mt-3 grid gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
+          <ExpectationField
+            label="期望月薪"
+            value={meta?.expectedSalary ? `¥ ${meta.expectedSalary.toLocaleString()}` : null}
+          />
+          <ExpectationField
+            label="当前月薪"
+            value={meta?.currentSalary ? `¥ ${meta.currentSalary.toLocaleString()}` : null}
+          />
+          <ExpectationField label="最早入职日" value={meta?.earliestJoiningDate ?? null} />
+          <ExpectationField label="备注" value={meta?.notes ?? null} />
+        </dl>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -407,49 +416,51 @@ function OfferCard({
   });
 
   return (
-    <div className="rounded-lg border border-border/60 bg-card p-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <span className="font-medium text-sm">
-              v{draft.version} · {draft.position}
-            </span>
-            <Badge variant={meta.tone}>{meta.label}</Badge>
-          </div>
-          <div className="flex flex-wrap gap-x-4 gap-y-1 text-muted-foreground text-xs">
-            <span>
-              Base：
-              <span className="font-medium text-foreground">
-                ¥ {draft.baseSalary.toLocaleString()}
+    <Card className="gap-0 rounded-lg py-0">
+      <CardContent className="p-4">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <span className="font-medium text-sm">
+                v{draft.version} · {draft.position}
               </span>
-              {draft.bonus ? ` · 奖金 ¥ ${draft.bonus.toLocaleString()}` : ""}
-            </span>
-            {draft.equity ? <span>期权：{draft.equity}</span> : null}
-            {draft.joiningDate ? <span>预计入职：{formatDate(draft.joiningDate)}</span> : null}
-            {draft.sentAt ? <span>发送于：{formatDate(draft.sentAt)}</span> : null}
-            {draft.expiresAt ? <span>有效期至：{formatDate(draft.expiresAt)}</span> : null}
+              <Badge variant={meta.tone}>{meta.label}</Badge>
+            </div>
+            <div className="flex flex-wrap gap-x-4 gap-y-1 text-muted-foreground text-xs">
+              <span>
+                Base：
+                <span className="font-medium text-foreground">
+                  ¥ {draft.baseSalary.toLocaleString()}
+                </span>
+                {draft.bonus ? ` · 奖金 ¥ ${draft.bonus.toLocaleString()}` : ""}
+              </span>
+              {draft.equity ? <span>期权：{draft.equity}</span> : null}
+              {draft.joiningDate ? <span>预计入职：{formatDate(draft.joiningDate)}</span> : null}
+              {draft.sentAt ? <span>发送于：{formatDate(draft.sentAt)}</span> : null}
+              {draft.expiresAt ? <span>有效期至：{formatDate(draft.expiresAt)}</span> : null}
+            </div>
+            {draft.candidateCounter ? (
+              <p className="rounded bg-muted/40 px-2 py-1 text-foreground/90 text-xs">
+                <span className="text-muted-foreground">候选人议价：</span>
+                {draft.candidateCounter}
+              </p>
+            ) : null}
+            {draft.notes ? (
+              <p className="text-muted-foreground text-xs">备注：{draft.notes}</p>
+            ) : null}
           </div>
-          {draft.candidateCounter ? (
-            <p className="rounded bg-muted/40 px-2 py-1 text-foreground/90 text-xs">
-              <span className="text-muted-foreground">候选人议价：</span>
-              {draft.candidateCounter}
-            </p>
-          ) : null}
-          {draft.notes ? (
-            <p className="text-muted-foreground text-xs">备注：{draft.notes}</p>
-          ) : null}
+          {disabled ? null : (
+            <OfferCardActions
+              cancelMutation={cancelMutation}
+              draft={draft}
+              onEdit={onEdit}
+              onRespond={onRespond}
+              sendMutation={sendMutation}
+            />
+          )}
         </div>
-        {disabled ? null : (
-          <OfferCardActions
-            cancelMutation={cancelMutation}
-            draft={draft}
-            onEdit={onEdit}
-            onRespond={onRespond}
-            sendMutation={sendMutation}
-          />
-        )}
-      </div>
-    </div>
+      </CardContent>
+    </Card>
   );
 }
 

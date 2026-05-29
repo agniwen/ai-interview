@@ -2,15 +2,7 @@
 // PageHeader (text-2xl + text-sm muted) + JobDescriptionCharts (3 张 Card) +
 // Toolbar (search + departmentId/interviewerId multi-select) + DataGrid Card 包表格 + 新建岗位 按钮
 // Purpose: simplified Studio job-descriptions management mock, 1:1 with real components.
-import {
-  ChevronDownIcon,
-  FileTextIcon,
-  MoreHorizontalIcon,
-  PencilIcon,
-  PlusIcon,
-  SearchIcon,
-  Trash2Icon,
-} from "lucide-react";
+import { ChevronDownIcon, FileTextIcon, PlusIcon, SearchIcon } from "lucide-react";
 import { AppShell, StudioNav } from "./_parts/app-shell";
 import type { BreadcrumbCrumb } from "./_parts/app-shell";
 import { ScreenFrame } from "./screen-frame";
@@ -336,21 +328,21 @@ function JobsTable() {
                 <div className="flex items-center justify-end gap-0.5">
                   <span
                     aria-label="编辑岗位"
-                    className="grid size-7 place-items-center rounded-md text-muted-foreground hover:bg-accent"
+                    className="inline-flex h-7 items-center rounded-md px-2 text-muted-foreground text-xs hover:bg-accent"
                   >
-                    <PencilIcon className="size-4" />
+                    编辑
                   </span>
                   <span
                     aria-label="删除岗位"
-                    className="grid size-7 place-items-center rounded-md text-muted-foreground hover:bg-accent"
+                    className="inline-flex h-7 items-center rounded-md px-2 text-muted-foreground text-xs hover:bg-accent"
                   >
-                    <Trash2Icon className="size-4" />
+                    删除
                   </span>
                   <span
                     aria-label="更多岗位操作"
-                    className="grid size-7 place-items-center rounded-md text-muted-foreground hover:bg-accent"
+                    className="inline-flex h-7 items-center rounded-md px-2 text-muted-foreground text-xs hover:bg-accent"
                   >
-                    <MoreHorizontalIcon className="size-4" />
+                    更多
                   </span>
                 </div>
               </td>

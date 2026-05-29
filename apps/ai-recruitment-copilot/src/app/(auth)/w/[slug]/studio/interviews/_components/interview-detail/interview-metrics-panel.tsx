@@ -163,7 +163,7 @@ export function InterviewMetricsPanel({ metrics }: { metrics: Record<string, unk
 
   if (isEmptyMetrics(m)) {
     return (
-      <div className="rounded-2xl border border-border/60 bg-background p-4">
+      <div className="rounded-2xl border border-border bg-background p-4">
         <h4 className="font-medium text-sm">通话指标</h4>
         <p className="mt-3 text-muted-foreground text-sm leading-normal">
           本场面试未上报性能指标（可能是 agent 升级前的历史会话）。
@@ -188,7 +188,7 @@ export function InterviewMetricsPanel({ metrics }: { metrics: Record<string, unk
   const e2eP95 = quantile(e2eLatencies, 0.95);
 
   return (
-    <div className="rounded-2xl border border-border/60 bg-background p-4">
+    <div className="rounded-2xl border border-border bg-background p-4">
       <h4 className="font-medium text-sm">通话指标</h4>
       <p className="mt-1 text-muted-foreground text-xs leading-normal">
         从 user 说完到 agent 开口的端到端延迟，以及各 pipeline 段累计用量。

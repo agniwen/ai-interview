@@ -68,7 +68,7 @@ function AuthShell({
       id="main-content"
     >
       <div className="w-full max-w-md">
-        <Card className="border-border/60 bg-background/92 shadow-lg">
+        <Card className="border-border bg-background/92 shadow-lg">
           <CardHeader>
             <CardTitle>{title}</CardTitle>
             <CardDescription>{description}</CardDescription>

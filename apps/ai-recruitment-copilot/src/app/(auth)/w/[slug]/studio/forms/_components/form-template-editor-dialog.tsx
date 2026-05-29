@@ -41,11 +41,12 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import { Modal } from "@/components/ui/modal";
+import { Card, CardContent } from "@/components/ui/card";
 import { Field, FieldContent, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { SearchableMultiSelect } from "@/components/ui/searchable-multi-select";
 import { Label } from "@/components/ui/label";
+import { Modal } from "@/components/ui/modal";
+import { SearchableMultiSelect } from "@/components/ui/searchable-multi-select";
 import { SortableDragHandle, SortableItem, SortableList } from "@/components/ui/sortable-list";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -503,15 +504,17 @@ function QuestionBuilderBody({
   return (
     <>
       <div className="flex min-h-72 flex-1 items-center justify-center bg-muted/20 px-5 py-8 md:hidden">
-        <div className="max-w-sm rounded-lg border border-dashed bg-background px-5 py-6 text-center shadow-xs">
-          <div className="mx-auto flex size-10 items-center justify-center rounded-md bg-muted text-muted-foreground">
-            <ListChecksIcon className="size-5" />
-          </div>
-          <p className="mt-3 font-medium text-sm">题目需要在 PC 端编辑</p>
-          <p className="mt-1 text-muted-foreground text-xs leading-relaxed">
-            移动端暂不展示题目编辑器。请使用桌面端完成题目添加、排序和配置。
-          </p>
-        </div>
+        <Card className="max-w-sm gap-0 rounded-lg border-dashed py-0">
+          <CardContent className="px-5 py-6 text-center">
+            <div className="mx-auto flex size-10 items-center justify-center rounded-md bg-muted text-muted-foreground">
+              <ListChecksIcon className="size-5" />
+            </div>
+            <p className="mt-3 font-medium text-sm">题目需要在 PC 端编辑</p>
+            <p className="mt-1 text-muted-foreground text-xs leading-relaxed">
+              移动端暂不展示题目编辑器。请使用桌面端完成题目添加、排序和配置。
+            </p>
+          </CardContent>
+        </Card>
       </div>
 
       <div className="hidden h-[58vh] min-h-[460px] max-h-[876px] flex-none grid-cols-[220px_minmax(0,1fr)_360px] overflow-hidden md:grid">
@@ -563,37 +566,39 @@ function QuestionBuilderBody({
             <span className="text-muted-foreground text-xs">共 {items.length} 道</span>
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
-            <section className="mx-auto w-full max-w-2xl rounded-xl border border-border/60 bg-card p-5 shadow-xs">
-              <header className="mb-4">
-                <h2 className="text-lg">{templateTitle}</h2>
-                {templateDescription ? (
-                  <p className="mt-1 text-muted-foreground text-sm">{templateDescription}</p>
-                ) : null}
-              </header>
-              <SortableList
-                className="space-y-5"
-                ids={ids}
-                onReorder={(from, to) => field.moveValue(from, to)}
-              >
-                {items.map((item, index) => (
-                  <SortableItem id={item.id} key={item.id}>
-                    {({ handleProps, isDragging }) => (
-                      <QuestionCanvasCard
-                        handleProps={handleProps}
-                        index={index}
-                        isActive={item.id === activeQuestion?.id}
-                        isDragging={isDragging}
-                        onRemove={
-                          items.length > 1 ? () => setPendingDeleteQuestionId(item.id) : undefined
-                        }
-                        onSelect={() => setSelectedQuestionId(item.id)}
-                        question={item}
-                      />
-                    )}
-                  </SortableItem>
-                ))}
-              </SortableList>
-            </section>
+            <Card className="mx-auto w-full max-w-2xl gap-0 rounded-xl border-border bg-card py-0">
+              <CardContent className="p-5">
+                <header className="mb-4">
+                  <h2 className="text-lg">{templateTitle}</h2>
+                  {templateDescription ? (
+                    <p className="mt-1 text-muted-foreground text-sm">{templateDescription}</p>
+                  ) : null}
+                </header>
+                <SortableList
+                  className="space-y-5"
+                  ids={ids}
+                  onReorder={(from, to) => field.moveValue(from, to)}
+                >
+                  {items.map((item, index) => (
+                    <SortableItem id={item.id} key={item.id}>
+                      {({ handleProps, isDragging }) => (
+                        <QuestionCanvasCard
+                          handleProps={handleProps}
+                          index={index}
+                          isActive={item.id === activeQuestion?.id}
+                          isDragging={isDragging}
+                          onRemove={
+                            items.length > 1 ? () => setPendingDeleteQuestionId(item.id) : undefined
+                          }
+                          onSelect={() => setSelectedQuestionId(item.id)}
+                          question={item}
+                        />
+                      )}
+                    </SortableItem>
+                  ))}
+                </SortableList>
+              </CardContent>
+            </Card>
           </div>
         </section>
 
@@ -614,10 +619,12 @@ function QuestionBuilderBody({
                 }
               />
             ) : (
-              <div className="flex h-full min-h-40 flex-col items-center justify-center rounded-lg border border-dashed bg-muted/20 px-4 text-center">
-                <p className="font-medium text-sm">还没有题目</p>
-                <p className="mt-1 text-muted-foreground text-xs">从左侧选择题目类型开始创建。</p>
-              </div>
+              <Card className="h-full min-h-40 gap-0 rounded-lg border-dashed bg-muted/20 py-0">
+                <CardContent className="flex h-full min-h-40 flex-col items-center justify-center px-4 text-center">
+                  <p className="font-medium text-sm">还没有题目</p>
+                  <p className="mt-1 text-muted-foreground text-xs">从左侧选择题目类型开始创建。</p>
+                </CardContent>
+              </Card>
             )}
           </div>
         </aside>

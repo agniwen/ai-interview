@@ -1441,7 +1441,7 @@ f. **Replace 「面试安排」 section** with a 「轮次概览」 card showing
 - roundLabel + scheduledAt + status badge + complete interview link (copy button) + allowTextInput toggle + "重置轮次" button (only if status === "completed")
 
 ```tsx
-<div className="rounded-2xl border border-border/60 bg-background p-5">
+<div className="rounded-2xl border border-border bg-background p-5">
   <h3 className="font-medium text-sm">轮次概览</h3>
   {/* roundLabel + scheduledAt + status + interviewLink + allowTextInput + reset */}
 </div>

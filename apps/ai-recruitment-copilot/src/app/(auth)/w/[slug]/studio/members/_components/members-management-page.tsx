@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { Trash2Icon, UserPlusIcon, UsersIcon } from "lucide-react";
+import { UserPlusIcon, UsersIcon } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { PageHeader } from "@/app/(auth)/w/[slug]/studio/_components/page-header";
@@ -288,7 +288,6 @@ export function MembersManagementPage() {
         menu: canDelete
           ? [
               {
-                icon: Trash2Icon,
                 label: "移除成员",
                 onClick: (r) => removeMember(r),
                 variant: "destructive",
@@ -322,7 +321,7 @@ export function MembersManagementPage() {
         columns={columns}
         data={rows}
         empty={
-          <Empty className="border-border/60">
+          <Empty className="border-border">
             <EmptyHeader>
               <EmptyMedia variant="icon">
                 <UsersIcon className="size-5" />

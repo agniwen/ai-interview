@@ -6,6 +6,7 @@ import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { useQuery } from "@tanstack/react-query";
 import { MarkdownView } from "@/components/markdown-view";
 import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
 import { Modal } from "@/components/ui/modal";
 
 export function JobDescriptionViewDialog({
@@ -69,10 +70,11 @@ export function JobDescriptionViewDialog({
 
         <section className="space-y-1.5">
           <h3 className="font-medium text-muted-foreground text-xs">岗位 Prompt</h3>
-          <MarkdownView
-            className="rounded-md border border-border/60 bg-muted/40 p-3 text-sm"
-            content={record.prompt}
-          />
+          <Card className="gap-0 rounded-md py-0">
+            <CardContent className="bg-muted/40 p-3">
+              <MarkdownView className="text-sm" content={record.prompt} />
+            </CardContent>
+          </Card>
         </section>
       </div>
     );

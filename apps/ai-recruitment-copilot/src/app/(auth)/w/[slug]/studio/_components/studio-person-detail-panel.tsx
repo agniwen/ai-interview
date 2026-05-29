@@ -990,7 +990,7 @@ function useStudioPersonDetailPanel({
               <ResumeOverviewPanel detail={resumeRecord} />
             ) : (
               <div className="grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)]">
-                <div className="h-full rounded-2xl border border-border/60 bg-background p-5">
+                <div className="h-full rounded-2xl border border-border bg-background p-5">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <h3 className="font-medium text-sm">面试结果</h3>
                     <Badge
@@ -1047,7 +1047,7 @@ function useStudioPersonDetailPanel({
                   </div>
                 </div>
 
-                <div className="h-full rounded-2xl border border-border/60 bg-background p-5">
+                <div className="h-full rounded-2xl border border-border bg-background p-5">
                   <h3 className="font-medium text-sm">候选人信息</h3>
                   <div className="mt-4">
                     <CandidateBasicInfoView
@@ -1067,7 +1067,7 @@ function useStudioPersonDetailPanel({
 
             {/* 轮次概览（面试模式专属）/ Round overview (interview mode only) */}
             {mode === "interview" && record.roundId ? (
-              <div className="rounded-2xl border border-border/60 bg-background p-5">
+              <div className="rounded-2xl border border-border bg-background p-5">
                 <h3 className="font-medium text-sm">轮次概览</h3>
                 {isAiStageLocked ? (
                   <p className="mt-2 rounded-md border border-border/50 bg-muted/40 px-3 py-2 text-muted-foreground text-xs leading-normal">
@@ -1152,7 +1152,7 @@ function useStudioPersonDetailPanel({
             ) : null}
 
             {mode === "interview" ? (
-              <div className="rounded-2xl border border-border/60 bg-background p-5">
+              <div className="rounded-2xl border border-border bg-background p-5">
                 <h3 className="font-medium text-sm">简历评价</h3>
                 <div className="mt-3 text-muted-foreground text-sm leading-normal">
                   <Markdown>{truncateText(record.notes) || "暂无简历评价"}</Markdown>
@@ -1169,26 +1169,26 @@ function useStudioPersonDetailPanel({
             ) : (
               <div className="space-y-6">
                 <div className="grid gap-4 md:grid-cols-4">
-                  <div className="rounded-2xl border border-border/60 bg-background p-4">
+                  <div className="rounded-2xl border border-border bg-background p-4">
                     {/* 本轮通话次数 / Call count for this round */}
                     <p className="text-muted-foreground text-xs">本轮通话次数</p>
                     <p className="mt-2 font-medium text-2xl text-primary tabular-nums">
                       {reports.length}
                     </p>
                   </div>
-                  <div className="rounded-2xl border border-border/60 bg-background p-4">
+                  <div className="rounded-2xl border border-border bg-background p-4">
                     <p className="text-muted-foreground text-xs">已完成</p>
                     <p className="mt-2 font-medium text-2xl text-primary tabular-nums">
                       {reports.filter((report) => report.status === "done").length}
                     </p>
                   </div>
-                  <div className="rounded-2xl border border-border/60 bg-background p-4">
+                  <div className="rounded-2xl border border-border bg-background p-4">
                     <p className="text-muted-foreground text-xs">失败</p>
                     <p className="mt-2 font-medium text-2xl text-primary tabular-nums">
                       {reports.filter((report) => report.status === "failed").length}
                     </p>
                   </div>
-                  <div className="rounded-2xl border border-border/60 bg-background p-4">
+                  <div className="rounded-2xl border border-border bg-background p-4">
                     <p className="text-muted-foreground text-xs">累计对话轮次</p>
                     <p className="mt-2 font-medium text-2xl text-primary tabular-nums">
                       {totalDisplayTurnCount}
@@ -1235,7 +1235,7 @@ function useStudioPersonDetailPanel({
 
                       return (
                         <AccordionItem
-                          className="overflow-hidden rounded-2xl border border-border/60 bg-background px-0 last:border-b"
+                          className="overflow-hidden rounded-2xl border border-border bg-background px-0 last:border-b"
                           key={report.conversationId}
                           value={report.conversationId}
                         >
@@ -1274,7 +1274,7 @@ function useStudioPersonDetailPanel({
                                   seekToSecs={activeEvidence?.timeInCallSecs ?? null}
                                   status={report.recordingStatus}
                                 />
-                                <div className="rounded-2xl border border-border/60 bg-background p-4">
+                                <div className="rounded-2xl border border-border bg-background p-4">
                                   <h4 className="font-medium text-sm">会话概览</h4>
                                   <div className="mt-3 grid gap-2 text-sm">
                                     <DetailRow
@@ -1330,7 +1330,7 @@ function useStudioPersonDetailPanel({
                                   </div>
                                 </div>
 
-                                <div className="rounded-2xl border border-border/60 bg-background p-4">
+                                <div className="rounded-2xl border border-border bg-background p-4">
                                   <h4 className="font-medium text-sm">最终总结</h4>
                                   <div className="mt-3 text-muted-foreground text-sm leading-normal">
                                     <Markdown>{report.transcriptSummary ?? "暂无总结。"}</Markdown>
@@ -1344,7 +1344,7 @@ function useStudioPersonDetailPanel({
                               </div>
 
                               <div className="lg:relative">
-                                <div className="flex h-[480px] flex-col overflow-hidden rounded-2xl border border-border/60 bg-background lg:absolute lg:inset-0 lg:h-auto">
+                                <div className="flex h-[480px] flex-col overflow-hidden rounded-2xl border border-border bg-background lg:absolute lg:inset-0 lg:h-auto">
                                   <h4 className="shrink-0 px-4 pt-4 pb-2 font-medium text-sm">
                                     对话记录
                                   </h4>
@@ -1355,7 +1355,7 @@ function useStudioPersonDetailPanel({
                                 </div>
                               </div>
 
-                              <div className="rounded-2xl border border-border/60 bg-background p-4">
+                              <div className="rounded-2xl border border-border bg-background p-4">
                                 <h4 className="font-medium text-sm">评估指标</h4>
                                 <div className="mt-4 max-h-[420px] overflow-y-auto pr-1">
                                   <EvaluationResults
@@ -1385,13 +1385,13 @@ function useStudioPersonDetailPanel({
 
         {mode === "interview" ? (
           <TabsContent value="questions">
-            <div className="rounded-2xl border border-border/60 bg-background p-4">
+            <div className="rounded-2xl border border-border bg-background p-4">
               <h3 className="font-medium text-sm">AI 面试题</h3>
               <div className="mt-4 space-y-3">
                 {visibleInterviewQuestions.length > 0 ? (
                   visibleInterviewQuestions.map((question) => (
                     <div
-                      className="rounded-xl border border-border/60 bg-muted/30 p-3"
+                      className="rounded-xl border border-border bg-muted/30 p-3"
                       key={question.order}
                     >
                       <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
@@ -1417,7 +1417,7 @@ function useStudioPersonDetailPanel({
 
         {mode === "interview" ? (
           <TabsContent value="experience">
-            <div className="rounded-2xl border border-border/60 bg-background p-5">
+            <div className="rounded-2xl border border-border bg-background p-5">
               <ResumeProfileView profile={record.resumeProfile ?? null} />
             </div>
           </TabsContent>
@@ -1425,7 +1425,7 @@ function useStudioPersonDetailPanel({
 
         {mode === "resume" ? (
           <TabsContent value="rounds">
-            <div className="rounded-2xl border border-border/60 bg-background p-5">
+            <div className="rounded-2xl border border-border bg-background p-5">
               <div className="flex items-center justify-between gap-3">
                 <h3 className="font-medium text-sm">AI 面试轮次</h3>
                 <span className="text-muted-foreground text-xs">
@@ -1457,7 +1457,7 @@ function useStudioPersonDetailPanel({
                       : aiStageLockedReason;
                     return (
                       <div
-                        className="rounded-xl border border-border/60 bg-muted/30 p-3"
+                        className="rounded-xl border border-border bg-muted/30 p-3"
                         key={entry.id}
                       >
                         <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between sm:gap-3">

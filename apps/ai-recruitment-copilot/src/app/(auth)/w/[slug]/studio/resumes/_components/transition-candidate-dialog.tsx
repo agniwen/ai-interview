@@ -31,6 +31,7 @@ import type { ApiError } from "@/lib/client/api/errors";
 import { fetchStudioResume, transitionInterviewRecord } from "@/lib/client/api";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -226,104 +227,108 @@ function CloseDialog({
           </RadioGroup>
 
           {outcome === "hired" ? (
-            <div className="grid gap-3 rounded-lg border border-border/60 bg-muted/30 p-3 sm:grid-cols-2">
-              <div className="grid gap-1.5 sm:col-span-2">
-                <Label className="text-xs" htmlFor="hired-position">
-                  最终职位（可选）
-                </Label>
-                <Input
-                  id="hired-position"
-                  maxLength={200}
-                  onChange={(e) => setFinalPosition(e.target.value)}
-                  placeholder="例如 高级前端 L4"
-                  value={finalPosition}
-                />
-              </div>
-              <div className="grid gap-1.5">
-                <Label className="text-xs" htmlFor="hired-salary">
-                  最终月薪 (¥，可选)
-                </Label>
-                <Input
-                  id="hired-salary"
-                  inputMode="numeric"
-                  min={0}
-                  onChange={(e) => setFinalBaseSalary(e.target.value)}
-                  type="number"
-                  value={finalBaseSalary}
-                />
-              </div>
-              <div className="grid gap-1.5">
-                <Label className="text-xs" htmlFor="hired-joining">
-                  实际入职日（可选）
-                </Label>
-                <Input
-                  id="hired-joining"
-                  onChange={(e) => setActualJoiningDate(e.target.value)}
-                  type="date"
-                  value={actualJoiningDate}
-                />
-              </div>
-              <div className="grid gap-1.5 sm:col-span-2">
-                <Label className="text-xs" htmlFor="hired-contact">
-                  入职对接人（可选）
-                </Label>
-                <Input
-                  id="hired-contact"
-                  maxLength={200}
-                  onChange={(e) => setOnboardingContact(e.target.value)}
-                  placeholder="HR 同事 / 业务对接人"
-                  value={onboardingContact}
-                />
-              </div>
-            </div>
+            <Card className="gap-0 rounded-lg py-0">
+              <CardContent className="grid gap-3 bg-muted/30 p-3 sm:grid-cols-2">
+                <div className="grid gap-1.5 sm:col-span-2">
+                  <Label className="text-xs" htmlFor="hired-position">
+                    最终职位（可选）
+                  </Label>
+                  <Input
+                    id="hired-position"
+                    maxLength={200}
+                    onChange={(e) => setFinalPosition(e.target.value)}
+                    placeholder="例如 高级前端 L4"
+                    value={finalPosition}
+                  />
+                </div>
+                <div className="grid gap-1.5">
+                  <Label className="text-xs" htmlFor="hired-salary">
+                    最终月薪 (¥，可选)
+                  </Label>
+                  <Input
+                    id="hired-salary"
+                    inputMode="numeric"
+                    min={0}
+                    onChange={(e) => setFinalBaseSalary(e.target.value)}
+                    type="number"
+                    value={finalBaseSalary}
+                  />
+                </div>
+                <div className="grid gap-1.5">
+                  <Label className="text-xs" htmlFor="hired-joining">
+                    实际入职日（可选）
+                  </Label>
+                  <Input
+                    id="hired-joining"
+                    onChange={(e) => setActualJoiningDate(e.target.value)}
+                    type="date"
+                    value={actualJoiningDate}
+                  />
+                </div>
+                <div className="grid gap-1.5 sm:col-span-2">
+                  <Label className="text-xs" htmlFor="hired-contact">
+                    入职对接人（可选）
+                  </Label>
+                  <Input
+                    id="hired-contact"
+                    maxLength={200}
+                    onChange={(e) => setOnboardingContact(e.target.value)}
+                    placeholder="HR 同事 / 业务对接人"
+                    value={onboardingContact}
+                  />
+                </div>
+              </CardContent>
+            </Card>
           ) : null}
 
           {outcome === "rejected" ? (
-            <div className="grid gap-3 rounded-lg border border-border/60 bg-muted/30 p-3">
-              <div className="grid gap-1.5">
-                <Label className="text-xs" htmlFor="reject-category">
-                  淘汰原因分类（可选，用于统计）
-                </Label>
-                <NativeSelect
-                  id="reject-category"
-                  onChange={(e) => setCategory(e.target.value as CloseCategory)}
-                  value={category}
-                >
-                  <NativeSelectOption value="">请选择</NativeSelectOption>
-                  {closeCategoryValues.map((v) => (
-                    <NativeSelectOption key={v} value={v}>
-                      {closeCategoryMeta[v].label}
-                    </NativeSelectOption>
-                  ))}
-                </NativeSelect>
-              </div>
-              <div className="flex items-center gap-2">
-                <input
-                  aria-label="进入人才库"
-                  checked={talentPoolEligible}
-                  className="size-4 accent-foreground"
-                  id="talent-pool"
-                  onChange={(e) => setTalentPoolEligible(e.target.checked)}
-                  type="checkbox"
-                />
-                <Label className="cursor-pointer text-sm" htmlFor="talent-pool">
-                  进入人才库（未来可召回）
-                </Label>
-              </div>
-              {talentPoolEligible ? (
+            <Card className="gap-0 rounded-lg py-0">
+              <CardContent className="grid gap-3 bg-muted/30 p-3">
                 <div className="grid gap-1.5">
-                  <Label className="text-xs" htmlFor="revisit-after">
-                    建议多久后再联系（可选）
+                  <Label className="text-xs" htmlFor="reject-category">
+                    淘汰原因分类（可选，用于统计）
                   </Label>
-                  <Input
-                    id="revisit-after"
-                    onChange={(e) => setRevisitAfter(e.target.value)}
-                    type="date"
-                    value={revisitAfter}
-                  />
+                  <NativeSelect
+                    id="reject-category"
+                    onChange={(e) => setCategory(e.target.value as CloseCategory)}
+                    value={category}
+                  >
+                    <NativeSelectOption value="">请选择</NativeSelectOption>
+                    {closeCategoryValues.map((v) => (
+                      <NativeSelectOption key={v} value={v}>
+                        {closeCategoryMeta[v].label}
+                      </NativeSelectOption>
+                    ))}
+                  </NativeSelect>
                 </div>
-              ) : null}
-            </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    aria-label="进入人才库"
+                    checked={talentPoolEligible}
+                    className="size-4 accent-foreground"
+                    id="talent-pool"
+                    onChange={(e) => setTalentPoolEligible(e.target.checked)}
+                    type="checkbox"
+                  />
+                  <Label className="cursor-pointer text-sm" htmlFor="talent-pool">
+                    进入人才库（未来可召回）
+                  </Label>
+                </div>
+                {talentPoolEligible ? (
+                  <div className="grid gap-1.5">
+                    <Label className="text-xs" htmlFor="revisit-after">
+                      建议多久后再联系（可选）
+                    </Label>
+                    <Input
+                      id="revisit-after"
+                      onChange={(e) => setRevisitAfter(e.target.value)}
+                      type="date"
+                      value={revisitAfter}
+                    />
+                  </div>
+                ) : null}
+              </CardContent>
+            </Card>
           ) : null}
 
           <div className="grid gap-1.5">

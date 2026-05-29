@@ -109,7 +109,7 @@ export function AgentInstructionsPanel({
 
       {variants.map((variant, index) => (
         <div
-          className="space-y-4 rounded-2xl border border-border/60 bg-muted/30 p-4"
+          className="space-y-4 rounded-2xl border border-border bg-muted/30 p-4"
           key={variant.interviewerName ?? `variant-${index}`}
         >
           <h3 className="font-medium text-sm">

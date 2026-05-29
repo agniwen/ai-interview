@@ -17,7 +17,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { BotIcon, CopyIcon, EyeIcon, Link2Icon, PencilIcon, Trash2Icon } from "lucide-react";
+import { BotIcon, Trash2Icon } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
@@ -361,11 +361,10 @@ export function InterviewManagementPage({
       }),
       actionsColumn<StudioInterviewRoundListRecord>({
         inline: [
-          { icon: EyeIcon, label: "查看", onClick: (r) => setDetailRoundId(r.id) },
+          { label: "查看", onClick: (r) => setDetailRoundId(r.id) },
           {
             disabled: isAiStageLocked,
             disabledReason: aiStageLockedReason,
-            icon: PencilIcon,
             label: "编辑",
             onClick: (r) => setEditRecordId(r.id),
           },
@@ -374,17 +373,14 @@ export function InterviewManagementPage({
           {
             disabled: isAiStageLocked,
             disabledReason: aiStageLockedReason,
-            icon: CopyIcon,
             label: "复制面试链接",
             onClick: (r) => void copyInterviewLink(r),
           },
           {
-            icon: Link2Icon,
             label: "复制公共访问链接",
             onClick: (r) => void copyPublicLink(r),
           },
           {
-            icon: Trash2Icon,
             label: "删除",
             onClick: (r) => setDeleteRecord(r),
             variant: "destructive",
@@ -504,7 +500,7 @@ export function InterviewManagementPage({
             </Button>
           )}
           empty={
-            <Empty className="border-border/60">
+            <Empty className="border-border">
               <EmptyHeader>
                 <EmptyMedia variant="icon">
                   <BotIcon className="size-5" />

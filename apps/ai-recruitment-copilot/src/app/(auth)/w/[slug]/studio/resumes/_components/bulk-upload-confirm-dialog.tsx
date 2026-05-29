@@ -4,6 +4,7 @@ import { FileTextIcon, XIcon } from "lucide-react";
 import { useState } from "react";
 import { JobDescriptionSelectField } from "@/app/(auth)/w/[slug]/studio/interviews/_components/job-description-select-field";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Modal } from "@/components/ui/modal";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -83,32 +84,36 @@ export function BulkUploadConfirmDialog({
         {/* 文件清单 / File list */}
         <div>
           <Label className="mb-2 block text-sm">文件清单</Label>
-          <ul className="max-h-48 space-y-1 overflow-y-auto rounded-md border bg-muted/30 p-2 text-sm">
-            {files.map((f, idx) => (
-              <li
-                className="flex items-center justify-between gap-2 rounded px-2 py-1 hover:bg-background"
-                key={`${f.name}-${f.size}-${idx}`}
-              >
-                <span className="flex min-w-0 items-center gap-2">
-                  <FileTextIcon className="size-4 shrink-0 text-muted-foreground" />
-                  <span className="truncate">{f.name}</span>
-                  <span className="shrink-0 text-xs text-muted-foreground">
-                    {formatSize(f.size)}
-                  </span>
-                </span>
-                {files.length > 1 ? (
-                  <button
-                    aria-label="移除"
-                    className="text-muted-foreground hover:text-foreground"
-                    onClick={() => onRemoveFile(idx)}
-                    type="button"
+          <Card className="gap-0 overflow-hidden rounded-md py-0">
+            <CardContent className="p-0">
+              <ul className="max-h-48 space-y-1 overflow-y-auto bg-muted/30 p-2 text-sm">
+                {files.map((f, idx) => (
+                  <li
+                    className="flex items-center justify-between gap-2 rounded px-2 py-1 hover:bg-background"
+                    key={`${f.name}-${f.size}-${idx}`}
                   >
-                    <XIcon className="size-4" />
-                  </button>
-                ) : null}
-              </li>
-            ))}
-          </ul>
+                    <span className="flex min-w-0 items-center gap-2">
+                      <FileTextIcon className="size-4 shrink-0 text-muted-foreground" />
+                      <span className="truncate">{f.name}</span>
+                      <span className="shrink-0 text-xs text-muted-foreground">
+                        {formatSize(f.size)}
+                      </span>
+                    </span>
+                    {files.length > 1 ? (
+                      <button
+                        aria-label="移除"
+                        className="text-muted-foreground hover:text-foreground"
+                        onClick={() => onRemoveFile(idx)}
+                        type="button"
+                      >
+                        <XIcon className="size-4" />
+                      </button>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            </CardContent>
+          </Card>
         </div>
 
         {/* JD 关联模式 / Job description binding mode */}

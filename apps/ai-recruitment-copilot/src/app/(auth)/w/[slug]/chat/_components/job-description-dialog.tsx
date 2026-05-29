@@ -3,8 +3,9 @@
 import type { JobDescriptionConfig } from "@arc/db-schema/job-description-config";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Modal } from "@/components/ui/modal";
+import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
+import { Modal } from "@/components/ui/modal";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Switch } from "@/components/ui/switch";
 import { useJobDescriptionOptionsQuery } from "../_lib/use-job-description-options";
@@ -107,16 +108,18 @@ export function JobDescriptionDialog({
         </>
       }
     >
-      <div className="flex items-center justify-between gap-3 rounded-xl border border-border/60 bg-muted/40 px-4 py-3">
-        <div className="space-y-0.5">
-          <div className="font-medium text-sm">从在招岗位中选择</div>
-          <div className="text-muted-foreground text-xs">关闭则手动填写自定义 JD</div>
-        </div>
-        <Switch
-          checked={mode === "select"}
-          onCheckedChange={(next) => setMode(next ? "select" : "custom")}
-        />
-      </div>
+      <Card className="gap-0 rounded-xl py-0">
+        <CardContent className="flex items-center justify-between gap-3 bg-muted/40 px-4 py-3">
+          <div className="space-y-0.5">
+            <div className="font-medium text-sm">从在招岗位中选择</div>
+            <div className="text-muted-foreground text-xs">关闭则手动填写自定义 JD</div>
+          </div>
+          <Switch
+            checked={mode === "select"}
+            onCheckedChange={(next) => setMode(next ? "select" : "custom")}
+          />
+        </CardContent>
+      </Card>
 
       {mode === "select" ? (
         <div className="space-y-2">
@@ -137,10 +140,12 @@ export function JobDescriptionDialog({
             value={selectedId || null}
           />
           {selectedPreview ? (
-            <div className="max-h-48 overflow-auto rounded-lg border border-border/60 bg-muted/30 p-3 text-muted-foreground text-xs">
-              <div className="mb-1 font-medium text-foreground">{selectedPreview.name}</div>
-              <pre className="whitespace-pre-wrap font-sans">{selectedPreview.prompt}</pre>
-            </div>
+            <Card className="gap-0 overflow-hidden rounded-lg py-0">
+              <CardContent className="max-h-48 overflow-auto bg-muted/30 p-3 text-muted-foreground text-xs">
+                <div className="mb-1 font-medium text-foreground">{selectedPreview.name}</div>
+                <pre className="whitespace-pre-wrap font-sans">{selectedPreview.prompt}</pre>
+              </CardContent>
+            </Card>
           ) : (
             <p className="text-muted-foreground text-xs">
               选中后会把岗位名称与 prompt 作为评估上下文传给 Agent。

@@ -108,7 +108,7 @@ export default async function SelectWorkspacePage() {
         {rows.length > 0 ? (
           <div className="relative">
             <div aria-hidden="true" className="absolute inset-0 flex items-center">
-              <div className="w-full border-border/60 border-t" />
+              <div className="w-full border-border border-t" />
             </div>
             <div className="relative flex justify-center">
               <span className="bg-background px-3 text-muted-foreground/60 text-xs">或者</span>

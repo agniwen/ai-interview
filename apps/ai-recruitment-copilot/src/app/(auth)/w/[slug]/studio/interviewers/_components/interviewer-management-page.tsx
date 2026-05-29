@@ -7,7 +7,7 @@ import type { DepartmentRecord } from "@/lib/shared/departments";
 import type { InterviewerListRecord, InterviewerRecord } from "@/lib/shared/interviewers";
 import type { PaginatedInterviewerResult } from "@/server/routes/studio/routes/interviewers/dao";
 import { useQueryClient } from "@tanstack/react-query";
-import { PencilIcon, PlusIcon, Trash2Icon, UserCircleIcon } from "lucide-react";
+import { PlusIcon, UserCircleIcon } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -170,7 +170,6 @@ export function InterviewerManagementPage({
       actionsColumn<InterviewerListRecord>({
         inline: [
           {
-            icon: PencilIcon,
             label: "编辑",
             onClick: (r) => {
               void crud.openEdit(r);
@@ -179,7 +178,6 @@ export function InterviewerManagementPage({
         ],
         menu: [
           {
-            icon: Trash2Icon,
             label: "删除",
             onClick: (r) => crud.setDeleteRecord(r),
             variant: "destructive",
@@ -216,7 +214,7 @@ export function InterviewerManagementPage({
           columns={columns}
           empty={
             noDepartments ? (
-              <Empty className="border-border/60">
+              <Empty className="border-border">
                 <EmptyHeader>
                   <EmptyMedia variant="icon">
                     <UserCircleIcon className="size-5" />
@@ -228,7 +226,7 @@ export function InterviewerManagementPage({
                 </EmptyHeader>
               </Empty>
             ) : (
-              <Empty className="border-border/60">
+              <Empty className="border-border">
                 <EmptyHeader>
                   <EmptyMedia variant="icon">
                     <UserCircleIcon className="size-5" />

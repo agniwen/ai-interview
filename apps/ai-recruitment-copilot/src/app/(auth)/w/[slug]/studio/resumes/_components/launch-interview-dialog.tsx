@@ -21,6 +21,7 @@ import { SortableQuestionListEditor } from "@/app/(auth)/w/[slug]/studio/_compon
 import { AnimatedHeight } from "@/components/animated-height";
 import { ResumeProfileView } from "@/components/resume-profile-view";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { Modal } from "@/components/ui/modal";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { fetchStudioResume, launchInterviewFromResume } from "@/lib/client/api";
@@ -302,9 +303,11 @@ export function LaunchInterviewDialog({
           <AnimatedHeight>
             <TabsContent value="questions">
               {noProfileNotice ? (
-                <p className="mb-3 rounded-md border border-border/60 bg-muted/40 px-3 py-2 text-muted-foreground text-xs">
-                  该候选人没有解析过的简历，无法自动生成面试题；可在下方手动添加题目。
-                </p>
+                <Card className="mb-3 gap-0 rounded-md py-0">
+                  <CardContent className="bg-muted/40 px-3 py-2 text-muted-foreground text-xs">
+                    该候选人没有解析过的简历，无法自动生成面试题；可在下方手动添加题目。
+                  </CardContent>
+                </Card>
               ) : null}
               <SortableQuestionListEditor
                 arrayFieldName="interviewQuestions"
@@ -328,9 +331,11 @@ export function LaunchInterviewDialog({
             </TabsContent>
 
             <TabsContent value="experience">
-              <div className="rounded-2xl border border-border/60 bg-background p-5">
-                <ResumeProfileView profile={resumeDetail?.resumeProfile ?? null} />
-              </div>
+              <Card className="gap-0 rounded-2xl border-border bg-background py-0">
+                <CardContent className="p-5">
+                  <ResumeProfileView profile={resumeDetail?.resumeProfile ?? null} />
+                </CardContent>
+              </Card>
             </TabsContent>
           </AnimatedHeight>
 

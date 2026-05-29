@@ -1,6 +1,6 @@
 "use client";
 
-import { Building2Icon, EyeIcon, UsersIcon } from "lucide-react";
+import { Building2Icon, UsersIcon } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -109,7 +109,6 @@ export function OrganizationsGrid({ initialData }: { initialData: OrganizationsR
       actionsColumn<OrganizationRecord>({
         inline: [
           {
-            icon: EyeIcon,
             label: "查看",
             onClick: handleViewDetail,
           },
@@ -125,7 +124,7 @@ export function OrganizationsGrid({ initialData }: { initialData: OrganizationsR
         {...grid.bind}
         columns={columns}
         empty={
-          <Empty className="border-border/60">
+          <Empty className="border-border">
             <EmptyHeader>
               <EmptyMedia variant="icon">
                 <Building2Icon className="size-5" />

@@ -23,7 +23,7 @@ function FieldLabel({ children, required }: { children: React.ReactNode; require
 
 function TextInput({ placeholder, value }: { placeholder?: string; value?: string }) {
   return (
-    <div className="flex h-9 items-center rounded-md border border-border/60 bg-background px-3 text-[13px]">
+    <div className="flex h-9 items-center rounded-md border border-border bg-background px-3 text-[13px]">
       {value ? (
         <span>{value}</span>
       ) : (
@@ -35,7 +35,7 @@ function TextInput({ placeholder, value }: { placeholder?: string; value?: strin
 
 function Select({ placeholder, value }: { placeholder?: string; value?: string }) {
   return (
-    <div className="flex h-9 items-center justify-between rounded-md border border-border/60 bg-background px-3 text-[13px]">
+    <div className="flex h-9 items-center justify-between rounded-md border border-border bg-background px-3 text-[13px]">
       {value ? (
         <span>{value}</span>
       ) : (
@@ -49,7 +49,7 @@ function Select({ placeholder, value }: { placeholder?: string; value?: string }
 function MultiSelectInterviewers() {
   const picked = ["张三", "李四"];
   return (
-    <div className="flex min-h-9 flex-wrap items-center gap-1.5 rounded-md border border-border/60 bg-background px-2 py-1.5 text-[12px]">
+    <div className="flex min-h-9 flex-wrap items-center gap-1.5 rounded-md border border-border bg-background px-2 py-1.5 text-[12px]">
       {picked.map((p) => (
         <span
           className="flex items-center gap-1 rounded-full bg-foreground/[0.05] px-2 py-0.5"
@@ -77,7 +77,7 @@ function Textarea({
 }) {
   return (
     <div
-      className="rounded-md border border-border/60 bg-background p-3 text-[12.5px] leading-relaxed"
+      className="rounded-md border border-border bg-background p-3 text-[12.5px] leading-relaxed"
       style={{ minHeight: rows * 22 + 24 }}
     >
       {value ? (
@@ -102,10 +102,10 @@ const PROMPT_TEXT = `## 候选人要求
 function JdFormDialog() {
   return (
     <div
-      className="-translate-x-1/2 -translate-y-1/2 absolute top-1/2 left-1/2 flex w-[720px] flex-col overflow-hidden rounded-xl border border-border/60 bg-background shadow-2xl"
+      className="-translate-x-1/2 -translate-y-1/2 absolute top-1/2 left-1/2 flex w-[720px] flex-col overflow-hidden rounded-xl border border-border bg-background shadow-2xl"
       style={{ maxHeight: 720 }}
     >
-      <div className="flex items-start justify-between gap-4 border-border/60 border-b px-6 pt-5 pb-4">
+      <div className="flex items-start justify-between gap-4 border-border border-b px-6 pt-5 pb-4">
         <div>
           <div className="flex items-center gap-2">
             <span className="grid size-7 place-items-center rounded-md bg-primary/10 text-primary">
@@ -153,8 +153,8 @@ function JdFormDialog() {
         </div>
       </div>
 
-      <div className="flex items-center justify-end gap-2 border-border/60 border-t px-6 py-3">
-        <span className="rounded-md border border-border/60 px-3 py-1.5 text-[12px]">取消</span>
+      <div className="flex items-center justify-end gap-2 border-border border-t px-6 py-3">
+        <span className="rounded-md border border-border px-3 py-1.5 text-[12px]">取消</span>
         <span className="rounded-md bg-primary px-3 py-1.5 font-medium text-[12px] text-primary-foreground">
           保存
         </span>
@@ -174,8 +174,8 @@ function DimmedJobsBackground() {
           维护岗位 JD、面试官与题库，所有评估共用同一份岗位语境。
         </p>
       </header>
-      <div className="rounded-xl border border-border/60 bg-background/60">
-        <div className="grid grid-cols-[2fr_1fr_1.4fr_1fr] items-center gap-3 border-border/60 border-b bg-muted/30 px-4 py-2.5 font-medium text-[11px] text-muted-foreground">
+      <div className="rounded-xl border border-border bg-background/60">
+        <div className="grid grid-cols-[2fr_1fr_1.4fr_1fr] items-center gap-3 border-border border-b bg-muted/30 px-4 py-2.5 font-medium text-[11px] text-muted-foreground">
           <span>岗位名</span>
           <span>部门</span>
           <span>面试官</span>

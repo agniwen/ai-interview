@@ -14,7 +14,7 @@ import type { PaginatedJobDescriptionResult } from "@/server/routes/studio/route
 import { JobDescriptionCharts } from "./job-description-charts";
 import { ScopedResumesModal } from "@/app/(auth)/w/[slug]/studio/_components/scoped-resumes-modal";
 import { useQueryClient } from "@tanstack/react-query";
-import { FileTextIcon, PencilIcon, PlusIcon, Trash2Icon } from "lucide-react";
+import { FileTextIcon, PlusIcon } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -195,7 +195,6 @@ export function JobDescriptionManagementPage({
       actionsColumn<JobDescriptionListRecord>({
         inline: [
           {
-            icon: PencilIcon,
             label: "编辑",
             onClick: (r) => {
               void crud.openEdit(r);
@@ -204,7 +203,6 @@ export function JobDescriptionManagementPage({
         ],
         menu: [
           {
-            icon: Trash2Icon,
             label: "删除",
             onClick: (r) => crud.setDeleteRecord(r),
             variant: "destructive",
@@ -266,7 +264,7 @@ export function JobDescriptionManagementPage({
           columns={columns}
           empty={
             missingRefs ? (
-              <Empty className="border-border/60">
+              <Empty className="border-border">
                 <EmptyHeader>
                   <EmptyMedia variant="icon">
                     <FileTextIcon className="size-5" />
@@ -278,7 +276,7 @@ export function JobDescriptionManagementPage({
                 </EmptyHeader>
               </Empty>
             ) : (
-              <Empty className="border-border/60">
+              <Empty className="border-border">
                 <EmptyHeader>
                   <EmptyMedia variant="icon">
                     <FileTextIcon className="size-5" />
