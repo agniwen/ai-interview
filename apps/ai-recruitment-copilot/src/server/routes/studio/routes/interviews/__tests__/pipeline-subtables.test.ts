@@ -255,6 +255,17 @@ describe("human interview rounds DAO", () => {
       interviewRecordId: RECORD_ID,
       organizationId: ORG,
     });
+    await createHumanInterviewMeeting({
+      createdBy: HR_USER,
+      input: {
+        interviewerIds: [INTERVIEWER_A],
+        notes: null,
+        roundIds: [round.id],
+        scheduledAt: null,
+        title: "可取消轮",
+      },
+      organizationId: ORG,
+    });
     const cancelled = await cancelHumanInterviewRound({
       organizationId: ORG,
       reason: "候选人请假",
@@ -262,6 +273,9 @@ describe("human interview rounds DAO", () => {
     });
     expect(cancelled.status).toBe("cancelled");
     expect(cancelled.cancelReason).toBe("候选人请假");
+    await expect(
+      listHumanInterviewMeetings({ interviewRecordId: RECORD_ID, organizationId: ORG }),
+    ).resolves.toEqual([]);
 
     // 完成轮：再 cancel 应 400。
     const round2 = await createHumanInterviewRound({

@@ -53,7 +53,7 @@ export function PipelineStageActionBar({
   onRequestClose,
   onRequestReactivate,
 }: PipelineStageActionBarProps) {
-  const buttons = getStageButtons({
+  const actions = getStageActions({
     aiInterviewDone,
     humanInterviewDone,
     onAdvance,
@@ -141,8 +141,11 @@ export function PipelineStageActionBar({
         })}
       </ol>
 
-      <div className="flex flex-wrap justify-end gap-2 border-border/60 border-t pt-3">
-        {buttons.length > 0 ? buttons : null}
+      <div className="flex flex-wrap items-center justify-end gap-2 border-border/60 border-t pt-3">
+        {actions.left.length > 0 ? actions.left : null}
+        {actions.right.length > 0 ? (
+          <div className=" flex flex-wrap justify-end gap-2">{actions.right}</div>
+        ) : null}
       </div>
     </div>
   );
@@ -239,16 +242,17 @@ function getNextStepLabel({
 interface StageButton {
   key: string;
   node: ReactNode;
+  side: "left" | "right";
 }
 
-function getStageButtons(props: {
+function getStageActions(props: {
   pipelineStage: PipelineStage;
   aiInterviewDone?: boolean;
   humanInterviewDone?: boolean;
   onAdvance: (target: PipelineStage) => void;
   onRequestClose: () => void;
   onRequestReactivate: () => void;
-}): ReactNode[] {
+}): { left: ReactNode[]; right: ReactNode[] } {
   const {
     pipelineStage,
     aiInterviewDone,
@@ -261,12 +265,15 @@ function getStageButtons(props: {
   // closed：唯一行动是重新激活。
   // closed → only reactivate is available.
   if (pipelineStage === "closed") {
-    return [
-      <Button key="reactivate" onClick={onRequestReactivate} size="sm" variant="outline">
-        <RotateCcwIcon className="size-4" />
-        重新激活
-      </Button>,
-    ];
+    return {
+      left: [],
+      right: [
+        <Button key="reactivate" onClick={onRequestReactivate} size="sm" variant="outline">
+          <RotateCcwIcon className="size-4" />
+          重新激活
+        </Button>,
+      ],
+    };
   }
 
   // 所有非 closed 阶段都能直接结案。
@@ -292,6 +299,7 @@ function getStageButtons(props: {
             安排真人复面
           </Button>
         ),
+        side: "right",
       });
       buttons.push({
         key: "to-offer",
@@ -301,6 +309,7 @@ function getStageButtons(props: {
             直接发 Offer
           </Button>
         ),
+        side: "right",
       });
       break;
     }
@@ -317,6 +326,7 @@ function getStageButtons(props: {
               安排真人复面
             </Button>
           ),
+          side: "right",
         });
         buttons.push({
           key: "to-offer",
@@ -326,6 +336,7 @@ function getStageButtons(props: {
               直接发 Offer
             </Button>
           ),
+          side: "right",
         });
       } else {
         // 还没跑完时，允许 HR 提前安排复面（跳过场景：技术面已经过、不想等剩下的）。
@@ -340,9 +351,10 @@ function getStageButtons(props: {
               variant="outline"
             >
               <UsersIcon className="size-4" />
-              跳到真人复面
+              推进到真人复面
             </Button>
           ),
+          side: "right",
         });
       }
       break;
@@ -361,18 +373,25 @@ function getStageButtons(props: {
             variant={humanInterviewDone ? "default" : "outline"}
           >
             <ArrowRightIcon className="size-4" />
-            {humanInterviewDone ? "推进到 Offer" : "跳到 Offer"}
+            推进到 Offer
           </Button>
         ),
+        side: "right",
       });
       buttons.push({
         key: "back-ai",
         node: (
-          <Button key="back-ai" onClick={() => onAdvance("ai_interview")} size="sm" variant="ghost">
+          <Button
+            key="back-ai"
+            onClick={() => onAdvance("ai_interview")}
+            size="sm"
+            variant="outline"
+          >
             <ArrowLeftIcon className="size-4" />
             退回 AI 面试
           </Button>
         ),
+        side: "left",
       });
       break;
     }
@@ -393,6 +412,7 @@ function getStageButtons(props: {
             退回真人复面
           </Button>
         ),
+        side: "left",
       });
       break;
     }
@@ -408,6 +428,7 @@ function getStageButtons(props: {
             推进到 AI 面试
           </Button>
         ),
+        side: "right",
       });
       break;
     }
@@ -417,5 +438,11 @@ function getStageButtons(props: {
     }
   }
 
-  return [...buttons.map((b) => b.node), closeBtn];
+  return {
+    left: buttons.filter((button) => button.side === "left").map((button) => button.node),
+    right: [
+      ...buttons.filter((button) => button.side === "right").map((button) => button.node),
+      closeBtn,
+    ],
+  };
 }

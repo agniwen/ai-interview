@@ -10,6 +10,8 @@ import "server-only";
 import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import { db } from "@/lib/server/db";
 import {
+  studioHumanInterviewMeeting,
+  studioHumanInterviewMeetingRound,
   studioHumanInterviewRound,
   studioHumanInterviewRoundInterviewer,
   studioInterview,
@@ -362,11 +364,16 @@ export interface CancelRoundOptions {
   reason?: string | null;
 }
 
-export async function cancelHumanInterviewRound({
+export interface CancelRoundResult {
+  round: HumanInterviewRoundRecord;
+  deletedLiveKitRoomNames: (string | null)[];
+}
+
+export async function cancelHumanInterviewRoundWithMeetings({
   roundId,
   organizationId,
   reason,
-}: CancelRoundOptions): Promise<HumanInterviewRoundRecord> {
+}: CancelRoundOptions): Promise<CancelRoundResult> {
   const existing = await loadRoundById(roundId, organizationId);
   if (!existing) {
     throw new EditRoundError("轮次不存在", 404);
@@ -375,20 +382,69 @@ export async function cancelHumanInterviewRound({
     throw new EditRoundError("只有 pending 状态的轮次可以取消", 400);
   }
   const now = new Date();
-  await db
-    .update(studioHumanInterviewRound)
-    .set({
-      cancelReason: reason ?? null,
-      cancelledAt: now,
-      status: "cancelled",
-      updatedAt: now,
-    })
-    .where(eq(studioHumanInterviewRound.id, roundId));
+  const deletedLiveKitRoomNames: (string | null)[] = [];
+  await db.transaction(async (tx) => {
+    const meetingRows = await tx
+      .select({
+        id: studioHumanInterviewMeeting.id,
+        liveKitRoomName: studioHumanInterviewMeeting.liveKitRoomName,
+        status: studioHumanInterviewMeeting.status,
+      })
+      .from(studioHumanInterviewMeetingRound)
+      .innerJoin(
+        studioHumanInterviewMeeting,
+        eq(studioHumanInterviewMeetingRound.meetingId, studioHumanInterviewMeeting.id),
+      )
+      .where(
+        and(
+          eq(studioHumanInterviewMeetingRound.roundId, roundId),
+          eq(studioHumanInterviewMeeting.organizationId, organizationId),
+        ),
+      );
+    if (meetingRows.some((meeting) => meeting.status === "in_progress")) {
+      throw new EditRoundError("进行中的会议不能取消，请先结束会议。", 400);
+    }
+
+    const meetingIds = [...new Set(meetingRows.map((meeting) => meeting.id))];
+    deletedLiveKitRoomNames.push(...new Set(meetingRows.map((meeting) => meeting.liveKitRoomName)));
+    if (meetingIds.length > 0) {
+      await tx
+        .delete(studioHumanInterviewMeeting)
+        .where(
+          and(
+            eq(studioHumanInterviewMeeting.organizationId, organizationId),
+            inArray(studioHumanInterviewMeeting.id, meetingIds),
+          ),
+        );
+    }
+
+    await tx
+      .update(studioHumanInterviewRound)
+      .set({
+        cancelReason: reason ?? null,
+        cancelledAt: now,
+        status: "cancelled",
+        updatedAt: now,
+      })
+      .where(
+        and(
+          eq(studioHumanInterviewRound.id, roundId),
+          eq(studioHumanInterviewRound.organizationId, organizationId),
+        ),
+      );
+  });
   const updated = await loadRoundById(roundId, organizationId);
   if (!updated) {
     throw new Error("更新后查询失败");
   }
-  return updated;
+  return { deletedLiveKitRoomNames, round: updated };
+}
+
+export async function cancelHumanInterviewRound(
+  options: CancelRoundOptions,
+): Promise<HumanInterviewRoundRecord> {
+  const result = await cancelHumanInterviewRoundWithMeetings(options);
+  return result.round;
 }
 
 // 候选人 pipelineStage 自动推进：仅在创建第一轮时触发。

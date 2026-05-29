@@ -21,7 +21,6 @@ import {
   LinkIcon,
   Loader2Icon,
   PlusIcon,
-  Trash2Icon,
   UsersIcon,
   VideoIcon,
 } from "lucide-react";
@@ -46,7 +45,6 @@ import {
   completeHumanInterviewRound,
   createHumanInterviewMeeting,
   createHumanInterviewRound,
-  deleteHumanInterviewMeeting,
   endHumanInterviewMeeting,
   issueHumanInterviewMeetingLinks,
   listHumanInterviewMeetings,
@@ -122,7 +120,6 @@ interface PanelProps {
 interface DialogState {
   cancelTarget: HumanInterviewRoundRecord | null;
   completeTarget: HumanInterviewRoundRecord | null;
-  deleteTarget: HumanInterviewMeetingRecord | null;
   endTarget: HumanInterviewMeetingRecord | null;
   linksTarget: HumanInterviewMeetingRecord | null;
   scheduleOpen: boolean;
@@ -132,14 +129,12 @@ type DialogAction =
   | { open: boolean; type: "scheduleOpenChanged" }
   | { target: HumanInterviewRoundRecord | null; type: "cancelTargetChanged" }
   | { target: HumanInterviewRoundRecord | null; type: "completeTargetChanged" }
-  | { target: HumanInterviewMeetingRecord | null; type: "deleteTargetChanged" }
   | { target: HumanInterviewMeetingRecord | null; type: "endTargetChanged" }
   | { target: HumanInterviewMeetingRecord | null; type: "linksTargetChanged" };
 
 const initialDialogState: DialogState = {
   cancelTarget: null,
   completeTarget: null,
-  deleteTarget: null,
   endTarget: null,
   linksTarget: null,
   scheduleOpen: false,
@@ -152,9 +147,6 @@ function dialogReducer(state: DialogState, action: DialogAction): DialogState {
     }
     case "completeTargetChanged": {
       return { ...state, completeTarget: action.target };
-    }
-    case "deleteTargetChanged": {
-      return { ...state, deleteTarget: action.target };
     }
     case "endTargetChanged": {
       return { ...state, endTarget: action.target };
@@ -196,29 +188,13 @@ export function HumanInterviewStagePanel({ candidateId, candidateName, disabled 
   }
 
   const [dialogState, dispatchDialog] = useReducer(dialogReducer, initialDialogState);
-  const { cancelTarget, completeTarget, deleteTarget, endTarget, linksTarget, scheduleOpen } =
-    dialogState;
+  const { cancelTarget, completeTarget, endTarget, linksTarget, scheduleOpen } = dialogState;
   const endMeetingMutation = useMutation({
     mutationFn: (meetingId: string) => endHumanInterviewMeeting(slug, meetingId),
     onError: (e) => toast.error(e instanceof Error ? e.message : "结束会议失败"),
     onSuccess: () => {
       toast.success("会议已结束");
       dispatchDialog({ target: null, type: "endTargetChanged" });
-      void queryClient.invalidateQueries({
-        queryKey: ["human-interview-rounds", slug, candidateId],
-      });
-      void queryClient.invalidateQueries({
-        queryKey: ["human-interview-meetings", slug, candidateId],
-      });
-      void queryClient.invalidateQueries({ queryKey: ["studio-resumes"] });
-    },
-  });
-  const deleteMeetingMutation = useMutation({
-    mutationFn: (meetingId: string) => deleteHumanInterviewMeeting(slug, meetingId),
-    onError: (e) => toast.error(e instanceof Error ? e.message : "删除会议失败"),
-    onSuccess: () => {
-      toast.success("会议已删除");
-      dispatchDialog({ target: null, type: "deleteTargetChanged" });
       void queryClient.invalidateQueries({
         queryKey: ["human-interview-rounds", slug, candidateId],
       });
@@ -276,53 +252,52 @@ export function HumanInterviewStagePanel({ candidateId, candidateName, disabled 
   } else {
     roundsContent = (
       <div className="space-y-3">
-        {rounds.map((round) => (
-          <RoundCard
-            disabled={disabled}
-            key={round.id}
-            meetings={meetings.filter((meeting) =>
-              meeting.rounds.some((meetingRound) => meetingRound.roundId === round.id),
-            )}
-            onCancel={() => dispatchDialog({ target: round, type: "cancelTargetChanged" })}
-            onComplete={() => dispatchDialog({ target: round, type: "completeTargetChanged" })}
-            onCreateMeeting={() => createMeetingMutation.mutate(round)}
-            onDeleteMeeting={(meeting) =>
-              dispatchDialog({ target: meeting, type: "deleteTargetChanged" })
-            }
-            onEndMeeting={(meeting) =>
-              dispatchDialog({ target: meeting, type: "endTargetChanged" })
-            }
-            onOpenLinks={(meeting) =>
-              dispatchDialog({ target: meeting, type: "linksTargetChanged" })
-            }
-            round={round}
-          />
-        ))}
+        {rounds.map((round) => {
+          const meeting =
+            meetings.find((item) =>
+              item.rounds.some((meetingRound) => meetingRound.roundId === round.id),
+            ) ?? null;
+          return (
+            <RoundCard
+              disabled={disabled}
+              key={round.id}
+              meeting={meeting}
+              onCancel={() => dispatchDialog({ target: round, type: "cancelTargetChanged" })}
+              onComplete={() => dispatchDialog({ target: round, type: "completeTargetChanged" })}
+              onCreateMeeting={() => createMeetingMutation.mutate(round)}
+              onEndMeeting={(item) => dispatchDialog({ target: item, type: "endTargetChanged" })}
+              onOpenLinks={(item) => dispatchDialog({ target: item, type: "linksTargetChanged" })}
+              round={round}
+            />
+          );
+        })}
       </div>
     );
   }
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h3 className="font-medium text-sm">真人复面进度</h3>
-          <p className="text-muted-foreground text-xs">
-            管理 {candidateName} 的真人复面：安排时间 / 录入面试官 / 标记结果。
-          </p>
-        </div>
-        {disabled ? null : (
+      <div>
+        <h3 className="font-medium text-sm">真人复面进度</h3>
+        <p className="text-muted-foreground text-xs">
+          管理 {candidateName} 的真人复面：安排时间 / 录入面试官 / 标记结果。
+        </p>
+      </div>
+
+      {roundsContent}
+
+      {disabled ? null : (
+        <div className="flex justify-end w-full">
           <Button
             onClick={() => dispatchDialog({ open: true, type: "scheduleOpenChanged" })}
-            size="sm"
+            size="lg"
+            className="w-full"
           >
             <PlusIcon className="size-4" />
             安排真人复面
           </Button>
-        )}
-      </div>
-
-      {roundsContent}
+        </div>
+      )}
 
       <ScheduleRoundDialog
         candidateId={candidateId}
@@ -359,13 +334,6 @@ export function HumanInterviewStagePanel({ candidateId, candidateName, disabled 
         onConfirm={(meeting) => endMeetingMutation.mutateAsync(meeting.id)}
         onOpenChange={(open) => !open && dispatchDialog({ target: null, type: "endTargetChanged" })}
       />
-      <DeleteMeetingDialog
-        meeting={deleteTarget}
-        onConfirm={(meeting) => deleteMeetingMutation.mutate(meeting.id)}
-        onOpenChange={(open) =>
-          !open && dispatchDialog({ target: null, type: "deleteTargetChanged" })
-        }
-      />
     </div>
   );
 }
@@ -375,29 +343,30 @@ export function HumanInterviewStagePanel({ candidateId, candidateName, disabled 
 function RoundCard({
   round,
   disabled,
-  meetings,
+  meeting,
   onComplete,
   onCancel,
   onCreateMeeting,
-  onDeleteMeeting,
   onEndMeeting,
   onOpenLinks,
 }: {
   round: HumanInterviewRoundRecord;
   disabled?: boolean;
-  meetings: HumanInterviewMeetingRecord[];
+  meeting: HumanInterviewMeetingRecord | null;
   onComplete: () => void;
   onCancel: () => void;
   onCreateMeeting: () => void;
-  onDeleteMeeting: (meeting: HumanInterviewMeetingRecord) => void;
   onEndMeeting: (meeting: HumanInterviewMeetingRecord) => void;
   onOpenLinks: (meeting: HumanInterviewMeetingRecord) => void;
 }) {
-  const statusBadge = describeRoundStatus(round);
-  const hasMeetings = meetings.length > 0;
+  const statusBadge = describeRoundSummaryStatus(round, meeting);
+  const canWrite = disabled !== true;
+  const canCreateMeeting = meeting === null && round.status === "pending" && canWrite;
+  const canCancelRound = canCancelHumanInterviewRound(round, meeting, disabled);
+  const canCompleteRound = canCompleteHumanInterviewRound(round, meeting, disabled);
 
   return (
-    <div className="rounded-lg border border-border/60 bg-card p-4">
+    <div className="flex flex-col gap-3 rounded-lg border border-border/60 bg-card p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-1">
           <div className="flex items-center gap-2">
@@ -418,55 +387,16 @@ function RoundCard({
             <span className="inline-flex items-center gap-1">
               {humanInterviewFormatMeta[round.format].label}
             </span>
-            {hasMeetings ? (
-              <span className="inline-flex items-center gap-1">
-                <VideoIcon className="size-3" />
-                已创建 {meetings.length} 个会议
-              </span>
-            ) : null}
             <span className="inline-flex items-center gap-1">
               <UsersIcon className="size-3" />
               {round.interviewers.map((i) => i.name).join("、") || "未指派面试官"}
             </span>
           </div>
         </div>
-        {round.status === "pending" && !disabled ? (
-          <div className="flex gap-2">
-            {hasMeetings ? null : (
-              <Button onClick={onCreateMeeting} size="sm" variant="outline">
-                <VideoIcon className="size-4" />
-                创建会议
-              </Button>
-            )}
-            <Button onClick={onComplete} size="sm" variant="outline">
-              <CheckCircle2Icon className="size-4" />
-              标记完成
-            </Button>
-            <Button onClick={onCancel} size="sm" variant="outline">
-              <BanIcon className="size-4" />
-              取消
-            </Button>
-          </div>
-        ) : null}
       </div>
 
-      {hasMeetings ? (
-        <div className="mt-3 space-y-2 border-border/40 border-t pt-3">
-          {meetings.map((meeting) => (
-            <MeetingInlineCard
-              disabled={disabled}
-              key={meeting.id}
-              meeting={meeting}
-              onDelete={() => onDeleteMeeting(meeting)}
-              onEnd={() => onEndMeeting(meeting)}
-              onOpenLinks={() => onOpenLinks(meeting)}
-            />
-          ))}
-        </div>
-      ) : null}
-
       {hasRoundDetails(round) ? (
-        <div className="mt-3 space-y-1 border-border/40 border-t pt-3 text-sm">
+        <div className="space-y-1 border-border/40 border-t pt-3 text-sm">
           {round.score === null ? null : (
             <div className="text-muted-foreground text-xs">
               评分：<span className="font-medium text-foreground">{round.score}</span>
@@ -482,62 +412,99 @@ function RoundCard({
           ) : null}
         </div>
       ) : null}
+
+      <RoundCardActions
+        canCancelRound={canCancelRound}
+        canCompleteRound={canCompleteRound}
+        canCreateMeeting={canCreateMeeting}
+        canEndMeeting={canEndHumanInterviewMeeting(meeting, disabled)}
+        canOpenLinks={canOpenMeetingLinks(meeting)}
+        meeting={meeting}
+        onCancel={onCancel}
+        onComplete={onComplete}
+        onCreateMeeting={onCreateMeeting}
+        onEndMeeting={onEndMeeting}
+        onOpenLinks={onOpenLinks}
+      />
     </div>
   );
 }
 
-function MeetingInlineCard({
-  disabled,
+function RoundCardActions({
   meeting,
-  onDelete,
-  onEnd,
+  canCreateMeeting,
+  canOpenLinks,
+  canEndMeeting,
+  canCancelRound,
+  canCompleteRound,
+  onComplete,
+  onCancel,
+  onCreateMeeting,
+  onEndMeeting,
   onOpenLinks,
 }: {
-  disabled?: boolean;
-  meeting: HumanInterviewMeetingRecord;
-  onDelete: () => void;
-  onEnd: () => void;
-  onOpenLinks: () => void;
+  meeting: HumanInterviewMeetingRecord | null;
+  canCreateMeeting: boolean;
+  canOpenLinks: boolean;
+  canEndMeeting: boolean;
+  canCancelRound: boolean;
+  canCompleteRound: boolean;
+  onComplete: () => void;
+  onCancel: () => void;
+  onCreateMeeting: () => void;
+  onEndMeeting: (meeting: HumanInterviewMeetingRecord) => void;
+  onOpenLinks: (meeting: HumanInterviewMeetingRecord) => void;
 }) {
-  const status = describeMeetingStatus(meeting);
-  const canEnd = meeting.status === "scheduled" || meeting.status === "in_progress";
-  const canWrite = disabled !== true;
-  const isEnded = meeting.status === "ended";
-  const canOpenLinks = !isEnded;
-  const canDelete = canWrite && !isEnded && meeting.status !== "in_progress";
+  const hasActions =
+    canCreateMeeting || canOpenLinks || canEndMeeting || canCancelRound || canCompleteRound;
+  if (!hasActions) {
+    return null;
+  }
+
+  function handleOpenLinks() {
+    if (meeting) {
+      onOpenLinks(meeting);
+    }
+  }
+
+  function handleEndMeeting() {
+    if (meeting) {
+      onEndMeeting(meeting);
+    }
+  }
 
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border/60 bg-muted/20 p-3">
-      <div className="min-w-0 space-y-1">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="font-medium text-sm">{meeting.title}</span>
-          <Badge variant={status.tone}>{status.label}</Badge>
-        </div>
-        <p className="truncate text-muted-foreground text-xs">
-          {meeting.rounds.map((round) => round.candidateName).join("、")} ·{" "}
-          {meeting.interviewers.map((interviewer) => interviewer.name).join("、")}
-        </p>
-      </div>
-      <div className="flex flex-wrap gap-2">
-        {canOpenLinks ? (
-          <Button onClick={onOpenLinks} size="sm" variant="outline">
-            <CopyIcon className="size-4" />
-            复制链接
-          </Button>
-        ) : null}
-        {canEnd && canWrite ? (
-          <Button onClick={onEnd} size="sm" variant="outline">
-            <CircleStopIcon className="size-4" />
-            结束会议
-          </Button>
-        ) : null}
-        {canDelete ? (
-          <Button onClick={onDelete} size="sm" variant="outline">
-            <Trash2Icon className="size-4" />
-            删除
-          </Button>
-        ) : null}
-      </div>
+    <div className="flex flex-wrap justify-end gap-2 border-border/40 border-t pt-3">
+      {canCreateMeeting ? (
+        <Button onClick={onCreateMeeting} size="sm" variant="outline">
+          <VideoIcon className="size-4" />
+          创建会议
+        </Button>
+      ) : null}
+      {canOpenLinks ? (
+        <Button onClick={handleOpenLinks} size="sm" variant="outline">
+          <CopyIcon className="size-4" />
+          复制链接
+        </Button>
+      ) : null}
+      {canEndMeeting ? (
+        <Button onClick={handleEndMeeting} size="sm" variant="outline">
+          <CircleStopIcon className="size-4" />
+          结束会议
+        </Button>
+      ) : null}
+      {canCompleteRound ? (
+        <Button onClick={onComplete} size="sm" variant="outline">
+          <CheckCircle2Icon className="size-4" />
+          标记完成
+        </Button>
+      ) : null}
+      {canCancelRound ? (
+        <Button onClick={onCancel} size="sm" variant="outline">
+          <BanIcon className="size-4" />
+          取消轮次
+        </Button>
+      ) : null}
     </div>
   );
 }
@@ -578,41 +545,6 @@ function EndMeetingDialog({
           <AlertDialogAction disabled={isPending} onClick={handleConfirm} variant="destructive">
             {isPending ? <Loader2Icon className="size-4 animate-spin" /> : null}
             确认结束
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
-  );
-}
-
-function DeleteMeetingDialog({
-  meeting,
-  onConfirm,
-  onOpenChange,
-}: {
-  meeting: HumanInterviewMeetingRecord | null;
-  onConfirm: (meeting: HumanInterviewMeetingRecord) => void;
-  onOpenChange: (open: boolean) => void;
-}) {
-  function handleConfirm() {
-    if (meeting) {
-      onConfirm(meeting);
-    }
-  }
-
-  return (
-    <AlertDialog onOpenChange={onOpenChange} open={meeting !== null}>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>删除真人复面会议？</AlertDialogTitle>
-          <AlertDialogDescription>
-            删除后会移除该会议和对应入场链接，但不会删除候选人的真人复面轮次记录。
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel>取消</AlertDialogCancel>
-          <AlertDialogAction onClick={handleConfirm} variant="destructive">
-            确认删除
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
@@ -755,7 +687,10 @@ function MeetingLinkRow({
   );
 }
 
-function describeRoundStatus(round: HumanInterviewRoundRecord): {
+function describeRoundSummaryStatus(
+  round: HumanInterviewRoundRecord,
+  meeting: HumanInterviewMeetingRecord | null,
+): {
   label: string;
   tone: "success" | "warning" | "info" | "outline";
 } {
@@ -771,8 +706,10 @@ function describeRoundStatus(round: HumanInterviewRoundRecord): {
     }
     return { label: "已完成", tone: "success" };
   }
-  // pending
-  return { label: round.scheduledAt ? "已安排" : "待安排", tone: "info" };
+  if (meeting) {
+    return describeMeetingStatus(meeting);
+  }
+  return { label: "待安排", tone: "info" };
 }
 
 function describeMeetingStatus(meeting: HumanInterviewMeetingRecord): {
@@ -789,6 +726,39 @@ function describeMeetingStatus(meeting: HumanInterviewMeetingRecord): {
     return { label: "进行中", tone: "success" };
   }
   return { label: "待开始", tone: "info" };
+}
+
+function canOpenMeetingLinks(meeting: HumanInterviewMeetingRecord | null): boolean {
+  return meeting !== null && meeting.status !== "ended";
+}
+
+function canEndHumanInterviewMeeting(
+  meeting: HumanInterviewMeetingRecord | null,
+  disabled?: boolean,
+): boolean {
+  if (disabled || !meeting) {
+    return false;
+  }
+  return meeting.status === "in_progress";
+}
+
+function canCancelHumanInterviewRound(
+  round: HumanInterviewRoundRecord,
+  meeting: HumanInterviewMeetingRecord | null,
+  disabled?: boolean,
+): boolean {
+  if (disabled || round.status !== "pending") {
+    return false;
+  }
+  return meeting === null || meeting.status === "scheduled";
+}
+
+function canCompleteHumanInterviewRound(
+  round: HumanInterviewRoundRecord,
+  meeting: HumanInterviewMeetingRecord | null,
+  disabled?: boolean,
+): boolean {
+  return disabled !== true && round.status === "pending" && meeting?.status === "ended";
 }
 
 function pad2(n: number): string {
@@ -1176,7 +1146,7 @@ function CancelRoundDialog({ round, candidateId, onOpenChange, onCancelled }: Ca
         <DialogHeader>
           <DialogTitle>取消轮次：{round?.label}</DialogTitle>
           <DialogDescription>
-            取消后该轮不会算入复面统计；如想保留为「已完成」请改走「标记完成」流程。
+            取消后该轮不会算入复面统计，关联的视频会议也会一并删除；如想保留为「已完成」请改走「标记完成」流程。
           </DialogDescription>
         </DialogHeader>
 

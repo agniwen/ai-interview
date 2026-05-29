@@ -42,7 +42,7 @@ import {
   PencilIcon,
   RotateCcwIcon,
 } from "lucide-react";
-import { useMemo, useReducer } from "react";
+import { useEffect, useMemo, useReducer, useState } from "react";
 import type { ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { CandidateBasicInfoView } from "@/components/candidate-basic-info-view";
@@ -145,6 +145,19 @@ function shouldShowOfferTab(record: { pipelineStage?: string } | null): boolean 
     return false;
   }
   return ["offer", "closed"].includes(record.pipelineStage);
+}
+
+function tabForPipelineStage(stage: PipelineStage): StudioPersonDetailTab {
+  if (stage === "human_interview") {
+    return "human-interview";
+  }
+  if (stage === "offer") {
+    return "offer";
+  }
+  if (stage === "ai_interview") {
+    return "rounds";
+  }
+  return "overview";
 }
 
 /**
@@ -470,6 +483,7 @@ function useStudioPersonDetailPanel({
   // Slug is only consumed on the authed path; declare as string for downstream callers.
   const slug = optionalSlug ?? "";
   const [uiState, dispatchUi] = useReducer(detailPanelUiReducer, initialDetailPanelUiState);
+  const [activeTab, setActiveTab] = useState<StudioPersonDetailTab>(defaultTab ?? "overview");
   const {
     pendingResetSubmissionId,
     resettingRoundId,
@@ -479,6 +493,10 @@ function useStudioPersonDetailPanel({
   } = uiState;
   const queryClient = useQueryClient();
   const { push } = useRouter();
+
+  useEffect(() => {
+    setActiveTab(defaultTab ?? "overview");
+  }, [defaultTab, mode, recordId, roundId]);
 
   // 面试模式需要 roundId 来驱动 round-keyed 查询。优先用显式传入的 roundId,
   // 缺失时走 resolver 把 recordId(候选人级) 换成最新一轮的 roundId ——
@@ -870,6 +888,7 @@ function useStudioPersonDetailPanel({
               toast.error(error);
             } else {
               toast.success(`已推进到「${pipelineStageMeta[target].label}」`);
+              setActiveTab(tabForPipelineStage(target));
               onUpdated?.();
             }
           })();
@@ -1563,8 +1582,9 @@ function useStudioPersonDetailPanel({
   return (
     <>
       <Tabs
-        defaultValue={defaultTab ?? "overview"}
-        key={`${roundId ?? recordId ?? "empty"}-${defaultTab ?? "overview"}`}
+        key={`${roundId ?? recordId ?? "empty"}`}
+        onValueChange={(value) => setActiveTab(value as StudioPersonDetailTab)}
+        value={activeTab}
       >
         {shell({ body, description, footer, headerExtra, title })}
       </Tabs>

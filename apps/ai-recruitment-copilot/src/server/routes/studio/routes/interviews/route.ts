@@ -52,7 +52,7 @@ import {
 } from "@/server/routes/studio/routes/interview-questions/dao/bindings";
 import { queryInterviewConversationReportsByRound } from "@/server/routes/studio/routes/interviews/dao/interview-conversations";
 import {
-  cancelHumanInterviewRound,
+  cancelHumanInterviewRoundWithMeetings,
   completeHumanInterviewRound,
   createHumanInterviewRound,
   editHumanInterviewRound,
@@ -1543,11 +1543,21 @@ export const studioInterviewsRouter = factory
       const roundId = c.req.param("roundId");
       const { reason } = c.req.valid("json");
       try {
-        const updated = await cancelHumanInterviewRound({
-          organizationId: activeOrg.id,
-          reason,
-          roundId,
-        });
+        const { deletedLiveKitRoomNames, round: updated } =
+          await cancelHumanInterviewRoundWithMeetings({
+            organizationId: activeOrg.id,
+            reason,
+            roundId,
+          });
+        for (const roomName of deletedLiveKitRoomNames) {
+          try {
+            await deleteHumanInterviewLiveKitRoom(roomName);
+          } catch (error) {
+            if (!(error instanceof HumanInterviewLiveKitConfigError)) {
+              console.warn("failed to delete livekit human interview room", error);
+            }
+          }
+        }
         invalidateStudioInterviewCaches(activeOrg.id);
         return c.json(updated, 200);
       } catch (error) {
