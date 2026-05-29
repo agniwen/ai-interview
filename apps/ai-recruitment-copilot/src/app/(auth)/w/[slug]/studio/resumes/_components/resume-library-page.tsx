@@ -51,7 +51,6 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { CreatorCell } from "@/components/cell/creator-cell";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Empty,
@@ -74,6 +73,7 @@ import { StudioPersonEditDialog } from "@/app/(auth)/w/[slug]/studio/_components
 import { CreateResumeRecordDialog } from "./upload-resume-dialog";
 import type { CreateResumeRecordResult } from "./upload-resume-dialog";
 import { LaunchInterviewDialog } from "./launch-interview-dialog";
+import { ResumeLifecycleBadge } from "./resume-lifecycle-badge";
 import { ResumeLibraryCharts } from "./resume-library-charts";
 import { TransitionCandidateDialog } from "./transition-candidate-dialog";
 
@@ -98,6 +98,7 @@ interface ResumeFilters extends Record<string, string> {
   stage: string;
 }
 const EMPTY_FILTERS: ResumeFilters = { jdIds: "", skills: "", stage: "" };
+type ResumeDetailDefaultTab = "overview" | "rounds" | "human-interview" | "offer";
 
 // pipelineStage tab 副标题文案——简短，避免 tab 撑得过宽，移动端会隐藏。
 // Short helper text shown inside each pipelineStage tab; hidden on mobile so
@@ -119,20 +120,113 @@ const PIPELINE_STAGE_TAB_DESCRIPTIONS: Record<string, string> = {
 // stage's UI is built.
 const HIDDEN_PIPELINE_STAGE_TABS = new Set<string>(["written_test"]);
 
-// 点进度 badge 跳到哪个 tab；null 表示纯展示（screening / closed）。
-// 复用 describeResumeProgress 已经确认能渲染对应数据的前提。
-// Map current stage → drilldown tab; null = static badge (no detail page).
-function progressBadgeTargetTab(record: ResumeLibraryListRecord) {
-  if (record.pipelineStage === "ai_interview" && record.hasInterviewRounds) {
-    return "rounds" as const;
+// 当前环节点进详情时默认跳到对应 tab；没有专属 tab 的阶段回到概览。
+// Current lifecycle cell opens the detail dialog at the matching tab. Stages
+// without a dedicated tab fall back to overview.
+function lifecycleTargetTab(record: ResumeLibraryListRecord): ResumeDetailDefaultTab {
+  if (record.pipelineStage === "ai_interview") {
+    return "rounds";
   }
   if (record.pipelineStage === "human_interview") {
-    return "human-interview" as const;
+    return "human-interview";
   }
   if (record.pipelineStage === "offer") {
-    return "offer" as const;
+    return "offer";
   }
-  return null;
+  return "overview";
+}
+
+function describeCompactAiLifecycle(record: ResumeLibraryListRecord): string {
+  const progress = record.stageProgress.aiInterview;
+  if (!progress || progress.totalRounds === 0) {
+    return "未排期";
+  }
+  if (!progress.activeRound) {
+    return "完成待决策";
+  }
+
+  const current = progress.activeRound.sortOrder + 1;
+  if (["in_progress", "interrupted"].includes(progress.activeRound.status)) {
+    return `${current}/${progress.totalRounds} 进行中`;
+  }
+  if (progress.hasStarted) {
+    return `${current}/${progress.totalRounds} 待下轮`;
+  }
+  return `${current}/${progress.totalRounds} 待进场`;
+}
+
+function describeCompactHumanLifecycle(record: ResumeLibraryListRecord): string {
+  const progress = record.stageProgress.humanInterview;
+  if (!progress || progress.totalRounds === 0) {
+    return "未安排";
+  }
+  if (!progress.activeRound) {
+    return `${progress.passedRounds}/${progress.totalRounds}通过待决策`;
+  }
+
+  const current = progress.activeRound.sortOrder + 1;
+  if (progress.activeRound.scheduledAt) {
+    return `${current}/${progress.totalRounds} 已安排`;
+  }
+  return `${current}/${progress.totalRounds} 待安排`;
+}
+
+function describeCompactOfferLifecycle(record: ResumeLibraryListRecord): string {
+  const progress = record.stageProgress.offer;
+  const draft = progress?.latestDraft;
+  if (!progress || !draft) {
+    return "待发出";
+  }
+
+  const version = progress.totalVersions > 1 ? `v${draft.version} ` : "";
+  switch (draft.status) {
+    case "draft": {
+      return `${version}草稿`;
+    }
+    case "sent": {
+      return `${version}已发待回复`;
+    }
+    case "accepted": {
+      return `${version}接受待结案`;
+    }
+    case "declined": {
+      return `${version}已拒绝`;
+    }
+    case "expired": {
+      return `${version}已过期`;
+    }
+    default: {
+      return `${version}待回复`;
+    }
+  }
+}
+
+function describeCompactLifecycleDetail(
+  record: ResumeLibraryListRecord,
+  fallback: string | null,
+): string | null {
+  if (record.pipelineStage === "ai_interview") {
+    return describeCompactAiLifecycle(record);
+  }
+  if (record.pipelineStage === "human_interview") {
+    return describeCompactHumanLifecycle(record);
+  }
+  if (record.pipelineStage === "offer") {
+    return describeCompactOfferLifecycle(record);
+  }
+  return fallback;
+}
+
+function describeLifecycleCell(record: ResumeLibraryListRecord) {
+  const progress = describeResumeProgress(record);
+  const [stageLabel, ...detailParts] = progress.label.split(" · ");
+
+  return {
+    detailLabel: describeCompactLifecycleDetail(record, detailParts.join(" · ") || null),
+    fullLabel: progress.label,
+    stageLabel,
+    tone: progress.tone,
+  };
 }
 const VISIBLE_PIPELINE_STAGES = pipelineStageValues.filter(
   (s) => !HIDDEN_PIPELINE_STAGE_TABS.has(s),
@@ -250,12 +344,10 @@ export function ResumeLibraryPage({
   });
 
   const [detailRecordId, setDetailRecordId] = useState<string | null>(null);
-  // 中文：打开简历详情弹窗时默认聚焦的 tab；点「已发起」直接跳到「AI 面试轮次」。
+  // 中文：打开简历详情弹窗时默认聚焦的 tab；点「当前环节」直接跳到对应流程 tab。
   // English: Default tab when opening the resume detail dialog — clicking
-  // 已发起 jumps straight to the "AI 面试轮次" view.
-  const [detailDefaultTab, setDetailDefaultTab] = useState<
-    "overview" | "rounds" | "human-interview" | "offer"
-  >("overview");
+  // 当前环节 jumps straight to the matching lifecycle tab.
+  const [detailDefaultTab, setDetailDefaultTab] = useState<ResumeDetailDefaultTab>("overview");
   // 「保存并发起面试」成功后打开的 AI 面试详情弹窗对应的 round id；为 null 则不展示。
   // Round id whose AI interview detail dialog should pop after a successful
   // save-and-start; null hides the dialog.
@@ -418,32 +510,26 @@ export function ResumeLibraryPage({
       }),
       customColumn<ResumeLibraryListRecord>({
         cell: (r) => {
-          const meta = describeResumeProgress(r);
-          // 根据当前阶段决定点 badge 跳到哪个 tab。closed 与 screening 没有专属 tab，纯展示。
-          // Badge click jumps to the stage's dedicated tab; closed / screening
-          // have no drilldown, render as static badge.
-          const targetTab = progressBadgeTargetTab(r);
-          if (targetTab) {
-            return (
-              <button
-                className="cursor-pointer"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setDetailDefaultTab(targetTab);
-                  setDetailRecordId(r.id);
-                }}
-                type="button"
-              >
-                <Badge className="cursor-pointer" variant={meta.tone}>
-                  {meta.label}
-                </Badge>
-              </button>
-            );
-          }
-          return <Badge variant={meta.tone}>{meta.label}</Badge>;
+          const meta = describeLifecycleCell(r);
+          const targetTab = lifecycleTargetTab(r);
+          return (
+            <ResumeLifecycleBadge
+              className="w-44"
+              detailLabel={meta.detailLabel}
+              fullLabel={meta.fullLabel}
+              onClick={(e) => {
+                e.stopPropagation();
+                setDetailDefaultTab(targetTab);
+                setDetailRecordId(r.id);
+              }}
+              stageLabel={meta.stageLabel}
+              tone={meta.tone}
+            />
+          );
         },
         key: "progress",
-        title: "状态",
+        size: 220,
+        title: "当前环节",
       }),
       customColumn<ResumeLibraryListRecord>({
         cell: (r) => <CreatorCell image={r.creatorImage} name={r.creatorName} />,
