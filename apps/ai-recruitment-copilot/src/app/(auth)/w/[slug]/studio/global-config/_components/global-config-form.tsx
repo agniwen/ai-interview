@@ -73,7 +73,7 @@ export function GlobalConfigForm({ initial }: Props) {
     <div className="flex flex-col gap-6">
       <PageHeader
         title="系统设置"
-        description="这些指令会注入到所有面试 agent。留空则使用系统默认文案。"
+        description="统一维护公司名称、开场收尾话术和公司资料，让候选人沟通保持同一种口径。"
       />
 
       <Card className="rounded-lg">

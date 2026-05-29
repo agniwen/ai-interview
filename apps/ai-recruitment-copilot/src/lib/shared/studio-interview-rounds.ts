@@ -21,12 +21,14 @@ export interface StudioInterviewRoundListRecord {
   candidatePhone: string | null;
   targetRole: string | null;
   jobDescriptionId: string | null;
+  jobDescriptionDepartmentName: string | null;
   jobDescriptionName: string | null;
   resumeFileName: string | null;
   hasResumeFile: boolean;
   roundLabel: string;
   sortOrder: number;
   scheduledAt: string | null;
+  lastInterviewAt: string | null;
   status: ScheduleEntryStatus;
   allowTextInput: boolean;
   conversationId: string | null;

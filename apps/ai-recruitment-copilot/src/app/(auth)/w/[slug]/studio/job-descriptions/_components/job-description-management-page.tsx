@@ -252,8 +252,8 @@ export function JobDescriptionManagementPage({
     <>
       <div className="space-y-6">
         <PageHeader
-          description="配置岗位描述 prompt，并指定面试时要启用的面试官。"
-          title="在招岗位管理"
+          description="按岗位组织候选人、面试官和面试数据，让招聘进展和团队分工都落到同一处。"
+          title="在招岗位"
         />
 
         <JobDescriptionCharts metrics={metrics} />

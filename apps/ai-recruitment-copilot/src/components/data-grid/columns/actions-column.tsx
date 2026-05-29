@@ -43,12 +43,43 @@ export interface ActionsColumnOptions<TData> {
   size?: number;
 }
 
+const ACTION_CELL_HORIZONTAL_PADDING = 24;
+const ACTION_BUTTON_HORIZONTAL_PADDING = 20;
+const ACTION_MENU_TRIGGER_HORIZONTAL_PADDING = 10;
+const ACTION_BUTTON_GAP = 2;
+const MIN_ACTION_COLUMN_SIZE = 72;
+
+function estimateActionLabelWidth(label: string) {
+  let width = 0;
+  for (const char of label) {
+    if (char === " ") {
+      width += 4;
+      continue;
+    }
+    width += (char.codePointAt(0) ?? 0) <= 127 ? 7 : 13;
+  }
+  return width;
+}
+
 export function actionsColumn<TData>(opts: ActionsColumnOptions<TData>): ColumnDef<TData> {
   const inlineButtons = opts.inline ?? [];
   const menuItems = opts.menu ?? [];
   // Action buttons are text-only in tables; estimate enough width for labels.
   // 表格 action 按钮统一纯文字展示，列宽按 label 文本估算。
-  const inferredSize = inlineButtons.length * 72 + (menuItems.length > 0 ? 64 : 0) + 32;
+  const actionCount = inlineButtons.length + (menuItems.length > 0 ? 1 : 0);
+  let inlineWidth = 0;
+  for (const action of inlineButtons) {
+    inlineWidth += estimateActionLabelWidth(action.label) + ACTION_BUTTON_HORIZONTAL_PADDING;
+  }
+  const menuWidth =
+    menuItems.length > 0
+      ? estimateActionLabelWidth("更多") + ACTION_MENU_TRIGGER_HORIZONTAL_PADDING
+      : 0;
+  const gapWidth = Math.max(actionCount - 1, 0) * ACTION_BUTTON_GAP;
+  const inferredSize = Math.max(
+    MIN_ACTION_COLUMN_SIZE,
+    Math.ceil(inlineWidth + menuWidth + gapWidth + ACTION_CELL_HORIZONTAL_PADDING),
+  );
 
   return {
     cell: ({ row }) => {

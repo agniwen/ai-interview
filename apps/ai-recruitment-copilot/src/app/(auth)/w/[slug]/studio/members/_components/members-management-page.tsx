@@ -303,7 +303,7 @@ export function MembersManagementPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        description="管理当前工作区的成员、角色与邀请。拥有者可调整成员角色，管理员可邀请新成员。"
+        description="维护工作区成员、角色和邀请入口，让招聘协作的权限边界清晰可控。"
         title="工作区管理"
       />
 

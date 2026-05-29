@@ -192,8 +192,8 @@ export function DepartmentManagementPage({
     <>
       <div className="space-y-6">
         <PageHeader
-          description="维护组织下的业务部门，作为面试官和在招岗位的分组维度。"
-          title="部门管理"
+          description="按业务团队整理岗位和面试官，后续筛选、统计和协作都能对齐到部门。"
+          title="部门"
         />
 
         <DataGrid<DepartmentListRecord>

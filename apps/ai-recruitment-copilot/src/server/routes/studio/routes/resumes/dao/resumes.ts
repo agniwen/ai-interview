@@ -6,6 +6,7 @@ import { db } from "@/lib/server/db";
 import { buildOrderBy, calcTotalPages, makePaginationSchema } from "@/lib/server/db/pagination";
 import { serializeDate } from "@/lib/server/db/serialize";
 import {
+  department,
   jobDescription,
   studioInterview,
   studioInterviewSchedule,
@@ -262,6 +263,7 @@ const SELECTED_COLUMNS = {
   humanInterviewScheduledAt: studioInterview.humanInterviewScheduledAt,
   humanInterviewerId: studioInterview.humanInterviewerId,
   id: studioInterview.id,
+  jobDescriptionDepartmentName: department.name,
   jobDescriptionId: studioInterview.jobDescriptionId,
   jobDescriptionName: jobDescription.name,
   lastInterviewAt: lastInterviewAtSql,
@@ -306,6 +308,13 @@ function selectRows({
         eq(jobDescription.organizationId, studioInterview.organizationId),
       ),
     )
+    .leftJoin(
+      department,
+      and(
+        eq(jobDescription.departmentId, department.id),
+        eq(department.organizationId, studioInterview.organizationId),
+      ),
+    )
     .where(buildWhere(organizationId, filters))
     .orderBy(buildOrderBy(ORDER_COLUMNS, sortBy, sortOrder))
     .limit(pageSize)
@@ -340,6 +349,7 @@ function toRecord(row: Row): ResumeLibraryListRecord {
     humanInterviewScheduledAt: serializeDate(row.humanInterviewScheduledAt),
     humanInterviewerId: row.humanInterviewerId,
     id: row.id,
+    jobDescriptionDepartmentName: row.jobDescriptionDepartmentName,
     jobDescriptionId: row.jobDescriptionId,
     jobDescriptionName: row.jobDescriptionName,
     lastInterviewAt: serializeDate(row.lastInterviewAt),
@@ -429,6 +439,13 @@ export async function loadResumeDetail(
       and(
         eq(studioInterview.jobDescriptionId, jobDescription.id),
         eq(jobDescription.organizationId, studioInterview.organizationId),
+      ),
+    )
+    .leftJoin(
+      department,
+      and(
+        eq(jobDescription.departmentId, department.id),
+        eq(department.organizationId, studioInterview.organizationId),
       ),
     )
     .where(and(eq(studioInterview.id, id), eq(studioInterview.organizationId, organizationId)))

@@ -5,11 +5,12 @@
 // Round-keyed DAO. Drives off studio_interview_schedule and joins back to
 // the candidate row, JD, creator, and a "has at least one conversation" flag.
 
-import { and, asc, count, desc, eq, exists, ilike, inArray, or } from "drizzle-orm";
+import { and, asc, count, desc, eq, exists, ilike, inArray, or, sql } from "drizzle-orm";
 import { db } from "@/lib/server/db";
 import { buildOrderBy, calcTotalPages, makePaginationSchema } from "@/lib/server/db/pagination";
 import { serializeDate } from "@/lib/server/db/serialize";
 import {
+  department,
   interviewConversation,
   jobDescription,
   studioInterview,
@@ -110,6 +111,11 @@ export async function queryPaginatedInterviewRounds(
       .from(interviewConversation)
       .where(eq(interviewConversation.scheduleEntryId, studioInterviewSchedule.id)),
   );
+  const lastInterviewAtSql = sql<Date | null>`(
+    SELECT MAX(COALESCE(ic.started_at, ic.created_at)) AT TIME ZONE 'UTC'
+      FROM interview_conversation ic
+      WHERE ic.schedule_entry_id = ${studioInterviewSchedule.id}
+  )`;
 
   const [rows, [totalRow]] = await Promise.all([
     db
@@ -127,8 +133,10 @@ export async function queryPaginatedInterviewRounds(
         creatorOrganizationName: user.feishuTenantName,
         hasReport: hasReportSql,
         id: studioInterviewSchedule.id,
+        jobDescriptionDepartmentName: department.name,
         jobDescriptionId: studioInterview.jobDescriptionId,
         jobDescriptionName: jobDescription.name,
+        lastInterviewAt: lastInterviewAtSql,
         outcome: studioInterview.outcome,
         pipelineStage: studioInterview.pipelineStage,
         resumeFileName: studioInterview.resumeFileName,
@@ -147,6 +155,13 @@ export async function queryPaginatedInterviewRounds(
         and(
           eq(studioInterview.jobDescriptionId, jobDescription.id),
           eq(jobDescription.organizationId, studioInterview.organizationId),
+        ),
+      )
+      .leftJoin(
+        department,
+        and(
+          eq(jobDescription.departmentId, department.id),
+          eq(department.organizationId, studioInterview.organizationId),
         ),
       )
       .leftJoin(user, eq(studioInterview.createdBy, user.id))
@@ -177,8 +192,10 @@ export async function queryPaginatedInterviewRounds(
     hasResumeFile: Boolean(row.resumeStorageKey),
     id: row.id,
     interviewLink: buildInterviewLink(row.candidateId ?? "", row.id),
+    jobDescriptionDepartmentName: row.jobDescriptionDepartmentName,
     jobDescriptionId: row.jobDescriptionId,
     jobDescriptionName: row.jobDescriptionName,
+    lastInterviewAt: serializeDate(row.lastInterviewAt),
     outcome: row.outcome ?? "in_pipeline",
     pipelineStage: row.pipelineStage ?? "screening",
     resumeFileName: row.resumeFileName,
@@ -225,6 +242,11 @@ export async function listInterviewRoundsForCandidate(
       .from(interviewConversation)
       .where(eq(interviewConversation.scheduleEntryId, studioInterviewSchedule.id)),
   );
+  const lastInterviewAtSql = sql<Date | null>`(
+    SELECT MAX(COALESCE(ic.started_at, ic.created_at)) AT TIME ZONE 'UTC'
+      FROM interview_conversation ic
+      WHERE ic.schedule_entry_id = ${studioInterviewSchedule.id}
+  )`;
 
   const rows = await db
     .select({
@@ -241,8 +263,10 @@ export async function listInterviewRoundsForCandidate(
       creatorOrganizationName: user.feishuTenantName,
       hasReport: hasReportSql,
       id: studioInterviewSchedule.id,
+      jobDescriptionDepartmentName: department.name,
       jobDescriptionId: studioInterview.jobDescriptionId,
       jobDescriptionName: jobDescription.name,
+      lastInterviewAt: lastInterviewAtSql,
       outcome: studioInterview.outcome,
       pipelineStage: studioInterview.pipelineStage,
       resumeFileName: studioInterview.resumeFileName,
@@ -261,6 +285,13 @@ export async function listInterviewRoundsForCandidate(
       and(
         eq(studioInterview.jobDescriptionId, jobDescription.id),
         eq(jobDescription.organizationId, studioInterview.organizationId),
+      ),
+    )
+    .leftJoin(
+      department,
+      and(
+        eq(jobDescription.departmentId, department.id),
+        eq(department.organizationId, studioInterview.organizationId),
       ),
     )
     .leftJoin(user, eq(studioInterview.createdBy, user.id))
@@ -287,8 +318,10 @@ export async function listInterviewRoundsForCandidate(
     hasResumeFile: Boolean(row.resumeStorageKey),
     id: row.id,
     interviewLink: buildInterviewLink(row.candidateId ?? candidateId, row.id),
+    jobDescriptionDepartmentName: row.jobDescriptionDepartmentName,
     jobDescriptionId: row.jobDescriptionId,
     jobDescriptionName: row.jobDescriptionName,
+    lastInterviewAt: serializeDate(row.lastInterviewAt),
     outcome: row.outcome ?? "in_pipeline",
     pipelineStage: row.pipelineStage ?? "screening",
     resumeFileName: row.resumeFileName,

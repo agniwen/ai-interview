@@ -375,7 +375,7 @@ export function CandidateFormTemplateManagementPage({
     <>
       <div className="space-y-6">
         <PageHeader
-          description="配置候选人在面试前需要填写的表单。可以设为全局或绑定到在招岗位；候选人提交后会冻结为快照，之后编辑不影响历史填写记录。"
+          description="准备候选人面试前需要补充的信息，按岗位复用，提交后的内容会随面试记录留档。"
           title="面试表单"
         />
 

@@ -348,8 +348,8 @@ export function InterviewQuestionTemplateManagementPage({
     <>
       <div className="space-y-6">
         <PageHeader
-          description="配置面试官在面试中向候选人必问的题目。可以设为全局或绑定到在招岗位；面试创建时会冻结当前题目快照，之后编辑不影响已开始的面试。"
-          title="面试题"
+          description="沉淀常用必问题，按全局或岗位复用，让每一轮面试都有稳定的问题基线。"
+          title="面试题库"
         />
 
         <DataGrid<InterviewQuestionTemplateListRecord>

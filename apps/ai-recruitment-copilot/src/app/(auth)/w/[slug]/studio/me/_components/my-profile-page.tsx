@@ -326,7 +326,7 @@ export function MyProfilePage() {
     <div className="flex flex-col gap-6">
       <PageHeader
         title="我的信息"
-        description="维护当前登录账号的展示姓名与头像。邮箱由登录账号绑定，暂不在这里修改。"
+        description="更新你在工作区里的展示姓名和头像，方便同事识别每一次配置和操作。"
       />
 
       <div className="grid gap-6 lg:grid-cols-2">

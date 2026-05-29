@@ -93,6 +93,7 @@ export interface ResumeLibraryListRecord {
   targetRole: string | null;
   notes: string | null;
   jobDescriptionId: string | null;
+  jobDescriptionDepartmentName: string | null;
   jobDescriptionName: string | null;
   resumeFileName: string | null;
   resumeContentHash: string | null;

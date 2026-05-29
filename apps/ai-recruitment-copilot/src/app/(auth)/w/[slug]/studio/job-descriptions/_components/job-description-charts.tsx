@@ -1,20 +1,17 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { useMemo } from "react";
 import { Bar, BarChart, CartesianGrid, LabelList, Tooltip, Treemap, XAxis, YAxis } from "recharts";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import type { ChartConfig } from "@/components/ui/chart";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Empty, EmptyDescription, EmptyHeader } from "@/components/ui/empty";
 import type { JobDescriptionMetrics } from "@/lib/shared/job-descriptions";
 
-// 截断 Y 轴标签：JD / 面试官名常常较长，超过这个长度的尾巴用 … 替换，hover 看全名。
-// Truncate names on the Y axis — JD/interviewer names are often long; the
-// tooltip shows the full string anyway.
 const NAME_MAX = 10;
+const X_AXIS_NAME_MAX = 6;
 
-// 五色循环：Treemap / RadialBar 都用这套色，确保两张图视觉一致、又能互相区分单元。
-// Shared 5-tone palette used by both Treemap and RadialBar so the two cards
-// look like part of one system, but with enough hue variety to tell cells apart.
 const PALETTE = [
   "var(--chart-1)",
   "var(--chart-2)",
@@ -23,42 +20,76 @@ const PALETTE = [
   "var(--chart-5)",
 ];
 
-// 竖条 X 轴的 JD 名需要更短的截断 —— 横向空间被多条 bar 平分，每个名字只剩很窄的一格。
-// JD names on the vertical-bar X axis get a tighter truncation: many bars
-// share the horizontal axis, so each tick only owns a narrow slot.
-const X_AXIS_NAME_MAX = 6;
-
 function EmptyHint({ message }: { message: string }) {
   return (
-    <div className="flex h-24 items-center justify-center rounded-md border border-dashed text-muted-foreground text-xs">
-      {message}
-    </div>
+    <Empty className="h-24 border border-border p-4 md:p-4">
+      <EmptyHeader>
+        <EmptyDescription>{message}</EmptyDescription>
+      </EmptyHeader>
+    </Empty>
   );
 }
 
-function truncate(value: string): string {
-  return value.length > NAME_MAX ? `${value.slice(0, NAME_MAX)}…` : value;
+function truncate(value: string, max = NAME_MAX): string {
+  return value.length > max ? `${value.slice(0, max)}…` : value;
 }
 
-// recharts 的 tooltip `payload` 是 `Record<string, unknown>[]`，name 是我们自己塞的。
-// recharts types tooltip payload as Record<string, unknown>[]; the `name` we
-// embed is a row-side field, so we extract a helper instead of repeating the cast.
 function fullNameFromPayload(payload: Record<string, unknown>[] | undefined): string {
   const row = payload?.[0]?.payload as { name?: unknown } | undefined;
   return typeof row?.name === "string" ? row.name : "";
 }
 
-// =============================================================================
-// E · 各岗位候选人数 —— Treemap
-// =============================================================================
+function formatCompact(value: number): string {
+  return value.toLocaleString("zh-CN");
+}
+
+interface MetricItem {
+  label: string;
+  value: string;
+  description?: string;
+}
+
+function ChartCardShell({
+  title,
+  description,
+  metrics,
+  children,
+}: {
+  title: string;
+  description: string;
+  metrics: [MetricItem, MetricItem];
+  children: ReactNode;
+}) {
+  return (
+    <Card className="gap-0 overflow-hidden py-0">
+      <div className="grid border-b sm:grid-cols-[minmax(0,1fr)_repeat(2,minmax(5.75rem,7rem))]">
+        <CardHeader className="min-w-0 gap-1 p-4 sm:p-5">
+          <CardTitle className="truncate text-base">{title}</CardTitle>
+          <CardDescription className="truncate">{description}</CardDescription>
+        </CardHeader>
+        {metrics.map((metric) => (
+          <div className="border-t px-4 py-3 sm:border-t-0 sm:border-l sm:px-5" key={metric.label}>
+            <div className="truncate text-muted-foreground text-xs">{metric.label}</div>
+            <div className="mt-1 font-mono font-semibold text-2xl leading-none tabular-nums">
+              {metric.value}
+            </div>
+            {metric.description ? (
+              <div className="mt-1 truncate text-muted-foreground text-[10px]">
+                {metric.description}
+              </div>
+            ) : null}
+          </div>
+        ))}
+      </div>
+      <CardContent className="p-4">{children}</CardContent>
+    </Card>
+  );
+}
 
 const candidatesConfig: ChartConfig = {
   count: { color: "var(--chart-1)", label: "候选人数" },
 };
 
-// Treemap 单元的自定义渲染：小到一定面积就不画文字，避免叠在一起糊成块。
-// Custom treemap cell renderer; hides labels when the cell is too small to
-// fit readable text without overlapping its neighbours.
 interface TreemapCellProps {
   x?: number;
   y?: number;
@@ -74,6 +105,7 @@ function CandidatesTreemapCell(props: TreemapCellProps) {
   const fill = PALETTE[index % PALETTE.length];
   const showLabel = width > 64 && height > 36;
   const showCount = width > 40 && height > 22;
+
   return (
     <g>
       <rect
@@ -137,55 +169,40 @@ function TreemapTooltip({ active, payload }: TreemapTooltipProps) {
 }
 
 function CandidatesCard({ rows }: { rows: JobDescriptionMetrics["candidatesByJd"] }) {
-  // Treemap 只接 size > 0 的节点；0 候选 JD 也没必要画出来。
-  // Drop zero-count nodes — Treemap only accepts positive sizes anyway.
   const data = useMemo(() => rows.filter((row) => row.count > 0), [rows]);
+  const total = useMemo(() => data.reduce((sum, row) => sum + row.count, 0), [data]);
+  const max = useMemo(() => Math.max(0, ...data.map((row) => row.count)), [data]);
   const hasData = data.length > 0;
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>各岗位候选人数</CardTitle>
-        <CardDescription>
-          {hasData ? `Top ${data.length}（面积越大、候选人越多）` : "暂无候选人"}
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        {hasData ? (
-          <ChartContainer className="aspect-auto h-56 w-full" config={candidatesConfig}>
-            <Treemap
-              animationDuration={300}
-              content={<CandidatesTreemapCell />}
-              data={data.map((row) => ({ count: row.count, id: row.id, name: row.name }))}
-              dataKey="count"
-              nameKey="name"
-              stroke="var(--background)"
-            >
-              {/*
-                Treemap 节点的 payload 没有 dataKey 字段，ChartTooltipContent 用
-                `item.dataKey` 当 React key 会拿到 undefined 触发 list-key 警告。
-                这里直接用 recharts 原生 Tooltip + 自定义渲染绕开。
-                Treemap payload items don't carry a `dataKey`; ChartTooltipContent
-                uses it as React `key` and warns. Render a minimal custom tooltip
-                with recharts' raw Tooltip instead.
-              */}
-              <Tooltip content={<TreemapTooltip />} cursor={false} />
-            </Treemap>
-          </ChartContainer>
-        ) : (
-          <EmptyHint message="还没有岗位收到候选人" />
-        )}
-      </CardContent>
-    </Card>
+    <ChartCardShell
+      description={hasData ? "面积越大，候选人越多" : "暂无候选人"}
+      metrics={[
+        { label: "候选人", value: formatCompact(total) },
+        { label: "峰值岗位", value: formatCompact(max) },
+      ]}
+      title="各岗位候选人数"
+    >
+      {hasData ? (
+        <ChartContainer className="aspect-auto h-56 w-full" config={candidatesConfig}>
+          <Treemap
+            animationDuration={300}
+            content={<CandidatesTreemapCell />}
+            data={data.map((row) => ({ count: row.count, id: row.id, name: row.name }))}
+            dataKey="count"
+            nameKey="name"
+            stroke="var(--background)"
+          >
+            <Tooltip content={<TreemapTooltip />} cursor={false} />
+          </Treemap>
+        </ChartContainer>
+      ) : (
+        <EmptyHint message="还没有岗位收到候选人" />
+      )}
+    </ChartCardShell>
   );
 }
 
-// =============================================================================
-// F · 各岗位面试完成率 —— 垂直 bar（0–100%）
-// =============================================================================
-
-// 第二张完成率走绿色调；与简历库每日新增 chart 的绿色保持一致。
-// Completion bar uses a green tone matching the resume-library daily-new chart.
 const COMPLETION_GREEN = "oklch(0.65 0.16 150)";
 
 const completionConfig: ChartConfig = {
@@ -193,7 +210,7 @@ const completionConfig: ChartConfig = {
 };
 
 function truncateAxis(value: string): string {
-  return value.length > X_AXIS_NAME_MAX ? `${value.slice(0, X_AXIS_NAME_MAX)}…` : value;
+  return truncate(value, X_AXIS_NAME_MAX);
 }
 
 function CompletionCard({ rows }: { rows: JobDescriptionMetrics["completionByJd"] }) {
@@ -206,95 +223,84 @@ function CompletionCard({ rows }: { rows: JobDescriptionMetrics["completionByJd"
       })),
     [rows],
   );
+  const done = useMemo(() => data.reduce((sum, row) => sum + row.done, 0), [data]);
+  const total = useMemo(() => data.reduce((sum, row) => sum + row.total, 0), [data]);
+  const average = total > 0 ? Math.round((done / total) * 100) : 0;
   const hasData = data.length > 0;
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>各岗位面试完成率</CardTitle>
-        <CardDescription>{hasData ? `Top ${data.length}` : "暂无面试轮次"}</CardDescription>
-      </CardHeader>
-      <CardContent>
-        {hasData ? (
-          <ChartContainer className="aspect-auto h-56 w-full" config={completionConfig}>
-            <BarChart
-              accessibilityLayer
-              data={data}
-              // top 给足 24px：YAxis 顶端 100% 标签需要 ~6px 半高，柱子顶部的
-              // LabelList（offset=6）又额外占 ~16px，否则贴到容器上沿会被裁。
-              // top:24 leaves room for both the 100% Y-axis tick label and the
-              // bar-top LabelList; otherwise either gets clipped when bars hit
-              // the ceiling.
-              margin={{ bottom: 4, left: 4, right: 8, top: 24 }}
-            >
-              <CartesianGrid vertical={false} />
-              <XAxis
-                axisLine={false}
-                dataKey="shortName"
-                interval={0}
-                tickLine={false}
-                tickMargin={6}
-              />
-              <YAxis
-                axisLine={false}
-                domain={[0, 100]}
-                tickFormatter={(value: number) => `${value}%`}
-                tickLine={false}
-                tickMargin={4}
-                ticks={[0, 25, 50, 75, 100]}
-                width={36}
-              />
-              <ChartTooltip
-                content={
-                  <ChartTooltipContent
-                    formatter={(_value, _name, item) => {
-                      const payload = item.payload as {
-                        done: number;
-                        total: number;
-                        percent: number;
-                      };
-                      return `${payload.done} / ${payload.total} 轮（${payload.percent}%）`;
-                    }}
-                    indicator="dot"
-                    labelFormatter={(_value, payload) => fullNameFromPayload(payload)}
-                  />
-                }
-              />
-              <Bar dataKey="percent" fill="var(--color-percent)" radius={[4, 4, 0, 0]}>
-                <LabelList
-                  className="fill-foreground text-[10px] tabular-nums"
-                  dataKey="percent"
-                  formatter={(value: unknown) => `${value}%`}
-                  offset={6}
-                  position="top"
+    <ChartCardShell
+      description={hasData ? "完成轮次 / 总轮次" : "暂无面试轮次"}
+      metrics={[
+        { label: "平均完成", value: `${average}%` },
+        { label: "已完成", value: `${formatCompact(done)}/${formatCompact(total)}` },
+      ]}
+      title="各岗位面试完成率"
+    >
+      {hasData ? (
+        <ChartContainer className="aspect-auto h-56 w-full" config={completionConfig}>
+          <BarChart
+            accessibilityLayer
+            data={data}
+            margin={{ bottom: 4, left: 4, right: 8, top: 24 }}
+          >
+            <CartesianGrid vertical={false} />
+            <XAxis
+              axisLine={false}
+              dataKey="shortName"
+              interval={0}
+              tickLine={false}
+              tickMargin={6}
+            />
+            <YAxis
+              axisLine={false}
+              domain={[0, 100]}
+              tickFormatter={(value: number) => `${value}%`}
+              tickLine={false}
+              tickMargin={4}
+              ticks={[0, 25, 50, 75, 100]}
+              width={36}
+            />
+            <ChartTooltip
+              content={
+                <ChartTooltipContent
+                  formatter={(_value, _name, item) => {
+                    const payload = item.payload as {
+                      done: number;
+                      total: number;
+                      percent: number;
+                    };
+                    return `${payload.done} / ${payload.total} 轮（${payload.percent}%）`;
+                  }}
+                  indicator="dot"
+                  labelFormatter={(_value, payload) => fullNameFromPayload(payload)}
                 />
-              </Bar>
-            </BarChart>
-          </ChartContainer>
-        ) : (
-          <EmptyHint message="还没有面试轮次数据" />
-        )}
-      </CardContent>
-    </Card>
+              }
+            />
+            <Bar dataKey="percent" fill="var(--color-percent)" radius={[4, 4, 0, 0]}>
+              <LabelList
+                className="fill-foreground text-[10px] tabular-nums"
+                dataKey="percent"
+                formatter={(value: unknown) => `${value}%`}
+                offset={6}
+                position="top"
+              />
+            </Bar>
+          </BarChart>
+        </ChartContainer>
+      ) : (
+        <EmptyHint message="还没有面试轮次数据" />
+      )}
+    </ChartCardShell>
   );
 }
 
-// =============================================================================
-// H · 面试官负载 —— 横向 bar（保留排行榜语义）
-// =============================================================================
-
-// 第三张面试官负载走橙色调，与前两张拉开差异。
-// Interviewer-load bar uses an orange tone to distinguish from the other two cards.
 const LOAD_ORANGE = "oklch(0.72 0.16 55)";
 
 const loadConfig: ChartConfig = {
   activeCandidates: { color: LOAD_ORANGE, label: "进行中候选人" },
 };
 
-// Recharts 类目轴在 layout=vertical 下需要根据数据条数手动估算高度，
-// 否则条目稀少时图会被压扁、条目过多时又会挤在一起。
-// In vertical layout recharts doesn't auto-size; pick a height proportional
-// to the row count so few-bar charts don't squash and many-bar ones don't pack.
 function rowsHeight(count: number) {
   return Math.max(96, Math.min(count * 32 + 16, 280));
 }
@@ -304,61 +310,62 @@ function LoadCard({ rows }: { rows: JobDescriptionMetrics["loadByInterviewer"] }
     () => rows.map((row) => ({ ...row, shortName: truncate(row.name) })),
     [rows],
   );
+  const total = useMemo(() => data.reduce((sum, row) => sum + row.activeCandidates, 0), [data]);
+  const max = useMemo(() => Math.max(0, ...data.map((row) => row.activeCandidates)), [data]);
   const hasData = data.length > 0;
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>面试官负载</CardTitle>
-        <CardDescription>
-          {hasData ? `Top ${data.length}（进行中 / 待面试）` : "暂无进行中面试"}
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        {hasData ? (
-          <ChartContainer
-            className="aspect-auto w-full"
-            config={loadConfig}
-            style={{ height: rowsHeight(data.length) }}
-          >
-            <BarChart accessibilityLayer data={data} layout="vertical" margin={{ right: 24 }}>
-              <CartesianGrid horizontal={false} />
-              <XAxis allowDecimals={false} hide type="number" />
-              <YAxis
-                axisLine={false}
-                dataKey="shortName"
-                tickLine={false}
-                tickMargin={4}
-                type="category"
-                width={88}
-              />
-              <ChartTooltip
-                content={
-                  <ChartTooltipContent
-                    indicator="dot"
-                    labelFormatter={(_value, payload) => fullNameFromPayload(payload)}
-                  />
-                }
-              />
-              <Bar
-                dataKey="activeCandidates"
-                fill="var(--color-activeCandidates)"
-                radius={[0, 4, 4, 0]}
-              >
-                <LabelList
-                  className="fill-foreground text-[10px] tabular-nums"
-                  dataKey="activeCandidates"
-                  offset={6}
-                  position="right"
+    <ChartCardShell
+      description={hasData ? "进行中 / 待面试候选人" : "暂无进行中面试"}
+      metrics={[
+        { label: "总负载", value: formatCompact(total) },
+        { label: "最高负载", value: formatCompact(max) },
+      ]}
+      title="面试官负载"
+    >
+      {hasData ? (
+        <ChartContainer
+          className="aspect-auto w-full"
+          config={loadConfig}
+          style={{ height: rowsHeight(data.length) }}
+        >
+          <BarChart accessibilityLayer data={data} layout="vertical" margin={{ right: 24 }}>
+            <CartesianGrid horizontal={false} />
+            <XAxis allowDecimals={false} hide type="number" />
+            <YAxis
+              axisLine={false}
+              dataKey="shortName"
+              tickLine={false}
+              tickMargin={4}
+              type="category"
+              width={88}
+            />
+            <ChartTooltip
+              content={
+                <ChartTooltipContent
+                  indicator="dot"
+                  labelFormatter={(_value, payload) => fullNameFromPayload(payload)}
                 />
-              </Bar>
-            </BarChart>
-          </ChartContainer>
-        ) : (
-          <EmptyHint message="目前没有进行中的面试" />
-        )}
-      </CardContent>
-    </Card>
+              }
+            />
+            <Bar
+              dataKey="activeCandidates"
+              fill="var(--color-activeCandidates)"
+              radius={[0, 4, 4, 0]}
+            >
+              <LabelList
+                className="fill-foreground text-[10px] tabular-nums"
+                dataKey="activeCandidates"
+                offset={6}
+                position="right"
+              />
+            </Bar>
+          </BarChart>
+        </ChartContainer>
+      ) : (
+        <EmptyHint message="目前没有进行中的面试" />
+      )}
+    </ChartCardShell>
   );
 }
 

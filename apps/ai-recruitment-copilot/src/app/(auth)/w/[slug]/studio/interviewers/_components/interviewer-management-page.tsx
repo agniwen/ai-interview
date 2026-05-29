@@ -205,8 +205,8 @@ export function InterviewerManagementPage({
     <>
       <div className="space-y-6">
         <PageHeader
-          description="配置 AI 面试官的 prompt 和 TTS 音色，在招岗位会引用这些面试官。"
-          title="面试官管理"
+          description="维护不同部门的 AI 面试官、追问风格和声音，让每个岗位都能匹配合适的面试方式。"
+          title="面试官"
         />
 
         <DataGrid<InterviewerListRecord>

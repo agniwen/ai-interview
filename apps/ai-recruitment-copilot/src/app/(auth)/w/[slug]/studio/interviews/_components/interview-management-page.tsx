@@ -52,6 +52,7 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
+import { PdfFileIcon } from "@/components/pdf-file-icon";
 import { rpc } from "@/lib/client/rpc";
 import { rpcFetch } from "@/lib/client/api/rpc-fetch";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
@@ -272,45 +273,79 @@ export function InterviewManagementPage({
     () => [
       selectColumn<StudioInterviewRoundListRecord>(),
       customColumn<StudioInterviewRoundListRecord>({
-        cell: (r) => (
-          <div className="min-w-0">
-            <button
-              className="block max-w-full cursor-pointer truncate text-left font-medium underline-offset-4 hover:underline"
-              onClick={() => setDetailRoundId(r.id)}
-              type="button"
-            >
-              {r.candidateName}
-            </button>
-            {r.candidateEmail ? (
-              <a
-                className="block max-w-full truncate text-muted-foreground text-xs underline-offset-4 hover:underline"
-                href={`mailto:${r.candidateEmail}`}
-                onClick={(e) => e.stopPropagation()}
-              >
-                {r.candidateEmail}
-              </a>
-            ) : (
-              <p className="truncate text-muted-foreground text-xs">未填写邮箱</p>
-            )}
-          </div>
-        ),
+        cell: (r) => {
+          const pdfTitle = r.resumeFileName ?? "查看简历 PDF";
+          return (
+            <div className="flex min-w-0 items-start gap-2">
+              {r.hasResumeFile ? (
+                <button
+                  aria-label={pdfTitle}
+                  className="mt-0.5 inline-flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-md transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setPreviewRecord(r);
+                  }}
+                  title={pdfTitle}
+                  type="button"
+                >
+                  <PdfFileIcon className="size-8" />
+                </button>
+              ) : (
+                <span
+                  aria-disabled="true"
+                  aria-label="暂无简历 PDF"
+                  className="mt-0.5 inline-flex size-8 shrink-0 cursor-not-allowed items-center justify-center rounded-md opacity-45 grayscale"
+                  title="暂无简历 PDF"
+                >
+                  <PdfFileIcon className="size-8" />
+                </span>
+              )}
+              <div className="min-w-0">
+                <button
+                  className="block max-w-full cursor-pointer truncate text-left font-medium underline-offset-4 hover:underline"
+                  onClick={() => setDetailRoundId(r.id)}
+                  type="button"
+                >
+                  {r.candidateName}
+                </button>
+                {r.candidateEmail ? (
+                  <a
+                    className="block max-w-full truncate text-muted-foreground text-xs underline-offset-4 hover:underline"
+                    href={`mailto:${r.candidateEmail}`}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {r.candidateEmail}
+                  </a>
+                ) : (
+                  <p className="truncate text-muted-foreground text-xs">未填写邮箱</p>
+                )}
+              </div>
+            </div>
+          );
+        },
         key: "candidateName",
-        size: 180,
+        size: 240,
         title: "候选人",
       }),
       customColumn<StudioInterviewRoundListRecord>({
-        cell: (r) =>
-          r.jobDescriptionName ? (
+        cell: (r) => {
+          const label = r.jobDescriptionName
+            ? [r.jobDescriptionDepartmentName, r.jobDescriptionName].filter(Boolean).join(" / ")
+            : null;
+
+          return label ? (
             <button
               className="cursor-pointer truncate text-left underline-offset-4 hover:underline"
               onClick={() => r.jobDescriptionId && setViewJobDescriptionId(r.jobDescriptionId)}
               type="button"
             >
-              {r.jobDescriptionName}
+              {label}
             </button>
           ) : (
             <span className="text-muted-foreground">—</span>
-          ),
+          );
+        },
         key: "jobDescriptionName",
         title: "在招岗位",
       }),
@@ -357,7 +392,12 @@ export function InterviewManagementPage({
       dateColumn<StudioInterviewRoundListRecord>({
         key: "createdAt",
         sortable: true,
-        title: "创建于",
+        title: "创建时间",
+      }),
+      dateColumn<StudioInterviewRoundListRecord>({
+        emptyText: "—",
+        key: "lastInterviewAt",
+        title: "最近面试时间",
       }),
       actionsColumn<StudioInterviewRoundListRecord>({
         inline: [
@@ -480,7 +520,7 @@ export function InterviewManagementPage({
       <div className="space-y-6">
         <PageHeader
           title="AI 面试"
-          description="管理候选人的 AI 语音面试，跟踪进度并查看评估报告。新建请到简历库发起。"
+          description="查看每一轮语音面试的排期、最近进展、简历和报告，让候选人状态一眼可追。"
         />
         <DataGrid<StudioInterviewRoundListRecord>
           {...grid.bind}
@@ -599,7 +639,7 @@ export function InterviewManagementPage({
           filename={previewRecord.resumeFileName ?? undefined}
           onOpenChange={(open) => !open && setPreviewRecord(null)}
           open={previewRecord !== null}
-          url={`/api/w/${slug}/studio/interviews/${previewRecord.candidateId}/resume`}
+          url={`/api/w/${slug}/studio/interviews/${previewRecord.id}/resume`}
         />
       ) : null}
 

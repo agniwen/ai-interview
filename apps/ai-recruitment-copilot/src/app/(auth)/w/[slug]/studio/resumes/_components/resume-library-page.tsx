@@ -15,6 +15,7 @@ import { Trash2Icon, UsersIcon } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
+import { PdfFileIcon } from "@/components/pdf-file-icon";
 import { cancelBulkResumeBatch } from "@/lib/client/api/endpoints/bulk-resume-upload";
 import { ActiveBatchBanner } from "./active-batch-banner";
 import { BulkUploadButton } from "./bulk-upload-button";
@@ -431,74 +432,81 @@ export function ResumeLibraryPage({
     () => [
       selectColumn<ResumeLibraryListRecord>(),
       customColumn<ResumeLibraryListRecord>({
-        cell: (r) => (
-          <div className="min-w-0">
-            <button
-              className="block max-w-full cursor-pointer truncate text-left font-medium underline-offset-4 hover:underline"
-              onClick={() => setDetailRecordId(r.id)}
-              type="button"
-            >
-              {r.candidateName}
-            </button>
-            {r.candidateEmail ? (
-              <a
-                className="block max-w-full truncate text-muted-foreground text-xs underline-offset-4 hover:underline"
-                href={`mailto:${r.candidateEmail}`}
-                onClick={(e) => e.stopPropagation()}
-              >
-                {r.candidateEmail}
-              </a>
-            ) : (
-              <p className="truncate text-muted-foreground text-xs">未填写邮箱</p>
-            )}
-          </div>
-        ),
+        cell: (r) => {
+          const pdfTitle = r.resumeFileName ?? "查看简历 PDF";
+          return (
+            <div className="flex min-w-0 items-start gap-2">
+              {r.hasResumeFile ? (
+                <button
+                  aria-label={pdfTitle}
+                  className="mt-0.5 inline-flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-md transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setPreviewRecord(r);
+                  }}
+                  title={pdfTitle}
+                  type="button"
+                >
+                  <PdfFileIcon className="size-8" />
+                </button>
+              ) : (
+                <span
+                  aria-disabled="true"
+                  aria-label="暂无简历 PDF"
+                  className="mt-0.5 inline-flex size-8 shrink-0 cursor-not-allowed items-center justify-center rounded-md opacity-45 grayscale"
+                  title="暂无简历 PDF"
+                >
+                  <PdfFileIcon className="size-8" />
+                </span>
+              )}
+              <div className="min-w-0">
+                <button
+                  className="block max-w-full cursor-pointer truncate text-left font-medium underline-offset-4 hover:underline"
+                  onClick={() => setDetailRecordId(r.id)}
+                  type="button"
+                >
+                  {r.candidateName}
+                </button>
+                {r.candidateEmail ? (
+                  <a
+                    className="block max-w-full truncate text-muted-foreground text-xs underline-offset-4 hover:underline"
+                    href={`mailto:${r.candidateEmail}`}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {r.candidateEmail}
+                  </a>
+                ) : (
+                  <p className="truncate text-muted-foreground text-xs">未填写邮箱</p>
+                )}
+              </div>
+            </div>
+          );
+        },
         key: "candidateName",
-        size: 200,
+        size: 240,
         title: "候选人",
       }),
       customColumn<ResumeLibraryListRecord>({
-        cell: (r) =>
-          r.jobDescriptionName ? (
+        cell: (r) => {
+          const label = r.jobDescriptionName
+            ? [r.jobDescriptionDepartmentName, r.jobDescriptionName].filter(Boolean).join(" / ")
+            : null;
+
+          return label ? (
             <button
               className="cursor-pointer truncate text-left underline-offset-4 hover:underline"
               onClick={() => r.jobDescriptionId && setViewJobDescriptionId(r.jobDescriptionId)}
               type="button"
             >
-              {r.jobDescriptionName}
+              {label}
             </button>
           ) : (
             <span className="text-muted-foreground">—</span>
-          ),
-        key: "jobDescriptionName",
-        title: "关联岗位",
-      }),
-      customColumn<ResumeLibraryListRecord>({
-        cell: (r) => {
-          const label = r.resumeFileName || "手动创建";
-          if (!r.hasResumeFile) {
-            return (
-              <div
-                aria-disabled
-                className="max-w-48 cursor-not-allowed truncate text-sm opacity-50"
-                title="暂无简历 PDF"
-              >
-                {label}
-              </div>
-            );
-          }
-          return (
-            <button
-              className="block max-w-48 cursor-pointer truncate text-left text-sm underline-offset-4 hover:underline"
-              onClick={() => setPreviewRecord(r)}
-              type="button"
-            >
-              {label}
-            </button>
           );
         },
-        key: "resumeFileName",
-        title: "简历文件",
+        key: "jobDescriptionName",
+        title: "关联岗位",
       }),
       customColumn<ResumeLibraryListRecord>({
         cell: (r) => {
@@ -668,7 +676,7 @@ export function ResumeLibraryPage({
       <div className="space-y-6">
         <PageHeader
           title="简历库"
-          description="集中管理所有候选人简历。在这里上传 PDF 不会自动生成面试题，需要时再发起 AI 面试。"
+          description="沉淀候选人档案、简历 PDF、岗位匹配和流程进展，筛选到面试推进都能从这里接上。"
         />
         <ResumeLibraryCharts metrics={metrics} />
         <ActiveBatchBanner onCancel={handleCancelActiveBatch} onContinue={handleContinueBatch} />
