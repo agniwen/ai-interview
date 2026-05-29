@@ -6,6 +6,7 @@ from interview_agent import (
     INTERVIEW_SOFT_WRAP_SECONDS,
     INTERVIEW_TIME_LIMIT_SECONDS,
     InterviewAgent,
+    _is_noise_transcript,
 )
 from prompts import apply_placeholders
 
@@ -86,3 +87,18 @@ def test_default_timeline_warns_at_21_and_hard_cuts_at_25():
     assert INTERVIEW_FINAL_WRAP_SECONDS == 21 * 60
     assert a.time_limit_seconds == 24 * 60
     assert INTERVIEW_TIME_LIMIT_SECONDS + INTERVIEW_HARD_GRACE_SECONDS == 25 * 60
+
+
+def test_noise_transcript_filters_punctuation_only_text():
+    for text in ("", "   ", "。", "，", "...", "？！", "。 。"):
+        assert _is_noise_transcript(text)
+
+
+def test_noise_transcript_filters_fillers():
+    for text in ("嗯", "呃。", "emmm...", "uh?"):
+        assert _is_noise_transcript(text)
+
+
+def test_noise_transcript_keeps_meaningful_text():
+    for text in ("我有三年后端经验。", "C++", "2024 年开始做 LiveKit"):
+        assert not _is_noise_transcript(text)

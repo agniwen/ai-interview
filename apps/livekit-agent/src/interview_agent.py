@@ -87,6 +87,16 @@ _NOISE_PATTERN = re.compile(
     r"[\s，。、？！,.?!]*$",
     re.IGNORECASE,
 )
+_TEXT_CONTENT_PATTERN = re.compile(r"[0-9A-Za-z\u4e00-\u9fff]")
+
+
+def _is_noise_transcript(text: str) -> bool:
+    normalized = text.strip()
+    return (
+        not normalized
+        or _NOISE_PATTERN.match(normalized) is not None
+        or _TEXT_CONTENT_PATTERN.search(normalized) is None
+    )
 
 
 class InterviewAgent(Agent):
@@ -274,7 +284,7 @@ class InterviewAgent(Agent):
                     text = (
                         event.alternatives[0].text.strip() if event.alternatives else ""
                     )
-                    if not text or _NOISE_PATTERN.match(text):
+                    if _is_noise_transcript(text):
                         logger.debug("filtered noise transcript: %r", text)
                         continue
                 yield event
