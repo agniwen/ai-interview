@@ -1235,11 +1235,13 @@ function useStudioPersonDetailPanel({
                                   <Badge variant="outline">{report.callSuccessful}</Badge>
                                 ) : null}
                               </div>
-                              <p className="mt-2 line-clamp-2 text-muted-foreground text-sm leading-normal">
-                                {report.transcriptSummary ??
-                                  report.latestError ??
-                                  "暂无总结，等待后续同步。"}
-                              </p>
+                              <div className="mt-2 h-20 line-clamp-4 text-muted-foreground text-sm leading-5 [&_p]:m-0">
+                                <Markdown>
+                                  {report.transcriptSummary ??
+                                    report.latestError ??
+                                    "暂无总结，等待后续同步。"}
+                                </Markdown>
+                              </div>
                             </div>
                           </AccordionTrigger>
                           <AccordionContent className="px-5 pb-5">
