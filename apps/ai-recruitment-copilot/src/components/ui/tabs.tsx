@@ -2,29 +2,51 @@
 
 import type { VariantProps } from "class-variance-authority";
 import { cva } from "class-variance-authority";
-import { Tabs as TabsPrimitive } from "radix-ui";
+import { Tabs as TabsPrimitive } from "@base-ui/react/tabs";
 import * as React from "react";
 
 import { cn } from "@/lib/shared/utils";
 
+type BaseTabsRootProps = React.ComponentProps<typeof TabsPrimitive.Root>;
+type BaseTabsChangeDetails = Parameters<NonNullable<BaseTabsRootProps["onValueChange"]>>[1];
+type TabsActivationMode = "automatic" | "manual";
+
+interface TabsContextValue {
+  activationMode: TabsActivationMode;
+}
+
+const TabsContext = React.createContext<TabsContextValue>({ activationMode: "automatic" });
+
 function Tabs({
+  activationMode = "automatic",
   className,
+  onValueChange,
   orientation = "horizontal",
   ...props
-}: React.ComponentProps<typeof TabsPrimitive.Root>) {
+}: Omit<BaseTabsRootProps, "onValueChange"> & {
+  activationMode?: TabsActivationMode;
+  onValueChange?: (value: string, eventDetails: BaseTabsChangeDetails) => void;
+}) {
   return (
-    <TabsPrimitive.Root
-      data-slot="tabs"
-      data-orientation={orientation}
-      orientation={orientation}
-      className={cn("group/tabs flex gap-2 data-[orientation=horizontal]:flex-col", className)}
-      {...props}
-    />
+    <TabsContext.Provider value={{ activationMode }}>
+      <TabsPrimitive.Root
+        data-slot="tabs"
+        data-orientation={orientation}
+        orientation={orientation}
+        className={cn("group/tabs flex gap-2 data-[orientation=horizontal]:flex-col", className)}
+        onValueChange={(value, eventDetails) => {
+          if (value !== null && value !== undefined) {
+            onValueChange?.(value as string, eventDetails);
+          }
+        }}
+        {...props}
+      />
+    </TabsContext.Provider>
   );
 }
 
 const tabsListVariants = cva(
-  "group/tabs-list inline-flex w-fit items-center justify-center rounded-lg p-[3px] text-muted-foreground group-data-[orientation=horizontal]/tabs:h-9 group-data-[orientation=vertical]/tabs:h-fit group-data-[orientation=vertical]/tabs:flex-col data-[variant=line]:rounded-none",
+  "group/tabs-list inline-flex w-fit items-center justify-center rounded-lg p-[3px] text-muted-foreground data-[orientation=horizontal]:h-9 data-[orientation=vertical]:h-fit data-[orientation=vertical]:flex-col data-[variant=line]:rounded-none",
   {
     defaultVariants: {
       variant: "default",
@@ -39,29 +61,33 @@ const tabsListVariants = cva(
 );
 
 function TabsList({
+  activateOnFocus,
   className,
   variant = "default",
   ...props
 }: React.ComponentProps<typeof TabsPrimitive.List> & VariantProps<typeof tabsListVariants>) {
+  const { activationMode } = React.useContext(TabsContext);
+
   return (
     <TabsPrimitive.List
       data-slot="tabs-list"
       data-variant={variant}
+      activateOnFocus={activateOnFocus ?? activationMode === "automatic"}
       className={cn(tabsListVariants({ variant }), className)}
       {...props}
     />
   );
 }
 
-function TabsTrigger({ className, ...props }: React.ComponentProps<typeof TabsPrimitive.Trigger>) {
+function TabsTrigger({ className, ...props }: React.ComponentProps<typeof TabsPrimitive.Tab>) {
   return (
-    <TabsPrimitive.Trigger
+    <TabsPrimitive.Tab
       data-slot="tabs-trigger"
       className={cn(
-        "relative inline-flex h-[calc(100%-1px)] flex-1 items-center justify-center gap-1.5 rounded-md border border-transparent px-2 py-1 text-sm font-medium whitespace-nowrap text-foreground/60 transition-all group-data-[orientation=vertical]/tabs:w-full group-data-[orientation=vertical]/tabs:justify-start hover:text-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-1 focus-visible:outline-ring disabled:pointer-events-none disabled:opacity-50 group-data-[variant=default]/tabs-list:data-[state=active]:shadow-sm group-data-[variant=line]/tabs-list:data-[state=active]:shadow-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
-        "group-data-[variant=line]/tabs-list:bg-transparent group-data-[variant=line]/tabs-list:data-[state=active]:bg-transparent",
-        "data-[state=active]:bg-background data-[state=active]:text-foreground",
-        "after:absolute after:bg-foreground after:opacity-0 after:transition-opacity group-data-[orientation=horizontal]/tabs:after:inset-x-0 group-data-[orientation=horizontal]/tabs:after:bottom-[-5px] group-data-[orientation=horizontal]/tabs:after:h-0.5 group-data-[orientation=vertical]/tabs:after:inset-y-0 group-data-[orientation=vertical]/tabs:after:-right-1 group-data-[orientation=vertical]/tabs:after:w-0.5 group-data-[variant=line]/tabs-list:data-[state=active]:after:opacity-100",
+        "relative inline-flex h-[calc(100%-1px)] flex-1 items-center justify-center gap-1.5 rounded-md border border-transparent px-2 py-1 text-sm font-medium whitespace-nowrap text-foreground/60 transition-all data-[orientation=vertical]:w-full data-[orientation=vertical]:justify-start hover:text-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-1 focus-visible:outline-ring disabled:pointer-events-none disabled:opacity-50 data-[disabled]:pointer-events-none data-[disabled]:opacity-50 group-data-[variant=default]/tabs-list:data-[active]:shadow-sm group-data-[variant=line]/tabs-list:data-[active]:shadow-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+        "group-data-[variant=line]/tabs-list:bg-transparent group-data-[variant=line]/tabs-list:data-[active]:bg-transparent",
+        "data-[active]:bg-background data-[active]:text-foreground",
+        "after:absolute after:bg-foreground after:opacity-0 after:transition-opacity data-[orientation=horizontal]:after:inset-x-0 data-[orientation=horizontal]:after:bottom-[-5px] data-[orientation=horizontal]:after:h-0.5 data-[orientation=vertical]:after:inset-y-0 data-[orientation=vertical]:after:-right-1 data-[orientation=vertical]:after:w-0.5 group-data-[variant=line]/tabs-list:data-[active]:after:opacity-100",
         className,
       )}
       {...props}
@@ -69,11 +95,17 @@ function TabsTrigger({ className, ...props }: React.ComponentProps<typeof TabsPr
   );
 }
 
-function TabsContent({ className, ...props }: React.ComponentProps<typeof TabsPrimitive.Content>) {
+function TabsContent({
+  className,
+  forceMount,
+  keepMounted,
+  ...props
+}: React.ComponentProps<typeof TabsPrimitive.Panel> & { forceMount?: boolean }) {
   return (
-    <TabsPrimitive.Content
+    <TabsPrimitive.Panel
       data-slot="tabs-content"
-      className={cn("flex-1 outline-none", className)}
+      keepMounted={keepMounted ?? forceMount}
+      className={cn("flex-1 outline-none data-[ending-style]:hidden", className)}
       {...props}
     />
   );

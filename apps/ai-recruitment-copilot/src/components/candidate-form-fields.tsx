@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import type { ChangeEvent, ReactNode } from "react";
 import type { ReactFormExtendedApi } from "@tanstack/react-form";
 import { FileUpIcon } from "lucide-react";
 import { useRef } from "react";
@@ -146,6 +146,23 @@ export function CandidateFormFields({
   const hasResume = Boolean(resumeFile) || Boolean(existingResumeFileName);
   const showIdentityFields = showDetails && (!requireResumeFile || hasResume);
 
+  function clearFileInput() {
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  }
+
+  function openFilePicker() {
+    clearFileInput();
+    fileInputRef.current?.click();
+  }
+
+  function handleResumeInputChange(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.currentTarget.files?.[0] ?? null;
+    event.currentTarget.value = "";
+    onResumeFileChange(file);
+  }
+
   return (
     <div className="space-y-5">
       <Field>
@@ -163,8 +180,9 @@ export function CandidateFormFields({
           <Button
             className="w-full justify-start overflow-hidden"
             disabled={disabled}
-            onClick={() => fileInputRef.current?.click()}
+            onClick={openFilePicker}
             type="button"
+            size={"lg"}
             variant="outline"
           >
             <FileUpIcon data-icon="inline-start" />
@@ -176,7 +194,10 @@ export function CandidateFormFields({
             className="sr-only"
             disabled={disabled}
             id="candidate-resume-upload"
-            onChange={(e) => onResumeFileChange(e.target.files?.[0] ?? null)}
+            onChange={handleResumeInputChange}
+            onClick={(event) => {
+              event.currentTarget.value = "";
+            }}
             ref={fileInputRef}
             type="file"
           />

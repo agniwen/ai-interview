@@ -17,6 +17,12 @@ import { motion, useReducedMotion } from "motion/react";
 import { useEffect, useRef } from "react";
 
 const ANALYSIS_STEPS = ["分析简历基础信息", "分析匹配岗位", "生成简历评价"] as const;
+const REVIEW_PREVIEW_AUTO_SCROLL_THRESHOLD = 80;
+
+function isNearScrollBottom(element: HTMLElement) {
+  const distanceFromBottom = element.scrollHeight - element.scrollTop - element.clientHeight;
+  return distanceFromBottom <= REVIEW_PREVIEW_AUTO_SCROLL_THRESHOLD;
+}
 
 function getAnalysisStepIndex(pipeline: ResumeAnalysisPipeline) {
   if (pipeline.isGeneratingReview) {
@@ -38,6 +44,13 @@ export function ResumeAnalysisOverlay({ pipeline }: { pipeline: ResumeAnalysisPi
   const analysisStepIndex = getAnalysisStepIndex(pipeline);
   const hasReviewPreview = pipeline.reviewPreview.trim().length > 0;
   const reviewPreviewRef = useRef<HTMLDivElement | null>(null);
+  const shouldAutoScrollReviewPreviewRef = useRef(true);
+
+  useEffect(() => {
+    if (!(pipeline.isGeneratingReview && hasReviewPreview)) {
+      shouldAutoScrollReviewPreviewRef.current = true;
+    }
+  }, [hasReviewPreview, pipeline.isGeneratingReview]);
 
   useEffect(() => {
     if (!(pipeline.isGeneratingReview && hasReviewPreview)) {
@@ -46,7 +59,7 @@ export function ResumeAnalysisOverlay({ pipeline }: { pipeline: ResumeAnalysisPi
 
     const frame = requestAnimationFrame(() => {
       const preview = reviewPreviewRef.current;
-      if (preview) {
+      if (preview && shouldAutoScrollReviewPreviewRef.current) {
         preview.scrollTop = preview.scrollHeight;
       }
     });
@@ -144,7 +157,15 @@ export function ResumeAnalysisOverlay({ pipeline }: { pipeline: ResumeAnalysisPi
                   </span>
                 ) : null}
               </div>
-              <div className="max-h-56 overflow-y-auto pr-2" ref={reviewPreviewRef}>
+              <div
+                className="max-h-56 overflow-y-auto pr-2"
+                onScroll={(event) => {
+                  shouldAutoScrollReviewPreviewRef.current = isNearScrollBottom(
+                    event.currentTarget,
+                  );
+                }}
+                ref={reviewPreviewRef}
+              >
                 <MarkdownView
                   className="text-muted-foreground text-sm [&_h1]:text-base [&_h2]:text-[15px] [&_h3]:text-sm"
                   content={pipeline.reviewPreview}

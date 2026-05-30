@@ -8,7 +8,7 @@ import { cn } from "@/lib/shared/utils";
 
 interface AnimatedHeightProps {
   children: ReactNode;
-  /** 默认 250ms ease，跟 Radix popover 的入场曲线一致。 */
+  /** 默认 320ms ease，给弹窗 tab 高度切换留一点呼吸感。 */
   duration?: number;
   /** 自定义 className（一般不需要传）。 */
   className?: string;
@@ -25,7 +25,7 @@ interface AnimatedHeightProps {
  * sidestepping flex sizing, scroll containers, and Radix sub-tree
  * unmount/remount that can defeat FLIP-based layout animations.
  */
-export function AnimatedHeight({ children, duration = 0.25, className }: AnimatedHeightProps) {
+export function AnimatedHeight({ children, duration = 0.32, className }: AnimatedHeightProps) {
   const innerRef = useRef<HTMLDivElement>(null);
   const [height, setHeight] = useState<number | "auto">("auto");
   const reduceMotion = useReducedMotion();

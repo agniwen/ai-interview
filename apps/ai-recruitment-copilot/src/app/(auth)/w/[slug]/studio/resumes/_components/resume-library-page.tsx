@@ -684,7 +684,7 @@ export function ResumeLibraryPage({
           onValueChange={(value) => grid.setFilter("stage", value === "all" ? "" : value)}
           value={grid.filters.stage || "all"}
         >
-          <TabsList className="h-auto flex-wrap items-stretch group-data-[orientation=horizontal]/tabs:h-auto">
+          <TabsList className="h-auto flex-wrap items-stretch data-[orientation=horizontal]:h-auto">
             <TabsTrigger
               className="h-auto flex-col items-start gap-0.5 px-3 py-1.5 sm:px-8"
               value="all"

@@ -130,7 +130,10 @@ function DialogModal({
                 <span className="sr-only">Close</span>
               </DialogPrimitive.Close>
             ) : null}
-            <div className={cn("min-h-0 flex-1 overflow-y-auto px-6 py-5", bodyClassName)}>
+            <div
+              data-slot="modal-body"
+              className={cn("min-h-0 flex-1 overflow-y-auto px-6 py-5", bodyClassName)}
+            >
               {children}
             </div>
             {footer ? (
@@ -206,7 +209,10 @@ function DrawerModal({
               isMobile={true}
               className={cn("border-b px-4 pt-3 pb-3", headerClassName)}
             />
-            <div className={cn("min-h-0 flex-1 overflow-y-auto px-4 py-4", bodyClassName)}>
+            <div
+              data-slot="modal-body"
+              className={cn("min-h-0 flex-1 overflow-y-auto px-4 py-4", bodyClassName)}
+            >
               {children}
             </div>
             {footer ? (
