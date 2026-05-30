@@ -18,6 +18,7 @@ import {
   loadResumeDetail,
   queryPaginatedResumeRecords,
 } from "@/server/routes/studio/routes/resumes/dao/resumes";
+import { loadCandidateTimeline } from "@/server/routes/studio/routes/resumes/dao/timeline";
 import {
   listOrgSkillSuggestions,
   syncResumeSkills,
@@ -195,6 +196,18 @@ export const resumeLibraryRouter = factory
       return c.json({ error: "记录不存在。" }, 404);
     }
     return c.json(record, 200);
+  })
+  .get("/:id/timeline", requirePermission("resume", "read"), async (c) => {
+    const { activeOrg } = c.var;
+    if (!activeOrg) {
+      return c.json({ message: "Unauthorized" }, 401);
+    }
+    const id = c.req.param("id");
+    const timeline = await loadCandidateTimeline(id, activeOrg.id);
+    if (!timeline) {
+      return c.json({ error: "记录不存在。" }, 404);
+    }
+    return c.json(timeline, 200);
   })
   .get("/:id/rounds", requirePermission("resume", "read"), async (c) => {
     // 拉取该候选人的所有面试轮次（按 sortOrder 升序），用于简历库详情弹窗的「AI 面试」tab。

@@ -8,8 +8,12 @@ import { cn } from "@/lib/shared/utils";
 
 interface AnimatedHeightProps {
   children: ReactNode;
+  /** false 时保留高度动画，但不裁剪溢出内容，适合父级自己负责滚动的布局。 */
+  clip?: boolean;
   /** 默认 320ms ease，给弹窗 tab 高度切换留一点呼吸感。 */
   duration?: number;
+  /** 需要交给父级滚动容器自然撑高时，禁用 height 动画和 overflow 裁剪。 */
+  disabled?: boolean;
   /** 自定义 className（一般不需要传）。 */
   className?: string;
 }
@@ -25,7 +29,13 @@ interface AnimatedHeightProps {
  * sidestepping flex sizing, scroll containers, and Radix sub-tree
  * unmount/remount that can defeat FLIP-based layout animations.
  */
-export function AnimatedHeight({ children, duration = 0.32, className }: AnimatedHeightProps) {
+export function AnimatedHeight({
+  children,
+  clip = true,
+  disabled = false,
+  duration = 0.32,
+  className,
+}: AnimatedHeightProps) {
   const innerRef = useRef<HTMLDivElement>(null);
   const [height, setHeight] = useState<number | "auto">("auto");
   const reduceMotion = useReducedMotion();
@@ -54,7 +64,7 @@ export function AnimatedHeight({ children, duration = 0.32, className }: Animate
     return () => observer.disconnect();
   }, [isMobile]);
 
-  if (isMobile) {
+  if (disabled || isMobile) {
     return <div className={className}>{children}</div>;
   }
 
@@ -63,7 +73,7 @@ export function AnimatedHeight({ children, duration = 0.32, className }: Animate
       animate={{ height }}
       className={cn("-m-1 p-1", className)}
       initial={false}
-      style={{ boxSizing: "content-box", overflow: "hidden" }}
+      style={{ boxSizing: "content-box", overflow: clip ? "hidden" : "visible" }}
       transition={reduceMotion ? { duration: 0 } : { duration, ease: [0.32, 0.72, 0, 1] as const }}
     >
       {/*

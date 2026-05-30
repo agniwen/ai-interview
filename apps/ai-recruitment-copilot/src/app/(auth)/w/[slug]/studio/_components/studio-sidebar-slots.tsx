@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  ChartNoAxesCombinedIcon,
   BotIcon,
   Building2Icon,
   ClipboardListIcon,
@@ -62,6 +63,13 @@ const navGroups: NavGroup[] = [
         path: "/studio/interviews",
         resource: "interview",
         title: "AI 面试",
+      },
+      {
+        action: "read",
+        icon: ChartNoAxesCombinedIcon,
+        path: "/studio/dashboard",
+        resource: "resume",
+        title: "数据看板",
       },
     ],
     label: "工作台",

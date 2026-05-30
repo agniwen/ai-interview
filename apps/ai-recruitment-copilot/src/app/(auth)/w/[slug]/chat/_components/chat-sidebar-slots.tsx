@@ -201,10 +201,10 @@ function renderSessionItem({
 }) {
   if (editMode) {
     return (
-      <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 rounded-md text-left">
+      <label className="flex min-w-0 flex-1 cursor-default items-center gap-2 rounded-md text-left">
         <Checkbox
           checked={isSelected}
-          className="ml-2 shrink-0"
+          className="ml-2 shrink-0 cursor-default"
           onCheckedChange={() => onToggleSelect(conversation.id)}
         />
         {itemBody}
@@ -219,7 +219,7 @@ function renderSessionItem({
         // outline 关掉，避免在窄 padding 里溢出顶到 sidebar 容器被截。
         // Focus indicator lives on the wrapper (ring-inset, no clipping). Drop
         // the Link's own outline so it doesn't bleed into the sidebar edge.
-        className="min-w-0 flex-1 rounded-md focus-visible:outline-none"
+        className="min-w-0 flex-1 cursor-default rounded-md focus-visible:outline-none"
         href={`${chatRoot}/${conversation.id}`}
         onClick={closeOnNavigate}
       >
@@ -228,7 +228,7 @@ function renderSessionItem({
 
       <Button
         aria-label="删除聊天记录"
-        className="size-7 rounded-md opacity-0 transition-opacity group-hover/session-item:opacity-100 hover:bg-destructive/12 hover:text-destructive"
+        className="size-7 cursor-default rounded-md opacity-0 transition-opacity group-hover/session-item:opacity-100 hover:bg-destructive/12 hover:text-destructive"
         onClick={(event) => {
           event.stopPropagation();
           onDelete(conversation);
@@ -293,7 +293,7 @@ function ChatSidebarBody({
                   <TooltipTrigger asChild>
                     <Link
                       className={cn(
-                        "block rounded-md px-1.5 py-1.5 transition-colors",
+                        "block cursor-default rounded-md px-1.5 py-1.5 transition-colors",
                         isActive ? "bg-sidebar-accent" : "hover:bg-sidebar-accent/60",
                       )}
                       href={`${chatRoot}/${conversation.id}`}
@@ -345,7 +345,7 @@ function ChatSidebarBody({
           <li key={conversation.id}>
             <div
               className={cn(
-                "group/session-item flex items-center gap-1 rounded-lg border border-transparent px-1 py-1 transition-colors",
+                "group/session-item flex cursor-default items-center gap-1 rounded-lg border border-transparent px-1 py-1 transition-colors",
                 // ring-inset：focus 指示器画在元素内部，sidebar 边缘不会再裁掉它。
                 // ring-inset keeps the focus indicator inside the wrapper so the
                 // sidebar's edge can't clip it.

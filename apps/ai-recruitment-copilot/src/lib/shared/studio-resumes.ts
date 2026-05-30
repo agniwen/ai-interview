@@ -304,6 +304,51 @@ export interface PaginatedResumeLibraryResult {
   totalPages: number;
 }
 
+export type CandidateTimelineEventKind =
+  | "candidate"
+  | "stage"
+  | "ai_interview"
+  | "human_interview"
+  | "offer"
+  | "form"
+  | "email"
+  | "notification"
+  | "audit";
+
+export type CandidateTimelineEventTone =
+  | "default"
+  | "info"
+  | "success"
+  | "warning"
+  | "danger"
+  | "muted";
+
+export interface CandidateTimelineEventMeta {
+  label: string;
+  value: string;
+}
+
+export interface CandidateTimelineEvent {
+  id: string;
+  kind: CandidateTimelineEventKind;
+  tone: CandidateTimelineEventTone;
+  title: string;
+  description: string | null;
+  occurredAt: string;
+  actorName: string | null;
+  metadata: CandidateTimelineEventMeta[];
+}
+
+export interface CandidateTimelineResponse {
+  events: CandidateTimelineEvent[];
+  summary: {
+    totalEvents: number;
+    latestAt: string | null;
+    currentStageLabel: string;
+    currentOutcomeLabel: string;
+  };
+}
+
 /**
  * 表单 schema（创建 / 编辑共用）。比 studioInterviewFormSchema 宽松：
  *   - 不要求至少一轮 scheduleEntries

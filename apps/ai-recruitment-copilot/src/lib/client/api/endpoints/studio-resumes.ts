@@ -16,6 +16,7 @@ import type {
   StudioInterviewRoundListRecord,
 } from "@/lib/shared/studio-interview-rounds";
 import type {
+  CandidateTimelineResponse,
   PaginatedResumeLibraryResult,
   ResumeLibraryDetail,
 } from "@/lib/shared/studio-resumes";
@@ -110,6 +111,22 @@ export function fetchStudioResume(slug: string, id: string): Promise<ResumeLibra
   return rpcFetch<ResumeLibraryDetail>(
     rpc.api.w[":slug"].studio.resumes[":id"].$get({ param: { id, slug } }),
     "加载简历详情失败",
+    { allow404: true },
+  );
+}
+
+/**
+ * 拉取候选人时间线，聚合阶段流转、AI/真人面试、表单、邮件、通知和 Offer 事件。
+ * Fetch a candidate timeline aggregating stage, interview, form, email,
+ * notification, and offer events.
+ */
+export function fetchStudioResumeTimeline(
+  slug: string,
+  id: string,
+): Promise<CandidateTimelineResponse | null> {
+  return rpcFetch<CandidateTimelineResponse>(
+    rpc.api.w[":slug"].studio.resumes[":id"].timeline.$get({ param: { id, slug } }),
+    "加载候选人时间线失败",
     { allow404: true },
   );
 }

@@ -27,6 +27,7 @@ import {
   fetchStudioInterviewRoundReports,
   fetchStudioResume,
   fetchStudioResumeRounds,
+  fetchStudioResumeTimeline,
   resetStudioInterviewRound,
   resolvePublicInterviewRecordId,
   resolveStudioInterviewRecordId,
@@ -75,6 +76,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { HumanInterviewStagePanel } from "./human-interview-stage-panel";
 import { OfferStagePanel } from "./offer-stage-panel";
 import { PipelineStageActionBar } from "./pipeline-stage-action-bar";
+import { CandidateTimeline } from "./candidate-timeline";
 import {
   DetailBodySkeleton,
   DetailHeaderSkeleton,
@@ -174,6 +176,8 @@ export interface StudioPersonDetailSlots {
   description: ReactNode;
   headerExtra: ReactNode;
   body: ReactNode;
+  bodyClassName?: string;
+  modalClassName?: string;
   footer: ReactNode;
 }
 
@@ -321,6 +325,9 @@ async function advancePipelineStage({
       queryClient.invalidateQueries({ queryKey: ["studio-resumes"] }),
       queryClient.invalidateQueries({
         queryKey: ["studio-resumes", slug, "detail", recordId],
+      }),
+      queryClient.invalidateQueries({
+        queryKey: ["studio-resumes", slug, "timeline", recordId],
       }),
     ]);
     return null;
@@ -505,6 +512,9 @@ function useStudioPersonDetailPanel({
   }, [defaultTab, mode, recordId, roundId]);
 
   useEffect(() => {
+    tabContentRootRef.current?.scrollTo({
+      top: 0,
+    });
     tabContentRootRef.current?.closest<HTMLElement>('[data-slot="modal-body"]')?.scrollTo({
       top: 0,
     });
@@ -602,6 +612,15 @@ function useStudioPersonDetailPanel({
         : fetchStudioResumeRounds(slug, effectiveRecordId as string),
     queryKey: ["studio-resume-rounds", slug, effectiveRecordId, accessMode] as const,
     refetchOnWindowFocus: true,
+  });
+
+  const { data: candidateTimeline, isLoading: isTimelineLoading } = useQuery({
+    enabled:
+      enabled && !!effectiveRecordId && mode === "resume" && !isPublic && activeTab === "overview",
+    queryFn: () => fetchStudioResumeTimeline(slug, effectiveRecordId as string),
+    queryKey: ["studio-resumes", slug, "timeline", effectiveRecordId] as const,
+    refetchOnWindowFocus: true,
+    staleTime: 15 * 1000,
   });
 
   // 中文：当前轮次的邮件发送摘要 — 用于轮次概览里发送按钮显示发送次数与最后一次时间。
@@ -1030,604 +1049,629 @@ function useStudioPersonDetailPanel({
     );
   }
 
+  const showTimelineRail = mode === "resume" && !isPublic && activeTab === "overview";
+  let bodyLayoutClassName = "flex flex-col gap-5";
+  if (showTimelineRail) {
+    bodyLayoutClassName =
+      "grid gap-5 xl:h-full xl:min-h-0 xl:grid-cols-[minmax(0,1fr)_22rem] xl:overflow-hidden";
+  }
+  const detailScrollClassName = showTimelineRail
+    ? "min-w-0 flex flex-col gap-5 xl:h-full xl:min-h-0 xl:overflow-y-auto xl:pr-1"
+    : "min-w-0 flex flex-col gap-5";
+
   // oxlint-disable-next-line no-nested-ternary -- Splitting this tri-state body into a helper balloons JSX context; keeping inline.
   const body = isLoading ? (
     <DetailBodySkeleton mode={mode} />
   ) : // oxlint-disable-next-line no-nested-ternary -- Secondary branch renders based on record presence.
   record ? (
-    <div className="flex flex-col gap-5" ref={tabContentRootRef}>
-      {actionBar}
-      <AnimatedHeight>
-        <TabsContent value="overview">
-          <div className="space-y-6">
-            {/* 简历模式：复用 ResumeOverviewPanel —— 与「发起 AI 面试」
+    <div className={bodyLayoutClassName}>
+      <div className={detailScrollClassName} ref={tabContentRootRef}>
+        {actionBar}
+        <AnimatedHeight clip={!showTimelineRail}>
+          <TabsContent value="overview">
+            <div className="space-y-6">
+              {/* 简历模式：复用 ResumeOverviewPanel —— 与「发起 AI 面试」
               弹窗的概览 tab 同一布局，后续要扩字段也只改一处。
               Resume mode: defer to ResumeOverviewPanel so the
               launch-interview dialog and this view stay in sync. */}
-            {mode === "resume" && resumeRecord ? (
-              <ResumeOverviewPanel detail={resumeRecord} />
-            ) : (
-              <div className="grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)]">
-                <div className="h-full rounded-2xl border border-border bg-background p-5">
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <h3 className="font-medium text-sm">面试结果</h3>
-                    <Badge
-                      variant={
-                        latestReport ? getReportBadgeVariant(latestReport.status) : "outline"
-                      }
-                    >
-                      {latestReport ? formatReportStatus(latestReport.status) : "暂无报告"}
-                    </Badge>
+              {mode === "resume" && resumeRecord ? (
+                <ResumeOverviewPanel detail={resumeRecord} />
+              ) : (
+                <div className="grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)]">
+                  <div className="h-full rounded-2xl border border-border bg-background p-5">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <h3 className="font-medium text-sm">面试结果</h3>
+                      <Badge
+                        variant={
+                          latestReport ? getReportBadgeVariant(latestReport.status) : "outline"
+                        }
+                      >
+                        {latestReport ? formatReportStatus(latestReport.status) : "暂无报告"}
+                      </Badge>
+                    </div>
+                    <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                      <SummaryMetric
+                        label="评分"
+                        value={
+                          latestEvaluationSummary.overallScore === null
+                            ? "—"
+                            : `${latestEvaluationSummary.overallScore} / 100`
+                        }
+                      />
+                      <SummaryMetric
+                        label="建议"
+                        value={
+                          latestEvaluationSummary.recommendation ? (
+                            <Badge
+                              variant={resolveRecommendationVariant(
+                                latestEvaluationSummary.recommendation,
+                              )}
+                            >
+                              {latestEvaluationSummary.recommendation}
+                            </Badge>
+                          ) : (
+                            "待生成"
+                          )
+                        }
+                      />
+                      <SummaryMetric
+                        label="对话"
+                        value={
+                          latestReport
+                            ? `${latestReport.userTurnCount} 次候选人回复`
+                            : "候选人完成后生成"
+                        }
+                      />
+                    </div>
+                    <div className="mt-4 text-muted-foreground text-sm leading-normal">
+                      <Markdown>
+                        {compactText(
+                          latestEvaluationSummary.overallAssessment ??
+                            latestReport?.transcriptSummary ??
+                            null,
+                          "候选人完成面试后，这里会优先显示结论、评分和关键摘要。",
+                        )}
+                      </Markdown>
+                    </div>
                   </div>
-                  <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                    <SummaryMetric
-                      label="评分"
-                      value={
-                        latestEvaluationSummary.overallScore === null
-                          ? "—"
-                          : `${latestEvaluationSummary.overallScore} / 100`
-                      }
-                    />
-                    <SummaryMetric
-                      label="建议"
-                      value={
-                        latestEvaluationSummary.recommendation ? (
-                          <Badge
-                            variant={resolveRecommendationVariant(
-                              latestEvaluationSummary.recommendation,
-                            )}
-                          >
-                            {latestEvaluationSummary.recommendation}
+
+                  <div className="h-full rounded-2xl border border-border bg-background p-5">
+                    <h3 className="font-medium text-sm">候选人信息</h3>
+                    <div className="mt-4">
+                      <CandidateBasicInfoView
+                        candidateEmail={record.candidateEmail}
+                        candidateName={record.candidateName}
+                        candidatePhone={record.candidatePhone}
+                        creatorName={record.creatorName}
+                        hasResumeFile={record.hasResumeFile}
+                        jobDescriptionName={record.jobDescriptionName}
+                        resumeFileName={record.resumeFileName}
+                        targetRole={record.targetRole}
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* 轮次概览（面试模式专属）/ Round overview (interview mode only) */}
+              {mode === "interview" && record.roundId ? (
+                <div className="rounded-2xl border border-border bg-background p-5">
+                  <h3 className="font-medium text-sm">轮次概览</h3>
+                  {isAiStageLocked ? (
+                    <p className="mt-2 rounded-md border border-border/50 bg-muted/40 px-3 py-2 text-muted-foreground text-xs leading-normal">
+                      {aiStageLockedReason}
+                    </p>
+                  ) : null}
+                  <div className="mt-4 space-y-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-sm">{record.roundLabel}</span>
+                        {record.roundStatus ? (
+                          <Badge variant={scheduleEntryStatusMeta[record.roundStatus].tone}>
+                            {scheduleEntryStatusMeta[record.roundStatus].label}
                           </Badge>
-                        ) : (
-                          "待生成"
-                        )
-                      }
-                    />
-                    <SummaryMetric
-                      label="对话"
-                      value={
-                        latestReport
-                          ? `${latestReport.userTurnCount} 次候选人回复`
-                          : "候选人完成后生成"
-                      }
-                    />
-                  </div>
-                  <div className="mt-4 text-muted-foreground text-sm leading-normal">
-                    <Markdown>
-                      {compactText(
-                        latestEvaluationSummary.overallAssessment ??
-                          latestReport?.transcriptSummary ??
-                          null,
-                        "候选人完成面试后，这里会优先显示结论、评分和关键摘要。",
-                      )}
-                    </Markdown>
-                  </div>
-                </div>
-
-                <div className="h-full rounded-2xl border border-border bg-background p-5">
-                  <h3 className="font-medium text-sm">候选人信息</h3>
-                  <div className="mt-4">
-                    <CandidateBasicInfoView
-                      candidateEmail={record.candidateEmail}
-                      candidateName={record.candidateName}
-                      candidatePhone={record.candidatePhone}
-                      creatorName={record.creatorName}
-                      hasResumeFile={record.hasResumeFile}
-                      jobDescriptionName={record.jobDescriptionName}
-                      resumeFileName={record.resumeFileName}
-                      targetRole={record.targetRole}
-                    />
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* 轮次概览（面试模式专属）/ Round overview (interview mode only) */}
-            {mode === "interview" && record.roundId ? (
-              <div className="rounded-2xl border border-border bg-background p-5">
-                <h3 className="font-medium text-sm">轮次概览</h3>
-                {isAiStageLocked ? (
-                  <p className="mt-2 rounded-md border border-border/50 bg-muted/40 px-3 py-2 text-muted-foreground text-xs leading-normal">
-                    {aiStageLockedReason}
-                  </p>
-                ) : null}
-                <div className="mt-4 space-y-3">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium text-sm">{record.roundLabel}</span>
-                      {record.roundStatus ? (
-                        <Badge variant={scheduleEntryStatusMeta[record.roundStatus].tone}>
-                          {scheduleEntryStatusMeta[record.roundStatus].label}
-                        </Badge>
-                      ) : null}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {record.roundScheduledAt ? (
-                        <TimeDisplay
-                          className="shrink-0 text-muted-foreground text-xs"
-                          options={DATE_TIME_DISPLAY_OPTIONS}
-                          value={record.roundScheduledAt}
-                        />
-                      ) : (
-                        <span className="text-muted-foreground text-xs">未排期</span>
-                      )}
-                      {record.roundId && !isPublic && !isRoundCompleted ? (
-                        <RoundEmailAction
-                          candidateEmail={record.candidateEmail}
-                          lockedReason={roundActionDisabledReason}
-                          roundId={record.roundId}
-                          slug={slug}
-                          summary={roundEmailSummary}
-                        />
-                      ) : null}
-                      {record.roundInterviewLink && !isPublic && !isRoundCompleted ? (
-                        <InterviewLinkQrButton
-                          candidateName={record.candidateName}
-                          disabled={Boolean(roundActionDisabledReason)}
-                          url={toAbsoluteUrl(record.roundInterviewLink as string)}
-                        />
-                      ) : null}
-                    </div>
-                  </div>
-                  {isPublic ? null : (
-                    <div className="flex items-center justify-between gap-3 rounded-lg border border-border/50 bg-background/80 px-3 py-2">
-                      <div className="min-w-0">
-                        {/* 允许面试者文本输入 / Allow candidate text input */}
-                        <p className="font-medium text-sm">允许面试者文本输入</p>
-                        <p className="mt-0.5 text-muted-foreground text-xs">
-                          关闭时面试界面文字输入框被禁用，仅支持语音作答。
-                        </p>
+                        ) : null}
                       </div>
                       <div className="flex items-center gap-2">
-                        <Switch
-                          checked={record.roundAllowTextInput ?? false}
-                          disabled={
-                            record.roundStatus === "completed" || updatingRoundId === record.roundId
-                          }
-                          onCheckedChange={(next) =>
-                            void handleToggleAllowTextInput(record.roundId as string, next)
-                          }
-                        />
-                        {record.roundStatus === "completed" ? (
-                          <Button
-                            disabled={resettingRoundId === record.roundId || isAiStageLocked}
-                            onClick={() => void handleResetRound(record.roundId as string)}
-                            size="sm"
-                            title={aiStageLockedReason ?? undefined}
-                            type="button"
-                            variant="outline"
-                          >
-                            <RotateCcwIcon className="size-3.5" />
-                            {resettingRoundId === record.roundId ? "重置中..." : "重置轮次"}
-                          </Button>
+                        {record.roundScheduledAt ? (
+                          <TimeDisplay
+                            className="shrink-0 text-muted-foreground text-xs"
+                            options={DATE_TIME_DISPLAY_OPTIONS}
+                            value={record.roundScheduledAt}
+                          />
+                        ) : (
+                          <span className="text-muted-foreground text-xs">未排期</span>
+                        )}
+                        {record.roundId && !isPublic && !isRoundCompleted ? (
+                          <RoundEmailAction
+                            candidateEmail={record.candidateEmail}
+                            lockedReason={roundActionDisabledReason}
+                            roundId={record.roundId}
+                            slug={slug}
+                            summary={roundEmailSummary}
+                          />
+                        ) : null}
+                        {record.roundInterviewLink && !isPublic && !isRoundCompleted ? (
+                          <InterviewLinkQrButton
+                            candidateName={record.candidateName}
+                            disabled={Boolean(roundActionDisabledReason)}
+                            url={toAbsoluteUrl(record.roundInterviewLink as string)}
+                          />
                         ) : null}
                       </div>
                     </div>
+                    {isPublic ? null : (
+                      <div className="flex items-center justify-between gap-3 rounded-lg border border-border/50 bg-background/80 px-3 py-2">
+                        <div className="min-w-0">
+                          {/* 允许面试者文本输入 / Allow candidate text input */}
+                          <p className="font-medium text-sm">允许面试者文本输入</p>
+                          <p className="mt-0.5 text-muted-foreground text-xs">
+                            关闭时面试界面文字输入框被禁用，仅支持语音作答。
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Switch
+                            checked={record.roundAllowTextInput ?? false}
+                            disabled={
+                              record.roundStatus === "completed" ||
+                              updatingRoundId === record.roundId
+                            }
+                            onCheckedChange={(next) =>
+                              void handleToggleAllowTextInput(record.roundId as string, next)
+                            }
+                          />
+                          {record.roundStatus === "completed" ? (
+                            <Button
+                              disabled={resettingRoundId === record.roundId || isAiStageLocked}
+                              onClick={() => void handleResetRound(record.roundId as string)}
+                              size="sm"
+                              title={aiStageLockedReason ?? undefined}
+                              type="button"
+                              variant="outline"
+                            >
+                              <RotateCcwIcon className="size-3.5" />
+                              {resettingRoundId === record.roundId ? "重置中..." : "重置轮次"}
+                            </Button>
+                          ) : null}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : null}
+
+              {mode === "interview" ? (
+                <div className="rounded-2xl border border-border bg-background p-5">
+                  <h3 className="font-medium text-sm">简历评价</h3>
+                  <div className="mt-3 text-muted-foreground text-sm leading-normal">
+                    <Markdown>{truncateText(record.notes) || "暂无简历评价"}</Markdown>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          </TabsContent>
+
+          {mode === "interview" ? (
+            <TabsContent value="reports">
+              {isReportsLoading ? (
+                <ReportsSkeleton />
+              ) : (
+                <div className="space-y-6">
+                  <div className="grid gap-4 md:grid-cols-4">
+                    <div className="rounded-2xl border border-border bg-background p-4">
+                      {/* 本轮通话次数 / Call count for this round */}
+                      <p className="text-muted-foreground text-xs">本轮通话次数</p>
+                      <p className="mt-2 font-medium text-2xl text-primary tabular-nums">
+                        {reports.length}
+                      </p>
+                    </div>
+                    <div className="rounded-2xl border border-border bg-background p-4">
+                      <p className="text-muted-foreground text-xs">已完成</p>
+                      <p className="mt-2 font-medium text-2xl text-primary tabular-nums">
+                        {reports.filter((report) => report.status === "done").length}
+                      </p>
+                    </div>
+                    <div className="rounded-2xl border border-border bg-background p-4">
+                      <p className="text-muted-foreground text-xs">失败</p>
+                      <p className="mt-2 font-medium text-2xl text-primary tabular-nums">
+                        {reports.filter((report) => report.status === "failed").length}
+                      </p>
+                    </div>
+                    <div className="rounded-2xl border border-border bg-background p-4">
+                      <p className="text-muted-foreground text-xs">累计对话轮次</p>
+                      <p className="mt-2 font-medium text-2xl text-primary tabular-nums">
+                        {totalDisplayTurnCount}
+                      </p>
+                    </div>
+                  </div>
+
+                  {reports.length === 0 ? (
+                    <div className="flex min-h-60 flex-col items-center justify-center rounded-2xl border border-dashed border-border/70 bg-muted/20 px-6 py-10 text-center">
+                      <MessageSquareTextIcon className="size-8 text-muted-foreground" />
+                      <p className="mt-4 font-medium text-sm">暂无面试报告</p>
+                      <p className="mt-2 max-w-xl text-muted-foreground text-sm leading-normal">
+                        候选人开始并结束语音面试后，这里会展示逐场面试的总结、状态和完整对话记录。
+                      </p>
+                    </div>
+                  ) : (
+                    <Accordion
+                      className="space-y-4"
+                      defaultValue={[reports[0].conversationId]}
+                      type="multiple"
+                    >
+                      {reports.map((report) => {
+                        const startedAt = report.startedAt ?? report.createdAt;
+                        const endedAt = report.endedAt ?? report.updatedAt;
+                        const { displayAgentTurnCount, displayTurnCount, displayUserTurnCount } =
+                          resolveDisplayTurnStats(
+                            report,
+                            reportTranscriptStats.get(report.conversationId),
+                          );
+                        const activeEvidence =
+                          selectedEvidence?.conversationId === report.conversationId
+                            ? selectedEvidence
+                            : null;
+                        const handleEvidenceSelect = (evidence: EvidenceQuote) => {
+                          dispatchUi({
+                            evidence: {
+                              conversationId: report.conversationId,
+                              timeInCallSecs: evidence.timeInCallSecs ?? null,
+                              turnIndex: evidence.turnIndex ?? null,
+                            },
+                            type: "selectedEvidenceChanged",
+                          });
+                        };
+
+                        return (
+                          <AccordionItem
+                            className="overflow-hidden rounded-2xl border border-border bg-background px-0 last:border-b"
+                            key={report.conversationId}
+                            value={report.conversationId}
+                          >
+                            <AccordionTrigger className="px-5 py-4 hover:no-underline">
+                              <div className="min-w-0 flex-1 text-left">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <TimeDisplay
+                                    className="font-medium text-sm"
+                                    options={DATE_TIME_DISPLAY_OPTIONS}
+                                    value={startedAt}
+                                  />
+                                  <Badge variant={getReportBadgeVariant(report.status)}>
+                                    {formatReportStatus(report.status)}
+                                  </Badge>
+                                  {report.callSuccessful ? (
+                                    <Badge variant="outline">{report.callSuccessful}</Badge>
+                                  ) : null}
+                                </div>
+                                <div className="mt-2 h-20 line-clamp-4 text-muted-foreground text-sm leading-5 [&_p]:m-0">
+                                  <Markdown>
+                                    {report.transcriptSummary ??
+                                      report.latestError ??
+                                      "暂无总结，等待后续同步。"}
+                                  </Markdown>
+                                </div>
+                              </div>
+                            </AccordionTrigger>
+                            <AccordionContent className="px-5 pb-5">
+                              <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(400px,1fr)]">
+                                <div className="space-y-4">
+                                  <RecordingPlayer
+                                    accessMode={accessMode}
+                                    conversationId={report.conversationId}
+                                    durationSecs={report.recordingDurationSecs}
+                                    recordId={effectiveRoundId ?? ""}
+                                    seekToSecs={activeEvidence?.timeInCallSecs ?? null}
+                                    status={report.recordingStatus}
+                                  />
+                                  <div className="rounded-2xl border border-border bg-background p-4">
+                                    <h4 className="font-medium text-sm">会话概览</h4>
+                                    <div className="mt-3 grid gap-2 text-sm">
+                                      <DetailRow
+                                        label="会话 ID"
+                                        value={
+                                          <span className="break-all">{report.conversationId}</span>
+                                        }
+                                      />
+                                      <DetailRow
+                                        label="开始时间"
+                                        value={
+                                          <TimeDisplay
+                                            options={DATE_TIME_DISPLAY_OPTIONS}
+                                            value={startedAt}
+                                          />
+                                        }
+                                      />
+                                      <DetailRow
+                                        label="结束时间"
+                                        value={
+                                          <TimeDisplay
+                                            options={DATE_TIME_DISPLAY_OPTIONS}
+                                            value={endedAt}
+                                          />
+                                        }
+                                      />
+                                      <DetailRow
+                                        label="消息统计"
+                                        value={`共 ${displayTurnCount} 条 · 候选人 ${displayUserTurnCount} 条 · 面试官 ${displayAgentTurnCount} 条`}
+                                      />
+                                      <DetailRow
+                                        label="同步时间"
+                                        value={
+                                          <TimeDisplay
+                                            options={DATE_TIME_DISPLAY_OPTIONS}
+                                            value={report.lastSyncedAt}
+                                          />
+                                        }
+                                      />
+                                      <DetailRow
+                                        label="Webhook"
+                                        value={
+                                          report.webhookReceivedAt ? (
+                                            <TimeDisplay
+                                              options={DATE_TIME_DISPLAY_OPTIONS}
+                                              value={report.webhookReceivedAt}
+                                            />
+                                          ) : (
+                                            "未收到"
+                                          )
+                                        }
+                                      />
+                                    </div>
+                                  </div>
+
+                                  <div className="rounded-2xl border border-border bg-background p-4">
+                                    <h4 className="font-medium text-sm">最终总结</h4>
+                                    <div className="mt-3 text-muted-foreground text-sm leading-normal">
+                                      <Markdown>
+                                        {report.transcriptSummary ?? "暂无总结。"}
+                                      </Markdown>
+                                    </div>
+                                    {report.latestError ? (
+                                      <div className="mt-3 rounded-xl border border-destructive/30 bg-destructive/5 px-3 py-2 text-destructive text-sm">
+                                        {report.latestError}
+                                      </div>
+                                    ) : null}
+                                  </div>
+                                </div>
+
+                                <div className="lg:relative">
+                                  <div className="flex h-[480px] flex-col overflow-hidden rounded-2xl border border-border bg-background lg:absolute lg:inset-0 lg:h-auto">
+                                    <h4 className="shrink-0 px-4 pt-4 pb-2 font-medium text-sm">
+                                      对话记录
+                                    </h4>
+                                    <ConversationTranscript
+                                      activeTurnIndex={activeEvidence?.turnIndex ?? null}
+                                      turns={report.turns}
+                                    />
+                                  </div>
+                                </div>
+
+                                <div className="rounded-2xl border border-border bg-background p-4">
+                                  <h4 className="font-medium text-sm">评估指标</h4>
+                                  <div className="mt-4 max-h-[420px] overflow-y-auto pr-1">
+                                    <EvaluationResults
+                                      data={
+                                        (report.evaluationCriteriaResults as Record<
+                                          string,
+                                          unknown
+                                        >) ?? {}
+                                      }
+                                      onEvidenceSelect={handleEvidenceSelect}
+                                    />
+                                  </div>
+                                </div>
+
+                                <InterviewMetricsPanel metrics={report.metrics ?? {}} />
+                              </div>
+                            </AccordionContent>
+                          </AccordionItem>
+                        );
+                      })}
+                    </Accordion>
+                  )}
+                </div>
+              )}
+            </TabsContent>
+          ) : null}
+
+          {mode === "interview" ? (
+            <TabsContent value="questions">
+              <div className="rounded-2xl border border-border bg-background p-4">
+                <h3 className="font-medium text-sm">AI 面试题</h3>
+                <div className="mt-4 space-y-3">
+                  {visibleInterviewQuestions.length > 0 ? (
+                    visibleInterviewQuestions.map((question) => (
+                      <div
+                        className="rounded-xl border border-border bg-muted/30 p-3"
+                        key={question.order}
+                      >
+                        <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
+                          <span className="font-medium text-sm">第{question.order} 题</span>
+                          <span className="shrink-0 text-muted-foreground text-xs">
+                            {DIFFICULTY_LABEL[question.difficulty] ?? question.difficulty}
+                          </span>
+                        </div>
+                        <div className="mt-2 text-sm leading-normal">
+                          <Markdown>{truncateText(question.question)}</Markdown>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-muted-foreground text-sm">
+                      暂无面试题，可通过上传简历自动生成。
+                    </p>
                   )}
                 </div>
               </div>
-            ) : null}
+            </TabsContent>
+          ) : null}
 
-            {mode === "interview" ? (
+          {mode === "interview" ? (
+            <TabsContent value="experience">
               <div className="rounded-2xl border border-border bg-background p-5">
-                <h3 className="font-medium text-sm">简历评价</h3>
-                <div className="mt-3 text-muted-foreground text-sm leading-normal">
-                  <Markdown>{truncateText(record.notes) || "暂无简历评价"}</Markdown>
-                </div>
+                <ResumeProfileView profile={record.resumeProfile ?? null} />
               </div>
-            ) : null}
-          </div>
-        </TabsContent>
+            </TabsContent>
+          ) : null}
 
-        {mode === "interview" ? (
-          <TabsContent value="reports">
-            {isReportsLoading ? (
-              <ReportsSkeleton />
-            ) : (
-              <div className="space-y-6">
-                <div className="grid gap-4 md:grid-cols-4">
-                  <div className="rounded-2xl border border-border bg-background p-4">
-                    {/* 本轮通话次数 / Call count for this round */}
-                    <p className="text-muted-foreground text-xs">本轮通话次数</p>
-                    <p className="mt-2 font-medium text-2xl text-primary tabular-nums">
-                      {reports.length}
-                    </p>
-                  </div>
-                  <div className="rounded-2xl border border-border bg-background p-4">
-                    <p className="text-muted-foreground text-xs">已完成</p>
-                    <p className="mt-2 font-medium text-2xl text-primary tabular-nums">
-                      {reports.filter((report) => report.status === "done").length}
-                    </p>
-                  </div>
-                  <div className="rounded-2xl border border-border bg-background p-4">
-                    <p className="text-muted-foreground text-xs">失败</p>
-                    <p className="mt-2 font-medium text-2xl text-primary tabular-nums">
-                      {reports.filter((report) => report.status === "failed").length}
-                    </p>
-                  </div>
-                  <div className="rounded-2xl border border-border bg-background p-4">
-                    <p className="text-muted-foreground text-xs">累计对话轮次</p>
-                    <p className="mt-2 font-medium text-2xl text-primary tabular-nums">
-                      {totalDisplayTurnCount}
-                    </p>
-                  </div>
+          {mode === "resume" ? (
+            <TabsContent value="rounds">
+              <div className="rounded-2xl border border-border bg-background p-5">
+                <div className="flex items-center justify-between gap-3">
+                  <h3 className="font-medium text-sm">AI 面试轮次</h3>
+                  <span className="text-muted-foreground text-xs">
+                    共 {candidateRounds.length} 轮
+                  </span>
                 </div>
-
-                {reports.length === 0 ? (
-                  <div className="flex min-h-60 flex-col items-center justify-center rounded-2xl border border-dashed border-border/70 bg-muted/20 px-6 py-10 text-center">
-                    <MessageSquareTextIcon className="size-8 text-muted-foreground" />
-                    <p className="mt-4 font-medium text-sm">暂无面试报告</p>
-                    <p className="mt-2 max-w-xl text-muted-foreground text-sm leading-normal">
-                      候选人开始并结束语音面试后，这里会展示逐场面试的总结、状态和完整对话记录。
-                    </p>
-                  </div>
+                {isAiStageLocked ? (
+                  <p className="mt-3 rounded-md border border-border/50 bg-muted/40 px-3 py-2 text-muted-foreground text-xs leading-normal">
+                    {aiStageLockedReason}
+                  </p>
+                ) : null}
+                {/* oxlint-disable-next-line no-nested-ternary -- 三态：loading / empty / list */}
+                {isRoundsLoading ? (
+                  <RoundsSkeleton />
+                ) : /* oxlint-disable-next-line no-nested-ternary -- Secondary branch renders empty-state or list. */
+                candidateRounds.length === 0 ? (
+                  <p className="mt-4 text-muted-foreground text-sm leading-normal">
+                    该候选人还没有发起面试。在简历库点「保存并发起面试」即可创建。
+                  </p>
                 ) : (
-                  <Accordion
-                    className="space-y-4"
-                    defaultValue={[reports[0].conversationId]}
-                    type="multiple"
-                  >
-                    {reports.map((report) => {
-                      const startedAt = report.startedAt ?? report.createdAt;
-                      const endedAt = report.endedAt ?? report.updatedAt;
-                      const { displayAgentTurnCount, displayTurnCount, displayUserTurnCount } =
-                        resolveDisplayTurnStats(
-                          report,
-                          reportTranscriptStats.get(report.conversationId),
-                        );
-                      const activeEvidence =
-                        selectedEvidence?.conversationId === report.conversationId
-                          ? selectedEvidence
-                          : null;
-                      const handleEvidenceSelect = (evidence: EvidenceQuote) => {
-                        dispatchUi({
-                          evidence: {
-                            conversationId: report.conversationId,
-                            timeInCallSecs: evidence.timeInCallSecs ?? null,
-                            turnIndex: evidence.turnIndex ?? null,
-                          },
-                          type: "selectedEvidenceChanged",
-                        });
-                      };
-
+                  <div className="mt-4 space-y-3">
+                    {candidateRounds.map((entry) => {
+                      const statusMeta = scheduleEntryStatusMeta[entry.status];
+                      const fullLink = toAbsoluteUrl(entry.interviewLink);
+                      const isEntryLive =
+                        entry.status === "in_progress" || entry.status === "interrupted";
+                      const entryActionDisabledReason = isEntryLive
+                        ? roundActionLockedReason
+                        : aiStageLockedReason;
                       return (
-                        <AccordionItem
-                          className="overflow-hidden rounded-2xl border border-border bg-background px-0 last:border-b"
-                          key={report.conversationId}
-                          value={report.conversationId}
+                        <div
+                          className="rounded-xl border border-border bg-muted/30 p-3"
+                          key={entry.id}
                         >
-                          <AccordionTrigger className="px-5 py-4 hover:no-underline">
-                            <div className="min-w-0 flex-1 text-left">
-                              <div className="flex flex-wrap items-center gap-2">
-                                <TimeDisplay
-                                  className="font-medium text-sm"
-                                  options={DATE_TIME_DISPLAY_OPTIONS}
-                                  value={startedAt}
-                                />
-                                <Badge variant={getReportBadgeVariant(report.status)}>
-                                  {formatReportStatus(report.status)}
-                                </Badge>
-                                {report.callSuccessful ? (
-                                  <Badge variant="outline">{report.callSuccessful}</Badge>
-                                ) : null}
-                              </div>
-                              <div className="mt-2 h-20 line-clamp-4 text-muted-foreground text-sm leading-5 [&_p]:m-0">
-                                <Markdown>
-                                  {report.transcriptSummary ??
-                                    report.latestError ??
-                                    "暂无总结，等待后续同步。"}
-                                </Markdown>
-                              </div>
+                          <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="wrap-break-word font-medium text-sm">
+                                {entry.roundLabel}
+                              </span>
+                              <Badge variant={statusMeta.tone}>{statusMeta.label}</Badge>
+                              {entry.hasReport ? <Badge variant="outline">已有报告</Badge> : null}
                             </div>
-                          </AccordionTrigger>
-                          <AccordionContent className="px-5 pb-5">
-                            <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(400px,1fr)]">
-                              <div className="space-y-4">
-                                <RecordingPlayer
-                                  accessMode={accessMode}
-                                  conversationId={report.conversationId}
-                                  durationSecs={report.recordingDurationSecs}
-                                  recordId={effectiveRoundId ?? ""}
-                                  seekToSecs={activeEvidence?.timeInCallSecs ?? null}
-                                  status={report.recordingStatus}
-                                />
-                                <div className="rounded-2xl border border-border bg-background p-4">
-                                  <h4 className="font-medium text-sm">会话概览</h4>
-                                  <div className="mt-3 grid gap-2 text-sm">
-                                    <DetailRow
-                                      label="会话 ID"
-                                      value={
-                                        <span className="break-all">{report.conversationId}</span>
-                                      }
-                                    />
-                                    <DetailRow
-                                      label="开始时间"
-                                      value={
-                                        <TimeDisplay
-                                          options={DATE_TIME_DISPLAY_OPTIONS}
-                                          value={startedAt}
-                                        />
-                                      }
-                                    />
-                                    <DetailRow
-                                      label="结束时间"
-                                      value={
-                                        <TimeDisplay
-                                          options={DATE_TIME_DISPLAY_OPTIONS}
-                                          value={endedAt}
-                                        />
-                                      }
-                                    />
-                                    <DetailRow
-                                      label="消息统计"
-                                      value={`共 ${displayTurnCount} 条 · 候选人 ${displayUserTurnCount} 条 · 面试官 ${displayAgentTurnCount} 条`}
-                                    />
-                                    <DetailRow
-                                      label="同步时间"
-                                      value={
-                                        <TimeDisplay
-                                          options={DATE_TIME_DISPLAY_OPTIONS}
-                                          value={report.lastSyncedAt}
-                                        />
-                                      }
-                                    />
-                                    <DetailRow
-                                      label="Webhook"
-                                      value={
-                                        report.webhookReceivedAt ? (
-                                          <TimeDisplay
-                                            options={DATE_TIME_DISPLAY_OPTIONS}
-                                            value={report.webhookReceivedAt}
-                                          />
-                                        ) : (
-                                          "未收到"
-                                        )
-                                      }
-                                    />
-                                  </div>
-                                </div>
-
-                                <div className="rounded-2xl border border-border bg-background p-4">
-                                  <h4 className="font-medium text-sm">最终总结</h4>
-                                  <div className="mt-3 text-muted-foreground text-sm leading-normal">
-                                    <Markdown>{report.transcriptSummary ?? "暂无总结。"}</Markdown>
-                                  </div>
-                                  {report.latestError ? (
-                                    <div className="mt-3 rounded-xl border border-destructive/30 bg-destructive/5 px-3 py-2 text-destructive text-sm">
-                                      {report.latestError}
-                                    </div>
-                                  ) : null}
-                                </div>
-                              </div>
-
-                              <div className="lg:relative">
-                                <div className="flex h-[480px] flex-col overflow-hidden rounded-2xl border border-border bg-background lg:absolute lg:inset-0 lg:h-auto">
-                                  <h4 className="shrink-0 px-4 pt-4 pb-2 font-medium text-sm">
-                                    对话记录
-                                  </h4>
-                                  <ConversationTranscript
-                                    activeTurnIndex={activeEvidence?.turnIndex ?? null}
-                                    turns={report.turns}
-                                  />
-                                </div>
-                              </div>
-
-                              <div className="rounded-2xl border border-border bg-background p-4">
-                                <h4 className="font-medium text-sm">评估指标</h4>
-                                <div className="mt-4 max-h-[420px] overflow-y-auto pr-1">
-                                  <EvaluationResults
-                                    data={
-                                      (report.evaluationCriteriaResults as Record<
-                                        string,
-                                        unknown
-                                      >) ?? {}
-                                    }
-                                    onEvidenceSelect={handleEvidenceSelect}
-                                  />
-                                </div>
-                              </div>
-
-                              <InterviewMetricsPanel metrics={report.metrics ?? {}} />
-                            </div>
-                          </AccordionContent>
-                        </AccordionItem>
+                            {entry.scheduledAt ? (
+                              <TimeDisplay
+                                className="shrink-0 text-muted-foreground text-xs"
+                                options={DATE_TIME_DISPLAY_OPTIONS}
+                                value={entry.scheduledAt}
+                              />
+                            ) : (
+                              <span className="text-muted-foreground text-xs">未排期</span>
+                            )}
+                          </div>
+                          <div className="mt-3 rounded-lg border border-border/50 bg-background/80 px-3 py-2">
+                            <p className="text-muted-foreground text-xs">完整面试链接</p>
+                            <p className="mt-1 break-all font-mono text-xs leading-normal">
+                              {fullLink}
+                            </p>
+                          </div>
+                          <div className="mt-3 flex flex-wrap items-center justify-end gap-2">
+                            {/* 中文：仅在调用方提供回调时显示「查看详情」；不提供时避免渲染无用按钮。
+                            English: Only render 查看详情 when the caller supplies a callback; skip it otherwise. */}
+                            {onViewRoundDetail ? (
+                              <Button
+                                className="flex-1 sm:flex-none"
+                                onClick={() => onViewRoundDetail(entry.id)}
+                                size="sm"
+                                type="button"
+                                variant="ghost"
+                              >
+                                <EyeIcon className="size-3.5" />
+                                查看详情
+                              </Button>
+                            ) : null}
+                            <InterviewLinkQrButton
+                              candidateName={record.candidateName}
+                              className="flex-1 sm:flex-none"
+                              disabled={Boolean(entryActionDisabledReason)}
+                              url={fullLink}
+                            />
+                          </div>
+                        </div>
                       );
                     })}
-                  </Accordion>
+                  </div>
                 )}
               </div>
-            )}
-          </TabsContent>
-        ) : null}
+            </TabsContent>
+          ) : null}
 
-        {mode === "interview" ? (
-          <TabsContent value="questions">
-            <div className="rounded-2xl border border-border bg-background p-4">
-              <h3 className="font-medium text-sm">AI 面试题</h3>
-              <div className="mt-4 space-y-3">
-                {visibleInterviewQuestions.length > 0 ? (
-                  visibleInterviewQuestions.map((question) => (
-                    <div
-                      className="rounded-xl border border-border bg-muted/30 p-3"
-                      key={question.order}
-                    >
-                      <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
-                        <span className="font-medium text-sm">第{question.order} 题</span>
-                        <span className="shrink-0 text-muted-foreground text-xs">
-                          {DIFFICULTY_LABEL[question.difficulty] ?? question.difficulty}
-                        </span>
-                      </div>
-                      <div className="mt-2 text-sm leading-normal">
-                        <Markdown>{truncateText(question.question)}</Markdown>
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <p className="text-muted-foreground text-sm">
-                    暂无面试题，可通过上传简历自动生成。
-                  </p>
-                )}
-              </div>
-            </div>
-          </TabsContent>
-        ) : null}
-
-        {mode === "interview" ? (
-          <TabsContent value="experience">
-            <div className="rounded-2xl border border-border bg-background p-5">
-              <ResumeProfileView profile={record.resumeProfile ?? null} />
-            </div>
-          </TabsContent>
-        ) : null}
-
-        {mode === "resume" ? (
-          <TabsContent value="rounds">
-            <div className="rounded-2xl border border-border bg-background p-5">
-              <div className="flex items-center justify-between gap-3">
-                <h3 className="font-medium text-sm">AI 面试轮次</h3>
-                <span className="text-muted-foreground text-xs">
-                  共 {candidateRounds.length} 轮
-                </span>
-              </div>
-              {isAiStageLocked ? (
-                <p className="mt-3 rounded-md border border-border/50 bg-muted/40 px-3 py-2 text-muted-foreground text-xs leading-normal">
-                  {aiStageLockedReason}
-                </p>
-              ) : null}
-              {/* oxlint-disable-next-line no-nested-ternary -- 三态：loading / empty / list */}
-              {isRoundsLoading ? (
-                <RoundsSkeleton />
-              ) : /* oxlint-disable-next-line no-nested-ternary -- Secondary branch renders empty-state or list. */
-              candidateRounds.length === 0 ? (
-                <p className="mt-4 text-muted-foreground text-sm leading-normal">
-                  该候选人还没有发起面试。在简历库点「保存并发起面试」即可创建。
-                </p>
-              ) : (
-                <div className="mt-4 space-y-3">
-                  {candidateRounds.map((entry) => {
-                    const statusMeta = scheduleEntryStatusMeta[entry.status];
-                    const fullLink = toAbsoluteUrl(entry.interviewLink);
-                    const isEntryLive =
-                      entry.status === "in_progress" || entry.status === "interrupted";
-                    const entryActionDisabledReason = isEntryLive
-                      ? roundActionLockedReason
-                      : aiStageLockedReason;
-                    return (
-                      <div
-                        className="rounded-xl border border-border bg-muted/30 p-3"
-                        key={entry.id}
-                      >
-                        <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span className="wrap-break-word font-medium text-sm">
-                              {entry.roundLabel}
-                            </span>
-                            <Badge variant={statusMeta.tone}>{statusMeta.label}</Badge>
-                            {entry.hasReport ? <Badge variant="outline">已有报告</Badge> : null}
-                          </div>
-                          {entry.scheduledAt ? (
-                            <TimeDisplay
-                              className="shrink-0 text-muted-foreground text-xs"
-                              options={DATE_TIME_DISPLAY_OPTIONS}
-                              value={entry.scheduledAt}
-                            />
-                          ) : (
-                            <span className="text-muted-foreground text-xs">未排期</span>
-                          )}
-                        </div>
-                        <div className="mt-3 rounded-lg border border-border/50 bg-background/80 px-3 py-2">
-                          <p className="text-muted-foreground text-xs">完整面试链接</p>
-                          <p className="mt-1 break-all font-mono text-xs leading-normal">
-                            {fullLink}
-                          </p>
-                        </div>
-                        <div className="mt-3 flex flex-wrap items-center justify-end gap-2">
-                          {/* 中文：仅在调用方提供回调时显示「查看详情」；不提供时避免渲染无用按钮。
-                            English: Only render 查看详情 when the caller supplies a callback; skip it otherwise. */}
-                          {onViewRoundDetail ? (
-                            <Button
-                              className="flex-1 sm:flex-none"
-                              onClick={() => onViewRoundDetail(entry.id)}
-                              size="sm"
-                              type="button"
-                              variant="ghost"
-                            >
-                              <EyeIcon className="size-3.5" />
-                              查看详情
-                            </Button>
-                          ) : null}
-                          <InterviewLinkQrButton
-                            candidateName={record.candidateName}
-                            className="flex-1 sm:flex-none"
-                            disabled={Boolean(entryActionDisabledReason)}
-                            url={fullLink}
-                          />
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          </TabsContent>
-        ) : null}
-
-        {mode === "resume" && shouldShowHumanInterviewTab(tabVisibilityRecord) ? (
-          <TabsContent value="human-interview">
-            <HumanInterviewStagePanel
-              candidateId={record.id}
-              candidateName={record.candidateName}
-              disabled={record.pipelineStage === "closed"}
-            />
-          </TabsContent>
-        ) : null}
-
-        {mode === "resume" && shouldShowOfferTab(tabVisibilityRecord) ? (
-          <TabsContent value="offer">
-            <OfferStagePanel
-              candidateId={record.id}
-              candidateName={record.candidateName}
-              disabled={record.pipelineStage === "closed"}
-              onRequestCloseAsHired={() =>
-                onRequestClose?.({
-                  candidateName: record.candidateName,
-                  id: record.id,
-                  initialOutcome: "hired",
-                })
-              }
-            />
-          </TabsContent>
-        ) : null}
-
-        {mode === "interview" && !isPublic ? (
-          <TabsContent value="instructions">
-            <AgentInstructionsPanel enabled={enabled} recordId={effectiveRoundId} />
-          </TabsContent>
-        ) : null}
-
-        {mode === "interview" ? (
-          <TabsContent value="forms">
-            {isFormSubmissionsLoading ? (
-              <FormsSkeleton />
-            ) : (
-              <FormsTab
-                onReset={
-                  isPublic
-                    ? undefined
-                    : (submissionId) =>
-                        dispatchUi({
-                          id: submissionId,
-                          type: "pendingResetSubmissionChanged",
-                        })
-                }
-                resettingId={resettingSubmissionId}
-                submissions={formSubmissions}
+          {mode === "resume" && shouldShowHumanInterviewTab(tabVisibilityRecord) ? (
+            <TabsContent value="human-interview">
+              <HumanInterviewStagePanel
+                candidateId={record.id}
+                candidateName={record.candidateName}
+                disabled={record.pipelineStage === "closed"}
               />
-            )}
-          </TabsContent>
-        ) : null}
-      </AnimatedHeight>
+            </TabsContent>
+          ) : null}
+
+          {mode === "resume" && shouldShowOfferTab(tabVisibilityRecord) ? (
+            <TabsContent value="offer">
+              <OfferStagePanel
+                candidateId={record.id}
+                candidateName={record.candidateName}
+                disabled={record.pipelineStage === "closed"}
+                onRequestCloseAsHired={() =>
+                  onRequestClose?.({
+                    candidateName: record.candidateName,
+                    id: record.id,
+                    initialOutcome: "hired",
+                  })
+                }
+              />
+            </TabsContent>
+          ) : null}
+
+          {mode === "interview" && !isPublic ? (
+            <TabsContent value="instructions">
+              <AgentInstructionsPanel enabled={enabled} recordId={effectiveRoundId} />
+            </TabsContent>
+          ) : null}
+
+          {mode === "interview" ? (
+            <TabsContent value="forms">
+              {isFormSubmissionsLoading ? (
+                <FormsSkeleton />
+              ) : (
+                <FormsTab
+                  onReset={
+                    isPublic
+                      ? undefined
+                      : (submissionId) =>
+                          dispatchUi({
+                            id: submissionId,
+                            type: "pendingResetSubmissionChanged",
+                          })
+                  }
+                  resettingId={resettingSubmissionId}
+                  submissions={formSubmissions}
+                />
+              )}
+            </TabsContent>
+          ) : null}
+        </AnimatedHeight>
+      </div>
+      {showTimelineRail ? (
+        <aside className="min-h-0 min-w-0 max-w-full overflow-hidden xl:h-full">
+          <CandidateTimeline
+            className="xl:h-full"
+            data={candidateTimeline}
+            density="rail"
+            isLoading={isTimelineLoading}
+          />
+        </aside>
+      ) : null}
     </div>
   ) : (
     <div className="flex min-h-[240px] items-center justify-center text-muted-foreground text-sm">
@@ -1636,6 +1680,8 @@ function useStudioPersonDetailPanel({
   );
 
   const footer = mode === "resume" ? resumeModeFooter : null;
+  const bodyClassName = showTimelineRail ? "xl:overflow-hidden" : undefined;
+  const modalClassName = showTimelineRail ? "xl:h-[90vh]" : undefined;
 
   return (
     <>
@@ -1644,7 +1690,7 @@ function useStudioPersonDetailPanel({
         onValueChange={(value) => setActiveTab(value as StudioPersonDetailTab)}
         value={activeTab}
       >
-        {shell({ body, description, footer, headerExtra, title })}
+        {shell({ body, bodyClassName, description, footer, headerExtra, modalClassName, title })}
       </Tabs>
       {mode === "interview" && !isPublic ? (
         <AlertDialog
