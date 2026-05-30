@@ -165,6 +165,12 @@
     orphans: 3;
   }
 
+  [data-sidebar="sidebar"] [data-sidebar="menu-button"],
+  [data-sidebar="sidebar"] [data-sidebar="menu-sub-button"],
+  [data-sidebar="sidebar"] [data-sidebar="menu-action"] {
+    cursor: default;
+  }
+
   /* kami 标题阶梯改造版：保留 kami 节奏（字重 500、紧凑 line-height、tracking-tight），
      字体沿用全局 MiSans（不切换到 serif）。靠字号和颜色建立 hierarchy，不靠粗体。
      kami heading scale (MiSans variant): keep weight 500, tight line-height,
