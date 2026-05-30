@@ -4,7 +4,7 @@ import type { InterviewTranscriptTurn } from "@arc/db-schema/interview-session";
 import type { InterviewQuestion } from "@arc/db-schema/interview/types";
 import { createAlibabaProvider } from "@/server/agents/provider";
 
-const SUMMARY_PROMPT = `你是一位面试报告撰写助手。请根据以下面试对话记录，用中文撰写一段 200-300 字的面试摘要。
+const SUMMARY_PROMPT = `你是一位面试报告撰写助手。请根据以下面试对话记录，使用面试对话的主要语言撰写一段篇幅相当于中文 200-300 字的面试摘要。
 摘要需包括：面试涉及的主要话题、候选人的整体表现、值得关注的亮点或不足，面试对话记录中，如果用户跳过了某个问题，则该问题视为0分。
 
 ## 面试对话记录
@@ -24,6 +24,7 @@ const EVALUATION_PROMPT = `你是一位专业的面试评估专家。请根据�
 - 只评估面试中实际提问到的题目
 - score 范围 0-10，overallScore 范围 0-100
 - 评价要客观具体，引用候选人的实际回答
+- overallAssessment、assessment 等自由文本字段请使用面试对话的主要语言；recommendation 必须保持指定的中文枚举值
 - 面试记录每行包含 turnIndex 和可能存在的 time；每题 evidence 最多给 2 条候选人原话证据
 - evidence.quote 必须来自候选人的实际回答，turnIndex / timeInCallSecs 能定位时必须填写，无法定位时可留空`;
 

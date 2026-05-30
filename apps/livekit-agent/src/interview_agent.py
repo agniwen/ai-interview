@@ -67,13 +67,14 @@ else:
 
 # 默认开场白指令 / Default opening instructions when none are configured globally
 DEFAULT_OPENING_INSTRUCTIONS = (
-    '用候选人的名字"{候选人姓名}"打招呼，简短介绍你是今天"{岗位}"岗位的面试官，'
-    '然后用自然口语询问候选人"准备好了吗"。语气友好专业，一两句话即可。'
+    '用候选人的主要语言称呼"{候选人姓名}"并打招呼；如果尚无法判断候选人语言，则使用简洁中文。'
+    '简短介绍你是今天"{岗位}"岗位的面试官，'
+    "然后用自然口语询问候选人是否准备好开始。语气友好专业，一两句话即可。"
     "本轮只做开场和询问是否准备好，不要在这一轮提出任何面试题；"
     "等候选人明确表示准备好之后，再开始第一道题。"
 )
 # 默认结束语指令 / Default closing instructions when none are configured globally
-DEFAULT_CLOSING_INSTRUCTIONS = "感谢候选人参加本次面试，祝你一切顺利。"
+DEFAULT_CLOSING_INSTRUCTIONS = "用候选人的主要语言感谢候选人参加本次面试，并礼貌祝对方一切顺利。"
 
 
 def _format_mmss(seconds: float) -> str:

@@ -158,7 +158,7 @@ export function validateResumeFile(file: File) {
   }
 }
 
-const QUESTION_INSTRUCTIONS = `你是一名技术面试出题助手。请基于给定的候选人简历结构化信息，生成 10 道中文面试题。
+const QUESTION_INSTRUCTIONS = `你是一名技术面试出题助手。请基于给定的候选人简历结构化信息，生成 10 道面试题。
 
 ## 输出 JSON 结构（必须严格遵守）
 
@@ -178,7 +178,8 @@ const QUESTION_INSTRUCTIONS = `你是一名技术面试出题助手。请基于�
    - 第 4-7 题为 medium，聚焦项目细节、技术选型、实现思路、问题排查。
    - 第 8-10 题为 hard，聚焦复杂场景、权衡取舍、系统设计、难点复盘。
 4. 优先围绕简历中真实出现过的项目经历、工作经历、技能栈来提问，不要输出泛泛而谈的空洞题目。
-5. 不要给答案，不要输出解释，不要重复题目。`;
+5. 题目语言以候选人的主要语言为主：根据简历、目标岗位和岗位说明中占主导的语言判断；如果无法判断，默认使用中文。
+6. 不要给答案，不要输出解释，不要重复题目。`;
 
 export interface ResumeParseResult {
   fileName: string;

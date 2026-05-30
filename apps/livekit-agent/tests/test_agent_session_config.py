@@ -54,7 +54,7 @@ def test_agent_session_uses_scribe_v2_realtime_stt(monkeypatch):
     stt = session.kwargs["stt"]
 
     assert stt.kwargs["model_id"] == "scribe_v2_realtime"
-    assert stt.kwargs["language_code"] == "zh"
+    assert "language_code" not in stt.kwargs
     assert stt.kwargs["tag_audio_events"] is False
     assert "api_key" not in stt.kwargs
 

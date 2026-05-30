@@ -19,6 +19,8 @@ import logging
 
 from livekit.agents import AgentTask, function_tool
 
+from prompts import LANGUAGE_POLICY
+
 logger = logging.getLogger("agent")
 
 
@@ -28,14 +30,16 @@ logger = logging.getLogger("agent")
 # Tool-routing rules only; the greeting wording itself comes from the
 # per-call generate_reply instructions so the user's configured opening
 # (global_opening_instructions) is not overridden by the task-level prompt.
-_TASK_INSTRUCTIONS = """你正处在面试的开场阶段, 任务是与候选人完成开场对话, 并通过工具调用判断候选人是否已准备好开始面试.
+_TASK_INSTRUCTIONS = f"""你正处在面试的开场阶段, 任务是与候选人完成开场对话, 并通过工具调用判断候选人是否已准备好开始面试.
 
 工具调用规则:
-- 候选人明确表示已准备好(例如"好""准备好了""可以开始""开始吧"), 立即调用 confirm_ready 工具.
-- 候选人表示需要更多时间(例如"稍等""再给我一分钟"), 礼貌等候并自然地再次确认; 不要在此阶段提出任何面试题、不要追问候选人的个人或技术细节.
+- 候选人明确表示已准备好(例如"好""准备好了""可以开始""开始吧""yes""I'm ready""let's start"), 立即调用 confirm_ready 工具.
+- 候选人表示需要更多时间(例如"稍等""再给我一分钟""one moment""give me a minute"), 礼貌等候并自然地再次确认; 不要在此阶段提出任何面试题、不要追问候选人的个人或技术细节.
 - 候选人明确表示不愿参加、要求结束本次面试, 或态度恶劣经提醒仍不端正, 调用 decline_interview 工具.
 
-全程使用中文, 语气友好专业, 不使用 emoji 或特殊符号."""
+语言规则:
+- {LANGUAGE_POLICY}
+- 语气友好专业, 不使用 emoji 或特殊符号."""
 
 
 class ReadyCheckTask(AgentTask[bool]):

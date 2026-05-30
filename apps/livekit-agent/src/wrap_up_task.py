@@ -16,6 +16,8 @@ import logging
 from livekit.agents import AgentTask
 from livekit.agents.beta.tools import EndCallTool
 
+from prompts import LANGUAGE_POLICY
+
 logger = logging.getLogger("agent")
 
 
@@ -24,7 +26,7 @@ logger = logging.getLogger("agent")
 # Task-level system prompt: behavioural rails only. The actual goodbye wording
 # is injected via EndCallTool.end_instructions so the user-configured closing
 # instructions still drive the final TTS without being clobbered here.
-_WRAP_UP_INSTRUCTIONS = """你正处在面试的收尾阶段, 任务是问候选人一个简短的总结性收尾问题, 然后结束面试.
+_WRAP_UP_INSTRUCTIONS = f"""你正处在面试的收尾阶段, 任务是问候选人一个简短的总结性收尾问题, 然后结束面试.
 
 收尾问题建议方向(任选其一, 不要全部都问):
 - 询问候选人对今天面试的感受, 或对我们公司/岗位还有什么想了解的
@@ -35,7 +37,8 @@ _WRAP_UP_INSTRUCTIONS = """你正处在面试的收尾阶段, 任务是问候选
 - 不要再提出新的技术问题、不要追问简历细节, 也不要展开新话题.
 - 候选人回答收尾问题后, 或主动表示"没有了/没什么补充了"时, 立即调用 end_call 工具结束面试.
 - 候选人若提出与岗位/公司相关的问题, 简短回应一两句即可, 然后随即 end_call.
-- 全程使用中文, 语气友好专业, 不使用 emoji 或特殊符号."""
+- {LANGUAGE_POLICY}
+- 语气友好专业, 不使用 emoji 或特殊符号."""
 
 
 class WrapUpTask(AgentTask[None]):
@@ -67,6 +70,7 @@ class WrapUpTask(AgentTask[None]):
             instructions=(
                 "现在进入面试收尾阶段. 用一句自然口语向候选人提出本场最后一个收尾性问题"
                 "(例如询问感受、是否有想了解的, 或让对方做简短自我评价). "
-                "不要再提技术问题、不要追问简历细节. 听完候选人回答后立即调用 end_call 结束."
+                "以候选人的主要语言表达. 不要再提技术问题、不要追问简历细节. "
+                "听完候选人回答后立即调用 end_call 结束."
             ),
         )

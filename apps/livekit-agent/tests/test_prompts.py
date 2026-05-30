@@ -49,3 +49,10 @@ def test_company_qa_rule_defers_to_other_interviewers_when_absent():
     out = build_instructions(ctx)
     assert "后续面试流程中由其他面试官" in out
     assert "仅基于上方" not in out
+
+
+def test_interview_prompt_uses_candidate_language_policy():
+    out = build_instructions(_base_ctx())
+    assert "以候选人的主要语言为主" in out
+    assert "题目若与候选人主要语言不同" in out
+    assert "全程使用中文交流" not in out

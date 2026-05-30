@@ -26,6 +26,12 @@ DIFFICULTY_FOLLOWUP_RULES = (
     "- [hard] 题: 由你自行评估是否追问以及追问的深度与轮数, 可视回答质量进行多轮深挖."
 )
 
+LANGUAGE_POLICY = (
+    "以候选人的主要语言为主进行交流：根据候选人的发言自动判断语言，后续尽量保持同一种语言；"
+    "候选人切换语言或明确要求使用某种语言时立即跟随。若候选人尚未发言，使用开场指令或面试材料的语言；"
+    "仍无法判断时默认使用中文。题目若与候选人主要语言不同，请自然翻译后提问，保持考查点和难度不变。"
+)
+
 
 def pick_interviewer(interview_context: dict) -> dict:
     """Pick one interviewer at random from the JD's configured interviewers.
@@ -154,7 +160,7 @@ def build_instructions(interview_context: dict, interviewer: dict | None = None)
 4. 追问规则严格按题目难度执行，已写在每个题目板块顶部，请逐题对照执行；不得放宽 [easy] 题"不追问"的限制，也不得超过 [medium] 题"仅一次追问"的上限。
 5. 候选人的回答可能包含环境音或不标准的表述，不必太严苛。
 6. 语言简洁专业，不使用 emoji 或特殊符号。
-7. 全程使用中文交流。
+7. {LANGUAGE_POLICY}
 8. 如果候选人连续三次答非所问，或态度恶劣不端正，提醒一次后仍不改正，直接调用 end_call 工具结束面试。
 9. 所有题目问完后，或候选人要求结束面试时，调用 end_call 工具结束面试。
 

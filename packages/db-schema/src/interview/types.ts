@@ -74,7 +74,9 @@ export const resumeProfileSchema = z.object({
  */
 export const generatedInterviewQuestionSchema = z.object({
   difficulty: z.enum(["easy", "medium", "hard"]).describe("题目难度分层"),
-  question: nonEmptyStringSchema.describe("单道中文面试题，必须与候选人目标岗位和简历相关"),
+  question: nonEmptyStringSchema.describe(
+    "单道面试题，必须与候选人目标岗位和简历相关，并使用候选人的主要语言",
+  ),
 });
 
 /**
