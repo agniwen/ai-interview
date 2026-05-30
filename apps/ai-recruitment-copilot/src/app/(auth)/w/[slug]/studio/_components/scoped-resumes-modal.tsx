@@ -94,7 +94,7 @@ export function ScopedResumesModal({
         cell: (r) => (
           <div className="min-w-0">
             <button
-              className="block max-w-full cursor-pointer truncate text-left font-medium underline-offset-4 hover:underline"
+              className="block max-w-full truncate text-left font-medium underline decoration-foreground/20 underline-offset-4 hover:decoration-foreground/60"
               onClick={() => setDetailRecordId(r.id)}
               type="button"
             >

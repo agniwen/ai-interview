@@ -209,15 +209,15 @@ function InterviewListBackground() {
                     {r.hasPdf ? (
                       <span
                         aria-label="查看简历 PDF"
-                        className="mt-0.5 inline-flex size-8 shrink-0 items-center justify-center rounded-md hover:bg-muted"
+                        className="group/pdf mt-0.5 inline-flex size-8 shrink-0 items-center justify-center rounded-md hover:bg-muted"
                       >
-                        <PdfFileIcon className="size-8 opacity-80" />
+                        <PdfFileIcon className="size-8 opacity-80 transition-transform duration-200 group-hover/pdf:scale-105" />
                       </span>
                     ) : (
                       <span
                         aria-disabled="true"
                         aria-label="暂无简历 PDF"
-                        className="mt-0.5 inline-flex size-8 shrink-0 cursor-not-allowed items-center justify-center rounded-md opacity-45 grayscale"
+                        className="mt-0.5 inline-flex size-8 shrink-0 items-center justify-center rounded-md opacity-45 grayscale"
                       >
                         <PdfFileIcon className="size-8" />
                       </span>
@@ -232,7 +232,7 @@ function InterviewListBackground() {
                   aria-label={`在招岗位：${r.jobDepartment} / ${r.jobName}`}
                   className="px-3 py-3"
                 >
-                  <span className="block truncate underline-offset-4 hover:underline">
+                  <span className="block truncate underline decoration-foreground/20 underline-offset-4 hover:decoration-foreground/60">
                     {r.jobDepartment} / {r.jobName}
                   </span>
                 </td>

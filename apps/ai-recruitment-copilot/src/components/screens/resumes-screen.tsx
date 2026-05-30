@@ -527,11 +527,18 @@ const LIFECYCLE_TONE_CLASS: Record<ResumeRow["lifecycleTone"], string> = {
     "border-amber-500/20 bg-amber-500/5 text-amber-700/80 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300/80",
 };
 
+const LIFECYCLE_RING_CLASS: Record<ResumeRow["lifecycleTone"], string> = {
+  info: "hover:ring-sky-500/10",
+  outline: "hover:ring-muted/70 dark:hover:ring-muted/50",
+  success: "hover:ring-emerald-500/10",
+  warning: "hover:ring-amber-500/10",
+};
+
 function LifecycleBadge({ row }: { row: ResumeRow }) {
   return (
     <button
       aria-label={`${row.lifecycleStage}，${row.lifecycleDetail}`}
-      className={`inline-flex w-44 max-w-full cursor-pointer items-center justify-start gap-1.5 overflow-hidden rounded-full border px-2.5 py-1 pr-1.5 text-left font-normal text-xs whitespace-nowrap ${LIFECYCLE_TONE_CLASS[row.lifecycleTone]}`}
+      className={`group/lifecycle inline-flex w-44 max-w-full items-center justify-start gap-1.5 overflow-hidden rounded-full border px-2.5 py-1 pr-1.5 text-left font-normal text-xs whitespace-nowrap transition-shadow duration-200 hover:ring-2 ${LIFECYCLE_TONE_CLASS[row.lifecycleTone]} ${LIFECYCLE_RING_CLASS[row.lifecycleTone]}`}
       title={`${row.lifecycleStage} · ${row.lifecycleDetail}`}
       type="button"
     >
@@ -542,9 +549,9 @@ function LifecycleBadge({ row }: { row: ResumeRow }) {
       <span className="min-w-0 truncate opacity-75">{row.lifecycleDetail}</span>
       <span
         aria-hidden="true"
-        className="ml-auto flex size-4 shrink-0 items-center justify-center rounded-full border border-current/25 bg-current/10 opacity-70"
+        className="ml-auto flex size-4 shrink-0 items-center justify-center rounded-full border border-current/25 bg-current/10 opacity-70 transition-all duration-200 group-hover/lifecycle:scale-110 group-hover/lifecycle:bg-current/15 group-hover/lifecycle:opacity-100"
       >
-        <ChevronRightIcon className="size-3" />
+        <ChevronRightIcon className="size-3 transition-transform duration-200 group-hover/lifecycle:scale-110" />
       </span>
     </button>
   );
@@ -606,31 +613,31 @@ function ResumeTable() {
                   {r.hasPdf ? (
                     <span
                       aria-label="查看简历 PDF"
-                      className="mt-0.5 inline-flex size-8 shrink-0 items-center justify-center rounded-md hover:bg-muted"
+                      className="group/pdf mt-0.5 inline-flex size-8 shrink-0 items-center justify-center rounded-md hover:bg-muted"
                     >
-                      <PdfFileIcon className="size-8 opacity-80" />
+                      <PdfFileIcon className="size-8 opacity-80 transition-transform duration-200 group-hover/pdf:scale-105" />
                     </span>
                   ) : (
                     <span
                       aria-disabled="true"
                       aria-label="暂无简历 PDF"
-                      className="mt-0.5 inline-flex size-8 shrink-0 cursor-not-allowed items-center justify-center rounded-md opacity-45 grayscale"
+                      className="mt-0.5 inline-flex size-8 shrink-0 items-center justify-center rounded-md opacity-45 grayscale"
                     >
                       <PdfFileIcon className="size-8" />
                     </span>
                   )}
                   <div className="min-w-0">
-                    <div className="truncate font-medium text-foreground underline-offset-4 hover:underline">
+                    <div className="truncate font-medium text-foreground underline decoration-foreground/20 underline-offset-4 hover:decoration-foreground/60">
                       {r.name}
                     </div>
-                    <div className="truncate text-muted-foreground text-xs underline-offset-4 hover:underline">
+                    <div className="truncate text-muted-foreground text-xs underline decoration-muted-foreground/20 underline-offset-4 hover:decoration-muted-foreground/60">
                       {r.email}
                     </div>
                   </div>
                 </div>
               </td>
               <td className="px-3 py-2.5">
-                <span className="block truncate underline-offset-4 hover:underline">
+                <span className="block truncate underline decoration-foreground/20 underline-offset-4 hover:decoration-foreground/60">
                   {r.jobDepartment} / {r.jobLink}
                 </span>
               </td>

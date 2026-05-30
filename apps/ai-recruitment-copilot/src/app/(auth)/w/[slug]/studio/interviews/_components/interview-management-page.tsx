@@ -280,7 +280,7 @@ export function InterviewManagementPage({
               {r.hasResumeFile ? (
                 <button
                   aria-label={pdfTitle}
-                  className="mt-0.5 inline-flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-md transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className="group/pdf mt-0.5 inline-flex size-8 shrink-0 items-center justify-center rounded-md transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
@@ -289,13 +289,13 @@ export function InterviewManagementPage({
                   title={pdfTitle}
                   type="button"
                 >
-                  <PdfFileIcon className="size-8" />
+                  <PdfFileIcon className="size-8 transition-transform duration-200 group-hover/pdf:scale-105" />
                 </button>
               ) : (
                 <span
                   aria-disabled="true"
                   aria-label="暂无简历 PDF"
-                  className="mt-0.5 inline-flex size-8 shrink-0 cursor-not-allowed items-center justify-center rounded-md opacity-45 grayscale"
+                  className="mt-0.5 inline-flex size-8 shrink-0 items-center justify-center rounded-md opacity-45 grayscale"
                   title="暂无简历 PDF"
                 >
                   <PdfFileIcon className="size-8" />
@@ -303,7 +303,7 @@ export function InterviewManagementPage({
               )}
               <div className="min-w-0">
                 <button
-                  className="block max-w-full cursor-pointer truncate text-left font-medium underline-offset-4 hover:underline"
+                  className="block max-w-full truncate text-left font-medium underline decoration-foreground/20 underline-offset-4 hover:decoration-foreground/60"
                   onClick={() => setDetailRoundId(r.id)}
                   type="button"
                 >
@@ -311,7 +311,7 @@ export function InterviewManagementPage({
                 </button>
                 {r.candidateEmail ? (
                   <a
-                    className="block max-w-full truncate text-muted-foreground text-xs underline-offset-4 hover:underline"
+                    className="block max-w-full cursor-default truncate text-muted-foreground text-xs underline decoration-muted-foreground/20 underline-offset-4 hover:decoration-muted-foreground/60"
                     href={`mailto:${r.candidateEmail}`}
                     onClick={(e) => e.stopPropagation()}
                   >
@@ -336,7 +336,7 @@ export function InterviewManagementPage({
 
           return label ? (
             <button
-              className="cursor-pointer truncate text-left underline-offset-4 hover:underline"
+              className="truncate text-left underline decoration-foreground/20 underline-offset-4 hover:decoration-foreground/60"
               onClick={() => r.jobDescriptionId && setViewJobDescriptionId(r.jobDescriptionId)}
               type="button"
             >

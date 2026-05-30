@@ -7,6 +7,13 @@ import { cn } from "@/lib/shared/utils";
 
 type ResumeLifecycleBadgeTone = "success" | "warning" | "info" | "outline";
 
+const lifecycleHoverRingClass: Record<ResumeLifecycleBadgeTone, string> = {
+  info: "hover:ring-sky-500/10",
+  outline: "hover:ring-muted/70 dark:hover:ring-muted/50",
+  success: "hover:ring-emerald-500/10",
+  warning: "hover:ring-amber-500/10",
+};
+
 interface ResumeLifecycleBadgeProps extends Omit<
   ButtonHTMLAttributes<HTMLButtonElement>,
   "children"
@@ -35,8 +42,9 @@ export function ResumeLifecycleBadge({
       aria-label={accessibleLabel}
       className={cn(
         badgeVariants({ variant: tone }),
-        "max-w-full cursor-pointer justify-start gap-1.5 px-2.5 py-1 pr-1.5 text-left font-normal",
-        "focus-visible:outline-none",
+        "group/lifecycle max-w-full justify-start gap-1.5 px-2.5 py-1 pr-1.5 text-left font-normal",
+        "duration-200 hover:ring-2 focus-visible:outline-none",
+        lifecycleHoverRingClass[tone],
         className,
       )}
       title={title ?? fullLabel}
@@ -54,9 +62,9 @@ export function ResumeLifecycleBadge({
       ) : null}
       <span
         aria-hidden
-        className="ml-auto flex size-4 shrink-0 items-center justify-center rounded-full border border-current/25 bg-current/10 opacity-70"
+        className="ml-auto flex size-4 shrink-0 items-center justify-center rounded-full border border-current/25 bg-current/10 opacity-70 transition-all duration-200 group-hover/lifecycle:scale-110 group-hover/lifecycle:bg-current/15 group-hover/lifecycle:opacity-100"
       >
-        <ChevronRightIcon className="size-3" />
+        <ChevronRightIcon className="size-3 transition-transform duration-200 group-hover/lifecycle:scale-110" />
       </span>
     </button>
   );
