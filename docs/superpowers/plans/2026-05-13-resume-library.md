@@ -467,7 +467,7 @@ beforeAll(async () => {
 
   await db.insert(studioInterview).values([
     {
-      candidateName: "张三",
+      candidateName: "郭靖",
       candidateEmail: "zhang@example.com",
       createdAt: NOW,
       createdBy: USER_ID,
@@ -520,7 +520,7 @@ describe("queryPaginatedResumeRecords", () => {
     const result = await queryPaginatedResumeRecords(ORG_A);
     expect(result.total).toBe(2);
     const names = result.records.map((r) => r.candidateName).sort();
-    expect(names).toEqual(["张三", "李四"].sort());
+    expect(names).toEqual(["郭靖", "李四"].sort());
   });
 
   it("does not leak rows from sibling organizations", async () => {
@@ -539,9 +539,9 @@ describe("queryPaginatedResumeRecords", () => {
   });
 
   it("supports search filter against candidateName", async () => {
-    const result = await queryPaginatedResumeRecords(ORG_A, { search: "张三" });
+    const result = await queryPaginatedResumeRecords(ORG_A, { search: "郭靖" });
     expect(result.total).toBe(1);
-    expect(result.records[0]?.candidateName).toBe("张三");
+    expect(result.records[0]?.candidateName).toBe("郭靖");
   });
 });
 ```

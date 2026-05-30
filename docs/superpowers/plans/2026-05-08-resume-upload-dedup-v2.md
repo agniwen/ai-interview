@@ -64,7 +64,7 @@ const MINIMAL_STRUCTURED = {
   graduationYear: null,
   links: [],
   major: null,
-  name: "张三",
+  name: "郭靖",
   personalStrengths: ["沟通"],
   projectExperiences: [],
   schools: ["清华大学"],
@@ -722,15 +722,15 @@ describe("storeInterviewResume", () => {
 
   it("registry hit: reuses storageKey + cached profile, no PUT, no createAttachment", async () => {
     mocks.findAttachmentByContentHash.mockResolvedValue({
-      parsedStructured: { name: "张三" },
+      parsedStructured: { name: "郭靖" },
       storageKey: STORAGE_KEY,
     });
-    mocks.projectAttachmentToResumeProfile.mockReturnValue({ name: "张三" } as never);
+    mocks.projectAttachmentToResumeProfile.mockReturnValue({ name: "郭靖" } as never);
 
     const result = await storeInterviewResume("interview-1", makeFile(), "user-1");
 
     expect(result).toEqual({
-      cachedResumeProfile: { name: "张三" },
+      cachedResumeProfile: { name: "郭靖" },
       contentHash: HASH,
       storageKey: STORAGE_KEY,
     });

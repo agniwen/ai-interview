@@ -17,7 +17,7 @@ const MINIMAL_STRUCTURED = {
   graduationYear: null,
   links: [],
   major: null,
-  name: "张三",
+  name: "郭靖",
   personalStrengths: ["沟通"],
   phone: null,
   projectExperiences: [],

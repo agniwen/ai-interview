@@ -108,7 +108,7 @@ beforeAll(async () => {
   await db.insert(studioInterview).values([
     {
       candidateEmail: "zhang@example.com",
-      candidateName: "张三",
+      candidateName: "郭靖",
       createdAt: NOW,
       createdBy: USER_ID,
       id: "ri_test_a_1",
@@ -152,7 +152,7 @@ beforeAll(async () => {
     },
   ]);
 
-  // 张三：React + TypeScript；李四：Python + Django。
+  // 郭靖：React + TypeScript；李四：Python + Django。
   // Zhang: React + TypeScript; Li: Python + Django.
   await db.transaction(async (tx) => {
     await syncResumeSkills(tx, {
@@ -177,7 +177,7 @@ describe("queryPaginatedResumeRecords", () => {
     const result = await queryPaginatedResumeRecords(ORG_A);
     expect(result.total).toBe(2);
     const names = result.records.map((r) => r.candidateName).toSorted();
-    expect(names).toEqual(["张三", "李四"].toSorted());
+    expect(names).toEqual(["郭靖", "李四"].toSorted());
   });
 
   it("does not leak rows from sibling organizations", async () => {
@@ -199,22 +199,22 @@ describe("queryPaginatedResumeRecords", () => {
   });
 
   it("supports search filter against candidateName", async () => {
-    const result = await queryPaginatedResumeRecords(ORG_A, { search: "张三" });
+    const result = await queryPaginatedResumeRecords(ORG_A, { search: "郭靖" });
     expect(result.total).toBe(1);
-    expect(result.records[0]?.candidateName).toBe("张三");
+    expect(result.records[0]?.candidateName).toBe("郭靖");
   });
 
   it("filters by skills with AND (intersection) semantics", async () => {
-    // 张三：React + TypeScript；李四：Python + Django。
+    // 郭靖：React + TypeScript；李四：Python + Django。
     const r1 = await queryPaginatedResumeRecords(ORG_A, { skills: ["React"] });
-    expect(r1.records.map((row) => row.candidateName)).toEqual(["张三"]);
+    expect(r1.records.map((row) => row.candidateName)).toEqual(["郭靖"]);
 
     const r2 = await queryPaginatedResumeRecords(ORG_A, {
       skills: ["React", "TypeScript"],
     });
-    expect(r2.records.map((row) => row.candidateName)).toEqual(["张三"]);
+    expect(r2.records.map((row) => row.candidateName)).toEqual(["郭靖"]);
 
-    // 张三只会 React + TS，缺 Python；李四不会 React。
+    // 郭靖只会 React + TS，缺 Python；李四不会 React。
     // Neither candidate has both React and Python, so the intersection is empty.
     const r3 = await queryPaginatedResumeRecords(ORG_A, {
       skills: ["React", "Python"],
@@ -227,8 +227,8 @@ describe("queryPaginatedResumeRecords", () => {
       skills: ["React", "React"],
     });
     // If we hadn't deduped, the HAVING count check would require 2 distinct
-    // matches and exclude 张三 — make sure that doesn't happen.
-    expect(result.records.map((row) => row.candidateName)).toEqual(["张三"]);
+    // matches and exclude 郭靖 — make sure that doesn't happen.
+    expect(result.records.map((row) => row.candidateName)).toEqual(["郭靖"]);
   });
 
   it("returns empty list when skills do not match any candidate", async () => {
@@ -242,18 +242,18 @@ describe("queryPaginatedResumeRecords", () => {
     const result = await queryPaginatedResumeRecords(ORG_A, {
       skills: ["", "  ", "React"],
     });
-    expect(result.records.map((row) => row.candidateName)).toEqual(["张三"]);
+    expect(result.records.map((row) => row.candidateName)).toEqual(["郭靖"]);
   });
 
   it("filters by jobDescriptionIds", async () => {
     const result = await queryPaginatedResumeRecords(ORG_A, {
       jobDescriptionIds: [JD_FRONTEND],
     });
-    expect(result.records.map((row) => row.candidateName)).toEqual(["张三"]);
+    expect(result.records.map((row) => row.candidateName)).toEqual(["郭靖"]);
   });
 
   it("combines skills + jobDescriptionIds + search (intersection)", async () => {
-    // React 命中张三；JD 限定后端 → 没人；search 不限。
+    // React 命中郭靖；JD 限定后端 → 没人；search 不限。
     const result = await queryPaginatedResumeRecords(ORG_A, {
       jobDescriptionIds: [JD_BACKEND],
       skills: ["React"],
@@ -338,7 +338,7 @@ describe("queryPaginatedResumeRecords", () => {
       expect(li.stageProgress.humanInterview).toBeNull();
       expect(li.stageProgress.offer).toBeNull();
 
-      // 张三：没排期 → 三段都 null（DAO 用 HAVING 过滤出真正有数据的子结构）。
+      // 郭靖：没排期 → 三段都 null（DAO 用 HAVING 过滤出真正有数据的子结构）。
       // Zhang: no schedule rows at all → all three branches null.
       expect(zhang.stageProgress).toEqual({
         aiInterview: null,
@@ -445,7 +445,7 @@ describe("queryPaginatedResumeRecords", () => {
         totalRounds: 3,
       });
 
-      // 张三没复面记录 → 空 null。
+      // 郭靖没复面记录 → 空 null。
       // Zhang has no human rounds → null.
       expect(zhang.stageProgress.humanInterview).toBeNull();
     } finally {

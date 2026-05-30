@@ -188,7 +188,7 @@ describe("POST /studio/resumes resumePayload", () => {
     // once Step 2 lands. We assert that loadResumeDetail surfaces questions.
     const recordId = "rp-with-questions";
     await db.insert(studioInterview).values({
-      candidateName: "张三",
+      candidateName: "郭靖",
       createdAt: NOW,
       createdBy: USER_ID,
       id: recordId,
@@ -197,7 +197,7 @@ describe("POST /studio/resumes resumePayload", () => {
         { difficulty: "medium", order: 2, question: "项目难点" },
       ],
       organizationId: ORG,
-      resumeProfile: { name: "张三", targetRoles: [] },
+      resumeProfile: { name: "郭靖", targetRoles: [] },
       status: "draft",
       updatedAt: NOW,
     });

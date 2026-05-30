@@ -102,7 +102,7 @@ function PdfFileIcon({ className }: { className?: string }) {
         strokeWidth="1.5"
       />
       <path d="M22 4v6h6" fill="none" stroke="currentColor" strokeWidth="1.5" />
-      <rect fill="#E53935" height="10" rx="1.5" width="20" x="4" y="20" />
+      <rect fill="#F08F8A" height="10" rx="1.5" width="20" x="4" y="20" />
       <text
         fill="white"
         fontFamily="ui-sans-serif, system-ui"
@@ -161,7 +161,7 @@ function CandidateCard({
   highlights: string[];
   risk: string;
 }) {
-  const barColor = tone === "positive" ? "bg-emerald-500" : "bg-amber-500";
+  const barColor = tone === "positive" ? "bg-emerald-500/45" : "bg-amber-500/45";
   return (
     <div className="rounded-lg border border-border/65 bg-background p-3">
       <div className="flex items-baseline justify-between">
@@ -177,12 +177,12 @@ function CandidateCard({
       <ul className="mt-2 flex flex-col gap-1 text-[11px]">
         {highlights.map((h) => (
           <li className="flex items-start gap-1 text-foreground/85" key={h}>
-            <span className="mt-1.5 size-1 shrink-0 rounded-full bg-emerald-500" />
+            <span className="mt-1.5 size-1 shrink-0 rounded-full bg-emerald-500/45" />
             <span>{h}</span>
           </li>
         ))}
         <li className="flex items-start gap-1 text-muted-foreground">
-          <span className="mt-1.5 size-1 shrink-0 rounded-full bg-amber-500" />
+          <span className="mt-1.5 size-1 shrink-0 rounded-full bg-amber-500/45" />
           <span>{risk}</span>
         </li>
       </ul>
@@ -197,7 +197,7 @@ function ConversationView() {
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-3 py-6">
       {/* User message: PDF 附件 + 文本气泡 */}
       <div>
-        <MessageAuthor align="right" label="张三" time="14:32" />
+        <MessageAuthor align="right" label="郭靖" time="14:32" />
         <Message from="user">
           <div className="flex flex-col items-end gap-2">
             <div className="flex gap-2">
@@ -299,8 +299,8 @@ function Composer() {
             <span className="hidden select-none text-muted-foreground text-xs sm:inline">
               在招岗位：资深前端工程师
             </span>
-            {/* PromptInputSubmit: rounded-full bg-primary size-9 */}
-            <span className="grid size-9 place-items-center rounded-full bg-primary text-primary-foreground">
+            {/* PromptInputSubmit: rounded-full bg-primary/80 size-9 */}
+            <span className="grid size-9 place-items-center rounded-full bg-primary/80 text-primary-foreground">
               <ArrowUpIcon className="size-4" />
             </span>
           </div>

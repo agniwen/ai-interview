@@ -210,12 +210,12 @@ function SidebarUserSection() {
     <div className="border-border border-t px-2 py-2">
       <div className="flex w-full items-center gap-2">
         <div className="flex w-full items-center gap-2 rounded-full p-1">
-          <div className="grid size-9 shrink-0 place-items-center rounded-full bg-gradient-to-br from-sky-400/80 to-indigo-500/80 font-medium text-[12px] text-white">
-            ZS
+          <div className="grid size-9 shrink-0 place-items-center rounded-full bg-gradient-to-br from-primary/15 to-primary/30 font-medium text-[12px] text-primary/75">
+            GJ
           </div>
           <div className="min-w-0 flex-1 text-left">
-            <p className="truncate font-medium text-sm">张三</p>
-            <p className="truncate text-muted-foreground text-xs">极光 HR 招聘组</p>
+            <p className="truncate font-medium text-sm">郭靖</p>
+            <p className="truncate text-muted-foreground text-xs">Workspace</p>
           </div>
           <ChevronsUpDownIcon className="size-4 shrink-0 text-muted-foreground" />
         </div>
@@ -256,7 +256,7 @@ function WorkspaceSwitcher() {
   // Real: ghost sm button with gap-2 font-normal + truncated org name + ChevronsUpDown opacity-60
   return (
     <span className="flex h-8 items-center gap-2 rounded-md px-2.5 font-normal text-sm">
-      <span className="truncate">极光 HR 招聘组</span>
+      <span className="truncate">Workspace</span>
       <ChevronsUpDownIcon className="size-4 opacity-60" />
     </span>
   );
@@ -291,9 +291,9 @@ interface InsetHeaderProps {
 function InsetHeader({ breadcrumb, actions, className }: InsetHeaderProps) {
   return (
     <header
-      // 真实 SidebarInsetHeader: h-(--header-height) shrink-0 items-center justify-between gap-2 border-border border-b px-4
+      // 真实 SidebarInsetHeader: h-(--header-height) shrink-0 bg-background items-center justify-between gap-2 border-border border-b px-4
       className={cn(
-        "flex h-12 shrink-0 items-center justify-between gap-2 border-border border-b px-4",
+        "flex h-12 shrink-0 items-center justify-between gap-2 border-border border-b bg-background px-4",
         className,
       )}
     >
@@ -325,7 +325,7 @@ interface AppShellProps {
   breadcrumb: BreadcrumbCrumb[];
   headerActions?: ReactNode;
   headerClassName?: string;
-  // 主体外层 className（默认 bg 与真实一致：light bg-sidebar / dark bg-background）
+  // 主体外层 className（默认 bg 与真实 SidebarInset 一致：bg-background）
   // Body wrapper className override.
   bodyClassName?: string;
   // 是否给 body 默认 padding 包装（默认 false——大屏要自己控制）
@@ -346,9 +346,9 @@ export function AppShell({
   children,
 }: AppShellProps) {
   return (
-    // 真实外层：has-data-[variant=inset]:bg-background dark:has-data-[variant=inset]:bg-sidebar
-    // 即 light 模式整体白底，sidebar 也在白底；dark 模式整体 sidebar 灰底，inset 才是黑底
-    <div className="flex h-full w-full bg-background text-foreground dark:bg-sidebar">
+    // 真实外层：has-data-[variant=inset]:bg-sidebar
+    // inset 自身是 bg-background，四周露出的底色与 sidebar 保持一致。
+    <div className="flex h-full w-full bg-sidebar text-foreground">
       <aside
         // 真实 sidebar 外层：p-2 group-data-[collapsible=icon]:w-... 在 inset 变体下；
         // 内层是 bg-sidebar (light) / dark:bg-sidebar 的 sidebar 列。
@@ -368,15 +368,15 @@ export function AppShell({
         </div>
       </aside>
 
-      {/* SidebarInset: relative flex w-full flex-1 flex-col bg-sidebar dark:bg-background
-          + variant=inset: m-2 ml-0 rounded-xl shadow-sm
+      {/* SidebarInset: relative flex w-full flex-1 flex-col bg-background
+          + variant=inset: m-3 ml-0 rounded-xl shadow-none
           + layout 上还加了 border border-border */}
-      <main className="relative m-2 ml-0 flex min-w-0 flex-1 flex-col overflow-hidden rounded-xl border border-border bg-sidebar shadow-sm dark:bg-background">
+      <main className="relative m-3 ml-0 flex min-w-0 flex-1 flex-col overflow-hidden rounded-xl border border-border bg-background shadow-none">
         <InsetHeader actions={headerActions} breadcrumb={breadcrumb} className={headerClassName} />
-        {/* @container/main flex min-h-0 flex-1 flex-col overflow-y-auto bg-sidebar dark:bg-background */}
+        {/* @container/main flex min-h-0 flex-1 flex-col overflow-y-auto bg-background */}
         <div
           className={cn(
-            "flex min-h-0 flex-1 flex-col overflow-y-auto bg-sidebar dark:bg-background",
+            "flex min-h-0 flex-1 flex-col overflow-y-auto bg-background",
             bodyClassName,
           )}
         >

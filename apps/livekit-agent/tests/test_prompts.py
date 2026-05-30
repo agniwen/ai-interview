@@ -3,7 +3,7 @@ from prompts import build_instructions
 
 def _base_ctx(**overrides):
     ctx = {
-        "candidate_name": "张三",
+        "candidate_name": "郭靖",
         "target_role": "后端工程师",
         "candidate_profile": {"skills": [], "workExperiences": []},
         "interview_questions": [],

@@ -6,7 +6,7 @@ import { sanitizeTitle } from "@/server/routes/resume/utils/title";
 describe("sanitizeTitle", () => {
   it("returns short clean titles unchanged", () => {
     expect(sanitizeTitle("简历")).toBe("简历");
-    expect(sanitizeTitle("前端工程师 - 张三")).toBe("前端工程师 - 张三");
+    expect(sanitizeTitle("前端工程师 - 郭靖")).toBe("前端工程师 - 郭靖");
   });
 
   it("strips double quotes, single quotes, and backticks", () => {

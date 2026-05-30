@@ -3,6 +3,7 @@
 // Purpose: simplified UI of StudioPersonDetailDialog (mode="interview", size="full")
 // laid over the AI 面试 list page. Active tab "面试报告" mirrors EvaluationResults.
 import { FileTextIcon, SearchIcon, XIcon } from "lucide-react";
+import { PdfFileIcon } from "@/components/pdf-file-icon";
 import { AppShell, StudioNav } from "./_parts/app-shell";
 import type { BreadcrumbCrumb } from "./_parts/app-shell";
 import { ScreenFrame } from "./screen-frame";
@@ -22,59 +23,89 @@ function PageHeader({ title, description }: { title: string; description: string
 // ─────────────── Background: AI 面试 list page ───────────────
 interface InterviewRow {
   candidate: string;
+  createdAt: string;
+  creator: string;
   email: string;
-  role: string;
+  hasPdf: boolean;
+  jobDepartment: string;
+  jobName: string;
+  lastInterviewAt: string;
+  report: boolean;
   round: string;
   status: { label: string; tone: "success" | "warning" | "info" | "outline" };
-  duration: string;
   scheduledAt: string;
 }
 
 const INTERVIEWS: InterviewRow[] = [
   {
     candidate: "李铭",
-    duration: "24:18",
+    createdAt: "2025-05-12 14:32",
+    creator: "郭靖",
     email: "li.ming@example.com",
-    role: "资深前端工程师",
+    hasPdf: true,
+    jobDepartment: "研发部",
+    jobName: "资深前端工程师",
+    lastInterviewAt: "2025-05-13 10:30",
+    report: true,
     round: "一面",
     scheduledAt: "2025-05-12 14:32",
-    status: { label: "已结束", tone: "success" },
+    status: { label: "已完成", tone: "success" },
   },
   {
     candidate: "王欣",
-    duration: "—",
+    createdAt: "2025-05-12 09:18",
+    creator: "李四",
     email: "wang.xin@example.com",
-    role: "增长产品经理",
+    hasPdf: true,
+    jobDepartment: "产品部",
+    jobName: "增长产品经理",
+    lastInterviewAt: "2025-05-12 10:22",
+    report: false,
     round: "一面",
     scheduledAt: "2025-05-12 10:18",
     status: { label: "进行中", tone: "warning" },
   },
   {
     candidate: "赵安",
-    duration: "—",
+    createdAt: "2025-05-11 16:05",
+    creator: "王五",
     email: "zhao.an@example.com",
-    role: "后端架构师",
+    hasPdf: false,
+    jobDepartment: "研发部",
+    jobName: "后端架构师",
+    lastInterviewAt: "—",
+    report: false,
     round: "一面",
     scheduledAt: "2025-05-11 16:00",
     status: { label: "待开始", tone: "info" },
   },
   {
     candidate: "陈佳",
-    duration: "32:05",
+    createdAt: "2025-05-10 11:24",
+    creator: "郭靖",
     email: "chen.jia@example.com",
-    role: "数据分析师",
+    hasPdf: true,
+    jobDepartment: "数据部",
+    jobName: "数据分析师",
+    lastInterviewAt: "2025-05-10 11:58",
+    report: true,
     round: "二面",
     scheduledAt: "2025-05-10 11:24",
-    status: { label: "已结束", tone: "success" },
+    status: { label: "已完成", tone: "success" },
   },
   {
     candidate: "周斌",
-    duration: "—",
+    createdAt: "2025-05-09 09:18",
+    creator: "李四",
     email: "zhou.bin@example.com",
-    role: "运营专员",
+    hasPdf: true,
+    jobDepartment: "运营部",
+    jobName: "社群运营专员",
+    lastInterviewAt: "2025-05-09 09:40",
+    report: false,
     round: "一面",
     scheduledAt: "2025-05-09 09:18",
-    status: { label: "已取消", tone: "outline" },
+    status: { label: "已中断", tone: "outline" },
   },
 ];
 
@@ -84,45 +115,89 @@ const INTERVIEWS: InterviewRow[] = [
 // info:    bg-sky-500/15 text-sky-700
 // outline: border border-border bg-transparent text-foreground
 const TONE_CLASS: Record<InterviewRow["status"]["tone"], string> = {
-  info: "bg-sky-500/15 text-sky-700 dark:text-sky-300",
+  info: "bg-sky-500/5 text-sky-700/80 dark:text-sky-300/80",
   outline: "border border-border bg-transparent text-foreground",
-  success: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300",
-  warning: "bg-amber-500/15 text-amber-700 dark:text-amber-300",
+  success: "bg-emerald-500/5 text-emerald-700/80 dark:text-emerald-300/80",
+  warning: "bg-amber-500/5 text-amber-700/80 dark:text-amber-300/80",
 };
+
+const SUMMARY_STATS = [
+  { hint: "该组织下所有面试轮次总数", label: "总轮数", value: "42" },
+  { hint: "尚未开始的轮次", label: "待开始", value: "13" },
+  { hint: "正在进行或短暂中断的轮次", label: "进行中", value: "7" },
+  { hint: "全部完成的轮次", label: "已完成", value: "22" },
+];
+
+function SummaryStats() {
+  return (
+    <section className="grid grid-cols-4 gap-4">
+      {SUMMARY_STATS.map((item) => (
+        <div
+          className="rounded-xl border border-border bg-background p-4 shadow-xs"
+          key={item.label}
+        >
+          <p className="text-muted-foreground text-xs">{item.label}</p>
+          <p className="mt-1 font-semibold text-3xl leading-none tabular-nums">{item.value}</p>
+          <p className="mt-3 truncate text-muted-foreground text-xs">{item.hint}</p>
+        </div>
+      ))}
+    </section>
+  );
+}
 
 function InterviewListBackground() {
   return (
     <div className="flex flex-col gap-6 px-6 py-6">
       <PageHeader
-        description="管理所有候选人的 AI 面试轮次，查看实时状态、对话记录与结构化评估。"
+        description="查看每一轮语音面试的排期、最近进展、简历和报告，让候选人状态一眼可追。"
         title="AI 面试"
       />
+      <SummaryStats />
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <div className="relative min-w-[15rem]">
           <SearchIcon className="-translate-y-1/2 pointer-events-none absolute top-1/2 left-3 size-4 text-muted-foreground" />
           <div className="flex h-9 w-full items-center rounded-md border border-input bg-transparent pr-3 pl-9 text-muted-foreground text-sm">
-            搜索候选人
+            搜索候选人、岗位、轮次或简历名
           </div>
         </div>
-        <div className="ml-auto">
-          <span className="flex h-9 items-center gap-1.5 rounded-md bg-primary px-3 font-medium text-primary-foreground text-sm">
-            发起面试
-          </span>
-        </div>
+        <span className="flex h-9 items-center gap-2 rounded-md border border-input bg-transparent px-3 text-muted-foreground text-sm">
+          全部状态
+        </span>
       </div>
       <div className="overflow-hidden rounded-xl border border-border bg-background shadow-xs">
-        <table className="w-full text-sm">
+        <table className="w-full table-fixed text-sm">
           <thead>
             <tr className="border-border border-b bg-muted/40">
-              <th className="h-10 px-3 text-left font-medium text-muted-foreground">候选人</th>
-              <th className="h-10 px-3 text-left font-medium text-muted-foreground">岗位</th>
-              <th className="h-10 px-3 text-left font-medium text-muted-foreground">轮次</th>
-              <th className="h-10 px-3 text-left font-medium text-muted-foreground">状态</th>
-              <th className="h-10 px-3 text-left font-medium text-muted-foreground">耗时</th>
-              <th className="h-10 px-3 text-left font-medium text-muted-foreground">创建时间</th>
+              <th className="h-10 w-[260px] px-3 text-left font-medium text-muted-foreground">
+                候选人
+              </th>
+              <th className="h-10 w-[240px] px-3 text-left font-medium text-muted-foreground">
+                在招岗位
+              </th>
+              <th className="h-10 w-[90px] px-3 text-left font-medium text-muted-foreground">
+                轮次
+              </th>
+              <th className="h-10 w-[150px] px-3 text-left font-medium text-muted-foreground">
+                排期
+              </th>
+              <th className="h-10 w-[110px] px-3 text-left font-medium text-muted-foreground">
+                状态
+              </th>
+              <th className="h-10 w-[100px] px-3 text-left font-medium text-muted-foreground">
+                报告
+              </th>
+              <th className="h-10 w-[140px] px-3 text-left font-medium text-muted-foreground">
+                创建人
+              </th>
+              <th className="h-10 w-[160px] px-3 text-left font-medium text-muted-foreground">
+                创建时间
+              </th>
+              <th className="h-10 w-[170px] px-3 text-left font-medium text-muted-foreground">
+                最近面试时间
+              </th>
               <th
                 aria-label="操作"
-                className="h-10 px-3 text-right font-medium text-muted-foreground"
+                className="h-10 w-[140px] px-3 text-right font-medium text-muted-foreground"
               />
             </tr>
           </thead>
@@ -130,30 +205,76 @@ function InterviewListBackground() {
             {INTERVIEWS.map((r) => (
               <tr className="border-border border-b last:border-b-0" key={r.candidate}>
                 <td aria-label={`候选人：${r.candidate}`} className="px-3 py-3">
-                  <div className="flex items-center gap-2.5">
-                    <span
-                      aria-hidden="true"
-                      className="size-7 rounded-full bg-gradient-to-br from-sky-400/70 to-indigo-500/70"
-                    />
+                  <div className="flex min-w-0 items-start gap-2">
+                    {r.hasPdf ? (
+                      <span
+                        aria-label="查看简历 PDF"
+                        className="mt-0.5 inline-flex size-8 shrink-0 items-center justify-center rounded-md hover:bg-muted"
+                      >
+                        <PdfFileIcon className="size-8 opacity-80" />
+                      </span>
+                    ) : (
+                      <span
+                        aria-disabled="true"
+                        aria-label="暂无简历 PDF"
+                        className="mt-0.5 inline-flex size-8 shrink-0 cursor-not-allowed items-center justify-center rounded-md opacity-45 grayscale"
+                      >
+                        <PdfFileIcon className="size-8" />
+                      </span>
+                    )}
                     <div className="min-w-0">
                       <div className="truncate font-medium">{r.candidate}</div>
                       <div className="truncate text-muted-foreground text-xs">{r.email}</div>
                     </div>
                   </div>
                 </td>
-                <td className="px-3 py-3">{r.role}</td>
+                <td
+                  aria-label={`在招岗位：${r.jobDepartment} / ${r.jobName}`}
+                  className="px-3 py-3"
+                >
+                  <span className="block truncate underline-offset-4 hover:underline">
+                    {r.jobDepartment} / {r.jobName}
+                  </span>
+                </td>
                 <td className="px-3 py-3 text-muted-foreground">{r.round}</td>
-                <td className="px-3 py-3">
+                <td className="px-3 py-3 text-muted-foreground tabular-nums">{r.scheduledAt}</td>
+                <td aria-label={`状态：${r.status.label}`} className="px-3 py-3">
                   <span
                     className={`inline-flex items-center rounded-md px-1.5 py-0.5 font-medium text-xs ${TONE_CLASS[r.status.tone]}`}
                   >
                     {r.status.label}
                   </span>
                 </td>
-                <td className="px-3 py-3 text-muted-foreground tabular-nums">{r.duration}</td>
-                <td className="px-3 py-3 text-muted-foreground tabular-nums">{r.scheduledAt}</td>
+                <td className="px-3 py-3">
+                  {r.report ? (
+                    <span className="inline-flex items-center rounded-md border border-transparent bg-emerald-500/5 px-1.5 py-0.5 font-medium text-emerald-700/80 text-xs dark:text-emerald-300/80">
+                      已生成
+                    </span>
+                  ) : (
+                    <span className="text-muted-foreground">—</span>
+                  )}
+                </td>
+                <td aria-label={`创建人：${r.creator}`} className="px-3 py-3">
+                  <div className="flex items-center gap-2">
+                    <span
+                      aria-hidden="true"
+                      className="size-5 rounded-full bg-gradient-to-br from-primary/15 to-primary/30"
+                    />
+                    <span>{r.creator}</span>
+                  </div>
+                </td>
+                <td className="px-3 py-3 text-muted-foreground tabular-nums">{r.createdAt}</td>
+                <td className="px-3 py-3 text-muted-foreground tabular-nums">
+                  {r.lastInterviewAt}
+                </td>
                 <td className="px-3 py-3">
                   <div className="flex items-center justify-end gap-0.5">
+                    <span
+                      aria-label="查看面试记录"
+                      className="inline-flex h-7 items-center rounded-md px-2 text-muted-foreground text-xs"
+                    >
+                      查看
+                    </span>
                     <span
                       aria-label="编辑面试记录"
                       className="inline-flex h-7 items-center rounded-md px-2 text-muted-foreground text-xs"
@@ -181,7 +302,7 @@ function InterviewListBackground() {
 function ModalTabs() {
   // 真实 TabsList (default variant): inline-flex h-9 w-fit (sm:w-auto) items-center justify-center rounded-lg p-[3px] bg-muted
   // TabsTrigger: relative inline-flex h-[calc(100%-1px)] flex-1 sm:min-w-[6em] sm:flex-none items-center justify-center gap-1.5 rounded-md border border-transparent px-2 py-1 text-sm font-medium
-  //   active: data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm
+  //   active: data-[active]:bg-background data-[active]:text-foreground data-[active]:shadow-sm
   //   inactive: text-foreground/60 (hover:text-foreground)
   const tabs = [
     { active: false, label: "概览" },
@@ -256,7 +377,7 @@ const QUESTIONS: QuestionEval[] = [
 function EvaluationContent() {
   // 真实 EvaluationResults: <div className="space-y-3">
   // overallScore 行: flex items-center gap-3 rounded-xl border border-border bg-muted/20 px-3 py-2.5
-  //   - text-2xl text-primary tabular-nums font-medium
+  //   - text-2xl text-primary/75 tabular-nums font-medium
   //   - text-muted-foreground text-sm "/ 100"
   //   - Badge ml-auto (success variant)
   // overallAssessment: text-muted-foreground text-sm leading-normal
@@ -266,9 +387,9 @@ function EvaluationContent() {
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-3 rounded-xl border border-border bg-muted/20 px-3 py-2.5">
-        <span className="font-medium text-2xl text-primary tabular-nums">86</span>
+        <span className="font-medium text-2xl text-primary/75 tabular-nums">86</span>
         <span className="text-muted-foreground text-sm">/ 100</span>
-        <span className="ml-auto inline-flex items-center rounded-md border border-transparent bg-emerald-500/15 px-1.5 py-0.5 font-medium text-emerald-700 text-xs dark:text-emerald-300">
+        <span className="ml-auto inline-flex items-center rounded-md border border-transparent bg-emerald-500/5 px-1.5 py-0.5 font-medium text-emerald-700/80 text-xs dark:text-emerald-300/80">
           推荐进入下一轮
         </span>
       </div>
@@ -309,7 +430,7 @@ function DetailDialog() {
   // - Close X: absolute right-4 top-4 rounded-xs opacity-70
   // - Body: min-h-0 flex-1 overflow-y-auto px-6 py-5
   return (
-    <div className="-translate-x-1/2 -translate-y-1/2 absolute top-1/2 left-1/2 z-50 w-[min(96%,1280px)]">
+    <div className="-translate-x-1/2 -translate-y-1/2 absolute top-1/2 left-1/2 z-50 w-[min(96%,1440px)]">
       <div className="relative flex max-h-[88vh] flex-col overflow-hidden rounded-3xl border bg-background shadow-lg">
         {/* Close button */}
         <span className="absolute top-4 right-4 grid size-7 place-items-center rounded-xs text-foreground/70 opacity-70">
@@ -321,7 +442,7 @@ function DetailDialog() {
           <div className="flex flex-wrap items-center gap-3 font-semibold text-foreground text-lg leading-none">
             <span>李铭</span>
             {/* StudioInterviewStatusBadge — completed = success */}
-            <span className="inline-flex items-center rounded-md border border-transparent bg-emerald-500/15 px-1.5 py-0.5 font-medium text-emerald-700 text-xs dark:text-emerald-300">
+            <span className="inline-flex items-center rounded-md border border-transparent bg-emerald-500/5 px-1.5 py-0.5 font-medium text-emerald-700/80 text-xs dark:text-emerald-300/80">
               已结束
             </span>
           </div>
@@ -353,12 +474,7 @@ function EvaluationCanvas() {
 export function EvaluationScreen({ className }: { className?: string }) {
   return (
     <ScreenFrame className={className}>
-      <AppShell
-        bodyClassName="bg-sidebar dark:bg-background"
-        breadcrumb={BREADCRUMB}
-        sidebar={<StudioNav activeLabel="AI 面试" />}
-        tab="studio"
-      >
+      <AppShell breadcrumb={BREADCRUMB} sidebar={<StudioNav activeLabel="AI 面试" />} tab="studio">
         <EvaluationCanvas />
       </AppShell>
     </ScreenFrame>

@@ -50,11 +50,31 @@ function PageHeader({ title, description }: { title: string; description: string
 // ─────────────── 三张统计图 ───────────────
 function DeptDistributionCard() {
   const segments = [
-    { color: "var(--chart-1)", count: 4, label: "研发" },
-    { color: "var(--chart-2)", count: 3, label: "产品" },
-    { color: "var(--chart-3)", count: 2, label: "设计" },
-    { color: "var(--chart-4)", count: 2, label: "数据" },
-    { color: "var(--chart-5)", count: 1, label: "运营" },
+    {
+      color: "color-mix(in oklch, var(--chart-1) 44%, var(--background))",
+      count: 4,
+      label: "研发",
+    },
+    {
+      color: "color-mix(in oklch, var(--chart-2) 42%, var(--background))",
+      count: 3,
+      label: "产品",
+    },
+    {
+      color: "color-mix(in oklch, var(--chart-3) 40%, var(--background))",
+      count: 2,
+      label: "设计",
+    },
+    {
+      color: "color-mix(in oklch, var(--chart-4) 46%, var(--background))",
+      count: 2,
+      label: "数据",
+    },
+    {
+      color: "color-mix(in oklch, var(--chart-5) 38%, var(--background))",
+      count: 1,
+      label: "运营",
+    },
   ];
   const total = segments.reduce((acc, s) => acc + s.count, 0);
   return (
@@ -119,7 +139,7 @@ function ActiveJobsCard() {
             <div className="flex flex-1 flex-col items-center gap-1" key={b.label}>
               <div className="flex w-full flex-1 items-end">
                 <div
-                  className="w-full rounded-t-md bg-chart-1"
+                  className="w-full rounded-t-md bg-chart-1/45"
                   style={{ height: `${(b.count / max) * 100}%` }}
                 />
               </div>
@@ -135,7 +155,7 @@ function ActiveJobsCard() {
 function InterviewerLoadCard() {
   // 8 位面试官，按近 30 天接的面试数排序
   const items = [
-    { count: 14, name: "张三" },
+    { count: 14, name: "郭靖" },
     { count: 11, name: "李四" },
     { count: 9, name: "王五" },
     { count: 7, name: "赵六" },
@@ -149,11 +169,11 @@ function InterviewerLoadCard() {
         <ul className="flex flex-col gap-1">
           {items.map((i) => (
             <li className="flex items-center gap-2 text-[11px]" key={i.name}>
-              <span className="size-4 rounded-full bg-gradient-to-br from-sky-400/70 to-indigo-500/70" />
+              <span className="size-4 rounded-full bg-gradient-to-br from-primary/15 to-primary/30" />
               <span className="w-8 truncate">{i.name}</span>
               <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted/60">
                 <div
-                  className="h-full bg-primary/80"
+                  className="h-full bg-primary/40"
                   style={{ width: `${(i.count / max) * 100}%` }}
                 />
               </div>
@@ -202,7 +222,7 @@ function JobsToolbar() {
       </div>
       <div className="ml-auto flex items-center gap-2">
         <button
-          className="flex h-9 items-center gap-1.5 rounded-md bg-primary px-3 font-medium text-primary-foreground text-sm"
+          className="flex h-9 items-center gap-1.5 rounded-md bg-primary/80 px-3 font-medium text-primary-foreground text-sm"
           type="button"
         >
           <PlusIcon className="size-4" />
@@ -228,7 +248,7 @@ const JOBS: JobRow[] = [
     createdAt: "2025-05-12 14:32",
     department: "研发部",
     formCount: 2,
-    interviewers: ["张三", "李四"],
+    interviewers: ["郭靖", "李四"],
     name: "资深前端工程师",
     questionCount: 14,
   },
@@ -313,7 +333,7 @@ function JobsTable() {
                     {j.interviewers.slice(0, 3).map((name, idx) => (
                       <span
                         aria-hidden="true"
-                        className="-ml-1.5 size-6 rounded-full bg-gradient-to-br from-sky-400/70 to-indigo-500/70 ring-2 ring-background first:ml-0"
+                        className="-ml-1.5 size-6 rounded-full bg-gradient-to-br from-primary/15 to-primary/30 ring-2 ring-background first:ml-0"
                         key={`${j.name}-${name}-${idx}`}
                       />
                     ))}

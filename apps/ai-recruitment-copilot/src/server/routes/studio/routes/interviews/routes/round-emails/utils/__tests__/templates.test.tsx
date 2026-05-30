@@ -4,7 +4,7 @@ import { renderInterviewSummaryEmail, renderRoundInviteEmail } from "../template
 describe("renderRoundInviteEmail", () => {
   it("uses companyName as subject + body prefix when provided", async () => {
     const result = await renderRoundInviteEmail({
-      candidateName: "张三",
+      candidateName: "郭靖",
       companyName: "Acme 科技",
       heroImageUrl: "https://example.com/email/interview-clouds-monet.jpg",
       interviewUrl: "https://example.com/interview/abc/r1",
@@ -12,7 +12,7 @@ describe("renderRoundInviteEmail", () => {
       scheduledAt: new Date("2026-05-20T10:00:00.000Z"),
     });
     expect(result.subject).toBe("Acme 科技 | 技术终面 邀请");
-    expect(result.html).toContain("张三");
+    expect(result.html).toContain("郭靖");
     expect(result.html).toContain("Acme 科技");
     expect(result.html).toContain("AI 面试");
     expect(result.html).toContain("https://example.com/interview/abc/r1");

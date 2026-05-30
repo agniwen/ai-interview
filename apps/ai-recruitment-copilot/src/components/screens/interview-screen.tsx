@@ -34,7 +34,7 @@ function AgentAudioBars() {
       {BAR_DELAYS.map((delay, i) => (
         <span
           aria-hidden="true"
-          className="block w-7 origin-center rounded-full bg-primary"
+          className="block w-7 origin-center rounded-full bg-primary/45"
           // biome-ignore lint/suspicious/noArrayIndexKey: stable decorative bars
           key={i}
           style={{
@@ -58,7 +58,7 @@ function CandidateCameraTile() {
         <UserIcon className="size-10 text-slate-400" strokeWidth={1.5} />
       </div>
       <div className="absolute top-2 left-2 flex items-center gap-1.5 rounded-md bg-black/55 px-2 py-1 font-medium text-[10px] text-white backdrop-blur">
-        <span className="size-1.5 animate-pulse rounded-full bg-rose-500" />你
+        <span className="size-1.5 animate-pulse rounded-full bg-rose-500/45" />你
       </div>
     </div>
   );
@@ -70,8 +70,8 @@ function AgentStateIndicator() {
   return (
     <div className="-translate-x-1/2 absolute bottom-[170px] left-1/2 z-30 flex items-center justify-center gap-2 font-medium text-muted-foreground text-sm">
       <span className="relative flex size-2.5">
-        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-500 opacity-75" />
-        <span className="relative inline-flex size-2.5 rounded-full bg-green-500" />
+        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-500/35 opacity-75" />
+        <span className="relative inline-flex size-2.5 rounded-full bg-emerald-500/55" />
       </span>
       <span>面试官正在讲话</span>
     </div>
@@ -90,11 +90,11 @@ interface TrackControlProps {
 function TrackControl({ icon, enabled = true, ariaLabel }: TrackControlProps) {
   // 真实 LK_TOGGLE_VARIANT_1 (mic/camera):
   //   on (data-state=on): default 灰 + foreground 字
-  //   off (data-state=off): bg-accent text-destructive border-border
+  //   off (data-state=off): bg-accent text-destructive/75 border-border
   // 2 个按钮拼接: 主 toggle (rounded-l-full) + 设备 chevron (rounded-r-full)
   const baseClass = enabled
     ? "bg-accent/40 text-foreground hover:bg-accent"
-    : "bg-accent text-destructive";
+    : "bg-accent text-destructive/75";
   return (
     <div
       aria-label={ariaLabel}
@@ -130,9 +130,9 @@ function ChatToggle() {
 
 // ─────────────── Disconnect button ───────────────
 function DisconnectButton() {
-  // 真实: bg-destructive/10 text-destructive hover:bg-destructive/20 rounded-full font-mono text-xs font-bold tracking-wider
+  // 真实: bg-destructive/5 text-destructive/80 hover:bg-destructive/20 rounded-full font-mono text-xs font-bold tracking-wider
   return (
-    <span className="inline-flex h-10 items-center gap-1.5 rounded-full bg-destructive/10 px-4 font-bold font-mono text-destructive text-xs tracking-wider">
+    <span className="inline-flex h-10 items-center gap-1.5 rounded-full bg-destructive/5 px-4 font-bold font-mono text-destructive/80 text-xs tracking-wider">
       <PhoneOffIcon className="size-3.5" />
       结束面试
     </span>
@@ -180,7 +180,7 @@ function InterviewCanvas() {
     <div className="relative h-full w-full overflow-hidden bg-background text-foreground">
       {/* Top-left: AgentSpeechTimer */}
       <div className="absolute top-4 left-4 z-30 flex items-center gap-2 rounded-md border border-border bg-background/80 px-2.5 py-1 font-mono text-[11px] tabular-nums backdrop-blur">
-        <span className="size-1.5 animate-pulse rounded-full bg-emerald-500" />
+        <span className="size-1.5 animate-pulse rounded-full bg-emerald-500/55" />
         00:42
       </div>
 

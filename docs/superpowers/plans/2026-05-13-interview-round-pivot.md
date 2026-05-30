@@ -285,7 +285,7 @@ beforeAll(async () => {
 
   // Candidate A with 2 rounds
   await db.insert(studioInterview).values({
-    candidateName: "张三",
+    candidateName: "郭靖",
     createdAt: NOW,
     createdBy: USER_ID,
     id: "cand-a",
@@ -359,9 +359,9 @@ describe("queryPaginatedInterviewRounds", () => {
     expect(result.total).toBe(3);
     expect(result.records).toHaveLength(3);
     const byRound = Object.fromEntries(result.records.map((r) => [r.id, r]));
-    expect(byRound["rnd-a1"]?.candidateName).toBe("张三");
+    expect(byRound["rnd-a1"]?.candidateName).toBe("郭靖");
     expect(byRound["rnd-a1"]?.roundLabel).toBe("一面");
-    expect(byRound["rnd-a2"]?.candidateName).toBe("张三");
+    expect(byRound["rnd-a2"]?.candidateName).toBe("郭靖");
     expect(byRound["rnd-b1"]?.candidateName).toBe("李四");
   });
 
@@ -378,7 +378,7 @@ describe("queryPaginatedInterviewRounds", () => {
   });
 
   it("filters by search across candidate name + round label", async () => {
-    const byName = await queryPaginatedInterviewRounds(ORG, { search: "张三" });
+    const byName = await queryPaginatedInterviewRounds(ORG, { search: "郭靖" });
     expect(byName.total).toBe(2);
     const byRound = await queryPaginatedInterviewRounds(ORG, { search: "二面" });
     expect(byRound.total).toBe(1);
@@ -393,7 +393,7 @@ describe("loadInterviewRoundDetail", () => {
     expect(detail?.id).toBe("rnd-a1");
     expect(detail?.roundLabel).toBe("一面");
     expect(detail?.candidate.id).toBe("cand-a");
-    expect(detail?.candidate.candidateName).toBe("张三");
+    expect(detail?.candidate.candidateName).toBe("郭靖");
     expect(detail?.candidate.targetRole).toBe("前端工程师");
   });
 

@@ -128,7 +128,7 @@ beforeAll(async () => {
   // 候选人 A：有邮箱 / Candidate A: has email
   await db.insert(studioInterview).values({
     candidateEmail: "candidate@example.com",
-    candidateName: "张三",
+    candidateName: "郭靖",
     createdAt: NOW,
     id: INTERVIEW_WITH_EMAIL,
     organizationId: ORG,

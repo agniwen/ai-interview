@@ -53,7 +53,7 @@ describe("loadResumeDetail interviewQuestions surfacing", () => {
   it("returns generated questions when the row has them", async () => {
     const recordId = "rp-with-questions";
     await db.insert(studioInterview).values({
-      candidateName: "张三",
+      candidateName: "郭靖",
       createdAt: NOW,
       createdBy: USER_ID,
       id: recordId,
@@ -66,7 +66,7 @@ describe("loadResumeDetail interviewQuestions surfacing", () => {
         age: null,
         email: null,
         gender: null,
-        name: "张三",
+        name: "郭靖",
         personalStrengths: [],
         phone: null,
         projectExperiences: [],

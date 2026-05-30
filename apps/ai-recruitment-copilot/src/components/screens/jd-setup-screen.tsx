@@ -16,7 +16,7 @@ function FieldLabel({ children, required }: { children: React.ReactNode; require
   return (
     <span className="font-medium text-[12px]">
       {children}
-      {required ? <span className="ml-0.5 text-destructive">*</span> : null}
+      {required ? <span className="ml-0.5 text-destructive/75">*</span> : null}
     </span>
   );
 }
@@ -47,7 +47,7 @@ function Select({ placeholder, value }: { placeholder?: string; value?: string }
 }
 
 function MultiSelectInterviewers() {
-  const picked = ["张三", "李四"];
+  const picked = ["郭靖", "李四"];
   return (
     <div className="flex min-h-9 flex-wrap items-center gap-1.5 rounded-md border border-border bg-background px-2 py-1.5 text-[12px]">
       {picked.map((p) => (
@@ -55,7 +55,7 @@ function MultiSelectInterviewers() {
           className="flex items-center gap-1 rounded-full bg-foreground/[0.05] px-2 py-0.5"
           key={p}
         >
-          <span className="size-3.5 rounded-full bg-gradient-to-br from-sky-400/70 to-indigo-500/70" />
+          <span className="size-3.5 rounded-full bg-gradient-to-br from-primary/15 to-primary/30" />
           {p}
           <XIcon className="size-3 text-muted-foreground" strokeWidth={1.75} />
         </span>
@@ -108,7 +108,7 @@ function JdFormDialog() {
       <div className="flex items-start justify-between gap-4 border-border border-b px-6 pt-5 pb-4">
         <div>
           <div className="flex items-center gap-2">
-            <span className="grid size-7 place-items-center rounded-md bg-primary/10 text-primary">
+            <span className="grid size-7 place-items-center rounded-md bg-primary/5 text-primary/75">
               <FileTextIcon className="size-4" strokeWidth={1.75} />
             </span>
             <h2 className="font-semibold text-[16px]">新建在招岗位</h2>
@@ -155,7 +155,7 @@ function JdFormDialog() {
 
       <div className="flex items-center justify-end gap-2 border-border border-t px-6 py-3">
         <span className="rounded-md border border-border px-3 py-1.5 text-[12px]">取消</span>
-        <span className="rounded-md bg-primary px-3 py-1.5 font-medium text-[12px] text-primary-foreground">
+        <span className="rounded-md bg-primary/80 px-3 py-1.5 font-medium text-[12px] text-primary-foreground">
           保存
         </span>
       </div>

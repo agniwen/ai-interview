@@ -73,7 +73,7 @@ const VALID_STRUCTURED: ResumeParserStructured = {
   graduationYear: null,
   links: [],
   major: null,
-  name: "张三",
+  name: "郭靖",
   personalStrengths: [],
   phone: null,
   projectExperiences: [],
@@ -108,7 +108,7 @@ describe("updateStructuredByHash", () => {
 
     await updateStructuredByHash("a".repeat(64), VALID_STRUCTURED);
 
-    expect(rows[0]?.parsedStructured?.name).toBe("张三");
+    expect(rows[0]?.parsedStructured?.name).toBe("郭靖");
   });
 
   it("spreads to ALL rows sharing the same hash (multi-user scenario)", async () => {
@@ -119,7 +119,7 @@ describe("updateStructuredByHash", () => {
     await updateStructuredByHash("b".repeat(64), VALID_STRUCTURED);
 
     for (const row of rows) {
-      expect(row.parsedStructured?.name).toBe("张三");
+      expect(row.parsedStructured?.name).toBe("郭靖");
     }
   });
 
@@ -133,7 +133,7 @@ describe("updateStructuredByHash", () => {
     // 老的那行保持不变 / pre-existing row unchanged
     expect(rows[0]?.parsedStructured?.name).toBe("老的");
     // null 的那行被回填 / null row got backfilled
-    expect(rows[1]?.parsedStructured?.name).toBe("张三");
+    expect(rows[1]?.parsedStructured?.name).toBe("郭靖");
   });
 
   it("does not touch rows with a different hash", async () => {
@@ -142,7 +142,7 @@ describe("updateStructuredByHash", () => {
 
     await updateStructuredByHash("d".repeat(64), VALID_STRUCTURED);
 
-    expect(rows[0]?.parsedStructured?.name).toBe("张三");
+    expect(rows[0]?.parsedStructured?.name).toBe("郭靖");
     expect(rows[1]?.parsedStructured).toBeNull();
   });
 
