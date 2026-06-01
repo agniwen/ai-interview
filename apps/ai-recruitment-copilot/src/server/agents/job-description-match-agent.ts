@@ -1,7 +1,7 @@
 import type { JobDescriptionListRecord } from "@/lib/shared/job-descriptions";
 import type { ResumeProfile } from "@arc/db-schema/interview/types";
 import { z } from "zod";
-import { createMastraTextAgent } from "@/server/mastra/agents";
+import { createResumeAgent } from "./resume-agent";
 
 const MATCH_INSTRUCTIONS = `你是一名招聘匹配助手。你会收到候选人的结构化简历信息与一份在招岗位候选列表，请从中挑选与候选人最匹配的一个。
 
@@ -25,6 +25,34 @@ const matchResultSchema = z.object({
   jobDescriptionId: z.string().trim().min(1),
   reason: z.string().trim().min(1),
 });
+
+const JSON_BLOCK_RE = /```(?:json)?\s*([\s\S]*?)\s*```/;
+
+function parseMatchOutput(text: string) {
+  const trimmed = text.trim();
+  const blockMatch = JSON_BLOCK_RE.exec(trimmed);
+  const candidates = blockMatch ? [blockMatch[1], trimmed] : [trimmed];
+
+  for (const candidate of candidates) {
+    const start = candidate.indexOf("{");
+    const end = candidate.lastIndexOf("}");
+    if (start === -1 || end === -1) {
+      continue;
+    }
+
+    try {
+      const raw = JSON.parse(candidate.slice(start, end + 1));
+      const parsed = matchResultSchema.safeParse(raw);
+      if (parsed.success) {
+        return parsed.data;
+      }
+    } catch {
+      // try next candidate
+    }
+  }
+
+  return null;
+}
 
 function summarizeJobDescription(jd: JobDescriptionListRecord) {
   const departmentPrefix = jd.departmentName ? `${jd.departmentName} / ` : "";
@@ -86,13 +114,12 @@ export async function matchJobDescriptionForResume(
   }
 
   const modelId = process.env.ALIBABA_STRUCTURED_MODEL ?? "deepseek-v4-pro";
-  const agent = createMastraTextAgent({
+  const agent = createResumeAgent({
     enableThinking: false,
-    id: "jd-match-agent",
     instructions: MATCH_INSTRUCTIONS,
     modelId,
-    name: "JD Match Agent",
     temperature: 0,
+    tools: {},
   });
 
   const candidateBlock = candidates.map(summarizeJobDescription).join("\n\n");
@@ -100,12 +127,8 @@ export async function matchJobDescriptionForResume(
 
   const prompt = `候选人信息：\n${resumeBlock}\n\n候选在招岗位列表：\n${candidateBlock}\n\n请从上面的 id 中挑选一个最匹配的，并按规定 JSON 结构输出。`;
 
-  const { object: parsed } = await agent.generate(prompt, {
-    structuredOutput: {
-      jsonPromptInjection: true,
-      schema: matchResultSchema,
-    },
-  });
+  const { text } = await agent.generate({ prompt });
+  const parsed = parseMatchOutput(text);
 
   if (!parsed) {
     return null;

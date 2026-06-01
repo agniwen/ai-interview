@@ -1,6 +1,15 @@
 import type { PrepareStepFunction, StopCondition, ToolSet } from "ai";
-import { stepCountIs } from "ai";
-import { createMastraResumeScreeningAgent } from "@/server/mastra/agents";
+import { stepCountIs, ToolLoopAgent } from "ai";
+import { withDevTools } from "./devtools";
+import { createAlibabaProvider } from "./provider";
+
+/**
+ * How many times the AI SDK retries a transient LLM call failure (429, 5xx,
+ * network blip, provider timeout) before bubbling the error up to the client.
+ * Retries only apply before the stream starts emitting tokens — once the
+ * response body is flowing, failures cannot be replayed.
+ */
+const DEFAULT_STEP_MAX_RETRIES = 3;
 
 export interface CreateResumeAgentOptions<TOOLS extends ToolSet> {
   instructions: string;
@@ -21,16 +30,17 @@ export function createResumeAgent<TOOLS extends ToolSet>({
   enableThinking = true,
   stopWhen = stepCountIs(1),
   temperature,
-  maxRetries,
+  maxRetries = DEFAULT_STEP_MAX_RETRIES,
   maxOutputTokens,
   prepareStep,
 }: CreateResumeAgentOptions<TOOLS>) {
-  return createMastraResumeScreeningAgent({
-    enableThinking,
+  const provider = createAlibabaProvider({ enableThinking });
+
+  return new ToolLoopAgent({
     instructions,
     maxOutputTokens,
     maxRetries,
-    modelId,
+    model: withDevTools(provider(modelId)),
     prepareStep,
     stopWhen,
     temperature,

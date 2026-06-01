@@ -3,7 +3,6 @@ import { and, desc, eq, gte, sql } from "drizzle-orm";
 import { db } from "@/lib/server/db";
 import { chatConversation, chatMessage } from "@arc/db-schema/schema";
 import type { JobDescriptionConfig } from "@arc/db-schema/job-description-config";
-import type { ResumeAgentState } from "@arc/db-schema/chat-agent-state";
 
 export interface ChatConversationSummary {
   id: string;
@@ -14,7 +13,6 @@ export interface ChatConversationSummary {
 }
 
 export interface ChatConversationDetail extends ChatConversationSummary {
-  agentState: ResumeAgentState;
   jobDescription: string;
   jobDescriptionConfig: JobDescriptionConfig | null;
   resumeImports: Record<string, string>;
@@ -70,7 +68,6 @@ export async function getUserConversation(
     .orderBy(chatMessage.createdAt);
 
   return {
-    agentState: row.agentState ?? {},
     createdAt: row.createdAt,
     id: row.id,
     isTitleGenerating: row.isTitleGenerating,
@@ -108,7 +105,6 @@ export async function checkConversationOwner(
 
 export interface UpsertConversationInput {
   id: string;
-  agentState?: ResumeAgentState;
   organizationId: string;
   userId: string;
   title?: string;
@@ -133,7 +129,6 @@ export async function upsertConversation(input: UpsertConversationInput): Promis
 
   if (owner === "not_found") {
     await db.insert(chatConversation).values({
-      agentState: input.agentState ?? {},
       createdAt: input.createdAt ?? now,
       id: input.id,
       isTitleGenerating: input.isTitleGenerating ?? false,
@@ -152,7 +147,6 @@ export async function upsertConversation(input: UpsertConversationInput): Promis
     .update(chatConversation)
     .set({
       ...(input.title !== undefined && { title: input.title }),
-      ...(input.agentState !== undefined && { agentState: input.agentState }),
       ...(input.isTitleGenerating !== undefined && {
         isTitleGenerating: input.isTitleGenerating,
       }),
@@ -176,24 +170,6 @@ export async function upsertConversation(input: UpsertConversationInput): Promis
     );
 
   return "ok";
-}
-
-export async function updateConversationAgentState(input: {
-  conversationId: string;
-  organizationId: string;
-  userId: string;
-  agentState: ResumeAgentState;
-}): Promise<void> {
-  await db
-    .update(chatConversation)
-    .set({ agentState: input.agentState, updatedAt: new Date() })
-    .where(
-      and(
-        eq(chatConversation.id, input.conversationId),
-        eq(chatConversation.userId, input.userId),
-        eq(chatConversation.organizationId, input.organizationId),
-      ),
-    );
 }
 
 export async function deleteUserConversation(
