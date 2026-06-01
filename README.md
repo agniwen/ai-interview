@@ -135,12 +135,54 @@ part, so the chat agent never re-parses PDFs.
 
 ## External references
 
-When working on Hono / Next.js / LiveKit APIs, prefer the canonical docs over
-training-data recall:
+Prefer official documentation over training-data recall, especially for APIs
+that change frequently.
 
-- Hono: <https://hono.dev/llms.txt> (full reference at `llms-full.txt`)
-- Next.js: <https://nextjs.org/docs/llms.txt>
-- LiveKit: `lk docs overview` / `lk docs search` via the LiveKit CLI
+### AI and agents
+
+- Mastra: <https://mastra.ai/docs> / LLM index:
+  <https://mastra.ai/llms.txt>
+- Vercel AI SDK: <https://ai-sdk.dev/docs>
+- Vercel AI Gateway models and providers:
+  <https://vercel.com/docs/ai-gateway/models-and-providers>
+- OpenAI API: <https://platform.openai.com/docs>
+- LiveKit Agents: <https://docs.livekit.io/agents/>
+  - Local docs: `lk docs overview` / `lk docs search` via the LiveKit CLI
+
+### Web runtime and API
+
+- Next.js: <https://nextjs.org/docs> / LLM index:
+  <https://nextjs.org/docs/llms.txt>
+- React: <https://react.dev/reference/react>
+- Hono: <https://hono.dev/docs> / LLM index:
+  <https://hono.dev/llms.txt> (full reference at `llms-full.txt`)
+
+### Data, auth, and server utilities
+
+- Drizzle ORM: <https://orm.drizzle.team/docs/overview>
+- Better Auth: <https://better-auth.com/docs/basic-usage>
+- PostgreSQL driver (`postgres`): <https://github.com/porsager/postgres>
+- AWS SDK for JavaScript: <https://docs.aws.amazon.com/sdk-for-javascript/>
+
+### UI and client state
+
+- Tailwind CSS v4: <https://tailwindcss.com/docs>
+- shadcn/ui: <https://ui.shadcn.com/docs>
+- TanStack Query: <https://tanstack.com/query/latest/docs/framework/react/overview>
+- TanStack Table: <https://tanstack.com/table/latest/docs>
+- TanStack Form: <https://tanstack.com/form/latest/docs>
+- Radix UI: <https://www.radix-ui.com/primitives/docs/overview/introduction>
+- Base UI: <https://base-ui.com/react/overview/quick-start>
+
+### Tooling and tests
+
+- TypeScript: <https://www.typescriptlang.org/docs/>
+- Vitest: <https://vitest.dev/guide/>
+- Turborepo: <https://turbo.build/repo/docs>
+- pnpm: <https://pnpm.io/motivation>
+- uv: <https://docs.astral.sh/uv/>
+- Ultracite: <https://www.ultracite.ai/>
+- oxlint: <https://oxc.rs/docs/guide/usage/linter.html>
 
 See `CLAUDE.md` for detailed conventions (route folder layout, lib runtime
 split, frontend HTTP call patterns).

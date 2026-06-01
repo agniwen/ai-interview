@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Field, FieldContent, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import type { ResumeLibraryFormValues } from "@/lib/shared/studio-resumes";
+import { RESUME_LIBRARY_NOTES_INPUT_MAX_LENGTH } from "@/lib/shared/studio-resumes";
 
 /**
  * 候选人/简历字段公共表单组件。TanStack Form 受控。
@@ -101,7 +102,7 @@ const NAME_MAX_LENGTH = 120;
 const EMAIL_MAX_LENGTH = 200;
 const PHONE_MAX_LENGTH = 40;
 const TARGET_ROLE_MAX_LENGTH = 120;
-const NOTES_MAX_LENGTH = 2000;
+const NOTES_MAX_LENGTH = RESUME_LIBRARY_NOTES_INPUT_MAX_LENGTH;
 
 function describeResumeFileLabel({
   newFile,

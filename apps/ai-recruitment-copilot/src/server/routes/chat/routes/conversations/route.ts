@@ -48,6 +48,7 @@ export const conversationsRouter = factory
 
     const input = c.req.valid("json");
     const result = await upsertConversation({
+      agentState: input.agentState,
       createdAt: input.createdAt ? new Date(input.createdAt) : undefined,
       id: input.id,
       isTitleGenerating: input.isTitleGenerating,
@@ -82,6 +83,7 @@ export const conversationsRouter = factory
 
     return c.json({
       conversation: {
+        agentState: conversation.agentState,
         createdAt: conversation.createdAt.toISOString(),
         id: conversation.id,
         isTitleGenerating: conversation.isTitleGenerating,
@@ -106,6 +108,7 @@ export const conversationsRouter = factory
     const id = c.req.param("id");
     const input = c.req.valid("json");
     const result = await upsertConversation({
+      agentState: input.agentState,
       id,
       isTitleGenerating: input.isTitleGenerating,
       jobDescription: input.jobDescription,

@@ -339,7 +339,7 @@ export const studioInterviewBaseSchema = z.object({
     .max(120, "候选人姓名不能超过 120 个字符"),
   candidatePhone: z.string().trim().max(40, "联系电话不能超过 40 个字符").or(z.literal("")),
   jobDescriptionId: z.string().trim().min(1, "请选择在招岗位"),
-  notes: z.string().trim().max(2000, "备注不能超过 2000 字"),
+  notes: z.string().trim().max(3000, "备注不能超过 3000 字"),
   scheduleEntries: z
     .array(studioInterviewScheduleEntrySchema)
     .min(1, "至少添加一轮面试安排")

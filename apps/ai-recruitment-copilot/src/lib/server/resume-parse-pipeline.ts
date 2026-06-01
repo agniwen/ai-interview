@@ -4,9 +4,7 @@ import "server-only";
 // Runs Qwen-VL OCR on every page of the PDF, then extracts structured
 // candidate info via a single generateText / parseJsonOutput call.
 
-import { generateText } from "ai";
-import { parseJsonOutput } from "@/server/agents/json-output";
-import { createAlibabaProvider } from "@/server/agents/provider";
+import { createMastraTextAgent } from "@/server/mastra/agents";
 import { structuredSchema } from "@arc/db-schema/resume-parser-schema";
 import type { ResumeParserStructured } from "@arc/db-schema/resume-parser-schema";
 import { rasterizePdfWithMeta } from "./pdf-rasterize";
@@ -113,26 +111,33 @@ function devOcrLog(message: string, data?: Record<string, unknown>): void {
 
 export async function generateResumeStructured(text: string): Promise<ResumeParserStructured> {
   const startedAt = nowMs();
-  const provider = createAlibabaProvider({ enableThinking: false });
   const modelId = process.env.ALIBABA_STRUCTURED_MODEL ?? "deepseek-v4-pro";
-  const { text: rawOutput } = await generateText({
+  const agent = createMastraTextAgent({
+    enableThinking: false,
+    id: "resume-parse-agent",
+    instructions: STRUCTURED_INSTRUCTIONS,
     // 中文简历每字约 1 token，加上 projectExperiences/workExperiences 等结构开销，
     // 项目/经历较多的简历输出会很长，给到 16384 留足余量避免 summary 中途截断。
     // Chinese resumes use ~1 token per character; with verbose project / work
     // experience summaries the output can be very long, so allow 16384 to leave
     // headroom and avoid truncating mid-string.
     maxOutputTokens: 16_384,
-    model: provider(modelId),
-    prompt: `${STRUCTURED_INSTRUCTIONS}\n\n简历文本：\n${clipForStructured(text)}`,
+    modelId,
+    name: "Resume Parse Agent",
     temperature: 0,
+  });
+  const { object } = await agent.generate(`简历文本：\n${clipForStructured(text)}`, {
+    structuredOutput: {
+      jsonPromptInjection: true,
+      schema: structuredSchema,
+    },
   });
   devOcrLog("structured completed", {
     duration: formatDuration(startedAt),
     inputChars: text.length,
     model: modelId,
-    outputChars: rawOutput.length,
   });
-  return parseJsonOutput(rawOutput, structuredSchema, "resume-parse-pipeline");
+  return object;
 }
 
 /**

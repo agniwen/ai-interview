@@ -9,12 +9,13 @@ import { generateResumeStructured, parseResumeFast } from "@/lib/server/resume-p
 import type { ResumeTextSource } from "@/lib/server/resume-parse-pipeline";
 import { buildAttachmentKeyByHash, putObjectBytes } from "@/lib/server/s3";
 import { sha256HexOfBytes } from "@/lib/shared/file-hash";
+import { RESUME_LIBRARY_NOTES_INPUT_MAX_LENGTH } from "@/lib/shared/studio-resumes";
+import { createMastraTextAgent } from "@/server/mastra/agents";
 import {
   createAttachment,
   findAttachmentByContentHash,
   updateStructuredByHash,
 } from "@/server/routes/chat/dao/chat-attachments";
-import { parseJsonOutput } from "./json-output";
 import { createResumeAgent } from "./resume-agent";
 import {
   projectAttachmentToResumeProfile,
@@ -181,6 +182,31 @@ const QUESTION_INSTRUCTIONS = `你是一名技术面试出题助手。请基于�
 5. 题目语言以候选人的主要语言为主：根据简历、目标岗位和岗位说明中占主导的语言判断；如果无法判断，默认使用中文。
 6. 不要给答案，不要输出解释，不要重复题目。`;
 
+async function generateInterviewQuestionsStructured(resumeProfile: ResumeProfile) {
+  const structuredModelId = process.env.ALIBABA_STRUCTURED_MODEL ?? "deepseek-v4-pro";
+  const questionAgent = createMastraTextAgent({
+    enableThinking: false,
+    id: "interview-question-agent",
+    instructions: QUESTION_INSTRUCTIONS,
+    maxOutputTokens: 4096,
+    modelId: structuredModelId,
+    name: "Interview Question Agent",
+    temperature: 0.3,
+  });
+
+  const { object } = await questionAgent.generate(
+    `候选人信息：\n${JSON.stringify(resumeProfile, null, 2)}`,
+    {
+      structuredOutput: {
+        jsonPromptInjection: true,
+        schema: generatedInterviewQuestionsSchema,
+      },
+    },
+  );
+
+  return object;
+}
+
 export interface ResumeParseResult {
   fileName: string;
   resumeProfile: ResumeProfile;
@@ -344,38 +370,9 @@ export function streamGenerateInterviewQuestions(
 ): ReadableStream<Uint8Array> {
   return createNdjsonStream(async (emit) => {
     emit({ message: "正在生成面试题…", type: "status" });
+    emit({ index: 1, type: "step" });
 
-    const structuredModelId = process.env.ALIBABA_STRUCTURED_MODEL ?? "deepseek-v4-pro";
-
-    const questionAgent = createResumeAgent({
-      enableThinking: false,
-      instructions: QUESTION_INSTRUCTIONS,
-      modelId: structuredModelId,
-      stopWhen: stepCountIs(2),
-      temperature: 0.3,
-      tools: {},
-    });
-
-    const streamResult = await questionAgent.stream({
-      prompt: `候选人信息：\n${JSON.stringify(resumeProfile, null, 2)}`,
-    });
-
-    let stepIndex = 0;
-    let fullText = "";
-    for await (const part of streamResult.fullStream) {
-      if (part.type === "text-delta") {
-        fullText += part.text;
-      } else if (part.type === "start-step") {
-        stepIndex += 1;
-        emit({ index: stepIndex, type: "step" });
-      }
-    }
-
-    const parsed = parseJsonOutput(
-      fullText,
-      generatedInterviewQuestionsSchema,
-      "question-generation",
-    );
+    const parsed = await generateInterviewQuestionsStructured(resumeProfile);
     emit({
       data: { interviewQuestions: normalizeInterviewQuestions(parsed.interviewQuestions) },
       type: "result",
@@ -428,21 +425,7 @@ export async function generateInterviewQuestionsForProfile(
   resumeProfile: ResumeProfile,
 ): Promise<ResumeAnalysisResult["interviewQuestions"]> {
   try {
-    const structuredModelId = process.env.ALIBABA_STRUCTURED_MODEL ?? "deepseek-v4-pro";
-    const questionAgent = createResumeAgent({
-      enableThinking: false,
-      instructions: QUESTION_INSTRUCTIONS,
-      modelId: structuredModelId,
-      stopWhen: stepCountIs(2),
-      temperature: 0.3,
-      tools: {},
-    });
-
-    const { text } = await questionAgent.generate({
-      prompt: `候选人信息：\n${JSON.stringify(resumeProfile, null, 2)}`,
-    });
-
-    const parsed = parseJsonOutput(text, generatedInterviewQuestionsSchema, "question-generation");
+    const parsed = await generateInterviewQuestionsStructured(resumeProfile);
     return normalizeInterviewQuestions(parsed.interviewQuestions);
   } catch (error) {
     if (error instanceof ResumeAnalysisError) {
@@ -461,12 +444,12 @@ export async function generateInterviewQuestionsForProfile(
 // =====================================================================
 
 // 评价生成的 prompt：套用 chat 端 resume-screening 的 5 维度 + 阶段 A 输出格式，
-// 把 LLM 自由文本压缩到 < 2000 字以适配 studio_interview.notes 列约束。
+// 把 LLM 自由文本压缩到前端简历评价输入上限以内。
 // Mirrors the chat-side resume-screening framework (5 weighted dimensions +
-// stage-A skeleton), constrained to < 2000 chars to match the `notes` column.
+// stage-A skeleton), constrained to the resume-review input limit.
 const REVIEW_INSTRUCTIONS = `你是一名招聘评估助手，根据候选人简历和在招岗位（如有）输出一份简短的简历评价。
 评价用于"简历库 - 简历评价"字段，会被招聘人员快速扫读，必须：
-- 总字数控制在 1800 字以内。
+- 总字数控制在 2000 字左右，最多不要超过 2500 字。
 - 使用 Markdown，简洁直入，不要寒暄。
 - 严格按以下框架，**不省略任何小节**，无证据时写"待核实"或"未发现关键偏差"，不要编造。
 
@@ -536,9 +519,9 @@ export function streamGenerateResumeReview(input: {
       }
     }
 
-    // 截到 2000 字以内防止 notes 列校验失败——schema 上限 2000。
-    // Clamp to 2000 chars to satisfy the notes column zod constraint.
-    const review = fullText.trim().slice(0, 2000);
+    // 截到前端简历评价输入上限以内；后端保存 schema 另有 3000 字兜底。
+    // Clamp to the resume-review input limit; the backend schema allows 3000.
+    const review = fullText.trim().slice(0, RESUME_LIBRARY_NOTES_INPUT_MAX_LENGTH);
     emit({ data: { review }, type: "result" });
   });
 }

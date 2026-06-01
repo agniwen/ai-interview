@@ -25,6 +25,7 @@ import type {
 import type { InterviewTranscriptTurn } from "./interview-session";
 import type { InterviewQuestion, ResumeProfile } from "./interview/types";
 import type { JobDescriptionConfig } from "./job-description-config";
+import type { ResumeAgentState } from "./chat-agent-state";
 import type { MinimaxVoiceId } from "./minimax-voices";
 import type {
   CandidateExpectationsMeta,
@@ -978,6 +979,7 @@ export const interviewConversationTurn = pgTable(
 export const chatConversation = pgTable(
   "chat_conversation",
   {
+    agentState: jsonb("agent_state").$type<ResumeAgentState>().default({}).notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     id: text("id").primaryKey(),
     isTitleGenerating: boolean("is_title_generating").default(false).notNull(),

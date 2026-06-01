@@ -16,6 +16,7 @@ import { readNdjsonStream } from "@/lib/client/ndjson-stream";
 import { rpc } from "@/lib/client/rpc";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import type { AnalysisStreamEvent } from "@/lib/shared/api-stream";
+import { RESUME_LIBRARY_NOTES_INPUT_MAX_LENGTH } from "@/lib/shared/studio-resumes";
 import type {
   InterviewQuestion,
   ResumeAnalysisResult,
@@ -26,6 +27,10 @@ import { toast } from "sonner";
 
 const LEADING_DIGIT_RE = /^\d/;
 const LEADING_DIGITS_RE = /^(\d+)/;
+
+function clampReviewDraft(review: string) {
+  return review.slice(0, RESUME_LIBRARY_NOTES_INPUT_MAX_LENGTH);
+}
 
 export interface ResumeAnalysisPipelineOptions {
   onProfileParsed: (input: { fileName: string; resumeProfile: ResumeProfile }) => void;
@@ -424,13 +429,13 @@ export function useResumeAnalysisPipeline(
               (event) => {
                 if (event.type === "text-delta") {
                   reviewTextRef.current += event.text;
-                  const draft = reviewTextRef.current;
+                  const draft = clampReviewDraft(reviewTextRef.current);
                   setReviewPreview(draft);
                   onReviewDraftChange?.(draft);
                 }
                 if (event.type === "result") {
                   const data = event.data as { review?: string };
-                  review = data.review ?? null;
+                  review = data.review ? clampReviewDraft(data.review) : null;
                   if (review) {
                     setReviewPreview(review);
                     onReviewDraftChange?.(review);

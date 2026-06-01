@@ -1,5 +1,20 @@
 import { z } from "zod";
 
+const resumeAgentStateSchema = z
+  .object({
+    ignoredJobDescriptionSuggestion: z.boolean().optional(),
+    lastStage: z.enum(["idle", "awaiting_jd_approval", "stage_a", "stage_b"]).optional(),
+    pendingApproval: z
+      .object({
+        recommendedJobDescriptionId: z.string().min(1),
+        toolCallId: z.string().min(1),
+        workflowRunId: z.string().min(1).optional(),
+      })
+      .nullable()
+      .optional(),
+  })
+  .default({});
+
 export const jobDescriptionConfigSchema = z.union([
   z.object({
     departmentName: z.string().nullable(),
@@ -24,6 +39,7 @@ export const upsertChatMessageSchema = z.object({
 });
 
 export const upsertConversationSchema = z.object({
+  agentState: resumeAgentStateSchema.optional(),
   createdAt: z.number().int().nonnegative().optional(),
   id: z.string().min(1),
   isTitleGenerating: z.boolean().optional(),
@@ -34,6 +50,7 @@ export const upsertConversationSchema = z.object({
 });
 
 export const patchConversationSchema = z.object({
+  agentState: resumeAgentStateSchema.optional(),
   isTitleGenerating: z.boolean().optional(),
   jobDescription: z.string().optional(),
   jobDescriptionConfig: jobDescriptionConfigSchema.nullable().optional(),

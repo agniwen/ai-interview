@@ -155,6 +155,9 @@ export interface ResumeLibraryDetail extends ResumeLibraryListRecord {
   interviewQuestions: ResumeAnalysisResult["interviewQuestions"];
 }
 
+export const RESUME_LIBRARY_NOTES_INPUT_MAX_LENGTH = 2500;
+export const RESUME_LIBRARY_NOTES_SAVE_MAX_LENGTH = 3000;
+
 // ── 阶段子描述函数：每段独立逻辑，方便单测 ──
 // Per-stage sub-describers; pure functions, easy to unit-test.
 
@@ -374,7 +377,7 @@ export const resumeLibraryFormSchema = z.object({
   candidateName: z.string().trim().max(120, "候选人姓名不能超过 120 个字符"),
   candidatePhone: z.string().trim().max(40, "联系电话不能超过 40 个字符"),
   jobDescriptionId: z.string().trim().max(100),
-  notes: z.string().trim().max(2000, "备注不能超过 2000 字"),
+  notes: z.string().trim().max(RESUME_LIBRARY_NOTES_SAVE_MAX_LENGTH, "备注不能超过 3000 字"),
   targetRole: z.string().trim().max(120, "目标岗位不能超过 120 个字符"),
 });
 
