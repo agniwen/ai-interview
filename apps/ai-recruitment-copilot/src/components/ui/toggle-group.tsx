@@ -36,7 +36,9 @@ function ToggleGroup({
       data-spacing={spacing}
       style={{ "--gap": spacing } as React.CSSProperties}
       className={cn(
-        "group/toggle-group flex w-fit items-center gap-[--spacing(var(--gap))] rounded-md data-[spacing=default]:data-[variant=outline]:shadow-xs",
+        "group/toggle-group flex w-fit items-center gap-[--spacing(var(--gap))] rounded-md",
+        // 当前扁平化风格暂时关闭阴影；如需恢复，取消下一行注释。
+        // "data-[spacing=default]:data-[variant=outline]:shadow-xs",
         className,
       )}
       {...props}

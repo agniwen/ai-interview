@@ -22,8 +22,7 @@ const toggleVariants = cva(
       },
       variant: {
         default: "bg-transparent",
-        outline:
-          "border border-input bg-transparent shadow-xs hover:bg-accent hover:text-accent-foreground",
+        outline: "border border-input bg-transparent hover:bg-accent hover:text-accent-foreground",
       },
     },
   },
@@ -38,7 +37,12 @@ function Toggle({
   return (
     <TogglePrimitive.Root
       data-slot="toggle"
-      className={cn(toggleVariants({ className, size, variant }))}
+      className={cn(
+        toggleVariants({ size, variant }),
+        // 当前扁平化风格暂时关闭阴影；如需恢复，取消下一行注释。
+        // variant === "outline" && "shadow-xs",
+        className,
+      )}
       {...props}
     />
   );

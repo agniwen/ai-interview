@@ -1,7 +1,7 @@
 // 用途：landing 用「Studio › 简历库」简化版 UI。对齐真实组件：
 // - PageHeader: <h1 class="text-2xl"> + <p class="text-muted-foreground text-sm">
 // - ResumeLibraryCharts: 3 张 shadcn chart card，顶部含指标分栏
-// - DataGrid: <Card class="overflow-hidden py-0">，Toolbar 在外面 (filters 左 + button 右)
+// - DataGrid: AlignUI table primitives，Toolbar 在外面 (filters 左 + button 右)
 // Purpose: simplified Studio resume library mock, mirroring the real components 1:1.
 import {
   ChevronDownIcon,
@@ -12,7 +12,17 @@ import {
   SearchIcon,
   UploadCloudIcon,
 } from "lucide-react";
+import { Fragment } from "react";
 import { PdfFileIcon } from "@/components/pdf-file-icon";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+  TableRowDivider,
+} from "@/components/ui/table";
 import { AppShell, StudioNav } from "./_parts/app-shell";
 import type { BreadcrumbCrumb } from "./_parts/app-shell";
 import { ScreenFrame } from "./screen-frame";
@@ -558,57 +568,36 @@ function LifecycleBadge({ row }: { row: ResumeRow }) {
 }
 
 function ResumeTable() {
-  // 真实 DataGrid 外层是 <Card className="overflow-hidden py-0">
-  // 真实 Table 使用 shadcn Table 组件，TableHead 用 text-muted-foreground h-10 px-2 text-left text-sm
-  // TableCell px-2 py-2 text-sm
   return (
-    <div className="overflow-hidden rounded-xl border border-border bg-background shadow-xs">
-      <table className="w-full table-fixed text-sm">
-        <thead>
-          <tr className="border-border border-b bg-muted/40">
-            <th
-              aria-label="选择"
-              className="h-10 w-12 px-3 text-left font-medium text-muted-foreground"
-            >
-              <span
-                aria-hidden="true"
-                className="size-4 rounded-[3px] border border-foreground/30 inline-block"
-              />
-            </th>
-            <th className="h-10 w-[260px] px-3 text-left font-medium text-muted-foreground">
-              候选人
-            </th>
-            <th className="h-10 w-[230px] px-3 text-left font-medium text-muted-foreground">
-              关联岗位
-            </th>
-            <th className="h-10 w-[220px] px-3 text-left font-medium text-muted-foreground">
-              当前环节
-            </th>
-            <th className="h-10 w-[150px] px-3 text-left font-medium text-muted-foreground">
-              创建人
-            </th>
-            <th className="h-10 w-[170px] px-3 text-left font-medium text-muted-foreground">
-              创建时间
-            </th>
-            <th className="h-10 w-[170px] px-3 text-left font-medium text-muted-foreground">
-              最近面试时间
-            </th>
-            <th
-              aria-label="操作"
-              className="h-10 w-[170px] px-3 text-right font-medium text-muted-foreground"
+    <Table className="table-fixed">
+      <TableHeader>
+        <TableRow>
+          <TableHead aria-label="选择" className="w-12">
+            <span
+              aria-hidden="true"
+              className="size-4 rounded-[3px] border border-foreground/30 inline-block"
             />
-          </tr>
-        </thead>
-        <tbody>
-          {RESUMES.map((r) => (
-            <tr className="border-border border-b last:border-b-0 hover:bg-muted/30" key={r.name}>
-              <td aria-label="选择简历" className="px-3 py-2.5">
+          </TableHead>
+          <TableHead className="w-[260px]">候选人</TableHead>
+          <TableHead className="w-[230px]">关联岗位</TableHead>
+          <TableHead className="w-[220px]">当前环节</TableHead>
+          <TableHead className="w-[150px]">创建人</TableHead>
+          <TableHead className="w-[170px]">创建时间</TableHead>
+          <TableHead className="w-[170px]">最近面试时间</TableHead>
+          <TableHead aria-label="操作" className="w-[170px] text-right" />
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {RESUMES.map((r, index) => (
+          <Fragment key={r.name}>
+            <TableRow key={r.name}>
+              <TableCell aria-label="选择简历">
                 <span
                   aria-hidden="true"
                   className="inline-block size-4 rounded-[3px] border border-foreground/30"
                 />
-              </td>
-              <td aria-label={`候选人：${r.name}`} className="px-3 py-2.5">
+              </TableCell>
+              <TableCell aria-label={`候选人：${r.name}`}>
                 <div className="flex min-w-0 items-start gap-2">
                   {r.hasPdf ? (
                     <span
@@ -635,16 +624,16 @@ function ResumeTable() {
                     </div>
                   </div>
                 </div>
-              </td>
-              <td className="px-3 py-2.5">
+              </TableCell>
+              <TableCell>
                 <span className="block truncate underline decoration-foreground/20 underline-offset-4 hover:decoration-foreground/60">
                   {r.jobDepartment} / {r.jobLink}
                 </span>
-              </td>
-              <td className="px-3 py-2.5">
+              </TableCell>
+              <TableCell>
                 <LifecycleBadge row={r} />
-              </td>
-              <td aria-label={`创建人：${r.creator}`} className="px-3 py-2.5">
+              </TableCell>
+              <TableCell aria-label={`创建人：${r.creator}`}>
                 <div className="flex items-center gap-2">
                   <span
                     aria-hidden="true"
@@ -652,12 +641,12 @@ function ResumeTable() {
                   />
                   <span>{r.creator}</span>
                 </div>
-              </td>
-              <td className="px-3 py-2.5 text-muted-foreground tabular-nums">{r.createdAt}</td>
-              <td className="px-3 py-2.5 text-muted-foreground tabular-nums">
+              </TableCell>
+              <TableCell className="text-muted-foreground tabular-nums">{r.createdAt}</TableCell>
+              <TableCell className="text-muted-foreground tabular-nums">
                 {r.lastInterviewAt}
-              </td>
-              <td className="px-3 py-2.5">
+              </TableCell>
+              <TableCell>
                 <div className="flex items-center justify-end gap-0.5">
                   <span
                     aria-label="查看简历"
@@ -678,12 +667,13 @@ function ResumeTable() {
                     更多
                   </span>
                 </div>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+              </TableCell>
+            </TableRow>
+            {index < RESUMES.length - 1 ? <TableRowDivider /> : null}
+          </Fragment>
+        ))}
+      </TableBody>
+    </Table>
   );
 }
 

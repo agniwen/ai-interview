@@ -3,8 +3,7 @@
 import type { ColumnDef, OnChangeFn, RowSelectionState, SortingState } from "@tanstack/react-table";
 import type { ReactNode } from "react";
 import { flexRender, getCoreRowModel, useReactTable } from "@tanstack/react-table";
-import { useMemo } from "react";
-import { Card } from "@/components/ui/card";
+import { Fragment, useMemo } from "react";
 import {
   Table,
   TableBody,
@@ -12,6 +11,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
+  TableRowDivider,
 } from "@/components/ui/table";
 import { cn } from "@/lib/shared/utils";
 import { PaginationBar } from "./parts/pagination-bar";
@@ -71,13 +71,12 @@ export interface DataGridProps<TData> {
   onResetFilters?: () => void;
   canResetFilters?: boolean;
   /**
-   * 表格滚动区最大高度（启用 sticky 表头依赖此值）。
-   * 默认 `calc(100svh - 22rem)`，给工具栏 / 分页 / 页头留出空间。
-   * 传入 `null` 可关闭高度约束，从而禁用 sticky 行为。
+   * 表格滚动区最大高度。默认不限制高度，页面滚动交给外层 layout。
+   * 传入具体高度时会启用表格内部滚动与 sticky 表头。
    *
-   * Max height for the scroll viewport (enables sticky header).
-   * Defaults to `calc(100svh - 22rem)`. Pass `null` to disable height cap
-   * (which also makes the sticky header a no-op since there's no scroll container).
+   * Max height for the table scroll viewport. By default there is no height cap,
+   * so the outer layout owns scrolling. Pass a concrete height to enable an
+   * internal scroll viewport and sticky header.
    */
   maxHeight?: string | null;
 }
@@ -96,7 +95,7 @@ export function DataGrid<TData>(props: DataGridProps<TData>) {
     getRowId,
     headerExtra,
     loading,
-    maxHeight = "calc(100svh - 22rem)",
+    maxHeight = null,
     onFilterChange,
     onRefresh,
     onResetFilters,
@@ -155,7 +154,7 @@ export function DataGrid<TData>(props: DataGridProps<TData>) {
   const { rows } = table.getRowModel();
 
   return (
-    <div className="space-y-4">
+    <div className="flex flex-col gap-4">
       {headerExtra ? <div>{headerExtra}</div> : null}
 
       <Toolbar
@@ -173,51 +172,36 @@ export function DataGrid<TData>(props: DataGridProps<TData>) {
       />
 
       {rows.length > 0 ? (
-        <Card className="overflow-hidden py-0">
-          <Table
-            containerClassName={maxHeight ? "overflow-auto" : undefined}
-            containerStyle={maxHeight ? { maxHeight } : undefined}
-          >
-            <TableHeader>
-              {table.getHeaderGroups().map((headerGroup) => (
-                // 表头行不响应 hover：基础 TableRow 自带 `hover:bg-muted`，
-                // 但表头不应该跟随光标变色（否则非固定列变 muted、固定列保持 card 会撕裂）。
-                // Override the base TableRow hover so the whole header stays flat —
-                // otherwise non-pinned header cells would tint while pinned ones don't.
-                <TableRow className="" key={headerGroup.id}>
-                  {headerGroup.headers.map((header) => (
-                    <TableHead
-                      className={cn(
-                        // 统一 12px 水平 padding；shadcn `<TableHead>` 自带的
-                        // `[&:has([role=checkbox])]:pr-0` 会让 checkbox 列变成 pl:12 / pr:0
-                        // 的不对称形态，这里用同变体的 `pr-3` 把右内距找回来。
-                        "px-3 [&:has([role=checkbox])]:pr-3 bg-background",
-                        maxHeight && STICKY_HEADER_CLASS,
-                      )}
-                      key={header.id}
-                      style={getPinningStyles(header.column, { isHeader: !!maxHeight })}
-                    >
-                      {header.isPlaceholder
-                        ? null
-                        : flexRender(header.column.columnDef.header, header.getContext())}
-                    </TableHead>
-                  ))}
-                </TableRow>
-              ))}
-            </TableHeader>
-            <TableBody>
-              {rows.map((row) => (
+        <Table
+          containerClassName={maxHeight ? "overflow-auto" : undefined}
+          containerStyle={maxHeight ? { maxHeight } : undefined}
+        >
+          <TableHeader>
+            {table.getHeaderGroups().map((headerGroup) => (
+              <TableRow key={headerGroup.id}>
+                {headerGroup.headers.map((header) => (
+                  <TableHead
+                    className={cn(maxHeight && STICKY_HEADER_CLASS)}
+                    key={header.id}
+                    style={getPinningStyles(header.column, { isHeader: !!maxHeight })}
+                  >
+                    {header.isPlaceholder
+                      ? null
+                      : flexRender(header.column.columnDef.header, header.getContext())}
+                  </TableHead>
+                ))}
+              </TableRow>
+            ))}
+          </TableHeader>
+          <TableBody>
+            {rows.map((row, rowIndex) => (
+              <Fragment key={row.id}>
                 <TableRow data-state={row.getIsSelected() ? "selected" : undefined} key={row.id}>
                   {row.getVisibleCells().map((cell) => {
-                    const isPinned = cell.column.getIsPinned();
+                    const pin = cell.column.getIsPinned();
                     return (
                       <TableCell
-                        className={cn(
-                          // 同 TableHead：统一 12px 水平 padding，并把 checkbox 列的 pr-0 找回来。
-                          // Same as TableHead — uniform px-3 plus pr restore for checkbox cells.
-                          "px-3 [&:has([role=checkbox])]:pr-3",
-                          isPinned && PINNED_CELL_CLASS,
-                        )}
+                        className={cn(pin && PINNED_CELL_CLASS)}
                         key={cell.id}
                         style={getPinningStyles(cell.column)}
                       >
@@ -226,10 +210,11 @@ export function DataGrid<TData>(props: DataGridProps<TData>) {
                     );
                   })}
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </Card>
+                {rowIndex < rows.length - 1 ? <TableRowDivider /> : null}
+              </Fragment>
+            ))}
+          </TableBody>
+        </Table>
       ) : (
         empty
       )}

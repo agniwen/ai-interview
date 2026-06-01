@@ -49,29 +49,14 @@ export function getPinningStyles<TData>(
 }
 
 /**
- * className for pinned cells/headers — 关键点：
- *   1) `bg-background` 与本项目里 `<Card>` 实际用的 token 一致
- *      (本项目 `Card` 的 className 是 `bg-background` 而非 `bg-card`)，
- *      用错 token 会在 Card 内出现一条色差明显的"色带"
- *   2) hover/selected 用 `[tbody_tr…]` 作用域到 body，避免 thead 行
- *      hover 时只有固定列变色、其他不变的视觉错位
- *   3) padding 不在这里加，统一交给 DataGrid 顶层
- *
- * 1) Use `bg-background` to match this project's `<Card>` surface — the local
- *    `Card` component is built with `bg-background`, NOT `bg-card`. Picking the
- *    wrong token shows up as a grey stripe across the pinned column.
- * 2) Hover/selected descendant rules are scoped to `tbody` so they only fire
- *    for body rows — thead pinned cells stay flat alongside non-pinned thead
- *    cells (which can't react to row hover anyway since they're opaque).
- * 3) Padding is intentionally NOT set here — DataGrid sets uniform padding on
- *    every cell so pinned and non-pinned columns line up.
+ * className for pinned body cells. Pinned cells need an opaque base because
+ * they sit above horizontally-scrolled content, then mirror the row hover and
+ * selected states from the table primitives.
  */
 export const PINNED_CELL_CLASS =
-  "bg-background transition-colors [tbody_tr:hover_&]:bg-muted [tbody_tr[data-state=selected]_&]:bg-muted";
+  "bg-background transition-colors group-hover/row:bg-muted group-data-[state=selected]/row:bg-muted";
 
 /**
- * 表头粘性定位 className：粘在滚动容器顶部，bg 用 `bg-background` 与 Card 一致。
- * Sticky thead className: pins to scroll container top with `bg-background` so the
- * header surface matches the wrapping `<Card>` (which itself is `bg-background`).
+ * Sticky header cells use the same muted surface as the AlignUI-style header.
  */
-export const STICKY_HEADER_CLASS = "sticky top-0 z-2 bg-background";
+export const STICKY_HEADER_CLASS = "sticky top-0 z-2 bg-muted";

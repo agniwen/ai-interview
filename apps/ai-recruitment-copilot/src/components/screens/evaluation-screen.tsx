@@ -3,7 +3,17 @@
 // Purpose: simplified UI of StudioPersonDetailDialog (mode="interview", size="full")
 // laid over the AI 面试 list page. Active tab "面试报告" mirrors EvaluationResults.
 import { FileTextIcon, SearchIcon, XIcon } from "lucide-react";
+import { Fragment } from "react";
 import { PdfFileIcon } from "@/components/pdf-file-icon";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+  TableRowDivider,
+} from "@/components/ui/table";
 import { AppShell, StudioNav } from "./_parts/app-shell";
 import type { BreadcrumbCrumb } from "./_parts/app-shell";
 import { ScreenFrame } from "./screen-frame";
@@ -164,47 +174,26 @@ function InterviewListBackground() {
           全部状态
         </span>
       </div>
-      <div className="overflow-hidden rounded-xl border border-border bg-background shadow-xs">
-        <table className="w-full table-fixed text-sm">
-          <thead>
-            <tr className="border-border border-b bg-muted/40">
-              <th className="h-10 w-[260px] px-3 text-left font-medium text-muted-foreground">
-                候选人
-              </th>
-              <th className="h-10 w-[240px] px-3 text-left font-medium text-muted-foreground">
-                在招岗位
-              </th>
-              <th className="h-10 w-[90px] px-3 text-left font-medium text-muted-foreground">
-                轮次
-              </th>
-              <th className="h-10 w-[150px] px-3 text-left font-medium text-muted-foreground">
-                排期
-              </th>
-              <th className="h-10 w-[110px] px-3 text-left font-medium text-muted-foreground">
-                状态
-              </th>
-              <th className="h-10 w-[100px] px-3 text-left font-medium text-muted-foreground">
-                报告
-              </th>
-              <th className="h-10 w-[140px] px-3 text-left font-medium text-muted-foreground">
-                创建人
-              </th>
-              <th className="h-10 w-[160px] px-3 text-left font-medium text-muted-foreground">
-                创建时间
-              </th>
-              <th className="h-10 w-[170px] px-3 text-left font-medium text-muted-foreground">
-                最近面试时间
-              </th>
-              <th
-                aria-label="操作"
-                className="h-10 w-[140px] px-3 text-right font-medium text-muted-foreground"
-              />
-            </tr>
-          </thead>
-          <tbody>
-            {INTERVIEWS.map((r) => (
-              <tr className="border-border border-b last:border-b-0" key={r.candidate}>
-                <td aria-label={`候选人：${r.candidate}`} className="px-3 py-3">
+      <Table className="table-fixed">
+        <TableHeader>
+          <TableRow>
+            <TableHead className="w-[260px]">候选人</TableHead>
+            <TableHead className="w-[240px]">在招岗位</TableHead>
+            <TableHead className="w-[90px]">轮次</TableHead>
+            <TableHead className="w-[150px]">排期</TableHead>
+            <TableHead className="w-[110px]">状态</TableHead>
+            <TableHead className="w-[100px]">报告</TableHead>
+            <TableHead className="w-[140px]">创建人</TableHead>
+            <TableHead className="w-[160px]">创建时间</TableHead>
+            <TableHead className="w-[170px]">最近面试时间</TableHead>
+            <TableHead aria-label="操作" className="w-[140px] text-right" />
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {INTERVIEWS.map((r, index) => (
+            <Fragment key={r.candidate}>
+              <TableRow key={r.candidate}>
+                <TableCell aria-label={`候选人：${r.candidate}`}>
                   <div className="flex min-w-0 items-start gap-2">
                     {r.hasPdf ? (
                       <span
@@ -227,25 +216,24 @@ function InterviewListBackground() {
                       <div className="truncate text-muted-foreground text-xs">{r.email}</div>
                     </div>
                   </div>
-                </td>
-                <td
-                  aria-label={`在招岗位：${r.jobDepartment} / ${r.jobName}`}
-                  className="px-3 py-3"
-                >
+                </TableCell>
+                <TableCell aria-label={`在招岗位：${r.jobDepartment} / ${r.jobName}`}>
                   <span className="block truncate underline decoration-foreground/20 underline-offset-4 hover:decoration-foreground/60">
                     {r.jobDepartment} / {r.jobName}
                   </span>
-                </td>
-                <td className="px-3 py-3 text-muted-foreground">{r.round}</td>
-                <td className="px-3 py-3 text-muted-foreground tabular-nums">{r.scheduledAt}</td>
-                <td aria-label={`状态：${r.status.label}`} className="px-3 py-3">
+                </TableCell>
+                <TableCell className="text-muted-foreground">{r.round}</TableCell>
+                <TableCell className="text-muted-foreground tabular-nums">
+                  {r.scheduledAt}
+                </TableCell>
+                <TableCell aria-label={`状态：${r.status.label}`}>
                   <span
                     className={`inline-flex items-center rounded-md px-1.5 py-0.5 font-medium text-xs ${TONE_CLASS[r.status.tone]}`}
                   >
                     {r.status.label}
                   </span>
-                </td>
-                <td className="px-3 py-3">
+                </TableCell>
+                <TableCell>
                   {r.report ? (
                     <span className="inline-flex items-center rounded-md border border-transparent bg-emerald-500/5 px-1.5 py-0.5 font-medium text-emerald-700/80 text-xs dark:text-emerald-300/80">
                       已生成
@@ -253,8 +241,8 @@ function InterviewListBackground() {
                   ) : (
                     <span className="text-muted-foreground">—</span>
                   )}
-                </td>
-                <td aria-label={`创建人：${r.creator}`} className="px-3 py-3">
+                </TableCell>
+                <TableCell aria-label={`创建人：${r.creator}`}>
                   <div className="flex items-center gap-2">
                     <span
                       aria-hidden="true"
@@ -262,12 +250,12 @@ function InterviewListBackground() {
                     />
                     <span>{r.creator}</span>
                   </div>
-                </td>
-                <td className="px-3 py-3 text-muted-foreground tabular-nums">{r.createdAt}</td>
-                <td className="px-3 py-3 text-muted-foreground tabular-nums">
+                </TableCell>
+                <TableCell className="text-muted-foreground tabular-nums">{r.createdAt}</TableCell>
+                <TableCell className="text-muted-foreground tabular-nums">
                   {r.lastInterviewAt}
-                </td>
-                <td className="px-3 py-3">
+                </TableCell>
+                <TableCell>
                   <div className="flex items-center justify-end gap-0.5">
                     <span
                       aria-label="查看面试记录"
@@ -288,12 +276,13 @@ function InterviewListBackground() {
                       更多
                     </span>
                   </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+                </TableCell>
+              </TableRow>
+              {index < INTERVIEWS.length - 1 ? <TableRowDivider /> : null}
+            </Fragment>
+          ))}
+        </TableBody>
+      </Table>
     </div>
   );
 }

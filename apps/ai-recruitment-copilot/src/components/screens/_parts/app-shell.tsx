@@ -23,6 +23,7 @@ import {
   XIcon,
 } from "lucide-react";
 import type { ReactNode } from "react";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/shared/utils";
 
 interface NavItem {
@@ -361,7 +362,7 @@ export function AppShell({
           <div className="flex shrink-0 flex-col gap-3 p-2">
             <SidebarTabs active={tab} />
           </div>
-          {/* SidebarContent: flex min-h-0 flex-1 flex-col overflow-auto */}
+          {/* SidebarContent: flex min-h-0 flex-1 flex-col overflow-hidden */}
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden">{sidebar}</div>
           {/* SidebarFooter: p-0 (AppSidebar override) — user section provides its own border-t */}
           <SidebarUserSection />
@@ -373,15 +374,10 @@ export function AppShell({
           + layout 上还加了 border border-border */}
       <main className="relative m-3 ml-0 flex min-w-0 flex-1 flex-col overflow-hidden rounded-xl border border-border bg-background shadow-none">
         <InsetHeader actions={headerActions} breadcrumb={breadcrumb} className={headerClassName} />
-        {/* @container/main flex min-h-0 flex-1 flex-col overflow-y-auto bg-background */}
-        <div
-          className={cn(
-            "flex min-h-0 flex-1 flex-col overflow-y-auto bg-background",
-            bodyClassName,
-          )}
-        >
+        {/* @container/main min-h-0 flex-1 bg-background (OverlayScrollbars ScrollArea) */}
+        <ScrollArea className={cn("@container/main min-h-0 flex-1 bg-background", bodyClassName)}>
           {padded ? <div className="flex flex-col gap-6 px-6 py-6">{children}</div> : children}
-        </div>
+        </ScrollArea>
       </main>
     </div>
   );

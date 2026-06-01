@@ -1,9 +1,9 @@
 "use client";
 
 import { CircleHelpIcon } from "lucide-react";
+import { Fragment } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -19,6 +19,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
+  TableRowDivider,
 } from "@/components/ui/table";
 import { WORKSPACE_ROLES, getWorkspaceRoleLabel } from "./role-display";
 
@@ -130,49 +131,50 @@ export function PermissionsExplanationDialog() {
           </DialogDescription>
         </DialogHeader>
 
-        <Card className="min-h-0 gap-0 overflow-hidden rounded-md py-0">
-          <CardContent className="overflow-auto p-0">
-            <Table className="border-separate border-spacing-0">
-              <TableHeader>
-                <TableRow className="bg-muted hover:bg-muted">
-                  <TableHead className="sticky left-0 z-20 min-w-32 bg-muted px-4 py-3 font-semibold shadow-[1px_0_0_0_var(--border)]">
-                    权限模块
-                  </TableHead>
-                  {ROLE_COLUMNS.map((role) => (
-                    <TableHead className="min-w-44 bg-muted px-4 py-3" key={role}>
-                      <div className="flex min-w-0 flex-col gap-1.5">
-                        <div className="flex items-center gap-2">
-                          <span className="font-semibold text-foreground">
-                            {getWorkspaceRoleLabel(role)}
-                          </span>
-                        </div>
-                        <span className="font-normal text-muted-foreground text-xs">
-                          {ROLE_SUMMARIES[role]}
+        <div className="min-h-0 overflow-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="sticky left-0 z-20 min-w-32 shadow-[1px_0_0_0_var(--border)]">
+                  权限模块
+                </TableHead>
+                {ROLE_COLUMNS.map((role) => (
+                  <TableHead className="min-w-44" key={role}>
+                    <div className="flex min-w-0 flex-col gap-1.5">
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-foreground">
+                          {getWorkspaceRoleLabel(role)}
                         </span>
                       </div>
-                    </TableHead>
-                  ))}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {PERMISSION_ROWS.map((row) => (
-                  <TableRow className="group/permission-row" key={row.resource}>
-                    <TableCell className="sticky left-0 z-10 bg-background px-4 font-medium shadow-[1px_0_0_0_var(--border)] transition-colors group-hover/permission-row:bg-muted">
+                      <span className="font-normal text-muted-foreground text-xs">
+                        {ROLE_SUMMARIES[role]}
+                      </span>
+                    </div>
+                  </TableHead>
+                ))}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {PERMISSION_ROWS.map((row, index) => (
+                <Fragment key={row.resource}>
+                  <TableRow>
+                    <TableCell className="sticky left-0 z-10 bg-background font-medium shadow-[1px_0_0_0_var(--border)]">
                       <Badge className="font-normal" variant="secondary">
                         {row.resource}
                       </Badge>
                     </TableCell>
                     {ROLE_COLUMNS.map((role) => (
-                      <TableCell className="px-4" key={role}>
+                      <TableCell key={role}>
                         <PermissionCell value={row[role]} />
                       </TableCell>
                     ))}
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
+                  {index < PERMISSION_ROWS.length - 1 ? <TableRowDivider /> : null}
+                </Fragment>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
       </DialogContent>
     </Dialog>
   );

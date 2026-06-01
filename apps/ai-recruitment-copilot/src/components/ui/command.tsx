@@ -24,10 +24,7 @@ function Command({ className, ...props }: React.ComponentProps<typeof CommandPri
       // collapse Command to zero height and keep CommandList from reporting a real
       // clientHeight, which makes react-remove-scroll mark the popover non-scrollable
       // and swallow wheel/touch events.
-      className={cn(
-        "flex w-full flex-col rounded-md bg-popover text-popover-foreground",
-        className,
-      )}
+      className={cn("flex w-full flex-col rounded-md bg-background text-foreground", className)}
       {...props}
     />
   );

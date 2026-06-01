@@ -1,8 +1,18 @@
 // 用途：landing 用「Studio › 在招岗位管理」简化版 UI。对齐真实 JobDescriptionManagementPage：
 // PageHeader (text-2xl + text-sm muted) + JobDescriptionCharts (3 张 Card) +
-// Toolbar (search + departmentId/interviewerId multi-select) + DataGrid Card 包表格 + 新建岗位 按钮
+// Toolbar (search + departmentId/interviewerId multi-select) + AlignUI DataGrid table + 新建岗位按钮
 // Purpose: simplified Studio job-descriptions management mock, 1:1 with real components.
 import { ChevronDownIcon, FileTextIcon, PlusIcon, SearchIcon } from "lucide-react";
+import { Fragment } from "react";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+  TableRowDivider,
+} from "@/components/ui/table";
 import { AppShell, StudioNav } from "./_parts/app-shell";
 import type { BreadcrumbCrumb } from "./_parts/app-shell";
 import { ScreenFrame } from "./screen-frame";
@@ -296,26 +306,23 @@ const JOBS: JobRow[] = [
 
 function JobsTable() {
   return (
-    <div className="overflow-hidden rounded-xl border border-border bg-background shadow-xs">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="border-border border-b bg-muted/40">
-            <th className="h-10 px-3 text-left font-medium text-muted-foreground">岗位名</th>
-            <th className="h-10 px-3 text-left font-medium text-muted-foreground">部门</th>
-            <th className="h-10 px-3 text-left font-medium text-muted-foreground">面试官</th>
-            <th className="h-10 px-3 text-left font-medium text-muted-foreground">面试表单</th>
-            <th className="h-10 px-3 text-left font-medium text-muted-foreground">面试题</th>
-            <th className="h-10 px-3 text-left font-medium text-muted-foreground">创建时间</th>
-            <th
-              aria-label="操作"
-              className="h-10 px-3 text-right font-medium text-muted-foreground"
-            />
-          </tr>
-        </thead>
-        <tbody>
-          {JOBS.map((j) => (
-            <tr className="border-border border-b last:border-b-0 hover:bg-muted/30" key={j.name}>
-              <td aria-label={`岗位：${j.name}`} className="px-3 py-3">
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead>岗位名</TableHead>
+          <TableHead>部门</TableHead>
+          <TableHead>面试官</TableHead>
+          <TableHead>面试表单</TableHead>
+          <TableHead>面试题</TableHead>
+          <TableHead>创建时间</TableHead>
+          <TableHead aria-label="操作" className="text-right" />
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {JOBS.map((j, index) => (
+          <Fragment key={j.name}>
+            <TableRow key={j.name}>
+              <TableCell aria-label={`岗位：${j.name}`}>
                 <div className="flex items-center gap-2.5">
                   <span
                     aria-hidden="true"
@@ -325,9 +332,9 @@ function JobsTable() {
                   </span>
                   <span className="truncate font-medium">{j.name}</span>
                 </div>
-              </td>
-              <td className="px-3 py-3 text-foreground/80">{j.department}</td>
-              <td aria-label={`面试官：${j.interviewers.join("、")}`} className="px-3 py-3">
+              </TableCell>
+              <TableCell className="text-foreground/80">{j.department}</TableCell>
+              <TableCell aria-label={`面试官：${j.interviewers.join("、")}`}>
                 <div className="flex items-center gap-2">
                   <div className="flex">
                     {j.interviewers.slice(0, 3).map((name, idx) => (
@@ -340,11 +347,13 @@ function JobsTable() {
                   </div>
                   <span className="truncate text-foreground/80">{j.interviewers.join("、")}</span>
                 </div>
-              </td>
-              <td className="px-3 py-3 text-muted-foreground tabular-nums">{j.formCount}</td>
-              <td className="px-3 py-3 text-muted-foreground tabular-nums">{j.questionCount}</td>
-              <td className="px-3 py-3 text-muted-foreground tabular-nums">{j.createdAt}</td>
-              <td className="px-3 py-3">
+              </TableCell>
+              <TableCell className="text-muted-foreground tabular-nums">{j.formCount}</TableCell>
+              <TableCell className="text-muted-foreground tabular-nums">
+                {j.questionCount}
+              </TableCell>
+              <TableCell className="text-muted-foreground tabular-nums">{j.createdAt}</TableCell>
+              <TableCell>
                 <div className="flex items-center justify-end gap-0.5">
                   <span
                     aria-label="编辑岗位"
@@ -365,12 +374,13 @@ function JobsTable() {
                     更多
                   </span>
                 </div>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+              </TableCell>
+            </TableRow>
+            {index < JOBS.length - 1 ? <TableRowDivider /> : null}
+          </Fragment>
+        ))}
+      </TableBody>
+    </Table>
   );
 }
 

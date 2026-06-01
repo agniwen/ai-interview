@@ -65,7 +65,9 @@ function Calendar({
         disabled: cn("text-muted-foreground opacity-50", defaultClassNames.disabled),
         dropdown: cn("absolute inset-0 bg-popover opacity-0", defaultClassNames.dropdown),
         dropdown_root: cn(
-          "relative rounded-md border border-input shadow-xs has-focus:border-ring has-focus:ring-[3px] has-focus:ring-ring/50",
+          "relative rounded-md border border-input has-focus:border-ring has-focus:ring-[3px] has-focus:ring-ring/50",
+          // 当前扁平化风格暂时关闭阴影；如需恢复，取消下一行注释。
+          // "shadow-xs",
           defaultClassNames.dropdown_root,
         ),
         dropdowns: cn(

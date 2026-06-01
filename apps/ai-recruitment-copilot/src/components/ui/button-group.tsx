@@ -50,7 +50,9 @@ function ButtonGroupText({
   return (
     <Comp
       className={cn(
-        "bg-muted flex items-center gap-2 rounded-md border px-4 text-sm font-medium shadow-xs [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4",
+        "bg-muted flex items-center gap-2 rounded-md border px-4 text-sm font-medium [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4",
+        // 当前扁平化风格暂时关闭阴影；如需恢复，取消下一行注释。
+        // "shadow-xs",
         className,
       )}
       {...props}

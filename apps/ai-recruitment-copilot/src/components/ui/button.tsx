@@ -30,7 +30,7 @@ const buttonVariants = cva(
         ghost: "hover:bg-accent hover:text-accent-foreground dark:hover:bg-accent/50",
         link: "text-primary underline-offset-4 hover:underline",
         outline:
-          "border bg-background shadow-xs hover:bg-accent hover:text-accent-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50",
+          "border bg-background hover:bg-accent hover:text-accent-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50",
         secondary:
           "bg-secondary border-primary/20 border text-secondary-foreground hover:bg-secondary/80 hover:scale-[0.98] hover:scale-[0.95]",
       },
@@ -55,7 +55,12 @@ function Button({
       data-slot="button"
       data-variant={variant}
       data-size={size}
-      className={cn(buttonVariants({ className, size, variant }))}
+      className={cn(
+        buttonVariants({ size, variant }),
+        // 当前扁平化风格暂时关闭阴影；如需恢复，取消下一行注释。
+        // variant === "outline" && "shadow-xs",
+        className,
+      )}
       {...props}
     />
   );
