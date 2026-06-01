@@ -160,7 +160,7 @@ function SidebarNavItem({ item, active, href }: { item: NavItem; active: boolean
   const Icon = item.icon;
   return (
     <SidebarMenuItem key={item.path}>
-      <SidebarMenuButton asChild isActive={active} tooltip={item.title}>
+      <SidebarMenuButton asChild className="cursor-default" isActive={active} tooltip={item.title}>
         <Link href={href}>
           <Icon />
           <span>{item.title}</span>

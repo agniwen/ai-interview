@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import { Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, XAxis, YAxis } from "recharts";
+import { StudioSummaryCards } from "@/app/(auth)/w/[slug]/studio/_components/studio-summary-cards";
 import type { RecruitingDashboardMetrics } from "@/lib/shared/studio-dashboard";
 import type { ResumeLibraryMetrics } from "@/lib/shared/studio-resumes";
 import { offerDraftStatusMeta } from "@arc/db-schema/studio-interviews";
@@ -136,32 +137,6 @@ function EmptyHint({ message, title }: { message: string; title: string }) {
         <EmptyDescription>{message}</EmptyDescription>
       </EmptyHeader>
     </Empty>
-  );
-}
-
-function SummaryCard({
-  description,
-  label,
-  value,
-}: {
-  description: string;
-  label: string;
-  value: string;
-}) {
-  return (
-    <Card>
-      <CardContent className="p-4">
-        <div className="flex min-h-24 flex-col justify-between gap-3">
-          <div>
-            <div className="truncate text-muted-foreground text-xs">{label}</div>
-            <div className="mt-2 font-mono font-semibold text-3xl leading-none tabular-nums">
-              {value}
-            </div>
-          </div>
-          <div className="truncate text-muted-foreground text-[11px]">{description}</div>
-        </div>
-      </CardContent>
-    </Card>
   );
 }
 
@@ -486,28 +461,34 @@ export function RecruitingDashboardPage({ metrics }: { metrics: RecruitingDashbo
 
   return (
     <div className="flex flex-col gap-4 md:gap-6">
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <SummaryCard
-          description="不含已归档候选人"
-          label="漏斗总数"
-          value={formatCompact(funnel.denominator)}
-        />
-        <SummaryCard
-          description={`${aiStarted} 人已发起 AI 面试`}
-          label="AI 发起率"
-          value={formatPercent(funnel.aiLaunchRate)}
-        />
-        <SummaryCard
-          description={`近 30 天完成 ${metrics.summary.aiCompleted30d} 场`}
-          label="AI 完成"
-          value={formatCompact(metrics.summary.aiCompleted30d)}
-        />
-        <SummaryCard
-          description={`近 30 天发出 ${metrics.summary.offersSent30d} 个`}
-          label="Offer 发出"
-          value={formatCompact(metrics.summary.offersSent30d)}
-        />
-      </div>
+      <StudioSummaryCards
+        items={[
+          {
+            description: "不含已归档候选人",
+            id: "funnel-total",
+            label: "漏斗总数",
+            value: formatCompact(funnel.denominator),
+          },
+          {
+            description: `${aiStarted} 人已发起 AI 面试`,
+            id: "ai-launch-rate",
+            label: "AI 发起率",
+            value: formatPercent(funnel.aiLaunchRate),
+          },
+          {
+            description: `近 30 天完成 ${metrics.summary.aiCompleted30d} 场`,
+            id: "ai-completed",
+            label: "AI 完成",
+            value: formatCompact(metrics.summary.aiCompleted30d),
+          },
+          {
+            description: `近 30 天发出 ${metrics.summary.offersSent30d} 个`,
+            id: "offers-sent",
+            label: "Offer 发出",
+            value: formatCompact(metrics.summary.offersSent30d),
+          },
+        ]}
+      />
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_24rem]">
         <FunnelCard metrics={metrics.resume} />

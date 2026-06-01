@@ -2,6 +2,7 @@
 "use client";
 
 import { PageHeader } from "@/app/(auth)/w/[slug]/studio/_components/page-header";
+import { StudioSummaryCards } from "@/app/(auth)/w/[slug]/studio/_components/studio-summary-cards";
 import type { InterviewRoundSummaryResponse } from "@/lib/client/api";
 import {
   bulkDeleteStudioInterviewRounds,
@@ -33,7 +34,6 @@ import {
 import { CreatorCell } from "@/components/cell/creator-cell";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   actionsColumn,
   customColumn,
@@ -460,24 +460,34 @@ export function InterviewManagementPage({
   // 概览统计卡：来自 round 级聚合计数。
   // Summary stat cards: sourced from round-level aggregated counts.
   const stats = (
-    <section className="grid grid-cols-2 gap-4 xl:grid-cols-4">
-      {[
-        { hint: "该组织下所有面试轮次总数", label: "总轮数", value: `${summary.total}` },
-        { hint: "尚未开始的轮次", label: "待开始", value: `${summary.pending}` },
-        { hint: "正在进行或短暂中断的轮次", label: "进行中", value: `${summary.inProgress}` },
-        { hint: "全部完成的轮次", label: "已完成", value: `${summary.completed}` },
-      ].map((item) => (
-        <Card key={item.label}>
-          <CardHeader className="pb-2">
-            <CardDescription>{item.label}</CardDescription>
-            <CardTitle className="text-3xl">{item.value}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-muted-foreground text-sm">{item.hint}</p>
-          </CardContent>
-        </Card>
-      ))}
-    </section>
+    <StudioSummaryCards
+      items={[
+        {
+          description: "该组织下所有面试轮次总数",
+          id: "total",
+          label: "总轮数",
+          value: `${summary.total}`,
+        },
+        {
+          description: "尚未开始的轮次",
+          id: "pending",
+          label: "待开始",
+          value: `${summary.pending}`,
+        },
+        {
+          description: "正在进行或短暂中断的轮次",
+          id: "in-progress",
+          label: "进行中",
+          value: `${summary.inProgress}`,
+        },
+        {
+          description: "全部完成的轮次",
+          id: "completed",
+          label: "已完成",
+          value: `${summary.completed}`,
+        },
+      ]}
+    />
   );
 
   // 删除单条：目前以 roundId 调用旧 candidateId 端点，T5 修正前暂时会 404。
