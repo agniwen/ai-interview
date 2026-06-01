@@ -13,6 +13,7 @@
 import type { DedupMatchRecord } from "@/lib/client/api";
 import { fetchInterviewDedup } from "@/lib/client/api";
 import { readNdjsonStream } from "@/lib/client/ndjson-stream";
+import { matchJobDescriptionForResume, parseResumeFile } from "@/lib/client/resume-analysis";
 import { rpc } from "@/lib/client/rpc";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import type { AnalysisStreamEvent } from "@/lib/shared/api-stream";
@@ -294,53 +295,14 @@ export function useResumeAnalysisPipeline(
       let postParseAnalysisStarted = false;
 
       try {
-        // Step 1: stream parse resume profile
-        const formData = new FormData();
-        formData.append("resume", file);
-
-        const parseResponse = await fetch("/api/interview/parse-resume", {
-          body: formData,
-          method: "POST",
+        const parseResult = await parseResumeFile(file, {
+          onEvent: (event) => {
+            handleStreamEvent(event);
+          },
           signal: abortController.signal,
         });
 
-        if (!parseResponse.ok) {
-          const errBody = (await parseResponse.json().catch(() => null)) as {
-            error?: string;
-          } | null;
-          throw new Error(errBody?.error ?? "简历解析失败");
-        }
-
-        interface ParseResult {
-          fileName: string;
-          resumeProfile: ResumeProfile;
-        }
-        let parseResult: ParseResult | null = null;
-        let streamError: string | null = null;
-
-        await readNdjsonStream<AnalysisStreamEvent>(
-          parseResponse,
-          (event) => {
-            handleStreamEvent(event);
-            if (event.type === "result") {
-              parseResult = event.data as ParseResult;
-            }
-            if (event.type === "error") {
-              streamError = event.message;
-            }
-          },
-          abortController.signal,
-        );
-
-        if (streamError) {
-          throw new Error(streamError);
-        }
-
-        if (!parseResult) {
-          throw new Error("简历解析未返回有效结果");
-        }
-
-        const { fileName, resumeProfile } = parseResult as ParseResult;
+        const { fileName, resumeProfile } = parseResult;
 
         onProfileParsed({ fileName, resumeProfile });
         setResumePayload({
@@ -366,17 +328,9 @@ export function useResumeAnalysisPipeline(
           setIsMatchingJobDescription(true);
           setProgressStatus("正在分析匹配岗位…");
           try {
-            const matchResponse = await rpc.api.interview["match-job-description"].$post(
-              { json: { resumeProfile } },
-              { init: { signal: abortController.signal } },
-            );
-            if (!matchResponse.ok) {
-              return;
-            }
-            const matchPayload = (await matchResponse.json().catch(() => null)) as {
-              matchedId?: string | null;
-              reason?: string | null;
-            } | null;
+            const matchPayload = await matchJobDescriptionForResume(resumeProfile, {
+              signal: abortController.signal,
+            });
             if (matchPayload?.matchedId) {
               matchedJdId = matchPayload.matchedId;
               onJobDescriptionMatched(matchPayload.matchedId, matchPayload.reason ?? null);

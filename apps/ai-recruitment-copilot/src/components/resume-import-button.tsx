@@ -30,9 +30,14 @@ import type {
 import { dataUrlToFile, tryExtractPartialFields } from "@/components/resume-import/utils";
 import { Button } from "@/components/ui/button";
 import type { DedupMatchRecord } from "@/lib/client/api";
-import { fetchInterviewDedup } from "@/lib/client/api";
-import { readNdjsonStream } from "@/lib/client/ndjson-stream";
-import { rpc } from "@/lib/client/rpc";
+import { apiFetch, fetchInterviewDedup } from "@/lib/client/api";
+import {
+  buildResumePayload,
+  buildSaveOnlyResumeFormData,
+  formValuesFromResumeProfile,
+  matchJobDescriptionForResume,
+  parseResumeFile,
+} from "@/lib/client/resume-analysis";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { cn } from "@/lib/shared/utils";
 
@@ -219,7 +224,6 @@ export function ResumeImportButton({
 
       // Step 1: parse resume profile (skip if we already analyzed while picking JD)
       let parseResult: ParseResult | null = cachedParseResultRef.current;
-      let streamError: string | null = null;
 
       if (!parseResult) {
         setPhase("parsing");
@@ -228,42 +232,12 @@ export function ResumeImportButton({
         setPartialFields([]);
         accumulatedTextRef.current = "";
 
-        const parseForm = new FormData();
-        parseForm.append("resume", file);
-        const parseResponse = await fetch("/api/interview/parse-resume", {
-          body: parseForm,
-          method: "POST",
+        parseResult = await parseResumeFile(file, {
+          onEvent: (event) => {
+            handleStreamEvent(event);
+          },
           signal: abortController.signal,
         });
-
-        if (!parseResponse.ok) {
-          const errBody = (await parseResponse.json().catch(() => null)) as {
-            error?: string;
-          } | null;
-          throw new Error(errBody?.error ?? "简历解析失败");
-        }
-
-        await readNdjsonStream<AnalysisStreamEvent>(
-          parseResponse,
-          (event) => {
-            handleStreamEvent(event);
-            if (event.type === "result") {
-              parseResult = event.data as ParseResult;
-            }
-            if (event.type === "error") {
-              streamError = event.message;
-            }
-          },
-          abortController.signal,
-        );
-
-        if (streamError) {
-          throw new Error(streamError);
-        }
-
-        if (!parseResult) {
-          throw new Error("简历解析未返回有效结果");
-        }
       }
 
       const { resumeProfile } = parseResult as ParseResult;
@@ -348,44 +322,16 @@ export function ResumeImportButton({
       setPartialFields([]);
       accumulatedTextRef.current = "";
 
-      // 服务端按 `parseResumePayloadInput` schema 解析 resumePayload；
-      // questions 为空数组即可（"一键入库" 不再预生成题目）。
-      // The server parses `resumePayload` via `parseResumePayloadInput`;
-      // questions stay empty until the user launches an interview later.
-      const resumePayload = {
-        fileName,
-        interviewQuestions: [] as never[],
-        resumeProfile,
-      };
-
-      const saveForm = new FormData();
-      saveForm.append("candidateName", resumeProfile.name || "未命名候选人");
-      saveForm.append("candidateEmail", resumeProfile.email ?? "");
-      saveForm.append("candidatePhone", resumeProfile.phone ?? "");
-      saveForm.append("targetRole", resumeProfile.targetRoles[0] ?? "");
-      saveForm.append("notes", "");
-      saveForm.append("jobDescriptionId", jobDescriptionId);
-      saveForm.append("resume", file);
-      saveForm.append("resumePayload", JSON.stringify(resumePayload));
-
-      const saveResponse = await fetch(`/api/w/${workspaceSlug}/studio/resumes`, {
-        body: saveForm,
+      const resumePayload = buildResumePayload(fileName, resumeProfile);
+      const record = await apiFetch<ResumeLibraryDetail>(`/api/w/${workspaceSlug}/studio/resumes`, {
+        body: buildSaveOnlyResumeFormData(
+          formValuesFromResumeProfile(resumeProfile, { jobDescriptionId }),
+          file,
+          resumePayload,
+        ),
         method: "POST",
         signal: abortController.signal,
       });
-
-      const savedPayload = (await saveResponse.json().catch(() => null)) as
-        | ResumeLibraryDetail
-        | { error?: string }
-        | null;
-
-      if (!saveResponse.ok || !savedPayload || "error" in savedPayload) {
-        throw new Error(
-          savedPayload && "error" in savedPayload ? (savedPayload.error ?? "保存失败") : "保存失败",
-        );
-      }
-
-      const record = savedPayload as ResumeLibraryDetail;
       invalidateLibraryCaches();
       onImported(filePart.id, record.id);
       toast.success("简历已加入简历库");
@@ -432,59 +378,13 @@ export function ResumeImportButton({
     try {
       const file = await dataUrlToFile(filePart.url, filePart.filename);
 
-      const parseForm = new FormData();
-      parseForm.append("resume", file);
-      const parseResponse = await fetch("/api/interview/parse-resume", {
-        body: parseForm,
-        method: "POST",
-        signal: abortController.signal,
-      });
-
-      if (!parseResponse.ok) {
-        const errBody = (await parseResponse.json().catch(() => null)) as { error?: string } | null;
-        throw new Error(errBody?.error ?? "简历解析失败");
-      }
-
-      let parseResult: ParseResult | null = null;
-      let streamError: string | null = null;
-
-      await readNdjsonStream<AnalysisStreamEvent>(
-        parseResponse,
-        (event) => {
-          if (event.type === "result") {
-            parseResult = event.data as ParseResult;
-          }
-          if (event.type === "error") {
-            streamError = event.message;
-          }
-        },
-        abortController.signal,
-      );
-
-      if (streamError) {
-        throw new Error(streamError);
-      }
-
-      if (!parseResult) {
-        throw new Error("简历解析未返回有效结果");
-      }
+      const parseResult = await parseResumeFile(file, { signal: abortController.signal });
 
       cachedParseResultRef.current = parseResult;
 
-      const matchResponse = await rpc.api.interview["match-job-description"].$post(
-        { json: { resumeProfile: (parseResult as ParseResult).resumeProfile } },
-        { init: { signal: abortController.signal } },
-      );
-
-      if (!matchResponse.ok) {
-        // Fall back to no preselection — user can still pick manually.
-        return;
-      }
-
-      const matchPayload = (await matchResponse.json().catch(() => null)) as {
-        matchedId?: string | null;
-        reason?: string | null;
-      } | null;
+      const matchPayload = await matchJobDescriptionForResume(parseResult.resumeProfile, {
+        signal: abortController.signal,
+      });
 
       if (matchPayload?.matchedId) {
         setSelectedJdId(matchPayload.matchedId);

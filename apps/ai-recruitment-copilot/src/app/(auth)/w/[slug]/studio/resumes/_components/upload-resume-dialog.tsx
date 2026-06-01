@@ -22,15 +22,17 @@ import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { apiFetch } from "@/lib/client/api";
+import {
+  buildSaveAndStartResumeFormData,
+  buildSaveOnlyResumeFormData,
+} from "@/lib/client/resume-analysis";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
-import type { ResumeAnalysisResult } from "@arc/db-schema/interview/types";
 import type { StudioInterviewRoundDetail } from "@/lib/shared/studio-interview-rounds";
-import { createDefaultScheduleEntry } from "@arc/db-schema/studio-interviews";
 import {
   createResumeLibraryFormValues,
   resumeLibraryFormSchema,
 } from "@/lib/shared/studio-resumes";
-import type { ResumeLibraryDetail, ResumeLibraryFormValues } from "@/lib/shared/studio-resumes";
+import type { ResumeLibraryDetail } from "@/lib/shared/studio-resumes";
 
 export type CreateResumeRecordResult =
   | { mode: "save-only"; detail: ResumeLibraryDetail }
@@ -40,56 +42,6 @@ type SubmitMode = "save-only" | "save-and-start";
 
 interface CreateResumeRecordDialogProps {
   onCreated: (result: CreateResumeRecordResult) => void;
-}
-
-// 将公共候选人字段追加到 FormData。
-// Append the common candidate fields to a FormData object.
-function appendCandidateFields(fd: FormData, value: ResumeLibraryFormValues) {
-  fd.append("candidateName", value.candidateName);
-  fd.append("candidateEmail", value.candidateEmail);
-  fd.append("candidatePhone", value.candidatePhone);
-  fd.append("targetRole", value.targetRole);
-  fd.append("jobDescriptionId", value.jobDescriptionId);
-  fd.append("notes", value.notes);
-}
-
-// 组装「仅保存」请求体。
-// Build the FormData payload for the save-only path.
-function buildSaveOnlyFormData(
-  value: ResumeLibraryFormValues,
-  file: File | null,
-  resumePayload: ResumeAnalysisResult | null,
-): FormData {
-  const fd = new FormData();
-  appendCandidateFields(fd, value);
-  if (file) {
-    fd.append("resume", file);
-  }
-  if (resumePayload) {
-    fd.append("resumePayload", JSON.stringify(resumePayload));
-  }
-  return fd;
-}
-
-// 组装「保存并发起面试」请求体：额外附 status=ready 和默认 1 轮排期。
-// Build the FormData payload for the save-and-start path: adds status=ready and
-// a single default schedule entry.
-function buildSaveAndStartFormData(
-  value: ResumeLibraryFormValues,
-  file: File | null,
-  resumePayload: ResumeAnalysisResult | null,
-): FormData {
-  const fd = new FormData();
-  appendCandidateFields(fd, value);
-  fd.append("status", "ready");
-  fd.append("scheduleEntries", JSON.stringify([createDefaultScheduleEntry()]));
-  if (file) {
-    fd.append("resume", file);
-  }
-  if (resumePayload) {
-    fd.append("resumePayload", JSON.stringify(resumePayload));
-  }
-  return fd;
 }
 
 export function CreateResumeRecordDialog({ onCreated }: CreateResumeRecordDialogProps) {
@@ -115,7 +67,7 @@ export function CreateResumeRecordDialog({ onCreated }: CreateResumeRecordDialog
       try {
         if (mode === "save-only") {
           const detail = await apiFetch<ResumeLibraryDetail>(`/api/w/${slug}/studio/resumes`, {
-            body: buildSaveOnlyFormData(value, file, payload),
+            body: buildSaveOnlyResumeFormData(value, file, payload),
             method: "POST",
           });
           toast.success("简历记录已创建");
@@ -137,7 +89,7 @@ export function CreateResumeRecordDialog({ onCreated }: CreateResumeRecordDialog
           const round = await apiFetch<StudioInterviewRoundDetail>(
             `/api/w/${slug}/studio/interviews`,
             {
-              body: buildSaveAndStartFormData(value, file, payload),
+              body: buildSaveAndStartResumeFormData(value, file, payload),
               method: "POST",
             },
           );
