@@ -41,6 +41,7 @@ import { queryInterviewDedup } from "@/server/routes/studio/routes/interviews/da
 import { autoBindApplicableTemplates } from "@/server/routes/studio/routes/interview-questions/dao/bindings";
 import { jobDescriptionIdsExist } from "@/server/routes/studio/routes/job-descriptions/dao";
 import { createResumeRecordFromStorage } from "@/server/routes/studio/routes/resumes/utils/create-from-storage";
+import { syncResumeProfileIdentity } from "@/server/routes/studio/routes/resumes/utils/profile-sync";
 
 const dedupCheckInputSchema = z.object({
   email: z.string().trim().max(200).nullable().optional(),
@@ -484,6 +485,18 @@ export const resumeLibraryRouter = factory
         resumeProfile = nextResumeProfile;
         resumeFileName = resume.name;
       }
+      resumeProfile = syncResumeProfileIdentity(resumeProfile, input.data);
+      let resumeProfileUpdate: Partial<typeof studioInterview.$inferInsert> = {};
+      if (resume) {
+        resumeProfileUpdate = {
+          resumeContentHash: resumeContentHash ?? existing.resumeContentHash,
+          resumeFileName,
+          resumeProfile,
+          resumeStorageKey: resumeStorageKey ?? null,
+        };
+      } else if (resumeProfile) {
+        resumeProfileUpdate = { resumeProfile };
+      }
 
       // 显式白名单写入 —— 绝不触碰 interviewQuestions / status / schedule。
       // Explicit whitelist write — never touches interviewQuestions / status / schedule.
@@ -495,14 +508,7 @@ export const resumeLibraryRouter = factory
         notes: input.data.notes || null,
         targetRole: input.data.targetRole || resumeProfile?.targetRoles[0] || null,
         updatedAt: new Date(),
-        ...(resume
-          ? {
-              resumeContentHash: resumeContentHash ?? existing.resumeContentHash,
-              resumeFileName,
-              resumeProfile,
-              resumeStorageKey: resumeStorageKey ?? null,
-            }
-          : {}),
+        ...resumeProfileUpdate,
       } satisfies Partial<typeof studioInterview.$inferInsert>;
 
       await db.transaction(async (tx) => {
@@ -510,10 +516,9 @@ export const resumeLibraryRouter = factory
           .update(studioInterview)
           .set(update)
           .where(and(eq(studioInterview.id, id), eq(studioInterview.organizationId, activeOrg.id)));
-        // 仅当本次写入实际触达了 resumeProfile 时才重刷技能索引。
-        // 「resume」分支才把 resumeProfile 列入 update；其他字段编辑不动技能。
-        // Only refresh the skill index when the request actually mutated
-        // resume_profile. Editing other fields shouldn't touch skills.
+        // 仅当上传新简历时才重刷技能索引；基础信息同步不会改变技能。
+        // Only refresh the skill index for a new resume upload; identity-field
+        // sync does not change skills.
         if (resume) {
           await syncResumeSkills(tx, {
             interviewId: id,

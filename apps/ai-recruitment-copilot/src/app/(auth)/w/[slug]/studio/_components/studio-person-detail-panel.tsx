@@ -179,6 +179,7 @@ export interface StudioPersonDetailSlots {
   body: ReactNode;
   bodyClassName?: string;
   modalClassName?: string;
+  modalSize?: "sm" | "md" | "lg" | "xl" | "2xl" | "full";
   footer: ReactNode;
 }
 
@@ -1624,6 +1625,7 @@ function useStudioPersonDetailPanel({
           {mode === "resume" && shouldShowOfferTab(tabVisibilityRecord) ? (
             <TabsContent value="offer">
               <OfferStagePanel
+                candidateEmail={record.candidateEmail}
                 candidateId={record.id}
                 candidateName={record.candidateName}
                 disabled={record.pipelineStage === "closed"}
@@ -1684,9 +1686,13 @@ function useStudioPersonDetailPanel({
     </div>
   );
 
-  const footer = mode === "resume" ? resumeModeFooter : null;
+  const footer = mode === "resume" && activeTab === "overview" ? resumeModeFooter : null;
   const bodyClassName = showTimelineRail ? "xl:overflow-hidden" : undefined;
   const modalClassName = showTimelineRail ? "xl:h-[90vh]" : undefined;
+  let modalSize: StudioPersonDetailSlots["modalSize"] = "full";
+  if (mode === "resume") {
+    modalSize = showTimelineRail ? "2xl" : "xl";
+  }
 
   return (
     <>
@@ -1695,7 +1701,16 @@ function useStudioPersonDetailPanel({
         onValueChange={(value) => setActiveTab(value as StudioPersonDetailTab)}
         value={activeTab}
       >
-        {shell({ body, bodyClassName, description, footer, headerExtra, modalClassName, title })}
+        {shell({
+          body,
+          bodyClassName,
+          description,
+          footer,
+          headerExtra,
+          modalClassName,
+          modalSize,
+          title,
+        })}
       </Tabs>
       {mode === "interview" && !isPublic ? (
         <AlertDialog

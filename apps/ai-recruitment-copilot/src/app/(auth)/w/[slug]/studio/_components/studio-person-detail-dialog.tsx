@@ -88,7 +88,16 @@ export function StudioPersonDetailDialog({
       onViewRoundDetail={onViewRoundDetail}
       recordId={recordId}
       roundId={roundId}
-      shell={({ body, bodyClassName, description, footer, headerExtra, modalClassName, title }) => (
+      shell={({
+        body,
+        bodyClassName,
+        description,
+        footer,
+        headerExtra,
+        modalClassName,
+        modalSize,
+        title,
+      }) => (
         <Modal
           bodyClassName={bodyClassName}
           className={modalClassName}
@@ -97,7 +106,7 @@ export function StudioPersonDetailDialog({
           headerExtra={headerExtra}
           onOpenChange={onOpenChange}
           open={open}
-          size={mode === "resume" ? "2xl" : "full"}
+          size={modalSize ?? (mode === "resume" ? "2xl" : "full")}
           title={title}
         >
           {body}

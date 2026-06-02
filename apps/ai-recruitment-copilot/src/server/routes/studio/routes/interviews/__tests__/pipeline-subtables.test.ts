@@ -22,6 +22,7 @@ import {
   cancelHumanInterviewRound,
   completeHumanInterviewRound,
   createHumanInterviewRound,
+  editHumanInterviewRound,
   EditRoundError,
   listHumanInterviewRounds,
   maybeAdvanceToHumanInterview,
@@ -311,6 +312,52 @@ describe("human interview rounds DAO", () => {
     expect(list.map((r) => r.id)).toEqual([r1.id, r2.id]);
     expect(list[0]?.status).toBe("cancelled");
     expect(list[1]?.status).toBe("pending");
+  });
+
+  it("editHumanInterviewRound 同步 scheduled 会议时间，已结束会议拒绝调整", async () => {
+    await clearSubtables();
+    const round = await createHumanInterviewRound({
+      input: {
+        format: "online",
+        interviewerIds: [INTERVIEWER_A],
+        label: "可改时间",
+        scheduledAt: "2026-05-30T10:00:00.000Z",
+      },
+      interviewRecordId: RECORD_ID,
+      organizationId: ORG,
+    });
+    await createHumanInterviewMeeting({
+      createdBy: HR_USER,
+      input: {
+        interviewerIds: [INTERVIEWER_A],
+        roundIds: [round.id],
+        scheduledAt: "2026-05-30T10:00:00.000Z",
+        title: "可改时间",
+      },
+      organizationId: ORG,
+    });
+
+    const nextTime = "2026-05-31T09:30:00.000Z";
+    const updated = await editHumanInterviewRound({
+      input: { scheduledAt: nextTime },
+      organizationId: ORG,
+      roundId: round.id,
+    });
+    expect(updated.scheduledAt).toBe(nextTime);
+    const [meeting] = await listHumanInterviewMeetings({
+      interviewRecordId: RECORD_ID,
+      organizationId: ORG,
+    });
+    expect(meeting?.scheduledAt).toBe(nextTime);
+
+    await endHumanInterviewMeetingsByRound({ organizationId: ORG, roundId: round.id });
+    await expect(
+      editHumanInterviewRound({
+        input: { scheduledAt: "2026-06-01T09:30:00.000Z" },
+        organizationId: ORG,
+        roundId: round.id,
+      }),
+    ).rejects.toBeInstanceOf(EditRoundError);
   });
 });
 

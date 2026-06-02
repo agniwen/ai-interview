@@ -16,14 +16,17 @@ import {
   ArrowUpRightIcon,
   BanIcon,
   CheckCircle2Icon,
+  MailIcon,
   HandshakeIcon,
   PencilIcon,
   PlusIcon,
   SendIcon,
 } from "lucide-react";
+import type { Dispatch, SetStateAction } from "react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { offerDraftStatusMeta } from "@arc/db-schema/studio-interviews";
+import type { OfferDraftInput } from "@arc/db-schema/studio-interviews";
 import type { OfferDraftRecord } from "@/lib/shared/studio-pipeline-stages";
 import {
   cancelOfferDraft,
@@ -62,6 +65,7 @@ import { Textarea } from "@/components/ui/textarea";
 interface PanelProps {
   candidateId: string;
   candidateName: string;
+  candidateEmail: string | null;
   disabled?: boolean;
   // 父级在「候选人接受 Offer」二次确认后，开「标记结案 + outcome=hired」dialog。
   // Parent opens the close dialog with outcome=hired after this fires.
@@ -70,6 +74,7 @@ interface PanelProps {
 
 export function OfferStagePanel({
   candidateId,
+  candidateEmail,
   candidateName,
   disabled,
   onRequestCloseAsHired,
@@ -87,7 +92,6 @@ export function OfferStagePanel({
   }
 
   const [createOpen, setCreateOpen] = useState(false);
-  const [editTarget, setEditTarget] = useState<OfferDraftRecord | null>(null);
   const [respondTarget, setRespondTarget] = useState<OfferDraftRecord | null>(null);
   const [acceptedConfirm, setAcceptedConfirm] = useState<OfferDraftRecord | null>(null);
 
@@ -122,13 +126,14 @@ export function OfferStagePanel({
       <div className="space-y-3">
         {drafts.map((draft) => (
           <OfferCard
+            candidateEmail={candidateEmail}
             candidateId={candidateId}
             disabled={disabled}
             draft={draft}
             key={draft.id}
             onCancelled={invalidateDrafts}
-            onEdit={() => setEditTarget(draft)}
             onRespond={() => setRespondTarget(draft)}
+            onSaved={invalidateDrafts}
             onSent={invalidateDrafts}
           />
         ))}
@@ -158,17 +163,16 @@ export function OfferStagePanel({
       {renderDraftsContent()}
 
       <CreateOrEditOfferDialog
+        candidateEmail={candidateEmail}
         candidateId={candidateId}
-        existingDraft={editTarget}
-        mode={editTarget ? "edit" : "create"}
+        mode="create"
         onOpenChange={(open) => {
           if (!open) {
             setCreateOpen(false);
-            setEditTarget(null);
           }
         }}
         onSaved={invalidateDrafts}
-        open={createOpen || editTarget !== null}
+        open={createOpen}
       />
       <RespondOfferDialog
         candidateId={candidateId}
@@ -382,27 +386,41 @@ function ExpectationField({ label, value }: { label: string; value: string | nul
 function OfferCard({
   draft,
   candidateId,
+  candidateEmail,
   disabled,
-  onEdit,
   onSent,
   onRespond,
+  onSaved,
   onCancelled,
 }: {
   draft: OfferDraftRecord;
   candidateId: string;
+  candidateEmail: string | null;
   disabled?: boolean;
-  onEdit: () => void;
   onSent: () => void;
   onRespond: () => void;
+  onSaved: () => void;
   onCancelled: () => void;
 }) {
   const slug = useWorkspaceSlug();
   const meta = offerDraftStatusMeta[draft.status];
+  const [sendConfirmOpen, setSendConfirmOpen] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [form, setForm] = useState<OfferFormState>(() => offerFormStateFromDraft(draft));
+  const setFormField = createOfferFormFieldSetter(setForm);
+
+  useEffect(() => {
+    if (editing) {
+      setForm(offerFormStateFromDraft(draft));
+    }
+  }, [draft, editing]);
+
   const sendMutation = useMutation({
     mutationFn: () => sendOfferDraft(slug, candidateId, draft.id),
     onError: (e) => toast.error(e instanceof Error ? e.message : "发送失败"),
     onSuccess: () => {
       toast.success("Offer 已发送");
+      setSendConfirmOpen(false);
       onSent();
     },
   });
@@ -414,52 +432,121 @@ function OfferCard({
       onCancelled();
     },
   });
+  const saveMutation = useMutation({
+    mutationFn: () => patchOfferDraft(slug, candidateId, draft.id, buildOfferDraftPayload(form)),
+    onError: (e) => toast.error(e instanceof Error ? e.message : "保存失败"),
+    onSuccess: () => {
+      toast.success("已更新草稿");
+      setEditing(false);
+      onSaved();
+    },
+  });
+
+  function cancelEditing() {
+    setForm(offerFormStateFromDraft(draft));
+    setEditing(false);
+  }
+
+  if (editing && draft.status === "draft") {
+    return (
+      <Card className="gap-0 rounded-lg py-0">
+        <CardContent className="p-4">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <span className="font-medium text-sm">v{draft.version} · 编辑 Offer 草稿</span>
+              <Badge variant={meta.tone}>{meta.label}</Badge>
+            </div>
+          </div>
+
+          <OfferDraftFormFields
+            form={form}
+            idPrefix={`offer-${draft.id}`}
+            onFieldChange={setFormField}
+          />
+
+          <div className="mt-3 flex justify-end gap-2">
+            <Button
+              disabled={saveMutation.isPending}
+              onClick={cancelEditing}
+              size="sm"
+              variant="outline"
+            >
+              取消
+            </Button>
+            <Button
+              disabled={saveMutation.isPending || !form.position.trim() || !form.baseSalary}
+              onClick={() => saveMutation.mutate()}
+              size="sm"
+            >
+              {saveMutation.isPending ? "保存中…" : "保存"}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card className="gap-0 rounded-lg py-0">
       <CardContent className="p-4">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="space-y-1">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+          <div className="min-w-0 flex-1 space-y-3">
             <div className="flex items-center gap-2">
               <span className="font-medium text-sm">
                 v{draft.version} · {draft.position}
               </span>
               <Badge variant={meta.tone}>{meta.label}</Badge>
             </div>
-            <div className="flex flex-wrap gap-x-4 gap-y-1 text-muted-foreground text-xs">
-              <span>
-                Base：
-                <span className="font-medium text-foreground">
-                  ¥ {draft.baseSalary.toLocaleString()}
-                </span>
-                {draft.bonus ? ` · 奖金 ¥ ${draft.bonus.toLocaleString()}` : ""}
-              </span>
-              {draft.equity ? <span>期权：{draft.equity}</span> : null}
-              {draft.joiningDate ? <span>预计入职：{formatDate(draft.joiningDate)}</span> : null}
-              {draft.sentAt ? <span>发送于：{formatDate(draft.sentAt)}</span> : null}
-              {draft.expiresAt ? <span>有效期至：{formatDate(draft.expiresAt)}</span> : null}
-            </div>
-            {draft.candidateCounter ? (
-              <p className="rounded bg-muted/40 px-2 py-1 text-foreground/90 text-xs">
-                <span className="text-muted-foreground">候选人议价：</span>
-                {draft.candidateCounter}
-              </p>
-            ) : null}
-            {draft.notes ? (
-              <p className="text-muted-foreground text-xs">备注：{draft.notes}</p>
-            ) : null}
+            {draft.status === "draft" ? (
+              <OfferDraftReadonlyFields draft={draft} />
+            ) : (
+              <>
+                <div className="flex flex-wrap gap-x-4 gap-y-1 text-muted-foreground text-xs">
+                  <span>
+                    Base：
+                    <span className="font-medium text-foreground">
+                      ¥ {draft.baseSalary.toLocaleString()}
+                    </span>
+                    {draft.bonus === null ? "" : ` · 奖金 ¥ ${draft.bonus.toLocaleString()}`}
+                  </span>
+                  {draft.equity ? <span>期权：{draft.equity}</span> : null}
+                  {draft.joiningDate ? (
+                    <span>预计入职：{formatDate(draft.joiningDate)}</span>
+                  ) : null}
+                  {draft.sentAt ? <span>发送于：{formatDate(draft.sentAt)}</span> : null}
+                  {draft.expiresAt ? <span>有效期至：{formatDate(draft.expiresAt)}</span> : null}
+                </div>
+                {draft.candidateCounter ? (
+                  <p className="rounded bg-muted/40 px-2 py-1 text-foreground/90 text-xs">
+                    <span className="text-muted-foreground">候选人议价：</span>
+                    {draft.candidateCounter}
+                  </p>
+                ) : null}
+                {draft.notes ? (
+                  <p className="text-muted-foreground text-xs">备注：{draft.notes}</p>
+                ) : null}
+              </>
+            )}
           </div>
           {disabled ? null : (
             <OfferCardActions
               cancelMutation={cancelMutation}
               draft={draft}
-              onEdit={onEdit}
+              onEdit={() => setEditing(true)}
               onRespond={onRespond}
-              sendMutation={sendMutation}
+              onSend={() => setSendConfirmOpen(true)}
+              sendPending={sendMutation.isPending}
             />
           )}
         </div>
       </CardContent>
+      <SendOfferConfirmDialog
+        candidateEmail={candidateEmail}
+        isPending={sendMutation.isPending}
+        onConfirm={() => sendMutation.mutate()}
+        onOpenChange={setSendConfirmOpen}
+        open={sendConfirmOpen}
+      />
     </Card>
   );
 }
@@ -468,23 +555,25 @@ function OfferCardActions({
   draft,
   onEdit,
   onRespond,
-  sendMutation,
+  onSend,
+  sendPending,
   cancelMutation,
 }: {
   draft: OfferDraftRecord;
   onEdit: () => void;
   onRespond: () => void;
-  sendMutation: { mutate: () => void; isPending: boolean };
+  onSend: () => void;
+  sendPending: boolean;
   cancelMutation: { mutate: () => void; isPending: boolean };
 }) {
   if (draft.status === "draft") {
     return (
-      <div className="flex flex-wrap gap-2">
+      <div className="flex shrink-0 flex-wrap gap-2 lg:justify-end">
         <Button onClick={onEdit} size="sm" variant="ghost">
           <PencilIcon className="size-4" />
           编辑
         </Button>
-        <Button disabled={sendMutation.isPending} onClick={() => sendMutation.mutate()} size="sm">
+        <Button disabled={sendPending} onClick={onSend} size="sm">
           <SendIcon className="size-4" />
           发送
         </Button>
@@ -493,7 +582,7 @@ function OfferCardActions({
   }
   if (draft.status === "sent") {
     return (
-      <div className="flex flex-wrap gap-2">
+      <div className="flex shrink-0 flex-wrap gap-2 lg:justify-end">
         <Button onClick={onRespond} size="sm">
           <CheckCircle2Icon className="size-4" />
           记录响应
@@ -511,6 +600,100 @@ function OfferCardActions({
     );
   }
   return null;
+}
+
+function OfferDraftReadonlyFields({ draft }: { draft: OfferDraftRecord }) {
+  return (
+    <dl className="grid gap-x-8 gap-y-3 text-sm sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+      <ReadonlyOfferField label="职位" value={draft.position} />
+      <ReadonlyOfferField label="Base 月薪" value={`¥ ${draft.baseSalary.toLocaleString()}`} />
+      <ReadonlyOfferField
+        label="年度奖金"
+        value={draft.bonus === null ? null : `¥ ${draft.bonus.toLocaleString()}`}
+      />
+      <ReadonlyOfferField label="期权 / 股票" value={draft.equity} />
+      <ReadonlyOfferField
+        label="预计入职日"
+        value={draft.joiningDate ? formatDate(draft.joiningDate) : null}
+      />
+      <ReadonlyOfferField
+        label="Offer 有效期至"
+        value={draft.expiresAt ? formatDate(draft.expiresAt) : null}
+      />
+      <ReadonlyOfferField
+        className="sm:col-span-2 lg:col-span-3 xl:col-span-4"
+        label="备注"
+        value={draft.notes}
+      />
+    </dl>
+  );
+}
+
+function ReadonlyOfferField({
+  className,
+  label,
+  value,
+}: {
+  className?: string;
+  label: string;
+  value: string | null;
+}) {
+  return (
+    <div className={className}>
+      <dt className="text-muted-foreground text-xs">{label}</dt>
+      <dd className="mt-0.5 text-foreground text-sm">
+        {value || <span className="text-muted-foreground">—</span>}
+      </dd>
+    </div>
+  );
+}
+
+function SendOfferConfirmDialog({
+  candidateEmail,
+  isPending,
+  onConfirm,
+  onOpenChange,
+  open,
+}: {
+  candidateEmail: string | null;
+  isPending: boolean;
+  onConfirm: () => void;
+  onOpenChange: (open: boolean) => void;
+  open: boolean;
+}) {
+  const email = candidateEmail?.trim() || "";
+
+  return (
+    <Dialog onOpenChange={onOpenChange} open={open}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>确认发送 Offer</DialogTitle>
+          <DialogDescription>
+            发送前请确认候选人邮箱。确认后该 Offer 会进入「已发送」状态。
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="rounded-lg border bg-muted/30 p-3">
+          <div className="flex items-center gap-2 text-muted-foreground text-xs">
+            <MailIcon className="size-3.5" />
+            即将发送至
+          </div>
+          <div className="mt-1 font-medium text-sm">
+            {email || <span className="text-muted-foreground">未填写候选人邮箱</span>}
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button disabled={isPending} onClick={() => onOpenChange(false)} variant="outline">
+            取消
+          </Button>
+          <Button disabled={isPending || !email} onClick={onConfirm}>
+            {isPending ? "发送中…" : "确认发送"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
 }
 
 function pad2(n: number): string {
@@ -540,6 +723,167 @@ function formatDate(iso: string): string {
   return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
 }
 
+interface OfferFormState {
+  position: string;
+  baseSalary: string;
+  bonus: string;
+  equity: string;
+  joiningDate: string;
+  expiresAt: string;
+  notes: string;
+}
+
+function createBlankOfferFormState(): OfferFormState {
+  return {
+    baseSalary: "",
+    bonus: "",
+    equity: "",
+    expiresAt: "",
+    joiningDate: "",
+    notes: "",
+    position: "",
+  };
+}
+
+function offerFormStateFromDraft(draft: OfferDraftRecord): OfferFormState {
+  return {
+    baseSalary: String(draft.baseSalary),
+    bonus: draft.bonus === null ? "" : String(draft.bonus),
+    equity: draft.equity ?? "",
+    expiresAt: draft.expiresAt ? draft.expiresAt.slice(0, 10) : "",
+    joiningDate: draft.joiningDate ? draft.joiningDate.slice(0, 10) : "",
+    notes: draft.notes ?? "",
+    position: draft.position,
+  };
+}
+
+function createOfferFormFieldSetter(setForm: Dispatch<SetStateAction<OfferFormState>>) {
+  return <K extends keyof OfferFormState>(field: K, value: OfferFormState[K]) => {
+    setForm((current) => ({ ...current, [field]: value }));
+  };
+}
+
+function buildOfferDraftPayload(form: OfferFormState): OfferDraftInput {
+  const parsedBase = Number(form.baseSalary);
+  if (Number.isNaN(parsedBase) || parsedBase <= 0) {
+    throw new Error("Base salary 需为正整数");
+  }
+  const parsedBonus = form.bonus === "" ? null : Number(form.bonus);
+  if (parsedBonus !== null && (Number.isNaN(parsedBonus) || parsedBonus < 0)) {
+    throw new Error("奖金需为非负整数");
+  }
+  return {
+    baseSalary: parsedBase,
+    bonus: parsedBonus,
+    equity: form.equity.trim() || null,
+    expiresAt: form.expiresAt || null,
+    joiningDate: form.joiningDate || null,
+    notes: form.notes.trim() || null,
+    position: form.position.trim(),
+  };
+}
+
+function OfferDraftFormFields({
+  form,
+  idPrefix,
+  onFieldChange,
+}: {
+  form: OfferFormState;
+  idPrefix: string;
+  onFieldChange: <K extends keyof OfferFormState>(field: K, value: OfferFormState[K]) => void;
+}) {
+  const fullSpanClassName = "sm:col-span-2";
+
+  return (
+    <div className="grid gap-3 py-2 sm:grid-cols-2">
+      <div className={`grid gap-1.5 ${fullSpanClassName}`}>
+        <Label className="text-sm" htmlFor={`${idPrefix}-position`}>
+          职位
+        </Label>
+        <Input
+          id={`${idPrefix}-position`}
+          maxLength={200}
+          onChange={(e) => onFieldChange("position", e.target.value)}
+          placeholder="例如 高级前端工程师（L4）"
+          value={form.position}
+        />
+      </div>
+      <div className="grid gap-1.5">
+        <Label className="text-sm" htmlFor={`${idPrefix}-base`}>
+          Base 月薪 (¥)
+        </Label>
+        <Input
+          id={`${idPrefix}-base`}
+          inputMode="numeric"
+          min={0}
+          onChange={(e) => onFieldChange("baseSalary", e.target.value)}
+          type="number"
+          value={form.baseSalary}
+        />
+      </div>
+      <div className="grid gap-1.5">
+        <Label className="text-sm" htmlFor={`${idPrefix}-bonus`}>
+          年度奖金 (¥，可选)
+        </Label>
+        <Input
+          id={`${idPrefix}-bonus`}
+          inputMode="numeric"
+          min={0}
+          onChange={(e) => onFieldChange("bonus", e.target.value)}
+          type="number"
+          value={form.bonus}
+        />
+      </div>
+      <div className={`grid gap-1.5 ${fullSpanClassName}`}>
+        <Label className="text-sm" htmlFor={`${idPrefix}-equity`}>
+          期权 / 股票（可选，自由文本）
+        </Label>
+        <Input
+          id={`${idPrefix}-equity`}
+          maxLength={500}
+          onChange={(e) => onFieldChange("equity", e.target.value)}
+          placeholder="如 0.1% / 4 年 vest"
+          value={form.equity}
+        />
+      </div>
+      <div className="grid gap-1.5">
+        <Label className="text-sm" htmlFor={`${idPrefix}-joining`}>
+          预计入职日（可选）
+        </Label>
+        <Input
+          id={`${idPrefix}-joining`}
+          onChange={(e) => onFieldChange("joiningDate", e.target.value)}
+          type="date"
+          value={form.joiningDate}
+        />
+      </div>
+      <div className="grid gap-1.5">
+        <Label className="text-sm" htmlFor={`${idPrefix}-expires`}>
+          Offer 有效期至（可选）
+        </Label>
+        <Input
+          id={`${idPrefix}-expires`}
+          onChange={(e) => onFieldChange("expiresAt", e.target.value)}
+          type="date"
+          value={form.expiresAt}
+        />
+      </div>
+      <div className={`grid gap-1.5 ${fullSpanClassName}`}>
+        <Label className="text-sm" htmlFor={`${idPrefix}-notes`}>
+          备注（可选）
+        </Label>
+        <Textarea
+          id={`${idPrefix}-notes`}
+          maxLength={2000}
+          onChange={(e) => onFieldChange("notes", e.target.value)}
+          rows={2}
+          value={form.notes}
+        />
+      </div>
+    </div>
+  );
+}
+
 // ── 新建 / 编辑 Offer dialog ──
 // Create-or-edit dialog.
 
@@ -547,6 +891,7 @@ interface OfferDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   candidateId: string;
+  candidateEmail: string | null;
   mode: "create" | "edit";
   existingDraft?: OfferDraftRecord | null;
   onSaved: () => void;
@@ -556,19 +901,23 @@ function CreateOrEditOfferDialog({
   open,
   onOpenChange,
   candidateId,
+  candidateEmail,
   mode,
   existingDraft,
   onSaved,
 }: OfferDialogProps) {
   const slug = useWorkspaceSlug();
-  const [position, setPosition] = useState("");
-  const [baseSalary, setBaseSalary] = useState("");
-  const [bonus, setBonus] = useState("");
-  const [equity, setEquity] = useState("");
-  const [joiningDate, setJoiningDate] = useState("");
-  const [expiresAt, setExpiresAt] = useState("");
-  const [notes, setNotes] = useState("");
+  const [form, setForm] = useState<OfferFormState>(() => createBlankOfferFormState());
+  const setFormField = createOfferFormFieldSetter(setForm);
   const [sendImmediately, setSendImmediately] = useState(false);
+  const [sendConfirmOpen, setSendConfirmOpen] = useState(false);
+
+  function handleOpenChange(next: boolean) {
+    if (!next) {
+      setSendConfirmOpen(false);
+    }
+    onOpenChange(next);
+  }
 
   // 编辑模式打开时同步现值；新建模式打开时清空。
   // Sync form on open: prefill in edit mode, blank in create mode.
@@ -577,45 +926,17 @@ function CreateOrEditOfferDialog({
       return;
     }
     if (mode === "edit" && existingDraft) {
-      setPosition(existingDraft.position);
-      setBaseSalary(String(existingDraft.baseSalary));
-      setBonus(existingDraft.bonus ? String(existingDraft.bonus) : "");
-      setEquity(existingDraft.equity ?? "");
-      setJoiningDate(existingDraft.joiningDate ? existingDraft.joiningDate.slice(0, 10) : "");
-      setExpiresAt(existingDraft.expiresAt ? existingDraft.expiresAt.slice(0, 10) : "");
-      setNotes(existingDraft.notes ?? "");
+      setForm(offerFormStateFromDraft(existingDraft));
       setSendImmediately(false);
     } else {
-      setPosition("");
-      setBaseSalary("");
-      setBonus("");
-      setEquity("");
-      setJoiningDate("");
-      setExpiresAt("");
-      setNotes("");
+      setForm(createBlankOfferFormState());
       setSendImmediately(false);
     }
   }, [open, mode, existingDraft]);
 
   const mutation = useMutation({
     mutationFn: () => {
-      const parsedBase = Number(baseSalary);
-      if (Number.isNaN(parsedBase) || parsedBase <= 0) {
-        throw new Error("Base salary 需为正整数");
-      }
-      const parsedBonus = bonus === "" ? null : Number(bonus);
-      if (parsedBonus !== null && (Number.isNaN(parsedBonus) || parsedBonus < 0)) {
-        throw new Error("奖金需为非负整数");
-      }
-      const payload = {
-        baseSalary: parsedBase,
-        bonus: parsedBonus,
-        equity: equity.trim() || null,
-        expiresAt: expiresAt || null,
-        joiningDate: joiningDate || null,
-        notes: notes.trim() || null,
-        position: position.trim(),
-      };
+      const payload = buildOfferDraftPayload(form);
       if (mode === "edit" && existingDraft) {
         return patchOfferDraft(slug, candidateId, existingDraft.id, payload);
       }
@@ -624,13 +945,22 @@ function CreateOrEditOfferDialog({
     onError: (e) => toast.error(e instanceof Error ? e.message : "保存失败"),
     onSuccess: () => {
       toast.success(saveSuccessMessage(mode, sendImmediately));
+      setSendConfirmOpen(false);
       onSaved();
       onOpenChange(false);
     },
   });
 
+  function handleSave() {
+    if (mode === "create" && sendImmediately) {
+      setSendConfirmOpen(true);
+      return;
+    }
+    mutation.mutate();
+  }
+
   return (
-    <Dialog onOpenChange={onOpenChange} open={open}>
+    <Dialog onOpenChange={handleOpenChange} open={open}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>{mode === "edit" ? "编辑 Offer 草稿" : "新建 Offer"}</DialogTitle>
@@ -641,91 +971,8 @@ function CreateOrEditOfferDialog({
           </DialogDescription>
         </DialogHeader>
 
+        <OfferDraftFormFields form={form} idPrefix="offer" onFieldChange={setFormField} />
         <div className="grid gap-3 py-2 sm:grid-cols-2">
-          <div className="grid gap-1.5 sm:col-span-2">
-            <Label className="text-sm" htmlFor="offer-position">
-              职位
-            </Label>
-            <Input
-              id="offer-position"
-              maxLength={200}
-              onChange={(e) => setPosition(e.target.value)}
-              placeholder="例如 高级前端工程师（L4）"
-              value={position}
-            />
-          </div>
-          <div className="grid gap-1.5">
-            <Label className="text-sm" htmlFor="offer-base">
-              Base 月薪 (¥)
-            </Label>
-            <Input
-              id="offer-base"
-              inputMode="numeric"
-              min={0}
-              onChange={(e) => setBaseSalary(e.target.value)}
-              type="number"
-              value={baseSalary}
-            />
-          </div>
-          <div className="grid gap-1.5">
-            <Label className="text-sm" htmlFor="offer-bonus">
-              年度奖金 (¥，可选)
-            </Label>
-            <Input
-              id="offer-bonus"
-              inputMode="numeric"
-              min={0}
-              onChange={(e) => setBonus(e.target.value)}
-              type="number"
-              value={bonus}
-            />
-          </div>
-          <div className="grid gap-1.5 sm:col-span-2">
-            <Label className="text-sm" htmlFor="offer-equity">
-              期权 / 股票（可选，自由文本）
-            </Label>
-            <Input
-              id="offer-equity"
-              maxLength={500}
-              onChange={(e) => setEquity(e.target.value)}
-              placeholder="如 0.1% / 4 年 vest"
-              value={equity}
-            />
-          </div>
-          <div className="grid gap-1.5">
-            <Label className="text-sm" htmlFor="offer-joining">
-              预计入职日（可选）
-            </Label>
-            <Input
-              id="offer-joining"
-              onChange={(e) => setJoiningDate(e.target.value)}
-              type="date"
-              value={joiningDate}
-            />
-          </div>
-          <div className="grid gap-1.5">
-            <Label className="text-sm" htmlFor="offer-expires">
-              Offer 有效期至（可选）
-            </Label>
-            <Input
-              id="offer-expires"
-              onChange={(e) => setExpiresAt(e.target.value)}
-              type="date"
-              value={expiresAt}
-            />
-          </div>
-          <div className="grid gap-1.5 sm:col-span-2">
-            <Label className="text-sm" htmlFor="offer-notes">
-              备注（可选）
-            </Label>
-            <Textarea
-              id="offer-notes"
-              maxLength={2000}
-              onChange={(e) => setNotes(e.target.value)}
-              rows={2}
-              value={notes}
-            />
-          </div>
           {mode === "create" ? (
             <div className="flex items-center gap-2 sm:col-span-2">
               <input
@@ -746,18 +993,25 @@ function CreateOrEditOfferDialog({
         <DialogFooter>
           <Button
             disabled={mutation.isPending}
-            onClick={() => onOpenChange(false)}
+            onClick={() => handleOpenChange(false)}
             variant="outline"
           >
             取消
           </Button>
           <Button
-            disabled={mutation.isPending || !position.trim() || !baseSalary}
-            onClick={() => mutation.mutate()}
+            disabled={mutation.isPending || !form.position.trim() || !form.baseSalary}
+            onClick={handleSave}
           >
             {mutation.isPending ? "保存中…" : "保存"}
           </Button>
         </DialogFooter>
+        <SendOfferConfirmDialog
+          candidateEmail={candidateEmail}
+          isPending={mutation.isPending}
+          onConfirm={() => mutation.mutate()}
+          onOpenChange={setSendConfirmOpen}
+          open={sendConfirmOpen}
+        />
       </DialogContent>
     </Dialog>
   );

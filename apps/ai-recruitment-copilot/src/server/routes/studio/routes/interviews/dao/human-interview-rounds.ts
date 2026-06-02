@@ -230,6 +230,19 @@ export class EditRoundError extends Error {
   }
 }
 
+function resolveScheduledAtInput(
+  value: string | null | undefined,
+  fallback: Date | null,
+): Date | null {
+  if (value === undefined) {
+    return fallback;
+  }
+  if (!value) {
+    return null;
+  }
+  return new Date(value);
+}
+
 export async function editHumanInterviewRound({
   roundId,
   organizationId,
@@ -276,11 +289,43 @@ export async function editHumanInterviewRound({
 
     // pending：除 status / outcome / completedAt 外都能改；interviewers 全量替换。
     // pending → most fields editable; interviewer set replaced wholesale.
-    // input.scheduledAt（string）→ Date；input 没传时退回 existing 值（Date 列直接复用）。
-    // input.scheduledAt (string) → Date; falls back to the existing Date value.
-    const nextScheduledAt: Date | null = input.scheduledAt
-      ? new Date(input.scheduledAt)
-      : existing.scheduledAt;
+    // input.scheduledAt（string）→ Date；未传才保留 existing，传 null/"" 表示清空。
+    // input.scheduledAt (string) → Date; undefined preserves existing,
+    // null/"" clears it.
+    const nextScheduledAt = resolveScheduledAtInput(input.scheduledAt, existing.scheduledAt);
+    if (input.scheduledAt !== undefined) {
+      const linkedMeetings = await tx
+        .select({
+          id: studioHumanInterviewMeeting.id,
+          status: studioHumanInterviewMeeting.status,
+        })
+        .from(studioHumanInterviewMeetingRound)
+        .innerJoin(
+          studioHumanInterviewMeeting,
+          eq(studioHumanInterviewMeetingRound.meetingId, studioHumanInterviewMeeting.id),
+        )
+        .where(
+          and(
+            eq(studioHumanInterviewMeetingRound.roundId, roundId),
+            eq(studioHumanInterviewMeeting.organizationId, organizationId),
+          ),
+        );
+      if (linkedMeetings.some((meeting) => meeting.status !== "scheduled")) {
+        throw new EditRoundError("已开始、已结束或已取消的会议不能调整时间", 400);
+      }
+      const meetingIds = [...new Set(linkedMeetings.map((meeting) => meeting.id))];
+      if (meetingIds.length > 0) {
+        await tx
+          .update(studioHumanInterviewMeeting)
+          .set({ scheduledAt: nextScheduledAt, updatedAt: now })
+          .where(
+            and(
+              eq(studioHumanInterviewMeeting.organizationId, organizationId),
+              inArray(studioHumanInterviewMeeting.id, meetingIds),
+            ),
+          );
+      }
+    }
     await tx
       .update(studioHumanInterviewRound)
       .set({

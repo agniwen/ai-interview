@@ -18,13 +18,16 @@ import {
   CheckCircle2Icon,
   CircleStopIcon,
   CopyIcon,
+  CheckIcon,
   LinkIcon,
   Loader2Icon,
+  PencilIcon,
   PlusIcon,
   UsersIcon,
   VideoIcon,
+  XIcon,
 } from "lucide-react";
-import type { MouseEvent, ReactNode } from "react";
+import type { FormEvent, MouseEvent, ReactNode } from "react";
 import { useReducer, useState } from "react";
 import { toast } from "sonner";
 import {
@@ -49,6 +52,7 @@ import {
   issueHumanInterviewMeetingLinks,
   listHumanInterviewMeetings,
   listHumanInterviewRounds,
+  patchHumanInterviewRound,
 } from "@/lib/client/api";
 import { copyTextToClipboard, toAbsoluteUrl } from "@/lib/client/clipboard";
 import { rpc } from "@/lib/client/rpc";
@@ -270,6 +274,7 @@ export function HumanInterviewStagePanel({ candidateId, candidateName, disabled 
               onCreateMeeting={() => createMeetingMutation.mutate(round)}
               onEndMeeting={(item) => dispatchDialog({ target: item, type: "endTargetChanged" })}
               onOpenLinks={(item) => dispatchDialog({ target: item, type: "linksTargetChanged" })}
+              onRescheduled={invalidateRounds}
               round={round}
             />
           );
@@ -352,6 +357,7 @@ function RoundCard({
   onCreateMeeting,
   onEndMeeting,
   onOpenLinks,
+  onRescheduled,
 }: {
   round: HumanInterviewRoundRecord;
   disabled?: boolean;
@@ -361,6 +367,7 @@ function RoundCard({
   onCreateMeeting: () => void;
   onEndMeeting: (meeting: HumanInterviewMeetingRecord) => void;
   onOpenLinks: (meeting: HumanInterviewMeetingRecord) => void;
+  onRescheduled: () => void;
 }) {
   const statusBadge = describeRoundSummaryStatus(round, meeting);
   const canWrite = disabled !== true;
@@ -380,14 +387,12 @@ function RoundCard({
               <Badge variant={statusBadge.tone}>{statusBadge.label}</Badge>
             </div>
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-muted-foreground text-xs">
-              {round.scheduledAt ? (
-                <span className="inline-flex items-center gap-1">
-                  <CalendarIcon className="size-3" />
-                  {formatDateTime(round.scheduledAt)}
-                </span>
-              ) : (
-                <span className="text-muted-foreground/70">时间未定</span>
-              )}
+              <RoundScheduledAtControl
+                disabled={disabled}
+                meeting={meeting}
+                onRescheduled={onRescheduled}
+                round={round}
+              />
               <span className="inline-flex items-center gap-1">
                 {humanInterviewFormatMeta[round.format].label}
               </span>
@@ -432,6 +437,127 @@ function RoundCard({
         />
       </CardContent>
     </Card>
+  );
+}
+
+function RoundScheduledAtControl({
+  round,
+  meeting,
+  disabled,
+  onRescheduled,
+}: {
+  round: HumanInterviewRoundRecord;
+  meeting: HumanInterviewMeetingRecord | null;
+  disabled?: boolean;
+  onRescheduled: () => void;
+}) {
+  const slug = useWorkspaceSlug();
+  const [editing, setEditing] = useState(false);
+  const [scheduledAt, setScheduledAt] = useState(() =>
+    toDateTimeLocalInputValue(round.scheduledAt),
+  );
+  const canReschedule = canRescheduleHumanInterviewRound(round, meeting, disabled);
+  const inputId = `human-round-${round.id}-scheduled-at`;
+  const mutation = useMutation({
+    mutationFn: () =>
+      patchHumanInterviewRound(slug, round.interviewRecordId, round.id, {
+        scheduledAt: scheduledAt || null,
+      }),
+    onError: (e) => toast.error(e instanceof Error ? e.message : "调整时间失败"),
+    onSuccess: () => {
+      toast.success("面试时间已调整");
+      setEditing(false);
+      onRescheduled();
+    },
+  });
+
+  function startEditing() {
+    if (!canReschedule) {
+      return;
+    }
+    setScheduledAt(toDateTimeLocalInputValue(round.scheduledAt));
+    setEditing(true);
+  }
+
+  function cancelEditing() {
+    setScheduledAt(toDateTimeLocalInputValue(round.scheduledAt));
+    setEditing(false);
+  }
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    mutation.mutate();
+  }
+
+  if (editing) {
+    return (
+      <form className="inline-flex min-h-7 flex-wrap items-center gap-1.5" onSubmit={handleSubmit}>
+        <Label className="sr-only" htmlFor={inputId}>
+          面试时间
+        </Label>
+        <Input
+          className="h-7 w-[13.5rem] text-xs"
+          disabled={mutation.isPending}
+          id={inputId}
+          onChange={(e) => setScheduledAt(e.target.value)}
+          type="datetime-local"
+          value={scheduledAt}
+        />
+        <Button
+          aria-label="保存面试时间"
+          className="h-7 w-7 p-0"
+          disabled={mutation.isPending}
+          size="icon"
+          title="保存面试时间"
+          type="submit"
+        >
+          {mutation.isPending ? (
+            <Loader2Icon className="size-3.5 animate-spin" />
+          ) : (
+            <CheckIcon className="size-3.5" />
+          )}
+        </Button>
+        <Button
+          aria-label="取消调整时间"
+          className="h-7 w-7 p-0"
+          disabled={mutation.isPending}
+          onClick={cancelEditing}
+          size="icon"
+          title="取消调整时间"
+          type="button"
+          variant="outline"
+        >
+          <XIcon className="size-3.5" />
+        </Button>
+      </form>
+    );
+  }
+
+  return (
+    <span className="inline-flex min-h-7 flex-wrap items-center gap-1.5">
+      <span className="inline-flex items-center gap-1">
+        {round.scheduledAt ? (
+          <>
+            <CalendarIcon className="size-3" />
+            {formatDateTime(round.scheduledAt)}
+          </>
+        ) : (
+          <span className="text-muted-foreground/70">时间未定</span>
+        )}
+      </span>
+      {canReschedule ? (
+        <Button
+          aria-label="调整面试时间"
+          className="h-6 w-6 p-0"
+          onClick={startEditing}
+          size="icon"
+          title="调整面试时间"
+          variant="ghost"
+        >
+          <PencilIcon className="size-3.5" />
+        </Button>
+      ) : null}
+    </span>
   );
 }
 
@@ -770,6 +896,17 @@ function canCompleteHumanInterviewRound(
   return disabled !== true && round.status === "pending" && meeting?.status === "ended";
 }
 
+function canRescheduleHumanInterviewRound(
+  round: HumanInterviewRoundRecord,
+  meeting: HumanInterviewMeetingRecord | null,
+  disabled?: boolean,
+): boolean {
+  if (disabled || round.status !== "pending") {
+    return false;
+  }
+  return meeting === null || meeting.status === "scheduled";
+}
+
 function pad2(n: number): string {
   return String(n).padStart(2, "0");
 }
@@ -787,6 +924,17 @@ function formatDateTime(iso: string): string {
   // Local time-zone, no i18n lib.
   const d = new Date(iso);
   return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+}
+
+function toDateTimeLocalInputValue(iso: string | null): string {
+  if (!iso) {
+    return "";
+  }
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) {
+    return "";
+  }
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}T${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
 }
 
 // ── 新建轮次 dialog ──
