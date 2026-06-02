@@ -470,8 +470,9 @@ export function InterviewManagementPage({
         emptyMessage: "没有匹配的创建人",
         key: "creatorIds" as const,
         options: workspaceMembers.map((member) => ({
-          description: member.email,
+          avatarUrl: member.image,
           label: member.name,
+          searchValue: `${member.name} ${member.email}`,
           value: member.id,
         })),
         placeholder: "按创建人筛选",

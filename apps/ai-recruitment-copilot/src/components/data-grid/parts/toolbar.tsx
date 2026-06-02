@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SearchableMultiSelect } from "@/components/ui/searchable-multi-select";
 import { SearchableSelect } from "@/components/ui/searchable-select";
+import type { SearchableSelectOption } from "@/components/ui/searchable-select";
 
 // =====================================================================
 // DataGrid 工具栏过滤器：支持搜索框、单选下拉、多选下拉。
@@ -20,7 +21,7 @@ export type ToolbarFilterConfig =
       type: "select";
       key: string;
       placeholder?: string;
-      options: { value: string; label: string; description?: string }[];
+      options: SearchableSelectOption[];
       searchPlaceholder?: string;
       emptyMessage?: string;
     }
@@ -28,7 +29,7 @@ export type ToolbarFilterConfig =
       type: "multi-select";
       key: string;
       placeholder?: string;
-      options: { value: string; label: string; description?: string }[];
+      options: SearchableSelectOption[];
       searchPlaceholder?: string;
       emptyMessage?: string;
       selectedFormat?: (count: number) => string;

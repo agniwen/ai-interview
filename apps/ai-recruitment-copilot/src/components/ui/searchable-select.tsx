@@ -28,6 +28,9 @@ export interface SearchableSelectOption {
   /** 副信息（如部门 / 备注），出现在 option 第二行；为空则不显示。 */
   /** Secondary line shown beneath the label inside the dropdown. */
   description?: string;
+  /** 可选头像 URL；多选下拉会在 option 行内展示。 */
+  /** Optional avatar URL rendered by multi-select option rows. */
+  avatarUrl?: string | null;
   /** 自定义搜索文本，缺省为 label + description / Override text used by cmdk filter. */
   searchValue?: string;
   /** 禁用此项 / Disable this option. */

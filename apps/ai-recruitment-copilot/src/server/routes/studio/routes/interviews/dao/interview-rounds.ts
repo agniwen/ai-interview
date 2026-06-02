@@ -5,7 +5,7 @@
 // Round-keyed DAO. Drives off studio_interview_schedule and joins back to
 // the candidate row, JD, creator, and a "has at least one conversation" flag.
 
-import { and, asc, count, desc, eq, exists, ilike, inArray, or, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, ilike, inArray, or, sql } from "drizzle-orm";
 import { db } from "@/lib/server/db";
 import { buildOrderBy, calcTotalPages, makePaginationSchema } from "@/lib/server/db/pagination";
 import { serializeDate } from "@/lib/server/db/serialize";
@@ -95,6 +95,49 @@ function buildWhere(
   return and(...conditions);
 }
 
+interface RoundDerivedFields {
+  hasReport: boolean;
+  lastInterviewAt: string | null;
+}
+
+async function loadRoundDerivedFields(
+  roundIds: string[],
+): Promise<Map<string, RoundDerivedFields>> {
+  const ids = [...new Set(roundIds.filter(Boolean))];
+  const result = new Map<string, RoundDerivedFields>();
+  for (const id of ids) {
+    result.set(id, { hasReport: false, lastInterviewAt: null });
+  }
+  if (ids.length === 0) {
+    return result;
+  }
+
+  const rows = await db
+    .select({
+      lastInterviewAt:
+        sql<Date | null>`MAX(COALESCE(${interviewConversation.startedAt}, ${interviewConversation.createdAt})) AT TIME ZONE 'UTC'`.as(
+          "last_interview_at",
+        ),
+      reportCount: count(),
+      scheduleEntryId: interviewConversation.scheduleEntryId,
+    })
+    .from(interviewConversation)
+    .where(inArray(interviewConversation.scheduleEntryId, ids))
+    .groupBy(interviewConversation.scheduleEntryId);
+
+  for (const row of rows) {
+    if (!row.scheduleEntryId) {
+      continue;
+    }
+    result.set(row.scheduleEntryId, {
+      hasReport: row.reportCount > 0,
+      lastInterviewAt: serializeDate(row.lastInterviewAt),
+    });
+  }
+
+  return result;
+}
+
 export async function queryPaginatedInterviewRounds(
   organizationId: string,
   filters?: { creatorIds?: string[] | null; search?: string | null; status?: string | null },
@@ -106,20 +149,16 @@ export async function queryPaginatedInterviewRounds(
   const { page, pageSize, sortBy, sortOrder } = parsePagination(pagination);
   const offset = (page - 1) * pageSize;
   const where = buildWhere(organizationId, { creatorIds, search, statuses });
-
-  // 子查询：当前 round 是否存在任意一条对应的 conversation 行。
-  // Subquery: does at least one conversation row exist for this round.
-  const hasReportSql = exists(
-    db
-      .select({ one: interviewConversation.conversationId })
-      .from(interviewConversation)
-      .where(eq(interviewConversation.scheduleEntryId, studioInterviewSchedule.id)),
-  );
-  const lastInterviewAtSql = sql<Date | null>`(
-    SELECT MAX(COALESCE(ic.started_at, ic.created_at)) AT TIME ZONE 'UTC'
-      FROM interview_conversation ic
-      WHERE ic.schedule_entry_id = ${studioInterviewSchedule.id}
-  )`;
+  const countQuery = search
+    ? db
+        .select({ count: count() })
+        .from(studioInterviewSchedule)
+        .leftJoin(
+          studioInterview,
+          eq(studioInterviewSchedule.interviewRecordId, studioInterview.id),
+        )
+        .where(where)
+    : db.select({ count: count() }).from(studioInterviewSchedule).where(where);
 
   const [rows, [totalRow]] = await Promise.all([
     db
@@ -135,12 +174,10 @@ export async function queryPaginatedInterviewRounds(
         creatorImage: user.image,
         creatorName: user.name,
         creatorOrganizationName: user.feishuTenantName,
-        hasReport: hasReportSql,
         id: studioInterviewSchedule.id,
         jobDescriptionDepartmentName: department.name,
         jobDescriptionId: studioInterview.jobDescriptionId,
         jobDescriptionName: jobDescription.name,
-        lastInterviewAt: lastInterviewAtSql,
         outcome: studioInterview.outcome,
         pipelineStage: studioInterview.pipelineStage,
         resumeFileName: studioInterview.resumeFileName,
@@ -173,13 +210,10 @@ export async function queryPaginatedInterviewRounds(
       .orderBy(buildOrderBy(ORDER_COLUMNS, sortBy, sortOrder))
       .limit(pageSize)
       .offset(offset),
-    db
-      .select({ count: count() })
-      .from(studioInterviewSchedule)
-      .leftJoin(studioInterview, eq(studioInterviewSchedule.interviewRecordId, studioInterview.id))
-      .where(where),
+    countQuery,
   ]);
 
+  const roundDerived = await loadRoundDerivedFields(rows.map((row) => row.id));
   const total = totalRow?.count ?? 0;
   const records: StudioInterviewRoundListRecord[] = rows.map((row) => ({
     allowTextInput: row.allowTextInput,
@@ -193,14 +227,14 @@ export async function queryPaginatedInterviewRounds(
     creatorImage: row.creatorImage,
     creatorName: row.creatorName,
     creatorOrganizationName: row.creatorOrganizationName,
-    hasReport: Boolean(row.hasReport),
+    hasReport: roundDerived.get(row.id)?.hasReport ?? false,
     hasResumeFile: Boolean(row.resumeStorageKey),
     id: row.id,
     interviewLink: buildInterviewLink(row.candidateId ?? "", row.id),
     jobDescriptionDepartmentName: row.jobDescriptionDepartmentName,
     jobDescriptionId: row.jobDescriptionId,
     jobDescriptionName: row.jobDescriptionName,
-    lastInterviewAt: serializeDate(row.lastInterviewAt),
+    lastInterviewAt: roundDerived.get(row.id)?.lastInterviewAt ?? null,
     outcome: row.outcome ?? "in_pipeline",
     pipelineStage: row.pipelineStage ?? "screening",
     resumeFileName: row.resumeFileName,
@@ -241,18 +275,6 @@ export async function listInterviewRoundsForCandidate(
   candidateId: string,
   organizationId: string,
 ): Promise<StudioInterviewRoundListRecord[]> {
-  const hasReportSql = exists(
-    db
-      .select({ one: interviewConversation.conversationId })
-      .from(interviewConversation)
-      .where(eq(interviewConversation.scheduleEntryId, studioInterviewSchedule.id)),
-  );
-  const lastInterviewAtSql = sql<Date | null>`(
-    SELECT MAX(COALESCE(ic.started_at, ic.created_at)) AT TIME ZONE 'UTC'
-      FROM interview_conversation ic
-      WHERE ic.schedule_entry_id = ${studioInterviewSchedule.id}
-  )`;
-
   const rows = await db
     .select({
       allowTextInput: studioInterviewSchedule.allowTextInput,
@@ -266,12 +288,10 @@ export async function listInterviewRoundsForCandidate(
       creatorImage: user.image,
       creatorName: user.name,
       creatorOrganizationName: user.feishuTenantName,
-      hasReport: hasReportSql,
       id: studioInterviewSchedule.id,
       jobDescriptionDepartmentName: department.name,
       jobDescriptionId: studioInterview.jobDescriptionId,
       jobDescriptionName: jobDescription.name,
-      lastInterviewAt: lastInterviewAtSql,
       outcome: studioInterview.outcome,
       pipelineStage: studioInterview.pipelineStage,
       resumeFileName: studioInterview.resumeFileName,
@@ -308,6 +328,7 @@ export async function listInterviewRoundsForCandidate(
     )
     .orderBy(asc(studioInterviewSchedule.sortOrder));
 
+  const roundDerived = await loadRoundDerivedFields(rows.map((row) => row.id));
   return rows.map((row) => ({
     allowTextInput: row.allowTextInput,
     candidateEmail: row.candidateEmail,
@@ -320,14 +341,14 @@ export async function listInterviewRoundsForCandidate(
     creatorImage: row.creatorImage,
     creatorName: row.creatorName,
     creatorOrganizationName: row.creatorOrganizationName,
-    hasReport: Boolean(row.hasReport),
+    hasReport: roundDerived.get(row.id)?.hasReport ?? false,
     hasResumeFile: Boolean(row.resumeStorageKey),
     id: row.id,
     interviewLink: buildInterviewLink(row.candidateId ?? candidateId, row.id),
     jobDescriptionDepartmentName: row.jobDescriptionDepartmentName,
     jobDescriptionId: row.jobDescriptionId,
     jobDescriptionName: row.jobDescriptionName,
-    lastInterviewAt: serializeDate(row.lastInterviewAt),
+    lastInterviewAt: roundDerived.get(row.id)?.lastInterviewAt ?? null,
     outcome: row.outcome ?? "in_pipeline",
     pipelineStage: row.pipelineStage ?? "screening",
     resumeFileName: row.resumeFileName,

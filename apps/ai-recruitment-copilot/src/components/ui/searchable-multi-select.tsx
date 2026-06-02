@@ -3,6 +3,7 @@
 import { CheckIcon, ChevronsUpDownIcon, XIcon } from "lucide-react";
 import { useId, useMemo, useState } from "react";
 
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import {
   Command,
@@ -41,6 +42,11 @@ export interface SearchableMultiSelectProps {
   selectedBadgeLimit?: number;
   triggerClassName?: string;
   id?: string;
+}
+
+function getInitials(label: string): string {
+  const trimmed = label.trim();
+  return trimmed ? trimmed.slice(0, 1).toUpperCase() : "?";
 }
 
 export function SearchableMultiSelect({
@@ -140,6 +146,14 @@ export function SearchableMultiSelect({
                       <CheckIcon
                         className={cn("size-4", isSelected ? "opacity-100" : "opacity-0")}
                       />
+                      {option.avatarUrl !== undefined ? (
+                        <Avatar size="sm">
+                          {option.avatarUrl ? (
+                            <AvatarImage alt={option.label} src={option.avatarUrl} />
+                          ) : null}
+                          <AvatarFallback>{getInitials(option.label)}</AvatarFallback>
+                        </Avatar>
+                      ) : null}
                       <div className="flex min-w-0 flex-col leading-tight">
                         <span className="truncate">{option.label}</span>
                         {option.description ? (

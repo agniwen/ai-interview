@@ -1,15 +1,18 @@
 import "server-only";
 
-import { and, arrayContains, count, eq, exists, ilike, inArray, or, sql } from "drizzle-orm";
+import { and, arrayContains, asc, count, eq, ilike, inArray, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/server/db";
 import { buildOrderBy, calcTotalPages, makePaginationSchema } from "@/lib/server/db/pagination";
 import { serializeDate } from "@/lib/server/db/serialize";
 import {
   department,
+  interviewConversation,
   jobDescription,
+  studioHumanInterviewRound,
   studioInterview,
   studioInterviewSchedule,
+  studioOfferDraft,
   user,
 } from "@arc/db-schema/schema";
 import {
@@ -138,121 +141,6 @@ function buildWhere(organizationId: string, filters?: Filters) {
   return conditions.length === 1 ? conditions[0] : and(...conditions);
 }
 
-// 子查询：该候选人是否已有任意 AI 面试轮次。
-// Subquery: whether this candidate already has any AI interview round.
-const hasInterviewRoundsSql = exists(
-  db
-    .select({ one: studioInterviewSchedule.id })
-    .from(studioInterviewSchedule)
-    .where(eq(studioInterviewSchedule.interviewRecordId, studioInterview.id)),
-);
-
-// 派生「面试进度」：单条 SELECT 同时聚合 3 个子表的状态：
-//   - aiInterview: studio_interview_schedule（AI 多轮）
-//   - humanInterview: studio_human_interview_round（真人复面多轮）
-//   - offer: studio_offer_draft（多版本 Offer）
-// 每个子结构都是「无数据时返回 null」，让 UI 用 `?.` 做空守卫即可。
-//
-// One SELECT aggregates progress across all three subtables; each sub-block
-// returns null when empty so the UI can use optional chaining everywhere.
-const stageProgressSql = sql<ResumeStageProgress>`(
-  SELECT json_build_object(
-    'aiInterview', (
-      SELECT json_build_object(
-        'totalRounds', COUNT(*)::int,
-        'completedRounds', COUNT(*) FILTER (WHERE sis.status = 'completed')::int,
-        'hasStarted', COALESCE(BOOL_OR(sis.status <> 'pending'), false),
-        'activeRound', (
-          SELECT json_build_object(
-            'sortOrder', sis2.sort_order,
-            'roundLabel', sis2.round_label,
-            'status', sis2.status
-          )
-          FROM studio_interview_schedule sis2
-          WHERE sis2.interview_record_id = ${studioInterview.id}
-            AND sis2.status <> 'completed'
-          ORDER BY sis2.sort_order ASC
-          LIMIT 1
-        )
-      )
-      FROM studio_interview_schedule sis
-      WHERE sis.interview_record_id = ${studioInterview.id}
-      HAVING COUNT(*) > 0
-    ),
-    'humanInterview', (
-      SELECT json_build_object(
-        -- 不计 cancelled 轮次，避免被取消的轮次干扰统计。
-        -- Exclude cancelled rounds from the counts.
-        'totalRounds', COUNT(*) FILTER (WHERE shr.status <> 'cancelled')::int,
-        'completedRounds', COUNT(*) FILTER (WHERE shr.status = 'completed')::int,
-        'passedRounds', COUNT(*) FILTER (WHERE shr.status = 'completed' AND shr.outcome = 'pass')::int,
-        'failedRounds', COUNT(*) FILTER (WHERE shr.status = 'completed' AND shr.outcome = 'fail')::int,
-        'activeRound', (
-          SELECT json_build_object(
-            'id', shr2.id,
-            'sortOrder', shr2.sort_order,
-            'label', shr2.label,
-            'status', shr2.status,
-            'outcome', shr2.outcome,
-            'scheduledAt', shr2.scheduled_at
-          )
-          FROM studio_human_interview_round shr2
-          WHERE shr2.interview_record_id = ${studioInterview.id}
-            AND shr2.status = 'pending'
-          ORDER BY shr2.sort_order ASC
-          LIMIT 1
-        )
-      )
-      FROM studio_human_interview_round shr
-      WHERE shr.interview_record_id = ${studioInterview.id}
-      HAVING COUNT(*) FILTER (WHERE shr.status <> 'cancelled') > 0
-    ),
-    'offer', (
-      SELECT json_build_object(
-        'totalVersions', COUNT(*) FILTER (WHERE sod.status <> 'superseded')::int,
-        'latestDraft', (
-          SELECT json_build_object(
-            'id', sod2.id,
-            'version', sod2.version,
-            'status', sod2.status,
-            'sentAt', sod2.sent_at,
-            'responseAt', sod2.response_at
-          )
-          FROM studio_offer_draft sod2
-          WHERE sod2.interview_record_id = ${studioInterview.id}
-            AND sod2.status <> 'superseded'
-          ORDER BY sod2.version DESC
-          LIMIT 1
-        )
-      )
-      FROM studio_offer_draft sod
-      WHERE sod.interview_record_id = ${studioInterview.id}
-      HAVING COUNT(*) FILTER (WHERE sod.status <> 'superseded') > 0
-    )
-  )
-)`;
-
-// 中文：「最近面试时间」= 简历详情面板「面试报告 / 会话概览」里展示的开始时间
-// （report.startedAt ?? report.createdAt），且只看 status 是 'completed'/'done'
-// 的 conversation（UI 挂"已完成"徽章那批）。
-// 关键细节：用 raw `sql<Date>` 时 pg driver 把 `timestamp without time zone`
-// 按 **Node 进程本地时区** 解析（Drizzle 自带的 timestamp() column reader 会
-// 强制按 UTC 解释，但 raw SQL 绕过这层）。这里显式 AT TIME ZONE 'UTC' 把
-// naive timestamp 转成 timestamptz，pg driver 就能拿到正确的 UTC 时刻，前端
-// TimeDisplay 再统一锁到东八区，全链路时区一致。
-// English: when read through Drizzle's `timestamp()` column type, naive
-// timestamps are normalized as UTC; raw `sql<Date>` skips that, letting the
-// pg driver fall back to the Node process timezone (which is wrong on local
-// dev / certain hosts and produces an 8-hour drift). Wrap the MAX in
-// `AT TIME ZONE 'UTC'` to coerce to timestamptz before it leaves Postgres,
-// so the Date returned to Node is the right instant.
-const lastInterviewAtSql = sql<Date | null>`(
-  SELECT MAX(COALESCE(ic.started_at, ic.created_at)) AT TIME ZONE 'UTC'
-    FROM interview_conversation ic
-    WHERE ic.interview_record_id = ${studioInterview.id}
-      AND ic.status IN ('completed', 'done')
-)`;
-
 const SELECTED_COLUMNS = {
   candidateEmail: studioInterview.candidateEmail,
   candidateExpectationsMeta: studioInterview.candidateExpectationsMeta,
@@ -266,14 +154,12 @@ const SELECTED_COLUMNS = {
   creatorImage: user.image,
   creatorName: user.name,
   creatorOrganizationName: user.feishuTenantName,
-  hasInterviewRounds: hasInterviewRoundsSql,
   humanInterviewScheduledAt: studioInterview.humanInterviewScheduledAt,
   humanInterviewerId: studioInterview.humanInterviewerId,
   id: studioInterview.id,
   jobDescriptionDepartmentName: department.name,
   jobDescriptionId: studioInterview.jobDescriptionId,
   jobDescriptionName: jobDescription.name,
-  lastInterviewAt: lastInterviewAtSql,
   notes: studioInterview.notes,
   offerAcceptedAt: studioInterview.offerAcceptedAt,
   offerSentAt: studioInterview.offerSentAt,
@@ -282,7 +168,6 @@ const SELECTED_COLUMNS = {
   resumeContentHash: studioInterview.resumeContentHash,
   resumeFileName: studioInterview.resumeFileName,
   resumeStorageKey: studioInterview.resumeStorageKey,
-  stageProgress: stageProgressSql,
   status: studioInterview.status,
   targetRole: studioInterview.targetRole,
   updatedAt: studioInterview.updatedAt,
@@ -337,7 +222,208 @@ const EMPTY_STAGE_PROGRESS: ResumeStageProgress = {
   offer: null,
 };
 
-function toRecord(row: Row): ResumeLibraryListRecord {
+interface ResumeDerivedFields {
+  hasInterviewRounds: boolean;
+  lastInterviewAt: string | null;
+  stageProgress: ResumeStageProgress;
+}
+
+const EMPTY_DERIVED_FIELDS: ResumeDerivedFields = {
+  hasInterviewRounds: false,
+  lastInterviewAt: null,
+  stageProgress: EMPTY_STAGE_PROGRESS,
+};
+
+function serializeStageProgressTimestamp(value: Date | string | null): string | null {
+  const iso = serializeDate(value);
+  return iso ? iso.replace(/\.000Z$/, "") : null;
+}
+
+// 批量组装 4 类派生字段，集中在一个函数里避免在分页行上重复 correlated subquery。
+// Batch-assembles 4 derived branches in one place to avoid per-row correlated subqueries.
+// oxlint-disable-next-line complexity
+async function loadResumeDerivedFields(
+  candidateIds: string[],
+): Promise<Map<string, ResumeDerivedFields>> {
+  const ids = [...new Set(candidateIds.filter(Boolean))];
+  const result = new Map<string, ResumeDerivedFields>();
+  for (const id of ids) {
+    result.set(id, {
+      hasInterviewRounds: false,
+      lastInterviewAt: null,
+      stageProgress: { ...EMPTY_STAGE_PROGRESS },
+    });
+  }
+  if (ids.length === 0) {
+    return result;
+  }
+
+  const [aiRows, humanRows, offerRows, lastInterviewRows] = await Promise.all([
+    db
+      .select({
+        interviewRecordId: studioInterviewSchedule.interviewRecordId,
+        roundLabel: studioInterviewSchedule.roundLabel,
+        sortOrder: studioInterviewSchedule.sortOrder,
+        status: studioInterviewSchedule.status,
+      })
+      .from(studioInterviewSchedule)
+      .where(inArray(studioInterviewSchedule.interviewRecordId, ids))
+      .orderBy(
+        asc(studioInterviewSchedule.interviewRecordId),
+        asc(studioInterviewSchedule.sortOrder),
+      ),
+    db
+      .select({
+        id: studioHumanInterviewRound.id,
+        interviewRecordId: studioHumanInterviewRound.interviewRecordId,
+        label: studioHumanInterviewRound.label,
+        outcome: studioHumanInterviewRound.outcome,
+        scheduledAt: studioHumanInterviewRound.scheduledAt,
+        sortOrder: studioHumanInterviewRound.sortOrder,
+        status: studioHumanInterviewRound.status,
+      })
+      .from(studioHumanInterviewRound)
+      .where(inArray(studioHumanInterviewRound.interviewRecordId, ids))
+      .orderBy(
+        asc(studioHumanInterviewRound.interviewRecordId),
+        asc(studioHumanInterviewRound.sortOrder),
+      ),
+    db
+      .select({
+        id: studioOfferDraft.id,
+        interviewRecordId: studioOfferDraft.interviewRecordId,
+        responseAt: studioOfferDraft.responseAt,
+        sentAt: studioOfferDraft.sentAt,
+        status: studioOfferDraft.status,
+        version: studioOfferDraft.version,
+      })
+      .from(studioOfferDraft)
+      .where(inArray(studioOfferDraft.interviewRecordId, ids))
+      .orderBy(asc(studioOfferDraft.interviewRecordId), asc(studioOfferDraft.version)),
+    db
+      .select({
+        interviewRecordId: interviewConversation.interviewRecordId,
+        lastInterviewAt:
+          sql<Date | null>`MAX(COALESCE(${interviewConversation.startedAt}, ${interviewConversation.createdAt})) AT TIME ZONE 'UTC'`.as(
+            "last_interview_at",
+          ),
+      })
+      .from(interviewConversation)
+      .where(
+        and(
+          inArray(interviewConversation.interviewRecordId, ids),
+          inArray(interviewConversation.status, ["completed", "done"]),
+        ),
+      )
+      .groupBy(interviewConversation.interviewRecordId),
+  ]);
+
+  const aiByCandidate = new Map<string, (typeof aiRows)[number][]>();
+  for (const row of aiRows) {
+    const current = aiByCandidate.get(row.interviewRecordId) ?? [];
+    current.push(row);
+    aiByCandidate.set(row.interviewRecordId, current);
+  }
+  for (const [id, rows] of aiByCandidate) {
+    const derived = result.get(id);
+    if (!derived || rows.length === 0) {
+      continue;
+    }
+    const activeRound = rows.find((row) => row.status !== "completed") ?? null;
+    derived.hasInterviewRounds = true;
+    derived.stageProgress.aiInterview = {
+      activeRound: activeRound
+        ? {
+            roundLabel: activeRound.roundLabel,
+            sortOrder: activeRound.sortOrder,
+            status: activeRound.status,
+          }
+        : null,
+      completedRounds: rows.filter((row) => row.status === "completed").length,
+      hasStarted: rows.some((row) => row.status !== "pending"),
+      totalRounds: rows.length,
+    };
+  }
+
+  const humanByCandidate = new Map<string, (typeof humanRows)[number][]>();
+  for (const row of humanRows) {
+    const current = humanByCandidate.get(row.interviewRecordId) ?? [];
+    current.push(row);
+    humanByCandidate.set(row.interviewRecordId, current);
+  }
+  for (const [id, rows] of humanByCandidate) {
+    const derived = result.get(id);
+    const countedRows = rows.filter((row) => row.status !== "cancelled");
+    if (!derived || countedRows.length === 0) {
+      continue;
+    }
+    const activeRound = rows.find((row) => row.status === "pending") ?? null;
+    derived.stageProgress.humanInterview = {
+      activeRound: activeRound
+        ? {
+            id: activeRound.id,
+            label: activeRound.label,
+            outcome: activeRound.outcome,
+            scheduledAt: serializeStageProgressTimestamp(activeRound.scheduledAt),
+            sortOrder: activeRound.sortOrder,
+            status: activeRound.status,
+          }
+        : null,
+      completedRounds: countedRows.filter((row) => row.status === "completed").length,
+      failedRounds: countedRows.filter(
+        (row) => row.status === "completed" && row.outcome === "fail",
+      ).length,
+      passedRounds: countedRows.filter(
+        (row) => row.status === "completed" && row.outcome === "pass",
+      ).length,
+      totalRounds: countedRows.length,
+    };
+  }
+
+  const offersByCandidate = new Map<string, (typeof offerRows)[number][]>();
+  for (const row of offerRows) {
+    if (row.status === "superseded") {
+      continue;
+    }
+    const current = offersByCandidate.get(row.interviewRecordId) ?? [];
+    current.push(row);
+    offersByCandidate.set(row.interviewRecordId, current);
+  }
+  for (const [id, rows] of offersByCandidate) {
+    const derived = result.get(id);
+    if (!derived || rows.length === 0) {
+      continue;
+    }
+    const latestDraft = rows.toSorted((a, b) => b.version - a.version)[0] ?? null;
+    derived.stageProgress.offer = {
+      latestDraft: latestDraft
+        ? {
+            id: latestDraft.id,
+            responseAt: serializeStageProgressTimestamp(latestDraft.responseAt),
+            sentAt: serializeStageProgressTimestamp(latestDraft.sentAt),
+            status: latestDraft.status,
+            version: latestDraft.version,
+          }
+        : null,
+      totalVersions: rows.length,
+    };
+  }
+
+  for (const row of lastInterviewRows) {
+    if (!row.interviewRecordId) {
+      continue;
+    }
+    const derived = result.get(row.interviewRecordId);
+    if (derived) {
+      derived.lastInterviewAt = serializeDate(row.lastInterviewAt);
+    }
+  }
+
+  return result;
+}
+
+function toRecord(row: Row, derived?: ResumeDerivedFields): ResumeLibraryListRecord {
+  const resolvedDerived = derived ?? EMPTY_DERIVED_FIELDS;
   return {
     candidateEmail: row.candidateEmail,
     candidateExpectationsMeta: row.candidateExpectationsMeta,
@@ -351,7 +437,7 @@ function toRecord(row: Row): ResumeLibraryListRecord {
     creatorImage: row.creatorImage,
     creatorName: row.creatorName,
     creatorOrganizationName: row.creatorOrganizationName,
-    hasInterviewRounds: Boolean(row.hasInterviewRounds),
+    hasInterviewRounds: resolvedDerived.hasInterviewRounds,
     hasResumeFile: Boolean(row.resumeStorageKey),
     humanInterviewScheduledAt: serializeDate(row.humanInterviewScheduledAt),
     humanInterviewerId: row.humanInterviewerId,
@@ -359,7 +445,7 @@ function toRecord(row: Row): ResumeLibraryListRecord {
     jobDescriptionDepartmentName: row.jobDescriptionDepartmentName,
     jobDescriptionId: row.jobDescriptionId,
     jobDescriptionName: row.jobDescriptionName,
-    lastInterviewAt: serializeDate(row.lastInterviewAt),
+    lastInterviewAt: resolvedDerived.lastInterviewAt,
     notes: row.notes,
     offerAcceptedAt: serializeDate(row.offerAcceptedAt),
     offerSentAt: serializeDate(row.offerSentAt),
@@ -367,7 +453,7 @@ function toRecord(row: Row): ResumeLibraryListRecord {
     pipelineStage: row.pipelineStage,
     resumeContentHash: row.resumeContentHash,
     resumeFileName: row.resumeFileName,
-    stageProgress: row.stageProgress ?? EMPTY_STAGE_PROGRESS,
+    stageProgress: resolvedDerived.stageProgress,
     status: row.status,
     targetRole: row.targetRole,
     updatedAt: serializeDate(row.updatedAt),
@@ -402,11 +488,12 @@ export async function queryPaginatedResumeRecords(
     db.select({ count: count() }).from(studioInterview).where(where),
   ]);
 
+  const derivedFields = await loadResumeDerivedFields(rows.map((row) => row.id));
   const total = countRow?.count ?? 0;
   return {
     page: parsedPagination.page,
     pageSize: parsedPagination.pageSize,
-    records: rows.map(toRecord),
+    records: rows.map((row) => toRecord(row, derivedFields.get(row.id))),
     total,
     totalPages: calcTotalPages(total, parsedPagination.pageSize),
   };
@@ -465,8 +552,9 @@ export async function loadResumeDetail(
   }
 
   const { resumeProfile, interviewQuestions, ...rest } = row;
+  const derivedFields = await loadResumeDerivedFields([rest.id]);
   return {
-    ...toRecord(rest),
+    ...toRecord(rest, derivedFields.get(rest.id)),
     interviewQuestions: interviewQuestions ?? [],
     resumeProfile,
   };

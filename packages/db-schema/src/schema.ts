@@ -394,6 +394,17 @@ export const studioInterview = pgTable(
     index("studio_interview_created_by_idx").on(table.createdBy),
     index("studio_interview_job_description_idx").on(table.jobDescriptionId),
     index("studio_interview_organization_idx").on(table.organizationId),
+    index("studio_interview_org_created_at_idx").on(table.organizationId, table.createdAt),
+    index("studio_interview_org_created_by_created_at_idx").on(
+      table.organizationId,
+      table.createdBy,
+      table.createdAt,
+    ),
+    index("studio_interview_org_stage_created_at_idx").on(
+      table.organizationId,
+      table.pipelineStage,
+      table.createdAt,
+    ),
     index("studio_interview_resume_content_hash_idx").on(table.resumeContentHash),
     index("studio_interview_skills_normalized_idx")
       .using("gin", table.skillsNormalized)
@@ -586,6 +597,17 @@ export const studioInterviewSchedule = pgTable(
     index("studio_interview_schedule_sort_idx").on(table.interviewRecordId, table.sortOrder),
     index("studio_interview_schedule_organization_idx").on(table.organizationId),
     index("studio_interview_schedule_created_by_idx").on(table.createdBy),
+    index("studio_interview_schedule_org_created_at_idx").on(table.organizationId, table.createdAt),
+    index("studio_interview_schedule_org_created_by_created_at_idx").on(
+      table.organizationId,
+      table.createdBy,
+      table.createdAt,
+    ),
+    index("studio_interview_schedule_org_status_created_at_idx").on(
+      table.organizationId,
+      table.status,
+      table.createdAt,
+    ),
   ],
 );
 
@@ -941,6 +963,7 @@ export const interviewConversation = pgTable(
   },
   (table) => [
     index("interview_conversation_record_idx").on(table.interviewRecordId),
+    index("interview_conversation_schedule_entry_idx").on(table.scheduleEntryId),
     index("interview_conversation_status_idx").on(table.status),
     index("interview_conversation_summary_status_idx").on(table.summaryStatus),
     index("interview_conversation_updated_at_idx").on(table.updatedAt),
