@@ -131,10 +131,10 @@ export const chatStateQueues = pgTable(
 );
 
 export const user = pgTable("user", {
-  banExpires: timestamp("ban_expires"),
+  banExpires: timestamp("ban_expires", { withTimezone: true }),
   banReason: text("ban_reason"),
   banned: boolean("banned").default(false).notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   email: text("email").notNull().unique(),
   emailVerified: boolean("email_verified").default(false).notNull(),
   feishuTenantKey: text("feishu_tenant_key"),
@@ -154,11 +154,11 @@ export const user = pgTable("user", {
   // Persistent last-active timestamp. Written on every new session (sign-in).
   // Survives session-row deletion so the members list doesn't regress to
   // "从未登录" for previously-seen users.
-  lastActiveAt: timestamp("last_active_at"),
+  lastActiveAt: timestamp("last_active_at", { withTimezone: true }),
   lastActiveOrganizationId: text("last_active_organization_id"),
   name: text("name").notNull(),
   role: text("role").default("user").notNull(),
-  updatedAt: timestamp("updated_at")
+  updatedAt: timestamp("updated_at", { withTimezone: true })
     .defaultNow()
     .$onUpdate(() => /* @__PURE__ */ new Date())
     .notNull(),
@@ -168,13 +168,13 @@ export const session = pgTable(
   "session",
   {
     activeOrganizationId: text("active_organization_id"),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
-    expiresAt: timestamp("expires_at").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
     id: text("id").primaryKey(),
     impersonatedBy: text("impersonated_by"),
     ipAddress: text("ip_address"),
     token: text("token").notNull().unique(),
-    updatedAt: timestamp("updated_at")
+    updatedAt: timestamp("updated_at", { withTimezone: true })
       .$onUpdate(() => /* @__PURE__ */ new Date())
       .notNull(),
     userAgent: text("user_agent"),
@@ -189,17 +189,17 @@ export const account = pgTable(
   "account",
   {
     accessToken: text("access_token"),
-    accessTokenExpiresAt: timestamp("access_token_expires_at"),
+    accessTokenExpiresAt: timestamp("access_token_expires_at", { withTimezone: true }),
     accountId: text("account_id").notNull(),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     id: text("id").primaryKey(),
     idToken: text("id_token"),
     password: text("password"),
     providerId: text("provider_id").notNull(),
     refreshToken: text("refresh_token"),
-    refreshTokenExpiresAt: timestamp("refresh_token_expires_at"),
+    refreshTokenExpiresAt: timestamp("refresh_token_expires_at", { withTimezone: true }),
     scope: text("scope"),
-    updatedAt: timestamp("updated_at")
+    updatedAt: timestamp("updated_at", { withTimezone: true })
       .$onUpdate(() => /* @__PURE__ */ new Date())
       .notNull(),
     userId: text("user_id")
@@ -215,11 +215,11 @@ export const account = pgTable(
 export const verification = pgTable(
   "verification",
   {
-    createdAt: timestamp("created_at").defaultNow().notNull(),
-    expiresAt: timestamp("expires_at").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
     id: text("id").primaryKey(),
     identifier: text("identifier").notNull(),
-    updatedAt: timestamp("updated_at")
+    updatedAt: timestamp("updated_at", { withTimezone: true })
       .defaultNow()
       .$onUpdate(() => /* @__PURE__ */ new Date())
       .notNull(),
@@ -229,7 +229,7 @@ export const verification = pgTable(
 );
 
 export const organization = pgTable("organization", {
-  createdAt: timestamp("created_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   id: text("id").primaryKey(),
   logo: text("logo"),
   metadata: text("metadata"),
@@ -240,7 +240,7 @@ export const organization = pgTable("organization", {
 export const member = pgTable(
   "member",
   {
-    createdAt: timestamp("created_at").defaultNow().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     id: text("id").primaryKey(),
     // oxlint-disable-next-line no-use-before-define -- drizzle-orm resolves refs lazily at runtime
     inviteLinkId: text("invite_link_id").references(() => workspaceInviteLink.id, {
@@ -264,9 +264,9 @@ export const workspaceInviteLink = pgTable(
   "workspace_invite_link",
   {
     code: text("code").notNull().unique(),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
-    disabledAt: timestamp("disabled_at"),
+    disabledAt: timestamp("disabled_at", { withTimezone: true }),
     disabledBy: text("disabled_by").references(() => user.id, { onDelete: "set null" }),
     id: text("id").primaryKey(),
     organizationId: text("organization_id")
@@ -279,9 +279,9 @@ export const workspaceInviteLink = pgTable(
 export const invitation = pgTable(
   "invitation",
   {
-    createdAt: timestamp("created_at").defaultNow().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     email: text("email").notNull(),
-    expiresAt: timestamp("expires_at").notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
     id: text("id").primaryKey(),
     inviterId: text("inviter_id")
       .notNull()
@@ -310,7 +310,7 @@ export const studioInterview = pgTable(
     ).$type<CandidateExpectationsMeta | null>(),
     candidateName: text("candidate_name").notNull(),
     candidatePhone: text("candidate_phone"),
-    closedAt: timestamp("closed_at"),
+    closedAt: timestamp("closed_at", { withTimezone: true }),
     // 结案元数据：分类、内部备注、对外反馈话术、录用细节、淘汰细节、previousStage。
     // 结构见 closedMetaSchema；reactivate 时读 previousStage 恢复阶段。
     // Closed-stage JSON metadata; previousStage drives reactivation restore.
@@ -318,12 +318,12 @@ export const studioInterview = pgTable(
     // ⚠️ DEPRECATED — 旧 closedReason 字段被 closedMeta.internalNotes 取代。
     // Superseded by closedMeta; kept for backwards compat.
     closedReason: text("closed_reason"),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
     // ⚠️ DEPRECATED — 真人复面信息现在落到 studioHumanInterviewRound 子表（多轮 + 多面试官）。
     // 这两列留着兜底但应用层不再写入。
     // Superseded by studioHumanInterviewRound subtable; not written anymore.
-    humanInterviewScheduledAt: timestamp("human_interview_scheduled_at"),
+    humanInterviewScheduledAt: timestamp("human_interview_scheduled_at", { withTimezone: true }),
     humanInterviewerId: text("human_interviewer_id").references(() => user.id, {
       onDelete: "set null",
     }),
@@ -339,8 +339,8 @@ export const studioInterview = pgTable(
     notes: text("notes"),
     // ⚠️ DEPRECATED — Offer 信息现在落到 studioOfferDraft 子表（多版本 + 议价历史）。
     // Superseded by studioOfferDraft subtable; not written anymore.
-    offerAcceptedAt: timestamp("offer_accepted_at"),
-    offerSentAt: timestamp("offer_sent_at"),
+    offerAcceptedAt: timestamp("offer_accepted_at", { withTimezone: true }),
+    offerSentAt: timestamp("offer_sent_at", { withTimezone: true }),
     organizationId: text("organization_id")
       .notNull()
       .references(() => organization.id, {
@@ -373,13 +373,13 @@ export const studioInterview = pgTable(
     // pipelineStage + outcome roll out across all consumers.
     status: text("status").$type<StudioInterviewStatus>().notNull(),
     targetRole: text("target_role"),
-    updatedAt: timestamp("updated_at")
+    updatedAt: timestamp("updated_at", { withTimezone: true })
       .defaultNow()
       .$onUpdate(() => /* @__PURE__ */ new Date())
       .notNull(),
     // ⚠️ 笔试阶段当前在 tabs 中隐藏（UI 没建）；这两列暂存，未来真要做笔试时再决定保留 / 子表化。
     // Written-test scalars; the stage is hidden in UI for now, columns reserved.
-    writtenTestScheduledAt: timestamp("written_test_scheduled_at"),
+    writtenTestScheduledAt: timestamp("written_test_scheduled_at", { withTimezone: true }),
     writtenTestScore: text("written_test_score"),
   },
   (table) => [
@@ -430,13 +430,13 @@ export const studioOrgSkill = pgTable(
   {
     aliasOf: text("alias_of"),
     candidateCount: integer("candidate_count").notNull().default(0),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     display: text("display").notNull(),
     normalized: text("normalized").notNull(),
     organizationId: text("organization_id")
       .notNull()
       .references(() => organization.id, { onDelete: "cascade" }),
-    updatedAt: timestamp("updated_at")
+    updatedAt: timestamp("updated_at", { withTimezone: true })
       .defaultNow()
       .$onUpdate(() => /* @__PURE__ */ new Date())
       .notNull(),
@@ -450,7 +450,7 @@ export const studioOrgSkill = pgTable(
 export const department = pgTable(
   "department",
   {
-    createdAt: timestamp("created_at").defaultNow().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
     description: text("description"),
     id: text("id").primaryKey(),
@@ -460,7 +460,7 @@ export const department = pgTable(
       .references(() => organization.id, {
         onDelete: "cascade",
       }),
-    updatedAt: timestamp("updated_at")
+    updatedAt: timestamp("updated_at", { withTimezone: true })
       .defaultNow()
       .$onUpdate(() => /* @__PURE__ */ new Date())
       .notNull(),
@@ -475,7 +475,7 @@ export const department = pgTable(
 export const interviewer = pgTable(
   "interviewer",
   {
-    createdAt: timestamp("created_at").defaultNow().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
     departmentId: text("department_id")
       .notNull()
@@ -489,7 +489,7 @@ export const interviewer = pgTable(
         onDelete: "cascade",
       }),
     prompt: text("prompt").notNull(),
-    updatedAt: timestamp("updated_at")
+    updatedAt: timestamp("updated_at", { withTimezone: true })
       .defaultNow()
       .$onUpdate(() => /* @__PURE__ */ new Date())
       .notNull(),
@@ -506,13 +506,13 @@ export const interviewer = pgTable(
 export const jobDescription = pgTable(
   "job_description",
   {
-    createdAt: timestamp("created_at").defaultNow().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
     departmentId: text("department_id")
       .notNull()
       .references(() => department.id, { onDelete: "restrict" }),
     description: text("description"),
-    feishuChatBoundAt: timestamp("feishu_chat_bound_at"),
+    feishuChatBoundAt: timestamp("feishu_chat_bound_at", { withTimezone: true }),
     feishuChatBoundBy: text("feishu_chat_bound_by").references(() => user.id, {
       onDelete: "set null",
     }),
@@ -526,7 +526,7 @@ export const jobDescription = pgTable(
       }),
     presetQuestions: jsonb("preset_questions").$type<string[]>().notNull().default([]),
     prompt: text("prompt").notNull(),
-    updatedAt: timestamp("updated_at")
+    updatedAt: timestamp("updated_at", { withTimezone: true })
       .defaultNow()
       .$onUpdate(() => /* @__PURE__ */ new Date())
       .notNull(),
@@ -542,7 +542,7 @@ export const jobDescription = pgTable(
 export const jobDescriptionInterviewer = pgTable(
   "job_description_interviewer",
   {
-    createdAt: timestamp("created_at").defaultNow().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     interviewerId: text("interviewer_id")
       .notNull()
       .references(() => interviewer.id, { onDelete: "restrict" }),
@@ -561,7 +561,7 @@ export const studioInterviewSchedule = pgTable(
   {
     allowTextInput: boolean("allow_text_input").notNull().default(false),
     conversationId: text("conversation_id"),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
     // 热重连锚点：轮次首次开始时持久化 LiveKit 房间名、参与者 identity、
     // 会话起始时间。断连超过 LiveKit 自动重连窗口时记录 disconnectedAt，
@@ -569,7 +569,7 @@ export const studioInterviewSchedule = pgTable(
     // Hot-reconnect anchor columns: persist the LiveKit room/identity and
     // session start so a candidate can rejoin the same room within 3 minutes
     // after a hard disconnect.
-    disconnectedAt: timestamp("disconnected_at"),
+    disconnectedAt: timestamp("disconnected_at", { withTimezone: true }),
     id: text("id").primaryKey(),
     interviewRecordId: text("interview_record_id")
       .notNull()
@@ -583,11 +583,11 @@ export const studioInterviewSchedule = pgTable(
         onDelete: "cascade",
       }),
     roundLabel: text("round_label").notNull(),
-    scheduledAt: timestamp("scheduled_at"),
-    sessionStartedAt: timestamp("session_started_at"),
+    scheduledAt: timestamp("scheduled_at", { withTimezone: true }),
+    sessionStartedAt: timestamp("session_started_at", { withTimezone: true }),
     sortOrder: integer("sort_order").notNull(),
     status: text("status").$type<ScheduleEntryStatus>().notNull().default("pending"),
-    updatedAt: timestamp("updated_at")
+    updatedAt: timestamp("updated_at", { withTimezone: true })
       .defaultNow()
       .$onUpdate(() => /* @__PURE__ */ new Date())
       .notNull(),
@@ -622,9 +622,9 @@ export const studioHumanInterviewRound = pgTable(
   "studio_human_interview_round",
   {
     cancelReason: text("cancel_reason"),
-    cancelledAt: timestamp("cancelled_at"),
-    completedAt: timestamp("completed_at"),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
+    cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     feedback: text("feedback"),
     format: text("format").$type<HumanInterviewFormat>().notNull(),
     id: text("id").primaryKey(),
@@ -639,11 +639,11 @@ export const studioHumanInterviewRound = pgTable(
       .notNull()
       .references(() => organization.id, { onDelete: "cascade" }),
     outcome: text("outcome").$type<HumanInterviewRoundOutcome>(),
-    scheduledAt: timestamp("scheduled_at"),
+    scheduledAt: timestamp("scheduled_at", { withTimezone: true }),
     score: integer("score"),
     sortOrder: integer("sort_order").notNull().default(0),
     status: text("status").$type<HumanInterviewRoundStatus>().notNull().default("pending"),
-    updatedAt: timestamp("updated_at")
+    updatedAt: timestamp("updated_at", { withTimezone: true })
       .defaultNow()
       .$onUpdate(() => /* @__PURE__ */ new Date())
       .notNull(),
@@ -665,10 +665,10 @@ export const studioHumanInterviewRound = pgTable(
 export const studioHumanInterviewMeeting = pgTable(
   "studio_human_interview_meeting",
   {
-    cancelledAt: timestamp("cancelled_at"),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
+    cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
-    endedAt: timestamp("ended_at"),
+    endedAt: timestamp("ended_at", { withTimezone: true }),
     id: text("id").primaryKey(),
     liveKitRoomName: text("livekit_room_name"),
     notes: text("notes"),
@@ -677,11 +677,11 @@ export const studioHumanInterviewMeeting = pgTable(
       .references(() => organization.id, { onDelete: "cascade" }),
     recordingEgressId: text("recording_egress_id"),
     recordingFileKey: text("recording_file_key"),
-    scheduledAt: timestamp("scheduled_at"),
-    startedAt: timestamp("started_at"),
+    scheduledAt: timestamp("scheduled_at", { withTimezone: true }),
+    startedAt: timestamp("started_at", { withTimezone: true }),
     status: text("status").$type<HumanInterviewMeetingStatus>().notNull().default("scheduled"),
     title: text("title").notNull(),
-    updatedAt: timestamp("updated_at")
+    updatedAt: timestamp("updated_at", { withTimezone: true })
       .defaultNow()
       .$onUpdate(() => /* @__PURE__ */ new Date())
       .notNull(),
@@ -705,10 +705,10 @@ export const studioHumanInterviewMeeting = pgTable(
 export const studioHumanInterviewMeetingRound = pgTable(
   "studio_human_interview_meeting_round",
   {
-    candidateInviteExpiresAt: timestamp("candidate_invite_expires_at"),
+    candidateInviteExpiresAt: timestamp("candidate_invite_expires_at", { withTimezone: true }),
     candidateInviteTokenHash: text("candidate_invite_token_hash"),
-    joinedAt: timestamp("joined_at"),
-    leftAt: timestamp("left_at"),
+    joinedAt: timestamp("joined_at", { withTimezone: true }),
+    leftAt: timestamp("left_at", { withTimezone: true }),
     meetingId: text("meeting_id")
       .notNull()
       .references(() => studioHumanInterviewMeeting.id, { onDelete: "cascade" }),
@@ -730,8 +730,8 @@ export const studioHumanInterviewMeetingRound = pgTable(
 export const studioHumanInterviewMeetingInterviewer = pgTable(
   "studio_human_interview_meeting_interviewer",
   {
-    joinedAt: timestamp("joined_at"),
-    leftAt: timestamp("left_at"),
+    joinedAt: timestamp("joined_at", { withTimezone: true }),
+    leftAt: timestamp("left_at", { withTimezone: true }),
     meetingId: text("meeting_id")
       .notNull()
       .references(() => studioHumanInterviewMeeting.id, { onDelete: "cascade" }),
@@ -782,24 +782,24 @@ export const studioOfferDraft = pgTable(
     baseSalary: integer("base_salary").notNull(),
     bonus: integer("bonus"),
     candidateCounter: text("candidate_counter"),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     currency: text("currency").notNull().default("CNY"),
     equity: text("equity"),
-    expiresAt: timestamp("expires_at"),
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
     id: text("id").primaryKey(),
     interviewRecordId: text("interview_record_id")
       .notNull()
       .references(() => studioInterview.id, { onDelete: "cascade" }),
-    joiningDate: timestamp("joining_date"),
+    joiningDate: timestamp("joining_date", { withTimezone: true }),
     notes: text("notes"),
     organizationId: text("organization_id")
       .notNull()
       .references(() => organization.id, { onDelete: "cascade" }),
     position: text("position").notNull(),
-    responseAt: timestamp("response_at"),
-    sentAt: timestamp("sent_at"),
+    responseAt: timestamp("response_at", { withTimezone: true }),
+    sentAt: timestamp("sent_at", { withTimezone: true }),
     status: text("status").$type<OfferDraftStatus>().notNull().default("draft"),
-    updatedAt: timestamp("updated_at")
+    updatedAt: timestamp("updated_at", { withTimezone: true })
       .defaultNow()
       .$onUpdate(() => /* @__PURE__ */ new Date())
       .notNull(),
@@ -830,8 +830,8 @@ export type ResumeUploadBatchItemStatus =
 export const resumeUploadBatch = pgTable(
   "resume_upload_batch",
   {
-    completedAt: timestamp("completed_at"),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     createdBy: text("created_by")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
@@ -851,7 +851,7 @@ export const resumeUploadBatch = pgTable(
     status: text("status").$type<ResumeUploadBatchStatus>().notNull(),
     succeededCount: integer("succeeded_count").notNull().default(0),
     totalCount: integer("total_count").notNull(),
-    updatedAt: timestamp("updated_at")
+    updatedAt: timestamp("updated_at", { withTimezone: true })
       .defaultNow()
       .$onUpdate(() => /* @__PURE__ */ new Date())
       .notNull(),
@@ -884,7 +884,7 @@ export const resumeUploadBatchItem = pgTable(
     dedupMatchSnapshot: jsonb("dedup_match_snapshot"),
     errorMessage: text("error_message"),
     fileSize: integer("file_size").notNull(),
-    finishedAt: timestamp("finished_at"),
+    finishedAt: timestamp("finished_at", { withTimezone: true }),
     id: text("id").primaryKey(),
     orderIndex: integer("order_index").notNull(),
     organizationId: text("organization_id").notNull(),
@@ -892,7 +892,7 @@ export const resumeUploadBatchItem = pgTable(
     resumeRecordId: text("resume_record_id").references(() => studioInterview.id, {
       onDelete: "set null",
     }),
-    startedAt: timestamp("started_at"),
+    startedAt: timestamp("started_at", { withTimezone: true }),
     status: text("status").$type<ResumeUploadBatchItemStatus>().notNull(),
     storageKey: text("storage_key").notNull(),
   },
@@ -908,7 +908,7 @@ export const interviewConversation = pgTable(
     agentId: text("agent_id"),
     callSuccessful: text("call_successful"),
     conversationId: text("conversation_id").primaryKey(),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     dataCollectionResults: jsonb("data_collection_results")
       .$type<Record<string, unknown>>()
       .notNull()
@@ -917,7 +917,7 @@ export const interviewConversation = pgTable(
       .$type<Record<string, unknown>>()
       .notNull()
       .default({}),
-    endedAt: timestamp("ended_at"),
+    endedAt: timestamp("ended_at", { withTimezone: true }),
     evaluationCriteriaResults: jsonb("evaluation_criteria_results")
       .$type<Record<string, unknown>>()
       .notNull()
@@ -925,7 +925,7 @@ export const interviewConversation = pgTable(
     interviewRecordId: text("interview_record_id").references(() => studioInterview.id, {
       onDelete: "set null",
     }),
-    lastSyncedAt: timestamp("last_synced_at").defaultNow().notNull(),
+    lastSyncedAt: timestamp("last_synced_at", { withTimezone: true }).defaultNow().notNull(),
     latestError: text("latest_error"),
     metadata: jsonb("metadata").$type<Record<string, unknown>>().notNull().default({}),
     metrics: jsonb("metrics").$type<Record<string, unknown>>().notNull().default({}),
@@ -944,22 +944,22 @@ export const interviewConversation = pgTable(
     scheduleEntryId: text("schedule_entry_id").references(() => studioInterviewSchedule.id, {
       onDelete: "set null",
     }),
-    startedAt: timestamp("started_at"),
+    startedAt: timestamp("started_at", { withTimezone: true }),
     status: text("status").notNull().default("initiated"),
     summaryAttempts: integer("summary_attempts").notNull().default(0),
     summaryError: text("summary_error"),
-    summaryStartedAt: timestamp("summary_started_at"),
+    summaryStartedAt: timestamp("summary_started_at", { withTimezone: true }),
     summaryStatus: text("summary_status")
       .$type<InterviewSummaryStatus>()
       .notNull()
       .default("pending"),
     transcript: jsonb("transcript").$type<InterviewTranscriptTurn[]>().notNull().default([]),
     transcriptSummary: text("transcript_summary"),
-    updatedAt: timestamp("updated_at")
+    updatedAt: timestamp("updated_at", { withTimezone: true })
       .defaultNow()
       .$onUpdate(() => /* @__PURE__ */ new Date())
       .notNull(),
-    webhookReceivedAt: timestamp("webhook_received_at"),
+    webhookReceivedAt: timestamp("webhook_received_at", { withTimezone: true }),
   },
   (table) => [
     index("interview_conversation_record_idx").on(table.interviewRecordId),
@@ -977,7 +977,7 @@ export const interviewConversationTurn = pgTable(
     conversationId: text("conversation_id")
       .notNull()
       .references(() => interviewConversation.conversationId, { onDelete: "cascade" }),
-    createdAt: timestamp("created_at").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
     id: text("id").primaryKey(),
     interviewRecordId: text("interview_record_id").references(() => studioInterview.id, {
       onDelete: "set null",
@@ -988,7 +988,7 @@ export const interviewConversationTurn = pgTable(
       .references(() => organization.id, {
         onDelete: "cascade",
       }),
-    receivedAt: timestamp("received_at").defaultNow().notNull(),
+    receivedAt: timestamp("received_at", { withTimezone: true }).defaultNow().notNull(),
     role: text("role").$type<InterviewMessageRole>().notNull(),
     source: text("source").notNull().default("client_event"),
     timeInCallSecs: integer("time_in_call_secs"),
@@ -1003,7 +1003,7 @@ export const interviewConversationTurn = pgTable(
 export const chatConversation = pgTable(
   "chat_conversation",
   {
-    createdAt: timestamp("created_at").defaultNow().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     id: text("id").primaryKey(),
     isTitleGenerating: boolean("is_title_generating").default(false).notNull(),
     jobDescription: text("job_description").default("").notNull(),
@@ -1015,7 +1015,7 @@ export const chatConversation = pgTable(
       }),
     resumeImports: jsonb("resume_imports").$type<Record<string, string>>().default({}).notNull(),
     title: text("title").default("").notNull(),
-    updatedAt: timestamp("updated_at")
+    updatedAt: timestamp("updated_at", { withTimezone: true })
       .defaultNow()
       .$onUpdate(() => /* @__PURE__ */ new Date())
       .notNull(),
@@ -1037,7 +1037,7 @@ export const chatMessage = pgTable(
     conversationId: text("conversation_id")
       .notNull()
       .references(() => chatConversation.id, { onDelete: "cascade" }),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     id: text("id").primaryKey(),
     organizationId: text("organization_id")
       .notNull()
@@ -1045,7 +1045,7 @@ export const chatMessage = pgTable(
         onDelete: "cascade",
       }),
     role: text("role").$type<UIMessage["role"]>().notNull(),
-    updatedAt: timestamp("updated_at")
+    updatedAt: timestamp("updated_at", { withTimezone: true })
       .defaultNow()
       .$onUpdate(() => /* @__PURE__ */ new Date())
       .notNull(),
@@ -1060,7 +1060,7 @@ export const chatAttachment = pgTable(
   "chat_attachment",
   {
     contentHash: text("content_hash"),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     filename: text("filename").notNull(),
     id: text("id").primaryKey(),
     mediaType: text("media_type").notNull(),
@@ -1069,7 +1069,7 @@ export const chatAttachment = pgTable(
       .references(() => organization.id, {
         onDelete: "cascade",
       }),
-    parsedAt: timestamp("parsed_at"),
+    parsedAt: timestamp("parsed_at", { withTimezone: true }),
     parsedError: text("parsed_error"),
     parsedPageCount: integer("parsed_page_count"),
     parsedStatus: text("parsed_status").$type<AttachmentParseStatus>().default("pending").notNull(),
@@ -1093,7 +1093,7 @@ export const interviewAuditLog = pgTable(
   "interview_audit_log",
   {
     action: text("action").notNull(),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     detail: jsonb("detail").$type<Record<string, unknown>>().notNull().default({}),
     id: text("id").primaryKey(),
     interviewRecordId: text("interview_record_id")
@@ -1122,7 +1122,7 @@ export const interviewNotification = pgTable(
     conversationId: text("conversation_id").references(() => interviewConversation.conversationId, {
       onDelete: "set null",
     }),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     error: text("error"),
     feishuMessageId: text("feishu_message_id"),
     id: text("id").primaryKey(),
@@ -1137,10 +1137,10 @@ export const interviewNotification = pgTable(
     providerId: text("provider_id").notNull(),
     recipientOpenId: text("recipient_open_id").notNull(),
     recipientUserId: text("recipient_user_id").references(() => user.id, { onDelete: "set null" }),
-    sentAt: timestamp("sent_at"),
+    sentAt: timestamp("sent_at", { withTimezone: true }),
     status: text("status").$type<AgentNotificationStatus>().notNull().default("pending"),
     type: text("type").$type<AgentNotificationType>().notNull(),
-    updatedAt: timestamp("updated_at")
+    updatedAt: timestamp("updated_at", { withTimezone: true })
       .defaultNow()
       .$onUpdate(() => /* @__PURE__ */ new Date())
       .notNull(),
@@ -1164,8 +1164,8 @@ export const candidateFormTemplate = pgTable(
   {
     // 归档时间戳，软删除标记。NULL = 未归档，有值 = 已归档于该时间。
     // Archive timestamp acting as a soft-delete marker. NULL = active.
-    archivedAt: timestamp("archived_at"),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
+    archivedAt: timestamp("archived_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
     description: text("description"),
     id: text("id").primaryKey(),
@@ -1176,7 +1176,7 @@ export const candidateFormTemplate = pgTable(
       }),
     scope: text("scope").$type<CandidateFormScope>().notNull(),
     title: text("title").notNull(),
-    updatedAt: timestamp("updated_at")
+    updatedAt: timestamp("updated_at", { withTimezone: true })
       .defaultNow()
       .$onUpdate(() => /* @__PURE__ */ new Date())
       .notNull(),
@@ -1212,7 +1212,7 @@ export const candidateFormTemplateJobDescription = pgTable(
 export const candidateFormTemplateQuestion = pgTable(
   "candidate_form_template_question",
   {
-    createdAt: timestamp("created_at").defaultNow().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     displayMode: text("display_mode").$type<CandidateFormDisplayMode>().notNull(),
     helperText: text("helper_text"),
     id: text("id").primaryKey(),
@@ -1224,7 +1224,7 @@ export const candidateFormTemplateQuestion = pgTable(
       .notNull()
       .references(() => candidateFormTemplate.id, { onDelete: "cascade" }),
     type: text("type").$type<CandidateFormQuestionType>().notNull(),
-    updatedAt: timestamp("updated_at")
+    updatedAt: timestamp("updated_at", { withTimezone: true })
       .defaultNow()
       .$onUpdate(() => /* @__PURE__ */ new Date())
       .notNull(),
@@ -1239,7 +1239,7 @@ export const candidateFormTemplateVersion = pgTable(
   "candidate_form_template_version",
   {
     contentHash: text("content_hash").notNull(),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     id: text("id").primaryKey(),
     snapshot: jsonb("snapshot").$type<CandidateFormTemplateSnapshot>().notNull(),
     templateId: text("template_id")
@@ -1272,7 +1272,7 @@ export const candidateFormSubmission = pgTable(
       .references(() => organization.id, {
         onDelete: "cascade",
       }),
-    submittedAt: timestamp("submitted_at").defaultNow().notNull(),
+    submittedAt: timestamp("submitted_at", { withTimezone: true }).defaultNow().notNull(),
     templateId: text("template_id")
       .notNull()
       .references(() => candidateFormTemplate.id, { onDelete: "restrict" }),
@@ -1303,8 +1303,8 @@ export const interviewQuestionTemplate = pgTable(
   {
     // 归档时间戳，软删除标记。NULL = 未归档，有值 = 已归档于该时间。
     // Archive timestamp acting as a soft-delete marker. NULL = active.
-    archivedAt: timestamp("archived_at"),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
+    archivedAt: timestamp("archived_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
     description: text("description"),
     id: text("id").primaryKey(),
@@ -1315,7 +1315,7 @@ export const interviewQuestionTemplate = pgTable(
       }),
     scope: text("scope").$type<InterviewQuestionTemplateScope>().notNull(),
     title: text("title").notNull(),
-    updatedAt: timestamp("updated_at")
+    updatedAt: timestamp("updated_at", { withTimezone: true })
       .defaultNow()
       .$onUpdate(() => /* @__PURE__ */ new Date())
       .notNull(),
@@ -1353,7 +1353,7 @@ export const interviewQuestionTemplateQuestion = pgTable(
   "interview_question_template_question",
   {
     content: text("content").notNull(),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     difficulty: text("difficulty")
       .$type<InterviewQuestionTemplateDifficulty>()
       .notNull()
@@ -1363,7 +1363,7 @@ export const interviewQuestionTemplateQuestion = pgTable(
     templateId: text("template_id")
       .notNull()
       .references(() => interviewQuestionTemplate.id, { onDelete: "cascade" }),
-    updatedAt: timestamp("updated_at")
+    updatedAt: timestamp("updated_at", { withTimezone: true })
       .defaultNow()
       .$onUpdate(() => /* @__PURE__ */ new Date())
       .notNull(),
@@ -1378,7 +1378,7 @@ export const interviewQuestionTemplateVersion = pgTable(
   "interview_question_template_version",
   {
     contentHash: text("content_hash").notNull(),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     id: text("id").primaryKey(),
     snapshot: jsonb("snapshot").$type<InterviewQuestionTemplateSnapshot>().notNull(),
     templateId: text("template_id")
@@ -1405,7 +1405,7 @@ export const interviewQuestionTemplateVersion = pgTable(
 export const interviewQuestionTemplateBinding = pgTable(
   "interview_question_template_binding",
   {
-    createdAt: timestamp("created_at").defaultNow().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     disabledByUser: boolean("disabled_by_user").default(false).notNull(),
     id: text("id").primaryKey(),
     interviewRecordId: text("interview_record_id")
@@ -1449,14 +1449,14 @@ export const feishuThreadState = pgTable(
     activeJdId: text("active_jd_id").references(() => jobDescription.id, {
       onDelete: "set null",
     }),
-    activeJdSetAt: timestamp("active_jd_set_at"),
+    activeJdSetAt: timestamp("active_jd_set_at", { withTimezone: true }),
     organizationId: text("organization_id")
       .notNull()
       .references(() => organization.id, {
         onDelete: "cascade",
       }),
     threadId: text("thread_id").primaryKey(),
-    updatedAt: timestamp("updated_at")
+    updatedAt: timestamp("updated_at", { withTimezone: true })
       .defaultNow()
       .$onUpdate(() => /* @__PURE__ */ new Date())
       .notNull(),
@@ -1469,7 +1469,7 @@ export type StudioRoundEmailLogStatus = "sent" | "failed";
 export const studioRoundEmailLog = pgTable(
   "studio_round_email_log",
   {
-    createdAt: timestamp("created_at").defaultNow().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     errorMessage: text("error_message"),
     id: text("id").primaryKey(),
     interviewRecordId: text("interview_record_id")
@@ -1507,7 +1507,7 @@ export const globalConfig = pgTable("global_config", {
     .references(() => organization.id, {
       onDelete: "cascade",
     }),
-  updatedAt: timestamp("updated_at")
+  updatedAt: timestamp("updated_at", { withTimezone: true })
     .defaultNow()
     .$onUpdate(() => /* @__PURE__ */ new Date())
     .notNull(),

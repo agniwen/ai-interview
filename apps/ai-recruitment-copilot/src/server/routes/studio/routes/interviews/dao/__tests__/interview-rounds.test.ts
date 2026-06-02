@@ -8,6 +8,7 @@ import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { db } from "@/lib/server/db";
 import {
+  interviewConversation,
   member,
   organization,
   studioInterview,
@@ -192,6 +193,31 @@ describe("queryPaginatedInterviewRounds", () => {
     const byRound = await queryPaginatedInterviewRounds(ORG, { search: "二面" });
     expect(byRound.total).toBe(1);
     expect(byRound.records[0]?.id).toBe("rnd-a2");
+  });
+
+  it("serializes lastInterviewAt from conversation timestamps without timezone loss", async () => {
+    const startedAt = new Date("2026-05-13T10:00:00.000Z");
+    await db.insert(interviewConversation).values({
+      conversationId: "conv_rounds_dao_last_interview_at",
+      createdAt: new Date("2026-05-13T09:00:00.000Z"),
+      interviewRecordId: "cand-a",
+      lastSyncedAt: NOW,
+      organizationId: ORG,
+      scheduleEntryId: "rnd-a1",
+      startedAt,
+      status: "completed",
+      updatedAt: NOW,
+    });
+
+    try {
+      const result = await queryPaginatedInterviewRounds(ORG);
+      const row = result.records.find((record) => record.id === "rnd-a1");
+      expect(row?.lastInterviewAt).toBe(startedAt.toISOString());
+    } finally {
+      await db
+        .delete(interviewConversation)
+        .where(eq(interviewConversation.conversationId, "conv_rounds_dao_last_interview_at"));
+    }
   });
 });
 

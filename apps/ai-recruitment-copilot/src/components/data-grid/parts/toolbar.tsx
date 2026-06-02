@@ -1,5 +1,5 @@
 import { FilterXIcon, Loader2Icon, RefreshCwIcon, SearchIcon } from "lucide-react";
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SearchableMultiSelect } from "@/components/ui/searchable-multi-select";
@@ -61,6 +61,14 @@ export interface ToolbarProps {
   bulkActionsSlot?: ReactNode;
 }
 
+type FilterItemStyle = CSSProperties & {
+  "--data-grid-filter-min-width"?: string;
+};
+
+function getFilterItemStyle(minWidth?: string): FilterItemStyle | undefined {
+  return minWidth ? { "--data-grid-filter-min-width": minWidth } : undefined;
+}
+
 function csvToArray(value: string): string[] {
   if (!value) {
     return [];
@@ -106,7 +114,7 @@ export function Toolbar(props: ToolbarProps) {
     <div className="flex flex-wrap items-start gap-3" data-slot="data-grid-toolbar">
       {hasFilters || hasFiltersExtra ? (
         <div
-          className="flex min-w-0 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center"
+          className="grid w-full min-w-0 grid-cols-2 gap-3 sm:flex sm:w-auto sm:flex-wrap sm:items-center"
           data-slot="data-grid-toolbar-filters"
         >
           {filters?.map((filter) => {
@@ -114,9 +122,9 @@ export function Toolbar(props: ToolbarProps) {
             if (filter.type === "search") {
               return (
                 <div
-                  className="relative"
+                  className="relative min-w-0 sm:min-w-(--data-grid-filter-min-width)"
                   key={filter.key}
-                  style={filter.minWidth ? { minWidth: filter.minWidth } : undefined}
+                  style={getFilterItemStyle(filter.minWidth)}
                 >
                   <SearchIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
                   <Input
@@ -133,7 +141,7 @@ export function Toolbar(props: ToolbarProps) {
             }
             if (filter.type === "select") {
               return (
-                <div className="w-full sm:w-auto sm:min-w-45" key={filter.key}>
+                <div className="min-w-0 sm:w-auto sm:min-w-45" key={filter.key}>
                   <SearchableSelect
                     clearable
                     emptyMessage={filter.emptyMessage ?? "没有匹配项"}
@@ -148,7 +156,7 @@ export function Toolbar(props: ToolbarProps) {
             }
             // multi-select
             return (
-              <div className="w-full sm:w-auto sm:min-w-45" key={filter.key}>
+              <div className="min-w-0 sm:w-auto sm:min-w-45" key={filter.key}>
                 <SearchableMultiSelect
                   emptyMessage={filter.emptyMessage ?? "没有匹配项"}
                   onChange={(next) => onFilterChange?.(filter.key, arrayToCsv(next))}
@@ -162,7 +170,11 @@ export function Toolbar(props: ToolbarProps) {
               </div>
             );
           })}
-          {filtersExtra}
+          {filtersExtra ? (
+            <div className="min-w-0 [&>button]:w-full sm:w-auto sm:[&>button]:w-auto">
+              {filtersExtra}
+            </div>
+          ) : null}
         </div>
       ) : null}
 

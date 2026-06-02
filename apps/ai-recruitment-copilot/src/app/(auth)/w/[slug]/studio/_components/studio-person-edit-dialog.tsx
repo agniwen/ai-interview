@@ -35,6 +35,7 @@ import {
   resetStudioInterviewRound,
   updateStudioInterviewRound,
 } from "@/lib/client/api";
+import { dateTimeLocalInputToISOString } from "@/lib/client/datetime-local";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import {
   createResumeLibraryFormValues,
@@ -328,7 +329,7 @@ function InterviewEditBody({
       await updateStudioInterviewRound(slug, recordId, {
         allowTextInput: formValues.allowTextInput,
         notes: formValues.notes,
-        scheduledAt: formValues.scheduledAt || null,
+        scheduledAt: dateTimeLocalInputToISOString(formValues.scheduledAt),
       });
       toast.success("已保存轮次");
       onUpdated?.();

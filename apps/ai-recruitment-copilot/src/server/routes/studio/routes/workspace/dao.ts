@@ -80,16 +80,13 @@ export async function listWorkspaceMemberLastActives(
     return [];
   }
 
-  // Raw SQL 聚合会绕过 Drizzle timestamp column reader；这些 auth 表时间列是
-  // timestamp without time zone，直接取出时容易被 pg driver 按 Node 本地时区解析。
-  // 显式 AT TIME ZONE 'UTC' 后返回 timestamptz，再由前端 TimeDisplay 固定按东八区展示。
-  // Raw SQL aggregates bypass Drizzle's timestamp column reader. These auth
-  // columns are timestamp without time zone, so coerce the aggregated value to
-  // timestamptz before it leaves Postgres; the client then renders it in UTC+8.
+  // Auth timestamps are stored as timestamptz, so the raw aggregate can leave
+  // Postgres as a real instant and the client renders it in the browser's
+  // current timezone.
   const rows = await db
     .select({
       lastActiveAt:
-        sql<Date | null>`GREATEST(MAX(${session.updatedAt}), MAX(${user.lastActiveAt})) AT TIME ZONE 'UTC'`.as(
+        sql<Date | null>`GREATEST(MAX(${session.updatedAt}), MAX(${user.lastActiveAt}))`.as(
           "last_active_at",
         ),
       userId: user.id,

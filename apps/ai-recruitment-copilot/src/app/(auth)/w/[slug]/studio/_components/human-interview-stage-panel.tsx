@@ -43,6 +43,7 @@ import type {
   HumanInterviewMeetingRecord,
   HumanInterviewRoundRecord,
 } from "@/lib/shared/studio-pipeline-stages";
+import { dateTimeLocalInputToISOString } from "@/lib/client/datetime-local";
 import {
   cancelHumanInterviewRound,
   completeHumanInterviewRound,
@@ -461,7 +462,7 @@ function RoundScheduledAtControl({
   const mutation = useMutation({
     mutationFn: () =>
       patchHumanInterviewRound(slug, round.interviewRecordId, round.id, {
-        scheduledAt: scheduledAt || null,
+        scheduledAt: dateTimeLocalInputToISOString(scheduledAt),
       }),
     onError: (e) => toast.error(e instanceof Error ? e.message : "调整时间失败"),
     onSuccess: () => {
@@ -987,6 +988,7 @@ function ScheduleRoundDialog({
   const mutation = useMutation({
     mutationFn: async () => {
       const roundLabel = label.trim() || defaultRoundLabel(existingCount);
+      const scheduledAtIso = dateTimeLocalInputToISOString(scheduledAt);
       const round = await createHumanInterviewRound(slug, candidateId, {
         format: "online",
         interviewerIds,
@@ -994,13 +996,13 @@ function ScheduleRoundDialog({
         location: null,
         meetingUrl: null,
         notes: notes.trim() || null,
-        scheduledAt: scheduledAt || null,
+        scheduledAt: scheduledAtIso,
       });
       await createHumanInterviewMeeting(slug, {
         interviewerIds,
         notes: notes.trim() || null,
         roundIds: [round.id],
-        scheduledAt: scheduledAt || null,
+        scheduledAt: scheduledAtIso,
         title: roundLabel,
       });
       return round;

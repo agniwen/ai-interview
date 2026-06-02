@@ -112,6 +112,29 @@ export const humanInterviewFormatMeta: Record<HumanInterviewFormat, { label: str
   phone: { label: "电话" },
 };
 
+const EXPLICIT_TIMEZONE_PATTERN = /(?:Z|[+-]\d{2}:?\d{2})$/i;
+
+export function isExplicitTimezoneDateTimeString(value: string) {
+  const trimmed = value.trim();
+  return EXPLICIT_TIMEZONE_PATTERN.test(trimmed) && !Number.isNaN(Date.parse(trimmed));
+}
+
+export const nullableInstantDateTimeInputSchema = z
+  .string()
+  .trim()
+  .nullable()
+  .optional()
+  .refine(
+    (value) =>
+      value === null ||
+      value === undefined ||
+      value === "" ||
+      isExplicitTimezoneDateTimeString(value),
+    {
+      message: "时间必须包含明确的时区信息。",
+    },
+  );
+
 // 真人复面会议状态：会议级生命周期，和候选人单轮评价状态分开。
 // Human-interview meeting lifecycle. Kept separate from per-candidate round
 // verdicts so a group interview can produce multiple independent evaluations.
@@ -152,7 +175,7 @@ export const humanInterviewRoundInputSchema = z.object({
   meetingUrl: z.string().trim().max(500).nullable().optional(),
   notes: z.string().trim().max(500).nullable().optional(),
   outcome: humanInterviewRoundOutcomeSchema.nullable().optional(),
-  scheduledAt: z.string().trim().nullable().optional(),
+  scheduledAt: nullableInstantDateTimeInputSchema,
   score: z.number().int().min(0).max(100).nullable().optional(),
   sortOrder: z.number().int().min(0).optional(),
 });
@@ -168,7 +191,7 @@ export const humanInterviewMeetingInputSchema = z.object({
     .array(z.string().trim().min(1))
     .min(1, "至少添加 1 位候选人")
     .max(20, "候选人最多 20 人"),
-  scheduledAt: z.string().trim().nullable().optional(),
+  scheduledAt: nullableInstantDateTimeInputSchema,
   title: z.string().trim().min(1, "请输入会议名称").max(100, "会议名称不能超过 100 字"),
 });
 export type HumanInterviewMeetingInput = z.infer<typeof humanInterviewMeetingInputSchema>;
@@ -370,8 +393,25 @@ export const studioInterviewBaseSchema = z.object({
   targetRole: z.string().trim().max(120, "目标岗位不能超过 120 个字符"),
 });
 
-export const studioInterviewFormSchema = studioInterviewBaseSchema;
-export const studioInterviewUpdateSchema = studioInterviewBaseSchema;
+function validateScheduleEntryInstants(
+  entries: StudioInterviewScheduleEntryFormValue[],
+  context: z.RefinementCtx,
+) {
+  for (const [index, entry] of entries.entries()) {
+    if (entry.scheduledAt && !isExplicitTimezoneDateTimeString(entry.scheduledAt)) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "面试时间必须包含明确的时区信息。",
+        path: ["scheduleEntries", index, "scheduledAt"],
+      });
+    }
+  }
+}
+
+export const studioInterviewFormSchema = studioInterviewBaseSchema.superRefine((value, context) => {
+  validateScheduleEntryInstants(value.scheduleEntries, context);
+});
+export const studioInterviewUpdateSchema = studioInterviewFormSchema;
 
 export const studioInterviewQuestionClientSchema = z.object({
   difficulty: z.enum(["easy", "medium", "hard"]),

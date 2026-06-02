@@ -235,8 +235,14 @@ const EMPTY_DERIVED_FIELDS: ResumeDerivedFields = {
 };
 
 function serializeStageProgressTimestamp(value: Date | string | null): string | null {
-  const iso = serializeDate(value);
-  return iso ? iso.replace(/\.000Z$/, "") : null;
+  if (value === null) {
+    return null;
+  }
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? value : date.toISOString();
 }
 
 // 批量组装 4 类派生字段，集中在一个函数里避免在分页行上重复 correlated subquery。
@@ -304,7 +310,7 @@ async function loadResumeDerivedFields(
       .select({
         interviewRecordId: interviewConversation.interviewRecordId,
         lastInterviewAt:
-          sql<Date | null>`MAX(COALESCE(${interviewConversation.startedAt}, ${interviewConversation.createdAt})) AT TIME ZONE 'UTC'`.as(
+          sql<Date | null>`MAX(COALESCE(${interviewConversation.startedAt}, ${interviewConversation.createdAt}))`.as(
             "last_interview_at",
           ),
       })
@@ -415,7 +421,7 @@ async function loadResumeDerivedFields(
     }
     const derived = result.get(row.interviewRecordId);
     if (derived) {
-      derived.lastInterviewAt = serializeDate(row.lastInterviewAt);
+      derived.lastInterviewAt = serializeStageProgressTimestamp(row.lastInterviewAt);
     }
   }
 

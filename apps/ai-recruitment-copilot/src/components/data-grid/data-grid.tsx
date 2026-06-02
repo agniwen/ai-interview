@@ -183,12 +183,16 @@ export function DataGrid<TData>(props: DataGridProps<TData>) {
         >
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow key={headerGroup.id}>
+              <TableRow className="h-7" key={headerGroup.id}>
                 {headerGroup.headers.map((header) => {
                   const pin = header.column.getIsPinned();
                   return (
                     <TableHead
-                      className={cn(maxHeight && STICKY_HEADER_CLASS, pin && PINNED_HEADER_CLASS)}
+                      className={cn(
+                        "relative py-1 after:absolute after:inset-y-1.5 after:right-0 after:w-px after:bg-border after:content-[''] last:after:hidden",
+                        maxHeight && STICKY_HEADER_CLASS,
+                        pin && PINNED_HEADER_CLASS,
+                      )}
                       key={header.id}
                       style={getPinningStyles(header.column, {
                         isHeader: true,

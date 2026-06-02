@@ -95,6 +95,17 @@ function buildWhere(
   return and(...conditions);
 }
 
+function serializeRoundDerivedTimestamp(value: Date | string | null): string | null {
+  if (value === null) {
+    return null;
+  }
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? value : parsed.toISOString();
+}
+
 interface RoundDerivedFields {
   hasReport: boolean;
   lastInterviewAt: string | null;
@@ -114,10 +125,11 @@ async function loadRoundDerivedFields(
 
   const rows = await db
     .select({
-      lastInterviewAt:
-        sql<Date | null>`MAX(COALESCE(${interviewConversation.startedAt}, ${interviewConversation.createdAt})) AT TIME ZONE 'UTC'`.as(
-          "last_interview_at",
-        ),
+      lastInterviewAt: sql<
+        Date | string | null
+      >`MAX(COALESCE(${interviewConversation.startedAt}, ${interviewConversation.createdAt}))`.as(
+        "last_interview_at",
+      ),
       reportCount: count(),
       scheduleEntryId: interviewConversation.scheduleEntryId,
     })
@@ -131,7 +143,7 @@ async function loadRoundDerivedFields(
     }
     result.set(row.scheduleEntryId, {
       hasReport: row.reportCount > 0,
-      lastInterviewAt: serializeDate(row.lastInterviewAt),
+      lastInterviewAt: serializeRoundDerivedTimestamp(row.lastInterviewAt),
     });
   }
 

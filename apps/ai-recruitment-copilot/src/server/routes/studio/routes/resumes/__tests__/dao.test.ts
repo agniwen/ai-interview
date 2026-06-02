@@ -6,6 +6,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { db } from "@/lib/server/db";
 import {
   department,
+  interviewConversation,
   jobDescription,
   member,
   organization,
@@ -216,6 +217,30 @@ describe("queryPaginatedResumeRecords", () => {
     expect(sample.status).toBeTypeOf("string");
     expect(sample.hasResumeFile).toBeTypeOf("boolean");
     expect(typeof sample.createdAt).toBe("string");
+  });
+
+  it("serializes lastInterviewAt from conversation timestamps without timezone loss", async () => {
+    const startedAt = new Date("2026-05-13T10:00:00.000Z");
+    await db.insert(interviewConversation).values({
+      conversationId: "conv_resume_dao_last_interview_at",
+      createdAt: new Date("2026-05-13T09:00:00.000Z"),
+      interviewRecordId: "ri_test_a_1",
+      lastSyncedAt: NOW,
+      organizationId: ORG_A,
+      startedAt,
+      status: "completed",
+      updatedAt: NOW,
+    });
+
+    try {
+      const result = await queryPaginatedResumeRecords(ORG_A);
+      const row = result.records.find((record) => record.id === "ri_test_a_1");
+      expect(row?.lastInterviewAt).toBe(startedAt.toISOString());
+    } finally {
+      await db
+        .delete(interviewConversation)
+        .where(eq(interviewConversation.conversationId, "conv_resume_dao_last_interview_at"));
+    }
   });
 
   it("supports search filter against candidateName", async () => {
@@ -457,16 +482,13 @@ describe("queryPaginatedResumeRecords", () => {
 
       // cancelled 不计入 total，所以 totalRounds=3；passed=1, failed=1, completed=2;
       // activeRound = sort_order=2 的 pending 行。
-      // PG 的 timestamp without timezone 走 json_build_object 时格式是 "YYYY-MM-DDTHH:mm:ss"
-      // （没有 .000Z 后缀），所以这里期望值不能用 toISOString()。
       // cancelled excluded → total=3; passed=1; failed=1; completed=2; active=hr_li_3.
-      // PG serializes timestamp-without-tz as "YYYY-MM-DDTHH:mm:ss" inside JSON.
       expect(li.stageProgress.humanInterview).toEqual({
         activeRound: {
           id: "hr_li_3",
           label: "总监终面",
           outcome: null,
-          scheduledAt: "2026-05-30T10:00:00",
+          scheduledAt: "2026-05-30T10:00:00.000Z",
           sortOrder: 2,
           status: "pending",
         },
@@ -528,12 +550,11 @@ describe("queryPaginatedResumeRecords", () => {
       }
 
       // totalVersions=1（superseded 不算），latestDraft 指向 v2 sent。
-      // sentAt 格式同上：PG timestamp-without-tz JSON 化无 .000Z 后缀。
       expect(li.stageProgress.offer).toEqual({
         latestDraft: {
           id: "od_li_v2",
           responseAt: null,
-          sentAt: "2026-05-13T10:00:00",
+          sentAt: "2026-05-13T10:00:00.000Z",
           status: "sent",
           version: 2,
         },

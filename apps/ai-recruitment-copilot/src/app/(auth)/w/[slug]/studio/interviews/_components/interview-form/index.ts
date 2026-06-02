@@ -3,6 +3,7 @@
 import type { StudioCandidateRecord } from "@/lib/shared/studio-candidates";
 import { useForm } from "@tanstack/react-form";
 import type { z } from "zod";
+import { dateTimeLocalInputToISOString } from "@/lib/client/datetime-local";
 import {
   createDefaultScheduleEntry,
   studioInterviewClientFormSchema,
@@ -60,6 +61,7 @@ export function toInterviewFormValues(
 export function normalizeScheduleEntries(values: InterviewFormValues["scheduleEntries"]) {
   return values.map((entry, index) => ({
     ...entry,
+    scheduledAt: dateTimeLocalInputToISOString(entry.scheduledAt ?? ""),
     sortOrder: index,
   }));
 }

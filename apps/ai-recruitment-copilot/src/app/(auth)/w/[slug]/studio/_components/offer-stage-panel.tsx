@@ -587,11 +587,11 @@ function OfferDraftReadonlyFields({ draft }: { draft: OfferDraftRecord }) {
       <ReadonlyOfferField label="期权 / 股票" value={draft.equity} />
       <ReadonlyOfferField
         label="预计入职日"
-        value={draft.joiningDate ? formatDate(draft.joiningDate) : null}
+        value={draft.joiningDate ? formatIsoDateOnly(draft.joiningDate) : null}
       />
       <ReadonlyOfferField
         label="Offer 有效期至"
-        value={draft.expiresAt ? formatDate(draft.expiresAt) : null}
+        value={draft.expiresAt ? formatIsoDateOnly(draft.expiresAt) : null}
       />
       {draft.sentAt ? <ReadonlyOfferField label="发送于" value={formatDate(draft.sentAt)} /> : null}
       {draft.candidateCounter ? (
@@ -700,6 +700,11 @@ function formatDate(iso: string): string {
   return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
 }
 
+function formatIsoDateOnly(iso: string): string {
+  const dateOnly = iso.match(/^\d{4}-\d{2}-\d{2}/)?.[0];
+  return dateOnly ?? formatDate(iso);
+}
+
 interface OfferFormState {
   position: string;
   baseSalary: string;
@@ -727,8 +732,8 @@ function offerFormStateFromDraft(draft: OfferDraftRecord): OfferFormState {
     baseSalary: String(draft.baseSalary),
     bonus: draft.bonus === null ? "" : String(draft.bonus),
     equity: draft.equity ?? "",
-    expiresAt: draft.expiresAt ? draft.expiresAt.slice(0, 10) : "",
-    joiningDate: draft.joiningDate ? draft.joiningDate.slice(0, 10) : "",
+    expiresAt: draft.expiresAt ? formatIsoDateOnly(draft.expiresAt) : "",
+    joiningDate: draft.joiningDate ? formatIsoDateOnly(draft.joiningDate) : "",
     notes: draft.notes ?? "",
     position: draft.position,
   };

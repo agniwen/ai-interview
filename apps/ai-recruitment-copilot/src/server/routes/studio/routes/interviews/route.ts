@@ -24,6 +24,7 @@ import {
   closedMetaSchema,
   humanInterviewMeetingInputSchema,
   humanInterviewRoundInputSchema,
+  nullableInstantDateTimeInputSchema,
   humanInterviewRoundOutcomeSchema,
   offerDraftInputSchema,
   offerResponseInputSchema,
@@ -960,7 +961,7 @@ export const studioInterviewsRouter = factory
       z.object({
         allowTextInput: z.boolean().optional(),
         notes: z.string().trim().max(1000).optional().or(z.literal("")),
-        scheduledAt: z.string().trim().optional().or(z.literal("")).nullable(),
+        scheduledAt: nullableInstantDateTimeInputSchema,
         status: scheduleEntryStatusSchema.optional(),
       }),
       jsonValidatorError("请求参数无效。"),
