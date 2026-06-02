@@ -81,6 +81,7 @@ import {
   DetailBodySkeleton,
   DetailHeaderSkeleton,
   FormsSkeleton,
+  InterviewResultOverviewSkeleton,
   ReportsSkeleton,
   RoundsSkeleton,
   SummaryMetric,
@@ -1078,62 +1079,66 @@ function useStudioPersonDetailPanel({
                 <ResumeOverviewPanel detail={resumeRecord} />
               ) : (
                 <div className="grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)]">
-                  <div className="h-full rounded-2xl border border-border bg-background p-5">
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                      <h3 className="font-medium text-sm">面试结果</h3>
-                      <Badge
-                        variant={
-                          latestReport ? getReportBadgeVariant(latestReport.status) : "outline"
-                        }
-                      >
-                        {latestReport ? formatReportStatus(latestReport.status) : "暂无报告"}
-                      </Badge>
+                  {isReportsLoading ? (
+                    <InterviewResultOverviewSkeleton />
+                  ) : (
+                    <div className="h-full rounded-2xl border border-border bg-background p-5">
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <h3 className="font-medium text-sm">面试结果</h3>
+                        <Badge
+                          variant={
+                            latestReport ? getReportBadgeVariant(latestReport.status) : "outline"
+                          }
+                        >
+                          {latestReport ? formatReportStatus(latestReport.status) : "暂无报告"}
+                        </Badge>
+                      </div>
+                      <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                        <SummaryMetric
+                          label="评分"
+                          value={
+                            latestEvaluationSummary.overallScore === null
+                              ? "—"
+                              : `${latestEvaluationSummary.overallScore} / 100`
+                          }
+                        />
+                        <SummaryMetric
+                          label="建议"
+                          value={
+                            latestEvaluationSummary.recommendation ? (
+                              <Badge
+                                variant={resolveRecommendationVariant(
+                                  latestEvaluationSummary.recommendation,
+                                )}
+                              >
+                                {latestEvaluationSummary.recommendation}
+                              </Badge>
+                            ) : (
+                              "待生成"
+                            )
+                          }
+                        />
+                        <SummaryMetric
+                          label="对话"
+                          value={
+                            latestReport
+                              ? `${latestReport.userTurnCount} 次候选人回复`
+                              : "候选人完成后生成"
+                          }
+                        />
+                      </div>
+                      <div className="mt-4 text-muted-foreground text-sm leading-normal">
+                        <Markdown>
+                          {compactText(
+                            latestEvaluationSummary.overallAssessment ??
+                              latestReport?.transcriptSummary ??
+                              null,
+                            "候选人完成面试后，这里会优先显示结论、评分和关键摘要。",
+                          )}
+                        </Markdown>
+                      </div>
                     </div>
-                    <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                      <SummaryMetric
-                        label="评分"
-                        value={
-                          latestEvaluationSummary.overallScore === null
-                            ? "—"
-                            : `${latestEvaluationSummary.overallScore} / 100`
-                        }
-                      />
-                      <SummaryMetric
-                        label="建议"
-                        value={
-                          latestEvaluationSummary.recommendation ? (
-                            <Badge
-                              variant={resolveRecommendationVariant(
-                                latestEvaluationSummary.recommendation,
-                              )}
-                            >
-                              {latestEvaluationSummary.recommendation}
-                            </Badge>
-                          ) : (
-                            "待生成"
-                          )
-                        }
-                      />
-                      <SummaryMetric
-                        label="对话"
-                        value={
-                          latestReport
-                            ? `${latestReport.userTurnCount} 次候选人回复`
-                            : "候选人完成后生成"
-                        }
-                      />
-                    </div>
-                    <div className="mt-4 text-muted-foreground text-sm leading-normal">
-                      <Markdown>
-                        {compactText(
-                          latestEvaluationSummary.overallAssessment ??
-                            latestReport?.transcriptSummary ??
-                            null,
-                          "候选人完成面试后，这里会优先显示结论、评分和关键摘要。",
-                        )}
-                      </Markdown>
-                    </div>
-                  </div>
+                  )}
 
                   <div className="h-full rounded-2xl border border-border bg-background p-5">
                     <h3 className="font-medium text-sm">候选人信息</h3>

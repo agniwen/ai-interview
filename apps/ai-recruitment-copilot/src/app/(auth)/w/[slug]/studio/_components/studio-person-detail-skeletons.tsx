@@ -156,6 +156,33 @@ export function FormsSkeleton() {
   );
 }
 
+export function InterviewResultOverviewSkeleton() {
+  return (
+    <div className="h-full rounded-2xl border border-border bg-background p-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <Skeleton className="h-5 w-20" />
+        <Skeleton className="h-6 w-20" />
+      </div>
+      <div className="mt-4 grid gap-3 sm:grid-cols-3">
+        {Array.from({ length: 3 }).map((_, index) => (
+          <div
+            className="min-w-0 rounded-lg border border-border bg-muted/20 px-3 py-2"
+            key={index}
+          >
+            <Skeleton className="h-3 w-12" />
+            <Skeleton className="mt-2 h-5 w-20" />
+          </div>
+        ))}
+      </div>
+      <div className="mt-4 space-y-2">
+        <Skeleton className="h-4 w-full" />
+        <Skeleton className="h-4 w-11/12" />
+        <Skeleton className="h-4 w-2/3" />
+      </div>
+    </div>
+  );
+}
+
 export function SummaryMetric({ label, value }: { label: string; value: ReactNode }) {
   return (
     <div className="min-w-0 rounded-lg border border-border bg-muted/20 px-3 py-2">
