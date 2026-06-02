@@ -489,54 +489,27 @@ function OfferCard({
   return (
     <Card className="gap-0 rounded-lg py-0">
       <CardContent className="p-4">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-          <div className="min-w-0 flex-1 space-y-3">
-            <div className="flex items-center gap-2">
-              <span className="font-medium text-sm">
-                v{draft.version} · {draft.position}
-              </span>
-              <Badge variant={meta.tone}>{meta.label}</Badge>
-            </div>
-            {draft.status === "draft" ? (
-              <OfferDraftReadonlyFields draft={draft} />
-            ) : (
-              <>
-                <div className="flex flex-wrap gap-x-4 gap-y-1 text-muted-foreground text-xs">
-                  <span>
-                    Base：
-                    <span className="font-medium text-foreground">
-                      ¥ {draft.baseSalary.toLocaleString()}
-                    </span>
-                    {draft.bonus === null ? "" : ` · 奖金 ¥ ${draft.bonus.toLocaleString()}`}
-                  </span>
-                  {draft.equity ? <span>期权：{draft.equity}</span> : null}
-                  {draft.joiningDate ? (
-                    <span>预计入职：{formatDate(draft.joiningDate)}</span>
-                  ) : null}
-                  {draft.sentAt ? <span>发送于：{formatDate(draft.sentAt)}</span> : null}
-                  {draft.expiresAt ? <span>有效期至：{formatDate(draft.expiresAt)}</span> : null}
-                </div>
-                {draft.candidateCounter ? (
-                  <p className="rounded bg-muted/40 px-2 py-1 text-foreground/90 text-xs">
-                    <span className="text-muted-foreground">候选人议价：</span>
-                    {draft.candidateCounter}
-                  </p>
-                ) : null}
-                {draft.notes ? (
-                  <p className="text-muted-foreground text-xs">备注：{draft.notes}</p>
-                ) : null}
-              </>
-            )}
+        <div className="space-y-4">
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            <span className="font-medium text-sm">
+              v{draft.version} · {draft.position}
+            </span>
+            <Badge variant={meta.tone}>{meta.label}</Badge>
           </div>
+
+          <OfferDraftReadonlyFields draft={draft} />
+
           {disabled ? null : (
-            <OfferCardActions
-              cancelMutation={cancelMutation}
-              draft={draft}
-              onEdit={() => setEditing(true)}
-              onRespond={onRespond}
-              onSend={() => setSendConfirmOpen(true)}
-              sendPending={sendMutation.isPending}
-            />
+            <div className="border-border/60 border-t pt-3">
+              <OfferCardActions
+                cancelMutation={cancelMutation}
+                draft={draft}
+                onEdit={() => setEditing(true)}
+                onRespond={onRespond}
+                onSend={() => setSendConfirmOpen(true)}
+                sendPending={sendMutation.isPending}
+              />
+            </div>
           )}
         </div>
       </CardContent>
@@ -568,7 +541,7 @@ function OfferCardActions({
 }) {
   if (draft.status === "draft") {
     return (
-      <div className="flex shrink-0 flex-wrap gap-2 lg:justify-end">
+      <div className="flex flex-wrap justify-end gap-2">
         <Button onClick={onEdit} size="sm" variant="ghost">
           <PencilIcon className="size-4" />
           编辑
@@ -582,7 +555,7 @@ function OfferCardActions({
   }
   if (draft.status === "sent") {
     return (
-      <div className="flex shrink-0 flex-wrap gap-2 lg:justify-end">
+      <div className="flex flex-wrap justify-end gap-2">
         <Button onClick={onRespond} size="sm">
           <CheckCircle2Icon className="size-4" />
           记录响应
@@ -604,7 +577,7 @@ function OfferCardActions({
 
 function OfferDraftReadonlyFields({ draft }: { draft: OfferDraftRecord }) {
   return (
-    <dl className="grid gap-x-8 gap-y-3 text-sm sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+    <dl className="grid grid-cols-2 gap-x-8 gap-y-3 text-sm lg:grid-cols-4">
       <ReadonlyOfferField label="职位" value={draft.position} />
       <ReadonlyOfferField label="Base 月薪" value={`¥ ${draft.baseSalary.toLocaleString()}`} />
       <ReadonlyOfferField
@@ -620,11 +593,15 @@ function OfferDraftReadonlyFields({ draft }: { draft: OfferDraftRecord }) {
         label="Offer 有效期至"
         value={draft.expiresAt ? formatDate(draft.expiresAt) : null}
       />
-      <ReadonlyOfferField
-        className="sm:col-span-2 lg:col-span-3 xl:col-span-4"
-        label="备注"
-        value={draft.notes}
-      />
+      {draft.sentAt ? <ReadonlyOfferField label="发送于" value={formatDate(draft.sentAt)} /> : null}
+      {draft.candidateCounter ? (
+        <ReadonlyOfferField
+          className="col-span-2 lg:col-span-4"
+          label="候选人议价"
+          value={draft.candidateCounter}
+        />
+      ) : null}
+      <ReadonlyOfferField className="col-span-2 lg:col-span-4" label="备注" value={draft.notes} />
     </dl>
   );
 }
@@ -639,9 +616,9 @@ function ReadonlyOfferField({
   value: string | null;
 }) {
   return (
-    <div className={className}>
+    <div className={`min-w-0 ${className ?? ""}`}>
       <dt className="text-muted-foreground text-xs">{label}</dt>
-      <dd className="mt-0.5 text-foreground text-sm">
+      <dd className="mt-0.5 break-words text-foreground text-sm">
         {value || <span className="text-muted-foreground">—</span>}
       </dd>
     </div>
