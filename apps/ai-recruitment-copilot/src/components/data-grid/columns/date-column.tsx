@@ -29,12 +29,13 @@ export function dateColumn<TData>(opts: DateColumnOptions<TData>): ColumnDef<TDa
     header: opts.sortable
       ? ({ column }) => (
           <Button
-            className="px-0"
+            className="h-5 px-1 text-muted-foreground text-xs"
             onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+            size="xs"
             variant="ghost"
           >
             {opts.title}
-            <ArrowUpDownIcon className="size-4" />
+            <ArrowUpDownIcon className="size-3.5" />
           </Button>
         )
       : opts.title,

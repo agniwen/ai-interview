@@ -27,7 +27,7 @@ import type { CSSProperties } from "react";
  */
 export function getPinningStyles<TData>(
   column: Header<TData, unknown>["column"] | Cell<TData, unknown>["column"],
-  options: { isHeader?: boolean } = {},
+  options: { isHeader?: boolean; stickToTop?: boolean } = {},
 ): CSSProperties {
   const isPinned = column.getIsPinned();
 
@@ -38,11 +38,13 @@ export function getPinningStyles<TData>(
   const size = column.getSize();
 
   return {
+    boxSizing: "border-box",
     left: isPinned === "left" ? `${column.getStart("left")}px` : undefined,
+    maxWidth: `${size}px`,
     minWidth: `${size}px`,
     position: "sticky",
     right: isPinned === "right" ? `${column.getAfter("right")}px` : undefined,
-    top: options.isHeader ? 0 : undefined,
+    top: options.stickToTop ? 0 : undefined,
     width: `${size}px`,
     zIndex: options.isHeader ? 3 : 1,
   };
@@ -55,6 +57,8 @@ export function getPinningStyles<TData>(
  */
 export const PINNED_CELL_CLASS =
   "bg-background transition-colors group-hover/row:bg-muted group-data-[state=selected]/row:bg-muted";
+
+export const PINNED_HEADER_CLASS = "bg-muted";
 
 /**
  * Sticky header cells use the same muted surface as the AlignUI-style header.

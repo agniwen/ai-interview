@@ -15,7 +15,12 @@ import {
 } from "@/components/ui/table";
 import { cn } from "@/lib/shared/utils";
 import { PaginationBar } from "./parts/pagination-bar";
-import { getPinningStyles, PINNED_CELL_CLASS, STICKY_HEADER_CLASS } from "./parts/pinned-cell";
+import {
+  getPinningStyles,
+  PINNED_CELL_CLASS,
+  PINNED_HEADER_CLASS,
+  STICKY_HEADER_CLASS,
+} from "./parts/pinned-cell";
 import { Toolbar } from "./parts/toolbar";
 import type { ToolbarFilterConfig } from "./parts/toolbar";
 
@@ -179,17 +184,23 @@ export function DataGrid<TData>(props: DataGridProps<TData>) {
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
-                {headerGroup.headers.map((header) => (
-                  <TableHead
-                    className={cn(maxHeight && STICKY_HEADER_CLASS)}
-                    key={header.id}
-                    style={getPinningStyles(header.column, { isHeader: !!maxHeight })}
-                  >
-                    {header.isPlaceholder
-                      ? null
-                      : flexRender(header.column.columnDef.header, header.getContext())}
-                  </TableHead>
-                ))}
+                {headerGroup.headers.map((header) => {
+                  const pin = header.column.getIsPinned();
+                  return (
+                    <TableHead
+                      className={cn(maxHeight && STICKY_HEADER_CLASS, pin && PINNED_HEADER_CLASS)}
+                      key={header.id}
+                      style={getPinningStyles(header.column, {
+                        isHeader: true,
+                        stickToTop: !!maxHeight,
+                      })}
+                    >
+                      {header.isPlaceholder
+                        ? null
+                        : flexRender(header.column.columnDef.header, header.getContext())}
+                    </TableHead>
+                  );
+                })}
               </TableRow>
             ))}
           </TableHeader>

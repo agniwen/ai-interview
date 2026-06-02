@@ -15,26 +15,34 @@ function Table({
   containerStyle?: React.CSSProperties;
 }) {
   return (
-    <OverlayScrollbarsComponent
-      data-slot="table-container"
-      defer
-      element="div"
-      className={cn("w-full overflow-x-auto", containerClassName)}
-      options={{
-        scrollbars: {
-          autoHide: "leave",
-          autoHideDelay: 600,
-          theme: "os-theme-app",
-        },
-      }}
-      style={containerStyle}
+    <div
+      className="rounded-2xl bg-muted p-1 shadow-xs ring-1 ring-border/40"
+      data-slot="table-frame"
     >
-      <table
-        data-slot="table"
-        className={cn("w-full caption-bottom text-sm", className)}
-        {...props}
-      />
-    </OverlayScrollbarsComponent>
+      <OverlayScrollbarsComponent
+        className={cn("w-full overflow-x-auto rounded-xl", containerClassName)}
+        data-slot="table-container"
+        defer
+        element="div"
+        options={{
+          scrollbars: {
+            autoHide: "leave",
+            autoHideDelay: 600,
+            theme: "os-theme-app",
+          },
+        }}
+        style={containerStyle}
+      >
+        <table
+          data-slot="table"
+          className={cn(
+            "w-full border-separate border-spacing-0 caption-bottom text-sm",
+            className,
+          )}
+          {...props}
+        />
+      </OverlayScrollbarsComponent>
+    </div>
   );
 }
 
@@ -57,7 +65,14 @@ function TableBody({
         data-slot="table-body-spacer"
         style={{ height: spacing }}
       />
-      <tbody data-slot="table-body" className={className} {...props} />
+      <tbody
+        data-slot="table-body"
+        className={cn(
+          "[&>tr:first-child>td:first-child]:rounded-tl-xl [&>tr:first-child>td:last-child]:rounded-tr-xl [&>tr:last-child>td:first-child]:rounded-bl-xl [&>tr:last-child>td:last-child]:rounded-br-xl",
+          className,
+        )}
+        {...props}
+      />
     </>
   );
 }
@@ -81,7 +96,7 @@ function TableHead({ className, ...props }: React.ComponentProps<"th">) {
     <th
       data-slot="table-head"
       className={cn(
-        "bg-muted px-3 py-2 text-left align-middle font-medium text-muted-foreground text-sm whitespace-nowrap first:rounded-l-lg last:rounded-r-lg [&:has([role=checkbox])]:pr-3 [&>[role=checkbox]]:translate-y-[2px]",
+        "bg-muted px-4 py-1.5 text-left align-middle font-medium text-muted-foreground text-xs whitespace-nowrap first:rounded-l-xl last:rounded-r-xl [&:has([role=checkbox])]:px-3 [&>[role=checkbox]]:translate-y-[2px]",
         className,
       )}
       {...props}
@@ -94,7 +109,7 @@ function TableCell({ className, ...props }: React.ComponentProps<"td">) {
     <td
       data-slot="table-cell"
       className={cn(
-        "h-16 px-3 align-middle whitespace-nowrap transition duration-200 ease-out first:rounded-l-xl last:rounded-r-xl group-hover/row:bg-muted group-data-[state=selected]/row:bg-muted [&:has([role=checkbox])]:pr-3 [&>[role=checkbox]]:translate-y-[2px]",
+        "h-14 bg-background px-4 align-middle whitespace-nowrap transition duration-200 ease-out group-hover/row:bg-muted group-data-[state=selected]/row:bg-muted [&:has([role=checkbox])]:px-3 [&>[role=checkbox]]:translate-y-[2px]",
         className,
       )}
       {...props}
@@ -121,13 +136,8 @@ function TableRowDivider({
 }) {
   return (
     <tr aria-hidden="true" className={className} data-slot="table-row-divider" {...props}>
-      <td className="py-1" colSpan={999}>
-        <div
-          className={cn(
-            "relative h-1 w-full before:absolute before:top-1/2 before:left-0 before:h-px before:w-full before:-translate-y-1/2 before:bg-border",
-            dividerClassName,
-          )}
-        />
+      <td className="p-0" colSpan={999}>
+        <div className={cn("mx-4 h-px bg-border/70", dividerClassName)} />
       </td>
     </tr>
   );

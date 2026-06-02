@@ -43,7 +43,7 @@ export interface ActionsColumnOptions<TData> {
   size?: number;
 }
 
-const ACTION_CELL_HORIZONTAL_PADDING = 24;
+const ACTION_CELL_HORIZONTAL_PADDING = 32;
 const ACTION_BUTTON_HORIZONTAL_PADDING = 20;
 const ACTION_MENU_TRIGGER_HORIZONTAL_PADDING = 10;
 const ACTION_BUTTON_GAP = 2;
