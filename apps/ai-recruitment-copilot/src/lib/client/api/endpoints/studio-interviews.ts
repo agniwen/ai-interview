@@ -75,6 +75,7 @@ export interface StudioInterviewRoundListParams {
   page?: number;
   pageSize?: number;
   search?: string;
+  creatorIds?: string[];
   status?: string;
 }
 
@@ -93,6 +94,9 @@ export function fetchStudioInterviewRounds(
         ...(params.page === undefined ? {} : { page: String(params.page) }),
         ...(params.pageSize === undefined ? {} : { pageSize: String(params.pageSize) }),
         ...(params.search ? { search: params.search } : {}),
+        ...(params.creatorIds && params.creatorIds.length > 0
+          ? { creatorIds: params.creatorIds.join(",") }
+          : {}),
         ...(params.status ? { status: params.status } : {}),
       },
     }),

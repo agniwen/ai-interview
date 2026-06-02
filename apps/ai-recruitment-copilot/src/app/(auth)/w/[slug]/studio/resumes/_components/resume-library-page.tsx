@@ -60,6 +60,7 @@ import {
   fetchStudioResumes,
 } from "@/lib/client/api";
 import { rpc } from "@/lib/client/rpc";
+import { rpcFetch } from "@/lib/client/api/rpc-fetch";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { StudioPersonDetailDialog } from "@/app/(auth)/w/[slug]/studio/_components/studio-person-detail-dialog";
 import { StudioPersonEditDialog } from "@/app/(auth)/w/[slug]/studio/_components/studio-person-edit-dialog";
@@ -86,12 +87,20 @@ const PdfPreviewDialog = dynamic(
 // jdIds = candidate's linked JD is one of the selection (OR — a resume can
 //          link to only one JD, so AND would always be empty for >1).
 interface ResumeFilters extends Record<string, string> {
+  creatorIds: string;
   skills: string;
   jdIds: string;
   stage: string;
 }
-const EMPTY_FILTERS: ResumeFilters = { jdIds: "", skills: "", stage: "" };
+const EMPTY_FILTERS: ResumeFilters = { creatorIds: "", jdIds: "", skills: "", stage: "" };
 type ResumeDetailDefaultTab = "overview" | "rounds" | "human-interview" | "offer";
+
+interface WorkspaceMember {
+  id: string;
+  name: string;
+  email: string;
+  image: string | null;
+}
 
 // pipelineStage tab 副标题文案——简短，避免 tab 撑得过宽，移动端会隐藏。
 // Short helper text shown inside each pipelineStage tab; hidden on mobile so
@@ -286,6 +295,7 @@ export function ResumeLibraryPage({
     () =>
       (params: FetchParams): Promise<PaginatedResumeLibraryResult> =>
         fetchStudioResumes(slug, {
+          creatorIds: csvToArray(params.filters.creatorIds),
           jobDescriptionIds: csvToArray(params.filters.jdIds),
           page: params.page,
           pageSize: params.pageSize,
@@ -297,6 +307,18 @@ export function ResumeLibraryPage({
         }),
     [slug],
   );
+
+  const { data: workspaceMembers = [] } = useQuery({
+    queryFn: async () => {
+      const result = await rpcFetch<{ records: WorkspaceMember[] }>(
+        rpc.api.w[":slug"].studio.workspace.members.$get({ param: { slug } }),
+        "加载成员列表失败",
+      );
+      return result.records;
+    },
+    queryKey: ["workspace-members", slug],
+    staleTime: 60_000,
+  });
 
   // 关联岗位 + 技能两组下拉建议数据；都是 staleTime 60s 的轻量查询，
   // 单独缓存以便其他页面（发起面试 dialog 等）复用 ["job-descriptions","all"] key。
@@ -610,6 +632,19 @@ export function ResumeLibraryPage({
         type: "search" as const,
       },
       {
+        emptyMessage: "没有匹配的创建人",
+        key: "creatorIds" as const,
+        options: workspaceMembers.map((member) => ({
+          description: member.email,
+          label: member.name,
+          value: member.id,
+        })),
+        placeholder: "按创建人筛选",
+        searchPlaceholder: "搜索姓名或邮箱…",
+        selectedFormat: (count: number) => `已选 ${count} 个创建人`,
+        type: "multi-select" as const,
+      },
+      {
         emptyMessage: "没有匹配的技能",
         key: "skills" as const,
         options: skillSuggestions.map((item) => ({
@@ -635,7 +670,7 @@ export function ResumeLibraryPage({
         type: "multi-select" as const,
       },
     ],
-    [skillSuggestions, jobDescriptions],
+    [skillSuggestions, jobDescriptions, workspaceMembers],
   );
 
   async function handleDelete() {

@@ -362,6 +362,10 @@ export const relations = defineRelations(schema, (r) => ({
       from: r.studioInterviewSchedule.organizationId,
       to: r.organization.id,
     }),
+    user: r.one.user({
+      from: r.studioInterviewSchedule.createdBy,
+      to: r.user.id,
+    }),
   },
   studioOfferDraft: {
     interviewRecord: r.one.studioInterview({

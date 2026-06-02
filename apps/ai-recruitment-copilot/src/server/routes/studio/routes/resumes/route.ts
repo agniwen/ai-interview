@@ -104,6 +104,7 @@ export const resumeLibraryRouter = factory
     zValidator(
       "query",
       z.object({
+        creatorIds: z.string().optional(),
         jdIds: z.string().optional(),
         outcomes: z.string().optional(),
         page: z.string().optional(),
@@ -126,6 +127,7 @@ export const resumeLibraryRouter = factory
       const result = await queryPaginatedResumeRecords(
         activeOrg.id,
         {
+          creatorIds: csvToArray(q.creatorIds),
           jobDescriptionIds: csvToArray(q.jdIds),
           outcomes: csvToArray(q.outcomes),
           pipelineStages: csvToArray(q.pipelineStages),
@@ -265,6 +267,8 @@ export const resumeLibraryRouter = factory
         id,
         [createDefaultScheduleEntry()],
         now,
+        undefined,
+        c.var.user?.id ?? null,
       );
       if (!scheduleRow) {
         return c.json({ error: "未生成面试轮次。" }, 400);

@@ -68,7 +68,7 @@ function parseStatusFilter(value?: string | null): ScheduleEntryStatus[] | undef
 
 function buildWhere(
   organizationId: string,
-  filters?: { search?: string; statuses?: ScheduleEntryStatus[] },
+  filters?: { creatorIds?: string[]; search?: string; statuses?: ScheduleEntryStatus[] },
 ) {
   const conditions: ReturnType<typeof eq | typeof or | typeof inArray>[] = [
     eq(studioInterviewSchedule.organizationId, organizationId),
@@ -89,19 +89,23 @@ function buildWhere(
   if (filters?.statuses && filters.statuses.length > 0) {
     conditions.push(inArray(studioInterviewSchedule.status, filters.statuses));
   }
+  if (filters?.creatorIds && filters.creatorIds.length > 0) {
+    conditions.push(inArray(studioInterviewSchedule.createdBy, filters.creatorIds));
+  }
   return and(...conditions);
 }
 
 export async function queryPaginatedInterviewRounds(
   organizationId: string,
-  filters?: { search?: string | null; status?: string | null },
+  filters?: { creatorIds?: string[] | null; search?: string | null; status?: string | null },
   pagination?: Record<string, unknown>,
 ): Promise<PaginatedStudioInterviewRoundsResult> {
+  const creatorIds = filters?.creatorIds?.filter((id) => id.trim().length > 0) || undefined;
   const search = filters?.search?.trim() || undefined;
   const statuses = parseStatusFilter(filters?.status);
   const { page, pageSize, sortBy, sortOrder } = parsePagination(pagination);
   const offset = (page - 1) * pageSize;
-  const where = buildWhere(organizationId, { search, statuses });
+  const where = buildWhere(organizationId, { creatorIds, search, statuses });
 
   // 子查询：当前 round 是否存在任意一条对应的 conversation 行。
   // Subquery: does at least one conversation row exist for this round.
@@ -127,7 +131,7 @@ export async function queryPaginatedInterviewRounds(
         candidatePhone: studioInterview.candidatePhone,
         conversationId: studioInterviewSchedule.conversationId,
         createdAt: studioInterviewSchedule.createdAt,
-        createdBy: studioInterview.createdBy,
+        createdBy: studioInterviewSchedule.createdBy,
         creatorImage: user.image,
         creatorName: user.name,
         creatorOrganizationName: user.feishuTenantName,
@@ -164,7 +168,7 @@ export async function queryPaginatedInterviewRounds(
           eq(department.organizationId, studioInterview.organizationId),
         ),
       )
-      .leftJoin(user, eq(studioInterview.createdBy, user.id))
+      .leftJoin(user, eq(studioInterviewSchedule.createdBy, user.id))
       .where(where)
       .orderBy(buildOrderBy(ORDER_COLUMNS, sortBy, sortOrder))
       .limit(pageSize)
@@ -185,6 +189,7 @@ export async function queryPaginatedInterviewRounds(
     candidatePhone: row.candidatePhone,
     conversationId: row.conversationId,
     createdAt: serializeDate(row.createdAt) ?? "",
+    createdBy: row.createdBy,
     creatorImage: row.creatorImage,
     creatorName: row.creatorName,
     creatorOrganizationName: row.creatorOrganizationName,
@@ -219,7 +224,7 @@ export async function queryPaginatedInterviewRounds(
 /** Cached version for Server Components */
 export function listInterviewRounds(
   organizationId: string,
-  filters?: { search?: string | null; status?: string | null },
+  filters?: { creatorIds?: string[] | null; search?: string | null; status?: string | null },
   pagination?: Record<string, unknown>,
 ) {
   return queryPaginatedInterviewRounds(organizationId, filters, pagination);
@@ -257,7 +262,7 @@ export async function listInterviewRoundsForCandidate(
       candidatePhone: studioInterview.candidatePhone,
       conversationId: studioInterviewSchedule.conversationId,
       createdAt: studioInterviewSchedule.createdAt,
-      createdBy: studioInterview.createdBy,
+      createdBy: studioInterviewSchedule.createdBy,
       creatorImage: user.image,
       creatorName: user.name,
       creatorOrganizationName: user.feishuTenantName,
@@ -294,7 +299,7 @@ export async function listInterviewRoundsForCandidate(
         eq(department.organizationId, studioInterview.organizationId),
       ),
     )
-    .leftJoin(user, eq(studioInterview.createdBy, user.id))
+    .leftJoin(user, eq(studioInterviewSchedule.createdBy, user.id))
     .where(
       and(
         eq(studioInterviewSchedule.interviewRecordId, candidateId),
@@ -311,6 +316,7 @@ export async function listInterviewRoundsForCandidate(
     candidatePhone: row.candidatePhone,
     conversationId: row.conversationId,
     createdAt: serializeDate(row.createdAt) ?? "",
+    createdBy: row.createdBy,
     creatorImage: row.creatorImage,
     creatorName: row.creatorName,
     creatorOrganizationName: row.creatorOrganizationName,

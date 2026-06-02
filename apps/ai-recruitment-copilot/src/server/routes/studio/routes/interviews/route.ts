@@ -172,6 +172,16 @@ const humanMeetingTokenInputSchema = z.object({
   interviewerId: z.string().trim().min(1).optional(),
 });
 
+function csvToArray(value: string | undefined): string[] {
+  if (!value) {
+    return [];
+  }
+  return value
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
 // 删除 AI 轮次后回退 parent：若候选人已无任何 schedule entry 且仍处于
 // pipeline_stage='ai_interview' / outcome='in_pipeline'，回退到 'screening'。
 // 已经被推进到 human_interview/offer/closed 的候选人保持原状（HR 已显式推进）。
@@ -243,6 +253,7 @@ export const studioInterviewsRouter = factory
     zValidator(
       "query",
       z.object({
+        creatorIds: z.string().optional(),
         page: z.string().optional(),
         pageSize: z.string().optional(),
         search: z.string().optional(),
@@ -260,7 +271,7 @@ export const studioInterviewsRouter = factory
       const q = c.req.valid("query");
       const result = await queryPaginatedInterviewRounds(
         activeOrg.id,
-        { search: q.search, status: q.status },
+        { creatorIds: csvToArray(q.creatorIds), search: q.search, status: q.status },
         { page: q.page, pageSize: q.pageSize, sortBy: q.sortBy, sortOrder: q.sortOrder },
       );
       return c.json(result, 200);
@@ -362,6 +373,8 @@ export const studioInterviewsRouter = factory
         interviewRecordId,
         input.data.scheduleEntries,
         now,
+        undefined,
+        c.var.user?.id ?? null,
       );
 
       await db.transaction(async (tx) => {

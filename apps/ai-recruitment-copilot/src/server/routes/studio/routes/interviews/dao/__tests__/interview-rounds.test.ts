@@ -22,39 +22,61 @@ import {
 
 const ORG = "test_org_interview_rounds";
 const USER_ID = "test_user_interview_rounds";
+const USER_ID_ALT = "test_user_interview_rounds_alt";
 const NOW = new Date("2026-05-13T15:00:00.000Z");
 
 async function cleanup() {
   await db.delete(studioInterviewSchedule).where(eq(studioInterviewSchedule.organizationId, ORG));
   await db.delete(studioInterview).where(eq(studioInterview.organizationId, ORG));
   await db.delete(member).where(eq(member.userId, USER_ID));
+  await db.delete(member).where(eq(member.userId, USER_ID_ALT));
   await db.delete(organization).where(eq(organization.id, ORG));
   await db.delete(user).where(eq(user.id, USER_ID));
+  await db.delete(user).where(eq(user.id, USER_ID_ALT));
 }
 
 beforeAll(async () => {
   await cleanup();
-  await db.insert(user).values({
-    createdAt: NOW,
-    email: "rounds-dao@example.com",
-    emailVerified: false,
-    id: USER_ID,
-    name: "rd",
-    updatedAt: NOW,
-  });
+  await db.insert(user).values([
+    {
+      createdAt: NOW,
+      email: "rounds-dao@example.com",
+      emailVerified: false,
+      id: USER_ID,
+      name: "rd",
+      updatedAt: NOW,
+    },
+    {
+      createdAt: NOW,
+      email: "rounds-dao-alt@example.com",
+      emailVerified: false,
+      id: USER_ID_ALT,
+      name: "rd-alt",
+      updatedAt: NOW,
+    },
+  ]);
   await db.insert(organization).values({
     createdAt: NOW,
     id: ORG,
     name: "Org Rounds",
     slug: "test-rounds-dao",
   });
-  await db.insert(member).values({
-    createdAt: NOW,
-    id: "m_rounds",
-    organizationId: ORG,
-    role: "owner",
-    userId: USER_ID,
-  });
+  await db.insert(member).values([
+    {
+      createdAt: NOW,
+      id: "m_rounds",
+      organizationId: ORG,
+      role: "owner",
+      userId: USER_ID,
+    },
+    {
+      createdAt: NOW,
+      id: "m_rounds_alt",
+      organizationId: ORG,
+      role: "member",
+      userId: USER_ID_ALT,
+    },
+  ]);
 
   // Candidate A with 2 rounds
   await db.insert(studioInterview).values({
@@ -73,6 +95,7 @@ beforeAll(async () => {
     {
       allowTextInput: true,
       createdAt: NOW,
+      createdBy: USER_ID,
       id: "rnd-a1",
       interviewRecordId: "cand-a",
       organizationId: ORG,
@@ -85,6 +108,7 @@ beforeAll(async () => {
     {
       allowTextInput: false,
       createdAt: NOW,
+      createdBy: USER_ID,
       id: "rnd-a2",
       interviewRecordId: "cand-a",
       organizationId: ORG,
@@ -112,6 +136,7 @@ beforeAll(async () => {
   await db.insert(studioInterviewSchedule).values({
     allowTextInput: true,
     createdAt: NOW,
+    createdBy: USER_ID_ALT,
     id: "rnd-b1",
     interviewRecordId: "cand-b",
     organizationId: ORG,
@@ -148,6 +173,17 @@ describe("queryPaginatedInterviewRounds", () => {
     const result = await queryPaginatedInterviewRounds(ORG, { status: "completed" });
     expect(result.total).toBe(1);
     expect(result.records[0]?.id).toBe("rnd-b1");
+  });
+
+  it("filters by creatorIds", async () => {
+    const byOwner = await queryPaginatedInterviewRounds(ORG, { creatorIds: [USER_ID] });
+    expect(byOwner.total).toBe(2);
+    expect(byOwner.records.map((row) => row.id).toSorted()).toEqual(["rnd-a1", "rnd-a2"]);
+
+    const byMember = await queryPaginatedInterviewRounds(ORG, { creatorIds: [USER_ID_ALT] });
+    expect(byMember.total).toBe(1);
+    expect(byMember.records[0]?.id).toBe("rnd-b1");
+    expect(byMember.records[0]?.createdBy).toBe(USER_ID_ALT);
   });
 
   it("filters by search across candidate name + round label", async () => {

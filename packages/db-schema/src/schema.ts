@@ -551,6 +551,7 @@ export const studioInterviewSchedule = pgTable(
     allowTextInput: boolean("allow_text_input").notNull().default(false),
     conversationId: text("conversation_id"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
+    createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
     // 热重连锚点：轮次首次开始时持久化 LiveKit 房间名、参与者 identity、
     // 会话起始时间。断连超过 LiveKit 自动重连窗口时记录 disconnectedAt，
     // 给候选人 3 分钟内回到同一房间继续对话。
@@ -584,6 +585,7 @@ export const studioInterviewSchedule = pgTable(
     index("studio_interview_schedule_record_idx").on(table.interviewRecordId),
     index("studio_interview_schedule_sort_idx").on(table.interviewRecordId, table.sortOrder),
     index("studio_interview_schedule_organization_idx").on(table.organizationId),
+    index("studio_interview_schedule_created_by_idx").on(table.createdBy),
   ],
 );
 

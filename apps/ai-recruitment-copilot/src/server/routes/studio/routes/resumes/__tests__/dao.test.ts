@@ -22,6 +22,7 @@ import { syncResumeSkills } from "@/server/routes/studio/routes/resumes/dao/skil
 const ORG_A = "test_org_resume_dao_a";
 const ORG_B = "test_org_resume_dao_b";
 const USER_ID = "test_user_resume_dao";
+const USER_ID_ALT = "test_user_resume_dao_alt";
 
 const NOW = new Date("2026-05-13T10:00:00.000Z");
 
@@ -37,22 +38,34 @@ async function cleanup() {
   await db.delete(jobDescription).where(eq(jobDescription.organizationId, ORG_A));
   await db.delete(department).where(eq(department.organizationId, ORG_A));
   await db.delete(member).where(eq(member.userId, USER_ID));
+  await db.delete(member).where(eq(member.userId, USER_ID_ALT));
   await db.delete(organization).where(eq(organization.id, ORG_A));
   await db.delete(organization).where(eq(organization.id, ORG_B));
   await db.delete(user).where(eq(user.id, USER_ID));
+  await db.delete(user).where(eq(user.id, USER_ID_ALT));
 }
 
 beforeAll(async () => {
   await cleanup();
 
-  await db.insert(user).values({
-    createdAt: NOW,
-    email: "resume-dao@example.com",
-    emailVerified: false,
-    id: USER_ID,
-    name: "resume-dao",
-    updatedAt: NOW,
-  });
+  await db.insert(user).values([
+    {
+      createdAt: NOW,
+      email: "resume-dao@example.com",
+      emailVerified: false,
+      id: USER_ID,
+      name: "resume-dao",
+      updatedAt: NOW,
+    },
+    {
+      createdAt: NOW,
+      email: "resume-dao-alt@example.com",
+      emailVerified: false,
+      id: USER_ID_ALT,
+      name: "resume-dao-alt",
+      updatedAt: NOW,
+    },
+  ]);
 
   await db.insert(organization).values([
     { createdAt: NOW, id: ORG_A, name: "Org A", slug: "test-resume-dao-a" },
@@ -66,6 +79,13 @@ beforeAll(async () => {
       organizationId: ORG_A,
       role: "owner",
       userId: USER_ID,
+    },
+    {
+      createdAt: NOW,
+      id: "m_resume_dao_a_alt",
+      organizationId: ORG_A,
+      role: "member",
+      userId: USER_ID_ALT,
     },
     {
       createdAt: NOW,
@@ -125,7 +145,7 @@ beforeAll(async () => {
       candidateEmail: "li@example.com",
       candidateName: "李四",
       createdAt: NOW,
-      createdBy: USER_ID,
+      createdBy: USER_ID_ALT,
       id: "ri_test_a_2",
       interviewQuestions: [],
       jobDescriptionId: JD_BACKEND,
@@ -250,6 +270,17 @@ describe("queryPaginatedResumeRecords", () => {
       jobDescriptionIds: [JD_FRONTEND],
     });
     expect(result.records.map((row) => row.candidateName)).toEqual(["郭靖"]);
+  });
+
+  it("filters by creatorIds", async () => {
+    const byOwner = await queryPaginatedResumeRecords(ORG_A, { creatorIds: [USER_ID] });
+    expect(byOwner.records.map((row) => row.candidateName)).toEqual(["郭靖"]);
+
+    const byMember = await queryPaginatedResumeRecords(ORG_A, { creatorIds: [USER_ID_ALT] });
+    expect(byMember.records.map((row) => row.candidateName)).toEqual(["李四"]);
+
+    const byUnknown = await queryPaginatedResumeRecords(ORG_A, { creatorIds: ["missing-user"] });
+    expect(byUnknown.records).toEqual([]);
   });
 
   it("combines skills + jobDescriptionIds + search (intersection)", async () => {

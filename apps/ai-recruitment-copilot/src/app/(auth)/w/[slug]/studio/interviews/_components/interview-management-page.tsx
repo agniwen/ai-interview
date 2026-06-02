@@ -73,9 +73,16 @@ interface FetchParams {
   page: number;
   pageSize: number;
   search: string;
-  filters: { status: string };
+  filters: { creatorIds: string; status: string };
   sortBy: string | undefined;
   sortOrder: "asc" | "desc" | undefined;
+}
+
+interface WorkspaceMember {
+  id: string;
+  name: string;
+  email: string;
+  image: string | null;
 }
 
 // AI 阶段锁：候选人推进到真人复面/Offer/已结案后，AI 面试相关写动作禁用。
@@ -168,6 +175,9 @@ export function InterviewManagementPage({
         if (params.filters.status) {
           query.status = params.filters.status;
         }
+        if (params.filters.creatorIds) {
+          query.creatorIds = params.filters.creatorIds;
+        }
         return rpcFetch<PaginatedStudioInterviewRoundsResult>(
           rpc.api.w[":slug"].studio.interviews.$get({ param: { slug }, query }),
           "加载面试列表失败",
@@ -176,13 +186,28 @@ export function InterviewManagementPage({
     [slug],
   );
 
-  const grid = useDataGridState<StudioInterviewRoundListRecord, { status: string }>({
+  const grid = useDataGridState<
+    StudioInterviewRoundListRecord,
+    { creatorIds: string; status: string }
+  >({
     // 默认按创建时间倒序。/ Default: createdAt descending.
     defaultSorting: [{ desc: true, id: "createdAt" }],
     fetcher: fetchRounds,
     initialData,
-    initialFilters: { status: "" },
+    initialFilters: { creatorIds: "", status: "" },
     namespace: "studio-interviews",
+  });
+
+  const { data: workspaceMembers = [] } = useQuery({
+    queryFn: async () => {
+      const result = await rpcFetch<{ records: WorkspaceMember[] }>(
+        rpc.api.w[":slug"].studio.workspace.members.$get({ param: { slug } }),
+        "加载成员列表失败",
+      );
+      return result.records;
+    },
+    queryKey: ["workspace-members", slug],
+    staleTime: 60_000,
   });
 
   // 概览计数独立轮询（与列表分页状态无关）。
@@ -442,6 +467,19 @@ export function InterviewManagementPage({
         type: "search" as const,
       },
       {
+        emptyMessage: "没有匹配的创建人",
+        key: "creatorIds" as const,
+        options: workspaceMembers.map((member) => ({
+          description: member.email,
+          label: member.name,
+          value: member.id,
+        })),
+        placeholder: "按创建人筛选",
+        searchPlaceholder: "搜索姓名或邮箱…",
+        selectedFormat: (count: number) => `已选 ${count} 个创建人`,
+        type: "multi-select" as const,
+      },
+      {
         key: "status" as const,
         options: [
           { label: "待开始", value: "pending" },
@@ -454,7 +492,7 @@ export function InterviewManagementPage({
         type: "multi-select" as const,
       },
     ],
-    [],
+    [workspaceMembers],
   );
 
   // 概览统计卡：来自 round 级聚合计数。

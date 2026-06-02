@@ -44,6 +44,7 @@ const paginationSchema = makePaginationSchema(SORT_COLUMNS);
 // Accept caller-supplied arrays that may contain empty/whitespace entries —
 // buildWhere drops blanks before using them so we don't need to error here.
 const filtersSchema = z.object({
+  creatorIds: z.array(z.string()).max(50).optional().nullable(),
   jobDescriptionIds: z.array(z.string()).max(50).optional().nullable(),
   outcomes: z.array(z.string()).max(10).optional().nullable(),
   pipelineStages: z.array(z.string()).max(10).optional().nullable(),
@@ -97,6 +98,11 @@ function buildJdIdsCondition(jdIds: string[] | null | undefined) {
   return filtered.length > 0 ? inArray(studioInterview.jobDescriptionId, filtered) : null;
 }
 
+function buildCreatorIdsCondition(creatorIds: string[] | null | undefined) {
+  const filtered = creatorIds?.filter((id) => id.trim().length > 0) ?? [];
+  return filtered.length > 0 ? inArray(studioInterview.createdBy, filtered) : null;
+}
+
 function buildStatusesCondition(statuses: string[] | null | undefined) {
   const filtered = (statuses ?? []).filter((s): s is StudioInterviewStatus =>
     Object.hasOwn(studioInterviewStatusMeta, s),
@@ -124,6 +130,7 @@ function buildWhere(organizationId: string, filters?: Filters) {
     buildSearchCondition(filters?.search),
     buildSkillsCondition(filters?.skills),
     buildJdIdsCondition(filters?.jobDescriptionIds),
+    buildCreatorIdsCondition(filters?.creatorIds),
     buildStatusesCondition(filters?.statuses),
     buildStagesCondition(filters?.pipelineStages),
     buildOutcomesCondition(filters?.outcomes),
@@ -373,6 +380,7 @@ export async function queryPaginatedResumeRecords(
   organizationId: string,
   filters?: {
     search?: string | null;
+    creatorIds?: string[] | null;
     skills?: string[] | null;
     jobDescriptionIds?: string[] | null;
     statuses?: string[] | null;
@@ -411,6 +419,7 @@ export function listResumeRecords(
   organizationId: string,
   filters?: {
     search?: string | null;
+    creatorIds?: string[] | null;
     skills?: string[] | null;
     jobDescriptionIds?: string[] | null;
     statuses?: string[] | null;

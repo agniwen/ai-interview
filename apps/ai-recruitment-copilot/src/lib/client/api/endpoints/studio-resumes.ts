@@ -28,6 +28,8 @@ export interface ResumeListParams {
   page?: number;
   pageSize?: number;
   search?: string;
+  /** 创建人用户 id 列表。Creator user id filter (OR semantics). */
+  creatorIds?: string[];
   /** 任一匹配的技能（CSV-encoded on the wire）。Any-of skill filter. */
   skills?: string[];
   /** 关联岗位 id 列表。 Job-description id filter (OR semantics). */
@@ -57,6 +59,9 @@ export function fetchStudioResumes(
         ...(params.page === undefined ? {} : { page: String(params.page) }),
         ...(params.pageSize === undefined ? {} : { pageSize: String(params.pageSize) }),
         ...(params.search ? { search: params.search } : {}),
+        ...(params.creatorIds && params.creatorIds.length > 0
+          ? { creatorIds: params.creatorIds.join(",") }
+          : {}),
         ...(params.skills && params.skills.length > 0 ? { skills: params.skills.join(",") } : {}),
         ...(params.jobDescriptionIds && params.jobDescriptionIds.length > 0
           ? { jdIds: params.jobDescriptionIds.join(",") }

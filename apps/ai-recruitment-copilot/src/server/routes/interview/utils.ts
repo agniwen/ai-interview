@@ -375,6 +375,7 @@ function buildSingleScheduleRow(
   interviewRecordId: string,
   now: Date,
   existingMap: Map<string, StudioInterviewScheduleRow>,
+  createdBy?: string | null,
 ) {
   const existing = entry.id ? existingMap.get(entry.id.trim()) : undefined;
 
@@ -382,6 +383,7 @@ function buildSingleScheduleRow(
     allowTextInput: entry.allowTextInput ?? false,
     conversationId: existing?.conversationId ?? null,
     createdAt: existing?.createdAt ?? now,
+    createdBy: existing?.createdBy ?? createdBy ?? null,
     disconnectedAt: existing?.disconnectedAt ?? null,
     id: entry.id?.trim() || crypto.randomUUID(),
     interviewRecordId,
@@ -404,11 +406,12 @@ export function buildScheduleRows(
   entries: ReturnType<typeof parseScheduleEntriesInput>,
   now: Date,
   existingRows?: StudioInterviewScheduleRow[],
+  createdBy?: string | null,
 ) {
   const existingMap = new Map((existingRows ?? []).map((row) => [row.id, row]));
 
   return entries.map((entry, index) =>
-    buildSingleScheduleRow(entry, index, orgId, interviewRecordId, now, existingMap),
+    buildSingleScheduleRow(entry, index, orgId, interviewRecordId, now, existingMap, createdBy),
   );
 }
 
