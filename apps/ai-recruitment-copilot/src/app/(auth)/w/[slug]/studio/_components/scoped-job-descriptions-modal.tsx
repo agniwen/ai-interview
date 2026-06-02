@@ -109,7 +109,14 @@ export function ScopedJobDescriptionsModal({
     },
     // scope 变更时自动重新查询；type + id 组成唯一 key。
     // Re-query on scope change; type + id together form the unique key.
-    queryKey: [QUERY_KEY_PREFIX, scope?.type ?? null, scope?.id ?? null, page, pageSize] as const,
+    queryKey: [
+      QUERY_KEY_PREFIX,
+      slug,
+      scope?.type ?? null,
+      scope?.id ?? null,
+      page,
+      pageSize,
+    ] as const,
     staleTime: 30 * 1000,
   });
 

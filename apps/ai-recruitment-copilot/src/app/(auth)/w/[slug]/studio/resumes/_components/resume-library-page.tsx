@@ -308,17 +308,19 @@ export function ResumeLibraryPage({
     [slug],
   );
 
-  const { data: workspaceMembers = [] } = useQuery({
-    queryFn: async () => {
-      const result = await rpcFetch<{ records: WorkspaceMember[] }>(
+  const { data: workspaceMembersResult } = useQuery({
+    queryFn: () =>
+      rpcFetch<{ records: WorkspaceMember[] }>(
         rpc.api.w[":slug"].studio.workspace.members.$get({ param: { slug } }),
         "加载成员列表失败",
-      );
-      return result.records;
-    },
+      ),
     queryKey: ["workspace-members", slug],
     staleTime: 60_000,
   });
+  const workspaceMembers = useMemo(
+    () => workspaceMembersResult?.records ?? [],
+    [workspaceMembersResult],
+  );
 
   // 关联岗位 + 技能两组下拉建议数据；都是 staleTime 60s 的轻量查询，
   // 单独缓存以便其他页面（发起面试 dialog 等）复用 ["job-descriptions","all"] key。
@@ -356,6 +358,7 @@ export function ResumeLibraryPage({
     initialData,
     initialFilters: EMPTY_FILTERS,
     namespace: "studio-resumes",
+    scopeKey: [slug],
   });
 
   const [detailRecordId, setDetailRecordId] = useState<string | null>(null);

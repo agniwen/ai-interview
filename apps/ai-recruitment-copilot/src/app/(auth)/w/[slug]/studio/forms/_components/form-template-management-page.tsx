@@ -129,6 +129,7 @@ export function CandidateFormTemplateManagementPage({
     initialData,
     initialFilters: { archivedFilter: "active", jobDescriptionId: "", scope: "" },
     namespace: "candidate-form-templates",
+    scopeKey: [slug],
   });
   const archivedFilter = (grid.filters.archivedFilter as "active" | "archived" | "all") || "active";
   const archivedFilterLabel = archivedFilterLabelOf(archivedFilter);

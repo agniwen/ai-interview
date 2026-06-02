@@ -105,6 +105,7 @@ export function JobDescriptionManagementPage({
     initialData,
     initialFilters: { departmentId: "", interviewerId: "" },
     namespace: "job-descriptions",
+    scopeKey: [slug],
   });
 
   const missingRefs = departments.length === 0 || interviewers.length === 0;

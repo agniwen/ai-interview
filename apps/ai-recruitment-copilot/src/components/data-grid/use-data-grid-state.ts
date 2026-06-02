@@ -22,6 +22,7 @@ export interface DataGridFetchResult<TData> {
 
 export interface UseDataGridStateOptions<TData, F extends Record<string, string>> {
   namespace: string;
+  scopeKey?: readonly unknown[];
   fetcher: (params: DataGridFetchParams<F>) => Promise<DataGridFetchResult<TData>>;
   initialData: DataGridFetchResult<TData> & { page: number; pageSize: number };
   defaultPageSize?: number;
@@ -151,6 +152,7 @@ export function useDataGridState<TData, F extends Record<string, string>>(
     () =>
       [
         opts.namespace,
+        ...(opts.scopeKey ?? []),
         deferredSearch.trim(),
         ...filterKeys.map((k) => filters[k]),
         page,
@@ -158,7 +160,17 @@ export function useDataGridState<TData, F extends Record<string, string>>(
         sortBy,
         sortOrder,
       ] as const,
-    [opts.namespace, deferredSearch, filters, filterKeys, page, pageSize, sortBy, sortOrder],
+    [
+      opts.namespace,
+      opts.scopeKey,
+      deferredSearch,
+      filters,
+      filterKeys,
+      page,
+      pageSize,
+      sortBy,
+      sortOrder,
+    ],
   );
 
   // 服务端渲染的 initialData 始终是「无过滤、第 1 页、默认排序」的结果;

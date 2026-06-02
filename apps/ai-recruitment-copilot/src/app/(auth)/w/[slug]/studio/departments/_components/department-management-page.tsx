@@ -70,6 +70,7 @@ export function DepartmentManagementPage({
     initialData,
     initialFilters: {},
     namespace: "departments",
+    scopeKey: [slug],
   });
 
   // 两类 scope 弹窗的当前目标部门；null 表示弹窗关闭。

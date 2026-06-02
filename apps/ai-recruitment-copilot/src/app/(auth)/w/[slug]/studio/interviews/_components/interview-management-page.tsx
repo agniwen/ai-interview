@@ -196,19 +196,22 @@ export function InterviewManagementPage({
     initialData,
     initialFilters: { creatorIds: "", status: "" },
     namespace: "studio-interviews",
+    scopeKey: [slug],
   });
 
-  const { data: workspaceMembers = [] } = useQuery({
-    queryFn: async () => {
-      const result = await rpcFetch<{ records: WorkspaceMember[] }>(
+  const { data: workspaceMembersResult } = useQuery({
+    queryFn: () =>
+      rpcFetch<{ records: WorkspaceMember[] }>(
         rpc.api.w[":slug"].studio.workspace.members.$get({ param: { slug } }),
         "加载成员列表失败",
-      );
-      return result.records;
-    },
+      ),
     queryKey: ["workspace-members", slug],
     staleTime: 60_000,
   });
+  const workspaceMembers = useMemo(
+    () => workspaceMembersResult?.records ?? [],
+    [workspaceMembersResult],
+  );
 
   // 概览计数独立轮询（与列表分页状态无关）。
   // Summary query — independent of grid pagination state.

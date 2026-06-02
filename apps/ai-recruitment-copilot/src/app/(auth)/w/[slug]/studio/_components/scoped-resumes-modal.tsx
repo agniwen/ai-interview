@@ -82,7 +82,7 @@ export function ScopedResumesModal({
         "加载简历列表失败",
       );
     },
-    queryKey: [QUERY_KEY_PREFIX, jobDescription?.id ?? null, page, pageSize] as const,
+    queryKey: [QUERY_KEY_PREFIX, slug, jobDescription?.id ?? null, page, pageSize] as const,
     staleTime: 30 * 1000,
   });
 

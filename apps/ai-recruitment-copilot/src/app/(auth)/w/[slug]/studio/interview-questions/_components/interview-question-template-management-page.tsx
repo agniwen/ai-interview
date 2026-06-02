@@ -127,6 +127,7 @@ export function InterviewQuestionTemplateManagementPage({
     initialData,
     initialFilters: { archivedFilter: "active", jobDescriptionId: "", scope: "" },
     namespace: "interview-question-templates",
+    scopeKey: [slug],
   });
   const archivedFilter = (grid.filters.archivedFilter as "active" | "archived" | "all") || "active";
   const archivedFilterLabel = archivedFilterLabelOf(archivedFilter);

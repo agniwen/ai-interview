@@ -78,7 +78,7 @@ export function ScopedInterviewersModal({
       }
       return (await res.json()) as PaginatedInterviewerResult;
     },
-    queryKey: [QUERY_KEY_PREFIX, departmentId, page, pageSize] as const,
+    queryKey: [QUERY_KEY_PREFIX, slug, departmentId, page, pageSize] as const,
     staleTime: 30 * 1000,
   });
 

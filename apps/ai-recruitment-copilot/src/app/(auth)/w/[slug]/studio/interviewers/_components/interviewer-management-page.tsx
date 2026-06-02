@@ -86,6 +86,7 @@ export function InterviewerManagementPage({
     initialData,
     initialFilters: {},
     namespace: "interviewers",
+    scopeKey: [slug],
   });
 
   // 当前正在查看其引用岗位的面试官；null 时弹窗关闭。
