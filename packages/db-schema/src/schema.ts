@@ -503,6 +503,36 @@ export const interviewer = pgTable(
   ],
 );
 
+export const minimaxVoicePreview = pgTable(
+  "minimax_voice_preview",
+  {
+    contentType: text("content_type").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    format: text("format").notNull(),
+    id: text("id").primaryKey(),
+    model: text("model").notNull(),
+    previewText: text("preview_text").notNull(),
+    previewTextHash: text("preview_text_hash").notNull(),
+    publicUrl: text("public_url").notNull(),
+    sizeBytes: integer("size_bytes").notNull(),
+    storageKey: text("storage_key").notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+    voice: text("voice").$type<MinimaxVoiceId>().notNull(),
+  },
+  (table) => [
+    uniqueIndex("minimax_voice_preview_unique_idx").on(
+      table.voice,
+      table.previewTextHash,
+      table.model,
+      table.format,
+    ),
+    index("minimax_voice_preview_voice_idx").on(table.voice),
+  ],
+);
+
 export const jobDescription = pgTable(
   "job_description",
   {

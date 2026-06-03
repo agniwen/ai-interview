@@ -15,7 +15,7 @@ import { z } from "zod";
 import { zValidator } from "@hono/zod-validator";
 import { db } from "@/lib/server/db";
 import { getObjectStream, presignRecordingGetObjectUrl } from "@/lib/server/s3";
-import { interviewConversation, studioInterview } from "@arc/db-schema/schema";
+import { interviewConversation, minimaxVoicePreview, studioInterview } from "@arc/db-schema/schema";
 import { factory, jsonValidatorError } from "@/server/factory";
 import { buildTokenErrorResponse } from "@/server/routes/interview/utils";
 import { loadSubmissionsByInterview } from "@/server/routes/studio/routes/forms/dao/submissions";
@@ -42,6 +42,36 @@ import { loadResumeDetail } from "@/server/routes/studio/routes/resumes/dao/resu
 
 export const publicRouter = factory
   .createApp()
+  .get("/minimax-voice-previews/:id", async (c) => {
+    const id = c.req.param("id");
+    const [row] = await db
+      .select({
+        contentType: minimaxVoicePreview.contentType,
+        storageKey: minimaxVoicePreview.storageKey,
+      })
+      .from(minimaxVoicePreview)
+      .where(eq(minimaxVoicePreview.id, id))
+      .limit(1);
+
+    if (!row) {
+      return c.json({ error: "试听音频不存在。" }, 404);
+    }
+
+    const object = await getObjectStream(row.storageKey);
+    if (!object) {
+      return c.json({ error: "试听音频文件已不可用。" }, 404);
+    }
+
+    return new Response(object.body, {
+      headers: {
+        "Cache-Control": "public, max-age=31536000, immutable",
+        "Content-Type": row.contentType || object.contentType || "audio/mpeg",
+        ...(object.contentLength !== undefined && {
+          "Content-Length": String(object.contentLength),
+        }),
+      },
+    });
+  })
   .get("/human-interview-meetings/interviewer/:inviteToken", async (c) => {
     const scope = await resolveHumanInterviewMeetingInterviewerInviteToken(
       c.req.param("inviteToken"),

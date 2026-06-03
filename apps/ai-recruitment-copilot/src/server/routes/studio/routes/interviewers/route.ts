@@ -3,8 +3,10 @@ import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/server/db";
 import { department, interviewer } from "@arc/db-schema/schema";
+import { minimaxVoiceSchema } from "@arc/db-schema/minimax-voices";
 import { interviewerFormSchema, interviewerUpdateSchema } from "@/lib/shared/interviewers";
 import { factory, jsonValidatorError } from "@/server/factory";
+import { getOrCreateMinimaxVoicePreview } from "@/server/routes/studio/routes/interviewers/voice-preview";
 import {
   listAllInterviewers,
   loadInterviewerById,
@@ -34,6 +36,10 @@ const interviewerListQuerySchema = z.object({
   search: z.string().optional(),
   sortBy: z.string().optional(),
   sortOrder: z.string().optional(),
+});
+
+const voicePreviewSchema = z.object({
+  voice: minimaxVoiceSchema,
 });
 
 export const interviewersRouter = factory
@@ -105,6 +111,25 @@ export const interviewersRouter = factory
       safeUpdateTag(`interviewers:${activeOrg.id}`);
 
       return c.json(serializeInterviewer(record), 201);
+    },
+  )
+  .post(
+    "/voice-previews",
+    requirePermission("interviewer", "read"),
+    zValidator("json", voicePreviewSchema, jsonValidatorError("表单校验失败。")),
+    async (c) => {
+      const { activeOrg } = c.var;
+      if (!activeOrg) {
+        return c.json({ message: "Unauthorized" }, 401);
+      }
+      const input = c.req.valid("json");
+      try {
+        const preview = await getOrCreateMinimaxVoicePreview({ voice: input.voice });
+        return c.json(preview, 200);
+      } catch (error) {
+        console.warn("failed to create MiniMax voice preview", error);
+        return c.json({ error: "生成试听音频失败。" }, 500);
+      }
     },
   )
   .get("/:id", requirePermission("interviewer", "read"), async (c) => {

@@ -6,6 +6,9 @@ import { interviewerFormSchema } from "@/lib/shared/interviewers";
 import { rpc } from "@/lib/client/rpc";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { toast } from "sonner";
+import { LoaderCircleIcon, SquareIcon, Volume2Icon } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Button } from "@/components/ui/button";
 import { Field, FieldContent, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { SearchableSelect } from "@/components/ui/searchable-select";
@@ -20,6 +23,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { TextareaCounter } from "@/components/ui/textarea-counter";
 import { MarkdownEditor } from "@/components/markdown-editor";
 import { DEFAULT_MINIMAX_VOICE_ID, MINIMAX_VOICES } from "@arc/db-schema/minimax-voices";
+import type { MinimaxVoiceId } from "@arc/db-schema/minimax-voices";
 import { EntityFormDialog } from "@/app/(auth)/w/[slug]/studio/_components/entity-form-dialog";
 import { useEntityForm } from "@/app/(auth)/w/[slug]/studio/_components/entity-form";
 import { hasFieldErrors, toFieldErrors } from "../../interviews/_components/interview-form";
@@ -65,6 +69,61 @@ export function InterviewerFormDialog({
   const isEdit = record !== null;
   const fallbackDepartmentId = departments[0]?.id ?? "";
   const noDepartments = departments.length === 0;
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [loadingPreviewVoice, setLoadingPreviewVoice] = useState<MinimaxVoiceId | null>(null);
+  const [playingPreviewVoice, setPlayingPreviewVoice] = useState<MinimaxVoiceId | null>(null);
+
+  const stopVoicePreview = useCallback(() => {
+    audioRef.current?.pause();
+    audioRef.current = null;
+    setPlayingPreviewVoice(null);
+  }, []);
+
+  useEffect(() => {
+    if (!open) {
+      stopVoicePreview();
+    }
+    return () => stopVoicePreview();
+  }, [open, stopVoicePreview]);
+
+  async function handlePreviewVoice(voice: MinimaxVoiceId) {
+    if (playingPreviewVoice === voice) {
+      stopVoicePreview();
+      return;
+    }
+
+    stopVoicePreview();
+    setLoadingPreviewVoice(voice);
+    try {
+      const response = await rpc.api.w[":slug"].studio.interviewers["voice-previews"].$post({
+        json: { voice },
+        param: { slug },
+      });
+      const payload = (await response.json().catch(() => null)) as {
+        error?: string;
+        url?: string;
+      } | null;
+      if (!response.ok || !payload?.url) {
+        throw new Error(payload?.error ?? "生成试听音频失败");
+      }
+
+      const audio = new Audio(payload.url);
+      audioRef.current = audio;
+      audio.addEventListener("ended", () => {
+        if (audioRef.current === audio) {
+          audioRef.current = null;
+          setPlayingPreviewVoice(null);
+        }
+      });
+      setPlayingPreviewVoice(voice);
+      await audio.play();
+    } catch (error) {
+      stopVoicePreview();
+      toast.error(error instanceof Error ? error.message : "试听音频播放失败");
+    } finally {
+      setLoadingPreviewVoice(null);
+    }
+  }
 
   const { form, isSubmitting } = useEntityForm<InterviewerFormValues>({
     buildValues: () => (record ? toFormValues(record) : defaultValues(fallbackDepartmentId)),
@@ -167,6 +226,14 @@ export function InterviewerFormDialog({
         <form.Field name="voice">
           {(field) => {
             const errors = toFieldErrors(field.state.meta.errors);
+            const isPreviewLoading = loadingPreviewVoice === field.state.value;
+            const isPreviewPlaying = playingPreviewVoice === field.state.value;
+            let previewIcon = <Volume2Icon className="size-4" />;
+            if (isPreviewLoading) {
+              previewIcon = <LoaderCircleIcon className="size-4 animate-spin" />;
+            } else if (isPreviewPlaying) {
+              previewIcon = <SquareIcon className="size-4" />;
+            }
             return (
               <Field
                 className="md:col-span-2"
@@ -176,30 +243,45 @@ export function InterviewerFormDialog({
                   音色（TTS）<span className="text-destructive">*</span>
                 </FieldLabel>
                 <FieldContent className="gap-2">
-                  <Select
-                    onValueChange={(value) => field.handleChange(value as typeof field.state.value)}
-                    value={field.state.value}
-                  >
-                    <SelectTrigger
-                      aria-invalid={!!errors?.length}
-                      className="w-full h-13! text-left"
-                      id={field.name}
+                  <div className="flex gap-2">
+                    <Select
+                      onValueChange={(value) => {
+                        stopVoicePreview();
+                        field.handleChange(value as typeof field.state.value);
+                      }}
+                      value={field.state.value}
                     >
-                      <SelectValue placeholder="选择音色" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {MINIMAX_VOICES.map((voice) => (
-                        <SelectItem key={voice.id} value={voice.id}>
-                          <div className="flex flex-col">
-                            <span>{voice.label}</span>
-                            <span className="text-muted-foreground text-xs">
-                              {voice.description}
-                            </span>
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                      <SelectTrigger
+                        aria-invalid={!!errors?.length}
+                        className="h-13! flex-1 text-left"
+                        id={field.name}
+                      >
+                        <SelectValue placeholder="选择音色" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {MINIMAX_VOICES.map((voice) => (
+                          <SelectItem key={voice.id} value={voice.id}>
+                            <div className="flex flex-col">
+                              <span>{voice.label}</span>
+                              <span className="text-muted-foreground text-xs">
+                                {voice.description}
+                              </span>
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      className="h-13 shrink-0"
+                      disabled={loadingPreviewVoice !== null}
+                      onClick={() => void handlePreviewVoice(field.state.value)}
+                      type="button"
+                      variant="outline"
+                    >
+                      {previewIcon}
+                      <span>{isPreviewPlaying ? "停止" : "试听"}</span>
+                    </Button>
+                  </div>
                   <FieldError errors={errors} />
                 </FieldContent>
               </Field>
