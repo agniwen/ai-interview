@@ -90,6 +90,8 @@ interface UsersResult {
   pageSize: number;
 }
 
+type UserSortColumn = "name" | "email" | "role" | "createdAt" | "lastActiveAt";
+
 interface UserWorkspacesResult {
   records: {
     id: string;
@@ -270,7 +272,7 @@ export function UsersGrid({ initialData }: { initialData: UsersResult }) {
           page: String(params.page),
           pageSize: String(params.pageSize),
           ...(params.search ? { search: params.search } : {}),
-          sortBy: (params.sortBy as "createdAt") ?? "createdAt",
+          sortBy: (params.sortBy as UserSortColumn | undefined) ?? "lastActiveAt",
           sortOrder: params.sortOrder ?? "desc",
         },
       }),
@@ -279,6 +281,7 @@ export function UsersGrid({ initialData }: { initialData: UsersResult }) {
   }
 
   const grid = useDataGridState<UserRecord, Record<string, never>>({
+    defaultSorting: [{ desc: true, id: "lastActiveAt" }],
     fetcher: fetchUsers,
     initialData,
     initialFilters: {},
@@ -406,6 +409,7 @@ export function UsersGrid({ initialData }: { initialData: UsersResult }) {
     dateColumn<UserRecord>({
       emptyText: "从未登录",
       key: "lastActiveAt",
+      sortable: true,
       title: "最近活跃",
     }),
     actionsColumn<UserRecord>({

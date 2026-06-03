@@ -9,9 +9,11 @@ export const metadata: Metadata = {
 };
 
 const INITIAL_PAGE_SIZE = 10;
-const LAST_ACTIVE_AT_SQL = sql<
-  Date | string | null
->`GREATEST(MAX(${session.updatedAt}), MAX(${user.lastActiveAt})) AT TIME ZONE 'UTC'`.as(
+const LAST_ACTIVE_AT_EXPR = sql<Date | string | null>`GREATEST(
+  MAX(${session.updatedAt}),
+  MAX(${user.lastActiveAt})
+)`;
+const LAST_ACTIVE_AT_SQL = sql<Date | string | null>`${LAST_ACTIVE_AT_EXPR} AT TIME ZONE 'UTC'`.as(
   "last_active_at",
 );
 
@@ -47,7 +49,7 @@ export default async function PlatformUsersPage() {
       .from(user)
       .leftJoin(session, eq(session.userId, user.id))
       .groupBy(user.id)
-      .orderBy(desc(user.createdAt))
+      .orderBy(sql`${LAST_ACTIVE_AT_EXPR} desc nulls last`, desc(user.createdAt))
       .limit(INITIAL_PAGE_SIZE)
       .offset(0),
     db.select({ total: count() }).from(user),

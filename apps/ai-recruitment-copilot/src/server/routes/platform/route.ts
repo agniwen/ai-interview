@@ -169,21 +169,34 @@ const userQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(10),
   search: z.string().optional(),
-  sortBy: z.enum(["name", "email", "role", "createdAt"]).default("createdAt"),
+  sortBy: z.enum(["name", "email", "role", "createdAt", "lastActiveAt"]).default("lastActiveAt"),
   sortOrder: z.enum(["asc", "desc"]).default("desc"),
 });
 
-function userOrderExpr(sortBy: string) {
+const LAST_ACTIVE_AT_EXPR = sql<Date | string | null>`GREATEST(
+  MAX(${session.updatedAt}),
+  MAX(${user.lastActiveAt})
+)`;
+const LAST_ACTIVE_AT_SELECT_SQL = sql<
+  Date | string | null
+>`${LAST_ACTIVE_AT_EXPR} AT TIME ZONE 'UTC'`.as("last_active_at");
+
+function userOrderBy(sortBy: string, sortOrder: "asc" | "desc") {
+  if (sortBy === "lastActiveAt") {
+    const direction = sortOrder === "asc" ? sql`asc` : sql`desc`;
+    return [sql`${LAST_ACTIVE_AT_EXPR} ${direction} nulls last`, desc(user.createdAt)];
+  }
+  const orderDir = sortOrder === "asc" ? asc : desc;
   if (sortBy === "name") {
-    return user.name;
+    return [orderDir(user.name), desc(user.createdAt)];
   }
   if (sortBy === "email") {
-    return user.email;
+    return [orderDir(user.email), desc(user.createdAt)];
   }
   if (sortBy === "role") {
-    return user.role;
+    return [orderDir(user.role), desc(user.createdAt)];
   }
-  return user.createdAt;
+  return [orderDir(user.createdAt)];
 }
 
 function toIsoString(value: Date | string | null | undefined) {
@@ -210,8 +223,6 @@ const platformUsers = factory
         ? or(ilike(user.name, `%${search.trim()}%`), ilike(user.email, `%${search.trim()}%`))
         : undefined;
 
-      const orderDir = sortOrder === "asc" ? asc : desc;
-
       const [rows, [{ total }]] = await Promise.all([
         db
           .select({
@@ -224,11 +235,7 @@ const platformUsers = factory
             feishuTenantName: user.feishuTenantName,
             id: user.id,
             image: user.image,
-            lastActiveAt: sql<
-              Date | string | null
-            >`GREATEST(MAX(${session.updatedAt}), MAX(${user.lastActiveAt})) AT TIME ZONE 'UTC'`.as(
-              "last_active_at",
-            ),
+            lastActiveAt: LAST_ACTIVE_AT_SELECT_SQL,
             name: user.name,
             role: user.role,
             updatedAt: user.updatedAt,
@@ -237,7 +244,7 @@ const platformUsers = factory
           .leftJoin(session, eq(session.userId, user.id))
           .where(searchFilter)
           .groupBy(user.id)
-          .orderBy(orderDir(userOrderExpr(sortBy)))
+          .orderBy(...userOrderBy(sortBy, sortOrder))
           .limit(pageSize)
           .offset(offset),
         db.select({ total: count() }).from(user).where(searchFilter),

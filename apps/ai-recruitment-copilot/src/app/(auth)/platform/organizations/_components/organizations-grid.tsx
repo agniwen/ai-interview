@@ -68,6 +68,7 @@ export function OrganizationsGrid({ initialData }: { initialData: OrganizationsR
   );
 
   const grid = useDataGridState<OrganizationRecord, Record<string, never>>({
+    defaultSorting: [{ desc: true, id: "createdAt" }],
     fetcher: fetchOrganizations,
     initialData,
     initialFilters: {},
@@ -104,6 +105,7 @@ export function OrganizationsGrid({ initialData }: { initialData: OrganizationsR
       }),
       dateColumn<OrganizationRecord>({
         key: "createdAt",
+        sortable: true,
         title: "创建时间",
       }),
       actionsColumn<OrganizationRecord>({
