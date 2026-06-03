@@ -13,9 +13,7 @@ const LAST_ACTIVE_AT_EXPR = sql<Date | string | null>`GREATEST(
   MAX(${session.updatedAt}),
   MAX(${user.lastActiveAt})
 )`;
-const LAST_ACTIVE_AT_SQL = sql<Date | string | null>`${LAST_ACTIVE_AT_EXPR} AT TIME ZONE 'UTC'`.as(
-  "last_active_at",
-);
+const LAST_ACTIVE_AT_SQL = sql<Date | string | null>`${LAST_ACTIVE_AT_EXPR}`.as("last_active_at");
 
 function toIsoString(value: Date | string | null | undefined) {
   if (!value) {
