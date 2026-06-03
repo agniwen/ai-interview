@@ -14,7 +14,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   BanIcon,
-  CalendarIcon,
   CheckCircle2Icon,
   CircleStopIcon,
   CopyIcon,
@@ -59,6 +58,7 @@ import { copyTextToClipboard, toAbsoluteUrl } from "@/lib/client/clipboard";
 import { rpc } from "@/lib/client/rpc";
 import { rpcFetch } from "@/lib/client/api/rpc-fetch";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
+import { DATE_TIME_DISPLAY_OPTIONS, TimeDisplay } from "@/components/time-display";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -538,10 +538,7 @@ function RoundScheduledAtControl({
     <span className="inline-flex min-h-7 flex-wrap items-center gap-1.5">
       <span className="inline-flex items-center gap-1">
         {round.scheduledAt ? (
-          <>
-            <CalendarIcon className="size-3" />
-            {formatDateTime(round.scheduledAt)}
-          </>
+          <TimeDisplay options={DATE_TIME_DISPLAY_OPTIONS} value={round.scheduledAt} />
         ) : (
           <span className="text-muted-foreground/70">时间未定</span>
         )}

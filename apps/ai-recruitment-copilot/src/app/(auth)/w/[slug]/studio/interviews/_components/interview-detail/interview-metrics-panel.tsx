@@ -1,4 +1,6 @@
 import { DetailRow } from "./detail-row";
+import { SoftPanel } from "@/components/soft-panel";
+import { cn } from "@/lib/shared/utils";
 
 /**
  * Agent 端 metrics_collected 聚合后落库的形状。与 agent.py 中的 metrics_state 对齐:
@@ -158,17 +160,28 @@ function safeAvg(sum: number | undefined, count: number | undefined): number | n
  * metrics_collected listener. Falls back to a friendly empty state for
  * conversations that predate the metrics column.
  */
-export function InterviewMetricsPanel({ metrics }: { metrics: Record<string, unknown> }) {
+export function InterviewMetricsPanel({
+  metrics,
+  surface = "card",
+}: {
+  metrics: Record<string, unknown>;
+  surface?: "card" | "section";
+}) {
   const m = metrics as MetricsShape;
 
   if (isEmptyMetrics(m)) {
+    const Component = surface === "card" ? "div" : SoftPanel;
     return (
-      <div className="rounded-2xl border border-border bg-background p-4">
+      <Component
+        className={cn(
+          surface === "card" ? "rounded-2xl border border-border bg-background p-4" : "p-4",
+        )}
+      >
         <h4 className="font-medium text-sm">通话指标</h4>
         <p className="mt-3 text-muted-foreground text-sm leading-normal">
           本场面试未上报性能指标（可能是 agent 升级前的历史会话）。
         </p>
-      </div>
+      </Component>
     );
   }
 
@@ -186,9 +199,14 @@ export function InterviewMetricsPanel({ metrics }: { metrics: Record<string, unk
   const e2eLatencies = computeTurnE2eLatencies(m.turns ?? {});
   const e2eP50 = quantile(e2eLatencies, 0.5);
   const e2eP95 = quantile(e2eLatencies, 0.95);
+  const Component = surface === "card" ? "div" : SoftPanel;
 
   return (
-    <div className="rounded-2xl border border-border bg-background p-4">
+    <Component
+      className={cn(
+        surface === "card" ? "rounded-2xl border border-border bg-background p-4" : "p-4",
+      )}
+    >
       <h4 className="font-medium text-sm">通话指标</h4>
       <p className="mt-1 text-muted-foreground text-xs leading-normal">
         从 user 说完到 agent 开口的端到端延迟，以及各 pipeline 段累计用量。
@@ -258,6 +276,6 @@ export function InterviewMetricsPanel({ metrics }: { metrics: Record<string, unk
           />
         </section>
       </div>
-    </div>
+    </Component>
   );
 }

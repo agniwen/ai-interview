@@ -1,4 +1,5 @@
 import type { ResumeProfile } from "@arc/db-schema/interview/types";
+import { SoftPanel } from "@/components/soft-panel";
 
 interface ResumeProfileViewProps {
   profile: ResumeProfile | null;
@@ -83,12 +84,9 @@ export function ResumeProfileView({ profile }: ResumeProfileViewProps) {
         {profile.workExperiences.length === 0 ? (
           <p className="text-muted-foreground text-sm">—</p>
         ) : (
-          <ul className="space-y-3">
+          <ul className="flex flex-col gap-3">
             {profile.workExperiences.map((exp, index) => (
-              <li
-                key={`${exp.company ?? "company"}-${index}`}
-                className="rounded-md border border-border p-3"
-              >
+              <SoftPanel as="li" key={`${exp.company ?? "company"}-${index}`} className="px-3 py-2">
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
                   <span className="font-medium text-sm">
                     {isPresent(exp.role) ? exp.role : "未发现岗位"}
@@ -103,7 +101,7 @@ export function ResumeProfileView({ profile }: ResumeProfileViewProps) {
                     {exp.summary}
                   </p>
                 ) : null}
-              </li>
+              </SoftPanel>
             ))}
           </ul>
         )}
@@ -114,12 +112,9 @@ export function ResumeProfileView({ profile }: ResumeProfileViewProps) {
         {profile.projectExperiences.length === 0 ? (
           <p className="text-muted-foreground text-sm">—</p>
         ) : (
-          <ul className="space-y-3">
+          <ul className="flex flex-col gap-3">
             {profile.projectExperiences.map((proj, index) => (
-              <li
-                key={`${proj.name ?? "project"}-${index}`}
-                className="rounded-md border border-border p-3"
-              >
+              <SoftPanel as="li" key={`${proj.name ?? "project"}-${index}`} className="px-3 py-2">
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
                   <span className="font-medium text-sm">
                     {isPresent(proj.name) ? proj.name : "未命名项目"}
@@ -139,7 +134,7 @@ export function ResumeProfileView({ profile }: ResumeProfileViewProps) {
                     <ChipList items={proj.techStack} />
                   </div>
                 ) : null}
-              </li>
+              </SoftPanel>
             ))}
           </ul>
         )}

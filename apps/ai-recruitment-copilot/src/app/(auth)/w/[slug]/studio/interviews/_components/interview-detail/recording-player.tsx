@@ -12,6 +12,7 @@
 import { Loader2Icon, PlayIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import { SoftPanel } from "@/components/soft-panel";
 import { Button } from "@/components/ui/button";
 import {
   fetchPublicInterviewRecordingUrl,
@@ -19,6 +20,7 @@ import {
 } from "@/lib/client/api";
 import { ApiError } from "@/lib/client/api/errors";
 import { useOptionalWorkspaceSlug } from "@/lib/client/workspace-context";
+import { cn } from "@/lib/shared/utils";
 import type { InterviewRecordingStatus } from "@arc/db-schema/db-enums";
 
 interface RecordingPlayerProps {
@@ -27,6 +29,7 @@ interface RecordingPlayerProps {
   status: InterviewRecordingStatus | null;
   durationSecs: number | null;
   seekToSecs?: number | null;
+  surface?: "card" | "section";
   /**
    * "authed"：走 /api/w/:slug/studio 路径（默认）。
    * "public"：走 /api/public 路径，无需 slug，用于 /r/[roundId] 等公开访问入口。
@@ -67,6 +70,7 @@ export function RecordingPlayer({
   status,
   durationSecs,
   seekToSecs,
+  surface = "card",
   accessMode = "authed",
 }: RecordingPlayerProps) {
   const slug = useOptionalWorkspaceSlug();
@@ -82,11 +86,16 @@ export function RecordingPlayer({
   }, [seekToSecs, url]);
 
   if (status !== "completed") {
+    const Component = surface === "card" ? "div" : SoftPanel;
     return (
-      <div className="rounded-2xl border border-border bg-background p-4">
+      <Component
+        className={cn(
+          surface === "card" ? "rounded-2xl border border-border bg-background p-4" : "p-4",
+        )}
+      >
         <h4 className="font-medium text-sm">面试录像</h4>
         <p className="mt-2 text-muted-foreground text-sm">{statusLabel(status)}</p>
-      </div>
+      </Component>
     );
   }
 
@@ -108,8 +117,14 @@ export function RecordingPlayer({
 
   const durationText = formatDuration(durationSecs);
 
+  const Component = surface === "card" ? "div" : SoftPanel;
+
   return (
-    <div className="rounded-2xl border border-border bg-background p-4">
+    <Component
+      className={cn(
+        surface === "card" ? "rounded-2xl border border-border bg-background p-4" : "p-4",
+      )}
+    >
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h4 className="font-medium text-sm">
           面试录像
@@ -141,6 +156,6 @@ export function RecordingPlayer({
       ) : (
         <p className="mt-2 text-muted-foreground text-sm">点击"加载录像"开始播放。</p>
       )}
-    </div>
+    </Component>
   );
 }

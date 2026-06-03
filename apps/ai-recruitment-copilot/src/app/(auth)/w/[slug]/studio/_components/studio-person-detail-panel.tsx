@@ -48,6 +48,7 @@ import type { ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { CandidateBasicInfoView } from "@/components/candidate-basic-info-view";
 import { ResumeProfileView } from "@/components/resume-profile-view";
+import { SoftPanel } from "@/components/soft-panel";
 import { ResumeOverviewPanel } from "@/app/(auth)/w/[slug]/studio/resumes/_components/resume-overview-panel";
 import { toast } from "sonner";
 import { DATE_TIME_DISPLAY_OPTIONS, TimeDisplay } from "@/components/time-display";
@@ -1094,7 +1095,7 @@ function useStudioPersonDetailPanel({
                           {latestReport ? formatReportStatus(latestReport.status) : "暂无报告"}
                         </Badge>
                       </div>
-                      <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                      <div className="mt-4 grid gap-4 sm:grid-cols-3">
                         <SummaryMetric
                           label="评分"
                           value={
@@ -1207,7 +1208,7 @@ function useStudioPersonDetailPanel({
                       </div>
                     </div>
                     {isPublic ? null : (
-                      <div className="flex items-center justify-between gap-3 rounded-lg border border-border/50 bg-background/80 px-3 py-2">
+                      <SoftPanel className="flex items-center justify-between gap-3 px-3 py-2">
                         <div className="min-w-0">
                           {/* 允许面试者文本输入 / Allow candidate text input */}
                           <p className="font-medium text-sm">允许面试者文本输入</p>
@@ -1240,7 +1241,7 @@ function useStudioPersonDetailPanel({
                             </Button>
                           ) : null}
                         </div>
-                      </div>
+                      </SoftPanel>
                     )}
                   </div>
                 </div>
@@ -1292,7 +1293,7 @@ function useStudioPersonDetailPanel({
                   </div>
 
                   {reports.length === 0 ? (
-                    <div className="flex min-h-60 flex-col items-center justify-center rounded-2xl border border-dashed border-border/70 bg-muted/20 px-6 py-10 text-center">
+                    <div className="flex min-h-60 flex-col items-center justify-center rounded-2xl border border-dashed border-border/70 bg-muted/40 px-6 py-10 text-center">
                       <MessageSquareTextIcon className="size-8 text-muted-foreground" />
                       <p className="mt-4 font-medium text-sm">暂无面试报告</p>
                       <p className="mt-2 max-w-xl text-muted-foreground text-sm leading-normal">
@@ -1368,8 +1369,9 @@ function useStudioPersonDetailPanel({
                                     recordId={effectiveRoundId ?? ""}
                                     seekToSecs={activeEvidence?.timeInCallSecs ?? null}
                                     status={report.recordingStatus}
+                                    surface="section"
                                   />
-                                  <div className="rounded-2xl border border-border bg-background p-4">
+                                  <SoftPanel className="p-4">
                                     <h4 className="font-medium text-sm">会话概览</h4>
                                     <div className="mt-3 grid gap-2 text-sm">
                                       <DetailRow
@@ -1423,9 +1425,9 @@ function useStudioPersonDetailPanel({
                                         }
                                       />
                                     </div>
-                                  </div>
+                                  </SoftPanel>
 
-                                  <div className="rounded-2xl border border-border bg-background p-4">
+                                  <SoftPanel className="p-4">
                                     <h4 className="font-medium text-sm">最终总结</h4>
                                     <div className="mt-3 text-muted-foreground text-sm leading-normal">
                                       <Markdown>
@@ -1437,22 +1439,20 @@ function useStudioPersonDetailPanel({
                                         {report.latestError}
                                       </div>
                                     ) : null}
-                                  </div>
+                                  </SoftPanel>
                                 </div>
 
                                 <div className="lg:relative">
-                                  <div className="flex h-[480px] flex-col overflow-hidden rounded-2xl border border-border bg-background lg:absolute lg:inset-0 lg:h-auto">
-                                    <h4 className="shrink-0 px-4 pt-4 pb-2 font-medium text-sm">
-                                      对话记录
-                                    </h4>
+                                  <SoftPanel className="flex h-[480px] flex-col overflow-hidden p-4 lg:absolute lg:inset-0 lg:h-auto">
+                                    <h4 className="shrink-0 pb-2 font-medium text-sm">对话记录</h4>
                                     <ConversationTranscript
                                       activeTurnIndex={activeEvidence?.turnIndex ?? null}
                                       turns={report.turns}
                                     />
-                                  </div>
+                                  </SoftPanel>
                                 </div>
 
-                                <div className="rounded-2xl border border-border bg-background p-4">
+                                <SoftPanel className="p-4">
                                   <h4 className="font-medium text-sm">评估指标</h4>
                                   <div className="mt-4 max-h-[420px] overflow-y-auto pr-1">
                                     <EvaluationResults
@@ -1465,9 +1465,12 @@ function useStudioPersonDetailPanel({
                                       onEvidenceSelect={handleEvidenceSelect}
                                     />
                                   </div>
-                                </div>
+                                </SoftPanel>
 
-                                <InterviewMetricsPanel metrics={report.metrics ?? {}} />
+                                <InterviewMetricsPanel
+                                  metrics={report.metrics ?? {}}
+                                  surface="section"
+                                />
                               </div>
                             </AccordionContent>
                           </AccordionItem>
@@ -1484,13 +1487,10 @@ function useStudioPersonDetailPanel({
             <TabsContent value="questions">
               <div className="rounded-2xl border border-border bg-background p-4">
                 <h3 className="font-medium text-sm">AI 面试题</h3>
-                <div className="mt-4 space-y-3">
+                <div className="mt-4 flex flex-col gap-3">
                   {visibleInterviewQuestions.length > 0 ? (
                     visibleInterviewQuestions.map((question) => (
-                      <div
-                        className="rounded-xl border border-border bg-muted/30 p-3"
-                        key={question.order}
-                      >
+                      <SoftPanel className="px-3 py-2.5" key={question.order}>
                         <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
                           <span className="font-medium text-sm">第{question.order} 题</span>
                           <span className="shrink-0 text-muted-foreground text-xs">
@@ -1500,7 +1500,7 @@ function useStudioPersonDetailPanel({
                         <div className="mt-2 text-sm leading-normal">
                           <Markdown>{truncateText(question.question)}</Markdown>
                         </div>
-                      </div>
+                      </SoftPanel>
                     ))
                   ) : (
                     <p className="text-muted-foreground text-sm">
@@ -1543,7 +1543,7 @@ function useStudioPersonDetailPanel({
                     该候选人还没有发起面试。在简历库点「保存并发起面试」即可创建。
                   </p>
                 ) : (
-                  <div className="mt-4 space-y-3">
+                  <div className="mt-4 flex flex-col gap-3">
                     {candidateRounds.map((entry) => {
                       const statusMeta = scheduleEntryStatusMeta[entry.status];
                       const fullLink = toAbsoluteUrl(entry.interviewLink);
@@ -1553,10 +1553,7 @@ function useStudioPersonDetailPanel({
                         ? roundActionLockedReason
                         : aiStageLockedReason;
                       return (
-                        <div
-                          className="rounded-xl border border-border bg-muted/30 p-3"
-                          key={entry.id}
-                        >
+                        <SoftPanel className="px-3 py-2.5" key={entry.id}>
                           <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
                             <div className="flex flex-wrap items-center gap-2">
                               <span className="wrap-break-word font-medium text-sm">
@@ -1565,45 +1562,42 @@ function useStudioPersonDetailPanel({
                               <Badge variant={statusMeta.tone}>{statusMeta.label}</Badge>
                               {entry.hasReport ? <Badge variant="outline">已有报告</Badge> : null}
                             </div>
-                            {entry.scheduledAt ? (
-                              <TimeDisplay
-                                className="shrink-0 text-muted-foreground text-xs"
-                                options={DATE_TIME_DISPLAY_OPTIONS}
-                                value={entry.scheduledAt}
-                              />
-                            ) : (
-                              <span className="text-muted-foreground text-xs">未排期</span>
-                            )}
                           </div>
-                          <div className="mt-3 rounded-lg border border-border/50 bg-background/80 px-3 py-2">
-                            <p className="text-muted-foreground text-xs">完整面试链接</p>
-                            <p className="mt-1 break-all font-mono text-xs leading-normal">
-                              {fullLink}
-                            </p>
-                          </div>
-                          <div className="mt-3 flex flex-wrap items-center justify-end gap-2">
-                            {/* 中文：仅在调用方提供回调时显示「查看详情」；不提供时避免渲染无用按钮。
-                            English: Only render 查看详情 when the caller supplies a callback; skip it otherwise. */}
-                            {onViewRoundDetail ? (
-                              <Button
+                          <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                            <div className="text-muted-foreground text-xs">
+                              {entry.scheduledAt ? (
+                                <TimeDisplay
+                                  options={DATE_TIME_DISPLAY_OPTIONS}
+                                  value={entry.scheduledAt}
+                                />
+                              ) : (
+                                "未排期"
+                              )}
+                            </div>
+                            <div className="flex flex-wrap items-center justify-end gap-2">
+                              {/* 中文：仅在调用方提供回调时显示「查看详情」；不提供时避免渲染无用按钮。
+                              English: Only render 查看详情 when the caller supplies a callback; skip it otherwise. */}
+                              {onViewRoundDetail ? (
+                                <Button
+                                  className="flex-1 sm:flex-none"
+                                  onClick={() => onViewRoundDetail(entry.id)}
+                                  size="sm"
+                                  type="button"
+                                  variant="ghost"
+                                >
+                                  <EyeIcon className="size-3.5" />
+                                  查看详情
+                                </Button>
+                              ) : null}
+                              <InterviewLinkQrButton
+                                candidateName={record.candidateName}
                                 className="flex-1 sm:flex-none"
-                                onClick={() => onViewRoundDetail(entry.id)}
-                                size="sm"
-                                type="button"
-                                variant="ghost"
-                              >
-                                <EyeIcon className="size-3.5" />
-                                查看详情
-                              </Button>
-                            ) : null}
-                            <InterviewLinkQrButton
-                              candidateName={record.candidateName}
-                              className="flex-1 sm:flex-none"
-                              disabled={Boolean(entryActionDisabledReason)}
-                              url={fullLink}
-                            />
+                                disabled={Boolean(entryActionDisabledReason)}
+                                url={fullLink}
+                              />
+                            </div>
                           </div>
-                        </div>
+                        </SoftPanel>
                       );
                     })}
                   </div>

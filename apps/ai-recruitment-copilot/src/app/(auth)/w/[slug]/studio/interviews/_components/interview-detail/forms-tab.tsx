@@ -1,5 +1,6 @@
 import type { CandidateFormSubmissionWithSnapshot } from "@arc/db-schema/candidate-forms";
 import { RotateCcwIcon } from "lucide-react";
+import { SoftPanel } from "@/components/soft-panel";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
@@ -8,15 +9,14 @@ type FormQuestion = CandidateFormSubmissionWithSnapshot["snapshot"]["questions"]
 /**
  * 候选人答案的纯展示渲染：跟 form-template-submissions-drawer 共用一套设计语言。
  *   - 选项题（single / multi）→ Badge chips
- *   - 自由文本 → bg-card 容器（外卡是 bg-muted/30，内层反相突出）
+ *   - 自由文本 → 淡背景圆角文本块（避免在表单卡内再出现卡片）
  *   - 未作答 → 比 muted 更弱的灰，不斜体
- * 注意外层卡片在 forms-tab 里是 bg-muted/30，跟 drawer 的 bg-card 是反相的，
- * 所以这里的文本容器选 bg-card 来保持"答案在卡片里有独立视觉块"的对比。
+ * 注意外层卡片在 forms-tab 里是 bg-muted/30，所以这里的文本答案只保留轻量
+ * 背景对比，不再加边框。
  *
  * View-only answer rendering shared with the submissions drawer. The forms
- * tab's outer card is bg-muted/30 (vs the drawer's bg-card), so the text
- * answer container inverts to bg-card to keep the same "answer is its own
- * block" contrast.
+ * tab's outer card is bg-muted/30, so the text answer keeps only a subtle
+ * rounded background contrast instead of another bordered card.
  */
 function renderAnswer(question: FormQuestion, rawValue: string | string[] | undefined) {
   if (
@@ -45,9 +45,9 @@ function renderAnswer(question: FormQuestion, rawValue: string | string[] | unde
     );
   }
   return (
-    <div className="whitespace-pre-wrap rounded-md border border-border bg-card px-3 py-2 text-foreground text-sm leading-relaxed">
+    <SoftPanel className="whitespace-pre-wrap bg-muted/60 px-3 py-2 text-foreground text-sm leading-relaxed">
       {Array.isArray(rawValue) ? rawValue.join(", ") : rawValue}
-    </div>
+    </SoftPanel>
   );
 }
 

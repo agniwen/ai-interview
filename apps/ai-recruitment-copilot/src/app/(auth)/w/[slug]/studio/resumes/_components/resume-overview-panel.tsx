@@ -11,6 +11,7 @@ import type { ResumeLibraryDetail } from "@/lib/shared/studio-resumes";
 import { describeResumeProgress } from "@/lib/shared/studio-resumes";
 import { truncateText } from "@/app/(auth)/w/[slug]/studio/interviews/_components/interview-detail/helpers";
 import { ResumeProfileView } from "@/components/resume-profile-view";
+import { SoftPanel } from "@/components/soft-panel";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/shared/utils";
@@ -28,10 +29,10 @@ function textOrDash(value: string | number | null | undefined) {
 
 function SummaryItem({ label, value }: { label: string; value: string | number | null }) {
   return (
-    <div className="min-w-0 rounded-lg border border-border bg-muted/20 px-3 py-2">
+    <SoftPanel className="min-w-0 px-3 py-2">
       <p className="text-muted-foreground text-xs">{label}</p>
       <p className="mt-1 truncate font-medium text-sm">{textOrDash(value)}</p>
-    </div>
+    </SoftPanel>
   );
 }
 
@@ -89,7 +90,7 @@ export function ResumeOverviewPanel({ detail }: { detail: ResumeLibraryDetail })
           </div>
         </div>
 
-        <div className="mt-4 grid gap-3 md:grid-cols-3">
+        <div className="mt-4 grid gap-4 md:grid-cols-3">
           <SummaryItem label="目标岗位" value={detail.targetRole} />
           <SummaryItem label="关联岗位" value={detail.jobDescriptionName} />
           <SummaryItem label="工作年限" value={detail.resumeProfile?.workYears ?? null} />

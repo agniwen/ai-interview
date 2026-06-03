@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { SoftPanel } from "@/components/soft-panel";
 import { Skeleton } from "@/components/ui/skeleton";
 
 type DetailSkeletonMode = "interview" | "resume";
@@ -116,7 +117,7 @@ export function RoundsSkeleton() {
   return (
     <div className="mt-4 flex flex-col gap-3">
       {Array.from({ length: 3 }).map((_, index) => (
-        <div className="rounded-xl border border-border bg-muted/30 p-3" key={index}>
+        <SoftPanel className="px-3 py-2.5" key={index}>
           <div className="flex flex-col gap-3">
             <div className="flex items-center justify-between gap-3">
               <Skeleton className="h-5 w-36" />
@@ -128,7 +129,7 @@ export function RoundsSkeleton() {
               <Skeleton className="h-8 w-20" />
             </div>
           </div>
-        </div>
+        </SoftPanel>
       ))}
     </div>
   );
@@ -143,13 +144,13 @@ export function FormsSkeleton() {
           <Skeleton className="h-8 w-20" />
         </div>
         {Array.from({ length: 3 }).map((_, index) => (
-          <div className="rounded-xl border border-border bg-muted/30 p-3" key={index}>
+          <SoftPanel className="px-3 py-2.5" key={index}>
             <div className="flex flex-col gap-2">
               <Skeleton className="h-4 w-48" />
               <Skeleton className="h-4 w-full" />
               <Skeleton className="h-4 w-8/12" />
             </div>
-          </div>
+          </SoftPanel>
         ))}
       </div>
     </div>
@@ -163,15 +164,12 @@ export function InterviewResultOverviewSkeleton() {
         <Skeleton className="h-5 w-20" />
         <Skeleton className="h-6 w-20" />
       </div>
-      <div className="mt-4 grid gap-3 sm:grid-cols-3">
+      <div className="mt-4 grid gap-4 sm:grid-cols-3">
         {Array.from({ length: 3 }).map((_, index) => (
-          <div
-            className="min-w-0 rounded-lg border border-border bg-muted/20 px-3 py-2"
-            key={index}
-          >
+          <SoftPanel className="min-w-0 px-3 py-2" key={index}>
             <Skeleton className="h-3 w-12" />
             <Skeleton className="mt-2 h-5 w-20" />
-          </div>
+          </SoftPanel>
         ))}
       </div>
       <div className="mt-4 space-y-2">
@@ -185,9 +183,9 @@ export function InterviewResultOverviewSkeleton() {
 
 export function SummaryMetric({ label, value }: { label: string; value: ReactNode }) {
   return (
-    <div className="min-w-0 rounded-lg border border-border bg-muted/20 px-3 py-2">
+    <SoftPanel className="min-w-0 px-3 py-2">
       <p className="text-muted-foreground text-xs">{label}</p>
       <p className="mt-1 truncate font-medium text-sm">{value}</p>
-    </div>
+    </SoftPanel>
   );
 }

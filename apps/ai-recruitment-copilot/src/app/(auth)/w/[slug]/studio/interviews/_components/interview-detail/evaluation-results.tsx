@@ -1,3 +1,4 @@
+import { SoftPanel } from "@/components/soft-panel";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { resolveRecommendationVariant } from "./helpers";
@@ -46,14 +47,14 @@ function KeyValueEntries({ entries }: { entries: Record<string, unknown> }) {
   }
 
   return (
-    <div className="space-y-2">
+    <div className="flex flex-col gap-2">
       {items.map(([key, value]) => (
-        <div className="rounded-xl border border-border bg-muted/20 px-3 py-2 text-sm" key={key}>
+        <SoftPanel className="px-3 py-2 text-sm" key={key}>
           <p className="font-medium">{key}</p>
           <p className="mt-1 break-words text-muted-foreground leading-normal">
             {typeof value === "string" ? value : JSON.stringify(value)}
           </p>
-        </div>
+        </SoftPanel>
       ))}
     </div>
   );
@@ -119,7 +120,7 @@ export function EvaluationResults({
   return (
     <div className="space-y-3">
       {typeof data.overallScore === "number" && (
-        <div className="flex items-center gap-3 rounded-xl border border-border bg-muted/20 px-3 py-2.5">
+        <SoftPanel className="flex items-center gap-3 px-3 py-2.5">
           <span className="font-medium text-2xl text-primary tabular-nums">
             {data.overallScore}
           </span>
@@ -129,18 +130,15 @@ export function EvaluationResults({
               {data.recommendation}
             </Badge>
           )}
-        </div>
+        </SoftPanel>
       )}
       {data.overallAssessment && (
         <p className="text-muted-foreground text-sm leading-normal">{data.overallAssessment}</p>
       )}
       {data.questions.length > 0 && (
-        <div className="space-y-2">
+        <div className="flex flex-col gap-2">
           {data.questions.map((q, i) => (
-            <div
-              className="rounded-xl border border-border bg-muted/20 px-3 py-2.5 text-sm"
-              key={q.order ?? i}
-            >
+            <SoftPanel className="px-3 py-2.5 text-sm" key={q.order ?? i}>
               <div className="flex items-start justify-between gap-2">
                 <p className="min-w-0 font-medium leading-normal">
                   {q.order === null || q.order === undefined ? "" : `${q.order}. `}
@@ -157,7 +155,7 @@ export function EvaluationResults({
               {Array.isArray(q.evidence) ? (
                 <EvidenceList evidence={q.evidence} onEvidenceSelect={onEvidenceSelect} />
               ) : null}
-            </div>
+            </SoftPanel>
           ))}
         </div>
       )}
