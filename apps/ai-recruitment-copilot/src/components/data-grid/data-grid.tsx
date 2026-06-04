@@ -178,7 +178,7 @@ export function DataGrid<TData>(props: DataGridProps<TData>) {
 
       {rows.length > 0 ? (
         <Table
-          containerClassName={maxHeight ? "overflow-auto" : undefined}
+          containerClassName={cn(maxHeight ? "overflow-auto" : undefined)}
           containerStyle={maxHeight ? { maxHeight } : undefined}
         >
           <TableHeader>
