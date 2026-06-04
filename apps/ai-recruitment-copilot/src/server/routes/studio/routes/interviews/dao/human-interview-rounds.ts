@@ -28,6 +28,11 @@ export type { HumanInterviewRoundRecord };
 // drizzle 事务 callback 参数类型；和 db 实例签名差一个 $client 字段，需要单独抽出来。
 // Inner-transaction type; drops the $client field that's on the top-level db.
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+const DEFAULT_VALID_DURATION_MS = 60 * 60 * 1000;
+
+type HumanInterviewRoundEditInput = Partial<HumanInterviewRoundInput> & {
+  validUntil?: string | null;
+};
 
 function serializeDate(value: Date | null): string | null {
   return value ? value.toISOString() : null;
@@ -218,7 +223,7 @@ export async function createHumanInterviewRound({
 export interface EditRoundOptions {
   roundId: string;
   organizationId: string;
-  input: Partial<HumanInterviewRoundInput>;
+  input: HumanInterviewRoundEditInput;
 }
 
 export class EditRoundError extends Error {
@@ -241,6 +246,95 @@ function resolveScheduledAtInput(
     return null;
   }
   return new Date(value);
+}
+
+function resolveValidUntilInput({
+  scheduledAt,
+  validUntil,
+  existingValidUntil,
+}: {
+  scheduledAt: Date | null;
+  validUntil: string | null | undefined;
+  existingValidUntil: Date | null;
+}): Date | null {
+  if (!scheduledAt) {
+    return null;
+  }
+
+  let resolved: Date;
+  if (validUntil === undefined) {
+    resolved = existingValidUntil ?? new Date(scheduledAt.getTime() + DEFAULT_VALID_DURATION_MS);
+  } else if (validUntil) {
+    resolved = new Date(validUntil);
+  } else {
+    resolved = new Date(scheduledAt.getTime() + DEFAULT_VALID_DURATION_MS);
+  }
+
+  if (Number.isNaN(resolved.getTime())) {
+    throw new EditRoundError("请输入有效的有效时间至", 400);
+  }
+  if (resolved.getTime() <= scheduledAt.getTime()) {
+    throw new EditRoundError("有效时间至必须晚于面试时间", 400);
+  }
+  return resolved;
+}
+
+async function syncLinkedScheduledMeetingWindow({
+  tx,
+  roundId,
+  organizationId,
+  scheduledAt,
+  validUntil,
+  now,
+}: {
+  tx: Tx;
+  roundId: string;
+  organizationId: string;
+  scheduledAt: Date | null;
+  validUntil: string | null | undefined;
+  now: Date;
+}) {
+  const linkedMeetings = await tx
+    .select({
+      id: studioHumanInterviewMeeting.id,
+      status: studioHumanInterviewMeeting.status,
+      validUntil: studioHumanInterviewMeeting.validUntil,
+    })
+    .from(studioHumanInterviewMeetingRound)
+    .innerJoin(
+      studioHumanInterviewMeeting,
+      eq(studioHumanInterviewMeetingRound.meetingId, studioHumanInterviewMeeting.id),
+    )
+    .where(
+      and(
+        eq(studioHumanInterviewMeetingRound.roundId, roundId),
+        eq(studioHumanInterviewMeeting.organizationId, organizationId),
+      ),
+    );
+
+  if (linkedMeetings.some((meeting) => meeting.status !== "scheduled")) {
+    throw new EditRoundError("已开始、已结束或已取消的会议不能调整时间", 400);
+  }
+
+  const meetingIds = [...new Set(linkedMeetings.map((meeting) => meeting.id))];
+  if (meetingIds.length === 0) {
+    return;
+  }
+
+  const nextValidUntil = resolveValidUntilInput({
+    existingValidUntil: linkedMeetings[0]?.validUntil ?? null,
+    scheduledAt,
+    validUntil,
+  });
+  await tx
+    .update(studioHumanInterviewMeeting)
+    .set({ scheduledAt, updatedAt: now, validUntil: nextValidUntil })
+    .where(
+      and(
+        eq(studioHumanInterviewMeeting.organizationId, organizationId),
+        inArray(studioHumanInterviewMeeting.id, meetingIds),
+      ),
+    );
 }
 
 export async function editHumanInterviewRound({
@@ -293,38 +387,15 @@ export async function editHumanInterviewRound({
     // input.scheduledAt (string) → Date; undefined preserves existing,
     // null/"" clears it.
     const nextScheduledAt = resolveScheduledAtInput(input.scheduledAt, existing.scheduledAt);
-    if (input.scheduledAt !== undefined) {
-      const linkedMeetings = await tx
-        .select({
-          id: studioHumanInterviewMeeting.id,
-          status: studioHumanInterviewMeeting.status,
-        })
-        .from(studioHumanInterviewMeetingRound)
-        .innerJoin(
-          studioHumanInterviewMeeting,
-          eq(studioHumanInterviewMeetingRound.meetingId, studioHumanInterviewMeeting.id),
-        )
-        .where(
-          and(
-            eq(studioHumanInterviewMeetingRound.roundId, roundId),
-            eq(studioHumanInterviewMeeting.organizationId, organizationId),
-          ),
-        );
-      if (linkedMeetings.some((meeting) => meeting.status !== "scheduled")) {
-        throw new EditRoundError("已开始、已结束或已取消的会议不能调整时间", 400);
-      }
-      const meetingIds = [...new Set(linkedMeetings.map((meeting) => meeting.id))];
-      if (meetingIds.length > 0) {
-        await tx
-          .update(studioHumanInterviewMeeting)
-          .set({ scheduledAt: nextScheduledAt, updatedAt: now })
-          .where(
-            and(
-              eq(studioHumanInterviewMeeting.organizationId, organizationId),
-              inArray(studioHumanInterviewMeeting.id, meetingIds),
-            ),
-          );
-      }
+    if (input.scheduledAt !== undefined || input.validUntil !== undefined) {
+      await syncLinkedScheduledMeetingWindow({
+        now,
+        organizationId,
+        roundId,
+        scheduledAt: nextScheduledAt,
+        tx,
+        validUntil: input.validUntil,
+      });
     }
     await tx
       .update(studioHumanInterviewRound)

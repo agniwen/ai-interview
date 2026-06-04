@@ -67,6 +67,7 @@ import {
   endHumanInterviewMeeting,
   endHumanInterviewMeetingsByRound,
   HumanInterviewMeetingError,
+  isHumanInterviewMeetingAfterValidUntil,
   isHumanInterviewMeetingBeforeScheduledStart,
   issueHumanInterviewMeetingLinks,
   listHumanInterviewMeetings,
@@ -527,6 +528,9 @@ export const studioInterviewsRouter = factory
         isHumanInterviewMeetingBeforeScheduledStart(meeting.scheduledAt)
       ) {
         return c.json({ error: "未到入会时间，面试开始前 5 分钟可进入会议。" }, 403);
+      }
+      if (isHumanInterviewMeetingAfterValidUntil(meeting.validUntil)) {
+        return c.json({ error: "该真人复面会议已超过有效时间。" }, 403);
       }
 
       const { interviewerId } = c.req.valid("json");
@@ -1475,7 +1479,9 @@ export const studioInterviewsRouter = factory
     requirePermission("interview", "update"),
     zValidator(
       "json",
-      humanInterviewRoundInputSchema.partial(),
+      humanInterviewRoundInputSchema
+        .partial()
+        .extend({ validUntil: nullableInstantDateTimeInputSchema }),
       jsonValidatorError("真人复面轮次参数无效。"),
     ),
     async (c) => {

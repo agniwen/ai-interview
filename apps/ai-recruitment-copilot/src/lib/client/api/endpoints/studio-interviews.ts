@@ -472,7 +472,7 @@ export function patchHumanInterviewRound(
   slug: string,
   candidateId: string,
   roundId: string,
-  input: Partial<HumanInterviewRoundInput>,
+  input: Partial<HumanInterviewRoundInput> & { validUntil?: string | null },
 ): Promise<HumanInterviewRoundRecord> {
   return rpcFetch<HumanInterviewRoundRecord>(
     rpc.api.w[":slug"].studio.interviews[":id"]["human-interview-rounds"][":roundId"].$patch({

@@ -715,6 +715,7 @@ export const studioHumanInterviewMeeting = pgTable(
       .defaultNow()
       .$onUpdate(() => /* @__PURE__ */ new Date())
       .notNull(),
+    validUntil: timestamp("valid_until", { withTimezone: true }),
   },
   (table) => [
     index("studio_human_interview_meeting_org_idx").on(table.organizationId),

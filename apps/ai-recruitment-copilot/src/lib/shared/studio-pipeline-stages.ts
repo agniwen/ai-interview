@@ -73,6 +73,7 @@ export interface HumanInterviewMeetingRecord {
   status: HumanInterviewMeetingStatus;
   startedAt: string | null;
   endedAt: string | null;
+  validUntil: string | null;
   cancelledAt: string | null;
   recordingEgressId: string | null;
   recordingFileKey: string | null;
@@ -124,6 +125,7 @@ export interface PublicHumanInterviewMeetingPreview {
   meetingId: string;
   roundLabel: string;
   scheduledAt: string | null;
+  validUntil: string | null;
   status: HumanInterviewMeetingStatus;
   title: string;
 }
@@ -133,6 +135,7 @@ export interface PublicHumanInterviewInterviewerPreview {
   meetingId: string;
   role: HumanInterviewMeetingInterviewerRole;
   scheduledAt: string | null;
+  validUntil: string | null;
   status: HumanInterviewMeetingStatus;
   title: string;
 }

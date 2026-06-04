@@ -31,6 +31,7 @@ import {
   createHumanInterviewMeeting,
   endHumanInterviewMeetingsByRound,
   HumanInterviewMeetingError,
+  isHumanInterviewMeetingAfterValidUntil,
   listHumanInterviewMeetings,
 } from "@/server/routes/studio/routes/interviews/dao/human-interview-meetings";
 import {
@@ -395,6 +396,7 @@ describe("human interview meetings DAO", () => {
       [INTERVIEWER_A, INTERVIEWER_B].toSorted(),
     );
     expect(meeting.interviewers.find((i) => i.id === INTERVIEWER_A)?.role).toBe("host");
+    expect(meeting.validUntil).toBe("2026-05-30T11:00:00.000Z");
 
     const forCandidate = await listHumanInterviewMeetings({
       interviewRecordId: RECORD_ID,
@@ -410,6 +412,55 @@ describe("human interview meetings DAO", () => {
           interviewerIds: [INTERVIEWER_A],
           roundIds: [roundA.id],
           title: "重复会议",
+        },
+        organizationId: ORG,
+      }),
+    ).rejects.toBeInstanceOf(HumanInterviewMeetingError);
+  });
+
+  it("createHumanInterviewMeeting 使用显式有效时间至并拒绝早于面试时间的值", async () => {
+    await clearSubtables();
+
+    const round = await createHumanInterviewRound({
+      input: { format: "online", interviewerIds: [INTERVIEWER_A], label: "技术复面" },
+      interviewRecordId: RECORD_ID,
+      organizationId: ORG,
+    });
+
+    const meeting = await createHumanInterviewMeeting({
+      createdBy: HR_USER,
+      input: {
+        interviewerIds: [INTERVIEWER_A],
+        roundIds: [round.id],
+        scheduledAt: "2026-05-30T10:00:00.000Z",
+        title: "技术复面会议",
+        validUntil: "2026-05-30T10:45:00.000Z",
+      },
+      organizationId: ORG,
+    });
+
+    expect(meeting.validUntil).toBe("2026-05-30T10:45:00.000Z");
+    expect(
+      isHumanInterviewMeetingAfterValidUntil(meeting.validUntil, "2026-05-30T10:44:59.000Z"),
+    ).toBe(false);
+    expect(
+      isHumanInterviewMeetingAfterValidUntil(meeting.validUntil, "2026-05-30T10:45:01.000Z"),
+    ).toBe(true);
+
+    const anotherRound = await createHumanInterviewRound({
+      input: { format: "online", interviewerIds: [INTERVIEWER_A], label: "HR 复面" },
+      interviewRecordId: RECORD_ID_B,
+      organizationId: ORG,
+    });
+    await expect(
+      createHumanInterviewMeeting({
+        createdBy: HR_USER,
+        input: {
+          interviewerIds: [INTERVIEWER_A],
+          roundIds: [anotherRound.id],
+          scheduledAt: "2026-05-30T10:00:00.000Z",
+          title: "无效会议",
+          validUntil: "2026-05-30T09:59:00.000Z",
         },
         organizationId: ORG,
       }),

@@ -24,6 +24,7 @@ import type {
 type MeetingRow = typeof studioHumanInterviewMeeting.$inferSelect;
 const INVITE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 const EARLY_JOIN_WINDOW_MS = 5 * 60 * 1000;
+const DEFAULT_VALID_DURATION_MS = 60 * 60 * 1000;
 
 const candidateInvitePayloadSchema = z.object({
   exp: z.number().int().positive(),
@@ -56,6 +57,37 @@ function serializeDate(value: Date | null): string | null {
 
 function buildRoomName(meetingId: string): string {
   return `human_${meetingId}_${Math.floor(Math.random() * 10_000)}`;
+}
+
+function resolveValidUntilInput({
+  scheduledAt,
+  validUntil,
+  existingValidUntil,
+}: {
+  scheduledAt: Date | null;
+  validUntil: string | null | undefined;
+  existingValidUntil?: Date | null;
+}): Date | null {
+  if (!scheduledAt) {
+    return validUntil ? new Date(validUntil) : null;
+  }
+
+  let resolved: Date;
+  if (validUntil === undefined) {
+    resolved = existingValidUntil ?? new Date(scheduledAt.getTime() + DEFAULT_VALID_DURATION_MS);
+  } else if (validUntil) {
+    resolved = new Date(validUntil);
+  } else {
+    resolved = new Date(scheduledAt.getTime() + DEFAULT_VALID_DURATION_MS);
+  }
+
+  if (Number.isNaN(resolved.getTime())) {
+    throw new HumanInterviewMeetingError("请输入有效的有效时间至。", 400);
+  }
+  if (resolved.getTime() <= scheduledAt.getTime()) {
+    throw new HumanInterviewMeetingError("有效时间至必须晚于面试时间。", 400);
+  }
+  return resolved;
 }
 
 function getInviteSecret(): string {
@@ -155,6 +187,7 @@ function toRecord({
     status: meeting.status,
     title: meeting.title,
     updatedAt: serializeDate(meeting.updatedAt) ?? new Date().toISOString(),
+    validUntil: serializeDate(meeting.validUntil),
   };
 }
 
@@ -364,6 +397,11 @@ export async function createHumanInterviewMeeting({
 
   const id = crypto.randomUUID();
   const now = new Date();
+  const scheduledAt = input.scheduledAt ? new Date(input.scheduledAt) : null;
+  const validUntil = resolveValidUntilInput({
+    scheduledAt,
+    validUntil: input.validUntil,
+  });
   await db.transaction(async (tx) => {
     await tx.insert(studioHumanInterviewMeeting).values({
       createdAt: now,
@@ -372,10 +410,11 @@ export async function createHumanInterviewMeeting({
       liveKitRoomName: buildRoomName(id),
       notes: input.notes ?? null,
       organizationId,
-      scheduledAt: input.scheduledAt ? new Date(input.scheduledAt) : null,
+      scheduledAt,
       status: "scheduled",
       title: input.title,
       updatedAt: now,
+      validUntil,
     });
     await tx.insert(studioHumanInterviewMeetingRound).values(
       uniqueRoundIds.map((roundId) => ({
@@ -540,6 +579,7 @@ export async function resolveHumanInterviewMeetingInviteToken(
       scheduledAt: studioHumanInterviewMeeting.scheduledAt,
       status: studioHumanInterviewMeeting.status,
       title: studioHumanInterviewMeeting.title,
+      validUntil: studioHumanInterviewMeeting.validUntil,
     })
     .from(studioHumanInterviewMeetingRound)
     .innerJoin(
@@ -580,6 +620,7 @@ export async function resolveHumanInterviewMeetingInviteToken(
     scheduledAt: serializeDate(row.scheduledAt),
     status: row.status,
     title: row.title,
+    validUntil: serializeDate(row.validUntil),
   };
 }
 
@@ -602,6 +643,7 @@ export async function resolveHumanInterviewMeetingInterviewerInviteToken(
       status: studioHumanInterviewMeeting.status,
       title: studioHumanInterviewMeeting.title,
       userId: studioHumanInterviewMeetingInterviewer.userId,
+      validUntil: studioHumanInterviewMeeting.validUntil,
     })
     .from(studioHumanInterviewMeetingInterviewer)
     .innerJoin(
@@ -632,6 +674,7 @@ export async function resolveHumanInterviewMeetingInterviewerInviteToken(
     status: row.status,
     title: row.title,
     userId: row.userId,
+    validUntil: serializeDate(row.validUntil),
   };
 }
 
@@ -654,6 +697,20 @@ export function isHumanInterviewMeetingBeforeScheduledStart(scheduledAt: string 
   }
   const start = new Date(scheduledAt);
   return !Number.isNaN(start.getTime()) && start.getTime() - EARLY_JOIN_WINDOW_MS > Date.now();
+}
+
+export function isHumanInterviewMeetingAfterValidUntil(
+  validUntil: string | null,
+  nowInput: string | number | Date = Date.now(),
+): boolean {
+  if (!validUntil) {
+    return true;
+  }
+  const end = new Date(validUntil);
+  const now = new Date(nowInput);
+  return (
+    !Number.isNaN(end.getTime()) && !Number.isNaN(now.getTime()) && end.getTime() < now.getTime()
+  );
 }
 
 export async function markHumanInterviewMeetingInProgressByRoomName(

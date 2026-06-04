@@ -193,6 +193,7 @@ export const humanInterviewMeetingInputSchema = z.object({
     .max(20, "候选人最多 20 人"),
   scheduledAt: nullableInstantDateTimeInputSchema,
   title: z.string().trim().min(1, "请输入会议名称").max(100, "会议名称不能超过 100 字"),
+  validUntil: nullableInstantDateTimeInputSchema,
 });
 export type HumanInterviewMeetingInput = z.infer<typeof humanInterviewMeetingInputSchema>;
 

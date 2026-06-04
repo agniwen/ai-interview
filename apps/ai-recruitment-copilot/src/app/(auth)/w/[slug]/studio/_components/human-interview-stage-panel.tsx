@@ -218,6 +218,7 @@ export function HumanInterviewStagePanel({ candidateId, candidateName, disabled 
         roundIds: [round.id],
         scheduledAt: round.scheduledAt,
         title: round.label,
+        validUntil: null,
       }),
     onError: (e) => toast.error(e instanceof Error ? e.message : "创建视频会议失败"),
     onSuccess: () => {
@@ -372,7 +373,8 @@ function RoundCard({
 }) {
   const statusBadge = describeRoundSummaryStatus(round, meeting);
   const canWrite = disabled !== true;
-  const canCreateMeeting = meeting === null && round.status === "pending" && canWrite;
+  const canCreateMeeting =
+    meeting === null && round.status === "pending" && canWrite && Boolean(round.scheduledAt);
   const canCancelRound = canCancelHumanInterviewRound(round, meeting, disabled);
   const canCompleteRound = canCompleteHumanInterviewRound(round, meeting, disabled);
 
@@ -457,12 +459,17 @@ function RoundScheduledAtControl({
   const [scheduledAt, setScheduledAt] = useState(() =>
     toDateTimeLocalInputValue(round.scheduledAt),
   );
+  const [validUntil, setValidUntil] = useState(() =>
+    toDateTimeLocalInputValue(meeting?.validUntil ?? addOneHourToIsoString(round.scheduledAt)),
+  );
   const canReschedule = canRescheduleHumanInterviewRound(round, meeting, disabled);
   const inputId = `human-round-${round.id}-scheduled-at`;
+  const validUntilInputId = `human-round-${round.id}-valid-until`;
   const mutation = useMutation({
     mutationFn: () =>
       patchHumanInterviewRound(slug, round.interviewRecordId, round.id, {
         scheduledAt: dateTimeLocalInputToISOString(scheduledAt),
+        validUntil: dateTimeLocalInputToISOString(validUntil),
       }),
     onError: (e) => toast.error(e instanceof Error ? e.message : "调整时间失败"),
     onSuccess: () => {
@@ -477,12 +484,25 @@ function RoundScheduledAtControl({
       return;
     }
     setScheduledAt(toDateTimeLocalInputValue(round.scheduledAt));
+    setValidUntil(
+      toDateTimeLocalInputValue(meeting?.validUntil ?? addOneHourToIsoString(round.scheduledAt)),
+    );
     setEditing(true);
   }
 
   function cancelEditing() {
     setScheduledAt(toDateTimeLocalInputValue(round.scheduledAt));
+    setValidUntil(
+      toDateTimeLocalInputValue(meeting?.validUntil ?? addOneHourToIsoString(round.scheduledAt)),
+    );
     setEditing(false);
+  }
+
+  function handleScheduledAtChange(value: string) {
+    setScheduledAt(value);
+    if (!validUntil) {
+      setValidUntil(addOneHourToDateTimeLocalInputValue(value));
+    }
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -500,9 +520,21 @@ function RoundScheduledAtControl({
           className="h-7 w-[13.5rem] text-xs"
           disabled={mutation.isPending}
           id={inputId}
-          onChange={(e) => setScheduledAt(e.target.value)}
+          onChange={(e) => handleScheduledAtChange(e.target.value)}
+          required
           type="datetime-local"
           value={scheduledAt}
+        />
+        <Label className="sr-only" htmlFor={validUntilInputId}>
+          有效时间至
+        </Label>
+        <Input
+          className="h-7 w-[13.5rem] text-xs"
+          disabled={mutation.isPending}
+          id={validUntilInputId}
+          onChange={(e) => setValidUntil(e.target.value)}
+          type="datetime-local"
+          value={validUntil}
         />
         <Button
           aria-label="保存面试时间"
@@ -543,6 +575,11 @@ function RoundScheduledAtControl({
           <span className="text-muted-foreground/70">时间未定</span>
         )}
       </span>
+      {meeting?.validUntil ? (
+        <span className="inline-flex items-center gap-1">
+          有效至 <TimeDisplay options={DATE_TIME_DISPLAY_OPTIONS} value={meeting.validUntil} />
+        </span>
+      ) : null}
       {canReschedule ? (
         <Button
           aria-label="调整面试时间"
@@ -935,6 +972,25 @@ function toDateTimeLocalInputValue(iso: string | null): string {
   return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}T${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
 }
 
+function addOneHourToIsoString(iso: string | null): string | null {
+  if (!iso) {
+    return null;
+  }
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+  return new Date(date.getTime() + 60 * 60 * 1000).toISOString();
+}
+
+function addOneHourToDateTimeLocalInputValue(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+  return toDateTimeLocalInputValue(new Date(date.getTime() + 60 * 60 * 1000).toISOString());
+}
+
 // ── 新建轮次 dialog ──
 // Schedule (create) dialog.
 
@@ -965,14 +1021,23 @@ function ScheduleRoundDialog({
   const { data: members } = useWorkspaceMembers();
   const [label, setLabel] = useState("");
   const [scheduledAt, setScheduledAt] = useState("");
+  const [validUntil, setValidUntil] = useState("");
   const [interviewerIds, setInterviewerIds] = useState<string[]>([]);
   const [notes, setNotes] = useState("");
 
   function reset() {
     setLabel("");
     setScheduledAt("");
+    setValidUntil("");
     setInterviewerIds([]);
     setNotes("");
+  }
+
+  function handleScheduledAtChange(value: string) {
+    setScheduledAt(value);
+    if (!validUntil) {
+      setValidUntil(addOneHourToDateTimeLocalInputValue(value));
+    }
   }
 
   function handleOpenChange(next: boolean) {
@@ -986,6 +1051,9 @@ function ScheduleRoundDialog({
     mutationFn: async () => {
       const roundLabel = label.trim() || defaultRoundLabel(existingCount);
       const scheduledAtIso = dateTimeLocalInputToISOString(scheduledAt);
+      if (!scheduledAtIso) {
+        throw new Error("请填写面试时间");
+      }
       const round = await createHumanInterviewRound(slug, candidateId, {
         format: "online",
         interviewerIds,
@@ -995,12 +1063,14 @@ function ScheduleRoundDialog({
         notes: notes.trim() || null,
         scheduledAt: scheduledAtIso,
       });
+      const validUntilIso = dateTimeLocalInputToISOString(validUntil);
       await createHumanInterviewMeeting(slug, {
         interviewerIds,
         notes: notes.trim() || null,
         roundIds: [round.id],
         scheduledAt: scheduledAtIso,
         title: roundLabel,
+        validUntil: validUntilIso,
       });
       return round;
     },
@@ -1030,7 +1100,7 @@ function ScheduleRoundDialog({
         <DialogHeader>
           <DialogTitle>安排真人复面</DialogTitle>
           <DialogDescription>
-            填好基础信息后保存。系统会创建线上复面会议；时间可以暂不填，后续再补。
+            填好基础信息后保存。系统会创建线上复面会议；有效时间为空时默认到面试时间后一小时。
           </DialogDescription>
         </DialogHeader>
 
@@ -1050,13 +1120,26 @@ function ScheduleRoundDialog({
 
           <div className="grid gap-1.5">
             <Label className="text-sm" htmlFor="scheduled-at">
-              面试时间（可选）
+              面试时间
             </Label>
             <Input
               id="scheduled-at"
-              onChange={(e) => setScheduledAt(e.target.value)}
+              onChange={(e) => handleScheduledAtChange(e.target.value)}
+              required
               type="datetime-local"
               value={scheduledAt}
+            />
+          </div>
+
+          <div className="grid gap-1.5">
+            <Label className="text-sm" htmlFor="valid-until">
+              有效时间至
+            </Label>
+            <Input
+              id="valid-until"
+              onChange={(e) => setValidUntil(e.target.value)}
+              type="datetime-local"
+              value={validUntil}
             />
           </div>
 

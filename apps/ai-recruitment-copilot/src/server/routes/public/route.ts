@@ -23,6 +23,7 @@ import { queryInterviewConversationReportsByRound } from "@/server/routes/studio
 import {
   endHumanInterviewMeeting,
   isHumanInterviewMeetingBeforeScheduledStart,
+  isHumanInterviewMeetingAfterValidUntil,
   markHumanInterviewMeetingInProgress,
   resolveHumanInterviewMeetingInterviewerInviteToken,
   resolveHumanInterviewMeetingInviteToken,
@@ -87,6 +88,7 @@ export const publicRouter = factory
         scheduledAt: scope.scheduledAt,
         status: scope.status,
         title: scope.title,
+        validUntil: scope.validUntil,
       },
       200,
     );
@@ -106,6 +108,9 @@ export const publicRouter = factory
       isHumanInterviewMeetingBeforeScheduledStart(scope.scheduledAt)
     ) {
       return c.json({ error: "未到入会时间，面试开始前 5 分钟可进入会议。" }, 403);
+    }
+    if (isHumanInterviewMeetingAfterValidUntil(scope.validUntil)) {
+      return c.json({ error: "该真人复面会议已超过有效时间。" }, 403);
     }
     if (!scope.liveKitRoomName) {
       return c.json({ error: "会议房间尚未初始化。" }, 409);
@@ -170,6 +175,7 @@ export const publicRouter = factory
         scheduledAt: scope.scheduledAt,
         status: scope.status,
         title: scope.title,
+        validUntil: scope.validUntil,
       },
       200,
     );
@@ -187,6 +193,9 @@ export const publicRouter = factory
       isHumanInterviewMeetingBeforeScheduledStart(scope.scheduledAt)
     ) {
       return c.json({ error: "未到入会时间，面试开始前 5 分钟可进入会议。" }, 403);
+    }
+    if (isHumanInterviewMeetingAfterValidUntil(scope.validUntil)) {
+      return c.json({ error: "该真人复面会议已超过有效时间。" }, 403);
     }
     if (!scope.liveKitRoomName) {
       return c.json({ error: "会议房间尚未初始化。" }, 409);
