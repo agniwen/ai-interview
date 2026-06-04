@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "tw-animate-css";
+
 @source "../node_modules/streamdown/dist/*.js";
 
 @custom-variant dark (&:is(.dark *));
@@ -251,6 +252,14 @@
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--muted-foreground);
+}
+
+@utility link {
+  @apply underline-offset-3 hover:underline;
+}
+
+@utility link-underline {
+  @apply underline decoration-current/30 decoration-1 underline-offset-3 transition-colors hover:decoration-current;
 }
 
 @media (prefers-reduced-motion: reduce) {

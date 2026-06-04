@@ -1,13 +1,12 @@
 import Markdown from "react-markdown";
 import { cn } from "@/lib/shared/utils";
 
-// 项目没有装 @tailwindcss/typography，所以这里直接给 markdown 渲染出的子元素打
-// 一份最小排版补丁（间距、heading 尺寸、list 符号、code/blockquote 等），通过
-// child 选择器作用到 Markdown 输出的元素上。
+// 这个通用 MarkdownView 需要保持紧凑排版，所以这里继续直接给 markdown
+// 渲染出的子元素打一份最小排版补丁（间距、heading 尺寸、list 符号、
+// code/blockquote 等），通过 child 选择器作用到 Markdown 输出的元素上。
 //
-// Minimal typographic rules for react-markdown output — the project doesn't
-// ship @tailwindcss/typography, so we style direct children inline instead of
-// relying on `prose`.
+// Minimal typographic rules for compact react-markdown output. Keep this view
+// independent from the broader `prose` defaults used by richer components.
 const MARKDOWN_BODY_CLASS = cn(
   "[&>*:first-child]:mt-0 [&>*:last-child]:mb-0",
   "[&_p]:my-2 [&_p]:leading-relaxed",
