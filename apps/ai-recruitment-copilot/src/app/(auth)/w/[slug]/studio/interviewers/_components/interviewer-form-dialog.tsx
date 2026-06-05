@@ -22,7 +22,10 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { TextareaCounter } from "@/components/ui/textarea-counter";
 import { MarkdownEditor } from "@/components/markdown-editor";
-import { DEFAULT_MINIMAX_VOICE_ID, MINIMAX_VOICES } from "@arc/db-schema/minimax-voices";
+import {
+  DEFAULT_MINIMAX_VOICE_ID,
+  MINIMAX_INTERVIEWER_VOICES,
+} from "@arc/db-schema/minimax-voices";
 import type { MinimaxVoiceId } from "@arc/db-schema/minimax-voices";
 import { EntityFormDialog } from "@/app/(auth)/w/[slug]/studio/_components/entity-form-dialog";
 import { useEntityForm } from "@/app/(auth)/w/[slug]/studio/_components/entity-form";
@@ -259,7 +262,7 @@ export function InterviewerFormDialog({
                         <SelectValue placeholder="选择音色" />
                       </SelectTrigger>
                       <SelectContent>
-                        {MINIMAX_VOICES.map((voice) => (
+                        {MINIMAX_INTERVIEWER_VOICES.map((voice) => (
                           <SelectItem key={voice.id} value={voice.id}>
                             <div className="flex flex-col">
                               <span>{voice.label}</span>

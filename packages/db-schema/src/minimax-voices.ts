@@ -426,3 +426,34 @@ export const DEFAULT_MINIMAX_VOICE_ID: MinimaxVoiceId = "voice_agent_Male_Phone_
 export function getMinimaxVoiceMeta(id: string): MinimaxVoicePreset | undefined {
   return MINIMAX_VOICES.find((voice) => voice.id === id);
 }
+
+const FORMAL_INTERVIEWER_VOICE_IDS = [
+  "voice_agent_Male_Phone_1",
+  "voice_agent_Male_Phone_2",
+  "voice_agent_Female_Phone_1",
+  "male-qn-jingying",
+  "female-chengshu",
+  "male-qn-jingying-jingpin",
+  "female-chengshu-jingpin",
+  "Chinese (Mandarin)_Reliable_Executive",
+  "Chinese (Mandarin)_News_Anchor",
+  "Chinese (Mandarin)_Gentleman",
+  "Chinese (Mandarin)_Male_Announcer",
+  "Chinese (Mandarin)_Wise_Women",
+  "Chinese (Mandarin)_Gentle_Youth",
+  "Chinese (Mandarin)_Sincere_Adult",
+  "Cantonese_ProfessionalHost（F)",
+  "Cantonese_ProfessionalHost（M)",
+
+  // Not offered for formal interviewer setup:
+  // child/cartoon voices, romantic or playful角色音, teen/student personas,
+  // elderly caricatures, robotic voices, and overly sweet/flirty/quirky voices.
+] as const satisfies readonly MinimaxVoiceId[];
+
+export const MINIMAX_INTERVIEWER_VOICES = FORMAL_INTERVIEWER_VOICE_IDS.map((id) => {
+  const voice = getMinimaxVoiceMeta(id);
+  if (!voice) {
+    throw new Error(`Unknown MiniMax interviewer voice: ${id}`);
+  }
+  return voice;
+}) as readonly MinimaxVoicePreset[];

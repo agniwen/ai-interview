@@ -6,6 +6,11 @@ import type { InterviewerListRecord } from "@/lib/shared/interviewers";
 import type { InterviewQuestionTemplateListRecord } from "@arc/db-schema/interview-question-templates";
 import { jobDescriptionFormSchema } from "@/lib/shared/job-descriptions";
 import type { JobDescriptionFormValues, JobDescriptionRecord } from "@/lib/shared/job-descriptions";
+import {
+  buildJobDescriptionInterviewerOptions,
+  filterInterviewerIdsByDepartment,
+  getDepartmentSyncedInterviewerSelection,
+} from "@/lib/shared/job-description-interviewers";
 import { rpc } from "@/lib/client/rpc";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { useQuery } from "@tanstack/react-query";
@@ -17,7 +22,7 @@ import {
   LoaderCircleIcon,
 } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { AnimatedHeight } from "@/components/animated-height";
@@ -38,9 +43,9 @@ const NAME_MAX_LENGTH = 120;
 const DESCRIPTION_MAX_LENGTH = 500;
 const PROMPT_MAX_LENGTH = 10_000;
 
-function defaultValues(departmentId: string): JobDescriptionFormValues {
+function defaultValues(): JobDescriptionFormValues {
   return {
-    departmentId,
+    departmentId: "",
     description: "",
     interviewerIds: [],
     name: "",
@@ -58,12 +63,23 @@ function toFormValues(record: JobDescriptionRecord): JobDescriptionFormValues {
   };
 }
 
-function buildInterviewerOptions(interviewers: InterviewerListRecord[]) {
-  return interviewers.map((item) => ({
-    description: item.departmentName ?? "未知部门",
-    label: item.name,
-    value: item.id,
-  }));
+function toDepartmentScopedFormValues(
+  record: JobDescriptionRecord,
+  interviewers: InterviewerListRecord[],
+): JobDescriptionFormValues {
+  const values = toFormValues(record);
+  return {
+    ...values,
+    interviewerIds: filterInterviewerIdsByDepartment(
+      interviewers,
+      values.departmentId,
+      values.interviewerIds,
+    ),
+  };
+}
+
+function normalizeDepartmentId(value: string | null): string {
+  return value ?? "";
 }
 
 // oxlint-disable-next-line complexity -- Dialog hosts tabs, queries, validation, and form submission together.
@@ -84,7 +100,6 @@ export function JobDescriptionFormDialog({
 }) {
   const slug = useWorkspaceSlug();
   const isEdit = record !== null;
-  const fallbackDepartmentId = departments[0]?.id ?? "";
   const [activeTab, setActiveTab] = useState<"basic" | "interview-questions" | "forms">("basic");
 
   const { data: linkedForms = [], isLoading: isFormsLoading } = useQuery({
@@ -138,7 +153,7 @@ export function JobDescriptionFormDialog({
   });
 
   const form = useForm({
-    defaultValues: record ? toFormValues(record) : defaultValues(fallbackDepartmentId),
+    defaultValues: record ? toDepartmentScopedFormValues(record, interviewers) : defaultValues(),
     onSubmit: async ({ value }) => {
       const body = {
         departmentId: value.departmentId,
@@ -178,13 +193,19 @@ export function JobDescriptionFormDialog({
   });
 
   const isSubmitting = useStore(form.store, (state) => state.isSubmitting);
+  const selectedDepartmentId = useStore(form.store, (state) => state.values.departmentId);
+  const selectedInterviewerIds = useStore(form.store, (state) => state.values.interviewerIds);
+  const interviewerOptions = useMemo(
+    () => buildJobDescriptionInterviewerOptions(interviewers, selectedDepartmentId),
+    [interviewers, selectedDepartmentId],
+  );
 
   useEffect(() => {
     if (open) {
-      form.reset(record ? toFormValues(record) : defaultValues(fallbackDepartmentId));
+      form.reset(record ? toDepartmentScopedFormValues(record, interviewers) : defaultValues());
       setActiveTab("basic");
     }
-  }, [open, record, form, fallbackDepartmentId]);
+  }, [open, record, form, interviewers]);
 
   const missingRefs = departments.length === 0 || interviewers.length === 0;
 
@@ -271,7 +292,18 @@ export function JobDescriptionFormDialog({
                             <SearchableSelect
                               id={field.name}
                               invalid={!!errors?.length}
-                              onChange={(value) => field.handleChange(value ?? "")}
+                              onChange={(value) => {
+                                const nextDepartmentId = normalizeDepartmentId(value);
+                                field.handleChange(nextDepartmentId);
+                                form.setFieldValue(
+                                  "interviewerIds",
+                                  filterInterviewerIdsByDepartment(
+                                    interviewers,
+                                    nextDepartmentId,
+                                    selectedInterviewerIds,
+                                  ),
+                                );
+                              }}
                               options={departments.map((dept) => ({
                                 label: dept.name,
                                 value: dept.id,
@@ -298,15 +330,26 @@ export function JobDescriptionFormDialog({
                           <FieldLabel>
                             面试官 <span className="text-destructive">*</span>
                             <span className="ml-2 font-normal text-muted-foreground text-xs">
-                              （可多选，面试时会随机挑选一位；不限定部门）
+                              （可多选，其他部门面试官会置灰）
                             </span>
                           </FieldLabel>
                           <FieldContent className="gap-2">
                             <SearchableMultiSelect
                               emptyMessage="没有匹配的面试官"
                               invalid={!!errors?.length}
-                              onChange={(next) => field.handleChange(next)}
-                              options={buildInterviewerOptions(interviewers)}
+                              onChange={(next) => {
+                                const synced = getDepartmentSyncedInterviewerSelection({
+                                  currentDepartmentId: selectedDepartmentId,
+                                  interviewers,
+                                  nextInterviewerIds: next,
+                                  previousInterviewerIds: field.state.value,
+                                });
+                                if (synced.departmentId !== selectedDepartmentId) {
+                                  form.setFieldValue("departmentId", synced.departmentId);
+                                }
+                                field.handleChange(synced.interviewerIds);
+                              }}
+                              options={interviewerOptions}
                               placeholder="选择面试官…"
                               searchPlaceholder="搜索面试官…"
                               selectedFormat={(count) => `已选 ${count} 位面试官`}
