@@ -35,6 +35,7 @@ import { SearchableMultiSelect } from "@/components/ui/searchable-multi-select";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MarkdownEditor } from "@/components/markdown-editor";
+import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { TextareaCounter } from "@/components/ui/textarea-counter";
 import { hasFieldErrors, toFieldErrors } from "../../interviews/_components/interview-form";
@@ -45,6 +46,7 @@ const PROMPT_MAX_LENGTH = 10_000;
 
 function defaultValues(): JobDescriptionFormValues {
   return {
+    allowCrossDepartmentInterviewers: false,
     departmentId: "",
     description: "",
     interviewerIds: [],
@@ -55,6 +57,7 @@ function defaultValues(): JobDescriptionFormValues {
 
 function toFormValues(record: JobDescriptionRecord): JobDescriptionFormValues {
   return {
+    allowCrossDepartmentInterviewers: record.allowCrossDepartmentInterviewers,
     departmentId: record.departmentId,
     description: record.description ?? "",
     interviewerIds: [...record.interviewerIds],
@@ -74,6 +77,7 @@ function toDepartmentScopedFormValues(
       interviewers,
       values.departmentId,
       values.interviewerIds,
+      values.allowCrossDepartmentInterviewers,
     ),
   };
 }
@@ -156,6 +160,7 @@ export function JobDescriptionFormDialog({
     defaultValues: record ? toDepartmentScopedFormValues(record, interviewers) : defaultValues(),
     onSubmit: async ({ value }) => {
       const body = {
+        allowCrossDepartmentInterviewers: value.allowCrossDepartmentInterviewers,
         departmentId: value.departmentId,
         description: value.description?.trim() || "",
         interviewerIds: value.interviewerIds,
@@ -183,7 +188,14 @@ export function JobDescriptionFormDialog({
     },
     onSubmitInvalid: ({ formApi }) => {
       const meta = formApi.store.state.fieldMeta as Record<string, { errors?: unknown[] }>;
-      const basicFields = ["name", "departmentId", "interviewerIds", "description", "prompt"];
+      const basicFields = [
+        "name",
+        "departmentId",
+        "allowCrossDepartmentInterviewers",
+        "interviewerIds",
+        "description",
+        "prompt",
+      ];
       const hasBasicError = basicFields.some((key) => (meta[key]?.errors?.length ?? 0) > 0);
       if (hasBasicError) {
         setActiveTab("basic");
@@ -193,11 +205,20 @@ export function JobDescriptionFormDialog({
   });
 
   const isSubmitting = useStore(form.store, (state) => state.isSubmitting);
+  const allowCrossDepartmentInterviewers = useStore(
+    form.store,
+    (state) => state.values.allowCrossDepartmentInterviewers,
+  );
   const selectedDepartmentId = useStore(form.store, (state) => state.values.departmentId);
   const selectedInterviewerIds = useStore(form.store, (state) => state.values.interviewerIds);
   const interviewerOptions = useMemo(
-    () => buildJobDescriptionInterviewerOptions(interviewers, selectedDepartmentId),
-    [interviewers, selectedDepartmentId],
+    () =>
+      buildJobDescriptionInterviewerOptions(
+        interviewers,
+        selectedDepartmentId,
+        allowCrossDepartmentInterviewers,
+      ),
+    [allowCrossDepartmentInterviewers, interviewers, selectedDepartmentId],
   );
 
   useEffect(() => {
@@ -301,6 +322,7 @@ export function JobDescriptionFormDialog({
                                     interviewers,
                                     nextDepartmentId,
                                     selectedInterviewerIds,
+                                    allowCrossDepartmentInterviewers,
                                   ),
                                 );
                               }}
@@ -319,6 +341,41 @@ export function JobDescriptionFormDialog({
                     }}
                   </form.Field>
 
+                  <form.Field name="allowCrossDepartmentInterviewers">
+                    {(field) => (
+                      <Field className="md:col-span-2">
+                        <Card className="gap-0 rounded-lg py-0">
+                          <CardContent className="flex items-center justify-between gap-4 px-3 py-2.5">
+                            <div className="space-y-0.5">
+                              <FieldLabel htmlFor={field.name}>允许匹配跨部门面试官</FieldLabel>
+                              <p className="text-muted-foreground text-xs">
+                                关闭时只能选择所属部门下的面试官；开启后可选择任意部门的面试官。
+                              </p>
+                            </div>
+                            <Switch
+                              checked={field.state.value}
+                              id={field.name}
+                              onCheckedChange={(checked) => {
+                                field.handleChange(checked);
+                                if (!checked) {
+                                  form.setFieldValue(
+                                    "interviewerIds",
+                                    filterInterviewerIdsByDepartment(
+                                      interviewers,
+                                      selectedDepartmentId,
+                                      selectedInterviewerIds,
+                                      false,
+                                    ),
+                                  );
+                                }
+                              }}
+                            />
+                          </CardContent>
+                        </Card>
+                      </Field>
+                    )}
+                  </form.Field>
+
                   <form.Field name="interviewerIds">
                     {(field) => {
                       const errors = toFieldErrors(field.state.meta.errors);
@@ -329,9 +386,6 @@ export function JobDescriptionFormDialog({
                         >
                           <FieldLabel>
                             面试官 <span className="text-destructive">*</span>
-                            <span className="ml-2 font-normal text-muted-foreground text-xs">
-                              （可多选，其他部门面试官会置灰）
-                            </span>
                           </FieldLabel>
                           <FieldContent className="gap-2">
                             <SearchableMultiSelect
@@ -339,6 +393,7 @@ export function JobDescriptionFormDialog({
                               invalid={!!errors?.length}
                               onChange={(next) => {
                                 const synced = getDepartmentSyncedInterviewerSelection({
+                                  allowCrossDepartmentInterviewers,
                                   currentDepartmentId: selectedDepartmentId,
                                   interviewers,
                                   nextInterviewerIds: next,
@@ -368,7 +423,7 @@ export function JobDescriptionFormDialog({
                     const errors = toFieldErrors(field.state.meta.errors);
                     return (
                       <Field data-invalid={hasFieldErrors(field.state.meta.errors) || undefined}>
-                        <FieldLabel htmlFor={field.name}>描述（可选）</FieldLabel>
+                        <FieldLabel htmlFor={field.name}>描述</FieldLabel>
                         <FieldContent className="gap-2">
                           <div className="relative">
                             <Textarea

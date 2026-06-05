@@ -536,6 +536,9 @@ export const minimaxVoicePreview = pgTable(
 export const jobDescription = pgTable(
   "job_description",
   {
+    allowCrossDepartmentInterviewers: boolean("allow_cross_department_interviewers")
+      .default(false)
+      .notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
     departmentId: text("department_id")

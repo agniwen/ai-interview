@@ -13,6 +13,7 @@ import {
   jobDescriptionFormSchema,
   jobDescriptionUpdateSchema,
 } from "@/lib/shared/job-descriptions";
+import { validateJobDescriptionInterviewerDepartments } from "@/lib/shared/job-description-interviewers";
 import { factory, jsonValidatorError } from "@/server/factory";
 import { requirePermission } from "@/server/middlewares/permission";
 import {
@@ -27,6 +28,7 @@ async function validateReferences(
   organizationId: string,
   departmentId: string,
   interviewerIds: string[],
+  allowCrossDepartmentInterviewers: boolean,
 ) {
   const [[departmentRow], interviewerRows] = await Promise.all([
     db
@@ -36,15 +38,28 @@ async function validateReferences(
       .limit(1),
     interviewerIds.length > 0
       ? db
-          .select({ id: interviewer.id })
+          .select({
+            departmentId: interviewer.departmentId,
+            departmentName: department.name,
+            id: interviewer.id,
+            name: interviewer.name,
+          })
           .from(interviewer)
+          .leftJoin(department, eq(interviewer.departmentId, department.id))
           .where(
             and(
               inArray(interviewer.id, interviewerIds),
               eq(interviewer.organizationId, organizationId),
             ),
           )
-      : Promise.resolve([] as { id: string }[]),
+      : Promise.resolve(
+          [] as {
+            departmentId: string;
+            departmentName: string | null;
+            id: string;
+            name: string;
+          }[],
+        ),
   ]);
 
   if (!departmentRow) {
@@ -53,7 +68,13 @@ async function validateReferences(
   if (interviewerRows.length !== interviewerIds.length) {
     return { error: "存在无效的面试官，请刷新后重试。" as const };
   }
-  return { error: null };
+  return {
+    error: validateJobDescriptionInterviewerDepartments({
+      allowCrossDepartmentInterviewers,
+      departmentId,
+      interviewers: interviewerRows,
+    }),
+  };
 }
 
 function dedupeInterviewerIds(ids: string[]): string[] {
@@ -122,13 +143,19 @@ export const jobDescriptionsRouter = factory
         return c.json({ error: "请至少选择一位面试官。" }, 400);
       }
 
-      const { error } = await validateReferences(activeOrg.id, input.departmentId, interviewerIds);
+      const { error } = await validateReferences(
+        activeOrg.id,
+        input.departmentId,
+        interviewerIds,
+        input.allowCrossDepartmentInterviewers,
+      );
       if (error) {
         return c.json({ error }, 400);
       }
 
       const now = new Date();
       const record = {
+        allowCrossDepartmentInterviewers: input.allowCrossDepartmentInterviewers,
         createdAt: now,
         createdBy: c.var.user?.id ?? null,
         departmentId: input.departmentId,
@@ -196,7 +223,12 @@ export const jobDescriptionsRouter = factory
         return c.json({ error: "请至少选择一位面试官。" }, 400);
       }
 
-      const { error } = await validateReferences(activeOrg.id, input.departmentId, interviewerIds);
+      const { error } = await validateReferences(
+        activeOrg.id,
+        input.departmentId,
+        interviewerIds,
+        input.allowCrossDepartmentInterviewers,
+      );
       if (error) {
         return c.json({ error }, 400);
       }
@@ -206,6 +238,7 @@ export const jobDescriptionsRouter = factory
         await tx
           .update(jobDescription)
           .set({
+            allowCrossDepartmentInterviewers: input.allowCrossDepartmentInterviewers,
             departmentId: input.departmentId,
             description: input.description?.trim() || null,
             name: input.name.trim(),
