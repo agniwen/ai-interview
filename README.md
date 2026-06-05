@@ -58,8 +58,10 @@ Key requirements for the web `.env`:
 - **Voice TTS/STT** — `ELEVENLABS_API_KEY`
 - **Object storage** — `S3_*` for general uploads (resume PDFs, attachments),
   `RECORDING_R2_*` for LiveKit Egress interview recordings
-- **PostHog analytics (optional)** — `NEXT_PUBLIC_ENABLE_POSTHOG=true`,
-  `NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN`, `NEXT_PUBLIC_POSTHOG_HOST`
+- **PostHog analytics (optional)** — frontend capture:
+  `NEXT_PUBLIC_ENABLE_POSTHOG=true`, `NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN`,
+  `NEXT_PUBLIC_POSTHOG_HOST`; platform dashboard server query:
+  `POSTHOG_PERSONAL_API_KEY`, `POSTHOG_PROJECT_ID`, `POSTHOG_API_HOST`
 - **Optional integrations** — `FEISHU_*` for the Feishu bot adapter
 
 Refer to `.env.example` for the full list with per-variable explanations.
@@ -181,6 +183,11 @@ To verify analytics locally:
 3. Trigger a page navigation or resume/JD/interviewer workflow.
 4. Confirm the outgoing event payload contains `user_id` and `workspace_id`,
    and does not contain candidate PII.
+
+Platform admins can view aggregated analytics at `/platform/analytics`. That
+page queries PostHog server-side with `POSTHOG_PERSONAL_API_KEY` and supports
+range, `workspace_id`, and `user_id` filters. The personal API key must never
+use a `NEXT_PUBLIC_` prefix.
 
 ## External references
 

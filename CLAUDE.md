@@ -158,7 +158,9 @@ Exceptions: `src/server/agents/` (shared by frontend + multiple routes) and `src
 
 ## Product Analytics (PostHog)
 
-PostHog is optional and client-side only. It is initialized from `apps/ai-recruitment-copilot/src/instrumentation-client.ts` through `@/lib/client/analytics`. It is enabled only when both `NEXT_PUBLIC_ENABLE_POSTHOG=true` and `NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN` are present; changing these values requires restarting the dev server or rebuilding because they are `NEXT_PUBLIC_*` variables.
+PostHog product event capture is optional and client-side. It is initialized from `apps/ai-recruitment-copilot/src/instrumentation-client.ts` through `@/lib/client/analytics`. It is enabled only when both `NEXT_PUBLIC_ENABLE_POSTHOG=true` and `NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN` are present; changing these values requires restarting the dev server or rebuilding because they are `NEXT_PUBLIC_*` variables.
+
+The platform analytics dashboard (`/platform/analytics`) queries PostHog server-side through `@/lib/server/posthog-analytics` and `/api/platform/analytics/summary`. It uses `POSTHOG_PERSONAL_API_KEY`, `POSTHOG_PROJECT_ID`, and `POSTHOG_API_HOST`. Never expose `POSTHOG_PERSONAL_API_KEY` to the browser or add a `NEXT_PUBLIC_` prefix.
 
 Use `captureAnalyticsEvent()` from `@/lib/client/analytics` for all product events. Do not import `posthog-js` directly from feature components. The wrapper owns enable/disable behavior, PII filtering, and event context.
 
@@ -259,6 +261,7 @@ Copy `apps/ai-recruitment-copilot/.env.example` to `apps/ai-recruitment-copilot/
 - Database (`DATABASE_URL`)
 - AI providers (`OPENAI_API_KEY`, `GOOGLE_GENERATIVE_AI_API_KEY`, `ELEVENLABS_API_KEY`, `MINIMAX_API_KEY`) — see `.env.example` for the authoritative list
 - Optional PostHog analytics (`NEXT_PUBLIC_ENABLE_POSTHOG`, `NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN`, `NEXT_PUBLIC_POSTHOG_HOST`)
+- Optional PostHog platform dashboard (`POSTHOG_PERSONAL_API_KEY`, `POSTHOG_PROJECT_ID`, `POSTHOG_API_HOST`)
 
 ### Resend (transactional email)
 

@@ -4,7 +4,10 @@ import { zValidator } from "@hono/zod-validator";
 import { factory, jsonValidatorError } from "@/server/factory";
 import { adminMiddleware } from "@/server/middlewares/admin";
 import { db } from "@/lib/server/db";
+import { normalizePlatformAnalyticsRangeDays } from "@/lib/shared/platform-analytics";
 import { organization, member, session, user } from "@arc/db-schema/schema";
+import { loadPlatformAnalyticsSummary } from "./analytics";
+import { loadPlatformAnalyticsDirectory } from "./directory";
 
 // --- Organizations list ---
 const orgQuerySchema = z.object({
@@ -13,6 +16,12 @@ const orgQuerySchema = z.object({
   search: z.string().optional(),
   sortBy: z.enum(["name", "slug", "createdAt", "memberCount"]).default("createdAt"),
   sortOrder: z.enum(["asc", "desc"]).default("desc"),
+});
+
+const analyticsQuerySchema = z.object({
+  rangeDays: z.coerce.number().int().optional(),
+  userId: z.string().trim().optional(),
+  workspaceId: z.string().trim().optional(),
 });
 
 function orgOrderExpr(sortBy: string) {
@@ -317,9 +326,29 @@ const platformUsers = factory
     );
   });
 
+const platformAnalytics = factory
+  .createApp()
+  .get(
+    "/analytics/summary",
+    zValidator("query", analyticsQuerySchema, jsonValidatorError("参数校验失败")),
+    async (c) => {
+      const query = c.req.valid("query");
+      const directory = await loadPlatformAnalyticsDirectory();
+      const summary = await loadPlatformAnalyticsSummary({
+        directory,
+        rangeDays: normalizePlatformAnalyticsRangeDays(query.rangeDays),
+        userId: query.userId || null,
+        workspaceId: query.workspaceId || null,
+      });
+
+      return c.json(summary, 200);
+    },
+  );
+
 export const platformRouter = factory
   .createApp()
   .use(adminMiddleware)
+  .route("/", platformAnalytics)
   .route("/", platformOrganizations)
   .route("/", organizationDetail)
   .route("/", platformUsers);
