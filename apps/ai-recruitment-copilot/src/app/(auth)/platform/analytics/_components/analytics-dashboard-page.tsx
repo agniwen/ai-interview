@@ -2,12 +2,19 @@
 
 import type {
   PlatformAnalyticsActivityEvent,
+  PlatformAnalyticsEventBreakdownItem,
   PlatformAnalyticsSummary,
 } from "@/lib/shared/platform-analytics";
-import { PLATFORM_ANALYTICS_RANGE_DAYS } from "@/lib/shared/platform-analytics";
+import {
+  DEFAULT_PLATFORM_ANALYTICS_ACTIVITY_PAGE,
+  DEFAULT_PLATFORM_ANALYTICS_ACTIVITY_PAGE_SIZE,
+  DEFAULT_PLATFORM_ANALYTICS_RANGE_DAYS,
+  PLATFORM_ANALYTICS_ACTIVITY_PAGE_SIZE_OPTIONS,
+  PLATFORM_ANALYTICS_RANGE_DAYS,
+} from "@/lib/shared/platform-analytics";
 import { ActivityIcon, CheckCircle2Icon, CircleDotIcon, XCircleIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { customColumn, DataGrid } from "@/components/data-grid";
 import { DATE_TIME_DISPLAY_OPTIONS, TimeDisplay } from "@/components/time-display";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -15,6 +22,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
+import { Progress } from "@/components/ui/progress";
 
 function formatNumber(value: number) {
   return value.toLocaleString("zh-CN");
@@ -87,7 +95,7 @@ function StatStrip({ dashboard }: { dashboard: PlatformAnalyticsSummary }) {
       value: dashboard.totals.pageViews,
     },
     {
-      description: "最近 100 条事件中的当前返回数",
+      description: "当前页返回的 activity 事件数",
       id: "recentActivity",
       label: "Recent activity",
       value: dashboard.activityEvents.length,
@@ -110,6 +118,60 @@ function StatStrip({ dashboard }: { dashboard: PlatformAnalyticsSummary }) {
         </Card>
       ))}
     </section>
+  );
+}
+
+function EventBreakdownRow({
+  item,
+  maxCount,
+}: {
+  item: PlatformAnalyticsEventBreakdownItem;
+  maxCount: number;
+}) {
+  return (
+    <li className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_8rem] sm:items-center">
+      <div className="min-w-0">
+        <div className="flex min-w-0 items-center gap-2">
+          <span className="shrink-0 font-medium text-sm">{getEventLabel(item.event)}</span>
+          <span className="min-w-0 truncate font-mono text-muted-foreground text-xs">
+            {item.event}
+          </span>
+        </div>
+        <Progress className="mt-2 h-1.5" value={(item.count / maxCount) * 100} />
+      </div>
+      <div className="font-mono text-sm tabular-nums sm:text-right">{formatNumber(item.count)}</div>
+    </li>
+  );
+}
+
+function EventBreakdownPanel({ dashboard }: { dashboard: PlatformAnalyticsSummary }) {
+  const maxCount = Math.max(...dashboard.eventBreakdown.map((item) => item.count), 1);
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">Event breakdown</CardTitle>
+        <CardDescription>
+          按事件类型汇总最近 {dashboard.filters.rangeDays} 天的触发量。
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        {dashboard.eventBreakdown.length > 0 ? (
+          <ul className="flex flex-col gap-3">
+            {dashboard.eventBreakdown.map((item) => (
+              <EventBreakdownRow item={item} key={item.event} maxCount={maxCount} />
+            ))}
+          </ul>
+        ) : (
+          <Empty className="h-24 border-border p-4 md:p-4">
+            <EmptyHeader>
+              <EmptyTitle>暂无事件分布</EmptyTitle>
+              <EmptyDescription>当前筛选条件下还没有可展示的事件类型。</EmptyDescription>
+            </EmptyHeader>
+          </Empty>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -191,11 +253,7 @@ function ActivityWorkspaceCell({ event }: { event: PlatformAnalyticsActivityEven
 function ActivityTable({ dashboard }: { dashboard: PlatformAnalyticsSummary }) {
   const router = useRouter();
   const events = dashboard.activityEvents;
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
-  const totalPages = Math.max(1, Math.ceil(events.length / pageSize));
-  const currentPage = Math.min(page, totalPages);
-  const pageRows = events.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  const { page, pageSize, total, totalPages } = dashboard.activityPagination;
   const columns = useMemo(
     () => [
       customColumn<PlatformAnalyticsActivityEvent>({
@@ -287,13 +345,26 @@ function ActivityTable({ dashboard }: { dashboard: PlatformAnalyticsSummary }) {
     [dashboard.filters.rangeDays, dashboard.filters.userId, dashboard.filters.workspaceId],
   );
   const canResetFilters =
-    filterValues.rangeDays !== "30" ||
+    filterValues.rangeDays !== String(DEFAULT_PLATFORM_ANALYTICS_RANGE_DAYS) ||
     filterValues.userId !== "" ||
-    filterValues.workspaceId !== "";
+    filterValues.workspaceId !== "" ||
+    page !== DEFAULT_PLATFORM_ANALYTICS_ACTIVITY_PAGE ||
+    pageSize !== DEFAULT_PLATFORM_ANALYTICS_ACTIVITY_PAGE_SIZE;
 
-  function replaceFilters(nextValues: Record<string, string>) {
+  function replaceQuery({
+    nextPage,
+    nextPageSize,
+    nextValues,
+  }: {
+    nextPage: number;
+    nextPageSize: number;
+    nextValues: Record<string, string>;
+  }) {
     const params = new URLSearchParams();
-    if (nextValues.rangeDays) {
+    if (
+      nextValues.rangeDays &&
+      nextValues.rangeDays !== String(DEFAULT_PLATFORM_ANALYTICS_RANGE_DAYS)
+    ) {
       params.set("rangeDays", nextValues.rangeDays);
     }
     if (nextValues.workspaceId.trim()) {
@@ -301,6 +372,12 @@ function ActivityTable({ dashboard }: { dashboard: PlatformAnalyticsSummary }) {
     }
     if (nextValues.userId.trim()) {
       params.set("userId", nextValues.userId.trim());
+    }
+    if (nextPage !== DEFAULT_PLATFORM_ANALYTICS_ACTIVITY_PAGE) {
+      params.set("page", String(nextPage));
+    }
+    if (nextPageSize !== DEFAULT_PLATFORM_ANALYTICS_ACTIVITY_PAGE_SIZE) {
+      params.set("pageSize", String(nextPageSize));
     }
     const query = params.toString();
     router.replace(query ? `/platform/analytics?${query}` : "/platform/analytics");
@@ -311,7 +388,7 @@ function ActivityTable({ dashboard }: { dashboard: PlatformAnalyticsSummary }) {
       canResetFilters={canResetFilters}
       columns={columns}
       columnPinning={{ left: ["timestamp"] }}
-      data={pageRows}
+      data={events}
       empty={
         <Empty className="border-border">
           <EmptyHeader>
@@ -326,28 +403,39 @@ function ActivityTable({ dashboard }: { dashboard: PlatformAnalyticsSummary }) {
       filters={filters}
       getRowId={(event) => event.id}
       onFilterChange={(key, value) => {
-        setPage(1);
-        replaceFilters({
-          ...filterValues,
-          [key]: value,
+        replaceQuery({
+          nextPage: DEFAULT_PLATFORM_ANALYTICS_ACTIVITY_PAGE,
+          nextPageSize: pageSize,
+          nextValues: {
+            ...filterValues,
+            [key]: value,
+          },
         });
       }}
       onRefresh={() => router.refresh()}
       onResetFilters={() => {
-        setPage(1);
         router.replace("/platform/analytics");
       }}
-      pageSizeOptions={[10, 20, 50, 100]}
+      pageSizeOptions={PLATFORM_ANALYTICS_ACTIVITY_PAGE_SIZE_OPTIONS}
       pagination={{
-        onPageChange: setPage,
-        onPageSizeChange: (nextPageSize) => {
-          setPageSize(nextPageSize);
-          setPage(1);
+        onPageChange: (nextPage) => {
+          replaceQuery({
+            nextPage,
+            nextPageSize: pageSize,
+            nextValues: filterValues,
+          });
         },
-        page: currentPage,
+        onPageSizeChange: (nextPageSize) => {
+          replaceQuery({
+            nextPage: DEFAULT_PLATFORM_ANALYTICS_ACTIVITY_PAGE,
+            nextPageSize,
+            nextValues: filterValues,
+          });
+        },
+        page,
         pageSize,
       }}
-      total={events.length}
+      total={total}
       totalPages={totalPages}
     />
   );
@@ -391,12 +479,14 @@ export function AnalyticsDashboardPage({ dashboard }: { dashboard: PlatformAnaly
 
       <StatStrip dashboard={dashboard} />
 
+      <EventBreakdownPanel dashboard={dashboard} />
+
       <div className="min-w-0">
         <section className="min-w-0">
           <div className="mb-3">
             <h2 className="font-semibold text-base">Live activity</h2>
             <p className="mt-1 text-muted-foreground text-sm">
-              最近 100 条埋点事件，按 PostHog timestamp 倒序。
+              埋点事件按 PostHog timestamp 倒序展示，翻页时重新查询 PostHog。
             </p>
           </div>
           <ActivityTable dashboard={dashboard} />

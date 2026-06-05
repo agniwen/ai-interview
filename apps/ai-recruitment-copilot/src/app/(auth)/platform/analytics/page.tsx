@@ -1,5 +1,9 @@
 import type { Metadata } from "next";
-import { normalizePlatformAnalyticsRangeDays } from "@/lib/shared/platform-analytics";
+import {
+  normalizePlatformAnalyticsActivityPage,
+  normalizePlatformAnalyticsActivityPageSize,
+  normalizePlatformAnalyticsRangeDays,
+} from "@/lib/shared/platform-analytics";
 import { loadPlatformAnalyticsSummary } from "@/server/routes/platform/analytics";
 import { loadPlatformAnalyticsDirectory } from "@/server/routes/platform/directory";
 import { AnalyticsDashboardPage } from "./_components/analytics-dashboard-page";
@@ -12,6 +16,8 @@ export default async function PlatformAnalyticsPage({
   searchParams,
 }: {
   searchParams: Promise<{
+    page?: string;
+    pageSize?: string;
     rangeDays?: string;
     userId?: string;
     workspaceId?: string;
@@ -21,6 +27,8 @@ export default async function PlatformAnalyticsPage({
   const directory = await loadPlatformAnalyticsDirectory();
   const dashboard = await loadPlatformAnalyticsSummary({
     directory,
+    page: normalizePlatformAnalyticsActivityPage(params.page),
+    pageSize: normalizePlatformAnalyticsActivityPageSize(params.pageSize),
     rangeDays: normalizePlatformAnalyticsRangeDays(params.rangeDays),
     userId: params.userId || null,
     workspaceId: params.workspaceId || null,
