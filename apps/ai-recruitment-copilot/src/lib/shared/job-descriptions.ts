@@ -2,6 +2,7 @@ import type { MinimaxVoiceId } from "@arc/db-schema/minimax-voices";
 import { z } from "zod";
 
 export const jobDescriptionBaseSchema = z.object({
+  allowCrossDepartmentInterviewers: z.boolean(),
   departmentId: z.string().trim().min(1, "请选择所属部门"),
   description: z.string().trim().max(500, "描述不能超过 500 字").optional().or(z.literal("")),
   interviewerIds: z
@@ -26,6 +27,7 @@ export interface JobDescriptionInterviewerSummary {
 
 export interface JobDescriptionRecord {
   id: string;
+  allowCrossDepartmentInterviewers: boolean;
   departmentId: string;
   interviewerIds: string[];
   name: string;
