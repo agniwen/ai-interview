@@ -1,5 +1,6 @@
 import type {
   PlatformAnalyticsActivityEvent,
+  PlatformAnalyticsActivityPageSize,
   PlatformAnalyticsDirectory,
   PlatformAnalyticsDailyTrendItem,
   PlatformAnalyticsEventBreakdownItem,
@@ -10,7 +11,13 @@ import type {
   PlatformAnalyticsTopWorkspaceItem,
   PlatformAnalyticsTotals,
 } from "@/lib/shared/platform-analytics";
-import { EMPTY_PLATFORM_ANALYTICS_TOTALS } from "@/lib/shared/platform-analytics";
+import {
+  DEFAULT_PLATFORM_ANALYTICS_ACTIVITY_PAGE,
+  DEFAULT_PLATFORM_ANALYTICS_ACTIVITY_PAGE_SIZE,
+  EMPTY_PLATFORM_ANALYTICS_TOTALS,
+  normalizePlatformAnalyticsActivityPage,
+  normalizePlatformAnalyticsActivityPageSize,
+} from "@/lib/shared/platform-analytics";
 
 export interface PostHogAnalyticsConfig {
   apiHost: string;
@@ -22,6 +29,8 @@ interface LoadPlatformAnalyticsSummaryOptions {
   config?: PostHogAnalyticsConfig | null;
   directory?: PlatformAnalyticsDirectory;
   fetchImpl?: typeof fetch;
+  page?: number;
+  pageSize?: number;
   rangeDays: PlatformAnalyticsRangeDays;
   userId?: string | null;
   workspaceId?: string | null;
@@ -72,9 +81,17 @@ function emptySummary(
   workspaceId?: string | null,
   userId?: string | null,
   error: string | null = null,
+  page = DEFAULT_PLATFORM_ANALYTICS_ACTIVITY_PAGE,
+  pageSize: PlatformAnalyticsActivityPageSize = DEFAULT_PLATFORM_ANALYTICS_ACTIVITY_PAGE_SIZE,
 ): PlatformAnalyticsSummary {
   return {
     activityEvents: [],
+    activityPagination: {
+      page: Math.min(page, 1),
+      pageSize,
+      total: 0,
+      totalPages: 1,
+    },
     configured: false,
     dailyTrend: [],
     directory: EMPTY_DIRECTORY,
@@ -94,17 +111,21 @@ function emptySummary(
 
 function emptyConfiguredSummary({
   error,
+  page,
+  pageSize,
   rangeDays,
   userId,
   workspaceId,
 }: {
   error: string;
+  page?: number;
+  pageSize?: PlatformAnalyticsActivityPageSize;
   rangeDays: PlatformAnalyticsRangeDays;
   userId?: string | null;
   workspaceId?: string | null;
 }): PlatformAnalyticsSummary {
   return {
-    ...emptySummary(rangeDays, workspaceId, userId, error),
+    ...emptySummary(rangeDays, workspaceId, userId, error, page, pageSize),
     configured: true,
   };
 }
@@ -200,7 +221,33 @@ async function executeHogQL(
   }
 }
 
-function buildQueries(where: string) {
+function buildActivityPagination({
+  page,
+  pageSize,
+  total,
+}: {
+  page: number;
+  pageSize: PlatformAnalyticsActivityPageSize;
+  total: number;
+}) {
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  return {
+    page: Math.min(page, totalPages),
+    pageSize,
+    total,
+    totalPages,
+  };
+}
+
+function buildQueries(
+  where: string,
+  activityPagination: {
+    page: number;
+    pageSize: PlatformAnalyticsActivityPageSize;
+  },
+) {
+  const activityOffset = (activityPagination.page - 1) * activityPagination.pageSize;
+
   return {
     activityEvents: `
 SELECT
@@ -219,7 +266,8 @@ SELECT
 FROM events
 WHERE ${where}
 ORDER BY timestamp DESC
-LIMIT 100
+LIMIT ${activityPagination.pageSize}
+OFFSET ${activityOffset}
 `,
     dailyTrend: `
 SELECT
@@ -390,15 +438,26 @@ export async function loadPlatformAnalyticsSummary({
   config = readPostHogAnalyticsConfig(),
   directory = EMPTY_DIRECTORY,
   fetchImpl = fetch,
+  page,
+  pageSize,
   rangeDays,
   userId,
   workspaceId,
 }: LoadPlatformAnalyticsSummaryOptions): Promise<PlatformAnalyticsSummary> {
+  const activityPage = normalizePlatformAnalyticsActivityPage(page);
+  const activityPageSize = normalizePlatformAnalyticsActivityPageSize(pageSize);
+
   if (!config) {
-    return emptySummary(rangeDays, workspaceId, userId);
+    return emptySummary(rangeDays, workspaceId, userId, null, activityPage, activityPageSize);
   }
 
-  const queries = buildQueries(buildBaseWhere({ rangeDays, userId, workspaceId }));
+  const where = buildBaseWhere({ rangeDays, userId, workspaceId });
+  let activityPagination = buildActivityPagination({
+    page: activityPage,
+    pageSize: activityPageSize,
+    total: 0,
+  });
+  let queries = buildQueries(where, activityPagination);
   let totals: unknown[][];
   let dailyTrend: unknown[][];
   let eventBreakdown: unknown[][];
@@ -406,8 +465,16 @@ export async function loadPlatformAnalyticsSummary({
   let topWorkspaces: unknown[][];
   let topUsers: unknown[][];
   let activityEvents: unknown[][];
+  let mappedTotals: PlatformAnalyticsTotals;
   try {
     totals = await executeHogQL(queries.totals, config, fetchImpl);
+    mappedTotals = mapTotals(totals);
+    activityPagination = buildActivityPagination({
+      page: activityPage,
+      pageSize: activityPageSize,
+      total: mappedTotals.totalEvents,
+    });
+    queries = buildQueries(where, activityPagination);
     activityEvents = await executeHogQL(queries.activityEvents, config, fetchImpl);
     dailyTrend = await executeHogQL(queries.dailyTrend, config, fetchImpl);
     eventBreakdown = await executeHogQL(queries.eventBreakdown, config, fetchImpl);
@@ -417,6 +484,8 @@ export async function loadPlatformAnalyticsSummary({
   } catch (error) {
     return emptyConfiguredSummary({
       error: error instanceof Error ? error.message : "PostHog 查询失败，请稍后重试。",
+      page: activityPage,
+      pageSize: activityPageSize,
       rangeDays,
       userId,
       workspaceId,
@@ -425,6 +494,7 @@ export async function loadPlatformAnalyticsSummary({
 
   return {
     activityEvents: mapActivityEvents(activityEvents, directory),
+    activityPagination,
     configured: true,
     dailyTrend: mapDailyTrend(dailyTrend),
     directory,
@@ -438,6 +508,6 @@ export async function loadPlatformAnalyticsSummary({
     topPages: mapTopPages(topPages),
     topUsers: mapTopUsers(topUsers),
     topWorkspaces: mapTopWorkspaces(topWorkspaces),
-    totals: mapTotals(totals),
+    totals: mappedTotals,
   };
 }

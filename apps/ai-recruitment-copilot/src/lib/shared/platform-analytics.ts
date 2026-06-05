@@ -1,6 +1,12 @@
 export const PLATFORM_ANALYTICS_RANGE_DAYS = [7, 30, 90] as const;
+export const DEFAULT_PLATFORM_ANALYTICS_RANGE_DAYS = 7;
+export const PLATFORM_ANALYTICS_ACTIVITY_PAGE_SIZE_OPTIONS = [10, 20, 50, 100] as const;
+export const DEFAULT_PLATFORM_ANALYTICS_ACTIVITY_PAGE = 1;
+export const DEFAULT_PLATFORM_ANALYTICS_ACTIVITY_PAGE_SIZE = 10;
 
 export type PlatformAnalyticsRangeDays = (typeof PLATFORM_ANALYTICS_RANGE_DAYS)[number];
+export type PlatformAnalyticsActivityPageSize =
+  (typeof PLATFORM_ANALYTICS_ACTIVITY_PAGE_SIZE_OPTIONS)[number];
 
 export interface PlatformAnalyticsTotals {
   activeUsers: number;
@@ -80,8 +86,16 @@ export interface PlatformAnalyticsActivityEvent {
   workspaceId: string;
 }
 
+export interface PlatformAnalyticsActivityPagination {
+  page: number;
+  pageSize: PlatformAnalyticsActivityPageSize;
+  total: number;
+  totalPages: number;
+}
+
 export interface PlatformAnalyticsSummary {
   activityEvents: PlatformAnalyticsActivityEvent[];
+  activityPagination: PlatformAnalyticsActivityPagination;
   configured: boolean;
   dailyTrend: PlatformAnalyticsDailyTrendItem[];
   directory: PlatformAnalyticsDirectory;
@@ -114,5 +128,23 @@ export function normalizePlatformAnalyticsRangeDays(
   const numeric = Number(value);
   return PLATFORM_ANALYTICS_RANGE_DAYS.includes(numeric as PlatformAnalyticsRangeDays)
     ? (numeric as PlatformAnalyticsRangeDays)
-    : 30;
+    : DEFAULT_PLATFORM_ANALYTICS_RANGE_DAYS;
+}
+
+export function normalizePlatformAnalyticsActivityPage(value: number | string | null | undefined) {
+  const numeric = Number(value);
+  return Number.isInteger(numeric) && numeric > 0
+    ? numeric
+    : DEFAULT_PLATFORM_ANALYTICS_ACTIVITY_PAGE;
+}
+
+export function normalizePlatformAnalyticsActivityPageSize(
+  value: number | string | null | undefined,
+): PlatformAnalyticsActivityPageSize {
+  const numeric = Number(value);
+  return PLATFORM_ANALYTICS_ACTIVITY_PAGE_SIZE_OPTIONS.includes(
+    numeric as PlatformAnalyticsActivityPageSize,
+  )
+    ? (numeric as PlatformAnalyticsActivityPageSize)
+    : DEFAULT_PLATFORM_ANALYTICS_ACTIVITY_PAGE_SIZE;
 }

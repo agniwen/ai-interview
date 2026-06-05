@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { normalizePlatformAnalyticsRangeDays } from "@/lib/shared/platform-analytics";
 import { loadPlatformAnalyticsSummary } from "@/server/routes/platform/analytics";
 import type { PostHogAnalyticsConfig } from "@/server/routes/platform/analytics";
 
@@ -31,6 +32,10 @@ function jsonResponse(body: unknown) {
 }
 
 describe("platform analytics PostHog summary", () => {
+  it("defaults analytics range to the last 7 days", () => {
+    expect(normalizePlatformAnalyticsRangeDays(null)).toBe(7);
+  });
+
   it("returns an unconfigured summary without calling PostHog when config is missing", async () => {
     const fetchImpl = vi.fn();
 
@@ -208,5 +213,63 @@ describe("platform analytics PostHog summary", () => {
     expect(String(firstInit.body)).toContain("properties.user_id = 'user_1'");
     expect(String(firstInit.body)).toContain("properties.workspace_id IS NOT NULL");
     expect(String(firstInit.body)).toContain("properties.user_id IS NOT NULL");
+  });
+
+  it("uses PostHog limit and offset for activity pagination", async () => {
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValueOnce(
+        jsonResponse({
+          results: [[42, 3, 2, 12, 7, 5, 4]],
+        }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          results: [],
+        }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          results: [],
+        }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          results: [],
+        }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          results: [],
+        }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          results: [],
+        }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          results: [],
+        }),
+      );
+
+    const result = await loadPlatformAnalyticsSummary({
+      config,
+      fetchImpl,
+      page: 3,
+      pageSize: 20,
+      rangeDays: 7,
+    });
+
+    const activityInit = fetchImpl.mock.calls[1]?.[1] as RequestInit;
+    expect(String(activityInit.body)).toContain("LIMIT 20");
+    expect(String(activityInit.body)).toContain("OFFSET 40");
+    expect(result.activityPagination).toEqual({
+      page: 3,
+      pageSize: 20,
+      total: 42,
+      totalPages: 3,
+    });
   });
 });

@@ -4,7 +4,11 @@ import { zValidator } from "@hono/zod-validator";
 import { factory, jsonValidatorError } from "@/server/factory";
 import { adminMiddleware } from "@/server/middlewares/admin";
 import { db } from "@/lib/server/db";
-import { normalizePlatformAnalyticsRangeDays } from "@/lib/shared/platform-analytics";
+import {
+  normalizePlatformAnalyticsActivityPage,
+  normalizePlatformAnalyticsActivityPageSize,
+  normalizePlatformAnalyticsRangeDays,
+} from "@/lib/shared/platform-analytics";
 import { organization, member, session, user } from "@arc/db-schema/schema";
 import { loadPlatformAnalyticsSummary } from "./analytics";
 import { loadPlatformAnalyticsDirectory } from "./directory";
@@ -19,6 +23,8 @@ const orgQuerySchema = z.object({
 });
 
 const analyticsQuerySchema = z.object({
+  page: z.coerce.number().int().optional(),
+  pageSize: z.coerce.number().int().optional(),
   rangeDays: z.coerce.number().int().optional(),
   userId: z.string().trim().optional(),
   workspaceId: z.string().trim().optional(),
@@ -336,6 +342,8 @@ const platformAnalytics = factory
       const directory = await loadPlatformAnalyticsDirectory();
       const summary = await loadPlatformAnalyticsSummary({
         directory,
+        page: normalizePlatformAnalyticsActivityPage(query.page),
+        pageSize: normalizePlatformAnalyticsActivityPageSize(query.pageSize),
         rangeDays: normalizePlatformAnalyticsRangeDays(query.rangeDays),
         userId: query.userId || null,
         workspaceId: query.workspaceId || null,
