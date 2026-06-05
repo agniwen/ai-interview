@@ -4,6 +4,7 @@ import type { DepartmentRecord } from "@/lib/shared/departments";
 import type { InterviewerFormValues, InterviewerRecord } from "@/lib/shared/interviewers";
 import { interviewerFormSchema } from "@/lib/shared/interviewers";
 import { rpc } from "@/lib/client/rpc";
+import { captureAnalyticsEvent } from "@/lib/client/analytics";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { toast } from "sonner";
 import { LoaderCircleIcon, SquareIcon, Volume2Icon } from "lucide-react";
@@ -149,6 +150,11 @@ export function InterviewerFormDialog({
       if (!response.ok) {
         toast.error(payload?.error ?? (isEdit ? "更新失败" : "创建失败"));
         return;
+      }
+      if (!isEdit) {
+        captureAnalyticsEvent("interviewer_created", {
+          departmentId: body.departmentId,
+        });
       }
       toast.success(isEdit ? "面试官已更新" : "面试官已创建");
       onSaved();

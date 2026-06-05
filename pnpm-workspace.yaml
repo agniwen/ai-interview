@@ -20,6 +20,7 @@ catalog:
 allowBuilds:
   canvas: set this to true or false
   cbor-extract: true
+  core-js: false
   esbuild: true
   lefthook: true
   protobufjs: true

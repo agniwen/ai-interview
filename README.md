@@ -58,6 +58,10 @@ Key requirements for the web `.env`:
 - **Voice TTS/STT** — `ELEVENLABS_API_KEY`
 - **Object storage** — `S3_*` for general uploads (resume PDFs, attachments),
   `RECORDING_R2_*` for LiveKit Egress interview recordings
+- **PostHog analytics (optional)** — frontend capture:
+  `NEXT_PUBLIC_ENABLE_POSTHOG=true`, `NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN`,
+  `NEXT_PUBLIC_POSTHOG_HOST`; platform dashboard server query:
+  `POSTHOG_PERSONAL_API_KEY`, `POSTHOG_PROJECT_ID`, `POSTHOG_API_HOST`
 - **Optional integrations** — `FEISHU_*` for the Feishu bot adapter
 
 Refer to `.env.example` for the full list with per-variable explanations.
@@ -132,6 +136,58 @@ toolset on the `/api/resume/chat` endpoint:
 Resume PDFs are parsed at upload time via Qwen-VL OCR + DeepSeek V4 Flash; the
 structured result is baked into the user message as a `data-resume-parsed`
 part, so the chat agent never re-parses PDFs.
+
+## Product analytics — PostHog
+
+The web app uses PostHog through the client-only wrapper at
+`apps/ai-recruitment-copilot/src/lib/client/analytics.ts`. PostHog is disabled
+unless `NEXT_PUBLIC_ENABLE_POSTHOG=true` and
+`NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN` is set. Because these `NEXT_PUBLIC_*`
+values are bundled into the browser build, restart the dev server or redeploy
+after changing them.
+
+Every tracked workspace event should include filterable context:
+
+- `user_id` — the Better Auth user id, also used as PostHog `distinct_id`
+- `workspace_id` — the active organization/workspace id
+
+The wrapper registers these as PostHog super properties after entering a
+workspace, so custom events sent through `captureAnalyticsEvent()` inherit them.
+
+Tracked events currently include:
+
+- `page_viewed`
+- `resume_parse_started`, `resume_parse_completed`, `resume_parse_failed`
+- `resume_upload_started`, `resume_upload_completed`
+- `interview_created`
+- `interviewer_created`
+- `job_description_created`, `job_description_updated`
+- `job_interviewer_matched`
+
+Page views are intentionally custom-tracked instead of using PostHog's automatic
+pageview capture. Raw URLs are normalized before upload: workspace slugs,
+record ids, and query strings are removed, e.g.
+`/w/acme/studio/interviews/round_123?recordId=candidate_1` becomes
+`/w/[workspace]/studio/interviews/[id]`.
+
+Privacy rule: do not send candidate names, emails, phone numbers, resume text,
+interview transcripts, free-form notes, or original file names to PostHog. The
+analytics wrapper uses a property allowlist for internal ids, counts, status,
+durations, file type/size, and page classification fields.
+
+To verify analytics locally:
+
+1. Set the PostHog env vars and restart the Next.js dev server.
+2. Open browser DevTools Network and filter for `posthog` or the configured
+   host.
+3. Trigger a page navigation or resume/JD/interviewer workflow.
+4. Confirm the outgoing event payload contains `user_id` and `workspace_id`,
+   and does not contain candidate PII.
+
+Platform admins can view aggregated analytics at `/platform/analytics`. That
+page queries PostHog server-side with `POSTHOG_PERSONAL_API_KEY` and supports
+range, `workspace_id`, and `user_id` filters. The personal API key must never
+use a `NEXT_PUBLIC_` prefix.
 
 ## External references
 

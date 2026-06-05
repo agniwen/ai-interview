@@ -1,6 +1,6 @@
 "use client";
 
-import { Building2Icon, UsersIcon } from "lucide-react";
+import { BarChart3Icon, Building2Icon, UsersIcon } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -34,6 +34,11 @@ const navItems: NavItem[] = [
     icon: UsersIcon,
     path: "/platform/users",
     title: "所有用户",
+  },
+  {
+    icon: BarChart3Icon,
+    path: "/platform/analytics",
+    title: "埋点数据",
   },
 ];
 
