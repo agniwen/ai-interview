@@ -6,6 +6,8 @@ import { auth } from "@/lib/server/auth";
 import { getCurrentOrganizations, getCurrentSession } from "@/lib/server/auth-session";
 import { user as userTable } from "@arc/db-schema/schema";
 import { WorkspaceSlugProvider } from "@/lib/client/workspace-context";
+import { WorkspaceAnalyticsIdentity } from "@/lib/client/workspace-analytics-identity";
+import { WorkspacePageViewTracker } from "@/lib/client/workspace-page-view-tracker";
 import { AppSidebarShell } from "@/components/app-sidebar/app-sidebar-shell";
 
 export default async function WorkspaceLayout({
@@ -78,6 +80,8 @@ export default async function WorkspaceLayout({
 
   return (
     <WorkspaceSlugProvider slug={slug}>
+      <WorkspaceAnalyticsIdentity workspaceId={matched.id} />
+      <WorkspacePageViewTracker workspaceId={matched.id} />
       <AppSidebarShell>{children}</AppSidebarShell>
     </WorkspaceSlugProvider>
   );

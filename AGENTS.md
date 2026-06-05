@@ -1,4 +1,4 @@
-# CLAUDE.md
+# AGENTS.md
 
 Behavioral guidelines to reduce common LLM coding mistakes. Merge with project-specific instructions as needed.
 
@@ -156,6 +156,39 @@ Exceptions: `src/server/agents/` (shared by frontend + multiple routes) and `src
 - **Server Components** that need absolute URLs at SSR time (e.g. `/api/interview/[id]/resolve` in `app/interview/[id]/page.tsx`) stay on plain `fetch` with `NEXT_PUBLIC_BASE_URL`. The rpc singleton is browser-relative.
 - Date fields cross the wire as ISO strings; DAOs should `.toISOString()` Date columns before returning so the response DTO is `string` and the inferred client type matches reality.
 
+## Product Analytics (PostHog)
+
+PostHog is optional and client-side only. It is initialized from `apps/ai-recruitment-copilot/src/instrumentation-client.ts` through `@/lib/client/analytics`. It is enabled only when both `NEXT_PUBLIC_ENABLE_POSTHOG=true` and `NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN` are present; changing these values requires restarting the dev server or rebuilding because they are `NEXT_PUBLIC_*` variables.
+
+Use `captureAnalyticsEvent()` from `@/lib/client/analytics` for all product events. Do not import `posthog-js` directly from feature components. The wrapper owns enable/disable behavior, PII filtering, and event context.
+
+Every workspace-scoped event must be filterable by:
+
+- `user_id` — Better Auth user id; also sent to PostHog as `distinct_id`
+- `workspace_id` — active organization/workspace id
+
+`WorkspaceAnalyticsIdentity` registers those values after entering `/w/[slug]/...`, and the wrapper adds them to later custom events as PostHog super properties plus explicit event properties. If you add events outside workspace routes, pass safe context explicitly or accept that workspace filters will not apply.
+
+Current custom events:
+
+- `page_viewed`
+- `resume_parse_started`, `resume_parse_completed`, `resume_parse_failed`
+- `resume_upload_started`, `resume_upload_completed`
+- `interview_created`
+- `interviewer_created`
+- `job_description_created`, `job_description_updated`
+- `job_interviewer_matched`
+
+Page views are custom-tracked by `WorkspacePageViewTracker`; PostHog automatic `capture_pageview` is disabled. Never send raw URLs. Page paths must be normalized so workspace slugs, record ids, and query strings are removed, e.g. `/w/acme/studio/interviews/round_123?recordId=candidate_1` → `/w/[workspace]/studio/interviews/[id]`.
+
+Privacy rule: never send candidate names, emails, phone numbers, resume text, interview transcripts, free-form notes, or original file names to PostHog. Analytics properties are allowlisted in `analytics.ts`; extend the allowlist only with stable, non-PII fields such as internal ids, counts, status, durations, file type/size, and page classification.
+
+When changing analytics behavior, update `apps/ai-recruitment-copilot/src/lib/client/__tests__/analytics.test.ts` first and run:
+
+- `pnpm --filter @arc/ai-recruitment-copilot exec vitest run src/lib/client/__tests__/analytics.test.ts`
+- `pnpm --filter @arc/ai-recruitment-copilot typecheck`
+- `pnpm check`
+
 ## External Documentation
 
 When changes touch Hono or Next.js APIs, consult the canonical `llms.txt` indices instead of relying on training-data recall — both projects move quickly and the bundles track the current stable release:
@@ -225,6 +258,7 @@ Copy `apps/ai-recruitment-copilot/.env.example` to `apps/ai-recruitment-copilot/
 - Google OAuth (`GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`)
 - Database (`DATABASE_URL`)
 - AI providers (`OPENAI_API_KEY`, `GOOGLE_GENERATIVE_AI_API_KEY`, `ELEVENLABS_API_KEY`, `MINIMAX_API_KEY`) — see `.env.example` for the authoritative list
+- Optional PostHog analytics (`NEXT_PUBLIC_ENABLE_POSTHOG`, `NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN`, `NEXT_PUBLIC_POSTHOG_HOST`)
 
 ### Resend (transactional email)
 

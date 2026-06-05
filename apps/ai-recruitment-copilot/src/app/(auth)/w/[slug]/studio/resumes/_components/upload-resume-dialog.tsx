@@ -22,6 +22,7 @@ import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { apiFetch } from "@/lib/client/api";
+import { captureAnalyticsEvent } from "@/lib/client/analytics";
 import {
   buildSaveAndStartResumeFormData,
   buildSaveOnlyResumeFormData,
@@ -42,6 +43,48 @@ type SubmitMode = "save-only" | "save-and-start";
 
 interface CreateResumeRecordDialogProps {
   onCreated: (result: CreateResumeRecordResult) => void;
+}
+
+function resumeFileAnalyticsProperties(file: File | null) {
+  return {
+    fileSize: file?.size ?? null,
+    fileType: file?.name.split(".").pop()?.toLowerCase() || null,
+  };
+}
+
+function captureResumeUploadStarted(file: File | null, mode: SubmitMode) {
+  if (!file) {
+    return;
+  }
+
+  captureAnalyticsEvent("resume_upload_started", {
+    ...resumeFileAnalyticsProperties(file),
+    mode,
+    source: "resume_library",
+  });
+}
+
+function captureResumeUploadCompleted({
+  file,
+  jobDescriptionId,
+  mode,
+  resumeId,
+  hasResumePayload,
+}: {
+  file: File | null;
+  hasResumePayload: boolean;
+  jobDescriptionId: string;
+  mode: SubmitMode;
+  resumeId?: string;
+}) {
+  captureAnalyticsEvent("resume_upload_completed", {
+    ...resumeFileAnalyticsProperties(file),
+    hasResumePayload,
+    jobDescriptionId: jobDescriptionId || null,
+    mode,
+    resumeId: resumeId ?? null,
+    source: "resume_library",
+  });
 }
 
 export function CreateResumeRecordDialog({ onCreated }: CreateResumeRecordDialogProps) {
@@ -65,10 +108,19 @@ export function CreateResumeRecordDialog({ onCreated }: CreateResumeRecordDialog
 
       setSubmitting(true);
       try {
+        captureResumeUploadStarted(file, mode);
+
         if (mode === "save-only") {
           const detail = await apiFetch<ResumeLibraryDetail>(`/api/w/${slug}/studio/resumes`, {
             body: buildSaveOnlyResumeFormData(value, file, payload),
             method: "POST",
+          });
+          captureResumeUploadCompleted({
+            file,
+            hasResumePayload: payload !== null,
+            jobDescriptionId: value.jobDescriptionId,
+            mode,
+            resumeId: detail.id,
           });
           toast.success("简历记录已创建");
           onCreated({ detail, mode: "save-only" });
@@ -93,6 +145,18 @@ export function CreateResumeRecordDialog({ onCreated }: CreateResumeRecordDialog
               method: "POST",
             },
           );
+          captureResumeUploadCompleted({
+            file,
+            hasResumePayload: payload !== null,
+            jobDescriptionId: value.jobDescriptionId,
+            mode,
+          });
+          captureAnalyticsEvent("interview_created", {
+            interviewRoundId: round.id,
+            jobDescriptionId: value.jobDescriptionId || null,
+            questionCount: payload?.interviewQuestions.length ?? 0,
+            source: "resume_library",
+          });
           toast.success("已创建并发起 1 轮面试");
           onCreated({ mode: "save-and-start", round });
         }
