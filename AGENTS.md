@@ -126,6 +126,7 @@ Every route folder is a self-contained unit:
 - **Required**: `route.ts` exporting a Hono router. Middleware must be declared **inside** the router via `.use(...)` at the closest common-ancestor route (the GCD of paths it applies to). Do **not** add per-feature `.use(...)` calls in `app.ts` — `app.ts` is mount-only.
 - **Optional**: `schema.ts` (Zod schemas), `dao.ts` or `dao/` (database queries), `utils.ts` or `utils/` (feature-internal helpers, services, AI processing).
 - **Nested children**: when a route needs to split into multiple sub-routers (e.g. `/studio` → `interviews`, `departments`, …), put each child under a `routes/` subfolder (`routes/studio/routes/interviews/`). The same convention applies recursively.
+- **Path-based split rule**: split by URL path depth when the child path represents a real sub-resource or sub-module. Keep collection/item CRUD such as `/interviews` and `/interviews/:id` in `interviews/route.ts`; move child resources such as `/interviews/:id/reports` or `/interviews/:id/recordings/:conversationId` to `interviews/routes/reports/route.ts` or `interviews/routes/recordings/route.ts`, then mount them from the parent with `.route("/:id/reports", reportsRouter)`. Do not create dynamic-segment folders like `routes/:id/route.ts` for Hono routes.
 
 Do **not** create top-level `src/server/queries/` or `src/server/services/` directories — co-locate DAOs/services with the route that owns them. Cross-route consumption is fine; just import from the owning route's `dao`/`utils`.
 
