@@ -26,6 +26,13 @@ export interface StreamRequestOptions {
   onEvent?: (event: AnalysisStreamEvent) => void;
 }
 
+export interface GenerateResumeReviewOptions {
+  jobDescriptionId?: string | null;
+  onDraftChange?: (review: string) => void;
+  resumeProfile: ResumeProfile;
+  signal?: AbortSignal;
+}
+
 export async function parseResumeFile(
   file: File,
   options: StreamRequestOptions = {},
@@ -94,6 +101,60 @@ export async function matchJobDescriptionForResume(
     matchedId: payload?.matchedId ?? null,
     reason: payload?.reason ?? null,
   };
+}
+
+export async function generateResumeReview({
+  jobDescriptionId,
+  onDraftChange,
+  resumeProfile,
+  signal,
+}: GenerateResumeReviewOptions): Promise<string | null> {
+  const response = await rpc.api.interview["generate-review"].$post(
+    { json: { jobDescriptionId: jobDescriptionId || null, resumeProfile } },
+    { init: { signal } },
+  );
+
+  if (!response.ok) {
+    const errBody = (await response.json().catch(() => null)) as { error?: string } | null;
+    throw new Error(errBody?.error ?? "简历评价生成失败");
+  }
+
+  let draft = "";
+  let result: string | null = null;
+  let streamError: string | null = null;
+
+  await readNdjsonStream<AnalysisStreamEvent>(
+    response,
+    (event) => {
+      if (signal?.aborted) {
+        return;
+      }
+      if (event.type === "text-delta") {
+        draft += event.text;
+        onDraftChange?.(draft);
+      }
+      if (event.type === "result") {
+        const data = event.data as { review?: string };
+        result = data.review ?? null;
+        if (result) {
+          onDraftChange?.(result);
+        }
+      }
+      if (event.type === "error") {
+        streamError = event.message;
+      }
+    },
+    signal,
+  );
+
+  if (signal?.aborted) {
+    return null;
+  }
+  if (streamError) {
+    throw new Error(streamError);
+  }
+
+  return result ?? (draft.trim() ? draft : null);
 }
 
 export function buildResumePayload(

@@ -11,24 +11,24 @@ TanStack Query provides an `AbortSignal` to cancel in-flight requests when queri
 ```tsx
 // Not using abort signal - requests complete even when unnecessary
 const { data } = useQuery({
-  queryKey: ['search', searchTerm],
+  queryKey: ["search", searchTerm],
   queryFn: async () => {
     // User types fast: "a", "ab", "abc"
     // Three requests fire, all complete, wasting bandwidth
-    const response = await fetch(`/api/search?q=${searchTerm}`)
-    return response.json()
+    const response = await fetch(`/api/search?q=${searchTerm}`);
+    return response.json();
   },
-})
+});
 
 // Component unmounts but request keeps running
 function UserProfile({ userId }: { userId: string }) {
   const { data } = useQuery({
-    queryKey: ['user', userId],
+    queryKey: ["user", userId],
     queryFn: async () => {
-      const response = await fetch(`/api/users/${userId}`)
-      return response.json()  // Completes even if user navigated away
+      const response = await fetch(`/api/users/${userId}`);
+      return response.json(); // Completes even if user navigated away
     },
-  })
+  });
 }
 ```
 
@@ -36,14 +36,14 @@ function UserProfile({ userId }: { userId: string }) {
 
 ```tsx
 const { data } = useQuery({
-  queryKey: ['search', searchTerm],
+  queryKey: ["search", searchTerm],
   queryFn: async ({ signal }) => {
     const response = await fetch(`/api/search?q=${searchTerm}`, {
-      signal,  // Pass abort signal to fetch
-    })
-    return response.json()
+      signal, // Pass abort signal to fetch
+    });
+    return response.json();
   },
-})
+});
 
 // Now when user types "a", "ab", "abc" quickly:
 // - "a" request is cancelled when "ab" starts
@@ -54,51 +54,48 @@ const { data } = useQuery({
 ## Good Example: With Axios
 
 ```tsx
-import axios from 'axios'
+import axios from "axios";
 
 const { data } = useQuery({
-  queryKey: ['users', userId],
+  queryKey: ["users", userId],
   queryFn: async ({ signal }) => {
     const response = await axios.get(`/api/users/${userId}`, {
-      signal,  // Axios supports AbortSignal
-    })
-    return response.data
+      signal, // Axios supports AbortSignal
+    });
+    return response.data;
   },
-})
+});
 ```
 
 ## Good Example: Manual Cancellation
 
 ```tsx
 function SearchResults() {
-  const queryClient = useQueryClient()
-  const [searchTerm, setSearchTerm] = useState('')
+  const queryClient = useQueryClient();
+  const [searchTerm, setSearchTerm] = useState("");
 
   const { data } = useQuery({
-    queryKey: ['search', searchTerm],
+    queryKey: ["search", searchTerm],
     queryFn: async ({ signal }) => {
-      const response = await fetch(`/api/search?q=${searchTerm}`, { signal })
-      return response.json()
+      const response = await fetch(`/api/search?q=${searchTerm}`, { signal });
+      return response.json();
     },
     enabled: searchTerm.length > 0,
-  })
+  });
 
   // Cancel all search queries manually
   const handleClear = () => {
-    queryClient.cancelQueries({ queryKey: ['search'] })
-    setSearchTerm('')
-  }
+    queryClient.cancelQueries({ queryKey: ["search"] });
+    setSearchTerm("");
+  };
 
   return (
     <div>
-      <input
-        value={searchTerm}
-        onChange={(e) => setSearchTerm(e.target.value)}
-      />
+      <input value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
       <button onClick={handleClear}>Clear</button>
       <Results data={data} />
     </div>
-  )
+  );
 }
 ```
 
@@ -126,40 +123,40 @@ const updateTodo = useMutation({
 ```tsx
 // For non-fetch APIs that need custom cancellation
 const { data } = useQuery({
-  queryKey: ['expensive-computation', params],
+  queryKey: ["expensive-computation", params],
   queryFn: ({ signal }) => {
     return new Promise((resolve, reject) => {
       // Check if already cancelled
       if (signal.aborted) {
-        reject(new DOMException('Aborted', 'AbortError'))
-        return
+        reject(new DOMException("Aborted", "AbortError"));
+        return;
       }
 
-      const worker = new Worker('computation.js')
-      worker.postMessage(params)
+      const worker = new Worker("computation.js");
+      worker.postMessage(params);
 
-      worker.onmessage = (e) => resolve(e.data)
-      worker.onerror = (e) => reject(e)
+      worker.onmessage = (e) => resolve(e.data);
+      worker.onerror = (e) => reject(e);
 
       // Listen for cancellation
-      signal.addEventListener('abort', () => {
-        worker.terminate()
-        reject(new DOMException('Aborted', 'AbortError'))
-      })
-    })
+      signal.addEventListener("abort", () => {
+        worker.terminate();
+        reject(new DOMException("Aborted", "AbortError"));
+      });
+    });
   },
-})
+});
 ```
 
 ## When Queries Are Cancelled
 
-| Scenario | Cancelled? |
-|----------|------------|
-| Query key changes | Yes |
-| Component unmounts | Yes |
-| `queryClient.cancelQueries()` called | Yes |
-| Refetch triggered | Previous request cancelled |
-| `enabled` becomes false | Yes |
+| Scenario                             | Cancelled?                 |
+| ------------------------------------ | -------------------------- |
+| Query key changes                    | Yes                        |
+| Component unmounts                   | Yes                        |
+| `queryClient.cancelQueries()` called | Yes                        |
+| Refetch triggered                    | Previous request cancelled |
+| `enabled` becomes false              | Yes                        |
 
 ## Context
 

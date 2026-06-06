@@ -11,32 +11,34 @@ Query keys are hashed using JSON serialization for cache lookups. Non-serializab
 ```tsx
 // Functions are not serializable
 const { data } = useQuery({
-  queryKey: ['todos', () => 'active'],  // Wrong: function in key
+  queryKey: ["todos", () => "active"], // Wrong: function in key
   queryFn: fetchTodos,
-})
+});
 
 // Class instances lose their prototype
 class Filter {
   constructor(public status: string) {}
-  isActive() { return this.status === 'active' }
+  isActive() {
+    return this.status === "active";
+  }
 }
-const filter = new Filter('active')
+const filter = new Filter("active");
 const { data: todos } = useQuery({
-  queryKey: ['todos', filter],  // Wrong: class instance
+  queryKey: ["todos", filter], // Wrong: class instance
   queryFn: () => fetchTodos(filter),
-})
+});
 
 // Dates are technically serializable but become strings
 const { data: events } = useQuery({
-  queryKey: ['events', new Date()],  // Problematic: new Date() each render
+  queryKey: ["events", new Date()], // Problematic: new Date() each render
   queryFn: () => fetchEvents(date),
-})
+});
 
 // Symbols are not serializable
 const { data: settings } = useQuery({
-  queryKey: ['settings', Symbol('user')],  // Wrong: symbol
+  queryKey: ["settings", Symbol("user")], // Wrong: symbol
   queryFn: fetchSettings,
-})
+});
 ```
 
 ## Good Example
@@ -44,40 +46,42 @@ const { data: settings } = useQuery({
 ```tsx
 // Use primitive values and plain objects
 const { data } = useQuery({
-  queryKey: ['todos', 'active'],
+  queryKey: ["todos", "active"],
   queryFn: fetchTodos,
-})
+});
 
 // Plain objects are fine
-const filters = { status: 'active', priority: 'high' }
+const filters = { status: "active", priority: "high" };
 const { data: todos } = useQuery({
-  queryKey: ['todos', filters],
+  queryKey: ["todos", filters],
   queryFn: () => fetchTodos(filters),
-})
+});
 
 // For dates, use stable string representations
-const dateKey = date.toISOString().split('T')[0]  // '2024-01-15'
+const dateKey = date.toISOString().split("T")[0]; // '2024-01-15'
 const { data: events } = useQuery({
-  queryKey: ['events', dateKey],
+  queryKey: ["events", dateKey],
   queryFn: () => fetchEvents(date),
-})
+});
 
 // Arrays of primitives work correctly
 const { data: users } = useQuery({
-  queryKey: ['users', { ids: [1, 2, 3] }],
+  queryKey: ["users", { ids: [1, 2, 3] }],
   queryFn: () => fetchUsers([1, 2, 3]),
-})
+});
 ```
 
 ## Serializable Types
 
 **Safe to use:**
+
 - Strings, numbers, booleans, null
 - Plain objects (no prototype methods)
 - Arrays of serializable values
 - undefined (stripped but handled)
 
 **Avoid:**
+
 - Functions
 - Class instances
 - Symbols

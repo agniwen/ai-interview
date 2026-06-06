@@ -77,6 +77,10 @@ export interface CandidateFormFieldsProps {
   /** 编辑场景要求候选人姓名非空时显示必填标记。 */
   requireCandidateName?: boolean;
   disabled?: boolean;
+  /** 简历评价 label 右侧动作，例如“重新生成”。 */
+  notesLabelAction?: ReactNode;
+  /** 仅禁用简历评价编辑器；用于自动生成过程中防止手动录入。 */
+  notesDisabled?: boolean;
   /** false 时只显示简历 PDF 字段；用于新建弹窗解析完成前的初始状态。 */
   showDetails?: boolean;
   /**
@@ -133,6 +137,8 @@ export function CandidateFormFields({
   candidateNamePlaceholder = "可留空，自动从简历回填",
   requireCandidateName = false,
   disabled,
+  notesLabelAction,
+  notesDisabled = false,
   showDetails = true,
   requireResumeFile = false,
   isJobDescriptionMatching = false,
@@ -333,11 +339,14 @@ export function CandidateFormFields({
             const errors = toFieldErrors(field.state.meta.errors);
             return (
               <Field>
-                <FieldLabel htmlFor={field.name}>简历评价</FieldLabel>
+                <div className="flex items-center gap-2">
+                  <FieldLabel htmlFor={field.name}>简历评价</FieldLabel>
+                  {notesLabelAction}
+                </div>
                 <FieldContent className="gap-2">
                   <MarkdownEditor
                     aria-invalid={!!errors?.length}
-                    disabled={disabled}
+                    disabled={disabled || notesDisabled}
                     id={field.name}
                     maxLength={NOTES_MAX_LENGTH}
                     minHeight={180}
