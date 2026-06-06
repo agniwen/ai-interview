@@ -12,20 +12,20 @@ For server-side rendering, prefetch queries on the server, dehydrate the cache t
 // No SSR data passing - client refetches everything
 // server-side
 export async function getServerSideProps() {
-  const data = await fetchPosts()
-  return { props: { posts: data } }  // Bypasses React Query cache
+  const data = await fetchPosts();
+  return { props: { posts: data } }; // Bypasses React Query cache
 }
 
 // client-side
 function PostsPage({ posts }: { posts: Post[] }) {
   // This doesn't benefit from the server fetch
   const { data } = useQuery({
-    queryKey: ['posts'],
+    queryKey: ["posts"],
     queryFn: fetchPosts,
     // Will refetch on client, causing flash
-  })
+  });
 
-  return <PostList posts={data ?? posts} />  // Awkward fallback pattern
+  return <PostList posts={data ?? posts} />; // Awkward fallback pattern
 }
 ```
 
@@ -33,41 +33,37 @@ function PostsPage({ posts }: { posts: Post[] }) {
 
 ```tsx
 // app/posts/page.tsx
-import {
-  dehydrate,
-  HydrationBoundary,
-  QueryClient,
-} from '@tanstack/react-query'
-import { postQueries } from '@/lib/queries'
+import { dehydrate, HydrationBoundary, QueryClient } from "@tanstack/react-query";
+import { postQueries } from "@/lib/queries";
 
 export default async function PostsPage() {
-  const queryClient = new QueryClient()
+  const queryClient = new QueryClient();
 
-  await queryClient.prefetchQuery(postQueries.list())
+  await queryClient.prefetchQuery(postQueries.list());
 
   return (
     <HydrationBoundary state={dehydrate(queryClient)}>
       <PostList />
     </HydrationBoundary>
-  )
+  );
 }
 
 // components/PostList.tsx
-'use client'
+("use client");
 
-import { useSuspenseQuery } from '@tanstack/react-query'
-import { postQueries } from '@/lib/queries'
+import { useSuspenseQuery } from "@tanstack/react-query";
+import { postQueries } from "@/lib/queries";
 
 export function PostList() {
-  const { data: posts } = useSuspenseQuery(postQueries.list())
+  const { data: posts } = useSuspenseQuery(postQueries.list());
 
   return (
     <ul>
-      {posts.map(post => (
+      {posts.map((post) => (
         <li key={post.id}>{post.title}</li>
       ))}
     </ul>
-  )
+  );
 }
 ```
 
@@ -75,20 +71,20 @@ export function PostList() {
 
 ```tsx
 // routes/posts.tsx
-import { createFileRoute } from '@tanstack/react-router'
-import { postQueries } from '@/lib/queries'
+import { createFileRoute } from "@tanstack/react-router";
+import { postQueries } from "@/lib/queries";
 
-export const Route = createFileRoute('/posts')({
+export const Route = createFileRoute("/posts")({
   loader: async ({ context: { queryClient } }) => {
     // Prefetch in route loader
-    await queryClient.ensureQueryData(postQueries.list())
+    await queryClient.ensureQueryData(postQueries.list());
   },
   component: PostsPage,
-})
+});
 
 function PostsPage() {
-  const { data: posts } = useSuspenseQuery(postQueries.list())
-  return <PostList posts={posts} />
+  const { data: posts } = useSuspenseQuery(postQueries.list());
+  return <PostList posts={posts} />;
 }
 ```
 
@@ -96,34 +92,34 @@ function PostsPage() {
 
 ```tsx
 // server.tsx
-import { dehydrate, QueryClient } from '@tanstack/react-query'
-import { renderToString } from 'react-dom/server'
+import { dehydrate, QueryClient } from "@tanstack/react-query";
+import { renderToString } from "react-dom/server";
 
 export async function render(url: string) {
   const queryClient = new QueryClient({
     defaultOptions: {
       queries: {
-        staleTime: 60 * 1000,  // Prevent immediate client refetch
+        staleTime: 60 * 1000, // Prevent immediate client refetch
       },
     },
-  })
+  });
 
   // Prefetch required data
   await queryClient.prefetchQuery({
-    queryKey: ['posts'],
+    queryKey: ["posts"],
     queryFn: fetchPosts,
-  })
+  });
 
-  const dehydratedState = dehydrate(queryClient)
+  const dehydratedState = dehydrate(queryClient);
 
   const html = renderToString(
     <QueryClientProvider client={queryClient}>
       <App />
-    </QueryClientProvider>
-  )
+    </QueryClientProvider>,
+  );
 
   // Serialize safely - JSON.stringify is XSS vulnerable
-  const serializedState = serialize(dehydratedState)
+  const serializedState = serialize(dehydratedState);
 
   return `
     <html>
@@ -132,21 +128,21 @@ export async function render(url: string) {
         <script>window.__DEHYDRATED_STATE__ = ${serializedState}</script>
       </body>
     </html>
-  `
+  `;
 }
 
 // client.tsx
-import { hydrate, QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { hydrate, QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
-const queryClient = new QueryClient()
-hydrate(queryClient, window.__DEHYDRATED_STATE__)
+const queryClient = new QueryClient();
+hydrate(queryClient, window.__DEHYDRATED_STATE__);
 
 hydrateRoot(
-  document.getElementById('app'),
+  document.getElementById("app"),
   <QueryClientProvider client={queryClient}>
     <App />
-  </QueryClientProvider>
-)
+  </QueryClientProvider>,
+);
 ```
 
 ## Context
