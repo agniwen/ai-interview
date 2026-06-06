@@ -31,11 +31,7 @@ import { rpc } from "@/lib/client/rpc";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { DepartmentFormDialog } from "./department-form-dialog";
 
-export function DepartmentManagementPage({
-  initialData,
-}: {
-  initialData: PaginatedDepartmentResult;
-}) {
+export function DepartmentManagementPage() {
   const slug = useWorkspaceSlug();
   const queryClient = useQueryClient();
 
@@ -46,6 +42,8 @@ export function DepartmentManagementPage({
         page: number;
         pageSize: number;
         filters: Record<string, never>;
+        sortBy: string | undefined;
+        sortOrder: "asc" | "desc" | undefined;
       }): Promise<PaginatedDepartmentResult> => {
         const res = await rpc.api.w[":slug"].studio.departments.$get({
           param: { slug },
@@ -53,8 +51,8 @@ export function DepartmentManagementPage({
             page: String(params.page),
             pageSize: String(params.pageSize),
             ...(params.search ? { search: params.search } : {}),
-            sortBy: "createdAt",
-            sortOrder: "desc",
+            sortBy: params.sortBy ?? "createdAt",
+            sortOrder: params.sortOrder ?? "desc",
           },
         });
         if (!res.ok) {
@@ -66,11 +64,11 @@ export function DepartmentManagementPage({
   );
 
   const grid = useDataGridState<DepartmentListRecord, Record<string, never>>({
-    fetcher: fetchDepartments,
-    initialData,
+    allowedSortIds: ["createdAt", "name", "updatedAt"],
+    defaultSorting: [{ desc: true, id: "createdAt" }],
     initialFilters: {},
-    namespace: "departments",
-    scopeKey: [slug],
+    queryFn: fetchDepartments,
+    queryKeyBase: ["departments", slug],
   });
 
   // 两类 scope 弹窗的当前目标部门；null 表示弹窗关闭。

@@ -37,7 +37,11 @@ type StartConfig = Omit<CreateBulkResumeBatchInput, "files">;
 
 const LIST_INVALIDATE_THROTTLE_MS = 600;
 
-export function useBulkUpload() {
+interface UseBulkUploadOptions {
+  onRecordsChanged?: () => void;
+}
+
+export function useBulkUpload({ onRecordsChanged }: UseBulkUploadOptions = {}) {
   const slug = useWorkspaceSlug();
   const qc = useQueryClient();
   const [state, setState] = useState<BulkUploadState>({
@@ -105,6 +109,7 @@ export function useBulkUpload() {
             setState((s) => ({ ...s, phase: "completed" }));
             void qc.invalidateQueries({ queryKey: ["active-bulk-batch", slug] });
             void qc.invalidateQueries({ queryKey: ["studio-resumes"] });
+            onRecordsChanged?.();
             return;
           }
           if (!res.item) {
@@ -120,7 +125,7 @@ export function useBulkUpload() {
         }
       }
     },
-    [slug, qc, invalidateThrottled],
+    [slug, qc, invalidateThrottled, onRecordsChanged],
   );
 
   const start = useCallback(

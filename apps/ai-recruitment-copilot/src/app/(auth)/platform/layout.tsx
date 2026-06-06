@@ -1,20 +1,13 @@
 import type { ReactNode } from "react";
-import { redirect } from "next/navigation";
-import { getCurrentSession } from "@/lib/server/auth-session";
 import { PlatformSidebarShell } from "@/components/platform-sidebar/platform-sidebar-shell";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { requirePlatformAdmin } from "@/lib/server/platform-admin";
 import { PlatformHeader } from "./_components/platform-header";
 import { PlatformSidebarSlots } from "./_components/platform-sidebar-slots";
 import { SidebarInset } from "@/components/ui/sidebar";
 
 export default async function PlatformLayout({ children }: { children: ReactNode }) {
-  const session = await getCurrentSession();
-  if (!session?.user) {
-    redirect("/login");
-  }
-  if (session.user.role !== "admin") {
-    redirect("/");
-  }
+  await requirePlatformAdmin();
 
   return (
     <PlatformSidebarShell>

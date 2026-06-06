@@ -12,8 +12,8 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import dynamic from "next/dynamic";
 import { Trash2Icon, UsersIcon } from "lucide-react";
-import { useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { PdfFileIcon } from "@/components/pdf-file-icon";
 import { cancelBulkResumeBatch } from "@/lib/client/api/endpoints/bulk-resume-upload";
@@ -62,6 +62,7 @@ import {
 import { rpc } from "@/lib/client/rpc";
 import { rpcFetch } from "@/lib/client/api/rpc-fetch";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
+import { parseCsvParam } from "@/lib/shared/csv";
 import { StudioPersonDetailDialog } from "@/app/(auth)/w/[slug]/studio/_components/studio-person-detail-dialog";
 import { StudioPersonEditDialog } from "@/app/(auth)/w/[slug]/studio/_components/studio-person-edit-dialog";
 import { CreateResumeRecordDialog } from "./upload-resume-dialog";
@@ -234,16 +235,6 @@ const VISIBLE_PIPELINE_STAGES = pipelineStageValues.filter(
   (s) => !HIDDEN_PIPELINE_STAGE_TABS.has(s),
 );
 
-function csvToArray(value: string | undefined): string[] {
-  if (!value) {
-    return [];
-  }
-  return value
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
-}
-
 interface FetchParams {
   page: number;
   pageSize: number;
@@ -258,17 +249,25 @@ interface FetchParams {
 // Page-level orchestrator naturally aggregates dialogs and state; splitting
 // would harm local readability without reducing real complexity.
 // oxlint-disable-next-line eslint/complexity
-export function ResumeLibraryPage({
-  initialData,
-  metrics,
-}: {
-  initialData: PaginatedResumeLibraryResult;
-  metrics: ResumeLibraryMetrics;
-}) {
+export function ResumeLibraryPage({ metrics }: { metrics: ResumeLibraryMetrics }) {
   const slug = useWorkspaceSlug();
+  const router = useRouter();
   const queryClient = useQueryClient();
 
-  const bulk = useBulkUpload();
+  // 删除简历会级联清掉关联的 AI 面试轮次；发起面试 / 保存并发起也会改动
+  // AI 面试列表。所以这里把两侧 key 一起失效，避免任意一侧停留在脏数据。
+  //
+  // Resume deletes cascade into interview rounds; launch-and-save also adds
+  // rows to the AI 面试 list. Invalidate both sides here so neither view goes
+  // stale after a mutation triggered from the resume library.
+  const invalidateAll = useCallback(() => {
+    void queryClient.invalidateQueries({ queryKey: ["studio-resumes"] });
+    void queryClient.invalidateQueries({ queryKey: ["studio-resume-rounds"] });
+    void queryClient.invalidateQueries({ queryKey: ["studio-interviews"] });
+    router.refresh();
+  }, [queryClient, router]);
+
+  const bulk = useBulkUpload({ onRecordsChanged: invalidateAll });
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [progressOpen, setProgressOpen] = useState(false);
@@ -295,13 +294,13 @@ export function ResumeLibraryPage({
     () =>
       (params: FetchParams): Promise<PaginatedResumeLibraryResult> =>
         fetchStudioResumes(slug, {
-          creatorIds: csvToArray(params.filters.creatorIds),
-          jobDescriptionIds: csvToArray(params.filters.jdIds),
+          creatorIds: parseCsvParam(params.filters.creatorIds),
+          jobDescriptionIds: parseCsvParam(params.filters.jdIds),
           page: params.page,
           pageSize: params.pageSize,
-          pipelineStages: params.filters.stage ? [params.filters.stage] : undefined,
+          pipelineStages: parseCsvParam(params.filters.stage),
           search: params.search || undefined,
-          skills: csvToArray(params.filters.skills),
+          skills: parseCsvParam(params.filters.skills),
           sortBy: params.sortBy,
           sortOrder: params.sortOrder,
         }),
@@ -353,12 +352,11 @@ export function ResumeLibraryPage({
   });
 
   const grid = useDataGridState<ResumeLibraryListRecord, ResumeFilters>({
+    allowedSortIds: ["createdAt", "candidateName", "updatedAt"],
     defaultSorting: [{ desc: true, id: "createdAt" }],
-    fetcher,
-    initialData,
     initialFilters: EMPTY_FILTERS,
-    namespace: "studio-resumes",
-    scopeKey: [slug],
+    queryFn: fetcher,
+    queryKeyBase: ["studio-resumes", slug],
   });
 
   const [detailRecordId, setDetailRecordId] = useState<string | null>(null);
@@ -421,18 +419,6 @@ export function ResumeLibraryPage({
     const nextUrl = query ? `${window.location.pathname}?${query}` : window.location.pathname;
     window.history.replaceState(null, "", nextUrl);
   }, [searchParams]);
-
-  // 删除简历会级联清掉关联的 AI 面试轮次；发起面试 / 保存并发起也会改动
-  // AI 面试列表。所以这里把两侧 key 一起失效，避免任意一侧停留在脏数据。
-  //
-  // Resume deletes cascade into interview rounds; launch-and-save also adds
-  // rows to the AI 面试 list. Invalidate both sides here so neither view goes
-  // stale after a mutation triggered from the resume library.
-  function invalidateAll() {
-    void queryClient.invalidateQueries({ queryKey: ["studio-resumes"] });
-    void queryClient.invalidateQueries({ queryKey: ["studio-resume-rounds"] });
-    void queryClient.invalidateQueries({ queryKey: ["studio-interviews"] });
-  }
 
   // 保存：仅刷新列表。
   // 保存并发起面试：刷新列表 + 立即打开该轮次的 AI 面试详情弹窗，

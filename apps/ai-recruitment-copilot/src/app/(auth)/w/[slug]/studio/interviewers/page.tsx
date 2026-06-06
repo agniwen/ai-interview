@@ -1,6 +1,11 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
+import {
+  buildDataGridQueryKey,
+  parseDataGridSearchParams,
+} from "@/components/data-grid/query-contract";
+import { QueryHydrationBoundary } from "@/components/query-hydration-boundary";
 import { resolveOrganizationBySlug } from "@/lib/server/auth-session";
 import { listAllDepartments } from "@/server/routes/studio/routes/departments/dao";
 import { listInterviewers } from "@/server/routes/studio/routes/interviewers/dao";
@@ -12,19 +17,44 @@ export const metadata: Metadata = {
 
 export default async function StudioInterviewersPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ slug: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   await connection();
   const { slug } = await params;
+  const query = parseDataGridSearchParams(await searchParams, {
+    allowedSortIds: ["createdAt", "name", "updatedAt"],
+    defaultSorting: [{ desc: true, id: "createdAt" }],
+    initialFilters: {},
+  });
   const activeOrg = await resolveOrganizationBySlug(slug);
   if (!activeOrg) {
     notFound();
   }
-  const [initialData, departments] = await Promise.all([
-    listInterviewers(activeOrg.id),
-    listAllDepartments(activeOrg.id),
-  ]);
+  const departments = await listAllDepartments(activeOrg.id);
 
-  return <InterviewerManagementPage departments={departments} initialData={initialData} />;
+  return (
+    <QueryHydrationBoundary
+      queries={[
+        {
+          queryFn: () =>
+            listInterviewers(
+              activeOrg.id,
+              { search: query.search },
+              {
+                page: query.page,
+                pageSize: query.pageSize,
+                sortBy: query.sortBy,
+                sortOrder: query.sortOrder,
+              },
+            ),
+          queryKey: buildDataGridQueryKey(["interviewers", slug], query),
+        },
+      ]}
+    >
+      <InterviewerManagementPage departments={departments} />
+    </QueryHydrationBoundary>
+  );
 }

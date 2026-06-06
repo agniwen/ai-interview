@@ -3,7 +3,6 @@
 
 import { PageHeader } from "@/app/(auth)/w/[slug]/studio/_components/page-header";
 import { StudioSummaryCards } from "@/app/(auth)/w/[slug]/studio/_components/studio-summary-cards";
-import type { InterviewRoundSummaryResponse } from "@/lib/client/api";
 import {
   bulkDeleteStudioInterviewRounds,
   deleteStudioInterviewRound,
@@ -147,13 +146,7 @@ async function copyPublicLink(record: StudioInterviewRoundListRecord) {
   }
 }
 
-export function InterviewManagementPage({
-  initialData,
-  initialSummary,
-}: {
-  initialData: PaginatedStudioInterviewRoundsResult;
-  initialSummary: InterviewRoundSummaryResponse;
-}) {
+export function InterviewManagementPage() {
   const slug = useWorkspaceSlug();
   const queryClient = useQueryClient();
 
@@ -190,13 +183,12 @@ export function InterviewManagementPage({
     StudioInterviewRoundListRecord,
     { creatorIds: string; status: string }
   >({
+    allowedSortIds: ["scheduledAt", "createdAt", "candidateName", "roundLabel"],
     // 默认按创建时间倒序。/ Default: createdAt descending.
     defaultSorting: [{ desc: true, id: "createdAt" }],
-    fetcher: fetchRounds,
-    initialData,
     initialFilters: { creatorIds: "", status: "" },
-    namespace: "studio-interviews",
-    scopeKey: [slug],
+    queryFn: fetchRounds,
+    queryKeyBase: ["studio-interviews", slug],
   });
 
   const { data: workspaceMembersResult } = useQuery({
@@ -222,7 +214,13 @@ export function InterviewManagementPage({
     refetchOnWindowFocus: true,
     staleTime: 30 * 1000,
   });
-  const summary = summaryQuery.data ?? initialSummary;
+  const summary = summaryQuery.data ?? {
+    completed: 0,
+    inProgress: 0,
+    interrupted: 0,
+    pending: 0,
+    total: 0,
+  };
 
   // Dialog state
   // 详情弹窗支持两种入口:列表行点击直接给 roundId,外部链接 (?recordId=) 给候选人级 id,

@@ -33,13 +33,7 @@ import { getMinimaxVoiceMeta } from "@arc/db-schema/minimax-voices";
 import { ScopedJobDescriptionsModal } from "@/app/(auth)/w/[slug]/studio/_components/scoped-job-descriptions-modal";
 import { InterviewerFormDialog } from "./interviewer-form-dialog";
 
-export function InterviewerManagementPage({
-  initialData,
-  departments,
-}: {
-  initialData: PaginatedInterviewerResult;
-  departments: DepartmentRecord[];
-}) {
+export function InterviewerManagementPage({ departments }: { departments: DepartmentRecord[] }) {
   const slug = useWorkspaceSlug();
   const queryClient = useQueryClient();
 
@@ -50,6 +44,8 @@ export function InterviewerManagementPage({
         page: number;
         pageSize: number;
         filters: Record<string, never>;
+        sortBy: string | undefined;
+        sortOrder: "asc" | "desc" | undefined;
       }): Promise<PaginatedInterviewerResult> => {
         const res = await rpc.api.w[":slug"].studio.interviewers.$get({
           param: { slug },
@@ -57,8 +53,8 @@ export function InterviewerManagementPage({
             page: String(params.page),
             pageSize: String(params.pageSize),
             ...(params.search ? { search: params.search } : {}),
-            sortBy: "createdAt",
-            sortOrder: "desc",
+            sortBy: params.sortBy ?? "createdAt",
+            sortOrder: params.sortOrder ?? "desc",
           },
         });
         if (!res.ok) {
@@ -82,11 +78,11 @@ export function InterviewerManagementPage({
   }
 
   const grid = useDataGridState<InterviewerListRecord, Record<string, never>>({
-    fetcher: fetchInterviewers,
-    initialData,
+    allowedSortIds: ["createdAt", "name", "updatedAt"],
+    defaultSorting: [{ desc: true, id: "createdAt" }],
     initialFilters: {},
-    namespace: "interviewers",
-    scopeKey: [slug],
+    queryFn: fetchInterviewers,
+    queryKeyBase: ["interviewers", slug],
   });
 
   // 当前正在查看其引用岗位的面试官；null 时弹窗关闭。

@@ -74,6 +74,8 @@ export interface CandidateFormFieldsProps {
   resumeFieldExtra?: ReactNode;
   /** 候选人姓名字段的 placeholder。 Placeholder for the candidate name input. */
   candidateNamePlaceholder?: string;
+  /** 编辑场景要求候选人姓名非空时显示必填标记。 */
+  requireCandidateName?: boolean;
   disabled?: boolean;
   /** false 时只显示简历 PDF 字段；用于新建弹窗解析完成前的初始状态。 */
   showDetails?: boolean;
@@ -129,6 +131,7 @@ export function CandidateFormFields({
   existingResumeFileName = null,
   resumeFieldExtra,
   candidateNamePlaceholder = "可留空，自动从简历回填",
+  requireCandidateName = false,
   disabled,
   showDetails = true,
   requireResumeFile = false,
@@ -229,7 +232,14 @@ export function CandidateFormFields({
               const errors = toFieldErrors(field.state.meta.errors);
               return (
                 <Field>
-                  <FieldLabel htmlFor={field.name}>候选人姓名</FieldLabel>
+                  <FieldLabel htmlFor={field.name}>
+                    候选人姓名
+                    {requireCandidateName ? (
+                      <span aria-hidden className="ml-1 text-destructive">
+                        *
+                      </span>
+                    ) : null}
+                  </FieldLabel>
                   <FieldContent className="gap-2">
                     <Input
                       disabled={disabled}

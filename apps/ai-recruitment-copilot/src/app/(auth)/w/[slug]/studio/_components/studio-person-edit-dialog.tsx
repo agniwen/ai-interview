@@ -39,7 +39,7 @@ import { dateTimeLocalInputToISOString } from "@/lib/client/datetime-local";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import {
   createResumeLibraryFormValues,
-  resumeLibraryFormSchema,
+  resumeLibraryEditFormSchema,
 } from "@/lib/shared/studio-resumes";
 import {
   getScheduleEntryDateValue,
@@ -90,6 +90,38 @@ function ResumeEditSkeleton() {
       </Card>
     </div>
   );
+}
+
+function getFormErrorMessage(error: unknown): string | null {
+  if (!error) {
+    return null;
+  }
+  if (typeof error === "string") {
+    return error;
+  }
+  if (typeof error === "object" && "message" in error) {
+    const { message } = error as { message?: unknown };
+    return typeof message === "string" ? message : null;
+  }
+  return null;
+}
+
+function getFirstResumeEditErrorMessage(meta: Record<string, { errors?: unknown[] }>) {
+  const fieldOrder = [
+    "candidateName",
+    "candidateEmail",
+    "candidatePhone",
+    "targetRole",
+    "jobDescriptionId",
+    "notes",
+  ];
+  for (const field of fieldOrder) {
+    const message = getFormErrorMessage(meta[field]?.errors?.[0]);
+    if (message) {
+      return message;
+    }
+  }
+  return "请检查简历信息后再保存";
 }
 
 function InterviewEditSkeleton() {
@@ -176,7 +208,11 @@ function ResumeEditBody({
         toast.error(error instanceof Error ? error.message : "保存失败");
       }
     },
-    validators: { onSubmit: resumeLibraryFormSchema },
+    onSubmitInvalid: ({ formApi }) => {
+      const meta = formApi.store.state.fieldMeta as Record<string, { errors?: unknown[] }>;
+      toast.error(getFirstResumeEditErrorMessage(meta));
+    },
+    validators: { onSubmit: resumeLibraryEditFormSchema },
   });
 
   // 详情加载完成后回填表单；query.data 引用变更即触发。
@@ -235,10 +271,12 @@ function ResumeEditBody({
           }}
         >
           <CandidateFormFields
+            candidateNamePlaceholder="请输入候选人姓名"
             disabled={isSubmitting}
             existingResumeFileName={query.data?.resumeFileName ?? null}
             form={form}
             onResumeFileChange={setResumeFile}
+            requireCandidateName
             resumeFile={resumeFile}
             resumeFilePlaceholder="未上传 PDF，点击选择文件"
           />

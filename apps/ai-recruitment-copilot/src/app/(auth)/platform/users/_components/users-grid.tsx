@@ -257,7 +257,7 @@ function UserWorkspacesDialog({
   );
 }
 
-export function UsersGrid({ initialData }: { initialData: UsersResult }) {
+export function UsersGrid() {
   function fetchUsers(params: {
     search: string;
     page: number;
@@ -281,11 +281,11 @@ export function UsersGrid({ initialData }: { initialData: UsersResult }) {
   }
 
   const grid = useDataGridState<UserRecord, Record<string, never>>({
+    allowedSortIds: ["name", "email", "role", "createdAt", "lastActiveAt"],
     defaultSorting: [{ desc: true, id: "lastActiveAt" }],
-    fetcher: fetchUsers,
-    initialData,
     initialFilters: {},
-    namespace: "platform-users",
+    queryFn: fetchUsers,
+    queryKeyBase: ["platform-users"],
   });
 
   const [forceLogoutTarget, setForceLogoutTarget] = useState<UserRecord | null>(null);

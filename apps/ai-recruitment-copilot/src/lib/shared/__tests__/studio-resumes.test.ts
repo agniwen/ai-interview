@@ -2,7 +2,12 @@
 // Unit test for describeResumeProgress; pure function, no DB needed.
 
 import { describe, expect, it } from "vitest";
-import { describeResumeProgress } from "../studio-resumes";
+import {
+  createResumeLibraryFormValues,
+  describeResumeProgress,
+  resumeLibraryEditFormSchema,
+  resumeLibraryFormSchema,
+} from "../studio-resumes";
 import type { ResumeStageProgress } from "../studio-resumes";
 
 // 没有任何子表数据时的空 shape。Empty shape when no subtable rows.
@@ -11,6 +16,35 @@ const EMPTY: ResumeStageProgress = {
   humanInterview: null,
   offer: null,
 };
+
+describe("resumeLibraryFormSchema", () => {
+  it("requires a job description when saving a resume record", () => {
+    const result = resumeLibraryFormSchema.safeParse({
+      ...createResumeLibraryFormValues(),
+      candidateName: "郭靖",
+      jobDescriptionId: "   ",
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues[0]?.message).toBe("请选择关联在招岗位");
+    }
+  });
+});
+
+describe("resumeLibraryEditFormSchema", () => {
+  it("requires candidate name when editing a resume record", () => {
+    const result = resumeLibraryEditFormSchema.safeParse({
+      ...createResumeLibraryFormValues(),
+      candidateName: "   ",
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues[0]?.message).toBe("请填写候选人姓名");
+    }
+  });
+});
 
 describe("describeResumeProgress", () => {
   it("screening → 简历筛选 · 待处理", () => {
