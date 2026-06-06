@@ -5,7 +5,7 @@ import type { InterviewRecordingStatus } from "@arc/db-schema/db-enums";
 import { db } from "@/lib/server/db";
 import { interviewConversation } from "@arc/db-schema/schema";
 import { factory } from "@/server/factory";
-import { safeUpdateTag } from "@/server/cache-tags";
+import { cacheTags, safeUpdateTag } from "@/server/cache-tags";
 import {
   endHumanInterviewMeetingByRoomName,
   markHumanInterviewMeetingInProgressByRoomName,
@@ -138,9 +138,11 @@ export const livekitRouter = factory.createApp().post("/webhook", async (c) => {
     return c.json({ matched: 0, ok: true });
   }
 
-  safeUpdateTag("interview-conversations");
+  safeUpdateTag(cacheTags.interviewConversations);
   for (const row of updated) {
-    safeUpdateTag(`interview-conversations-${row.interviewRecordId}`);
+    if (row.interviewRecordId) {
+      safeUpdateTag(cacheTags.interviewConversationsByRecord(row.interviewRecordId));
+    }
   }
 
   return c.json({ matched: updated.length, ok: true });

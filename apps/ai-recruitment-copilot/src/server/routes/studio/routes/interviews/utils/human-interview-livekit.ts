@@ -1,5 +1,3 @@
-import "server-only";
-
 import { AccessToken, RoomConfiguration, RoomServiceClient } from "livekit-server-sdk";
 import type {
   HumanInterviewMeetingParticipantRole,

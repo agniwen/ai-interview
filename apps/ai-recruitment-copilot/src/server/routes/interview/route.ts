@@ -34,7 +34,7 @@ import {
   loadCandidateFormTemplateVersionById,
   resolveOrCreateTemplateVersion,
 } from "@/server/routes/studio/routes/forms/dao/versions";
-import { lookupOrgIdByInterviewRecord, safeUpdateTag } from "@/server/cache-tags";
+import { cacheTags, lookupOrgIdByInterviewRecord, safeUpdateTag } from "@/server/cache-tags";
 import {
   buildTokenErrorResponse,
   loadCandidateInterviewRecord,
@@ -650,7 +650,7 @@ export const interviewRouter = factory
           // interview record. Skip invalidation on miss; cacheLife will refresh.
           const orgId = await lookupOrgIdByInterviewRecord(entry.interviewRecordId);
           if (orgId) {
-            safeUpdateTag(`studio-interviews:${orgId}`);
+            safeUpdateTag(cacheTags.studioInterviews(orgId));
           }
         }
         return c.json({ success: true }, 200);
@@ -704,7 +704,7 @@ export const interviewRouter = factory
       // Reverse-lookup orgId on the candidate-side path; tag is org-scoped now.
       const completedOrgId = await lookupOrgIdByInterviewRecord(entry.interviewRecordId);
       if (completedOrgId) {
-        safeUpdateTag(`studio-interviews:${completedOrgId}`);
+        safeUpdateTag(cacheTags.studioInterviews(completedOrgId));
       }
       return c.json({ success: true }, 200);
     },

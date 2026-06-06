@@ -3,7 +3,7 @@ import type { InterviewQuestion } from "@arc/db-schema/interview/types";
 import { db } from "@/lib/server/db";
 import { interviewConversation, studioInterview } from "@arc/db-schema/schema";
 import { notifyInterviewSummaryReady } from "@/server/routes/agent/utils/feishu-interview-notifications";
-import { safeUpdateTag } from "@/server/cache-tags";
+import { cacheTags, safeUpdateTag } from "@/server/cache-tags";
 import { generateInterviewReport } from "@/server/routes/agent/utils/interview-report";
 import { loadInterviewPresetQuestionsWithScope } from "@/server/routes/studio/routes/interview-questions/dao/bindings";
 
@@ -159,8 +159,8 @@ export async function runSummaryJob(options: RunSummaryJobOptions): Promise<void
       })
       .where(eq(interviewConversation.conversationId, conversationId));
 
-    safeUpdateTag("interview-conversations");
-    safeUpdateTag(`interview-conversations-${interviewRecordId}`);
+    safeUpdateTag(cacheTags.interviewConversations);
+    safeUpdateTag(cacheTags.interviewConversationsByRecord(interviewRecordId));
 
     void notifyInterviewSummaryReady({
       conversationId,

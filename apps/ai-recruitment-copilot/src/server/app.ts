@@ -2,6 +2,7 @@ import type { Env } from "@/server/type";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { auth } from "@/lib/server/auth";
+import { runWithAuthRequestHeaders } from "@/lib/server/auth-request-context";
 import { factory } from "./factory";
 import { betterAuthMiddleware } from "./middlewares/better-auth";
 import { agentRouter } from "./routes/agent/route";
@@ -40,22 +41,27 @@ const apiRoutes = factory
 // English: app.ts is mount-only — CORS, the better-auth handler, the
 // betterAuth context middleware, and the /api mount. Business middleware
 // (auth/admin) belongs inside each router.
-export const app = new Hono<Env>()
-  .use(
-    "/api/auth/*",
-    cors({
-      allowHeaders: ["Content-Type", "Authorization"],
-      allowMethods: ["POST", "GET", "OPTIONS"],
-      credentials: true,
-      exposeHeaders: ["Content-Length"],
-      maxAge: 600,
-      origin: "*",
-    }),
-  )
-  .on(["POST", "GET"], "/api/auth/*", (c) => auth.handler(c.req.raw))
-  .use(betterAuthMiddleware)
-  .route("/api", apiRoutes);
+export function createServerApp() {
+  const honoApp = new Hono<Env>()
+    .use(
+      "/api/auth/*",
+      cors({
+        allowHeaders: ["Content-Type", "Authorization"],
+        allowMethods: ["POST", "GET", "OPTIONS"],
+        credentials: true,
+        exposeHeaders: ["Content-Length"],
+        maxAge: 600,
+        origin: "*",
+      }),
+    )
+    .on(["POST", "GET"], "/api/auth/*", (c) =>
+      runWithAuthRequestHeaders(c.req.raw.headers, () => auth.handler(c.req.raw)),
+    )
+    .use(betterAuthMiddleware)
+    .route("/api", apiRoutes);
 
-app.notFound((c) => c.json({ error: "Not Found" }, 404));
+  honoApp.notFound((c) => c.json({ error: "Not Found" }, 404));
+  return honoApp;
+}
 
-export type AppType = typeof app;
+export type AppType = ReturnType<typeof createServerApp>;

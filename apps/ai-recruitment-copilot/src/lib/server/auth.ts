@@ -1,5 +1,3 @@
-import "server-only";
-
 import { betterAuth } from "better-auth";
 import { APIError } from "better-auth/api";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
@@ -7,7 +5,7 @@ import { admin, genericOAuth } from "better-auth/plugins";
 import type { GenericOAuthConfig } from "better-auth/plugins";
 import { organization } from "better-auth/plugins/organization";
 import { and, eq } from "drizzle-orm";
-import { headers as nextHeaders } from "next/headers";
+import { getAuthRequestHeaders } from "@/lib/server/auth-request-context";
 import { ac, roles } from "@/lib/shared/permissions";
 import { db } from "./db";
 import * as schema from "@arc/db-schema/schema";
@@ -406,13 +404,17 @@ export const auth = betterAuth({
           // ⚠️ 注意：better-auth 这里的 `user` 参数实际是 **目标用户**（被改的人），
           // 不是触发请求的人——文档跟实现不一致，源码里写的是
           // `user: userBeingUpdated`（见 better-auth crud-members.mjs:283）。
-          // 所以这里完全不用 `user`，而是从 next/headers + auth.api.getSession
-          // 拿到真正的 invoker，再去 member 表查它在 org 里的角色。
+          // 所以这里完全不用 `user`，而是从当前 auth 请求上下文拿 headers，再用
+          // auth.api.getSession 拿到真正的 invoker。
           //
           // CAUTION: better-auth's `user` arg here is the TARGET user, not the
           // caller (the docs are wrong; source assigns `user: userBeingUpdated`).
           // Skip it entirely and pull the real invoker from the session.
-          const session = await auth.api.getSession({ headers: await nextHeaders() });
+          const authRequestHeaders = getAuthRequestHeaders();
+          if (!authRequestHeaders) {
+            throw new APIError("UNAUTHORIZED", { message: "未登录。" });
+          }
+          const session = await auth.api.getSession({ headers: authRequestHeaders });
           const invokerUserId = session?.user?.id;
           if (!invokerUserId) {
             throw new APIError("UNAUTHORIZED", { message: "未登录。" });

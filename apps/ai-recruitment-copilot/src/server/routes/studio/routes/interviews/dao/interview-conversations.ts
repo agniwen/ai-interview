@@ -1,6 +1,5 @@
 import type { StudioInterviewConversationReport } from "@arc/db-schema/interview-session";
 import { asc, desc, eq, inArray } from "drizzle-orm";
-import { cacheLife, cacheTag } from "next/cache";
 import { db } from "@/lib/server/db";
 import { interviewConversation, interviewConversationTurn } from "@arc/db-schema/schema";
 
@@ -63,7 +62,7 @@ function serializeConversationReport(
   };
 }
 
-async function queryInterviewConversationReports(interviewRecordId: string) {
+export async function queryInterviewConversationReports(interviewRecordId: string) {
   const conversations = await db
     .select()
     .from(interviewConversation)
@@ -87,19 +86,9 @@ async function queryInterviewConversationReports(interviewRecordId: string) {
   });
 }
 
-/** Cached version for Server Components */
-// oxlint-disable-next-line require-await -- "use cache" requires the function be async.
-export async function listInterviewConversationReports(interviewRecordId: string) {
-  "use cache";
-  cacheTag("interview-conversations", `interview-conversations-${interviewRecordId}`);
-  cacheLife("minutes");
-
-  return queryInterviewConversationReports(interviewRecordId);
-}
-
 // 按轮次（scheduleEntryId）过滤 conversations，适用于 round-keyed 的报告端点。
 // Filter conversations by round (scheduleEntryId) for round-keyed report endpoints.
-async function queryInterviewConversationReportsByRound(scheduleEntryId: string) {
+export async function queryInterviewConversationReportsByRound(scheduleEntryId: string) {
   const conversations = await db
     .select()
     .from(interviewConversation)
@@ -122,15 +111,3 @@ async function queryInterviewConversationReportsByRound(scheduleEntryId: string)
     return serializeConversationReport(conversation, turns);
   });
 }
-
-/** Cached version for Server Components */
-// oxlint-disable-next-line require-await -- "use cache" requires the function be async.
-export async function listInterviewConversationReportsByRound(scheduleEntryId: string) {
-  "use cache";
-  cacheTag("interview-conversations", `interview-conversations-round-${scheduleEntryId}`);
-  cacheLife("minutes");
-  return queryInterviewConversationReportsByRound(scheduleEntryId);
-}
-
-/** Uncached version for API route handlers */
-export { queryInterviewConversationReports, queryInterviewConversationReportsByRound };

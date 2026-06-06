@@ -1,5 +1,3 @@
-import "server-only";
-
 // Offer 草稿 DAO。每次新建版本：
 //   - version 取 MAX(version) + 1（同候选人下唯一索引保证 race-safe）
 //   - 旧的非终态版本（draft / sent）自动 supersede

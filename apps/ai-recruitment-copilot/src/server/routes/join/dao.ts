@@ -1,5 +1,3 @@
-import "server-only";
-
 import { nanoid } from "nanoid";
 import { db } from "@/lib/server/db";
 import { member } from "@arc/db-schema/schema";

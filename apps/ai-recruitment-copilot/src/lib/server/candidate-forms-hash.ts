@@ -1,5 +1,3 @@
-import "server-only";
-
 import { createHash } from "node:crypto";
 import type { CandidateFormTemplateSnapshot } from "@arc/db-schema/candidate-forms";
 import { stableStringify } from "./stable-stringify";

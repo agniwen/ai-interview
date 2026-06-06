@@ -9,7 +9,7 @@ import {
   studioInterviewSchedule,
 } from "@arc/db-schema/schema";
 import { factory } from "@/server/factory";
-import { safeUpdateTag } from "@/server/cache-tags";
+import { cacheTags, safeUpdateTag } from "@/server/cache-tags";
 import {
   notifyInterviewSummaryReady,
   retryFailedInterviewSummaryNotifications,
@@ -298,9 +298,9 @@ export const agentRouter = factory
     // 仍是全局 + record-id 两条，本来就足够 specific 无需 org 后缀。
     // studio-interviews is org-scoped now; interview-conversations stays
     // global + record-id (already specific enough).
-    safeUpdateTag(`studio-interviews:${orgId}`);
-    safeUpdateTag("interview-conversations");
-    safeUpdateTag(`interview-conversations-${data.interviewRecordId}`);
+    safeUpdateTag(cacheTags.studioInterviews(orgId));
+    safeUpdateTag(cacheTags.interviewConversations);
+    safeUpdateTag(cacheTags.interviewConversationsByRecord(data.interviewRecordId));
 
     // 6. Fire-and-forget summary generation, but only when the transcript
     //    actually changed — skip for idempotent re-POSTs of an already-
