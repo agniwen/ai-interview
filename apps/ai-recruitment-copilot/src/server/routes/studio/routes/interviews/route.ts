@@ -6,7 +6,6 @@ import { db } from "@/lib/server/db";
 import {
   candidateFormSubmission,
   interviewAuditLog,
-  interviewConversation,
   interviewer,
   jobDescription,
   jobDescriptionInterviewer,
@@ -52,7 +51,6 @@ import {
   refreshInterviewBindingsToLatest,
   replaceInterviewBindings,
 } from "@/server/routes/studio/routes/interview-questions/dao/bindings";
-import { queryInterviewConversationReportsByRound } from "@/server/routes/studio/routes/interviews/dao/interview-conversations";
 import {
   cancelHumanInterviewRoundWithMeetings,
   completeHumanInterviewRound,
@@ -100,6 +98,8 @@ import {
   resolveRoundIdFromRecordId,
   summarizeInterviewRoundCounts,
 } from "@/server/routes/studio/routes/interviews/dao/interview-rounds";
+import { recordingsRouter } from "@/server/routes/studio/routes/interviews/routes/recordings/route";
+import { reportsRouter } from "@/server/routes/studio/routes/interviews/routes/reports/route";
 import { roundEmailsRouter } from "@/server/routes/studio/routes/interviews/routes/round-emails/route";
 import {
   buildTokenErrorResponse,
@@ -111,7 +111,7 @@ import {
 } from "@/server/routes/interview/utils";
 import { requirePermission } from "@/server/middlewares/permission";
 import { invalidateStudioInterviewCaches, safeUpdateTag } from "@/server/cache-tags";
-import { getObjectStream, presignRecordingGetObjectUrl } from "@/lib/server/s3";
+import { getObjectStream } from "@/lib/server/s3";
 
 const dedupCheckInputSchema = z.object({
   email: z.string().trim().max(200).nullable().optional(),
@@ -816,87 +816,8 @@ export const studioInterviewsRouter = factory
 
     return c.json({ variants }, 200);
   })
-  .get("/:id/reports", requirePermission("interview", "read"), async (c) => {
-    // `:id` 为 roundId；报告按 scheduleEntryId 过滤，仅返回当前轮次的 conversations。
-    // `:id` is roundId; reports are filtered by scheduleEntryId (per-round, not per-candidate).
-    const { activeOrg } = c.var;
-    if (!activeOrg) {
-      return c.json({ message: "Unauthorized" }, 401);
-    }
-    const roundId = c.req.param("id");
-    // 通过解析 candidateId 来验证 org 归属（不存在则 404）。
-    // Validate org scope by resolving the candidate (handles 404).
-    const candidateId = await resolveCandidateIdForRound(roundId, activeOrg.id);
-    if (!candidateId) {
-      return c.json({ error: "记录不存在。" }, 404);
-    }
-    const reports = await queryInterviewConversationReportsByRound(roundId);
-    return c.json(reports, 200);
-  })
-  .get("/:id/recordings/:conversationId", requirePermission("interview", "read"), async (c) => {
-    // `:id` 为 roundId；返回该轮面试录像的 S3 预签名播放 URL (10 分钟有效).
-    // `:id` is roundId; return a 10-min presigned URL for the round's recording mp4.
-    const { activeOrg } = c.var;
-    if (!activeOrg) {
-      return c.json({ message: "Unauthorized" }, 401);
-    }
-    // roundId = scheduleEntryId
-    const roundId = c.req.param("id");
-    const conversationId = c.req.param("conversationId");
-
-    // 通过解析 candidateId 验证 org 归属。
-    // Validate org scope via candidateId resolution.
-    const candidateId = await resolveCandidateIdForRound(roundId, activeOrg.id);
-    if (!candidateId) {
-      return c.json({ error: "记录不存在。" }, 404);
-    }
-
-    const [conversation] = await db
-      .select({
-        recordingFileKey: interviewConversation.recordingFileKey,
-        recordingStatus: interviewConversation.recordingStatus,
-        scheduleEntryId: interviewConversation.scheduleEntryId,
-      })
-      .from(interviewConversation)
-      .where(
-        and(
-          eq(interviewConversation.conversationId, conversationId),
-          eq(interviewConversation.organizationId, activeOrg.id),
-        ),
-      )
-      .limit(1);
-
-    // 防止跨轮次访问: conversation 必须属于当前 roundId (scheduleEntryId)。
-    // Prevent cross-round access: the conversation must belong to this roundId.
-    if (!conversation || conversation.scheduleEntryId !== roundId) {
-      return c.json({ error: "未找到该轮录像。" }, 404);
-    }
-    if (!conversation.recordingFileKey) {
-      return c.json({ error: "本轮面试没有录像文件。" }, 404);
-    }
-    if (conversation.recordingStatus !== "completed") {
-      return c.json(
-        {
-          error: "录像尚未生成完成, 请稍后再试。",
-          status: conversation.recordingStatus ?? "unknown",
-        },
-        409,
-      );
-    }
-
-    try {
-      const url = await presignRecordingGetObjectUrl(conversation.recordingFileKey, 600);
-      return c.json({ expiresInSeconds: 600, url }, 200);
-    } catch (error) {
-      return c.json(
-        {
-          detail: error instanceof Error ? error.message : "Unknown error",
-          error: "无法生成录像访问链接。",
-        },
-        500,
-      );
-    }
-  })
+  .route("/:id/reports", reportsRouter)
+  .route("/:id/recordings", recordingsRouter)
   .get("/:id/form-submissions", requirePermission("interview", "read"), async (c) => {
     // `:id` 为 roundId；表单与 candidateId 绑定，通过解析后传给查询。
     // `:id` is roundId; form submissions are keyed by candidateId — resolve it first.
