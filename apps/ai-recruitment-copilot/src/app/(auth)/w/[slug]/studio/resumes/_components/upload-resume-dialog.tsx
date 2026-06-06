@@ -87,6 +87,38 @@ function captureResumeUploadCompleted({
   });
 }
 
+function getFormErrorMessage(error: unknown): string | null {
+  if (!error) {
+    return null;
+  }
+  if (typeof error === "string") {
+    return error;
+  }
+  if (typeof error === "object" && "message" in error) {
+    const { message } = error as { message?: unknown };
+    return typeof message === "string" ? message : null;
+  }
+  return null;
+}
+
+function getFirstResumeFormErrorMessage(meta: Record<string, { errors?: unknown[] }>) {
+  const fieldOrder = [
+    "jobDescriptionId",
+    "candidateName",
+    "candidateEmail",
+    "candidatePhone",
+    "targetRole",
+    "notes",
+  ];
+  for (const field of fieldOrder) {
+    const message = getFormErrorMessage(meta[field]?.errors?.[0]);
+    if (message) {
+      return message;
+    }
+  }
+  return "请检查简历信息后再保存";
+}
+
 export function CreateResumeRecordDialog({ onCreated }: CreateResumeRecordDialogProps) {
   const slug = useWorkspaceSlug();
   const [open, setOpen] = useState(false);
@@ -168,6 +200,11 @@ export function CreateResumeRecordDialog({ onCreated }: CreateResumeRecordDialog
       } finally {
         setSubmitting(false);
       }
+    },
+    onSubmitInvalid: ({ formApi }) => {
+      const meta = formApi.store.state.fieldMeta as Record<string, { errors?: unknown[] }>;
+      setActiveTab("basic");
+      toast.error(getFirstResumeFormErrorMessage(meta));
     },
     validators: {
       onSubmit: resumeLibraryFormSchema,

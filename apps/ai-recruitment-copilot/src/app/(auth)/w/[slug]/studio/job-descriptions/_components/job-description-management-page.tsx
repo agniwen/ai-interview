@@ -15,6 +15,7 @@ import { JobDescriptionCharts } from "./job-description-charts";
 import { ScopedResumesModal } from "@/app/(auth)/w/[slug]/studio/_components/scoped-resumes-modal";
 import { useQueryClient } from "@tanstack/react-query";
 import { FileTextIcon, PlusIcon } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useCallback, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -39,17 +40,16 @@ import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { JobDescriptionFormDialog } from "./job-description-form-dialog";
 
 export function JobDescriptionManagementPage({
-  initialData,
   departments,
   interviewers,
   metrics,
 }: {
-  initialData: PaginatedJobDescriptionResult;
   departments: DepartmentRecord[];
   interviewers: InterviewerListRecord[];
   metrics: JobDescriptionMetrics;
 }) {
   const slug = useWorkspaceSlug();
+  const router = useRouter();
   const queryClient = useQueryClient();
   // 当前点开"简历关联"的那条 JD；null 表示弹窗关闭。
   // The JD whose associated resumes are being inspected; null = closed.
@@ -61,6 +61,8 @@ export function JobDescriptionManagementPage({
       page: number;
       pageSize: number;
       filters: { departmentId: string; interviewerId: string };
+      sortBy: string | undefined;
+      sortOrder: "asc" | "desc" | undefined;
     }): Promise<PaginatedJobDescriptionResult> => {
       const res = await rpc.api.w[":slug"].studio["job-descriptions"].$get({
         param: { slug },
@@ -72,8 +74,8 @@ export function JobDescriptionManagementPage({
           // / Multi-select filters serialize to CSV; empty string means "no filter".
           ...(params.filters.departmentId ? { departmentId: params.filters.departmentId } : {}),
           ...(params.filters.interviewerId ? { interviewerId: params.filters.interviewerId } : {}),
-          sortBy: "createdAt",
-          sortOrder: "desc",
+          sortBy: params.sortBy ?? "createdAt",
+          sortOrder: params.sortOrder ?? "desc",
         },
       });
       if (!res.ok) {
@@ -101,25 +103,29 @@ export function JobDescriptionManagementPage({
     JobDescriptionListRecord,
     { departmentId: string; interviewerId: string }
   >({
-    fetcher: fetchJobDescriptions,
-    initialData,
+    allowedSortIds: ["createdAt", "name", "updatedAt"],
+    defaultSorting: [{ desc: true, id: "createdAt" }],
     initialFilters: { departmentId: "", interviewerId: "" },
-    namespace: "job-descriptions",
-    scopeKey: [slug],
+    queryFn: fetchJobDescriptions,
+    queryKeyBase: ["job-descriptions", slug],
   });
 
   const missingRefs = departments.length === 0 || interviewers.length === 0;
+
+  function invalidateJobDescriptionData() {
+    grid.invalidate();
+    void queryClient.invalidateQueries({ queryKey: ["job-descriptions"] });
+    void queryClient.invalidateQueries({ queryKey: ["interviewers"] });
+    void queryClient.invalidateQueries({ queryKey: ["departments"] });
+    router.refresh();
+  }
 
   const crud = useEntityCrud<JobDescriptionListRecord, JobDescriptionRecord>({
     deleteEntity: (record) =>
       rpc.api.w[":slug"].studio["job-descriptions"][":id"].$delete({
         param: { id: record.id, slug },
       }),
-    invalidate: () => {
-      grid.invalidate();
-      void queryClient.invalidateQueries({ queryKey: ["interviewers"] });
-      void queryClient.invalidateQueries({ queryKey: ["departments"] });
-    },
+    invalidate: invalidateJobDescriptionData,
     loadDetail: loadJobDescriptionDetail,
     messages: {
       deleteSuccess: "在招岗位已删除",
@@ -315,11 +321,7 @@ export function JobDescriptionManagementPage({
         departments={departments}
         interviewers={interviewers}
         onOpenChange={crud.onFormOpenChange}
-        onSaved={() => {
-          grid.invalidate();
-          void queryClient.invalidateQueries({ queryKey: ["interviewers"] });
-          void queryClient.invalidateQueries({ queryKey: ["departments"] });
-        }}
+        onSaved={invalidateJobDescriptionData}
         open={crud.formDialogOpen}
         record={crud.editingRecord}
       />

@@ -60,10 +60,8 @@ function archivedFilterLabelOf(value: "active" | "archived" | "all"): string {
 
 // oxlint-disable-next-line complexity -- Page hosts list, filter, pagination, and dialog state together.
 export function InterviewQuestionTemplateManagementPage({
-  initialData,
   jobDescriptions,
 }: {
-  initialData: PaginatedInterviewQuestionTemplateResult;
   jobDescriptions: JobDescriptionListRecord[];
 }) {
   const slug = useWorkspaceSlug();
@@ -75,6 +73,8 @@ export function InterviewQuestionTemplateManagementPage({
       page: number;
       pageSize: number;
       filters: { scope: string; jobDescriptionId: string; archivedFilter: string };
+      sortBy: string | undefined;
+      sortOrder: "asc" | "desc" | undefined;
     }): Promise<PaginatedInterviewQuestionTemplateResult> => {
       const res = await rpc.api.w[":slug"].studio["interview-questions"].$get({
         param: { slug },
@@ -94,8 +94,8 @@ export function InterviewQuestionTemplateManagementPage({
           ...(params.filters.archivedFilter === "active"
             ? {}
             : { archived: params.filters.archivedFilter }),
-          sortBy: "createdAt",
-          sortOrder: "desc",
+          sortBy: params.sortBy ?? "createdAt",
+          sortOrder: params.sortOrder ?? "desc",
         },
       });
       if (!res.ok) {
@@ -123,11 +123,11 @@ export function InterviewQuestionTemplateManagementPage({
     InterviewQuestionTemplateListRecord,
     { scope: string; jobDescriptionId: string; archivedFilter: string }
   >({
-    fetcher: fetchTemplates,
-    initialData,
+    allowedSortIds: ["createdAt", "title", "updatedAt"],
+    defaultSorting: [{ desc: true, id: "createdAt" }],
     initialFilters: { archivedFilter: "active", jobDescriptionId: "", scope: "" },
-    namespace: "interview-question-templates",
-    scopeKey: [slug],
+    queryFn: fetchTemplates,
+    queryKeyBase: ["interview-question-templates", slug],
   });
   const archivedFilter = (grid.filters.archivedFilter as "active" | "archived" | "all") || "active";
   const archivedFilterLabel = archivedFilterLabelOf(archivedFilter);

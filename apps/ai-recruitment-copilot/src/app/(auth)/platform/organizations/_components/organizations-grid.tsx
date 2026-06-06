@@ -38,7 +38,7 @@ interface OrganizationsResult {
   pageSize: number;
 }
 
-export function OrganizationsGrid({ initialData }: { initialData: OrganizationsResult }) {
+export function OrganizationsGrid() {
   const [detailOrgId, setDetailOrgId] = useState<string | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
 
@@ -68,11 +68,11 @@ export function OrganizationsGrid({ initialData }: { initialData: OrganizationsR
   );
 
   const grid = useDataGridState<OrganizationRecord, Record<string, never>>({
+    allowedSortIds: ["name", "slug", "createdAt", "memberCount"],
     defaultSorting: [{ desc: true, id: "createdAt" }],
-    fetcher: fetchOrganizations,
-    initialData,
     initialFilters: {},
-    namespace: "platform-organizations",
+    queryFn: fetchOrganizations,
+    queryKeyBase: ["platform-organizations"],
   });
 
   const handleViewDetail = useCallback((record: OrganizationRecord) => {

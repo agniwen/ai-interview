@@ -5,7 +5,8 @@ import { z } from "zod";
 import { db } from "@/lib/server/db";
 import { getObjectStream } from "@/lib/server/s3";
 import { studioInterview, studioInterviewSchedule } from "@arc/db-schema/schema";
-import { resumeLibraryFormSchema } from "@/lib/shared/studio-resumes";
+import { parseCsvParam } from "@/lib/shared/csv";
+import { resumeLibraryEditFormSchema, resumeLibraryFormSchema } from "@/lib/shared/studio-resumes";
 import { invalidateStudioInterviewCaches } from "@/server/cache-tags";
 import { removeImportedInterviewFromConversations } from "@/server/routes/chat/dao/chat";
 import { factory, jsonValidatorError } from "@/server/factory";
@@ -74,8 +75,11 @@ function toNullableString(value: FormDataEntryValue | null): string | null {
   return trimmed.length === 0 ? null : trimmed;
 }
 
-function parseListFormInput(formData: FormData) {
-  return resumeLibraryFormSchema.safeParse({
+function parseResumeLibraryFormData(
+  formData: FormData,
+  schema: typeof resumeLibraryFormSchema | typeof resumeLibraryEditFormSchema,
+) {
+  return schema.safeParse({
     candidateEmail: toNullableString(formData.get("candidateEmail")) ?? "",
     candidateName: toNullableString(formData.get("candidateName")) ?? "",
     candidatePhone: toNullableString(formData.get("candidatePhone")) ?? "",
@@ -85,16 +89,12 @@ function parseListFormInput(formData: FormData) {
   });
 }
 
-// CSV → string[]：与 data-grid 工具栏的 multi-select 编码方式一致。
-// CSV → string[] — matches the data-grid toolbar's multi-select encoding.
-function csvToArray(value: string | undefined): string[] {
-  if (!value) {
-    return [];
-  }
-  return value
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
+export function parseResumeLibraryCreateFormInput(formData: FormData) {
+  return parseResumeLibraryFormData(formData, resumeLibraryFormSchema);
+}
+
+export function parseResumeLibraryEditFormInput(formData: FormData) {
+  return parseResumeLibraryFormData(formData, resumeLibraryEditFormSchema);
 }
 
 export const resumeLibraryRouter = factory
@@ -128,13 +128,13 @@ export const resumeLibraryRouter = factory
       const result = await queryPaginatedResumeRecords(
         activeOrg.id,
         {
-          creatorIds: csvToArray(q.creatorIds),
-          jobDescriptionIds: csvToArray(q.jdIds),
-          outcomes: csvToArray(q.outcomes),
-          pipelineStages: csvToArray(q.pipelineStages),
+          creatorIds: parseCsvParam(q.creatorIds),
+          jobDescriptionIds: parseCsvParam(q.jdIds),
+          outcomes: parseCsvParam(q.outcomes),
+          pipelineStages: parseCsvParam(q.pipelineStages),
           search: q.search,
-          skills: csvToArray(q.skills),
-          statuses: csvToArray(q.statuses),
+          skills: parseCsvParam(q.skills),
+          statuses: parseCsvParam(q.statuses),
         },
         {
           page: q.page,
@@ -366,7 +366,7 @@ export const resumeLibraryRouter = factory
       }
       const parsedResumePayload = parseResumePayloadInput(formData.get("resumePayload"));
 
-      const input = parseListFormInput(formData);
+      const input = parseResumeLibraryCreateFormInput(formData);
       if (!input.success) {
         return c.json({ error: input.error.issues[0]?.message ?? "表单校验失败。" }, 400);
       }
@@ -447,7 +447,7 @@ export const resumeLibraryRouter = factory
       if (resume) {
         validateResumeFile(resume);
       }
-      const input = parseListFormInput(formData);
+      const input = parseResumeLibraryEditFormInput(formData);
       if (!input.success) {
         return c.json({ error: input.error.issues[0]?.message ?? "表单校验失败。" }, 400);
       }

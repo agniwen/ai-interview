@@ -10,6 +10,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { db } from "@/lib/server/db";
 import { member, organization, studioInterview, user } from "@arc/db-schema/schema";
 import { loadResumeDetail } from "@/server/routes/studio/routes/resumes/dao/resumes";
+import { parseResumeLibraryEditFormInput } from "@/server/routes/studio/routes/resumes/route";
 
 const ORG = "test_org_resume_route";
 const USER_ID = "test_user_resume_route";
@@ -73,5 +74,22 @@ describe("resume detail DTO", () => {
     expect(detail).not.toHaveProperty("scheduleEntries");
     expect(detail?.status).toBe("in_progress");
     expect(detail?.candidateName).toBe("测试");
+  });
+});
+
+describe("resume PATCH form parsing", () => {
+  it("requires candidate name when editing resume library records", () => {
+    const formData = new FormData();
+    formData.set("candidateName", "   ");
+    formData.set("candidateEmail", "candidate@example.com");
+    formData.set("candidatePhone", "13800138000");
+    formData.set("jobDescriptionId", "jd_1");
+    formData.set("notes", "备注");
+    formData.set("targetRole", "前端工程师");
+
+    const result = parseResumeLibraryEditFormInput(formData);
+
+    expect(result.success).toBe(false);
+    expect(result.error?.issues[0]?.message).toBe("请填写候选人姓名");
   });
 });

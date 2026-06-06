@@ -1,6 +1,13 @@
-import { count, desc, eq, sql } from "drizzle-orm";
+import { asc, count, desc, eq, ilike, or, sql } from "drizzle-orm";
 import type { Metadata } from "next";
+import {
+  buildDataGridQueryKey,
+  parseDataGridSearchParams,
+} from "@/components/data-grid/query-contract";
+import type { DataGridQueryState } from "@/components/data-grid/query-contract";
+import { QueryHydrationBoundary } from "@/components/query-hydration-boundary";
 import { db } from "@/lib/server/db";
+import { requirePlatformAdmin } from "@/lib/server/platform-admin";
 import { session, user } from "@arc/db-schema/schema";
 import { UsersGrid } from "./_components/users-grid";
 
@@ -14,6 +21,7 @@ const LAST_ACTIVE_AT_EXPR = sql<Date | string | null>`GREATEST(
   MAX(${user.lastActiveAt})
 )`;
 const LAST_ACTIVE_AT_SQL = sql<Date | string | null>`${LAST_ACTIVE_AT_EXPR}`.as("last_active_at");
+type UserSortColumn = "name" | "email" | "role" | "createdAt" | "lastActiveAt";
 
 function toIsoString(value: Date | string | null | undefined) {
   if (!value) {
@@ -26,7 +34,45 @@ function toIsoString(value: Date | string | null | undefined) {
   return Number.isNaN(date.getTime()) ? null : date.toISOString();
 }
 
-export default async function PlatformUsersPage() {
+function normalizeUserSortColumn(value: string | undefined): UserSortColumn {
+  if (
+    value === "name" ||
+    value === "email" ||
+    value === "role" ||
+    value === "createdAt" ||
+    value === "lastActiveAt"
+  ) {
+    return value;
+  }
+  return "lastActiveAt";
+}
+
+function userOrderBy(sortBy: string | undefined, sortOrder: "asc" | "desc" | undefined) {
+  const column = normalizeUserSortColumn(sortBy);
+  const direction = sortOrder ?? "desc";
+  if (column === "lastActiveAt") {
+    const sqlDirection = direction === "asc" ? sql`asc` : sql`desc`;
+    return [sql`${LAST_ACTIVE_AT_EXPR} ${sqlDirection} nulls last`, desc(user.createdAt)];
+  }
+  const orderDir = direction === "asc" ? asc : desc;
+  if (column === "name") {
+    return [orderDir(user.name), desc(user.createdAt)];
+  }
+  if (column === "email") {
+    return [orderDir(user.email), desc(user.createdAt)];
+  }
+  if (column === "role") {
+    return [orderDir(user.role), desc(user.createdAt)];
+  }
+  return [orderDir(user.createdAt)];
+}
+
+async function loadPlatformUsers(query: DataGridQueryState<Record<string, never>>) {
+  const search = query.search.trim();
+  const searchFilter = search
+    ? or(ilike(user.name, `%${search}%`), ilike(user.email, `%${search}%`))
+    : undefined;
+
   const [rows, [{ total }]] = await Promise.all([
     db
       .select({
@@ -46,18 +92,17 @@ export default async function PlatformUsersPage() {
       })
       .from(user)
       .leftJoin(session, eq(session.userId, user.id))
+      .where(searchFilter)
       .groupBy(user.id)
-      .orderBy(sql`${LAST_ACTIVE_AT_EXPR} desc nulls last`, desc(user.createdAt))
-      .limit(INITIAL_PAGE_SIZE)
-      .offset(0),
-    db.select({ total: count() }).from(user),
+      .orderBy(...userOrderBy(query.sortBy, query.sortOrder))
+      .limit(query.pageSize)
+      .offset((query.page - 1) * query.pageSize),
+    db.select({ total: count() }).from(user).where(searchFilter),
   ]);
 
-  const totalPages = Math.max(1, Math.ceil(total / INITIAL_PAGE_SIZE));
-
-  const initialData = {
-    page: 1,
-    pageSize: INITIAL_PAGE_SIZE,
+  return {
+    page: query.page,
+    pageSize: query.pageSize,
     records: rows.map((r) => ({
       ...r,
       banExpires: r.banExpires?.toISOString() ?? null,
@@ -66,8 +111,32 @@ export default async function PlatformUsersPage() {
       updatedAt: r.updatedAt.toISOString(),
     })),
     total,
-    totalPages,
+    totalPages: Math.max(1, Math.ceil(total / query.pageSize)),
   };
+}
 
-  return <UsersGrid initialData={initialData} />;
+export default async function PlatformUsersPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  await requirePlatformAdmin();
+  const query = parseDataGridSearchParams(await searchParams, {
+    allowedSortIds: ["name", "email", "role", "createdAt", "lastActiveAt"],
+    defaultPageSize: INITIAL_PAGE_SIZE,
+    defaultSorting: [{ desc: true, id: "lastActiveAt" }],
+    initialFilters: {},
+  });
+  return (
+    <QueryHydrationBoundary
+      queries={[
+        {
+          queryFn: () => loadPlatformUsers(query),
+          queryKey: buildDataGridQueryKey(["platform-users"], query),
+        },
+      ]}
+    >
+      <UsersGrid />
+    </QueryHydrationBoundary>
+  );
 }

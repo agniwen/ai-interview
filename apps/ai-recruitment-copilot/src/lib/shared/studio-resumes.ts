@@ -352,13 +352,11 @@ export interface CandidateTimelineResponse {
 /**
  * 表单 schema（创建 / 编辑共用）。比 studioInterviewFormSchema 宽松：
  *   - 不要求至少一轮 scheduleEntries
- *   - 不要求 jobDescriptionId
  *   - 不需要 status（始终 draft）
  * 候选人姓名可空：服务端会用解析结果回填，最终落库时强制非空（兜底"未命名候选人"）。
  *
  * Create / edit form schema. Looser than `studioInterviewFormSchema`:
  *   - no schedule entries required
- *   - jobDescription is optional
  *   - no status field (always draft)
  * `candidateName` may be empty — the server falls back to the parsed profile
  * name (and finally "未命名候选人" if the resume has no name either).
@@ -373,9 +371,17 @@ export const resumeLibraryFormSchema = z.object({
     }),
   candidateName: z.string().trim().max(120, "候选人姓名不能超过 120 个字符"),
   candidatePhone: z.string().trim().max(40, "联系电话不能超过 40 个字符"),
-  jobDescriptionId: z.string().trim().max(100),
+  jobDescriptionId: z.string().trim().min(1, "请选择关联在招岗位").max(100, "关联在招岗位无效"),
   notes: z.string().trim().max(2000, "备注不能超过 2000 字"),
   targetRole: z.string().trim().max(120, "目标岗位不能超过 120 个字符"),
+});
+
+export const resumeLibraryEditFormSchema = resumeLibraryFormSchema.extend({
+  candidateName: z
+    .string()
+    .trim()
+    .min(1, "请填写候选人姓名")
+    .max(120, "候选人姓名不能超过 120 个字符"),
 });
 
 export type ResumeLibraryFormValues = z.infer<typeof resumeLibraryFormSchema>;

@@ -11,25 +11,9 @@ import "client-only";
  * requests). In the browser we reuse a singleton so all components share one cache.
  */
 
-import { QueryClient } from "@tanstack/react-query";
+import { createQueryClient } from "@/lib/shared/query-client";
 
-/**
- * 用项目默认配置创建一个新的 QueryClient。
- * Build a new QueryClient with project-wide defaults.
- */
-export function createQueryClient() {
-  return new QueryClient({
-    defaultOptions: {
-      queries: {
-        refetchOnWindowFocus: false,
-        retry: 1,
-        staleTime: 30 * 1000,
-      },
-    },
-  });
-}
-
-let browserQueryClient: QueryClient | undefined;
+let browserQueryClient: ReturnType<typeof createQueryClient> | undefined;
 
 /**
  * 获取当前环境下应使用的 QueryClient：
