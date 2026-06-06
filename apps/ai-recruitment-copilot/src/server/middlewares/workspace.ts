@@ -1,5 +1,3 @@
-import "server-only";
-
 import { asc, eq } from "drizzle-orm";
 import { db } from "@/lib/server/db";
 import { session as sessionTable } from "@arc/db-schema/schema";

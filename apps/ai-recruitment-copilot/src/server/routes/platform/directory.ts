@@ -1,5 +1,3 @@
-import "server-only";
-
 import type { PlatformAnalyticsDirectory } from "@/lib/shared/platform-analytics";
 import { db } from "@/lib/server/db";
 import { organization, user } from "@arc/db-schema/schema";

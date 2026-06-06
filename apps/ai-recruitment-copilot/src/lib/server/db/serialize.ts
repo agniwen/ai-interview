@@ -1,5 +1,3 @@
-import "server-only";
-
 // 把 Drizzle 返回的 Date 列序列化为 ISO 字符串供前端使用；
 // 支持可空字段（如 scheduledAt）以保持 null 语义。
 // Serialize a Drizzle Date column to an ISO string for the wire DTO;

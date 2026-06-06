@@ -1,5 +1,3 @@
-import "server-only";
-
 // End-to-end deterministic resume parsing pipeline.
 // Runs Qwen-VL OCR on every page of the PDF, then extracts structured
 // candidate info via a single generateText / parseJsonOutput call.

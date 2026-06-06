@@ -110,7 +110,7 @@ import {
   toBadRequest,
 } from "@/server/routes/interview/utils";
 import { requirePermission } from "@/server/middlewares/permission";
-import { invalidateStudioInterviewCaches, safeUpdateTag } from "@/server/cache-tags";
+import { cacheTags, invalidateStudioInterviewCaches, safeUpdateTag } from "@/server/cache-tags";
 import { getObjectStream } from "@/lib/server/s3";
 
 const dedupCheckInputSchema = z.object({
@@ -1115,7 +1115,7 @@ export const studioInterviewsRouter = factory
     });
 
     invalidateStudioInterviewCaches(activeOrg.id);
-    safeUpdateTag("interview-conversations");
+    safeUpdateTag(cacheTags.interviewConversations);
     const detail = await loadInterviewRoundDetail(roundId, activeOrg.id);
     return c.json(detail, 200);
   })

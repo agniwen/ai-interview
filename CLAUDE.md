@@ -132,6 +132,18 @@ Do **not** create top-level `src/server/queries/` or `src/server/services/` dire
 
 Exceptions: `src/server/agents/` (shared by frontend + multiple routes) and `src/server/middlewares/` (shared middleware library) intentionally remain at server root.
 
+## Backend / Next Runtime Boundary
+
+The Hono backend must stay loadable outside a Next.js runtime. Files under `apps/ai-recruitment-copilot/src/server/` must not import `next/cache`, `next/headers`, `next/navigation`, or `server-only`, except for explicit adapter files under `src/server/adapters/next/`.
+
+When a backend route needs a Next-only capability, introduce a small port in backend code and inject the Next implementation from the adapter layer. Current examples:
+
+- Cache invalidation goes through `configureCacheInvalidator()` / `CacheInvalidator`; the Next implementation lives in `src/server/adapters/next/cache-invalidator.ts`.
+- Better Auth request-scoped headers go through `auth-request-context`; do not call `next/headers` from `auth.ts` or Hono route modules.
+- Read-side RSC caching (`"use cache"`, `cacheTag`, `cacheLife`) belongs in `src/app` or another Next-only wrapper, not in route DAOs.
+
+If a helper under `@/lib/server/*` is imported by `src/server`, it is part of the backend runtime and must also avoid `server-only` / direct `next/*` runtime imports. Next page-only helpers such as `auth-session.ts` may keep `server-only` and `next/headers`.
+
 ## Frontend HTTP Calls
 
 - **JSON endpoints** → call the typed Hono RPC client at `@/lib/client/rpc` and pipe the result through `rpcFetch` from `@/lib/client/api`:
@@ -205,11 +217,11 @@ Use the official Hono `parseResponse` / `DetailedError` rather than rolling new 
 
 `src/lib/` is split by runtime so it's obvious from the import path which side a module is meant to run on. The bundler enforces the boundary at build time via `import "server-only"` / `import "client-only"` directives.
 
-- **`@/lib/server/*`** — Node-only. DB client (`db/index.ts`), Better Auth (`auth.ts`), S3 (`s3.ts`), PDF rasterization, Qwen OCR, resume parsing pipeline, server-side hash helpers, anything reading server secrets. Each file starts with `import "server-only";`. Importing one of these from a Client Component fails the build.
+- **`@/lib/server/*`** — Node-only. DB client (`db/index.ts`), Better Auth (`auth.ts`), S3 (`s3.ts`), PDF rasterization, Qwen OCR, resume parsing pipeline, server-side hash helpers, anything reading server secrets. Files used only by Next Server Components/Route Handlers may start with `import "server-only";`. Files imported by `src/server` are backend-runtime dependencies and must avoid `server-only` so the Hono app can later run in a standalone Node process.
 - **`@/lib/client/*`** — Browser-only. `rpc.ts`, `auth-client.ts`, `query-client.ts`, `clipboard.ts`, `ndjson-stream.ts`, the `api/` wrapper layer. Each file starts with `import "client-only";`.
 - **`@/lib/shared/*`** — Pure types, Zod schemas, and isomorphic utilities (no Node-/browser-only APIs). Examples: `interview/agent-instructions.ts`, `utils/`, `data-url.ts`, `file-hash.ts` (Web Crypto), `departments.ts`, `studio-resumes.ts`, etc. No directive — safe to import from either side.
 
-**Drizzle schema lives in the `@arc/db-schema` workspace package**, not under `src/lib/`. The package exports `schema`, `relations`, and the DB-adjacent shared types (`candidate-forms`, `db-enums`, `interview-question-templates`, `interview-session`, `interview/types`, `job-description-config`, `minimax-voices`, `studio-interviews`, `resume-parser-schema`) — anything imported by `schema.ts`. They live in a separate package (without `import "server-only";`) so `drizzle-kit` can load `schema.ts` from its CLI subprocess, which doesn't honor Next's `react-server` export condition and otherwise crashes on the server-only guard. Import as `@arc/db-schema/schema`, `@arc/db-schema/relations`, `@arc/db-schema/candidate-forms`, etc. The actual DB connection lives in `@/lib/server/db/index.ts` (which does start with `import "server-only";`) and imports `relations` from the package. `drizzle.config.ts` points at `../../packages/db-schema/src/schema.ts`. The package is listed in `next.config.ts` `transpilePackages` so Next compiles its TS sources.
+**Drizzle schema lives in the `@arc/db-schema` workspace package**, not under `src/lib/`. The package exports `schema`, `relations`, and the DB-adjacent shared types (`candidate-forms`, `db-enums`, `interview-question-templates`, `interview-session`, `interview/types`, `job-description-config`, `minimax-voices`, `studio-interviews`, `resume-parser-schema`) — anything imported by `schema.ts`. They live in a separate package (without `import "server-only";`) so `drizzle-kit` can load `schema.ts` from its CLI subprocess, which doesn't honor Next's `react-server` export condition and otherwise crashes on the server-only guard. Import as `@arc/db-schema/schema`, `@arc/db-schema/relations`, `@arc/db-schema/candidate-forms`, etc. The actual DB connection lives in `@/lib/server/db/index.ts` and imports `relations` from the package. `drizzle.config.ts` points at `../../packages/db-schema/src/schema.ts`. The package is listed in `next.config.ts` `transpilePackages` so Next compiles its TS sources.
 
 When a module _mostly_ fits one bucket but has one server-only function (e.g. `hashTemplateSnapshot` using `node:crypto`), extract that function into a sibling `*-hash.ts` (or similar) under `@/lib/server/` and keep the rest in `@/lib/shared/`. Don't pull `node:*` imports into a shared file.
 

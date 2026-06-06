@@ -80,13 +80,19 @@ function buildTestAppForOrg(orgId: string) {
       slug: orgId,
     });
     c.set("user", {
-      createdAt: NOW.toISOString(),
+      banExpires: null,
+      banReason: null,
+      banned: false,
+      createdAt: NOW,
       email: "route-test@example.com",
       emailVerified: false,
+      feishuTenantKey: null,
+      feishuTenantName: null,
       id: USER_ID,
       image: null,
       name: "Test User",
-      updatedAt: NOW.toISOString(),
+      role: null,
+      updatedAt: NOW,
     });
     c.set("session", null);
     c.set("member", null);

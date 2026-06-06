@@ -1,5 +1,3 @@
-import "server-only";
-
 import type { MinimaxVoiceId } from "@arc/db-schema/minimax-voices";
 import { createHash, randomUUID } from "node:crypto";
 import { and, eq } from "drizzle-orm";

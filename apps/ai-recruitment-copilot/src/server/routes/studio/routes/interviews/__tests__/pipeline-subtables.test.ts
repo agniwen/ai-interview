@@ -350,6 +350,7 @@ describe("human interview rounds DAO", () => {
       organizationId: ORG,
     });
     expect(meeting?.scheduledAt).toBe(nextTime);
+    expect(meeting?.validUntil).toBe("2026-05-31T10:30:00.000Z");
 
     await endHumanInterviewMeetingsByRound({ organizationId: ORG, roundId: round.id });
     await expect(

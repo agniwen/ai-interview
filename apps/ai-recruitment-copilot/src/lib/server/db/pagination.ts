@@ -1,5 +1,3 @@
-import "server-only";
-
 import { asc, desc } from "drizzle-orm";
 import type { Column, SQL } from "drizzle-orm";
 import { z } from "zod";

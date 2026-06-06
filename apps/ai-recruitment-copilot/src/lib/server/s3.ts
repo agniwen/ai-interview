@@ -1,5 +1,3 @@
-import "server-only";
-
 import type { S3Client } from "@aws-sdk/client-s3";
 
 interface S3Config {

@@ -1,8 +1,6 @@
 // 邮件日志 DAO：插入发送记录 + 按轮次聚合摘要。
 // Round-email log DAO: insert send record + aggregate summary per round.
 
-import "server-only";
-
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { nanoid } from "nanoid";
 

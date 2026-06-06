@@ -1,5 +1,3 @@
-import "server-only";
-
 // 真人复面单轮 DAO。每个 mutation 都是一个事务，确保 round 与 interviewer junction 同步。
 // 路由层只负责权限 + 输入校验 + 调用这里的函数。
 //
@@ -263,7 +261,10 @@ function resolveValidUntilInput({
 
   let resolved: Date;
   if (validUntil === undefined) {
-    resolved = existingValidUntil ?? new Date(scheduledAt.getTime() + DEFAULT_VALID_DURATION_MS);
+    resolved =
+      existingValidUntil && existingValidUntil.getTime() > scheduledAt.getTime()
+        ? existingValidUntil
+        : new Date(scheduledAt.getTime() + DEFAULT_VALID_DURATION_MS);
   } else if (validUntil) {
     resolved = new Date(validUntil);
   } else {

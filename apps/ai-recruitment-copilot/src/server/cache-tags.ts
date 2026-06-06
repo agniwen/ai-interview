@@ -1,43 +1,78 @@
-import "server-only";
-
 import { eq } from "drizzle-orm";
-import { revalidateTag } from "next/cache";
 import { db } from "@/lib/server/db";
 import { studioInterview } from "@arc/db-schema/schema";
+
+export interface CacheInvalidator {
+  revalidateTag: (tag: string) => Promise<void> | void;
+}
+
+function noopRevalidateTag() {
+  // Intentionally empty: standalone/test runtimes may not have a cache backend.
+}
+
+const noopCacheInvalidator: CacheInvalidator = {
+  revalidateTag: noopRevalidateTag,
+};
+
+let cacheInvalidator = noopCacheInvalidator;
+
+export const cacheTags = {
+  interviewConversations: "interview-conversations",
+  interviewConversationsByRecord(interviewRecordId: string) {
+    return `interview-conversations-${interviewRecordId}`;
+  },
+  studioInterviews(organizationId: string) {
+    return `studio-interviews:${organizationId}`;
+  },
+  studioResumes(organizationId: string) {
+    return `studio-resumes:${organizationId}`;
+  },
+} as const;
+
+export function configureCacheInvalidator(invalidator: CacheInvalidator) {
+  cacheInvalidator = invalidator;
+}
+
+export function resetCacheInvalidatorForTests() {
+  cacheInvalidator = noopCacheInvalidator;
+}
+
+async function warnOnAsyncInvalidationFailure(tag: string, result: PromiseLike<void>) {
+  try {
+    await result;
+  } catch (error) {
+    console.warn(`[cache-tags] revalidateTag("${tag}") failed:`, error);
+  }
+}
 
 /**
  * 当前阶段：org-scoped 业务 DAO 已经移除了 `"use cache"`（见 2026-05 commit
  * "drop use cache from org-scoped DAOs"），所以本函数大多数调用现在是 no-op
  * ——目标 tag 在缓存层没有任何 entry 对应。保留这条调用基础设施 + 它的现有调
  * 用点，让"未来某天再启用 use cache"时能直接生效，不用重新拉一遍 invalidate
- * 通路。`interview-conversations*` 类的 record-id-scoped tag 仍然在用（agent /
- * livekit 写入侧），所以这函数不能删。
+ * 通路。`interview-conversations*` 类的历史调用也保留为同一类未来缓存预埋。
  *
- * 用 `revalidateTag` 而不是 `updateTag`：本项目所有写入路径都在 Hono Route
- * Handler 里（不是 Server Action），`updateTag` 只能在 Server Action 里调，
- * 否则 Next.js 直接抛 "updateTag can only be called from within a Server
- * Action"。`revalidateTag` 在 Route Handler / Server Action / 后台任务里都
- * 可用，语义同样是把对应 tag 标记为过期。
+ * Next.js runtime 通过 app/api/[[...route]]/route.ts 注入具体 invalidator。
+ * 独立后端或测试环境默认 no-op；后续可替换成 Redis event / HTTP internal
+ * revalidate endpoint，而不让业务 route 直接 import Next 的 cache runtime。
  *
- * Use `revalidateTag` instead of `updateTag`: every writer in this codebase
- * runs in a Hono Route Handler, not a Server Action. `updateTag` only works
- * inside Server Actions and throws otherwise; `revalidateTag` is the correct
- * API for Route Handlers and gives the same "mark tag stale" semantics.
+ * The Next.js runtime injects the concrete invalidator from
+ * app/api/[[...route]]/route.ts. Standalone backends and tests use a no-op by
+ * default; this can later become Redis events or a protected HTTP revalidate
+ * endpoint without making business routes import the Next cache runtime.
  *
  * Status: most org-scoped DAOs no longer use "use cache" so most of these
  * calls are now no-ops (no entry matches the tag). Kept anyway so re-enabling
- * caching later doesn't require rebuilding the invalidation plumbing. The
- * record-id-scoped `interview-conversations*` tags are still actively used.
- * `console.warn` on the off-chance Next.js changes the contract again.
+ * caching later doesn't require rebuilding the invalidation plumbing. Historical
+ * `interview-conversations*` calls follow the same future-cache plumbing.
+ * `console.warn` on the off-chance the runtime invalidator fails.
  */
 export function safeUpdateTag(tag: string) {
   try {
-    // Next.js 16 的 revalidateTag 第二参是 "profile"——用来匹配缓存项当初的
-    // cacheLife 档位；"default" 等于"按目标 entry 自身的过期策略立即失效"，
-    // 不需要调用方知道写入时用了哪个 profile。
-    // The second arg is the cache-life profile to invalidate against; "default"
-    // makes the call agnostic to whatever cacheLife the cached entries used.
-    revalidateTag(tag, "default");
+    const result = cacheInvalidator.revalidateTag(tag);
+    if (result && typeof result.then === "function") {
+      void warnOnAsyncInvalidationFailure(tag, result);
+    }
   } catch (error) {
     console.warn(`[cache-tags] revalidateTag("${tag}") failed:`, error);
   }
@@ -53,8 +88,8 @@ export function safeUpdateTag(tag: string) {
  * a stale projection. Both tags are org-scoped.
  */
 export function invalidateStudioInterviewCaches(organizationId: string) {
-  safeUpdateTag(`studio-interviews:${organizationId}`);
-  safeUpdateTag(`studio-resumes:${organizationId}`);
+  safeUpdateTag(cacheTags.studioInterviews(organizationId));
+  safeUpdateTag(cacheTags.studioResumes(organizationId));
 }
 
 /**

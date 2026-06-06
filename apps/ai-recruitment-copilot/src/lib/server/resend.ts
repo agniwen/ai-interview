@@ -1,4 +1,3 @@
-import "server-only";
 import { Resend } from "resend";
 
 let cached: Resend | null = null;

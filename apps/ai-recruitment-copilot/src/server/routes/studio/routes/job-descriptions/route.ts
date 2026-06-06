@@ -22,7 +22,7 @@ import {
   queryPaginatedJobDescriptions,
   serializeJobDescription,
 } from "@/server/routes/studio/routes/job-descriptions/dao";
-import { safeUpdateTag } from "@/server/cache-tags";
+import { cacheTags, safeUpdateTag } from "@/server/cache-tags";
 
 async function validateReferences(
   organizationId: string,
@@ -306,7 +306,7 @@ export const jobDescriptionsRouter = factory
       .delete(jobDescription)
       .where(and(eq(jobDescription.id, id), eq(jobDescription.organizationId, activeOrg.id)));
     safeUpdateTag(`job-descriptions:${activeOrg.id}`);
-    safeUpdateTag(`studio-interviews:${activeOrg.id}`);
+    safeUpdateTag(cacheTags.studioInterviews(activeOrg.id));
     safeUpdateTag(`interviewers:${activeOrg.id}`);
     return c.json({ success: true }, 200);
   });
