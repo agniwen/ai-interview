@@ -12,8 +12,8 @@ import {
 import Markdown from "react-markdown";
 import { Message, MessageContent } from "@/components/ai-elements/message";
 import { DATE_TIME_DISPLAY_OPTIONS, TimeDisplay } from "@/components/time-display";
-import { coalescePersistedInterviewTurns } from "@/lib/shared/interview-transcript-turns";
-import { cn } from "@/lib/shared/utils";
+import { coalescePersistedInterviewTurns } from "@arc/shared/interview-transcript-turns";
+import { cn } from "@arc/shared/utils";
 
 interface ConversationTranscriptProps {
   turns: PersistedInterviewTurn[];

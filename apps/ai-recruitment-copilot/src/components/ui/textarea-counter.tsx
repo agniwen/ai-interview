@@ -1,4 +1,4 @@
-import { cn } from "@/lib/shared/utils";
+import { cn } from "@arc/shared/utils";
 
 interface TextareaCounterProps {
   className?: string;

@@ -12,7 +12,7 @@ import type { CandidateFormTemplateSnapshot } from "@arc/db-schema/candidate-for
 import { CheckIcon, ChevronDownIcon } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { cn } from "@/lib/shared/utils";
+import { cn } from "@arc/shared/utils";
 import type { AnswerValue } from "./types";
 
 export function DesktopMultiSelect({

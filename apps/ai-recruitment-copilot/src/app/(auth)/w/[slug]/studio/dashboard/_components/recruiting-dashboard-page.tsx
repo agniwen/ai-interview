@@ -3,8 +3,8 @@
 import { useMemo } from "react";
 import { Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, XAxis, YAxis } from "recharts";
 import { StudioSummaryCards } from "@/app/(auth)/w/[slug]/studio/_components/studio-summary-cards";
-import type { RecruitingDashboardMetrics } from "@/lib/shared/studio-dashboard";
-import type { ResumeLibraryMetrics } from "@/lib/shared/studio-resumes";
+import type { RecruitingDashboardMetrics } from "@arc/shared/studio-dashboard";
+import type { ResumeLibraryMetrics } from "@arc/shared/studio-resumes";
 import { offerDraftStatusMeta } from "@arc/db-schema/studio-interviews";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";

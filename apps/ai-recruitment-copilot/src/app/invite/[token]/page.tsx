@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { use, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { authClient } from "@/lib/shared/auth-client";
+import { authClient } from "@/lib/client/auth-client";
 
 export default function InviteAcceptPage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = use(params);

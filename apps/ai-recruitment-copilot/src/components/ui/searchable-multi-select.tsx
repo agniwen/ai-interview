@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import type { SearchableSelectOption } from "@/components/ui/searchable-select";
-import { cn } from "@/lib/shared/utils";
+import { cn } from "@arc/shared/utils";
 
 // =====================================================================
 // 多选可搜索下拉。Trigger 显示"已选 N ..."文案，触发器下方默认渲染已选项 badge 列表。

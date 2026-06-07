@@ -3,7 +3,7 @@
 import type { HTMLAttributes } from "react";
 import { useEffect, useRef } from "react";
 
-import { cn } from "@/lib/shared/utils";
+import { cn } from "@arc/shared/utils";
 
 export type LiveWaveformProps = HTMLAttributes<HTMLDivElement> & {
   active?: boolean;

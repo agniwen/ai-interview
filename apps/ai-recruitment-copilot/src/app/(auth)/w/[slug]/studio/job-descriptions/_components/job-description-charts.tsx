@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import type { ChartConfig } from "@/components/ui/chart";
 import { Empty, EmptyDescription, EmptyHeader } from "@/components/ui/empty";
-import type { JobDescriptionMetrics } from "@/lib/shared/job-descriptions";
+import type { JobDescriptionMetrics } from "@arc/shared/job-descriptions";
 
 const NAME_MAX = 10;
 const X_AXIS_NAME_MAX = 6;

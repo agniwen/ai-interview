@@ -12,7 +12,7 @@ import {
 import type {
   BulkResumeBatchDetailDto,
   CreateBulkResumeBatchInput,
-} from "@/lib/shared/bulk-resume-upload";
+} from "@arc/shared/bulk-resume-upload";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 
 export type BulkUploadPhase =

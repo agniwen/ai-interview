@@ -17,8 +17,8 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { authClient } from "@/lib/shared/auth-client";
-import { cn } from "@/lib/shared/utils";
+import { authClient } from "@/lib/client/auth-client";
+import { cn } from "@arc/shared/utils";
 
 const SLUG_PATTERN = /^[a-z0-9-]+$/;
 const SLUG_CHECK_DEBOUNCE_MS = 400;

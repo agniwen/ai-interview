@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { rpcFetch } from "@/lib/client/api";
 import { rpc } from "@/lib/client/rpc";
-import { authClient } from "@/lib/shared/auth-client";
+import { authClient } from "@/lib/client/auth-client";
 
 interface JoinClientProps {
   code: string;

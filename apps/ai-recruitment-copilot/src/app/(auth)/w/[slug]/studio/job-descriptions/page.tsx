@@ -7,12 +7,12 @@ import {
 } from "@/components/data-grid/query-contract";
 import { QueryHydrationBoundary } from "@/components/query-hydration-boundary";
 import { resolveOrganizationBySlug } from "@/lib/server/auth-session";
-import { listAllDepartments } from "@/server/routes/studio/routes/departments/dao";
-import { listAllInterviewers } from "@/server/routes/studio/routes/interviewers/dao";
+import { listAllDepartments } from "@arc/backend/server/routes/studio/routes/departments/dao";
+import { listAllInterviewers } from "@arc/backend/server/routes/studio/routes/interviewers/dao";
 import {
   listJobDescriptions,
   loadJobDescriptionMetrics,
-} from "@/server/routes/studio/routes/job-descriptions/dao";
+} from "@arc/backend/server/routes/studio/routes/job-descriptions/dao";
 import { JobDescriptionManagementPage } from "./_components/job-description-management-page";
 
 export const metadata: Metadata = {

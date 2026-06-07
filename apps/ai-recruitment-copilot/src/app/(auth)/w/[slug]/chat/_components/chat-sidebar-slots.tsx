@@ -32,7 +32,7 @@ import {
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { deleteConversation, fetchConversations } from "@/lib/client/api";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
-import { cn } from "@/lib/shared/utils";
+import { cn } from "@arc/shared/utils";
 import { CHAT_EVENTS, notifyConversationsChanged } from "../_lib/chat-events";
 
 interface ConversationListItem {

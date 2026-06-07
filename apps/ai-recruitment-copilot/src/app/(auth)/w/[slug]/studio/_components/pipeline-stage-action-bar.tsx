@@ -22,7 +22,7 @@ import { candidateOutcomeMeta, pipelineStageMeta } from "@arc/db-schema/studio-i
 import type { CandidateOutcome, PipelineStage } from "@arc/db-schema/studio-interviews";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/shared/utils";
+import { cn } from "@arc/shared/utils";
 
 export interface PipelineStageActionBarProps {
   pipelineStage: PipelineStage;

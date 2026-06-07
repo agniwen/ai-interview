@@ -12,7 +12,7 @@ import {
   CommandShortcut,
 } from "@/components/ui/command";
 import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { cn } from "@/lib/shared/utils";
+import { cn } from "@arc/shared/utils";
 
 export type ModelSelectorProps = ComponentProps<typeof Dialog>;
 

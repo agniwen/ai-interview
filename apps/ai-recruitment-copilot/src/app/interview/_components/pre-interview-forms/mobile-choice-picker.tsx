@@ -23,7 +23,7 @@ import {
   DrawerHeader,
   DrawerTitle,
 } from "@/components/ui/drawer";
-import { cn } from "@/lib/shared/utils";
+import { cn } from "@arc/shared/utils";
 import type { AnswerValue } from "./types";
 
 export function MobileChoicePicker({

@@ -14,12 +14,12 @@ import type { InterviewQuestion } from "@arc/db-schema/interview/types";
 import type {
   StudioInterviewRoundDetail,
   StudioInterviewRoundListRecord,
-} from "@/lib/shared/studio-interview-rounds";
+} from "@arc/shared/studio-interview-rounds";
 import type {
   CandidateTimelineResponse,
   PaginatedResumeLibraryResult,
   ResumeLibraryDetail,
-} from "@/lib/shared/studio-resumes";
+} from "@arc/shared/studio-resumes";
 import { rpc } from "@/lib/client/rpc";
 import { rpcFetch } from "../rpc-fetch";
 import type { DedupMatchRecord } from "./studio-interviews";

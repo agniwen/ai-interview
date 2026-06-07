@@ -6,7 +6,7 @@ import * as React from "react";
 import { Drawer as DrawerPrimitive } from "vaul";
 
 import { useIsMobile } from "@/hooks/use-mobile";
-import { cn } from "@/lib/shared/utils";
+import { cn } from "@arc/shared/utils";
 
 type ModalSize = "sm" | "md" | "lg" | "xl" | "2xl" | "full";
 type HeaderLayout = "stack" | "row";

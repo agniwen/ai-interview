@@ -8,7 +8,7 @@ import type {
   BulkResumeBatchDetailDto,
   BulkResumeBatchDto,
   BulkResumeBatchItemDto,
-} from "@/lib/shared/bulk-resume-upload";
+} from "@arc/shared/bulk-resume-upload";
 import { useBulkUpload } from "./use-bulk-upload";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;

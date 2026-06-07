@@ -10,7 +10,7 @@ import { cva } from "class-variance-authority";
 import * as React from "react";
 import { Children, cloneElement, isValidElement, memo, useMemo } from "react";
 import { useAgentAudioVisualizerGridAnimator } from "@/hooks/agents-ui/use-agent-audio-visualizer-grid";
-import { cn } from "@/lib/shared/utils";
+import { cn } from "@arc/shared/utils";
 
 function cloneSingleChild(
   children: ReactNode | ReactNode[],

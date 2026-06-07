@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, MouseEvent as ReactMouseEvent, ReactNode } from "react";
-import { cn } from "@/lib/shared/utils";
+import { cn } from "@arc/shared/utils";
 
 type Align = "left" | "center" | "right";
 

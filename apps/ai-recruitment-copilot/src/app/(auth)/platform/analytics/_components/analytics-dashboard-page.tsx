@@ -4,14 +4,14 @@ import type {
   PlatformAnalyticsActivityEvent,
   PlatformAnalyticsEventBreakdownItem,
   PlatformAnalyticsSummary,
-} from "@/lib/shared/platform-analytics";
+} from "@arc/shared/platform-analytics";
 import {
   DEFAULT_PLATFORM_ANALYTICS_ACTIVITY_PAGE,
   DEFAULT_PLATFORM_ANALYTICS_ACTIVITY_PAGE_SIZE,
   DEFAULT_PLATFORM_ANALYTICS_RANGE_DAYS,
   PLATFORM_ANALYTICS_ACTIVITY_PAGE_SIZE_OPTIONS,
   PLATFORM_ANALYTICS_RANGE_DAYS,
-} from "@/lib/shared/platform-analytics";
+} from "@arc/shared/platform-analytics";
 import { ActivityIcon, CheckCircle2Icon, CircleDotIcon, XCircleIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useMemo } from "react";

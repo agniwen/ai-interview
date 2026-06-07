@@ -13,7 +13,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { authClient } from "@/lib/shared/auth-client";
+import { authClient } from "@/lib/client/auth-client";
 
 interface UserMenuProps {
   name: string;

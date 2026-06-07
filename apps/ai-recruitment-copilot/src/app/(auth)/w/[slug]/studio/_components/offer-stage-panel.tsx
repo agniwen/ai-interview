@@ -27,7 +27,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { offerDraftStatusMeta } from "@arc/db-schema/studio-interviews";
 import type { OfferDraftInput } from "@arc/db-schema/studio-interviews";
-import type { OfferDraftRecord } from "@/lib/shared/studio-pipeline-stages";
+import type { OfferDraftRecord } from "@arc/shared/studio-pipeline-stages";
 import {
   cancelOfferDraft,
   createOfferDraft,

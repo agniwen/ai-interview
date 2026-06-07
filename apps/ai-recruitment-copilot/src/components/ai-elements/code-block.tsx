@@ -24,7 +24,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { cn } from "@/lib/shared/utils";
+import { cn } from "@arc/shared/utils";
 
 // Shiki uses bitflags for font styles: 1=italic, 2=bold, 4=underline
 /* oxlint-disable no-bitwise -- Shiki exposes font styles as a bitflag; masking is the correct operation. */

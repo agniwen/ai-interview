@@ -1,0 +1,32 @@
+{
+  "name": "@arc/shared",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Shared types, schemas, and isomorphic utilities for ARC apps and backend",
+  "type": "module",
+  "exports": {
+    "./utils": "./src/utils/index.ts",
+    "./utils/*": "./src/utils/*.ts",
+    "./interview/*": "./src/interview/*.ts",
+    "./*": "./src/*.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@arc/db-schema": "workspace:*",
+    "@tanstack/query-core": "^5.100.9",
+    "ai": "catalog:",
+    "better-auth": "^1.6.10",
+    "clsx": "^2.1.1",
+    "dayjs": "^1.11.20",
+    "tailwind-merge": "^3.6.0",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

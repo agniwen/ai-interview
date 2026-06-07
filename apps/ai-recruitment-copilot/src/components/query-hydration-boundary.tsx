@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
 import type { FetchQueryOptions, QueryKey } from "@tanstack/react-query";
-import { createQueryClient } from "@/lib/shared/query-client";
+import { createQueryClient } from "@arc/shared/query-client";
 
 type PrefetchQueryOptions = FetchQueryOptions<unknown, Error, unknown, QueryKey>;
 

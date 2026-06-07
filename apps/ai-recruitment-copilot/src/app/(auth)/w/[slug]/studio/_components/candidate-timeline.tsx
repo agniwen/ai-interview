@@ -5,7 +5,7 @@ import type {
   CandidateTimelineEventKind,
   CandidateTimelineEventTone,
   CandidateTimelineResponse,
-} from "@/lib/shared/studio-resumes";
+} from "@arc/shared/studio-resumes";
 import {
   BellIcon,
   BotIcon,
@@ -29,7 +29,7 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { Skeleton } from "@/components/ui/skeleton";
-import { cn } from "@/lib/shared/utils";
+import { cn } from "@arc/shared/utils";
 
 type TimelineIcon = ComponentType<SVGProps<SVGSVGElement>>;
 type BadgeVariant = ComponentProps<typeof Badge>["variant"];

@@ -15,9 +15,9 @@ import { Input } from "@/components/ui/input";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { Separator } from "@/components/ui/separator";
 import { Spinner } from "@/components/ui/spinner";
-import { formatDateOnly } from "@/lib/shared/utils/time";
+import { formatDateOnly } from "@arc/shared/utils/time";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
-import { authClient } from "@/lib/shared/auth-client";
+import { authClient } from "@/lib/client/auth-client";
 
 const WHITESPACE_REGEX = /\s+/u;
 

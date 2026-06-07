@@ -8,7 +8,7 @@ import type { Editor } from "@tiptap/react";
 import { BubbleMenu } from "@tiptap/react/menus";
 import { BoldIcon, CodeIcon, ItalicIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/shared/utils";
+import { cn } from "@arc/shared/utils";
 
 function BubbleBtn({
   active,

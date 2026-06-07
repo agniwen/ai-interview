@@ -1,7 +1,7 @@
 "use client";
 
 import { CheckIcon } from "lucide-react";
-import { cn } from "@/lib/shared/utils";
+import { cn } from "@arc/shared/utils";
 import type { ImportPhase } from "./types";
 
 const PHASES: { key: Exclude<ImportPhase, "idle">; label: string }[] = [

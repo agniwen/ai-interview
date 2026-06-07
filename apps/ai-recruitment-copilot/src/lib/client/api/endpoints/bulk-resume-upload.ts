@@ -15,7 +15,7 @@ import type {
   BulkResumeUploadFileDescriptor,
   CreateBulkResumeBatchInput,
   ProcessNextResult,
-} from "@/lib/shared/bulk-resume-upload";
+} from "@arc/shared/bulk-resume-upload";
 import { apiFetch } from "@/lib/client/api/client";
 import { rpc } from "@/lib/client/rpc";
 import { rpcFetch } from "../rpc-fetch";

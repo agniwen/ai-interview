@@ -3,7 +3,7 @@
 // Purpose: fixed 1600x900 inner canvas scaled to fit container width via cqi units,
 // keeping pixel-perfect mock layout while flexing to outer width.
 import type { ReactNode } from "react";
-import { cn } from "@/lib/shared/utils";
+import { cn } from "@arc/shared/utils";
 
 interface ScreenFrameProps {
   children: ReactNode;

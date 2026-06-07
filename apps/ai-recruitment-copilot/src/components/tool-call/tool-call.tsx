@@ -1,7 +1,7 @@
 "use client";
 
 import type { DynamicToolUIPart, ToolUIPart } from "ai";
-import type { ToolRenderState } from "@/lib/shared/tool-state";
+import type { ToolRenderState } from "@arc/shared/tool-state";
 import {
   ClockIcon,
   FileSearchIcon,
@@ -11,7 +11,7 @@ import {
   TargetIcon,
   WrenchIcon,
 } from "lucide-react";
-import { extractRenderState } from "@/lib/shared/tool-state";
+import { extractRenderState } from "@arc/shared/tool-state";
 import { ToolLayout } from "./tool-layout";
 
 export type ToolPart = ToolUIPart | DynamicToolUIPart;

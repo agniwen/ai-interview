@@ -12,7 +12,7 @@ import {
   upsertConversation as upsertConversationOnServer,
 } from "@/lib/client/api";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
-import { authClient } from "@/lib/shared/auth-client";
+import { authClient } from "@/lib/client/auth-client";
 import { chatModelByIdAtom, DRAFT_CHAT_KEY } from "../_atoms/model";
 import { thinkingModeAtom } from "../_atoms/thinking";
 import { useChatModelsQuery } from "../_lib/use-chat-models";

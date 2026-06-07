@@ -21,7 +21,7 @@ import {
   dateColumn,
   useDataGridState,
 } from "@/components/data-grid";
-import { authClient } from "@/lib/shared/auth-client";
+import { authClient } from "@/lib/client/auth-client";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -50,7 +50,7 @@ import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { rpcFetch } from "@/lib/client/api";
 import { rpc } from "@/lib/client/rpc";
-import { formatDate, formatDateOnly } from "@/lib/shared/utils/time";
+import { formatDate, formatDateOnly } from "@arc/shared/utils/time";
 
 const WHITESPACE_REGEX = /\s+/;
 

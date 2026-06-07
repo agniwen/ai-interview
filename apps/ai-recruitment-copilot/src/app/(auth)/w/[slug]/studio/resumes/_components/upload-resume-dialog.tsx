@@ -28,12 +28,9 @@ import {
   buildSaveOnlyResumeFormData,
 } from "@/lib/client/resume-analysis";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
-import type { StudioInterviewRoundDetail } from "@/lib/shared/studio-interview-rounds";
-import {
-  createResumeLibraryFormValues,
-  resumeLibraryFormSchema,
-} from "@/lib/shared/studio-resumes";
-import type { ResumeLibraryDetail } from "@/lib/shared/studio-resumes";
+import type { StudioInterviewRoundDetail } from "@arc/shared/studio-interview-rounds";
+import { createResumeLibraryFormValues, resumeLibraryFormSchema } from "@arc/shared/studio-resumes";
+import type { ResumeLibraryDetail } from "@arc/shared/studio-resumes";
 
 export type CreateResumeRecordResult =
   | { mode: "save-only"; detail: ResumeLibraryDetail }

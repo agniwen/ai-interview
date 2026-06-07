@@ -11,7 +11,7 @@ import { BrainIcon, ChevronDownIcon } from "lucide-react";
 import { createContext, memo, use, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Streamdown } from "streamdown";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { cn } from "@/lib/shared/utils";
+import { cn } from "@arc/shared/utils";
 
 import { Shimmer } from "./shimmer";
 

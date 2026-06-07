@@ -18,8 +18,8 @@
 
 import { useEntityCrud } from "@/app/(auth)/w/[slug]/studio/_components/use-entity-crud";
 import { EntityDeleteDialog } from "@/app/(auth)/w/[slug]/studio/_components/entity-delete-dialog";
-import type { JobDescriptionListRecord } from "@/lib/shared/job-descriptions";
-import type { PaginatedJobDescriptionResult } from "@/server/routes/studio/routes/job-descriptions/dao";
+import type { JobDescriptionListRecord } from "@arc/shared/job-descriptions";
+import type { PaginatedJobDescriptionResult } from "@arc/backend/server/routes/studio/routes/job-descriptions/dao";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo } from "react";
 import { Badge } from "@/components/ui/badge";

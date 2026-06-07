@@ -1,6 +1,6 @@
 "use client";
 
-import type { StudioCandidateRecord } from "@/lib/shared/studio-candidates";
+import type { StudioCandidateRecord } from "@arc/shared/studio-candidates";
 import { useForm } from "@tanstack/react-form";
 import type { z } from "zod";
 import { dateTimeLocalInputToISOString } from "@/lib/client/datetime-local";

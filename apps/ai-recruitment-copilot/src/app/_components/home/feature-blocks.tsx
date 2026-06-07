@@ -8,7 +8,7 @@ import { ScrollSmoother } from "gsap/ScrollSmoother";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { useCallback, useRef } from "react";
 import { ChatScreen, InterviewScreen, JobsScreen } from "@/components/screens";
-import { cn } from "@/lib/shared/utils";
+import { cn } from "@arc/shared/utils";
 import { CenterCarousel } from "./center-carousel";
 import { Eyebrow, Section } from "./section";
 

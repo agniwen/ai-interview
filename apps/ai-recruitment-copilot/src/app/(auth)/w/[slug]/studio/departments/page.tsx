@@ -7,7 +7,7 @@ import {
 } from "@/components/data-grid/query-contract";
 import { QueryHydrationBoundary } from "@/components/query-hydration-boundary";
 import { resolveOrganizationBySlug } from "@/lib/server/auth-session";
-import { listDepartments } from "@/server/routes/studio/routes/departments/dao";
+import { listDepartments } from "@arc/backend/server/routes/studio/routes/departments/dao";
 import { DepartmentManagementPage } from "./_components/department-management-page";
 
 export const metadata: Metadata = {

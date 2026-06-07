@@ -5,7 +5,7 @@ import { cva } from "class-variance-authority";
 import { Tabs as TabsPrimitive } from "@base-ui/react/tabs";
 import * as React from "react";
 
-import { cn } from "@/lib/shared/utils";
+import { cn } from "@arc/shared/utils";
 
 type BaseTabsRootProps = React.ComponentProps<typeof TabsPrimitive.Root>;
 type BaseTabsChangeDetails = Parameters<NonNullable<BaseTabsRootProps["onValueChange"]>>[1];

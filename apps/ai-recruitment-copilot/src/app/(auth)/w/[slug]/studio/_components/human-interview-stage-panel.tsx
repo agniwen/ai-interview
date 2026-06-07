@@ -41,7 +41,7 @@ import type {
   HumanInterviewMeetingLinkBundle,
   HumanInterviewMeetingRecord,
   HumanInterviewRoundRecord,
-} from "@/lib/shared/studio-pipeline-stages";
+} from "@arc/shared/studio-pipeline-stages";
 import { dateTimeLocalInputToISOString } from "@/lib/client/datetime-local";
 import {
   cancelHumanInterviewRound,

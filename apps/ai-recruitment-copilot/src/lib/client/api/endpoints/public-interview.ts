@@ -14,8 +14,8 @@ import type { StudioInterviewConversationReport } from "@arc/db-schema/interview
 import type {
   StudioInterviewRoundDetail,
   StudioInterviewRoundListRecord,
-} from "@/lib/shared/studio-interview-rounds";
-import type { ResumeLibraryDetail } from "@/lib/shared/studio-resumes";
+} from "@arc/shared/studio-interview-rounds";
+import type { ResumeLibraryDetail } from "@arc/shared/studio-resumes";
 import { rpc } from "@/lib/client/rpc";
 import { rpcFetch } from "../rpc-fetch";
 

@@ -16,7 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { cn } from "@/lib/shared/utils";
+import { cn } from "@arc/shared/utils";
 
 const selectVariants = cva(
   [

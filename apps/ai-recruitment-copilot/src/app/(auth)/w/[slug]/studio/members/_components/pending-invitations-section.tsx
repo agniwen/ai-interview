@@ -24,8 +24,8 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { Spinner } from "@/components/ui/spinner";
-import { authClient } from "@/lib/shared/auth-client";
-import { formatDate } from "@/lib/shared/utils/time";
+import { authClient } from "@/lib/client/auth-client";
+import { formatDate } from "@arc/shared/utils/time";
 import { getWorkspaceRoleLabel } from "./role-display";
 import type { WorkspaceRole } from "./role-display";
 

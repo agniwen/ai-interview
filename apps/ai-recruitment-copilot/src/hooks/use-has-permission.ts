@@ -1,6 +1,6 @@
 "use client";
-import { authClient } from "@/lib/shared/auth-client";
-import type { statement } from "@/lib/shared/permissions";
+import { authClient } from "@/lib/client/auth-client";
+import type { statement } from "@arc/shared/permissions";
 
 /**
  * 客户端权限校验：通过 better-auth 官方 checkRolePermission 同步本地解析

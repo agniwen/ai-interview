@@ -1,7 +1,7 @@
 "use client";
 
-import type { DepartmentFormValues, DepartmentRecord } from "@/lib/shared/departments";
-import { departmentFormSchema } from "@/lib/shared/departments";
+import type { DepartmentFormValues, DepartmentRecord } from "@arc/shared/departments";
+import { departmentFormSchema } from "@arc/shared/departments";
 import { rpc } from "@/lib/client/rpc";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { toast } from "sonner";

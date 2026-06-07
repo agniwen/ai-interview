@@ -7,14 +7,14 @@
 // between the resume-mode detail dialog and the launch-interview dialog so the
 // same data renders the same way in both places.
 
-import type { ResumeLibraryDetail } from "@/lib/shared/studio-resumes";
-import { describeResumeProgress } from "@/lib/shared/studio-resumes";
+import type { ResumeLibraryDetail } from "@arc/shared/studio-resumes";
+import { describeResumeProgress } from "@arc/shared/studio-resumes";
 import { truncateText } from "@/app/(auth)/w/[slug]/studio/interviews/_components/interview-detail/helpers";
 import { ResumeProfileView } from "@/components/resume-profile-view";
 import { SoftPanel } from "@/components/soft-panel";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/shared/utils";
+import { cn } from "@arc/shared/utils";
 import { useState } from "react";
 import Markdown from "react-markdown";
 

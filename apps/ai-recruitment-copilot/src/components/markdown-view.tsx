@@ -1,5 +1,5 @@
 import Markdown from "react-markdown";
-import { cn } from "@/lib/shared/utils";
+import { cn } from "@arc/shared/utils";
 
 // 这个通用 MarkdownView 需要保持紧凑排版，所以这里继续直接给 markdown
 // 渲染出的子元素打一份最小排版补丁（间距、heading 尺寸、list 符号、

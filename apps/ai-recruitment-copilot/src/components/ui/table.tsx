@@ -3,7 +3,7 @@
 import * as React from "react";
 import { OverlayScrollbarsComponent } from "overlayscrollbars-react";
 
-import { cn } from "@/lib/shared/utils";
+import { cn } from "@arc/shared/utils";
 
 function Table({
   className,

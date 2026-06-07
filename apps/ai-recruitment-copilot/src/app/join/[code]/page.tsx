@@ -1,7 +1,7 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { auth } from "@/lib/server/auth";
-import { getJoinPreview } from "@/server/routes/join/dao";
+import { auth } from "@arc/backend/lib/server/auth";
+import { getJoinPreview } from "@arc/backend/server/routes/join/dao";
 import { InvalidJoinLink } from "./_components/invalid-join-link";
 import { JoinClient } from "./_components/join-client";
 

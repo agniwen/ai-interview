@@ -11,7 +11,7 @@ import {
 import type {
   PaginatedStudioInterviewRoundsResult,
   StudioInterviewRoundListRecord,
-} from "@/lib/shared/studio-interview-rounds";
+} from "@arc/shared/studio-interview-rounds";
 import { pipelineStageMeta, scheduleEntryStatusMeta } from "@arc/db-schema/studio-interviews";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import dynamic from "next/dynamic";

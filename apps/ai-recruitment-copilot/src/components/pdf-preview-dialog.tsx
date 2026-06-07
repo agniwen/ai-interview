@@ -15,7 +15,7 @@ import "react-pdf/dist/Page/AnnotationLayer.css";
 import "react-pdf/dist/Page/TextLayer.css";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
-import { cn } from "@/lib/shared/utils";
+import { cn } from "@arc/shared/utils";
 
 // Worker bootstrap — Next.js (Turbopack/Webpack) resolves the asset URL via
 // `new URL(..., import.meta.url)` and emits it into the client bundle. The

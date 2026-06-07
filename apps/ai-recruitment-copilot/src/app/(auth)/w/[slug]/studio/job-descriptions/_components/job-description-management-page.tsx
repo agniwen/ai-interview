@@ -3,14 +3,14 @@
 import { PageHeader } from "@/app/(auth)/w/[slug]/studio/_components/page-header";
 import { EntityDeleteDialog } from "@/app/(auth)/w/[slug]/studio/_components/entity-delete-dialog";
 import { useEntityCrud } from "@/app/(auth)/w/[slug]/studio/_components/use-entity-crud";
-import type { DepartmentRecord } from "@/lib/shared/departments";
-import type { InterviewerListRecord } from "@/lib/shared/interviewers";
+import type { DepartmentRecord } from "@arc/shared/departments";
+import type { InterviewerListRecord } from "@arc/shared/interviewers";
 import type {
   JobDescriptionListRecord,
   JobDescriptionMetrics,
   JobDescriptionRecord,
-} from "@/lib/shared/job-descriptions";
-import type { PaginatedJobDescriptionResult } from "@/server/routes/studio/routes/job-descriptions/dao";
+} from "@arc/shared/job-descriptions";
+import type { PaginatedJobDescriptionResult } from "@arc/backend/server/routes/studio/routes/job-descriptions/dao";
 import { JobDescriptionCharts } from "./job-description-charts";
 import { ScopedResumesModal } from "@/app/(auth)/w/[slug]/studio/_components/scoped-resumes-modal";
 import { useQueryClient } from "@tanstack/react-query";

@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Modal } from "@/components/ui/modal";
 import { Progress } from "@/components/ui/progress";
-import type { BulkResumeBatchItemDto } from "@/lib/shared/bulk-resume-upload";
+import type { BulkResumeBatchItemDto } from "@arc/shared/bulk-resume-upload";
 import type { BulkUploadState } from "./use-bulk-upload";
 
 interface Props {

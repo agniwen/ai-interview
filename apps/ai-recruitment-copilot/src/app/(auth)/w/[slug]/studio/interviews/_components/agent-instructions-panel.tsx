@@ -7,7 +7,7 @@ import { MarkdownView } from "@/components/markdown-view";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { rpc } from "@/lib/client/rpc";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
-import { cn } from "@/lib/shared/utils";
+import { cn } from "@arc/shared/utils";
 
 interface AgentInstructionVariant {
   interviewerName: string | null;

@@ -11,9 +11,9 @@
 // detail dialog this button pops.
 
 import type { FileUIPart } from "ai";
-import type { AnalysisStreamEvent } from "@/lib/shared/api-stream";
-import type { ResumeLibraryDetail } from "@/lib/shared/studio-resumes";
-import type { StudioInterviewRoundDetail } from "@/lib/shared/studio-interview-rounds";
+import type { AnalysisStreamEvent } from "@arc/shared/api-stream";
+import type { ResumeLibraryDetail } from "@arc/shared/studio-resumes";
+import type { StudioInterviewRoundDetail } from "@arc/shared/studio-interview-rounds";
 import { useQueryClient } from "@tanstack/react-query";
 import { CheckIcon, DatabaseIcon, EyeIcon, LoaderCircleIcon } from "lucide-react";
 import dynamic from "next/dynamic";
@@ -39,7 +39,7 @@ import {
   parseResumeFile,
 } from "@/lib/client/resume-analysis";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
-import { cn } from "@/lib/shared/utils";
+import { cn } from "@arc/shared/utils";
 
 // 详情 / 发起弹窗只在需要时才挂载；动态加载省初始 bundle。
 // Dynamically load both heavy dialogs — they only mount on user interaction.

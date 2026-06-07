@@ -6,7 +6,7 @@ import Autoplay from "embla-carousel-autoplay";
 import useEmblaCarousel from "embla-carousel-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import { cn } from "@/lib/shared/utils";
+import { cn } from "@arc/shared/utils";
 
 interface CenterCarouselItem {
   key: string;

@@ -1,5 +1,5 @@
 import type { ComponentPropsWithoutRef, ElementType } from "react";
-import { cn } from "@/lib/shared/utils";
+import { cn } from "@arc/shared/utils";
 
 type SoftPanelProps<T extends ElementType> = {
   as?: T;

@@ -24,7 +24,7 @@ import {
 } from "lucide-react";
 import type { ReactNode } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { cn } from "@/lib/shared/utils";
+import { cn } from "@arc/shared/utils";
 
 interface NavItem {
   icon: typeof BotIcon;

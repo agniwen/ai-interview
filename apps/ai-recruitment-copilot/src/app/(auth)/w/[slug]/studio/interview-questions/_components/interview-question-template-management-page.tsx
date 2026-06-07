@@ -8,8 +8,8 @@ import type {
   InterviewQuestionTemplateRecord,
   InterviewQuestionTemplateScope,
 } from "@arc/db-schema/interview-question-templates";
-import type { JobDescriptionListRecord } from "@/lib/shared/job-descriptions";
-import type { PaginatedInterviewQuestionTemplateResult } from "@/server/routes/studio/routes/interview-questions/dao/queries";
+import type { JobDescriptionListRecord } from "@arc/shared/job-descriptions";
+import type { PaginatedInterviewQuestionTemplateResult } from "@arc/backend/server/routes/studio/routes/interview-questions/dao/queries";
 import { useQueryClient } from "@tanstack/react-query";
 import { ChevronDownIcon, ListChecksIcon, PlusIcon } from "lucide-react";
 import { parseAsString, useQueryState } from "nuqs";

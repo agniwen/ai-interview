@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { CreateWorkspaceDialog } from "@/components/workspace/create-workspace-dialog";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
-import { authClient } from "@/lib/shared/auth-client";
+import { authClient } from "@/lib/client/auth-client";
 
 // 切换工作区时保留页面"类型",丢掉记录级别的 id——目标 workspace 没有同一个 id。
 // - /w/A/chat[/anything]              → /w/B/chat        (空会话)

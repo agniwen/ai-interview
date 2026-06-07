@@ -10,7 +10,7 @@ import { AgentChatTranscript } from "@/components/agents-ui/agent-chat-transcrip
 import { AgentControlBar } from "@/components/agents-ui/agent-control-bar";
 import { Shimmer } from "@/components/ai-elements/shimmer";
 import { coalesceSessionMessages } from "@/lib/client/livekit-transcript";
-import { cn } from "@/lib/shared/utils";
+import { cn } from "@arc/shared/utils";
 import { AgentStateIndicator } from "./agent-state-indicator";
 import { TileLayout } from "./tile-view";
 

@@ -20,7 +20,7 @@ import type { StudioInterviewConversationReport } from "@arc/db-schema/interview
 import type {
   PaginatedStudioInterviewRoundsResult,
   StudioInterviewRoundDetail,
-} from "@/lib/shared/studio-interview-rounds";
+} from "@arc/shared/studio-interview-rounds";
 // DedupMatchRecord 依赖 StudioInterviewStatus。
 // DedupMatchRecord depends on StudioInterviewStatus.
 import type {
@@ -41,7 +41,7 @@ import type {
   HumanInterviewMeetingTokenResponse,
   HumanInterviewRoundRecord,
   OfferDraftRecord,
-} from "@/lib/shared/studio-pipeline-stages";
+} from "@arc/shared/studio-pipeline-stages";
 import { rpc } from "@/lib/client/rpc";
 import { rpcFetch } from "../rpc-fetch";
 

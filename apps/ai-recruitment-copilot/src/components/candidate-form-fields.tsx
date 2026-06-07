@@ -9,7 +9,7 @@ import { MarkdownEditor } from "@/components/markdown-editor";
 import { Button } from "@/components/ui/button";
 import { Field, FieldContent, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import type { ResumeLibraryFormValues } from "@/lib/shared/studio-resumes";
+import type { ResumeLibraryFormValues } from "@arc/shared/studio-resumes";
 
 /**
  * 候选人/简历字段公共表单组件。TanStack Form 受控。

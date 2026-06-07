@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import { resolveOrganizationBySlug } from "@/lib/server/auth-session";
-import { getGlobalConfig } from "@/server/routes/studio/routes/global-config/dao";
+import { getGlobalConfig } from "@arc/backend/server/routes/studio/routes/global-config/dao";
 import { GlobalConfigForm } from "./_components/global-config-form";
 
 export const metadata: Metadata = {

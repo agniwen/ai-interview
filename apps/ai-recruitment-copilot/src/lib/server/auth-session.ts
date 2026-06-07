@@ -1,8 +1,8 @@
 import "server-only";
 
+import { auth } from "@arc/backend/lib/server/auth";
 import { headers } from "next/headers";
 import { cache } from "react";
-import { auth } from "./auth";
 
 // React `cache()` memoizes per-request, so nested RSC layouts (e.g.
 // `(auth)/layout.tsx` then `studio/layout.tsx`) share one session lookup
