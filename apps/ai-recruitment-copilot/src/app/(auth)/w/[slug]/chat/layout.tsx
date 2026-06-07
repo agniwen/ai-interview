@@ -13,7 +13,7 @@ export default function ChatLayout({ children }: { children: ReactNode }) {
       <ChatSidebarSlots />
       <SidebarInset
         className={cn(
-          "before:opacity-10 dark:before:opacity-50 before:bg-[url('/textures/interview-prep-light.png')] dark:before:bg-[url('/textures/interview-prep-dark.png')]",
+          // "before:opacity-10 dark:before:opacity-50 before:bg-[url('/textures/interview-prep-light.png')] dark:before:bg-[url('/textures/interview-prep-dark.png')]",
           "isolate h-dvh border border-border overflow-hidden before:pointer-events-none before:absolute before:inset-0 before:-z-10  before:bg-center before:bg-cover before:bg-no-repeat before:content-[''] md:h-[calc(100dvh-1.5rem)] ",
         )}
       >
