@@ -12,7 +12,7 @@ import { parseCsvParam } from "@arc/shared/csv";
 import {
   listInterviewRounds,
   summarizeInterviewRoundCounts,
-} from "@arc/backend/server/routes/studio/routes/interviews/dao/interview-rounds";
+} from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/dao/interview-rounds";
 
 export const metadata: Metadata = {
   title: "AI 面试",

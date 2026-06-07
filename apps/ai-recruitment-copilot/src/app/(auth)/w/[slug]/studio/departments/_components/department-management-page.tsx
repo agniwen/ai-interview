@@ -6,7 +6,7 @@ import { ScopedInterviewersModal } from "@/app/(auth)/w/[slug]/studio/_component
 import { ScopedJobDescriptionsModal } from "@/app/(auth)/w/[slug]/studio/_components/scoped-job-descriptions-modal";
 import { useEntityCrud } from "@/app/(auth)/w/[slug]/studio/_components/use-entity-crud";
 import type { DepartmentListRecord, DepartmentRecord } from "@arc/shared/departments";
-import type { PaginatedDepartmentResult } from "@arc/backend/server/routes/studio/routes/departments/dao";
+import type { PaginatedDepartmentResult } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/departments/dao";
 import { useQueryClient } from "@tanstack/react-query";
 import { Building2Icon, PlusIcon } from "lucide-react";
 import { useMemo, useState } from "react";

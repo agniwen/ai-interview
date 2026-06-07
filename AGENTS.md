@@ -77,7 +77,8 @@ AI-powered voice interview/resume screening application. Chinese-first locale �
 
 ## Architecture
 
-- **Web app** (`apps/ai-recruitment-copilot/`): Next.js 16 + React 19, App Router, Hono API routes, Drizzle ORM + PostgreSQL, Better Auth, shadcn/ui + Tailwind CSS v4
+- **Web app** (`apps/ai-recruitment-copilot/`): Next.js 16 + React 19, App Router, Next route adapter for the Hono backend, shadcn/ui + Tailwind CSS v4
+- **Backend app** (`apps/ai-recruitment-copilot-backend/`): Hono API runtime, Drizzle ORM + PostgreSQL, Better Auth. It can be mounted by Next at `/api` or started as a standalone Node app.
 - **Voice agent** (`apps/livekit-agent/`): Python LiveKit Agents SDK with OpenAI / Google / ElevenLabs / Minimax plugins, Silero VAD, turn-detector
 - **Monorepo**: pnpm workspace + Turborepo at the root; shared packages in `packages/` (`@arc/shared` — shared types, schemas, and isomorphic utilities; `@arc/db-schema` — Drizzle schema/relations + DB-adjacent shared types; `@arc/adapter-feishu` — Feishu chat adapter). Workspace packages are scoped under `@arc/*`.
 
@@ -103,6 +104,13 @@ Either run via turbo from the root, or directly:
 - `pnpm --filter @arc/ai-recruitment-copilot test` / `test:watch` — Vitest
 - `pnpm --filter @arc/ai-recruitment-copilot db:generate` / `db:migrate` / `db:studio`
 
+### Backend (`apps/ai-recruitment-copilot-backend/`)
+
+- `pnpm --filter @arc/ai-recruitment-copilot-backend start` — start the standalone Hono Node server; defaults to `HOST=0.0.0.0` and `PORT=8787`
+- `pnpm --filter @arc/ai-recruitment-copilot-backend dev:standalone` — standalone Hono server in watch mode
+- `pnpm --filter @arc/ai-recruitment-copilot-backend typecheck`
+- `pnpm --filter @arc/ai-recruitment-copilot-backend test` / `test:watch` — Vitest
+
 ### Agent (from `apps/livekit-agent/`)
 
 - `uv sync` — install dependencies
@@ -119,7 +127,7 @@ Either run via turbo from the root, or directly:
 - `make dev` — run web + agent in parallel
 - `make agent-console` — terminal chat without web
 
-## Server Route Layout (`packages/backend/src/server/routes/`)
+## Server Route Layout (`apps/ai-recruitment-copilot-backend/src/server/routes/`)
 
 Every route folder is a self-contained unit:
 
@@ -128,13 +136,15 @@ Every route folder is a self-contained unit:
 - **Nested children**: when a route needs to split into multiple sub-routers (e.g. `/studio` → `interviews`, `departments`, …), put each child under a `routes/` subfolder (`routes/studio/routes/interviews/`). The same convention applies recursively.
 - **Path-based split rule**: split by URL path depth when the child path represents a real sub-resource or sub-module. Keep collection/item CRUD such as `/interviews` and `/interviews/:id` in `interviews/route.ts`; move child resources such as `/interviews/:id/reports` or `/interviews/:id/recordings/:conversationId` to `interviews/routes/reports/route.ts` or `interviews/routes/recordings/route.ts`, then mount them from the parent with `.route("/:id/reports", reportsRouter)`. Do not create dynamic-segment folders like `routes/:id/route.ts` for Hono routes.
 
-Do **not** create top-level `packages/backend/src/server/queries/` or `packages/backend/src/server/services/` directories — co-locate DAOs/services with the route that owns them. Cross-route consumption is fine; just import from the owning route's `dao`/`utils`.
+Do **not** create top-level `apps/ai-recruitment-copilot-backend/src/server/queries/` or `apps/ai-recruitment-copilot-backend/src/server/services/` directories — co-locate DAOs/services with the route that owns them. Cross-route consumption is fine; just import from the owning route's `dao`/`utils`.
 
-Exceptions: `packages/backend/src/server/agents/` (shared by frontend + multiple routes) and `packages/backend/src/server/middlewares/` (shared middleware library) intentionally remain at server root.
+Exceptions: `apps/ai-recruitment-copilot-backend/src/server/agents/` (shared by frontend + multiple routes) and `apps/ai-recruitment-copilot-backend/src/server/middlewares/` (shared middleware library) intentionally remain at server root.
 
 ## Backend / Next Runtime Boundary
 
-The Hono backend must stay loadable outside a Next.js runtime. Files under `packages/backend/src/server/` and `packages/backend/src/lib/server/` must not import `next/cache`, `next/headers`, `next/navigation`, `server-only`, app-local `@/`, or browser-only `client-only`.
+The Hono backend must stay loadable outside a Next.js runtime. Files under `apps/ai-recruitment-copilot-backend/src/server/` and `apps/ai-recruitment-copilot-backend/src/lib/server/` must not import `next/cache`, `next/headers`, `next/navigation`, `server-only`, app-local `@/`, or browser-only `client-only`.
+
+The single backend app factory is `createServerApp()` in `apps/ai-recruitment-copilot-backend/src/server/app.ts`. Next mounts that factory from `apps/ai-recruitment-copilot/src/app/api/[[...route]]/route.ts`; the standalone Node entrypoint is `apps/ai-recruitment-copilot-backend/src/index.ts`. Do not fork route behavior between those two adapters.
 
 When a backend route needs a Next-only capability, introduce a small port in backend code and inject the Next implementation from the adapter layer. Current examples:
 
@@ -142,7 +152,7 @@ When a backend route needs a Next-only capability, introduce a small port in bac
 - Better Auth request-scoped headers go through `auth-request-context`; do not call `next/headers` from `auth.ts` or Hono route modules.
 - Read-side RSC caching (`"use cache"`, `cacheTag`, `cacheLife`) belongs in `src/app` or another Next-only wrapper, not in route DAOs.
 
-Backend runtime helpers live under `@arc/backend/lib/server/*`. Next page-only helpers such as `apps/ai-recruitment-copilot/src/lib/server/auth-session.ts` and `platform-admin.ts` may keep `server-only`, `next/headers`, and `next/navigation`, but they must import backend primitives from `@arc/backend/*` rather than owning duplicated backend logic.
+Backend runtime helpers live under `@arc/ai-recruitment-copilot-backend/lib/server/*`. Next page-only helpers such as `apps/ai-recruitment-copilot/src/lib/server/auth-session.ts` and `platform-admin.ts` may keep `server-only`, `next/headers`, and `next/navigation`, but they must import backend primitives from `@arc/ai-recruitment-copilot-backend/*` rather than owning duplicated backend logic.
 
 ## Frontend HTTP Calls
 
@@ -173,7 +183,7 @@ Backend runtime helpers live under `@arc/backend/lib/server/*`. Next page-only h
 
 PostHog product event capture is optional and client-side. It is initialized from `apps/ai-recruitment-copilot/src/instrumentation-client.ts` through `@/lib/client/analytics`. It is enabled only when both `NEXT_PUBLIC_ENABLE_POSTHOG=true` and `NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN` are present; changing these values requires restarting the dev server or rebuilding because they are `NEXT_PUBLIC_*` variables.
 
-The platform analytics dashboard (`/platform/analytics`) queries PostHog server-side through `@arc/backend/server/routes/platform/analytics` and `/api/platform/analytics/summary`. It uses `POSTHOG_PERSONAL_API_KEY`, `POSTHOG_PROJECT_ID`, and `POSTHOG_API_HOST`. Never expose `POSTHOG_PERSONAL_API_KEY` to the browser or add a `NEXT_PUBLIC_` prefix.
+The platform analytics dashboard (`/platform/analytics`) queries PostHog server-side through `@arc/ai-recruitment-copilot-backend/server/routes/platform/analytics` and `/api/platform/analytics/summary`. It uses `POSTHOG_PERSONAL_API_KEY`, `POSTHOG_PROJECT_ID`, and `POSTHOG_API_HOST`. Never expose `POSTHOG_PERSONAL_API_KEY` to the browser or add a `NEXT_PUBLIC_` prefix.
 
 Use `captureAnalyticsEvent()` from `@/lib/client/analytics` for all product events. Do not import `posthog-js` directly from feature components. The wrapper owns enable/disable behavior, PII filtering, and event context.
 
@@ -217,14 +227,14 @@ Use the official Hono `parseResponse` / `DetailedError` rather than rolling new 
 
 `apps/ai-recruitment-copilot/src/lib/` is split by runtime so it's obvious from the import path which side a module is meant to run on. The bundler enforces the boundary at build time via `import "server-only"` / `import "client-only"` directives.
 
-- **`@arc/backend/lib/server/*`** — Backend runtime utilities. DB client (`db/index.ts`), Better Auth (`auth.ts`), S3 (`s3.ts`), PDF rasterization, Qwen OCR, resume parsing pipeline, server-side hash helpers, anything reading server secrets. These files must avoid `server-only`, `next/*`, `client-only`, and app-local `@/` so the Hono app can run in a standalone Node process.
+- **`@arc/ai-recruitment-copilot-backend/lib/server/*`** — Backend runtime utilities. DB client (`db/index.ts`), Better Auth (`auth.ts`), S3 (`s3.ts`), PDF rasterization, Qwen OCR, resume parsing pipeline, server-side hash helpers, anything reading server secrets. These files must avoid `server-only`, `next/*`, `client-only`, and app-local `@/` so the Hono app can run in a standalone Node process.
 - **`@/lib/server/*`** — Next app-only server helpers. Keep this small: currently request-cached session helpers (`auth-session.ts`) and page redirect helpers (`platform-admin.ts`). These may use `server-only`, `next/headers`, `next/navigation`, and React cache because they are not part of the backend package.
 - **`@/lib/client/*`** — Browser-only. `rpc.ts`, `auth-client.ts`, `query-client.ts`, `clipboard.ts`, `ndjson-stream.ts`, the `api/` wrapper layer. Each file starts with `import "client-only";`.
 - **`@arc/shared/*`** — Workspace package for pure types, Zod schemas, and isomorphic utilities (no Next runtime, no server secrets, no Node-only APIs unless the API is also available in supported browsers/Node runtimes). Examples: `@arc/shared/interview/agent-instructions`, `@arc/shared/utils`, `@arc/shared/data-url`, `@arc/shared/file-hash`, `@arc/shared/departments`, `@arc/shared/studio-resumes`. Do not recreate `src/lib/shared/` inside the app.
 
-**Drizzle schema lives in the `@arc/db-schema` workspace package**, not under `src/lib/`. The package exports `schema`, `relations`, and the DB-adjacent shared types (`candidate-forms`, `db-enums`, `interview-question-templates`, `interview-session`, `interview/types`, `job-description-config`, `minimax-voices`, `studio-interviews`, `resume-parser-schema`) — anything imported by `schema.ts`. They live in a separate package (without `import "server-only";`) so `drizzle-kit` can load `schema.ts` from its CLI subprocess, which doesn't honor Next's `react-server` export condition and otherwise crashes on the server-only guard. Import as `@arc/db-schema/schema`, `@arc/db-schema/relations`, `@arc/db-schema/candidate-forms`, etc. The actual DB connection lives in `@arc/backend/lib/server/db` and imports `relations` from the package. `drizzle.config.ts` points at `../../packages/db-schema/src/schema.ts`. The package is listed in `next.config.ts` `transpilePackages` so Next compiles its TS sources.
+**Drizzle schema lives in the `@arc/db-schema` workspace package**, not under `src/lib/`. The package exports `schema`, `relations`, and the DB-adjacent shared types (`candidate-forms`, `db-enums`, `interview-question-templates`, `interview-session`, `interview/types`, `job-description-config`, `minimax-voices`, `studio-interviews`, `resume-parser-schema`) — anything imported by `schema.ts`. They live in a separate package (without `import "server-only";`) so `drizzle-kit` can load `schema.ts` from its CLI subprocess, which doesn't honor Next's `react-server` export condition and otherwise crashes on the server-only guard. Import as `@arc/db-schema/schema`, `@arc/db-schema/relations`, `@arc/db-schema/candidate-forms`, etc. The actual DB connection lives in `@arc/ai-recruitment-copilot-backend/lib/server/db` and imports `relations` from the package. `drizzle.config.ts` points at `../../packages/db-schema/src/schema.ts`. The package is listed in `next.config.ts` `transpilePackages` so Next compiles its TS sources.
 
-When a module _mostly_ fits `@arc/shared` but has one backend-only function (e.g. `hashTemplateSnapshot` using `node:crypto`), extract that function into a sibling `*-hash.ts` (or similar) under `@arc/backend/lib/server/` and keep the rest in `@arc/shared`. Don't pull `node:*`, `next/*`, `server-only`, `client-only`, or app-local `@/` imports into `packages/shared/src`.
+When a module _mostly_ fits `@arc/shared` but has one backend-only function (e.g. `hashTemplateSnapshot` using `node:crypto`), extract that function into a sibling `*-hash.ts` (or similar) under `@arc/ai-recruitment-copilot-backend/lib/server/` and keep the rest in `@arc/shared`. Don't pull `node:*`, `next/*`, `server-only`, `client-only`, or app-local `@/` imports into `packages/shared/src`.
 
 Vitest runs in Node, so it stubs `server-only` / `client-only` to a no-op module via the alias in `vitest.config.ts`. Real isolation is enforced by Next at build time.
 
@@ -268,7 +278,7 @@ When modifying instructions, tool descriptions, or task / workflow / handoff def
 
 ## Environment Setup
 
-Copy `apps/ai-recruitment-copilot/.env.example` to `apps/ai-recruitment-copilot/.env` and populate required keys. The voice agent has its own `apps/livekit-agent/.env.example` if it needs separate secrets. See those `.env.example` files for the full list. Key requirements:
+Copy `apps/ai-recruitment-copilot/.env.example` to `apps/ai-recruitment-copilot/.env` for the Next app, and `apps/ai-recruitment-copilot-backend/.env.example` to `apps/ai-recruitment-copilot-backend/.env` for standalone backend runs. The voice agent has its own `apps/livekit-agent/.env.example` if it needs separate secrets. See those `.env.example` files for the full list. Key requirements:
 
 - LiveKit Cloud credentials (`LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`)
 - Google OAuth (`GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`)
@@ -279,7 +289,7 @@ Copy `apps/ai-recruitment-copilot/.env.example` to `apps/ai-recruitment-copilot/
 
 ### Resend (transactional email)
 
-The round-email feature (`/api/w/:slug/studio/interviews/round-emails/...`) calls Resend with `RESEND_FROM` as the sender. **Use a bare email address** (e.g. `RESEND_FROM=noreply@your-domain.com`) — the From-header display name is built dynamically at runtime as `{globalConfig.companyName} AI HR` (or `AI HR` when no company name is set), via `buildSenderFromAddress` in `@arc/backend/lib/server/resend`. Avoid the `"Name <addr>"` form in env files because the `<>` characters get interpreted as shell redirection in many deploy scripts (Jenkins, CI). **Before sending in any non-local environment**, verify your sender domain in the [Resend dashboard](https://resend.com/domains) — otherwise Resend rejects the send. Local dev can leave `RESEND_API_KEY` unset; the route returns a structured 500 + writes a `studio_round_email_log` row with `status='failed'` when the key is missing.
+The round-email feature (`/api/w/:slug/studio/interviews/round-emails/...`) calls Resend with `RESEND_FROM` as the sender. **Use a bare email address** (e.g. `RESEND_FROM=noreply@your-domain.com`) — the From-header display name is built dynamically at runtime as `{globalConfig.companyName} AI HR` (or `AI HR` when no company name is set), via `buildSenderFromAddress` in `@arc/ai-recruitment-copilot-backend/lib/server/resend`. Avoid the `"Name <addr>"` form in env files because the `<>` characters get interpreted as shell redirection in many deploy scripts (Jenkins, CI). **Before sending in any non-local environment**, verify your sender domain in the [Resend dashboard](https://resend.com/domains) — otherwise Resend rejects the send. Local dev can leave `RESEND_API_KEY` unset; the route returns a structured 500 + writes a `studio_round_email_log` row with `status='failed'` when the key is missing.
 
 ## Gotchas
 

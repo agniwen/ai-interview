@@ -7,7 +7,7 @@ import {
   organizationClient,
 } from "better-auth/client/plugins";
 import { createAuthClient } from "better-auth/react";
-import type { auth } from "@arc/backend/lib/server/auth";
+import type { auth } from "@arc/ai-recruitment-copilot-backend/lib/server/auth";
 import { ac, roles } from "@arc/shared/permissions";
 
 export const authClient = createAuthClient({

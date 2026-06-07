@@ -4,7 +4,7 @@ import { connection } from "next/server";
 import { PageHeader } from "@/app/(auth)/w/[slug]/studio/_components/page-header";
 import { RecruitingDashboardPage } from "@/app/(auth)/w/[slug]/studio/dashboard/_components/recruiting-dashboard-page";
 import { resolveOrganizationBySlug } from "@/lib/server/auth-session";
-import { loadRecruitingDashboardMetrics } from "@arc/backend/server/routes/studio/routes/resumes/dao/metrics";
+import { loadRecruitingDashboardMetrics } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/dao/metrics";
 
 export const metadata: Metadata = {
   title: "数据看板",

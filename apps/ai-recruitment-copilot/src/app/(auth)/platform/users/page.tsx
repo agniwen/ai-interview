@@ -6,7 +6,7 @@ import {
 } from "@/components/data-grid/query-contract";
 import type { DataGridQueryState } from "@/components/data-grid/query-contract";
 import { QueryHydrationBoundary } from "@/components/query-hydration-boundary";
-import { db } from "@arc/backend/lib/server/db";
+import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import { requirePlatformAdmin } from "@/lib/server/platform-admin";
 import { session, user } from "@arc/db-schema/schema";
 import { UsersGrid } from "./_components/users-grid";
