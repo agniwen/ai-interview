@@ -79,7 +79,7 @@ export function MarkdownEditor({
         onModeChange={changeMode}
       />
 
-      <div className="relative" style={{ minHeight }}>
+      <div className="relative bg-background dark:bg-input/30" style={{ minHeight }}>
         {mode === "edit" && (
           <>
             <EditorContent
@@ -141,7 +141,7 @@ export function MarkdownEditor({
       {typeof maxLength === "number" && (
         <div
           className={cn(
-            "flex justify-end border-t px-3 py-1.5 text-xs",
+            "flex justify-end border-t bg-background px-3 py-1.5 text-xs dark:bg-input/30",
             over ? "text-destructive" : "text-muted-foreground",
           )}
         >
