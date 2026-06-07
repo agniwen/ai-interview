@@ -1,0 +1,58 @@
+{
+  "name": "@arc/ai-recruitment-copilot-backend",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Hono backend runtime for ARC",
+  "type": "module",
+  "exports": {
+    "./server/routes/feishu/utils/interview-summary-card": "./src/server/routes/feishu/utils/interview-summary-card.tsx",
+    "./server/routes/studio/routes/interviews/routes/round-emails/utils/templates": "./src/server/routes/studio/routes/interviews/routes/round-emails/utils/templates.tsx",
+    "./server/*": "./src/server/*.ts",
+    "./lib/server/db": "./src/lib/server/db/index.ts",
+    "./lib/server/db/*": "./src/lib/server/db/*.ts",
+    "./lib/server/*": "./src/lib/server/*.ts"
+  },
+  "scripts": {
+    "dev:standalone": "tsx watch src/index.ts",
+    "start": "tsx src/index.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@ai-sdk/devtools": "^0.0.15",
+    "@ai-sdk/openai-compatible": "^2.0.47",
+    "@arc/adapter-feishu": "workspace:*",
+    "@arc/db-schema": "workspace:*",
+    "@arc/shared": "workspace:*",
+    "@aws-sdk/client-s3": "^3.1045.0",
+    "@aws-sdk/s3-request-presigner": "^3.1045.0",
+    "@chat-adapter/state-pg": "^4.28.1",
+    "@hono/node-server": "^1.19.14",
+    "@hono/zod-validator": "^0.7.6",
+    "@livekit/protocol": "^1.45.8",
+    "@react-email/components": "^1.0.12",
+    "@react-email/render": "^2.0.8",
+    "ai": "catalog:",
+    "better-auth": "^1.6.10",
+    "chat": "catalog:",
+    "dotenv": "^17.4.2",
+    "drizzle-orm": "catalog:",
+    "hono": "^4.12.18",
+    "livekit-server-sdk": "^2.15.2",
+    "mupdf": "^1.27.0",
+    "nanoid": "^5.1.11",
+    "openai": "^6.37.0",
+    "postgres": "^3.4.9",
+    "react": "catalog:",
+    "resend": "^6.12.3",
+    "tsx": "^4.21.0",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@types/node": "24.11.2",
+    "@types/react": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

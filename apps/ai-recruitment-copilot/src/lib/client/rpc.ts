@@ -1,6 +1,6 @@
 import "client-only";
 
-import type { AppType } from "@arc/backend/server/app";
+import type { AppType } from "@arc/ai-recruitment-copilot-backend/server/app";
 import { hc } from "hono/client";
 
 // 中文：前端访问 Hono API 的统一 RPC 入口。AppType 由 src/server/app.ts 派生，

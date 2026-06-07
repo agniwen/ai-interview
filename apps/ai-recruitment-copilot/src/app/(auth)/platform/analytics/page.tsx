@@ -4,8 +4,8 @@ import {
   normalizePlatformAnalyticsActivityPageSize,
   normalizePlatformAnalyticsRangeDays,
 } from "@arc/shared/platform-analytics";
-import { loadPlatformAnalyticsSummary } from "@arc/backend/server/routes/platform/analytics";
-import { loadPlatformAnalyticsDirectory } from "@arc/backend/server/routes/platform/directory";
+import { loadPlatformAnalyticsSummary } from "@arc/ai-recruitment-copilot-backend/server/routes/platform/analytics";
+import { loadPlatformAnalyticsDirectory } from "@arc/ai-recruitment-copilot-backend/server/routes/platform/directory";
 import { AnalyticsDashboardPage } from "./_components/analytics-dashboard-page";
 
 export const metadata: Metadata = {

@@ -1,6 +1,6 @@
 import "server-only";
 
-import { auth } from "@arc/backend/lib/server/auth";
+import { auth } from "@arc/ai-recruitment-copilot-backend/lib/server/auth";
 import { headers } from "next/headers";
 import { cache } from "react";
 

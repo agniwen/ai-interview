@@ -13,6 +13,7 @@ FROM base AS deps
 WORKDIR /repo
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
 COPY apps/ai-recruitment-copilot/package.json apps/ai-recruitment-copilot/
+COPY apps/ai-recruitment-copilot-backend/package.json apps/ai-recruitment-copilot-backend/
 COPY packages packages
 # --ignore-scripts skips the `prepare` hook (lefthook install) which needs git
 # and is only used for local git hooks, not CI/runtime.
@@ -27,6 +28,7 @@ COPY --from=deps /repo /repo
 # Layer in root config / lockfile / shared tsconfig and the app source.
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json turbo.json tsconfig.base.json ./
 COPY apps/ai-recruitment-copilot ./apps/ai-recruitment-copilot
+COPY apps/ai-recruitment-copilot-backend ./apps/ai-recruitment-copilot-backend
 
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN pnpm --filter @arc/ai-recruitment-copilot build

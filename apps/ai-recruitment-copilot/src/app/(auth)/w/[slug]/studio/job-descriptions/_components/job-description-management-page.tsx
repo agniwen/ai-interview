@@ -10,7 +10,7 @@ import type {
   JobDescriptionMetrics,
   JobDescriptionRecord,
 } from "@arc/shared/job-descriptions";
-import type { PaginatedJobDescriptionResult } from "@arc/backend/server/routes/studio/routes/job-descriptions/dao";
+import type { PaginatedJobDescriptionResult } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao";
 import { JobDescriptionCharts } from "./job-description-charts";
 import { ScopedResumesModal } from "@/app/(auth)/w/[slug]/studio/_components/scoped-resumes-modal";
 import { useQueryClient } from "@tanstack/react-query";

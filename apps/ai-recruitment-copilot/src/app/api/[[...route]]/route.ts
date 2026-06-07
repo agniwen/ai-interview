@@ -1,7 +1,7 @@
 import { handle } from "hono/vercel";
 
-import { createServerApp } from "@arc/backend/server/app";
-import { configureCacheInvalidator } from "@arc/backend/server/cache-tags";
+import { createServerApp } from "@arc/ai-recruitment-copilot-backend/server/app";
+import { configureCacheInvalidator } from "@arc/ai-recruitment-copilot-backend/server/cache-tags";
 import { nextCacheInvalidator } from "./next-cache-invalidator";
 
 export const maxDuration = 300;

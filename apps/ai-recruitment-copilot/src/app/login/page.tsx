@@ -6,7 +6,7 @@ import { connection } from "next/server";
 import type { ReactNode } from "react";
 import { SignInTabs } from "@/components/auth/sign-in-tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { auth } from "@arc/backend/lib/server/auth";
+import { auth } from "@arc/ai-recruitment-copilot-backend/lib/server/auth";
 import { LoginErrorToast } from "./_components/login-error-toast";
 
 interface PageProps {

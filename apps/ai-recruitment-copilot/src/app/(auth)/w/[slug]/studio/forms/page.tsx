@@ -7,8 +7,8 @@ import {
 } from "@/components/data-grid/query-contract";
 import { QueryHydrationBoundary } from "@/components/query-hydration-boundary";
 import { resolveOrganizationBySlug } from "@/lib/server/auth-session";
-import { listCandidateFormTemplates } from "@arc/backend/server/routes/studio/routes/forms/dao/queries";
-import { listAllJobDescriptions } from "@arc/backend/server/routes/studio/routes/job-descriptions/dao";
+import { listCandidateFormTemplates } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/forms/dao/queries";
+import { listAllJobDescriptions } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao";
 import { CandidateFormTemplateManagementPage } from "./_components/form-template-management-page";
 
 export const metadata: Metadata = {

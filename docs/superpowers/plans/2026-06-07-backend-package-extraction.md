@@ -4,7 +4,7 @@
 
 **Goal:** Move the Hono backend toward a standalone workspace package without carrying Next.js runtime dependencies into the backend runtime.
 
-**Architecture:** Extract app-wide shared types, schemas, and pure utilities into `@arc/shared` first. Then move Hono-owned runtime code into `@arc/backend`, keeping Next-specific adapters in the Next app boundary. The Next app continues to mount the Hono app through `src/app/api/[[...route]]/route.ts`.
+**Architecture:** Extract app-wide shared types, schemas, and pure utilities into `@arc/shared` first. Then move Hono-owned runtime code into `@arc/ai-recruitment-copilot-backend`, keeping Next-specific adapters in the Next app boundary. The Next app continues to mount the Hono app through `src/app/api/[[...route]]/route.ts`.
 
 **Tech Stack:** pnpm workspace, TypeScript, Vitest, Next.js App Router, Hono, Better Auth, Drizzle, Turborepo.
 
@@ -45,31 +45,31 @@ pnpm --filter @arc/ai-recruitment-copilot typecheck
 pnpm --filter @arc/ai-recruitment-copilot test
 ```
 
-### Task 2: Extract `@arc/backend`
+### Task 2: Extract `@arc/ai-recruitment-copilot-backend`
 
 **Files:**
 
-- Create: `packages/backend/package.json`
-- Create: `packages/backend/tsconfig.json`
-- Create: `packages/backend/vitest.config.ts`
-- Move: `apps/ai-recruitment-copilot/src/server/**` to `packages/backend/src/server/**`
-- Move or split: Hono-used `apps/ai-recruitment-copilot/src/lib/server/**` modules into `packages/backend/src/lib/server/**`
+- Create: `apps/ai-recruitment-copilot-backend/package.json`
+- Create: `apps/ai-recruitment-copilot-backend/tsconfig.json`
+- Create: `apps/ai-recruitment-copilot-backend/vitest.config.ts`
+- Move: `apps/ai-recruitment-copilot/src/server/**` to `apps/ai-recruitment-copilot-backend/src/server/**`
+- Move or split: Hono-used `apps/ai-recruitment-copilot/src/lib/server/**` modules into `apps/ai-recruitment-copilot-backend/src/lib/server/**`
 - Keep in app: Next route handlers and Next-only adapters.
 - Modify: `apps/ai-recruitment-copilot/src/app/api/[[...route]]/route.ts`
 - Modify: `apps/ai-recruitment-copilot/src/lib/client/rpc.ts`
-- Modify: imports from `@/server/*` to `@arc/backend/server/*`
+- Modify: imports from `@/server/*` to `@arc/ai-recruitment-copilot-backend/server/*`
 
-- [ ] Add a backend boundary test that fails if `packages/backend/src/**` imports `next/*`, `server-only`, `client-only`, or `@/`.
+- [ ] Add a backend boundary test that fails if `apps/ai-recruitment-copilot-backend/src/**` imports `next/*`, `server-only`, `client-only`, or `@/`.
 
-- [ ] Move Hono code and backend-owned server utilities into `@arc/backend`.
+- [ ] Move Hono code and backend-owned server utilities into `@arc/ai-recruitment-copilot-backend`.
 
 - [ ] Update the Next app to import the backend app factory and keep Next runtime integration in app-only adapter files.
 
 - [ ] Verify:
 
 ```bash
-pnpm --filter @arc/backend test
-pnpm --filter @arc/backend typecheck
+pnpm --filter @arc/ai-recruitment-copilot-backend test
+pnpm --filter @arc/ai-recruitment-copilot-backend typecheck
 pnpm --filter @arc/ai-recruitment-copilot typecheck
 pnpm --filter @arc/ai-recruitment-copilot test
 pnpm --filter @arc/ai-recruitment-copilot build

@@ -1,7 +1,7 @@
 import "server-only";
 
 import { revalidateTag } from "next/cache";
-import type { CacheInvalidator } from "@arc/backend/server/cache-tags";
+import type { CacheInvalidator } from "@arc/ai-recruitment-copilot-backend/server/cache-tags";
 
 export const nextCacheInvalidator: CacheInvalidator = {
   revalidateTag(tag) {

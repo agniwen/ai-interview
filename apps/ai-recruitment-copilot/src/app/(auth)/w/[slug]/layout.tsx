@@ -1,8 +1,8 @@
 import { and, eq, isNull, ne, or } from "drizzle-orm";
 import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
-import { db } from "@arc/backend/lib/server/db";
-import { auth } from "@arc/backend/lib/server/auth";
+import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
+import { auth } from "@arc/ai-recruitment-copilot-backend/lib/server/auth";
 import { getCurrentOrganizations, getCurrentSession } from "@/lib/server/auth-session";
 import { user as userTable } from "@arc/db-schema/schema";
 import { WorkspaceSlugProvider } from "@/lib/client/workspace-context";
