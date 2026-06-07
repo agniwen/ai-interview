@@ -33,6 +33,7 @@ export type ToolbarFilterConfig =
       searchPlaceholder?: string;
       emptyMessage?: string;
       selectedFormat?: (count: number) => string;
+      selectedPreviewLimit?: number;
     };
 
 export interface ToolbarProps {
@@ -164,6 +165,7 @@ export function Toolbar(props: ToolbarProps) {
                   placeholder={filter.placeholder ?? "请选择"}
                   searchPlaceholder={filter.searchPlaceholder ?? "搜索…"}
                   selectedFormat={filter.selectedFormat ?? ((count) => `已选 ${count} 项`)}
+                  selectedPreviewLimit={filter.selectedPreviewLimit ?? 2}
                   showBadges={false}
                   value={csvToArray(value)}
                 />

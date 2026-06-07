@@ -1,7 +1,7 @@
 "use client";
 
 import { CheckIcon, ChevronsUpDownIcon, XIcon } from "lucide-react";
-import { useId, useMemo, useState } from "react";
+import { useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -16,12 +16,15 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import type { SearchableSelectOption } from "@/components/ui/searchable-select";
 import { cn } from "@arc/shared/utils";
+import { getVisibleSelectedItemCount } from "./searchable-multi-select-overflow";
 
 // =====================================================================
-// 多选可搜索下拉。Trigger 显示"已选 N ..."文案，触发器下方默认渲染已选项 badge 列表。
-// Multi-pick searchable selector. Trigger shows "已选 N ..." copy, with the
-// selected items rendered as removable badges below by default.
+// 多选可搜索下拉。Trigger 默认显示已选 item，空间不足时收敛成 +N。
+// Multi-pick searchable selector. Trigger previews selected items and folds
+// overflow into a +N badge.
 // =====================================================================
+
+type SelectedDisplayMode = "items" | "count";
 
 export interface SearchableMultiSelectProps {
   value: string[];
@@ -32,11 +35,15 @@ export interface SearchableMultiSelectProps {
   /** 已选个数文案，例如 count => `已选 ${count} 位面试官`。 */
   /** Format the selected-count copy in the trigger. */
   selectedFormat?: (count: number) => string;
+  /** Trigger display mode. Defaults to selected item labels with +N overflow. */
+  selectedDisplay?: SelectedDisplayMode;
+  /** Max selected item tags shown in the trigger before folding the rest into +N. */
+  selectedPreviewLimit?: number;
   searchPlaceholder?: string;
   emptyMessage?: string;
   invalid?: boolean;
   disabled?: boolean;
-  /** 是否在触发器下方显示已选项 badge 列表 / Show selected badges below trigger. */
+  /** 是否在触发器下方显示已选项 badge 列表 / Opt in to selected badges below trigger. */
   showBadges?: boolean;
   /** Limit selected badges; overflow is rendered as a "+N" badge. */
   selectedBadgeLimit?: number;
@@ -49,17 +56,192 @@ function getInitials(label: string): string {
   return trimmed ? trimmed.slice(0, 1).toUpperCase() : "?";
 }
 
+interface SelectedPreviewMeasurements {
+  containerWidth: number;
+  itemWidths: number[];
+  overflowBadgeWidth: number;
+}
+
+const SELECTED_PREVIEW_GAP = 4;
+const INITIAL_MEASUREMENTS: SelectedPreviewMeasurements = {
+  containerWidth: 0,
+  itemWidths: [],
+  overflowBadgeWidth: 0,
+};
+
+function areMeasurementsEqual(
+  current: SelectedPreviewMeasurements,
+  next: SelectedPreviewMeasurements,
+) {
+  return (
+    current.containerWidth === next.containerWidth &&
+    current.overflowBadgeWidth === next.overflowBadgeWidth &&
+    current.itemWidths.length === next.itemWidths.length &&
+    current.itemWidths.every((width, index) => width === next.itemWidths[index])
+  );
+}
+
+function SelectedPreviewItem({
+  children,
+  measure,
+  title,
+}: {
+  children: React.ReactNode;
+  measure?: boolean;
+  title?: string;
+}) {
+  return (
+    <span
+      className="inline-flex h-5 max-w-24 shrink-0 items-center rounded-sm bg-muted px-1.5 font-medium text-foreground text-xs"
+      data-selected-preview-item={measure ? "" : undefined}
+      title={title}
+    >
+      <span className="min-w-0 truncate">{children}</span>
+    </span>
+  );
+}
+
+function SelectedPreviewOverflow({ count, measure }: { count: number; measure?: boolean }) {
+  return (
+    <span
+      className="inline-flex h-5 shrink-0 items-center rounded-sm bg-muted px-1.5 font-medium text-muted-foreground text-xs"
+      data-selected-preview-overflow={measure ? "" : undefined}
+      title={`还有 ${count} 项未展示`}
+    >
+      +{count}
+    </span>
+  );
+}
+
+function SelectedItemsPreview({
+  items,
+  placeholder,
+  selectedDisplay,
+  selectedFormat,
+  selectedPreviewLimit,
+}: {
+  items: SearchableSelectOption[];
+  placeholder: string;
+  selectedDisplay: SelectedDisplayMode;
+  selectedFormat: (count: number) => string;
+  selectedPreviewLimit?: number;
+}) {
+  const previewRef = useRef<HTMLSpanElement>(null);
+  const measureRef = useRef<HTMLSpanElement>(null);
+  const [measurements, setMeasurements] =
+    useState<SelectedPreviewMeasurements>(INITIAL_MEASUREMENTS);
+  const previewItems =
+    typeof selectedPreviewLimit === "number"
+      ? items.slice(0, Math.max(0, selectedPreviewLimit))
+      : items;
+
+  useLayoutEffect(() => {
+    const previewElement = previewRef.current;
+    const measureElement = measureRef.current;
+    if (!previewElement || !measureElement) {
+      return;
+    }
+
+    const measure = () => {
+      const itemWidths = Array.from(
+        measureElement.querySelectorAll<HTMLElement>("[data-selected-preview-item]"),
+      ).map((element) => element.getBoundingClientRect().width);
+      const overflowBadgeWidth =
+        measureElement
+          .querySelector<HTMLElement>("[data-selected-preview-overflow]")
+          ?.getBoundingClientRect().width ?? 0;
+      const next = {
+        containerWidth: previewElement.getBoundingClientRect().width,
+        itemWidths,
+        overflowBadgeWidth,
+      };
+
+      setMeasurements((current) => (areMeasurementsEqual(current, next) ? current : next));
+    };
+
+    measure();
+
+    if (typeof ResizeObserver === "undefined") {
+      window.addEventListener("resize", measure);
+      return () => window.removeEventListener("resize", measure);
+    }
+
+    const observer = new ResizeObserver(measure);
+    observer.observe(previewElement);
+    return () => observer.disconnect();
+  }, [items, selectedDisplay, selectedPreviewLimit]);
+
+  if (items.length === 0) {
+    return (
+      <span className="min-w-0 flex-1 truncate text-muted-foreground" ref={previewRef}>
+        {placeholder}
+      </span>
+    );
+  }
+
+  if (selectedDisplay === "count") {
+    return (
+      <span className="min-w-0 flex-1 truncate" ref={previewRef}>
+        {selectedFormat(items.length)}
+      </span>
+    );
+  }
+
+  const hasMeasurements =
+    measurements.containerWidth > 0 && measurements.itemWidths.length === previewItems.length;
+  const visibleCount = hasMeasurements
+    ? getVisibleSelectedItemCount({
+        containerWidth: measurements.containerWidth,
+        gap: SELECTED_PREVIEW_GAP,
+        itemWidths: measurements.itemWidths,
+        overflowBadgeWidth: measurements.overflowBadgeWidth,
+      })
+    : previewItems.length;
+  const visibleItems = previewItems.slice(0, visibleCount);
+  const hiddenCount = items.length - visibleItems.length;
+  const selectedTitle = items.map((item) => item.label).join("、");
+
+  return (
+    <span
+      className="relative flex min-w-0 flex-1 items-center gap-1 overflow-hidden"
+      ref={previewRef}
+      title={selectedTitle}
+    >
+      {visibleItems.map((item) => (
+        <SelectedPreviewItem key={item.value} title={item.label}>
+          {item.label}
+        </SelectedPreviewItem>
+      ))}
+      {hiddenCount > 0 ? <SelectedPreviewOverflow count={hiddenCount} /> : null}
+      <span
+        aria-hidden
+        className="pointer-events-none absolute h-0 overflow-hidden opacity-0"
+        ref={measureRef}
+      >
+        {previewItems.map((item) => (
+          <SelectedPreviewItem key={item.value} measure>
+            {item.label}
+          </SelectedPreviewItem>
+        ))}
+        <SelectedPreviewOverflow count={items.length} measure />
+      </span>
+    </span>
+  );
+}
+
 export function SearchableMultiSelect({
   value,
   onChange,
   options,
   placeholder = "请选择",
   selectedFormat = (count) => `已选 ${count} 项`,
+  selectedDisplay = "items",
+  selectedPreviewLimit,
   searchPlaceholder = "搜索...",
   emptyMessage = "没有匹配项",
   invalid,
   disabled,
-  showBadges = true,
+  showBadges = false,
   selectedBadgeLimit,
   triggerClassName,
   id,
@@ -103,7 +285,7 @@ export function SearchableMultiSelect({
             aria-expanded={open}
             aria-invalid={invalid ? true : undefined}
             className={cn(
-              "flex h-9 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-1 text-left text-sm transition-[color,box-shadow] focus-visible:border-ring focus-visible:outline-hidden focus-visible:ring-[3px] focus-visible:ring-ring/50 data-[invalid=true]:border-destructive data-[invalid=true]:ring-[3px] data-[invalid=true]:ring-destructive/20 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-input/30",
+              "flex h-9 w-full items-center justify-between overflow-hidden rounded-md border border-input bg-background px-3 py-1 text-left text-sm transition-[color,box-shadow] focus-visible:border-ring focus-visible:outline-hidden focus-visible:ring-[3px] focus-visible:ring-ring/50 data-[invalid=true]:border-destructive data-[invalid=true]:ring-[3px] data-[invalid=true]:ring-destructive/20 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-input/30",
               // 当前扁平化风格暂时关闭阴影；如需恢复，取消下一行注释。
               // "shadow-xs",
               triggerClassName,
@@ -113,14 +295,13 @@ export function SearchableMultiSelect({
             id={triggerId}
             type="button"
           >
-            <span
-              className={cn(
-                "min-w-0 flex-1 truncate",
-                selectedItems.length === 0 ? "text-muted-foreground" : "",
-              )}
-            >
-              {selectedItems.length === 0 ? placeholder : selectedFormat(selectedItems.length)}
-            </span>
+            <SelectedItemsPreview
+              items={selectedItems}
+              placeholder={placeholder}
+              selectedDisplay={selectedDisplay}
+              selectedFormat={selectedFormat}
+              selectedPreviewLimit={selectedPreviewLimit}
+            />
             <ChevronsUpDownIcon className="ml-2 size-4 shrink-0 opacity-50" />
           </button>
         </PopoverTrigger>

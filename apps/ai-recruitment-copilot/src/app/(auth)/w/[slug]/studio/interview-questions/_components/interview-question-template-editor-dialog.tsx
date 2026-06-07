@@ -259,6 +259,7 @@ export function InterviewQuestionTemplateEditorDialog({
                             placeholder="选择岗位…"
                             searchPlaceholder="搜索岗位…"
                             selectedFormat={(count) => `已选 ${count} 个岗位`}
+                            selectedPreviewLimit={2}
                             value={field.state.value ?? []}
                           />
                           <FieldError errors={errors} />
