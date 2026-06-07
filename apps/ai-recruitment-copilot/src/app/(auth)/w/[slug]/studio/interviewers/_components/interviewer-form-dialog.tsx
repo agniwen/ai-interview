@@ -1,8 +1,8 @@
 "use client";
 
-import type { DepartmentRecord } from "@/lib/shared/departments";
-import type { InterviewerFormValues, InterviewerRecord } from "@/lib/shared/interviewers";
-import { interviewerFormSchema } from "@/lib/shared/interviewers";
+import type { DepartmentRecord } from "@arc/shared/departments";
+import type { InterviewerFormValues, InterviewerRecord } from "@arc/shared/interviewers";
+import { interviewerFormSchema } from "@arc/shared/interviewers";
 import { rpc } from "@/lib/client/rpc";
 import { captureAnalyticsEvent } from "@/lib/client/analytics";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";

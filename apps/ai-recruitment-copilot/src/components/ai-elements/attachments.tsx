@@ -15,7 +15,7 @@ import {
 import { createContext, use, useCallback, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
-import { cn } from "@/lib/shared/utils";
+import { cn } from "@arc/shared/utils";
 
 // ============================================================================
 // Types

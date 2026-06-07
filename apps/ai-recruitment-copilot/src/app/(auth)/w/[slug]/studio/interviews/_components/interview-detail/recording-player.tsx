@@ -20,7 +20,7 @@ import {
 } from "@/lib/client/api";
 import { ApiError } from "@/lib/client/api/errors";
 import { useOptionalWorkspaceSlug } from "@/lib/client/workspace-context";
-import { cn } from "@/lib/shared/utils";
+import { cn } from "@arc/shared/utils";
 import type { InterviewRecordingStatus } from "@arc/db-schema/db-enums";
 
 interface RecordingPlayerProps {

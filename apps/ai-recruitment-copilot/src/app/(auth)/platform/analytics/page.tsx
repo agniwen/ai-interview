@@ -3,9 +3,9 @@ import {
   normalizePlatformAnalyticsActivityPage,
   normalizePlatformAnalyticsActivityPageSize,
   normalizePlatformAnalyticsRangeDays,
-} from "@/lib/shared/platform-analytics";
-import { loadPlatformAnalyticsSummary } from "@/server/routes/platform/analytics";
-import { loadPlatformAnalyticsDirectory } from "@/server/routes/platform/directory";
+} from "@arc/shared/platform-analytics";
+import { loadPlatformAnalyticsSummary } from "@arc/backend/server/routes/platform/analytics";
+import { loadPlatformAnalyticsDirectory } from "@arc/backend/server/routes/platform/directory";
 import { AnalyticsDashboardPage } from "./_components/analytics-dashboard-page";
 
 export const metadata: Metadata = {

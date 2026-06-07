@@ -5,7 +5,7 @@ import type {
   InterviewQuestionTemplateRecord,
   InterviewQuestionTemplateScope,
 } from "@arc/db-schema/interview-question-templates";
-import type { JobDescriptionListRecord } from "@/lib/shared/job-descriptions";
+import type { JobDescriptionListRecord } from "@arc/shared/job-descriptions";
 import { rpc } from "@/lib/client/rpc";
 import { useForm, useStore } from "@tanstack/react-form";
 import { LoaderCircleIcon } from "lucide-react";

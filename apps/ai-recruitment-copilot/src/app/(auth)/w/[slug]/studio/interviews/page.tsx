@@ -8,11 +8,11 @@ import {
 } from "@/components/data-grid/query-contract";
 import { QueryHydrationBoundary } from "@/components/query-hydration-boundary";
 import { resolveOrganizationBySlug } from "@/lib/server/auth-session";
-import { parseCsvParam } from "@/lib/shared/csv";
+import { parseCsvParam } from "@arc/shared/csv";
 import {
   listInterviewRounds,
   summarizeInterviewRoundCounts,
-} from "@/server/routes/studio/routes/interviews/dao/interview-rounds";
+} from "@arc/backend/server/routes/studio/routes/interviews/dao/interview-rounds";
 
 export const metadata: Metadata = {
   title: "AI 面试",

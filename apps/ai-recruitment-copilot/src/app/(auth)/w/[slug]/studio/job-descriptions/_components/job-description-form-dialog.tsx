@@ -1,16 +1,16 @@
 "use client";
 
 import type { CandidateFormTemplateListRecord } from "@arc/db-schema/candidate-forms";
-import type { DepartmentRecord } from "@/lib/shared/departments";
-import type { InterviewerListRecord } from "@/lib/shared/interviewers";
+import type { DepartmentRecord } from "@arc/shared/departments";
+import type { InterviewerListRecord } from "@arc/shared/interviewers";
 import type { InterviewQuestionTemplateListRecord } from "@arc/db-schema/interview-question-templates";
-import { jobDescriptionFormSchema } from "@/lib/shared/job-descriptions";
-import type { JobDescriptionFormValues, JobDescriptionRecord } from "@/lib/shared/job-descriptions";
+import { jobDescriptionFormSchema } from "@arc/shared/job-descriptions";
+import type { JobDescriptionFormValues, JobDescriptionRecord } from "@arc/shared/job-descriptions";
 import {
   buildJobDescriptionInterviewerOptions,
   filterInterviewerIdsByDepartment,
   getDepartmentSyncedInterviewerSelection,
-} from "@/lib/shared/job-description-interviewers";
+} from "@arc/shared/job-description-interviewers";
 import { captureAnalyticsEvent } from "@/lib/client/analytics";
 import { rpc } from "@/lib/client/rpc";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";

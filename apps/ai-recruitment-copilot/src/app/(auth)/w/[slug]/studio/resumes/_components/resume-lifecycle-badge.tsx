@@ -3,7 +3,7 @@
 import type { ButtonHTMLAttributes } from "react";
 import { ChevronRightIcon } from "lucide-react";
 import { badgeVariants } from "@/components/ui/badge";
-import { cn } from "@/lib/shared/utils";
+import { cn } from "@arc/shared/utils";
 
 type ResumeLifecycleBadgeTone = "success" | "warning" | "info" | "outline";
 

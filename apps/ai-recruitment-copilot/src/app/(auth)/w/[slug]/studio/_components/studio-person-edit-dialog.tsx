@@ -1,7 +1,7 @@
 "use client";
 
-import type { ResumeLibraryDetail } from "@/lib/shared/studio-resumes";
-import type { StudioInterviewRoundDetail } from "@/lib/shared/studio-interview-rounds";
+import type { ResumeLibraryDetail } from "@arc/shared/studio-resumes";
+import type { StudioInterviewRoundDetail } from "@arc/shared/studio-interview-rounds";
 import type { ResumeProfile } from "@arc/db-schema/interview/types";
 import { useStore, useForm } from "@tanstack/react-form";
 import { useQuery } from "@tanstack/react-query";
@@ -41,7 +41,7 @@ import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import {
   createResumeLibraryFormValues,
   resumeLibraryEditFormSchema,
-} from "@/lib/shared/studio-resumes";
+} from "@arc/shared/studio-resumes";
 import {
   getScheduleEntryDateValue,
   scheduleEntryStatusMeta,

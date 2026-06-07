@@ -11,7 +11,7 @@ import type {
   CandidateFormTemplateInput,
   CandidateFormTemplateRecord,
 } from "@arc/db-schema/candidate-forms";
-import type { JobDescriptionListRecord } from "@/lib/shared/job-descriptions";
+import type { JobDescriptionListRecord } from "@arc/shared/job-descriptions";
 import { rpc } from "@/lib/client/rpc";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { useForm, useStore } from "@tanstack/react-form";
@@ -58,7 +58,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { TextareaCounter } from "@/components/ui/textarea-counter";
-import { cn } from "@/lib/shared/utils";
+import { cn } from "@arc/shared/utils";
 import {
   candidateFormTemplateSchema,
   DEFAULT_DISPLAY_MODE,

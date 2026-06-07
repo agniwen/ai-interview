@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { connection } from "next/server";
-import type { PublicHumanInterviewMeetingPreview } from "@/lib/shared/studio-pipeline-stages";
+import type { PublicHumanInterviewMeetingPreview } from "@arc/shared/studio-pipeline-stages";
 import { HumanMeetingRoom } from "../_components/human-meeting-room";
 
 export const metadata: Metadata = {

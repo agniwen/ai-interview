@@ -30,7 +30,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { useHasPermission } from "@/hooks/use-has-permission";
-import type { statement } from "@/lib/shared/permissions";
+import type { statement } from "@arc/shared/permissions";
 
 interface NavItem {
   /** Path under /w/[slug]/studio — leading slash, no slug prefix. */

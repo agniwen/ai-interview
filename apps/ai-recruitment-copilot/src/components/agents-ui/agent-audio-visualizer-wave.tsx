@@ -8,7 +8,7 @@ import { cva } from "class-variance-authority";
 import { useMemo } from "react";
 import { ReactShaderToy } from "@/components/agents-ui/react-shader-toy";
 import { useAgentAudioVisualizerWave } from "@/hooks/agents-ui/use-agent-audio-visualizer-wave";
-import { cn } from "@/lib/shared/utils";
+import { cn } from "@arc/shared/utils";
 
 const DEFAULT_COLOR = "#1FD5F9";
 const HEX_COLOR_REGEX = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i;

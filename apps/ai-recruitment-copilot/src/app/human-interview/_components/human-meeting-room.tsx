@@ -41,8 +41,8 @@ import type {
   HumanInterviewMeetingTokenResponse,
   PublicHumanInterviewInterviewerPreview,
   PublicHumanInterviewMeetingPreview,
-} from "@/lib/shared/studio-pipeline-stages";
-import { cn } from "@/lib/shared/utils";
+} from "@arc/shared/studio-pipeline-stages";
+import { cn } from "@arc/shared/utils";
 import {
   AlertDialog,
   AlertDialogAction,

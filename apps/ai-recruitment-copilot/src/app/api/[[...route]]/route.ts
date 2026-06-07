@@ -1,8 +1,8 @@
 import { handle } from "hono/vercel";
 
-import { nextCacheInvalidator } from "@/server/adapters/next/cache-invalidator";
-import { createServerApp } from "@/server/app";
-import { configureCacheInvalidator } from "@/server/cache-tags";
+import { createServerApp } from "@arc/backend/server/app";
+import { configureCacheInvalidator } from "@arc/backend/server/cache-tags";
+import { nextCacheInvalidator } from "./next-cache-invalidator";
 
 export const maxDuration = 300;
 

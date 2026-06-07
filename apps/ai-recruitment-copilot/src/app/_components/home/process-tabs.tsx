@@ -5,7 +5,7 @@
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useState } from "react";
 import { ChatScreen, EvaluationScreen, InterviewScreen, JdSetupScreen } from "@/components/screens";
-import { cn } from "@/lib/shared/utils";
+import { cn } from "@arc/shared/utils";
 import { Eyebrow, Section, SectionLead, SectionTitle } from "./section";
 
 interface Step {

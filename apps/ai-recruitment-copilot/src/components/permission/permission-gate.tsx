@@ -1,5 +1,5 @@
 "use client";
-import type { statement } from "@/lib/shared/permissions";
+import type { statement } from "@arc/shared/permissions";
 import { useHasPermission } from "@/hooks/use-has-permission";
 
 interface PermissionGateProps<R extends keyof typeof statement> {

@@ -10,7 +10,7 @@ import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { rpc } from "@/lib/client/rpc";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
-import { DIFFICULTY_LABEL } from "@/lib/shared/interview-question-difficulty";
+import { DIFFICULTY_LABEL } from "@arc/shared/interview-question-difficulty";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 

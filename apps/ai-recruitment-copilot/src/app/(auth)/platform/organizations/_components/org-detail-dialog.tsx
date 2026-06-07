@@ -17,7 +17,7 @@ import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { rpcFetch } from "@/lib/client/api";
 import { rpc } from "@/lib/client/rpc";
-import { formatDateOnly } from "@/lib/shared/utils/time";
+import { formatDateOnly } from "@arc/shared/utils/time";
 
 const WHITESPACE_REGEX = /\s+/;
 

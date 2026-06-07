@@ -7,8 +7,8 @@ import {
 } from "@/components/data-grid/query-contract";
 import { QueryHydrationBoundary } from "@/components/query-hydration-boundary";
 import { resolveOrganizationBySlug } from "@/lib/server/auth-session";
-import { listAllDepartments } from "@/server/routes/studio/routes/departments/dao";
-import { listInterviewers } from "@/server/routes/studio/routes/interviewers/dao";
+import { listAllDepartments } from "@arc/backend/server/routes/studio/routes/departments/dao";
+import { listInterviewers } from "@arc/backend/server/routes/studio/routes/interviewers/dao";
 import { InterviewerManagementPage } from "./_components/interviewer-management-page";
 
 export const metadata: Metadata = {

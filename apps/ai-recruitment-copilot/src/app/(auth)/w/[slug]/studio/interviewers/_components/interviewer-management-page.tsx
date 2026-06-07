@@ -3,9 +3,9 @@
 import { PageHeader } from "@/app/(auth)/w/[slug]/studio/_components/page-header";
 import { EntityDeleteDialog } from "@/app/(auth)/w/[slug]/studio/_components/entity-delete-dialog";
 import { useEntityCrud } from "@/app/(auth)/w/[slug]/studio/_components/use-entity-crud";
-import type { DepartmentRecord } from "@/lib/shared/departments";
-import type { InterviewerListRecord, InterviewerRecord } from "@/lib/shared/interviewers";
-import type { PaginatedInterviewerResult } from "@/server/routes/studio/routes/interviewers/dao";
+import type { DepartmentRecord } from "@arc/shared/departments";
+import type { InterviewerListRecord, InterviewerRecord } from "@arc/shared/interviewers";
+import type { PaginatedInterviewerResult } from "@arc/backend/server/routes/studio/routes/interviewers/dao";
 import { useQueryClient } from "@tanstack/react-query";
 import { PlusIcon, UserCircleIcon } from "lucide-react";
 import { useMemo, useState } from "react";

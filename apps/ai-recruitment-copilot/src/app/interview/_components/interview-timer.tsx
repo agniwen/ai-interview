@@ -2,7 +2,7 @@
 
 import { TimerIcon } from "lucide-react";
 import { useEffect, useState } from "react";
-import { cn } from "@/lib/shared/utils";
+import { cn } from "@arc/shared/utils";
 
 function formatElapsed(seconds: number): string {
   const hours = Math.floor(seconds / 3600);

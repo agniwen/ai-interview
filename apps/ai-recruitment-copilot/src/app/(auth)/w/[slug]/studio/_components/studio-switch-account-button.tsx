@@ -4,7 +4,7 @@ import { LoaderCircleIcon, LogOutIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { authClient } from "@/lib/shared/auth-client";
+import { authClient } from "@/lib/client/auth-client";
 
 export function StudioSwitchAccountButton() {
   const router = useRouter();

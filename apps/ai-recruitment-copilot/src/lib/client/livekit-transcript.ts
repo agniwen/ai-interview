@@ -1,7 +1,7 @@
 import "client-only";
 
 import type { ReceivedMessage } from "@livekit/components-react";
-import { joinTranscriptText } from "@/lib/shared/interview-transcript-turns";
+import { joinTranscriptText } from "@arc/shared/interview-transcript-turns";
 
 const USER_TRANSCRIPT_TYPE = "userTranscript";
 

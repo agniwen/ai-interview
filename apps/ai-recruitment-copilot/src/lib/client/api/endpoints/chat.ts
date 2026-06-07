@@ -14,7 +14,7 @@ import "client-only";
 import type { UIMessage } from "ai";
 import type { JobDescriptionConfig } from "@arc/db-schema/job-description-config";
 import { rpc } from "@/lib/client/rpc";
-import { sha256HexOfFile } from "@/lib/shared/file-hash";
+import { sha256HexOfFile } from "@arc/shared/file-hash";
 import { apiFetch } from "../client";
 import { rpcFetch } from "../rpc-fetch";
 

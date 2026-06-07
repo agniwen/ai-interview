@@ -14,9 +14,9 @@
   "rtl": false,
   "aliases": {
     "components": "@/components",
-    "utils": "@/lib/shared/utils",
+    "utils": "@arc/shared/utils",
     "ui": "@/components/ui",
-    "lib": "@/lib/shared",
+    "lib": "@arc/shared",
     "hooks": "@/hooks"
   },
   "registries": {

@@ -3,7 +3,7 @@ import type { MotionProps } from "motion/react";
 import type { ComponentProps, Ref } from "react";
 import { cva } from "class-variance-authority";
 import { motion } from "motion/react";
-import { cn } from "@/lib/shared/utils";
+import { cn } from "@arc/shared/utils";
 
 const motionAnimationProps = {
   animate: "visible",

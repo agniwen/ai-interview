@@ -10,9 +10,9 @@
 // chrome via shell — Modal, full-page layout, or any custom frame.
 
 import Markdown from "react-markdown";
-import type { StudioInterviewRoundDetail } from "@/lib/shared/studio-interview-rounds";
-import type { ResumeLibraryDetail } from "@/lib/shared/studio-resumes";
-import { DIFFICULTY_LABEL } from "@/lib/shared/interview-question-difficulty";
+import type { StudioInterviewRoundDetail } from "@arc/shared/studio-interview-rounds";
+import type { ResumeLibraryDetail } from "@arc/shared/studio-resumes";
+import { DIFFICULTY_LABEL } from "@arc/shared/interview-question-difficulty";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { QueryClient } from "@tanstack/react-query";
 import {
@@ -88,7 +88,7 @@ import {
   SummaryMetric,
 } from "./studio-person-detail-skeletons";
 import { toAbsoluteUrl } from "@/lib/client/clipboard";
-import { countDisplayInterviewTurns } from "@/lib/shared/interview-transcript-turns";
+import { countDisplayInterviewTurns } from "@arc/shared/interview-transcript-turns";
 import { pipelineStageMeta, scheduleEntryStatusMeta } from "@arc/db-schema/studio-interviews";
 import type { PipelineStage } from "@arc/db-schema/studio-interviews";
 import { AgentInstructionsPanel } from "../interviews/_components/agent-instructions-panel";

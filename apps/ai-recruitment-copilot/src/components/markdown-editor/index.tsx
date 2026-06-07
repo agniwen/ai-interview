@@ -6,7 +6,7 @@
 import { EditorContent } from "@tiptap/react";
 import { useCallback } from "react";
 import { MarkdownView } from "@/components/markdown-view";
-import { cn } from "@/lib/shared/utils";
+import { cn } from "@arc/shared/utils";
 import { MarkdownEditorBubbleMenu } from "./bubble-menu";
 import { MarkdownEditorToolbar } from "./toolbar";
 import { useMarkdownEditor } from "./use-markdown-editor";

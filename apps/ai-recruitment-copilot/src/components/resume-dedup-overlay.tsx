@@ -16,7 +16,7 @@ import { AlertTriangleIcon, ExternalLinkIcon } from "lucide-react";
 import { useState } from "react";
 import type { DedupMatchedField, DedupMatchRecord } from "@/lib/client/api";
 import { studioInterviewStatusMeta } from "@arc/db-schema/studio-interviews";
-import { formatDate } from "@/lib/shared/utils/time";
+import { formatDate } from "@arc/shared/utils/time";
 import { StudioPersonDetailDialog } from "@/app/(auth)/w/[slug]/studio/_components/studio-person-detail-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";

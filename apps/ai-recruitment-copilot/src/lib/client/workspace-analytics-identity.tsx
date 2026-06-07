@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { identifyAnalyticsUser, resetAnalyticsUser } from "@/lib/client/analytics";
-import { authClient } from "@/lib/shared/auth-client";
+import { authClient } from "@/lib/client/auth-client";
 
 export function WorkspaceAnalyticsIdentity({ workspaceId }: { workspaceId: string }) {
   const { data: session } = authClient.useSession();

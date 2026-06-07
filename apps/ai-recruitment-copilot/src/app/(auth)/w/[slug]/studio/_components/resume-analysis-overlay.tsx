@@ -11,7 +11,7 @@ import { MarkdownView } from "@/components/markdown-view";
 import { ResumeDedupOverlay } from "@/components/resume-dedup-overlay";
 import { TextFlip } from "@/components/text-flip";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/shared/utils";
+import { cn } from "@arc/shared/utils";
 import { CheckIcon, LoaderCircleIcon, WrenchIcon } from "lucide-react";
 import { motion, useReducedMotion } from "motion/react";
 import { useEffect, useRef } from "react";

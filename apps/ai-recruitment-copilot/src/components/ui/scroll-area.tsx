@@ -3,7 +3,7 @@
 import { OverlayScrollbarsComponent } from "overlayscrollbars-react";
 import type { ComponentProps } from "react";
 
-import { cn } from "@/lib/shared/utils";
+import { cn } from "@arc/shared/utils";
 
 type ScrollAreaProps = Omit<ComponentProps<typeof OverlayScrollbarsComponent>, "element"> & {
   /** Forwarded to OverlayScrollbars autoHide option. */

@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { SidebarInset } from "@/components/ui/sidebar";
 import { ChatHeader } from "./_components/chat-header";
 import { ChatSidebarSlots } from "./_components/chat-sidebar-slots";
-import { cn } from "@/lib/shared/utils/cn";
+import { cn } from "@arc/shared/utils/cn";
 
 // Workspace 校验与 slug context 已由父级 /w/[slug]/layout.tsx 完成,这里只负责 chat shell。
 // Parent /w/[slug]/layout.tsx already gates the workspace and supplies the slug

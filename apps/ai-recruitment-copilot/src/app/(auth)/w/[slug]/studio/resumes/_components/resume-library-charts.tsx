@@ -18,7 +18,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import type { ChartConfig } from "@/components/ui/chart";
 import { Empty, EmptyDescription, EmptyHeader } from "@/components/ui/empty";
-import type { ResumeLibraryMetrics } from "@/lib/shared/studio-resumes";
+import type { ResumeLibraryMetrics } from "@arc/shared/studio-resumes";
 
 type PipelineBucket =
   | "screening"

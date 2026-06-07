@@ -7,7 +7,7 @@ import { Drawer as DrawerPrimitive } from "vaul";
 
 import { Button } from "@/components/ui/button";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { cn } from "@/lib/shared/utils";
+import { cn } from "@arc/shared/utils";
 
 interface ResponsiveDialogContextValue {
   isMobile: boolean;

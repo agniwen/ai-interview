@@ -20,7 +20,7 @@ import {
   UndoIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/shared/utils";
+import { cn } from "@arc/shared/utils";
 import type { EditorMode } from "./use-markdown-editor";
 
 interface Props {

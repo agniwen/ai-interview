@@ -6,7 +6,7 @@ import {
 } from "@/components/data-grid/query-contract";
 import type { DataGridQueryState } from "@/components/data-grid/query-contract";
 import { QueryHydrationBoundary } from "@/components/query-hydration-boundary";
-import { db } from "@/lib/server/db";
+import { db } from "@arc/backend/lib/server/db";
 import { requirePlatformAdmin } from "@/lib/server/platform-admin";
 import { member, organization } from "@arc/db-schema/schema";
 import { OrganizationsGrid } from "./_components/organizations-grid";

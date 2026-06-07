@@ -11,7 +11,7 @@ import type { ChevronsUpDownIconHandle } from "@/components/chevrons-up-down-ico
 import { ChevronsUpDownIcon } from "@/components/chevrons-up-down-icon";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Separator } from "@/components/ui/separator";
-import { cn } from "@/lib/shared/utils";
+import { cn } from "@arc/shared/utils";
 
 export interface ExperiencePositionItemType {
   /** Unique identifier for the position. */

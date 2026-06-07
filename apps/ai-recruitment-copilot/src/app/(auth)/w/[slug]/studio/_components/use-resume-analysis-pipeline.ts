@@ -17,7 +17,7 @@ import { readNdjsonStream } from "@/lib/client/ndjson-stream";
 import { matchJobDescriptionForResume, parseResumeFile } from "@/lib/client/resume-analysis";
 import { rpc } from "@/lib/client/rpc";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
-import type { AnalysisStreamEvent } from "@/lib/shared/api-stream";
+import type { AnalysisStreamEvent } from "@arc/shared/api-stream";
 import type {
   InterviewQuestion,
   ResumeAnalysisResult,

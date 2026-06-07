@@ -19,7 +19,7 @@ import { InputGroup, InputGroupInput } from "@/components/ui/input-group";
 import { Spinner } from "@/components/ui/spinner";
 import { rpc } from "@/lib/client/rpc";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
-import type { GlobalConfigRecord } from "@/lib/shared/global-config";
+import type { GlobalConfigRecord } from "@arc/shared/global-config";
 
 const PROMPT_MAX_LENGTH = 10_000;
 const COMPANY_CONTEXT_MAX_LENGTH = 8000;

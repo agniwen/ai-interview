@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { cn } from "@/lib/shared/utils";
+import { cn } from "@arc/shared/utils";
 import { useChatModelsQuery } from "../../_lib/use-chat-models";
 import { resolveEffectiveModel } from "../../_lib/resolve-effective-model";
 import { useSessionModel } from "../../_lib/use-session-model";

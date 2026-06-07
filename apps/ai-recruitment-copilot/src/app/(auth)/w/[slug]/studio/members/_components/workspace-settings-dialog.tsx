@@ -21,7 +21,7 @@ import { Input } from "@/components/ui/input";
 import { rpcFetch } from "@/lib/client/api";
 import { rpc } from "@/lib/client/rpc";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
-import { authClient } from "@/lib/shared/auth-client";
+import { authClient } from "@/lib/client/auth-client";
 
 interface WorkspaceSettingsDialogProps {
   currentName: string;

@@ -1,11 +1,11 @@
 "use client";
 
-import { describeResumeProgress } from "@/lib/shared/studio-resumes";
+import { describeResumeProgress } from "@arc/shared/studio-resumes";
 import type {
   PaginatedResumeLibraryResult,
   ResumeLibraryListRecord,
   ResumeLibraryMetrics,
-} from "@/lib/shared/studio-resumes";
+} from "@arc/shared/studio-resumes";
 import { pipelineStageMeta, pipelineStageValues } from "@arc/db-schema/studio-interviews";
 import type { PipelineStage } from "@arc/db-schema/studio-interviews";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -62,7 +62,7 @@ import {
 import { rpc } from "@/lib/client/rpc";
 import { rpcFetch } from "@/lib/client/api/rpc-fetch";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
-import { parseCsvParam } from "@/lib/shared/csv";
+import { parseCsvParam } from "@arc/shared/csv";
 import { StudioPersonDetailDialog } from "@/app/(auth)/w/[slug]/studio/_components/studio-person-detail-dialog";
 import { StudioPersonEditDialog } from "@/app/(auth)/w/[slug]/studio/_components/studio-person-edit-dialog";
 import { CreateResumeRecordDialog } from "./upload-resume-dialog";

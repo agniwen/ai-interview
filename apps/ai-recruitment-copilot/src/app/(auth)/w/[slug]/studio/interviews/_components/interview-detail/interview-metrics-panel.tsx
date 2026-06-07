@@ -1,6 +1,6 @@
 import { DetailRow } from "./detail-row";
 import { SoftPanel } from "@/components/soft-panel";
-import { cn } from "@/lib/shared/utils";
+import { cn } from "@arc/shared/utils";
 
 /**
  * Agent 端 metrics_collected 聚合后落库的形状。与 agent.py 中的 metrics_state 对齐:

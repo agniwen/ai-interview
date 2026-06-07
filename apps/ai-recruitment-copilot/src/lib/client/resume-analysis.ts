@@ -6,8 +6,8 @@ import type {
   ResumeProfile,
 } from "@arc/db-schema/interview/types";
 import { createDefaultScheduleEntry } from "@arc/db-schema/studio-interviews";
-import type { AnalysisStreamEvent } from "@/lib/shared/api-stream";
-import type { ResumeLibraryFormValues } from "@/lib/shared/studio-resumes";
+import type { AnalysisStreamEvent } from "@arc/shared/api-stream";
+import type { ResumeLibraryFormValues } from "@arc/shared/studio-resumes";
 import { readNdjsonStream } from "./ndjson-stream";
 import { rpc } from "./rpc";
 

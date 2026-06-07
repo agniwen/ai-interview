@@ -28,10 +28,10 @@ import { fetchStudioResume, launchInterviewFromResume } from "@/lib/client/api";
 import { readNdjsonStream } from "@/lib/client/ndjson-stream";
 import { rpc } from "@/lib/client/rpc";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
-import type { AnalysisStreamEvent } from "@/lib/shared/api-stream";
+import type { AnalysisStreamEvent } from "@arc/shared/api-stream";
 import type { InterviewQuestion, ResumeProfile } from "@arc/db-schema/interview/types";
-import type { StudioInterviewRoundDetail } from "@/lib/shared/studio-interview-rounds";
-import type { ResumeLibraryDetail } from "@/lib/shared/studio-resumes";
+import type { StudioInterviewRoundDetail } from "@arc/shared/studio-interview-rounds";
+import type { ResumeLibraryDetail } from "@arc/shared/studio-resumes";
 import { ResumeOverviewPanel } from "./resume-overview-panel";
 
 interface LaunchFormValues {

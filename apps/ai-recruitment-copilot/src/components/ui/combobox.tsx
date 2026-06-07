@@ -11,7 +11,7 @@ import {
   InputGroupButton,
   InputGroupInput,
 } from "@/components/ui/input-group";
-import { cn } from "@/lib/shared/utils";
+import { cn } from "@arc/shared/utils";
 
 const Combobox = ComboboxPrimitive.Root;
 

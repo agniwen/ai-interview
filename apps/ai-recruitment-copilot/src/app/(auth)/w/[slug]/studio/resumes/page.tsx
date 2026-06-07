@@ -8,9 +8,9 @@ import {
 } from "@/components/data-grid/query-contract";
 import { QueryHydrationBoundary } from "@/components/query-hydration-boundary";
 import { resolveOrganizationBySlug } from "@/lib/server/auth-session";
-import { parseCsvParam } from "@/lib/shared/csv";
-import { loadResumeLibraryMetrics } from "@/server/routes/studio/routes/resumes/dao/metrics";
-import { listResumeRecords } from "@/server/routes/studio/routes/resumes/dao/resumes";
+import { parseCsvParam } from "@arc/shared/csv";
+import { loadResumeLibraryMetrics } from "@arc/backend/server/routes/studio/routes/resumes/dao/metrics";
+import { listResumeRecords } from "@arc/backend/server/routes/studio/routes/resumes/dao/resumes";
 
 export const metadata: Metadata = {
   title: "简历库",

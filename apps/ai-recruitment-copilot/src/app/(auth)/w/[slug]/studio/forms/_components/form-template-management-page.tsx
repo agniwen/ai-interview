@@ -8,8 +8,8 @@ import type {
   CandidateFormTemplateListRecord,
   CandidateFormTemplateRecord,
 } from "@arc/db-schema/candidate-forms";
-import type { JobDescriptionListRecord } from "@/lib/shared/job-descriptions";
-import type { PaginatedCandidateFormTemplateResult } from "@/server/routes/studio/routes/forms/dao/queries";
+import type { JobDescriptionListRecord } from "@arc/shared/job-descriptions";
+import type { PaginatedCandidateFormTemplateResult } from "@arc/backend/server/routes/studio/routes/forms/dao/queries";
 import { useQueryClient } from "@tanstack/react-query";
 import { ChevronDownIcon, ClipboardListIcon, PlusIcon } from "lucide-react";
 import { parseAsString, useQueryState } from "nuqs";

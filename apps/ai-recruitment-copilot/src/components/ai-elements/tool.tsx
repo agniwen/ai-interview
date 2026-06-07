@@ -14,7 +14,7 @@ import {
 import { isValidElement } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { cn } from "@/lib/shared/utils";
+import { cn } from "@arc/shared/utils";
 
 import { CodeBlock } from "./code-block";
 

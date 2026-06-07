@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import type { ComponentType, ReactNode, SVGProps } from "react";
 import { FadeContent } from "@/components/react-bits/fade-content";
-import { cn } from "@/lib/shared/utils";
+import { cn } from "@arc/shared/utils";
 import { CenterCarousel } from "./center-carousel";
 import { Eyebrow, Section, SectionLead, SectionTitle } from "./section";
 

@@ -12,7 +12,7 @@ import {
   CommandList,
 } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { cn } from "@/lib/shared/utils";
+import { cn } from "@arc/shared/utils";
 
 // =====================================================================
 // 单选可搜索下拉。底层是 Command + Popover，沿用项目已修好的 popover/cmdk 滚动方案。

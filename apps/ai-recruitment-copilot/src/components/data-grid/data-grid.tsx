@@ -13,7 +13,7 @@ import {
   TableRow,
   TableRowDivider,
 } from "@/components/ui/table";
-import { cn } from "@/lib/shared/utils";
+import { cn } from "@arc/shared/utils";
 import { PaginationBar } from "./parts/pagination-bar";
 import {
   getPinningStyles,
