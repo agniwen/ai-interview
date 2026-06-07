@@ -491,6 +491,7 @@ export function InterviewManagementPage() {
         ],
         placeholder: "全部状态",
         selectedFormat: (count: number) => `已选 ${count} 个状态`,
+        selectedPreviewLimit: 2,
         type: "multi-select" as const,
       },
     ],

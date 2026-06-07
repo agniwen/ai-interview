@@ -1152,6 +1152,7 @@ function ScheduleRoundDialog({
               placeholder="选择面试官（可多选）"
               searchPlaceholder="搜索成员…"
               selectedFormat={(count) => `已选 ${count} 位面试官`}
+              selectedPreviewLimit={2}
               value={interviewerIds}
             />
           </div>

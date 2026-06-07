@@ -330,6 +330,7 @@ export function InterviewQuestionTemplateManagementPage({
         ],
         placeholder: "全部作用域",
         selectedFormat: (count: number) => `已选 ${count} 个作用域`,
+        selectedPreviewLimit: 2,
         type: "multi-select" as const,
       },
       {

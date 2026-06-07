@@ -424,6 +424,7 @@ export function JobDescriptionFormDialog({
                               placeholder="选择面试官…"
                               searchPlaceholder="搜索面试官…"
                               selectedFormat={(count) => `已选 ${count} 位面试官`}
+                              selectedPreviewLimit={3}
                               value={field.state.value}
                             />
                             <FieldError errors={errors} />
