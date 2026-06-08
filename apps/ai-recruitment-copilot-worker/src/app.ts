@@ -3,8 +3,13 @@ import {
   getResumeParseQueueStats,
   isResumeParseQueueConfigured,
 } from "@arc/resume-parse-queue/resume-parse";
-import { pingDatabase } from "./db";
 import { getResumeParseReadinessIssue } from "./parse-config";
+
+async function pingDatabase(): Promise<void> {
+  const { pingDatabase: pingBackendDatabase } =
+    await import("@arc/ai-recruitment-copilot-backend/lib/server/db");
+  await pingBackendDatabase();
+}
 
 export function createWorkerApp() {
   const app = new Hono();
