@@ -1,6 +1,12 @@
 "use client";
 
-import { describeResumeProgress } from "@arc/shared/studio-resumes";
+import {
+  canDeleteResumeRecord,
+  canEditResumeRecord,
+  canLaunchInterviewFromResume,
+  describeResumeProgress,
+  getResumeActionLockedReason,
+} from "@arc/shared/studio-resumes";
 import type {
   PaginatedResumeLibraryResult,
   ResumeLibraryListRecord,
@@ -53,6 +59,7 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
+import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import {
   bulkDeleteStudioResumes,
   deleteStudioResume,
@@ -231,6 +238,47 @@ function describeLifecycleCell(record: ResumeLibraryListRecord) {
     tone: progress.tone,
   };
 }
+
+function ResumeProgressCell({
+  onOpen,
+  record,
+}: {
+  onOpen: () => void;
+  record: ResumeLibraryListRecord;
+}) {
+  const meta = describeLifecycleCell(record);
+  const badge = (
+    <ResumeLifecycleBadge
+      className="w-44"
+      detailLabel={meta.detailLabel}
+      fullLabel={meta.fullLabel}
+      onClick={(e) => {
+        e.stopPropagation();
+        onOpen();
+      }}
+      stageLabel={meta.stageLabel}
+      tone={meta.tone}
+    />
+  );
+
+  if (record.resumeParseStatus !== "failed") {
+    return badge;
+  }
+
+  return (
+    <HoverCard closeDelay={120} openDelay={120}>
+      <HoverCardTrigger asChild>{badge}</HoverCardTrigger>
+      <HoverCardContent align="start" className="w-80">
+        <div className="flex flex-col gap-2">
+          <p className="font-medium text-sm">解析失败原因</p>
+          <p className="whitespace-pre-wrap break-words text-muted-foreground text-sm leading-relaxed">
+            {record.resumeParseError?.trim() || "后台未返回具体失败原因。"}
+          </p>
+        </div>
+      </HoverCardContent>
+    </HoverCard>
+  );
+}
 const VISIBLE_PIPELINE_STAGES = pipelineStageValues.filter(
   (s) => !HIDDEN_PIPELINE_STAGE_TABS.has(s),
 );
@@ -267,10 +315,17 @@ export function ResumeLibraryPage({ metrics }: { metrics: ResumeLibraryMetrics }
     router.refresh();
   }, [queryClient, router]);
 
-  const bulk = useBulkUpload({ onRecordsChanged: invalidateAll });
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [progressOpen, setProgressOpen] = useState(false);
+  const bulk = useBulkUpload({
+    onBatchQueued: (detail) => {
+      setProgressOpen(false);
+      setPendingFiles([]);
+      toast.success(`${detail.batch.totalCount} 份简历已上传，后台正在解析`);
+    },
+    onRecordsChanged: invalidateAll,
+  });
 
   // 继续之前没跑完的批次：复活孤儿 → 打开进度 dialog → 拉起循环。
   // Resume a stale batch: revive orphans, open progress, restart loop.
@@ -436,6 +491,10 @@ export function ResumeLibraryPage({ metrics }: { metrics: ResumeLibraryMetrics }
   }
 
   function startAiInterview(record: ResumeLibraryListRecord) {
+    if (!canLaunchInterviewFromResume(record.resumeParseStatus)) {
+      toast.error("简历解析完成后才能发起 AI 面试");
+      return;
+    }
     setLaunchingRecord({ candidateName: record.candidateName ?? null, id: record.id });
   }
 
@@ -521,20 +580,14 @@ export function ResumeLibraryPage({ metrics }: { metrics: ResumeLibraryMetrics }
       }),
       customColumn<ResumeLibraryListRecord>({
         cell: (r) => {
-          const meta = describeLifecycleCell(r);
           const targetTab = lifecycleTargetTab(r);
           return (
-            <ResumeLifecycleBadge
-              className="w-44"
-              detailLabel={meta.detailLabel}
-              fullLabel={meta.fullLabel}
-              onClick={(e) => {
-                e.stopPropagation();
+            <ResumeProgressCell
+              onOpen={() => {
                 setDetailDefaultTab(targetTab);
                 setDetailRecordId(r.id);
               }}
-              stageLabel={meta.stageLabel}
-              tone={meta.tone}
+              record={r}
             />
           );
         },
@@ -566,16 +619,28 @@ export function ResumeLibraryPage({ metrics }: { metrics: ResumeLibraryMetrics }
               setDetailRecordId(r.id);
             },
           },
-          { label: "编辑", onClick: (r) => setEditRecordId(r.id) },
+          {
+            label: "编辑",
+            onClick: (r) => setEditRecordId(r.id),
+            show: (r) => canEditResumeRecord(r.resumeParseStatus),
+          },
         ],
         menu: [
+          {
+            label: "查看简历",
+            onClick: (r) => setPreviewRecord(r),
+            show: (r) => !canEditResumeRecord(r.resumeParseStatus) && r.hasResumeFile,
+          },
           {
             label: "发起 AI 面试",
             onClick: startAiInterview,
             // 已存在任意 AI 面试轮次 或 已结案 时隐藏（已结案的人需要先重新激活）。
             // Hide when the candidate already has any AI interview round OR is
             // closed (closed candidates must be reactivated first).
-            show: (r) => !r.hasInterviewRounds && r.pipelineStage !== "closed",
+            show: (r) =>
+              canLaunchInterviewFromResume(r.resumeParseStatus) &&
+              !r.hasInterviewRounds &&
+              r.pipelineStage !== "closed",
           },
           {
             label: "标记结案",
@@ -586,7 +651,7 @@ export function ResumeLibraryPage({ metrics }: { metrics: ResumeLibraryMetrics }
               }),
             // 只在未结案候选人上显示。
             // Only available on non-closed candidates.
-            show: (r) => r.pipelineStage !== "closed",
+            show: (r) => canEditResumeRecord(r.resumeParseStatus) && r.pipelineStage !== "closed",
           },
           {
             label: "重新激活",
@@ -597,11 +662,12 @@ export function ResumeLibraryPage({ metrics }: { metrics: ResumeLibraryMetrics }
               }),
             // 仅对已结案候选人可见。
             // Only visible for closed candidates.
-            show: (r) => r.pipelineStage === "closed",
+            show: (r) => canEditResumeRecord(r.resumeParseStatus) && r.pipelineStage === "closed",
           },
           {
             label: "删除",
             onClick: (r) => setDeleteRecord(r),
+            show: (r) => canDeleteResumeRecord(r.resumeParseStatus),
             variant: "destructive",
           },
         ],
@@ -667,6 +733,10 @@ export function ResumeLibraryPage({ metrics }: { metrics: ResumeLibraryMetrics }
     if (!deleteRecord) {
       return;
     }
+    if (!canDeleteResumeRecord(deleteRecord.resumeParseStatus)) {
+      toast.error("简历解析中，暂不能删除");
+      return;
+    }
     try {
       await deleteStudioResume(slug, deleteRecord.id);
       setDeleteRecord(null);
@@ -678,7 +748,17 @@ export function ResumeLibraryPage({ metrics }: { metrics: ResumeLibraryMetrics }
   }
 
   async function handleBulkDelete() {
-    const ids = Object.keys(grid.rowSelection).filter((id) => grid.rowSelection[id]);
+    const rowsById = new Map(grid.bind.data.map((row) => [row.id, row]));
+    const selectedIds = Object.keys(grid.rowSelection).filter((id) => grid.rowSelection[id]);
+    const locked = selectedIds.some((id) => {
+      const row = rowsById.get(id);
+      return row ? !canDeleteResumeRecord(row.resumeParseStatus) : false;
+    });
+    if (locked) {
+      toast.error("所选记录包含解析中的简历，暂不能删除");
+      return;
+    }
+    const ids = selectedIds;
     if (ids.length === 0) {
       return;
     }
@@ -759,7 +839,19 @@ export function ResumeLibraryPage({ metrics }: { metrics: ResumeLibraryMetrics }
           bulkActions={({ selectedIds }) => (
             <Button
               className="flex-1 sm:flex-none"
+              disabled={selectedIds.some((id) => {
+                const row = grid.bind.data.find((record) => record.id === id);
+                return row ? !canDeleteResumeRecord(row.resumeParseStatus) : false;
+              })}
               onClick={() => setBulkDeleteOpen(true)}
+              title={
+                selectedIds.some((id) => {
+                  const row = grid.bind.data.find((record) => record.id === id);
+                  return row ? !canDeleteResumeRecord(row.resumeParseStatus) : false;
+                })
+                  ? "所选记录包含解析中的简历，暂不能删除"
+                  : undefined
+              }
               variant="destructive"
             >
               <Trash2Icon className="size-4" />
@@ -804,10 +896,21 @@ export function ResumeLibraryPage({ metrics }: { metrics: ResumeLibraryMetrics }
         defaultTab={detailDefaultTab}
         mode="resume"
         onEdit={(id) => {
+          const row = grid.bind.data.find((record) => record.id === id);
+          const reason = row ? getResumeActionLockedReason(row.resumeParseStatus) : null;
+          if (reason) {
+            toast.error(reason);
+            return;
+          }
           setDetailRecordId(null);
           setEditRecordId(id);
         }}
         onLaunchInterview={({ id, candidateName }) => {
+          const row = grid.bind.data.find((record) => record.id === id);
+          if (row && !canLaunchInterviewFromResume(row.resumeParseStatus)) {
+            toast.error("简历解析完成后才能发起 AI 面试");
+            return;
+          }
           setDetailRecordId(null);
           setLaunchingRecord({ candidateName, id });
         }}

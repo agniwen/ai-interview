@@ -12,6 +12,7 @@
 import Markdown from "react-markdown";
 import type { StudioInterviewRoundDetail } from "@arc/shared/studio-interview-rounds";
 import type { ResumeLibraryDetail } from "@arc/shared/studio-resumes";
+import { canEditResumeRecord, canLaunchInterviewFromResume } from "@arc/shared/studio-resumes";
 import { DIFFICULTY_LABEL } from "@arc/shared/interview-question-difficulty";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { QueryClient } from "@tanstack/react-query";
@@ -649,6 +650,7 @@ function useStudioPersonDetailPanel({
     targetRole: string | null;
     jobDescriptionName: string | null;
     resumeFileName: string | null;
+    resumeParseStatus?: ResumeLibraryDetail["resumeParseStatus"];
     resumeProfile: ResumeLibraryDetail["resumeProfile"];
     notes: string | null;
     hasResumeFile: boolean;
@@ -714,6 +716,7 @@ function useStudioPersonDetailPanel({
       outcome: resumeRecord.outcome,
       pipelineStage: resumeRecord.pipelineStage,
       resumeFileName: resumeRecord.resumeFileName,
+      resumeParseStatus: resumeRecord.resumeParseStatus,
       resumeProfile: resumeRecord.resumeProfile,
       targetRole: resumeRecord.targetRole,
     };
@@ -862,50 +865,65 @@ function useStudioPersonDetailPanel({
   // button once the resume has any rounds (to prevent dup-creates) — the edit
   // button stays flex-1 and naturally expands. Suppressed during rounds-load
   // to avoid a flash-then-hide.
-  const showLaunchButton = mode === "resume" && !isRoundsLoading && candidateRounds.length === 0;
-  const resumeModeFooter = record ? (
-    <div className="flex w-full gap-2">
-      <Button
-        className="flex-1"
-        onClick={() => {
-          if (onEdit) {
-            onEdit(record.id);
-          }
-        }}
-        type="button"
-        variant="outline"
-      >
-        <PencilIcon className="size-4" />
-        编辑
-      </Button>
-      {showLaunchButton ? (
-        <Button
-          className="flex-1"
-          onClick={() => {
-            if (onLaunchInterview) {
-              // 简历库详情入口：交给外层 LaunchInterviewDialog 处理；关闭本面板
-              // 让 modal 切换显得自然。
-              // Resume-library entry: hand off to the parent LaunchInterviewDialog
-              // and close this panel so the swap reads naturally.
-              onLaunchInterview({
-                candidateName: record.candidateName ?? null,
-                id: record.id,
-              });
+  const canEditResumeModeRecord =
+    mode !== "resume" || !record?.resumeParseStatus
+      ? true
+      : canEditResumeRecord(record.resumeParseStatus);
+  const canLaunchResumeModeRecord =
+    mode !== "resume" || !record?.resumeParseStatus
+      ? true
+      : canLaunchInterviewFromResume(record.resumeParseStatus);
+  const showLaunchButton =
+    mode === "resume" &&
+    canLaunchResumeModeRecord &&
+    !isRoundsLoading &&
+    candidateRounds.length === 0;
+  const resumeModeFooter =
+    record && (canEditResumeModeRecord || showLaunchButton) ? (
+      <div className="flex w-full gap-2">
+        {canEditResumeModeRecord ? (
+          <Button
+            className="flex-1"
+            onClick={() => {
+              if (onEdit) {
+                onEdit(record.id);
+              }
+            }}
+            type="button"
+            variant="outline"
+          >
+            <PencilIcon className="size-4" />
+            编辑
+          </Button>
+        ) : null}
+        {showLaunchButton ? (
+          <Button
+            className="flex-1"
+            onClick={() => {
+              if (onLaunchInterview) {
+                // 简历库详情入口：交给外层 LaunchInterviewDialog 处理；关闭本面板
+                // 让 modal 切换显得自然。
+                // Resume-library entry: hand off to the parent LaunchInterviewDialog
+                // and close this panel so the swap reads naturally.
+                onLaunchInterview({
+                  candidateName: record.candidateName ?? null,
+                  id: record.id,
+                });
+                onClose?.();
+                return;
+              }
+              push(`/w/${slug}/studio/interviews`);
               onClose?.();
-              return;
-            }
-            push(`/w/${slug}/studio/interviews`);
-            onClose?.();
-          }}
-          type="button"
-        >
-          <BotIcon className="size-4" />
-          发起 AI 面试
-          {onLaunchInterview ? null : <ExternalLinkIcon className="size-3.5 opacity-70" />}
-        </Button>
-      ) : null}
-    </div>
-  ) : null;
+            }}
+            type="button"
+          >
+            <BotIcon className="size-4" />
+            发起 AI 面试
+            {onLaunchInterview ? null : <ExternalLinkIcon className="size-3.5 opacity-70" />}
+          </Button>
+        ) : null}
+      </div>
+    ) : null;
 
   const title =
     mode === "resume" ? (

@@ -5,7 +5,7 @@ import { useCallback, useRef, useState } from "react";
 import {
   cancelBulkResumeBatch,
   createBulkResumeBatch,
-  processNextBulkResumeBatch,
+  getBulkResumeBatchDetail,
   resumeBulkResumeBatch,
   uploadResumeForBulk,
 } from "@/lib/client/api/endpoints/bulk-resume-upload";
@@ -36,12 +36,14 @@ export interface BulkUploadState {
 type StartConfig = Omit<CreateBulkResumeBatchInput, "files">;
 
 const LIST_INVALIDATE_THROTTLE_MS = 600;
+const POLL_INTERVAL_MS = 1500;
 
 interface UseBulkUploadOptions {
+  onBatchQueued?: (detail: BulkResumeBatchDetailDto) => void;
   onRecordsChanged?: () => void;
 }
 
-export function useBulkUpload({ onRecordsChanged }: UseBulkUploadOptions = {}) {
+export function useBulkUpload({ onBatchQueued, onRecordsChanged }: UseBulkUploadOptions = {}) {
   const slug = useWorkspaceSlug();
   const qc = useQueryClient();
   const [state, setState] = useState<BulkUploadState>({
@@ -63,63 +65,36 @@ export function useBulkUpload({ onRecordsChanged }: UseBulkUploadOptions = {}) {
     void qc.invalidateQueries({ queryKey: ["studio-resumes"] });
   }, [qc]);
 
-  const runLoop = useCallback(
+  const pollLoop = useCallback(
     async (batchId: string) => {
       abortRef.current = false;
       setState((s) => ({ ...s, phase: "processing" }));
       while (!abortRef.current) {
-        // 乐观把下一个 pending item 标为 processing，让 badge 立刻出现 loading
-        // 状态。服务端响应回来时会用真实状态覆盖（succeeded / failed / duplicate_skipped）。
-        // Optimistically flip the next pending item to "processing" so the loading
-        // badge shows up immediately. The server response will overwrite with the
-        // real terminal status when process-next returns.
-        setState((prev) => {
-          if (!prev.detail) {
-            return prev;
-          }
-          const nextPending = prev.detail.items.find((it) => it.status === "pending");
-          if (!nextPending) {
-            return prev;
-          }
-          return {
-            ...prev,
-            detail: {
-              batch: prev.detail.batch,
-              items: prev.detail.items.map((it) =>
-                it.id === nextPending.id
-                  ? { ...it, startedAt: new Date().toISOString(), status: "processing" }
-                  : it,
-              ),
-            },
-          };
-        });
         try {
-          const res = await processNextBulkResumeBatch(slug, batchId);
-          setState((prev) => {
-            if (!prev.detail) {
-              return { ...prev, detail: { batch: res.batch, items: [] } };
-            }
-            const items = prev.detail.items.map((it) =>
-              res.item && it.id === res.item.id ? res.item : it,
-            );
-            return { ...prev, detail: { batch: res.batch, items } };
+          // oxlint-disable-next-line promise/avoid-new -- Browser polling needs a timer promise.
+          await new Promise<void>((resolve) => {
+            window.setTimeout(resolve, POLL_INTERVAL_MS);
           });
+          if (abortRef.current) {
+            return;
+          }
+          const detail = await getBulkResumeBatchDetail(slug, batchId);
+          setState((prev) => ({ ...prev, detail }));
           invalidateThrottled();
-          if (res.done) {
+          if (detail.batch.status === "completed") {
             setState((s) => ({ ...s, phase: "completed" }));
             void qc.invalidateQueries({ queryKey: ["active-bulk-batch", slug] });
             void qc.invalidateQueries({ queryKey: ["studio-resumes"] });
             onRecordsChanged?.();
             return;
           }
-          if (!res.item) {
-            // No pending item but not done — caller should resume orphans.
-            // 没有待处理项目但未完成 — 调用方应恢复孤立项。
-            setState((s) => ({ ...s, phase: "paused" }));
+          if (detail.batch.status === "cancelled") {
+            setState((s) => ({ ...s, phase: "cancelled" }));
+            void qc.invalidateQueries({ queryKey: ["active-bulk-batch", slug] });
             return;
           }
         } catch (error) {
-          console.error("[bulk-upload] process-next failed:", error);
+          console.error("[bulk-upload] polling failed:", error);
           setState((s) => ({ ...s, phase: "paused" }));
           return;
         }
@@ -138,6 +113,7 @@ export function useBulkUpload({ onRecordsChanged }: UseBulkUploadOptions = {}) {
         uploadStatus: files.map(() => "pending"),
       });
       const descriptors: ({
+        contentHash: string;
         storageKey: string;
         originalFileName: string;
         fileSize: number;
@@ -153,6 +129,7 @@ export function useBulkUpload({ onRecordsChanged }: UseBulkUploadOptions = {}) {
         try {
           const d = await uploadResumeForBulk(slug, file);
           descriptors[idx] = {
+            contentHash: d.contentHash,
             fileSize: d.fileSize,
             originalFileName: d.originalFileName,
             storageKey: d.storageKey,
@@ -197,7 +174,9 @@ export function useBulkUpload({ onRecordsChanged }: UseBulkUploadOptions = {}) {
         const detail = await createBulkResumeBatch(slug, { ...config, files: ready });
         setState((s) => ({ ...s, detail, phase: "processing" }));
         void qc.invalidateQueries({ queryKey: ["active-bulk-batch", slug] });
-        void runLoop(detail.batch.id);
+        void qc.invalidateQueries({ queryKey: ["studio-resumes"] });
+        onBatchQueued?.(detail);
+        void pollLoop(detail.batch.id);
       } catch (error) {
         setState((s) => ({
           ...s,
@@ -206,7 +185,7 @@ export function useBulkUpload({ onRecordsChanged }: UseBulkUploadOptions = {}) {
         }));
       }
     },
-    [slug, qc, runLoop],
+    [slug, qc, pollLoop, onBatchQueued],
   );
 
   const resume = useCallback(
@@ -219,9 +198,9 @@ export function useBulkUpload({ onRecordsChanged }: UseBulkUploadOptions = {}) {
         uploadFileNames: [],
         uploadStatus: [],
       });
-      void runLoop(batchId);
+      void pollLoop(batchId);
     },
-    [slug, runLoop],
+    [slug, pollLoop],
   );
 
   const cancel = useCallback(async () => {

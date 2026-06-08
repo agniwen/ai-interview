@@ -221,3 +221,29 @@ export async function updateStructuredByHash(
     .set({ parsedStructured: sanitized })
     .where(and(eq(chatAttachment.contentHash, hash), isNull(chatAttachment.parsedStructured)));
 }
+
+export interface UpdateParseResultByHashInput {
+  contentHash: string;
+  parsedStatus: Exclude<ChatAttachmentInsert["parsedStatus"], "pending">;
+  parsedText?: string | null;
+  parsedStructured?: ResumeParserStructured | null;
+  parsedPageCount?: number | null;
+  parsedTextSource?: ChatAttachmentInsert["parsedTextSource"];
+  parsedError?: string | null;
+}
+
+export async function updateParseResultByHash(input: UpdateParseResultByHashInput): Promise<void> {
+  const sanitized = sanitizeParsedStructured(input.parsedStructured);
+  await db
+    .update(chatAttachment)
+    .set({
+      parsedAt: new Date(),
+      parsedError: input.parsedError ?? null,
+      parsedPageCount: input.parsedPageCount ?? null,
+      parsedStatus: input.parsedStatus,
+      parsedStructured: sanitized,
+      parsedText: input.parsedText ?? null,
+      parsedTextSource: input.parsedTextSource ?? null,
+    })
+    .where(eq(chatAttachment.contentHash, input.contentHash));
+}

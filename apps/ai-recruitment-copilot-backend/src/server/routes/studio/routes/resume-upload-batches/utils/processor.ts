@@ -1,21 +1,34 @@
 import { and, eq } from "drizzle-orm";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
-import { resumeUploadBatch, resumeUploadBatchItem } from "@arc/db-schema/schema";
+import { resumeUploadBatch, resumeUploadBatchItem, studioInterview } from "@arc/db-schema/schema";
 import type { ProcessNextResult } from "@arc/shared/bulk-resume-upload";
 import { getObjectStream } from "@arc/ai-recruitment-copilot-backend/lib/server/s3";
-import { parseResumeFastToProfile } from "@arc/ai-recruitment-copilot-backend/server/agents/resume-analysis-agent";
+import {
+  generateResumeReview,
+  parseResumeFastToProfile,
+} from "@arc/ai-recruitment-copilot-backend/server/agents/resume-analysis-agent";
 import {
   claimNextPendingItem,
+  claimPendingItemById,
   loadBatchDetail,
+  reconcileBatchProgress,
   toBatchDto,
   toItemDto,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resume-upload-batches/dao/batches";
 import { matchJobDescriptionForResume } from "@arc/ai-recruitment-copilot-backend/server/agents/job-description-match-agent";
 import { projectAttachmentToResumeProfile } from "@arc/ai-recruitment-copilot-backend/server/agents/resume-parser-agent";
-import { findAttachmentByStorageKey } from "@arc/ai-recruitment-copilot-backend/server/routes/chat/dao/chat-attachments";
-import { listAllJobDescriptions } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao";
+import {
+  findAttachmentByStorageKey,
+  updateParseResultByHash,
+} from "@arc/ai-recruitment-copilot-backend/server/routes/chat/dao/chat-attachments";
+import {
+  listAllJobDescriptions,
+  loadJobDescriptionById,
+} from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao";
 import { createResumeRecordFromStorage } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/create-from-storage";
+import { syncResumeSkills } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/dao/skills";
 import { queryInterviewDedup } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/dao/studio-interviews";
+import { isResumeParseCacheEnabled } from "./cache-policy";
 
 const ERROR_MESSAGE_MAX = 500;
 
@@ -23,30 +36,219 @@ function truncate(s: string): string {
   return s.length > ERROR_MESSAGE_MAX ? `${s.slice(0, ERROR_MESSAGE_MAX - 1)}…` : s;
 }
 
+function logStep(
+  step: string,
+  data: Record<string, boolean | number | string | null | undefined>,
+): void {
+  console.info("[bulk-upload-worker]", { step, ...data });
+}
+
+function elapsed(startedAt: number): number {
+  return Date.now() - startedAt;
+}
+
 type ItemRow = Awaited<ReturnType<typeof claimNextPendingItem>>;
+type BatchRow = typeof resumeUploadBatch.$inferSelect;
+type ParsedResume = Awaited<ReturnType<typeof parseResumeFastToProfile>>;
 
 // 拿到 resumeProfile 的两条路径：
 //   1) 命中注册表 → 投影 parsedStructured（零额外调用）
 //   2) 未命中 / 投影失败 → 从 S3 拉 PDF 现场跑 parseResumeFastToProfile
 // Two paths to obtaining resumeProfile: cache hit (projection) or live parse fallback.
-async function resolveResumeProfile(item: NonNullable<ItemRow>) {
-  const cached = await findAttachmentByStorageKey(item.storageKey);
-  const fromCache = cached?.parsedStructured
-    ? projectAttachmentToResumeProfile(cached.parsedStructured)
-    : null;
-  if (fromCache) {
-    return fromCache;
+async function resolveResumeProfile(
+  item: NonNullable<ItemRow>,
+): Promise<{ parsed: ParsedResume | null; resumeProfile: ParsedResume["resumeProfile"] }> {
+  const startedAt = Date.now();
+  if (isResumeParseCacheEnabled(process.env)) {
+    logStep("cache.lookup.start", { itemId: item.id });
+    const cached = await findAttachmentByStorageKey(item.storageKey);
+    const fromCache = cached?.parsedStructured
+      ? projectAttachmentToResumeProfile(cached.parsedStructured)
+      : null;
+    if (fromCache) {
+      logStep("cache.lookup.hit", { durationMs: elapsed(startedAt), itemId: item.id });
+      return { parsed: null, resumeProfile: fromCache };
+    }
+    logStep("cache.lookup.miss", { durationMs: elapsed(startedAt), itemId: item.id });
+  } else {
+    logStep("cache.lookup.disabled", { itemId: item.id });
   }
+  const s3StartedAt = Date.now();
+  logStep("s3.get.start", { itemId: item.id });
   const object = await getObjectStream(item.storageKey);
   if (!object) {
     throw new Error("简历文件不可用（S3 对象缺失）。");
   }
+  logStep("s3.get.done", {
+    contentLength: object.contentLength,
+    durationMs: elapsed(s3StartedAt),
+    itemId: item.id,
+  });
   const arrayBuffer = await new Response(object.body).arrayBuffer();
   const file = new File([new Uint8Array(arrayBuffer)], item.originalFileName, {
     type: object.contentType ?? "application/pdf",
   });
+  const parseStartedAt = Date.now();
+  logStep("parse.start", { fileSize: file.size, itemId: item.id });
   const parsed = await parseResumeFastToProfile(file);
-  return parsed.resumeProfile;
+  logStep("parse.done", {
+    durationMs: elapsed(parseStartedAt),
+    hasProfile: Boolean(parsed.resumeProfile),
+    itemId: item.id,
+    pageCount: parsed.parsedPageCount,
+    textSource: parsed.parsedTextSource,
+  });
+  if (item.contentHash) {
+    const cacheWriteStartedAt = Date.now();
+    logStep("cache.write.start", { itemId: item.id });
+    await updateParseResultByHash({
+      contentHash: item.contentHash,
+      parsedPageCount: parsed.parsedPageCount,
+      parsedStatus: "ready",
+      parsedStructured: parsed.parsedStructured,
+      parsedText: parsed.parsedText,
+      parsedTextSource: parsed.parsedTextSource,
+    });
+    logStep("cache.write.done", { durationMs: elapsed(cacheWriteStartedAt), itemId: item.id });
+  }
+  return { parsed, resumeProfile: parsed.resumeProfile };
+}
+
+async function upsertParsedResumeRecord({
+  item,
+  jobDescriptionId,
+  notes,
+  organizationId,
+  resumeProfile,
+  userId,
+}: {
+  item: NonNullable<ItemRow>;
+  jobDescriptionId: string | null;
+  notes: string | null;
+  organizationId: string;
+  resumeProfile: ParsedResume["resumeProfile"];
+  userId: string;
+}): Promise<string> {
+  const startedAt = Date.now();
+  logStep("record.upsert.start", {
+    hasPlaceholder: Boolean(item.resumeRecordId),
+    itemId: item.id,
+  });
+  if (!item.resumeRecordId) {
+    const recordId = await createResumeRecordFromStorage({
+      candidateEmail: null,
+      candidateName: null,
+      candidatePhone: null,
+      contentHash: item.contentHash,
+      jobDescriptionId,
+      notes,
+      organizationId,
+      resumeFileName: item.originalFileName,
+      resumeProfile,
+      storageKey: item.storageKey,
+      targetRole: null,
+      userId,
+    });
+    logStep("record.upsert.done", {
+      durationMs: elapsed(startedAt),
+      itemId: item.id,
+      recordId,
+    });
+    return recordId;
+  }
+  const recordId = item.resumeRecordId;
+
+  const now = new Date();
+  await db.transaction(async (tx) => {
+    await tx
+      .update(studioInterview)
+      .set({
+        candidateEmail: resumeProfile?.email ?? null,
+        candidateName: resumeProfile?.name || item.originalFileName,
+        candidatePhone: resumeProfile?.phone ?? null,
+        jobDescriptionId,
+        notes,
+        resumeContentHash: item.contentHash,
+        resumeFileName: item.originalFileName,
+        resumeParseError: null,
+        resumeParseStatus: "ready",
+        resumeParsedAt: now,
+        resumeProfile,
+        resumeStorageKey: item.storageKey,
+        targetRole: resumeProfile?.targetRoles?.[0] ?? null,
+        updatedAt: now,
+      })
+      .where(
+        and(eq(studioInterview.id, recordId), eq(studioInterview.organizationId, organizationId)),
+      );
+    await syncResumeSkills(tx, {
+      interviewId: recordId,
+      organizationId,
+      skills: resumeProfile?.skills,
+    });
+  });
+  logStep("record.upsert.done", {
+    durationMs: elapsed(startedAt),
+    itemId: item.id,
+    recordId,
+  });
+  return recordId;
+}
+
+async function buildJobDescriptionReviewContext(
+  organizationId: string,
+  jobDescriptionId: string | null,
+): Promise<string | null> {
+  if (!jobDescriptionId) {
+    return null;
+  }
+  const jd = await loadJobDescriptionById(organizationId, jobDescriptionId);
+  if (!jd) {
+    return null;
+  }
+  return [
+    `岗位名称：${jd.name}`,
+    jd.description ? `岗位描述：${jd.description}` : null,
+    `岗位 Prompt：\n${jd.prompt}`,
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+}
+
+async function generateReviewForParsedResume(input: {
+  itemId: string;
+  jobDescriptionId: string | null;
+  organizationId: string;
+  resumeProfile: ParsedResume["resumeProfile"];
+}): Promise<string | null> {
+  try {
+    const startedAt = Date.now();
+    logStep("review.generate.start", {
+      hasJobDescription: Boolean(input.jobDescriptionId),
+      itemId: input.itemId,
+    });
+    const jobDescription = await buildJobDescriptionReviewContext(
+      input.organizationId,
+      input.jobDescriptionId,
+    );
+    const review = await generateResumeReview({
+      jobDescription,
+      resumeProfile: input.resumeProfile,
+    });
+    logStep("review.generate.done", {
+      durationMs: elapsed(startedAt),
+      itemId: input.itemId,
+      reviewChars: review.length,
+    });
+    return review || null;
+  } catch (error) {
+    console.error("[bulk-upload] resume review generation failed:", error);
+    logStep("review.generate.error", {
+      errorMessage: truncate(error instanceof Error ? error.message : String(error)),
+      itemId: input.itemId,
+    });
+    return null;
+  }
 }
 
 // S3 から PDF を取得してパースし、作成すべき studio_interview の情報を返す。
@@ -66,14 +268,21 @@ async function fetchAndParse(
     throw new Error("简历文件存储路径为空，无法读取。请重试上传。");
   }
 
-  const resumeProfile = await resolveResumeProfile(item);
+  const { resumeProfile } = await resolveResumeProfile(item);
 
   // 查重 / Dedup check
   if (batchRow.dedupPolicy === "skip") {
+    const dedupStartedAt = Date.now();
+    logStep("dedup.start", { itemId: item.id });
     const matches = await queryInterviewDedup(organizationId, {
       email: resumeProfile?.email ?? null,
       name: resumeProfile?.name ?? null,
       phone: resumeProfile?.phone ?? null,
+    });
+    logStep("dedup.done", {
+      durationMs: elapsed(dedupStartedAt),
+      itemId: item.id,
+      matchCount: matches.length,
     });
     if (matches.length > 0) {
       return { dedupSnapshot: matches, isDuplicateSkip: true, succeededRecordId: null };
@@ -99,27 +308,35 @@ async function fetchAndParse(
     ({ jobDescriptionId } = batchRow);
   } else if (batchRow.jdMode === "auto" && resumeProfile) {
     try {
+      const jdStartedAt = Date.now();
+      logStep("jd.match.start", { itemId: item.id });
       const jds = await listAllJobDescriptions(organizationId);
       const match = await matchJobDescriptionForResume(resumeProfile, jds);
       jobDescriptionId = match?.jobDescriptionId ?? null;
+      logStep("jd.match.done", {
+        candidateCount: jds.length,
+        durationMs: elapsed(jdStartedAt),
+        itemId: item.id,
+        matched: Boolean(jobDescriptionId),
+      });
     } catch (error) {
       // 自动匹配失败不算致命错误：简历仍然入库，只是不绑定岗位。
       // Auto-match failure is non-fatal: the resume still gets imported, just without a JD.
       console.error("[bulk-upload] auto JD match failed:", error);
     }
   }
-  const succeededRecordId = await createResumeRecordFromStorage({
-    candidateEmail: null,
-    candidateName: null,
-    candidatePhone: null,
-    contentHash: null,
+  const notes = await generateReviewForParsedResume({
+    itemId: item.id,
     jobDescriptionId,
-    notes: null,
     organizationId,
-    resumeFileName: item.originalFileName,
     resumeProfile,
-    storageKey: item.storageKey,
-    targetRole: null,
+  });
+  const succeededRecordId = await upsertParsedResumeRecord({
+    item,
+    jobDescriptionId,
+    notes,
+    organizationId,
+    resumeProfile,
     userId,
   });
   return { dedupSnapshot: null, isDuplicateSkip: false, succeededRecordId };
@@ -130,12 +347,6 @@ async function fetchAndParse(
 async function writeOutcome(
   item: NonNullable<ItemRow>,
   batchId: string,
-  batchRow: {
-    failedCount: number;
-    processedCount: number;
-    skippedCount: number;
-    succeededCount: number;
-  },
   outcome: {
     dedupSnapshot: unknown;
     errorMessage: string | null;
@@ -143,38 +354,48 @@ async function writeOutcome(
     succeededRecordId: string | null;
   },
 ): Promise<void> {
+  const startedAt = Date.now();
+  let outcomeStatus = "succeeded";
+  if (outcome.errorMessage) {
+    outcomeStatus = "failed";
+  } else if (outcome.isDuplicateSkip) {
+    outcomeStatus = "duplicate_skipped";
+  }
+  logStep("outcome.write.start", {
+    batchId,
+    itemId: item.id,
+    status: outcomeStatus,
+  });
   await db.transaction(async (tx) => {
     const now = new Date();
     if (outcome.errorMessage) {
+      if (item.resumeRecordId) {
+        await tx
+          .update(studioInterview)
+          .set({
+            resumeParseError: outcome.errorMessage,
+            resumeParseStatus: "failed",
+            updatedAt: now,
+          })
+          .where(eq(studioInterview.id, item.resumeRecordId));
+      }
       await tx
         .update(resumeUploadBatchItem)
         .set({ errorMessage: outcome.errorMessage, finishedAt: now, status: "failed" })
         .where(eq(resumeUploadBatchItem.id, item.id));
-      await tx
-        .update(resumeUploadBatch)
-        .set({
-          failedCount: batchRow.failedCount + 1,
-          processedCount: batchRow.processedCount + 1,
-          updatedAt: now,
-        })
-        .where(eq(resumeUploadBatch.id, batchId));
     } else if (outcome.isDuplicateSkip) {
+      if (item.resumeRecordId) {
+        await tx.delete(studioInterview).where(eq(studioInterview.id, item.resumeRecordId));
+      }
       await tx
         .update(resumeUploadBatchItem)
         .set({
           dedupMatchSnapshot: outcome.dedupSnapshot as never,
           finishedAt: now,
+          resumeRecordId: null,
           status: "duplicate_skipped",
         })
         .where(eq(resumeUploadBatchItem.id, item.id));
-      await tx
-        .update(resumeUploadBatch)
-        .set({
-          processedCount: batchRow.processedCount + 1,
-          skippedCount: batchRow.skippedCount + 1,
-          updatedAt: now,
-        })
-        .where(eq(resumeUploadBatch.id, batchId));
     } else {
       await tx
         .update(resumeUploadBatchItem)
@@ -184,34 +405,113 @@ async function writeOutcome(
           status: "succeeded",
         })
         .where(eq(resumeUploadBatchItem.id, item.id));
-      await tx
-        .update(resumeUploadBatch)
-        .set({
-          processedCount: batchRow.processedCount + 1,
-          succeededCount: batchRow.succeededCount + 1,
-          updatedAt: now,
-        })
-        .where(eq(resumeUploadBatch.id, batchId));
     }
 
     // 完了チェック: processed == total かつ terminal でなければ completed にする。
     // Completion check: if processed == total and not terminal, flip to completed.
-    const [refreshed] = await tx
+  });
+  logStep("outcome.write.done", {
+    batchId,
+    durationMs: elapsed(startedAt),
+    itemId: item.id,
+    status: outcomeStatus,
+  });
+  const reconcileStartedAt = Date.now();
+  logStep("batch.reconcile.start", { batchId, itemId: item.id });
+  await reconcileBatchProgress(batchId);
+  logStep("batch.reconcile.done", {
+    batchId,
+    durationMs: elapsed(reconcileStartedAt),
+    itemId: item.id,
+  });
+}
+
+async function processClaimedItem(
+  item: NonNullable<ItemRow>,
+  batchRow: BatchRow,
+): Promise<ProcessNextResult | null> {
+  const startedAt = Date.now();
+  logStep("item.process.start", {
+    batchId: batchRow.id,
+    itemId: item.id,
+    jdMode: batchRow.jdMode,
+  });
+  let outcome: {
+    dedupSnapshot: unknown;
+    errorMessage: string | null;
+    isDuplicateSkip: boolean;
+    succeededRecordId: string | null;
+  } = {
+    dedupSnapshot: null,
+    errorMessage: null,
+    isDuplicateSkip: false,
+    succeededRecordId: null,
+  };
+
+  try {
+    const result = await fetchAndParse(item, batchRow, batchRow.organizationId, batchRow.createdBy);
+    outcome = { ...outcome, ...result };
+  } catch (error) {
+    outcome.errorMessage = truncate(error instanceof Error ? error.message : String(error));
+    logStep("item.process.error", {
+      batchId: batchRow.id,
+      errorMessage: outcome.errorMessage,
+      itemId: item.id,
+    });
+  }
+
+  await writeOutcome(item, batchRow.id, outcome);
+
+  const detail = await loadBatchDetail(batchRow.id, batchRow.organizationId, batchRow.createdBy);
+  if (!detail) {
+    return null;
+  }
+  const updatedItem = detail.items.find((i) => i.id === item.id) ?? toItemDto(item as never);
+  logStep("item.process.done", {
+    batchId: batchRow.id,
+    batchStatus: detail.batch.status,
+    durationMs: elapsed(startedAt),
+    itemId: item.id,
+    itemStatus: updatedItem.status,
+    processedCount: detail.batch.processedCount,
+    totalCount: detail.batch.totalCount,
+  });
+  return {
+    batch: detail.batch,
+    done: detail.batch.status === "completed",
+    item: updatedItem,
+  };
+}
+
+export async function processBatchItem(itemId: string): Promise<ProcessNextResult | null> {
+  const startedAt = Date.now();
+  logStep("job.claim.start", { itemId });
+  const claimed = await db.transaction(async (tx) => {
+    const item = await claimPendingItemById(tx, itemId);
+    if (!item) {
+      return null;
+    }
+    const [batchRow] = await tx
       .select()
       .from(resumeUploadBatch)
-      .where(eq(resumeUploadBatch.id, batchId))
+      .where(eq(resumeUploadBatch.id, item.batchId))
       .limit(1);
-    if (
-      refreshed &&
-      refreshed.processedCount === refreshed.totalCount &&
-      refreshed.status === "running"
-    ) {
-      await tx
-        .update(resumeUploadBatch)
-        .set({ completedAt: now, status: "completed", updatedAt: now })
-        .where(eq(resumeUploadBatch.id, batchId));
+    if (!batchRow || batchRow.status === "cancelled" || batchRow.status === "completed") {
+      return null;
     }
+    return { batchRow, item };
   });
+
+  if (!claimed) {
+    logStep("job.claim.empty", { durationMs: elapsed(startedAt), itemId });
+    return null;
+  }
+  logStep("job.claim.done", {
+    batchId: claimed.batchRow.id,
+    durationMs: elapsed(startedAt),
+    itemId: claimed.item.id,
+  });
+  return processClaimedItem(claimed.item, claimed.batchRow);
 }
 
 // 処理一個 pending item：拉 S3 → parse → 查重 → 創建 studio_interview → 更新 batch counter。
@@ -276,44 +576,7 @@ export async function processNextItem(
     return { batch: detail.batch, done: detail.batch.status === "completed", item: null };
   }
 
-  const { item } = claimed;
-  const { batchRow } = claimed;
-
-  // 2) Outside the transaction: fetch S3 + parse + dedup + (optionally) create record.
-  let outcome: {
-    dedupSnapshot: unknown;
-    errorMessage: string | null;
-    isDuplicateSkip: boolean;
-    succeededRecordId: string | null;
-  } = {
-    dedupSnapshot: null,
-    errorMessage: null,
-    isDuplicateSkip: false,
-    succeededRecordId: null,
-  };
-
-  try {
-    const result = await fetchAndParse(item, batchRow, organizationId, userId);
-    outcome = { ...outcome, ...result };
-  } catch (error) {
-    outcome.errorMessage = truncate(error instanceof Error ? error.message : String(error));
-  }
-
-  // 3) Write outcome + bump counters.
-  await writeOutcome(item, batchId, batchRow, outcome);
-
-  // 4) Reload detail to return current state.
-  const detail = await loadBatchDetail(batchId, organizationId, userId);
-  if (!detail) {
-    // Defensive: shouldn't happen.
-    return null;
-  }
-  const updatedItem = detail.items.find((i) => i.id === item.id) ?? toItemDto(item as never);
-  return {
-    batch: detail.batch,
-    done: detail.batch.status === "completed",
-    item: updatedItem,
-  };
+  return processClaimedItem(claimed.item, claimed.batchRow);
 }
 
 export { toBatchDto };

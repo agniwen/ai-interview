@@ -1,13 +1,14 @@
-import { and, asc, desc, eq, inArray, lt, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, lt, or, sql } from "drizzle-orm";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
-import { resumeUploadBatch, resumeUploadBatchItem } from "@arc/db-schema/schema";
+import { resumeUploadBatch, resumeUploadBatchItem, studioInterview } from "@arc/db-schema/schema";
 import type { ResumeUploadBatchItemStatus, ResumeUploadBatchStatus } from "@arc/db-schema/schema";
-import { ORPHAN_THRESHOLD_SECONDS } from "@arc/shared/bulk-resume-upload";
+import { DEFAULT_RESUME_PARSE_STALE_PROCESSING_SECONDS } from "@arc/shared/bulk-resume-upload";
 import type {
   BulkResumeBatchDetailDto,
   BulkResumeBatchDto,
   BulkResumeBatchItemDto,
 } from "@arc/shared/bulk-resume-upload";
+import type { ResumeParseJobData } from "@arc/resume-parse-queue/resume-parse";
 
 type BatchRow = typeof resumeUploadBatch.$inferSelect;
 type ItemRow = typeof resumeUploadBatchItem.$inferSelect;
@@ -33,6 +34,7 @@ export function toBatchDto(row: BatchRow): BulkResumeBatchDto {
 export function toItemDto(row: ItemRow): BulkResumeBatchItemDto {
   return {
     batchId: row.batchId,
+    contentHash: row.contentHash,
     errorMessage: row.errorMessage,
     fileSize: row.fileSize,
     finishedAt: row.finishedAt ? row.finishedAt.toISOString() : null,
@@ -51,7 +53,13 @@ export interface CreateBatchInput {
   jdMode: "bind" | "auto" | "none";
   jobDescriptionId: string | null;
   dedupPolicy: "skip" | "create";
-  files: { storageKey: string; originalFileName: string; fileSize: number }[];
+  files: { storageKey: string; originalFileName: string; fileSize: number; contentHash: string }[];
+}
+
+function candidateNameFromFileName(fileName: string): string {
+  const trimmed = fileName.trim();
+  const withoutExt = trimmed.replace(/\.pdf$/i, "").trim();
+  return withoutExt || "未解析简历";
 }
 
 // 创建 batch + 关联 items 一并写入。活跃批次冲突会在 partial unique index 处抛错。
@@ -73,20 +81,96 @@ export async function insertBatchWithItems(input: CreateBatchInput): Promise<str
       totalCount: input.files.length,
       updatedAt: now,
     });
-    await tx.insert(resumeUploadBatchItem).values(
-      input.files.map((f, i) => ({
-        batchId,
-        fileSize: f.fileSize,
-        id: crypto.randomUUID(),
-        orderIndex: i,
+    const rows = input.files.map((f, i) => ({
+      file: f,
+      itemId: crypto.randomUUID(),
+      orderIndex: i,
+      recordId: crypto.randomUUID(),
+    }));
+    await tx.insert(studioInterview).values(
+      rows.map(({ file, recordId }) => ({
+        candidateEmail: null,
+        candidateName: candidateNameFromFileName(file.originalFileName),
+        candidatePhone: null,
+        createdAt: now,
+        createdBy: input.userId,
+        id: recordId,
+        interviewQuestions: [],
+        jobDescriptionId: input.jobDescriptionId,
+        notes: null,
         organizationId: input.organizationId,
-        originalFileName: f.originalFileName,
+        resumeContentHash: file.contentHash,
+        resumeFileName: file.originalFileName,
+        resumeParseError: null,
+        resumeParseStatus: "queued" as const,
+        resumeParsedAt: null,
+        resumeProfile: null,
+        resumeStorageKey: file.storageKey,
+        status: "draft" as const,
+        targetRole: null,
+        updatedAt: now,
+      })),
+    );
+    await tx.insert(resumeUploadBatchItem).values(
+      rows.map(({ file, itemId, orderIndex, recordId }) => ({
+        batchId,
+        contentHash: file.contentHash,
+        fileSize: file.fileSize,
+        id: itemId,
+        orderIndex,
+        organizationId: input.organizationId,
+        originalFileName: file.originalFileName,
+        queuedAt: now,
+        resumeRecordId: recordId,
         status: "pending" as ResumeUploadBatchItemStatus,
-        storageKey: f.storageKey,
+        storageKey: file.storageKey,
       })),
     );
   });
   return batchId;
+}
+
+export async function reconcileBatchProgress(batchId: string): Promise<void> {
+  await db.transaction(async (tx) => {
+    const [batch] = await tx
+      .select()
+      .from(resumeUploadBatch)
+      .where(eq(resumeUploadBatch.id, batchId))
+      .limit(1);
+    if (!batch) {
+      return;
+    }
+    const counts = await tx
+      .select({
+        count: sql<number>`count(*)::int`,
+        status: resumeUploadBatchItem.status,
+      })
+      .from(resumeUploadBatchItem)
+      .where(eq(resumeUploadBatchItem.batchId, batchId))
+      .groupBy(resumeUploadBatchItem.status);
+    const byStatus = new Map(counts.map((row) => [row.status, row.count]));
+    const succeededCount = byStatus.get("succeeded") ?? 0;
+    const failedCount = byStatus.get("failed") ?? 0;
+    const skippedCount = byStatus.get("duplicate_skipped") ?? 0;
+    const processedCount = succeededCount + failedCount + skippedCount;
+    const now = new Date();
+    const shouldComplete =
+      batch.status !== "completed" &&
+      batch.status !== "cancelled" &&
+      processedCount === batch.totalCount;
+    await tx
+      .update(resumeUploadBatch)
+      .set({
+        completedAt: shouldComplete ? now : batch.completedAt,
+        failedCount,
+        processedCount,
+        skippedCount,
+        status: shouldComplete ? "completed" : batch.status,
+        succeededCount,
+        updatedAt: now,
+      })
+      .where(eq(resumeUploadBatch.id, batchId));
+  });
 }
 
 export async function loadBatchDetail(
@@ -94,6 +178,7 @@ export async function loadBatchDetail(
   organizationId: string,
   userId: string,
 ): Promise<BulkResumeBatchDetailDto | null> {
+  await reconcileBatchProgress(batchId);
   const [row] = await db
     .select()
     .from(resumeUploadBatch)
@@ -134,7 +219,11 @@ export async function loadActiveBatch(
   if (!row) {
     return null;
   }
-  return loadBatchDetail(row.id, organizationId, userId);
+  const detail = await loadBatchDetail(row.id, organizationId, userId);
+  if (!detail || !["pending", "running"].includes(detail.batch.status)) {
+    return null;
+  }
+  return detail;
 }
 
 export async function listBatches(
@@ -157,6 +246,31 @@ export async function listBatches(
 }
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+function parsePositiveInteger(value: string | undefined, fallback: number): number {
+  if (!value) {
+    return fallback;
+  }
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+function resumeParseStaleThresholdSeconds(): number {
+  return parsePositiveInteger(
+    process.env.RESUME_PARSE_STALE_PROCESSING_SECONDS,
+    DEFAULT_RESUME_PARSE_STALE_PROCESSING_SECONDS,
+  );
+}
+
+function staleProcessingCondition(thresholdSeconds = resumeParseStaleThresholdSeconds()) {
+  return and(
+    eq(resumeUploadBatchItem.status, "processing"),
+    lt(
+      resumeUploadBatchItem.startedAt,
+      sql`now() - interval '${sql.raw(String(thresholdSeconds))} seconds'`,
+    ),
+  );
+}
 
 // 用 FOR UPDATE SKIP LOCKED 在事务内锁定一个 pending item，并把它标为 processing。
 // 返回 null 时表示该 batch 已无待处理项（或被并发拿走）。
@@ -186,6 +300,12 @@ export async function claimNextPendingItem(tx: Tx, batchId: string): Promise<Ite
     .update(resumeUploadBatchItem)
     .set({ startedAt: now, status: "processing" })
     .where(eq(resumeUploadBatchItem.id, row.id));
+  if (row.resumeRecordId) {
+    await tx
+      .update(studioInterview)
+      .set({ resumeParseError: null, resumeParseStatus: "processing", updatedAt: now })
+      .where(eq(studioInterview.id, row.resumeRecordId));
+  }
   await tx
     .update(resumeUploadBatch)
     .set({ status: "running", updatedAt: now })
@@ -193,15 +313,63 @@ export async function claimNextPendingItem(tx: Tx, batchId: string): Promise<Ite
   return { ...row, startedAt: now, status: "processing" };
 }
 
-// 复活孤儿：把 startedAt 已过 60s 的 processing items 设回 pending；batch.status running → pending。
-// Revive orphans: processing items older than 60s go back to pending; batch.status
-// rolls back from running to pending so the banner UI consistently shows "paused".
+export async function claimPendingItemById(tx: Tx, itemId: string): Promise<ItemRow | null> {
+  const [row] = await tx
+    .select()
+    .from(resumeUploadBatchItem)
+    .where(
+      and(
+        eq(resumeUploadBatchItem.id, itemId),
+        or(eq(resumeUploadBatchItem.status, "pending"), staleProcessingCondition()),
+      ),
+    )
+    .limit(1)
+    .for("update", { skipLocked: true });
+  if (!row) {
+    return null;
+  }
+  const now = new Date();
+  await tx
+    .update(resumeUploadBatchItem)
+    .set({
+      attemptCount: row.attemptCount + 1,
+      startedAt: now,
+      status: "processing",
+    })
+    .where(eq(resumeUploadBatchItem.id, row.id));
+  if (row.resumeRecordId) {
+    await tx
+      .update(studioInterview)
+      .set({ resumeParseError: null, resumeParseStatus: "processing", updatedAt: now })
+      .where(eq(studioInterview.id, row.resumeRecordId));
+  }
+  await tx
+    .update(resumeUploadBatch)
+    .set({ status: "running", updatedAt: now })
+    .where(and(eq(resumeUploadBatch.id, row.batchId), eq(resumeUploadBatch.status, "pending")));
+  return {
+    ...row,
+    attemptCount: row.attemptCount + 1,
+    startedAt: now,
+    status: "processing",
+  };
+}
+
+// 复活中断项：把 startedAt 已超过阈值的 processing items 设回 pending。
+// Revive interrupted items: processing items older than the stale threshold go
+// back to pending. The threshold defaults to 15 minutes so long OCR/review work
+// is not mistaken for an interrupted worker.
 export async function reviveOrphans(
   batchId: string,
   organizationId: string,
   userId: string,
+  thresholdSeconds = resumeParseStaleThresholdSeconds(),
 ): Promise<void> {
   await db.transaction(async (tx) => {
+    const orphanCondition = and(
+      eq(resumeUploadBatchItem.batchId, batchId),
+      staleProcessingCondition(thresholdSeconds),
+    );
     const [batch] = await tx
       .select({ id: resumeUploadBatch.id })
       .from(resumeUploadBatch)
@@ -216,24 +384,88 @@ export async function reviveOrphans(
     if (!batch) {
       return;
     }
+    const orphanItems = await tx
+      .select({ resumeRecordId: resumeUploadBatchItem.resumeRecordId })
+      .from(resumeUploadBatchItem)
+      .where(orphanCondition);
+    const orphanRecordIds = orphanItems.flatMap((item) =>
+      item.resumeRecordId ? [item.resumeRecordId] : [],
+    );
+    if (orphanRecordIds.length > 0) {
+      await tx
+        .update(studioInterview)
+        .set({ resumeParseError: null, resumeParseStatus: "queued", updatedAt: new Date() })
+        .where(inArray(studioInterview.id, orphanRecordIds));
+    }
     await tx
       .update(resumeUploadBatchItem)
       .set({ startedAt: null, status: "pending" })
-      .where(
-        and(
-          eq(resumeUploadBatchItem.batchId, batchId),
-          eq(resumeUploadBatchItem.status, "processing"),
-          lt(
-            resumeUploadBatchItem.startedAt,
-            sql`now() - interval '${sql.raw(String(ORPHAN_THRESHOLD_SECONDS))} seconds'`,
-          ),
-        ),
-      );
+      .where(orphanCondition);
     await tx
       .update(resumeUploadBatch)
       .set({ status: "pending", updatedAt: new Date() })
       .where(and(eq(resumeUploadBatch.id, batchId), eq(resumeUploadBatch.status, "running")));
   });
+}
+
+export async function recoverIncompleteBatchItems(
+  thresholdSeconds = resumeParseStaleThresholdSeconds(),
+): Promise<ResumeParseJobData[]> {
+  await db.transaction(async (tx) => {
+    const staleItems = await tx
+      .select({
+        resumeRecordId: resumeUploadBatchItem.resumeRecordId,
+      })
+      .from(resumeUploadBatchItem)
+      .innerJoin(resumeUploadBatch, eq(resumeUploadBatch.id, resumeUploadBatchItem.batchId))
+      .where(
+        and(
+          inArray(resumeUploadBatch.status, ["pending", "running"]),
+          staleProcessingCondition(thresholdSeconds),
+        ),
+      );
+    const staleRecordIds = staleItems.flatMap((item) =>
+      item.resumeRecordId ? [item.resumeRecordId] : [],
+    );
+    const now = new Date();
+    if (staleRecordIds.length > 0) {
+      await tx
+        .update(studioInterview)
+        .set({ resumeParseError: null, resumeParseStatus: "queued", updatedAt: now })
+        .where(inArray(studioInterview.id, staleRecordIds));
+    }
+    await tx
+      .update(resumeUploadBatchItem)
+      .set({ startedAt: null, status: "pending" })
+      .where(
+        and(
+          inArray(
+            resumeUploadBatchItem.batchId,
+            tx
+              .select({ id: resumeUploadBatch.id })
+              .from(resumeUploadBatch)
+              .where(inArray(resumeUploadBatch.status, ["pending", "running"])),
+          ),
+          staleProcessingCondition(thresholdSeconds),
+        ),
+      );
+  });
+
+  return db
+    .select({
+      batchId: resumeUploadBatchItem.batchId,
+      itemId: resumeUploadBatchItem.id,
+      organizationId: resumeUploadBatch.organizationId,
+      userId: resumeUploadBatch.createdBy,
+    })
+    .from(resumeUploadBatchItem)
+    .innerJoin(resumeUploadBatch, eq(resumeUploadBatch.id, resumeUploadBatchItem.batchId))
+    .where(
+      and(
+        inArray(resumeUploadBatch.status, ["pending", "running"]),
+        eq(resumeUploadBatchItem.status, "pending"),
+      ),
+    );
 }
 
 // 取消：未处理项 → cancelled，batch.status → cancelled。已 succeeded/failed/duplicate_skipped 不动。
@@ -261,9 +493,24 @@ export async function cancelBatch(
       return;
     }
     const now = new Date();
+    const cancellableItems = await tx
+      .select({ resumeRecordId: resumeUploadBatchItem.resumeRecordId })
+      .from(resumeUploadBatchItem)
+      .where(
+        and(
+          eq(resumeUploadBatchItem.batchId, batchId),
+          inArray(resumeUploadBatchItem.status, ["pending", "processing"]),
+        ),
+      );
+    const recordIds = cancellableItems.flatMap((item) =>
+      item.resumeRecordId ? [item.resumeRecordId] : [],
+    );
+    if (recordIds.length > 0) {
+      await tx.delete(studioInterview).where(inArray(studioInterview.id, recordIds));
+    }
     await tx
       .update(resumeUploadBatchItem)
-      .set({ finishedAt: now, status: "cancelled" })
+      .set({ finishedAt: now, resumeRecordId: null, status: "cancelled" })
       .where(
         and(
           eq(resumeUploadBatchItem.batchId, batchId),

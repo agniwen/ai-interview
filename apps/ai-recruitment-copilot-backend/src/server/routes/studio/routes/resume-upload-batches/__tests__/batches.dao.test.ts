@@ -10,15 +10,19 @@ import {
   organization,
   resumeUploadBatch,
   resumeUploadBatchItem,
+  studioInterview,
   user,
 } from "@arc/db-schema/schema";
 import {
   cancelBatch,
   claimNextPendingItem,
+  claimPendingItemById,
   deleteBatch,
   insertBatchWithItems,
   loadActiveBatch,
   loadBatchDetail,
+  recoverIncompleteBatchItems,
+  reconcileBatchProgress,
   reviveOrphans,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resume-upload-batches/dao/batches";
 
@@ -35,6 +39,7 @@ const NOW = new Date("2026-05-18T10:00:00.000Z");
 // Helper: build a minimal files array for insertBatchWithItems.
 function makeFiles(n: number) {
   return Array.from({ length: n }, (_, i) => ({
+    contentHash: `${String(i).repeat(64)}`,
     fileSize: 1024 * (i + 1),
     originalFileName: `resume_${i}.pdf`,
     storageKey: `storage/test/${crypto.randomUUID()}.pdf`,
@@ -46,6 +51,8 @@ async function cleanup() {
   // FK-ordered cleanup: items cascade with batches, then members, orgs, users.
   await db.delete(resumeUploadBatch).where(eq(resumeUploadBatch.organizationId, ORG_A));
   await db.delete(resumeUploadBatch).where(eq(resumeUploadBatch.organizationId, ORG_B));
+  await db.delete(studioInterview).where(eq(studioInterview.organizationId, ORG_A));
+  await db.delete(studioInterview).where(eq(studioInterview.organizationId, ORG_B));
   await db.delete(member).where(eq(member.userId, USER_A));
   await db.delete(member).where(eq(member.userId, USER_B));
   await db.delete(organization).where(eq(organization.id, ORG_A));
@@ -138,9 +145,21 @@ describe("insertBatchWithItems", () => {
       expect(items).toHaveLength(N);
       for (const item of items) {
         expect(item.status).toBe("pending");
+        expect(item.resumeRecordId).toBeTruthy();
       }
       const orderIndexes = items.map((r) => r.orderIndex).toSorted((a, b) => a - b);
       expect(orderIndexes).toEqual([0, 1, 2]);
+
+      const records = await db
+        .select()
+        .from(studioInterview)
+        .where(eq(studioInterview.organizationId, ORG_A));
+      expect(records).toHaveLength(N);
+      for (const record of records) {
+        expect(record.resumeParseStatus).toBe("queued");
+        expect(record.resumeProfile).toBeNull();
+        expect(record.resumeStorageKey).toBeTruthy();
+      }
     } finally {
       await db.delete(resumeUploadBatch).where(eq(resumeUploadBatch.id, batchId));
     }
@@ -237,6 +256,49 @@ describe("loadBatchDetail", () => {
       expect(detail).not.toBeNull();
       expect(detail?.batch.id).toBe(batchId);
       expect(detail?.items).toHaveLength(2);
+    } finally {
+      await db.delete(resumeUploadBatch).where(eq(resumeUploadBatch.id, batchId));
+    }
+  });
+});
+
+describe("reconcileBatchProgress", () => {
+  it("按 item 终态重算并修正并发 lost update 后的批次计数", async () => {
+    // Recomputes counters from item terminal states and fixes stale batch counters
+    // left behind by concurrent worker completions.
+    const batchId = await insertBatchWithItems({
+      dedupPolicy: "create",
+      files: makeFiles(6),
+      jdMode: "auto",
+      jobDescriptionId: null,
+      organizationId: ORG_A,
+      userId: USER_A,
+    });
+
+    try {
+      await db
+        .update(resumeUploadBatchItem)
+        .set({ finishedAt: new Date(), status: "succeeded" })
+        .where(eq(resumeUploadBatchItem.batchId, batchId));
+      await db
+        .update(resumeUploadBatch)
+        .set({
+          processedCount: 2,
+          status: "running",
+          succeededCount: 2,
+        })
+        .where(eq(resumeUploadBatch.id, batchId));
+
+      await reconcileBatchProgress(batchId);
+      const detail = await loadBatchDetail(batchId, ORG_A, USER_A);
+
+      expect(detail?.batch.processedCount).toBe(6);
+      expect(detail?.batch.succeededCount).toBe(6);
+      expect(detail?.batch.status).toBe("completed");
+      expect(detail?.batch.completedAt).toBeTruthy();
+
+      const active = await loadActiveBatch(ORG_A, USER_A);
+      expect(active).toBeNull();
     } finally {
       await db.delete(resumeUploadBatch).where(eq(resumeUploadBatch.id, batchId));
     }
@@ -379,8 +441,8 @@ describe("claimNextPendingItem concurrency", () => {
 // ─── Test 7: reviveOrphans ───────────────────────────────────────────────────
 
 describe("reviveOrphans", () => {
-  it("只复活 startedAt 超过 60s 的 processing item，batch.status 回滚到 pending", async () => {
-    // Only resets processing items older than 60s; fresh processing item stays put.
+  it("只复活超过阈值的 processing item，fresh processing item 保持不动", async () => {
+    // Only resets processing items older than the threshold; fresh processing item stays put.
     const batchId = await insertBatchWithItems({
       dedupPolicy: "skip",
       files: makeFiles(2),
@@ -410,7 +472,7 @@ describe("reviveOrphans", () => {
         sql`update resume_upload_batch_item set started_at = now() - interval '120 seconds' where id = ${oldItemId}`,
       );
 
-      await reviveOrphans(batchId, ORG_A, USER_A);
+      await reviveOrphans(batchId, ORG_A, USER_A, 60);
 
       const items = await db
         .select()
@@ -431,6 +493,79 @@ describe("reviveOrphans", () => {
         .from(resumeUploadBatch)
         .where(eq(resumeUploadBatch.id, batchId));
       expect(batch?.status).toBe("pending");
+    } finally {
+      await db.delete(resumeUploadBatch).where(eq(resumeUploadBatch.id, batchId));
+    }
+  });
+});
+
+describe("recoverIncompleteBatchItems", () => {
+  it("worker 启动时恢复 active batch 中的 stale processing，并返回待入队 items", async () => {
+    const batchId = await insertBatchWithItems({
+      dedupPolicy: "skip",
+      files: makeFiles(2),
+      jdMode: "none",
+      jobDescriptionId: null,
+      organizationId: ORG_A,
+      userId: USER_A,
+    });
+
+    try {
+      let staleItemId: string | null = null;
+      await db.transaction(async (tx) => {
+        const item = await claimNextPendingItem(tx, batchId);
+        staleItemId = item?.id ?? null;
+      });
+      expect(staleItemId).not.toBeNull();
+      await db.execute(
+        sql`update resume_upload_batch_item set started_at = now() - interval '120 seconds' where id = ${staleItemId}`,
+      );
+
+      const jobs = await recoverIncompleteBatchItems(60);
+
+      const recoveredJob = jobs.find((job) => job.itemId === staleItemId);
+      expect(recoveredJob).toMatchObject({
+        batchId,
+        itemId: staleItemId,
+        organizationId: ORG_A,
+        userId: USER_A,
+      });
+      const items = await db
+        .select()
+        .from(resumeUploadBatchItem)
+        .where(eq(resumeUploadBatchItem.batchId, batchId));
+      expect(items.find((item) => item.id === staleItemId)?.status).toBe("pending");
+    } finally {
+      await db.delete(resumeUploadBatch).where(eq(resumeUploadBatch.id, batchId));
+    }
+  });
+
+  it("同一个 job 可以重新 claim stale processing item", async () => {
+    const batchId = await insertBatchWithItems({
+      dedupPolicy: "skip",
+      files: makeFiles(1),
+      jdMode: "none",
+      jobDescriptionId: null,
+      organizationId: ORG_A,
+      userId: USER_A,
+    });
+
+    try {
+      let itemId: string | null = null;
+      await db.transaction(async (tx) => {
+        const item = await claimNextPendingItem(tx, batchId);
+        itemId = item?.id ?? null;
+      });
+      expect(itemId).not.toBeNull();
+      await db.execute(
+        sql`update resume_upload_batch_item set started_at = now() - interval '1200 seconds' where id = ${itemId}`,
+      );
+
+      const reclaimed = await db.transaction((tx) => claimPendingItemById(tx, itemId ?? ""));
+
+      expect(reclaimed?.id).toBe(itemId);
+      expect(reclaimed?.status).toBe("processing");
+      expect(reclaimed?.attemptCount).toBe(1);
     } finally {
       await db.delete(resumeUploadBatch).where(eq(resumeUploadBatch.id, batchId));
     }

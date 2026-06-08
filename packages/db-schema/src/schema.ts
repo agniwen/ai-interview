@@ -37,6 +37,7 @@ import type {
   HumanInterviewRoundStatus,
   OfferDraftStatus,
   PipelineStage,
+  ResumeParseStatus,
   ScheduleEntryStatus,
   StudioInterviewStatus,
 } from "./studio-interviews";
@@ -356,6 +357,12 @@ export const studioInterview = pgTable(
     pipelineStage: text("pipeline_stage").$type<PipelineStage>().notNull().default("screening"),
     resumeContentHash: text("resume_content_hash"),
     resumeFileName: text("resume_file_name"),
+    resumeParseError: text("resume_parse_error"),
+    resumeParseStatus: text("resume_parse_status")
+      .$type<ResumeParseStatus>()
+      .notNull()
+      .default("ready"),
+    resumeParsedAt: timestamp("resume_parsed_at", { withTimezone: true }),
     resumeProfile: jsonb("resume_profile").$type<ResumeProfile | null>(),
     resumeStorageKey: text("resume_storage_key"),
     // 派生自 resume_profile->'skills'：trim + 连续空白折叠为单空格 + lowercase 后的数组。
@@ -406,6 +413,7 @@ export const studioInterview = pgTable(
       table.createdAt,
     ),
     index("studio_interview_resume_content_hash_idx").on(table.resumeContentHash),
+    index("studio_interview_resume_parse_status_idx").on(table.resumeParseStatus),
     index("studio_interview_skills_normalized_idx")
       .using("gin", table.skillsNormalized)
       .concurrently(),
@@ -912,9 +920,11 @@ export const resumeUploadBatch = pgTable(
 export const resumeUploadBatchItem = pgTable(
   "resume_upload_batch_item",
   {
+    attemptCount: integer("attempt_count").notNull().default(0),
     batchId: text("batch_id")
       .notNull()
       .references(() => resumeUploadBatch.id, { onDelete: "cascade" }),
+    contentHash: text("content_hash"),
     dedupMatchSnapshot: jsonb("dedup_match_snapshot"),
     errorMessage: text("error_message"),
     fileSize: integer("file_size").notNull(),
@@ -923,6 +933,8 @@ export const resumeUploadBatchItem = pgTable(
     orderIndex: integer("order_index").notNull(),
     organizationId: text("organization_id").notNull(),
     originalFileName: text("original_file_name").notNull(),
+    queueJobId: text("queue_job_id"),
+    queuedAt: timestamp("queued_at", { withTimezone: true }),
     resumeRecordId: text("resume_record_id").references(() => studioInterview.id, {
       onDelete: "set null",
     }),

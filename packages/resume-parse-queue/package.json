@@ -1,0 +1,24 @@
+{
+  "name": "@arc/resume-parse-queue",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Redis/BullMQ queue runtime for async resume parsing",
+  "type": "module",
+  "exports": {
+    "./*": "./src/*.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "bullmq": "^5.66.0",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@types/node": "24.11.2",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

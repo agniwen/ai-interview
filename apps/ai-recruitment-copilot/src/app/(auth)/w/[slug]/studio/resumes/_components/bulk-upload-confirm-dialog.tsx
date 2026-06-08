@@ -43,9 +43,9 @@ export function BulkUploadConfirmDialog({
   onRemoveFile,
   open,
 }: Props) {
-  const [jdMode, setJdMode] = useState<ResumeUploadBatchJdMode>("bind");
+  const [jdMode, setJdMode] = useState<ResumeUploadBatchJdMode>("auto");
   const [jobDescriptionId, setJobDescriptionId] = useState("");
-  const [dedupPolicy, setDedupPolicy] = useState<ResumeUploadBatchDedupPolicy>("skip");
+  const [dedupPolicy, setDedupPolicy] = useState<ResumeUploadBatchDedupPolicy>("create");
 
   // 必须选文件，且 bind 模式下必须选 JD 才能开始。
   // Must have files; in bind mode a JD must be selected.
