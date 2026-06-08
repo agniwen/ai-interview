@@ -35,3 +35,14 @@ if (process.env.NODE_ENV !== "production") {
 
 export const db = drizzle({ client, relations });
 export type Database = typeof db;
+
+export async function pingDatabase(): Promise<void> {
+  await client`select 1`;
+}
+
+export async function closeDatabase(): Promise<void> {
+  await client.end();
+  if (globalForDb.__arcPostgresClient === client) {
+    delete globalForDb.__arcPostgresClient;
+  }
+}

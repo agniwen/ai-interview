@@ -8,7 +8,6 @@ import {
 } from "@arc/resume-parse-queue/resume-parse";
 import { createWorkerApp } from "./app";
 import { resolveWorkerServerConfig } from "./config";
-import { closeDatabase } from "./db";
 import { getResumeParseConfigSummary } from "./parse-config";
 
 loadEnv();
@@ -69,7 +68,11 @@ async function main() {
         await closeServer();
         await worker?.close();
         await closeResumeParseQueue();
-        await closeDatabase();
+        if (process.env.DATABASE_URL) {
+          const { closeDatabase } =
+            await import("@arc/ai-recruitment-copilot-backend/lib/server/db");
+          await closeDatabase();
+        }
         process.exit(0);
       } catch (error) {
         console.error(`[worker] failed to shut down after ${signal}:`, error);

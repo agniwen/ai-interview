@@ -5,7 +5,7 @@ import type { ProcessNextResult } from "@arc/shared/bulk-resume-upload";
 import { getObjectStream } from "@arc/ai-recruitment-copilot-backend/lib/server/s3";
 import {
   generateResumeReview,
-  parseResumeFastToProfile,
+  parseResumeBytesToProfile,
 } from "@arc/ai-recruitment-copilot-backend/server/agents/resume-analysis-agent";
 import {
   claimNextPendingItem,
@@ -49,7 +49,7 @@ function elapsed(startedAt: number): number {
 
 type ItemRow = Awaited<ReturnType<typeof claimNextPendingItem>>;
 type BatchRow = typeof resumeUploadBatch.$inferSelect;
-type ParsedResume = Awaited<ReturnType<typeof parseResumeFastToProfile>>;
+type ParsedResume = Awaited<ReturnType<typeof parseResumeBytesToProfile>>;
 
 // 拿到 resumeProfile 的两条路径：
 //   1) 命中注册表 → 投影 parsedStructured（零额外调用）
@@ -84,13 +84,14 @@ async function resolveResumeProfile(
     durationMs: elapsed(s3StartedAt),
     itemId: item.id,
   });
-  const arrayBuffer = await new Response(object.body).arrayBuffer();
-  const file = new File([new Uint8Array(arrayBuffer)], item.originalFileName, {
-    type: object.contentType ?? "application/pdf",
-  });
+  const bytes = new Uint8Array(await new Response(object.body).arrayBuffer());
   const parseStartedAt = Date.now();
-  logStep("parse.start", { fileSize: file.size, itemId: item.id });
-  const parsed = await parseResumeFastToProfile(file);
+  logStep("parse.start", { fileSize: bytes.byteLength, itemId: item.id });
+  const parsed = await parseResumeBytesToProfile({
+    bytes,
+    fileName: item.originalFileName,
+    mediaType: object.contentType ?? "application/pdf",
+  });
   logStep("parse.done", {
     durationMs: elapsed(parseStartedAt),
     hasProfile: Boolean(parsed.resumeProfile),

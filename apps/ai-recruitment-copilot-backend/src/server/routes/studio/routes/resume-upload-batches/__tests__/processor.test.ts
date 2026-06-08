@@ -9,7 +9,7 @@ import { getObjectStream } from "@arc/ai-recruitment-copilot-backend/lib/server/
 import type * as ResumeAgentModule from "@arc/ai-recruitment-copilot-backend/server/agents/resume-analysis-agent";
 import {
   generateResumeReview,
-  parseResumeFastToProfile,
+  parseResumeBytesToProfile,
 } from "@arc/ai-recruitment-copilot-backend/server/agents/resume-analysis-agent";
 import {
   member,
@@ -42,7 +42,7 @@ vi.mock("@arc/ai-recruitment-copilot-backend/server/agents/resume-analysis-agent
   return {
     ...actual,
     generateResumeReview: vi.fn(),
-    parseResumeFastToProfile: vi.fn(),
+    parseResumeBytesToProfile: vi.fn(),
   };
 });
 
@@ -74,7 +74,7 @@ function mockParseOK(profile: {
   phone: string | null;
   targetRoles: string[];
 }) {
-  (parseResumeFastToProfile as ReturnType<typeof vi.fn>).mockResolvedValue({
+  (parseResumeBytesToProfile as ReturnType<typeof vi.fn>).mockResolvedValue({
     resumeProfile: profile,
   });
 }
@@ -260,7 +260,7 @@ describe("processNextItem — parse failure", () => {
     // 第一次调用：S3 OK，解析抛错。
     // First call: S3 OK, parser throws.
     mockS3OK();
-    (parseResumeFastToProfile as ReturnType<typeof vi.fn>).mockRejectedValue(
+    (parseResumeBytesToProfile as ReturnType<typeof vi.fn>).mockRejectedValue(
       new Error("parse failed"),
     );
 

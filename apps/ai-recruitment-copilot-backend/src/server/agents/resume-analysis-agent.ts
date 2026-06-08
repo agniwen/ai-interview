@@ -154,14 +154,22 @@ export function isPdfFile(file: File) {
   return file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
 }
 
-export function validateResumeFile(file: File) {
-  if (!isPdfFile(file)) {
+function validateResumePdfInput(input: { fileName: string; mediaType?: string; size: number }) {
+  if (input.mediaType !== "application/pdf" && !input.fileName.toLowerCase().endsWith(".pdf")) {
     throw new Error("仅支持上传 PDF 简历。");
   }
 
-  if (file.size > MAX_RESUME_FILE_SIZE) {
+  if (input.size > MAX_RESUME_FILE_SIZE) {
     throw new Error("简历 PDF 不能超过 20 MB。");
   }
+}
+
+export function validateResumeFile(file: File) {
+  validateResumePdfInput({
+    fileName: file.name,
+    mediaType: file.type,
+    size: file.size,
+  });
 }
 
 const QUESTION_INSTRUCTIONS = `你是一名技术面试出题助手。请基于给定的候选人简历结构化信息，生成 10 道面试题。
@@ -406,12 +414,18 @@ export interface ParsedResumeProfileResult {
   parsedText: string;
 }
 
-export async function parseResumeFastToProfile(file: File): Promise<ParsedResumeProfileResult> {
-  validateResumeFile(file);
-
+export async function parseResumeBytesToProfile(input: {
+  bytes: Uint8Array;
+  fileName: string;
+  mediaType?: string;
+}): Promise<ParsedResumeProfileResult> {
+  validateResumePdfInput({
+    fileName: input.fileName,
+    mediaType: input.mediaType,
+    size: input.bytes.byteLength,
+  });
   try {
-    const bytes = new Uint8Array(await file.arrayBuffer());
-    const fast = await parseResumeFast(bytes);
+    const fast = await parseResumeFast(input.bytes);
     return {
       parsedPageCount: fast.pageCount,
       parsedStructured: fast.structured,
@@ -428,6 +442,15 @@ export async function parseResumeFastToProfile(file: File): Promise<ParsedResume
       "resume-parsing",
     );
   }
+}
+
+export async function parseResumeFastToProfile(file: File): Promise<ParsedResumeProfileResult> {
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  return parseResumeBytesToProfile({
+    bytes,
+    fileName: file.name,
+    mediaType: file.type,
+  });
 }
 
 export async function generateInterviewQuestionsForProfile(
