@@ -6,10 +6,6 @@ import { factory, jsonValidatorError } from "@arc/ai-recruitment-copilot-backend
 import { requirePermission } from "@arc/ai-recruitment-copilot-backend/server/middlewares/permission";
 import { validateResumeFile } from "@arc/ai-recruitment-copilot-backend/server/agents/resume-analysis-agent";
 import {
-  enqueueResumeParseJobs,
-  isResumeParseQueueConfigured,
-} from "@arc/resume-parse-queue/resume-parse";
-import {
   normalizeResumeFile,
   storeResumeObjectOnly,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/interview/utils";
@@ -25,6 +21,10 @@ import {
 import { processNextItem } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resume-upload-batches/utils/processor";
 import { createBatchInputSchema } from "./schema";
 import { isActiveBatchUniqueViolation } from "./utils/errors";
+
+async function getResumeParseQueueApi() {
+  return await import("@arc/resume-parse-queue/resume-parse");
+}
 
 export const resumeUploadBatchesRouter = factory
   .createApp()
@@ -83,6 +83,8 @@ export const resumeUploadBatchesRouter = factory
         return c.json({ message: "Unauthorized" }, 401);
       }
       const input = c.req.valid("json");
+      const { enqueueResumeParseJobs, isResumeParseQueueConfigured } =
+        await getResumeParseQueueApi();
       if (!isResumeParseQueueConfigured()) {
         return c.json({ error: "简历解析队列未配置 REDIS_URL。" }, 503);
       }
@@ -209,6 +211,7 @@ export const resumeUploadBatchesRouter = factory
       return c.json({ message: "Unauthorized" }, 401);
     }
     const id = c.req.param("id");
+    const { enqueueResumeParseJobs, isResumeParseQueueConfigured } = await getResumeParseQueueApi();
     if (!isResumeParseQueueConfigured()) {
       return c.json({ error: "简历解析队列未配置 REDIS_URL。" }, 503);
     }

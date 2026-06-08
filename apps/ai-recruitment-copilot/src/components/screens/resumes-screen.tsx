@@ -13,7 +13,7 @@ import {
   UploadCloudIcon,
 } from "lucide-react";
 import { Fragment } from "react";
-import { PdfFileIcon } from "@/components/pdf-file-icon";
+import { PdfFileIcon } from "@/components/pdf/pdf-file-icon";
 import {
   Table,
   TableBody,
@@ -318,7 +318,7 @@ function ChartsRow() {
 
 // ─────────────────── PageHeader ───────────────────
 function PageHeader({ title, description }: { title: string; description: string }) {
-  // 对齐 _components/page-header.tsx: <h1 class="text-2xl"> + <p class="text-muted-foreground text-sm">
+  // 对齐 components/studio/page-header.tsx: <h1 class="text-2xl"> + <p class="text-muted-foreground text-sm">
   return (
     <header className="flex flex-col gap-2">
       <h1 className="text-2xl">{title}</h1>

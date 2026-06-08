@@ -37,7 +37,7 @@ interface NavGroup {
 }
 
 // 对齐 studio-sidebar-slots.tsx 的 navGroups。
-// Mirrors src/app/(auth)/w/[slug]/studio/_components/studio-sidebar-slots.tsx.
+// Mirrors src/components/studio/studio-sidebar-slots.tsx.
 export const STUDIO_NAV_GROUPS: NavGroup[] = [
   {
     items: [

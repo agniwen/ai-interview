@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useRouter } from "next/navigation";
+import { useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { toast } from "sonner";
@@ -91,7 +91,7 @@ export function CreateWorkspaceDialog({
   onOpenChange,
   trigger,
 }: CreateWorkspaceDialogProps) {
-  const router = useRouter();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [internalOpen, setInternalOpen] = useState(false);
   const open = openProp ?? internalOpen;
@@ -134,7 +134,7 @@ export function CreateWorkspaceDialog({
     // Invalidate so WorkspaceSwitcher refetches and the new org shows up.
     await queryClient.invalidateQueries({ queryKey: ["organizations"] });
     setOpen(false);
-    router.push(`/w/${data.slug}`);
+    await navigate({ params: { slug: data.slug }, to: "/w/$slug" });
   }
 
   return (

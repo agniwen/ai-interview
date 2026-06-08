@@ -4,7 +4,7 @@
 // laid over the AI 面试 list page. Active tab "面试报告" mirrors EvaluationResults.
 import { FileTextIcon, SearchIcon, XIcon } from "lucide-react";
 import { Fragment } from "react";
-import { PdfFileIcon } from "@/components/pdf-file-icon";
+import { PdfFileIcon } from "@/components/pdf/pdf-file-icon";
 import {
   Table,
   TableBody,
@@ -20,7 +20,7 @@ import { ScreenFrame } from "./screen-frame";
 
 const BREADCRUMB: BreadcrumbCrumb[] = [{ label: "Studio" }, { current: true, label: "AI 面试" }];
 
-// ─────────────── PageHeader (matches _components/page-header.tsx) ───────────────
+// ─────────────── PageHeader (matches components/studio/page-header.tsx) ───────────────
 function PageHeader({ title, description }: { title: string; description: string }) {
   return (
     <header className="flex flex-col gap-2">

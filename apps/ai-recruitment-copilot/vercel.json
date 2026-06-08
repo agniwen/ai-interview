@@ -1,8 +1,7 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "framework": "nextjs",
+  "framework": "tanstack-start",
   "installCommand": "cd ../.. && pnpm install --frozen-lockfile",
   "buildCommand": "cd ../.. && pnpm turbo run build --filter=@arc/ai-recruitment-copilot...",
-  "ignoreCommand": "npx turbo-ignore @arc/ai-recruitment-copilot",
-  "outputDirectory": ".next"
+  "ignoreCommand": "npx turbo-ignore @arc/ai-recruitment-copilot"
 }

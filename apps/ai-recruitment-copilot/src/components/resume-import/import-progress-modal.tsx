@@ -2,7 +2,7 @@
 
 import { CheckIcon, LoaderCircleIcon, WrenchIcon } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
-import { ResumeDedupOverlay } from "@/components/resume-dedup-overlay";
+import { ResumeDedupOverlay } from "@/components/resume/resume-dedup-overlay";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Modal } from "@/components/ui/modal";

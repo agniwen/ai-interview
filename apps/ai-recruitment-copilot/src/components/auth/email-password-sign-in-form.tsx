@@ -1,7 +1,7 @@
 "use client";
 
 import { LoaderCircleIcon } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -26,7 +26,7 @@ export function EmailPasswordSignInForm({
   submitLabel = "登录",
   className,
 }: EmailPasswordSignInFormProps) {
-  const router = useRouter();
+  const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -49,8 +49,7 @@ export function EmailPasswordSignInForm({
     }
     // 登录成功后跳转。用 router.replace 避免回退到登录页。
     // Use replace so the back button doesn't return to the login page.
-    router.replace(callbackURL);
-    router.refresh();
+    await navigate({ href: callbackURL, replace: true });
   }
 
   return (

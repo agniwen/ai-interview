@@ -18,12 +18,12 @@ import { hc } from "hono/client";
 // binary streams) are NOT supported by hc — keep using apiFetch in
 // src/lib/api/client.ts for those.
 export const rpc = hc<AppType>("", {
-  // 中文：携带同源 Cookie，让 better-auth 的 session 能自动带上。
-  // English: forward same-origin cookies so better-auth sessions ride along.
+  // 中文：携带 Cookie，让同源挂载和独立 Hono 域名部署都能保留 better-auth session。
+  // English: include cookies for both same-origin mounts and cross-origin Hono deployments.
   fetch: ((input: RequestInfo | URL, init?: RequestInit) =>
     fetch(input, {
       ...init,
-      credentials: "same-origin",
+      credentials: "include",
     })) as typeof fetch,
 });
 

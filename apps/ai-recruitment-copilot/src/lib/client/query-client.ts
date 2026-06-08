@@ -1,5 +1,3 @@
-import "client-only";
-
 /**
  * React Query 客户端工厂。
  * Factory for the React Query client.

@@ -57,3 +57,4 @@ __pycache__/
 .devtools
 .pnpm-store
 .worktrees/
+.output

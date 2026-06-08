@@ -1,5 +1,6 @@
 import { factory } from "@arc/ai-recruitment-copilot-backend/server/factory";
-import { getFeishuBot } from "./utils/bot";
+
+type FeishuProviderId = "feishu" | "feishu-jiguang-hr";
 
 // 中文：飞书 bot webhook 入口。两个不同 appId 的 bot 各自一个 URL，由
 // Feishu 开放平台侧配置，路径不能改动；因此这里在同一个 router 里直接保留
@@ -8,10 +9,8 @@ import { getFeishuBot } from "./utils/bot";
 // URLs registered in the Feishu open platform — the paths are external
 // contract and must not change. Both endpoints live in the same router and
 // the router is mounted at root in app.ts via `.route("/", feishuRouter)`.
-async function dispatchFeishuWebhook(
-  request: Request,
-  provider?: Parameters<typeof getFeishuBot>[0],
-) {
+async function dispatchFeishuWebhook(request: Request, provider?: FeishuProviderId) {
+  const { getFeishuBot } = await import("./utils/bot");
   const bot = getFeishuBot(provider);
   const body = await request.text();
   const rebuilt = new Request(request.url, {
