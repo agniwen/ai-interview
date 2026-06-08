@@ -2,6 +2,7 @@
 // Runs Qwen-VL OCR on every page of the PDF, then extracts structured
 // candidate info via a single generateText / parseJsonOutput call.
 
+import { setTimeout as delay } from "node:timers/promises";
 import { generateText } from "ai";
 import { parseJsonOutput } from "@arc/ai-recruitment-copilot-backend/server/agents/json-output";
 import { createAlibabaProvider } from "@arc/ai-recruitment-copilot-backend/server/agents/provider";
@@ -12,6 +13,9 @@ import { isQwenOcrConfigured, qwenVlOcr } from "./qwen-ocr";
 
 const STRUCTURED_TEXT_MAX_CHARS = 16_000;
 const DEV_OCR_LOG_PREFIX = "[resume-ocr]";
+const DEFAULT_OCR_ATTEMPTS = 3;
+const DEFAULT_OCR_PAGE_CONCURRENCY = 1;
+const DEFAULT_OCR_RETRY_DELAY_MS = 1000;
 
 const STRUCTURED_INSTRUCTIONS = `你是一名简历解析助手。给你一段简历文本，请严格按照下方 JSON 结构输出结构化候选人档案。
 
@@ -90,7 +94,8 @@ function clipForStructured(text: string): string {
 }
 
 function isDevOcrLogEnabled(): boolean {
-  return process.env.NODE_ENV === "development";
+  const raw = process.env.RESUME_PARSE_LOG_STEPS?.trim().toLowerCase();
+  return process.env.NODE_ENV === "development" || raw === "1" || raw === "true" || raw === "yes";
 }
 
 function nowMs(): number {
@@ -109,10 +114,104 @@ function devOcrLog(message: string, data?: Record<string, unknown>): void {
   console.info(DEV_OCR_LOG_PREFIX, message, data ?? "");
 }
 
+function parsePositiveInteger(value: string | undefined, fallback: number): number {
+  if (!value) {
+    return fallback;
+  }
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+function parseNonNegativeInteger(value: string | undefined, fallback: number): number {
+  if (!value) {
+    return fallback;
+  }
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback;
+}
+
+function isTransientOcrError(error: unknown): boolean {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+  const maybeCode = "code" in error ? String(error.code) : "";
+  const message = error.message.toLowerCase();
+  return (
+    maybeCode === "ECONNRESET" ||
+    maybeCode === "ETIMEDOUT" ||
+    maybeCode === "ECONNREFUSED" ||
+    maybeCode === "ENOTFOUND" ||
+    maybeCode === "UND_ERR_CONNECT_TIMEOUT" ||
+    message.includes("connection error") ||
+    message.includes("fetch failed") ||
+    message.includes("timeout") ||
+    message.includes("socket")
+  );
+}
+
+async function sleep(ms: number): Promise<void> {
+  if (ms <= 0) {
+    return;
+  }
+  await delay(ms);
+}
+
+async function runWithConcurrency<T, R>(
+  items: T[],
+  concurrency: number,
+  task: (item: T, index: number) => Promise<R>,
+): Promise<R[]> {
+  const results: R[] = [];
+  let nextIndex = 0;
+  async function worker(): Promise<void> {
+    while (nextIndex < items.length) {
+      const index = nextIndex;
+      nextIndex += 1;
+      results[index] = await task(items[index], index);
+    }
+  }
+
+  await Promise.all(Array.from({ length: Math.min(concurrency, items.length) }, () => worker()));
+  return results;
+}
+
+async function qwenVlOcrWithRetry(png: Buffer, page: number): Promise<string> {
+  const attempts = parsePositiveInteger(
+    process.env.RESUME_PARSE_OCR_ATTEMPTS,
+    DEFAULT_OCR_ATTEMPTS,
+  );
+  const retryDelayMs = parseNonNegativeInteger(
+    process.env.RESUME_PARSE_OCR_RETRY_DELAY_MS,
+    DEFAULT_OCR_RETRY_DELAY_MS,
+  );
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      return await qwenVlOcr(png);
+    } catch (error) {
+      if (attempt >= attempts || !isTransientOcrError(error)) {
+        throw error;
+      }
+      devOcrLog("page retry", {
+        attempt,
+        errorMessage: error instanceof Error ? error.message : String(error),
+        page,
+      });
+      await sleep(retryDelayMs * attempt);
+    }
+  }
+  throw new Error("Qwen OCR retry loop exited unexpectedly.");
+}
+
 export async function generateResumeStructured(text: string): Promise<ResumeParserStructured> {
   const startedAt = nowMs();
   const provider = createAlibabaProvider({ enableThinking: false });
-  const modelId = process.env.ALIBABA_STRUCTURED_MODEL ?? "deepseek-v4-pro";
+  const modelId = process.env.ALIBABA_STRUCTURED_MODEL?.trim() || "deepseek-v4-pro";
+  devOcrLog("structured start", {
+    baseUrl:
+      process.env.ALIBABA_BASE_URL?.trim() || "https://dashscope.aliyuncs.com/compatible-mode/v1",
+    inputChars: text.length,
+    model: modelId,
+  });
   const { text: rawOutput } = await generateText({
     // 中文简历每字约 1 token，加上 projectExperiences/workExperiences 等结构开销，
     // 项目/经历较多的简历输出会很长，给到 16384 留足余量避免 summary 中途截断。
@@ -161,19 +260,21 @@ export async function parseResumeOcrOnly(bytes: Uint8Array): Promise<ParsedResum
   }
 
   const ocrStartedAt = nowMs();
-  const ocrTexts = await Promise.all(
-    pages.map(async (png, index) => {
-      const pageStartedAt = nowMs();
-      const text = await qwenVlOcr(png);
-      devOcrLog("page completed", {
-        chars: text.length,
-        duration: formatDuration(pageStartedAt),
-        page: index + 1,
-        pngBytes: png.byteLength,
-      });
-      return text;
-    }),
+  const pageConcurrency = parsePositiveInteger(
+    process.env.RESUME_PARSE_OCR_PAGE_CONCURRENCY,
+    DEFAULT_OCR_PAGE_CONCURRENCY,
   );
+  const ocrTexts = await runWithConcurrency(pages, pageConcurrency, async (png, index) => {
+    const pageStartedAt = nowMs();
+    const text = await qwenVlOcrWithRetry(png, index + 1);
+    devOcrLog("page completed", {
+      chars: text.length,
+      duration: formatDuration(pageStartedAt),
+      page: index + 1,
+      pngBytes: png.byteLength,
+    });
+    return text;
+  });
   const text = ocrTexts.filter((chunk) => chunk.trim().length > 0).join("\n\n");
   devOcrLog("ocr completed", {
     duration: formatDuration(ocrStartedAt),
@@ -205,7 +306,12 @@ export async function parseResumeOcrOnly(bytes: Uint8Array): Promise<ParsedResum
  */
 export async function parseResumeFast(bytes: Uint8Array): Promise<ParsedResumeFast> {
   const startedAt = nowMs();
+  devOcrLog("full parse start", { bytes: bytes.byteLength });
   const ocr = await parseResumeOcrOnly(bytes);
+  devOcrLog("structured dispatch", {
+    inputChars: ocr.text.length,
+    pageCount: ocr.pageCount,
+  });
   const structured = await generateResumeStructured(ocr.text);
   devOcrLog("full parse completed", {
     duration: formatDuration(startedAt),

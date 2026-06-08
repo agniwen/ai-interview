@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { ResumeAnalysisResult, ResumeProfile } from "@arc/db-schema/interview/types";
+import { resumeParseStatusMeta } from "@arc/db-schema/studio-interviews";
 import type {
   CandidateExpectationsMeta,
   CandidateOutcome,
@@ -8,6 +9,7 @@ import type {
   HumanInterviewRoundStatus,
   OfferDraftStatus,
   PipelineStage,
+  ResumeParseStatus,
   ScheduleEntryStatus,
   StudioInterviewStatus,
 } from "@arc/db-schema/studio-interviews";
@@ -97,6 +99,9 @@ export interface ResumeLibraryListRecord {
   jobDescriptionName: string | null;
   resumeFileName: string | null;
   resumeContentHash: string | null;
+  resumeParsedAt: string | null;
+  resumeParseError: string | null;
+  resumeParseStatus: ResumeParseStatus;
   hasResumeFile: boolean;
   // 是否已存在至少一个 AI 面试轮次（studioInterviewSchedule）。
   // Whether this candidate already has at least one AI interview round.
@@ -249,9 +254,15 @@ function describeOffer(p: OfferProgress | null): Description {
 export function describeResumeProgress(record: {
   pipelineStage: PipelineStage;
   outcome: CandidateOutcome;
+  resumeParseStatus?: ResumeParseStatus;
   stageProgress: ResumeStageProgress;
 }): { label: string; tone: "success" | "warning" | "info" | "outline" } {
-  const { pipelineStage, outcome, stageProgress } = record;
+  const { pipelineStage, outcome, resumeParseStatus, stageProgress } = record;
+
+  if (resumeParseStatus && resumeParseStatus !== "ready") {
+    const meta = resumeParseStatusMeta[resumeParseStatus];
+    return { label: meta.label, tone: meta.tone };
+  }
 
   // closed 阶段：用 outcome 决定标签和色调。
   if (pipelineStage === "closed") {
@@ -302,6 +313,25 @@ export interface PaginatedResumeLibraryResult {
   page: number;
   pageSize: number;
   totalPages: number;
+}
+
+export function canEditResumeRecord(status: ResumeParseStatus): boolean {
+  return status === "ready";
+}
+
+export function canLaunchInterviewFromResume(status: ResumeParseStatus): boolean {
+  return status === "ready";
+}
+
+export function canDeleteResumeRecord(status: ResumeParseStatus): boolean {
+  return status !== "processing";
+}
+
+export function getResumeActionLockedReason(status: ResumeParseStatus): string | null {
+  if (status === "ready") {
+    return null;
+  }
+  return `${resumeParseStatusMeta[status].label}的简历暂不可操作。`;
 }
 
 export type CandidateTimelineEventKind =

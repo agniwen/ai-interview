@@ -366,6 +366,58 @@ export async function storeInterviewResume(
   }
 }
 
+/**
+ * 批量上传专用：只写 S3 + chat_attachment 注册表 pending 行，不做 OCR/LLM 解析。
+ * Dedicated to bulk upload: upload/reuse the S3 object and register a pending
+ * chat_attachment row without running OCR/LLM parsing.
+ */
+export async function storeResumeObjectOnly(
+  file: File,
+  userId: string,
+  organizationId: string,
+): Promise<{
+  storageKey: string;
+  contentHash: string;
+} | null> {
+  try {
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    const contentHash = await sha256HexOfBytes(bytes);
+    const existing = await findAttachmentByContentHash(contentHash);
+    if (existing) {
+      await copyCachedAttachmentForRequester({
+        contentHash,
+        existing,
+        file,
+        organizationId,
+        userId,
+      });
+      return { contentHash, storageKey: existing.storageKey };
+    }
+
+    const storageKey = await buildAttachmentKeyByHash(contentHash, "pdf");
+    await putObjectBytes({
+      body: bytes,
+      contentType: file.type || "application/pdf",
+      storageKey,
+    });
+    await createAttachment({
+      contentHash,
+      filename: file.name.slice(0, 255) || "resume.pdf",
+      id: crypto.randomUUID(),
+      mediaType: file.type || "application/pdf",
+      organizationId,
+      parsedStatus: "pending",
+      size: file.size,
+      storageKey,
+      userId,
+    });
+    return { contentHash, storageKey };
+  } catch (error) {
+    console.error("[studio-interview] failed to upload resume object to S3:", error);
+    return null;
+  }
+}
+
 // 单行构造拆分：避免上层 map 函数的圈复杂度过高，并方便在 PATCH 编辑时
 // 透传 conversationId、热重连锚点等已存在字段。
 // Single-row builder, kept separate so callers stay under complexity limits

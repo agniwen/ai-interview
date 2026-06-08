@@ -351,7 +351,7 @@ export function streamGenerateInterviewQuestions(
   return createNdjsonStream(async (emit) => {
     emit({ message: "正在生成面试题…", type: "status" });
 
-    const structuredModelId = process.env.ALIBABA_STRUCTURED_MODEL ?? "deepseek-v4-pro";
+    const structuredModelId = process.env.ALIBABA_STRUCTURED_MODEL?.trim() || "deepseek-v4-pro";
 
     const questionAgent = createResumeAgent({
       enableThinking: false,
@@ -434,7 +434,7 @@ export async function generateInterviewQuestionsForProfile(
   resumeProfile: ResumeProfile,
 ): Promise<ResumeAnalysisResult["interviewQuestions"]> {
   try {
-    const structuredModelId = process.env.ALIBABA_STRUCTURED_MODEL ?? "deepseek-v4-pro";
+    const structuredModelId = process.env.ALIBABA_STRUCTURED_MODEL?.trim() || "deepseek-v4-pro";
     const questionAgent = createResumeAgent({
       enableThinking: false,
       instructions: QUESTION_INSTRUCTIONS,
@@ -500,6 +500,29 @@ const REVIEW_INSTRUCTIONS = `你是一名招聘评估助手，根据候选人简
 - 不要输出"以下是评价：""根据简历"等开头语，直接进入第 1 小节。
 - 不要输出本指令本身、不要输出代码块包裹。`;
 
+function buildResumeReviewPrompt(input: {
+  resumeProfile: ResumeProfile;
+  jobDescription?: string | null;
+}) {
+  const jdBlock = input.jobDescription?.trim()
+    ? `在招岗位描述：\n${input.jobDescription.trim()}`
+    : "在招岗位描述：（未指定 JD，按候选人 targetRoles 推断目标方向进行评估，岗位相关性维度按候选人简历的目标岗位计分）";
+
+  return `${jdBlock}\n\n候选人简历（结构化 JSON）：\n${JSON.stringify(input.resumeProfile, null, 2)}`;
+}
+
+function createResumeReviewAgent() {
+  const structuredModelId = process.env.ALIBABA_STRUCTURED_MODEL?.trim() || "deepseek-v4-pro";
+  return createResumeAgent({
+    enableThinking: false,
+    instructions: REVIEW_INSTRUCTIONS,
+    modelId: structuredModelId,
+    stopWhen: stepCountIs(2),
+    temperature: 0.4,
+    tools: {},
+  });
+}
+
 /**
  * Stage 3: stream a short resume review based on the parsed profile and an
  * optional job-description context. Output is plain Markdown text streamed via
@@ -512,22 +535,8 @@ export function streamGenerateResumeReview(input: {
   return createNdjsonStream(async (emit) => {
     emit({ message: "正在生成简历评价…", type: "status" });
 
-    const structuredModelId = process.env.ALIBABA_STRUCTURED_MODEL ?? "deepseek-v4-pro";
-    const reviewAgent = createResumeAgent({
-      enableThinking: false,
-      instructions: REVIEW_INSTRUCTIONS,
-      modelId: structuredModelId,
-      stopWhen: stepCountIs(2),
-      temperature: 0.4,
-      tools: {},
-    });
-
-    const jdBlock = input.jobDescription?.trim()
-      ? `在招岗位描述：\n${input.jobDescription.trim()}`
-      : "在招岗位描述：（未指定 JD，按候选人 targetRoles 推断目标方向进行评估，岗位相关性维度按候选人简历的目标岗位计分）";
-
-    const streamResult = await reviewAgent.stream({
-      prompt: `${jdBlock}\n\n候选人简历（结构化 JSON）：\n${JSON.stringify(input.resumeProfile, null, 2)}`,
+    const streamResult = await createResumeReviewAgent().stream({
+      prompt: buildResumeReviewPrompt(input),
     });
 
     let stepIndex = 0;
@@ -547,6 +556,16 @@ export function streamGenerateResumeReview(input: {
     const review = fullText.trim().slice(0, 2000);
     emit({ data: { review }, type: "result" });
   });
+}
+
+export async function generateResumeReview(input: {
+  resumeProfile: ResumeProfile;
+  jobDescription?: string | null;
+}): Promise<string> {
+  const { text } = await createResumeReviewAgent().generate({
+    prompt: buildResumeReviewPrompt(input),
+  });
+  return text.trim().slice(0, 2000);
 }
 
 /**

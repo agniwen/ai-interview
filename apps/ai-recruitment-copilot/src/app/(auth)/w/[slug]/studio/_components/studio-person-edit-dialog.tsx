@@ -39,7 +39,9 @@ import {
 import { dateTimeLocalInputToISOString } from "@/lib/client/datetime-local";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import {
+  canEditResumeRecord,
   createResumeLibraryFormValues,
+  getResumeActionLockedReason,
   resumeLibraryEditFormSchema,
 } from "@arc/shared/studio-resumes";
 import {
@@ -187,6 +189,7 @@ function InterviewEditSkeleton() {
 // 简历编辑体 — 与原 EditResumeDialog 逻辑完全一致。
 // ---------------------------------------------------------------------------
 
+// oxlint-disable-next-line eslint/complexity -- resume edit dialog orchestrates fetch + form + upload + review regeneration.
 function ResumeEditBody({
   open,
   onOpenChange,
@@ -209,6 +212,12 @@ function ResumeEditBody({
     defaultValues: createResumeLibraryFormValues(),
     onSubmit: async ({ value }) => {
       if (!recordId) {
+        return;
+      }
+      if (query.data && !canEditResumeRecord(query.data.resumeParseStatus)) {
+        toast.error(
+          getResumeActionLockedReason(query.data.resumeParseStatus) ?? "当前简历暂不可编辑",
+        );
         return;
       }
       const formData = new FormData();
@@ -272,6 +281,10 @@ function ResumeEditBody({
 
   const isSubmitting = useStore(form.store, (s) => s.isSubmitting);
   const resumeProfile = query.data?.resumeProfile ?? null;
+  const lockedReason = query.data
+    ? getResumeActionLockedReason(query.data.resumeParseStatus)
+    : null;
+  const isResumeLocked = lockedReason !== null;
   const canRegenerateReview = Boolean(resumeProfile) && !resumeFile;
   let regenerateReviewTitle: string | undefined;
   if (resumeFile) {
@@ -328,7 +341,7 @@ function ResumeEditBody({
             取消
           </Button>
           <Button
-            disabled={isSubmitting || query.isLoading || isReviewGenerating}
+            disabled={isSubmitting || query.isLoading || isReviewGenerating || isResumeLocked}
             form="resume-edit-form"
             type="submit"
           >
@@ -353,16 +366,26 @@ function ResumeEditBody({
             void form.handleSubmit();
           }}
         >
+          {lockedReason ? (
+            <Card className="gap-0 rounded-md py-0">
+              <CardContent className="bg-muted/40 px-3 py-2 text-muted-foreground text-sm">
+                {lockedReason}
+              </CardContent>
+            </Card>
+          ) : null}
           <CandidateFormFields
             candidateNamePlaceholder="请输入候选人姓名"
-            disabled={isSubmitting}
+            disabled={isSubmitting || isResumeLocked}
             existingResumeFileName={query.data?.resumeFileName ?? null}
             form={form}
             notesDisabled={isReviewGenerating}
             notesLabelAction={
               <Button
                 disabled={
-                  isSubmitting || query.isLoading || (!isReviewGenerating && !canRegenerateReview)
+                  isSubmitting ||
+                  query.isLoading ||
+                  isResumeLocked ||
+                  (!isReviewGenerating && !canRegenerateReview)
                 }
                 onClick={handleRegenerateReview}
                 size="xs"

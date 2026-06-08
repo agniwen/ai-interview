@@ -23,10 +23,12 @@ allowBuilds:
   core-js: false
   esbuild: true
   lefthook: true
+  msgpackr-extract: false
   protobufjs: true
   sharp: true
 
 ignoredBuiltDependencies:
+  - msgpackr-extract
   - msw
   - sharp
   - unrs-resolver

@@ -6,8 +6,12 @@ import { factory, jsonValidatorError } from "@arc/ai-recruitment-copilot-backend
 import { requirePermission } from "@arc/ai-recruitment-copilot-backend/server/middlewares/permission";
 import { validateResumeFile } from "@arc/ai-recruitment-copilot-backend/server/agents/resume-analysis-agent";
 import {
+  enqueueResumeParseJobs,
+  isResumeParseQueueConfigured,
+} from "@arc/resume-parse-queue/resume-parse";
+import {
   normalizeResumeFile,
-  storeInterviewResume,
+  storeResumeObjectOnly,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/interview/utils";
 import {
   cancelBatch,
@@ -20,6 +24,7 @@ import {
 } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resume-upload-batches/dao/batches";
 import { processNextItem } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resume-upload-batches/utils/processor";
 import { createBatchInputSchema } from "./schema";
+import { isActiveBatchUniqueViolation } from "./utils/errors";
 
 export const resumeUploadBatchesRouter = factory
   .createApp()
@@ -38,9 +43,9 @@ export const resumeUploadBatchesRouter = factory
     } catch (error) {
       return c.json({ error: error instanceof Error ? error.message : "文件无效。" }, 400);
     }
-    let result: Awaited<ReturnType<typeof storeInterviewResume>>;
+    let result: Awaited<ReturnType<typeof storeResumeObjectOnly>>;
     try {
-      result = await storeInterviewResume("bulk-upload", file, user.id, activeOrg.id);
+      result = await storeResumeObjectOnly(file, user.id, activeOrg.id);
     } catch (error) {
       // S3 / 注册表写入抛错时给个人类可读的中文反馈，避免 AWS SDK 原始堆栈泄露到前端。
       // Surface a friendly Chinese error instead of leaking the raw AWS SDK trace.
@@ -78,6 +83,9 @@ export const resumeUploadBatchesRouter = factory
         return c.json({ message: "Unauthorized" }, 401);
       }
       const input = c.req.valid("json");
+      if (!isResumeParseQueueConfigured()) {
+        return c.json({ error: "简历解析队列未配置 REDIS_URL。" }, 503);
+      }
       if (input.jdMode === "bind") {
         if (!input.jobDescriptionId) {
           return c.json({ error: "绑定模式必须选择岗位。" }, 400);
@@ -126,10 +134,27 @@ export const resumeUploadBatchesRouter = factory
           userId: user.id,
         });
         const detail = await loadBatchDetail(batchId, activeOrg.id, user.id);
-        return c.json(detail, 201);
+        if (!detail) {
+          return c.json({ error: "批次创建失败。" }, 500);
+        }
+        try {
+          await enqueueResumeParseJobs(
+            detail.items.map((item) => ({
+              batchId,
+              itemId: item.id,
+              organizationId: activeOrg.id,
+              userId: user.id,
+            })),
+          );
+        } catch (error) {
+          console.error("[bulk-upload] enqueue failed:", error);
+          await cancelBatch(batchId, activeOrg.id, user.id);
+          return c.json({ error: "简历解析队列入队失败，请稍后重试。" }, 503);
+        }
+        const enqueuedDetail = await loadBatchDetail(batchId, activeOrg.id, user.id);
+        return c.json(enqueuedDetail ?? detail, 201);
       } catch (error) {
-        const msg = error instanceof Error ? error.message : "";
-        if (msg.includes("resume_upload_batch_active_unique_idx") || msg.includes("unique")) {
+        if (isActiveBatchUniqueViolation(error)) {
           const active = await loadActiveBatch(activeOrg.id, user.id);
           return c.json(
             { activeBatchId: active?.batch.id ?? null, error: "已有进行中的批次" },
@@ -184,11 +209,24 @@ export const resumeUploadBatchesRouter = factory
       return c.json({ message: "Unauthorized" }, 401);
     }
     const id = c.req.param("id");
+    if (!isResumeParseQueueConfigured()) {
+      return c.json({ error: "简历解析队列未配置 REDIS_URL。" }, 503);
+    }
     await reviveOrphans(id, activeOrg.id, user.id);
     const detail = await loadBatchDetail(id, activeOrg.id, user.id);
     if (!detail) {
       return c.json({ error: "记录不存在。" }, 404);
     }
+    await enqueueResumeParseJobs(
+      detail.items
+        .filter((item) => item.status === "pending")
+        .map((item) => ({
+          batchId: id,
+          itemId: item.id,
+          organizationId: activeOrg.id,
+          userId: user.id,
+        })),
+    );
     return c.json(detail, 200);
   })
   .post("/:id/cancel", requirePermission("resume", "create"), async (c) => {

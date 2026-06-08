@@ -68,7 +68,10 @@ vi.mock(
 );
 
 // oxlint-disable-next-line import/first -- must follow vi.mock() calls for correct hoisting
-import { storeInterviewResume } from "@arc/ai-recruitment-copilot-backend/server/routes/interview/utils";
+import {
+  storeInterviewResume,
+  storeResumeObjectOnly,
+} from "@arc/ai-recruitment-copilot-backend/server/routes/interview/utils";
 
 const HASH = "a".repeat(64);
 const STORAGE_KEY = "chat-attachments/aaa.pdf";
@@ -176,5 +179,36 @@ describe("storeInterviewResume", () => {
 
     expect(result).toBeNull();
     expect(mocks.createAttachment).not.toHaveBeenCalled();
+  });
+});
+
+describe("storeResumeObjectOnly", () => {
+  beforeEach(() => {
+    for (const fn of Object.values(mocks)) {
+      fn.mockReset();
+    }
+    mocks.sha256HexOfBytes.mockResolvedValue(HASH);
+    mocks.buildAttachmentKeyByHash.mockResolvedValue(STORAGE_KEY);
+  });
+
+  it("miss: uploads to S3 and writes a pending attachment without parsing", async () => {
+    mocks.findAttachmentByContentHash.mockResolvedValue(null);
+    mocks.putObjectBytes.mockResolvedValue(undefined as never);
+
+    const result = await storeResumeObjectOnly(makeFile(), "user-5", "org-test");
+
+    expect(result).toEqual({
+      contentHash: HASH,
+      storageKey: STORAGE_KEY,
+    });
+    expect(mocks.putObjectBytes).toHaveBeenCalledTimes(1);
+    expect(mocks.parseResumeFastToProfile).not.toHaveBeenCalled();
+    expect(mocks.createAttachment).toHaveBeenCalledTimes(1);
+    expect(mocks.createAttachment.mock.calls[0]?.[0]).toMatchObject({
+      contentHash: HASH,
+      parsedStatus: "pending",
+      storageKey: STORAGE_KEY,
+      userId: "user-5",
+    });
   });
 });

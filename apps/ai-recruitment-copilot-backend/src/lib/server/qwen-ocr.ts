@@ -18,7 +18,8 @@ function getClient(): OpenAI {
   }
   cachedClient = new OpenAI({
     apiKey,
-    baseURL: process.env.QWEN_OCR_BASE_URL ?? "https://dashscope.aliyuncs.com/compatible-mode/v1",
+    baseURL:
+      process.env.QWEN_OCR_BASE_URL?.trim() || "https://dashscope.aliyuncs.com/compatible-mode/v1",
   });
   return cachedClient;
 }
@@ -41,7 +42,7 @@ export async function qwenVlOcr(pngBytes: Buffer): Promise<string> {
         role: "user",
       },
     ],
-    model: process.env.QWEN_OCR_MODEL ?? "qwen-vl-ocr-latest",
+    model: process.env.QWEN_OCR_MODEL?.trim() || "qwen-vl-ocr-latest",
     temperature: 0,
   });
   return response.choices[0]?.message?.content ?? "";

@@ -7,7 +7,10 @@ import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import type * as S3Module from "@arc/ai-recruitment-copilot-backend/lib/server/s3";
 import { getObjectStream } from "@arc/ai-recruitment-copilot-backend/lib/server/s3";
 import type * as ResumeAgentModule from "@arc/ai-recruitment-copilot-backend/server/agents/resume-analysis-agent";
-import { parseResumeFastToProfile } from "@arc/ai-recruitment-copilot-backend/server/agents/resume-analysis-agent";
+import {
+  generateResumeReview,
+  parseResumeFastToProfile,
+} from "@arc/ai-recruitment-copilot-backend/server/agents/resume-analysis-agent";
 import {
   member,
   organization,
@@ -17,7 +20,10 @@ import {
   user,
 } from "@arc/db-schema/schema";
 import { insertBatchWithItems } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resume-upload-batches/dao/batches";
-import { processNextItem } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resume-upload-batches/utils/processor";
+import {
+  processBatchItem,
+  processNextItem,
+} from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resume-upload-batches/utils/processor";
 
 vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/s3", async () => {
   const actual = await vi.importActual<typeof S3Module>(
@@ -35,6 +41,7 @@ vi.mock("@arc/ai-recruitment-copilot-backend/server/agents/resume-analysis-agent
   );
   return {
     ...actual,
+    generateResumeReview: vi.fn(),
     parseResumeFastToProfile: vi.fn(),
   };
 });
@@ -78,10 +85,32 @@ function mockParseOK(profile: {
 // Build a minimal files array for insertBatchWithItems.
 function makeFiles(n: number) {
   return Array.from({ length: n }, (_, i) => ({
+    contentHash: `${String(i + 1).repeat(64)}`,
     fileSize: 1024 * (i + 1),
     originalFileName: `resume_${i}.pdf`,
     storageKey: `storage/bulk-proc-test/${crypto.randomUUID()}.pdf`,
   }));
+}
+
+async function createQueuedSingleItemBatch() {
+  const batchId = await insertBatchWithItems({
+    dedupPolicy: "skip",
+    files: makeFiles(1),
+    jdMode: "none",
+    jobDescriptionId: null,
+    organizationId: ORG_A,
+    userId: USER_A,
+  });
+
+  const [item] = await db
+    .select()
+    .from(resumeUploadBatchItem)
+    .where(eq(resumeUploadBatchItem.batchId, batchId));
+  expect(item?.resumeRecordId).toBeTruthy();
+  const recordId = item?.resumeRecordId as string;
+  const [record] = await db.select().from(studioInterview).where(eq(studioInterview.id, recordId));
+
+  return { batchId, item, record, recordId };
 }
 
 // ─── 清理 ──────────────────────────────────────────────────────────────────────
@@ -157,21 +186,21 @@ afterAll(async () => {
 
 beforeEach(() => {
   vi.resetAllMocks();
+  (generateResumeReview as ReturnType<typeof vi.fn>).mockResolvedValue("自动生成的简历评价");
 });
 
 // ─── Test 1: happy path ───────────────────────────────────────────────────────
 
 describe("processNextItem — happy path", () => {
-  it("pending item → succeeded，batch 变 completed，resumeRecordId 已设置", async () => {
-    // Happy path: single-item batch processes to succeeded; batch becomes completed.
-    const batchId = await insertBatchWithItems({
-      dedupPolicy: "skip",
-      files: makeFiles(1),
-      jdMode: "none",
-      jobDescriptionId: null,
-      organizationId: ORG_A,
-      userId: USER_A,
-    });
+  it("pending item → succeeded，并更新批次创建时的未解析占位记录", async () => {
+    // Happy path: single-item batch processes to succeeded and updates the queued placeholder record.
+    const {
+      item: beforeItem,
+      record: beforeRecord,
+      recordId,
+    } = await createQueuedSingleItemBatch();
+    expect(beforeRecord?.resumeParseStatus).toBe("queued");
+    expect(beforeRecord?.resumeProfile).toBeNull();
 
     mockS3OK();
     mockParseOK({
@@ -181,18 +210,17 @@ describe("processNextItem — happy path", () => {
       targetRoles: ["Engineer"],
     });
 
-    const result = await processNextItem(batchId, ORG_A, USER_A);
+    const result = await processBatchItem(beforeItem.id);
 
     // 结果完整性断言 / Result assertions.
     expect(result).not.toBeNull();
     expect(result?.done).toBe(true);
     expect(result?.item).not.toBeNull();
     expect(result?.item?.status).toBe("succeeded");
-    expect(result?.item?.resumeRecordId).toBeTruthy();
+    expect(result?.item?.resumeRecordId).toBe(recordId);
 
-    // 验证 studio_interview 行已创建。
-    // Verify the studio_interview row was created.
-    const recordId = result?.item?.resumeRecordId as string;
+    // 验证 studio_interview 占位行已被更新，而不是新建另一行。
+    // Verify the placeholder studio_interview row was updated instead of creating a second row.
     const [interview] = await db
       .select()
       .from(studioInterview)
@@ -203,6 +231,9 @@ describe("processNextItem — happy path", () => {
     expect(interview?.candidateName).toBe("Test User");
     expect(interview?.candidatePhone).toBe("13800000000");
     expect(interview?.targetRole).toBe("Engineer");
+    expect(interview?.notes).toBe("自动生成的简历评价");
+    expect(interview?.resumeParseStatus).toBe("ready");
+    expect(interview?.resumeParsedAt).toBeTruthy();
 
     // 验证 batch 计数器更新正确。
     // Verify batch counters are updated correctly.
@@ -244,9 +275,15 @@ describe("processNextItem — parse failure", () => {
     // There's still a pending item — batch must not be done yet.
     expect(result1?.done).toBe(false);
 
-    // 验证没有为失败的 item 创建 studio_interview。
-    // Verify no studio_interview was created for the failed item.
-    expect(result1?.item?.resumeRecordId).toBeNull();
+    // 验证失败 item 保留批次创建时的占位记录，并标记为解析失败。
+    // Verify the failed item keeps its queued placeholder record and marks it failed.
+    expect(result1?.item?.resumeRecordId).toBeTruthy();
+    const [failedRecord] = await db
+      .select()
+      .from(studioInterview)
+      .where(eq(studioInterview.id, result1?.item?.resumeRecordId ?? ""));
+    expect(failedRecord?.resumeParseStatus).toBe("failed");
+    expect(failedRecord?.resumeParseError).toBe("parse failed");
 
     // 第二次调用：S3 OK，解析成功。
     // Second call: S3 OK, parser succeeds.

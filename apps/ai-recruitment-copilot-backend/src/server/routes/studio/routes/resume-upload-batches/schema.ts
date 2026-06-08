@@ -6,6 +6,7 @@ export const createBatchInputSchema = z.object({
   files: z
     .array(
       z.object({
+        contentHash: z.string().min(1).max(128),
         fileSize: z.number().int().positive().max(MAX_RESUME_FILE_SIZE_BYTES),
         originalFileName: z.string().min(1).max(500),
         storageKey: z.string().min(1),

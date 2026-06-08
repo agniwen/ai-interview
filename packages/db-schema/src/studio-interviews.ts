@@ -79,6 +79,28 @@ export const candidateOutcomeMeta: Record<
 // Enforced by a CHECK constraint at the DB layer; app-layer writers should
 // keep the pair consistent.
 
+export const resumeParseStatusValues = [
+  "unparsed",
+  "queued",
+  "processing",
+  "ready",
+  "failed",
+] as const;
+
+export const resumeParseStatusSchema = z.enum(resumeParseStatusValues);
+export type ResumeParseStatus = z.infer<typeof resumeParseStatusSchema>;
+
+export const resumeParseStatusMeta: Record<
+  ResumeParseStatus,
+  { label: string; tone: "success" | "warning" | "info" | "outline" }
+> = {
+  failed: { label: "解析失败", tone: "warning" },
+  processing: { label: "解析中", tone: "warning" },
+  queued: { label: "未解析", tone: "outline" },
+  ready: { label: "已解析", tone: "success" },
+  unparsed: { label: "未解析", tone: "outline" },
+};
+
 // ── 真人复面阶段 / Human Interview Stage ──
 
 // 单轮状态：pending（已排期/未排期）→ completed / cancelled（终态）。

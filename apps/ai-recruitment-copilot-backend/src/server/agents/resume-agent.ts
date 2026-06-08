@@ -26,7 +26,7 @@ export interface CreateResumeAgentOptions<TOOLS extends ToolSet> {
 export function createResumeAgent<TOOLS extends ToolSet>({
   instructions,
   tools,
-  modelId = process.env.ALIBABA_MODEL ?? "deepseek-v4-pro",
+  modelId = process.env.ALIBABA_MODEL?.trim() || "deepseek-v4-pro",
   enableThinking = true,
   stopWhen = stepCountIs(1),
   temperature,

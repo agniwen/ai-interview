@@ -16,7 +16,7 @@ import { useBulkUpload } from "./use-bulk-upload";
 const apiMocks = vi.hoisted(() => ({
   cancelBulkResumeBatch: vi.fn(),
   createBulkResumeBatch: vi.fn(),
-  processNextBulkResumeBatch: vi.fn(),
+  getBulkResumeBatchDetail: vi.fn(),
   resumeBulkResumeBatch: vi.fn(),
   uploadResumeForBulk: vi.fn(),
 }));
@@ -45,6 +45,7 @@ const batch: BulkResumeBatchDto = {
 
 const item: BulkResumeBatchItemDto = {
   batchId: "batch_1",
+  contentHash: "a".repeat(64),
   errorMessage: null,
   fileSize: 1024,
   finishedAt: null,
@@ -56,7 +57,15 @@ const item: BulkResumeBatchItemDto = {
   status: "pending",
 };
 
-function renderHookHarness(onRecordsChanged: () => void) {
+function renderHookHarness({
+  mode = "resume",
+  onBatchQueued,
+  onRecordsChanged,
+}: {
+  mode?: "resume" | "start";
+  onBatchQueued?: (detail: BulkResumeBatchDetailDto) => void;
+  onRecordsChanged: () => void;
+}) {
   const queryClient = new QueryClient({
     defaultOptions: { mutations: { retry: false }, queries: { retry: false } },
   });
@@ -65,14 +74,22 @@ function renderHookHarness(onRecordsChanged: () => void) {
   const root = createRoot(container);
 
   function Harness() {
-    const bulk = useBulkUpload({ onRecordsChanged });
+    const bulk = useBulkUpload({ onBatchQueued, onRecordsChanged });
     const startedRef = useRef(false);
     useEffect(() => {
       if (startedRef.current) {
         return;
       }
       startedRef.current = true;
-      void bulk.resume("batch_1");
+      if (mode === "resume") {
+        void bulk.resume("batch_1");
+      } else {
+        void bulk.start([new File(["resume"], "resume.pdf", { type: "application/pdf" })], {
+          dedupPolicy: "create",
+          jdMode: "auto",
+          jobDescriptionId: null,
+        });
+      }
     }, [bulk]);
     return null;
   }
@@ -96,26 +113,60 @@ async function flushPromises() {
 }
 
 afterEach(() => {
+  vi.useRealTimers();
   vi.clearAllMocks();
   document.body.innerHTML = "";
 });
 
 describe("useBulkUpload", () => {
   it("notifies the page to refresh RSC metrics when processing completes", async () => {
+    vi.useFakeTimers();
     const onRecordsChanged = vi.fn();
     const detail: BulkResumeBatchDetailDto = { batch, items: [item] };
     apiMocks.resumeBulkResumeBatch.mockResolvedValue(detail);
-    apiMocks.processNextBulkResumeBatch.mockResolvedValue({
-      batch: { ...batch, completedAt: "2026-06-06T00:00:01.000Z", processedCount: 1 },
-      done: true,
-      item: { ...item, resumeRecordId: "ri_1", status: "succeeded" },
+    apiMocks.getBulkResumeBatchDetail.mockResolvedValue({
+      batch: {
+        ...batch,
+        completedAt: "2026-06-06T00:00:01.000Z",
+        processedCount: 1,
+        status: "completed",
+      },
+      items: [{ ...item, resumeRecordId: "ri_1", status: "succeeded" }],
     });
 
-    const { root } = renderHookHarness(onRecordsChanged);
+    const { root } = renderHookHarness({ onRecordsChanged });
     await flushPromises();
-    await flushPromises();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1500);
+    });
 
     expect(onRecordsChanged).toHaveBeenCalledTimes(1);
+
+    act(() => {
+      root.unmount();
+    });
+  });
+
+  it("notifies when uploads have been queued for async parsing", async () => {
+    vi.useFakeTimers();
+    const onBatchQueued = vi.fn();
+    const detail: BulkResumeBatchDetailDto = { batch, items: [item] };
+    apiMocks.uploadResumeForBulk.mockResolvedValue({
+      contentHash: item.contentHash,
+      fileSize: item.fileSize,
+      originalFileName: item.originalFileName,
+      storageKey: "storage/resume.pdf",
+    });
+    apiMocks.createBulkResumeBatch.mockResolvedValue(detail);
+
+    const { root } = renderHookHarness({
+      mode: "start",
+      onBatchQueued,
+      onRecordsChanged: vi.fn(),
+    });
+    await flushPromises();
+
+    expect(onBatchQueued).toHaveBeenCalledWith(detail);
 
     act(() => {
       root.unmount();

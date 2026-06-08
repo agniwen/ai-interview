@@ -35,7 +35,7 @@ export const titleRouter = factory
       }),
     });
 
-    const modelId = process.env.ALIBABA_FAST_MODEL ?? "deepseek-v4-flash";
+    const modelId = process.env.ALIBABA_FAST_MODEL?.trim() || "deepseek-v4-flash";
 
     try {
       const { text: titleText } = await generateText({

@@ -1,5 +1,6 @@
 AGENT_DIR := apps/livekit-agent
 WEB_DIR   := apps/ai-recruitment-copilot
+WORKER_PACKAGE := @arc/ai-recruitment-copilot-worker
 VENV      := $(AGENT_DIR)/.venv
 PY        := uv run --project $(AGENT_DIR)
 AGENT_SCRIPT := src/agent.py
@@ -7,7 +8,8 @@ AGENT_SCRIPT := src/agent.py
 .DEFAULT_GOAL := help
 
 .PHONY: help install web-install agent-install agent-download \
-        dev web-dev agent-dev agent-console agent-start agent-shell \
+        dev web-dev worker-dev worker-start worker-typecheck \
+        agent-dev agent-console agent-start agent-shell \
         agent-deploy agent-update-secrets agent-clean clean
 
 help: ## 显示所有可用命令
@@ -29,11 +31,20 @@ agent-download: ## 下载 Silero VAD + turn-detector 模型
 
 # ---------- dev ----------
 
-dev: ## 并行启动 Next.js + LiveKit agent worker (Ctrl-C 同时停止)
-	@$(MAKE) -j2 web-dev agent-dev
+dev: ## 并行启动 Next.js + LiveKit agent worker + 简历解析 worker
+	@$(MAKE) -j3 web-dev agent-dev worker-dev
 
 web-dev: ## 仅启动 Next.js dev server
 	pnpm --filter @arc/ai-recruitment-copilot dev
+
+worker-dev: ## 仅启动简历异步解析 worker (dev 模式，热重载)
+	pnpm --filter $(WORKER_PACKAGE) dev
+
+worker-start: ## 启动简历异步解析 worker (生产模式，不热重载)
+	pnpm --filter $(WORKER_PACKAGE) start
+
+worker-typecheck: ## 检查简历异步解析 worker TypeScript 类型
+	pnpm --filter $(WORKER_PACKAGE) typecheck
 
 agent-dev: ## 仅启动 LiveKit agent worker (dev 模式，热重载)
 	cd $(AGENT_DIR) && uv run $(AGENT_SCRIPT) dev

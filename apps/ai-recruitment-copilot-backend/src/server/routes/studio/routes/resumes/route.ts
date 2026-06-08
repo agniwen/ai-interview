@@ -6,7 +6,12 @@ import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import { getObjectStream } from "@arc/ai-recruitment-copilot-backend/lib/server/s3";
 import { studioInterview, studioInterviewSchedule } from "@arc/db-schema/schema";
 import { parseCsvParam } from "@arc/shared/csv";
-import { resumeLibraryEditFormSchema, resumeLibraryFormSchema } from "@arc/shared/studio-resumes";
+import {
+  canEditResumeRecord,
+  canLaunchInterviewFromResume,
+  resumeLibraryEditFormSchema,
+  resumeLibraryFormSchema,
+} from "@arc/shared/studio-resumes";
 import { invalidateStudioInterviewCaches } from "@arc/ai-recruitment-copilot-backend/server/cache-tags";
 import { removeImportedInterviewFromConversations } from "@arc/ai-recruitment-copilot-backend/server/routes/chat/dao/chat";
 import { factory, jsonValidatorError } from "@arc/ai-recruitment-copilot-backend/server/factory";
@@ -260,6 +265,9 @@ export const resumeLibraryRouter = factory
       if (existing.pipelineStage === "closed") {
         return c.json({ error: "候选人已结案，请先「重新激活」后再发起 AI 面试。" }, 409);
       }
+      if (!canLaunchInterviewFromResume(existing.resumeParseStatus)) {
+        return c.json({ error: "简历解析完成后才能发起 AI 面试。" }, 409);
+      }
 
       const { interviewQuestions } = c.req.valid("json");
       const now = new Date();
@@ -438,6 +446,9 @@ export const resumeLibraryRouter = factory
       if (!existing) {
         return c.json({ error: "记录不存在。" }, 404);
       }
+      if (!canEditResumeRecord(existing.resumeParseStatus)) {
+        return c.json({ error: "简历解析完成后才能编辑。" }, 409);
+      }
 
       const formData = await c.req.formData();
       const resume = normalizeResumeFile(formData.get("resume"));
@@ -491,6 +502,9 @@ export const resumeLibraryRouter = factory
         resumeProfileUpdate = {
           resumeContentHash: resumeContentHash ?? existing.resumeContentHash,
           resumeFileName,
+          resumeParseError: null,
+          resumeParseStatus: resumeProfile ? "ready" : "unparsed",
+          resumeParsedAt: resumeProfile ? new Date() : null,
           resumeProfile,
           resumeStorageKey: resumeStorageKey ?? null,
         };

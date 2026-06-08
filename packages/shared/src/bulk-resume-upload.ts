@@ -8,7 +8,7 @@ import type {
 
 export const MAX_BULK_BATCH_SIZE = 100;
 export const MAX_RESUME_FILE_SIZE_BYTES = 20 * 1024 * 1024;
-export const ORPHAN_THRESHOLD_SECONDS = 60;
+export const DEFAULT_RESUME_PARSE_STALE_PROCESSING_SECONDS = 15 * 60;
 
 // /uploads 单文件返回。
 // /uploads single-file return shape.
@@ -26,6 +26,7 @@ export const createBulkResumeBatchSchema = z.object({
   files: z
     .array(
       z.object({
+        contentHash: z.string().min(1).max(128),
         fileSize: z.number().int().positive().max(MAX_RESUME_FILE_SIZE_BYTES),
         originalFileName: z.string().min(1).max(500),
         storageKey: z.string().min(1),
@@ -61,6 +62,7 @@ export interface BulkResumeBatchItemDto {
   orderIndex: number;
   originalFileName: string;
   fileSize: number;
+  contentHash: string | null;
   status: ResumeUploadBatchItemStatus;
   resumeRecordId: string | null;
   errorMessage: string | null;
