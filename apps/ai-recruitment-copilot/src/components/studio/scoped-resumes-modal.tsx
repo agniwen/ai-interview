@@ -4,7 +4,7 @@
 // 行内点击候选人姓名可弹出简历详情弹窗（StudioPersonDetailDialog mode="resume"），
 // 详情弹窗叠在本弹窗之上，关闭它不会影响外层；不支持新建 / 删除（仍在简历库主页面完成）。
 //
-// 自管 page/pageSize（useModalPagination）以避开主表 nuqs URL key 冲突。
+// 自管 page/pageSize（useModalPagination）以避开主表 URL key 冲突。
 //
 // Read-only mini resume library scoped to a single JD, opened from the JD
 // management table's "resume association" column. Clicking a candidate row

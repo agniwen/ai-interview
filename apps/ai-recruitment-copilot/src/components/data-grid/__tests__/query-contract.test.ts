@@ -4,6 +4,7 @@ import {
   normalizeDataGridQueryState,
   parseDataGridSearchParams,
 } from "@/components/data-grid/query-contract";
+import { buildDataGridFilterResetSignature } from "@/components/data-grid/use-data-grid-state";
 
 describe("data grid query contract", () => {
   it("parses URL search params into the same state shape used by query keys", () => {
@@ -62,7 +63,7 @@ describe("data grid query contract", () => {
     });
   });
 
-  it("uses strict decimal pagination parsing so RSC and nuqs agree", () => {
+  it("uses strict decimal pagination parsing so route loaders and client state agree", () => {
     const state = parseDataGridSearchParams(
       {
         page: "0x10",
@@ -76,6 +77,22 @@ describe("data grid query contract", () => {
 
     expect(state.page).toBe(1);
     expect(state.pageSize).toBe(20);
+  });
+
+  it("accepts TanStack Router JSON search primitives for pagination", () => {
+    const state = parseDataGridSearchParams(
+      {
+        page: 2,
+        pageSize: 25,
+      },
+      {
+        defaultPageSize: 20,
+        initialFilters: {},
+      },
+    );
+
+    expect(state.page).toBe(2);
+    expect(state.pageSize).toBe(25);
   });
 
   it("caps page size to the route-safe maximum", () => {
@@ -150,5 +167,41 @@ describe("data grid query contract", () => {
         sortOrder: "desc",
       },
     ]);
+  });
+
+  it("keeps the filter reset signature stable across object key order changes", () => {
+    const first = buildDataGridFilterResetSignature({
+      filterKeys: ["creatorIds", "status"],
+      filters: { creatorIds: "u_1", status: "completed" },
+      search: " candidate ",
+    });
+    const second = buildDataGridFilterResetSignature({
+      filterKeys: ["creatorIds", "status"],
+      filters: Object.fromEntries([
+        ["status", "completed"],
+        ["creatorIds", "u_1"],
+      ]) as { creatorIds: string; status: string },
+      search: "candidate",
+    });
+
+    expect(second).toBe(first);
+  });
+
+  it("ignores detail-only URL params when parsing data grid state", () => {
+    const state = parseDataGridSearchParams(
+      {
+        page: "4",
+        recordId: "resume_1",
+        roundId: "round_1",
+        templateId: "template_1",
+      },
+      {
+        defaultPageSize: 10,
+        initialFilters: { creatorIds: "", status: "" },
+      },
+    );
+
+    expect(state.page).toBe(4);
+    expect(state.filters).toEqual({ creatorIds: "", status: "" });
   });
 });

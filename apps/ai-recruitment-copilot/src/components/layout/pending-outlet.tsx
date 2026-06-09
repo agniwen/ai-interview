@@ -10,7 +10,12 @@ export function PendingOutlet({
   className?: string;
 }) {
   const isRouteLoading = useRouterState({
-    select: (state) => state.isLoading || state.isTransitioning,
+    select: (state) => {
+      const isPathTransition = state.resolvedLocation
+        ? state.location.pathname !== state.resolvedLocation.pathname
+        : state.isLoading;
+      return (state.isLoading || state.isTransitioning) && isPathTransition;
+    },
   });
 
   return (

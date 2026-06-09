@@ -1,6 +1,13 @@
 import { HydrationBoundary, dehydrate, useQueryClient } from "@tanstack/react-query";
 import type { DehydratedState } from "@tanstack/react-query";
-import { createFileRoute, notFound, redirect, useLoaderData } from "@tanstack/react-router";
+import {
+  createFileRoute,
+  notFound,
+  redirect,
+  useLoaderData,
+  useNavigate,
+  useSearch,
+} from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import type { DataGridQueryState } from "@/components/data-grid/query-contract";
@@ -21,7 +28,6 @@ import type {
 } from "@arc/db-schema/candidate-forms";
 import type { PaginatedCandidateFormTemplateResult } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/forms/dao/queries";
 import { ChevronDownIcon, ClipboardListIcon, PlusIcon } from "lucide-react";
-import { parseAsString, useQueryState } from "nuqs";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -66,6 +72,14 @@ function archivedFilterLabelOf(value: "active" | "archived" | "all"): string {
     return "全部";
   }
   return "未归档";
+}
+
+function firstSearchValue(value: unknown): string {
+  if (Array.isArray(value)) {
+    const [first] = value;
+    return first === undefined ? "" : String(first);
+  }
+  return value === undefined ? "" : String(value);
 }
 
 // oxlint-disable-next-line complexity -- Page hosts list, filter, pagination, and dialog state together.
@@ -143,10 +157,26 @@ function CandidateFormTemplateManagementPage({
   const archivedFilter = (grid.filters.archivedFilter as "active" | "archived" | "all") || "active";
   const archivedFilterLabel = archivedFilterLabelOf(archivedFilter);
 
-  // URL-bound drawer state — not a list filter; kept independent of DataGrid.
-  const [activeTemplateId, setActiveTemplateId] = useQueryState(
-    "templateId",
-    parseAsString.withDefault("").withOptions({ clearOnDefault: true }),
+  const routeSearch = useSearch({ from: "/w/$slug/studio/forms" }) as SearchParamsRecord;
+  const navigate = useNavigate({ from: "/w/$slug/studio/forms" });
+  const activeTemplateId = firstSearchValue(routeSearch.templateId);
+  const setActiveTemplateId = useCallback(
+    (value: string | null) => {
+      void navigate({
+        replace: true,
+        resetScroll: false,
+        search: (prev: SearchParamsRecord) => {
+          const next = { ...prev };
+          if (value) {
+            next.templateId = value;
+          } else {
+            delete next.templateId;
+          }
+          return next;
+        },
+      } as never);
+    },
+    [navigate],
   );
 
   const crud = useEntityCrud<CandidateFormTemplateListRecord, CandidateFormTemplateRecord>({
@@ -485,7 +515,11 @@ const candidateFormFiltersSchema = z.object({
   scope: z.string(),
 });
 
-type SearchParamsRecord = Record<string, string | string[] | undefined>;
+type SearchParamsPrimitive = boolean | number | string;
+type SearchParamsRecord = Record<
+  string,
+  SearchParamsPrimitive | SearchParamsPrimitive[] | undefined
+>;
 type JsonValue = boolean | number | string | null | JsonValue[] | { [key: string]: JsonValue };
 type StudioFormsState =
   | { status: "unauthenticated" }
@@ -503,8 +537,15 @@ function coerceSearchParams(search: Record<string, unknown>): SearchParamsRecord
       out[key] = value;
       continue;
     }
+    if (typeof value === "number" || typeof value === "boolean") {
+      out[key] = value;
+      continue;
+    }
     if (Array.isArray(value)) {
-      out[key] = value.filter((item): item is string => typeof item === "string");
+      out[key] = value.filter(
+        (item): item is boolean | number | string =>
+          typeof item === "string" || typeof item === "number" || typeof item === "boolean",
+      );
     }
   }
   return out;
@@ -590,12 +631,13 @@ export const Route = createFileRoute("/w/$slug/studio/forms")({
     meta: [{ title: "面试表单" }],
   }),
   loader: async (loaderContext) => {
-    const { deps, params } = loaderContext as unknown as {
-      deps: { query: DataGridQueryState<CandidateFormFilters> };
+    const { location, params } = loaderContext as unknown as {
+      location: { search: SearchParamsRecord };
       params: { slug: string };
     };
+    const query = parseCandidateFormQuery(location.search);
     const state = (await loadStudioFormsState({
-      data: { query: deps.query, slug: params.slug },
+      data: { query, slug: params.slug },
     })) as StudioFormsState;
     if (state.status === "unauthenticated") {
       throw redirect({
@@ -607,8 +649,6 @@ export const Route = createFileRoute("/w/$slug/studio/forms")({
     }
     return state;
   },
-  loaderDeps: ({ search }) => ({
-    query: parseCandidateFormQuery(search as SearchParamsRecord),
-  }),
+  shouldReload: false,
   validateSearch: (search: Record<string, unknown>) => coerceSearchParams(search),
 });

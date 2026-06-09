@@ -1148,7 +1148,11 @@ const resumeFiltersSchema = z.object({
 });
 
 type ResumeSortColumn = "createdAt" | "candidateName" | "updatedAt";
-type SearchParamsRecord = Record<string, string | string[] | undefined>;
+type SearchParamsPrimitive = boolean | number | string;
+type SearchParamsRecord = Record<
+  string,
+  SearchParamsPrimitive | SearchParamsPrimitive[] | undefined
+>;
 type JsonValue = boolean | number | string | null | JsonValue[] | { [key: string]: JsonValue };
 type StudioResumesState =
   | { status: "unauthenticated" }
@@ -1173,8 +1177,15 @@ function coerceSearchParams(search: Record<string, unknown>): SearchParamsRecord
       out[key] = value;
       continue;
     }
+    if (typeof value === "number" || typeof value === "boolean") {
+      out[key] = value;
+      continue;
+    }
     if (Array.isArray(value)) {
-      out[key] = value.filter((item): item is string => typeof item === "string");
+      out[key] = value.filter(
+        (item): item is boolean | number | string =>
+          typeof item === "string" || typeof item === "number" || typeof item === "boolean",
+      );
     }
   }
   return out;
@@ -1253,12 +1264,13 @@ export const Route = createFileRoute("/w/$slug/studio/resumes")({
     meta: [{ title: "简历库" }],
   }),
   loader: async (loaderContext) => {
-    const { deps, params } = loaderContext as unknown as {
-      deps: { query: DataGridQueryState<ResumeFilters> };
+    const { location, params } = loaderContext as unknown as {
+      location: { search: SearchParamsRecord };
       params: { slug: string };
     };
+    const query = parseResumeQuery(location.search);
     const state = (await loadStudioResumesState({
-      data: { query: deps.query, slug: params.slug },
+      data: { query, slug: params.slug },
     })) as StudioResumesState;
     if (state.status === "unauthenticated") {
       throw redirect({
@@ -1270,8 +1282,6 @@ export const Route = createFileRoute("/w/$slug/studio/resumes")({
     }
     return state;
   },
-  loaderDeps: ({ search }) => ({
-    query: parseResumeQuery(search as SearchParamsRecord),
-  }),
+  shouldReload: false,
   validateSearch: (search: Record<string, unknown>) => coerceSearchParams(search),
 });
