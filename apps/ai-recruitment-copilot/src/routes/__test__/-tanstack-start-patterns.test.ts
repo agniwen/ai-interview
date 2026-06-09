@@ -97,7 +97,6 @@ describe("TanStack Start migration patterns", () => {
       readSource("src/components/auth/google-sign-in-button.tsx"),
       readSource("src/components/auth/sign-in-tabs.tsx"),
       readSource("src/components/interview/interview-room.tsx"),
-      readSource("src/lib/client/analytics.ts"),
     ].join("\n");
 
     expect(viteConfig).toContain('envPrefix: ["VITE_", "NEXT_PUBLIC_"]');
@@ -127,15 +126,16 @@ describe("TanStack Start migration patterns", () => {
     expect(vitestConfig).not.toContain("server-only");
     expect(packageJson).not.toContain('"client-only"');
     expect(packageJson).not.toContain('"server-only"');
-    expect(viteConfig).toContain('include: ["posthog-js"]');
   });
 
-  it("forces Vite dependency optimization on dev server startup during the migration", () => {
+  it("clears stale Vite dependency optimization cache on dev server startup", () => {
     const packageJson = JSON.parse(readSource("package.json")) as {
       scripts: Record<string, string>;
     };
 
-    expect(packageJson.scripts.dev).toBe("vite dev --force");
+    expect(packageJson.scripts.predev).toContain("node_modules/.vite");
+    expect(packageJson.scripts.predev).toContain(".tanstack/tmp");
+    expect(packageJson.scripts.dev).toBe("vite dev");
   });
 
   it("keeps server function runtime modules out of circular imports", () => {
@@ -158,7 +158,6 @@ describe("TanStack Start migration patterns", () => {
       "src/routes/w.$slug.studio.resumes.tsx",
     ];
     const platformRouteFiles = [
-      "src/routes/platform.analytics.tsx",
       "src/routes/platform.organizations.tsx",
       "src/routes/platform.users.tsx",
     ];

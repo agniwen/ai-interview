@@ -11,9 +11,9 @@ Simplified Chinese.
   v4, and Vite/Nitro output. It owns the browser UI, route loaders, server
   functions, SSR/SSG, and the mounted Hono API adapter.
 - **Backend app** (`apps/ai-recruitment-copilot-backend/`): Hono API runtime,
-  Drizzle ORM, PostgreSQL, Better Auth, object storage, email, analytics
-  queries, and server-side AI utilities. It can be mounted by the web app at
-  `/api` or started as a standalone Node service.
+  Drizzle ORM, PostgreSQL, Better Auth, object storage, email, and server-side
+  AI utilities. It can be mounted by the web app at `/api` or started as a
+  standalone Node service.
 - **Resume worker** (`apps/ai-recruitment-copilot-worker/`): asynchronous resume
   parsing worker for queued PDF/OCR processing.
 - **Voice agent** (`apps/livekit-agent/`): Python LiveKit Agents SDK with OpenAI,
@@ -57,9 +57,6 @@ Key requirements:
 - **LiveKit Cloud**: `LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`,
   `AGENT_NAME`, `NEXT_PUBLIC_AGENT_NAME`
 - **Object storage**: `S3_*` for uploads and `RECORDING_R2_*` for recordings
-- **PostHog analytics (optional)**: `NEXT_PUBLIC_ENABLE_POSTHOG`,
-  `NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN`, `NEXT_PUBLIC_POSTHOG_HOST`,
-  `POSTHOG_PERSONAL_API_KEY`, `POSTHOG_PROJECT_ID`, `POSTHOG_API_HOST`
 - **Optional integrations**: `FEISHU_*`, `RESEND_*`
 
 The web app intentionally keeps the existing `NEXT_PUBLIC_*` variable names.
@@ -120,7 +117,7 @@ apps/
   ai-recruitment-copilot/
     src/routes/                 TanStack Router file routes
     src/lib/start/              server functions and Start-only helpers
-    src/lib/client/             browser helpers, Hono RPC client, analytics
+    src/lib/client/             browser helpers and Hono RPC client
     src/lib/server/             small web server helpers
     src/components/             shadcn/ui + project components
     src/server.ts               TanStack Start server entry
@@ -169,26 +166,6 @@ Every route folder under
 
 Keep middleware inside the closest owning router. `server/app.ts` should remain
 mount-only.
-
-## Product Analytics
-
-PostHog product analytics are optional and client-side. They are initialized
-from `src/client.tsx` through `@/lib/client/analytics` and enabled only when
-both `NEXT_PUBLIC_ENABLE_POSTHOG=true` and
-`NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN` are present. Restart the dev server or
-rebuild after changing exposed env values.
-
-Every workspace-scoped event should include:
-
-- `user_id`
-- `workspace_id`
-
-Never send candidate names, emails, phone numbers, resume text, interview
-transcripts, free-form notes, or original file names to PostHog.
-
-Platform admins can view aggregated analytics at `/platform/analytics`. Server
-queries use `POSTHOG_PERSONAL_API_KEY`, `POSTHOG_PROJECT_ID`, and
-`POSTHOG_API_HOST`; never expose the personal API key to the browser.
 
 ## External References
 

@@ -24,7 +24,6 @@ describe("TanStack Start workspace shell migration", () => {
       readSource("routes/w.$slug.tsx"),
       readSource("routes/w.$slug.chat.tsx"),
       readSource("routes/w.$slug.studio.tsx"),
-      readSource("lib/client/workspace-page-view-tracker.tsx"),
       readSource("components/chat/background-stream-toaster.tsx"),
     ];
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { BarChart3Icon, Building2Icon, UsersIcon } from "lucide-react";
+import { Building2Icon, UsersIcon } from "lucide-react";
 import { Link, useRouterState } from "@tanstack/react-router";
 import {
   SidebarBodyPortalContent,
@@ -33,11 +33,6 @@ const navItems: NavItem[] = [
     icon: UsersIcon,
     path: "/platform/users",
     title: "所有用户",
-  },
-  {
-    icon: BarChart3Icon,
-    path: "/platform/analytics",
-    title: "埋点数据",
   },
 ];
 

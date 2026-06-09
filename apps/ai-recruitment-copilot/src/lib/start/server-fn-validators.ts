@@ -18,14 +18,6 @@ export const slugInputSchema = z.object({
   slug: nonEmptyStringSchema,
 });
 
-export const platformAnalyticsSearchSchema = z.object({
-  page: z.string().optional(),
-  pageSize: z.string().optional(),
-  rangeDays: z.string().optional(),
-  userId: z.string().optional(),
-  workspaceId: z.string().optional(),
-});
-
 export const emptyFiltersSchema = z.object({});
 
 const dataGridSortOrderSchema = z.custom<"asc" | "desc" | undefined>(

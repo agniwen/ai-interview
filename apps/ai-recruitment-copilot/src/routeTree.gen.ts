@@ -21,7 +21,6 @@ import { Route as StudioInterviewsRouteImport } from './routes/studio.interviews
 import { Route as RRoundIdRouteImport } from './routes/r.$roundId'
 import { Route as PlatformUsersRouteImport } from './routes/platform.users'
 import { Route as PlatformOrganizationsRouteImport } from './routes/platform.organizations'
-import { Route as PlatformAnalyticsRouteImport } from './routes/platform.analytics'
 import { Route as JoinCodeRouteImport } from './routes/join.$code'
 import { Route as InviteTokenRouteImport } from './routes/invite.$token'
 import { Route as InterviewIdRouteImport } from './routes/interview.$id'
@@ -103,11 +102,6 @@ const PlatformUsersRoute = PlatformUsersRouteImport.update({
 const PlatformOrganizationsRoute = PlatformOrganizationsRouteImport.update({
   id: '/organizations',
   path: '/organizations',
-  getParentRoute: () => PlatformRoute,
-} as any)
-const PlatformAnalyticsRoute = PlatformAnalyticsRouteImport.update({
-  id: '/analytics',
-  path: '/analytics',
   getParentRoute: () => PlatformRoute,
 } as any)
 const JoinCodeRoute = JoinCodeRouteImport.update({
@@ -237,7 +231,6 @@ export interface FileRoutesByFullPath {
   '/interview/$id': typeof InterviewIdRouteWithChildren
   '/invite/$token': typeof InviteTokenRoute
   '/join/$code': typeof JoinCodeRoute
-  '/platform/analytics': typeof PlatformAnalyticsRoute
   '/platform/organizations': typeof PlatformOrganizationsRoute
   '/platform/users': typeof PlatformUsersRoute
   '/r/$roundId': typeof RRoundIdRoute
@@ -274,7 +267,6 @@ export interface FileRoutesByTo {
   '/interview/$id': typeof InterviewIdRouteWithChildren
   '/invite/$token': typeof InviteTokenRoute
   '/join/$code': typeof JoinCodeRoute
-  '/platform/analytics': typeof PlatformAnalyticsRoute
   '/platform/organizations': typeof PlatformOrganizationsRoute
   '/platform/users': typeof PlatformUsersRoute
   '/r/$roundId': typeof RRoundIdRoute
@@ -311,7 +303,6 @@ export interface FileRoutesById {
   '/interview/$id': typeof InterviewIdRouteWithChildren
   '/invite/$token': typeof InviteTokenRoute
   '/join/$code': typeof JoinCodeRoute
-  '/platform/analytics': typeof PlatformAnalyticsRoute
   '/platform/organizations': typeof PlatformOrganizationsRoute
   '/platform/users': typeof PlatformUsersRoute
   '/r/$roundId': typeof RRoundIdRoute
@@ -350,7 +341,6 @@ export interface FileRouteTypes {
     | '/interview/$id'
     | '/invite/$token'
     | '/join/$code'
-    | '/platform/analytics'
     | '/platform/organizations'
     | '/platform/users'
     | '/r/$roundId'
@@ -387,7 +377,6 @@ export interface FileRouteTypes {
     | '/interview/$id'
     | '/invite/$token'
     | '/join/$code'
-    | '/platform/analytics'
     | '/platform/organizations'
     | '/platform/users'
     | '/r/$roundId'
@@ -423,7 +412,6 @@ export interface FileRouteTypes {
     | '/interview/$id'
     | '/invite/$token'
     | '/join/$code'
-    | '/platform/analytics'
     | '/platform/organizations'
     | '/platform/users'
     | '/r/$roundId'
@@ -551,13 +539,6 @@ declare module '@tanstack/react-router' {
       path: '/organizations'
       fullPath: '/platform/organizations'
       preLoaderRoute: typeof PlatformOrganizationsRouteImport
-      parentRoute: typeof PlatformRoute
-    }
-    '/platform/analytics': {
-      id: '/platform/analytics'
-      path: '/analytics'
-      fullPath: '/platform/analytics'
-      preLoaderRoute: typeof PlatformAnalyticsRouteImport
       parentRoute: typeof PlatformRoute
     }
     '/join/$code': {
@@ -742,13 +723,11 @@ const InterviewRouteWithChildren = InterviewRoute._addFileChildren(
 )
 
 interface PlatformRouteChildren {
-  PlatformAnalyticsRoute: typeof PlatformAnalyticsRoute
   PlatformOrganizationsRoute: typeof PlatformOrganizationsRoute
   PlatformUsersRoute: typeof PlatformUsersRoute
 }
 
 const PlatformRouteChildren: PlatformRouteChildren = {
-  PlatformAnalyticsRoute: PlatformAnalyticsRoute,
   PlatformOrganizationsRoute: PlatformOrganizationsRoute,
   PlatformUsersRoute: PlatformUsersRoute,
 }

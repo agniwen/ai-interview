@@ -11,7 +11,6 @@ import {
   filterInterviewerIdsByDepartment,
   getDepartmentSyncedInterviewerSelection,
 } from "@arc/shared/job-description-interviewers";
-import { captureAnalyticsEvent } from "@/lib/client/analytics";
 import { rpc } from "@/lib/client/rpc";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { useQuery } from "@tanstack/react-query";
@@ -184,19 +183,6 @@ export function JobDescriptionFormDialog({
         toast.error(payload?.error ?? (isEdit ? "更新失败" : "创建失败"));
         return;
       }
-      const jobDescriptionId = isEdit ? record.id : (payload?.id ?? null);
-      captureAnalyticsEvent(isEdit ? "job_description_updated" : "job_description_created", {
-        allowCrossDepartmentInterviewers: body.allowCrossDepartmentInterviewers,
-        count: body.interviewerIds.length,
-        departmentId: body.departmentId,
-        jobDescriptionId,
-      });
-      captureAnalyticsEvent("job_interviewer_matched", {
-        count: body.interviewerIds.length,
-        departmentId: body.departmentId,
-        jobDescriptionId,
-        mode: isEdit ? "update" : "create",
-      });
       toast.success(isEdit ? "在招岗位已更新" : "在招岗位已创建");
       onSaved();
       onOpenChange(false);

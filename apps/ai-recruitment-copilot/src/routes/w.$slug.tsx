@@ -1,8 +1,6 @@
 import { Outlet, createFileRoute, notFound, redirect, useLoaderData } from "@tanstack/react-router";
 import { BackgroundStreamToaster } from "@/components/chat/background-stream-toaster";
 import { AppSidebarShell } from "@/components/layout/app-sidebar/app-sidebar-shell";
-import { WorkspaceAnalyticsIdentity } from "@/lib/client/workspace-analytics-identity";
-import { WorkspacePageViewTracker } from "@/lib/client/workspace-page-view-tracker";
 import { WorkspaceSlugProvider } from "@/lib/client/workspace-context";
 import { getWorkspaceAccessState } from "@/lib/start/auth-session";
 
@@ -15,8 +13,6 @@ function WorkspaceRoute() {
 
   return (
     <WorkspaceSlugProvider slug={state.workspace.slug}>
-      <WorkspaceAnalyticsIdentity workspaceId={state.workspace.id} />
-      <WorkspacePageViewTracker workspaceId={state.workspace.id} />
       <AppSidebarShell>
         <Outlet />
       </AppSidebarShell>

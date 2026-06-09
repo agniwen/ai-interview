@@ -12,7 +12,6 @@
 
 import type { DedupMatchRecord } from "@/lib/client/api";
 import { fetchInterviewDedup } from "@/lib/client/api";
-import { captureAnalyticsEvent } from "@/lib/client/analytics";
 import { readNdjsonStream } from "@/lib/client/ndjson-stream";
 import { matchJobDescriptionForResume, parseResumeFile } from "@/lib/client/resume-analysis";
 import { rpc } from "@/lib/client/rpc";
@@ -294,13 +293,6 @@ export function useResumeAnalysisPipeline(
       abortControllerRef.current = abortController;
       setIsAnalyzingResume(true);
       let postParseAnalysisStarted = false;
-      const parseStartedAt = performance.now();
-      const fileType = file.name.split(".").pop()?.toLowerCase() || "unknown";
-      captureAnalyticsEvent("resume_parse_started", {
-        fileSize: file.size,
-        fileType,
-        source: "resume_library",
-      });
 
       try {
         const parseResult = await parseResumeFile(file, {
@@ -323,12 +315,6 @@ export function useResumeAnalysisPipeline(
         setPartialFields([]);
         accumulatedTextRef.current = "";
         toast.success("简历解析完成，已回填候选人信息");
-        captureAnalyticsEvent("resume_parse_completed", {
-          durationMs: Math.round(performance.now() - parseStartedAt),
-          fileSize: file.size,
-          fileType,
-          source: "resume_library",
-        });
 
         // Match best in-flight job description; non-fatal on failure.
         // 匹配完之后串行触发简历评价生成（按需），评价依赖匹配到的 JD 上下文。
@@ -457,13 +443,6 @@ export function useResumeAnalysisPipeline(
         if (abortController.signal.aborted) {
           return;
         }
-        captureAnalyticsEvent("resume_parse_failed", {
-          durationMs: Math.round(performance.now() - parseStartedAt),
-          errorCode: "parse_failed",
-          fileSize: file.size,
-          fileType,
-          source: "resume_library",
-        });
         setResumePayload(null);
         setResumeFile(null);
         toast.error(error instanceof Error ? error.message : "简历分析失败");

@@ -9,7 +9,7 @@ function readSource(relativePath: string) {
 }
 
 describe("TanStack Start platform route migration", () => {
-  const routes = ["/platform", "/platform/organizations", "/platform/users", "/platform/analytics"];
+  const routes = ["/platform", "/platform/organizations", "/platform/users"];
 
   it("registers migrated platform routes in the generated route tree", () => {
     const routeTree = readSource("routeTree.gen.ts");
@@ -24,7 +24,6 @@ describe("TanStack Start platform route migration", () => {
       readSource("routes/platform.tsx"),
       readSource("routes/platform.organizations.tsx"),
       readSource("routes/platform.users.tsx"),
-      readSource("routes/platform.analytics.tsx"),
       readSource("components/platform/platform-sidebar-slots.tsx"),
       readSource("components/platform/platform-header.tsx"),
       readSource("components/platform/organizations/organizations-grid.tsx"),
