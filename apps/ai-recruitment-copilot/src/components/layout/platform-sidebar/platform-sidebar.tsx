@@ -7,6 +7,11 @@ import {
   SidebarFooterPortalTarget,
   SidebarHeaderPortalTarget,
 } from "@/components/layout/app-sidebar/portals";
+import {
+  SidebarBodySkeleton,
+  SidebarFooterSkeleton,
+  SidebarSlotHydrationFallback,
+} from "@/components/layout/app-sidebar/sidebar-slot-skeleton";
 import { PlatformLogo } from "./platform-logo";
 
 type PlatformSidebarProps = ComponentProps<typeof Sidebar>;
@@ -20,9 +25,15 @@ export function PlatformSidebar({ ...props }: PlatformSidebarProps) {
       </SidebarHeader>
       <SidebarContent>
         <SidebarBodyPortalTarget className="contents" />
+        <SidebarSlotHydrationFallback>
+          <SidebarBodySkeleton />
+        </SidebarSlotHydrationFallback>
       </SidebarContent>
       <SidebarFooter className="p-0">
         <SidebarFooterPortalTarget className="contents" />
+        <SidebarSlotHydrationFallback>
+          <SidebarFooterSkeleton />
+        </SidebarSlotHydrationFallback>
       </SidebarFooter>
     </Sidebar>
   );

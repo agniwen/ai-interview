@@ -7,6 +7,11 @@ import {
   SidebarFooterPortalTarget,
   SidebarHeaderPortalTarget,
 } from "./portals";
+import {
+  SidebarBodySkeleton,
+  SidebarFooterSkeleton,
+  SidebarSlotHydrationFallback,
+} from "./sidebar-slot-skeleton";
 import { SidebarTabs } from "./sidebar-tabs";
 
 type AppSidebarProps = ComponentProps<typeof Sidebar>;
@@ -20,9 +25,15 @@ export function AppSidebar({ ...props }: AppSidebarProps) {
       </SidebarHeader>
       <SidebarContent>
         <SidebarBodyPortalTarget className="contents" />
+        <SidebarSlotHydrationFallback>
+          <SidebarBodySkeleton />
+        </SidebarSlotHydrationFallback>
       </SidebarContent>
       <SidebarFooter className="p-0">
         <SidebarFooterPortalTarget className="contents" />
+        <SidebarSlotHydrationFallback>
+          <SidebarFooterSkeleton />
+        </SidebarSlotHydrationFallback>
       </SidebarFooter>
     </Sidebar>
   );

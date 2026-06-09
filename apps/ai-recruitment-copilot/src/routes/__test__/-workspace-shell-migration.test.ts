@@ -60,4 +60,16 @@ describe("TanStack Start workspace shell migration", () => {
     expect(interviews).toContain('useSearch({ from: "/w/$slug/studio/interviews" })');
     expect(resumes).toContain('useSearch({ from: "/w/$slug/studio/resumes" })');
   });
+
+  it("renders sidebar slot skeletons before portal content hydrates", () => {
+    const appSidebar = readSource("components/layout/app-sidebar/app-sidebar.tsx");
+    const platformSidebar = readSource("components/layout/platform-sidebar/platform-sidebar.tsx");
+    const skeleton = readSource("components/layout/app-sidebar/sidebar-slot-skeleton.tsx");
+
+    expect(`${appSidebar}\n${platformSidebar}`).not.toContain("ssrFallback=");
+    expect(`${appSidebar}\n${platformSidebar}`).toContain("SidebarSlotHydrationFallback");
+    expect(skeleton).toContain("SidebarMenuSkeleton");
+    expect(skeleton).toContain("useHydrated");
+    expect(skeleton).toContain("aria-hidden");
+  });
 });
