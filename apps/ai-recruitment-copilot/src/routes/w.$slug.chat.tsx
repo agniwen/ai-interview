@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { Outlet, createFileRoute } from "@tanstack/react-router";
 import { ChatHeader } from "@/components/chat/chat-header";
+import { PendingOutlet } from "@/components/layout/pending-outlet";
 import { ChatSidebarSlots } from "@/components/chat/chat-sidebar-slots";
 import { SidebarInset } from "@/components/ui/sidebar";
 import { cn } from "@arc/shared/utils/cn";
@@ -15,7 +16,7 @@ function ChatLayout({ children }: { children: ReactNode }) {
         )}
       >
         <ChatHeader />
-        <div className="flex min-h-0 flex-1 flex-col">{children}</div>
+        <PendingOutlet className="flex min-h-0 flex-1 flex-col">{children}</PendingOutlet>
       </SidebarInset>
     </>
   );

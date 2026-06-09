@@ -2,7 +2,7 @@
 
 import { PlusIcon, SquareCheckBigIcon, Trash2Icon, XIcon } from "lucide-react";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
-import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   SidebarBodyPortalContent,
   SidebarFooterPortalContent,
@@ -33,6 +33,7 @@ import { deleteConversation, fetchConversations } from "@/lib/client/api";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { cn } from "@arc/shared/utils";
 import { CHAT_EVENTS, notifyConversationsChanged } from "./lib/chat-events";
+import type { ChatSessionPathUpdatedDetail } from "./lib/chat-events";
 
 interface ConversationListItem {
   id: string;
@@ -45,20 +46,29 @@ const GENERATING_CHAT_TITLE = "生成中...";
 
 function useActiveSessionId(slug: string) {
   const pathname = useRouterState({ select: (state) => state.location.pathname });
+  const [currentPathname, setCurrentPathname] = useState(pathname);
 
-  const currentPathname = useSyncExternalStore(
-    useCallback((onStoreChange: () => void) => {
-      window.addEventListener("popstate", onStoreChange);
-      window.addEventListener(CHAT_EVENTS.sessionPathUpdated, onStoreChange);
+  useEffect(() => {
+    setCurrentPathname(pathname);
+  }, [pathname]);
 
-      return () => {
-        window.removeEventListener("popstate", onStoreChange);
-        window.removeEventListener(CHAT_EVENTS.sessionPathUpdated, onStoreChange);
-      };
-    }, []),
-    () => window.location.pathname,
-    () => pathname,
-  );
+  useEffect(() => {
+    const handleSessionPathUpdated = (event: Event) => {
+      const { detail } = event as CustomEvent<ChatSessionPathUpdatedDetail>;
+      setCurrentPathname(detail?.pathname ?? window.location.pathname);
+    };
+    const handlePopState = () => {
+      setCurrentPathname(window.location.pathname);
+    };
+
+    window.addEventListener("popstate", handlePopState);
+    window.addEventListener(CHAT_EVENTS.sessionPathUpdated, handleSessionPathUpdated);
+
+    return () => {
+      window.removeEventListener("popstate", handlePopState);
+      window.removeEventListener(CHAT_EVENTS.sessionPathUpdated, handleSessionPathUpdated);
+    };
+  }, []);
 
   return useMemo(() => {
     const prefix = `/w/${slug}/chat/`;
@@ -339,11 +349,11 @@ function ChatSidebarBody({
                 // ring-inset：focus 指示器画在元素内部，sidebar 边缘不会再裁掉它。
                 // ring-inset keeps the focus indicator inside the wrapper so the
                 // sidebar's edge can't clip it.
-                "focus-within:ring-2 focus-within:ring-sidebar-ring focus-within:ring-inset",
+                // "focus-within:ring-2 focus-within:ring-sidebar-ring focus-within:ring-inset",
                 isActive && !editMode
-                  ? "border-sidebar-border bg-sidebar-accent"
+                  ? "border-sidebar-border/40 bg-sidebar-accent"
                   : "hover:bg-sidebar-accent/60",
-                editMode && isSelected ? "border-sidebar-border bg-sidebar-accent" : "",
+                editMode && isSelected ? "border-sidebar-border/40 bg-sidebar-accent" : "",
               )}
             >
               {renderSessionItem({

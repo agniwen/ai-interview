@@ -1,6 +1,7 @@
 import { HydrationBoundary, dehydrate, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { DehydratedState } from "@tanstack/react-query";
 import {
+  ClientOnly,
   createFileRoute,
   notFound,
   redirect,
@@ -91,6 +92,7 @@ import { LaunchInterviewDialog } from "@/components/studio/resumes/launch-interv
 import { ResumeLifecycleBadge } from "@/components/studio/resumes/resume-lifecycle-badge";
 import { ResumeLibraryCharts } from "@/components/studio/resumes/resume-library-charts";
 import { TransitionCandidateDialog } from "@/components/studio/resumes/transition-candidate-dialog";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const PdfPreviewDialog = lazy(async () => {
   const mod = await import("@/components/pdf/pdf-preview-dialog");
@@ -793,7 +795,9 @@ function ResumeLibraryPage({ metrics }: { metrics: ResumeLibraryMetrics }) {
           title="简历库"
           description="沉淀候选人档案、简历 PDF、岗位匹配和流程进展，筛选到面试推进都能从这里接上。"
         />
-        <ResumeLibraryCharts metrics={metrics} />
+        <ClientOnly fallback={<Skeleton className="h-48 w-full" />}>
+          <ResumeLibraryCharts metrics={metrics} />
+        </ClientOnly>
         <ActiveBatchBanner onCancel={handleCancelActiveBatch} onContinue={handleContinueBatch} />
         <Tabs
           onValueChange={(value) => grid.setFilter("stage", value === "all" ? "" : value)}

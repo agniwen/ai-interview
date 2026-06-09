@@ -29,4 +29,13 @@ describe("TanStack Start workspace shell migration", () => {
 
     expect(sources.join("\n")).not.toMatch(/next\/(?:link|navigation|headers|server|cache)/u);
   });
+
+  it("derives chat session active state from router pathname with manual URL fallback", () => {
+    const sidebarSlots = readSource("components/chat/chat-sidebar-slots.tsx");
+
+    expect(sidebarSlots).toContain("useRouterState");
+    expect(sidebarSlots).toContain("state.location.pathname");
+    expect(sidebarSlots).toContain("CHAT_EVENTS.sessionPathUpdated");
+    expect(sidebarSlots).not.toContain("useSyncExternalStore");
+  });
 });

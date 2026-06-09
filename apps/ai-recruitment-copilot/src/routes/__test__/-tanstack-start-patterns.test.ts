@@ -210,4 +210,41 @@ describe("TanStack Start migration patterns", () => {
     expect(rootRoute).toContain("NotFoundPage");
     expect(studioLayoutRoute).not.toContain("notFoundComponent:");
   });
+
+  it("keeps Recharts dashboards out of the server-rendered shell", () => {
+    const dashboardRoute = readSource("src/routes/w.$slug.studio.dashboard.tsx");
+    const resumesRoute = readSource("src/routes/w.$slug.studio.resumes.tsx");
+    const jobDescriptionsRoute = readSource("src/routes/w.$slug.studio.job-descriptions.tsx");
+
+    expect(dashboardRoute).toContain("ClientOnly");
+    expect(dashboardRoute).toContain('} from "@tanstack/react-router"');
+    expect(resumesRoute).toContain("ClientOnly");
+    expect(resumesRoute).toContain('} from "@tanstack/react-router"');
+    expect(jobDescriptionsRoute).toContain("ClientOnly");
+    expect(jobDescriptionsRoute).toContain('} from "@tanstack/react-router"');
+    expect(resumesRoute).toContain("<ResumeLibraryCharts metrics={metrics} />");
+    expect(jobDescriptionsRoute).toContain("<JobDescriptionCharts metrics={metrics} />");
+  });
+
+  it("applies pending opacity to nested app outlets instead of the root shell", () => {
+    const rootRoute = readSource("src/routes/__root.tsx");
+    const studioLayoutRoute = readSource("src/routes/w.$slug.studio.tsx");
+    const chatLayoutRoute = readSource("src/routes/w.$slug.chat.tsx");
+    const platformLayoutRoute = readSource("src/routes/platform.tsx");
+
+    expect(rootRoute).not.toContain("opacity-70");
+    expect(rootRoute).not.toContain("isTransitioning");
+    expect(studioLayoutRoute).toContain("PendingOutlet");
+    expect(chatLayoutRoute).toContain("PendingOutlet");
+    expect(platformLayoutRoute).toContain("PendingOutlet");
+  });
+
+  it("enables React Compiler in the Vite React pipeline", () => {
+    const viteConfig = readSource("vite.config.ts");
+
+    expect(viteConfig).toContain('import babel from "@rolldown/plugin-babel"');
+    expect(viteConfig).toContain("reactCompilerPreset");
+    expect(viteConfig).toContain("babel({");
+    expect(viteConfig).toContain("presets: [reactCompilerPreset()]");
+  });
 });

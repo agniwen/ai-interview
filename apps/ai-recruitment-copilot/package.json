@@ -118,10 +118,13 @@
     "zod": "catalog:"
   },
   "devDependencies": {
+    "@babel/core": "^7.29.7",
     "@hono/zod-validator": "^0.7.6",
+    "@rolldown/plugin-babel": "^0.2.3",
     "@tailwindcss/postcss": "^4.3.0",
     "@tailwindcss/vite": "^4.3.0",
     "@testing-library/jest-dom": "^6.9.1",
+    "@types/babel__core": "^7.20.5",
     "@types/pg": "^8.20.0",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",

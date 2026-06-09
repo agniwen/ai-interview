@@ -5,7 +5,6 @@ import {
   Scripts,
   createRootRouteWithContext,
   useRouter,
-  useRouterState,
 } from "@tanstack/react-router";
 import { NuqsAdapter } from "nuqs/adapters/tanstack-router";
 import "../styles/globals.css";
@@ -17,7 +16,6 @@ import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { OverlayScrollbarsBody } from "@/components/layout/overlay-scrollbars-body";
 import type { getQueryClient } from "@/lib/client/query-client";
-import { cn } from "@arc/shared/utils";
 
 function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
   return (
@@ -41,9 +39,6 @@ function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
 }
 
 function RootComponent() {
-  const isRouteLoading = useRouterState({
-    select: (state) => state.isLoading || state.isTransitioning,
-  });
   const {
     options: {
       context: { queryClient },
@@ -56,15 +51,7 @@ function RootComponent() {
         <NuqsAdapter>
           <QueryProvider queryClient={queryClient}>
             <TooltipProvider>
-              <div
-                aria-busy={isRouteLoading}
-                className={cn(
-                  "transition-opacity duration-200 ease-out",
-                  isRouteLoading && "opacity-70",
-                )}
-              >
-                <Outlet />
-              </div>
+              <Outlet />
               <Toaster />
             </TooltipProvider>
           </QueryProvider>

@@ -1,4 +1,10 @@
-import { createFileRoute, notFound, redirect, useLoaderData } from "@tanstack/react-router";
+import {
+  ClientOnly,
+  createFileRoute,
+  notFound,
+  redirect,
+  useLoaderData,
+} from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
 import type { RecruitingDashboardMetrics } from "@arc/shared/studio-dashboard";
 import { PageHeader } from "@/components/studio/page-header";
@@ -13,6 +19,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import type { ChartConfig } from "@/components/ui/chart";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
+import { Skeleton } from "@/components/ui/skeleton";
 
 type PipelineBucket =
   | "screening"
@@ -164,6 +171,10 @@ function MetricTile({
   );
 }
 
+function ChartSkeleton({ className }: { className: string }) {
+  return <Skeleton aria-label="图表加载中" className={className} />;
+}
+
 function actionBadgeVariant(severity: RecruitingDashboardMetrics["actions"][number]["severity"]) {
   if (severity === "danger") {
     return "destructive";
@@ -311,36 +322,42 @@ function ActivityCard({ metrics }: { metrics: RecruitingDashboardMetrics }) {
       </CardHeader>
       <CardContent>
         {totalActivity > 0 ? (
-          <ChartContainer className="aspect-auto h-72 w-full" config={activityChartConfig}>
-            <BarChart accessibilityLayer data={metrics.activity} margin={{ left: 0, right: 8 }}>
-              <CartesianGrid vertical={false} />
-              <XAxis
-                axisLine={false}
-                dataKey="day"
-                interval={6}
-                tickFormatter={(value: string) => value.slice(5)}
-                tickLine={false}
-                tickMargin={8}
-              />
-              <YAxis allowDecimals={false} axisLine={false} tickLine={false} width={28} />
-              <ChartTooltip
-                content={
-                  <ChartTooltipContent
-                    indicator="dot"
-                    labelFormatter={(value: unknown) => (typeof value === "string" ? value : "")}
-                  />
-                }
-              />
-              <Bar dataKey="resumesAdded" fill="var(--color-resumesAdded)" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="aiCompleted" fill="var(--color-aiCompleted)" radius={[4, 4, 0, 0]} />
-              <Bar
-                dataKey="humanCompleted"
-                fill="var(--color-humanCompleted)"
-                radius={[4, 4, 0, 0]}
-              />
-              <Bar dataKey="offersSent" fill="var(--color-offersSent)" radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ChartContainer>
+          <ClientOnly fallback={<ChartSkeleton className="h-72 w-full" />}>
+            <ChartContainer className="aspect-auto h-72 w-full" config={activityChartConfig}>
+              <BarChart accessibilityLayer data={metrics.activity} margin={{ left: 0, right: 8 }}>
+                <CartesianGrid vertical={false} />
+                <XAxis
+                  axisLine={false}
+                  dataKey="day"
+                  interval={6}
+                  tickFormatter={(value: string) => value.slice(5)}
+                  tickLine={false}
+                  tickMargin={8}
+                />
+                <YAxis allowDecimals={false} axisLine={false} tickLine={false} width={28} />
+                <ChartTooltip
+                  content={
+                    <ChartTooltipContent
+                      indicator="dot"
+                      labelFormatter={(value: unknown) => (typeof value === "string" ? value : "")}
+                    />
+                  }
+                />
+                <Bar
+                  dataKey="resumesAdded"
+                  fill="var(--color-resumesAdded)"
+                  radius={[4, 4, 0, 0]}
+                />
+                <Bar dataKey="aiCompleted" fill="var(--color-aiCompleted)" radius={[4, 4, 0, 0]} />
+                <Bar
+                  dataKey="humanCompleted"
+                  fill="var(--color-humanCompleted)"
+                  radius={[4, 4, 0, 0]}
+                />
+                <Bar dataKey="offersSent" fill="var(--color-offersSent)" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ChartContainer>
+          </ClientOnly>
         ) : (
           <EmptyHint message="最近 30 天没有可展示的招聘活动。" title="暂无活动趋势" />
         )}
@@ -417,29 +434,31 @@ function OfferStatusCard({ metrics }: { metrics: RecruitingDashboardMetrics }) {
       <CardContent>
         {total > 0 ? (
           <div className="grid gap-4 sm:grid-cols-[12rem_minmax(0,1fr)] sm:items-center">
-            <ChartContainer className="aspect-square size-48" config={offerChartConfig}>
-              <PieChart>
-                <ChartTooltip content={<ChartTooltipContent indicator="dot" nameKey="label" />} />
-                <Pie
-                  cornerRadius={8}
-                  data={data}
-                  dataKey="count"
-                  innerRadius={48}
-                  nameKey="label"
-                  outerRadius={76}
-                  paddingAngle={2}
-                  stroke="var(--background)"
-                  strokeWidth={3}
-                >
-                  {data.map((entry, index) => (
-                    <Cell
-                      fill={index % 2 === 0 ? entry.fill : "var(--chart-2)"}
-                      key={entry.status}
-                    />
-                  ))}
-                </Pie>
-              </PieChart>
-            </ChartContainer>
+            <ClientOnly fallback={<ChartSkeleton className="size-48" />}>
+              <ChartContainer className="aspect-square size-48" config={offerChartConfig}>
+                <PieChart>
+                  <ChartTooltip content={<ChartTooltipContent indicator="dot" nameKey="label" />} />
+                  <Pie
+                    cornerRadius={8}
+                    data={data}
+                    dataKey="count"
+                    innerRadius={48}
+                    nameKey="label"
+                    outerRadius={76}
+                    paddingAngle={2}
+                    stroke="var(--background)"
+                    strokeWidth={3}
+                  >
+                    {data.map((entry, index) => (
+                      <Cell
+                        fill={index % 2 === 0 ? entry.fill : "var(--chart-2)"}
+                        key={entry.status}
+                      />
+                    ))}
+                  </Pie>
+                </PieChart>
+              </ChartContainer>
+            </ClientOnly>
             <div className="flex flex-col gap-2">
               {data.map((row) => (
                 <div className="flex items-center justify-between gap-3 text-sm" key={row.status}>

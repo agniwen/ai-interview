@@ -1,6 +1,7 @@
 import { HydrationBoundary, dehydrate, useQueryClient } from "@tanstack/react-query";
 import type { DehydratedState } from "@tanstack/react-query";
 import {
+  ClientOnly,
   createFileRoute,
   notFound,
   redirect,
@@ -33,6 +34,7 @@ import { FileTextIcon, PlusIcon } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   actionsColumn,
   customColumn,
@@ -277,7 +279,9 @@ function JobDescriptionManagementPage({
           title="在招岗位"
         />
 
-        <JobDescriptionCharts metrics={metrics} />
+        <ClientOnly fallback={<Skeleton className="h-80 w-full" />}>
+          <JobDescriptionCharts metrics={metrics} />
+        </ClientOnly>
 
         <DataGrid<JobDescriptionListRecord>
           {...grid.bind}
