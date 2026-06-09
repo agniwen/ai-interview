@@ -19,7 +19,8 @@ interface ParseDataGridSearchParamsOptions<F extends Record<string, string>> {
   maxPageSize?: number;
 }
 
-type SearchParamsValue = string | string[] | undefined;
+type SearchParamsPrimitive = boolean | number | string;
+type SearchParamsValue = SearchParamsPrimitive | SearchParamsPrimitive[] | undefined;
 type SearchParamsRecord = Record<string, SearchParamsValue>;
 const DEFAULT_PAGE_SIZE = 10;
 const DEFAULT_MAX_PAGE_SIZE = 100;
@@ -27,9 +28,10 @@ const STRICT_DECIMAL_INTEGER_PATTERN = /^[1-9]\d*$/;
 
 function firstParam(value: SearchParamsValue): string | undefined {
   if (Array.isArray(value)) {
-    return value[0];
+    const [first] = value;
+    return first === undefined ? undefined : String(first);
   }
-  return value;
+  return value === undefined ? undefined : String(value);
 }
 
 export function parseStrictPositiveInteger(value: string | undefined, fallback: number): number {

@@ -1,7 +1,7 @@
 import { useState } from "react";
 
 // 用于在 Modal / Drawer 等局部弹窗里管理 page/pageSize state，
-// 不参与 URL 同步（避免和外层 useDataGridState 的 nuqs key 冲突）。
+// 不参与 URL 同步（避免和外层 useDataGridState 的裸 query key 冲突）。
 // setPageSize 会自动把 page 拉回 1，与 DataGrid 的 onPageSizeChange 语义对齐。
 //
 // Local page/pageSize state for modals/drawers that intentionally stay out of

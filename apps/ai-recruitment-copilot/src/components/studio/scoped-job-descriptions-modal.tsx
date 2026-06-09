@@ -5,7 +5,7 @@
 // scope 可以是某位面试官（看哪些 JD 引用了他）或某个部门（看部门下的 JD）。
 // 两种 scope 共用同一份表格列结构和删除流程，仅 title / query 维度不同。
 //
-// 主表 page-state 走 nuqs URL 同步；这里 Modal 内部如果再用 useDataGridState
+// 主表 page-state 走路由 URL 同步；这里 Modal 内部如果再用 useDataGridState
 // 会跟主表 URL key 冲突（page/pageSize/search 都是裸 key），所以这里改用本地
 // useState + useQuery 自管 state。
 //

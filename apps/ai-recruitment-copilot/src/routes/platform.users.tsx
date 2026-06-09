@@ -15,7 +15,11 @@ import { emptyFiltersSchema, platformDataGridInputSchema } from "@/lib/start/ser
 const INITIAL_PAGE_SIZE = 10;
 
 type EmptyFilters = Record<string, never>;
-type SearchParamsRecord = Record<string, string | string[] | undefined>;
+type SearchParamsPrimitive = boolean | number | string;
+type SearchParamsRecord = Record<
+  string,
+  SearchParamsPrimitive | SearchParamsPrimitive[] | undefined
+>;
 type JsonValue = boolean | number | string | null | JsonValue[] | { [key: string]: JsonValue };
 type UserSortColumn = "name" | "email" | "role" | "createdAt" | "lastActiveAt";
 type PlatformUsersState =
@@ -33,8 +37,15 @@ function coerceSearchParams(search: Record<string, unknown>): SearchParamsRecord
       out[key] = value;
       continue;
     }
+    if (typeof value === "number" || typeof value === "boolean") {
+      out[key] = value;
+      continue;
+    }
     if (Array.isArray(value)) {
-      out[key] = value.filter((item): item is string => typeof item === "string");
+      out[key] = value.filter(
+        (item): item is boolean | number | string =>
+          typeof item === "string" || typeof item === "number" || typeof item === "boolean",
+      );
     }
   }
   return out;
@@ -197,11 +208,12 @@ export const Route = createFileRoute("/platform/users")({
     meta: [{ title: "平台 · 所有用户" }],
   }),
   loader: async (loaderContext) => {
-    const { deps } = loaderContext as unknown as {
-      deps: { query: DataGridQueryState<EmptyFilters> };
+    const { location } = loaderContext as unknown as {
+      location: { search: SearchParamsRecord };
     };
+    const query = parsePlatformUsersQuery(location.search);
     const state = (await loadPlatformUsersState({
-      data: { query: deps.query },
+      data: { query },
     })) as PlatformUsersState;
     if (state.status === "unauthenticated") {
       throw redirect({ href: "/login" });
@@ -211,8 +223,6 @@ export const Route = createFileRoute("/platform/users")({
     }
     return state;
   },
-  loaderDeps: ({ search }) => ({
-    query: parsePlatformUsersQuery(search as SearchParamsRecord),
-  }),
+  shouldReload: false,
   validateSearch: (search: Record<string, unknown>) => coerceSearchParams(search),
 });

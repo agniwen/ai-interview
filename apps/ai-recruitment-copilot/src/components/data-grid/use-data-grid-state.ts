@@ -2,8 +2,8 @@
 
 import type { OnChangeFn, RowSelectionState, SortingState } from "@tanstack/react-table";
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
-import { createParser, parseAsString, useQueryState } from "nuqs";
-import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter, useRouterState } from "@tanstack/react-router";
+import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import {
   buildDataGridQueryKey,
   normalizeDataGridQueryState,
@@ -45,79 +45,138 @@ function getInitialSortOrder(first: SortingState[number] | undefined): string {
   return first.desc === true ? "desc" : "asc";
 }
 
-const parseAsStrictPositiveInteger = createParser({
-  parse: (value) => {
-    const parsed = parseStrictPositiveInteger(value, Number.NaN);
-    return Number.isNaN(parsed) ? null : parsed;
-  },
-  serialize: String,
-});
+export function buildDataGridFilterResetSignature<F extends Record<string, string>>({
+  filters,
+  filterKeys,
+  search,
+}: {
+  filters: F;
+  filterKeys: readonly (keyof F & string)[];
+  search: string;
+}) {
+  return JSON.stringify({
+    filters: filterKeys.map((key) => [key, filters[key]]),
+    search: search.trim(),
+  });
+}
+
+function firstSearchValue(value: unknown): string | undefined {
+  if (typeof value === "string") {
+    return value;
+  }
+  if (typeof value === "number" || typeof value === "boolean") {
+    return String(value);
+  }
+  if (Array.isArray(value) && typeof value[0] === "string") {
+    return value[0];
+  }
+  if (Array.isArray(value) && (typeof value[0] === "number" || typeof value[0] === "boolean")) {
+    return String(value[0]);
+  }
+  return undefined;
+}
 
 export function useDataGridState<TData, F extends Record<string, string>>(
   opts: UseDataGridStateOptions<TData, F>,
 ) {
+  const router = useRouter();
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
+  const routeSearch = useRouterState({
+    select: (state) => state.location.search as Record<string, unknown>,
+  });
   const queryClient = useQueryClient();
   const defaultPageSize = opts.defaultPageSize ?? 10;
 
-  const [page, setPageRaw] = useQueryState("page", parseAsStrictPositiveInteger.withDefault(1));
-  const [pageSize, setPageSizeRaw] = useQueryState(
-    "pageSize",
-    parseAsStrictPositiveInteger.withDefault(defaultPageSize),
+  const page = parseStrictPositiveInteger(firstSearchValue(routeSearch.page), 1);
+  const pageSize = parseStrictPositiveInteger(
+    firstSearchValue(routeSearch.pageSize),
+    defaultPageSize,
   );
-  const [search, setSearchRaw] = useQueryState("search", parseAsString.withDefault(""));
+  const search = firstSearchValue(routeSearch.search) ?? "";
   const deferredSearch = useDeferredValue(search);
 
-  // Multi-key filter state via nuqs (each filter gets its own URL key).
-  // filterKeys order is locked at mount via useMemo([]) so the hook order in the
-  // .map below stays stable across renders — that is the React rule that matters.
+  // Multi-key filter state via route search (each filter gets its own URL key).
   // oxlint-disable-next-line eslint-plugin-react-hooks/exhaustive-deps -- intentional: filterKeys locked at mount
   const filterKeys = useMemo(() => Object.keys(opts.initialFilters) as (keyof F & string)[], []);
-  const filterStates = filterKeys.map((key) =>
-    // oxlint-disable-next-line eslint-plugin-react-hooks/rules-of-hooks -- hook count stable (filterKeys locked at mount)
-    useQueryState(key, parseAsString.withDefault(opts.initialFilters[key])),
-  );
   const filters = useMemo(() => {
     const out = {} as F;
-    let idx = 0;
     for (const key of filterKeys) {
-      out[key] = filterStates[idx][0] as F[typeof key];
-      idx += 1;
+      out[key] = (firstSearchValue(routeSearch[key]) ?? opts.initialFilters[key]) as F[typeof key];
     }
     return out;
-    // oxlint-disable-next-line eslint-plugin-react-hooks/exhaustive-deps -- filterStates spread intentional
-  }, [filterKeys, ...filterStates.map((s) => s[0])]);
-  const setFilter = (key: keyof F & string, value: string) => {
-    const idx = filterKeys.indexOf(key);
-    if (idx !== -1) {
-      void filterStates[idx][1](value);
-    }
-  };
+  }, [filterKeys, opts.initialFilters, routeSearch]);
 
   const initialSortFirst = opts.defaultSorting?.[0];
   const fallbackSortBy = initialSortFirst?.id;
   const fallbackSortOrder = initialSortFirst
     ? (getInitialSortOrder(initialSortFirst) as DataGridSortOrder)
     : undefined;
-  const [sortBy, setSortByRaw] = useQueryState(
-    "sortBy",
-    parseAsString.withDefault(fallbackSortBy ?? ""),
-  );
-  const [sortOrder, setSortOrderRaw] = useQueryState(
-    "sortOrder",
-    parseAsString.withDefault(getInitialSortOrder(initialSortFirst)),
-  );
+  const sortBy = firstSearchValue(routeSearch.sortBy) ?? fallbackSortBy ?? "";
+  const sortOrder =
+    firstSearchValue(routeSearch.sortOrder) ?? getInitialSortOrder(initialSortFirst);
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
 
-  const lastFilterSig = useRef<string>(JSON.stringify({ filters, search: deferredSearch.trim() }));
+  const updateRouteSearch = useCallback(
+    (updates: Record<string, number | string | undefined>) => {
+      void router.navigate({
+        replace: true,
+        resetScroll: false,
+        search: (prev: Record<string, unknown>) => {
+          const nextSearch: Record<string, unknown> = Object.fromEntries(
+            Object.entries(prev).filter(
+              ([key]) => !(Object.hasOwn(updates, key) && updates[key] === undefined),
+            ),
+          );
+          for (const [key, value] of Object.entries(updates)) {
+            if (value !== undefined) {
+              nextSearch[key] = value;
+            }
+          }
+          return nextSearch;
+        },
+        to: pathname,
+      } as never);
+    },
+    [pathname, router],
+  );
+
+  const setPageRaw = useCallback(
+    (value: number) => updateRouteSearch({ page: value }),
+    [updateRouteSearch],
+  );
+  const setPageSizeRaw = useCallback(
+    (value: number) => updateRouteSearch({ pageSize: value }),
+    [updateRouteSearch],
+  );
+  const setSearchRaw = useCallback(
+    (value: string) => updateRouteSearch({ search: value || undefined }),
+    [updateRouteSearch],
+  );
+  const setFilter = useCallback(
+    (key: keyof F & string, value: string) => updateRouteSearch({ [key]: value || undefined }),
+    [updateRouteSearch],
+  );
+  const updateRouteSearchAndResetPage = useCallback(
+    (updates: Record<string, string | undefined>) => {
+      updateRouteSearch({ ...updates, page: 1 });
+    },
+    [updateRouteSearch],
+  );
+
+  const filterResetSig = buildDataGridFilterResetSignature({
+    filterKeys,
+    filters,
+    search: deferredSearch,
+  });
+  const lastFilterSig = useRef<string>(filterResetSig);
   useEffect(() => {
-    const sig = JSON.stringify({ filters, search: deferredSearch.trim() });
-    if (sig !== lastFilterSig.current) {
-      lastFilterSig.current = sig;
+    if (filterResetSig !== lastFilterSig.current) {
+      lastFilterSig.current = filterResetSig;
       if (page !== 1) {
-        void setPageRaw(1);
+        setPageRaw(1);
       }
     }
-  }, [filters, deferredSearch, page, setPageRaw]);
+  }, [filterResetSig, page, setPageRaw]);
 
   const queryParams = useMemo(
     () =>
@@ -163,13 +222,14 @@ export function useDataGridState<TData, F extends Record<string, string>>(
   const onSortingChange: OnChangeFn<SortingState> = (updater) => {
     const next = typeof updater === "function" ? updater(sorting) : updater;
     const [head] = next;
-    void setSortByRaw(head?.id ?? "");
     let nextOrder = "";
     if (head) {
       nextOrder = head.desc === true ? "desc" : "asc";
     }
-    void setSortOrderRaw(nextOrder);
-    void setPageRaw(1);
+    updateRouteSearchAndResetPage({
+      sortBy: head?.id || undefined,
+      sortOrder: nextOrder || undefined,
+    });
   };
 
   const queryKey = useMemo(
@@ -198,10 +258,9 @@ export function useDataGridState<TData, F extends Record<string, string>>(
   }
 
   const pagination = {
-    onPageChange: (p: number) => void setPageRaw(p),
+    onPageChange: (p: number) => setPageRaw(p),
     onPageSizeChange: (s: number) => {
-      void setPageSizeRaw(s);
-      void setPageRaw(1);
+      updateRouteSearch({ page: 1, pageSize: s });
     },
     page: queryParams.page,
     pageSize: queryParams.pageSize,
@@ -217,10 +276,10 @@ export function useDataGridState<TData, F extends Record<string, string>>(
 
   const onFilterChange = (key: string, value: string) => {
     if (key === "search") {
-      void setSearchRaw(value);
+      updateRouteSearchAndResetPage({ search: value || undefined });
       return;
     }
-    setFilter(key as keyof F & string, value);
+    updateRouteSearchAndResetPage({ [key]: value || undefined });
   };
 
   // 是否处于"非默认"过滤状态（用于决定 reset 按钮的 disabled 态）。
@@ -229,11 +288,11 @@ export function useDataGridState<TData, F extends Record<string, string>>(
     search.trim() !== "" || filterKeys.some((k) => filters[k] !== opts.initialFilters[k]);
 
   const onResetFilters = () => {
-    void setSearchRaw("");
+    const updates: Record<string, number | string | undefined> = { page: 1, search: undefined };
     for (const key of filterKeys) {
-      setFilter(key, opts.initialFilters[key]);
+      updates[key] = opts.initialFilters[key] || undefined;
     }
-    void setPageRaw(1);
+    updateRouteSearch(updates);
   };
 
   const bind = {
@@ -268,10 +327,10 @@ export function useDataGridState<TData, F extends Record<string, string>>(
     rowSelection,
     search,
     setFilter,
-    setPage: (p: number) => void setPageRaw(p),
-    setPageSize: (s: number) => void setPageSizeRaw(s),
+    setPage: setPageRaw,
+    setPageSize: setPageSizeRaw,
     setRowSelection,
-    setSearch: (v: string) => void setSearchRaw(v),
+    setSearch: setSearchRaw,
     setSorting: onSortingChange,
     sorting,
   };

@@ -739,7 +739,11 @@ const interviewFiltersSchema = z.object({
   status: z.string(),
 });
 
-type SearchParamsRecord = Record<string, string | string[] | undefined>;
+type SearchParamsPrimitive = boolean | number | string;
+type SearchParamsRecord = Record<
+  string,
+  SearchParamsPrimitive | SearchParamsPrimitive[] | undefined
+>;
 type JsonValue = boolean | number | string | null | JsonValue[] | { [key: string]: JsonValue };
 type StudioInterviewsServerState =
   | { status: "unauthenticated" }
@@ -763,8 +767,15 @@ function coerceSearchParams(search: Record<string, unknown>): SearchParamsRecord
       out[key] = value;
       continue;
     }
+    if (typeof value === "number" || typeof value === "boolean") {
+      out[key] = value;
+      continue;
+    }
     if (Array.isArray(value)) {
-      out[key] = value.filter((item): item is string => typeof item === "string");
+      out[key] = value.filter(
+        (item): item is boolean | number | string =>
+          typeof item === "string" || typeof item === "number" || typeof item === "boolean",
+      );
     }
   }
   return out;
@@ -849,13 +860,13 @@ export const Route = createFileRoute("/w/$slug/studio/interviews")({
     meta: [{ title: "AI 面试" }],
   }),
   loader: async (loaderContext) => {
-    const { deps, location, params } = loaderContext as unknown as {
-      deps: { query: DataGridQueryState<InterviewFilters> };
-      location: { pathname: string };
+    const { location, params } = loaderContext as unknown as {
+      location: { pathname: string; search: SearchParamsRecord };
       params: { slug: string };
     };
+    const query = parseInterviewQuery(location.search);
     const state = (await loadStudioInterviewsState({
-      data: { query: deps.query, slug: params.slug },
+      data: { query, slug: params.slug },
     })) as StudioInterviewsState;
     if (state.status === "unauthenticated") {
       throw redirect({
@@ -870,8 +881,6 @@ export const Route = createFileRoute("/w/$slug/studio/interviews")({
       isListRoute: location.pathname === `/w/${params.slug}/studio/interviews`,
     };
   },
-  loaderDeps: ({ search }) => ({
-    query: parseInterviewQuery(search as SearchParamsRecord),
-  }),
+  shouldReload: false,
   validateSearch: (search: Record<string, unknown>) => coerceSearchParams(search),
 });

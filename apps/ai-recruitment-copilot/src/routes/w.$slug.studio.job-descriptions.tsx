@@ -381,7 +381,11 @@ const jobDescriptionFiltersSchema = z.object({
   interviewerId: z.string(),
 });
 
-type SearchParamsRecord = Record<string, string | string[] | undefined>;
+type SearchParamsPrimitive = boolean | number | string;
+type SearchParamsRecord = Record<
+  string,
+  SearchParamsPrimitive | SearchParamsPrimitive[] | undefined
+>;
 type JsonValue = boolean | number | string | null | JsonValue[] | { [key: string]: JsonValue };
 type StudioJobDescriptionsState =
   | { status: "unauthenticated" }
@@ -401,8 +405,15 @@ function coerceSearchParams(search: Record<string, unknown>): SearchParamsRecord
       out[key] = value;
       continue;
     }
+    if (typeof value === "number" || typeof value === "boolean") {
+      out[key] = value;
+      continue;
+    }
     if (Array.isArray(value)) {
-      out[key] = value.filter((item): item is string => typeof item === "string");
+      out[key] = value.filter(
+        (item): item is boolean | number | string =>
+          typeof item === "string" || typeof item === "number" || typeof item === "boolean",
+      );
     }
   }
   return out;
@@ -493,12 +504,13 @@ export const Route = createFileRoute("/w/$slug/studio/job-descriptions")({
     meta: [{ title: "在招岗位管理" }],
   }),
   loader: async (loaderContext) => {
-    const { deps, params } = loaderContext as unknown as {
-      deps: { query: DataGridQueryState<JobDescriptionFilters> };
+    const { location, params } = loaderContext as unknown as {
+      location: { search: SearchParamsRecord };
       params: { slug: string };
     };
+    const query = parseJobDescriptionQuery(location.search);
     const state = (await loadStudioJobDescriptionsState({
-      data: { query: deps.query, slug: params.slug },
+      data: { query, slug: params.slug },
     })) as StudioJobDescriptionsState;
     if (state.status === "unauthenticated") {
       throw redirect({
@@ -512,8 +524,6 @@ export const Route = createFileRoute("/w/$slug/studio/job-descriptions")({
     }
     return state;
   },
-  loaderDeps: ({ search }) => ({
-    query: parseJobDescriptionQuery(search as SearchParamsRecord),
-  }),
+  shouldReload: false,
   validateSearch: (search: Record<string, unknown>) => coerceSearchParams(search),
 });

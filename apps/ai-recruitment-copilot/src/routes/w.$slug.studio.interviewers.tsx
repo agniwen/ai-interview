@@ -317,7 +317,11 @@ function InterviewerManagementPage({ departments }: { departments: DepartmentRec
 }
 
 type EmptyFilters = Record<string, never>;
-type SearchParamsRecord = Record<string, string | string[] | undefined>;
+type SearchParamsPrimitive = boolean | number | string;
+type SearchParamsRecord = Record<
+  string,
+  SearchParamsPrimitive | SearchParamsPrimitive[] | undefined
+>;
 type JsonValue = boolean | number | string | null | JsonValue[] | { [key: string]: JsonValue };
 type StudioInterviewersState =
   | { status: "unauthenticated" }
@@ -335,8 +339,15 @@ function coerceSearchParams(search: Record<string, unknown>): SearchParamsRecord
       out[key] = value;
       continue;
     }
+    if (typeof value === "number" || typeof value === "boolean") {
+      out[key] = value;
+      continue;
+    }
     if (Array.isArray(value)) {
-      out[key] = value.filter((item): item is string => typeof item === "string");
+      out[key] = value.filter(
+        (item): item is boolean | number | string =>
+          typeof item === "string" || typeof item === "number" || typeof item === "boolean",
+      );
     }
   }
   return out;
@@ -411,12 +422,13 @@ export const Route = createFileRoute("/w/$slug/studio/interviewers")({
     meta: [{ title: "面试官管理" }],
   }),
   loader: async (loaderContext) => {
-    const { deps, params } = loaderContext as unknown as {
-      deps: { query: DataGridQueryState<EmptyFilters> };
+    const { location, params } = loaderContext as unknown as {
+      location: { search: SearchParamsRecord };
       params: { slug: string };
     };
+    const query = parseInterviewerQuery(location.search);
     const state = (await loadStudioInterviewersState({
-      data: { query: deps.query, slug: params.slug },
+      data: { query, slug: params.slug },
     })) as StudioInterviewersState;
     if (state.status === "unauthenticated") {
       throw redirect({
@@ -428,8 +440,6 @@ export const Route = createFileRoute("/w/$slug/studio/interviewers")({
     }
     return state;
   },
-  loaderDeps: ({ search }) => ({
-    query: parseInterviewerQuery(search as SearchParamsRecord),
-  }),
+  shouldReload: false,
   validateSearch: (search: Record<string, unknown>) => coerceSearchParams(search),
 });

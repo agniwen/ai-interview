@@ -6,7 +6,6 @@ import {
   createRootRouteWithContext,
   useRouter,
 } from "@tanstack/react-router";
-import { NuqsAdapter } from "nuqs/adapters/tanstack-router";
 import "../styles/globals.css";
 import "overlayscrollbars/overlayscrollbars.css";
 import { NotFoundPage } from "@/components/layout/not-found-view";
@@ -48,14 +47,12 @@ function RootComponent() {
   return (
     <RootDocument>
       <ThemeProvider attribute="class" defaultTheme="system" disableTransitionOnChange enableSystem>
-        <NuqsAdapter>
-          <QueryProvider queryClient={queryClient}>
-            <TooltipProvider>
-              <Outlet />
-              <Toaster />
-            </TooltipProvider>
-          </QueryProvider>
-        </NuqsAdapter>
+        <QueryProvider queryClient={queryClient}>
+          <TooltipProvider>
+            <Outlet />
+            <Toaster />
+          </TooltipProvider>
+        </QueryProvider>
       </ThemeProvider>
     </RootDocument>
   );
