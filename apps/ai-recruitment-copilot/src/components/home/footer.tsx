@@ -1,5 +1,6 @@
 // 用途：极简页脚
 // Purpose: Minimal footer.
+import { Link } from "@tanstack/react-router";
 import { Separator } from "@/components/ui/separator";
 
 const COPYRIGHT_YEAR = 2026;
@@ -11,12 +12,12 @@ export function HomeFooter() {
       <div className="flex flex-col items-center justify-between gap-4 text-foreground/70 text-xs sm:flex-row sm:text-sm">
         <p>© {COPYRIGHT_YEAR} AI Recruitment Copilot</p>
         <nav className="flex items-center gap-5">
-          <a className="transition-colors hover:text-foreground" href="/">
+          <Link className="transition-colors hover:text-foreground" to="/">
             产品
-          </a>
-          <a className="transition-colors hover:text-foreground" href="/login">
+          </Link>
+          <Link className="transition-colors hover:text-foreground" to="/login">
             登录
-          </a>
+          </Link>
         </nav>
       </div>
     </footer>

@@ -346,10 +346,6 @@ function ChatSidebarBody({
             <div
               className={cn(
                 "group/session-item flex cursor-default items-center gap-1 rounded-lg border border-transparent px-1 py-1 transition-colors",
-                // ring-inset：focus 指示器画在元素内部，sidebar 边缘不会再裁掉它。
-                // ring-inset keeps the focus indicator inside the wrapper so the
-                // sidebar's edge can't clip it.
-                // "focus-within:ring-2 focus-within:ring-sidebar-ring focus-within:ring-inset",
                 isActive && !editMode
                   ? "border-sidebar-border/40 bg-sidebar-accent"
                   : "hover:bg-sidebar-accent/60",
