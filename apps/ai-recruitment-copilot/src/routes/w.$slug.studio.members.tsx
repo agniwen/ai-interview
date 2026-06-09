@@ -68,15 +68,22 @@ const ROLE_BADGE_VARIANT: Record<WorkspaceRole, "default" | "secondary" | "outli
   admin: "default",
   hr: "secondary",
   owner: "default",
+  recruitingLead: "secondary",
+  recruitingSupervisor: "secondary",
   viewer: "outline",
 };
 
-// admin 在工作区里只能把成员设置为这两个角色之一（hr / viewer）；
-// owner 可以设置全部 ASSIGNABLE_ROLES（admin/hr/viewer）。
+// admin 在工作区里只能把成员设置为非管理角色；
+// owner 可以设置全部 ASSIGNABLE_ROLES。
 // owner 角色的转让由 better-auth 内置的 transferOwnership 流程处理，
 // 不在 ASSIGNABLE_ROLES 范围。
-// Admins can assign only hr/viewer; owners get the full ASSIGNABLE_ROLES set.
-const ADMIN_ASSIGNABLE_ROLES = ["hr", "viewer"] as const satisfies readonly WorkspaceRole[];
+// Admins can assign only non-admin roles; owners get the full ASSIGNABLE_ROLES set.
+const ADMIN_ASSIGNABLE_ROLES = [
+  "recruitingSupervisor",
+  "recruitingLead",
+  "hr",
+  "viewer",
+] as const satisfies readonly WorkspaceRole[];
 
 function MembersManagementPage() {
   const slug = useWorkspaceSlug();
@@ -169,7 +176,7 @@ function MembersManagementPage() {
     setPending(memberId);
     const { error } = await authClient.organization.updateMemberRole({
       memberId,
-      role: role as "owner" | "admin" | "hr" | "viewer",
+      role: role as "owner" | "admin" | "recruitingSupervisor" | "recruitingLead" | "hr" | "viewer",
     });
     setPending(null);
     if (error) {
@@ -222,7 +229,7 @@ function MembersManagementPage() {
       customColumn<MemberRow>({
         cell: (r) => {
           // 渲染为只读 Badge 的几种情况：
-          //   1. 当前用户没有 member.update 权限（hr / viewer）。
+          //   1. 当前用户没有 member.update 权限（非管理角色）。
           //   2. 这一行是 owner—— owner 的角色不在本表单处理（走 transferOwnership）。
           //   3. 当前用户是 admin 且这一行是自己——admin 不能改自己的角色。
           //   4. 当前用户是 admin 且这一行是另一个 admin——admin 不能改其他 admin。
@@ -327,7 +334,7 @@ function MembersManagementPage() {
               </EmptyMedia>
               <EmptyTitle>暂无成员</EmptyTitle>
               <EmptyDescription>
-                邀请同事加入这个工作区，按角色分配管理员、招聘成员或只读成员权限。
+                邀请同事加入这个工作区，按角色分配管理员、招聘主管、招聘组长、招聘成员或只读成员权限。
               </EmptyDescription>
             </EmptyHeader>
             <EmptyContent>

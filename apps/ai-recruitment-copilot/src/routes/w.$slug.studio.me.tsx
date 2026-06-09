@@ -24,6 +24,8 @@ const ROLE_BADGE_VARIANT: Record<WorkspaceRole, "default" | "secondary" | "outli
   admin: "default",
   hr: "secondary",
   owner: "default",
+  recruitingLead: "secondary",
+  recruitingSupervisor: "secondary",
   viewer: "outline",
 };
 
