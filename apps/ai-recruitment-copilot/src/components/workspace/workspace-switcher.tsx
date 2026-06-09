@@ -98,11 +98,15 @@ export function WorkspaceSwitcher() {
                   setSwitching(true);
                   void (async () => {
                     try {
-                      await authClient.organization.setActive({ organizationId: o.id });
-                    } catch (error) {
-                      console.error("[workspace-switch] setActive failed", error);
+                      try {
+                        await authClient.organization.setActive({ organizationId: o.id });
+                      } catch (error) {
+                        console.error("[workspace-switch] setActive failed", error);
+                      }
+                      await navigate({ href: resolveSwitchTarget(pathname, o.slug) });
+                    } finally {
+                      setSwitching(false);
                     }
-                    await navigate({ href: resolveSwitchTarget(pathname, o.slug) });
                   })();
                 }}
               >

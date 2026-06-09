@@ -55,6 +55,34 @@ describe("TanStack Start migration patterns", () => {
     );
   });
 
+  it("shows delayed pending UI during slow route transitions", () => {
+    const rootRoute = readSource("src/routes/__root.tsx");
+    const router = readSource("src/router.tsx");
+    const pendingView = readSource("src/components/layout/route-pending-view.tsx");
+    const globalsCss = readSource("src/styles/globals.css");
+
+    expect(router).toContain("defaultPendingComponent:");
+    expect(router).toContain("defaultPendingMs: 350");
+    expect(router).toContain("defaultPendingMinMs: 300");
+    expect(rootRoute).toContain("useRouterState");
+    expect(rootRoute).toContain("state.isLoading || state.isTransitioning");
+    expect(rootRoute).toContain("opacity-70");
+    expect(rootRoute).not.toContain("pointer-events-none opacity-70");
+    expect(pendingView).toContain("正在加载");
+    expect(globalsCss).toContain("@keyframes route-pending");
+  });
+
+  it("does not leave the workspace switcher disabled after navigation", () => {
+    const workspaceSwitcher = readSource("src/components/workspace/workspace-switcher.tsx");
+
+    expect(workspaceSwitcher).toContain("setSwitching(true)");
+    expect(workspaceSwitcher).toContain("finally");
+    expect(workspaceSwitcher).toContain("setSwitching(false)");
+    expect(workspaceSwitcher.indexOf("await navigate")).toBeLessThan(
+      workspaceSwitcher.indexOf("setSwitching(false)"),
+    );
+  });
+
   it("configures TanStack Start to prerender the public home page", () => {
     const viteConfig = readSource("vite.config.ts");
 
@@ -115,6 +143,41 @@ describe("TanStack Start migration patterns", () => {
 
     expect(authSessionServer).not.toContain('from "./auth-session"');
     expect(authSessionServer).toContain('from "@/lib/start/auth-session-types"');
+  });
+
+  it("authorizes protected server functions at the data boundary", () => {
+    const workspaceRouteFiles = [
+      "src/routes/w.$slug.studio.dashboard.tsx",
+      "src/routes/w.$slug.studio.departments.tsx",
+      "src/routes/w.$slug.studio.forms.tsx",
+      "src/routes/w.$slug.studio.global-config.tsx",
+      "src/routes/w.$slug.studio.interview-questions.tsx",
+      "src/routes/w.$slug.studio.interviewers.tsx",
+      "src/routes/w.$slug.studio.interviews.tsx",
+      "src/routes/w.$slug.studio.job-descriptions.tsx",
+      "src/routes/w.$slug.studio.resumes.tsx",
+    ];
+    const platformRouteFiles = [
+      "src/routes/platform.analytics.tsx",
+      "src/routes/platform.organizations.tsx",
+      "src/routes/platform.users.tsx",
+    ];
+
+    for (const file of workspaceRouteFiles) {
+      const source = readSource(file);
+
+      expect(source).toContain("createServerFn");
+      expect(source).toContain("resolveWorkspaceAccessFromRequest");
+      expect(source).toContain('access.status !== "ready"');
+    }
+
+    for (const file of platformRouteFiles) {
+      const source = readSource(file);
+
+      expect(source).toContain("createServerFn");
+      expect(source).toContain("getPlatformAdminStateFromRequest");
+      expect(source).toContain('adminState.status !== "ready"');
+    }
   });
 
   it("handles notFound at the root instead of rendering inside layout routes", () => {

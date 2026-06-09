@@ -1,31 +1,38 @@
 # AI Recruitment Copilot
 
-AI-powered voice interview and resume screening platform. Chinese-first locale —
+AI-powered voice interview and resume screening platform. Chinese-first locale:
 agent instructions, system prompts, and interview flows are written in
 Simplified Chinese.
 
 ## Architecture
 
-Two runtimes share this repo:
+- **Web app** (`apps/ai-recruitment-copilot/`): TanStack Start + React 19,
+  TanStack Router, TanStack Query, Better Auth client, shadcn/ui, Tailwind CSS
+  v4, and Vite/Nitro output. It owns the browser UI, route loaders, server
+  functions, SSR/SSG, and the mounted Hono API adapter.
+- **Backend app** (`apps/ai-recruitment-copilot-backend/`): Hono API runtime,
+  Drizzle ORM, PostgreSQL, Better Auth, object storage, email, analytics
+  queries, and server-side AI utilities. It can be mounted by the web app at
+  `/api` or started as a standalone Node service.
+- **Resume worker** (`apps/ai-recruitment-copilot-worker/`): asynchronous resume
+  parsing worker for queued PDF/OCR processing.
+- **Voice agent** (`apps/livekit-agent/`): Python LiveKit Agents SDK with OpenAI,
+  Google, ElevenLabs, Minimax, Silero VAD, and turn detector plugins.
+- **Shared packages** (`packages/`): `@arc/shared`, `@arc/db-schema`,
+  `@arc/adapter-feishu`, and `@arc/resume-parse-queue`.
 
-- **Web app** (`src/`) — Next.js 16 (App Router) + React 19, Hono API routes,
-  Drizzle ORM on PostgreSQL, Better Auth, shadcn/ui + Tailwind v4. Handles auth,
-  workspace/org management, resume upload/parsing, the chat-based screening
-  flow, and the interview console.
-- **Voice agent** (`agent/`) — Python LiveKit Agents SDK with Silero VAD,
-  turn-detector, ElevenLabs / Google / OpenAI / Minimax plugins. Joins a
-  LiveKit room and conducts the live interview.
+Two package managers are used: **pnpm** for TypeScript apps/packages and **uv**
+for the Python agent. Do not mix them.
 
-Two package managers: **pnpm** for the web app, **uv** for the Python agent.
-They are kept strictly separate.
-
-## Quick start
+## Quick Start
 
 ```bash
-make install   # pnpm install + uv sync + Silero/turn-detector model download
-cp .env.example .env  # then fill in values — see comments inside the file
+make install
+cp apps/ai-recruitment-copilot/.env.example apps/ai-recruitment-copilot/.env
+cp apps/ai-recruitment-copilot-backend/.env.example apps/ai-recruitment-copilot-backend/.env
+cp apps/livekit-agent/.env.example apps/livekit-agent/.env
 pnpm db:migrate
-make dev       # parallel: Next.js dev server + LiveKit agent worker
+make dev
 ```
 
 `make agent-console` runs an in-terminal chat against the agent without opening
@@ -33,170 +40,164 @@ a LiveKit room. `make help` lists every Make target.
 
 ## Configuration
 
-Two separate `.env` files — each runtime loads its own:
+Each runtime owns its own `.env` file:
 
-- `./.env` for the web app (Next.js reads via its built-in env loader)
-- `./agent/.env` for the Python agent (loaded by `dotenv.load_dotenv()` from
-  `agent/src/agent.py`)
+- `apps/ai-recruitment-copilot/.env` for the TanStack Start web app.
+- `apps/ai-recruitment-copilot-backend/.env` for standalone Hono backend runs.
+- `apps/livekit-agent/.env` for the Python LiveKit agent.
 
-Each side has its own `.env.example` with bilingual inline comments. A handful
-of values (`LIVEKIT_*`, `CALLBACK_BASE_URL`, `AGENT_CALLBACK_SECRET`,
-`RECORDING_R2_*`) must be kept in lock-step across both files.
+Key requirements:
 
-Key requirements for the web `.env`:
-
-- **Database** — `DATABASE_URL` (Postgres connection string)
-- **Better Auth** — `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`,
-  `NEXT_PUBLIC_BASE_URL`, plus `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` for
-  OAuth
-- **LLM provider** — `ALIBABA_API_KEY` (DashScope; Qwen for chat + OCR,
-  DeepSeek V4 for ranking)
-- **AI Gateway** — `AI_GATEWAY_API_KEY` (Vercel AI Gateway, used for the
-  interview evaluation step)
-- **LiveKit Cloud** — `LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`,
-  `AGENT_NAME` (must match the worker registered in `agent/src/agent.py`)
-- **Voice TTS/STT** — `ELEVENLABS_API_KEY`
-- **Object storage** — `S3_*` for general uploads (resume PDFs, attachments),
-  `RECORDING_R2_*` for LiveKit Egress interview recordings
-- **PostHog analytics (optional)** — frontend capture:
-  `NEXT_PUBLIC_ENABLE_POSTHOG=true`, `NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN`,
-  `NEXT_PUBLIC_POSTHOG_HOST`; platform dashboard server query:
+- **Database**: `DATABASE_URL`
+- **Better Auth**: `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`,
+  `NEXT_PUBLIC_BASE_URL`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`
+- **LLM providers**: `OPENAI_API_KEY`, `GOOGLE_GENERATIVE_AI_API_KEY`,
+  `ALIBABA_API_KEY`, `AI_GATEWAY_API_KEY`
+- **Voice providers**: `ELEVENLABS_API_KEY`, `MINIMAX_API_KEY`
+- **LiveKit Cloud**: `LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`,
+  `AGENT_NAME`, `NEXT_PUBLIC_AGENT_NAME`
+- **Object storage**: `S3_*` for uploads and `RECORDING_R2_*` for recordings
+- **PostHog analytics (optional)**: `NEXT_PUBLIC_ENABLE_POSTHOG`,
+  `NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN`, `NEXT_PUBLIC_POSTHOG_HOST`,
   `POSTHOG_PERSONAL_API_KEY`, `POSTHOG_PROJECT_ID`, `POSTHOG_API_HOST`
-- **Optional integrations** — `FEISHU_*` for the Feishu bot adapter
+- **Optional integrations**: `FEISHU_*`, `RESEND_*`
 
-Refer to `.env.example` for the full list with per-variable explanations.
+The web app intentionally keeps the existing `NEXT_PUBLIC_*` variable names.
+Vite exposes them through `envPrefix: ["VITE_", "NEXT_PUBLIC_"]`, so client code
+reads them from `import.meta.env.NEXT_PUBLIC_*`.
 
-## Common commands
+## Common Commands
 
-### Web (run from repo root)
+### Root
 
-| Command                         | Purpose                                            |
-| ------------------------------- | -------------------------------------------------- |
-| `pnpm dev`                      | Next.js dev server                                 |
-| `pnpm build`                    | Production build (Next.js standalone output)       |
-| `pnpm typecheck`                | `tsc --noEmit`                                     |
-| `pnpm check` / `pnpm fix`       | Ultracite (oxlint + oxfmt) check / autofix         |
-| `pnpm test` / `pnpm test:watch` | Vitest                                             |
-| `pnpm db:generate`              | Generate a versioned migration from schema changes |
-| `pnpm db:migrate`               | Apply migrations                                   |
-| `pnpm db:studio`                | Drizzle Studio UI                                  |
-| `pnpm hooks`                    | Install lefthook git hooks (run once after clone)  |
+| Command                   | Purpose                                     |
+| ------------------------- | ------------------------------------------- |
+| `pnpm dev`                | Turbo dev across apps                       |
+| `pnpm build`              | Turbo production build                      |
+| `pnpm typecheck`          | Turbo TypeScript checks                     |
+| `pnpm test`               | Turbo tests                                 |
+| `pnpm check` / `pnpm fix` | Ultracite check / autofix                   |
+| `pnpm db:generate`        | Generate Drizzle migrations through web app |
+| `pnpm db:migrate`         | Apply Drizzle migrations through web app    |
+| `pnpm db:studio`          | Drizzle Studio                              |
+| `pnpm hooks`              | Install lefthook git hooks                  |
 
-### Agent (run from `agent/`)
+### Web
 
-| Command                                    | Purpose                                                                |
-| ------------------------------------------ | ---------------------------------------------------------------------- |
-| `uv sync`                                  | Install Python dependencies                                            |
-| `uv run src/agent.py download-files`       | Download Silero VAD + turn-detector models (required before first run) |
-| `uv run src/agent.py dev`                  | Dev mode with hot reload                                               |
-| `uv run src/agent.py console`              | Interactive terminal chat                                              |
-| `uv run pytest`                            | Run tests                                                              |
-| `uv run ruff format` / `uv run ruff check` | Format / lint                                                          |
-
-## Project layout
-
+```bash
+pnpm --filter @arc/ai-recruitment-copilot dev
+pnpm --filter @arc/ai-recruitment-copilot build
+pnpm --filter @arc/ai-recruitment-copilot typecheck
+pnpm --filter @arc/ai-recruitment-copilot test
 ```
-src/
-  app/                       Next.js App Router pages (auth, chat, interview, studio)
-  server/
-    routes/                  Hono route folders (route.ts + schema.ts + dao + utils)
-      chat/                  Conversation CRUD + message persistence
-      resume/                Resume upload, parsing, screening chat, JD suggestion
-      interview/             Live interview lifecycle and reports
-      studio/                Workspace-scoped studio (JDs, interviews, departments)
-      agent/                 Agent callbacks (events from the Python worker)
-      feishu/                Feishu bot adapter routes
-    agents/                  Shared AI SDK agent builders
-    middlewares/             Shared Hono middleware
-  lib/
-    server/                  Node-only (DB, auth, S3, OCR, server-only directives)
-    client/                  Browser-only (RPC client, auth-client, fetch helpers)
-    shared/                  Isomorphic types, Zod schemas, Drizzle schema/relations
-  components/                shadcn/ui + project-specific components
-agent/
-  src/                       Python LiveKit agent (entrypoint: src/agent.py)
-  tests/                     pytest suite for agent behaviour
+
+### Backend
+
+```bash
+pnpm --filter @arc/ai-recruitment-copilot-backend dev:standalone
+pnpm --filter @arc/ai-recruitment-copilot-backend start
+pnpm --filter @arc/ai-recruitment-copilot-backend typecheck
+pnpm --filter @arc/ai-recruitment-copilot-backend test
+```
+
+### Agent
+
+```bash
+cd apps/livekit-agent
+uv sync
+uv run src/agent.py download-files
+uv run src/agent.py dev
+uv run src/agent.py console
+uv run pytest
+uv run ruff format
+uv run ruff check
+```
+
+## Project Layout
+
+```text
+apps/
+  ai-recruitment-copilot/
+    src/routes/                 TanStack Router file routes
+    src/lib/start/              server functions and Start-only helpers
+    src/lib/client/             browser helpers, Hono RPC client, analytics
+    src/lib/server/             small web server helpers
+    src/components/             shadcn/ui + project components
+    src/server.ts               TanStack Start server entry
+    src/client.tsx              browser entry
+    vite.config.ts              TanStack Start / Vite / Nitro config
+  ai-recruitment-copilot-backend/
+    src/server/app.ts           Hono app factory
+    src/server/routes/          route folders with route.ts/schema.ts/dao
+    src/lib/server/             backend runtime helpers
+    src/index.ts                standalone Node entrypoint
+  ai-recruitment-copilot-worker/
+    src/                        async resume parsing worker
+  livekit-agent/
+    src/agent.py                Python LiveKit agent entrypoint
+    tests/                      pytest suite
 packages/
-  adapter-feishu/            Shared adapter package
+  shared/
+  db-schema/
+  adapter-feishu/
+  resume-parse-queue/
 ```
 
-## Resume screening chat — tool surface
+## Frontend Data Flow
 
-The screening agent (`src/server/routes/resume/screening.ts`) exposes a small
-toolset on the `/api/resume/chat` endpoint:
+- Route-owned SSR data uses TanStack Start `createServerFn`.
+- Server function inputs should use `.validator(...)` with Zod schemas.
+- TanStack Query is integrated with TanStack Start through
+  `@tanstack/react-router-ssr-query`; route loaders prefetch/dehydrate query
+  data where needed.
+- The public home page is prerendered by TanStack Start.
+- JSON API calls use the typed Hono RPC client at `@/lib/client/rpc` and
+  `rpcFetch`.
+- Multipart uploads, streams, and binary responses stay on plain `fetch` or
+  `apiFetch`.
 
-- `suggest_job_description` (server) — when no JD is configured and the user
-  uploaded a resume, ranks the workspace's open JDs against the parsed resume.
-- `apply_job_description` (client) — renders an approval card so the user can
-  confirm/ignore the recommended JD.
-- `list_uploaded_resume_pdfs` — disambiguates between multiple uploaded files.
-- `get_resume_review_framework` — returns a weighted screening framework.
-- `get_server_time` — anchors "now" for timeline / tenure inference.
+## Backend Route Layout
 
-Resume PDFs are parsed at upload time via Qwen-VL OCR + DeepSeek V4 Flash; the
-structured result is baked into the user message as a `data-resume-parsed`
-part, so the chat agent never re-parses PDFs.
+Every route folder under
+`apps/ai-recruitment-copilot-backend/src/server/routes/` is self-contained:
 
-## Product analytics — PostHog
+- `route.ts` exports a Hono router.
+- `schema.ts` contains Zod schemas when needed.
+- `dao.ts` or `dao/` contains route-owned database queries.
+- `utils.ts` or `utils/` contains feature-internal helpers.
+- Nested sub-resources live under `routes/` and are mounted from the parent.
 
-The web app uses PostHog through the client-only wrapper at
-`apps/ai-recruitment-copilot/src/lib/client/analytics.ts`. PostHog is disabled
-unless `NEXT_PUBLIC_ENABLE_POSTHOG=true` and
-`NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN` is set. Because these `NEXT_PUBLIC_*`
-values are bundled into the browser build, restart the dev server or redeploy
-after changing them.
+Keep middleware inside the closest owning router. `server/app.ts` should remain
+mount-only.
 
-Every tracked workspace event should include filterable context:
+## Product Analytics
 
-- `user_id` — the Better Auth user id, also used as PostHog `distinct_id`
-- `workspace_id` — the active organization/workspace id
+PostHog product analytics are optional and client-side. They are initialized
+from `src/client.tsx` through `@/lib/client/analytics` and enabled only when
+both `NEXT_PUBLIC_ENABLE_POSTHOG=true` and
+`NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN` are present. Restart the dev server or
+rebuild after changing exposed env values.
 
-The wrapper registers these as PostHog super properties after entering a
-workspace, so custom events sent through `captureAnalyticsEvent()` inherit them.
+Every workspace-scoped event should include:
 
-Tracked events currently include:
+- `user_id`
+- `workspace_id`
 
-- `page_viewed`
-- `resume_parse_started`, `resume_parse_completed`, `resume_parse_failed`
-- `resume_upload_started`, `resume_upload_completed`
-- `interview_created`
-- `interviewer_created`
-- `job_description_created`, `job_description_updated`
-- `job_interviewer_matched`
+Never send candidate names, emails, phone numbers, resume text, interview
+transcripts, free-form notes, or original file names to PostHog.
 
-Page views are intentionally custom-tracked instead of using PostHog's automatic
-pageview capture. Raw URLs are normalized before upload: workspace slugs,
-record ids, and query strings are removed, e.g.
-`/w/acme/studio/interviews/round_123?recordId=candidate_1` becomes
-`/w/[workspace]/studio/interviews/[id]`.
+Platform admins can view aggregated analytics at `/platform/analytics`. Server
+queries use `POSTHOG_PERSONAL_API_KEY`, `POSTHOG_PROJECT_ID`, and
+`POSTHOG_API_HOST`; never expose the personal API key to the browser.
 
-Privacy rule: do not send candidate names, emails, phone numbers, resume text,
-interview transcripts, free-form notes, or original file names to PostHog. The
-analytics wrapper uses a property allowlist for internal ids, counts, status,
-durations, file type/size, and page classification fields.
+## External References
 
-To verify analytics locally:
+When touching fast-moving APIs, prefer canonical docs:
 
-1. Set the PostHog env vars and restart the Next.js dev server.
-2. Open browser DevTools Network and filter for `posthog` or the configured
-   host.
-3. Trigger a page navigation or resume/JD/interviewer workflow.
-4. Confirm the outgoing event payload contains `user_id` and `workspace_id`,
-   and does not contain candidate PII.
+- TanStack Start: <https://tanstack.com/start/latest/docs/framework/react/overview>
+- TanStack Router: <https://tanstack.com/router/latest/docs/framework/react/overview>
+- TanStack Query: <https://tanstack.com/query/latest/docs/framework/react/overview>
+- Hono: <https://hono.dev/llms.txt> and <https://hono.dev/llms-full.txt>
+- LiveKit: `lk docs overview` / `lk docs search`
 
-Platform admins can view aggregated analytics at `/platform/analytics`. That
-page queries PostHog server-side with `POSTHOG_PERSONAL_API_KEY` and supports
-range, `workspace_id`, and `user_id` filters. The personal API key must never
-use a `NEXT_PUBLIC_` prefix.
-
-## External references
-
-When working on Hono / Next.js / LiveKit APIs, prefer the canonical docs over
-training-data recall:
-
-- Hono: <https://hono.dev/llms.txt> (full reference at `llms-full.txt`)
-- Next.js: <https://nextjs.org/docs/llms.txt>
-- LiveKit: `lk docs overview` / `lk docs search` via the LiveKit CLI
-
-See `CLAUDE.md` for detailed conventions (route folder layout, lib runtime
-split, frontend HTTP call patterns).
+See `AGENTS.md` and `CLAUDE.md` for detailed repository conventions.

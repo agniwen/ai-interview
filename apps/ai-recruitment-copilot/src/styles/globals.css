@@ -262,6 +262,15 @@
   @apply underline decoration-current/30 decoration-1 underline-offset-3 transition-colors hover:decoration-current;
 }
 
+@keyframes route-pending {
+  0% {
+    transform: translateX(-110%);
+  }
+  100% {
+    transform: translateX(310%);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
