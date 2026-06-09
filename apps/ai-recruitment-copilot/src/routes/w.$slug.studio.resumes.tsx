@@ -1,4 +1,4 @@
-import { HydrationBoundary, dehydrate, useQuery, useQueryClient } from "@tanstack/react-query";
+import { HydrationBoundary, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { DehydratedState } from "@tanstack/react-query";
 import {
   ClientOnly,
@@ -9,16 +9,11 @@ import {
   useRouter,
   useSearch,
 } from "@tanstack/react-router";
-import { createServerFn } from "@tanstack/react-start";
-import { z } from "zod";
 import type { DataGridQueryState } from "@/components/data-grid/query-contract";
-import {
-  buildDataGridQueryKey,
-  parseDataGridSearchParams,
-} from "@/components/data-grid/query-contract";
-import { workspaceDataGridInputSchema } from "@/lib/start/server-fn-validators";
+import { parseDataGridSearchParams } from "@/components/data-grid/query-contract";
+import { loadStudioResumesState } from "@/lib/start/studio/resumes.functions";
+import type { StudioResumesState } from "@/lib/start/studio/resumes.functions";
 import { parseCsvParam } from "@arc/shared/csv";
-import { createQueryClient } from "@arc/shared/query-client";
 import {
   canDeleteResumeRecord,
   canEditResumeRecord,
@@ -1133,42 +1128,11 @@ function ResumeLibraryPage({ metrics }: { metrics: ResumeLibraryMetrics }) {
   );
 }
 
-interface ResumeFilters extends Record<string, string> {
-  creatorIds: string;
-  jdIds: string;
-  skills: string;
-  stage: string;
-}
-
-const resumeFiltersSchema = z.object({
-  creatorIds: z.string(),
-  jdIds: z.string(),
-  skills: z.string(),
-  stage: z.string(),
-});
-
-type ResumeSortColumn = "createdAt" | "candidateName" | "updatedAt";
 type SearchParamsPrimitive = boolean | number | string;
 type SearchParamsRecord = Record<
   string,
   SearchParamsPrimitive | SearchParamsPrimitive[] | undefined
 >;
-type JsonValue = boolean | number | string | null | JsonValue[] | { [key: string]: JsonValue };
-type StudioResumesState =
-  | { status: "unauthenticated" }
-  | { status: "not_found" }
-  | {
-      dehydratedState: JsonValue;
-      metrics: ResumeLibraryMetrics;
-      status: "ready";
-    };
-
-function normalizeResumeSortColumn(value: string | undefined): ResumeSortColumn | undefined {
-  if (value === "createdAt" || value === "candidateName" || value === "updatedAt") {
-    return value;
-  }
-  return undefined;
-}
 
 function coerceSearchParams(search: Record<string, unknown>): SearchParamsRecord {
   const out: SearchParamsRecord = {};
@@ -1198,49 +1162,6 @@ function parseResumeQuery(searchParams: SearchParamsRecord): DataGridQueryState<
     initialFilters: { creatorIds: "", jdIds: "", skills: "", stage: "" },
   });
 }
-
-const loadStudioResumesState = createServerFn({ method: "GET" })
-  .validator(workspaceDataGridInputSchema(resumeFiltersSchema))
-  .handler(async ({ data }): Promise<StudioResumesState> => {
-    const { resolveWorkspaceAccessFromRequest } = await import("@/lib/start/auth-session.server");
-    const { loadResumeLibraryMetrics } =
-      await import("@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/dao/metrics");
-    const { listResumeRecords } =
-      await import("@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/dao/resumes");
-    const access = await resolveWorkspaceAccessFromRequest(data.slug);
-    if (access.status !== "ready") {
-      return access;
-    }
-
-    const metrics = await loadResumeLibraryMetrics(access.workspace.id);
-    const queryClient = createQueryClient();
-    await queryClient.prefetchQuery({
-      queryFn: () =>
-        listResumeRecords(
-          access.workspace.id,
-          {
-            creatorIds: parseCsvParam(data.query.filters.creatorIds),
-            jobDescriptionIds: parseCsvParam(data.query.filters.jdIds),
-            pipelineStages: parseCsvParam(data.query.filters.stage),
-            search: data.query.search,
-            skills: parseCsvParam(data.query.filters.skills),
-          },
-          {
-            page: data.query.page,
-            pageSize: data.query.pageSize,
-            sortBy: normalizeResumeSortColumn(data.query.sortBy),
-            sortOrder: data.query.sortOrder,
-          },
-        ),
-      queryKey: buildDataGridQueryKey(["studio-resumes", data.slug], data.query),
-    });
-
-    return {
-      dehydratedState: structuredClone(dehydrate(queryClient)) as unknown as JsonValue,
-      metrics,
-      status: "ready" as const,
-    };
-  });
 
 function StudioResumesRoute() {
   const state = useLoaderData({

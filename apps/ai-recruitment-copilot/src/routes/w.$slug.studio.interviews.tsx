@@ -1,4 +1,4 @@
-import { HydrationBoundary, dehydrate, useQuery, useQueryClient } from "@tanstack/react-query";
+import { HydrationBoundary, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { DehydratedState } from "@tanstack/react-query";
 import {
   Link,
@@ -10,16 +10,10 @@ import {
   useNavigate,
   useSearch,
 } from "@tanstack/react-router";
-import { createServerFn } from "@tanstack/react-start";
-import { z } from "zod";
 import type { DataGridQueryState } from "@/components/data-grid/query-contract";
-import {
-  buildDataGridQueryKey,
-  parseDataGridSearchParams,
-} from "@/components/data-grid/query-contract";
-import { workspaceDataGridInputSchema } from "@/lib/start/server-fn-validators";
-import { parseCsvParam } from "@arc/shared/csv";
-import { createQueryClient } from "@arc/shared/query-client";
+import { parseDataGridSearchParams } from "@/components/data-grid/query-contract";
+import { loadStudioInterviewsState } from "@/lib/start/studio/interviews.functions";
+import type { StudioInterviewsState } from "@/lib/start/studio/interviews.functions";
 import { PageHeader } from "@/components/studio/page-header";
 import { StudioSummaryCards } from "@/components/studio/studio-summary-cards";
 import {
@@ -734,31 +728,11 @@ interface InterviewFilters extends Record<string, string> {
   status: string;
 }
 
-const interviewFiltersSchema = z.object({
-  creatorIds: z.string(),
-  status: z.string(),
-});
-
 type SearchParamsPrimitive = boolean | number | string;
 type SearchParamsRecord = Record<
   string,
   SearchParamsPrimitive | SearchParamsPrimitive[] | undefined
 >;
-type JsonValue = boolean | number | string | null | JsonValue[] | { [key: string]: JsonValue };
-type StudioInterviewsServerState =
-  | { status: "unauthenticated" }
-  | { status: "not_found" }
-  | {
-      dehydratedState: JsonValue;
-      status: "ready";
-    };
-type StudioInterviewsState =
-  | Exclude<StudioInterviewsServerState, { status: "ready" }>
-  | {
-      dehydratedState: JsonValue;
-      isListRoute: boolean;
-      status: "ready";
-    };
 
 function coerceSearchParams(search: Record<string, unknown>): SearchParamsRecord {
   const out: SearchParamsRecord = {};
@@ -790,49 +764,6 @@ function parseInterviewQuery(
     initialFilters: { creatorIds: "", status: "" },
   });
 }
-
-const loadStudioInterviewsState = createServerFn({ method: "GET" })
-  .validator(workspaceDataGridInputSchema(interviewFiltersSchema))
-  .handler(async ({ data }): Promise<StudioInterviewsServerState> => {
-    const { resolveWorkspaceAccessFromRequest } = await import("@/lib/start/auth-session.server");
-    const { listInterviewRounds, summarizeInterviewRoundCounts } =
-      await import("@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/dao/interview-rounds");
-    const access = await resolveWorkspaceAccessFromRequest(data.slug);
-    if (access.status !== "ready") {
-      return access;
-    }
-
-    const queryClient = createQueryClient();
-    await Promise.all([
-      queryClient.prefetchQuery({
-        queryFn: () =>
-          listInterviewRounds(
-            access.workspace.id,
-            {
-              creatorIds: parseCsvParam(data.query.filters.creatorIds),
-              search: data.query.search,
-              status: data.query.filters.status,
-            },
-            {
-              page: data.query.page,
-              pageSize: data.query.pageSize,
-              sortBy: data.query.sortBy,
-              sortOrder: data.query.sortOrder,
-            },
-          ),
-        queryKey: buildDataGridQueryKey(["studio-interviews", data.slug], data.query),
-      }),
-      queryClient.prefetchQuery({
-        queryFn: () => summarizeInterviewRoundCounts(access.workspace.id),
-        queryKey: ["studio-interviews", data.slug, "summary"] as const,
-      }),
-    ]);
-
-    return {
-      dehydratedState: structuredClone(dehydrate(queryClient)) as unknown as JsonValue,
-      status: "ready" as const,
-    };
-  });
 
 function StudioInterviewsRoute() {
   const state = useLoaderData({

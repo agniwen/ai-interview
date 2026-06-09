@@ -1,33 +1,6 @@
 import { createFileRoute, notFound, redirect, useLoaderData } from "@tanstack/react-router";
-import { createServerFn } from "@tanstack/react-start";
 import { GlobalConfigForm } from "@/components/studio/global-config/global-config-form";
-import type { GlobalConfigRecord } from "@arc/shared/global-config";
-import { slugInputSchema } from "@/lib/start/server-fn-validators";
-
-type StudioGlobalConfigState =
-  | { status: "unauthenticated" }
-  | { status: "not_found" }
-  | {
-      initial: GlobalConfigRecord;
-      status: "ready";
-    };
-
-const loadStudioGlobalConfigState = createServerFn({ method: "GET" })
-  .validator(slugInputSchema)
-  .handler(async ({ data }): Promise<StudioGlobalConfigState> => {
-    const { resolveWorkspaceAccessFromRequest } = await import("@/lib/start/auth-session.server");
-    const { getGlobalConfig } =
-      await import("@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/global-config/dao");
-    const access = await resolveWorkspaceAccessFromRequest(data.slug);
-    if (access.status !== "ready") {
-      return access;
-    }
-
-    return {
-      initial: await getGlobalConfig(access.workspace.id),
-      status: "ready" as const,
-    };
-  });
+import { loadStudioGlobalConfigState } from "@/lib/start/studio/global-config.functions";
 
 function StudioGlobalConfigRoute() {
   const state = useLoaderData({ from: "/w/$slug/studio/global-config" });

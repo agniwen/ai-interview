@@ -1,19 +1,10 @@
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import { relations } from "@arc/db-schema/relations";
+import { getPostgresConnectionOptions } from "./connection-options";
 
 if (!process.env.DATABASE_URL) {
   throw new Error("DATABASE_URL is not set.");
-}
-
-function getPoolMax(): number {
-  const fallback = process.env.NODE_ENV === "production" ? 10 : 5;
-  const raw = process.env.POSTGRES_POOL_MAX;
-  if (!raw) {
-    return fallback;
-  }
-  const parsed = Number.parseInt(raw, 10);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 }
 
 type PostgresClient = ReturnType<typeof postgres>;
@@ -24,9 +15,7 @@ const globalForDb = globalThis as typeof globalThis & {
 
 const client =
   globalForDb.__arcPostgresClient ??
-  postgres(process.env.DATABASE_URL, {
-    max: getPoolMax(),
-  });
+  postgres(process.env.DATABASE_URL, getPostgresConnectionOptions());
 
 // Next dev/HMR can re-evaluate server modules; keep one pool alive locally.
 if (process.env.NODE_ENV !== "production") {

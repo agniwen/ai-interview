@@ -169,9 +169,13 @@ describe("TanStack Start migration patterns", () => {
 
   it("keeps server function runtime modules out of circular imports", () => {
     const authSessionServer = readSource("src/lib/start/auth-session.server.ts");
+    const authSessionFunctions = readSource("src/lib/start/auth-session.ts");
+    const platformAdminFunctions = readSource("src/lib/start/platform-admin.ts");
 
     expect(authSessionServer).not.toContain('from "./auth-session"');
     expect(authSessionServer).toContain('from "@/lib/start/auth-session-types"');
+    expect(authSessionFunctions).not.toContain("await import");
+    expect(platformAdminFunctions).not.toContain("await import");
   });
 
   it("authorizes protected server functions at the data boundary", () => {
@@ -190,21 +194,52 @@ describe("TanStack Start migration patterns", () => {
       "src/routes/platform.organizations.tsx",
       "src/routes/platform.users.tsx",
     ];
+    const platformFunctionFiles = [
+      "src/lib/start/platform/organizations.functions.ts",
+      "src/lib/start/platform/users.functions.ts",
+    ];
+    const workspaceFunctionFiles = [
+      "src/lib/start/studio/dashboard.functions.ts",
+      "src/lib/start/studio/departments.functions.ts",
+      "src/lib/start/studio/forms.functions.ts",
+      "src/lib/start/studio/global-config.functions.ts",
+      "src/lib/start/studio/interview-questions.functions.ts",
+      "src/lib/start/studio/interviewers.functions.ts",
+      "src/lib/start/studio/interviews.functions.ts",
+      "src/lib/start/studio/job-descriptions.functions.ts",
+      "src/lib/start/studio/resumes.functions.ts",
+    ];
 
     for (const file of workspaceRouteFiles) {
       const source = readSource(file);
 
-      expect(source).toContain("createServerFn");
-      expect(source).toContain("resolveWorkspaceAccessFromRequest");
-      expect(source).toContain('access.status !== "ready"');
+      expect(source).not.toContain("createServerFn");
+      expect(source).toContain(".functions");
     }
 
     for (const file of platformRouteFiles) {
       const source = readSource(file);
 
+      expect(source).not.toContain("createServerFn");
+      expect(source).toContain(".functions");
+    }
+
+    for (const file of platformFunctionFiles) {
+      const source = readSource(file);
+
       expect(source).toContain("createServerFn");
       expect(source).toContain("getPlatformAdminStateFromRequest");
       expect(source).toContain('adminState.status !== "ready"');
+      expect(source).not.toContain("await import");
+    }
+
+    for (const file of workspaceFunctionFiles) {
+      const source = readSource(file);
+
+      expect(source).toContain("createServerFn");
+      expect(source).toContain("resolveWorkspaceAccessFromRequest");
+      expect(source).toContain('access.status !== "ready"');
+      expect(source).not.toContain("await import");
     }
   });
 

@@ -5,11 +5,10 @@ import {
   redirect,
   useLoaderData,
 } from "@tanstack/react-router";
-import { createServerFn } from "@tanstack/react-start";
 import type { RecruitingDashboardMetrics } from "@arc/shared/studio-dashboard";
+import { loadStudioDashboardState } from "@/lib/start/studio/dashboard.functions";
 import { PageHeader } from "@/components/studio/page-header";
 import { useMemo } from "react";
-import { slugInputSchema } from "@/lib/start/server-fn-validators";
 import { Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, XAxis, YAxis } from "recharts";
 import { StudioSummaryCards } from "@/components/studio/studio-summary-cards";
 import type { ResumeLibraryMetrics } from "@arc/shared/studio-resumes";
@@ -550,31 +549,6 @@ function RecruitingDashboardPage({ metrics }: { metrics: RecruitingDashboardMetr
     </div>
   );
 }
-
-const loadStudioDashboardState = createServerFn({ method: "GET" })
-  .validator(slugInputSchema)
-  .handler(
-    async ({
-      data,
-    }): Promise<
-      | { status: "unauthenticated" }
-      | { status: "not_found" }
-      | { metrics: RecruitingDashboardMetrics; status: "ready" }
-    > => {
-      const { resolveWorkspaceAccessFromRequest } = await import("@/lib/start/auth-session.server");
-      const { loadRecruitingDashboardMetrics } =
-        await import("@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/dao/metrics");
-      const access = await resolveWorkspaceAccessFromRequest(data.slug);
-      if (access.status !== "ready") {
-        return access;
-      }
-
-      return {
-        metrics: await loadRecruitingDashboardMetrics(access.workspace.id),
-        status: "ready" as const,
-      };
-    },
-  );
 
 function StudioDashboardRoute() {
   const state = useLoaderData({ from: "/w/$slug/studio/dashboard" });
