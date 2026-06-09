@@ -1,14 +1,10 @@
-import { HydrationBoundary, dehydrate, useQueryClient } from "@tanstack/react-query";
+import { HydrationBoundary, useQueryClient } from "@tanstack/react-query";
 import type { DehydratedState } from "@tanstack/react-query";
 import { createFileRoute, notFound, redirect, useLoaderData } from "@tanstack/react-router";
-import { createServerFn } from "@tanstack/react-start";
 import type { DataGridQueryState } from "@/components/data-grid/query-contract";
-import {
-  buildDataGridQueryKey,
-  parseDataGridSearchParams,
-} from "@/components/data-grid/query-contract";
-import { createQueryClient } from "@arc/shared/query-client";
-import { emptyFiltersSchema, workspaceDataGridInputSchema } from "@/lib/start/server-fn-validators";
+import { parseDataGridSearchParams } from "@/components/data-grid/query-contract";
+import { loadStudioDepartmentsState } from "@/lib/start/studio/departments.functions";
+import type { StudioDepartmentsState } from "@/lib/start/studio/departments.functions";
 import { PageHeader } from "@/components/studio/page-header";
 import { EntityDeleteDialog } from "@/components/studio/entity-delete-dialog";
 import { ScopedInterviewersModal } from "@/components/studio/scoped-interviewers-modal";
@@ -313,15 +309,6 @@ type SearchParamsRecord = Record<
   string,
   SearchParamsPrimitive | SearchParamsPrimitive[] | undefined
 >;
-type JsonValue = boolean | number | string | null | JsonValue[] | { [key: string]: JsonValue };
-type StudioDepartmentsState =
-  | { status: "unauthenticated" }
-  | { status: "not_found" }
-  | {
-      dehydratedState: JsonValue;
-      status: "ready";
-    };
-
 function coerceSearchParams(search: Record<string, unknown>): SearchParamsRecord {
   const out: SearchParamsRecord = {};
   for (const [key, value] of Object.entries(search)) {
@@ -350,38 +337,6 @@ function parseDepartmentQuery(searchParams: SearchParamsRecord): DataGridQuerySt
     initialFilters: {},
   });
 }
-
-const loadStudioDepartmentsState = createServerFn({ method: "GET" })
-  .validator(workspaceDataGridInputSchema(emptyFiltersSchema))
-  .handler(async ({ data }): Promise<StudioDepartmentsState> => {
-    const { resolveWorkspaceAccessFromRequest } = await import("@/lib/start/auth-session.server");
-    const { listDepartments } =
-      await import("@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/departments/dao");
-    const access = await resolveWorkspaceAccessFromRequest(data.slug);
-    if (access.status !== "ready") {
-      return access;
-    }
-
-    const queryClient = createQueryClient();
-    await queryClient.prefetchQuery({
-      queryFn: () =>
-        listDepartments(
-          { organizationId: access.workspace.id, search: data.query.search },
-          {
-            page: data.query.page,
-            pageSize: data.query.pageSize,
-            sortBy: data.query.sortBy,
-            sortOrder: data.query.sortOrder,
-          },
-        ),
-      queryKey: buildDataGridQueryKey(["departments", data.slug], data.query),
-    });
-
-    return {
-      dehydratedState: structuredClone(dehydrate(queryClient)) as unknown as JsonValue,
-      status: "ready" as const,
-    };
-  });
 
 function StudioDepartmentsRoute() {
   const state = useLoaderData({

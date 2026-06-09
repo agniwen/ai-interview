@@ -1,15 +1,11 @@
-import { HydrationBoundary, dehydrate, useQueryClient } from "@tanstack/react-query";
+import { HydrationBoundary, useQueryClient } from "@tanstack/react-query";
 import type { DehydratedState } from "@tanstack/react-query";
 import { createFileRoute, notFound, redirect, useLoaderData } from "@tanstack/react-router";
-import { createServerFn } from "@tanstack/react-start";
 import type { DataGridQueryState } from "@/components/data-grid/query-contract";
-import {
-  buildDataGridQueryKey,
-  parseDataGridSearchParams,
-} from "@/components/data-grid/query-contract";
+import { parseDataGridSearchParams } from "@/components/data-grid/query-contract";
 import type { DepartmentRecord } from "@arc/shared/departments";
-import { createQueryClient } from "@arc/shared/query-client";
-import { emptyFiltersSchema, workspaceDataGridInputSchema } from "@/lib/start/server-fn-validators";
+import { loadStudioInterviewersState } from "@/lib/start/studio/interviewers.functions";
+import type { StudioInterviewersState } from "@/lib/start/studio/interviewers.functions";
 import { PageHeader } from "@/components/studio/page-header";
 import { EntityDeleteDialog } from "@/components/studio/entity-delete-dialog";
 import { useEntityCrud } from "@/components/studio/use-entity-crud";
@@ -322,16 +318,6 @@ type SearchParamsRecord = Record<
   string,
   SearchParamsPrimitive | SearchParamsPrimitive[] | undefined
 >;
-type JsonValue = boolean | number | string | null | JsonValue[] | { [key: string]: JsonValue };
-type StudioInterviewersState =
-  | { status: "unauthenticated" }
-  | { status: "not_found" }
-  | {
-      departments: DepartmentRecord[];
-      dehydratedState: JsonValue;
-      status: "ready";
-    };
-
 function coerceSearchParams(search: Record<string, unknown>): SearchParamsRecord {
   const out: SearchParamsRecord = {};
   for (const [key, value] of Object.entries(search)) {
@@ -360,45 +346,6 @@ function parseInterviewerQuery(searchParams: SearchParamsRecord): DataGridQueryS
     initialFilters: {},
   });
 }
-
-const loadStudioInterviewersState = createServerFn({ method: "GET" })
-  .validator(workspaceDataGridInputSchema(emptyFiltersSchema))
-  .handler(async ({ data }): Promise<StudioInterviewersState> => {
-    const { resolveWorkspaceAccessFromRequest } = await import("@/lib/start/auth-session.server");
-    const { listAllDepartments } =
-      await import("@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/departments/dao");
-    const { listInterviewers } =
-      await import("@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviewers/dao");
-    const access = await resolveWorkspaceAccessFromRequest(data.slug);
-    if (access.status !== "ready") {
-      return access;
-    }
-
-    const queryClient = createQueryClient();
-    const [departments] = await Promise.all([
-      listAllDepartments(access.workspace.id),
-      queryClient.prefetchQuery({
-        queryFn: () =>
-          listInterviewers(
-            access.workspace.id,
-            { search: data.query.search },
-            {
-              page: data.query.page,
-              pageSize: data.query.pageSize,
-              sortBy: data.query.sortBy,
-              sortOrder: data.query.sortOrder,
-            },
-          ),
-        queryKey: buildDataGridQueryKey(["interviewers", data.slug], data.query),
-      }),
-    ]);
-
-    return {
-      dehydratedState: structuredClone(dehydrate(queryClient)) as unknown as JsonValue,
-      departments,
-      status: "ready" as const,
-    };
-  });
 
 function StudioInterviewersRoute() {
   const state = useLoaderData({

@@ -1,4 +1,4 @@
-import { HydrationBoundary, dehydrate, useQueryClient } from "@tanstack/react-query";
+import { HydrationBoundary, useQueryClient } from "@tanstack/react-query";
 import type { DehydratedState } from "@tanstack/react-query";
 import {
   ClientOnly,
@@ -8,17 +8,12 @@ import {
   useLoaderData,
   useRouter,
 } from "@tanstack/react-router";
-import { createServerFn } from "@tanstack/react-start";
-import { z } from "zod";
 import type { DataGridQueryState } from "@/components/data-grid/query-contract";
-import {
-  buildDataGridQueryKey,
-  parseDataGridSearchParams,
-} from "@/components/data-grid/query-contract";
-import { workspaceDataGridInputSchema } from "@/lib/start/server-fn-validators";
+import { parseDataGridSearchParams } from "@/components/data-grid/query-contract";
 import type { DepartmentRecord } from "@arc/shared/departments";
 import type { InterviewerListRecord } from "@arc/shared/interviewers";
-import { createQueryClient } from "@arc/shared/query-client";
+import { loadStudioJobDescriptionsState } from "@/lib/start/studio/job-descriptions.functions";
+import type { StudioJobDescriptionsState } from "@/lib/start/studio/job-descriptions.functions";
 import { PageHeader } from "@/components/studio/page-header";
 import { EntityDeleteDialog } from "@/components/studio/entity-delete-dialog";
 import { useEntityCrud } from "@/components/studio/use-entity-crud";
@@ -376,27 +371,11 @@ interface JobDescriptionFilters extends Record<string, string> {
   interviewerId: string;
 }
 
-const jobDescriptionFiltersSchema = z.object({
-  departmentId: z.string(),
-  interviewerId: z.string(),
-});
-
 type SearchParamsPrimitive = boolean | number | string;
 type SearchParamsRecord = Record<
   string,
   SearchParamsPrimitive | SearchParamsPrimitive[] | undefined
 >;
-type JsonValue = boolean | number | string | null | JsonValue[] | { [key: string]: JsonValue };
-type StudioJobDescriptionsState =
-  | { status: "unauthenticated" }
-  | { status: "not_found" }
-  | {
-      departments: DepartmentRecord[];
-      dehydratedState: JsonValue;
-      interviewers: InterviewerListRecord[];
-      metrics: JobDescriptionMetrics;
-      status: "ready";
-    };
 
 function coerceSearchParams(search: Record<string, unknown>): SearchParamsRecord {
   const out: SearchParamsRecord = {};
@@ -428,55 +407,6 @@ function parseJobDescriptionQuery(
     initialFilters: { departmentId: "", interviewerId: "" },
   });
 }
-
-const loadStudioJobDescriptionsState = createServerFn({ method: "GET" })
-  .validator(workspaceDataGridInputSchema(jobDescriptionFiltersSchema))
-  .handler(async ({ data }): Promise<StudioJobDescriptionsState> => {
-    const { resolveWorkspaceAccessFromRequest } = await import("@/lib/start/auth-session.server");
-    const { listAllDepartments } =
-      await import("@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/departments/dao");
-    const { listAllInterviewers } =
-      await import("@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviewers/dao");
-    const { listJobDescriptions, loadJobDescriptionMetrics } =
-      await import("@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao");
-    const access = await resolveWorkspaceAccessFromRequest(data.slug);
-    if (access.status !== "ready") {
-      return access;
-    }
-
-    const queryClient = createQueryClient();
-    const [departments, interviewers, metrics] = await Promise.all([
-      listAllDepartments(access.workspace.id),
-      listAllInterviewers(access.workspace.id),
-      loadJobDescriptionMetrics(access.workspace.id),
-      queryClient.prefetchQuery({
-        queryFn: () =>
-          listJobDescriptions(
-            access.workspace.id,
-            {
-              departmentId: data.query.filters.departmentId,
-              interviewerId: data.query.filters.interviewerId,
-              search: data.query.search,
-            },
-            {
-              page: data.query.page,
-              pageSize: data.query.pageSize,
-              sortBy: data.query.sortBy,
-              sortOrder: data.query.sortOrder,
-            },
-          ),
-        queryKey: buildDataGridQueryKey(["job-descriptions", data.slug], data.query),
-      }),
-    ]);
-
-    return {
-      dehydratedState: structuredClone(dehydrate(queryClient)) as unknown as JsonValue,
-      departments,
-      interviewers,
-      metrics,
-      status: "ready" as const,
-    };
-  });
 
 function StudioJobDescriptionsRoute() {
   const state = useLoaderData({

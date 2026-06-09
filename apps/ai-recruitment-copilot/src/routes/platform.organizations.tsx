@@ -1,15 +1,11 @@
-import { HydrationBoundary, dehydrate } from "@tanstack/react-query";
+import { HydrationBoundary } from "@tanstack/react-query";
 import type { DehydratedState } from "@tanstack/react-query";
 import { createFileRoute, redirect, useLoaderData } from "@tanstack/react-router";
-import { createServerFn } from "@tanstack/react-start";
 import type { DataGridQueryState } from "@/components/data-grid/query-contract";
-import {
-  buildDataGridQueryKey,
-  parseDataGridSearchParams,
-} from "@/components/data-grid/query-contract";
+import { parseDataGridSearchParams } from "@/components/data-grid/query-contract";
 import { OrganizationsGrid } from "@/components/platform/organizations/organizations-grid";
-import { createQueryClient } from "@arc/shared/query-client";
-import { emptyFiltersSchema, platformDataGridInputSchema } from "@/lib/start/server-fn-validators";
+import { loadPlatformOrganizationsState } from "@/lib/start/platform/organizations.functions";
+import type { PlatformOrganizationsState } from "@/lib/start/platform/organizations.functions";
 
 const INITIAL_PAGE_SIZE = 10;
 
@@ -19,14 +15,6 @@ type SearchParamsRecord = Record<
   string,
   SearchParamsPrimitive | SearchParamsPrimitive[] | undefined
 >;
-type JsonValue = boolean | number | string | null | JsonValue[] | { [key: string]: JsonValue };
-type PlatformOrganizationsState =
-  | { status: "unauthenticated" }
-  | { status: "forbidden" }
-  | {
-      dehydratedState: JsonValue;
-      status: "ready";
-    };
 
 function coerceSearchParams(search: Record<string, unknown>): SearchParamsRecord {
   const out: SearchParamsRecord = {};
@@ -59,89 +47,6 @@ function parsePlatformOrganizationsQuery(
     initialFilters: {},
   });
 }
-
-const loadPlatformOrganizationsState = createServerFn({ method: "GET" })
-  .validator(platformDataGridInputSchema(emptyFiltersSchema))
-  .handler(async ({ data }): Promise<PlatformOrganizationsState> => {
-    const { getPlatformAdminStateFromRequest } = await import("@/lib/start/platform-admin.server");
-    const adminState = await getPlatformAdminStateFromRequest();
-    if (adminState.status !== "ready") {
-      return adminState;
-    }
-
-    const [{ asc, count, desc, eq, ilike, or, sql }, { db }, { member, organization }] =
-      await Promise.all([
-        import("drizzle-orm"),
-        import("@arc/ai-recruitment-copilot-backend/lib/server/db"),
-        import("@arc/db-schema/schema"),
-      ]);
-
-    function orgOrderExpr(sortBy: string | undefined) {
-      if (sortBy === "name") {
-        return organization.name;
-      }
-      if (sortBy === "slug") {
-        return organization.slug;
-      }
-      if (sortBy === "memberCount") {
-        return sql`coalesce("mc"."cnt", 0)`;
-      }
-      return organization.createdAt;
-    }
-
-    async function loadPlatformOrganizations(query: DataGridQueryState<EmptyFilters>) {
-      const search = query.search.trim();
-      const searchFilter = search
-        ? or(ilike(organization.name, `%${search}%`), ilike(organization.slug, `%${search}%`))
-        : undefined;
-      const memberCountSubquery = db
-        .select({ count: count(member.id).as("cnt"), organizationId: member.organizationId })
-        .from(member)
-        .groupBy(member.organizationId)
-        .as("mc");
-      const orderDir = query.sortOrder === "asc" ? asc : desc;
-
-      const [rows, [{ total }]] = await Promise.all([
-        db
-          .select({
-            createdAt: organization.createdAt,
-            id: organization.id,
-            memberCount: sql<number>`coalesce("mc"."cnt", 0)`.as("member_count"),
-            name: organization.name,
-            slug: organization.slug,
-          })
-          .from(organization)
-          .leftJoin(memberCountSubquery, eq(memberCountSubquery.organizationId, organization.id))
-          .where(searchFilter)
-          .orderBy(orderDir(orgOrderExpr(query.sortBy)))
-          .limit(query.pageSize)
-          .offset((query.page - 1) * query.pageSize),
-        db.select({ total: count() }).from(organization).where(searchFilter),
-      ]);
-
-      return {
-        page: query.page,
-        pageSize: query.pageSize,
-        records: rows.map((row) => ({
-          ...row,
-          createdAt: row.createdAt.toISOString(),
-        })),
-        total,
-        totalPages: Math.max(1, Math.ceil(total / query.pageSize)),
-      };
-    }
-
-    const queryClient = createQueryClient();
-    await queryClient.prefetchQuery({
-      queryFn: () => loadPlatformOrganizations(data.query),
-      queryKey: buildDataGridQueryKey(["platform-organizations"], data.query),
-    });
-
-    return {
-      dehydratedState: structuredClone(dehydrate(queryClient)) as unknown as JsonValue,
-      status: "ready" as const,
-    };
-  });
 
 function PlatformOrganizationsRoute() {
   const state = useLoaderData({ from: "/platform/organizations" });

@@ -1,4 +1,4 @@
-import { HydrationBoundary, dehydrate, useQueryClient } from "@tanstack/react-query";
+import { HydrationBoundary, useQueryClient } from "@tanstack/react-query";
 import type { DehydratedState } from "@tanstack/react-query";
 import {
   createFileRoute,
@@ -8,16 +8,11 @@ import {
   useNavigate,
   useSearch,
 } from "@tanstack/react-router";
-import { createServerFn } from "@tanstack/react-start";
-import { z } from "zod";
 import type { DataGridQueryState } from "@/components/data-grid/query-contract";
-import {
-  buildDataGridQueryKey,
-  parseDataGridSearchParams,
-} from "@/components/data-grid/query-contract";
-import { workspaceDataGridInputSchema } from "@/lib/start/server-fn-validators";
+import { parseDataGridSearchParams } from "@/components/data-grid/query-contract";
 import type { JobDescriptionListRecord } from "@arc/shared/job-descriptions";
-import { createQueryClient } from "@arc/shared/query-client";
+import { loadStudioFormsState } from "@/lib/start/studio/forms.functions";
+import type { StudioFormsState } from "@/lib/start/studio/forms.functions";
 import { PageHeader } from "@/components/studio/page-header";
 import { EntityDeleteDialog } from "@/components/studio/entity-delete-dialog";
 import { useEntityCrud } from "@/components/studio/use-entity-crud";
@@ -509,26 +504,11 @@ interface CandidateFormFilters extends Record<string, string> {
   scope: string;
 }
 
-const candidateFormFiltersSchema = z.object({
-  archivedFilter: z.string(),
-  jobDescriptionId: z.string(),
-  scope: z.string(),
-});
-
 type SearchParamsPrimitive = boolean | number | string;
 type SearchParamsRecord = Record<
   string,
   SearchParamsPrimitive | SearchParamsPrimitive[] | undefined
 >;
-type JsonValue = boolean | number | string | null | JsonValue[] | { [key: string]: JsonValue };
-type StudioFormsState =
-  | { status: "unauthenticated" }
-  | { status: "not_found" }
-  | {
-      dehydratedState: JsonValue;
-      jobDescriptions: JobDescriptionListRecord[];
-      status: "ready";
-    };
 
 function coerceSearchParams(search: Record<string, unknown>): SearchParamsRecord {
   const out: SearchParamsRecord = {};
@@ -560,54 +540,6 @@ function parseCandidateFormQuery(
     initialFilters: { archivedFilter: "active", jobDescriptionId: "", scope: "" },
   });
 }
-
-function normalizeArchivedFilter(value: string): "active" | "archived" | "all" {
-  return value === "archived" || value === "all" ? value : "active";
-}
-
-const loadStudioFormsState = createServerFn({ method: "GET" })
-  .validator(workspaceDataGridInputSchema(candidateFormFiltersSchema))
-  .handler(async ({ data }): Promise<StudioFormsState> => {
-    const { resolveWorkspaceAccessFromRequest } = await import("@/lib/start/auth-session.server");
-    const { listCandidateFormTemplates } =
-      await import("@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/forms/dao/queries");
-    const { listAllJobDescriptions } =
-      await import("@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao");
-    const access = await resolveWorkspaceAccessFromRequest(data.slug);
-    if (access.status !== "ready") {
-      return access;
-    }
-
-    const queryClient = createQueryClient();
-    const [jobDescriptions] = await Promise.all([
-      listAllJobDescriptions(access.workspace.id),
-      queryClient.prefetchQuery({
-        queryFn: () =>
-          listCandidateFormTemplates(
-            access.workspace.id,
-            {
-              archivedFilter: normalizeArchivedFilter(data.query.filters.archivedFilter),
-              jobDescriptionId: data.query.filters.jobDescriptionId,
-              scope: data.query.filters.scope,
-              search: data.query.search,
-            },
-            {
-              page: data.query.page,
-              pageSize: data.query.pageSize,
-              sortBy: data.query.sortBy,
-              sortOrder: data.query.sortOrder,
-            },
-          ),
-        queryKey: buildDataGridQueryKey(["candidate-form-templates", data.slug], data.query),
-      }),
-    ]);
-
-    return {
-      dehydratedState: structuredClone(dehydrate(queryClient)) as unknown as JsonValue,
-      jobDescriptions,
-      status: "ready" as const,
-    };
-  });
 
 function StudioFormsRoute() {
   const state = useLoaderData({
