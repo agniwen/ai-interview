@@ -37,7 +37,7 @@ export function UnauthorizedNotice() {
     } catch {
       // Ignore sign-out failures and continue redirecting.
     } finally {
-      await router.navigate({ href: "/", replace: true });
+      await router.navigate({ replace: true, to: "/" });
       void router.invalidate();
     }
   };

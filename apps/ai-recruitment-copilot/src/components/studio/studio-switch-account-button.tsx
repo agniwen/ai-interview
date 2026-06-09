@@ -19,7 +19,7 @@ export function StudioSwitchAccountButton() {
 
         try {
           await authClient.signOut();
-          await router.navigate({ href: "/login" });
+          await router.navigate({ to: "/login" });
           void router.invalidate();
         } finally {
           setIsSubmitting(false);

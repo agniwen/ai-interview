@@ -43,7 +43,7 @@ function InviteAcceptRoute() {
     // 由根路径 route 解析活跃 workspace 后转到 /w/[slug]/chat。
     // New members would land on an empty resume table in studio. Route them to
     // chat, sharing the home-shell "begin screening" CTA's ?goto= dispatcher.
-    await router.navigate({ href: "/?goto=chat" });
+    await router.navigate({ search: { goto: "chat" }, to: "/" });
   }
 
   async function onReject() {
@@ -54,7 +54,7 @@ function InviteAcceptRoute() {
       toast.error(error.message ?? "拒绝邀请失败");
       return;
     }
-    await router.navigate({ href: "/" });
+    await router.navigate({ to: "/" });
   }
 
   return (

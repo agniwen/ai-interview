@@ -58,15 +58,24 @@ describe("TanStack Start migration patterns", () => {
   it("shows delayed pending UI during slow route transitions", () => {
     const rootRoute = readSource("src/routes/__root.tsx");
     const router = readSource("src/router.tsx");
+    const pendingOutlet = readSource("src/components/layout/pending-outlet.tsx");
+    const studioLayout = readSource("src/routes/w.$slug.studio.tsx");
+    const chatLayout = readSource("src/routes/w.$slug.chat.tsx");
+    const platformLayout = readSource("src/routes/platform.tsx");
     const pendingView = readSource("src/components/layout/route-pending-view.tsx");
     const globalsCss = readSource("src/styles/globals.css");
 
     expect(router).toContain("defaultPendingComponent:");
     expect(router).toContain("defaultPendingMs: 350");
     expect(router).toContain("defaultPendingMinMs: 300");
-    expect(rootRoute).toContain("useRouterState");
-    expect(rootRoute).toContain("state.isLoading || state.isTransitioning");
-    expect(rootRoute).toContain("opacity-70");
+    expect(rootRoute).not.toContain("useRouterState");
+    expect(rootRoute).not.toContain("opacity-70");
+    expect(pendingOutlet).toContain("useRouterState");
+    expect(pendingOutlet).toContain("state.isLoading || state.isTransitioning");
+    expect(pendingOutlet).toContain("opacity-70");
+    expect(studioLayout).toContain("PendingOutlet");
+    expect(chatLayout).toContain("PendingOutlet");
+    expect(platformLayout).toContain("PendingOutlet");
     expect(rootRoute).not.toContain("pointer-events-none opacity-70");
     expect(pendingView).toContain("正在加载");
     expect(globalsCss).toContain("@keyframes route-pending");

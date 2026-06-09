@@ -3,6 +3,7 @@
 import type { ChatStatus, FileUIPart, UIMessage } from "ai";
 import type { JobDescriptionConfig } from "@arc/db-schema/job-description-config";
 import { useChat } from "@ai-sdk/react";
+import { useNavigate } from "@tanstack/react-router";
 import { useAtom, useAtomValue } from "jotai";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -62,6 +63,7 @@ function getConversationTitleFromMessages(
 // eslint-disable-next-line complexity -- Top-level shell owns many pieces of orchestration state.
 export default function ChatWorkspace({ initialSessionId }: { initialSessionId: string | null }) {
   const slug = useWorkspaceSlug();
+  const navigate = useNavigate();
   const { data: session } = authClient.useSession();
   const thinkingMode = useAtomValue(thinkingModeAtom);
   const [chatModelByChatId, setChatModelByChatId] = useAtom(chatModelByIdAtom);
@@ -222,19 +224,24 @@ export default function ChatWorkspace({ initialSessionId }: { initialSessionId: 
 
   const updateSessionInUrl = useCallback(
     (sessionId: string | null) => {
-      const base = `/w/${slug}/chat`;
-      const nextUrl = sessionId ? `${base}/${encodeURIComponent(sessionId)}` : base;
-      if (window.location.pathname === nextUrl) {
+      if (sessionId === initialSessionId || (!sessionId && initialSessionId === null)) {
         return;
       }
-      window.history.replaceState(window.history.state, "", nextUrl);
-      window.dispatchEvent(
-        new CustomEvent(CHAT_EVENTS.sessionPathUpdated, {
-          detail: { pathname: nextUrl, sessionId },
-        }),
-      );
+      if (sessionId) {
+        void navigate({
+          params: { sessionId, slug },
+          replace: true,
+          to: "/w/$slug/chat/$sessionId",
+        });
+        return;
+      }
+      void navigate({
+        params: { slug },
+        replace: true,
+        to: "/w/$slug/chat",
+      });
     },
-    [slug],
+    [initialSessionId, navigate, slug],
   );
 
   const updateConversationTitle = useCallback(

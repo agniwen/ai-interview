@@ -7,6 +7,7 @@ import {
   redirect,
   useLoaderData,
   useRouter,
+  useSearch,
 } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
@@ -120,6 +121,13 @@ interface WorkspaceMember {
   name: string;
   email: string;
   image: string | null;
+}
+
+function firstSearchValue(value: unknown): string | undefined {
+  if (typeof value === "string") {
+    return value;
+  }
+  return Array.isArray(value) && typeof value[0] === "string" ? value[0] : undefined;
 }
 
 // pipelineStage tab 副标题文案——简短，避免 tab 撑得过宽，移动端会隐藏。
@@ -312,6 +320,7 @@ interface FetchParams {
 function ResumeLibraryPage({ metrics }: { metrics: ResumeLibraryMetrics }) {
   const slug = useWorkspaceSlug();
   const router = useRouter();
+  const routeSearch = useSearch({ from: "/w/$slug/studio/resumes" });
   const queryClient = useQueryClient();
 
   // 删除简历会级联清掉关联的 AI 面试轮次；发起面试 / 保存并发起也会改动
@@ -473,19 +482,21 @@ function ResumeLibraryPage({ metrics }: { metrics: ResumeLibraryMetrics }) {
     if (consumedRecordIdRef.current) {
       return;
     }
-    const searchParams = new URLSearchParams(window.location.search);
-    const recordIdFromUrl = searchParams.get("recordId");
+    const recordIdFromUrl = firstSearchValue(routeSearch.recordId);
     if (!recordIdFromUrl) {
       return;
     }
     consumedRecordIdRef.current = true;
     setEditRecordId(recordIdFromUrl);
-    const remaining = new URLSearchParams(searchParams.toString());
-    remaining.delete("recordId");
-    const query = remaining.toString();
-    const nextUrl = query ? `${window.location.pathname}?${query}` : window.location.pathname;
-    window.history.replaceState(null, "", nextUrl);
-  }, []);
+    const nextSearch: SearchParamsRecord = { ...routeSearch };
+    delete nextSearch.recordId;
+    void router.navigate({
+      params: { slug },
+      replace: true,
+      search: nextSearch,
+      to: "/w/$slug/studio/resumes",
+    });
+  }, [routeSearch, router, slug]);
 
   // 保存：仅刷新列表。
   // 保存并发起面试：刷新列表 + 立即打开该轮次的 AI 面试详情弹窗，

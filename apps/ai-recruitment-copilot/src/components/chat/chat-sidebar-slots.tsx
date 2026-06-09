@@ -1,8 +1,8 @@
 "use client";
 
 import { PlusIcon, SquareCheckBigIcon, Trash2Icon, XIcon } from "lucide-react";
-import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Link, useNavigate, useParams } from "@tanstack/react-router";
+import { useCallback, useEffect, useState } from "react";
 import {
   SidebarBodyPortalContent,
   SidebarFooterPortalContent,
@@ -33,7 +33,6 @@ import { deleteConversation, fetchConversations } from "@/lib/client/api";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { cn } from "@arc/shared/utils";
 import { CHAT_EVENTS, notifyConversationsChanged } from "./lib/chat-events";
-import type { ChatSessionPathUpdatedDetail } from "./lib/chat-events";
 
 interface ConversationListItem {
   id: string;
@@ -44,42 +43,11 @@ interface ConversationListItem {
 
 const GENERATING_CHAT_TITLE = "生成中...";
 
-function useActiveSessionId(slug: string) {
-  const pathname = useRouterState({ select: (state) => state.location.pathname });
-  const [currentPathname, setCurrentPathname] = useState(pathname);
-
-  useEffect(() => {
-    setCurrentPathname(pathname);
-  }, [pathname]);
-
-  useEffect(() => {
-    const handleSessionPathUpdated = (event: Event) => {
-      const { detail } = event as CustomEvent<ChatSessionPathUpdatedDetail>;
-      setCurrentPathname(detail?.pathname ?? window.location.pathname);
-    };
-    const handlePopState = () => {
-      setCurrentPathname(window.location.pathname);
-    };
-
-    window.addEventListener("popstate", handlePopState);
-    window.addEventListener(CHAT_EVENTS.sessionPathUpdated, handleSessionPathUpdated);
-
-    return () => {
-      window.removeEventListener("popstate", handlePopState);
-      window.removeEventListener(CHAT_EVENTS.sessionPathUpdated, handleSessionPathUpdated);
-    };
-  }, []);
-
-  return useMemo(() => {
-    const prefix = `/w/${slug}/chat/`;
-    if (!currentPathname.startsWith(prefix)) {
-      return null;
-    }
-
-    const [id] = currentPathname.slice(prefix.length).split("/");
-
-    return id ? decodeURIComponent(id) : null;
-  }, [currentPathname, slug]);
+function useActiveSessionId() {
+  return useParams({
+    select: (params) => (typeof params.sessionId === "string" ? params.sessionId : null),
+    strict: false,
+  });
 }
 
 function ChatSidebarHeader({
@@ -381,7 +349,7 @@ export function ChatSidebarSlots() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
   const [bulkConfirmOpen, setBulkConfirmOpen] = useState(false);
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
-  const activeSessionId = useActiveSessionId(slug);
+  const activeSessionId = useActiveSessionId();
 
   const refreshConversationList = useCallback(async () => {
     try {

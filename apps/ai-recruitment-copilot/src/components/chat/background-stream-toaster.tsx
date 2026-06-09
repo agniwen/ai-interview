@@ -1,26 +1,17 @@
 "use client";
 
-import { useNavigate } from "@tanstack/react-router";
+import { useNavigate, useParams } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { subscribeChatFinish } from "./lib/chat-registry";
 
-// The chat page promotes `/w/[slug]/chat` to `/w/[slug]/chat/[id]` via
-// `history.replaceState`, so Next's `useParams()` never observes the
-// promotion. Parse the live `window.location.pathname` instead.
-const CHAT_SESSION_PATH_PATTERN = /^\/w\/[^/?#]+\/chat\/([^/?#]+)/;
-
-function getCurrentChatSessionId(): string | null {
-  if (typeof window === "undefined") {
-    return null;
-  }
-  const match = CHAT_SESSION_PATH_PATTERN.exec(window.location.pathname);
-  return match ? decodeURIComponent(match[1] ?? "") : null;
-}
-
 export function BackgroundStreamToaster() {
   const navigate = useNavigate();
+  const currentChatId = useParams({
+    select: (params) => (typeof params.sessionId === "string" ? params.sessionId : null),
+    strict: false,
+  });
 
   useEffect(
     () =>
@@ -31,17 +22,19 @@ export function BackgroundStreamToaster() {
         if (message.role !== "assistant") {
           return;
         }
-        if (chatId === getCurrentChatSessionId()) {
+        if (chatId === currentChatId) {
           return;
         }
-        const href = `/w/${slug}/chat/${encodeURIComponent(chatId)}`;
         const toastId = toast("新回复", {
           action: (
             <Button
               className="ml-auto"
               onClick={() => {
                 toast.dismiss(toastId);
-                void navigate({ href });
+                void navigate({
+                  params: { sessionId: chatId, slug },
+                  to: "/w/$slug/chat/$sessionId",
+                });
               }}
               size="sm"
             >
@@ -50,7 +43,7 @@ export function BackgroundStreamToaster() {
           ),
         });
       }),
-    [navigate],
+    [currentChatId, navigate],
   );
 
   return null;

@@ -30,12 +30,34 @@ describe("TanStack Start workspace shell migration", () => {
     expect(sources.join("\n")).not.toMatch(/next\/(?:link|navigation|headers|server|cache)/u);
   });
 
-  it("derives chat session active state from router pathname with manual URL fallback", () => {
+  it("derives chat session active state from TanStack Router params", () => {
     const sidebarSlots = readSource("components/chat/chat-sidebar-slots.tsx");
 
-    expect(sidebarSlots).toContain("useRouterState");
-    expect(sidebarSlots).toContain("state.location.pathname");
-    expect(sidebarSlots).toContain("CHAT_EVENTS.sessionPathUpdated");
+    expect(sidebarSlots).toContain("useParams");
+    expect(sidebarSlots).toContain("params.sessionId");
+    expect(sidebarSlots).not.toContain("CHAT_EVENTS.sessionPathUpdated");
     expect(sidebarSlots).not.toContain("useSyncExternalStore");
+  });
+
+  it("uses typed router navigation for chat session URL changes", () => {
+    const workspace = readSource("components/chat/chat-workspace.tsx");
+    const toaster = readSource("components/chat/background-stream-toaster.tsx");
+
+    expect(workspace).not.toContain("window.history.replaceState");
+    expect(workspace).not.toContain("CHAT_EVENTS.sessionPathUpdated");
+    expect(toaster).not.toContain("window.location.pathname");
+    expect(toaster).not.toContain("navigate({ href");
+    expect(`${workspace}\n${toaster}`).toContain('to: "/w/$slug/chat/$sessionId"');
+  });
+
+  it("clears one-shot studio query params through router search state", () => {
+    const interviews = readSource("routes/w.$slug.studio.interviews.tsx");
+    const resumes = readSource("routes/w.$slug.studio.resumes.tsx");
+
+    expect(`${interviews}\n${resumes}`).not.toContain("window.history.replaceState");
+    expect(interviews).toContain('to: "/w/$slug/studio/interviews"');
+    expect(resumes).toContain('to: "/w/$slug/studio/resumes"');
+    expect(interviews).toContain('useSearch({ from: "/w/$slug/studio/interviews" })');
+    expect(resumes).toContain('useSearch({ from: "/w/$slug/studio/resumes" })');
   });
 });

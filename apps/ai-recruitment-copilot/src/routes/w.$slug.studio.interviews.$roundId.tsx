@@ -40,7 +40,10 @@ function InterviewRoundDetailPage({ slug, roundId }: { slug: string; roundId: st
             <div>
               <Button
                 onClick={() => {
-                  void router.navigate({ href: `/w/${slug}/studio/interviews` });
+                  void router.navigate({
+                    params: { slug },
+                    to: "/w/$slug/studio/interviews",
+                  });
                 }}
                 size="sm"
                 type="button"

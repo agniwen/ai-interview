@@ -7,6 +7,8 @@ import {
   notFound,
   redirect,
   useLoaderData,
+  useNavigate,
+  useSearch,
 } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
@@ -94,6 +96,13 @@ interface WorkspaceMember {
   image: string | null;
 }
 
+function firstSearchValue(value: unknown): string | undefined {
+  if (typeof value === "string") {
+    return value;
+  }
+  return Array.isArray(value) && typeof value[0] === "string" ? value[0] : undefined;
+}
+
 // AI 阶段锁：候选人推进到真人复面/Offer/已结案后，AI 面试相关写动作禁用。
 // AI-stage lock: once the candidate moves past ai_interview, AI round write actions are disabled.
 function isAiStageLocked(row: StudioInterviewRoundListRecord): boolean {
@@ -158,6 +167,8 @@ async function copyPublicLink(record: StudioInterviewRoundListRecord) {
 
 function InterviewManagementPage() {
   const slug = useWorkspaceSlug();
+  const navigate = useNavigate();
+  const routeSearch = useSearch({ from: "/w/$slug/studio/interviews" });
   const queryClient = useQueryClient();
 
   // 拉取轮次列表（含分页 / 搜索 / 状态过滤）。
@@ -267,27 +278,29 @@ function InterviewManagementPage() {
     if (consumedRecordIdRef.current) {
       return;
     }
-    const searchParams = new URLSearchParams(window.location.search);
-    const roundIdFromUrl = searchParams.get("roundId");
-    const recordIdFromUrl = searchParams.get("recordId");
+    const roundIdFromUrl = firstSearchValue(routeSearch.roundId);
+    const recordIdFromUrl = firstSearchValue(routeSearch.recordId);
     if (!(roundIdFromUrl || recordIdFromUrl)) {
       return;
     }
     consumedRecordIdRef.current = true;
 
-    const remaining = new URLSearchParams(searchParams.toString());
-    remaining.delete("roundId");
-    remaining.delete("recordId");
-    const query = remaining.toString();
-    const nextUrl = query ? `${window.location.pathname}?${query}` : window.location.pathname;
-    window.history.replaceState(null, "", nextUrl);
+    const nextSearch: SearchParamsRecord = { ...routeSearch };
+    delete nextSearch.roundId;
+    delete nextSearch.recordId;
+    void navigate({
+      params: { slug },
+      replace: true,
+      search: nextSearch,
+      to: "/w/$slug/studio/interviews",
+    });
 
     if (roundIdFromUrl) {
       setDetailRoundId(roundIdFromUrl);
     } else if (recordIdFromUrl) {
       setDetailRecordId(recordIdFromUrl);
     }
-  }, []);
+  }, [navigate, routeSearch, slug]);
 
   // 删除 / 重置 / 切轮次状态等写操作不仅影响 AI 面试列表，也会改变简历库的
   // hasInterviewRounds 标记和简历详情弹窗里的「AI 面试」tab，所以同步失效
