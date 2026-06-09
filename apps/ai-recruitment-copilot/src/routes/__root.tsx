@@ -8,8 +8,8 @@ import {
   useRouterState,
 } from "@tanstack/react-router";
 import { NuqsAdapter } from "nuqs/adapters/tanstack-router";
-import appCss from "../styles/globals.css?url";
-import overlayScrollbarsCss from "overlayscrollbars/overlayscrollbars.css?url";
+import "../styles/globals.css";
+import "overlayscrollbars/overlayscrollbars.css";
 import { NotFoundPage } from "@/components/layout/not-found-view";
 import { QueryProvider } from "@/components/providers/query-provider";
 import { ThemeProvider } from "@/components/theme/theme-provider";
@@ -85,8 +85,6 @@ export const Route = createRootRouteWithContext<{
   head: () => ({
     links: [
       { href: "/favicon.ico", rel: "icon" },
-      { href: appCss, rel: "stylesheet" },
-      { href: overlayScrollbarsCss, rel: "stylesheet" },
       {
         crossOrigin: "anonymous",
         href: "https://cdn.jsdelivr.net",

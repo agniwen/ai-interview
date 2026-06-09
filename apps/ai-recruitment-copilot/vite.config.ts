@@ -38,6 +38,11 @@ export default defineConfig({
       router: {
         routesDirectory: "routes",
       },
+      server: {
+        build: {
+          inlineCss: true,
+        },
+      },
       srcDirectory: "src",
     }),
     viteReact(),

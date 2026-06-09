@@ -100,6 +100,17 @@ describe("TanStack Start migration patterns", () => {
     expect(viteConfig).toContain('"cache-control": "no-cache"');
   });
 
+  it("uses Start-managed global CSS so production SSR can inline route styles", () => {
+    const rootRoute = readSource("src/routes/__root.tsx");
+    const viteConfig = readSource("vite.config.ts");
+
+    expect(rootRoute).toContain('import "../styles/globals.css"');
+    expect(rootRoute).toContain('import "overlayscrollbars/overlayscrollbars.css"');
+    expect(rootRoute).not.toContain("globals.css?url");
+    expect(rootRoute).not.toContain("overlayscrollbars.css?url");
+    expect(viteConfig).toContain("inlineCss: true");
+  });
+
   it("keeps Next public environment variables exposed through Vite", () => {
     const viteConfig = readSource("vite.config.ts");
     const clientSources = [
