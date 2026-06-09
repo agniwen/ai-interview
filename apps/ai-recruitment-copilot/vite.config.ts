@@ -41,7 +41,20 @@ export default defineConfig({
       srcDirectory: "src",
     }),
     viteReact(),
-    nitro(),
+    nitro({
+      routeRules: {
+        "/**": {
+          headers: {
+            "cache-control": "no-cache",
+          },
+        },
+        "/assets/**": {
+          headers: {
+            "cache-control": "public, max-age=31536000, immutable",
+          },
+        },
+      },
+    }),
   ],
   resolve: {
     tsconfigPaths: true,

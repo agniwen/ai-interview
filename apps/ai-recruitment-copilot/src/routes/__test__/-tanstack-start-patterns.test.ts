@@ -91,6 +91,15 @@ describe("TanStack Start migration patterns", () => {
     expect(viteConfig).toContain("prerender: { enabled: true");
   });
 
+  it("keeps production HTML revalidated while hashed assets stay immutable", () => {
+    const viteConfig = readSource("vite.config.ts");
+
+    expect(viteConfig).toContain('"/assets/**"');
+    expect(viteConfig).toContain("public, max-age=31536000, immutable");
+    expect(viteConfig).toContain('"/**"');
+    expect(viteConfig).toContain('"cache-control": "no-cache"');
+  });
+
   it("keeps Next public environment variables exposed through Vite", () => {
     const viteConfig = readSource("vite.config.ts");
     const clientSources = [
