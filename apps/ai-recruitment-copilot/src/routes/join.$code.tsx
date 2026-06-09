@@ -6,6 +6,7 @@ import { getJoinPreview } from "@arc/ai-recruitment-copilot-backend/server/route
 import { codeParamsSchema } from "@arc/ai-recruitment-copilot-backend/server/routes/join/schema";
 import { InvalidJoinLink } from "@/components/join/invalid-join-link";
 import { JoinClient } from "@/components/join/join-client";
+import { codeInputSchema } from "@/lib/start/server-fn-validators";
 
 type JoinRouteState =
   | { status: "invalid" }
@@ -23,7 +24,7 @@ type JoinRouteState =
     };
 
 const getJoinRouteState = createServerFn({ method: "GET" })
-  .validator((input: { code: string }) => input)
+  .validator(codeInputSchema)
   .handler(async ({ data }): Promise<JoinRouteState> => {
     const parsed = codeParamsSchema.safeParse({ code: data.code });
     if (!parsed.success) {

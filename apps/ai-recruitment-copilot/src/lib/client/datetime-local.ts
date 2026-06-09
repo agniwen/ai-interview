@@ -1,5 +1,3 @@
-import "client-only";
-
 /**
  * Convert a browser `<input type="datetime-local">` value into an ISO instant.
  * The input string is timezone-less by design, so this must run on the client

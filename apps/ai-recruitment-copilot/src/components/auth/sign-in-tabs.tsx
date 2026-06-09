@@ -8,14 +8,14 @@ import { GoogleSignInButton } from "./google-sign-in-button";
 // 通过 NEXT_PUBLIC_ENABLE_GOOGLE_LOGIN 切换登录入口：设置后只暴露 Google OAuth，
 // 隐藏飞书；未设置则沿用默认（飞书）。生产环境（国内 IDC）出口到
 // oauth2.googleapis.com 不通，所以默认关闭；本地 dev 或有海外出口的部署可显式开启。
-// process.env 在 Next.js 客户端组件里是构建时内联值，安全可用。
+// Vite 通过 envPrefix 暴露 NEXT_PUBLIC_* 到 import.meta.env。
 // Toggle login entry points via NEXT_PUBLIC_ENABLE_GOOGLE_LOGIN: when set, only
 // Google OAuth is exposed and Feishu is hidden; otherwise fall back to the
 // default (Feishu). Production runs from a domestic IDC whose egress can't
 // reach oauth2.googleapis.com, so it stays off by default; local dev or
-// overseas-egress deployments can opt in. NEXT_PUBLIC_* is inlined at build
-// time by Next.js, safe to read in a client file.
-const SHOW_GOOGLE_LOGIN = Boolean(process.env.NEXT_PUBLIC_ENABLE_GOOGLE_LOGIN);
+// overseas-egress deployments can opt in. Vite exposes NEXT_PUBLIC_* through
+// import.meta.env via envPrefix.
+const SHOW_GOOGLE_LOGIN = Boolean(import.meta.env.NEXT_PUBLIC_ENABLE_GOOGLE_LOGIN);
 
 interface SignInTabsProps {
   /** 登录成功后跳转目标 / Where to navigate once signed in. */

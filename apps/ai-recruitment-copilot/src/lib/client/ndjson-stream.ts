@@ -1,5 +1,3 @@
-import "client-only";
-
 /**
  * NDJSON（换行分隔的 JSON）流式解析工具。
  * NDJSON (newline-delimited JSON) streaming parser utility.

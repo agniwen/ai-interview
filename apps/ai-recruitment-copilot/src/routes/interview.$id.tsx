@@ -1,6 +1,7 @@
-import { createFileRoute, redirect, useLoaderData } from "@tanstack/react-router";
+import { Outlet, createFileRoute, redirect, useLoaderData } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
+import { idInputSchema } from "@/lib/start/server-fn-validators";
 
 interface InterviewResolveState {
   roundId: string | null;
@@ -11,7 +12,7 @@ function getBaseUrl() {
 }
 
 const resolveInterviewRoundState = createServerFn({ method: "GET" })
-  .validator((input: { id: string }) => input)
+  .validator(idInputSchema)
   .handler(async ({ data }): Promise<InterviewResolveState> => {
     try {
       const response = await fetch(
@@ -32,7 +33,7 @@ function InterviewByIdRoute() {
   const { roundId } = useLoaderData({ from: "/interview/$id" });
 
   if (roundId) {
-    return null;
+    return <Outlet />;
   }
 
   return (
@@ -49,9 +50,9 @@ function InterviewByIdRoute() {
 
 export const Route = createFileRoute("/interview/$id")({
   component: InterviewByIdRoute,
-  loader: async ({ params }) => {
+  loader: async ({ location, params }) => {
     const state = await resolveInterviewRoundState({ data: { id: params.id } });
-    if (state.roundId) {
+    if (state.roundId && location.pathname === `/interview/${params.id}`) {
       throw redirect({ href: `/interview/${params.id}/${state.roundId}` });
     }
     return state;

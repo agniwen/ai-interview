@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 
-const srcRoot = path.resolve(import.meta.dirname, "..");
+const srcRoot = path.resolve(import.meta.dirname, "../..");
 
 function readSource(relativePath: string) {
   return readFileSync(path.join(srcRoot, relativePath), "utf-8");
@@ -30,11 +30,7 @@ describe("TanStack Start studio CRUD route migration", () => {
       readSource("routes/w.$slug.studio.interviewers.tsx"),
       readSource("routes/w.$slug.studio.departments.tsx"),
       readSource("routes/w.$slug.studio.forms.tsx"),
-      readSource("components/studio/job-descriptions/job-description-management-page.tsx"),
       readSource("components/studio/job-descriptions/job-description-form-dialog.tsx"),
-      readSource("components/studio/interviewers/interviewer-management-page.tsx"),
-      readSource("components/studio/departments/department-management-page.tsx"),
-      readSource("components/studio/forms/form-template-management-page.tsx"),
     ];
 
     expect(sources.join("\n")).not.toMatch(

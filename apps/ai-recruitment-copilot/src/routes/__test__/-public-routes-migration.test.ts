@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 
-const srcRoot = path.resolve(import.meta.dirname, "..");
+const srcRoot = path.resolve(import.meta.dirname, "../..");
 
 function readSource(relativePath: string) {
   return readFileSync(path.join(srcRoot, relativePath), "utf-8");
@@ -35,7 +35,6 @@ describe("TanStack Start public route migration", () => {
       readSource("routes/interview.tsx"),
       readSource("routes/interview.$id.tsx"),
       readSource("routes/interview.$id.$roundId.tsx"),
-      readSource("components/public-interview-round/public-interview-round-page.tsx"),
       readSource("components/human-interview/human-meeting-room.tsx"),
       readSource("components/interview/interview-room.tsx"),
       readSource("components/interview/interview-copy-guard.tsx"),
@@ -44,5 +43,19 @@ describe("TanStack Start public route migration", () => {
     expect(sources.join("\n")).not.toMatch(
       /next\/(?:dynamic|navigation|headers|server|cache|link)/u,
     );
+  });
+
+  it("only redirects the legacy interview id route before entering a round route", () => {
+    const source = readSource("routes/interview.$id.tsx");
+
+    expect(source).toContain("loader: async ({ location, params })");
+    expect(source).toMatch(/location\.pathname === `\/interview\/\$\{params\.id\}`/u);
+  });
+
+  it("renders the nested interview round route after resolving a round id", () => {
+    const source = readSource("routes/interview.$id.tsx");
+
+    expect(source).toContain("Outlet");
+    expect(source).toContain("<Outlet />");
   });
 });

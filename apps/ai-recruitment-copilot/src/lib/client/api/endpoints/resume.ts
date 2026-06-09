@@ -1,5 +1,3 @@
-import "client-only";
-
 /**
  * 简历筛选（resume screening）相关 API。
  * Resume-screening API.

@@ -4,7 +4,7 @@ import type {
   ActiveOrganizationState,
   WorkspaceAccessState,
   WorkspaceSelectionState,
-} from "./auth-session";
+} from "@/lib/start/auth-session-types";
 import { auth } from "@arc/ai-recruitment-copilot-backend/lib/server/auth";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import { user as userTable } from "@arc/db-schema/schema";

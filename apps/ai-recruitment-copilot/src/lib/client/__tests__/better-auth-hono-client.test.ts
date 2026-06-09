@@ -18,11 +18,9 @@ describe("Better Auth Hono client integration", () => {
   });
 
   it("sends cookies from frontend API clients to Hono", () => {
-    const sources = [
-      readSource("lib/client/rpc.ts"),
-      readSource("lib/orpc.ts"),
-      readSource("lib/client/api/client.ts"),
-    ].join("\n");
+    const sources = [readSource("lib/client/rpc.ts"), readSource("lib/client/api/client.ts")].join(
+      "\n",
+    );
 
     expect(sources).toContain('credentials: "include"');
     expect(sources).not.toContain('credentials: "same-origin"');

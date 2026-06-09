@@ -14,12 +14,6 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "src"),
-      // 测试环境下把 next 的 server-only / client-only 兜底为空模块；
-      // 真正的隔离由 next bundler 在构建时完成，vitest 只是 node runner。
-      // Stub Next's server-only / client-only inside vitest — actual isolation
-      // is enforced by the Next bundler at build time; vitest is just a Node runner.
-      "client-only": path.resolve(__dirname, "src/test/empty-module.ts"),
-      "server-only": path.resolve(__dirname, "src/test/empty-module.ts"),
     },
   },
   test: {

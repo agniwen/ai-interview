@@ -1,13 +1,21 @@
 import type { ReactNode } from "react";
-import { HeadContent, Outlet, Scripts, createRootRoute } from "@tanstack/react-router";
+import {
+  HeadContent,
+  Outlet,
+  Scripts,
+  createRootRouteWithContext,
+  useRouter,
+} from "@tanstack/react-router";
 import { NuqsAdapter } from "nuqs/adapters/tanstack-router";
 import appCss from "../styles/globals.css?url";
 import overlayScrollbarsCss from "overlayscrollbars/overlayscrollbars.css?url";
+import { NotFoundPage } from "@/components/layout/not-found-view";
 import { QueryProvider } from "@/components/providers/query-provider";
 import { ThemeProvider } from "@/components/theme/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { OverlayScrollbarsBody } from "@/components/layout/overlay-scrollbars-body";
+import type { getQueryClient } from "@/lib/client/query-client";
 
 function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
   return (
@@ -31,11 +39,17 @@ function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
 }
 
 function RootComponent() {
+  const {
+    options: {
+      context: { queryClient },
+    },
+  } = useRouter();
+
   return (
     <RootDocument>
       <ThemeProvider attribute="class" defaultTheme="system" disableTransitionOnChange enableSystem>
         <NuqsAdapter>
-          <QueryProvider>
+          <QueryProvider queryClient={queryClient}>
             <TooltipProvider>
               <Outlet />
               <Toaster />
@@ -47,7 +61,13 @@ function RootComponent() {
   );
 }
 
-export const Route = createRootRoute({
+function RootNotFoundComponent() {
+  return <NotFoundPage />;
+}
+
+export const Route = createRootRouteWithContext<{
+  queryClient: ReturnType<typeof getQueryClient>;
+}>()({
   component: RootComponent,
   head: () => ({
     links: [
@@ -104,4 +124,5 @@ export const Route = createRootRoute({
       { title: "招聘 AI 协同工作台 · AI Recruitment Copilot" },
     ],
   }),
+  notFoundComponent: RootNotFoundComponent,
 });

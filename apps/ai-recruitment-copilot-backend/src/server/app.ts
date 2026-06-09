@@ -5,7 +5,6 @@ import { auth } from "@arc/ai-recruitment-copilot-backend/lib/server/auth";
 import { runWithAuthRequestHeaders } from "@arc/ai-recruitment-copilot-backend/lib/server/auth-request-context";
 import { factory } from "./factory";
 import { betterAuthMiddleware } from "./middlewares/better-auth";
-import { handleORPCRequest } from "./orpc/handler";
 import { agentRouter } from "./routes/agent/route";
 import { chatRouter } from "./routes/chat/route";
 import { feishuRouter } from "./routes/feishu/route";
@@ -59,18 +58,6 @@ export function createServerApp() {
       runWithAuthRequestHeaders(c.req.raw.headers, () => auth.handler(c.req.raw)),
     )
     .use(betterAuthMiddleware)
-    .use("/api/rpc/*", async (c, next) => {
-      const { matched, response } = await handleORPCRequest(c.req.raw, {
-        session: c.var.session,
-        user: c.var.user,
-      });
-
-      if (matched) {
-        return c.newResponse(response.body, response);
-      }
-
-      await next();
-    })
     .route("/api", apiRoutes);
 
   honoApp.notFound((c) => c.json({ error: "Not Found" }, 404));

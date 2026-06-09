@@ -2,6 +2,7 @@ import { createFileRoute, notFound, redirect, useLoaderData } from "@tanstack/re
 import { createServerFn } from "@tanstack/react-start";
 import { GlobalConfigForm } from "@/components/studio/global-config/global-config-form";
 import type { GlobalConfigRecord } from "@arc/shared/global-config";
+import { slugInputSchema } from "@/lib/start/server-fn-validators";
 
 type StudioGlobalConfigState =
   | { status: "unauthenticated" }
@@ -12,7 +13,7 @@ type StudioGlobalConfigState =
     };
 
 const loadStudioGlobalConfigState = createServerFn({ method: "GET" })
-  .validator((input: { slug: string }) => input)
+  .validator(slugInputSchema)
   .handler(async ({ data }): Promise<StudioGlobalConfigState> => {
     const { resolveWorkspaceAccessFromRequest } = await import("@/lib/start/auth-session.server");
     const { getGlobalConfig } =

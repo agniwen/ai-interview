@@ -1,5 +1,3 @@
-import "client-only";
-
 /**
  * 统一的前端 API 调用入口：`apiFetch<T>(path, init)`。
  * Centralized frontend API entry point: `apiFetch<T>(path, init)`.

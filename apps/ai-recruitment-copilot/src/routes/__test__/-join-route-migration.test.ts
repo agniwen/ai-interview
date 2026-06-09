@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 
-const srcRoot = path.resolve(import.meta.dirname, "..");
+const srcRoot = path.resolve(import.meta.dirname, "../..");
 
 function readSource(relativePath: string) {
   return readFileSync(path.join(srcRoot, relativePath), "utf-8");

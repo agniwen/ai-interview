@@ -2,6 +2,7 @@ import { createFileRoute, useLoaderData } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
 import type { PublicHumanInterviewMeetingPreview } from "@arc/shared/studio-pipeline-stages";
 import { HumanMeetingRoom } from "@/components/human-interview/human-meeting-room";
+import { inviteTokenInputSchema } from "@/lib/start/server-fn-validators";
 
 interface HumanInterviewCandidateState {
   inviteToken: string;
@@ -13,7 +14,7 @@ function getBaseUrl() {
 }
 
 const loadHumanInterviewCandidateState = createServerFn({ method: "GET" })
-  .validator((input: { inviteToken: string }) => input)
+  .validator(inviteTokenInputSchema)
   .handler(async ({ data }): Promise<HumanInterviewCandidateState> => {
     try {
       const response = await fetch(

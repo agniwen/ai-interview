@@ -1,43 +1,10 @@
 import { createServerFn } from "@tanstack/react-start";
-
-export type ActiveOrganizationState =
-  | { status: "unauthenticated" }
-  | { status: "no_active_workspace" }
-  | {
-      status: "ready";
-      workspace: {
-        id: string;
-        slug: string;
-      };
-    };
-
-export type WorkspaceSelectionState =
-  | { status: "unauthenticated" }
-  | {
-      organizations: {
-        id: string;
-        logo: string | null;
-        name: string;
-        slug: string;
-      }[];
-      status: "ready";
-      user: {
-        email: string;
-        image: string | null | undefined;
-        name: string | null | undefined;
-      };
-    };
-
-export type WorkspaceAccessState =
-  | { status: "unauthenticated" }
-  | { status: "not_found" }
-  | {
-      status: "ready";
-      workspace: {
-        id: string;
-        slug: string;
-      };
-    };
+import type {
+  ActiveOrganizationState,
+  WorkspaceAccessState,
+  WorkspaceSelectionState,
+} from "@/lib/start/auth-session-types";
+import { slugInputSchema } from "@/lib/start/server-fn-validators";
 
 export const getActiveOrganizationState = createServerFn({ method: "GET" }).handler(
   async (): Promise<ActiveOrganizationState> => {
@@ -54,7 +21,7 @@ export const getWorkspaceSelectionState = createServerFn({ method: "GET" }).hand
 );
 
 export const getWorkspaceAccessState = createServerFn({ method: "GET" })
-  .validator((input: { slug: string }) => input)
+  .validator(slugInputSchema)
   .handler(async ({ data }): Promise<WorkspaceAccessState> => {
     const sessionApi = await import("./auth-session.server");
     return await sessionApi.resolveWorkspaceAccessFromRequest(data.slug);

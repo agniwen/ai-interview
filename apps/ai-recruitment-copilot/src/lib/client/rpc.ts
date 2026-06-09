@@ -1,5 +1,3 @@
-import "client-only";
-
 import type { AppType } from "@arc/ai-recruitment-copilot-backend/server/app";
 import { hc } from "hono/client";
 

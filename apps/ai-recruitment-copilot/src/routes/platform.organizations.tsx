@@ -9,6 +9,7 @@ import {
 } from "@/components/data-grid/query-contract";
 import { OrganizationsGrid } from "@/components/platform/organizations/organizations-grid";
 import { createQueryClient } from "@arc/shared/query-client";
+import { emptyFiltersSchema, platformDataGridInputSchema } from "@/lib/start/server-fn-validators";
 
 const INITIAL_PAGE_SIZE = 10;
 
@@ -49,7 +50,7 @@ function parsePlatformOrganizationsQuery(
 }
 
 const loadPlatformOrganizationsState = createServerFn({ method: "GET" })
-  .validator((input: { query: DataGridQueryState<EmptyFilters> }) => input)
+  .validator(platformDataGridInputSchema(emptyFiltersSchema))
   .handler(async ({ data }): Promise<PlatformOrganizationsState> => {
     const { getPlatformAdminStateFromRequest } = await import("@/lib/start/platform-admin.server");
     const adminState = await getPlatformAdminStateFromRequest();

@@ -688,7 +688,7 @@ export default function InterviewRoom({ interviewId, roundId }: InterviewRoomPro
     [interviewId, roundId],
   );
 
-  const agentName = process.env.NEXT_PUBLIC_AGENT_NAME;
+  const agentName = import.meta.env.NEXT_PUBLIC_AGENT_NAME;
   const session = useSession(tokenSource, agentName ? { agentName } : undefined);
 
   const isDisconnected = session.connectionState === ConnectionState.Disconnected;

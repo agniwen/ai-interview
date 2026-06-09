@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 
-const srcRoot = path.resolve(import.meta.dirname, "..");
+const srcRoot = path.resolve(import.meta.dirname, "../..");
 
 function readSource(relativePath: string) {
   return readFileSync(path.join(srcRoot, relativePath), "utf-8");
@@ -27,7 +27,6 @@ describe("TanStack Start platform route migration", () => {
       readSource("routes/platform.analytics.tsx"),
       readSource("components/platform/platform-sidebar-slots.tsx"),
       readSource("components/platform/platform-header.tsx"),
-      readSource("components/platform/analytics/analytics-dashboard-page.tsx"),
       readSource("components/platform/organizations/organizations-grid.tsx"),
       readSource("components/platform/users/users-grid.tsx"),
       readSource("components/layout/platform-sidebar/platform-logo.tsx"),

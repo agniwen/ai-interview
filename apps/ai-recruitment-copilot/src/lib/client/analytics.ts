@@ -1,5 +1,3 @@
-import "client-only";
-
 import posthog from "posthog-js";
 
 export interface AnalyticsClient {
@@ -114,8 +112,8 @@ const analyticsContext = new Map<string, unknown>();
 
 export function isPostHogEnabled() {
   return (
-    process.env.NEXT_PUBLIC_ENABLE_POSTHOG === "true" &&
-    Boolean(process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN)
+    import.meta.env.NEXT_PUBLIC_ENABLE_POSTHOG === "true" &&
+    Boolean(import.meta.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN)
   );
 }
 
@@ -124,8 +122,8 @@ export function initializePostHog() {
     return;
   }
 
-  posthog.init(process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN as string, {
-    api_host: process.env.NEXT_PUBLIC_POSTHOG_HOST ?? "https://us.i.posthog.com",
+  posthog.init(import.meta.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN as string, {
+    api_host: import.meta.env.NEXT_PUBLIC_POSTHOG_HOST ?? "https://us.i.posthog.com",
     autocapture: false,
     capture_pageleave: true,
     capture_pageview: false,

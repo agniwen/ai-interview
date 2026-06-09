@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 
-const srcRoot = path.resolve(import.meta.dirname, "..");
+const srcRoot = path.resolve(import.meta.dirname, "../..");
 
 function readSource(relativePath: string) {
   return readFileSync(path.join(srcRoot, relativePath), "utf-8");
@@ -14,11 +14,16 @@ describe("TanStack Start studio interviews migration", () => {
   });
 
   it("keeps the migrated interviews route and page free of Next runtime imports", () => {
-    const sources = [
-      readSource("routes/w.$slug.studio.interviews.tsx"),
-      readSource("components/studio/interviews/interview-management-page.tsx"),
-    ];
+    const sources = [readSource("routes/w.$slug.studio.interviews.tsx")];
 
     expect(sources.join("\n")).not.toMatch(/next\/(?:dynamic|navigation|headers|server|cache)/u);
+  });
+
+  it("lets the nested interview round detail route render instead of the list page", () => {
+    const source = readSource("routes/w.$slug.studio.interviews.tsx");
+
+    expect(source).toContain("Outlet");
+    expect(source).toContain("isListRoute");
+    expect(source).toContain("<Outlet />");
   });
 });
