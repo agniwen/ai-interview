@@ -1,5 +1,3 @@
-import "client-only";
-
 /**
  * 剪贴板与 URL 工具：在不同浏览器 / 安全上下文下尽量提供降级路径。
  * Clipboard / URL helpers with graceful fallbacks for restricted security contexts.

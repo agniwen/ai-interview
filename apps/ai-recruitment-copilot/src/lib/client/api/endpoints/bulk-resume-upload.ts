@@ -1,5 +1,3 @@
-import "client-only";
-
 /**
  * 批量上传简历 API。映射到 `/api/w/:slug/studio/resume-upload-batches/*`。
  * 单文件上传走 apiFetch + FormData（hc 不支持 multipart）；其余 JSON 端点走 rpc + rpcFetch。

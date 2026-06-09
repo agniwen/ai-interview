@@ -1,5 +1,3 @@
-import "client-only";
-
 import type { ClientResponse } from "hono/client";
 import { DetailedError, parseResponse } from "hono/client";
 import { ApiError } from "./errors";

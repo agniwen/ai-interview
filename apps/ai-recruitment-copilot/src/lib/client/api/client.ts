@@ -1,5 +1,3 @@
-import "client-only";
-
 /**
  * 统一的前端 API 调用入口：`apiFetch<T>(path, init)`。
  * Centralized frontend API entry point: `apiFetch<T>(path, init)`.
@@ -12,7 +10,7 @@ import "client-only";
  *
  * Responsibilities:
  * 1) auto-serialize plain objects to JSON (FormData / Blob / string passes through);
- * 2) inject default headers and `credentials: "same-origin"`;
+ * 2) inject default headers and `credentials: "include"`;
  * 3) throw {@link ApiError} on non-OK responses;
  * 4) decode responses as JSON by default (use `raw` to handle the Response yourself).
  */
@@ -127,7 +125,7 @@ export async function apiFetch<T = unknown>(
   let response: Response;
   try {
     response = await fetch(path, {
-      credentials: "same-origin",
+      credentials: "include",
       ...rest,
       body: finalBody,
       headers: finalHeaders,

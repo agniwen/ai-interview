@@ -1,7 +1,7 @@
 "use client";
 
 import { LoaderCircleIcon, SparklesIcon } from "lucide-react";
-import { JobDescriptionSelectField } from "@/app/(auth)/w/[slug]/studio/interviews/_components/job-description-select-field";
+import { JobDescriptionSelectField } from "@/components/studio/interviews/job-description-select-field";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Modal } from "@/components/ui/modal";

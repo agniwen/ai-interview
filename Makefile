@@ -19,7 +19,7 @@ help: ## 显示所有可用命令
 
 install: web-install agent-install agent-download ## 一键安装前后端依赖 + 下载模型
 
-web-install: ## pnpm install (Next.js 前端)
+web-install: ## pnpm install (TanStack Start 前端)
 	pnpm install
 	pnpm hooks
 
@@ -31,10 +31,10 @@ agent-download: ## 下载 Silero VAD + turn-detector 模型
 
 # ---------- dev ----------
 
-dev: ## 并行启动 Next.js + LiveKit agent worker + 简历解析 worker
+dev: ## 并行启动 TanStack Start + LiveKit agent worker + 简历解析 worker
 	@$(MAKE) -j3 web-dev agent-dev worker-dev
 
-web-dev: ## 仅启动 Next.js dev server
+web-dev: ## 仅启动 TanStack Start dev server
 	pnpm --filter @arc/ai-recruitment-copilot dev
 
 worker-dev: ## 仅启动简历异步解析 worker (dev 模式，热重载)
@@ -73,4 +73,4 @@ agent-clean: ## 删除 Python venv
 	rm -rf $(VENV)
 
 clean: agent-clean ## 清理所有生成目录
-	rm -rf .next node_modules/.cache
+	rm -rf apps/ai-recruitment-copilot/.output apps/ai-recruitment-copilot/node_modules/.vite node_modules/.cache

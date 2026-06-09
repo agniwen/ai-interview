@@ -1,5 +1,3 @@
-import "client-only";
-
 /**
  * Studio 后台「简历库」API。映射到 `/api/w/:slug/studio/resumes/*`。
  * 文件上传 (POST/PATCH 带 resume File) 由对话框组件直接用 fetch + FormData，

@@ -1,5 +1,3 @@
-import "client-only";
-
 import {
   adminClient,
   genericOAuthClient,
@@ -10,11 +8,20 @@ import { createAuthClient } from "better-auth/react";
 import type { auth } from "@arc/ai-recruitment-copilot-backend/lib/server/auth";
 import { ac, roles } from "@arc/shared/permissions";
 
+function getAuthBaseURL() {
+  return (
+    import.meta.env.VITE_BETTER_AUTH_URL ??
+    (typeof window === "undefined" ? undefined : window.location.origin)
+  );
+}
+
+const authBaseURL = getAuthBaseURL();
+
 export const authClient = createAuthClient({
-  baseURL:
-    typeof window === "undefined"
-      ? (process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:3000")
-      : window.location.origin,
+  ...(authBaseURL ? { baseURL: authBaseURL } : {}),
+  fetchOptions: {
+    credentials: "include",
+  },
   plugins: [
     adminClient(),
     genericOAuthClient(),

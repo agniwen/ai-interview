@@ -24,7 +24,7 @@ function toAbsoluteUrl(pathOrUrl: string): string {
     return pathOrUrl;
   }
   const base =
-    process.env.NEXT_PUBLIC_BASE_URL ??
+    import.meta.env.NEXT_PUBLIC_BASE_URL ??
     (typeof window === "undefined" ? "http://localhost:3000" : window.location.origin);
   const normalizedBase = base.replace(/\/+$/, "");
   const normalizedPath = pathOrUrl.startsWith("/") ? pathOrUrl : `/${pathOrUrl}`;

@@ -1,5 +1,3 @@
-import "client-only";
-
 import type { ReceivedMessage } from "@livekit/components-react";
 import { joinTranscriptText } from "@arc/shared/interview-transcript-turns";
 

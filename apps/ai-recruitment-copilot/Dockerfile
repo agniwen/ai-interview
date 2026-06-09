@@ -30,7 +30,6 @@ COPY pnpm-lock.yaml pnpm-workspace.yaml package.json turbo.json tsconfig.base.js
 COPY apps/ai-recruitment-copilot ./apps/ai-recruitment-copilot
 COPY apps/ai-recruitment-copilot-backend ./apps/ai-recruitment-copilot-backend
 
-ENV NEXT_TELEMETRY_DISABLED=1
 RUN pnpm --filter @arc/ai-recruitment-copilot build
 
 # --- Production ---
@@ -38,21 +37,17 @@ FROM base AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
-ENV NEXT_TELEMETRY_DISABLED=1
 
 RUN addgroup --system --gid 1001 nodejs \
- && adduser --system --uid 1001 nextjs
+ && adduser --system --uid 1001 startjs
 
-# Next.js standalone output (with outputFileTracingRoot = repo root) lands the
-# server entry at apps/ai-recruitment-copilot/server.js inside .next/standalone.
-COPY --from=builder --chown=nextjs:nodejs /repo/apps/ai-recruitment-copilot/.next/standalone ./
-COPY --from=builder --chown=nextjs:nodejs /repo/apps/ai-recruitment-copilot/.next/static ./apps/ai-recruitment-copilot/.next/static
-COPY --from=builder --chown=nextjs:nodejs /repo/apps/ai-recruitment-copilot/public ./apps/ai-recruitment-copilot/public
+# TanStack Start with Nitro emits a standalone Node server in `.output`.
+COPY --from=builder --chown=startjs:nodejs /repo/apps/ai-recruitment-copilot/.output ./.output
 
-USER nextjs
+USER startjs
 
 EXPOSE 3000
 ENV PORT=3000
-ENV HOSTNAME="0.0.0.0"
+ENV HOST="0.0.0.0"
 
-CMD ["node", "apps/ai-recruitment-copilot/server.js"]
+CMD ["node", ".output/server/index.mjs"]

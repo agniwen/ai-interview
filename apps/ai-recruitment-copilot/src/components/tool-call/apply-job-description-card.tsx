@@ -12,7 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useJobDescriptionOptionsQuery } from "@/app/(auth)/w/[slug]/chat/_lib/use-job-description-options";
+import { useJobDescriptionOptionsQuery } from "@/components/chat/lib/use-job-description-options";
 
 interface RecommendedInput {
   id: string;

@@ -1,8 +1,8 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
+import { useNavigate, useRouterState } from "@tanstack/react-router";
 import { ChevronsUpDown, Plus } from "lucide-react";
-import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -43,7 +43,8 @@ function resolveSwitchTarget(currentPath: string, nextSlug: string): string {
  * "创建新工作区"入口打开 modal,无需跳转。
  */
 export function WorkspaceSwitcher() {
-  const pathname = usePathname();
+  const navigate = useNavigate();
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
   const currentSlug = useWorkspaceSlug();
   const [createOpen, setCreateOpen] = useState(false);
   const [switching, setSwitching] = useState(false);
@@ -97,11 +98,15 @@ export function WorkspaceSwitcher() {
                   setSwitching(true);
                   void (async () => {
                     try {
-                      await authClient.organization.setActive({ organizationId: o.id });
-                    } catch (error) {
-                      console.error("[workspace-switch] setActive failed", error);
+                      try {
+                        await authClient.organization.setActive({ organizationId: o.id });
+                      } catch (error) {
+                        console.error("[workspace-switch] setActive failed", error);
+                      }
+                      await navigate({ href: resolveSwitchTarget(pathname, o.slug) });
+                    } finally {
+                      setSwitching(false);
                     }
-                    window.location.assign(resolveSwitchTarget(pathname, o.slug));
                   })();
                 }}
               >

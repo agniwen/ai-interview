@@ -1,5 +1,3 @@
-import "client-only";
-
 /**
  * Studio 后台「面试管理」相关 API。
  * Studio admin "interview management" API.

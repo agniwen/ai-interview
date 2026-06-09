@@ -1,6 +1,6 @@
 import type { ColumnDef } from "@tanstack/react-table";
 import { ArrowUpDownIcon } from "lucide-react";
-import { DATE_TIME_DISPLAY_OPTIONS, TimeDisplay } from "@/components/time-display";
+import { DATE_TIME_DISPLAY_OPTIONS, TimeDisplay } from "@/components/display/time-display";
 import { Button } from "@/components/ui/button";
 
 export interface DateColumnOptions<TData> {

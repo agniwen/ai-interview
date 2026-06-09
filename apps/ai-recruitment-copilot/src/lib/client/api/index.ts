@@ -1,5 +1,3 @@
-import "client-only";
-
 // oxlint-disable no-barrel-file -- 这是 API 层的统一入口；barrel 文件是有意为之。
 //                                    Intentional barrel: single entry point for the API layer.
 /**
