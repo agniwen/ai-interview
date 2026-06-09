@@ -10,11 +10,17 @@ import { ac, roles } from "@arc/shared/permissions";
 import { db } from "./db";
 import * as schema from "@arc/db-schema/schema";
 
-// admin 调整成员角色时允许的目标角色（hr 招聘成员 / viewer 只读成员）。
+// admin 调整成员角色时允许的目标角色（招聘主管 / 招聘组长 / 招聘成员 / 只读成员）。
 // 真正禁止 admin 改 admin / owner / 自己的逻辑在下方 beforeUpdateMemberRole hook 中执行。
 // Allowed target roles when an admin updates a member. The hook below blocks
 // admin-on-admin/owner edits and self-edits.
-const ADMIN_ASSIGNABLE_ROLES = new Set(["hr", "viewer"] as const);
+type AdminAssignableRole = "recruitingSupervisor" | "recruitingLead" | "hr" | "viewer";
+const ADMIN_ASSIGNABLE_ROLES = new Set<AdminAssignableRole>([
+  "recruitingSupervisor",
+  "recruitingLead",
+  "hr",
+  "viewer",
+]);
 
 const baseURL = process.env.BETTER_AUTH_URL ?? "http://localhost:3000";
 const trustedOrigins = [...new Set([baseURL, "http://localhost:3000"])];
@@ -356,19 +362,19 @@ export const auth = betterAuth({
     }),
     organization({
       ac,
-      // 服务端硬约束：admin 调整成员角色时，只允许把 hr/viewer 改成 hr/viewer。
+      // 服务端硬约束：admin 调整成员角色时，只允许把成员改成非管理角色。
       //   - 不能改自己（防止自我提权）
       //   - 不能改其他 admin / owner（防止互相提权 / 接管 workspace）
-      //   - 新角色必须是 hr/viewer（不能新建 admin/owner）
+      //   - 新角色必须是 recruitingSupervisor / recruitingLead / hr / viewer
       // owner 不走这套限制——owner 可以指派任何角色，唯一例外是 owner 角色的
       // 转让由 better-auth 内置的 transferOwnership 单独处理。
-      // hr/viewer 理论上拿不到 member.update 权限（矩阵不给），所以请求根本到
+      // 非管理角色理论上拿不到 member.update 权限（矩阵不给），所以请求根本到
       // 不了这里；兜底仍然 reject。
       //
-      // Server-side gate: admins can only downgrade hr/viewer members within
-      // {hr, viewer}. They can't touch themselves, other admins, or the owner,
+      // Server-side gate: admins can only assign non-admin roles.
+      // They can't touch themselves, other admins, or the owner,
       // and they can't promote anyone to admin/owner. Owner is exempt (their
-      // own ownership transfer is its own flow). hr/viewer can't reach this
+      // own ownership transfer is its own flow). Non-admin roles can't reach this
       // path per the permission matrix, but we still reject as a defense-in-depth.
       organizationHooks: {
         // 成员被移除后：清掉该用户名下 session.activeOrganizationId 仍指向这个 org 的
@@ -441,8 +447,8 @@ export const auth = betterAuth({
           }
 
           if (invoker.role !== "admin") {
-            // hr / viewer 等：矩阵理论上拦不到这里，兜底拒绝。
-            // hr / viewer shouldn't reach this hook per the matrix; reject anyway.
+            // 非管理角色：矩阵理论上拦不到这里，兜底拒绝。
+            // Non-admin roles shouldn't reach this hook per the matrix; reject anyway.
             throw new APIError("FORBIDDEN", { message: "无权调整成员角色。" });
           }
 
@@ -452,14 +458,14 @@ export const auth = betterAuth({
 
           if (member.role === "admin" || member.role === "owner") {
             throw new APIError("FORBIDDEN", {
-              message: "管理员只能调整招聘成员或只读成员的角色。",
+              message: "管理员只能调整招聘主管、招聘组长、招聘成员或只读成员的角色。",
             });
           }
 
           const nextRole = Array.isArray(newRole) ? newRole[0] : newRole;
-          if (!nextRole || !ADMIN_ASSIGNABLE_ROLES.has(nextRole as "hr" | "viewer")) {
+          if (!nextRole || !ADMIN_ASSIGNABLE_ROLES.has(nextRole as AdminAssignableRole)) {
             throw new APIError("FORBIDDEN", {
-              message: "管理员只能将成员设置为招聘成员或只读成员。",
+              message: "管理员只能将成员设置为招聘主管、招聘组长、招聘成员或只读成员。",
             });
           }
         },

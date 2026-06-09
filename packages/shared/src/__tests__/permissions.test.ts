@@ -101,6 +101,19 @@ describe("permissions matrix", () => {
     });
   });
 
+  describe.each([
+    ["recruitingLead", "招聘组长"],
+    ["recruitingSupervisor", "招聘主管"],
+  ] as const)("%s role", (role) => {
+    it("exists", () => {
+      expect(roles[role]).toBeDefined();
+    });
+
+    it("has the same permissions as hr", () => {
+      expect(roles[role].statements).toEqual(roles.hr.statements);
+    });
+  });
+
   describe("viewer role", () => {
     it("exists", () => {
       expect(roles.viewer).toBeDefined();
@@ -152,6 +165,8 @@ describe("permission matrix cross-cut", () => {
     // jd
     ["hr", "jd", "update", true],
     ["hr", "jd", "delete", true],
+    ["recruitingLead", "jd", "update", true],
+    ["recruitingSupervisor", "jd", "update", true],
     ["viewer", "jd", "update", false],
     // department / interviewer
     ["hr", "department", "create", true],
@@ -163,6 +178,8 @@ describe("permission matrix cross-cut", () => {
     ["hr", "questionTemplate", "delete", true],
     // globalConfig
     ["hr", "globalConfig", "update", true],
+    ["recruitingLead", "globalConfig", "update", true],
+    ["recruitingSupervisor", "globalConfig", "update", true],
     ["admin", "globalConfig", "update", true],
     ["viewer", "globalConfig", "read", true],
     // auditLog
@@ -173,19 +190,25 @@ describe("permission matrix cross-cut", () => {
     // chat — 全员可全 CRUD
     ["viewer", "chat", "delete", true],
     // member — 改角色 (update) owner / admin 均可（admin 的目标范围由服务端
-    // hook 进一步限制为 hr/viewer，矩阵这里只给动词）；邀请/移除 admin 也可。
+    // hook 进一步限制为非管理角色，矩阵这里只给动词）；邀请/移除 admin 也可。
     ["owner", "member", "update", true],
     // admin 现在拥有 member.update 这个动词权限；具体能改谁、能改成什么角色的
     // 硬约束在服务端 hook（beforeUpdateMemberRole）里执行，矩阵这里只授予动词。
     // admin can now perform member.update; the actual target/role ceiling
-    // (hr/viewer only, no self, no peer-admin) lives in the server-side hook.
+    // (non-admin targets only, no self, no peer-admin) lives in the server-side hook.
     ["admin", "member", "update", true],
     ["hr", "member", "update", false],
+    ["recruitingLead", "member", "update", false],
+    ["recruitingSupervisor", "member", "update", false],
     ["viewer", "member", "update", false],
     ["admin", "member", "create", true],
     ["admin", "member", "delete", true],
     ["hr", "member", "create", false],
+    ["recruitingLead", "member", "create", false],
+    ["recruitingSupervisor", "member", "create", false],
     ["hr", "member", "delete", false],
+    ["recruitingLead", "member", "delete", false],
+    ["recruitingSupervisor", "member", "delete", false],
   ];
 
   for (const [role, resource, action, expected] of cases) {
