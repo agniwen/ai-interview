@@ -63,14 +63,21 @@ export function listBulkResumeBatches(slug: string): Promise<BulkResumeBatchDto[
 }
 
 /**
- * 获取当前活跃批次详情；无活跃批次时返回 null。
- * Get the active batch detail; returns null when there is no active batch.
+ * 获取当前活跃批次详情列表；无活跃批次时返回空数组。
+ * Get active batch details; returns an empty array when there are no active batches.
  */
-export function getActiveBulkResumeBatch(slug: string): Promise<BulkResumeBatchDetailDto | null> {
-  return rpcFetch<BulkResumeBatchDetailDto | null>(
+export function getActiveBulkResumeBatches(slug: string): Promise<BulkResumeBatchDetailDto[]> {
+  return rpcFetch<BulkResumeBatchDetailDto[]>(
     rpc.api.w[":slug"].studio["resume-upload-batches"].active.$get({ param: { slug } }),
     "加载活跃批次失败",
   );
+}
+
+export async function getActiveBulkResumeBatch(
+  slug: string,
+): Promise<BulkResumeBatchDetailDto | null> {
+  const [first] = await getActiveBulkResumeBatches(slug);
+  return first ?? null;
 }
 
 /**

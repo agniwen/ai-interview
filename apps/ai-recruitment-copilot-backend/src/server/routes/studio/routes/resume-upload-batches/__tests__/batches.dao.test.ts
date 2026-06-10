@@ -20,6 +20,7 @@ import {
   deleteBatch,
   insertBatchWithItems,
   loadActiveBatch,
+  loadActiveBatches,
   loadBatchDetail,
   recoverIncompleteBatchItems,
   reconcileBatchProgress,
@@ -166,13 +167,21 @@ describe("insertBatchWithItems", () => {
   });
 });
 
-// ─── Test 2: active-batch uniqueness ─────────────────────────────────────────
+// ─── Test 2: multiple active batches ─────────────────────────────────────────
 
-describe("active-batch uniqueness", () => {
-  it("同一 (org, user) 的第二个活跃批次违反唯一索引，取消后可再次插入", async () => {
-    // Second active batch for same (org, user) should violate the partial unique index;
-    // after cancellation a new insert succeeds.
-    const batchId = await insertBatchWithItems({
+describe("multiple active batches", () => {
+  it("同一 (org, user) 可以同时存在多个活跃批次", async () => {
+    // A user can start a second active batch without waiting for the first one
+    // to finish; both should be returned by active-batch discovery.
+    const firstBatchId = await insertBatchWithItems({
+      dedupPolicy: "skip",
+      files: makeFiles(1),
+      jdMode: "none",
+      jobDescriptionId: null,
+      organizationId: ORG_A,
+      userId: USER_A,
+    });
+    const secondBatchId = await insertBatchWithItems({
       dedupPolicy: "skip",
       files: makeFiles(1),
       jdMode: "none",
@@ -182,48 +191,14 @@ describe("active-batch uniqueness", () => {
     });
 
     try {
-      // Second insert should throw a unique-violation error.
-      await expect(
-        insertBatchWithItems({
-          dedupPolicy: "skip",
-          files: makeFiles(1),
-          jdMode: "none",
-          jobDescriptionId: null,
-          organizationId: ORG_A,
-          userId: USER_A,
-        }),
-      ).rejects.toSatisfy((err: unknown) => {
-        // DrizzleQueryError 包装了原始 PostgresError，主消息是 "Failed query:..."，
-        // 唯一约束信息在 .cause.message 里。同时也检查主消息，以防驱动行为变化。
-        // DrizzleQueryError wraps PostgresError: unique constraint details live in .cause.message.
-        const mainMsg = err instanceof Error ? err.message.toLowerCase() : "";
-        const causeMsg =
-          err instanceof Error && err.cause instanceof Error ? err.cause.message.toLowerCase() : "";
-        const combined = `${mainMsg} ${causeMsg}`;
-        return (
-          combined.includes("unique") ||
-          combined.includes("duplicate") ||
-          combined.includes("resume_upload_batch_active_unique_idx")
-        );
-      });
+      const active = await loadActiveBatches(ORG_A, USER_A);
+      expect(active.map((detail) => detail.batch.id).toSorted()).toEqual(
+        [firstBatchId, secondBatchId].toSorted(),
+      );
     } finally {
-      // 取消后，部分唯一索引不再覆盖该行，新批次应成功。
-      // After cancellation the partial index no longer covers the row.
-      await cancelBatch(batchId, ORG_A, USER_A);
+      await db.delete(resumeUploadBatch).where(eq(resumeUploadBatch.id, firstBatchId));
+      await db.delete(resumeUploadBatch).where(eq(resumeUploadBatch.id, secondBatchId));
     }
-
-    // 取消后新批次应插入成功。
-    // Fresh insert must succeed now.
-    const newBatchId = await insertBatchWithItems({
-      dedupPolicy: "skip",
-      files: makeFiles(1),
-      jdMode: "none",
-      jobDescriptionId: null,
-      organizationId: ORG_A,
-      userId: USER_A,
-    });
-    expect(newBatchId).toBeTruthy();
-    await cancelBatch(newBatchId, ORG_A, USER_A);
   });
 });
 

@@ -29,17 +29,16 @@ import type {
 import { pipelineStageMeta, pipelineStageValues } from "@arc/db-schema/studio-interviews";
 import type { PipelineStage } from "@arc/db-schema/studio-interviews";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Trash2Icon, UsersIcon } from "lucide-react";
+import { HistoryIcon, Trash2Icon, UsersIcon } from "lucide-react";
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { PdfFileIcon } from "@/components/pdf/pdf-file-icon";
-import { cancelBulkResumeBatch } from "@/lib/client/api/endpoints/bulk-resume-upload";
-import { ActiveBatchBanner } from "@/components/studio/resumes/active-batch-banner";
-import { BulkUploadButton } from "@/components/studio/resumes/bulk-upload-button";
+import { listBulkResumeBatches } from "@/lib/client/api/endpoints/bulk-resume-upload";
 import { BulkUploadConfirmDialog } from "@/components/studio/resumes/bulk-upload-confirm-dialog";
 import type { BulkUploadConfirmConfig } from "@/components/studio/resumes/bulk-upload-confirm-dialog";
 import { BulkUploadProgressDialog } from "@/components/studio/resumes/bulk-upload-progress-dialog";
 import { useBulkUpload } from "@/components/studio/resumes/use-bulk-upload";
+import { UploadBatchListDialog } from "@/components/studio/resumes/upload-batch-list-dialog";
 import { PageHeader } from "@/components/studio/page-header";
 import { JobDescriptionViewDialog } from "@/components/studio/interviews/job-description-view-dialog";
 import {
@@ -62,6 +61,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { CreatorCell } from "@/components/data-grid/cells/creator-cell";
 import { Button } from "@/components/ui/button";
+import { ButtonGroup } from "@/components/ui/button-group";
 import {
   Empty,
   EmptyContent,
@@ -84,6 +84,10 @@ import { StudioPersonDetailDialog } from "@/components/studio/studio-person-deta
 import { StudioPersonEditDialog } from "@/components/studio/studio-person-edit-dialog";
 import { CreateResumeRecordDialog } from "@/components/studio/resumes/upload-resume-dialog";
 import type { CreateResumeRecordResult } from "@/components/studio/resumes/upload-resume-dialog";
+import {
+  ResumeUploadEntryButton,
+  ResumeUploadEntryDialog,
+} from "@/components/studio/resumes/resume-upload-entry-dialog";
 import { LaunchInterviewDialog } from "@/components/studio/resumes/launch-interview-dialog";
 import { ResumeLifecycleBadge } from "@/components/studio/resumes/resume-lifecycle-badge";
 import { ResumeLibraryCharts } from "@/components/studio/resumes/resume-library-charts";
@@ -331,34 +335,49 @@ function ResumeLibraryPage({ metrics }: { metrics: ResumeLibraryMetrics }) {
     void router.invalidate();
   }, [queryClient, router]);
 
+  const [uploadEntryOpen, setUploadEntryOpen] = useState(false);
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [singleUploadFile, setSingleUploadFile] = useState<File | null>(null);
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [progressOpen, setProgressOpen] = useState(false);
+  const [batchListOpen, setBatchListOpen] = useState(false);
   const bulk = useBulkUpload({
     onBatchQueued: (detail) => {
       setProgressOpen(false);
       setPendingFiles([]);
+      void queryClient.invalidateQueries({ queryKey: ["bulk-resume-batches", slug] });
       toast.success(`${detail.batch.totalCount} 份简历已上传，后台正在解析`);
     },
     onRecordsChanged: invalidateAll,
   });
+  const batchListQuery = useQuery({
+    queryFn: () => listBulkResumeBatches(slug),
+    queryKey: ["bulk-resume-batches", slug],
+    refetchInterval: 10_000,
+  });
+  const uploadEntryDisabled = bulk.state.phase === "uploading";
+  const hasActiveUploadBatches =
+    batchListQuery.data?.some(
+      (batch) => batch.status === "pending" || batch.status === "running",
+    ) ?? false;
 
-  // 继续之前没跑完的批次：复活孤儿 → 打开进度 dialog → 拉起循环。
-  // Resume a stale batch: revive orphans, open progress, restart loop.
-  async function handleContinueBatch(batchId: string) {
-    setProgressOpen(true);
-    await bulk.resume(batchId);
-  }
-
-  async function handleCancelActiveBatch(batchId: string) {
-    try {
-      await cancelBulkResumeBatch(slug, batchId);
-      toast.success("批次已取消");
-      void queryClient.invalidateQueries({ queryKey: ["active-bulk-batch", slug] });
+  useEffect(() => {
+    const hasActiveBatch = batchListQuery.data?.some(
+      (batch) => batch.status === "pending" || batch.status === "running",
+    );
+    if (hasActiveBatch) {
       void queryClient.invalidateQueries({ queryKey: ["studio-resumes"] });
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "取消失败");
     }
+  }, [batchListQuery.data, queryClient]);
+
+  async function handleOpenBatch(batch: NonNullable<typeof batchListQuery.data>[number]) {
+    setProgressOpen(true);
+    if (batch.status === "pending" || batch.status === "running") {
+      await bulk.resume(batch.id);
+      return;
+    }
+    await bulk.view(batch.id);
   }
 
   const fetcher = useMemo(
@@ -506,6 +525,16 @@ function ResumeLibraryPage({ metrics }: { metrics: ResumeLibraryMetrics }) {
       setInterviewDetailDefaultTab("overview");
       setInterviewRoundDetailId(result.round.id);
     }
+  }
+
+  function handleSingleUploadFilePicked(file: File) {
+    setSingleUploadFile(file);
+    setCreateDialogOpen(true);
+  }
+
+  function handleMultipleUploadFilesPicked(files: File[]) {
+    setPendingFiles(files);
+    setConfirmOpen(true);
   }
 
   function startAiInterview(record: ResumeLibraryListRecord) {
@@ -804,7 +833,6 @@ function ResumeLibraryPage({ metrics }: { metrics: ResumeLibraryMetrics }) {
         <ClientOnly fallback={<Skeleton className="h-48 w-full" />}>
           <ResumeLibraryCharts metrics={metrics} />
         </ClientOnly>
-        <ActiveBatchBanner onCancel={handleCancelActiveBatch} onContinue={handleContinueBatch} />
         <Tabs
           onValueChange={(value) => grid.setFilter("stage", value === "all" ? "" : value)}
           value={grid.filters.stage || "all"}
@@ -840,21 +868,17 @@ function ResumeLibraryPage({ metrics }: { metrics: ResumeLibraryMetrics }) {
           columnPinning={{ left: ["select", "candidateName"], right: ["actions"] }}
           filters={filtersConfig}
           toolbarRight={
-            <div className="flex flex-wrap gap-2">
-              <BulkUploadButton
-                disabled={
-                  Boolean(bulk.state.detail) &&
-                  bulk.state.phase !== "idle" &&
-                  bulk.state.phase !== "completed" &&
-                  bulk.state.phase !== "cancelled"
-                }
-                onFilesPicked={(files) => {
-                  setPendingFiles(files);
-                  setConfirmOpen(true);
-                }}
+            <ButtonGroup>
+              <ResumeUploadEntryButton
+                disabled={uploadEntryDisabled}
+                onClick={() => setUploadEntryOpen(true)}
               />
-              <CreateResumeRecordDialog onCreated={handleResumeRecordCreated} />
-            </div>
+              {hasActiveUploadBatches ? (
+                <Button onClick={() => setBatchListOpen(true)} type="button">
+                  <HistoryIcon className="size-4" />
+                </Button>
+              ) : null}
+            </ButtonGroup>
           }
           bulkActions={({ selectedIds }) => (
             <Button
@@ -904,7 +928,10 @@ function ResumeLibraryPage({ metrics }: { metrics: ResumeLibraryMetrics }) {
                   <EmptyDescription>点击右上角「上传简历」加入第一份候选人简历。</EmptyDescription>
                 </EmptyHeader>
                 <EmptyContent>
-                  <CreateResumeRecordDialog onCreated={handleResumeRecordCreated} />
+                  <ResumeUploadEntryButton
+                    disabled={uploadEntryDisabled}
+                    onClick={() => setUploadEntryOpen(true)}
+                  />
                 </EmptyContent>
               </Empty>
             )
@@ -1084,16 +1111,51 @@ function ResumeLibraryPage({ metrics }: { metrics: ResumeLibraryMetrics }) {
         onOpenChange={(open) => !open && setViewJobDescriptionId(null)}
       />
 
+      <ResumeUploadEntryDialog
+        disabled={uploadEntryDisabled}
+        onMultipleFilesPicked={handleMultipleUploadFilesPicked}
+        onOpenChange={setUploadEntryOpen}
+        onSingleFilePicked={handleSingleUploadFilePicked}
+        open={uploadEntryOpen}
+      />
+
+      <CreateResumeRecordDialog
+        initialFile={singleUploadFile}
+        onCreated={handleResumeRecordCreated}
+        onMultipleFilesPicked={handleMultipleUploadFilesPicked}
+        onOpenChange={(open) => {
+          setCreateDialogOpen(open);
+          if (!open) {
+            setSingleUploadFile(null);
+          }
+        }}
+        open={createDialogOpen}
+      />
+
       <BulkUploadConfirmDialog
         files={pendingFiles}
         onConfirmed={async (files, config: BulkUploadConfirmConfig) => {
           setConfirmOpen(false);
           setProgressOpen(true);
+          setPendingFiles([]);
           await bulk.start(files, config);
         }}
-        onOpenChange={setConfirmOpen}
+        onOpenChange={(open) => {
+          setConfirmOpen(open);
+          if (!open) {
+            setPendingFiles([]);
+          }
+        }}
         onRemoveFile={(idx) => setPendingFiles((prev) => prev.filter((_, i) => i !== idx))}
         open={confirmOpen}
+      />
+
+      <UploadBatchListDialog
+        batches={batchListQuery.data ?? []}
+        isLoading={batchListQuery.isLoading}
+        onOpenBatch={handleOpenBatch}
+        onOpenChange={setBatchListOpen}
+        open={batchListOpen}
       />
 
       <BulkUploadProgressDialog

@@ -1,9 +1,10 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { FileTextIcon } from "lucide-react";
+import { FileTextIcon, UploadIcon } from "lucide-react";
 import { Suspense, lazy, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { FileThumbnail } from "@/components/ui/file-thumbnail";
 
 const PdfPreviewDialog = lazy(async () => {
   const mod = await import("@/components/pdf/pdf-preview-dialog");
@@ -31,6 +32,8 @@ export interface CandidateBasicInfoViewProps {
   hasResumeFile: boolean;
   /** 预览 PDF 的 URL；省略则不渲染预览按钮。 */
   pdfPreviewUrl?: string;
+  /** 替换简历文件的入口；通常打开编辑弹窗。 */
+  onReplaceResumeFile?: () => void;
   /** 卡片底部的可选操作区（例如「编辑候选人信息」跳转按钮）。 */
   footer?: ReactNode;
   className?: string;
@@ -59,6 +62,7 @@ export function CandidateBasicInfoView({
   resumeFileName,
   hasResumeFile,
   pdfPreviewUrl,
+  onReplaceResumeFile,
   footer,
   className,
 }: CandidateBasicInfoViewProps) {
@@ -77,19 +81,50 @@ export function CandidateBasicInfoView({
         <Row
           label="简历文件"
           value={
-            canPreview ? (
-              <Button
-                onClick={() => setPreviewOpen(true)}
-                size="sm"
-                type="button"
-                variant="outline"
-              >
-                <FileTextIcon className="size-4" />
-                预览 {resumeFileName ?? "PDF"}
-              </Button>
-            ) : (
-              renderText(resumeFileName)
-            )
+            <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center">
+              <FileThumbnail
+                className="w-18 shrink-0 rounded-md"
+                file={{
+                  name: resumeFileName ?? "resume.pdf",
+                  type: "application/pdf",
+                }}
+                hasError={!hasResumeFile}
+                previewAspectRatio={0.74}
+                previewContent={
+                  <div className="flex size-full flex-col items-center justify-center gap-1 bg-muted/70 text-muted-foreground">
+                    <FileTextIcon className="size-5" />
+                    <span className="font-medium text-[10px]">PDF</span>
+                  </div>
+                }
+              />
+              <div className="min-w-0 flex-1 space-y-2">
+                <div className="min-w-0">
+                  <div className="truncate font-medium text-sm">{renderText(resumeFileName)}</div>
+                  <div className="text-muted-foreground text-xs">
+                    {hasResumeFile ? "简历附件" : "暂无 PDF 附件"}
+                  </div>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  {canPreview ? (
+                    <Button
+                      onClick={() => setPreviewOpen(true)}
+                      size="sm"
+                      type="button"
+                      variant="outline"
+                    >
+                      <FileTextIcon className="size-4" />
+                      预览
+                    </Button>
+                  ) : null}
+                  {onReplaceResumeFile ? (
+                    <Button onClick={onReplaceResumeFile} size="sm" type="button" variant="outline">
+                      <UploadIcon className="size-4" />
+                      替换简历
+                    </Button>
+                  ) : null}
+                </div>
+              </div>
+            </div>
           }
         />
       </section>

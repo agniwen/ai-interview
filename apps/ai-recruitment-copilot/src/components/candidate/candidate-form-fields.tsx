@@ -1,15 +1,15 @@
 "use client";
 
-import type { ChangeEvent, ReactNode } from "react";
+import type { ReactNode } from "react";
 import type { ReactFormExtendedApi } from "@tanstack/react-form";
-import { FileUpIcon } from "lucide-react";
-import { useRef } from "react";
+import { Upload01Icon } from "@hugeicons/core-free-icons";
 import { JobDescriptionSelectField } from "@/components/studio/interviews/job-description-select-field";
 import { MarkdownEditor } from "@/components/markdown-editor";
-import { Button } from "@/components/ui/button";
 import { Field, FieldContent, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
+import { FileUpload } from "@/components/ui/file-upload";
 import { Input } from "@/components/ui/input";
 import type { ResumeLibraryFormValues } from "@arc/shared/studio-resumes";
+import { toast } from "sonner";
 
 /**
  * 候选人/简历字段公共表单组件。TanStack Form 受控。
@@ -66,6 +66,7 @@ export interface CandidateFormFieldsProps {
   form: CandidateFormApi;
   resumeFile: File | null;
   onResumeFileChange: (file: File | null) => void;
+  onResumeFilesChange?: (files: File[]) => void;
   /** 上传/编辑场景下拖拽区的提示文本。 Upload / edit drag-area placeholder text. */
   resumeFilePlaceholder?: string;
   /** 编辑场景显示现有文件名；上传场景为 null。 Existing file name shown in edit mode; null in upload mode. */
@@ -94,6 +95,8 @@ export interface CandidateFormFieldsProps {
    * "edit" flow leaves it false so every field stays visible.
    */
   requireResumeFile?: boolean;
+  resumeFileMaxFiles?: number;
+  resumeFileMultiple?: boolean;
   /**
    * true 时在「关联在招岗位」下拉框上显示 loading 状态（spinner + 占位提示）。
    * 用于简历解析完成后自动匹配岗位的那一小段时间。
@@ -127,10 +130,39 @@ function describeResumeFileLabel({
   return placeholder;
 }
 
+function getResumeUploadCopy({
+  existingResumeFileName,
+  resumeFile,
+  resumeFieldLabel,
+  resumeFileMultiple,
+}: {
+  existingResumeFileName: string | null;
+  resumeFile: File | null;
+  resumeFieldLabel: string;
+  resumeFileMultiple: boolean;
+}) {
+  let description = "一次上传 1 份 PDF，上传后会自动解析候选人信息。";
+  if (existingResumeFileName) {
+    description = `当前文件：${existingResumeFileName}。选择新的 PDF 后，保存时会替换现有简历。`;
+  } else if (resumeFileMultiple) {
+    description = "可选择 1 份或多份 PDF；多份将进入批量上传流程。";
+  }
+
+  let title = "请选择 1 份 PDF 简历";
+  if (resumeFile) {
+    title = resumeFieldLabel;
+  } else if (resumeFileMultiple) {
+    title = "请选择 1 份或多份 PDF 简历";
+  }
+
+  return { description, title };
+}
+
 export function CandidateFormFields({
   form,
   resumeFile,
   onResumeFileChange,
+  onResumeFilesChange,
   resumeFilePlaceholder = "点击选择 PDF 文件，可留空",
   existingResumeFileName = null,
   resumeFieldExtra,
@@ -141,9 +173,10 @@ export function CandidateFormFields({
   notesDisabled = false,
   showDetails = true,
   requireResumeFile = false,
+  resumeFileMaxFiles = 1,
+  resumeFileMultiple = false,
   isJobDescriptionMatching = false,
 }: CandidateFormFieldsProps) {
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const resumeFieldLabel = describeResumeFileLabel({
     existingName: existingResumeFileName,
     newFile: resumeFile,
@@ -154,28 +187,25 @@ export function CandidateFormFields({
   // the server (edit mode populates existingResumeFileName from resumeStorageKey).
   const hasResume = Boolean(resumeFile) || Boolean(existingResumeFileName);
   const showIdentityFields = showDetails && (!requireResumeFile || hasResume);
+  const resumeUploadCopy = getResumeUploadCopy({
+    existingResumeFileName,
+    resumeFieldLabel,
+    resumeFile,
+    resumeFileMultiple,
+  });
 
-  function clearFileInput() {
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
+  function handleAcceptedResumeFiles(files: File[]) {
+    if (files.length > 1) {
+      onResumeFilesChange?.(files);
+      return;
     }
-  }
-
-  function openFilePicker() {
-    clearFileInput();
-    fileInputRef.current?.click();
-  }
-
-  function handleResumeInputChange(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.currentTarget.files?.[0] ?? null;
-    event.currentTarget.value = "";
-    onResumeFileChange(file);
+    onResumeFileChange(files[0] ?? null);
   }
 
   return (
     <div className="space-y-5">
       <Field>
-        <FieldLabel htmlFor="candidate-resume-upload">
+        <FieldLabel htmlFor="candidate-resume-single-upload">
           简历 PDF
           {requireResumeFile ? (
             <span aria-hidden className="ml-1 text-destructive">
@@ -186,29 +216,25 @@ export function CandidateFormFields({
           )}
         </FieldLabel>
         <FieldContent className="gap-2">
-          <Button
-            className="w-full justify-start overflow-hidden"
+          <FileUpload
+            accept="application/pdf,.pdf"
+            acceptedFileTypes={[{ icon: Upload01Icon, label: "PDF" }]}
+            browseLabel={resumeFile ? "重新选择 PDF" : "选择 PDF"}
+            className="w-full"
+            description={resumeUploadCopy.description}
             disabled={disabled}
-            onClick={openFilePicker}
-            type="button"
-            size={"lg"}
-            variant="outline"
-          >
-            <FileUpIcon data-icon="inline-start" />
-            <span className="min-w-0 truncate">{resumeFieldLabel}</span>
-          </Button>
-          <input
-            accept="application/pdf"
-            aria-label="上传候选人简历 PDF"
-            className="sr-only"
-            disabled={disabled}
-            id="candidate-resume-upload"
-            onChange={handleResumeInputChange}
-            onClick={(event) => {
-              event.currentTarget.value = "";
+            ariaLabel="上传候选人简历 PDF"
+            draggingLabel="松开上传 PDF"
+            inputId="candidate-resume-single-upload"
+            maxFiles={resumeFileMaxFiles}
+            multiple={resumeFileMultiple}
+            onFileLimitExceeded={() => {
+              toast.error(`最多选择 ${resumeFileMaxFiles} 份 PDF`);
             }}
-            ref={fileInputRef}
-            type="file"
+            onFilesAccepted={handleAcceptedResumeFiles}
+            rejectionLabel="仅支持上传 PDF 文件"
+            showFileList={Boolean(resumeFile)}
+            title={resumeUploadCopy.title}
           />
           {resumeFieldExtra}
         </FieldContent>

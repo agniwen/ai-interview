@@ -7,6 +7,7 @@ import { getObjectStream } from "@arc/ai-recruitment-copilot-backend/lib/server/
 import { studioInterview, studioInterviewSchedule } from "@arc/db-schema/schema";
 import { parseCsvParam } from "@arc/shared/csv";
 import {
+  canDeleteResumeRecord,
   canEditResumeRecord,
   canLaunchInterviewFromResume,
   resumeLibraryEditFormSchema,
@@ -556,6 +557,17 @@ export const resumeLibraryRouter = factory
       return c.json({ message: "Unauthorized" }, 401);
     }
     const id = c.req.param("id");
+    const [record] = await db
+      .select({ id: studioInterview.id, resumeParseStatus: studioInterview.resumeParseStatus })
+      .from(studioInterview)
+      .where(and(eq(studioInterview.id, id), eq(studioInterview.organizationId, activeOrg.id)))
+      .limit(1);
+    if (!record) {
+      return c.json({ error: "记录不存在。" }, 404);
+    }
+    if (!canDeleteResumeRecord(record.resumeParseStatus)) {
+      return c.json({ error: "简历解析排队或处理中，暂不能删除。" }, 409);
+    }
     const result = await db
       .delete(studioInterview)
       .where(and(eq(studioInterview.id, id), eq(studioInterview.organizationId, activeOrg.id)))
@@ -588,6 +600,15 @@ export const resumeLibraryRouter = factory
       const ids = rawIds.filter((v): v is string => typeof v === "string" && v.length > 0);
       if (ids.length === 0) {
         return c.json({ error: "缺少待删除的记录 ID。" }, 400);
+      }
+      const rows = await db
+        .select({ id: studioInterview.id, resumeParseStatus: studioInterview.resumeParseStatus })
+        .from(studioInterview)
+        .where(
+          and(inArray(studioInterview.id, ids), eq(studioInterview.organizationId, activeOrg.id)),
+        );
+      if (rows.some((row) => !canDeleteResumeRecord(row.resumeParseStatus))) {
+        return c.json({ error: "所选记录包含解析排队或处理中的简历，暂不能删除。" }, 409);
       }
 
       const result = await db

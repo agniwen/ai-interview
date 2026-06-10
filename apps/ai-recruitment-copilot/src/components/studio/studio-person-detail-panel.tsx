@@ -1170,6 +1170,7 @@ function useStudioPersonDetailPanel({
                         creatorName={record.creatorName}
                         hasResumeFile={record.hasResumeFile}
                         jobDescriptionName={record.jobDescriptionName}
+                        pdfPreviewUrl={resumePreviewUrl}
                         resumeFileName={record.resumeFileName}
                         targetRole={record.targetRole}
                       />
