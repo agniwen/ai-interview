@@ -17,8 +17,8 @@ import {
   InterviewSummaryCard,
   resolveHeaderTemplate,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/feishu/utils/interview-summary-card";
-import { FEISHU_PROVIDER_IDS } from '@arc/ai-recruitment-copilot-backend/server/routes/feishu/utils/provider';
-import type { FeishuProviderId } from '@arc/ai-recruitment-copilot-backend/server/routes/feishu/utils/provider';
+import { FEISHU_PROVIDER_IDS } from "@arc/ai-recruitment-copilot-backend/server/routes/feishu/utils/provider";
+import type { FeishuProviderId } from "@arc/ai-recruitment-copilot-backend/server/routes/feishu/utils/provider";
 import { getGlobalConfig } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/global-config/dao";
 import { renderInterviewSummaryEmail } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/routes/round-emails/utils/templates";
 

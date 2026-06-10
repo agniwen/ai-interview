@@ -1,6 +1,12 @@
 import { HydrationBoundary, useQueryClient } from "@tanstack/react-query";
 import type { DehydratedState } from "@tanstack/react-query";
-import { createFileRoute, notFound, redirect, useLoaderData } from "@tanstack/react-router";
+import {
+  createFileRoute,
+  notFound,
+  redirect,
+  useLoaderData,
+  useRouter,
+} from "@tanstack/react-router";
 import type { DataGridQueryState } from "@/components/data-grid/query-contract";
 import { parseDataGridSearchParams } from "@/components/data-grid/query-contract";
 import type { DepartmentRecord } from "@arc/shared/departments";
@@ -39,6 +45,7 @@ import { InterviewerFormDialog } from "@/components/studio/interviewers/intervie
 
 function InterviewerManagementPage({ departments }: { departments: DepartmentRecord[] }) {
   const slug = useWorkspaceSlug();
+  const router = useRouter();
   const queryClient = useQueryClient();
 
   const fetchInterviewers = useMemo(
@@ -97,13 +104,18 @@ function InterviewerManagementPage({ departments }: { departments: DepartmentRec
 
   const noDepartments = departments.length === 0;
 
+  function invalidateInterviewerData() {
+    grid.invalidate();
+    void queryClient.invalidateQueries({ queryKey: ["interviewers"] });
+    void queryClient.invalidateQueries({ queryKey: ["departments"] });
+    void queryClient.invalidateQueries({ queryKey: ["job-descriptions"] });
+    void router.invalidate();
+  }
+
   const crud = useEntityCrud<InterviewerListRecord, InterviewerRecord>({
     deleteEntity: (record) =>
       rpc.api.w[":slug"].studio.interviewers[":id"].$delete({ param: { id: record.id, slug } }),
-    invalidate: () => {
-      grid.invalidate();
-      void queryClient.invalidateQueries({ queryKey: ["departments"] });
-    },
+    invalidate: invalidateInterviewerData,
     loadDetail: loadInterviewerDetail,
     messages: {
       deleteSuccess: "面试官已删除",
@@ -264,10 +276,7 @@ function InterviewerManagementPage({ departments }: { departments: DepartmentRec
       <InterviewerFormDialog
         departments={departments}
         onOpenChange={crud.onFormOpenChange}
-        onSaved={() => {
-          grid.invalidate();
-          void queryClient.invalidateQueries({ queryKey: ["departments"] });
-        }}
+        onSaved={invalidateInterviewerData}
         open={crud.formDialogOpen}
         record={crud.editingRecord}
       />
@@ -286,11 +295,7 @@ function InterviewerManagementPage({ departments }: { departments: DepartmentRec
 
       <ScopedJobDescriptionsModal
         onChange={() => {
-          // 弹窗里删了岗位 → 主表的 jobDescriptionCount 会变，刷新一下。
-          // JD deletion inside the modal mutates jobDescriptionCount; refresh the
-          // parent grid so the count reflects reality.
-          grid.invalidate();
-          void queryClient.invalidateQueries({ queryKey: ["job-descriptions"] });
+          invalidateInterviewerData();
         }}
         onOpenChange={(next) => {
           if (!next) {

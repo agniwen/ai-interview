@@ -1,9 +1,18 @@
+import { createRequire } from "node:module";
 import tailwindcss from "@tailwindcss/vite";
 import { tanstackStart } from "@tanstack/react-start/plugin/vite";
 import babel from "@rolldown/plugin-babel";
 import viteReact, { reactCompilerPreset } from "@vitejs/plugin-react";
 import { nitro } from "nitro/vite";
 import { defineConfig } from "vite";
+
+const requireFromQueuePackage = createRequire(
+  new URL("../../packages/resume-parse-queue/package.json", import.meta.url),
+);
+const requireFromBullmq = createRequire(requireFromQueuePackage.resolve("bullmq/package.json"));
+const tslibEsmEntry = requireFromBullmq.resolve("tslib/tslib.es6.mjs");
+const bullmqDependencyPathPattern =
+  /[/\\]node_modules[/\\](?:\.pnpm[/\\])?bullmq@|[/\\]node_modules[/\\]bullmq[/\\]/;
 
 export default defineConfig({
   envPrefix: ["VITE_", "NEXT_PUBLIC_"],
@@ -23,6 +32,17 @@ export default defineConfig({
     ],
   },
   plugins: [
+    {
+      enforce: "pre",
+      name: "arc-bullmq-tslib-esm",
+      resolveId(source, importer) {
+        if (source === "tslib" && importer && bullmqDependencyPathPattern.test(importer)) {
+          return tslibEsmEntry;
+        }
+
+        return null;
+      },
+    },
     tailwindcss(),
     tanstackStart({
       pages: [
