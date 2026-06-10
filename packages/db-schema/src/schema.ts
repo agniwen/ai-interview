@@ -261,6 +261,47 @@ export const member = pgTable(
   ],
 );
 
+export const recruitingGroup = pgTable(
+  "recruiting_group",
+  {
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
+    id: text("id").primaryKey(),
+    name: text("name").notNull(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex("recruiting_group_org_name_uq").on(table.organizationId, table.name),
+    index("recruiting_group_org_idx").on(table.organizationId),
+  ],
+);
+
+export const recruitingGroupMember = pgTable(
+  "recruiting_group_member",
+  {
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    groupId: text("group_id")
+      .notNull()
+      .references(() => recruitingGroup.id, { onDelete: "cascade" }),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+  },
+  (table) => [
+    primaryKey({ columns: [table.organizationId, table.userId] }),
+    index("recruiting_group_member_group_idx").on(table.groupId),
+  ],
+);
+
 export const workspaceInviteLink = pgTable(
   "workspace_invite_link",
   {

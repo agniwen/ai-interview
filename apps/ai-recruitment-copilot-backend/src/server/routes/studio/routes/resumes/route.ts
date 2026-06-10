@@ -6,6 +6,8 @@ import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import { getObjectStream } from "@arc/ai-recruitment-copilot-backend/lib/server/s3";
 import { studioInterview, studioInterviewSchedule } from "@arc/db-schema/schema";
 import { parseCsvParam } from "@arc/shared/csv";
+import { resolveRecruitingVisibilityScope } from "@arc/ai-recruitment-copilot-backend/server/access/recruiting-visibility";
+import type { RecruitingVisibilityScope } from "@arc/ai-recruitment-copilot-backend/server/access/recruiting-visibility";
 import {
   canDeleteResumeRecord,
   canEditResumeRecord,
@@ -73,6 +75,17 @@ const launchInterviewSchema = z.object({
     .max(50),
 });
 
+function loadVisibilityScope(
+  organizationId: string,
+  currentRole: string | null | undefined,
+  userId: string | undefined,
+): Promise<RecruitingVisibilityScope> {
+  if (!userId) {
+    return Promise.resolve({ kind: "none" });
+  }
+  return resolveRecruitingVisibilityScope({ currentRole, organizationId, userId });
+}
+
 function toNullableString(value: FormDataEntryValue | null): string | null {
   if (typeof value !== "string") {
     return null;
@@ -131,6 +144,11 @@ export const resumeLibraryRouter = factory
         return c.json({ message: "Unauthorized" }, 401);
       }
       const q = c.req.valid("query");
+      const visibilityScope = await loadVisibilityScope(
+        activeOrg.id,
+        c.var.member?.role,
+        c.var.user?.id,
+      );
       const result = await queryPaginatedResumeRecords(
         activeOrg.id,
         {
@@ -148,6 +166,7 @@ export const resumeLibraryRouter = factory
           sortBy: q.sortBy,
           sortOrder: q.sortOrder,
         },
+        visibilityScope,
       );
       return c.json(result, 200);
     },
@@ -200,7 +219,12 @@ export const resumeLibraryRouter = factory
       return c.json({ message: "Unauthorized" }, 401);
     }
     const id = c.req.param("id");
-    const record = await loadResumeDetail(id, activeOrg.id);
+    const visibilityScope = await loadVisibilityScope(
+      activeOrg.id,
+      c.var.member?.role,
+      c.var.user?.id,
+    );
+    const record = await loadResumeDetail(id, activeOrg.id, visibilityScope);
     if (!record) {
       return c.json({ error: "记录不存在。" }, 404);
     }
@@ -212,7 +236,12 @@ export const resumeLibraryRouter = factory
       return c.json({ message: "Unauthorized" }, 401);
     }
     const id = c.req.param("id");
-    const timeline = await loadCandidateTimeline(id, activeOrg.id);
+    const visibilityScope = await loadVisibilityScope(
+      activeOrg.id,
+      c.var.member?.role,
+      c.var.user?.id,
+    );
+    const timeline = await loadCandidateTimeline(id, activeOrg.id, visibilityScope);
     if (!timeline) {
       return c.json({ error: "记录不存在。" }, 404);
     }
@@ -227,7 +256,12 @@ export const resumeLibraryRouter = factory
       return c.json({ message: "Unauthorized" }, 401);
     }
     const candidateId = c.req.param("id");
-    const existing = await loadResumeDetail(candidateId, activeOrg.id);
+    const visibilityScope = await loadVisibilityScope(
+      activeOrg.id,
+      c.var.member?.role,
+      c.var.user?.id,
+    );
+    const existing = await loadResumeDetail(candidateId, activeOrg.id, visibilityScope);
     if (!existing) {
       return c.json({ error: "记录不存在。" }, 404);
     }
@@ -252,7 +286,12 @@ export const resumeLibraryRouter = factory
         return c.json({ message: "Unauthorized" }, 401);
       }
       const id = c.req.param("id");
-      const existing = await loadResumeDetail(id, activeOrg.id);
+      const visibilityScope = await loadVisibilityScope(
+        activeOrg.id,
+        c.var.member?.role,
+        c.var.user?.id,
+      );
+      const existing = await loadResumeDetail(id, activeOrg.id, visibilityScope);
       if (!existing) {
         return c.json({ error: "记录不存在。" }, 404);
       }
@@ -308,7 +347,7 @@ export const resumeLibraryRouter = factory
       }
 
       invalidateStudioInterviewCaches(activeOrg.id);
-      const detail = await loadInterviewRoundDetail(scheduleRow.id, activeOrg.id);
+      const detail = await loadInterviewRoundDetail(scheduleRow.id, activeOrg.id, visibilityScope);
       return c.json(detail, 201);
     },
   )
@@ -318,7 +357,12 @@ export const resumeLibraryRouter = factory
       return c.json({ message: "Unauthorized" }, 401);
     }
     const id = c.req.param("id");
-    const existing = await loadResumeDetail(id, activeOrg.id);
+    const visibilityScope = await loadVisibilityScope(
+      activeOrg.id,
+      c.var.member?.role,
+      c.var.user?.id,
+    );
+    const existing = await loadResumeDetail(id, activeOrg.id, visibilityScope);
     if (!existing) {
       return c.json({ error: "记录不存在。" }, 404);
     }
@@ -428,7 +472,12 @@ export const resumeLibraryRouter = factory
       });
 
       invalidateStudioInterviewCaches(activeOrg.id);
-      const detail = await loadResumeDetail(recordId, activeOrg.id);
+      const visibilityScope = await loadVisibilityScope(
+        activeOrg.id,
+        c.var.member?.role,
+        c.var.user?.id,
+      );
+      const detail = await loadResumeDetail(recordId, activeOrg.id, visibilityScope);
       return c.json(detail, 201);
     } catch (error) {
       const result = toBadRequest(error);
@@ -443,7 +492,12 @@ export const resumeLibraryRouter = factory
     }
     const id = c.req.param("id");
     try {
-      const existing = await loadResumeDetail(id, activeOrg.id);
+      const visibilityScope = await loadVisibilityScope(
+        activeOrg.id,
+        c.var.member?.role,
+        c.var.user?.id,
+      );
+      const existing = await loadResumeDetail(id, activeOrg.id, visibilityScope);
       if (!existing) {
         return c.json({ error: "记录不存在。" }, 404);
       }
@@ -544,7 +598,7 @@ export const resumeLibraryRouter = factory
       });
 
       invalidateStudioInterviewCaches(activeOrg.id);
-      const detail = await loadResumeDetail(id, activeOrg.id);
+      const detail = await loadResumeDetail(id, activeOrg.id, visibilityScope);
       return c.json(detail, 200);
     } catch (error) {
       const result = toBadRequest(error);
@@ -557,11 +611,12 @@ export const resumeLibraryRouter = factory
       return c.json({ message: "Unauthorized" }, 401);
     }
     const id = c.req.param("id");
-    const [record] = await db
-      .select({ id: studioInterview.id, resumeParseStatus: studioInterview.resumeParseStatus })
-      .from(studioInterview)
-      .where(and(eq(studioInterview.id, id), eq(studioInterview.organizationId, activeOrg.id)))
-      .limit(1);
+    const visibilityScope = await loadVisibilityScope(
+      activeOrg.id,
+      c.var.member?.role,
+      c.var.user?.id,
+    );
+    const record = await loadResumeDetail(id, activeOrg.id, visibilityScope);
     if (!record) {
       return c.json({ error: "记录不存在。" }, 404);
     }
@@ -601,11 +656,27 @@ export const resumeLibraryRouter = factory
       if (ids.length === 0) {
         return c.json({ error: "缺少待删除的记录 ID。" }, 400);
       }
+      const visibilityScope = await loadVisibilityScope(
+        activeOrg.id,
+        c.var.member?.role,
+        c.var.user?.id,
+      );
+      if (visibilityScope.kind === "none") {
+        return c.json({ error: "记录不存在。" }, 404);
+      }
+      const visibilityCondition =
+        visibilityScope.kind === "restricted"
+          ? inArray(studioInterview.createdBy, visibilityScope.userIds)
+          : undefined;
       const rows = await db
         .select({ id: studioInterview.id, resumeParseStatus: studioInterview.resumeParseStatus })
         .from(studioInterview)
         .where(
-          and(inArray(studioInterview.id, ids), eq(studioInterview.organizationId, activeOrg.id)),
+          and(
+            inArray(studioInterview.id, ids),
+            eq(studioInterview.organizationId, activeOrg.id),
+            visibilityCondition,
+          ),
         );
       if (rows.some((row) => !canDeleteResumeRecord(row.resumeParseStatus))) {
         return c.json({ error: "所选记录包含解析排队或处理中的简历，暂不能删除。" }, 409);
@@ -614,7 +685,11 @@ export const resumeLibraryRouter = factory
       const result = await db
         .delete(studioInterview)
         .where(
-          and(inArray(studioInterview.id, ids), eq(studioInterview.organizationId, activeOrg.id)),
+          and(
+            inArray(studioInterview.id, ids),
+            eq(studioInterview.organizationId, activeOrg.id),
+            visibilityCondition,
+          ),
         )
         .returning({ id: studioInterview.id });
 

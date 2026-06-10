@@ -7,6 +7,8 @@ import {
   makePaginationSchema,
 } from "@arc/ai-recruitment-copilot-backend/lib/server/db/pagination";
 import { serializeDate } from "@arc/ai-recruitment-copilot-backend/lib/server/db/serialize";
+import { intersectRequestedCreatorIds } from "@arc/ai-recruitment-copilot-backend/server/access/recruiting-visibility";
+import type { RecruitingVisibilityScope } from "@arc/ai-recruitment-copilot-backend/server/access/recruiting-visibility";
 import {
   department,
   interviewConversation,
@@ -61,6 +63,7 @@ const filtersSchema = z.object({
 
 type Pagination = z.infer<typeof paginationSchema>;
 type Filters = z.infer<typeof filtersSchema>;
+type ResumeQueryFilters = z.infer<typeof filtersSchema> & { forceEmpty?: boolean };
 
 // 把单字段 filter 编译成 conditions 数组，挪出 buildWhere 拆复杂度。
 // Filter compilation helpers split out of buildWhere to keep its complexity low.
@@ -129,7 +132,10 @@ function buildOutcomesCondition(outcomes: string[] | null | undefined) {
   return filtered.length > 0 ? inArray(studioInterview.outcome, filtered) : null;
 }
 
-function buildWhere(organizationId: string, filters?: Filters) {
+function buildWhere(organizationId: string, filters?: ResumeQueryFilters) {
+  if (filters?.forceEmpty) {
+    return sql`false`;
+  }
   const conditions = [
     eq(studioInterview.organizationId, organizationId),
     buildSearchCondition(filters?.search),
@@ -488,14 +494,26 @@ export async function queryPaginatedResumeRecords(
     outcomes?: string[] | null;
   },
   pagination?: Record<string, unknown>,
+  visibilityScope?: RecruitingVisibilityScope,
 ): Promise<PaginatedResumeLibraryResult> {
   const parsedFilters = filtersSchema.parse(filters ?? {});
   const parsedPagination = paginationSchema.parse(pagination ?? {});
-  const where = buildWhere(organizationId, parsedFilters);
+  const scopedCreatorIds = visibilityScope
+    ? intersectRequestedCreatorIds(parsedFilters.creatorIds, visibilityScope)
+    : parsedFilters.creatorIds;
+  const scopedFilters: ResumeQueryFilters = {
+    ...parsedFilters,
+    creatorIds: scopedCreatorIds,
+    forceEmpty:
+      visibilityScope?.kind !== "all" &&
+      Array.isArray(scopedCreatorIds) &&
+      scopedCreatorIds.length === 0,
+  };
+  const where = buildWhere(organizationId, scopedFilters);
 
   const [rows, [countRow]] = await Promise.all([
     selectRows({
-      filters: parsedFilters,
+      filters: scopedFilters,
       organizationId,
       pagination: parsedPagination,
     }),
@@ -528,14 +546,31 @@ export function listResumeRecords(
     outcomes?: string[] | null;
   },
   pagination?: Partial<Pagination>,
+  visibilityScope?: RecruitingVisibilityScope,
 ) {
-  return queryPaginatedResumeRecords(organizationId, filters, pagination);
+  return queryPaginatedResumeRecords(organizationId, filters, pagination, visibilityScope);
 }
 
 export async function loadResumeDetail(
   id: string,
   organizationId: string,
+  visibilityScope?: RecruitingVisibilityScope,
 ): Promise<ResumeLibraryDetail | null> {
+  if (visibilityScope?.kind === "none") {
+    return null;
+  }
+  if (visibilityScope?.kind === "restricted" && visibilityScope.userIds.length === 0) {
+    return null;
+  }
+  const visibilityCondition =
+    visibilityScope?.kind === "restricted"
+      ? inArray(studioInterview.createdBy, visibilityScope.userIds)
+      : null;
+  const conditions = [
+    eq(studioInterview.id, id),
+    eq(studioInterview.organizationId, organizationId),
+    visibilityCondition,
+  ].filter((condition) => condition !== null);
   const [row] = await db
     .select({
       ...SELECTED_COLUMNS,
@@ -558,7 +593,7 @@ export async function loadResumeDetail(
         eq(department.organizationId, studioInterview.organizationId),
       ),
     )
-    .where(and(eq(studioInterview.id, id), eq(studioInterview.organizationId, organizationId)))
+    .where(and(...conditions))
     .limit(1);
 
   if (!row) {

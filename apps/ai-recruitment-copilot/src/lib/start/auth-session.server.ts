@@ -86,6 +86,14 @@ async function resolveWorkspaceAccess(
     });
   }
 
+  const currentMember = await db.query.member.findFirst({
+    columns: { role: true },
+    where: { organizationId: matched.id, userId: session.user.id },
+  });
+  if (!currentMember) {
+    return { status: "not_found" };
+  }
+
   await db
     .update(userTable)
     .set({ lastActiveOrganizationId: matched.id })
@@ -100,7 +108,13 @@ async function resolveWorkspaceAccess(
     );
 
   return {
+    member: {
+      role: currentMember.role,
+    },
     status: "ready",
+    user: {
+      id: session.user.id,
+    },
     workspace: {
       id: matched.id,
       slug: matched.slug,

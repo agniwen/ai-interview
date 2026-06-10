@@ -17,7 +17,10 @@ import {
   studioOrgSkill,
   user,
 } from "@arc/db-schema/schema";
-import { queryPaginatedResumeRecords } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/dao/resumes";
+import {
+  loadResumeDetail,
+  queryPaginatedResumeRecords,
+} from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/dao/resumes";
 import { syncResumeSkills } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/dao/skills";
 
 const ORG_A = "test_org_resume_dao_a";
@@ -306,6 +309,41 @@ describe("queryPaginatedResumeRecords", () => {
 
     const byUnknown = await queryPaginatedResumeRecords(ORG_A, { creatorIds: ["missing-user"] });
     expect(byUnknown.records).toEqual([]);
+  });
+
+  it("intersects creator filters with recruiting visibility scope", async () => {
+    const result = await queryPaginatedResumeRecords(
+      ORG_A,
+      { creatorIds: [USER_ID, USER_ID_ALT] },
+      undefined,
+      { kind: "restricted", userIds: [USER_ID_ALT] },
+    );
+
+    expect(result.total).toBe(1);
+    expect(result.records.map((row) => row.candidateName)).toEqual(["李四"]);
+  });
+
+  it("does not force an empty list for all-data roles when creator filter is blank", async () => {
+    const result = await queryPaginatedResumeRecords(ORG_A, { creatorIds: [] }, undefined, {
+      kind: "all",
+    });
+
+    expect(result.total).toBeGreaterThan(0);
+    expect(result.records.map((row) => row.candidateName)).toContain("郭靖");
+  });
+
+  it("applies recruiting visibility scope to resume detail loads", async () => {
+    const allowed = await loadResumeDetail("ri_test_a_2", ORG_A, {
+      kind: "restricted",
+      userIds: [USER_ID_ALT],
+    });
+    const blocked = await loadResumeDetail("ri_test_a_1", ORG_A, {
+      kind: "restricted",
+      userIds: [USER_ID_ALT],
+    });
+
+    expect(allowed?.candidateName).toBe("李四");
+    expect(blocked).toBeNull();
   });
 
   it("combines skills + jobDescriptionIds + search (intersection)", async () => {
