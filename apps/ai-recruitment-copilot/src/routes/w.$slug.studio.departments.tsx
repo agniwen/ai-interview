@@ -1,6 +1,12 @@
 import { HydrationBoundary, useQueryClient } from "@tanstack/react-query";
 import type { DehydratedState } from "@tanstack/react-query";
-import { createFileRoute, notFound, redirect, useLoaderData } from "@tanstack/react-router";
+import {
+  createFileRoute,
+  notFound,
+  redirect,
+  useLoaderData,
+  useRouter,
+} from "@tanstack/react-router";
 import type { DataGridQueryState } from "@/components/data-grid/query-contract";
 import { parseDataGridSearchParams } from "@/components/data-grid/query-contract";
 import { loadStudioDepartmentsState } from "@/lib/start/studio/departments.functions";
@@ -37,6 +43,7 @@ import { DepartmentFormDialog } from "@/components/studio/departments/department
 
 function DepartmentManagementPage() {
   const slug = useWorkspaceSlug();
+  const router = useRouter();
   const queryClient = useQueryClient();
 
   const fetchDepartments = useMemo(
@@ -83,14 +90,19 @@ function DepartmentManagementPage() {
   const [jobDescriptionsModalDept, setJobDescriptionsModalDept] =
     useState<DepartmentListRecord | null>(null);
 
+  function invalidateDepartmentData() {
+    grid.invalidate();
+    void queryClient.invalidateQueries({ queryKey: ["departments"] });
+    void queryClient.invalidateQueries({ queryKey: ["interviewers"] });
+    void queryClient.invalidateQueries({ queryKey: ["job-descriptions"] });
+    void router.invalidate();
+  }
+
   const crud = useEntityCrud<DepartmentListRecord, DepartmentRecord>({
     deleteEntity: (record) =>
       rpc.api.w[":slug"].studio.departments[":id"].$delete({ param: { id: record.id, slug } }),
     detailFromList: (record) => record as unknown as DepartmentRecord,
-    invalidate: () => {
-      grid.invalidate();
-      void queryClient.invalidateQueries({ queryKey: ["departments"] });
-    },
+    invalidate: invalidateDepartmentData,
     messages: {
       deleteSuccess: "部门已删除",
     },
@@ -234,10 +246,7 @@ function DepartmentManagementPage() {
 
       <DepartmentFormDialog
         onOpenChange={crud.onFormOpenChange}
-        onSaved={() => {
-          grid.invalidate();
-          void queryClient.invalidateQueries({ queryKey: ["departments"] });
-        }}
+        onSaved={invalidateDepartmentData}
         open={crud.formDialogOpen}
         record={crud.editingRecord}
       />
@@ -258,14 +267,7 @@ function DepartmentManagementPage() {
         departmentId={interviewersModalDept?.id ?? null}
         departmentName={interviewersModalDept?.name ?? ""}
         onChange={() => {
-          // 嵌套 JD 弹窗里删了岗位 → 部门的 jobDescriptionCount 可能变（被删的
-          // JD 所属部门会减 1，不一定是当前打开的部门）。整体 invalidate 部门表
-          // + JD 缓存最稳。
-          // A JD delete inside the nested modal can affect ANY department's
-          // jobDescriptionCount (the deleted JD belongs to one department, not
-          // necessarily the open one). Invalidate the whole grid + JD cache.
-          grid.invalidate();
-          void queryClient.invalidateQueries({ queryKey: ["job-descriptions"] });
+          invalidateDepartmentData();
         }}
         onOpenChange={(next) => {
           if (!next) {
@@ -277,11 +279,7 @@ function DepartmentManagementPage() {
 
       <ScopedJobDescriptionsModal
         onChange={() => {
-          // 弹窗里删了岗位 → 部门表的 jobDescriptionCount 会变；顺手刷一下 JD 缓存。
-          // JD deletion inside the modal mutates the per-department count;
-          // refresh the parent grid + the JD cache to keep all surfaces honest.
-          grid.invalidate();
-          void queryClient.invalidateQueries({ queryKey: ["job-descriptions"] });
+          invalidateDepartmentData();
         }}
         onOpenChange={(next) => {
           if (!next) {
