@@ -1,6 +1,5 @@
 import { factory } from "@arc/ai-recruitment-copilot-backend/server/factory";
-
-type FeishuProviderId = "feishu" | "feishu-jiguang-hr";
+import type { FeishuProviderId } from "./utils/provider";
 
 // 中文：飞书 bot webhook 入口。两个不同 appId 的 bot 各自一个 URL，由
 // Feishu 开放平台侧配置，路径不能改动；因此这里在同一个 router 里直接保留
