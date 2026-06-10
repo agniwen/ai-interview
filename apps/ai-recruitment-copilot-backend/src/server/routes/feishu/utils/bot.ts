@@ -3,10 +3,8 @@ import { createFeishuAdapter } from "@arc/adapter-feishu";
 import type { CardToFeishuPayloadOptions } from "@arc/adapter-feishu";
 import { Chat } from "chat";
 import type { Adapter, AdapterPostableMessage, CardElement } from "chat";
+import type { FeishuProviderId } from "./provider";
 import { routeDM, routeGroupMention } from "./router";
-
-export const FEISHU_PROVIDER_IDS = ["feishu", "feishu-jiguang-hr"] as const;
-export type FeishuProviderId = (typeof FEISHU_PROVIDER_IDS)[number];
 
 // FeishuAdapter implements Adapter<FeishuThreadId, unknown>. encodeThreadId is in a
 // contravariant position so Adapter<FeishuThreadId, unknown> is not assignable to

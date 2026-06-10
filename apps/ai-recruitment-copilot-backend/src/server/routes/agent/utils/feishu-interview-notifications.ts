@@ -14,14 +14,11 @@ import {
   getResendClient,
 } from "@arc/ai-recruitment-copilot-backend/lib/server/resend";
 import {
-  FEISHU_PROVIDER_IDS,
-  postFeishuDirectCard,
-} from "@arc/ai-recruitment-copilot-backend/server/routes/feishu/utils/bot";
-import type { FeishuProviderId } from "@arc/ai-recruitment-copilot-backend/server/routes/feishu/utils/bot";
-import {
   InterviewSummaryCard,
   resolveHeaderTemplate,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/feishu/utils/interview-summary-card";
+import { FEISHU_PROVIDER_IDS } from '@arc/ai-recruitment-copilot-backend/server/routes/feishu/utils/provider';
+import type { FeishuProviderId } from '@arc/ai-recruitment-copilot-backend/server/routes/feishu/utils/provider';
 import { getGlobalConfig } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/global-config/dao";
 import { renderInterviewSummaryEmail } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/routes/round-emails/utils/templates";
 
@@ -459,26 +456,31 @@ export async function notifyInterviewSummaryReady(
   const detailUrl = buildStudioUrl(context.scheduleEntryId, context.organizationSlug ?? null);
   const { card, headerTemplate } = buildNotificationCard(notificationInput);
 
-  for (const recipient of recipients) {
-    const notificationId = await claimNotification({
-      conversationId: options.conversationId,
-      interviewRecordId: options.interviewRecordId,
-      organizationId: context.organizationId,
-      recipient,
-    });
-    if (!notificationId) {
-      continue;
-    }
+  if (recipients.length > 0) {
+    const { postFeishuDirectCard } =
+      await import("@arc/ai-recruitment-copilot-backend/server/routes/feishu/utils/bot");
 
-    try {
-      const sent = await postFeishuDirectCard(recipient.providerId, recipient.accountId, card, {
-        headerTemplate,
+    for (const recipient of recipients) {
+      const notificationId = await claimNotification({
+        conversationId: options.conversationId,
+        interviewRecordId: options.interviewRecordId,
+        organizationId: context.organizationId,
+        recipient,
       });
-      await markNotificationSent(notificationId, sent.id ?? null);
-    } catch (error) {
-      await markNotificationFailed(notificationId, error);
-      // eslint-disable-next-line no-console
-      console.error(`${LOG_PREFIX} failed for ${options.conversationId}:`, error);
+      if (!notificationId) {
+        continue;
+      }
+
+      try {
+        const sent = await postFeishuDirectCard(recipient.providerId, recipient.accountId, card, {
+          headerTemplate,
+        });
+        await markNotificationSent(notificationId, sent.id ?? null);
+      } catch (error) {
+        await markNotificationFailed(notificationId, error);
+        // eslint-disable-next-line no-console
+        console.error(`${LOG_PREFIX} failed for ${options.conversationId}:`, error);
+      }
     }
   }
 
