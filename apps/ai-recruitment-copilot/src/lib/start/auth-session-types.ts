@@ -30,7 +30,13 @@ export type WorkspaceAccessState =
   | { status: "unauthenticated" }
   | { status: "not_found" }
   | {
+      member: {
+        role: string;
+      };
       status: "ready";
+      user: {
+        id: string;
+      };
       workspace: {
         id: string;
         slug: string;

@@ -187,6 +187,18 @@ describe("queryPaginatedInterviewRounds", () => {
     expect(byMember.records[0]?.createdBy).toBe(USER_ID_ALT);
   });
 
+  it("intersects creator filters with recruiting visibility scope", async () => {
+    const result = await queryPaginatedInterviewRounds(
+      ORG,
+      { creatorIds: [USER_ID, USER_ID_ALT] },
+      undefined,
+      { kind: "restricted", userIds: [USER_ID_ALT] },
+    );
+
+    expect(result.total).toBe(1);
+    expect(result.records[0]?.id).toBe("rnd-b1");
+  });
+
   it("filters by search across candidate name + round label", async () => {
     const byName = await queryPaginatedInterviewRounds(ORG, { search: "郭靖" });
     expect(byName.total).toBe(2);
@@ -230,6 +242,20 @@ describe("loadInterviewRoundDetail", () => {
     expect(detail?.candidate.id).toBe("cand-a");
     expect(detail?.candidate.candidateName).toBe("郭靖");
     expect(detail?.candidate.targetRole).toBe("前端工程师");
+  });
+
+  it("applies recruiting visibility scope to round detail loads", async () => {
+    const allowed = await loadInterviewRoundDetail("rnd-b1", ORG, {
+      kind: "restricted",
+      userIds: [USER_ID_ALT],
+    });
+    const blocked = await loadInterviewRoundDetail("rnd-a1", ORG, {
+      kind: "restricted",
+      userIds: [USER_ID_ALT],
+    });
+
+    expect(allowed?.id).toBe("rnd-b1");
+    expect(blocked).toBeNull();
   });
 
   it("returns null on org mismatch", async () => {

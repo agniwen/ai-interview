@@ -1,4 +1,5 @@
 import { factory } from "@arc/ai-recruitment-copilot-backend/server/factory";
+import { resolveRecruitingVisibilityScope } from "@arc/ai-recruitment-copilot-backend/server/access/recruiting-visibility";
 import { requirePermission } from "@arc/ai-recruitment-copilot-backend/server/middlewares/permission";
 import { queryInterviewConversationReportsByRound } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/dao/interview-conversations";
 import { resolveCandidateIdForRound } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/dao/interview-rounds";
@@ -18,7 +19,14 @@ export const reportsRouter = factory
     }
     // 通过解析 candidateId 来验证 org 归属（不存在则 404）。
     // Validate org scope by resolving the candidate (handles 404).
-    const candidateId = await resolveCandidateIdForRound(roundId, activeOrg.id);
+    const visibilityScope = c.var.user?.id
+      ? await resolveRecruitingVisibilityScope({
+          currentRole: c.var.member?.role,
+          organizationId: activeOrg.id,
+          userId: c.var.user.id,
+        })
+      : { kind: "none" as const };
+    const candidateId = await resolveCandidateIdForRound(roundId, activeOrg.id, visibilityScope);
     if (!candidateId) {
       return c.json({ error: "记录不存在。" }, 404);
     }

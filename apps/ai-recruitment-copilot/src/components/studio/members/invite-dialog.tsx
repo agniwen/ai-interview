@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { MailIcon } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -37,19 +37,34 @@ import type { WorkspaceRole } from "./role-display";
 const EMAIL_MAX_LENGTH = 200;
 
 interface InviteDialogProps {
+  assignableRoles?: readonly WorkspaceRole[];
   /** 自定义触发节点；省略则用默认"邀请成员"按钮。 */
   trigger?: ReactNode;
 }
 
-export function InviteDialog({ trigger }: InviteDialogProps = {}) {
+function getDefaultInviteRole(assignableRoles: readonly WorkspaceRole[]): WorkspaceRole {
+  return assignableRoles.includes("hr") ? "hr" : (assignableRoles[0] ?? "viewer");
+}
+
+export function InviteDialog({
+  assignableRoles = ASSIGNABLE_ROLES,
+  trigger,
+}: InviteDialogProps = {}) {
   const [open, setOpen] = useState(false);
   const [email, setEmail] = useState("");
-  const [role, setRole] = useState<WorkspaceRole>("hr");
+  const [role, setRole] = useState<WorkspaceRole>(() => getDefaultInviteRole(assignableRoles));
   const [submitting, setSubmitting] = useState(false);
+  const canInviteWithSelectedRole = assignableRoles.includes(role);
+
+  useEffect(() => {
+    if (open && !canInviteWithSelectedRole) {
+      setRole(getDefaultInviteRole(assignableRoles));
+    }
+  }, [assignableRoles, canInviteWithSelectedRole, open]);
 
   async function onSubmit() {
     const trimmedEmail = email.trim();
-    if (!trimmedEmail) {
+    if (!(trimmedEmail && canInviteWithSelectedRole)) {
       return;
     }
 
@@ -72,7 +87,7 @@ export function InviteDialog({ trigger }: InviteDialogProps = {}) {
     }
     setOpen(false);
     setEmail("");
-    setRole("hr");
+    setRole(getDefaultInviteRole(assignableRoles));
   }
 
   return (
@@ -107,13 +122,17 @@ export function InviteDialog({ trigger }: InviteDialogProps = {}) {
           </Field>
           <Field>
             <FieldLabel htmlFor="invite-role">工作区角色</FieldLabel>
-            <Select value={role} onValueChange={(v) => setRole(v as WorkspaceRole)}>
+            <Select
+              disabled={assignableRoles.length === 0}
+              value={role}
+              onValueChange={(v) => setRole(v as WorkspaceRole)}
+            >
               <SelectTrigger className="w-full" id="invite-role">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 <SelectGroup>
-                  {ASSIGNABLE_ROLES.map((item) => (
+                  {assignableRoles.map((item) => (
                     <SelectItem key={item} value={item}>
                       {getWorkspaceRoleLabel(item)}
                     </SelectItem>
@@ -125,7 +144,10 @@ export function InviteDialog({ trigger }: InviteDialogProps = {}) {
           </Field>
         </FieldGroup>
         <DialogFooter>
-          <Button disabled={submitting || !email.trim()} onClick={onSubmit}>
+          <Button
+            disabled={submitting || !email.trim() || !canInviteWithSelectedRole}
+            onClick={onSubmit}
+          >
             {submitting ? <Spinner data-icon="inline-start" /> : null}
             {submitting ? "正在生成" : "生成邀请链接"}
           </Button>

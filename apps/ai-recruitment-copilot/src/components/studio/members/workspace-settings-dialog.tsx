@@ -3,7 +3,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { SettingsIcon } from "lucide-react";
 import { useEffect, useState } from "react";
-import type { FormEvent } from "react";
+import type { FormEvent, ReactNode } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -25,9 +25,10 @@ import { authClient } from "@/lib/client/auth-client";
 
 interface WorkspaceSettingsDialogProps {
   currentName: string;
+  trigger?: ReactNode;
 }
 
-export function WorkspaceSettingsDialog({ currentName }: WorkspaceSettingsDialogProps) {
+export function WorkspaceSettingsDialog({ currentName, trigger }: WorkspaceSettingsDialogProps) {
   const slug = useWorkspaceSlug();
   const queryClient = useQueryClient();
   const { refetch } = authClient.useActiveOrganization();
@@ -85,10 +86,12 @@ export function WorkspaceSettingsDialog({ currentName }: WorkspaceSettingsDialog
   return (
     <Dialog onOpenChange={setOpen} open={open}>
       <DialogTrigger asChild>
-        <Button variant="outline">
-          <SettingsIcon data-icon="inline-start" />
-          设置
-        </Button>
+        {trigger ?? (
+          <Button variant="outline">
+            <SettingsIcon data-icon="inline-start" />
+            设置
+          </Button>
+        )}
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>

@@ -31,10 +31,35 @@ export const WORKSPACE_ROLES = [
   ...ASSIGNABLE_ROLES,
 ] as const satisfies readonly WorkspaceRole[];
 
+const WORKSPACE_ROLE_RANK: Record<WorkspaceRole, number> = {
+  admin: 4,
+  hr: 1,
+  owner: 5,
+  recruitingLead: 2,
+  recruitingSupervisor: 3,
+  viewer: 1,
+};
+
 export function getWorkspaceRoleLabel(role: WorkspaceRole): string {
   return WORKSPACE_ROLE_LABELS[role];
 }
 
 export function getWorkspaceRoleDescription(role: WorkspaceRole): string {
   return WORKSPACE_ROLE_DESCRIPTIONS[role];
+}
+
+export function canAssignWorkspaceRole(
+  currentRole: WorkspaceRole | null | undefined,
+  targetRole: WorkspaceRole,
+): boolean {
+  if (!currentRole) {
+    return false;
+  }
+  return WORKSPACE_ROLE_RANK[currentRole] > WORKSPACE_ROLE_RANK[targetRole];
+}
+
+export function getAssignableWorkspaceRoles(
+  currentRole: WorkspaceRole | null | undefined,
+): readonly WorkspaceRole[] {
+  return ASSIGNABLE_ROLES.filter((role) => canAssignWorkspaceRole(currentRole, role));
 }

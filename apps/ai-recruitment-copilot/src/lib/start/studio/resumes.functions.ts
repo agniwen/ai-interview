@@ -41,6 +41,8 @@ export const loadStudioResumesState = createServerFn({ method: "GET" })
       ...(await loadStudioResumesData({
         query: data.query,
         slug: data.slug,
+        userId: access.user.id,
+        userRole: access.member.role,
         workspaceId: access.workspace.id,
       })),
       status: "ready",

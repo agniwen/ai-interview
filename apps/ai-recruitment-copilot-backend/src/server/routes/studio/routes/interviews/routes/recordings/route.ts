@@ -1,6 +1,7 @@
 import { and, eq } from "drizzle-orm";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import { presignRecordingGetObjectUrl } from "@arc/ai-recruitment-copilot-backend/lib/server/s3";
+import { resolveRecruitingVisibilityScope } from "@arc/ai-recruitment-copilot-backend/server/access/recruiting-visibility";
 import { factory } from "@arc/ai-recruitment-copilot-backend/server/factory";
 import { requirePermission } from "@arc/ai-recruitment-copilot-backend/server/middlewares/permission";
 import { resolveCandidateIdForRound } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/dao/interview-rounds";
@@ -24,7 +25,14 @@ export const recordingsRouter = factory
 
     // 通过解析 candidateId 验证 org 归属。
     // Validate org scope via candidateId resolution.
-    const candidateId = await resolveCandidateIdForRound(roundId, activeOrg.id);
+    const visibilityScope = c.var.user?.id
+      ? await resolveRecruitingVisibilityScope({
+          currentRole: c.var.member?.role,
+          organizationId: activeOrg.id,
+          userId: c.var.user.id,
+        })
+      : { kind: "none" as const };
+    const candidateId = await resolveCandidateIdForRound(roundId, activeOrg.id, visibilityScope);
     if (!candidateId) {
       return c.json({ error: "记录不存在。" }, 404);
     }

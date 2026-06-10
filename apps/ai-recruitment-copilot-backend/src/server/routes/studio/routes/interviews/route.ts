@@ -12,6 +12,8 @@ import {
   studioInterview,
   studioInterviewSchedule,
 } from "@arc/db-schema/schema";
+import { resolveRecruitingVisibilityScope } from "@arc/ai-recruitment-copilot-backend/server/access/recruiting-visibility";
+import type { RecruitingVisibilityScope } from "@arc/ai-recruitment-copilot-backend/server/access/recruiting-visibility";
 import {
   buildAgentInstructions,
   resolveClosingPrompt,
@@ -179,6 +181,17 @@ const humanMeetingTokenInputSchema = z.object({
   interviewerId: z.string().trim().min(1).optional(),
 });
 
+function loadVisibilityScope(
+  organizationId: string,
+  currentRole: string | null | undefined,
+  userId: string | undefined,
+): Promise<RecruitingVisibilityScope> {
+  if (!userId) {
+    return Promise.resolve({ kind: "none" });
+  }
+  return resolveRecruitingVisibilityScope({ currentRole, organizationId, userId });
+}
+
 // 删除 AI 轮次后回退 parent：若候选人已无任何 schedule entry 且仍处于
 // pipeline_stage='ai_interview' / outcome='in_pipeline'，回退到 'screening'。
 // 已经被推进到 human_interview/offer/closed 的候选人保持原状（HR 已显式推进）。
@@ -223,7 +236,12 @@ export const studioInterviewsRouter = factory
     if (!activeOrg) {
       return c.json({ message: "Unauthorized" }, 401);
     }
-    const summary = await summarizeInterviewRoundCounts(activeOrg.id);
+    const visibilityScope = await loadVisibilityScope(
+      activeOrg.id,
+      c.var.member?.role,
+      c.var.user?.id,
+    );
+    const summary = await summarizeInterviewRoundCounts(activeOrg.id, visibilityScope);
     return c.json(summary, 200);
   })
   .post(
@@ -266,10 +284,16 @@ export const studioInterviewsRouter = factory
         return c.json({ message: "Unauthorized" }, 401);
       }
       const q = c.req.valid("query");
+      const visibilityScope = await loadVisibilityScope(
+        activeOrg.id,
+        c.var.member?.role,
+        c.var.user?.id,
+      );
       const result = await queryPaginatedInterviewRounds(
         activeOrg.id,
         { creatorIds: parseCsvParam(q.creatorIds), search: q.search, status: q.status },
         { page: q.page, pageSize: q.pageSize, sortBy: q.sortBy, sortOrder: q.sortOrder },
+        visibilityScope,
       );
       return c.json(result, 200);
     },
@@ -417,8 +441,16 @@ export const studioInterviewsRouter = factory
         return c.json({ message: "Unauthorized" }, 401);
       }
       const { id } = c.req.valid("query");
+      const visibilityScope = await loadVisibilityScope(
+        activeOrg.id,
+        c.var.member?.role,
+        c.var.user?.id,
+      );
       const roundId = await resolveRoundIdFromRecordId(id, activeOrg.id);
-      if (!roundId) {
+      const visibleRoundId = roundId
+        ? await resolveCandidateIdForRound(roundId, activeOrg.id, visibilityScope)
+        : null;
+      if (!roundId || !visibleRoundId) {
         return c.json({ error: "记录不存在。" }, 404);
       }
       return c.json({ roundId }, 200);
@@ -658,7 +690,12 @@ export const studioInterviewsRouter = factory
     }
     // roundId
     const id = c.req.param("id");
-    const detail = await loadInterviewRoundDetail(id, activeOrg.id);
+    const visibilityScope = await loadVisibilityScope(
+      activeOrg.id,
+      c.var.member?.role,
+      c.var.user?.id,
+    );
+    const detail = await loadInterviewRoundDetail(id, activeOrg.id, visibilityScope);
 
     if (!detail) {
       return c.json({ error: "记录不存在。" }, 404);
@@ -675,7 +712,12 @@ export const studioInterviewsRouter = factory
     }
     // roundId
     const id = c.req.param("id");
-    const candidateId = await resolveCandidateIdForRound(id, activeOrg.id);
+    const visibilityScope = await loadVisibilityScope(
+      activeOrg.id,
+      c.var.member?.role,
+      c.var.user?.id,
+    );
+    const candidateId = await resolveCandidateIdForRound(id, activeOrg.id, visibilityScope);
     if (!candidateId) {
       return c.json({ error: "记录不存在。" }, 404);
     }
@@ -716,7 +758,12 @@ export const studioInterviewsRouter = factory
     }
     // roundId
     const id = c.req.param("id");
-    const candidateId = await resolveCandidateIdForRound(id, activeOrg.id);
+    const visibilityScope = await loadVisibilityScope(
+      activeOrg.id,
+      c.var.member?.role,
+      c.var.user?.id,
+    );
+    const candidateId = await resolveCandidateIdForRound(id, activeOrg.id, visibilityScope);
     if (!candidateId) {
       return c.json({ error: "记录不存在。" }, 404);
     }
@@ -830,7 +877,12 @@ export const studioInterviewsRouter = factory
       return c.json({ message: "Unauthorized" }, 401);
     }
     const roundId = c.req.param("id");
-    const candidateId = await resolveCandidateIdForRound(roundId, activeOrg.id);
+    const visibilityScope = await loadVisibilityScope(
+      activeOrg.id,
+      c.var.member?.role,
+      c.var.user?.id,
+    );
+    const candidateId = await resolveCandidateIdForRound(roundId, activeOrg.id, visibilityScope);
     if (!candidateId) {
       return c.json({ error: "记录不存在。" }, 404);
     }
@@ -851,7 +903,12 @@ export const studioInterviewsRouter = factory
       const roundId = c.req.param("id");
       const submissionId = c.req.param("submissionId");
 
-      const candidateId = await resolveCandidateIdForRound(roundId, activeOrg.id);
+      const visibilityScope = await loadVisibilityScope(
+        activeOrg.id,
+        c.var.member?.role,
+        c.var.user?.id,
+      );
+      const candidateId = await resolveCandidateIdForRound(roundId, activeOrg.id, visibilityScope);
       if (!candidateId) {
         return c.json({ error: "记录不存在。" }, 404);
       }
@@ -895,6 +952,15 @@ export const studioInterviewsRouter = factory
       }
       const roundId = c.req.param("id");
       const body = c.req.valid("json");
+      const visibilityScope = await loadVisibilityScope(
+        activeOrg.id,
+        c.var.member?.role,
+        c.var.user?.id,
+      );
+      const existingRound = await loadInterviewRoundDetail(roundId, activeOrg.id, visibilityScope);
+      if (!existingRound) {
+        return c.json({ error: "记录不存在。" }, 404);
+      }
 
       // 服务端 AI 阶段守卫：候选人已超过 AI 面试阶段后，禁止改 schedule entry 字段。
       // UI 已禁用按钮（aiStageLockedReason），但仍要服务端兜底防止绕过 UI 调用。
@@ -959,7 +1025,7 @@ export const studioInterviewsRouter = factory
       }
 
       invalidateStudioInterviewCaches(activeOrg.id);
-      const detail = await loadInterviewRoundDetail(roundId, activeOrg.id);
+      const detail = await loadInterviewRoundDetail(roundId, activeOrg.id, visibilityScope);
       return c.json(detail, 200);
     },
   )
@@ -971,7 +1037,12 @@ export const studioInterviewsRouter = factory
       return c.json({ message: "Unauthorized" }, 401);
     }
     const roundId = c.req.param("id");
-    const candidateId = await resolveCandidateIdForRound(roundId, activeOrg.id);
+    const visibilityScope = await loadVisibilityScope(
+      activeOrg.id,
+      c.var.member?.role,
+      c.var.user?.id,
+    );
+    const candidateId = await resolveCandidateIdForRound(roundId, activeOrg.id, visibilityScope);
     if (!candidateId) {
       return c.json({ error: "记录不存在。" }, 404);
     }
@@ -998,7 +1069,12 @@ export const studioInterviewsRouter = factory
         return c.json({ message: "Unauthorized" }, 401);
       }
       const roundId = c.req.param("id");
-      const candidateId = await resolveCandidateIdForRound(roundId, activeOrg.id);
+      const visibilityScope = await loadVisibilityScope(
+        activeOrg.id,
+        c.var.member?.role,
+        c.var.user?.id,
+      );
+      const candidateId = await resolveCandidateIdForRound(roundId, activeOrg.id, visibilityScope);
       if (!candidateId) {
         return c.json({ error: "记录不存在。" }, 404);
       }
@@ -1030,6 +1106,15 @@ export const studioInterviewsRouter = factory
     }
     const roundId = c.req.param("id");
     const operatorId = c.var.user?.id ?? null;
+    const visibilityScope = await loadVisibilityScope(
+      activeOrg.id,
+      c.var.member?.role,
+      c.var.user?.id,
+    );
+    const existingRound = await loadInterviewRoundDetail(roundId, activeOrg.id, visibilityScope);
+    if (!existingRound) {
+      return c.json({ error: "记录不存在。" }, 404);
+    }
 
     // 加载轮次行 + 候选人上下文。/ Load round row + candidate context.
     const [scheduleRow] = await db
@@ -1120,7 +1205,7 @@ export const studioInterviewsRouter = factory
 
     invalidateStudioInterviewCaches(activeOrg.id);
     safeUpdateTag(cacheTags.interviewConversations);
-    const detail = await loadInterviewRoundDetail(roundId, activeOrg.id);
+    const detail = await loadInterviewRoundDetail(roundId, activeOrg.id, visibilityScope);
     return c.json(detail, 200);
   })
   .post(

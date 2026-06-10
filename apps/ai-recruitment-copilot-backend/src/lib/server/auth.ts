@@ -21,6 +21,44 @@ const ADMIN_ASSIGNABLE_ROLES = new Set<AdminAssignableRole>([
   "hr",
   "viewer",
 ]);
+type WorkspaceRole =
+  | "owner"
+  | "admin"
+  | "recruitingSupervisor"
+  | "recruitingLead"
+  | "hr"
+  | "viewer";
+const WORKSPACE_ROLE_RANK: Record<WorkspaceRole, number> = {
+  admin: 4,
+  hr: 1,
+  owner: 5,
+  recruitingLead: 2,
+  recruitingSupervisor: 3,
+  viewer: 1,
+};
+const WORKSPACE_ROLES = new Set<WorkspaceRole>([
+  "admin",
+  "hr",
+  "owner",
+  "recruitingLead",
+  "recruitingSupervisor",
+  "viewer",
+]);
+
+function canAssignWorkspaceRole(invokerRole: string, targetRole: string): boolean {
+  if (
+    !(
+      WORKSPACE_ROLES.has(invokerRole as WorkspaceRole) &&
+      WORKSPACE_ROLES.has(targetRole as WorkspaceRole)
+    )
+  ) {
+    return false;
+  }
+  return (
+    WORKSPACE_ROLE_RANK[invokerRole as WorkspaceRole] >
+    WORKSPACE_ROLE_RANK[targetRole as WorkspaceRole]
+  );
+}
 
 const baseURL = process.env.BETTER_AUTH_URL ?? "http://localhost:3000";
 const trustedOrigins = [...new Set([baseURL, "http://localhost:3000"])];
@@ -404,6 +442,32 @@ export const auth = betterAuth({
             // active-org，middleware 仍会因为没 membership 拒绝。
             // Cleanup failure is non-fatal; middleware still blocks access.
             console.warn("[auth] failed to clear stale session.activeOrg", error);
+          }
+        },
+        beforeCreateInvitation: async ({ invitation, inviter, organization: org }) => {
+          const [invoker] = await db
+            .select({ role: schema.member.role })
+            .from(schema.member)
+            .where(
+              and(eq(schema.member.userId, inviter.id), eq(schema.member.organizationId, org.id)),
+            )
+            .limit(1);
+
+          if (!invoker) {
+            throw new APIError("FORBIDDEN", { message: "你不在这个工作区中。" });
+          }
+
+          const requestedRoles = invitation.role
+            .split(",")
+            .map((role) => role.trim())
+            .filter(Boolean);
+          if (
+            requestedRoles.length === 0 ||
+            requestedRoles.some((role) => !canAssignWorkspaceRole(invoker.role, role))
+          ) {
+            throw new APIError("FORBIDDEN", {
+              message: "只能邀请为低于自己级别的工作区角色。",
+            });
           }
         },
         beforeUpdateMemberRole: async ({ member, newRole, organization: org }) => {

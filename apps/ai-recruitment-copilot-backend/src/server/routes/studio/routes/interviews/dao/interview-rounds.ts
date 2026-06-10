@@ -13,6 +13,8 @@ import {
   makePaginationSchema,
 } from "@arc/ai-recruitment-copilot-backend/lib/server/db/pagination";
 import { serializeDate } from "@arc/ai-recruitment-copilot-backend/lib/server/db/serialize";
+import { intersectRequestedCreatorIds } from "@arc/ai-recruitment-copilot-backend/server/access/recruiting-visibility";
+import type { RecruitingVisibilityScope } from "@arc/ai-recruitment-copilot-backend/server/access/recruiting-visibility";
 import {
   department,
   interviewConversation,
@@ -72,8 +74,16 @@ function parseStatusFilter(value?: string | null): ScheduleEntryStatus[] | undef
 
 function buildWhere(
   organizationId: string,
-  filters?: { creatorIds?: string[]; search?: string; statuses?: ScheduleEntryStatus[] },
+  filters?: {
+    creatorIds?: string[];
+    forceEmpty?: boolean;
+    search?: string;
+    statuses?: ScheduleEntryStatus[];
+  },
 ) {
+  if (filters?.forceEmpty) {
+    return sql`false`;
+  }
   const conditions: ReturnType<typeof eq | typeof or | typeof inArray>[] = [
     eq(studioInterviewSchedule.organizationId, organizationId),
   ];
@@ -158,13 +168,23 @@ export async function queryPaginatedInterviewRounds(
   organizationId: string,
   filters?: { creatorIds?: string[] | null; search?: string | null; status?: string | null },
   pagination?: Record<string, unknown>,
+  visibilityScope?: RecruitingVisibilityScope,
 ): Promise<PaginatedStudioInterviewRoundsResult> {
-  const creatorIds = filters?.creatorIds?.filter((id) => id.trim().length > 0) || undefined;
+  const requestedCreatorIds =
+    filters?.creatorIds?.filter((id) => id.trim().length > 0) || undefined;
+  const scopedCreatorIds = visibilityScope
+    ? intersectRequestedCreatorIds(requestedCreatorIds, visibilityScope)
+    : requestedCreatorIds;
   const search = filters?.search?.trim() || undefined;
   const statuses = parseStatusFilter(filters?.status);
   const { page, pageSize, sortBy, sortOrder } = parsePagination(pagination);
   const offset = (page - 1) * pageSize;
-  const where = buildWhere(organizationId, { creatorIds, search, statuses });
+  const where = buildWhere(organizationId, {
+    creatorIds: scopedCreatorIds ?? undefined,
+    forceEmpty: Array.isArray(scopedCreatorIds) && scopedCreatorIds.length === 0,
+    search,
+    statuses,
+  });
   const countQuery = search
     ? db
         .select({ count: count() })
@@ -276,8 +296,9 @@ export function listInterviewRounds(
   organizationId: string,
   filters?: { creatorIds?: string[] | null; search?: string | null; status?: string | null },
   pagination?: Record<string, unknown>,
+  visibilityScope?: RecruitingVisibilityScope,
 ) {
-  return queryPaginatedInterviewRounds(organizationId, filters, pagination);
+  return queryPaginatedInterviewRounds(organizationId, filters, pagination, visibilityScope);
 }
 
 /**
@@ -380,7 +401,23 @@ export async function listInterviewRoundsForCandidate(
 export async function loadInterviewRoundDetail(
   roundId: string,
   organizationId: string,
+  visibilityScope?: RecruitingVisibilityScope,
 ): Promise<StudioInterviewRoundDetail | null> {
+  if (visibilityScope?.kind === "none") {
+    return null;
+  }
+  if (visibilityScope?.kind === "restricted" && visibilityScope.userIds.length === 0) {
+    return null;
+  }
+  const visibilityCondition =
+    visibilityScope?.kind === "restricted"
+      ? inArray(studioInterviewSchedule.createdBy, visibilityScope.userIds)
+      : null;
+  const conditions = [
+    eq(studioInterviewSchedule.id, roundId),
+    eq(studioInterviewSchedule.organizationId, organizationId),
+    visibilityCondition,
+  ].filter((condition) => condition !== null);
   const [row] = await db
     .select({
       allowTextInput: studioInterviewSchedule.allowTextInput,
@@ -398,12 +435,7 @@ export async function loadInterviewRoundDetail(
       updatedAt: studioInterviewSchedule.updatedAt,
     })
     .from(studioInterviewSchedule)
-    .where(
-      and(
-        eq(studioInterviewSchedule.id, roundId),
-        eq(studioInterviewSchedule.organizationId, organizationId),
-      ),
-    )
+    .where(and(...conditions))
     .limit(1);
 
   if (!row) {
@@ -450,11 +482,26 @@ export interface InterviewRoundSummary {
 
 export async function summarizeInterviewRoundCounts(
   organizationId: string,
+  visibilityScope?: RecruitingVisibilityScope,
 ): Promise<InterviewRoundSummary> {
+  if (visibilityScope?.kind === "none") {
+    return { completed: 0, inProgress: 0, interrupted: 0, pending: 0, total: 0 };
+  }
+  if (visibilityScope?.kind === "restricted" && visibilityScope.userIds.length === 0) {
+    return { completed: 0, inProgress: 0, interrupted: 0, pending: 0, total: 0 };
+  }
+  const visibilityCondition =
+    visibilityScope?.kind === "restricted"
+      ? inArray(studioInterviewSchedule.createdBy, visibilityScope.userIds)
+      : null;
+  const conditions = [
+    eq(studioInterviewSchedule.organizationId, organizationId),
+    visibilityCondition,
+  ].filter((condition) => condition !== null);
   const rows = await db
     .select({ count: count(), status: studioInterviewSchedule.status })
     .from(studioInterviewSchedule)
-    .where(eq(studioInterviewSchedule.organizationId, organizationId))
+    .where(and(...conditions))
     .groupBy(studioInterviewSchedule.status);
 
   let total = 0;
@@ -524,16 +571,27 @@ export async function resolveRoundIdFromRecordId(
 export async function resolveCandidateIdForRound(
   roundId: string,
   organizationId: string,
+  visibilityScope?: RecruitingVisibilityScope,
 ): Promise<string | null> {
+  if (visibilityScope?.kind === "none") {
+    return null;
+  }
+  if (visibilityScope?.kind === "restricted" && visibilityScope.userIds.length === 0) {
+    return null;
+  }
+  const visibilityCondition =
+    visibilityScope?.kind === "restricted"
+      ? inArray(studioInterviewSchedule.createdBy, visibilityScope.userIds)
+      : null;
+  const conditions = [
+    eq(studioInterviewSchedule.id, roundId),
+    eq(studioInterviewSchedule.organizationId, organizationId),
+    visibilityCondition,
+  ].filter((condition) => condition !== null);
   const [row] = await db
     .select({ candidateId: studioInterviewSchedule.interviewRecordId })
     .from(studioInterviewSchedule)
-    .where(
-      and(
-        eq(studioInterviewSchedule.id, roundId),
-        eq(studioInterviewSchedule.organizationId, organizationId),
-      ),
-    )
+    .where(and(...conditions))
     .limit(1);
   return row?.candidateId ?? null;
 }
