@@ -324,7 +324,7 @@ export function canLaunchInterviewFromResume(status: ResumeParseStatus): boolean
 }
 
 export function canDeleteResumeRecord(status: ResumeParseStatus): boolean {
-  return status !== "processing";
+  return status !== "queued" && status !== "processing";
 }
 
 export function getResumeActionLockedReason(status: ResumeParseStatus): string | null {

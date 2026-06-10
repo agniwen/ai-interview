@@ -909,11 +909,6 @@ export const resumeUploadBatch = pgTable(
       table.createdBy,
       table.createdAt,
     ),
-    // 单用户单租户活跃批次唯一约束（partial unique index）。
-    // Active-batch uniqueness per (org, user); only one pending/running allowed.
-    uniqueIndex("resume_upload_batch_active_unique_idx")
-      .on(table.organizationId, table.createdBy)
-      .where(sql`${table.status} in ('pending','running')`),
   ],
 );
 

@@ -54,6 +54,7 @@ export function useBulkUpload({ onBatchQueued, onRecordsChanged }: UseBulkUpload
     uploadStatus: [],
   });
   const abortRef = useRef(false);
+  const pollTokenRef = useRef(0);
   const lastInvalidateRef = useRef(0);
 
   const invalidateThrottled = useCallback(() => {
@@ -67,30 +68,37 @@ export function useBulkUpload({ onBatchQueued, onRecordsChanged }: UseBulkUpload
 
   const pollLoop = useCallback(
     async (batchId: string) => {
+      const token = pollTokenRef.current + 1;
+      pollTokenRef.current = token;
       abortRef.current = false;
       setState((s) => ({ ...s, phase: "processing" }));
-      while (!abortRef.current) {
+      while (!abortRef.current && pollTokenRef.current === token) {
         try {
           // oxlint-disable-next-line promise/avoid-new -- Browser polling needs a timer promise.
           await new Promise<void>((resolve) => {
             window.setTimeout(resolve, POLL_INTERVAL_MS);
           });
-          if (abortRef.current) {
+          if (abortRef.current || pollTokenRef.current !== token) {
             return;
           }
           const detail = await getBulkResumeBatchDetail(slug, batchId);
+          if (pollTokenRef.current !== token) {
+            return;
+          }
           setState((prev) => ({ ...prev, detail }));
           invalidateThrottled();
           if (detail.batch.status === "completed") {
             setState((s) => ({ ...s, phase: "completed" }));
-            void qc.invalidateQueries({ queryKey: ["active-bulk-batch", slug] });
+            void qc.invalidateQueries({ queryKey: ["active-bulk-batches", slug] });
+            void qc.invalidateQueries({ queryKey: ["bulk-resume-batches", slug] });
             void qc.invalidateQueries({ queryKey: ["studio-resumes"] });
             onRecordsChanged?.();
             return;
           }
           if (detail.batch.status === "cancelled") {
             setState((s) => ({ ...s, phase: "cancelled" }));
-            void qc.invalidateQueries({ queryKey: ["active-bulk-batch", slug] });
+            void qc.invalidateQueries({ queryKey: ["active-bulk-batches", slug] });
+            void qc.invalidateQueries({ queryKey: ["bulk-resume-batches", slug] });
             return;
           }
         } catch (error) {
@@ -105,6 +113,8 @@ export function useBulkUpload({ onBatchQueued, onRecordsChanged }: UseBulkUpload
 
   const start = useCallback(
     async (files: File[], config: StartConfig) => {
+      pollTokenRef.current += 1;
+      abortRef.current = true;
       setState({
         detail: null,
         phase: "uploading",
@@ -173,7 +183,8 @@ export function useBulkUpload({ onBatchQueued, onRecordsChanged }: UseBulkUpload
       try {
         const detail = await createBulkResumeBatch(slug, { ...config, files: ready });
         setState((s) => ({ ...s, detail, phase: "processing" }));
-        void qc.invalidateQueries({ queryKey: ["active-bulk-batch", slug] });
+        void qc.invalidateQueries({ queryKey: ["active-bulk-batches", slug] });
+        void qc.invalidateQueries({ queryKey: ["bulk-resume-batches", slug] });
         void qc.invalidateQueries({ queryKey: ["studio-resumes"] });
         onBatchQueued?.(detail);
         void pollLoop(detail.batch.id);
@@ -198,9 +209,33 @@ export function useBulkUpload({ onBatchQueued, onRecordsChanged }: UseBulkUpload
         uploadFileNames: [],
         uploadStatus: [],
       });
+      void qc.invalidateQueries({ queryKey: ["active-bulk-batches", slug] });
+      void qc.invalidateQueries({ queryKey: ["bulk-resume-batches", slug] });
       void pollLoop(batchId);
     },
-    [slug, pollLoop],
+    [slug, pollLoop, qc],
+  );
+
+  const view = useCallback(
+    async (batchId: string) => {
+      pollTokenRef.current += 1;
+      abortRef.current = true;
+      const detail = await getBulkResumeBatchDetail(slug, batchId);
+      let phase: BulkUploadPhase = "paused";
+      if (detail.batch.status === "completed") {
+        phase = "completed";
+      } else if (detail.batch.status === "cancelled") {
+        phase = "cancelled";
+      }
+      setState({
+        detail,
+        phase,
+        uploadError: null,
+        uploadFileNames: [],
+        uploadStatus: [],
+      });
+    },
+    [slug],
   );
 
   const cancel = useCallback(async () => {
@@ -208,20 +243,25 @@ export function useBulkUpload({ onBatchQueued, onRecordsChanged }: UseBulkUpload
       return;
     }
     abortRef.current = true;
+    pollTokenRef.current += 1;
     const detail = await cancelBulkResumeBatch(slug, state.detail.batch.id);
     setState((s) => ({ ...s, detail, phase: "cancelled" }));
-    void qc.invalidateQueries({ queryKey: ["active-bulk-batch", slug] });
+    void qc.invalidateQueries({ queryKey: ["active-bulk-batches", slug] });
+    void qc.invalidateQueries({ queryKey: ["bulk-resume-batches", slug] });
     void qc.invalidateQueries({ queryKey: ["studio-resumes"] });
   }, [slug, state.detail, qc]);
 
   const abort = useCallback(() => {
     abortRef.current = true;
+    pollTokenRef.current += 1;
     setState((s) => ({ ...s, phase: "paused" }));
-    void qc.invalidateQueries({ queryKey: ["active-bulk-batch", slug] });
+    void qc.invalidateQueries({ queryKey: ["active-bulk-batches", slug] });
+    void qc.invalidateQueries({ queryKey: ["bulk-resume-batches", slug] });
   }, [qc, slug]);
 
   const reset = useCallback(() => {
     abortRef.current = true;
+    pollTokenRef.current += 1;
     setState({
       detail: null,
       phase: "idle",
@@ -231,5 +271,5 @@ export function useBulkUpload({ onBatchQueued, onRecordsChanged }: UseBulkUpload
     });
   }, []);
 
-  return { abort, cancel, reset, resume, start, state };
+  return { abort, cancel, reset, resume, start, state, view };
 }

@@ -9,8 +9,8 @@
 // 1-round interview with default schedule).
 
 import { useForm, useStore } from "@tanstack/react-form";
-import { FileUpIcon, LoaderCircleIcon } from "lucide-react";
-import { useCallback, useRef, useState } from "react";
+import { LoaderCircleIcon } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { ResumeAnalysisOverlay } from "@/components/studio/resume-analysis-overlay";
 import { useResumeAnalysisPipeline } from "@/components/studio/use-resume-analysis-pipeline";
@@ -30,6 +30,7 @@ import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import type { StudioInterviewRoundDetail } from "@arc/shared/studio-interview-rounds";
 import { createResumeLibraryFormValues, resumeLibraryFormSchema } from "@arc/shared/studio-resumes";
 import type { ResumeLibraryDetail } from "@arc/shared/studio-resumes";
+import { MAX_BULK_BATCH_SIZE } from "@arc/shared/bulk-resume-upload";
 
 export type CreateResumeRecordResult =
   | { mode: "save-only"; detail: ResumeLibraryDetail }
@@ -38,7 +39,11 @@ export type CreateResumeRecordResult =
 type SubmitMode = "save-only" | "save-and-start";
 
 interface CreateResumeRecordDialogProps {
+  initialFile?: File | null;
+  open: boolean;
   onCreated: (result: CreateResumeRecordResult) => void;
+  onMultipleFilesPicked?: (files: File[]) => void;
+  onOpenChange: (open: boolean) => void;
 }
 
 function getFormErrorMessage(error: unknown): string | null {
@@ -73,12 +78,18 @@ function getFirstResumeFormErrorMessage(meta: Record<string, { errors?: unknown[
   return "请检查简历信息后再保存";
 }
 
-export function CreateResumeRecordDialog({ onCreated }: CreateResumeRecordDialogProps) {
+export function CreateResumeRecordDialog({
+  initialFile = null,
+  open,
+  onCreated,
+  onMultipleFilesPicked,
+  onOpenChange,
+}: CreateResumeRecordDialogProps) {
   const slug = useWorkspaceSlug();
-  const [open, setOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [activeTab, setActiveTab] = useState<"basic" | "experience">("basic");
   const submitModeRef = useRef<SubmitMode>("save-only");
+  const initialFileRef = useRef<File | null>(null);
   // onSubmit 闭包早于 pipeline 声明捕获，用 ref 桥接以读取最新值。
   // The onSubmit closure captures before pipeline is declared; a ref bridges
   // the forward reference so the latest pipeline is readable at call time.
@@ -125,7 +136,7 @@ export function CreateResumeRecordDialog({ onCreated }: CreateResumeRecordDialog
           toast.success("已创建并发起 1 轮面试");
           onCreated({ mode: "save-and-start", round });
         }
-        setOpen(false);
+        onOpenChange(false);
         form.reset(createResumeLibraryFormValues());
         p?.reset();
       } catch (error) {
@@ -174,6 +185,20 @@ export function CreateResumeRecordDialog({ onCreated }: CreateResumeRecordDialog
   // Sync the latest pipeline into the ref so form.onSubmit can read it.
   pipelineRef.current = pipeline;
 
+  useEffect(() => {
+    if (!open) {
+      initialFileRef.current = null;
+      return;
+    }
+    if (!initialFile || initialFileRef.current === initialFile) {
+      return;
+    }
+
+    initialFileRef.current = initialFile;
+    setActiveTab("basic");
+    void pipeline.handleResumeChange(initialFile);
+  }, [initialFile, open, pipeline]);
+
   const isSubmitting = useStore(form.store, (s) => s.isSubmitting);
   const jobDescriptionId = useStore(form.store, (s) => s.values.jobDescriptionId);
   const isBusy = submitting || isSubmitting || pipeline.isBusy;
@@ -207,103 +232,88 @@ export function CreateResumeRecordDialog({ onCreated }: CreateResumeRecordDialog
     [form],
   );
 
+  const handleMultipleFilesPicked = useCallback(
+    (files: File[]) => {
+      pipeline.reset();
+      form.reset(createResumeLibraryFormValues());
+      setActiveTab("basic");
+      onOpenChange(false);
+      onMultipleFilesPicked?.(files);
+    },
+    [form, onMultipleFilesPicked, onOpenChange, pipeline],
+  );
+
   return (
-    <>
-      <Button onClick={() => setOpen(true)} type="button">
-        <FileUpIcon className="size-4" />
-        新建简历记录
-      </Button>
-
-      <Modal
-        description="上传 PDF 自动解析候选人信息、匹配岗位并生成面试题；可仅入库，或一键发起 AI 面试。"
-        dismissible={!isBusy}
-        onOpenChange={(next) => {
-          if (!next && isBusy) {
-            return;
-          }
-          if (!next) {
-            pipeline.reset();
-            form.reset(createResumeLibraryFormValues());
-            setActiveTab("basic");
-          }
-          setOpen(next);
-        }}
-        open={open}
-        showCloseButton={!isBusy}
-        size={hasParsedResume ? "xl" : "md"}
-        title="新建简历记录"
-        footer={
-          <>
-            <Button
-              disabled={isBusy || !canSaveOnly}
-              onClick={() => triggerSubmit("save-only")}
-              title={canSaveOnly ? undefined : "请先上传并完成简历解析"}
-              type="button"
-              variant="outline"
-            >
-              {isBusy && submitModeRef.current === "save-only" ? (
-                <LoaderCircleIcon className="size-4 animate-spin" />
-              ) : null}
-              保存
-            </Button>
-            <Button
-              disabled={isBusy || !canSaveAndStart}
-              onClick={() => triggerSubmit("save-and-start")}
-              title={saveAndStartHint}
-              type="button"
-            >
-              {isBusy && submitModeRef.current === "save-and-start" ? (
-                <LoaderCircleIcon className="size-4 animate-spin" />
-              ) : null}
-              保存并发起面试
-            </Button>
-          </>
+    <Modal
+      description="上传 PDF 自动解析候选人信息、匹配岗位并生成面试题；可仅入库，或一键发起 AI 面试。"
+      dismissible={!isBusy}
+      onOpenChange={(next) => {
+        if (!next && isBusy) {
+          return;
         }
+        if (!next) {
+          pipeline.reset();
+          form.reset(createResumeLibraryFormValues());
+          setActiveTab("basic");
+        }
+        onOpenChange(next);
+      }}
+      open={open}
+      showCloseButton={!isBusy}
+      size={hasParsedResume ? "xl" : "md"}
+      title="新建简历记录"
+      footer={
+        <>
+          <Button
+            disabled={isBusy || !canSaveOnly}
+            onClick={() => triggerSubmit("save-only")}
+            title={canSaveOnly ? undefined : "请先上传并完成简历解析"}
+            type="button"
+            variant="outline"
+          >
+            {isBusy && submitModeRef.current === "save-only" ? (
+              <LoaderCircleIcon className="size-4 animate-spin" />
+            ) : null}
+            保存
+          </Button>
+          <Button
+            disabled={isBusy || !canSaveAndStart}
+            onClick={() => triggerSubmit("save-and-start")}
+            title={saveAndStartHint}
+            type="button"
+          >
+            {isBusy && submitModeRef.current === "save-and-start" ? (
+              <LoaderCircleIcon className="size-4 animate-spin" />
+            ) : null}
+            保存并发起面试
+          </Button>
+        </>
+      }
+    >
+      <form
+        className="space-y-5"
+        onSubmit={(e) => {
+          // Footer buttons drive submit explicitly; suppress native form submit.
+          // 外层 footer 按钮触发提交，禁用原生 form 默认行为。
+          e.preventDefault();
+        }}
       >
-        <form
-          className="space-y-5"
-          onSubmit={(e) => {
-            // Footer buttons drive submit explicitly; suppress native form submit.
-            // 外层 footer 按钮触发提交，禁用原生 form 默认行为。
-            e.preventDefault();
-          }}
-        >
-          <AnimatedHeight>
-            {hasParsedResume ? (
-              <Tabs
-                onValueChange={(value) => setActiveTab(value as "basic" | "experience")}
-                value={activeTab}
-              >
-                <TabsList>
-                  <TabsTrigger className="min-w-[8em]" value="basic">
-                    基本信息
-                  </TabsTrigger>
-                  <TabsTrigger className="min-w-[8em]" value="experience">
-                    经历
-                  </TabsTrigger>
-                </TabsList>
+        <AnimatedHeight>
+          {hasParsedResume ? (
+            <Tabs
+              onValueChange={(value) => setActiveTab(value as "basic" | "experience")}
+              value={activeTab}
+            >
+              <TabsList>
+                <TabsTrigger className="min-w-[8em]" value="basic">
+                  基本信息
+                </TabsTrigger>
+                <TabsTrigger className="min-w-[8em]" value="experience">
+                  经历
+                </TabsTrigger>
+              </TabsList>
 
-                <TabsContent className="mt-4" value="basic">
-                  <CandidateFormFields
-                    disabled={isBusy}
-                    form={form}
-                    isJobDescriptionMatching={pipeline.isMatchingJobDescription}
-                    onResumeFileChange={(file) => {
-                      setActiveTab("basic");
-                      void pipeline.handleResumeChange(file);
-                    }}
-                    requireResumeFile
-                    resumeFile={resumeFile}
-                    resumeFilePlaceholder="请选择 PDF 简历"
-                  />
-                </TabsContent>
-
-                <TabsContent className="mt-4" value="experience">
-                  <ResumeProfileView profile={resumePayload.resumeProfile} />
-                </TabsContent>
-              </Tabs>
-            ) : (
-              <div className="pt-1">
+              <TabsContent className="mt-4" value="basic">
                 <CandidateFormFields
                   disabled={isBusy}
                   form={form}
@@ -312,18 +322,43 @@ export function CreateResumeRecordDialog({ onCreated }: CreateResumeRecordDialog
                     setActiveTab("basic");
                     void pipeline.handleResumeChange(file);
                   }}
+                  onResumeFilesChange={handleMultipleFilesPicked}
                   requireResumeFile
                   resumeFile={resumeFile}
+                  resumeFileMaxFiles={MAX_BULK_BATCH_SIZE}
+                  resumeFileMultiple
                   resumeFilePlaceholder="请选择 PDF 简历"
-                  showDetails={false}
                 />
-              </div>
-            )}
-          </AnimatedHeight>
-        </form>
+              </TabsContent>
 
-        <ResumeAnalysisOverlay pipeline={pipeline} />
-      </Modal>
-    </>
+              <TabsContent className="mt-4" value="experience">
+                <ResumeProfileView profile={resumePayload.resumeProfile} />
+              </TabsContent>
+            </Tabs>
+          ) : (
+            <div className="pt-1">
+              <CandidateFormFields
+                disabled={isBusy}
+                form={form}
+                isJobDescriptionMatching={pipeline.isMatchingJobDescription}
+                onResumeFileChange={(file) => {
+                  setActiveTab("basic");
+                  void pipeline.handleResumeChange(file);
+                }}
+                onResumeFilesChange={handleMultipleFilesPicked}
+                requireResumeFile
+                resumeFile={resumeFile}
+                resumeFileMaxFiles={MAX_BULK_BATCH_SIZE}
+                resumeFileMultiple
+                resumeFilePlaceholder="请选择 PDF 简历"
+                showDetails={false}
+              />
+            </div>
+          )}
+        </AnimatedHeight>
+      </form>
+
+      <ResumeAnalysisOverlay pipeline={pipeline} />
+    </Modal>
   );
 }

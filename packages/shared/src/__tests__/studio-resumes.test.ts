@@ -3,6 +3,7 @@
 
 import { describe, expect, it } from "vitest";
 import {
+  canDeleteResumeRecord,
   createResumeLibraryFormValues,
   describeResumeProgress,
   resumeLibraryEditFormSchema,
@@ -43,6 +44,16 @@ describe("resumeLibraryEditFormSchema", () => {
     if (!result.success) {
       expect(result.error.issues[0]?.message).toBe("请填写候选人姓名");
     }
+  });
+});
+
+describe("canDeleteResumeRecord", () => {
+  it("locks queued and processing resume records because a batch may still recreate them", () => {
+    expect(canDeleteResumeRecord("unparsed")).toBe(true);
+    expect(canDeleteResumeRecord("queued")).toBe(false);
+    expect(canDeleteResumeRecord("processing")).toBe(false);
+    expect(canDeleteResumeRecord("ready")).toBe(true);
+    expect(canDeleteResumeRecord("failed")).toBe(true);
   });
 });
 

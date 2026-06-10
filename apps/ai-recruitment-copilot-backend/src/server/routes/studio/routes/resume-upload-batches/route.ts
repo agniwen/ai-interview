@@ -14,13 +14,12 @@ import {
   deleteBatch,
   insertBatchWithItems,
   listBatches,
-  loadActiveBatch,
+  loadActiveBatches,
   loadBatchDetail,
   reviveOrphans,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resume-upload-batches/dao/batches";
 import { processNextItem } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resume-upload-batches/utils/processor";
 import { createBatchInputSchema } from "./schema";
-import { isActiveBatchUniqueViolation } from "./utils/errors";
 
 async function getResumeParseQueueApi() {
   return await import("@arc/resume-parse-queue/resume-parse");
@@ -126,45 +125,34 @@ export const resumeUploadBatchesRouter = factory
         return c.json({ error: "部分文件未上传完成。" }, 400);
       }
 
-      try {
-        const batchId = await insertBatchWithItems({
-          dedupPolicy: input.dedupPolicy,
-          files: input.files,
-          jdMode: input.jdMode,
-          jobDescriptionId: input.jobDescriptionId ?? null,
-          organizationId: activeOrg.id,
-          userId: user.id,
-        });
-        const detail = await loadBatchDetail(batchId, activeOrg.id, user.id);
-        if (!detail) {
-          return c.json({ error: "批次创建失败。" }, 500);
-        }
-        try {
-          await enqueueResumeParseJobs(
-            detail.items.map((item) => ({
-              batchId,
-              itemId: item.id,
-              organizationId: activeOrg.id,
-              userId: user.id,
-            })),
-          );
-        } catch (error) {
-          console.error("[bulk-upload] enqueue failed:", error);
-          await cancelBatch(batchId, activeOrg.id, user.id);
-          return c.json({ error: "简历解析队列入队失败，请稍后重试。" }, 503);
-        }
-        const enqueuedDetail = await loadBatchDetail(batchId, activeOrg.id, user.id);
-        return c.json(enqueuedDetail ?? detail, 201);
-      } catch (error) {
-        if (isActiveBatchUniqueViolation(error)) {
-          const active = await loadActiveBatch(activeOrg.id, user.id);
-          return c.json(
-            { activeBatchId: active?.batch.id ?? null, error: "已有进行中的批次" },
-            409,
-          );
-        }
-        throw error;
+      const batchId = await insertBatchWithItems({
+        dedupPolicy: input.dedupPolicy,
+        files: input.files,
+        jdMode: input.jdMode,
+        jobDescriptionId: input.jobDescriptionId ?? null,
+        organizationId: activeOrg.id,
+        userId: user.id,
+      });
+      const detail = await loadBatchDetail(batchId, activeOrg.id, user.id);
+      if (!detail) {
+        return c.json({ error: "批次创建失败。" }, 500);
       }
+      try {
+        await enqueueResumeParseJobs(
+          detail.items.map((item) => ({
+            batchId,
+            itemId: item.id,
+            organizationId: activeOrg.id,
+            userId: user.id,
+          })),
+        );
+      } catch (error) {
+        console.error("[bulk-upload] enqueue failed:", error);
+        await cancelBatch(batchId, activeOrg.id, user.id);
+        return c.json({ error: "简历解析队列入队失败，请稍后重试。" }, 503);
+      }
+      const enqueuedDetail = await loadBatchDetail(batchId, activeOrg.id, user.id);
+      return c.json(enqueuedDetail ?? detail, 201);
     },
   )
   .get("/", requirePermission("resume", "read"), async (c) => {
@@ -180,8 +168,8 @@ export const resumeUploadBatchesRouter = factory
     if (!activeOrg || !user) {
       return c.json({ message: "Unauthorized" }, 401);
     }
-    const detail = await loadActiveBatch(activeOrg.id, user.id);
-    return c.json(detail, 200);
+    const details = await loadActiveBatches(activeOrg.id, user.id);
+    return c.json(details, 200);
   })
   .get("/:id", requirePermission("resume", "read"), async (c) => {
     const { activeOrg, user } = c.var;

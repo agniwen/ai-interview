@@ -201,11 +201,11 @@ export async function loadBatchDetail(
   return { batch: toBatchDto(row), items: items.map(toItemDto) };
 }
 
-export async function loadActiveBatch(
+export async function loadActiveBatches(
   organizationId: string,
   userId: string,
-): Promise<BulkResumeBatchDetailDto | null> {
-  const [row] = await db
+): Promise<BulkResumeBatchDetailDto[]> {
+  const rows = await db
     .select()
     .from(resumeUploadBatch)
     .where(
@@ -215,15 +215,22 @@ export async function loadActiveBatch(
         inArray(resumeUploadBatch.status, ["pending", "running"] as ResumeUploadBatchStatus[]),
       ),
     )
-    .limit(1);
-  if (!row) {
-    return null;
-  }
-  const detail = await loadBatchDetail(row.id, organizationId, userId);
-  if (!detail || !["pending", "running"].includes(detail.batch.status)) {
-    return null;
-  }
-  return detail;
+    .orderBy(desc(resumeUploadBatch.createdAt));
+  const details = await Promise.all(
+    rows.map((row) => loadBatchDetail(row.id, organizationId, userId)),
+  );
+  return details.filter(
+    (detail): detail is BulkResumeBatchDetailDto =>
+      detail !== null && ["pending", "running"].includes(detail.batch.status),
+  );
+}
+
+export async function loadActiveBatch(
+  organizationId: string,
+  userId: string,
+): Promise<BulkResumeBatchDetailDto | null> {
+  const [detail] = await loadActiveBatches(organizationId, userId);
+  return detail ?? null;
 }
 
 export async function listBatches(
