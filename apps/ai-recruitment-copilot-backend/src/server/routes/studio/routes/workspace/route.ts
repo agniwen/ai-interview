@@ -211,8 +211,11 @@ export const workspaceRouter = factory
         role: input.role,
         userId: input.userId,
       });
-      if (!row) {
+      if (row.status === "missing") {
         return c.json({ error: "组别或成员不存在。" }, 404);
+      }
+      if (row.status === "duplicate") {
+        return c.json({ error: "该成员已在这个招聘组中。" }, 409);
       }
       return c.json({ id: row.id, success: true }, 201);
     },

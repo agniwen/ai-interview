@@ -1,7 +1,7 @@
 "use client";
 
 import type { JobDescriptionListRecord } from "@arc/shared/job-descriptions";
-import { authClient } from "@/lib/client/auth-client";
+import { useOptionalWorkspaceSlug } from "@/lib/client/workspace-context";
 import { rpc } from "@/lib/client/rpc";
 import { useQuery } from "@tanstack/react-query";
 
@@ -22,8 +22,7 @@ async function fetchJobDescriptionOptions(slug: string): Promise<JobDescriptionL
  * the records for the select).
  */
 export function useJobDescriptionOptionsQuery() {
-  const { data: activeOrg } = authClient.useActiveOrganization();
-  const slug = activeOrg?.slug ?? "";
+  const slug = useOptionalWorkspaceSlug() ?? "";
   return useQuery({
     enabled: !!slug,
     queryFn: () => fetchJobDescriptionOptions(slug),

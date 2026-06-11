@@ -1,6 +1,9 @@
 "use client";
 import { authClient } from "@/lib/client/auth-client";
-import type { statement } from "@arc/shared/permissions";
+import { useOptionalWorkspaceMemberRole } from "@/lib/client/workspace-context";
+import type { AppRole, statement } from "@arc/shared/permissions";
+
+const APP_ROLES = new Set<string>(["admin", "member", "owner"]);
 
 /**
  * 客户端权限校验：通过 better-auth 官方 checkRolePermission 同步本地解析
@@ -11,21 +14,19 @@ export function useHasPermission<R extends keyof typeof statement>(
   resource: R,
   action: (typeof statement)[R][number],
 ): boolean {
+  const workspaceMemberRole = useOptionalWorkspaceMemberRole();
   const { data: org } = authClient.useActiveOrganization();
   const { data: session } = authClient.useSession();
 
-  if (!org || !session?.user) {
-    return false;
-  }
-
-  // Find current user's role in the active organization
-  const member = org.members?.find((m) => m.userId === session.user.id);
-  if (!member?.role) {
+  const memberRole =
+    workspaceMemberRole ??
+    org?.members?.find((member) => member.userId === session?.user?.id)?.role;
+  if (!memberRole || !APP_ROLES.has(memberRole)) {
     return false;
   }
 
   return authClient.organization.checkRolePermission({
     permissions: { [resource]: [action] } as Record<string, string[]>,
-    role: member.role,
+    role: memberRole as AppRole,
   });
 }

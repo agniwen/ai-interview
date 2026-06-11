@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useRouterState } from "@tanstack/react-router";
 import { ChevronsUpDown, Plus } from "lucide-react";
 import { useState } from "react";
@@ -44,6 +44,7 @@ function resolveSwitchTarget(currentPath: string, nextSlug: string): string {
  */
 export function WorkspaceSwitcher() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const currentSlug = useWorkspaceSlug();
   const [createOpen, setCreateOpen] = useState(false);
@@ -98,12 +99,14 @@ export function WorkspaceSwitcher() {
                   setSwitching(true);
                   void (async () => {
                     try {
+                      await queryClient.cancelQueries();
                       try {
                         await authClient.organization.setActive({ organizationId: o.id });
                       } catch (error) {
                         console.error("[workspace-switch] setActive failed", error);
                       }
                       await navigate({ href: resolveSwitchTarget(pathname, o.slug) });
+                      await queryClient.invalidateQueries({ queryKey: ["organizations"] });
                     } finally {
                       setSwitching(false);
                     }

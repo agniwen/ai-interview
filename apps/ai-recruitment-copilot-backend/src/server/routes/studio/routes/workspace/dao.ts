@@ -317,7 +317,7 @@ export async function addRecruitingGroupMember({
     .limit(1);
 
   if (!scope) {
-    return null;
+    return { status: "missing" as const };
   }
 
   const [created] = await db
@@ -340,21 +340,10 @@ export async function addRecruitingGroupMember({
     .returning({ id: recruitingGroupMember.id });
 
   if (created) {
-    return created;
+    return { id: created.id, status: "created" as const };
   }
 
-  const [existing] = await db
-    .select({ id: recruitingGroupMember.id })
-    .from(recruitingGroupMember)
-    .where(
-      and(
-        eq(recruitingGroupMember.organizationId, organizationId),
-        eq(recruitingGroupMember.groupId, groupId),
-        eq(recruitingGroupMember.userId, userId),
-      ),
-    )
-    .limit(1);
-  return existing ?? null;
+  return { status: "duplicate" as const };
 }
 
 export async function updateRecruitingGroupMemberRole({
