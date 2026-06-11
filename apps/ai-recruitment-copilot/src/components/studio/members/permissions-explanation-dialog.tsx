@@ -27,104 +27,70 @@ const ROLE_COLUMNS = WORKSPACE_ROLES;
 
 const ROLE_SUMMARIES = {
   admin: "日常管理权限",
-  hr: "同管理员，除成员管理",
+  member: "招聘组决定业务范围",
   owner: "完整管理权限",
-  recruitingLead: "同招聘成员",
-  recruitingSupervisor: "同招聘成员",
-  viewer: "查看与聊天权限",
 } as const satisfies Record<(typeof ROLE_COLUMNS)[number], string>;
 
 const PERMISSION_ROWS = [
   {
-    admin:
-      "邀请、移除成员；可将其他成员调整为「招聘主管」「招聘组长」「招聘成员」或「只读成员」（不能调整其他管理员或自己）",
-    hr: "无",
+    admin: "邀请、移除成员；可将其他成员调整为普通成员（不能调整其他管理员或自己）",
+    member: "无",
     owner: "邀请、移除成员；调整任意角色；转让所有权",
-    recruitingLead: "无",
-    recruitingSupervisor: "无",
     resource: "成员管理",
-    viewer: "无",
   },
   {
     admin: "新增、查看、编辑、删除",
-    hr: "新增、查看、编辑、删除",
+    member: "由招聘组内角色决定",
     owner: "新增、查看、编辑、删除",
-    recruitingLead: "新增、查看、编辑、删除",
-    recruitingSupervisor: "新增、查看、编辑、删除",
     resource: "面试",
-    viewer: "查看",
   },
   {
     admin: "新增、查看、编辑、删除",
-    hr: "新增、查看、编辑、删除",
+    member: "由招聘组内角色决定",
     owner: "新增、查看、编辑、删除",
-    recruitingLead: "新增、查看、编辑、删除",
-    recruitingSupervisor: "新增、查看、编辑、删除",
     resource: "职位 JD",
-    viewer: "查看",
   },
   {
     admin: "新增、查看、编辑、删除",
-    hr: "新增、查看、编辑、删除",
+    member: "由招聘组内角色决定",
     owner: "新增、查看、编辑、删除",
-    recruitingLead: "新增、查看、编辑、删除",
-    recruitingSupervisor: "新增、查看、编辑、删除",
     resource: "部门",
-    viewer: "查看",
   },
   {
     admin: "新增、查看、编辑、删除",
-    hr: "新增、查看、编辑、删除",
+    member: "由招聘组内角色决定",
     owner: "新增、查看、编辑、删除",
-    recruitingLead: "新增、查看、编辑、删除",
-    recruitingSupervisor: "新增、查看、编辑、删除",
     resource: "面试官",
-    viewer: "查看",
   },
   {
     admin: "新增、查看、编辑、删除",
-    hr: "新增、查看、编辑、删除",
+    member: "由招聘组内角色决定",
     owner: "新增、查看、编辑、删除",
-    recruitingLead: "新增、查看、编辑、删除",
-    recruitingSupervisor: "新增、查看、编辑、删除",
     resource: "候选人表单",
-    viewer: "查看",
   },
   {
     admin: "新增、查看、编辑、删除",
-    hr: "新增、查看、编辑、删除",
+    member: "由招聘组内角色决定",
     owner: "新增、查看、编辑、删除",
-    recruitingLead: "新增、查看、编辑、删除",
-    recruitingSupervisor: "新增、查看、编辑、删除",
     resource: "面试题模板",
-    viewer: "查看",
   },
   {
     admin: "查看、编辑",
-    hr: "查看、编辑",
+    member: "查看",
     owner: "查看、编辑",
-    recruitingLead: "查看、编辑",
-    recruitingSupervisor: "查看、编辑",
     resource: "系统设置",
-    viewer: "查看",
   },
   {
     admin: "新增、查看、编辑、删除",
-    hr: "新增、查看、编辑、删除",
+    member: "新增、查看、编辑、删除",
     owner: "新增、查看、编辑、删除",
-    recruitingLead: "新增、查看、编辑、删除",
-    recruitingSupervisor: "新增、查看、编辑、删除",
     resource: "聊天助手",
-    viewer: "新增、查看、编辑、删除",
   },
   {
     admin: "查看",
-    hr: "查看",
+    member: "无",
     owner: "查看",
-    recruitingLead: "查看",
-    recruitingSupervisor: "查看",
     resource: "审计日志",
-    viewer: "无",
   },
 ] as const;
 
@@ -149,7 +115,7 @@ export function PermissionsExplanationDialog() {
         <DialogHeader>
           <DialogTitle>工作区权限说明</DialogTitle>
           <DialogDescription>
-            当前工作区使用 Better Auth 组织角色校验，以下权限与代码中的权限矩阵保持一致。
+            工作区角色只区分管理身份；招聘业务范围由招聘组内角色决定。
           </DialogDescription>
         </DialogHeader>
 

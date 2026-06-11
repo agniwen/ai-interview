@@ -12,4 +12,20 @@ export const memberRecruitingGroupInputSchema = z.object({
   groupId: z.string().trim().min(1).nullable(),
 });
 
+export const recruitingGroupRoleSchema = z.enum([
+  "recruitingSupervisor",
+  "recruitingLead",
+  "hr",
+  "viewer",
+]);
+
+export const recruitingGroupMemberInputSchema = z.object({
+  role: recruitingGroupRoleSchema,
+  userId: z.string().trim().min(1, "请选择成员。"),
+});
+
+export const recruitingGroupMemberRoleInputSchema = z.object({
+  role: recruitingGroupRoleSchema,
+});
+
 export type WorkspaceUpdateInput = z.infer<typeof workspaceUpdateSchema>;

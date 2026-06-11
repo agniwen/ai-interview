@@ -26,6 +26,7 @@ const USERS = {
   groupAViewer: "test_vis_group_a_viewer",
   groupBHr: "test_vis_group_b_hr",
   groupBLead: "test_vis_group_b_lead",
+  multiGroupLead: "test_vis_multi_group_lead",
   owner: "test_vis_owner",
   ungroupedHr: "test_vis_ungrouped_hr",
   ungroupedLead: "test_vis_ungrouped_lead",
@@ -92,77 +93,84 @@ beforeAll(async () => {
       createdAt: NOW,
       id: "m_vis_group_a_supervisor",
       organizationId: ORG,
-      role: "recruitingSupervisor",
+      role: "member",
       userId: USERS.groupASupervisor,
     },
     {
       createdAt: NOW,
       id: "m_vis_group_a_lead",
       organizationId: ORG,
-      role: "recruitingLead",
+      role: "member",
       userId: USERS.groupALead,
     },
     {
       createdAt: NOW,
       id: "m_vis_group_a_hr",
       organizationId: ORG,
-      role: "hr",
+      role: "member",
       userId: USERS.groupAHr,
     },
     {
       createdAt: NOW,
       id: "m_vis_group_a_viewer",
       organizationId: ORG,
-      role: "viewer",
+      role: "member",
       userId: USERS.groupAViewer,
     },
     {
       createdAt: NOW,
       id: "m_vis_group_a_external",
       organizationId: ORG,
-      role: "recruitingSupervisor",
+      role: "member",
       userId: USERS.groupAExternal,
     },
     {
       createdAt: NOW,
       id: "m_vis_group_b_lead",
       organizationId: ORG,
-      role: "recruitingLead",
+      role: "member",
       userId: USERS.groupBLead,
     },
     {
       createdAt: NOW,
       id: "m_vis_group_b_hr",
       organizationId: ORG,
-      role: "hr",
+      role: "member",
       userId: USERS.groupBHr,
+    },
+    {
+      createdAt: NOW,
+      id: "m_vis_multi_group_lead",
+      organizationId: ORG,
+      role: "member",
+      userId: USERS.multiGroupLead,
     },
     {
       createdAt: NOW,
       id: "m_vis_ungrouped_hr",
       organizationId: ORG,
-      role: "hr",
+      role: "member",
       userId: USERS.ungroupedHr,
     },
     {
       createdAt: NOW,
       id: "m_vis_ungrouped_lead",
       organizationId: ORG,
-      role: "recruitingLead",
+      role: "member",
       userId: USERS.ungroupedLead,
     },
     {
       createdAt: NOW,
       id: "m_vis_ungrouped_supervisor",
       organizationId: ORG,
-      role: "recruitingSupervisor",
+      role: "member",
       userId: USERS.ungroupedSupervisor,
     },
     {
       createdAt: NOW,
       id: "m_vis_ungrouped_viewer",
       organizationId: ORG,
-      role: "viewer",
+      role: "member",
       userId: USERS.ungroupedViewer,
     },
   ]);
@@ -187,13 +195,78 @@ beforeAll(async () => {
   ]);
 
   await db.insert(recruitingGroupMember).values([
-    { createdAt: NOW, groupId: GROUP_A, organizationId: ORG, userId: USERS.groupASupervisor },
-    { createdAt: NOW, groupId: GROUP_A, organizationId: ORG, userId: USERS.groupALead },
-    { createdAt: NOW, groupId: GROUP_A, organizationId: ORG, userId: USERS.groupAHr },
-    { createdAt: NOW, groupId: GROUP_A, organizationId: ORG, userId: USERS.groupAViewer },
-    { createdAt: NOW, groupId: GROUP_A, organizationId: ORG, userId: USERS.groupAExternal },
-    { createdAt: NOW, groupId: GROUP_B, organizationId: ORG, userId: USERS.groupBLead },
-    { createdAt: NOW, groupId: GROUP_B, organizationId: ORG, userId: USERS.groupBHr },
+    {
+      createdAt: NOW,
+      groupId: GROUP_A,
+      id: "rgm_vis_group_a_supervisor",
+      organizationId: ORG,
+      role: "recruitingSupervisor",
+      userId: USERS.groupASupervisor,
+    },
+    {
+      createdAt: NOW,
+      groupId: GROUP_A,
+      id: "rgm_vis_group_a_lead",
+      organizationId: ORG,
+      role: "recruitingLead",
+      userId: USERS.groupALead,
+    },
+    {
+      createdAt: NOW,
+      groupId: GROUP_A,
+      id: "rgm_vis_group_a_hr",
+      organizationId: ORG,
+      role: "hr",
+      userId: USERS.groupAHr,
+    },
+    {
+      createdAt: NOW,
+      groupId: GROUP_A,
+      id: "rgm_vis_group_a_viewer",
+      organizationId: ORG,
+      role: "viewer",
+      userId: USERS.groupAViewer,
+    },
+    {
+      createdAt: NOW,
+      groupId: GROUP_A,
+      id: "rgm_vis_group_a_external",
+      organizationId: ORG,
+      role: "recruitingSupervisor",
+      userId: USERS.groupAExternal,
+    },
+    {
+      createdAt: NOW,
+      groupId: GROUP_B,
+      id: "rgm_vis_group_b_lead",
+      organizationId: ORG,
+      role: "recruitingLead",
+      userId: USERS.groupBLead,
+    },
+    {
+      createdAt: NOW,
+      groupId: GROUP_B,
+      id: "rgm_vis_group_b_hr",
+      organizationId: ORG,
+      role: "hr",
+      userId: USERS.groupBHr,
+    },
+    {
+      createdAt: NOW,
+      groupId: GROUP_A,
+      id: "rgm_vis_multi_group_a",
+      organizationId: ORG,
+      role: "viewer",
+      userId: USERS.multiGroupLead,
+    },
+    {
+      createdAt: NOW,
+      groupId: GROUP_B,
+      id: "rgm_vis_multi_group_b",
+      organizationId: ORG,
+      role: "recruitingLead",
+      userId: USERS.multiGroupLead,
+    },
   ]);
 });
 
@@ -258,6 +331,20 @@ describe("resolveRecruitingVisibilityScope", () => {
     });
   });
 
+  it("merges visibility from every recruiting group membership using the role in that group", async () => {
+    const scope = await resolveRecruitingVisibilityScope({
+      organizationId: ORG,
+      userId: USERS.multiGroupLead,
+    });
+
+    expect(scope).toEqual({
+      kind: "restricted",
+      userIds: expect.arrayContaining([USERS.multiGroupLead, USERS.groupBHr]),
+    });
+    expect(scope.kind === "restricted" ? scope.userIds : []).not.toContain(USERS.groupAHr);
+    expect(scope.kind === "restricted" ? scope.userIds : []).not.toContain(USERS.groupALead);
+  });
+
   it("limits hr and viewer members to their own data", async () => {
     await expect(
       resolveRecruitingVisibilityScope({ organizationId: ORG, userId: USERS.groupAHr }),
@@ -267,43 +354,13 @@ describe("resolveRecruitingVisibilityScope", () => {
     ).resolves.toEqual({ kind: "restricted", userIds: [USERS.groupAViewer] });
   });
 
-  it("lets ungrouped leads see lower-level ungrouped members only", async () => {
-    const scope = await resolveRecruitingVisibilityScope({
-      organizationId: ORG,
-      userId: USERS.ungroupedLead,
-    });
-
-    expect(scope).toEqual({
-      kind: "restricted",
-      userIds: expect.arrayContaining([
-        USERS.ungroupedLead,
-        USERS.ungroupedHr,
-        USERS.ungroupedViewer,
-      ]),
-    });
-    expect(scope.kind === "restricted" ? scope.userIds : []).not.toContain(USERS.groupAHr);
-    expect(scope.kind === "restricted" ? scope.userIds : []).not.toContain(
-      USERS.ungroupedSupervisor,
-    );
-  });
-
-  it("lets ungrouped supervisors see lower-level ungrouped members only", async () => {
-    const scope = await resolveRecruitingVisibilityScope({
-      organizationId: ORG,
-      userId: USERS.ungroupedSupervisor,
-    });
-
-    expect(scope).toEqual({
-      kind: "restricted",
-      userIds: expect.arrayContaining([
-        USERS.ungroupedSupervisor,
-        USERS.ungroupedLead,
-        USERS.ungroupedHr,
-        USERS.ungroupedViewer,
-      ]),
-    });
-    expect(scope.kind === "restricted" ? scope.userIds : []).not.toContain(USERS.groupALead);
-    expect(scope.kind === "restricted" ? scope.userIds : []).not.toContain(USERS.groupASupervisor);
+  it("does not treat ungrouped members as a default recruiting group", async () => {
+    await expect(
+      resolveRecruitingVisibilityScope({ organizationId: ORG, userId: USERS.ungroupedLead }),
+    ).resolves.toEqual({ kind: "restricted", userIds: [USERS.ungroupedLead] });
+    await expect(
+      resolveRecruitingVisibilityScope({ organizationId: ORG, userId: USERS.ungroupedSupervisor }),
+    ).resolves.toEqual({ kind: "restricted", userIds: [USERS.ungroupedSupervisor] });
   });
 
   it("limits ungrouped hr and viewer members to their own data", async () => {

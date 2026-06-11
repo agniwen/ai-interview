@@ -22,11 +22,8 @@ const WHITESPACE_REGEX = /\s+/u;
 
 const ROLE_BADGE_VARIANT: Record<WorkspaceRole, "default" | "secondary" | "outline"> = {
   admin: "default",
-  hr: "secondary",
+  member: "secondary",
   owner: "default",
-  recruitingLead: "secondary",
-  recruitingSupervisor: "secondary",
-  viewer: "outline",
 };
 
 const PROFILE_NAME_MAX_LENGTH = 120;

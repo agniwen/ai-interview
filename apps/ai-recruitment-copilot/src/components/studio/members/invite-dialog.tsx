@@ -43,7 +43,7 @@ interface InviteDialogProps {
 }
 
 function getDefaultInviteRole(assignableRoles: readonly WorkspaceRole[]): WorkspaceRole {
-  return assignableRoles.includes("hr") ? "hr" : (assignableRoles[0] ?? "viewer");
+  return assignableRoles.includes("member") ? "member" : (assignableRoles[0] ?? "member");
 }
 
 export function InviteDialog({

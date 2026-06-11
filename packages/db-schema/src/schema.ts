@@ -267,6 +267,7 @@ export const recruitingGroup = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
     id: text("id").primaryKey(),
+    isDefault: boolean("is_default").default(false).notNull(),
     name: text("name").notNull(),
     organizationId: text("organization_id")
       .notNull()
@@ -278,6 +279,9 @@ export const recruitingGroup = pgTable(
   },
   (table) => [
     uniqueIndex("recruiting_group_org_name_uq").on(table.organizationId, table.name),
+    uniqueIndex("recruiting_group_org_default_uq")
+      .on(table.organizationId)
+      .where(sql`${table.isDefault} = true`),
     index("recruiting_group_org_idx").on(table.organizationId),
   ],
 );
@@ -286,19 +290,36 @@ export const recruitingGroupMember = pgTable(
   "recruiting_group_member",
   {
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
     groupId: text("group_id")
       .notNull()
       .references(() => recruitingGroup.id, { onDelete: "cascade" }),
+    id: text("id").primaryKey(),
     organizationId: text("organization_id")
       .notNull()
       .references(() => organization.id, { onDelete: "cascade" }),
+    role: text("role").notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
     userId: text("user_id")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
   },
   (table) => [
-    primaryKey({ columns: [table.organizationId, table.userId] }),
-    index("recruiting_group_member_group_idx").on(table.groupId),
+    uniqueIndex("recruiting_group_member_org_group_user_uq").on(
+      table.organizationId,
+      table.groupId,
+      table.userId,
+    ),
+    index("recruiting_group_member_org_user_idx").on(table.organizationId, table.userId),
+    index("recruiting_group_member_org_group_role_user_idx").on(
+      table.organizationId,
+      table.groupId,
+      table.role,
+      table.userId,
+    ),
   ],
 );
 

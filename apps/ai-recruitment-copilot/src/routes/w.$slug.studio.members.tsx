@@ -1,9 +1,10 @@
-import type { DragEndEvent } from "@dnd-kit/core";
+import type { CollisionDetection, DragEndEvent } from "@dnd-kit/core";
 import {
   closestCorners,
   DndContext,
   DragOverlay,
   KeyboardSensor,
+  pointerWithin,
   PointerSensor,
   useDraggable,
   useDroppable,
@@ -12,7 +13,7 @@ import {
 } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
 import { createFileRoute } from "@tanstack/react-router";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import {
   GripVerticalIcon,
   PlusIcon,
@@ -65,10 +66,7 @@ import { InviteDialog } from "@/components/studio/members/invite-dialog";
 import { InviteLinksDialog } from "@/components/studio/members/invite-links-dialog";
 import { PendingInvitationsButton } from "@/components/studio/members/pending-invitations-section";
 import { PermissionsExplanationDialog } from "@/components/studio/members/permissions-explanation-dialog";
-import {
-  getAssignableWorkspaceRoles,
-  getWorkspaceRoleLabel,
-} from "@/components/studio/members/role-display";
+import { getAssignableWorkspaceRoles } from "@/components/studio/members/role-display";
 import type { WorkspaceRole } from "@/components/studio/members/role-display";
 import { WorkspaceSettingsDialog } from "@/components/studio/members/workspace-settings-dialog";
 
@@ -81,16 +79,28 @@ interface MemberRow {
   name: string;
   image: string | null;
   role: WorkspaceRole;
-  groupId: string | null;
-  groupName: string | null;
   createdAt: string | Date;
   lastActiveAt: string | null;
+}
+
+type RecruitingGroupRole = "recruitingSupervisor" | "recruitingLead" | "hr" | "viewer";
+
+interface RecruitingGroupMemberRow {
+  id: string;
+  userId: string;
+  email: string;
+  name: string;
+  image: string | null;
+  role: RecruitingGroupRole | null;
 }
 
 interface RecruitingGroupRow {
   id: string;
   name: string;
   createdAt: string;
+  isDefault: boolean;
+  isVirtual?: boolean;
+  members: RecruitingGroupMemberRow[];
   memberUserIds: string[];
 }
 
@@ -109,66 +119,112 @@ function getInitials(name?: string | null, email?: string | null) {
   return source.slice(0, 2).toUpperCase();
 }
 
-const ROLE_BADGE_VARIANT: Record<WorkspaceRole, "default" | "secondary" | "outline"> = {
-  admin: "default",
+const GROUP_ROLE_LABELS: Record<RecruitingGroupRole, string> = {
+  hr: "招聘成员",
+  recruitingLead: "招聘组长",
+  recruitingSupervisor: "招聘主管",
+  viewer: "只读成员",
+};
+
+const GROUP_ROLE_BADGE_VARIANT: Record<RecruitingGroupRole, "default" | "secondary" | "outline"> = {
   hr: "secondary",
-  owner: "default",
   recruitingLead: "secondary",
-  recruitingSupervisor: "secondary",
+  recruitingSupervisor: "default",
   viewer: "outline",
 };
 
-const NO_GROUP_VALUE = "__none";
-const ALL_GROUPS_VALUE = "__all";
-const UNGROUPED_COLUMN_ID = "group:__none";
-const DEFAULT_GROUP_LABEL = "默认分组";
+const GROUP_ROLE_OPTIONS = [
+  "recruitingSupervisor",
+  "recruitingLead",
+  "hr",
+  "viewer",
+] as const satisfies readonly RecruitingGroupRole[];
 
-function getColumnId(groupId: string | null) {
-  return groupId ? `group:${groupId}` : UNGROUPED_COLUMN_ID;
+const DEFAULT_NEW_GROUP_MEMBER_ROLE = "hr" satisfies RecruitingGroupRole;
+
+const recruitingGroupCollisionDetection: CollisionDetection = (args) => {
+  if (args.pointerCoordinates) {
+    return pointerWithin(args);
+  }
+  return closestCorners(args);
+};
+
+function normalizeGroupName(value: string) {
+  return value.trim();
 }
 
-function getGroupIdFromColumnId(columnId: string) {
-  return columnId === UNGROUPED_COLUMN_ID ? null : columnId.replace(/^group:/u, "");
+function hasDuplicateGroupName(
+  groups: RecruitingGroupRow[],
+  name: string,
+  excludeGroupId?: string,
+) {
+  const normalizedName = normalizeGroupName(name);
+  return groups.some(
+    (group) =>
+      !group.isVirtual &&
+      group.id !== excludeGroupId &&
+      normalizeGroupName(group.name) === normalizedName,
+  );
+}
+
+async function readErrorMessage(response: Response, fallback: string) {
+  const payload = (await response.json().catch(() => null)) as {
+    error?: string;
+    message?: string;
+  } | null;
+  return payload?.error ?? payload?.message ?? fallback;
+}
+
+function getColumnId(groupId: string) {
+  return `group:${groupId}`;
+}
+
+function getGroupBadgeLabel(group: RecruitingGroupRow) {
+  if (group.isDefault) {
+    return "默认组";
+  }
+  if (group.isVirtual) {
+    return "未分组";
+  }
+  return `${group.members.length} 人`;
 }
 
 interface RecruitingGroupsPanelProps {
   allRows: MemberRow[];
-  assignableRoles: readonly WorkspaceRole[];
   canUpdate: boolean;
-  currentMemberRole: WorkspaceRole | null;
-  currentUserId: string | undefined;
   groupNameDrafts: Record<string, string>;
   groups: RecruitingGroupRow[];
   newGroupName: string;
+  onAddMemberToGroup: (row: MemberRow, groupId: string) => void;
   onCreateGroup: () => void;
   onDeleteGroup: (group: RecruitingGroupRow) => void;
   onGroupNameDraftChange: (groupId: string, value: string) => void;
-  onMoveMember: (row: MemberRow, groupId: string | null) => void;
+  onRemoveGroupMember: (groupId: string, member: RecruitingGroupMemberRow) => void;
   onRenameGroup: (group: RecruitingGroupRow, name: string) => void;
-  onRoleChange: (memberId: string, role: WorkspaceRole) => void;
+  onRoleChange: (
+    groupId: string,
+    member: RecruitingGroupMemberRow,
+    role: RecruitingGroupRole,
+  ) => void;
   pending: string | null;
   setNewGroupName: (value: string) => void;
-  ungroupedRows: MemberRow[];
 }
 
 function RecruitingGroupsPanel({
   allRows,
-  assignableRoles,
   canUpdate,
-  currentMemberRole,
-  currentUserId,
   groupNameDrafts,
   groups,
   newGroupName,
+  onAddMemberToGroup,
   onCreateGroup,
   onDeleteGroup,
   onGroupNameDraftChange,
-  onMoveMember,
+  onRemoveGroupMember,
   onRenameGroup,
   onRoleChange,
   pending,
   setNewGroupName,
-  ungroupedRows,
 }: RecruitingGroupsPanelProps) {
   const [activeUserId, setActiveUserId] = useState<string | null>(null);
   const activeRow = useMemo(
@@ -182,16 +238,19 @@ function RecruitingGroupsPanel({
 
   function handleDragEnd(event: DragEndEvent) {
     setActiveUserId(null);
-    const row = allRows.find((item) => item.userId === String(event.active.id));
+    const activeId = String(event.active.id);
+    const userId = activeId.startsWith("pool:") ? activeId.slice("pool:".length) : activeId;
+    const row = allRows.find((item) => item.userId === userId);
     const overId = event.over?.id;
     if (!row || !overId) {
       return;
     }
-    const nextGroupId = getGroupIdFromColumnId(String(overId));
-    if (row.groupId === nextGroupId) {
+    const groupId = String(overId).replace(/^group:/u, "");
+    const targetGroup = groups.find((group) => group.id === groupId);
+    if (!targetGroup || targetGroup.isVirtual || targetGroup.memberUserIds.includes(row.userId)) {
       return;
     }
-    onMoveMember(row, nextGroupId);
+    onAddMemberToGroup(row, groupId);
   }
 
   return (
@@ -200,7 +259,7 @@ function RecruitingGroupsPanel({
         <div>
           <p className="font-medium">招聘组看板</p>
           <p className="text-muted-foreground text-sm">
-            拖拽成员卡片调整组别，在卡片内直接设置角色。
+            从成员池拖拽到招聘组会添加一份组成员关系，组内身份彼此独立。
           </p>
         </div>
         {canUpdate ? (
@@ -224,43 +283,40 @@ function RecruitingGroupsPanel({
       </div>
 
       <DndContext
-        collisionDetection={closestCorners}
+        collisionDetection={recruitingGroupCollisionDetection}
         onDragCancel={() => setActiveUserId(null)}
         onDragEnd={handleDragEnd}
         onDragStart={(event) => setActiveUserId(String(event.active.id))}
         sensors={sensors}
       >
+        <div className="min-w-0 rounded-lg border bg-background p-3">
+          <div className="mb-3 flex items-center justify-between">
+            <p className="font-medium text-sm">成员池</p>
+            <Badge variant="outline">{allRows.length} 人</Badge>
+          </div>
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {allRows.map((row) => (
+              // eslint-disable-next-line no-use-before-define -- 同文件卡片组件，保持面板主结构先出现
+              <MemberPoolCard canUpdate={canUpdate} key={row.userId} row={row} />
+            ))}
+          </div>
+        </div>
         <div className="min-w-0 max-w-full">
           <div className="flex max-w-full gap-4 overflow-x-auto overscroll-x-contain px-px pb-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            {/* eslint-disable-next-line no-use-before-define -- 同文件看板子组件，保持面板主结构先出现 */}
-            <RecruitingGroupColumn
-              assignableRoles={assignableRoles}
-              canUpdate={canUpdate}
-              currentMemberRole={currentMemberRole}
-              currentUserId={currentUserId}
-              id={UNGROUPED_COLUMN_ID}
-              pending={pending}
-              rows={ungroupedRows}
-              title={DEFAULT_GROUP_LABEL}
-              onRoleChange={onRoleChange}
-            />
             {groups.map((group) => (
               // eslint-disable-next-line no-use-before-define -- 同文件看板子组件，保持面板主结构先出现
               <RecruitingGroupColumn
-                assignableRoles={assignableRoles}
                 canUpdate={canUpdate}
-                currentMemberRole={currentMemberRole}
-                currentUserId={currentUserId}
                 draftName={groupNameDrafts[group.id] ?? group.name}
                 group={group}
                 id={getColumnId(group.id)}
                 key={group.id}
                 onDeleteGroup={onDeleteGroup}
                 onGroupNameDraftChange={onGroupNameDraftChange}
+                onRemoveGroupMember={onRemoveGroupMember}
                 onRenameGroup={onRenameGroup}
                 onRoleChange={onRoleChange}
                 pending={pending}
-                rows={allRows.filter((row) => row.groupId === group.id)}
               />
             ))}
           </div>
@@ -268,16 +324,7 @@ function RecruitingGroupsPanel({
         <DragOverlay>
           {activeRow ? (
             // eslint-disable-next-line no-use-before-define -- 同文件卡片组件，保持拖拽面板主结构先出现
-            <MemberCard
-              assignableRoles={assignableRoles}
-              canUpdate={canUpdate}
-              currentMemberRole={currentMemberRole}
-              currentUserId={currentUserId}
-              isOverlay
-              onRoleChange={onRoleChange}
-              pending={pending}
-              row={activeRow}
-            />
+            <MemberPoolCard canUpdate={false} isOverlay row={activeRow} />
           ) : null}
         </DragOverlay>
       </DndContext>
@@ -286,42 +333,39 @@ function RecruitingGroupsPanel({
 }
 
 interface RecruitingGroupColumnProps {
-  assignableRoles: readonly WorkspaceRole[];
   canUpdate: boolean;
-  currentMemberRole: WorkspaceRole | null;
-  currentUserId: string | undefined;
   draftName?: string;
-  group?: RecruitingGroupRow;
+  group: RecruitingGroupRow;
   id: string;
-  onDeleteGroup?: (group: RecruitingGroupRow) => void;
-  onGroupNameDraftChange?: (groupId: string, value: string) => void;
-  onRenameGroup?: (group: RecruitingGroupRow, name: string) => void;
-  onRoleChange: (memberId: string, role: WorkspaceRole) => void;
+  onDeleteGroup: (group: RecruitingGroupRow) => void;
+  onGroupNameDraftChange: (groupId: string, value: string) => void;
+  onRemoveGroupMember: (groupId: string, member: RecruitingGroupMemberRow) => void;
+  onRenameGroup: (group: RecruitingGroupRow, name: string) => void;
+  onRoleChange: (
+    groupId: string,
+    member: RecruitingGroupMemberRow,
+    role: RecruitingGroupRole,
+  ) => void;
   pending: string | null;
-  rows: MemberRow[];
-  title?: string;
 }
 
 function RecruitingGroupColumn({
-  assignableRoles,
   canUpdate,
-  currentMemberRole,
-  currentUserId,
   draftName,
   group,
   id,
   onDeleteGroup,
   onGroupNameDraftChange,
+  onRemoveGroupMember,
   onRenameGroup,
   onRoleChange,
   pending,
-  rows,
-  title,
 }: RecruitingGroupColumnProps) {
   const { isOver, setNodeRef } = useDroppable({
-    disabled: !canUpdate,
+    disabled: !canUpdate || group.isVirtual,
     id,
   });
+  const canManageGroup = canUpdate && !group.isVirtual;
 
   return (
     <section
@@ -331,64 +375,63 @@ function RecruitingGroupColumn({
       ref={setNodeRef}
     >
       <div className="space-y-3 border-b bg-background/80 p-3">
-        {group ? (
-          <div className="space-y-2">
-            {canUpdate ? (
-              <div className="flex min-w-0 items-center gap-2">
-                <Input
-                  className="h-8 min-w-0"
-                  onChange={(event) => onGroupNameDraftChange?.(group.id, event.target.value)}
-                  value={draftName ?? group.name}
-                />
-                <Button
-                  onClick={() => onRenameGroup?.(group, draftName ?? group.name)}
-                  size="sm"
-                  variant="outline"
-                >
-                  保存
-                </Button>
-                <Button
-                  aria-label="删除组别"
-                  onClick={() => onDeleteGroup?.(group)}
-                  size="icon"
-                  variant="ghost"
-                >
-                  <Trash2Icon className="size-4" />
-                </Button>
-              </div>
-            ) : (
-              <p className="font-medium">{group.name}</p>
-            )}
-          </div>
-        ) : (
-          <div>
-            <p className="font-medium">{title}</p>
-            <p className="text-muted-foreground text-xs">默认分组同样按角色层级控制可见范围</p>
-          </div>
-        )}
+        <div className="space-y-2">
+          {canManageGroup ? (
+            <div className="flex min-w-0 items-center gap-2">
+              <Input
+                className="h-8 min-w-0"
+                onChange={(event) => onGroupNameDraftChange(group.id, event.target.value)}
+                value={draftName ?? group.name}
+              />
+              <Button
+                onClick={() => onRenameGroup(group, draftName ?? group.name)}
+                size="sm"
+                variant="outline"
+              >
+                保存
+              </Button>
+              <Button
+                aria-label="删除组别"
+                disabled={group.isDefault}
+                onClick={() => onDeleteGroup(group)}
+                size="icon"
+                variant="ghost"
+              >
+                <Trash2Icon className="size-4" />
+              </Button>
+            </div>
+          ) : (
+            <p className="font-medium">{group.name}</p>
+          )}
+        </div>
         <div className="flex items-center justify-between">
-          <Badge variant="outline">{rows.length} 人</Badge>
-          {isOver ? <span className="text-primary text-xs">松开移动到这里</span> : null}
+          <Badge variant={group.isDefault ? "default" : "outline"}>
+            {getGroupBadgeLabel(group)}
+          </Badge>
+          {group.isDefault || group.isVirtual ? (
+            <span className="text-muted-foreground text-xs">{group.members.length} 人</span>
+          ) : null}
+          {isOver ? <span className="text-primary text-xs">松开加入此组</span> : null}
         </div>
       </div>
       <div className="flex-1 space-y-2 overflow-x-hidden overflow-y-auto p-3">
-        {rows.length > 0 ? (
-          rows.map((row) => (
+        {group.members.length > 0 ? (
+          group.members.map((member) => (
             // eslint-disable-next-line no-use-before-define -- 同文件卡片组件，保持列结构先出现
-            <MemberCard
-              assignableRoles={assignableRoles}
-              canUpdate={canUpdate}
-              currentMemberRole={currentMemberRole}
-              currentUserId={currentUserId}
-              key={row.userId}
+            <GroupMemberCard
+              canUpdate={canManageGroup}
+              groupId={group.id}
+              isVirtualGroup={Boolean(group.isVirtual)}
+              key={member.id}
+              member={member}
+              onRemove={onRemoveGroupMember}
               onRoleChange={onRoleChange}
               pending={pending}
-              row={row}
             />
           ))
         ) : (
           <div className="flex min-h-28 items-center justify-center rounded-md border border-dashed bg-background/60 p-4 text-muted-foreground text-sm">
-            拖拽成员到这里
+            {group.isVirtual ? "暂无未分组成员" : "拖拽成员到这里"}
           </div>
         )}
       </div>
@@ -396,36 +439,18 @@ function RecruitingGroupColumn({
   );
 }
 
-interface MemberCardProps {
-  assignableRoles: readonly WorkspaceRole[];
+interface MemberPoolCardProps {
   canUpdate: boolean;
-  currentMemberRole: WorkspaceRole | null;
-  currentUserId: string | undefined;
   isOverlay?: boolean;
-  onRoleChange: (memberId: string, role: WorkspaceRole) => void;
-  pending: string | null;
   row: MemberRow;
 }
 
-function MemberCard({
-  assignableRoles,
-  canUpdate,
-  currentMemberRole,
-  currentUserId,
-  isOverlay,
-  onRoleChange,
-  pending,
-  row,
-}: MemberCardProps) {
+function MemberPoolCard({ canUpdate, isOverlay, row }: MemberPoolCardProps) {
   const { attributes, isDragging, listeners, setActivatorNodeRef, setNodeRef, transform } =
     useDraggable({
       disabled: !canUpdate || isOverlay,
-      id: row.userId,
+      id: `pool:${row.userId}`,
     });
-  const isOwnerRow = row.role === "owner";
-  const isAdminEditingSelf = currentMemberRole === "admin" && row.userId === currentUserId;
-  const isAdminEditingAdmin = currentMemberRole === "admin" && row.role === "admin";
-  const canEditRole = canUpdate && !isOwnerRow && !isAdminEditingSelf && !isAdminEditingAdmin;
   const style = {
     transform: CSS.Translate.toString(transform),
   };
@@ -461,28 +486,88 @@ function MemberCard({
           <p className="truncate text-muted-foreground text-xs">{row.email}</p>
         </div>
       </div>
-      <div className="mt-3">
-        {canEditRole ? (
-          <Select
-            disabled={pending === row.id}
-            onValueChange={(value) => onRoleChange(row.id, value as WorkspaceRole)}
-            value={row.role}
+    </div>
+  );
+}
+
+interface GroupMemberCardProps {
+  canUpdate: boolean;
+  groupId: string;
+  isVirtualGroup?: boolean;
+  member: RecruitingGroupMemberRow;
+  onRemove: (groupId: string, member: RecruitingGroupMemberRow) => void;
+  onRoleChange: (
+    groupId: string,
+    member: RecruitingGroupMemberRow,
+    role: RecruitingGroupRole,
+  ) => void;
+  pending: string | null;
+}
+
+function GroupMemberCard({
+  canUpdate,
+  groupId,
+  isVirtualGroup = false,
+  member,
+  onRemove,
+  onRoleChange,
+  pending,
+}: GroupMemberCardProps) {
+  const pendingKey = `${groupId}:${member.userId}`;
+  let roleControl = null;
+  if (isVirtualGroup) {
+    roleControl = <Badge variant="outline">未加入招聘组</Badge>;
+  } else if (canUpdate && member.role) {
+    roleControl = (
+      <Select
+        disabled={pending === pendingKey}
+        onValueChange={(value) => onRoleChange(groupId, member, value as RecruitingGroupRole)}
+        value={member.role}
+      >
+        <SelectTrigger className="h-8 w-full min-w-0" size="sm">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {GROUP_ROLE_OPTIONS.map((role) => (
+            <SelectItem key={role} value={role}>
+              {GROUP_ROLE_LABELS[role]}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    );
+  } else if (member.role) {
+    roleControl = (
+      <Badge variant={GROUP_ROLE_BADGE_VARIANT[member.role]}>
+        {GROUP_ROLE_LABELS[member.role]}
+      </Badge>
+    );
+  }
+
+  return (
+    <div className="min-w-0 rounded-md border bg-background p-3 shadow-sm">
+      <div className="flex items-start gap-2">
+        <Avatar size="sm">
+          <AvatarImage alt={member.name} src={member.image ?? undefined} />
+          <AvatarFallback>{getInitials(member.name, member.email)}</AvatarFallback>
+        </Avatar>
+        <div className="min-w-0 flex-1">
+          <p className="truncate font-medium text-sm">{member.name}</p>
+          <p className="truncate text-muted-foreground text-xs">{member.email}</p>
+        </div>
+        {canUpdate ? (
+          <Button
+            aria-label="移出招聘组"
+            disabled={pending === pendingKey}
+            onClick={() => onRemove(groupId, member)}
+            size="icon"
+            variant="ghost"
           >
-            <SelectTrigger className="h-8 w-full min-w-0" size="sm">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {assignableRoles.map((role) => (
-                <SelectItem key={role} value={role}>
-                  {getWorkspaceRoleLabel(role)}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        ) : (
-          <Badge variant={ROLE_BADGE_VARIANT[row.role]}>{getWorkspaceRoleLabel(row.role)}</Badge>
-        )}
+            <Trash2Icon className="size-4" />
+          </Button>
+        ) : null}
       </div>
+      <div className="mt-3">{roleControl}</div>
     </div>
   );
 }
@@ -492,10 +577,8 @@ function MembersManagementPage() {
   const { data: org, refetch, isPending } = authClient.useActiveOrganization();
   const { data: session } = authClient.useSession();
   const currentUserId = session?.user?.id;
-  const queryClient = useQueryClient();
   const groupsQueryKey = ["workspace-recruiting-groups", slug, org?.id] as const;
   const [pending, setPending] = useState<string | null>(null);
-  const [memberGroupFilter, setMemberGroupFilter] = useState(ALL_GROUPS_VALUE);
   const [groupNameDrafts, setGroupNameDrafts] = useState<Record<string, string>>({});
   const [newGroupName, setNewGroupName] = useState("");
 
@@ -572,22 +655,13 @@ function MembersManagementPage() {
 
   const allRows: MemberRow[] = useMemo(() => {
     const list = org?.members ?? [];
-    const groupByUserId = new Map<string, RecruitingGroupRow>();
-    for (const group of groups) {
-      for (const userId of group.memberUserIds) {
-        groupByUserId.set(userId, group);
-      }
-    }
     return list.map((m) => {
       const { user } = m as {
         user?: { email?: string; name?: string; image?: string | null };
       };
-      const group = groupByUserId.get(m.userId) ?? null;
       return {
         createdAt: m.createdAt as string | Date,
         email: user?.email ?? "—",
-        groupId: group?.id ?? null,
-        groupName: group?.name ?? null,
         id: m.id,
         image: user?.image ?? null,
         lastActiveAt: lastActiveMap[m.userId] ?? null,
@@ -596,7 +670,7 @@ function MembersManagementPage() {
         userId: m.userId,
       };
     });
-  }, [org?.members, groups, lastActiveMap]);
+  }, [org?.members, lastActiveMap]);
 
   useEffect(() => {
     setGroupNameDrafts((current) => {
@@ -615,45 +689,24 @@ function MembersManagementPage() {
     });
   }, [groups]);
 
-  const filteredRows = useMemo(() => {
-    if (memberGroupFilter === ALL_GROUPS_VALUE) {
-      return allRows;
-    }
-    if (memberGroupFilter === NO_GROUP_VALUE) {
-      return allRows.filter((row) => !row.groupId);
-    }
-    return allRows.filter((row) => row.groupId === memberGroupFilter);
-  }, [allRows, memberGroupFilter]);
-
   // 成员列表来自 authClient.useActiveOrganization() 内存数据,这里做客户端切片
   // 让分页 UI 跟其他 studio 页面 (服务端分页) 视觉一致。
   // total <= pageSize 时 totalPages 仍是 1, DataGrid 会隐藏页码控件。
-  const total = filteredRows.length;
+  const total = allRows.length;
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   const safePage = Math.min(page, totalPages);
   const rows = useMemo(
-    () => filteredRows.slice((safePage - 1) * pageSize, safePage * pageSize),
-    [filteredRows, safePage, pageSize],
+    () => allRows.slice((safePage - 1) * pageSize, safePage * pageSize),
+    [allRows, safePage, pageSize],
   );
 
-  async function changeRole(memberId: string, role: WorkspaceRole) {
-    setPending(memberId);
-    const { error } = await authClient.organization.updateMemberRole({
-      memberId,
-      role: role as "owner" | "admin" | "recruitingSupervisor" | "recruitingLead" | "hr" | "viewer",
-    });
-    setPending(null);
-    if (error) {
-      toast.error(error.message ?? "更新角色失败");
+  async function createGroup() {
+    const name = normalizeGroupName(newGroupName);
+    if (!name) {
       return;
     }
-    await refetch();
-    toast.success("角色已更新");
-  }
-
-  async function createGroup() {
-    const name = newGroupName.trim();
-    if (!name) {
+    if (hasDuplicateGroupName(groups, name)) {
+      toast.error("同一工作区内已存在同名招聘组");
       return;
     }
     const response = await rpc.api.w[":slug"].studio.workspace.groups.$post({
@@ -661,7 +714,7 @@ function MembersManagementPage() {
       param: { slug },
     });
     if (!response.ok) {
-      toast.error("创建组别失败");
+      toast.error(await readErrorMessage(response, "创建组别失败"));
       return;
     }
     setNewGroupName("");
@@ -670,8 +723,15 @@ function MembersManagementPage() {
   }
 
   async function renameGroup(group: RecruitingGroupRow, draftName: string) {
-    const name = draftName.trim();
+    if (group.isVirtual) {
+      return;
+    }
+    const name = normalizeGroupName(draftName);
     if (!name || name === group.name) {
+      return;
+    }
+    if (hasDuplicateGroupName(groups, name, group.id)) {
+      toast.error("同一工作区内已存在同名招聘组");
       return;
     }
     const response = await rpc.api.w[":slug"].studio.workspace.groups[":id"].$patch({
@@ -679,7 +739,7 @@ function MembersManagementPage() {
       param: { id: group.id, slug },
     });
     if (!response.ok) {
-      toast.error("更新组别失败");
+      toast.error(await readErrorMessage(response, "更新组别失败"));
       return;
     }
     await refetchGroups();
@@ -696,10 +756,9 @@ function MembersManagementPage() {
         toast.error("删除组别失败");
         return;
       }
-      setMemberGroupFilter(ALL_GROUPS_VALUE);
       setDeleteGroupTarget(null);
       await refetchGroups();
-      toast.success(`组别已删除，成员已移入${DEFAULT_GROUP_LABEL}`);
+      toast.success("组别已删除，组内成员关系已移除");
     } catch {
       toast.error("删除组别失败");
     } finally {
@@ -707,36 +766,71 @@ function MembersManagementPage() {
     }
   }
 
-  async function changeGroup(row: MemberRow, value: string | null) {
-    setPending(row.id);
-    const groupId = value === NO_GROUP_VALUE ? null : value;
-    await queryClient.cancelQueries({ queryKey: groupsQueryKey });
-    const previousGroups = queryClient.getQueryData<RecruitingGroupRow[]>(groupsQueryKey);
-    queryClient.setQueryData<RecruitingGroupRow[]>(groupsQueryKey, (currentGroups = []) =>
-      currentGroups.map((group) => {
-        const memberUserIds = group.memberUserIds.filter((userId) => userId !== row.userId);
-        return {
-          ...group,
-          memberUserIds:
-            group.id === groupId ? [...new Set([...memberUserIds, row.userId])] : memberUserIds,
-        };
-      }),
-    );
+  async function addMemberToGroup(row: MemberRow, groupId: string) {
+    const pendingKey = `${groupId}:${row.userId}`;
+    setPending(pendingKey);
     try {
-      const response = await rpc.api.w[":slug"].studio.workspace.members[":userId"].group.$patch({
-        json: { groupId },
-        param: { slug, userId: row.userId },
+      const response = await rpc.api.w[":slug"].studio.workspace.groups[":id"].members.$post({
+        json: { role: DEFAULT_NEW_GROUP_MEMBER_ROLE, userId: row.userId },
+        param: { id: groupId, slug },
       });
       if (!response.ok) {
-        queryClient.setQueryData(groupsQueryKey, previousGroups);
-        toast.error("更新组别失败");
+        toast.error("添加组成员失败");
         return;
       }
-      void refetchGroups();
-      toast.success("组别已更新");
+      await refetchGroups();
+      toast.success("成员已加入招聘组");
     } catch {
-      queryClient.setQueryData(groupsQueryKey, previousGroups);
-      toast.error("更新组别失败");
+      toast.error("添加组成员失败");
+    } finally {
+      setPending(null);
+    }
+  }
+
+  async function changeGroupMemberRole(
+    groupId: string,
+    member: RecruitingGroupMemberRow,
+    role: RecruitingGroupRole,
+  ) {
+    const pendingKey = `${groupId}:${member.userId}`;
+    setPending(pendingKey);
+    try {
+      const response = await rpc.api.w[":slug"].studio.workspace.groups[":id"].members[
+        ":userId"
+      ].$patch({
+        json: { role },
+        param: { id: groupId, slug, userId: member.userId },
+      });
+      if (!response.ok) {
+        toast.error("更新组内角色失败");
+        return;
+      }
+      await refetchGroups();
+      toast.success("组内角色已更新");
+    } catch {
+      toast.error("更新组内角色失败");
+    } finally {
+      setPending(null);
+    }
+  }
+
+  async function removeGroupMember(groupId: string, member: RecruitingGroupMemberRow) {
+    const pendingKey = `${groupId}:${member.userId}`;
+    setPending(pendingKey);
+    try {
+      const response = await rpc.api.w[":slug"].studio.workspace.groups[":id"].members[
+        ":userId"
+      ].$delete({
+        param: { id: groupId, slug, userId: member.userId },
+      });
+      if (!response.ok) {
+        toast.error("移出招聘组失败");
+        return;
+      }
+      await refetchGroups();
+      toast.success("成员已移出招聘组");
+    } catch {
+      toast.error("移出招聘组失败");
     } finally {
       setPending(null);
     }
@@ -782,76 +876,6 @@ function MembersManagementPage() {
         title: "成员",
       }),
       customColumn<MemberRow>({
-        cell: (r) => {
-          // 渲染为只读 Badge 的几种情况：
-          //   1. 当前用户没有 member.update 权限（非管理角色）。
-          //   2. 这一行是 owner—— owner 的角色不在本表单处理（走 transferOwnership）。
-          //   3. 当前用户是 admin 且这一行是自己——admin 不能改自己的角色。
-          //   4. 当前用户是 admin 且这一行是另一个 admin——admin 不能改其他 admin。
-          // owner 改自己的早被规则 2 包住了（owner 改 owner = 改自己也是 owner，
-          // 落入"该行是 owner"路径）。
-          // Read-only render branches: no permission / target is owner / admin
-          // editing self / admin editing another admin. Owner editing self is
-          // already covered by the "target is owner" branch.
-          const isOwnerRow = r.role === "owner";
-          const isAdminEditingSelf = currentMemberRole === "admin" && r.userId === currentUserId;
-          const isAdminEditingAdmin = currentMemberRole === "admin" && r.role === "admin";
-          if (!canUpdate || isOwnerRow || isAdminEditingSelf || isAdminEditingAdmin) {
-            return (
-              <Badge variant={ROLE_BADGE_VARIANT[r.role]}>{getWorkspaceRoleLabel(r.role)}</Badge>
-            );
-          }
-          return (
-            <Select
-              disabled={pending === r.id}
-              onValueChange={(v) => void changeRole(r.id, v as WorkspaceRole)}
-              value={r.role}
-            >
-              <SelectTrigger className="w-28" size="sm">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {assignableRoles.map((role) => (
-                  <SelectItem key={role} value={role}>
-                    {getWorkspaceRoleLabel(role)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          );
-        },
-        key: "role",
-        size: 160,
-        title: "角色",
-      }),
-      customColumn<MemberRow>({
-        cell: (r) =>
-          canUpdate ? (
-            <Select
-              disabled={pending === r.id}
-              onValueChange={(value) => void changeGroup(r, value)}
-              value={r.groupId ?? NO_GROUP_VALUE}
-            >
-              <SelectTrigger className="w-32" size="sm">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={NO_GROUP_VALUE}>{DEFAULT_GROUP_LABEL}</SelectItem>
-                {groups.map((group) => (
-                  <SelectItem key={group.id} value={group.id}>
-                    {group.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          ) : (
-            <Badge variant="outline">{r.groupName ?? DEFAULT_GROUP_LABEL}</Badge>
-          ),
-        key: "group",
-        size: 150,
-        title: "组别",
-      }),
-      customColumn<MemberRow>({
         cell: (r) => (
           <span className="text-muted-foreground text-sm">
             <TimeDisplay value={r.createdAt} />
@@ -885,15 +909,13 @@ function MembersManagementPage() {
       }),
     ],
     // oxlint-disable-next-line react-hooks/exhaustive-deps -- 列定义只依赖权限值，剧场切换时无需重建
-    [canUpdate, canDelete, pending, currentUserId, currentMemberRole, assignableRoles, groups],
+    [canDelete],
   );
-
-  const ungroupedRows = useMemo(() => allRows.filter((row) => !row.groupId), [allRows]);
 
   return (
     <div className="space-y-6">
       <PageHeader
-        description="维护工作区成员、角色和邀请入口，让招聘协作的权限边界清晰可控。"
+        description="维护工作区成员、邀请入口和招聘组身份，让招聘协作边界清晰可控。"
         title={
           <span className="inline-flex min-w-0 items-center gap-2">
             <span className="truncate">{org?.name ?? "工作区"}</span>
@@ -929,7 +951,7 @@ function MembersManagementPage() {
                   </EmptyMedia>
                   <EmptyTitle>暂无成员</EmptyTitle>
                   <EmptyDescription>
-                    邀请同事加入这个工作区，按角色分配管理员、招聘主管、招聘组长、招聘成员或只读成员权限。
+                    邀请同事加入这个工作区，再到招聘组看板里分配组内身份。
                   </EmptyDescription>
                 </EmptyHeader>
                 <EmptyContent>
@@ -960,26 +982,6 @@ function MembersManagementPage() {
             }}
             toolbarRight={
               <div className="flex flex-wrap gap-2">
-                <Select
-                  onValueChange={(value) => {
-                    setMemberGroupFilter(value);
-                    setPage(1);
-                  }}
-                  value={memberGroupFilter}
-                >
-                  <SelectTrigger className="w-36" size="sm">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={ALL_GROUPS_VALUE}>全部组别</SelectItem>
-                    <SelectItem value={NO_GROUP_VALUE}>{DEFAULT_GROUP_LABEL}</SelectItem>
-                    {groups.map((group) => (
-                      <SelectItem key={group.id} value={group.id}>
-                        {group.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
                 <PermissionsExplanationDialog />
                 <PermissionGate action="create" resource="invitation">
                   <PendingInvitationsButton organizationId={org?.id ?? null} />
@@ -1006,24 +1008,23 @@ function MembersManagementPage() {
         <TabsContent className="mt-0" value="groups">
           <RecruitingGroupsPanel
             allRows={allRows}
-            assignableRoles={assignableRoles}
             canUpdate={canUpdate}
-            currentMemberRole={currentMemberRole}
-            currentUserId={currentUserId}
             groupNameDrafts={groupNameDrafts}
             groups={groups}
             newGroupName={newGroupName}
+            onAddMemberToGroup={(row, groupId) => void addMemberToGroup(row, groupId)}
             onCreateGroup={() => void createGroup()}
             onDeleteGroup={setDeleteGroupTarget}
             onGroupNameDraftChange={(groupId, value) =>
               setGroupNameDrafts((current) => ({ ...current, [groupId]: value }))
             }
-            onMoveMember={(row, groupId) => void changeGroup(row, groupId)}
+            onRemoveGroupMember={(groupId, member) => void removeGroupMember(groupId, member)}
             onRenameGroup={(group, name) => void renameGroup(group, name)}
-            onRoleChange={(memberId, role) => void changeRole(memberId, role)}
+            onRoleChange={(groupId, member, role) =>
+              void changeGroupMemberRole(groupId, member, role)
+            }
             pending={pending}
             setNewGroupName={setNewGroupName}
-            ungroupedRows={ungroupedRows}
           />
         </TabsContent>
       </Tabs>
@@ -1041,7 +1042,7 @@ function MembersManagementPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>确认删除这个招聘组？</AlertDialogTitle>
             <AlertDialogDescription>
-              删除后，组内成员会移入{DEFAULT_GROUP_LABEL}。当前组别：
+              删除后仅移除该组内的成员关系，不会移除工作区成员。当前组别：
               {deleteGroupTarget?.name ?? "未知组别"}。
             </AlertDialogDescription>
           </AlertDialogHeader>
