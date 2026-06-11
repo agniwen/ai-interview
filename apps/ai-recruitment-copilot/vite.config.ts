@@ -23,7 +23,6 @@ export default defineConfig({
       "@tanstack/react-router",
       "@tanstack/react-router-ssr-query",
       "clsx",
-      "date-fns",
       "dayjs",
       "lucide-react",
       "sonner",

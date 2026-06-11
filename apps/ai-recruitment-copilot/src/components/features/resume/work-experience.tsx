@@ -2,7 +2,9 @@
 
 /* oxlint-disable no-use-before-define -- registry component keeps public component exports above local helpers. */
 
-import { differenceInMonths, isValid, parse } from "date-fns";
+import dayjs from "dayjs";
+import type { Dayjs } from "dayjs";
+import customParseFormat from "dayjs/plugin/customParseFormat";
 import { BriefcaseBusinessIcon, InfinityIcon } from "lucide-react";
 import type { ComponentProps } from "react";
 import { useCallback, useRef } from "react";
@@ -12,6 +14,8 @@ import { ChevronsUpDownIcon } from "@/components/icons/chevrons-up-down-icon";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@arc/shared/utils";
+
+dayjs.extend(customParseFormat);
 
 export interface ExperiencePositionItemType {
   /** Unique identifier for the position. */
@@ -304,12 +308,12 @@ export function formatWorkExperienceDuration(start: string, end?: string): strin
   }
 
   const startDate = parsePeriodDate(start, "first");
-  const endDate = end ? parsePeriodDate(end, "last") : new Date();
-  if (!(isValid(startDate) && isValid(endDate))) {
+  const endDate = end ? parsePeriodDate(end, "last") : dayjs();
+  if (!(startDate.isValid() && endDate.isValid())) {
     return "";
   }
 
-  const totalMonths = differenceInMonths(endDate, startDate) + 1;
+  const totalMonths = endDate.diff(startDate, "month") + 1;
   if (!Number.isFinite(totalMonths) || totalMonths <= 0) {
     return "";
   }
@@ -326,9 +330,7 @@ export function formatWorkExperienceDuration(start: string, end?: string): strin
   return `${years}年${months}个月`;
 }
 
-function parsePeriodDate(str: string, fallbackMonth: "first" | "last"): Date {
-  if (str.includes(".")) {
-    return parse(str, "MM.yyyy", new Date());
-  }
-  return parse(`${fallbackMonth === "last" ? "12" : "01"}.${str}`, "MM.yyyy", new Date());
+function parsePeriodDate(str: string, fallbackMonth: "first" | "last"): Dayjs {
+  const source = str.includes(".") ? str : `${fallbackMonth === "last" ? "12" : "01"}.${str}`;
+  return dayjs(source, "MM.YYYY", true);
 }
