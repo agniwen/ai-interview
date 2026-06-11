@@ -1,8 +1,8 @@
 import type { ReactNode } from "react";
 import { Outlet, createFileRoute, redirect } from "@tanstack/react-router";
 import { PendingOutlet } from "@/components/layout/pending-outlet";
-import { SiteHeader } from "@/components/studio/site-header";
-import { StudioSidebarSlots } from "@/components/studio/studio-sidebar-slots";
+import { SiteHeader } from "@/components/features/studio/site-header";
+import { StudioSidebarSlots } from "@/components/features/studio/studio-sidebar-slots";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { SidebarInset } from "@/components/ui/sidebar";
 

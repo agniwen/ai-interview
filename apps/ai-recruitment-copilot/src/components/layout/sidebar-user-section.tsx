@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import { ChevronsUpDownIcon, HouseIcon, LogOutIcon, UserIcon } from "lucide-react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useCallback } from "react";
-import { FeishuSignInButton } from "@/components/auth/feishu-sign-in-button";
+import { FeishuSignInButton } from "@/components/features/auth/feishu-sign-in-button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {

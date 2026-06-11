@@ -1,9 +1,9 @@
 import type { ReactNode } from "react";
 import { Link, createFileRoute, useSearch } from "@tanstack/react-router";
 
-import { SignInTabs } from "@/components/auth/sign-in-tabs";
+import { SignInTabs } from "@/components/features/auth/sign-in-tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { LoginErrorToast } from "@/components/login/login-error-toast";
+import { LoginErrorToast } from "@/components/features/login/login-error-toast";
 
 interface LoginSearch {
   callbackURL?: string;

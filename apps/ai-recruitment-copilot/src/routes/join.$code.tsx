@@ -4,8 +4,8 @@ import { getRequestHeaders } from "@tanstack/react-start/server";
 import { auth } from "@arc/ai-recruitment-copilot-backend/lib/server/auth";
 import { getJoinPreview } from "@arc/ai-recruitment-copilot-backend/server/routes/join/dao";
 import { codeParamsSchema } from "@arc/ai-recruitment-copilot-backend/server/routes/join/schema";
-import { InvalidJoinLink } from "@/components/join/invalid-join-link";
-import { JoinClient } from "@/components/join/join-client";
+import { InvalidJoinLink } from "@/components/features/join/invalid-join-link";
+import { JoinClient } from "@/components/features/join/join-client";
 import { codeInputSchema } from "@/lib/start/server-fn-validators";
 
 type JoinRouteState =

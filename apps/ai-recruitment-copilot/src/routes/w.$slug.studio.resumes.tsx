@@ -32,15 +32,15 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { HistoryIcon, Trash2Icon, UsersIcon } from "lucide-react";
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { PdfFileIcon } from "@/components/pdf/pdf-file-icon";
+import { PdfFileIcon } from "@/components/features/pdf/pdf-file-icon";
 import { listBulkResumeBatches } from "@/lib/client/api/endpoints/bulk-resume-upload";
-import { BulkUploadConfirmDialog } from "@/components/studio/resumes/bulk-upload-confirm-dialog";
-import type { BulkUploadConfirmConfig } from "@/components/studio/resumes/bulk-upload-confirm-dialog";
-import { BulkUploadProgressDialog } from "@/components/studio/resumes/bulk-upload-progress-dialog";
-import { useBulkUpload } from "@/components/studio/resumes/use-bulk-upload";
-import { UploadBatchListDialog } from "@/components/studio/resumes/upload-batch-list-dialog";
-import { PageHeader } from "@/components/studio/page-header";
-import { JobDescriptionViewDialog } from "@/components/studio/interviews/job-description-view-dialog";
+import { BulkUploadConfirmDialog } from "@/components/features/studio/resumes/bulk-upload-confirm-dialog";
+import type { BulkUploadConfirmConfig } from "@/components/features/studio/resumes/bulk-upload-confirm-dialog";
+import { BulkUploadProgressDialog } from "@/components/features/studio/resumes/bulk-upload-progress-dialog";
+import { useBulkUpload } from "@/components/features/studio/resumes/use-bulk-upload";
+import { UploadBatchListDialog } from "@/components/features/studio/resumes/upload-batch-list-dialog";
+import { PageHeader } from "@/components/features/studio/page-header";
+import { JobDescriptionViewDialog } from "@/components/features/studio/interviews/job-description-view-dialog";
 import {
   actionsColumn,
   customColumn,
@@ -80,22 +80,22 @@ import {
 import { rpc } from "@/lib/client/rpc";
 import { rpcFetch } from "@/lib/client/api/rpc-fetch";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
-import { StudioPersonDetailDialog } from "@/components/studio/studio-person-detail-dialog";
-import { StudioPersonEditDialog } from "@/components/studio/studio-person-edit-dialog";
-import { CreateResumeRecordDialog } from "@/components/studio/resumes/upload-resume-dialog";
-import type { CreateResumeRecordResult } from "@/components/studio/resumes/upload-resume-dialog";
+import { StudioPersonDetailDialog } from "@/components/features/studio/studio-person-detail-dialog";
+import { StudioPersonEditDialog } from "@/components/features/studio/studio-person-edit-dialog";
+import { CreateResumeRecordDialog } from "@/components/features/studio/resumes/upload-resume-dialog";
+import type { CreateResumeRecordResult } from "@/components/features/studio/resumes/upload-resume-dialog";
 import {
   ResumeUploadEntryButton,
   ResumeUploadEntryDialog,
-} from "@/components/studio/resumes/resume-upload-entry-dialog";
-import { LaunchInterviewDialog } from "@/components/studio/resumes/launch-interview-dialog";
-import { ResumeLifecycleBadge } from "@/components/studio/resumes/resume-lifecycle-badge";
-import { ResumeLibraryCharts } from "@/components/studio/resumes/resume-library-charts";
-import { TransitionCandidateDialog } from "@/components/studio/resumes/transition-candidate-dialog";
+} from "@/components/features/studio/resumes/resume-upload-entry-dialog";
+import { LaunchInterviewDialog } from "@/components/features/studio/resumes/launch-interview-dialog";
+import { ResumeLifecycleBadge } from "@/components/features/studio/resumes/resume-lifecycle-badge";
+import { ResumeLibraryCharts } from "@/components/features/studio/resumes/resume-library-charts";
+import { TransitionCandidateDialog } from "@/components/features/studio/resumes/transition-candidate-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 
 const PdfPreviewDialog = lazy(async () => {
-  const mod = await import("@/components/pdf/pdf-preview-dialog");
+  const mod = await import("@/components/features/pdf/pdf-preview-dialog");
   return { default: mod.PdfPreviewDialog };
 });
 

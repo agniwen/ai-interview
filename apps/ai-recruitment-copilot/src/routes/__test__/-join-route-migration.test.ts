@@ -15,8 +15,8 @@ describe("TanStack Start join route migration", () => {
 
   it("keeps migrated join UI free of Next navigation primitives", () => {
     const sources = [
-      readSource("components/join/join-client.tsx"),
-      readSource("components/join/invalid-join-link.tsx"),
+      readSource("components/features/join/join-client.tsx"),
+      readSource("components/features/join/invalid-join-link.tsx"),
     ];
 
     expect(sources.join("\n")).not.toMatch(/next\/(?:link|navigation)/u);

@@ -14,17 +14,17 @@ import type { DepartmentRecord } from "@arc/shared/departments";
 import type { InterviewerListRecord } from "@arc/shared/interviewers";
 import { loadStudioJobDescriptionsState } from "@/lib/start/studio/job-descriptions.functions";
 import type { StudioJobDescriptionsState } from "@/lib/start/studio/job-descriptions.functions";
-import { PageHeader } from "@/components/studio/page-header";
-import { EntityDeleteDialog } from "@/components/studio/entity-delete-dialog";
-import { useEntityCrud } from "@/components/studio/use-entity-crud";
+import { PageHeader } from "@/components/features/studio/page-header";
+import { EntityDeleteDialog } from "@/components/features/studio/entity-delete-dialog";
+import { useEntityCrud } from "@/components/features/studio/use-entity-crud";
 import type {
   JobDescriptionListRecord,
   JobDescriptionMetrics,
   JobDescriptionRecord,
 } from "@arc/shared/job-descriptions";
 import type { PaginatedJobDescriptionResult } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao";
-import { JobDescriptionCharts } from "@/components/studio/job-descriptions/job-description-charts";
-import { ScopedResumesModal } from "@/components/studio/scoped-resumes-modal";
+import { JobDescriptionCharts } from "@/components/features/studio/job-descriptions/job-description-charts";
+import { ScopedResumesModal } from "@/components/features/studio/scoped-resumes-modal";
 import { FileTextIcon, PlusIcon } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
@@ -48,7 +48,7 @@ import {
 } from "@/components/ui/empty";
 import { rpc } from "@/lib/client/rpc";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
-import { JobDescriptionFormDialog } from "@/components/studio/job-descriptions/job-description-form-dialog";
+import { JobDescriptionFormDialog } from "@/components/features/studio/job-descriptions/job-description-form-dialog";
 
 function JobDescriptionManagementPage({
   departments,

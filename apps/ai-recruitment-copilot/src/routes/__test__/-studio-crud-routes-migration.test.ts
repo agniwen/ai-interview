@@ -30,7 +30,7 @@ describe("TanStack Start studio CRUD route migration", () => {
       readSource("routes/w.$slug.studio.interviewers.tsx"),
       readSource("routes/w.$slug.studio.departments.tsx"),
       readSource("routes/w.$slug.studio.forms.tsx"),
-      readSource("components/studio/job-descriptions/job-description-form-dialog.tsx"),
+      readSource("components/features/studio/job-descriptions/job-description-form-dialog.tsx"),
     ];
 
     expect(sources.join("\n")).not.toMatch(

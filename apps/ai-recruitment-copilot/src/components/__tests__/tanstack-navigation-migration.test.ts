@@ -11,13 +11,13 @@ function readSource(relativePath: string) {
 describe("TanStack navigation migration", () => {
   it("uses TanStack Router navigation for internal side-effect redirects", () => {
     const sources = [
-      readSource("auth/email-password-sign-in-form.tsx"),
-      readSource("chat/background-stream-toaster.tsx"),
-      readSource("home/use-protected-navigation.ts"),
-      readSource("join/join-client.tsx"),
-      readSource("select-workspace/user-menu.tsx"),
-      readSource("workspace/create-workspace-dialog.tsx"),
-      readSource("workspace/workspace-switcher.tsx"),
+      readSource("features/auth/email-password-sign-in-form.tsx"),
+      readSource("features/chat/background-stream-toaster.tsx"),
+      readSource("features/home/use-protected-navigation.ts"),
+      readSource("features/join/join-client.tsx"),
+      readSource("features/select-workspace/user-menu.tsx"),
+      readSource("features/workspace/create-workspace-dialog.tsx"),
+      readSource("features/workspace/workspace-switcher.tsx"),
     ].join("\n");
 
     expect(sources).toContain("useNavigate");

@@ -3,7 +3,7 @@ import type { DehydratedState } from "@tanstack/react-query";
 import { createFileRoute, redirect, useLoaderData } from "@tanstack/react-router";
 import type { DataGridQueryState } from "@/components/data-grid/query-contract";
 import { parseDataGridSearchParams } from "@/components/data-grid/query-contract";
-import { OrganizationsGrid } from "@/components/platform/organizations/organizations-grid";
+import { OrganizationsGrid } from "@/components/features/platform/organizations/organizations-grid";
 import { loadPlatformOrganizationsState } from "@/lib/start/platform/organizations.functions";
 import type { PlatformOrganizationsState } from "@/lib/start/platform/organizations.functions";
 

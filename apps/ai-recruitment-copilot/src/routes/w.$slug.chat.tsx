@@ -1,8 +1,8 @@
 import type { ReactNode } from "react";
 import { Outlet, createFileRoute } from "@tanstack/react-router";
-import { ChatHeader } from "@/components/chat/chat-header";
+import { ChatHeader } from "@/components/features/chat/chat-header";
 import { PendingOutlet } from "@/components/layout/pending-outlet";
-import { ChatSidebarSlots } from "@/components/chat/chat-sidebar-slots";
+import { ChatSidebarSlots } from "@/components/features/chat/chat-sidebar-slots";
 import { SidebarInset } from "@/components/ui/sidebar";
 import { cn } from "@arc/shared/utils/cn";
 

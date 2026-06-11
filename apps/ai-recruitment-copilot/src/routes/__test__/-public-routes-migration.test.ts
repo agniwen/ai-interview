@@ -35,9 +35,9 @@ describe("TanStack Start public route migration", () => {
       readSource("routes/interview.tsx"),
       readSource("routes/interview.$id.tsx"),
       readSource("routes/interview.$id.$roundId.tsx"),
-      readSource("components/human-interview/human-meeting-room.tsx"),
-      readSource("components/interview/interview-room.tsx"),
-      readSource("components/interview/interview-copy-guard.tsx"),
+      readSource("components/features/human-interview/human-meeting-room.tsx"),
+      readSource("components/features/interview/interview-room.tsx"),
+      readSource("components/features/interview/interview-copy-guard.tsx"),
     ];
 
     expect(sources.join("\n")).not.toMatch(

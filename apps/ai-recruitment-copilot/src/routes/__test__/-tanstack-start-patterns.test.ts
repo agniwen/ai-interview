@@ -82,7 +82,9 @@ describe("TanStack Start migration patterns", () => {
   });
 
   it("does not leave the workspace switcher disabled after navigation", () => {
-    const workspaceSwitcher = readSource("src/components/workspace/workspace-switcher.tsx");
+    const workspaceSwitcher = readSource(
+      "src/components/features/workspace/workspace-switcher.tsx",
+    );
 
     expect(workspaceSwitcher).toContain("setSwitching(true)");
     expect(workspaceSwitcher).toContain("finally");
@@ -123,9 +125,9 @@ describe("TanStack Start migration patterns", () => {
   it("keeps Next public environment variables exposed through Vite", () => {
     const viteConfig = readSource("vite.config.ts");
     const clientSources = [
-      readSource("src/components/auth/google-sign-in-button.tsx"),
-      readSource("src/components/auth/sign-in-tabs.tsx"),
-      readSource("src/components/interview/interview-room.tsx"),
+      readSource("src/components/features/auth/google-sign-in-button.tsx"),
+      readSource("src/components/features/auth/sign-in-tabs.tsx"),
+      readSource("src/components/features/interview/interview-room.tsx"),
     ].join("\n");
 
     expect(viteConfig).toContain('envPrefix: ["VITE_", "NEXT_PUBLIC_"]');

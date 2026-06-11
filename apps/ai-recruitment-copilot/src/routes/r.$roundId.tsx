@@ -1,5 +1,5 @@
 import { createFileRoute, useParams } from "@tanstack/react-router";
-import { StudioPersonDetailPanel } from "@/components/studio/studio-person-detail-panel";
+import { StudioPersonDetailPanel } from "@/components/features/studio/studio-person-detail-panel";
 
 // 公开访问入口：候选人面试详情独立页（无需登录）。
 // 与 /w/[slug]/studio/interviews/[roundId] 共享同一份 StudioPersonDetailPanel

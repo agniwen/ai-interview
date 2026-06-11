@@ -11,11 +11,11 @@ import type { DataGridQueryState } from "@/components/data-grid/query-contract";
 import { parseDataGridSearchParams } from "@/components/data-grid/query-contract";
 import { loadStudioDepartmentsState } from "@/lib/start/studio/departments.functions";
 import type { StudioDepartmentsState } from "@/lib/start/studio/departments.functions";
-import { PageHeader } from "@/components/studio/page-header";
-import { EntityDeleteDialog } from "@/components/studio/entity-delete-dialog";
-import { ScopedInterviewersModal } from "@/components/studio/scoped-interviewers-modal";
-import { ScopedJobDescriptionsModal } from "@/components/studio/scoped-job-descriptions-modal";
-import { useEntityCrud } from "@/components/studio/use-entity-crud";
+import { PageHeader } from "@/components/features/studio/page-header";
+import { EntityDeleteDialog } from "@/components/features/studio/entity-delete-dialog";
+import { ScopedInterviewersModal } from "@/components/features/studio/scoped-interviewers-modal";
+import { ScopedJobDescriptionsModal } from "@/components/features/studio/scoped-job-descriptions-modal";
+import { useEntityCrud } from "@/components/features/studio/use-entity-crud";
 import type { DepartmentListRecord, DepartmentRecord } from "@arc/shared/departments";
 import type { PaginatedDepartmentResult } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/departments/dao";
 import { Building2Icon, PlusIcon } from "lucide-react";
@@ -39,7 +39,7 @@ import {
 } from "@/components/ui/empty";
 import { rpc } from "@/lib/client/rpc";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
-import { DepartmentFormDialog } from "@/components/studio/departments/department-form-dialog";
+import { DepartmentFormDialog } from "@/components/features/studio/departments/department-form-dialog";
 
 function DepartmentManagementPage() {
   const slug = useWorkspaceSlug();

@@ -4,9 +4,9 @@ import { PendingOutlet } from "@/components/layout/pending-outlet";
 import { PlatformSidebarShell } from "@/components/layout/platform-sidebar/platform-sidebar-shell";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { SidebarInset } from "@/components/ui/sidebar";
-import { BackgroundStreamToaster } from "@/components/chat/background-stream-toaster";
-import { PlatformHeader } from "@/components/platform/platform-header";
-import { PlatformSidebarSlots } from "@/components/platform/platform-sidebar-slots";
+import { BackgroundStreamToaster } from "@/components/features/chat/background-stream-toaster";
+import { PlatformHeader } from "@/components/features/platform/platform-header";
+import { PlatformSidebarSlots } from "@/components/features/platform/platform-sidebar-slots";
 import { getPlatformAdminState } from "@/lib/start/platform-admin";
 
 function PlatformLayout({ children }: { children: ReactNode }) {

@@ -2,7 +2,7 @@ import { createFileRoute, useParams, useRouter } from "@tanstack/react-router";
 import { ChevronLeftIcon } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { StudioPersonDetailPanel } from "@/components/studio/studio-person-detail-panel";
+import { StudioPersonDetailPanel } from "@/components/features/studio/studio-person-detail-panel";
 
 // 候选人面试详情独立页 —— 走 StudioPersonDetailPanel 的 page-shell 形态。
 // 顶部一行返回按钮 + 标题 + tabs 与简历预览,主体撑满剩余空间。所有数据获取

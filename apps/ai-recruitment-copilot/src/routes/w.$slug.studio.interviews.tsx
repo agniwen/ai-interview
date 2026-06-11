@@ -14,8 +14,8 @@ import type { DataGridQueryState } from "@/components/data-grid/query-contract";
 import { parseDataGridSearchParams } from "@/components/data-grid/query-contract";
 import { loadStudioInterviewsState } from "@/lib/start/studio/interviews.functions";
 import type { StudioInterviewsState } from "@/lib/start/studio/interviews.functions";
-import { PageHeader } from "@/components/studio/page-header";
-import { StudioSummaryCards } from "@/components/studio/studio-summary-cards";
+import { PageHeader } from "@/components/features/studio/page-header";
+import { StudioSummaryCards } from "@/components/features/studio/studio-summary-cards";
 import {
   bulkDeleteStudioInterviewRounds,
   deleteStudioInterviewRound,
@@ -51,7 +51,7 @@ import {
   textColumn,
   useDataGridState,
 } from "@/components/data-grid";
-import { DATE_TIME_DISPLAY_OPTIONS, TimeDisplay } from "@/components/display/time-display";
+import { DATE_TIME_DISPLAY_OPTIONS, TimeDisplay } from "@/components/features/display/time-display";
 import {
   Empty,
   EmptyContent,
@@ -60,17 +60,17 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
-import { PdfFileIcon } from "@/components/pdf/pdf-file-icon";
+import { PdfFileIcon } from "@/components/features/pdf/pdf-file-icon";
 import { rpc } from "@/lib/client/rpc";
 import { rpcFetch } from "@/lib/client/api/rpc-fetch";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { copyTextToClipboard, toAbsoluteUrl } from "@/lib/client/clipboard";
-import { StudioPersonDetailDialog } from "@/components/studio/studio-person-detail-dialog";
-import { StudioPersonEditDialog } from "@/components/studio/studio-person-edit-dialog";
-import { JobDescriptionViewDialog } from "@/components/studio/interviews/job-description-view-dialog";
+import { StudioPersonDetailDialog } from "@/components/features/studio/studio-person-detail-dialog";
+import { StudioPersonEditDialog } from "@/components/features/studio/studio-person-edit-dialog";
+import { JobDescriptionViewDialog } from "@/components/features/studio/interviews/job-description-view-dialog";
 
 const PdfPreviewDialog = lazy(async () => {
-  const mod = await import("@/components/pdf/pdf-preview-dialog");
+  const mod = await import("@/components/features/pdf/pdf-preview-dialog");
   return { default: mod.PdfPreviewDialog };
 });
 

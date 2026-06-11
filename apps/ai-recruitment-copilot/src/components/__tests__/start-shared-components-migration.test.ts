@@ -11,10 +11,10 @@ function readSource(relativePath: string) {
 describe("TanStack Start shared component migration", () => {
   it("keeps shared components used by Start routes free of Next runtime imports", () => {
     const sources = [
-      readSource("components/pdf/pdf-preview-button.tsx"),
-      readSource("components/resume-import/resume-import-button.tsx"),
-      readSource("components/candidate/candidate-basic-info-view.tsx"),
-      readSource("components/studio/studio-switch-account-button.tsx"),
+      readSource("components/features/pdf/pdf-preview-button.tsx"),
+      readSource("components/features/resume-import/resume-import-button.tsx"),
+      readSource("components/features/candidate/candidate-basic-info-view.tsx"),
+      readSource("components/features/studio/studio-switch-account-button.tsx"),
     ];
 
     expect(sources.join("\n")).not.toMatch(

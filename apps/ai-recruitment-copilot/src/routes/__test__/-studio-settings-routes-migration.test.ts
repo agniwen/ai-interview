@@ -32,7 +32,7 @@ describe("TanStack Start studio settings and detail route migration", () => {
       readSource("routes/w.$slug.studio.members.tsx"),
       readSource("routes/w.$slug.studio.me.tsx"),
       readSource("routes/w.$slug.studio.interviews.$roundId.tsx"),
-      readSource("components/studio/global-config/global-config-form.tsx"),
+      readSource("components/features/studio/global-config/global-config-form.tsx"),
     ];
 
     expect(sources.join("\n")).not.toMatch(

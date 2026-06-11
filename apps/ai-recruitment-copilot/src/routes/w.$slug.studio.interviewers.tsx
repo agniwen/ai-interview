@@ -12,9 +12,9 @@ import { parseDataGridSearchParams } from "@/components/data-grid/query-contract
 import type { DepartmentRecord } from "@arc/shared/departments";
 import { loadStudioInterviewersState } from "@/lib/start/studio/interviewers.functions";
 import type { StudioInterviewersState } from "@/lib/start/studio/interviewers.functions";
-import { PageHeader } from "@/components/studio/page-header";
-import { EntityDeleteDialog } from "@/components/studio/entity-delete-dialog";
-import { useEntityCrud } from "@/components/studio/use-entity-crud";
+import { PageHeader } from "@/components/features/studio/page-header";
+import { EntityDeleteDialog } from "@/components/features/studio/entity-delete-dialog";
+import { useEntityCrud } from "@/components/features/studio/use-entity-crud";
 import type { InterviewerListRecord, InterviewerRecord } from "@arc/shared/interviewers";
 import type { PaginatedInterviewerResult } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviewers/dao";
 import { PlusIcon, UserCircleIcon } from "lucide-react";
@@ -40,8 +40,8 @@ import {
 import { rpc } from "@/lib/client/rpc";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { getMinimaxVoiceMeta } from "@arc/db-schema/minimax-voices";
-import { ScopedJobDescriptionsModal } from "@/components/studio/scoped-job-descriptions-modal";
-import { InterviewerFormDialog } from "@/components/studio/interviewers/interviewer-form-dialog";
+import { ScopedJobDescriptionsModal } from "@/components/features/studio/scoped-job-descriptions-modal";
+import { InterviewerFormDialog } from "@/components/features/studio/interviewers/interviewer-form-dialog";
 
 function InterviewerManagementPage({ departments }: { departments: DepartmentRecord[] }) {
   const slug = useWorkspaceSlug();
