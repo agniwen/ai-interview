@@ -1,24 +1,52 @@
 "use client";
 import { createContext, useContext } from "react";
 
-const Ctx = createContext<string | null>(null);
+interface WorkspaceContextValue {
+  id: string;
+  memberRole: string;
+  slug: string;
+}
+
+const Ctx = createContext<WorkspaceContextValue | null>(null);
 
 export function WorkspaceSlugProvider({
-  slug,
   children,
+  id,
+  memberRole,
+  slug,
 }: {
-  slug: string;
   children: React.ReactNode;
+  id: string;
+  memberRole: string;
+  slug: string;
 }) {
-  return <Ctx.Provider value={slug}>{children}</Ctx.Provider>;
+  return <Ctx.Provider value={{ id, memberRole, slug }}>{children}</Ctx.Provider>;
 }
 
 export function useWorkspaceSlug(): string {
-  const slug = useContext(Ctx);
-  if (!slug) {
+  const workspace = useContext(Ctx);
+  if (!workspace) {
     throw new Error("useWorkspaceSlug must be used within a workspace route (under /w/[slug]/...)");
   }
-  return slug;
+  return workspace.slug;
+}
+
+export function useWorkspaceId(): string {
+  const workspace = useContext(Ctx);
+  if (!workspace) {
+    throw new Error("useWorkspaceId must be used within a workspace route (under /w/[slug]/...)");
+  }
+  return workspace.id;
+}
+
+export function useWorkspaceMemberRole(): string {
+  const workspace = useContext(Ctx);
+  if (!workspace) {
+    throw new Error(
+      "useWorkspaceMemberRole must be used within a workspace route (under /w/[slug]/...)",
+    );
+  }
+  return workspace.memberRole;
 }
 
 /**
@@ -29,5 +57,9 @@ export function useWorkspaceSlug(): string {
  * workspace path and a slug-less public route (e.g. /r/[roundId]).
  */
 export function useOptionalWorkspaceSlug(): string | null {
-  return useContext(Ctx);
+  return useContext(Ctx)?.slug ?? null;
+}
+
+export function useOptionalWorkspaceMemberRole(): string | null {
+  return useContext(Ctx)?.memberRole ?? null;
 }

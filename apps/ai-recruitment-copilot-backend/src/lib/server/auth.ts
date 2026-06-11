@@ -6,44 +6,22 @@ import type { GenericOAuthConfig } from "better-auth/plugins";
 import { organization } from "better-auth/plugins/organization";
 import { and, eq } from "drizzle-orm";
 import { getAuthRequestHeaders } from "@arc/ai-recruitment-copilot-backend/lib/server/auth-request-context";
+import { ensureDefaultRecruitingGroupForWorkspace } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/workspace/dao";
 import { ac, roles } from "@arc/shared/permissions";
 import { db } from "./db";
 import * as schema from "@arc/db-schema/schema";
 
-// admin 调整成员角色时允许的目标角色（招聘主管 / 招聘组长 / 招聘成员 / 只读成员）。
-// 真正禁止 admin 改 admin / owner / 自己的逻辑在下方 beforeUpdateMemberRole hook 中执行。
-// Allowed target roles when an admin updates a member. The hook below blocks
-// admin-on-admin/owner edits and self-edits.
-type AdminAssignableRole = "recruitingSupervisor" | "recruitingLead" | "hr" | "viewer";
-const ADMIN_ASSIGNABLE_ROLES = new Set<AdminAssignableRole>([
-  "recruitingSupervisor",
-  "recruitingLead",
-  "hr",
-  "viewer",
-]);
-type WorkspaceRole =
-  | "owner"
-  | "admin"
-  | "recruitingSupervisor"
-  | "recruitingLead"
-  | "hr"
-  | "viewer";
-const WORKSPACE_ROLE_RANK: Record<WorkspaceRole, number> = {
-  admin: 4,
-  hr: 1,
-  owner: 5,
-  recruitingLead: 2,
-  recruitingSupervisor: 3,
-  viewer: 1,
-};
-const WORKSPACE_ROLES = new Set<WorkspaceRole>([
+type WorkspaceRole = "owner" | "admin" | "member";
+const OWNER_ASSIGNABLE_WORKSPACE_ROLES = new Set<Exclude<WorkspaceRole, "owner">>([
   "admin",
-  "hr",
-  "owner",
-  "recruitingLead",
-  "recruitingSupervisor",
-  "viewer",
+  "member",
 ]);
+const WORKSPACE_ROLE_RANK: Record<WorkspaceRole, number> = {
+  admin: 2,
+  member: 1,
+  owner: 3,
+};
+const WORKSPACE_ROLES = new Set<WorkspaceRole>(["admin", "member", "owner"]);
 
 function canAssignWorkspaceRole(invokerRole: string, targetRole: string): boolean {
   if (
@@ -400,21 +378,22 @@ export const auth = betterAuth({
     }),
     organization({
       ac,
-      // 服务端硬约束：admin 调整成员角色时，只允许把成员改成非管理角色。
-      //   - 不能改自己（防止自我提权）
-      //   - 不能改其他 admin / owner（防止互相提权 / 接管 workspace）
-      //   - 新角色必须是 recruitingSupervisor / recruitingLead / hr / viewer
-      // owner 不走这套限制——owner 可以指派任何角色，唯一例外是 owner 角色的
-      // 转让由 better-auth 内置的 transferOwnership 单独处理。
-      // 非管理角色理论上拿不到 member.update 权限（矩阵不给），所以请求根本到
-      // 不了这里；兜底仍然 reject。
+      // 服务端硬约束：只有 owner 可以调整工作区级角色。
+      // owner 角色本身的转让仍由 better-auth 内置 transferOwnership 单独处理。
+      // admin 保留 member.update 权限用于成员/招聘组管理入口，但不能调用
+      // updateMemberRole 调整 admin/member。
       //
-      // Server-side gate: admins can only assign non-admin roles.
-      // They can't touch themselves, other admins, or the owner,
-      // and they can't promote anyone to admin/owner. Owner is exempt (their
-      // own ownership transfer is its own flow). Non-admin roles can't reach this
-      // path per the permission matrix, but we still reject as a defense-in-depth.
+      // Server-side gate: only owner can update workspace-level roles.
+      // Ownership transfer remains a separate better-auth flow. Admin keeps
+      // member.update for member/group management routes, but not for
+      // updateMemberRole.
       organizationHooks: {
+        afterCreateOrganization: async ({ organization: org, user }) => {
+          await ensureDefaultRecruitingGroupForWorkspace({
+            creatorUserId: user.id,
+            organizationId: org.id,
+          });
+        },
         // 成员被移除后：清掉该用户名下 session.activeOrganizationId 仍指向这个 org 的
         // 记录，让他们下一次请求被 workspaceMiddleware 拒之门外（成员表已经没他）。
         // 不删 session 行——用户可能还属于其他 workspace，删了等于把所有 workspace
@@ -470,7 +449,7 @@ export const auth = betterAuth({
             });
           }
         },
-        beforeUpdateMemberRole: async ({ member, newRole, organization: org }) => {
+        beforeUpdateMemberRole: async ({ newRole, organization: org }) => {
           // ⚠️ 注意：better-auth 这里的 `user` 参数实际是 **目标用户**（被改的人），
           // 不是触发请求的人——文档跟实现不一致，源码里写的是
           // `user: userBeingUpdated`（见 better-auth crud-members.mjs:283）。
@@ -504,32 +483,14 @@ export const auth = betterAuth({
             throw new APIError("FORBIDDEN", { message: "你不在这个工作区中。" });
           }
 
-          // owner 不受这条 hook 限制（其他业务规则由 better-auth 内置处理）。
-          // Owner is exempt here; other built-in rules still apply.
-          if (invoker.role === "owner") {
-            return;
-          }
-
-          if (invoker.role !== "admin") {
-            // 非管理角色：矩阵理论上拦不到这里，兜底拒绝。
-            // Non-admin roles shouldn't reach this hook per the matrix; reject anyway.
-            throw new APIError("FORBIDDEN", { message: "无权调整成员角色。" });
-          }
-
-          if (member.userId === invokerUserId) {
-            throw new APIError("FORBIDDEN", { message: "管理员不能调整自己的角色。" });
-          }
-
-          if (member.role === "admin" || member.role === "owner") {
-            throw new APIError("FORBIDDEN", {
-              message: "管理员只能调整招聘主管、招聘组长、招聘成员或只读成员的角色。",
-            });
+          if (invoker.role !== "owner") {
+            throw new APIError("FORBIDDEN", { message: "只有拥有者可以调整工作区角色。" });
           }
 
           const nextRole = Array.isArray(newRole) ? newRole[0] : newRole;
-          if (!nextRole || !ADMIN_ASSIGNABLE_ROLES.has(nextRole as AdminAssignableRole)) {
+          if (!nextRole || !OWNER_ASSIGNABLE_WORKSPACE_ROLES.has(nextRole as "admin" | "member")) {
             throw new APIError("FORBIDDEN", {
-              message: "管理员只能将成员设置为招聘主管、招聘组长、招聘成员或只读成员。",
+              message: "只能设置为管理员或普通成员。",
             });
           }
         },

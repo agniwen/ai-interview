@@ -15,18 +15,15 @@ import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/in
 import { Separator } from "@/components/ui/separator";
 import { Spinner } from "@/components/ui/spinner";
 import { formatDateOnly } from "@arc/shared/utils/time";
-import { useWorkspaceSlug } from "@/lib/client/workspace-context";
+import { useWorkspaceMemberRole, useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { authClient } from "@/lib/client/auth-client";
 
 const WHITESPACE_REGEX = /\s+/u;
 
 const ROLE_BADGE_VARIANT: Record<WorkspaceRole, "default" | "secondary" | "outline"> = {
   admin: "default",
-  hr: "secondary",
+  member: "secondary",
   owner: "default",
-  recruitingLead: "secondary",
-  recruitingSupervisor: "secondary",
-  viewer: "outline",
 };
 
 const PROFILE_NAME_MAX_LENGTH = 120;
@@ -274,9 +271,9 @@ function ProfileCard({
 
 function MyProfilePage() {
   const { data: session, isPending, refetch } = authClient.useSession();
-  const { data: activeOrganization } = authClient.useActiveOrganization();
   const { data: listOrganizations } = authClient.useListOrganizations();
   const currentSlug = useWorkspaceSlug();
+  const workspaceMemberRole = useWorkspaceMemberRole() as WorkspaceRole;
   const user = session?.user;
   const organizations = listOrganizations ?? [];
   const [name, setName] = useState("");
@@ -298,10 +295,7 @@ function MyProfilePage() {
     return maybeUser?.feishuTenantName ?? null;
   }, [user]);
 
-  const currentRole = useMemo(() => {
-    const member = activeOrganization?.members?.find((item) => item.userId === user?.id);
-    return (member?.role as WorkspaceRole | undefined) ?? null;
-  }, [activeOrganization?.members, user?.id]);
+  const currentRole = workspaceMemberRole;
 
   function onSave() {
     if (!trimmedName) {

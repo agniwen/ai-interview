@@ -1,21 +1,38 @@
 import { zValidator } from "@hono/zod-validator";
 import { and, eq } from "drizzle-orm";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
-import {
-  member,
-  organization,
-  recruitingGroup,
-  recruitingGroupMember,
-} from "@arc/db-schema/schema";
+import { organization, recruitingGroup } from "@arc/db-schema/schema";
 import { factory, jsonValidatorError } from "@arc/ai-recruitment-copilot-backend/server/factory";
 import { requirePermission } from "@arc/ai-recruitment-copilot-backend/server/middlewares/permission";
-import { listWorkspaceMemberLastActives, listWorkspaceMembers } from "./dao";
+import {
+  addRecruitingGroupMember,
+  ensureDefaultRecruitingGroupForWorkspace,
+  findRecruitingGroupByName,
+  listRecruitingGroupBoard,
+  listWorkspaceMemberLastActives,
+  listWorkspaceMembers,
+  removeRecruitingGroupMember,
+  updateRecruitingGroupMemberRole,
+} from "./dao";
 import { inviteLinksRouter } from "./routes/invite-links/route";
 import {
-  memberRecruitingGroupInputSchema,
+  recruitingGroupMemberInputSchema,
+  recruitingGroupMemberRoleInputSchema,
   recruitingGroupInputSchema,
   workspaceUpdateSchema,
 } from "./schema";
+
+function isRecruitingGroupNameConflict(error: unknown): boolean {
+  if (!error || typeof error !== "object") {
+    return false;
+  }
+  const candidate = error as { cause?: unknown; code?: unknown; constraint?: unknown };
+  return (
+    candidate.code === "23505" ||
+    candidate.constraint === "recruiting_group_org_name_uq" ||
+    isRecruitingGroupNameConflict(candidate.cause)
+  );
+}
 
 export const workspaceRouter = factory
   .createApp()
@@ -39,41 +56,18 @@ export const workspaceRouter = factory
     return c.json({ records }, 200);
   })
   .get("/groups", async (c) => {
-    const { activeOrg } = c.var;
+    const { activeOrg, user } = c.var;
     if (!activeOrg) {
       return c.json({ message: "Unauthorized" }, 401);
     }
-    const [groups, memberships] = await Promise.all([
-      db
-        .select({
-          createdAt: recruitingGroup.createdAt,
-          id: recruitingGroup.id,
-          name: recruitingGroup.name,
-        })
-        .from(recruitingGroup)
-        .where(eq(recruitingGroup.organizationId, activeOrg.id))
-        .orderBy(recruitingGroup.createdAt),
-      db
-        .select({
-          groupId: recruitingGroupMember.groupId,
-          userId: recruitingGroupMember.userId,
-        })
-        .from(recruitingGroupMember)
-        .where(eq(recruitingGroupMember.organizationId, activeOrg.id)),
-    ]);
-    const memberIdsByGroup = new Map<string, string[]>();
-    for (const row of memberships) {
-      const current = memberIdsByGroup.get(row.groupId) ?? [];
-      current.push(row.userId);
-      memberIdsByGroup.set(row.groupId, current);
-    }
+    await ensureDefaultRecruitingGroupForWorkspace({
+      creatorUserId: user?.id,
+      organizationId: activeOrg.id,
+    });
+    const groups = await listRecruitingGroupBoard(activeOrg.id);
     return c.json(
       {
-        groups: groups.map((group) => ({
-          ...group,
-          createdAt: group.createdAt.toISOString(),
-          memberUserIds: memberIdsByGroup.get(group.id) ?? [],
-        })),
+        groups,
       },
       200,
     );
@@ -88,6 +82,13 @@ export const workspaceRouter = factory
         return c.json({ message: "Unauthorized" }, 401);
       }
       const input = c.req.valid("json");
+      const duplicate = await findRecruitingGroupByName({
+        name: input.name,
+        organizationId: activeOrg.id,
+      });
+      if (duplicate) {
+        return c.json({ error: "同一工作区内已存在同名招聘组。" }, 409);
+      }
       const [created] = await db
         .insert(recruitingGroup)
         .values({
@@ -96,16 +97,25 @@ export const workspaceRouter = factory
           name: input.name,
           organizationId: activeOrg.id,
         })
+        .onConflictDoNothing({
+          target: [recruitingGroup.organizationId, recruitingGroup.name],
+        })
         .returning({
           createdAt: recruitingGroup.createdAt,
           id: recruitingGroup.id,
+          isDefault: recruitingGroup.isDefault,
           name: recruitingGroup.name,
         });
       if (!created) {
-        return c.json({ error: "创建组别失败。" }, 500);
+        return c.json({ error: "同一工作区内已存在同名招聘组。" }, 409);
       }
       return c.json(
-        { ...created, createdAt: created.createdAt.toISOString(), memberUserIds: [] },
+        {
+          ...created,
+          createdAt: created.createdAt.toISOString(),
+          memberUserIds: [],
+          members: [],
+        },
         201,
       );
     },
@@ -119,20 +129,45 @@ export const workspaceRouter = factory
       if (!activeOrg) {
         return c.json({ message: "Unauthorized" }, 401);
       }
-      const [updated] = await db
-        .update(recruitingGroup)
-        .set({ name: c.req.valid("json").name, updatedAt: new Date() })
-        .where(
-          and(
-            eq(recruitingGroup.id, c.req.param("id")),
-            eq(recruitingGroup.organizationId, activeOrg.id),
-          ),
-        )
-        .returning({
-          createdAt: recruitingGroup.createdAt,
-          id: recruitingGroup.id,
-          name: recruitingGroup.name,
-        });
+      const input = c.req.valid("json");
+      const duplicate = await findRecruitingGroupByName({
+        excludeGroupId: c.req.param("id"),
+        name: input.name,
+        organizationId: activeOrg.id,
+      });
+      if (duplicate) {
+        return c.json({ error: "同一工作区内已存在同名招聘组。" }, 409);
+      }
+      let updated:
+        | {
+            createdAt: Date;
+            id: string;
+            isDefault: boolean;
+            name: string;
+          }
+        | undefined;
+      try {
+        [updated] = await db
+          .update(recruitingGroup)
+          .set({ name: input.name, updatedAt: new Date() })
+          .where(
+            and(
+              eq(recruitingGroup.id, c.req.param("id")),
+              eq(recruitingGroup.organizationId, activeOrg.id),
+            ),
+          )
+          .returning({
+            createdAt: recruitingGroup.createdAt,
+            id: recruitingGroup.id,
+            isDefault: recruitingGroup.isDefault,
+            name: recruitingGroup.name,
+          });
+      } catch (error) {
+        if (isRecruitingGroupNameConflict(error)) {
+          return c.json({ error: "同一工作区内已存在同名招聘组。" }, 409);
+        }
+        throw error;
+      }
       if (!updated) {
         return c.json({ error: "组别不存在。" }, 404);
       }
@@ -150,6 +185,7 @@ export const workspaceRouter = factory
         and(
           eq(recruitingGroup.id, c.req.param("id")),
           eq(recruitingGroup.organizationId, activeOrg.id),
+          eq(recruitingGroup.isDefault, false),
         ),
       )
       .returning({ id: recruitingGroup.id });
@@ -158,56 +194,79 @@ export const workspaceRouter = factory
     }
     return c.json({ success: true }, 200);
   })
-  .patch(
-    "/members/:userId/group",
+  .post(
+    "/groups/:id/members",
     requirePermission("member", "update"),
-    zValidator("json", memberRecruitingGroupInputSchema, jsonValidatorError("组别参数无效。")),
+    zValidator("json", recruitingGroupMemberInputSchema, jsonValidatorError("组成员参数无效。")),
+    async (c) => {
+      const { activeOrg, user } = c.var;
+      if (!activeOrg) {
+        return c.json({ message: "Unauthorized" }, 401);
+      }
+      const input = c.req.valid("json");
+      const row = await addRecruitingGroupMember({
+        createdBy: user?.id,
+        groupId: c.req.param("id"),
+        organizationId: activeOrg.id,
+        role: input.role,
+        userId: input.userId,
+      });
+      if (row.status === "missing") {
+        return c.json({ error: "组别或成员不存在。" }, 404);
+      }
+      if (row.status === "duplicate") {
+        return c.json({ error: "该成员已在这个招聘组中。" }, 409);
+      }
+      return c.json({ id: row.id, success: true }, 201);
+    },
+  )
+  .patch(
+    "/groups/:id/members/:userId",
+    requirePermission("member", "update"),
+    zValidator(
+      "json",
+      recruitingGroupMemberRoleInputSchema,
+      jsonValidatorError("组成员角色无效。"),
+    ),
     async (c) => {
       const { activeOrg } = c.var;
       if (!activeOrg) {
         return c.json({ message: "Unauthorized" }, 401);
       }
-      const targetUserId = c.req.param("userId");
-      const [target] = await db
-        .select({ userId: member.userId })
-        .from(member)
-        .where(and(eq(member.organizationId, activeOrg.id), eq(member.userId, targetUserId)))
-        .limit(1);
-      if (!target) {
-        return c.json({ error: "成员不存在。" }, 404);
-      }
-      const { groupId } = c.req.valid("json");
-      if (groupId) {
-        const [group] = await db
-          .select({ id: recruitingGroup.id })
-          .from(recruitingGroup)
-          .where(
-            and(eq(recruitingGroup.id, groupId), eq(recruitingGroup.organizationId, activeOrg.id)),
-          )
-          .limit(1);
-        if (!group) {
-          return c.json({ error: "组别不存在。" }, 404);
-        }
-      }
-      await db.transaction(async (tx) => {
-        await tx
-          .delete(recruitingGroupMember)
-          .where(
-            and(
-              eq(recruitingGroupMember.organizationId, activeOrg.id),
-              eq(recruitingGroupMember.userId, targetUserId),
-            ),
-          );
-        if (groupId) {
-          await tx.insert(recruitingGroupMember).values({
-            groupId,
-            organizationId: activeOrg.id,
-            userId: targetUserId,
-          });
-        }
+      const row = await updateRecruitingGroupMemberRole({
+        groupId: c.req.param("id"),
+        organizationId: activeOrg.id,
+        role: c.req.valid("json").role,
+        userId: c.req.param("userId"),
       });
-      return c.json({ groupId, success: true, userId: targetUserId }, 200);
+      if (!row) {
+        return c.json({ error: "组成员不存在。" }, 404);
+      }
+      return c.json({ id: row.id, success: true }, 200);
     },
+  )
+  .delete("/groups/:id/members/:userId", requirePermission("member", "update"), async (c) => {
+    const { activeOrg } = c.var;
+    if (!activeOrg) {
+      return c.json({ message: "Unauthorized" }, 401);
+    }
+    const removed = await removeRecruitingGroupMember({
+      groupId: c.req.param("id"),
+      organizationId: activeOrg.id,
+      userId: c.req.param("userId"),
+    });
+    if (!removed) {
+      return c.json({ error: "组成员不存在。" }, 404);
+    }
+    return c.json({ success: true }, 200);
+  })
+  .patch("/members/:userId/group", requirePermission("member", "update"), (c) =>
+    c.json(
+      {
+        error: "该接口已废弃，请使用 /groups/:id/members 管理成员和组内角色。",
+      },
+      410,
+    ),
   )
   .patch(
     "/",

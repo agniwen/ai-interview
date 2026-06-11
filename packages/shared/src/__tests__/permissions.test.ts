@@ -67,13 +67,13 @@ describe("permissions matrix", () => {
     });
   });
 
-  describe("hr role", () => {
+  describe("member role", () => {
     it("exists", () => {
-      expect(roles.hr).toBeDefined();
+      expect(roles.member).toBeDefined();
     });
 
-    it("can write all business resources like admin", () => {
-      const { hr } = roles;
+    it("can access business resources; data scope is enforced by recruiting groups", () => {
+      const { member } = roles;
       const resources = [
         "interview",
         "jd",
@@ -84,70 +84,22 @@ describe("permissions matrix", () => {
         "chat",
       ] as const;
       for (const r of resources) {
-        expect(hr.statements[r]).toEqual(
+        expect(member.statements[r]).toEqual(
           expect.arrayContaining(["create", "read", "update", "delete"]),
         );
       }
     });
 
     it("can update globalConfig and read auditLog", () => {
-      expect(roles.hr.statements.globalConfig).toEqual(expect.arrayContaining(["read", "update"]));
-      expect(roles.hr.statements.auditLog).toEqual(expect.arrayContaining(["read"]));
+      expect(roles.member.statements.globalConfig).toEqual(
+        expect.arrayContaining(["read", "update"]),
+      );
+      expect(roles.member.statements.auditLog).toEqual(expect.arrayContaining(["read"]));
     });
 
     it("has no member management access", () => {
-      const stmts = roles.hr.statements as Record<string, readonly string[] | undefined>;
+      const stmts = roles.member.statements as Record<string, readonly string[] | undefined>;
       expect(stmts.member ?? []).toHaveLength(0);
-    });
-  });
-
-  describe.each([
-    ["recruitingLead", "招聘组长"],
-    ["recruitingSupervisor", "招聘主管"],
-  ] as const)("%s role", (role) => {
-    it("exists", () => {
-      expect(roles[role]).toBeDefined();
-    });
-
-    it("has the same permissions as hr", () => {
-      expect(roles[role].statements).toEqual(roles.hr.statements);
-    });
-  });
-
-  describe("viewer role", () => {
-    it("exists", () => {
-      expect(roles.viewer).toBeDefined();
-    });
-
-    it("is read-only across business resources", () => {
-      const { viewer } = roles;
-      const readOnly = [
-        "interview",
-        "jd",
-        "department",
-        "interviewer",
-        "candidateForm",
-        "questionTemplate",
-      ] as const;
-      for (const r of readOnly) {
-        expect(viewer.statements[r]).toEqual(["read"]);
-      }
-    });
-
-    it("still has full chat CRUD", () => {
-      expect(roles.viewer.statements.chat).toEqual(
-        expect.arrayContaining(["create", "read", "update", "delete"]),
-      );
-    });
-
-    it("can read globalConfig but not update", () => {
-      const { viewer } = roles;
-      expect(viewer.statements.globalConfig).toEqual(["read"]);
-    });
-
-    it("has no auditLog access", () => {
-      const stmts = roles.viewer.statements as Record<string, readonly string[] | undefined>;
-      expect(stmts.auditLog).toBeUndefined();
     });
   });
 });
@@ -159,36 +111,26 @@ describe("permission matrix cross-cut", () => {
     // interview
     ["owner", "interview", "delete", true],
     ["admin", "interview", "delete", true],
-    ["hr", "interview", "delete", true],
-    ["viewer", "interview", "delete", false],
-    ["viewer", "interview", "read", true],
+    ["member", "interview", "delete", true],
     // jd
-    ["hr", "jd", "update", true],
-    ["hr", "jd", "delete", true],
-    ["recruitingLead", "jd", "update", true],
-    ["recruitingSupervisor", "jd", "update", true],
-    ["viewer", "jd", "update", false],
+    ["member", "jd", "update", true],
+    ["member", "jd", "delete", true],
     // department / interviewer
-    ["hr", "department", "create", true],
-    ["hr", "interviewer", "update", true],
+    ["member", "department", "create", true],
+    ["member", "interviewer", "update", true],
     ["admin", "department", "delete", true],
     // candidateForm / questionTemplate
-    ["hr", "candidateForm", "delete", true],
-    ["viewer", "candidateForm", "delete", false],
-    ["hr", "questionTemplate", "delete", true],
+    ["member", "candidateForm", "delete", true],
+    ["member", "questionTemplate", "delete", true],
     // globalConfig
-    ["hr", "globalConfig", "update", true],
-    ["recruitingLead", "globalConfig", "update", true],
-    ["recruitingSupervisor", "globalConfig", "update", true],
+    ["member", "globalConfig", "update", true],
     ["admin", "globalConfig", "update", true],
-    ["viewer", "globalConfig", "read", true],
     // auditLog
     ["owner", "auditLog", "read", true],
     ["admin", "auditLog", "read", true],
-    ["hr", "auditLog", "read", true],
-    ["viewer", "auditLog", "read", false],
+    ["member", "auditLog", "read", true],
     // chat — 全员可全 CRUD
-    ["viewer", "chat", "delete", true],
+    ["member", "chat", "delete", true],
     // member — 改角色 (update) owner / admin 均可（admin 的目标范围由服务端
     // hook 进一步限制为非管理角色，矩阵这里只给动词）；邀请/移除 admin 也可。
     ["owner", "member", "update", true],
@@ -197,18 +139,11 @@ describe("permission matrix cross-cut", () => {
     // admin can now perform member.update; the actual target/role ceiling
     // (non-admin targets only, no self, no peer-admin) lives in the server-side hook.
     ["admin", "member", "update", true],
-    ["hr", "member", "update", false],
-    ["recruitingLead", "member", "update", false],
-    ["recruitingSupervisor", "member", "update", false],
-    ["viewer", "member", "update", false],
+    ["member", "member", "update", false],
     ["admin", "member", "create", true],
     ["admin", "member", "delete", true],
-    ["hr", "member", "create", false],
-    ["recruitingLead", "member", "create", false],
-    ["recruitingSupervisor", "member", "create", false],
-    ["hr", "member", "delete", false],
-    ["recruitingLead", "member", "delete", false],
-    ["recruitingSupervisor", "member", "delete", false],
+    ["member", "member", "create", false],
+    ["member", "member", "delete", false],
   ];
 
   for (const [role, resource, action, expected] of cases) {

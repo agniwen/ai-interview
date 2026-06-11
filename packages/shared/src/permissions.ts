@@ -90,24 +90,7 @@ const recruitingMemberStatements = {
   resume: ["create", "read", "update", "delete"],
 } as const;
 
-export const hr = ac.newRole(recruitingMemberStatements);
+export const member = ac.newRole(recruitingMemberStatements);
 
-export const recruitingLead = ac.newRole(recruitingMemberStatements);
-
-export const recruitingSupervisor = ac.newRole(recruitingMemberStatements);
-
-export const viewer = ac.newRole({
-  ...memberAc.statements,
-  candidateForm: ["read"],
-  chat: ["create", "read", "update", "delete"],
-  department: ["read"],
-  globalConfig: ["read"],
-  interview: ["read"],
-  interviewer: ["read"],
-  jd: ["read"],
-  questionTemplate: ["read"],
-  resume: ["read"],
-});
-
-export const roles = { admin, hr, owner, recruitingLead, recruitingSupervisor, viewer } as const;
+export const roles = { admin, member, owner } as const;
 export type AppRole = keyof typeof roles;

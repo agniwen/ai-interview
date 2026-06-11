@@ -1,8 +1,41 @@
+import { useEffect } from "react";
 import { Outlet, createFileRoute, notFound, redirect, useLoaderData } from "@tanstack/react-router";
 import { BackgroundStreamToaster } from "@/components/chat/background-stream-toaster";
 import { AppSidebarShell } from "@/components/layout/app-sidebar/app-sidebar-shell";
+import { authClient } from "@/lib/client/auth-client";
 import { WorkspaceSlugProvider } from "@/lib/client/workspace-context";
 import { getWorkspaceAccessState } from "@/lib/start/auth-session";
+
+function ActiveWorkspaceSync({ workspaceId }: { workspaceId: string }) {
+  const {
+    data: activeOrganization,
+    isPending,
+    refetch: refetchActiveOrganization,
+  } = authClient.useActiveOrganization();
+
+  useEffect(() => {
+    if (isPending || activeOrganization?.id === workspaceId) {
+      return;
+    }
+
+    let cancelled = false;
+    void (async () => {
+      try {
+        await authClient.organization.setActive({ organizationId: workspaceId });
+      } finally {
+        if (!cancelled) {
+          await refetchActiveOrganization();
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeOrganization?.id, isPending, refetchActiveOrganization, workspaceId]);
+
+  return null;
+}
 
 function WorkspaceRoute() {
   const state = useLoaderData({ from: "/w/$slug" });
@@ -12,7 +45,12 @@ function WorkspaceRoute() {
   }
 
   return (
-    <WorkspaceSlugProvider slug={state.workspace.slug}>
+    <WorkspaceSlugProvider
+      id={state.workspace.id}
+      memberRole={state.member.role}
+      slug={state.workspace.slug}
+    >
+      <ActiveWorkspaceSync workspaceId={state.workspace.id} />
       <AppSidebarShell>
         <Outlet />
       </AppSidebarShell>
