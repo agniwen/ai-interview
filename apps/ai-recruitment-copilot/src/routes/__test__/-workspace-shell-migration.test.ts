@@ -61,6 +61,15 @@ describe("TanStack Start workspace shell migration", () => {
     expect(resumes).toContain('useSearch({ from: "/w/$slug/studio/resumes" })');
   });
 
+  it("keeps workspace management tab state in router search", () => {
+    const members = readSource("routes/w.$slug.studio.members.tsx");
+
+    expect(members).toContain('useSearch({ from: "/w/$slug/studio/members" })');
+    expect(members).toContain("validateSearch");
+    expect(members).toContain("value={activeTab}");
+    expect(members).not.toContain('defaultValue="members"');
+  });
+
   it("renders sidebar slot skeletons before portal content hydrates", () => {
     const appSidebar = readSource("components/layout/app-sidebar/app-sidebar.tsx");
     const platformSidebar = readSource("components/layout/platform-sidebar/platform-sidebar.tsx");
