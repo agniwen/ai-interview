@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { Outlet, createFileRoute, notFound, redirect, useLoaderData } from "@tanstack/react-router";
-import { BackgroundStreamToaster } from "@/components/chat/background-stream-toaster";
+import { BackgroundStreamToaster } from "@/components/features/chat/background-stream-toaster";
 import { AppSidebarShell } from "@/components/layout/app-sidebar/app-sidebar-shell";
 import { authClient } from "@/lib/client/auth-client";
 import { WorkspaceSlugProvider } from "@/lib/client/workspace-context";

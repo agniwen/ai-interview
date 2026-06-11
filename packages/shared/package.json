@@ -22,10 +22,12 @@
     "better-auth": "^1.6.10",
     "clsx": "^2.1.1",
     "dayjs": "^1.11.20",
+    "lodash-es": "^4.18.1",
     "tailwind-merge": "^3.6.0",
     "zod": "catalog:"
   },
   "devDependencies": {
+    "@types/lodash-es": "^4.17.12",
     "typescript": "catalog:",
     "vitest": "catalog:"
   }

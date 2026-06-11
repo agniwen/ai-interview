@@ -24,10 +24,10 @@ describe("TanStack Start platform route migration", () => {
       readSource("routes/platform.tsx"),
       readSource("routes/platform.organizations.tsx"),
       readSource("routes/platform.users.tsx"),
-      readSource("components/platform/platform-sidebar-slots.tsx"),
-      readSource("components/platform/platform-header.tsx"),
-      readSource("components/platform/organizations/organizations-grid.tsx"),
-      readSource("components/platform/users/users-grid.tsx"),
+      readSource("components/features/platform/platform-sidebar-slots.tsx"),
+      readSource("components/features/platform/platform-header.tsx"),
+      readSource("components/features/platform/organizations/organizations-grid.tsx"),
+      readSource("components/features/platform/users/users-grid.tsx"),
       readSource("components/layout/platform-sidebar/platform-logo.tsx"),
     ];
 

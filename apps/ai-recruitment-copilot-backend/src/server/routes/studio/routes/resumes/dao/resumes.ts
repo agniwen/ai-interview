@@ -1,4 +1,5 @@
 import { and, arrayContains, asc, count, eq, ilike, inArray, or, sql } from "drizzle-orm";
+import { uniq } from "lodash-es";
 import { z } from "zod";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import {
@@ -262,7 +263,7 @@ function serializeStageProgressTimestamp(value: Date | string | null): string | 
 async function loadResumeDerivedFields(
   candidateIds: string[],
 ): Promise<Map<string, ResumeDerivedFields>> {
-  const ids = [...new Set(candidateIds.filter(Boolean))];
+  const ids = uniq(candidateIds.filter(Boolean));
   const result = new Map<string, ResumeDerivedFields>();
   for (const id of ids) {
     result.set(id, {

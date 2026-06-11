@@ -1,5 +1,5 @@
 import { createFileRoute, useParams } from "@tanstack/react-router";
-import InterviewRoom from "@/components/interview/interview-room";
+import InterviewRoom from "@/components/features/interview/interview-room";
 
 function InterviewRoundRoute() {
   const { id, roundId } = useParams({ from: "/interview/$id/$roundId" });

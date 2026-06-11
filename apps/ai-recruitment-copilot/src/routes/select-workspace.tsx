@@ -3,9 +3,9 @@ import { createFileRoute, redirect, useLoaderData } from "@tanstack/react-router
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { CreateWorkspaceDialog } from "@/components/workspace/create-workspace-dialog";
+import { CreateWorkspaceDialog } from "@/components/features/workspace/create-workspace-dialog";
 import { getWorkspaceSelectionState } from "@/lib/start/auth-session";
-import { UserMenu } from "@/components/select-workspace/user-menu";
+import { UserMenu } from "@/components/features/select-workspace/user-menu";
 
 const WHITESPACE_REGEX = /\s+/;
 

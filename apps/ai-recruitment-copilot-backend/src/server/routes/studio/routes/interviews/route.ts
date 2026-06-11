@@ -1,6 +1,7 @@
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { zValidator } from "@hono/zod-validator";
 import { and, eq, inArray, notExists } from "drizzle-orm";
+import { uniq } from "lodash-es";
 import { z } from "zod";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import {
@@ -204,7 +205,7 @@ async function resetOrphanedAiInterviewParents(
   organizationId: string,
   candidateIds: readonly string[],
 ): Promise<void> {
-  const unique = [...new Set(candidateIds.filter(Boolean))];
+  const unique = uniq(candidateIds.filter(Boolean));
   if (unique.length === 0) {
     return;
   }

@@ -1,5 +1,5 @@
 import { Outlet, createFileRoute, redirect } from "@tanstack/react-router";
-import { InterviewCopyGuard } from "@/components/interview/interview-copy-guard";
+import { InterviewCopyGuard } from "@/components/features/interview/interview-copy-guard";
 
 function InterviewQuickStartRoute() {
   return (

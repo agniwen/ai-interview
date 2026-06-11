@@ -16,8 +16,8 @@ describe("TanStack Start select workspace migration", () => {
   it("keeps migrated select workspace UI free of Next navigation primitives", () => {
     const sources = [
       readSource("routes/select-workspace.tsx"),
-      readSource("components/select-workspace/user-menu.tsx"),
-      readSource("components/workspace/create-workspace-dialog.tsx"),
+      readSource("components/features/select-workspace/user-menu.tsx"),
+      readSource("components/features/workspace/create-workspace-dialog.tsx"),
     ];
 
     expect(sources.join("\n")).not.toMatch(/next\/(?:link|navigation|headers|server)/u);

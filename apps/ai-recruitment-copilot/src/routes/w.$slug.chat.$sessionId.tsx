@@ -1,5 +1,5 @@
 import { createFileRoute, useParams } from "@tanstack/react-router";
-import ChatWorkspace from "@/components/chat/chat-workspace";
+import ChatWorkspace from "@/components/features/chat/chat-workspace";
 
 function ChatSessionRoute() {
   const { sessionId } = useParams({ from: "/w/$slug/chat/$sessionId" });

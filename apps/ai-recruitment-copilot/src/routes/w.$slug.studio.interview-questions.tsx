@@ -13,9 +13,9 @@ import { parseDataGridSearchParams } from "@/components/data-grid/query-contract
 import type { JobDescriptionListRecord } from "@arc/shared/job-descriptions";
 import { loadStudioInterviewQuestionsState } from "@/lib/start/studio/interview-questions.functions";
 import type { StudioInterviewQuestionsState } from "@/lib/start/studio/interview-questions.functions";
-import { PageHeader } from "@/components/studio/page-header";
-import { EntityDeleteDialog } from "@/components/studio/entity-delete-dialog";
-import { useEntityCrud } from "@/components/studio/use-entity-crud";
+import { PageHeader } from "@/components/features/studio/page-header";
+import { EntityDeleteDialog } from "@/components/features/studio/entity-delete-dialog";
+import { useEntityCrud } from "@/components/features/studio/use-entity-crud";
 import type {
   InterviewQuestionTemplateListRecord,
   InterviewQuestionTemplateRecord,
@@ -52,7 +52,7 @@ import {
 } from "@/components/ui/empty";
 import { rpc } from "@/lib/client/rpc";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
-import { InterviewQuestionTemplateEditorDialog } from "@/components/studio/interview-questions/interview-question-template-editor-dialog";
+import { InterviewQuestionTemplateEditorDialog } from "@/components/features/studio/interview-questions/interview-question-template-editor-dialog";
 
 function scopeLabel(scope: InterviewQuestionTemplateScope) {
   return scope === "global" ? "全局" : "岗位绑定";

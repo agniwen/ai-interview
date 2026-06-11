@@ -1,6 +1,6 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { getActiveOrganizationState } from "@/lib/start/auth-session";
-import HomeShell from "@/components/home/home-shell";
+import HomeShell from "@/components/features/home/home-shell";
 
 type GotoTarget = "chat" | "studio";
 

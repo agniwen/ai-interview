@@ -1,5 +1,5 @@
 import { createFileRoute, notFound, redirect, useLoaderData } from "@tanstack/react-router";
-import { GlobalConfigForm } from "@/components/studio/global-config/global-config-form";
+import { GlobalConfigForm } from "@/components/features/studio/global-config/global-config-form";
 import { loadStudioGlobalConfigState } from "@/lib/start/studio/global-config.functions";
 
 function StudioGlobalConfigRoute() {

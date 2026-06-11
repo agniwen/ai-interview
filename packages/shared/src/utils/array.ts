@@ -4,6 +4,7 @@
  */
 
 import { isPresent } from "./guards";
+import { chunk as lodashChunk, partition as lodashPartition, uniq, uniqBy } from "lodash-es";
 
 /**
  * 把任意值规范为数组：
@@ -39,7 +40,7 @@ export function ensureStringArray(value: unknown): string[] {
  * Returns a new array with duplicates removed, preserving first-seen order (`===` equality).
  */
 export function unique<T>(items: readonly T[]): T[] {
-  return [...new Set(items)];
+  return uniq(items);
 }
 
 /**
@@ -47,16 +48,7 @@ export function unique<T>(items: readonly T[]): T[] {
  * Deduplicate by a custom key extractor.
  */
 export function uniqueBy<T, K>(items: readonly T[], keyFn: (item: T) => K): T[] {
-  const seen = new Set<K>();
-  const result: T[] = [];
-  for (const item of items) {
-    const key = keyFn(item);
-    if (!seen.has(key)) {
-      seen.add(key);
-      result.push(item);
-    }
-  }
-  return result;
+  return uniqBy(items, keyFn);
 }
 
 /**
@@ -64,14 +56,7 @@ export function uniqueBy<T, K>(items: readonly T[], keyFn: (item: T) => K): T[] 
  * Chunk an array into pieces of `size`. Returns empty when `size <= 0`.
  */
 export function chunk<T>(items: readonly T[], size: number): T[][] {
-  if (size <= 0) {
-    return [];
-  }
-  const result: T[][] = [];
-  for (let index = 0; index < items.length; index += size) {
-    result.push(items.slice(index, index + size));
-  }
-  return result;
+  return lodashChunk(items, size);
 }
 
 /**
@@ -82,16 +67,11 @@ export function partition<T>(
   items: readonly T[],
   predicate: (item: T, index: number) => boolean,
 ): [T[], T[]] {
-  const matched: T[] = [];
-  const rest: T[] = [];
-  for (const [index, item] of items.entries()) {
-    if (predicate(item, index)) {
-      matched.push(item);
-    } else {
-      rest.push(item);
-    }
-  }
-  return [matched, rest];
+  const [matched, rest] = lodashPartition(
+    items.map((item, index) => ({ index, item })),
+    ({ index, item }) => predicate(item, index),
+  );
+  return [matched.map(({ item }) => item), rest.map(({ item }) => item)];
 }
 
 /**

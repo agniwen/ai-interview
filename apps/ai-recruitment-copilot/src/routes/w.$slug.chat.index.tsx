@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import ChatWorkspace from "@/components/chat/chat-workspace";
+import ChatWorkspace from "@/components/features/chat/chat-workspace";
 
 function ChatIndexRoute() {
   return <ChatWorkspace initialSessionId={null} key="new-chat" />;

@@ -24,14 +24,14 @@ describe("TanStack Start workspace shell migration", () => {
       readSource("routes/w.$slug.tsx"),
       readSource("routes/w.$slug.chat.tsx"),
       readSource("routes/w.$slug.studio.tsx"),
-      readSource("components/chat/background-stream-toaster.tsx"),
+      readSource("components/features/chat/background-stream-toaster.tsx"),
     ];
 
     expect(sources.join("\n")).not.toMatch(/next\/(?:link|navigation|headers|server|cache)/u);
   });
 
   it("derives chat session active state from TanStack Router params", () => {
-    const sidebarSlots = readSource("components/chat/chat-sidebar-slots.tsx");
+    const sidebarSlots = readSource("components/features/chat/chat-sidebar-slots.tsx");
 
     expect(sidebarSlots).toContain("useParams");
     expect(sidebarSlots).toContain("params.sessionId");
@@ -40,8 +40,8 @@ describe("TanStack Start workspace shell migration", () => {
   });
 
   it("uses typed router navigation for chat session URL changes", () => {
-    const workspace = readSource("components/chat/chat-workspace.tsx");
-    const toaster = readSource("components/chat/background-stream-toaster.tsx");
+    const workspace = readSource("components/features/chat/chat-workspace.tsx");
+    const toaster = readSource("components/features/chat/background-stream-toaster.tsx");
 
     expect(workspace).not.toContain("window.history.replaceState");
     expect(workspace).not.toContain("CHAT_EVENTS.sessionPathUpdated");

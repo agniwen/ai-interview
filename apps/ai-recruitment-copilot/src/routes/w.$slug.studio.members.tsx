@@ -24,10 +24,10 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { PageHeader } from "@/components/studio/page-header";
+import { PageHeader } from "@/components/features/studio/page-header";
 import { actionsColumn, customColumn, DataGrid } from "@/components/data-grid";
-import { PermissionGate } from "@/components/permission/permission-gate";
-import { TimeDisplay } from "@/components/display/time-display";
+import { PermissionGate } from "@/components/features/permission/permission-gate";
+import { TimeDisplay } from "@/components/features/display/time-display";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -66,16 +66,16 @@ import {
   useWorkspaceMemberRole,
   useWorkspaceSlug,
 } from "@/lib/client/workspace-context";
-import { InviteDialog } from "@/components/studio/members/invite-dialog";
-import { InviteLinksDialog } from "@/components/studio/members/invite-links-dialog";
-import { PendingInvitationsButton } from "@/components/studio/members/pending-invitations-section";
-import { PermissionsExplanationDialog } from "@/components/studio/members/permissions-explanation-dialog";
+import { InviteDialog } from "@/components/features/studio/members/invite-dialog";
+import { InviteLinksDialog } from "@/components/features/studio/members/invite-links-dialog";
+import { PendingInvitationsButton } from "@/components/features/studio/members/pending-invitations-section";
+import { PermissionsExplanationDialog } from "@/components/features/studio/members/permissions-explanation-dialog";
 import {
   getAssignableWorkspaceRoles,
   getWorkspaceRoleLabel,
-} from "@/components/studio/members/role-display";
-import type { WorkspaceRole } from "@/components/studio/members/role-display";
-import { WorkspaceSettingsDialog } from "@/components/studio/members/workspace-settings-dialog";
+} from "@/components/features/studio/members/role-display";
+import type { WorkspaceRole } from "@/components/features/studio/members/role-display";
+import { WorkspaceSettingsDialog } from "@/components/features/studio/members/workspace-settings-dialog";
 
 const DEFAULT_PAGE_SIZE = 10;
 const DEFAULT_TAB = "members";

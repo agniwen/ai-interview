@@ -7,10 +7,10 @@ import {
 } from "@tanstack/react-router";
 import type { RecruitingDashboardMetrics } from "@arc/shared/studio-dashboard";
 import { loadStudioDashboardState } from "@/lib/start/studio/dashboard.functions";
-import { PageHeader } from "@/components/studio/page-header";
+import { PageHeader } from "@/components/features/studio/page-header";
 import { useMemo } from "react";
 import { Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, XAxis, YAxis } from "recharts";
-import { StudioSummaryCards } from "@/components/studio/studio-summary-cards";
+import { StudioSummaryCards } from "@/components/features/studio/studio-summary-cards";
 import type { ResumeLibraryMetrics } from "@arc/shared/studio-resumes";
 import { offerDraftStatusMeta } from "@arc/db-schema/studio-interviews";
 import { Badge } from "@/components/ui/badge";

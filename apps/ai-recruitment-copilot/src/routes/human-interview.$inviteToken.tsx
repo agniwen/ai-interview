@@ -1,7 +1,7 @@
 import { createFileRoute, useLoaderData } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
 import type { PublicHumanInterviewMeetingPreview } from "@arc/shared/studio-pipeline-stages";
-import { HumanMeetingRoom } from "@/components/human-interview/human-meeting-room";
+import { HumanMeetingRoom } from "@/components/features/human-interview/human-meeting-room";
 import { inviteTokenInputSchema } from "@/lib/start/server-fn-validators";
 
 interface HumanInterviewCandidateState {

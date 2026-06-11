@@ -13,9 +13,9 @@ import { parseDataGridSearchParams } from "@/components/data-grid/query-contract
 import type { JobDescriptionListRecord } from "@arc/shared/job-descriptions";
 import { loadStudioFormsState } from "@/lib/start/studio/forms.functions";
 import type { StudioFormsState } from "@/lib/start/studio/forms.functions";
-import { PageHeader } from "@/components/studio/page-header";
-import { EntityDeleteDialog } from "@/components/studio/entity-delete-dialog";
-import { useEntityCrud } from "@/components/studio/use-entity-crud";
+import { PageHeader } from "@/components/features/studio/page-header";
+import { EntityDeleteDialog } from "@/components/features/studio/entity-delete-dialog";
+import { useEntityCrud } from "@/components/features/studio/use-entity-crud";
 import type {
   CandidateFormScope,
   CandidateFormTemplateListRecord,
@@ -52,8 +52,8 @@ import {
 } from "@/components/ui/empty";
 import { rpc } from "@/lib/client/rpc";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
-import { CandidateFormTemplateEditorDialog } from "@/components/studio/forms/form-template-editor-dialog";
-import { CandidateFormTemplateSubmissionsDrawer } from "@/components/studio/forms/form-template-submissions-drawer";
+import { CandidateFormTemplateEditorDialog } from "@/components/features/studio/forms/form-template-editor-dialog";
+import { CandidateFormTemplateSubmissionsDrawer } from "@/components/features/studio/forms/form-template-submissions-drawer";
 
 function scopeLabel(scope: CandidateFormScope) {
   return scope === "global" ? "全局" : "岗位绑定";

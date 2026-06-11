@@ -6,6 +6,7 @@
 // the candidate row, JD, creator, and a "has at least one conversation" flag.
 
 import { and, asc, count, desc, eq, ilike, inArray, or, sql } from "drizzle-orm";
+import { uniq } from "lodash-es";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import {
   buildOrderBy,
@@ -128,7 +129,7 @@ interface RoundDerivedFields {
 async function loadRoundDerivedFields(
   roundIds: string[],
 ): Promise<Map<string, RoundDerivedFields>> {
-  const ids = [...new Set(roundIds.filter(Boolean))];
+  const ids = uniq(roundIds.filter(Boolean));
   const result = new Map<string, RoundDerivedFields>();
   for (const id of ids) {
     result.set(id, { hasReport: false, lastInterviewAt: null });
