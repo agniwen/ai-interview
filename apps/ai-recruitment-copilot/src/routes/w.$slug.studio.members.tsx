@@ -769,7 +769,7 @@ function MembersManagementPage() {
         }
         return next;
       },
-    } as never);
+    });
   }
 
   // 当前用户在这个 org 的角色——决定 Select 给出哪些可选项 + 哪些行只读。
