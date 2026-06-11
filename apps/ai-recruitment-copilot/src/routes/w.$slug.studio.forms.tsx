@@ -169,7 +169,7 @@ function CandidateFormTemplateManagementPage({
           }
           return next;
         },
-      } as never);
+      });
     },
     [navigate],
   );

@@ -2,7 +2,6 @@
   "extends": "../../tsconfig.base.json",
 
   "compilerOptions": {
-    "baseUrl": ".",
     "paths": {
       "@arc/ai-recruitment-copilot-backend/lib/server/*": ["./src/lib/server/*"],
       "@arc/ai-recruitment-copilot-backend/server/*": ["./src/server/*"]

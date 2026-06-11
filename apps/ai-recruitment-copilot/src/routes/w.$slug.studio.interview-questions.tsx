@@ -169,7 +169,7 @@ function InterviewQuestionTemplateManagementPage({
           }
           return next;
         },
-      } as never);
+      });
     },
     [navigate],
   );

@@ -12,7 +12,7 @@ import {
   useSensors,
 } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, useSearch } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import {
   GripVerticalIcon,
@@ -78,6 +78,25 @@ import type { WorkspaceRole } from "@/components/studio/members/role-display";
 import { WorkspaceSettingsDialog } from "@/components/studio/members/workspace-settings-dialog";
 
 const DEFAULT_PAGE_SIZE = 10;
+const DEFAULT_TAB = "members";
+const WORKSPACE_MANAGEMENT_TABS = ["members", "groups"] as const;
+
+type WorkspaceManagementTab = (typeof WORKSPACE_MANAGEMENT_TABS)[number];
+
+interface WorkspaceManagementSearch {
+  tab?: WorkspaceManagementTab;
+}
+
+function parseWorkspaceManagementTab(value: unknown): WorkspaceManagementTab {
+  return value === "groups" ? "groups" : DEFAULT_TAB;
+}
+
+function coerceWorkspaceManagementSearch(
+  search: Record<string, unknown>,
+): WorkspaceManagementSearch {
+  const tab = parseWorkspaceManagementTab(search.tab);
+  return tab === DEFAULT_TAB ? {} : { tab };
+}
 
 interface MemberRow {
   id: string;
@@ -666,6 +685,9 @@ function MembersManagementPage() {
   const slug = useWorkspaceSlug();
   const workspaceId = useWorkspaceId();
   const workspaceMemberRole = useWorkspaceMemberRole() as WorkspaceRole;
+  const routeSearch = useSearch({ from: "/w/$slug/studio/members" });
+  const navigate = useNavigate({ from: "/w/$slug/studio/members" });
+  const activeTab = parseWorkspaceManagementTab(routeSearch.tab);
   const {
     data: activeOrganization,
     refetch,
@@ -732,6 +754,23 @@ function MembersManagementPage() {
   const canUpdate = useHasPermission("member", "update");
   const canDelete = useHasPermission("member", "delete");
   const canUpdateWorkspace = useHasPermission("organization", "update");
+
+  function handleTabChange(value: string) {
+    const tab = parseWorkspaceManagementTab(value);
+    void navigate({
+      replace: true,
+      resetScroll: false,
+      search: (prev: WorkspaceManagementSearch) => {
+        const next = { ...prev };
+        if (tab === DEFAULT_TAB) {
+          delete next.tab;
+        } else {
+          next.tab = tab;
+        }
+        return next;
+      },
+    });
+  }
 
   // 当前用户在这个 org 的角色——决定 Select 给出哪些可选项 + 哪些行只读。
   // 服务端硬约束已经在 beforeUpdateMemberRole hook 里执行；这里 UI 同步
@@ -1111,7 +1150,7 @@ function MembersManagementPage() {
         }
       />
 
-      <Tabs className="space-y-4" defaultValue="members">
+      <Tabs className="space-y-4" onValueChange={handleTabChange} value={activeTab}>
         <TabsList className="grid w-full grid-cols-2 sm:w-fit">
           <TabsTrigger value="members">成员</TabsTrigger>
           <TabsTrigger value="groups">招聘组</TabsTrigger>
@@ -1253,4 +1292,5 @@ export const Route = createFileRoute("/w/$slug/studio/members")({
   head: () => ({
     meta: [{ title: "工作区管理" }],
   }),
+  validateSearch: (search: Record<string, unknown>) => coerceWorkspaceManagementSearch(search),
 });
