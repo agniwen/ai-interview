@@ -1,5 +1,6 @@
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import { and, asc, eq, inArray, ne } from "drizzle-orm";
+import { uniq } from "lodash-es";
 import { z } from "zod";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import {
@@ -309,7 +310,7 @@ export async function listHumanInterviewMeetings({
         eq(studioHumanInterviewRound.interviewRecordId, interviewRecordId),
       ),
     );
-  const meetingIds = [...new Set(rows.map((row) => row.meetingId))];
+  const meetingIds = uniq(rows.map((row) => row.meetingId));
   if (meetingIds.length === 0) {
     return [];
   }
@@ -351,8 +352,8 @@ export async function createHumanInterviewMeeting({
   organizationId: string;
   createdBy: string | null;
 }): Promise<HumanInterviewMeetingRecord> {
-  const uniqueRoundIds = [...new Set(input.roundIds)];
-  const uniqueInterviewerIds = [...new Set(input.interviewerIds)];
+  const uniqueRoundIds = uniq(input.roundIds);
+  const uniqueInterviewerIds = uniq(input.interviewerIds);
   const rounds = await db
     .select({
       id: studioHumanInterviewRound.id,
@@ -780,7 +781,7 @@ export async function endHumanInterviewMeetingsByRound({
         inArray(studioHumanInterviewMeeting.status, ["scheduled", "in_progress"]),
       ),
     );
-  const meetingIds = [...new Set(meetingRows.map((meeting) => meeting.id))];
+  const meetingIds = uniq(meetingRows.map((meeting) => meeting.id));
   if (meetingIds.length === 0) {
     return [];
   }
@@ -797,7 +798,7 @@ export async function endHumanInterviewMeetingsByRound({
       ),
     );
 
-  return [...new Set(meetingRows.map((meeting) => meeting.liveKitRoomName))];
+  return uniq(meetingRows.map((meeting) => meeting.liveKitRoomName));
 }
 
 export async function endHumanInterviewMeetingByRoomName(roomName: string): Promise<void> {

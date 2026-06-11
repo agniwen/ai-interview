@@ -1,5 +1,6 @@
 import { zValidator } from "@hono/zod-validator";
 import { and, count, eq, inArray, notInArray } from "drizzle-orm";
+import { uniq } from "lodash-es";
 import { z } from "zod";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import {
@@ -75,7 +76,7 @@ async function validateReferences(
 }
 
 function dedupeInterviewerIds(ids: string[]): string[] {
-  return [...new Set(ids.map((id) => id.trim()).filter(Boolean))];
+  return uniq(ids.map((id) => id.trim()).filter(Boolean));
 }
 
 const jobDescriptionListQuerySchema = z.object({

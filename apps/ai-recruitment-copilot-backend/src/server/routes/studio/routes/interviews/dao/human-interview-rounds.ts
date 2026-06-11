@@ -6,6 +6,7 @@
 // auth + zod validation, then call into these helpers.
 
 import { and, asc, desc, eq, inArray } from "drizzle-orm";
+import { uniq } from "lodash-es";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import {
   studioHumanInterviewMeeting,
@@ -317,7 +318,7 @@ async function syncLinkedScheduledMeetingWindow({
     throw new EditRoundError("已开始、已结束或已取消的会议不能调整时间", 400);
   }
 
-  const meetingIds = [...new Set(linkedMeetings.map((meeting) => meeting.id))];
+  const meetingIds = uniq(linkedMeetings.map((meeting) => meeting.id));
   if (meetingIds.length === 0) {
     return;
   }
@@ -522,8 +523,8 @@ export async function cancelHumanInterviewRoundWithMeetings({
       throw new EditRoundError("进行中的会议不能取消，请先结束会议。", 400);
     }
 
-    const meetingIds = [...new Set(meetingRows.map((meeting) => meeting.id))];
-    deletedLiveKitRoomNames.push(...new Set(meetingRows.map((meeting) => meeting.liveKitRoomName)));
+    const meetingIds = uniq(meetingRows.map((meeting) => meeting.id));
+    deletedLiveKitRoomNames.push(...uniq(meetingRows.map((meeting) => meeting.liveKitRoomName)));
     if (meetingIds.length > 0) {
       await tx
         .delete(studioHumanInterviewMeeting)

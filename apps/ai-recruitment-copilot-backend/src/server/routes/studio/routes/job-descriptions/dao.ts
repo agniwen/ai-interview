@@ -6,6 +6,7 @@ import type {
 } from "@arc/shared/job-descriptions";
 import type { MinimaxVoiceId } from "@arc/db-schema/minimax-voices";
 import { and, asc, count, desc, eq, ilike, inArray, notInArray, or, sql } from "drizzle-orm";
+import { uniq } from "lodash-es";
 import { z } from "zod";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import {
@@ -108,7 +109,7 @@ async function resolveJdIdsForInterviewers(
       ),
     );
   // 任意一个面试官 → 该 JD 命中（OR 语义）/ Any matching interviewer surfaces the JD.
-  return [...new Set(rows.map((row) => row.jobDescriptionId))];
+  return uniq(rows.map((row) => row.jobDescriptionId));
 }
 
 function listJobDescriptionRows({

@@ -3,7 +3,7 @@
  * Object helpers. All functions are pure.
  */
 
-import { hasOwn } from "./guards";
+import { omit as lodashOmit, pick as lodashPick } from "lodash-es";
 
 /**
  * 从对象中挑选指定的若干键。
@@ -13,13 +13,10 @@ export function pick<T extends object, K extends keyof T>(
   source: T,
   keys: readonly K[],
 ): Pick<T, K> {
-  const result = {} as Pick<T, K>;
-  for (const key of keys) {
-    if (hasOwn(source, key)) {
-      result[key] = source[key];
-    }
-  }
-  return result;
+  return lodashPick(
+    source,
+    keys.filter((key) => Object.hasOwn(source, key)),
+  ) as Pick<T, K>;
 }
 
 /**
@@ -30,14 +27,7 @@ export function omit<T extends object, K extends keyof T>(
   source: T,
   keys: readonly K[],
 ): Omit<T, K> {
-  const banned = new Set<PropertyKey>(keys);
-  const result = {} as Omit<T, K>;
-  for (const key of Object.keys(source) as (keyof T)[]) {
-    if (!banned.has(key)) {
-      (result as Record<string, unknown>)[key as string] = source[key];
-    }
-  }
-  return result;
+  return lodashOmit(lodashPick(source, Object.keys(source)), keys) as Omit<T, K>;
 }
 
 /**

@@ -4,6 +4,7 @@ import type {
   ResumeProfile,
 } from "@arc/db-schema/interview/types";
 import { stepCountIs } from "ai";
+import { uniq } from "lodash-es";
 import { generatedInterviewQuestionsSchema } from "@arc/db-schema/interview/types";
 import {
   generateResumeStructured,
@@ -85,21 +86,7 @@ export class ResumeAnalysisError extends Error {
 }
 
 function uniqueStrings(values: string[]) {
-  const seen = new Set<string>();
-  const output: string[] = [];
-
-  for (const value of values) {
-    const normalized = value.trim();
-
-    if (!normalized || seen.has(normalized)) {
-      continue;
-    }
-
-    seen.add(normalized);
-    output.push(normalized);
-  }
-
-  return output;
+  return uniq(values.map((value) => value.trim()).filter(Boolean));
 }
 
 function trimToNull(value: string | null) {

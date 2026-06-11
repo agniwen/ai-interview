@@ -5,6 +5,7 @@ import { admin, genericOAuth } from "better-auth/plugins";
 import type { GenericOAuthConfig } from "better-auth/plugins";
 import { organization } from "better-auth/plugins/organization";
 import { and, eq } from "drizzle-orm";
+import { uniq } from "lodash-es";
 import { getAuthRequestHeaders } from "@arc/ai-recruitment-copilot-backend/lib/server/auth-request-context";
 import { ensureDefaultRecruitingGroupForWorkspace } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/workspace/dao";
 import { ac, roles } from "@arc/shared/permissions";
@@ -39,7 +40,7 @@ function canAssignWorkspaceRole(invokerRole: string, targetRole: string): boolea
 }
 
 const baseURL = process.env.BETTER_AUTH_URL ?? "http://localhost:3000";
-const trustedOrigins = [...new Set([baseURL, "http://localhost:3000"])];
+const trustedOrigins = uniq([baseURL, "http://localhost:3000"]);
 
 function pickFirstNonEmpty(...values: (string | undefined)[]): string | undefined {
   return values.find((v) => typeof v === "string" && v.length > 0);
