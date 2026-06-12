@@ -7,6 +7,7 @@ import {
   generateResumeReview,
   parseResumeBytesToProfile,
 } from "@arc/ai-recruitment-copilot-backend/server/agents/resume-analysis-agent";
+import { isResumeParseCacheEnabled } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-parse-cache-policy";
 import {
   claimNextPendingItem,
   claimPendingItemById,
@@ -28,7 +29,6 @@ import {
 import { createResumeRecordFromStorage } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/create-from-storage";
 import { syncResumeSkills } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/dao/skills";
 import { queryInterviewDedup } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/dao/studio-interviews";
-import { isResumeParseCacheEnabled } from "./cache-policy";
 
 const ERROR_MESSAGE_MAX = 500;
 
