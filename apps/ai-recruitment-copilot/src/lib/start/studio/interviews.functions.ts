@@ -3,6 +3,7 @@ import { z } from "zod";
 import type { JsonValue } from "@/lib/start/server-function-types";
 import { resolveWorkspaceAccessFromRequest } from "@/lib/start/auth-session.server";
 import { workspaceDataGridInputSchema } from "@/lib/start/server-fn-validators";
+import { resolveRecruitingVisibilityScope } from "@arc/ai-recruitment-copilot-backend/server/access/recruiting-visibility";
 import { loadStudioInterviewsHydrationState } from "./interviews.server";
 
 export interface InterviewFilters extends Record<string, string> {
@@ -39,10 +40,17 @@ export const loadStudioInterviewsState = createServerFn({ method: "GET" })
       return access;
     }
 
+    const visibilityScope = await resolveRecruitingVisibilityScope({
+      currentRole: access.member.role,
+      organizationId: access.workspace.id,
+      userId: access.user.id,
+    });
+
     return {
       dehydratedState: await loadStudioInterviewsHydrationState({
         query: data.query,
         slug: data.slug,
+        visibilityScope,
         workspaceId: access.workspace.id,
       }),
       status: "ready",

@@ -4,6 +4,7 @@ import { buildDataGridQueryKey } from "@/components/data-grid/query-contract";
 import type { JsonValue } from "@/lib/start/server-function-types";
 import { parseCsvParam } from "@arc/shared/csv";
 import { createQueryClient } from "@arc/shared/query-client";
+import type { RecruitingVisibilityScope } from "@arc/ai-recruitment-copilot-backend/server/access/recruiting-visibility";
 import {
   listInterviewRounds,
   summarizeInterviewRoundCounts,
@@ -13,10 +14,12 @@ import type { InterviewFilters } from "./interviews.functions";
 export async function loadStudioInterviewsHydrationState({
   query,
   slug,
+  visibilityScope,
   workspaceId,
 }: {
   query: DataGridQueryState<InterviewFilters>;
   slug: string;
+  visibilityScope: RecruitingVisibilityScope;
   workspaceId: string;
 }): Promise<JsonValue> {
   const queryClient = createQueryClient();
@@ -36,11 +39,12 @@ export async function loadStudioInterviewsHydrationState({
             sortBy: query.sortBy,
             sortOrder: query.sortOrder,
           },
+          visibilityScope,
         ),
       queryKey: buildDataGridQueryKey(["studio-interviews", slug], query),
     }),
     queryClient.prefetchQuery({
-      queryFn: () => summarizeInterviewRoundCounts(workspaceId),
+      queryFn: () => summarizeInterviewRoundCounts(workspaceId, visibilityScope),
       queryKey: ["studio-interviews", slug, "summary"] as const,
     }),
   ]);
