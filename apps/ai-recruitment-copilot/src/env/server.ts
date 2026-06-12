@@ -26,7 +26,7 @@ export const SERVER_ENV_NAMES = [
   "S3_KEY_PREFIX",
   "S3_REGION",
 ] as const;
-//
+
 export type ServerEnvName = (typeof SERVER_ENV_NAMES)[number];
 
 export function createServerEnv(runtimeEnv: Record<string, string | undefined>) {

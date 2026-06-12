@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createClientEnv } from "./client";
+import { createClientEnv } from "./client.schema";
 
 const configuredEnv = {
   NEXT_PUBLIC_AGENT_NAME: "interview-agent",
