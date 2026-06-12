@@ -13,6 +13,7 @@ import {
   buildSenderFromAddress,
   getResendClient,
 } from "@arc/ai-recruitment-copilot-backend/lib/server/resend";
+import { getRequiredEnv } from "@arc/ai-recruitment-copilot-backend/lib/server/env";
 import {
   InterviewSummaryCard,
   resolveHeaderTemplate,
@@ -54,7 +55,7 @@ function isFeishuProviderId(value: string): value is FeishuProviderId {
 }
 
 function buildStudioUrl(roundId: string, organizationSlug: string | null): string {
-  const baseUrl = process.env.BETTER_AUTH_URL ?? "http://localhost:3000";
+  const baseUrl = getRequiredEnv("BETTER_AUTH_URL");
   // 多租户路径：/w/[slug]/studio/interviews。query 用 ?roundId= 让名字与
   // 实际值 (studio_interview_schedule.id) 对齐。列表页 useEffect 会同时识别
   // ?roundId= 与历史的 ?recordId=,Panel 内部 resolver 兼容两种 id 类型。
@@ -272,8 +273,7 @@ async function claimNotification({
 }
 
 function buildPublicAssetUrl(path: string): string {
-  const baseUrl =
-    process.env.NEXT_PUBLIC_BASE_URL ?? process.env.BETTER_AUTH_URL ?? "http://localhost:3000";
+  const baseUrl = getRequiredEnv("NEXT_PUBLIC_BASE_URL");
   return `${baseUrl.replace(/\/$/, "")}${path}`;
 }
 

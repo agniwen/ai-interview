@@ -130,9 +130,10 @@ describe("TanStack Start migration patterns", () => {
       readSource("src/components/features/interview/interview-room.tsx"),
     ].join("\n");
 
-    expect(viteConfig).toContain('envPrefix: ["VITE_", "NEXT_PUBLIC_"]');
+    expect(viteConfig).toContain('envPrefix: ["NEXT_PUBLIC_"]');
     expect(clientSources).not.toContain("process.env.NEXT_PUBLIC_");
-    expect(clientSources).toContain("import.meta.env.NEXT_PUBLIC_");
+    expect(clientSources).not.toContain("import.meta.env.NEXT_PUBLIC_");
+    expect(clientSources).toContain("@/env/client");
   });
 
   it("does not keep Next-only client/server marker packages after migrating to TanStack Start", () => {

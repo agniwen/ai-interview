@@ -12,7 +12,7 @@ describe("Better Auth Hono client integration", () => {
   it("keeps the Better Auth React client cookie-aware for Hono-backed auth", () => {
     const source = readSource("lib/client/auth-client.ts");
 
-    expect(source).toContain("VITE_BETTER_AUTH_URL");
+    expect(source).toContain("NEXT_PUBLIC_BETTER_AUTH_URL");
     expect(source).toContain('credentials: "include"');
     expect(source).not.toContain("tanstackStartCookies");
   });

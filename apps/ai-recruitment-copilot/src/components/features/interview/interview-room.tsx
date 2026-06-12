@@ -18,7 +18,6 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { rpc } from "@/lib/client/rpc";
 import { AgentSessionProvider } from "@/components/agents-ui/agent-session-provider";
 import { AgentSessionView_01 } from "@/components/agents-ui/blocks/agent-session-view-01";
 import { StartAudioButton } from "@/components/agents-ui/start-audio-button";
@@ -35,6 +34,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Toaster } from "@/components/ui/sonner";
+import { env } from "@/env/client";
+import { rpc } from "@/lib/client/rpc";
 import { InterviewTimer } from "./interview-timer";
 import { PreInterviewFormsView } from "./pre-interview-forms-view";
 
@@ -688,8 +689,7 @@ export default function InterviewRoom({ interviewId, roundId }: InterviewRoomPro
     [interviewId, roundId],
   );
 
-  const agentName = import.meta.env.NEXT_PUBLIC_AGENT_NAME;
-  const session = useSession(tokenSource, agentName ? { agentName } : undefined);
+  const session = useSession(tokenSource, { agentName: env.NEXT_PUBLIC_AGENT_NAME });
 
   const isDisconnected = session.connectionState === ConnectionState.Disconnected;
   const isConnecting = session.connectionState === ConnectionState.Connecting;

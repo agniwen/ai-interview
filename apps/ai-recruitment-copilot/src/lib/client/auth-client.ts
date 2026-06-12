@@ -7,18 +7,10 @@ import {
 import { createAuthClient } from "better-auth/react";
 import type { auth } from "@arc/ai-recruitment-copilot-backend/lib/server/auth";
 import { ac, roles } from "@arc/shared/permissions";
-
-function getAuthBaseURL() {
-  return (
-    import.meta.env.VITE_BETTER_AUTH_URL ??
-    (typeof window === "undefined" ? undefined : window.location.origin)
-  );
-}
-
-const authBaseURL = getAuthBaseURL();
+import { env } from "@/env/client";
 
 export const authClient = createAuthClient({
-  ...(authBaseURL ? { baseURL: authBaseURL } : {}),
+  baseURL: env.NEXT_PUBLIC_BETTER_AUTH_URL,
   fetchOptions: {
     credentials: "include",
   },

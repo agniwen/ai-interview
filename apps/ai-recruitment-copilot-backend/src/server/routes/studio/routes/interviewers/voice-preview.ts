@@ -2,6 +2,7 @@ import type { MinimaxVoiceId } from "@arc/db-schema/minimax-voices";
 import { createHash, randomUUID } from "node:crypto";
 import { and, eq } from "drizzle-orm";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
+import { getRequiredEnv } from "@arc/ai-recruitment-copilot-backend/lib/server/env";
 import { putObjectBytes } from "@arc/ai-recruitment-copilot-backend/lib/server/s3";
 import { minimaxVoicePreview } from "@arc/db-schema/schema";
 
@@ -155,10 +156,7 @@ async function synthesizeAudio(input: {
     throw new Error("MINIMAX_API_KEY is not configured.");
   }
 
-  const baseUrl = (process.env.MINIMAX_TTS_BASE_URL?.trim() || "https://api.minimax.chat").replace(
-    /\/+$/,
-    "",
-  );
+  const baseUrl = getRequiredEnv("MINIMAX_TTS_BASE_URL").replace(/\/+$/, "");
   const response = await fetch(`${baseUrl}/v1/t2a_v2`, {
     body: JSON.stringify({
       audio_setting: {

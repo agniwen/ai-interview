@@ -2,6 +2,7 @@
 // Used as visual fallback for image-based PDF resumes.
 
 import OpenAI from "openai";
+import { getRequiredEnv } from "./env";
 
 const OCR_PROMPT =
   "请完整提取这张简历图片中的所有文字，包括所有图片、图表、表格中的文字。保持原始排版顺序，表格用文字形式还原。只输出提取的文字，不要解释。";
@@ -18,8 +19,7 @@ function getClient(): OpenAI {
   }
   cachedClient = new OpenAI({
     apiKey,
-    baseURL:
-      process.env.QWEN_OCR_BASE_URL?.trim() || "https://dashscope.aliyuncs.com/compatible-mode/v1",
+    baseURL: getRequiredEnv("QWEN_OCR_BASE_URL"),
   });
   return cachedClient;
 }
@@ -42,7 +42,7 @@ export async function qwenVlOcr(pngBytes: Buffer): Promise<string> {
         role: "user",
       },
     ],
-    model: process.env.QWEN_OCR_MODEL?.trim() || "qwen-vl-ocr-latest",
+    model: getRequiredEnv("QWEN_OCR_MODEL"),
     temperature: 0,
   });
   return response.choices[0]?.message?.content ?? "";
