@@ -8,10 +8,12 @@ const mocks = vi.hoisted(() => ({
   buildAttachmentKeyByHash: vi.fn(),
   createAttachment: vi.fn(),
   findAttachmentByContentHash: vi.fn(),
+  generateResumeStructured: vi.fn(),
   parseResumeFastToProfile: vi.fn(),
   projectAttachmentToResumeProfile: vi.fn(),
   putObjectBytes: vi.fn(),
   sha256HexOfBytes: vi.fn(),
+  updateStructuredByHash: vi.fn(),
 }));
 
 vi.mock("@arc/shared/file-hash", () => ({ sha256HexOfBytes: mocks.sha256HexOfBytes }));
@@ -22,6 +24,10 @@ vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/s3", () => ({
 vi.mock("@arc/ai-recruitment-copilot-backend/server/routes/chat/dao/chat-attachments", () => ({
   createAttachment: mocks.createAttachment,
   findAttachmentByContentHash: mocks.findAttachmentByContentHash,
+  updateStructuredByHash: mocks.updateStructuredByHash,
+}));
+vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/resume-parse-pipeline", () => ({
+  generateResumeStructured: mocks.generateResumeStructured,
 }));
 vi.mock("@arc/ai-recruitment-copilot-backend/server/agents/resume-analysis-agent", () => ({
   // ResumeAnalysisError 必须真实存在，因为函数内部 instanceof 它。
@@ -83,9 +89,16 @@ function makeFile(content = "pdf-bytes") {
 }
 
 describe("storeInterviewResume", () => {
+  const originalDisableCache = process.env.RESUME_PARSE_DISABLE_CACHE;
+
   beforeEach(() => {
     for (const fn of Object.values(mocks)) {
       fn.mockReset();
+    }
+    if (originalDisableCache === undefined) {
+      delete process.env.RESUME_PARSE_DISABLE_CACHE;
+    } else {
+      process.env.RESUME_PARSE_DISABLE_CACHE = originalDisableCache;
     }
     mocks.sha256HexOfBytes.mockResolvedValue(HASH);
     mocks.buildAttachmentKeyByHash.mockResolvedValue(STORAGE_KEY);
@@ -111,6 +124,41 @@ describe("storeInterviewResume", () => {
     expect(mocks.createAttachment.mock.calls[0]?.[0]).toMatchObject({
       contentHash: HASH,
       parsedStructured: { name: "郭靖" },
+      storageKey: STORAGE_KEY,
+      userId: "user-1",
+    });
+  });
+
+  it("cache disabled: ignores registry hit and parses the uploaded PDF", async () => {
+    process.env.RESUME_PARSE_DISABLE_CACHE = "true";
+    mocks.findAttachmentByContentHash.mockResolvedValue({
+      parsedStructured: { name: "缓存候选人" },
+      storageKey: "chat-attachments/cached.pdf",
+    });
+    mocks.projectAttachmentToResumeProfile.mockReturnValue({ name: "缓存候选人" } as never);
+    mocks.putObjectBytes.mockResolvedValue(undefined as never);
+    mocks.parseResumeFastToProfile.mockResolvedValue({
+      parsedPageCount: 1,
+      parsedStructured: { name: "新候选人" },
+      parsedText: "fresh raw",
+      parsedTextSource: "qwen-ocr",
+      resumeProfile: { name: "新候选人" } as never,
+    });
+
+    const result = await storeInterviewResume("interview-1", makeFile(), "user-1", "org-test");
+
+    expect(result).toEqual({
+      cachedResumeProfile: { name: "新候选人" },
+      contentHash: HASH,
+      storageKey: STORAGE_KEY,
+    });
+    expect(mocks.findAttachmentByContentHash).not.toHaveBeenCalled();
+    expect(mocks.projectAttachmentToResumeProfile).not.toHaveBeenCalled();
+    expect(mocks.putObjectBytes).toHaveBeenCalledTimes(1);
+    expect(mocks.parseResumeFastToProfile).toHaveBeenCalledTimes(1);
+    expect(mocks.createAttachment.mock.calls[0]?.[0]).toMatchObject({
+      contentHash: HASH,
+      parsedStructured: { name: "新候选人" },
       storageKey: STORAGE_KEY,
       userId: "user-1",
     });
