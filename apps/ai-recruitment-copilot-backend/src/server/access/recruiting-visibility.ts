@@ -78,7 +78,7 @@ export async function resolveRecruitingVisibilityScope({
   for (const row of groupRows) {
     const ownRank = ownRankByGroup.get(row.groupId) ?? 0;
     const targetRank = GROUP_ROLE_RANK[row.role] ?? 0;
-    if (targetRank < ownRank) {
+    if (ownRank >= GROUP_ROLE_RANK.recruitingLead && targetRank < ownRank) {
       visible.add(row.userId);
     }
   }
