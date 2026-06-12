@@ -1,6 +1,7 @@
 import type { JobDescriptionListRecord } from "@arc/shared/job-descriptions";
 import type { ResumeProfile } from "@arc/db-schema/interview/types";
 import { z } from "zod";
+import { getRequiredEnv } from "@arc/ai-recruitment-copilot-backend/lib/server/env";
 import { createResumeAgent } from "./resume-agent";
 
 const MATCH_INSTRUCTIONS = `你是一名招聘匹配助手。你会收到候选人的结构化简历信息与一份在招岗位候选列表，请从中挑选与候选人最匹配的一个。
@@ -113,7 +114,7 @@ export async function matchJobDescriptionForResume(
     return { jobDescriptionId: candidates[0].id, reason: "候选岗位只有一个，默认选择。" };
   }
 
-  const modelId = process.env.ALIBABA_STRUCTURED_MODEL?.trim() || "deepseek-v4-pro";
+  const modelId = getRequiredEnv("ALIBABA_STRUCTURED_MODEL");
   const agent = createResumeAgent({
     enableThinking: false,
     instructions: MATCH_INSTRUCTIONS,

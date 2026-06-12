@@ -1,4 +1,5 @@
 import startHandler, { createServerEntry } from "@tanstack/react-start/server-entry";
+import { applyServerEnv } from "./env/server";
 
 const globalWithCommonJsDirname = globalThis as typeof globalThis & {
   __dirname?: string;
@@ -36,6 +37,8 @@ function isHealthRequest(request: Request) {
 
 export default createServerEntry({
   async fetch(request, options) {
+    applyServerEnv();
+
     if (isHealthRequest(request)) {
       return Response.json({ ok: true });
     }

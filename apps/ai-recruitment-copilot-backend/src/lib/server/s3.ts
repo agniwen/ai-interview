@@ -1,4 +1,5 @@
 import type { S3Client } from "@aws-sdk/client-s3";
+import { getRequiredBooleanEnv, getRequiredEnv } from "./env";
 
 interface S3Config {
   accessKeyId: string;
@@ -10,20 +11,12 @@ interface S3Config {
   secretAccessKey: string;
 }
 
-function readBooleanEnv(name: string, defaultValue: boolean): boolean {
-  const value = process.env[name]?.trim().toLowerCase();
-  if (!value) {
-    return defaultValue;
-  }
-  return value === "1" || value === "true" || value === "yes";
-}
-
 function readConfig(): S3Config {
   const bucket = process.env.S3_BUCKET_NAME;
   const accessKeyId = process.env.S3_ACCESS_KEY_ID;
   const secretAccessKey = process.env.S3_SECRET_ACCESS_KEY;
   const endpoint = process.env.S3_ENDPOINT?.trim();
-  const region = process.env.S3_REGION?.trim() || "auto";
+  const region = getRequiredEnv("S3_REGION");
 
   if (!(bucket && accessKeyId && secretAccessKey && endpoint)) {
     throw new Error(
@@ -35,8 +28,8 @@ function readConfig(): S3Config {
     accessKeyId,
     bucket,
     endpoint,
-    forcePathStyle: readBooleanEnv("S3_FORCE_PATH_STYLE", false),
-    keyPrefix: process.env.S3_KEY_PREFIX?.trim() || "",
+    forcePathStyle: getRequiredBooleanEnv("S3_FORCE_PATH_STYLE"),
+    keyPrefix: getRequiredEnv("S3_KEY_PREFIX"),
     region,
     secretAccessKey,
   };
@@ -47,7 +40,7 @@ function readRecordingConfig(): S3Config {
   const accessKeyId = process.env.RECORDING_R2_ACCESS_KEY_ID;
   const secretAccessKey = process.env.RECORDING_R2_SECRET_ACCESS_KEY;
   const endpoint = process.env.RECORDING_R2_ENDPOINT?.trim();
-  const region = process.env.RECORDING_R2_REGION?.trim() || "auto";
+  const region = getRequiredEnv("RECORDING_R2_REGION");
 
   if (!(bucket && accessKeyId && secretAccessKey && endpoint)) {
     throw new Error(
@@ -59,8 +52,8 @@ function readRecordingConfig(): S3Config {
     accessKeyId,
     bucket,
     endpoint,
-    forcePathStyle: readBooleanEnv("RECORDING_R2_FORCE_PATH_STYLE", true),
-    keyPrefix: process.env.RECORDING_R2_KEY_PREFIX?.trim() || "",
+    forcePathStyle: getRequiredBooleanEnv("RECORDING_R2_FORCE_PATH_STYLE"),
+    keyPrefix: getRequiredEnv("RECORDING_R2_KEY_PREFIX"),
     region,
     secretAccessKey,
   };

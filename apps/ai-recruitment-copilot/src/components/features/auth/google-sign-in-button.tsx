@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { env } from "@/env/client";
 import { authClient } from "@/lib/client/auth-client";
 import { cn } from "@arc/shared/utils";
 import { GoogleIcon } from "./google-icon";
@@ -12,20 +13,14 @@ interface GoogleSignInButtonProps {
 }
 
 // 生产环境必须把 callbackURL 拼成绝对 URL，否则 better-auth 在做 Google OAuth 跳转
-// 时会把它落到错误的 host（服务端 baseURL fallback 到 localhost），导致登录回来跳
-// 到 localhost。优先用 NEXT_PUBLIC_BASE_URL，无 window 时（不会发生在客户端组件，
-// 留 fallback 仅为类型安全）才退回相对路径。
-// In production callbackURL must be absolute so better-auth doesn't resolve it
-// against a wrong base host (e.g. the server's localhost fallback) and ship the
-// user back to localhost after Google OAuth. Prefer NEXT_PUBLIC_BASE_URL; fall
-// back to window.location.origin for the rare case the env var is unset.
+// 时会把它落到错误的 host。NEXT_PUBLIC_BASE_URL 由 client env 显式校验。
+// In production callbackURL must be absolute so better-auth does not resolve it
+// against the wrong base host. NEXT_PUBLIC_BASE_URL is validated by client env.
 function toAbsoluteUrl(pathOrUrl: string): string {
   if (/^https?:\/\//i.test(pathOrUrl)) {
     return pathOrUrl;
   }
-  const base =
-    import.meta.env.NEXT_PUBLIC_BASE_URL ??
-    (typeof window === "undefined" ? "http://localhost:3000" : window.location.origin);
+  const base = env.NEXT_PUBLIC_BASE_URL;
   const normalizedBase = base.replace(/\/+$/, "");
   const normalizedPath = pathOrUrl.startsWith("/") ? pathOrUrl : `/${pathOrUrl}`;
   return `${normalizedBase}${normalizedPath}`;

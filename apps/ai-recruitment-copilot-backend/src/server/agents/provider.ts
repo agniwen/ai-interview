@@ -1,13 +1,12 @@
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
+import { getRequiredEnv } from "@arc/ai-recruitment-copilot-backend/lib/server/env";
 
 export interface CreateAlibabaProviderOptions {
   enableThinking?: boolean;
 }
 
 function getAlibabaBaseURL(): string {
-  return (
-    process.env.ALIBABA_BASE_URL?.trim() || "https://dashscope.aliyuncs.com/compatible-mode/v1"
-  );
+  return getRequiredEnv("ALIBABA_BASE_URL");
 }
 
 export function createAlibabaProvider({

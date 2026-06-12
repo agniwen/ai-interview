@@ -84,13 +84,13 @@ Next.js dev cache 会持有旧模块引用，不清的话 picker 可能短时间
 
 ## 同步检查项（容易漏的）
 
-| 文件                                                                                             | 检查点                                                                                                             |
-| ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------ |
-| `apps/ai-recruitment-copilot-backend/src/server/agents/chat-models.config.ts`                    | `LOCAL_CHAT_MODELS` + `LOCAL_DEFAULT_MODEL_ID`                                                                     |
-| `apps/ai-recruitment-copilot/src/app/(auth)/w/[slug]/chat/_atoms/model.ts`                       | `SESSION_MODEL_FALLBACK_ID` 是否还在清单里                                                                         |
-| `apps/ai-recruitment-copilot/src/lib/client/api/endpoints/resume.ts`                             | `ChatModelOption` 字段形状跟 server 端是否一致                                                                     |
-| `apps/ai-recruitment-copilot/src/app/(auth)/w/[slug]/chat/_components/composer/model-picker.tsx` | 如果新增了 provider，要更新 `PROVIDER_ORDER` / `PROVIDER_LABEL` / `PROVIDER_LOGO_SLUG`                             |
-| `apps/ai-recruitment-copilot-backend/src/server/agents/resume-agent.ts`                          | `process.env.ALIBABA_MODEL ?? "..."` 的硬编码 fallback 是否还能用（**简历筛选 agent 专用**，跟 picker 是独立通路） |
+| 文件                                                                                             | 检查点                                                                                                                                |
+| ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `apps/ai-recruitment-copilot-backend/src/server/agents/chat-models.config.ts`                    | `LOCAL_CHAT_MODELS` + `LOCAL_DEFAULT_MODEL_ID`                                                                                        |
+| `apps/ai-recruitment-copilot/src/app/(auth)/w/[slug]/chat/_atoms/model.ts`                       | `SESSION_MODEL_FALLBACK_ID` 是否还在清单里                                                                                            |
+| `apps/ai-recruitment-copilot/src/lib/client/api/endpoints/resume.ts`                             | `ChatModelOption` 字段形状跟 server 端是否一致                                                                                        |
+| `apps/ai-recruitment-copilot/src/app/(auth)/w/[slug]/chat/_components/composer/model-picker.tsx` | 如果新增了 provider，要更新 `PROVIDER_ORDER` / `PROVIDER_LABEL` / `PROVIDER_LOGO_SLUG`                                                |
+| `apps/ai-recruitment-copilot-backend/src/server/agents/resume-agent.ts`                          | `ALIBABA_MODEL` 由 TanStack Start env 管理注入；不要在 agent 里重新加硬编码 fallback（**简历筛选 agent 专用**，跟 picker 是独立通路） |
 
 ## 反模式（不要做）
 

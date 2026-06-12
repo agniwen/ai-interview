@@ -15,6 +15,7 @@ import {
   buildAttachmentKeyByHash,
   putObjectBytes,
 } from "@arc/ai-recruitment-copilot-backend/lib/server/s3";
+import { getRequiredEnv } from "@arc/ai-recruitment-copilot-backend/lib/server/env";
 import { sha256HexOfBytes } from "@arc/shared/file-hash";
 import {
   createAttachment,
@@ -346,7 +347,7 @@ export function streamGenerateInterviewQuestions(
   return createNdjsonStream(async (emit) => {
     emit({ message: "正在生成面试题…", type: "status" });
 
-    const structuredModelId = process.env.ALIBABA_STRUCTURED_MODEL?.trim() || "deepseek-v4-pro";
+    const structuredModelId = getRequiredEnv("ALIBABA_STRUCTURED_MODEL");
 
     const questionAgent = createResumeAgent({
       enableThinking: false,
@@ -444,7 +445,7 @@ export async function generateInterviewQuestionsForProfile(
   resumeProfile: ResumeProfile,
 ): Promise<ResumeAnalysisResult["interviewQuestions"]> {
   try {
-    const structuredModelId = process.env.ALIBABA_STRUCTURED_MODEL?.trim() || "deepseek-v4-pro";
+    const structuredModelId = getRequiredEnv("ALIBABA_STRUCTURED_MODEL");
     const questionAgent = createResumeAgent({
       enableThinking: false,
       instructions: QUESTION_INSTRUCTIONS,
@@ -522,7 +523,7 @@ function buildResumeReviewPrompt(input: {
 }
 
 function createResumeReviewAgent() {
-  const structuredModelId = process.env.ALIBABA_STRUCTURED_MODEL?.trim() || "deepseek-v4-pro";
+  const structuredModelId = getRequiredEnv("ALIBABA_STRUCTURED_MODEL");
   return createResumeAgent({
     enableThinking: false,
     instructions: REVIEW_INSTRUCTIONS,

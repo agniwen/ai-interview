@@ -15,7 +15,7 @@ const bullmqDependencyPathPattern =
   /[/\\]node_modules[/\\](?:\.pnpm[/\\])?bullmq@|[/\\]node_modules[/\\]bullmq[/\\]/;
 
 export default defineConfig({
-  envPrefix: ["VITE_", "NEXT_PUBLIC_"],
+  envPrefix: ["NEXT_PUBLIC_"],
   optimizeDeps: {
     include: [
       "@tanstack/react-form",
@@ -23,7 +23,6 @@ export default defineConfig({
       "@tanstack/react-router",
       "@tanstack/react-router-ssr-query",
       "clsx",
-      "date-fns",
       "dayjs",
       "lucide-react",
       "sonner",

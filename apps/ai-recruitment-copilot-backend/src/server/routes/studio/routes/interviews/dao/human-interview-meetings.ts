@@ -3,6 +3,7 @@ import { and, asc, eq, inArray, ne } from "drizzle-orm";
 import { uniq } from "lodash-es";
 import { z } from "zod";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
+import { getRequiredEnv } from "@arc/ai-recruitment-copilot-backend/lib/server/env";
 import {
   studioHumanInterviewMeeting,
   studioHumanInterviewMeetingInterviewer,
@@ -90,11 +91,11 @@ function resolveValidUntilInput({
 }
 
 function getInviteSecret(): string {
-  const secret = process.env.BETTER_AUTH_SECRET ?? process.env.LIVEKIT_API_SECRET;
-  if (!secret) {
+  try {
+    return getRequiredEnv("BETTER_AUTH_SECRET");
+  } catch {
     throw new HumanInterviewMeetingError("邀请链接签名密钥未配置。", 500);
   }
-  return secret;
 }
 
 function signInvitePayload(encodedPayload: string): string {

@@ -7,6 +7,7 @@ import { organization } from "better-auth/plugins/organization";
 import { and, eq } from "drizzle-orm";
 import { uniq } from "lodash-es";
 import { getAuthRequestHeaders } from "@arc/ai-recruitment-copilot-backend/lib/server/auth-request-context";
+import { getRequiredEnv } from "@arc/ai-recruitment-copilot-backend/lib/server/env";
 import { ensureDefaultRecruitingGroupForWorkspace } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/workspace/dao";
 import { ac, roles } from "@arc/shared/permissions";
 import { db } from "./db";
@@ -39,7 +40,7 @@ function canAssignWorkspaceRole(invokerRole: string, targetRole: string): boolea
   );
 }
 
-const baseURL = process.env.BETTER_AUTH_URL ?? "http://localhost:3000";
+const baseURL = getRequiredEnv("BETTER_AUTH_URL");
 const trustedOrigins = uniq([baseURL, "http://localhost:3000"]);
 
 function pickFirstNonEmpty(...values: (string | undefined)[]): string | undefined {
@@ -366,13 +367,13 @@ export const auth = betterAuth({
     genericOAuth({
       config: [
         buildFeishuOAuthProvider({
-          appId: process.env.FEISHU_APP_ID ?? "",
-          appSecret: process.env.FEISHU_APP_SECRET ?? "",
+          appId: getRequiredEnv("FEISHU_APP_ID"),
+          appSecret: getRequiredEnv("FEISHU_APP_SECRET"),
           providerId: "feishu",
         }),
         buildFeishuOAuthProvider({
-          appId: process.env.FEISHU_APP_ID2 ?? "",
-          appSecret: process.env.FEISHU_APP_SECRET2 ?? "",
+          appId: getRequiredEnv("FEISHU_APP_ID2"),
+          appSecret: getRequiredEnv("FEISHU_APP_SECRET2"),
           providerId: "feishu-jiguang-hr",
         }),
       ],
@@ -525,8 +526,8 @@ export const auth = betterAuth({
   },
   socialProviders: {
     google: {
-      clientId: process.env.GOOGLE_CLIENT_ID ?? "",
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? "",
+      clientId: getRequiredEnv("GOOGLE_CLIENT_ID"),
+      clientSecret: getRequiredEnv("GOOGLE_CLIENT_SECRET"),
     },
   },
   trustedOrigins,

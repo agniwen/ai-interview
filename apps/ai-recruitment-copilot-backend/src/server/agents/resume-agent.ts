@@ -1,5 +1,6 @@
 import type { PrepareStepFunction, StopCondition, ToolSet } from "ai";
 import { stepCountIs, ToolLoopAgent } from "ai";
+import { getRequiredEnv } from "@arc/ai-recruitment-copilot-backend/lib/server/env";
 import { withDevTools } from "./devtools";
 import { createAlibabaProvider } from "./provider";
 
@@ -26,7 +27,7 @@ export interface CreateResumeAgentOptions<TOOLS extends ToolSet> {
 export function createResumeAgent<TOOLS extends ToolSet>({
   instructions,
   tools,
-  modelId = process.env.ALIBABA_MODEL?.trim() || "deepseek-v4-pro",
+  modelId = getRequiredEnv("ALIBABA_MODEL"),
   enableThinking = true,
   stopWhen = stepCountIs(1),
   temperature,

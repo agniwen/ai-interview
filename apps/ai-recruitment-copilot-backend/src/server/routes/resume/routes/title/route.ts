@@ -1,6 +1,7 @@
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { zValidator } from "@hono/zod-validator";
 import { generateText } from "ai";
+import { getRequiredEnv } from "@arc/ai-recruitment-copilot-backend/lib/server/env";
 import { withDevTools } from "@arc/ai-recruitment-copilot-backend/server/agents/devtools";
 import { factory } from "@arc/ai-recruitment-copilot-backend/server/factory";
 import { resumeTitleRequestSchema } from "@arc/ai-recruitment-copilot-backend/server/routes/resume/schema";
@@ -22,8 +23,7 @@ export const titleRouter = factory
       );
     }
 
-    const baseURL =
-      process.env.ALIBABA_BASE_URL?.trim() || "https://dashscope.aliyuncs.com/compatible-mode/v1";
+    const baseURL = getRequiredEnv("ALIBABA_BASE_URL");
 
     const provider = createOpenAICompatible({
       apiKey,
@@ -35,7 +35,7 @@ export const titleRouter = factory
       }),
     });
 
-    const modelId = process.env.ALIBABA_FAST_MODEL?.trim() || "deepseek-v4-flash";
+    const modelId = getRequiredEnv("ALIBABA_FAST_MODEL");
 
     try {
       const { text: titleText } = await generateText({

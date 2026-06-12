@@ -8,6 +8,7 @@ import { parseJsonOutput } from "@arc/ai-recruitment-copilot-backend/server/agen
 import { createAlibabaProvider } from "@arc/ai-recruitment-copilot-backend/server/agents/provider";
 import { structuredSchema } from "@arc/db-schema/resume-parser-schema";
 import type { ResumeParserStructured } from "@arc/db-schema/resume-parser-schema";
+import { getRequiredEnv } from "./env";
 import { rasterizePdfWithMeta } from "./pdf-rasterize";
 import { isQwenOcrConfigured, qwenVlOcr } from "./qwen-ocr";
 
@@ -205,10 +206,9 @@ async function qwenVlOcrWithRetry(png: Buffer, page: number): Promise<string> {
 export async function generateResumeStructured(text: string): Promise<ResumeParserStructured> {
   const startedAt = nowMs();
   const provider = createAlibabaProvider({ enableThinking: false });
-  const modelId = process.env.ALIBABA_STRUCTURED_MODEL?.trim() || "deepseek-v4-pro";
+  const modelId = getRequiredEnv("ALIBABA_STRUCTURED_MODEL");
   devOcrLog("structured start", {
-    baseUrl:
-      process.env.ALIBABA_BASE_URL?.trim() || "https://dashscope.aliyuncs.com/compatible-mode/v1",
+    baseUrl: getRequiredEnv("ALIBABA_BASE_URL"),
     inputChars: text.length,
     model: modelId,
   });

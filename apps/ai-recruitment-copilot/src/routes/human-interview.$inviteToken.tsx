@@ -10,7 +10,11 @@ interface HumanInterviewCandidateState {
 }
 
 function getBaseUrl() {
-  return process.env.NEXT_PUBLIC_BASE_URL ?? process.env.BETTER_AUTH_URL ?? "http://localhost:3000";
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL;
+  if (!baseUrl) {
+    throw new Error("NEXT_PUBLIC_BASE_URL is not configured.");
+  }
+  return baseUrl;
 }
 
 const loadHumanInterviewCandidateState = createServerFn({ method: "GET" })

@@ -2,6 +2,7 @@ import { gateway, generateObject, generateText } from "ai";
 import { z } from "zod";
 import type { InterviewTranscriptTurn } from "@arc/db-schema/interview-session";
 import type { InterviewQuestion } from "@arc/db-schema/interview/types";
+import { getRequiredEnv } from "@arc/ai-recruitment-copilot-backend/lib/server/env";
 import { createAlibabaProvider } from "@arc/ai-recruitment-copilot-backend/server/agents/provider";
 
 const SUMMARY_PROMPT = `你是一位面试报告撰写助手。请根据以下面试对话记录，使用面试对话的主要语言撰写一段篇幅相当于中文 200-300 字的面试摘要。
@@ -88,8 +89,8 @@ export async function generateInterviewReport(options: {
   }
 
   const provider = createAlibabaProvider({ enableThinking: false });
-  const summaryModelId = process.env.ALIBABA_FAST_MODEL?.trim() || "deepseek-v4-flash";
-  const evaluationModelId = process.env.INTERVIEW_EVALUATION_MODEL ?? "google/gemini-2.5-flash";
+  const summaryModelId = getRequiredEnv("ALIBABA_FAST_MODEL");
+  const evaluationModelId = getRequiredEnv("INTERVIEW_EVALUATION_MODEL");
 
   const transcriptText = formatTranscript(transcript);
   const questionsText = formatQuestions(questions);
