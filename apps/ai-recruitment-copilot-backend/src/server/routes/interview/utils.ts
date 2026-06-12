@@ -35,6 +35,7 @@ import {
   buildAttachmentKeyByHash,
   putObjectBytes,
 } from "@arc/ai-recruitment-copilot-backend/lib/server/s3";
+import { isResumeParseCacheEnabled } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-parse-cache-policy";
 
 export type StudioInterviewRow = typeof studioInterview.$inferSelect;
 export type StudioInterviewScheduleRow = typeof studioInterviewSchedule.$inferSelect;
@@ -245,7 +246,9 @@ export async function storeInterviewResume(
     //       backfill all rows sharing the hash via updateStructuredByHash.
     //   3C. neither structured nor text (shouldn't happen in practice) → fall
     //       through to the miss branch and re-run the full parse.
-    const existing = await findAttachmentByContentHash(contentHash);
+    const existing = isResumeParseCacheEnabled()
+      ? await findAttachmentByContentHash(contentHash)
+      : null;
     if (existing?.parsedStructured) {
       const cached = projectAttachmentToResumeProfile(existing.parsedStructured);
       if (cached) {

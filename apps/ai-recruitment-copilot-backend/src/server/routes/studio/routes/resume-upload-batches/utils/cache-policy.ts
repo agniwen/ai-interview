@@ -1,4 +1,1 @@
-export function isResumeParseCacheEnabled(env: Record<string, string | undefined>): boolean {
-  const raw = env.RESUME_PARSE_DISABLE_CACHE?.trim().toLowerCase();
-  return !(raw === "1" || raw === "true" || raw === "yes");
-}
+export { isResumeParseCacheEnabled } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-parse-cache-policy";
