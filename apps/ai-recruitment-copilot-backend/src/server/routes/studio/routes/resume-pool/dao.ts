@@ -60,6 +60,12 @@ export interface ImportPoolItemInput {
   poolItemId: string;
 }
 
+export interface DeletePrivatePoolItemInput {
+  organizationId: string;
+  poolItemId: string;
+  userId: string;
+}
+
 function normalizeSkills(skills: readonly string[] | null | undefined): string[] {
   return [
     ...new Set(
@@ -455,4 +461,23 @@ export async function importPoolItemToResumeLibrary(
   });
 
   return { resumeRecordId, status: "imported" };
+}
+
+export async function deletePrivatePoolItem(input: DeletePrivatePoolItemInput): Promise<void> {
+  const deleted = await db
+    .delete(resumePoolItem)
+    .where(
+      and(
+        eq(resumePoolItem.id, input.poolItemId),
+        eq(resumePoolItem.scope, "private"),
+        eq(resumePoolItem.status, "active"),
+        eq(resumePoolItem.organizationId, input.organizationId),
+        eq(resumePoolItem.createdBy, input.userId),
+      ),
+    )
+    .returning({ id: resumePoolItem.id });
+
+  if (deleted.length === 0) {
+    throw new Error("私有简历不存在或无权删除");
+  }
 }
