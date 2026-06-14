@@ -1,6 +1,5 @@
 import { promisify } from "node:util";
 import { serve } from "@hono/node-server";
-import { config as loadEnv } from "dotenv";
 import {
   closeResumeParseQueue,
   createResumeParseWorker,
@@ -8,9 +7,10 @@ import {
 } from "@arc/resume-parse-queue/resume-parse";
 import { createWorkerApp } from "./app";
 import { resolveWorkerServerConfig } from "./config";
+import { getWorkerConnectionSummary, loadWorkerEnv } from "./env";
 import { getResumeParseConfigSummary } from "./parse-config";
 
-loadEnv();
+loadWorkerEnv();
 
 async function recoverIncompleteResumeParseJobs(): Promise<void> {
   const { recoverIncompleteBatchItems } =
@@ -59,6 +59,7 @@ async function main() {
   }
 
   console.info(`[worker] listening on http://${hostname}:${port}`);
+  console.info("[worker] connection config", getWorkerConnectionSummary());
   console.info("[worker] resume parse config", getResumeParseConfigSummary());
 
   const shutdown = (signal: NodeJS.Signals) => {

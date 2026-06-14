@@ -4,6 +4,7 @@ import {
   createRedisConnectionFromUrl,
   defaultResumeParseJobOptions,
   resumeParseJobSchema,
+  shouldRemoveExistingResumeParseJob,
 } from "./resume-parse";
 
 describe("resume parse queue configuration", () => {
@@ -41,5 +42,13 @@ describe("resume parse queue configuration", () => {
   it("builds BullMQ-compatible custom job ids", () => {
     expect(buildResumeParseJobId("item:with:colon")).toBe("item-with-colon");
     expect(buildResumeParseJobId("item:with:colon")).not.toContain(":");
+  });
+
+  it("allows terminal retained jobs to be replaced on resume", () => {
+    expect(shouldRemoveExistingResumeParseJob("completed")).toBe(true);
+    expect(shouldRemoveExistingResumeParseJob("failed")).toBe(true);
+    expect(shouldRemoveExistingResumeParseJob("waiting")).toBe(false);
+    expect(shouldRemoveExistingResumeParseJob("active")).toBe(false);
+    expect(shouldRemoveExistingResumeParseJob("delayed")).toBe(false);
   });
 });

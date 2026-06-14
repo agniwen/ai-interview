@@ -82,12 +82,28 @@ export function buildResumeParseJobId(itemId: string): string {
   return itemId.replaceAll(":", "-");
 }
 
+export function shouldRemoveExistingResumeParseJob(state: string | null | undefined): boolean {
+  return state === "completed" || state === "failed";
+}
+
 export async function enqueueResumeParseJobs(jobs: ResumeParseJobData[]): Promise<void> {
   if (jobs.length === 0) {
     return;
   }
   const q = getResumeParseQueue();
   const options = defaultResumeParseJobOptions();
+  await Promise.all(
+    jobs.map(async (data) => {
+      const job = await q.getJob(buildResumeParseJobId(data.itemId));
+      if (!job) {
+        return;
+      }
+      const state = await job.getState();
+      if (shouldRemoveExistingResumeParseJob(state)) {
+        await job.remove();
+      }
+    }),
+  );
   await q.addBulk(
     jobs.map((data) => ({
       data,
