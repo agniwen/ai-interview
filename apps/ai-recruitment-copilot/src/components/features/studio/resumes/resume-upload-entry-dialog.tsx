@@ -11,10 +11,14 @@ import { MAX_BULK_BATCH_SIZE, MAX_RESUME_FILE_SIZE_BYTES } from "@arc/shared/bul
 
 interface ResumeUploadEntryDialogProps {
   disabled?: boolean;
+  description?: string;
+  fileUploadDescription?: string;
+  fileUploadTitle?: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSingleFilePicked: (file: File) => void;
   onMultipleFilesPicked: (files: File[]) => void;
+  title?: string;
 }
 
 function validateResumeFiles(files: File[]) {
@@ -40,10 +44,14 @@ function validateResumeFiles(files: File[]) {
 
 export function ResumeUploadEntryDialog({
   disabled = false,
+  description = "选择 1 份 PDF 会创建单条简历记录；选择多份 PDF 会进入批量上传流程。",
+  fileUploadDescription = `可选择 1 份或多份 PDF；多份将进入批量上传，最多 ${MAX_BULK_BATCH_SIZE} 份。`,
+  fileUploadTitle = "请选择 1 份或多份 PDF 简历",
   open,
   onMultipleFilesPicked,
   onOpenChange,
   onSingleFilePicked,
+  title = "上传简历",
 }: ResumeUploadEntryDialogProps) {
   const handledSelectionRef = useRef(false);
   const [uploadResetKey, setUploadResetKey] = useState(0);
@@ -81,7 +89,7 @@ export function ResumeUploadEntryDialog({
 
   return (
     <Modal
-      description="选择 1 份 PDF 会创建单条简历记录；选择多份 PDF 会进入批量上传流程。"
+      description={description}
       footer={
         <Button onClick={() => handleOpenChange(false)} type="button" variant="outline">
           取消
@@ -90,14 +98,14 @@ export function ResumeUploadEntryDialog({
       onOpenChange={handleOpenChange}
       open={open}
       size="md"
-      title="上传简历"
+      title={title}
     >
       <FileUpload
         accept="application/pdf,.pdf"
         acceptedFileTypes={[{ icon: Upload01Icon, label: "PDF" }]}
         ariaLabel="选择要上传的简历 PDF"
         browseLabel="选择 PDF"
-        description={`可选择 1 份或多份 PDF；多份将进入批量上传，最多 ${MAX_BULK_BATCH_SIZE} 份。`}
+        description={fileUploadDescription}
         disabled={disabled}
         draggingLabel="松开上传 PDF"
         maxFiles={MAX_BULK_BATCH_SIZE}
@@ -110,7 +118,7 @@ export function ResumeUploadEntryDialog({
         rejectionLabel="仅支持上传 PDF 文件"
         resetKey={uploadResetKey}
         showFileList={false}
-        title="请选择 1 份或多份 PDF 简历"
+        title={fileUploadTitle}
       />
     </Modal>
   );

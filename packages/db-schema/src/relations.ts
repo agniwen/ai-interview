@@ -271,6 +271,66 @@ export const relations = defineRelations(schema, (r) => ({
     studioRoundEmailLogs: r.many.studioRoundEmailLog(),
     workspaceInviteLinks: r.many.workspaceInviteLink(),
   },
+  resumePoolEvent: {
+    actor: r.one.user({
+      from: r.resumePoolEvent.actorId,
+      to: r.user.id,
+    }),
+    organization: r.one.organization({
+      from: r.resumePoolEvent.organizationId,
+      to: r.organization.id,
+    }),
+    poolItem: r.one.resumePoolItem({
+      from: r.resumePoolEvent.poolItemId,
+      to: r.resumePoolItem.id,
+    }),
+  },
+  resumePoolImport: {
+    importedByUser: r.one.user({
+      from: r.resumePoolImport.importedBy,
+      to: r.user.id,
+    }),
+    importedResumeRecord: r.one.studioInterview({
+      from: r.resumePoolImport.importedResumeRecordId,
+      to: r.studioInterview.id,
+    }),
+    organization: r.one.organization({
+      from: r.resumePoolImport.organizationId,
+      to: r.organization.id,
+    }),
+    poolItem: r.one.resumePoolItem({
+      from: r.resumePoolImport.poolItemId,
+      to: r.resumePoolItem.id,
+    }),
+  },
+  resumePoolItem: {
+    createdByUser: r.one.user({
+      from: r.resumePoolItem.createdBy,
+      to: r.user.id,
+    }),
+    events: r.many.resumePoolEvent(),
+    imports: r.many.resumePoolImport(),
+    jobDescription: r.one.jobDescription({
+      from: r.resumePoolItem.jobDescriptionId,
+      to: r.jobDescription.id,
+    }),
+    organization: r.one.organization({
+      from: r.resumePoolItem.organizationId,
+      to: r.organization.id,
+    }),
+    publishedByUser: r.one.user({
+      from: r.resumePoolItem.publishedBy,
+      to: r.user.id,
+    }),
+    sourceOrganization: r.one.organization({
+      from: r.resumePoolItem.sourceOrganizationId,
+      to: r.organization.id,
+    }),
+    sourceUser: r.one.user({
+      from: r.resumePoolItem.sourceUserId,
+      to: r.user.id,
+    }),
+  },
   session: {
     user: r.one.user({
       from: r.session.userId,
@@ -347,6 +407,11 @@ export const relations = defineRelations(schema, (r) => ({
     }),
     roundEmailLogs: r.many.studioRoundEmailLog(),
     scheduleEntries: r.many.studioInterviewSchedule(),
+    sourcePoolImports: r.many.resumePoolImport(),
+    sourcePoolItem: r.one.resumePoolItem({
+      from: r.studioInterview.resumeSourcePoolItemId,
+      to: r.resumePoolItem.id,
+    }),
     user: r.one.user({
       from: r.studioInterview.createdBy,
       to: r.user.id,

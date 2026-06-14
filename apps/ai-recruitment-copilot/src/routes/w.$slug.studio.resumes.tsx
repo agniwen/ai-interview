@@ -356,22 +356,28 @@ function ResumeLibraryPage({ metrics }: { metrics: ResumeLibraryMetrics }) {
     queryKey: ["bulk-resume-batches", slug],
     refetchInterval: 10_000,
   });
+  const libraryBatches = useMemo(
+    () =>
+      (batchListQuery.data ?? []).filter(
+        (batch) => (batch.target ?? "resume_library") === "resume_library",
+      ),
+    [batchListQuery.data],
+  );
   const uploadEntryDisabled = bulk.state.phase === "uploading";
-  const hasActiveUploadBatches =
-    batchListQuery.data?.some(
-      (batch) => batch.status === "pending" || batch.status === "running",
-    ) ?? false;
+  const hasActiveUploadBatches = libraryBatches.some(
+    (batch) => batch.status === "pending" || batch.status === "running",
+  );
 
   useEffect(() => {
-    const hasActiveBatch = batchListQuery.data?.some(
+    const hasActiveBatch = libraryBatches.some(
       (batch) => batch.status === "pending" || batch.status === "running",
     );
     if (hasActiveBatch) {
       void queryClient.invalidateQueries({ queryKey: ["studio-resumes"] });
     }
-  }, [batchListQuery.data, queryClient]);
+  }, [libraryBatches, queryClient]);
 
-  async function handleOpenBatch(batch: NonNullable<typeof batchListQuery.data>[number]) {
+  async function handleOpenBatch(batch: (typeof libraryBatches)[number]) {
     setProgressOpen(true);
     if (batch.status === "pending" || batch.status === "running") {
       await bulk.resume(batch.id);
@@ -1151,7 +1157,7 @@ function ResumeLibraryPage({ metrics }: { metrics: ResumeLibraryMetrics }) {
       />
 
       <UploadBatchListDialog
-        batches={batchListQuery.data ?? []}
+        batches={libraryBatches}
         isLoading={batchListQuery.isLoading}
         onOpenBatch={handleOpenBatch}
         onOpenChange={setBatchListOpen}

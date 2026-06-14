@@ -1,6 +1,11 @@
 import { and, eq } from "drizzle-orm";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
-import { resumeUploadBatch, resumeUploadBatchItem, studioInterview } from "@arc/db-schema/schema";
+import {
+  resumePoolItem,
+  resumeUploadBatch,
+  resumeUploadBatchItem,
+  studioInterview,
+} from "@arc/db-schema/schema";
 import type { ProcessNextResult } from "@arc/shared/bulk-resume-upload";
 import { getObjectStream } from "@arc/ai-recruitment-copilot-backend/lib/server/s3";
 import {
@@ -26,6 +31,10 @@ import {
   listAllJobDescriptions,
   loadJobDescriptionById,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao";
+import {
+  createResumePoolItem,
+  markResumePoolItemParsed,
+} from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resume-pool/dao";
 import { createResumeRecordFromStorage } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/create-from-storage";
 import { syncResumeSkills } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/dao/skills";
 import { queryInterviewDedup } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/dao/studio-interviews";
@@ -50,6 +59,19 @@ function elapsed(startedAt: number): number {
 type ItemRow = Awaited<ReturnType<typeof claimNextPendingItem>>;
 type BatchRow = typeof resumeUploadBatch.$inferSelect;
 type ParsedResume = Awaited<ReturnType<typeof parseResumeBytesToProfile>>;
+
+async function loadClaimMissSnapshot(itemId: string) {
+  const [row] = await db
+    .select({
+      batchId: resumeUploadBatchItem.batchId,
+      startedAt: resumeUploadBatchItem.startedAt,
+      status: resumeUploadBatchItem.status,
+    })
+    .from(resumeUploadBatchItem)
+    .where(eq(resumeUploadBatchItem.id, itemId))
+    .limit(1);
+  return row ?? null;
+}
 
 // 拿到 resumeProfile 的两条路径：
 //   1) 命中注册表 → 投影 parsedStructured（零额外调用）
@@ -256,10 +278,15 @@ async function generateReviewForParsedResume(input: {
 // Fetch PDF from S3, parse it, and return the info needed to create a studio_interview.
 async function fetchAndParse(
   item: NonNullable<ItemRow>,
-  batchRow: { dedupPolicy: string; jdMode: string; jobDescriptionId: string | null },
+  batchRow: BatchRow,
   organizationId: string,
   userId: string,
-): Promise<{ succeededRecordId: string | null; dedupSnapshot: unknown; isDuplicateSkip: boolean }> {
+): Promise<{
+  succeededPoolItemId: string | null;
+  succeededRecordId: string | null;
+  dedupSnapshot: unknown;
+  isDuplicateSkip: boolean;
+}> {
   if (!item.storageKey || item.storageKey.length === 0) {
     // 防御性检查：理论上 Zod + chat_attachment notNull 都已校验，但兜底一次
     // 给出可读错误信息，避免被 AWS SDK 抛"No value provided for input HTTP label: Key"。
@@ -270,6 +297,40 @@ async function fetchAndParse(
   }
 
   const { resumeProfile } = await resolveResumeProfile(item);
+
+  if (batchRow.target === "resume_pool") {
+    let { poolItemId } = item;
+    if (poolItemId) {
+      await markResumePoolItemParsed({
+        actorId: userId,
+        organizationId,
+        poolItemId,
+        resumeProfile,
+      });
+    } else {
+      poolItemId = await createResumePoolItem({
+        candidateEmail: null,
+        candidateName: null,
+        candidatePhone: null,
+        contentHash: item.contentHash,
+        createdBy: userId,
+        jobDescriptionId: null,
+        notes: null,
+        organizationId,
+        resumeFileName: item.originalFileName,
+        resumeProfile,
+        scope: batchRow.resumePoolScope ?? "private",
+        storageKey: item.storageKey,
+        targetRole: null,
+      });
+    }
+    return {
+      dedupSnapshot: null,
+      isDuplicateSkip: false,
+      succeededPoolItemId: poolItemId,
+      succeededRecordId: null,
+    };
+  }
 
   // 查重 / Dedup check
   if (batchRow.dedupPolicy === "skip") {
@@ -286,7 +347,12 @@ async function fetchAndParse(
       matchCount: matches.length,
     });
     if (matches.length > 0) {
-      return { dedupSnapshot: matches, isDuplicateSkip: true, succeededRecordId: null };
+      return {
+        dedupSnapshot: matches,
+        isDuplicateSkip: true,
+        succeededPoolItemId: null,
+        succeededRecordId: null,
+      };
     }
   }
 
@@ -340,7 +406,12 @@ async function fetchAndParse(
     resumeProfile,
     userId,
   });
-  return { dedupSnapshot: null, isDuplicateSkip: false, succeededRecordId };
+  return {
+    dedupSnapshot: null,
+    isDuplicateSkip: false,
+    succeededPoolItemId: null,
+    succeededRecordId,
+  };
 }
 
 // 結果を DB に書き戻し、batch カウンターを更新する。
@@ -352,6 +423,7 @@ async function writeOutcome(
     dedupSnapshot: unknown;
     errorMessage: string | null;
     isDuplicateSkip: boolean;
+    succeededPoolItemId: string | null;
     succeededRecordId: string | null;
   },
 ): Promise<void> {
@@ -380,6 +452,16 @@ async function writeOutcome(
           })
           .where(eq(studioInterview.id, item.resumeRecordId));
       }
+      if (item.poolItemId) {
+        await tx
+          .update(resumePoolItem)
+          .set({
+            resumeParseError: outcome.errorMessage,
+            resumeParseStatus: "failed",
+            updatedAt: now,
+          })
+          .where(eq(resumePoolItem.id, item.poolItemId));
+      }
       await tx
         .update(resumeUploadBatchItem)
         .set({ errorMessage: outcome.errorMessage, finishedAt: now, status: "failed" })
@@ -402,6 +484,7 @@ async function writeOutcome(
         .update(resumeUploadBatchItem)
         .set({
           finishedAt: now,
+          poolItemId: outcome.succeededPoolItemId,
           resumeRecordId: outcome.succeededRecordId,
           status: "succeeded",
         })
@@ -436,16 +519,19 @@ async function processClaimedItem(
     batchId: batchRow.id,
     itemId: item.id,
     jdMode: batchRow.jdMode,
+    target: batchRow.target,
   });
   let outcome: {
     dedupSnapshot: unknown;
     errorMessage: string | null;
     isDuplicateSkip: boolean;
+    succeededPoolItemId: string | null;
     succeededRecordId: string | null;
   } = {
     dedupSnapshot: null,
     errorMessage: null,
     isDuplicateSkip: false,
+    succeededPoolItemId: null,
     succeededRecordId: null,
   };
 
@@ -504,7 +590,15 @@ export async function processBatchItem(itemId: string): Promise<ProcessNextResul
   });
 
   if (!claimed) {
-    logStep("job.claim.empty", { durationMs: elapsed(startedAt), itemId });
+    const snapshot = await loadClaimMissSnapshot(itemId);
+    logStep("job.claim.empty", {
+      batchId: snapshot?.batchId,
+      durationMs: elapsed(startedAt),
+      itemFound: Boolean(snapshot),
+      itemId,
+      itemStartedAt: snapshot?.startedAt?.toISOString(),
+      itemStatus: snapshot?.status,
+    });
     return null;
   }
   logStep("job.claim.done", {

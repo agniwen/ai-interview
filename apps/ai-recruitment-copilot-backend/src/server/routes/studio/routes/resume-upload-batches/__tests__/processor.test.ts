@@ -14,6 +14,7 @@ import {
 import {
   member,
   organization,
+  resumePoolItem,
   resumeUploadBatch,
   resumeUploadBatchItem,
   studioInterview,
@@ -92,6 +93,17 @@ function makeFiles(n: number) {
   }));
 }
 
+async function expectQueuedPoolItem(poolItemId: string | null | undefined) {
+  expect(poolItemId).toBeTruthy();
+  const [queuedPoolItem] = await db
+    .select()
+    .from(resumePoolItem)
+    .where(eq(resumePoolItem.id, poolItemId ?? ""));
+  expect(queuedPoolItem?.candidateName).toBe("resume_0");
+  expect(queuedPoolItem?.resumeParseStatus).toBe("queued");
+  expect(queuedPoolItem?.resumeProfile).toBeNull();
+}
+
 async function createQueuedSingleItemBatch() {
   const batchId = await insertBatchWithItems({
     dedupPolicy: "skip",
@@ -143,6 +155,7 @@ async function cleanup() {
   // 直接清理 org 下的 studio_interview（含 dedup 测试中手动插入的行）。
   // Also clean any studio_interview rows directly under the org (e.g. pre-inserted dedup rows).
   await db.delete(studioInterview).where(eq(studioInterview.organizationId, ORG_A));
+  await db.delete(resumePoolItem).where(eq(resumePoolItem.organizationId, ORG_A));
 
   await db.delete(resumeUploadBatch).where(eq(resumeUploadBatch.organizationId, ORG_A));
   await db.delete(member).where(eq(member.userId, USER_A));
@@ -240,6 +253,64 @@ describe("processNextItem — happy path", () => {
     expect(result?.batch.processedCount).toBe(1);
     expect(result?.batch.succeededCount).toBe(1);
     expect(result?.batch.status).toBe("completed");
+  });
+});
+
+describe("processNextItem — resume pool target", () => {
+  it("target=resume_pool → 创建简历池条目，不创建简历库候选人记录", async () => {
+    const batchId = await insertBatchWithItems({
+      dedupPolicy: "create",
+      files: makeFiles(1),
+      jdMode: "none",
+      jobDescriptionId: null,
+      organizationId: ORG_A,
+      resumePoolScope: "private",
+      target: "resume_pool",
+      userId: USER_A,
+    });
+
+    const [beforeItem] = await db
+      .select()
+      .from(resumeUploadBatchItem)
+      .where(eq(resumeUploadBatchItem.batchId, batchId));
+    expect(beforeItem?.resumeRecordId).toBeNull();
+    await expectQueuedPoolItem(beforeItem?.poolItemId);
+    const recordsBefore = await db
+      .select()
+      .from(studioInterview)
+      .where(eq(studioInterview.organizationId, ORG_A));
+
+    mockS3OK();
+    mockParseOK({
+      email: "pool@example.com",
+      name: "Pool User",
+      phone: "13900000000",
+      targetRoles: ["Product Manager"],
+    });
+
+    const result = await processNextItem(batchId, ORG_A, USER_A);
+
+    expect(result?.item?.status).toBe("succeeded");
+    expect(result?.item?.resumeRecordId).toBeNull();
+    expect(result?.item?.poolItemId).toBe(beforeItem?.poolItemId);
+    expect(result?.batch.status).toBe("completed");
+
+    const records = await db
+      .select()
+      .from(studioInterview)
+      .where(eq(studioInterview.organizationId, ORG_A));
+    expect(records).toHaveLength(recordsBefore.length);
+
+    const poolItems = await db
+      .select()
+      .from(resumePoolItem)
+      .where(eq(resumePoolItem.organizationId, ORG_A));
+    expect(poolItems).toHaveLength(1);
+    expect(poolItems[0]?.scope).toBe("private");
+    expect(poolItems[0]?.candidateName).toBe("Pool User");
+    expect(poolItems[0]?.candidateEmail).toBe("pool@example.com");
+    expect(poolItems[0]?.targetRole).toBe("Product Manager");
+    expect(poolItems[0]?.resumeParseStatus).toBe("ready");
   });
 });
 
