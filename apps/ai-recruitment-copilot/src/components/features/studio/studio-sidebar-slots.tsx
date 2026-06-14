@@ -6,6 +6,7 @@ import {
   Building2Icon,
   ClipboardListIcon,
   FileTextIcon,
+  LayoutGridIcon,
   ListChecksIcon,
   SettingsIcon,
   UserIcon,
@@ -56,6 +57,13 @@ const navGroups: NavGroup[] = [
         path: "/studio/resumes",
         resource: "resume",
         title: "简历库",
+      },
+      {
+        action: "read",
+        icon: LayoutGridIcon,
+        path: "/studio/resume-pool",
+        resource: "resume",
+        title: "简历广场",
       },
       {
         action: "read",

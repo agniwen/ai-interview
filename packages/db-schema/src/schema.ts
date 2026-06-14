@@ -426,6 +426,18 @@ export const studioInterview = pgTable(
       .default("ready"),
     resumeParsedAt: timestamp("resume_parsed_at", { withTimezone: true }),
     resumeProfile: jsonb("resume_profile").$type<ResumeProfile | null>(),
+    // 简历进入简历库的来源。直传 / 我的简历池 / 公共简历池 / 聊天入库 / API 入库。
+    // Source metadata for resume-library rows; keeps the existing workflow
+    // intact while preserving provenance for pool imports.
+    resumeSourceImportedAt: timestamp("resume_source_imported_at", { withTimezone: true }),
+    resumeSourceImportedBy: text("resume_source_imported_by").references(() => user.id, {
+      onDelete: "set null",
+    }),
+    // oxlint-disable-next-line no-use-before-define -- drizzle-orm resolves refs lazily at runtime
+    resumeSourcePoolItemId: text("resume_source_pool_item_id").references(() => resumePoolItem.id, {
+      onDelete: "set null",
+    }),
+    resumeSourceType: text("resume_source_type").$type<StudioInterviewResumeSourceType>(),
     resumeStorageKey: text("resume_storage_key"),
     // 派生自 resume_profile->'skills'：trim + 连续空白折叠为单空格 + lowercase 后的数组。
     // GIN 索引支持 `@>` 包含匹配。display 形态保存在 studioOrgSkill 表里，每 org 一份。
@@ -476,11 +488,20 @@ export const studioInterview = pgTable(
     ),
     index("studio_interview_resume_content_hash_idx").on(table.resumeContentHash),
     index("studio_interview_resume_parse_status_idx").on(table.resumeParseStatus),
+    index("studio_interview_resume_source_pool_item_idx").on(table.resumeSourcePoolItemId),
+    index("studio_interview_resume_source_type_idx").on(table.resumeSourceType),
     index("studio_interview_skills_normalized_idx")
       .using("gin", table.skillsNormalized)
       .concurrently(),
   ],
 );
+
+export type StudioInterviewResumeSourceType =
+  | "direct_upload"
+  | "private_pool"
+  | "public_pool"
+  | "chat_import"
+  | "api_import";
 
 // 每组织的技能 canonical 表：
 // - `normalized` 是归一化键（lowercase + 折叠空白），作为 PK 的一部分
@@ -920,9 +941,128 @@ export const studioOfferDraft = pgTable(
   ],
 );
 
+export type ResumePoolScope = "private" | "public";
+export type ResumePoolStatus = "active" | "archived";
+export type ResumePoolEventType =
+  | "created"
+  | "parsed"
+  | "published"
+  | "imported"
+  | "archived"
+  | "restored";
+
+export const resumePoolItem = pgTable(
+  "resume_pool_item",
+  {
+    candidateEmail: text("candidate_email"),
+    candidateName: text("candidate_name").notNull(),
+    candidatePhone: text("candidate_phone"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
+    id: text("id").primaryKey(),
+    jobDescriptionId: text("job_description_id").references(() => jobDescription.id, {
+      onDelete: "set null",
+    }),
+    notes: text("notes"),
+    organizationId: text("organization_id").references(() => organization.id, {
+      onDelete: "set null",
+    }),
+    publishedAt: timestamp("published_at", { withTimezone: true }),
+    publishedBy: text("published_by").references(() => user.id, { onDelete: "set null" }),
+    resumeContentHash: text("resume_content_hash"),
+    resumeFileName: text("resume_file_name"),
+    resumeParseError: text("resume_parse_error"),
+    resumeParseStatus: text("resume_parse_status")
+      .$type<ResumeParseStatus>()
+      .notNull()
+      .default("ready"),
+    resumeParsedAt: timestamp("resume_parsed_at", { withTimezone: true }),
+    resumeProfile: jsonb("resume_profile").$type<ResumeProfile | null>(),
+    resumeStorageKey: text("resume_storage_key"),
+    scope: text("scope").$type<ResumePoolScope>().notNull(),
+    skillsNormalized: text("skills_normalized")
+      .array()
+      .notNull()
+      .default(sql`'{}'::text[]`),
+    sourceOrganizationId: text("source_organization_id").references(() => organization.id, {
+      onDelete: "set null",
+    }),
+    sourcePoolItemId: text("source_pool_item_id"),
+    sourceUserId: text("source_user_id").references(() => user.id, { onDelete: "set null" }),
+    status: text("status").$type<ResumePoolStatus>().notNull().default("active"),
+    targetRole: text("target_role"),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+  },
+  (table) => [
+    index("resume_pool_item_scope_created_idx").on(table.scope, table.createdAt),
+    index("resume_pool_item_org_user_scope_created_idx").on(
+      table.organizationId,
+      table.createdBy,
+      table.scope,
+      table.createdAt,
+    ),
+    index("resume_pool_item_resume_content_hash_idx").on(table.resumeContentHash),
+    index("resume_pool_item_resume_parse_status_idx").on(table.resumeParseStatus),
+    index("resume_pool_item_source_pool_item_idx").on(table.sourcePoolItemId),
+    index("resume_pool_item_skills_normalized_idx").using("gin", table.skillsNormalized),
+  ],
+);
+
+export const resumePoolImport = pgTable(
+  "resume_pool_import",
+  {
+    id: text("id").primaryKey(),
+    importedAt: timestamp("imported_at", { withTimezone: true }).defaultNow().notNull(),
+    importedBy: text("imported_by").references(() => user.id, { onDelete: "set null" }),
+    importedResumeRecordId: text("imported_resume_record_id")
+      .notNull()
+      .references(() => studioInterview.id, { onDelete: "cascade" }),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    poolItemId: text("pool_item_id")
+      .notNull()
+      .references(() => resumePoolItem.id, { onDelete: "cascade" }),
+  },
+  (table) => [
+    uniqueIndex("resume_pool_import_pool_org_record_uq").on(
+      table.poolItemId,
+      table.organizationId,
+      table.importedResumeRecordId,
+    ),
+    index("resume_pool_import_pool_org_idx").on(table.poolItemId, table.organizationId),
+    index("resume_pool_import_record_idx").on(table.importedResumeRecordId),
+  ],
+);
+
+export const resumePoolEvent = pgTable(
+  "resume_pool_event",
+  {
+    actorId: text("actor_id").references(() => user.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    id: text("id").primaryKey(),
+    organizationId: text("organization_id").references(() => organization.id, {
+      onDelete: "set null",
+    }),
+    payload: jsonb("payload"),
+    poolItemId: text("pool_item_id")
+      .notNull()
+      .references(() => resumePoolItem.id, { onDelete: "cascade" }),
+    type: text("type").$type<ResumePoolEventType>().notNull(),
+  },
+  (table) => [
+    index("resume_pool_event_pool_created_idx").on(table.poolItemId, table.createdAt),
+    index("resume_pool_event_org_created_idx").on(table.organizationId, table.createdAt),
+  ],
+);
+
 export type ResumeUploadBatchStatus = "pending" | "running" | "completed" | "cancelled";
 export type ResumeUploadBatchJdMode = "bind" | "auto" | "none";
 export type ResumeUploadBatchDedupPolicy = "skip" | "create";
+export type ResumeUploadBatchTarget = "resume_library" | "resume_pool";
 export type ResumeUploadBatchItemStatus =
   | "pending"
   | "processing"
@@ -951,9 +1091,11 @@ export const resumeUploadBatch = pgTable(
       .notNull()
       .references(() => organization.id, { onDelete: "cascade" }),
     processedCount: integer("processed_count").notNull().default(0),
+    resumePoolScope: text("resume_pool_scope").$type<ResumePoolScope>(),
     skippedCount: integer("skipped_count").notNull().default(0),
     status: text("status").$type<ResumeUploadBatchStatus>().notNull(),
     succeededCount: integer("succeeded_count").notNull().default(0),
+    target: text("target").$type<ResumeUploadBatchTarget>().notNull().default("resume_library"),
     totalCount: integer("total_count").notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true })
       .defaultNow()
@@ -990,6 +1132,9 @@ export const resumeUploadBatchItem = pgTable(
     orderIndex: integer("order_index").notNull(),
     organizationId: text("organization_id").notNull(),
     originalFileName: text("original_file_name").notNull(),
+    poolItemId: text("pool_item_id").references(() => resumePoolItem.id, {
+      onDelete: "set null",
+    }),
     queueJobId: text("queue_job_id"),
     queuedAt: timestamp("queued_at", { withTimezone: true }),
     resumeRecordId: text("resume_record_id").references(() => studioInterview.id, {

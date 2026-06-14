@@ -87,6 +87,9 @@ export const resumeUploadBatchesRouter = factory
       if (!isResumeParseQueueConfigured()) {
         return c.json({ error: "简历解析队列未配置 REDIS_URL。" }, 503);
       }
+      if (input.target === "resume_pool" && !input.resumePoolScope) {
+        return c.json({ error: "简历池上传必须选择归属范围。" }, 400);
+      }
       if (input.jdMode === "bind") {
         if (!input.jobDescriptionId) {
           return c.json({ error: "绑定模式必须选择岗位。" }, 400);
@@ -131,6 +134,8 @@ export const resumeUploadBatchesRouter = factory
         jdMode: input.jdMode,
         jobDescriptionId: input.jobDescriptionId ?? null,
         organizationId: activeOrg.id,
+        resumePoolScope: input.resumePoolScope ?? null,
+        target: input.target,
         userId: user.id,
       });
       const detail = await loadBatchDetail(batchId, activeOrg.id, user.id);

@@ -26,7 +26,10 @@ interface Props {
 
 // 状态 → 标签文本 + Badge variant 映射。
 // Maps item status to display label and Badge variant.
-function itemStatusLabel(status: BulkResumeBatchItemDto["status"]): {
+function itemStatusLabel(
+  status: BulkResumeBatchItemDto["status"],
+  target: "resume_library" | "resume_pool",
+): {
   label: string;
   variant: "success" | "secondary" | "destructive" | "outline";
 } {
@@ -38,7 +41,7 @@ function itemStatusLabel(status: BulkResumeBatchItemDto["status"]): {
       return { label: "处理中", variant: "secondary" };
     }
     case "succeeded": {
-      return { label: "已入库", variant: "success" };
+      return { label: target === "resume_pool" ? "已加入" : "已入库", variant: "success" };
     }
     case "failed": {
       return { label: "失败", variant: "destructive" };
@@ -84,6 +87,7 @@ export function BulkUploadProgressDialog({
   const { phase, detail } = state;
   const batch = detail?.batch;
   const items = detail?.items ?? [];
+  const target = batch?.target ?? "resume_library";
 
   const total = batch?.totalCount ?? state.uploadStatus.length;
   const processed =
@@ -99,13 +103,13 @@ export function BulkUploadProgressDialog({
       return "正在上传文件…";
     }
     if (phase === "processing") {
-      return "正在批量入库";
+      return target === "resume_pool" ? "正在加入简历广场" : "正在批量入库";
     }
     if (phase === "paused") {
       return "已暂停";
     }
     if (phase === "completed") {
-      return "批量入库完成";
+      return target === "resume_pool" ? "简历加入完成" : "批量入库完成";
     }
     if (phase === "cancelled") {
       return "批次已取消";
@@ -145,7 +149,7 @@ export function BulkUploadProgressDialog({
     return (
       <div className="flex justify-end gap-2">
         <Button onClick={onAbort} type="button" variant="ghost">
-          稍后再说
+          关闭
         </Button>
         <Button onClick={onCancel} type="button" variant="destructive">
           取消批次
@@ -172,7 +176,7 @@ export function BulkUploadProgressDialog({
         onOpenChange(next);
       }}
       open={open}
-      showCloseButton={isTerminal}
+      showCloseButton
       size="lg"
       title={title}
     >
@@ -208,7 +212,7 @@ export function BulkUploadProgressDialog({
                     </li>
                   ))
                 : items.map((item) => {
-                    const meta = itemStatusLabel(item.status);
+                    const meta = itemStatusLabel(item.status, target);
                     return (
                       <li
                         className="flex items-center justify-between gap-3 rounded px-2 py-1 hover:bg-background/60"

@@ -1,7 +1,18 @@
 import { and, asc, desc, eq, inArray, lt, or, sql } from "drizzle-orm";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
-import { resumeUploadBatch, resumeUploadBatchItem, studioInterview } from "@arc/db-schema/schema";
-import type { ResumeUploadBatchItemStatus, ResumeUploadBatchStatus } from "@arc/db-schema/schema";
+import {
+  resumePoolEvent,
+  resumePoolItem,
+  resumeUploadBatch,
+  resumeUploadBatchItem,
+  studioInterview,
+} from "@arc/db-schema/schema";
+import type {
+  ResumePoolScope,
+  ResumeUploadBatchItemStatus,
+  ResumeUploadBatchStatus,
+  ResumeUploadBatchTarget,
+} from "@arc/db-schema/schema";
 import { DEFAULT_RESUME_PARSE_STALE_PROCESSING_SECONDS } from "@arc/shared/bulk-resume-upload";
 import type {
   BulkResumeBatchDetailDto,
@@ -23,9 +34,11 @@ export function toBatchDto(row: BatchRow): BulkResumeBatchDto {
     jdMode: row.jdMode,
     jobDescriptionId: row.jobDescriptionId,
     processedCount: row.processedCount,
+    resumePoolScope: row.resumePoolScope,
     skippedCount: row.skippedCount,
     status: row.status,
     succeededCount: row.succeededCount,
+    target: row.target,
     totalCount: row.totalCount,
     updatedAt: row.updatedAt.toISOString(),
   };
@@ -41,6 +54,7 @@ export function toItemDto(row: ItemRow): BulkResumeBatchItemDto {
     id: row.id,
     orderIndex: row.orderIndex,
     originalFileName: row.originalFileName,
+    poolItemId: row.poolItemId,
     resumeRecordId: row.resumeRecordId,
     startedAt: row.startedAt ? row.startedAt.toISOString() : null,
     status: row.status,
@@ -53,6 +67,8 @@ export interface CreateBatchInput {
   jdMode: "bind" | "auto" | "none";
   jobDescriptionId: string | null;
   dedupPolicy: "skip" | "create";
+  resumePoolScope?: ResumePoolScope | null;
+  target?: ResumeUploadBatchTarget;
   files: { storageKey: string; originalFileName: string; fileSize: number; contentHash: string }[];
 }
 
@@ -68,6 +84,8 @@ function candidateNameFromFileName(fileName: string): string {
 export async function insertBatchWithItems(input: CreateBatchInput): Promise<string> {
   const batchId = crypto.randomUUID();
   const now = new Date();
+  const target = input.target ?? "resume_library";
+  const scope = input.resumePoolScope ?? "private";
   await db.transaction(async (tx) => {
     await tx.insert(resumeUploadBatch).values({
       createdAt: now,
@@ -77,7 +95,9 @@ export async function insertBatchWithItems(input: CreateBatchInput): Promise<str
       jdMode: input.jdMode,
       jobDescriptionId: input.jobDescriptionId,
       organizationId: input.organizationId,
+      resumePoolScope: target === "resume_pool" ? scope : null,
       status: "pending",
+      target,
       totalCount: input.files.length,
       updatedAt: now,
     });
@@ -85,34 +105,85 @@ export async function insertBatchWithItems(input: CreateBatchInput): Promise<str
       file: f,
       itemId: crypto.randomUUID(),
       orderIndex: i,
-      recordId: crypto.randomUUID(),
+      poolItemId: target === "resume_pool" ? crypto.randomUUID() : null,
+      recordId: target === "resume_library" ? crypto.randomUUID() : null,
     }));
-    await tx.insert(studioInterview).values(
-      rows.map(({ file, recordId }) => ({
-        candidateEmail: null,
-        candidateName: candidateNameFromFileName(file.originalFileName),
-        candidatePhone: null,
-        createdAt: now,
-        createdBy: input.userId,
-        id: recordId,
-        interviewQuestions: [],
-        jobDescriptionId: input.jobDescriptionId,
-        notes: null,
-        organizationId: input.organizationId,
-        resumeContentHash: file.contentHash,
-        resumeFileName: file.originalFileName,
-        resumeParseError: null,
-        resumeParseStatus: "queued" as const,
-        resumeParsedAt: null,
-        resumeProfile: null,
-        resumeStorageKey: file.storageKey,
-        status: "draft" as const,
-        targetRole: null,
-        updatedAt: now,
-      })),
+    const placeholderRows = rows.filter(
+      (row): row is typeof row & { recordId: string } => row.recordId !== null,
     );
+    if (placeholderRows.length > 0) {
+      await tx.insert(studioInterview).values(
+        placeholderRows.map(({ file, recordId }) => ({
+          candidateEmail: null,
+          candidateName: candidateNameFromFileName(file.originalFileName),
+          candidatePhone: null,
+          createdAt: now,
+          createdBy: input.userId,
+          id: recordId,
+          interviewQuestions: [],
+          jobDescriptionId: input.jobDescriptionId,
+          notes: null,
+          organizationId: input.organizationId,
+          resumeContentHash: file.contentHash,
+          resumeFileName: file.originalFileName,
+          resumeParseError: null,
+          resumeParseStatus: "queued" as const,
+          resumeParsedAt: null,
+          resumeProfile: null,
+          resumeStorageKey: file.storageKey,
+          status: "draft" as const,
+          targetRole: null,
+          updatedAt: now,
+        })),
+      );
+    }
+    const poolRows = rows.filter(
+      (row): row is typeof row & { poolItemId: string } => row.poolItemId !== null,
+    );
+    if (poolRows.length > 0) {
+      await tx.insert(resumePoolItem).values(
+        poolRows.map(({ file, poolItemId }) => ({
+          candidateEmail: null,
+          candidateName: candidateNameFromFileName(file.originalFileName),
+          candidatePhone: null,
+          createdAt: now,
+          createdBy: input.userId,
+          id: poolItemId,
+          jobDescriptionId: null,
+          notes: null,
+          organizationId: input.organizationId,
+          publishedAt: scope === "public" ? now : null,
+          publishedBy: scope === "public" ? input.userId : null,
+          resumeContentHash: file.contentHash,
+          resumeFileName: file.originalFileName,
+          resumeParseError: null,
+          resumeParseStatus: "queued" as const,
+          resumeParsedAt: null,
+          resumeProfile: null,
+          resumeStorageKey: file.storageKey,
+          scope,
+          skillsNormalized: [],
+          sourceOrganizationId: scope === "public" ? input.organizationId : null,
+          sourcePoolItemId: null,
+          sourceUserId: scope === "public" ? input.userId : null,
+          status: "active" as const,
+          targetRole: null,
+          updatedAt: now,
+        })),
+      );
+      await tx.insert(resumePoolEvent).values(
+        poolRows.map(({ poolItemId }) => ({
+          actorId: input.userId,
+          createdAt: now,
+          id: crypto.randomUUID(),
+          organizationId: input.organizationId,
+          poolItemId,
+          type: "created" as const,
+        })),
+      );
+    }
     await tx.insert(resumeUploadBatchItem).values(
-      rows.map(({ file, itemId, orderIndex, recordId }) => ({
+      rows.map(({ file, itemId, orderIndex, poolItemId, recordId }) => ({
         batchId,
         contentHash: file.contentHash,
         fileSize: file.fileSize,
@@ -120,6 +191,7 @@ export async function insertBatchWithItems(input: CreateBatchInput): Promise<str
         orderIndex,
         organizationId: input.organizationId,
         originalFileName: file.originalFileName,
+        poolItemId,
         queuedAt: now,
         resumeRecordId: recordId,
         status: "pending" as ResumeUploadBatchItemStatus,
@@ -313,6 +385,12 @@ export async function claimNextPendingItem(tx: Tx, batchId: string): Promise<Ite
       .set({ resumeParseError: null, resumeParseStatus: "processing", updatedAt: now })
       .where(eq(studioInterview.id, row.resumeRecordId));
   }
+  if (row.poolItemId) {
+    await tx
+      .update(resumePoolItem)
+      .set({ resumeParseError: null, resumeParseStatus: "processing", updatedAt: now })
+      .where(eq(resumePoolItem.id, row.poolItemId));
+  }
   await tx
     .update(resumeUploadBatch)
     .set({ status: "running", updatedAt: now })
@@ -349,6 +427,12 @@ export async function claimPendingItemById(tx: Tx, itemId: string): Promise<Item
       .update(studioInterview)
       .set({ resumeParseError: null, resumeParseStatus: "processing", updatedAt: now })
       .where(eq(studioInterview.id, row.resumeRecordId));
+  }
+  if (row.poolItemId) {
+    await tx
+      .update(resumePoolItem)
+      .set({ resumeParseError: null, resumeParseStatus: "processing", updatedAt: now })
+      .where(eq(resumePoolItem.id, row.poolItemId));
   }
   await tx
     .update(resumeUploadBatch)
@@ -392,7 +476,10 @@ export async function reviveOrphans(
       return;
     }
     const orphanItems = await tx
-      .select({ resumeRecordId: resumeUploadBatchItem.resumeRecordId })
+      .select({
+        poolItemId: resumeUploadBatchItem.poolItemId,
+        resumeRecordId: resumeUploadBatchItem.resumeRecordId,
+      })
       .from(resumeUploadBatchItem)
       .where(orphanCondition);
     const orphanRecordIds = orphanItems.flatMap((item) =>
@@ -403,6 +490,15 @@ export async function reviveOrphans(
         .update(studioInterview)
         .set({ resumeParseError: null, resumeParseStatus: "queued", updatedAt: new Date() })
         .where(inArray(studioInterview.id, orphanRecordIds));
+    }
+    const orphanPoolItemIds = orphanItems.flatMap((item) =>
+      item.poolItemId ? [item.poolItemId] : [],
+    );
+    if (orphanPoolItemIds.length > 0) {
+      await tx
+        .update(resumePoolItem)
+        .set({ resumeParseError: null, resumeParseStatus: "queued", updatedAt: new Date() })
+        .where(inArray(resumePoolItem.id, orphanPoolItemIds));
     }
     await tx
       .update(resumeUploadBatchItem)
@@ -421,6 +517,7 @@ export async function recoverIncompleteBatchItems(
   await db.transaction(async (tx) => {
     const staleItems = await tx
       .select({
+        poolItemId: resumeUploadBatchItem.poolItemId,
         resumeRecordId: resumeUploadBatchItem.resumeRecordId,
       })
       .from(resumeUploadBatchItem)
@@ -440,6 +537,15 @@ export async function recoverIncompleteBatchItems(
         .update(studioInterview)
         .set({ resumeParseError: null, resumeParseStatus: "queued", updatedAt: now })
         .where(inArray(studioInterview.id, staleRecordIds));
+    }
+    const stalePoolItemIds = staleItems.flatMap((item) =>
+      item.poolItemId ? [item.poolItemId] : [],
+    );
+    if (stalePoolItemIds.length > 0) {
+      await tx
+        .update(resumePoolItem)
+        .set({ resumeParseError: null, resumeParseStatus: "queued", updatedAt: now })
+        .where(inArray(resumePoolItem.id, stalePoolItemIds));
     }
     await tx
       .update(resumeUploadBatchItem)
@@ -501,7 +607,10 @@ export async function cancelBatch(
     }
     const now = new Date();
     const cancellableItems = await tx
-      .select({ resumeRecordId: resumeUploadBatchItem.resumeRecordId })
+      .select({
+        poolItemId: resumeUploadBatchItem.poolItemId,
+        resumeRecordId: resumeUploadBatchItem.resumeRecordId,
+      })
       .from(resumeUploadBatchItem)
       .where(
         and(
@@ -514,6 +623,15 @@ export async function cancelBatch(
     );
     if (recordIds.length > 0) {
       await tx.delete(studioInterview).where(inArray(studioInterview.id, recordIds));
+    }
+    const poolItemIds = cancellableItems.flatMap((item) =>
+      item.poolItemId ? [item.poolItemId] : [],
+    );
+    if (poolItemIds.length > 0) {
+      await tx
+        .update(resumePoolItem)
+        .set({ status: "archived", updatedAt: now })
+        .where(inArray(resumePoolItem.id, poolItemIds));
     }
     await tx
       .update(resumeUploadBatchItem)

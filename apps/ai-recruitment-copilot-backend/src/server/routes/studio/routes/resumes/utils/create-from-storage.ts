@@ -1,7 +1,10 @@
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import { studioInterview } from "@arc/db-schema/schema";
+import type { StudioInterviewResumeSourceType } from "@arc/db-schema/schema";
 import type { InterviewQuestion, ResumeProfile } from "@arc/db-schema/interview/types";
 import { syncResumeSkills } from "../dao/skills";
+
+type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
 export interface CreateResumeRecordFromStorageInput {
   candidateEmail: string | null;
@@ -17,6 +20,12 @@ export interface CreateResumeRecordFromStorageInput {
   storageKey: string | null;
   targetRole: string | null;
   userId: string | null;
+  source?: {
+    importedAt: Date;
+    importedBy: string | null;
+    poolItemId: string | null;
+    type: StudioInterviewResumeSourceType;
+  };
 }
 
 // 仅"从已经上传好的简历文件 + 已经解析过的 profile"装配一行 studio_interview。
@@ -25,15 +34,18 @@ export interface CreateResumeRecordFromStorageInput {
 // Assemble a single studio_interview row from an already-uploaded resume +
 // already-parsed profile. Does NOT do dedup / JD-matching / upload / parsing —
 // the caller is responsible for those.
+// oxlint-disable-next-line complexity -- central data mapper for the resume-library row.
 export async function createResumeRecordFromStorage(
   input: CreateResumeRecordFromStorageInput,
+  tx?: Tx,
 ): Promise<string> {
   const now = new Date();
   const recordId = crypto.randomUUID();
   const candidateEmail = input.candidateEmail?.trim() || input.resumeProfile?.email || null;
   const candidatePhone = input.candidatePhone?.trim() || input.resumeProfile?.phone || null;
-  await db.transaction(async (tx) => {
-    await tx.insert(studioInterview).values({
+  // oxlint-disable-next-line complexity -- central data mapper for the resume-library row.
+  const write = async (executor: Tx) => {
+    await executor.insert(studioInterview).values({
       candidateEmail,
       candidateName: input.candidateName?.trim() || input.resumeProfile?.name || "未命名候选人",
       candidatePhone,
@@ -50,16 +62,21 @@ export async function createResumeRecordFromStorage(
       resumeParseStatus: input.storageKey && !input.resumeProfile ? "unparsed" : "ready",
       resumeParsedAt: input.resumeProfile ? now : null,
       resumeProfile: input.resumeProfile,
+      resumeSourceImportedAt: input.source?.importedAt ?? null,
+      resumeSourceImportedBy: input.source?.importedBy ?? null,
+      resumeSourcePoolItemId: input.source?.poolItemId ?? null,
+      resumeSourceType: input.source?.type ?? "direct_upload",
       resumeStorageKey: input.storageKey,
       status: "draft" as const,
       targetRole: input.targetRole?.trim() || input.resumeProfile?.targetRoles?.[0] || null,
       updatedAt: now,
     });
-    await syncResumeSkills(tx, {
+    await syncResumeSkills(executor, {
       interviewId: recordId,
       organizationId: input.organizationId,
       skills: input.resumeProfile?.skills,
     });
-  });
+  };
+  await (tx ? write(tx) : db.transaction(write));
   return recordId;
 }

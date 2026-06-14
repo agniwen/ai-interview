@@ -4,6 +4,8 @@ import type {
   ResumeUploadBatchItemStatus,
   ResumeUploadBatchJdMode,
   ResumeUploadBatchStatus,
+  ResumeUploadBatchTarget,
+  ResumePoolScope,
 } from "@arc/db-schema/schema";
 
 export const MAX_BULK_BATCH_SIZE = 100;
@@ -36,9 +38,11 @@ export const createBulkResumeBatchSchema = z.object({
     .max(MAX_BULK_BATCH_SIZE),
   jdMode: z.enum(["bind", "auto", "none"]),
   jobDescriptionId: z.string().min(1).nullable().optional(),
+  resumePoolScope: z.enum(["private", "public"]).nullable().optional(),
+  target: z.enum(["resume_library", "resume_pool"]).default("resume_library"),
 });
 
-export type CreateBulkResumeBatchInput = z.infer<typeof createBulkResumeBatchSchema>;
+export type CreateBulkResumeBatchInput = z.input<typeof createBulkResumeBatchSchema>;
 
 export interface BulkResumeBatchDto {
   id: string;
@@ -46,6 +50,8 @@ export interface BulkResumeBatchDto {
   jdMode: ResumeUploadBatchJdMode;
   jobDescriptionId: string | null;
   dedupPolicy: ResumeUploadBatchDedupPolicy;
+  resumePoolScope?: ResumePoolScope | null;
+  target?: ResumeUploadBatchTarget;
   totalCount: number;
   processedCount: number;
   succeededCount: number;
@@ -64,6 +70,7 @@ export interface BulkResumeBatchItemDto {
   fileSize: number;
   contentHash: string | null;
   status: ResumeUploadBatchItemStatus;
+  poolItemId?: string | null;
   resumeRecordId: string | null;
   errorMessage: string | null;
   startedAt: string | null;
