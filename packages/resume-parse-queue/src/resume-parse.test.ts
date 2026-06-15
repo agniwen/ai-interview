@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildResumeParseJobId,
+  buildResumeParseQueuePrefix,
   createRedisConnectionFromUrl,
   defaultResumeParseJobOptions,
   resumeParseJobSchema,
@@ -26,6 +27,28 @@ describe("resume parse queue configuration", () => {
         type: "exponential",
       },
     });
+  });
+
+  it("isolates queues by database URL by default", () => {
+    const a = buildResumeParseQueuePrefix({
+      DATABASE_URL: "postgresql://user:secret@db.example.com:5432/ainterview",
+    });
+    const b = buildResumeParseQueuePrefix({
+      DATABASE_URL: "postgresql://user:secret@db.example.com:5432/other",
+    });
+
+    expect(a).toMatch(/^arc:resume-parse:[a-f0-9]{12}$/);
+    expect(b).toMatch(/^arc:resume-parse:[a-f0-9]{12}$/);
+    expect(a).not.toBe(b);
+  });
+
+  it("uses explicit queue prefix when configured", () => {
+    expect(
+      buildResumeParseQueuePrefix({
+        DATABASE_URL: "postgresql://user:secret@db.example.com:5432/ainterview",
+        RESUME_PARSE_QUEUE_PREFIX: "custom-prefix",
+      }),
+    ).toBe("custom-prefix");
   });
 
   it("validates queue payload shape", () => {
