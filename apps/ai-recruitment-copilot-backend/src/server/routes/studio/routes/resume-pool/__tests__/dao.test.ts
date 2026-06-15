@@ -39,6 +39,41 @@ const PROFILE: ResumeProfile = {
   workYears: 5,
 };
 
+const PROFILE_WITH_HIGHLIGHTS: ResumeProfile = {
+  ...PROFILE,
+  projectExperiences: [
+    {
+      name: "智能招聘看板",
+      period: "2025.01-2025.05",
+      role: "负责人",
+      summary: "负责候选人数据分析与可视化。",
+      techStack: ["React"],
+    },
+    {
+      name: "旧项目",
+      period: "2024.01-2024.05",
+      role: "成员",
+      summary: "历史项目。",
+      techStack: [],
+    },
+  ],
+  schools: ["华南农业大学", "长沙理工大学"],
+  workExperiences: [
+    {
+      company: "极光矩阵",
+      period: "2025.02-至今",
+      role: "前端工程师",
+      summary: "负责 AI 招聘产品前端。",
+    },
+    {
+      company: "旧公司",
+      period: "2023.01-2024.01",
+      role: "实习生",
+      summary: "历史经历。",
+    },
+  ],
+};
+
 async function cleanup() {
   await db.delete(resumePoolImport).where(eq(resumePoolImport.organizationId, ORG_A));
   await db.delete(resumePoolImport).where(eq(resumePoolImport.organizationId, ORG_B));
@@ -148,6 +183,29 @@ describe("queryResumePoolItems", () => {
 
     const orgIds = result.records.map((record) => record.organizationId).toSorted();
     expect(orgIds).toEqual([ORG_A, ORG_B].toSorted());
+  });
+
+  it("includes profile highlights for resume pool cards", async () => {
+    const id = await createResumePoolItem(
+      basePoolInput({
+        contentHash: "hash-resume-pool-highlights",
+        resumeFileName: "candidate-highlights.pdf",
+        resumeProfile: PROFILE_WITH_HIGHLIGHTS,
+      }),
+    );
+
+    const result = await queryResumePoolItems({
+      organizationId: ORG_A,
+      scope: "private",
+      userId: USER_A,
+    });
+
+    const record = result.records.find((item) => item.id === id);
+    expect(record?.profileHighlights).toEqual({
+      latestCompany: "极光矩阵",
+      latestProject: "智能招聘看板",
+      schools: ["华南农业大学", "长沙理工大学"],
+    });
   });
 });
 
