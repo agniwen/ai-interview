@@ -63,8 +63,8 @@ function normalizeInterviewQuestions(questions: GeneratedInterviewQuestion[]): I
 const generationSchema = z.object({
   interviewQuestions: z
     .array(generatedInterviewQuestionSchema)
-    .min(5, "至少生成 5 道面试题")
-    .max(15, "最多生成 15 道面试题"),
+    .min(8, "至少生成 8 道面试题")
+    .max(12, "最多生成 12 道面试题"),
 });
 
 async function generateInterviewQuestionsFromPrompt(options: {

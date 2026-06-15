@@ -76,7 +76,7 @@ const aiGeneratedFormQuestionSchema = z.object({
 });
 
 const generationSchema = z.object({
-  questions: z.array(aiGeneratedFormQuestionSchema).min(3).max(20),
+  questions: z.array(aiGeneratedFormQuestionSchema).min(5).max(15),
 });
 
 function formatJobContext(job: { name: string; prompt: string | null } | null): string {
@@ -144,8 +144,8 @@ export async function generateFormQuestionsFromPrompt(options: {
   }
 
   for (const question of parsed.data.questions) {
-    if (question.type !== "text" && question.options.length < 2) {
-      throw new Error(`题目「${question.label}」的选项不足 2 个。`);
+    if (question.type !== "text" && (question.options.length < 2 || question.options.length > 8)) {
+      throw new Error(`题目「${question.label}」的选项数量需在 2 到 8 个之间。`);
     }
     if (question.type === "text" && question.options.length > 0) {
       throw new Error(`填写题「${question.label}」不应包含选项。`);

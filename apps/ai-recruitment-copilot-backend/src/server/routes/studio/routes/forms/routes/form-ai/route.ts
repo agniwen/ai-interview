@@ -27,7 +27,7 @@ export const candidateFormAiRouter = factory
     zValidator(
       "query",
       z.object({
-        limit: z.string().optional(),
+        limit: z.coerce.number().int().min(1).max(50).optional(),
         search: z.string().optional(),
         templateId: z.string().trim().min(1).optional(),
       }),
@@ -40,7 +40,7 @@ export const candidateFormAiRouter = factory
       }
       const { search, templateId, limit } = c.req.valid("query");
       const records = await searchCandidatesForFormAi(activeOrg.id, {
-        limit: limit ? Number(limit) : undefined,
+        limit,
         search,
         templateId: templateId || undefined,
       });

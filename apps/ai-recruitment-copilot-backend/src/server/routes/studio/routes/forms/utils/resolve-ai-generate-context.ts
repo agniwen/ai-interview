@@ -48,7 +48,7 @@ export async function resolveAiGenerateContext(
       resumeProfile: context.resumeProfile,
     }));
     const [firstContext] = contexts;
-    if (!jobDescriptionId && firstContext?.jobDescriptionName) {
+    if (!jobDescriptionId && !jobDescriptionIds?.length && firstContext?.jobDescriptionName) {
       jobDescription = {
         name: firstContext.jobDescriptionName,
         prompt: firstContext.jobDescriptionPrompt ?? null,
