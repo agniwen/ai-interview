@@ -21,6 +21,13 @@ import {
   serializeJobDescription,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao";
 import { cacheTags, safeUpdateTag } from "@arc/ai-recruitment-copilot-backend/server/cache-tags";
+import { generateJobDescriptionFromPrompt } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/utils/ai-job-description-generate";
+
+const generateJobDescriptionBodySchema = z.object({
+  departmentName: z.string().trim().max(120).optional(),
+  jobName: z.string().trim().max(120).optional(),
+  prompt: z.string().trim().min(1, "请填写 AI 填写指令").max(2000),
+});
 
 async function validateReferences(
   organizationId: string,
@@ -91,6 +98,29 @@ const jobDescriptionListQuerySchema = z.object({
 
 export const jobDescriptionsRouter = factory
   .createApp()
+  .post(
+    "/ai-generate",
+    requirePermission("jd", "update"),
+    zValidator("json", generateJobDescriptionBodySchema, jsonValidatorError("请求参数无效。")),
+    async (c) => {
+      const { activeOrg } = c.var;
+      if (!activeOrg) {
+        return c.json({ message: "Unauthorized" }, 401);
+      }
+
+      const body = c.req.valid("json");
+      try {
+        const result = await generateJobDescriptionFromPrompt({
+          departmentName: body.departmentName ?? null,
+          hrPrompt: body.prompt,
+          jobName: body.jobName ?? null,
+        });
+        return c.json(result, 200);
+      } catch (error) {
+        return c.json({ error: error instanceof Error ? error.message : "AI 生成失败。" }, 500);
+      }
+    },
+  )
   .get(
     "/",
     requirePermission("jd", "read"),

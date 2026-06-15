@@ -28,6 +28,7 @@ import { TextareaCounter } from "@/components/ui/textarea-counter";
 import { interviewQuestionTemplateSchema } from "@arc/db-schema/interview-question-templates";
 import { hasFieldErrors, toFieldErrors } from "../interviews/interview-form";
 import { SortableQuestionListEditor } from "../sortable-question-list-editor";
+import { InterviewQuestionTemplateAiGeneratePanel } from "./interview-question-template-ai-generate-panel";
 
 const TITLE_MAX_LENGTH = 120;
 const DESCRIPTION_MAX_LENGTH = 1000;
@@ -115,6 +116,12 @@ export function InterviewQuestionTemplateEditorDialog({
 
   const isSubmitting = useStore(form.store, (state) => state.isSubmitting);
   const currentScope = useStore(form.store, (state) => state.values.scope);
+  const templateTitle = useStore(form.store, (state) => state.values.title);
+  const templateDescription = useStore(form.store, (state) => state.values.description ?? "");
+  const templateJobDescriptionIds = useStore(
+    form.store,
+    (state) => state.values.jobDescriptionIds ?? [],
+  );
 
   useEffect(() => {
     if (open) {
@@ -270,6 +277,17 @@ export function InterviewQuestionTemplateEditorDialog({
                 </form.Field>
               ) : null}
             </div>
+
+            <InterviewQuestionTemplateAiGeneratePanel
+              jobDescriptionIds={templateJobDescriptionIds}
+              jobDescriptions={jobDescriptions}
+              onGenerated={(questions) => {
+                form.setFieldValue("questions", questions);
+              }}
+              templateDescription={templateDescription}
+              templateScope={currentScope}
+              templateTitle={templateTitle}
+            />
           </FieldGroup>
 
           <div className="space-y-3">
