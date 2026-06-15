@@ -66,6 +66,7 @@ import {
 } from "@arc/db-schema/candidate-forms";
 import { useSortableItemIds } from "@/hooks/use-sortable-item-ids";
 import { hasFieldErrors, toFieldErrors } from "../interviews/interview-form";
+import { FormTemplateAiGeneratePanel } from "./form-template-ai-generate-panel";
 
 const DISPLAY_MODE_LABELS: Record<CandidateFormDisplayMode, string> = {
   checkbox: "复选框",
@@ -220,6 +221,12 @@ export function CandidateFormTemplateEditorDialog({
 
   const isSubmitting = useStore(form.store, (state) => state.isSubmitting);
   const currentScope = useStore(form.store, (state) => state.values.scope);
+  const formTitle = useStore(form.store, (state) => state.values.title);
+  const formDescription = useStore(form.store, (state) => state.values.description ?? "");
+  const formJobDescriptionIds = useStore(
+    form.store,
+    (state) => state.values.jobDescriptionIds ?? [],
+  );
   const questionIds = useStore(form.store, (state) =>
     (state.values.questions ?? []).map((question) => question.id),
   );
@@ -395,6 +402,19 @@ export function CandidateFormTemplateEditorDialog({
                   </form.Field>
                 ) : null}
               </div>
+
+              <FormTemplateAiGeneratePanel
+                formDescription={formDescription}
+                formScope={currentScope}
+                formTitle={formTitle}
+                jobDescriptionIds={formJobDescriptionIds}
+                jobDescriptions={jobDescriptions}
+                onGenerated={(questions) => {
+                  form.setFieldValue("questions", questions);
+                  setSelectedQuestionId(questions[0]?.id ?? null);
+                }}
+                templateId={record?.id ?? null}
+              />
             </FieldGroup>
           </div>
           <QuestionBuilderWorkspace
@@ -520,7 +540,7 @@ function QuestionBuilderBody({
         </Card>
       </div>
 
-      <div className="hidden h-[58vh] min-h-[460px] max-h-[876px] flex-none grid-cols-[220px_minmax(0,1fr)_360px] overflow-hidden md:grid">
+      <div className="hidden h-[58vh] min-h-[460px] max-h-[876px] flex-none grid-cols-[220px_360px_minmax(0,1fr)] overflow-hidden md:grid">
         <aside className="flex min-h-0 flex-col gap-3 border-r bg-background px-4 py-4">
           <div className="flex items-center gap-2">
             <PlusIcon className="size-4 text-muted-foreground" />
@@ -557,6 +577,33 @@ function QuestionBuilderBody({
                 </Button>
               );
             })}
+          </div>
+        </aside>
+
+        <aside className="flex min-h-0 flex-col border-r bg-background">
+          <div className="flex shrink-0 items-center gap-2 border-b px-4 py-3">
+            <Settings2Icon className="size-4 text-muted-foreground" />
+            <h3 className="font-medium text-sm">题目配置</h3>
+          </div>
+          <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
+            {activeQuestion ? (
+              <QuestionConfigPanel
+                form={form}
+                index={activeIndex}
+                onRemove={
+                  items.length > 1 && activeQuestion
+                    ? () => setPendingDeleteQuestionId(activeQuestion.id)
+                    : undefined
+                }
+              />
+            ) : (
+              <Card className="h-full min-h-40 gap-0 rounded-lg border-dashed bg-muted/20 py-0">
+                <CardContent className="flex h-full min-h-40 flex-col items-center justify-center px-4 text-center">
+                  <p className="font-medium text-sm">还没有题目</p>
+                  <p className="mt-1 text-muted-foreground text-xs">从左侧选择题目类型开始创建。</p>
+                </CardContent>
+              </Card>
+            )}
           </div>
         </aside>
 
@@ -604,33 +651,6 @@ function QuestionBuilderBody({
             </Card>
           </div>
         </section>
-
-        <aside className="flex min-h-0 flex-col border-l bg-background">
-          <div className="flex shrink-0 items-center gap-2 border-b px-4 py-3">
-            <Settings2Icon className="size-4 text-muted-foreground" />
-            <h3 className="font-medium text-sm">题目配置</h3>
-          </div>
-          <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
-            {activeQuestion ? (
-              <QuestionConfigPanel
-                form={form}
-                index={activeIndex}
-                onRemove={
-                  items.length > 1 && activeQuestion
-                    ? () => setPendingDeleteQuestionId(activeQuestion.id)
-                    : undefined
-                }
-              />
-            ) : (
-              <Card className="h-full min-h-40 gap-0 rounded-lg border-dashed bg-muted/20 py-0">
-                <CardContent className="flex h-full min-h-40 flex-col items-center justify-center px-4 text-center">
-                  <p className="font-medium text-sm">还没有题目</p>
-                  <p className="mt-1 text-muted-foreground text-xs">从左侧选择题目类型开始创建。</p>
-                </CardContent>
-              </Card>
-            )}
-          </div>
-        </aside>
       </div>
 
       <AlertDialog

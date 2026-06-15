@@ -38,6 +38,7 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { TextareaCounter } from "@/components/ui/textarea-counter";
 import { hasFieldErrors, toFieldErrors } from "../interviews/interview-form";
+import { JobDescriptionAiGeneratePanel } from "./job-description-ai-generate-panel";
 
 const NAME_MAX_LENGTH = 120;
 const DESCRIPTION_MAX_LENGTH = 500;
@@ -212,6 +213,11 @@ export function JobDescriptionFormDialog({
   );
   const selectedDepartmentId = useStore(form.store, (state) => state.values.departmentId);
   const selectedInterviewerIds = useStore(form.store, (state) => state.values.interviewerIds);
+  const jobName = useStore(form.store, (state) => state.values.name);
+  const departmentName = useMemo(
+    () => departments.find((dept) => dept.id === selectedDepartmentId)?.name ?? null,
+    [departments, selectedDepartmentId],
+  );
   const interviewerOptions = useMemo(
     () =>
       buildJobDescriptionInterviewerOptions(
@@ -419,6 +425,18 @@ export function JobDescriptionFormDialog({
                     }}
                   </form.Field>
                 </div>
+
+                <JobDescriptionAiGeneratePanel
+                  departmentName={departmentName}
+                  jobName={jobName}
+                  onGenerated={({ description, prompt, suggestedName }) => {
+                    form.setFieldValue("description", description);
+                    form.setFieldValue("prompt", prompt);
+                    if (suggestedName && !jobName.trim()) {
+                      form.setFieldValue("name", suggestedName);
+                    }
+                  }}
+                />
 
                 <form.Field name="description">
                   {(field) => {

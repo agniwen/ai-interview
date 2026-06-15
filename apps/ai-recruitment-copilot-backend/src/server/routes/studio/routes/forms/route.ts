@@ -19,6 +19,7 @@ import { loadSubmissionsByTemplate } from "@arc/ai-recruitment-copilot-backend/s
 import { loadCandidateFormTemplateVersionById } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/forms/dao/versions";
 import { jobDescriptionIdsExist } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao";
 import { safeUpdateTag } from "@arc/ai-recruitment-copilot-backend/server/cache-tags";
+import { candidateFormAiRouter } from "./routes/form-ai/route";
 
 function normalizeQuestions(
   questions: {
@@ -71,6 +72,7 @@ function parseArchivedFilter(value: string | undefined): "active" | "archived" |
 
 export const candidateFormsRouter = factory
   .createApp()
+  .route("/", candidateFormAiRouter)
   .get(
     "/",
     requirePermission("candidateForm", "read"),
