@@ -112,6 +112,15 @@ function getCandidateTitle(record: ResumePoolListRecord) {
   return record.candidateName?.trim() || "未命名候选人";
 }
 
+function getCandidateDisplayTitle(record: ResumePoolListRecord) {
+  const candidateTitle = getCandidateTitle(record);
+  const targetRole = record.targetRole?.trim();
+  if (record.resumeParseStatus !== "ready" || !targetRole) {
+    return candidateTitle;
+  }
+  return `${targetRole}-${candidateTitle}`;
+}
+
 function resumeParseStatusBadge(record: ResumePoolListRecord) {
   switch (record.resumeParseStatus) {
     case "ready": {
@@ -746,7 +755,7 @@ function ResumePoolCard({
   onPublish: (record: ResumePoolListRecord) => void;
   onDelete: (record: ResumePoolListRecord) => void;
 }) {
-  const title = getCandidateTitle(record);
+  const title = getCandidateDisplayTitle(record);
   const previewLabel = record.resumeFileName ?? "查看简历 PDF";
   const skills = record.skillsNormalized.slice(0, 5);
   const note = notesPreview(record.notes);

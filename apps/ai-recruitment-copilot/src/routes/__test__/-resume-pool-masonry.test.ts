@@ -64,6 +64,13 @@ describe("ResumePoolPage masonry layout", () => {
     expect(source).toContain("已入库");
   });
 
+  it("prefixes parsed candidate names with the target role on resume pool cards", () => {
+    expect(source).toContain("function getCandidateDisplayTitle");
+    expect(source).toContain('record.resumeParseStatus !== "ready"');
+    expect(source).toMatch(/return `\$\{targetRole\}-\$\{candidateTitle\}`;/u);
+    expect(source).toContain("const title = getCandidateDisplayTitle(record);");
+  });
+
   it("shows profile highlights on resume pool cards", () => {
     expect(source).toContain("毕业院校");
     expect(source).toContain("最近公司");
