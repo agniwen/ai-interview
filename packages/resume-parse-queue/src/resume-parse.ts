@@ -1,9 +1,23 @@
 import { Queue, Worker } from "bullmq";
-import type { ConnectionOptions, JobsOptions } from "bullmq";
+import type { ConnectionOptions, JobsOptions, JobState, JobType } from "bullmq";
 import { z } from "zod";
 
 export const RESUME_PARSE_QUEUE_NAME = "resume-parse";
+export const RESUME_PARSE_QUEUE_DISPLAY_NAME = "简历解析";
 export const RESUME_PARSE_JOB_NAME = "parse-resume-upload-item";
+const RESUME_PARSE_COUNT_TYPES = [
+  "waiting",
+  "active",
+  "delayed",
+  "failed",
+  "completed",
+  "paused",
+  "prioritized",
+  "waiting-children",
+] as const;
+export const RESUME_PARSE_JOB_LIST_STATES = ["all", ...RESUME_PARSE_COUNT_TYPES] as const;
+
+const RESUME_PARSE_JOB_TYPES: JobType[] = [...RESUME_PARSE_COUNT_TYPES];
 
 export const resumeParseJobSchema = z.object({
   batchId: z.string().min(1),
@@ -14,6 +28,62 @@ export const resumeParseJobSchema = z.object({
 
 export type ResumeParseJobData = z.infer<typeof resumeParseJobSchema>;
 export type ResumeParseJobProcessor = (payload: ResumeParseJobData) => Promise<void>;
+type ResumeParseCountState = (typeof RESUME_PARSE_COUNT_TYPES)[number];
+export type ResumeParseJobListState = "all" | ResumeParseCountState;
+
+export interface ResumeParseRedisSummary {
+  db: number;
+  host: string;
+  port: number;
+  protocol: string;
+  usesPassword: boolean;
+  usesUsername: boolean;
+}
+
+export type ResumeParseQueueCounts = Record<(typeof RESUME_PARSE_COUNT_TYPES)[number], number>;
+
+export interface ResumeParseQueueOverview {
+  counts: ResumeParseQueueCounts;
+  displayName: string;
+  name: typeof RESUME_PARSE_QUEUE_NAME;
+  redis: ResumeParseRedisSummary | null;
+  workers: {
+    addr?: string;
+    age?: string;
+    cmd?: string;
+    db?: string;
+    flags?: string;
+    id?: string;
+    idle?: string;
+    name?: string;
+  }[];
+  workersCount: number;
+}
+
+export interface ResumeParseQueueJobRecord {
+  attemptsMade: number;
+  attemptsStarted: number | null;
+  data: ResumeParseJobData | unknown;
+  failedReason: string | null;
+  finishedOn: string | null;
+  id: string;
+  name: string;
+  processedBy: string | null;
+  processedOn: string | null;
+  progress: unknown;
+  returnvalue: unknown;
+  state: JobState | "paused" | "unknown";
+  timestamp: string | null;
+}
+
+export interface ResumeParseQueueJobsResult {
+  page: number;
+  pageSize: number;
+  records: ResumeParseQueueJobRecord[];
+  state: ResumeParseJobListState;
+  total: number;
+  totalPages: number;
+}
 
 const DEFAULT_ATTEMPTS = 3;
 const DEFAULT_BACKOFF_MS = 30_000;
@@ -55,6 +125,24 @@ function createRedisConnection(env: NodeJS.ProcessEnv = process.env): Connection
 
 export function isResumeParseQueueConfigured(env: NodeJS.ProcessEnv = process.env): boolean {
   return Boolean(redisUrl(env));
+}
+
+export function getResumeParseRedisSummary(
+  env: NodeJS.ProcessEnv = process.env,
+): ResumeParseRedisSummary | null {
+  const url = redisUrl(env);
+  if (!url) {
+    return null;
+  }
+  const parsed = new URL(url);
+  return {
+    db: parsed.pathname ? Number.parseInt(parsed.pathname.slice(1), 10) || 0 : 0,
+    host: parsed.hostname,
+    port: parsed.port ? Number.parseInt(parsed.port, 10) : 6379,
+    protocol: parsed.protocol,
+    usesPassword: Boolean(parsed.password),
+    usesUsername: Boolean(parsed.username),
+  };
 }
 
 export function getResumeParseQueue(): Queue<ResumeParseJobData> {
@@ -119,6 +207,169 @@ export async function enqueueResumeParseJobs(jobs: ResumeParseJobData[]): Promis
 export function getResumeParseQueueStats() {
   const q = getResumeParseQueue();
   return q.getJobCounts("waiting", "active", "delayed", "failed", "completed", "paused");
+}
+
+function emptyCounts(): ResumeParseQueueCounts {
+  return {
+    active: 0,
+    completed: 0,
+    delayed: 0,
+    failed: 0,
+    paused: 0,
+    prioritized: 0,
+    waiting: 0,
+    "waiting-children": 0,
+  };
+}
+
+function toIsoString(value: number | undefined): string | null {
+  return value ? new Date(value).toISOString() : null;
+}
+
+async function readWorkers(
+  q: Queue<ResumeParseJobData>,
+): Promise<ResumeParseQueueOverview["workers"]> {
+  try {
+    const workers = await q.getWorkers();
+    return workers.map((worker) => ({
+      addr: worker.addr,
+      age: worker.age,
+      cmd: worker.cmd,
+      db: worker.db,
+      flags: worker.flags,
+      id: worker.id,
+      idle: worker.idle,
+      name: worker.name,
+    }));
+  } catch {
+    return [];
+  }
+}
+
+async function serializeJob(
+  job: Awaited<ReturnType<Queue<ResumeParseJobData>["getJob"]>>,
+): Promise<ResumeParseQueueJobRecord | null> {
+  if (!job) {
+    return null;
+  }
+  const json = job.asJSON();
+  const state = await job.getState();
+  return {
+    attemptsMade: json.attemptsMade,
+    attemptsStarted: json.attemptsStarted ?? null,
+    data: job.data,
+    failedReason: json.failedReason || null,
+    finishedOn: toIsoString(json.finishedOn),
+    id: json.id,
+    name: json.name,
+    processedBy: json.processedBy ?? null,
+    processedOn: toIsoString(json.processedOn),
+    progress: job.progress,
+    returnvalue: job.returnvalue,
+    state,
+    timestamp: toIsoString(json.timestamp),
+  };
+}
+
+function stateToJobTypes(state: ResumeParseJobListState): JobType[] {
+  return state === "all" ? [...RESUME_PARSE_JOB_TYPES] : [state];
+}
+
+function getCountTotal(
+  counts: Partial<Record<ResumeParseCountState, number>>,
+  state: ResumeParseJobListState,
+): number {
+  const states: readonly ResumeParseCountState[] =
+    state === "all" ? RESUME_PARSE_COUNT_TYPES : [state];
+  return states.reduce((sum, key) => sum + (counts[key] ?? 0), 0);
+}
+
+export async function getResumeParseQueueOverview(): Promise<ResumeParseQueueOverview> {
+  const redis = getResumeParseRedisSummary();
+  if (!redis) {
+    return {
+      counts: emptyCounts(),
+      displayName: RESUME_PARSE_QUEUE_DISPLAY_NAME,
+      name: RESUME_PARSE_QUEUE_NAME,
+      redis: null,
+      workers: [],
+      workersCount: 0,
+    };
+  }
+
+  const q = getResumeParseQueue();
+  const [counts, workersCount, workers] = await Promise.all([
+    q.getJobCounts(...RESUME_PARSE_COUNT_TYPES),
+    q.getWorkersCount().catch(() => 0),
+    readWorkers(q),
+  ]);
+
+  return {
+    counts: { ...emptyCounts(), ...counts },
+    displayName: RESUME_PARSE_QUEUE_DISPLAY_NAME,
+    name: RESUME_PARSE_QUEUE_NAME,
+    redis,
+    workers,
+    workersCount,
+  };
+}
+
+export async function listResumeParseQueueJobs({
+  page,
+  pageSize,
+  search,
+  state,
+}: {
+  page: number;
+  pageSize: number;
+  search?: string;
+  state: ResumeParseJobListState;
+}): Promise<ResumeParseQueueJobsResult> {
+  if (!isResumeParseQueueConfigured()) {
+    return {
+      page,
+      pageSize,
+      records: [],
+      state,
+      total: 0,
+      totalPages: 0,
+    };
+  }
+
+  const q = getResumeParseQueue();
+  const normalizedPage = Math.max(1, page);
+  const normalizedPageSize = Math.max(1, Math.min(pageSize, 100));
+  const counts = await q.getJobCounts(...RESUME_PARSE_COUNT_TYPES);
+
+  if (search?.trim()) {
+    const job = await q.getJob(buildResumeParseJobId(search.trim()));
+    const record = await serializeJob(job);
+    const records = record && (state === "all" || record.state === state) ? [record] : [];
+    return {
+      page: normalizedPage,
+      pageSize: normalizedPageSize,
+      records,
+      state,
+      total: records.length,
+      totalPages: records.length > 0 ? 1 : 0,
+    };
+  }
+
+  const total = getCountTotal(counts, state);
+  const start = (normalizedPage - 1) * normalizedPageSize;
+  const end = start + normalizedPageSize - 1;
+  const jobs = await q.getJobs(stateToJobTypes(state), start, end, false);
+  const serializedJobs = await Promise.all(jobs.map((job) => serializeJob(job)));
+  const records = serializedJobs.filter((job): job is ResumeParseQueueJobRecord => job !== null);
+
+  return {
+    page: normalizedPage,
+    pageSize: normalizedPageSize,
+    records,
+    state,
+    total,
+    totalPages: Math.max(1, Math.ceil(total / normalizedPageSize)),
+  };
 }
 
 export async function closeResumeParseQueue(): Promise<void> {

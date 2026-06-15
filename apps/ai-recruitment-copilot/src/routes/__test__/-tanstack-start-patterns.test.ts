@@ -195,10 +195,12 @@ describe("TanStack Start migration patterns", () => {
     ];
     const platformRouteFiles = [
       "src/routes/platform.organizations.tsx",
+      "src/routes/platform.queues.tsx",
       "src/routes/platform.users.tsx",
     ];
     const platformFunctionFiles = [
       "src/lib/start/platform/organizations.functions.ts",
+      "src/lib/start/platform/queues.functions.ts",
       "src/lib/start/platform/users.functions.ts",
     ];
     const workspaceFunctionFiles = [

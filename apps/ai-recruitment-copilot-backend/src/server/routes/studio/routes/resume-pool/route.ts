@@ -18,7 +18,7 @@ import {
 import { jobDescriptionIdsExist } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao";
 import {
   createResumePoolItem,
-  deletePrivatePoolItem,
+  deleteOwnPoolItem,
   importPoolItemToResumeLibrary,
   loadResumePoolItem,
   publishPrivatePoolItem,
@@ -120,7 +120,7 @@ export const resumePoolRouter = factory
       return c.json({ message: "Unauthorized" }, 401);
     }
     try {
-      await deletePrivatePoolItem({
+      await deleteOwnPoolItem({
         organizationId: activeOrg.id,
         poolItemId: c.req.param("id"),
         userId: user.id,

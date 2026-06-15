@@ -1,6 +1,12 @@
 import { and, count, desc, eq } from "drizzle-orm";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
-import { resumePoolEvent, resumePoolImport, resumePoolItem } from "@arc/db-schema/schema";
+import {
+  organization,
+  resumePoolEvent,
+  resumePoolImport,
+  resumePoolItem,
+  user,
+} from "@arc/db-schema/schema";
 import type { ResumePoolEventType, ResumePoolScope, ResumePoolStatus } from "@arc/db-schema/schema";
 import type { ResumeParseStatus } from "@arc/db-schema/studio-interviews";
 import type { ResumeProfile } from "@arc/db-schema/interview/types";
@@ -17,6 +23,17 @@ import { normalizeSkill } from "@arc/ai-recruitment-copilot-backend/server/route
 
 type PoolRow = typeof resumePoolItem.$inferSelect;
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+interface PoolUploaderMeta {
+  uploaderEmail: string | null;
+  uploaderName: string | null;
+  uploaderOrganizationName: string | null;
+}
+
+const EMPTY_UPLOADER_META: PoolUploaderMeta = {
+  uploaderEmail: null,
+  uploaderName: null,
+  uploaderOrganizationName: null,
+};
 
 export interface CreateResumePoolItemInput {
   candidateEmail: string | null;
@@ -61,7 +78,7 @@ export interface ImportPoolItemInput {
   poolItemId: string;
 }
 
-export interface DeletePrivatePoolItemInput {
+export interface DeleteOwnPoolItemInput {
   organizationId: string;
   poolItemId: string;
   userId: string;
@@ -115,6 +132,7 @@ function buildProfileHighlights(profile: ResumeProfile | null): ResumePoolProfil
 function toListRecord(
   row: PoolRow,
   importRow?: { importedAt: Date; resumeRecordId: string } | null,
+  uploaderMeta: PoolUploaderMeta = EMPTY_UPLOADER_META,
 ): ResumePoolListRecord {
   return {
     candidateEmail: row.candidateEmail,
@@ -145,17 +163,44 @@ function toListRecord(
     status: row.status,
     targetRole: row.targetRole,
     updatedAt: row.updatedAt.toISOString(),
+    uploaderEmail: uploaderMeta.uploaderEmail,
+    uploaderName: uploaderMeta.uploaderName,
+    uploaderOrganizationName: uploaderMeta.uploaderOrganizationName,
   };
 }
 
 function toDetail(
   row: PoolRow,
   importRow?: { importedAt: Date; resumeRecordId: string } | null,
+  uploaderMeta: PoolUploaderMeta = EMPTY_UPLOADER_META,
 ): ResumePoolDetail {
   return {
-    ...toListRecord(row, importRow),
+    ...toListRecord(row, importRow, uploaderMeta),
     resumeProfile: row.resumeProfile,
   };
+}
+
+function uploaderMetaFromRow(row: PoolUploaderMeta): PoolUploaderMeta {
+  return {
+    uploaderEmail: row.uploaderEmail,
+    uploaderName: row.uploaderName,
+    uploaderOrganizationName: row.uploaderOrganizationName,
+  };
+}
+
+async function loadUploaderMeta(poolItemId: string): Promise<PoolUploaderMeta> {
+  const [row] = await db
+    .select({
+      uploaderEmail: user.email,
+      uploaderName: user.name,
+      uploaderOrganizationName: organization.name,
+    })
+    .from(resumePoolItem)
+    .leftJoin(organization, eq(resumePoolItem.organizationId, organization.id))
+    .leftJoin(user, eq(resumePoolItem.createdBy, user.id))
+    .where(eq(resumePoolItem.id, poolItemId))
+    .limit(1);
+  return row ? uploaderMetaFromRow(row) : EMPTY_UPLOADER_META;
 }
 
 async function writeResumePoolEvent(
@@ -322,16 +367,25 @@ export async function queryResumePoolItems(
 
   const [totalRow] = await db.select({ total: count() }).from(resumePoolItem).where(where);
   const rows = await db
-    .select()
+    .select({
+      item: resumePoolItem,
+      uploaderEmail: user.email,
+      uploaderName: user.name,
+      uploaderOrganizationName: organization.name,
+    })
     .from(resumePoolItem)
+    .leftJoin(organization, eq(resumePoolItem.organizationId, organization.id))
+    .leftJoin(user, eq(resumePoolItem.createdBy, user.id))
     .where(where)
     .orderBy(desc(resumePoolItem.createdAt))
     .limit(100);
   const imports = await Promise.all(
-    rows.map((row) => loadImportForOrg(row.id, input.organizationId)),
+    rows.map((row) => loadImportForOrg(row.item.id, input.organizationId)),
   );
   return {
-    records: rows.map((row, index) => toListRecord(row, imports[index] ?? null)),
+    records: rows.map((row, index) =>
+      toListRecord(row.item, imports[index] ?? null, uploaderMetaFromRow(row)),
+    ),
     total: totalRow?.total ?? 0,
   };
 }
@@ -345,7 +399,11 @@ export async function loadResumePoolItem(input: {
   if (!row) {
     return null;
   }
-  return toDetail(row, await loadImportForOrg(row.id, input.organizationId));
+  const [importRow, uploaderMeta] = await Promise.all([
+    loadImportForOrg(row.id, input.organizationId),
+    loadUploaderMeta(row.id),
+  ]);
+  return toDetail(row, importRow, uploaderMeta);
 }
 
 export async function publishPrivatePoolItem(
@@ -406,15 +464,15 @@ export async function publishPrivatePoolItem(
     });
   });
 
-  const [publicItem] = await db
-    .select()
-    .from(resumePoolItem)
-    .where(eq(resumePoolItem.id, publicId))
-    .limit(1);
+  const publicItem = await loadResumePoolItem({
+    organizationId: input.organizationId,
+    poolItemId: publicId,
+    userId: input.userId,
+  });
   if (!publicItem) {
     throw new Error("公共简历池记录创建失败");
   }
-  return toDetail(publicItem, null);
+  return publicItem;
 }
 
 export async function importPoolItemToResumeLibrary(
@@ -496,13 +554,12 @@ export async function importPoolItemToResumeLibrary(
   return { resumeRecordId, status: "imported" };
 }
 
-export async function deletePrivatePoolItem(input: DeletePrivatePoolItemInput): Promise<void> {
+export async function deleteOwnPoolItem(input: DeleteOwnPoolItemInput): Promise<void> {
   const deleted = await db
     .delete(resumePoolItem)
     .where(
       and(
         eq(resumePoolItem.id, input.poolItemId),
-        eq(resumePoolItem.scope, "private"),
         eq(resumePoolItem.status, "active"),
         eq(resumePoolItem.organizationId, input.organizationId),
         eq(resumePoolItem.createdBy, input.userId),
@@ -511,6 +568,6 @@ export async function deletePrivatePoolItem(input: DeletePrivatePoolItemInput): 
     .returning({ id: resumePoolItem.id });
 
   if (deleted.length === 0) {
-    throw new Error("私有简历不存在或无权删除");
+    throw new Error("简历不存在或无权删除");
   }
 }

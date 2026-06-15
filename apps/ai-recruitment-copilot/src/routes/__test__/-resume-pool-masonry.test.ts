@@ -58,10 +58,12 @@ describe("ResumePoolPage masonry layout", () => {
     expect(source).not.toContain("border-dashed bg-muted/20");
   });
 
-  it("renders the import action as a full-width text button", () => {
-    expect(source).toContain('className="w-full justify-center"');
+  it("keeps import and record-management actions in one footer row", () => {
+    expect(source).toContain('className="flex items-center gap-2 px-3"');
+    expect(source).toContain('className="min-w-0 flex-1 justify-center"');
     expect(source).toContain("入库到简历库");
     expect(source).toContain("已入库");
+    expect(source).not.toContain('<CardFooter className="flex-col items-stretch gap-2 px-3">');
   });
 
   it("prefixes parsed candidate names with the target role on resume pool cards", () => {
@@ -78,6 +80,44 @@ describe("ResumePoolPage masonry layout", () => {
     expect(source).toContain("record.profileHighlights.schools");
     expect(source).toContain("record.profileHighlights.latestCompany");
     expect(source).toContain("record.profileHighlights.latestProject");
+  });
+
+  it("shows uploader organization and user on cards and detail summaries", () => {
+    expect(source).toContain("function uploaderOrganizationLabel");
+    expect(source).toContain("function uploaderUserLabel");
+    expect(source).toContain("上传组织");
+    expect(source).toContain("上传人");
+    expect(source).toContain("record.uploaderOrganizationName");
+    expect(source).toContain("record.uploaderName");
+  });
+
+  it("shows delete on public cards only when the current user uploaded the record", () => {
+    expect(source).toContain("function canDeletePoolRecord");
+    expect(source).toContain("record.organizationId === currentOrganizationId");
+    expect(source).toContain("record.createdBy === currentUserId");
+    expect(source).toContain("const canDelete = canDeletePoolRecord(");
+    expect(source).toContain("canDelete={canDelete}");
+  });
+
+  it("keeps public delete, private publish, and private delete as icon-only card actions", () => {
+    const cardSource = source.slice(
+      source.indexOf("function ResumePoolCard"),
+      source.indexOf("function ResumePoolLoadingState"),
+    );
+
+    expect(cardSource).toContain("canDelete ? (");
+    expect(cardSource).toContain('aria-label={scope === "private" ? "删除私有简历" : "删除简历"}');
+    expect(cardSource).toContain('aria-label="推送到简历广场"');
+    expect(cardSource).toContain('"删除私有简历"');
+    expect(cardSource).toContain('"删除简历"');
+    expect(cardSource).toContain('size="icon-sm"');
+    expect(cardSource).not.toContain('className="flex justify-end gap-1"');
+  });
+
+  it("separates profile highlights from source metadata with a divider", () => {
+    expect(source).toContain(
+      'className="grid grid-cols-[auto_1fr] gap-x-2 gap-y-1 border-border/70 border-t pt-3 text-muted-foreground"',
+    );
   });
 
   it("separates candidate detail and pdf preview interactions", () => {
