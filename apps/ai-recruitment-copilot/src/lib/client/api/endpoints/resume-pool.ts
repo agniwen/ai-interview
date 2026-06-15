@@ -54,3 +54,12 @@ export function importResumePoolItem(
     "入库失败",
   );
 }
+
+export async function deleteResumePoolItem(slug: string, id: string): Promise<void> {
+  await rpcFetch<{ success: boolean }>(
+    rpc.api.w[":slug"].studio["resume-pool"][":id"].$delete({
+      param: { id, slug },
+    }),
+    "删除私有简历失败",
+  );
+}

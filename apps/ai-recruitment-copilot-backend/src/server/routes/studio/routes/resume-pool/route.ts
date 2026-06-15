@@ -18,6 +18,7 @@ import {
 import { jobDescriptionIdsExist } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao";
 import {
   createResumePoolItem,
+  deletePrivatePoolItem,
   importPoolItemToResumeLibrary,
   loadResumePoolItem,
   publishPrivatePoolItem,
@@ -112,6 +113,22 @@ export const resumePoolRouter = factory
         }),
       },
     });
+  })
+  .delete("/:id", requirePermission("resume", "delete"), async (c) => {
+    const { activeOrg, user } = c.var;
+    if (!activeOrg || !user) {
+      return c.json({ message: "Unauthorized" }, 401);
+    }
+    try {
+      await deletePrivatePoolItem({
+        organizationId: activeOrg.id,
+        poolItemId: c.req.param("id"),
+        userId: user.id,
+      });
+      return c.json({ success: true }, 200);
+    } catch (error) {
+      return c.json({ error: error instanceof Error ? error.message : "删除失败。" }, 404);
+    }
   })
   .post("/", requirePermission("resume", "create"), async (c) => {
     const { activeOrg, user } = c.var;
