@@ -40,6 +40,15 @@ describe("ResumePoolPage masonry layout", () => {
     expect(source).toContain("hasMoreRecords");
   });
 
+  it("keeps the empty upload prompt hidden while the pool is initially loading", () => {
+    expect(source).toContain("const isInitialPoolLoading =");
+    expect(source).toContain("const showEmptyState =");
+    expect(source).toContain("const showPoolFooter =");
+    expect(source).toContain("正在加载简历");
+    expect(source).toContain("if (showEmptyState) {");
+    expect(source).toContain("showPoolFooter ? (");
+  });
+
   it("keeps a bottom refresh action as an unframed breathing area", () => {
     expect(source).toContain("刷新简历广场");
     expect(source).toContain("已显示全部简历");
@@ -98,5 +107,15 @@ describe("ResumePoolPage masonry layout", () => {
     expect(emailIndex).toBeGreaterThanOrEqual(0);
     expect(pdfIndex).toBeLessThan(titleIndex);
     expect(titleIndex).toBeLessThan(emailIndex);
+  });
+
+  it("keeps the pdf icon hover free of background chrome", () => {
+    const cardSource = source.slice(
+      source.indexOf("function ResumePoolCard"),
+      source.indexOf("function ResumePoolPage"),
+    );
+
+    expect(cardSource).toContain("group-hover/pdf:scale-105");
+    expect(cardSource).not.toContain("hover:bg-muted");
   });
 });

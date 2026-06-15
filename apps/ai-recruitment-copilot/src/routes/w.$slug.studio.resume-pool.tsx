@@ -758,7 +758,7 @@ function ResumePoolCard({
         {canPreview ? (
           <button
             aria-label={previewLabel}
-            className="group/pdf inline-flex size-8 shrink-0 items-center justify-center rounded-md transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="group/pdf inline-flex size-8 shrink-0 items-center justify-center rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             onClick={() => onOpenPdf(record)}
             title={previewLabel}
             type="button"
@@ -883,6 +883,120 @@ function ResumePoolCard({
   );
 }
 
+function ResumePoolLoadingState() {
+  return (
+    <div className="flex min-h-56 items-center justify-center text-muted-foreground text-sm">
+      <span className="inline-flex items-center gap-2">
+        <LoaderCircleIcon className="size-4 animate-spin" />
+        正在加载简历
+      </span>
+    </div>
+  );
+}
+
+function ResumePoolEmptyState({
+  canResetFilters,
+  emptyTitle,
+  onUpload,
+}: {
+  canResetFilters: boolean;
+  emptyTitle: string;
+  onUpload: () => void;
+}) {
+  return (
+    <Empty className="border-border">
+      <EmptyHeader>
+        <EmptyMedia variant="icon">
+          <FileTextIcon className="size-5" />
+        </EmptyMedia>
+        <EmptyTitle>{emptyTitle}</EmptyTitle>
+        <EmptyDescription>
+          {canResetFilters ? "调整搜索或筛选条件后重试。" : "点击右上角上传第一份简历。"}
+        </EmptyDescription>
+      </EmptyHeader>
+      {canResetFilters ? null : (
+        <EmptyContent>
+          <Button onClick={onUpload}>
+            <UploadIcon className="size-4" />
+            上传简历
+          </Button>
+        </EmptyContent>
+      )}
+    </Empty>
+  );
+}
+
+function ResumePoolListContent({
+  canResetFilters,
+  deleting,
+  emptyTitle,
+  isInitialPoolLoading,
+  onDelete,
+  onImport,
+  onOpenDetail,
+  onOpenPdf,
+  onPublish,
+  onUpload,
+  publishing,
+  records,
+  scope,
+  showEmptyState,
+}: {
+  records: ResumePoolListRecord[];
+  scope: ResumePoolScope;
+  publishing: boolean;
+  deleting: boolean;
+  isInitialPoolLoading: boolean;
+  showEmptyState: boolean;
+  emptyTitle: string;
+  canResetFilters: boolean;
+  onOpenDetail: (record: ResumePoolListRecord) => void;
+  onOpenPdf: (record: ResumePoolListRecord) => void;
+  onImport: (record: ResumePoolListRecord) => void;
+  onPublish: (record: ResumePoolListRecord) => void;
+  onDelete: (record: ResumePoolListRecord) => void;
+  onUpload: () => void;
+}) {
+  if (records.length > 0) {
+    return (
+      <ResponsiveMasonry columnsCountBreakPoints={RESUME_POOL_MASONRY_COLUMNS}>
+        <Masonry gutter="16px">
+          {records.map((record) => (
+            <ResumePoolCard
+              deleting={deleting}
+              key={record.id}
+              onDelete={onDelete}
+              onImport={onImport}
+              onOpenDetail={onOpenDetail}
+              onOpenPdf={onOpenPdf}
+              onPublish={onPublish}
+              publishing={publishing}
+              record={record}
+              scope={scope}
+            />
+          ))}
+        </Masonry>
+      </ResponsiveMasonry>
+    );
+  }
+
+  if (isInitialPoolLoading) {
+    return <ResumePoolLoadingState />;
+  }
+
+  if (showEmptyState) {
+    return (
+      <ResumePoolEmptyState
+        canResetFilters={canResetFilters}
+        emptyTitle={emptyTitle}
+        onUpload={onUpload}
+      />
+    );
+  }
+
+  return null;
+}
+
 function ResumePoolPage() {
   const slug = useWorkspaceSlug();
   const queryClient = useQueryClient();
@@ -936,6 +1050,9 @@ function ResumePoolPage() {
   const totalRecordCount = grid.bind.total;
   const isPoolBusy = grid.bind.loading || grid.bind.refetching;
   const hasMoreRecords = visibleRecordCount < totalRecordCount;
+  const isInitialPoolLoading = isPoolBusy && visibleRecordCount === 0;
+  const showEmptyState = !isInitialPoolLoading && grid.bind.data.length === 0;
+  const showPoolFooter = visibleRecordCount > 0;
   const loadMoreRecords = useCallback(() => {
     if (!hasMoreRecords || isPoolBusy) {
       return;
@@ -1133,70 +1250,46 @@ function ResumePoolPage() {
               </ButtonGroup>
             }
           />
-          {grid.bind.data.length > 0 ? (
-            <ResponsiveMasonry columnsCountBreakPoints={RESUME_POOL_MASONRY_COLUMNS}>
-              <Masonry gutter="16px">
-                {grid.bind.data.map((record) => (
-                  <ResumePoolCard
-                    deleting={deleteMutation.isPending}
-                    key={record.id}
-                    onDelete={setDeleteTarget}
-                    onImport={setImportTarget}
-                    onOpenDetail={setDetailRecord}
-                    onOpenPdf={setPreviewRecord}
-                    onPublish={publishMutation.mutate}
-                    publishing={publishMutation.isPending}
-                    record={record}
-                    scope={scope}
-                  />
-                ))}
-              </Masonry>
-            </ResponsiveMasonry>
-          ) : (
-            <Empty className="border-border">
-              <EmptyHeader>
-                <EmptyMedia variant="icon">
-                  <FileTextIcon className="size-5" />
-                </EmptyMedia>
-                <EmptyTitle>{emptyTitle}</EmptyTitle>
-                <EmptyDescription>
-                  {grid.bind.canResetFilters
-                    ? "调整搜索或筛选条件后重试。"
-                    : "点击右上角上传第一份简历。"}
-                </EmptyDescription>
-              </EmptyHeader>
-              {grid.bind.canResetFilters ? null : (
-                <EmptyContent>
-                  <Button onClick={() => setUploadOpen(true)}>
-                    <UploadIcon className="size-4" />
-                    上传简历
-                  </Button>
-                </EmptyContent>
-              )}
-            </Empty>
-          )}
-          <div className="flex flex-col items-center gap-3 px-2 pt-5 pb-10 text-center text-muted-foreground text-sm">
-            <div ref={loadMoreRef} className="min-h-5">
-              {hasMoreRecords && isPoolBusy ? (
-                <span className="inline-flex items-center gap-2">
-                  <LoaderCircleIcon className="size-4 animate-spin" />
-                  {loadMoreStatusText}
-                </span>
-              ) : (
-                loadMoreStatusText
-              )}
+          <ResumePoolListContent
+            canResetFilters={grid.bind.canResetFilters}
+            deleting={deleteMutation.isPending}
+            emptyTitle={emptyTitle}
+            isInitialPoolLoading={isInitialPoolLoading}
+            onDelete={setDeleteTarget}
+            onImport={setImportTarget}
+            onOpenDetail={setDetailRecord}
+            onOpenPdf={setPreviewRecord}
+            onPublish={publishMutation.mutate}
+            onUpload={() => setUploadOpen(true)}
+            publishing={publishMutation.isPending}
+            records={grid.bind.data}
+            scope={scope}
+            showEmptyState={showEmptyState}
+          />
+          {showPoolFooter ? (
+            <div className="flex flex-col items-center gap-3 px-2 pt-5 pb-10 text-center text-muted-foreground text-sm">
+              <div ref={loadMoreRef} className="min-h-5">
+                {hasMoreRecords && isPoolBusy ? (
+                  <span className="inline-flex items-center gap-2">
+                    <LoaderCircleIcon className="size-4 animate-spin" />
+                    {loadMoreStatusText}
+                  </span>
+                ) : (
+                  loadMoreStatusText
+                )}
+              </div>
+              <Button
+                className="w-full sm:w-auto"
+                disabled={isPoolBusy}
+                onClick={grid.bind.onRefresh}
+                type="button"
+                variant="outline"
+              >
+                <RefreshCwIcon className={`size-4 ${isPoolBusy ? "animate-spin" : ""}`} />
+                刷新简历广场
+              </Button>
             </div>
-            <Button
-              className="w-full sm:w-auto"
-              disabled={isPoolBusy}
-              onClick={grid.bind.onRefresh}
-              type="button"
-              variant="outline"
-            >
-              <RefreshCwIcon className={`size-4 ${isPoolBusy ? "animate-spin" : ""}`} />
-              刷新简历广场
-            </Button>
-          </div>
+          ) : null}
         </div>
       </div>
 
