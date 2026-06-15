@@ -73,6 +73,34 @@ async function loadClaimMissSnapshot(itemId: string) {
   return row ?? null;
 }
 
+type ClaimMissSnapshot = {
+  batchId: string;
+  startedAt: Date | null;
+  status: string;
+} | null;
+
+const CLAIM_MISS_NOOP_STATUSES = new Set([
+  "cancelled",
+  "duplicate_skipped",
+  "failed",
+  "processing",
+  "succeeded",
+]);
+
+export function getClaimMissRetryError(snapshot: ClaimMissSnapshot, itemId: string): Error | null {
+  if (!snapshot) {
+    return new Error(
+      `简历解析任务 ${itemId} 未找到对应上传项；请检查 worker 的 DATABASE_URL 是否与 Web/API 一致。`,
+    );
+  }
+  if (CLAIM_MISS_NOOP_STATUSES.has(snapshot.status)) {
+    return null;
+  }
+  return new Error(
+    `简历解析任务 ${itemId} 未能 claim 上传项（当前状态：${snapshot.status}），将交由队列重试。`,
+  );
+}
+
 // 拿到 resumeProfile 的两条路径：
 //   1) 命中注册表 → 投影 parsedStructured（零额外调用）
 //   2) 未命中 / 投影失败 → 从 S3 拉 PDF 现场跑 parseResumeFastToProfile
@@ -599,6 +627,10 @@ export async function processBatchItem(itemId: string): Promise<ProcessNextResul
       itemStartedAt: snapshot?.startedAt?.toISOString(),
       itemStatus: snapshot?.status,
     });
+    const retryError = getClaimMissRetryError(snapshot, itemId);
+    if (retryError) {
+      throw retryError;
+    }
     return null;
   }
   logStep("job.claim.done", {

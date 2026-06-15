@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { Queue, Worker } from "bullmq";
 import type { ConnectionOptions, JobsOptions, JobState, JobType } from "bullmq";
 import { z } from "zod";
@@ -35,6 +36,7 @@ export interface ResumeParseRedisSummary {
   db: number;
   host: string;
   port: number;
+  prefix: string;
   protocol: string;
   usesPassword: boolean;
   usesUsername: boolean;
@@ -96,6 +98,34 @@ function redisUrl(env: NodeJS.ProcessEnv = process.env): string | null {
   return value || null;
 }
 
+function databaseQueueScope(env: NodeJS.ProcessEnv = process.env): string {
+  const value = env.DATABASE_URL?.trim();
+  if (!value) {
+    return "no-database-url";
+  }
+  try {
+    const parsed = new URL(value);
+    return [
+      parsed.protocol.toLowerCase(),
+      parsed.username,
+      parsed.hostname.toLowerCase(),
+      parsed.port || "5432",
+      parsed.pathname,
+    ].join("|");
+  } catch {
+    return value;
+  }
+}
+
+export function buildResumeParseQueuePrefix(env: NodeJS.ProcessEnv = process.env): string {
+  const explicit = env.RESUME_PARSE_QUEUE_PREFIX?.trim();
+  if (explicit) {
+    return explicit;
+  }
+  const hash = createHash("sha256").update(databaseQueueScope(env)).digest("hex").slice(0, 12);
+  return `arc:resume-parse:${hash}`;
+}
+
 function parsePositiveInteger(value: string | undefined, fallback: number): number {
   if (!value) {
     return fallback;
@@ -139,6 +169,7 @@ export function getResumeParseRedisSummary(
     db: parsed.pathname ? Number.parseInt(parsed.pathname.slice(1), 10) || 0 : 0,
     host: parsed.hostname,
     port: parsed.port ? Number.parseInt(parsed.port, 10) : 6379,
+    prefix: buildResumeParseQueuePrefix(env),
     protocol: parsed.protocol,
     usesPassword: Boolean(parsed.password),
     usesUsername: Boolean(parsed.username),
@@ -149,6 +180,7 @@ export function getResumeParseQueue(): Queue<ResumeParseJobData> {
   if (!queue) {
     queue = new Queue<ResumeParseJobData>(RESUME_PARSE_QUEUE_NAME, {
       connection: createRedisConnection(),
+      prefix: buildResumeParseQueuePrefix(),
     });
   }
   return queue;
@@ -392,6 +424,7 @@ export function createResumeParseWorker(
         DEFAULT_CONCURRENCY,
       ),
       connection: createRedisConnection(),
+      prefix: buildResumeParseQueuePrefix(),
     },
   );
 

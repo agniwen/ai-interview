@@ -1169,6 +1169,9 @@ function ResumeLibraryPage({ metrics }: { metrics: ResumeLibraryMetrics }) {
           bulk.abort();
           setProgressOpen(false);
         }}
+        onAfterClose={() => {
+          void batchListQuery.refetch();
+        }}
         onCancel={async () => {
           await bulk.cancel();
           setProgressOpen(false);

@@ -22,6 +22,7 @@ interface Props {
   onCancel: () => void | Promise<void>;
   onAbort: () => void;
   onResume: () => void | Promise<void>;
+  onAfterClose?: () => void;
 }
 
 // 状态 → 标签文本 + Badge variant 映射。
@@ -77,6 +78,7 @@ function ItemIcon({ status }: { status: BulkResumeBatchItemDto["status"] }) {
 }
 
 export function BulkUploadProgressDialog({
+  onAfterClose,
   onAbort,
   onCancel,
   onOpenChange,
@@ -95,6 +97,18 @@ export function BulkUploadProgressDialog({
   const percent = total === 0 ? 0 : Math.round((processed / total) * 100);
 
   const isTerminal = phase === "completed" || phase === "cancelled";
+
+  function handleOpenChange(next: boolean) {
+    if (!next && !isTerminal) {
+      // 非终止状态下点关闭等同 abort（不调取消 API）。
+      // Treat close-when-active as abort (does not cancel server-side).
+      onAbort();
+    }
+    onOpenChange(next);
+    if (!next) {
+      onAfterClose?.();
+    }
+  }
 
   // 根据当前阶段返回对话框标题。
   // Returns the dialog title for the current phase.
@@ -125,7 +139,7 @@ export function BulkUploadProgressDialog({
     if (isTerminal) {
       return (
         <div className="flex justify-end">
-          <Button onClick={() => onOpenChange(false)} type="button">
+          <Button onClick={() => handleOpenChange(false)} type="button">
             关闭
           </Button>
         </div>
@@ -134,7 +148,7 @@ export function BulkUploadProgressDialog({
     if (phase === "paused") {
       return (
         <div className="flex justify-end gap-2">
-          <Button onClick={() => onOpenChange(false)} type="button" variant="ghost">
+          <Button onClick={() => handleOpenChange(false)} type="button" variant="ghost">
             稍后再说
           </Button>
           <Button onClick={onCancel} type="button" variant="destructive">
@@ -148,7 +162,7 @@ export function BulkUploadProgressDialog({
     }
     return (
       <div className="flex justify-end gap-2">
-        <Button onClick={onAbort} type="button" variant="ghost">
+        <Button onClick={() => handleOpenChange(false)} type="button" variant="ghost">
           关闭
         </Button>
         <Button onClick={onCancel} type="button" variant="destructive">
@@ -167,14 +181,7 @@ export function BulkUploadProgressDialog({
       }
       dismissible={isTerminal}
       footer={buildFooter()}
-      onOpenChange={(next) => {
-        if (!next && !isTerminal) {
-          // 非终止状态下点关闭等同 abort（不调取消 API）。
-          // Treat close-when-active as abort (does not cancel server-side).
-          onAbort();
-        }
-        onOpenChange(next);
-      }}
+      onOpenChange={handleOpenChange}
       open={open}
       showCloseButton
       size="lg"

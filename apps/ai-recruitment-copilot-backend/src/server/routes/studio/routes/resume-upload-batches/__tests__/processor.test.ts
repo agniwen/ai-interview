@@ -22,6 +22,7 @@ import {
 } from "@arc/db-schema/schema";
 import { insertBatchWithItems } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resume-upload-batches/dao/batches";
 import {
+  getClaimMissRetryError,
   processBatchItem,
   processNextItem,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resume-upload-batches/utils/processor";
@@ -200,6 +201,36 @@ afterAll(async () => {
 beforeEach(() => {
   vi.resetAllMocks();
   (generateResumeReview as ReturnType<typeof vi.fn>).mockResolvedValue("自动生成的简历评价");
+});
+
+describe("getClaimMissRetryError", () => {
+  it("pending item 或缺失 item 的 claim miss 必须让队列重试", () => {
+    expect(
+      getClaimMissRetryError(
+        {
+          batchId: "batch-1",
+          startedAt: null,
+          status: "pending",
+        },
+        "item-1",
+      )?.message,
+    ).toContain("item-1");
+
+    expect(getClaimMissRetryError(null, "item-2")?.message).toContain("item-2");
+  });
+
+  it("terminal item 的 claim miss 允许作为幂等 no-op", () => {
+    expect(
+      getClaimMissRetryError(
+        {
+          batchId: "batch-1",
+          startedAt: new Date("2026-05-18T10:00:00.000Z"),
+          status: "succeeded",
+        },
+        "item-1",
+      ),
+    ).toBeNull();
+  });
 });
 
 // ─── Test 1: happy path ───────────────────────────────────────────────────────
