@@ -14,6 +14,7 @@ import {
   FileTextIcon,
   HistoryIcon,
   LoaderCircleIcon,
+  Trash2Icon,
   UploadIcon,
 } from "lucide-react";
 import { Suspense, lazy, useEffect, useMemo, useState } from "react";
@@ -58,6 +59,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import {
+  deleteResumePoolItem,
   fetchResumePoolItems,
   importResumePoolItem,
   isApiError,
@@ -450,6 +452,7 @@ function ResumePoolPage() {
   const [batchListOpen, setBatchListOpen] = useState(false);
   const [previewRecord, setPreviewRecord] = useState<ResumePoolListRecord | null>(null);
   const [importTarget, setImportTarget] = useState<ResumePoolListRecord | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<ResumePoolListRecord | null>(null);
 
   const queryKeyPrefix = useMemo(() => ["resume-pool", slug] as const, [slug]);
   const fetcher = useMemo(
@@ -545,6 +548,15 @@ function ResumePoolPage() {
     onError: (error) => toast.error(error instanceof Error ? error.message : "推送失败"),
     onSuccess: () => {
       toast.success("已推送到简历广场");
+      invalidatePool();
+    },
+  });
+  const deleteMutation = useMutation({
+    mutationFn: (record: ResumePoolListRecord) => deleteResumePoolItem(slug, record.id),
+    onError: (error) => toast.error(error instanceof Error ? error.message : "删除失败"),
+    onSuccess: () => {
+      toast.success("私有简历已删除");
+      setDeleteTarget(null);
       invalidatePool();
     },
   });
@@ -650,6 +662,11 @@ function ResumePoolPage() {
             disabled: (record) => record.importedResumeRecordId !== null,
             label: "入库",
             onClick: (record) => setImportTarget(record),
+          },
+          {
+            label: "删除",
+            onClick: (record) => setDeleteTarget(record),
+            show: () => scope === "private",
           },
         ],
       }),
@@ -810,6 +827,35 @@ function ResumePoolPage() {
         onImported={invalidatePool}
         onOpenChange={(open) => !open && setImportTarget(null)}
       />
+      <AlertDialog
+        onOpenChange={(open) => !open && setDeleteTarget(null)}
+        open={deleteTarget !== null}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>确认删除这份私有简历？</AlertDialogTitle>
+            <AlertDialogDescription>
+              这会从私有简历中永久删除 {deleteTarget ? getCandidateTitle(deleteTarget) : "该记录"}。
+              已入库到简历库的记录不会删除，已推送到简历广场的公共记录也不会删除。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteMutation.isPending}>取消</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={deleteMutation.isPending || !deleteTarget}
+              onClick={() => {
+                if (deleteTarget) {
+                  deleteMutation.mutate(deleteTarget);
+                }
+              }}
+              variant="destructive"
+            >
+              <Trash2Icon className="size-4" />
+              {deleteMutation.isPending ? "删除中…" : "确认删除"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       {previewRecord ? (
         <Suspense fallback={null}>
           <PdfPreviewDialog

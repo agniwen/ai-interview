@@ -12,6 +12,7 @@ import {
 import type { ResumeProfile } from "@arc/db-schema/interview/types";
 import {
   createResumePoolItem,
+  deletePrivatePoolItem,
   importPoolItemToResumeLibrary,
   publishPrivatePoolItem,
   queryResumePoolItems,
@@ -219,5 +220,60 @@ describe("importPoolItemToResumeLibrary", () => {
         poolItemId: privateId,
       }),
     ).rejects.toThrow("简历池记录不存在或无权访问");
+  });
+});
+
+describe("deletePrivatePoolItem", () => {
+  it("hard-deletes the owner's private pool item and keeps imported resume records", async () => {
+    const privateId = await createResumePoolItem(basePoolInput());
+    const imported = await importPoolItemToResumeLibrary({
+      dedupPolicy: "force",
+      importedBy: USER_A,
+      jobDescriptionId: null,
+      organizationId: ORG_A,
+      poolItemId: privateId,
+    });
+    if (imported.status !== "imported") {
+      throw new Error("expected import success");
+    }
+
+    await deletePrivatePoolItem({
+      organizationId: ORG_A,
+      poolItemId: privateId,
+      userId: USER_A,
+    });
+
+    const poolRows = await db.select().from(resumePoolItem).where(eq(resumePoolItem.id, privateId));
+    expect(poolRows).toHaveLength(0);
+
+    const [record] = await db
+      .select()
+      .from(studioInterview)
+      .where(eq(studioInterview.id, imported.resumeRecordId));
+    expect(record?.candidateName).toBe(PROFILE.name);
+    expect(record?.resumeSourceType).toBe("private_pool");
+    expect(record?.resumeSourcePoolItemId).toBeNull();
+  });
+
+  it("rejects deleting public items or another user's private items", async () => {
+    const publicId = await createResumePoolItem(basePoolInput({ scope: "public" }));
+    const otherPrivateId = await createResumePoolItem(
+      basePoolInput({ createdBy: USER_B, organizationId: ORG_A }),
+    );
+
+    await expect(
+      deletePrivatePoolItem({
+        organizationId: ORG_A,
+        poolItemId: publicId,
+        userId: USER_A,
+      }),
+    ).rejects.toThrow("私有简历不存在或无权删除");
+    await expect(
+      deletePrivatePoolItem({
+        organizationId: ORG_A,
+        poolItemId: otherPrivateId,
+        userId: USER_A,
+      }),
+    ).rejects.toThrow("私有简历不存在或无权删除");
   });
 });
