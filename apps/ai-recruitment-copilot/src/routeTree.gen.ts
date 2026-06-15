@@ -21,6 +21,7 @@ import { Route as StudioResumePoolRouteImport } from './routes/studio.resume-poo
 import { Route as StudioInterviewsRouteImport } from './routes/studio.interviews'
 import { Route as RRoundIdRouteImport } from './routes/r.$roundId'
 import { Route as PlatformUsersRouteImport } from './routes/platform.users'
+import { Route as PlatformQueuesRouteImport } from './routes/platform.queues'
 import { Route as PlatformOrganizationsRouteImport } from './routes/platform.organizations'
 import { Route as JoinCodeRouteImport } from './routes/join.$code'
 import { Route as InviteTokenRouteImport } from './routes/invite.$token'
@@ -104,6 +105,11 @@ const RRoundIdRoute = RRoundIdRouteImport.update({
 const PlatformUsersRoute = PlatformUsersRouteImport.update({
   id: '/users',
   path: '/users',
+  getParentRoute: () => PlatformRoute,
+} as any)
+const PlatformQueuesRoute = PlatformQueuesRouteImport.update({
+  id: '/queues',
+  path: '/queues',
   getParentRoute: () => PlatformRoute,
 } as any)
 const PlatformOrganizationsRoute = PlatformOrganizationsRouteImport.update({
@@ -244,6 +250,7 @@ export interface FileRoutesByFullPath {
   '/invite/$token': typeof InviteTokenRoute
   '/join/$code': typeof JoinCodeRoute
   '/platform/organizations': typeof PlatformOrganizationsRoute
+  '/platform/queues': typeof PlatformQueuesRoute
   '/platform/users': typeof PlatformUsersRoute
   '/r/$roundId': typeof RRoundIdRoute
   '/studio/interviews': typeof StudioInterviewsRoute
@@ -282,6 +289,7 @@ export interface FileRoutesByTo {
   '/invite/$token': typeof InviteTokenRoute
   '/join/$code': typeof JoinCodeRoute
   '/platform/organizations': typeof PlatformOrganizationsRoute
+  '/platform/queues': typeof PlatformQueuesRoute
   '/platform/users': typeof PlatformUsersRoute
   '/r/$roundId': typeof RRoundIdRoute
   '/studio/interviews': typeof StudioInterviewsRoute
@@ -320,6 +328,7 @@ export interface FileRoutesById {
   '/invite/$token': typeof InviteTokenRoute
   '/join/$code': typeof JoinCodeRoute
   '/platform/organizations': typeof PlatformOrganizationsRoute
+  '/platform/queues': typeof PlatformQueuesRoute
   '/platform/users': typeof PlatformUsersRoute
   '/r/$roundId': typeof RRoundIdRoute
   '/studio/interviews': typeof StudioInterviewsRoute
@@ -360,6 +369,7 @@ export interface FileRouteTypes {
     | '/invite/$token'
     | '/join/$code'
     | '/platform/organizations'
+    | '/platform/queues'
     | '/platform/users'
     | '/r/$roundId'
     | '/studio/interviews'
@@ -398,6 +408,7 @@ export interface FileRouteTypes {
     | '/invite/$token'
     | '/join/$code'
     | '/platform/organizations'
+    | '/platform/queues'
     | '/platform/users'
     | '/r/$roundId'
     | '/studio/interviews'
@@ -435,6 +446,7 @@ export interface FileRouteTypes {
     | '/invite/$token'
     | '/join/$code'
     | '/platform/organizations'
+    | '/platform/queues'
     | '/platform/users'
     | '/r/$roundId'
     | '/studio/interviews'
@@ -564,6 +576,13 @@ declare module '@tanstack/react-router' {
       path: '/users'
       fullPath: '/platform/users'
       preLoaderRoute: typeof PlatformUsersRouteImport
+      parentRoute: typeof PlatformRoute
+    }
+    '/platform/queues': {
+      id: '/platform/queues'
+      path: '/queues'
+      fullPath: '/platform/queues'
+      preLoaderRoute: typeof PlatformQueuesRouteImport
       parentRoute: typeof PlatformRoute
     }
     '/platform/organizations': {
@@ -763,11 +782,13 @@ const InterviewRouteWithChildren = InterviewRoute._addFileChildren(
 
 interface PlatformRouteChildren {
   PlatformOrganizationsRoute: typeof PlatformOrganizationsRoute
+  PlatformQueuesRoute: typeof PlatformQueuesRoute
   PlatformUsersRoute: typeof PlatformUsersRoute
 }
 
 const PlatformRouteChildren: PlatformRouteChildren = {
   PlatformOrganizationsRoute: PlatformOrganizationsRoute,
+  PlatformQueuesRoute: PlatformQueuesRoute,
   PlatformUsersRoute: PlatformUsersRoute,
 }
 

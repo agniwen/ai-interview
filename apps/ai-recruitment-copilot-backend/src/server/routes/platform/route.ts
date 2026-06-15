@@ -5,6 +5,12 @@ import { factory, jsonValidatorError } from "@arc/ai-recruitment-copilot-backend
 import { adminMiddleware } from "@arc/ai-recruitment-copilot-backend/server/middlewares/admin";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import { organization, member, session, user } from "@arc/db-schema/schema";
+import {
+  getResumeParseQueueOverview,
+  listResumeParseQueueJobs,
+  RESUME_PARSE_JOB_LIST_STATES,
+  RESUME_PARSE_QUEUE_NAME,
+} from "@arc/resume-parse-queue/resume-parse";
 
 // --- Organizations list ---
 const orgQuerySchema = z.object({
@@ -317,9 +323,37 @@ const platformUsers = factory
     );
   });
 
+const queueJobsQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(20),
+  search: z.string().optional(),
+  state: z.enum(RESUME_PARSE_JOB_LIST_STATES).default("all"),
+});
+
+const platformQueues = factory
+  .createApp()
+  .get("/queues", async (c) => {
+    const overview = await getResumeParseQueueOverview();
+    return c.json({ records: [overview], total: 1 }, 200);
+  })
+  .get(
+    "/queues/:queueName/jobs",
+    zValidator("query", queueJobsQuerySchema, jsonValidatorError("参数校验失败")),
+    async (c) => {
+      const queueName = c.req.param("queueName");
+      if (queueName !== RESUME_PARSE_QUEUE_NAME) {
+        return c.json({ error: "队列不存在" }, 404);
+      }
+      const query = c.req.valid("query");
+      const result = await listResumeParseQueueJobs(query);
+      return c.json(result, 200);
+    },
+  );
+
 export const platformRouter = factory
   .createApp()
   .use(adminMiddleware)
+  .route("/", platformQueues)
   .route("/", platformOrganizations)
   .route("/", organizationDetail)
   .route("/", platformUsers);

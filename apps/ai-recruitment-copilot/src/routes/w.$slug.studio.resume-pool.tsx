@@ -76,8 +76,9 @@ import {
   publishResumePoolItem,
 } from "@/lib/client/api";
 import { listBulkResumeBatches } from "@/lib/client/api/endpoints/bulk-resume-upload";
+import { authClient } from "@/lib/client/auth-client";
 import { rpc } from "@/lib/client/rpc";
-import { useWorkspaceSlug } from "@/lib/client/workspace-context";
+import { useWorkspaceId, useWorkspaceSlug } from "@/lib/client/workspace-context";
 
 const PdfPreviewDialog = lazy(async () => {
   const mod = await import("@/components/features/pdf/pdf-preview-dialog");
@@ -110,6 +111,15 @@ function normalizeScope(value: unknown): ResumePoolScope {
 
 function getCandidateTitle(record: ResumePoolListRecord) {
   return record.candidateName?.trim() || "未命名候选人";
+}
+
+function getCandidateDisplayTitle(record: ResumePoolListRecord) {
+  const candidateTitle = getCandidateTitle(record);
+  const targetRole = record.targetRole?.trim();
+  if (record.resumeParseStatus !== "ready" || !targetRole) {
+    return candidateTitle;
+  }
+  return `${targetRole}-${candidateTitle}`;
 }
 
 function resumeParseStatusBadge(record: ResumePoolListRecord) {
@@ -156,6 +166,40 @@ function sourceLabel(record: ResumePoolListRecord) {
     return "—";
   }
   return record.sourcePoolItemId ? "私有简历推送" : "公共上传";
+}
+
+function uploaderOrganizationLabel(record: ResumePoolListRecord) {
+  return record.uploaderOrganizationName?.trim() || "未知组织";
+}
+
+function uploaderUserLabel(record: ResumePoolListRecord) {
+  return record.uploaderName?.trim() || record.uploaderEmail?.trim() || "未知上传人";
+}
+
+function canDeletePoolRecord(
+  record: ResumePoolListRecord,
+  {
+    currentOrganizationId,
+    currentUserId,
+  }: {
+    currentOrganizationId: string | null;
+    currentUserId: string | null;
+  },
+) {
+  return Boolean(
+    currentOrganizationId &&
+    currentUserId &&
+    record.organizationId === currentOrganizationId &&
+    record.createdBy === currentUserId,
+  );
+}
+
+function deletePoolRecordLabel(record: ResumePoolListRecord | null) {
+  return record?.scope === "public" ? "简历广场简历" : "私有简历";
+}
+
+function sessionUserId(session: { user?: { id?: string | null } } | null | undefined) {
+  return session?.user?.id ?? null;
 }
 
 function sortPoolRecords(
@@ -535,6 +579,8 @@ function ResumePoolDetailSummaryPanel({
       <div className="mt-4 grid gap-3 md:grid-cols-3">
         <DetailSummaryItem label="目标岗位">{textOrDash(detail.targetRole)}</DetailSummaryItem>
         <DetailSummaryItem label="来源">{sourceLabel(detail)}</DetailSummaryItem>
+        <DetailSummaryItem label="上传组织">{uploaderOrganizationLabel(detail)}</DetailSummaryItem>
+        <DetailSummaryItem label="上传人">{uploaderUserLabel(detail)}</DetailSummaryItem>
         <DetailSummaryItem label="工作年限">
           {textOrDash(resumeProfile?.workYears ?? null)}
         </DetailSummaryItem>
@@ -726,6 +772,7 @@ function ResumePoolDetailDialog({
 }
 
 function ResumePoolCard({
+  canDelete,
   deleting,
   onDelete,
   onOpenDetail,
@@ -738,6 +785,7 @@ function ResumePoolCard({
 }: {
   record: ResumePoolListRecord;
   scope: ResumePoolScope;
+  canDelete: boolean;
   publishing: boolean;
   deleting: boolean;
   onOpenDetail: (record: ResumePoolListRecord) => void;
@@ -746,7 +794,7 @@ function ResumePoolCard({
   onPublish: (record: ResumePoolListRecord) => void;
   onDelete: (record: ResumePoolListRecord) => void;
 }) {
-  const title = getCandidateTitle(record);
+  const title = getCandidateDisplayTitle(record);
   const previewLabel = record.resumeFileName ?? "查看简历 PDF";
   const skills = record.skillsNormalized.slice(0, 5);
   const note = notesPreview(record.notes);
@@ -821,9 +869,13 @@ function ResumePoolCard({
 
         <ResumePoolCardHighlights record={record} />
 
-        <div className="grid grid-cols-[auto_1fr] gap-x-2 gap-y-1 text-muted-foreground">
+        <div className="grid grid-cols-[auto_1fr] gap-x-2 gap-y-1 border-border/70 border-t pt-3 text-muted-foreground">
           <span>来源</span>
           <span className="truncate text-foreground">{sourceLabel(record)}</span>
+          <span>上传组织</span>
+          <span className="truncate text-foreground">{uploaderOrganizationLabel(record)}</span>
+          <span>上传人</span>
+          <span className="truncate text-foreground">{uploaderUserLabel(record)}</span>
           <span>创建</span>
           <TimeDisplay as="span" className="text-foreground" value={record.createdAt} />
         </div>
@@ -840,10 +892,10 @@ function ResumePoolCard({
 
         {note ? <p className="line-clamp-3 text-muted-foreground leading-5">{note}</p> : null}
       </CardContent>
-      <CardFooter className="flex-col items-stretch gap-2 px-3">
+      <CardFooter className="flex items-center gap-2 px-3">
         <Button
           aria-label={record.importedResumeRecordId ? "已入库" : "入库到简历库"}
-          className="w-full justify-center"
+          className="min-w-0 flex-1 justify-center"
           disabled={record.importedResumeRecordId !== null}
           onClick={() => onImport(record)}
           title={record.importedResumeRecordId ? "已入库" : "入库到简历库"}
@@ -853,30 +905,30 @@ function ResumePoolCard({
           {record.importedResumeRecordId ? "已入库" : "入库到简历库"}
         </Button>
         {scope === "private" ? (
-          <div className="flex justify-end gap-1">
-            <Button
-              aria-label="推送到简历广场"
-              className="size-8"
-              disabled={publishing}
-              onClick={() => onPublish(record)}
-              size="icon"
-              title="推送到简历广场"
-              variant="outline"
-            >
-              <SendIcon className="size-4" />
-            </Button>
-            <Button
-              aria-label="删除私有简历"
-              className="size-8"
-              disabled={deleting}
-              onClick={() => onDelete(record)}
-              size="icon"
-              title="删除私有简历"
-              variant="outline"
-            >
-              <Trash2Icon className="size-4" />
-            </Button>
-          </div>
+          <Button
+            aria-label="推送到简历广场"
+            className="shrink-0"
+            disabled={publishing}
+            onClick={() => onPublish(record)}
+            size="icon-sm"
+            title="推送到简历广场"
+            variant="outline"
+          >
+            <SendIcon className="size-4" />
+          </Button>
+        ) : null}
+        {canDelete ? (
+          <Button
+            aria-label={scope === "private" ? "删除私有简历" : "删除简历"}
+            className="shrink-0"
+            disabled={deleting}
+            onClick={() => onDelete(record)}
+            size="icon-sm"
+            title={scope === "private" ? "删除私有简历" : "删除简历"}
+            variant="outline"
+          >
+            <Trash2Icon className="size-4" />
+          </Button>
         ) : null}
       </CardFooter>
     </Card>
@@ -928,6 +980,8 @@ function ResumePoolEmptyState({
 
 function ResumePoolListContent({
   canResetFilters,
+  currentOrganizationId,
+  currentUserId,
   deleting,
   emptyTitle,
   isInitialPoolLoading,
@@ -944,6 +998,8 @@ function ResumePoolListContent({
 }: {
   records: ResumePoolListRecord[];
   scope: ResumePoolScope;
+  currentOrganizationId: string | null;
+  currentUserId: string | null;
   publishing: boolean;
   deleting: boolean;
   isInitialPoolLoading: boolean;
@@ -961,20 +1017,27 @@ function ResumePoolListContent({
     return (
       <ResponsiveMasonry columnsCountBreakPoints={RESUME_POOL_MASONRY_COLUMNS}>
         <Masonry gutter="16px">
-          {records.map((record) => (
-            <ResumePoolCard
-              deleting={deleting}
-              key={record.id}
-              onDelete={onDelete}
-              onImport={onImport}
-              onOpenDetail={onOpenDetail}
-              onOpenPdf={onOpenPdf}
-              onPublish={onPublish}
-              publishing={publishing}
-              record={record}
-              scope={scope}
-            />
-          ))}
+          {records.map((record) => {
+            const canDelete = canDeletePoolRecord(record, {
+              currentOrganizationId,
+              currentUserId,
+            });
+            return (
+              <ResumePoolCard
+                canDelete={canDelete}
+                deleting={deleting}
+                key={record.id}
+                onDelete={onDelete}
+                onImport={onImport}
+                onOpenDetail={onOpenDetail}
+                onOpenPdf={onOpenPdf}
+                onPublish={onPublish}
+                publishing={publishing}
+                record={record}
+                scope={scope}
+              />
+            );
+          })}
         </Masonry>
       </ResponsiveMasonry>
     );
@@ -999,6 +1062,8 @@ function ResumePoolListContent({
 
 function ResumePoolPage() {
   const slug = useWorkspaceSlug();
+  const workspaceId = useWorkspaceId();
+  const { data: session } = authClient.useSession();
   const queryClient = useQueryClient();
   const search = useSearch({ from: "/w/$slug/studio/resume-pool" }) as ResumePoolSearch;
   const navigate = useNavigate({ from: "/w/$slug/studio/resume-pool" });
@@ -1053,6 +1118,8 @@ function ResumePoolPage() {
   const isInitialPoolLoading = isPoolBusy && visibleRecordCount === 0;
   const showEmptyState = !isInitialPoolLoading && grid.bind.data.length === 0;
   const showPoolFooter = visibleRecordCount > 0;
+  const currentUserId = sessionUserId(session);
+  const currentOrganizationId = workspaceId;
   const loadMoreRecords = useCallback(() => {
     if (!hasMoreRecords || isPoolBusy) {
       return;
@@ -1151,8 +1218,8 @@ function ResumePoolPage() {
   const deleteMutation = useMutation({
     mutationFn: (record: ResumePoolListRecord) => deleteResumePoolItem(slug, record.id),
     onError: (error) => toast.error(error instanceof Error ? error.message : "删除失败"),
-    onSuccess: () => {
-      toast.success("私有简历已删除");
+    onSuccess: (_data, record) => {
+      toast.success(`${deletePoolRecordLabel(record)}已删除`);
       setDeleteTarget(null);
       invalidatePool();
     },
@@ -1252,6 +1319,8 @@ function ResumePoolPage() {
           />
           <ResumePoolListContent
             canResetFilters={grid.bind.canResetFilters}
+            currentOrganizationId={currentOrganizationId}
+            currentUserId={currentUserId}
             deleting={deleteMutation.isPending}
             emptyTitle={emptyTitle}
             isInitialPoolLoading={isInitialPoolLoading}
@@ -1359,10 +1428,10 @@ function ResumePoolPage() {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>确认删除这份私有简历？</AlertDialogTitle>
+            <AlertDialogTitle>确认删除这份{deletePoolRecordLabel(deleteTarget)}？</AlertDialogTitle>
             <AlertDialogDescription>
-              这会从私有简历中永久删除 {deleteTarget ? getCandidateTitle(deleteTarget) : "该记录"}。
-              已入库到简历库的记录不会删除，已推送到简历广场的公共记录也不会删除。
+              这会永久删除 {deleteTarget ? getCandidateTitle(deleteTarget) : "该记录"}。
+              已入库到简历库的记录不会删除。
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

@@ -37,6 +37,9 @@ export interface ResumePoolListRecord {
   status: ResumePoolStatus;
   organizationId: string | null;
   createdBy: string | null;
+  uploaderEmail: string | null;
+  uploaderName: string | null;
+  uploaderOrganizationName: string | null;
   sourcePoolItemId: string | null;
   sourceOrganizationId: string | null;
   sourceUserId: string | null;
