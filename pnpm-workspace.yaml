@@ -52,4 +52,4 @@ trustPolicyExclude:
   - "tinyexec@1.2.2"
 
 minimumReleaseAgeExclude:
-  - '@extend-ai/react-docx@0.7.1'
+  - "@extend-ai/react-docx@0.7.1"
