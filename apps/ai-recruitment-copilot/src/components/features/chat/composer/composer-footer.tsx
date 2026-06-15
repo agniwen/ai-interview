@@ -149,7 +149,7 @@ export function ComposerFooter({
               }}
             >
               <ImageIcon className="mr-2 size-4" />
-              上传 PDF 简历
+              上传简历文件
             </PromptInputActionMenuItem>
             <PromptInputActionMenuItem
               onSelect={(event) => {

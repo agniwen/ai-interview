@@ -34,6 +34,10 @@ import { useDataGridState } from "@/components/data-grid";
 import { Toolbar } from "@/components/data-grid/parts/toolbar";
 import { TimeDisplay } from "@/components/features/display/time-display";
 import { PdfFileIcon } from "@/components/features/pdf/pdf-file-icon";
+import {
+  getPreviewableResumeDocumentKind,
+  isPreviewableResumeDocumentInput,
+} from "@/components/features/resume/resume-document-preview-button";
 import { ResumeProfileView } from "@/components/features/resume/resume-profile-view";
 import { PageHeader } from "@/components/features/studio/page-header";
 import { BulkUploadProgressDialog } from "@/components/features/studio/resumes/bulk-upload-progress-dialog";
@@ -80,9 +84,9 @@ import { authClient } from "@/lib/client/auth-client";
 import { rpc } from "@/lib/client/rpc";
 import { useWorkspaceId, useWorkspaceSlug } from "@/lib/client/workspace-context";
 
-const PdfPreviewDialog = lazy(async () => {
-  const mod = await import("@/components/features/pdf/pdf-preview-dialog");
-  return { default: mod.PdfPreviewDialog };
+const ResumeDocumentPreviewDialog = lazy(async () => {
+  const mod = await import("@/components/features/resume/resume-document-preview-dialog");
+  return { default: mod.ResumeDocumentPreviewDialog };
 });
 
 interface ResumePoolSearch {
@@ -795,10 +799,12 @@ function ResumePoolCard({
   onDelete: (record: ResumePoolListRecord) => void;
 }) {
   const title = getCandidateDisplayTitle(record);
-  const previewLabel = record.resumeFileName ?? "查看简历 PDF";
+  const previewLabel = record.resumeFileName ?? "查看简历";
   const skills = record.skillsNormalized.slice(0, 5);
   const note = notesPreview(record.notes);
-  const canPreview = Boolean(record.resumeStorageKey);
+  const canPreview =
+    Boolean(record.resumeStorageKey) &&
+    isPreviewableResumeDocumentInput({ fileName: record.resumeFileName });
 
   return (
     <Card className="w-full gap-3 rounded-md py-3">
@@ -816,9 +822,9 @@ function ResumePoolCard({
         ) : (
           <span
             aria-disabled="true"
-            aria-label="暂无简历 PDF"
+            aria-label="暂无可预览简历"
             className="inline-flex size-8 shrink-0 items-center justify-center rounded-md opacity-45 grayscale"
-            title="暂无简历 PDF"
+            title="暂无可预览简历"
           >
             <PdfFileIcon className="size-8" />
           </span>
@@ -1374,7 +1380,7 @@ function ResumePoolPage() {
       <ResumeUploadEntryDialog
         description="选择 1 份或多份 PDF，都会进入后台解析队列。"
         fileUploadDescription="可选择 1 份或多份 PDF，上传后在后台异步解析。"
-        fileUploadTitle="请选择要加入简历广场的 PDF 简历"
+        fileUploadTitle="请选择要加入简历广场的简历文件"
         onMultipleFilesPicked={(files) => startQueuedUpload(files, uploadScope)}
         onOpenChange={setUploadEntryOpen}
         onSingleFilePicked={(file) => startQueuedUpload([file], uploadScope)}
@@ -1454,16 +1460,24 @@ function ResumePoolPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-      {previewRecord ? (
-        <Suspense fallback={null}>
-          <PdfPreviewDialog
-            filename={previewRecord.resumeFileName ?? undefined}
-            onOpenChange={(open) => !open && setPreviewRecord(null)}
-            open={previewRecord !== null}
-            url={`/api/w/${slug}/studio/resume-pool/${previewRecord.id}/resume`}
-          />
-        </Suspense>
-      ) : null}
+      {previewRecord
+        ? (() => {
+            const previewKind = getPreviewableResumeDocumentKind({
+              fileName: previewRecord.resumeFileName,
+            });
+            return previewKind ? (
+              <Suspense fallback={null}>
+                <ResumeDocumentPreviewDialog
+                  filename={previewRecord.resumeFileName ?? undefined}
+                  kind={previewKind}
+                  onOpenChange={(open) => !open && setPreviewRecord(null)}
+                  open={previewRecord !== null}
+                  url={`/api/w/${slug}/studio/resume-pool/${previewRecord.id}/resume`}
+                />
+              </Suspense>
+            ) : null;
+          })()
+        : null}
     </>
   );
 }

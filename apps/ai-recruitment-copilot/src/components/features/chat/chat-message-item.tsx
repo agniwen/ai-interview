@@ -20,10 +20,15 @@ import {
 import { Source, Sources, SourcesContent, SourcesTrigger } from "@/components/ai-elements/sources";
 import { AssistantMessageGroups } from "@/components/features/chat/assistant-message-groups";
 import { ParsedResumeButton } from "@/components/features/resume/parsed-resume-button";
-import { PdfPreviewButton } from "@/components/features/pdf/pdf-preview-button";
+import { ResumeDocumentPreviewButton } from "@/components/features/resume/resume-document-preview-button";
 import { ResumeImportButton } from "@/components/features/resume-import/resume-import-button";
+import { attachmentTextSourceValues } from "@arc/db-schema/db-enums";
 import type { AttachmentTextSource } from "@arc/db-schema/db-enums";
 import type { ResumeParserStructured } from "@arc/db-schema/resume-parser-schema";
+import {
+  getResumeDocumentKind,
+  isSupportedResumeDocumentInput,
+} from "@arc/shared/resume-documents";
 import { ThinkingBlock } from "@/components/features/chat/thinking-block";
 import { TIME_DISPLAY_OPTIONS, TimeDisplay } from "@/components/features/display/time-display";
 import { ApplyJobDescriptionCard } from "@/components/features/chat/tool-call/apply-job-description-card";
@@ -133,15 +138,17 @@ export function ChatMessageItem({
         if (!(structured || text)) {
           continue;
         }
+        const parsedTextSource = attachmentTextSourceValues.includes(
+          data.parsedTextSource as AttachmentTextSource,
+        )
+          ? (data.parsedTextSource as AttachmentTextSource)
+          : "qwen-ocr";
         parsedByAttachmentId.set(data.attachmentId, {
           filename: typeof data.filename === "string" ? data.filename : "resume.pdf",
           parsedPageCount: typeof data.parsedPageCount === "number" ? data.parsedPageCount : null,
           parsedStructured: structured,
           parsedText: text,
-          parsedTextSource:
-            data.parsedTextSource === "pdf-parse" || data.parsedTextSource === "qwen-ocr"
-              ? data.parsedTextSource
-              : "qwen-ocr",
+          parsedTextSource,
         });
       }
     }
@@ -192,16 +199,21 @@ export function ChatMessageItem({
           {fileParts.length > 0 ? (
             <Attachments className="mb-2 min-w-65" variant="list">
               {fileParts.map((part) => {
-                const isPdf =
-                  part.mediaType === "application/pdf" ||
-                  part.filename?.toLowerCase().endsWith(".pdf");
-                const showImportButton = message.role === "user" && isPdf;
+                const documentKind = getResumeDocumentKind({
+                  fileName: part.filename,
+                  mediaType: part.mediaType,
+                });
+                const isResumeDocument = isSupportedResumeDocumentInput({
+                  fileName: part.filename,
+                  mediaType: part.mediaType,
+                });
+                const showImportButton = message.role === "user" && isResumeDocument;
                 const importedId = resumeImports[part.id] ?? null;
                 const attachmentIdMatch = part.url.match(/\/api\/chat\/attachments\/([^/?#]+)/);
                 const attachmentId = attachmentIdMatch?.[1] ?? null;
                 const parsed = attachmentId ? parsedByAttachmentId.get(attachmentId) : null;
 
-                if (isPdf) {
+                if (isResumeDocument) {
                   return (
                     <div
                       className="flex w-full flex-col gap-3 rounded-lg border bg-card p-3 hover:bg-accent/30"
@@ -213,16 +225,17 @@ export function ChatMessageItem({
                         </div>
                         <div className="min-w-0 flex-1">
                           <p className="truncate font-medium text-sm">
-                            {part.filename || "resume.pdf"}
+                            {part.filename || `resume.${documentKind ?? "pdf"}`}
                           </p>
                           <p className="truncate text-muted-foreground text-xs">{part.mediaType}</p>
                         </div>
                       </div>
                       <div className="flex items-stretch gap-2 border-t pt-3">
                         {part.url ? (
-                          <PdfPreviewButton
+                          <ResumeDocumentPreviewButton
                             className="flex-1 basis-0"
                             filename={part.filename}
+                            mediaType={part.mediaType}
                             url={part.url}
                           />
                         ) : null}

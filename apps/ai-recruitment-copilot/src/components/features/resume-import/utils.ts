@@ -6,7 +6,7 @@ const LEADING_DIGITS_RE = /^(\d+)/;
 export async function dataUrlToFile(url: string, filename: string): Promise<File> {
   const response = await fetch(url);
   const blob = await response.blob();
-  return new File([blob], filename, { type: blob.type || "application/pdf" });
+  return new File([blob], filename, { type: blob.type || "application/octet-stream" });
 }
 
 const FIELD_MAP: { key: string; label: string }[] = [

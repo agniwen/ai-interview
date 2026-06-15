@@ -23,7 +23,13 @@ export const attachmentParseStatusValues = ["pending", "ready", "failed"] as con
 export const attachmentParseStatusSchema = z.enum(attachmentParseStatusValues);
 export type AttachmentParseStatus = z.infer<typeof attachmentParseStatusSchema>;
 
-export const attachmentTextSourceValues = ["pdf-parse", "qwen-ocr"] as const;
+export const attachmentTextSourceValues = [
+  "pdf-parse",
+  "qwen-ocr",
+  "docx-text",
+  "pptx-text",
+  "xlsx-text",
+] as const;
 export const attachmentTextSourceSchema = z.enum(attachmentTextSourceValues);
 export type AttachmentTextSource = z.infer<typeof attachmentTextSourceSchema>;
 

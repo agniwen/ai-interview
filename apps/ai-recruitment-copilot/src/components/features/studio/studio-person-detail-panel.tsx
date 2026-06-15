@@ -60,7 +60,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { AnimatedHeight } from "@/components/features/motion/animated-height";
-import { PdfPreviewButton } from "@/components/features/pdf/pdf-preview-button";
+import { ResumeDocumentPreviewButton } from "@/components/features/resume/resume-document-preview-button";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -1059,7 +1059,7 @@ function useStudioPersonDetailPanel({
             </>
           ) : null}
         </TabsList>
-        <PdfPreviewButton
+        <ResumeDocumentPreviewButton
           className="w-full sm:w-auto"
           disabled={!record.hasResumeFile}
           filename={record.resumeFileName ?? undefined}

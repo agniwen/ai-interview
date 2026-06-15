@@ -1,0 +1,107 @@
+"use client";
+
+import { EyeIcon } from "lucide-react";
+import { Suspense, lazy, useState } from "react";
+import { PdfPreviewButton } from "@/components/features/pdf/pdf-preview-button";
+import type { ResumeDocumentPreviewKind } from "@/components/features/resume/resume-document-preview-dialog";
+import { Button } from "@/components/ui/button";
+import { getResumeDocumentKind } from "@arc/shared/resume-documents";
+import { cn } from "@arc/shared/utils";
+
+const ResumeDocumentPreviewDialog = lazy(async () => {
+  const mod = await import("@/components/features/resume/resume-document-preview-dialog");
+  return { default: mod.ResumeDocumentPreviewDialog };
+});
+
+export type PreviewableResumeDocumentKind = ResumeDocumentPreviewKind;
+
+export function getPreviewableResumeDocumentKind(input: {
+  fileName?: string | null;
+  mediaType?: string | null;
+}): PreviewableResumeDocumentKind | null {
+  const kind = getResumeDocumentKind({
+    fileName: input.fileName ?? undefined,
+    mediaType: input.mediaType ?? undefined,
+  });
+
+  if (kind === "pdf" || kind === "docx" || kind === "xlsx") {
+    return kind;
+  }
+
+  if (kind === "pptx") {
+    return null;
+  }
+
+  return input.fileName || input.mediaType ? null : "pdf";
+}
+
+export function isPreviewableResumeDocumentInput(input: {
+  fileName?: string | null;
+  mediaType?: string | null;
+}) {
+  return getPreviewableResumeDocumentKind(input) !== null;
+}
+
+export interface ResumeDocumentPreviewButtonProps {
+  url: string;
+  filename?: string | null;
+  mediaType?: string | null;
+  label?: string;
+  className?: string;
+  disabled?: boolean;
+}
+
+export function ResumeDocumentPreviewButton({
+  url,
+  filename,
+  mediaType,
+  label = "预览",
+  className,
+  disabled,
+}: ResumeDocumentPreviewButtonProps) {
+  const [open, setOpen] = useState(false);
+  const kind = getPreviewableResumeDocumentKind({ fileName: filename, mediaType });
+
+  if (!kind) {
+    return null;
+  }
+
+  if (kind === "pdf") {
+    return (
+      <PdfPreviewButton
+        className={className}
+        disabled={disabled}
+        filename={filename ?? undefined}
+        label={label}
+        url={url}
+      />
+    );
+  }
+
+  return (
+    <>
+      <Button
+        className={cn("h-8 shrink-0 gap-1.5", className)}
+        disabled={disabled}
+        onClick={() => setOpen(true)}
+        size="sm"
+        type="button"
+        variant="outline"
+      >
+        <EyeIcon className="size-3.5" />
+        {label}
+      </Button>
+      {open && !disabled ? (
+        <Suspense fallback={null}>
+          <ResumeDocumentPreviewDialog
+            filename={filename ?? undefined}
+            kind={kind}
+            onOpenChange={setOpen}
+            open={open}
+            url={url}
+          />
+        </Suspense>
+      ) : null}
+    </>
+  );
+}

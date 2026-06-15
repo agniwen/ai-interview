@@ -2,18 +2,14 @@
 
 import type { ReactNode } from "react";
 import { FileTextIcon, UploadIcon } from "lucide-react";
-import { Suspense, lazy, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { FileThumbnail } from "@/components/ui/file-thumbnail";
-
-const PdfPreviewDialog = lazy(async () => {
-  const mod = await import("@/components/features/pdf/pdf-preview-dialog");
-  return { default: mod.PdfPreviewDialog };
-});
+import { ResumeDocumentPreviewButton } from "@/components/features/resume/resume-document-preview-button";
+import { getResumeDocumentKind, resumeDocumentFormats } from "@arc/shared/resume-documents";
 
 /**
  * 简历库与 AI 面试详情共用的"候选人基础信息卡片"。
- * 只读展示候选人身份维度的字段，附带可选 PDF 预览按钮与 footer 操作槽。
+ * 只读展示候选人身份维度的字段，附带可选简历预览按钮与 footer 操作槽。
  *
  * Read-only candidate basic-info card shared between the resume library detail
  * dialog and the AI interview detail/edit dialogs. Exposes an optional footer
@@ -26,11 +22,11 @@ export interface CandidateBasicInfoViewProps {
   targetRole: string | null;
   jobDescriptionName: string | null;
   creatorName: string | null;
-  /** 简历 PDF 文件名（仅展示）。Resume PDF filename, display only. */
+  /** 简历文件名（仅展示）。Resume filename, display only. */
   resumeFileName: string | null;
-  /** 是否存在 PDF（决定预览按钮是否启用）。 */
+  /** 是否存在简历附件（决定预览按钮是否启用）。 */
   hasResumeFile: boolean;
-  /** 预览 PDF 的 URL；省略则不渲染预览按钮。 */
+  /** 预览简历的 URL；省略则不渲染预览按钮。 */
   pdfPreviewUrl?: string;
   /** 替换简历文件的入口；通常打开编辑弹窗。 */
   onReplaceResumeFile?: () => void;
@@ -66,8 +62,16 @@ export function CandidateBasicInfoView({
   footer,
   className,
 }: CandidateBasicInfoViewProps) {
-  const [previewOpen, setPreviewOpen] = useState(false);
   const canPreview = Boolean(pdfPreviewUrl && hasResumeFile);
+  const resumeDocumentKind = getResumeDocumentKind({
+    fileName: resumeFileName ?? undefined,
+  });
+  const resumeDocumentLabel = resumeDocumentKind
+    ? resumeDocumentFormats[resumeDocumentKind].label
+    : "PDF";
+  const resumeMediaType = resumeDocumentKind
+    ? resumeDocumentFormats[resumeDocumentKind].mediaTypes[0]
+    : "application/pdf";
 
   return (
     <div className={className}>
@@ -86,14 +90,14 @@ export function CandidateBasicInfoView({
                 className="w-18 shrink-0 rounded-md"
                 file={{
                   name: resumeFileName ?? "resume.pdf",
-                  type: "application/pdf",
+                  type: resumeMediaType,
                 }}
                 hasError={!hasResumeFile}
                 previewAspectRatio={0.74}
                 previewContent={
                   <div className="flex size-full flex-col items-center justify-center gap-1 bg-muted/70 text-muted-foreground">
                     <FileTextIcon className="size-5" />
-                    <span className="font-medium text-[10px]">PDF</span>
+                    <span className="font-medium text-[10px]">{resumeDocumentLabel}</span>
                   </div>
                 }
               />
@@ -101,20 +105,16 @@ export function CandidateBasicInfoView({
                 <div className="min-w-0">
                   <div className="truncate font-medium text-sm">{renderText(resumeFileName)}</div>
                   <div className="text-muted-foreground text-xs">
-                    {hasResumeFile ? "简历附件" : "暂无 PDF 附件"}
+                    {hasResumeFile ? "简历附件" : "暂无简历附件"}
                   </div>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
-                  {canPreview ? (
-                    <Button
-                      onClick={() => setPreviewOpen(true)}
-                      size="sm"
-                      type="button"
-                      variant="outline"
-                    >
-                      <FileTextIcon className="size-4" />
-                      预览
-                    </Button>
+                  {canPreview && pdfPreviewUrl ? (
+                    <ResumeDocumentPreviewButton
+                      filename={resumeFileName}
+                      mediaType={resumeMediaType}
+                      url={pdfPreviewUrl}
+                    />
                   ) : null}
                   {onReplaceResumeFile ? (
                     <Button onClick={onReplaceResumeFile} size="sm" type="button" variant="outline">
@@ -130,17 +130,6 @@ export function CandidateBasicInfoView({
       </section>
 
       {footer ? <div className="mt-4 flex items-center justify-end gap-2">{footer}</div> : null}
-
-      {canPreview && previewOpen && pdfPreviewUrl ? (
-        <Suspense fallback={null}>
-          <PdfPreviewDialog
-            filename={resumeFileName ?? undefined}
-            onOpenChange={setPreviewOpen}
-            open={previewOpen}
-            url={pdfPreviewUrl}
-          />
-        </Suspense>
-      ) : null}
     </div>
   );
 }

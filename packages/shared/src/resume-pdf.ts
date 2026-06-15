@@ -1,8 +1,9 @@
 import type { UIMessage } from "ai";
 import { decodeDataUrl } from "@arc/shared/data-url";
+import { isSupportedResumeDocumentInput } from "@arc/shared/resume-documents";
 
 // ---------------------------------------------------------------------------
-// Resume PDF helpers used across the chat / screening pipelines.
+// Resume document helpers used across the chat / screening pipelines.
 //
 // Text extraction now runs exclusively through Qwen-VL OCR (see
 // `src/lib/resume-parse-pipeline.ts`). This module no longer depends on
@@ -27,7 +28,7 @@ export interface ParsedResumePdf {
 
 const LEADING_INDEX_PREFIX_REGEX = /^\s*(\d+)\s*[.．、)]\s*/;
 
-const toDefaultFilename = (index: number): string => `resume-${index + 1}.pdf`;
+const toDefaultFilename = (index: number): string => `resume-${index + 1}`;
 
 export async function readPdfBytes(url: string): Promise<Uint8Array> {
   if (url.startsWith("data:")) {
@@ -38,14 +39,14 @@ export async function readPdfBytes(url: string): Promise<Uint8Array> {
     const response = await fetch(url);
 
     if (!response.ok) {
-      throw new Error(`Failed to download PDF: ${response.status}`);
+      throw new Error(`Failed to download resume document: ${response.status}`);
     }
 
     const bytes = await response.arrayBuffer();
     return new Uint8Array(bytes);
   }
 
-  throw new Error("Unsupported PDF url format.");
+  throw new Error("Unsupported resume document url format.");
 }
 
 export function clipResumeText(
@@ -71,7 +72,13 @@ export function collectUploadedResumePdfs(messages: UIMessage[]): UploadedResume
     }
 
     for (const [index, part] of message.parts.entries()) {
-      if (part.type !== "file" || part.mediaType !== "application/pdf") {
+      if (
+        part.type !== "file" ||
+        !isSupportedResumeDocumentInput({
+          fileName: part.filename,
+          mediaType: part.mediaType,
+        })
+      ) {
         continue;
       }
 

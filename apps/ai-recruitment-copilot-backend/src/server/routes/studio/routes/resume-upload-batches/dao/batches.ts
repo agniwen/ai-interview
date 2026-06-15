@@ -24,6 +24,8 @@ import type { ResumeParseJobData } from "@arc/resume-parse-queue/resume-parse";
 type BatchRow = typeof resumeUploadBatch.$inferSelect;
 type ItemRow = typeof resumeUploadBatchItem.$inferSelect;
 
+const RETRIABLE_FAILURE_MESSAGES = ["简历文件不可用（S3 对象缺失）。"] as const;
+
 export function toBatchDto(row: BatchRow): BulkResumeBatchDto {
   return {
     completedAt: row.completedAt ? row.completedAt.toISOString() : null,
@@ -509,6 +511,49 @@ export async function reviveOrphans(
       .set({ status: "pending", updatedAt: new Date() })
       .where(and(eq(resumeUploadBatch.id, batchId), eq(resumeUploadBatch.status, "running")));
   });
+}
+
+export async function reviveRetriableFailures(
+  batchId: string,
+  organizationId: string,
+  userId: string,
+): Promise<void> {
+  await db.transaction(async (tx) => {
+    const [batch] = await tx
+      .select({ id: resumeUploadBatch.id })
+      .from(resumeUploadBatch)
+      .where(
+        and(
+          eq(resumeUploadBatch.id, batchId),
+          eq(resumeUploadBatch.organizationId, organizationId),
+          eq(resumeUploadBatch.createdBy, userId),
+        ),
+      )
+      .limit(1);
+    if (!batch) {
+      return;
+    }
+    await tx
+      .update(resumeUploadBatchItem)
+      .set({
+        errorMessage: null,
+        finishedAt: null,
+        startedAt: null,
+        status: "pending",
+      })
+      .where(
+        and(
+          eq(resumeUploadBatchItem.batchId, batchId),
+          eq(resumeUploadBatchItem.status, "failed"),
+          inArray(resumeUploadBatchItem.errorMessage, [...RETRIABLE_FAILURE_MESSAGES]),
+        ),
+      );
+    await tx
+      .update(resumeUploadBatch)
+      .set({ status: "pending", updatedAt: new Date() })
+      .where(eq(resumeUploadBatch.id, batchId));
+  });
+  await reconcileBatchProgress(batchId);
 }
 
 export async function recoverIncompleteBatchItems(

@@ -10,6 +10,10 @@ import { FileUpload } from "@/components/ui/file-upload";
 import { Input } from "@/components/ui/input";
 import type { ResumeLibraryFormValues } from "@arc/shared/studio-resumes";
 import { toast } from "sonner";
+import {
+  supportedResumeDocumentAccept,
+  supportedResumeDocumentLabel,
+} from "@arc/shared/resume-documents";
 
 /**
  * 候选人/简历字段公共表单组件。TanStack Form 受控。
@@ -141,18 +145,18 @@ function getResumeUploadCopy({
   resumeFieldLabel: string;
   resumeFileMultiple: boolean;
 }) {
-  let description = "一次上传 1 份 PDF，上传后会自动解析候选人信息。";
+  let description = "一次上传 1 份简历文件，上传后会自动解析候选人信息。";
   if (existingResumeFileName) {
-    description = `当前文件：${existingResumeFileName}。选择新的 PDF 后，保存时会替换现有简历。`;
+    description = `当前文件：${existingResumeFileName}。选择新的简历文件后，保存时会替换现有简历。`;
   } else if (resumeFileMultiple) {
-    description = "可选择 1 份或多份 PDF；多份将进入批量上传流程。";
+    description = "可选择 1 份或多份简历文件；多份将进入批量上传流程。";
   }
 
-  let title = "请选择 1 份 PDF 简历";
+  let title = "请选择 1 份简历文件";
   if (resumeFile) {
     title = resumeFieldLabel;
   } else if (resumeFileMultiple) {
-    title = "请选择 1 份或多份 PDF 简历";
+    title = "请选择 1 份或多份简历文件";
   }
 
   return { description, title };
@@ -163,7 +167,7 @@ export function CandidateFormFields({
   resumeFile,
   onResumeFileChange,
   onResumeFilesChange,
-  resumeFilePlaceholder = "点击选择 PDF 文件，可留空",
+  resumeFilePlaceholder = "点击选择简历文件，可留空",
   existingResumeFileName = null,
   resumeFieldExtra,
   candidateNamePlaceholder = "可留空，自动从简历回填",
@@ -182,7 +186,7 @@ export function CandidateFormFields({
     newFile: resumeFile,
     placeholder: resumeFilePlaceholder,
   });
-  // "上传过 PDF" 的判定：当次刚选的 File，或者编辑场景下后端已存好的 storageKey → fileName。
+  // "上传过简历" 的判定：当次刚选的 File，或者编辑场景下后端已存好的 storageKey → fileName。
   // "Has a resume" = either a freshly-picked File or an existing file name from
   // the server (edit mode populates existingResumeFileName from resumeStorageKey).
   const hasResume = Boolean(resumeFile) || Boolean(existingResumeFileName);
@@ -206,7 +210,7 @@ export function CandidateFormFields({
     <div className="space-y-5">
       <Field>
         <FieldLabel htmlFor="candidate-resume-single-upload">
-          简历 PDF
+          简历文件
           {requireResumeFile ? (
             <span aria-hidden className="ml-1 text-destructive">
               *
@@ -217,22 +221,22 @@ export function CandidateFormFields({
         </FieldLabel>
         <FieldContent className="gap-2">
           <FileUpload
-            accept="application/pdf,.pdf"
-            acceptedFileTypes={[{ icon: Upload01Icon, label: "PDF" }]}
-            browseLabel={resumeFile ? "重新选择 PDF" : "选择 PDF"}
+            accept={supportedResumeDocumentAccept}
+            acceptedFileTypes={[{ icon: Upload01Icon, label: supportedResumeDocumentLabel }]}
+            browseLabel={resumeFile ? "重新选择简历" : "选择简历"}
             className="w-full"
             description={resumeUploadCopy.description}
             disabled={disabled}
-            ariaLabel="上传候选人简历 PDF"
-            draggingLabel="松开上传 PDF"
+            ariaLabel="上传候选人简历文件"
+            draggingLabel="松开上传简历文件"
             inputId="candidate-resume-single-upload"
             maxFiles={resumeFileMaxFiles}
             multiple={resumeFileMultiple}
             onFileLimitExceeded={() => {
-              toast.error(`最多选择 ${resumeFileMaxFiles} 份 PDF`);
+              toast.error(`最多选择 ${resumeFileMaxFiles} 份简历文件`);
             }}
             onFilesAccepted={handleAcceptedResumeFiles}
-            rejectionLabel="仅支持上传 PDF 文件"
+            rejectionLabel="仅支持上传 PDF、DOCX、PPTX、XLSX 文件"
             showFileList={Boolean(resumeFile)}
             title={resumeUploadCopy.title}
           />

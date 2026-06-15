@@ -107,7 +107,7 @@ export const resumePoolRouter = factory
       headers: {
         "Cache-Control": "private, max-age=300",
         "Content-Disposition": `inline; filename="${encodeURIComponent(filename)}"`,
-        "Content-Type": object.contentType ?? "application/pdf",
+        "Content-Type": object.contentType ?? "application/octet-stream",
         ...(object.contentLength !== undefined && {
           "Content-Length": String(object.contentLength),
         }),
@@ -139,7 +139,7 @@ export const resumePoolRouter = factory
       const formData = await c.req.formData();
       const resume = normalizeResumeFile(formData.get("resume"));
       if (!resume) {
-        return c.json({ error: "请上传简历 PDF。" }, 400);
+        return c.json({ error: "请上传简历文件。" }, 400);
       }
       validateResumeFile(resume);
 

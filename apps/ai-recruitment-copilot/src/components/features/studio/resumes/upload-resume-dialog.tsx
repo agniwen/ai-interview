@@ -245,7 +245,7 @@ export function CreateResumeRecordDialog({
 
   return (
     <Modal
-      description="上传 PDF 自动解析候选人信息、匹配岗位并生成面试题；可仅入库，或一键发起 AI 面试。"
+      description="上传简历文件自动解析候选人信息、匹配岗位并生成面试题；可仅入库，或一键发起 AI 面试。"
       dismissible={!isBusy}
       onOpenChange={(next) => {
         if (!next && isBusy) {
@@ -327,7 +327,7 @@ export function CreateResumeRecordDialog({
                   resumeFile={resumeFile}
                   resumeFileMaxFiles={MAX_BULK_BATCH_SIZE}
                   resumeFileMultiple
-                  resumeFilePlaceholder="请选择 PDF 简历"
+                  resumeFilePlaceholder="请选择简历文件"
                 />
               </TabsContent>
 
@@ -350,7 +350,7 @@ export function CreateResumeRecordDialog({
                 resumeFile={resumeFile}
                 resumeFileMaxFiles={MAX_BULK_BATCH_SIZE}
                 resumeFileMultiple
-                resumeFilePlaceholder="请选择 PDF 简历"
+                resumeFilePlaceholder="请选择简历文件"
                 showDetails={false}
               />
             </div>

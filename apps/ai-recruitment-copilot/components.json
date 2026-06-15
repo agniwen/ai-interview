@@ -16,7 +16,7 @@
     "components": "@/components",
     "utils": "@arc/shared/utils",
     "ui": "@/components/ui",
-    "lib": "@arc/shared",
+    "lib": "@/lib",
     "hooks": "@/hooks"
   },
   "registries": {

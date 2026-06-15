@@ -17,6 +17,7 @@ import {
   loadActiveBatches,
   loadBatchDetail,
   reviveOrphans,
+  reviveRetriableFailures,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resume-upload-batches/dao/batches";
 import { processNextItem } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resume-upload-batches/utils/processor";
 import { createBatchInputSchema } from "./schema";
@@ -209,6 +210,7 @@ export const resumeUploadBatchesRouter = factory
       return c.json({ error: "简历解析队列未配置 REDIS_URL。" }, 503);
     }
     await reviveOrphans(id, activeOrg.id, user.id);
+    await reviveRetriableFailures(id, activeOrg.id, user.id);
     const detail = await loadBatchDetail(id, activeOrg.id, user.id);
     if (!detail) {
       return c.json({ error: "记录不存在。" }, 404);

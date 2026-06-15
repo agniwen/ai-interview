@@ -55,7 +55,7 @@ export const interviewRouter = factory
     const resume = formData.get("resume");
 
     if (!(resume instanceof File)) {
-      return c.json({ error: "缺少简历 PDF 文件。" }, 400);
+      return c.json({ error: "缺少简历文件。" }, 400);
     }
 
     // 把 userId + activeOrganizationId 透传给流式解析器；缺任意一个就跳过缓存写入。

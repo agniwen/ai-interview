@@ -50,3 +50,6 @@ trustPolicyExclude:
   # attestation and the same npm registry signing key as earlier 1.x releases;
   # pnpm flags the publisher/provenance evidence change as a downgrade.
   - "tinyexec@1.2.2"
+
+minimumReleaseAgeExclude:
+  - '@extend-ai/react-docx@0.7.1'

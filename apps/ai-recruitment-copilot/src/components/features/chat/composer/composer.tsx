@@ -15,6 +15,7 @@ import { useComposerInputContext } from "../composer-input-context";
 import { ComposerAttachments } from "./composer-attachments";
 import { ComposerFooter } from "./composer-footer";
 import { DarkModeBeam } from "./dark-mode-beam";
+import { supportedResumeDocumentAccept } from "@arc/shared/resume-documents";
 
 const DEFAULT_PROMPT_FOR_PDF_ONLY = "请结合岗位要求分析这份简历并给出筛选建议。";
 
@@ -57,16 +58,14 @@ export function Composer({
     <div className="mx-auto w-full max-w-5xl px-3">
       <DarkModeBeam active={isStreaming} className="w-full">
         <PromptInput
-          accept="application/pdf"
+          accept={supportedResumeDocumentAccept}
           className="**:data-[slot=input-group]:cursor-text **:data-[slot=input-group]:rounded-[1.3rem] **:data-[slot=input-group]:border-border **:data-[slot=input-group]:bg-white **:data-[slot=input-group]:shadow-[0_8px_18px_-20px_rgba(60,44,23,0.5)]"
           dragOverlay={
             <div className="flex h-full w-full items-center justify-center rounded-[1.15rem] border-2 border-dashed border-primary/60 bg-background px-6 py-8 text-center transition-colors">
               <div className="flex flex-col items-center gap-2">
                 <UploadIcon className="size-8 text-primary/50" />
-                <p className="font-medium text-sm">拖拽 PDF 简历到这里</p>
-                <p className="text-muted-foreground text-xs">
-                  支持多个文件，系统只会加入 PDF 格式的文件
-                </p>
+                <p className="font-medium text-sm">拖拽简历文件到这里</p>
+                <p className="text-muted-foreground text-xs">支持 PDF、DOCX、PPTX、XLSX</p>
               </div>
             </div>
           }
@@ -77,15 +76,15 @@ export function Composer({
           multiple
           onError={({ code, message }) => {
             if (code === "accept") {
-              onUploadErrorChange("仅支持上传 PDF 文件。");
+              onUploadErrorChange("仅支持上传 PDF、DOCX、PPTX、XLSX 文件。");
               return;
             }
             if (code === "max_file_size") {
-              onUploadErrorChange("单个 PDF 文件不能超过 20 MB。");
+              onUploadErrorChange("单个简历文件不能超过 20 MB。");
               return;
             }
             if (code === "max_files") {
-              onUploadErrorChange("最多上传 8 个 PDF 文件。");
+              onUploadErrorChange("最多上传 8 个简历文件。");
               return;
             }
             onUploadErrorChange(message);
@@ -137,7 +136,7 @@ export function Composer({
               autoComplete="off"
               className="min-h-20"
               onChange={(event) => setInput(event.currentTarget.value)}
-              placeholder="输入岗位与筛选要求，或上传候选人 PDF 简历（支持多文件）…"
+              placeholder="输入岗位与筛选要求，或上传候选人简历文件（支持多文件）…"
               value={input}
             />
           </PromptInputBody>

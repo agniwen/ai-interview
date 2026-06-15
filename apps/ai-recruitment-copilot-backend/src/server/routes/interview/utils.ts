@@ -26,6 +26,7 @@ import {
   updateStructuredByHash,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/chat/dao/chat-attachments";
 import { generateResumeStructured } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-parse-pipeline";
+import { getResumeDocumentExtension } from "@arc/shared/resume-documents";
 import {
   ensureApplicableBindings,
   loadInterviewPresetQuestions,
@@ -308,11 +309,14 @@ export async function storeInterviewResume(
 
     // 未命中：parse + PUT 并行。
     // Miss: parse + PUT in parallel.
-    const storageKey = await buildAttachmentKeyByHash(contentHash, "pdf");
+    const storageKey = await buildAttachmentKeyByHash(
+      contentHash,
+      getResumeDocumentExtension({ fileName: file.name, mediaType: file.type }),
+    );
     const [putOutcome, parseOutcome] = await Promise.allSettled([
       putObjectBytes({
         body: bytes,
-        contentType: file.type || "application/pdf",
+        contentType: file.type || "application/octet-stream",
         storageKey,
       }),
       parseResumeFastToProfile(file),
@@ -342,7 +346,7 @@ export async function storeInterviewResume(
       contentHash,
       filename: file.name.slice(0, 255) || "resume.pdf",
       id: crypto.randomUUID(),
-      mediaType: file.type || "application/pdf",
+      mediaType: file.type || "application/octet-stream",
       organizationId,
       parsedAt: new Date(),
       parsedPageCount: parsed.parsedPageCount,
@@ -387,6 +391,11 @@ export async function storeResumeObjectOnly(
     const contentHash = await sha256HexOfBytes(bytes);
     const existing = await findAttachmentByContentHash(contentHash);
     if (existing) {
+      await putObjectBytes({
+        body: bytes,
+        contentType: file.type || existing.mediaType || "application/octet-stream",
+        storageKey: existing.storageKey,
+      });
       await copyCachedAttachmentForRequester({
         contentHash,
         existing,
@@ -397,17 +406,20 @@ export async function storeResumeObjectOnly(
       return { contentHash, storageKey: existing.storageKey };
     }
 
-    const storageKey = await buildAttachmentKeyByHash(contentHash, "pdf");
+    const storageKey = await buildAttachmentKeyByHash(
+      contentHash,
+      getResumeDocumentExtension({ fileName: file.name, mediaType: file.type }),
+    );
     await putObjectBytes({
       body: bytes,
-      contentType: file.type || "application/pdf",
+      contentType: file.type || "application/octet-stream",
       storageKey,
     });
     await createAttachment({
       contentHash,
       filename: file.name.slice(0, 255) || "resume.pdf",
       id: crypto.randomUUID(),
-      mediaType: file.type || "application/pdf",
+      mediaType: file.type || "application/octet-stream",
       organizationId,
       parsedStatus: "pending",
       size: file.size,

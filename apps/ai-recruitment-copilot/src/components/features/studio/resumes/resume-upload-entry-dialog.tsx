@@ -8,6 +8,11 @@ import { Button } from "@/components/ui/button";
 import { FileUpload } from "@/components/ui/file-upload";
 import { Modal } from "@/components/ui/modal";
 import { MAX_BULK_BATCH_SIZE, MAX_RESUME_FILE_SIZE_BYTES } from "@arc/shared/bulk-resume-upload";
+import {
+  isSupportedResumeDocumentInput,
+  supportedResumeDocumentAccept,
+  supportedResumeDocumentLabel,
+} from "@arc/shared/resume-documents";
 
 interface ResumeUploadEntryDialogProps {
   disabled?: boolean;
@@ -34,9 +39,11 @@ function validateResumeFiles(files: File[]) {
     toast.error(`「${oversize.name}」超过 20MB`);
     return false;
   }
-  const nonPdf = files.find((file) => !/\.pdf$/i.test(file.name));
-  if (nonPdf) {
-    toast.error(`「${nonPdf.name}」不是 PDF`);
+  const unsupported = files.find(
+    (file) => !isSupportedResumeDocumentInput({ fileName: file.name, mediaType: file.type }),
+  );
+  if (unsupported) {
+    toast.error(`「${unsupported.name}」不是支持的简历格式`);
     return false;
   }
   return true;
@@ -44,9 +51,9 @@ function validateResumeFiles(files: File[]) {
 
 export function ResumeUploadEntryDialog({
   disabled = false,
-  description = "选择 1 份 PDF 会创建单条简历记录；选择多份 PDF 会进入批量上传流程。",
-  fileUploadDescription = `可选择 1 份或多份 PDF；多份将进入批量上传，最多 ${MAX_BULK_BATCH_SIZE} 份。`,
-  fileUploadTitle = "请选择 1 份或多份 PDF 简历",
+  description = `选择 1 份简历会创建单条记录；选择多份会进入批量上传流程。支持 ${supportedResumeDocumentLabel}。`,
+  fileUploadDescription = `可选择 1 份或多份简历文件；多份将进入批量上传，最多 ${MAX_BULK_BATCH_SIZE} 份。`,
+  fileUploadTitle = "请选择 1 份或多份简历文件",
   open,
   onMultipleFilesPicked,
   onOpenChange,
@@ -101,13 +108,13 @@ export function ResumeUploadEntryDialog({
       title={title}
     >
       <FileUpload
-        accept="application/pdf,.pdf"
-        acceptedFileTypes={[{ icon: Upload01Icon, label: "PDF" }]}
-        ariaLabel="选择要上传的简历 PDF"
-        browseLabel="选择 PDF"
+        accept={supportedResumeDocumentAccept}
+        acceptedFileTypes={[{ icon: Upload01Icon, label: supportedResumeDocumentLabel }]}
+        ariaLabel="选择要上传的简历文件"
+        browseLabel="选择简历文件"
         description={fileUploadDescription}
         disabled={disabled}
-        draggingLabel="松开上传 PDF"
+        draggingLabel="松开上传简历文件"
         maxFiles={MAX_BULK_BATCH_SIZE}
         multiple
         onFileLimitExceeded={() => {
@@ -115,7 +122,7 @@ export function ResumeUploadEntryDialog({
         }}
         onFilesAccepted={handleFilesAccepted}
         onFilesSelected={validateResumeFiles}
-        rejectionLabel="仅支持上传 PDF 文件"
+        rejectionLabel="仅支持上传 PDF、DOCX、PPTX、XLSX 文件"
         resetKey={uploadResetKey}
         showFileList={false}
         title={fileUploadTitle}

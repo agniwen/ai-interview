@@ -1,11 +1,11 @@
-// 中文：对外暴露的 MarkdownEditor 受控组件，上编辑/代码、下实时预览。
-// English: controlled MarkdownEditor — top edit/code pane, bottom live preview.
+// 中文：对外暴露的 MarkdownEditor 受控组件，替换 <Textarea> 时只需替换标签。
+// English: the public controlled MarkdownEditor component — drop-in replacement
+// for <Textarea> for markdown prompt fields.
 "use client";
 
 import { EditorContent } from "@tiptap/react";
 import { useCallback } from "react";
 import { MarkdownView } from "@/components/features/display/markdown-view";
-import { Button } from "@/components/ui/button";
 import { cn } from "@arc/shared/utils";
 import { MarkdownEditorBubbleMenu } from "./bubble-menu";
 import { MarkdownEditorToolbar } from "./toolbar";
@@ -19,7 +19,7 @@ export interface MarkdownEditorProps {
   placeholder?: string;
   maxLength?: number;
   disabled?: boolean;
-  defaultMode?: EditorMode | "preview";
+  defaultMode?: EditorMode;
   className?: string;
   minHeight?: number;
   id?: string;
@@ -59,7 +59,7 @@ export function MarkdownEditor({
   id,
   "aria-invalid": ariaInvalid,
 }: MarkdownEditorProps) {
-  const { editor, mode, toggleCodeMode } = useMarkdownEditor({
+  const { changeMode, editor, mode } = useMarkdownEditor({
     defaultMode,
     disabled,
     maxLength,
@@ -80,7 +80,6 @@ export function MarkdownEditor({
   );
 
   const over = typeof maxLength === "number" && value.length > maxLength;
-  const isCodeMode = mode === "raw";
 
   return (
     <div
@@ -93,65 +92,39 @@ export function MarkdownEditor({
       )}
       id={id}
     >
-      {mode === "edit" ? <MarkdownEditorToolbar disabled={disabled} editor={editor} /> : null}
+      <MarkdownEditorToolbar
+        disabled={disabled}
+        editor={editor}
+        mode={mode}
+        onModeChange={changeMode}
+      />
 
-      <div className="flex min-h-0 flex-col divide-y">
-        <div className="flex flex-col bg-background dark:bg-input/30">
-          <div className="flex shrink-0 items-center justify-between border-b bg-muted/20 px-3 py-1.5">
-            <span className="font-medium text-muted-foreground text-xs">
-              {isCodeMode ? "代码" : "内容"}
-            </span>
-            <Button
-              aria-pressed={isCodeMode}
-              className={cn("h-7 px-2 text-xs", isCodeMode && "bg-primary/10 text-primary")}
-              disabled={disabled}
-              onClick={toggleCodeMode}
-              type="button"
-              variant="ghost"
-            >
-              {isCodeMode ? "切换为可视化" : "切换为代码"}
-            </Button>
-          </div>
+      <div className="relative bg-background dark:bg-input/30" style={{ minHeight }}>
+        {mode === "edit" && (
+          <>
+            <EditorContent className={editorContentClassName} editor={editor} onBlur={onBlur} />
+            <MarkdownEditorBubbleMenu editor={editor} />
+          </>
+        )}
 
-          <div
-            className="relative overflow-y-auto"
-            style={{ minHeight: Math.round(minHeight * 0.6) }}
-          >
-            {mode === "edit" ? (
-              <>
-                <EditorContent className={editorContentClassName} editor={editor} onBlur={onBlur} />
-                <MarkdownEditorBubbleMenu editor={editor} />
-              </>
-            ) : (
-              <textarea
-                aria-label="Markdown 原始内容"
-                className="block h-full min-h-[inherit] w-full resize-none border-0 bg-transparent px-3 py-2 font-mono text-sm outline-none"
-                disabled={disabled}
-                onBlur={onBlur}
-                onChange={handleRawChange}
-                placeholder={placeholder}
-                style={{ minHeight: Math.round(minHeight * 0.6) }}
-                value={value}
-              />
-            )}
+        {mode === "preview" && (
+          <div className="px-3 py-2 text-sm">
+            <MarkdownView content={value} />
           </div>
-        </div>
+        )}
 
-        <div className="flex flex-col bg-muted/15">
-          <div className="shrink-0 border-b bg-muted/20 px-3 py-1.5">
-            <span className="font-medium text-muted-foreground text-xs">预览</span>
-          </div>
-          <div
-            className="overflow-y-auto px-3 py-2 text-sm"
-            style={{ minHeight: Math.round(minHeight * 0.4) }}
-          >
-            {value.trim() ? (
-              <MarkdownView content={value} />
-            ) : (
-              <p className="text-muted-foreground text-xs">输入内容后将在此实时预览。</p>
-            )}
-          </div>
-        </div>
+        {mode === "raw" && (
+          <textarea
+            aria-label="Markdown 原始内容"
+            className="block h-full w-full resize-none border-0 bg-transparent px-3 py-2 font-mono text-sm outline-none"
+            disabled={disabled}
+            onBlur={onBlur}
+            onChange={handleRawChange}
+            placeholder={placeholder}
+            style={{ minHeight }}
+            value={value}
+          />
+        )}
       </div>
 
       {typeof maxLength === "number" && (
