@@ -1,5 +1,6 @@
 import type {
   PaginatedResumePoolResult,
+  ResumePoolDetail,
   ResumePoolImportInput,
   ResumePoolImportResult,
   ResumePoolListRecord,
@@ -30,6 +31,16 @@ export function createResumePoolItem(
     body: formData,
     method: "POST",
   });
+}
+
+export function fetchResumePoolItem(slug: string, id: string): Promise<ResumePoolDetail | null> {
+  return rpcFetch<ResumePoolDetail>(
+    rpc.api.w[":slug"].studio["resume-pool"][":id"].$get({
+      param: { id, slug },
+    }),
+    "加载简历详情失败",
+    { allow404: true },
+  );
 }
 
 export function publishResumePoolItem(slug: string, id: string): Promise<ResumePoolListRecord> {

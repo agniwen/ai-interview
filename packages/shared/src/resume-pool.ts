@@ -25,6 +25,12 @@ export const resumePoolImportSchema = z.object({
 export type ResumePoolCreateInput = z.infer<typeof resumePoolCreateSchema>;
 export type ResumePoolImportInput = z.infer<typeof resumePoolImportSchema>;
 
+export interface ResumePoolProfileHighlights {
+  latestCompany: string | null;
+  latestProject: string | null;
+  schools: string[];
+}
+
 export interface ResumePoolListRecord {
   id: string;
   scope: ResumePoolScope;
@@ -48,6 +54,7 @@ export interface ResumePoolListRecord {
   resumeParseStatus: ResumeParseStatus;
   resumeParseError: string | null;
   resumeParsedAt: string | null;
+  profileHighlights: ResumePoolProfileHighlights;
   skillsNormalized: string[];
   createdAt: string;
   updatedAt: string;

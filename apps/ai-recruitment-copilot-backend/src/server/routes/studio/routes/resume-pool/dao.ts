@@ -9,6 +9,7 @@ import type {
   ResumePoolDetail,
   ResumePoolImportResult,
   ResumePoolListRecord,
+  ResumePoolProfileHighlights,
 } from "@arc/shared/resume-pool";
 import { queryInterviewDedup } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/dao/studio-interviews";
 import { createResumeRecordFromStorage } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/create-from-storage";
@@ -80,6 +81,37 @@ function serializeDate(value: Date | null): string | null {
   return value ? value.toISOString() : null;
 }
 
+function cleanHighlightText(value: string | null | undefined): string | null {
+  const text = value?.trim();
+  if (!text || text === "未发现信息") {
+    return null;
+  }
+  return text;
+}
+
+function firstPresentValue(values: (string | null | undefined)[]): string | null {
+  for (const value of values) {
+    const text = cleanHighlightText(value);
+    if (text) {
+      return text;
+    }
+  }
+  return null;
+}
+
+function buildProfileHighlights(profile: ResumeProfile | null): ResumePoolProfileHighlights {
+  if (!profile) {
+    return { latestCompany: null, latestProject: null, schools: [] };
+  }
+  return {
+    latestCompany: firstPresentValue(profile.workExperiences.map((item) => item.company)),
+    latestProject: firstPresentValue(profile.projectExperiences.map((item) => item.name)),
+    schools: profile.schools
+      .map(cleanHighlightText)
+      .filter((item): item is string => item !== null),
+  };
+}
+
 function toListRecord(
   row: PoolRow,
   importRow?: { importedAt: Date; resumeRecordId: string } | null,
@@ -96,6 +128,7 @@ function toListRecord(
     jobDescriptionId: row.jobDescriptionId,
     notes: row.notes,
     organizationId: row.organizationId,
+    profileHighlights: buildProfileHighlights(row.resumeProfile),
     publishedAt: serializeDate(row.publishedAt),
     publishedBy: row.publishedBy,
     resumeContentHash: row.resumeContentHash,
