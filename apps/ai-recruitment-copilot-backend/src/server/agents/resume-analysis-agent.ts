@@ -11,6 +11,10 @@ import {
   parseResumeFast,
 } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-parse-pipeline";
 import {
+  isExternalResumeVerifyParseEnabled,
+  parseExternalResumeVerifyParse,
+} from "@arc/ai-recruitment-copilot-backend/lib/server/external-resume-verify-parser";
+import {
   getResumeDocumentExtension,
   isSupportedResumeDocumentInput,
 } from "@arc/shared/resume-documents";
@@ -438,6 +442,21 @@ export async function parseResumeBytesToProfile(input: {
     size: input.bytes.byteLength,
   });
   try {
+    if (isExternalResumeVerifyParseEnabled()) {
+      const external = await parseExternalResumeVerifyParse({
+        bytes: input.bytes,
+        fileName: input.fileName,
+        mediaType: input.mediaType,
+      });
+      return {
+        parsedPageCount: external.pageCount,
+        parsedStructured: external.structured,
+        parsedText: external.text,
+        parsedTextSource: external.textSource,
+        resumeProfile: normalizeResumeProfile(toResumeProfile(external.structured)),
+      };
+    }
+
     const fast = await parseResumeFast({
       bytes: input.bytes,
       fileName: input.fileName,
