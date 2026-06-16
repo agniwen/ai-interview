@@ -59,14 +59,14 @@ const TOOL_META: Record<string, ToolMeta> = {
     label: "获取时间",
   },
   list_uploaded_resume_pdfs: {
-    getSummary: () => "列出已上传的 PDF 简历",
+    getSummary: () => "列出已上传的简历文件",
     icon: <ListIcon className="h-3.5 w-3.5" />,
     label: "列出简历",
   },
   parse_resume: {
     getSummary: (input) => {
       const name = input.resumeName as string | undefined;
-      return name ? `解析简历: ${name}` : "解析 PDF 简历为结构化档案";
+      return name ? `解析简历: ${name}` : "解析简历文件为结构化档案";
     },
     icon: <FileSearchIcon className="h-3.5 w-3.5" />,
     label: "解析简历",

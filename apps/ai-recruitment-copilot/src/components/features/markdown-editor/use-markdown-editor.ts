@@ -16,7 +16,7 @@ function readMarkdown(editor: Editor): string {
   ).markdown.getMarkdown();
 }
 
-export type EditorMode = "edit" | "raw";
+export type EditorMode = "edit" | "preview" | "raw";
 
 interface Options {
   value: string;
@@ -24,11 +24,7 @@ interface Options {
   maxLength?: number;
   placeholder?: string;
   disabled?: boolean;
-  defaultMode?: EditorMode | "preview";
-}
-
-function normalizeDefaultMode(mode: EditorMode | "preview" | undefined): EditorMode {
-  return mode === "raw" ? "raw" : "edit";
+  defaultMode?: EditorMode;
 }
 
 export function useMarkdownEditor({
@@ -39,7 +35,7 @@ export function useMarkdownEditor({
   disabled,
   defaultMode = "edit",
 }: Options) {
-  const [mode, setMode] = useState<EditorMode>(() => normalizeDefaultMode(defaultMode));
+  const [mode, setMode] = useState<EditorMode>(defaultMode);
 
   const lastEmittedRef = useRef<string>(value);
 
@@ -97,9 +93,5 @@ export function useMarkdownEditor({
     [editor, value],
   );
 
-  const toggleCodeMode = useCallback(() => {
-    changeMode(mode === "raw" ? "edit" : "raw");
-  }, [changeMode, mode]);
-
-  return { changeMode, editor, mode, toggleCodeMode };
+  return { changeMode, editor, mode };
 }

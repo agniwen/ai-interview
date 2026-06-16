@@ -743,7 +743,7 @@ export const studioInterviewsRouter = factory
       headers: {
         "Cache-Control": "private, max-age=300",
         "Content-Disposition": `inline; filename="${encodeURIComponent(filename)}"`,
-        "Content-Type": object.contentType ?? "application/pdf",
+        "Content-Type": object.contentType ?? "application/octet-stream",
         ...(object.contentLength !== undefined && {
           "Content-Length": String(object.contentLength),
         }),

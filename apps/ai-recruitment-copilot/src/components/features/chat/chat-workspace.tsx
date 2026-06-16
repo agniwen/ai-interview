@@ -413,7 +413,7 @@ export default function ChatWorkspace({ initialSessionId }: { initialSessionId: 
             parts.push({
               data: {
                 attachmentId: file.parsed.attachmentId,
-                filename: file.filename ?? "resume.pdf",
+                filename: file.filename ?? "resume",
                 parsedPageCount: file.parsed.pageCount,
                 parsedStructured: file.parsed.structured,
                 parsedText: file.parsed.text,

@@ -114,7 +114,7 @@ export function createListUploadedResumePdfsTool({
 }) {
   return tool({
     description:
-      "辅助工具：列出已上传的 PDF 简历，包含序号和文件名。如果存在多份文件，应主动调用以避免文件名歧义，即使模型原生支持读取 PDF。",
+      "辅助工具：列出已上传的简历文件，包含序号和文件名。如果存在多份文件，应主动调用以避免文件名歧义。",
     // oxlint-disable-next-line require-await -- AI SDK tool signature requires async execute.
     execute: async () => ({
       count: availableResumeNames.length,
@@ -143,7 +143,7 @@ export function createSuggestJobDescriptionTool({
 }) {
   return tool({
     description:
-      "当用户上传了简历 PDF 且当前未配置在招岗位时，调用此工具从后台已配置的在招岗位中智能匹配最接近的岗位。返回单个推荐岗位与简短理由，供用户在 UI 上点击确认或忽略。",
+      "当用户上传了简历文件且当前未配置在招岗位时，调用此工具从后台已配置的在招岗位中智能匹配最接近的岗位。返回单个推荐岗位与简短理由，供用户在 UI 上点击确认或忽略。",
     execute: async ({ resumeName }) => {
       // 直接消费 message 里 baked 好的解析结果，不做任何 OCR / DB 读取。
       // 没有 baked 数据就直接当作"没简历"返回，让上层依据 system prompt 提示用户重传。

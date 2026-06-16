@@ -13,6 +13,7 @@ import type { UIMessage } from "ai";
 import type { JobDescriptionConfig } from "@arc/db-schema/job-description-config";
 import { rpc } from "@/lib/client/rpc";
 import { sha256HexOfFile } from "@arc/shared/file-hash";
+import { isSupportedResumeDocumentInput } from "@arc/shared/resume-documents";
 import { apiFetch } from "../client";
 import { rpcFetch } from "../rpc-fetch";
 
@@ -187,16 +188,16 @@ export async function upsertChatMessageOnServer(
 type UploadPreflightResponse = { hit: false } | (UploadedAttachment & { hit: true });
 
 /**
- * 仅对 PDF 尝试预检请求：命中缓存则直接返回已有附件，避免重复上传。
- * Try a preflight request for PDFs only: return the cached attachment on a hit,
- * skipping the redundant upload entirely.
+ * 仅对支持的简历文件尝试预检请求：命中缓存则直接返回已有附件，避免重复上传。
+ * Try a preflight request for supported resume documents: return the cached
+ * attachment on a hit, skipping the redundant upload entirely.
  *
  * 任何失败（哈希计算、网络、服务端错误）都安静降级到 multipart 路径——保持上传可用性。
  * Any failure (hash computation, network, server error) silently degrades to the
  * multipart path to keep uploads available.
  */
 async function tryUploadPreflight(slug: string, file: File): Promise<UploadedAttachment | null> {
-  if (file.type !== "application/pdf") {
+  if (!isSupportedResumeDocumentInput({ fileName: file.name, mediaType: file.type })) {
     return null;
   }
   let hash: string;
@@ -231,9 +232,9 @@ async function tryUploadPreflight(slug: string, file: File): Promise<UploadedAtt
 }
 
 /**
- * 上传附件（PDF / 图片等）；PDF 文件先走预检去重，缓存命中则跳过字节传输；否则降级为 multipart/form-data。
- * Upload an attachment (PDF / image / ...); PDF files attempt a preflight dedup first —
- * a cache hit skips byte transfer entirely; otherwise falls back to multipart/form-data.
+ * 上传附件；支持的简历文件先走预检去重，缓存命中则跳过字节传输；否则降级为 multipart/form-data。
+ * Upload an attachment; supported resume documents attempt a preflight dedup
+ * first — a cache hit skips byte transfer entirely; otherwise falls back to multipart/form-data.
  */
 export async function uploadAttachment(
   slug: string,
@@ -243,7 +244,7 @@ export async function uploadAttachment(
   const file =
     blob instanceof File
       ? blob
-      : new File([blob], filename, { type: blob.type || "application/pdf" });
+      : new File([blob], filename, { type: blob.type || "application/octet-stream" });
 
   const hit = await tryUploadPreflight(slug, file);
   if (hit) {

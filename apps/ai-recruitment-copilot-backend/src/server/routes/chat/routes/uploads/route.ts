@@ -1,5 +1,9 @@
 import { zValidator } from "@hono/zod-validator";
-import { parseResumeOcrOnly } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-parse-pipeline";
+import { extractResumeDocumentText } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-parse-pipeline";
+import {
+  getResumeDocumentExtension,
+  isSupportedResumeDocumentInput,
+} from "@arc/shared/resume-documents";
 import {
   buildAttachmentKeyByHash,
   putObjectBytes,
@@ -15,13 +19,6 @@ import {
   uploadPreflightSchema,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/chat/schema";
 import { factory } from "@arc/ai-recruitment-copilot-backend/server/factory";
-
-function mediaTypeToExtension(mediaType: string): string {
-  if (mediaType === "application/pdf") {
-    return "pdf";
-  }
-  return "bin";
-}
 
 // 构造上传/preflight 共用的响应结构。
 // 多租户改造后 chat 路由挂在 /api/w/:slug/chat 下，必须把 slug 拼进附件 URL，
@@ -127,7 +124,7 @@ export const uploadsRouter = factory
     if (!(file instanceof File)) {
       return c.json({ error: "Missing file" }, 400);
     }
-    if (file.type !== "application/pdf") {
+    if (!isSupportedResumeDocumentInput({ fileName: file.name, mediaType: file.type })) {
       return c.json({ error: "Unsupported media type" }, 415);
     }
     if (file.size <= 0 || file.size > MAX_ATTACHMENT_SIZE) {
@@ -186,25 +183,32 @@ export const uploadsRouter = factory
     // 未命中：走原有上传 + 解析路径，但 S3 key 用 hash 命名。
     // Miss: original upload + parse path, but S3 key is derived from the hash.
     const attachmentId = crypto.randomUUID();
-    const storageKey = await buildAttachmentKeyByHash(contentHash, mediaTypeToExtension(file.type));
+    const storageKey = await buildAttachmentKeyByHash(
+      contentHash,
+      getResumeDocumentExtension({ fileName: file.name, mediaType: file.type }),
+    );
 
-    // pdf-parse / pdfjs may transfer the underlying ArrayBuffer to a worker,
-    // detaching the original. Hand out independent copies so the S3 upload
-    // and the parse pipeline cannot poison each other.
+    // Some parsers may transfer or consume the underlying ArrayBuffer. Hand out
+    // independent copies so the S3 upload and parse pipeline cannot poison each
+    // other.
     const bytesForUpload = new Uint8Array(original);
     const bytesForParse = new Uint8Array(original);
 
-    // 上传与 OCR 并行：S3 失败致命；OCR 失败记录后由后续 LLM 调用兜底。
+    // 上传与文本抽取并行：S3 失败致命；文本抽取失败记录后由后续 LLM 调用兜底。
     // chat 路径不在这里跑结构化抽取 —— 结构化由简历库的 storeInterviewResume
     // 或聊天里的 suggest_job_description 工具按需触发，命中同 hash 时复用并回填。
-    // S3 upload + OCR in parallel. S3 failure is fatal; OCR failure is logged
-    // and falls back at LLM call time.
+    // S3 upload + text extraction in parallel. S3 failure is fatal; extraction
+    // failure is logged and falls back at LLM call time.
     // The chat path no longer runs structured extraction here — that's deferred
     // to studio's storeInterviewResume or the chat-side suggest_job_description
     // tool, both of which backfill the cache by content hash when they do run.
     const [uploadOutcome, parseOutcome] = await Promise.allSettled([
       putObjectBytes({ body: bytesForUpload, contentType: file.type, storageKey }),
-      parseResumeOcrOnly(bytesForParse),
+      extractResumeDocumentText({
+        bytes: bytesForParse,
+        fileName: file.name,
+        mediaType: file.type,
+      }),
     ]);
 
     if (uploadOutcome.status === "rejected") {
@@ -233,7 +237,7 @@ export const uploadsRouter = factory
           };
 
     if (parseOutcome.status === "rejected") {
-      console.error("[chat] resume OCR failed (non-fatal)", parseOutcome.reason);
+      console.error("[chat] resume text extraction failed (non-fatal)", parseOutcome.reason);
     }
 
     await createAttachment({
@@ -253,9 +257,9 @@ export const uploadsRouter = factory
         attachmentId,
         parsedPageCount: parseOutcome.status === "fulfilled" ? parseOutcome.value.pageCount : null,
         parsedStatus: parseFields.parsedStatus,
-        // OCR-only：响应里 structured 总为 null；前端 ParsedResumeButton 与
+        // text-only：响应里 structured 总为 null；前端 ParsedResumeButton 与
         // chat-message-item 已兼容这种形态。
-        // OCR-only path: structured is always null in the response; the
+        // Text-only path: structured is always null in the response; the
         // ParsedResumeButton and chat-message-item already handle this case.
         parsedStructured: null,
         parsedText: parseOutcome.status === "fulfilled" ? parseOutcome.value.text : null,

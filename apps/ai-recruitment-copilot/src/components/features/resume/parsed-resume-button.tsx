@@ -250,6 +250,12 @@ export function ParsedResumeButton({
     sourceLabel = "Qwen-VL OCR";
   } else if (textSource === "pdf-parse") {
     sourceLabel = "pdf-parse";
+  } else if (textSource === "docx-text") {
+    sourceLabel = "DOCX 文本";
+  } else if (textSource === "pptx-text") {
+    sourceLabel = "PPTX 文本";
+  } else if (textSource === "xlsx-text") {
+    sourceLabel = "XLSX 文本";
   }
 
   return (

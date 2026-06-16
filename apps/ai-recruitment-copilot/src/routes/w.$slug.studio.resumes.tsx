@@ -93,10 +93,14 @@ import { ResumeLifecycleBadge } from "@/components/features/studio/resumes/resum
 import { ResumeLibraryCharts } from "@/components/features/studio/resumes/resume-library-charts";
 import { TransitionCandidateDialog } from "@/components/features/studio/resumes/transition-candidate-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  getPreviewableResumeDocumentKind,
+  isPreviewableResumeDocumentInput,
+} from "@/components/features/resume/resume-document-preview-button";
 
-const PdfPreviewDialog = lazy(async () => {
-  const mod = await import("@/components/features/pdf/pdf-preview-dialog");
-  return { default: mod.PdfPreviewDialog };
+const ResumeDocumentPreviewDialog = lazy(async () => {
+  const mod = await import("@/components/features/resume/resume-document-preview-dialog");
+  return { default: mod.ResumeDocumentPreviewDialog };
 });
 
 // 工具栏多选下拉在 state/URL 里以 CSV 字符串编码，符合 data-grid 工具栏约定。
@@ -556,19 +560,20 @@ function ResumeLibraryPage({ metrics }: { metrics: ResumeLibraryMetrics }) {
       selectColumn<ResumeLibraryListRecord>(),
       customColumn<ResumeLibraryListRecord>({
         cell: (r) => {
-          const pdfTitle = r.resumeFileName ?? "查看简历 PDF";
+          const previewable = isPreviewableResumeDocumentInput({ fileName: r.resumeFileName });
+          const previewTitle = r.resumeFileName ?? "查看简历";
           return (
             <div className="flex min-w-0 items-start gap-2">
-              {r.hasResumeFile ? (
+              {r.hasResumeFile && previewable ? (
                 <button
-                  aria-label={pdfTitle}
+                  aria-label={previewTitle}
                   className="group/pdf mt-0.5 inline-flex size-8 shrink-0 items-center justify-center rounded-md transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
                     setPreviewRecord(r);
                   }}
-                  title={pdfTitle}
+                  title={previewTitle}
                   type="button"
                 >
                   <PdfFileIcon className="size-8 transition-transform duration-200 group-hover/pdf:scale-105" />
@@ -576,9 +581,9 @@ function ResumeLibraryPage({ metrics }: { metrics: ResumeLibraryMetrics }) {
               ) : (
                 <span
                   aria-disabled="true"
-                  aria-label="暂无简历 PDF"
+                  aria-label="暂无可预览简历"
                   className="mt-0.5 inline-flex size-8 shrink-0 items-center justify-center rounded-md opacity-45 grayscale"
-                  title="暂无简历 PDF"
+                  title="暂无可预览简历"
                 >
                   <PdfFileIcon className="size-8" />
                 </span>
@@ -682,7 +687,10 @@ function ResumeLibraryPage({ metrics }: { metrics: ResumeLibraryMetrics }) {
           {
             label: "查看简历",
             onClick: (r) => setPreviewRecord(r),
-            show: (r) => !canEditResumeRecord(r.resumeParseStatus) && r.hasResumeFile,
+            show: (r) =>
+              !canEditResumeRecord(r.resumeParseStatus) &&
+              r.hasResumeFile &&
+              isPreviewableResumeDocumentInput({ fileName: r.resumeFileName }),
           },
           {
             label: "发起 AI 面试",
@@ -1101,16 +1109,24 @@ function ResumeLibraryPage({ metrics }: { metrics: ResumeLibraryMetrics }) {
         </AlertDialogContent>
       </AlertDialog>
 
-      {previewRecord ? (
-        <Suspense fallback={null}>
-          <PdfPreviewDialog
-            filename={previewRecord.resumeFileName ?? undefined}
-            onOpenChange={(open) => !open && setPreviewRecord(null)}
-            open={previewRecord !== null}
-            url={`/api/w/${slug}/studio/resumes/${previewRecord.id}/resume`}
-          />
-        </Suspense>
-      ) : null}
+      {previewRecord
+        ? (() => {
+            const previewKind = getPreviewableResumeDocumentKind({
+              fileName: previewRecord.resumeFileName,
+            });
+            return previewKind ? (
+              <Suspense fallback={null}>
+                <ResumeDocumentPreviewDialog
+                  filename={previewRecord.resumeFileName ?? undefined}
+                  kind={previewKind}
+                  onOpenChange={(open) => !open && setPreviewRecord(null)}
+                  open={previewRecord !== null}
+                  url={`/api/w/${slug}/studio/resumes/${previewRecord.id}/resume`}
+                />
+              </Suspense>
+            ) : null;
+          })()
+        : null}
 
       <JobDescriptionViewDialog
         jobDescriptionId={viewJobDescriptionId}

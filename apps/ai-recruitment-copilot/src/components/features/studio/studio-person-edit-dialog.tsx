@@ -198,6 +198,7 @@ function ResumeEditBody({
 }: Omit<StudioPersonEditDialogProps, "mode">) {
   const slug = useWorkspaceSlug();
   const [resumeFile, setResumeFile] = useState<File | null>(null);
+  const [hydratedFormKey, setHydratedFormKey] = useState<string | null>(null);
 
   // 拉取当前记录详情，open + recordId 同时为真才触发。
   // Fetch the existing record; only enabled when the dialog is open and has a target id.
@@ -264,8 +265,10 @@ function ResumeEditBody({
   // Hydrate form once the detail resolves; keyed on query.data reference change.
   useEffect(() => {
     if (!query.data) {
+      setHydratedFormKey(null);
       return;
     }
+    const nextHydratedFormKey = `${query.data.id}:${query.data.updatedAt}`;
     form.reset({
       candidateEmail: query.data.candidateEmail ?? "",
       candidateName: query.data.candidateName,
@@ -274,12 +277,15 @@ function ResumeEditBody({
       notes: query.data.notes ?? "",
       targetRole: query.data.targetRole ?? "",
     });
+    setHydratedFormKey(nextHydratedFormKey);
     // form 实例在渲染间稳定，此处仅依赖 query.data 的引用变化。
     // form instance is stable across renders; only depend on query.data identity.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query.data]);
 
   const isSubmitting = useStore(form.store, (s) => s.isSubmitting);
+  const queryFormKey = query.data ? `${query.data.id}:${query.data.updatedAt}` : null;
+  const isFormHydrated = queryFormKey !== null && hydratedFormKey === queryFormKey;
   const resumeProfile = query.data?.resumeProfile ?? null;
   const lockedReason = query.data
     ? getResumeActionLockedReason(query.data.resumeParseStatus)
@@ -355,7 +361,7 @@ function ResumeEditBody({
       size="xl"
       title="编辑简历"
     >
-      {query.isLoading ? (
+      {query.isLoading || !isFormHydrated ? (
         <ResumeEditSkeleton />
       ) : (
         <form
@@ -404,7 +410,7 @@ function ResumeEditBody({
             onResumeFileChange={setResumeFile}
             requireCandidateName
             resumeFile={resumeFile}
-            resumeFilePlaceholder="未上传 PDF，点击选择文件"
+            resumeFilePlaceholder="未上传简历，点击选择文件"
           />
         </form>
       )}

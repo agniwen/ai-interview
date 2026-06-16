@@ -259,4 +259,38 @@ describe("storeResumeObjectOnly", () => {
       userId: "user-5",
     });
   });
+
+  it("registry hit: rewrites the object bytes so the queued parser can read S3", async () => {
+    mocks.findAttachmentByContentHash.mockResolvedValue({
+      filename: "resume.pptx",
+      mediaType: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+      parsedStatus: "pending",
+      storageKey: STORAGE_KEY,
+    });
+    mocks.putObjectBytes.mockResolvedValue(undefined as never);
+
+    const result = await storeResumeObjectOnly(
+      new File([new TextEncoder().encode("pptx-bytes")], "resume.pptx", {
+        type: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+      }),
+      "user-6",
+      "org-test",
+    );
+
+    expect(result).toEqual({
+      contentHash: HASH,
+      storageKey: STORAGE_KEY,
+    });
+    expect(mocks.putObjectBytes).toHaveBeenCalledWith({
+      body: expect.any(Uint8Array),
+      contentType: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+      storageKey: STORAGE_KEY,
+    });
+    expect(mocks.createAttachment).toHaveBeenCalledTimes(1);
+    expect(mocks.createAttachment.mock.calls[0]?.[0]).toMatchObject({
+      contentHash: HASH,
+      storageKey: STORAGE_KEY,
+      userId: "user-6",
+    });
+  });
 });

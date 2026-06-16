@@ -10,6 +10,10 @@ import {
   generateResumeStructured,
   parseResumeFast,
 } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-parse-pipeline";
+import {
+  getResumeDocumentExtension,
+  isSupportedResumeDocumentInput,
+} from "@arc/shared/resume-documents";
 import { isResumeParseCacheEnabled } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-parse-cache-policy";
 import type { ResumeTextSource } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-parse-pipeline";
 import {
@@ -143,18 +147,26 @@ export function isPdfFile(file: File) {
   return file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
 }
 
-function validateResumePdfInput(input: { fileName: string; mediaType?: string; size: number }) {
-  if (input.mediaType !== "application/pdf" && !input.fileName.toLowerCase().endsWith(".pdf")) {
-    throw new Error("仅支持上传 PDF 简历。");
+export function isSupportedResumeDocumentFile(file: File) {
+  return isSupportedResumeDocumentInput({ fileName: file.name, mediaType: file.type });
+}
+
+function validateResumeDocumentInput(input: {
+  fileName: string;
+  mediaType?: string;
+  size: number;
+}) {
+  if (!isSupportedResumeDocumentInput(input)) {
+    throw new Error("仅支持上传 PDF、DOCX、PPTX、XLSX 简历。");
   }
 
   if (input.size > MAX_RESUME_FILE_SIZE) {
-    throw new Error("简历 PDF 不能超过 20 MB。");
+    throw new Error("简历文件不能超过 20 MB。");
   }
 }
 
 export function validateResumeFile(file: File) {
-  validateResumePdfInput({
+  validateResumeDocumentInput({
     fileName: file.name,
     mediaType: file.type,
     size: file.size,
@@ -222,20 +234,26 @@ async function persistParseToRegistry(args: {
     return;
   }
   try {
-    const storageKey = await buildAttachmentKeyByHash(args.contentHash, "pdf");
+    const storageKey = await buildAttachmentKeyByHash(
+      args.contentHash,
+      getResumeDocumentExtension({
+        fileName: args.file.name,
+        mediaType: args.file.type,
+      }),
+    );
     // 顺序而非并行：S3 PUT 失败时不写 DB，避免注册表里出现指向不存在 key 的行。
     // Sequential (not Promise.all) so a failed S3 PUT skips the DB insert and
     // we never leave a registry row pointing at a missing storage key.
     await putObjectBytes({
       body: args.bytes,
-      contentType: args.file.type || "application/pdf",
+      contentType: args.file.type || "application/octet-stream",
       storageKey,
     });
     await createAttachment({
       contentHash: args.contentHash,
-      filename: args.file.name.slice(0, 255) || "resume.pdf",
+      filename: args.file.name.slice(0, 255) || "resume",
       id: crypto.randomUUID(),
-      mediaType: args.file.type || "application/pdf",
+      mediaType: args.file.type || "application/octet-stream",
       organizationId: args.context.organizationId,
       parsedAt: new Date(),
       parsedPageCount: args.fast.pageCount,
@@ -272,7 +290,7 @@ export function streamParseResumeProfile(
   validateResumeFile(file);
 
   return createNdjsonStream(async (emit) => {
-    emit({ message: "正在解析 PDF 简历…", type: "status" });
+    emit({ message: "正在解析简历文件…", type: "status" });
 
     const bytes = new Uint8Array(await file.arrayBuffer());
 
@@ -319,7 +337,11 @@ export function streamParseResumeProfile(
     emit({ index: 1, type: "step" });
     emit({ name: PARSE_STAGE_LABELS.ocr, type: "tool-start" });
 
-    const fast = await parseResumeFast(bytes);
+    const fast = await parseResumeFast({
+      bytes,
+      fileName: file.name,
+      mediaType: file.type,
+    });
 
     emit({ name: PARSE_STAGE_LABELS.ocr, type: "tool-end" });
 
@@ -410,13 +432,17 @@ export async function parseResumeBytesToProfile(input: {
   fileName: string;
   mediaType?: string;
 }): Promise<ParsedResumeProfileResult> {
-  validateResumePdfInput({
+  validateResumeDocumentInput({
     fileName: input.fileName,
     mediaType: input.mediaType,
     size: input.bytes.byteLength,
   });
   try {
-    const fast = await parseResumeFast(input.bytes);
+    const fast = await parseResumeFast({
+      bytes: input.bytes,
+      fileName: input.fileName,
+      mediaType: input.mediaType,
+    });
     return {
       parsedPageCount: fast.pageCount,
       parsedStructured: fast.structured,

@@ -11,6 +11,7 @@ import type { AttachmentTextSource } from "@arc/db-schema/db-enums";
 import { structuredSchema } from "@arc/db-schema/resume-parser-schema";
 import type { ResumeParserStructured } from "@arc/db-schema/resume-parser-schema";
 import { getUserAttachments } from "@arc/ai-recruitment-copilot-backend/server/routes/chat/dao/chat-attachments";
+import { isSupportedResumeDocumentInput } from "@arc/shared/resume-documents";
 
 // 多租户改造后 URL 形如 /api/w/<slug>/chat/attachments/<id>；旧消息仍是
 // /api/chat/attachments/<id>。两种前缀都需要识别，否则历史会话烘焙失败。
@@ -92,8 +93,8 @@ function isResumeParsedPart(part: unknown): part is ResumeParsedPart {
 
 /**
  * Returns a copy of `message` with `data-resume-parsed` parts appended for any
- * PDF file part whose chat_attachment row has a ready parse and which doesn't
- * already carry a baked-in part. Idempotent.
+ * resume file part whose chat_attachment row has a ready parse and which
+ * doesn't already carry a baked-in part. Idempotent.
  */
 export async function bakeParsedResumesIntoMessage(
   organizationId: string,
@@ -108,7 +109,10 @@ export async function bakeParsedResumesIntoMessage(
   const alreadyBaked = new Set<string>();
 
   for (const part of message.parts) {
-    if (part.type === "file" && part.mediaType === "application/pdf") {
+    if (
+      part.type === "file" &&
+      isSupportedResumeDocumentInput({ fileName: part.filename, mediaType: part.mediaType })
+    ) {
       const id = extractAttachmentId(part.url);
       if (id) {
         attachmentIds.add(id);
@@ -128,7 +132,10 @@ export async function bakeParsedResumesIntoMessage(
   let appended = false;
 
   for (const part of message.parts) {
-    if (part.type !== "file" || part.mediaType !== "application/pdf") {
+    if (
+      part.type !== "file" ||
+      !isSupportedResumeDocumentInput({ fileName: part.filename, mediaType: part.mediaType })
+    ) {
       continue;
     }
     const attachmentId = extractAttachmentId(part.url);

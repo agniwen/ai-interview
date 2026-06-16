@@ -140,7 +140,7 @@ async function resolveResumeProfile(
   const parsed = await parseResumeBytesToProfile({
     bytes,
     fileName: item.originalFileName,
-    mediaType: object.contentType ?? "application/pdf",
+    mediaType: object.contentType ?? "application/octet-stream",
   });
   logStep("parse.done", {
     durationMs: elapsed(parseStartedAt),

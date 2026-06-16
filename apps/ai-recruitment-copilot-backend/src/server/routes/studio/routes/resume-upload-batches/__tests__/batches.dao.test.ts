@@ -25,6 +25,7 @@ import {
   recoverIncompleteBatchItems,
   reconcileBatchProgress,
   reviveOrphans,
+  reviveRetriableFailures,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resume-upload-batches/dao/batches";
 
 // 固定前缀，避免与其他测试数据冲突。
@@ -463,6 +464,69 @@ describe("reviveOrphans", () => {
       expect(freshItem?.status).toBe("processing");
 
       // batch.status 应从 running 回到 pending。
+      const [batch] = await db
+        .select()
+        .from(resumeUploadBatch)
+        .where(eq(resumeUploadBatch.id, batchId));
+      expect(batch?.status).toBe("pending");
+    } finally {
+      await db.delete(resumeUploadBatch).where(eq(resumeUploadBatch.id, batchId));
+    }
+  });
+});
+
+describe("reviveRetriableFailures", () => {
+  it("把 S3 对象缺失失败项重置为 pending，其他失败项保持 failed", async () => {
+    const batchId = await insertBatchWithItems({
+      dedupPolicy: "skip",
+      files: makeFiles(2),
+      jdMode: "none",
+      jobDescriptionId: null,
+      organizationId: ORG_A,
+      userId: USER_A,
+    });
+
+    try {
+      const items = await db
+        .select()
+        .from(resumeUploadBatchItem)
+        .where(eq(resumeUploadBatchItem.batchId, batchId));
+      const [retriable, permanent] = items;
+      expect(retriable).toBeDefined();
+      expect(permanent).toBeDefined();
+
+      await db
+        .update(resumeUploadBatchItem)
+        .set({
+          errorMessage: "简历文件不可用（S3 对象缺失）。",
+          finishedAt: new Date(),
+          status: "failed",
+        })
+        .where(eq(resumeUploadBatchItem.id, retriable.id));
+      await db
+        .update(resumeUploadBatchItem)
+        .set({
+          errorMessage: "PPTX 内容为空。",
+          finishedAt: new Date(),
+          status: "failed",
+        })
+        .where(eq(resumeUploadBatchItem.id, permanent.id));
+      await reconcileBatchProgress(batchId);
+
+      await reviveRetriableFailures(batchId, ORG_A, USER_A);
+
+      const updated = await db
+        .select()
+        .from(resumeUploadBatchItem)
+        .where(eq(resumeUploadBatchItem.batchId, batchId));
+      const updatedRetriable = updated.find((item) => item.id === retriable.id);
+      const updatedPermanent = updated.find((item) => item.id === permanent.id);
+
+      expect(updatedRetriable?.status).toBe("pending");
+      expect(updatedRetriable?.errorMessage).toBeNull();
+      expect(updatedRetriable?.finishedAt).toBeNull();
+      expect(updatedPermanent?.status).toBe("failed");
+
       const [batch] = await db
         .select()
         .from(resumeUploadBatch)
