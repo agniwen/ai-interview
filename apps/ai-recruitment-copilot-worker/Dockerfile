@@ -38,6 +38,7 @@ COPY packages/shared/tsconfig.json packages/shared/
 COPY packages/shared/src packages/shared/src
 
 RUN pnpm --filter @arc/ai-recruitment-copilot-worker build
+RUN node -e "const fs = require('node:fs'); const path = require('node:path'); const entry = require.resolve('mupdf', { paths: ['/repo/apps/ai-recruitment-copilot-backend'] }); fs.copyFileSync(path.join(path.dirname(entry), 'mupdf-wasm.wasm'), '/repo/apps/ai-recruitment-copilot-worker/dist/mupdf-wasm.wasm');"
 RUN CI=true pnpm --filter @arc/ai-recruitment-copilot-worker deploy --legacy --prod /prod
 
 FROM node:22-slim AS runner
