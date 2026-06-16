@@ -1,7 +1,7 @@
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { zValidator } from "@hono/zod-validator";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
-import { getObjectStream } from "@arc/ai-recruitment-copilot-backend/lib/server/s3";
+import { getObjectBytes, getObjectStream } from "@arc/ai-recruitment-copilot-backend/lib/server/s3";
 import { jobDescription } from "@arc/db-schema/schema";
 import { and, eq } from "drizzle-orm";
 import {
@@ -16,6 +16,7 @@ import {
   toBadRequest,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/interview/utils";
 import { jobDescriptionIdsExist } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao";
+import { createPptxPreviewPdfResponse } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/utils/pptx-preview";
 import {
   createResumePoolItem,
   deleteOwnPoolItem,
@@ -112,6 +113,30 @@ export const resumePoolRouter = factory
           "Content-Length": String(object.contentLength),
         }),
       },
+    });
+  })
+  .get("/:id/resume-preview.pdf", requirePermission("resume", "read"), async (c) => {
+    const { activeOrg, user } = c.var;
+    if (!activeOrg || !user) {
+      return c.json({ message: "Unauthorized" }, 401);
+    }
+    const item = await loadResumePoolItem({
+      organizationId: activeOrg.id,
+      poolItemId: c.req.param("id"),
+      userId: user.id,
+    });
+    if (!item?.resumeStorageKey) {
+      return c.json({ error: "简历文件已不可用。" }, 404);
+    }
+    const object = await getObjectBytes(item.resumeStorageKey);
+    if (!object) {
+      return c.json({ error: "简历文件已不可用。" }, 404);
+    }
+    return createPptxPreviewPdfResponse({
+      bytes: object.bytes,
+      cacheKey: item.resumeStorageKey,
+      fileName: item.resumeFileName,
+      mediaType: object.contentType,
     });
   })
   .delete("/:id", requirePermission("resume", "delete"), async (c) => {

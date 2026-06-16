@@ -118,7 +118,8 @@ import {
   invalidateStudioInterviewCaches,
   safeUpdateTag,
 } from "@arc/ai-recruitment-copilot-backend/server/cache-tags";
-import { getObjectStream } from "@arc/ai-recruitment-copilot-backend/lib/server/s3";
+import { getObjectBytes, getObjectStream } from "@arc/ai-recruitment-copilot-backend/lib/server/s3";
+import { createPptxPreviewPdfResponse } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/utils/pptx-preview";
 
 const dedupCheckInputSchema = z.object({
   email: z.string().trim().max(200).nullable().optional(),
@@ -748,6 +749,42 @@ export const studioInterviewsRouter = factory
           "Content-Length": String(object.contentLength),
         }),
       },
+    });
+  })
+  .get("/:id/resume-preview.pdf", requirePermission("interview", "read"), async (c) => {
+    const { activeOrg } = c.var;
+    if (!activeOrg) {
+      return c.json({ message: "Unauthorized" }, 401);
+    }
+    const id = c.req.param("id");
+    const visibilityScope = await loadVisibilityScope(
+      activeOrg.id,
+      c.var.member?.role,
+      c.var.user?.id,
+    );
+    const candidateId = await resolveCandidateIdForRound(id, activeOrg.id, visibilityScope);
+    if (!candidateId) {
+      return c.json({ error: "记录不存在。" }, 404);
+    }
+
+    const existing = await loadRecordById(candidateId, activeOrg.id);
+    if (!existing) {
+      return c.json({ error: "记录不存在。" }, 404);
+    }
+    if (!existing.resumeStorageKey) {
+      return c.json({ error: "该候选人没有可预览的简历文件。" }, 404);
+    }
+
+    const object = await getObjectBytes(existing.resumeStorageKey);
+    if (!object) {
+      return c.json({ error: "简历文件已不可用。" }, 404);
+    }
+
+    return createPptxPreviewPdfResponse({
+      bytes: object.bytes,
+      cacheKey: existing.resumeStorageKey,
+      fileName: existing.resumeFileName,
+      mediaType: object.contentType,
     });
   })
   .get("/:id/agent-instructions", requirePermission("interview", "read"), async (c) => {

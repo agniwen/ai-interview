@@ -8,7 +8,6 @@ import {
   AttachmentInfo,
   AttachmentPreview,
   Attachments,
-  PdfFileIcon,
 } from "@/components/ai-elements/attachments";
 import {
   Message,
@@ -20,6 +19,7 @@ import {
 import { Source, Sources, SourcesContent, SourcesTrigger } from "@/components/ai-elements/sources";
 import { AssistantMessageGroups } from "@/components/features/chat/assistant-message-groups";
 import { ParsedResumeButton } from "@/components/features/resume/parsed-resume-button";
+import { ResumeDocumentFileIcon } from "@/components/features/resume/resume-document-file-icon";
 import { ResumeDocumentPreviewButton } from "@/components/features/resume/resume-document-preview-button";
 import { ResumeImportButton } from "@/components/features/resume-import/resume-import-button";
 import { attachmentTextSourceValues } from "@arc/db-schema/db-enums";
@@ -221,7 +221,7 @@ export function ChatMessageItem({
                     >
                       <div className="flex min-w-0 items-center gap-3">
                         <div className="flex size-12 shrink-0 items-center justify-center rounded">
-                          <PdfFileIcon className="size-9" />
+                          <ResumeDocumentFileIcon className="size-9" kind={documentKind ?? "pdf"} />
                         </div>
                         <div className="min-w-0 flex-1">
                           <p className="truncate font-medium text-sm">

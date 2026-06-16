@@ -1,9 +1,9 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { FileTextIcon, UploadIcon } from "lucide-react";
+import { UploadIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { FileThumbnail } from "@/components/ui/file-thumbnail";
+import { ResumeDocumentFileIcon } from "@/components/features/resume/resume-document-file-icon";
 import { ResumeDocumentPreviewButton } from "@/components/features/resume/resume-document-preview-button";
 import { getResumeDocumentKind, resumeDocumentFormats } from "@arc/shared/resume-documents";
 
@@ -39,7 +39,7 @@ function Row({ label, value }: { label: string; value: ReactNode }) {
   return (
     <div className="flex items-baseline gap-3 text-sm">
       <span className="w-24 shrink-0 text-muted-foreground">{label}</span>
-      <span className="min-w-0 break-words">{value}</span>
+      <div className="min-w-0 flex-1 break-words">{value}</div>
     </div>
   );
 }
@@ -85,44 +85,40 @@ export function CandidateBasicInfoView({
         <Row
           label="简历文件"
           value={
-            <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center">
-              <FileThumbnail
-                className="w-18 shrink-0 rounded-md"
-                file={{
-                  name: resumeFileName ?? "resume.pdf",
-                  type: resumeMediaType,
-                }}
-                hasError={!hasResumeFile}
-                previewAspectRatio={0.74}
-                previewContent={
-                  <div className="flex size-full flex-col items-center justify-center gap-1 bg-muted/70 text-muted-foreground">
-                    <FileTextIcon className="size-5" />
-                    <span className="font-medium text-[10px]">{resumeDocumentLabel}</span>
-                  </div>
-                }
+            <div className="flex min-w-0 items-center gap-2 rounded-md border border-border/70 bg-muted/20 px-2 py-1.5">
+              <ResumeDocumentFileIcon
+                className="size-7 shrink-0"
+                kind={resumeDocumentKind ?? "pdf"}
               />
-              <div className="min-w-0 flex-1 space-y-2">
-                <div className="min-w-0">
-                  <div className="truncate font-medium text-sm">{renderText(resumeFileName)}</div>
-                  <div className="text-muted-foreground text-xs">
-                    {hasResumeFile ? "简历附件" : "暂无简历附件"}
-                  </div>
+              <div className="min-w-0 flex-1">
+                <div className="truncate font-medium text-sm leading-5">
+                  {renderText(resumeFileName)}
                 </div>
-                <div className="flex flex-wrap items-center gap-2">
-                  {canPreview && pdfPreviewUrl ? (
-                    <ResumeDocumentPreviewButton
-                      filename={resumeFileName}
-                      mediaType={resumeMediaType}
-                      url={pdfPreviewUrl}
-                    />
-                  ) : null}
-                  {onReplaceResumeFile ? (
-                    <Button onClick={onReplaceResumeFile} size="sm" type="button" variant="outline">
-                      <UploadIcon className="size-4" />
-                      替换简历
-                    </Button>
-                  ) : null}
+                <div className="text-muted-foreground text-xs leading-4">
+                  {hasResumeFile ? `${resumeDocumentLabel} 简历附件` : "暂无简历附件"}
                 </div>
+              </div>
+              <div className="flex shrink-0 items-center gap-1.5">
+                {canPreview && pdfPreviewUrl ? (
+                  <ResumeDocumentPreviewButton
+                    className="h-7 px-2 text-xs"
+                    filename={resumeFileName}
+                    mediaType={resumeMediaType}
+                    url={pdfPreviewUrl}
+                  />
+                ) : null}
+                {onReplaceResumeFile ? (
+                  <Button
+                    className="h-7 gap-1.5 px-2 text-xs"
+                    onClick={onReplaceResumeFile}
+                    size="sm"
+                    type="button"
+                    variant="outline"
+                  >
+                    <UploadIcon className="size-3.5" />
+                    替换
+                  </Button>
+                ) : null}
               </div>
             </div>
           }

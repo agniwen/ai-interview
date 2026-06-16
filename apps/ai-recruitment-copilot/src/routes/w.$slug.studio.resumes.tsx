@@ -32,7 +32,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { HistoryIcon, Trash2Icon, UsersIcon } from "lucide-react";
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { PdfFileIcon } from "@/components/features/pdf/pdf-file-icon";
+import { ResumeDocumentFileIcon } from "@/components/features/resume/resume-document-file-icon";
 import { listBulkResumeBatches } from "@/lib/client/api/endpoints/bulk-resume-upload";
 import { BulkUploadConfirmDialog } from "@/components/features/studio/resumes/bulk-upload-confirm-dialog";
 import type { BulkUploadConfirmConfig } from "@/components/features/studio/resumes/bulk-upload-confirm-dialog";
@@ -560,6 +560,8 @@ function ResumeLibraryPage({ metrics }: { metrics: ResumeLibraryMetrics }) {
       selectColumn<ResumeLibraryListRecord>(),
       customColumn<ResumeLibraryListRecord>({
         cell: (r) => {
+          const documentKind =
+            getPreviewableResumeDocumentKind({ fileName: r.resumeFileName }) ?? "pdf";
           const previewable = isPreviewableResumeDocumentInput({ fileName: r.resumeFileName });
           const previewTitle = r.resumeFileName ?? "查看简历";
           return (
@@ -576,7 +578,10 @@ function ResumeLibraryPage({ metrics }: { metrics: ResumeLibraryMetrics }) {
                   title={previewTitle}
                   type="button"
                 >
-                  <PdfFileIcon className="size-8 transition-transform duration-200 group-hover/pdf:scale-105" />
+                  <ResumeDocumentFileIcon
+                    className="size-8 transition-transform duration-200 group-hover/pdf:scale-105"
+                    kind={documentKind}
+                  />
                 </button>
               ) : (
                 <span
@@ -585,7 +590,7 @@ function ResumeLibraryPage({ metrics }: { metrics: ResumeLibraryMetrics }) {
                   className="mt-0.5 inline-flex size-8 shrink-0 items-center justify-center rounded-md opacity-45 grayscale"
                   title="暂无可预览简历"
                 >
-                  <PdfFileIcon className="size-8" />
+                  <ResumeDocumentFileIcon className="size-8" kind={documentKind} />
                 </span>
               )}
               <div className="min-w-0">

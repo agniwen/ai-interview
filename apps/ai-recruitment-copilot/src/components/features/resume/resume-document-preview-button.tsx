@@ -7,6 +7,7 @@ import type { ResumeDocumentPreviewKind } from "@/components/features/resume/res
 import { Button } from "@/components/ui/button";
 import { getResumeDocumentKind } from "@arc/shared/resume-documents";
 import { cn } from "@arc/shared/utils";
+export { getPptxPreviewPdfUrl } from "./resume-document-preview-url";
 
 const ResumeDocumentPreviewDialog = lazy(async () => {
   const mod = await import("@/components/features/resume/resume-document-preview-dialog");
@@ -24,12 +25,8 @@ export function getPreviewableResumeDocumentKind(input: {
     mediaType: input.mediaType ?? undefined,
   });
 
-  if (kind === "pdf" || kind === "docx" || kind === "xlsx") {
+  if (kind === "pdf" || kind === "docx" || kind === "pptx" || kind === "xlsx") {
     return kind;
-  }
-
-  if (kind === "pptx") {
-    return null;
   }
 
   return input.fileName || input.mediaType ? null : "pdf";

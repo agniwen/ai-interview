@@ -60,7 +60,7 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
-import { PdfFileIcon } from "@/components/features/pdf/pdf-file-icon";
+import { ResumeDocumentFileIcon } from "@/components/features/resume/resume-document-file-icon";
 import {
   getPreviewableResumeDocumentKind,
   isPreviewableResumeDocumentInput,
@@ -321,6 +321,8 @@ function InterviewManagementPage() {
       selectColumn<StudioInterviewRoundListRecord>(),
       customColumn<StudioInterviewRoundListRecord>({
         cell: (r) => {
+          const documentKind =
+            getPreviewableResumeDocumentKind({ fileName: r.resumeFileName }) ?? "pdf";
           const previewable = isPreviewableResumeDocumentInput({ fileName: r.resumeFileName });
           const previewTitle = r.resumeFileName ?? "查看简历";
           return (
@@ -337,7 +339,10 @@ function InterviewManagementPage() {
                   title={previewTitle}
                   type="button"
                 >
-                  <PdfFileIcon className="size-8 transition-transform duration-200 group-hover/pdf:scale-105" />
+                  <ResumeDocumentFileIcon
+                    className="size-8 transition-transform duration-200 group-hover/pdf:scale-105"
+                    kind={documentKind}
+                  />
                 </button>
               ) : (
                 <span
@@ -346,7 +351,7 @@ function InterviewManagementPage() {
                   className="mt-0.5 inline-flex size-8 shrink-0 items-center justify-center rounded-md opacity-45 grayscale"
                   title="暂无可预览简历"
                 >
-                  <PdfFileIcon className="size-8" />
+                  <ResumeDocumentFileIcon className="size-8" kind={documentKind} />
                 </span>
               )}
               <div className="min-w-0">
