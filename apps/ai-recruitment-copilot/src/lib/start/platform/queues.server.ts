@@ -10,6 +10,7 @@ import {
   RESUME_PARSE_QUEUE_NAME,
 } from "@arc/resume-parse-queue/resume-parse";
 import type { ResumeParseJobListState } from "@arc/resume-parse-queue/resume-parse";
+import { enrichResumeParseQueueJobs } from "@arc/ai-recruitment-copilot-backend/server/routes/platform/queue-details";
 
 export interface PlatformQueueFilters extends Record<string, string> {
   queue: string;
@@ -39,12 +40,13 @@ export async function listPlatformQueueJobs(query: DataGridQueryState<PlatformQu
     };
   }
 
-  return await listResumeParseQueueJobs({
+  const result = await listResumeParseQueueJobs({
     page: query.page,
     pageSize: query.pageSize,
     search: query.search,
     state: normalizeJobState(query.filters.state),
   });
+  return await enrichResumeParseQueueJobs(result);
 }
 
 export async function loadPlatformQueuesHydrationState(

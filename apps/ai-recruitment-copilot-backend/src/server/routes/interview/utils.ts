@@ -393,7 +393,9 @@ export async function storeResumeObjectOnly(
       contentHash,
       getResumeDocumentExtension({ fileName: file.name, mediaType: file.type }),
     );
-    const existing = await findAttachmentByContentHash(contentHash);
+    const existing = isResumeParseCacheEnabled()
+      ? await findAttachmentByContentHash(contentHash)
+      : null;
     await putObjectBytes({
       body: bytes,
       contentType: file.type || existing?.mediaType || "application/octet-stream",

@@ -322,7 +322,7 @@ function DocxFileActionsMenu({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button type="button" variant="ghost" size="icon-sm" aria-label="Open DOCX actions">
+        <Button type="button" variant="ghost" size="icon-sm" aria-label="打开 Word 操作菜单">
           <HugeiconsIcon icon={MoreHorizontalIcon} className="size-4" />
         </Button>
       </DropdownMenuTrigger>
@@ -336,7 +336,7 @@ function DocxFileActionsMenu({
             >
               <span className="flex min-w-0 items-center gap-2">
                 <HugeiconsIcon icon={Moon02Icon} className="size-4" />
-                Dark mode
+                深色模式
               </span>
             </DropdownMenuCheckboxItem>
             <DropdownMenuSeparator />
@@ -349,7 +349,7 @@ function DocxFileActionsMenu({
         >
           <span className="flex min-w-0 items-center gap-2">
             <HugeiconsIcon icon={Comment01Icon} className="size-4" />
-            Comments/edits
+            批注/修订
           </span>
         </DropdownMenuCheckboxItem>
         {showFileActions ? <DropdownMenuSeparator /> : null}
@@ -360,13 +360,13 @@ function DocxFileActionsMenu({
             ) : (
               <HugeiconsIcon icon={Download01Icon} className="size-4" />
             )}
-            Download
+            下载
           </DropdownMenuItem>
         ) : null}
         {showUploadButton ? (
           <DropdownMenuItem onClick={onUploadClick}>
             <HugeiconsIcon icon={Upload01Icon} className="size-4" />
-            Upload
+            上传
           </DropdownMenuItem>
         ) : null}
       </DropdownMenuContent>
@@ -421,11 +421,11 @@ function DocxPageNumberControl({
 
   return (
     <div className="flex items-center text-sm whitespace-nowrap text-primary">
-      <span>Page</span>
+      <span>第</span>
       {isEditing ? (
         <Input
           ref={inputRef}
-          aria-label="Page number"
+          aria-label="页码"
           inputMode="numeric"
           pattern="[0-9]*"
           value={draftPage}
@@ -449,7 +449,7 @@ function DocxPageNumberControl({
           variant="ghost"
           size="sm"
           className="font-normal"
-          aria-label={`Current page ${displayPage}. Edit page number`}
+          aria-label={`当前第 ${displayPage} 页，点击编辑页码`}
           disabled={controlsDisabled || !pageCount}
           onClick={() => {
             setDraftPage(String(displayPage));
@@ -459,7 +459,7 @@ function DocxPageNumberControl({
           {displayPage}
         </Button>
       )}
-      <span>of {pageCount || "-"}</span>
+      <span>/ {pageCount || "-"}</span>
     </div>
   );
 }
@@ -510,12 +510,12 @@ function DocxToolbar({
     <div className="flex min-h-12 flex-wrap items-center justify-between gap-2 border-b bg-background px-3 py-2">
       <TooltipProvider>
         <div className="flex min-w-0 flex-wrap items-center gap-2">
-          <ToolbarTooltip label="Toggle thumbnails">
+          <ToolbarTooltip label="切换缩略图">
             <Button
               type="button"
               variant="ghost"
               size="icon-sm"
-              aria-label="Toggle thumbnails"
+              aria-label="切换缩略图"
               disabled={controlsDisabled}
               onClick={onToggleSidebar}
             >
@@ -531,13 +531,13 @@ function DocxToolbar({
         </div>
         <div className="ml-auto flex min-w-0 flex-wrap items-center justify-end gap-1">
           <div className="flex flex-none items-center gap-1">
-            <ToolbarTooltip label="Zoom out">
+            <ToolbarTooltip label="缩小">
               <Button
                 type="button"
                 variant="ghost"
                 size="icon-sm"
                 disabled={controlsDisabled || !canZoomOut}
-                aria-label="Zoom out"
+                aria-label="缩小"
                 onClick={() =>
                   setZoomScale((currentZoomScale) => getNextZoomScale(currentZoomScale, -1))
                 }
@@ -550,7 +550,7 @@ function DocxToolbar({
               onValueChange={(value) => setZoomScale(Number(value))}
               disabled={controlsDisabled}
             >
-              <SelectTrigger size="sm" className="w-[84px] min-w-[84px]" aria-label="Zoom level">
+              <SelectTrigger size="sm" className="w-[84px] min-w-[84px]" aria-label="缩放比例">
                 <SelectValue>{Math.round(zoomScale)}%</SelectValue>
               </SelectTrigger>
               <SelectContent align="end">
@@ -561,13 +561,13 @@ function DocxToolbar({
                 ))}
               </SelectContent>
             </Select>
-            <ToolbarTooltip label="Zoom in">
+            <ToolbarTooltip label="放大">
               <Button
                 type="button"
                 variant="ghost"
                 size="icon-sm"
                 disabled={controlsDisabled || !canZoomIn}
-                aria-label="Zoom in"
+                aria-label="放大"
                 onClick={() =>
                   setZoomScale((currentZoomScale) => getNextZoomScale(currentZoomScale, 1))
                 }
@@ -1350,13 +1350,10 @@ function DocxViewerContent({
           {!url && !activeUploadedDocxFile ? (
             <div className="grid h-full min-h-96 place-items-center p-6 text-center">
               <div className="max-w-md rounded-lg border bg-background p-4 text-sm shadow-xs">
-                <div className="font-medium">Upload a Word document to preview</div>
+                <div className="font-medium">上传 Word 文档后预览</div>
+                <div className="mt-1 text-muted-foreground">请传入 DOCX 地址或上传文件。</div>
                 <div className="mt-1 text-muted-foreground">
-                  Pass a DOCX URL with the <code>src</code> prop or upload a file.
-                </div>
-                <div className="mt-1 text-muted-foreground">
-                  Legacy <code>.doc</code> support is limited and experimental; convert to DOCX for
-                  best fidelity.
+                  旧版 <code>.doc</code> 支持有限，建议转换为 DOCX 以获得更好的预览效果。
                 </div>
                 <Button
                   type="button"
@@ -1366,14 +1363,14 @@ function DocxViewerContent({
                   onClick={() => fileInputRef.current?.click()}
                 >
                   <HugeiconsIcon icon={Upload01Icon} className="size-4" />
-                  Upload Word document
+                  上传 Word 文档
                 </Button>
               </div>
             </div>
           ) : loadError ? (
             <div className="grid h-full min-h-96 place-items-center p-6 text-center">
               <div className="max-w-md rounded-lg border bg-background p-4 text-sm text-destructive shadow-xs">
-                <div className="font-medium">Unable to display DOCX</div>
+                <div className="font-medium">无法展示 DOCX</div>
                 <div className="mt-1 text-muted-foreground">{loadError}</div>
               </div>
             </div>

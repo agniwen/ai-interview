@@ -56,7 +56,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 const XLSX_LOADING_INDICATOR_DELAY_MS = 300;
-const XLSX_DROPDOWN_Z_INDEX_CLASS = "z-40";
+const XLSX_DROPDOWN_Z_INDEX_CLASS = "z-[60]";
 const XLSX_SEARCH_BATCH_ROW_COUNT = 500;
 const XLSX_SEARCH_DEBOUNCE_MS = 300;
 const XLSX_GRID_HEADER_HEIGHT = 24;
@@ -443,7 +443,7 @@ function WorkbookFileActionsMenu({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button type="button" variant="ghost" size="icon-sm" aria-label="Open workbook actions">
+        <Button type="button" variant="ghost" size="icon-sm" aria-label="打开表格操作菜单">
           <HugeiconsIcon icon={MoreHorizontalIcon} className="size-4" />
         </Button>
       </DropdownMenuTrigger>
@@ -456,7 +456,7 @@ function WorkbookFileActionsMenu({
             >
               <span className="flex min-w-0 items-center gap-2">
                 <HugeiconsIcon icon={Moon02Icon} className="size-4" />
-                Dark mode
+                深色模式
               </span>
             </DropdownMenuCheckboxItem>
             {showFileActions ? <DropdownMenuSeparator /> : null}
@@ -465,13 +465,13 @@ function WorkbookFileActionsMenu({
         {showDownloadButton && onDownload ? (
           <DropdownMenuItem onClick={onDownload}>
             <HugeiconsIcon icon={Download01Icon} className="size-4" />
-            Download
+            下载
           </DropdownMenuItem>
         ) : null}
         {showUploadButton ? (
           <DropdownMenuItem onClick={onUploadClick}>
             <HugeiconsIcon icon={Upload01Icon} className="size-4" />
-            Upload
+            上传
           </DropdownMenuItem>
         ) : null}
       </DropdownMenuContent>
@@ -505,7 +505,7 @@ export function WorkbookTableHeaderMenu({
           variant="ghost"
           size="icon-sm"
           className={cn("size-6 rounded-sm", triggerProps.className)}
-          aria-label="Column menu"
+          aria-label="列菜单"
         >
           {triggerIcon ? (
             triggerIcon
@@ -526,8 +526,8 @@ export function WorkbookTableHeaderMenu({
             setOpen(false);
           }}
         >
-          <DropdownMenuRadioItem value="ascending">Sort ascending</DropdownMenuRadioItem>
-          <DropdownMenuRadioItem value="descending">Sort descending</DropdownMenuRadioItem>
+          <DropdownMenuRadioItem value="ascending">升序排序</DropdownMenuRadioItem>
+          <DropdownMenuRadioItem value="descending">降序排序</DropdownMenuRadioItem>
         </DropdownMenuRadioGroup>
       </DropdownMenuContent>
     </DropdownMenu>
@@ -558,12 +558,12 @@ function WorkbookSearchPopover({
     controller.isLoading || Boolean(controller.error) || !controller.sheets.length;
   const hasActiveQuery = Boolean(searchQuery.trim());
   const resultLabel = isSearching
-    ? "Searching"
+    ? "搜索中"
     : !hasActiveQuery
-      ? "No search"
+      ? "未搜索"
       : searchResults.length
         ? `${activeResultIndex + 1} / ${searchResults.length}`
-        : "No results";
+        : "无结果";
 
   React.useEffect(() => {
     controllerRef.current = controller;
@@ -673,13 +673,13 @@ function WorkbookSearchPopover({
 
   return (
     <Popover>
-      <ToolbarTooltip label="Search workbook">
+      <ToolbarTooltip label="搜索工作簿">
         <PopoverTrigger asChild>
           <Button
             type="button"
             variant="ghost"
             size="icon-sm"
-            aria-label="Search workbook"
+            aria-label="搜索工作簿"
             disabled={controlsDisabled}
           >
             <HugeiconsIcon icon={Search01Icon} className="size-4" />
@@ -689,7 +689,7 @@ function WorkbookSearchPopover({
       <PopoverContent align="end" className="w-72">
         <div className="space-y-3">
           <Input
-            placeholder="Search workbook"
+            placeholder="搜索工作簿"
             value={searchDraft}
             onChange={(event) => setSearchDraft(event.target.value)}
             onKeyDown={(event) => {
@@ -728,7 +728,7 @@ function WorkbookSearchPopover({
                 type="button"
                 variant="outline"
                 size="icon-sm"
-                aria-label="Previous result"
+                aria-label="上一个结果"
                 disabled={isSearching || searchResults.length === 0}
                 onClick={() => goToRelativeResult(-1)}
               >
@@ -738,7 +738,7 @@ function WorkbookSearchPopover({
                 type="button"
                 variant="outline"
                 size="icon-sm"
-                aria-label="Next result"
+                aria-label="下一个结果"
                 disabled={isSearching || searchResults.length === 0}
                 onClick={() => goToRelativeResult(1)}
               >
@@ -748,7 +748,7 @@ function WorkbookSearchPopover({
           </div>
           <div className="flex justify-end">
             <Button type="button" variant="outline" size="sm" onClick={clearSearch}>
-              Clear
+              清除
             </Button>
           </div>
         </div>
@@ -792,13 +792,13 @@ function WorkbookToolbar({
       <TooltipProvider>
         <div className="ml-auto flex min-w-0 flex-wrap items-center justify-end gap-1">
           <div className="flex flex-none items-center gap-1">
-            <ToolbarTooltip label="Zoom out">
+            <ToolbarTooltip label="缩小">
               <Button
                 type="button"
                 variant="ghost"
                 size="icon-sm"
                 disabled={!canZoomOut}
-                aria-label="Zoom out"
+                aria-label="缩小"
                 onClick={zoomOut}
               >
                 <HugeiconsIcon icon={MinusSignCircleIcon} className="size-4" />
@@ -808,7 +808,7 @@ function WorkbookToolbar({
               value={currentZoom.toString()}
               onValueChange={(value) => setZoomScale(Number(value))}
             >
-              <SelectTrigger size="sm" className="w-[84px] min-w-[84px]" aria-label="Zoom level">
+              <SelectTrigger size="sm" className="w-[84px] min-w-[84px]" aria-label="缩放比例">
                 <SelectValue>{currentZoom}%</SelectValue>
               </SelectTrigger>
               <SelectContent align="end" className={XLSX_DROPDOWN_Z_INDEX_CLASS}>
@@ -819,13 +819,13 @@ function WorkbookToolbar({
                 ))}
               </SelectContent>
             </Select>
-            <ToolbarTooltip label="Zoom in">
+            <ToolbarTooltip label="放大">
               <Button
                 type="button"
                 variant="ghost"
                 size="icon-sm"
                 disabled={!canZoomIn}
-                aria-label="Zoom in"
+                aria-label="放大"
                 onClick={zoomIn}
               >
                 <HugeiconsIcon icon={PlusSignCircleIcon} className="size-4" />
@@ -1229,9 +1229,9 @@ export function XlsxWorkbookSurface({
             fileTooLargeState={
               <div className="grid h-full w-full min-w-full place-items-center p-6">
                 <div className="max-w-sm rounded-lg border bg-background p-4 text-sm">
-                  <p className="font-medium">File too large</p>
+                  <p className="font-medium">文件过大</p>
                   <p className="mt-1 text-muted-foreground">
-                    This workbook exceeds the display limit. Download it to view the full file.
+                    当前工作簿超过展示限制，请下载后查看完整文件。
                   </p>
                 </div>
               </div>
@@ -1240,7 +1240,7 @@ export function XlsxWorkbookSurface({
             renderScroller={renderSearchableScroller}
             errorState={
               <div className="grid h-full w-full min-w-full place-items-center p-6 text-sm text-destructive">
-                {error?.message ?? "Unable to display workbook."}
+                {error?.message ?? "无法展示工作簿。"}
               </div>
             }
             renderTableHeaderMenu={renderTableHeaderMenu}
@@ -1362,7 +1362,7 @@ function XlsxViewerContent({
       } catch (error) {
         if (!isCurrent) return;
 
-        setLoadError(error instanceof Error ? error.message : "Unknown XLSX load error");
+        setLoadError(error instanceof Error ? error.message : "未知 Excel 加载错误");
       }
     }
 
@@ -1411,10 +1411,8 @@ function XlsxViewerContent({
         />
         <div className="grid min-h-0 flex-1 place-items-center bg-muted/30 p-4">
           <div className="max-w-md rounded-lg border bg-background p-4 text-center text-sm shadow-xs">
-            <p className="font-medium">Upload a workbook to preview</p>
-            <p className="mt-1 text-muted-foreground">
-              Pass an XLSX URL with the <code>src</code> prop or upload a file.
-            </p>
+            <p className="font-medium">上传工作簿后预览</p>
+            <p className="mt-1 text-muted-foreground">请传入 XLSX 地址或上传文件。</p>
             <Button
               type="button"
               variant="outline"
@@ -1423,7 +1421,7 @@ function XlsxViewerContent({
               onClick={() => fileInputRef.current?.click()}
             >
               <HugeiconsIcon icon={Upload01Icon} className="size-4" />
-              Upload XLSX
+              上传 Excel
             </Button>
           </div>
         </div>
@@ -1450,7 +1448,7 @@ function XlsxViewerContent({
         />
         <div className="grid min-h-0 flex-1 place-items-center bg-muted/30 p-4">
           <div className="max-w-md rounded-lg border bg-background p-4 text-sm">
-            <p className="font-medium">Unable to display workbook</p>
+            <p className="font-medium">无法展示工作簿</p>
             <p className="mt-1 text-muted-foreground">{loadError}</p>
             <Button
               type="button"
@@ -1460,7 +1458,7 @@ function XlsxViewerContent({
               onClick={() => fileInputRef.current?.click()}
             >
               <HugeiconsIcon icon={Upload01Icon} className="size-4" />
-              Upload XLSX
+              上传 Excel
             </Button>
           </div>
         </div>

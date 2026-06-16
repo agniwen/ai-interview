@@ -47,6 +47,7 @@ describe("mergeResumeParseQueueJobsWithResumeDetails", () => {
           itemStatus: "processing",
           organizationId: "org-1",
           organizationName: "测试组织",
+          organizationSlug: "test-org",
           originalFileName: "候选人甲.pdf",
           poolItemId: "pool-1",
           poolScope: "public",
@@ -57,7 +58,9 @@ describe("mergeResumeParseQueueJobsWithResumeDetails", () => {
           resumeRecordId: null,
           startedAt: "2026-06-15T10:00:00.000Z",
           targetRole: "前端工程师",
+          userEmail: "uploader@example.com",
           userId: "user-1",
+          userImage: "https://example.com/avatar.png",
           userName: "上传人",
         },
       ],
@@ -69,6 +72,17 @@ describe("mergeResumeParseQueueJobsWithResumeDetails", () => {
       itemStatus: "processing",
       originalFileName: "候选人甲.pdf",
       resumeParseStatus: "processing",
+    });
+    expect(record?.organization).toEqual({
+      id: "org-1",
+      name: "测试组织",
+      slug: "test-org",
+    });
+    expect(record?.triggeredBy).toEqual({
+      email: "uploader@example.com",
+      id: "user-1",
+      image: "https://example.com/avatar.png",
+      name: "上传人",
     });
   });
 

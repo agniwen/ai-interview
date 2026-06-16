@@ -8,6 +8,7 @@ import {
   buildAttachmentKeyByHash,
   putObjectBytes,
 } from "@arc/ai-recruitment-copilot-backend/lib/server/s3";
+import { isResumeParseCacheEnabled } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-parse-cache-policy";
 import type { AttachmentParseStatus, AttachmentTextSource } from "@arc/db-schema/db-enums";
 import { sha256HexOfBytes } from "@arc/shared/file-hash";
 import {
@@ -73,7 +74,7 @@ export const uploadsRouter = factory
 
     const { filename, hash, mediaType, size } = c.req.valid("json");
 
-    const existing = await findAttachmentByContentHash(hash);
+    const existing = isResumeParseCacheEnabled() ? await findAttachmentByContentHash(hash) : null;
     if (!existing) {
       return c.json({ hit: false } as const);
     }
@@ -146,7 +147,9 @@ export const uploadsRouter = factory
     // per-user row — the read path remains userId+id scoped, so isolation holds.
     // Concurrent miss: two requests each PUT the same hash-named S3 key
     // (idempotent overwrite) and INSERT independent attachmentIds — no conflict.
-    const existing = await findAttachmentByContentHash(contentHash);
+    const existing = isResumeParseCacheEnabled()
+      ? await findAttachmentByContentHash(contentHash)
+      : null;
     if (existing) {
       const attachmentId = crypto.randomUUID();
       await createAttachment({

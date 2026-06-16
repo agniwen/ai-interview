@@ -12,20 +12,43 @@ import * as previewButtonModule from "@/components/features/resume/resume-docume
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
+function stubDesktopViewport() {
+  vi.stubGlobal(
+    "matchMedia",
+    vi.fn(() => ({
+      addEventListener: vi.fn(),
+      addListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+      matches: false,
+      media: "(max-width: 767px)",
+      onchange: null,
+      removeEventListener: vi.fn(),
+      removeListener: vi.fn(),
+    })),
+  );
+}
+
+const viewerMocks = vi.hoisted(() => ({
+  docx: vi.fn(() => null),
+  pdf: vi.fn(() => null),
+  xlsx: vi.fn(() => null),
+}));
+
 vi.mock("@/components/features/pdf/pdf-preview-dialog", () => ({
-  PdfPreviewDialog: () => null,
+  PdfPreviewDialog: viewerMocks.pdf,
 }));
 
 vi.mock("@/components/ui/docx-viewer", () => ({
-  DocxViewerPreview: () => null,
+  DocxViewerPreview: viewerMocks.docx,
 }));
 
 vi.mock("@/components/ui/xlsx-viewer", () => ({
-  XlsxViewerPreview: () => null,
+  XlsxViewerPreview: viewerMocks.xlsx,
 }));
 
 afterEach(() => {
   document.body.innerHTML = "";
+  vi.clearAllMocks();
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
 });
@@ -155,5 +178,118 @@ describe("resume document preview", () => {
     });
 
     expect(revokeObjectURL).toHaveBeenCalledWith(blobUrl);
+  });
+
+  it("renders the download action in the preview dialog header for image resumes", () => {
+    stubDesktopViewport();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 404,
+      }),
+    );
+    const host = document.createElement("div");
+    document.body.append(host);
+    const root = createRoot(host);
+
+    act(() => {
+      root.render(
+        <previewDialogModule.ResumeDocumentPreviewDialog
+          filename="resume.jpeg"
+          kind="image"
+          onOpenChange={() => {}}
+          open
+          url="/api/w/new/studio/resume-pool/r1/resume"
+        />,
+      );
+    });
+
+    const download = document.querySelector<HTMLAnchorElement>('a[aria-label="下载原文件"]');
+    expect(download?.textContent).toContain("下载");
+    expect(download?.getAttribute("download")).toBe("resume.jpeg");
+    expect(download?.getAttribute("href")).toBe("/api/w/new/studio/resume-pool/r1/resume");
+
+    act(() => {
+      root.unmount();
+    });
+  });
+
+  it("keeps DOCX and XLSX viewer download actions out of resume preview modals", () => {
+    stubDesktopViewport();
+    const host = document.createElement("div");
+    document.body.append(host);
+    const root = createRoot(host);
+
+    act(() => {
+      root.render(
+        <previewDialogModule.ResumeDocumentPreviewDialog
+          filename="resume.docx"
+          kind="docx"
+          onOpenChange={() => {}}
+          open
+          url="/api/w/new/studio/resume-pool/r1/resume"
+        />,
+      );
+    });
+    act(() => {
+      root.render(
+        <previewDialogModule.ResumeDocumentPreviewDialog
+          filename="resume.xlsx"
+          kind="xlsx"
+          onOpenChange={() => {}}
+          open
+          url="/api/w/new/studio/resume-pool/r2/resume"
+        />,
+      );
+    });
+
+    expect(viewerMocks.docx).toHaveBeenCalledWith(
+      expect.objectContaining({ showDownload: false }),
+      undefined,
+    );
+    expect(viewerMocks.xlsx).toHaveBeenCalledWith(
+      expect.objectContaining({ showDownload: false }),
+      undefined,
+    );
+
+    act(() => {
+      root.unmount();
+    });
+  });
+
+  it("passes the original PPTX URL to the outer download action", async () => {
+    stubDesktopViewport();
+    const host = document.createElement("div");
+    document.body.append(host);
+    const root = createRoot(host);
+
+    act(() => {
+      root.render(
+        <previewDialogModule.ResumeDocumentPreviewDialog
+          filename="resume.pptx"
+          kind="pptx"
+          onOpenChange={() => {}}
+          open
+          url="/api/w/new/studio/resume-pool/r3/resume"
+        />,
+      );
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(viewerMocks.pdf).toHaveBeenCalledWith(
+      expect.objectContaining({
+        downloadFileName: "resume.pptx",
+        downloadUrl: "/api/w/new/studio/resume-pool/r3/resume",
+        url: "/api/w/new/studio/resume-pool/r3/resume-preview.pdf",
+      }),
+      undefined,
+    );
+
+    act(() => {
+      root.unmount();
+    });
   });
 });
