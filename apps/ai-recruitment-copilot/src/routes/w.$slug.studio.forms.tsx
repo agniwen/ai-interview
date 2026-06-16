@@ -18,11 +18,12 @@ import { EntityDeleteDialog } from "@/components/features/studio/entity-delete-d
 import { useEntityCrud } from "@/components/features/studio/use-entity-crud";
 import type {
   CandidateFormScope,
+  CandidateFormTemplateInput,
   CandidateFormTemplateListRecord,
   CandidateFormTemplateRecord,
 } from "@arc/db-schema/candidate-forms";
 import type { PaginatedCandidateFormTemplateResult } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/forms/dao/queries";
-import { ChevronDownIcon, ClipboardListIcon, PlusIcon } from "lucide-react";
+import { ChevronDownIcon, ClipboardListIcon, PlusIcon, SparklesIcon } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -53,6 +54,7 @@ import {
 import { rpc } from "@/lib/client/rpc";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { CandidateFormTemplateEditorDialog } from "@/components/features/studio/forms/form-template-editor-dialog";
+import { FormTemplateAiCreateDialog } from "@/components/features/studio/forms/form-template-ai-create-dialog";
 import { CandidateFormTemplateSubmissionsDrawer } from "@/components/features/studio/forms/form-template-submissions-drawer";
 
 function scopeLabel(scope: CandidateFormScope) {
@@ -209,6 +211,9 @@ function CandidateFormTemplateManagementPage({
 
   const [submissionsRecord, setSubmissionsRecord] =
     useState<CandidateFormTemplateListRecord | null>(null);
+  const [createDraft, setCreateDraft] = useState<CandidateFormTemplateInput | null>(null);
+  const [createDraftSessionId, setCreateDraftSessionId] = useState(0);
+  const [aiCreateOpen, setAiCreateOpen] = useState(false);
 
   // When the URL carries `?templateId=...` (e.g. clicked from the JD dialog),
   // load the detail and pop the editor open.
@@ -249,6 +254,7 @@ function CandidateFormTemplateManagementPage({
     crud.onFormOpenChange(next);
     if (!next) {
       lastLoadedTemplateRef.current = null;
+      setCreateDraft(null);
       void setActiveTemplateId(null);
     }
   }
@@ -407,6 +413,32 @@ function CandidateFormTemplateManagementPage({
     [jobDescriptions],
   );
 
+  function handleAiGenerated({
+    jobDescriptionId,
+    questions,
+  }: {
+    jobDescriptionId: string;
+    questions: CandidateFormTemplateInput["questions"];
+  }) {
+    setCreateDraft({
+      description: "",
+      jobDescriptionIds: [jobDescriptionId],
+      questions,
+      scope: "job_description",
+      title: "",
+    });
+    setCreateDraftSessionId((id) => id + 1);
+    crud.setEditingRecord(null);
+    crud.setFormDialogOpen(true);
+  }
+
+  let editorDialogKey = "create-empty";
+  if (createDraft) {
+    editorDialogKey = `create-draft-${createDraftSessionId}`;
+  } else if (crud.editingRecord) {
+    editorDialogKey = `edit-${crud.editingRecord.id}`;
+  }
+
   return (
     <>
       <div className="space-y-6">
@@ -429,8 +461,17 @@ function CandidateFormTemplateManagementPage({
                   创建后，符合作用域的面试开始前，候选人会先被要求填写表单。
                 </EmptyDescription>
               </EmptyHeader>
-              <EmptyContent>
-                <Button onClick={crud.openCreate}>
+              <EmptyContent className="flex flex-wrap items-center justify-center gap-2">
+                <Button onClick={() => setAiCreateOpen(true)} type="button">
+                  <SparklesIcon className="size-4" />
+                  AI 创建面试表单
+                </Button>
+                <Button
+                  onClick={() => {
+                    setCreateDraft(null);
+                    crud.openCreate();
+                  }}
+                >
                   <PlusIcon className="size-4" />
                   新建面试表单
                 </Button>
@@ -460,16 +501,41 @@ function CandidateFormTemplateManagementPage({
           }
           getRowId={(r) => r.id}
           toolbarRight={
-            <Button className="flex-1 sm:flex-none" onClick={crud.openCreate}>
-              <PlusIcon className="size-4" />
-              新建面试表单
-            </Button>
+            <div className="flex flex-1 flex-wrap items-center justify-end gap-2 sm:flex-none">
+              <Button
+                className="flex-1 sm:flex-none"
+                onClick={() => setAiCreateOpen(true)}
+                type="button"
+              >
+                <SparklesIcon className="size-4" />
+                AI 创建面试表单
+              </Button>
+              <Button
+                className="flex-1 sm:flex-none"
+                onClick={() => {
+                  setCreateDraft(null);
+                  crud.openCreate();
+                }}
+              >
+                <PlusIcon className="size-4" />
+                新建面试表单
+              </Button>
+            </div>
           }
         />
       </div>
 
-      <CandidateFormTemplateEditorDialog
+      <FormTemplateAiCreateDialog
         jobDescriptions={jobDescriptions}
+        onGenerated={handleAiGenerated}
+        onOpenChange={setAiCreateOpen}
+        open={aiCreateOpen}
+      />
+
+      <CandidateFormTemplateEditorDialog
+        initialDraft={createDraft}
+        jobDescriptions={jobDescriptions}
+        key={editorDialogKey}
         onOpenChange={onEditorOpenChange}
         onSaved={() => {
           grid.invalidate();

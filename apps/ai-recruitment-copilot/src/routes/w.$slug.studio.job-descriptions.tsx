@@ -18,6 +18,7 @@ import { PageHeader } from "@/components/features/studio/page-header";
 import { EntityDeleteDialog } from "@/components/features/studio/entity-delete-dialog";
 import { useEntityCrud } from "@/components/features/studio/use-entity-crud";
 import type {
+  JobDescriptionFormValues,
   JobDescriptionListRecord,
   JobDescriptionMetrics,
   JobDescriptionRecord,
@@ -25,7 +26,7 @@ import type {
 import type { PaginatedJobDescriptionResult } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao";
 import { JobDescriptionCharts } from "@/components/features/studio/job-descriptions/job-description-charts";
 import { ScopedResumesModal } from "@/components/features/studio/scoped-resumes-modal";
-import { FileTextIcon, PlusIcon } from "lucide-react";
+import { FileTextIcon, PlusIcon, SparklesIcon } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -49,6 +50,7 @@ import {
 import { rpc } from "@/lib/client/rpc";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { JobDescriptionFormDialog } from "@/components/features/studio/job-descriptions/job-description-form-dialog";
+import { JobDescriptionAiCreateDialog } from "@/components/features/studio/job-descriptions/job-description-ai-create-dialog";
 
 function JobDescriptionManagementPage({
   departments,
@@ -65,6 +67,9 @@ function JobDescriptionManagementPage({
   // 当前点开"简历关联"的那条 JD；null 表示弹窗关闭。
   // The JD whose associated resumes are being inspected; null = closed.
   const [resumesScope, setResumesScope] = useState<{ id: string; name: string } | null>(null);
+  const [createDraft, setCreateDraft] = useState<JobDescriptionFormValues | null>(null);
+  const [createDraftSessionId, setCreateDraftSessionId] = useState(0);
+  const [aiCreateOpen, setAiCreateOpen] = useState(false);
 
   const fetchJobDescriptions = useCallback(
     async (params: {
@@ -143,6 +148,44 @@ function JobDescriptionManagementPage({
       loadDetailError: "加载在招岗位失败",
     },
   });
+
+  function onFormOpenChange(next: boolean) {
+    crud.onFormOpenChange(next);
+    if (!next) {
+      setCreateDraft(null);
+    }
+  }
+
+  function handleAiGenerated({
+    departmentId,
+    description,
+    name,
+    prompt,
+  }: {
+    departmentId: string;
+    description: string;
+    name: string;
+    prompt: string;
+  }) {
+    setCreateDraft({
+      allowCrossDepartmentInterviewers: false,
+      departmentId,
+      description,
+      interviewerIds: [],
+      name,
+      prompt,
+    });
+    setCreateDraftSessionId((id) => id + 1);
+    crud.setEditingRecord(null);
+    crud.setFormDialogOpen(true);
+  }
+
+  let editorDialogKey = "create-empty";
+  if (createDraft) {
+    editorDialogKey = `create-draft-${createDraftSessionId}`;
+  } else if (crud.editingRecord) {
+    editorDialogKey = `edit-${crud.editingRecord.id}`;
+  }
 
   const columns = useMemo(
     () => [
@@ -306,8 +349,22 @@ function JobDescriptionManagementPage({
                     创建在招岗位之后即可在面试记录中引用，并带上面试官 prompt 与音色。
                   </EmptyDescription>
                 </EmptyHeader>
-                <EmptyContent>
-                  <Button onClick={crud.openCreate}>
+                <EmptyContent className="flex flex-wrap items-center justify-center gap-2">
+                  <Button
+                    disabled={missingRefs}
+                    onClick={() => setAiCreateOpen(true)}
+                    type="button"
+                  >
+                    <SparklesIcon className="size-4" />
+                    AI 创建在招岗位
+                  </Button>
+                  <Button
+                    disabled={missingRefs}
+                    onClick={() => {
+                      setCreateDraft(null);
+                      crud.openCreate();
+                    }}
+                  >
                     <PlusIcon className="size-4" />
                     新建在招岗位
                   </Button>
@@ -318,22 +375,45 @@ function JobDescriptionManagementPage({
           filters={filtersConfig}
           getRowId={(r) => r.id}
           toolbarRight={
-            <Button
-              className="flex-1 sm:flex-none"
-              disabled={missingRefs}
-              onClick={crud.openCreate}
-            >
-              <PlusIcon className="size-4" />
-              新建在招岗位
-            </Button>
+            <div className="flex flex-1 flex-wrap items-center justify-end gap-2 sm:flex-none">
+              <Button
+                className="flex-1 sm:flex-none"
+                disabled={missingRefs}
+                onClick={() => setAiCreateOpen(true)}
+                type="button"
+              >
+                <SparklesIcon className="size-4" />
+                AI 创建在招岗位
+              </Button>
+              <Button
+                className="flex-1 sm:flex-none"
+                disabled={missingRefs}
+                onClick={() => {
+                  setCreateDraft(null);
+                  crud.openCreate();
+                }}
+              >
+                <PlusIcon className="size-4" />
+                新建在招岗位
+              </Button>
+            </div>
           }
         />
       </div>
 
+      <JobDescriptionAiCreateDialog
+        departments={departments}
+        onGenerated={handleAiGenerated}
+        onOpenChange={setAiCreateOpen}
+        open={aiCreateOpen}
+      />
+
       <JobDescriptionFormDialog
         departments={departments}
+        initialDraft={createDraft}
         interviewers={interviewers}
-        onOpenChange={crud.onFormOpenChange}
+        key={editorDialogKey}
+        onOpenChange={onFormOpenChange}
         onSaved={invalidateJobDescriptionData}
         open={crud.formDialogOpen}
         record={crud.editingRecord}
