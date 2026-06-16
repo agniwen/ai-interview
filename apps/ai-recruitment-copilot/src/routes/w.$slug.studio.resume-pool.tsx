@@ -33,7 +33,7 @@ import { toast } from "sonner";
 import { useDataGridState } from "@/components/data-grid";
 import { Toolbar } from "@/components/data-grid/parts/toolbar";
 import { TimeDisplay } from "@/components/features/display/time-display";
-import { PdfFileIcon } from "@/components/features/pdf/pdf-file-icon";
+import { ResumeDocumentFileIcon } from "@/components/features/resume/resume-document-file-icon";
 import {
   getPreviewableResumeDocumentKind,
   isPreviewableResumeDocumentInput,
@@ -802,6 +802,8 @@ function ResumePoolCard({
   const previewLabel = record.resumeFileName ?? "查看简历";
   const skills = record.skillsNormalized.slice(0, 5);
   const note = notesPreview(record.notes);
+  const documentKind =
+    getPreviewableResumeDocumentKind({ fileName: record.resumeFileName }) ?? "pdf";
   const canPreview =
     Boolean(record.resumeStorageKey) &&
     isPreviewableResumeDocumentInput({ fileName: record.resumeFileName });
@@ -817,7 +819,10 @@ function ResumePoolCard({
             title={previewLabel}
             type="button"
           >
-            <PdfFileIcon className="size-8 transition-transform duration-200 group-hover/pdf:scale-105" />
+            <ResumeDocumentFileIcon
+              className="size-8 transition-transform duration-200 group-hover/pdf:scale-105"
+              kind={documentKind}
+            />
           </button>
         ) : (
           <span
@@ -826,7 +831,7 @@ function ResumePoolCard({
             className="inline-flex size-8 shrink-0 items-center justify-center rounded-md opacity-45 grayscale"
             title="暂无可预览简历"
           >
-            <PdfFileIcon className="size-8" />
+            <ResumeDocumentFileIcon className="size-8" kind={documentKind} />
           </span>
         )}
         <div className="min-w-0 flex-1">

@@ -6,9 +6,10 @@ import { DocxViewerPreview } from "@/components/ui/docx-viewer";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { XlsxViewerPreview } from "@/components/ui/xlsx-viewer";
+import { getPptxPreviewPdfUrl } from "./resume-document-preview-url";
 
 export type OfficeResumePreviewKind = "docx" | "xlsx";
-export type ResumeDocumentPreviewKind = "pdf" | OfficeResumePreviewKind;
+export type ResumeDocumentPreviewKind = "pdf" | "pptx" | OfficeResumePreviewKind;
 
 const PdfPreviewDialog = lazy(async () => {
   const mod = await import("@/components/features/pdf/pdf-preview-dialog");
@@ -23,6 +24,13 @@ export interface ResumeDocumentPreviewDialogProps {
   filename?: string;
 }
 
+function getPptxPreviewDownloadFileName(filename: string | undefined) {
+  if (!filename) {
+    return "resume-preview.pdf";
+  }
+  return filename.replace(/\.pptx$/i, ".pdf");
+}
+
 export function ResumeDocumentPreviewDialog({
   kind,
   open,
@@ -33,10 +41,16 @@ export function ResumeDocumentPreviewDialog({
   const [isDark, setIsDark] = useState(false);
   const title = filename ?? (kind === "docx" ? "Word 简历预览" : "Excel 简历预览");
 
-  if (kind === "pdf") {
+  if (kind === "pdf" || kind === "pptx") {
     return (
       <Suspense fallback={null}>
-        <PdfPreviewDialog filename={filename} onOpenChange={onOpenChange} open={open} url={url} />
+        <PdfPreviewDialog
+          downloadFileName={kind === "pptx" ? getPptxPreviewDownloadFileName(filename) : undefined}
+          filename={filename}
+          onOpenChange={onOpenChange}
+          open={open}
+          url={kind === "pptx" ? getPptxPreviewPdfUrl(url) : url}
+        />
       </Suspense>
     );
   }

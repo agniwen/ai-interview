@@ -11,9 +11,16 @@ export interface PdfPreviewDialogProps {
   onOpenChange: (open: boolean) => void;
   url: string;
   filename?: string;
+  downloadFileName?: string;
 }
 
-export function PdfPreviewDialog({ open, onOpenChange, url, filename }: PdfPreviewDialogProps) {
+export function PdfPreviewDialog({
+  open,
+  onOpenChange,
+  url,
+  filename,
+  downloadFileName,
+}: PdfPreviewDialogProps) {
   const [numPages, setNumPages] = useState(0);
   const [activePage, setActivePage] = useState(1);
 
@@ -57,7 +64,7 @@ export function PdfPreviewDialog({ open, onOpenChange, url, filename }: PdfPrevi
         defaultThumbnailSidebarOpen
         defaultZoom={1}
         documentOptions={documentOptions}
-        downloadFileName={filename ?? "resume.pdf"}
+        downloadFileName={downloadFileName ?? filename ?? "resume.pdf"}
         file={url}
         onActivePageChange={setActivePage}
         onDocumentLoadSuccess={setNumPages}

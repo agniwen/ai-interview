@@ -15,6 +15,7 @@ import { z } from "zod";
 import { zValidator } from "@hono/zod-validator";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import {
+  getObjectBytes,
   getObjectStream,
   presignRecordingGetObjectUrl,
 } from "@arc/ai-recruitment-copilot-backend/lib/server/s3";
@@ -37,6 +38,7 @@ import {
   resolvePublicInterviewScope,
   resolvePublicResumeOrgId,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/dao/interview-rounds";
+import { createPptxPreviewPdfResponse } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/utils/pptx-preview";
 import {
   deleteHumanInterviewLiveKitRoom,
   HumanInterviewLiveKitConfigError,
@@ -370,6 +372,39 @@ export const publicRouter = factory
           "Content-Length": String(object.contentLength),
         }),
       },
+    });
+  })
+  .get("/interview-rounds/:id/resume-preview.pdf", async (c) => {
+    const roundId = c.req.param("id");
+    const scope = await resolvePublicInterviewScope(roundId);
+    if (!scope) {
+      return c.json({ error: "记录不存在。" }, 404);
+    }
+    const [row] = await db
+      .select({
+        resumeFileName: studioInterview.resumeFileName,
+        resumeStorageKey: studioInterview.resumeStorageKey,
+      })
+      .from(studioInterview)
+      .where(
+        and(
+          eq(studioInterview.id, scope.candidateId),
+          eq(studioInterview.organizationId, scope.organizationId),
+        ),
+      )
+      .limit(1);
+    if (!row?.resumeStorageKey) {
+      return c.json({ error: "该候选人没有可预览的简历文件。" }, 404);
+    }
+    const object = await getObjectBytes(row.resumeStorageKey);
+    if (!object) {
+      return c.json({ error: "简历文件已不可用。" }, 404);
+    }
+    return createPptxPreviewPdfResponse({
+      bytes: object.bytes,
+      cacheKey: row.resumeStorageKey,
+      fileName: row.resumeFileName,
+      mediaType: object.contentType,
     });
   })
   .get("/resumes/:id", async (c) => {
