@@ -305,7 +305,7 @@ function SearchInput({
   return (
     <div className="flex flex-col gap-3">
       <Input
-        placeholder="Search text"
+        placeholder="搜索文本"
         value={value}
         onChange={(event: React.ChangeEvent<HTMLInputElement>) => onValueChange(event.target.value)}
         onKeyDown={(event: React.KeyboardEvent<HTMLInputElement>) => {
@@ -316,10 +316,10 @@ function SearchInput({
       />
       <div className="flex justify-end gap-2">
         <Button type="button" variant="outline" size="sm" onClick={onClear}>
-          Clear
+          清除
         </Button>
         <Button type="button" size="sm" onClick={onApply}>
-          Search
+          搜索
         </Button>
       </div>
     </div>
@@ -1426,12 +1426,12 @@ export const PDFViewer = React.forwardRef<PDFViewerHandle, PDFViewerProps>(funct
       <div className="flex min-h-12 flex-wrap items-center justify-between gap-2 border-b bg-background px-3 py-2">
         <div className="flex min-w-0 flex-wrap items-center gap-2">
           <TooltipProvider>
-            <ToolbarTooltip label="Toggle thumbnails">
+            <ToolbarTooltip label="切换缩略图">
               <Button
                 type="button"
                 variant="ghost"
                 size="icon-sm"
-                aria-label="Toggle thumbnails"
+                aria-label="切换缩略图"
                 disabled={controlsDisabled}
                 onClick={() => setSidebarOpen((open) => !open)}
               >
@@ -1440,7 +1440,7 @@ export const PDFViewer = React.forwardRef<PDFViewerHandle, PDFViewerProps>(funct
             </ToolbarTooltip>
           </TooltipProvider>
           <div className="text-sm whitespace-nowrap text-primary">
-            Page {activePage} of {numPages || "-"}
+            第 {activePage} / {numPages || "-"} 页
           </div>
         </div>
         <TooltipProvider>
@@ -1448,24 +1448,24 @@ export const PDFViewer = React.forwardRef<PDFViewerHandle, PDFViewerProps>(funct
             {showRotateControls ? (
               <>
                 <div className="flex flex-none items-center gap-1">
-                  <ToolbarTooltip label="Rotate page counterclockwise">
+                  <ToolbarTooltip label="逆时针旋转页面">
                     <Button
                       type="button"
                       variant="ghost"
                       size="icon-sm"
-                      aria-label="Rotate page counterclockwise"
+                      aria-label="逆时针旋转页面"
                       disabled={controlsDisabled}
                       onClick={() => rotateActivePage(-90)}
                     >
                       <HugeiconsIcon icon={RotateClockwiseIcon} className="size-4 -scale-x-100" />
                     </Button>
                   </ToolbarTooltip>
-                  <ToolbarTooltip label="Rotate page clockwise">
+                  <ToolbarTooltip label="顺时针旋转页面">
                     <Button
                       type="button"
                       variant="ghost"
                       size="icon-sm"
-                      aria-label="Rotate page clockwise"
+                      aria-label="顺时针旋转页面"
                       disabled={controlsDisabled}
                       onClick={() => rotateActivePage(90)}
                     >
@@ -1477,12 +1477,12 @@ export const PDFViewer = React.forwardRef<PDFViewerHandle, PDFViewerProps>(funct
               </>
             ) : null}
             <div className="flex flex-none items-center gap-1">
-              <ToolbarTooltip label="Zoom out">
+              <ToolbarTooltip label="缩小">
                 <Button
                   type="button"
                   variant="ghost"
                   size="icon-sm"
-                  aria-label="Zoom out"
+                  aria-label="缩小"
                   disabled={controlsDisabled || zoom <= ZOOM_OPTIONS[0]}
                   onClick={() => {
                     const currentIndex = ZOOM_OPTIONS.indexOf(zoom);
@@ -1498,7 +1498,7 @@ export const PDFViewer = React.forwardRef<PDFViewerHandle, PDFViewerProps>(funct
                 disabled={controlsDisabled}
               >
                 <SelectTrigger size="sm" className="w-[84px] min-w-[84px]">
-                  <SelectValue placeholder="Zoom">{Math.round(zoom * 100)}%</SelectValue>
+                  <SelectValue placeholder="缩放">{Math.round(zoom * 100)}%</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {ZOOM_OPTIONS.map((option) => (
@@ -1508,12 +1508,12 @@ export const PDFViewer = React.forwardRef<PDFViewerHandle, PDFViewerProps>(funct
                   ))}
                 </SelectContent>
               </Select>
-              <ToolbarTooltip label="Zoom in">
+              <ToolbarTooltip label="放大">
                 <Button
                   type="button"
                   variant="ghost"
                   size="icon-sm"
-                  aria-label="Zoom in"
+                  aria-label="放大"
                   disabled={controlsDisabled || zoom >= ZOOM_OPTIONS[ZOOM_OPTIONS.length - 1]}
                   onClick={() => {
                     const currentIndex = ZOOM_OPTIONS.indexOf(zoom);
@@ -1529,12 +1529,12 @@ export const PDFViewer = React.forwardRef<PDFViewerHandle, PDFViewerProps>(funct
             <Separator orientation="vertical" className="mx-1 h-4 self-center" />
             {showDownload ? (
               <>
-                <ToolbarTooltip label="Download PDF">
+                <ToolbarTooltip label="下载 PDF">
                   <Button
                     type="button"
                     variant="ghost"
                     size="icon-sm"
-                    aria-label="Download PDF"
+                    aria-label="下载 PDF"
                     disabled={downloadDisabled}
                     onClick={handleDownload}
                   >
@@ -1549,13 +1549,13 @@ export const PDFViewer = React.forwardRef<PDFViewerHandle, PDFViewerProps>(funct
               </>
             ) : null}
             <Popover>
-              <ToolbarTooltip label="Search text">
+              <ToolbarTooltip label="搜索文本">
                 <PopoverTrigger asChild>
                   <Button
                     type="button"
                     variant="ghost"
                     size="icon-sm"
-                    aria-label="Search text"
+                    aria-label="搜索文本"
                     disabled={controlsDisabled}
                   >
                     <HugeiconsIcon icon={Search01Icon} className="size-4" />
@@ -1583,12 +1583,12 @@ export const PDFViewer = React.forwardRef<PDFViewerHandle, PDFViewerProps>(funct
             {showUpload ? (
               <>
                 <Separator orientation="vertical" className="mx-1 h-4 self-center" />
-                <ToolbarTooltip label="Upload PDF">
+                <ToolbarTooltip label="上传 PDF">
                   <Button
                     type="button"
                     variant="ghost"
                     size="icon-sm"
-                    aria-label="Upload PDF"
+                    aria-label="上传 PDF"
                     asChild
                   >
                     <label>
@@ -1621,10 +1621,8 @@ export const PDFViewer = React.forwardRef<PDFViewerHandle, PDFViewerProps>(funct
         {!hasPdfFile ? (
           <div className="absolute inset-0 z-20 grid place-items-center bg-background p-6 text-center text-sm text-muted-foreground">
             <div className="max-w-sm space-y-3">
-              <div className="font-medium text-foreground">Upload a PDF to preview</div>
-              <div>
-                Pass a PDF URL with the <code>file</code> prop or use the upload control.
-              </div>
+              <div className="font-medium text-foreground">上传 PDF 后预览</div>
+              <div>请传入 PDF 地址或使用上传控件。</div>
             </div>
           </div>
         ) : null}

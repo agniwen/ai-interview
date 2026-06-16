@@ -1,9 +1,16 @@
 "use client";
 
-import { ActivityIcon, DatabaseIcon, ListChecksIcon, ServerIcon } from "lucide-react";
+import {
+  ActivityIcon,
+  Building2Icon,
+  DatabaseIcon,
+  ListChecksIcon,
+  ServerIcon,
+} from "lucide-react";
 import type { ComponentProps } from "react";
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import {
   actionsColumn,
@@ -29,6 +36,7 @@ import {
 } from "@/components/ui/dialog";
 import { rpcFetch } from "@/lib/client/api";
 import { rpc } from "@/lib/client/rpc";
+import { formatBytes } from "@arc/shared/utils/format";
 
 const DEFAULT_QUEUE_NAME = "resume-parse";
 const DEFAULT_FILTERS = {
@@ -100,12 +108,59 @@ interface QueueJobRecord {
   finishedOn: string | null;
   id: string;
   name: string;
+  organization: {
+    id: string;
+    name: string;
+    slug: string;
+  } | null;
   processedBy: string | null;
   processedOn: string | null;
   progress: unknown;
+  resumeDetail: {
+    attemptCount: number;
+    batch: {
+      failedCount: number;
+      processedCount: number;
+      status: string;
+      succeededCount: number;
+      target: string;
+      totalCount: number;
+    };
+    batchId: string;
+    candidateEmail: string | null;
+    candidateName: string | null;
+    errorMessage: string | null;
+    fileSize: number;
+    finishedAt: string | null;
+    itemId: string;
+    itemStatus: string;
+    organizationId: string;
+    organizationName: string;
+    organizationSlug: string;
+    originalFileName: string;
+    poolItemId: string | null;
+    poolScope: string | null;
+    poolStatus: string | null;
+    queuedAt: string | null;
+    resumeParseError: string | null;
+    resumeParseStatus: string | null;
+    resumeRecordId: string | null;
+    startedAt: string | null;
+    targetRole: string | null;
+    userEmail: string | null;
+    userId: string;
+    userImage: string | null;
+    userName: string | null;
+  } | null;
   returnvalue: unknown;
   state: string;
   timestamp: string | null;
+  triggeredBy: {
+    email: string | null;
+    id: string;
+    image: string | null;
+    name: string | null;
+  } | null;
 }
 
 interface QueueJobsResult {
@@ -123,6 +178,18 @@ function formatCount(value: number): string {
 
 function formatJson(value: unknown): string {
   return JSON.stringify(value, null, 2) ?? "null";
+}
+
+function getInitials(name?: string | null, email?: string | null): string {
+  const source = (name ?? email ?? "").trim();
+  if (!source) {
+    return "U";
+  }
+  const words = source.split(/\s+/).filter(Boolean);
+  if (words.length >= 2) {
+    return `${words[0]?.[0] ?? ""}${words[1]?.[0] ?? ""}`.toUpperCase();
+  }
+  return source.slice(0, 2).toUpperCase();
 }
 
 function formatDuration(start: string | null, end: string | null): string {
@@ -165,6 +232,69 @@ function stateVariant(state: string): ComponentProps<typeof Badge>["variant"] {
   return "outline";
 }
 
+function uploadItemStatusMeta(
+  status: string,
+  target: string,
+): { label: string; variant: ComponentProps<typeof Badge>["variant"] } {
+  if (status === "pending") {
+    return { label: "待处理", variant: "outline" };
+  }
+  if (status === "processing") {
+    return { label: "处理中", variant: "info" };
+  }
+  if (status === "succeeded") {
+    return { label: target === "resume_pool" ? "已加入" : "已入库", variant: "success" };
+  }
+  if (status === "failed") {
+    return { label: "失败", variant: "danger" };
+  }
+  if (status === "duplicate_skipped") {
+    return { label: "已跳过", variant: "warning" };
+  }
+  if (status === "cancelled") {
+    return { label: "已取消", variant: "outline" };
+  }
+  return { label: status || "未知", variant: "outline" };
+}
+
+function resumeParseStatusMeta(status: string | null): {
+  label: string;
+  variant: ComponentProps<typeof Badge>["variant"];
+} {
+  if (status === "ready") {
+    return { label: "已解析", variant: "success" };
+  }
+  if (status === "processing") {
+    return { label: "解析中", variant: "info" };
+  }
+  if (status === "failed") {
+    return { label: "解析失败", variant: "danger" };
+  }
+  if (status === "queued" || status === "unparsed") {
+    return { label: "未解析", variant: "outline" };
+  }
+  return { label: status || "—", variant: "outline" };
+}
+
+function batchStatusMeta(status: string): {
+  label: string;
+  variant: ComponentProps<typeof Badge>["variant"];
+} {
+  if (status === "running") {
+    return { label: "运行中", variant: "info" };
+  }
+  if (status === "completed") {
+    return { label: "已完成", variant: "success" };
+  }
+  if (status === "cancelled") {
+    return { label: "已取消", variant: "outline" };
+  }
+  if (status === "pending") {
+    return { label: "待开始", variant: "outline" };
+  }
+  return { label: status || "未知", variant: "outline" };
+}
+
 function getJobDataSummary(data: unknown): string {
   if (!data || typeof data !== "object") {
     return "—";
@@ -176,6 +306,168 @@ function getJobDataSummary(data: unknown): string {
     return `${itemId} / ${batchId}`;
   }
   return itemId ?? batchId ?? "—";
+}
+
+function QueueOrganizationCell({ organization }: { organization: QueueJobRecord["organization"] }) {
+  if (!organization) {
+    return <span className="text-muted-foreground text-sm">—</span>;
+  }
+  return (
+    <div className="flex min-w-0 items-center gap-2">
+      <Building2Icon className="size-4 shrink-0 text-muted-foreground" />
+      <div className="min-w-0">
+        <p className="truncate font-medium text-sm">{organization.name}</p>
+        <p className="truncate text-muted-foreground text-xs">{organization.slug}</p>
+      </div>
+    </div>
+  );
+}
+
+function QueueUserCell({ user }: { user: QueueJobRecord["triggeredBy"] }) {
+  if (!user) {
+    return <span className="text-muted-foreground text-sm">—</span>;
+  }
+  const displayName = user.name || user.email || user.id;
+  return (
+    <div className="flex min-w-0 items-center gap-2">
+      <Avatar size="sm">
+        {user.image ? <AvatarImage alt={displayName} src={user.image} /> : null}
+        <AvatarFallback>{getInitials(user.name, user.email)}</AvatarFallback>
+      </Avatar>
+      <div className="min-w-0">
+        <p className="truncate font-medium text-sm">{displayName}</p>
+        {user.email ? <p className="truncate text-muted-foreground text-xs">{user.email}</p> : null}
+      </div>
+    </div>
+  );
+}
+
+function formatDateTime(value: string | null): string {
+  if (!value) {
+    return "—";
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return "—";
+  }
+  return new Intl.DateTimeFormat("zh-CN", {
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    month: "2-digit",
+  }).format(date);
+}
+
+function DetailField({ label, value }: { label: string; value: string | null | undefined }) {
+  return (
+    <div className="min-w-0">
+      <p className="text-muted-foreground text-xs">{label}</p>
+      <p className="mt-1 truncate text-sm" title={value ?? undefined}>
+        {value || "—"}
+      </p>
+    </div>
+  );
+}
+
+function UploadTaskStatusPanel({
+  detail,
+  job,
+}: {
+  detail: NonNullable<QueueJobRecord["resumeDetail"]>;
+  job: QueueJobRecord;
+}) {
+  const itemStatus = uploadItemStatusMeta(detail.itemStatus, detail.batch.target);
+  const parseStatus = resumeParseStatusMeta(detail.resumeParseStatus);
+  const batchStatus = batchStatusMeta(detail.batch.status);
+  const progress = `${detail.batch.processedCount} / ${detail.batch.totalCount}`;
+  const errorMessage = detail.errorMessage || detail.resumeParseError || job.failedReason;
+
+  return (
+    <div className="space-y-3">
+      <div className="grid gap-3 md:grid-cols-3">
+        <div className="rounded-lg border bg-background p-3">
+          <p className="text-muted-foreground text-xs">上传任务状态</p>
+          <div className="mt-2">
+            <Badge variant={itemStatus.variant}>{itemStatus.label}</Badge>
+          </div>
+          <p className="mt-2 truncate text-muted-foreground text-xs" title={detail.itemId}>
+            {detail.itemId}
+          </p>
+        </div>
+        <div className="rounded-lg border bg-background p-3">
+          <p className="text-muted-foreground text-xs">解析状态</p>
+          <div className="mt-2">
+            <Badge variant={parseStatus.variant}>{parseStatus.label}</Badge>
+          </div>
+          <p className="mt-2 text-muted-foreground text-xs">
+            尝试 {detail.attemptCount}
+            {job.attemptsStarted === null ? "" : ` / ${job.attemptsStarted}`}
+          </p>
+        </div>
+        <div className="rounded-lg border bg-background p-3">
+          <p className="text-muted-foreground text-xs">批次进度</p>
+          <div className="mt-2 flex items-center gap-2">
+            <Badge variant={batchStatus.variant}>{batchStatus.label}</Badge>
+            <span className="font-medium text-sm">{progress}</span>
+          </div>
+          <p className="mt-2 text-muted-foreground text-xs">
+            成功 {detail.batch.succeededCount} · 失败 {detail.batch.failedCount}
+          </p>
+        </div>
+      </div>
+
+      <div className="grid gap-3 rounded-lg border bg-background p-3 sm:grid-cols-2">
+        <DetailField label="文件名" value={detail.originalFileName} />
+        <DetailField label="文件大小" value={formatBytes(detail.fileSize)} />
+        <DetailField label="候选人" value={detail.candidateName} />
+        <DetailField label="候选人邮箱" value={detail.candidateEmail} />
+        <DetailField label="目标岗位" value={detail.targetRole} />
+        <DetailField
+          label="目标位置"
+          value={detail.batch.target === "resume_pool" ? "简历广场" : "简历库"}
+        />
+      </div>
+
+      <div className="grid gap-3 rounded-lg border bg-background p-3 sm:grid-cols-4">
+        <DetailField label="入队时间" value={formatDateTime(detail.queuedAt)} />
+        <DetailField label="开始时间" value={formatDateTime(detail.startedAt)} />
+        <DetailField label="结束时间" value={formatDateTime(detail.finishedAt)} />
+        <DetailField label="处理耗时" value={formatDuration(detail.startedAt, detail.finishedAt)} />
+      </div>
+
+      {errorMessage ? (
+        <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3">
+          <p className="font-medium text-destructive text-xs">错误信息</p>
+          <p className="mt-1 break-words text-destructive text-sm">{errorMessage}</p>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function RawJobFallback({ job }: { job: QueueJobRecord }) {
+  return (
+    <div className="min-h-0 overflow-auto rounded-lg border bg-muted/30 p-4">
+      <p className="mb-3 text-muted-foreground text-sm">未匹配到具体上传任务，显示队列原始信息。</p>
+      <pre className="whitespace-pre-wrap break-all text-xs leading-relaxed">
+        {formatJson({
+          attemptsMade: job.attemptsMade,
+          attemptsStarted: job.attemptsStarted,
+          data: job.data,
+          failedReason: job.failedReason,
+          finishedOn: job.finishedOn,
+          id: job.id,
+          name: job.name,
+          processedBy: job.processedBy,
+          processedOn: job.processedOn,
+          progress: job.progress,
+          returnvalue: job.returnvalue,
+          state: job.state,
+          timestamp: job.timestamp,
+        })}
+      </pre>
+    </div>
+  );
 }
 
 function QueueMetric({ label, value }: { label: string; value: number | string }) {
@@ -251,7 +543,7 @@ function QueueOverview({ overview }: { overview: QueueOverviewRecord | null }) {
   );
 }
 
-function QueueJobDetailDialog({
+export function QueueJobDetailDialog({
   job,
   onOpenChange,
 }: {
@@ -266,24 +558,28 @@ function QueueJobDetailDialog({
           <DialogDescription>{job?.id}</DialogDescription>
         </DialogHeader>
         {job ? (
-          <div className="min-h-0 overflow-auto rounded-lg border bg-muted/30 p-4">
-            <pre className="whitespace-pre-wrap break-all text-xs leading-relaxed">
-              {formatJson({
-                attemptsMade: job.attemptsMade,
-                attemptsStarted: job.attemptsStarted,
-                data: job.data,
-                failedReason: job.failedReason,
-                finishedOn: job.finishedOn,
-                id: job.id,
-                name: job.name,
-                processedBy: job.processedBy,
-                processedOn: job.processedOn,
-                progress: job.progress,
-                returnvalue: job.returnvalue,
-                state: job.state,
-                timestamp: job.timestamp,
-              })}
-            </pre>
+          <div className="flex min-h-0 flex-col gap-3 overflow-hidden">
+            <div className="grid gap-3 rounded-lg border bg-background p-3 sm:grid-cols-2">
+              <div>
+                <p className="text-muted-foreground text-xs">组织</p>
+                <div className="mt-1">
+                  <QueueOrganizationCell organization={job.organization} />
+                </div>
+              </div>
+              <div>
+                <p className="text-muted-foreground text-xs">触发用户</p>
+                <div className="mt-1">
+                  <QueueUserCell user={job.triggeredBy} />
+                </div>
+              </div>
+            </div>
+            <div className="min-h-0 overflow-auto">
+              {job.resumeDetail ? (
+                <UploadTaskStatusPanel detail={job.resumeDetail} job={job} />
+              ) : (
+                <RawJobFallback job={job} />
+              )}
+            </div>
           </div>
         ) : null}
       </DialogContent>
@@ -369,6 +665,16 @@ export function QueuesGrid() {
         ),
         key: "state",
         title: "状态",
+      }),
+      customColumn<QueueJobRecord>({
+        cell: (record) => <QueueOrganizationCell organization={record.organization} />,
+        key: "organization",
+        title: "组织",
+      }),
+      customColumn<QueueJobRecord>({
+        cell: (record) => <QueueUserCell user={record.triggeredBy} />,
+        key: "triggeredBy",
+        title: "触发用户",
       }),
       textColumn<QueueJobRecord>({
         cell: (record) => getJobDataSummary(record.data),

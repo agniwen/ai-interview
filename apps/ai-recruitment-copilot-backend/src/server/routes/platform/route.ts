@@ -11,6 +11,7 @@ import {
   RESUME_PARSE_JOB_LIST_STATES,
   RESUME_PARSE_QUEUE_NAME,
 } from "@arc/resume-parse-queue/resume-parse";
+import { enrichResumeParseQueueJobs } from "./queue-details";
 
 // --- Organizations list ---
 const orgQuerySchema = z.object({
@@ -346,7 +347,7 @@ const platformQueues = factory
       }
       const query = c.req.valid("query");
       const result = await listResumeParseQueueJobs(query);
-      return c.json(result, 200);
+      return c.json(await enrichResumeParseQueueJobs(result), 200);
     },
   );
 

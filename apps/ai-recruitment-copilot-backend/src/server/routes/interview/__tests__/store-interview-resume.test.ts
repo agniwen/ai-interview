@@ -261,9 +261,16 @@ describe("storeInterviewResume", () => {
 });
 
 describe("storeResumeObjectOnly", () => {
+  const originalDisableCache = process.env.RESUME_PARSE_DISABLE_CACHE;
+
   beforeEach(() => {
     for (const fn of Object.values(mocks)) {
       fn.mockReset();
+    }
+    if (originalDisableCache === undefined) {
+      delete process.env.RESUME_PARSE_DISABLE_CACHE;
+    } else {
+      process.env.RESUME_PARSE_DISABLE_CACHE = originalDisableCache;
     }
     mocks.sha256HexOfBytes.mockResolvedValue(HASH);
     mocks.buildAttachmentKeyByHash.mockResolvedValue(STORAGE_KEY);
@@ -287,6 +294,44 @@ describe("storeResumeObjectOnly", () => {
       parsedStatus: "pending",
       storageKey: STORAGE_KEY,
       userId: "user-5",
+    });
+  });
+
+  it("cache disabled: does not read existing attachment metadata during object-only upload", async () => {
+    process.env.RESUME_PARSE_DISABLE_CACHE = "true";
+    mocks.findAttachmentByContentHash.mockResolvedValue({
+      filename: "cached.pdf",
+      mediaType: "application/pdf",
+      parsedStatus: "ready",
+      parsedStructured: { name: "缓存候选人" },
+      storageKey: "chat-attachments/cached.pdf",
+    });
+    mocks.putObjectBytes.mockResolvedValue(undefined as never);
+
+    const result = await storeResumeObjectOnly(
+      new File([new TextEncoder().encode("image-bytes")], "resume.jpeg", {
+        type: "image/jpeg",
+      }),
+      "user-cache-off",
+      "org-test",
+    );
+
+    expect(result).toEqual({
+      contentHash: HASH,
+      storageKey: STORAGE_KEY,
+    });
+    expect(mocks.findAttachmentByContentHash).not.toHaveBeenCalled();
+    expect(mocks.createAttachment.mock.calls[0]?.[0]).toMatchObject({
+      contentHash: HASH,
+      parsedStatus: "pending",
+      storageKey: STORAGE_KEY,
+      userId: "user-cache-off",
+    });
+    expect(mocks.createAttachment.mock.calls[0]?.[0]).not.toHaveProperty("parsedStructured");
+    expect(mocks.putObjectBytes).toHaveBeenCalledWith({
+      body: expect.any(Uint8Array),
+      contentType: "image/jpeg",
+      storageKey: STORAGE_KEY,
     });
   });
 

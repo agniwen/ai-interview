@@ -1,6 +1,6 @@
 "use client";
 
-import { ImageOffIcon, LoaderCircleIcon, XIcon } from "lucide-react";
+import { DownloadIcon, ImageOffIcon, LoaderCircleIcon, XIcon } from "lucide-react";
 import { Suspense, lazy, useEffect, useState } from "react";
 import { DocxViewerPreview } from "@/components/ui/docx-viewer";
 import { Modal } from "@/components/ui/modal";
@@ -25,11 +25,26 @@ export interface ResumeDocumentPreviewDialogProps {
   filename?: string;
 }
 
-function getPptxPreviewDownloadFileName(filename: string | undefined) {
-  if (!filename) {
-    return "resume-preview.pdf";
+function getResumePreviewDownloadFileName(
+  kind: ResumeDocumentPreviewKind,
+  filename: string | undefined,
+) {
+  if (filename) {
+    return filename;
   }
-  return filename.replace(/\.pptx$/i, ".pdf");
+  if (kind === "docx") {
+    return "resume.docx";
+  }
+  if (kind === "xlsx") {
+    return "resume.xlsx";
+  }
+  if (kind === "pptx") {
+    return "resume.pptx";
+  }
+  if (kind === "image") {
+    return "resume-image";
+  }
+  return "resume.pdf";
 }
 
 function getDefaultPreviewTitle(kind: ResumeDocumentPreviewKind) {
@@ -43,6 +58,30 @@ function getDefaultPreviewTitle(kind: ResumeDocumentPreviewKind) {
     return "图片简历预览";
   }
   return "简历预览";
+}
+
+function ResumePreviewHeaderActions({
+  downloadFileName,
+  downloadUrl,
+  onClose,
+}: {
+  downloadFileName: string;
+  downloadUrl: string;
+  onClose: () => void;
+}) {
+  return (
+    <div className="flex items-center gap-2">
+      <Button asChild size="sm" type="button" variant="outline">
+        <a aria-label="下载原文件" download={downloadFileName} href={downloadUrl}>
+          <DownloadIcon className="size-4" />
+          下载
+        </a>
+      </Button>
+      <Button aria-label="关闭" onClick={onClose} size="icon" type="button" variant="ghost">
+        <XIcon className="size-4" />
+      </Button>
+    </div>
+  );
 }
 
 type ImagePreviewStatus = "loading" | "loaded" | "error";
@@ -140,12 +179,14 @@ export function ResumeDocumentPreviewDialog({
 }: ResumeDocumentPreviewDialogProps) {
   const [isDark, setIsDark] = useState(false);
   const title = filename ?? getDefaultPreviewTitle(kind);
+  const downloadFileName = getResumePreviewDownloadFileName(kind, filename);
 
   if (kind === "pdf" || kind === "pptx") {
     return (
       <Suspense fallback={null}>
         <PdfPreviewDialog
-          downloadFileName={kind === "pptx" ? getPptxPreviewDownloadFileName(filename) : undefined}
+          downloadFileName={downloadFileName}
+          downloadUrl={url}
           filename={filename}
           onOpenChange={onOpenChange}
           open={open}
@@ -169,15 +210,11 @@ export function ResumeDocumentPreviewDialog({
         size="full"
         title={title}
         headerExtra={
-          <Button
-            aria-label="关闭"
-            onClick={() => onOpenChange(false)}
-            size="icon"
-            type="button"
-            variant="ghost"
-          >
-            <XIcon className="size-4" />
-          </Button>
+          <ResumePreviewHeaderActions
+            downloadFileName={downloadFileName}
+            downloadUrl={url}
+            onClose={() => onOpenChange(false)}
+          />
         }
       >
         <ImageResumePreviewContent filename={filename} url={url} />
@@ -198,15 +235,11 @@ export function ResumeDocumentPreviewDialog({
       size="full"
       title={title}
       headerExtra={
-        <Button
-          aria-label="关闭"
-          onClick={() => onOpenChange(false)}
-          size="icon"
-          type="button"
-          variant="ghost"
-        >
-          <XIcon className="size-4" />
-        </Button>
+        <ResumePreviewHeaderActions
+          downloadFileName={downloadFileName}
+          downloadUrl={url}
+          onClose={() => onOpenChange(false)}
+        />
       }
     >
       {kind === "docx" ? (
@@ -215,6 +248,7 @@ export function ResumeDocumentPreviewDialog({
           fileName={filename}
           isDark={isDark}
           onIsDarkChange={setIsDark}
+          showDownload={false}
           showUpload={false}
           src={url}
         />
@@ -224,6 +258,7 @@ export function ResumeDocumentPreviewDialog({
           fileName={filename}
           isDark={isDark}
           onIsDarkChange={setIsDark}
+          showDownload={false}
           showUpload={false}
           src={url}
         />
