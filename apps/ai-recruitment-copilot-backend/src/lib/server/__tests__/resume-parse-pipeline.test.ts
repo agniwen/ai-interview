@@ -116,6 +116,36 @@ describe("extractResumeDocumentText", () => {
     expect(mocks.rasterizePdfWithMeta).toHaveBeenCalledTimes(1);
   });
 
+  it("runs OCR directly for image resumes without PDF rasterization", async () => {
+    mocks.qwenVlOcr.mockResolvedValue("图片简历 候选人 JavaScript");
+
+    const result = await extractResumeDocumentText({
+      bytes: new Uint8Array([4, 5, 6]),
+      fileName: "resume.jpeg",
+      mediaType: "image/jpeg",
+    });
+
+    expect(result).toMatchObject({
+      pageCount: 1,
+      text: "图片简历 候选人 JavaScript",
+      textSource: "qwen-ocr",
+    });
+    expect(mocks.rasterizePdfWithMeta).not.toHaveBeenCalled();
+    expect(mocks.qwenVlOcr).toHaveBeenCalledWith(Buffer.from([4, 5, 6]), "image/jpeg");
+  });
+
+  it("infers JPEG OCR media type from image filename when browser type is empty", async () => {
+    mocks.qwenVlOcr.mockResolvedValue("JPEG 简历 OCR");
+
+    await extractResumeDocumentText({
+      bytes: new Uint8Array([7, 8, 9]),
+      fileName: "resume.jpg",
+      mediaType: "",
+    });
+
+    expect(mocks.qwenVlOcr).toHaveBeenCalledWith(Buffer.from([7, 8, 9]), "image/jpeg");
+  });
+
   it("extracts text from docx files", async () => {
     const bytes = await createStoredZip({
       "word/document.xml": `

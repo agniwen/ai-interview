@@ -122,7 +122,7 @@ export function ResumeUploadEntryDialog({
         }}
         onFilesAccepted={handleFilesAccepted}
         onFilesSelected={validateResumeFiles}
-        rejectionLabel="仅支持上传 PDF、DOCX、PPTX、XLSX 文件"
+        rejectionLabel="仅支持上传 PDF、DOCX、PPTX、XLSX、JPG、PNG 文件"
         resetKey={uploadResetKey}
         showFileList={false}
         title={fileUploadTitle}

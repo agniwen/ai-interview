@@ -196,6 +196,36 @@ describe("storeInterviewResume", () => {
     });
   });
 
+  it("miss + image resume: stores by the image media type extension", async () => {
+    mocks.findAttachmentByContentHash.mockResolvedValue(null);
+    mocks.putObjectBytes.mockResolvedValue(undefined as never);
+    mocks.parseResumeFastToProfile.mockResolvedValue({
+      parsedPageCount: 1,
+      parsedStructured: { name: "图片候选人" },
+      parsedText: "image raw",
+      parsedTextSource: "qwen-ocr",
+      resumeProfile: { name: "图片候选人" } as never,
+    });
+
+    const file = new File([new TextEncoder().encode("image-bytes")], "resume.bin", {
+      type: "image/png",
+    });
+
+    const result = await storeInterviewResume("interview-image", file, "user-image", "org-test");
+
+    expect(result).toEqual({
+      cachedResumeProfile: { name: "图片候选人" },
+      contentHash: HASH,
+      storageKey: STORAGE_KEY,
+    });
+    expect(mocks.buildAttachmentKeyByHash).toHaveBeenCalledWith(HASH, "png");
+    expect(mocks.putObjectBytes).toHaveBeenCalledWith({
+      body: expect.any(Uint8Array),
+      contentType: "image/png",
+      storageKey: STORAGE_KEY,
+    });
+  });
+
   it("miss + parse fails: PUT succeeds, no createAttachment, profile is null", async () => {
     mocks.findAttachmentByContentHash.mockResolvedValue(null);
     mocks.putObjectBytes.mockResolvedValue(undefined as never);
@@ -291,6 +321,44 @@ describe("storeResumeObjectOnly", () => {
       contentHash: HASH,
       storageKey: STORAGE_KEY,
       userId: "user-6",
+    });
+  });
+
+  it("registry hit: uses a freshly written current-file key instead of a stale cached key", async () => {
+    mocks.findAttachmentByContentHash.mockResolvedValue({
+      filename: "old-resume.pdf",
+      mediaType: "application/pdf",
+      parsedStatus: "ready",
+      parsedStructured: { name: "缓存候选人" },
+      storageKey: "chat-attachments/stale.pdf",
+    });
+    mocks.buildAttachmentKeyByHash.mockResolvedValue("chat-attachments/fresh.jpeg");
+    mocks.putObjectBytes.mockResolvedValue(undefined as never);
+
+    const result = await storeResumeObjectOnly(
+      new File([new TextEncoder().encode("image-bytes")], "resume.jpeg", {
+        type: "image/jpeg",
+      }),
+      "user-7",
+      "org-test",
+    );
+
+    expect(result).toEqual({
+      contentHash: HASH,
+      storageKey: "chat-attachments/fresh.jpeg",
+    });
+    expect(mocks.buildAttachmentKeyByHash).toHaveBeenCalledWith(HASH, "jpeg");
+    expect(mocks.putObjectBytes).toHaveBeenCalledWith({
+      body: expect.any(Uint8Array),
+      contentType: "image/jpeg",
+      storageKey: "chat-attachments/fresh.jpeg",
+    });
+    expect(mocks.createAttachment.mock.calls[0]?.[0]).toMatchObject({
+      contentHash: HASH,
+      parsedStatus: "ready",
+      parsedStructured: { name: "缓存候选人" },
+      storageKey: "chat-attachments/fresh.jpeg",
+      userId: "user-7",
     });
   });
 });

@@ -1,15 +1,16 @@
 "use client";
 
-import { XIcon } from "lucide-react";
-import { Suspense, lazy, useState } from "react";
+import { ImageOffIcon, LoaderCircleIcon, XIcon } from "lucide-react";
+import { Suspense, lazy, useEffect, useState } from "react";
 import { DocxViewerPreview } from "@/components/ui/docx-viewer";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { XlsxViewerPreview } from "@/components/ui/xlsx-viewer";
+import { cn } from "@arc/shared/utils";
 import { getPptxPreviewPdfUrl } from "./resume-document-preview-url";
 
 export type OfficeResumePreviewKind = "docx" | "xlsx";
-export type ResumeDocumentPreviewKind = "pdf" | "pptx" | OfficeResumePreviewKind;
+export type ResumeDocumentPreviewKind = "pdf" | "pptx" | "image" | OfficeResumePreviewKind;
 
 const PdfPreviewDialog = lazy(async () => {
   const mod = await import("@/components/features/pdf/pdf-preview-dialog");
@@ -31,6 +32,105 @@ function getPptxPreviewDownloadFileName(filename: string | undefined) {
   return filename.replace(/\.pptx$/i, ".pdf");
 }
 
+function getDefaultPreviewTitle(kind: ResumeDocumentPreviewKind) {
+  if (kind === "docx") {
+    return "Word 简历预览";
+  }
+  if (kind === "xlsx") {
+    return "Excel 简历预览";
+  }
+  if (kind === "image") {
+    return "图片简历预览";
+  }
+  return "简历预览";
+}
+
+type ImagePreviewStatus = "loading" | "loaded" | "error";
+
+export function ImageResumePreviewContent({ filename, url }: { filename?: string; url: string }) {
+  const [status, setStatus] = useState<ImagePreviewStatus>("loading");
+  const [imageSource, setImageSource] = useState<{
+    objectUrl: string;
+    requestUrl: string;
+  } | null>(null);
+  const imageUrl = imageSource?.requestUrl === url ? imageSource.objectUrl : null;
+
+  useEffect(() => {
+    const controller = new AbortController();
+    let objectUrl: string | null = null;
+
+    setStatus("loading");
+    setImageSource(null);
+
+    async function loadImage() {
+      try {
+        const response = await fetch(url, {
+          credentials: "include",
+          signal: controller.signal,
+        });
+        if (!response.ok) {
+          throw new Error(`Image preview request failed with status ${response.status}`);
+        }
+        const blob = await response.blob();
+        if (controller.signal.aborted) {
+          return;
+        }
+        objectUrl = URL.createObjectURL(blob);
+        setImageSource({ objectUrl, requestUrl: url });
+      } catch {
+        if (!controller.signal.aborted) {
+          setStatus("error");
+        }
+      }
+    }
+
+    void loadImage();
+
+    return () => {
+      controller.abort();
+      if (objectUrl) {
+        URL.revokeObjectURL(objectUrl);
+      }
+    };
+  }, [url]);
+
+  return (
+    <div className="relative flex min-h-full min-w-full items-start justify-center p-6">
+      {status === "loading" ? (
+        <output className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-muted-foreground text-sm">
+          <LoaderCircleIcon className="size-5 animate-spin" />
+          <span>图片加载中</span>
+        </output>
+      ) : null}
+      {status === "error" ? (
+        <div
+          className="absolute inset-0 flex flex-col items-center justify-center gap-2 px-6 text-center text-muted-foreground"
+          role="alert"
+        >
+          <ImageOffIcon className="size-8" />
+          <p className="font-medium text-foreground text-sm">图片加载失败</p>
+          <p className="text-xs">请稍后重试，或下载原文件查看。</p>
+        </div>
+      ) : null}
+      {imageUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element -- User-uploaded resume images are loaded from authenticated API URLs and displayed as object URLs.
+        <img
+          alt={filename ?? "图片简历预览"}
+          className={cn(
+            "h-auto max-w-full rounded-md bg-background object-contain shadow-sm transition-opacity",
+            status === "loaded" ? "opacity-100" : "opacity-0",
+          )}
+          decoding="async"
+          draggable={false}
+          onError={() => setStatus("error")}
+          onLoad={() => setStatus("loaded")}
+          src={imageUrl}
+        />
+      ) : null}
+    </div>
+  );
+}
+
 export function ResumeDocumentPreviewDialog({
   kind,
   open,
@@ -39,7 +139,7 @@ export function ResumeDocumentPreviewDialog({
   filename,
 }: ResumeDocumentPreviewDialogProps) {
   const [isDark, setIsDark] = useState(false);
-  const title = filename ?? (kind === "docx" ? "Word 简历预览" : "Excel 简历预览");
+  const title = filename ?? getDefaultPreviewTitle(kind);
 
   if (kind === "pdf" || kind === "pptx") {
     return (
@@ -52,6 +152,36 @@ export function ResumeDocumentPreviewDialog({
           url={kind === "pptx" ? getPptxPreviewPdfUrl(url) : url}
         />
       </Suspense>
+    );
+  }
+
+  if (kind === "image") {
+    return (
+      <Modal
+        bodyClassName="min-h-0 overflow-auto bg-muted/30 p-0"
+        className="h-[92dvh]"
+        description="JPG / PNG"
+        headerClassName="px-5 py-3"
+        headerLayout="row"
+        onOpenChange={onOpenChange}
+        open={open}
+        showCloseButton={false}
+        size="full"
+        title={title}
+        headerExtra={
+          <Button
+            aria-label="关闭"
+            onClick={() => onOpenChange(false)}
+            size="icon"
+            type="button"
+            variant="ghost"
+          >
+            <XIcon className="size-4" />
+          </Button>
+        }
+      >
+        <ImageResumePreviewContent filename={filename} url={url} />
+      </Modal>
     );
   }
 

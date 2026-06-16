@@ -75,7 +75,7 @@ export interface CandidateFormFieldsProps {
   resumeFilePlaceholder?: string;
   /** 编辑场景显示现有文件名；上传场景为 null。 Existing file name shown in edit mode; null in upload mode. */
   existingResumeFileName?: string | null;
-  /** 在 PDF 字段下方注入额外内容（例如「简历正在解析」状态）。 Slot below the PDF field (e.g. parsing progress). */
+  /** 在简历文件字段下方注入额外内容（例如「简历正在解析」状态）。 Slot below the resume file field. */
   resumeFieldExtra?: ReactNode;
   /** 候选人姓名字段的 placeholder。 Placeholder for the candidate name input. */
   candidateNamePlaceholder?: string;
@@ -86,13 +86,13 @@ export interface CandidateFormFieldsProps {
   notesLabelAction?: ReactNode;
   /** 仅禁用简历评价编辑器；用于自动生成过程中防止手动录入。 */
   notesDisabled?: boolean;
-  /** false 时只显示简历 PDF 字段；用于新建弹窗解析完成前的初始状态。 */
+  /** false 时只显示简历文件字段；用于新建弹窗解析完成前的初始状态。 */
   showDetails?: boolean;
   /**
-   * true 时：简历 PDF 字段显示为必填（红星 + 不再带"可选"），并且在未选 / 未上传过
+   * true 时：简历文件字段显示为必填（红星 + 不再带"可选"），并且在未选 / 未上传过
    * PDF 之前隐藏候选人姓名 / 邮箱 / 电话 / 目标岗位四个字段——避免用户在没解析依据时
    * 手填一遍又被自动回填覆盖。新建简历记录走这条路；编辑场景保持原来的全字段展示。
-   * When true, mark the resume-PDF field as required (red asterisk, no "可选"
+   * When true, mark the resume file field as required (red asterisk, no "可选"
    * label) and hide the candidate name / email / phone / target-role fields
    * until a PDF is selected or already attached — keeps users from filling
    * fields that will be overwritten by parse. The "create" flow opts in; the
@@ -236,7 +236,7 @@ export function CandidateFormFields({
               toast.error(`最多选择 ${resumeFileMaxFiles} 份简历文件`);
             }}
             onFilesAccepted={handleAcceptedResumeFiles}
-            rejectionLabel="仅支持上传 PDF、DOCX、PPTX、XLSX 文件"
+            rejectionLabel="仅支持上传 PDF、DOCX、PPTX、XLSX、JPG、PNG 文件"
             showFileList={Boolean(resumeFile)}
             title={resumeUploadCopy.title}
           />

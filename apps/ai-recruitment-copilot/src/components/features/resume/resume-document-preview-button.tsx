@@ -25,7 +25,7 @@ export function getPreviewableResumeDocumentKind(input: {
     mediaType: input.mediaType ?? undefined,
   });
 
-  if (kind === "pdf" || kind === "docx" || kind === "pptx" || kind === "xlsx") {
+  if (kind === "pdf" || kind === "docx" || kind === "pptx" || kind === "xlsx" || kind === "image") {
     return kind;
   }
 
