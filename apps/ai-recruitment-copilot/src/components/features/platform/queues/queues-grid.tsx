@@ -237,7 +237,7 @@ function uploadItemStatusMeta(
   target: string,
 ): { label: string; variant: ComponentProps<typeof Badge>["variant"] } {
   if (status === "pending") {
-    return { label: "待处理", variant: "outline" };
+    return { label: "排队中", variant: "outline" };
   }
   if (status === "processing") {
     return { label: "处理中", variant: "info" };
@@ -481,14 +481,13 @@ function QueueMetric({ label, value }: { label: string; value: number | string }
   );
 }
 
-function QueueOverview({ overview }: { overview: QueueOverviewRecord | null }) {
+export function QueueOverview({ overview }: { overview: QueueOverviewRecord | null }) {
   if (!overview) {
     return null;
   }
 
   const pendingTotal =
     overview.counts.waiting +
-    overview.counts.active +
     overview.counts.delayed +
     overview.counts.paused +
     overview.counts.prioritized +
@@ -521,7 +520,7 @@ function QueueOverview({ overview }: { overview: QueueOverviewRecord | null }) {
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
-        <QueueMetric label="待处理" value={pendingTotal} />
+        <QueueMetric label="排队中" value={pendingTotal} />
         <QueueMetric label="等待中" value={overview.counts.waiting} />
         <QueueMetric label="处理中" value={overview.counts.active} />
         <QueueMetric label="延迟中" value={overview.counts.delayed} />

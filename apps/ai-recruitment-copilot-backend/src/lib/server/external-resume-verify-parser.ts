@@ -298,6 +298,11 @@ export async function parseExternalResumeVerifyParse(
   }
 
   const structured = mapExternalResponse(json);
+  console.info("[external-resume-verify-parser] parsed result", {
+    fileName: input.fileName,
+    structured,
+    traceId: getString(json, "traceId"),
+  });
   return {
     pageCount: 1,
     structured,

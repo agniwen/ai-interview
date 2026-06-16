@@ -45,6 +45,7 @@ import type { AnalysisStreamEvent } from "@arc/shared/api-stream";
 export type { AnalysisStreamEvent };
 
 const PARSE_STAGE_LABELS = {
+  external: "备用解析简历",
   ocr: "OCR 识别简历",
   structured: "提取结构化字段",
 } as const;
@@ -56,7 +57,11 @@ function createNdjsonStream(
   const encoder = new TextEncoder();
   return new ReadableStream({
     async start(controller) {
+      let closed = false;
       const emit = (event: AnalysisStreamEvent) => {
+        if (closed) {
+          return;
+        }
         controller.enqueue(encoder.encode(`${JSON.stringify(event)}\n`));
       };
       const heartbeat = setInterval(() => {
@@ -71,6 +76,7 @@ function createNdjsonStream(
         });
       } finally {
         clearInterval(heartbeat);
+        closed = true;
         controller.close();
       }
     },
@@ -231,8 +237,13 @@ async function persistParseToRegistry(args: {
   bytes: Uint8Array;
   contentHash: string;
   file: File;
-  fast: Awaited<ReturnType<typeof parseResumeFast>>;
   context: StreamParseResumeContext;
+  parsed: {
+    pageCount: number;
+    structured: ResumeParserStructured;
+    text: string;
+    textSource: ResumeTextSource;
+  };
 }): Promise<void> {
   if (!args.context.organizationId) {
     return;
@@ -260,11 +271,11 @@ async function persistParseToRegistry(args: {
       mediaType: args.file.type || "application/octet-stream",
       organizationId: args.context.organizationId,
       parsedAt: new Date(),
-      parsedPageCount: args.fast.pageCount,
+      parsedPageCount: args.parsed.pageCount,
       parsedStatus: "ready",
-      parsedStructured: args.fast.structured,
-      parsedText: args.fast.text,
-      parsedTextSource: args.fast.textSource,
+      parsedStructured: args.parsed.structured,
+      parsedText: args.parsed.text,
+      parsedTextSource: args.parsed.textSource,
       size: args.bytes.byteLength,
       storageKey,
       userId: args.context.userId,
@@ -338,6 +349,45 @@ export function streamParseResumeProfile(
       return;
     }
 
+    if (isExternalResumeVerifyParseEnabled()) {
+      emit({ message: "正在调用备用解析服务…", type: "status" });
+      emit({ index: 1, type: "step" });
+      emit({ name: PARSE_STAGE_LABELS.external, type: "tool-start" });
+
+      const external = await parseExternalResumeVerifyParse({
+        bytes,
+        fileName: file.name,
+        mediaType: file.type,
+      });
+      const resumeProfile = normalizeResumeProfile(toResumeProfile(external.structured));
+
+      emit({ name: PARSE_STAGE_LABELS.external, type: "tool-end" });
+
+      if (context) {
+        await persistParseToRegistry({
+          bytes,
+          contentHash,
+          context,
+          file,
+          parsed: {
+            pageCount: external.pageCount,
+            structured: external.structured,
+            text: external.text,
+            textSource: external.textSource,
+          },
+        });
+      }
+
+      emit({
+        data: {
+          fileName: file.name,
+          resumeProfile,
+        },
+        type: "result",
+      });
+      return;
+    }
+
     emit({ index: 1, type: "step" });
     emit({ name: PARSE_STAGE_LABELS.ocr, type: "tool-start" });
 
@@ -354,7 +404,7 @@ export function streamParseResumeProfile(
     emit({ name: PARSE_STAGE_LABELS.structured, type: "tool-end" });
 
     if (context) {
-      await persistParseToRegistry({ bytes, contentHash, context, fast, file });
+      await persistParseToRegistry({ bytes, contentHash, context, file, parsed: fast });
     }
 
     const result: ResumeParseResult = {

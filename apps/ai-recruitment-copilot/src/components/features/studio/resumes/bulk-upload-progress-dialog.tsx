@@ -36,7 +36,7 @@ function itemStatusLabel(
 } {
   switch (status) {
     case "pending": {
-      return { label: "待处理", variant: "outline" };
+      return { label: "排队中", variant: "outline" };
     }
     case "processing": {
       return { label: "处理中", variant: "secondary" };
