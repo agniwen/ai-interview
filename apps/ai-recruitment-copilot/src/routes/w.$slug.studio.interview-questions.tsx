@@ -17,13 +17,14 @@ import { PageHeader } from "@/components/features/studio/page-header";
 import { EntityDeleteDialog } from "@/components/features/studio/entity-delete-dialog";
 import { useEntityCrud } from "@/components/features/studio/use-entity-crud";
 import type {
+  InterviewQuestionTemplateInput,
   InterviewQuestionTemplateListRecord,
   InterviewQuestionTemplateRecord,
   InterviewQuestionTemplateScope,
 } from "@arc/db-schema/interview-question-templates";
 import type { PaginatedInterviewQuestionTemplateResult } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interview-questions/dao/queries";
-import { ChevronDownIcon, ListChecksIcon, PlusIcon } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { ChevronDownIcon, ListChecksIcon, PlusIcon, SparklesIcon } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -53,6 +54,7 @@ import {
 import { rpc } from "@/lib/client/rpc";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { InterviewQuestionTemplateEditorDialog } from "@/components/features/studio/interview-questions/interview-question-template-editor-dialog";
+import { InterviewQuestionTemplateAiCreateDialog } from "@/components/features/studio/interview-questions/interview-question-template-ai-create-dialog";
 
 function scopeLabel(scope: InterviewQuestionTemplateScope) {
   return scope === "global" ? "全局" : "岗位绑定";
@@ -210,6 +212,10 @@ function InterviewQuestionTemplateManagementPage({
     [grid, queryClient, slug],
   );
 
+  const [createDraft, setCreateDraft] = useState<InterviewQuestionTemplateInput | null>(null);
+  const [createDraftSessionId, setCreateDraftSessionId] = useState(0);
+  const [aiCreateOpen, setAiCreateOpen] = useState(false);
+
   // When the URL carries `?templateId=...` (e.g. clicked from the JD dialog),
   // load the detail and pop the editor open.
   const lastLoadedTemplateRef = useRef<string | null>(null);
@@ -249,8 +255,35 @@ function InterviewQuestionTemplateManagementPage({
     crud.onFormOpenChange(next);
     if (!next) {
       lastLoadedTemplateRef.current = null;
+      setCreateDraft(null);
       void setActiveTemplateId(null);
     }
+  }
+
+  function handleAiGenerated({
+    jobDescriptionId,
+    questions,
+  }: {
+    jobDescriptionId: string;
+    questions: InterviewQuestionTemplateInput["questions"];
+  }) {
+    setCreateDraft({
+      description: "",
+      jobDescriptionIds: [jobDescriptionId],
+      questions,
+      scope: "job_description",
+      title: "",
+    });
+    setCreateDraftSessionId((id) => id + 1);
+    crud.setEditingRecord(null);
+    crud.setFormDialogOpen(true);
+  }
+
+  let editorDialogKey = "create-empty";
+  if (createDraft) {
+    editorDialogKey = `create-draft-${createDraftSessionId}`;
+  } else if (crud.editingRecord) {
+    editorDialogKey = `edit-${crud.editingRecord.id}`;
   }
 
   const columns = useMemo(
@@ -404,8 +437,17 @@ function InterviewQuestionTemplateManagementPage({
                   创建后，符合作用域的面试在创建时会自动绑定到最新版本的题目快照。
                 </EmptyDescription>
               </EmptyHeader>
-              <EmptyContent>
-                <Button onClick={crud.openCreate}>
+              <EmptyContent className="flex flex-wrap items-center justify-center gap-2">
+                <Button onClick={() => setAiCreateOpen(true)} type="button">
+                  <SparklesIcon className="size-4" />
+                  AI 创建面试题
+                </Button>
+                <Button
+                  onClick={() => {
+                    setCreateDraft(null);
+                    crud.openCreate();
+                  }}
+                >
                   <PlusIcon className="size-4" />
                   新建面试题
                 </Button>
@@ -435,16 +477,41 @@ function InterviewQuestionTemplateManagementPage({
           }
           getRowId={(r) => r.id}
           toolbarRight={
-            <Button className="flex-1 sm:flex-none" onClick={crud.openCreate}>
-              <PlusIcon className="size-4" />
-              新建面试题
-            </Button>
+            <div className="flex flex-1 flex-wrap items-center justify-end gap-2 sm:flex-none">
+              <Button
+                className="flex-1 sm:flex-none"
+                onClick={() => setAiCreateOpen(true)}
+                type="button"
+              >
+                <SparklesIcon className="size-4" />
+                AI 创建面试题
+              </Button>
+              <Button
+                className="flex-1 sm:flex-none"
+                onClick={() => {
+                  setCreateDraft(null);
+                  crud.openCreate();
+                }}
+              >
+                <PlusIcon className="size-4" />
+                新建面试题
+              </Button>
+            </div>
           }
         />
       </div>
 
-      <InterviewQuestionTemplateEditorDialog
+      <InterviewQuestionTemplateAiCreateDialog
         jobDescriptions={jobDescriptions}
+        onGenerated={handleAiGenerated}
+        onOpenChange={setAiCreateOpen}
+        open={aiCreateOpen}
+      />
+
+      <InterviewQuestionTemplateEditorDialog
+        initialDraft={createDraft}
+        jobDescriptions={jobDescriptions}
+        key={editorDialogKey}
         onOpenChange={onEditorOpenChange}
         onSaved={() => {
           grid.invalidate();

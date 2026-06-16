@@ -37,8 +37,8 @@ const FORM_QUESTIONS_PROMPT = `你是一名 HR 面试表单设计助手。请根
 - text（填写题）：候选人自由填写文本，options 必须为空数组
 
 ## 输出要求
-- 生成 5 到 15 道题目，题型与数量应匹配 HR 指令
-- 题目必须与候选人简历、岗位和 HR 指令高度相关
+- 题目数量与题型分布以 HR 填写指令为准
+- 题目必须与岗位和 HR 指令高度相关
 - 选项文案要具体、可作答，禁止使用「选项 1」「选项 2」等占位符
 - 单选/多选的 value 使用英文 snake_case（如 frontend_engineer），label 用中文
 - 合理搭配 single、multi、text 三种题型
@@ -76,7 +76,7 @@ const aiGeneratedFormQuestionSchema = z.object({
 });
 
 const generationSchema = z.object({
-  questions: z.array(aiGeneratedFormQuestionSchema).min(5).max(15),
+  questions: z.array(aiGeneratedFormQuestionSchema).min(1).max(25),
 });
 
 function formatJobContext(job: { name: string; prompt: string | null } | null): string {
@@ -131,12 +131,22 @@ export async function generateFormQuestionsFromPrompt(options: {
     .replace("{jobContext}", formatJobContext(options.jobDescription))
     .replace("{resumeContext}", formatCandidatesResumeContext(options.candidates));
 
-  const { object } = await generateObject({
-    model: provider(modelId),
-    prompt,
-    schema: generationSchema,
-    temperature: 0.3,
-  });
+  let object: z.infer<typeof generationSchema>;
+  try {
+    ({ object } = await generateObject({
+      model: provider(modelId),
+      prompt,
+      schema: generationSchema,
+      temperature: 0.3,
+    }));
+  } catch (error) {
+    if (error instanceof Error && error.message.includes("did not match schema")) {
+      throw new Error("AI 生成的题目数量或格式不符合要求，请调整指令（最多 25 道题）后重试。", {
+        cause: error,
+      });
+    }
+    throw error;
+  }
 
   const parsed = generationSchema.safeParse(object);
   if (!parsed.success) {

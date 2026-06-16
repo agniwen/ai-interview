@@ -9,7 +9,7 @@ import type { JobDescriptionListRecord } from "@arc/shared/job-descriptions";
 import { rpc } from "@/lib/client/rpc";
 import { useForm, useStore } from "@tanstack/react-form";
 import { LoaderCircleIcon } from "lucide-react";
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
@@ -28,13 +28,12 @@ import { TextareaCounter } from "@/components/ui/textarea-counter";
 import { interviewQuestionTemplateSchema } from "@arc/db-schema/interview-question-templates";
 import { hasFieldErrors, toFieldErrors } from "../interviews/interview-form";
 import { SortableQuestionListEditor } from "../sortable-question-list-editor";
-import { InterviewQuestionTemplateAiGeneratePanel } from "./interview-question-template-ai-generate-panel";
 
 const TITLE_MAX_LENGTH = 120;
 const DESCRIPTION_MAX_LENGTH = 1000;
 const QUESTION_MAX_LENGTH = 1000;
 
-function defaultValues(): InterviewQuestionTemplateInput {
+export function emptyInterviewQuestionTemplateValues(): InterviewQuestionTemplateInput {
   return {
     description: "",
     jobDescriptionIds: [],
@@ -61,6 +60,7 @@ function toFormValues(record: InterviewQuestionTemplateRecord): InterviewQuestio
 
 // oxlint-disable-next-line complexity -- Dialog orchestrates schema, mode, and question array state together.
 export function InterviewQuestionTemplateEditorDialog({
+  initialDraft,
   open,
   onOpenChange,
   record,
@@ -68,6 +68,7 @@ export function InterviewQuestionTemplateEditorDialog({
   onSaved,
   slug,
 }: {
+  initialDraft?: InterviewQuestionTemplateInput | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   record: InterviewQuestionTemplateRecord | null;
@@ -76,9 +77,18 @@ export function InterviewQuestionTemplateEditorDialog({
   slug: string;
 }) {
   const isEdit = record !== null;
+  const resolvedInitialValues = useMemo(() => {
+    if (record) {
+      return toFormValues(record);
+    }
+    if (initialDraft) {
+      return initialDraft;
+    }
+    return emptyInterviewQuestionTemplateValues();
+  }, [initialDraft, record]);
 
   const form = useForm({
-    defaultValues: record ? toFormValues(record) : defaultValues(),
+    defaultValues: resolvedInitialValues,
     onSubmit: async ({ value }) => {
       const body = {
         description: value.description?.trim() || "",
@@ -116,18 +126,12 @@ export function InterviewQuestionTemplateEditorDialog({
 
   const isSubmitting = useStore(form.store, (state) => state.isSubmitting);
   const currentScope = useStore(form.store, (state) => state.values.scope);
-  const templateTitle = useStore(form.store, (state) => state.values.title);
-  const templateDescription = useStore(form.store, (state) => state.values.description ?? "");
-  const templateJobDescriptionIds = useStore(
-    form.store,
-    (state) => state.values.jobDescriptionIds ?? [],
-  );
 
   useEffect(() => {
     if (open) {
-      form.reset(record ? toFormValues(record) : defaultValues());
+      form.reset(resolvedInitialValues);
     }
-  }, [open, record, form]);
+  }, [open, form, resolvedInitialValues]);
 
   return (
     <Modal
@@ -277,17 +281,6 @@ export function InterviewQuestionTemplateEditorDialog({
                 </form.Field>
               ) : null}
             </div>
-
-            <InterviewQuestionTemplateAiGeneratePanel
-              jobDescriptionIds={templateJobDescriptionIds}
-              jobDescriptions={jobDescriptions}
-              onGenerated={(questions) => {
-                form.setFieldValue("questions", questions);
-              }}
-              templateDescription={templateDescription}
-              templateScope={currentScope}
-              templateTitle={templateTitle}
-            />
           </FieldGroup>
 
           <div className="space-y-3">

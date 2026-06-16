@@ -66,7 +66,6 @@ import {
 } from "@arc/db-schema/candidate-forms";
 import { useSortableItemIds } from "@/hooks/use-sortable-item-ids";
 import { hasFieldErrors, toFieldErrors } from "../interviews/interview-form";
-import { FormTemplateAiGeneratePanel } from "./form-template-ai-generate-panel";
 
 const DISPLAY_MODE_LABELS: Record<CandidateFormDisplayMode, string> = {
   checkbox: "复选框",
@@ -128,7 +127,7 @@ function makeDefaultQuestion(
   };
 }
 
-function defaultValues(): CandidateFormTemplateInput {
+export function emptyFormTemplateValues(): CandidateFormTemplateInput {
   return {
     description: "",
     jobDescriptionIds: [],
@@ -159,12 +158,14 @@ function toFormValues(record: CandidateFormTemplateRecord): CandidateFormTemplat
 
 // oxlint-disable-next-line complexity -- Dialog orchestrates schema, mode, and question array state together.
 export function CandidateFormTemplateEditorDialog({
+  initialDraft,
   open,
   onOpenChange,
   record,
   jobDescriptions,
   onSaved,
 }: {
+  initialDraft?: CandidateFormTemplateInput | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   record: CandidateFormTemplateRecord | null;
@@ -173,16 +174,21 @@ export function CandidateFormTemplateEditorDialog({
 }) {
   const slug = useWorkspaceSlug();
   const isEdit = record !== null;
+  const resolvedInitialValues = useMemo(() => {
+    if (record) {
+      return toFormValues(record);
+    }
+    if (initialDraft) {
+      return initialDraft;
+    }
+    return emptyFormTemplateValues();
+  }, [initialDraft, record]);
   const [selectedQuestionId, setSelectedQuestionId] = useState<string | null>(
-    record?.questions[0]?.id ?? null,
-  );
-  const formInitialValues = useMemo(
-    () => (record ? toFormValues(record) : defaultValues()),
-    [record],
+    resolvedInitialValues.questions[0]?.id ?? null,
   );
 
   const form = useForm({
-    defaultValues: formInitialValues,
+    defaultValues: resolvedInitialValues,
     onSubmit: async ({ value }) => {
       const body = {
         description: value.description?.trim() || "",
@@ -221,22 +227,16 @@ export function CandidateFormTemplateEditorDialog({
 
   const isSubmitting = useStore(form.store, (state) => state.isSubmitting);
   const currentScope = useStore(form.store, (state) => state.values.scope);
-  const formTitle = useStore(form.store, (state) => state.values.title);
-  const formDescription = useStore(form.store, (state) => state.values.description ?? "");
-  const formJobDescriptionIds = useStore(
-    form.store,
-    (state) => state.values.jobDescriptionIds ?? [],
-  );
   const questionIds = useStore(form.store, (state) =>
     (state.values.questions ?? []).map((question) => question.id),
   );
 
   useEffect(() => {
     if (open) {
-      form.reset(formInitialValues);
-      setSelectedQuestionId(formInitialValues.questions[0]?.id ?? null);
+      form.reset(resolvedInitialValues);
+      setSelectedQuestionId(resolvedInitialValues.questions[0]?.id ?? null);
     }
-  }, [open, form, formInitialValues]);
+  }, [open, form, resolvedInitialValues]);
 
   useEffect(() => {
     if (!open) {
@@ -402,19 +402,6 @@ export function CandidateFormTemplateEditorDialog({
                   </form.Field>
                 ) : null}
               </div>
-
-              <FormTemplateAiGeneratePanel
-                formDescription={formDescription}
-                formScope={currentScope}
-                formTitle={formTitle}
-                jobDescriptionIds={formJobDescriptionIds}
-                jobDescriptions={jobDescriptions}
-                onGenerated={(questions) => {
-                  form.setFieldValue("questions", questions);
-                  setSelectedQuestionId(questions[0]?.id ?? null);
-                }}
-                templateId={record?.id ?? null}
-              />
             </FieldGroup>
           </div>
           <QuestionBuilderWorkspace

@@ -38,13 +38,12 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { TextareaCounter } from "@/components/ui/textarea-counter";
 import { hasFieldErrors, toFieldErrors } from "../interviews/interview-form";
-import { JobDescriptionAiGeneratePanel } from "./job-description-ai-generate-panel";
 
 const NAME_MAX_LENGTH = 120;
 const DESCRIPTION_MAX_LENGTH = 500;
 const PROMPT_MAX_LENGTH = 10_000;
 
-function defaultValues(): JobDescriptionFormValues {
+export function emptyJobDescriptionFormValues(): JobDescriptionFormValues {
   return {
     allowCrossDepartmentInterviewers: false,
     departmentId: "",
@@ -88,6 +87,7 @@ function normalizeDepartmentId(value: string | null): string {
 
 // oxlint-disable-next-line complexity -- Dialog hosts tabs, queries, validation, and form submission together.
 export function JobDescriptionFormDialog({
+  initialDraft,
   open,
   onOpenChange,
   record,
@@ -95,6 +95,7 @@ export function JobDescriptionFormDialog({
   interviewers,
   onSaved,
 }: {
+  initialDraft?: JobDescriptionFormValues | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   record: JobDescriptionRecord | null;
@@ -105,6 +106,15 @@ export function JobDescriptionFormDialog({
   const slug = useWorkspaceSlug();
   const isEdit = record !== null;
   const [activeTab, setActiveTab] = useState<"basic" | "interview-questions" | "forms">("basic");
+  const resolvedInitialValues = useMemo(() => {
+    if (record) {
+      return toDepartmentScopedFormValues(record, interviewers);
+    }
+    if (initialDraft) {
+      return initialDraft;
+    }
+    return emptyJobDescriptionFormValues();
+  }, [initialDraft, interviewers, record]);
 
   const { data: linkedForms = [], isLoading: isFormsLoading } = useQuery({
     enabled: open && isEdit && !!record?.id,
@@ -157,7 +167,7 @@ export function JobDescriptionFormDialog({
   });
 
   const form = useForm({
-    defaultValues: record ? toDepartmentScopedFormValues(record, interviewers) : defaultValues(),
+    defaultValues: resolvedInitialValues,
     onSubmit: async ({ value }) => {
       const body = {
         allowCrossDepartmentInterviewers: value.allowCrossDepartmentInterviewers,
@@ -213,11 +223,6 @@ export function JobDescriptionFormDialog({
   );
   const selectedDepartmentId = useStore(form.store, (state) => state.values.departmentId);
   const selectedInterviewerIds = useStore(form.store, (state) => state.values.interviewerIds);
-  const jobName = useStore(form.store, (state) => state.values.name);
-  const departmentName = useMemo(
-    () => departments.find((dept) => dept.id === selectedDepartmentId)?.name ?? null,
-    [departments, selectedDepartmentId],
-  );
   const interviewerOptions = useMemo(
     () =>
       buildJobDescriptionInterviewerOptions(
@@ -230,10 +235,10 @@ export function JobDescriptionFormDialog({
 
   useEffect(() => {
     if (open) {
-      form.reset(record ? toDepartmentScopedFormValues(record, interviewers) : defaultValues());
+      form.reset(resolvedInitialValues);
       setActiveTab("basic");
     }
-  }, [open, record, form, interviewers]);
+  }, [open, form, resolvedInitialValues]);
 
   const missingRefs = departments.length === 0 || interviewers.length === 0;
 
@@ -425,18 +430,6 @@ export function JobDescriptionFormDialog({
                     }}
                   </form.Field>
                 </div>
-
-                <JobDescriptionAiGeneratePanel
-                  departmentName={departmentName}
-                  jobName={jobName}
-                  onGenerated={({ description, prompt, suggestedName }) => {
-                    form.setFieldValue("description", description);
-                    form.setFieldValue("prompt", prompt);
-                    if (suggestedName && !jobName.trim()) {
-                      form.setFieldValue("name", suggestedName);
-                    }
-                  }}
-                />
 
                 <form.Field name="description">
                   {(field) => {
