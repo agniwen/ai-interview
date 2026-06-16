@@ -1,0 +1,41 @@
+services:
+  web:
+    build:
+      context: .
+      dockerfile: apps/ai-recruitment-copilot/Dockerfile
+      args:
+        BETTER_AUTH_URL: ${BETTER_AUTH_URL:-https://example.com}
+        NEXT_PUBLIC_BASE_URL: ${NEXT_PUBLIC_BASE_URL:-https://example.com}
+    env_file:
+      - path: .env
+        required: false
+    expose:
+      - "3000"
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - node -e "fetch('http://127.0.0.1:3000/api/health').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    init: true
+    restart: unless-stopped
+
+  worker:
+    build:
+      context: .
+      dockerfile: apps/ai-recruitment-copilot-worker/Dockerfile
+    env_file:
+      - path: .env
+        required: false
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - node -e "fetch('http://127.0.0.1:8790/healthz').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    init: true
+    restart: unless-stopped
