@@ -65,7 +65,9 @@ export function Composer({
               <div className="flex flex-col items-center gap-2">
                 <UploadIcon className="size-8 text-primary/50" />
                 <p className="font-medium text-sm">拖拽简历文件到这里</p>
-                <p className="text-muted-foreground text-xs">支持 PDF、DOCX、PPTX、XLSX</p>
+                <p className="text-muted-foreground text-xs">
+                  支持 PDF、DOCX、PPTX、XLSX、JPG、PNG
+                </p>
               </div>
             </div>
           }
@@ -76,7 +78,7 @@ export function Composer({
           multiple
           onError={({ code, message }) => {
             if (code === "accept") {
-              onUploadErrorChange("仅支持上传 PDF、DOCX、PPTX、XLSX 文件。");
+              onUploadErrorChange("仅支持上传 PDF、DOCX、PPTX、XLSX、JPG、PNG 文件。");
               return;
             }
             if (code === "max_file_size") {

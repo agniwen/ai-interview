@@ -368,7 +368,7 @@ export const resumeLibraryRouter = factory
       return c.json({ error: "记录不存在。" }, 404);
     }
     if (!existing.hasResumeFile) {
-      return c.json({ error: "该候选人没有可预览的简历 PDF。" }, 404);
+      return c.json({ error: "该候选人没有可预览的简历文件。" }, 404);
     }
 
     const [row] = await db

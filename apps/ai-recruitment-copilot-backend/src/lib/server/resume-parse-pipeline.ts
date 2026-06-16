@@ -138,6 +138,24 @@ function normalizeExtractedText(text: string): string {
   );
 }
 
+function inferImageMediaType(input: { fileName?: string; mediaType?: string }): string {
+  const normalizedMediaType = input.mediaType?.trim().toLowerCase();
+  if (normalizedMediaType === "image/jpeg" || normalizedMediaType === "image/png") {
+    return normalizedMediaType;
+  }
+  const extension = input.fileName
+    ?.trim()
+    .toLowerCase()
+    .match(/\.([a-z0-9]+)$/u)?.[1];
+  if (extension === "jpg" || extension === "jpeg") {
+    return "image/jpeg";
+  }
+  if (extension === "png") {
+    return "image/png";
+  }
+  return "image/png";
+}
+
 function isDevOcrLogEnabled(): boolean {
   const raw = process.env.RESUME_PARSE_LOG_STEPS?.trim().toLowerCase();
   return process.env.NODE_ENV === "development" || raw === "1" || raw === "true" || raw === "yes";
@@ -516,7 +534,11 @@ async function extractXlsxText(bytes: Uint8Array): Promise<ParsedResumeOcr> {
   return { pageCount: sheetBlocks.length, text, textSource: "xlsx-text" };
 }
 
-async function qwenVlOcrWithRetry(png: Buffer, page: number): Promise<string> {
+async function qwenVlOcrWithRetry(
+  imageBytes: Buffer,
+  page: number,
+  mediaType = "image/png",
+): Promise<string> {
   const attempts = parsePositiveInteger(
     process.env.RESUME_PARSE_OCR_ATTEMPTS,
     DEFAULT_OCR_ATTEMPTS,
@@ -527,7 +549,7 @@ async function qwenVlOcrWithRetry(png: Buffer, page: number): Promise<string> {
   );
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
     try {
-      return await qwenVlOcr(png);
+      return await qwenVlOcr(imageBytes, mediaType);
     } catch (error) {
       if (attempt >= attempts || !isTransientOcrError(error)) {
         throw error;
@@ -541,6 +563,28 @@ async function qwenVlOcrWithRetry(png: Buffer, page: number): Promise<string> {
     }
   }
   throw new Error("Qwen OCR retry loop exited unexpectedly.");
+}
+
+async function extractImageText(input: ResumeDocumentInput): Promise<ParsedResumeOcr> {
+  if (!isQwenOcrConfigured()) {
+    throw new Error("Qwen OCR is not configured (missing ALIBABA_API_KEY).");
+  }
+
+  const mediaType = inferImageMediaType(input);
+  const startedAt = nowMs();
+  const text = await qwenVlOcrWithRetry(Buffer.from(input.bytes), 1, mediaType);
+  devOcrLog("image ocr completed", {
+    bytes: input.bytes.byteLength,
+    duration: formatDuration(startedAt),
+    mediaType,
+    outputChars: text.length,
+  });
+
+  if (text.trim().length === 0) {
+    throw new Error("Qwen OCR returned empty text for the image resume.");
+  }
+
+  return { pageCount: 1, text, textSource: "qwen-ocr" };
 }
 
 export async function generateResumeStructured(text: string): Promise<ResumeParserStructured> {
@@ -638,7 +682,7 @@ export async function parseResumeOcrOnly(bytes: Uint8Array): Promise<ParsedResum
 export function extractResumeDocumentText(input: ResumeDocumentInput): Promise<ParsedResumeOcr> {
   const kind = getResumeDocumentKind(input);
   if (!kind) {
-    throw new Error("仅支持上传 PDF、DOCX、PPTX、XLSX 简历。");
+    throw new Error("仅支持上传 PDF、DOCX、PPTX、XLSX、JPG、PNG 简历。");
   }
 
   switch (kind) {
@@ -654,8 +698,11 @@ export function extractResumeDocumentText(input: ResumeDocumentInput): Promise<P
     case "xlsx": {
       return extractXlsxText(input.bytes);
     }
+    case "image": {
+      return extractImageText(input);
+    }
     default: {
-      throw new Error("仅支持上传 PDF、DOCX、PPTX、XLSX 简历。");
+      throw new Error("仅支持上传 PDF、DOCX、PPTX、XLSX、JPG、PNG 简历。");
     }
   }
 }

@@ -28,15 +28,15 @@ export function isQwenOcrConfigured(): boolean {
   return Boolean(process.env.ALIBABA_API_KEY);
 }
 
-export async function qwenVlOcr(pngBytes: Buffer): Promise<string> {
+export async function qwenVlOcr(imageBytes: Buffer, mediaType = "image/png"): Promise<string> {
   const client = getClient();
-  const base64 = pngBytes.toString("base64");
+  const base64 = imageBytes.toString("base64");
   const response = await client.chat.completions.create({
     max_tokens: 4096,
     messages: [
       {
         content: [
-          { image_url: { url: `data:image/png;base64,${base64}` }, type: "image_url" },
+          { image_url: { url: `data:${mediaType};base64,${base64}` }, type: "image_url" },
           { text: OCR_PROMPT, type: "text" },
         ],
         role: "user",

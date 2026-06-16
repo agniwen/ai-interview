@@ -356,7 +356,7 @@ export const publicRouter = factory
       )
       .limit(1);
     if (!row?.resumeStorageKey) {
-      return c.json({ error: "该候选人没有可预览的简历 PDF。" }, 404);
+      return c.json({ error: "该候选人没有可预览的简历文件。" }, 404);
     }
     const object = await getObjectStream(row.resumeStorageKey);
     if (!object) {

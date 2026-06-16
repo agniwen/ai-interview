@@ -1,4 +1,4 @@
-export type ResumeDocumentKind = "pdf" | "docx" | "pptx" | "xlsx";
+export type ResumeDocumentKind = "pdf" | "docx" | "pptx" | "xlsx" | "image";
 
 export const resumeDocumentFormats: Record<
   ResumeDocumentKind,
@@ -8,6 +8,11 @@ export const resumeDocumentFormats: Record<
     extensions: ["docx"],
     label: "DOCX",
     mediaTypes: ["application/vnd.openxmlformats-officedocument.wordprocessingml.document"],
+  },
+  image: {
+    extensions: ["jpg", "jpeg", "png"],
+    label: "JPG/PNG",
+    mediaTypes: ["image/jpeg", "image/png"],
   },
   pdf: {
     extensions: ["pdf"],
@@ -37,7 +42,7 @@ export const supportedResumeDocumentAccept = Object.values(resumeDocumentFormats
   ])
   .join(",");
 
-export const supportedResumeDocumentLabel = "PDF、DOCX、PPTX、XLSX";
+export const supportedResumeDocumentLabel = "PDF、DOCX、PPTX、XLSX、JPG、PNG";
 
 function getExtensionFromFileName(fileName: string | undefined): string | null {
   const normalized = fileName?.trim().toLowerCase();
@@ -46,6 +51,25 @@ function getExtensionFromFileName(fileName: string | undefined): string | null {
   }
   const match = normalized.match(/\.([a-z0-9]+)$/);
   return match?.[1] ?? null;
+}
+
+function getExtensionFromMediaType(mediaType: string | undefined): string | null {
+  const normalized = mediaType?.trim().toLowerCase();
+  if (!normalized) {
+    return null;
+  }
+  if (normalized === "image/jpeg") {
+    return "jpg";
+  }
+  if (normalized === "image/png") {
+    return "png";
+  }
+  for (const config of Object.values(resumeDocumentFormats)) {
+    if (config.mediaTypes.includes(normalized)) {
+      return config.extensions[0] ?? null;
+    }
+  }
+  return null;
 }
 
 export function getResumeDocumentKind(input: {
@@ -84,5 +108,20 @@ export function getResumeDocumentExtension(input: {
   fileName?: string;
   mediaType?: string;
 }): string {
-  return getResumeDocumentKind(input) ?? getExtensionFromFileName(input.fileName) ?? "bin";
+  const extension = getExtensionFromFileName(input.fileName);
+  const kind = getResumeDocumentKind(input);
+  if (kind && extension && resumeDocumentFormats[kind].extensions.includes(extension)) {
+    return extension;
+  }
+
+  const mediaTypeExtension = getExtensionFromMediaType(input.mediaType);
+  if (mediaTypeExtension) {
+    return mediaTypeExtension;
+  }
+
+  if (kind) {
+    return resumeDocumentFormats[kind].extensions[0] ?? kind;
+  }
+
+  return extension ?? "bin";
 }

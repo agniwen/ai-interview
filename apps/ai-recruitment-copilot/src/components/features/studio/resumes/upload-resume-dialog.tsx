@@ -211,13 +211,13 @@ export function CreateResumeRecordDialog({
   const canSaveOnly = hasResumeFile && hasParsedResume;
   const canSaveAndStart = jobDescriptionId.trim().length > 0 && canSaveOnly;
 
-  // "保存并发起面试" 按钮的禁用提示文案：未传 PDF / 未选 JD / 可点 三种状态。
+  // "保存并发起面试" 按钮的禁用提示文案：未传简历 / 未选 JD / 可点 三种状态。
   // 拆成纯函数避免嵌套三元，oxlint 不允许 nested ternary。
   // Tooltip text for the save-and-start button across the three disabled
-  // states (no PDF / no JD / ready). Flattened to avoid nested ternaries.
+  // states (no resume / no JD / ready). Flattened to avoid nested ternaries.
   let saveAndStartHint: string | undefined;
   if (!hasResumeFile) {
-    saveAndStartHint = "请先上传简历 PDF";
+    saveAndStartHint = "请先上传简历文件";
   } else if (!hasParsedResume) {
     saveAndStartHint = "请等待简历解析完成";
   } else if (!canSaveAndStart) {

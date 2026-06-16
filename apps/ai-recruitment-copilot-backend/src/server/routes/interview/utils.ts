@@ -375,7 +375,7 @@ export async function storeInterviewResume(
 
 /**
  * 批量上传专用：只写 S3 + chat_attachment 注册表 pending 行，不做 OCR/LLM 解析。
- * Dedicated to bulk upload: upload/reuse the S3 object and register a pending
+ * Dedicated to bulk upload: upload the S3 object and register a pending
  * chat_attachment row without running OCR/LLM parsing.
  */
 export async function storeResumeObjectOnly(
@@ -389,32 +389,38 @@ export async function storeResumeObjectOnly(
   try {
     const bytes = new Uint8Array(await file.arrayBuffer());
     const contentHash = await sha256HexOfBytes(bytes);
-    const existing = await findAttachmentByContentHash(contentHash);
-    if (existing) {
-      await putObjectBytes({
-        body: bytes,
-        contentType: file.type || existing.mediaType || "application/octet-stream",
-        storageKey: existing.storageKey,
-      });
-      await copyCachedAttachmentForRequester({
-        contentHash,
-        existing,
-        file,
-        organizationId,
-        userId,
-      });
-      return { contentHash, storageKey: existing.storageKey };
-    }
-
     const storageKey = await buildAttachmentKeyByHash(
       contentHash,
       getResumeDocumentExtension({ fileName: file.name, mediaType: file.type }),
     );
+    const existing = await findAttachmentByContentHash(contentHash);
     await putObjectBytes({
       body: bytes,
-      contentType: file.type || "application/octet-stream",
+      contentType: file.type || existing?.mediaType || "application/octet-stream",
       storageKey,
     });
+
+    if (existing) {
+      await createAttachment({
+        contentHash,
+        filename: file.name.slice(0, 255) || existing.filename || "resume.pdf",
+        id: crypto.randomUUID(),
+        mediaType: file.type || existing.mediaType || "application/octet-stream",
+        organizationId,
+        parsedAt: existing.parsedAt,
+        parsedError: existing.parsedError,
+        parsedPageCount: existing.parsedPageCount,
+        parsedStatus: existing.parsedStatus,
+        parsedStructured: existing.parsedStructured,
+        parsedText: existing.parsedText,
+        parsedTextSource: existing.parsedTextSource,
+        size: file.size,
+        storageKey,
+        userId,
+      });
+      return { contentHash, storageKey };
+    }
+
     await createAttachment({
       contentHash,
       filename: file.name.slice(0, 255) || "resume.pdf",

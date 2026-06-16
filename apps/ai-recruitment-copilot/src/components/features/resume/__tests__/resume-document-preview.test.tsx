@@ -1,7 +1,34 @@
+// @vitest-environment jsdom
+
+import type React from "react";
+import { act } from "react";
+import { createRoot } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { PdfFileIcon } from "@/components/features/pdf/pdf-file-icon";
+import { ResumeDocumentFileIcon } from "@/components/features/resume/resume-document-file-icon";
+import * as previewDialogModule from "@/components/features/resume/resume-document-preview-dialog";
 import * as previewButtonModule from "@/components/features/resume/resume-document-preview-button";
+
+(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+
+vi.mock("@/components/features/pdf/pdf-preview-dialog", () => ({
+  PdfPreviewDialog: () => null,
+}));
+
+vi.mock("@/components/ui/docx-viewer", () => ({
+  DocxViewerPreview: () => null,
+}));
+
+vi.mock("@/components/ui/xlsx-viewer", () => ({
+  XlsxViewerPreview: () => null,
+}));
+
+afterEach(() => {
+  document.body.innerHTML = "";
+  vi.unstubAllGlobals();
+  vi.restoreAllMocks();
+});
 
 describe("resume document preview", () => {
   it("treats PPTX resumes as previewable documents", () => {
@@ -11,6 +38,15 @@ describe("resume document preview", () => {
         mediaType: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
       }),
     ).toBe("pptx");
+  });
+
+  it("treats image resumes as previewable documents", () => {
+    expect(
+      previewButtonModule.getPreviewableResumeDocumentKind({
+        fileName: "resume.png",
+        mediaType: "image/png",
+      }),
+    ).toBe("image");
   });
 
   it("derives the PPTX preview PDF URL from the original file URL", () => {
@@ -31,5 +67,93 @@ describe("resume document preview", () => {
 
     expect(markup).toContain('viewBox="0 0 56 64"');
     expect(markup).toContain('aria-hidden="true"');
+  });
+
+  it("uses the provided SVG Repo image document icon for image resumes", () => {
+    const markup = renderToStaticMarkup(<ResumeDocumentFileIcon kind="image" />);
+
+    expect(markup).toContain('viewBox="-4 0 64 64"');
+    expect(markup).toContain('fill="#49C9A7"');
+    expect(markup).toContain("v-20.904h20.906v20.904");
+  });
+
+  it("renders image resume previews with a loading state before the image blob is ready", () => {
+    const { ImageResumePreviewContent } = previewDialogModule as typeof previewDialogModule & {
+      ImageResumePreviewContent?: (props: { filename?: string; url: string }) => React.ReactNode;
+    };
+    if (!ImageResumePreviewContent) {
+      throw new Error("ImageResumePreviewContent is not exported");
+    }
+
+    const markup = renderToStaticMarkup(
+      <ImageResumePreviewContent
+        filename="resume.jpeg"
+        url="/api/w/new/studio/resume-pool/r1/resume"
+      />,
+    );
+
+    expect(markup).toContain("图片加载中");
+    expect(markup).not.toContain("/api/w/new/studio/resume-pool/r1/resume");
+  });
+
+  it("fetches image resume previews as blob URLs", async () => {
+    const { ImageResumePreviewContent } = previewDialogModule as typeof previewDialogModule & {
+      ImageResumePreviewContent?: (props: { filename?: string; url: string }) => React.ReactNode;
+    };
+    if (!ImageResumePreviewContent) {
+      throw new Error("ImageResumePreviewContent is not exported");
+    }
+
+    const blob = new Blob(["jpeg"], { type: "image/jpeg" });
+    const blobUrl = "blob:http://localhost/resume-preview";
+    const fetchMock = vi.fn().mockResolvedValue({
+      blob: vi.fn().mockResolvedValue(blob),
+      ok: true,
+      status: 200,
+    });
+    const createObjectURL = vi.fn(() => blobUrl);
+    const revokeObjectURL = vi.fn();
+
+    vi.stubGlobal("fetch", fetchMock);
+    Object.defineProperty(URL, "createObjectURL", {
+      configurable: true,
+      value: createObjectURL,
+    });
+    Object.defineProperty(URL, "revokeObjectURL", {
+      configurable: true,
+      value: revokeObjectURL,
+    });
+
+    const host = document.createElement("div");
+    document.body.append(host);
+    const root = createRoot(host);
+
+    act(() => {
+      root.render(
+        <ImageResumePreviewContent
+          filename="resume.jpeg"
+          url="/api/w/new/studio/resume-pool/r1/resume"
+        />,
+      );
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/w/new/studio/resume-pool/r1/resume",
+      expect.objectContaining({ credentials: "include" }),
+    );
+    expect(createObjectURL).toHaveBeenCalledWith(blob);
+    const image = host.querySelector("img");
+    expect(image?.getAttribute("alt")).toBe("resume.jpeg");
+    expect(image?.getAttribute("src")).toBe(blobUrl);
+    expect(host.innerHTML).not.toContain("/api/w/new/studio/resume-pool/r1/resume");
+
+    act(() => {
+      root.unmount();
+    });
+
+    expect(revokeObjectURL).toHaveBeenCalledWith(blobUrl);
   });
 });

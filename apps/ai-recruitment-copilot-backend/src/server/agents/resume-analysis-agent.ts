@@ -157,7 +157,7 @@ function validateResumeDocumentInput(input: {
   size: number;
 }) {
   if (!isSupportedResumeDocumentInput(input)) {
-    throw new Error("仅支持上传 PDF、DOCX、PPTX、XLSX 简历。");
+    throw new Error("仅支持上传 PDF、DOCX、PPTX、XLSX、JPG、PNG 简历。");
   }
 
   if (input.size > MAX_RESUME_FILE_SIZE) {
