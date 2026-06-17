@@ -105,7 +105,9 @@ RUN apt-get update \
  && apt-get install -y --no-install-recommends \
     fontconfig \
     fonts-noto-cjk \
+    libreoffice-calc \
     libreoffice-impress \
+    libreoffice-writer \
  && rm -rf /var/lib/apt/lists/*
 
 RUN addgroup --system --gid 1001 nodejs \

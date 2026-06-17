@@ -1,9 +1,22 @@
 import type { ReactNode, SVGProps } from "react";
 import type { ResumeDocumentKind } from "@arc/shared/resume-documents";
+import { getResumeDocumentKind } from "@arc/shared/resume-documents";
 
 export interface ResumeDocumentFileIconProps extends SVGProps<SVGSVGElement> {
   kind: ResumeDocumentKind;
   title?: string;
+}
+
+export function getResumeDocumentFileIconKind(input: {
+  fileName?: string | null;
+  mediaType?: string | null;
+}): ResumeDocumentKind {
+  return (
+    getResumeDocumentKind({
+      fileName: input.fileName ?? undefined,
+      mediaType: input.mediaType ?? undefined,
+    }) ?? "pdf"
+  );
 }
 
 function DocumentIconFrame({
@@ -155,13 +168,13 @@ function PptxDocumentIcon(props: Omit<ResumeDocumentFileIconProps, "kind">) {
 }
 
 export function ResumeDocumentFileIcon({ kind, ...props }: ResumeDocumentFileIconProps) {
-  if (kind === "docx") {
+  if (kind === "doc" || kind === "docx") {
     return <DocxDocumentIcon {...props} />;
   }
-  if (kind === "xlsx") {
+  if (kind === "xls" || kind === "xlsx") {
     return <XlsxDocumentIcon {...props} />;
   }
-  if (kind === "pptx") {
+  if (kind === "ppt" || kind === "pptx") {
     return <PptxDocumentIcon {...props} />;
   }
   if (kind === "image") {

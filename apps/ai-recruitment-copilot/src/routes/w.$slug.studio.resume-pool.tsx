@@ -33,7 +33,10 @@ import { toast } from "sonner";
 import { useDataGridState } from "@/components/data-grid";
 import { Toolbar } from "@/components/data-grid/parts/toolbar";
 import { TimeDisplay } from "@/components/features/display/time-display";
-import { ResumeDocumentFileIcon } from "@/components/features/resume/resume-document-file-icon";
+import {
+  ResumeDocumentFileIcon,
+  getResumeDocumentFileIconKind,
+} from "@/components/features/resume/resume-document-file-icon";
 import {
   getPreviewableResumeDocumentKind,
   isPreviewableResumeDocumentInput,
@@ -845,8 +848,7 @@ function ResumePoolCard({
   const previewLabel = record.resumeFileName ?? "查看简历";
   const skills = record.skillsNormalized.slice(0, 5);
   const note = notesPreview(record.notes);
-  const documentKind =
-    getPreviewableResumeDocumentKind({ fileName: record.resumeFileName }) ?? "pdf";
+  const documentKind = getResumeDocumentFileIconKind({ fileName: record.resumeFileName });
   const canPreview =
     Boolean(record.resumeStorageKey) &&
     isPreviewableResumeDocumentInput({ fileName: record.resumeFileName });

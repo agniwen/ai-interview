@@ -47,6 +47,16 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV WORKER_HOST="0.0.0.0"
 ENV WORKER_PORT=8790
+ENV LIBREOFFICE_BIN=/usr/bin/soffice
+
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends \
+    fontconfig \
+    fonts-noto-cjk \
+    libreoffice-calc \
+    libreoffice-impress \
+    libreoffice-writer \
+ && rm -rf /var/lib/apt/lists/*
 
 RUN addgroup --system --gid 1001 nodejs \
  && adduser --system --uid 1001 worker

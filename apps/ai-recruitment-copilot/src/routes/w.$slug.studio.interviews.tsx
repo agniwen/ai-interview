@@ -60,7 +60,10 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
-import { ResumeDocumentFileIcon } from "@/components/features/resume/resume-document-file-icon";
+import {
+  ResumeDocumentFileIcon,
+  getResumeDocumentFileIconKind,
+} from "@/components/features/resume/resume-document-file-icon";
 import {
   getPreviewableResumeDocumentKind,
   isPreviewableResumeDocumentInput,
@@ -321,8 +324,7 @@ function InterviewManagementPage() {
       selectColumn<StudioInterviewRoundListRecord>(),
       customColumn<StudioInterviewRoundListRecord>({
         cell: (r) => {
-          const documentKind =
-            getPreviewableResumeDocumentKind({ fileName: r.resumeFileName }) ?? "pdf";
+          const documentKind = getResumeDocumentFileIconKind({ fileName: r.resumeFileName });
           const previewable = isPreviewableResumeDocumentInput({ fileName: r.resumeFileName });
           const previewTitle = r.resumeFileName ?? "查看简历";
           return (
