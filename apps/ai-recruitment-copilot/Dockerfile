@@ -28,7 +28,7 @@ ARG ALIBABA_FAST_MODEL=deepseek-v4-flash
 ARG ALIBABA_MODEL=deepseek-v4-pro
 ARG ALIBABA_STRUCTURED_MODEL=deepseek-v4-pro
 ARG BETTER_AUTH_SECRET=build-time-placeholder
-ARG BETTER_AUTH_URL=https://example.com
+ARG BETTER_AUTH_URL
 ARG FEISHU_APP_ID=build-time-placeholder
 ARG FEISHU_APP_ID2=build-time-placeholder
 ARG FEISHU_APP_SECRET=build-time-placeholder
@@ -38,8 +38,8 @@ ARG GOOGLE_CLIENT_SECRET=build-time-placeholder
 ARG INTERVIEW_EVALUATION_MODEL=deepseek-v4-pro
 ARG MINIMAX_TTS_BASE_URL=https://api.minimax.chat
 ARG NEXT_PUBLIC_AGENT_NAME=interview-agent
-ARG NEXT_PUBLIC_BASE_URL=https://example.com
-ARG NEXT_PUBLIC_BETTER_AUTH_URL=https://example.com
+ARG NEXT_PUBLIC_BASE_URL
+ARG NEXT_PUBLIC_BETTER_AUTH_URL
 ARG NEXT_PUBLIC_ENABLE_GOOGLE_LOGIN=false
 ARG QWEN_OCR_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
 ARG QWEN_OCR_MODEL=qwen-vl-ocr-latest
