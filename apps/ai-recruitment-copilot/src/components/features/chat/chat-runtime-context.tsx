@@ -2,6 +2,7 @@
 
 import type { UseChatHelpers } from "@ai-sdk/react";
 import type { ChatStatus, FileUIPart, UIMessage } from "ai";
+import type { AttachmentTextSource } from "@arc/db-schema/db-enums";
 import { createContext, use, useMemo } from "react";
 import type { ReactNode } from "react";
 
@@ -33,7 +34,7 @@ export interface ResumeParsedClientData {
   text: string;
   structured: unknown;
   pageCount: number;
-  textSource: "qwen-ocr";
+  textSource: AttachmentTextSource;
 }
 
 export type SendMessageFile = FileUIPart & {

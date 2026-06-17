@@ -1150,6 +1150,98 @@ export const resumeUploadBatchItem = pgTable(
   ],
 );
 
+export type MailIngestMessageStatus = "processing" | "queued" | "skipped" | "failed";
+
+export const mailIngestAccount = pgTable(
+  "mail_ingest_account",
+  {
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    dedupPolicy: text("dedup_policy")
+      .$type<ResumeUploadBatchDedupPolicy>()
+      .notNull()
+      .default("skip"),
+    emailAddress: text("email_address").notNull(),
+    enabled: boolean("enabled").default(true).notNull(),
+    encryptedPassword: text("encrypted_password").notNull(),
+    failedMailbox: text("failed_mailbox").notNull().default("ARC-Failed"),
+    id: text("id").primaryKey(),
+    imapHost: text("imap_host").notNull().default("imap.qiye.aliyun.com"),
+    imapPort: integer("imap_port").notNull().default(993),
+    imapSecure: boolean("imap_secure").default(true).notNull(),
+    jdMode: text("jd_mode").$type<ResumeUploadBatchJdMode>().notNull().default("none"),
+    jobDescriptionId: text("job_description_id").references(() => jobDescription.id, {
+      onDelete: "set null",
+    }),
+    lastCheckedAt: timestamp("last_checked_at", { withTimezone: true }),
+    lastError: text("last_error"),
+    mailbox: text("mailbox").notNull().default("INBOX"),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    pollingStartedAt: timestamp("polling_started_at", { withTimezone: true }),
+    processedMailbox: text("processed_mailbox").notNull().default("ARC-Processed"),
+    resumePoolScope: text("resume_pool_scope")
+      .$type<ResumePoolScope>()
+      .notNull()
+      .default("private"),
+    subjectKeyword: text("subject_keyword").notNull().default("boss直聘"),
+    target: text("target").$type<ResumeUploadBatchTarget>().notNull().default("resume_pool"),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    username: text("username").notNull(),
+  },
+  (table) => [
+    uniqueIndex("mail_ingest_account_org_user_email_uq").on(
+      table.organizationId,
+      table.userId,
+      table.emailAddress,
+    ),
+    index("mail_ingest_account_enabled_idx").on(table.enabled),
+    index("mail_ingest_account_org_user_idx").on(table.organizationId, table.userId),
+  ],
+);
+
+export const mailIngestMessage = pgTable(
+  "mail_ingest_message",
+  {
+    accountId: text("account_id")
+      .notNull()
+      .references(() => mailIngestAccount.id, { onDelete: "cascade" }),
+    batchId: text("batch_id").references(() => resumeUploadBatch.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    errorMessage: text("error_message"),
+    fromAddress: text("from_address"),
+    id: text("id").primaryKey(),
+    mailbox: text("mailbox").notNull(),
+    messageId: text("message_id"),
+    processedAt: timestamp("processed_at", { withTimezone: true }),
+    receivedAt: timestamp("received_at", { withTimezone: true }),
+    status: text("status").$type<MailIngestMessageStatus>().notNull(),
+    subject: text("subject"),
+    uid: text("uid").notNull(),
+    uidValidity: text("uid_validity").notNull(),
+  },
+  (table) => [
+    uniqueIndex("mail_ingest_message_account_mail_uid_uq").on(
+      table.accountId,
+      table.mailbox,
+      table.uidValidity,
+      table.uid,
+    ),
+    index("mail_ingest_message_account_status_created_idx").on(
+      table.accountId,
+      table.status,
+      table.createdAt,
+    ),
+    index("mail_ingest_message_batch_idx").on(table.batchId),
+  ],
+);
+
 export const interviewConversation = pgTable(
   "interview_conversation",
   {

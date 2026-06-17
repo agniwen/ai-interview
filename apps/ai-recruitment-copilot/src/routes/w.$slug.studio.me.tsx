@@ -1,5 +1,6 @@
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import { Building2Icon, MailIcon, SaveIcon, UserIcon } from "lucide-react";
+import { Building2Icon, InboxIcon, MailIcon, SaveIcon, Trash2Icon, UserIcon } from "lucide-react";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/features/studio/page-header";
@@ -14,9 +15,11 @@ import { Input } from "@/components/ui/input";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { Separator } from "@/components/ui/separator";
 import { Spinner } from "@/components/ui/spinner";
+import { Switch } from "@/components/ui/switch";
 import { formatDateOnly } from "@arc/shared/utils/time";
 import { useWorkspaceMemberRole, useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { authClient } from "@/lib/client/auth-client";
+import { rpc } from "@/lib/client/rpc";
 
 const WHITESPACE_REGEX = /\s+/u;
 
@@ -28,6 +31,15 @@ const ROLE_BADGE_VARIANT: Record<WorkspaceRole, "default" | "secondary" | "outli
 
 const PROFILE_NAME_MAX_LENGTH = 120;
 const PROFILE_IMAGE_URL_MAX_LENGTH = 2048;
+const DEFAULT_MAIL_INGEST_FORM = {
+  emailAddress: "",
+  enabled: true,
+  imapHost: "imap.qiye.aliyun.com",
+  imapPort: "993",
+  password: "",
+  subjectKeyword: "boss直聘",
+  username: "",
+};
 
 // 用共享的 formatDateOnly 而不是页面本地版本，保证全应用日期格式一致 (`YY/MM/DD`)。
 // Use the shared formatDateOnly so dates render identically everywhere (`YY/MM/DD`).
@@ -269,6 +281,304 @@ function ProfileCard({
   );
 }
 
+interface MailIngestAccountRecord {
+  emailAddress: string;
+  enabled: boolean;
+  hasPassword: boolean;
+  id: string;
+  imapHost: string;
+  imapPort: number;
+  lastCheckedAt: string | null;
+  lastError: string | null;
+  subjectKeyword: string;
+  username: string;
+}
+
+interface MailIngestFormState {
+  emailAddress: string;
+  enabled: boolean;
+  imapHost: string;
+  imapPort: string;
+  password: string;
+  subjectKeyword: string;
+  username: string;
+}
+
+function MailIngestAccountCard() {
+  const slug = useWorkspaceSlug();
+  const queryClient = useQueryClient();
+  const [form, setForm] = useState<MailIngestFormState>(DEFAULT_MAIL_INGEST_FORM);
+
+  const accountsQuery = useQuery({
+    queryFn: async () => {
+      const response = await rpc.api.w[":slug"].studio["mail-ingest-accounts"].$get({
+        param: { slug },
+      });
+      if (!response.ok) {
+        throw new Error("加载邮箱采集配置失败");
+      }
+      return (await response.json()) as { accounts: MailIngestAccountRecord[] };
+    },
+    queryKey: ["mail-ingest-accounts", slug],
+  });
+
+  const account = accountsQuery.data?.accounts[0] ?? null;
+
+  useEffect(() => {
+    if (!account) {
+      setForm(DEFAULT_MAIL_INGEST_FORM);
+      return;
+    }
+    setForm({
+      emailAddress: account.emailAddress,
+      enabled: account.enabled,
+      imapHost: account.imapHost,
+      imapPort: String(account.imapPort),
+      password: "",
+      subjectKeyword: account.subjectKeyword,
+      username: account.username,
+    });
+  }, [account]);
+
+  const saveMutation = useMutation({
+    mutationFn: async () => {
+      const port = Number.parseInt(form.imapPort, 10);
+      if (!(Number.isFinite(port) && port > 0)) {
+        throw new Error("IMAP 端口无效");
+      }
+      if (!(form.emailAddress.trim() && form.username.trim())) {
+        throw new Error("邮箱地址和登录账号不能为空");
+      }
+      const payload = {
+        emailAddress: form.emailAddress.trim(),
+        enabled: form.enabled,
+        failedMailbox: "ARC-Failed",
+        imapHost: form.imapHost.trim(),
+        imapPort: port,
+        imapSecure: true,
+        mailbox: "INBOX",
+        processedMailbox: "ARC-Processed",
+        subjectKeyword: form.subjectKeyword.trim() || "boss直聘",
+        username: form.username.trim(),
+      };
+      const response = account
+        ? await rpc.api.w[":slug"].studio["mail-ingest-accounts"][":id"].$patch({
+            json: {
+              ...payload,
+              ...(form.password.trim() ? { password: form.password.trim() } : {}),
+            },
+            param: { id: account.id, slug },
+          })
+        : await rpc.api.w[":slug"].studio["mail-ingest-accounts"].$post({
+            json: {
+              ...payload,
+              password: form.password.trim(),
+            },
+            param: { slug },
+          });
+      if (!response.ok) {
+        const body = (await response.json().catch(() => null)) as { error?: string } | null;
+        throw new Error(body?.error ?? "邮箱采集配置保存失败");
+      }
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : "邮箱采集配置保存失败");
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["mail-ingest-accounts", slug] });
+      toast.success("邮箱采集配置已保存");
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async () => {
+      if (!account) {
+        return;
+      }
+      const response = await rpc.api.w[":slug"].studio["mail-ingest-accounts"][":id"].$delete({
+        param: { id: account.id, slug },
+      });
+      if (!response.ok) {
+        throw new Error("邮箱采集配置删除失败");
+      }
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : "邮箱采集配置删除失败");
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["mail-ingest-accounts", slug] });
+      toast.success("邮箱采集配置已删除");
+    },
+  });
+
+  const saving = saveMutation.isPending;
+  const deleting = deleteMutation.isPending;
+  const disabled = saving || deleting || accountsQuery.isLoading;
+
+  return (
+    <Card className="rounded-lg">
+      <CardHeader>
+        <CardTitle>简历邮箱采集</CardTitle>
+        <CardDescription>轮询 Boss 直聘简历邮件，自动加入你的私有简历库解析队列。</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <form
+          className="flex flex-col gap-5"
+          onSubmit={(event) => {
+            event.preventDefault();
+            saveMutation.mutate();
+          }}
+        >
+          <div className="flex items-center justify-between gap-4 rounded-md border bg-muted/30 p-4">
+            <div className="flex min-w-0 items-center gap-3">
+              <div className="flex size-10 shrink-0 items-center justify-center rounded-md bg-background text-muted-foreground">
+                <InboxIcon />
+              </div>
+              <div className="min-w-0">
+                <p className="font-medium text-sm">
+                  {account ? account.emailAddress : "未配置邮箱"}
+                </p>
+                <p className="truncate text-muted-foreground text-xs">
+                  {account?.lastCheckedAt
+                    ? `上次轮询：${formatDateOnly(account.lastCheckedAt)}`
+                    : "worker 开启后每 15 分钟轮询一次"}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-muted-foreground text-sm">启用</span>
+              <Switch
+                checked={form.enabled}
+                disabled={disabled}
+                onCheckedChange={(enabled) => setForm((current) => ({ ...current, enabled }))}
+              />
+            </div>
+          </div>
+
+          {account?.lastError ? (
+            <p className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-destructive text-sm">
+              {account.lastError}
+            </p>
+          ) : null}
+
+          <FieldGroup className="gap-5">
+            <Field>
+              <FieldLabel htmlFor="mail-ingest-email">邮箱地址</FieldLabel>
+              <Input
+                id="mail-ingest-email"
+                autoComplete="email"
+                disabled={disabled}
+                onChange={(event) =>
+                  setForm((current) => ({ ...current, emailAddress: event.target.value }))
+                }
+                placeholder="hr@example.com"
+                type="email"
+                value={form.emailAddress}
+              />
+            </Field>
+
+            <Field>
+              <FieldLabel htmlFor="mail-ingest-username">登录账号</FieldLabel>
+              <Input
+                id="mail-ingest-username"
+                autoComplete="username"
+                disabled={disabled}
+                onChange={(event) =>
+                  setForm((current) => ({ ...current, username: event.target.value }))
+                }
+                placeholder="通常与邮箱地址相同"
+                value={form.username}
+              />
+            </Field>
+
+            <Field>
+              <FieldLabel htmlFor="mail-ingest-password">客户端密码</FieldLabel>
+              <Input
+                id="mail-ingest-password"
+                autoComplete="new-password"
+                disabled={disabled}
+                onChange={(event) =>
+                  setForm((current) => ({ ...current, password: event.target.value }))
+                }
+                placeholder={account?.hasPassword ? "留空则不修改" : "请输入阿里邮箱客户端密码"}
+                type="password"
+                value={form.password}
+              />
+              <FieldDescription>
+                密码会加密保存；阿里企业邮箱需开启 IMAP/SMTP 服务。
+              </FieldDescription>
+            </Field>
+
+            <div className="grid gap-4 sm:grid-cols-[1fr_120px]">
+              <Field>
+                <FieldLabel htmlFor="mail-ingest-host">IMAP 主机</FieldLabel>
+                <Input
+                  id="mail-ingest-host"
+                  disabled={disabled}
+                  onChange={(event) =>
+                    setForm((current) => ({ ...current, imapHost: event.target.value }))
+                  }
+                  value={form.imapHost}
+                />
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="mail-ingest-port">端口</FieldLabel>
+                <Input
+                  id="mail-ingest-port"
+                  disabled={disabled}
+                  inputMode="numeric"
+                  onChange={(event) =>
+                    setForm((current) => ({ ...current, imapPort: event.target.value }))
+                  }
+                  value={form.imapPort}
+                />
+              </Field>
+            </div>
+
+            <Field>
+              <FieldLabel htmlFor="mail-ingest-keyword">标题关键字</FieldLabel>
+              <Input
+                id="mail-ingest-keyword"
+                disabled={disabled}
+                onChange={(event) =>
+                  setForm((current) => ({ ...current, subjectKeyword: event.target.value }))
+                }
+                value={form.subjectKeyword}
+              />
+            </Field>
+          </FieldGroup>
+
+          <div className="flex justify-end gap-2">
+            {account ? (
+              <Button
+                disabled={disabled}
+                onClick={() => deleteMutation.mutate()}
+                type="button"
+                variant="outline"
+              >
+                {deleting ? (
+                  <Spinner data-icon="inline-start" />
+                ) : (
+                  <Trash2Icon data-icon="inline-start" />
+                )}
+                删除
+              </Button>
+            ) : null}
+            <Button disabled={disabled} type="submit">
+              {saving ? (
+                <Spinner data-icon="inline-start" />
+              ) : (
+                <SaveIcon data-icon="inline-start" />
+              )}
+              保存配置
+            </Button>
+          </div>
+        </form>
+      </CardContent>
+    </Card>
+  );
+}
+
 function MyProfilePage() {
   const { data: session, isPending, refetch } = authClient.useSession();
   const { data: listOrganizations } = authClient.useListOrganizations();
@@ -344,6 +654,8 @@ function MyProfilePage() {
           currentSlug={currentSlug}
           organizations={organizations}
         />
+
+        <MailIngestAccountCard />
       </div>
     </div>
   );

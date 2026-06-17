@@ -32,7 +32,10 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { HistoryIcon, Trash2Icon, UsersIcon } from "lucide-react";
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { ResumeDocumentFileIcon } from "@/components/features/resume/resume-document-file-icon";
+import {
+  ResumeDocumentFileIcon,
+  getResumeDocumentFileIconKind,
+} from "@/components/features/resume/resume-document-file-icon";
 import { listBulkResumeBatches } from "@/lib/client/api/endpoints/bulk-resume-upload";
 import { BulkUploadConfirmDialog } from "@/components/features/studio/resumes/bulk-upload-confirm-dialog";
 import type { BulkUploadConfirmConfig } from "@/components/features/studio/resumes/bulk-upload-confirm-dialog";
@@ -560,8 +563,7 @@ function ResumeLibraryPage({ metrics }: { metrics: ResumeLibraryMetrics }) {
       selectColumn<ResumeLibraryListRecord>(),
       customColumn<ResumeLibraryListRecord>({
         cell: (r) => {
-          const documentKind =
-            getPreviewableResumeDocumentKind({ fileName: r.resumeFileName }) ?? "pdf";
+          const documentKind = getResumeDocumentFileIconKind({ fileName: r.resumeFileName });
           const previewable = isPreviewableResumeDocumentInput({ fileName: r.resumeFileName });
           const previewTitle = r.resumeFileName ?? "查看简历";
           return (

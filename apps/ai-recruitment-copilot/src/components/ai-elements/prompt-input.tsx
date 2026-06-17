@@ -1,6 +1,7 @@
 "use client";
 
 import type { ChatStatus, FileUIPart, SourceDocumentUIPart } from "ai";
+import type { AttachmentTextSource } from "@arc/db-schema/db-enums";
 import type {
   ChangeEvent,
   ChangeEventHandler,
@@ -65,7 +66,7 @@ export interface AttachmentParsed {
   text: string;
   structured: unknown;
   pageCount: number;
-  textSource: "qwen-ocr";
+  textSource: AttachmentTextSource;
 }
 
 export type ManagedAttachment = FileUIPart & {

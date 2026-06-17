@@ -5,6 +5,7 @@
 import { setTimeout as delay } from "node:timers/promises";
 import { generateText } from "ai";
 import { XMLParser } from "fast-xml-parser";
+import { convert as htmlToText } from "html-to-text";
 import JSZip from "jszip";
 import mammoth from "mammoth";
 import { parseJsonOutput } from "@arc/ai-recruitment-copilot-backend/server/agents/json-output";
@@ -13,6 +14,7 @@ import { structuredSchema } from "@arc/db-schema/resume-parser-schema";
 import type { ResumeParserStructured } from "@arc/db-schema/resume-parser-schema";
 import { getResumeDocumentKind } from "@arc/shared/resume-documents";
 import { getRequiredEnv } from "./env";
+import { convertLegacyOfficeToOoxml } from "./office-conversion";
 import { rasterizePdfWithMeta } from "./pdf-rasterize";
 import { isQwenOcrConfigured, qwenVlOcr } from "./qwen-ocr";
 
@@ -85,6 +87,7 @@ const STRUCTURED_INSTRUCTIONS = `你是一名简历解析助手。给你一段�
 export type ResumeTextSource =
   | "qwen-ocr"
   | "docx-text"
+  | "html-text"
   | "pptx-text"
   | "xlsx-text"
   | "external-verify-parse";
@@ -539,6 +542,28 @@ async function extractXlsxText(bytes: Uint8Array): Promise<ParsedResumeOcr> {
   return { pageCount: sheetBlocks.length, text, textSource: "xlsx-text" };
 }
 
+function extractHtmlText(bytes: Uint8Array): ParsedResumeOcr {
+  const html = new TextDecoder("utf-8", { fatal: false }).decode(bytes);
+  const text = normalizeExtractedText(
+    htmlToText(html, {
+      baseElements: {
+        selectors: ["body"],
+      },
+      selectors: [
+        { format: "skip", selector: "script" },
+        { format: "skip", selector: "style" },
+        { options: { ignoreHref: true }, selector: "a" },
+        { format: "skip", selector: "img" },
+      ],
+      wordwrap: false,
+    }),
+  );
+  if (!text) {
+    throw new Error("HTML text extraction returned empty text.");
+  }
+  return { pageCount: 1, text, textSource: "html-text" };
+}
+
 async function qwenVlOcrWithRetry(
   imageBytes: Buffer,
   page: number,
@@ -687,18 +712,42 @@ export async function parseResumeOcrOnly(bytes: Uint8Array): Promise<ParsedResum
 export function extractResumeDocumentText(input: ResumeDocumentInput): Promise<ParsedResumeOcr> {
   const kind = getResumeDocumentKind(input);
   if (!kind) {
-    throw new Error("仅支持上传 PDF、DOCX、PPTX、XLSX、JPG、PNG 简历。");
+    throw new Error("仅支持上传 PDF、DOC、DOCX、HTML、PPT、PPTX、XLS、XLSX、JPG、PNG 简历。");
   }
 
   switch (kind) {
     case "pdf": {
       return parseResumeOcrOnly(input.bytes);
     }
+    case "doc": {
+      return convertLegacyOfficeToOoxml({
+        bytes: input.bytes,
+        inputExtension: "doc",
+        outputExtension: "docx",
+      }).then(extractDocxText);
+    }
     case "docx": {
       return extractDocxText(input.bytes);
     }
+    case "html": {
+      return Promise.resolve(extractHtmlText(input.bytes));
+    }
+    case "ppt": {
+      return convertLegacyOfficeToOoxml({
+        bytes: input.bytes,
+        inputExtension: "ppt",
+        outputExtension: "pptx",
+      }).then(extractPptxText);
+    }
     case "pptx": {
       return extractPptxText(input.bytes);
+    }
+    case "xls": {
+      return convertLegacyOfficeToOoxml({
+        bytes: input.bytes,
+        inputExtension: "xls",
+        outputExtension: "xlsx",
+      }).then(extractXlsxText);
     }
     case "xlsx": {
       return extractXlsxText(input.bytes);
@@ -707,7 +756,7 @@ export function extractResumeDocumentText(input: ResumeDocumentInput): Promise<P
       return extractImageText(input);
     }
     default: {
-      throw new Error("仅支持上传 PDF、DOCX、PPTX、XLSX、JPG、PNG 简历。");
+      throw new Error("仅支持上传 PDF、DOC、DOCX、HTML、PPT、PPTX、XLS、XLSX、JPG、PNG 简历。");
     }
   }
 }

@@ -11,6 +11,7 @@
 // start interview"), which reuses the same overlay via isGeneratingQuestions.
 
 import type { DedupMatchRecord } from "@/lib/client/api";
+import { env } from "@/env/client";
 import { fetchInterviewDedup } from "@/lib/client/api";
 import { readNdjsonStream } from "@/lib/client/ndjson-stream";
 import { matchJobDescriptionForResume, parseResumeFile } from "@/lib/client/resume-analysis";
@@ -507,6 +508,9 @@ export function useResumeAnalysisPipeline(
   const generateQuestions = useCallback((): Promise<ResumeAnalysisResult | null> => {
     if (!resumePayload) {
       return Promise.resolve(null);
+    }
+    if (!env.NEXT_PUBLIC_ENABLE_CANDIDATE_SPECIFIC_INTERVIEW_QUESTIONS) {
+      return Promise.resolve(resumePayload);
     }
     return runQuestionGeneration({
       fileName: resumePayload.fileName,

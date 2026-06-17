@@ -40,7 +40,9 @@ ARG MINIMAX_TTS_BASE_URL=https://api.minimax.chat
 ARG NEXT_PUBLIC_AGENT_NAME=interview-agent
 ARG NEXT_PUBLIC_BASE_URL
 ARG NEXT_PUBLIC_BETTER_AUTH_URL
+ARG NEXT_PUBLIC_ENABLE_CANDIDATE_SPECIFIC_INTERVIEW_QUESTIONS=true
 ARG NEXT_PUBLIC_ENABLE_GOOGLE_LOGIN=false
+ARG NEXT_PUBLIC_ENABLE_INTERVIEW_RECORDING=true
 ARG QWEN_OCR_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
 ARG QWEN_OCR_MODEL=qwen-vl-ocr-latest
 ARG RECORDING_R2_FORCE_PATH_STYLE=true
@@ -67,7 +69,9 @@ ENV MINIMAX_TTS_BASE_URL=$MINIMAX_TTS_BASE_URL
 ENV NEXT_PUBLIC_AGENT_NAME=$NEXT_PUBLIC_AGENT_NAME
 ENV NEXT_PUBLIC_BASE_URL=$NEXT_PUBLIC_BASE_URL
 ENV NEXT_PUBLIC_BETTER_AUTH_URL=$NEXT_PUBLIC_BETTER_AUTH_URL
+ENV NEXT_PUBLIC_ENABLE_CANDIDATE_SPECIFIC_INTERVIEW_QUESTIONS=$NEXT_PUBLIC_ENABLE_CANDIDATE_SPECIFIC_INTERVIEW_QUESTIONS
 ENV NEXT_PUBLIC_ENABLE_GOOGLE_LOGIN=$NEXT_PUBLIC_ENABLE_GOOGLE_LOGIN
+ENV NEXT_PUBLIC_ENABLE_INTERVIEW_RECORDING=$NEXT_PUBLIC_ENABLE_INTERVIEW_RECORDING
 ENV QWEN_OCR_BASE_URL=$QWEN_OCR_BASE_URL
 ENV QWEN_OCR_MODEL=$QWEN_OCR_MODEL
 ENV RECORDING_R2_FORCE_PATH_STYLE=$RECORDING_R2_FORCE_PATH_STYLE
@@ -85,7 +89,10 @@ COPY pnpm-lock.yaml pnpm-workspace.yaml package.json turbo.json tsconfig.base.js
 COPY apps/ai-recruitment-copilot ./apps/ai-recruitment-copilot
 COPY apps/ai-recruitment-copilot-backend ./apps/ai-recruitment-copilot-backend
 
-RUN pnpm --filter @arc/ai-recruitment-copilot build
+RUN test -n "$BETTER_AUTH_URL" || (echo "BETTER_AUTH_URL build arg is required." && false) \
+ && export NEXT_PUBLIC_BASE_URL="${NEXT_PUBLIC_BASE_URL:-$BETTER_AUTH_URL}" \
+ && export NEXT_PUBLIC_BETTER_AUTH_URL="${NEXT_PUBLIC_BETTER_AUTH_URL:-$BETTER_AUTH_URL}" \
+ && pnpm --filter @arc/ai-recruitment-copilot build
 
 # --- Production ---
 FROM base AS runner
@@ -98,7 +105,9 @@ RUN apt-get update \
  && apt-get install -y --no-install-recommends \
     fontconfig \
     fonts-noto-cjk \
+    libreoffice-calc \
     libreoffice-impress \
+    libreoffice-writer \
  && rm -rf /var/lib/apt/lists/*
 
 RUN addgroup --system --gid 1001 nodejs \

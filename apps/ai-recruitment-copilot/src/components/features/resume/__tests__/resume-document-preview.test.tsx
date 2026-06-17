@@ -7,6 +7,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { PdfFileIcon } from "@/components/features/pdf/pdf-file-icon";
 import { ResumeDocumentFileIcon } from "@/components/features/resume/resume-document-file-icon";
+import * as fileIconModule from "@/components/features/resume/resume-document-file-icon";
 import * as previewDialogModule from "@/components/features/resume/resume-document-preview-dialog";
 import * as previewButtonModule from "@/components/features/resume/resume-document-preview-button";
 
@@ -98,6 +99,19 @@ describe("resume document preview", () => {
     expect(markup).toContain('viewBox="-4 0 64 64"');
     expect(markup).toContain('fill="#49C9A7"');
     expect(markup).toContain("v-20.904h20.906v20.904");
+  });
+
+  it("keeps legacy Office file icon detection separate from preview support", () => {
+    expect(fileIconModule.getResumeDocumentFileIconKind({ fileName: "resume.doc" })).toBe("doc");
+    expect(fileIconModule.getResumeDocumentFileIconKind({ fileName: "resume.xls" })).toBe("xls");
+    expect(fileIconModule.getResumeDocumentFileIconKind({ fileName: "resume.ppt" })).toBe("ppt");
+    expect(fileIconModule.getResumeDocumentFileIconKind({ fileName: "resume.html" })).toBe("html");
+    expect(previewButtonModule.getPreviewableResumeDocumentKind({ fileName: "resume.doc" })).toBe(
+      null,
+    );
+    expect(previewButtonModule.getPreviewableResumeDocumentKind({ fileName: "resume.html" })).toBe(
+      null,
+    );
   });
 
   it("renders image resume previews with a loading state before the image blob is ready", () => {

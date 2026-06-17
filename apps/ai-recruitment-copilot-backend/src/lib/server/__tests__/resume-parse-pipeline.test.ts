@@ -3,8 +3,13 @@ import JSZip from "jszip";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
+  convertLegacyOfficeToOoxml: vi.fn(),
   qwenVlOcr: vi.fn(),
   rasterizePdfWithMeta: vi.fn(),
+}));
+
+vi.mock("../office-conversion", () => ({
+  convertLegacyOfficeToOoxml: mocks.convertLegacyOfficeToOoxml,
 }));
 
 vi.mock("../pdf-rasterize", () => ({
@@ -240,5 +245,133 @@ describe("extractResumeDocumentText", () => {
     expect(result.text).toContain("技能\tNode.js");
     expect(result.textSource).toBe("xlsx-text");
     expect(result.pageCount).toBe(1);
+  });
+
+  it("extracts readable text from single-file HTML resumes", async () => {
+    const html = `
+      <!doctype html>
+      <html>
+        <head>
+          <title>简历</title>
+          <style>.hidden { display: none; }</style>
+          <script>window.secret = "ignore me";</script>
+        </head>
+        <body>
+          <h1>候选人：李雷</h1>
+          <section>
+            <h2>工作经历</h2>
+            <p>5 年前端开发，熟悉 React 和 TypeScript。</p>
+          </section>
+        </body>
+      </html>
+    `;
+
+    const result = await extractResumeDocumentText({
+      bytes: new TextEncoder().encode(html),
+      fileName: "resume.html",
+      mediaType: "text/html",
+    });
+
+    expect(result.text).toContain("候选人：李雷");
+    expect(result.text).toContain("5 年前端开发");
+    expect(result.text).toContain("React");
+    expect(result.text).not.toContain("ignore me");
+    expect(result.textSource).toBe("html-text");
+    expect(result.pageCount).toBe(1);
+  });
+
+  it("converts DOC files before extracting DOCX text", async () => {
+    const docxBytes = await createStoredZip({
+      "word/document.xml": `
+        <w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+          <w:body>
+            <w:p><w:r><w:t>旧版 Word 候选人</w:t></w:r></w:p>
+          </w:body>
+        </w:document>
+      `,
+    });
+    mocks.convertLegacyOfficeToOoxml.mockResolvedValue(docxBytes);
+
+    const result = await extractResumeDocumentText({
+      bytes: new Uint8Array([1, 2, 3]),
+      fileName: "resume.doc",
+      mediaType: "application/msword",
+    });
+
+    expect(mocks.convertLegacyOfficeToOoxml).toHaveBeenCalledWith({
+      bytes: new Uint8Array([1, 2, 3]),
+      inputExtension: "doc",
+      outputExtension: "docx",
+    });
+    expect(result.text).toContain("旧版 Word 候选人");
+    expect(result.textSource).toBe("docx-text");
+  });
+
+  it("converts PPT files before extracting PPTX text", async () => {
+    const pptxBytes = await createStoredZip({
+      "ppt/slides/slide1.xml": `
+        <p:sld xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">
+          <a:t>旧版 PPT 候选人</a:t>
+        </p:sld>
+      `,
+    });
+    mocks.convertLegacyOfficeToOoxml.mockResolvedValue(pptxBytes);
+
+    const result = await extractResumeDocumentText({
+      bytes: new Uint8Array([4, 5, 6]),
+      fileName: "resume.ppt",
+      mediaType: "application/vnd.ms-powerpoint",
+    });
+
+    expect(mocks.convertLegacyOfficeToOoxml).toHaveBeenCalledWith({
+      bytes: new Uint8Array([4, 5, 6]),
+      inputExtension: "ppt",
+      outputExtension: "pptx",
+    });
+    expect(result.text).toContain("旧版 PPT 候选人");
+    expect(result.textSource).toBe("pptx-text");
+  });
+
+  it("converts XLS files before extracting XLSX text", async () => {
+    const xlsxBytes = await createStoredZip({
+      "xl/_rels/workbook.xml.rels": `
+        <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+          <Relationship Id="rId1" Target="worksheets/sheet1.xml"/>
+        </Relationships>
+      `,
+      "xl/sharedStrings.xml": `
+        <sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+          <si><t>旧版 Excel 候选人</t></si>
+        </sst>
+      `,
+      "xl/workbook.xml": `
+        <workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"
+          xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+          <sheets><sheet name="简历" sheetId="1" r:id="rId1"/></sheets>
+        </workbook>
+      `,
+      "xl/worksheets/sheet1.xml": `
+        <worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+          <sheetData>
+            <row r="1"><c r="A1" t="s"><v>0</v></c></row>
+          </sheetData>
+        </worksheet>
+      `,
+    });
+    mocks.convertLegacyOfficeToOoxml.mockResolvedValue(xlsxBytes);
+
+    const result = await extractResumeDocumentText({
+      bytes: new Uint8Array([7, 8, 9]),
+      fileName: "resume.xls",
+      mediaType: "application/vnd.ms-excel",
+    });
+
+    expect(mocks.convertLegacyOfficeToOoxml).toHaveBeenCalledWith({
+      bytes: new Uint8Array([7, 8, 9]),
+      inputExtension: "xls",
+      outputExtension: "xlsx",
+    });
+    expect(result.text).toContain("旧版 Excel 候选人");
+    expect(result.textSource).toBe("xlsx-text");
   });
 });

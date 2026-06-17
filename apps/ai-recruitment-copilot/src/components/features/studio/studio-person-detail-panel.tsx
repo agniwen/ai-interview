@@ -35,6 +35,7 @@ import {
   transitionInterviewRecord,
   updateStudioInterviewRound,
 } from "@/lib/client/api";
+import { env } from "@/env/client";
 import { useOptionalWorkspaceSlug } from "@/lib/client/workspace-context";
 import {
   BotIcon,
@@ -1381,15 +1382,17 @@ function useStudioPersonDetailPanel({
                             <AccordionContent className="px-5 pb-5">
                               <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(400px,1fr)]">
                                 <div className="space-y-4">
-                                  <RecordingPlayer
-                                    accessMode={accessMode}
-                                    conversationId={report.conversationId}
-                                    durationSecs={report.recordingDurationSecs}
-                                    recordId={effectiveRoundId ?? ""}
-                                    seekToSecs={activeEvidence?.timeInCallSecs ?? null}
-                                    status={report.recordingStatus}
-                                    surface="section"
-                                  />
+                                  {env.NEXT_PUBLIC_ENABLE_INTERVIEW_RECORDING ? (
+                                    <RecordingPlayer
+                                      accessMode={accessMode}
+                                      conversationId={report.conversationId}
+                                      durationSecs={report.recordingDurationSecs}
+                                      recordId={effectiveRoundId ?? ""}
+                                      seekToSecs={activeEvidence?.timeInCallSecs ?? null}
+                                      status={report.recordingStatus}
+                                      surface="section"
+                                    />
+                                  ) : null}
                                   <SoftPanel className="p-4">
                                     <h4 className="font-medium text-sm">会话概览</h4>
                                     <div className="mt-3 grid gap-2 text-sm">

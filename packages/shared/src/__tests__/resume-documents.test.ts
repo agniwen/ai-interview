@@ -28,10 +28,58 @@ describe("resume document formats", () => {
     );
   });
 
+  it("prefers supported filename extensions over ambiguous Office media types", () => {
+    expect(
+      getResumeDocumentKind({ fileName: "resume.docx", mediaType: "application/msword" }),
+    ).toBe("docx");
+    expect(
+      getResumeDocumentKind({
+        fileName: "resume.xlsx",
+        mediaType: "application/vnd.ms-excel",
+      }),
+    ).toBe("xlsx");
+  });
+
   it("includes image formats in upload accept metadata", () => {
     expect(supportedResumeDocumentAccept).toContain("image/jpeg");
     expect(supportedResumeDocumentAccept).toContain(".png");
     expect(supportedResumeDocumentLabel).toContain("JPG");
     expect(supportedResumeDocumentLabel).toContain("PNG");
+  });
+
+  it("accepts legacy Office resume formats", () => {
+    expect(getResumeDocumentKind({ fileName: "resume.doc" })).toBe("doc");
+    expect(getResumeDocumentKind({ fileName: "resume.ppt" })).toBe("ppt");
+    expect(getResumeDocumentKind({ fileName: "resume.xls" })).toBe("xls");
+    expect(getResumeDocumentKind({ mediaType: "application/msword" })).toBe("doc");
+    expect(getResumeDocumentKind({ mediaType: "application/vnd.ms-powerpoint" })).toBe("ppt");
+    expect(getResumeDocumentKind({ mediaType: "application/vnd.ms-excel" })).toBe("xls");
+    expect(isSupportedResumeDocumentInput({ fileName: "candidate.XLS" })).toBe(true);
+  });
+
+  it("includes legacy Office formats in upload accept metadata", () => {
+    expect(supportedResumeDocumentAccept).toContain("application/msword");
+    expect(supportedResumeDocumentAccept).toContain("application/vnd.ms-powerpoint");
+    expect(supportedResumeDocumentAccept).toContain("application/vnd.ms-excel");
+    expect(supportedResumeDocumentAccept).toContain(".doc");
+    expect(supportedResumeDocumentAccept).toContain(".ppt");
+    expect(supportedResumeDocumentAccept).toContain(".xls");
+    expect(supportedResumeDocumentLabel).toContain("DOC");
+    expect(supportedResumeDocumentLabel).toContain("PPT");
+    expect(supportedResumeDocumentLabel).toContain("XLS");
+  });
+
+  it("accepts single-file HTML resume formats", () => {
+    expect(getResumeDocumentKind({ fileName: "resume.html" })).toBe("html");
+    expect(getResumeDocumentKind({ fileName: "resume.htm" })).toBe("html");
+    expect(getResumeDocumentKind({ mediaType: "text/html" })).toBe("html");
+    expect(isSupportedResumeDocumentInput({ fileName: "candidate.HTML" })).toBe(true);
+  });
+
+  it("includes HTML formats in upload accept metadata", () => {
+    expect(supportedResumeDocumentAccept).toContain("text/html");
+    expect(supportedResumeDocumentAccept).toContain(".html");
+    expect(supportedResumeDocumentAccept).toContain(".htm");
+    expect(supportedResumeDocumentLabel).toContain("HTML");
   });
 });

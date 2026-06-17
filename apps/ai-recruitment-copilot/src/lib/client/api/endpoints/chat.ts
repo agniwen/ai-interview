@@ -10,6 +10,7 @@
  */
 
 import type { UIMessage } from "ai";
+import type { AttachmentTextSource } from "@arc/db-schema/db-enums";
 import type { JobDescriptionConfig } from "@arc/db-schema/job-description-config";
 import { rpc } from "@/lib/client/rpc";
 import { sha256HexOfFile } from "@arc/shared/file-hash";
@@ -81,7 +82,7 @@ export interface UploadedAttachment {
     text: string;
     structured: unknown;
     pageCount: number;
-    textSource: "qwen-ocr";
+    textSource: AttachmentTextSource;
   };
 }
 

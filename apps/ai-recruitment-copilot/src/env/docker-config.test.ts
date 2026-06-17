@@ -18,4 +18,16 @@ describe("Docker env configuration", () => {
       expect(compose).not.toContain(`${name}:-https://example.com`);
     }
   });
+
+  it("requires one canonical app URL and reuses it for public build URLs", () => {
+    const dockerfile = readRepoFile("apps/ai-recruitment-copilot/Dockerfile");
+    const baseUrlFallback = ["$", "{NEXT_PUBLIC_BASE_URL:-$BETTER_AUTH_URL}"].join("");
+    const authUrlFallback = ["$", "{NEXT_PUBLIC_BETTER_AUTH_URL:-$BETTER_AUTH_URL}"].join("");
+
+    expect(dockerfile).toContain(
+      'test -n "$BETTER_AUTH_URL" || (echo "BETTER_AUTH_URL build arg is required." && false)',
+    );
+    expect(dockerfile).toContain(`export NEXT_PUBLIC_BASE_URL="${baseUrlFallback}"`);
+    expect(dockerfile).toContain(`export NEXT_PUBLIC_BETTER_AUTH_URL="${authUrlFallback}"`);
+  });
 });

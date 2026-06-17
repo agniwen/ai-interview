@@ -56,3 +56,18 @@ def test_interview_prompt_uses_candidate_language_policy():
     assert "以候选人的主要语言为主" in out
     assert "题目若与候选人主要语言不同" in out
     assert "全程使用中文交流" not in out
+
+
+def test_interview_prompt_skips_supplementary_questions_when_absent():
+    out = build_instructions(
+        _base_ctx(
+            job_description_preset_questions=[
+                {"content": "请介绍一个你负责过的后端项目。", "difficulty": "easy"}
+            ],
+            interview_questions=[],
+        )
+    )
+
+    assert "本轮没有从简历生成的补充题目" in out
+    assert "请跳过补充题目环节" in out
+    assert "从以下题目中再随机抽取三到五道" not in out

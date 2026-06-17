@@ -24,6 +24,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Modal } from "@/components/ui/modal";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { env } from "@/env/client";
 import { fetchStudioResume, launchInterviewFromResume } from "@/lib/client/api";
 import { readNdjsonStream } from "@/lib/client/ndjson-stream";
 import { rpc } from "@/lib/client/rpc";
@@ -123,9 +124,9 @@ export function LaunchInterviewDialog({
   // 简历详情：渲染「概览」和「经历」tab，也用来取 resumeProfile 触发出题。
   // Full resume detail backs the 概览/经历 tabs and seeds question generation.
   const [resumeDetail, setResumeDetail] = useState<ResumeLibraryDetail | null>(null);
-  // 解析阶段没有简历 PDF 可用（手动建档）时给出可见的兜底说明。
-  // Banner shown when this candidate has no resumeProfile to seed generation.
-  const [noProfileNotice, setNoProfileNotice] = useState(false);
+  // 解析阶段没有简历 PDF 可用或自动出题关闭时给出可见的兜底说明。
+  // Banner shown when generation is unavailable or disabled.
+  const [questionGenerationNotice, setQuestionGenerationNotice] = useState<string | null>(null);
   // 默认停在「面试题」tab；用户可手动切到概览 / 经历查看候选人上下文。
   // Default to the questions tab; users can flip to overview / experience.
   const [activeTab, setActiveTab] = useState<"questions" | "overview" | "experience">("questions");
@@ -167,7 +168,7 @@ export function LaunchInterviewDialog({
     let cancelled = false;
     const abortController = new AbortController();
     abortControllerRef.current = abortController;
-    setNoProfileNotice(false);
+    setQuestionGenerationNotice(null);
     setResumeDetail(null);
     setActiveTab("questions");
     form.reset(EMPTY_FORM_VALUES);
@@ -180,8 +181,16 @@ export function LaunchInterviewDialog({
         }
         setResumeDetail(detail);
         const profile = detail?.resumeProfile ?? null;
+        if (!env.NEXT_PUBLIC_ENABLE_CANDIDATE_SPECIFIC_INTERVIEW_QUESTIONS) {
+          setQuestionGenerationNotice(
+            "已通过环境变量关闭候选人特定面试题自动生成；可在下方手动添加题目，或直接发起。",
+          );
+          return;
+        }
         if (!profile) {
-          setNoProfileNotice(true);
+          setQuestionGenerationNotice(
+            "该候选人没有解析过的简历，无法自动生成面试题；可在下方手动添加题目。",
+          );
           return;
         }
 
@@ -302,10 +311,10 @@ export function LaunchInterviewDialog({
         <div className="relative">
           <AnimatedHeight>
             <TabsContent value="questions">
-              {noProfileNotice ? (
+              {questionGenerationNotice ? (
                 <Card className="mb-3 gap-0 rounded-md py-0">
                   <CardContent className="bg-muted/40 px-3 py-2 text-muted-foreground text-xs">
-                    该候选人没有解析过的简历，无法自动生成面试题；可在下方手动添加题目。
+                    {questionGenerationNotice}
                   </CardContent>
                 </Card>
               ) : null}
@@ -319,7 +328,11 @@ export function LaunchInterviewDialog({
                   question: "",
                 })}
                 disabled={isBusy}
-                emptyDescription="生成完成后会自动填入，也可以手动添加。"
+                emptyDescription={
+                  env.NEXT_PUBLIC_ENABLE_CANDIDATE_SPECIFIC_INTERVIEW_QUESTIONS
+                    ? "生成完成后会自动填入，也可以手动添加。"
+                    : "自动生成已关闭，可以手动添加，也可以留空直接发起。"
+                }
                 emptyTitle="暂无面试题"
                 form={form}
                 resetKey={recordId ?? "new"}

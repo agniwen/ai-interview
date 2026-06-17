@@ -15,7 +15,10 @@ import { useComposerInputContext } from "../composer-input-context";
 import { ComposerAttachments } from "./composer-attachments";
 import { ComposerFooter } from "./composer-footer";
 import { DarkModeBeam } from "./dark-mode-beam";
-import { supportedResumeDocumentAccept } from "@arc/shared/resume-documents";
+import {
+  supportedResumeDocumentAccept,
+  supportedResumeDocumentLabel,
+} from "@arc/shared/resume-documents";
 
 const DEFAULT_PROMPT_FOR_PDF_ONLY = "请结合岗位要求分析这份简历并给出筛选建议。";
 
@@ -65,9 +68,7 @@ export function Composer({
               <div className="flex flex-col items-center gap-2">
                 <UploadIcon className="size-8 text-primary/50" />
                 <p className="font-medium text-sm">拖拽简历文件到这里</p>
-                <p className="text-muted-foreground text-xs">
-                  支持 PDF、DOCX、PPTX、XLSX、JPG、PNG
-                </p>
+                <p className="text-muted-foreground text-xs">支持 {supportedResumeDocumentLabel}</p>
               </div>
             </div>
           }
@@ -78,7 +79,7 @@ export function Composer({
           multiple
           onError={({ code, message }) => {
             if (code === "accept") {
-              onUploadErrorChange("仅支持上传 PDF、DOCX、PPTX、XLSX、JPG、PNG 文件。");
+              onUploadErrorChange(`仅支持上传 ${supportedResumeDocumentLabel} 文件。`);
               return;
             }
             if (code === "max_file_size") {

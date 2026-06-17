@@ -143,6 +143,21 @@ function formatPresetQuestionsText(questions: AgentInstructionPresetQuestion[]):
   return cleaned.map((q, index) => `\n  ${index + 1}. [${q.difficulty}] ${q.content}`).join("");
 }
 
+function formatSupplementaryQuestionsSection(questions: InterviewQuestion[]): string {
+  if (questions.length === 0) {
+    return `## 补充题目（从简历生成）
+本轮没有从简历生成的补充题目，请跳过补充题目环节；问完所有岗位预设题后，直接按面试规则收尾或结束。`;
+  }
+
+  return `## 补充题目（从简历生成）
+在问完所有岗位预设题之后，从以下题目中再随机抽取三到五道，由简入深地继续提问。难度标记规则与上方一致，仅供内部参考。
+抽题时请进行考查点去重：若某道补充题目与岗位预设题的考查点重复（例如同一项技术、同一段工作经历、同一类能力或同一类问题情境），则跳过该题，改从未被覆盖的考查点中另选，避免重复提问。
+
+${DIFFICULTY_FOLLOWUP_RULES}
+
+题目列表：${formatQuestionsText(questions)}`;
+}
+
 /**
  * 拼接 prompt 的"前置段落"：面试官设定 + 岗位说明，这两段都为可选。
  * Build the prompt's prefix sections: interviewer persona + job description (both optional).
@@ -178,7 +193,9 @@ export function buildAgentInstructions(context: AgentInstructionContext): string
   const skills = context.resumeProfile?.skills ?? [];
   const skillsText = skills.length > 0 ? skills.join("、") : "未提供";
   const experienceText = formatExperienceText(context.resumeProfile);
-  const supplementaryQuestionsText = formatQuestionsText(context.interviewQuestions);
+  const supplementaryQuestionsSection = formatSupplementaryQuestionsSection(
+    context.interviewQuestions,
+  );
   const presetQuestionsText = formatPresetQuestionsText(context.jobDescriptionPresetQuestions);
   const companyContext = context.companyContext?.trim() ?? "";
   const prefixSections = formatPrefixSections(
@@ -209,13 +226,7 @@ ${DIFFICULTY_FOLLOWUP_RULES}
 
 题目列表：${presetQuestionsText}
 
-## 补充题目（从简历生成）
-在问完所有岗位预设题之后，从以下题目中再随机抽取三到五道，由简入深地继续提问。难度标记规则与上方一致，仅供内部参考。
-抽题时请进行考查点去重：若某道补充题目与岗位预设题的考查点重复（例如同一项技术、同一段工作经历、同一类能力或同一类问题情境），则跳过该题，改从未被覆盖的考查点中另选，避免重复提问。
-
-${DIFFICULTY_FOLLOWUP_RULES}
-
-题目列表：${supplementaryQuestionsText}
+${supplementaryQuestionsSection}
 
 ## 面试规则
 1. 开场流程：完成自我介绍后，必须先用自然口语询问候选人是否准备好开始，并等候候选人明确表示已准备好（例如"好""可以开始""yes""I'm ready""let's start"）后，再开始第一道题。若候选人表示还需要片刻或暂未准备好，请礼貌等候并稍后再次确认；在收到肯定答复前，不要提出任何面试题。

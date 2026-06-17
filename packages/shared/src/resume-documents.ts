@@ -1,13 +1,32 @@
-export type ResumeDocumentKind = "pdf" | "docx" | "pptx" | "xlsx" | "image";
+export type ResumeDocumentKind =
+  | "pdf"
+  | "doc"
+  | "docx"
+  | "html"
+  | "ppt"
+  | "pptx"
+  | "xls"
+  | "xlsx"
+  | "image";
 
 export const resumeDocumentFormats: Record<
   ResumeDocumentKind,
   { extensions: readonly string[]; label: string; mediaTypes: readonly string[] }
 > = {
+  doc: {
+    extensions: ["doc"],
+    label: "DOC",
+    mediaTypes: ["application/msword"],
+  },
   docx: {
     extensions: ["docx"],
     label: "DOCX",
     mediaTypes: ["application/vnd.openxmlformats-officedocument.wordprocessingml.document"],
+  },
+  html: {
+    extensions: ["html", "htm"],
+    label: "HTML",
+    mediaTypes: ["text/html"],
   },
   image: {
     extensions: ["jpg", "jpeg", "png"],
@@ -19,10 +38,20 @@ export const resumeDocumentFormats: Record<
     label: "PDF",
     mediaTypes: ["application/pdf"],
   },
+  ppt: {
+    extensions: ["ppt"],
+    label: "PPT",
+    mediaTypes: ["application/vnd.ms-powerpoint"],
+  },
   pptx: {
     extensions: ["pptx"],
     label: "PPTX",
     mediaTypes: ["application/vnd.openxmlformats-officedocument.presentationml.presentation"],
+  },
+  xls: {
+    extensions: ["xls"],
+    label: "XLS",
+    mediaTypes: ["application/vnd.ms-excel"],
   },
   xlsx: {
     extensions: ["xlsx"],
@@ -42,7 +71,7 @@ export const supportedResumeDocumentAccept = Object.values(resumeDocumentFormats
   ])
   .join(",");
 
-export const supportedResumeDocumentLabel = "PDF、DOCX、PPTX、XLSX、JPG、PNG";
+export const supportedResumeDocumentLabel = "PDF、DOC、DOCX、HTML、PPT、PPTX、XLS、XLSX、JPG、PNG";
 
 function getExtensionFromFileName(fileName: string | undefined): string | null {
   const normalized = fileName?.trim().toLowerCase();
@@ -76,19 +105,19 @@ export function getResumeDocumentKind(input: {
   fileName?: string;
   mediaType?: string;
 }): ResumeDocumentKind | null {
-  const mediaType = input.mediaType?.trim().toLowerCase();
-  if (mediaType) {
+  const extension = getExtensionFromFileName(input.fileName);
+  if (extension) {
     for (const [kind, config] of Object.entries(resumeDocumentFormats)) {
-      if (config.mediaTypes.includes(mediaType)) {
+      if (config.extensions.includes(extension)) {
         return kind as ResumeDocumentKind;
       }
     }
   }
 
-  const extension = getExtensionFromFileName(input.fileName);
-  if (extension) {
+  const mediaType = input.mediaType?.trim().toLowerCase();
+  if (mediaType) {
     for (const [kind, config] of Object.entries(resumeDocumentFormats)) {
-      if (config.extensions.includes(extension)) {
+      if (config.mediaTypes.includes(mediaType)) {
         return kind as ResumeDocumentKind;
       }
     }

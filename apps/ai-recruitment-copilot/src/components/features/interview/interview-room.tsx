@@ -239,7 +239,7 @@ function DeviceCheckItem({
   );
 }
 
-function DevicePreflightCard() {
+function DevicePreflightCard({ recordingEnabled }: { recordingEnabled: boolean }) {
   const [checking, setChecking] = useState(false);
   const [result, setResult] = useState<DeviceCheckResult>({
     camera: "idle",
@@ -251,7 +251,7 @@ function DevicePreflightCard() {
   const runChecks = useCallback(async () => {
     setChecking(true);
     setResult({
-      camera: "checking",
+      camera: recordingEnabled ? "checking" : "idle",
       message: "正在检测设备状态...",
       microphone: "checking",
       network: navigator.onLine ? "checking" : "failed",
@@ -272,7 +272,9 @@ function DevicePreflightCard() {
       checkMediaDevice({
         audio: { autoGainControl: true, echoCancellation: true, noiseSuppression: true },
       }),
-      checkMediaDevice({ video: true }),
+      recordingEnabled
+        ? checkMediaDevice({ video: true })
+        : Promise.resolve({ ok: true, reason: null }),
     ]);
 
     const networkStatus = navigator.onLine ? "passed" : "failed";
@@ -280,7 +282,7 @@ function DevicePreflightCard() {
       if (!microphone.ok) {
         return `麦克风不可用：${microphone.reason}。可以先检查权限，或使用「静音开始」进入文字沟通。`;
       }
-      if (!camera.ok) {
+      if (recordingEnabled && !camera.ok) {
         return `摄像头暂不可用：${camera.reason}。面试仍可继续，但录像可能只有音频。`;
       }
       if (networkStatus === "failed") {
@@ -289,14 +291,19 @@ function DevicePreflightCard() {
       return "设备检测通过，可以开始面试。";
     })();
 
+    let cameraStatus: DeviceCheckStatus = "idle";
+    if (recordingEnabled) {
+      cameraStatus = camera.ok ? "passed" : "warning";
+    }
+
     setResult({
-      camera: camera.ok ? "passed" : "warning",
+      camera: cameraStatus,
       message,
       microphone: microphone.ok ? "passed" : "failed",
       network: networkStatus,
     });
     setChecking(false);
-  }, []);
+  }, [recordingEnabled]);
 
   return (
     <section className="mt-6 rounded-2xl border border-border bg-background/70 p-4 backdrop-blur">
@@ -304,7 +311,9 @@ function DevicePreflightCard() {
         <div>
           <h2 className="font-medium text-sm">设备检测</h2>
           <p className="mt-1 text-muted-foreground text-xs leading-normal">
-            开始前可快速确认麦克风、摄像头和网络状态。
+            {recordingEnabled
+              ? "开始前可快速确认麦克风、摄像头和网络状态。"
+              : "开始前可快速确认麦克风和网络状态。"}
           </p>
         </div>
         <Button disabled={checking} onClick={runChecks} size="sm" type="button" variant="outline">
@@ -316,19 +325,25 @@ function DevicePreflightCard() {
           检测设备
         </Button>
       </div>
-      <div className="mt-4 grid gap-2 sm:grid-cols-3">
+      <div
+        className={
+          recordingEnabled ? "mt-4 grid gap-2 sm:grid-cols-3" : "mt-4 grid gap-2 sm:grid-cols-2"
+        }
+      >
         <DeviceCheckItem
           detail="确认浏览器可采集你的声音。"
           icon={MicIcon}
           status={result.microphone}
           title="麦克风"
         />
-        <DeviceCheckItem
-          detail="确认摄像头可用于面试录像。"
-          icon={VideoIcon}
-          status={result.camera}
-          title="摄像头"
-        />
+        {recordingEnabled ? (
+          <DeviceCheckItem
+            detail="确认摄像头可用于面试录像。"
+            icon={VideoIcon}
+            status={result.camera}
+            title="摄像头"
+          />
+        ) : null}
         <DeviceCheckItem
           detail="读取浏览器当前联网状态。"
           icon={WifiIcon}
@@ -351,6 +366,7 @@ function InterviewNoticeDialog({
   onConfirm,
   onOpenChange,
   open,
+  recordingEnabled,
   startOptions,
 }: {
   acknowledged: boolean;
@@ -360,6 +376,7 @@ function InterviewNoticeDialog({
   onConfirm: () => void;
   onOpenChange: (open: boolean) => void;
   open: boolean;
+  recordingEnabled: boolean;
   startOptions: StartOptions;
 }) {
   const acknowledgementId = useId();
@@ -393,11 +410,13 @@ function InterviewNoticeDialog({
             icon={UserCheckIcon}
             title="认真作答"
           />
-          <RuleItem
-            description="面试将通过摄像头全程录制，开始后请保持摄像头开启，期间不能关闭。"
-            icon={VideoIcon}
-            title="保持摄像头录制"
-          />
+          {recordingEnabled ? (
+            <RuleItem
+              description="面试将通过摄像头全程录制，开始后请保持摄像头开启，期间不能关闭。"
+              icon={VideoIcon}
+              title="保持摄像头录制"
+            />
+          ) : null}
           <RuleItem
             description="尽量不要刷新页面或关闭标签页。如遇网络中断，请在 3 分钟内回到本页面，可继续之前的对话；超过 3 分钟本轮将自动结束。"
             icon={TriangleAlertIcon}
@@ -436,6 +455,7 @@ function WaitingView({
   isRoundCompleted,
   isRecovering,
   onStart,
+  recordingEnabled,
 }: {
   interviewView: CandidateInterviewView | null;
   isConnecting: boolean;
@@ -445,6 +465,7 @@ function WaitingView({
   // Recovery mode: hide rules + start buttons, show only a "reconnecting" hint.
   isRecovering: boolean;
   onStart: (options?: { muted?: boolean }) => void;
+  recordingEnabled: boolean;
 }) {
   const candidateName = interviewView?.candidateName ?? "";
   const targetRole = interviewView?.targetRole ?? null;
@@ -505,7 +526,7 @@ function WaitingView({
             <p className="mt-2 text-muted-foreground text-sm sm:text-base">{subheadingText}</p>
           </section>
 
-          {showPreparation ? <DevicePreflightCard /> : null}
+          {showPreparation ? <DevicePreflightCard recordingEnabled={recordingEnabled} /> : null}
 
           {showPreparation && (
             <div className="mt-10 hidden items-center gap-3 sm:mt-12 md:flex">
@@ -569,6 +590,7 @@ function WaitingView({
           }
         }}
         open={noticeOpen}
+        recordingEnabled={recordingEnabled}
         startOptions={pendingStartOptions}
       />
     </>
@@ -576,6 +598,7 @@ function WaitingView({
 }
 
 export default function InterviewRoom({ interviewId, roundId }: InterviewRoomProps) {
+  const interviewRecordingEnabled = env.NEXT_PUBLIC_ENABLE_INTERVIEW_RECORDING;
   const [interviewView, setInterviewView] = useState<CandidateInterviewView | null>(null);
   const [roundStatus, setRoundStatus] = useState<string | null>(null);
   const [isLoadingStatus, setIsLoadingStatus] = useState(true);
@@ -802,7 +825,7 @@ export default function InterviewRoom({ interviewId, roundId }: InterviewRoomPro
             // Enable camera by default so server-side RoomCompositeEgress captures
             // video; if the browser denies permission, LiveKit silently skips it.
             camera: {
-              enabled: true,
+              enabled: interviewRecordingEnabled,
             },
             microphone: {
               enabled: !options?.muted,
@@ -862,7 +885,7 @@ export default function InterviewRoom({ interviewId, roundId }: InterviewRoomPro
         toast.error(message);
       }
     },
-    [session],
+    [interviewRecordingEnabled, session],
   );
 
   // 刷新返回时若 canResume 为 true：跳过 RuleItem 自动 handleStart 续连。
@@ -929,6 +952,7 @@ export default function InterviewRoom({ interviewId, roundId }: InterviewRoomPro
         isRecovering={isRecovering}
         isRoundCompleted={isRoundCompleted}
         onStart={handleStart}
+        recordingEnabled={interviewRecordingEnabled}
       />
     );
     // 已结束或正在重连：跳过 PreInterviewFormsView 这层。
@@ -958,12 +982,16 @@ export default function InterviewRoom({ interviewId, roundId }: InterviewRoomPro
         <AgentSessionView_01
           defaultChatOpen={startedMuted}
           autoOpenChatOnAgentActive={true}
-          supportsVideoInput={true}
+          supportsVideoInput={interviewRecordingEnabled}
           supportsScreenShare={false}
           chatInputEnabled={interviewView?.currentRoundAllowTextInput ?? false}
-          onCameraDisableAttempt={() => {
-            toast.warning("面试过程中需要保持摄像头录制，请勿关闭摄像头。");
-          }}
+          onCameraDisableAttempt={
+            interviewRecordingEnabled
+              ? () => {
+                  toast.warning("面试过程中需要保持摄像头录制，请勿关闭摄像头。");
+                }
+              : undefined
+          }
           onDisconnect={handleEndInterview}
           preConnectMessage="正在连线面试官，请稍等..."
         />
