@@ -42,8 +42,10 @@ import type { StudioInterviewStatus } from "@arc/db-schema/studio-interviews";
 import {
   analyzeResumeFile,
   generateInterviewQuestionsForProfile,
+  parseResumeFastToProfile,
 } from "@arc/ai-recruitment-copilot-backend/server/agents/resume-analysis-agent";
 import { factory, jsonValidatorError } from "@arc/ai-recruitment-copilot-backend/server/factory";
+import { resolveCandidateQuestionGenerationEnabled } from "@arc/shared/interview/candidate-question-generation-config";
 import { getGlobalConfig } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/global-config/dao";
 import { loadSubmissionsByInterview } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/forms/dao/submissions";
 import {
@@ -344,6 +346,9 @@ export const studioInterviewsRouter = factory
       }
 
       const now = new Date();
+      const candidateQuestionGenerationEnabled = resolveCandidateQuestionGenerationEnabled(
+        process.env,
+      );
       const interviewRecordId = crypto.randomUUID();
       const uploadResult =
         resume && c.var.user
@@ -357,16 +362,23 @@ export const studioInterviewsRouter = factory
       let analysis = parsedResumePayload;
       if (!analysis && resume) {
         if (uploadResult?.cachedResumeProfile) {
-          const interviewQuestions = await generateInterviewQuestionsForProfile(
-            uploadResult.cachedResumeProfile,
-          );
+          const interviewQuestions = candidateQuestionGenerationEnabled
+            ? await generateInterviewQuestionsForProfile(uploadResult.cachedResumeProfile)
+            : [];
           analysis = {
             fileName: resume.name,
             interviewQuestions,
             resumeProfile: uploadResult.cachedResumeProfile,
           };
-        } else {
+        } else if (candidateQuestionGenerationEnabled) {
           analysis = await analyzeResumeFile(resume);
+        } else {
+          const { resumeProfile } = await parseResumeFastToProfile(resume);
+          analysis = {
+            fileName: resume.name,
+            interviewQuestions: [],
+            resumeProfile,
+          };
         }
       }
       const record = {

@@ -101,8 +101,17 @@ def build_instructions(interview_context: dict, interviewer: dict | None = None)
     supplementary_questions_text = ""
     for q in interview_questions:
         supplementary_questions_text += f"\n  {q.get('order', '')}. [{q.get('difficulty', '')}] {q.get('question', '')}"
-    if not supplementary_questions_text:
-        supplementary_questions_text = "\n  无"
+    if supplementary_questions_text:
+        supplementary_questions_section = f"""## 补充题目（从简历生成）
+在问完所有岗位预设题之后，从以下题目中再随机抽取三到五道，由简入深地继续提问。难度标记规则与上方一致，仅供内部参考。
+抽题时请进行考查点去重：若某道补充题目与岗位预设题的考查点重复（例如同一项技术、同一段工作经历、同一类能力或同一类问题情境），则跳过该题，改从未被覆盖的考查点中另选，避免重复提问。
+
+{DIFFICULTY_FOLLOWUP_RULES}
+
+题目列表：{supplementary_questions_text}"""
+    else:
+        supplementary_questions_section = """## 补充题目（从简历生成）
+本轮没有从简历生成的补充题目，请跳过补充题目环节；问完所有岗位预设题后，直接按面试规则收尾或结束。"""
 
     # 按顺序拼接前置板块：面试官角色设定 → 公司情况 → 岗位说明  # noqa: RUF003
     # Assemble prefix sections in order: interviewer role → company context → JD.
@@ -145,13 +154,7 @@ def build_instructions(interview_context: dict, interviewer: dict | None = None)
 
 题目列表：{preset_questions_text}
 
-## 补充题目（从简历生成）
-在问完所有岗位预设题之后，从以下题目中再随机抽取三到五道，由简入深地继续提问。难度标记规则与上方一致，仅供内部参考。
-抽题时请进行考查点去重：若某道补充题目与岗位预设题的考查点重复（例如同一项技术、同一段工作经历、同一类能力或同一类问题情境），则跳过该题，改从未被覆盖的考查点中另选，避免重复提问。
-
-{DIFFICULTY_FOLLOWUP_RULES}
-
-题目列表：{supplementary_questions_text}
+{supplementary_questions_section}
 
 ## 面试规则
 1. 当本阶段开始时，候选人已经在前一阶段确认准备就绪，请直接进入第一道岗位预设题，不要再次寒暄或自我介绍。

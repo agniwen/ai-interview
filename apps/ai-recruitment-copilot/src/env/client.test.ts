@@ -17,7 +17,27 @@ describe("client env", () => {
     expect(env.NEXT_PUBLIC_BASE_URL).toBe("https://app.example.com");
     expect(env.NEXT_PUBLIC_BETTER_AUTH_URL).toBe("https://app.example.com");
     expect(env.NEXT_PUBLIC_ENABLE_GOOGLE_LOGIN).toBe(false);
+    expect(env.NEXT_PUBLIC_ENABLE_CANDIDATE_SPECIFIC_INTERVIEW_QUESTIONS).toBe(true);
+    expect(env.NEXT_PUBLIC_ENABLE_INTERVIEW_RECORDING).toBe(true);
     expect(env.NEXT_PUBLIC_AGENT_NAME).toBe("interview-agent");
+  });
+
+  it("allows disabling candidate-specific interview question generation from public env", () => {
+    const env = createClientEnv({
+      ...configuredEnv,
+      NEXT_PUBLIC_ENABLE_CANDIDATE_SPECIFIC_INTERVIEW_QUESTIONS: "false",
+    });
+
+    expect(env.NEXT_PUBLIC_ENABLE_CANDIDATE_SPECIFIC_INTERVIEW_QUESTIONS).toBe(false);
+  });
+
+  it("allows disabling interview recording from public env", () => {
+    const env = createClientEnv({
+      ...configuredEnv,
+      NEXT_PUBLIC_ENABLE_INTERVIEW_RECORDING: "false",
+    });
+
+    expect(env.NEXT_PUBLIC_ENABLE_INTERVIEW_RECORDING).toBe(false);
   });
 
   it("rejects unknown keys at typecheck time", () => {

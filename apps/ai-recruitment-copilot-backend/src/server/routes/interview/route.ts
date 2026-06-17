@@ -42,6 +42,7 @@ import {
   lookupOrgIdByInterviewRecord,
   safeUpdateTag,
 } from "@arc/ai-recruitment-copilot-backend/server/cache-tags";
+import { resolveInterviewRecordingEnabled } from "@arc/shared/interview/recording-config";
 import {
   buildTokenErrorResponse,
   loadCandidateInterviewRecord,
@@ -393,10 +394,11 @@ export const interviewRouter = factory
     // interview record itself. studio_interview.organization_id 已 NOT NULL,直接取。
     // studio_interview.organization_id is NOT NULL — read it directly.
     const globalCfg = await getGlobalConfig(interviewRecord.organizationId);
-    // 录像开关：R2 录像桶凭据齐全才让 Agent 启动 Egress；候选人浏览器拒绝摄像头时
-    // 由前端在 /api/interview/.../recording-skipped 之类的通道反馈（这里只判服务端能力）。
-    // Recording switch: only enable when R2 recording storage is present so the agent can write to storage.
-    const recordingEnabled = isRecordingStorageConfigured();
+    // 录像开关：显式环境变量未关闭且 R2 录像桶凭据齐全时，才让 Agent 启动 Egress。
+    // 候选人浏览器拒绝摄像头时由前端侧降级；这里只判服务端能力与部署开关。
+    // Recording switch: only enable when both the feature flag and R2 storage are present.
+    const recordingEnabled =
+      resolveInterviewRecordingEnabled(process.env) && isRecordingStorageConfigured();
     const recordingFileKey = recordingEnabled
       ? await buildRecordingFileKey({
           interviewRecordId: id,
