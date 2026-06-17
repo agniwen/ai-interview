@@ -48,6 +48,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ButtonGroup } from "@/components/ui/button-group";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Empty,
   EmptyContent,
@@ -204,6 +205,42 @@ function deletePoolRecordLabel(record: ResumePoolListRecord | null) {
 
 function sessionUserId(session: { user?: { id?: string | null } } | null | undefined) {
   return session?.user?.id ?? null;
+}
+
+function pruneSelectedPrivateResumeIds(
+  current: Set<string>,
+  scope: ResumePoolScope,
+  visibleRecordIds: string[],
+) {
+  if (current.size === 0) {
+    return current;
+  }
+  if (scope !== "private") {
+    return new Set<string>();
+  }
+
+  const visibleIds = new Set(visibleRecordIds);
+  const next = new Set([...current].filter((id) => visibleIds.has(id)));
+  return next.size === current.size ? current : next;
+}
+
+function updateSelectedPrivateResumeIds(current: Set<string>, id: string, selected: boolean) {
+  const next = new Set(current);
+  if (selected) {
+    next.add(id);
+  } else {
+    next.delete(id);
+  }
+  return next;
+}
+
+function removeSelectedPrivateResumeId(current: Set<string>, id: string) {
+  if (!current.has(id)) {
+    return current;
+  }
+  const next = new Set(current);
+  next.delete(id);
+  return next;
 }
 
 function sortPoolRecords(
@@ -783,8 +820,11 @@ function ResumePoolCard({
   onOpenPdf,
   onImport,
   onPublish,
+  onSelectionChange,
   publishing,
   record,
+  selected,
+  selectionDisabled,
   scope,
 }: {
   record: ResumePoolListRecord;
@@ -792,11 +832,14 @@ function ResumePoolCard({
   canDelete: boolean;
   publishing: boolean;
   deleting: boolean;
+  selected: boolean;
+  selectionDisabled: boolean;
   onOpenDetail: (record: ResumePoolListRecord) => void;
   onOpenPdf: (record: ResumePoolListRecord) => void;
   onImport: (record: ResumePoolListRecord) => void;
   onPublish: (record: ResumePoolListRecord) => void;
   onDelete: (record: ResumePoolListRecord) => void;
+  onSelectionChange: (record: ResumePoolListRecord, selected: boolean) => void;
 }) {
   const title = getCandidateDisplayTitle(record);
   const previewLabel = record.resumeFileName ?? "查看简历";
@@ -856,6 +899,15 @@ function ResumePoolCard({
             <p className="mt-1 truncate text-muted-foreground text-xs">未填写邮箱</p>
           )}
         </div>
+        {scope === "private" && canDelete ? (
+          <Checkbox
+            aria-label={`选择 ${title}`}
+            checked={selected}
+            className="mt-1"
+            disabled={selectionDisabled}
+            onCheckedChange={(checked) => onSelectionChange(record, checked === true)}
+          />
+        ) : null}
       </CardHeader>
       <CardContent className="flex flex-col gap-3 px-3 text-xs">
         <div className="flex flex-wrap gap-1.5">
@@ -1001,9 +1053,12 @@ function ResumePoolListContent({
   onOpenDetail,
   onOpenPdf,
   onPublish,
+  onSelectionChange,
   onUpload,
   publishing,
   records,
+  selectedPrivateResumeIds,
+  selectionDisabled,
   scope,
   showEmptyState,
 }: {
@@ -1022,7 +1077,10 @@ function ResumePoolListContent({
   onImport: (record: ResumePoolListRecord) => void;
   onPublish: (record: ResumePoolListRecord) => void;
   onDelete: (record: ResumePoolListRecord) => void;
+  onSelectionChange: (record: ResumePoolListRecord, selected: boolean) => void;
   onUpload: () => void;
+  selectedPrivateResumeIds: ReadonlySet<string>;
+  selectionDisabled: boolean;
 }) {
   if (records.length > 0) {
     return (
@@ -1045,7 +1103,10 @@ function ResumePoolListContent({
                 onPublish={onPublish}
                 publishing={publishing}
                 record={record}
+                selected={selectedPrivateResumeIds.has(record.id)}
+                selectionDisabled={selectionDisabled}
                 scope={scope}
+                onSelectionChange={onSelectionChange}
               />
             );
           })}
@@ -1071,6 +1132,62 @@ function ResumePoolListContent({
   return null;
 }
 
+function ResumePoolToolbarActions({
+  hasActiveUploadBatches,
+  hasSelectedPrivateResumes,
+  isBulkDeleting,
+  isDeletingPoolRecords,
+  onBulkDelete,
+  onOpenBatchList,
+  onUpload,
+  selectedCount,
+}: {
+  hasActiveUploadBatches: boolean;
+  hasSelectedPrivateResumes: boolean;
+  isBulkDeleting: boolean;
+  isDeletingPoolRecords: boolean;
+  selectedCount: number;
+  onBulkDelete: () => void;
+  onOpenBatchList: () => void;
+  onUpload: () => void;
+}) {
+  return (
+    <div className="flex items-center gap-2">
+      <ButtonGroup>
+        <Button className="sm:w-auto" onClick={onUpload}>
+          <UploadIcon className="size-4" />
+          上传简历
+        </Button>
+        {hasActiveUploadBatches ? (
+          <Button
+            aria-label="查看上传记录"
+            onClick={onOpenBatchList}
+            title="查看上传记录"
+            type="button"
+          >
+            <HistoryIcon className="size-4" />
+          </Button>
+        ) : null}
+      </ButtonGroup>
+      {hasSelectedPrivateResumes ? (
+        <Button
+          disabled={isDeletingPoolRecords}
+          onClick={onBulkDelete}
+          type="button"
+          variant="destructive"
+        >
+          {isBulkDeleting ? (
+            <LoaderCircleIcon className="size-4 animate-spin" />
+          ) : (
+            <Trash2Icon className="size-4" />
+          )}
+          {isBulkDeleting ? "删除中…" : `删除所选 ${selectedCount} 份`}
+        </Button>
+      ) : null}
+    </div>
+  );
+}
+
 function ResumePoolPage() {
   const slug = useWorkspaceSlug();
   const workspaceId = useWorkspaceId();
@@ -1088,6 +1205,9 @@ function ResumePoolPage() {
   const [previewRecord, setPreviewRecord] = useState<ResumePoolListRecord | null>(null);
   const [importTarget, setImportTarget] = useState<ResumePoolListRecord | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ResumePoolListRecord | null>(null);
+  const [selectedPrivateResumeIds, setSelectedPrivateResumeIds] = useState<Set<string>>(
+    () => new Set(),
+  );
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
 
   const queryKeyPrefix = useMemo(() => ["resume-pool", slug] as const, [slug]);
@@ -1131,6 +1251,15 @@ function ResumePoolPage() {
   const showPoolFooter = visibleRecordCount > 0;
   const currentUserId = sessionUserId(session);
   const currentOrganizationId = workspaceId;
+  const selectedPrivateResumeIdsArray = useMemo(
+    () => [...selectedPrivateResumeIds],
+    [selectedPrivateResumeIds],
+  );
+  const visibleRecordIds = useMemo(
+    () => grid.bind.data.map((record) => record.id),
+    [grid.bind.data],
+  );
+  const hasSelectedPrivateResumes = scope === "private" && selectedPrivateResumeIdsArray.length > 0;
   const loadMoreRecords = useCallback(() => {
     if (!hasMoreRecords || isPoolBusy) {
       return;
@@ -1176,6 +1305,12 @@ function ResumePoolPage() {
   }, [hasActiveUploadBatches, queryClient, queryKeyPrefix]);
 
   useEffect(() => {
+    setSelectedPrivateResumeIds((current) =>
+      pruneSelectedPrivateResumeIds(current, scope, visibleRecordIds),
+    );
+  }, [scope, visibleRecordIds]);
+
+  useEffect(() => {
     const node = loadMoreRef.current;
     if (!node || !hasMoreRecords) {
       return;
@@ -1218,6 +1353,12 @@ function ResumePoolPage() {
     await bulk.view(batch.id);
   }
 
+  function handlePrivateResumeSelection(record: ResumePoolListRecord, selected: boolean) {
+    setSelectedPrivateResumeIds((current) =>
+      updateSelectedPrivateResumeIds(current, record.id, selected),
+    );
+  }
+
   const publishMutation = useMutation({
     mutationFn: (record: ResumePoolListRecord) => publishResumePoolItem(slug, record.id),
     onError: (error) => toast.error(error instanceof Error ? error.message : "推送失败"),
@@ -1231,10 +1372,24 @@ function ResumePoolPage() {
     onError: (error) => toast.error(error instanceof Error ? error.message : "删除失败"),
     onSuccess: (_data, record) => {
       toast.success(`${deletePoolRecordLabel(record)}已删除`);
+      setSelectedPrivateResumeIds((current) => removeSelectedPrivateResumeId(current, record.id));
       setDeleteTarget(null);
       invalidatePool();
     },
   });
+  const bulkDeleteMutation = useMutation({
+    mutationFn: async (ids: string[]) => {
+      await Promise.all(ids.map((id) => deleteResumePoolItem(slug, id)));
+      return ids.length;
+    },
+    onError: (error) => toast.error(error instanceof Error ? error.message : "批量删除失败"),
+    onSettled: invalidatePool,
+    onSuccess: (deletedCount) => {
+      toast.success(`已删除 ${deletedCount} 份私有简历`);
+      setSelectedPrivateResumeIds(new Set());
+    },
+  });
+  const isDeletingPoolRecords = deleteMutation.isPending || bulkDeleteMutation.isPending;
 
   const emptyTitle = scope === "private" ? "暂无私有简历" : "简历广场暂无简历";
   const filtersConfig = useMemo(
@@ -1310,29 +1465,23 @@ function ResumePoolPage() {
             refreshing={grid.bind.refetching}
             searchLoading={grid.bind.loading}
             toolbarRight={
-              <ButtonGroup>
-                <Button className="sm:w-auto" onClick={() => setUploadOpen(true)}>
-                  <UploadIcon className="size-4" />
-                  上传简历
-                </Button>
-                {hasActiveUploadBatches ? (
-                  <Button
-                    aria-label="查看上传记录"
-                    onClick={() => setBatchListOpen(true)}
-                    title="查看上传记录"
-                    type="button"
-                  >
-                    <HistoryIcon className="size-4" />
-                  </Button>
-                ) : null}
-              </ButtonGroup>
+              <ResumePoolToolbarActions
+                hasActiveUploadBatches={hasActiveUploadBatches}
+                hasSelectedPrivateResumes={hasSelectedPrivateResumes}
+                isBulkDeleting={bulkDeleteMutation.isPending}
+                isDeletingPoolRecords={isDeletingPoolRecords}
+                onBulkDelete={() => bulkDeleteMutation.mutate(selectedPrivateResumeIdsArray)}
+                onOpenBatchList={() => setBatchListOpen(true)}
+                onUpload={() => setUploadOpen(true)}
+                selectedCount={selectedPrivateResumeIdsArray.length}
+              />
             }
           />
           <ResumePoolListContent
             canResetFilters={grid.bind.canResetFilters}
             currentOrganizationId={currentOrganizationId}
             currentUserId={currentUserId}
-            deleting={deleteMutation.isPending}
+            deleting={isDeletingPoolRecords}
             emptyTitle={emptyTitle}
             isInitialPoolLoading={isInitialPoolLoading}
             onDelete={setDeleteTarget}
@@ -1340,9 +1489,12 @@ function ResumePoolPage() {
             onOpenDetail={setDetailRecord}
             onOpenPdf={setPreviewRecord}
             onPublish={publishMutation.mutate}
+            onSelectionChange={handlePrivateResumeSelection}
             onUpload={() => setUploadOpen(true)}
             publishing={publishMutation.isPending}
             records={grid.bind.data}
+            selectedPrivateResumeIds={selectedPrivateResumeIds}
+            selectionDisabled={isDeletingPoolRecords}
             scope={scope}
             showEmptyState={showEmptyState}
           />
