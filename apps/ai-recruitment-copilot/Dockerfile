@@ -85,7 +85,10 @@ COPY pnpm-lock.yaml pnpm-workspace.yaml package.json turbo.json tsconfig.base.js
 COPY apps/ai-recruitment-copilot ./apps/ai-recruitment-copilot
 COPY apps/ai-recruitment-copilot-backend ./apps/ai-recruitment-copilot-backend
 
-RUN pnpm --filter @arc/ai-recruitment-copilot build
+RUN test -n "$BETTER_AUTH_URL" || (echo "BETTER_AUTH_URL build arg is required." && false) \
+ && export NEXT_PUBLIC_BASE_URL="${NEXT_PUBLIC_BASE_URL:-$BETTER_AUTH_URL}" \
+ && export NEXT_PUBLIC_BETTER_AUTH_URL="${NEXT_PUBLIC_BETTER_AUTH_URL:-$BETTER_AUTH_URL}" \
+ && pnpm --filter @arc/ai-recruitment-copilot build
 
 # --- Production ---
 FROM base AS runner

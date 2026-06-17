@@ -6,8 +6,8 @@ services:
       args:
         BETTER_AUTH_URL: ${BETTER_AUTH_URL:?BETTER_AUTH_URL is required at build time}
         NEXT_PUBLIC_AGENT_NAME: ${NEXT_PUBLIC_AGENT_NAME:-interview-agent}
-        NEXT_PUBLIC_BASE_URL: ${NEXT_PUBLIC_BASE_URL:?NEXT_PUBLIC_BASE_URL is required at build time}
-        NEXT_PUBLIC_BETTER_AUTH_URL: ${NEXT_PUBLIC_BETTER_AUTH_URL:?NEXT_PUBLIC_BETTER_AUTH_URL is required at build time}
+        NEXT_PUBLIC_BASE_URL: ${NEXT_PUBLIC_BASE_URL:-${BETTER_AUTH_URL:?BETTER_AUTH_URL is required at build time}}
+        NEXT_PUBLIC_BETTER_AUTH_URL: ${NEXT_PUBLIC_BETTER_AUTH_URL:-${BETTER_AUTH_URL:?BETTER_AUTH_URL is required at build time}}
         NEXT_PUBLIC_ENABLE_GOOGLE_LOGIN: ${NEXT_PUBLIC_ENABLE_GOOGLE_LOGIN:-false}
     env_file:
       - path: .env
