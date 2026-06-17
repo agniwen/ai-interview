@@ -20,7 +20,11 @@ import {
 } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resume-upload-batches/dao/batches";
 import { getResumeDocumentExtension } from "@arc/shared/resume-documents";
 import { sha256HexOfBytes } from "@arc/shared/file-hash";
-import { isMatchingResumeMailSubject, selectSupportedResumeAttachments } from "./message-filter";
+import {
+  buildMailSearchCriteria,
+  isMatchingResumeMailSubject,
+  selectSupportedResumeAttachments,
+} from "./message-filter";
 import type { MailIngestConfig } from "./config";
 
 interface RunResult {
@@ -44,19 +48,6 @@ function toDate(value: Date | string | undefined): Date | null {
     return null;
   }
   return value instanceof Date ? value : new Date(value);
-}
-
-async function ensureMailbox(client: ImapFlow, mailbox: string): Promise<void> {
-  try {
-    await client.mailboxCreate(mailbox);
-  } catch {
-    // Creating an existing IMAP folder commonly fails; move will surface real path issues.
-  }
-}
-
-async function moveMessage(client: ImapFlow, uid: number, mailbox: string): Promise<void> {
-  await ensureMailbox(client, mailbox);
-  await client.messageMove([uid], mailbox, { uid: true });
 }
 
 async function storeResumeAttachment(attachment: {
@@ -143,10 +134,7 @@ async function processAccount(
   try {
     const { mailbox } = client;
     const uidValidity = mailbox ? String(mailbox.uidValidity) : "unknown";
-    const uids = await client.search(
-      { seen: false, subject: account.subjectKeyword },
-      { uid: true },
-    );
+    const uids = await client.search(buildMailSearchCriteria(), { uid: true });
     if (!uids || !Array.isArray(uids) || uids.length === 0) {
       return result;
     }
@@ -180,11 +168,6 @@ async function processAccount(
         uidValidity,
       });
       if (!messageClaim.shouldProcess) {
-        if (messageClaim.moveTo === "processed") {
-          await moveMessage(client, uid, account.processedMailbox);
-        } else if (messageClaim.moveTo === "failed") {
-          await moveMessage(client, uid, account.failedMailbox);
-        }
         result.messagesSkipped += 1;
         continue;
       }
@@ -195,11 +178,9 @@ async function processAccount(
           status: "queued",
         });
         await enqueueResumeParseJobs(batch.jobs);
-        await moveMessage(client, uid, account.processedMailbox);
         result.messagesQueued += 1;
       } catch (error) {
         await updateMailIngestMessageResult(messageClaim.id, { error, status: "failed" });
-        await moveMessage(client, uid, account.failedMailbox);
         result.messagesFailed += 1;
       }
     }

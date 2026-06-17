@@ -1,5 +1,10 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { isMatchingResumeMailSubject, selectSupportedResumeAttachments } from "./message-filter";
+import {
+  buildMailSearchCriteria,
+  isMatchingResumeMailSubject,
+  selectSupportedResumeAttachments,
+} from "./message-filter";
 
 describe("mail ingest message filter", () => {
   it("matches Boss Zhipin subjects by the configured keyword", () => {
@@ -7,6 +12,17 @@ describe("mail ingest message filter", () => {
       true,
     );
     expect(isMatchingResumeMailSubject("候选人王泽投递了 Android 工程师", "boss直聘")).toBe(false);
+  });
+
+  it("searches all mails so read but unsynced mails can be processed locally", () => {
+    expect(buildMailSearchCriteria()).toEqual({ all: true });
+  });
+
+  it("does not move or delete source mailbox messages after processing", () => {
+    const processorSource = readFileSync(new URL("processor.ts", import.meta.url), "utf-8");
+
+    expect(processorSource).not.toContain("messageMove");
+    expect(processorSource).not.toContain("messageDelete");
   });
 
   it("keeps supported resume attachments and ignores inline or unsupported files", () => {

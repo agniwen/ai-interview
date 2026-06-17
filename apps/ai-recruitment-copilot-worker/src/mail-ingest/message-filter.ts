@@ -13,6 +13,10 @@ export interface SupportedResumeMailAttachment {
   filename: string;
 }
 
+export function buildMailSearchCriteria() {
+  return { all: true };
+}
+
 export function isMatchingResumeMailSubject(subject: string | undefined, keyword: string): boolean {
   const normalizedSubject = subject?.trim().toLowerCase();
   const normalizedKeyword = keyword.trim().toLowerCase();

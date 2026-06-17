@@ -170,6 +170,9 @@ function matchesSearch(record: ResumePoolListRecord, rawSearch: string) {
 }
 
 function sourceLabel(record: ResumePoolListRecord) {
+  if (record.sourceChannel === "mail_ingest") {
+    return "邮箱推送";
+  }
   if (record.scope === "private") {
     return "—";
   }
