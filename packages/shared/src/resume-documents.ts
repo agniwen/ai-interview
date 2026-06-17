@@ -1,4 +1,13 @@
-export type ResumeDocumentKind = "pdf" | "doc" | "docx" | "ppt" | "pptx" | "xls" | "xlsx" | "image";
+export type ResumeDocumentKind =
+  | "pdf"
+  | "doc"
+  | "docx"
+  | "html"
+  | "ppt"
+  | "pptx"
+  | "xls"
+  | "xlsx"
+  | "image";
 
 export const resumeDocumentFormats: Record<
   ResumeDocumentKind,
@@ -13,6 +22,11 @@ export const resumeDocumentFormats: Record<
     extensions: ["docx"],
     label: "DOCX",
     mediaTypes: ["application/vnd.openxmlformats-officedocument.wordprocessingml.document"],
+  },
+  html: {
+    extensions: ["html", "htm"],
+    label: "HTML",
+    mediaTypes: ["text/html"],
   },
   image: {
     extensions: ["jpg", "jpeg", "png"],
@@ -57,7 +71,7 @@ export const supportedResumeDocumentAccept = Object.values(resumeDocumentFormats
   ])
   .join(",");
 
-export const supportedResumeDocumentLabel = "PDF、DOC、DOCX、PPT、PPTX、XLS、XLSX、JPG、PNG";
+export const supportedResumeDocumentLabel = "PDF、DOC、DOCX、HTML、PPT、PPTX、XLS、XLSX、JPG、PNG";
 
 function getExtensionFromFileName(fileName: string | undefined): string | null {
   const normalized = fileName?.trim().toLowerCase();

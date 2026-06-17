@@ -105,7 +105,11 @@ describe("resume document preview", () => {
     expect(fileIconModule.getResumeDocumentFileIconKind({ fileName: "resume.doc" })).toBe("doc");
     expect(fileIconModule.getResumeDocumentFileIconKind({ fileName: "resume.xls" })).toBe("xls");
     expect(fileIconModule.getResumeDocumentFileIconKind({ fileName: "resume.ppt" })).toBe("ppt");
+    expect(fileIconModule.getResumeDocumentFileIconKind({ fileName: "resume.html" })).toBe("html");
     expect(previewButtonModule.getPreviewableResumeDocumentKind({ fileName: "resume.doc" })).toBe(
+      null,
+    );
+    expect(previewButtonModule.getPreviewableResumeDocumentKind({ fileName: "resume.html" })).toBe(
       null,
     );
   });

@@ -247,6 +247,39 @@ describe("extractResumeDocumentText", () => {
     expect(result.pageCount).toBe(1);
   });
 
+  it("extracts readable text from single-file HTML resumes", async () => {
+    const html = `
+      <!doctype html>
+      <html>
+        <head>
+          <title>简历</title>
+          <style>.hidden { display: none; }</style>
+          <script>window.secret = "ignore me";</script>
+        </head>
+        <body>
+          <h1>候选人：李雷</h1>
+          <section>
+            <h2>工作经历</h2>
+            <p>5 年前端开发，熟悉 React 和 TypeScript。</p>
+          </section>
+        </body>
+      </html>
+    `;
+
+    const result = await extractResumeDocumentText({
+      bytes: new TextEncoder().encode(html),
+      fileName: "resume.html",
+      mediaType: "text/html",
+    });
+
+    expect(result.text).toContain("候选人：李雷");
+    expect(result.text).toContain("5 年前端开发");
+    expect(result.text).toContain("React");
+    expect(result.text).not.toContain("ignore me");
+    expect(result.textSource).toBe("html-text");
+    expect(result.pageCount).toBe(1);
+  });
+
   it("converts DOC files before extracting DOCX text", async () => {
     const docxBytes = await createStoredZip({
       "word/document.xml": `

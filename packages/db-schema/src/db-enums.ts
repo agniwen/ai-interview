@@ -27,6 +27,7 @@ export const attachmentTextSourceValues = [
   "pdf-parse",
   "qwen-ocr",
   "docx-text",
+  "html-text",
   "pptx-text",
   "xlsx-text",
   "external-verify-parse",

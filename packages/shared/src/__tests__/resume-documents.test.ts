@@ -68,4 +68,18 @@ describe("resume document formats", () => {
     expect(supportedResumeDocumentLabel).toContain("PPT");
     expect(supportedResumeDocumentLabel).toContain("XLS");
   });
+
+  it("accepts single-file HTML resume formats", () => {
+    expect(getResumeDocumentKind({ fileName: "resume.html" })).toBe("html");
+    expect(getResumeDocumentKind({ fileName: "resume.htm" })).toBe("html");
+    expect(getResumeDocumentKind({ mediaType: "text/html" })).toBe("html");
+    expect(isSupportedResumeDocumentInput({ fileName: "candidate.HTML" })).toBe(true);
+  });
+
+  it("includes HTML formats in upload accept metadata", () => {
+    expect(supportedResumeDocumentAccept).toContain("text/html");
+    expect(supportedResumeDocumentAccept).toContain(".html");
+    expect(supportedResumeDocumentAccept).toContain(".htm");
+    expect(supportedResumeDocumentLabel).toContain("HTML");
+  });
 });
