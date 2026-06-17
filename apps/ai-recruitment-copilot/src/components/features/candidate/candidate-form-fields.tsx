@@ -236,7 +236,7 @@ export function CandidateFormFields({
               toast.error(`最多选择 ${resumeFileMaxFiles} 份简历文件`);
             }}
             onFilesAccepted={handleAcceptedResumeFiles}
-            rejectionLabel="仅支持上传 PDF、DOCX、PPTX、XLSX、JPG、PNG 文件"
+            rejectionLabel={`仅支持上传 ${supportedResumeDocumentLabel} 文件`}
             showFileList={Boolean(resumeFile)}
             title={resumeUploadCopy.title}
           />

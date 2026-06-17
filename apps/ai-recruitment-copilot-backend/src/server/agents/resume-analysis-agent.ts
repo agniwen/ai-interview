@@ -17,6 +17,7 @@ import {
 import {
   getResumeDocumentExtension,
   isSupportedResumeDocumentInput,
+  supportedResumeDocumentLabel,
 } from "@arc/shared/resume-documents";
 import { isResumeParseCacheEnabled } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-parse-cache-policy";
 import type { ResumeTextSource } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-parse-pipeline";
@@ -167,7 +168,7 @@ function validateResumeDocumentInput(input: {
   size: number;
 }) {
   if (!isSupportedResumeDocumentInput(input)) {
-    throw new Error("仅支持上传 PDF、DOCX、PPTX、XLSX、JPG、PNG 简历。");
+    throw new Error(`仅支持上传 ${supportedResumeDocumentLabel} 简历。`);
   }
 
   if (input.size > MAX_RESUME_FILE_SIZE) {
