@@ -114,6 +114,55 @@ describe("ResumePoolPage masonry layout", () => {
     expect(cardSource).not.toContain('className="flex justify-end gap-1"');
   });
 
+  it("adds selectable private cards with a bulk delete action beside upload", () => {
+    const cardSource = source.slice(
+      source.indexOf("function ResumePoolCard"),
+      source.indexOf("function ResumePoolLoadingState"),
+    );
+    const pageSource = source.slice(
+      source.indexOf("function ResumePoolPage"),
+      source.indexOf("export const Route"),
+    );
+    const titleInterpolation = ["$", "{title}"].join("");
+
+    expect(source).toContain('import { Checkbox } from "@/components/ui/checkbox";');
+    expect(cardSource).toContain(`aria-label={\`选择 ${titleInterpolation}\`}`);
+    expect(cardSource).toContain(
+      "onCheckedChange={(checked) => onSelectionChange(record, checked === true)}",
+    );
+    expect(pageSource).toContain("selectedPrivateResumeIds");
+    expect(pageSource).toContain("hasSelectedPrivateResumes");
+    expect(pageSource).toContain("selectedPrivateResumeIdsArray");
+    expect(source).toContain("删除所选");
+    expect(pageSource).toContain("bulkDeleteMutation.isPending");
+  });
+
+  it("keeps bulk delete outside the upload button group", () => {
+    const toolbarSource = source.slice(
+      source.indexOf("function ResumePoolToolbarActions"),
+      source.indexOf("function ResumePoolPage"),
+    );
+    const buttonGroupEndIndex = toolbarSource.indexOf("</ButtonGroup>");
+    const deleteButtonIndex = toolbarSource.indexOf("删除所选");
+
+    expect(toolbarSource).toContain('className="flex items-center gap-2"');
+    expect(buttonGroupEndIndex).toBeGreaterThanOrEqual(0);
+    expect(deleteButtonIndex).toBeGreaterThan(buttonGroupEndIndex);
+  });
+
+  it("bulk deletes selected private resumes and refreshes the list afterwards", () => {
+    const pageSource = source.slice(
+      source.indexOf("function ResumePoolPage"),
+      source.indexOf("export const Route"),
+    );
+
+    expect(pageSource).toContain("const bulkDeleteMutation = useMutation({");
+    expect(pageSource).toContain("Promise.all(ids.map((id) => deleteResumePoolItem(slug, id)))");
+    expect(pageSource).toContain("setSelectedPrivateResumeIds(new Set())");
+    expect(pageSource).toContain("onSettled: invalidatePool");
+    expect(pageSource).toContain("grid.bind.data.map((record) => record.id)");
+  });
+
   it("separates profile highlights from source metadata with a divider", () => {
     expect(source).toContain(
       'className="grid grid-cols-[auto_1fr] gap-x-2 gap-y-1 border-border/70 border-t pt-3 text-muted-foreground"',

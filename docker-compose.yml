@@ -5,10 +5,15 @@ services:
       dockerfile: apps/ai-recruitment-copilot/Dockerfile
       args:
         BETTER_AUTH_URL: ${BETTER_AUTH_URL:-https://example.com}
+        NEXT_PUBLIC_AGENT_NAME: ${NEXT_PUBLIC_AGENT_NAME:-interview-agent}
         NEXT_PUBLIC_BASE_URL: ${NEXT_PUBLIC_BASE_URL:-https://example.com}
+        NEXT_PUBLIC_BETTER_AUTH_URL: ${NEXT_PUBLIC_BETTER_AUTH_URL:-https://example.com}
+        NEXT_PUBLIC_ENABLE_GOOGLE_LOGIN: ${NEXT_PUBLIC_ENABLE_GOOGLE_LOGIN:-false}
     env_file:
       - path: .env
         required: false
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     expose:
       - "3000"
     healthcheck:
@@ -29,10 +34,12 @@ services:
     env_file:
       - path: .env
         required: false
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     healthcheck:
       test:
         - CMD-SHELL
-        - node -e "fetch('http://127.0.0.1:8790/healthz').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+        - node -e "fetch('http://127.0.0.1:8790/readyz').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
       interval: 30s
       timeout: 5s
       retries: 3

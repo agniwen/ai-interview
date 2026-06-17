@@ -3,7 +3,7 @@
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { QueueJobDetailDialog } from "./queues-grid";
+import { QueueJobDetailDialog, QueueOverview } from "./queues-grid";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -104,6 +104,52 @@ describe("QueueJobDetailDialog", () => {
     expect(document.body.textContent).toContain("Nolan.jpeg");
     expect(document.body.textContent).toContain("1 / 3");
     expect(document.body.textContent).not.toContain('"attemptsMade"');
+
+    act(() => {
+      root.unmount();
+    });
+  });
+});
+
+describe("QueueOverview", () => {
+  it("does not count active jobs as pending", () => {
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+
+    act(() => {
+      root.render(
+        <QueueOverview
+          overview={{
+            counts: {
+              active: 2,
+              completed: 3,
+              delayed: 1,
+              failed: 0,
+              paused: 1,
+              prioritized: 1,
+              waiting: 4,
+              "waiting-children": 1,
+            },
+            displayName: "简历解析",
+            name: "resume-parse",
+            redis: {
+              db: 0,
+              host: "127.0.0.1",
+              port: 6379,
+              protocol: "redis:",
+              usesPassword: true,
+              usesUsername: false,
+            },
+            workers: [],
+            workersCount: 1,
+          }}
+        />,
+      );
+    });
+
+    expect(document.body.textContent).toContain("排队中8");
+    expect(document.body.textContent).toContain("处理中2");
 
     act(() => {
       root.unmount();

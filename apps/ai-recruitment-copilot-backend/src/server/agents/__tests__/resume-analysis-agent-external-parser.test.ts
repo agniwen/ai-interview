@@ -26,7 +26,10 @@ vi.mock("@arc/ai-recruitment-copilot-backend/server/routes/chat/dao/chat-attachm
 }));
 
 // oxlint-disable-next-line import/first -- must follow vi.mock() calls for correct hoisting
-import { parseResumeBytesToProfile } from "@arc/ai-recruitment-copilot-backend/server/agents/resume-analysis-agent";
+import {
+  parseResumeBytesToProfile,
+  streamParseResumeProfile,
+} from "@arc/ai-recruitment-copilot-backend/server/agents/resume-analysis-agent";
 
 const STRUCTURED = {
   age: null,
@@ -92,6 +95,15 @@ function mockExternalFetch() {
   );
   vi.stubGlobal("fetch", fetchMock);
   return fetchMock;
+}
+
+async function readStreamEvents(stream: ReadableStream<Uint8Array>) {
+  const text = await new Response(stream).text();
+  return text
+    .trim()
+    .split("\n")
+    .filter(Boolean)
+    .map((line) => JSON.parse(line) as { type: string; data?: unknown; name?: string });
 }
 
 describe("parseResumeBytesToProfile external parser switch", () => {
@@ -173,5 +185,28 @@ describe("parseResumeBytesToProfile external parser switch", () => {
         traceId: "trace-1",
       }),
     );
+  });
+
+  it("uses the external parser for the streaming parse endpoint when configured", async () => {
+    process.env.RESUME_VERIFY_PARSE_API_KEY = "external-key";
+    process.env.RESUME_VERIFY_PARSE_BASE_URL = "https://parser.example.test";
+    const fetchMock = mockExternalFetch();
+
+    const events = await readStreamEvents(
+      streamParseResumeProfile(
+        new File([new Uint8Array([1, 2, 3])], "resume.pdf", { type: "application/pdf" }),
+      ),
+    );
+
+    expect(mocks.parseResumeFast).not.toHaveBeenCalled();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(events.some((event) => event.name === "备用解析简历")).toBe(true);
+    expect(events.find((event) => event.type === "result")?.data).toMatchObject({
+      fileName: "resume.pdf",
+      resumeProfile: {
+        email: "external@example.com",
+        name: "外部候选人",
+      },
+    });
   });
 });
