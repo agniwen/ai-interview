@@ -1,10 +1,12 @@
-import { and, count, desc, eq } from "drizzle-orm";
+import { and, count, desc, eq, inArray } from "drizzle-orm";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import {
+  mailIngestMessage,
   organization,
   resumePoolEvent,
   resumePoolImport,
   resumePoolItem,
+  resumeUploadBatchItem,
   user,
 } from "@arc/db-schema/schema";
 import type { ResumePoolEventType, ResumePoolScope, ResumePoolStatus } from "@arc/db-schema/schema";
@@ -16,6 +18,7 @@ import type {
   ResumePoolImportResult,
   ResumePoolListRecord,
   ResumePoolProfileHighlights,
+  ResumePoolSourceChannel,
 } from "@arc/shared/resume-pool";
 import { queryInterviewDedup } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/dao/studio-interviews";
 import { createResumeRecordFromStorage } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/create-from-storage";
@@ -133,6 +136,7 @@ function toListRecord(
   row: PoolRow,
   importRow?: { importedAt: Date; resumeRecordId: string } | null,
   uploaderMeta: PoolUploaderMeta = EMPTY_UPLOADER_META,
+  sourceChannel: ResumePoolSourceChannel | null = null,
 ): ResumePoolListRecord {
   return {
     candidateEmail: row.candidateEmail,
@@ -157,6 +161,7 @@ function toListRecord(
     resumeStorageKey: row.resumeStorageKey,
     scope: row.scope,
     skillsNormalized: row.skillsNormalized,
+    sourceChannel,
     sourceOrganizationId: row.sourceOrganizationId,
     sourcePoolItemId: row.sourcePoolItemId,
     sourceUserId: row.sourceUserId,
@@ -173,9 +178,10 @@ function toDetail(
   row: PoolRow,
   importRow?: { importedAt: Date; resumeRecordId: string } | null,
   uploaderMeta: PoolUploaderMeta = EMPTY_UPLOADER_META,
+  sourceChannel: ResumePoolSourceChannel | null = null,
 ): ResumePoolDetail {
   return {
-    ...toListRecord(row, importRow, uploaderMeta),
+    ...toListRecord(row, importRow, uploaderMeta, sourceChannel),
     resumeProfile: row.resumeProfile,
   };
 }
@@ -352,6 +358,29 @@ async function loadImportForOrg(
   return row ?? null;
 }
 
+async function loadSourceChannels(
+  poolItemIds: string[],
+): Promise<Map<string, ResumePoolSourceChannel>> {
+  if (poolItemIds.length === 0) {
+    return new Map();
+  }
+  const rows = await db
+    .select({ poolItemId: resumeUploadBatchItem.poolItemId })
+    .from(resumeUploadBatchItem)
+    .innerJoin(mailIngestMessage, eq(mailIngestMessage.batchId, resumeUploadBatchItem.batchId))
+    .where(
+      and(
+        inArray(resumeUploadBatchItem.poolItemId, poolItemIds),
+        eq(mailIngestMessage.status, "queued"),
+      ),
+    );
+  return new Map(
+    rows
+      .filter((row): row is { poolItemId: string } => row.poolItemId !== null)
+      .map((row) => [row.poolItemId, "mail_ingest" as const]),
+  );
+}
+
 export async function queryResumePoolItems(
   input: QueryResumePoolItemsInput,
 ): Promise<PaginatedResumePoolResult> {
@@ -382,9 +411,15 @@ export async function queryResumePoolItems(
   const imports = await Promise.all(
     rows.map((row) => loadImportForOrg(row.item.id, input.organizationId)),
   );
+  const sourceChannels = await loadSourceChannels(rows.map((row) => row.item.id));
   return {
     records: rows.map((row, index) =>
-      toListRecord(row.item, imports[index] ?? null, uploaderMetaFromRow(row)),
+      toListRecord(
+        row.item,
+        imports[index] ?? null,
+        uploaderMetaFromRow(row),
+        sourceChannels.get(row.item.id) ?? null,
+      ),
     ),
     total: totalRow?.total ?? 0,
   };
@@ -403,7 +438,8 @@ export async function loadResumePoolItem(input: {
     loadImportForOrg(row.id, input.organizationId),
     loadUploaderMeta(row.id),
   ]);
-  return toDetail(row, importRow, uploaderMeta);
+  const sourceChannels = await loadSourceChannels([row.id]);
+  return toDetail(row, importRow, uploaderMeta, sourceChannels.get(row.id) ?? null);
 }
 
 export async function publishPrivatePoolItem(

@@ -31,6 +31,8 @@ export interface ResumePoolProfileHighlights {
   schools: string[];
 }
 
+export type ResumePoolSourceChannel = "mail_ingest";
+
 export interface ResumePoolListRecord {
   id: string;
   scope: ResumePoolScope;
@@ -43,6 +45,7 @@ export interface ResumePoolListRecord {
   sourcePoolItemId: string | null;
   sourceOrganizationId: string | null;
   sourceUserId: string | null;
+  sourceChannel: ResumePoolSourceChannel | null;
   publishedAt: string | null;
   publishedBy: string | null;
   candidateName: string;

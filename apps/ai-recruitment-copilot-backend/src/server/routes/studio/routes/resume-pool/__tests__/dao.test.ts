@@ -2,10 +2,14 @@ import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import {
+  mailIngestAccount,
+  mailIngestMessage,
   member,
   organization,
   resumePoolImport,
   resumePoolItem,
+  resumeUploadBatch,
+  resumeUploadBatchItem,
   studioInterview,
   user,
 } from "@arc/db-schema/schema";
@@ -76,6 +80,12 @@ const PROFILE_WITH_HIGHLIGHTS: ResumeProfile = {
 };
 
 async function cleanup() {
+  await db
+    .delete(mailIngestMessage)
+    .where(eq(mailIngestMessage.accountId, "resume_pool_mail_account"));
+  await db.delete(mailIngestAccount).where(eq(mailIngestAccount.id, "resume_pool_mail_account"));
+  await db.delete(resumeUploadBatchItem).where(eq(resumeUploadBatchItem.organizationId, ORG_A));
+  await db.delete(resumeUploadBatch).where(eq(resumeUploadBatch.organizationId, ORG_A));
   await db.delete(resumePoolImport).where(eq(resumePoolImport.organizationId, ORG_A));
   await db.delete(resumePoolImport).where(eq(resumePoolImport.organizationId, ORG_B));
   await db.delete(resumePoolItem).where(eq(resumePoolItem.organizationId, ORG_A));
@@ -238,6 +248,78 @@ describe("queryResumePoolItems", () => {
     expect(detail?.uploaderOrganizationName).toBe("Resume Pool Org A");
     expect(detail?.uploaderName).toBe("resume-pool-a");
     expect(detail?.uploaderEmail).toBe("resume-pool-a@example.com");
+  });
+
+  it("marks pool items created from mail ingest as email push source", async () => {
+    const poolItemId = await createResumePoolItem(
+      basePoolInput({
+        contentHash: "hash-resume-pool-mail-ingest",
+        resumeFileName: "candidate-mail-ingest.pdf",
+      }),
+    );
+    await db.insert(resumeUploadBatch).values({
+      createdAt: NOW,
+      createdBy: USER_A,
+      dedupPolicy: "skip",
+      id: "resume_pool_mail_batch",
+      jdMode: "none",
+      jobDescriptionId: null,
+      organizationId: ORG_A,
+      resumePoolScope: "private",
+      status: "pending",
+      target: "resume_pool",
+      totalCount: 1,
+      updatedAt: NOW,
+    });
+    await db.insert(resumeUploadBatchItem).values({
+      batchId: "resume_pool_mail_batch",
+      contentHash: "hash-resume-pool-mail-ingest",
+      fileSize: 1024,
+      id: "resume_pool_mail_batch_item",
+      orderIndex: 0,
+      organizationId: ORG_A,
+      originalFileName: "candidate-mail-ingest.pdf",
+      poolItemId,
+      status: "succeeded",
+      storageKey: "attachments/resume-pool/candidate-mail-ingest.pdf",
+    });
+    await db.insert(mailIngestAccount).values({
+      createdAt: NOW,
+      emailAddress: "hr@example.com",
+      encryptedPassword: "encrypted",
+      id: "resume_pool_mail_account",
+      organizationId: ORG_A,
+      updatedAt: NOW,
+      userId: USER_A,
+      username: "hr@example.com",
+    });
+    await db.insert(mailIngestMessage).values({
+      accountId: "resume_pool_mail_account",
+      batchId: "resume_pool_mail_batch",
+      createdAt: NOW,
+      id: "resume_pool_mail_message",
+      mailbox: "INBOX",
+      processedAt: NOW,
+      status: "queued",
+      subject: "boss直聘 - 候选人简历",
+      uid: "100",
+      uidValidity: "1",
+    });
+
+    const result = await queryResumePoolItems({
+      organizationId: ORG_A,
+      scope: "private",
+      userId: USER_A,
+    });
+    const record = result.records.find((item) => item.id === poolItemId);
+    const detail = await loadResumePoolItem({
+      organizationId: ORG_A,
+      poolItemId,
+      userId: USER_A,
+    });
+
+    expect(record?.sourceChannel).toBe("mail_ingest");
+    expect(detail?.sourceChannel).toBe("mail_ingest");
   });
 });
 
