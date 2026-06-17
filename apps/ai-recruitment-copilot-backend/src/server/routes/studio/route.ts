@@ -8,6 +8,7 @@ import { interviewQuestionTemplatesRouter } from "./routes/interview-questions/r
 import { interviewersRouter } from "./routes/interviewers/route";
 import { studioInterviewsRouter } from "./routes/interviews/route";
 import { jobDescriptionsRouter } from "./routes/job-descriptions/route";
+import { mailIngestRouter } from "./routes/mail-ingest/route";
 import { resumePoolRouter } from "./routes/resume-pool/route";
 import { resumeUploadBatchesRouter } from "./routes/resume-upload-batches/route";
 import { resumeLibraryRouter } from "./routes/resumes/route";
@@ -28,6 +29,7 @@ export const studioRouter = factory
   .route("/global-config", globalConfigRouter)
   .route("/interviewers", interviewersRouter)
   .route("/job-descriptions", jobDescriptionsRouter)
+  .route("/mail-ingest-accounts", mailIngestRouter)
   .route("/forms", candidateFormsRouter)
   .route("/interview-questions", interviewQuestionTemplatesRouter)
   .route("/workspace", workspaceRouter);

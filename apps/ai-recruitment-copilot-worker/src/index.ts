@@ -9,6 +9,8 @@ import { createWorkerApp } from "./app";
 import { resolveWorkerServerConfig } from "./config";
 import { getWorkerConnectionSummary, loadWorkerEnv } from "./env";
 import { getResumeParseConfigSummary } from "./parse-config";
+import { startMailIngestScheduler } from "./mail-ingest/scheduler";
+import type { MailIngestScheduler } from "./mail-ingest/scheduler";
 
 loadWorkerEnv();
 
@@ -46,6 +48,7 @@ async function main() {
   const closeServer = promisify(server.close.bind(server));
 
   let worker: ReturnType<typeof createResumeParseWorker> | null = null;
+  let mailIngestScheduler: MailIngestScheduler | null = null;
   if (isResumeParseQueueConfigured()) {
     await recoverIncompleteResumeParseJobs();
     worker = createResumeParseWorker(async ({ itemId }) => {
@@ -53,9 +56,11 @@ async function main() {
         await import("@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resume-upload-batches/utils/processor");
       await processBatchItem(itemId);
     });
+    mailIngestScheduler = startMailIngestScheduler();
   }
   if (!worker) {
     console.warn("[worker] REDIS_URL is not set; resume parse worker is not started.");
+    mailIngestScheduler = startMailIngestScheduler();
   }
 
   console.info(`[worker] listening on http://${hostname}:${port}`);
@@ -66,6 +71,7 @@ async function main() {
     void (async () => {
       try {
         console.info(`[worker] shutting down after ${signal}`);
+        mailIngestScheduler?.close();
         await closeServer();
         await worker?.close();
         await closeResumeParseQueue();
