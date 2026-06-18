@@ -1,5 +1,10 @@
 import type { ResumeProfile } from "@arc/db-schema/interview/types";
+import {
+  formatResumeEducationItem,
+  sortResumeEducationExperiences,
+} from "@arc/shared/resume-education";
 import { SoftPanel } from "@/components/features/display/soft-panel";
+import { ResumeEducationDisplayLine } from "@/components/features/resume/resume-education-line";
 import type { ExperienceItemType } from "@/components/features/resume/work-experience";
 import { WorkExperience } from "@/components/features/resume/work-experience";
 
@@ -16,6 +21,7 @@ function isPresent(value: string | null | undefined) {
 }
 
 type ResumeWorkExperience = ResumeProfile["workExperiences"][number];
+type ResumeEducationExperience = NonNullable<ResumeProfile["educationExperiences"]>[number];
 
 function cleanText(value: string | null | undefined): string | null {
   const trimmed = value?.trim();
@@ -150,6 +156,46 @@ function ChipList({ items }: { items: string[] }) {
   );
 }
 
+function EducationExperienceList({
+  educationExperiences,
+}: {
+  educationExperiences: ResumeEducationExperience[];
+}) {
+  if (educationExperiences.length === 0) {
+    return <p className="text-muted-foreground text-sm">—</p>;
+  }
+
+  return (
+    <ul className="flex flex-col gap-3">
+      {educationExperiences.map((education, index) => {
+        const educationItem = formatResumeEducationItem(education) ?? {
+          level: null,
+          major: null,
+          school: "未发现学校",
+        };
+        const period = cleanText(education.period) ?? cleanText(education.graduationYear);
+        return (
+          <SoftPanel
+            as="li"
+            key={`${education.school ?? "education"}-${index}`}
+            className="px-3 py-2"
+          >
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <ResumeEducationDisplayLine className="text-sm" item={educationItem} />
+              {period ? <span className="text-muted-foreground text-xs">{period}</span> : null}
+            </div>
+            {isPresent(education.summary) ? (
+              <p className="mt-1 whitespace-pre-line text-muted-foreground text-sm">
+                {education.summary}
+              </p>
+            ) : null}
+          </SoftPanel>
+        );
+      })}
+    </ul>
+  );
+}
+
 function WorkExperienceTimeline({ experiences }: { experiences: ResumeWorkExperience[] }) {
   const items = toWorkExperienceItems(experiences);
 
@@ -164,6 +210,8 @@ export function ResumeProfileView({ profile }: ResumeProfileViewProps) {
   if (!profile) {
     return <p className="text-muted-foreground text-sm">暂无结构化简历，仅有候选人基础信息。</p>;
   }
+
+  const educationExperiences = sortResumeEducationExperiences(profile.educationExperiences);
 
   return (
     <div className="space-y-6">
@@ -182,8 +230,12 @@ export function ResumeProfileView({ profile }: ResumeProfileViewProps) {
       </section>
 
       <section>
-        <h4 className="mb-2 font-medium text-sm">毕业院校</h4>
-        <ChipList items={profile.schools} />
+        <h4 className="mb-2 font-medium text-sm">教育经历</h4>
+        {educationExperiences.length > 0 ? (
+          <EducationExperienceList educationExperiences={educationExperiences} />
+        ) : (
+          <ChipList items={profile.schools} />
+        )}
       </section>
 
       <section>

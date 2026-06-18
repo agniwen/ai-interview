@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { ResumeParseStatus } from "@arc/db-schema/studio-interviews";
 import type { ResumeProfile } from "@arc/db-schema/interview/types";
+import type { ResumeEducationDisplayItem } from "./resume-education";
 import type { ResumePoolScope, ResumePoolStatus } from "@arc/db-schema/schema";
 
 export const resumePoolScopeSchema = z.enum(["private", "public"]);
@@ -26,6 +27,8 @@ export type ResumePoolCreateInput = z.infer<typeof resumePoolCreateSchema>;
 export type ResumePoolImportInput = z.infer<typeof resumePoolImportSchema>;
 
 export interface ResumePoolProfileHighlights {
+  educationItems: ResumeEducationDisplayItem[];
+  educationLines: string[];
   latestCompany: string | null;
   latestProject: string | null;
   schools: string[];
@@ -40,6 +43,7 @@ export interface ResumePoolListRecord {
   organizationId: string | null;
   createdBy: string | null;
   uploaderEmail: string | null;
+  uploaderImage: string | null;
   uploaderName: string | null;
   uploaderOrganizationName: string | null;
   sourcePoolItemId: string | null;
@@ -60,6 +64,8 @@ export interface ResumePoolListRecord {
   resumeParseStatus: ResumeParseStatus;
   resumeParseError: string | null;
   resumeParsedAt: string | null;
+  workYears: number | null;
+  masteredSkills: string[];
   profileHighlights: ResumePoolProfileHighlights;
   skillsNormalized: string[];
   createdAt: string;

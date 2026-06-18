@@ -42,6 +42,9 @@ const STRUCTURED_INSTRUCTIONS = `你是一名简历解析助手。给你一段�
   "major": string | null,
   "graduationYear": string | null,
   "education": string | null,
+  "educationExperiences": [
+    { "school": string | null, "degree": string | null, "major": string | null, "period": string | null, "graduationYear": string | null, "educationLevel": string | null, "summary": string | null }
+  ],
   "targetRoles": string[],
   "workYears": number | null,
   "skills": string[],
@@ -66,6 +69,9 @@ const STRUCTURED_INSTRUCTIONS = `你是一名简历解析助手。给你一段�
 - 无法从简历中确认的字段返回 null 或空数组，禁止编造。
 - personalStrengths 必须有简历依据。
 - skills / links / schools / targetRoles / personalStrengths 去重；skills 最多 18 项，其余最多 6 项。
+- educationExperiences 按简历原文顺序输出所有教育经历；每段尽量提取 school / degree / major / period / graduationYear / educationLevel / summary。
+- 如果教育经历只有学校名，也要输出一条记录，其余无法确认字段为 null。
+- schools 仍输出去重学校名列表，用于摘要兼容；顶层 degree / major / graduationYear / education 表示最高学历或最主要学历。
 - skills 字段必须使用业内通用规范名（保留通行大小写），不要写候选人简历里的别名 / 缩写 / 版本号 / .js 后缀：
     · "Vue 3" / "Vue.js" / "VueJS" / "vue" → "Vue"
     · "React.js" / "ReactJS" / "react" → "React"
@@ -84,13 +90,7 @@ const STRUCTURED_INSTRUCTIONS = `你是一名简历解析助手。给你一段�
 - timelineSummary.estimatedExperienceYears 为数字，不足一年用小数；无法推断时为 null。
 - age 仅在简历明确给出时填数字，不要根据毕业年份推测。`;
 
-export type ResumeTextSource =
-  | "qwen-ocr"
-  | "docx-text"
-  | "html-text"
-  | "pptx-text"
-  | "xlsx-text"
-  | "external-verify-parse";
+export type ResumeTextSource = "qwen-ocr" | "docx-text" | "html-text" | "pptx-text" | "xlsx-text";
 export {
   getResumeDocumentExtension,
   isSupportedResumeDocumentInput,

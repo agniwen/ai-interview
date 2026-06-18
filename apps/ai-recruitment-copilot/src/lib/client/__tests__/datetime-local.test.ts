@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { dateTimeLocalInputToISOString } from "../datetime-local";
+import { dateTimeLocalInputToISOString, isoStringToDateTimeLocalInput } from "../datetime-local";
 
 const originalTimeZone = process.env.TZ;
 
@@ -20,5 +20,13 @@ describe("dateTimeLocalInputToISOString", () => {
 
   it("returns null for an empty datetime-local value", () => {
     expect(dateTimeLocalInputToISOString("")).toBeNull();
+  });
+
+  it("formats an ISO instant for a datetime-local input in the browser timezone", () => {
+    expect(isoStringToDateTimeLocalInput("2026-06-02T09:30:00.000Z")).toBe("2026-06-02T17:30");
+  });
+
+  it("returns an empty datetime-local value for a missing ISO instant", () => {
+    expect(isoStringToDateTimeLocalInput(null)).toBe("");
   });
 });

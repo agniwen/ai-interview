@@ -18,4 +18,10 @@ describe("TanStack Start studio resumes migration", () => {
 
     expect(sources.join("\n")).not.toMatch(/next\/(?:dynamic|navigation|headers|server|cache)/u);
   });
+
+  it("shows a tooltip on unsupported resume preview file icons", () => {
+    const source = readSource("routes/w.$slug.studio.resumes.tsx");
+
+    expect(source).toContain("UnsupportedResumeDocumentPreviewTooltip");
+  });
 });

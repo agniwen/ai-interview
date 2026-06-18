@@ -9,7 +9,13 @@ function readSource(relativePath: string) {
 }
 
 describe("TanStack Start platform route migration", () => {
-  const routes = ["/platform", "/platform/organizations", "/platform/queues", "/platform/users"];
+  const routes = [
+    "/platform",
+    "/platform/mail-ingest-accounts",
+    "/platform/organizations",
+    "/platform/queues",
+    "/platform/users",
+  ];
 
   it("registers migrated platform routes in the generated route tree", () => {
     const routeTree = readSource("routeTree.gen.ts");
@@ -22,9 +28,11 @@ describe("TanStack Start platform route migration", () => {
   it("keeps migrated platform routes and reused components free of Next runtime imports", () => {
     const sources = [
       readSource("routes/platform.tsx"),
+      readSource("routes/platform.mail-ingest-accounts.tsx"),
       readSource("routes/platform.organizations.tsx"),
       readSource("routes/platform.queues.tsx"),
       readSource("routes/platform.users.tsx"),
+      readSource("components/features/platform/mail-ingest-accounts/mail-ingest-accounts-grid.tsx"),
       readSource("components/features/platform/platform-sidebar-slots.tsx"),
       readSource("components/features/platform/platform-header.tsx"),
       readSource("components/features/platform/organizations/organizations-grid.tsx"),
@@ -36,5 +44,24 @@ describe("TanStack Start platform route migration", () => {
     expect(sources.join("\n")).not.toMatch(
       /next\/(?:dynamic|navigation|headers|server|cache|link)/u,
     );
+  });
+
+  it("wires platform mail ingest accounts into the platform navigation", () => {
+    const routeSource = readSource("routes/platform.mail-ingest-accounts.tsx");
+    const sidebarSource = readSource("components/features/platform/platform-sidebar-slots.tsx");
+    const headerSource = readSource("components/features/platform/platform-header.tsx");
+    const gridSource = readSource(
+      "components/features/platform/mail-ingest-accounts/mail-ingest-accounts-grid.tsx",
+    );
+
+    expect(routeSource).toContain('createFileRoute("/platform/mail-ingest-accounts")');
+    expect(routeSource).toContain("loadPlatformMailIngestAccountsState");
+    expect(sidebarSource).toContain("/platform/mail-ingest-accounts");
+    expect(headerSource).toContain("/platform/mail-ingest-accounts");
+    expect(gridSource).toContain("<DataGrid<PlatformMailIngestAccountRow>");
+    expect(gridSource).toContain("<MemberCell");
+    expect(gridSource).toContain("actionsColumn<PlatformMailIngestAccountRow>");
+    expect(gridSource).toContain('columnPinning={{ right: ["actions"] }}');
+    expect(gridSource).toContain('type: "search"');
   });
 });

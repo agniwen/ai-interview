@@ -23,6 +23,7 @@ import { Route as RRoundIdRouteImport } from './routes/r.$roundId'
 import { Route as PlatformUsersRouteImport } from './routes/platform.users'
 import { Route as PlatformQueuesRouteImport } from './routes/platform.queues'
 import { Route as PlatformOrganizationsRouteImport } from './routes/platform.organizations'
+import { Route as PlatformMailIngestAccountsRouteImport } from './routes/platform.mail-ingest-accounts'
 import { Route as JoinCodeRouteImport } from './routes/join.$code'
 import { Route as InviteTokenRouteImport } from './routes/invite.$token'
 import { Route as InterviewIdRouteImport } from './routes/interview.$id'
@@ -36,6 +37,7 @@ import { Route as WSlugStudioResumesRouteImport } from './routes/w.$slug.studio.
 import { Route as WSlugStudioResumePoolRouteImport } from './routes/w.$slug.studio.resume-pool'
 import { Route as WSlugStudioMembersRouteImport } from './routes/w.$slug.studio.members'
 import { Route as WSlugStudioMeRouteImport } from './routes/w.$slug.studio.me'
+import { Route as WSlugStudioMailIngestAccountsRouteImport } from './routes/w.$slug.studio.mail-ingest-accounts'
 import { Route as WSlugStudioJobDescriptionsRouteImport } from './routes/w.$slug.studio.job-descriptions'
 import { Route as WSlugStudioInterviewsRouteImport } from './routes/w.$slug.studio.interviews'
 import { Route as WSlugStudioInterviewersRouteImport } from './routes/w.$slug.studio.interviewers'
@@ -117,6 +119,12 @@ const PlatformOrganizationsRoute = PlatformOrganizationsRouteImport.update({
   path: '/organizations',
   getParentRoute: () => PlatformRoute,
 } as any)
+const PlatformMailIngestAccountsRoute =
+  PlatformMailIngestAccountsRouteImport.update({
+    id: '/mail-ingest-accounts',
+    path: '/mail-ingest-accounts',
+    getParentRoute: () => PlatformRoute,
+  } as any)
 const JoinCodeRoute = JoinCodeRouteImport.update({
   id: '/join/$code',
   path: '/join/$code',
@@ -184,6 +192,12 @@ const WSlugStudioMeRoute = WSlugStudioMeRouteImport.update({
   path: '/me',
   getParentRoute: () => WSlugStudioRoute,
 } as any)
+const WSlugStudioMailIngestAccountsRoute =
+  WSlugStudioMailIngestAccountsRouteImport.update({
+    id: '/mail-ingest-accounts',
+    path: '/mail-ingest-accounts',
+    getParentRoute: () => WSlugStudioRoute,
+  } as any)
 const WSlugStudioJobDescriptionsRoute =
   WSlugStudioJobDescriptionsRouteImport.update({
     id: '/job-descriptions',
@@ -249,6 +263,7 @@ export interface FileRoutesByFullPath {
   '/interview/$id': typeof InterviewIdRouteWithChildren
   '/invite/$token': typeof InviteTokenRoute
   '/join/$code': typeof JoinCodeRoute
+  '/platform/mail-ingest-accounts': typeof PlatformMailIngestAccountsRoute
   '/platform/organizations': typeof PlatformOrganizationsRoute
   '/platform/queues': typeof PlatformQueuesRoute
   '/platform/users': typeof PlatformUsersRoute
@@ -270,6 +285,7 @@ export interface FileRoutesByFullPath {
   '/w/$slug/studio/interviewers': typeof WSlugStudioInterviewersRoute
   '/w/$slug/studio/interviews': typeof WSlugStudioInterviewsRouteWithChildren
   '/w/$slug/studio/job-descriptions': typeof WSlugStudioJobDescriptionsRoute
+  '/w/$slug/studio/mail-ingest-accounts': typeof WSlugStudioMailIngestAccountsRoute
   '/w/$slug/studio/me': typeof WSlugStudioMeRoute
   '/w/$slug/studio/members': typeof WSlugStudioMembersRoute
   '/w/$slug/studio/resume-pool': typeof WSlugStudioResumePoolRoute
@@ -288,6 +304,7 @@ export interface FileRoutesByTo {
   '/interview/$id': typeof InterviewIdRouteWithChildren
   '/invite/$token': typeof InviteTokenRoute
   '/join/$code': typeof JoinCodeRoute
+  '/platform/mail-ingest-accounts': typeof PlatformMailIngestAccountsRoute
   '/platform/organizations': typeof PlatformOrganizationsRoute
   '/platform/queues': typeof PlatformQueuesRoute
   '/platform/users': typeof PlatformUsersRoute
@@ -308,6 +325,7 @@ export interface FileRoutesByTo {
   '/w/$slug/studio/interviewers': typeof WSlugStudioInterviewersRoute
   '/w/$slug/studio/interviews': typeof WSlugStudioInterviewsRouteWithChildren
   '/w/$slug/studio/job-descriptions': typeof WSlugStudioJobDescriptionsRoute
+  '/w/$slug/studio/mail-ingest-accounts': typeof WSlugStudioMailIngestAccountsRoute
   '/w/$slug/studio/me': typeof WSlugStudioMeRoute
   '/w/$slug/studio/members': typeof WSlugStudioMembersRoute
   '/w/$slug/studio/resume-pool': typeof WSlugStudioResumePoolRoute
@@ -327,6 +345,7 @@ export interface FileRoutesById {
   '/interview/$id': typeof InterviewIdRouteWithChildren
   '/invite/$token': typeof InviteTokenRoute
   '/join/$code': typeof JoinCodeRoute
+  '/platform/mail-ingest-accounts': typeof PlatformMailIngestAccountsRoute
   '/platform/organizations': typeof PlatformOrganizationsRoute
   '/platform/queues': typeof PlatformQueuesRoute
   '/platform/users': typeof PlatformUsersRoute
@@ -348,6 +367,7 @@ export interface FileRoutesById {
   '/w/$slug/studio/interviewers': typeof WSlugStudioInterviewersRoute
   '/w/$slug/studio/interviews': typeof WSlugStudioInterviewsRouteWithChildren
   '/w/$slug/studio/job-descriptions': typeof WSlugStudioJobDescriptionsRoute
+  '/w/$slug/studio/mail-ingest-accounts': typeof WSlugStudioMailIngestAccountsRoute
   '/w/$slug/studio/me': typeof WSlugStudioMeRoute
   '/w/$slug/studio/members': typeof WSlugStudioMembersRoute
   '/w/$slug/studio/resume-pool': typeof WSlugStudioResumePoolRoute
@@ -368,6 +388,7 @@ export interface FileRouteTypes {
     | '/interview/$id'
     | '/invite/$token'
     | '/join/$code'
+    | '/platform/mail-ingest-accounts'
     | '/platform/organizations'
     | '/platform/queues'
     | '/platform/users'
@@ -389,6 +410,7 @@ export interface FileRouteTypes {
     | '/w/$slug/studio/interviewers'
     | '/w/$slug/studio/interviews'
     | '/w/$slug/studio/job-descriptions'
+    | '/w/$slug/studio/mail-ingest-accounts'
     | '/w/$slug/studio/me'
     | '/w/$slug/studio/members'
     | '/w/$slug/studio/resume-pool'
@@ -407,6 +429,7 @@ export interface FileRouteTypes {
     | '/interview/$id'
     | '/invite/$token'
     | '/join/$code'
+    | '/platform/mail-ingest-accounts'
     | '/platform/organizations'
     | '/platform/queues'
     | '/platform/users'
@@ -427,6 +450,7 @@ export interface FileRouteTypes {
     | '/w/$slug/studio/interviewers'
     | '/w/$slug/studio/interviews'
     | '/w/$slug/studio/job-descriptions'
+    | '/w/$slug/studio/mail-ingest-accounts'
     | '/w/$slug/studio/me'
     | '/w/$slug/studio/members'
     | '/w/$slug/studio/resume-pool'
@@ -445,6 +469,7 @@ export interface FileRouteTypes {
     | '/interview/$id'
     | '/invite/$token'
     | '/join/$code'
+    | '/platform/mail-ingest-accounts'
     | '/platform/organizations'
     | '/platform/queues'
     | '/platform/users'
@@ -466,6 +491,7 @@ export interface FileRouteTypes {
     | '/w/$slug/studio/interviewers'
     | '/w/$slug/studio/interviews'
     | '/w/$slug/studio/job-descriptions'
+    | '/w/$slug/studio/mail-ingest-accounts'
     | '/w/$slug/studio/me'
     | '/w/$slug/studio/members'
     | '/w/$slug/studio/resume-pool'
@@ -592,6 +618,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PlatformOrganizationsRouteImport
       parentRoute: typeof PlatformRoute
     }
+    '/platform/mail-ingest-accounts': {
+      id: '/platform/mail-ingest-accounts'
+      path: '/mail-ingest-accounts'
+      fullPath: '/platform/mail-ingest-accounts'
+      preLoaderRoute: typeof PlatformMailIngestAccountsRouteImport
+      parentRoute: typeof PlatformRoute
+    }
     '/join/$code': {
       id: '/join/$code'
       path: '/join/$code'
@@ -681,6 +714,13 @@ declare module '@tanstack/react-router' {
       path: '/me'
       fullPath: '/w/$slug/studio/me'
       preLoaderRoute: typeof WSlugStudioMeRouteImport
+      parentRoute: typeof WSlugStudioRoute
+    }
+    '/w/$slug/studio/mail-ingest-accounts': {
+      id: '/w/$slug/studio/mail-ingest-accounts'
+      path: '/mail-ingest-accounts'
+      fullPath: '/w/$slug/studio/mail-ingest-accounts'
+      preLoaderRoute: typeof WSlugStudioMailIngestAccountsRouteImport
       parentRoute: typeof WSlugStudioRoute
     }
     '/w/$slug/studio/job-descriptions': {
@@ -781,12 +821,14 @@ const InterviewRouteWithChildren = InterviewRoute._addFileChildren(
 )
 
 interface PlatformRouteChildren {
+  PlatformMailIngestAccountsRoute: typeof PlatformMailIngestAccountsRoute
   PlatformOrganizationsRoute: typeof PlatformOrganizationsRoute
   PlatformQueuesRoute: typeof PlatformQueuesRoute
   PlatformUsersRoute: typeof PlatformUsersRoute
 }
 
 const PlatformRouteChildren: PlatformRouteChildren = {
+  PlatformMailIngestAccountsRoute: PlatformMailIngestAccountsRoute,
   PlatformOrganizationsRoute: PlatformOrganizationsRoute,
   PlatformQueuesRoute: PlatformQueuesRoute,
   PlatformUsersRoute: PlatformUsersRoute,
@@ -832,6 +874,7 @@ interface WSlugStudioRouteChildren {
   WSlugStudioInterviewersRoute: typeof WSlugStudioInterviewersRoute
   WSlugStudioInterviewsRoute: typeof WSlugStudioInterviewsRouteWithChildren
   WSlugStudioJobDescriptionsRoute: typeof WSlugStudioJobDescriptionsRoute
+  WSlugStudioMailIngestAccountsRoute: typeof WSlugStudioMailIngestAccountsRoute
   WSlugStudioMeRoute: typeof WSlugStudioMeRoute
   WSlugStudioMembersRoute: typeof WSlugStudioMembersRoute
   WSlugStudioResumePoolRoute: typeof WSlugStudioResumePoolRoute
@@ -847,6 +890,7 @@ const WSlugStudioRouteChildren: WSlugStudioRouteChildren = {
   WSlugStudioInterviewersRoute: WSlugStudioInterviewersRoute,
   WSlugStudioInterviewsRoute: WSlugStudioInterviewsRouteWithChildren,
   WSlugStudioJobDescriptionsRoute: WSlugStudioJobDescriptionsRoute,
+  WSlugStudioMailIngestAccountsRoute: WSlugStudioMailIngestAccountsRoute,
   WSlugStudioMeRoute: WSlugStudioMeRoute,
   WSlugStudioMembersRoute: WSlugStudioMembersRoute,
   WSlugStudioResumePoolRoute: WSlugStudioResumePoolRoute,

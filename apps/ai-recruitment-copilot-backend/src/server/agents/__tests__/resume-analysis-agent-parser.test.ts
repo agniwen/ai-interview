@@ -1,0 +1,114 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const mocks = vi.hoisted(() => ({
+  buildAttachmentKeyByHash: vi.fn(),
+  createAttachment: vi.fn(),
+  findAttachmentByContentHash: vi.fn(),
+  generateResumeStructured: vi.fn(),
+  parseResumeFast: vi.fn(),
+  putObjectBytes: vi.fn(),
+  sha256HexOfBytes: vi.fn(),
+  updateStructuredByHash: vi.fn(),
+}));
+
+vi.mock("@arc/shared/file-hash", () => ({ sha256HexOfBytes: mocks.sha256HexOfBytes }));
+vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/s3", () => ({
+  buildAttachmentKeyByHash: mocks.buildAttachmentKeyByHash,
+  putObjectBytes: mocks.putObjectBytes,
+}));
+vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/resume-parse-pipeline", () => ({
+  generateResumeStructured: mocks.generateResumeStructured,
+  parseResumeFast: mocks.parseResumeFast,
+}));
+vi.mock("@arc/ai-recruitment-copilot-backend/server/routes/chat/dao/chat-attachments", () => ({
+  createAttachment: mocks.createAttachment,
+  findAttachmentByContentHash: mocks.findAttachmentByContentHash,
+  updateStructuredByHash: mocks.updateStructuredByHash,
+}));
+
+// oxlint-disable-next-line import/first -- must follow vi.mock() calls for correct hoisting
+import {
+  parseResumeBytesToProfile,
+  streamParseResumeProfile,
+} from "@arc/ai-recruitment-copilot-backend/server/agents/resume-analysis-agent";
+
+const STRUCTURED = {
+  age: null,
+  degree: null,
+  education: null,
+  email: "internal@example.com",
+  gender: null,
+  graduationYear: null,
+  links: [],
+  major: null,
+  name: "内部候选人",
+  personalStrengths: [],
+  phone: null,
+  projectExperiences: [],
+  schools: [],
+  skills: ["TypeScript"],
+  targetRoles: ["前端工程师"],
+  timelineSummary: {
+    currentStatus: null,
+    dateRanges: [],
+    estimatedExperienceYears: null,
+    riskSignals: [],
+  },
+  workExperiences: [],
+  workYears: null,
+};
+
+async function readStreamEvents(stream: ReadableStream<Uint8Array>) {
+  const text = await new Response(stream).text();
+  return text
+    .trim()
+    .split("\n")
+    .filter(Boolean)
+    .map((line) => JSON.parse(line) as { type: string; data?: unknown; name?: string });
+}
+
+describe("resume parsing agent", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.unstubAllGlobals();
+    mocks.parseResumeFast.mockResolvedValue({
+      pageCount: 1,
+      structured: STRUCTURED,
+      text: "internal raw text",
+      textSource: "qwen-ocr",
+    });
+  });
+
+  it("uses the internal resume parser for byte parsing", async () => {
+    const result = await parseResumeBytesToProfile({
+      bytes: new Uint8Array([1, 2, 3]),
+      fileName: "resume.pdf",
+      mediaType: "application/pdf",
+    });
+
+    expect(mocks.parseResumeFast).toHaveBeenCalledTimes(1);
+    expect(result.resumeProfile.name).toBe("内部候选人");
+    expect(result.parsedTextSource).toBe("qwen-ocr");
+  });
+
+  it("uses the internal resume parser for the streaming parse endpoint", async () => {
+    mocks.sha256HexOfBytes.mockResolvedValue("hash-1");
+    mocks.findAttachmentByContentHash.mockResolvedValue(null);
+
+    const events = await readStreamEvents(
+      streamParseResumeProfile(
+        new File([new Uint8Array([1, 2, 3])], "resume.pdf", { type: "application/pdf" }),
+      ),
+    );
+
+    expect(mocks.parseResumeFast).toHaveBeenCalledTimes(1);
+    expect(events.some((event) => event.name === "OCR 识别简历")).toBe(true);
+    expect(events.find((event) => event.type === "result")?.data).toMatchObject({
+      fileName: "resume.pdf",
+      resumeProfile: {
+        email: "internal@example.com",
+        name: "内部候选人",
+      },
+    });
+  });
+});

@@ -10,10 +10,10 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { MemberCell } from "@/components/data-grid/cells/member-cell";
 import {
   actionsColumn,
   customColumn,
@@ -51,20 +51,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { rpcFetch } from "@/lib/client/api";
 import { rpc } from "@/lib/client/rpc";
 import { formatDate, formatDateOnly } from "@arc/shared/utils/time";
-
-const WHITESPACE_REGEX = /\s+/;
-
-function getInitials(name?: string | null, email?: string | null) {
-  const source = (name ?? email ?? "").trim();
-  if (!source) {
-    return "U";
-  }
-  const words = source.split(WHITESPACE_REGEX).filter(Boolean);
-  if (words.length >= 2) {
-    return `${words[0]?.[0] ?? ""}${words[1]?.[0] ?? ""}`.toUpperCase();
-  }
-  return source.slice(0, 2).toUpperCase();
-}
 
 interface UserRecord {
   id: string;
@@ -311,18 +297,7 @@ export function UsersGrid() {
 
   const columns = [
     customColumn<UserRecord>({
-      cell: (r) => (
-        <div className="flex items-center gap-3">
-          <Avatar className="size-8">
-            <AvatarImage alt={r.name} src={r.image ?? undefined} />
-            <AvatarFallback>{getInitials(r.name, r.email)}</AvatarFallback>
-          </Avatar>
-          <div className="min-w-0 flex-1">
-            <p className="truncate font-medium text-sm">{r.name}</p>
-            <p className="truncate text-muted-foreground text-xs">{r.email}</p>
-          </div>
-        </div>
-      ),
+      cell: (r) => <MemberCell email={r.email} image={r.image} name={r.name} />,
       key: "user",
       title: "用户",
     }),

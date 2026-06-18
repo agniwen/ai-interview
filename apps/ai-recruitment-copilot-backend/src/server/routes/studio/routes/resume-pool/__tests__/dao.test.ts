@@ -212,11 +212,15 @@ describe("queryResumePoolItems", () => {
     });
 
     const record = result.records.find((item) => item.id === id);
+    expect(record?.workYears).toBe(5);
     expect(record?.profileHighlights).toEqual({
+      educationItems: [],
+      educationLines: [],
       latestCompany: "极光矩阵",
       latestProject: "智能招聘看板",
       schools: ["华南农业大学", "长沙理工大学"],
     });
+    expect(record?.masteredSkills).toEqual(["React", "TypeScript"]);
   });
 
   it("includes uploader organization and user display names", async () => {

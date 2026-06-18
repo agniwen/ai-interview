@@ -8,6 +8,7 @@ import {
   FileTextIcon,
   LayoutGridIcon,
   ListChecksIcon,
+  MailCheckIcon,
   SettingsIcon,
   UserIcon,
   UserCircleIcon,
@@ -138,6 +139,11 @@ const navGroups: NavGroup[] = [
         icon: UserCogIcon,
         path: "/studio/members",
         title: "工作区管理",
+      },
+      {
+        icon: MailCheckIcon,
+        path: "/studio/mail-ingest-accounts",
+        title: "邮箱监听",
       },
       {
         action: "read",

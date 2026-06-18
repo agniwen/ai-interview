@@ -12,6 +12,17 @@ const MINIMAL_STRUCTURED = {
   age: 28,
   degree: null,
   education: null,
+  educationExperiences: [
+    {
+      degree: "学士",
+      educationLevel: "本科",
+      graduationYear: "2020",
+      major: "计算机科学与技术",
+      period: "2016.09-2020.06",
+      school: "清华大学",
+      summary: "统招本科",
+    },
+  ],
   email: null,
   gender: "男",
   graduationYear: null,
@@ -47,6 +58,15 @@ describe("projectAttachmentToResumeProfile", () => {
     const result = projectAttachmentToResumeProfile(MINIMAL_STRUCTURED);
     expect(result).not.toBeNull();
     expect(result).toEqual(toResumeProfile(MINIMAL_STRUCTURED));
+    expect(result?.educationExperiences).toEqual(MINIMAL_STRUCTURED.educationExperiences);
+  });
+
+  it("defaults education experiences to an empty list for legacy cached structured data", () => {
+    const { educationExperiences: _educationExperiences, ...legacyStructured } = MINIMAL_STRUCTURED;
+    const result = projectAttachmentToResumeProfile(legacyStructured);
+
+    expect(result).not.toBeNull();
+    expect(result?.educationExperiences).toEqual([]);
   });
 
   it("normalizes empty name to '未发现信息'", () => {

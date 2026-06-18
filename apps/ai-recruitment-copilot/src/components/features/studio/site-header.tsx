@@ -26,6 +26,7 @@ const ROUTE_META: { prefix: string; meta: RouteMeta }[] = [
   { meta: { title: "面试题" }, prefix: "/studio/interview-questions" },
   { meta: { title: "我的信息" }, prefix: "/studio/me" },
   { meta: { title: "工作区管理" }, prefix: "/studio/members" },
+  { meta: { title: "邮箱监听" }, prefix: "/studio/mail-ingest-accounts" },
   { meta: { title: "系统设置" }, prefix: "/studio/global-config" },
 ];
 

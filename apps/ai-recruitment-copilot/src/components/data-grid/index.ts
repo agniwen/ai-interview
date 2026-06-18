@@ -8,6 +8,7 @@ export { textColumn, type TextColumnOptions } from "./columns/text-column";
 export { dateColumn, type DateColumnOptions } from "./columns/date-column";
 export { badgeColumn, type BadgeColumnOptions } from "./columns/badge-column";
 export { customColumn, type CustomColumnOptions } from "./columns/custom-column";
+export { MemberCell, getMemberInitials, type MemberCellProps } from "./cells/member-cell";
 export {
   actionsColumn,
   type ActionInline,

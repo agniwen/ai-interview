@@ -68,6 +68,7 @@ const VALID_STRUCTURED: ResumeParserStructured = {
   age: null,
   degree: null,
   education: null,
+  educationExperiences: [],
   email: null,
   gender: null,
   graduationYear: null,

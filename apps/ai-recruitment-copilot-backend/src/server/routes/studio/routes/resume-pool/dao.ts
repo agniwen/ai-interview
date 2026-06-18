@@ -20,6 +20,10 @@ import type {
   ResumePoolProfileHighlights,
   ResumePoolSourceChannel,
 } from "@arc/shared/resume-pool";
+import {
+  formatResumeEducationItems,
+  formatResumeEducationLines,
+} from "@arc/shared/resume-education";
 import { queryInterviewDedup } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/dao/studio-interviews";
 import { createResumeRecordFromStorage } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/create-from-storage";
 import { normalizeSkill } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/dao/skills";
@@ -28,12 +32,14 @@ type PoolRow = typeof resumePoolItem.$inferSelect;
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 interface PoolUploaderMeta {
   uploaderEmail: string | null;
+  uploaderImage: string | null;
   uploaderName: string | null;
   uploaderOrganizationName: string | null;
 }
 
 const EMPTY_UPLOADER_META: PoolUploaderMeta = {
   uploaderEmail: null,
+  uploaderImage: null,
   uploaderName: null,
   uploaderOrganizationName: null,
 };
@@ -121,15 +127,34 @@ function firstPresentValue(values: (string | null | undefined)[]): string | null
 
 function buildProfileHighlights(profile: ResumeProfile | null): ResumePoolProfileHighlights {
   if (!profile) {
-    return { latestCompany: null, latestProject: null, schools: [] };
+    return {
+      educationItems: [],
+      educationLines: [],
+      latestCompany: null,
+      latestProject: null,
+      schools: [],
+    };
   }
+  const schools = profile.schools
+    .map(cleanHighlightText)
+    .filter((item): item is string => item !== null);
   return {
+    educationItems: formatResumeEducationItems(profile.educationExperiences),
+    educationLines: formatResumeEducationLines(profile.educationExperiences),
     latestCompany: firstPresentValue(profile.workExperiences.map((item) => item.company)),
     latestProject: firstPresentValue(profile.projectExperiences.map((item) => item.name)),
-    schools: profile.schools
-      .map(cleanHighlightText)
-      .filter((item): item is string => item !== null),
+    schools,
   };
+}
+
+function buildMasteredSkills(profile: ResumeProfile | null): string[] {
+  return [
+    ...new Set(
+      (profile?.skills ?? [])
+        .map(cleanHighlightText)
+        .filter((skill): skill is string => skill !== null),
+    ),
+  ];
 }
 
 function toListRecord(
@@ -148,6 +173,7 @@ function toListRecord(
     importedAt: importRow ? importRow.importedAt.toISOString() : null,
     importedResumeRecordId: importRow?.resumeRecordId ?? null,
     jobDescriptionId: row.jobDescriptionId,
+    masteredSkills: buildMasteredSkills(row.resumeProfile),
     notes: row.notes,
     organizationId: row.organizationId,
     profileHighlights: buildProfileHighlights(row.resumeProfile),
@@ -169,8 +195,10 @@ function toListRecord(
     targetRole: row.targetRole,
     updatedAt: row.updatedAt.toISOString(),
     uploaderEmail: uploaderMeta.uploaderEmail,
+    uploaderImage: uploaderMeta.uploaderImage,
     uploaderName: uploaderMeta.uploaderName,
     uploaderOrganizationName: uploaderMeta.uploaderOrganizationName,
+    workYears: row.resumeProfile?.workYears ?? null,
   };
 }
 
@@ -189,6 +217,7 @@ function toDetail(
 function uploaderMetaFromRow(row: PoolUploaderMeta): PoolUploaderMeta {
   return {
     uploaderEmail: row.uploaderEmail,
+    uploaderImage: row.uploaderImage,
     uploaderName: row.uploaderName,
     uploaderOrganizationName: row.uploaderOrganizationName,
   };
@@ -198,6 +227,7 @@ async function loadUploaderMeta(poolItemId: string): Promise<PoolUploaderMeta> {
   const [row] = await db
     .select({
       uploaderEmail: user.email,
+      uploaderImage: user.image,
       uploaderName: user.name,
       uploaderOrganizationName: organization.name,
     })
@@ -399,6 +429,7 @@ export async function queryResumePoolItems(
     .select({
       item: resumePoolItem,
       uploaderEmail: user.email,
+      uploaderImage: user.image,
       uploaderName: user.name,
       uploaderOrganizationName: organization.name,
     })

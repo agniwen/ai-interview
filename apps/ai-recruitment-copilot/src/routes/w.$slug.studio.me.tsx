@@ -3,6 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Building2Icon, InboxIcon, MailIcon, SaveIcon, Trash2Icon, UserIcon } from "lucide-react";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
+import { PermissionGate } from "@/components/features/permission/permission-gate";
 import { PageHeader } from "@/components/features/studio/page-header";
 import { getWorkspaceRoleLabel } from "@/components/features/studio/members/role-display";
 import type { WorkspaceRole } from "@/components/features/studio/members/role-display";
@@ -17,6 +18,10 @@ import { Separator } from "@/components/ui/separator";
 import { Spinner } from "@/components/ui/spinner";
 import { Switch } from "@/components/ui/switch";
 import { formatDateOnly } from "@arc/shared/utils/time";
+import {
+  dateTimeLocalInputToISOString,
+  isoStringToDateTimeLocalInput,
+} from "@/lib/client/datetime-local";
 import { useWorkspaceMemberRole, useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { authClient } from "@/lib/client/auth-client";
 import { rpc } from "@/lib/client/rpc";
@@ -36,6 +41,7 @@ const DEFAULT_MAIL_INGEST_FORM = {
   enabled: true,
   imapHost: "imap.qiye.aliyun.com",
   imapPort: "993",
+  listenStartAt: "",
   password: "",
   subjectKeyword: "boss直聘",
   username: "",
@@ -290,6 +296,7 @@ interface MailIngestAccountRecord {
   imapPort: number;
   lastCheckedAt: string | null;
   lastError: string | null;
+  listenStartAt: string | null;
   subjectKeyword: string;
   username: string;
 }
@@ -299,15 +306,23 @@ interface MailIngestFormState {
   enabled: boolean;
   imapHost: string;
   imapPort: string;
+  listenStartAt: string;
   password: string;
   subjectKeyword: string;
   username: string;
 }
 
+function createDefaultMailIngestForm(): MailIngestFormState {
+  return {
+    ...DEFAULT_MAIL_INGEST_FORM,
+    listenStartAt: isoStringToDateTimeLocalInput(new Date().toISOString()),
+  };
+}
+
 function MailIngestAccountCard() {
   const slug = useWorkspaceSlug();
   const queryClient = useQueryClient();
-  const [form, setForm] = useState<MailIngestFormState>(DEFAULT_MAIL_INGEST_FORM);
+  const [form, setForm] = useState<MailIngestFormState>(() => createDefaultMailIngestForm());
 
   const accountsQuery = useQuery({
     queryFn: async () => {
@@ -326,7 +341,7 @@ function MailIngestAccountCard() {
 
   useEffect(() => {
     if (!account) {
-      setForm(DEFAULT_MAIL_INGEST_FORM);
+      setForm(createDefaultMailIngestForm());
       return;
     }
     setForm({
@@ -334,6 +349,7 @@ function MailIngestAccountCard() {
       enabled: account.enabled,
       imapHost: account.imapHost,
       imapPort: String(account.imapPort),
+      listenStartAt: isoStringToDateTimeLocalInput(account.listenStartAt),
       password: "",
       subjectKeyword: account.subjectKeyword,
       username: account.username,
@@ -356,6 +372,7 @@ function MailIngestAccountCard() {
         imapHost: form.imapHost.trim(),
         imapPort: port,
         imapSecure: true,
+        listenStartAt: dateTimeLocalInputToISOString(form.listenStartAt),
         mailbox: "INBOX",
         processedMailbox: "ARC-Processed",
         subjectKeyword: form.subjectKeyword.trim() || "boss直聘",
@@ -546,6 +563,20 @@ function MailIngestAccountCard() {
                 value={form.subjectKeyword}
               />
             </Field>
+
+            <Field>
+              <FieldLabel htmlFor="mail-ingest-listen-start">监听起始时间</FieldLabel>
+              <Input
+                id="mail-ingest-listen-start"
+                disabled={disabled}
+                onChange={(event) =>
+                  setForm((current) => ({ ...current, listenStartAt: event.target.value }))
+                }
+                type="datetime-local"
+                value={form.listenStartAt}
+              />
+              <FieldDescription>留空表示扫描全部邮件；新建时默认从当前时间开始。</FieldDescription>
+            </Field>
           </FieldGroup>
 
           <div className="flex justify-end gap-2">
@@ -655,7 +686,9 @@ function MyProfilePage() {
           organizations={organizations}
         />
 
-        <MailIngestAccountCard />
+        <PermissionGate resource="member" action="update">
+          <MailIngestAccountCard />
+        </PermissionGate>
       </div>
     </div>
   );

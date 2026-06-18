@@ -13,8 +13,8 @@
     "./lib/server/*": "./src/lib/server/*.ts"
   },
   "scripts": {
+    "backfill:resume-profiles": "tsx src/scripts/backfill-resume-profiles.ts",
     "dev:standalone": "tsx watch src/index.ts",
-    "eval:external-resume-parser": "tsx src/scripts/evaluate-external-resume-parser.ts --out /tmp/external-resume-parser-report.json \"/Users/obito/Downloads/幻影-UI设计师测试_最新.xlsx\" \"/Users/obito/Downloads/黄东-简历.xlsx\" \"/Users/obito/Downloads/seo_villors.docx\" \"/Users/obito/Downloads/SEO-梁玉丰.docx\" \"/Users/obito/Downloads/SEO简历-Datou (1).docx\" \"/Users/obito/Downloads/Silas.docx\" \"/Users/obito/Downloads/【web前端开发组长(react、next.js)_深圳 30-40K】周胜 7年.pdf\"",
     "repair:default-recruiting-groups": "tsx src/scripts/repair-default-recruiting-groups.ts",
     "start": "tsx src/index.ts",
     "test": "vitest run",
@@ -44,6 +44,7 @@
     "fast-xml-parser": "^5.8.0",
     "hono": "^4.12.18",
     "html-to-text": "9.0.5",
+    "imapflow": "^1.4.1",
     "jszip": "^3.10.1",
     "livekit-server-sdk": "^2.15.2",
     "lodash-es": "^4.18.1",
