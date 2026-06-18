@@ -1,6 +1,6 @@
 "use client";
 
-import { Building2Icon, InboxIcon, ListChecksIcon, UsersIcon } from "lucide-react";
+import { Building2Icon, InboxIcon, ListChecksIcon, UsersIcon } from "@/components/icons/hugeicons";
 import { Link, useRouterState } from "@tanstack/react-router";
 import {
   SidebarBodyPortalContent,

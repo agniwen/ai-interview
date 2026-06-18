@@ -81,6 +81,12 @@ describe("TanStack Start migration patterns", () => {
     expect(globalsCss).toContain("@keyframes route-pending");
   });
 
+  it("keeps the studio content scrollbar visible", () => {
+    const studioLayout = readSource("src/routes/w.$slug.studio.tsx");
+
+    expect(studioLayout).toContain('scrollbars="never"');
+  });
+
   it("does not leave the workspace switcher disabled after navigation", () => {
     const workspaceSwitcher = readSource(
       "src/components/features/workspace/workspace-switcher.tsx",
@@ -117,6 +123,9 @@ describe("TanStack Start migration patterns", () => {
 
     expect(rootRoute).toContain('import "../styles/globals.css"');
     expect(rootRoute).toContain('import "overlayscrollbars/overlayscrollbars.css"');
+    expect(rootRoute.indexOf('import "overlayscrollbars/overlayscrollbars.css"')).toBeLessThan(
+      rootRoute.indexOf('import "../styles/globals.css"'),
+    );
     expect(rootRoute).not.toContain("globals.css?url");
     expect(rootRoute).not.toContain("overlayscrollbars.css?url");
     expect(viteConfig).toContain("inlineCss: true");

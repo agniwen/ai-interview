@@ -1,6 +1,6 @@
 "use client";
 
-import { Building2Icon, UsersIcon } from "lucide-react";
+import { Building2Icon, UsersIcon } from "@/components/icons/hugeicons";
 import { useCallback, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import {

@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckIcon, ChevronRightIcon, CircleIcon } from "lucide-react";
+import { CheckIcon, ChevronRightIcon, CircleIcon } from "@/components/icons/hugeicons";
 import { Menubar as MenubarPrimitive } from "radix-ui";
 import * as React from "react";
 

@@ -7,7 +7,7 @@ import { cn } from "@arc/shared/utils";
 
 type ScrollAreaProps = Omit<ComponentProps<typeof OverlayScrollbarsComponent>, "element"> & {
   /** Forwarded to OverlayScrollbars autoHide option. */
-  scrollbars?: "scroll" | "leave" | "move" | "never";
+  scrollbars?: "leave" | "move" | "never" | "scroll";
   orientation?: "horizontal" | "vertical";
   scrollbarGutter?: boolean;
   scrollFade?: boolean;

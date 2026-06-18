@@ -1,6 +1,6 @@
 "use client";
 
-import { FileTextIcon, SparklesIcon } from "lucide-react";
+import { FileTextIcon, SparklesIcon } from "@/components/icons/hugeicons";
 import { useState } from "react";
 import { AnimatedHeight } from "@/components/features/motion/animated-height";
 import { Button } from "@/components/ui/button";

@@ -26,7 +26,7 @@ import type {
   StudioInterviewRoundListRecord,
 } from "@arc/shared/studio-interview-rounds";
 import { pipelineStageMeta, scheduleEntryStatusMeta } from "@arc/db-schema/studio-interviews";
-import { BotIcon, Trash2Icon } from "lucide-react";
+import { BotIcon, Trash2Icon } from "@/components/icons/hugeicons";
 import { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import {

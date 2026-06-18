@@ -9,7 +9,7 @@
  * presign request per round.
  */
 
-import { Loader2Icon, PlayIcon } from "lucide-react";
+import { Loader2Icon, PlayIcon } from "@/components/icons/hugeicons";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { SoftPanel } from "@/components/features/display/soft-panel";

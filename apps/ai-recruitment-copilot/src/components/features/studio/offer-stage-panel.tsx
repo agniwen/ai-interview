@@ -21,7 +21,7 @@ import {
   PencilIcon,
   PlusIcon,
   SendIcon,
-} from "lucide-react";
+} from "@/components/icons/hugeicons";
 import type { Dispatch, SetStateAction } from "react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";

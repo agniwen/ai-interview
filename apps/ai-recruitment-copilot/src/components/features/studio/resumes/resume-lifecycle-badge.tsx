@@ -1,7 +1,7 @@
 "use client";
 
 import type { ButtonHTMLAttributes } from "react";
-import { ChevronRightIcon } from "lucide-react";
+import { ChevronRightIcon } from "@/components/icons/hugeicons";
 import { badgeVariants } from "@/components/ui/badge";
 import { cn } from "@arc/shared/utils";
 

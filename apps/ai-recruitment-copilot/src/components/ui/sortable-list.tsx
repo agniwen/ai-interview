@@ -21,7 +21,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { GripVerticalIcon } from "lucide-react";
+import { GripVerticalIcon } from "@/components/icons/hugeicons";
 import { memo, useCallback, useState } from "react";
 import { cn } from "@arc/shared/utils";
 

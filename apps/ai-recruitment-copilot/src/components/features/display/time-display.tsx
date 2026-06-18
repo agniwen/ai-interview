@@ -1,7 +1,7 @@
 "use client";
 
 import dayjs from "dayjs";
-import { CalendarIcon } from "lucide-react";
+import { CalendarIcon } from "@/components/icons/hugeicons";
 import { useMemo } from "react";
 import { useHydrated } from "@/hooks/use-hydrated";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";

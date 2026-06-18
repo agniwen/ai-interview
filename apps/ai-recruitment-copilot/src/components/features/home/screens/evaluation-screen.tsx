@@ -2,7 +2,7 @@
 // AI 面试列表页之上；当前选中 tab：面试报告，对齐真实 EvaluationResults 的卡片结构。
 // Purpose: simplified UI of StudioPersonDetailDialog (mode="interview", size="full")
 // laid over the AI 面试 list page. Active tab "面试报告" mirrors EvaluationResults.
-import { FileTextIcon, SearchIcon, XIcon } from "lucide-react";
+import { FileTextIcon, SearchIcon, XIcon } from "@/components/icons/hugeicons";
 import { Fragment } from "react";
 import { PdfFileIcon } from "@/components/features/pdf/pdf-file-icon";
 import {

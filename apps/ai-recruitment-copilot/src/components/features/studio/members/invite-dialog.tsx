@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
-import { MailIcon } from "lucide-react";
+import { MailIcon } from "@/components/icons/hugeicons";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -57,10 +57,10 @@ export function InviteDialog({
   const canInviteWithSelectedRole = assignableRoles.includes(role);
 
   useEffect(() => {
-    if (open && !canInviteWithSelectedRole) {
+    if (open) {
       setRole(getDefaultInviteRole(assignableRoles));
     }
-  }, [assignableRoles, canInviteWithSelectedRole, open]);
+  }, [assignableRoles, open]);
 
   async function onSubmit() {
     const trimmedEmail = email.trim();

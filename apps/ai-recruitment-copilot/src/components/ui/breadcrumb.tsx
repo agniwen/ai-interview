@@ -1,4 +1,4 @@
-import { ChevronRight, MoreHorizontal } from "lucide-react";
+import { ChevronRight, MoreHorizontal } from "@/components/icons/hugeicons";
 import { Slot } from "radix-ui";
 import * as React from "react";
 

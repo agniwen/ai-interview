@@ -1,7 +1,7 @@
 "use client";
 
 import type { FileUIPart, SourceUrlUIPart, UIMessage } from "ai";
-import { CheckIcon, CopyIcon, RefreshCcwIcon } from "lucide-react";
+import { CheckIcon, CopyIcon, RefreshCcwIcon } from "@/components/icons/hugeicons";
 import { useState } from "react";
 import {
   Attachment,

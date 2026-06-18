@@ -2,7 +2,13 @@
 
 import type { InterviewFormApi } from "./interview-form";
 import type { ScheduleEntryStatus } from "@arc/db-schema/studio-interviews";
-import { CalendarDaysIcon, LockIcon, PlusIcon, RotateCcwIcon, Trash2Icon } from "lucide-react";
+import {
+  CalendarDaysIcon,
+  LockIcon,
+  PlusIcon,
+  RotateCcwIcon,
+  Trash2Icon,
+} from "@/components/icons/hugeicons";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {

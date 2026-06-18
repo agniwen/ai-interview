@@ -10,7 +10,7 @@ import type {
   ResumePoolImportDuplicateResult,
   ResumePoolListRecord,
 } from "@arc/shared/resume-pool";
-import type { LucideIcon } from "lucide-react";
+import type { LucideIcon } from "@/components/icons/hugeicons";
 import {
   BriefcaseBusinessIcon,
   Building2Icon,
@@ -24,7 +24,7 @@ import {
   SendIcon,
   Trash2Icon,
   UploadIcon,
-} from "lucide-react";
+} from "@/components/icons/hugeicons";
 import type { ReactNode } from "react";
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Masonry, { ResponsiveMasonry } from "react-responsive-masonry";
@@ -787,7 +787,7 @@ function ResumePoolHighlightRow({
   value: ReactNode;
 }) {
   return (
-    <div className="rounded-md bg-muted/25 px-2.5 py-2">
+    <div className="rounded-md border-muted/60 border bg-muted/25 px-2.5 py-2">
       <div className="flex items-center gap-1.5 text-muted-foreground">
         <Icon className="size-3.5 shrink-0" />
         <span className="text-xs">{label}</span>

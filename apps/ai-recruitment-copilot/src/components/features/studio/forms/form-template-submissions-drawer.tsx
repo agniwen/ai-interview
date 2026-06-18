@@ -5,7 +5,7 @@ import type {
   CandidateFormTemplateSnapshot,
 } from "@arc/db-schema/candidate-forms";
 import { useInfiniteQuery } from "@tanstack/react-query";
-import { InboxIcon, Loader2Icon } from "lucide-react";
+import { InboxIcon, Loader2Icon } from "@/components/icons/hugeicons";
 import { useMemo } from "react";
 import { rpc } from "@/lib/client/rpc";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";

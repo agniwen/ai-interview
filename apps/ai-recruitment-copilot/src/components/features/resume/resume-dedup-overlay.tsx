@@ -12,7 +12,7 @@
  * the in-progress overlay for this component so the user can decide.
  */
 
-import { AlertTriangleIcon, ExternalLinkIcon } from "lucide-react";
+import { AlertTriangleIcon, ExternalLinkIcon } from "@/components/icons/hugeicons";
 import { useState } from "react";
 import type { DedupMatchedField, DedupMatchRecord } from "@/lib/client/api";
 import { studioInterviewStatusMeta } from "@arc/db-schema/studio-interviews";

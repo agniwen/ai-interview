@@ -1,7 +1,7 @@
 "use client";
 
 import { Upload01Icon } from "@hugeicons/core-free-icons";
-import { FileUpIcon } from "lucide-react";
+import { FileUpIcon } from "@/components/icons/hugeicons";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";

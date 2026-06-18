@@ -29,7 +29,7 @@ import type {
 import { pipelineStageMeta, pipelineStageValues } from "@arc/db-schema/studio-interviews";
 import type { PipelineStage } from "@arc/db-schema/studio-interviews";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { HistoryIcon, Trash2Icon, UsersIcon } from "lucide-react";
+import { HistoryIcon, Trash2Icon, UsersIcon } from "@/components/icons/hugeicons";
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import {

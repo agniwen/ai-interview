@@ -1,6 +1,6 @@
 "use client";
 
-import { TimerIcon } from "lucide-react";
+import { TimerIcon } from "@/components/icons/hugeicons";
 import { useEffect, useState } from "react";
 import { cn } from "@arc/shared/utils";
 

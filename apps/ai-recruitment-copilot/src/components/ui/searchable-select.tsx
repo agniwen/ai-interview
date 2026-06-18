@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckIcon, ChevronsUpDownIcon, XIcon } from "lucide-react";
+import { CheckIcon, SelectChevronsUpDownIcon, XIcon } from "@/components/icons/hugeicons";
 import { useId, useMemo, useState } from "react";
 
 import {
@@ -127,7 +127,7 @@ export function SearchableSelect({
                   Spacer span: keeps trigger layout stable so the absolute clear button below
                   lines up here without pushing the chevron. */}
               {showClearButton ? <span aria-hidden className="size-4" /> : null}
-              <ChevronsUpDownIcon className="size-4 opacity-50" />
+              <SelectChevronsUpDownIcon className="size-4 opacity-50" />
             </span>
           </button>
         </PopoverTrigger>

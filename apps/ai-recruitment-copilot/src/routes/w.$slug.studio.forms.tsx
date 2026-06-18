@@ -23,7 +23,12 @@ import type {
   CandidateFormTemplateRecord,
 } from "@arc/db-schema/candidate-forms";
 import type { PaginatedCandidateFormTemplateResult } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/forms/dao/queries";
-import { ChevronDownIcon, ClipboardListIcon, PlusIcon, SparklesIcon } from "lucide-react";
+import {
+  ChevronDownIcon,
+  ClipboardListIcon,
+  PlusIcon,
+  SparklesIcon,
+} from "@/components/icons/hugeicons";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";

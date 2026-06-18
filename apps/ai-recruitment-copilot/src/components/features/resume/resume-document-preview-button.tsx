@@ -1,6 +1,6 @@
 "use client";
 
-import { EyeIcon } from "lucide-react";
+import { EyeIcon } from "@/components/icons/hugeicons";
 import type { ReactNode } from "react";
 import { Suspense, lazy, useState } from "react";
 import { PdfPreviewButton } from "@/components/features/pdf/pdf-preview-button";

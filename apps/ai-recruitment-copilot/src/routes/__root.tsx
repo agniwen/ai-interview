@@ -6,8 +6,8 @@ import {
   createRootRouteWithContext,
   useRouter,
 } from "@tanstack/react-router";
-import "../styles/globals.css";
 import "overlayscrollbars/overlayscrollbars.css";
+import "../styles/globals.css";
 import { NotFoundPage } from "@/components/layout/not-found-view";
 import { QueryProvider } from "@/components/providers/query-provider";
 import { ThemeProvider } from "@/components/theme/theme-provider";

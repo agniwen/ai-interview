@@ -3,7 +3,7 @@
 import type * as React from "react";
 import type { ReactNode } from "react";
 import type { ToolRenderState } from "@arc/shared/tool-state";
-import { CircleX, Loader2, Minus, OctagonPause, Plus } from "lucide-react";
+import { CircleX, Loader2, Minus, OctagonPause, Plus } from "@/components/icons/hugeicons";
 import { useEffect, useState } from "react";
 import { cn } from "@arc/shared/utils";
 import { ApprovalButtons } from "./approval-buttons";

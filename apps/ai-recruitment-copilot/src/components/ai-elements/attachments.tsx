@@ -11,7 +11,7 @@ import {
   PaperclipIcon,
   VideoIcon,
   XIcon,
-} from "lucide-react";
+} from "@/components/icons/hugeicons";
 import { createContext, use, useCallback, useMemo } from "react";
 import { ResumeDocumentFileIcon } from "@/components/features/resume/resume-document-file-icon";
 import { Button } from "@/components/ui/button";

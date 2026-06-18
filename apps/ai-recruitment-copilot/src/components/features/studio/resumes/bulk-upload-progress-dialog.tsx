@@ -6,7 +6,7 @@ import {
   LoaderCircleIcon,
   SkipForwardIcon,
   XCircleIcon,
-} from "lucide-react";
+} from "@/components/icons/hugeicons";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";

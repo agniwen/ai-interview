@@ -1,6 +1,6 @@
 "use client";
 
-import { EyeIcon, LoaderCircleIcon } from "lucide-react";
+import { EyeIcon, LoaderCircleIcon } from "@/components/icons/hugeicons";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";

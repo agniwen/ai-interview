@@ -31,7 +31,7 @@ import {
   VideoOffIcon,
   VideoIcon,
   WandSparklesIcon,
-} from "lucide-react";
+} from "@/components/icons/hugeicons";
 import { ConnectionState, LocalAudioTrack, RoomEvent, Track } from "livekit-client";
 import type { Room } from "livekit-client";
 import type { MouseEvent } from "react";

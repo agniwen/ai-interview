@@ -3,7 +3,7 @@ import {
   ChevronRightIcon,
   ChevronsLeftIcon,
   ChevronsRightIcon,
-} from "lucide-react";
+} from "@/components/icons/hugeicons";
 import { Button } from "@/components/ui/button";
 import {
   Select,

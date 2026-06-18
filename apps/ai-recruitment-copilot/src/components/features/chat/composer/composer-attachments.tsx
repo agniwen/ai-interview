@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertCircleIcon } from "lucide-react";
+import { AlertCircleIcon } from "@/components/icons/hugeicons";
 import {
   Attachment,
   AttachmentInfo,

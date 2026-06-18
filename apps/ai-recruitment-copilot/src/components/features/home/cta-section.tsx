@@ -2,7 +2,7 @@
 // Purpose: Secondary CTA above footer.
 "use client";
 
-import { ArrowRightIcon } from "lucide-react";
+import { ArrowRightIcon } from "@/components/icons/hugeicons";
 import { Button } from "@/components/ui/button";
 import { Section, SectionTitle } from "./section";
 

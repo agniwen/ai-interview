@@ -1,6 +1,6 @@
 "use client";
 
-import { LoaderCircleIcon, LogOutIcon } from "lucide-react";
+import { LoaderCircleIcon, LogOutIcon } from "@/components/icons/hugeicons";
 import { useRouter } from "@tanstack/react-router";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";

@@ -25,7 +25,7 @@ import {
   UsersIcon,
   VideoIcon,
   XIcon,
-} from "lucide-react";
+} from "@/components/icons/hugeicons";
 import type { FormEvent, MouseEvent, ReactNode } from "react";
 import { useReducer, useState } from "react";
 import { toast } from "sonner";

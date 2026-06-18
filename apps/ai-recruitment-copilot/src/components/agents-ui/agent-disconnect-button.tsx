@@ -4,7 +4,7 @@ import type { VariantProps } from "class-variance-authority";
 import type { ComponentProps } from "react";
 import type { buttonVariants } from "@/components/ui/button";
 import { useSessionContext } from "@livekit/components-react";
-import { PhoneOffIcon } from "lucide-react";
+import { PhoneOffIcon } from "@/components/icons/hugeicons";
 import { Button } from "@/components/ui/button";
 import { cn } from "@arc/shared/utils";
 

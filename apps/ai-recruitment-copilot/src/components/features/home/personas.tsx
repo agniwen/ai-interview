@@ -2,7 +2,7 @@
 // Purpose: Three-persona section, Notion-style colorful cards.
 "use client";
 
-import { BriefcaseIcon, MicIcon, UsersIcon } from "lucide-react";
+import { BriefcaseIcon, MicIcon, UsersIcon } from "@/components/icons/hugeicons";
 import type { ComponentType, SVGProps } from "react";
 import { FadeContent } from "@/components/react-bits/fade-content";
 import { Eyebrow, Section, SectionLead, SectionTitle } from "./section";

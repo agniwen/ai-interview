@@ -26,7 +26,7 @@ import {
   Trash2Icon,
   TypeIcon,
   XIcon,
-} from "lucide-react";
+} from "@/components/icons/hugeicons";
 import type { KeyboardEvent, MouseEvent } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";

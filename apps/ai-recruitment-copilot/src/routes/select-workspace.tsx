@@ -1,4 +1,4 @@
-import { ArrowRightIcon, PlusIcon } from "lucide-react";
+import { ArrowRightIcon, PlusIcon } from "@/components/icons/hugeicons";
 import { createFileRoute, redirect, useLoaderData } from "@tanstack/react-router";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";

@@ -3,7 +3,7 @@
 import type { ComponentProps, CSSProperties, HTMLAttributes } from "react";
 import type { BundledLanguage, BundledTheme, HighlighterGeneric, ThemedToken } from "shiki";
 
-import { CheckIcon, CopyIcon } from "lucide-react";
+import { CheckIcon, CopyIcon } from "@/components/icons/hugeicons";
 import {
   createContext,
   memo,

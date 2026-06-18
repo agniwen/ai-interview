@@ -4,7 +4,7 @@ import * as React from "react";
 import { FileImageIcon, FileSpreadsheetIcon, Upload01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { BorderBeam } from "border-beam";
-import { UploadIcon } from "lucide-react";
+import { UploadIcon } from "@/components/icons/hugeicons";
 
 import { cn } from "@arc/shared/utils";
 import { FileThumbnail } from "@/components/ui/file-thumbnail";

@@ -1,7 +1,7 @@
 "use client";
 
 import { useQueryClient } from "@tanstack/react-query";
-import { SettingsIcon } from "lucide-react";
+import { SettingsIcon } from "@/components/icons/hugeicons";
 import { useEffect, useState } from "react";
 import type { FormEvent, ReactNode } from "react";
 import { toast } from "sonner";

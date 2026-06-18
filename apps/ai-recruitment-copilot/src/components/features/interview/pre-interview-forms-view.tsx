@@ -1,6 +1,6 @@
 "use client";
 
-import { ClipboardListIcon, Loader2Icon } from "lucide-react";
+import { ClipboardListIcon, Loader2Icon } from "@/components/icons/hugeicons";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { rpc } from "@/lib/client/rpc";

@@ -21,7 +21,7 @@ import {
   UserIcon,
   UsersIcon,
   XIcon,
-} from "lucide-react";
+} from "@/components/icons/hugeicons";
 import type { ReactNode } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@arc/shared/utils";

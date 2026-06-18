@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertCircleIcon, RefreshCcwIcon } from "lucide-react";
+import { AlertCircleIcon, RefreshCcwIcon } from "@/components/icons/hugeicons";
 import { Button } from "@/components/ui/button";
 import { useChatActionsContext } from "./chat-runtime-context";
 

@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { UploadIcon } from "lucide-react";
+import { UploadIcon } from "@/components/icons/hugeicons";
 import { Button } from "@/components/ui/button";
 import { ResumeDocumentFileIcon } from "@/components/features/resume/resume-document-file-icon";
 import { ResumeDocumentPreviewButton } from "@/components/features/resume/resume-document-preview-button";

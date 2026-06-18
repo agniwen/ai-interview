@@ -1,7 +1,7 @@
 "use client";
 
 import type { PersistedInterviewTurn } from "@arc/db-schema/interview-session";
-import { MessageSquareTextIcon } from "lucide-react";
+import { MessageSquareTextIcon } from "@/components/icons/hugeicons";
 import { useEffect, useMemo, useRef } from "react";
 import {
   Conversation,

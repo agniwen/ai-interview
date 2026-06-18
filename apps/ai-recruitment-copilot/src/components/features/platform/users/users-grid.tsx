@@ -7,7 +7,7 @@ import {
   ShieldCheckIcon,
   UsersIcon,
   XCircleIcon,
-} from "lucide-react";
+} from "@/components/icons/hugeicons";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";

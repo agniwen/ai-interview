@@ -2,7 +2,7 @@
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useRouterState } from "@tanstack/react-router";
-import { ChevronsUpDown, Plus } from "lucide-react";
+import { Plus, SelectChevronsUpDownIcon } from "@/components/icons/hugeicons";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -67,7 +67,7 @@ export function WorkspaceSwitcher() {
         <DropdownMenuTrigger asChild>
           <Button className="gap-2 font-normal" size="sm" variant="ghost">
             <span className="truncate">{label}</span>
-            <ChevronsUpDown className="h-4 w-4 opacity-60" />
+            <SelectChevronsUpDownIcon className="h-4 w-4 opacity-60" />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-56">

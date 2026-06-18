@@ -1,7 +1,7 @@
 "use client";
 
 import { Link } from "@tanstack/react-router";
-import { ShieldIcon } from "lucide-react";
+import { ShieldIcon } from "@/components/icons/hugeicons";
 import { useSidebar } from "@/components/ui/sidebar";
 
 export function PlatformLogo() {

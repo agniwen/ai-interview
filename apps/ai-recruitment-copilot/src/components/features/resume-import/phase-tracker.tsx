@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckIcon } from "lucide-react";
+import { CheckIcon } from "@/components/icons/hugeicons";
 import { cn } from "@arc/shared/utils";
 import type { ImportPhase } from "./types";
 
