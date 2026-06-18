@@ -10,7 +10,7 @@ import type {
   ResumePoolImportDuplicateResult,
   ResumePoolListRecord,
 } from "@arc/shared/resume-pool";
-import type { LucideIcon } from "lucide-react";
+import type { LucideIcon } from "@/components/icons/hugeicons";
 import {
   BriefcaseBusinessIcon,
   Building2Icon,
@@ -24,7 +24,7 @@ import {
   SendIcon,
   Trash2Icon,
   UploadIcon,
-} from "lucide-react";
+} from "@/components/icons/hugeicons";
 import type { ReactNode } from "react";
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Masonry, { ResponsiveMasonry } from "react-responsive-masonry";

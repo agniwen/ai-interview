@@ -90,7 +90,6 @@
     "livekit-client": "^2.18.9",
     "livekit-server-sdk": "^2.15.2",
     "lru-cache": "^11.3.6",
-    "lucide-react": "^0.575.0",
     "motion": "^12.38.0",
     "mupdf": "^1.27.0",
     "nanoid": "^5.1.11",

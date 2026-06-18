@@ -1,4 +1,4 @@
-import { FilterXIcon, Loader2Icon, RefreshCwIcon, SearchIcon } from "lucide-react";
+import { FilterXIcon, Loader2Icon, RefreshCwIcon, SearchIcon } from "@/components/icons/hugeicons";
 import type { CSSProperties, ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

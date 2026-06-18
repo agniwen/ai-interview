@@ -60,7 +60,7 @@ export function SidebarTabs() {
       onValueChange={handleChange}
       value={activeTab ?? "chat"}
     >
-      <TabsList className="w-full">
+      <TabsList className="w-full  bg-sidebar/60 ">
         <TabsTrigger value="chat">Chat</TabsTrigger>
         <TabsTrigger value="studio">Studio</TabsTrigger>
       </TabsList>

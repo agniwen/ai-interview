@@ -15,7 +15,7 @@ import type { AnalysisStreamEvent } from "@arc/shared/api-stream";
 import type { ResumeLibraryDetail } from "@arc/shared/studio-resumes";
 import type { StudioInterviewRoundDetail } from "@arc/shared/studio-interview-rounds";
 import { useQueryClient } from "@tanstack/react-query";
-import { CheckIcon, DatabaseIcon, EyeIcon, LoaderCircleIcon } from "lucide-react";
+import { CheckIcon, DatabaseIcon, EyeIcon, LoaderCircleIcon } from "@/components/icons/hugeicons";
 import { Suspense, lazy, useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
 import { ImportProgressModal } from "@/components/features/resume-import/import-progress-modal";

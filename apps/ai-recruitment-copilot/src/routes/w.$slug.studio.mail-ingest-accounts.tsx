@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import { InboxIcon } from "lucide-react";
+import { InboxIcon } from "@/components/icons/hugeicons";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { actionsColumn, customColumn, DataGrid, useDataGridState } from "@/components/data-grid";
@@ -44,16 +44,26 @@ import {
   dateTimeLocalInputToISOString,
   isoStringToDateTimeLocalInput,
 } from "@/lib/client/datetime-local";
+import {
+  DEFAULT_MAIL_INGEST_PROVIDER_ID,
+  MAIL_INGEST_PROVIDERS,
+  applyMailIngestProvider,
+  getMailIngestProvider,
+  resolveMailIngestProviderId,
+} from "@/lib/client/mail-ingest-providers";
+import type { MailIngestProviderId } from "@/lib/client/mail-ingest-providers";
 import { rpc } from "@/lib/client/rpc";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 
+const DEFAULT_MAIL_INGEST_PROVIDER = getMailIngestProvider(DEFAULT_MAIL_INGEST_PROVIDER_ID);
 const DEFAULT_FORM = {
   emailAddress: "",
   enabled: true,
-  imapHost: "imap.qiye.aliyun.com",
-  imapPort: "993",
+  imapHost: DEFAULT_MAIL_INGEST_PROVIDER.imapHost,
+  imapPort: DEFAULT_MAIL_INGEST_PROVIDER.imapPort,
   listenStartAt: "",
   password: "",
+  providerId: DEFAULT_MAIL_INGEST_PROVIDER_ID as MailIngestProviderId,
   subjectKeyword: "boss直聘",
   userId: "",
   username: "",
@@ -94,7 +104,18 @@ interface ManagedMailIngestResult extends DataGridFetchResult<ManagedMailIngestR
   pageSize: number;
 }
 
-type MailIngestFormState = typeof DEFAULT_FORM;
+interface MailIngestFormState {
+  emailAddress: string;
+  enabled: boolean;
+  imapHost: string;
+  imapPort: string;
+  listenStartAt: string;
+  password: string;
+  providerId: MailIngestProviderId;
+  subjectKeyword: string;
+  userId: string;
+  username: string;
+}
 
 function buildNewForm(user: ManagedMailIngestRow["user"]): MailIngestFormState {
   return {
@@ -122,6 +143,7 @@ function buildInitialForm(row: ManagedMailIngestRow): MailIngestFormState {
       imapPort: String(row.account.imapPort),
       listenStartAt: isoStringToDateTimeLocalInput(row.account.listenStartAt),
       password: "",
+      providerId: resolveMailIngestProviderId(row.account.imapHost, row.account.imapPort),
       subjectKeyword: row.account.subjectKeyword,
       userId: row.user.id,
       username: row.account.username,
@@ -303,31 +325,37 @@ function MailIngestAccountDialog({
               <FieldDescription>密码会加密保存；企业邮箱需开启 IMAP/SMTP 服务。</FieldDescription>
             </Field>
 
-            <div className="grid gap-4 sm:grid-cols-[1fr_120px]">
-              <Field>
-                <FieldLabel htmlFor="mail-ingest-host">IMAP 主机</FieldLabel>
-                <Input
-                  id="mail-ingest-host"
-                  disabled={pending}
-                  onChange={(event) =>
-                    setForm((current) => ({ ...current, imapHost: event.target.value }))
-                  }
-                  value={form.imapHost}
-                />
-              </Field>
-              <Field>
-                <FieldLabel htmlFor="mail-ingest-port">端口</FieldLabel>
-                <Input
-                  id="mail-ingest-port"
-                  disabled={pending}
-                  inputMode="numeric"
-                  onChange={(event) =>
-                    setForm((current) => ({ ...current, imapPort: event.target.value }))
-                  }
-                  value={form.imapPort}
-                />
-              </Field>
-            </div>
+            <Field>
+              <FieldLabel htmlFor="mail-ingest-provider">邮箱服务</FieldLabel>
+              <Select
+                disabled={pending}
+                value={form.providerId}
+                onValueChange={(value) =>
+                  setForm((current) =>
+                    applyMailIngestProvider(
+                      { ...current, providerId: value as MailIngestProviderId },
+                      value as MailIngestProviderId,
+                    ),
+                  )
+                }
+              >
+                <SelectTrigger className="w-full" id="mail-ingest-provider">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    {MAIL_INGEST_PROVIDERS.map((provider) => (
+                      <SelectItem key={provider.id} value={provider.id}>
+                        {provider.label}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+              <FieldDescription>
+                IMAP：{form.imapHost}:{form.imapPort}
+              </FieldDescription>
+            </Field>
 
             <Field>
               <FieldLabel htmlFor="mail-ingest-keyword">标题关键字</FieldLabel>

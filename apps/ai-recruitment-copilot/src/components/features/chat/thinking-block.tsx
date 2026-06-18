@@ -1,7 +1,7 @@
 "use client";
 
 import type { ToolRenderState } from "@arc/shared/tool-state";
-import { Brain } from "lucide-react";
+import { Brain } from "@/components/icons/hugeicons";
 import { useEffect, useRef, useState } from "react";
 import { ToolLayout } from "./tool-call/tool-layout";
 

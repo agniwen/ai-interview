@@ -11,7 +11,7 @@ import {
   RefreshCwIcon,
   SearchIcon,
   UploadCloudIcon,
-} from "lucide-react";
+} from "@/components/icons/hugeicons";
 import { Fragment } from "react";
 import { PdfFileIcon } from "@/components/features/pdf/pdf-file-icon";
 import {

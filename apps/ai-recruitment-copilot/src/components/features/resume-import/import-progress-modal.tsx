@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckIcon, LoaderCircleIcon, WrenchIcon } from "lucide-react";
+import { CheckIcon, LoaderCircleIcon, WrenchIcon } from "@/components/icons/hugeicons";
 import { AnimatePresence, motion } from "motion/react";
 import { ResumeDedupOverlay } from "@/components/features/resume/resume-dedup-overlay";
 import { Button } from "@/components/ui/button";

@@ -1,6 +1,6 @@
 "use client";
 
-import { UploadIcon } from "lucide-react";
+import { UploadIcon } from "@/components/icons/hugeicons";
 import { useEffect } from "react";
 import { toast } from "sonner";
 import {

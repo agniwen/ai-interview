@@ -1,6 +1,6 @@
 "use client";
 
-import { SaveIcon } from "lucide-react";
+import { SaveIcon } from "@/components/icons/hugeicons";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/features/studio/page-header";

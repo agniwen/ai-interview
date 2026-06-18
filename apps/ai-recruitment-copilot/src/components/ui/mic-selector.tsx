@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, ChevronsUpDown, Mic, MicOff } from "lucide-react";
+import { Check, ChevronsUpDown, Mic, MicOff } from "@/components/icons/hugeicons";
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {

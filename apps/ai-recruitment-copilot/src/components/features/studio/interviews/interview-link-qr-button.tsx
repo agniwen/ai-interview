@@ -1,7 +1,7 @@
 "use client";
 
 import { snapdom } from "@zumer/snapdom";
-import { ChevronDownIcon, LinkIcon, QrCodeIcon, SendIcon } from "lucide-react";
+import { ChevronDownIcon, LinkIcon, QrCodeIcon, SendIcon } from "@/components/icons/hugeicons";
 import { QRCodeCanvas } from "qrcode.react";
 import { useRef, useState } from "react";
 import { toast } from "sonner";

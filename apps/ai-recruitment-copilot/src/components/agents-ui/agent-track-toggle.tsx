@@ -10,7 +10,7 @@ import {
   MonitorUpIcon,
   VideoIcon,
   VideoOffIcon,
-} from "lucide-react";
+} from "@/components/icons/hugeicons";
 import { Fragment, useMemo, useState } from "react";
 import { Toggle } from "@/components/ui/toggle";
 import { cn } from "@arc/shared/utils";

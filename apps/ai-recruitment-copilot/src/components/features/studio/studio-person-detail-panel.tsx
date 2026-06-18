@@ -44,7 +44,7 @@ import {
   MessageSquareTextIcon,
   PencilIcon,
   RotateCcwIcon,
-} from "lucide-react";
+} from "@/components/icons/hugeicons";
 import { useEffect, useMemo, useReducer, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { useNavigate } from "@tanstack/react-router";

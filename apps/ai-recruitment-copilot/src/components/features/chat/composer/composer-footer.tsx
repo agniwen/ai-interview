@@ -2,7 +2,13 @@
 
 import type { ChatStatus } from "ai";
 import { useAtom } from "jotai";
-import { FileTextIcon, ImageIcon, SettingsIcon, SparklesIcon, Trash2Icon } from "lucide-react";
+import {
+  FileTextIcon,
+  ImageIcon,
+  SettingsIcon,
+  SparklesIcon,
+  Trash2Icon,
+} from "@/components/icons/hugeicons";
 import { useEffect, useRef, useState } from "react";
 import { ConversationDownload } from "@/components/ai-elements/conversation";
 import {

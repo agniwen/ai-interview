@@ -18,7 +18,13 @@ import type {
   SetStateAction,
 } from "react";
 
-import { CornerDownLeftIcon, ImageIcon, PlusIcon, SquareIcon, XIcon } from "lucide-react";
+import {
+  CornerDownLeftIcon,
+  ImageIcon,
+  PlusIcon,
+  SquareIcon,
+  XIcon,
+} from "@/components/icons/hugeicons";
 import { nanoid } from "nanoid";
 import { createContext, use, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {

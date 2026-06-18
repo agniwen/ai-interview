@@ -18,7 +18,7 @@ import { ScopedJobDescriptionsModal } from "@/components/features/studio/scoped-
 import { useEntityCrud } from "@/components/features/studio/use-entity-crud";
 import type { DepartmentListRecord, DepartmentRecord } from "@arc/shared/departments";
 import type { PaginatedDepartmentResult } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/departments/dao";
-import { Building2Icon, PlusIcon } from "lucide-react";
+import { Building2Icon, PlusIcon } from "@/components/icons/hugeicons";
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {

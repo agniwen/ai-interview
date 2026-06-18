@@ -21,7 +21,7 @@ import {
   Trash2Icon,
   UserPlusIcon,
   UsersIcon,
-} from "lucide-react";
+} from "@/components/icons/hugeicons";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/features/studio/page-header";

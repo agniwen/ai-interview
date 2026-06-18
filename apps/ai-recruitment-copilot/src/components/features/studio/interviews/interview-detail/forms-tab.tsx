@@ -1,5 +1,5 @@
 import type { CandidateFormSubmissionWithSnapshot } from "@arc/db-schema/candidate-forms";
-import { RotateCcwIcon } from "lucide-react";
+import { RotateCcwIcon } from "@/components/icons/hugeicons";
 import { SoftPanel } from "@/components/features/display/soft-panel";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";

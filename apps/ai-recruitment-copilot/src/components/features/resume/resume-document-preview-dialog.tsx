@@ -1,6 +1,6 @@
 "use client";
 
-import { DownloadIcon, ImageOffIcon, LoaderCircleIcon, XIcon } from "lucide-react";
+import { DownloadIcon, ImageOffIcon, LoaderCircleIcon, XIcon } from "@/components/icons/hugeicons";
 import { Suspense, lazy, useEffect, useState } from "react";
 import { DocxViewerPreview } from "@/components/ui/docx-viewer";
 import { Modal } from "@/components/ui/modal";

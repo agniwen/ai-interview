@@ -1,6 +1,6 @@
 "use client";
 
-import { PlusIcon, SquareCheckBigIcon, Trash2Icon, XIcon } from "lucide-react";
+import { PlusIcon, SquareCheckBigIcon, Trash2Icon, XIcon } from "@/components/icons/hugeicons";
 import { Link, useNavigate, useParams } from "@tanstack/react-router";
 import { useCallback, useEffect, useState } from "react";
 import {

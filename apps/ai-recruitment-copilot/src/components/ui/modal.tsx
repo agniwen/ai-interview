@@ -1,6 +1,6 @@
 "use client";
 
-import { XIcon } from "lucide-react";
+import { XIcon } from "@/components/icons/hugeicons";
 import { Dialog as DialogPrimitive } from "radix-ui";
 import * as React from "react";
 import { Drawer as DrawerPrimitive } from "vaul";

@@ -5,7 +5,7 @@ import type { ComponentProps } from "react";
 import type { UseInputControlsProps } from "@/hooks/agents-ui/use-agent-control-bar";
 import { useAgent, useChat } from "@livekit/components-react";
 import { Track } from "livekit-client";
-import { Loader, MessageSquareTextIcon, SendHorizontal } from "lucide-react";
+import { Loader, MessageSquareTextIcon, SendHorizontal } from "@/components/icons/hugeicons";
 import { motion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 import { AgentDisconnectButton } from "@/components/agents-ui/agent-disconnect-button";

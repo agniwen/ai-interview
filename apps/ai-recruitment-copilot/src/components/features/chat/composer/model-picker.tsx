@@ -1,7 +1,7 @@
 "use client";
 
 import type { ChatModelOption } from "@/lib/client/api";
-import { CheckIcon, ChevronDownIcon, CpuIcon } from "lucide-react";
+import { CheckIcon, ChevronDownIcon, CpuIcon } from "@/components/icons/hugeicons";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";

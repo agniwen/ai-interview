@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckIcon } from "lucide-react";
+import { CheckIcon } from "@/components/icons/hugeicons";
 import { Checkbox as CheckboxPrimitive } from "radix-ui";
 import * as React from "react";
 

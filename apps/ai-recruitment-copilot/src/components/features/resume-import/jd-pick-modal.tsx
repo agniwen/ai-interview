@@ -1,6 +1,6 @@
 "use client";
 
-import { LoaderCircleIcon, SparklesIcon } from "lucide-react";
+import { LoaderCircleIcon, SparklesIcon } from "@/components/icons/hugeicons";
 import { JobDescriptionSelectField } from "@/components/features/studio/interviews/job-description-select-field";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";

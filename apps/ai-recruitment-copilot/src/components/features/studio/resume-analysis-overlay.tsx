@@ -12,7 +12,7 @@ import { ResumeDedupOverlay } from "@/components/features/resume/resume-dedup-ov
 import { TextFlip } from "@/components/features/motion/text-flip";
 import { Button } from "@/components/ui/button";
 import { cn } from "@arc/shared/utils";
-import { CheckIcon, LoaderCircleIcon, WrenchIcon } from "lucide-react";
+import { CheckIcon, LoaderCircleIcon, WrenchIcon } from "@/components/icons/hugeicons";
 import { motion, useReducedMotion } from "motion/react";
 import { useEffect, useRef } from "react";
 

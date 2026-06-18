@@ -23,7 +23,12 @@ import type {
   InterviewQuestionTemplateScope,
 } from "@arc/db-schema/interview-question-templates";
 import type { PaginatedInterviewQuestionTemplateResult } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interview-questions/dao/queries";
-import { ChevronDownIcon, ListChecksIcon, PlusIcon, SparklesIcon } from "lucide-react";
+import {
+  ChevronDownIcon,
+  ListChecksIcon,
+  PlusIcon,
+  SparklesIcon,
+} from "@/components/icons/hugeicons";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";

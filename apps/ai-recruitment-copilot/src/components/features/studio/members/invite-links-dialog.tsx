@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { BanIcon, CopyIcon, LinkIcon, PlayIcon, UsersIcon } from "lucide-react";
+import { BanIcon, CopyIcon, LinkIcon, PlayIcon, UsersIcon } from "@/components/icons/hugeicons";
 import { useState } from "react";
 import { toast } from "sonner";
 import { TimeDisplay } from "@/components/features/display/time-display";

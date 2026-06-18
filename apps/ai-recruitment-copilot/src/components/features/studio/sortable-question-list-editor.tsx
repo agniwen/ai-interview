@@ -1,6 +1,6 @@
 "use client";
 
-import { PlusIcon, Trash2Icon } from "lucide-react";
+import { PlusIcon, Trash2Icon } from "@/components/icons/hugeicons";
 import { Button } from "@/components/ui/button";
 import { FieldError } from "@/components/ui/field";
 import {

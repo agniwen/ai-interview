@@ -6,7 +6,7 @@ import type { ResumeProfile } from "@arc/db-schema/interview/types";
 import { useStore, useForm } from "@tanstack/react-form";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
-import { LoaderCircleIcon, PencilIcon, RotateCcwIcon } from "lucide-react";
+import { LoaderCircleIcon, PencilIcon, RotateCcwIcon } from "@/components/icons/hugeicons";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { CandidateFormFields } from "@/components/features/candidate/candidate-form-fields";

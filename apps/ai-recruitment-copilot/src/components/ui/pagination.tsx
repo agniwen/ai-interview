@@ -1,5 +1,9 @@
 import type { Button } from "@/components/ui/button";
-import { ChevronLeftIcon, ChevronRightIcon, MoreHorizontalIcon } from "lucide-react";
+import {
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  MoreHorizontalIcon,
+} from "@/components/icons/hugeicons";
 
 import * as React from "react";
 import { buttonVariants } from "@/components/ui/button";

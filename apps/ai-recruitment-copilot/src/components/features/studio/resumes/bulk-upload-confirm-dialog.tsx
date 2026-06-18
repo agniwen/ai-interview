@@ -1,6 +1,6 @@
 "use client";
 
-import { FileTextIcon, XIcon } from "lucide-react";
+import { FileTextIcon, XIcon } from "@/components/icons/hugeicons";
 import { useState } from "react";
 import { JobDescriptionSelectField } from "@/components/features/studio/interviews/job-description-select-field";
 import { Button } from "@/components/ui/button";

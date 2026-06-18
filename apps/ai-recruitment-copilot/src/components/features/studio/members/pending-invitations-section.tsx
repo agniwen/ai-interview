@@ -10,7 +10,7 @@
 // badge. listInvitations returns all statuses; we filter to pending here.
 
 import { useQuery } from "@tanstack/react-query";
-import { CopyIcon, MailIcon, XIcon } from "lucide-react";
+import { CopyIcon, MailIcon, XIcon } from "@/components/icons/hugeicons";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";

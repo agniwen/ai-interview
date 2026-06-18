@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckIcon, ChevronsUpDownIcon, XIcon } from "lucide-react";
+import { CheckIcon, SelectChevronsUpDownIcon, XIcon } from "@/components/icons/hugeicons";
 import { useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -302,7 +302,7 @@ export function SearchableMultiSelect({
               selectedFormat={selectedFormat}
               selectedPreviewLimit={selectedPreviewLimit}
             />
-            <ChevronsUpDownIcon className="ml-2 size-4 shrink-0 opacity-50" />
+            <SelectChevronsUpDownIcon className="ml-2 size-4 shrink-0 opacity-50" />
           </button>
         </PopoverTrigger>
         <PopoverContent

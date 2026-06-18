@@ -4,7 +4,13 @@
 // - Message: user 气泡 (bg-white border rounded-2xl px-3 py-2 max-w-[88%]) / assistant 无气泡铺满
 // - PDF 卡: rounded-lg border bg-card p-3 + filename + (预览/查看结构化/一键入库) 三按钮行 border-t pt-3
 // - Composer: PromptInput rounded-[1.3rem] + footer tools (+/settings/download/model) + submit
-import { ArrowUpIcon, DownloadIcon, PlusIcon, SettingsIcon, SparklesIcon } from "lucide-react";
+import {
+  ArrowUpIcon,
+  DownloadIcon,
+  PlusIcon,
+  SettingsIcon,
+  SparklesIcon,
+} from "@/components/icons/hugeicons";
 import type { ReactNode } from "react";
 import { AppShell, ChatNav } from "./_parts/app-shell";
 import type { BreadcrumbCrumb } from "./_parts/app-shell";
@@ -28,7 +34,7 @@ function QuickSuggestionsRow() {
       <div className="flex gap-2.5 overflow-hidden px-1 pb-1">
         {QUICK_SUGGESTIONS.map((s) => (
           <span
-            className="h-auto shrink-0 whitespace-normal rounded-2xl border border-border/70 bg-card/70 px-4 py-2 text-left text-xs leading-normal"
+            className="h-auto  shrink-0 whitespace-normal rounded-2xl border border-border/70 bg-card/70 px-4 py-2 text-left text-xs leading-normal"
             key={s}
           >
             {s}

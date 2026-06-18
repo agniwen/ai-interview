@@ -6,7 +6,7 @@
 import { useEditorState } from "@tiptap/react";
 import type { Editor } from "@tiptap/react";
 import { BubbleMenu } from "@tiptap/react/menus";
-import { BoldIcon, CodeIcon, ItalicIcon } from "lucide-react";
+import { BoldIcon, CodeIcon, ItalicIcon } from "@/components/icons/hugeicons";
 import { Button } from "@/components/ui/button";
 import { cn } from "@arc/shared/utils";
 

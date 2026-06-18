@@ -1,7 +1,7 @@
 "use client";
 
 import type { DynamicToolUIPart, ToolUIPart } from "ai";
-import { CheckIcon, TargetIcon, XIcon } from "lucide-react";
+import { CheckIcon, TargetIcon, XIcon } from "@/components/icons/hugeicons";
 import { useEffect, useMemo, useState } from "react";
 import { Shimmer } from "@/components/ai-elements/shimmer";
 import { Button } from "@/components/ui/button";

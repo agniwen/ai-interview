@@ -11,7 +11,7 @@ import {
   PhoneOffIcon,
   UserIcon,
   VideoIcon,
-} from "lucide-react";
+} from "@/components/icons/hugeicons";
 import { ScreenFrame } from "./screen-frame";
 
 // ─────────────── Agent audio visualizer (bars) ───────────────

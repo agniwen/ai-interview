@@ -9,7 +9,7 @@ import {
   RadioIcon,
   ShieldCheckIcon,
   SparklesIcon,
-} from "lucide-react";
+} from "@/components/icons/hugeicons";
 import type { ComponentType, ReactNode, SVGProps } from "react";
 import { FadeContent } from "@/components/react-bits/fade-content";
 import { cn } from "@arc/shared/utils";

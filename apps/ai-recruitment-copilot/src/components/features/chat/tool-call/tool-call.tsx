@@ -10,7 +10,7 @@ import {
   RulerIcon,
   TargetIcon,
   WrenchIcon,
-} from "lucide-react";
+} from "@/components/icons/hugeicons";
 import { extractRenderState } from "@arc/shared/tool-state";
 import { ToolLayout } from "./tool-layout";
 

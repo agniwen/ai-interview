@@ -5,7 +5,7 @@
 import dayjs from "dayjs";
 import type { Dayjs } from "dayjs";
 import customParseFormat from "dayjs/plugin/customParseFormat";
-import { BriefcaseBusinessIcon, InfinityIcon } from "lucide-react";
+import { BriefcaseBusinessIcon, InfinityIcon } from "@/components/icons/hugeicons";
 import type { ComponentProps } from "react";
 import { useCallback, useRef } from "react";
 import ReactMarkdown from "react-markdown";

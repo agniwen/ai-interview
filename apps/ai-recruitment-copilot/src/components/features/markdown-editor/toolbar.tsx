@@ -18,7 +18,7 @@ import {
   ListOrderedIcon,
   RedoIcon,
   UndoIcon,
-} from "lucide-react";
+} from "@/components/icons/hugeicons";
 import { Button } from "@/components/ui/button";
 import { cn } from "@arc/shared/utils";
 import type { EditorMode } from "./use-markdown-editor";

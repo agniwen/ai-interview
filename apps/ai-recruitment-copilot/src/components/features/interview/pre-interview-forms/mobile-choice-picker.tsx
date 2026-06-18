@@ -10,7 +10,7 @@
  */
 
 import type { CandidateFormTemplateSnapshot } from "@arc/db-schema/candidate-forms";
-import { CheckIcon, ChevronDownIcon } from "lucide-react";
+import { CheckIcon, ChevronDownIcon } from "@/components/icons/hugeicons";
 import { useEffect, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";

@@ -1,6 +1,6 @@
 "use client";
 
-import { EyeIcon } from "lucide-react";
+import { EyeIcon } from "@/components/icons/hugeicons";
 import { Suspense, lazy, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@arc/shared/utils";

@@ -2,7 +2,7 @@
 
 import type { ComponentProps } from "react";
 
-import { BookIcon, ChevronDownIcon } from "lucide-react";
+import { BookIcon, ChevronDownIcon } from "@/components/icons/hugeicons";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { cn } from "@arc/shared/utils";
 

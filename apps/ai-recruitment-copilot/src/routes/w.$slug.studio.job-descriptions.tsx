@@ -26,7 +26,7 @@ import type {
 import type { PaginatedJobDescriptionResult } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao";
 import { JobDescriptionCharts } from "@/components/features/studio/job-descriptions/job-description-charts";
 import { ScopedResumesModal } from "@/components/features/studio/scoped-resumes-modal";
-import { FileTextIcon, PlusIcon, SparklesIcon } from "lucide-react";
+import { FileTextIcon, PlusIcon, SparklesIcon } from "@/components/icons/hugeicons";
 import { useCallback, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";

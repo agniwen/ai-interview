@@ -14,7 +14,7 @@ import {
   UserCircleIcon,
   UserCogIcon,
   UsersIcon,
-} from "lucide-react";
+} from "@/components/icons/hugeicons";
 import { Link, useRouterState } from "@tanstack/react-router";
 import {
   SidebarBodyPortalContent,

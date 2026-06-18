@@ -13,7 +13,7 @@
 // interview detail dialog in place.
 
 import { useForm } from "@tanstack/react-form";
-import { LoaderCircleIcon } from "lucide-react";
+import { LoaderCircleIcon } from "@/components/icons/hugeicons";
 import { motion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";

@@ -16,7 +16,7 @@ import {
   RotateCcwIcon,
   SendIcon,
   UsersIcon,
-} from "lucide-react";
+} from "@/components/icons/hugeicons";
 import type { ReactNode } from "react";
 import { candidateOutcomeMeta, pipelineStageMeta } from "@arc/db-schema/studio-interviews";
 import type { CandidateOutcome, PipelineStage } from "@arc/db-schema/studio-interviews";
