@@ -40,6 +40,7 @@ export interface ResumePoolListRecord {
   organizationId: string | null;
   createdBy: string | null;
   uploaderEmail: string | null;
+  uploaderImage: string | null;
   uploaderName: string | null;
   uploaderOrganizationName: string | null;
   sourcePoolItemId: string | null;
@@ -60,6 +61,7 @@ export interface ResumePoolListRecord {
   resumeParseStatus: ResumeParseStatus;
   resumeParseError: string | null;
   resumeParsedAt: string | null;
+  masteredSkills: string[];
   profileHighlights: ResumePoolProfileHighlights;
   skillsNormalized: string[];
   createdAt: string;

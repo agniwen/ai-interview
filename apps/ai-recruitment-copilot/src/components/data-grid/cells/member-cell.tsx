@@ -4,6 +4,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 const WHITESPACE_REGEX = /\s+/u;
 
 export interface MemberCellProps {
+  avatarClassName?: string;
+  avatarFallbackClassName?: string;
   avatarSize?: "default" | "sm" | "lg";
   className?: string;
   email?: string | null;
@@ -27,6 +29,8 @@ export function getMemberInitials(name?: string | null, email?: string | null) {
 }
 
 export function MemberCell({
+  avatarClassName,
+  avatarFallbackClassName,
   avatarSize = "sm",
   className,
   email,
@@ -41,9 +45,11 @@ export function MemberCell({
 
   return (
     <div className={cn("flex min-w-0 items-center gap-3", className)}>
-      <Avatar size={avatarSize}>
+      <Avatar className={avatarClassName} size={avatarSize}>
         {image ? <AvatarImage alt={displayName} src={image} /> : null}
-        <AvatarFallback>{getMemberInitials(name, email)}</AvatarFallback>
+        <AvatarFallback className={avatarFallbackClassName}>
+          {getMemberInitials(name, email)}
+        </AvatarFallback>
       </Avatar>
       <div className="min-w-0 flex-1">
         <p className={cn("truncate font-medium text-sm", nameClassName)}>{displayName}</p>

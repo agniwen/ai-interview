@@ -50,6 +50,22 @@ describe("ResumePoolPage masonry layout", () => {
     expect(source).toContain("showPoolFooter ? (");
   });
 
+  it("dims the masonry cards to 60 percent opacity while resume pool data is loading", () => {
+    const listSource = source.slice(
+      source.indexOf("function ResumePoolListContent"),
+      source.indexOf("function ResumePoolToolbarActions"),
+    );
+    const pageSource = source.slice(
+      source.indexOf("function ResumePoolPage"),
+      source.indexOf("export const Route"),
+    );
+
+    expect(listSource).toContain("isPoolBusy");
+    expect(listSource).toContain("opacity-60");
+    expect(listSource).toContain("transition-opacity");
+    expect(pageSource).toContain("isPoolBusy={isPoolBusy}");
+  });
+
   it("keeps a bottom refresh action as an unframed breathing area", () => {
     expect(source).toContain("刷新简历广场");
     expect(source).toContain("已显示全部简历");
@@ -75,21 +91,90 @@ describe("ResumePoolPage masonry layout", () => {
   });
 
   it("shows profile highlights on resume pool cards", () => {
+    const cardSource = source.slice(
+      source.indexOf("function ResumePoolCard({"),
+      source.indexOf("function ResumePoolLoadingState"),
+    );
+
     expect(source).toContain("毕业院校");
     expect(source).toContain("最近公司");
     expect(source).toContain("最近项目");
     expect(source).toContain("record.profileHighlights.schools");
     expect(source).toContain("record.profileHighlights.latestCompany");
     expect(source).toContain("record.profileHighlights.latestProject");
+    expect(cardSource).toContain("ResumePoolCardHighlights");
+    expect(cardSource).not.toContain("truncate text-foreground");
   });
 
-  it("shows uploader organization and user on cards and detail summaries", () => {
+  it("shows mastered skills on resume pool cards instead of normalized search skills", () => {
+    const cardSource = source.slice(
+      source.indexOf("function ResumePoolCard({"),
+      source.indexOf("function ResumePoolLoadingState"),
+    );
+
+    expect(cardSource).toContain("record.masteredSkills");
+    expect(cardSource).not.toContain("record.masteredSkills.slice(0, 5)");
+    expect(cardSource).not.toContain("record.skillsNormalized.slice(0, 5)");
+  });
+
+  it("keeps source and creation metadata in details while showing uploader metadata on cards", () => {
+    const cardSource = source.slice(
+      source.indexOf("function ResumePoolCard({"),
+      source.indexOf("function ResumePoolLoadingState"),
+    );
+    const detailSource = source.slice(
+      source.indexOf("function ResumePoolDetailSummaryPanel"),
+      source.indexOf("function ResumePoolStructuredInfoPanel"),
+    );
+
     expect(source).toContain("function uploaderOrganizationLabel");
     expect(source).toContain("function uploaderUserLabel");
-    expect(source).toContain("上传组织");
-    expect(source).toContain("上传人");
     expect(source).toContain("record.uploaderOrganizationName");
     expect(source).toContain("record.uploaderName");
+    expect(detailSource).toContain('label="来源"');
+    expect(detailSource).toContain('label="上传组织"');
+    expect(detailSource).toContain('label="上传人"');
+    expect(detailSource).toContain('label="创建时间"');
+    expect(cardSource).not.toContain("sourceLabel(record)");
+    expect(cardSource).not.toContain("record.createdAt");
+    expect(cardSource).toContain("ResumePoolCardUploaderMeta");
+    expect(cardSource.indexOf('record.targetRole || "未填写目标岗位"')).toBeLessThan(
+      cardSource.indexOf("ResumePoolCardUploaderMeta"),
+    );
+    expect(source).toContain("uploaderOrganizationLabel(record)");
+    expect(source).toContain("record.uploaderImage");
+    expect(source).toContain("MemberCell");
+  });
+
+  it("hides candidate contact information on resume pool cards", () => {
+    const cardSource = source.slice(
+      source.indexOf("function ResumePoolCard({"),
+      source.indexOf("function ResumePoolLoadingState"),
+    );
+
+    expect(cardSource).not.toContain("record.candidateEmail");
+    expect(cardSource).not.toContain("record.candidatePhone");
+    expect(cardSource).not.toContain("mailto:");
+    expect(cardSource).not.toContain("PhoneIcon");
+  });
+
+  it("keeps uploader organization and uploader on the same card row", () => {
+    const uploaderMetaSource = source.slice(
+      source.indexOf("function ResumePoolCardUploaderMeta"),
+      source.indexOf("function ResumePoolDetailDialog"),
+    );
+
+    expect(uploaderMetaSource).toContain('className="flex min-w-0 items-center gap-1.5');
+    expect(uploaderMetaSource).toContain('avatarClassName="size-4"');
+    expect(uploaderMetaSource).toContain('avatarSize="default"');
+    expect(uploaderMetaSource).toContain('className="min-w-0 gap-1"');
+    expect(uploaderMetaSource).not.toContain('className="flex flex-col gap-1.5"');
+    expect(uploaderMetaSource).not.toContain('avatarSize="sm"');
+    expect(uploaderMetaSource).not.toContain("flex-1 items-center");
+    expect(uploaderMetaSource).not.toContain("min-w-0 flex-1 gap-1.5");
+    expect(uploaderMetaSource.indexOf("uploaderOrganizationLabel(record)")).toBeLessThan(
+      uploaderMetaSource.indexOf("<MemberCell"),
+    );
   });
 
   it("shows delete on public cards only when the current user uploaded the record", () => {
@@ -102,7 +187,7 @@ describe("ResumePoolPage masonry layout", () => {
 
   it("keeps public delete, private publish, and private delete as icon-only card actions", () => {
     const cardSource = source.slice(
-      source.indexOf("function ResumePoolCard"),
+      source.indexOf("function ResumePoolCard({"),
       source.indexOf("function ResumePoolLoadingState"),
     );
 
@@ -117,7 +202,7 @@ describe("ResumePoolPage masonry layout", () => {
 
   it("adds selectable private cards with a bulk delete action beside upload", () => {
     const cardSource = source.slice(
-      source.indexOf("function ResumePoolCard"),
+      source.indexOf("function ResumePoolCard({"),
       source.indexOf("function ResumePoolLoadingState"),
     );
     const pageSource = source.slice(
@@ -164,10 +249,17 @@ describe("ResumePoolPage masonry layout", () => {
     expect(pageSource).toContain("grid.bind.data.map((record) => record.id)");
   });
 
-  it("separates profile highlights from source metadata with a divider", () => {
-    expect(source).toContain(
-      'className="grid grid-cols-[auto_1fr] gap-x-2 gap-y-1 border-border/70 border-t pt-3 text-muted-foreground"',
+  it("shows profile highlight labels above full content", () => {
+    const highlightSource = source.slice(
+      source.indexOf("function ResumePoolHighlightRow"),
+      source.indexOf("function ResumePoolCardHighlights"),
     );
+
+    expect(highlightSource).toContain(
+      'className="flex items-center gap-1.5 text-muted-foreground"',
+    );
+    expect(highlightSource).toContain('className="mt-1 whitespace-pre-wrap break-words');
+    expect(highlightSource).not.toContain("truncate");
   });
 
   it("separates candidate detail and pdf preview interactions", () => {
@@ -190,25 +282,34 @@ describe("ResumePoolPage masonry layout", () => {
     expect(source).toContain("工作年限");
   });
 
-  it("places the pdf icon before the candidate name and email", () => {
+  it("places uploader metadata under the target role instead of the card title", () => {
     const cardSource = source.slice(
-      source.indexOf("function ResumePoolCard"),
+      source.indexOf("function ResumePoolCard({"),
       source.indexOf("function ResumePoolPage"),
+    );
+    const headerSource = cardSource.slice(
+      cardSource.indexOf("<CardHeader"),
+      cardSource.indexOf("</CardHeader>"),
     );
     const pdfIndex = cardSource.indexOf("group/pdf");
     const titleIndex = cardSource.indexOf("点击姓名查看详情");
-    const emailIndex = cardSource.indexOf("mailto:");
+    const targetRoleIndex = cardSource.indexOf('record.targetRole || "未填写目标岗位"');
+    const uploaderIndex = cardSource.indexOf("ResumePoolCardUploaderMeta");
 
     expect(pdfIndex).toBeGreaterThanOrEqual(0);
     expect(titleIndex).toBeGreaterThanOrEqual(0);
-    expect(emailIndex).toBeGreaterThanOrEqual(0);
+    expect(targetRoleIndex).toBeGreaterThanOrEqual(0);
+    expect(uploaderIndex).toBeGreaterThanOrEqual(0);
     expect(pdfIndex).toBeLessThan(titleIndex);
-    expect(titleIndex).toBeLessThan(emailIndex);
+    expect(titleIndex).toBeLessThan(targetRoleIndex);
+    expect(targetRoleIndex).toBeLessThan(uploaderIndex);
+    expect(headerSource).not.toContain("ResumePoolCardUploaderMeta");
+    expect(source).toContain('avatarClassName="size-4"');
   });
 
   it("keeps the pdf icon hover free of background chrome", () => {
     const cardSource = source.slice(
-      source.indexOf("function ResumePoolCard"),
+      source.indexOf("function ResumePoolCard({"),
       source.indexOf("function ResumePoolPage"),
     );
 
@@ -218,7 +319,7 @@ describe("ResumePoolPage masonry layout", () => {
 
   it("shows a tooltip on unsupported resume preview file icons", () => {
     const cardSource = source.slice(
-      source.indexOf("function ResumePoolCard"),
+      source.indexOf("function ResumePoolCard({"),
       source.indexOf("function ResumePoolPage"),
     );
 

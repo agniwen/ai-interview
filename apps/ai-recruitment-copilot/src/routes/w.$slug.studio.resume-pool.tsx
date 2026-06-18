@@ -20,7 +20,6 @@ import {
   GraduationCapIcon,
   HistoryIcon,
   LoaderCircleIcon,
-  PhoneIcon,
   RefreshCwIcon,
   SendIcon,
   Trash2Icon,
@@ -31,6 +30,7 @@ import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } fro
 import Masonry, { ResponsiveMasonry } from "react-responsive-masonry";
 import { toast } from "sonner";
 import { useDataGridState } from "@/components/data-grid";
+import { MemberCell } from "@/components/data-grid/cells/member-cell";
 import { Toolbar } from "@/components/data-grid/parts/toolbar";
 import { TimeDisplay } from "@/components/features/display/time-display";
 import {
@@ -723,10 +723,12 @@ function ResumePoolHighlightRow({
   value: string;
 }) {
   return (
-    <div className="grid min-w-0 grid-cols-[auto_auto_minmax(0,1fr)] items-center gap-1.5">
-      <Icon className="size-3.5 shrink-0 text-muted-foreground" />
-      <span className="shrink-0 text-muted-foreground text-xs">{label}</span>
-      <span className="truncate text-foreground">{value}</span>
+    <div className="rounded-md bg-muted/25 px-2.5 py-2">
+      <div className="flex items-center gap-1.5 text-muted-foreground">
+        <Icon className="size-3.5 shrink-0" />
+        <span className="text-xs">{label}</span>
+      </div>
+      <p className="mt-1 whitespace-pre-wrap break-words text-foreground leading-5">{value}</p>
     </div>
   );
 }
@@ -764,6 +766,29 @@ function ResumePoolCardHighlights({ record }: { record: ResumePoolListRecord }) 
           value={row.value}
         />
       ))}
+    </div>
+  );
+}
+
+function ResumePoolCardUploaderMeta({ record }: { record: ResumePoolListRecord }) {
+  return (
+    <div className="flex min-w-0 items-center gap-1.5 text-muted-foreground text-xs">
+      <div className="flex min-w-0 items-center gap-1.5">
+        <Building2Icon className="size-3.5 shrink-0" />
+        <span className="truncate">{uploaderOrganizationLabel(record)}</span>
+      </div>
+      <MemberCell
+        avatarClassName="size-4"
+        avatarFallbackClassName="text-[8px]"
+        avatarSize="default"
+        className="min-w-0 gap-1"
+        email={record.uploaderEmail}
+        emailClassName="hidden"
+        image={record.uploaderImage}
+        name={record.uploaderName}
+        nameClassName="font-normal text-muted-foreground text-xs leading-none"
+        placeholder="未知上传人"
+      />
     </div>
   );
 }
@@ -849,7 +874,7 @@ function ResumePoolCard({
 }) {
   const title = getCandidateDisplayTitle(record);
   const previewLabel = record.resumeFileName ?? "查看简历";
-  const skills = record.skillsNormalized.slice(0, 5);
+  const skills = record.masteredSkills;
   const note = notesPreview(record.notes);
   const documentKind = getResumeDocumentFileIconKind({ fileName: record.resumeFileName });
   const hasStoredResume = Boolean(record.resumeStorageKey);
@@ -909,16 +934,6 @@ function ResumePoolCard({
               {title}
             </button>
           </CardTitle>
-          {record.candidateEmail ? (
-            <a
-              className="mt-1 block truncate text-muted-foreground text-xs underline decoration-muted-foreground/20 underline-offset-4 hover:decoration-muted-foreground/60"
-              href={`mailto:${record.candidateEmail}`}
-            >
-              {record.candidateEmail}
-            </a>
-          ) : (
-            <p className="mt-1 truncate text-muted-foreground text-xs">未填写邮箱</p>
-          )}
         </div>
         {scope === "private" && canDelete ? (
           <Checkbox
@@ -945,24 +960,10 @@ function ResumePoolCard({
             <BriefcaseBusinessIcon className="size-3.5 shrink-0" />
             <span className="truncate">{record.targetRole || "未填写目标岗位"}</span>
           </div>
-          <div className="flex min-w-0 items-center gap-1.5">
-            <PhoneIcon className="size-3.5 shrink-0" />
-            <span className="truncate">{record.candidatePhone || "未填写电话"}</span>
-          </div>
+          <ResumePoolCardUploaderMeta record={record} />
         </div>
 
         <ResumePoolCardHighlights record={record} />
-
-        <div className="grid grid-cols-[auto_1fr] gap-x-2 gap-y-1 border-border/70 border-t pt-3 text-muted-foreground">
-          <span>来源</span>
-          <span className="truncate text-foreground">{sourceLabel(record)}</span>
-          <span>上传组织</span>
-          <span className="truncate text-foreground">{uploaderOrganizationLabel(record)}</span>
-          <span>上传人</span>
-          <span className="truncate text-foreground">{uploaderUserLabel(record)}</span>
-          <span>创建</span>
-          <TimeDisplay as="span" className="text-foreground" value={record.createdAt} />
-        </div>
 
         {skills.length > 0 ? (
           <div className="flex flex-wrap gap-1">
@@ -1069,6 +1070,7 @@ function ResumePoolListContent({
   deleting,
   emptyTitle,
   isInitialPoolLoading,
+  isPoolBusy,
   onDelete,
   onImport,
   onOpenDetail,
@@ -1090,6 +1092,7 @@ function ResumePoolListContent({
   publishing: boolean;
   deleting: boolean;
   isInitialPoolLoading: boolean;
+  isPoolBusy: boolean;
   showEmptyState: boolean;
   emptyTitle: string;
   canResetFilters: boolean;
@@ -1105,34 +1108,36 @@ function ResumePoolListContent({
 }) {
   if (records.length > 0) {
     return (
-      <ResponsiveMasonry columnsCountBreakPoints={RESUME_POOL_MASONRY_COLUMNS}>
-        <Masonry gutter="16px">
-          {records.map((record) => {
-            const canDelete = canDeletePoolRecord(record, {
-              currentOrganizationId,
-              currentUserId,
-            });
-            return (
-              <ResumePoolCard
-                canDelete={canDelete}
-                deleting={deleting}
-                key={record.id}
-                onDelete={onDelete}
-                onImport={onImport}
-                onOpenDetail={onOpenDetail}
-                onOpenPdf={onOpenPdf}
-                onPublish={onPublish}
-                publishing={publishing}
-                record={record}
-                selected={selectedPrivateResumeIds.has(record.id)}
-                selectionDisabled={selectionDisabled}
-                scope={scope}
-                onSelectionChange={onSelectionChange}
-              />
-            );
-          })}
-        </Masonry>
-      </ResponsiveMasonry>
+      <div className={isPoolBusy ? "opacity-60 transition-opacity" : "transition-opacity"}>
+        <ResponsiveMasonry columnsCountBreakPoints={RESUME_POOL_MASONRY_COLUMNS}>
+          <Masonry gutter="16px">
+            {records.map((record) => {
+              const canDelete = canDeletePoolRecord(record, {
+                currentOrganizationId,
+                currentUserId,
+              });
+              return (
+                <ResumePoolCard
+                  canDelete={canDelete}
+                  deleting={deleting}
+                  key={record.id}
+                  onDelete={onDelete}
+                  onImport={onImport}
+                  onOpenDetail={onOpenDetail}
+                  onOpenPdf={onOpenPdf}
+                  onPublish={onPublish}
+                  publishing={publishing}
+                  record={record}
+                  selected={selectedPrivateResumeIds.has(record.id)}
+                  selectionDisabled={selectionDisabled}
+                  scope={scope}
+                  onSelectionChange={onSelectionChange}
+                />
+              );
+            })}
+          </Masonry>
+        </ResponsiveMasonry>
+      </div>
     );
   }
 
@@ -1505,6 +1510,7 @@ function ResumePoolPage() {
             deleting={isDeletingPoolRecords}
             emptyTitle={emptyTitle}
             isInitialPoolLoading={isInitialPoolLoading}
+            isPoolBusy={isPoolBusy}
             onDelete={setDeleteTarget}
             onImport={setImportTarget}
             onOpenDetail={setDetailRecord}

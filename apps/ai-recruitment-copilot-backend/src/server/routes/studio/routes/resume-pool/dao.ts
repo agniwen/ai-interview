@@ -28,12 +28,14 @@ type PoolRow = typeof resumePoolItem.$inferSelect;
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 interface PoolUploaderMeta {
   uploaderEmail: string | null;
+  uploaderImage: string | null;
   uploaderName: string | null;
   uploaderOrganizationName: string | null;
 }
 
 const EMPTY_UPLOADER_META: PoolUploaderMeta = {
   uploaderEmail: null,
+  uploaderImage: null,
   uploaderName: null,
   uploaderOrganizationName: null,
 };
@@ -132,6 +134,16 @@ function buildProfileHighlights(profile: ResumeProfile | null): ResumePoolProfil
   };
 }
 
+function buildMasteredSkills(profile: ResumeProfile | null): string[] {
+  return [
+    ...new Set(
+      (profile?.skills ?? [])
+        .map(cleanHighlightText)
+        .filter((skill): skill is string => skill !== null),
+    ),
+  ];
+}
+
 function toListRecord(
   row: PoolRow,
   importRow?: { importedAt: Date; resumeRecordId: string } | null,
@@ -148,6 +160,7 @@ function toListRecord(
     importedAt: importRow ? importRow.importedAt.toISOString() : null,
     importedResumeRecordId: importRow?.resumeRecordId ?? null,
     jobDescriptionId: row.jobDescriptionId,
+    masteredSkills: buildMasteredSkills(row.resumeProfile),
     notes: row.notes,
     organizationId: row.organizationId,
     profileHighlights: buildProfileHighlights(row.resumeProfile),
@@ -169,6 +182,7 @@ function toListRecord(
     targetRole: row.targetRole,
     updatedAt: row.updatedAt.toISOString(),
     uploaderEmail: uploaderMeta.uploaderEmail,
+    uploaderImage: uploaderMeta.uploaderImage,
     uploaderName: uploaderMeta.uploaderName,
     uploaderOrganizationName: uploaderMeta.uploaderOrganizationName,
   };
@@ -189,6 +203,7 @@ function toDetail(
 function uploaderMetaFromRow(row: PoolUploaderMeta): PoolUploaderMeta {
   return {
     uploaderEmail: row.uploaderEmail,
+    uploaderImage: row.uploaderImage,
     uploaderName: row.uploaderName,
     uploaderOrganizationName: row.uploaderOrganizationName,
   };
@@ -198,6 +213,7 @@ async function loadUploaderMeta(poolItemId: string): Promise<PoolUploaderMeta> {
   const [row] = await db
     .select({
       uploaderEmail: user.email,
+      uploaderImage: user.image,
       uploaderName: user.name,
       uploaderOrganizationName: organization.name,
     })
@@ -399,6 +415,7 @@ export async function queryResumePoolItems(
     .select({
       item: resumePoolItem,
       uploaderEmail: user.email,
+      uploaderImage: user.image,
       uploaderName: user.name,
       uploaderOrganizationName: organization.name,
     })
