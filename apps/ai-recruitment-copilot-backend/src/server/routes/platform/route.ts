@@ -13,6 +13,7 @@ import {
 } from "@arc/resume-parse-queue/resume-parse";
 import {
   createMailIngestAccount,
+  getMailIngestAccountLoginConfig,
   isWorkspaceMember,
   queryPaginatedPlatformMailIngestAccounts,
   updateWorkspaceMailIngestAccount,
@@ -21,6 +22,11 @@ import {
   createMailIngestAccountSchema,
   updateMailIngestAccountSchema,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/mail-ingest/schema";
+import {
+  MailIngestValidationError,
+  mergeMailIngestLoginConfig,
+  validateMailIngestAccountLogin,
+} from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/mail-ingest/validation";
 import { enrichResumeParseQueueJobs } from "./queue-details";
 
 // --- Organizations list ---
@@ -375,6 +381,7 @@ const platformMailIngestAccounts = factory
         return c.json({ error: "目标成员不存在。" }, 404);
       }
       try {
+        await validateMailIngestAccountLogin(input);
         const account = await createMailIngestAccount({
           input,
           organizationId,
@@ -382,6 +389,9 @@ const platformMailIngestAccounts = factory
         });
         return c.json(account, 201);
       } catch (error) {
+        if (error instanceof MailIngestValidationError) {
+          return c.json({ error: error.message }, 400);
+        }
         console.error("[platform-mail-ingest] create account failed:", error);
         return c.json(
           { error: error instanceof Error ? error.message : "邮箱配置保存失败。" },
@@ -396,8 +406,17 @@ const platformMailIngestAccounts = factory
     async (c) => {
       const { organizationId, ...input } = c.req.valid("json");
       try {
+        const accountId = c.req.param("id");
+        const existing = await getMailIngestAccountLoginConfig({
+          id: accountId,
+          organizationId,
+        });
+        if (!existing) {
+          return c.json({ error: "邮箱配置不存在。" }, 404);
+        }
+        await validateMailIngestAccountLogin(mergeMailIngestLoginConfig(existing, input));
         const account = await updateWorkspaceMailIngestAccount({
-          id: c.req.param("id"),
+          id: accountId,
           input,
           organizationId,
         });
@@ -406,6 +425,9 @@ const platformMailIngestAccounts = factory
         }
         return c.json(account, 200);
       } catch (error) {
+        if (error instanceof MailIngestValidationError) {
+          return c.json({ error: error.message }, 400);
+        }
         console.error("[platform-mail-ingest] update account failed:", error);
         return c.json(
           { error: error instanceof Error ? error.message : "邮箱配置更新失败。" },

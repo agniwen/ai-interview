@@ -40,6 +40,7 @@ import {
 import {
   getPreviewableResumeDocumentKind,
   isPreviewableResumeDocumentInput,
+  UnsupportedResumeDocumentPreviewTooltip,
 } from "@/components/features/resume/resume-document-preview-button";
 import { ResumeProfileView } from "@/components/features/resume/resume-profile-view";
 import { PageHeader } from "@/components/features/studio/page-header";
@@ -108,7 +109,6 @@ const RESUME_POOL_MASONRY_COLUMNS = {
   1024: 2,
   1280: 3,
   1440: 4,
-  1536: 5,
   1920: 6,
   2560: 7,
 } as const;
@@ -852,36 +852,52 @@ function ResumePoolCard({
   const skills = record.skillsNormalized.slice(0, 5);
   const note = notesPreview(record.notes);
   const documentKind = getResumeDocumentFileIconKind({ fileName: record.resumeFileName });
-  const canPreview =
-    Boolean(record.resumeStorageKey) &&
-    isPreviewableResumeDocumentInput({ fileName: record.resumeFileName });
+  const hasStoredResume = Boolean(record.resumeStorageKey);
+  const previewable = isPreviewableResumeDocumentInput({ fileName: record.resumeFileName });
+  const canPreview = hasStoredResume && previewable;
+  let documentIcon = (
+    <span
+      aria-disabled="true"
+      aria-label="暂无可预览简历"
+      className="inline-flex size-8 shrink-0 items-center justify-center rounded-md opacity-45 grayscale"
+      title="暂无可预览简历"
+    >
+      <ResumeDocumentFileIcon className="size-8" kind={documentKind} />
+    </span>
+  );
+  if (canPreview) {
+    documentIcon = (
+      <button
+        aria-label={previewLabel}
+        className="group/pdf inline-flex size-8 shrink-0 items-center justify-center rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        onClick={() => onOpenPdf(record)}
+        title={previewLabel}
+        type="button"
+      >
+        <ResumeDocumentFileIcon
+          className="size-8 transition-transform duration-200 group-hover/pdf:scale-105"
+          kind={documentKind}
+        />
+      </button>
+    );
+  } else if (hasStoredResume) {
+    documentIcon = (
+      <UnsupportedResumeDocumentPreviewTooltip>
+        <span
+          aria-disabled="true"
+          aria-label="该格式不支持预览"
+          className="inline-flex size-8 shrink-0 items-center justify-center rounded-md opacity-45 grayscale"
+        >
+          <ResumeDocumentFileIcon className="size-8" kind={documentKind} />
+        </span>
+      </UnsupportedResumeDocumentPreviewTooltip>
+    );
+  }
 
   return (
     <Card className="w-full gap-3 rounded-md py-3">
       <CardHeader className="flex flex-row items-start gap-2 px-3">
-        {canPreview ? (
-          <button
-            aria-label={previewLabel}
-            className="group/pdf inline-flex size-8 shrink-0 items-center justify-center rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            onClick={() => onOpenPdf(record)}
-            title={previewLabel}
-            type="button"
-          >
-            <ResumeDocumentFileIcon
-              className="size-8 transition-transform duration-200 group-hover/pdf:scale-105"
-              kind={documentKind}
-            />
-          </button>
-        ) : (
-          <span
-            aria-disabled="true"
-            aria-label="暂无可预览简历"
-            className="inline-flex size-8 shrink-0 items-center justify-center rounded-md opacity-45 grayscale"
-            title="暂无可预览简历"
-          >
-            <ResumeDocumentFileIcon className="size-8" kind={documentKind} />
-          </span>
-        )}
+        {documentIcon}
         <div className="min-w-0 flex-1">
           <CardTitle className="text-sm leading-5">
             <button

@@ -44,6 +44,7 @@
     "fast-xml-parser": "^5.8.0",
     "hono": "^4.12.18",
     "html-to-text": "9.0.5",
+    "imapflow": "^1.4.1",
     "jszip": "^3.10.1",
     "livekit-server-sdk": "^2.15.2",
     "lodash-es": "^4.18.1",

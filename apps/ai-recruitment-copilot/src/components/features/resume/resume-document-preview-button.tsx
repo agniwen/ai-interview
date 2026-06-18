@@ -1,10 +1,12 @@
 "use client";
 
 import { EyeIcon } from "lucide-react";
+import type { ReactNode } from "react";
 import { Suspense, lazy, useState } from "react";
 import { PdfPreviewButton } from "@/components/features/pdf/pdf-preview-button";
 import type { ResumeDocumentPreviewKind } from "@/components/features/resume/resume-document-preview-dialog";
 import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { getResumeDocumentKind } from "@arc/shared/resume-documents";
 import { cn } from "@arc/shared/utils";
 export { getPptxPreviewPdfUrl } from "./resume-document-preview-url";
@@ -15,6 +17,8 @@ const ResumeDocumentPreviewDialog = lazy(async () => {
 });
 
 export type PreviewableResumeDocumentKind = ResumeDocumentPreviewKind;
+export const UNSUPPORTED_RESUME_DOCUMENT_PREVIEW_TOOLTIP =
+  "该格式不支持预览，仅 PDF、DOCX、PPTX、XLSX、图片格式支持预览。";
 
 export function getPreviewableResumeDocumentKind(input: {
   fileName?: string | null;
@@ -37,6 +41,15 @@ export function isPreviewableResumeDocumentInput(input: {
   mediaType?: string | null;
 }) {
   return getPreviewableResumeDocumentKind(input) !== null;
+}
+
+export function UnsupportedResumeDocumentPreviewTooltip({ children }: { children: ReactNode }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>{children}</TooltipTrigger>
+      <TooltipContent>{UNSUPPORTED_RESUME_DOCUMENT_PREVIEW_TOOLTIP}</TooltipContent>
+    </Tooltip>
+  );
 }
 
 export interface ResumeDocumentPreviewButtonProps {

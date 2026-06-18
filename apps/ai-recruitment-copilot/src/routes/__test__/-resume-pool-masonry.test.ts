@@ -17,13 +17,14 @@ describe("ResumePoolPage masonry layout", () => {
     expect(publicTabIndex).toBeLessThan(privateTabIndex);
   });
 
-  it("uses sparse small-width breakpoints while keeping measured large screens", () => {
+  it("uses sparse small-width breakpoints while skipping a five-column layout", () => {
     expect(source).toContain('from "react-responsive-masonry"');
     expect(source).toContain("const RESUME_POOL_MASONRY_COLUMNS = {");
     expect(source).toContain("0: 1");
     expect(source).toContain("1024: 2");
     expect(source).toContain("1280: 3");
-    expect(source).toContain("1536: 5");
+    expect(source).toContain("1440: 4");
+    expect(source).not.toContain("1536: 5");
     expect(source).toContain("1920: 6");
     expect(source).toContain("2560: 7");
     expect(source).toContain("columnsCountBreakPoints={RESUME_POOL_MASONRY_COLUMNS}");
@@ -213,5 +214,14 @@ describe("ResumePoolPage masonry layout", () => {
 
     expect(cardSource).toContain("group-hover/pdf:scale-105");
     expect(cardSource).not.toContain("hover:bg-muted");
+  });
+
+  it("shows a tooltip on unsupported resume preview file icons", () => {
+    const cardSource = source.slice(
+      source.indexOf("function ResumePoolCard"),
+      source.indexOf("function ResumePoolPage"),
+    );
+
+    expect(cardSource).toContain("UnsupportedResumeDocumentPreviewTooltip");
   });
 });

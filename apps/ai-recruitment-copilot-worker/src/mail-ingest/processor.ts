@@ -186,6 +186,12 @@ async function processAccountGroup(
     port: connectionAccount.imapPort,
     secure: connectionAccount.imapSecure,
   });
+  client.on("error", (error) => {
+    console.error("[mail-ingest] IMAP client error", {
+      accountIds: accounts.map((account) => account.id),
+      error,
+    });
+  });
 
   await client.connect();
   const lock = await client.getMailboxLock(connectionAccount.mailbox);

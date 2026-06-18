@@ -99,6 +99,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   getPreviewableResumeDocumentKind,
   isPreviewableResumeDocumentInput,
+  UnsupportedResumeDocumentPreviewTooltip,
 } from "@/components/features/resume/resume-document-preview-button";
 
 const ResumeDocumentPreviewDialog = lazy(async () => {
@@ -566,35 +567,51 @@ function ResumeLibraryPage({ metrics }: { metrics: ResumeLibraryMetrics }) {
           const documentKind = getResumeDocumentFileIconKind({ fileName: r.resumeFileName });
           const previewable = isPreviewableResumeDocumentInput({ fileName: r.resumeFileName });
           const previewTitle = r.resumeFileName ?? "查看简历";
-          return (
-            <div className="flex min-w-0 items-start gap-2">
-              {r.hasResumeFile && previewable ? (
-                <button
-                  aria-label={previewTitle}
-                  className="group/pdf mt-0.5 inline-flex size-8 shrink-0 items-center justify-center rounded-md transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    setPreviewRecord(r);
-                  }}
-                  title={previewTitle}
-                  type="button"
-                >
-                  <ResumeDocumentFileIcon
-                    className="size-8 transition-transform duration-200 group-hover/pdf:scale-105"
-                    kind={documentKind}
-                  />
-                </button>
-              ) : (
+          let documentIcon = (
+            <span
+              aria-disabled="true"
+              aria-label="暂无可预览简历"
+              className="mt-0.5 inline-flex size-8 shrink-0 items-center justify-center rounded-md opacity-45 grayscale"
+              title="暂无可预览简历"
+            >
+              <ResumeDocumentFileIcon className="size-8" kind={documentKind} />
+            </span>
+          );
+          if (r.hasResumeFile && previewable) {
+            documentIcon = (
+              <button
+                aria-label={previewTitle}
+                className="group/pdf mt-0.5 inline-flex size-8 shrink-0 items-center justify-center rounded-md transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setPreviewRecord(r);
+                }}
+                title={previewTitle}
+                type="button"
+              >
+                <ResumeDocumentFileIcon
+                  className="size-8 transition-transform duration-200 group-hover/pdf:scale-105"
+                  kind={documentKind}
+                />
+              </button>
+            );
+          } else if (r.hasResumeFile) {
+            documentIcon = (
+              <UnsupportedResumeDocumentPreviewTooltip>
                 <span
                   aria-disabled="true"
-                  aria-label="暂无可预览简历"
+                  aria-label="该格式不支持预览"
                   className="mt-0.5 inline-flex size-8 shrink-0 items-center justify-center rounded-md opacity-45 grayscale"
-                  title="暂无可预览简历"
                 >
                   <ResumeDocumentFileIcon className="size-8" kind={documentKind} />
                 </span>
-              )}
+              </UnsupportedResumeDocumentPreviewTooltip>
+            );
+          }
+          return (
+            <div className="flex min-w-0 items-start gap-2">
+              {documentIcon}
               <div className="min-w-0">
                 <button
                   className="block max-w-full truncate text-left font-medium underline decoration-foreground/20 underline-offset-4 hover:decoration-foreground/60"

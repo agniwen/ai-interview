@@ -22,6 +22,7 @@ import {
   encryptMailIngestSecret,
 } from "@arc/ai-recruitment-copilot-backend/lib/server/mail-ingest-crypto";
 import type { createMailIngestAccountSchema, updateMailIngestAccountSchema } from "./schema";
+import type { MailIngestLoginConfig } from "./validation";
 import type { z } from "zod";
 
 const MAIL_INGEST_ACCOUNT_LEASE_MS = 14 * 60 * 1000;
@@ -225,6 +226,17 @@ function toWorkerAccount(row: AccountRow): WorkerMailIngestAccount {
     subjectKeyword: row.subjectKeyword,
     target: row.target,
     userId: row.userId,
+    username: row.username,
+  };
+}
+
+function toLoginConfig(row: AccountRow): MailIngestLoginConfig {
+  return {
+    imapHost: row.imapHost,
+    imapPort: row.imapPort,
+    imapSecure: row.imapSecure,
+    mailbox: row.mailbox,
+    password: decryptMailIngestSecret(row.encryptedPassword),
     username: row.username,
   };
 }
@@ -652,6 +664,30 @@ export async function createMailIngestAccount({
     })
     .returning();
   return toDto(row);
+}
+
+export async function getMailIngestAccountLoginConfig({
+  id,
+  organizationId,
+  userId,
+}: {
+  id: string;
+  organizationId: string;
+  userId?: string;
+}): Promise<MailIngestLoginConfig | null> {
+  const filters = [
+    eq(mailIngestAccount.id, id),
+    eq(mailIngestAccount.organizationId, organizationId),
+  ];
+  if (userId) {
+    filters.push(eq(mailIngestAccount.userId, userId));
+  }
+  const [row] = await db
+    .select()
+    .from(mailIngestAccount)
+    .where(and(...filters))
+    .limit(1);
+  return row ? toLoginConfig(row) : null;
 }
 
 function buildAccountUpdateValues(input: UpdateAccountInput) {

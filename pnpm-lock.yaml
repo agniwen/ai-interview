@@ -513,6 +513,9 @@ importers:
       html-to-text:
         specifier: 9.0.5
         version: 9.0.5
+      imapflow:
+        specifier: ^1.4.1
+        version: 1.4.1
       jszip:
         specifier: ^3.10.1
         version: 3.10.1

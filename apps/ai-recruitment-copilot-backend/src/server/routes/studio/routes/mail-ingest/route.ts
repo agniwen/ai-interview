@@ -3,6 +3,7 @@ import { factory, jsonValidatorError } from "@arc/ai-recruitment-copilot-backend
 import {
   createMailIngestAccount,
   deleteMailIngestAccount,
+  getMailIngestAccountLoginConfig,
   isWorkspaceMember,
   listMailIngestAccounts,
   queryPaginatedWorkspaceMailIngestAccounts,
@@ -15,6 +16,11 @@ import {
   managedMailIngestAccountListQuerySchema,
   updateMailIngestAccountSchema,
 } from "./schema";
+import {
+  MailIngestValidationError,
+  mergeMailIngestLoginConfig,
+  validateMailIngestAccountLogin,
+} from "./validation";
 
 function canManageAllMailIngestAccounts(role?: string | null): boolean {
   return role === "admin" || role === "owner";
@@ -68,6 +74,7 @@ export const mailIngestRouter = factory
         return c.json({ error: "目标成员不存在。" }, 404);
       }
       try {
+        await validateMailIngestAccountLogin(input);
         const account = await createMailIngestAccount({
           input,
           organizationId: activeOrg.id,
@@ -75,6 +82,9 @@ export const mailIngestRouter = factory
         });
         return c.json(account, 201);
       } catch (error) {
+        if (error instanceof MailIngestValidationError) {
+          return c.json({ error: error.message }, 400);
+        }
         console.error("[mail-ingest] managed create account failed:", error);
         return c.json(
           { error: error instanceof Error ? error.message : "邮箱配置保存失败。" },
@@ -92,9 +102,20 @@ export const mailIngestRouter = factory
         return c.json({ message: "Unauthorized" }, 401);
       }
       try {
+        const accountId = c.req.param("id");
+        const input = c.req.valid("json");
+        const existing = await getMailIngestAccountLoginConfig({
+          id: accountId,
+          organizationId: activeOrg.id,
+          ...(canManageAllMailIngestAccounts(member?.role) ? {} : { userId: user.id }),
+        });
+        if (!existing) {
+          return c.json({ error: "邮箱配置不存在。" }, 404);
+        }
+        await validateMailIngestAccountLogin(mergeMailIngestLoginConfig(existing, input));
         const account = await updateWorkspaceMailIngestAccount({
-          id: c.req.param("id"),
-          input: c.req.valid("json"),
+          id: accountId,
+          input,
           organizationId: activeOrg.id,
           ...(canManageAllMailIngestAccounts(member?.role) ? {} : { userId: user.id }),
         });
@@ -103,6 +124,9 @@ export const mailIngestRouter = factory
         }
         return c.json(account, 200);
       } catch (error) {
+        if (error instanceof MailIngestValidationError) {
+          return c.json({ error: error.message }, 400);
+        }
         console.error("[mail-ingest] managed update account failed:", error);
         return c.json(
           { error: error instanceof Error ? error.message : "邮箱配置更新失败。" },
@@ -128,6 +152,7 @@ export const mailIngestRouter = factory
         return c.json({ message: "Unauthorized" }, 401);
       }
       try {
+        await validateMailIngestAccountLogin(c.req.valid("json"));
         const account = await createMailIngestAccount({
           input: c.req.valid("json"),
           organizationId: activeOrg.id,
@@ -135,6 +160,9 @@ export const mailIngestRouter = factory
         });
         return c.json(account, 201);
       } catch (error) {
+        if (error instanceof MailIngestValidationError) {
+          return c.json({ error: error.message }, 400);
+        }
         console.error("[mail-ingest] create account failed:", error);
         return c.json(
           { error: error instanceof Error ? error.message : "邮箱配置保存失败。" },
@@ -152,9 +180,20 @@ export const mailIngestRouter = factory
         return c.json({ message: "Unauthorized" }, 401);
       }
       try {
+        const accountId = c.req.param("id");
+        const input = c.req.valid("json");
+        const existing = await getMailIngestAccountLoginConfig({
+          id: accountId,
+          organizationId: activeOrg.id,
+          userId: user.id,
+        });
+        if (!existing) {
+          return c.json({ error: "邮箱配置不存在。" }, 404);
+        }
+        await validateMailIngestAccountLogin(mergeMailIngestLoginConfig(existing, input));
         const account = await updateMailIngestAccount({
-          id: c.req.param("id"),
-          input: c.req.valid("json"),
+          id: accountId,
+          input,
           organizationId: activeOrg.id,
           userId: user.id,
         });
@@ -163,6 +202,9 @@ export const mailIngestRouter = factory
         }
         return c.json(account, 200);
       } catch (error) {
+        if (error instanceof MailIngestValidationError) {
+          return c.json({ error: error.message }, 400);
+        }
         console.error("[mail-ingest] update account failed:", error);
         return c.json(
           { error: error instanceof Error ? error.message : "邮箱配置更新失败。" },
