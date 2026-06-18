@@ -84,13 +84,7 @@ const STRUCTURED_INSTRUCTIONS = `你是一名简历解析助手。给你一段�
 - timelineSummary.estimatedExperienceYears 为数字，不足一年用小数；无法推断时为 null。
 - age 仅在简历明确给出时填数字，不要根据毕业年份推测。`;
 
-export type ResumeTextSource =
-  | "qwen-ocr"
-  | "docx-text"
-  | "html-text"
-  | "pptx-text"
-  | "xlsx-text"
-  | "external-verify-parse";
+export type ResumeTextSource = "qwen-ocr" | "docx-text" | "html-text" | "pptx-text" | "xlsx-text";
 export {
   getResumeDocumentExtension,
   isSupportedResumeDocumentInput,

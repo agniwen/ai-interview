@@ -11,10 +11,6 @@ import {
   parseResumeFast,
 } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-parse-pipeline";
 import {
-  isExternalResumeVerifyParseEnabled,
-  parseExternalResumeVerifyParse,
-} from "@arc/ai-recruitment-copilot-backend/lib/server/external-resume-verify-parser";
-import {
   getResumeDocumentExtension,
   isSupportedResumeDocumentInput,
   supportedResumeDocumentLabel,
@@ -46,7 +42,6 @@ import type { AnalysisStreamEvent } from "@arc/shared/api-stream";
 export type { AnalysisStreamEvent };
 
 const PARSE_STAGE_LABELS = {
-  external: "备用解析简历",
   ocr: "OCR 识别简历",
   structured: "提取结构化字段",
 } as const;
@@ -350,45 +345,6 @@ export function streamParseResumeProfile(
       return;
     }
 
-    if (isExternalResumeVerifyParseEnabled()) {
-      emit({ message: "正在调用备用解析服务…", type: "status" });
-      emit({ index: 1, type: "step" });
-      emit({ name: PARSE_STAGE_LABELS.external, type: "tool-start" });
-
-      const external = await parseExternalResumeVerifyParse({
-        bytes,
-        fileName: file.name,
-        mediaType: file.type,
-      });
-      const resumeProfile = normalizeResumeProfile(toResumeProfile(external.structured));
-
-      emit({ name: PARSE_STAGE_LABELS.external, type: "tool-end" });
-
-      if (context) {
-        await persistParseToRegistry({
-          bytes,
-          contentHash,
-          context,
-          file,
-          parsed: {
-            pageCount: external.pageCount,
-            structured: external.structured,
-            text: external.text,
-            textSource: external.textSource,
-          },
-        });
-      }
-
-      emit({
-        data: {
-          fileName: file.name,
-          resumeProfile,
-        },
-        type: "result",
-      });
-      return;
-    }
-
     emit({ index: 1, type: "step" });
     emit({ name: PARSE_STAGE_LABELS.ocr, type: "tool-start" });
 
@@ -493,21 +449,6 @@ export async function parseResumeBytesToProfile(input: {
     size: input.bytes.byteLength,
   });
   try {
-    if (isExternalResumeVerifyParseEnabled()) {
-      const external = await parseExternalResumeVerifyParse({
-        bytes: input.bytes,
-        fileName: input.fileName,
-        mediaType: input.mediaType,
-      });
-      return {
-        parsedPageCount: external.pageCount,
-        parsedStructured: external.structured,
-        parsedText: external.text,
-        parsedTextSource: external.textSource,
-        resumeProfile: normalizeResumeProfile(toResumeProfile(external.structured)),
-      };
-    }
-
     const fast = await parseResumeFast({
       bytes: input.bytes,
       fileName: input.fileName,

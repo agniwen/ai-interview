@@ -30,7 +30,6 @@ export const attachmentTextSourceValues = [
   "html-text",
   "pptx-text",
   "xlsx-text",
-  "external-verify-parse",
 ] as const;
 export const attachmentTextSourceSchema = z.enum(attachmentTextSourceValues);
 export type AttachmentTextSource = z.infer<typeof attachmentTextSourceSchema>;

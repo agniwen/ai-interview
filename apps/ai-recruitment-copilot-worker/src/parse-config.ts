@@ -49,11 +49,6 @@ export function getResumeParseConfigSummary(
       "https://dashscope.aliyuncs.com/compatible-mode/v1",
     ),
     cacheDisabled: isResumeParseCacheDisabled(env),
-    externalVerifyParseBaseUrlHost: getUrlHost(
-      env.RESUME_VERIFY_PARSE_BASE_URL,
-      "https://test.roomdesign.online",
-    ),
-    externalVerifyParseEnabled: Boolean(env.RESUME_VERIFY_PARSE_API_KEY?.trim()),
     ocrAttempts: getEnvNumberString(env.RESUME_PARSE_OCR_ATTEMPTS, 3),
     ocrPageConcurrency: getEnvNumberString(env.RESUME_PARSE_OCR_PAGE_CONCURRENCY, 1),
     ocrRetryDelayMs: getEnvNumberString(env.RESUME_PARSE_OCR_RETRY_DELAY_MS, 1000),

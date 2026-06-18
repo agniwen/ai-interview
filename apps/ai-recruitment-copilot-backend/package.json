@@ -14,7 +14,6 @@
   },
   "scripts": {
     "dev:standalone": "tsx watch src/index.ts",
-    "eval:external-resume-parser": "tsx src/scripts/evaluate-external-resume-parser.ts --out /tmp/external-resume-parser-report.json \"/Users/obito/Downloads/幻影-UI设计师测试_最新.xlsx\" \"/Users/obito/Downloads/黄东-简历.xlsx\" \"/Users/obito/Downloads/seo_villors.docx\" \"/Users/obito/Downloads/SEO-梁玉丰.docx\" \"/Users/obito/Downloads/SEO简历-Datou (1).docx\" \"/Users/obito/Downloads/Silas.docx\" \"/Users/obito/Downloads/【web前端开发组长(react、next.js)_深圳 30-40K】周胜 7年.pdf\"",
     "repair:default-recruiting-groups": "tsx src/scripts/repair-default-recruiting-groups.ts",
     "start": "tsx src/index.ts",
     "test": "vitest run",
