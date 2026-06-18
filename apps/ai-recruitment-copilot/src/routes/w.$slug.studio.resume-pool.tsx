@@ -37,6 +37,7 @@ import {
   ResumeDocumentFileIcon,
   getResumeDocumentFileIconKind,
 } from "@/components/features/resume/resume-document-file-icon";
+import { ResumeEducationDisplayLine } from "@/components/features/resume/resume-education-line";
 import {
   getPreviewableResumeDocumentKind,
   isPreviewableResumeDocumentInput,
@@ -121,11 +122,19 @@ function getCandidateTitle(record: ResumePoolListRecord) {
   return record.candidateName?.trim() || "未命名候选人";
 }
 
+function formatCandidateWorkYears(workYears: number | null) {
+  return workYears === null ? null : `${workYears}年`;
+}
+
 function getCandidateDisplayTitle(record: ResumePoolListRecord) {
   const candidateTitle = getCandidateTitle(record);
   const targetRole = record.targetRole?.trim();
   if (record.resumeParseStatus !== "ready" || !targetRole) {
     return candidateTitle;
+  }
+  const workYears = formatCandidateWorkYears(record.workYears);
+  if (workYears) {
+    return `${targetRole}-${workYears}-${candidateTitle}`;
   }
   return `${targetRole}-${candidateTitle}`;
 }
@@ -149,6 +158,61 @@ function resumeParseStatusBadge(record: ResumePoolListRecord) {
     }
     default: {
       return <Badge variant="secondary">{record.resumeParseStatus}</Badge>;
+    }
+  }
+}
+
+function getResumePoolImportActionState(record: ResumePoolListRecord) {
+  if (record.importedResumeRecordId) {
+    return {
+      disabled: true,
+      label: "已入库",
+      loading: false,
+    };
+  }
+
+  switch (record.resumeParseStatus) {
+    case "ready": {
+      return {
+        disabled: false,
+        label: "入库到简历库",
+        loading: false,
+      };
+    }
+    case "queued": {
+      return {
+        disabled: true,
+        label: "排队中",
+        loading: true,
+      };
+    }
+    case "processing": {
+      return {
+        disabled: true,
+        label: "解析中",
+        loading: true,
+      };
+    }
+    case "failed": {
+      return {
+        disabled: true,
+        label: "解析失败",
+        loading: false,
+      };
+    }
+    case "unparsed": {
+      return {
+        disabled: true,
+        label: "未解析",
+        loading: false,
+      };
+    }
+    default: {
+      return {
+        disabled: true,
+        label: "未解析",
+        loading: false,
+      };
     }
   }
 }
@@ -720,7 +784,7 @@ function ResumePoolHighlightRow({
 }: {
   icon: LucideIcon;
   label: string;
-  value: string;
+  value: ReactNode;
 }) {
   return (
     <div className="rounded-md bg-muted/25 px-2.5 py-2">
@@ -728,29 +792,50 @@ function ResumePoolHighlightRow({
         <Icon className="size-3.5 shrink-0" />
         <span className="text-xs">{label}</span>
       </div>
-      <p className="mt-1 whitespace-pre-wrap break-words text-foreground leading-5">{value}</p>
+      <div className="mt-1 whitespace-pre-wrap break-words text-foreground leading-5">{value}</div>
     </div>
   );
 }
 
 function ResumePoolCardHighlights({ record }: { record: ResumePoolListRecord }) {
+  const { profileHighlights } = record;
+  const { educationItems } = profileHighlights;
+  const educationFallbackLines =
+    profileHighlights.educationLines.length > 0
+      ? profileHighlights.educationLines
+      : profileHighlights.schools;
+  const educationValue =
+    educationItems.length > 0 ? (
+      <ul className="flex flex-col gap-1">
+        {educationItems.map((item) => (
+          <li key={`${item.level ?? "education"}-${item.school}-${item.major ?? ""}`}>
+            <ResumeEducationDisplayLine item={item} />
+          </li>
+        ))}
+      </ul>
+    ) : (
+      educationFallbackLines.join("\n")
+    );
   const rows = [
     {
       icon: GraduationCapIcon,
-      label: "毕业院校",
-      value: record.profileHighlights.schools.join(" / "),
+      label: "教育经历",
+      value: educationValue,
+      visible: educationItems.length > 0 || educationFallbackLines.length > 0,
     },
     {
       icon: Building2Icon,
       label: "最近公司",
-      value: record.profileHighlights.latestCompany ?? "",
+      value: profileHighlights.latestCompany ?? "",
+      visible: Boolean(profileHighlights.latestCompany),
     },
     {
       icon: FolderGit2Icon,
       label: "最近项目",
-      value: record.profileHighlights.latestProject ?? "",
+      value: profileHighlights.latestProject ?? "",
+      visible: Boolean(profileHighlights.latestProject),
     },
-  ].filter((item) => item.value.length > 0);
+  ].filter((item) => item.visible);
 
   if (rows.length === 0) {
     return null;
@@ -880,6 +965,7 @@ function ResumePoolCard({
   const hasStoredResume = Boolean(record.resumeStorageKey);
   const previewable = isPreviewableResumeDocumentInput({ fileName: record.resumeFileName });
   const canPreview = hasStoredResume && previewable;
+  const importActionState = getResumePoolImportActionState(record);
   let documentIcon = (
     <span
       aria-disabled="true"
@@ -921,7 +1007,7 @@ function ResumePoolCard({
 
   return (
     <Card className="w-full gap-3 rounded-md py-3">
-      <CardHeader className="flex flex-row items-start gap-2 px-3">
+      <CardHeader className="flex flex-row items-center gap-2 px-3">
         {documentIcon}
         <div className="min-w-0 flex-1">
           <CardTitle className="text-sm leading-5">
@@ -939,22 +1025,12 @@ function ResumePoolCard({
           <Checkbox
             aria-label={`选择 ${title}`}
             checked={selected}
-            className="mt-1"
             disabled={selectionDisabled}
             onCheckedChange={(checked) => onSelectionChange(record, checked === true)}
           />
         ) : null}
       </CardHeader>
       <CardContent className="flex flex-col gap-3 px-3 text-xs">
-        <div className="flex flex-wrap gap-1.5">
-          {resumeParseStatusBadge(record)}
-          {record.importedResumeRecordId ? (
-            <Badge variant="success">已入库</Badge>
-          ) : (
-            <Badge variant="secondary">未入库</Badge>
-          )}
-        </div>
-
         <div className="flex flex-col gap-1.5 text-muted-foreground">
           <div className="flex min-w-0 items-center gap-1.5">
             <BriefcaseBusinessIcon className="size-3.5 shrink-0" />
@@ -979,15 +1055,19 @@ function ResumePoolCard({
       </CardContent>
       <CardFooter className="flex items-center gap-2 px-3">
         <Button
-          aria-label={record.importedResumeRecordId ? "已入库" : "入库到简历库"}
+          aria-label={importActionState.label}
           className="min-w-0 flex-1 justify-center"
-          disabled={record.importedResumeRecordId !== null}
+          disabled={importActionState.disabled}
           onClick={() => onImport(record)}
-          title={record.importedResumeRecordId ? "已入库" : "入库到简历库"}
+          title={importActionState.label}
           variant="outline"
         >
-          <DatabaseIcon className="size-4" />
-          {record.importedResumeRecordId ? "已入库" : "入库到简历库"}
+          {importActionState.loading ? (
+            <LoaderCircleIcon className="size-4 animate-spin" />
+          ) : (
+            <DatabaseIcon className="size-4" />
+          )}
+          {importActionState.label}
         </Button>
         {scope === "private" ? (
           <Button

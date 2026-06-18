@@ -13,6 +13,7 @@
     "./lib/server/*": "./src/lib/server/*.ts"
   },
   "scripts": {
+    "backfill:resume-profiles": "tsx src/scripts/backfill-resume-profiles.ts",
     "dev:standalone": "tsx watch src/index.ts",
     "repair:default-recruiting-groups": "tsx src/scripts/repair-default-recruiting-groups.ts",
     "start": "tsx src/index.ts",

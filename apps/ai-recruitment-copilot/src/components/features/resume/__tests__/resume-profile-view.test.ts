@@ -1,9 +1,16 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
   formatResumeExperienceDescription,
   parseResumeEmploymentPeriod,
   toWorkExperienceItems,
 } from "@/components/features/resume/resume-profile-view";
+
+const source = readFileSync(new URL("../resume-profile-view.tsx", import.meta.url), "utf-8");
+const educationLineSource = readFileSync(
+  new URL("../resume-education-line.tsx", import.meta.url),
+  "utf-8",
+);
 
 describe("resume profile work experience helpers", () => {
   it("adapts resume work experiences to the registry WorkExperience data shape", () => {
@@ -82,5 +89,27 @@ describe("resume profile work experience helpers", () => {
       start: "03.2020",
     });
     expect(parseResumeEmploymentPeriod("03.2024 — 至今")).toEqual({ start: "03.2024" });
+  });
+});
+
+describe("ResumeProfileView education experiences", () => {
+  it("renders structured education experiences before falling back to legacy schools", () => {
+    expect(source).toContain("function EducationExperienceList");
+    expect(source).toContain("sortResumeEducationExperiences");
+    expect(source).toContain(
+      "const educationExperiences = sortResumeEducationExperiences(profile.educationExperiences);",
+    );
+    expect(source).toContain("educationExperiences.length > 0");
+    expect(source).toContain("教育经历");
+    expect(source).toContain("ResumeEducationDisplayLine");
+    expect(source).toContain("formatResumeEducationItem");
+    expect(source).toContain("const educationItem =");
+    expect(educationLineSource).toContain("function EducationLevelTag");
+    expect(educationLineSource).toContain("bg-purple-500/10");
+    expect(educationLineSource).toContain("bg-blue-500/10");
+    expect(educationLineSource).toContain("bg-cyan-500/10");
+    expect(source).toContain("education.graduationYear");
+    expect(source).toContain("education.summary");
+    expect(source).toContain("<ChipList items={profile.schools} />");
   });
 });

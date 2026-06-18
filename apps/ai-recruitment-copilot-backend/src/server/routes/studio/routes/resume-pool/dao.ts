@@ -20,6 +20,10 @@ import type {
   ResumePoolProfileHighlights,
   ResumePoolSourceChannel,
 } from "@arc/shared/resume-pool";
+import {
+  formatResumeEducationItems,
+  formatResumeEducationLines,
+} from "@arc/shared/resume-education";
 import { queryInterviewDedup } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/dao/studio-interviews";
 import { createResumeRecordFromStorage } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/create-from-storage";
 import { normalizeSkill } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/dao/skills";
@@ -123,14 +127,23 @@ function firstPresentValue(values: (string | null | undefined)[]): string | null
 
 function buildProfileHighlights(profile: ResumeProfile | null): ResumePoolProfileHighlights {
   if (!profile) {
-    return { latestCompany: null, latestProject: null, schools: [] };
+    return {
+      educationItems: [],
+      educationLines: [],
+      latestCompany: null,
+      latestProject: null,
+      schools: [],
+    };
   }
+  const schools = profile.schools
+    .map(cleanHighlightText)
+    .filter((item): item is string => item !== null);
   return {
+    educationItems: formatResumeEducationItems(profile.educationExperiences),
+    educationLines: formatResumeEducationLines(profile.educationExperiences),
     latestCompany: firstPresentValue(profile.workExperiences.map((item) => item.company)),
     latestProject: firstPresentValue(profile.projectExperiences.map((item) => item.name)),
-    schools: profile.schools
-      .map(cleanHighlightText)
-      .filter((item): item is string => item !== null),
+    schools,
   };
 }
 
@@ -185,6 +198,7 @@ function toListRecord(
     uploaderImage: uploaderMeta.uploaderImage,
     uploaderName: uploaderMeta.uploaderName,
     uploaderOrganizationName: uploaderMeta.uploaderOrganizationName,
+    workYears: row.resumeProfile?.workYears ?? null,
   };
 }
 

@@ -15,10 +15,21 @@ const projectExperienceSchema = z.object({
   techStack: z.array(z.string()),
 });
 
+const educationExperienceSchema = z.object({
+  degree: z.string().nullable(),
+  educationLevel: z.string().nullable(),
+  graduationYear: z.string().nullable(),
+  major: z.string().nullable(),
+  period: z.string().nullable(),
+  school: z.string().nullable(),
+  summary: z.string().nullable(),
+});
+
 export const structuredSchema = z.object({
   age: z.number().nullable(),
   degree: z.string().nullable(),
   education: z.string().nullable(),
+  educationExperiences: z.array(educationExperienceSchema).default([]),
   email: z.string().nullable(),
   gender: z.string().nullable(),
   graduationYear: z.string().nullable(),

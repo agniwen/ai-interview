@@ -2,6 +2,10 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const source = readFileSync(new URL("../w.$slug.studio.resume-pool.tsx", import.meta.url), "utf-8");
+const educationLineSource = readFileSync(
+  new URL("../../components/features/resume/resume-education-line.tsx", import.meta.url),
+  "utf-8",
+);
 
 describe("ResumePoolPage masonry layout", () => {
   it("defaults to the public resume pool tab", () => {
@@ -32,6 +36,16 @@ describe("ResumePoolPage masonry layout", () => {
 
   it("stretches each card to the width of its masonry column", () => {
     expect(source).toContain('<Card className="w-full gap-3 rounded-md py-3">');
+  });
+
+  it("vertically centers the resume file icon with the card title", () => {
+    const cardSource = source.slice(
+      source.indexOf("function ResumePoolCard({"),
+      source.indexOf("function ResumePoolLoadingState"),
+    );
+
+    expect(cardSource).toContain('<CardHeader className="flex flex-row items-center gap-2 px-3">');
+    expect(cardSource).not.toContain("items-start gap-2 px-3");
   });
 
   it("uses infinite scroll instead of the pagination bar", () => {
@@ -76,16 +90,40 @@ describe("ResumePoolPage masonry layout", () => {
   });
 
   it("keeps import and record-management actions in one footer row", () => {
+    const cardSource = source.slice(
+      source.indexOf("function ResumePoolCard({"),
+      source.indexOf("function ResumePoolLoadingState"),
+    );
+
     expect(source).toContain('className="flex items-center gap-2 px-3"');
     expect(source).toContain('className="min-w-0 flex-1 justify-center"');
     expect(source).toContain("入库到简历库");
     expect(source).toContain("已入库");
+    expect(source).toContain("function getResumePoolImportActionState");
+    expect(source).toContain('case "queued"');
+    expect(source).toContain('label: "排队中"');
+    expect(source).toContain('case "processing"');
+    expect(source).toContain('label: "解析中"');
+    expect(source).toContain('case "failed"');
+    expect(source).toContain('label: "解析失败"');
+    expect(source).toContain('case "unparsed"');
+    expect(source).toContain('label: "未解析"');
+    expect(cardSource).toContain(
+      "const importActionState = getResumePoolImportActionState(record);",
+    );
+    expect(cardSource).toContain("disabled={importActionState.disabled}");
+    expect(cardSource).toContain("{importActionState.label}");
+    expect(cardSource).not.toContain("resumeParseStatusBadge(record)");
+    expect(cardSource).not.toContain('<Badge variant="secondary">未入库</Badge>');
     expect(source).not.toContain('<CardFooter className="flex-col items-stretch gap-2 px-3">');
   });
 
   it("prefixes parsed candidate names with the target role on resume pool cards", () => {
     expect(source).toContain("function getCandidateDisplayTitle");
+    expect(source).toContain("function formatCandidateWorkYears");
+    expect(source).toContain("record.workYears");
     expect(source).toContain('record.resumeParseStatus !== "ready"');
+    expect(source).toMatch(/return `\$\{targetRole\}-\$\{workYears\}-\$\{candidateTitle\}`;/u);
     expect(source).toMatch(/return `\$\{targetRole\}-\$\{candidateTitle\}`;/u);
     expect(source).toContain("const title = getCandidateDisplayTitle(record);");
   });
@@ -96,12 +134,20 @@ describe("ResumePoolPage masonry layout", () => {
       source.indexOf("function ResumePoolLoadingState"),
     );
 
-    expect(source).toContain("毕业院校");
+    expect(source).toContain("教育经历");
     expect(source).toContain("最近公司");
     expect(source).toContain("最近项目");
-    expect(source).toContain("record.profileHighlights.schools");
-    expect(source).toContain("record.profileHighlights.latestCompany");
-    expect(source).toContain("record.profileHighlights.latestProject");
+    expect(source).toContain("ResumeEducationDisplayLine");
+    expect(source).toContain("const { educationItems } = profileHighlights;");
+    expect(educationLineSource).toContain("function EducationLevelTag");
+    expect(educationLineSource).toContain("bg-purple-500/10");
+    expect(educationLineSource).toContain("bg-blue-500/10");
+    expect(educationLineSource).toContain("bg-cyan-500/10");
+    expect(source).toContain("profileHighlights.educationLines");
+    expect(source).toContain("profileHighlights.schools");
+    expect(source).toContain("profileHighlights.latestCompany");
+    expect(source).toContain("profileHighlights.latestProject");
+    expect(source).toContain('educationFallbackLines.join("\\n")');
     expect(cardSource).toContain("ResumePoolCardHighlights");
     expect(cardSource).not.toContain("truncate text-foreground");
   });

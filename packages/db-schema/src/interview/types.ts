@@ -42,11 +42,31 @@ export const resumeProjectExperienceSchema = z.object({
 });
 
 /**
+ * 教育经历的单条记录。
+ * A single education-experience entry.
+ */
+export const resumeEducationExperienceSchema = z.object({
+  degree: nullableStringSchema.describe("学位；无法确认时返回 null"),
+  educationLevel: nullableStringSchema.describe(
+    "学历层次，如专科、本科、硕士、博士；无法确认时返回 null",
+  ),
+  graduationYear: nullableStringSchema.describe("毕业年份；无法确认时返回 null"),
+  major: nullableStringSchema.describe("专业；无法确认时返回 null"),
+  period: nullableStringSchema.describe("就读时间范围；无法确认时返回 null"),
+  school: nullableStringSchema.describe("学校名称；无法确认时返回 null"),
+  summary: nullableStringSchema.describe("教育经历摘要；无法确认时返回 null"),
+});
+
+/**
  * 简历画像：候选人的结构化档案，由 LLM 从 PDF 简历中抽取。
  * Resume profile — the candidate's structured dossier, extracted from PDF by the LLM.
  */
 export const resumeProfileSchema = z.object({
   age: z.number().nullable().describe("候选人年龄，只有简历明确给出时才填写，否则为 null"),
+  educationExperiences: z
+    .array(resumeEducationExperienceSchema)
+    .optional()
+    .describe("教育经历列表，可能包含多个学历；未知时返回空数组"),
   email: nullableStringSchema.describe("候选人邮箱地址，简历中明确给出时填写；无法确认时返回 null"),
   gender: nullableStringSchema.describe('候选人性别；无法从简历中确认时，优先返回"未发现信息"'),
   name: nonEmptyStringSchema.describe(

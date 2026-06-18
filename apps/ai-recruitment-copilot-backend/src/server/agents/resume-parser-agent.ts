@@ -15,6 +15,7 @@ export { structuredSchema };
 export function toResumeProfile(structured: ResumeParserStructured): ResumeProfile {
   return {
     age: structured.age,
+    educationExperiences: structured.educationExperiences ?? [],
     email: structured.email,
     gender: structured.gender,
     name: structured.name?.trim() || "未发现信息",

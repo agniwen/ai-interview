@@ -110,9 +110,24 @@ function normalizeNumber(value: number | null) {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 
+function normalizeEducationExperiences(
+  experiences: NonNullable<ResumeProfile["educationExperiences"]> | undefined,
+): NonNullable<ResumeProfile["educationExperiences"]> {
+  return (experiences ?? []).map((education) => ({
+    degree: trimToNull(education.degree),
+    educationLevel: trimToNull(education.educationLevel),
+    graduationYear: trimToNull(education.graduationYear),
+    major: trimToNull(education.major),
+    period: trimToNull(education.period),
+    school: trimToNull(education.school),
+    summary: trimToNull(education.summary),
+  }));
+}
+
 export function normalizeResumeProfile(profile: ResumeProfile): ResumeProfile {
   return {
     age: normalizeNumber(profile.age),
+    educationExperiences: normalizeEducationExperiences(profile.educationExperiences),
     email: trimToNull(profile.email),
     gender: trimToNull(profile.gender),
     name: profile.name.trim() || "未发现信息",
