@@ -105,9 +105,9 @@ describe("ResumeProfileView education experiences", () => {
     expect(source).toContain("formatResumeEducationItem");
     expect(source).toContain("const educationItem =");
     expect(educationLineSource).toContain("function EducationLevelTag");
-    expect(educationLineSource).toContain("bg-purple-500/10");
+    expect(educationLineSource).toContain("bg-green-500/10");
     expect(educationLineSource).toContain("bg-blue-500/10");
-    expect(educationLineSource).toContain("bg-cyan-500/10");
+    expect(educationLineSource).toContain("bg-purple-500/10");
     expect(source).toContain("education.graduationYear");
     expect(source).toContain("education.summary");
     expect(source).toContain("<ChipList items={profile.schools} />");

@@ -140,9 +140,9 @@ describe("ResumePoolPage masonry layout", () => {
     expect(source).toContain("ResumeEducationDisplayLine");
     expect(source).toContain("const { educationItems } = profileHighlights;");
     expect(educationLineSource).toContain("function EducationLevelTag");
-    expect(educationLineSource).toContain("bg-purple-500/10");
+    expect(educationLineSource).toContain("bg-green-500/10");
     expect(educationLineSource).toContain("bg-blue-500/10");
-    expect(educationLineSource).toContain("bg-cyan-500/10");
+    expect(educationLineSource).toContain("bg-purple-500/10");
     expect(source).toContain("profileHighlights.educationLines");
     expect(source).toContain("profileHighlights.schools");
     expect(source).toContain("profileHighlights.latestCompany");

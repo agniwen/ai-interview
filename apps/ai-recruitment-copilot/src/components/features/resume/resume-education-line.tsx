@@ -14,7 +14,7 @@ function educationLevelTagClassName(level: string | null | undefined) {
     return "border-blue-500/30 bg-blue-500/10 text-blue-700 dark:border-blue-500/40 dark:bg-blue-500/15 dark:text-blue-300";
   }
   if (normalized.includes("专")) {
-    return "border-cyan-500/30 bg-cyan-500/10 text-cyan-700 dark:border-cyan-500/40 dark:bg-cyan-500/15 dark:text-cyan-300";
+    return "border-green-500/30 bg-green-500/10 text-green-700 dark:border-green-500/40 dark:bg-green-500/15 dark:text-green-300";
   }
   return "";
 }
