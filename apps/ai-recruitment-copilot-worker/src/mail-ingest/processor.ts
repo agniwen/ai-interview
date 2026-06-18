@@ -24,7 +24,9 @@ import {
   buildMailSearchCriteria,
   isMatchingResumeMailSubject,
   selectSupportedResumeAttachments,
+  shouldProcessMailByListenStart,
 } from "./message-filter";
+import { getMailIngestGroupListenStart, groupMailIngestAccounts } from "./account-groups";
 import type { MailIngestConfig } from "./config";
 
 interface RunResult {
@@ -48,6 +50,10 @@ function toDate(value: Date | string | undefined): Date | null {
     return null;
   }
   return value instanceof Date ? value : new Date(value);
+}
+
+function normalizeSubject(value: string | false | null | undefined): string | null {
+  return typeof value === "string" ? value : null;
 }
 
 async function storeResumeAttachment(attachment: {
@@ -114,27 +120,80 @@ async function createBatchForMail(
   };
 }
 
-async function processAccount(
+async function processMailForAccount(
   account: WorkerMailIngestAccount,
+  mail: ParsedMail,
+  message: { envelope?: { subject?: string | false | null }; internalDate?: Date | string },
+  uid: number,
+  uidValidity: string,
+): Promise<Omit<RunResult, "accounts">> {
+  const result = { messagesFailed: 0, messagesQueued: 0, messagesSkipped: 0 };
+
+  const subject = normalizeSubject(mail.subject) ?? normalizeSubject(message.envelope?.subject);
+  if (!isMatchingResumeMailSubject(subject ?? undefined, account.subjectKeyword)) {
+    return result;
+  }
+  const receivedAt = mail.date ?? toDate(message.internalDate);
+  if (!shouldProcessMailByListenStart(receivedAt, account.listenStartAt)) {
+    result.messagesSkipped += 1;
+    return result;
+  }
+  const messageClaim = await claimMailIngestMessageForProcessing({
+    accountId: account.id,
+    fromAddress: firstAddress(mail),
+    mailbox: account.mailbox,
+    messageId: mail.messageId ?? null,
+    receivedAt,
+    subject,
+    uid: String(uid),
+    uidValidity,
+  });
+  if (!messageClaim.shouldProcess) {
+    result.messagesSkipped += 1;
+    return result;
+  }
+  try {
+    const batch = await createBatchForMail(account, mail);
+    await updateMailIngestMessageResult(messageClaim.id, {
+      batchId: batch.batchId,
+      status: "queued",
+    });
+    await enqueueResumeParseJobs(batch.jobs);
+    result.messagesQueued += 1;
+  } catch (error) {
+    await updateMailIngestMessageResult(messageClaim.id, { error, status: "failed" });
+    result.messagesFailed += 1;
+  }
+
+  return result;
+}
+
+async function processAccountGroup(
+  accounts: WorkerMailIngestAccount[],
   config: MailIngestConfig,
 ): Promise<Omit<RunResult, "accounts">> {
   const result = { messagesFailed: 0, messagesQueued: 0, messagesSkipped: 0 };
+  const [connectionAccount] = accounts;
+  if (!connectionAccount) {
+    return result;
+  }
   const client = new ImapFlow({
     auth: {
-      pass: account.password,
-      user: account.username,
+      pass: connectionAccount.password,
+      user: connectionAccount.username,
     },
-    host: account.imapHost,
-    port: account.imapPort,
-    secure: account.imapSecure,
+    host: connectionAccount.imapHost,
+    port: connectionAccount.imapPort,
+    secure: connectionAccount.imapSecure,
   });
 
   await client.connect();
-  const lock = await client.getMailboxLock(account.mailbox);
+  const lock = await client.getMailboxLock(connectionAccount.mailbox);
   try {
     const { mailbox } = client;
     const uidValidity = mailbox ? String(mailbox.uidValidity) : "unknown";
-    const uids = await client.search(buildMailSearchCriteria(), { uid: true });
+    const listenStartAt = getMailIngestGroupListenStart(accounts);
+    const uids = await client.search(buildMailSearchCriteria(listenStartAt), { uid: true });
     if (!uids || !Array.isArray(uids) || uids.length === 0) {
       return result;
     }
@@ -153,35 +212,11 @@ async function processAccount(
         continue;
       }
       const mail = await simpleParser(message.source);
-      const subject = mail.subject ?? message.envelope?.subject ?? null;
-      if (!isMatchingResumeMailSubject(subject ?? undefined, account.subjectKeyword)) {
-        continue;
-      }
-      const messageClaim = await claimMailIngestMessageForProcessing({
-        accountId: account.id,
-        fromAddress: firstAddress(mail),
-        mailbox: account.mailbox,
-        messageId: mail.messageId ?? null,
-        receivedAt: mail.date ?? toDate(message.internalDate),
-        subject,
-        uid: String(uid),
-        uidValidity,
-      });
-      if (!messageClaim.shouldProcess) {
-        result.messagesSkipped += 1;
-        continue;
-      }
-      try {
-        const batch = await createBatchForMail(account, mail);
-        await updateMailIngestMessageResult(messageClaim.id, {
-          batchId: batch.batchId,
-          status: "queued",
-        });
-        await enqueueResumeParseJobs(batch.jobs);
-        result.messagesQueued += 1;
-      } catch (error) {
-        await updateMailIngestMessageResult(messageClaim.id, { error, status: "failed" });
-        result.messagesFailed += 1;
+      for (const account of accounts) {
+        const accountResult = await processMailForAccount(account, mail, message, uid, uidValidity);
+        result.messagesFailed += accountResult.messagesFailed;
+        result.messagesQueued += accountResult.messagesQueued;
+        result.messagesSkipped += accountResult.messagesSkipped;
       }
     }
     return result;
@@ -191,26 +226,34 @@ async function processAccount(
   }
 }
 
+async function finishAccounts(accounts: WorkerMailIngestAccount[], error?: unknown): Promise<void> {
+  await Promise.all(accounts.map(({ id }) => finishMailIngestAccountRun(id, error)));
+}
+
 export async function runMailIngestOnce(config: MailIngestConfig): Promise<RunResult> {
   const result = { accounts: 0, messagesFailed: 0, messagesQueued: 0, messagesSkipped: 0 };
   const accounts = await listEnabledMailIngestAccounts(config.maxAccountsPerRun);
+  const claimedAccounts: WorkerMailIngestAccount[] = [];
   for (const account of accounts) {
     const claimed = await claimMailIngestAccount(account.id);
     if (!claimed) {
       continue;
     }
     result.accounts += 1;
+    claimedAccounts.push(account);
+  }
+  for (const group of groupMailIngestAccounts(claimedAccounts)) {
     try {
-      const accountResult = await processAccount(account, config);
-      result.messagesFailed += accountResult.messagesFailed;
-      result.messagesQueued += accountResult.messagesQueued;
-      result.messagesSkipped += accountResult.messagesSkipped;
-      await finishMailIngestAccountRun(account.id);
+      const groupResult = await processAccountGroup(group.accounts, config);
+      result.messagesFailed += groupResult.messagesFailed;
+      result.messagesQueued += groupResult.messagesQueued;
+      result.messagesSkipped += groupResult.messagesSkipped;
+      await finishAccounts(group.accounts);
     } catch (error) {
       result.messagesFailed += 1;
-      await finishMailIngestAccountRun(account.id, error);
+      await finishAccounts(group.accounts, error);
       console.error("[mail-ingest] account poll failed", {
-        accountId: account.id,
+        accountIds: group.accounts.map((account) => account.id),
         error,
       });
     }

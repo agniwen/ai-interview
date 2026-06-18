@@ -16,3 +16,28 @@ export function dateTimeLocalInputToISOString(value: string): string | null {
 
   return date.toISOString();
 }
+
+function padDatePart(value: number): string {
+  return String(value).padStart(2, "0");
+}
+
+export function isoStringToDateTimeLocalInput(value: string | null | undefined): string {
+  if (!value) {
+    return "";
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+  return [
+    date.getFullYear(),
+    "-",
+    padDatePart(date.getMonth() + 1),
+    "-",
+    padDatePart(date.getDate()),
+    "T",
+    padDatePart(date.getHours()),
+    ":",
+    padDatePart(date.getMinutes()),
+  ].join("");
+}

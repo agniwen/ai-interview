@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildMailSearchCriteria,
   isMatchingResumeMailSubject,
+  shouldProcessMailByListenStart,
   selectSupportedResumeAttachments,
 } from "./message-filter";
 
@@ -14,8 +15,36 @@ describe("mail ingest message filter", () => {
     expect(isMatchingResumeMailSubject("候选人王泽投递了 Android 工程师", "boss直聘")).toBe(false);
   });
 
-  it("searches all mails so read but unsynced mails can be processed locally", () => {
-    expect(buildMailSearchCriteria()).toEqual({ all: true });
+  it("searches all mails when no listen start is configured", () => {
+    expect(buildMailSearchCriteria(null)).toEqual({ all: true });
+  });
+
+  it("uses the configured listen start to narrow the IMAP search", () => {
+    const listenStartAt = new Date("2026-06-18T10:00:00.000Z");
+
+    expect(buildMailSearchCriteria(listenStartAt)).toEqual({ since: listenStartAt });
+  });
+
+  it("filters messages before the configured listen start", () => {
+    const listenStartAt = new Date("2026-06-18T10:00:00.000Z");
+
+    expect(
+      shouldProcessMailByListenStart(new Date("2026-06-18T09:59:59.999Z"), listenStartAt),
+    ).toBe(false);
+    expect(
+      shouldProcessMailByListenStart(new Date("2026-06-18T10:00:00.000Z"), listenStartAt),
+    ).toBe(true);
+    expect(
+      shouldProcessMailByListenStart(new Date("2026-06-18T10:00:00.001Z"), listenStartAt),
+    ).toBe(true);
+  });
+
+  it("keeps processing all messages when no listen start is configured", () => {
+    expect(shouldProcessMailByListenStart(new Date("2020-01-01T00:00:00.000Z"), null)).toBe(true);
+  });
+
+  it("skips messages with no received time when listen start is configured", () => {
+    expect(shouldProcessMailByListenStart(null, new Date("2026-06-18T10:00:00.000Z"))).toBe(false);
   });
 
   it("does not move or delete source mailbox messages after processing", () => {

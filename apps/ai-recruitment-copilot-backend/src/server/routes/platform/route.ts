@@ -11,6 +11,16 @@ import {
   RESUME_PARSE_JOB_LIST_STATES,
   RESUME_PARSE_QUEUE_NAME,
 } from "@arc/resume-parse-queue/resume-parse";
+import {
+  createMailIngestAccount,
+  isWorkspaceMember,
+  queryPaginatedPlatformMailIngestAccounts,
+  updateWorkspaceMailIngestAccount,
+} from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/mail-ingest/dao";
+import {
+  createMailIngestAccountSchema,
+  updateMailIngestAccountSchema,
+} from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/mail-ingest/schema";
 import { enrichResumeParseQueueJobs } from "./queue-details";
 
 // --- Organizations list ---
@@ -324,6 +334,87 @@ const platformUsers = factory
     );
   });
 
+const mailIngestAccountsQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(10),
+  search: z.string().optional(),
+  sortBy: z.enum(["userName", "userEmail", "emailAddress", "lastCheckedAt"]).default("userName"),
+  sortOrder: z.enum(["asc", "desc"]).default("asc"),
+});
+
+const createPlatformMailIngestAccountSchema = createMailIngestAccountSchema.extend({
+  organizationId: z.string().trim().min(1),
+  userId: z.string().trim().min(1),
+});
+
+const updatePlatformMailIngestAccountSchema = updateMailIngestAccountSchema.extend({
+  organizationId: z.string().trim().min(1),
+});
+
+const platformMailIngestAccounts = factory
+  .createApp()
+  .get(
+    "/mail-ingest-accounts",
+    zValidator("query", mailIngestAccountsQuerySchema, jsonValidatorError("参数校验失败")),
+    async (c) => {
+      const { page, pageSize, search, sortBy, sortOrder } = c.req.valid("query");
+      const result = await queryPaginatedPlatformMailIngestAccounts(
+        { search },
+        { page, pageSize, sortBy, sortOrder },
+      );
+      return c.json(result, 200);
+    },
+  )
+  .post(
+    "/mail-ingest-accounts",
+    zValidator("json", createPlatformMailIngestAccountSchema, jsonValidatorError("邮箱配置无效。")),
+    async (c) => {
+      const { organizationId, userId, ...input } = c.req.valid("json");
+      const memberExists = await isWorkspaceMember({ organizationId, userId });
+      if (!memberExists) {
+        return c.json({ error: "目标成员不存在。" }, 404);
+      }
+      try {
+        const account = await createMailIngestAccount({
+          input,
+          organizationId,
+          userId,
+        });
+        return c.json(account, 201);
+      } catch (error) {
+        console.error("[platform-mail-ingest] create account failed:", error);
+        return c.json(
+          { error: error instanceof Error ? error.message : "邮箱配置保存失败。" },
+          500,
+        );
+      }
+    },
+  )
+  .patch(
+    "/mail-ingest-accounts/:id",
+    zValidator("json", updatePlatformMailIngestAccountSchema, jsonValidatorError("邮箱配置无效。")),
+    async (c) => {
+      const { organizationId, ...input } = c.req.valid("json");
+      try {
+        const account = await updateWorkspaceMailIngestAccount({
+          id: c.req.param("id"),
+          input,
+          organizationId,
+        });
+        if (!account) {
+          return c.json({ error: "邮箱配置不存在。" }, 404);
+        }
+        return c.json(account, 200);
+      } catch (error) {
+        console.error("[platform-mail-ingest] update account failed:", error);
+        return c.json(
+          { error: error instanceof Error ? error.message : "邮箱配置更新失败。" },
+          500,
+        );
+      }
+    },
+  );
+
 const queueJobsQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
@@ -355,6 +446,7 @@ export const platformRouter = factory
   .createApp()
   .use(adminMiddleware)
   .route("/", platformQueues)
+  .route("/", platformMailIngestAccounts)
   .route("/", platformOrganizations)
   .route("/", organizationDetail)
   .route("/", platformUsers);

@@ -13,8 +13,24 @@ export interface SupportedResumeMailAttachment {
   filename: string;
 }
 
-export function buildMailSearchCriteria() {
-  return { all: true };
+export function buildMailSearchCriteria(listenStartAt?: Date | null) {
+  if (!listenStartAt) {
+    return { all: true };
+  }
+  return { since: listenStartAt };
+}
+
+export function shouldProcessMailByListenStart(
+  receivedAt: Date | null,
+  listenStartAt?: Date | null,
+): boolean {
+  if (!listenStartAt) {
+    return true;
+  }
+  if (!receivedAt) {
+    return false;
+  }
+  return receivedAt.getTime() >= listenStartAt.getTime();
 }
 
 export function isMatchingResumeMailSubject(subject: string | undefined, keyword: string): boolean {

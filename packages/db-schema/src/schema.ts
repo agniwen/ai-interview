@@ -1174,6 +1174,7 @@ export const mailIngestAccount = pgTable(
     }),
     lastCheckedAt: timestamp("last_checked_at", { withTimezone: true }),
     lastError: text("last_error"),
+    listenStartAt: timestamp("listen_start_at", { withTimezone: true }),
     mailbox: text("mailbox").notNull().default("INBOX"),
     organizationId: text("organization_id")
       .notNull()

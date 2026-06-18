@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 const nonEmptyString = z.string().trim().min(1);
+const nullableIsoDateTime = z.string().datetime().nullable();
 
 export const createMailIngestAccountSchema = z.object({
   emailAddress: nonEmptyString.email(),
@@ -9,11 +10,24 @@ export const createMailIngestAccountSchema = z.object({
   imapHost: nonEmptyString.default("imap.qiye.aliyun.com"),
   imapPort: z.number().int().min(1).max(65_535).default(993),
   imapSecure: z.boolean().default(true),
+  listenStartAt: nullableIsoDateTime.optional(),
   mailbox: nonEmptyString.default("INBOX"),
   password: nonEmptyString,
   processedMailbox: nonEmptyString.default("ARC-Processed"),
   subjectKeyword: nonEmptyString.default("boss直聘"),
   username: nonEmptyString,
+});
+
+export const createManagedMailIngestAccountSchema = createMailIngestAccountSchema.extend({
+  userId: nonEmptyString,
+});
+
+export const managedMailIngestAccountListQuerySchema = z.object({
+  page: z.string().optional(),
+  pageSize: z.string().optional(),
+  search: z.string().optional(),
+  sortBy: z.string().optional(),
+  sortOrder: z.string().optional(),
 });
 
 export const updateMailIngestAccountSchema = createMailIngestAccountSchema

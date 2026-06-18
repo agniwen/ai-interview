@@ -1,6 +1,6 @@
 "use client";
 
-import { Building2Icon, ListChecksIcon, UsersIcon } from "lucide-react";
+import { Building2Icon, InboxIcon, ListChecksIcon, UsersIcon } from "lucide-react";
 import { Link, useRouterState } from "@tanstack/react-router";
 import {
   SidebarBodyPortalContent,
@@ -33,6 +33,11 @@ const navItems: NavItem[] = [
     icon: UsersIcon,
     path: "/platform/users",
     title: "所有用户",
+  },
+  {
+    icon: InboxIcon,
+    path: "/platform/mail-ingest-accounts",
+    title: "邮箱监听",
   },
   {
     icon: ListChecksIcon,

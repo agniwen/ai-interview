@@ -26,9 +26,9 @@ import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/features/studio/page-header";
 import { actionsColumn, customColumn, DataGrid } from "@/components/data-grid";
+import { MemberCell } from "@/components/data-grid/cells/member-cell";
 import { PermissionGate } from "@/components/features/permission/permission-gate";
 import { TimeDisplay } from "@/components/features/display/time-display";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -131,24 +131,11 @@ interface RecruitingGroupRow {
 }
 
 const EMPTY_RECRUITING_GROUPS: RecruitingGroupRow[] = [];
-const WHITESPACE_REGEX = /\s+/u;
 const WORKSPACE_ROLE_BADGE_VARIANT: Record<WorkspaceRole, "default" | "secondary" | "outline"> = {
   admin: "secondary",
   member: "outline",
   owner: "default",
 };
-
-function getInitials(name?: string | null, email?: string | null) {
-  const source = (name ?? email ?? "").trim();
-  if (!source) {
-    return "U";
-  }
-  const words = source.split(WHITESPACE_REGEX).filter(Boolean);
-  if (words.length >= 2) {
-    return `${words[0]?.[0] ?? ""}${words[1]?.[0] ?? ""}`.toUpperCase();
-  }
-  return source.slice(0, 2).toUpperCase();
-}
 
 const GROUP_ROLE_LABELS: Record<RecruitingGroupRole, string> = {
   hr: "招聘成员",
@@ -559,14 +546,13 @@ function MemberPoolCard({ canUpdate, isOverlay, row }: MemberPoolCardProps) {
         >
           <GripVerticalIcon className="size-4" />
         </button>
-        <Avatar size="sm">
-          <AvatarImage alt={row.name} src={row.image ?? undefined} />
-          <AvatarFallback>{getInitials(row.name, row.email)}</AvatarFallback>
-        </Avatar>
-        <div className="min-w-0 flex-1">
-          <p className="truncate font-medium text-sm">{row.name}</p>
-          <p className="truncate text-muted-foreground text-xs">{row.email}</p>
-        </div>
+        <MemberCell
+          avatarSize="sm"
+          className="flex-1 items-start gap-2"
+          email={row.email}
+          image={row.image}
+          name={row.name}
+        />
       </div>
     </div>
   );
@@ -656,14 +642,13 @@ function GroupMemberCard({
         >
           <GripVerticalIcon className="size-4" />
         </button>
-        <Avatar size="sm">
-          <AvatarImage alt={member.name} src={member.image ?? undefined} />
-          <AvatarFallback>{getInitials(member.name, member.email)}</AvatarFallback>
-        </Avatar>
-        <div className="min-w-0 flex-1">
-          <p className="truncate font-medium text-sm">{member.name}</p>
-          <p className="truncate text-muted-foreground text-xs">{member.email}</p>
-        </div>
+        <MemberCell
+          avatarSize="sm"
+          className="flex-1 items-start gap-2"
+          email={member.email}
+          image={member.image}
+          name={member.name}
+        />
         {canUpdate ? (
           <Button
             aria-label="移出招聘组"
@@ -1044,16 +1029,13 @@ function MembersManagementPage() {
     () => [
       customColumn<MemberRow>({
         cell: (r) => (
-          <div className="flex items-center gap-3 min-w-0">
-            <Avatar size="sm">
-              <AvatarImage alt={r.name} src={r.image ?? undefined} />
-              <AvatarFallback>{getInitials(r.name, r.email)}</AvatarFallback>
-            </Avatar>
-            <div className="min-w-0">
-              <p className="truncate font-medium">{r.name}</p>
-              <p className="truncate text-muted-foreground text-xs">{r.email}</p>
-            </div>
-          </div>
+          <MemberCell
+            avatarSize="sm"
+            className="gap-3"
+            email={r.email}
+            image={r.image}
+            name={r.name}
+          />
         ),
         key: "name",
         title: "成员",
