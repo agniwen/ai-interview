@@ -33,6 +33,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ButtonGroup } from "@/components/ui/button-group";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -442,20 +443,27 @@ function InterviewQuestionTemplateManagementPage({
                   创建后，符合作用域的面试在创建时会自动绑定到最新版本的题目快照。
                 </EmptyDescription>
               </EmptyHeader>
-              <EmptyContent className="flex flex-wrap items-center justify-center gap-2">
-                <Button onClick={() => setAiCreateOpen(true)} type="button">
-                  <SparklesIcon className="size-4" />
-                  AI 创建面试题
-                </Button>
-                <Button
-                  onClick={() => {
-                    setCreateDraft(null);
-                    crud.openCreate();
-                  }}
-                >
-                  <PlusIcon className="size-4" />
-                  新建面试题
-                </Button>
+              <EmptyContent className="flex items-center justify-center">
+                <ButtonGroup>
+                  <Button
+                    onClick={() => {
+                      setCreateDraft(null);
+                      crud.openCreate();
+                    }}
+                  >
+                    <PlusIcon className="size-4" />
+                    新建面试题
+                  </Button>
+                  <Button
+                    aria-label="AI 创建面试题"
+                    onClick={() => setAiCreateOpen(true)}
+                    size="icon"
+                    title="AI 创建面试题"
+                    type="button"
+                  >
+                    <SparklesIcon className="size-4" />
+                  </Button>
+                </ButtonGroup>
               </EmptyContent>
             </Empty>
           }
@@ -482,15 +490,7 @@ function InterviewQuestionTemplateManagementPage({
           }
           getRowId={(r) => r.id}
           toolbarRight={
-            <div className="flex flex-1 flex-wrap items-center justify-end gap-2 sm:flex-none">
-              <Button
-                className="flex-1 sm:flex-none"
-                onClick={() => setAiCreateOpen(true)}
-                type="button"
-              >
-                <SparklesIcon className="size-4" />
-                AI 创建面试题
-              </Button>
+            <ButtonGroup className="flex-1 sm:flex-none">
               <Button
                 className="flex-1 sm:flex-none"
                 onClick={() => {
@@ -501,7 +501,16 @@ function InterviewQuestionTemplateManagementPage({
                 <PlusIcon className="size-4" />
                 新建面试题
               </Button>
-            </div>
+              <Button
+                aria-label="AI 创建面试题"
+                onClick={() => setAiCreateOpen(true)}
+                size="icon"
+                title="AI 创建面试题"
+                type="button"
+              >
+                <SparklesIcon className="size-4" />
+              </Button>
+            </ButtonGroup>
           }
         />
       </div>
