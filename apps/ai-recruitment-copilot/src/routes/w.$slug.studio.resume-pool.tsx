@@ -2,7 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, useNavigate, useSearch } from "@tanstack/react-router";
-import type { ResumePoolScope } from "@arc/db-schema/schema";
+import type { ResumePoolScope, ResumeUploadBatchDedupPolicy } from "@arc/db-schema/schema";
 import type { JobDescriptionListRecord } from "@arc/shared/job-descriptions";
 import { resumePoolScopeMeta } from "@arc/shared/resume-pool";
 import type {
@@ -434,6 +434,58 @@ function SelectResumePoolScopeDialog({
             <span>{resumePoolScopeMeta[item].label}</span>
           </FieldLabel>
         ))}
+      </RadioGroup>
+    </Modal>
+  );
+}
+
+function PrivateResumePoolUploadPolicyDialog({
+  fileCount,
+  onConfirmed,
+  onOpenChange,
+  open,
+}: {
+  fileCount: number;
+  open: boolean;
+  onConfirmed: (dedupPolicy: ResumeUploadBatchDedupPolicy) => void;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const [dedupPolicy, setDedupPolicy] = useState<ResumeUploadBatchDedupPolicy>("skip");
+
+  useEffect(() => {
+    if (open) {
+      setDedupPolicy("skip");
+    }
+  }, [open]);
+
+  return (
+    <Modal
+      description="仅私有简历上传支持查重策略；简历广场允许多份重复简历。"
+      footer={
+        <>
+          <Button onClick={() => onOpenChange(false)} variant="outline">
+            取消
+          </Button>
+          <Button onClick={() => onConfirmed(dedupPolicy)}>开始上传 ({fileCount})</Button>
+        </>
+      }
+      onOpenChange={onOpenChange}
+      open={open}
+      size="sm"
+      title="查重策略"
+    >
+      <RadioGroup
+        onValueChange={(value) => setDedupPolicy(value as ResumeUploadBatchDedupPolicy)}
+        value={dedupPolicy}
+      >
+        <FieldLabel className="w-full rounded-md border p-3">
+          <RadioGroupItem value="skip" />
+          <span>跳过疑似重复（不创建新记录）</span>
+        </FieldLabel>
+        <FieldLabel className="w-full rounded-md border p-3">
+          <RadioGroupItem value="create" />
+          <span>照样创建（允许重复）</span>
+        </FieldLabel>
       </RadioGroup>
     </Modal>
   );
@@ -1305,6 +1357,8 @@ function ResumePoolPage() {
   const [uploadOpen, setUploadOpen] = useState(false);
   const [uploadEntryOpen, setUploadEntryOpen] = useState(false);
   const [uploadScope, setUploadScope] = useState<ResumePoolScope>(scope);
+  const [privateUploadPolicyOpen, setPrivateUploadPolicyOpen] = useState(false);
+  const [pendingPrivateUploadFiles, setPendingPrivateUploadFiles] = useState<File[]>([]);
   const [progressOpen, setProgressOpen] = useState(false);
   const [batchListOpen, setBatchListOpen] = useState(false);
   const [detailRecord, setDetailRecord] = useState<ResumePoolListRecord | null>(null);
@@ -1435,19 +1489,38 @@ function ResumePoolPage() {
     return () => observer.disconnect();
   }, [hasMoreRecords, loadMoreRecords]);
 
-  function startQueuedUpload(files: File[], targetScope: ResumePoolScope) {
+  function startQueuedUpload(
+    files: File[],
+    targetScope: ResumePoolScope,
+    dedupPolicy: ResumeUploadBatchDedupPolicy,
+  ) {
     if (files.length === 0) {
       return;
     }
     setUploadEntryOpen(false);
+    setPrivateUploadPolicyOpen(false);
+    setPendingPrivateUploadFiles([]);
     setProgressOpen(true);
     void bulk.start(files, {
-      dedupPolicy: "create",
+      dedupPolicy,
       jdMode: "none",
       jobDescriptionId: null,
       resumePoolScope: targetScope,
       target: "resume_pool",
     });
+  }
+
+  function handleQueuedUploadFilesPicked(files: File[], targetScope: ResumePoolScope) {
+    if (files.length === 0) {
+      return;
+    }
+    if (targetScope === "private") {
+      setUploadEntryOpen(false);
+      setPendingPrivateUploadFiles(files);
+      setPrivateUploadPolicyOpen(true);
+      return;
+    }
+    startQueuedUpload(files, "public", "create");
   }
 
   async function handleOpenBatch(batch: (typeof poolBatches)[number]) {
@@ -1645,11 +1718,24 @@ function ResumePoolPage() {
         description="选择 1 份或多份 PDF，都会进入后台解析队列。"
         fileUploadDescription="可选择 1 份或多份 PDF，上传后在后台异步解析。"
         fileUploadTitle="请选择要加入简历广场的简历文件"
-        onMultipleFilesPicked={(files) => startQueuedUpload(files, uploadScope)}
+        onMultipleFilesPicked={(files) => handleQueuedUploadFilesPicked(files, uploadScope)}
         onOpenChange={setUploadEntryOpen}
-        onSingleFilePicked={(file) => startQueuedUpload([file], uploadScope)}
+        onSingleFilePicked={(file) => handleQueuedUploadFilesPicked([file], uploadScope)}
         open={uploadEntryOpen}
         title="上传简历"
+      />
+      <PrivateResumePoolUploadPolicyDialog
+        fileCount={pendingPrivateUploadFiles.length}
+        onConfirmed={(dedupPolicy) =>
+          startQueuedUpload(pendingPrivateUploadFiles, "private", dedupPolicy)
+        }
+        onOpenChange={(open) => {
+          setPrivateUploadPolicyOpen(open);
+          if (!open) {
+            setPendingPrivateUploadFiles([]);
+          }
+        }}
+        open={privateUploadPolicyOpen}
       />
       <UploadBatchListDialog
         batches={poolBatches}

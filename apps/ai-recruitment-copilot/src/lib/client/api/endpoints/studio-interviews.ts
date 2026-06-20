@@ -14,6 +14,7 @@
  */
 
 import type { CandidateFormSubmissionWithSnapshot } from "@arc/db-schema/candidate-forms";
+import type { ResumeProfile } from "@arc/db-schema/interview/types";
 import type { StudioInterviewConversationReport } from "@arc/db-schema/interview-session";
 import type {
   PaginatedStudioInterviewRoundsResult,
@@ -44,14 +45,8 @@ import { rpc } from "@/lib/client/rpc";
 import { rpcFetch } from "../rpc-fetch";
 
 /**
- * 身份维度查重命中字段。
- * Identity-dedup matched-field keys.
- */
-export type DedupMatchedField = "name" | "email" | "phone";
-
-/**
- * 身份维度查重单条命中。
- * A single identity-dedup match entry.
+ * 简历语义查重单条命中。
+ * A single semantic resume duplicate match entry.
  */
 export interface DedupMatchRecord {
   id: string;
@@ -62,7 +57,15 @@ export interface DedupMatchRecord {
   jobDescriptionName: string | null;
   status: StudioInterviewStatus;
   createdAt: string;
-  matchedFields: DedupMatchedField[];
+  conflictingSignals?: string[];
+  level?: "high" | "low" | "medium";
+  score?: number;
+  semanticReasons?: string[];
+  similarity?: {
+    resumeOverview?: number;
+    skillRole?: number;
+    workProject?: number;
+  };
 }
 
 /**
@@ -126,8 +129,8 @@ export function fetchStudioInterviewSummary(slug: string): Promise<InterviewRoun
 }
 
 /**
- * 按姓名/邮箱/电话查重，任一字段命中即返回。
- * Look up potential duplicates by name / email / phone (any one suffices).
+ * 基于解析后的简历画像做语义查重。
+ * Look up potential duplicates through semantic resume similarity.
  */
 export function fetchInterviewDedup(
   slug: string,
@@ -135,6 +138,7 @@ export function fetchInterviewDedup(
     name: string | null;
     email: string | null;
     phone: string | null;
+    resumeProfile?: ResumeProfile | null;
   },
   options?: { signal?: AbortSignal },
 ): Promise<{ matches: DedupMatchRecord[] }> {

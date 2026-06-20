@@ -295,6 +295,28 @@ describe("ResumePoolPage masonry layout", () => {
     expect(pageSource).toContain("grid.bind.data.map((record) => record.id)");
   });
 
+  it("asks for a dedup policy only when uploading private resume pool items", () => {
+    const pageSource = source.slice(
+      source.indexOf("function ResumePoolPage"),
+      source.indexOf("export const Route"),
+    );
+    const policyDialogSource = source.slice(
+      source.indexOf("function PrivateResumePoolUploadPolicyDialog"),
+      source.indexOf("function ImportResumePoolDialog"),
+    );
+
+    expect(pageSource).toContain("pendingPrivateUploadFiles");
+    expect(pageSource).toContain("privateUploadPolicyOpen");
+    expect(pageSource).toContain('if (targetScope === "private") {');
+    expect(pageSource).toContain("setPendingPrivateUploadFiles(files)");
+    expect(pageSource).toContain("setPrivateUploadPolicyOpen(true)");
+    expect(pageSource).toContain('startQueuedUpload(files, "public", "create")');
+    expect(policyDialogSource).toContain('useState<ResumeUploadBatchDedupPolicy>("skip")');
+    expect(policyDialogSource).toContain("跳过疑似重复");
+    expect(policyDialogSource).toContain("照样创建");
+    expect(source).toContain("<PrivateResumePoolUploadPolicyDialog");
+  });
+
   it("shows profile highlight labels above full content", () => {
     const highlightSource = source.slice(
       source.indexOf("function ResumePoolHighlightRow"),

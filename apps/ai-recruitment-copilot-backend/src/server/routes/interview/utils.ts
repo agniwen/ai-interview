@@ -1,6 +1,6 @@
 import type { parseScheduleEntriesInput } from "@arc/db-schema/studio-interviews";
 import type { StudioCandidateRecord } from "@arc/shared/studio-candidates";
-import type { ResumeProfile } from "@arc/db-schema/interview/types";
+import type { ResumeAnalysisResult, ResumeProfile } from "@arc/db-schema/interview/types";
 import { and, eq, inArray } from "drizzle-orm";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import {
@@ -439,6 +439,48 @@ export async function storeResumeObjectOnly(
     console.error("[studio-interview] failed to upload resume object to S3:", error);
     return null;
   }
+}
+
+export interface ResumeUploadStorageResult {
+  cachedResumeProfile: ResumeProfile | null;
+  contentHash: string;
+  storageKey: string;
+}
+
+interface ResolveResumeUploadStorageInput {
+  interviewRecordId?: string;
+  organizationId: string;
+  parsedResumePayload: ResumeAnalysisResult | null;
+  resume: File | null;
+  storeObjectOnly?: typeof storeResumeObjectOnly;
+  storeParsedResume?: typeof storeInterviewResume;
+  userId: string | null | undefined;
+}
+
+export async function resolveResumeUploadStorage({
+  interviewRecordId,
+  organizationId,
+  parsedResumePayload,
+  resume,
+  storeObjectOnly = storeResumeObjectOnly,
+  storeParsedResume = storeInterviewResume,
+  userId,
+}: ResolveResumeUploadStorageInput): Promise<ResumeUploadStorageResult | null> {
+  if (!(resume && userId)) {
+    return null;
+  }
+
+  if (parsedResumePayload) {
+    const stored = await storeObjectOnly(resume, userId, organizationId);
+    return stored ? { ...stored, cachedResumeProfile: null } : null;
+  }
+
+  return storeParsedResume(
+    interviewRecordId ?? crypto.randomUUID(),
+    resume,
+    userId,
+    organizationId,
+  );
 }
 
 // 单行构造拆分：避免上层 map 函数的圈复杂度过高，并方便在 PATCH 编辑时

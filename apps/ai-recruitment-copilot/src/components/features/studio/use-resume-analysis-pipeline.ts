@@ -1,6 +1,6 @@
 "use client";
 
-// 简历分析流水线 hook：parse → JD 匹配 → 身份查重。
+// 简历分析流水线 hook：parse → JD 匹配 → 语义查重。
 // 出题不再自动跟在解析之后，而是由组件层在「保存并发起面试」按下时显式调用
 // `generateQuestions()` 触发——按钮 loading 与流式 overlay 由本 hook 的 isBusy
 // 状态自然驱动。
@@ -12,7 +12,7 @@
 
 import type { DedupMatchRecord } from "@/lib/client/api";
 import { env } from "@/env/client";
-import { fetchInterviewDedup } from "@/lib/client/api";
+import { fetchResumeDedup } from "@/lib/client/api";
 import { readNdjsonStream } from "@/lib/client/ndjson-stream";
 import { matchJobDescriptionForResume, parseResumeFile } from "@/lib/client/resume-analysis";
 import { rpc } from "@/lib/client/rpc";
@@ -103,7 +103,7 @@ export function useResumeAnalysisPipeline(
   const accumulatedTextRef = useRef("");
   const reviewTextRef = useRef("");
   const abortControllerRef = useRef<AbortController | null>(null);
-  // 缓存 Step 1 解析结果，用户在身份查重弹窗点"继续解析"时再驱动 Step 2。
+  // 缓存 Step 1 解析结果，用户在语义查重弹窗点"继续解析"时再驱动 Step 2。
   // Cache the Step 1 parse result so we can resume Step 2 after the user
   // clicks "继续解析" on the dedup overlay.
   const pendingProfileRef = useRef<ResumeProfile | null>(null);
@@ -411,22 +411,37 @@ export function useResumeAnalysisPipeline(
           }
         })();
 
-        // 身份维度查重：simple OR-match by name/email/phone。失败时静默继续。
-        // 命中时仅展示 overlay 让用户确认，不再继续触发任何流程；
-        // 出题挪到「保存并发起面试」时按需触发。
-        // Identity dedup check (OR-match). If hit, just surface the overlay
-        // for confirmation — no more chained question generation. Question
+        // 语义查重：失败时静默继续。命中时仅展示 overlay 让用户确认，
+        // 不再继续触发任何流程；出题挪到「保存并发起面试」时按需触发。
+        // Semantic dedup check. If hit, just surface the overlay for
+        // confirmation — no more chained question generation. Question
         // generation is deferred to the "save and start interview" action.
         try {
-          const { matches } = await fetchInterviewDedup(
+          console.info("[resume-upload-dedup] request", {
+            hasResumeProfile: Boolean(resumeProfile),
+            workspaceSlug: slug,
+          });
+          const { matches } = await fetchResumeDedup(
             slug,
             {
               email: resumeProfile.email,
               name: resumeProfile.name,
               phone: resumeProfile.phone,
+              resumeProfile,
             },
             { signal: abortController.signal },
           );
+          console.info("[resume-upload-dedup] response", {
+            matchCount: matches.length,
+            matches: matches.map((match) => ({
+              id: match.id,
+              level: match.level,
+              score: match.score,
+              semanticReasons: match.semanticReasons,
+              similarity: match.similarity,
+            })),
+            workspaceSlug: slug,
+          });
           if (matches.length > 0) {
             pendingProfileRef.current = resumeProfile;
             setDedupMatches(matches);
@@ -435,8 +450,8 @@ export function useResumeAnalysisPipeline(
           if (!abortController.signal.aborted) {
             toast.warning(
               error instanceof Error
-                ? `身份查重失败，已跳过：${error.message}`
-                : "身份查重失败，已跳过",
+                ? `语义查重失败，已跳过：${error.message}`
+                : "语义查重失败，已跳过",
             );
           }
         }

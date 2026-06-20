@@ -1,11 +1,11 @@
 "use client";
 
 /**
- * 简历身份维度查重提示 overlay。
- * Identity-dedup overlay shown after a resume is parsed.
+ * 简历疑似重复风险提示 overlay。
+ * Resume duplicate-risk overlay shown after a resume is parsed.
  *
- * 在创建面试 / 一键入库流程中，简历解析完成后若按姓名/邮箱/电话命中已有记录，
- * 调用方把当前 isBusy overlay 切换成本组件，让用户判断"是不是同一个人"。
+ * 在创建面试 / 一键入库流程中，简历解析完成后若命中语义相似记录，
+ * 调用方把当前 isBusy overlay 切换成本组件，让用户判断是否继续创建。
  *
  * Used by both the create-interview dialog and the chat one-click import button.
  * After parse succeeds, if the dedup endpoint returns matches, the caller swaps
@@ -14,17 +14,20 @@
 
 import { AlertTriangleIcon, ExternalLinkIcon } from "@/components/icons/hugeicons";
 import { useState } from "react";
-import type { DedupMatchedField, DedupMatchRecord } from "@/lib/client/api";
+import type { DedupMatchRecord } from "@/lib/client/api";
 import { studioInterviewStatusMeta } from "@arc/db-schema/studio-interviews";
 import { formatDate } from "@arc/shared/utils/time";
 import { StudioPersonDetailDialog } from "@/components/features/studio/studio-person-detail-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
-const FIELD_LABEL: Record<DedupMatchedField, string> = {
-  email: "邮箱",
-  name: "姓名",
-  phone: "电话",
+const LEVEL_META: Record<
+  NonNullable<DedupMatchRecord["level"]>,
+  { label: string; tone: string }
+> = {
+  high: { label: "高度疑似重复", tone: "border-red-200 bg-red-50 text-red-700" },
+  low: { label: "低风险", tone: "border-slate-200 bg-slate-50 text-slate-700" },
+  medium: { label: "可能重复", tone: "border-amber-200 bg-amber-50 text-amber-700" },
 };
 
 // 直接走共享 formatDate（dayjs 实现，`YY/MM/DD HH:mm`），整库统一一个格式。
@@ -32,6 +35,21 @@ const FIELD_LABEL: Record<DedupMatchedField, string> = {
 // unified format across the app.
 function formatCreatedAt(value: string) {
   return formatDate(value);
+}
+
+function formatSimilarity(value: number | undefined): string | null {
+  if (typeof value !== "number") {
+    return null;
+  }
+  return `${Math.round(value * 100)}%`;
+}
+
+function similarityEvidence(match: DedupMatchRecord): { label: string; value: string }[] {
+  return [
+    { label: "工作/项目", value: formatSimilarity(match.similarity?.workProject) },
+    { label: "整体画像", value: formatSimilarity(match.similarity?.resumeOverview) },
+    { label: "技能岗位", value: formatSimilarity(match.similarity?.skillRole) },
+  ].filter((item): item is { label: string; value: string } => Boolean(item.value));
 }
 
 interface ResumeDedupOverlayProps {
@@ -57,8 +75,8 @@ export function ResumeDedupOverlay({ matches, onContinue, onCancel }: ResumeDedu
           <div className="space-y-1">
             <p className="font-medium text-sm">检测到 {matches.length} 条疑似重复的候选人记录</p>
             <p className="text-xs leading-normal opacity-80">
-              依据简历中的姓名 / 邮箱 /
-              电话匹配。请确认这些记录是否为同一候选人——你可以选择继续解析，或取消本次上传。
+              系统会基于工作经历、项目经历、技能和岗位画像的语义相似度判断风险。
+              请根据判断依据确认是否为同一候选人，再决定查看已有记录或继续创建。
             </p>
           </div>
         </div>
@@ -75,14 +93,17 @@ export function ResumeDedupOverlay({ matches, onContinue, onCancel }: ResumeDedu
                   <div className="min-w-0 space-y-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="font-medium text-sm">{match.candidateName}</span>
+                      {match.level ? (
+                        <span
+                          className={`rounded-md border px-1.5 py-0.5 font-medium text-[11px] ${LEVEL_META[match.level].tone}`}
+                        >
+                          {LEVEL_META[match.level].label}
+                          {typeof match.score === "number" ? ` ${match.score}%` : ""}
+                        </span>
+                      ) : null}
                       <Badge variant={statusMeta?.tone ?? "outline"}>
                         {statusMeta?.label ?? match.status}
                       </Badge>
-                      {match.matchedFields.map((field) => (
-                        <Badge key={field} variant="secondary">
-                          {FIELD_LABEL[field]} 命中
-                        </Badge>
-                      ))}
                     </div>
                     <p className="text-muted-foreground text-xs">
                       {match.targetRole ?? "未填目标岗位"}
@@ -113,6 +134,32 @@ export function ResumeDedupOverlay({ matches, onContinue, onCancel }: ResumeDedu
                     <span>{formatCreatedAt(match.createdAt)}</span>
                   </div>
                 </div>
+                {match.semanticReasons && match.semanticReasons.length > 0 ? (
+                  <div className="mt-3 space-y-1.5">
+                    <div className="font-medium text-muted-foreground text-xs">判断依据</div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {match.semanticReasons.map((reason) => (
+                        <Badge key={reason} variant="secondary">
+                          {reason}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+                {similarityEvidence(match).length > 0 ? (
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {similarityEvidence(match).map((item) => (
+                      <Badge key={item.label} variant="outline">
+                        {item.label}相似度 {item.value}
+                      </Badge>
+                    ))}
+                  </div>
+                ) : null}
+                {match.conflictingSignals && match.conflictingSignals.length > 0 ? (
+                  <div className="mt-2 text-muted-foreground text-xs">
+                    不一致信号：{match.conflictingSignals.join("、")}
+                  </div>
+                ) : null}
               </div>
             );
           })}
@@ -123,13 +170,13 @@ export function ResumeDedupOverlay({ matches, onContinue, onCancel }: ResumeDedu
             取消上传
           </Button>
           <Button onClick={onContinue} type="button">
-            继续解析
+            仍然继续
           </Button>
         </div>
       </div>
 
       <StudioPersonDetailDialog
-        mode="interview"
+        mode="resume"
         onOpenChange={setDetailOpen}
         open={detailOpen}
         recordId={detailRecordId}

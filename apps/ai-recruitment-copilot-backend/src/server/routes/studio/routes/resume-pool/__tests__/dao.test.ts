@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import {
   mailIngestAccount,
@@ -22,6 +22,16 @@ import {
   publishPrivatePoolItem,
   queryResumePoolItems,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resume-pool/dao";
+import { enqueueResumeSemanticIndexJobBestEffort } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/enqueue";
+import { deleteResumeSemanticIndexBestEffort } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/lifecycle";
+
+vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/enqueue", () => ({
+  enqueueResumeSemanticIndexJobBestEffort: vi.fn(),
+}));
+
+vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/lifecycle", () => ({
+  deleteResumeSemanticIndexBestEffort: vi.fn(),
+}));
 
 const ORG_A = "resume_pool_org_a";
 const ORG_B = "resume_pool_org_b";
@@ -143,6 +153,11 @@ beforeAll(async () => {
 });
 
 afterAll(cleanup);
+
+beforeEach(() => {
+  vi.mocked(enqueueResumeSemanticIndexJobBestEffort).mockClear();
+  vi.mocked(deleteResumeSemanticIndexBestEffort).mockClear();
+});
 
 function basePoolInput(overrides: Partial<Parameters<typeof createResumePoolItem>[0]> = {}) {
   return {
@@ -341,6 +356,11 @@ describe("publishPrivatePoolItem", () => {
     expect(publicItem.sourcePoolItemId).toBe(privateId);
     expect(publicItem.sourceOrganizationId).toBe(ORG_A);
     expect(publicItem.sourceUserId).toBe(USER_A);
+    expect(enqueueResumeSemanticIndexJobBestEffort).toHaveBeenCalledWith({
+      organizationId: ORG_A,
+      sourceId: publicItem.id,
+      sourceType: "resume_pool_item",
+    });
 
     const [privateItem] = await db
       .select()
@@ -382,6 +402,11 @@ describe("importPoolItemToResumeLibrary", () => {
       .where(eq(resumePoolImport.importedResumeRecordId, result.resumeRecordId));
     expect(imports).toHaveLength(1);
     expect(imports[0]?.organizationId).toBe(ORG_B);
+    expect(enqueueResumeSemanticIndexJobBestEffort).toHaveBeenCalledWith({
+      organizationId: ORG_B,
+      sourceId: result.resumeRecordId,
+      sourceType: "studio_interview",
+    });
   });
 
   it("rejects importing another user's private item", async () => {
@@ -421,6 +446,10 @@ describe("deleteOwnPoolItem", () => {
 
     const poolRows = await db.select().from(resumePoolItem).where(eq(resumePoolItem.id, privateId));
     expect(poolRows).toHaveLength(0);
+    expect(deleteResumeSemanticIndexBestEffort).toHaveBeenCalledWith({
+      sourceId: privateId,
+      sourceType: "resume_pool_item",
+    });
 
     const [record] = await db
       .select()

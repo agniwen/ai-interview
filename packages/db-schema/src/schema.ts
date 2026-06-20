@@ -1152,6 +1152,82 @@ export const resumeUploadBatchItem = pgTable(
 
 export type MailIngestMessageStatus = "processing" | "queued" | "skipped" | "failed";
 
+export type ResumeSemanticSourceType = "resume_pool_item" | "studio_interview";
+export type ResumeSemanticIndexStatus = "failed" | "indexed" | "pending" | "skipped" | "stale";
+export type ResumeSemanticDuplicateLevel = "high" | "low" | "medium";
+
+export const resumeSemanticIndex = pgTable(
+  "resume_semantic_index",
+  {
+    contentHash: text("content_hash"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    embeddingModel: text("embedding_model").notNull(),
+    embeddingVersion: text("embedding_version").notNull(),
+    errorMessage: text("error_message"),
+    id: text("id").primaryKey(),
+    lastIndexedAt: timestamp("last_indexed_at", { withTimezone: true }),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    profileHash: text("profile_hash").notNull(),
+    sourceId: text("source_id").notNull(),
+    sourceType: text("source_type").$type<ResumeSemanticSourceType>().notNull(),
+    status: text("status").$type<ResumeSemanticIndexStatus>().notNull().default("pending"),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex("resume_semantic_index_source_version_uq").on(
+      table.sourceType,
+      table.sourceId,
+      table.embeddingVersion,
+    ),
+    index("resume_semantic_index_org_status_idx").on(table.organizationId, table.status),
+    index("resume_semantic_index_org_source_idx").on(
+      table.organizationId,
+      table.sourceType,
+      table.sourceId,
+    ),
+  ],
+);
+
+export const resumeDuplicateMatch = pgTable(
+  "resume_duplicate_match",
+  {
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    embeddingVersion: text("embedding_version").notNull(),
+    id: text("id").primaryKey(),
+    level: text("level").$type<ResumeSemanticDuplicateLevel>().notNull(),
+    matchedSourceId: text("matched_source_id").notNull(),
+    matchedSourceType: text("matched_source_type").$type<ResumeSemanticSourceType>().notNull(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    reasons: jsonb("reasons")
+      .$type<string[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    score: integer("score").notNull(),
+    signals: jsonb("signals")
+      .$type<string[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    sourceId: text("source_id").notNull(),
+    sourceType: text("source_type").$type<ResumeSemanticSourceType>().notNull(),
+  },
+  (table) => [
+    index("resume_duplicate_match_org_source_idx").on(
+      table.organizationId,
+      table.sourceType,
+      table.sourceId,
+      table.createdAt,
+    ),
+    index("resume_duplicate_match_org_level_idx").on(table.organizationId, table.level),
+  ],
+);
+
 export const mailIngestAccount = pgTable(
   "mail_ingest_account",
   {

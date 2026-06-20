@@ -26,6 +26,31 @@ async function getResumeParseQueueApi() {
   return await import("@arc/resume-parse-queue/resume-parse");
 }
 
+async function removeCancelledQueueJobsBestEffort(
+  detail: Awaited<ReturnType<typeof loadBatchDetail>>,
+): Promise<void> {
+  if (!detail) {
+    return;
+  }
+  const itemIds = detail.items.filter((item) => item.status === "cancelled").map((item) => item.id);
+  if (itemIds.length === 0) {
+    return;
+  }
+  try {
+    const { isResumeParseQueueConfigured, removeResumeParseJobs } = await getResumeParseQueueApi();
+    if (!isResumeParseQueueConfigured()) {
+      return;
+    }
+    const result = await removeResumeParseJobs(itemIds);
+    console.info("[bulk-upload] cancel queue cleanup", {
+      batchId: detail.batch.id,
+      ...result,
+    });
+  } catch (error) {
+    console.error("[bulk-upload] cancel queue cleanup failed:", error);
+  }
+}
+
 export const resumeUploadBatchesRouter = factory
   .createApp()
   .post("/uploads", requirePermission("resume", "create"), async (c) => {
@@ -237,6 +262,7 @@ export const resumeUploadBatchesRouter = factory
       return c.json({ error: "无法取消。" }, 400);
     }
     const detail = await loadBatchDetail(c.req.param("id"), activeOrg.id, user.id);
+    await removeCancelledQueueJobsBestEffort(detail);
     return c.json(detail, 200);
   })
   .delete("/:id", requirePermission("resume", "delete"), async (c) => {

@@ -206,6 +206,16 @@ export function shouldRemoveExistingResumeParseJob(state: string | null | undefi
   return state === "completed" || state === "failed";
 }
 
+export function shouldRemoveCancelledResumeParseJob(state: string | null | undefined): boolean {
+  return (
+    state === "waiting" ||
+    state === "delayed" ||
+    state === "prioritized" ||
+    state === "waiting-children" ||
+    state === "paused"
+  );
+}
+
 export async function enqueueResumeParseJobs(jobs: ResumeParseJobData[]): Promise<void> {
   if (jobs.length === 0) {
     return;
@@ -234,6 +244,47 @@ export async function enqueueResumeParseJobs(jobs: ResumeParseJobData[]): Promis
       },
     })),
   );
+}
+
+export async function removeResumeParseJobs(itemIds: string[]): Promise<{
+  failed: number;
+  missing: number;
+  removed: number;
+  requested: number;
+  skipped: number;
+}> {
+  if (itemIds.length === 0) {
+    return { failed: 0, missing: 0, removed: 0, requested: 0, skipped: 0 };
+  }
+  const q = getResumeParseQueue();
+  const result = {
+    failed: 0,
+    missing: 0,
+    removed: 0,
+    requested: itemIds.length,
+    skipped: 0,
+  };
+  await Promise.all(
+    itemIds.map(async (itemId) => {
+      try {
+        const job = await q.getJob(buildResumeParseJobId(itemId));
+        if (!job) {
+          result.missing += 1;
+          return;
+        }
+        const state = await job.getState();
+        if (!shouldRemoveCancelledResumeParseJob(state)) {
+          result.skipped += 1;
+          return;
+        }
+        await job.remove();
+        result.removed += 1;
+      } catch {
+        result.failed += 1;
+      }
+    }),
+  );
+  return result;
 }
 
 export function getResumeParseQueueStats() {

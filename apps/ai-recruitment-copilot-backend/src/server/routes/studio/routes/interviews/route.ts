@@ -3,6 +3,7 @@ import { zValidator } from "@hono/zod-validator";
 import { and, eq, inArray, notExists } from "drizzle-orm";
 import { uniq } from "lodash-es";
 import { z } from "zod";
+import type { ResumeProfile } from "@arc/db-schema/interview/types";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import {
   candidateFormSubmission,
@@ -93,7 +94,8 @@ import {
   respondOfferDraft,
   sendOfferDraft,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/dao/offer-drafts";
-import { queryInterviewDedup } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/dao/studio-interviews";
+import { findSemanticResumeDuplicates } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/dedup-service";
+import { enqueueResumeSemanticIndexJobBestEffort } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/enqueue";
 import { jobDescriptionIdsExist } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao";
 import { syncResumeSkills } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/dao/skills";
 import {
@@ -111,7 +113,7 @@ import {
   buildScheduleRows,
   loadRecordById,
   normalizeResumeFile,
-  storeInterviewResume,
+  resolveResumeUploadStorage,
   toBadRequest,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/interview/utils";
 import { requirePermission } from "@arc/ai-recruitment-copilot-backend/server/middlewares/permission";
@@ -127,6 +129,7 @@ const dedupCheckInputSchema = z.object({
   email: z.string().trim().max(200).nullable().optional(),
   name: z.string().trim().max(200).nullable().optional(),
   phone: z.string().trim().max(40).nullable().optional(),
+  resumeProfile: z.custom<ResumeProfile>().nullable().optional(),
 });
 
 // 候选人阶段流转输入。强制 outcome 与 pipelineStage 的不变量：
@@ -258,10 +261,24 @@ export const studioInterviewsRouter = factory
         return c.json({ message: "Unauthorized" }, 401);
       }
       const input = c.req.valid("json");
-      const matches = await queryInterviewDedup(activeOrg.id, {
+      const matches = await findSemanticResumeDuplicates({
         email: input.email ?? null,
         name: input.name ?? null,
+        organizationId: activeOrg.id,
         phone: input.phone ?? null,
+        resumeProfile: input.resumeProfile ?? null,
+      });
+      console.info("[resume-dedup-check] response", {
+        matchCount: matches.length,
+        matches: matches.map((match) => ({
+          id: match.id,
+          level: match.level,
+          score: match.score,
+          semanticReasons: match.semanticReasons,
+          similarity: match.similarity,
+        })),
+        organizationId: activeOrg.id,
+        route: "studio.interviews",
       });
       return c.json({ matches }, 200);
     },
@@ -350,10 +367,13 @@ export const studioInterviewsRouter = factory
         process.env,
       );
       const interviewRecordId = crypto.randomUUID();
-      const uploadResult =
-        resume && c.var.user
-          ? await storeInterviewResume(interviewRecordId, resume, c.var.user.id, activeOrg.id)
-          : null;
+      const uploadResult = await resolveResumeUploadStorage({
+        interviewRecordId,
+        organizationId: activeOrg.id,
+        parsedResumePayload,
+        resume,
+        userId: c.var.user?.id,
+      });
       const resumeStorageKey = uploadResult?.storageKey ?? null;
       const resumeContentHash = uploadResult?.contentHash ?? null;
 
@@ -424,6 +444,13 @@ export const studioInterviewsRouter = factory
       });
 
       invalidateStudioInterviewCaches(activeOrg.id);
+      if (analysis?.resumeProfile) {
+        await enqueueResumeSemanticIndexJobBestEffort({
+          organizationId: activeOrg.id,
+          sourceId: interviewRecordId,
+          sourceType: "studio_interview",
+        });
+      }
       // POST / 返回新建轮次的完整 detail，供简历库 onCreated 直接使用。
       // Return the first round's full detail so the resume library onCreated can use it directly.
       const firstRoundId = scheduleRows[0]?.id;

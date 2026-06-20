@@ -5,6 +5,10 @@ import {
   createResumeParseWorker,
   isResumeParseQueueConfigured,
 } from "@arc/resume-parse-queue/resume-parse";
+import {
+  closeResumeSemanticIndexQueue,
+  createResumeSemanticIndexWorker,
+} from "@arc/resume-parse-queue/resume-semantic-index";
 import { createWorkerApp } from "./app";
 import { resolveWorkerServerConfig } from "./config";
 import { getWorkerConnectionSummary, loadWorkerEnv } from "./env";
@@ -13,6 +17,11 @@ import { startMailIngestScheduler } from "./mail-ingest/scheduler";
 import type { MailIngestScheduler } from "./mail-ingest/scheduler";
 
 loadWorkerEnv();
+
+function isResumeSemanticIndexEnabled(): boolean {
+  const value = process.env.RESUME_SEMANTIC_INDEX_ENABLED?.trim().toLowerCase();
+  return value === "1" || value === "true" || value === "yes";
+}
 
 async function recoverIncompleteResumeParseJobs(): Promise<void> {
   const { recoverIncompleteBatchItems } =
@@ -48,6 +57,7 @@ async function main() {
   const closeServer = promisify(server.close.bind(server));
 
   let worker: ReturnType<typeof createResumeParseWorker> | null = null;
+  let semanticIndexWorker: ReturnType<typeof createResumeSemanticIndexWorker> | null = null;
   let mailIngestScheduler: MailIngestScheduler | null = null;
   if (isResumeParseQueueConfigured()) {
     await recoverIncompleteResumeParseJobs();
@@ -56,6 +66,13 @@ async function main() {
         await import("@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resume-upload-batches/utils/processor");
       await processBatchItem(itemId);
     });
+    if (isResumeSemanticIndexEnabled()) {
+      semanticIndexWorker = createResumeSemanticIndexWorker(async (payload) => {
+        const { runResumeSemanticIndexJob } =
+          await import("@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/indexer");
+        await runResumeSemanticIndexJob(payload);
+      });
+    }
     mailIngestScheduler = startMailIngestScheduler();
   }
   if (!worker) {
@@ -74,7 +91,9 @@ async function main() {
         mailIngestScheduler?.close();
         await closeServer();
         await worker?.close();
+        await semanticIndexWorker?.close();
         await closeResumeParseQueue();
+        await closeResumeSemanticIndexQueue();
         if (process.env.DATABASE_URL) {
           const { closeDatabase } =
             await import("@arc/ai-recruitment-copilot-backend/lib/server/db");

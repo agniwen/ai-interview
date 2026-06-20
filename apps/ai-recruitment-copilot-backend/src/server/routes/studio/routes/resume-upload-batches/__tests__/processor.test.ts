@@ -11,6 +11,9 @@ import {
   generateResumeReview,
   parseResumeBytesToProfile,
 } from "@arc/ai-recruitment-copilot-backend/server/agents/resume-analysis-agent";
+import type * as DedupServiceModule from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/dedup-service";
+import { findSemanticResumeDuplicates } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/dedup-service";
+import { enqueueResumeSemanticIndexJobBestEffort } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/enqueue";
 import {
   member,
   organization,
@@ -20,7 +23,10 @@ import {
   studioInterview,
   user,
 } from "@arc/db-schema/schema";
-import { insertBatchWithItems } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resume-upload-batches/dao/batches";
+import {
+  cancelBatch,
+  insertBatchWithItems,
+} from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resume-upload-batches/dao/batches";
 import {
   getClaimMissRetryError,
   processBatchItem,
@@ -47,6 +53,23 @@ vi.mock("@arc/ai-recruitment-copilot-backend/server/agents/resume-analysis-agent
     parseResumeBytesToProfile: vi.fn(),
   };
 });
+
+vi.mock(
+  "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/dedup-service",
+  async () => {
+    const actual = await vi.importActual<typeof DedupServiceModule>(
+      "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/dedup-service",
+    );
+    return {
+      ...actual,
+      findSemanticResumeDuplicates: vi.fn(),
+    };
+  },
+);
+
+vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/enqueue", () => ({
+  enqueueResumeSemanticIndexJobBestEffort: vi.fn(),
+}));
 
 // ─── Fixture IDs（固定前缀避免与其他测试冲突）────────────────────────────────
 // Fixed prefix to avoid collisions with other test runs.
@@ -201,6 +224,10 @@ afterAll(async () => {
 beforeEach(() => {
   vi.resetAllMocks();
   (generateResumeReview as ReturnType<typeof vi.fn>).mockResolvedValue("自动生成的简历评价");
+  (findSemanticResumeDuplicates as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+  (enqueueResumeSemanticIndexJobBestEffort as ReturnType<typeof vi.fn>).mockImplementation(() =>
+    Promise.resolve(),
+  );
 });
 
 describe("getClaimMissRetryError", () => {
@@ -287,6 +314,37 @@ describe("processNextItem — happy path", () => {
   });
 });
 
+describe("processNextItem — cancellation race", () => {
+  it("解析中被取消后不再写入 succeeded 或触发 embedding", async () => {
+    const { batchId, item, recordId } = await createQueuedSingleItemBatch();
+
+    mockS3OK();
+    (parseResumeBytesToProfile as ReturnType<typeof vi.fn>).mockImplementation(async () => {
+      const cancelled = await cancelBatch(batchId, ORG_A, USER_A);
+      expect(cancelled).toBe(true);
+      return {
+        resumeProfile: {
+          email: "cancelled@example.com",
+          name: "Cancelled User",
+          phone: null,
+          targetRoles: ["Engineer"],
+        },
+      };
+    });
+
+    const result = await processBatchItem(item.id);
+
+    expect(result?.batch.status).toBe("cancelled");
+    expect(result?.done).toBe(true);
+    expect(result?.item?.status).toBe("cancelled");
+    expect(result?.item?.resumeRecordId).toBeNull();
+    expect(enqueueResumeSemanticIndexJobBestEffort).not.toHaveBeenCalled();
+
+    const records = await db.select().from(studioInterview).where(eq(studioInterview.id, recordId));
+    expect(records).toHaveLength(0);
+  });
+});
+
 describe("processNextItem — resume pool target", () => {
   it("target=resume_pool → 创建简历池条目，不创建简历库候选人记录", async () => {
     const batchId = await insertBatchWithItems({
@@ -342,6 +400,71 @@ describe("processNextItem — resume pool target", () => {
     expect(poolItems[0]?.candidateEmail).toBe("pool@example.com");
     expect(poolItems[0]?.targetRole).toBe("Product Manager");
     expect(poolItems[0]?.resumeParseStatus).toBe("ready");
+    expect(enqueueResumeSemanticIndexJobBestEffort).toHaveBeenCalledWith({
+      organizationId: ORG_A,
+      sourceId: beforeItem?.poolItemId,
+      sourceType: "resume_pool_item",
+    });
+  });
+
+  it("私有简历池 target=resume_pool + skip 查重命中时跳过创建", async () => {
+    const batchId = await insertBatchWithItems({
+      dedupPolicy: "skip",
+      files: makeFiles(1),
+      jdMode: "none",
+      jobDescriptionId: null,
+      organizationId: ORG_A,
+      resumePoolScope: "private",
+      target: "resume_pool",
+      userId: USER_A,
+    });
+
+    const [beforeItem] = await db
+      .select()
+      .from(resumeUploadBatchItem)
+      .where(eq(resumeUploadBatchItem.batchId, batchId));
+    await expectQueuedPoolItem(beforeItem?.poolItemId);
+
+    (findSemanticResumeDuplicates as ReturnType<typeof vi.fn>).mockResolvedValue([
+      {
+        candidateEmail: "existing@example.com",
+        candidateName: "Existing Candidate",
+        candidatePhone: null,
+        conflictingSignals: [],
+        createdAt: NOW.toISOString(),
+        id: "existing_record",
+        jobDescriptionName: null,
+        level: "high",
+        score: 0.96,
+        semanticReasons: ["整体履历高度相似"],
+        similarity: { resumeOverview: 0.96 },
+        status: "draft",
+        targetRole: null,
+      },
+    ]);
+    mockS3OK();
+    mockParseOK({
+      email: "pool-dup@example.com",
+      name: "Pool Dup User",
+      phone: "13900000001",
+      targetRoles: ["Product Manager"],
+    });
+
+    const result = await processNextItem(batchId, ORG_A, USER_A);
+
+    expect(result?.item?.status).toBe("duplicate_skipped");
+    expect(result?.item?.poolItemId).toBeNull();
+    expect(result?.batch.skippedCount).toBe(1);
+    expect(enqueueResumeSemanticIndexJobBestEffort).not.toHaveBeenCalled();
+    expect(findSemanticResumeDuplicates).toHaveBeenCalledWith(
+      expect.objectContaining({ organizationId: ORG_A }),
+    );
+
+    const skippedPoolItems = await db
+      .select()
+      .from(resumePoolItem)
+      .where(eq(resumePoolItem.id, beforeItem?.poolItemId ?? ""));
+    expect(skippedPoolItems).toHaveLength(0);
   });
 });
 
@@ -408,8 +531,8 @@ describe("processNextItem — parse failure", () => {
 // ─── Test 3: dedup skip ───────────────────────────────────────────────────────
 
 describe("processNextItem — dedup skip", () => {
-  it("重复邮箱 + skip 策略 → duplicate_skipped，不创建新 studio_interview", async () => {
-    // Duplicate email + skip policy → item duplicate_skipped; no new interview row.
+  it("重复邮箱 + skip 策略不再触发跳过", async () => {
+    // Duplicate email + skip policy no longer skips by identity-only dedup.
     const dupEmail = "dup@example.com";
 
     // 预插入一个 studio_interview，邮箱为 dupEmail。
@@ -454,12 +577,12 @@ describe("processNextItem — dedup skip", () => {
 
     const result = await processNextItem(batchId, ORG_A, USER_A);
 
-    expect(result?.item?.status).toBe("duplicate_skipped");
-    expect(result?.batch.skippedCount).toBe(1);
+    expect(result?.item?.status).toBe("succeeded");
+    expect(result?.batch.skippedCount).toBe(0);
 
-    // 确认 item 没有关联到新创建的 studio_interview（resumeRecordId 为 null）。
-    // Confirm no new studio_interview was created: item.resumeRecordId should be null.
-    expect(result?.item?.resumeRecordId).toBeNull();
+    // 确认 item 已关联到新创建的 studio_interview。
+    // Confirm a new studio_interview was created.
+    expect(result?.item?.resumeRecordId).toEqual(expect.any(String));
 
     // 确认 preExistingId 行依然存在（未被删除）。
     // Confirm the pre-existing row still exists.

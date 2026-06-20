@@ -8,7 +8,7 @@
  * convention as studio-interviews.
  */
 
-import type { InterviewQuestion } from "@arc/db-schema/interview/types";
+import type { InterviewQuestion, ResumeProfile } from "@arc/db-schema/interview/types";
 import type {
   StudioInterviewRoundDetail,
   StudioInterviewRoundListRecord,
@@ -151,15 +151,24 @@ export function fetchStudioResumeRounds(
 }
 
 /**
- * 按姓名/邮箱/电话查重，任一字段命中即返回。
- * Look up potential duplicates by name / email / phone (any one suffices).
+ * 基于解析后的简历画像做语义查重。
+ * Look up potential duplicates through semantic resume similarity.
  */
 export function fetchResumeDedup(
   slug: string,
-  input: { name: string | null; email: string | null; phone: string | null },
+  input: {
+    name: string | null;
+    email: string | null;
+    phone: string | null;
+    resumeProfile?: ResumeProfile | null;
+  },
+  options?: { signal?: AbortSignal },
 ): Promise<{ matches: DedupMatchRecord[] }> {
   return rpcFetch<{ matches: DedupMatchRecord[] }>(
-    rpc.api.w[":slug"].studio.resumes["dedup-check"].$post({ json: input, param: { slug } }),
+    rpc.api.w[":slug"].studio.resumes["dedup-check"].$post(
+      { json: input, param: { slug } },
+      { init: { signal: options?.signal } },
+    ),
     "查重失败",
   );
 }
