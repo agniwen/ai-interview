@@ -10,7 +10,7 @@ interface AnimatedHeightProps {
   children: ReactNode;
   /** false 时保留高度动画，但不裁剪溢出内容，适合父级自己负责滚动的布局。 */
   clip?: boolean;
-  /** 默认 320ms ease，给弹窗 tab 高度切换留一点呼吸感。 */
+  /** 默认 240ms ease-in-out，给弹窗 tab 高度切换留一点呼吸感。 */
   duration?: number;
   /** 需要交给父级滚动容器自然撑高时，禁用 height 动画和 overflow 裁剪。 */
   disabled?: boolean;
@@ -33,7 +33,7 @@ export function AnimatedHeight({
   children,
   clip = true,
   disabled = false,
-  duration = 0.32,
+  duration = 0.24,
   className,
 }: AnimatedHeightProps) {
   const innerRef = useRef<HTMLDivElement>(null);
@@ -74,7 +74,7 @@ export function AnimatedHeight({
       className={cn("-m-1 p-1", className)}
       initial={false}
       style={{ boxSizing: "content-box", overflow: clip ? "hidden" : "visible" }}
-      transition={reduceMotion ? { duration: 0 } : { duration, ease: [0.32, 0.72, 0, 1] as const }}
+      transition={reduceMotion ? { duration: 0 } : { duration, ease: [0.77, 0, 0.175, 1] as const }}
     >
       {/*
         `display: flow-root` 让 inner 自己开 BFC，否则子节点的 top/bottom margin

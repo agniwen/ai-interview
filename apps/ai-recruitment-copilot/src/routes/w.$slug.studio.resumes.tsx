@@ -591,7 +591,7 @@ function ResumeLibraryPage({ metrics }: { metrics: ResumeLibraryMetrics }) {
                 type="button"
               >
                 <ResumeDocumentFileIcon
-                  className="size-8 transition-transform duration-200 group-hover/pdf:scale-105"
+                  className="size-8 transition-transform duration-[160ms] ease-[cubic-bezier(0.23,1,0.32,1)] group-hover/pdf:scale-[1.03] motion-reduce:transition-none motion-reduce:group-hover/pdf:scale-100"
                   kind={documentKind}
                 />
               </button>

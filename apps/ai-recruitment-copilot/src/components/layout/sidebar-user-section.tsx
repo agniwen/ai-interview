@@ -1,12 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import {
-  HouseIcon,
-  LogOutIcon,
-  SelectChevronsUpDownIcon,
-  UserIcon,
-} from "@/components/icons/hugeicons";
+import { HouseIcon, LogOutIcon, UserIcon } from "@/components/icons/hugeicons";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useCallback } from "react";
 import { FeishuSignInButton } from "@/components/features/auth/feishu-sign-in-button";
@@ -133,7 +128,7 @@ export function SidebarUserSection({
                 {organizationName ?? userEmail}
               </p>
             </div>
-            <SelectChevronsUpDownIcon className="size-4 text-muted-foreground" />
+            {/* <SelectChevronsUpDownIcon className="size-4 text-muted-foreground" /> */}
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-56">
