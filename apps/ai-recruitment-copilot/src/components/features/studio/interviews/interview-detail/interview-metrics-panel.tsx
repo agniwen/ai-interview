@@ -1,5 +1,4 @@
 import { DetailRow } from "./detail-row";
-import { SoftPanel } from "@/components/features/display/soft-panel";
 import { cn } from "@arc/shared/utils";
 
 /**
@@ -170,11 +169,13 @@ export function InterviewMetricsPanel({
   const m = metrics as MetricsShape;
 
   if (isEmptyMetrics(m)) {
-    const Component = surface === "card" ? "div" : SoftPanel;
+    const Component = surface === "card" ? "div" : "section";
     return (
       <Component
         className={cn(
-          surface === "card" ? "rounded-2xl border border-border bg-background p-4" : "p-4",
+          surface === "card"
+            ? "rounded-2xl border border-border bg-background p-4"
+            : "rounded-xl bg-background/70 p-4",
         )}
       >
         <h4 className="font-medium text-sm">通话指标</h4>
@@ -199,12 +200,14 @@ export function InterviewMetricsPanel({
   const e2eLatencies = computeTurnE2eLatencies(m.turns ?? {});
   const e2eP50 = quantile(e2eLatencies, 0.5);
   const e2eP95 = quantile(e2eLatencies, 0.95);
-  const Component = surface === "card" ? "div" : SoftPanel;
+  const Component = surface === "card" ? "div" : "section";
 
   return (
     <Component
       className={cn(
-        surface === "card" ? "rounded-2xl border border-border bg-background p-4" : "p-4",
+        surface === "card"
+          ? "rounded-2xl border border-border bg-background p-4"
+          : "rounded-xl bg-background/70 p-4",
       )}
     >
       <h4 className="font-medium text-sm">通话指标</h4>

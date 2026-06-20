@@ -3,7 +3,6 @@ import {
   formatResumeEducationItem,
   sortResumeEducationExperiences,
 } from "@arc/shared/resume-education";
-import { SoftPanel } from "@/components/features/display/soft-panel";
 import { ResumeEducationDisplayLine } from "@/components/features/resume/resume-education-line";
 import type { ExperienceItemType } from "@/components/features/resume/work-experience";
 import { WorkExperience } from "@/components/features/resume/work-experience";
@@ -134,9 +133,11 @@ export function toWorkExperienceItems(experiences: ResumeWorkExperience[]): Expe
 
 function FactRow({ label, value }: { label: string; value: string | number | null }) {
   return (
-    <div className="flex items-baseline gap-3 text-sm">
-      <span className="w-20 shrink-0 text-muted-foreground">{label}</span>
-      <span className="min-w-0 break-words">{value === null || value === "" ? "—" : value}</span>
+    <div className="min-w-0">
+      <span className="text-muted-foreground text-xs">{label}</span>
+      <div className="mt-1 min-w-0 break-words text-sm leading-6">
+        {value === null || value === "" ? "—" : value}
+      </div>
     </div>
   );
 }
@@ -148,11 +149,20 @@ function ChipList({ items }: { items: string[] }) {
   return (
     <ul className="flex flex-wrap gap-2">
       {items.map((item) => (
-        <li key={item} className="rounded-full border border-border px-2.5 py-0.5 text-xs">
+        <li key={item} className="rounded-full bg-muted px-2.5 py-1 text-xs">
           {item}
         </li>
       ))}
     </ul>
+  );
+}
+
+function ResumeProfileSection({ children, title }: { children: React.ReactNode; title: string }) {
+  return (
+    <section className="border-t border-border/50 pt-6">
+      <h4 className="mb-3 font-medium text-sm">{title}</h4>
+      {children}
+    </section>
   );
 }
 
@@ -175,10 +185,9 @@ function EducationExperienceList({
         };
         const period = cleanText(education.period) ?? cleanText(education.graduationYear);
         return (
-          <SoftPanel
-            as="li"
+          <li
+            className="rounded-xl bg-muted/30 px-4 py-3 border-muted/60 border"
             key={`${education.school ?? "education"}-${index}`}
-            className="px-3 py-2"
           >
             <div className="flex flex-wrap items-baseline justify-between gap-2">
               <ResumeEducationDisplayLine className="text-sm" item={educationItem} />
@@ -189,7 +198,7 @@ function EducationExperienceList({
                 {education.summary}
               </p>
             ) : null}
-          </SoftPanel>
+          </li>
         );
       })}
     </ul>
@@ -214,8 +223,8 @@ export function ResumeProfileView({ profile }: ResumeProfileViewProps) {
   const educationExperiences = sortResumeEducationExperiences(profile.educationExperiences);
 
   return (
-    <div className="space-y-6">
-      <section className="grid gap-2 md:grid-cols-2">
+    <div className="space-y-8">
+      <section className="grid gap-x-8 gap-y-4 md:grid-cols-2">
         <FactRow label="姓名" value={isPresent(profile.name) ? profile.name : null} />
         <FactRow label="性别" value={isPresent(profile.gender) ? profile.gender : null} />
         <FactRow label="年龄" value={profile.age} />
@@ -224,51 +233,51 @@ export function ResumeProfileView({ profile }: ResumeProfileViewProps) {
         <FactRow label="电话" value={profile.phone} />
       </section>
 
-      <section>
-        <h4 className="mb-2 font-medium text-sm">求职意向</h4>
+      <ResumeProfileSection title="求职意向">
         <ChipList items={profile.targetRoles} />
-      </section>
+      </ResumeProfileSection>
 
-      <section>
-        <h4 className="mb-2 font-medium text-sm">教育经历</h4>
+      <ResumeProfileSection title="教育经历">
         {educationExperiences.length > 0 ? (
           <EducationExperienceList educationExperiences={educationExperiences} />
         ) : (
           <ChipList items={profile.schools} />
         )}
-      </section>
+      </ResumeProfileSection>
 
-      <section>
-        <h4 className="mb-2 font-medium text-sm">掌握技能</h4>
+      <ResumeProfileSection title="掌握技能">
         <ChipList items={profile.skills} />
-      </section>
+      </ResumeProfileSection>
 
-      <section>
-        <h4 className="mb-2 font-medium text-sm">个人优势</h4>
+      <ResumeProfileSection title="个人优势">
         {profile.personalStrengths.length === 0 ? (
           <p className="text-muted-foreground text-sm">—</p>
         ) : (
-          <ul className="list-inside list-disc space-y-1 text-sm">
+          <ul className="space-y-2 text-sm leading-6">
             {profile.personalStrengths.map((item) => (
-              <li key={item}>{item}</li>
+              <li className="flex gap-2" key={item}>
+                <span className="mt-2 size-1.5 shrink-0 rounded-full bg-muted-foreground/40" />
+                <span>{item}</span>
+              </li>
             ))}
           </ul>
         )}
-      </section>
+      </ResumeProfileSection>
 
-      <section>
-        <h4 className="mb-2 font-medium text-sm">工作经历</h4>
+      <ResumeProfileSection title="工作经历">
         <WorkExperienceTimeline experiences={profile.workExperiences} />
-      </section>
+      </ResumeProfileSection>
 
-      <section>
-        <h4 className="mb-2 font-medium text-sm">项目经历</h4>
+      <ResumeProfileSection title="项目经历">
         {profile.projectExperiences.length === 0 ? (
           <p className="text-muted-foreground text-sm">—</p>
         ) : (
           <ul className="flex flex-col gap-3">
             {profile.projectExperiences.map((proj, index) => (
-              <SoftPanel as="li" key={`${proj.name ?? "project"}-${index}`} className="px-3 py-2">
+              <li
+                className="rounded-xl bg-muted/30 px-4 py-3 border-muted/60 border"
+                key={`${proj.name ?? "project"}-${index}`}
+              >
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
                   <span className="font-medium text-sm">
                     {isPresent(proj.name) ? proj.name : "未命名项目"}
@@ -288,11 +297,11 @@ export function ResumeProfileView({ profile }: ResumeProfileViewProps) {
                     <ChipList items={proj.techStack} />
                   </div>
                 ) : null}
-              </SoftPanel>
+              </li>
             ))}
           </ul>
         )}
-      </section>
+      </ResumeProfileSection>
     </div>
   );
 }

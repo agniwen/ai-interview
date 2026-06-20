@@ -12,7 +12,6 @@
 import { Loader2Icon, PlayIcon } from "@/components/icons/hugeicons";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { SoftPanel } from "@/components/features/display/soft-panel";
 import { Button } from "@/components/ui/button";
 import {
   fetchPublicInterviewRecordingUrl,
@@ -86,11 +85,13 @@ export function RecordingPlayer({
   }, [seekToSecs, url]);
 
   if (status !== "completed") {
-    const Component = surface === "card" ? "div" : SoftPanel;
+    const Component = surface === "card" ? "div" : "section";
     return (
       <Component
         className={cn(
-          surface === "card" ? "rounded-2xl border border-border bg-background p-4" : "p-4",
+          surface === "card"
+            ? "rounded-2xl border border-border bg-background p-4"
+            : "rounded-xl bg-background/70 p-4",
         )}
       >
         <h4 className="font-medium text-sm">面试录像</h4>
@@ -117,12 +118,14 @@ export function RecordingPlayer({
 
   const durationText = formatDuration(durationSecs);
 
-  const Component = surface === "card" ? "div" : SoftPanel;
+  const Component = surface === "card" ? "div" : "section";
 
   return (
     <Component
       className={cn(
-        surface === "card" ? "rounded-2xl border border-border bg-background p-4" : "p-4",
+        surface === "card"
+          ? "rounded-2xl border border-border bg-background p-4"
+          : "rounded-xl bg-background/70 p-4",
       )}
     >
       <div className="flex flex-wrap items-center justify-between gap-2">

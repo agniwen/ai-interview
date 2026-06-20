@@ -350,6 +350,36 @@ describe("ResumePoolPage masonry layout", () => {
     expect(source).toContain("工作年限");
   });
 
+  it("uses an airy profile layout for the resume pool detail dialog", () => {
+    const summaryItemSource = source.slice(
+      source.indexOf("function DetailSummaryItem"),
+      source.indexOf("type ResumePoolDetailLike"),
+    );
+    const summaryPanelSource = source.slice(
+      source.indexOf("function ResumePoolDetailSummaryPanel"),
+      source.indexOf("function ResumePoolStructuredInfoPanel"),
+    );
+    const structuredPanelSource = source.slice(
+      source.indexOf("function ResumePoolStructuredInfoPanel"),
+      source.indexOf("function ResumePoolHighlightRow"),
+    );
+    const detailDialogSource = source.slice(
+      source.indexOf("function ResumePoolDetailDialog"),
+      source.indexOf("function ResumePoolCard({"),
+    );
+
+    expect(summaryItemSource).toContain("<dt");
+    expect(summaryItemSource).toContain("<dd");
+    expect(summaryItemSource).not.toContain("rounded-xl border");
+    expect(summaryPanelSource).toContain("bg-muted/20");
+    expect(summaryPanelSource).not.toContain("rounded-2xl border border-border bg-background p-5");
+    expect(structuredPanelSource).toContain("border-t border-border/50 pt-6");
+    expect(structuredPanelSource).not.toContain(
+      "rounded-2xl border border-border bg-background p-5",
+    );
+    expect(detailDialogSource).toContain('className="space-y-8"');
+  });
+
   it("places uploader metadata under the target role instead of the card title", () => {
     const cardSource = source.slice(
       source.indexOf("function ResumePoolCard({"),

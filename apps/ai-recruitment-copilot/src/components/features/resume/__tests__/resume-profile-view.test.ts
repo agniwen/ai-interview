@@ -113,3 +113,14 @@ describe("ResumeProfileView education experiences", () => {
     expect(source).toContain("<ChipList items={profile.schools} />");
   });
 });
+
+describe("ResumeProfileView visual density", () => {
+  it("uses breathable sections instead of nested bordered cards", () => {
+    expect(source).toContain("function ResumeProfileSection");
+    expect(source).toContain('className="space-y-8"');
+    expect(source).toContain("border-t border-border/50 pt-6");
+    expect(source).toContain("grid gap-x-8 gap-y-4 md:grid-cols-2");
+    expect(source).toContain("rounded-full bg-muted px-2.5 py-1 text-xs");
+    expect(source).not.toContain('className="px-3 py-2"');
+  });
+});

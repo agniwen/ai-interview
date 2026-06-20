@@ -685,9 +685,9 @@ function textOrDash(value: string | number | null | undefined) {
 
 function DetailSummaryItem({ children, label }: { label: string; children: ReactNode }) {
   return (
-    <div className="min-w-0 rounded-xl border border-border bg-muted/20 px-3 py-2">
-      <span className="text-muted-foreground text-xs">{label}</span>
-      <div className="mt-1 min-w-0 break-words font-medium text-sm">{children}</div>
+    <div className="min-w-0">
+      <dt className="text-muted-foreground text-xs">{label}</dt>
+      <dd className="mt-1 min-w-0 break-words font-medium text-sm leading-6">{children}</dd>
     </div>
   );
 }
@@ -711,7 +711,7 @@ function ResumePoolDetailSummaryPanel({
   const note = detail.notes?.trim();
 
   return (
-    <div className="rounded-2xl border border-border bg-background p-5">
+    <section className="space-y-6 rounded-2xl bg-muted/20 ">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
@@ -739,7 +739,7 @@ function ResumePoolDetailSummaryPanel({
         ) : null}
       </div>
 
-      <div className="mt-4 grid gap-3 md:grid-cols-3">
+      <dl className="grid gap-x-8 gap-y-4 md:grid-cols-3">
         <DetailSummaryItem label="目标岗位">{textOrDash(detail.targetRole)}</DetailSummaryItem>
         <DetailSummaryItem label="来源">{sourceLabel(detail)}</DetailSummaryItem>
         <DetailSummaryItem label="上传组织">{uploaderOrganizationLabel(detail)}</DetailSummaryItem>
@@ -763,17 +763,17 @@ function ResumePoolDetailSummaryPanel({
         <DetailSummaryItem label="创建时间">
           <TimeDisplay as="span" value={detail.createdAt} />
         </DetailSummaryItem>
-      </div>
+      </dl>
 
       {skills.length > 0 || strengths.length > 0 ? (
-        <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(220px,0.7fr)]">
+        <div className="grid gap-5 border-border/50 border-t pt-5 lg:grid-cols-[minmax(0,1fr)_minmax(220px,0.7fr)]">
           {skills.length > 0 ? (
             <div>
               <p className="mb-2 text-muted-foreground text-xs">核心技能</p>
               <ul className="flex flex-wrap gap-2">
                 {skills.map((skill) => (
                   <li
-                    className="rounded-full border border-border px-2.5 py-0.5 text-xs"
+                    className="rounded-full bg-background px-2.5 py-1 text-xs shadow-xs ring-1 ring-border/50"
                     key={skill}
                   >
                     {skill}
@@ -785,9 +785,9 @@ function ResumePoolDetailSummaryPanel({
           {strengths.length > 0 ? (
             <div>
               <p className="mb-2 text-muted-foreground text-xs">主要亮点</p>
-              <ul className="space-y-1.5 text-sm">
+              <ul className="space-y-2 text-sm">
                 {strengths.map((strength) => (
-                  <li className="line-clamp-2 text-muted-foreground leading-normal" key={strength}>
+                  <li className="line-clamp-2 text-muted-foreground leading-6" key={strength}>
                     {strength}
                   </li>
                 ))}
@@ -796,7 +796,7 @@ function ResumePoolDetailSummaryPanel({
           ) : null}
         </div>
       ) : null}
-    </div>
+    </section>
   );
 }
 
@@ -810,12 +810,12 @@ function ResumePoolStructuredInfoPanel({
   resumeProfile: ResumePoolProfile;
 }) {
   return (
-    <div className="rounded-2xl border border-border bg-background p-5">
+    <section className="space-y-4 border-t border-border/50 pt-6">
       <h3 className="font-medium text-sm">结构化信息</h3>
       {detail.resumeParseStatus === "failed" && detail.resumeParseError ? (
         <p className="mt-2 text-destructive text-sm">{detail.resumeParseError}</p>
       ) : null}
-      <div className="mt-4">
+      <div>
         {isLoading ? (
           <div className="inline-flex items-center gap-2 text-muted-foreground text-sm">
             <LoaderCircleIcon className="size-4 animate-spin" />
@@ -825,7 +825,7 @@ function ResumePoolStructuredInfoPanel({
           <ResumeProfileView profile={resumeProfile} />
         )}
       </div>
-    </div>
+    </section>
   );
 }
 
@@ -962,7 +962,7 @@ function ResumePoolDetailDialog({
       title={record ? getCandidateTitle(record) : "候选人详情"}
     >
       {detail ? (
-        <div className="space-y-5">
+        <div className="space-y-8">
           <ResumePoolDetailSummaryPanel
             detail={detail}
             isError={detailQuery.isError}

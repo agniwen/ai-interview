@@ -37,9 +37,9 @@ export interface CandidateBasicInfoViewProps {
 
 function Row({ label, value }: { label: string; value: ReactNode }) {
   return (
-    <div className="flex items-baseline gap-3 text-sm">
-      <span className="w-24 shrink-0 text-muted-foreground">{label}</span>
-      <div className="min-w-0 flex-1 break-words">{value}</div>
+    <div className="min-w-0">
+      <span className="text-muted-foreground text-xs">{label}</span>
+      <div className="mt-1 min-w-0 break-words text-sm leading-6">{value}</div>
     </div>
   );
 }
@@ -75,7 +75,7 @@ export function CandidateBasicInfoView({
 
   return (
     <div className={className}>
-      <section className="space-y-2">
+      <section className="grid gap-x-8 gap-y-4 md:grid-cols-2">
         <Row label="姓名" value={renderText(candidateName)} />
         <Row label="邮箱" value={renderText(candidateEmail)} />
         <Row label="电话" value={renderText(candidatePhone)} />
@@ -85,7 +85,7 @@ export function CandidateBasicInfoView({
         <Row
           label="简历文件"
           value={
-            <div className="flex min-w-0 items-center gap-2 rounded-md border border-border/70 bg-muted/20 px-2 py-1.5">
+            <div className="flex min-w-0 items-center gap-2 rounded-xl bg-muted/30 px-3 py-2 border border-muted/60">
               <ResumeDocumentFileIcon
                 className="size-7 shrink-0"
                 kind={resumeDocumentKind ?? "pdf"}

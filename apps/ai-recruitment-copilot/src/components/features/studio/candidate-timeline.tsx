@@ -72,7 +72,8 @@ function TimelineSkeleton({ className }: { className?: string }) {
   return (
     <div
       className={cn(
-        "max-w-full overflow-hidden rounded-2xl border border-border bg-background p-4",
+        "max-w-full overflow-hidden",
+        "xl:border-border/50 xl:border-l xl:pl-6",
         className,
       )}
     >
@@ -145,7 +146,7 @@ function TimelineMetaChip({
   return (
     <div
       className={cn(
-        "inline-flex min-w-0 max-w-full items-center gap-1 overflow-hidden rounded-md border border-border/70 bg-muted/30 px-2 py-1 text-xs",
+        "inline-flex min-w-0 max-w-full items-center gap-1 overflow-hidden rounded-md bg-muted/40 px-2 py-1 text-xs",
         density === "rail" ? "xl:max-w-[15rem]" : "sm:max-w-[18rem]",
       )}
       title={`${item.label}：${item.value}`}
@@ -183,7 +184,7 @@ function TimelineEventItem({
       )}
       <div
         className={cn(
-          "-translate-x-1/2 absolute top-0 z-10 flex items-center justify-center rounded-full border border-border bg-background shadow-sm",
+          "-translate-x-1/2 absolute top-0 z-10 flex items-center justify-center rounded-full bg-muted",
           isRail ? "left-3.5 size-7" : "left-4 size-8",
         )}
       >
@@ -191,7 +192,7 @@ function TimelineEventItem({
       </div>
       <div
         className={cn(
-          "min-w-0 max-w-full overflow-hidden rounded-xl border border-border bg-background",
+          "min-w-0 max-w-full overflow-hidden rounded-xl border border-muted/60 bg-muted/30",
           isRail ? "p-3" : "p-4",
         )}
       >
@@ -254,8 +255,9 @@ export function CandidateTimeline({
   return (
     <div
       className={cn(
-        "max-w-full overflow-hidden rounded-2xl border border-border bg-background p-4",
-        isRail && "xl:flex xl:h-full xl:min-h-0 xl:flex-col xl:overflow-hidden",
+        "max-w-full overflow-hidden",
+        isRail &&
+          "xl:flex xl:h-full xl:min-h-0 xl:flex-col xl:overflow-hidden xl:border-border/50 xl:border-l xl:pl-6",
         className,
       )}
     >
@@ -266,7 +268,7 @@ export function CandidateTimeline({
       </div>
 
       {events.length === 0 ? (
-        <Empty className="mt-5 min-h-48 border border-border">
+        <Empty className="mt-5 min-h-48">
           <EmptyHeader>
             <EmptyMedia variant="icon">
               <HistoryIcon />
