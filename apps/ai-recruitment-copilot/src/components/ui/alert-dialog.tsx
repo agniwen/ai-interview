@@ -3,7 +3,7 @@
 import { AlertDialog as AlertDialogPrimitive } from "radix-ui";
 import * as React from "react";
 
-import { Button } from "@/components/ui/button";
+import { Button, ButtonSizeProvider } from "@/components/ui/button";
 import { cn } from "@arc/shared/utils";
 
 function AlertDialog({ ...props }: React.ComponentProps<typeof AlertDialogPrimitive.Root>) {
@@ -72,7 +72,7 @@ function AlertDialogHeader({ className, ...props }: React.ComponentProps<"div">)
   );
 }
 
-function AlertDialogFooter({ className, ...props }: React.ComponentProps<"div">) {
+function AlertDialogFooter({ className, children, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="alert-dialog-footer"
@@ -81,7 +81,9 @@ function AlertDialogFooter({ className, ...props }: React.ComponentProps<"div">)
         className,
       )}
       {...props}
-    />
+    >
+      <ButtonSizeProvider size="lg">{children}</ButtonSizeProvider>
+    </div>
   );
 }
 
@@ -130,7 +132,7 @@ function AlertDialogMedia({ className, ...props }: React.ComponentProps<"div">) 
 function AlertDialogAction({
   className,
   variant = "default",
-  size = "default",
+  size = "lg",
   ...props
 }: React.ComponentProps<typeof AlertDialogPrimitive.Action> &
   Pick<React.ComponentProps<typeof Button>, "variant" | "size">) {
@@ -148,7 +150,7 @@ function AlertDialogAction({
 function AlertDialogCancel({
   className,
   variant = "outline",
-  size = "default",
+  size = "lg",
   ...props
 }: React.ComponentProps<typeof AlertDialogPrimitive.Cancel> &
   Pick<React.ComponentProps<typeof Button>, "variant" | "size">) {

@@ -889,6 +889,7 @@ function useStudioPersonDetailPanel({
                 onEdit(record.id);
               }
             }}
+            size="lg"
             type="button"
             variant="outline"
           >
@@ -899,6 +900,7 @@ function useStudioPersonDetailPanel({
         {showLaunchButton ? (
           <Button
             className="flex-1"
+            size="lg"
             onClick={() => {
               if (onLaunchInterview) {
                 // 简历库详情入口：交给外层 LaunchInterviewDialog 处理；关闭本面板
@@ -1074,7 +1076,7 @@ function useStudioPersonDetailPanel({
   let bodyLayoutClassName = "flex flex-col gap-8";
   if (showTimelineRail) {
     bodyLayoutClassName =
-      "grid gap-8 xl:h-full xl:min-h-0 xl:grid-cols-[minmax(0,1fr)_22rem] xl:overflow-hidden";
+      "grid gap-4 xl:h-full xl:min-h-0 xl:grid-cols-[minmax(0,1fr)_22rem] xl:overflow-hidden";
   }
   const detailScrollClassName = showTimelineRail
     ? "min-w-0 flex flex-col gap-8 xl:h-full xl:min-h-0 xl:overflow-y-auto xl:pr-1"

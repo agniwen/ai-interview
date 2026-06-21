@@ -38,25 +38,35 @@ const buttonVariants = cva(
   },
 );
 
+type ButtonSize = NonNullable<VariantProps<typeof buttonVariants>["size"]>;
+
+const ButtonSizeContext = React.createContext<ButtonSize | undefined>(undefined);
+
+function ButtonSizeProvider({ size, children }: { size: ButtonSize; children: React.ReactNode }) {
+  return <ButtonSizeContext.Provider value={size}>{children}</ButtonSizeContext.Provider>;
+}
+
 function Button({
   className,
   variant = "default",
-  size = "default",
+  size,
   asChild = false,
   ...props
 }: React.ComponentProps<"button"> &
   VariantProps<typeof buttonVariants> & {
     asChild?: boolean;
   }) {
+  const inheritedSize = React.useContext(ButtonSizeContext);
+  const resolvedSize = size ?? inheritedSize ?? "default";
   const Comp = asChild ? Slot.Root : "button";
 
   return (
     <Comp
       data-slot="button"
       data-variant={variant}
-      data-size={size}
+      data-size={resolvedSize}
       className={cn(
-        buttonVariants({ size, variant }),
+        buttonVariants({ size: resolvedSize, variant }),
         // 当前扁平化风格暂时关闭阴影；如需恢复，取消下一行注释。
         // variant === "outline" && "shadow-xs",
         className,
@@ -66,4 +76,4 @@ function Button({
   );
 }
 
-export { Button, buttonVariants };
+export { Button, ButtonSizeProvider, buttonVariants };

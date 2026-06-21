@@ -5,6 +5,7 @@ import { Dialog as DialogPrimitive } from "radix-ui";
 import * as React from "react";
 import { Drawer as DrawerPrimitive } from "vaul";
 
+import { ButtonSizeProvider } from "@/components/ui/button";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@arc/shared/utils";
 
@@ -144,7 +145,7 @@ function DialogModal({
                   footerClassName,
                 )}
               >
-                {footer}
+                <ButtonSizeProvider size="lg">{footer}</ButtonSizeProvider>
               </div>
             ) : null}
           </div>
@@ -223,7 +224,7 @@ function DrawerModal({
                   footerClassName,
                 )}
               >
-                {footer}
+                <ButtonSizeProvider size="lg">{footer}</ButtonSizeProvider>
               </div>
             ) : null}
           </div>

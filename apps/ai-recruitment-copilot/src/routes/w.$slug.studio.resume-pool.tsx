@@ -405,10 +405,11 @@ function SelectResumePoolScopeDialog({
     <Modal
       footer={
         <>
-          <Button onClick={() => onOpenChange(false)} variant="outline">
+          <Button size="lg" onClick={() => onOpenChange(false)} variant="outline">
             取消
           </Button>
           <Button
+            size="lg"
             onClick={() => {
               onOpenChange(false);
               onSelected(scope);

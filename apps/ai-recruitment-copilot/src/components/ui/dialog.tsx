@@ -5,7 +5,7 @@ import { Dialog as DialogPrimitive } from "radix-ui";
 import * as React from "react";
 import { Drawer as DrawerPrimitive } from "vaul";
 
-import { Button } from "@/components/ui/button";
+import { Button, ButtonSizeProvider } from "@/components/ui/button";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@arc/shared/utils";
 
@@ -209,12 +209,14 @@ function DialogFooter({
       )}
       {...props}
     >
-      {children}
-      {showCloseButton && (
-        <DialogClose asChild>
-          <Button variant="outline">Close</Button>
-        </DialogClose>
-      )}
+      <ButtonSizeProvider size="lg">
+        {children}
+        {showCloseButton && (
+          <DialogClose asChild>
+            <Button variant="outline">Close</Button>
+          </DialogClose>
+        )}
+      </ButtonSizeProvider>
     </div>
   );
 }
