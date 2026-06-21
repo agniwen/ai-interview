@@ -39,7 +39,6 @@ import {
   studioInterviewFormSchema,
   toNullableString,
 } from "@arc/db-schema/studio-interviews";
-import type { StudioInterviewStatus } from "@arc/db-schema/studio-interviews";
 import {
   analyzeResumeFile,
   generateInterviewQuestionsForProfile,
@@ -124,6 +123,7 @@ import {
 } from "@arc/ai-recruitment-copilot-backend/server/cache-tags";
 import { getObjectBytes, getObjectStream } from "@arc/ai-recruitment-copilot-backend/lib/server/s3";
 import { createPptxPreviewPdfResponse } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/utils/pptx-preview";
+import { resolveCandidateTransitionPatch } from "./utils/candidate-transition";
 
 const dedupCheckInputSchema = z.object({
   email: z.string().trim().max(200).nullable().optional(),
@@ -1334,88 +1334,18 @@ export const studioInterviewsRouter = factory
           return { kind: "noop" as const };
         }
 
-        const isClosing = input.pipelineStage === "closed";
-        const wasClosed = existing.pipelineStage === "closed";
-
-        // closed metadata 生命周期：
-        //   进入 closed → 写 closedAt + closedReason + closedMeta（含 previousStage = 当前阶段）
-        //   从 closed 回退 → 清空所有 closed metadata + 旧 schema 的 deprecated 标量字段
-        //   非 closed 之间切换 → 保持不变（undefined）
-        // Lifecycle: enter closed → write all closed metadata + previousStage;
-        // exit closed → clear everything + scrub deprecated legacy scalars so the
-        // reactivated record has no stale humanInterview/offer/writtenTest data.
-        let closedAtUpdate: Date | null | undefined;
-        let closedReasonUpdate: string | null | undefined;
-        let closedMetaUpdate: typeof studioInterview.$inferInsert.closedMeta | undefined;
-        // legacy 字段在结案/重新激活时一并 dual-write，避免 (新模型已 closed) 与
-        // (legacy status 仍是 ready/in_progress) 造成的下游守卫漏洞（参见 livekit-token / forms）。
-        // Dual-write the legacy scalars during closing/reactivating so downstream
-        // consumers that still read the old columns see a consistent terminal state.
-        let legacyStatusUpdate: StudioInterviewStatus | undefined;
-        let humanInterviewScheduledAtUpdate: Date | null | undefined;
-        let humanInterviewerIdUpdate: string | null | undefined;
-        let offerSentAtUpdate: Date | null | undefined;
-        let offerAcceptedAtUpdate: Date | null | undefined;
-        let writtenTestScheduledAtUpdate: Date | null | undefined;
-        let writtenTestScoreUpdate: string | null | undefined;
-        if (isClosing) {
-          closedAtUpdate = now;
-          closedReasonUpdate = input.closedReason ?? null;
-          // closedMeta merge：保留之前用户输入的字段（previousStage 自动覆写）。
-          // Merge existing meta + input partial; previousStage is server-controlled.
-          closedMetaUpdate = {
-            ...existing.closedMeta,
-            ...input.closedMeta,
-            previousStage: existing.pipelineStage,
-          };
-          legacyStatusUpdate = "archived";
-        } else if (wasClosed) {
-          closedAtUpdate = null;
-          closedReasonUpdate = null;
-          closedMetaUpdate = null;
-          // 重新激活：把 legacy 标量字段全部回到 null，避免 dialog prefill 看到陈旧值。
-          // legacy status 回到非终态；UI 后续操作（如 launch-interview）会按需 dual-write 覆盖。
-          // Reactivate: null out all deprecated scalars; legacy status returns to
-          // a non-terminal value so downstream guards stop treating the candidate
-          // as archived.
-          humanInterviewScheduledAtUpdate = null;
-          humanInterviewerIdUpdate = null;
-          offerSentAtUpdate = null;
-          offerAcceptedAtUpdate = null;
-          writtenTestScheduledAtUpdate = null;
-          writtenTestScoreUpdate = null;
-          legacyStatusUpdate = "ready";
-        }
+        const transition = resolveCandidateTransitionPatch({ existing, input, now });
 
         await tx
           .update(studioInterview)
-          .set({
-            closedAt: closedAtUpdate,
-            closedMeta: closedMetaUpdate,
-            closedReason: closedReasonUpdate,
-            humanInterviewScheduledAt: humanInterviewScheduledAtUpdate,
-            humanInterviewerId: humanInterviewerIdUpdate,
-            offerAcceptedAt: offerAcceptedAtUpdate,
-            offerSentAt: offerSentAtUpdate,
-            outcome: input.outcome ?? "in_pipeline",
-            pipelineStage: input.pipelineStage,
-            status: legacyStatusUpdate,
-            updatedAt: now,
-            writtenTestScheduledAt: writtenTestScheduledAtUpdate,
-            writtenTestScore: writtenTestScoreUpdate,
-          })
+          .set(transition.patch)
           .where(eq(studioInterview.id, candidateId));
 
         await tx.insert(interviewAuditLog).values({
           action: "candidate_transition",
           createdAt: now,
           detail: {
-            closedMeta: closedMetaUpdate ?? null,
-            fromOutcome: existing.outcome,
-            fromStage: existing.pipelineStage,
-            reason: input.closedReason ?? null,
-            toOutcome: input.outcome ?? "in_pipeline",
-            toStage: input.pipelineStage,
+            ...transition.auditDetail,
           },
           id: crypto.randomUUID(),
           interviewRecordId: candidateId,
