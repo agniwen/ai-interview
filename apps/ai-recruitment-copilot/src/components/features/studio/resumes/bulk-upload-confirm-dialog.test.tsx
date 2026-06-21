@@ -43,7 +43,7 @@ afterEach(() => {
 });
 
 describe("BulkUploadConfirmDialog", () => {
-  it("defaults to auto JD matching and create duplicates", () => {
+  it("defaults to auto JD matching and skips suspected duplicates", () => {
     const onConfirmed = vi.fn();
     const { root } = renderDialog(onConfirmed);
     const startButton = [...document.querySelectorAll("button")].find((button) =>
@@ -56,7 +56,7 @@ describe("BulkUploadConfirmDialog", () => {
     });
 
     expect(onConfirmed).toHaveBeenCalledWith(expect.any(Array), {
-      dedupPolicy: "create",
+      dedupPolicy: "skip",
       jdMode: "auto",
       jobDescriptionId: null,
     });

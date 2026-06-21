@@ -573,13 +573,7 @@ export async function importPoolItemToResumeLibrary(
   });
   if (input.dedupPolicy === "check" && matches.length > 0) {
     return {
-      matches: matches.map((match) => ({
-        candidateEmail: match.candidateEmail,
-        candidateName: match.candidateName,
-        candidatePhone: match.candidatePhone,
-        id: match.id,
-        resumeFileName: null,
-      })),
+      matches,
       status: "duplicate_found",
     };
   }

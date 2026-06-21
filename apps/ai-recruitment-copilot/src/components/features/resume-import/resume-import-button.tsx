@@ -29,7 +29,7 @@ import type {
 import { dataUrlToFile, tryExtractPartialFields } from "@/components/features/resume-import/utils";
 import { Button } from "@/components/ui/button";
 import type { DedupMatchRecord } from "@/lib/client/api";
-import { apiFetch, fetchInterviewDedup } from "@/lib/client/api";
+import { apiFetch, extractResumeDedupConflictMatches, fetchInterviewDedup } from "@/lib/client/api";
 import {
   buildResumePayload,
   buildSaveOnlyResumeFormData,
@@ -293,6 +293,7 @@ export function ResumeImportButton({
     parseResult: ParseResult,
     jobDescriptionId: string,
     existingController?: AbortController,
+    dedupPolicy: "check" | "force" = "check",
   ) {
     const abortController = existingController ?? new AbortController();
     abortControllerRef.current = abortController;
@@ -317,6 +318,7 @@ export function ResumeImportButton({
           formValuesFromResumeProfile(resumeProfile, { jobDescriptionId }),
           file,
           resumePayload,
+          { dedupPolicy },
         ),
         method: "POST",
         signal: abortController.signal,
@@ -330,6 +332,19 @@ export function ResumeImportButton({
       setDetailOpen(true);
     } catch (error) {
       if (abortController.signal.aborted) {
+        return;
+      }
+      const conflictMatches = extractResumeDedupConflictMatches(error);
+      if (conflictMatches) {
+        cachedParseResultRef.current = parseResult;
+        pendingResumeFileRef.current = file;
+        pendingJobDescriptionIdRef.current = jobDescriptionId;
+        setDedupMatches(conflictMatches);
+        setPhase("idle");
+        setProgressStatus("");
+        setProgressTools([]);
+        setPartialFields([]);
+        accumulatedTextRef.current = "";
         return;
       }
       toast.error(error instanceof Error ? error.message : "入库失败");
@@ -350,7 +365,7 @@ export function ResumeImportButton({
     pendingResumeFileRef.current = null;
     pendingJobDescriptionIdRef.current = null;
     if (file && parseResult) {
-      void runSaveToLibrary(file, parseResult, jobDescriptionId);
+      void runSaveToLibrary(file, parseResult, jobDescriptionId, undefined, "force");
     }
   }
 

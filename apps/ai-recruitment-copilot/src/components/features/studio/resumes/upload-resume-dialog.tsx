@@ -21,7 +21,7 @@ import { ResumeProfileView } from "@/components/features/resume/resume-profile-v
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { apiFetch } from "@/lib/client/api";
+import { apiFetch, extractResumeDedupConflictMatches } from "@/lib/client/api";
 import {
   buildSaveAndStartResumeFormData,
   buildSaveOnlyResumeFormData,
@@ -105,9 +105,10 @@ export function CreateResumeRecordDialog({
 
       setSubmitting(true);
       try {
+        const dedupPolicy = p?.dedupConfirmed ? "force" : "check";
         if (mode === "save-only") {
           const detail = await apiFetch<ResumeLibraryDetail>(`/api/w/${slug}/studio/resumes`, {
-            body: buildSaveOnlyResumeFormData(value, file, payload),
+            body: buildSaveOnlyResumeFormData(value, file, payload, { dedupPolicy }),
             method: "POST",
           });
           toast.success("简历记录已创建");
@@ -129,7 +130,7 @@ export function CreateResumeRecordDialog({
           const round = await apiFetch<StudioInterviewRoundDetail>(
             `/api/w/${slug}/studio/interviews`,
             {
-              body: buildSaveAndStartResumeFormData(value, file, payload),
+              body: buildSaveAndStartResumeFormData(value, file, payload, { dedupPolicy }),
               method: "POST",
             },
           );
@@ -140,6 +141,12 @@ export function CreateResumeRecordDialog({
         form.reset(createResumeLibraryFormValues());
         p?.reset();
       } catch (error) {
+        const dedupMatches = extractResumeDedupConflictMatches(error);
+        if (dedupMatches) {
+          p?.handleDedupConflict(dedupMatches);
+          toast.info("检测到疑似重复候选人，请确认是否继续创建");
+          return;
+        }
         toast.error(error instanceof Error ? error.message : "提交失败");
       } finally {
         setSubmitting(false);

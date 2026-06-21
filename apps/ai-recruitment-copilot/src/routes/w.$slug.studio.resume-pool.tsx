@@ -7,6 +7,7 @@ import type { JobDescriptionListRecord } from "@arc/shared/job-descriptions";
 import { resumePoolScopeMeta } from "@arc/shared/resume-pool";
 import type {
   ResumePoolDetail,
+  ResumePoolImportDuplicateMatchRecord,
   ResumePoolImportDuplicateResult,
   ResumePoolListRecord,
 } from "@arc/shared/resume-pool";
@@ -37,6 +38,7 @@ import {
   ResumeDocumentFileIcon,
   getResumeDocumentFileIconKind,
 } from "@/components/features/resume/resume-document-file-icon";
+import { ResumeDedupMatchList } from "@/components/features/resume/resume-dedup-overlay";
 import { ResumeEducationDisplayLine } from "@/components/features/resume/resume-education-line";
 import {
   getPreviewableResumeDocumentKind,
@@ -85,6 +87,7 @@ import {
   isApiError,
   publishResumePoolItem,
 } from "@/lib/client/api";
+import type { DedupMatchRecord } from "@/lib/client/api";
 import { listBulkResumeBatches } from "@/lib/client/api/endpoints/bulk-resume-upload";
 import { authClient } from "@/lib/client/auth-client";
 import { rpc } from "@/lib/client/rpc";
@@ -382,6 +385,24 @@ function buildJdOptions(records: JobDescriptionListRecord[]) {
   }));
 }
 
+function toResumeDedupMatches(result: ResumePoolImportDuplicateResult | null): DedupMatchRecord[] {
+  return (result?.matches ?? []).map((match: ResumePoolImportDuplicateMatchRecord) => ({
+    candidateEmail: match.candidateEmail,
+    candidateName: match.candidateName,
+    candidatePhone: match.candidatePhone,
+    conflictingSignals: match.conflictingSignals,
+    createdAt: match.createdAt,
+    id: match.id,
+    jobDescriptionName: match.jobDescriptionName,
+    level: match.level,
+    score: match.score,
+    semanticReasons: match.semanticReasons,
+    similarity: match.similarity,
+    status: match.status,
+    targetRole: match.targetRole,
+  }));
+}
+
 function SelectResumePoolScopeDialog({
   defaultScope,
   onOpenChange,
@@ -629,27 +650,15 @@ function ImportResumePoolDialog({
         </div>
       </Modal>
       <AlertDialog onOpenChange={(open) => !open && setDuplicates(null)} open={duplicates !== null}>
-        <AlertDialogContent>
+        <AlertDialogContent className="sm:max-w-2xl">
           <AlertDialogHeader>
             <AlertDialogTitle>简历库中可能已有相同候选人</AlertDialogTitle>
-            <AlertDialogDescription asChild>
-              <div className="space-y-3">
-                <p>确认后会继续创建一条新的简历库记录。</p>
-                <div className="space-y-2">
-                  {duplicates?.matches.slice(0, 5).map((match) => (
-                    <div className="rounded-md border bg-muted/40 p-3 text-sm" key={match.id}>
-                      <div className="font-medium text-foreground">{match.candidateName}</div>
-                      <div className="text-muted-foreground text-xs">
-                        {[match.candidateEmail, match.candidatePhone, match.resumeFileName]
-                          .filter(Boolean)
-                          .join(" / ") || "无联系方式"}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
+            <AlertDialogDescription>
+              系统会基于工作经历、项目经历、技能和岗位画像的语义相似度判断风险。
+              请根据判断依据确认是否为同一候选人。确认后会继续创建一条新的简历库记录。
             </AlertDialogDescription>
           </AlertDialogHeader>
+          <ResumeDedupMatchList matches={toResumeDedupMatches(duplicates)} />
           <AlertDialogFooter>
             <AlertDialogCancel disabled={isPending}>取消</AlertDialogCancel>
             <AlertDialogAction

@@ -23,10 +23,15 @@ import {
   queryResumePoolItems,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resume-pool/dao";
 import { enqueueResumeSemanticIndexJobBestEffort } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/enqueue";
+import { findSemanticResumeDuplicates } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/dedup-service";
 import { deleteResumeSemanticIndexBestEffort } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/lifecycle";
 
 vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/enqueue", () => ({
   enqueueResumeSemanticIndexJobBestEffort: vi.fn(),
+}));
+
+vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/dedup-service", () => ({
+  findSemanticResumeDuplicates: vi.fn(),
 }));
 
 vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/lifecycle", () => ({
@@ -156,6 +161,7 @@ afterAll(cleanup);
 
 beforeEach(() => {
   vi.mocked(enqueueResumeSemanticIndexJobBestEffort).mockClear();
+  vi.mocked(findSemanticResumeDuplicates).mockResolvedValue([]);
   vi.mocked(deleteResumeSemanticIndexBestEffort).mockClear();
 });
 
@@ -372,6 +378,64 @@ describe("publishPrivatePoolItem", () => {
 });
 
 describe("importPoolItemToResumeLibrary", () => {
+  it("returns full semantic duplicate details before importing when check policy finds matches", async () => {
+    const publicId = await createResumePoolItem(basePoolInput({ scope: "public" }));
+    vi.mocked(findSemanticResumeDuplicates).mockResolvedValueOnce([
+      {
+        candidateEmail: "dup@example.com",
+        candidateName: "重复候选人",
+        candidatePhone: "13900139000",
+        conflictingSignals: ["邮箱不同"],
+        createdAt: "2026-06-21T09:00:00.000Z",
+        id: "dup_resume_record",
+        jobDescriptionName: "高级前端工程师",
+        level: "high",
+        score: 92,
+        semanticReasons: ["工作/项目经历语义高度相似"],
+        similarity: {
+          resumeOverview: 0.9,
+          skillRole: 0.86,
+          workProject: 0.94,
+        },
+        status: "draft",
+        targetRole: "前端工程师",
+      },
+    ]);
+
+    const result = await importPoolItemToResumeLibrary({
+      dedupPolicy: "check",
+      importedBy: USER_B,
+      jobDescriptionId: null,
+      organizationId: ORG_B,
+      poolItemId: publicId,
+    });
+
+    expect(result).toEqual({
+      matches: [
+        {
+          candidateEmail: "dup@example.com",
+          candidateName: "重复候选人",
+          candidatePhone: "13900139000",
+          conflictingSignals: ["邮箱不同"],
+          createdAt: "2026-06-21T09:00:00.000Z",
+          id: "dup_resume_record",
+          jobDescriptionName: "高级前端工程师",
+          level: "high",
+          score: 92,
+          semanticReasons: ["工作/项目经历语义高度相似"],
+          similarity: {
+            resumeOverview: 0.9,
+            skillRole: 0.86,
+            workProject: 0.94,
+          },
+          status: "draft",
+          targetRole: "前端工程师",
+        },
+      ],
+      status: "duplicate_found",
+    });
+  });
+
   it("imports a public item into the current organization's resume library", async () => {
     const publicId = await createResumePoolItem(basePoolInput({ scope: "public" }));
 

@@ -123,6 +123,10 @@ import {
 } from "@arc/ai-recruitment-copilot-backend/server/cache-tags";
 import { getObjectBytes, getObjectStream } from "@arc/ai-recruitment-copilot-backend/lib/server/s3";
 import { createPptxPreviewPdfResponse } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/utils/pptx-preview";
+import {
+  parseResumeCreateDedupPolicy,
+  resolveResumeCreateDedupConflict,
+} from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/dedup";
 import { resolveCandidateTransitionPatch } from "./utils/candidate-transition";
 
 const dedupCheckInputSchema = z.object({
@@ -400,6 +404,17 @@ export const studioInterviewsRouter = factory
             resumeProfile,
           };
         }
+      }
+      const dedupConflict = await resolveResumeCreateDedupConflict({
+        candidateEmail: input.data.candidateEmail || null,
+        candidateName: input.data.candidateName || null,
+        candidatePhone: input.data.candidatePhone || null,
+        dedupPolicy: parseResumeCreateDedupPolicy(formData.get("dedupPolicy")),
+        organizationId: activeOrg.id,
+        resumeProfile: analysis?.resumeProfile ?? null,
+      });
+      if (dedupConflict) {
+        return c.json(dedupConflict, 409);
       }
       const record = {
         candidateEmail: input.data.candidateEmail || null,

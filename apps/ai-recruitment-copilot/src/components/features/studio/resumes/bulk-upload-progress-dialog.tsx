@@ -77,6 +77,37 @@ function ItemIcon({ status }: { status: BulkResumeBatchItemDto["status"] }) {
   return <CircleIcon className="size-4 text-muted-foreground" />;
 }
 
+function duplicateMatchesText(snapshot: unknown): string | null {
+  if (!Array.isArray(snapshot) || snapshot.length === 0) {
+    return null;
+  }
+  const labels = snapshot
+    .slice(0, 3)
+    .map((item) => {
+      if (!(item && typeof item === "object")) {
+        return null;
+      }
+      const record = item as {
+        candidateEmail?: unknown;
+        candidateName?: unknown;
+        candidatePhone?: unknown;
+      };
+      const name = typeof record.candidateName === "string" ? record.candidateName : "未知候选人";
+      let contact: string | null = null;
+      if (typeof record.candidateEmail === "string") {
+        contact = record.candidateEmail;
+      } else if (typeof record.candidatePhone === "string") {
+        contact = record.candidatePhone;
+      }
+      return contact ? `${name}（${contact}）` : name;
+    })
+    .filter((item): item is string => item !== null);
+  if (labels.length === 0) {
+    return null;
+  }
+  return `疑似重复：${labels.join("、")}`;
+}
+
 export function BulkUploadProgressDialog({
   onAfterClose,
   onAbort,
@@ -220,14 +251,25 @@ export function BulkUploadProgressDialog({
                   ))
                 : items.map((item) => {
                     const meta = itemStatusLabel(item.status, target);
+                    const duplicateText =
+                      item.status === "duplicate_skipped"
+                        ? duplicateMatchesText(item.dedupMatchSnapshot)
+                        : null;
                     return (
                       <li
-                        className="flex items-center justify-between gap-3 rounded px-2 py-1 hover:bg-background/60"
+                        className="flex items-start justify-between gap-3 rounded px-2 py-1 hover:bg-background/60"
                         key={item.id}
                       >
-                        <span className="flex min-w-0 items-center gap-2">
+                        <span className="flex min-w-0 items-start gap-2">
                           <ItemIcon status={item.status} />
-                          <span className="truncate">{item.originalFileName}</span>
+                          <span className="min-w-0">
+                            <span className="block truncate">{item.originalFileName}</span>
+                            {duplicateText ? (
+                              <span className="block truncate text-amber-700 text-xs dark:text-amber-300">
+                                {duplicateText}
+                              </span>
+                            ) : null}
+                          </span>
                         </span>
                         <span className="flex shrink-0 items-center gap-2">
                           {item.errorMessage ? (

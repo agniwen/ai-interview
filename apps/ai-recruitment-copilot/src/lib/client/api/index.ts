@@ -24,6 +24,7 @@
 export { ApiError, isApiError } from "./errors";
 export { apiFetch, type ApiFetchOptions } from "./client";
 export { rpcFetch } from "./rpc-fetch";
+export { extractResumeDedupConflictMatches } from "./resume-dedup-conflict";
 export * from "./endpoints/chat";
 export * from "./endpoints/public-interview";
 export * from "./endpoints/studio-interviews";

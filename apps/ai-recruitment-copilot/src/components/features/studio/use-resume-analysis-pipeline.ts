@@ -57,6 +57,7 @@ export interface ResumeAnalysisPipelineState {
   partialFields: { label: string; value: string }[];
   reviewPreview: string;
   dedupMatches: DedupMatchRecord[] | null;
+  dedupConfirmed: boolean;
   resumePayload: ResumeAnalysisResult | null;
   resumeFile: File | null;
   isBusy: boolean;
@@ -64,6 +65,7 @@ export interface ResumeAnalysisPipelineState {
 
 export interface ResumeAnalysisPipelineHandlers {
   handleResumeChange: (file: File | null) => Promise<void>;
+  handleDedupConflict: (matches: DedupMatchRecord[]) => void;
   handleDedupContinue: () => void;
   handleCancelAnalysis: () => void;
   reset: () => void;
@@ -100,6 +102,7 @@ export function useResumeAnalysisPipeline(
   const [partialFields, setPartialFields] = useState<{ label: string; value: string }[]>([]);
   const [reviewPreview, setReviewPreview] = useState("");
   const [dedupMatches, setDedupMatches] = useState<DedupMatchRecord[] | null>(null);
+  const [dedupConfirmed, setDedupConfirmed] = useState(false);
   const accumulatedTextRef = useRef("");
   const reviewTextRef = useRef("");
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -278,6 +281,7 @@ export function useResumeAnalysisPipeline(
       setResumeFile(file);
       setResumePayload(null);
       setDedupMatches(null);
+      setDedupConfirmed(false);
       pendingProfileRef.current = null;
       setProgressStatus("");
       setProgressTools([]);
@@ -498,6 +502,13 @@ export function useResumeAnalysisPipeline(
     // Post-dedup confirmation simply dismisses the overlay; question generation
     // happens later, on the save-and-start path.
     setDedupMatches(null);
+    setDedupConfirmed(true);
+    pendingProfileRef.current = null;
+  }, []);
+
+  const handleDedupConflict = useCallback((matches: DedupMatchRecord[]) => {
+    setDedupMatches(matches);
+    setDedupConfirmed(false);
     pendingProfileRef.current = null;
   }, []);
 
@@ -514,6 +525,7 @@ export function useResumeAnalysisPipeline(
     setPartialFields([]);
     setReviewPreview("");
     setDedupMatches(null);
+    setDedupConfirmed(false);
     pendingProfileRef.current = null;
     accumulatedTextRef.current = "";
     reviewTextRef.current = "";
@@ -551,6 +563,7 @@ export function useResumeAnalysisPipeline(
     setPartialFields([]);
     setReviewPreview("");
     setDedupMatches(null);
+    setDedupConfirmed(false);
     pendingProfileRef.current = null;
     accumulatedTextRef.current = "";
     reviewTextRef.current = "";
@@ -568,9 +581,11 @@ export function useResumeAnalysisPipeline(
     dedupMatches !== null;
 
   return {
+    dedupConfirmed,
     dedupMatches,
     generateQuestions,
     handleCancelAnalysis,
+    handleDedupConflict,
     handleDedupContinue,
     handleResumeChange,
     isAnalyzingResume,
