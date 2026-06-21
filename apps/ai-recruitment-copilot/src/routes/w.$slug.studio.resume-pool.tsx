@@ -2,7 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, useNavigate, useSearch } from "@tanstack/react-router";
-import type { ResumePoolScope } from "@arc/db-schema/schema";
+import type { ResumePoolScope, ResumeUploadBatchDedupPolicy } from "@arc/db-schema/schema";
 import type { JobDescriptionListRecord } from "@arc/shared/job-descriptions";
 import { resumePoolScopeMeta } from "@arc/shared/resume-pool";
 import type {
@@ -405,10 +405,11 @@ function SelectResumePoolScopeDialog({
     <Modal
       footer={
         <>
-          <Button onClick={() => onOpenChange(false)} variant="outline">
+          <Button size="lg" onClick={() => onOpenChange(false)} variant="outline">
             取消
           </Button>
           <Button
+            size="lg"
             onClick={() => {
               onOpenChange(false);
               onSelected(scope);
@@ -434,6 +435,58 @@ function SelectResumePoolScopeDialog({
             <span>{resumePoolScopeMeta[item].label}</span>
           </FieldLabel>
         ))}
+      </RadioGroup>
+    </Modal>
+  );
+}
+
+function PrivateResumePoolUploadPolicyDialog({
+  fileCount,
+  onConfirmed,
+  onOpenChange,
+  open,
+}: {
+  fileCount: number;
+  open: boolean;
+  onConfirmed: (dedupPolicy: ResumeUploadBatchDedupPolicy) => void;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const [dedupPolicy, setDedupPolicy] = useState<ResumeUploadBatchDedupPolicy>("skip");
+
+  useEffect(() => {
+    if (open) {
+      setDedupPolicy("skip");
+    }
+  }, [open]);
+
+  return (
+    <Modal
+      description="仅私有简历上传支持查重策略；简历广场允许多份重复简历。"
+      footer={
+        <>
+          <Button onClick={() => onOpenChange(false)} variant="outline">
+            取消
+          </Button>
+          <Button onClick={() => onConfirmed(dedupPolicy)}>开始上传 ({fileCount})</Button>
+        </>
+      }
+      onOpenChange={onOpenChange}
+      open={open}
+      size="sm"
+      title="查重策略"
+    >
+      <RadioGroup
+        onValueChange={(value) => setDedupPolicy(value as ResumeUploadBatchDedupPolicy)}
+        value={dedupPolicy}
+      >
+        <FieldLabel className="w-full rounded-md border p-3">
+          <RadioGroupItem value="skip" />
+          <span>跳过疑似重复（不创建新记录）</span>
+        </FieldLabel>
+        <FieldLabel className="w-full rounded-md border p-3">
+          <RadioGroupItem value="create" />
+          <span>照样创建（允许重复）</span>
+        </FieldLabel>
       </RadioGroup>
     </Modal>
   );
@@ -633,9 +686,9 @@ function textOrDash(value: string | number | null | undefined) {
 
 function DetailSummaryItem({ children, label }: { label: string; children: ReactNode }) {
   return (
-    <div className="min-w-0 rounded-xl border border-border bg-muted/20 px-3 py-2">
-      <span className="text-muted-foreground text-xs">{label}</span>
-      <div className="mt-1 min-w-0 break-words font-medium text-sm">{children}</div>
+    <div className="min-w-0">
+      <dt className="text-muted-foreground text-xs">{label}</dt>
+      <dd className="mt-1 min-w-0 break-words font-medium text-sm leading-6">{children}</dd>
     </div>
   );
 }
@@ -659,7 +712,7 @@ function ResumePoolDetailSummaryPanel({
   const note = detail.notes?.trim();
 
   return (
-    <div className="rounded-2xl border border-border bg-background p-5">
+    <section className="space-y-6 rounded-2xl bg-muted/20 ">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
@@ -687,7 +740,7 @@ function ResumePoolDetailSummaryPanel({
         ) : null}
       </div>
 
-      <div className="mt-4 grid gap-3 md:grid-cols-3">
+      <dl className="grid gap-x-8 gap-y-4 md:grid-cols-3">
         <DetailSummaryItem label="目标岗位">{textOrDash(detail.targetRole)}</DetailSummaryItem>
         <DetailSummaryItem label="来源">{sourceLabel(detail)}</DetailSummaryItem>
         <DetailSummaryItem label="上传组织">{uploaderOrganizationLabel(detail)}</DetailSummaryItem>
@@ -711,17 +764,17 @@ function ResumePoolDetailSummaryPanel({
         <DetailSummaryItem label="创建时间">
           <TimeDisplay as="span" value={detail.createdAt} />
         </DetailSummaryItem>
-      </div>
+      </dl>
 
       {skills.length > 0 || strengths.length > 0 ? (
-        <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(220px,0.7fr)]">
+        <div className="grid gap-5 border-border/50 border-t pt-5 lg:grid-cols-[minmax(0,1fr)_minmax(220px,0.7fr)]">
           {skills.length > 0 ? (
             <div>
               <p className="mb-2 text-muted-foreground text-xs">核心技能</p>
               <ul className="flex flex-wrap gap-2">
                 {skills.map((skill) => (
                   <li
-                    className="rounded-full border border-border px-2.5 py-0.5 text-xs"
+                    className="rounded-full bg-background px-2.5 py-1 text-xs shadow-xs ring-1 ring-border/50"
                     key={skill}
                   >
                     {skill}
@@ -733,9 +786,9 @@ function ResumePoolDetailSummaryPanel({
           {strengths.length > 0 ? (
             <div>
               <p className="mb-2 text-muted-foreground text-xs">主要亮点</p>
-              <ul className="space-y-1.5 text-sm">
+              <ul className="space-y-2 text-sm">
                 {strengths.map((strength) => (
-                  <li className="line-clamp-2 text-muted-foreground leading-normal" key={strength}>
+                  <li className="line-clamp-2 text-muted-foreground leading-6" key={strength}>
                     {strength}
                   </li>
                 ))}
@@ -744,7 +797,7 @@ function ResumePoolDetailSummaryPanel({
           ) : null}
         </div>
       ) : null}
-    </div>
+    </section>
   );
 }
 
@@ -758,12 +811,12 @@ function ResumePoolStructuredInfoPanel({
   resumeProfile: ResumePoolProfile;
 }) {
   return (
-    <div className="rounded-2xl border border-border bg-background p-5">
+    <section className="space-y-4 border-t border-border/50 pt-6">
       <h3 className="font-medium text-sm">结构化信息</h3>
       {detail.resumeParseStatus === "failed" && detail.resumeParseError ? (
         <p className="mt-2 text-destructive text-sm">{detail.resumeParseError}</p>
       ) : null}
-      <div className="mt-4">
+      <div>
         {isLoading ? (
           <div className="inline-flex items-center gap-2 text-muted-foreground text-sm">
             <LoaderCircleIcon className="size-4 animate-spin" />
@@ -773,7 +826,7 @@ function ResumePoolStructuredInfoPanel({
           <ResumeProfileView profile={resumeProfile} />
         )}
       </div>
-    </div>
+    </section>
   );
 }
 
@@ -910,7 +963,7 @@ function ResumePoolDetailDialog({
       title={record ? getCandidateTitle(record) : "候选人详情"}
     >
       {detail ? (
-        <div className="space-y-5">
+        <div className="space-y-8">
           <ResumePoolDetailSummaryPanel
             detail={detail}
             isError={detailQuery.isError}
@@ -1305,6 +1358,8 @@ function ResumePoolPage() {
   const [uploadOpen, setUploadOpen] = useState(false);
   const [uploadEntryOpen, setUploadEntryOpen] = useState(false);
   const [uploadScope, setUploadScope] = useState<ResumePoolScope>(scope);
+  const [privateUploadPolicyOpen, setPrivateUploadPolicyOpen] = useState(false);
+  const [pendingPrivateUploadFiles, setPendingPrivateUploadFiles] = useState<File[]>([]);
   const [progressOpen, setProgressOpen] = useState(false);
   const [batchListOpen, setBatchListOpen] = useState(false);
   const [detailRecord, setDetailRecord] = useState<ResumePoolListRecord | null>(null);
@@ -1435,19 +1490,38 @@ function ResumePoolPage() {
     return () => observer.disconnect();
   }, [hasMoreRecords, loadMoreRecords]);
 
-  function startQueuedUpload(files: File[], targetScope: ResumePoolScope) {
+  function startQueuedUpload(
+    files: File[],
+    targetScope: ResumePoolScope,
+    dedupPolicy: ResumeUploadBatchDedupPolicy,
+  ) {
     if (files.length === 0) {
       return;
     }
     setUploadEntryOpen(false);
+    setPrivateUploadPolicyOpen(false);
+    setPendingPrivateUploadFiles([]);
     setProgressOpen(true);
     void bulk.start(files, {
-      dedupPolicy: "create",
+      dedupPolicy,
       jdMode: "none",
       jobDescriptionId: null,
       resumePoolScope: targetScope,
       target: "resume_pool",
     });
+  }
+
+  function handleQueuedUploadFilesPicked(files: File[], targetScope: ResumePoolScope) {
+    if (files.length === 0) {
+      return;
+    }
+    if (targetScope === "private") {
+      setUploadEntryOpen(false);
+      setPendingPrivateUploadFiles(files);
+      setPrivateUploadPolicyOpen(true);
+      return;
+    }
+    startQueuedUpload(files, "public", "create");
   }
 
   async function handleOpenBatch(batch: (typeof poolBatches)[number]) {
@@ -1645,11 +1719,24 @@ function ResumePoolPage() {
         description="选择 1 份或多份 PDF，都会进入后台解析队列。"
         fileUploadDescription="可选择 1 份或多份 PDF，上传后在后台异步解析。"
         fileUploadTitle="请选择要加入简历广场的简历文件"
-        onMultipleFilesPicked={(files) => startQueuedUpload(files, uploadScope)}
+        onMultipleFilesPicked={(files) => handleQueuedUploadFilesPicked(files, uploadScope)}
         onOpenChange={setUploadEntryOpen}
-        onSingleFilePicked={(file) => startQueuedUpload([file], uploadScope)}
+        onSingleFilePicked={(file) => handleQueuedUploadFilesPicked([file], uploadScope)}
         open={uploadEntryOpen}
         title="上传简历"
+      />
+      <PrivateResumePoolUploadPolicyDialog
+        fileCount={pendingPrivateUploadFiles.length}
+        onConfirmed={(dedupPolicy) =>
+          startQueuedUpload(pendingPrivateUploadFiles, "private", dedupPolicy)
+        }
+        onOpenChange={(open) => {
+          setPrivateUploadPolicyOpen(open);
+          if (!open) {
+            setPendingPrivateUploadFiles([]);
+          }
+        }}
+        open={privateUploadPolicyOpen}
       />
       <UploadBatchListDialog
         batches={poolBatches}

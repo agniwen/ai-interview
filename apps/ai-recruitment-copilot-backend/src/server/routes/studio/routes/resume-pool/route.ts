@@ -17,6 +17,7 @@ import {
 } from "@arc/ai-recruitment-copilot-backend/server/routes/interview/utils";
 import { jobDescriptionIdsExist } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao";
 import { createPptxPreviewPdfResponse } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/utils/pptx-preview";
+import { enqueueResumeSemanticIndexJobBestEffort } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/enqueue";
 import {
   createResumePoolItem,
   deleteOwnPoolItem,
@@ -207,6 +208,11 @@ export const resumePoolRouter = factory
         scope: input.data.scope,
         storageKey: uploadResult.storageKey,
         targetRole: input.data.targetRole ?? null,
+      });
+      await enqueueResumeSemanticIndexJobBestEffort({
+        organizationId: activeOrg.id,
+        sourceId: id,
+        sourceType: "resume_pool_item",
       });
       const item = await loadResumePoolItem({
         organizationId: activeOrg.id,

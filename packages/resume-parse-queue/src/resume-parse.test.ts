@@ -5,6 +5,7 @@ import {
   createRedisConnectionFromUrl,
   defaultResumeParseJobOptions,
   resumeParseJobSchema,
+  shouldRemoveCancelledResumeParseJob,
   shouldRemoveExistingResumeParseJob,
 } from "./resume-parse";
 
@@ -73,5 +74,16 @@ describe("resume parse queue configuration", () => {
     expect(shouldRemoveExistingResumeParseJob("waiting")).toBe(false);
     expect(shouldRemoveExistingResumeParseJob("active")).toBe(false);
     expect(shouldRemoveExistingResumeParseJob("delayed")).toBe(false);
+  });
+
+  it("removes only not-yet-running jobs when cancelling a batch", () => {
+    expect(shouldRemoveCancelledResumeParseJob("waiting")).toBe(true);
+    expect(shouldRemoveCancelledResumeParseJob("delayed")).toBe(true);
+    expect(shouldRemoveCancelledResumeParseJob("prioritized")).toBe(true);
+    expect(shouldRemoveCancelledResumeParseJob("waiting-children")).toBe(true);
+    expect(shouldRemoveCancelledResumeParseJob("paused")).toBe(true);
+    expect(shouldRemoveCancelledResumeParseJob("active")).toBe(false);
+    expect(shouldRemoveCancelledResumeParseJob("completed")).toBe(false);
+    expect(shouldRemoveCancelledResumeParseJob("failed")).toBe(false);
   });
 });

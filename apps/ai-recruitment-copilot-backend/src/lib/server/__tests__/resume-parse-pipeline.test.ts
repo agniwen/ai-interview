@@ -37,7 +37,7 @@ describe("parseResumeOcrOnly", () => {
   const originalRetryDelay = process.env.RESUME_PARSE_OCR_RETRY_DELAY_MS;
 
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.resetAllMocks();
     process.env.RESUME_PARSE_OCR_PAGE_CONCURRENCY = "1";
     process.env.RESUME_PARSE_OCR_ATTEMPTS = "2";
     process.env.RESUME_PARSE_OCR_RETRY_DELAY_MS = "0";
@@ -94,11 +94,24 @@ describe("parseResumeOcrOnly", () => {
     expect(result.text).toBe("page-1\n\npage-2\n\npage-3");
     expect(mocks.qwenVlOcr).toHaveBeenCalledTimes(4);
   });
+
+  it("retries transient OCR TypeErrors that the provider uses for connection failures", async () => {
+    mocks.qwenVlOcr
+      .mockRejectedValueOnce(new TypeError("Connection error."))
+      .mockResolvedValueOnce("page-1")
+      .mockResolvedValueOnce("page-2")
+      .mockResolvedValueOnce("page-3");
+
+    const result = await parseResumeOcrOnly(new Uint8Array([1, 2, 3]));
+
+    expect(result.text).toBe("page-1\n\npage-2\n\npage-3");
+    expect(mocks.qwenVlOcr).toHaveBeenCalledTimes(4);
+  });
 });
 
 describe("extractResumeDocumentText", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.resetAllMocks();
     mocks.rasterizePdfWithMeta.mockResolvedValue({
       pageCount: 1,
       pages: [Buffer.from("pdf-page")],

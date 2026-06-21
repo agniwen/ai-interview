@@ -2,6 +2,7 @@ import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { zValidator } from "@hono/zod-validator";
 import { and, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
+import type { ResumeProfile } from "@arc/db-schema/interview/types";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import { getObjectBytes, getObjectStream } from "@arc/ai-recruitment-copilot-backend/lib/server/s3";
 import { studioInterview, studioInterviewSchedule } from "@arc/db-schema/schema";
@@ -39,6 +40,7 @@ import {
 import {
   buildScheduleRows,
   normalizeResumeFile,
+  resolveResumeUploadStorage,
   storeInterviewResume,
   toBadRequest,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/interview/utils";
@@ -46,7 +48,9 @@ import {
   listInterviewRoundsForCandidate,
   loadInterviewRoundDetail,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/dao/interview-rounds";
-import { queryInterviewDedup } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/dao/studio-interviews";
+import { findSemanticResumeDuplicates } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/dedup-service";
+import { enqueueResumeSemanticIndexJobBestEffort } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/enqueue";
+import { deleteResumeSemanticIndexBestEffort } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/lifecycle";
 import { autoBindApplicableTemplates } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interview-questions/dao/bindings";
 import { jobDescriptionIdsExist } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao";
 import { createResumeRecordFromStorage } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/create-from-storage";
@@ -57,6 +61,7 @@ const dedupCheckInputSchema = z.object({
   email: z.string().trim().max(200).nullable().optional(),
   name: z.string().trim().max(200).nullable().optional(),
   phone: z.string().trim().max(40).nullable().optional(),
+  resumeProfile: z.custom<ResumeProfile>().nullable().optional(),
 });
 
 // 「发起 AI 面试」请求体：候选人侧已存在简历库行，只把（可能被用户编辑过的）
@@ -206,10 +211,24 @@ export const resumeLibraryRouter = factory
         return c.json({ message: "Unauthorized" }, 401);
       }
       const input = c.req.valid("json");
-      const matches = await queryInterviewDedup(activeOrg.id, {
+      const matches = await findSemanticResumeDuplicates({
         email: input.email ?? null,
         name: input.name ?? null,
+        organizationId: activeOrg.id,
         phone: input.phone ?? null,
+        resumeProfile: input.resumeProfile ?? null,
+      });
+      console.info("[resume-dedup-check] response", {
+        matchCount: matches.length,
+        matches: matches.map((match) => ({
+          id: match.id,
+          level: match.level,
+          score: match.score,
+          semanticReasons: match.semanticReasons,
+          similarity: match.similarity,
+        })),
+        organizationId: activeOrg.id,
+        route: "studio.resumes",
       });
       return c.json({ matches }, 200);
     },
@@ -479,10 +498,12 @@ export const resumeLibraryRouter = factory
         }
       }
 
-      const uploadResult =
-        resume && c.var.user
-          ? await storeInterviewResume(crypto.randomUUID(), resume, c.var.user.id, activeOrg.id)
-          : null;
+      const uploadResult = await resolveResumeUploadStorage({
+        organizationId: activeOrg.id,
+        parsedResumePayload,
+        resume,
+        userId: c.var.user?.id,
+      });
       const resumeStorageKey = uploadResult?.storageKey ?? null;
       const resumeContentHash = uploadResult?.contentHash ?? null;
 
@@ -517,6 +538,11 @@ export const resumeLibraryRouter = factory
       });
 
       invalidateStudioInterviewCaches(activeOrg.id);
+      await enqueueResumeSemanticIndexJobBestEffort({
+        organizationId: activeOrg.id,
+        sourceId: recordId,
+        sourceType: "studio_interview",
+      });
       const visibilityScope = await loadVisibilityScope(
         activeOrg.id,
         c.var.member?.role,
@@ -643,6 +669,13 @@ export const resumeLibraryRouter = factory
       });
 
       invalidateStudioInterviewCaches(activeOrg.id);
+      if (resumeProfile) {
+        await enqueueResumeSemanticIndexJobBestEffort({
+          organizationId: activeOrg.id,
+          sourceId: id,
+          sourceType: "studio_interview",
+        });
+      }
       const detail = await loadResumeDetail(id, activeOrg.id, visibilityScope);
       return c.json(detail, 200);
     } catch (error) {
@@ -675,6 +708,10 @@ export const resumeLibraryRouter = factory
     if (result.length === 0) {
       return c.json({ error: "记录不存在。" }, 404);
     }
+    await deleteResumeSemanticIndexBestEffort({
+      sourceId: id,
+      sourceType: "studio_interview",
+    });
     invalidateStudioInterviewCaches(activeOrg.id);
     // 清理 chat 端的「已入库」状态：把所有 conversation 的 resumeImports
     // map 里指向该 interview 的 entry 都移除，避免 chat UI 残留假状态。
@@ -746,6 +783,10 @@ export const resumeLibraryRouter = factory
       // doing most of the work. Sequential is fine for the bulk case (N is
       // small and each UPDATE is essentially free when the LIKE misses).
       for (const deletedId of result) {
+        await deleteResumeSemanticIndexBestEffort({
+          sourceId: deletedId.id,
+          sourceType: "studio_interview",
+        });
         await removeImportedInterviewFromConversations(activeOrg.id, deletedId.id);
       }
       return c.json({ deletedCount: result.length, success: true }, 200);

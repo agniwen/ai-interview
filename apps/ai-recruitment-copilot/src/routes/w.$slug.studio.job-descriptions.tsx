@@ -30,6 +30,7 @@ import { FileTextIcon, PlusIcon, SparklesIcon } from "@/components/icons/hugeico
 import { useCallback, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ButtonGroup } from "@/components/ui/button-group";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   actionsColumn,
@@ -51,6 +52,7 @@ import { rpc } from "@/lib/client/rpc";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { JobDescriptionFormDialog } from "@/components/features/studio/job-descriptions/job-description-form-dialog";
 import { JobDescriptionAiCreateDialog } from "@/components/features/studio/job-descriptions/job-description-ai-create-dialog";
+import { JobDescriptionTalentRecommendationsDialog } from "@/components/features/studio/job-descriptions/job-description-talent-recommendations-dialog";
 
 function JobDescriptionManagementPage({
   departments,
@@ -67,6 +69,10 @@ function JobDescriptionManagementPage({
   // 当前点开"简历关联"的那条 JD；null 表示弹窗关闭。
   // The JD whose associated resumes are being inspected; null = closed.
   const [resumesScope, setResumesScope] = useState<{ id: string; name: string } | null>(null);
+  const [recommendationScope, setRecommendationScope] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
   const [createDraft, setCreateDraft] = useState<JobDescriptionFormValues | null>(null);
   const [createDraftSessionId, setCreateDraftSessionId] = useState(0);
   const [aiCreateOpen, setAiCreateOpen] = useState(false);
@@ -256,6 +262,12 @@ function JobDescriptionManagementPage({
       actionsColumn<JobDescriptionListRecord>({
         inline: [
           {
+            label: "推荐",
+            onClick: (r) => {
+              setRecommendationScope({ id: r.id, name: r.name });
+            },
+          },
+          {
             label: "编辑",
             onClick: (r) => {
               void crud.openEdit(r);
@@ -349,25 +361,29 @@ function JobDescriptionManagementPage({
                     创建在招岗位之后即可在面试记录中引用，并带上面试官 prompt 与音色。
                   </EmptyDescription>
                 </EmptyHeader>
-                <EmptyContent className="flex flex-wrap items-center justify-center gap-2">
-                  <Button
-                    disabled={missingRefs}
-                    onClick={() => setAiCreateOpen(true)}
-                    type="button"
-                  >
-                    <SparklesIcon className="size-4" />
-                    AI 创建在招岗位
-                  </Button>
-                  <Button
-                    disabled={missingRefs}
-                    onClick={() => {
-                      setCreateDraft(null);
-                      crud.openCreate();
-                    }}
-                  >
-                    <PlusIcon className="size-4" />
-                    新建在招岗位
-                  </Button>
+                <EmptyContent className="flex items-center justify-center">
+                  <ButtonGroup>
+                    <Button
+                      disabled={missingRefs}
+                      onClick={() => {
+                        setCreateDraft(null);
+                        crud.openCreate();
+                      }}
+                    >
+                      <PlusIcon className="size-4" />
+                      新建在招岗位
+                    </Button>
+                    <Button
+                      aria-label="AI 创建在招岗位"
+                      disabled={missingRefs}
+                      onClick={() => setAiCreateOpen(true)}
+                      size="icon"
+                      title="AI 创建在招岗位"
+                      type="button"
+                    >
+                      <SparklesIcon className="size-4" />
+                    </Button>
+                  </ButtonGroup>
                 </EmptyContent>
               </Empty>
             )
@@ -375,16 +391,7 @@ function JobDescriptionManagementPage({
           filters={filtersConfig}
           getRowId={(r) => r.id}
           toolbarRight={
-            <div className="flex flex-1 flex-wrap items-center justify-end gap-2 sm:flex-none">
-              <Button
-                className="flex-1 sm:flex-none"
-                disabled={missingRefs}
-                onClick={() => setAiCreateOpen(true)}
-                type="button"
-              >
-                <SparklesIcon className="size-4" />
-                AI 创建在招岗位
-              </Button>
+            <ButtonGroup className="flex-1 sm:flex-none">
               <Button
                 className="flex-1 sm:flex-none"
                 disabled={missingRefs}
@@ -396,7 +403,17 @@ function JobDescriptionManagementPage({
                 <PlusIcon className="size-4" />
                 新建在招岗位
               </Button>
-            </div>
+              <Button
+                aria-label="AI 创建在招岗位"
+                disabled={missingRefs}
+                onClick={() => setAiCreateOpen(true)}
+                size="icon"
+                title="AI 创建在招岗位"
+                type="button"
+              >
+                <SparklesIcon className="size-4" />
+              </Button>
+            </ButtonGroup>
           }
         />
       </div>
@@ -441,6 +458,16 @@ function JobDescriptionManagementPage({
           }
         }}
         open={resumesScope !== null}
+      />
+
+      <JobDescriptionTalentRecommendationsDialog
+        jobDescription={recommendationScope}
+        onOpenChange={(next) => {
+          if (!next) {
+            setRecommendationScope(null);
+          }
+        }}
+        open={recommendationScope !== null}
       />
     </>
   );

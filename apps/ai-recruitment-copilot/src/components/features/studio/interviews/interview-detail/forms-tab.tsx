@@ -1,6 +1,5 @@
 import type { CandidateFormSubmissionWithSnapshot } from "@arc/db-schema/candidate-forms";
 import { RotateCcwIcon } from "@/components/icons/hugeicons";
-import { SoftPanel } from "@/components/features/display/soft-panel";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
@@ -45,9 +44,9 @@ function renderAnswer(question: FormQuestion, rawValue: string | string[] | unde
     );
   }
   return (
-    <SoftPanel className="whitespace-pre-wrap bg-muted/60 px-3 py-2 text-foreground text-sm leading-relaxed">
+    <div className="whitespace-pre-wrap rounded-xl bg-muted/50 px-3 py-2 text-foreground text-sm leading-relaxed">
       {Array.isArray(rawValue) ? rawValue.join(", ") : rawValue}
-    </SoftPanel>
+    </div>
   );
 }
 
@@ -78,16 +77,13 @@ export function FormsTab({
   return (
     <div className="space-y-5">
       {submissions.map((submission) => (
-        <article
-          className="space-y-4 rounded-2xl border border-border bg-muted/30 p-5 shadow-xs"
-          key={submission.id}
-        >
+        <article className="space-y-4 border-t border-border/50 pt-5" key={submission.id}>
           {/* 头部：表单标题 + 描述为主信息；版本徽章 + 重置按钮在右侧操作区。
               用 border-b 分隔头部和问答内容，跟 drawer 的卡片结构对齐。
               Header: title + description as primary info; version + reset as
               the right-side action area. The border-b mirrors the drawer
               card structure so both surfaces feel consistent. */}
-          <header className="flex items-start justify-between gap-3 border-border border-b pb-3">
+          <header className="flex items-start justify-between gap-3">
             <div className="min-w-0 space-y-1">
               <h3 className="font-semibold text-base text-foreground leading-tight">
                 {submission.snapshot.title}
@@ -144,7 +140,7 @@ export function FormsTab({
 
           {/* 版本注脚：用 border-t 与上方问答区分开，跟头部 border-b 对称。
               Version footnote separated by a border-t mirror of the header. */}
-          <p className="border-border border-t pt-3 text-muted-foreground text-xs">
+          <p className="border-border/50 border-t pt-3 text-muted-foreground text-xs">
             该记录基于 v{submission.version} 的快照；如已更新，请到「面试表单」查看当前版本。
           </p>
         </article>

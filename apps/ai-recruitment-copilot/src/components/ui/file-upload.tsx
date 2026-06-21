@@ -54,15 +54,15 @@ const ACCEPTED_FILE_TYPES: AcceptedFileType[] = [
 
 const ICON_TRANSFORMS = [
   {
-    active: "translate(-114%, -50%) rotate(-12deg) scale(1.08)",
+    active: "translate(-108%, -50%) rotate(-10deg) scale(1.04)",
     idle: "translate(-78%, -50%) rotate(-8deg)",
   },
   {
-    active: "translate(-50%, -50%) rotate(0deg) scale(1.18)",
+    active: "translate(-50%, -50%) rotate(0deg) scale(1.08)",
     idle: "translate(-50%, -50%) rotate(0deg)",
   },
   {
-    active: "translate(14%, -50%) rotate(12deg) scale(1.08)",
+    active: "translate(8%, -50%) rotate(10deg) scale(1.04)",
     idle: "translate(-22%, -50%) rotate(8deg)",
   },
 ];
@@ -116,10 +116,10 @@ function UploadIconCluster({
       <div className="grid h-14 w-14 place-items-center">
         <div
           className={cn(
-            "grid size-12 place-items-center rounded-xl border bg-background text-muted-foreground transition-[transform,color,background-color] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]",
+            "grid size-12 place-items-center rounded-xl border bg-background text-muted-foreground transition-[transform,color,background-color] duration-[220ms] ease-[cubic-bezier(0.23,1,0.32,1)]",
             "motion-reduce:transition-none",
             isDragging &&
-              "scale-[1.14] bg-popover text-foreground shadow-md shadow-black/10 not-dark:bg-clip-border dark:shadow-black/25",
+              "scale-[1.08] bg-popover text-foreground shadow-md shadow-black/10 not-dark:bg-clip-border dark:shadow-black/25",
           )}
         >
           <UploadIcon className="size-5" />
@@ -133,7 +133,7 @@ function UploadIconCluster({
       {acceptedFileTypes.map((item, index) => (
         <div
           className={cn(
-            "absolute top-1/2 left-1/2 grid size-12 place-items-center rounded-xl border bg-background text-muted-foreground transition-[transform,color,background-color] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]",
+            "absolute top-1/2 left-1/2 grid size-12 place-items-center rounded-xl border bg-background text-muted-foreground transition-[transform,color,background-color] duration-[220ms] ease-[cubic-bezier(0.23,1,0.32,1)]",
             "motion-reduce:transition-none",
             index === 1 && "z-10",
             isDragging &&

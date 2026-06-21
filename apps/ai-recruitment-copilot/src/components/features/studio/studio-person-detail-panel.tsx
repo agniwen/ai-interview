@@ -50,7 +50,6 @@ import type { ReactNode } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { CandidateBasicInfoView } from "@/components/features/candidate/candidate-basic-info-view";
 import { ResumeProfileView } from "@/components/features/resume/resume-profile-view";
-import { SoftPanel } from "@/components/features/display/soft-panel";
 import { ResumeOverviewPanel } from "@/components/features/studio/resumes/resume-overview-panel";
 import { toast } from "sonner";
 import { DATE_TIME_DISPLAY_OPTIONS, TimeDisplay } from "@/components/features/display/time-display";
@@ -890,6 +889,7 @@ function useStudioPersonDetailPanel({
                 onEdit(record.id);
               }
             }}
+            size="lg"
             type="button"
             variant="outline"
           >
@@ -900,6 +900,7 @@ function useStudioPersonDetailPanel({
         {showLaunchButton ? (
           <Button
             className="flex-1"
+            size="lg"
             onClick={() => {
               if (onLaunchInterview) {
                 // 简历库详情入口：交给外层 LaunchInterviewDialog 处理；关闭本面板
@@ -1072,14 +1073,14 @@ function useStudioPersonDetailPanel({
   }
 
   const showTimelineRail = mode === "resume" && !isPublic && activeTab === "overview";
-  let bodyLayoutClassName = "flex flex-col gap-5";
+  let bodyLayoutClassName = "flex flex-col gap-8";
   if (showTimelineRail) {
     bodyLayoutClassName =
-      "grid gap-5 xl:h-full xl:min-h-0 xl:grid-cols-[minmax(0,1fr)_22rem] xl:overflow-hidden";
+      "grid gap-4 xl:h-full xl:min-h-0 xl:grid-cols-[minmax(0,1fr)_22rem] xl:overflow-hidden";
   }
   const detailScrollClassName = showTimelineRail
-    ? "min-w-0 flex flex-col gap-5 xl:h-full xl:min-h-0 xl:overflow-y-auto xl:pr-1"
-    : "min-w-0 flex flex-col gap-5";
+    ? "min-w-0 flex flex-col gap-8 xl:h-full xl:min-h-0 xl:overflow-y-auto xl:pr-1"
+    : "min-w-0 flex flex-col gap-8";
 
   // oxlint-disable-next-line no-nested-ternary -- Splitting this tri-state body into a helper balloons JSX context; keeping inline.
   const body = isLoading ? (
@@ -1091,7 +1092,7 @@ function useStudioPersonDetailPanel({
         {actionBar}
         <AnimatedHeight clip={!showTimelineRail}>
           <TabsContent value="overview">
-            <div className="space-y-6">
+            <div className="space-y-8">
               {/* 简历模式：复用 ResumeOverviewPanel —— 与「发起 AI 面试」
               弹窗的概览 tab 同一布局，后续要扩字段也只改一处。
               Resume mode: defer to ResumeOverviewPanel so the
@@ -1099,11 +1100,11 @@ function useStudioPersonDetailPanel({
               {mode === "resume" && resumeRecord ? (
                 <ResumeOverviewPanel detail={resumeRecord} />
               ) : (
-                <div className="grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)]">
+                <div className="grid gap-8 xl:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)]">
                   {isReportsLoading ? (
                     <InterviewResultOverviewSkeleton />
                   ) : (
-                    <div className="h-full rounded-2xl border border-border bg-background p-5">
+                    <section className="h-full rounded-2xl bg-muted/20 p-5">
                       <div className="flex flex-wrap items-center justify-between gap-3">
                         <h3 className="font-medium text-sm">面试结果</h3>
                         <Badge
@@ -1114,7 +1115,7 @@ function useStudioPersonDetailPanel({
                           {latestReport ? formatReportStatus(latestReport.status) : "暂无报告"}
                         </Badge>
                       </div>
-                      <div className="mt-4 grid gap-4 sm:grid-cols-3">
+                      <div className="mt-5 grid gap-x-8 gap-y-4 sm:grid-cols-3">
                         <SummaryMetric
                           label="评分"
                           value={
@@ -1148,7 +1149,7 @@ function useStudioPersonDetailPanel({
                           }
                         />
                       </div>
-                      <div className="mt-4 text-muted-foreground text-sm leading-normal">
+                      <div className="mt-5 border-border/50 border-t pt-5 text-muted-foreground text-sm leading-6">
                         <Markdown>
                           {compactText(
                             latestEvaluationSummary.overallAssessment ??
@@ -1158,12 +1159,12 @@ function useStudioPersonDetailPanel({
                           )}
                         </Markdown>
                       </div>
-                    </div>
+                    </section>
                   )}
 
-                  <div className="h-full rounded-2xl border border-border bg-background p-5">
+                  <section className="h-full space-y-4 border-t border-border/50 pt-6 xl:border-t-0 xl:pt-0">
                     <h3 className="font-medium text-sm">候选人信息</h3>
-                    <div className="mt-4">
+                    <div>
                       <CandidateBasicInfoView
                         candidateEmail={record.candidateEmail}
                         candidateName={record.candidateName}
@@ -1176,20 +1177,20 @@ function useStudioPersonDetailPanel({
                         targetRole={record.targetRole}
                       />
                     </div>
-                  </div>
+                  </section>
                 </div>
               )}
 
               {/* 轮次概览（面试模式专属）/ Round overview (interview mode only) */}
               {mode === "interview" && record.roundId ? (
-                <div className="rounded-2xl border border-border bg-background p-5">
+                <section className="space-y-4 border-t border-border/50 pt-6">
                   <h3 className="font-medium text-sm">轮次概览</h3>
                   {isAiStageLocked ? (
-                    <p className="mt-2 rounded-md border border-border/50 bg-muted/40 px-3 py-2 text-muted-foreground text-xs leading-normal">
+                    <p className="rounded-xl bg-muted/30 px-3 py-2 text-muted-foreground text-xs leading-5">
                       {aiStageLockedReason}
                     </p>
                   ) : null}
-                  <div className="mt-4 space-y-3">
+                  <div className="space-y-4">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <div className="flex items-center gap-2">
                         <span className="font-medium text-sm">{record.roundLabel}</span>
@@ -1228,7 +1229,7 @@ function useStudioPersonDetailPanel({
                       </div>
                     </div>
                     {isPublic ? null : (
-                      <SoftPanel className="flex items-center justify-between gap-3 px-3 py-2">
+                      <div className="flex items-center justify-between gap-3 rounded-xl bg-muted/30 px-4 py-3 border border-muted/60">
                         <div className="min-w-0">
                           {/* 允许面试者文本输入 / Allow candidate text input */}
                           <p className="font-medium text-sm">允许面试者文本输入</p>
@@ -1261,19 +1262,19 @@ function useStudioPersonDetailPanel({
                             </Button>
                           ) : null}
                         </div>
-                      </SoftPanel>
+                      </div>
                     )}
                   </div>
-                </div>
+                </section>
               ) : null}
 
               {mode === "interview" ? (
-                <div className="rounded-2xl border border-border bg-background p-5">
+                <section className="space-y-3 border-t border-border/50 pt-6">
                   <h3 className="font-medium text-sm">简历评价</h3>
-                  <div className="mt-3 text-muted-foreground text-sm leading-normal">
+                  <div className="text-muted-foreground text-sm leading-6">
                     <Markdown>{truncateText(record.notes) || "暂无简历评价"}</Markdown>
                   </div>
-                </div>
+                </section>
               ) : null}
             </div>
           </TabsContent>
@@ -1283,33 +1284,18 @@ function useStudioPersonDetailPanel({
               {isReportsLoading ? (
                 <ReportsSkeleton />
               ) : (
-                <div className="space-y-6">
-                  <div className="grid gap-4 md:grid-cols-4">
-                    <div className="rounded-2xl border border-border bg-background p-4">
-                      {/* 本轮通话次数 / Call count for this round */}
-                      <p className="text-muted-foreground text-xs">本轮通话次数</p>
-                      <p className="mt-2 font-medium text-2xl text-primary tabular-nums">
-                        {reports.length}
-                      </p>
-                    </div>
-                    <div className="rounded-2xl border border-border bg-background p-4">
-                      <p className="text-muted-foreground text-xs">已完成</p>
-                      <p className="mt-2 font-medium text-2xl text-primary tabular-nums">
-                        {reports.filter((report) => report.status === "done").length}
-                      </p>
-                    </div>
-                    <div className="rounded-2xl border border-border bg-background p-4">
-                      <p className="text-muted-foreground text-xs">失败</p>
-                      <p className="mt-2 font-medium text-2xl text-primary tabular-nums">
-                        {reports.filter((report) => report.status === "failed").length}
-                      </p>
-                    </div>
-                    <div className="rounded-2xl border border-border bg-background p-4">
-                      <p className="text-muted-foreground text-xs">累计对话轮次</p>
-                      <p className="mt-2 font-medium text-2xl text-primary tabular-nums">
-                        {totalDisplayTurnCount}
-                      </p>
-                    </div>
+                <div className="space-y-8">
+                  <div className="grid gap-x-8 gap-y-4 md:grid-cols-4">
+                    <SummaryMetric label="本轮通话次数" value={reports.length} />
+                    <SummaryMetric
+                      label="已完成"
+                      value={reports.filter((report) => report.status === "done").length}
+                    />
+                    <SummaryMetric
+                      label="失败"
+                      value={reports.filter((report) => report.status === "failed").length}
+                    />
+                    <SummaryMetric label="累计对话轮次" value={totalDisplayTurnCount} />
                   </div>
 
                   {reports.length === 0 ? (
@@ -1351,7 +1337,7 @@ function useStudioPersonDetailPanel({
 
                         return (
                           <AccordionItem
-                            className="overflow-hidden rounded-2xl border border-border bg-background px-0 last:border-b"
+                            className="overflow-hidden rounded-2xl bg-muted/20 px-0"
                             key={report.conversationId}
                             value={report.conversationId}
                           >
@@ -1393,9 +1379,9 @@ function useStudioPersonDetailPanel({
                                       surface="section"
                                     />
                                   ) : null}
-                                  <SoftPanel className="p-4">
+                                  <section className="rounded-xl bg-background/70 p-4">
                                     <h4 className="font-medium text-sm">会话概览</h4>
-                                    <div className="mt-3 grid gap-2 text-sm">
+                                    <div className="mt-3 grid gap-x-8 gap-y-4 text-sm md:grid-cols-2">
                                       <DetailRow
                                         label="会话 ID"
                                         value={
@@ -1447,11 +1433,11 @@ function useStudioPersonDetailPanel({
                                         }
                                       />
                                     </div>
-                                  </SoftPanel>
+                                  </section>
 
-                                  <SoftPanel className="p-4">
+                                  <section className="rounded-xl bg-background/70 p-4">
                                     <h4 className="font-medium text-sm">最终总结</h4>
-                                    <div className="mt-3 text-muted-foreground text-sm leading-normal">
+                                    <div className="mt-3 text-muted-foreground text-sm leading-6">
                                       <Markdown>
                                         {report.transcriptSummary ?? "暂无总结。"}
                                       </Markdown>
@@ -1461,20 +1447,20 @@ function useStudioPersonDetailPanel({
                                         {report.latestError}
                                       </div>
                                     ) : null}
-                                  </SoftPanel>
+                                  </section>
                                 </div>
 
                                 <div className="lg:relative">
-                                  <SoftPanel className="flex h-[480px] flex-col overflow-hidden p-4 lg:absolute lg:inset-0 lg:h-auto">
+                                  <section className="flex h-[480px] flex-col overflow-hidden rounded-xl bg-background/70 p-4 lg:absolute lg:inset-0 lg:h-auto">
                                     <h4 className="shrink-0 pb-2 font-medium text-sm">对话记录</h4>
                                     <ConversationTranscript
                                       activeTurnIndex={activeEvidence?.turnIndex ?? null}
                                       turns={report.turns}
                                     />
-                                  </SoftPanel>
+                                  </section>
                                 </div>
 
-                                <SoftPanel className="p-4">
+                                <section className="rounded-xl bg-background/70 p-4">
                                   <h4 className="font-medium text-sm">评估指标</h4>
                                   <div className="mt-4 max-h-[420px] overflow-y-auto pr-1">
                                     <EvaluationResults
@@ -1487,7 +1473,7 @@ function useStudioPersonDetailPanel({
                                       onEvidenceSelect={handleEvidenceSelect}
                                     />
                                   </div>
-                                </SoftPanel>
+                                </section>
 
                                 <InterviewMetricsPanel
                                   metrics={report.metrics ?? {}}
@@ -1507,12 +1493,15 @@ function useStudioPersonDetailPanel({
 
           {mode === "interview" ? (
             <TabsContent value="questions">
-              <div className="rounded-2xl border border-border bg-background p-4">
+              <section className="space-y-4">
                 <h3 className="font-medium text-sm">AI 面试题</h3>
-                <div className="mt-4 flex flex-col gap-3">
+                <div className="flex flex-col gap-3">
                   {visibleInterviewQuestions.length > 0 ? (
                     visibleInterviewQuestions.map((question) => (
-                      <SoftPanel className="px-3 py-2.5" key={question.order}>
+                      <article
+                        className="rounded-xl bg-muted/30 px-4 py-3 border-muted/60 border"
+                        key={question.order}
+                      >
                         <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
                           <span className="font-medium text-sm">第{question.order} 题</span>
                           <span className="shrink-0 text-muted-foreground text-xs">
@@ -1522,7 +1511,7 @@ function useStudioPersonDetailPanel({
                         <div className="mt-2 text-sm leading-normal">
                           <Markdown>{truncateText(question.question)}</Markdown>
                         </div>
-                      </SoftPanel>
+                      </article>
                     ))
                   ) : (
                     <p className="text-muted-foreground text-sm">
@@ -1530,21 +1519,19 @@ function useStudioPersonDetailPanel({
                     </p>
                   )}
                 </div>
-              </div>
+              </section>
             </TabsContent>
           ) : null}
 
           {mode === "interview" ? (
             <TabsContent value="experience">
-              <div className="rounded-2xl border border-border bg-background p-5">
-                <ResumeProfileView profile={record.resumeProfile ?? null} />
-              </div>
+              <ResumeProfileView profile={record.resumeProfile ?? null} />
             </TabsContent>
           ) : null}
 
           {mode === "resume" ? (
             <TabsContent value="rounds">
-              <div className="rounded-2xl border border-border bg-background p-5">
+              <section className="space-y-4">
                 <div className="flex items-center justify-between gap-3">
                   <h3 className="font-medium text-sm">AI 面试轮次</h3>
                   <span className="text-muted-foreground text-xs">
@@ -1552,7 +1539,7 @@ function useStudioPersonDetailPanel({
                   </span>
                 </div>
                 {isAiStageLocked ? (
-                  <p className="mt-3 rounded-md border border-border/50 bg-muted/40 px-3 py-2 text-muted-foreground text-xs leading-normal">
+                  <p className="rounded-xl bg-muted/30 px-3 py-2 text-muted-foreground text-xs leading-5">
                     {aiStageLockedReason}
                   </p>
                 ) : null}
@@ -1561,11 +1548,11 @@ function useStudioPersonDetailPanel({
                   <RoundsSkeleton />
                 ) : /* oxlint-disable-next-line no-nested-ternary -- Secondary branch renders empty-state or list. */
                 candidateRounds.length === 0 ? (
-                  <p className="mt-4 text-muted-foreground text-sm leading-normal">
+                  <p className="text-muted-foreground text-sm leading-normal">
                     该候选人还没有发起面试。在简历库点「保存并发起面试」即可创建。
                   </p>
                 ) : (
-                  <div className="mt-4 flex flex-col gap-3">
+                  <div className="flex flex-col gap-3">
                     {candidateRounds.map((entry) => {
                       const statusMeta = scheduleEntryStatusMeta[entry.status];
                       const fullLink = toAbsoluteUrl(entry.interviewLink);
@@ -1575,7 +1562,10 @@ function useStudioPersonDetailPanel({
                         ? roundActionLockedReason
                         : aiStageLockedReason;
                       return (
-                        <SoftPanel className="px-3 py-2.5" key={entry.id}>
+                        <article
+                          className="rounded-xl bg-muted/30 px-4 py-3 border-muted/60 border"
+                          key={entry.id}
+                        >
                           <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
                             <div className="flex flex-wrap items-center gap-2">
                               <span className="wrap-break-word font-medium text-sm">
@@ -1619,12 +1609,12 @@ function useStudioPersonDetailPanel({
                               />
                             </div>
                           </div>
-                        </SoftPanel>
+                        </article>
                       );
                     })}
                   </div>
                 )}
-              </div>
+              </section>
             </TabsContent>
           ) : null}
 

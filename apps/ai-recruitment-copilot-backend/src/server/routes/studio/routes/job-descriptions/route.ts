@@ -22,6 +22,7 @@ import {
 } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao";
 import { cacheTags, safeUpdateTag } from "@arc/ai-recruitment-copilot-backend/server/cache-tags";
 import { generateJobDescriptionFromPrompt } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/utils/ai-job-description-generate";
+import { recommendCandidatesForJobDescription } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/utils/recommendations";
 
 const generateJobDescriptionBodySchema = z.object({
   departmentName: z.string().trim().max(120).optional(),
@@ -94,6 +95,11 @@ const jobDescriptionListQuerySchema = z.object({
   search: z.string().optional(),
   sortBy: z.string().optional(),
   sortOrder: z.string().optional(),
+});
+
+const recommendationBodySchema = z.object({
+  excludeAlreadyLinked: z.boolean().optional().default(true),
+  limit: z.number().int().min(1).max(50).optional().default(20),
 });
 
 export const jobDescriptionsRouter = factory
@@ -230,6 +236,46 @@ export const jobDescriptionsRouter = factory
     }
     return c.json(record, 200);
   })
+  .post(
+    "/:id/recommendations",
+    requirePermission("jd", "read"),
+    requirePermission("resume", "read"),
+    zValidator("json", recommendationBodySchema, jsonValidatorError("请求参数无效。")),
+    async (c) => {
+      const { activeOrg } = c.var;
+      if (!activeOrg) {
+        return c.json({ message: "Unauthorized" }, 401);
+      }
+      const id = c.req.param("id");
+      const record = await loadJobDescriptionById(activeOrg.id, id);
+      if (!record) {
+        return c.json({ error: "在招岗位不存在。" }, 404);
+      }
+      const body = c.req.valid("json");
+      try {
+        const result = await recommendCandidatesForJobDescription({
+          excludeAlreadyLinked: body.excludeAlreadyLinked,
+          jobDescription: {
+            departmentName: null,
+            description: record.description,
+            id: record.id,
+            name: record.name,
+            prompt: record.prompt,
+          },
+          limit: body.limit,
+          organizationId: activeOrg.id,
+        });
+        return c.json(result, 200);
+      } catch (error) {
+        console.warn("[job-description-recommendations] failed", {
+          error,
+          id,
+          organizationId: activeOrg.id,
+        });
+        return c.json({ error: "人才推荐失败，请稍后重试。" }, 500);
+      }
+    },
+  )
   .patch(
     "/:id",
     requirePermission("jd", "update"),

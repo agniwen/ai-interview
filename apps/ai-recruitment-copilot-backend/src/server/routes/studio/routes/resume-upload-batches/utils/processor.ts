@@ -37,7 +37,8 @@ import {
 } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resume-pool/dao";
 import { createResumeRecordFromStorage } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/create-from-storage";
 import { syncResumeSkills } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/dao/skills";
-import { queryInterviewDedup } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/dao/studio-interviews";
+import { enqueueResumeSemanticIndexJobBestEffort } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/enqueue";
+import { findSemanticResumeDuplicates } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/dedup-service";
 
 const ERROR_MESSAGE_MAX = 500;
 
@@ -60,6 +61,18 @@ type ItemRow = Awaited<ReturnType<typeof claimNextPendingItem>>;
 type BatchRow = typeof resumeUploadBatch.$inferSelect;
 type ParsedResume = Awaited<ReturnType<typeof parseResumeBytesToProfile>>;
 
+class BatchItemCancelledError extends Error {
+  readonly batchId: string;
+  readonly itemId: string;
+
+  constructor(batchId: string, itemId: string) {
+    super("简历上传任务已取消。");
+    this.name = "BatchItemCancelledError";
+    this.batchId = batchId;
+    this.itemId = itemId;
+  }
+}
+
 async function loadClaimMissSnapshot(itemId: string) {
   const [row] = await db
     .select({
@@ -71,6 +84,25 @@ async function loadClaimMissSnapshot(itemId: string) {
     .where(eq(resumeUploadBatchItem.id, itemId))
     .limit(1);
   return row ?? null;
+}
+
+async function isBatchItemCancelled(batchId: string, itemId: string): Promise<boolean> {
+  const [row] = await db
+    .select({
+      batchStatus: resumeUploadBatch.status,
+      itemStatus: resumeUploadBatchItem.status,
+    })
+    .from(resumeUploadBatchItem)
+    .innerJoin(resumeUploadBatch, eq(resumeUploadBatch.id, resumeUploadBatchItem.batchId))
+    .where(and(eq(resumeUploadBatchItem.id, itemId), eq(resumeUploadBatchItem.batchId, batchId)))
+    .limit(1);
+  return !row || row.batchStatus === "cancelled" || row.itemStatus === "cancelled";
+}
+
+async function assertBatchItemNotCancelled(batchId: string, itemId: string): Promise<void> {
+  if (await isBatchItemCancelled(batchId, itemId)) {
+    throw new BatchItemCancelledError(batchId, itemId);
+  }
 }
 
 type ClaimMissSnapshot = {
@@ -302,6 +334,36 @@ async function generateReviewForParsedResume(input: {
   }
 }
 
+async function findDuplicateSkipSnapshot(input: {
+  batchRow: BatchRow;
+  itemId: string;
+  organizationId: string;
+  resumeProfile: ParsedResume["resumeProfile"];
+}) {
+  const shouldSkipDuplicates =
+    input.batchRow.dedupPolicy === "skip" &&
+    (input.batchRow.target !== "resume_pool" || input.batchRow.resumePoolScope === "private");
+  if (!shouldSkipDuplicates) {
+    return null;
+  }
+
+  const dedupStartedAt = Date.now();
+  logStep("dedup.start", { itemId: input.itemId });
+  const matches = await findSemanticResumeDuplicates({
+    email: input.resumeProfile?.email ?? null,
+    name: input.resumeProfile?.name ?? null,
+    organizationId: input.organizationId,
+    phone: input.resumeProfile?.phone ?? null,
+    resumeProfile: input.resumeProfile,
+  });
+  logStep("dedup.done", {
+    durationMs: elapsed(dedupStartedAt),
+    itemId: input.itemId,
+    matchCount: matches.length,
+  });
+  return matches.length > 0 ? matches : null;
+}
+
 // S3 から PDF を取得してパースし、作成すべき studio_interview の情報を返す。
 // Fetch PDF from S3, parse it, and return the info needed to create a studio_interview.
 async function fetchAndParse(
@@ -325,9 +387,27 @@ async function fetchAndParse(
   }
 
   const { resumeProfile } = await resolveResumeProfile(item);
+  await assertBatchItemNotCancelled(batchRow.id, item.id);
+
+  const dedupSnapshot = await findDuplicateSkipSnapshot({
+    batchRow,
+    itemId: item.id,
+    organizationId,
+    resumeProfile,
+  });
+  await assertBatchItemNotCancelled(batchRow.id, item.id);
+  if (dedupSnapshot) {
+    return {
+      dedupSnapshot,
+      isDuplicateSkip: true,
+      succeededPoolItemId: null,
+      succeededRecordId: null,
+    };
+  }
 
   if (batchRow.target === "resume_pool") {
     let { poolItemId } = item;
+    await assertBatchItemNotCancelled(batchRow.id, item.id);
     if (poolItemId) {
       await markResumePoolItemParsed({
         actorId: userId,
@@ -360,30 +440,6 @@ async function fetchAndParse(
     };
   }
 
-  // 查重 / Dedup check
-  if (batchRow.dedupPolicy === "skip") {
-    const dedupStartedAt = Date.now();
-    logStep("dedup.start", { itemId: item.id });
-    const matches = await queryInterviewDedup(organizationId, {
-      email: resumeProfile?.email ?? null,
-      name: resumeProfile?.name ?? null,
-      phone: resumeProfile?.phone ?? null,
-    });
-    logStep("dedup.done", {
-      durationMs: elapsed(dedupStartedAt),
-      itemId: item.id,
-      matchCount: matches.length,
-    });
-    if (matches.length > 0) {
-      return {
-        dedupSnapshot: matches,
-        isDuplicateSkip: true,
-        succeededPoolItemId: null,
-        succeededRecordId: null,
-      };
-    }
-  }
-
   // jdMode 分支：
   //   "bind" → 直接用 batch.jobDescriptionId
   //   "auto" → 复用已解析的 resumeProfile + 全部在招岗位，调用 matchJobDescriptionForResume
@@ -408,6 +464,7 @@ async function fetchAndParse(
       const jds = await listAllJobDescriptions(organizationId);
       const match = await matchJobDescriptionForResume(resumeProfile, jds);
       jobDescriptionId = match?.jobDescriptionId ?? null;
+      await assertBatchItemNotCancelled(batchRow.id, item.id);
       logStep("jd.match.done", {
         candidateCount: jds.length,
         durationMs: elapsed(jdStartedAt),
@@ -415,6 +472,9 @@ async function fetchAndParse(
         matched: Boolean(jobDescriptionId),
       });
     } catch (error) {
+      if (error instanceof BatchItemCancelledError) {
+        throw error;
+      }
       // 自动匹配失败不算致命错误：简历仍然入库，只是不绑定岗位。
       // Auto-match failure is non-fatal: the resume still gets imported, just without a JD.
       console.error("[bulk-upload] auto JD match failed:", error);
@@ -426,6 +486,7 @@ async function fetchAndParse(
     organizationId,
     resumeProfile,
   });
+  await assertBatchItemNotCancelled(batchRow.id, item.id);
   const succeededRecordId = await upsertParsedResumeRecord({
     item,
     jobDescriptionId,
@@ -498,11 +559,15 @@ async function writeOutcome(
       if (item.resumeRecordId) {
         await tx.delete(studioInterview).where(eq(studioInterview.id, item.resumeRecordId));
       }
+      if (item.poolItemId) {
+        await tx.delete(resumePoolItem).where(eq(resumePoolItem.id, item.poolItemId));
+      }
       await tx
         .update(resumeUploadBatchItem)
         .set({
           dedupMatchSnapshot: outcome.dedupSnapshot as never,
           finishedAt: now,
+          poolItemId: null,
           resumeRecordId: null,
           status: "duplicate_skipped",
         })
@@ -538,6 +603,30 @@ async function writeOutcome(
   });
 }
 
+async function loadCancelledProcessResult(
+  item: NonNullable<ItemRow>,
+  batchRow: BatchRow,
+  startedAt: number,
+): Promise<ProcessNextResult | null> {
+  const detail = await loadBatchDetail(batchRow.id, batchRow.organizationId, batchRow.createdBy);
+  if (!detail) {
+    return null;
+  }
+  const updatedItem = detail.items.find((i) => i.id === item.id) ?? toItemDto(item as never);
+  logStep("item.process.cancelled", {
+    batchId: batchRow.id,
+    batchStatus: detail.batch.status,
+    durationMs: elapsed(startedAt),
+    itemId: item.id,
+    itemStatus: updatedItem.status,
+  });
+  return {
+    batch: detail.batch,
+    done: detail.batch.status === "completed" || detail.batch.status === "cancelled",
+    item: updatedItem,
+  };
+}
+
 async function processClaimedItem(
   item: NonNullable<ItemRow>,
   batchRow: BatchRow,
@@ -565,8 +654,12 @@ async function processClaimedItem(
 
   try {
     const result = await fetchAndParse(item, batchRow, batchRow.organizationId, batchRow.createdBy);
+    await assertBatchItemNotCancelled(batchRow.id, item.id);
     outcome = { ...outcome, ...result };
   } catch (error) {
+    if (error instanceof BatchItemCancelledError) {
+      return loadCancelledProcessResult(item, batchRow, startedAt);
+    }
     outcome.errorMessage = truncate(error instanceof Error ? error.message : String(error));
     logStep("item.process.error", {
       batchId: batchRow.id,
@@ -576,6 +669,14 @@ async function processClaimedItem(
   }
 
   await writeOutcome(item, batchRow.id, outcome);
+  const indexedSourceId = outcome.succeededRecordId ?? outcome.succeededPoolItemId;
+  if (!(outcome.errorMessage || indexedSourceId === null)) {
+    await enqueueResumeSemanticIndexJobBestEffort({
+      organizationId: batchRow.organizationId,
+      sourceId: indexedSourceId,
+      sourceType: outcome.succeededRecordId ? "studio_interview" : "resume_pool_item",
+    });
+  }
 
   const detail = await loadBatchDetail(batchRow.id, batchRow.organizationId, batchRow.createdBy);
   if (!detail) {

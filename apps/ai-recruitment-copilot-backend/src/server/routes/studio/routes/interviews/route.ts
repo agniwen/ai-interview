@@ -3,6 +3,7 @@ import { zValidator } from "@hono/zod-validator";
 import { and, eq, inArray, notExists } from "drizzle-orm";
 import { uniq } from "lodash-es";
 import { z } from "zod";
+import type { ResumeProfile } from "@arc/db-schema/interview/types";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import {
   candidateFormSubmission,
@@ -38,7 +39,6 @@ import {
   studioInterviewFormSchema,
   toNullableString,
 } from "@arc/db-schema/studio-interviews";
-import type { StudioInterviewStatus } from "@arc/db-schema/studio-interviews";
 import {
   analyzeResumeFile,
   generateInterviewQuestionsForProfile,
@@ -93,7 +93,8 @@ import {
   respondOfferDraft,
   sendOfferDraft,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/dao/offer-drafts";
-import { queryInterviewDedup } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/dao/studio-interviews";
+import { findSemanticResumeDuplicates } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/dedup-service";
+import { enqueueResumeSemanticIndexJobBestEffort } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/enqueue";
 import { jobDescriptionIdsExist } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao";
 import { syncResumeSkills } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/dao/skills";
 import {
@@ -111,7 +112,7 @@ import {
   buildScheduleRows,
   loadRecordById,
   normalizeResumeFile,
-  storeInterviewResume,
+  resolveResumeUploadStorage,
   toBadRequest,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/interview/utils";
 import { requirePermission } from "@arc/ai-recruitment-copilot-backend/server/middlewares/permission";
@@ -122,11 +123,13 @@ import {
 } from "@arc/ai-recruitment-copilot-backend/server/cache-tags";
 import { getObjectBytes, getObjectStream } from "@arc/ai-recruitment-copilot-backend/lib/server/s3";
 import { createPptxPreviewPdfResponse } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/utils/pptx-preview";
+import { resolveCandidateTransitionPatch } from "./utils/candidate-transition";
 
 const dedupCheckInputSchema = z.object({
   email: z.string().trim().max(200).nullable().optional(),
   name: z.string().trim().max(200).nullable().optional(),
   phone: z.string().trim().max(40).nullable().optional(),
+  resumeProfile: z.custom<ResumeProfile>().nullable().optional(),
 });
 
 // 候选人阶段流转输入。强制 outcome 与 pipelineStage 的不变量：
@@ -258,10 +261,24 @@ export const studioInterviewsRouter = factory
         return c.json({ message: "Unauthorized" }, 401);
       }
       const input = c.req.valid("json");
-      const matches = await queryInterviewDedup(activeOrg.id, {
+      const matches = await findSemanticResumeDuplicates({
         email: input.email ?? null,
         name: input.name ?? null,
+        organizationId: activeOrg.id,
         phone: input.phone ?? null,
+        resumeProfile: input.resumeProfile ?? null,
+      });
+      console.info("[resume-dedup-check] response", {
+        matchCount: matches.length,
+        matches: matches.map((match) => ({
+          id: match.id,
+          level: match.level,
+          score: match.score,
+          semanticReasons: match.semanticReasons,
+          similarity: match.similarity,
+        })),
+        organizationId: activeOrg.id,
+        route: "studio.interviews",
       });
       return c.json({ matches }, 200);
     },
@@ -350,10 +367,13 @@ export const studioInterviewsRouter = factory
         process.env,
       );
       const interviewRecordId = crypto.randomUUID();
-      const uploadResult =
-        resume && c.var.user
-          ? await storeInterviewResume(interviewRecordId, resume, c.var.user.id, activeOrg.id)
-          : null;
+      const uploadResult = await resolveResumeUploadStorage({
+        interviewRecordId,
+        organizationId: activeOrg.id,
+        parsedResumePayload,
+        resume,
+        userId: c.var.user?.id,
+      });
       const resumeStorageKey = uploadResult?.storageKey ?? null;
       const resumeContentHash = uploadResult?.contentHash ?? null;
 
@@ -424,6 +444,13 @@ export const studioInterviewsRouter = factory
       });
 
       invalidateStudioInterviewCaches(activeOrg.id);
+      if (analysis?.resumeProfile) {
+        await enqueueResumeSemanticIndexJobBestEffort({
+          organizationId: activeOrg.id,
+          sourceId: interviewRecordId,
+          sourceType: "studio_interview",
+        });
+      }
       // POST / 返回新建轮次的完整 detail，供简历库 onCreated 直接使用。
       // Return the first round's full detail so the resume library onCreated can use it directly.
       const firstRoundId = scheduleRows[0]?.id;
@@ -1307,88 +1334,18 @@ export const studioInterviewsRouter = factory
           return { kind: "noop" as const };
         }
 
-        const isClosing = input.pipelineStage === "closed";
-        const wasClosed = existing.pipelineStage === "closed";
-
-        // closed metadata 生命周期：
-        //   进入 closed → 写 closedAt + closedReason + closedMeta（含 previousStage = 当前阶段）
-        //   从 closed 回退 → 清空所有 closed metadata + 旧 schema 的 deprecated 标量字段
-        //   非 closed 之间切换 → 保持不变（undefined）
-        // Lifecycle: enter closed → write all closed metadata + previousStage;
-        // exit closed → clear everything + scrub deprecated legacy scalars so the
-        // reactivated record has no stale humanInterview/offer/writtenTest data.
-        let closedAtUpdate: Date | null | undefined;
-        let closedReasonUpdate: string | null | undefined;
-        let closedMetaUpdate: typeof studioInterview.$inferInsert.closedMeta | undefined;
-        // legacy 字段在结案/重新激活时一并 dual-write，避免 (新模型已 closed) 与
-        // (legacy status 仍是 ready/in_progress) 造成的下游守卫漏洞（参见 livekit-token / forms）。
-        // Dual-write the legacy scalars during closing/reactivating so downstream
-        // consumers that still read the old columns see a consistent terminal state.
-        let legacyStatusUpdate: StudioInterviewStatus | undefined;
-        let humanInterviewScheduledAtUpdate: Date | null | undefined;
-        let humanInterviewerIdUpdate: string | null | undefined;
-        let offerSentAtUpdate: Date | null | undefined;
-        let offerAcceptedAtUpdate: Date | null | undefined;
-        let writtenTestScheduledAtUpdate: Date | null | undefined;
-        let writtenTestScoreUpdate: string | null | undefined;
-        if (isClosing) {
-          closedAtUpdate = now;
-          closedReasonUpdate = input.closedReason ?? null;
-          // closedMeta merge：保留之前用户输入的字段（previousStage 自动覆写）。
-          // Merge existing meta + input partial; previousStage is server-controlled.
-          closedMetaUpdate = {
-            ...existing.closedMeta,
-            ...input.closedMeta,
-            previousStage: existing.pipelineStage,
-          };
-          legacyStatusUpdate = "archived";
-        } else if (wasClosed) {
-          closedAtUpdate = null;
-          closedReasonUpdate = null;
-          closedMetaUpdate = null;
-          // 重新激活：把 legacy 标量字段全部回到 null，避免 dialog prefill 看到陈旧值。
-          // legacy status 回到非终态；UI 后续操作（如 launch-interview）会按需 dual-write 覆盖。
-          // Reactivate: null out all deprecated scalars; legacy status returns to
-          // a non-terminal value so downstream guards stop treating the candidate
-          // as archived.
-          humanInterviewScheduledAtUpdate = null;
-          humanInterviewerIdUpdate = null;
-          offerSentAtUpdate = null;
-          offerAcceptedAtUpdate = null;
-          writtenTestScheduledAtUpdate = null;
-          writtenTestScoreUpdate = null;
-          legacyStatusUpdate = "ready";
-        }
+        const transition = resolveCandidateTransitionPatch({ existing, input, now });
 
         await tx
           .update(studioInterview)
-          .set({
-            closedAt: closedAtUpdate,
-            closedMeta: closedMetaUpdate,
-            closedReason: closedReasonUpdate,
-            humanInterviewScheduledAt: humanInterviewScheduledAtUpdate,
-            humanInterviewerId: humanInterviewerIdUpdate,
-            offerAcceptedAt: offerAcceptedAtUpdate,
-            offerSentAt: offerSentAtUpdate,
-            outcome: input.outcome ?? "in_pipeline",
-            pipelineStage: input.pipelineStage,
-            status: legacyStatusUpdate,
-            updatedAt: now,
-            writtenTestScheduledAt: writtenTestScheduledAtUpdate,
-            writtenTestScore: writtenTestScoreUpdate,
-          })
+          .set(transition.patch)
           .where(eq(studioInterview.id, candidateId));
 
         await tx.insert(interviewAuditLog).values({
           action: "candidate_transition",
           createdAt: now,
           detail: {
-            closedMeta: closedMetaUpdate ?? null,
-            fromOutcome: existing.outcome,
-            fromStage: existing.pipelineStage,
-            reason: input.closedReason ?? null,
-            toOutcome: input.outcome ?? "in_pipeline",
-            toStage: input.pipelineStage,
+            ...transition.auditDetail,
           },
           id: crypto.randomUUID(),
           interviewRecordId: candidateId,

@@ -11,7 +11,6 @@ import type { ResumeLibraryDetail } from "@arc/shared/studio-resumes";
 import { describeResumeProgress } from "@arc/shared/studio-resumes";
 import { truncateText } from "@/components/features/studio/interviews/interview-detail/helpers";
 import { ResumeProfileView } from "@/components/features/resume/resume-profile-view";
-import { SoftPanel } from "@/components/features/display/soft-panel";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@arc/shared/utils";
@@ -29,10 +28,10 @@ function textOrDash(value: string | number | null | undefined) {
 
 function SummaryItem({ label, value }: { label: string; value: string | number | null }) {
   return (
-    <SoftPanel className="min-w-0 px-3 py-2">
-      <p className="text-muted-foreground text-xs">{label}</p>
-      <p className="mt-1 truncate font-medium text-sm">{textOrDash(value)}</p>
-    </SoftPanel>
+    <div className="min-w-0">
+      <dt className="text-muted-foreground text-xs">{label}</dt>
+      <dd className="mt-1 min-w-0 truncate font-medium text-sm leading-6">{textOrDash(value)}</dd>
+    </div>
   );
 }
 
@@ -78,8 +77,8 @@ export function ResumeOverviewPanel({ detail }: { detail: ResumeLibraryDetail })
   const strengths = detail.resumeProfile?.personalStrengths.slice(0, 3) ?? [];
 
   return (
-    <div className="space-y-6">
-      <div className="rounded-2xl border border-border bg-background p-5">
+    <div className="space-y-8">
+      <section className="space-y-6">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
@@ -90,21 +89,21 @@ export function ResumeOverviewPanel({ detail }: { detail: ResumeLibraryDetail })
           </div>
         </div>
 
-        <div className="mt-4 grid gap-4 md:grid-cols-3">
+        <dl className="grid gap-x-8 gap-y-4 md:grid-cols-3">
           <SummaryItem label="目标岗位" value={detail.targetRole} />
           <SummaryItem label="关联岗位" value={detail.jobDescriptionName} />
           <SummaryItem label="工作年限" value={detail.resumeProfile?.workYears ?? null} />
-        </div>
+        </dl>
 
         {skills.length > 0 || strengths.length > 0 ? (
-          <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(220px,0.7fr)]">
+          <div className="grid gap-5 border-border/50 border-t pt-5 lg:grid-cols-[minmax(0,1fr)_minmax(220px,0.7fr)]">
             {skills.length > 0 ? (
               <div>
                 <p className="mb-2 text-muted-foreground text-xs">核心技能</p>
                 <ul className="flex flex-wrap gap-2">
                   {skills.map((skill) => (
                     <li
-                      className="rounded-full border border-border px-2.5 py-0.5 text-xs"
+                      className="rounded-full bg-background px-2.5 py-1 text-xs shadow-xs ring-1 ring-border/50"
                       key={skill}
                     >
                       {skill}
@@ -116,12 +115,9 @@ export function ResumeOverviewPanel({ detail }: { detail: ResumeLibraryDetail })
             {strengths.length > 0 ? (
               <div>
                 <p className="mb-2 text-muted-foreground text-xs">主要亮点</p>
-                <ul className="space-y-1.5 text-sm">
+                <ul className="space-y-2 text-sm">
                   {strengths.map((strength) => (
-                    <li
-                      className="line-clamp-2 text-muted-foreground leading-normal"
-                      key={strength}
-                    >
+                    <li className="line-clamp-2 text-muted-foreground leading-6" key={strength}>
                       {strength}
                     </li>
                   ))}
@@ -130,21 +126,21 @@ export function ResumeOverviewPanel({ detail }: { detail: ResumeLibraryDetail })
             ) : null}
           </div>
         ) : null}
-      </div>
+      </section>
 
-      <div className="rounded-2xl border border-border bg-background p-5">
+      <section className="space-y-4 border-t border-border/50 pt-6">
         <h3 className="font-medium text-sm">结构化信息</h3>
-        <div className="mt-4">
+        <div>
           <ResumeProfileView profile={detail.resumeProfile ?? null} />
         </div>
-      </div>
+      </section>
 
-      <div className="rounded-2xl border border-border bg-background p-5">
+      <section className="space-y-3 border-t border-border/50 pt-6">
         <h3 className="font-medium text-sm">简历评价</h3>
-        <div className="mt-3 text-muted-foreground text-sm leading-normal">
+        <div className="text-muted-foreground text-sm leading-6">
           <Markdown>{truncateText(detail.notes) || "暂无简历评价"}</Markdown>
         </div>
-      </div>
+      </section>
     </div>
   );
 }

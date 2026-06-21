@@ -54,6 +54,10 @@ import {
   listHumanInterviewRounds,
   patchHumanInterviewRound,
 } from "@/lib/client/api";
+import {
+  humanInterviewKeys,
+  invalidateHumanInterviewCandidateQueries,
+} from "@/lib/client/api/query-keys";
 import { copyTextToClipboard, toAbsoluteUrl } from "@/lib/client/clipboard";
 import { rpc } from "@/lib/client/rpc";
 import { rpcFetch } from "@/lib/client/api/rpc-fetch";
@@ -174,23 +178,15 @@ export function HumanInterviewStagePanel({ candidateId, candidateName, disabled 
   const queryClient = useQueryClient();
   const { data: rounds = [], isLoading } = useQuery({
     queryFn: () => listHumanInterviewRounds(slug, candidateId),
-    queryKey: ["human-interview-rounds", slug, candidateId],
+    queryKey: humanInterviewKeys.rounds(slug, candidateId),
   });
   const { data: meetings = [] } = useQuery({
     queryFn: () => listHumanInterviewMeetings(slug, { interviewRecordId: candidateId }),
-    queryKey: ["human-interview-meetings", slug, candidateId],
+    queryKey: humanInterviewKeys.meetings(slug, candidateId),
   });
 
   function invalidateRounds() {
-    void queryClient.invalidateQueries({
-      queryKey: ["human-interview-rounds", slug, candidateId],
-    });
-    void queryClient.invalidateQueries({
-      queryKey: ["human-interview-meetings", slug, candidateId],
-    });
-    // 顶级简历库列表也要刷新（进度列依赖派生聚合）。
-    // The resume library progress column depends on aggregated counts.
-    void queryClient.invalidateQueries({ queryKey: ["studio-resumes"] });
+    void invalidateHumanInterviewCandidateQueries(queryClient, { candidateId, slug });
   }
 
   const [dialogState, dispatchDialog] = useReducer(dialogReducer, initialDialogState);
@@ -201,13 +197,7 @@ export function HumanInterviewStagePanel({ candidateId, candidateName, disabled 
     onSuccess: () => {
       toast.success("会议已结束");
       dispatchDialog({ target: null, type: "endTargetChanged" });
-      void queryClient.invalidateQueries({
-        queryKey: ["human-interview-rounds", slug, candidateId],
-      });
-      void queryClient.invalidateQueries({
-        queryKey: ["human-interview-meetings", slug, candidateId],
-      });
-      void queryClient.invalidateQueries({ queryKey: ["studio-resumes"] });
+      invalidateRounds();
     },
   });
   const createMeetingMutation = useMutation({
@@ -223,13 +213,7 @@ export function HumanInterviewStagePanel({ candidateId, candidateName, disabled 
     onError: (e) => toast.error(e instanceof Error ? e.message : "创建视频会议失败"),
     onSuccess: () => {
       toast.success("已创建视频会议");
-      void queryClient.invalidateQueries({
-        queryKey: ["human-interview-rounds", slug, candidateId],
-      });
-      void queryClient.invalidateQueries({
-        queryKey: ["human-interview-meetings", slug, candidateId],
-      });
-      void queryClient.invalidateQueries({ queryKey: ["studio-resumes"] });
+      invalidateRounds();
     },
   });
 
@@ -1077,13 +1061,7 @@ function ScheduleRoundDialog({
     onError: (e) => toast.error(e instanceof Error ? e.message : "创建失败"),
     onSuccess: () => {
       toast.success("已安排线上真人复面");
-      void queryClient.invalidateQueries({
-        queryKey: ["human-interview-rounds", slug, candidateId],
-      });
-      void queryClient.invalidateQueries({
-        queryKey: ["human-interview-meetings", slug, candidateId],
-      });
-      void queryClient.invalidateQueries({ queryKey: ["studio-resumes"] });
+      void invalidateHumanInterviewCandidateQueries(queryClient, { candidateId, slug });
       onScheduled();
       handleOpenChange(false);
     },
@@ -1244,13 +1222,7 @@ function CompleteRoundDialog({
     onError: (e) => toast.error(e instanceof Error ? e.message : "标记完成失败"),
     onSuccess: () => {
       toast.success("已标记完成");
-      void queryClient.invalidateQueries({
-        queryKey: ["human-interview-rounds", slug, candidateId],
-      });
-      void queryClient.invalidateQueries({
-        queryKey: ["human-interview-meetings", slug, candidateId],
-      });
-      void queryClient.invalidateQueries({ queryKey: ["studio-resumes"] });
+      void invalidateHumanInterviewCandidateQueries(queryClient, { candidateId, slug });
       onCompleted();
       handleOpenChange(false);
     },
@@ -1368,13 +1340,7 @@ function CancelRoundDialog({ round, candidateId, onOpenChange, onCancelled }: Ca
     onError: (e) => toast.error(e instanceof Error ? e.message : "取消失败"),
     onSuccess: () => {
       toast.success("已取消该轮");
-      void queryClient.invalidateQueries({
-        queryKey: ["human-interview-rounds", slug, candidateId],
-      });
-      void queryClient.invalidateQueries({
-        queryKey: ["human-interview-meetings", slug, candidateId],
-      });
-      void queryClient.invalidateQueries({ queryKey: ["studio-resumes"] });
+      void invalidateHumanInterviewCandidateQueries(queryClient, { candidateId, slug });
       onCancelled();
       handleOpenChange(false);
     },

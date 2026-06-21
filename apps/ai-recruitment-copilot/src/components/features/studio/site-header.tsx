@@ -8,7 +8,6 @@ import {
   BreadcrumbItem,
   BreadcrumbList,
   BreadcrumbPage,
-  BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
 
 interface RouteMeta {
@@ -56,8 +55,8 @@ export function SiteHeader() {
       breadcrumb={
         <Breadcrumb>
           <BreadcrumbList>
-            <BreadcrumbItem className="hidden md:block">Studio</BreadcrumbItem>
-            <BreadcrumbSeparator className="hidden md:block" />
+            {/* <BreadcrumbItem className="hidden md:block">Studio</BreadcrumbItem> */}
+            {/* <BreadcrumbSeparator className="hidden md:block" /> */}
             <BreadcrumbItem>
               <BreadcrumbPage>{title}</BreadcrumbPage>
             </BreadcrumbItem>

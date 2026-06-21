@@ -8,6 +8,8 @@ import { XMLParser } from "fast-xml-parser";
 import { convert as htmlToText } from "html-to-text";
 import JSZip from "jszip";
 import mammoth from "mammoth";
+import pLimit from "p-limit";
+import pRetry from "p-retry";
 import { parseJsonOutput } from "@arc/ai-recruitment-copilot-backend/server/agents/json-output";
 import { createAlibabaProvider } from "@arc/ai-recruitment-copilot-backend/server/agents/provider";
 import { structuredSchema } from "@arc/db-schema/resume-parser-schema";
@@ -220,30 +222,28 @@ function isTransientOcrError(error: unknown): boolean {
   );
 }
 
-async function sleep(ms: number): Promise<void> {
-  if (ms <= 0) {
-    return;
+class RetriableOcrTypeError extends Error {
+  readonly originalError: TypeError;
+
+  constructor(error: TypeError) {
+    super(error.message);
+    this.name = "RetriableOcrTypeError";
+    this.originalError = error;
   }
-  await delay(ms);
 }
 
-async function runWithConcurrency<T, R>(
-  items: T[],
-  concurrency: number,
-  task: (item: T, index: number) => Promise<R>,
-): Promise<R[]> {
-  const results: R[] = [];
-  let nextIndex = 0;
-  async function worker(): Promise<void> {
-    while (nextIndex < items.length) {
-      const index = nextIndex;
-      nextIndex += 1;
-      results[index] = await task(items[index], index);
-    }
+function normalizeOcrRetryError(error: unknown): unknown {
+  if (error instanceof TypeError && isTransientOcrError(error)) {
+    return new RetriableOcrTypeError(error);
   }
+  return error;
+}
 
-  await Promise.all(Array.from({ length: Math.min(concurrency, items.length) }, () => worker()));
-  return results;
+function restoreOcrRetryError(error: unknown): never {
+  if (error instanceof RetriableOcrTypeError) {
+    throw error.originalError;
+  }
+  throw error;
 }
 
 function parseXml(xml: string): unknown {
@@ -564,7 +564,7 @@ function extractHtmlText(bytes: Uint8Array): ParsedResumeOcr {
   return { pageCount: 1, text, textSource: "html-text" };
 }
 
-async function qwenVlOcrWithRetry(
+function qwenVlOcrWithRetry(
   imageBytes: Buffer,
   page: number,
   mediaType = "image/png",
@@ -577,22 +577,36 @@ async function qwenVlOcrWithRetry(
     process.env.RESUME_PARSE_OCR_RETRY_DELAY_MS,
     DEFAULT_OCR_RETRY_DELAY_MS,
   );
-  for (let attempt = 1; attempt <= attempts; attempt += 1) {
-    try {
-      return await qwenVlOcr(imageBytes, mediaType);
-    } catch (error) {
-      if (attempt >= attempts || !isTransientOcrError(error)) {
-        throw error;
+  return pRetry(
+    async () => {
+      try {
+        return await qwenVlOcr(imageBytes, mediaType);
+      } catch (error) {
+        throw normalizeOcrRetryError(error);
       }
-      devOcrLog("page retry", {
-        attempt,
-        errorMessage: error instanceof Error ? error.message : String(error),
-        page,
-      });
-      await sleep(retryDelayMs * attempt);
-    }
-  }
-  throw new Error("Qwen OCR retry loop exited unexpectedly.");
+    },
+    {
+      factor: 1,
+      maxTimeout: 0,
+      minTimeout: 0,
+      onFailedAttempt: async ({ attemptNumber, error, retriesLeft }) => {
+        if (retriesLeft <= 0 || !isTransientOcrError(error)) {
+          return;
+        }
+        devOcrLog("page retry", {
+          attempt: attemptNumber,
+          errorMessage: error.message,
+          page,
+        });
+        const delayMs = retryDelayMs * attemptNumber;
+        if (delayMs > 0) {
+          await delay(delayMs);
+        }
+      },
+      retries: Math.max(0, attempts - 1),
+      shouldRetry: ({ error }) => isTransientOcrError(error),
+    },
+  ).catch(restoreOcrRetryError);
 }
 
 async function extractImageText(input: ResumeDocumentInput): Promise<ParsedResumeOcr> {
@@ -678,17 +692,22 @@ export async function parseResumeOcrOnly(bytes: Uint8Array): Promise<ParsedResum
     process.env.RESUME_PARSE_OCR_PAGE_CONCURRENCY,
     DEFAULT_OCR_PAGE_CONCURRENCY,
   );
-  const ocrTexts = await runWithConcurrency(pages, pageConcurrency, async (png, index) => {
-    const pageStartedAt = nowMs();
-    const text = await qwenVlOcrWithRetry(png, index + 1);
-    devOcrLog("page completed", {
-      chars: text.length,
-      duration: formatDuration(pageStartedAt),
-      page: index + 1,
-      pngBytes: png.byteLength,
-    });
-    return text;
-  });
+  const limitOcrPage = pLimit(pageConcurrency);
+  const ocrTexts = await Promise.all(
+    pages.map((png, index) =>
+      limitOcrPage(async () => {
+        const pageStartedAt = nowMs();
+        const text = await qwenVlOcrWithRetry(png, index + 1);
+        devOcrLog("page completed", {
+          chars: text.length,
+          duration: formatDuration(pageStartedAt),
+          page: index + 1,
+          pngBytes: png.byteLength,
+        });
+        return text;
+      }),
+    ),
+  );
   const text = ocrTexts.filter((chunk) => chunk.trim().length > 0).join("\n\n");
   devOcrLog("ocr completed", {
     duration: formatDuration(ocrStartedAt),

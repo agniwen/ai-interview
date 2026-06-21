@@ -1,15 +1,15 @@
 "use client";
 
 import type { Transition, Variants } from "motion/react";
-import { AnimatePresence, motion } from "motion/react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { Children, useEffect, useState } from "react";
 
 import { cn } from "@arc/shared/utils";
 
 const defaultVariants: Variants = {
   animate: { opacity: 1, y: 0 },
-  exit: { opacity: 0, y: 8 },
-  initial: { opacity: 0, y: -8 },
+  exit: { opacity: 0, y: 6 },
+  initial: { opacity: 0, y: -6 },
 };
 
 type MotionElement = typeof motion.p | typeof motion.span | typeof motion.code;
@@ -30,14 +30,22 @@ export function TextFlip({
   className,
   children,
   interval = 2,
-  transition = { duration: 0.3 },
+  transition = { duration: 0.2, ease: [0.23, 1, 0.32, 1] },
   variants = defaultVariants,
   layout,
   onIndexChange,
 }: TextFlipProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
+  const reduceMotion = useReducedMotion();
 
   const items = Children.toArray(children);
+  const effectiveVariants = reduceMotion
+    ? {
+        animate: { opacity: 1, y: 0 },
+        exit: { opacity: 0, y: 0 },
+        initial: { opacity: 0, y: 0 },
+      }
+    : variants;
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -59,8 +67,8 @@ export function TextFlip({
         initial="initial"
         animate="animate"
         exit="exit"
-        transition={transition}
-        variants={variants}
+        transition={reduceMotion ? { duration: 0 } : transition}
+        variants={effectiveVariants}
         layout={layout}
       >
         {items[currentIndex]}

@@ -147,7 +147,7 @@ export function ResumeImportButton({
   const matchAbortControllerRef = useRef<AbortController | null>(null);
   const cachedParseResultRef = useRef<ParseResult | null>(null);
   const accumulatedTextRef = useRef("");
-  // 暂存身份查重命中时的状态：用户点"继续解析"才会真正进入 Step 2。
+  // 暂存语义查重命中时的状态：用户点"继续解析"才会真正进入 Step 2。
   // Cached state for the dedup-pause flow so "继续解析" can resume Step 2.
   const pendingResumeFileRef = useRef<File | null>(null);
   const pendingJobDescriptionIdRef = useRef<string | null>(null);
@@ -230,9 +230,9 @@ export function ResumeImportButton({
 
       const { resumeProfile } = parseResult as ParseResult;
 
-      // 身份维度查重：失败时静默继续。命中时缓存状态、暂停流程，等用户决策。
-      // Identity dedup; on failure proceed silently. On hit, stash state and
-      // wait for the user to "继续解析" or "取消上传".
+      // 语义查重：失败时静默继续。命中时缓存状态、暂停流程，等用户决策。
+      // Semantic dedup; on failure proceed silently. On hit, stash state and
+      // wait for the user to continue or cancel.
       try {
         const dedupResult = await fetchInterviewDedup(
           workspaceSlug,
@@ -240,6 +240,7 @@ export function ResumeImportButton({
             email: resumeProfile.email,
             name: resumeProfile.name,
             phone: resumeProfile.phone,
+            resumeProfile,
           },
           { signal: abortController.signal },
         );
@@ -263,8 +264,8 @@ export function ResumeImportButton({
         if (!abortController.signal.aborted) {
           toast.warning(
             error instanceof Error
-              ? `身份查重失败，已跳过：${error.message}`
-              : "身份查重失败，已跳过",
+              ? `语义查重失败，已跳过：${error.message}`
+              : "语义查重失败，已跳过",
           );
         }
       }

@@ -33,6 +33,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ButtonGroup } from "@/components/ui/button-group";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -466,20 +467,27 @@ function CandidateFormTemplateManagementPage({
                   创建后，符合作用域的面试开始前，候选人会先被要求填写表单。
                 </EmptyDescription>
               </EmptyHeader>
-              <EmptyContent className="flex flex-wrap items-center justify-center gap-2">
-                <Button onClick={() => setAiCreateOpen(true)} type="button">
-                  <SparklesIcon className="size-4" />
-                  AI 创建面试表单
-                </Button>
-                <Button
-                  onClick={() => {
-                    setCreateDraft(null);
-                    crud.openCreate();
-                  }}
-                >
-                  <PlusIcon className="size-4" />
-                  新建面试表单
-                </Button>
+              <EmptyContent className="flex items-center justify-center">
+                <ButtonGroup>
+                  <Button
+                    onClick={() => {
+                      setCreateDraft(null);
+                      crud.openCreate();
+                    }}
+                  >
+                    <PlusIcon className="size-4" />
+                    新建面试表单
+                  </Button>
+                  <Button
+                    aria-label="AI 创建面试表单"
+                    onClick={() => setAiCreateOpen(true)}
+                    size="icon"
+                    title="AI 创建面试表单"
+                    type="button"
+                  >
+                    <SparklesIcon className="size-4" />
+                  </Button>
+                </ButtonGroup>
               </EmptyContent>
             </Empty>
           }
@@ -506,15 +514,7 @@ function CandidateFormTemplateManagementPage({
           }
           getRowId={(r) => r.id}
           toolbarRight={
-            <div className="flex flex-1 flex-wrap items-center justify-end gap-2 sm:flex-none">
-              <Button
-                className="flex-1 sm:flex-none"
-                onClick={() => setAiCreateOpen(true)}
-                type="button"
-              >
-                <SparklesIcon className="size-4" />
-                AI 创建面试表单
-              </Button>
+            <ButtonGroup className="flex-1 sm:flex-none">
               <Button
                 className="flex-1 sm:flex-none"
                 onClick={() => {
@@ -525,7 +525,16 @@ function CandidateFormTemplateManagementPage({
                 <PlusIcon className="size-4" />
                 新建面试表单
               </Button>
-            </div>
+              <Button
+                aria-label="AI 创建面试表单"
+                onClick={() => setAiCreateOpen(true)}
+                size="icon"
+                title="AI 创建面试表单"
+                type="button"
+              >
+                <SparklesIcon className="size-4" />
+              </Button>
+            </ButtonGroup>
           }
         />
       </div>

@@ -20,7 +20,6 @@ import {
   streamGenerateResumeReview,
   streamParseResumeProfile,
 } from "@arc/ai-recruitment-copilot-backend/server/agents/resume-analysis-agent";
-import { matchJobDescriptionForResume } from "@arc/ai-recruitment-copilot-backend/server/agents/job-description-match-agent";
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
 import { factory, jsonValidatorError } from "@arc/ai-recruitment-copilot-backend/server/factory";
@@ -48,6 +47,7 @@ import {
   loadCandidateInterviewRecord,
   loadScheduleEntriesForRedirect,
 } from "./utils";
+import { resolveJobDescriptionMatchBestEffort } from "./match-job-description";
 
 export const interviewRouter = factory
   .createApp()
@@ -132,16 +132,11 @@ export const interviewRouter = factory
 
       try {
         const jobDescriptions = await listAllJobDescriptions(orgId);
-        if (jobDescriptions.length === 0) {
-          return c.json({ matchedId: null, reason: null }, 200);
-        }
-
-        const match = await matchJobDescriptionForResume(resumeProfile, jobDescriptions);
-        if (!match) {
-          return c.json({ matchedId: null, reason: null }, 200);
-        }
-
-        return c.json({ matchedId: match.jobDescriptionId, reason: match.reason }, 200);
+        const match = await resolveJobDescriptionMatchBestEffort({
+          jobDescriptions,
+          resumeProfile,
+        });
+        return c.json(match, 200);
       } catch (error) {
         return c.json(
           { error: error instanceof Error ? error.message : "在招岗位匹配失败。" },

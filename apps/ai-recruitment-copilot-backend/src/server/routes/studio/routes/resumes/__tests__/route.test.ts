@@ -5,16 +5,40 @@
 // PATCH whitelist (no interview field bleed) and that the detail DTO drops
 // interview-only properties even when the underlying row has them.
 
+import { readFileSync } from "node:fs";
 import { eq } from "drizzle-orm";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import type { ResumeAnalysisResult } from "@arc/db-schema/interview/types";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import { member, organization, studioInterview, user } from "@arc/db-schema/schema";
 import { loadResumeDetail } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/dao/resumes";
 import { parseResumeLibraryEditFormInput } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/route";
+import { resolveResumeUploadStorage } from "@arc/ai-recruitment-copilot-backend/server/routes/interview/utils";
+
+const routeSource = readFileSync(new URL("../route.ts", import.meta.url), "utf-8");
 
 const ORG = "test_org_resume_route";
 const USER_ID = "test_user_resume_route";
 const NOW = new Date("2026-05-13T11:00:00.000Z");
+
+const RESUME_PAYLOAD: ResumeAnalysisResult = {
+  fileName: "resume.pdf",
+  interviewQuestions: [],
+  resumeProfile: {
+    age: null,
+    email: "candidate@example.com",
+    gender: null,
+    name: "候选人",
+    personalStrengths: [],
+    phone: "13800138000",
+    projectExperiences: [],
+    schools: [],
+    skills: [],
+    targetRoles: [],
+    workExperiences: [],
+    workYears: null,
+  },
+};
 
 async function cleanup() {
   await db.delete(studioInterview).where(eq(studioInterview.organizationId, ORG));
@@ -91,5 +115,42 @@ describe("resume PATCH form parsing", () => {
 
     expect(result.success).toBe(false);
     expect(result.error?.issues[0]?.message).toBe("请填写候选人姓名");
+  });
+});
+
+describe("resolveResumeUploadStorage", () => {
+  it("stores only the uploaded object when the client already sent resumePayload", async () => {
+    const storeObjectOnly = vi.fn().mockResolvedValue({
+      contentHash: "hash-1",
+      storageKey: "resume/hash-1.pdf",
+    });
+    const storeParsedResume = vi.fn();
+
+    const result = await resolveResumeUploadStorage({
+      organizationId: ORG,
+      parsedResumePayload: RESUME_PAYLOAD,
+      resume: new File(["pdf-bytes"], "resume.pdf", { type: "application/pdf" }),
+      storeObjectOnly,
+      storeParsedResume,
+      userId: USER_ID,
+    });
+
+    expect(storeObjectOnly).toHaveBeenCalledTimes(1);
+    expect(storeParsedResume).not.toHaveBeenCalled();
+    expect(result).toEqual({
+      cachedResumeProfile: null,
+      contentHash: "hash-1",
+      storageKey: "resume/hash-1.pdf",
+    });
+  });
+});
+
+describe("resume semantic index cleanup", () => {
+  it("cleans semantic indexes after single and bulk resume-library deletion", () => {
+    expect(routeSource).toContain("deleteResumeSemanticIndexBestEffort");
+    expect(routeSource).toContain('sourceType: "studio_interview"');
+    expect(routeSource).toContain("sourceId: id");
+    expect(routeSource).toContain("for (const deletedId of result)");
+    expect(routeSource).toContain("sourceId: deletedId.id");
   });
 });

@@ -295,6 +295,28 @@ describe("ResumePoolPage masonry layout", () => {
     expect(pageSource).toContain("grid.bind.data.map((record) => record.id)");
   });
 
+  it("asks for a dedup policy only when uploading private resume pool items", () => {
+    const pageSource = source.slice(
+      source.indexOf("function ResumePoolPage"),
+      source.indexOf("export const Route"),
+    );
+    const policyDialogSource = source.slice(
+      source.indexOf("function PrivateResumePoolUploadPolicyDialog"),
+      source.indexOf("function ImportResumePoolDialog"),
+    );
+
+    expect(pageSource).toContain("pendingPrivateUploadFiles");
+    expect(pageSource).toContain("privateUploadPolicyOpen");
+    expect(pageSource).toContain('if (targetScope === "private") {');
+    expect(pageSource).toContain("setPendingPrivateUploadFiles(files)");
+    expect(pageSource).toContain("setPrivateUploadPolicyOpen(true)");
+    expect(pageSource).toContain('startQueuedUpload(files, "public", "create")');
+    expect(policyDialogSource).toContain('useState<ResumeUploadBatchDedupPolicy>("skip")');
+    expect(policyDialogSource).toContain("跳过疑似重复");
+    expect(policyDialogSource).toContain("照样创建");
+    expect(source).toContain("<PrivateResumePoolUploadPolicyDialog");
+  });
+
   it("shows profile highlight labels above full content", () => {
     const highlightSource = source.slice(
       source.indexOf("function ResumePoolHighlightRow"),
@@ -326,6 +348,36 @@ describe("ResumePoolPage masonry layout", () => {
     expect(source).toContain("候选人摘要");
     expect(source).toContain("结构化信息");
     expect(source).toContain("工作年限");
+  });
+
+  it("uses an airy profile layout for the resume pool detail dialog", () => {
+    const summaryItemSource = source.slice(
+      source.indexOf("function DetailSummaryItem"),
+      source.indexOf("type ResumePoolDetailLike"),
+    );
+    const summaryPanelSource = source.slice(
+      source.indexOf("function ResumePoolDetailSummaryPanel"),
+      source.indexOf("function ResumePoolStructuredInfoPanel"),
+    );
+    const structuredPanelSource = source.slice(
+      source.indexOf("function ResumePoolStructuredInfoPanel"),
+      source.indexOf("function ResumePoolHighlightRow"),
+    );
+    const detailDialogSource = source.slice(
+      source.indexOf("function ResumePoolDetailDialog"),
+      source.indexOf("function ResumePoolCard({"),
+    );
+
+    expect(summaryItemSource).toContain("<dt");
+    expect(summaryItemSource).toContain("<dd");
+    expect(summaryItemSource).not.toContain("rounded-xl border");
+    expect(summaryPanelSource).toContain("bg-muted/20");
+    expect(summaryPanelSource).not.toContain("rounded-2xl border border-border bg-background p-5");
+    expect(structuredPanelSource).toContain("border-t border-border/50 pt-6");
+    expect(structuredPanelSource).not.toContain(
+      "rounded-2xl border border-border bg-background p-5",
+    );
+    expect(detailDialogSource).toContain('className="space-y-8"');
   });
 
   it("places uploader metadata under the target role instead of the card title", () => {

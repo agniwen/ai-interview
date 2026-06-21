@@ -24,7 +24,9 @@ import {
   formatResumeEducationItems,
   formatResumeEducationLines,
 } from "@arc/shared/resume-education";
-import { queryInterviewDedup } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/dao/studio-interviews";
+import { findSemanticResumeDuplicates } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/dedup-service";
+import { enqueueResumeSemanticIndexJobBestEffort } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/enqueue";
+import { deleteResumeSemanticIndexBestEffort } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/lifecycle";
 import { createResumeRecordFromStorage } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/create-from-storage";
 import { normalizeSkill } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/dao/skills";
 
@@ -125,7 +127,7 @@ function firstPresentValue(values: (string | null | undefined)[]): string | null
   return null;
 }
 
-function buildProfileHighlights(profile: ResumeProfile | null): ResumePoolProfileHighlights {
+export function buildProfileHighlights(profile: ResumeProfile | null): ResumePoolProfileHighlights {
   if (!profile) {
     return {
       educationItems: [],
@@ -147,7 +149,7 @@ function buildProfileHighlights(profile: ResumeProfile | null): ResumePoolProfil
   };
 }
 
-function buildMasteredSkills(profile: ResumeProfile | null): string[] {
+export function buildMasteredSkills(profile: ResumeProfile | null): string[] {
   return [
     ...new Set(
       (profile?.skills ?? [])
@@ -539,6 +541,11 @@ export async function publishPrivatePoolItem(
   if (!publicItem) {
     throw new Error("公共简历池记录创建失败");
   }
+  await enqueueResumeSemanticIndexJobBestEffort({
+    organizationId: input.organizationId,
+    sourceId: publicItem.id,
+    sourceType: "resume_pool_item",
+  });
   return publicItem;
 }
 
@@ -557,10 +564,12 @@ export async function importPoolItemToResumeLibrary(
     throw new Error("简历解析完成后才能入库");
   }
 
-  const matches = await queryInterviewDedup(input.organizationId, {
+  const matches = await findSemanticResumeDuplicates({
     email: poolItem.candidateEmail ?? poolItem.resumeProfile?.email ?? null,
     name: poolItem.candidateName ?? poolItem.resumeProfile?.name ?? null,
+    organizationId: input.organizationId,
     phone: poolItem.candidatePhone ?? poolItem.resumeProfile?.phone ?? null,
+    resumeProfile: poolItem.resumeProfile,
   });
   if (input.dedupPolicy === "check" && matches.length > 0) {
     return {
@@ -618,6 +627,11 @@ export async function importPoolItemToResumeLibrary(
     });
   });
 
+  await enqueueResumeSemanticIndexJobBestEffort({
+    organizationId: input.organizationId,
+    sourceId: resumeRecordId,
+    sourceType: "studio_interview",
+  });
   return { resumeRecordId, status: "imported" };
 }
 
@@ -637,4 +651,8 @@ export async function deleteOwnPoolItem(input: DeleteOwnPoolItemInput): Promise<
   if (deleted.length === 0) {
     throw new Error("简历不存在或无权删除");
   }
+  await deleteResumeSemanticIndexBestEffort({
+    sourceId: input.poolItemId,
+    sourceType: "resume_pool_item",
+  });
 }
