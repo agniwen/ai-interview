@@ -51,6 +51,7 @@ import { rpc } from "@/lib/client/rpc";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { JobDescriptionFormDialog } from "@/components/features/studio/job-descriptions/job-description-form-dialog";
 import { JobDescriptionAiCreateDialog } from "@/components/features/studio/job-descriptions/job-description-ai-create-dialog";
+import { JobDescriptionTalentRecommendationsDialog } from "@/components/features/studio/job-descriptions/job-description-talent-recommendations-dialog";
 
 function JobDescriptionManagementPage({
   departments,
@@ -67,6 +68,10 @@ function JobDescriptionManagementPage({
   // 当前点开"简历关联"的那条 JD；null 表示弹窗关闭。
   // The JD whose associated resumes are being inspected; null = closed.
   const [resumesScope, setResumesScope] = useState<{ id: string; name: string } | null>(null);
+  const [recommendationScope, setRecommendationScope] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
   const [createDraft, setCreateDraft] = useState<JobDescriptionFormValues | null>(null);
   const [createDraftSessionId, setCreateDraftSessionId] = useState(0);
   const [aiCreateOpen, setAiCreateOpen] = useState(false);
@@ -256,6 +261,12 @@ function JobDescriptionManagementPage({
       actionsColumn<JobDescriptionListRecord>({
         inline: [
           {
+            label: "推荐",
+            onClick: (r) => {
+              setRecommendationScope({ id: r.id, name: r.name });
+            },
+          },
+          {
             label: "编辑",
             onClick: (r) => {
               void crud.openEdit(r);
@@ -441,6 +452,16 @@ function JobDescriptionManagementPage({
           }
         }}
         open={resumesScope !== null}
+      />
+
+      <JobDescriptionTalentRecommendationsDialog
+        jobDescription={recommendationScope}
+        onOpenChange={(next) => {
+          if (!next) {
+            setRecommendationScope(null);
+          }
+        }}
+        open={recommendationScope !== null}
       />
     </>
   );

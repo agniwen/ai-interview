@@ -31,7 +31,7 @@ interface QdrantClientLike {
   query(
     collectionName: string,
     input: {
-      filter: { must: ReturnType<typeof mustMatch>[] };
+      filter: { must: QdrantFilterCondition[] };
       limit: number;
       query: number[];
       with_payload: true;
@@ -75,6 +75,8 @@ const FILTER_PAYLOAD_FIELDS = [
   "status",
 ] as const;
 
+type QdrantFilterCondition = ReturnType<typeof mustMatch> | ReturnType<typeof mustMatchAny>;
+
 function pointUuid(seed: string): string {
   const hex = createHash("sha256").update(seed).digest("hex");
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(
@@ -85,6 +87,10 @@ function pointUuid(seed: string): string {
 
 function mustMatch(key: string, value: string) {
   return { key, match: { value } };
+}
+
+function mustMatchAny(key: string, values: string[]) {
+  return { key, match: { any: values } };
 }
 
 function isChunkType(value: unknown): value is ResumeSemanticChunkType {
@@ -167,13 +173,18 @@ export class QdrantResumeVectorStore implements ResumeVectorStore {
   }
 
   async searchSimilarResumes(input: ResumeVectorSearchInput): Promise<ResumeVectorSearchResult[]> {
+    const must: QdrantFilterCondition[] = [
+      mustMatch("organizationId", input.organizationId),
+      mustMatch("chunkType", input.chunkType),
+      mustMatch("status", "active"),
+    ];
+    if (input.sourceTypes && input.sourceTypes.length > 0) {
+      must.push(mustMatchAny("sourceType", input.sourceTypes));
+    }
+
     const body = await this.client.query(this.collectionName, {
       filter: {
-        must: [
-          mustMatch("organizationId", input.organizationId),
-          mustMatch("chunkType", input.chunkType),
-          mustMatch("status", "active"),
-        ],
+        must,
       },
       limit: input.limit,
       query: input.embedding,

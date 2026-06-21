@@ -127,7 +127,7 @@ function firstPresentValue(values: (string | null | undefined)[]): string | null
   return null;
 }
 
-function buildProfileHighlights(profile: ResumeProfile | null): ResumePoolProfileHighlights {
+export function buildProfileHighlights(profile: ResumeProfile | null): ResumePoolProfileHighlights {
   if (!profile) {
     return {
       educationItems: [],
@@ -149,7 +149,7 @@ function buildProfileHighlights(profile: ResumeProfile | null): ResumePoolProfil
   };
 }
 
-function buildMasteredSkills(profile: ResumeProfile | null): string[] {
+export function buildMasteredSkills(profile: ResumeProfile | null): string[] {
   return [
     ...new Set(
       (profile?.skills ?? [])

@@ -1,5 +1,7 @@
 import type { MinimaxVoiceId } from "@arc/db-schema/minimax-voices";
 import { z } from "zod";
+import type { ResumeParseStatus } from "@arc/db-schema/studio-interviews";
+import type { ResumePoolProfileHighlights } from "./resume-pool";
 
 export const jobDescriptionBaseSchema = z.object({
   allowCrossDepartmentInterviewers: z.boolean(),
@@ -65,4 +67,40 @@ export interface JobDescriptionMetrics {
   candidatesByJd: { id: string; name: string; count: number }[];
   completionByJd: { id: string; name: string; done: number; total: number }[];
   loadByInterviewer: { id: string; name: string; activeCandidates: number }[];
+}
+
+export interface JobDescriptionTalentRecommendation {
+  candidateEmail: string | null;
+  candidateName: string;
+  candidatePhone: string | null;
+  createdAt: string;
+  currentJobDescriptionId: string | null;
+  currentJobDescriptionName: string | null;
+  id: string;
+  masteredSkills: string[];
+  notes: string | null;
+  profileHighlights: ResumePoolProfileHighlights;
+  reasons: string[];
+  resumeFileName: string | null;
+  resumeParseStatus: ResumeParseStatus;
+  score: number;
+  similarity: {
+    resumeOverview?: number;
+    skillRole?: number;
+    workProject?: number;
+  };
+  targetRole: string | null;
+  workYears: number | null;
+}
+
+export interface JobDescriptionTalentRecommendationResult {
+  candidates: JobDescriptionTalentRecommendation[];
+  diagnostics: {
+    vectorHitCount: number;
+  };
+  jobDescription: {
+    id: string;
+    name: string;
+  };
+  status: "disabled" | "ready";
 }

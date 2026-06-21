@@ -26,6 +26,7 @@ export interface ResumeVectorSearchInput {
   embedding: number[];
   limit: number;
   organizationId: string;
+  sourceTypes?: ResumeSemanticSourceType[];
 }
 
 export interface ResumeVectorSearchResult {

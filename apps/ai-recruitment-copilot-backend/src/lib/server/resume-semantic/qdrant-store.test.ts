@@ -187,4 +187,36 @@ describe("QdrantResumeVectorStore", () => {
       match: { value: "work_project" },
     });
   });
+
+  it("adds source type filters when searching similar resumes", async () => {
+    const client = {
+      collectionExists: vi.fn(),
+      createCollection: vi.fn(),
+      createPayloadIndex: vi.fn(),
+      delete: vi.fn(),
+      getCollection: vi.fn(),
+      query: vi.fn().mockResolvedValue({ points: [] }),
+      upsert: vi.fn(),
+    };
+    const store = new QdrantResumeVectorStore({
+      client,
+      collectionName: "resume_semantic_v1",
+      dimensions: 3,
+      url: "https://qdrant.example",
+    });
+
+    await store.searchSimilarResumes({
+      chunkType: "skill_role",
+      embedding: [0.1, 0.2, 0.3],
+      limit: 20,
+      organizationId: "org-1",
+      sourceTypes: ["studio_interview"],
+    });
+
+    const queryOptions = client.query.mock.calls[0]?.[1];
+    expect(queryOptions.filter.must).toContainEqual({
+      key: "sourceType",
+      match: { any: ["studio_interview"] },
+    });
+  });
 });
