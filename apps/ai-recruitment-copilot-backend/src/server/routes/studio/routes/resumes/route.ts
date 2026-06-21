@@ -54,6 +54,10 @@ import { deleteResumeSemanticIndexBestEffort } from "@arc/ai-recruitment-copilot
 import { autoBindApplicableTemplates } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interview-questions/dao/bindings";
 import { jobDescriptionIdsExist } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao";
 import { createResumeRecordFromStorage } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/create-from-storage";
+import {
+  parseResumeCreateDedupPolicy,
+  resolveResumeCreateDedupConflict,
+} from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/dedup";
 import { syncResumeProfileIdentity } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/profile-sync";
 import { createPptxPreviewPdfResponse } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/utils/pptx-preview";
 
@@ -519,6 +523,17 @@ export const resumeLibraryRouter = factory
         const parsed = await parseResumeFastToProfile(resume);
         ({ resumeProfile } = parsed);
         parsedFileName = resume.name;
+      }
+      const dedupConflict = await resolveResumeCreateDedupConflict({
+        candidateEmail: input.data.candidateEmail || null,
+        candidateName: input.data.candidateName || null,
+        candidatePhone: input.data.candidatePhone || null,
+        dedupPolicy: parseResumeCreateDedupPolicy(formData.get("dedupPolicy")),
+        organizationId: activeOrg.id,
+        resumeProfile,
+      });
+      if (dedupConflict) {
+        return c.json(dedupConflict, 409);
       }
 
       const recordId = await createResumeRecordFromStorage({

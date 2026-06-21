@@ -50,6 +50,7 @@ export function toItemDto(row: ItemRow): BulkResumeBatchItemDto {
   return {
     batchId: row.batchId,
     contentHash: row.contentHash,
+    dedupMatchSnapshot: row.dedupMatchSnapshot,
     errorMessage: row.errorMessage,
     fileSize: row.fileSize,
     finishedAt: row.finishedAt ? row.finishedAt.toISOString() : null,

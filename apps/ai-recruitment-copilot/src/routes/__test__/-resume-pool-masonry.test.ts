@@ -118,6 +118,17 @@ describe("ResumePoolPage masonry layout", () => {
     expect(source).not.toContain('<CardFooter className="flex-col items-stretch gap-2 px-3">');
   });
 
+  it("reuses the resume-library dedup match cards for resume-pool import conflicts", () => {
+    const dialogSource = source.slice(
+      source.indexOf("function ImportResumePoolDialog"),
+      source.indexOf("function notesPreview"),
+    );
+
+    expect(source).toContain("ResumeDedupMatchList");
+    expect(source).toContain("toResumeDedupMatches");
+    expect(dialogSource).not.toContain("match.resumeFileName");
+  });
+
   it("prefixes parsed candidate names with the target role on resume pool cards", () => {
     expect(source).toContain("function getCandidateDisplayTitle");
     expect(source).toContain("function formatCandidateWorkYears");

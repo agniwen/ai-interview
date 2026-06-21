@@ -72,6 +72,7 @@ export interface BulkResumeBatchItemDto {
   status: ResumeUploadBatchItemStatus;
   poolItemId?: string | null;
   resumeRecordId: string | null;
+  dedupMatchSnapshot?: unknown;
   errorMessage: string | null;
   startedAt: string | null;
   finishedAt: string | null;

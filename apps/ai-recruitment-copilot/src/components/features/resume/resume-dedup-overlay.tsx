@@ -58,7 +58,7 @@ interface ResumeDedupOverlayProps {
   onCancel: () => void;
 }
 
-export function ResumeDedupOverlay({ matches, onContinue, onCancel }: ResumeDedupOverlayProps) {
+export function ResumeDedupMatchList({ matches }: { matches: DedupMatchRecord[] }) {
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailRecordId, setDetailRecordId] = useState<string | null>(null);
 
@@ -69,110 +69,88 @@ export function ResumeDedupOverlay({ matches, onContinue, onCancel }: ResumeDedu
 
   return (
     <>
-      <div className="flex w-full max-w-2xl flex-col gap-4">
-        <div className="flex items-start gap-3 rounded-xl border border-amber-200/70 bg-amber-50/70 px-4 py-3 text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-200">
-          <AlertTriangleIcon className="mt-0.5 size-5 shrink-0" />
-          <div className="space-y-1">
-            <p className="font-medium text-sm">检测到 {matches.length} 条疑似重复的候选人记录</p>
-            <p className="text-xs leading-normal opacity-80">
-              系统会基于工作经历、项目经历、技能和岗位画像的语义相似度判断风险。
-              请根据判断依据确认是否为同一候选人，再决定查看已有记录或继续创建。
-            </p>
-          </div>
-        </div>
-
-        <div className="max-h-[50vh] space-y-3 overflow-y-auto pr-1">
-          {matches.map((match) => {
-            const statusMeta = studioInterviewStatusMeta[match.status];
-            return (
-              <div
-                className="rounded-xl border border-border/70 bg-background/95 p-4 shadow-sm"
-                key={match.id}
-              >
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div className="min-w-0 space-y-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="font-medium text-sm">{match.candidateName}</span>
-                      {match.level ? (
-                        <span
-                          className={`rounded-md border px-1.5 py-0.5 font-medium text-[11px] ${LEVEL_META[match.level].tone}`}
-                        >
-                          {LEVEL_META[match.level].label}
-                          {typeof match.score === "number" ? ` ${match.score}%` : ""}
-                        </span>
-                      ) : null}
-                      <Badge variant={statusMeta?.tone ?? "outline"}>
-                        {statusMeta?.label ?? match.status}
-                      </Badge>
-                    </div>
-                    <p className="text-muted-foreground text-xs">
-                      {match.targetRole ?? "未填目标岗位"}
-                      {match.jobDescriptionName ? ` · ${match.jobDescriptionName}` : ""}
-                    </p>
+      <div className="max-h-[50vh] space-y-3 overflow-y-auto pr-1">
+        {matches.map((match) => {
+          const statusMeta = studioInterviewStatusMeta[match.status];
+          return (
+            <div
+              className="rounded-xl border border-border/70 bg-background/95 p-4 shadow-sm"
+              key={match.id}
+            >
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="min-w-0 space-y-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="font-medium text-sm">{match.candidateName}</span>
+                    {match.level ? (
+                      <span
+                        className={`rounded-md border px-1.5 py-0.5 font-medium text-[11px] ${LEVEL_META[match.level].tone}`}
+                      >
+                        {LEVEL_META[match.level].label}
+                        {typeof match.score === "number" ? ` ${match.score}%` : ""}
+                      </span>
+                    ) : null}
+                    <Badge variant={statusMeta?.tone ?? "outline"}>
+                      {statusMeta?.label ?? match.status}
+                    </Badge>
                   </div>
-                  <Button
-                    onClick={() => openDetail(match.id)}
-                    size="sm"
-                    type="button"
-                    variant="outline"
-                  >
-                    <ExternalLinkIcon className="size-3.5" />
-                    查看
-                  </Button>
+                  <p className="text-muted-foreground text-xs">
+                    {match.targetRole ?? "未填目标岗位"}
+                    {match.jobDescriptionName ? ` · ${match.jobDescriptionName}` : ""}
+                  </p>
                 </div>
-                <div className="mt-3 grid gap-x-4 gap-y-1 text-xs sm:grid-cols-2">
-                  <div className="flex gap-2">
-                    <span className="text-muted-foreground">邮箱</span>
-                    <span className="break-all">{match.candidateEmail ?? "—"}</span>
-                  </div>
-                  <div className="flex gap-2">
-                    <span className="text-muted-foreground">电话</span>
-                    <span className="break-all">{match.candidatePhone ?? "—"}</span>
-                  </div>
-                  <div className="flex gap-2">
-                    <span className="text-muted-foreground">创建时间</span>
-                    <span>{formatCreatedAt(match.createdAt)}</span>
-                  </div>
+                <Button
+                  onClick={() => openDetail(match.id)}
+                  size="sm"
+                  type="button"
+                  variant="outline"
+                >
+                  <ExternalLinkIcon className="size-3.5" />
+                  查看
+                </Button>
+              </div>
+              <div className="mt-3 grid gap-x-4 gap-y-1 text-xs sm:grid-cols-2">
+                <div className="flex gap-2">
+                  <span className="text-muted-foreground">邮箱</span>
+                  <span className="break-all">{match.candidateEmail ?? "—"}</span>
                 </div>
-                {match.semanticReasons && match.semanticReasons.length > 0 ? (
-                  <div className="mt-3 space-y-1.5">
-                    <div className="font-medium text-muted-foreground text-xs">判断依据</div>
-                    <div className="flex flex-wrap gap-1.5">
-                      {match.semanticReasons.map((reason) => (
-                        <Badge key={reason} variant="secondary">
-                          {reason}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                ) : null}
-                {similarityEvidence(match).length > 0 ? (
-                  <div className="mt-2 flex flex-wrap gap-1.5">
-                    {similarityEvidence(match).map((item) => (
-                      <Badge key={item.label} variant="outline">
-                        {item.label}相似度 {item.value}
+                <div className="flex gap-2">
+                  <span className="text-muted-foreground">电话</span>
+                  <span className="break-all">{match.candidatePhone ?? "—"}</span>
+                </div>
+                <div className="flex gap-2">
+                  <span className="text-muted-foreground">创建时间</span>
+                  <span>{formatCreatedAt(match.createdAt)}</span>
+                </div>
+              </div>
+              {match.semanticReasons && match.semanticReasons.length > 0 ? (
+                <div className="mt-3 space-y-1.5">
+                  <div className="font-medium text-muted-foreground text-xs">判断依据</div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {match.semanticReasons.map((reason) => (
+                      <Badge key={reason} variant="secondary">
+                        {reason}
                       </Badge>
                     ))}
                   </div>
-                ) : null}
-                {match.conflictingSignals && match.conflictingSignals.length > 0 ? (
-                  <div className="mt-2 text-muted-foreground text-xs">
-                    不一致信号：{match.conflictingSignals.join("、")}
-                  </div>
-                ) : null}
-              </div>
-            );
-          })}
-        </div>
-
-        <div className="flex flex-wrap items-center justify-end gap-2">
-          <Button onClick={onCancel} type="button" variant="outline">
-            取消上传
-          </Button>
-          <Button onClick={onContinue} type="button">
-            仍然继续
-          </Button>
-        </div>
+                </div>
+              ) : null}
+              {similarityEvidence(match).length > 0 ? (
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {similarityEvidence(match).map((item) => (
+                    <Badge key={item.label} variant="outline">
+                      {item.label}相似度 {item.value}
+                    </Badge>
+                  ))}
+                </div>
+              ) : null}
+              {match.conflictingSignals && match.conflictingSignals.length > 0 ? (
+                <div className="mt-2 text-muted-foreground text-xs">
+                  不一致信号：{match.conflictingSignals.join("、")}
+                </div>
+              ) : null}
+            </div>
+          );
+        })}
       </div>
 
       <StudioPersonDetailDialog
@@ -182,5 +160,33 @@ export function ResumeDedupOverlay({ matches, onContinue, onCancel }: ResumeDedu
         recordId={detailRecordId}
       />
     </>
+  );
+}
+
+export function ResumeDedupOverlay({ matches, onContinue, onCancel }: ResumeDedupOverlayProps) {
+  return (
+    <div className="flex w-full max-w-2xl flex-col gap-4">
+      <div className="flex items-start gap-3 rounded-xl border border-amber-200/70 bg-amber-50/70 px-4 py-3 text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-200">
+        <AlertTriangleIcon className="mt-0.5 size-5 shrink-0" />
+        <div className="space-y-1">
+          <p className="font-medium text-sm">检测到 {matches.length} 条疑似重复的候选人记录</p>
+          <p className="text-xs leading-normal opacity-80">
+            系统会基于工作经历、项目经历、技能和岗位画像的语义相似度判断风险。
+            请根据判断依据确认是否为同一候选人，再决定查看已有记录或继续创建。
+          </p>
+        </div>
+      </div>
+
+      <ResumeDedupMatchList matches={matches} />
+
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        <Button onClick={onCancel} type="button" variant="outline">
+          取消上传
+        </Button>
+        <Button onClick={onContinue} type="button">
+          仍然继续
+        </Button>
+      </div>
+    </div>
   );
 }

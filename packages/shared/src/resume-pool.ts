@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { ResumeParseStatus } from "@arc/db-schema/studio-interviews";
+import type { ResumeParseStatus, StudioInterviewStatus } from "@arc/db-schema/studio-interviews";
 import type { ResumeProfile } from "@arc/db-schema/interview/types";
 import type { ResumeEducationDisplayItem } from "./resume-education";
 import type { ResumePoolScope, ResumePoolStatus } from "@arc/db-schema/schema";
@@ -88,14 +88,28 @@ export interface ResumePoolImportSuccessResult {
   status: "imported";
 }
 
+export interface ResumePoolImportDuplicateMatchRecord {
+  candidateEmail: string | null;
+  candidateName: string;
+  candidatePhone: string | null;
+  conflictingSignals?: string[];
+  createdAt: string;
+  id: string;
+  jobDescriptionName: string | null;
+  level?: "high" | "low" | "medium";
+  score?: number;
+  semanticReasons?: string[];
+  similarity?: {
+    resumeOverview?: number;
+    skillRole?: number;
+    workProject?: number;
+  };
+  status: StudioInterviewStatus;
+  targetRole: string | null;
+}
+
 export interface ResumePoolImportDuplicateResult {
-  matches: {
-    candidateEmail: string | null;
-    candidateName: string;
-    candidatePhone: string | null;
-    id: string;
-    resumeFileName: string | null;
-  }[];
+  matches: ResumePoolImportDuplicateMatchRecord[];
   status: "duplicate_found";
 }
 

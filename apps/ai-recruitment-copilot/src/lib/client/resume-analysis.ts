@@ -31,6 +31,8 @@ export interface GenerateResumeReviewOptions {
   signal?: AbortSignal;
 }
 
+export type ResumeCreateDedupPolicy = "check" | "force";
+
 export async function parseResumeFile(
   file: File,
   options: StreamRequestOptions = {},
@@ -195,9 +197,11 @@ export function buildSaveOnlyResumeFormData(
   value: ResumeLibraryFormValues,
   file: File | null,
   resumePayload: ResumeAnalysisResult | null,
+  options: { dedupPolicy?: ResumeCreateDedupPolicy } = {},
 ): FormData {
   const fd = new FormData();
   appendCandidateFields(fd, value);
+  fd.append("dedupPolicy", options.dedupPolicy ?? "check");
   if (file) {
     fd.append("resume", file);
   }
@@ -211,8 +215,9 @@ export function buildSaveAndStartResumeFormData(
   value: ResumeLibraryFormValues,
   file: File | null,
   resumePayload: ResumeAnalysisResult | null,
+  options: { dedupPolicy?: ResumeCreateDedupPolicy } = {},
 ): FormData {
-  const fd = buildSaveOnlyResumeFormData(value, file, resumePayload);
+  const fd = buildSaveOnlyResumeFormData(value, file, resumePayload, options);
   fd.append("status", "ready");
   fd.append("scheduleEntries", JSON.stringify([createDefaultScheduleEntry()]));
   return fd;
