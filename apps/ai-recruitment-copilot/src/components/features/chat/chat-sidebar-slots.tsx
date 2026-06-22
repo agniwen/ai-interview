@@ -71,9 +71,9 @@ function ChatSidebarHeader({
   if (isCollapsed) {
     return (
       <SidebarMenu>
-        <SidebarMenuItem>
+        <SidebarMenuItem className="select-none">
           <SidebarMenuButton
-            className="h-9 justify-center gap-2 text-sidebar-foreground/80"
+            className="h-9 justify-center  gap-2 text-sidebar-foreground/80"
             onClick={onNewConversation}
             size="default"
             tooltip="新建对话"
@@ -87,7 +87,7 @@ function ChatSidebarHeader({
 
   if (editMode) {
     return (
-      <div className="flex items-center gap-1.5 px-1">
+      <div className="flex items-center select-none gap-1.5 px-1">
         <Button
           className="h-9 flex-1 gap-2"
           disabled={selectedCount === 0 || isBulkDeleting}
@@ -118,9 +118,9 @@ function ChatSidebarHeader({
   }
 
   return (
-    <div className="flex items-center gap-1.5 px-1">
+    <div className="flex items-center gap-1.5 ">
       <Button
-        className="h-9 flex-1 justify-start gap-2 text-sidebar-foreground/80"
+        className="h-9 flex-1 select-none justify-start gap-2 text-sidebar-foreground/80"
         onClick={onNewConversation}
         size="sm"
         variant="ghost"
@@ -297,7 +297,7 @@ function ChatSidebarBody({
           : conversation.title;
 
         const itemBody = (
-          <div className="min-w-0 flex-1 rounded-md px-2 py-1.5 text-left">
+          <div className="min-w-0 select-none flex-1 rounded-md px-2 py-1.5 text-left">
             <p className="truncate font-medium text-sm">{visibleTitle}</p>
             <p className="mt-1 truncate text-muted-foreground text-xs">
               <TimeDisplay
