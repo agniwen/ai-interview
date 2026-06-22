@@ -19,7 +19,7 @@ export function SidebarInsetHeader({ breadcrumb, actions, className }: SidebarIn
   return (
     <header
       className={cn(
-        "sticky top-0 z-10 flex h-(--header-height) w-full shrink-0 items-center justify-between gap-2 bg-background/60 px-4 backdrop-blur-md transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-(--header-height)",
+        "sticky top-0 z-10 flex h-(--header-height) w-full shrink-0 items-center justify-between gap-2 bg-background/80 px-4 backdrop-blur-md transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-(--header-height)",
         // "flex h-(--header-height) shrink-0 bg-sidebar items-center justify-between gap-2 border-border border-b px-4 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-(--header-height)",
         className,
       )}

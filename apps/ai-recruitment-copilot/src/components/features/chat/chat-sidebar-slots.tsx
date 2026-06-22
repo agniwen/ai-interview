@@ -315,9 +315,9 @@ function ChatSidebarBody({
               className={cn(
                 "group/session-item flex cursor-default items-center gap-1 rounded-lg border border-transparent px-1 py-1 transition-colors",
                 isActive && !editMode
-                  ? "border-sidebar-border/40 bg-sidebar-accent"
+                  ? "border-sidebar-border/80 bg-sidebar-accent"
                   : "hover:bg-sidebar-accent/60",
-                editMode && isSelected ? "border-sidebar-border/40 bg-sidebar-accent" : "",
+                editMode && isSelected ? "border-sidebar-border/80 bg-sidebar-accent" : "",
               )}
             >
               {renderSessionItem({
