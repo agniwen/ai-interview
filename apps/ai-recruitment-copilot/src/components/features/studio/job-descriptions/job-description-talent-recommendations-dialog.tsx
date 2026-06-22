@@ -10,6 +10,10 @@ import { useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { StudioPersonDetailDialog } from "@/components/features/studio/studio-person-detail-dialog";
 import {
+  ResumeDocumentFileIcon,
+  getResumeDocumentFileIconKind,
+} from "@/components/features/resume/resume-document-file-icon";
+import {
   BriefcaseBusinessIcon,
   Building2Icon,
   FileSearchIcon,
@@ -20,6 +24,7 @@ import {
 import { ResumeEducationDisplayLine } from "@/components/features/resume/resume-education-line";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Empty,
   EmptyDescription,
@@ -84,12 +89,12 @@ function CandidateHighlight({
   label: string;
 }) {
   return (
-    <div className="min-w-0 rounded-md border border-muted/60 bg-muted/20 px-3 py-2">
+    <div className="min-w-0 rounded-md border-muted/60 border bg-muted/25 px-2.5 py-2">
       <div className="flex items-center gap-1.5 text-muted-foreground">
         <Icon className="size-3.5 shrink-0" />
         <span className="text-xs">{label}</span>
       </div>
-      <div className="mt-1 line-clamp-2 break-words text-foreground text-xs leading-5">
+      <div className="mt-1 whitespace-pre-wrap break-words text-foreground leading-5">
         {children}
       </div>
     </div>
@@ -109,13 +114,44 @@ function CandidateEducationHighlight({
   return (
     <CandidateHighlight icon={GraduationCapIcon} label="教育经历">
       {educationItems.length > 0 ? (
-        <span className="block truncate">
-          <ResumeEducationDisplayLine item={educationItems[0]} />
-        </span>
+        <ul className="flex flex-col gap-1">
+          {educationItems.map((item) => (
+            <li key={`${item.level ?? "education"}-${item.school}-${item.major ?? ""}`}>
+              <ResumeEducationDisplayLine item={item} />
+            </li>
+          ))}
+        </ul>
       ) : (
-        fallback.join(" / ")
+        fallback.join("\n")
       )}
     </CandidateHighlight>
+  );
+}
+
+function CandidateRecommendationReasons({
+  reasons,
+}: {
+  reasons: JobDescriptionTalentRecommendation["reasons"];
+}) {
+  return (
+    <div className="min-w-0 rounded-md border-muted/60 border bg-background px-3 py-2">
+      <div className="flex items-center gap-1.5 text-muted-foreground">
+        <UserCheckIcon className="size-3.5 shrink-0" />
+        <span className="text-xs">推荐理由</span>
+      </div>
+      {reasons.length > 0 ? (
+        <ul className="mt-2 flex min-w-0 flex-col gap-1.5 text-xs leading-5">
+          {reasons.map((reason) => (
+            <li className="flex min-w-0 gap-2" key={reason}>
+              <span className="mt-2 size-1 shrink-0 rounded-full bg-primary/70" />
+              <span className="min-w-0 break-words">{reason}</span>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="mt-2 text-muted-foreground text-xs leading-5">暂无明确推荐理由</p>
+      )}
+    </div>
   );
 }
 
@@ -129,65 +165,82 @@ function CandidateRecommendationCard({
   const title = formatCandidateTitle(candidate);
   const note = notesPreview(candidate.notes);
   const skills = candidate.masteredSkills.slice(0, 8);
+  const documentKind = getResumeDocumentFileIconKind({ fileName: candidate.resumeFileName });
   return (
-    <div className="rounded-lg border border-border bg-background p-4">
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_12rem]">
-        <div className="min-w-0 space-y-3">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-            <div className="min-w-0">
-              <button
-                className="line-clamp-2 text-left font-medium underline decoration-foreground/20 underline-offset-4 hover:decoration-foreground/60"
-                onClick={() => onView(candidate.id)}
-                title="点击姓名查看详情"
-                type="button"
-              >
-                {title}
-              </button>
-              <div className="mt-1 flex min-w-0 flex-wrap items-center gap-2 text-muted-foreground text-xs">
-                <span className="inline-flex min-w-0 items-center gap-1.5">
-                  <BriefcaseBusinessIcon className="size-3.5 shrink-0" />
-                  <span className="truncate">{candidate.targetRole || "未填写目标岗位"}</span>
+    <Card className="min-w-0 overflow-hidden rounded-md py-0">
+      <div className="grid min-w-0 gap-0 lg:grid-cols-[minmax(0,1fr)_17rem]">
+        <div className="min-w-0">
+          <CardHeader className="flex flex-row items-center gap-2 border-border/70 border-b px-3 py-3">
+            <span
+              aria-hidden="true"
+              className="inline-flex size-8 shrink-0 items-center justify-center rounded-md"
+            >
+              <ResumeDocumentFileIcon className="size-8" kind={documentKind} />
+            </span>
+            <div className="min-w-0 flex-1">
+              <CardTitle className="text-sm leading-5">
+                <button
+                  className="line-clamp-2 max-w-full break-words text-left font-medium underline decoration-foreground/20 underline-offset-4 hover:decoration-foreground/60"
+                  onClick={() => onView(candidate.id)}
+                  title="点击姓名查看详情"
+                  type="button"
+                >
+                  {title}
+                </button>
+              </CardTitle>
+            </div>
+          </CardHeader>
+
+          <CardContent className="flex flex-col gap-3 px-0 py-3 text-xs">
+            <div className="flex px-4 flex-col gap-1.5 text-muted-foreground">
+              <div className="flex min-w-0 items-center gap-1.5">
+                <BriefcaseBusinessIcon className="size-3.5 shrink-0" />
+                <span className="truncate">{candidate.targetRole || "未填写目标岗位"}</span>
+              </div>
+              <div className="flex min-w-0 items-center gap-1.5">
+                <Building2Icon className="size-3.5 shrink-0" />
+                <span className="truncate">
+                  {candidate.currentJobDescriptionName
+                    ? `当前：${candidate.currentJobDescriptionName}`
+                    : "未关联岗位"}
                 </span>
-                {candidate.currentJobDescriptionName ? (
-                  <Badge variant="outline">当前：{candidate.currentJobDescriptionName}</Badge>
-                ) : (
-                  <Badge variant="outline">未关联岗位</Badge>
-                )}
               </div>
             </div>
-          </div>
 
-          <div className="grid gap-2 md:grid-cols-3">
-            <CandidateEducationHighlight candidate={candidate} />
-            {candidate.profileHighlights.latestCompany ? (
-              <CandidateHighlight icon={Building2Icon} label="最近公司">
-                {candidate.profileHighlights.latestCompany}
-              </CandidateHighlight>
-            ) : null}
-            {candidate.profileHighlights.latestProject ? (
-              <CandidateHighlight icon={FolderGit2Icon} label="最近项目">
-                {candidate.profileHighlights.latestProject}
-              </CandidateHighlight>
-            ) : null}
-          </div>
-
-          {skills.length > 0 ? (
-            <div className="flex flex-wrap gap-1">
-              {skills.map((skill) => (
-                <Badge className="max-w-full truncate" key={skill} variant="outline">
-                  {skill}
-                </Badge>
-              ))}
+            <div className="flex px-3 flex-col gap-1.5 border-border/70 border-t pt-3">
+              <CandidateEducationHighlight candidate={candidate} />
+              {candidate.profileHighlights.latestCompany ? (
+                <CandidateHighlight icon={Building2Icon} label="最近公司">
+                  {candidate.profileHighlights.latestCompany}
+                </CandidateHighlight>
+              ) : null}
+              {candidate.profileHighlights.latestProject ? (
+                <CandidateHighlight icon={FolderGit2Icon} label="最近项目">
+                  {candidate.profileHighlights.latestProject}
+                </CandidateHighlight>
+              ) : null}
             </div>
-          ) : null}
 
-          {note ? (
-            <p className="line-clamp-2 text-muted-foreground text-xs leading-5">{note}</p>
-          ) : null}
+            {skills.length > 0 ? (
+              <div className="flex px-3 flex-wrap gap-1">
+                {skills.map((skill) => (
+                  <Badge className="min-w-0 max-w-full truncate" key={skill} variant="outline">
+                    {skill}
+                  </Badge>
+                ))}
+              </div>
+            ) : null}
+
+            {note ? (
+              <p className="line-clamp-3 px-3 break-words text-muted-foreground leading-5">
+                {note}
+              </p>
+            ) : null}
+          </CardContent>
         </div>
 
-        <div className="flex flex-col justify-between gap-4 rounded-md border border-muted/60 bg-muted/20 p-3">
-          <div>
+        <CardFooter className="flex min-w-0 flex-col items-stretch justify-between gap-4 border-border/70 border-t bg-muted/20 px-3 py-3 lg:border-t-0 lg:border-l">
+          <div className="min-w-0">
             <div className="mb-1 flex items-center justify-between text-sm">
               <span className="text-muted-foreground">推荐分</span>
               <span className="font-medium">{candidate.score}</span>
@@ -200,14 +253,8 @@ function CandidateRecommendationCard({
             </div>
           </div>
 
-          <div className="space-y-3">
-            <div className="flex flex-wrap gap-1.5">
-              {candidate.reasons.map((reason) => (
-                <Badge key={reason} variant="secondary">
-                  {reason}
-                </Badge>
-              ))}
-            </div>
+          <div className="flex min-w-0 flex-col gap-3">
+            <CandidateRecommendationReasons reasons={candidate.reasons} />
             <Button
               className="w-full"
               onClick={() => onView(candidate.id)}
@@ -218,9 +265,9 @@ function CandidateRecommendationCard({
               查看简历
             </Button>
           </div>
-        </div>
+        </CardFooter>
       </div>
-    </div>
+    </Card>
   );
 }
 
