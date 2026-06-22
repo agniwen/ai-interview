@@ -7,7 +7,7 @@ import { useStore, useForm } from "@tanstack/react-form";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { LoaderCircleIcon, PencilIcon, RotateCcwIcon } from "@/components/icons/hugeicons";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { CandidateFormFields } from "@/components/features/candidate/candidate-form-fields";
 import {
@@ -153,6 +153,21 @@ function buildResumeProfileForReview(
   };
 }
 
+function createResumeEditFormValues(detail: ResumeLibraryDetail | null | undefined) {
+  if (!detail) {
+    return createResumeLibraryFormValues();
+  }
+
+  return {
+    candidateEmail: detail.candidateEmail ?? "",
+    candidateName: detail.candidateName,
+    candidatePhone: detail.candidatePhone ?? "",
+    jobDescriptionId: detail.jobDescriptionId ?? "",
+    notes: detail.notes ?? "",
+    targetRole: detail.targetRole ?? "",
+  };
+}
+
 function InterviewEditSkeleton() {
   return (
     <div className="flex flex-col gap-5">
@@ -208,9 +223,10 @@ function ResumeEditBody({
     queryKey: ["studio-resumes", slug, "edit-detail", recordId] as const,
     staleTime: 0,
   });
+  const formDefaultValues = useMemo(() => createResumeEditFormValues(query.data), [query.data]);
 
   const form = useForm({
-    defaultValues: createResumeLibraryFormValues(),
+    defaultValues: formDefaultValues,
     onSubmit: async ({ value }) => {
       if (!recordId) {
         return;
@@ -265,23 +281,17 @@ function ResumeEditBody({
   // Hydrate form once the detail resolves; keyed on query.data reference change.
   useEffect(() => {
     if (!query.data) {
+      form.reset(formDefaultValues);
       setHydratedFormKey(null);
       return;
     }
     const nextHydratedFormKey = `${query.data.id}:${query.data.updatedAt}`;
-    form.reset({
-      candidateEmail: query.data.candidateEmail ?? "",
-      candidateName: query.data.candidateName,
-      candidatePhone: query.data.candidatePhone ?? "",
-      jobDescriptionId: query.data.jobDescriptionId ?? "",
-      notes: query.data.notes ?? "",
-      targetRole: query.data.targetRole ?? "",
-    });
+    form.reset(formDefaultValues);
     setHydratedFormKey(nextHydratedFormKey);
     // form 实例在渲染间稳定，此处仅依赖 query.data 的引用变化。
     // form instance is stable across renders; only depend on query.data identity.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [query.data]);
+  }, [formDefaultValues, query.data]);
 
   const isSubmitting = useStore(form.store, (s) => s.isSubmitting);
   const queryFormKey = query.data ? `${query.data.id}:${query.data.updatedAt}` : null;

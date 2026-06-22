@@ -6,6 +6,7 @@
 import { EditorContent } from "@tiptap/react";
 import { useCallback } from "react";
 import { MarkdownView } from "@/components/features/display/markdown-view";
+import { cossFieldSurfaceClass } from "@/components/ui/coss-style";
 import { cn } from "@arc/shared/utils";
 import { MarkdownEditorBubbleMenu } from "./bubble-menu";
 import { MarkdownEditorToolbar } from "./toolbar";
@@ -85,21 +86,24 @@ export function MarkdownEditor({
     <div
       aria-invalid={ariaInvalid}
       className={cn(
-        "flex flex-col overflow-hidden rounded-md border bg-background",
-        "aria-[invalid=true]:border-destructive",
+        cossFieldSurfaceClass,
+        "flex flex-col overflow-hidden",
+        "aria-[invalid=true]:border-destructive aria-[invalid=true]:ring-[3px] aria-[invalid=true]:ring-destructive/20 aria-[invalid=true]:shadow-none aria-[invalid=true]:before:shadow-none dark:aria-[invalid=true]:ring-destructive/40",
         disabled && "opacity-60",
         className,
       )}
       id={id}
     >
-      <MarkdownEditorToolbar
-        disabled={disabled}
-        editor={editor}
-        mode={mode}
-        onModeChange={changeMode}
-      />
+      <div className="relative z-10">
+        <MarkdownEditorToolbar
+          disabled={disabled}
+          editor={editor}
+          mode={mode}
+          onModeChange={changeMode}
+        />
+      </div>
 
-      <div className="relative bg-background dark:bg-input/30" style={{ minHeight }}>
+      <div className="relative z-10 bg-transparent" style={{ minHeight }}>
         {mode === "edit" && (
           <>
             <EditorContent className={editorContentClassName} editor={editor} onBlur={onBlur} />
@@ -130,7 +134,7 @@ export function MarkdownEditor({
       {typeof maxLength === "number" && (
         <div
           className={cn(
-            "flex justify-end border-t bg-background px-3 py-1.5 text-xs dark:bg-input/30",
+            "relative z-10 flex justify-end border-t bg-transparent px-3 py-1.5 text-xs",
             over ? "text-destructive" : "text-muted-foreground",
           )}
         >

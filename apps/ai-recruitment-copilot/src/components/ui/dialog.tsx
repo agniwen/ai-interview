@@ -6,6 +6,7 @@ import * as React from "react";
 import { Drawer as DrawerPrimitive } from "vaul";
 
 import { Button, ButtonSizeProvider } from "@/components/ui/button";
+import { cossModalSurfaceClass } from "@/components/ui/coss-style";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@arc/shared/utils";
 
@@ -121,7 +122,8 @@ function DialogContent({
             // 外层 drawer 不再吃 padding；内容区单独做滚动，确保 footer 始终可达
             // / Outer drawer drops its padding; the inner scroll wrapper owns it
             // so the sticky footer can extend edge-to-edge and stay reachable.
-            "group/drawer-content fixed inset-x-0 bottom-0 z-50 mt-24 flex h-auto max-h-[85vh] flex-col overflow-hidden rounded-t-lg border-t bg-background outline-none",
+            cossModalSurfaceClass,
+            "group/drawer-content fixed inset-x-0 bottom-0 z-50 mt-24 flex h-auto max-h-[85vh] flex-col overflow-hidden rounded-t-lg outline-none",
             className,
           )}
           {...(props as unknown as React.ComponentProps<typeof DrawerPrimitive.Content>)}
@@ -144,7 +146,8 @@ function DialogContent({
       <DialogPrimitive.Content
         data-slot="dialog-content"
         className={cn(
-          "bg-background data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-lg border p-6 shadow-lg duration-200 outline-none sm:max-w-lg",
+          cossModalSurfaceClass,
+          "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-lg p-6 duration-200 outline-none sm:max-w-lg",
           className,
         )}
         {...props}

@@ -1,20 +1,38 @@
-import * as React from "react";
-
 import { cn } from "@arc/shared/utils";
+import * as React from "react";
+import { cossFieldSurfaceClass } from "@/components/ui/coss-style";
 
-function Textarea({ className, ...props }: React.ComponentProps<"textarea">) {
+function Textarea({ className, ref, ...props }: React.ComponentProps<"textarea">) {
+  return (
+    <span
+      className={cn(cossFieldSurfaceClass, "inline-flex w-full text-base md:text-sm")}
+      data-slot="textarea-control"
+    >
+      <textarea
+        className={cn(
+          "field-sizing-content relative z-10 min-h-16 w-full rounded-[inherit] bg-transparent px-3 py-2 outline-none placeholder:text-muted-foreground selection:bg-primary selection:text-primary-foreground disabled:cursor-not-allowed",
+          className,
+        )}
+        data-slot="textarea"
+        ref={ref}
+        {...props}
+      />
+    </span>
+  );
+}
+
+function TextareaControl({ className, ref, ...props }: React.ComponentProps<"textarea">) {
   return (
     <textarea
-      data-slot="textarea"
       className={cn(
-        "border-input placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive dark:bg-input/30 flex field-sizing-content min-h-16 w-full rounded-md border bg-background px-3 py-2 text-base transition-[color,box-shadow] outline-none focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50 md:text-sm",
-        // 当前扁平化风格暂时关闭阴影；如需恢复，取消下一行注释。
-        // "shadow-xs",
+        "field-sizing-content relative z-10 min-h-16 w-full rounded-[inherit] bg-transparent px-3 py-2 outline-none placeholder:text-muted-foreground selection:bg-primary selection:text-primary-foreground disabled:cursor-not-allowed",
         className,
       )}
+      data-slot="textarea"
+      ref={ref}
       {...props}
     />
   );
 }
 
-export { Textarea };
+export { Textarea, TextareaControl };

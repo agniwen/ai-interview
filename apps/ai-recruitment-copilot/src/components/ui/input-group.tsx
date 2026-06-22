@@ -5,8 +5,9 @@ import { cva } from "class-variance-authority";
 import * as React from "react";
 
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+import { cossFieldSurfaceClass } from "@/components/ui/coss-style";
+import { InputControl } from "@/components/ui/input";
+import { TextareaControl } from "@/components/ui/textarea";
 import { cn } from "@arc/shared/utils";
 
 function InputGroup({ className, ...props }: React.ComponentProps<"div">) {
@@ -15,9 +16,8 @@ function InputGroup({ className, ...props }: React.ComponentProps<"div">) {
       data-slot="input-group"
       role="group"
       className={cn(
-        "group/input-group  border-input dark:bg-input/30 relative flex w-full items-center rounded-md border transition-[color]  outline-none",
-        // 当前扁平化风格暂时关闭阴影；如需恢复，取消下一行注释。
-        // "shadow-md/5!",
+        cossFieldSurfaceClass,
+        "group/input-group flex w-full items-center [&>*]:relative [&>*]:z-10",
         "h-9 min-w-0 has-[>textarea]:h-auto",
 
         // Variants based on alignment.
@@ -126,7 +126,7 @@ function InputGroupText({ className, ...props }: React.ComponentProps<"span">) {
 
 function InputGroupInput({ className, ...props }: React.ComponentProps<"input">) {
   return (
-    <Input
+    <InputControl
       data-slot="input-group-control"
       className={cn(
         "flex-1 rounded-none border-0 bg-transparent shadow-none focus-visible:ring-0 dark:bg-transparent",
@@ -139,7 +139,7 @@ function InputGroupInput({ className, ...props }: React.ComponentProps<"input">)
 
 function InputGroupTextarea({ className, ...props }: React.ComponentProps<"textarea">) {
   return (
-    <Textarea
+    <TextareaControl
       data-slot="input-group-control"
       className={cn(
         "flex-1 resize-none rounded-none border-0 bg-transparent py-3 shadow-none focus-visible:ring-0 dark:bg-transparent",

@@ -1,27 +1,29 @@
 "use client";
 
-import { CheckIcon, SelectChevronsUpDownIcon, XIcon } from "@/components/icons/hugeicons";
-import { useId, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { XIcon } from "@/components/icons/hugeicons";
+import { useId, useMemo } from "react";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@/components/ui/command";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+  Combobox,
+  ComboboxChip,
+  ComboboxChips,
+  ComboboxChipsInput,
+  ComboboxContent,
+  ComboboxEmpty,
+  ComboboxItem,
+  ComboboxList,
+  ComboboxValue,
+  useComboboxAnchor,
+} from "@/components/ui/combobox";
 import type { SearchableSelectOption } from "@/components/ui/searchable-select";
+import { filterSearchableOption } from "@/components/ui/searchable-select";
 import { cn } from "@arc/shared/utils";
-import { getVisibleSelectedItemCount } from "./searchable-multi-select-overflow";
 
 // =====================================================================
-// 多选可搜索下拉。Trigger 默认显示已选 item，空间不足时收敛成 +N。
-// Multi-pick searchable selector. Trigger previews selected items and folds
-// overflow into a +N badge.
+// 多选可搜索下拉。底层使用 Coss/Base UI Combobox multiple，输入区直接可搜索。
+// Multi-pick searchable selector backed by Coss/Base UI Combobox multiple.
 // =====================================================================
 
 type SelectedDisplayMode = "items" | "count";
@@ -56,179 +58,6 @@ function getInitials(label: string): string {
   return trimmed ? trimmed.slice(0, 1).toUpperCase() : "?";
 }
 
-interface SelectedPreviewMeasurements {
-  containerWidth: number;
-  itemWidths: number[];
-  overflowBadgeWidth: number;
-}
-
-const SELECTED_PREVIEW_GAP = 4;
-const INITIAL_MEASUREMENTS: SelectedPreviewMeasurements = {
-  containerWidth: 0,
-  itemWidths: [],
-  overflowBadgeWidth: 0,
-};
-
-function areMeasurementsEqual(
-  current: SelectedPreviewMeasurements,
-  next: SelectedPreviewMeasurements,
-) {
-  return (
-    current.containerWidth === next.containerWidth &&
-    current.overflowBadgeWidth === next.overflowBadgeWidth &&
-    current.itemWidths.length === next.itemWidths.length &&
-    current.itemWidths.every((width, index) => width === next.itemWidths[index])
-  );
-}
-
-function SelectedPreviewItem({
-  children,
-  measure,
-  title,
-}: {
-  children: React.ReactNode;
-  measure?: boolean;
-  title?: string;
-}) {
-  return (
-    <span
-      className="inline-flex h-5 max-w-24 shrink-0 items-center rounded-sm bg-muted px-1.5 font-medium text-foreground text-xs"
-      data-selected-preview-item={measure ? "" : undefined}
-      title={title}
-    >
-      <span className="min-w-0 truncate">{children}</span>
-    </span>
-  );
-}
-
-function SelectedPreviewOverflow({ count, measure }: { count: number; measure?: boolean }) {
-  return (
-    <span
-      className="inline-flex h-5 shrink-0 items-center rounded-sm bg-muted px-1.5 font-medium text-muted-foreground text-xs"
-      data-selected-preview-overflow={measure ? "" : undefined}
-      title={`还有 ${count} 项未展示`}
-    >
-      +{count}
-    </span>
-  );
-}
-
-function SelectedItemsPreview({
-  items,
-  placeholder,
-  selectedDisplay,
-  selectedFormat,
-  selectedPreviewLimit,
-}: {
-  items: SearchableSelectOption[];
-  placeholder: string;
-  selectedDisplay: SelectedDisplayMode;
-  selectedFormat: (count: number) => string;
-  selectedPreviewLimit?: number;
-}) {
-  const previewRef = useRef<HTMLSpanElement>(null);
-  const measureRef = useRef<HTMLSpanElement>(null);
-  const [measurements, setMeasurements] =
-    useState<SelectedPreviewMeasurements>(INITIAL_MEASUREMENTS);
-  const previewItems =
-    typeof selectedPreviewLimit === "number"
-      ? items.slice(0, Math.max(0, selectedPreviewLimit))
-      : items;
-
-  useLayoutEffect(() => {
-    const previewElement = previewRef.current;
-    const measureElement = measureRef.current;
-    if (!previewElement || !measureElement) {
-      return;
-    }
-
-    const measure = () => {
-      const itemWidths = Array.from(
-        measureElement.querySelectorAll<HTMLElement>("[data-selected-preview-item]"),
-      ).map((element) => element.getBoundingClientRect().width);
-      const overflowBadgeWidth =
-        measureElement
-          .querySelector<HTMLElement>("[data-selected-preview-overflow]")
-          ?.getBoundingClientRect().width ?? 0;
-      const next = {
-        containerWidth: previewElement.getBoundingClientRect().width,
-        itemWidths,
-        overflowBadgeWidth,
-      };
-
-      setMeasurements((current) => (areMeasurementsEqual(current, next) ? current : next));
-    };
-
-    measure();
-
-    if (typeof ResizeObserver === "undefined") {
-      window.addEventListener("resize", measure);
-      return () => window.removeEventListener("resize", measure);
-    }
-
-    const observer = new ResizeObserver(measure);
-    observer.observe(previewElement);
-    return () => observer.disconnect();
-  }, [items, selectedDisplay, selectedPreviewLimit]);
-
-  if (items.length === 0) {
-    return (
-      <span className="min-w-0 flex-1 truncate text-muted-foreground" ref={previewRef}>
-        {placeholder}
-      </span>
-    );
-  }
-
-  if (selectedDisplay === "count") {
-    return (
-      <span className="min-w-0 flex-1 truncate" ref={previewRef}>
-        {selectedFormat(items.length)}
-      </span>
-    );
-  }
-
-  const hasMeasurements =
-    measurements.containerWidth > 0 && measurements.itemWidths.length === previewItems.length;
-  const visibleCount = hasMeasurements
-    ? getVisibleSelectedItemCount({
-        containerWidth: measurements.containerWidth,
-        gap: SELECTED_PREVIEW_GAP,
-        itemWidths: measurements.itemWidths,
-        overflowBadgeWidth: measurements.overflowBadgeWidth,
-      })
-    : previewItems.length;
-  const visibleItems = previewItems.slice(0, visibleCount);
-  const hiddenCount = items.length - visibleItems.length;
-  const selectedTitle = items.map((item) => item.label).join("、");
-
-  return (
-    <span
-      className="relative flex min-w-0 flex-1 items-center gap-1 overflow-hidden"
-      ref={previewRef}
-      title={selectedTitle}
-    >
-      {visibleItems.map((item) => (
-        <SelectedPreviewItem key={item.value} title={item.label}>
-          {item.label}
-        </SelectedPreviewItem>
-      ))}
-      {hiddenCount > 0 ? <SelectedPreviewOverflow count={hiddenCount} /> : null}
-      <span
-        aria-hidden
-        className="pointer-events-none absolute h-0 overflow-hidden opacity-0"
-        ref={measureRef}
-      >
-        {previewItems.map((item) => (
-          <SelectedPreviewItem key={item.value} measure>
-            {item.label}
-          </SelectedPreviewItem>
-        ))}
-        <SelectedPreviewOverflow count={items.length} measure />
-      </span>
-    </span>
-  );
-}
-
 export function SearchableMultiSelect({
   value,
   onChange,
@@ -246,7 +75,7 @@ export function SearchableMultiSelect({
   triggerClassName,
   id,
 }: SearchableMultiSelectProps) {
-  const [open, setOpen] = useState(false);
+  const anchorRef = useComboboxAnchor();
   const fallbackId = useId();
   const triggerId = id ?? fallbackId;
 
@@ -261,96 +90,93 @@ export function SearchableMultiSelect({
       : selectedItems;
   const hiddenSelectedCount = selectedItems.length - visibleSelectedItems.length;
 
-  const toggle = (next: string) => {
-    if (selectedSet.has(next)) {
-      onChange(value.filter((v) => v !== next));
-    } else {
-      onChange([...value, next]);
-    }
-  };
-
   const remove = (next: string) => {
     onChange(value.filter((v) => v !== next));
   };
 
   return (
-    // flex flex-col gap-2：position:fixed 的 popover wrapper 不参与 flex 布局，
-    // 避免 space-y-* 在 popover 内联渲染时引发 trigger margin 抖动。
-    // / flex+gap because position:fixed children (the inline popover wrapper)
-    // are excluded from flex layout, sidestepping the space-y-* jitter.
     <div className="flex flex-col gap-2">
-      <Popover onOpenChange={setOpen} open={open}>
-        <PopoverTrigger asChild>
-          <button
-            aria-expanded={open}
-            aria-invalid={invalid ? true : undefined}
-            className={cn(
-              "flex h-9 w-full items-center justify-between overflow-hidden rounded-md border border-input bg-background px-3 py-1 text-left text-sm transition-[color,box-shadow] focus-visible:border-ring focus-visible:outline-hidden focus-visible:ring-[3px] focus-visible:ring-ring/50 data-[invalid=true]:border-destructive data-[invalid=true]:ring-[3px] data-[invalid=true]:ring-destructive/20 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-input/30",
-              // 当前扁平化风格暂时关闭阴影；如需恢复，取消下一行注释。
-              // "shadow-xs",
-              triggerClassName,
-            )}
-            data-invalid={invalid ? true : undefined}
-            disabled={disabled}
-            id={triggerId}
-            type="button"
-          >
-            <SelectedItemsPreview
-              items={selectedItems}
-              placeholder={placeholder}
-              selectedDisplay={selectedDisplay}
-              selectedFormat={selectedFormat}
-              selectedPreviewLimit={selectedPreviewLimit}
-            />
-            <SelectChevronsUpDownIcon className="ml-2 size-4 shrink-0 opacity-50" />
-          </button>
-        </PopoverTrigger>
-        <PopoverContent
-          align="start"
-          className="w-(--radix-popover-trigger-width) min-w-72 p-0"
-          onOpenAutoFocus={(event) => event.preventDefault()}
-        >
-          <Command>
-            <CommandInput placeholder={searchPlaceholder} />
-            <CommandList>
-              <CommandEmpty>{emptyMessage}</CommandEmpty>
-              <CommandGroup>
-                {options.map((option) => {
-                  const isSelected = selectedSet.has(option.value);
-                  return (
-                    <CommandItem
-                      disabled={option.disabled}
-                      key={option.value}
-                      onSelect={() => toggle(option.value)}
-                      value={option.searchValue ?? `${option.label} ${option.description ?? ""}`}
-                    >
-                      <CheckIcon
-                        className={cn("size-4", isSelected ? "opacity-100" : "opacity-0")}
-                      />
-                      {option.avatarUrl !== undefined ? (
-                        <Avatar size="sm">
-                          {option.avatarUrl ? (
-                            <AvatarImage alt={option.label} src={option.avatarUrl} />
-                          ) : null}
-                          <AvatarFallback>{getInitials(option.label)}</AvatarFallback>
-                        </Avatar>
+      <Combobox<SearchableSelectOption, true>
+        disabled={disabled}
+        filter={filterSearchableOption}
+        isItemEqualToValue={(item, selectedItem) => item.value === selectedItem.value}
+        itemToStringLabel={(item) => item.label}
+        itemToStringValue={(item) => item.value}
+        items={options}
+        multiple
+        onValueChange={(next) => onChange(next.map((item) => item.value))}
+        value={selectedItems}
+      >
+        <ComboboxChips className={cn("w-full", triggerClassName)} ref={anchorRef}>
+          <ComboboxValue>
+            {(selected: SearchableSelectOption[]) => {
+              const visible =
+                typeof selectedPreviewLimit === "number"
+                  ? selected.slice(0, Math.max(0, selectedPreviewLimit))
+                  : selected;
+              const hiddenCount = selected.length - visible.length;
+
+              return (
+                <>
+                  {selectedDisplay === "count" && selected.length > 0 ? (
+                    <span className="min-w-0 truncate text-sm">
+                      {selectedFormat(selected.length)}
+                    </span>
+                  ) : (
+                    <>
+                      {visible.map((item) => (
+                        <ComboboxChip aria-label={item.value} key={item.value} title={item.label}>
+                          {item.label}
+                        </ComboboxChip>
+                      ))}
+                      {hiddenCount > 0 ? (
+                        <span
+                          className="flex h-[calc(--spacing(5.5))] w-fit items-center justify-center rounded-sm bg-muted px-1.5 font-medium text-muted-foreground text-xs whitespace-nowrap"
+                          title={`还有 ${hiddenCount} 项未展示`}
+                        >
+                          +{hiddenCount}
+                        </span>
                       ) : null}
-                      <div className="flex min-w-0 flex-col leading-tight">
-                        <span className="truncate">{option.label}</span>
-                        {option.description ? (
-                          <span className="truncate text-muted-foreground text-xs">
-                            {option.description}
-                          </span>
-                        ) : null}
-                      </div>
-                    </CommandItem>
-                  );
-                })}
-              </CommandGroup>
-            </CommandList>
-          </Command>
-        </PopoverContent>
-      </Popover>
+                    </>
+                  )}
+                  <ComboboxChipsInput
+                    aria-invalid={invalid ? true : undefined}
+                    aria-label={searchPlaceholder}
+                    className={cn(selected.length > 0 && "min-w-8")}
+                    id={triggerId}
+                    placeholder={selected.length > 0 ? undefined : placeholder}
+                  />
+                </>
+              );
+            }}
+          </ComboboxValue>
+        </ComboboxChips>
+        <ComboboxContent anchor={anchorRef} className="min-w-72">
+          <ComboboxEmpty>{emptyMessage}</ComboboxEmpty>
+          <ComboboxList>
+            {(option: SearchableSelectOption) => (
+              <ComboboxItem disabled={option.disabled} key={option.value} value={option}>
+                {option.avatarUrl !== undefined ? (
+                  <Avatar size="sm">
+                    {option.avatarUrl ? (
+                      <AvatarImage alt={option.label} src={option.avatarUrl} />
+                    ) : null}
+                    <AvatarFallback>{getInitials(option.label)}</AvatarFallback>
+                  </Avatar>
+                ) : null}
+                <div className="flex min-w-0 flex-col leading-tight">
+                  <span className="truncate">{option.label}</span>
+                  {option.description ? (
+                    <span className="truncate text-muted-foreground text-xs">
+                      {option.description}
+                    </span>
+                  ) : null}
+                </div>
+              </ComboboxItem>
+            )}
+          </ComboboxList>
+        </ComboboxContent>
+      </Combobox>
       {showBadges && selectedItems.length > 0 ? (
         <div className="flex flex-wrap gap-1.5">
           {visibleSelectedItems.map((item) => (

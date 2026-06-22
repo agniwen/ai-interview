@@ -15,7 +15,10 @@ function Table({
   containerStyle?: React.CSSProperties;
 }) {
   return (
-    <div className="rounded-2xl border bg-muted p-1 " data-slot="table-frame">
+    <div
+      className="relative rounded-2xl border bg-muted p-1 shadow-xs/5 before:pointer-events-none before:absolute before:inset-0 before:rounded-[calc(var(--radius-2xl)-1px)] before:shadow-[0_1px_--theme(--color-black/4%)] dark:before:shadow-[0_-1px_--theme(--color-white/6%)]"
+      data-slot="table-frame"
+    >
       <OverlayScrollbarsComponent
         className={cn("w-full overflow-x-auto rounded-xl", containerClassName)}
         data-slot="table-container"

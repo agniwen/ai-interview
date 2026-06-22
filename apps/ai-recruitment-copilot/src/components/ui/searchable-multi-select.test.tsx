@@ -38,7 +38,8 @@ describe("SearchableMultiSelect", () => {
       <SearchableMultiSelect onChange={() => {}} options={options} value={selectedValues} />,
     );
 
-    expect(html).toContain('title="岗位 A、岗位 B"');
+    expect(html).toContain('title="岗位 A"');
+    expect(html).toContain('title="岗位 B"');
     expect(html).not.toContain("已选 2 项");
   });
 

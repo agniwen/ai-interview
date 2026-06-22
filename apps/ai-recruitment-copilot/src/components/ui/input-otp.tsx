@@ -4,6 +4,7 @@ import { OTPInput, OTPInputContext } from "input-otp";
 import { MinusIcon } from "@/components/icons/hugeicons";
 import * as React from "react";
 
+import { cossControlOverlayClass } from "@/components/ui/coss-style";
 import { cn } from "@arc/shared/utils";
 
 function InputOTP({
@@ -44,9 +45,8 @@ function InputOTPSlot({
       data-slot="input-otp-slot"
       data-active={isActive}
       className={cn(
-        "relative flex h-9 w-9 items-center justify-center border-y border-r border-input bg-background text-sm transition-all outline-none first:rounded-l-md first:border-l last:rounded-r-md aria-invalid:border-destructive data-[active=true]:z-10 data-[active=true]:border-ring data-[active=true]:ring-[3px] data-[active=true]:ring-ring/50 data-[active=true]:aria-invalid:border-destructive data-[active=true]:aria-invalid:ring-destructive/20 dark:bg-input/30 dark:data-[active=true]:aria-invalid:ring-destructive/40",
-        // 当前扁平化风格暂时关闭阴影；如需恢复，取消下一行注释。
-        // "shadow-xs",
+        cossControlOverlayClass,
+        "relative flex h-9 w-9 items-center justify-center border-y border-r border-input bg-background bg-clip-padding text-sm shadow-xs/5 transition-all outline-none first:rounded-l-md first:border-l first:before:rounded-l-[calc(var(--radius-md)-1px)] last:rounded-r-md last:before:rounded-r-[calc(var(--radius-md)-1px)] aria-invalid:border-destructive aria-invalid:before:shadow-none data-[active=true]:z-10 data-[active=true]:border-ring data-[active=true]:ring-[3px] data-[active=true]:ring-ring/50 data-[active=true]:before:shadow-none data-[active=true]:aria-invalid:border-destructive data-[active=true]:aria-invalid:ring-destructive/20 dark:bg-input/30 dark:data-[active=true]:aria-invalid:ring-destructive/40",
         className,
       )}
       {...props}

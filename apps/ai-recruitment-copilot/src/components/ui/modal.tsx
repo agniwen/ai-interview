@@ -6,6 +6,7 @@ import * as React from "react";
 import { Drawer as DrawerPrimitive } from "vaul";
 
 import { ButtonSizeProvider } from "@/components/ui/button";
+import { cossModalSurfaceClass } from "@/components/ui/coss-style";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@arc/shared/utils";
 
@@ -106,7 +107,8 @@ function DialogModal({
         >
           <div
             className={cn(
-              "relative flex max-h-[90vh] flex-col overflow-hidden  rounded-3xl border border-border bg-background shadow-2xl",
+              cossModalSurfaceClass,
+              "flex max-h-[90vh] flex-col overflow-hidden rounded-3xl",
               className,
             )}
           >
@@ -193,7 +195,8 @@ function DrawerModal({
         >
           <div
             className={cn(
-              "relative flex h-full max-h-[90vh] flex-col overflow-hidden rounded-t-3xl border-t bg-background",
+              cossModalSurfaceClass,
+              "flex h-full max-h-[90vh] flex-col overflow-hidden rounded-t-3xl",
               className,
             )}
           >

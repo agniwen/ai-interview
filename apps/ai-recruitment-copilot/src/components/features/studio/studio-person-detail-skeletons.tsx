@@ -162,7 +162,7 @@ export function FormsSkeleton() {
 
 export function InterviewResultOverviewSkeleton() {
   return (
-    <div className="h-full rounded-2xl  p-5">
+    <div className="h-full rounded-2xl bg-muted/20 p-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <Skeleton className="h-5 w-20" />
         <Skeleton className="h-6 w-20" />

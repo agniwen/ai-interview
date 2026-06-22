@@ -1,23 +1,22 @@
 "use client";
 
-import { CheckIcon, SelectChevronsUpDownIcon, XIcon } from "@/components/icons/hugeicons";
-import { useId, useMemo, useState } from "react";
+import type { ReactNode } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 
 import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@/components/ui/command";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+  Combobox,
+  ComboboxContent,
+  ComboboxEmpty,
+  ComboboxInput,
+  ComboboxItem,
+  ComboboxList,
+} from "@/components/ui/combobox";
 import { cn } from "@arc/shared/utils";
 
 // =====================================================================
-// 单选可搜索下拉。底层是 Command + Popover，沿用项目已修好的 popover/cmdk 滚动方案。
-// Single-pick searchable selector. Built on the project's Command + Popover
-// stack (already patched for scroll-inside-dialog).
+// 单选可搜索下拉。底层使用 Coss/Base UI Combobox：输入框本身即搜索框。
+// Single-pick searchable selector backed by Coss/Base UI Combobox. The input
+// itself is searchable; no Command-in-Popover wrapper is needed.
 // =====================================================================
 
 export interface SearchableSelectOption {
@@ -57,7 +56,19 @@ export interface SearchableSelectProps {
   /** 触发器 id（关联 label） / Trigger id, for label htmlFor association. */
   id?: string;
   /** 自定义触发器内显示已选项 / Custom render for the selected label inside trigger. */
-  renderSelected?: (option: SearchableSelectOption) => React.ReactNode;
+  renderSelected?: (option: SearchableSelectOption) => ReactNode;
+}
+
+function getOptionSearchText(option: SearchableSelectOption) {
+  return option.searchValue ?? `${option.label} ${option.description ?? ""}`;
+}
+
+function filterSearchableOption(option: SearchableSelectOption, query: string) {
+  const normalizedQuery = query.trim().toLocaleLowerCase();
+  if (!normalizedQuery) {
+    return true;
+  }
+  return getOptionSearchText(option).toLocaleLowerCase().includes(normalizedQuery);
 }
 
 export function SearchableSelect({
@@ -65,15 +76,14 @@ export function SearchableSelect({
   onChange,
   options,
   placeholder = "请选择",
-  searchPlaceholder = "搜索...",
   emptyMessage = "没有匹配项",
   invalid,
   disabled,
   clearable = false,
   triggerClassName,
   id,
-  renderSelected,
 }: SearchableSelectProps) {
+  const [inputValue, setInputValue] = useState("");
   const [open, setOpen] = useState(false);
   const fallbackId = useId();
   const triggerId = id ?? fallbackId;
@@ -82,105 +92,69 @@ export function SearchableSelect({
     () => options.find((option) => option.value === value) ?? null,
     [options, value],
   );
+  const selectedLabel = selected?.label ?? "";
 
-  const handleSelect = (next: string) => {
-    onChange(next);
+  useEffect(() => {
+    if (!open) {
+      setInputValue(selectedLabel);
+    }
+  }, [open, selectedLabel]);
+
+  const handleOpenChange = (nextOpen: boolean) => {
+    setOpen(nextOpen);
+    if (!nextOpen) {
+      setInputValue(selectedLabel);
+    }
+  };
+
+  const handleValueChange = (next: SearchableSelectOption | null) => {
+    onChange(next?.value ?? null);
+    setInputValue(next?.label ?? "");
     setOpen(false);
   };
 
-  const handleClear = (event: React.MouseEvent) => {
-    event.stopPropagation();
-    onChange(null);
-  };
-
-  const showClearButton = Boolean(clearable && selected && !disabled);
-
   return (
-    <Popover onOpenChange={setOpen} open={open}>
-      <div className="relative">
-        <PopoverTrigger asChild>
-          <button
-            aria-expanded={open}
-            aria-invalid={invalid ? true : undefined}
-            className={cn(
-              "flex h-9 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-1 text-left text-sm transition-[color,box-shadow] focus-visible:border-ring focus-visible:outline-hidden focus-visible:ring-[3px] focus-visible:ring-ring/50 data-[invalid=true]:border-destructive data-[invalid=true]:ring-[3px] data-[invalid=true]:ring-destructive/20 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-input/30",
-              // 当前扁平化风格暂时关闭阴影；如需恢复，取消下一行注释。
-              // "shadow-xs",
-              triggerClassName,
-            )}
-            data-invalid={invalid ? true : undefined}
-            disabled={disabled}
-            id={triggerId}
-            type="button"
-          >
-            <span
-              className={cn("min-w-0 flex-1 truncate", selected ? "" : "text-muted-foreground")}
-            >
-              {selected
-                ? renderSelected
-                  ? renderSelected(selected)
-                  : selected.label
-                : placeholder}
-            </span>
-            <span className="ml-2 flex shrink-0 items-center gap-1">
-              {/* 占位 span：与下方绝对定位的清除按钮位置对齐，避免 chevron 被挤位。
-                  Spacer span: keeps trigger layout stable so the absolute clear button below
-                  lines up here without pushing the chevron. */}
-              {showClearButton ? <span aria-hidden className="size-4" /> : null}
-              <SelectChevronsUpDownIcon className="size-4 opacity-50" />
-            </span>
-          </button>
-        </PopoverTrigger>
-        {showClearButton ? (
-          // 抽到 PopoverTrigger 外，避免 button-in-button 的水合错误。
-          // 位置 right-8 对应触发器内占位 span 的位置。
-          // Hoisted out of PopoverTrigger to avoid the nested-<button> hydration error.
-          // right-8 aligns with the placeholder span inside the trigger.
-          <button
-            aria-label="清除已选"
-            className="-translate-y-1/2 absolute top-1/2 right-8 inline-flex size-4 items-center justify-center rounded-sm opacity-60 hover:opacity-100"
-            onClick={handleClear}
-            type="button"
-          >
-            <XIcon className="size-3" />
-          </button>
-        ) : null}
-      </div>
-      <PopoverContent
-        align="start"
-        className="w-(--radix-popover-trigger-width) min-w-72 p-0"
-        onOpenAutoFocus={(event) => event.preventDefault()}
-      >
-        <Command>
-          <CommandInput placeholder={searchPlaceholder} />
-          <CommandList>
-            <CommandEmpty>{emptyMessage}</CommandEmpty>
-            <CommandGroup>
-              {options.map((option) => {
-                const isSelected = option.value === value;
-                return (
-                  <CommandItem
-                    disabled={option.disabled}
-                    key={option.value}
-                    onSelect={() => handleSelect(option.value)}
-                    value={option.searchValue ?? `${option.label} ${option.description ?? ""}`}
-                  >
-                    <CheckIcon className={cn("size-4", isSelected ? "opacity-100" : "opacity-0")} />
-                    <div className="flex min-w-0 flex-col leading-tight">
-                      <span className="truncate">{option.label}</span>
-                      {option.description ? (
-                        <span className="truncate text-muted-foreground text-xs">
-                          {option.description}
-                        </span>
-                      ) : null}
-                    </div>
-                  </CommandItem>
-                );
-              })}
-            </CommandGroup>
-          </CommandList>
-        </Command>
-      </PopoverContent>
-    </Popover>
+    <Combobox<SearchableSelectOption>
+      disabled={disabled}
+      filter={filterSearchableOption}
+      inputValue={inputValue}
+      isItemEqualToValue={(item, selectedItem) => item.value === selectedItem.value}
+      itemToStringLabel={(item) => item.label}
+      itemToStringValue={(item) => item.value}
+      items={options}
+      onInputValueChange={(next) => setInputValue(next)}
+      onOpenChange={handleOpenChange}
+      onValueChange={handleValueChange}
+      open={open}
+      value={selected}
+    >
+      <ComboboxInput
+        aria-invalid={invalid ? true : undefined}
+        className={cn("w-full", triggerClassName)}
+        disabled={disabled}
+        id={triggerId}
+        placeholder={placeholder}
+        showClear={clearable}
+      />
+      <ComboboxContent className="min-w-72">
+        <ComboboxEmpty>{emptyMessage}</ComboboxEmpty>
+        <ComboboxList>
+          {(option: SearchableSelectOption) => (
+            <ComboboxItem disabled={option.disabled} key={option.value} value={option}>
+              <div className="flex min-w-0 flex-col leading-tight">
+                <span className="truncate">{option.label}</span>
+                {option.description ? (
+                  <span className="truncate text-muted-foreground text-xs">
+                    {option.description}
+                  </span>
+                ) : null}
+              </div>
+            </ComboboxItem>
+          )}
+        </ComboboxList>
+      </ComboboxContent>
+    </Combobox>
   );
 }
+
+export { filterSearchableOption, getOptionSearchText };

@@ -49,9 +49,7 @@ function Slider({
           data-slot="slider-thumb"
           key={index}
           className={cn(
-            "block size-4 shrink-0 rounded-full border border-primary bg-white ring-ring/50 transition-[color,box-shadow] hover:ring-4 focus-visible:ring-4 focus-visible:outline-hidden disabled:pointer-events-none disabled:opacity-50",
-            // 当前扁平化风格暂时关闭阴影；如需恢复，取消下一行注释。
-            // "shadow-sm",
+            "relative block size-4 shrink-0 rounded-full border border-input bg-white bg-clip-padding shadow-xs/5 outline-none ring-ring/24 transition-[box-shadow,scale] before:pointer-events-none before:absolute before:inset-0 before:rounded-full before:shadow-[0_1px_--theme(--color-black/4%)] hover:ring-4 focus-visible:ring-4 focus-visible:outline-hidden disabled:pointer-events-none disabled:opacity-50 disabled:shadow-none disabled:before:shadow-none dark:border-background",
           )}
         />
       ))}

@@ -133,4 +133,28 @@ describe("StudioPersonEditDialog", () => {
     });
     queryClient.clear();
   });
+
+  it("prefills editable resume fields in resume edit mode", async () => {
+    apiMocks.fetchStudioResume.mockResolvedValue({
+      ...makeDetail(),
+      candidateEmail: "dengchao@example.com",
+      candidatePhone: "13800138000",
+    });
+    const { queryClient, root } = renderDialog();
+
+    await vi.waitFor(() => {
+      expect(document.querySelector<HTMLInputElement>("#candidateName")?.value).toBe("邓超");
+    });
+
+    expect(document.querySelector<HTMLInputElement>("#candidateEmail")?.value).toBe(
+      "dengchao@example.com",
+    );
+    expect(document.querySelector<HTMLInputElement>("#candidatePhone")?.value).toBe("13800138000");
+    expect(document.querySelector<HTMLInputElement>("#targetRole")?.value).toBe("前端工程师");
+
+    act(() => {
+      root.unmount();
+    });
+    queryClient.clear();
+  });
 });

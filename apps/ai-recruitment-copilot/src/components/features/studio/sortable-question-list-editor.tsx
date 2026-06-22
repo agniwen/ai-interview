@@ -2,6 +2,7 @@
 
 import { PlusIcon, Trash2Icon } from "@/components/icons/hugeicons";
 import { Button } from "@/components/ui/button";
+import { cossControlOverlayClass } from "@/components/ui/coss-style";
 import { FieldError } from "@/components/ui/field";
 import {
   Select,
@@ -11,11 +12,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { SortableDragHandle, SortableItem, SortableList } from "@/components/ui/sortable-list";
-import { Textarea } from "@/components/ui/textarea";
+import { TextareaControl } from "@/components/ui/textarea";
 import { TextareaCounter } from "@/components/ui/textarea-counter";
 import { useSortableItemIds } from "@/hooks/use-sortable-item-ids";
 import { INTERVIEW_QUESTION_DIFFICULTY_OPTIONS } from "@arc/db-schema/interview-question-templates";
 import type { InterviewQuestionTemplateDifficulty } from "@arc/db-schema/interview-question-templates";
+import { cn } from "@arc/shared/utils";
 import { hasFieldErrors, toFieldErrors } from "./interviews/interview-form";
 
 const DIFFICULTY_PILL: Record<InterviewQuestionTemplateDifficulty, string> = {
@@ -131,11 +133,14 @@ function QuestionListBody({
             <SortableItem disabled={disabled} id={id} key={id}>
               {({ handleProps, isDragging }) => (
                 <div
-                  className={`group flex flex-col gap-2 rounded-xl border bg-card/30 p-3 transition-all hover:bg-card/60 ${
+                  className={cn(
+                    cossControlOverlayClass,
+                    "group relative flex flex-col gap-2 rounded-xl border bg-card/30 bg-clip-padding p-3 shadow-xs/5 transition-colors",
+                    "hover:bg-card/60 focus-within:bg-card/60",
                     isDragging
                       ? "border-primary/30 bg-card shadow-sm"
-                      : "border-border hover:border-border"
-                  }`}
+                      : "border-border hover:border-border focus-within:border-border",
+                  )}
                 >
                   {/* Top: drag handle, index, difficulty, delete */}
                   <div className="flex items-center gap-2">
@@ -203,10 +208,17 @@ function QuestionListBody({
                       const errors = toFieldErrors(subField.state.meta.errors);
                       return (
                         <div data-invalid={hasFieldErrors(subField.state.meta.errors) || undefined}>
-                          <div className="relative">
-                            <Textarea
+                          <div
+                            className={cn(
+                              "relative rounded-md border border-transparent transition-colors",
+                              "group-hover:border-border hover:border-border focus-within:border-ring",
+                              "has-[textarea:disabled]:hover:border-transparent",
+                              errors?.length && "border-destructive hover:border-destructive",
+                            )}
+                          >
+                            <TextareaControl
                               aria-invalid={!!errors?.length}
-                              className="min-h-14 max-h-40 resize-none border-transparent bg-transparent p-1 pb-6 text-sm shadow-none placeholder:text-muted-foreground/50 focus:border focus-visible:ring-0 dark:bg-transparent"
+                              className="min-h-14 max-h-40 resize-none bg-transparent p-1 pb-6 text-sm shadow-none placeholder:text-muted-foreground/50 dark:bg-transparent"
                               disabled={disabled}
                               maxLength={contentMaxLength}
                               onBlur={subField.handleBlur}
