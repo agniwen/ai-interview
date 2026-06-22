@@ -10,6 +10,7 @@ vi.mock(
     getGlobalConfig: vi.fn(() => ({
       closingInstructions: "",
       companyContext: "",
+      jobCodePrefix: "AUR",
       openingInstructions: "",
       updatedAt: "1970-01-01T00:00:00.000Z",
       updatedBy: null,
@@ -55,12 +56,14 @@ describe("globalConfigRouter", () => {
     expect(json.openingInstructions).toBe("");
     expect(json.closingInstructions).toBe("");
     expect(json.companyContext).toBe("");
+    expect(json.jobCodePrefix).toBe("AUR");
   });
 
   it("PUT / persists trimmed values and echoes them back", async () => {
     const payload = {
       closingInstructions: "感谢候选人参加",
       companyContext: "公司介绍",
+      jobCodePrefix: "hr",
       openingInstructions: "用候选人姓名打招呼",
     };
     const res = await globalConfigRouter.fetch(makePutRequest(payload));
@@ -69,6 +72,7 @@ describe("globalConfigRouter", () => {
     expect(json.openingInstructions).toBe(payload.openingInstructions);
     expect(json.closingInstructions).toBe(payload.closingInstructions);
     expect(json.companyContext).toBe(payload.companyContext);
+    expect(json.jobCodePrefix).toBe("HR");
   });
 
   it("PUT / rejects oversized payload", async () => {
@@ -79,6 +83,7 @@ describe("globalConfigRouter", () => {
       makePutRequest({
         closingInstructions: "",
         companyContext: "",
+        jobCodePrefix: "AUR",
         openingInstructions: huge,
       }),
     );

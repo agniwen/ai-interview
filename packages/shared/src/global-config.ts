@@ -1,10 +1,27 @@
 import { z } from "zod";
 
+export const DEFAULT_JOB_CODE_PREFIX = "AUR";
+
+const jobCodePrefixSchema = z.preprocess(
+  (value) => {
+    if (typeof value !== "string") {
+      return value;
+    }
+    const normalized = value.trim().toUpperCase();
+    return normalized.length > 0 ? normalized : undefined;
+  },
+  z
+    .string()
+    .regex(/^[A-Z0-9]{1,12}$/, "岗位编码前缀只能包含 1-12 位大写字母或数字")
+    .default(DEFAULT_JOB_CODE_PREFIX),
+);
+
 // 表单/接口共享 schema / Shared schema for form & API
 export const globalConfigSchema = z.object({
   closingInstructions: z.string().max(10_000).default(""),
   companyContext: z.string().max(8000).default(""),
   companyName: z.string().max(120).default(""),
+  jobCodePrefix: jobCodePrefixSchema,
   openingInstructions: z.string().max(10_000).default(""),
 });
 

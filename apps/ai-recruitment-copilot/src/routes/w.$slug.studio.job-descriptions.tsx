@@ -202,6 +202,16 @@ function JobDescriptionManagementPage({
         truncate: "max-w-[14rem]",
       }),
       customColumn<JobDescriptionListRecord>({
+        cell: (r) =>
+          r.code ? (
+            <span className="font-mono text-xs">{r.code}</span>
+          ) : (
+            <span className="text-muted-foreground text-sm">未生成</span>
+          ),
+        key: "code",
+        title: "编码",
+      }),
+      customColumn<JobDescriptionListRecord>({
         cell: (r) => r.departmentName ?? <Badge variant="outline">未知</Badge>,
         key: "departmentName",
         title: "部门",

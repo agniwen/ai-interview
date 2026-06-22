@@ -3,8 +3,17 @@ import { z } from "zod";
 import type { ResumeParseStatus } from "@arc/db-schema/studio-interviews";
 import type { ResumePoolProfileHighlights } from "./resume-pool";
 
+export const jobDescriptionCodeSchema = z
+  .string()
+  .trim()
+  .transform((value) => value.toUpperCase())
+  .refine((value) => value === "" || /^[A-Z0-9]{12,23}$/.test(value), "岗位编码格式无效")
+  .transform((value) => value || undefined)
+  .optional();
+
 export const jobDescriptionBaseSchema = z.object({
   allowCrossDepartmentInterviewers: z.boolean(),
+  code: jobDescriptionCodeSchema,
   departmentId: z.string().trim().min(1, "请选择所属部门"),
   description: z.string().trim().max(500, "描述不能超过 500 字").optional().or(z.literal("")),
   interviewerIds: z
@@ -30,6 +39,7 @@ export interface JobDescriptionInterviewerSummary {
 export interface JobDescriptionRecord {
   id: string;
   allowCrossDepartmentInterviewers: boolean;
+  code: string | null;
   departmentId: string;
   interviewerIds: string[];
   name: string;

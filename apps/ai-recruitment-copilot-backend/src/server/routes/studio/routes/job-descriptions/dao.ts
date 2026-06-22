@@ -144,6 +144,7 @@ function listJobDescriptionRows({
   let query = db
     .select({
       allowCrossDepartmentInterviewers: jobDescription.allowCrossDepartmentInterviewers,
+      code: jobDescription.code,
       createdAt: jobDescription.createdAt,
       createdBy: jobDescription.createdBy,
       departmentId: jobDescription.departmentId,
@@ -277,6 +278,7 @@ function toJobDescriptionListRecord(
 ): JobDescriptionListRecord {
   return {
     allowCrossDepartmentInterviewers: row.allowCrossDepartmentInterviewers,
+    code: row.code,
     createdAt: serializeDate(row.createdAt),
     createdBy: row.createdBy,
     departmentId: row.departmentId,
@@ -448,6 +450,7 @@ export async function loadJobDescriptionById(
   const interviewers = interviewersMap.get(id) ?? [];
   return {
     allowCrossDepartmentInterviewers: row.allowCrossDepartmentInterviewers,
+    code: row.code,
     createdAt: serializeDate(row.createdAt),
     createdBy: row.createdBy,
     departmentId: row.departmentId,
@@ -620,6 +623,7 @@ export function serializeJobDescription(
 ): JobDescriptionRecord {
   return {
     allowCrossDepartmentInterviewers: row.allowCrossDepartmentInterviewers,
+    code: row.code,
     createdAt: serializeDate(row.createdAt),
     createdBy: row.createdBy,
     departmentId: row.departmentId,
