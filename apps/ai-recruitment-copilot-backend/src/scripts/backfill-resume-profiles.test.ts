@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   calculateRemainingRecords,
+  hasExistingEducationExperiences,
   mergeEducationExperiencesIntoProfile,
   parseBackfillConcurrency,
   parseBackfillTarget,
@@ -58,6 +59,54 @@ describe("backfill resume profiles helpers", () => {
     expect(calculateRemainingRecords({ completed: 1, total: 10 })).toBe(9);
     expect(calculateRemainingRecords({ completed: 10, total: 10 })).toBe(0);
     expect(calculateRemainingRecords({ completed: 11, total: 10 })).toBe(0);
+  });
+
+  it("detects records that already have education experiences", () => {
+    expect(
+      hasExistingEducationExperiences({
+        age: null,
+        educationExperiences: [
+          {
+            degree: null,
+            educationLevel: null,
+            graduationYear: null,
+            major: null,
+            period: null,
+            school: "清华大学",
+            summary: null,
+          },
+        ],
+        email: null,
+        gender: null,
+        name: "郭靖",
+        personalStrengths: [],
+        phone: null,
+        projectExperiences: [],
+        schools: [],
+        skills: [],
+        targetRoles: [],
+        workExperiences: [],
+        workYears: null,
+      }),
+    ).toBe(true);
+    expect(
+      hasExistingEducationExperiences({
+        age: null,
+        educationExperiences: [],
+        email: null,
+        gender: null,
+        name: "郭靖",
+        personalStrengths: [],
+        phone: null,
+        projectExperiences: [],
+        schools: [],
+        skills: [],
+        targetRoles: [],
+        workExperiences: [],
+        workYears: null,
+      }),
+    ).toBe(false);
+    expect(hasExistingEducationExperiences(null)).toBe(false);
   });
 
   it("serializes record logs as single-line JSON", () => {

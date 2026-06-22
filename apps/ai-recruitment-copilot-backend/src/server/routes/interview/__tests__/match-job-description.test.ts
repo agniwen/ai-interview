@@ -21,6 +21,7 @@ const resumeProfile: ResumeProfile = {
 const jobDescriptions: JobDescriptionListRecord[] = [
   {
     allowCrossDepartmentInterviewers: false,
+    code: null,
     createdAt: new Date("2026-06-20T00:00:00.000Z"),
     createdBy: "user-1",
     departmentId: "department-1",

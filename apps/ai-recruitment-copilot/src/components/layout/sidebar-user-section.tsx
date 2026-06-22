@@ -75,7 +75,7 @@ export function SidebarUserSection({
         <DropdownMenuTrigger asChild>
           <Button
             aria-label="用户菜单"
-            className="w-full"
+            className="w-full active:scale-100"
             size="icon"
             type="button"
             variant="ghost"
@@ -114,7 +114,7 @@ export function SidebarUserSection({
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button
-            className="w-full h-12 justify-start gap-2 rounded-full hover:bg-background "
+            className="h-12 w-full justify-start gap-2 rounded-full hover:bg-background active:scale-100"
             type="button"
             variant="ghost"
           >

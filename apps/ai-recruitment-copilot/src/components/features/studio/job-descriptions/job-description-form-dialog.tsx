@@ -30,6 +30,12 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Modal } from "@/components/ui/modal";
 import { Field, FieldContent, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupButton,
+  InputGroupInput,
+} from "@/components/ui/input-group";
 import { SearchableMultiSelect } from "@/components/ui/searchable-multi-select";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -46,6 +52,7 @@ const PROMPT_MAX_LENGTH = 10_000;
 export function emptyJobDescriptionFormValues(): JobDescriptionFormValues {
   return {
     allowCrossDepartmentInterviewers: false,
+    code: "",
     departmentId: "",
     description: "",
     interviewerIds: [],
@@ -57,6 +64,7 @@ export function emptyJobDescriptionFormValues(): JobDescriptionFormValues {
 function toFormValues(record: JobDescriptionRecord): JobDescriptionFormValues {
   return {
     allowCrossDepartmentInterviewers: record.allowCrossDepartmentInterviewers,
+    code: record.code ?? "",
     departmentId: record.departmentId,
     description: record.description ?? "",
     interviewerIds: [...record.interviewerIds],
@@ -105,6 +113,8 @@ export function JobDescriptionFormDialog({
 }) {
   const slug = useWorkspaceSlug();
   const isEdit = record !== null;
+  const codeLocked = Boolean(record?.code);
+  const [isGeneratingCode, setIsGeneratingCode] = useState(false);
   const [activeTab, setActiveTab] = useState<"basic" | "interview-questions" | "forms">("basic");
   const resolvedInitialValues = useMemo(() => {
     if (record) {
@@ -171,6 +181,7 @@ export function JobDescriptionFormDialog({
     onSubmit: async ({ value }) => {
       const body = {
         allowCrossDepartmentInterviewers: value.allowCrossDepartmentInterviewers,
+        code: value.code?.trim() || undefined,
         departmentId: value.departmentId,
         description: value.description?.trim() || "",
         interviewerIds: value.interviewerIds,
@@ -201,6 +212,7 @@ export function JobDescriptionFormDialog({
     onSubmitInvalid: ({ formApi }) => {
       const meta = formApi.store.state.fieldMeta as Record<string, { errors?: unknown[] }>;
       const basicFields = [
+        "code",
         "name",
         "departmentId",
         "allowCrossDepartmentInterviewers",
@@ -241,6 +253,26 @@ export function JobDescriptionFormDialog({
   }, [open, form, resolvedInitialValues]);
 
   const missingRefs = departments.length === 0 || interviewers.length === 0;
+
+  async function handleGenerateCode() {
+    setIsGeneratingCode(true);
+    try {
+      const response = await rpc.api.w[":slug"].studio["job-descriptions"]["generate-code"].$post({
+        param: { slug },
+      });
+      const payload = (await response.json().catch(() => null)) as {
+        code?: string;
+        error?: string;
+      } | null;
+      if (!response.ok || !payload?.code) {
+        toast.error(payload?.error ?? "生成岗位编码失败");
+        return;
+      }
+      form.setFieldValue("code", payload.code);
+    } finally {
+      setIsGeneratingCode(false);
+    }
+  }
 
   return (
     <Tabs
@@ -306,6 +338,48 @@ export function JobDescriptionFormDialog({
                               placeholder="如：高级前端工程师"
                               value={field.state.value}
                             />
+                            <FieldError errors={errors} />
+                          </FieldContent>
+                        </Field>
+                      );
+                    }}
+                  </form.Field>
+
+                  <form.Field name="code">
+                    {(field) => {
+                      const errors = toFieldErrors(field.state.meta.errors);
+                      const canGenerateCode = !codeLocked && !isGeneratingCode;
+                      let codeButtonLabel = "生成";
+                      if (codeLocked) {
+                        codeButtonLabel = "已生成";
+                      } else if (isGeneratingCode) {
+                        codeButtonLabel = "生成中";
+                      }
+                      return (
+                        <Field data-invalid={hasFieldErrors(field.state.meta.errors) || undefined}>
+                          <FieldLabel htmlFor={field.name}>岗位编码</FieldLabel>
+                          <FieldContent className="gap-2">
+                            <InputGroup>
+                              <InputGroupInput
+                                aria-invalid={!!errors?.length}
+                                className={
+                                  field.state.value ? "font-mono" : "text-muted-foreground"
+                                }
+                                id={field.name}
+                                placeholder="保存时自动生成"
+                                readOnly
+                                value={field.state.value ?? ""}
+                              />
+                              <InputGroupAddon align="inline-end">
+                                <InputGroupButton
+                                  disabled={!canGenerateCode}
+                                  onClick={handleGenerateCode}
+                                  type="button"
+                                >
+                                  {codeButtonLabel}
+                                </InputGroupButton>
+                              </InputGroupAddon>
+                            </InputGroup>
                             <FieldError errors={errors} />
                           </FieldContent>
                         </Field>

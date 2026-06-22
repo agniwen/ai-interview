@@ -8,7 +8,10 @@ import { and, eq } from "drizzle-orm";
 import { uniq } from "lodash-es";
 import { getAuthRequestHeaders } from "@arc/ai-recruitment-copilot-backend/lib/server/auth-request-context";
 import { getRequiredEnv } from "@arc/ai-recruitment-copilot-backend/lib/server/env";
-import { ensureDefaultRecruitingGroupForWorkspace } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/workspace/dao";
+import {
+  addMemberToDefaultRecruitingGroup,
+  ensureDefaultRecruitingGroupForWorkspace,
+} from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/workspace/dao";
 import { ac, roles } from "@arc/shared/permissions";
 import { db } from "./db";
 import * as schema from "@arc/db-schema/schema";
@@ -390,6 +393,13 @@ export const auth = betterAuth({
       // member.update for member/group management routes, but not for
       // updateMemberRole.
       organizationHooks: {
+        afterAcceptInvitation: async ({ invitation, member: acceptedMember, user }) => {
+          await addMemberToDefaultRecruitingGroup({
+            createdBy: invitation.inviterId,
+            organizationId: acceptedMember.organizationId,
+            userId: user.id,
+          });
+        },
         afterCreateOrganization: async ({ organization: org, user }) => {
           await ensureDefaultRecruitingGroupForWorkspace({
             creatorUserId: user.id,

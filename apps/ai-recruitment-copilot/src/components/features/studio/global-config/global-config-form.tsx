@@ -24,6 +24,7 @@ import type { GlobalConfigRecord } from "@arc/shared/global-config";
 const PROMPT_MAX_LENGTH = 10_000;
 const COMPANY_CONTEXT_MAX_LENGTH = 8000;
 const COMPANY_NAME_MAX_LENGTH = 120;
+const JOB_CODE_PREFIX_MAX_LENGTH = 12;
 
 interface Props {
   initial: GlobalConfigRecord;
@@ -45,6 +46,7 @@ export function GlobalConfigForm({ initial }: Props) {
   const [closing, setClosing] = useState(initial.closingInstructions);
   const [company, setCompany] = useState(initial.companyContext);
   const [companyName, setCompanyName] = useState(initial.companyName);
+  const [jobCodePrefix, setJobCodePrefix] = useState(initial.jobCodePrefix);
   const [pending, startTransition] = useTransition();
 
   const onSave = () => {
@@ -54,6 +56,7 @@ export function GlobalConfigForm({ initial }: Props) {
           closingInstructions: closing,
           companyContext: company,
           companyName,
+          jobCodePrefix,
           openingInstructions: opening,
         },
         param: { slug },
@@ -65,6 +68,8 @@ export function GlobalConfigForm({ initial }: Props) {
         toast.error(error ?? "保存失败");
         return;
       }
+      const saved = (await res.json()) as GlobalConfigRecord;
+      setJobCodePrefix(saved.jobCodePrefix);
       toast.success("已保存");
     });
   };
@@ -97,6 +102,23 @@ export function GlobalConfigForm({ initial }: Props) {
               </InputGroup>
               <FieldDescription>
                 用于面试邀请邮件的主题和正文，以及候选人面前展示的发件方名称。
+              </FieldDescription>
+            </Field>
+
+            <Field>
+              <FieldLabel htmlFor="job-code-prefix">岗位编码前缀</FieldLabel>
+              <InputGroup>
+                <InputGroupInput
+                  disabled={pending}
+                  id="job-code-prefix"
+                  maxLength={JOB_CODE_PREFIX_MAX_LENGTH}
+                  onChange={(event) => setJobCodePrefix(event.target.value)}
+                  placeholder="AUR"
+                  value={jobCodePrefix}
+                />
+              </InputGroup>
+              <FieldDescription>
+                新建在招岗位会自动生成此前缀开头的编码；已有岗位不会被修改。
               </FieldDescription>
             </Field>
 

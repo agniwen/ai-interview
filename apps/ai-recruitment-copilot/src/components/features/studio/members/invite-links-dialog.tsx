@@ -217,7 +217,7 @@ export function InviteLinksDialog() {
         <DialogHeader>
           <DialogTitle>共享邀请链接</DialogTitle>
           <DialogDescription>
-            生成的链接可重复使用、永不过期；任何打开链接的用户登录后会以 HR 角色加入工作区。
+            生成的链接可重复使用、永不过期；用户登录后会以普通成员加入工作区，并进入默认招聘组。
           </DialogDescription>
         </DialogHeader>
 

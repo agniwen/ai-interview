@@ -37,7 +37,7 @@ export function JoinClient({ code, workspace }: JoinClientProps) {
     <div className="mx-auto max-w-md py-16">
       <h1 className="mb-4 text-2xl font-semibold">加入工作区</h1>
       <p className="mb-6 text-muted-foreground">
-        你被邀请加入工作区「{workspace.name}」。加入后默认为 HR 角色,可由管理员调整。
+        你被邀请加入工作区「{workspace.name}」。加入后默认为普通成员，并进入默认招聘组。
       </p>
       <div className="flex gap-2">
         <Button disabled={accepting} onClick={onAccept}>

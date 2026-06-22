@@ -22,7 +22,12 @@ import {
 } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao";
 import { cacheTags, safeUpdateTag } from "@arc/ai-recruitment-copilot-backend/server/cache-tags";
 import { generateJobDescriptionFromPrompt } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/utils/ai-job-description-generate";
+import {
+  buildJobDescriptionCodeCandidates,
+  pickAvailableJobDescriptionCode,
+} from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/utils/job-description-code";
 import { recommendCandidatesForJobDescription } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/utils/recommendations";
+import { getGlobalConfig } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/global-config/dao";
 
 const generateJobDescriptionBodySchema = z.object({
   departmentName: z.string().trim().max(120).optional(),
@@ -85,6 +90,18 @@ async function validateReferences(
 
 function dedupeInterviewerIds(ids: string[]): string[] {
   return uniq(ids.map((id) => id.trim()).filter(Boolean));
+}
+
+function isJobCodeConflict(error: unknown): boolean {
+  if (!error || typeof error !== "object") {
+    return false;
+  }
+  const candidate = error as { cause?: unknown; code?: unknown; constraint?: unknown };
+  return (
+    candidate.code === "23505" ||
+    candidate.constraint === "job_description_org_code_uq" ||
+    isJobCodeConflict(candidate.cause)
+  );
 }
 
 const jobDescriptionListQuerySchema = z.object({
@@ -162,6 +179,35 @@ export const jobDescriptionsRouter = factory
     const records = await listAllJobDescriptions(activeOrg.id);
     return c.json({ records }, 200);
   })
+  .post("/generate-code", requirePermission("jd", "read"), async (c) => {
+    const { activeOrg } = c.var;
+    if (!activeOrg) {
+      return c.json({ message: "Unauthorized" }, 401);
+    }
+    const now = new Date();
+    const globalConfig = await getGlobalConfig(activeOrg.id);
+    const candidates = buildJobDescriptionCodeCandidates({
+      createdAt: now,
+      prefix: globalConfig.jobCodePrefix,
+    });
+    const usedRows = await db
+      .select({ code: jobDescription.code })
+      .from(jobDescription)
+      .where(
+        and(
+          eq(jobDescription.organizationId, activeOrg.id),
+          inArray(jobDescription.code, candidates),
+        ),
+      );
+    const code = pickAvailableJobDescriptionCode(
+      candidates,
+      usedRows.map((row) => row.code),
+    );
+    if (!code) {
+      return c.json({ error: "当前分钟岗位编码已用尽，请稍后重试。" }, 409);
+    }
+    return c.json({ code }, 200);
+  })
   .post(
     "/",
     requirePermission("jd", "create"),
@@ -177,51 +223,71 @@ export const jobDescriptionsRouter = factory
         return c.json({ error: "请至少选择一位面试官。" }, 400);
       }
 
-      const { error } = await validateReferences(
+      const { error: referenceError } = await validateReferences(
         activeOrg.id,
         input.departmentId,
         interviewerIds,
         input.allowCrossDepartmentInterviewers,
       );
-      if (error) {
-        return c.json({ error }, 400);
+      if (referenceError) {
+        return c.json({ error: referenceError }, 400);
       }
 
       const now = new Date();
-      const record = {
-        allowCrossDepartmentInterviewers: input.allowCrossDepartmentInterviewers,
+      const globalConfig = await getGlobalConfig(activeOrg.id);
+      const codeCandidates = buildJobDescriptionCodeCandidates({
         createdAt: now,
-        createdBy: c.var.user?.id ?? null,
-        departmentId: input.departmentId,
-        description: input.description?.trim() || null,
-        feishuChatBoundAt: null,
-        feishuChatBoundBy: null,
-        feishuChatId: null,
-        id: crypto.randomUUID(),
-        name: input.name.trim(),
-        organizationId: activeOrg.id,
-        // presetQuestions is deprecated — column kept with default [] for legacy
-        // data; new rows always store an empty array.
-        presetQuestions: [],
-        prompt: input.prompt.trim(),
-        updatedAt: now,
-      } satisfies typeof jobDescription.$inferSelect;
-
-      await db.transaction(async (tx) => {
-        await tx.insert(jobDescription).values(record);
-        await tx.insert(jobDescriptionInterviewer).values(
-          interviewerIds.map((id) => ({
-            createdAt: now,
-            interviewerId: id,
-            jobDescriptionId: record.id,
-          })),
-        );
+        prefix: globalConfig.jobCodePrefix,
       });
+      const preferredCodeCandidates = input.code
+        ? [input.code, ...codeCandidates.filter((code) => code !== input.code)]
+        : codeCandidates;
 
-      safeUpdateTag(`job-descriptions:${activeOrg.id}`);
-      safeUpdateTag(`interviewers:${activeOrg.id}`);
+      for (const code of preferredCodeCandidates) {
+        const record = {
+          allowCrossDepartmentInterviewers: input.allowCrossDepartmentInterviewers,
+          code,
+          createdAt: now,
+          createdBy: c.var.user?.id ?? null,
+          departmentId: input.departmentId,
+          description: input.description?.trim() || null,
+          feishuChatBoundAt: null,
+          feishuChatBoundBy: null,
+          feishuChatId: null,
+          id: crypto.randomUUID(),
+          name: input.name.trim(),
+          organizationId: activeOrg.id,
+          // presetQuestions is deprecated — column kept with default [] for legacy
+          // data; new rows always store an empty array.
+          presetQuestions: [],
+          prompt: input.prompt.trim(),
+          updatedAt: now,
+        } satisfies typeof jobDescription.$inferSelect;
 
-      return c.json(serializeJobDescription(record, interviewerIds), 201);
+        try {
+          await db.transaction(async (tx) => {
+            await tx.insert(jobDescription).values(record);
+            await tx.insert(jobDescriptionInterviewer).values(
+              interviewerIds.map((id) => ({
+                createdAt: now,
+                interviewerId: id,
+                jobDescriptionId: record.id,
+              })),
+            );
+          });
+
+          safeUpdateTag(`job-descriptions:${activeOrg.id}`);
+          safeUpdateTag(`interviewers:${activeOrg.id}`);
+
+          return c.json(serializeJobDescription(record, interviewerIds), 201);
+        } catch (insertError) {
+          if (!isJobCodeConflict(insertError)) {
+            throw insertError;
+          }
+        }
+      }
+
+      return c.json({ error: "当前分钟岗位编码已用尽，请稍后重试。" }, 409);
     },
   )
   .get("/:id", requirePermission("jd", "read"), async (c) => {
@@ -308,31 +374,40 @@ export const jobDescriptionsRouter = factory
       }
 
       const now = new Date();
-      await db.transaction(async (tx) => {
-        await tx
-          .update(jobDescription)
-          .set({
-            allowCrossDepartmentInterviewers: input.allowCrossDepartmentInterviewers,
-            departmentId: input.departmentId,
-            description: input.description?.trim() || null,
-            name: input.name.trim(),
-            prompt: input.prompt.trim(),
-            updatedAt: now,
-          })
-          .where(and(eq(jobDescription.id, id), eq(jobDescription.organizationId, activeOrg.id)));
+      const updateValues = {
+        allowCrossDepartmentInterviewers: input.allowCrossDepartmentInterviewers,
+        departmentId: input.departmentId,
+        description: input.description?.trim() || null,
+        ...(!existing.code && input.code ? { code: input.code } : {}),
+        name: input.name.trim(),
+        prompt: input.prompt.trim(),
+        updatedAt: now,
+      };
+      try {
+        await db.transaction(async (tx) => {
+          await tx
+            .update(jobDescription)
+            .set(updateValues)
+            .where(and(eq(jobDescription.id, id), eq(jobDescription.organizationId, activeOrg.id)));
 
-        // Replace junction links atomically.
-        await tx
-          .delete(jobDescriptionInterviewer)
-          .where(eq(jobDescriptionInterviewer.jobDescriptionId, id));
-        await tx.insert(jobDescriptionInterviewer).values(
-          interviewerIds.map((interviewerId) => ({
-            createdAt: now,
-            interviewerId,
-            jobDescriptionId: id,
-          })),
-        );
-      });
+          // Replace junction links atomically.
+          await tx
+            .delete(jobDescriptionInterviewer)
+            .where(eq(jobDescriptionInterviewer.jobDescriptionId, id));
+          await tx.insert(jobDescriptionInterviewer).values(
+            interviewerIds.map((interviewerId) => ({
+              createdAt: now,
+              interviewerId,
+              jobDescriptionId: id,
+            })),
+          );
+        });
+      } catch (updateError) {
+        if (isJobCodeConflict(updateError)) {
+          return c.json({ error: "岗位编码已被占用，请重新生成。" }, 409);
+        }
+        throw updateError;
+      }
 
       safeUpdateTag(`job-descriptions:${activeOrg.id}`);
       safeUpdateTag(`interviewers:${activeOrg.id}`);

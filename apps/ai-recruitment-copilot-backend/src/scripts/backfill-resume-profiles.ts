@@ -20,6 +20,7 @@ interface BackfillRecord {
   id: string;
   organizationId: string;
   recordType: BackfillRecordType;
+  resumeProfile: ResumeProfile | null;
   storageKey: string;
 }
 
@@ -127,6 +128,10 @@ export function mergeEducationExperiencesIntoProfile(
   };
 }
 
+export function hasExistingEducationExperiences(profile: ResumeProfile | null): boolean {
+  return Array.isArray(profile?.educationExperiences) && profile.educationExperiences.length > 0;
+}
+
 export function serializeResumeBackfillLog(log: ResumeBackfillLog): string {
   return JSON.stringify(log);
 }
@@ -173,6 +178,7 @@ async function loadPrivateRecords(db: Database, limit: number | null): Promise<B
       fileName: studioInterview.resumeFileName,
       id: studioInterview.id,
       organizationId: studioInterview.organizationId,
+      resumeProfile: studioInterview.resumeProfile,
       storageKey: studioInterview.resumeStorageKey,
     })
     .from(studioInterview)
@@ -188,6 +194,7 @@ async function loadPrivateRecords(db: Database, limit: number | null): Promise<B
       id: row.id,
       organizationId: row.organizationId,
       recordType: "private",
+      resumeProfile: row.resumeProfile,
       storageKey: row.storageKey,
     }));
 }
@@ -199,6 +206,7 @@ async function loadPoolRecords(db: Database, limit: number | null): Promise<Back
       fileName: resumePoolItem.resumeFileName,
       id: resumePoolItem.id,
       organizationId: resumePoolItem.organizationId,
+      resumeProfile: resumePoolItem.resumeProfile,
       storageKey: resumePoolItem.resumeStorageKey,
     })
     .from(resumePoolItem)
@@ -216,6 +224,7 @@ async function loadPoolRecords(db: Database, limit: number | null): Promise<Back
       id: row.id,
       organizationId: row.organizationId,
       recordType: "pool",
+      resumeProfile: row.resumeProfile,
       storageKey: row.storageKey,
     }));
 }
@@ -414,6 +423,7 @@ async function backfillResumeProfiles(): Promise<void> {
   try {
     const records = await loadBackfillRecords(db, target, limit);
     let failed = 0;
+    let skipped = 0;
     let succeeded = 0;
     logEvent({
       concurrency,
@@ -436,6 +446,19 @@ async function backfillResumeProfiles(): Promise<void> {
         recordType: record.recordType,
         storageKey: record.storageKey,
       });
+
+      if (hasExistingEducationExperiences(record.resumeProfile)) {
+        skipped += 1;
+        completed += 1;
+        logEvent({
+          event: "record_skipped",
+          reason: "educationExperiences already exists",
+          recordId: record.id,
+          recordType: record.recordType,
+          remaining: calculateRemainingRecords({ completed, total: records.length }),
+        });
+        return;
+      }
 
       try {
         const parsed = await extractEducationForRecord(db, record, forceOcr);
@@ -482,6 +505,7 @@ async function backfillResumeProfiles(): Promise<void> {
     logEvent({
       event: "backfill_finished",
       failed,
+      skipped,
       succeeded,
       total: records.length,
     });

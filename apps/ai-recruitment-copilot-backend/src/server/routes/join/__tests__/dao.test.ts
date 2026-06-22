@@ -1,7 +1,14 @@
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
-import { member, organization, user, workspaceInviteLink } from "@arc/db-schema/schema";
+import {
+  member,
+  organization,
+  recruitingGroup,
+  recruitingGroupMember,
+  user,
+  workspaceInviteLink,
+} from "@arc/db-schema/schema";
 import { acceptInviteLink, getJoinPreview } from "../dao";
 
 const ORG = "test_join_org";
@@ -9,6 +16,8 @@ const OWNER = "test_join_owner";
 const JOINER = "test_join_joiner";
 
 async function clean() {
+  await db.delete(recruitingGroupMember).where(eq(recruitingGroupMember.organizationId, ORG));
+  await db.delete(recruitingGroup).where(eq(recruitingGroup.organizationId, ORG));
   await db.delete(member).where(eq(member.organizationId, ORG));
   await db.delete(workspaceInviteLink).where(eq(workspaceInviteLink.organizationId, ORG));
   await db.delete(organization).where(eq(organization.id, ORG));
@@ -49,6 +58,15 @@ async function seedLink(opts: { disabled?: boolean } = {}) {
     role: "owner",
     userId: OWNER,
   });
+  await db.insert(recruitingGroup).values({
+    createdAt: new Date(),
+    createdBy: OWNER,
+    id: "rg_join_default",
+    isDefault: true,
+    name: "默认招聘组",
+    organizationId: ORG,
+    updatedAt: new Date(),
+  });
   await db.insert(workspaceInviteLink).values({
     code: "TESTCODE12345678",
     createdBy: OWNER,
@@ -84,7 +102,7 @@ describe("join dao", () => {
     expect(preview.alreadyMember).toBe(true);
   });
 
-  it("acceptInviteLink inserts member with role=hr and inviteLinkId", async () => {
+  it("acceptInviteLink inserts workspace member and default recruiting group HR membership", async () => {
     await seedLink();
     const result = await acceptInviteLink({ code: "TESTCODE12345678", userId: JOINER });
     expect(result.status).toBe("joined");
@@ -92,8 +110,13 @@ describe("join dao", () => {
     const row = await db.query.member.findFirst({
       where: { organizationId: ORG, userId: JOINER },
     });
-    expect(row?.role).toBe("hr");
+    expect(row?.role).toBe("member");
     expect(row?.inviteLinkId).toBe("wil_test");
+
+    const groupRow = await db.query.recruitingGroupMember.findFirst({
+      where: { groupId: "rg_join_default", organizationId: ORG, userId: JOINER },
+    });
+    expect(groupRow?.role).toBe("hr");
   });
 
   it("acceptInviteLink is idempotent for existing member", async () => {
