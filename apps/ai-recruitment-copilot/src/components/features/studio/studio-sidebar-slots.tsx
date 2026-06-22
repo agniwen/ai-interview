@@ -174,7 +174,12 @@ function SidebarNavItem({ item, active, href }: { item: NavItem; active: boolean
   const Icon = item.icon;
   return (
     <SidebarMenuItem key={item.path}>
-      <SidebarMenuButton asChild className="cursor-default" isActive={active} tooltip={item.title}>
+      <SidebarMenuButton
+        asChild
+        className="cursor-default select-none"
+        isActive={active}
+        tooltip={item.title}
+      >
         <Link to={href}>
           <Icon />
           <span>{item.title}</span>
@@ -203,7 +208,7 @@ export function StudioSidebarSlots() {
       <SidebarBodyPortalContent>
         {navGroups.map((group) => (
           <SidebarGroup key={group.label}>
-            <SidebarGroupLabel>{group.label}</SidebarGroupLabel>
+            <SidebarGroupLabel className="select-none">{group.label}</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
                 {group.items.map((item) => (

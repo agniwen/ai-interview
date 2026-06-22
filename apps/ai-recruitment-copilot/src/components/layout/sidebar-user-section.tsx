@@ -184,7 +184,7 @@ export function SidebarUserSection({
   }
 
   return (
-    <div className="border-border border-t px-2 py-2">
+    <div className="border-border border-t px-2 py-2 select-none">
       {collapsed ? content : <div className="flex items-center gap-2">{content}</div>}
     </div>
   );
