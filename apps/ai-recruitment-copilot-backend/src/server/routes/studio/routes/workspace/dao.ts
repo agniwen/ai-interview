@@ -346,6 +346,29 @@ export async function addRecruitingGroupMember({
   return { status: "duplicate" as const };
 }
 
+export async function addMemberToDefaultRecruitingGroup({
+  createdBy,
+  organizationId,
+  userId,
+}: {
+  createdBy: string | null | undefined;
+  organizationId: string;
+  userId: string;
+}) {
+  const defaultGroup = await ensureDefaultRecruitingGroupForWorkspace({
+    creatorUserId: null,
+    organizationId,
+  });
+
+  return addRecruitingGroupMember({
+    createdBy,
+    groupId: defaultGroup.id,
+    organizationId,
+    role: "hr",
+    userId,
+  });
+}
+
 export async function updateRecruitingGroupMemberRole({
   groupId,
   organizationId,

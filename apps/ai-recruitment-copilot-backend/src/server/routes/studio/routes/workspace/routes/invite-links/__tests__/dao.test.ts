@@ -111,7 +111,7 @@ describe("invite-links dao", () => {
       id: "m_joiner",
       inviteLinkId: link.id,
       organizationId: ORG,
-      role: "hr",
+      role: "member",
       userId: JOINER,
     });
     const list = await listInviteLinks(ORG);
@@ -126,7 +126,7 @@ describe("invite-links dao", () => {
       id: "m_joiner",
       inviteLinkId: link.id,
       organizationId: ORG,
-      role: "hr",
+      role: "member",
       userId: JOINER,
     });
     const rows = await listLinkMembers({ id: link.id, organizationId: ORG });

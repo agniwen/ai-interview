@@ -1,5 +1,6 @@
 import { nanoid } from "nanoid";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
+import { addMemberToDefaultRecruitingGroup } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/workspace/dao";
 import { member } from "@arc/db-schema/schema";
 
 export interface JoinPreview {
@@ -62,13 +63,15 @@ export async function acceptInviteLink(input: {
   code: string;
   userId: string;
 }): Promise<AcceptResult> {
-  return await db.transaction(async (tx) => {
+  let inviteLinkCreatorId: string | null = null;
+  const result = await db.transaction(async (tx) => {
     const link = await tx.query.workspaceInviteLink.findFirst({
       where: { code: input.code, disabledAt: { isNull: true } },
     });
     if (!link) {
       throw new JoinError("link_invalid");
     }
+    inviteLinkCreatorId = link.createdBy;
 
     const org = await tx.query.organization.findFirst({
       where: { id: link.organizationId },
@@ -94,7 +97,7 @@ export async function acceptInviteLink(input: {
         id: `mem_${nanoid(16)}`,
         inviteLinkId: link.id,
         organizationId: org.id,
-        role: "hr",
+        role: "member",
         userId: input.userId,
       });
     } catch (error) {
@@ -117,4 +120,14 @@ export async function acceptInviteLink(input: {
       status: "joined" as const,
     };
   });
+
+  if (result.status === "joined") {
+    await addMemberToDefaultRecruitingGroup({
+      createdBy: inviteLinkCreatorId,
+      organizationId: result.organizationId,
+      userId: input.userId,
+    });
+  }
+
+  return result;
 }

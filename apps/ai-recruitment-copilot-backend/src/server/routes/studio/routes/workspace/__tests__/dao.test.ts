@@ -9,6 +9,7 @@ import {
   user,
 } from "@arc/db-schema/schema";
 import {
+  addMemberToDefaultRecruitingGroup,
   ensureDefaultRecruitingGroupForWorkspace,
   listRecruitingGroupBoard,
   UNGROUPED_RECRUITING_GROUP_ID,
@@ -116,6 +117,42 @@ describe("workspace recruiting group dao", () => {
 
     expect(groups).toHaveLength(1);
     expect(memberships).toHaveLength(1);
+  }, 30_000);
+
+  it("adds a workspace member to the default recruiting group as HR", async () => {
+    const defaultGroup = await ensureDefaultRecruitingGroupForWorkspace({
+      creatorUserId: CREATOR,
+      organizationId: ORG,
+    });
+
+    const first = await addMemberToDefaultRecruitingGroup({
+      createdBy: CREATOR,
+      organizationId: ORG,
+      userId: MEMBER,
+    });
+    const second = await addMemberToDefaultRecruitingGroup({
+      createdBy: CREATOR,
+      organizationId: ORG,
+      userId: MEMBER,
+    });
+
+    expect(first.status).toBe("created");
+    expect(second.status).toBe("duplicate");
+
+    const rows = await db
+      .select({
+        groupId: recruitingGroupMember.groupId,
+        role: recruitingGroupMember.role,
+        userId: recruitingGroupMember.userId,
+      })
+      .from(recruitingGroupMember)
+      .where(eq(recruitingGroupMember.organizationId, ORG))
+      .orderBy(recruitingGroupMember.userId);
+
+    expect(rows).toEqual([
+      { groupId: defaultGroup.id, role: "recruitingSupervisor", userId: CREATOR },
+      { groupId: defaultGroup.id, role: "hr", userId: MEMBER },
+    ]);
   }, 30_000);
 
   it("appends an ungrouped column for workspace members without group memberships", async () => {
