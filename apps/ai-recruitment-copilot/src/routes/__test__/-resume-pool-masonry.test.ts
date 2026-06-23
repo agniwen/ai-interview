@@ -190,7 +190,7 @@ describe("ResumePoolPage masonry layout", () => {
     expect(source).toContain("record.uploaderName");
     expect(detailSource).toContain('label="来源"');
     expect(detailSource).toContain('label="上传组织"');
-    expect(detailSource).toContain('label="上传人"');
+    expect(detailSource).toContain("sourceActorLabel(detail)");
     expect(detailSource).toContain('label="创建时间"');
     expect(cardSource).not.toContain("sourceLabel(record)");
     expect(cardSource).not.toContain("record.createdAt");
@@ -201,6 +201,24 @@ describe("ResumePoolPage masonry layout", () => {
     expect(source).toContain("uploaderOrganizationLabel(record)");
     expect(source).toContain("record.uploaderImage");
     expect(source).toContain("MemberCell");
+  });
+
+  it("marks referral records and labels their uploader as referrer", () => {
+    const cardSource = source.slice(
+      source.indexOf("function ResumePoolCard({"),
+      source.indexOf("function ResumePoolLoadingState"),
+    );
+    const uploaderMetaSource = source.slice(
+      source.indexOf("function ResumePoolCardUploaderMeta"),
+      source.indexOf("function ResumePoolDetailDialog"),
+    );
+
+    expect(source).toContain('record.sourceChannel === "referral"');
+    expect(source).toContain('return record.sourceChannel === "referral" ? "内推人" : "上传人";');
+    expect(source).toContain('return "内推";');
+    expect(cardSource).toContain('<Badge variant="secondary">内推</Badge>');
+    expect(uploaderMetaSource).toContain("const actorLabel = sourceActorLabel(record);");
+    expect(uploaderMetaSource).toContain("{actorLabel}");
   });
 
   it("hides candidate contact information on resume pool cards", () => {

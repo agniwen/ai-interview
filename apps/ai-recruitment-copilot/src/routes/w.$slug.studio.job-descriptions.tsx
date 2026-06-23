@@ -53,6 +53,9 @@ import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { JobDescriptionFormDialog } from "@/components/features/studio/job-descriptions/job-description-form-dialog";
 import { JobDescriptionAiCreateDialog } from "@/components/features/studio/job-descriptions/job-description-ai-create-dialog";
 import { JobDescriptionTalentRecommendationsDialog } from "@/components/features/studio/job-descriptions/job-description-talent-recommendations-dialog";
+import { createJobDescriptionReferralLink } from "@/lib/client/api";
+import { copyTextToClipboard } from "@/lib/client/clipboard";
+import { toast } from "sonner";
 
 function JobDescriptionManagementPage({
   departments,
@@ -76,6 +79,7 @@ function JobDescriptionManagementPage({
   const [createDraft, setCreateDraft] = useState<JobDescriptionFormValues | null>(null);
   const [createDraftSessionId, setCreateDraftSessionId] = useState(0);
   const [aiCreateOpen, setAiCreateOpen] = useState(false);
+  const [copyingReferralId, setCopyingReferralId] = useState<string | null>(null);
 
   const fetchJobDescriptions = useCallback(
     async (params: {
@@ -186,6 +190,23 @@ function JobDescriptionManagementPage({
     crud.setFormDialogOpen(true);
   }
 
+  async function copyReferralLink(record: JobDescriptionListRecord) {
+    setCopyingReferralId(record.id);
+    try {
+      const result = await createJobDescriptionReferralLink(slug, record.id);
+      const copyResult = await copyTextToClipboard(result.url);
+      if (copyResult === "failed") {
+        toast.error("复制失败，请手动复制链接");
+        return;
+      }
+      toast.success(copyResult === "manual" ? "请在弹窗中手动复制内推链接" : "内推链接已复制");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "创建内推链接失败");
+    } finally {
+      setCopyingReferralId(null);
+    }
+  }
+
   let editorDialogKey = "create-empty";
   if (createDraft) {
     editorDialogKey = `create-draft-${createDraftSessionId}`;
@@ -278,6 +299,12 @@ function JobDescriptionManagementPage({
             },
           },
           {
+            disabled: (r) => copyingReferralId === r.id,
+            disabledReason: () => "正在创建内推链接",
+            label: "复制内推链接",
+            onClick: copyReferralLink,
+          },
+          {
             label: "编辑",
             onClick: (r) => {
               void crud.openEdit(r);
@@ -294,7 +321,7 @@ function JobDescriptionManagementPage({
       }),
     ],
     // oxlint-disable-next-line react-hooks/exhaustive-deps
-    [],
+    [copyingReferralId],
   );
 
   const filtersConfig = useMemo(

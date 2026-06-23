@@ -422,7 +422,7 @@ async function fetchAndParse(
         candidatePhone: null,
         contentHash: item.contentHash,
         createdBy: userId,
-        jobDescriptionId: null,
+        jobDescriptionId: batchRow.jdMode === "bind" ? batchRow.jobDescriptionId : null,
         notes: null,
         organizationId,
         resumeFileName: item.originalFileName,

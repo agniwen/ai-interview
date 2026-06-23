@@ -102,6 +102,7 @@ async function createBatchForMail(
     jobDescriptionId: account.jobDescriptionId,
     organizationId: account.organizationId,
     resumePoolScope: account.resumePoolScope,
+    sourceChannel: "mail_ingest",
     target: account.target,
     userId: account.userId,
   });

@@ -947,6 +947,7 @@ export const studioOfferDraft = pgTable(
 
 export type ResumePoolScope = "private" | "public";
 export type ResumePoolStatus = "active" | "archived";
+export type ResumePoolSourceChannel = "mail_ingest" | "referral";
 export type ResumePoolEventType =
   | "created"
   | "parsed"
@@ -991,6 +992,7 @@ export const resumePoolItem = pgTable(
     sourceOrganizationId: text("source_organization_id").references(() => organization.id, {
       onDelete: "set null",
     }),
+    sourceChannel: text("source_channel").$type<ResumePoolSourceChannel>(),
     sourcePoolItemId: text("source_pool_item_id"),
     sourceUserId: text("source_user_id").references(() => user.id, { onDelete: "set null" }),
     status: text("status").$type<ResumePoolStatus>().notNull().default("active"),
@@ -1012,6 +1014,39 @@ export const resumePoolItem = pgTable(
     index("resume_pool_item_resume_parse_status_idx").on(table.resumeParseStatus),
     index("resume_pool_item_source_pool_item_idx").on(table.sourcePoolItemId),
     index("resume_pool_item_skills_normalized_idx").using("gin", table.skillsNormalized),
+  ],
+);
+
+export const referralLink = pgTable(
+  "referral_link",
+  {
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    createdBy: text("created_by")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    disabledAt: timestamp("disabled_at", { withTimezone: true }),
+    disabledBy: text("disabled_by").references(() => user.id, { onDelete: "set null" }),
+    id: text("id").primaryKey(),
+    jobDescriptionId: text("job_description_id")
+      .notNull()
+      .references(() => jobDescription.id, { onDelete: "cascade" }),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    tokenHash: text("token_hash").notNull().unique(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+  },
+  (table) => [
+    index("referral_link_org_jd_creator_idx").on(
+      table.organizationId,
+      table.jobDescriptionId,
+      table.createdBy,
+      table.disabledAt,
+    ),
+    index("referral_link_org_idx").on(table.organizationId, table.disabledAt),
   ],
 );
 

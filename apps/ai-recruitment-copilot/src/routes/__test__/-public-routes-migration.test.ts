@@ -16,6 +16,7 @@ describe("TanStack Start public route migration", () => {
     "/human-interview/interviewer/$inviteToken",
     "/interview/$id",
     "/interview/$id/$roundId",
+    "/referrals/$token",
   ];
 
   it("registers migrated public routes in the generated route tree", () => {
@@ -35,6 +36,7 @@ describe("TanStack Start public route migration", () => {
       readSource("routes/interview.tsx"),
       readSource("routes/interview.$id.tsx"),
       readSource("routes/interview.$id.$roundId.tsx"),
+      readSource("routes/referrals.$token.tsx"),
       readSource("components/features/human-interview/human-meeting-room.tsx"),
       readSource("components/features/interview/interview-room.tsx"),
       readSource("components/features/interview/interview-copy-guard.tsx"),

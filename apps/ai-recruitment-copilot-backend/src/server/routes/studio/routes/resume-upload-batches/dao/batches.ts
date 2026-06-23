@@ -9,6 +9,7 @@ import {
 } from "@arc/db-schema/schema";
 import type {
   ResumePoolScope,
+  ResumePoolSourceChannel,
   ResumeUploadBatchItemStatus,
   ResumeUploadBatchStatus,
   ResumeUploadBatchTarget,
@@ -70,7 +71,9 @@ export interface CreateBatchInput {
   jdMode: "bind" | "auto" | "none";
   jobDescriptionId: string | null;
   dedupPolicy: "skip" | "create";
+  referralTargetRole?: string | null;
   resumePoolScope?: ResumePoolScope | null;
+  sourceChannel?: ResumePoolSourceChannel | null;
   target?: ResumeUploadBatchTarget;
   files: { storageKey: string; originalFileName: string; fileSize: number; contentHash: string }[];
 }
@@ -152,7 +155,7 @@ export async function insertBatchWithItems(input: CreateBatchInput): Promise<str
           createdAt: now,
           createdBy: input.userId,
           id: poolItemId,
-          jobDescriptionId: null,
+          jobDescriptionId: input.jobDescriptionId,
           notes: null,
           organizationId: input.organizationId,
           publishedAt: scope === "public" ? now : null,
@@ -166,11 +169,12 @@ export async function insertBatchWithItems(input: CreateBatchInput): Promise<str
           resumeStorageKey: file.storageKey,
           scope,
           skillsNormalized: [],
+          sourceChannel: input.sourceChannel ?? null,
           sourceOrganizationId: scope === "public" ? input.organizationId : null,
           sourcePoolItemId: null,
           sourceUserId: scope === "public" ? input.userId : null,
           status: "active" as const,
-          targetRole: null,
+          targetRole: input.referralTargetRole?.trim() || null,
           updatedAt: now,
         })),
       );

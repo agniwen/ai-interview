@@ -237,6 +237,9 @@ function matchesSearch(record: ResumePoolListRecord, rawSearch: string) {
 }
 
 function sourceLabel(record: ResumePoolListRecord) {
+  if (record.sourceChannel === "referral") {
+    return "内推";
+  }
   if (record.sourceChannel === "mail_ingest") {
     return "邮箱推送";
   }
@@ -252,6 +255,10 @@ function uploaderOrganizationLabel(record: ResumePoolListRecord) {
 
 function uploaderUserLabel(record: ResumePoolListRecord) {
   return record.uploaderName?.trim() || record.uploaderEmail?.trim() || "未知上传人";
+}
+
+function sourceActorLabel(record: ResumePoolListRecord) {
+  return record.sourceChannel === "referral" ? "内推人" : "上传人";
 }
 
 function canDeletePoolRecord(
@@ -753,7 +760,7 @@ function ResumePoolDetailSummaryPanel({
         <DetailSummaryItem label="目标岗位">{textOrDash(detail.targetRole)}</DetailSummaryItem>
         <DetailSummaryItem label="来源">{sourceLabel(detail)}</DetailSummaryItem>
         <DetailSummaryItem label="上传组织">{uploaderOrganizationLabel(detail)}</DetailSummaryItem>
-        <DetailSummaryItem label="上传人">{uploaderUserLabel(detail)}</DetailSummaryItem>
+        <DetailSummaryItem label={sourceActorLabel(detail)}>{uploaderUserLabel(detail)}</DetailSummaryItem>
         <DetailSummaryItem label="工作年限">
           {textOrDash(resumeProfile?.workYears ?? null)}
         </DetailSummaryItem>
@@ -918,12 +925,14 @@ function ResumePoolCardHighlights({ record }: { record: ResumePoolListRecord }) 
 }
 
 function ResumePoolCardUploaderMeta({ record }: { record: ResumePoolListRecord }) {
+  const actorLabel = sourceActorLabel(record);
   return (
     <div className="flex min-w-0 items-center gap-1.5 text-muted-foreground text-xs">
       <div className="flex min-w-0 items-center gap-1.5">
         <Building2Icon className="size-3.5 shrink-0" />
         <span className="truncate">{uploaderOrganizationLabel(record)}</span>
       </div>
+      <span className="shrink-0">{actorLabel}</span>
       <MemberCell
         avatarClassName="size-4"
         avatarFallbackClassName="text-[8px]"
@@ -1083,6 +1092,7 @@ function ResumePoolCard({
             </button>
           </CardTitle>
         </div>
+        {record.sourceChannel === "referral" ? <Badge variant="secondary">内推</Badge> : null}
         {scope === "private" && canDelete ? (
           <Checkbox
             aria-label={`选择 ${title}`}
