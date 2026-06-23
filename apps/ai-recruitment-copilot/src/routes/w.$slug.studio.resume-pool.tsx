@@ -102,9 +102,16 @@ interface ResumePoolSearch {
   scope?: ResumePoolScope;
 }
 
-type ResumePoolFilters = Record<"importStatus" | "parseStatus", string>;
+type ResumePoolSourceFilter = "all" | "non_referral" | "referral";
+type ResumePoolFilters = Record<"importStatus" | "parseStatus", string> & {
+  sourceType: ResumePoolSourceFilter;
+};
 
-const EMPTY_POOL_FILTERS: ResumePoolFilters = { importStatus: "", parseStatus: "" };
+const EMPTY_POOL_FILTERS: ResumePoolFilters = {
+  importStatus: "",
+  parseStatus: "",
+  sourceType: "all",
+};
 const RESUME_POOL_INITIAL_PAGE_SIZE = 20;
 const RESUME_POOL_LOAD_STEP = 20;
 // oxlint-disable-next-line sort-keys -- Breakpoints are easier to audit in ascending viewport order.
@@ -354,6 +361,12 @@ function filterPoolRecords(
       return false;
     }
     if (input.filters.parseStatus && record.resumeParseStatus !== input.filters.parseStatus) {
+      return false;
+    }
+    if (input.filters.sourceType === "referral" && record.sourceChannel !== "referral") {
+      return false;
+    }
+    if (input.filters.sourceType === "non_referral" && record.sourceChannel === "referral") {
       return false;
     }
     if (input.filters.importStatus === "imported" && !record.importedResumeRecordId) {
@@ -1598,6 +1611,18 @@ function ResumePoolPage() {
         minWidth: "15rem",
         placeholder: "搜索候选人、邮箱、电话、简历名或目标岗位",
         type: "search" as const,
+      },
+      {
+        clearable: false,
+        key: "sourceType" as const,
+        options: [
+          { label: "全部", value: "all" },
+          { label: "内推", value: "referral" },
+          { label: "非内推", value: "non_referral" },
+        ],
+        placeholder: "按类型筛选",
+        searchPlaceholder: "搜索类型…",
+        type: "select" as const,
       },
       {
         key: "parseStatus" as const,

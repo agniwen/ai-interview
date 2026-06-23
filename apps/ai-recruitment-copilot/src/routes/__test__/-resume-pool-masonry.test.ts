@@ -221,6 +221,30 @@ describe("ResumePoolPage masonry layout", () => {
     expect(uploaderMetaSource).toContain("{actorLabel}");
   });
 
+  it("adds a source type dropdown that intersects with existing resume pool filters", () => {
+    const filterSource = source.slice(
+      source.indexOf("function filterPoolRecords"),
+      source.indexOf("function useJobDescriptions"),
+    );
+    const filtersConfigSource = source.slice(
+      source.indexOf("const filtersConfig = useMemo"),
+      source.indexOf("let loadMoreStatusText"),
+    );
+
+    expect(source).toContain('sourceType: "all"');
+    expect(filtersConfigSource).toContain("clearable: false");
+    expect(filtersConfigSource).toContain('key: "sourceType" as const');
+    expect(filtersConfigSource).toContain('{ label: "全部", value: "all" }');
+    expect(filtersConfigSource).toContain('{ label: "内推", value: "referral" }');
+    expect(filtersConfigSource).toContain('{ label: "非内推", value: "non_referral" }');
+    expect(filterSource.indexOf('input.filters.sourceType === "referral"')).toBeGreaterThan(
+      filterSource.indexOf("input.filters.parseStatus"),
+    );
+    expect(filterSource.indexOf('input.filters.importStatus === "imported"')).toBeGreaterThan(
+      filterSource.indexOf('input.filters.sourceType === "non_referral"'),
+    );
+  });
+
   it("hides candidate contact information on resume pool cards", () => {
     const cardSource = source.slice(
       source.indexOf("function ResumePoolCard({"),
