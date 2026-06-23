@@ -16,6 +16,7 @@ describe("TanStack Start public route migration", () => {
     "/human-interview/interviewer/$inviteToken",
     "/interview/$id",
     "/interview/$id/$roundId",
+    "/referrals/$token",
   ];
 
   it("registers migrated public routes in the generated route tree", () => {
@@ -35,6 +36,7 @@ describe("TanStack Start public route migration", () => {
       readSource("routes/interview.tsx"),
       readSource("routes/interview.$id.tsx"),
       readSource("routes/interview.$id.$roundId.tsx"),
+      readSource("routes/referrals.$token.tsx"),
       readSource("components/features/human-interview/human-meeting-room.tsx"),
       readSource("components/features/interview/interview-room.tsx"),
       readSource("components/features/interview/interview-copy-guard.tsx"),
@@ -50,6 +52,14 @@ describe("TanStack Start public route migration", () => {
 
     expect(source).toContain("loader: async ({ location, params })");
     expect(source).toMatch(/location\.pathname === `\/interview\/\$\{params\.id\}`/u);
+  });
+
+  it("keeps referral upload success copy aligned with nullable pool insertion", () => {
+    const source = readSource("routes/referrals.$token.tsx");
+
+    expect(source).toContain("setSubmittedEnteredPool(result.poolItemId !== null)");
+    expect(source).toContain('" 已进入简历广场。"');
+    expect(source).toContain('" 已提交，正在等待简历广场入库。"');
   });
 
   it("renders the nested interview round route after resolving a round id", () => {

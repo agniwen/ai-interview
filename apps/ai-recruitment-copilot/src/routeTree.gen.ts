@@ -19,6 +19,7 @@ import { Route as WSlugRouteImport } from './routes/w.$slug'
 import { Route as StudioResumesRouteImport } from './routes/studio.resumes'
 import { Route as StudioResumePoolRouteImport } from './routes/studio.resume-pool'
 import { Route as StudioInterviewsRouteImport } from './routes/studio.interviews'
+import { Route as ReferralsTokenRouteImport } from './routes/referrals.$token'
 import { Route as RRoundIdRouteImport } from './routes/r.$roundId'
 import { Route as PlatformUsersRouteImport } from './routes/platform.users'
 import { Route as PlatformQueuesRouteImport } from './routes/platform.queues'
@@ -97,6 +98,11 @@ const StudioResumePoolRoute = StudioResumePoolRouteImport.update({
 const StudioInterviewsRoute = StudioInterviewsRouteImport.update({
   id: '/studio/interviews',
   path: '/studio/interviews',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ReferralsTokenRoute = ReferralsTokenRouteImport.update({
+  id: '/referrals/$token',
+  path: '/referrals/$token',
   getParentRoute: () => rootRouteImport,
 } as any)
 const RRoundIdRoute = RRoundIdRouteImport.update({
@@ -268,6 +274,7 @@ export interface FileRoutesByFullPath {
   '/platform/queues': typeof PlatformQueuesRoute
   '/platform/users': typeof PlatformUsersRoute
   '/r/$roundId': typeof RRoundIdRoute
+  '/referrals/$token': typeof ReferralsTokenRoute
   '/studio/interviews': typeof StudioInterviewsRoute
   '/studio/resume-pool': typeof StudioResumePoolRoute
   '/studio/resumes': typeof StudioResumesRoute
@@ -309,6 +316,7 @@ export interface FileRoutesByTo {
   '/platform/queues': typeof PlatformQueuesRoute
   '/platform/users': typeof PlatformUsersRoute
   '/r/$roundId': typeof RRoundIdRoute
+  '/referrals/$token': typeof ReferralsTokenRoute
   '/studio/interviews': typeof StudioInterviewsRoute
   '/studio/resume-pool': typeof StudioResumePoolRoute
   '/studio/resumes': typeof StudioResumesRoute
@@ -350,6 +358,7 @@ export interface FileRoutesById {
   '/platform/queues': typeof PlatformQueuesRoute
   '/platform/users': typeof PlatformUsersRoute
   '/r/$roundId': typeof RRoundIdRoute
+  '/referrals/$token': typeof ReferralsTokenRoute
   '/studio/interviews': typeof StudioInterviewsRoute
   '/studio/resume-pool': typeof StudioResumePoolRoute
   '/studio/resumes': typeof StudioResumesRoute
@@ -393,6 +402,7 @@ export interface FileRouteTypes {
     | '/platform/queues'
     | '/platform/users'
     | '/r/$roundId'
+    | '/referrals/$token'
     | '/studio/interviews'
     | '/studio/resume-pool'
     | '/studio/resumes'
@@ -434,6 +444,7 @@ export interface FileRouteTypes {
     | '/platform/queues'
     | '/platform/users'
     | '/r/$roundId'
+    | '/referrals/$token'
     | '/studio/interviews'
     | '/studio/resume-pool'
     | '/studio/resumes'
@@ -474,6 +485,7 @@ export interface FileRouteTypes {
     | '/platform/queues'
     | '/platform/users'
     | '/r/$roundId'
+    | '/referrals/$token'
     | '/studio/interviews'
     | '/studio/resume-pool'
     | '/studio/resumes'
@@ -511,6 +523,7 @@ export interface RootRouteChildren {
   InviteTokenRoute: typeof InviteTokenRoute
   JoinCodeRoute: typeof JoinCodeRoute
   RRoundIdRoute: typeof RRoundIdRoute
+  ReferralsTokenRoute: typeof ReferralsTokenRoute
   StudioInterviewsRoute: typeof StudioInterviewsRoute
   StudioResumePoolRoute: typeof StudioResumePoolRoute
   StudioResumesRoute: typeof StudioResumesRoute
@@ -588,6 +601,13 @@ declare module '@tanstack/react-router' {
       path: '/studio/interviews'
       fullPath: '/studio/interviews'
       preLoaderRoute: typeof StudioInterviewsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/referrals/$token': {
+      id: '/referrals/$token'
+      path: '/referrals/$token'
+      fullPath: '/referrals/$token'
+      preLoaderRoute: typeof ReferralsTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/r/$roundId': {
@@ -924,6 +944,7 @@ const rootRouteChildren: RootRouteChildren = {
   InviteTokenRoute: InviteTokenRoute,
   JoinCodeRoute: JoinCodeRoute,
   RRoundIdRoute: RRoundIdRoute,
+  ReferralsTokenRoute: ReferralsTokenRoute,
   StudioInterviewsRoute: StudioInterviewsRoute,
   StudioResumePoolRoute: StudioResumePoolRoute,
   StudioResumesRoute: StudioResumesRoute,

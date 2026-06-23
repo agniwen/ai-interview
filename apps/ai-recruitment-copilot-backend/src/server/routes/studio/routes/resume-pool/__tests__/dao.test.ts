@@ -19,6 +19,7 @@ import {
   deleteOwnPoolItem,
   importPoolItemToResumeLibrary,
   loadResumePoolItem,
+  markResumePoolItemParsed,
   publishPrivatePoolItem,
   queryResumePoolItems,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resume-pool/dao";
@@ -345,6 +346,67 @@ describe("queryResumePoolItems", () => {
 
     expect(record?.sourceChannel).toBe("mail_ingest");
     expect(detail?.sourceChannel).toBe("mail_ingest");
+  });
+
+  it("returns referral source channel with referrer metadata", async () => {
+    const id = await createResumePoolItem(
+      basePoolInput({
+        contentHash: "hash-resume-pool-referral",
+        resumeFileName: "candidate-referral.pdf",
+        scope: "public",
+        sourceChannel: "referral",
+      }),
+    );
+
+    const result = await queryResumePoolItems({
+      organizationId: ORG_A,
+      scope: "public",
+      userId: USER_A,
+    });
+    const record = result.records.find((item) => item.id === id);
+    const detail = await loadResumePoolItem({
+      organizationId: ORG_A,
+      poolItemId: id,
+      userId: USER_A,
+    });
+
+    expect(record?.sourceChannel).toBe("referral");
+    expect(record?.uploaderName).toBe("resume-pool-a");
+    expect(detail?.sourceChannel).toBe("referral");
+    expect(detail?.uploaderName).toBe("resume-pool-a");
+  });
+
+  it("keeps referral target role from the linked job description after parsing", async () => {
+    const id = await createResumePoolItem(
+      basePoolInput({
+        contentHash: "hash-resume-pool-referral-target-role",
+        resumeFileName: "candidate-referral-target-role.pdf",
+        resumeProfile: null,
+        scope: "public",
+        sourceChannel: "referral",
+        targetRole: "内推前端工程师",
+      }),
+    );
+
+    await markResumePoolItemParsed({
+      actorId: USER_A,
+      organizationId: ORG_A,
+      poolItemId: id,
+      resumeProfile: {
+        ...PROFILE,
+        targetRoles: ["AI 解析出的前端开发"],
+      },
+    });
+
+    const detail = await loadResumePoolItem({
+      organizationId: ORG_A,
+      poolItemId: id,
+      userId: USER_A,
+    });
+
+    expect(detail?.sourceChannel).toBe("referral");
+    expect(detail?.targetRole).toBe("内推前端工程师");
+    expect(detail?.resumeProfile?.targetRoles).toEqual(["AI 解析出的前端开发"]);
   });
 });
 

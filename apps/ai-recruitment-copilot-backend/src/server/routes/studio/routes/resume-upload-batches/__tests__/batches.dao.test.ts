@@ -6,8 +6,11 @@ import { eq, sql } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import {
+  department,
+  jobDescription,
   member,
   organization,
+  resumePoolItem,
   resumeUploadBatch,
   resumeUploadBatchItem,
   studioInterview,
@@ -34,6 +37,8 @@ const ORG_A = "bulk_dao_org_a";
 const ORG_B = "bulk_dao_org_b";
 const USER_A = "bulk_dao_user_a";
 const USER_B = "bulk_dao_user_b";
+const DEPARTMENT_A = "bulk_dao_department_a";
+const REFERRAL_JD = "bulk_dao_referral_jd";
 
 const NOW = new Date("2026-05-18T10:00:00.000Z");
 
@@ -55,6 +60,10 @@ async function cleanup() {
   await db.delete(resumeUploadBatch).where(eq(resumeUploadBatch.organizationId, ORG_B));
   await db.delete(studioInterview).where(eq(studioInterview.organizationId, ORG_A));
   await db.delete(studioInterview).where(eq(studioInterview.organizationId, ORG_B));
+  await db.delete(resumePoolItem).where(eq(resumePoolItem.organizationId, ORG_A));
+  await db.delete(resumePoolItem).where(eq(resumePoolItem.organizationId, ORG_B));
+  await db.delete(jobDescription).where(eq(jobDescription.organizationId, ORG_A));
+  await db.delete(department).where(eq(department.organizationId, ORG_A));
   await db.delete(member).where(eq(member.userId, USER_A));
   await db.delete(member).where(eq(member.userId, USER_B));
   await db.delete(organization).where(eq(organization.id, ORG_A));
@@ -106,6 +115,24 @@ beforeAll(async () => {
       userId: USER_B,
     },
   ]);
+  await db.insert(department).values({
+    createdAt: NOW,
+    createdBy: USER_A,
+    id: DEPARTMENT_A,
+    name: "Bulk DAO Department A",
+    organizationId: ORG_A,
+    updatedAt: NOW,
+  });
+  await db.insert(jobDescription).values({
+    createdAt: NOW,
+    createdBy: USER_A,
+    departmentId: DEPARTMENT_A,
+    id: REFERRAL_JD,
+    name: "内推前端工程师",
+    organizationId: ORG_A,
+    prompt: "负责前端开发。",
+    updatedAt: NOW,
+  });
 });
 
 afterAll(async () => {
@@ -164,6 +191,68 @@ describe("insertBatchWithItems", () => {
       }
     } finally {
       await db.delete(resumeUploadBatch).where(eq(resumeUploadBatch.id, batchId));
+    }
+  });
+
+  it("writes referral target role into resume pool placeholders", async () => {
+    const batchId = await insertBatchWithItems({
+      dedupPolicy: "create",
+      files: makeFiles(1),
+      jdMode: "bind",
+      jobDescriptionId: REFERRAL_JD,
+      organizationId: ORG_A,
+      referralTargetRole: "内推前端工程师",
+      resumePoolScope: "public",
+      sourceChannel: "referral",
+      target: "resume_pool",
+      userId: USER_A,
+    });
+
+    try {
+      const detail = await loadBatchDetail(batchId, ORG_A, USER_A);
+      const poolItemId = detail?.items[0]?.poolItemId;
+      expect(poolItemId).toBeTruthy();
+
+      const [poolItem] = await db
+        .select()
+        .from(resumePoolItem)
+        .where(eq(resumePoolItem.id, poolItemId!));
+
+      expect(poolItem?.jobDescriptionId).toBe(REFERRAL_JD);
+      expect(poolItem?.sourceChannel).toBe("referral");
+      expect(poolItem?.targetRole).toBe("内推前端工程师");
+    } finally {
+      await db.delete(resumeUploadBatch).where(eq(resumeUploadBatch.id, batchId));
+      await db.delete(resumePoolItem).where(eq(resumePoolItem.organizationId, ORG_A));
+    }
+  });
+
+  it("does not bind job descriptions to resume pool placeholders outside bind mode", async () => {
+    const batchId = await insertBatchWithItems({
+      dedupPolicy: "create",
+      files: makeFiles(1),
+      jdMode: "auto",
+      jobDescriptionId: REFERRAL_JD,
+      organizationId: ORG_A,
+      resumePoolScope: "public",
+      target: "resume_pool",
+      userId: USER_A,
+    });
+
+    try {
+      const detail = await loadBatchDetail(batchId, ORG_A, USER_A);
+      const poolItemId = detail?.items[0]?.poolItemId;
+      expect(poolItemId).toBeTruthy();
+
+      const [poolItem] = await db
+        .select()
+        .from(resumePoolItem)
+        .where(eq(resumePoolItem.id, poolItemId!));
+
+      expect(poolItem?.jobDescriptionId).toBeNull();
+    } finally {
+      await db.delete(resumeUploadBatch).where(eq(resumeUploadBatch.id, batchId));
+      await db.delete(resumePoolItem).where(eq(resumePoolItem.organizationId, ORG_A));
     }
   });
 });
