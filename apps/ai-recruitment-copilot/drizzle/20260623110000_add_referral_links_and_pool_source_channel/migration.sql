@@ -1,6 +1,19 @@
 ALTER TABLE "resume_pool_item"
   ADD COLUMN IF NOT EXISTS "source_channel" text;
 
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conname = 'resume_pool_item_source_channel_check'
+  ) THEN
+    ALTER TABLE "resume_pool_item"
+      ADD CONSTRAINT "resume_pool_item_source_channel_check"
+      CHECK ("source_channel" IS NULL OR "source_channel" IN ('mail_ingest', 'referral'));
+  END IF;
+END $$;
+
 CREATE TABLE IF NOT EXISTS "referral_link" (
   "id" text PRIMARY KEY NOT NULL,
   "token_hash" text NOT NULL UNIQUE,

@@ -54,6 +54,14 @@ describe("TanStack Start public route migration", () => {
     expect(source).toMatch(/location\.pathname === `\/interview\/\$\{params\.id\}`/u);
   });
 
+  it("keeps referral upload success copy aligned with nullable pool insertion", () => {
+    const source = readSource("routes/referrals.$token.tsx");
+
+    expect(source).toContain("setSubmittedEnteredPool(result.poolItemId !== null)");
+    expect(source).toContain('" 已进入简历广场。"');
+    expect(source).toContain('" 已提交，正在等待简历广场入库。"');
+  });
+
   it("renders the nested interview round route after resolving a round id", () => {
     const source = readSource("routes/interview.$id.tsx");
 

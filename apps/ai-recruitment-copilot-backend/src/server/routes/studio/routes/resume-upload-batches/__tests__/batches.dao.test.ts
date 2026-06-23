@@ -226,6 +226,35 @@ describe("insertBatchWithItems", () => {
       await db.delete(resumePoolItem).where(eq(resumePoolItem.organizationId, ORG_A));
     }
   });
+
+  it("does not bind job descriptions to resume pool placeholders outside bind mode", async () => {
+    const batchId = await insertBatchWithItems({
+      dedupPolicy: "create",
+      files: makeFiles(1),
+      jdMode: "auto",
+      jobDescriptionId: REFERRAL_JD,
+      organizationId: ORG_A,
+      resumePoolScope: "public",
+      target: "resume_pool",
+      userId: USER_A,
+    });
+
+    try {
+      const detail = await loadBatchDetail(batchId, ORG_A, USER_A);
+      const poolItemId = detail?.items[0]?.poolItemId;
+      expect(poolItemId).toBeTruthy();
+
+      const [poolItem] = await db
+        .select()
+        .from(resumePoolItem)
+        .where(eq(resumePoolItem.id, poolItemId!));
+
+      expect(poolItem?.jobDescriptionId).toBeNull();
+    } finally {
+      await db.delete(resumeUploadBatch).where(eq(resumeUploadBatch.id, batchId));
+      await db.delete(resumePoolItem).where(eq(resumePoolItem.organizationId, ORG_A));
+    }
+  });
 });
 
 // ─── Test 2: multiple active batches ─────────────────────────────────────────

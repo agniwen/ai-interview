@@ -79,7 +79,7 @@ function JobDescriptionManagementPage({
   const [createDraft, setCreateDraft] = useState<JobDescriptionFormValues | null>(null);
   const [createDraftSessionId, setCreateDraftSessionId] = useState(0);
   const [aiCreateOpen, setAiCreateOpen] = useState(false);
-  const [copyingReferralId, setCopyingReferralId] = useState<string | null>(null);
+  const [copyingReferralIds, setCopyingReferralIds] = useState<Set<string>>(() => new Set());
 
   const fetchJobDescriptions = useCallback(
     async (params: {
@@ -191,7 +191,7 @@ function JobDescriptionManagementPage({
   }
 
   async function copyReferralLink(record: JobDescriptionListRecord) {
-    setCopyingReferralId(record.id);
+    setCopyingReferralIds((current) => new Set(current).add(record.id));
     try {
       const result = await createJobDescriptionReferralLink(slug, record.id);
       const copyResult = await copyTextToClipboard(result.url);
@@ -203,7 +203,11 @@ function JobDescriptionManagementPage({
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "创建内推链接失败");
     } finally {
-      setCopyingReferralId(null);
+      setCopyingReferralIds((current) => {
+        const next = new Set(current);
+        next.delete(record.id);
+        return next;
+      });
     }
   }
 
@@ -299,7 +303,7 @@ function JobDescriptionManagementPage({
             },
           },
           {
-            disabled: (r) => copyingReferralId === r.id,
+            disabled: (r) => copyingReferralIds.has(r.id),
             disabledReason: () => "正在创建内推链接",
             label: "复制内推链接",
             onClick: copyReferralLink,
@@ -321,7 +325,7 @@ function JobDescriptionManagementPage({
       }),
     ],
     // oxlint-disable-next-line react-hooks/exhaustive-deps
-    [copyingReferralId],
+    [copyingReferralIds],
   );
 
   const filtersConfig = useMemo(

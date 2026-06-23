@@ -20,7 +20,12 @@ export function createJobDescriptionReferralLink(
 }
 
 export function fetchPublicReferralPreview(token: string): Promise<PublicReferralPreview> {
-  return apiFetch<PublicReferralPreview>(`/api/public/referrals/${encodeURIComponent(token)}`);
+  return rpcFetch<PublicReferralPreview>(
+    rpc.api.public.referrals[":token"].$get({
+      param: { token },
+    }),
+    "加载内推信息失败",
+  );
 }
 
 export function uploadPublicReferralResume(

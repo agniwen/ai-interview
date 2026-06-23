@@ -35,6 +35,7 @@ function validateReferralResume(file: File): string | null {
 function ReferralPage() {
   const { token } = useParams({ from: "/referrals/$token" });
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [submittedEnteredPool, setSubmittedEnteredPool] = useState(false);
   const [submittedFileName, setSubmittedFileName] = useState<string | null>(null);
   const [uploadResetKey, setUploadResetKey] = useState(0);
   const previewQuery = useQuery({
@@ -48,8 +49,9 @@ function ReferralPage() {
       setErrorMessage(error instanceof Error ? error.message : "简历提交失败，请稍后重试。");
       setUploadResetKey((key) => key + 1);
     },
-    onSuccess: (_result, file) => {
+    onSuccess: (result, file) => {
       setErrorMessage(null);
+      setSubmittedEnteredPool(result.poolItemId !== null);
       setSubmittedFileName(file.name);
       toast.success("简历已提交");
     },
@@ -97,7 +99,12 @@ function ReferralPage() {
               <Alert>
                 <CheckCircleIcon />
                 <AlertTitle>简历已提交</AlertTitle>
-                <AlertDescription>{submittedFileName} 已进入简历广场。</AlertDescription>
+                <AlertDescription>
+                  {submittedFileName}
+                  {submittedEnteredPool
+                    ? " 已进入简历广场。"
+                    : " 已提交，正在等待简历广场入库。"}
+                </AlertDescription>
               </Alert>
             ) : (
               <FileUpload

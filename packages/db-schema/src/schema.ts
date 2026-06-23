@@ -46,6 +46,7 @@ import { sql } from "drizzle-orm";
 import {
   bigserial,
   boolean,
+  check,
   index,
   integer,
   jsonb,
@@ -1012,6 +1013,10 @@ export const resumePoolItem = pgTable(
     ),
     index("resume_pool_item_resume_content_hash_idx").on(table.resumeContentHash),
     index("resume_pool_item_resume_parse_status_idx").on(table.resumeParseStatus),
+    check(
+      "resume_pool_item_source_channel_check",
+      sql`${table.sourceChannel} IS NULL OR ${table.sourceChannel} IN ('mail_ingest', 'referral')`,
+    ),
     index("resume_pool_item_source_pool_item_idx").on(table.sourcePoolItemId),
     index("resume_pool_item_skills_normalized_idx").using("gin", table.skillsNormalized),
   ],

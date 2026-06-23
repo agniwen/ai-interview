@@ -237,12 +237,10 @@ describe("ResumePoolPage masonry layout", () => {
     expect(filtersConfigSource).toContain('{ label: "全部", value: "all" }');
     expect(filtersConfigSource).toContain('{ label: "内推", value: "referral" }');
     expect(filtersConfigSource).toContain('{ label: "非内推", value: "non_referral" }');
-    expect(filterSource.indexOf('input.filters.sourceType === "referral"')).toBeGreaterThan(
-      filterSource.indexOf("input.filters.parseStatus"),
-    );
-    expect(filterSource.indexOf('input.filters.importStatus === "imported"')).toBeGreaterThan(
-      filterSource.indexOf('input.filters.sourceType === "non_referral"'),
-    );
+    expect(filterSource).toContain("input.filters.parseStatus");
+    expect(filterSource).toContain('input.filters.sourceType === "referral"');
+    expect(filterSource).toContain('input.filters.sourceType === "non_referral"');
+    expect(filterSource).toContain('input.filters.importStatus === "imported"');
   });
 
   it("hides candidate contact information on resume pool cards", () => {

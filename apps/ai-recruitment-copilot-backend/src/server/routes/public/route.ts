@@ -79,7 +79,12 @@ export const publicRouter = factory
     if (!link) {
       return c.json({ error: "内推链接不可用。" }, 404);
     }
-    const formData = await c.req.formData();
+    let formData: FormData;
+    try {
+      formData = await c.req.formData();
+    } catch {
+      return c.json({ error: "请求体必须是 multipart/form-data。" }, 400);
+    }
     const file = normalizeResumeFile(formData.get("resume"));
     if (!file) {
       return c.json({ error: "请上传简历文件。" }, 400);

@@ -37,4 +37,14 @@ describe("TanStack Start studio CRUD route migration", () => {
       /next\/(?:dynamic|navigation|headers|server|cache|link)/u,
     );
   });
+
+  it("tracks concurrent referral link copy requests by job description id", () => {
+    const source = readSource("routes/w.$slug.studio.job-descriptions.tsx");
+
+    expect(source).toContain("copyingReferralIds");
+    expect(source).toContain("new Set(current).add(record.id)");
+    expect(source).toContain("next.delete(record.id)");
+    expect(source).toContain("copyingReferralIds.has(r.id)");
+    expect(source).not.toContain("copyingReferralId === r.id");
+  });
 });
