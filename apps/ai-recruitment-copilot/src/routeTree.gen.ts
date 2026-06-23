@@ -36,6 +36,7 @@ import { Route as HumanInterviewInterviewerInviteTokenRouteImport } from './rout
 import { Route as WSlugChatIndexRouteImport } from './routes/w.$slug.chat.index'
 import { Route as WSlugStudioResumesRouteImport } from './routes/w.$slug.studio.resumes'
 import { Route as WSlugStudioResumePoolRouteImport } from './routes/w.$slug.studio.resume-pool'
+import { Route as WSlugStudioPermissionsRouteImport } from './routes/w.$slug.studio.permissions'
 import { Route as WSlugStudioMembersRouteImport } from './routes/w.$slug.studio.members'
 import { Route as WSlugStudioMeRouteImport } from './routes/w.$slug.studio.me'
 import { Route as WSlugStudioMailIngestAccountsRouteImport } from './routes/w.$slug.studio.mail-ingest-accounts'
@@ -188,6 +189,11 @@ const WSlugStudioResumePoolRoute = WSlugStudioResumePoolRouteImport.update({
   path: '/resume-pool',
   getParentRoute: () => WSlugStudioRoute,
 } as any)
+const WSlugStudioPermissionsRoute = WSlugStudioPermissionsRouteImport.update({
+  id: '/permissions',
+  path: '/permissions',
+  getParentRoute: () => WSlugStudioRoute,
+} as any)
 const WSlugStudioMembersRoute = WSlugStudioMembersRouteImport.update({
   id: '/members',
   path: '/members',
@@ -295,6 +301,7 @@ export interface FileRoutesByFullPath {
   '/w/$slug/studio/mail-ingest-accounts': typeof WSlugStudioMailIngestAccountsRoute
   '/w/$slug/studio/me': typeof WSlugStudioMeRoute
   '/w/$slug/studio/members': typeof WSlugStudioMembersRoute
+  '/w/$slug/studio/permissions': typeof WSlugStudioPermissionsRoute
   '/w/$slug/studio/resume-pool': typeof WSlugStudioResumePoolRoute
   '/w/$slug/studio/resumes': typeof WSlugStudioResumesRoute
   '/w/$slug/chat/': typeof WSlugChatIndexRoute
@@ -336,6 +343,7 @@ export interface FileRoutesByTo {
   '/w/$slug/studio/mail-ingest-accounts': typeof WSlugStudioMailIngestAccountsRoute
   '/w/$slug/studio/me': typeof WSlugStudioMeRoute
   '/w/$slug/studio/members': typeof WSlugStudioMembersRoute
+  '/w/$slug/studio/permissions': typeof WSlugStudioPermissionsRoute
   '/w/$slug/studio/resume-pool': typeof WSlugStudioResumePoolRoute
   '/w/$slug/studio/resumes': typeof WSlugStudioResumesRoute
   '/w/$slug/chat': typeof WSlugChatIndexRoute
@@ -379,6 +387,7 @@ export interface FileRoutesById {
   '/w/$slug/studio/mail-ingest-accounts': typeof WSlugStudioMailIngestAccountsRoute
   '/w/$slug/studio/me': typeof WSlugStudioMeRoute
   '/w/$slug/studio/members': typeof WSlugStudioMembersRoute
+  '/w/$slug/studio/permissions': typeof WSlugStudioPermissionsRoute
   '/w/$slug/studio/resume-pool': typeof WSlugStudioResumePoolRoute
   '/w/$slug/studio/resumes': typeof WSlugStudioResumesRoute
   '/w/$slug/chat/': typeof WSlugChatIndexRoute
@@ -423,6 +432,7 @@ export interface FileRouteTypes {
     | '/w/$slug/studio/mail-ingest-accounts'
     | '/w/$slug/studio/me'
     | '/w/$slug/studio/members'
+    | '/w/$slug/studio/permissions'
     | '/w/$slug/studio/resume-pool'
     | '/w/$slug/studio/resumes'
     | '/w/$slug/chat/'
@@ -464,6 +474,7 @@ export interface FileRouteTypes {
     | '/w/$slug/studio/mail-ingest-accounts'
     | '/w/$slug/studio/me'
     | '/w/$slug/studio/members'
+    | '/w/$slug/studio/permissions'
     | '/w/$slug/studio/resume-pool'
     | '/w/$slug/studio/resumes'
     | '/w/$slug/chat'
@@ -506,6 +517,7 @@ export interface FileRouteTypes {
     | '/w/$slug/studio/mail-ingest-accounts'
     | '/w/$slug/studio/me'
     | '/w/$slug/studio/members'
+    | '/w/$slug/studio/permissions'
     | '/w/$slug/studio/resume-pool'
     | '/w/$slug/studio/resumes'
     | '/w/$slug/chat/'
@@ -722,6 +734,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WSlugStudioResumePoolRouteImport
       parentRoute: typeof WSlugStudioRoute
     }
+    '/w/$slug/studio/permissions': {
+      id: '/w/$slug/studio/permissions'
+      path: '/permissions'
+      fullPath: '/w/$slug/studio/permissions'
+      preLoaderRoute: typeof WSlugStudioPermissionsRouteImport
+      parentRoute: typeof WSlugStudioRoute
+    }
     '/w/$slug/studio/members': {
       id: '/w/$slug/studio/members'
       path: '/members'
@@ -897,6 +916,7 @@ interface WSlugStudioRouteChildren {
   WSlugStudioMailIngestAccountsRoute: typeof WSlugStudioMailIngestAccountsRoute
   WSlugStudioMeRoute: typeof WSlugStudioMeRoute
   WSlugStudioMembersRoute: typeof WSlugStudioMembersRoute
+  WSlugStudioPermissionsRoute: typeof WSlugStudioPermissionsRoute
   WSlugStudioResumePoolRoute: typeof WSlugStudioResumePoolRoute
   WSlugStudioResumesRoute: typeof WSlugStudioResumesRoute
 }
@@ -913,6 +933,7 @@ const WSlugStudioRouteChildren: WSlugStudioRouteChildren = {
   WSlugStudioMailIngestAccountsRoute: WSlugStudioMailIngestAccountsRoute,
   WSlugStudioMeRoute: WSlugStudioMeRoute,
   WSlugStudioMembersRoute: WSlugStudioMembersRoute,
+  WSlugStudioPermissionsRoute: WSlugStudioPermissionsRoute,
   WSlugStudioResumePoolRoute: WSlugStudioResumePoolRoute,
   WSlugStudioResumesRoute: WSlugStudioResumesRoute,
 }

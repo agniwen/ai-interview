@@ -32,6 +32,16 @@ function validateReferralResume(file: File): string | null {
   return null;
 }
 
+function getReferralDescription(
+  preview: { companyName: string; referrerName?: string | null } | undefined,
+  unavailable: boolean,
+): string {
+  if (preview) {
+    return `${preview.companyName}${preview.referrerName ? ` · 内推人：${preview.referrerName}` : ""}`;
+  }
+  return unavailable ? "内推链接不可用" : "正在加载内推信息";
+}
+
 function ReferralPage() {
   const { token } = useParams({ from: "/referrals/$token" });
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -75,16 +85,8 @@ function ReferralPage() {
                 <Badge variant="outline">{preview.jobDescriptionCode}</Badge>
               ) : null}
             </div>
-            <CardTitle className="text-2xl">
-              {preview?.jobDescriptionName ?? "简历内推"}
-            </CardTitle>
-            <CardDescription>
-              {preview
-                ? `${preview.companyName}${preview.referrerName ? ` · 内推人：${preview.referrerName}` : ""}`
-                : unavailable
-                  ? "内推链接不可用"
-                  : "正在加载内推信息"}
-            </CardDescription>
+            <CardTitle className="text-2xl">{preview?.jobDescriptionName ?? "简历内推"}</CardTitle>
+            <CardDescription>{getReferralDescription(preview, unavailable)}</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
             {unavailable ? (
@@ -101,9 +103,7 @@ function ReferralPage() {
                 <AlertTitle>简历已提交</AlertTitle>
                 <AlertDescription>
                   {submittedFileName}
-                  {submittedEnteredPool
-                    ? " 已进入简历广场。"
-                    : " 已提交，正在等待简历广场入库。"}
+                  {submittedEnteredPool ? " 已进入简历广场。" : " 已提交，正在等待简历广场入库。"}
                 </AlertDescription>
               </Alert>
             ) : (
@@ -118,7 +118,7 @@ function ReferralPage() {
                 maxFiles={1}
                 multiple={false}
                 onFilesAccepted={(files) => {
-                  const file = files[0];
+                  const [file] = files;
                   if (!file) {
                     return;
                   }
@@ -126,7 +126,7 @@ function ReferralPage() {
                   uploadMutation.mutate(file);
                 }}
                 onFilesSelected={(files) => {
-                  const file = files[0];
+                  const [file] = files;
                   if (!file) {
                     return false;
                   }

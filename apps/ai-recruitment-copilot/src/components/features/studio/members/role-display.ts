@@ -11,6 +11,7 @@ const WORKSPACE_ROLE_DESCRIPTIONS = {
 } as const;
 
 export type WorkspaceRole = keyof typeof WORKSPACE_ROLE_LABELS;
+export type AnyWorkspaceRole = string;
 
 export const ASSIGNABLE_ROLES = ["admin", "member"] as const satisfies readonly WorkspaceRole[];
 export const WORKSPACE_ROLES = [
@@ -24,12 +25,18 @@ const WORKSPACE_ROLE_RANK: Record<WorkspaceRole, number> = {
   owner: 3,
 };
 
-export function getWorkspaceRoleLabel(role: WorkspaceRole): string {
-  return WORKSPACE_ROLE_LABELS[role];
+export function isBuiltInWorkspaceRole(role: string): role is WorkspaceRole {
+  return role in WORKSPACE_ROLE_LABELS;
 }
 
-export function getWorkspaceRoleDescription(role: WorkspaceRole): string {
-  return WORKSPACE_ROLE_DESCRIPTIONS[role];
+export function getWorkspaceRoleLabel(role: AnyWorkspaceRole): string {
+  return isBuiltInWorkspaceRole(role) ? WORKSPACE_ROLE_LABELS[role] : role;
+}
+
+export function getWorkspaceRoleDescription(role: AnyWorkspaceRole): string {
+  return isBuiltInWorkspaceRole(role)
+    ? WORKSPACE_ROLE_DESCRIPTIONS[role]
+    : "自定义工作区角色；具体权限由系统设置中的权限管理决定。";
 }
 
 export function canAssignWorkspaceRole(

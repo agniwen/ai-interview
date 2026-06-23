@@ -16,6 +16,7 @@ describe("permissions matrix", () => {
       const resources = [
         "interview",
         "jd",
+        "resumeLibrary",
         "department",
         "interviewer",
         "candidateForm",
@@ -34,6 +35,12 @@ describe("permissions matrix", () => {
       expect(owner.statements.globalConfig).toEqual(expect.arrayContaining(["read", "update"]));
       expect(owner.statements.auditLog).toEqual(expect.arrayContaining(["read"]));
     });
+
+    it("can browse every studio page", () => {
+      expect(roles.owner.statements.page).toEqual(
+        expect.arrayContaining(["dashboard", "globalConfig", "mailIngestAccounts", "permissions"]),
+      );
+    });
   });
 
   describe("admin role", () => {
@@ -46,6 +53,7 @@ describe("permissions matrix", () => {
       const resources = [
         "interview",
         "jd",
+        "resumeLibrary",
         "department",
         "interviewer",
         "candidateForm",
@@ -65,6 +73,12 @@ describe("permissions matrix", () => {
       );
       expect(roles.admin.statements.auditLog).toEqual(expect.arrayContaining(["read"]));
     });
+
+    it("can browse every studio page", () => {
+      expect(roles.admin.statements.page).toEqual(
+        expect.arrayContaining(["dashboard", "globalConfig", "mailIngestAccounts", "permissions"]),
+      );
+    });
   });
 
   describe("member role", () => {
@@ -77,6 +91,7 @@ describe("permissions matrix", () => {
       const resources = [
         "interview",
         "jd",
+        "resumeLibrary",
         "department",
         "interviewer",
         "candidateForm",
@@ -101,6 +116,15 @@ describe("permissions matrix", () => {
       const stmts = roles.member.statements as Record<string, readonly string[] | undefined>;
       expect(stmts.member ?? []).toHaveLength(0);
     });
+
+    it("cannot browse admin-only studio pages", () => {
+      expect(roles.member.statements.page).not.toEqual(
+        expect.arrayContaining(["dashboard", "globalConfig", "mailIngestAccounts", "permissions"]),
+      );
+      expect(roles.member.statements.page).toEqual(
+        expect.arrayContaining(["resumes", "resumePool", "interviews", "members"]),
+      );
+    });
   });
 });
 
@@ -115,6 +139,17 @@ describe("permission matrix cross-cut", () => {
     // jd
     ["member", "jd", "update", true],
     ["member", "jd", "delete", true],
+    // resume library / pool / upload batches split
+    ["member", "resumeLibrary", "read", true],
+    ["member", "resumeLibrary", "update", true],
+    ["member", "resumePool", "read", true],
+    ["member", "resumePool", "publish", true],
+    ["member", "resumePool", "import", true],
+    ["member", "resumeUploadBatch", "process", true],
+    ["member", "resumeUploadBatch", "cancel", true],
+    ["admin", "mailIngestAccount", "manage", true],
+    ["member", "mailIngestAccount", "manage", false],
+    ["member", "mailIngestAccount", "create", false],
     // department / interviewer
     ["member", "department", "create", true],
     ["member", "interviewer", "update", true],
@@ -144,6 +179,15 @@ describe("permission matrix cross-cut", () => {
     ["admin", "member", "delete", true],
     ["member", "member", "create", false],
     ["member", "member", "delete", false],
+    // page browsing
+    ["admin", "page", "dashboard", true],
+    ["admin", "page", "mailIngestAccounts", true],
+    ["member", "page", "dashboard", false],
+    ["member", "page", "mailIngestAccounts", false],
+    ["member", "page", "permissions", false],
+    ["member", "page", "globalConfig", false],
+    ["member", "page", "resumes", true],
+    ["member", "page", "members", true],
   ];
 
   for (const [role, resource, action, expected] of cases) {

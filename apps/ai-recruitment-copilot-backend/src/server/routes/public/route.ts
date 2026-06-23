@@ -21,7 +21,11 @@ import {
 } from "@arc/ai-recruitment-copilot-backend/lib/server/s3";
 import { interviewConversation, minimaxVoicePreview, studioInterview } from "@arc/db-schema/schema";
 import { factory, jsonValidatorError } from "@arc/ai-recruitment-copilot-backend/server/factory";
-import { buildTokenErrorResponse } from "@arc/ai-recruitment-copilot-backend/server/routes/interview/utils";
+import {
+  buildTokenErrorResponse,
+  normalizeResumeFile,
+  storeResumeObjectOnly,
+} from "@arc/ai-recruitment-copilot-backend/server/routes/interview/utils";
 import { loadSubmissionsByInterview } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/forms/dao/submissions";
 import { queryInterviewConversationReportsByRound } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/dao/interview-conversations";
 import {
@@ -47,10 +51,6 @@ import {
 import { loadResumeDetail } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/dao/resumes";
 import type { PublicReferralUploadResult } from "@arc/shared/referrals";
 import { validateResumeFile } from "@arc/ai-recruitment-copilot-backend/server/agents/resume-analysis-agent";
-import {
-  normalizeResumeFile,
-  storeResumeObjectOnly,
-} from "@arc/ai-recruitment-copilot-backend/server/routes/interview/utils";
 import {
   cancelBatch,
   insertBatchWithItems,

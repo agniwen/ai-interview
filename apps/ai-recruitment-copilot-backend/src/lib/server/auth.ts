@@ -17,8 +17,11 @@ import { db } from "./db";
 import * as schema from "@arc/db-schema/schema";
 
 type WorkspaceRole = "owner" | "admin" | "member";
-const OWNER_ASSIGNABLE_WORKSPACE_ROLES = new Set<Exclude<WorkspaceRole, "owner">>([
+const OWNER_ASSIGNABLE_BUILT_IN_WORKSPACE_ROLES = new Set<Exclude<WorkspaceRole, "owner">>([
   "admin",
+  "member",
+]);
+const ADMIN_ASSIGNABLE_BUILT_IN_WORKSPACE_ROLES = new Set<Extract<WorkspaceRole, "member">>([
   "member",
 ]);
 const WORKSPACE_ROLE_RANK: Record<WorkspaceRole, number> = {
@@ -28,19 +31,42 @@ const WORKSPACE_ROLE_RANK: Record<WorkspaceRole, number> = {
 };
 const WORKSPACE_ROLES = new Set<WorkspaceRole>(["admin", "member", "owner"]);
 
-function canAssignWorkspaceRole(invokerRole: string, targetRole: string): boolean {
-  if (
-    !(
-      WORKSPACE_ROLES.has(invokerRole as WorkspaceRole) &&
-      WORKSPACE_ROLES.has(targetRole as WorkspaceRole)
+async function dynamicWorkspaceRoleExists(organizationId: string, role: string): Promise<boolean> {
+  const [row] = await db
+    .select({ id: schema.organizationRole.id })
+    .from(schema.organizationRole)
+    .where(
+      and(
+        eq(schema.organizationRole.organizationId, organizationId),
+        eq(schema.organizationRole.role, role),
+      ),
     )
-  ) {
+    .limit(1);
+  return Boolean(row);
+}
+
+async function canAssignWorkspaceRole({
+  invokerRole,
+  organizationId,
+  targetRole,
+}: {
+  invokerRole: string;
+  organizationId: string;
+  targetRole: string;
+}): Promise<boolean> {
+  if (WORKSPACE_ROLES.has(targetRole as WorkspaceRole)) {
+    if (!WORKSPACE_ROLES.has(invokerRole as WorkspaceRole)) {
+      return false;
+    }
+    return (
+      WORKSPACE_ROLE_RANK[invokerRole as WorkspaceRole] >
+      WORKSPACE_ROLE_RANK[targetRole as WorkspaceRole]
+    );
+  }
+  if (!(invokerRole === "owner" || invokerRole === "admin")) {
     return false;
   }
-  return (
-    WORKSPACE_ROLE_RANK[invokerRole as WorkspaceRole] >
-    WORKSPACE_ROLE_RANK[targetRole as WorkspaceRole]
-  );
+  return await dynamicWorkspaceRoleExists(organizationId, targetRole);
 }
 
 const baseURL = getRequiredEnv("BETTER_AUTH_URL");
@@ -383,15 +409,16 @@ export const auth = betterAuth({
     }),
     organization({
       ac,
-      // 服务端硬约束：只有 owner 可以调整工作区级角色。
-      // owner 角色本身的转让仍由 better-auth 内置 transferOwnership 单独处理。
-      // admin 保留 member.update 权限用于成员/招聘组管理入口，但不能调用
-      // updateMemberRole 调整 admin/member。
+      dynamicAccessControl: {
+        enabled: true,
+      },
+      // 服务端硬约束：只有 owner/admin 可以调整工作区级角色；admin 不能调整
+      // owner/admin 或自己的角色。owner 角色本身的转让仍由 better-auth 内置
+      // transferOwnership 单独处理。
       //
-      // Server-side gate: only owner can update workspace-level roles.
-      // Ownership transfer remains a separate better-auth flow. Admin keeps
-      // member.update for member/group management routes, but not for
-      // updateMemberRole.
+      // Server-side gate: only owner/admin can update workspace-level roles;
+      // admin cannot edit owner/admin or itself. Ownership transfer remains a
+      // separate better-auth flow.
       organizationHooks: {
         afterAcceptInvitation: async ({ invitation, member: acceptedMember, user }) => {
           await addMemberToDefaultRecruitingGroup({
@@ -452,16 +479,22 @@ export const auth = betterAuth({
             .split(",")
             .map((role) => role.trim())
             .filter(Boolean);
-          if (
-            requestedRoles.length === 0 ||
-            requestedRoles.some((role) => !canAssignWorkspaceRole(invoker.role, role))
-          ) {
+          const allowed = await Promise.all(
+            requestedRoles.map((role) =>
+              canAssignWorkspaceRole({
+                invokerRole: invoker.role,
+                organizationId: org.id,
+                targetRole: role,
+              }),
+            ),
+          );
+          if (requestedRoles.length === 0 || allowed.some((ok) => !ok)) {
             throw new APIError("FORBIDDEN", {
               message: "只能邀请为低于自己级别的工作区角色。",
             });
           }
         },
-        beforeUpdateMemberRole: async ({ newRole, organization: org }) => {
+        beforeUpdateMemberRole: async ({ member: targetMember, newRole, organization: org }) => {
           // ⚠️ 注意：better-auth 这里的 `user` 参数实际是 **目标用户**（被改的人），
           // 不是触发请求的人——文档跟实现不一致，源码里写的是
           // `user: userBeingUpdated`（见 better-auth crud-members.mjs:283）。
@@ -495,19 +528,60 @@ export const auth = betterAuth({
             throw new APIError("FORBIDDEN", { message: "你不在这个工作区中。" });
           }
 
-          if (invoker.role !== "owner") {
-            throw new APIError("FORBIDDEN", { message: "只有拥有者可以调整工作区角色。" });
+          if (!(invoker.role === "owner" || invoker.role === "admin")) {
+            throw new APIError("FORBIDDEN", { message: "只有管理员可以调整工作区角色。" });
           }
 
           const nextRole = Array.isArray(newRole) ? newRole[0] : newRole;
-          if (!nextRole || !OWNER_ASSIGNABLE_WORKSPACE_ROLES.has(nextRole as "admin" | "member")) {
+          if (!nextRole) {
             throw new APIError("FORBIDDEN", {
-              message: "只能设置为管理员或普通成员。",
+              message: "请选择有效的工作区角色。",
+            });
+          }
+
+          if (invoker.role === "admin") {
+            if (targetMember.userId === invoker.userId) {
+              throw new APIError("FORBIDDEN", { message: "管理员不能调整自己的角色。" });
+            }
+            if (targetMember.role === "owner" || targetMember.role === "admin") {
+              throw new APIError("FORBIDDEN", { message: "管理员不能调整拥有者或管理员。" });
+            }
+            if (
+              !(
+                ADMIN_ASSIGNABLE_BUILT_IN_WORKSPACE_ROLES.has(nextRole as "member") ||
+                (await dynamicWorkspaceRoleExists(org.id, nextRole))
+              )
+            ) {
+              throw new APIError("FORBIDDEN", {
+                message: "只能设置为普通成员或自定义角色。",
+              });
+            }
+            return;
+          }
+
+          if (
+            !(
+              OWNER_ASSIGNABLE_BUILT_IN_WORKSPACE_ROLES.has(nextRole as "admin" | "member") ||
+              (await dynamicWorkspaceRoleExists(org.id, nextRole))
+            )
+          ) {
+            throw new APIError("FORBIDDEN", {
+              message: "只能设置为管理员、普通成员或自定义角色。",
             });
           }
         },
       },
       roles,
+      schema: {
+        organizationRole: {
+          additionalFields: {
+            name: {
+              required: true,
+              type: "string",
+            },
+          },
+        },
+      },
       // 第一期还没有发邀请邮件的通道；先 stub 成 console.log + 让 inviter 自己复制
       // 链接。P2 接邮件后替换。
       // No invitation email channel yet; stub to console.log so inviter can copy the

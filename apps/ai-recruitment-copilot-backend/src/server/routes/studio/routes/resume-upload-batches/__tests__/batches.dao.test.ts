@@ -212,11 +212,14 @@ describe("insertBatchWithItems", () => {
       const detail = await loadBatchDetail(batchId, ORG_A, USER_A);
       const poolItemId = detail?.items[0]?.poolItemId;
       expect(poolItemId).toBeTruthy();
+      if (!poolItemId) {
+        throw new Error("Expected resume pool item to be created");
+      }
 
       const [poolItem] = await db
         .select()
         .from(resumePoolItem)
-        .where(eq(resumePoolItem.id, poolItemId!));
+        .where(eq(resumePoolItem.id, poolItemId));
 
       expect(poolItem?.jobDescriptionId).toBe(REFERRAL_JD);
       expect(poolItem?.sourceChannel).toBe("referral");
@@ -243,11 +246,14 @@ describe("insertBatchWithItems", () => {
       const detail = await loadBatchDetail(batchId, ORG_A, USER_A);
       const poolItemId = detail?.items[0]?.poolItemId;
       expect(poolItemId).toBeTruthy();
+      if (!poolItemId) {
+        throw new Error("Expected resume pool item to be created");
+      }
 
       const [poolItem] = await db
         .select()
         .from(resumePoolItem)
-        .where(eq(resumePoolItem.id, poolItemId!));
+        .where(eq(resumePoolItem.id, poolItemId));
 
       expect(poolItem?.jobDescriptionId).toBeNull();
     } finally {

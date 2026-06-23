@@ -7,6 +7,7 @@ import {
 } from "@tanstack/react-router";
 import type { RecruitingDashboardMetrics } from "@arc/shared/studio-dashboard";
 import { loadStudioDashboardState } from "@/lib/start/studio/dashboard.functions";
+import { requireStudioPageAccess } from "@/lib/start/studio/page-access";
 import { PageHeader } from "@/components/features/studio/page-header";
 import { useMemo } from "react";
 import { Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, XAxis, YAxis } from "recharts";
@@ -574,6 +575,11 @@ export const Route = createFileRoute("/w/$slug/studio/dashboard")({
     meta: [{ title: "数据看板" }],
   }),
   loader: async ({ params }) => {
+    await requireStudioPageAccess({
+      action: "dashboard",
+      pathname: `/w/${params.slug}/studio/dashboard`,
+      slug: params.slug,
+    });
     const state = await loadStudioDashboardState({ data: { slug: params.slug } });
     if (state.status === "unauthenticated") {
       throw redirect({

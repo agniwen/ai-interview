@@ -13,6 +13,7 @@ import { parseDataGridSearchParams } from "@/components/data-grid/query-contract
 import type { JobDescriptionListRecord } from "@arc/shared/job-descriptions";
 import { loadStudioFormsState } from "@/lib/start/studio/forms.functions";
 import type { StudioFormsState } from "@/lib/start/studio/forms.functions";
+import { requireStudioPageAccess } from "@/lib/start/studio/page-access";
 import { PageHeader } from "@/components/features/studio/page-header";
 import { EntityDeleteDialog } from "@/components/features/studio/entity-delete-dialog";
 import { useEntityCrud } from "@/components/features/studio/use-entity-crud";
@@ -648,6 +649,11 @@ export const Route = createFileRoute("/w/$slug/studio/forms")({
       params: { slug: string };
     };
     const query = parseCandidateFormQuery(location.search);
+    await requireStudioPageAccess({
+      action: "forms",
+      pathname: `/w/${params.slug}/studio/forms`,
+      slug: params.slug,
+    });
     const state = (await loadStudioFormsState({
       data: { query, slug: params.slug },
     })) as StudioFormsState;

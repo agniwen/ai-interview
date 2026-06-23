@@ -14,6 +14,7 @@ import type { DepartmentRecord } from "@arc/shared/departments";
 import type { InterviewerListRecord } from "@arc/shared/interviewers";
 import { loadStudioJobDescriptionsState } from "@/lib/start/studio/job-descriptions.functions";
 import type { StudioJobDescriptionsState } from "@/lib/start/studio/job-descriptions.functions";
+import { requireStudioPageAccess } from "@/lib/start/studio/page-access";
 import { PageHeader } from "@/components/features/studio/page-header";
 import { EntityDeleteDialog } from "@/components/features/studio/entity-delete-dialog";
 import { useEntityCrud } from "@/components/features/studio/use-entity-crud";
@@ -587,6 +588,11 @@ export const Route = createFileRoute("/w/$slug/studio/job-descriptions")({
       params: { slug: string };
     };
     const query = parseJobDescriptionQuery(location.search);
+    await requireStudioPageAccess({
+      action: "jobDescriptions",
+      pathname: `/w/${params.slug}/studio/job-descriptions`,
+      slug: params.slug,
+    });
     const state = (await loadStudioJobDescriptionsState({
       data: { query, slug: params.slug },
     })) as StudioJobDescriptionsState;

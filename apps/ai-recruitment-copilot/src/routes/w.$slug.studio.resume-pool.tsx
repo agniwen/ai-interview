@@ -91,6 +91,7 @@ import type { DedupMatchRecord } from "@/lib/client/api";
 import { listBulkResumeBatches } from "@/lib/client/api/endpoints/bulk-resume-upload";
 import { authClient } from "@/lib/client/auth-client";
 import { rpc } from "@/lib/client/rpc";
+import { useHasPermission } from "@/hooks/use-has-permission";
 import { useWorkspaceId, useWorkspaceSlug } from "@/lib/client/workspace-context";
 
 const ResumeDocumentPreviewDialog = lazy(async () => {
@@ -225,6 +226,14 @@ function getResumePoolImportActionState(record: ResumePoolListRecord) {
       };
     }
   }
+}
+
+function canUploadToResumePool(canCreatePool: boolean, canCreateBatch: boolean) {
+  return canCreatePool && canCreateBatch;
+}
+
+function canImportResumePoolToLibrary(canImportPool: boolean, canCreateLibrary: boolean) {
+  return canImportPool && canCreateLibrary;
 }
 
 function matchesSearch(record: ResumePoolListRecord, rawSearch: string) {
@@ -773,7 +782,9 @@ function ResumePoolDetailSummaryPanel({
         <DetailSummaryItem label="目标岗位">{textOrDash(detail.targetRole)}</DetailSummaryItem>
         <DetailSummaryItem label="来源">{sourceLabel(detail)}</DetailSummaryItem>
         <DetailSummaryItem label="上传组织">{uploaderOrganizationLabel(detail)}</DetailSummaryItem>
-        <DetailSummaryItem label={sourceActorLabel(detail)}>{uploaderUserLabel(detail)}</DetailSummaryItem>
+        <DetailSummaryItem label={sourceActorLabel(detail)}>
+          {uploaderUserLabel(detail)}
+        </DetailSummaryItem>
         <DetailSummaryItem label="工作年限">
           {textOrDash(resumeProfile?.workYears ?? null)}
         </DetailSummaryItem>
@@ -1012,8 +1023,89 @@ function ResumePoolDetailDialog({
   );
 }
 
+function ResumePoolCardActions({
+  canDelete,
+  canImport,
+  canPublish,
+  deleting,
+  importActionState,
+  onDelete,
+  onImport,
+  onPublish,
+  publishing,
+  record,
+  scope,
+}: {
+  canDelete: boolean;
+  canImport: boolean;
+  canPublish: boolean;
+  deleting: boolean;
+  importActionState: ReturnType<typeof getResumePoolImportActionState>;
+  publishing: boolean;
+  record: ResumePoolListRecord;
+  scope: ResumePoolScope;
+  onDelete: (record: ResumePoolListRecord) => void;
+  onImport: (record: ResumePoolListRecord) => void;
+  onPublish: (record: ResumePoolListRecord) => void;
+}) {
+  const showPublishAction = scope === "private" && canPublish;
+  if (!canImport && !showPublishAction && !canDelete) {
+    return null;
+  }
+
+  return (
+    <CardFooter className="flex items-center gap-2 px-3">
+      {canImport ? (
+        <Button
+          aria-label={importActionState.label}
+          className="min-w-0 flex-1 justify-center"
+          disabled={importActionState.disabled}
+          onClick={() => onImport(record)}
+          title={importActionState.label}
+          variant="outline"
+        >
+          {importActionState.loading ? (
+            <LoaderCircleIcon className="size-4 animate-spin" />
+          ) : (
+            <DatabaseIcon className="size-4" />
+          )}
+          {importActionState.label}
+        </Button>
+      ) : null}
+      {showPublishAction ? (
+        <Button
+          aria-label="推送到简历广场"
+          className="shrink-0"
+          disabled={publishing}
+          onClick={() => onPublish(record)}
+          size="icon-sm"
+          title="推送到简历广场"
+          variant="outline"
+        >
+          <SendIcon className="size-4" />
+        </Button>
+      ) : null}
+      {canDelete ? (
+        <Button
+          aria-label={scope === "private" ? "删除私有简历" : "删除简历"}
+          className="shrink-0"
+          disabled={deleting}
+          onClick={() => onDelete(record)}
+          size="icon-sm"
+          title={scope === "private" ? "删除私有简历" : "删除简历"}
+          variant="outline"
+        >
+          <Trash2Icon className="size-4" />
+        </Button>
+      ) : null}
+    </CardFooter>
+  );
+}
+
 function ResumePoolCard({
   canDelete,
+  canImport,
+  canPublish,
   deleting,
   onDelete,
   onOpenDetail,
@@ -1030,6 +1122,8 @@ function ResumePoolCard({
   record: ResumePoolListRecord;
   scope: ResumePoolScope;
   canDelete: boolean;
+  canImport: boolean;
+  canPublish: boolean;
   publishing: boolean;
   deleting: boolean;
   selected: boolean;
@@ -1138,49 +1232,19 @@ function ResumePoolCard({
 
         {note ? <p className="line-clamp-3 text-muted-foreground leading-5">{note}</p> : null}
       </CardContent>
-      <CardFooter className="flex items-center gap-2 px-3">
-        <Button
-          aria-label={importActionState.label}
-          className="min-w-0 flex-1 justify-center"
-          disabled={importActionState.disabled}
-          onClick={() => onImport(record)}
-          title={importActionState.label}
-          variant="outline"
-        >
-          {importActionState.loading ? (
-            <LoaderCircleIcon className="size-4 animate-spin" />
-          ) : (
-            <DatabaseIcon className="size-4" />
-          )}
-          {importActionState.label}
-        </Button>
-        {scope === "private" ? (
-          <Button
-            aria-label="推送到简历广场"
-            className="shrink-0"
-            disabled={publishing}
-            onClick={() => onPublish(record)}
-            size="icon-sm"
-            title="推送到简历广场"
-            variant="outline"
-          >
-            <SendIcon className="size-4" />
-          </Button>
-        ) : null}
-        {canDelete ? (
-          <Button
-            aria-label={scope === "private" ? "删除私有简历" : "删除简历"}
-            className="shrink-0"
-            disabled={deleting}
-            onClick={() => onDelete(record)}
-            size="icon-sm"
-            title={scope === "private" ? "删除私有简历" : "删除简历"}
-            variant="outline"
-          >
-            <Trash2Icon className="size-4" />
-          </Button>
-        ) : null}
-      </CardFooter>
+      <ResumePoolCardActions
+        canDelete={canDelete}
+        canImport={canImport}
+        canPublish={canPublish}
+        deleting={deleting}
+        importActionState={importActionState}
+        onDelete={onDelete}
+        onImport={onImport}
+        onPublish={onPublish}
+        publishing={publishing}
+        record={record}
+        scope={scope}
+      />
     </Card>
   );
 }
@@ -1197,10 +1261,12 @@ function ResumePoolLoadingState() {
 }
 
 function ResumePoolEmptyState({
+  canUpload,
   canResetFilters,
   emptyTitle,
   onUpload,
 }: {
+  canUpload: boolean;
   canResetFilters: boolean;
   emptyTitle: string;
   onUpload: () => void;
@@ -1216,7 +1282,7 @@ function ResumePoolEmptyState({
           {canResetFilters ? "调整搜索或筛选条件后重试。" : "点击右上角上传第一份简历。"}
         </EmptyDescription>
       </EmptyHeader>
-      {canResetFilters ? null : (
+      {canResetFilters || !canUpload ? null : (
         <EmptyContent>
           <Button onClick={onUpload}>
             <UploadIcon className="size-4" />
@@ -1229,7 +1295,11 @@ function ResumePoolEmptyState({
 }
 
 function ResumePoolListContent({
+  canDeletePoolRecords,
+  canImportToLibrary,
   canResetFilters,
+  canPublishToPool,
+  canUpload,
   currentOrganizationId,
   currentUserId,
   deleting,
@@ -1252,6 +1322,10 @@ function ResumePoolListContent({
 }: {
   records: ResumePoolListRecord[];
   scope: ResumePoolScope;
+  canDeletePoolRecords: boolean;
+  canImportToLibrary: boolean;
+  canPublishToPool: boolean;
+  canUpload: boolean;
   currentOrganizationId: string | null;
   currentUserId: string | null;
   publishing: boolean;
@@ -1277,13 +1351,16 @@ function ResumePoolListContent({
         <ResponsiveMasonry columnsCountBreakPoints={RESUME_POOL_MASONRY_COLUMNS}>
           <Masonry gutter="16px">
             {records.map((record) => {
-              const canDelete = canDeletePoolRecord(record, {
-                currentOrganizationId,
-                currentUserId,
-              });
+              const canDelete =
+                canDeletePoolRecord(record, {
+                  currentOrganizationId,
+                  currentUserId,
+                }) && canDeletePoolRecords;
               return (
                 <ResumePoolCard
                   canDelete={canDelete}
+                  canImport={canImportToLibrary}
+                  canPublish={canPublishToPool}
                   deleting={deleting}
                   key={record.id}
                   onDelete={onDelete}
@@ -1313,6 +1390,7 @@ function ResumePoolListContent({
   if (showEmptyState) {
     return (
       <ResumePoolEmptyState
+        canUpload={canUpload}
         canResetFilters={canResetFilters}
         emptyTitle={emptyTitle}
         onUpload={onUpload}
@@ -1324,6 +1402,8 @@ function ResumePoolListContent({
 }
 
 function ResumePoolToolbarActions({
+  canOpenBatchList,
+  canUpload,
   hasActiveUploadBatches,
   hasSelectedPrivateResumes,
   isBulkDeleting,
@@ -1333,6 +1413,8 @@ function ResumePoolToolbarActions({
   onUpload,
   selectedCount,
 }: {
+  canOpenBatchList: boolean;
+  canUpload: boolean;
   hasActiveUploadBatches: boolean;
   hasSelectedPrivateResumes: boolean;
   isBulkDeleting: boolean;
@@ -1342,24 +1424,31 @@ function ResumePoolToolbarActions({
   onOpenBatchList: () => void;
   onUpload: () => void;
 }) {
+  if (!canUpload && !canOpenBatchList && !hasSelectedPrivateResumes) {
+    return null;
+  }
   return (
     <div className="flex items-center gap-2">
-      <ButtonGroup>
-        <Button className="sm:w-auto" onClick={onUpload}>
-          <UploadIcon className="size-4" />
-          上传简历
-        </Button>
-        {hasActiveUploadBatches ? (
-          <Button
-            aria-label="查看上传记录"
-            onClick={onOpenBatchList}
-            title="查看上传记录"
-            type="button"
-          >
-            <HistoryIcon className="size-4" />
-          </Button>
-        ) : null}
-      </ButtonGroup>
+      {canUpload || canOpenBatchList ? (
+        <ButtonGroup>
+          {canUpload ? (
+            <Button className="sm:w-auto" onClick={onUpload}>
+              <UploadIcon className="size-4" />
+              上传简历
+            </Button>
+          ) : null}
+          {canOpenBatchList && hasActiveUploadBatches ? (
+            <Button
+              aria-label="查看上传记录"
+              onClick={onOpenBatchList}
+              title="查看上传记录"
+              type="button"
+            >
+              <HistoryIcon className="size-4" />
+            </Button>
+          ) : null}
+        </ButtonGroup>
+      ) : null}
       {hasSelectedPrivateResumes ? (
         <Button
           disabled={isDeletingPoolRecords}
@@ -1384,6 +1473,13 @@ function ResumePoolPage() {
   const workspaceId = useWorkspaceId();
   const { data: session } = authClient.useSession();
   const queryClient = useQueryClient();
+  const canCreateResumePool = useHasPermission("resumePool", "create");
+  const canDeleteResumePool = useHasPermission("resumePool", "delete");
+  const canImportResumePool = useHasPermission("resumePool", "import");
+  const canPublishResumePool = useHasPermission("resumePool", "publish");
+  const canCreateResumeLibrary = useHasPermission("resumeLibrary", "create");
+  const canReadResumeUploadBatch = useHasPermission("resumeUploadBatch", "read");
+  const canCreateResumeUploadBatch = useHasPermission("resumeUploadBatch", "create");
   const search = useSearch({ from: "/w/$slug/studio/resume-pool" }) as ResumePoolSearch;
   const navigate = useNavigate({ from: "/w/$slug/studio/resume-pool" });
   const scope = normalizeScope(search.scope);
@@ -1453,6 +1549,15 @@ function ResumePoolPage() {
     [grid.bind.data],
   );
   const hasSelectedPrivateResumes = scope === "private" && selectedPrivateResumeIdsArray.length > 0;
+  const canUploadResumePool = canUploadToResumePool(
+    canCreateResumePool,
+    canCreateResumeUploadBatch,
+  );
+  const canImportToLibrary = canImportResumePoolToLibrary(
+    canImportResumePool,
+    canCreateResumeLibrary,
+  );
+  const canBulkDeletePrivateResumes = canDeleteResumePool && hasSelectedPrivateResumes;
   const loadMoreRecords = useCallback(() => {
     if (!hasMoreRecords || isPoolBusy) {
       return;
@@ -1479,6 +1584,7 @@ function ResumePoolPage() {
     onRecordsChanged: invalidatePool,
   });
   const batchListQuery = useQuery({
+    enabled: canReadResumeUploadBatch,
     queryFn: () => listBulkResumeBatches(slug),
     queryKey: ["bulk-resume-batches", slug],
     refetchInterval: 10_000,
@@ -1527,6 +1633,9 @@ function ResumePoolPage() {
     targetScope: ResumePoolScope,
     dedupPolicy: ResumeUploadBatchDedupPolicy,
   ) {
+    if (!canUploadResumePool) {
+      return;
+    }
     if (files.length === 0) {
       return;
     }
@@ -1544,6 +1653,9 @@ function ResumePoolPage() {
   }
 
   function handleQueuedUploadFilesPicked(files: File[], targetScope: ResumePoolScope) {
+    if (!canUploadResumePool) {
+      return;
+    }
     if (files.length === 0) {
       return;
     }
@@ -1690,8 +1802,10 @@ function ResumePoolPage() {
             searchLoading={grid.bind.loading}
             toolbarRight={
               <ResumePoolToolbarActions
+                canOpenBatchList={canReadResumeUploadBatch}
+                canUpload={canUploadResumePool}
                 hasActiveUploadBatches={hasActiveUploadBatches}
-                hasSelectedPrivateResumes={hasSelectedPrivateResumes}
+                hasSelectedPrivateResumes={canBulkDeletePrivateResumes}
                 isBulkDeleting={bulkDeleteMutation.isPending}
                 isDeletingPoolRecords={isDeletingPoolRecords}
                 onBulkDelete={() => bulkDeleteMutation.mutate(selectedPrivateResumeIdsArray)}
@@ -1703,6 +1817,10 @@ function ResumePoolPage() {
           />
           <ResumePoolListContent
             canResetFilters={grid.bind.canResetFilters}
+            canDeletePoolRecords={canDeleteResumePool}
+            canImportToLibrary={canImportToLibrary}
+            canPublishToPool={canPublishResumePool}
+            canUpload={canUploadResumePool}
             currentOrganizationId={currentOrganizationId}
             currentUserId={currentUserId}
             deleting={isDeletingPoolRecords}

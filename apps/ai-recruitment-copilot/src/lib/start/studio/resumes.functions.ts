@@ -2,7 +2,10 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import type { ResumeLibraryMetrics } from "@arc/shared/studio-resumes";
 import type { JsonValue } from "@/lib/start/server-function-types";
-import { resolveWorkspaceAccessFromRequest } from "@/lib/start/auth-session.server";
+import {
+  resolveWorkspaceAccessFromRequest,
+  workspaceAccessHasPermission,
+} from "@/lib/start/auth-session.server";
 import { workspaceDataGridInputSchema } from "@/lib/start/server-fn-validators";
 import { loadStudioResumesData } from "./resumes.server";
 
@@ -35,6 +38,14 @@ export const loadStudioResumesState = createServerFn({ method: "GET" })
     const access = await resolveWorkspaceAccessFromRequest(data.slug);
     if (access.status !== "ready") {
       return access;
+    }
+    const canReadResumes = await workspaceAccessHasPermission({
+      access,
+      action: "read",
+      resource: "resumeLibrary",
+    });
+    if (!canReadResumes) {
+      return { status: "not_found" };
     }
 
     return {
