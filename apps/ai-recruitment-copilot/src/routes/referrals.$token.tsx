@@ -8,7 +8,6 @@ import { toast } from "sonner";
 import { CheckCircleIcon, FileTextIcon, LoaderCircleIcon } from "@/components/icons/hugeicons";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { FileUpload } from "@/components/ui/file-upload";
 import {
@@ -45,7 +44,6 @@ function getReferralDescription(
 function ReferralPage() {
   const { token } = useParams({ from: "/referrals/$token" });
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [submittedEnteredPool, setSubmittedEnteredPool] = useState(false);
   const [submittedFileName, setSubmittedFileName] = useState<string | null>(null);
   const [uploadResetKey, setUploadResetKey] = useState(0);
   const previewQuery = useQuery({
@@ -59,9 +57,8 @@ function ReferralPage() {
       setErrorMessage(error instanceof Error ? error.message : "简历提交失败，请稍后重试。");
       setUploadResetKey((key) => key + 1);
     },
-    onSuccess: (result, file) => {
+    onSuccess: (_result, file) => {
       setErrorMessage(null);
-      setSubmittedEnteredPool(result.poolItemId !== null);
       setSubmittedFileName(file.name);
       toast.success("简历已提交");
     },
@@ -101,10 +98,7 @@ function ReferralPage() {
               <Alert>
                 <CheckCircleIcon />
                 <AlertTitle>简历已提交</AlertTitle>
-                <AlertDescription>
-                  {submittedFileName}
-                  {submittedEnteredPool ? " 已进入简历广场。" : " 已提交，正在等待简历广场入库。"}
-                </AlertDescription>
+                <AlertDescription>{submittedFileName} 已提交成功。</AlertDescription>
               </Alert>
             ) : (
               <FileUpload
@@ -156,18 +150,6 @@ function ReferralPage() {
               </Alert>
             ) : null}
 
-            {submittedFileName ? (
-              <Button
-                onClick={() => {
-                  setSubmittedFileName(null);
-                  setUploadResetKey((key) => key + 1);
-                }}
-                type="button"
-                variant="outline"
-              >
-                继续上传
-              </Button>
-            ) : null}
           </CardContent>
         </Card>
       </div>

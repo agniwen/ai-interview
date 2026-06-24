@@ -54,12 +54,13 @@ describe("TanStack Start public route migration", () => {
     expect(source).toMatch(/location\.pathname === `\/interview\/\$\{params\.id\}`/u);
   });
 
-  it("keeps referral upload success copy aligned with nullable pool insertion", () => {
+  it("keeps referral upload single-shot with a success-only follow-up state", () => {
     const source = readSource("routes/referrals.$token.tsx");
 
-    expect(source).toContain("setSubmittedEnteredPool(result.poolItemId !== null)");
-    expect(source).toContain('" 已进入简历广场。"');
-    expect(source).toContain('" 已提交，正在等待简历广场入库。"');
+    expect(source).toContain("maxFiles={1}");
+    expect(source).toContain("multiple={false}");
+    expect(source).toContain("{submittedFileName} 已提交成功。");
+    expect(source).not.toContain("继续上传");
   });
 
   it("renders the nested interview round route after resolving a round id", () => {
