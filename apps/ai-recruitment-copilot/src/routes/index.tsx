@@ -1,4 +1,5 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
+import { NO_ACCESS_WORKSPACE_ROLE } from "@arc/shared/permissions";
 import { getActiveOrganizationState } from "@/lib/start/auth-session";
 import HomeShell from "@/components/features/home/home-shell";
 
@@ -34,6 +35,10 @@ export const Route = createFileRoute("/")({
 
     if (state.status === "no_active_workspace") {
       throw redirect({ href: "/select-workspace" });
+    }
+
+    if (state.member.role === NO_ACCESS_WORKSPACE_ROLE) {
+      throw redirect({ href: "/wait" });
     }
 
     throw redirect({

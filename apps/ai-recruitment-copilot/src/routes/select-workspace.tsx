@@ -1,5 +1,6 @@
 import { ArrowRightIcon, PlusIcon } from "@/components/icons/hugeicons";
 import { createFileRoute, redirect, useLoaderData } from "@tanstack/react-router";
+import { NO_ACCESS_WORKSPACE_ROLE } from "@arc/shared/permissions";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -124,6 +125,12 @@ export const Route = createFileRoute("/select-workspace")({
     const state = await getWorkspaceSelectionState();
     if (state.status === "unauthenticated") {
       throw redirect({ href: "/login" });
+    }
+    if (
+      state.organizations.length > 0 &&
+      state.organizations.every((organization) => organization.role === NO_ACCESS_WORKSPACE_ROLE)
+    ) {
+      throw redirect({ href: "/wait" });
     }
     return state;
   },

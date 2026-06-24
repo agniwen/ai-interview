@@ -83,6 +83,8 @@ export const statement = {
 
 export const ac = createAccessControl(statement);
 
+export const NO_ACCESS_WORKSPACE_ROLE = "noAccess";
+
 export const owner = ac.newRole({
   ...ownerAc.statements,
   auditLog: ["read"],
@@ -153,6 +155,9 @@ const recruitingMemberStatements = {
 } as const;
 
 export const member = ac.newRole(recruitingMemberStatements);
+export const noAccess = ac.newRole({
+  page: [],
+});
 
-export const roles = { admin, member, owner } as const;
+export const roles = { admin, member, noAccess, owner } as const;
 export type AppRole = keyof typeof roles;

@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import type {
   ActiveOrganizationState,
+  NoAccessWaitState,
   StudioPageAccessState,
   WorkspaceAccessState,
   WorkspaceSelectionState,
@@ -8,6 +9,7 @@ import type {
 import { slugInputSchema } from "@/lib/start/server-fn-validators";
 import {
   getActiveOrganizationStateFromRequest,
+  getNoAccessWaitStateFromRequest,
   getWorkspaceSelectionStateFromRequest,
   resolveStudioPageAccessFromRequest,
   resolveWorkspaceAccessFromRequest,
@@ -25,6 +27,10 @@ export const getActiveOrganizationState = createServerFn({ method: "GET" }).hand
 
 export const getWorkspaceSelectionState = createServerFn({ method: "GET" }).handler(
   async (): Promise<WorkspaceSelectionState> => await getWorkspaceSelectionStateFromRequest(),
+);
+
+export const getNoAccessWaitState = createServerFn({ method: "GET" }).handler(
+  async (): Promise<NoAccessWaitState> => await getNoAccessWaitStateFromRequest(),
 );
 
 export const getWorkspaceAccessState = createServerFn({ method: "GET" })

@@ -36,7 +36,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { authClient } from "@/lib/client/auth-client";
 import { useWorkspaceId, useWorkspaceMemberRole } from "@/lib/client/workspace-context";
 import { roles } from "@arc/shared/permissions";
-import { getWorkspaceRoleLabel } from "./role-display";
+import { WORKSPACE_ROLES, getWorkspaceRoleLabel } from "./role-display";
 import {
   BUILT_IN_WORKSPACE_ROLE_NAMES,
   buildPermissionHeaderGroups,
@@ -85,8 +85,6 @@ interface UpdateRoleInput {
   permission: PermissionRecord;
   role?: string;
 }
-
-const BUILT_IN_ROLES = ["owner", "admin", "member"] as const;
 
 function getBuiltInPermission(role: keyof typeof roles): PermissionRecord {
   return copyPermissionRecord(roles[role].statements as unknown as PermissionRecord);
@@ -414,7 +412,7 @@ export function WorkspacePermissionsSection() {
   }
 
   const roleRows: PermissionRoleRow[] = [
-    ...BUILT_IN_ROLES.map((role) => ({
+    ...WORKSPACE_ROLES.map((role) => ({
       builtIn: true,
       id: `builtin:${role}`,
       name: getWorkspaceRoleLabel(role),

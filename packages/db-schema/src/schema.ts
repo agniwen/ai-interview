@@ -355,6 +355,7 @@ export const workspaceInviteLink = pgTable(
     disabledAt: timestamp("disabled_at", { withTimezone: true }),
     disabledBy: text("disabled_by").references(() => user.id, { onDelete: "set null" }),
     id: text("id").primaryKey(),
+    initialRole: text("initial_role").default("noAccess").notNull(),
     organizationId: text("organization_id")
       .notNull()
       .references(() => organization.id, { onDelete: "cascade" }),

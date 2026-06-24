@@ -9,6 +9,11 @@ import { uniq } from "lodash-es";
 import { getAuthRequestHeaders } from "@arc/ai-recruitment-copilot-backend/lib/server/auth-request-context";
 import { getRequiredEnv } from "@arc/ai-recruitment-copilot-backend/lib/server/env";
 import {
+  canAssignWorkspaceRole,
+  dynamicWorkspaceRoleExists,
+  isNoAccessWorkspaceRole,
+} from "@arc/ai-recruitment-copilot-backend/server/access/workspace-roles";
+import {
   addMemberToDefaultRecruitingGroup,
   ensureDefaultRecruitingGroupForWorkspace,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/workspace/dao";
@@ -16,64 +21,31 @@ import { ac, roles } from "@arc/shared/permissions";
 import { db } from "./db";
 import * as schema from "@arc/db-schema/schema";
 
-type WorkspaceRole = "owner" | "admin" | "member";
-const OWNER_ASSIGNABLE_BUILT_IN_WORKSPACE_ROLES = new Set<Exclude<WorkspaceRole, "owner">>([
-  "admin",
-  "member",
-]);
-const ADMIN_ASSIGNABLE_BUILT_IN_WORKSPACE_ROLES = new Set<Extract<WorkspaceRole, "member">>([
-  "member",
-]);
-const WORKSPACE_ROLE_RANK: Record<WorkspaceRole, number> = {
-  admin: 2,
-  member: 1,
-  owner: 3,
-};
-const WORKSPACE_ROLES = new Set<WorkspaceRole>(["admin", "member", "owner"]);
-
-async function dynamicWorkspaceRoleExists(organizationId: string, role: string): Promise<boolean> {
-  const [row] = await db
-    .select({ id: schema.organizationRole.id })
-    .from(schema.organizationRole)
-    .where(
-      and(
-        eq(schema.organizationRole.organizationId, organizationId),
-        eq(schema.organizationRole.role, role),
-      ),
-    )
-    .limit(1);
-  return Boolean(row);
-}
-
-async function canAssignWorkspaceRole({
-  invokerRole,
-  organizationId,
-  targetRole,
-}: {
-  invokerRole: string;
-  organizationId: string;
-  targetRole: string;
-}): Promise<boolean> {
-  if (WORKSPACE_ROLES.has(targetRole as WorkspaceRole)) {
-    if (!WORKSPACE_ROLES.has(invokerRole as WorkspaceRole)) {
-      return false;
-    }
-    return (
-      WORKSPACE_ROLE_RANK[invokerRole as WorkspaceRole] >
-      WORKSPACE_ROLE_RANK[targetRole as WorkspaceRole]
-    );
-  }
-  if (!(invokerRole === "owner" || invokerRole === "admin")) {
-    return false;
-  }
-  return await dynamicWorkspaceRoleExists(organizationId, targetRole);
-}
-
 const baseURL = getRequiredEnv("BETTER_AUTH_URL");
 const trustedOrigins = uniq([baseURL, "http://localhost:3000"]);
 
 function pickFirstNonEmpty(...values: (string | undefined)[]): string | undefined {
   return values.find((v) => typeof v === "string" && v.length > 0);
+}
+
+function isBuiltInAdminAssignableRole(role: string): boolean {
+  return role === "member" || isNoAccessWorkspaceRole(role);
+}
+
+function isBuiltInOwnerAssignableRole(role: string): boolean {
+  return role === "admin" || isBuiltInAdminAssignableRole(role);
+}
+
+async function canAdminSetRole(organizationId: string, role: string): Promise<boolean> {
+  return (
+    isBuiltInAdminAssignableRole(role) || (await dynamicWorkspaceRoleExists(organizationId, role))
+  );
+}
+
+async function canOwnerSetRole(organizationId: string, role: string): Promise<boolean> {
+  return (
+    isBuiltInOwnerAssignableRole(role) || (await dynamicWorkspaceRoleExists(organizationId, role))
+  );
 }
 
 interface FeishuTokenResponse {
@@ -421,6 +393,9 @@ export const auth = betterAuth({
       // separate better-auth flow.
       organizationHooks: {
         afterAcceptInvitation: async ({ invitation, member: acceptedMember, user }) => {
+          if (isNoAccessWorkspaceRole(acceptedMember.role) || acceptedMember.role !== "member") {
+            return;
+          }
           await addMemberToDefaultRecruitingGroup({
             createdBy: invitation.inviterId,
             organizationId: acceptedMember.organizationId,
@@ -546,27 +521,17 @@ export const auth = betterAuth({
             if (targetMember.role === "owner" || targetMember.role === "admin") {
               throw new APIError("FORBIDDEN", { message: "管理员不能调整拥有者或管理员。" });
             }
-            if (
-              !(
-                ADMIN_ASSIGNABLE_BUILT_IN_WORKSPACE_ROLES.has(nextRole as "member") ||
-                (await dynamicWorkspaceRoleExists(org.id, nextRole))
-              )
-            ) {
+            if (!(await canAdminSetRole(org.id, nextRole))) {
               throw new APIError("FORBIDDEN", {
-                message: "只能设置为普通成员或自定义角色。",
+                message: "只能设置为普通成员、空权限用户或自定义角色。",
               });
             }
             return;
           }
 
-          if (
-            !(
-              OWNER_ASSIGNABLE_BUILT_IN_WORKSPACE_ROLES.has(nextRole as "admin" | "member") ||
-              (await dynamicWorkspaceRoleExists(org.id, nextRole))
-            )
-          ) {
+          if (!(await canOwnerSetRole(org.id, nextRole))) {
             throw new APIError("FORBIDDEN", {
-              message: "只能设置为管理员、普通成员或自定义角色。",
+              message: "只能设置为管理员、普通成员、空权限用户或自定义角色。",
             });
           }
         },

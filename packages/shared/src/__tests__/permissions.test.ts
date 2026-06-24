@@ -3,7 +3,7 @@
 // 权限矩阵的表驱动测试。每加一个角色就追加测试块，确保矩阵不会被无意改坏。
 
 import { describe, expect, it } from "vitest";
-import { roles } from "@arc/shared/permissions";
+import { roles, STUDIO_PAGE_PERMISSION_ACTIONS } from "@arc/shared/permissions";
 
 describe("permissions matrix", () => {
   describe("owner role", () => {
@@ -126,6 +126,42 @@ describe("permissions matrix", () => {
       );
     });
   });
+
+  describe("noAccess role", () => {
+    it("exists", () => {
+      expect(roles.noAccess).toBeDefined();
+    });
+
+    it("has no studio page access", () => {
+      for (const action of STUDIO_PAGE_PERMISSION_ACTIONS) {
+        expect(roles.noAccess.statements.page?.includes(action)).toBe(false);
+      }
+    });
+
+    it("has no business or member-management permissions", () => {
+      const stmts = roles.noAccess.statements as Record<string, readonly string[] | undefined>;
+      const resources = [
+        "auditLog",
+        "candidateForm",
+        "chat",
+        "department",
+        "globalConfig",
+        "interview",
+        "interviewer",
+        "invitation",
+        "jd",
+        "member",
+        "organization",
+        "questionTemplate",
+        "resumeLibrary",
+        "resumePool",
+        "resumeUploadBatch",
+      ] as const;
+      for (const resource of resources) {
+        expect(stmts[resource] ?? []).toHaveLength(0);
+      }
+    });
+  });
 });
 
 describe("permission matrix cross-cut", () => {
@@ -188,6 +224,10 @@ describe("permission matrix cross-cut", () => {
     ["member", "page", "globalConfig", false],
     ["member", "page", "resumes", true],
     ["member", "page", "members", true],
+    ["noAccess", "page", "resumes", false],
+    ["noAccess", "page", "members", false],
+    ["noAccess", "member", "create", false],
+    ["noAccess", "invitation", "create", false],
   ];
 
   for (const [role, resource, action, expected] of cases) {

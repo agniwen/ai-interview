@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as WaitRouteImport } from './routes/wait'
 import { Route as SelectWorkspaceRouteImport } from './routes/select-workspace'
 import { Route as PlatformRouteImport } from './routes/platform'
 import { Route as LoginRouteImport } from './routes/login'
@@ -51,6 +52,11 @@ import { Route as WSlugStudioDashboardRouteImport } from './routes/w.$slug.studi
 import { Route as WSlugChatSessionIdRouteImport } from './routes/w.$slug.chat.$sessionId'
 import { Route as WSlugStudioInterviewsRoundIdRouteImport } from './routes/w.$slug.studio.interviews.$roundId'
 
+const WaitRoute = WaitRouteImport.update({
+  id: '/wait',
+  path: '/wait',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SelectWorkspaceRoute = SelectWorkspaceRouteImport.update({
   id: '/select-workspace',
   path: '/select-workspace',
@@ -271,6 +277,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/platform': typeof PlatformRouteWithChildren
   '/select-workspace': typeof SelectWorkspaceRoute
+  '/wait': typeof WaitRoute
   '/human-interview/$inviteToken': typeof HumanInterviewInviteTokenRoute
   '/interview/$id': typeof InterviewIdRouteWithChildren
   '/invite/$token': typeof InviteTokenRoute
@@ -314,6 +321,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/platform': typeof PlatformRouteWithChildren
   '/select-workspace': typeof SelectWorkspaceRoute
+  '/wait': typeof WaitRoute
   '/human-interview/$inviteToken': typeof HumanInterviewInviteTokenRoute
   '/interview/$id': typeof InterviewIdRouteWithChildren
   '/invite/$token': typeof InviteTokenRoute
@@ -357,6 +365,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/platform': typeof PlatformRouteWithChildren
   '/select-workspace': typeof SelectWorkspaceRoute
+  '/wait': typeof WaitRoute
   '/human-interview/$inviteToken': typeof HumanInterviewInviteTokenRoute
   '/interview/$id': typeof InterviewIdRouteWithChildren
   '/invite/$token': typeof InviteTokenRoute
@@ -402,6 +411,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/platform'
     | '/select-workspace'
+    | '/wait'
     | '/human-interview/$inviteToken'
     | '/interview/$id'
     | '/invite/$token'
@@ -445,6 +455,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/platform'
     | '/select-workspace'
+    | '/wait'
     | '/human-interview/$inviteToken'
     | '/interview/$id'
     | '/invite/$token'
@@ -487,6 +498,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/platform'
     | '/select-workspace'
+    | '/wait'
     | '/human-interview/$inviteToken'
     | '/interview/$id'
     | '/invite/$token'
@@ -531,6 +543,7 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   PlatformRoute: typeof PlatformRouteWithChildren
   SelectWorkspaceRoute: typeof SelectWorkspaceRoute
+  WaitRoute: typeof WaitRoute
   HumanInterviewInviteTokenRoute: typeof HumanInterviewInviteTokenRoute
   InviteTokenRoute: typeof InviteTokenRoute
   JoinCodeRoute: typeof JoinCodeRoute
@@ -545,6 +558,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/wait': {
+      id: '/wait'
+      path: '/wait'
+      fullPath: '/wait'
+      preLoaderRoute: typeof WaitRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/select-workspace': {
       id: '/select-workspace'
       path: '/select-workspace'
@@ -961,6 +981,7 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   PlatformRoute: PlatformRouteWithChildren,
   SelectWorkspaceRoute: SelectWorkspaceRoute,
+  WaitRoute: WaitRoute,
   HumanInterviewInviteTokenRoute: HumanInterviewInviteTokenRoute,
   InviteTokenRoute: InviteTokenRoute,
   JoinCodeRoute: JoinCodeRoute,

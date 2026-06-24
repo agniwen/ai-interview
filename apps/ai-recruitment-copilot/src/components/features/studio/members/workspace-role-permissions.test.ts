@@ -21,6 +21,7 @@ describe("workspace role permission helpers", () => {
     expect(normalizeDynamicRoleName("  Interview Reviewer ")).toBe("interview-reviewer");
     expect(BUILT_IN_WORKSPACE_ROLE_NAMES.has(normalizeDynamicRoleName(" Admin "))).toBe(true);
     expect(BUILT_IN_WORKSPACE_ROLE_NAMES.has(normalizeDynamicRoleName("member"))).toBe(true);
+    expect(BUILT_IN_WORKSPACE_ROLE_NAMES.has(normalizeDynamicRoleName("noAccess"))).toBe(true);
   });
 
   it("does not derive dynamic role identifiers from display names", () => {

@@ -9,7 +9,13 @@ export type PermissionAction<R extends PermissionResource = PermissionResource> 
   (typeof statement)[R][number];
 export type PermissionRecord = Partial<Record<PermissionResource, string[]>>;
 
-export const BUILT_IN_WORKSPACE_ROLE_NAMES = new Set(["owner", "admin", "member"]);
+export const BUILT_IN_WORKSPACE_ROLE_NAMES = new Set([
+  "owner",
+  "admin",
+  "member",
+  "noAccess",
+  "noaccess",
+]);
 export const ROLE_ASSIGNED_TO_MEMBERS_MESSAGE =
   "该角色下仍有成员，不能删除。请先将这些成员调整到其他角色。";
 
