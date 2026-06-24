@@ -143,6 +143,8 @@ export function parseResumeReviewFormInput(
   }
   try {
     const parsed = JSON.parse(value);
+    // 写入路径用严格 v2 schema 校验；旧 v1 数据如果 HR 原封不动传回，
+    // safeParse 会失败并提示"结构无效"，需 HR 重新生成评价。
     const result = resumeReviewSchema.safeParse(parsed);
     if (result.success) {
       return { data: result.data, success: true };
@@ -150,7 +152,7 @@ export function parseResumeReviewFormInput(
   } catch {
     // Fall through to a stable validation message below.
   }
-  return { error: "简历评价结构无效。", success: false };
+  return { error: "简历评价结构无效，请重新生成评价。", success: false };
 }
 
 export const resumeLibraryRouter = factory

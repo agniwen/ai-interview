@@ -5,6 +5,7 @@ import type {
 } from "@arc/db-schema/interview/types";
 import { stepCountIs } from "ai";
 import { uniq } from "lodash-es";
+import { z } from "zod";
 import { generatedInterviewQuestionsSchema } from "@arc/db-schema/interview/types";
 import {
   generateResumeStructured,
@@ -38,8 +39,15 @@ import {
 import type { ResumeParserStructured } from "./resume-parser-agent";
 
 import type { AnalysisStreamEvent } from "@arc/shared/api-stream";
-import { formatResumeReviewMarkdown, resumeReviewSchema } from "@arc/shared/resume-review";
 import type { ResumeReview } from "@arc/shared/resume-review";
+import {
+  computeResumeReviewBaseScore,
+  formatResumeReviewMarkdown,
+  resumeReviewActionSchema,
+  resumeReviewBiasItemSchema,
+  resumeReviewDimensionSchema,
+  resumeReviewPointSchema,
+} from "@arc/shared/resume-review";
 
 export type { AnalysisStreamEvent };
 
@@ -531,47 +539,264 @@ export async function generateInterviewQuestionsForProfile(
 }
 
 // =====================================================================
-// Stage 3: Resume review generation
+// Stage 3: Resume review generation (three-agent pipeline)
+//
+// Agent 0 (hard filter):  从 JD 文本提取结构化硬性门槛 → 代码规则引擎匹配简历。
+//                          命中任一非 null 门槛且不满足 → 短路淘汰，跳过 Agent 1/2。
+// Agent 1 (qualitative):  生成结论 / 亮点 / 风险 / 偏差 / 团队定位 / 职级 / 下一步建议。
+// Agent 2 (scoring):      基于简历 + JD + Agent 1 输出，给六维度打分。
+// 组装层:                  把 Agent 1 定性结果 + Agent 2 维度分 + 代码计算的 baseScore 合并成 ResumeReview (v2)。
+//
+// baseScore 由代码按 35/25/15/10/8/7 权重加权得出，LLM 不输出总分，保证子分与总分自洽。
+// 历史面试加权（架构图 Stage 3）暂未接入，数据源到位后由调用方在 baseScore 之上叠加。
 // =====================================================================
 
-// 评价生成先产出结构化 JSON；notes 由代码用共享 formatter 确定性拼装，
-// 这样卡片展示和旧的可编辑文本字段不会互相反解析。
-// Generate structured JSON first; notes are deterministically formatted in
-// code so card rendering and the legacy editable text field stay decoupled.
-const REVIEW_INSTRUCTIONS = `你是一名招聘评估助手，根据候选人简历和在招岗位（如有）输出结构化简历评价。
-评价用于"简历库 - 简历评价"字段和卡片展示，必须：
-- 只输出 JSON 对象，不要输出 Markdown，不要输出代码块，不要输出解释。
+const nonEmpty = z.string().trim().min(1);
+
+// ---------------------------------------------------------------------
+// Agent 0: 硬性门槛提取 + 规则引擎
+// ---------------------------------------------------------------------
+
+const HARD_FILTER_INSTRUCTIONS = `你是一名招聘门槛提取助手。从给定的在招岗位描述（JD）中，提取结构化硬性门槛。
+只提取 JD 中明确写出的硬性要求（如"必须本科以上""3 年以上经验""必须掌握 React"）；JD 未提及的字段输出 null，表示不参与过滤。
+不要编造 JD 中没有的要求。不要输出解释性文字，只输出 JSON 对象。
+
+## 输出 JSON 结构
+{
+  "minimumEducation": "专科" | "本科" | "硕士" | "博士" | null,
+  "minimumWorkYears": 数字 | null,
+  "requiredSkills": ["技能名"] | null,
+  "semanticRequirements": ["JD 中无法用规则匹配的语义要求，如'有从零到一建设经验''有大团队管理经验'"] | null
+}
+
+## 说明
+- minimumEducation：只填 JD 明确写的最低学历要求；未提及则 null。
+- minimumWorkYears：JD 写的最低工作年限数字；未提及则 null。
+- requiredSkills：JD 明确标注"必须掌握""必备""精通"的技能；建议性技能不算。
+- semanticRequirements：JD 中定性描述的硬性要求（无法用学历/年限/技能关键词匹配的），交给下游定性评价 Agent 在偏差扫描中覆盖。JD 无此类要求则输出空数组或 null。
+- 不要输出 workLocation / languageRequirements / requiredCertifications 字段——当前简历结构化数据不支持这些维度的规则匹配。`;
+
+const EDUCATION_LEVEL_ORDER = ["专科", "大专", "本科", "硕士", "博士"] as const;
+
+function educationLevelRank(level: string | null | undefined): number {
+  if (!level) {
+    return -1;
+  }
+  const trimmed = level.trim();
+  const idx = EDUCATION_LEVEL_ORDER.findIndex(
+    (entry) => trimmed === entry || trimmed.includes(entry),
+  );
+  return idx === -1 ? -1 : idx;
+}
+
+const hardFilterSchema = z.object({
+  minimumEducation: z.enum(["专科", "大专", "本科", "硕士", "博士"]).nullable(),
+  minimumWorkYears: z.number().int().min(0).nullable(),
+  requiredSkills: z.array(nonEmpty).nullable(),
+  semanticRequirements: z.array(nonEmpty).nullable(),
+});
+type HardFilterCriteria = z.infer<typeof hardFilterSchema>;
+
+export interface HardFilterViolation {
+  field: string;
+  description: string;
+  impact: string;
+}
+
+function normalizeSkill(s: string): string {
+  return s.trim().toLowerCase();
+}
+
+// 规则引擎：把简历与硬性门槛逐项比对，返回所有违反项。
+// Rule engine: compare resume against hard criteria, return all violations.
+function checkHardFilter(
+  resumeProfile: ResumeProfile,
+  criteria: HardFilterCriteria,
+): HardFilterViolation[] {
+  const violations: HardFilterViolation[] = [];
+
+  if (criteria.minimumEducation) {
+    const requiredRank = educationLevelRank(criteria.minimumEducation);
+    const educations = resumeProfile.educationExperiences ?? [];
+    const candidateMaxRank = Math.max(
+      ...educations.map((edu) => educationLevelRank(edu.educationLevel)),
+      -1,
+    );
+    if (candidateMaxRank >= 0 && candidateMaxRank < requiredRank) {
+      violations.push({
+        description: `学历不达标：岗位要求${criteria.minimumEducation}及以上`,
+        field: "minimumEducation",
+        impact: "硬性门槛不满足，建议淘汰",
+      });
+    }
+  }
+
+  if (
+    criteria.minimumWorkYears !== null &&
+    typeof resumeProfile.workYears === "number" &&
+    resumeProfile.workYears < criteria.minimumWorkYears
+  ) {
+    violations.push({
+      description: `经验年限不够：岗位要求${criteria.minimumWorkYears}年以上，候选人${resumeProfile.workYears}年`,
+      field: "minimumWorkYears",
+      impact: "硬性门槛不满足，建议淘汰",
+    });
+  }
+
+  if (criteria.requiredSkills && criteria.requiredSkills.length > 0) {
+    const candidateSkills = new Set([
+      ...resumeProfile.skills.map(normalizeSkill),
+      ...resumeProfile.projectExperiences.flatMap((p) => p.techStack.map(normalizeSkill)),
+    ]);
+    const missing = criteria.requiredSkills.filter(
+      (skill) => !candidateSkills.has(normalizeSkill(skill)),
+    );
+    if (missing.length > 0) {
+      violations.push({
+        description: `必备技能缺失：${missing.join("、")}`,
+        field: "requiredSkills",
+        impact: "硬性门槛不满足，建议淘汰",
+      });
+    }
+  }
+
+  return violations;
+}
+
+// 硬性门槛不达标时生成的精简 reject review。
+// Minimal reject review when hard filter violations are found.
+function buildHardFilterRejectReview(
+  violations: HardFilterViolation[],
+): ResumeReviewGenerationResult {
+  const structuredReview: ResumeReview = {
+    biasScan: {
+      items: violations.map((v) => ({
+        category: "hard_gap" as const,
+        description: v.description,
+        impact: v.impact,
+      })),
+    },
+    dimensions: {
+      educationBackground: { rationale: "硬性门槛不达标，未评分", score: 0 },
+      experienceRelevance: { rationale: "硬性门槛不达标，未评分", score: 0 },
+      potential: { rationale: "硬性门槛不达标，未评分", score: 0 },
+      projectMatch: { rationale: "硬性门槛不达标，未评分", score: 0 },
+      skillMatch: { rationale: "硬性门槛不达标，未评分", score: 0 },
+      stability: { rationale: "硬性门槛不达标，未评分", score: 0 },
+    },
+    levelRecommendation: {
+      level: "—",
+      rationale: "未通过硬性门槛过滤",
+    },
+    nextStep: {
+      action: "reject" as const,
+      disclaimer: "以上为初步结论",
+      interviewFocus: [],
+      rationale: `命中 ${violations.length} 项硬性门槛不达标`,
+    },
+    overall: {
+      baseScore: 0,
+      conclusion: "候选人未通过硬性门槛过滤。",
+      scoreRationale: "硬性门槛不达标，未进入语义评分阶段。",
+    },
+    schemaVersion: 2,
+    strengths: [
+      {
+        evidence: null,
+        impact: "未进入定性评价阶段",
+        point: "硬性门槛未通过",
+      },
+    ],
+    teamPositioning: {
+      rationale: "未通过硬性门槛过滤",
+      suggestion: "暂不推荐",
+    },
+    weaknesses: violations.map((v) => ({
+      evidence: null,
+      impact: v.impact,
+      point: v.description,
+    })),
+  };
+  const review = formatResumeReviewMarkdown(structuredReview).trim().slice(0, 2000);
+  return { review, structuredReview };
+}
+
+function createHardFilterAgent() {
+  const structuredModelId = getRequiredEnv("ALIBABA_STRUCTURED_MODEL");
+  return createResumeAgent({
+    enableThinking: false,
+    instructions: HARD_FILTER_INSTRUCTIONS,
+    modelId: structuredModelId,
+    stopWhen: stepCountIs(1),
+    temperature: 0,
+    tools: {},
+  });
+}
+
+export interface HardFilterResult {
+  violations: HardFilterViolation[];
+  semanticRequirements: string[] | null;
+}
+
+// 运行 Agent 0 提取门槛 + 规则引擎检查。
+// JD 为空时跳过提取，返回 null（不过滤）。
+// Run Agent 0 extraction + rule engine check.
+// Returns null (no filter) when JD is absent.
+async function runHardFilter(
+  resumeProfile: ResumeProfile,
+  jobDescription: string | null | undefined,
+): Promise<HardFilterResult | null> {
+  if (!jobDescription?.trim()) {
+    return null;
+  }
+
+  const agent = createHardFilterAgent();
+  const { text } = await agent.generate({
+    prompt: `在招岗位描述：\n${jobDescription.trim()}`,
+  });
+
+  const criteria = parseJsonOutput(text, hardFilterSchema, "resume-hard-filter");
+  return {
+    semanticRequirements: criteria.semanticRequirements,
+    violations: checkHardFilter(resumeProfile, criteria),
+  };
+}
+
+// Agent 1 prompt —— 只输出定性内容，不出现任何 score 字段。
+const REVIEW_QUALITATIVE_INSTRUCTIONS = `你是一名招聘评估助手。根据候选人简历和在招岗位（如有），输出一份结构化的定性评价。
+本阶段只输出文字结论与归因，不要输出任何分数、等级或数字评分；评分由下游处理。
+
+## 输出要求
+- 只输出 JSON 对象，不要输出 Markdown、代码块或解释性文字。
 - 所有自由文本字段使用中文，简洁直入，不要寒暄。
-- 严格遵守字段名、枚举值和数据类型；无证据时 evidence 填 null，文本里写"待核实"。
+- 严格遵守字段名、枚举值和数据类型；无证据时 evidence 填 null，文本写"待核实"。
 - 不要编造简历或 JD 中没有的信息。
 
-## 评价维度权重（用于打分时心中加权，不必输出占比）
-- 影响力与结果（30%）：是否有量化业务/产品结果、负责范围与角色、行动-结果式表述。
-- 技术深度（25%）：技术栈细节、架构与权衡、性能/稳定性/扩展性工作。
-- 岗位相关性（20%）：是否匹配目标岗位关键词、项目与职责相关、内容重点是否支撑。
-- 结构与可读性（15%）：表述简洁、时间线一致、层级清晰。
-- 信号可信度（10%）：避免夸大、可验证作品、成果有上下文。
+## 评价内容
+1. overall.conclusion：一句话总体判断，描述候选人与岗位的语义匹配方向，不要出现任何数字。
+2. strengths（匹配亮点）：1-4 条，每条给出 point + evidence（简历原文证据或 null）+ impact（对岗位匹配的影响）。
+3. weaknesses（风险点）：1-4 条，同上结构。
+4. biasScan.items（偏差扫描，可为空数组）：
+   - 枚举：hard_gap（硬缺口）/ soft_mismatch（软错位）/ credibility_risk（真实性存疑）/ stability_signal（稳定性信号）
+   - 每条给出 description + category + impact。
+5. teamPositioning：suggestion 给出可执行的团队类型或职责方向，rationale 给出定位依据。
+6. levelRecommendation：level 用"初级 / 初中级 / 中级 / 中高级 / 高级 / 资深 / 专家"或 P 级表示，rationale 给出职级依据。
+7. nextStep：基于定性判断给出初步建议：
+   - action ∈ {interview, hold, reject}
+   - rationale：依据（仅基于定性判断，不涉及最终分数）
+   - interviewFocus：进入面试或暂缓时建议重点追问的问题，可为空数组
+   - disclaimer：必须严格等于"以上为初步结论"
 
 ## 输出 JSON 结构（必须严格遵守）
 {
-  "schemaVersion": 1,
   "overall": {
-    "conclusion": "一句话总体判断",
-    "score": 0-100 的整数,
-    "scoreRationale": "总分依据"
-  },
-  "dimensions": {
-    "impactAndResults": { "score": 0-100 的整数, "rationale": "影响力与结果评分依据" },
-    "technicalDepth": { "score": 0-100 的整数, "rationale": "技术深度评分依据" },
-    "roleRelevance": { "score": 0-100 的整数, "rationale": "岗位相关性评分依据" },
-    "structureReadability": { "score": 0-100 的整数, "rationale": "结构与可读性评分依据" },
-    "signalCredibility": { "score": 0-100 的整数, "rationale": "信号可信度评分依据" }
+    "conclusion": "一句话总体判断"
   },
   "strengths": [
-    { "point": "优点", "evidence": "简历证据或 null", "impact": "对岗位匹配的影响" }
+    { "point": "亮点", "evidence": "简历证据或 null", "impact": "对岗位匹配的影响" }
   ],
   "weaknesses": [
-    { "point": "缺点", "evidence": "简历证据或 null", "impact": "对岗位匹配的影响" }
+    { "point": "风险点", "evidence": "简历证据或 null", "impact": "对岗位匹配的影响" }
   ],
   "biasScan": {
     "items": [
@@ -592,34 +817,134 @@ const REVIEW_INSTRUCTIONS = `你是一名招聘评估助手，根据候选人简
   },
   "nextStep": {
     "action": "interview" | "hold" | "reject",
-    "rationale": "下一步建议依据",
+    "rationale": "下一步建议依据（仅基于定性判断）",
     "interviewFocus": ["如果进入面试或暂缓，建议重点追问的问题；可为空数组"],
     "disclaimer": "以上为初步结论"
   }
 }
 
 ## 约束
-- strengths 必须 1-4 条；weaknesses 必须 1-4 条。
-- biasScan.items 可以为空数组；为空表示未发现关键偏差。
-- evidence 只能引用关键证据，不要复述原始简历或 JD 全文。
-- nextStep.disclaimer 必须严格等于"以上为初步结论"。`;
+- strengths 与 weaknesses 各 1-4 条。
+- biasScan.items 可为空数组，为空表示未发现关键偏差。
+- evidence 只能引用关键证据，禁止复述简历或 JD 全文。
+- nextStep.disclaimer 必须严格等于"以上为初步结论"。
+- 不要输出 dimensions、overall.score、baseScore、等级标签等任何数字评分字段——这是下游 Agent 的职责。`;
+
+// Agent 2 prompt —— 拿简历 + JD + Agent 1 输出，只输出六维度分。
+const REVIEW_SCORING_INSTRUCTIONS = `你是一名招聘评分助手。基于已生成的定性评价、候选人简历、在招岗位描述，对简历与岗位的语义匹配度进行六维度打分。
+本阶段只输出每维度的分数与依据，不输出总分或综合结论；总分由调用方按权重计算。
+
+## 评分维度与权重（仅供你心中校准，不必输出占比）
+1. 技能匹配度（权重 35%）：JD 所需技能 vs 候选人 skills / projectExperiences / workExperiences 的语义级匹配，不是关键词堆叠。
+2. 经验相关性（25%）：行业背景、业务领域、技术栈吻合度、工作年限与岗位层级匹配度。
+3. 项目匹配度（15%）：项目复杂度、承担角色、可量化成果与岗位职责的对应程度。
+4. 学历与背景（10%）：学历层次是否满足岗位要求、专业方向相关度。
+5. 潜力评估（8%）：成长曲线、技术广度、学习能力、跨领域迁移迹象。
+6. 稳定性评估（7%）：平均在职时长、跳槽频率、职业方向连贯性。
+
+## 输出要求
+- 每个维度输出 0-100 的整数 score 与一句中文 rationale。
+- rationale 要点出"判断依据 + 关键证据"，可引用下游定性评价中的 strengths/weaknesses 或直接引用简历原文；不要泛泛而谈。
+- 不要输出 Markdown、代码块或解释性文字；只输出 JSON 对象。
+- 不要编造简历或 JD 中没有的信息。
+
+## 与定性评价的一致性
+- 若你的打分方向与定性评价的结论、strengths、weaknesses 出现冲突（例如定性说"技术栈高度匹配"，你给技能匹配度打低分），以定性结论方向为准，并在该维度 rationale 开头用"已采纳定性结论"一句说明，再写评分依据。
+
+## 输出 JSON 结构（必须严格遵守）
+{
+  "dimensions": {
+    "skillMatch":            { "score": 0-100, "rationale": "技能匹配度评分依据" },
+    "experienceRelevance":   { "score": 0-100, "rationale": "经验相关性评分依据" },
+    "projectMatch":          { "score": 0-100, "rationale": "项目匹配度评分依据" },
+    "educationBackground":   { "score": 0-100, "rationale": "学历与背景评分依据" },
+    "potential":             { "score": 0-100, "rationale": "潜力评估评分依据" },
+    "stability":             { "score": 0-100, "rationale": "稳定性评估评分依据" }
+  }
+}
+
+## 约束
+- 顶层只有 dimensions 字段，不要输出 overall / strengths / weaknesses / nextStep 等其他字段。
+- 每个 score 是 0-100 的整数，rationale 非空。`;
+
+// Agent 1 定性输出的内部类型 —— 不持久化，只传给 Agent 2 和组装层。
+// Internal type for Agent 1 output; not persisted, only fed to Agent 2 + assembler.
+const resumeQualitativeSchema = z.object({
+  biasScan: z.object({
+    items: z.array(resumeReviewBiasItemSchema),
+  }),
+  levelRecommendation: z.object({
+    level: nonEmpty,
+    rationale: nonEmpty,
+  }),
+  nextStep: z.object({
+    action: resumeReviewActionSchema,
+    disclaimer: z.literal("以上为初步结论"),
+    interviewFocus: z.array(nonEmpty),
+    rationale: nonEmpty,
+  }),
+  overall: z.object({
+    conclusion: nonEmpty,
+  }),
+  strengths: z.array(resumeReviewPointSchema).min(1).max(4),
+  teamPositioning: z.object({
+    rationale: nonEmpty,
+    suggestion: nonEmpty,
+  }),
+  weaknesses: z.array(resumeReviewPointSchema).min(1).max(4),
+});
+type ResumeQualitativeReview = z.infer<typeof resumeQualitativeSchema>;
+
+// Agent 2 打分输出的内部类型。
+const resumeScoringSchema = z.object({
+  dimensions: z.object({
+    educationBackground: resumeReviewDimensionSchema,
+    experienceRelevance: resumeReviewDimensionSchema,
+    potential: resumeReviewDimensionSchema,
+    projectMatch: resumeReviewDimensionSchema,
+    skillMatch: resumeReviewDimensionSchema,
+    stability: resumeReviewDimensionSchema,
+  }),
+});
+type ResumeReviewScoring = z.infer<typeof resumeScoringSchema>;
 
 function buildResumeReviewPrompt(input: {
   resumeProfile: ResumeProfile;
   jobDescription?: string | null;
+  semanticRequirements?: string[] | null;
 }) {
   const jdBlock = input.jobDescription?.trim()
     ? `在招岗位描述：\n${input.jobDescription.trim()}`
     : "在招岗位描述：（未指定 JD，按候选人 targetRoles 推断目标方向进行评估，岗位相关性维度按候选人简历的目标岗位计分）";
 
-  return `${jdBlock}\n\n候选人简历（结构化 JSON）：\n${JSON.stringify(input.resumeProfile, null, 2)}`;
+  const semanticBlock =
+    input.semanticRequirements && input.semanticRequirements.length > 0
+      ? `\n\nJD 中的语义硬性要求（无法用规则匹配，请在偏差扫描中判断候选人是否满足，不满足时标注为 hard_gap）：\n${input.semanticRequirements.map((req, i) => `${i + 1}. ${req}`).join("\n")}`
+      : "";
+
+  return `${jdBlock}${semanticBlock}\n\n候选人简历（结构化 JSON）：\n${JSON.stringify(input.resumeProfile, null, 2)}`;
 }
 
-function createResumeReviewAgent() {
+function buildResumeScoringPrompt(input: {
+  resumeProfile: ResumeProfile;
+  jobDescription?: string | null;
+  qualitative: ResumeQualitativeReview;
+}) {
+  const jdBlock = input.jobDescription?.trim()
+    ? `在招岗位描述：\n${input.jobDescription.trim()}`
+    : "在招岗位描述：（未指定 JD，按候选人 targetRoles 推断目标方向打分）";
+  return [
+    jdBlock,
+    `候选人简历（结构化 JSON）：\n${JSON.stringify(input.resumeProfile, null, 2)}`,
+    `定性评价（Step 1 输出，已在内容上与岗位比对过，请保持打分方向一致）：\n${JSON.stringify(input.qualitative, null, 2)}`,
+  ].join("\n\n");
+}
+
+function createResumeReviewQualitativeAgent() {
   const structuredModelId = getRequiredEnv("ALIBABA_STRUCTURED_MODEL");
   return createResumeAgent({
     enableThinking: false,
-    instructions: REVIEW_INSTRUCTIONS,
+    instructions: REVIEW_QUALITATIVE_INSTRUCTIONS,
     modelId: structuredModelId,
     stopWhen: stepCountIs(2),
     temperature: 0.4,
@@ -627,45 +952,119 @@ function createResumeReviewAgent() {
   });
 }
 
+function createResumeReviewScoringAgent() {
+  const structuredModelId = getRequiredEnv("ALIBABA_STRUCTURED_MODEL");
+  return createResumeAgent({
+    enableThinking: false,
+    instructions: REVIEW_SCORING_INSTRUCTIONS,
+    modelId: structuredModelId,
+    stopWhen: stepCountIs(2),
+    temperature: 0.2,
+    tools: {},
+  });
+}
+
+// 把 Agent 1 定性 + Agent 2 维度分 + 代码算的 baseScore 组装成 v2 ResumeReview。
+// Assemble v2 ResumeReview from Agent 1 qualitative + Agent 2 dimensions + code-computed baseScore.
+function assembleResumeReview(
+  qualitative: ResumeQualitativeReview,
+  scoring: ResumeReviewScoring,
+): ResumeReview {
+  const baseScore = computeResumeReviewBaseScore(scoring.dimensions);
+  return {
+    biasScan: qualitative.biasScan,
+    dimensions: scoring.dimensions,
+    levelRecommendation: qualitative.levelRecommendation,
+    nextStep: qualitative.nextStep,
+    overall: {
+      baseScore,
+      conclusion: qualitative.overall.conclusion,
+      scoreRationale: `基于六维度按 35/25/15/10/8/7 加权得出基础分 ${baseScore}（不含历史面试加权）`,
+    },
+    schemaVersion: 2,
+    strengths: qualitative.strengths,
+    teamPositioning: qualitative.teamPositioning,
+    weaknesses: qualitative.weaknesses,
+  };
+}
+
 export interface ResumeReviewGenerationResult {
   review: string;
   structuredReview: ResumeReview;
 }
 
-function parseStructuredResumeReview(text: string): ResumeReviewGenerationResult {
-  const structuredReview = parseJsonOutput(text, resumeReviewSchema, "resume-review-generation");
+function parseStructuredResumeReview(
+  qualitative: ResumeQualitativeReview,
+  scoringText: string,
+): ResumeReviewGenerationResult {
+  const scoring = parseJsonOutput(scoringText, resumeScoringSchema, "resume-review-scoring");
+  const structuredReview = assembleResumeReview(qualitative, scoring);
   const review = formatResumeReviewMarkdown(structuredReview).trim().slice(0, 2000);
   return { review, structuredReview };
 }
 
 /**
- * Stage 3: stream a short resume review based on the parsed profile and an
- * optional job-description context. Output is plain Markdown text streamed via
- * text-delta events, then a final `result: { review }`.
+ * Stage 3: stream a resume review via the three-agent pipeline.
+ *
+ * Agent 0 (hard filter) runs first; if violations are found, a reject review
+ * is emitted immediately and Agent 1/2 are skipped. Otherwise Agent 1
+ * (qualitative) streams text-delta events, then Agent 2 (scoring) runs as a
+ * blocking generate() call.
  */
 export function streamGenerateResumeReview(input: {
   resumeProfile: ResumeProfile;
   jobDescription?: string | null;
 }): ReadableStream<Uint8Array> {
   return createNdjsonStream(async (emit) => {
+    emit({ message: "正在检查硬性门槛…", type: "status" });
+
+    // --- Agent 0: 硬性门槛提取 + 规则引擎 ---
+    const hardFilterResult = await runHardFilter(input.resumeProfile, input.jobDescription);
+    if (hardFilterResult && hardFilterResult.violations.length > 0) {
+      emit({ message: "硬性门槛不达标，已淘汰。", type: "status" });
+      const result = buildHardFilterRejectReview(hardFilterResult.violations);
+      emit({ text: result.review, type: "text-delta" });
+      emit({ data: result, type: "result" });
+      return;
+    }
+
     emit({ message: "正在生成简历评价…", type: "status" });
 
-    const streamResult = await createResumeReviewAgent().stream({
-      prompt: buildResumeReviewPrompt(input),
+    // --- Agent 1: 定性评价（流式） ---
+    // 如果 Agent 0 提取了语义门槛，附在 prompt 里让 Agent 1 在偏差扫描中覆盖。
+    // Attach semantic requirements (if extracted by Agent 0) so Agent 1 covers them in biasScan.
+    const qualitativeStream = await createResumeReviewQualitativeAgent().stream({
+      prompt: buildResumeReviewPrompt({
+        ...input,
+        semanticRequirements: hardFilterResult?.semanticRequirements ?? null,
+      }),
     });
 
     let stepIndex = 0;
-    let fullText = "";
-    for await (const part of streamResult.fullStream) {
+    let qualitativeText = "";
+    for await (const part of qualitativeStream.fullStream) {
       if (part.type === "text-delta") {
-        fullText += part.text;
+        qualitativeText += part.text;
       } else if (part.type === "start-step") {
         stepIndex += 1;
         emit({ index: stepIndex, type: "step" });
       }
     }
 
-    const result = parseStructuredResumeReview(fullText);
+    const qualitative = parseJsonOutput(
+      qualitativeText,
+      resumeQualitativeSchema,
+      "resume-review-qualitative",
+    );
+
+    emit({ message: "正在生成维度评分…", type: "status" });
+
+    // --- Agent 2: 六维度打分（阻塞） ---
+    const scoringResult = await createResumeReviewScoringAgent().generate({
+      prompt: buildResumeScoringPrompt({ ...input, qualitative }),
+    });
+
+    const result = parseStructuredResumeReview(qualitative, scoringResult.text);
     emit({ text: result.review, type: "text-delta" });
     emit({ data: result, type: "result" });
   });
@@ -675,10 +1074,31 @@ export async function generateResumeReview(input: {
   resumeProfile: ResumeProfile;
   jobDescription?: string | null;
 }): Promise<ResumeReviewGenerationResult> {
-  const { text } = await createResumeReviewAgent().generate({
-    prompt: buildResumeReviewPrompt(input),
+  // --- Agent 0: 硬性门槛提取 + 规则引擎 ---
+  const hardFilterResult = await runHardFilter(input.resumeProfile, input.jobDescription);
+  if (hardFilterResult && hardFilterResult.violations.length > 0) {
+    return buildHardFilterRejectReview(hardFilterResult.violations);
+  }
+
+  // --- Agent 1: 定性评价 ---
+  const qualitativeResult = await createResumeReviewQualitativeAgent().generate({
+    prompt: buildResumeReviewPrompt({
+      ...input,
+      semanticRequirements: hardFilterResult?.semanticRequirements ?? null,
+    }),
   });
-  return parseStructuredResumeReview(text);
+  const qualitative = parseJsonOutput(
+    qualitativeResult.text,
+    resumeQualitativeSchema,
+    "resume-review-qualitative",
+  );
+
+  // --- Agent 2: 六维度打分 ---
+  const scoringResult = await createResumeReviewScoringAgent().generate({
+    prompt: buildResumeScoringPrompt({ ...input, qualitative }),
+  });
+
+  return parseStructuredResumeReview(qualitative, scoringResult.text);
 }
 
 /**

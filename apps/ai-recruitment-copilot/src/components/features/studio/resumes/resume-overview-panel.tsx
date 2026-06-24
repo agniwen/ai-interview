@@ -9,9 +9,16 @@
 
 import type { ResumeLibraryDetail } from "@arc/shared/studio-resumes";
 import { describeResumeProgress } from "@arc/shared/studio-resumes";
-import type { ResumeReview, ResumeReviewAction } from "@arc/shared/resume-review";
+import type {
+  ResumeReview,
+  ResumeReviewAction,
+  ResumeReviewLoose,
+} from "@arc/shared/resume-review";
 import {
   countResumeReviewBiasCategories,
+  getResumeReviewBaseScore,
+  getResumeReviewDimension,
+  RESUME_REVIEW_DIMENSIONS,
   resumeReviewActionLabel,
   resumeReviewBiasCategoryLabel,
 } from "@arc/shared/resume-review";
@@ -42,16 +49,7 @@ function SummaryItem({ label, value }: { label: string; value: string | number |
   );
 }
 
-const DIMENSION_LABELS: {
-  key: keyof ResumeReview["dimensions"];
-  label: string;
-}[] = [
-  { key: "impactAndResults", label: "影响力与结果" },
-  { key: "technicalDepth", label: "技术深度" },
-  { key: "roleRelevance", label: "岗位相关性" },
-  { key: "structureReadability", label: "结构与可读性" },
-  { key: "signalCredibility", label: "信号可信度" },
-];
+const DIMENSION_LABELS = RESUME_REVIEW_DIMENSIONS;
 
 function actionVariant(action: ResumeReviewAction) {
   if (action === "interview") {
@@ -131,8 +129,9 @@ function ReviewPointList({
   );
 }
 
-export function ResumeReviewStructuredView({ review }: { review: ResumeReview }) {
+export function ResumeReviewStructuredView({ review }: { review: ResumeReviewLoose }) {
   const biasCounts = countResumeReviewBiasCategories(review.biasScan.items);
+  const baseScore = getResumeReviewBaseScore(review);
 
   return (
     <div className="mx-auto max-w-5xl space-y-8">
@@ -153,7 +152,7 @@ export function ResumeReviewStructuredView({ review }: { review: ResumeReview })
           </div>
           <div className="shrink-0 md:text-right">
             <div className="font-semibold text-5xl tabular-nums leading-none">
-              {review.overall.score}
+              {baseScore ?? "—"}
             </div>
             <div className="mt-1 text-muted-foreground text-xs">综合评分 / 100</div>
           </div>
@@ -166,14 +165,15 @@ export function ResumeReviewStructuredView({ review }: { review: ResumeReview })
           title="维度评分"
         />
         <div className="divide-y divide-border/50 rounded-2xl border border-muted/60 bg-muted/20 px-5 md:px-6">
-          {DIMENSION_LABELS.map(({ key, label }) => (
-            <DimensionScore
-              key={key}
-              label={label}
-              rationale={review.dimensions[key].rationale}
-              score={review.dimensions[key].score}
-            />
-          ))}
+          {DIMENSION_LABELS.map(({ key, label }) => {
+            const dim = getResumeReviewDimension(review, key);
+            if (!dim) {
+              return null;
+            }
+            return (
+              <DimensionScore key={key} label={label} rationale={dim.rationale} score={dim.score} />
+            );
+          })}
         </div>
       </section>
 

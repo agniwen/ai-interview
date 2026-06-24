@@ -77,11 +77,12 @@ vi.mock("./use-resume-review-regeneration", () => ({
 const STRUCTURED_REVIEW: ResumeReview = {
   biasScan: { items: [] },
   dimensions: {
-    impactAndResults: { rationale: "有结果", score: 80 },
-    roleRelevance: { rationale: "岗位相关", score: 80 },
-    signalCredibility: { rationale: "待核实", score: 70 },
-    structureReadability: { rationale: "结构清晰", score: 80 },
-    technicalDepth: { rationale: "技术匹配", score: 80 },
+    educationBackground: { rationale: "学历满足", score: 80 },
+    experienceRelevance: { rationale: "岗位相关", score: 80 },
+    potential: { rationale: "有成长性", score: 75 },
+    projectMatch: { rationale: "项目对应", score: 78 },
+    skillMatch: { rationale: "技术匹配", score: 80 },
+    stability: { rationale: "在职合理", score: 78 },
   },
   levelRecommendation: { level: "中级", rationale: "经验匹配" },
   nextStep: {
@@ -91,11 +92,11 @@ const STRUCTURED_REVIEW: ResumeReview = {
     rationale: "建议面试核实",
   },
   overall: {
+    baseScore: 79,
     conclusion: "候选人匹配度较高。",
-    score: 80,
-    scoreRationale: "岗位相关性较强。",
+    scoreRationale: "基于六维度按 35/25/15/10/8/7 加权得出基础分 79（不含历史面试加权）",
   },
-  schemaVersion: 1,
+  schemaVersion: 2,
   strengths: [{ evidence: "简历证据", impact: "匹配岗位", point: "经验匹配" }],
   teamPositioning: { rationale: "经历集中", suggestion: "业务团队" },
   weaknesses: [{ evidence: null, impact: "需面试确认", point: "细节不足" }],

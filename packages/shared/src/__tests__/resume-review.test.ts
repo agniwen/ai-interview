@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { formatResumeReviewMarkdown, resumeReviewSchema } from "../resume-review";
+import {
+  computeResumeReviewBaseScore,
+  formatResumeReviewMarkdown,
+  getResumeReviewBaseScore,
+  getResumeReviewDimension,
+  resumeReviewSchema,
+} from "../resume-review";
 import type { ResumeReview } from "../resume-review";
 
 const REVIEW: ResumeReview = {
@@ -13,24 +19,28 @@ const REVIEW: ResumeReview = {
     ],
   },
   dimensions: {
-    impactAndResults: {
-      rationale: "有增长结果，但量化上下文不足",
-      score: 76,
+    educationBackground: {
+      rationale: "学历层次满足要求",
+      score: 80,
     },
-    roleRelevance: {
-      rationale: "经历与前端岗位高度相关",
+    experienceRelevance: {
+      rationale: "行业背景和技术栈吻合",
+      score: 90,
+    },
+    potential: {
+      rationale: "成长曲线和技术广度较好",
       score: 88,
     },
-    signalCredibility: {
-      rationale: "成果表述需要进一步核实",
-      score: 70,
-    },
-    structureReadability: {
-      rationale: "时间线清晰，项目重点明确",
+    projectMatch: {
+      rationale: "项目复杂度与岗位对应",
       score: 82,
     },
-    technicalDepth: {
-      rationale: "覆盖工程化和性能优化，但架构权衡描述偏少",
+    skillMatch: {
+      rationale: "技能与岗位高度匹配",
+      score: 92,
+    },
+    stability: {
+      rationale: "在职时长合理",
       score: 78,
     },
   },
@@ -45,11 +55,11 @@ const REVIEW: ResumeReview = {
     rationale: "岗位匹配度较高，建议通过面试核实关键风险",
   },
   overall: {
+    baseScore: 88,
     conclusion: "候选人与前端工程师岗位匹配度较高，但成果可信度需要面试核实。",
-    score: 82,
-    scoreRationale: "岗位相关性和项目经验较强，可信度维度拉低总分。",
+    scoreRationale: "基于六维度按 35/25/15/10/8/7 加权得出基础分 88（不含历史面试加权）",
   },
-  schemaVersion: 1,
+  schemaVersion: 2,
   strengths: [
     {
       evidence: "简历提到主导 B 端系统前端重构",
@@ -79,9 +89,56 @@ describe("resume review schema", () => {
     expect(
       resumeReviewSchema.safeParse({
         ...REVIEW,
-        overall: { ...REVIEW.overall, score: 101 },
+        overall: { ...REVIEW.overall, baseScore: 101 },
       }).success,
     ).toBe(false);
+  });
+});
+
+describe("computeResumeReviewBaseScore", () => {
+  it("weights six dimensions by 35/25/15/10/8/7", () => {
+    const score = computeResumeReviewBaseScore(REVIEW.dimensions);
+    expect(score).toBe(
+      Math.round(92 * 0.35 + 90 * 0.25 + 82 * 0.15 + 80 * 0.1 + 88 * 0.08 + 78 * 0.07),
+    );
+  });
+});
+
+describe("getResumeReviewBaseScore", () => {
+  it("reads v2 baseScore", () => {
+    expect(getResumeReviewBaseScore(REVIEW)).toBe(88);
+  });
+
+  it("falls back to v1 overall.score when baseScore is absent", () => {
+    const v1Like = {
+      ...REVIEW,
+      overall: { conclusion: REVIEW.overall.conclusion, score: 82, scoreRationale: "..." },
+      schemaVersion: 1 as const,
+    } as const;
+    expect(getResumeReviewBaseScore(v1Like)).toBe(82);
+  });
+
+  it("returns null when neither baseScore nor score exists", () => {
+    const v1Like = {
+      ...REVIEW,
+      overall: { conclusion: REVIEW.overall.conclusion, scoreRationale: "..." },
+      schemaVersion: 1 as const,
+    } as const;
+    expect(getResumeReviewBaseScore(v1Like)).toBeNull();
+  });
+});
+
+describe("getResumeReviewDimension", () => {
+  it("returns the dimension when present", () => {
+    expect(getResumeReviewDimension(REVIEW, "skillMatch")?.score).toBe(92);
+  });
+
+  it("returns null for legacy v1 dimension keys", () => {
+    const v1Dimensions = {
+      impactAndResults: { rationale: "...", score: 80 },
+    };
+    const v1Like = { ...REVIEW, dimensions: v1Dimensions } as unknown as typeof REVIEW;
+    expect(getResumeReviewDimension(v1Like, "skillMatch")).toBeNull();
   });
 });
 
@@ -92,7 +149,7 @@ describe("formatResumeReviewMarkdown", () => {
       候选人与前端工程师岗位匹配度较高，但成果可信度需要面试核实。
       
       **综合评分**
-      82 / 100。岗位相关性和项目经验较强，可信度维度拉低总分。
+      88 / 100。基于六维度按 35/25/15/10/8/7 加权得出基础分 88（不含历史面试加权）
       
       **优点**
       - 具备复杂前端项目经验：简历提到主导 B 端系统前端重构。影响：能覆盖当前岗位的复杂业务前端需求。
