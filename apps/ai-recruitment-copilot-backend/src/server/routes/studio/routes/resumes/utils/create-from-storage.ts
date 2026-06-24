@@ -2,6 +2,7 @@ import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import { studioInterview } from "@arc/db-schema/schema";
 import type { StudioInterviewResumeSourceType } from "@arc/db-schema/schema";
 import type { InterviewQuestion, ResumeProfile } from "@arc/db-schema/interview/types";
+import type { ResumeReview } from "@arc/db-schema/resume-review";
 import { syncResumeSkills } from "../dao/skills";
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
@@ -17,6 +18,7 @@ export interface CreateResumeRecordFromStorageInput {
   organizationId: string;
   resumeFileName: string | null;
   resumeProfile: ResumeProfile | null;
+  resumeReview?: ResumeReview | null;
   storageKey: string | null;
   targetRole: string | null;
   userId: string | null;
@@ -62,6 +64,7 @@ export async function createResumeRecordFromStorage(
       resumeParseStatus: input.storageKey && !input.resumeProfile ? "unparsed" : "ready",
       resumeParsedAt: input.resumeProfile ? now : null,
       resumeProfile: input.resumeProfile,
+      resumeReview: input.resumeReview ?? null,
       resumeSourceImportedAt: input.source?.importedAt ?? null,
       resumeSourceImportedBy: input.source?.importedBy ?? null,
       resumeSourcePoolItemId: input.source?.poolItemId ?? null,

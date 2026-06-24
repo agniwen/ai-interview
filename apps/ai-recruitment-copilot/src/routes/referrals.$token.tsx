@@ -149,7 +149,6 @@ function ReferralPage() {
                 <AlertDescription>{errorMessage}</AlertDescription>
               </Alert>
             ) : null}
-
           </CardContent>
         </Card>
       </div>

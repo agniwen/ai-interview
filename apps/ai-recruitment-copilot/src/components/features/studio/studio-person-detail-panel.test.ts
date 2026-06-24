@@ -49,6 +49,19 @@ describe("StudioPersonDetailPanel visual density", () => {
     expect(roundsSource).not.toContain("<SoftPanel");
   });
 
+  it("renders resume AI parsing in its own tab instead of the overview", () => {
+    const overviewSource = sourceBetween('<TabsContent value="overview">', "{/* 轮次概览");
+    const aiAnalysisSource = sourceBetween(
+      '<TabsContent value="ai-analysis">',
+      '<TabsContent value="reports">',
+    );
+
+    expect(source).toContain('value="ai-analysis"');
+    expect(source).toContain("AI 解析");
+    expect(overviewSource).not.toContain("<ResumeReviewStructuredView");
+    expect(aiAnalysisSource).toContain("<ResumeReviewStructuredView");
+  });
+
   it("uses a consistent framed surface for expanded interview report items", () => {
     const reportsSource = sourceBetween(
       '<TabsContent value="reports">',

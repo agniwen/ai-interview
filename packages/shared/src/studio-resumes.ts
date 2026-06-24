@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { ResumeAnalysisResult, ResumeProfile } from "@arc/db-schema/interview/types";
+import type { ResumeReview } from "@arc/db-schema/resume-review";
 import {
   resumeEvaluationStatusMeta,
   resumeEvaluationStatusSchema,
@@ -105,6 +106,7 @@ export interface ResumeLibraryListRecord {
   resumeFileName: string | null;
   resumeContentHash: string | null;
   resumeEvaluationStatus: ResumeEvaluationStatus | null;
+  resumeReview: ResumeReview | null;
   resumeParsedAt: string | null;
   resumeParseError: string | null;
   resumeParseStatus: ResumeParseStatus;

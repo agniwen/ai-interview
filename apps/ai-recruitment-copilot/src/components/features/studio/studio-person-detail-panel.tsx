@@ -59,7 +59,10 @@ import type { ReactNode } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { CandidateBasicInfoView } from "@/components/features/candidate/candidate-basic-info-view";
 import { ResumeProfileView } from "@/components/features/resume/resume-profile-view";
-import { ResumeOverviewPanel } from "@/components/features/studio/resumes/resume-overview-panel";
+import {
+  ResumeOverviewPanel,
+  ResumeReviewStructuredView,
+} from "@/components/features/studio/resumes/resume-overview-panel";
 import { toast } from "sonner";
 import { DATE_TIME_DISPLAY_OPTIONS, TimeDisplay } from "@/components/features/display/time-display";
 import {
@@ -144,6 +147,7 @@ export type StudioPersonDetailAccessMode = "authed" | "public" | "review";
 
 export type StudioPersonDetailTab =
   | "overview"
+  | "ai-analysis"
   | "rounds"
   | "human-interview"
   | "offer"
@@ -811,6 +815,7 @@ function useStudioPersonDetailPanel({
       tabs.add("forms");
       return tabs;
     }
+    tabs.add("ai-analysis");
     tabs.add("rounds");
     if (shouldShowHumanInterviewTab(tabVisibilityRecord)) {
       tabs.add("human-interview");
@@ -1135,6 +1140,11 @@ function useStudioPersonDetailPanel({
             </TabsTrigger>
           ) : null}
           {mode === "resume" ? (
+            <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="ai-analysis">
+              AI 解析
+            </TabsTrigger>
+          ) : null}
+          {mode === "resume" ? (
             <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="rounds">
               AI 面试
             </TabsTrigger>
@@ -1391,6 +1401,21 @@ function useStudioPersonDetailPanel({
               ) : null}
             </div>
           </TabsContent>
+
+          {mode === "resume" ? (
+            <TabsContent value="ai-analysis">
+              {resumeRecord?.resumeReview ? (
+                <ResumeReviewStructuredView review={resumeRecord.resumeReview} />
+              ) : (
+                <section className="space-y-3 rounded-2xl border border-muted/60 bg-muted/20 p-5">
+                  <h3 className="font-medium text-sm">AI 解析</h3>
+                  <div className="text-muted-foreground text-sm leading-6">
+                    <Markdown>{truncateText(resumeRecord?.notes) || "暂无 AI 解析结果"}</Markdown>
+                  </div>
+                </section>
+              )}
+            </TabsContent>
+          ) : null}
 
           {mode === "interview" ? (
             <TabsContent value="reports">

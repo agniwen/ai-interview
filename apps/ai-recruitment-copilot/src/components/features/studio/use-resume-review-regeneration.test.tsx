@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 
 import type { ResumeProfile } from "@arc/db-schema/interview/types";
+import type { GenerateResumeReviewResult } from "@/lib/client/resume-analysis";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -44,7 +45,7 @@ type HookValue = ReturnType<typeof useResumeReviewRegeneration>;
 
 function renderHookHarness(callbacks: {
   onDraftChange: (review: string) => void;
-  onGenerated: (review: string) => void;
+  onGenerated: (result: GenerateResumeReviewResult) => void;
 }) {
   let current: HookValue | null = null;
   const container = document.createElement("div");
@@ -84,9 +85,38 @@ describe("useResumeReviewRegeneration", () => {
   it("streams draft updates and commits the generated review", async () => {
     const onDraftChange = vi.fn();
     const onGenerated = vi.fn();
+    const result = {
+      review: "最终评价",
+      structuredReview: {
+        biasScan: { items: [] },
+        dimensions: {
+          impactAndResults: { rationale: "有结果", score: 80 },
+          roleRelevance: { rationale: "相关", score: 80 },
+          signalCredibility: { rationale: "待核实", score: 70 },
+          structureReadability: { rationale: "清晰", score: 80 },
+          technicalDepth: { rationale: "匹配", score: 80 },
+        },
+        levelRecommendation: { level: "中级", rationale: "经验匹配" },
+        nextStep: {
+          action: "interview",
+          disclaimer: "以上为初步结论",
+          interviewFocus: ["项目贡献"],
+          rationale: "建议面试",
+        },
+        overall: {
+          conclusion: "候选人匹配。",
+          score: 80,
+          scoreRationale: "岗位匹配。",
+        },
+        schemaVersion: 1,
+        strengths: [{ evidence: "简历证据", impact: "匹配岗位", point: "经验匹配" }],
+        teamPositioning: { rationale: "经历集中", suggestion: "业务团队" },
+        weaknesses: [{ evidence: null, impact: "需核实", point: "细节不足" }],
+      },
+    } satisfies GenerateResumeReviewResult;
     mocks.generateResumeReview.mockImplementationOnce(({ onDraftChange: onDraft }) => {
       onDraft("草稿评价");
-      return "最终评价";
+      return result;
     });
 
     const harness = renderHookHarness({ onDraftChange, onGenerated });
@@ -105,7 +135,7 @@ describe("useResumeReviewRegeneration", () => {
       }),
     );
     expect(onDraftChange).toHaveBeenCalledWith("草稿评价");
-    expect(onGenerated).toHaveBeenCalledWith("最终评价");
+    expect(onGenerated).toHaveBeenCalledWith(result);
     expect(mocks.toastSuccess).toHaveBeenCalledWith("已重新生成简历评价");
 
     act(() => {

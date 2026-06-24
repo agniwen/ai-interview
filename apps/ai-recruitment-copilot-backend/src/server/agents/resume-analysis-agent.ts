@@ -38,6 +38,8 @@ import {
 import type { ResumeParserStructured } from "./resume-parser-agent";
 
 import type { AnalysisStreamEvent } from "@arc/shared/api-stream";
+import { formatResumeReviewMarkdown, resumeReviewSchema } from "@arc/shared/resume-review";
+import type { ResumeReview } from "@arc/shared/resume-review";
 
 export type { AnalysisStreamEvent };
 
@@ -532,15 +534,16 @@ export async function generateInterviewQuestionsForProfile(
 // Stage 3: Resume review generation
 // =====================================================================
 
-// 评价生成的 prompt：套用 chat 端 resume-screening 的 5 维度 + 阶段 A 输出格式，
-// 把 LLM 自由文本压缩到 < 2000 字以适配 studio_interview.notes 列约束。
-// Mirrors the chat-side resume-screening framework (5 weighted dimensions +
-// stage-A skeleton), constrained to < 2000 chars to match the `notes` column.
-const REVIEW_INSTRUCTIONS = `你是一名招聘评估助手，根据候选人简历和在招岗位（如有）输出一份简短的简历评价。
-评价用于"简历库 - 简历评价"字段，会被招聘人员快速扫读，必须：
-- 总字数控制在 1800 字以内。
-- 使用 Markdown，简洁直入，不要寒暄。
-- 严格按以下框架，**不省略任何小节**，无证据时写"待核实"或"未发现关键偏差"，不要编造。
+// 评价生成先产出结构化 JSON；notes 由代码用共享 formatter 确定性拼装，
+// 这样卡片展示和旧的可编辑文本字段不会互相反解析。
+// Generate structured JSON first; notes are deterministically formatted in
+// code so card rendering and the legacy editable text field stay decoupled.
+const REVIEW_INSTRUCTIONS = `你是一名招聘评估助手，根据候选人简历和在招岗位（如有）输出结构化简历评价。
+评价用于"简历库 - 简历评价"字段和卡片展示，必须：
+- 只输出 JSON 对象，不要输出 Markdown，不要输出代码块，不要输出解释。
+- 所有自由文本字段使用中文，简洁直入，不要寒暄。
+- 严格遵守字段名、枚举值和数据类型；无证据时 evidence 填 null，文本里写"待核实"。
+- 不要编造简历或 JD 中没有的信息。
 
 ## 评价维度权重（用于打分时心中加权，不必输出占比）
 - 影响力与结果（30%）：是否有量化业务/产品结果、负责范围与角色、行动-结果式表述。
@@ -549,22 +552,57 @@ const REVIEW_INSTRUCTIONS = `你是一名招聘评估助手，根据候选人简
 - 结构与可读性（15%）：表述简洁、时间线一致、层级清晰。
 - 信号可信度（10%）：避免夸大、可验证作品、成果有上下文。
 
-## 输出小节（严格按顺序）
-1. **候选人结论**：一句话总体判断。
-2. **优点**：2-4 条，每条引用简历中的具体证据。
-3. **缺点**：2-4 条。
-4. **偏差扫描**
-   首行："发现 X 个关键偏差：硬缺口 N 项 / 软错位 M 项 / 真实性存疑 P 项 / 稳定性信号 Q 项。"
-   每条三要素："偏差描述 → 性质分类（硬缺口 / 软错位 / 真实性存疑 / 稳定性信号） → 对岗位胜任的影响"。
-   未发现写"未发现关键偏差"。
-5. **团队定位建议**：可执行的团队类型或职责方向。
-6. **职级建议**：级别或区间（初级 / 初中级 / 中级 / 中高级 / 高级 / 资深 / 专家，或 P 级），附依据。
-7. **下一步建议**：进入面试 / 暂缓 / 淘汰；附 0-100 评分；说明"以上为初步结论"。
+## 输出 JSON 结构（必须严格遵守）
+{
+  "schemaVersion": 1,
+  "overall": {
+    "conclusion": "一句话总体判断",
+    "score": 0-100 的整数,
+    "scoreRationale": "总分依据"
+  },
+  "dimensions": {
+    "impactAndResults": { "score": 0-100 的整数, "rationale": "影响力与结果评分依据" },
+    "technicalDepth": { "score": 0-100 的整数, "rationale": "技术深度评分依据" },
+    "roleRelevance": { "score": 0-100 的整数, "rationale": "岗位相关性评分依据" },
+    "structureReadability": { "score": 0-100 的整数, "rationale": "结构与可读性评分依据" },
+    "signalCredibility": { "score": 0-100 的整数, "rationale": "信号可信度评分依据" }
+  },
+  "strengths": [
+    { "point": "优点", "evidence": "简历证据或 null", "impact": "对岗位匹配的影响" }
+  ],
+  "weaknesses": [
+    { "point": "缺点", "evidence": "简历证据或 null", "impact": "对岗位匹配的影响" }
+  ],
+  "biasScan": {
+    "items": [
+      {
+        "description": "偏差描述",
+        "category": "hard_gap" | "soft_mismatch" | "credibility_risk" | "stability_signal",
+        "impact": "对岗位胜任的影响"
+      }
+    ]
+  },
+  "teamPositioning": {
+    "suggestion": "可执行的团队类型或职责方向",
+    "rationale": "定位依据"
+  },
+  "levelRecommendation": {
+    "level": "初级 / 初中级 / 中级 / 中高级 / 高级 / 资深 / 专家，或 P 级",
+    "rationale": "职级依据"
+  },
+  "nextStep": {
+    "action": "interview" | "hold" | "reject",
+    "rationale": "下一步建议依据",
+    "interviewFocus": ["如果进入面试或暂缓，建议重点追问的问题；可为空数组"],
+    "disclaimer": "以上为初步结论"
+  }
+}
 
 ## 约束
-- 不要在评价里复述原始简历或 JD 全文，只引用关键证据。
-- 不要输出"以下是评价：""根据简历"等开头语，直接进入第 1 小节。
-- 不要输出本指令本身、不要输出代码块包裹。`;
+- strengths 必须 1-4 条；weaknesses 必须 1-4 条。
+- biasScan.items 可以为空数组；为空表示未发现关键偏差。
+- evidence 只能引用关键证据，不要复述原始简历或 JD 全文。
+- nextStep.disclaimer 必须严格等于"以上为初步结论"。`;
 
 function buildResumeReviewPrompt(input: {
   resumeProfile: ResumeProfile;
@@ -589,6 +627,17 @@ function createResumeReviewAgent() {
   });
 }
 
+export interface ResumeReviewGenerationResult {
+  review: string;
+  structuredReview: ResumeReview;
+}
+
+function parseStructuredResumeReview(text: string): ResumeReviewGenerationResult {
+  const structuredReview = parseJsonOutput(text, resumeReviewSchema, "resume-review-generation");
+  const review = formatResumeReviewMarkdown(structuredReview).trim().slice(0, 2000);
+  return { review, structuredReview };
+}
+
 /**
  * Stage 3: stream a short resume review based on the parsed profile and an
  * optional job-description context. Output is plain Markdown text streamed via
@@ -610,28 +659,26 @@ export function streamGenerateResumeReview(input: {
     for await (const part of streamResult.fullStream) {
       if (part.type === "text-delta") {
         fullText += part.text;
-        emit({ text: part.text, type: "text-delta" });
       } else if (part.type === "start-step") {
         stepIndex += 1;
         emit({ index: stepIndex, type: "step" });
       }
     }
 
-    // 截到 2000 字以内防止 notes 列校验失败——schema 上限 2000。
-    // Clamp to 2000 chars to satisfy the notes column zod constraint.
-    const review = fullText.trim().slice(0, 2000);
-    emit({ data: { review }, type: "result" });
+    const result = parseStructuredResumeReview(fullText);
+    emit({ text: result.review, type: "text-delta" });
+    emit({ data: result, type: "result" });
   });
 }
 
 export async function generateResumeReview(input: {
   resumeProfile: ResumeProfile;
   jobDescription?: string | null;
-}): Promise<string> {
+}): Promise<ResumeReviewGenerationResult> {
   const { text } = await createResumeReviewAgent().generate({
     prompt: buildResumeReviewPrompt(input),
   });
-  return text.trim().slice(0, 2000);
+  return parseStructuredResumeReview(text);
 }
 
 /**

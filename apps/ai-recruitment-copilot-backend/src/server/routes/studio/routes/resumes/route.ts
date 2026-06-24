@@ -7,6 +7,8 @@ import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import { getObjectBytes, getObjectStream } from "@arc/ai-recruitment-copilot-backend/lib/server/s3";
 import { studioInterview, studioInterviewSchedule } from "@arc/db-schema/schema";
 import { parseCsvParam } from "@arc/shared/csv";
+import { resumeReviewSchema } from "@arc/shared/resume-review";
+import type { ResumeReview } from "@arc/shared/resume-review";
 import { resolveRecruitingVisibilityScope } from "@arc/ai-recruitment-copilot-backend/server/access/recruiting-visibility";
 import type { RecruitingVisibilityScope } from "@arc/ai-recruitment-copilot-backend/server/access/recruiting-visibility";
 import {
@@ -131,6 +133,24 @@ export function parseResumeLibraryCreateFormInput(formData: FormData) {
 
 export function parseResumeLibraryEditFormInput(formData: FormData) {
   return parseResumeLibraryFormData(formData, resumeLibraryEditFormSchema);
+}
+
+export function parseResumeReviewFormInput(
+  value: FormDataEntryValue | null,
+): { data: ResumeReview | null; success: true } | { error: string; success: false } {
+  if (typeof value !== "string" || value.trim().length === 0) {
+    return { data: null, success: true };
+  }
+  try {
+    const parsed = JSON.parse(value);
+    const result = resumeReviewSchema.safeParse(parsed);
+    if (result.success) {
+      return { data: result.data, success: true };
+    }
+  } catch {
+    // Fall through to a stable validation message below.
+  }
+  return { error: "简历评价结构无效。", success: false };
 }
 
 export const resumeLibraryRouter = factory
@@ -649,6 +669,10 @@ export const resumeLibraryRouter = factory
       if (!input.success) {
         return c.json({ error: input.error.issues[0]?.message ?? "表单校验失败。" }, 400);
       }
+      const resumeReviewInput = parseResumeReviewFormInput(formData.get("resumeReview"));
+      if (!resumeReviewInput.success) {
+        return c.json({ error: resumeReviewInput.error }, 400);
+      }
 
       if (resume && !c.var.user) {
         return c.json({ error: "Unauthorized" }, 401);
@@ -705,6 +729,7 @@ export const resumeLibraryRouter = factory
         organizationId: activeOrg.id,
         resumeFileName: parsedFileName,
         resumeProfile,
+        resumeReview: resumeReviewInput.data,
         storageKey: resumeStorageKey,
         targetRole: input.data.targetRole || null,
         userId: c.var.user?.id ?? null,
@@ -797,6 +822,10 @@ export const resumeLibraryRouter = factory
       if (!input.success) {
         return c.json({ error: input.error.issues[0]?.message ?? "表单校验失败。" }, 400);
       }
+      const resumeReviewInput = parseResumeReviewFormInput(formData.get("resumeReview"));
+      if (!resumeReviewInput.success) {
+        return c.json({ error: resumeReviewInput.error }, 400);
+      }
 
       if (resume && !c.var.user) {
         return c.json({ error: "Unauthorized" }, 401);
@@ -847,6 +876,13 @@ export const resumeLibraryRouter = factory
         resumeProfileUpdate = { resumeProfile };
       }
 
+      let nextResumeReview = existing.resumeReview;
+      if (formData.has("resumeReview")) {
+        nextResumeReview = resumeReviewInput.data;
+      } else if (resume) {
+        nextResumeReview = null;
+      }
+
       // 显式白名单写入 —— 绝不触碰 interviewQuestions / status / schedule。
       // Explicit whitelist write — never touches interviewQuestions / status / schedule.
       const update = {
@@ -855,6 +891,7 @@ export const resumeLibraryRouter = factory
         candidatePhone: input.data.candidatePhone || resumeProfile?.phone || null,
         jobDescriptionId: input.data.jobDescriptionId || null,
         notes: input.data.notes || null,
+        resumeReview: nextResumeReview,
         targetRole: input.data.targetRole || resumeProfile?.targetRoles[0] || null,
         updatedAt: new Date(),
         ...resumeProfileUpdate,

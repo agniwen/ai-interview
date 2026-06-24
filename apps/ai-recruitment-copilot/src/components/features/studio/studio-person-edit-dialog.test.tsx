@@ -5,6 +5,7 @@ import { createRoot } from "react-dom/client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ResumeLibraryDetail } from "@arc/shared/studio-resumes";
+import type { ResumeReview } from "@arc/shared/resume-review";
 import { WorkspaceSlugProvider } from "@/lib/client/workspace-context";
 import { StudioPersonEditDialog } from "./studio-person-edit-dialog";
 
@@ -35,6 +36,36 @@ vi.mock("@/components/ui/file-upload", () => ({
   FileUpload: () => <div data-testid="file-upload" />,
 }));
 
+interface MarkdownEditorMockProps {
+  disabled?: boolean;
+  id?: string;
+  onBlur?: () => void;
+  onChange: (value: string) => void;
+  placeholder?: string;
+  value: string;
+}
+
+vi.mock("@/components/features/markdown-editor", () => ({
+  MarkdownEditor: ({
+    disabled,
+    id,
+    onBlur,
+    onChange,
+    placeholder,
+    value,
+  }: MarkdownEditorMockProps) => (
+    <textarea
+      aria-label="Markdown 原始内容"
+      disabled={disabled}
+      id={id}
+      onBlur={onBlur}
+      onChange={(event) => onChange(event.currentTarget.value)}
+      placeholder={placeholder}
+      value={value}
+    />
+  ),
+}));
+
 vi.mock("./use-resume-review-regeneration", () => ({
   useResumeReviewRegeneration: () => ({
     cancel: vi.fn(),
@@ -43,7 +74,34 @@ vi.mock("./use-resume-review-regeneration", () => ({
   }),
 }));
 
-function makeDetail(): ResumeLibraryDetail {
+const STRUCTURED_REVIEW: ResumeReview = {
+  biasScan: { items: [] },
+  dimensions: {
+    impactAndResults: { rationale: "有结果", score: 80 },
+    roleRelevance: { rationale: "岗位相关", score: 80 },
+    signalCredibility: { rationale: "待核实", score: 70 },
+    structureReadability: { rationale: "结构清晰", score: 80 },
+    technicalDepth: { rationale: "技术匹配", score: 80 },
+  },
+  levelRecommendation: { level: "中级", rationale: "经验匹配" },
+  nextStep: {
+    action: "interview",
+    disclaimer: "以上为初步结论",
+    interviewFocus: ["项目贡献"],
+    rationale: "建议面试核实",
+  },
+  overall: {
+    conclusion: "候选人匹配度较高。",
+    score: 80,
+    scoreRationale: "岗位相关性较强。",
+  },
+  schemaVersion: 1,
+  strengths: [{ evidence: "简历证据", impact: "匹配岗位", point: "经验匹配" }],
+  teamPositioning: { rationale: "经历集中", suggestion: "业务团队" },
+  weaknesses: [{ evidence: null, impact: "需面试确认", point: "细节不足" }],
+};
+
+function makeDetail(overrides: Partial<ResumeLibraryDetail> = {}): ResumeLibraryDetail {
   return {
     candidateEmail: null,
     candidateExpectationsMeta: null,
@@ -79,6 +137,7 @@ function makeDetail(): ResumeLibraryDetail {
     resumeParseStatus: "ready",
     resumeParsedAt: "2026-06-15T00:00:00.000Z",
     resumeProfile: null,
+    resumeReview: null,
     stageProgress: {
       aiInterview: null,
       humanInterview: null,
@@ -89,6 +148,7 @@ function makeDetail(): ResumeLibraryDetail {
     updatedAt: "2026-06-15T00:00:00.000Z",
     writtenTestScheduledAt: null,
     writtenTestScore: null,
+    ...overrides,
   };
 }
 
@@ -152,6 +212,53 @@ describe("StudioPersonEditDialog", () => {
     );
     expect(document.querySelector<HTMLInputElement>("#candidatePhone")?.value).toBe("13800138000");
     expect(document.querySelector<HTMLInputElement>("#targetRole")?.value).toBe("前端工程师");
+
+    act(() => {
+      root.unmount();
+    });
+    queryClient.clear();
+  });
+
+  it("preserves structured resume review when notes are manually changed", async () => {
+    apiMocks.fetchStudioResume.mockResolvedValue(makeDetail({ resumeReview: STRUCTURED_REVIEW }));
+    apiMocks.apiFetch.mockResolvedValue(makeDetail());
+    const { queryClient, root } = renderDialog();
+
+    await vi.waitFor(() => {
+      expect(document.querySelector<HTMLTextAreaElement>("#notes")?.value).toBe("已有简历评价");
+    });
+
+    const notes = document.querySelector<HTMLTextAreaElement>("#notes");
+    expect(notes).not.toBeNull();
+
+    act(() => {
+      if (!notes) {
+        return;
+      }
+      const valueSetter = Object.getOwnPropertyDescriptor(
+        HTMLTextAreaElement.prototype,
+        "value",
+      )?.set;
+      valueSetter?.call(notes, "用户改过的简历评价");
+      notes.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+
+    const form = document.querySelector<HTMLFormElement>("#resume-edit-form");
+    expect(form).not.toBeNull();
+
+    act(() => {
+      form?.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+    });
+
+    await vi.waitFor(() => {
+      expect(apiMocks.apiFetch).toHaveBeenCalled();
+    });
+
+    const [, init] = apiMocks.apiFetch.mock.calls[0] as [
+      string,
+      { body: FormData; method: string },
+    ];
+    expect(init.body.has("resumeReview")).toBe(false);
 
     act(() => {
       root.unmount();
