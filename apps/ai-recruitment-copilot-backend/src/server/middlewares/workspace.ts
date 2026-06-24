@@ -1,5 +1,6 @@
 import { asc, eq } from "drizzle-orm";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
+import { isNoAccessWorkspaceRole } from "@arc/ai-recruitment-copilot-backend/server/access/workspace-roles";
 import { session as sessionTable } from "@arc/db-schema/schema";
 import { factory } from "@arc/ai-recruitment-copilot-backend/server/factory";
 
@@ -83,6 +84,9 @@ export const workspaceMiddleware = factory.createMiddleware(async (c, next) => {
   }
 
   const { organization: activeOrg, ...activeMember } = row;
+  if (isNoAccessWorkspaceRole(activeMember.role)) {
+    return c.json({ message: "Forbidden" }, 403);
+  }
   c.set("activeOrg", activeOrg);
   c.set("member", activeMember);
   return next();

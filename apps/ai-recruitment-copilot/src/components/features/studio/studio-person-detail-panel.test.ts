@@ -40,12 +40,28 @@ describe("StudioPersonDetailPanel visual density", () => {
     );
 
     expect(reportsSource).toContain('<SummaryMetric label="本轮通话次数"');
-    expect(reportsSource).toContain("rounded-2xl bg-muted/20 px-0");
+    expect(reportsSource).toContain("rounded-2xl border border-border/70 bg-muted/25 px-0");
     expect(questionsSource).toContain('className="space-y-4"');
     expect(questionsSource).toContain("rounded-xl bg-muted/30 px-4 py-3 border-muted/60 border");
     expect(experienceSource).not.toContain("rounded-2xl border border-border bg-background p-5");
     expect(roundsSource).toContain('className="space-y-4"');
     expect(roundsSource).toContain("rounded-xl bg-muted/30 px-4 py-3 border-muted/60 border");
     expect(roundsSource).not.toContain("<SoftPanel");
+  });
+
+  it("uses a consistent framed surface for expanded interview report items", () => {
+    const reportsSource = sourceBetween(
+      '<TabsContent value="reports">',
+      '<TabsContent value="questions">',
+    );
+
+    expect(reportsSource).toContain("rounded-2xl border border-border/70 bg-muted/25 px-0");
+    expect(reportsSource).toContain("bg-muted/25 px-5 pt-4 pb-5");
+    expect(reportsSource).toContain(
+      "rounded-2xl border border-border/60 bg-background/80 p-4 shadow-sm",
+    );
+    expect(reportsSource).toContain(
+      "rounded-xl border border-border/60 bg-background p-4 shadow-sm",
+    );
   });
 });

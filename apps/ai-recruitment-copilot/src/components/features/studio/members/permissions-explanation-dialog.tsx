@@ -28,6 +28,7 @@ const ROLE_COLUMNS = WORKSPACE_ROLES;
 const ROLE_SUMMARIES = {
   admin: "日常管理权限",
   member: "招聘组决定业务范围",
+  noAccess: "等待管理员分配",
   owner: "完整管理权限",
 } as const satisfies Record<(typeof ROLE_COLUMNS)[number], string>;
 
@@ -35,60 +36,70 @@ const PERMISSION_ROWS = [
   {
     admin: "邀请、移除成员；可将其他成员调整为普通成员（不能调整其他管理员或自己）",
     member: "无",
+    noAccess: "无",
     owner: "邀请、移除成员；调整任意角色；转让所有权",
     resource: "成员管理",
   },
   {
     admin: "新增、查看、编辑、删除",
     member: "由招聘组内角色决定",
+    noAccess: "无",
     owner: "新增、查看、编辑、删除",
     resource: "面试",
   },
   {
     admin: "新增、查看、编辑、删除",
     member: "由招聘组内角色决定",
+    noAccess: "无",
     owner: "新增、查看、编辑、删除",
     resource: "职位 JD",
   },
   {
     admin: "新增、查看、编辑、删除",
     member: "由招聘组内角色决定",
+    noAccess: "无",
     owner: "新增、查看、编辑、删除",
     resource: "部门",
   },
   {
     admin: "新增、查看、编辑、删除",
     member: "由招聘组内角色决定",
+    noAccess: "无",
     owner: "新增、查看、编辑、删除",
     resource: "面试官",
   },
   {
     admin: "新增、查看、编辑、删除",
     member: "由招聘组内角色决定",
+    noAccess: "无",
     owner: "新增、查看、编辑、删除",
     resource: "候选人表单",
   },
   {
     admin: "新增、查看、编辑、删除",
     member: "由招聘组内角色决定",
+    noAccess: "无",
     owner: "新增、查看、编辑、删除",
     resource: "面试题模板",
   },
   {
     admin: "查看、编辑",
     member: "查看",
+    noAccess: "无",
     owner: "查看、编辑",
     resource: "系统设置",
   },
   {
     admin: "新增、查看、编辑、删除",
     member: "新增、查看、编辑、删除",
+    noAccess: "无",
     owner: "新增、查看、编辑、删除",
     resource: "聊天助手",
   },
   {
     admin: "查看",
     member: "无",
+    noAccess: "无",
     owner: "查看",
     resource: "审计日志",
   },

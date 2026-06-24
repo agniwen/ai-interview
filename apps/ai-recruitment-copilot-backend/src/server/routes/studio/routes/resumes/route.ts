@@ -130,7 +130,7 @@ export const resumeLibraryRouter = factory
   .createApp()
   .get(
     "/",
-    requirePermission("resume", "read"),
+    requirePermission("resumeLibrary", "read"),
     zValidator(
       "query",
       z.object({
@@ -183,7 +183,7 @@ export const resumeLibraryRouter = factory
   )
   .get(
     "/skill-suggestions",
-    requirePermission("resume", "read"),
+    requirePermission("resumeLibrary", "read"),
     zValidator(
       "query",
       z.object({
@@ -207,7 +207,7 @@ export const resumeLibraryRouter = factory
   )
   .post(
     "/dedup-check",
-    requirePermission("resume", "read"),
+    requirePermission("resumeLibrary", "read"),
     zValidator("json", dedupCheckInputSchema, jsonValidatorError("请求参数无效。")),
     async (c) => {
       const { activeOrg } = c.var;
@@ -237,7 +237,7 @@ export const resumeLibraryRouter = factory
       return c.json({ matches }, 200);
     },
   )
-  .get("/:id", requirePermission("resume", "read"), async (c) => {
+  .get("/:id", requirePermission("resumeLibrary", "read"), async (c) => {
     const { activeOrg } = c.var;
     if (!activeOrg) {
       return c.json({ message: "Unauthorized" }, 401);
@@ -254,7 +254,7 @@ export const resumeLibraryRouter = factory
     }
     return c.json(record, 200);
   })
-  .get("/:id/timeline", requirePermission("resume", "read"), async (c) => {
+  .get("/:id/timeline", requirePermission("resumeLibrary", "read"), async (c) => {
     const { activeOrg } = c.var;
     if (!activeOrg) {
       return c.json({ message: "Unauthorized" }, 401);
@@ -271,7 +271,7 @@ export const resumeLibraryRouter = factory
     }
     return c.json(timeline, 200);
   })
-  .get("/:id/rounds", requirePermission("resume", "read"), async (c) => {
+  .get("/:id/rounds", requirePermission("resumeLibrary", "read"), async (c) => {
     // 拉取该候选人的所有面试轮次（按 sortOrder 升序），用于简历库详情弹窗的「AI 面试」tab。
     // List all rounds for this candidate, sorted by sortOrder asc — used by
     // the resume library detail dialog's "AI 面试" tab.
@@ -294,7 +294,7 @@ export const resumeLibraryRouter = factory
   })
   .post(
     "/:id/launch-interview",
-    requirePermission("resume", "update"),
+    requirePermission("resumeLibrary", "update"),
     zValidator("json", launchInterviewSchema, jsonValidatorError("请求参数无效。")),
     async (c) => {
       // 从简历库「发起 AI 面试」：把（可能被用户编辑过的）面试题写回现有
@@ -375,7 +375,7 @@ export const resumeLibraryRouter = factory
       return c.json(detail, 201);
     },
   )
-  .get("/:id/resume", requirePermission("resume", "read"), async (c) => {
+  .get("/:id/resume", requirePermission("resumeLibrary", "read"), async (c) => {
     const { activeOrg } = c.var;
     if (!activeOrg) {
       return c.json({ message: "Unauthorized" }, 401);
@@ -424,7 +424,7 @@ export const resumeLibraryRouter = factory
       },
     });
   })
-  .get("/:id/resume-preview.pdf", requirePermission("resume", "read"), async (c) => {
+  .get("/:id/resume-preview.pdf", requirePermission("resumeLibrary", "read"), async (c) => {
     const { activeOrg } = c.var;
     if (!activeOrg) {
       return c.json({ message: "Unauthorized" }, 401);
@@ -469,7 +469,7 @@ export const resumeLibraryRouter = factory
     });
   })
   // oxlint-disable-next-line complexity -- single create handler orchestrates upload + parse + insert.
-  .post("/", requirePermission("resume", "create"), async (c) => {
+  .post("/", requirePermission("resumeLibrary", "create"), async (c) => {
     const { activeOrg } = c.var;
     if (!activeOrg) {
       return c.json({ message: "Unauthorized" }, 401);
@@ -571,7 +571,7 @@ export const resumeLibraryRouter = factory
     }
   })
   // oxlint-disable-next-line complexity -- single update handler orchestrates upload + parse + whitelist write.
-  .patch("/:id", requirePermission("resume", "update"), async (c) => {
+  .patch("/:id", requirePermission("resumeLibrary", "update"), async (c) => {
     const { activeOrg } = c.var;
     if (!activeOrg) {
       return c.json({ message: "Unauthorized" }, 401);
@@ -698,7 +698,7 @@ export const resumeLibraryRouter = factory
       return c.json({ error: result.error }, { status: result.status as ContentfulStatusCode });
     }
   })
-  .delete("/:id", requirePermission("resume", "delete"), async (c) => {
+  .delete("/:id", requirePermission("resumeLibrary", "delete"), async (c) => {
     const { activeOrg } = c.var;
     if (!activeOrg) {
       return c.json({ message: "Unauthorized" }, 401);
@@ -737,7 +737,7 @@ export const resumeLibraryRouter = factory
   })
   .post(
     "/bulk-delete",
-    requirePermission("resume", "delete"),
+    requirePermission("resumeLibrary", "delete"),
     zValidator(
       "json",
       z.object({ ids: z.array(z.string()).nonempty() }),

@@ -1,7 +1,13 @@
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
-import { department, jobDescription, organization, referralLink, user } from "@arc/db-schema/schema";
+import {
+  department,
+  jobDescription,
+  organization,
+  referralLink,
+  user,
+} from "@arc/db-schema/schema";
 import {
   createJobDescriptionReferralLink,
   resolveReferralLink,
@@ -88,7 +94,10 @@ describe("referral links", () => {
       organizationName: "明日科技",
       referrerName: "张三",
     });
-    expect(toPublicReferralPreview(resolved!)).toEqual({
+    if (!resolved) {
+      throw new Error("Expected referral link to resolve");
+    }
+    expect(toPublicReferralPreview(resolved)).toEqual({
       companyName: "明日科技",
       jobDescriptionCode: "FE-2026",
       jobDescriptionName: "前端工程师",

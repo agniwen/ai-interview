@@ -175,7 +175,7 @@ export function InterviewMetricsPanel({
         className={cn(
           surface === "card"
             ? "rounded-2xl border border-border bg-background p-4"
-            : "rounded-xl bg-background/70 p-4",
+            : "rounded-xl border border-border/60 bg-background p-4 shadow-sm",
         )}
       >
         <h4 className="font-medium text-sm">通话指标</h4>
@@ -207,7 +207,7 @@ export function InterviewMetricsPanel({
       className={cn(
         surface === "card"
           ? "rounded-2xl border border-border bg-background p-4"
-          : "rounded-xl bg-background/70 p-4",
+          : "rounded-xl border border-border/60 bg-background p-4 shadow-sm",
       )}
     >
       <h4 className="font-medium text-sm">通话指标</h4>

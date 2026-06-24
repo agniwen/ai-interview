@@ -32,17 +32,16 @@ import {
   getWorkspaceRoleDescription,
   getWorkspaceRoleLabel,
 } from "./role-display";
-import type { WorkspaceRole } from "./role-display";
 
 const EMAIL_MAX_LENGTH = 200;
 
 interface InviteDialogProps {
-  assignableRoles?: readonly WorkspaceRole[];
+  assignableRoles?: readonly string[];
   /** 自定义触发节点；省略则用默认"邀请成员"按钮。 */
   trigger?: ReactNode;
 }
 
-function getDefaultInviteRole(assignableRoles: readonly WorkspaceRole[]): WorkspaceRole {
+function getDefaultInviteRole(assignableRoles: readonly string[]): string {
   return assignableRoles.includes("member") ? "member" : (assignableRoles[0] ?? "member");
 }
 
@@ -52,7 +51,7 @@ export function InviteDialog({
 }: InviteDialogProps = {}) {
   const [open, setOpen] = useState(false);
   const [email, setEmail] = useState("");
-  const [role, setRole] = useState<WorkspaceRole>(() => getDefaultInviteRole(assignableRoles));
+  const [role, setRole] = useState(() => getDefaultInviteRole(assignableRoles));
   const [submitting, setSubmitting] = useState(false);
   const canInviteWithSelectedRole = assignableRoles.includes(role);
 
@@ -71,7 +70,7 @@ export function InviteDialog({
     setSubmitting(true);
     const { data, error } = await authClient.organization.inviteMember({
       email: trimmedEmail,
-      role,
+      role: role as "admin" | "member",
     });
     setSubmitting(false);
     if (error || !data) {
@@ -122,11 +121,7 @@ export function InviteDialog({
           </Field>
           <Field>
             <FieldLabel htmlFor="invite-role">工作区角色</FieldLabel>
-            <Select
-              disabled={assignableRoles.length === 0}
-              value={role}
-              onValueChange={(v) => setRole(v as WorkspaceRole)}
-            >
+            <Select disabled={assignableRoles.length === 0} value={role} onValueChange={setRole}>
               <SelectTrigger className="w-full" id="invite-role">
                 <SelectValue />
               </SelectTrigger>

@@ -54,6 +54,7 @@ const WHITESPACE_REGEX = /\s+/u;
 const ROLE_BADGE_VARIANT: Record<WorkspaceRole, "default" | "secondary" | "outline"> = {
   admin: "default",
   member: "secondary",
+  noAccess: "outline",
   owner: "default",
 };
 

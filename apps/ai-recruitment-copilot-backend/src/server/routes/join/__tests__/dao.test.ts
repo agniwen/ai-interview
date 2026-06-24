@@ -25,7 +25,7 @@ async function clean() {
   await db.delete(user).where(eq(user.id, JOINER));
 }
 
-async function seedLink(opts: { disabled?: boolean } = {}) {
+async function seedLink(opts: { disabled?: boolean; initialRole?: string } = {}) {
   await db.insert(user).values([
     {
       createdAt: new Date(),
@@ -72,6 +72,7 @@ async function seedLink(opts: { disabled?: boolean } = {}) {
     createdBy: OWNER,
     disabledAt: opts.disabled ? new Date() : null,
     id: "wil_test",
+    initialRole: opts.initialRole ?? "noAccess",
     organizationId: ORG,
   });
 }
@@ -102,7 +103,7 @@ describe("join dao", () => {
     expect(preview.alreadyMember).toBe(true);
   });
 
-  it("acceptInviteLink inserts workspace member and default recruiting group HR membership", async () => {
+  it("acceptInviteLink inserts no-access workspace member without default recruiting group membership", async () => {
     await seedLink();
     const result = await acceptInviteLink({ code: "TESTCODE12345678", userId: JOINER });
     expect(result.status).toBe("joined");
@@ -110,8 +111,24 @@ describe("join dao", () => {
     const row = await db.query.member.findFirst({
       where: { organizationId: ORG, userId: JOINER },
     });
-    expect(row?.role).toBe("member");
+    expect(row?.role).toBe("noAccess");
     expect(row?.inviteLinkId).toBe("wil_test");
+
+    const groupRow = await db.query.recruitingGroupMember.findFirst({
+      where: { groupId: "rg_join_default", organizationId: ORG, userId: JOINER },
+    });
+    expect(groupRow).toBeUndefined();
+  });
+
+  it("acceptInviteLink inserts member role and default recruiting group HR membership", async () => {
+    await seedLink({ initialRole: "member" });
+    const result = await acceptInviteLink({ code: "TESTCODE12345678", userId: JOINER });
+    expect(result.status).toBe("joined");
+
+    const row = await db.query.member.findFirst({
+      where: { organizationId: ORG, userId: JOINER },
+    });
+    expect(row?.role).toBe("member");
 
     const groupRow = await db.query.recruitingGroupMember.findFirst({
       where: { groupId: "rg_join_default", organizationId: ORG, userId: JOINER },

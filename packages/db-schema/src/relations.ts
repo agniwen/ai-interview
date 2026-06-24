@@ -264,12 +264,19 @@ export const relations = defineRelations(schema, (r) => ({
     invitations: r.many.invitation(),
     jobDescriptions: r.many.jobDescription(),
     members: r.many.member(),
+    organizationRoles: r.many.organizationRole(),
     studioHumanInterviewMeetings: r.many.studioHumanInterviewMeeting(),
     studioInterviewSchedules: r.many.studioInterviewSchedule(),
     studioInterviews: r.many.studioInterview(),
     studioOrgSkills: r.many.studioOrgSkill(),
     studioRoundEmailLogs: r.many.studioRoundEmailLog(),
     workspaceInviteLinks: r.many.workspaceInviteLink(),
+  },
+  organizationRole: {
+    organization: r.one.organization({
+      from: r.organizationRole.organizationId,
+      to: r.organization.id,
+    }),
   },
   resumePoolEvent: {
     actor: r.one.user({

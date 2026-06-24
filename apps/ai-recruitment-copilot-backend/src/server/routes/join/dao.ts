@@ -2,9 +2,11 @@ import { nanoid } from "nanoid";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import { addMemberToDefaultRecruitingGroup } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/workspace/dao";
 import { member } from "@arc/db-schema/schema";
+import { NO_ACCESS_WORKSPACE_ROLE } from "@arc/shared/permissions";
 
 export interface JoinPreview {
   valid: boolean;
+  initialRole?: string;
   workspace?: {
     id: string;
     name: string;
@@ -39,6 +41,7 @@ export async function getJoinPreview(input: {
   }
   return {
     alreadyMember,
+    initialRole: link.initialRole,
     valid: true,
     workspace: { id: org.id, logo: org.logo, name: org.name, slug: org.slug },
   };
@@ -57,6 +60,7 @@ export interface AcceptResult {
   status: "joined" | "already_member";
   organizationId: string;
   organizationSlug: string;
+  role: string;
 }
 
 export async function acceptInviteLink(input: {
@@ -87,17 +91,19 @@ export async function acceptInviteLink(input: {
       return {
         organizationId: org.id,
         organizationSlug: org.slug,
+        role: existing.role,
         status: "already_member" as const,
       };
     }
 
+    const initialRole = link.initialRole || NO_ACCESS_WORKSPACE_ROLE;
     try {
       await tx.insert(member).values({
         createdAt: new Date(),
         id: `mem_${nanoid(16)}`,
         inviteLinkId: link.id,
         organizationId: org.id,
-        role: "member",
+        role: initialRole,
         userId: input.userId,
       });
     } catch (error) {
@@ -109,6 +115,7 @@ export async function acceptInviteLink(input: {
         return {
           organizationId: org.id,
           organizationSlug: org.slug,
+          role: again.role,
           status: "already_member" as const,
         };
       }
@@ -117,11 +124,12 @@ export async function acceptInviteLink(input: {
     return {
       organizationId: org.id,
       organizationSlug: org.slug,
+      role: initialRole,
       status: "joined" as const,
     };
   });
 
-  if (result.status === "joined") {
+  if (result.status === "joined" && result.role === "member") {
     await addMemberToDefaultRecruitingGroup({
       createdBy: inviteLinkCreatorId,
       organizationId: result.organizationId,

@@ -22,6 +22,20 @@ export const authClient = createAuthClient({
     // 在浏览器里同步本地解析（不发请求）。
     // Client uses the same ac+roles so checkRolePermission resolves locally,
     // no network round trip for UI gating.
-    organizationClient({ ac, roles }),
+    organizationClient({
+      ac,
+      dynamicAccessControl: { enabled: true },
+      roles,
+      schema: {
+        organizationRole: {
+          additionalFields: {
+            name: {
+              required: true,
+              type: "string",
+            },
+          },
+        },
+      },
+    }),
   ],
 });

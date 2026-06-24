@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { Outlet, createFileRoute, notFound, redirect, useLoaderData } from "@tanstack/react-router";
+import { NO_ACCESS_WORKSPACE_ROLE } from "@arc/shared/permissions";
 import { BackgroundStreamToaster } from "@/components/features/chat/background-stream-toaster";
 import { AppSidebarShell } from "@/components/layout/app-sidebar/app-sidebar-shell";
 import { authClient } from "@/lib/client/auth-client";
@@ -76,6 +77,10 @@ export const Route = createFileRoute("/w/$slug")({
 
     if (state.status === "not_found") {
       throw notFound();
+    }
+
+    if (state.member.role === NO_ACCESS_WORKSPACE_ROLE) {
+      throw redirect({ href: "/wait" });
     }
 
     if (location.pathname === `/w/${params.slug}`) {

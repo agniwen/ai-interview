@@ -1104,7 +1104,7 @@ function useStudioPersonDetailPanel({
                   {isReportsLoading ? (
                     <InterviewResultOverviewSkeleton />
                   ) : (
-                    <section className="h-full rounded-2xl bg-muted/20 p-5">
+                    <section className="h-full rounded-2xl bg-muted/20 border-muted/60 border p-5">
                       <div className="flex flex-wrap items-center justify-between gap-3">
                         <h3 className="font-medium text-sm">面试结果</h3>
                         <Badge
@@ -1162,7 +1162,7 @@ function useStudioPersonDetailPanel({
                     </section>
                   )}
 
-                  <section className="h-full space-y-4 border-t border-border/50 pt-6 xl:border-t-0 xl:pt-0">
+                  <section className="h-full space-y-4  rounded-2xl bg-muted/20 border-muted/60 border p-5">
                     <h3 className="font-medium text-sm">候选人信息</h3>
                     <div>
                       <CandidateBasicInfoView
@@ -1337,11 +1337,11 @@ function useStudioPersonDetailPanel({
 
                         return (
                           <AccordionItem
-                            className="overflow-hidden rounded-2xl bg-muted/20 px-0"
+                            className="overflow-hidden rounded-2xl border border-border/70 bg-muted/25 px-0 shadow-sm"
                             key={report.conversationId}
                             value={report.conversationId}
                           >
-                            <AccordionTrigger className="px-5 py-4 hover:no-underline">
+                            <AccordionTrigger className="rounded-none px-5 py-4 hover:no-underline data-[state=open]:border-border/60 data-[state=open]:border-b data-[state=open]:bg-background/70">
                               <div className="min-w-0 flex-1 text-left">
                                 <div className="flex flex-wrap items-center gap-2">
                                   <TimeDisplay
@@ -1365,8 +1365,8 @@ function useStudioPersonDetailPanel({
                                 </div>
                               </div>
                             </AccordionTrigger>
-                            <AccordionContent className="px-5 pb-5">
-                              <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(400px,1fr)]">
+                            <AccordionContent className="bg-muted/25 px-5 pt-4 pb-5">
+                              <div className="grid gap-4  lg:grid-cols-[minmax(0,1fr)_minmax(400px,1fr)]">
                                 <div className="space-y-4">
                                   {env.NEXT_PUBLIC_ENABLE_INTERVIEW_RECORDING ? (
                                     <RecordingPlayer
@@ -1379,7 +1379,7 @@ function useStudioPersonDetailPanel({
                                       surface="section"
                                     />
                                   ) : null}
-                                  <section className="rounded-xl bg-background/70 p-4">
+                                  <section className="rounded-xl border border-border/60 bg-background p-4 shadow-sm">
                                     <h4 className="font-medium text-sm">会话概览</h4>
                                     <div className="mt-3 grid gap-x-8 gap-y-4 text-sm md:grid-cols-2">
                                       <DetailRow
@@ -1435,7 +1435,7 @@ function useStudioPersonDetailPanel({
                                     </div>
                                   </section>
 
-                                  <section className="rounded-xl bg-background/70 p-4">
+                                  <section className="rounded-xl border border-border/60 bg-background p-4 shadow-sm">
                                     <h4 className="font-medium text-sm">最终总结</h4>
                                     <div className="mt-3 text-muted-foreground text-sm leading-6">
                                       <Markdown>
@@ -1451,7 +1451,7 @@ function useStudioPersonDetailPanel({
                                 </div>
 
                                 <div className="lg:relative">
-                                  <section className="flex h-[480px] flex-col overflow-hidden rounded-xl bg-background/70 p-4 lg:absolute lg:inset-0 lg:h-auto">
+                                  <section className="flex h-[480px] flex-col overflow-hidden rounded-xl border border-border/60 bg-background p-4 shadow-sm lg:absolute lg:inset-0 lg:h-auto">
                                     <h4 className="shrink-0 pb-2 font-medium text-sm">对话记录</h4>
                                     <ConversationTranscript
                                       activeTurnIndex={activeEvidence?.turnIndex ?? null}
@@ -1460,7 +1460,7 @@ function useStudioPersonDetailPanel({
                                   </section>
                                 </div>
 
-                                <section className="rounded-xl bg-background/70 p-4">
+                                <section className="rounded-xl border border-border/60 bg-background p-4 shadow-sm">
                                   <h4 className="font-medium text-sm">评估指标</h4>
                                   <div className="mt-4 max-h-[420px] overflow-y-auto pr-1">
                                     <EvaluationResults

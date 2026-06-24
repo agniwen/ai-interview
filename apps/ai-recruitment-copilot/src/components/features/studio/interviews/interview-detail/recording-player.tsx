@@ -91,7 +91,7 @@ export function RecordingPlayer({
         className={cn(
           surface === "card"
             ? "rounded-2xl border border-border bg-background p-4"
-            : "rounded-xl bg-background/70 p-4",
+            : "rounded-xl border border-border/60 bg-background p-4 shadow-sm",
         )}
       >
         <h4 className="font-medium text-sm">面试录像</h4>
@@ -125,7 +125,7 @@ export function RecordingPlayer({
       className={cn(
         surface === "card"
           ? "rounded-2xl border border-border bg-background p-4"
-          : "rounded-xl bg-background/70 p-4",
+          : "rounded-xl border border-border/60 bg-background p-4 shadow-sm",
       )}
     >
       <div className="flex flex-wrap items-center justify-between gap-2">

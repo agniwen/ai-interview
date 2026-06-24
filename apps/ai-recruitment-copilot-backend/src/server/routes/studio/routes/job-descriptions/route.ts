@@ -122,7 +122,7 @@ const recommendationBodySchema = z.object({
 });
 
 function buildReferralUrl(requestUrl: string, token: string): string {
-  const origin = new URL(requestUrl).origin;
+  const { origin } = new URL(requestUrl);
   return `${origin}/referrals/${encodeURIComponent(token)}`;
 }
 
@@ -312,7 +312,10 @@ export const jobDescriptionsRouter = factory
       jobDescriptionId: id,
       organizationId: activeOrg.id,
     });
-    return c.json({ url: buildReferralUrl(c.req.url, token) } satisfies ReferralLinkCreateResult, 201);
+    return c.json(
+      { url: buildReferralUrl(c.req.url, token) } satisfies ReferralLinkCreateResult,
+      201,
+    );
   })
   .get("/:id", requirePermission("jd", "read"), async (c) => {
     const { activeOrg } = c.var;
@@ -329,7 +332,7 @@ export const jobDescriptionsRouter = factory
   .post(
     "/:id/recommendations",
     requirePermission("jd", "read"),
-    requirePermission("resume", "read"),
+    requirePermission("resumeLibrary", "read"),
     zValidator("json", recommendationBodySchema, jsonValidatorError("请求参数无效。")),
     async (c) => {
       const { activeOrg } = c.var;

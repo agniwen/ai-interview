@@ -27,6 +27,7 @@ const ROUTE_META: { prefix: string; meta: RouteMeta }[] = [
   { meta: { title: "工作区管理" }, prefix: "/studio/members" },
   { meta: { title: "邮箱监听" }, prefix: "/studio/mail-ingest-accounts" },
   { meta: { title: "系统设置" }, prefix: "/studio/global-config" },
+  { meta: { title: "权限管理" }, prefix: "/studio/permissions" },
 ];
 
 const DEFAULT_META: RouteMeta = { title: "简历库" };

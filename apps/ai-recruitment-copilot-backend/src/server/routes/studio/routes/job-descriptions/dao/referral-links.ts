@@ -6,7 +6,7 @@ import { jobDescription, organization, referralLink, user } from "@arc/db-schema
 
 const TOKEN_BYTES = 32;
 
-async function hashReferralToken(token: string): Promise<string> {
+function hashReferralToken(token: string): Promise<string> {
   return sha256HexOfBytes(new TextEncoder().encode(token));
 }
 

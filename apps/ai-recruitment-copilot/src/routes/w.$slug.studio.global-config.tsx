@@ -1,6 +1,7 @@
 import { createFileRoute, notFound, redirect, useLoaderData } from "@tanstack/react-router";
 import { GlobalConfigForm } from "@/components/features/studio/global-config/global-config-form";
 import { loadStudioGlobalConfigState } from "@/lib/start/studio/global-config.functions";
+import { requireStudioPageAccess } from "@/lib/start/studio/page-access";
 
 function StudioGlobalConfigRoute() {
   const state = useLoaderData({ from: "/w/$slug/studio/global-config" });
@@ -18,6 +19,11 @@ export const Route = createFileRoute("/w/$slug/studio/global-config")({
     meta: [{ title: "系统设置" }],
   }),
   loader: async ({ params }) => {
+    await requireStudioPageAccess({
+      action: "globalConfig",
+      pathname: `/w/${params.slug}/studio/global-config`,
+      slug: params.slug,
+    });
     const state = await loadStudioGlobalConfigState({ data: { slug: params.slug } });
     if (state.status === "unauthenticated") {
       throw redirect({
