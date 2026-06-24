@@ -83,7 +83,9 @@ import {
 } from "@/lib/client/api";
 import { rpc } from "@/lib/client/rpc";
 import { rpcFetch } from "@/lib/client/api/rpc-fetch";
-import { useWorkspaceSlug } from "@/lib/client/workspace-context";
+import { authClient } from "@/lib/client/auth-client";
+import { copyTextToClipboard, toAbsoluteUrl } from "@/lib/client/clipboard";
+import { useWorkspaceMemberRole, useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { useHasPermission } from "@/hooks/use-has-permission";
 import { StudioPersonDetailDialog } from "@/components/features/studio/studio-person-detail-dialog";
 import { StudioPersonEditDialog } from "@/components/features/studio/studio-person-edit-dialog";
@@ -268,6 +270,40 @@ function describeLifecycleCell(record: ResumeLibraryListRecord) {
   };
 }
 
+function canCopyResumeDetailLink({
+  currentMemberRole,
+  currentUserId,
+  record,
+}: {
+  currentMemberRole: string;
+  currentUserId: string | null;
+  record: ResumeLibraryListRecord;
+}) {
+  return (
+    currentMemberRole === "owner" ||
+    currentMemberRole === "admin" ||
+    (Boolean(currentUserId) && record.createdBy === currentUserId)
+  );
+}
+
+async function copyResumeDetailLink(slug: string, record: ResumeLibraryListRecord) {
+  const fullLink = toAbsoluteUrl(`/resume-review/${slug}/${record.id}`);
+  try {
+    const result = await copyTextToClipboard(fullLink);
+    if (result === "copied") {
+      toast.success("详情链接已复制");
+      return;
+    }
+    if (result === "manual") {
+      toast.info("已弹出链接，请手动复制");
+      return;
+    }
+    throw new Error("copy-failed");
+  } catch {
+    toast.error("复制失败，请手动复制");
+  }
+}
+
 function ResumeProgressCell({
   onOpen,
   record,
@@ -328,9 +364,12 @@ interface FetchParams {
 // oxlint-disable-next-line eslint/complexity
 function ResumeLibraryPage({ metrics }: { metrics: ResumeLibraryMetrics }) {
   const slug = useWorkspaceSlug();
+  const currentMemberRole = useWorkspaceMemberRole();
   const router = useRouter();
   const routeSearch = useSearch({ from: "/w/$slug/studio/resumes" });
   const queryClient = useQueryClient();
+  const { data: session } = authClient.useSession();
+  const currentUserId = session?.user?.id ?? null;
   const canCreateInterview = useHasPermission("interview", "create");
   const canCreateResumeLibrary = useHasPermission("resumeLibrary", "create");
   const canUpdateResumeLibrary = useHasPermission("resumeLibrary", "update");
@@ -719,6 +758,16 @@ function ResumeLibraryPage({ metrics }: { metrics: ResumeLibraryMetrics }) {
         ],
         menu: [
           {
+            label: "复制详情链接",
+            onClick: (r) => void copyResumeDetailLink(slug, r),
+            show: (r) =>
+              canCopyResumeDetailLink({
+                currentMemberRole,
+                currentUserId,
+                record: r,
+              }),
+          },
+          {
             label: "查看简历",
             onClick: (r) => setPreviewRecord(r),
             show: (r) =>
@@ -777,7 +826,14 @@ function ResumeLibraryPage({ metrics }: { metrics: ResumeLibraryMetrics }) {
     ],
     // startAiInterview captures setLaunchingRecord which is stable; safe to omit from deps.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [canCreateInterview, canDeleteResumeLibrary, canUpdateResumeLibrary],
+    [
+      canCreateInterview,
+      canDeleteResumeLibrary,
+      canUpdateResumeLibrary,
+      currentMemberRole,
+      currentUserId,
+      slug,
+    ],
   );
 
   const filtersConfig = useMemo(
@@ -1338,7 +1394,7 @@ export const Route = createFileRoute("/w/$slug/studio/resumes")({
   }),
   loader: async (loaderContext) => {
     const { location, params } = loaderContext as unknown as {
-      location: { search: SearchParamsRecord };
+      location: { pathname: string; search: SearchParamsRecord };
       params: { slug: string };
     };
     const query = parseResumeQuery(location.search);

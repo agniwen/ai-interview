@@ -23,7 +23,7 @@ const resumeFiltersSchema = z.object({
   stage: z.string(),
 });
 
-export type StudioResumesState =
+export type StudioResumesServerState =
   | { status: "unauthenticated" }
   | { status: "not_found" }
   | {
@@ -32,9 +32,11 @@ export type StudioResumesState =
       status: "ready";
     };
 
+export type StudioResumesState = StudioResumesServerState;
+
 export const loadStudioResumesState = createServerFn({ method: "GET" })
   .validator(workspaceDataGridInputSchema(resumeFiltersSchema))
-  .handler(async ({ data }): Promise<StudioResumesState> => {
+  .handler(async ({ data }): Promise<StudioResumesServerState> => {
     const access = await resolveWorkspaceAccessFromRequest(data.slug);
     if (access.status !== "ready") {
       return access;

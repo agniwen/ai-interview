@@ -37,6 +37,7 @@ import type {
   HumanInterviewRoundStatus,
   OfferDraftStatus,
   PipelineStage,
+  ResumeEvaluationStatus,
   ResumeParseStatus,
   ScheduleEntryStatus,
   StudioInterviewStatus,
@@ -442,6 +443,7 @@ export const studioInterview = pgTable(
     // Stage axis; default lets pre-migration INSERTs succeed.
     pipelineStage: text("pipeline_stage").$type<PipelineStage>().notNull().default("screening"),
     resumeContentHash: text("resume_content_hash"),
+    resumeEvaluationStatus: text("resume_evaluation_status").$type<ResumeEvaluationStatus>(),
     resumeFileName: text("resume_file_name"),
     resumeParseError: text("resume_parse_error"),
     resumeParseStatus: text("resume_parse_status")
@@ -511,6 +513,10 @@ export const studioInterview = pgTable(
       table.createdAt,
     ),
     index("studio_interview_resume_content_hash_idx").on(table.resumeContentHash),
+    check(
+      "studio_interview_resume_evaluation_status_check",
+      sql`${table.resumeEvaluationStatus} IS NULL OR ${table.resumeEvaluationStatus} IN ('pass', 'fail')`,
+    ),
     index("studio_interview_resume_parse_status_idx").on(table.resumeParseStatus),
     index("studio_interview_resume_source_pool_item_idx").on(table.resumeSourcePoolItemId),
     index("studio_interview_resume_source_type_idx").on(table.resumeSourceType),

@@ -88,6 +88,7 @@ function TimelineSkeleton({ className }: { className?: string }) {
 }
 
 type CandidateTimelineDensity = "default" | "rail";
+type CandidateTimelineScrollMode = "internal" | "page";
 
 function truncateMarkdown(value: string, maxLength: number) {
   if (value.length <= maxLength) {
@@ -238,13 +239,16 @@ export function CandidateTimeline({
   data,
   density = "default",
   isLoading,
+  scrollMode = "internal",
 }: {
   className?: string;
   data: CandidateTimelineResponse | null | undefined;
   density?: CandidateTimelineDensity;
   isLoading: boolean;
+  scrollMode?: CandidateTimelineScrollMode;
 }) {
   const isRail = density === "rail";
+  const canUseInternalScroll = isRail && scrollMode === "internal";
 
   if (isLoading) {
     return <TimelineSkeleton className={className} />;
@@ -256,8 +260,8 @@ export function CandidateTimeline({
     <div
       className={cn(
         "max-w-full overflow-hidden",
-        isRail &&
-          "xl:flex xl:h-full xl:min-h-0 xl:flex-col xl:overflow-hidden xl:border-border/50 xl:border-l xl:pl-6",
+        isRail && "xl:border-border/50 xl:border-l xl:pl-6",
+        canUseInternalScroll && "xl:flex xl:h-full xl:min-h-0 xl:flex-col xl:overflow-hidden",
         className,
       )}
     >
@@ -281,7 +285,7 @@ export function CandidateTimeline({
         <ol
           className={cn(
             "relative mt-5 flex min-w-0 max-w-full flex-col gap-4",
-            isRail && "xl:min-h-0 xl:flex-1 xl:overflow-y-auto xl:pr-1",
+            canUseInternalScroll && "xl:min-h-0 xl:flex-1 xl:overflow-y-auto xl:pr-1",
           )}
         >
           {events.map((event, index) => (

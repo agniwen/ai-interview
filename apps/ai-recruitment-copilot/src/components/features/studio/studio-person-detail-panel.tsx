@@ -11,10 +11,15 @@
 
 import Markdown from "react-markdown";
 import type { StudioInterviewRoundDetail } from "@arc/shared/studio-interview-rounds";
-import type { ResumeLibraryDetail } from "@arc/shared/studio-resumes";
-import { canEditResumeRecord, canLaunchInterviewFromResume } from "@arc/shared/studio-resumes";
+import {
+  canEditResumeRecord,
+  canLaunchInterviewFromResume,
+  describeResumeEvaluationStatus,
+} from "@arc/shared/studio-resumes";
+import type { ResumeEvaluationStatus, ResumeLibraryDetail } from "@arc/shared/studio-resumes";
 import { DIFFICULTY_LABEL } from "@arc/shared/interview-question-difficulty";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { cn } from "@arc/shared/utils";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { QueryClient } from "@tanstack/react-query";
 import {
   deleteStudioInterviewFormSubmission,
@@ -28,12 +33,16 @@ import {
   fetchStudioInterviewRoundReports,
   fetchStudioResume,
   fetchStudioResumeRounds,
+  fetchStudioResumeReview,
+  fetchStudioResumeReviewRounds,
+  fetchStudioResumeReviewTimeline,
   fetchStudioResumeTimeline,
   resetStudioInterviewRound,
   resolvePublicInterviewRecordId,
   resolveStudioInterviewRecordId,
   transitionInterviewRecord,
   updateStudioInterviewRound,
+  updateResumeEvaluationStatus,
 } from "@/lib/client/api";
 import { env } from "@/env/client";
 import { useOptionalWorkspaceSlug } from "@/lib/client/workspace-context";
@@ -74,6 +83,13 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { HumanInterviewStagePanel } from "./human-interview-stage-panel";
 import { OfferStagePanel } from "./offer-stage-panel";
@@ -112,16 +128,19 @@ import {
 import { RecordingPlayer } from "./interviews/interview-detail/recording-player";
 
 export type StudioPersonDetailMode = "interview" | "resume";
+export type StudioPersonDetailLayoutMode = "modal" | "page";
 
 /**
  * 数据来源 + 是否可写。"authed" 走 `/api/w/:slug/studio/*` 既有路由族；
  * "public" 走 `/api/public/*`，所有写操作 UI 被隐藏。
+ * "review" 走 workspace 成员级详情 API，给详情链接访问者使用。
  *
  * Data source + write capability.
  * "authed" routes through the existing workspace-scoped API; "public" hits
  * the slug-less `/api/public/*` mirrors and hides all write UI.
+ * "review" uses workspace member-scoped detail APIs for reviewer links.
  */
-export type StudioPersonDetailAccessMode = "authed" | "public";
+export type StudioPersonDetailAccessMode = "authed" | "public" | "review";
 
 export type StudioPersonDetailTab =
   | "overview"
@@ -403,6 +422,7 @@ function useStudioPersonDetailPanel({
   enabled = true,
   defaultTab,
   accessMode = "authed",
+  layoutMode = "modal",
   onUpdated,
   onEdit,
   onLaunchInterview,
@@ -441,6 +461,11 @@ function useStudioPersonDetailPanel({
    * Whether to use the public data source and hide all write UI. Defaults to "authed".
    */
   accessMode?: StudioPersonDetailAccessMode;
+  /**
+   * "modal" keeps the resume overview rail on an internal scroll area; "page"
+   * lets the document own scrolling so fixed page-level footers can reserve space.
+   */
+  layoutMode?: StudioPersonDetailLayoutMode;
   /** 轮次级写操作（toggle / reset）成功后调用。/ Called after a round-level write (toggle / reset). */
   onUpdated?: () => void;
   onEdit?: (recordId: string) => void;
@@ -484,11 +509,13 @@ function useStudioPersonDetailPanel({
 }) {
   const optionalSlug = useOptionalWorkspaceSlug();
   const isPublic = accessMode === "public";
+  const isReview = accessMode === "review";
+  const canUseManagementActions = accessMode === "authed";
   // 公开模式下故意不依赖 slug；authed 模式下我们仍要求 workspace 上下文。
   // Public mode is slug-agnostic by design; authed mode still needs the workspace ctx.
   if (!isPublic && !optionalSlug) {
     throw new Error(
-      'StudioPersonDetailPanel(accessMode="authed") must run under a /w/[slug] route',
+      'StudioPersonDetailPanel(accessMode="authed"|"review") must run under a /w/[slug] route',
     );
   }
   // 仅 authed 路径下使用 slug；以变量形式保留，方便下文 string-only 接口拼接。
@@ -563,10 +590,15 @@ function useStudioPersonDetailPanel({
   // 简历库模式查询 / Resume-mode record query
   const { data: resumeRecord, isLoading: isResumeLoading } = useQuery({
     enabled: enabled && !!effectiveRecordId && mode === "resume",
-    queryFn: () =>
-      isPublic
-        ? fetchPublicResume(effectiveRecordId as string)
-        : fetchStudioResume(slug, effectiveRecordId as string),
+    queryFn: () => {
+      if (isPublic) {
+        return fetchPublicResume(effectiveRecordId as string);
+      }
+      if (isReview) {
+        return fetchStudioResumeReview(slug, effectiveRecordId as string);
+      }
+      return fetchStudioResume(slug, effectiveRecordId as string);
+    },
     queryKey: ["studio-resumes", slug, "detail", effectiveRecordId, accessMode] as const,
     staleTime: 30 * 1000,
   });
@@ -610,10 +642,15 @@ function useStudioPersonDetailPanel({
   // Resume-mode: list this candidate's AI interview rounds for the "AI 面试" tab.
   const { data: candidateRounds = [], isLoading: isRoundsLoading } = useQuery({
     enabled: enabled && !!effectiveRecordId && mode === "resume",
-    queryFn: () =>
-      isPublic
-        ? fetchPublicResumeRounds(effectiveRecordId as string)
-        : fetchStudioResumeRounds(slug, effectiveRecordId as string),
+    queryFn: () => {
+      if (isPublic) {
+        return fetchPublicResumeRounds(effectiveRecordId as string);
+      }
+      if (isReview) {
+        return fetchStudioResumeReviewRounds(slug, effectiveRecordId as string);
+      }
+      return fetchStudioResumeRounds(slug, effectiveRecordId as string);
+    },
     queryKey: ["studio-resume-rounds", slug, effectiveRecordId, accessMode] as const,
     refetchOnWindowFocus: true,
   });
@@ -621,10 +658,33 @@ function useStudioPersonDetailPanel({
   const { data: candidateTimeline, isLoading: isTimelineLoading } = useQuery({
     enabled:
       enabled && !!effectiveRecordId && mode === "resume" && !isPublic && activeTab === "overview",
-    queryFn: () => fetchStudioResumeTimeline(slug, effectiveRecordId as string),
-    queryKey: ["studio-resumes", slug, "timeline", effectiveRecordId] as const,
+    queryFn: () =>
+      isReview
+        ? fetchStudioResumeReviewTimeline(slug, effectiveRecordId as string)
+        : fetchStudioResumeTimeline(slug, effectiveRecordId as string),
+    queryKey: ["studio-resumes", slug, "timeline", effectiveRecordId, accessMode] as const,
     refetchOnWindowFocus: true,
     staleTime: 15 * 1000,
+  });
+
+  const resumeEvaluationMutation = useMutation({
+    mutationFn: (status: ResumeEvaluationStatus | null) =>
+      updateResumeEvaluationStatus(slug, effectiveRecordId as string, status),
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : "更新评估状态失败");
+    },
+    onSuccess: (detail) => {
+      queryClient.setQueryData(
+        ["studio-resumes", slug, "detail", effectiveRecordId, accessMode],
+        detail,
+      );
+      void queryClient.invalidateQueries({
+        queryKey: ["studio-resumes", slug, "timeline", effectiveRecordId],
+      });
+      void queryClient.invalidateQueries({ queryKey: ["studio-resumes", slug] });
+      onUpdated?.();
+      toast.success("评估状态已更新");
+    },
   });
 
   // 中文：当前轮次的邮件发送摘要 — 用于轮次概览里发送按钮显示发送次数与最后一次时间。
@@ -866,13 +926,16 @@ function useStudioPersonDetailPanel({
   // button stays flex-1 and naturally expands. Suppressed during rounds-load
   // to avoid a flash-then-hide.
   const canEditResumeModeRecord =
-    mode !== "resume" || !record?.resumeParseStatus
+    canUseManagementActions &&
+    !!onEdit &&
+    (mode !== "resume" || !record?.resumeParseStatus
       ? true
-      : canEditResumeRecord(record.resumeParseStatus);
+      : canEditResumeRecord(record.resumeParseStatus));
   const canLaunchResumeModeRecord =
-    mode !== "resume" || !record?.resumeParseStatus
+    canUseManagementActions &&
+    (mode !== "resume" || !record?.resumeParseStatus
       ? true
-      : canLaunchInterviewFromResume(record.resumeParseStatus);
+      : canLaunchInterviewFromResume(record.resumeParseStatus));
   const showLaunchButton =
     mode === "resume" &&
     canLaunchResumeModeRecord &&
@@ -952,6 +1015,9 @@ function useStudioPersonDetailPanel({
     if (isPublic) {
       return `/api/public/interview-rounds/${record.roundId ?? record.id}/resume`;
     }
+    if (isReview) {
+      return `/api/w/${slug}/studio/resumes/${record.id}/review/resume`;
+    }
     const previewRecordId = mode === "interview" ? (record.roundId ?? record.id) : record.id;
     return `/api/w/${slug}/studio/${mode === "resume" ? "resumes" : "interviews"}/${previewRecordId}/resume`;
   })();
@@ -961,7 +1027,11 @@ function useStudioPersonDetailPanel({
   // Action bar shows only on the authed resume-mode view. It is candidate-wide
   // state, so it lives above all tab content rather than inside a tab panel.
   const actionBar =
-    mode === "resume" && record && !isPublic && record.pipelineStage && record.outcome ? (
+    mode === "resume" &&
+    record &&
+    canUseManagementActions &&
+    record.pipelineStage &&
+    record.outcome ? (
       <PipelineStageActionBar
         aiInterviewDone={Boolean(
           resumeRecord?.stageProgress.aiInterview &&
@@ -1002,6 +1072,41 @@ function useStudioPersonDetailPanel({
         outcome={record.outcome}
         pipelineStage={record.pipelineStage}
       />
+    ) : null;
+
+  const resumeEvaluationEditor =
+    mode === "resume" && resumeRecord && canUseManagementActions && onEdit ? (
+      <section className="flex flex-col gap-3 rounded-md border border-border bg-muted/20 p-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="font-medium text-sm">简历评估</h3>
+            <Badge
+              variant={describeResumeEvaluationStatus(resumeRecord.resumeEvaluationStatus).tone}
+            >
+              {describeResumeEvaluationStatus(resumeRecord.resumeEvaluationStatus).label}
+            </Badge>
+          </div>
+          <p className="mt-1 text-muted-foreground text-xs">管理员可调整详情链接评估结果。</p>
+        </div>
+        <Select
+          disabled={resumeEvaluationMutation.isPending}
+          onValueChange={(value) => {
+            resumeEvaluationMutation.mutate(
+              value === "unreviewed" ? null : (value as ResumeEvaluationStatus),
+            );
+          }}
+          value={resumeRecord.resumeEvaluationStatus ?? "unreviewed"}
+        >
+          <SelectTrigger className="w-full sm:w-40">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="unreviewed">未评估</SelectItem>
+            <SelectItem value="pass">通过</SelectItem>
+            <SelectItem value="fail">不通过</SelectItem>
+          </SelectContent>
+        </Select>
+      </section>
     ) : null;
 
   let headerExtra: ReactNode = null;
@@ -1073,14 +1178,19 @@ function useStudioPersonDetailPanel({
   }
 
   const showTimelineRail = mode === "resume" && !isPublic && activeTab === "overview";
+  const canUseTimelineRailScroll = showTimelineRail && layoutMode === "modal";
   let bodyLayoutClassName = "flex flex-col gap-8";
   if (showTimelineRail) {
-    bodyLayoutClassName =
-      "grid gap-4 xl:h-full xl:min-h-0 xl:grid-cols-[minmax(0,1fr)_22rem] xl:overflow-hidden";
+    bodyLayoutClassName = cn(
+      "grid gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]",
+      canUseTimelineRailScroll && "xl:h-full xl:min-h-0 xl:overflow-hidden",
+      !canUseTimelineRailScroll && "xl:items-start",
+    );
   }
-  const detailScrollClassName = showTimelineRail
-    ? "min-w-0 flex flex-col gap-8 xl:h-full xl:min-h-0 xl:overflow-y-auto xl:pr-1"
-    : "min-w-0 flex flex-col gap-8";
+  const detailScrollClassName = cn(
+    "min-w-0 flex flex-col gap-8",
+    canUseTimelineRailScroll && "xl:h-full xl:min-h-0 xl:overflow-y-auto xl:pr-1",
+  );
 
   // oxlint-disable-next-line no-nested-ternary -- Splitting this tri-state body into a helper balloons JSX context; keeping inline.
   const body = isLoading ? (
@@ -1098,7 +1208,10 @@ function useStudioPersonDetailPanel({
               Resume mode: defer to ResumeOverviewPanel so the
               launch-interview dialog and this view stay in sync. */}
               {mode === "resume" && resumeRecord ? (
-                <ResumeOverviewPanel detail={resumeRecord} />
+                <>
+                  {resumeEvaluationEditor}
+                  <ResumeOverviewPanel detail={resumeRecord} />
+                </>
               ) : (
                 <div className="grid gap-8 xl:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)]">
                   {isReportsLoading ? (
@@ -1370,7 +1483,7 @@ function useStudioPersonDetailPanel({
                                 <div className="space-y-4">
                                   {env.NEXT_PUBLIC_ENABLE_INTERVIEW_RECORDING ? (
                                     <RecordingPlayer
-                                      accessMode={accessMode}
+                                      accessMode={isPublic ? "public" : "authed"}
                                       conversationId={report.conversationId}
                                       durationSecs={report.recordingDurationSecs}
                                       recordId={effectiveRoundId ?? ""}
@@ -1676,12 +1789,18 @@ function useStudioPersonDetailPanel({
         </AnimatedHeight>
       </div>
       {showTimelineRail ? (
-        <aside className="min-h-0 min-w-0 max-w-full overflow-hidden xl:h-full">
+        <aside
+          className={cn(
+            "min-h-0 min-w-0 max-w-full overflow-hidden",
+            canUseTimelineRailScroll ? "xl:h-full" : "xl:sticky xl:top-5",
+          )}
+        >
           <CandidateTimeline
-            className="xl:h-full"
+            className={canUseTimelineRailScroll ? "xl:h-full" : undefined}
             data={candidateTimeline}
             density="rail"
             isLoading={isTimelineLoading}
+            scrollMode={canUseTimelineRailScroll ? "internal" : "page"}
           />
         </aside>
       ) : null}
@@ -1693,8 +1812,8 @@ function useStudioPersonDetailPanel({
   );
 
   const footer = mode === "resume" && activeTab === "overview" ? resumeModeFooter : null;
-  const bodyClassName = showTimelineRail ? "xl:overflow-hidden" : undefined;
-  const modalClassName = showTimelineRail ? "xl:h-[90vh]" : undefined;
+  const bodyClassName = canUseTimelineRailScroll ? "xl:overflow-hidden" : undefined;
+  const modalClassName = canUseTimelineRailScroll ? "xl:h-[90vh]" : undefined;
   let modalSize: StudioPersonDetailSlots["modalSize"] = "full";
   if (mode === "resume") {
     modalSize = showTimelineRail ? "2xl" : "xl";

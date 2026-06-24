@@ -175,6 +175,7 @@ const SELECTED_COLUMNS = {
   outcome: studioInterview.outcome,
   pipelineStage: studioInterview.pipelineStage,
   resumeContentHash: studioInterview.resumeContentHash,
+  resumeEvaluationStatus: studioInterview.resumeEvaluationStatus,
   resumeFileName: studioInterview.resumeFileName,
   resumeParseError: studioInterview.resumeParseError,
   resumeParseStatus: studioInterview.resumeParseStatus,
@@ -470,6 +471,7 @@ function toRecord(row: Row, derived?: ResumeDerivedFields): ResumeLibraryListRec
     outcome: row.outcome,
     pipelineStage: row.pipelineStage,
     resumeContentHash: row.resumeContentHash,
+    resumeEvaluationStatus: row.resumeEvaluationStatus,
     resumeFileName: row.resumeFileName,
     resumeParseError: row.resumeParseError,
     resumeParseStatus: row.resumeParseStatus,
@@ -608,4 +610,11 @@ export async function loadResumeDetail(
     interviewQuestions: interviewQuestions ?? [],
     resumeProfile,
   };
+}
+
+export function loadResumeDetailForWorkspaceMember(
+  id: string,
+  organizationId: string,
+): Promise<ResumeLibraryDetail | null> {
+  return loadResumeDetail(id, organizationId);
 }

@@ -13,6 +13,8 @@ import {
   canDeleteResumeRecord,
   canEditResumeRecord,
   canLaunchInterviewFromResume,
+  resumeEvaluationStatusSubmitSchema,
+  resumeEvaluationUpdateSchema,
   resumeLibraryEditFormSchema,
   resumeLibraryFormSchema,
 } from "@arc/shared/studio-resumes";
@@ -25,9 +27,14 @@ import {
 } from "@arc/ai-recruitment-copilot-backend/server/agents/resume-analysis-agent";
 import { requirePermission } from "@arc/ai-recruitment-copilot-backend/server/middlewares/permission";
 import {
+  loadResumeDetailForWorkspaceMember,
   loadResumeDetail,
   queryPaginatedResumeRecords,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/dao/resumes";
+import {
+  submitResumeEvaluationOnce,
+  updateResumeEvaluationStatus,
+} from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/dao/evaluation";
 import { loadCandidateTimeline } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/dao/timeline";
 import {
   listOrgSkillSuggestions,
@@ -271,6 +278,157 @@ export const resumeLibraryRouter = factory
     }
     return c.json(timeline, 200);
   })
+  .get("/:id/review", async (c) => {
+    const { activeOrg } = c.var;
+    if (!activeOrg) {
+      return c.json({ message: "Unauthorized" }, 401);
+    }
+    const id = c.req.param("id");
+    const record = await loadResumeDetailForWorkspaceMember(id, activeOrg.id);
+    if (!record) {
+      return c.json({ error: "记录不存在。" }, 404);
+    }
+    return c.json(record, 200);
+  })
+  .get("/:id/review/timeline", async (c) => {
+    const { activeOrg } = c.var;
+    if (!activeOrg) {
+      return c.json({ message: "Unauthorized" }, 401);
+    }
+    const id = c.req.param("id");
+    const timeline = await loadCandidateTimeline(id, activeOrg.id, { kind: "all" });
+    if (!timeline) {
+      return c.json({ error: "记录不存在。" }, 404);
+    }
+    return c.json(timeline, 200);
+  })
+  .get("/:id/review/rounds", async (c) => {
+    const { activeOrg } = c.var;
+    if (!activeOrg) {
+      return c.json({ message: "Unauthorized" }, 401);
+    }
+    const id = c.req.param("id");
+    const existing = await loadResumeDetailForWorkspaceMember(id, activeOrg.id);
+    if (!existing) {
+      return c.json({ error: "记录不存在。" }, 404);
+    }
+    const rounds = await listInterviewRoundsForCandidate(id, activeOrg.id);
+    return c.json(rounds, 200);
+  })
+  .get("/:id/review/resume", async (c) => {
+    const { activeOrg } = c.var;
+    if (!activeOrg) {
+      return c.json({ message: "Unauthorized" }, 401);
+    }
+    const id = c.req.param("id");
+    const existing = await loadResumeDetailForWorkspaceMember(id, activeOrg.id);
+    if (!existing) {
+      return c.json({ error: "记录不存在。" }, 404);
+    }
+    if (!existing.hasResumeFile) {
+      return c.json({ error: "该候选人没有可预览的简历文件。" }, 404);
+    }
+
+    const [row] = await db
+      .select({
+        resumeFileName: studioInterview.resumeFileName,
+        resumeStorageKey: studioInterview.resumeStorageKey,
+      })
+      .from(studioInterview)
+      .where(and(eq(studioInterview.id, id), eq(studioInterview.organizationId, activeOrg.id)))
+      .limit(1);
+
+    if (!row?.resumeStorageKey) {
+      return c.json({ error: "简历文件已不可用。" }, 404);
+    }
+
+    const object = await getObjectStream(row.resumeStorageKey);
+    if (!object) {
+      return c.json({ error: "简历文件已不可用。" }, 404);
+    }
+
+    const filename = row.resumeFileName || "resume.pdf";
+    return new Response(object.body, {
+      headers: {
+        "Cache-Control": "private, max-age=300",
+        "Content-Disposition": `inline; filename="${encodeURIComponent(filename)}"`,
+        "Content-Type": object.contentType ?? "application/octet-stream",
+        ...(object.contentLength !== undefined && {
+          "Content-Length": String(object.contentLength),
+        }),
+      },
+    });
+  })
+  .get("/:id/review/resume-preview.pdf", async (c) => {
+    const { activeOrg } = c.var;
+    if (!activeOrg) {
+      return c.json({ message: "Unauthorized" }, 401);
+    }
+    const id = c.req.param("id");
+    const existing = await loadResumeDetailForWorkspaceMember(id, activeOrg.id);
+    if (!existing) {
+      return c.json({ error: "记录不存在。" }, 404);
+    }
+    if (!existing.hasResumeFile) {
+      return c.json({ error: "该候选人没有可预览的简历文件。" }, 404);
+    }
+
+    const [row] = await db
+      .select({
+        resumeFileName: studioInterview.resumeFileName,
+        resumeStorageKey: studioInterview.resumeStorageKey,
+      })
+      .from(studioInterview)
+      .where(and(eq(studioInterview.id, id), eq(studioInterview.organizationId, activeOrg.id)))
+      .limit(1);
+
+    if (!row?.resumeStorageKey) {
+      return c.json({ error: "简历文件已不可用。" }, 404);
+    }
+
+    const object = await getObjectBytes(row.resumeStorageKey);
+    if (!object) {
+      return c.json({ error: "简历文件已不可用。" }, 404);
+    }
+
+    return createPptxPreviewPdfResponse({
+      bytes: object.bytes,
+      cacheKey: row.resumeStorageKey,
+      fileName: row.resumeFileName,
+      mediaType: object.contentType,
+    });
+  })
+  .post(
+    "/:id/review/evaluation",
+    zValidator("json", resumeEvaluationStatusSubmitSchema, jsonValidatorError("请求参数无效。")),
+    async (c) => {
+      const { activeOrg } = c.var;
+      if (!activeOrg) {
+        return c.json({ message: "Unauthorized" }, 401);
+      }
+      const id = c.req.param("id");
+      const existing = await loadResumeDetailForWorkspaceMember(id, activeOrg.id);
+      if (!existing) {
+        return c.json({ error: "记录不存在。" }, 404);
+      }
+      const input = c.req.valid("json");
+      const result = await submitResumeEvaluationOnce({
+        id,
+        operatorId: c.var.user?.id ?? null,
+        organizationId: activeOrg.id,
+        status: input.status,
+      });
+      if (result.status === "already_evaluated") {
+        return c.json({ error: "该简历已评估，不能重复评估。" }, 409);
+      }
+      if (result.status === "not_found") {
+        return c.json({ error: "记录不存在。" }, 404);
+      }
+      invalidateStudioInterviewCaches(activeOrg.id);
+      const detail = await loadResumeDetailForWorkspaceMember(id, activeOrg.id);
+      return c.json(detail, 200);
+    },
+  )
   .get("/:id/rounds", requirePermission("resumeLibrary", "read"), async (c) => {
     // 拉取该候选人的所有面试轮次（按 sortOrder 升序），用于简历库详情弹窗的「AI 面试」tab。
     // List all rounds for this candidate, sorted by sortOrder asc — used by
@@ -570,6 +728,42 @@ export const resumeLibraryRouter = factory
       return c.json({ error: result.error }, { status: result.status as ContentfulStatusCode });
     }
   })
+  .patch(
+    "/:id/evaluation",
+    requirePermission("resumeLibrary", "update"),
+    zValidator("json", resumeEvaluationUpdateSchema, jsonValidatorError("请求参数无效。")),
+    async (c) => {
+      const { activeOrg } = c.var;
+      if (!activeOrg) {
+        return c.json({ message: "Unauthorized" }, 401);
+      }
+      const id = c.req.param("id");
+      const visibilityScope = await loadVisibilityScope(
+        activeOrg.id,
+        c.var.member?.role,
+        c.var.user?.id,
+      );
+      const existing = await loadResumeDetail(id, activeOrg.id, visibilityScope);
+      if (!existing) {
+        return c.json({ error: "记录不存在。" }, 404);
+      }
+
+      const input = c.req.valid("json");
+      const result = await updateResumeEvaluationStatus({
+        id,
+        operatorId: c.var.user?.id ?? null,
+        organizationId: activeOrg.id,
+        status: input.status,
+      });
+      if (result.status === "not_found") {
+        return c.json({ error: "记录不存在。" }, 404);
+      }
+
+      invalidateStudioInterviewCaches(activeOrg.id);
+      const detail = await loadResumeDetail(id, activeOrg.id, visibilityScope);
+      return c.json(detail, 200);
+    },
+  )
   // oxlint-disable-next-line complexity -- single update handler orchestrates upload + parse + whitelist write.
   .patch("/:id", requirePermission("resumeLibrary", "update"), async (c) => {
     const { activeOrg } = c.var;

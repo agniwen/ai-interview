@@ -1,6 +1,10 @@
 import { z } from "zod";
 import type { ResumeAnalysisResult, ResumeProfile } from "@arc/db-schema/interview/types";
-import { resumeParseStatusMeta } from "@arc/db-schema/studio-interviews";
+import {
+  resumeEvaluationStatusMeta,
+  resumeEvaluationStatusSchema,
+  resumeParseStatusMeta,
+} from "@arc/db-schema/studio-interviews";
 import type {
   CandidateExpectationsMeta,
   CandidateOutcome,
@@ -9,6 +13,7 @@ import type {
   HumanInterviewRoundStatus,
   OfferDraftStatus,
   PipelineStage,
+  ResumeEvaluationStatus,
   ResumeParseStatus,
   ScheduleEntryStatus,
   StudioInterviewStatus,
@@ -99,6 +104,7 @@ export interface ResumeLibraryListRecord {
   jobDescriptionName: string | null;
   resumeFileName: string | null;
   resumeContentHash: string | null;
+  resumeEvaluationStatus: ResumeEvaluationStatus | null;
   resumeParsedAt: string | null;
   resumeParseError: string | null;
   resumeParseStatus: ResumeParseStatus;
@@ -332,6 +338,28 @@ export function getResumeActionLockedReason(status: ResumeParseStatus): string |
     return null;
   }
   return `${resumeParseStatusMeta[status].label}的简历暂不可操作。`;
+}
+
+export const resumeEvaluationStatusValues = ["pass", "fail"] as const;
+export const resumeEvaluationStatusInputSchema = resumeEvaluationStatusSchema;
+export const resumeEvaluationStatusSubmitSchema = z.object({
+  status: resumeEvaluationStatusSchema,
+});
+export const resumeEvaluationUpdateSchema = z.object({
+  status: resumeEvaluationStatusSchema.nullable(),
+});
+
+export { resumeEvaluationStatusSchema };
+export type { ResumeEvaluationStatus };
+
+export function describeResumeEvaluationStatus(status: ResumeEvaluationStatus | null): {
+  label: string;
+  tone: "outline" | "success" | "danger";
+} {
+  if (!status) {
+    return { label: "未评估", tone: "outline" };
+  }
+  return resumeEvaluationStatusMeta[status];
 }
 
 export type CandidateTimelineEventKind =

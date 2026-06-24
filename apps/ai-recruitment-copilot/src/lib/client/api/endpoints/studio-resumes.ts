@@ -16,6 +16,7 @@ import type {
 import type {
   CandidateTimelineResponse,
   PaginatedResumeLibraryResult,
+  ResumeEvaluationStatus,
   ResumeLibraryDetail,
 } from "@arc/shared/studio-resumes";
 import { rpc } from "@/lib/client/rpc";
@@ -134,6 +135,28 @@ export function fetchStudioResumeTimeline(
   );
 }
 
+export function fetchStudioResumeReview(
+  slug: string,
+  id: string,
+): Promise<ResumeLibraryDetail | null> {
+  return rpcFetch<ResumeLibraryDetail>(
+    rpc.api.w[":slug"].studio.resumes[":id"].review.$get({ param: { id, slug } }),
+    "加载简历详情失败",
+    { allow404: true },
+  );
+}
+
+export function fetchStudioResumeReviewTimeline(
+  slug: string,
+  id: string,
+): Promise<CandidateTimelineResponse | null> {
+  return rpcFetch<CandidateTimelineResponse>(
+    rpc.api.w[":slug"].studio.resumes[":id"].review.timeline.$get({ param: { id, slug } }),
+    "加载候选人时间线失败",
+    { allow404: true },
+  );
+}
+
 /**
  * 拉取候选人的所有 AI 面试轮次（按 sortOrder 升序）。
  * Fetch all AI interview rounds for a candidate (sortOrder asc).
@@ -144,6 +167,18 @@ export function fetchStudioResumeRounds(
 ): Promise<StudioInterviewRoundListRecord[]> {
   return rpcFetch<StudioInterviewRoundListRecord[]>(
     rpc.api.w[":slug"].studio.resumes[":id"].rounds.$get({
+      param: { id: candidateId, slug },
+    }),
+    "加载面试轮次失败",
+  );
+}
+
+export function fetchStudioResumeReviewRounds(
+  slug: string,
+  candidateId: string,
+): Promise<StudioInterviewRoundListRecord[]> {
+  return rpcFetch<StudioInterviewRoundListRecord[]>(
+    rpc.api.w[":slug"].studio.resumes[":id"].review.rounds.$get({
       param: { id: candidateId, slug },
     }),
     "加载面试轮次失败",
@@ -192,6 +227,34 @@ export function launchInterviewFromResume(
       param: { id, slug },
     }),
     "发起 AI 面试失败",
+  );
+}
+
+export function submitResumeReviewEvaluation(
+  slug: string,
+  id: string,
+  status: ResumeEvaluationStatus,
+): Promise<ResumeLibraryDetail> {
+  return rpcFetch<ResumeLibraryDetail>(
+    rpc.api.w[":slug"].studio.resumes[":id"].review.evaluation.$post({
+      json: { status },
+      param: { id, slug },
+    }),
+    "提交评估失败",
+  );
+}
+
+export function updateResumeEvaluationStatus(
+  slug: string,
+  id: string,
+  status: ResumeEvaluationStatus | null,
+): Promise<ResumeLibraryDetail> {
+  return rpcFetch<ResumeLibraryDetail>(
+    rpc.api.w[":slug"].studio.resumes[":id"].evaluation.$patch({
+      json: { status },
+      param: { id, slug },
+    }),
+    "更新评估状态失败",
   );
 }
 

@@ -32,6 +32,7 @@ import { Route as InterviewIdRouteImport } from './routes/interview.$id'
 import { Route as HumanInterviewInviteTokenRouteImport } from './routes/human-interview.$inviteToken'
 import { Route as WSlugStudioRouteImport } from './routes/w.$slug.studio'
 import { Route as WSlugChatRouteImport } from './routes/w.$slug.chat'
+import { Route as ResumeReviewSlugRecordIdRouteImport } from './routes/resume-review.$slug.$recordId'
 import { Route as InterviewIdRoundIdRouteImport } from './routes/interview.$id.$roundId'
 import { Route as HumanInterviewInterviewerInviteTokenRouteImport } from './routes/human-interview.interviewer.$inviteToken'
 import { Route as WSlugChatIndexRouteImport } from './routes/w.$slug.chat.index'
@@ -169,6 +170,12 @@ const WSlugChatRoute = WSlugChatRouteImport.update({
   path: '/chat',
   getParentRoute: () => WSlugRoute,
 } as any)
+const ResumeReviewSlugRecordIdRoute =
+  ResumeReviewSlugRecordIdRouteImport.update({
+    id: '/resume-review/$slug/$recordId',
+    path: '/resume-review/$slug/$recordId',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const InterviewIdRoundIdRoute = InterviewIdRoundIdRouteImport.update({
   id: '/$roundId',
   path: '/$roundId',
@@ -294,6 +301,7 @@ export interface FileRoutesByFullPath {
   '/w/$slug': typeof WSlugRouteWithChildren
   '/human-interview/interviewer/$inviteToken': typeof HumanInterviewInterviewerInviteTokenRoute
   '/interview/$id/$roundId': typeof InterviewIdRoundIdRoute
+  '/resume-review/$slug/$recordId': typeof ResumeReviewSlugRecordIdRoute
   '/w/$slug/chat': typeof WSlugChatRouteWithChildren
   '/w/$slug/studio': typeof WSlugStudioRouteWithChildren
   '/w/$slug/chat/$sessionId': typeof WSlugChatSessionIdRoute
@@ -338,6 +346,7 @@ export interface FileRoutesByTo {
   '/w/$slug': typeof WSlugRouteWithChildren
   '/human-interview/interviewer/$inviteToken': typeof HumanInterviewInterviewerInviteTokenRoute
   '/interview/$id/$roundId': typeof InterviewIdRoundIdRoute
+  '/resume-review/$slug/$recordId': typeof ResumeReviewSlugRecordIdRoute
   '/w/$slug/studio': typeof WSlugStudioRouteWithChildren
   '/w/$slug/chat/$sessionId': typeof WSlugChatSessionIdRoute
   '/w/$slug/studio/dashboard': typeof WSlugStudioDashboardRoute
@@ -382,6 +391,7 @@ export interface FileRoutesById {
   '/w/$slug': typeof WSlugRouteWithChildren
   '/human-interview/interviewer/$inviteToken': typeof HumanInterviewInterviewerInviteTokenRoute
   '/interview/$id/$roundId': typeof InterviewIdRoundIdRoute
+  '/resume-review/$slug/$recordId': typeof ResumeReviewSlugRecordIdRoute
   '/w/$slug/chat': typeof WSlugChatRouteWithChildren
   '/w/$slug/studio': typeof WSlugStudioRouteWithChildren
   '/w/$slug/chat/$sessionId': typeof WSlugChatSessionIdRoute
@@ -428,6 +438,7 @@ export interface FileRouteTypes {
     | '/w/$slug'
     | '/human-interview/interviewer/$inviteToken'
     | '/interview/$id/$roundId'
+    | '/resume-review/$slug/$recordId'
     | '/w/$slug/chat'
     | '/w/$slug/studio'
     | '/w/$slug/chat/$sessionId'
@@ -472,6 +483,7 @@ export interface FileRouteTypes {
     | '/w/$slug'
     | '/human-interview/interviewer/$inviteToken'
     | '/interview/$id/$roundId'
+    | '/resume-review/$slug/$recordId'
     | '/w/$slug/studio'
     | '/w/$slug/chat/$sessionId'
     | '/w/$slug/studio/dashboard'
@@ -515,6 +527,7 @@ export interface FileRouteTypes {
     | '/w/$slug'
     | '/human-interview/interviewer/$inviteToken'
     | '/interview/$id/$roundId'
+    | '/resume-review/$slug/$recordId'
     | '/w/$slug/chat'
     | '/w/$slug/studio'
     | '/w/$slug/chat/$sessionId'
@@ -554,6 +567,7 @@ export interface RootRouteChildren {
   StudioResumesRoute: typeof StudioResumesRoute
   WSlugRoute: typeof WSlugRouteWithChildren
   HumanInterviewInterviewerInviteTokenRoute: typeof HumanInterviewInterviewerInviteTokenRoute
+  ResumeReviewSlugRecordIdRoute: typeof ResumeReviewSlugRecordIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -718,6 +732,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/w/$slug/chat'
       preLoaderRoute: typeof WSlugChatRouteImport
       parentRoute: typeof WSlugRoute
+    }
+    '/resume-review/$slug/$recordId': {
+      id: '/resume-review/$slug/$recordId'
+      path: '/resume-review/$slug/$recordId'
+      fullPath: '/resume-review/$slug/$recordId'
+      preLoaderRoute: typeof ResumeReviewSlugRecordIdRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/interview/$id/$roundId': {
       id: '/interview/$id/$roundId'
@@ -993,6 +1014,7 @@ const rootRouteChildren: RootRouteChildren = {
   WSlugRoute: WSlugRouteWithChildren,
   HumanInterviewInterviewerInviteTokenRoute:
     HumanInterviewInterviewerInviteTokenRoute,
+  ResumeReviewSlugRecordIdRoute: ResumeReviewSlugRecordIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
