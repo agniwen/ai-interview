@@ -1104,7 +1104,7 @@ function useStudioPersonDetailPanel({
                   {isReportsLoading ? (
                     <InterviewResultOverviewSkeleton />
                   ) : (
-                    <section className="h-full rounded-2xl bg-muted/20 p-5">
+                    <section className="h-full rounded-2xl bg-muted/20 border-muted/60 border p-5">
                       <div className="flex flex-wrap items-center justify-between gap-3">
                         <h3 className="font-medium text-sm">面试结果</h3>
                         <Badge
@@ -1162,7 +1162,7 @@ function useStudioPersonDetailPanel({
                     </section>
                   )}
 
-                  <section className="h-full space-y-4 border-t border-border/50 pt-6 xl:border-t-0 xl:pt-0">
+                  <section className="h-full space-y-4  rounded-2xl bg-muted/20 border-muted/60 border p-5">
                     <h3 className="font-medium text-sm">候选人信息</h3>
                     <div>
                       <CandidateBasicInfoView
