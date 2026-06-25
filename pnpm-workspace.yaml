@@ -5,7 +5,7 @@ packages:
 catalog:
   "@types/react": ^19.2.14
   "@types/react-dom": ^19.2.3
-  ai: ^6.0.177
+  ai: ^7.0.0
   chat: ^4.28.1
   drizzle-kit: 1.0.0-rc.1
   drizzle-orm: 1.0.0-rc.1
@@ -32,6 +32,12 @@ ignoredBuiltDependencies:
   - msw
   - sharp
   - unrs-resolver
+peerDependencyRules:
+  allowedVersions:
+    # chat@4.x only declares AI SDK 6 support today. This project uses chat for
+    # Feishu routing/cards/state, not its AI streaming integration, and adapter
+    # tests pass with ai@7.
+    ai: ^7.0.0
 shellEmulator: true
 
 trustPolicy: no-downgrade
@@ -74,3 +80,11 @@ minimumReleaseAgeExclude:
   - "@typescript/typescript-win32-arm64@7.0.1-rc"
   - "@typescript/typescript-win32-x64@7.0.1-rc"
   - typescript@7.0.1-rc
+  - "@ai-sdk/devtools@1.0.0"
+  - "@ai-sdk/gateway@4.0.0"
+  - "@ai-sdk/mcp@2.0.0"
+  - "@ai-sdk/openai-compatible@3.0.0"
+  - "@ai-sdk/provider-utils@5.0.0"
+  - "@ai-sdk/provider@4.0.0"
+  - "@ai-sdk/react@4.0.0"
+  - ai@7.0.0

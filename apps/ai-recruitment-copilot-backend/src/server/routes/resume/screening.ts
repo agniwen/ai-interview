@@ -150,7 +150,7 @@ function injectParsedResumesIntoMessages(messages: UIMessage[]): UIMessage[] {
 /**
  * Build and run the resume-screening agent. Returns the raw AI SDK
  * stream result so callers can choose how to consume it (HTTP UI stream,
- * direct iteration over `fullStream`, etc.).
+ * direct iteration over `stream`, etc.).
  */
 export async function runResumeScreening(input: ResumeScreeningInput) {
   const { messages, jobDescription, enableThinking, modelId, orgId } = input;

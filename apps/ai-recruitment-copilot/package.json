@@ -24,9 +24,9 @@
     "doctor": "npx react-doctor@latest"
   },
   "dependencies": {
-    "@ai-sdk/devtools": "^0.0.15",
-    "@ai-sdk/openai-compatible": "^2.0.47",
-    "@ai-sdk/react": "^3.0.179",
+    "@ai-sdk/devtools": "^1.0.0",
+    "@ai-sdk/openai-compatible": "^3.0.0",
+    "@ai-sdk/react": "^4.0.0",
     "@arc/adapter-feishu": "workspace:*",
     "@arc/ai-recruitment-copilot-backend": "workspace:*",
     "@arc/db-schema": "workspace:*",

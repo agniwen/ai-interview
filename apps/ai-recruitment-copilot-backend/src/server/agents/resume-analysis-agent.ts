@@ -310,7 +310,7 @@ async function persistParseToRegistry(args: {
  * Stage 1: Parse a PDF resume and extract structured profile information.
  *
  * This is the NDJSON stream wrapper around the shared resume-parser subagent.
- * It drives `buildResumeParserAgent`, pipes the fullStream through as
+ * It drives `buildResumeParserAgent`, pipes the stream through as
  * AnalysisStreamEvent progress events, then validates the final JSON against
  * the subagent's superset schema and projects it down to `ResumeProfile` via
  * `toResumeProfile`.
@@ -425,7 +425,7 @@ export function streamGenerateInterviewQuestions(
 
     let stepIndex = 0;
     let fullText = "";
-    for await (const part of streamResult.fullStream) {
+    for await (const part of streamResult.stream) {
       if (part.type === "text-delta") {
         fullText += part.text;
       } else if (part.type === "start-step") {
@@ -1042,7 +1042,7 @@ export function streamGenerateResumeReview(input: {
 
     let stepIndex = 0;
     let qualitativeText = "";
-    for await (const part of qualitativeStream.fullStream) {
+    for await (const part of qualitativeStream.stream) {
       if (part.type === "text-delta") {
         qualitativeText += part.text;
       } else if (part.type === "start-step") {
