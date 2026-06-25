@@ -1085,6 +1085,10 @@ function ResumeLibraryPage({ metrics }: { metrics: ResumeLibraryMetrics }) {
                   toast.error("简历解析完成后才能发起 AI 面试");
                   return;
                 }
+                if (row && !row.jobDescriptionId) {
+                  toast.error("请先绑定在招岗位后再发起 AI 面试");
+                  return;
+                }
                 setDetailRecordId(null);
                 setLaunchingRecord({ candidateName, id });
               }

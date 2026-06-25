@@ -62,6 +62,19 @@ describe("StudioPersonDetailPanel visual density", () => {
     expect(aiAnalysisSource).toContain("<ResumeReviewStructuredView");
   });
 
+  it("disables launching AI interview from resume details when no job description is bound", () => {
+    const footerSource = sourceBetween("const resumeModeFooter =", "const title =");
+
+    expect(source).toContain("请先绑定在招岗位后再发起 AI 面试");
+    expect(source).toContain('from "@/components/ui/tooltip"');
+    expect(footerSource).toContain("launchResumeModeDisabledReason");
+    expect(source).toContain("disabled={Boolean(launchResumeModeDisabledReason)}");
+    expect(footerSource).toContain("<TooltipTrigger asChild>");
+    expect(footerSource).toContain(
+      "<TooltipContent>{launchResumeModeDisabledReason}</TooltipContent>",
+    );
+  });
+
   it("uses a consistent framed surface for expanded interview report items", () => {
     const reportsSource = sourceBetween(
       '<TabsContent value="reports">',

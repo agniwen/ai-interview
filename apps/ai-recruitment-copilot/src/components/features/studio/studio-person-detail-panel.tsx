@@ -94,6 +94,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { HumanInterviewStagePanel } from "./human-interview-stage-panel";
 import { OfferStagePanel } from "./offer-stage-panel";
 import { PipelineStageActionBar } from "./pipeline-stage-action-bar";
@@ -946,6 +947,42 @@ function useStudioPersonDetailPanel({
     canLaunchResumeModeRecord &&
     !isRoundsLoading &&
     candidateRounds.length === 0;
+  const launchResumeModeDisabledReason =
+    showLaunchButton && !resumeRecord?.jobDescriptionId ? "请先绑定在招岗位后再发起 AI 面试" : null;
+  const launchResumeModeButton = showLaunchButton ? (
+    <Button
+      className={launchResumeModeDisabledReason ? "w-full" : "flex-1"}
+      disabled={Boolean(launchResumeModeDisabledReason)}
+      size="lg"
+      onClick={() => {
+        if (!record) {
+          return;
+        }
+        if (launchResumeModeDisabledReason) {
+          return;
+        }
+        if (onLaunchInterview) {
+          // 简历库详情入口：交给外层 LaunchInterviewDialog 处理；关闭本面板
+          // 让 modal 切换显得自然。
+          // Resume-library entry: hand off to the parent LaunchInterviewDialog
+          // and close this panel so the swap reads naturally.
+          onLaunchInterview({
+            candidateName: record.candidateName ?? null,
+            id: record.id,
+          });
+          onClose?.();
+          return;
+        }
+        void navigate({ params: { slug }, to: "/w/$slug/studio/interviews" });
+        onClose?.();
+      }}
+      type="button"
+    >
+      <BotIcon className="size-4" />
+      发起 AI 面试
+      {onLaunchInterview ? null : <ExternalLinkIcon className="size-3.5 opacity-70" />}
+    </Button>
+  ) : null;
   const resumeModeFooter =
     record && (canEditResumeModeRecord || showLaunchButton) ? (
       <div className="flex w-full gap-2">
@@ -965,33 +1002,15 @@ function useStudioPersonDetailPanel({
             编辑
           </Button>
         ) : null}
-        {showLaunchButton ? (
-          <Button
-            className="flex-1"
-            size="lg"
-            onClick={() => {
-              if (onLaunchInterview) {
-                // 简历库详情入口：交给外层 LaunchInterviewDialog 处理；关闭本面板
-                // 让 modal 切换显得自然。
-                // Resume-library entry: hand off to the parent LaunchInterviewDialog
-                // and close this panel so the swap reads naturally.
-                onLaunchInterview({
-                  candidateName: record.candidateName ?? null,
-                  id: record.id,
-                });
-                onClose?.();
-                return;
-              }
-              void navigate({ params: { slug }, to: "/w/$slug/studio/interviews" });
-              onClose?.();
-            }}
-            type="button"
-          >
-            <BotIcon className="size-4" />
-            发起 AI 面试
-            {onLaunchInterview ? null : <ExternalLinkIcon className="size-3.5 opacity-70" />}
-          </Button>
+        {launchResumeModeButton && launchResumeModeDisabledReason ? (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="flex flex-1">{launchResumeModeButton}</span>
+            </TooltipTrigger>
+            <TooltipContent>{launchResumeModeDisabledReason}</TooltipContent>
+          </Tooltip>
         ) : null}
+        {launchResumeModeButton && !launchResumeModeDisabledReason ? launchResumeModeButton : null}
       </div>
     ) : null;
 
