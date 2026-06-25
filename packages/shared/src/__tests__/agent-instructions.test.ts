@@ -40,4 +40,27 @@ describe("buildAgentInstructions", () => {
     expect(out).toContain("请跳过补充题目环节");
     expect(out).not.toContain("从以下题目中再随机抽取三到五道");
   });
+
+  it("allows up to two follow-up questions for medium questions", () => {
+    const out = buildAgentInstructions({
+      candidateName: "Alex",
+      companyContext: "",
+      interviewQuestions: [],
+      interviewerPrompt: "",
+      jobDescriptionPresetQuestions: [
+        {
+          content: "请介绍一次线上故障排查经历。",
+          difficulty: "medium",
+        },
+      ],
+      jobDescriptionPrompt: "",
+      resumeProfile: null,
+      targetRole: "Backend Engineer",
+    });
+
+    expect(out).toContain("[medium] 题: 最多可针对关键细节追问两次");
+    expect(out).toContain('不得超过 [medium] 题"最多两次追问"的上限');
+    expect(out).not.toContain("[medium] 题: 仅可针对关键细节追问一次");
+    expect(out).not.toContain('不得超过 [medium] 题"仅一次追问"的上限');
+  });
 });
