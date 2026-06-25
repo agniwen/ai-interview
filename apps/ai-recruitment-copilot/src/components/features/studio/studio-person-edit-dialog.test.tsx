@@ -266,4 +266,36 @@ describe("StudioPersonEditDialog", () => {
     });
     queryClient.clear();
   });
+
+  it("submits the selected resume evaluation status from resume edit mode", async () => {
+    apiMocks.fetchStudioResume.mockResolvedValue(makeDetail({ resumeEvaluationStatus: "pass" }));
+    apiMocks.apiFetch.mockResolvedValue(makeDetail({ resumeEvaluationStatus: "fail" }));
+    const { queryClient, root } = renderDialog();
+
+    await vi.waitFor(() => {
+      expect(document.body.textContent).toContain("简历评估");
+    });
+
+    const form = document.querySelector<HTMLFormElement>("#resume-edit-form");
+    expect(form).not.toBeNull();
+
+    act(() => {
+      form?.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+    });
+
+    await vi.waitFor(() => {
+      expect(apiMocks.apiFetch).toHaveBeenCalled();
+    });
+
+    const [, init] = apiMocks.apiFetch.mock.calls[0] as [
+      string,
+      { body: FormData; method: string },
+    ];
+    expect(init.body.get("resumeEvaluationStatus")).toBe("pass");
+
+    act(() => {
+      root.unmount();
+    });
+    queryClient.clear();
+  });
 });

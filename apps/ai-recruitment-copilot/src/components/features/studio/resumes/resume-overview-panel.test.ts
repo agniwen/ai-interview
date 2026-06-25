@@ -22,6 +22,15 @@ describe("ResumeOverviewPanel visual density", () => {
     expect(overviewBody).not.toContain("<ResumeReviewStructuredView");
   });
 
+  it("shows resume evaluation as a read-only summary field", () => {
+    const overviewBody = source.slice(source.indexOf("export function ResumeOverviewPanel"));
+
+    expect(overviewBody).toContain("describeResumeEvaluationStatus");
+    expect(overviewBody).toContain('<SummaryItem label="简历评估"');
+    expect(overviewBody).not.toContain("<Select");
+    expect(overviewBody).not.toContain("onValueChange");
+  });
+
   it("uses a spacious AI review layout instead of dense nested cards", () => {
     const reviewSource = source.slice(
       source.indexOf("export function ResumeReviewStructuredView"),

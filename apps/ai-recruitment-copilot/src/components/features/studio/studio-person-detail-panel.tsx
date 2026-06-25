@@ -11,15 +11,11 @@
 
 import Markdown from "react-markdown";
 import type { StudioInterviewRoundDetail } from "@arc/shared/studio-interview-rounds";
-import {
-  canEditResumeRecord,
-  canLaunchInterviewFromResume,
-  describeResumeEvaluationStatus,
-} from "@arc/shared/studio-resumes";
-import type { ResumeEvaluationStatus, ResumeLibraryDetail } from "@arc/shared/studio-resumes";
+import { canEditResumeRecord, canLaunchInterviewFromResume } from "@arc/shared/studio-resumes";
+import type { ResumeLibraryDetail } from "@arc/shared/studio-resumes";
 import { DIFFICULTY_LABEL } from "@arc/shared/interview-question-difficulty";
 import { cn } from "@arc/shared/utils";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { QueryClient } from "@tanstack/react-query";
 import {
   deleteStudioInterviewFormSubmission,
@@ -42,7 +38,6 @@ import {
   resolveStudioInterviewRecordId,
   transitionInterviewRecord,
   updateStudioInterviewRound,
-  updateResumeEvaluationStatus,
 } from "@/lib/client/api";
 import { env } from "@/env/client";
 import { useOptionalWorkspaceSlug } from "@/lib/client/workspace-context";
@@ -86,13 +81,6 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { HumanInterviewStagePanel } from "./human-interview-stage-panel";
@@ -672,26 +660,6 @@ function useStudioPersonDetailPanel({
     staleTime: 15 * 1000,
   });
 
-  const resumeEvaluationMutation = useMutation({
-    mutationFn: (status: ResumeEvaluationStatus | null) =>
-      updateResumeEvaluationStatus(slug, effectiveRecordId as string, status),
-    onError: (error) => {
-      toast.error(error instanceof Error ? error.message : "更新评估状态失败");
-    },
-    onSuccess: (detail) => {
-      queryClient.setQueryData(
-        ["studio-resumes", slug, "detail", effectiveRecordId, accessMode],
-        detail,
-      );
-      void queryClient.invalidateQueries({
-        queryKey: ["studio-resumes", slug, "timeline", effectiveRecordId],
-      });
-      void queryClient.invalidateQueries({ queryKey: ["studio-resumes", slug] });
-      onUpdated?.();
-      toast.success("评估状态已更新");
-    },
-  });
-
   // 中文：当前轮次的邮件发送摘要 — 用于轮次概览里发送按钮显示发送次数与最后一次时间。
   // 仅在 interview 模式且有 roundId 时启用。
   // English: Email-send summary for the current round, powering the "send"
@@ -1098,41 +1066,6 @@ function useStudioPersonDetailPanel({
       />
     ) : null;
 
-  const resumeEvaluationEditor =
-    mode === "resume" && resumeRecord && canUseManagementActions && onEdit ? (
-      <section className="flex flex-col gap-3 rounded-md border border-border bg-muted/20 p-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <h3 className="font-medium text-sm">简历评估</h3>
-            <Badge
-              variant={describeResumeEvaluationStatus(resumeRecord.resumeEvaluationStatus).tone}
-            >
-              {describeResumeEvaluationStatus(resumeRecord.resumeEvaluationStatus).label}
-            </Badge>
-          </div>
-          <p className="mt-1 text-muted-foreground text-xs">管理员可调整详情链接评估结果。</p>
-        </div>
-        <Select
-          disabled={resumeEvaluationMutation.isPending}
-          onValueChange={(value) => {
-            resumeEvaluationMutation.mutate(
-              value === "unreviewed" ? null : (value as ResumeEvaluationStatus),
-            );
-          }}
-          value={resumeRecord.resumeEvaluationStatus ?? "unreviewed"}
-        >
-          <SelectTrigger className="w-full sm:w-40">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="unreviewed">未评估</SelectItem>
-            <SelectItem value="pass">通过</SelectItem>
-            <SelectItem value="fail">不通过</SelectItem>
-          </SelectContent>
-        </Select>
-      </section>
-    ) : null;
-
   let headerExtra: ReactNode = null;
   if (isLoading) {
     headerExtra = <DetailHeaderSkeleton mode={mode} />;
@@ -1237,10 +1170,7 @@ function useStudioPersonDetailPanel({
               Resume mode: defer to ResumeOverviewPanel so the
               launch-interview dialog and this view stay in sync. */}
               {mode === "resume" && resumeRecord ? (
-                <>
-                  {resumeEvaluationEditor}
-                  <ResumeOverviewPanel detail={resumeRecord} />
-                </>
+                <ResumeOverviewPanel detail={resumeRecord} />
               ) : (
                 <div className="grid gap-8 xl:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)]">
                   {isReportsLoading ? (

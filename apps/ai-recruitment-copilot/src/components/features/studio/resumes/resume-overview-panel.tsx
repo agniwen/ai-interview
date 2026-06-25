@@ -8,7 +8,7 @@
 // same data renders the same way in both places.
 
 import type { ResumeLibraryDetail } from "@arc/shared/studio-resumes";
-import { describeResumeProgress } from "@arc/shared/studio-resumes";
+import { describeResumeEvaluationStatus, describeResumeProgress } from "@arc/shared/studio-resumes";
 import type {
   ResumeReview,
   ResumeReviewAction,
@@ -298,6 +298,7 @@ function ExpandableMarkdownSummary({ value }: { value: string | null | undefined
 
 export function ResumeOverviewPanel({ detail }: { detail: ResumeLibraryDetail }) {
   const progress = describeResumeProgress(detail);
+  const resumeEvaluation = describeResumeEvaluationStatus(detail.resumeEvaluationStatus);
   const skills = detail.resumeProfile?.skills.slice(0, 8) ?? [];
   const strengths = detail.resumeProfile?.personalStrengths.slice(0, 3) ?? [];
 
@@ -314,9 +315,10 @@ export function ResumeOverviewPanel({ detail }: { detail: ResumeLibraryDetail })
           </div>
         </div>
 
-        <dl className="grid gap-x-8 gap-y-4 md:grid-cols-3">
+        <dl className="grid gap-x-8 gap-y-4 md:grid-cols-4">
           <SummaryItem label="目标岗位" value={detail.targetRole} />
           <SummaryItem label="关联岗位" value={detail.jobDescriptionName} />
+          <SummaryItem label="简历评估" value={resumeEvaluation.label} />
           <SummaryItem label="工作年限" value={detail.resumeProfile?.workYears ?? null} />
         </dl>
 

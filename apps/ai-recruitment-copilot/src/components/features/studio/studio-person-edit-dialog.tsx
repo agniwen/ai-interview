@@ -118,6 +118,7 @@ function getFirstResumeEditErrorMessage(meta: Record<string, { errors?: unknown[
     "candidatePhone",
     "targetRole",
     "jobDescriptionId",
+    "resumeEvaluationStatus",
     "notes",
   ];
   for (const field of fieldOrder) {
@@ -154,7 +155,9 @@ function buildResumeProfileForReview(
   };
 }
 
-function createResumeEditFormValues(detail: ResumeLibraryDetail | null | undefined) {
+function createResumeEditFormValues(
+  detail: ResumeLibraryDetail | null | undefined,
+): ReturnType<typeof createResumeLibraryFormValues> {
   if (!detail) {
     return createResumeLibraryFormValues();
   }
@@ -165,6 +168,7 @@ function createResumeEditFormValues(detail: ResumeLibraryDetail | null | undefin
     candidatePhone: detail.candidatePhone ?? "",
     jobDescriptionId: detail.jobDescriptionId ?? "",
     notes: detail.notes ?? "",
+    resumeEvaluationStatus: detail.resumeEvaluationStatus ?? "unreviewed",
     targetRole: detail.targetRole ?? "",
   };
 }
@@ -246,6 +250,7 @@ function ResumeEditBody({
       formData.append("targetRole", value.targetRole);
       formData.append("jobDescriptionId", value.jobDescriptionId);
       formData.append("notes", value.notes);
+      formData.append("resumeEvaluationStatus", value.resumeEvaluationStatus);
       if (resumeFile) {
         formData.append("resume", resumeFile);
       }
@@ -433,6 +438,7 @@ function ResumeEditBody({
             requireCandidateName
             resumeFile={resumeFile}
             resumeFilePlaceholder="未上传简历，点击选择文件"
+            showResumeEvaluationStatus
           />
         </form>
       )}
