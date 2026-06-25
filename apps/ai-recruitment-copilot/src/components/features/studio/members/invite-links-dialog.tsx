@@ -197,9 +197,9 @@ function LinkRow({
       : `${window.location.origin}/join/${link.code}`;
   const disabled = Boolean(link.disabledAt);
   return (
-    <Card className="gap-0 rounded-lg py-0">
-      <CardContent className="p-3">
-        <div className="flex items-center justify-between gap-2">
+    <Card className="min-w-0 gap-0 rounded-lg py-0">
+      <CardContent className="min-w-0 p-3">
+        <div className="flex min-w-0 items-center justify-between gap-3">
           <div className="min-w-0 flex-1">
             <div className="truncate font-mono text-sm">{url}</div>
             <div className="mt-1 text-xs text-muted-foreground">
@@ -210,24 +210,26 @@ function LinkRow({
               <Badge variant="outline">初始化角色：{getWorkspaceRoleLabel(link.initialRole)}</Badge>
             </div>
           </div>
-          <Button aria-label="复制链接" onClick={onCopy} size="sm" variant="ghost">
-            <CopyIcon />
-          </Button>
-          <Button aria-label="编辑初始化角色" onClick={onEdit} size="sm" variant="ghost">
-            <PencilIcon />
-          </Button>
-          <Button aria-label="查看加入成员" onClick={onToggleExpand} size="sm" variant="ghost">
-            <UsersIcon /> {link.joinedCount}
-          </Button>
-          {disabled ? (
-            <Button aria-label="启用链接" onClick={onEnable} size="sm" variant="ghost">
-              <PlayIcon />
+          <div className="flex shrink-0 items-center gap-1">
+            <Button aria-label="复制链接" onClick={onCopy} size="icon-sm" variant="ghost">
+              <CopyIcon />
             </Button>
-          ) : (
-            <Button aria-label="禁用链接" onClick={onDisable} size="sm" variant="ghost">
-              <BanIcon />
+            <Button aria-label="编辑初始化角色" onClick={onEdit} size="icon-sm" variant="ghost">
+              <PencilIcon />
             </Button>
-          )}
+            <Button aria-label="查看加入成员" onClick={onToggleExpand} size="sm" variant="ghost">
+              <UsersIcon /> {link.joinedCount}
+            </Button>
+            {disabled ? (
+              <Button aria-label="启用链接" onClick={onEnable} size="icon-sm" variant="ghost">
+                <PlayIcon />
+              </Button>
+            ) : (
+              <Button aria-label="禁用链接" onClick={onDisable} size="icon-sm" variant="ghost">
+                <BanIcon />
+              </Button>
+            )}
+          </div>
         </div>
         {expanded ? <LinkMembers id={link.id} slug={slug} /> : null}
       </CardContent>
@@ -360,7 +362,7 @@ export function InviteLinksDialog({
           <LinkIcon /> 邀请链接
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-2xl">
+      <DialogContent className="w-[min(calc(100vw-2rem),56rem)] overflow-hidden sm:max-w-none">
         <DialogHeader>
           <DialogTitle>共享邀请链接</DialogTitle>
           <DialogDescription>
@@ -377,7 +379,7 @@ export function InviteLinksDialog({
         {isPending ? (
           <div className="py-8 text-center text-muted-foreground">加载中...</div>
         ) : (
-          <div className="space-y-2">
+          <div className="flex min-w-0 flex-col gap-2">
             {links.length === 0 ? (
               <div className="py-8 text-center text-muted-foreground">还没有邀请链接</div>
             ) : (

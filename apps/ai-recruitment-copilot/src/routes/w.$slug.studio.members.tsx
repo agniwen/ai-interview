@@ -69,7 +69,6 @@ import {
 import { InviteDialog } from "@/components/features/studio/members/invite-dialog";
 import { InviteLinksDialog } from "@/components/features/studio/members/invite-links-dialog";
 import { PendingInvitationsButton } from "@/components/features/studio/members/pending-invitations-section";
-import { PermissionsExplanationDialog } from "@/components/features/studio/members/permissions-explanation-dialog";
 import {
   getWorkspaceRoleLabel,
   isBuiltInWorkspaceRole,
@@ -1273,7 +1272,6 @@ function MembersManagementPage() {
             }}
             toolbarRight={
               <div className="flex flex-wrap gap-2">
-                <PermissionsExplanationDialog />
                 <PermissionGate action="create" resource="invitation">
                   <PendingInvitationsButton organizationId={org?.id ?? null} />
                 </PermissionGate>
