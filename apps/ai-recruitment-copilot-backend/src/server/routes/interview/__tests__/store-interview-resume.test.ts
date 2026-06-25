@@ -116,6 +116,7 @@ describe("storeInterviewResume", () => {
     expect(result).toEqual({
       cachedResumeProfile: { name: "郭靖" },
       contentHash: HASH,
+      resumeText: null,
       storageKey: STORAGE_KEY,
     });
     expect(mocks.putObjectBytes).not.toHaveBeenCalled();
@@ -150,6 +151,7 @@ describe("storeInterviewResume", () => {
     expect(result).toEqual({
       cachedResumeProfile: { name: "新候选人" },
       contentHash: HASH,
+      resumeText: "fresh raw",
       storageKey: STORAGE_KEY,
     });
     expect(mocks.findAttachmentByContentHash).not.toHaveBeenCalled();
@@ -182,6 +184,7 @@ describe("storeInterviewResume", () => {
     expect(result).toEqual({
       cachedResumeProfile: { name: "李四" },
       contentHash: HASH,
+      resumeText: "raw",
       storageKey: STORAGE_KEY,
     });
     expect(mocks.putObjectBytes).toHaveBeenCalledTimes(1);
@@ -216,6 +219,7 @@ describe("storeInterviewResume", () => {
     expect(result).toEqual({
       cachedResumeProfile: { name: "图片候选人" },
       contentHash: HASH,
+      resumeText: "image raw",
       storageKey: STORAGE_KEY,
     });
     expect(mocks.buildAttachmentKeyByHash).toHaveBeenCalledWith(HASH, "png");
@@ -236,6 +240,7 @@ describe("storeInterviewResume", () => {
     expect(result).toEqual({
       cachedResumeProfile: null,
       contentHash: HASH,
+      resumeText: null,
       storageKey: STORAGE_KEY,
     });
     expect(mocks.putObjectBytes).toHaveBeenCalledTimes(1);

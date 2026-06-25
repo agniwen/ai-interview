@@ -12,6 +12,7 @@ describe("TanStack Start studio settings and detail route migration", () => {
   const routes = [
     "/w/$slug/studio/interview-questions",
     "/w/$slug/studio/global-config",
+    "/w/$slug/studio/agent-debug",
     "/w/$slug/studio/permissions",
     "/w/$slug/studio/members",
     "/w/$slug/studio/me",
@@ -31,6 +32,7 @@ describe("TanStack Start studio settings and detail route migration", () => {
     const sources = [
       readSource("routes/w.$slug.studio.interview-questions.tsx"),
       readSource("routes/w.$slug.studio.global-config.tsx"),
+      readSource("routes/w.$slug.studio.agent-debug.tsx"),
       readSource("routes/w.$slug.studio.permissions.tsx"),
       readSource("routes/w.$slug.studio.members.tsx"),
       readSource("routes/w.$slug.studio.me.tsx"),
@@ -58,6 +60,24 @@ describe("TanStack Start studio settings and detail route migration", () => {
     expect(sidebar).toContain('resource: "page"');
     expect(permissionsRoute).toContain("<WorkspacePermissionsSection />");
     expect(globalConfigForm).not.toContain("<WorkspacePermissionsSection />");
+  });
+
+  it("exposes agent debug as an administrator-only system configuration page", () => {
+    const sidebar = readSource("components/features/studio/studio-sidebar-slots.tsx");
+    const globalConfigForm = readSource(
+      "components/features/studio/global-config/global-config-form.tsx",
+    );
+    const agentDebugRoute = readSource("routes/w.$slug.studio.agent-debug.tsx");
+
+    expect(sidebar).toContain('path: "/studio/agent-debug"');
+    expect(sidebar).toContain('title: "Agent 调试"');
+    expect(sidebar).toContain('action: "agentDebug"');
+    expect(sidebar).toContain("adminOnly: true");
+    expect(globalConfigForm).not.toContain("简历解析测试");
+    expect(agentDebugRoute).toContain("requireStudioAdminAccess");
+    expect(agentDebugRoute).toContain('action: "agentDebug"');
+    expect(agentDebugRoute).toContain("JsonEditor");
+    expect(agentDebugRoute).toContain("/studio/agent-debug/resume-parser-test");
   });
 
   it("keeps system settings as the last item in the system configuration group", () => {

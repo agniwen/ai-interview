@@ -178,6 +178,7 @@ function basePoolInput(overrides: Partial<Parameters<typeof createResumePoolItem
     organizationId: ORG_A,
     resumeFileName: "candidate.pdf",
     resumeProfile: PROFILE,
+    resumeText: "候选人甲 OCR 原文",
     scope: "private" as const,
     storageKey: "attachments/resume-pool/candidate.pdf",
     targetRole: "前端工程师",
@@ -396,6 +397,7 @@ describe("queryResumePoolItems", () => {
         ...PROFILE,
         targetRoles: ["AI 解析出的前端开发"],
       },
+      resumeText: "AI 解析出的 OCR 原文",
     });
 
     const detail = await loadResumePoolItem({
@@ -521,6 +523,7 @@ describe("importPoolItemToResumeLibrary", () => {
     expect(record?.candidateName).toBe(PROFILE.name);
     expect(record?.resumeSourceType).toBe("public_pool");
     expect(record?.resumeSourcePoolItemId).toBe(publicId);
+    expect(record?.resumeText).toBe("候选人甲 OCR 原文");
 
     const imports = await db
       .select()

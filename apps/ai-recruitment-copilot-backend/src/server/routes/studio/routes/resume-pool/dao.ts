@@ -57,6 +57,7 @@ export interface CreateResumePoolItemInput {
   organizationId: string | null;
   resumeFileName: string | null;
   resumeProfile: ResumeProfile | null;
+  resumeText?: string | null;
   scope: ResumePoolScope;
   sourceChannel?: ResumePoolSourceChannel | null;
   storageKey: string | null;
@@ -68,6 +69,7 @@ export interface MarkResumePoolItemParsedInput {
   organizationId: string | null;
   poolItemId: string;
   resumeProfile: ResumeProfile | null;
+  resumeText: string | null;
 }
 
 export interface QueryResumePoolItemsInput {
@@ -292,6 +294,7 @@ export async function createResumePoolItem(input: CreateResumePoolItemInput): Pr
       resumeParsedAt: input.resumeProfile ? now : null,
       resumeProfile: input.resumeProfile,
       resumeStorageKey: input.storageKey,
+      resumeText: input.resumeText ?? null,
       scope: input.scope,
       skillsNormalized: normalizeSkills(input.resumeProfile?.skills),
       sourceChannel: input.sourceChannel ?? null,
@@ -335,6 +338,7 @@ export async function markResumePoolItemParsed(
         resumeParseStatus: "ready",
         resumeParsedAt: now,
         resumeProfile: input.resumeProfile,
+        resumeText: input.resumeText,
         skillsNormalized: normalizeSkills(input.resumeProfile?.skills),
         targetRole:
           row.sourceChannel === "referral"
@@ -513,6 +517,7 @@ export async function publishPrivatePoolItem(
       resumeParsedAt: privateItem.resumeParsedAt,
       resumeProfile: privateItem.resumeProfile,
       resumeStorageKey: privateItem.resumeStorageKey,
+      resumeText: privateItem.resumeText,
       scope: "public",
       skillsNormalized: privateItem.skillsNormalized,
       sourceChannel: privateItem.sourceChannel,
@@ -598,6 +603,7 @@ export async function importPoolItemToResumeLibrary(
         organizationId: input.organizationId,
         resumeFileName: poolItem.resumeFileName,
         resumeProfile: poolItem.resumeProfile,
+        resumeText: poolItem.resumeText,
         source: {
           importedAt,
           importedBy: input.importedBy,

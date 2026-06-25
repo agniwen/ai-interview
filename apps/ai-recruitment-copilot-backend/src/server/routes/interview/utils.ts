@@ -229,6 +229,7 @@ export async function storeInterviewResume(
   storageKey: string;
   contentHash: string;
   cachedResumeProfile: ResumeProfile | null;
+  resumeText: string | null;
 } | null> {
   try {
     const bytes = new Uint8Array(await file.arrayBuffer());
@@ -263,6 +264,7 @@ export async function storeInterviewResume(
         return {
           cachedResumeProfile: cached,
           contentHash,
+          resumeText: existing.parsedText ?? null,
           storageKey: existing.storageKey,
         };
       }
@@ -283,6 +285,7 @@ export async function storeInterviewResume(
         return {
           cachedResumeProfile: projectAttachmentToResumeProfile(structured),
           contentHash,
+          resumeText: existing.parsedText,
           storageKey: existing.storageKey,
         };
       } catch (error) {
@@ -302,6 +305,7 @@ export async function storeInterviewResume(
         return {
           cachedResumeProfile: null,
           contentHash,
+          resumeText: existing.parsedText,
           storageKey: existing.storageKey,
         };
       }
@@ -338,7 +342,7 @@ export async function storeInterviewResume(
         "[studio-interview] resume parse failed (S3 PUT succeeded):",
         parseOutcome.reason,
       );
-      return { cachedResumeProfile: null, contentHash, storageKey };
+      return { cachedResumeProfile: null, contentHash, resumeText: null, storageKey };
     }
 
     const parsed = parseOutcome.value;
@@ -362,6 +366,7 @@ export async function storeInterviewResume(
     return {
       cachedResumeProfile: parsed.resumeProfile,
       contentHash,
+      resumeText: parsed.parsedText,
       storageKey,
     };
   } catch (error) {
@@ -444,6 +449,7 @@ export async function storeResumeObjectOnly(
 export interface ResumeUploadStorageResult {
   cachedResumeProfile: ResumeProfile | null;
   contentHash: string;
+  resumeText: string | null;
   storageKey: string;
 }
 
@@ -472,7 +478,7 @@ export async function resolveResumeUploadStorage({
 
   if (parsedResumePayload) {
     const stored = await storeObjectOnly(resume, userId, organizationId);
-    return stored ? { ...stored, cachedResumeProfile: null } : null;
+    return stored ? { ...stored, cachedResumeProfile: null, resumeText: null } : null;
   }
 
   return storeParsedResume(

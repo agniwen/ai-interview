@@ -20,7 +20,42 @@ import type { loadResumeDetail as loadResumeDetailFn } from "@arc/ai-recruitment
 import type { parseResumeLibraryEditFormInput as parseResumeLibraryEditFormInputFn } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/route";
 
 const routeSource = readFileSync(new URL("../route.ts", import.meta.url), "utf-8");
+const createFromStorageSource = readFileSync(
+  new URL("../utils/create-from-storage.ts", import.meta.url),
+  "utf-8",
+);
 const evaluationDaoSource = readFileSync(new URL("../dao/evaluation.ts", import.meta.url), "utf-8");
+const resumePoolDaoSource = readFileSync(
+  new URL("../../resume-pool/dao.ts", import.meta.url),
+  "utf-8",
+);
+const resumePoolRouteSource = readFileSync(
+  new URL("../../resume-pool/route.ts", import.meta.url),
+  "utf-8",
+);
+const batchProcessorSource = readFileSync(
+  new URL("../../resume-upload-batches/utils/processor.ts", import.meta.url),
+  "utf-8",
+);
+const dbSchemaSource = readFileSync(
+  new URL("../../../../../../../../../packages/db-schema/src/schema.ts", import.meta.url),
+  "utf-8",
+);
+const sharedStudioResumesSource = readFileSync(
+  new URL("../../../../../../../../../packages/shared/src/studio-resumes.ts", import.meta.url),
+  "utf-8",
+);
+const sharedResumePoolSource = readFileSync(
+  new URL("../../../../../../../../../packages/shared/src/resume-pool.ts", import.meta.url),
+  "utf-8",
+);
+const resumeTextMigrationSource = readFileSync(
+  new URL(
+    "../../../../../../../../../apps/ai-recruitment-copilot/drizzle/20260625160000_add_resume_text/migration.sql",
+    import.meta.url,
+  ),
+  "utf-8",
+);
 const describeWithDatabase = process.env.DATABASE_URL ? describe : describe.skip;
 
 const ORG = "test_org_resume_route";
@@ -165,6 +200,7 @@ describeWithDatabase("resolveResumeUploadStorage", () => {
     expect(result).toEqual({
       cachedResumeProfile: null,
       contentHash: "hash-1",
+      resumeText: null,
       storageKey: "resume/hash-1.pdf",
     });
   });
@@ -177,6 +213,37 @@ describe("resume semantic index cleanup", () => {
     expect(routeSource).toContain("sourceId: id");
     expect(routeSource).toContain("for (const deletedId of result)");
     expect(routeSource).toContain("sourceId: deletedId.id");
+  });
+});
+
+describe("resume OCR text persistence", () => {
+  it("adds nullable resume_text columns to resume library and resume pool tables", () => {
+    expect(dbSchemaSource).toContain('resumeText: text("resume_text")');
+    expect(resumeTextMigrationSource).toContain(
+      'ALTER TABLE "studio_interview" ADD COLUMN "resume_text" text;',
+    );
+    expect(resumeTextMigrationSource).toContain(
+      'ALTER TABLE "resume_pool_item" ADD COLUMN "resume_text" text;',
+    );
+  });
+
+  it("persists parser text on direct uploads, batch uploads, pool rows, and pool imports", () => {
+    expect(routeSource).toContain("resumeText = parsed.parsedText");
+    expect(routeSource).toContain("resumeText,");
+    expect(createFromStorageSource).toContain("resumeText: input.resumeText");
+    expect(batchProcessorSource).toContain("resumeText,");
+    expect(resumePoolRouteSource).toContain("resumeText = parsed.parsedText");
+    expect(resumePoolDaoSource).toContain("resumeText: input.resumeText");
+    expect(resumePoolDaoSource).toContain("resumeText: poolItem.resumeText");
+  });
+
+  it("does not expose resumeText through frontend-facing list or detail DTOs", () => {
+    expect(sharedStudioResumesSource).not.toContain("resumeText");
+    expect(sharedResumePoolSource).not.toContain("resumeText");
+    expect(evaluationDaoSource).not.toContain("resumeText");
+    expect(createFromStorageSource).toContain("resumeText: input.resumeText");
+    expect(resumePoolDaoSource).not.toContain("resumeText: row.resumeText");
+    expect(resumePoolDaoSource).not.toContain("resumeText: row.item.resumeText");
   });
 });
 

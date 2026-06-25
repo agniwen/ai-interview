@@ -21,3 +21,27 @@ export async function requireStudioPageAccess({
     throw notFound();
   }
 }
+
+export async function requireStudioAdminAccess({
+  action,
+  pathname,
+  slug,
+}: {
+  action: StudioPagePermissionAction;
+  pathname: string;
+  slug: string;
+}) {
+  const state = await getStudioPageAccessState({ data: { action, slug } });
+  if (state.status === "unauthenticated") {
+    throw redirect({
+      href: `/login?callbackURL=${encodeURIComponent(pathname)}`,
+    });
+  }
+  if (
+    state.status === "not_found" ||
+    !state.allowed ||
+    (state.member.role !== "owner" && state.member.role !== "admin")
+  ) {
+    throw notFound();
+  }
+}

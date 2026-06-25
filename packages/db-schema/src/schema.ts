@@ -467,6 +467,7 @@ export const studioInterview = pgTable(
     }),
     resumeSourceType: text("resume_source_type").$type<StudioInterviewResumeSourceType>(),
     resumeStorageKey: text("resume_storage_key"),
+    resumeText: text("resume_text"),
     // 派生自 resume_profile->'skills'：trim + 连续空白折叠为单空格 + lowercase 后的数组。
     // GIN 索引支持 `@>` 包含匹配。display 形态保存在 studioOrgSkill 表里，每 org 一份。
     // Derived from resume_profile->'skills': trim + collapse whitespace + lowercase.
@@ -1016,6 +1017,7 @@ export const resumePoolItem = pgTable(
     resumeParsedAt: timestamp("resume_parsed_at", { withTimezone: true }),
     resumeProfile: jsonb("resume_profile").$type<ResumeProfile | null>(),
     resumeStorageKey: text("resume_storage_key"),
+    resumeText: text("resume_text"),
     scope: text("scope").$type<ResumePoolScope>().notNull(),
     skillsNormalized: text("skills_normalized")
       .array()

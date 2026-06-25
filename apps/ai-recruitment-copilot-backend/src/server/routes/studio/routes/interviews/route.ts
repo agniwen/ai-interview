@@ -380,6 +380,7 @@ export const studioInterviewsRouter = factory
       });
       const resumeStorageKey = uploadResult?.storageKey ?? null;
       const resumeContentHash = uploadResult?.contentHash ?? null;
+      let resumeText = uploadResult?.resumeText ?? null;
 
       // 解析复用顺序：客户端预解析 > 注册表缓存命中 > 现场跑完整 analyzeResumeFile。
       // Reuse order: client-prebaked → registry cache → server full analysis.
@@ -397,11 +398,12 @@ export const studioInterviewsRouter = factory
         } else if (candidateQuestionGenerationEnabled) {
           analysis = await analyzeResumeFile(resume);
         } else {
-          const { resumeProfile } = await parseResumeFastToProfile(resume);
+          const parsed = await parseResumeFastToProfile(resume);
+          resumeText = parsed.parsedText;
           analysis = {
             fileName: resume.name,
             interviewQuestions: [],
-            resumeProfile,
+            resumeProfile: parsed.resumeProfile,
           };
         }
       }
@@ -434,6 +436,7 @@ export const studioInterviewsRouter = factory
         resumeFileName: analysis?.fileName ?? resume?.name ?? null,
         resumeProfile: analysis?.resumeProfile ?? null,
         resumeStorageKey,
+        resumeText,
         status: input.data.status,
         targetRole: input.data.targetRole || analysis?.resumeProfile.targetRoles[0] || null,
         updatedAt: now,
