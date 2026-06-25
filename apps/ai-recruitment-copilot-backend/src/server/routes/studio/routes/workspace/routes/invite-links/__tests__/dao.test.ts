@@ -9,6 +9,7 @@ import {
   findActiveLinkByCode,
   listInviteLinks,
   listLinkMembers,
+  updateInviteLinkInitialRole,
 } from "../dao";
 
 const ORG = "test_invite_link_org";
@@ -68,7 +69,17 @@ describe("invite-links dao", () => {
     const link = await createInviteLink({ createdBy: ADMIN, organizationId: ORG });
     expect(link.code).toMatch(/^[0-9A-Za-z]{16}$/);
     expect(link.disabledAt).toBeNull();
+    expect(link.initialRole).toBe("noAccess");
     expect(link.organizationId).toBe(ORG);
+  });
+
+  it("creates a link with the requested initial role", async () => {
+    const link = await createInviteLink({
+      createdBy: ADMIN,
+      initialRole: "member",
+      organizationId: ORG,
+    });
+    expect(link.initialRole).toBe("member");
   });
 
   it("finds active link by code, returns null for disabled", async () => {
@@ -117,6 +128,19 @@ describe("invite-links dao", () => {
     const list = await listInviteLinks(ORG);
     expect(list).toHaveLength(1);
     expect(list[0]?.joinedCount).toBe(1);
+    expect(list[0]?.initialRole).toBe("noAccess");
+  });
+
+  it("updates only the initial role for a link in the current organization", async () => {
+    const link = await createInviteLink({ createdBy: ADMIN, organizationId: ORG });
+    const updated = await updateInviteLinkInitialRole({
+      id: link.id,
+      initialRole: "member",
+      organizationId: ORG,
+    });
+    expect(updated?.id).toBe(link.id);
+    expect(updated?.initialRole).toBe("member");
+    expect(updated?.code).toBe(link.code);
   });
 
   it("listLinkMembers returns joined users", async () => {

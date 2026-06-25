@@ -1,10 +1,10 @@
-// 中文：公开访问入口的只读路由族。挂在 /api/public 下，不依赖 workspace
+// 中文：公开访问入口路由族。挂在 /api/public 下，不依赖 workspace
 // auth；对 roundId/candidateId/邀请 token 做一次反查拿到 organizationId，然后复用
 // studio 路由族里既有的 DAO 返回完整数据（候选人姓名、简历 PDF、面试报告、
 // 录像、表单答卷……）。真人复面的公开入场/结束接口也在这里，因为链接本身
 // 已经绑定候选人/面试官身份。
 //
-// English: Read-only public-access router mounted at /api/public. No
+// English: Public-access router mounted at /api/public. No
 // workspace auth — each handler resolves the owning organizationId from the
 // supplied id, then defers to the same studio DAOs the authed routes use.
 // Human-interview public join/end endpoints also live here because the invite
@@ -21,7 +21,11 @@ import {
 } from "@arc/ai-recruitment-copilot-backend/lib/server/s3";
 import { interviewConversation, minimaxVoicePreview, studioInterview } from "@arc/db-schema/schema";
 import { factory, jsonValidatorError } from "@arc/ai-recruitment-copilot-backend/server/factory";
-import { buildTokenErrorResponse } from "@arc/ai-recruitment-copilot-backend/server/routes/interview/utils";
+import {
+  buildTokenErrorResponse,
+  normalizeResumeFile,
+  storeResumeObjectOnly,
+} from "@arc/ai-recruitment-copilot-backend/server/routes/interview/utils";
 import { loadSubmissionsByInterview } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/forms/dao/submissions";
 import { queryInterviewConversationReportsByRound } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/dao/interview-conversations";
 import {
@@ -45,9 +49,110 @@ import {
   signHumanInterviewMeetingToken,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/utils/human-interview-livekit";
 import { loadResumeDetail } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/dao/resumes";
+import type { PublicReferralUploadResult } from "@arc/shared/referrals";
+import { validateResumeFile } from "@arc/ai-recruitment-copilot-backend/server/agents/resume-analysis-agent";
+import {
+  cancelBatch,
+  insertBatchWithItems,
+  loadBatchDetail,
+} from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resume-upload-batches/dao/batches";
+import {
+  resolveReferralLink,
+  toPublicReferralPreview,
+} from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao/referral-links";
+
+async function getResumeParseQueueApi() {
+  return await import("@arc/resume-parse-queue/resume-parse");
+}
 
 export const publicRouter = factory
   .createApp()
+  .get("/referrals/:token", async (c) => {
+    const link = await resolveReferralLink(c.req.param("token"));
+    if (!link) {
+      return c.json({ error: "内推链接不可用。" }, 404);
+    }
+    return c.json(toPublicReferralPreview(link), 200);
+  })
+  .post("/referrals/:token/resumes", async (c) => {
+    const link = await resolveReferralLink(c.req.param("token"));
+    if (!link) {
+      return c.json({ error: "内推链接不可用。" }, 404);
+    }
+    let formData: FormData;
+    try {
+      formData = await c.req.formData();
+    } catch {
+      return c.json({ error: "请求体必须是 multipart/form-data。" }, 400);
+    }
+    const file = normalizeResumeFile(formData.get("resume"));
+    if (!file) {
+      return c.json({ error: "请上传简历文件。" }, 400);
+    }
+    try {
+      validateResumeFile(file);
+    } catch (error) {
+      return c.json({ error: error instanceof Error ? error.message : "文件无效。" }, 400);
+    }
+
+    const { enqueueResumeParseJobs, isResumeParseQueueConfigured } = await getResumeParseQueueApi();
+    if (!isResumeParseQueueConfigured()) {
+      return c.json({ error: "简历解析队列暂不可用，请稍后重试。" }, 503);
+    }
+
+    const stored = await storeResumeObjectOnly(file, link.createdBy, link.organizationId);
+    if (!stored?.storageKey) {
+      return c.json({ error: "文件上传失败，请重试。" }, 500);
+    }
+
+    const batchId = await insertBatchWithItems({
+      dedupPolicy: "create",
+      files: [
+        {
+          contentHash: stored.contentHash,
+          fileSize: file.size,
+          originalFileName: file.name,
+          storageKey: stored.storageKey,
+        },
+      ],
+      jdMode: "bind",
+      jobDescriptionId: link.jobDescriptionId,
+      organizationId: link.organizationId,
+      referralTargetRole: link.jobDescriptionName,
+      resumePoolScope: "public",
+      sourceChannel: "referral",
+      target: "resume_pool",
+      userId: link.createdBy,
+    });
+    const detail = await loadBatchDetail(batchId, link.organizationId, link.createdBy);
+    if (!detail) {
+      return c.json({ error: "内推简历提交失败。" }, 500);
+    }
+
+    try {
+      await enqueueResumeParseJobs(
+        detail.items.map((item) => ({
+          batchId,
+          itemId: item.id,
+          organizationId: link.organizationId,
+          userId: link.createdBy,
+        })),
+      );
+    } catch (error) {
+      console.error("[referral-upload] enqueue failed:", error);
+      await cancelBatch(batchId, link.organizationId, link.createdBy);
+      return c.json({ error: "简历解析队列入队失败，请稍后重试。" }, 503);
+    }
+
+    return c.json(
+      {
+        batchId,
+        poolItemId: detail.items[0]?.poolItemId ?? null,
+        status: "queued",
+      } satisfies PublicReferralUploadResult,
+      201,
+    );
+  })
   .get("/minimax-voice-previews/:id", async (c) => {
     const id = c.req.param("id");
     const [row] = await db

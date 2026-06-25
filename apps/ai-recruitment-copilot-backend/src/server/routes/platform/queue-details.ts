@@ -72,6 +72,15 @@ export type PlatformQueueJobsResult = Omit<ResumeParseQueueJobsResult, "records"
   records: PlatformQueueJobRecord[];
 };
 
+export interface ResumeQueueDetailFilters {
+  parseStatus?: string;
+  uploadStatus?: string;
+}
+
+function isAllFilter(value: string | undefined): boolean {
+  return !value || value === "all";
+}
+
 function toIsoString(value: Date | string | null | undefined): string | null {
   if (!value) {
     return null;
@@ -119,6 +128,32 @@ export function mergeResumeParseQueueJobsWithResumeDetails(
           }
         : null,
     };
+  });
+}
+
+export function filterEnrichedResumeParseQueueJobRecords(
+  records: PlatformQueueJobRecord[],
+  filters: ResumeQueueDetailFilters,
+): PlatformQueueJobRecord[] {
+  const parseStatus = filters.parseStatus?.trim();
+  const uploadStatus = filters.uploadStatus?.trim();
+
+  if (isAllFilter(parseStatus) && isAllFilter(uploadStatus)) {
+    return records;
+  }
+
+  return records.filter((record) => {
+    const detail = record.resumeDetail;
+    if (!detail) {
+      return false;
+    }
+    if (!isAllFilter(uploadStatus) && detail.itemStatus !== uploadStatus) {
+      return false;
+    }
+    if (!isAllFilter(parseStatus) && detail.resumeParseStatus !== parseStatus) {
+      return false;
+    }
+    return true;
   });
 }
 

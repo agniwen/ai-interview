@@ -1,4 +1,5 @@
 import { zValidator } from "@hono/zod-validator";
+import { canAssignWorkspaceRole } from "@arc/ai-recruitment-copilot-backend/server/access/workspace-roles";
 import { factory, jsonValidatorError } from "@arc/ai-recruitment-copilot-backend/server/factory";
 import { requirePermission } from "@arc/ai-recruitment-copilot-backend/server/middlewares/permission";
 import {
@@ -7,8 +8,9 @@ import {
   enableInviteLink,
   listInviteLinks,
   listLinkMembers,
+  updateInviteLinkInitialRole,
 } from "./dao";
-import { inviteLinkIdParamsSchema } from "./schema";
+import { inviteLinkIdParamsSchema, inviteLinkInitialRoleInputSchema } from "./schema";
 
 export const inviteLinksRouter = factory
   .createApp()
@@ -30,24 +32,75 @@ export const inviteLinksRouter = factory
       200,
     );
   })
-  .post("/", async (c) => {
-    const { activeOrg, user } = c.var;
-    if (!(activeOrg && user)) {
-      return c.json({ message: "Unauthorized" }, 401);
-    }
-    const link = await createInviteLink({
-      createdBy: user.id,
-      organizationId: activeOrg.id,
-    });
-    return c.json(
-      {
-        ...link,
-        createdAt: link.createdAt.toISOString(),
-        disabledAt: link.disabledAt?.toISOString() ?? null,
-      },
-      200,
-    );
-  })
+  .post(
+    "/",
+    zValidator("json", inviteLinkInitialRoleInputSchema, jsonValidatorError("初始化角色无效。")),
+    async (c) => {
+      const { activeOrg, member, user } = c.var;
+      if (!(activeOrg && member && user)) {
+        return c.json({ message: "Unauthorized" }, 401);
+      }
+      const { initialRole } = c.req.valid("json");
+      const allowed = await canAssignWorkspaceRole({
+        invokerRole: member.role,
+        organizationId: activeOrg.id,
+        targetRole: initialRole,
+      });
+      if (!allowed) {
+        return c.json({ error: "只能设置为可分配的工作区角色。" }, 403);
+      }
+      const link = await createInviteLink({
+        createdBy: user.id,
+        initialRole,
+        organizationId: activeOrg.id,
+      });
+      return c.json(
+        {
+          ...link,
+          createdAt: link.createdAt.toISOString(),
+          disabledAt: link.disabledAt?.toISOString() ?? null,
+        },
+        200,
+      );
+    },
+  )
+  .patch(
+    "/:id",
+    zValidator("param", inviteLinkIdParamsSchema, jsonValidatorError("参数错误。")),
+    zValidator("json", inviteLinkInitialRoleInputSchema, jsonValidatorError("初始化角色无效。")),
+    async (c) => {
+      const { activeOrg, member } = c.var;
+      if (!(activeOrg && member)) {
+        return c.json({ message: "Unauthorized" }, 401);
+      }
+      const { id } = c.req.valid("param");
+      const { initialRole } = c.req.valid("json");
+      const allowed = await canAssignWorkspaceRole({
+        invokerRole: member.role,
+        organizationId: activeOrg.id,
+        targetRole: initialRole,
+      });
+      if (!allowed) {
+        return c.json({ error: "只能设置为可分配的工作区角色。" }, 403);
+      }
+      const link = await updateInviteLinkInitialRole({
+        id,
+        initialRole,
+        organizationId: activeOrg.id,
+      });
+      if (!link) {
+        return c.json({ error: "链接不存在或不属于当前工作区。" }, 404);
+      }
+      return c.json(
+        {
+          ...link,
+          createdAt: link.createdAt.toISOString(),
+          disabledAt: link.disabledAt?.toISOString() ?? null,
+        },
+        200,
+      );
+    },
+  )
   .patch(
     "/:id/disable",
     zValidator("param", inviteLinkIdParamsSchema, jsonValidatorError("参数错误。")),

@@ -1,5 +1,70 @@
 import { describe, expect, it } from "vitest";
-import { mergeResumeParseQueueJobsWithResumeDetails } from "../queue-details";
+import {
+  filterEnrichedResumeParseQueueJobRecords,
+  mergeResumeParseQueueJobsWithResumeDetails,
+} from "../queue-details";
+
+function createQueueJob(itemId: string) {
+  return {
+    attemptsMade: 0,
+    attemptsStarted: null,
+    data: {
+      batchId: "batch-1",
+      itemId,
+      organizationId: "org-1",
+      userId: "user-1",
+    },
+    failedReason: null,
+    finishedOn: null,
+    id: itemId,
+    name: "parse-resume-upload-item",
+    processedBy: null,
+    processedOn: null,
+    progress: null,
+    returnvalue: null,
+    state: "waiting" as const,
+    timestamp: null,
+  };
+}
+
+function createResumeDetail(itemId: string, itemStatus: string, resumeParseStatus: string) {
+  return {
+    attemptCount: 1,
+    batch: {
+      failedCount: 0,
+      processedCount: 0,
+      status: "running",
+      succeededCount: 0,
+      target: "resume_pool",
+      totalCount: 3,
+    },
+    batchId: "batch-1",
+    candidateEmail: null,
+    candidateName: null,
+    errorMessage: null,
+    fileSize: 1024,
+    finishedAt: null,
+    itemId,
+    itemStatus,
+    organizationId: "org-1",
+    organizationName: "测试组织",
+    organizationSlug: "test-org",
+    originalFileName: `${itemId}.pdf`,
+    poolItemId: "pool-1",
+    poolScope: "private",
+    poolStatus: "active",
+    queuedAt: null,
+    resumeParseError: null,
+    resumeParseStatus,
+    resumeRecordId: null,
+    startedAt: null,
+    targetRole: null,
+    userEmail: "uploader@example.com",
+    userId: "user-1",
+    userImage: null,
+    userName: "上传人",
+  };
+}
 
 describe("mergeResumeParseQueueJobsWithResumeDetails", () => {
   it("attaches resume-level parse details to queue jobs by item id", () => {
@@ -109,5 +174,51 @@ describe("mergeResumeParseQueueJobsWithResumeDetails", () => {
     );
 
     expect(record?.resumeDetail).toBeNull();
+  });
+});
+
+describe("filterEnrichedResumeParseQueueJobRecords", () => {
+  it("filters queue jobs by upload task status and parse status", () => {
+    const records = mergeResumeParseQueueJobsWithResumeDetails(
+      [
+        createQueueJob("item-1"),
+        createQueueJob("item-2"),
+        createQueueJob("item-3"),
+        {
+          ...createQueueJob("job-without-detail"),
+          data: { unexpected: true },
+        },
+      ],
+      [
+        createResumeDetail("item-1", "processing", "processing"),
+        createResumeDetail("item-2", "succeeded", "ready"),
+        createResumeDetail("item-3", "failed", "failed"),
+      ],
+    );
+
+    expect(
+      filterEnrichedResumeParseQueueJobRecords(records, {
+        parseStatus: "processing",
+        uploadStatus: "processing",
+      }).map((record) => record.id),
+    ).toEqual(["item-1"]);
+    expect(
+      filterEnrichedResumeParseQueueJobRecords(records, {
+        parseStatus: "ready",
+        uploadStatus: "all",
+      }).map((record) => record.id),
+    ).toEqual(["item-2"]);
+    expect(
+      filterEnrichedResumeParseQueueJobRecords(records, {
+        parseStatus: "all",
+        uploadStatus: "failed",
+      }).map((record) => record.id),
+    ).toEqual(["item-3"]);
+    expect(
+      filterEnrichedResumeParseQueueJobRecords(records, {
+        parseStatus: "all",
+        uploadStatus: "all",
+      }).map((record) => record.id),
+    ).toEqual(["item-1", "item-2", "item-3", "job-without-detail"]);
   });
 });

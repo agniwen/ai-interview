@@ -6,6 +6,7 @@ import type {
 import { createDefaultScheduleEntry } from "@arc/db-schema/studio-interviews";
 import type { AnalysisStreamEvent } from "@arc/shared/api-stream";
 import type { ResumeLibraryFormValues } from "@arc/shared/studio-resumes";
+import type { ResumeReview } from "@arc/shared/resume-review";
 import { readNdjsonStream } from "./ndjson-stream";
 import { rpc } from "./rpc";
 
@@ -29,6 +30,11 @@ export interface GenerateResumeReviewOptions {
   onDraftChange?: (review: string) => void;
   resumeProfile: ResumeProfile;
   signal?: AbortSignal;
+}
+
+export interface GenerateResumeReviewResult {
+  review: string;
+  structuredReview: ResumeReview;
 }
 
 export type ResumeCreateDedupPolicy = "check" | "force";
@@ -108,7 +114,7 @@ export async function generateResumeReview({
   onDraftChange,
   resumeProfile,
   signal,
-}: GenerateResumeReviewOptions): Promise<string | null> {
+}: GenerateResumeReviewOptions): Promise<GenerateResumeReviewResult | null> {
   const response = await rpc.api.interview["generate-review"].$post(
     { json: { jobDescriptionId: jobDescriptionId || null, resumeProfile } },
     { init: { signal } },
@@ -120,7 +126,7 @@ export async function generateResumeReview({
   }
 
   let draft = "";
-  let result: string | null = null;
+  let result: GenerateResumeReviewResult | null = null;
   let streamError: string | null = null;
 
   await readNdjsonStream<AnalysisStreamEvent>(
@@ -134,10 +140,10 @@ export async function generateResumeReview({
         onDraftChange?.(draft);
       }
       if (event.type === "result") {
-        const data = event.data as { review?: string };
-        result = data.review ?? null;
-        if (result) {
-          onDraftChange?.(result);
+        const data = event.data as Partial<GenerateResumeReviewResult>;
+        if (data.review && data.structuredReview) {
+          result = { review: data.review, structuredReview: data.structuredReview };
+          onDraftChange?.(result.review);
         }
       }
       if (event.type === "error") {
@@ -154,7 +160,7 @@ export async function generateResumeReview({
     throw new Error(streamError);
   }
 
-  return result ?? (draft.trim() ? draft : null);
+  return result ?? null;
 }
 
 export function buildResumePayload(
@@ -179,6 +185,7 @@ export function formValuesFromResumeProfile(
     candidatePhone: resumeProfile.phone ?? "",
     jobDescriptionId: "",
     notes: "",
+    resumeEvaluationStatus: "unreviewed",
     targetRole: resumeProfile.targetRoles[0] ?? "",
     ...overrides,
   };
@@ -191,13 +198,14 @@ function appendCandidateFields(fd: FormData, value: ResumeLibraryFormValues) {
   fd.append("targetRole", value.targetRole);
   fd.append("jobDescriptionId", value.jobDescriptionId);
   fd.append("notes", value.notes);
+  fd.append("resumeEvaluationStatus", value.resumeEvaluationStatus);
 }
 
 export function buildSaveOnlyResumeFormData(
   value: ResumeLibraryFormValues,
   file: File | null,
   resumePayload: ResumeAnalysisResult | null,
-  options: { dedupPolicy?: ResumeCreateDedupPolicy } = {},
+  options: { dedupPolicy?: ResumeCreateDedupPolicy; resumeReview?: ResumeReview | null } = {},
 ): FormData {
   const fd = new FormData();
   appendCandidateFields(fd, value);
@@ -208,6 +216,9 @@ export function buildSaveOnlyResumeFormData(
   if (resumePayload) {
     fd.append("resumePayload", JSON.stringify(resumePayload));
   }
+  if (options.resumeReview) {
+    fd.append("resumeReview", JSON.stringify(options.resumeReview));
+  }
   return fd;
 }
 
@@ -215,7 +226,7 @@ export function buildSaveAndStartResumeFormData(
   value: ResumeLibraryFormValues,
   file: File | null,
   resumePayload: ResumeAnalysisResult | null,
-  options: { dedupPolicy?: ResumeCreateDedupPolicy } = {},
+  options: { dedupPolicy?: ResumeCreateDedupPolicy; resumeReview?: ResumeReview | null } = {},
 ): FormData {
   const fd = buildSaveOnlyResumeFormData(value, file, resumePayload, options);
   fd.append("status", "ready");

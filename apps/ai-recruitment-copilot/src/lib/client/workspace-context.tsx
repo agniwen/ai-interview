@@ -60,6 +60,10 @@ export function useOptionalWorkspaceSlug(): string | null {
   return useContext(Ctx)?.slug ?? null;
 }
 
+export function useOptionalWorkspaceId(): string | null {
+  return useContext(Ctx)?.id ?? null;
+}
+
 export function useOptionalWorkspaceMemberRole(): string | null {
   return useContext(Ctx)?.memberRole ?? null;
 }

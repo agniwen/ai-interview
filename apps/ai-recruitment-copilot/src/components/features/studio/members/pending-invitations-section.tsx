@@ -27,7 +27,6 @@ import { Spinner } from "@/components/ui/spinner";
 import { authClient } from "@/lib/client/auth-client";
 import { formatDate } from "@arc/shared/utils/time";
 import { getWorkspaceRoleLabel } from "./role-display";
-import type { WorkspaceRole } from "./role-display";
 
 interface InvitationItem {
   id: string;
@@ -73,9 +72,7 @@ function InvitationsList({
             <p className="truncate font-medium text-sm">{inv.email}</p>
             <div className="mt-1 flex flex-wrap items-center gap-2 text-muted-foreground text-xs">
               {inv.role ? (
-                <Badge variant="secondary">
-                  {getWorkspaceRoleLabel(inv.role as WorkspaceRole)}
-                </Badge>
+                <Badge variant="secondary">{getWorkspaceRoleLabel(inv.role)}</Badge>
               ) : null}
               <span>过期：{formatDate(inv.expiresAt)}</span>
             </div>

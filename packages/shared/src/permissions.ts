@@ -16,6 +16,53 @@ import {
   ownerAc,
 } from "better-auth/plugins/organization/access";
 
+export const STUDIO_PAGE_PERMISSION_ACTIONS = [
+  "resumes",
+  "resumePool",
+  "interviews",
+  "dashboard",
+  "departments",
+  "interviewers",
+  "jobDescriptions",
+  "forms",
+  "interviewQuestions",
+  "me",
+  "members",
+  "mailIngestAccounts",
+  "permissions",
+  "globalConfig",
+] as const;
+
+export const STUDIO_PAGE_PERMISSION_LABELS = {
+  dashboard: "数据看板",
+  departments: "部门管理",
+  forms: "面试表单",
+  globalConfig: "系统设置",
+  interviewQuestions: "面试题",
+  interviewers: "面试官管理",
+  interviews: "AI 面试",
+  jobDescriptions: "在招岗位管理",
+  mailIngestAccounts: "邮箱监听",
+  me: "我的信息",
+  members: "工作区管理",
+  permissions: "权限管理",
+  resumePool: "简历广场",
+  resumes: "简历库",
+} as const;
+
+const memberStudioPagePermissions = [
+  "resumes",
+  "resumePool",
+  "interviews",
+  "departments",
+  "interviewers",
+  "jobDescriptions",
+  "forms",
+  "interviewQuestions",
+  "me",
+  "members",
+] as const;
+
 export const statement = {
   ...defaultStatements,
   auditLog: ["read"],
@@ -26,11 +73,17 @@ export const statement = {
   interview: ["create", "read", "update", "delete"],
   interviewer: ["create", "read", "update", "delete"],
   jd: ["create", "read", "update", "delete"],
+  mailIngestAccount: ["create", "read", "update", "delete", "manage"],
+  page: STUDIO_PAGE_PERMISSION_ACTIONS,
   questionTemplate: ["create", "read", "update", "delete"],
-  resume: ["create", "read", "update", "delete"],
+  resumeLibrary: ["create", "read", "update", "delete"],
+  resumePool: ["create", "read", "publish", "import", "delete"],
+  resumeUploadBatch: ["create", "read", "process", "cancel", "delete"],
 } as const;
 
 export const ac = createAccessControl(statement);
+
+export const NO_ACCESS_WORKSPACE_ROLE = "noAccess";
 
 export const owner = ac.newRole({
   ...ownerAc.statements,
@@ -42,8 +95,12 @@ export const owner = ac.newRole({
   interview: ["create", "read", "update", "delete"],
   interviewer: ["create", "read", "update", "delete"],
   jd: ["create", "read", "update", "delete"],
+  mailIngestAccount: ["create", "read", "update", "delete", "manage"],
+  page: STUDIO_PAGE_PERMISSION_ACTIONS,
   questionTemplate: ["create", "read", "update", "delete"],
-  resume: ["create", "read", "update", "delete"],
+  resumeLibrary: ["create", "read", "update", "delete"],
+  resumePool: ["create", "read", "publish", "import", "delete"],
+  resumeUploadBatch: ["create", "read", "process", "cancel", "delete"],
 });
 
 export const admin = ac.newRole({
@@ -71,9 +128,13 @@ export const admin = ac.newRole({
   interview: ["create", "read", "update", "delete"],
   interviewer: ["create", "read", "update", "delete"],
   jd: ["create", "read", "update", "delete"],
+  mailIngestAccount: ["create", "read", "update", "delete", "manage"],
   member: ["create", "update", "delete"],
+  page: STUDIO_PAGE_PERMISSION_ACTIONS,
   questionTemplate: ["create", "read", "update", "delete"],
-  resume: ["create", "read", "update", "delete"],
+  resumeLibrary: ["create", "read", "update", "delete"],
+  resumePool: ["create", "read", "publish", "import", "delete"],
+  resumeUploadBatch: ["create", "read", "process", "cancel", "delete"],
 });
 
 const recruitingMemberStatements = {
@@ -86,11 +147,17 @@ const recruitingMemberStatements = {
   interview: ["create", "read", "update", "delete"],
   interviewer: ["create", "read", "update", "delete"],
   jd: ["create", "read", "update", "delete"],
+  page: memberStudioPagePermissions,
   questionTemplate: ["create", "read", "update", "delete"],
-  resume: ["create", "read", "update", "delete"],
+  resumeLibrary: ["create", "read", "update", "delete"],
+  resumePool: ["create", "read", "publish", "import", "delete"],
+  resumeUploadBatch: ["create", "read", "process", "cancel", "delete"],
 } as const;
 
 export const member = ac.newRole(recruitingMemberStatements);
+export const noAccess = ac.newRole({
+  page: [],
+});
 
-export const roles = { admin, member, owner } as const;
+export const roles = { admin, member, noAccess, owner } as const;
 export type AppRole = keyof typeof roles;

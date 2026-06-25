@@ -7,7 +7,9 @@ import type {
   CandidateTimelineEventMeta,
   CandidateTimelineEventTone,
   CandidateTimelineResponse,
+  ResumeEvaluationStatus,
 } from "@arc/shared/studio-resumes";
+import { describeResumeEvaluationStatus } from "@arc/shared/studio-resumes";
 import {
   candidateFormSubmission,
   candidateFormTemplate,
@@ -130,6 +132,14 @@ function outcomeLabel(value: unknown): string {
   return isCandidateOutcome(value) ? candidateOutcomeMeta[value].label : "进行中";
 }
 
+function isResumeEvaluationStatus(value: unknown): value is ResumeEvaluationStatus | null {
+  return value === null || value === "pass" || value === "fail";
+}
+
+function resumeEvaluationLabel(value: unknown): string {
+  return isResumeEvaluationStatus(value) ? describeResumeEvaluationStatus(value).label : "未知状态";
+}
+
 function auditDescription(detail: Record<string, unknown>, action: string): string | null {
   if (action === "candidate_transition") {
     const from = stageLabel(detail.fromStage);
@@ -145,6 +155,12 @@ function auditDescription(detail: Record<string, unknown>, action: string): stri
     const turnCount = typeof detail.turnCount === "number" ? detail.turnCount : null;
     return turnCount === null ? "AI 面试报告已同步" : `AI 面试报告已同步，共 ${turnCount} 条转写`;
   }
+  if (action === "resume_evaluation_submitted") {
+    return `评估结果：${resumeEvaluationLabel(detail.toStatus)}`;
+  }
+  if (action === "resume_evaluation_updated") {
+    return `评估状态：${resumeEvaluationLabel(detail.fromStatus)} -> ${resumeEvaluationLabel(detail.toStatus)}`;
+  }
   return null;
 }
 
@@ -158,6 +174,12 @@ function auditTitle(action: string): string {
     }
     case "agent_report_received": {
       return "AI 报告已接收";
+    }
+    case "resume_evaluation_submitted": {
+      return "简历评估已提交";
+    }
+    case "resume_evaluation_updated": {
+      return "简历评估状态变更";
     }
     default: {
       return "系统操作";
@@ -174,6 +196,12 @@ function auditTone(action: string): CandidateTimelineEventTone {
   }
   if (action === "agent_report_received") {
     return "success";
+  }
+  if (action === "resume_evaluation_submitted") {
+    return "info";
+  }
+  if (action === "resume_evaluation_updated") {
+    return "info";
   }
   return "muted";
 }

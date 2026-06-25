@@ -40,8 +40,10 @@ import { formatBytes } from "@arc/shared/utils/format";
 
 const DEFAULT_QUEUE_NAME = "resume-parse";
 const DEFAULT_FILTERS = {
+  parseStatus: "all",
   queue: DEFAULT_QUEUE_NAME,
   state: "all",
+  uploadStatus: "all",
 };
 
 const JOB_STATE_OPTIONS = [
@@ -56,8 +58,29 @@ const JOB_STATE_OPTIONS = [
   { label: "等待子任务", value: "waiting-children" },
 ] as const;
 
+const UPLOAD_STATUS_FILTER_OPTIONS = [
+  { label: "全部上传状态", value: "all" },
+  { label: "排队中", value: "pending" },
+  { label: "处理中", value: "processing" },
+  { label: "已完成", value: "succeeded" },
+  { label: "失败", value: "failed" },
+  { label: "已跳过", value: "duplicate_skipped" },
+  { label: "已取消", value: "cancelled" },
+] as const;
+
+const PARSE_STATUS_FILTER_OPTIONS = [
+  { label: "全部解析状态", value: "all" },
+  { label: "待解析", value: "queued" },
+  { label: "未解析", value: "unparsed" },
+  { label: "解析中", value: "processing" },
+  { label: "已解析", value: "ready" },
+  { label: "解析失败", value: "failed" },
+] as const;
+
 type QueueFilters = typeof DEFAULT_FILTERS;
 type JobStateFilter = (typeof JOB_STATE_OPTIONS)[number]["value"];
+type UploadStatusFilter = (typeof UPLOAD_STATUS_FILTER_OPTIONS)[number]["value"];
+type ParseStatusFilter = (typeof PARSE_STATUS_FILTER_OPTIONS)[number]["value"];
 
 interface QueueCounts {
   active: number;
@@ -213,6 +236,18 @@ function stateLabel(state: string): string {
 function normalizeStateFilter(value: string): JobStateFilter {
   return JOB_STATE_OPTIONS.some((option) => option.value === value)
     ? (value as JobStateFilter)
+    : "all";
+}
+
+function normalizeUploadStatusFilter(value: string): UploadStatusFilter {
+  return UPLOAD_STATUS_FILTER_OPTIONS.some((option) => option.value === value)
+    ? (value as UploadStatusFilter)
+    : "all";
+}
+
+function normalizeParseStatusFilter(value: string): ParseStatusFilter {
+  return PARSE_STATUS_FILTER_OPTIONS.some((option) => option.value === value)
+    ? (value as ParseStatusFilter)
     : "all";
 }
 
@@ -626,7 +661,9 @@ export function QueuesGrid() {
               page: String(params.page),
               pageSize: String(params.pageSize),
               ...(params.search ? { search: params.search } : {}),
+              parseStatus: normalizeParseStatusFilter(params.filters.parseStatus),
               state: normalizeStateFilter(params.filters.state),
+              uploadStatus: normalizeUploadStatusFilter(params.filters.uploadStatus),
             },
           }),
           "加载队列任务失败",
@@ -659,11 +696,46 @@ export function QueuesGrid() {
         truncate: "max-w-70",
       }),
       customColumn<QueueJobRecord>({
+        cell: (record) =>
+          record.resumeDetail?.originalFileName ? (
+            <span className="block max-w-64 truncate" title={record.resumeDetail.originalFileName}>
+              {record.resumeDetail.originalFileName}
+            </span>
+          ) : (
+            <span className="text-muted-foreground">—</span>
+          ),
+        key: "originalFileName",
+        size: 220,
+        title: "文件名",
+      }),
+      customColumn<QueueJobRecord>({
         cell: (record) => (
           <Badge variant={stateVariant(record.state)}>{stateLabel(record.state)}</Badge>
         ),
         key: "state",
         title: "状态",
+      }),
+      customColumn<QueueJobRecord>({
+        cell: (record) => {
+          if (!record.resumeDetail) {
+            return <span className="text-muted-foreground">—</span>;
+          }
+          const status = uploadItemStatusMeta(
+            record.resumeDetail.itemStatus,
+            record.resumeDetail.batch.target,
+          );
+          return <Badge variant={status.variant}>{status.label}</Badge>;
+        },
+        key: "uploadTaskStatus",
+        title: "上传任务状态",
+      }),
+      customColumn<QueueJobRecord>({
+        cell: (record) => {
+          const status = resumeParseStatusMeta(record.resumeDetail?.resumeParseStatus ?? null);
+          return <Badge variant={status.variant}>{status.label}</Badge>;
+        },
+        key: "resumeParseStatus",
+        title: "解析状态",
       }),
       customColumn<QueueJobRecord>({
         cell: (record) => <QueueOrganizationCell organization={record.organization} />,
@@ -731,6 +803,7 @@ export function QueuesGrid() {
 
       <DataGrid<QueueJobRecord>
         {...grid.bind}
+        columnPinning={{ right: ["actions"] }}
         columns={columns}
         empty={
           <Empty className="border-border">
@@ -763,6 +836,18 @@ export function QueuesGrid() {
             key: "state",
             options: [...JOB_STATE_OPTIONS],
             placeholder: "任务状态",
+            type: "select",
+          },
+          {
+            key: "uploadStatus",
+            options: [...UPLOAD_STATUS_FILTER_OPTIONS],
+            placeholder: "上传任务状态",
+            type: "select",
+          },
+          {
+            key: "parseStatus",
+            options: [...PARSE_STATUS_FILTER_OPTIONS],
+            placeholder: "解析状态",
             type: "select",
           },
         ]}

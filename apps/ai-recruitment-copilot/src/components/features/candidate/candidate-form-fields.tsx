@@ -8,7 +8,18 @@ import { MarkdownEditor } from "@/components/features/markdown-editor";
 import { Field, FieldContent, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { FileUpload } from "@/components/ui/file-upload";
 import { Input } from "@/components/ui/input";
-import type { ResumeLibraryFormValues } from "@arc/shared/studio-resumes";
+import { describeResumeEvaluationStatus } from "@arc/shared/studio-resumes";
+import type {
+  ResumeEvaluationStatusFormValue,
+  ResumeLibraryFormValues,
+} from "@arc/shared/studio-resumes";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { toast } from "sonner";
 import {
   supportedResumeDocumentAccept,
@@ -88,6 +99,8 @@ export interface CandidateFormFieldsProps {
   notesDisabled?: boolean;
   /** false 时只显示简历文件字段；用于新建弹窗解析完成前的初始状态。 */
   showDetails?: boolean;
+  /** 编辑简历时显示评估状态；上传新简历时不显示。 */
+  showResumeEvaluationStatus?: boolean;
   /**
    * true 时：简历文件字段显示为必填（红星 + 不再带"可选"），并且在未选 / 未上传过
    * PDF 之前隐藏候选人姓名 / 邮箱 / 电话 / 目标岗位四个字段——避免用户在没解析依据时
@@ -162,6 +175,58 @@ function getResumeUploadCopy({
   return { description, title };
 }
 
+function ResumeEvaluationStatusField({
+  disabled,
+  form,
+  visible,
+}: {
+  disabled?: boolean;
+  form: CandidateFormApi;
+  visible: boolean;
+}) {
+  if (!visible) {
+    return null;
+  }
+
+  return (
+    <form.Field name="resumeEvaluationStatus">
+      {(field) => {
+        const errors = toFieldErrors(field.state.meta.errors);
+        return (
+          <Field>
+            <FieldLabel htmlFor={field.name}>简历评估</FieldLabel>
+            <FieldContent className="gap-2">
+              <Select
+                disabled={disabled}
+                onValueChange={(next) =>
+                  field.handleChange(next as ResumeEvaluationStatusFormValue)
+                }
+                value={field.state.value}
+              >
+                <SelectTrigger className="w-full" id={field.name}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="unreviewed">
+                    {describeResumeEvaluationStatus(null).label}
+                  </SelectItem>
+                  <SelectItem value="pass">
+                    {describeResumeEvaluationStatus("pass").label}
+                  </SelectItem>
+                  <SelectItem value="fail">
+                    {describeResumeEvaluationStatus("fail").label}
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+              <FieldError errors={errors} />
+            </FieldContent>
+          </Field>
+        );
+      }}
+    </form.Field>
+  );
+}
+
 export function CandidateFormFields({
   form,
   resumeFile,
@@ -176,6 +241,7 @@ export function CandidateFormFields({
   notesLabelAction,
   notesDisabled = false,
   showDetails = true,
+  showResumeEvaluationStatus = false,
   requireResumeFile = false,
   resumeFileMaxFiles = 1,
   resumeFileMultiple = false,
@@ -360,6 +426,12 @@ export function CandidateFormFields({
               );
             }}
           </form.Field>
+
+          <ResumeEvaluationStatusField
+            disabled={disabled}
+            form={form}
+            visible={showResumeEvaluationStatus}
+          />
         </FieldGroup>
       ) : null}
 

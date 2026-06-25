@@ -13,6 +13,7 @@ import type { DataGridQueryState } from "@/components/data-grid/query-contract";
 import { parseDataGridSearchParams } from "@/components/data-grid/query-contract";
 import { loadStudioResumesState } from "@/lib/start/studio/resumes.functions";
 import type { StudioResumesState } from "@/lib/start/studio/resumes.functions";
+import { requireStudioPageAccess } from "@/lib/start/studio/page-access";
 import { parseCsvParam } from "@arc/shared/csv";
 import {
   canDeleteResumeRecord,
@@ -82,7 +83,10 @@ import {
 } from "@/lib/client/api";
 import { rpc } from "@/lib/client/rpc";
 import { rpcFetch } from "@/lib/client/api/rpc-fetch";
-import { useWorkspaceSlug } from "@/lib/client/workspace-context";
+import { authClient } from "@/lib/client/auth-client";
+import { copyTextToClipboard, toAbsoluteUrl } from "@/lib/client/clipboard";
+import { useWorkspaceMemberRole, useWorkspaceSlug } from "@/lib/client/workspace-context";
+import { useHasPermission } from "@/hooks/use-has-permission";
 import { StudioPersonDetailDialog } from "@/components/features/studio/studio-person-detail-dialog";
 import { StudioPersonEditDialog } from "@/components/features/studio/studio-person-edit-dialog";
 import { CreateResumeRecordDialog } from "@/components/features/studio/resumes/upload-resume-dialog";
@@ -266,6 +270,40 @@ function describeLifecycleCell(record: ResumeLibraryListRecord) {
   };
 }
 
+function canCopyResumeDetailLink({
+  currentMemberRole,
+  currentUserId,
+  record,
+}: {
+  currentMemberRole: string;
+  currentUserId: string | null;
+  record: ResumeLibraryListRecord;
+}) {
+  return (
+    currentMemberRole === "owner" ||
+    currentMemberRole === "admin" ||
+    (Boolean(currentUserId) && record.createdBy === currentUserId)
+  );
+}
+
+async function copyResumeDetailLink(slug: string, record: ResumeLibraryListRecord) {
+  const fullLink = toAbsoluteUrl(`/resume-review/${slug}/${record.id}`);
+  try {
+    const result = await copyTextToClipboard(fullLink);
+    if (result === "copied") {
+      toast.success("详情链接已复制");
+      return;
+    }
+    if (result === "manual") {
+      toast.info("已弹出链接，请手动复制");
+      return;
+    }
+    throw new Error("copy-failed");
+  } catch {
+    toast.error("复制失败，请手动复制");
+  }
+}
+
 function ResumeProgressCell({
   onOpen,
   record,
@@ -326,9 +364,18 @@ interface FetchParams {
 // oxlint-disable-next-line eslint/complexity
 function ResumeLibraryPage({ metrics }: { metrics: ResumeLibraryMetrics }) {
   const slug = useWorkspaceSlug();
+  const currentMemberRole = useWorkspaceMemberRole();
   const router = useRouter();
   const routeSearch = useSearch({ from: "/w/$slug/studio/resumes" });
   const queryClient = useQueryClient();
+  const { data: session } = authClient.useSession();
+  const currentUserId = session?.user?.id ?? null;
+  const canCreateInterview = useHasPermission("interview", "create");
+  const canCreateResumeLibrary = useHasPermission("resumeLibrary", "create");
+  const canUpdateResumeLibrary = useHasPermission("resumeLibrary", "update");
+  const canDeleteResumeLibrary = useHasPermission("resumeLibrary", "delete");
+  const canReadResumeUploadBatch = useHasPermission("resumeUploadBatch", "read");
+  const canCreateResumeUploadBatch = useHasPermission("resumeUploadBatch", "create");
 
   // 删除简历会级联清掉关联的 AI 面试轮次；发起面试 / 保存并发起也会改动
   // AI 面试列表。所以这里把两侧 key 一起失效，避免任意一侧停留在脏数据。
@@ -360,6 +407,7 @@ function ResumeLibraryPage({ metrics }: { metrics: ResumeLibraryMetrics }) {
     onRecordsChanged: invalidateAll,
   });
   const batchListQuery = useQuery({
+    enabled: canReadResumeUploadBatch,
     queryFn: () => listBulkResumeBatches(slug),
     queryKey: ["bulk-resume-batches", slug],
     refetchInterval: 10_000,
@@ -371,7 +419,8 @@ function ResumeLibraryPage({ metrics }: { metrics: ResumeLibraryMetrics }) {
       ),
     [batchListQuery.data],
   );
-  const uploadEntryDisabled = bulk.state.phase === "uploading";
+  const canUploadResumeLibrary = canCreateResumeLibrary && canCreateResumeUploadBatch;
+  const uploadEntryDisabled = bulk.state.phase === "uploading" || !canUploadResumeLibrary;
   const hasActiveUploadBatches = libraryBatches.some(
     (batch) => batch.status === "pending" || batch.status === "running",
   );
@@ -704,10 +753,20 @@ function ResumeLibraryPage({ metrics }: { metrics: ResumeLibraryMetrics }) {
           {
             label: "编辑",
             onClick: (r) => setEditRecordId(r.id),
-            show: (r) => canEditResumeRecord(r.resumeParseStatus),
+            show: (r) => canUpdateResumeLibrary && canEditResumeRecord(r.resumeParseStatus),
           },
         ],
         menu: [
+          {
+            label: "复制详情链接",
+            onClick: (r) => void copyResumeDetailLink(slug, r),
+            show: (r) =>
+              canCopyResumeDetailLink({
+                currentMemberRole,
+                currentUserId,
+                record: r,
+              }),
+          },
           {
             label: "查看简历",
             onClick: (r) => setPreviewRecord(r),
@@ -723,6 +782,7 @@ function ResumeLibraryPage({ metrics }: { metrics: ResumeLibraryMetrics }) {
             // Hide when the candidate already has any AI interview round OR is
             // closed (closed candidates must be reactivated first).
             show: (r) =>
+              canCreateInterview &&
               canLaunchInterviewFromResume(r.resumeParseStatus) &&
               !r.hasInterviewRounds &&
               r.pipelineStage !== "closed",
@@ -736,7 +796,10 @@ function ResumeLibraryPage({ metrics }: { metrics: ResumeLibraryMetrics }) {
               }),
             // 只在未结案候选人上显示。
             // Only available on non-closed candidates.
-            show: (r) => canEditResumeRecord(r.resumeParseStatus) && r.pipelineStage !== "closed",
+            show: (r) =>
+              canUpdateResumeLibrary &&
+              canEditResumeRecord(r.resumeParseStatus) &&
+              r.pipelineStage !== "closed",
           },
           {
             label: "重新激活",
@@ -747,12 +810,15 @@ function ResumeLibraryPage({ metrics }: { metrics: ResumeLibraryMetrics }) {
               }),
             // 仅对已结案候选人可见。
             // Only visible for closed candidates.
-            show: (r) => canEditResumeRecord(r.resumeParseStatus) && r.pipelineStage === "closed",
+            show: (r) =>
+              canUpdateResumeLibrary &&
+              canEditResumeRecord(r.resumeParseStatus) &&
+              r.pipelineStage === "closed",
           },
           {
             label: "删除",
             onClick: (r) => setDeleteRecord(r),
-            show: (r) => canDeleteResumeRecord(r.resumeParseStatus),
+            show: (r) => canDeleteResumeLibrary && canDeleteResumeRecord(r.resumeParseStatus),
             variant: "destructive",
           },
         ],
@@ -760,7 +826,14 @@ function ResumeLibraryPage({ metrics }: { metrics: ResumeLibraryMetrics }) {
     ],
     // startAiInterview captures setLaunchingRecord which is stable; safe to omit from deps.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [],
+    [
+      canCreateInterview,
+      canDeleteResumeLibrary,
+      canUpdateResumeLibrary,
+      currentMemberRole,
+      currentUserId,
+      slug,
+    ],
   );
 
   const filtersConfig = useMemo(
@@ -906,40 +979,48 @@ function ResumeLibraryPage({ metrics }: { metrics: ResumeLibraryMetrics }) {
           columnPinning={{ left: ["select", "candidateName"], right: ["actions"] }}
           filters={filtersConfig}
           toolbarRight={
-            <ButtonGroup>
-              <ResumeUploadEntryButton
-                disabled={uploadEntryDisabled}
-                onClick={() => setUploadEntryOpen(true)}
-              />
-              {hasActiveUploadBatches ? (
-                <Button onClick={() => setBatchListOpen(true)} type="button">
-                  <HistoryIcon className="size-4" />
-                </Button>
-              ) : null}
-            </ButtonGroup>
+            canUploadResumeLibrary || canReadResumeUploadBatch ? (
+              <ButtonGroup>
+                {canUploadResumeLibrary ? (
+                  <ResumeUploadEntryButton
+                    disabled={uploadEntryDisabled}
+                    onClick={() => setUploadEntryOpen(true)}
+                  />
+                ) : null}
+                {canReadResumeUploadBatch && hasActiveUploadBatches ? (
+                  <Button onClick={() => setBatchListOpen(true)} type="button">
+                    <HistoryIcon className="size-4" />
+                  </Button>
+                ) : null}
+              </ButtonGroup>
+            ) : null
           }
-          bulkActions={({ selectedIds }) => (
-            <Button
-              className="flex-1 sm:flex-none"
-              disabled={selectedIds.some((id) => {
-                const row = grid.bind.data.find((record) => record.id === id);
-                return row ? !canDeleteResumeRecord(row.resumeParseStatus) : false;
-              })}
-              onClick={() => setBulkDeleteOpen(true)}
-              title={
-                selectedIds.some((id) => {
-                  const row = grid.bind.data.find((record) => record.id === id);
-                  return row ? !canDeleteResumeRecord(row.resumeParseStatus) : false;
-                })
-                  ? "所选记录包含解析中的简历，暂不能删除"
-                  : undefined
-              }
-              variant="destructive"
-            >
-              <Trash2Icon className="size-4" />
-              批量删除 ({selectedIds.length})
-            </Button>
-          )}
+          bulkActions={
+            canDeleteResumeLibrary
+              ? ({ selectedIds }) => (
+                  <Button
+                    className="flex-1 sm:flex-none"
+                    disabled={selectedIds.some((id) => {
+                      const row = grid.bind.data.find((record) => record.id === id);
+                      return row ? !canDeleteResumeRecord(row.resumeParseStatus) : false;
+                    })}
+                    onClick={() => setBulkDeleteOpen(true)}
+                    title={
+                      selectedIds.some((id) => {
+                        const row = grid.bind.data.find((record) => record.id === id);
+                        return row ? !canDeleteResumeRecord(row.resumeParseStatus) : false;
+                      })
+                        ? "所选记录包含解析中的简历，暂不能删除"
+                        : undefined
+                    }
+                    variant="destructive"
+                  >
+                    <Trash2Icon className="size-4" />
+                    批量删除 ({selectedIds.length})
+                  </Button>
+                )
+              : undefined
+          }
           empty={
             grid.filters.stage ? (
               <Empty className="border-border">
@@ -966,10 +1047,12 @@ function ResumeLibraryPage({ metrics }: { metrics: ResumeLibraryMetrics }) {
                   <EmptyDescription>点击右上角「上传简历」加入第一份候选人简历。</EmptyDescription>
                 </EmptyHeader>
                 <EmptyContent>
-                  <ResumeUploadEntryButton
-                    disabled={uploadEntryDisabled}
-                    onClick={() => setUploadEntryOpen(true)}
-                  />
+                  {canUploadResumeLibrary ? (
+                    <ResumeUploadEntryButton
+                      disabled={uploadEntryDisabled}
+                      onClick={() => setUploadEntryOpen(true)}
+                    />
+                  ) : null}
                 </EmptyContent>
               </Empty>
             )
@@ -980,25 +1063,37 @@ function ResumeLibraryPage({ metrics }: { metrics: ResumeLibraryMetrics }) {
       <StudioPersonDetailDialog
         defaultTab={detailDefaultTab}
         mode="resume"
-        onEdit={(id) => {
-          const row = grid.bind.data.find((record) => record.id === id);
-          const reason = row ? getResumeActionLockedReason(row.resumeParseStatus) : null;
-          if (reason) {
-            toast.error(reason);
-            return;
-          }
-          setDetailRecordId(null);
-          setEditRecordId(id);
-        }}
-        onLaunchInterview={({ id, candidateName }) => {
-          const row = grid.bind.data.find((record) => record.id === id);
-          if (row && !canLaunchInterviewFromResume(row.resumeParseStatus)) {
-            toast.error("简历解析完成后才能发起 AI 面试");
-            return;
-          }
-          setDetailRecordId(null);
-          setLaunchingRecord({ candidateName, id });
-        }}
+        onEdit={
+          canUpdateResumeLibrary
+            ? (id) => {
+                const row = grid.bind.data.find((record) => record.id === id);
+                const reason = row ? getResumeActionLockedReason(row.resumeParseStatus) : null;
+                if (reason) {
+                  toast.error(reason);
+                  return;
+                }
+                setDetailRecordId(null);
+                setEditRecordId(id);
+              }
+            : undefined
+        }
+        onLaunchInterview={
+          canCreateInterview
+            ? ({ id, candidateName }) => {
+                const row = grid.bind.data.find((record) => record.id === id);
+                if (row && !canLaunchInterviewFromResume(row.resumeParseStatus)) {
+                  toast.error("简历解析完成后才能发起 AI 面试");
+                  return;
+                }
+                if (row && !row.jobDescriptionId) {
+                  toast.error("请先绑定在招岗位后再发起 AI 面试");
+                  return;
+                }
+                setDetailRecordId(null);
+                setLaunchingRecord({ candidateName, id });
+              }
+            : undefined
+        }
         onOpenChange={(open) => {
           if (!open) {
             setDetailRecordId(null);
@@ -1008,18 +1103,24 @@ function ResumeLibraryPage({ metrics }: { metrics: ResumeLibraryMetrics }) {
         // Action bar 触发：复用现有 transitionTarget state + TransitionCandidateDialog。
         // 不关详情面板——dialog 用 Radix stacking 叠在上面。
         // Action bar reuses the existing TransitionCandidateDialog stacked over the detail panel.
-        onRequestClose={({ id, candidateName, initialOutcome }) =>
-          setTransitionTarget({
-            candidate: { candidateName, id },
-            initialOutcome,
-            mode: "close",
-          })
+        onRequestClose={
+          canUpdateResumeLibrary
+            ? ({ id, candidateName, initialOutcome }) =>
+                setTransitionTarget({
+                  candidate: { candidateName, id },
+                  initialOutcome,
+                  mode: "close",
+                })
+            : undefined
         }
-        onRequestReactivate={(candidate) =>
-          setTransitionTarget({
-            candidate,
-            mode: "reactivate",
-          })
+        onRequestReactivate={
+          canUpdateResumeLibrary
+            ? (candidate) =>
+                setTransitionTarget({
+                  candidate,
+                  mode: "reactivate",
+                })
+            : undefined
         }
         onUpdated={invalidateAll}
         onViewRoundDetail={(roundId) => {
@@ -1297,10 +1398,15 @@ export const Route = createFileRoute("/w/$slug/studio/resumes")({
   }),
   loader: async (loaderContext) => {
     const { location, params } = loaderContext as unknown as {
-      location: { search: SearchParamsRecord };
+      location: { pathname: string; search: SearchParamsRecord };
       params: { slug: string };
     };
     const query = parseResumeQuery(location.search);
+    await requireStudioPageAccess({
+      action: "resumes",
+      pathname: `/w/${params.slug}/studio/resumes`,
+      slug: params.slug,
+    });
     const state = (await loadStudioResumesState({
       data: { query, slug: params.slug },
     })) as StudioResumesState;

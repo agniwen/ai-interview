@@ -31,3 +31,4 @@ export * from "./endpoints/studio-interviews";
 export * from "./endpoints/resume";
 export * from "./endpoints/studio-resumes";
 export * from "./endpoints/resume-pool";
+export * from "./endpoints/referrals";

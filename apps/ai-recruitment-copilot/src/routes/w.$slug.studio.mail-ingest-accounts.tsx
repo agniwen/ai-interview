@@ -40,6 +40,7 @@ import {
 import { Spinner } from "@/components/ui/spinner";
 import { Switch } from "@/components/ui/switch";
 import { rpcFetch } from "@/lib/client/api";
+import { useHasPermission } from "@/hooks/use-has-permission";
 import {
   dateTimeLocalInputToISOString,
   isoStringToDateTimeLocalInput,
@@ -416,6 +417,7 @@ function MailIngestAccountDialog({
 
 function ManagedMailIngestPage() {
   const slug = useWorkspaceSlug();
+  const canManageMailIngestAccounts = useHasPermission("mailIngestAccount", "manage");
   const [editingRow, setEditingRow] = useState<ManagedMailIngestRow | null>(null);
 
   function fetchMailIngestRows(
@@ -529,17 +531,17 @@ function ManagedMailIngestPage() {
           {
             label: "编辑",
             onClick: (row) => setEditingRow(row),
-            show: (row) => Boolean(row.account),
+            show: (row) => canManageMailIngestAccounts && Boolean(row.account),
           },
           {
             label: "新建",
             onClick: (row) => setEditingRow(row),
-            show: (row) => !row.account,
+            show: (row) => canManageMailIngestAccounts && !row.account,
           },
         ],
       }),
     ],
-    [],
+    [canManageMailIngestAccounts],
   );
 
   return (

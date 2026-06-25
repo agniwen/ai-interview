@@ -58,6 +58,7 @@ export interface CreateResumePoolItemInput {
   resumeFileName: string | null;
   resumeProfile: ResumeProfile | null;
   scope: ResumePoolScope;
+  sourceChannel?: ResumePoolSourceChannel | null;
   storageKey: string | null;
   targetRole: string | null;
 }
@@ -189,7 +190,7 @@ function toListRecord(
     resumeStorageKey: row.resumeStorageKey,
     scope: row.scope,
     skillsNormalized: row.skillsNormalized,
-    sourceChannel,
+    sourceChannel: row.sourceChannel ?? sourceChannel,
     sourceOrganizationId: row.sourceOrganizationId,
     sourcePoolItemId: row.sourcePoolItemId,
     sourceUserId: row.sourceUserId,
@@ -293,6 +294,7 @@ export async function createResumePoolItem(input: CreateResumePoolItemInput): Pr
       resumeStorageKey: input.storageKey,
       scope: input.scope,
       skillsNormalized: normalizeSkills(input.resumeProfile?.skills),
+      sourceChannel: input.sourceChannel ?? null,
       sourceOrganizationId: input.scope === "public" ? input.organizationId : null,
       sourcePoolItemId: null,
       sourceUserId: input.scope === "public" ? input.createdBy : null,
@@ -334,7 +336,10 @@ export async function markResumePoolItemParsed(
         resumeParsedAt: now,
         resumeProfile: input.resumeProfile,
         skillsNormalized: normalizeSkills(input.resumeProfile?.skills),
-        targetRole: input.resumeProfile?.targetRoles?.[0] || row.targetRole,
+        targetRole:
+          row.sourceChannel === "referral"
+            ? row.targetRole
+            : input.resumeProfile?.targetRoles?.[0] || row.targetRole,
         updatedAt: now,
       })
       .where(eq(resumePoolItem.id, input.poolItemId));
@@ -510,6 +515,7 @@ export async function publishPrivatePoolItem(
       resumeStorageKey: privateItem.resumeStorageKey,
       scope: "public",
       skillsNormalized: privateItem.skillsNormalized,
+      sourceChannel: privateItem.sourceChannel,
       sourceOrganizationId: input.organizationId,
       sourcePoolItemId: privateItem.id,
       sourceUserId: input.userId,

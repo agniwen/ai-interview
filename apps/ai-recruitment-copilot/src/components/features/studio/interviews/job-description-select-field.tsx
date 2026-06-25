@@ -96,7 +96,6 @@ export function JobDescriptionSelectField({
               }))}
               placeholder={matching ? "正在为你匹配在招岗位…" : "请选择在招岗位"}
               searchPlaceholder="搜索岗位…"
-              triggerClassName="h-13!"
               value={value || null}
             />
           </div>

@@ -37,15 +37,18 @@ import type {
   HumanInterviewRoundStatus,
   OfferDraftStatus,
   PipelineStage,
+  ResumeEvaluationStatus,
   ResumeParseStatus,
   ScheduleEntryStatus,
   StudioInterviewStatus,
 } from "./studio-interviews";
 import type { ResumeParserStructured } from "./resume-parser-schema";
+import type { ResumeReview } from "./resume-review";
 import { sql } from "drizzle-orm";
 import {
   bigserial,
   boolean,
+  check,
   index,
   integer,
   jsonb,
@@ -261,6 +264,28 @@ export const member = pgTable(
   ],
 );
 
+export const organizationRole = pgTable(
+  "organization_role",
+  {
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    id: text("id").primaryKey(),
+    name: text("name").notNull(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    permission: text("permission").notNull(),
+    role: text("role").notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex("organization_role_org_role_uq").on(table.organizationId, table.role),
+    index("organization_role_organization_idx").on(table.organizationId),
+  ],
+);
+
 export const recruitingGroup = pgTable(
   "recruiting_group",
   {
@@ -332,6 +357,7 @@ export const workspaceInviteLink = pgTable(
     disabledAt: timestamp("disabled_at", { withTimezone: true }),
     disabledBy: text("disabled_by").references(() => user.id, { onDelete: "set null" }),
     id: text("id").primaryKey(),
+    initialRole: text("initial_role").default("noAccess").notNull(),
     organizationId: text("organization_id")
       .notNull()
       .references(() => organization.id, { onDelete: "cascade" }),
@@ -418,6 +444,7 @@ export const studioInterview = pgTable(
     // Stage axis; default lets pre-migration INSERTs succeed.
     pipelineStage: text("pipeline_stage").$type<PipelineStage>().notNull().default("screening"),
     resumeContentHash: text("resume_content_hash"),
+    resumeEvaluationStatus: text("resume_evaluation_status").$type<ResumeEvaluationStatus>(),
     resumeFileName: text("resume_file_name"),
     resumeParseError: text("resume_parse_error"),
     resumeParseStatus: text("resume_parse_status")
@@ -426,6 +453,7 @@ export const studioInterview = pgTable(
       .default("ready"),
     resumeParsedAt: timestamp("resume_parsed_at", { withTimezone: true }),
     resumeProfile: jsonb("resume_profile").$type<ResumeProfile | null>(),
+    resumeReview: jsonb("resume_review").$type<ResumeReview | null>(),
     // 简历进入简历库的来源。直传 / 我的简历池 / 公共简历池 / 聊天入库 / API 入库。
     // Source metadata for resume-library rows; keeps the existing workflow
     // intact while preserving provenance for pool imports.
@@ -487,6 +515,10 @@ export const studioInterview = pgTable(
       table.createdAt,
     ),
     index("studio_interview_resume_content_hash_idx").on(table.resumeContentHash),
+    check(
+      "studio_interview_resume_evaluation_status_check",
+      sql`${table.resumeEvaluationStatus} IS NULL OR ${table.resumeEvaluationStatus} IN ('pass', 'fail')`,
+    ),
     index("studio_interview_resume_parse_status_idx").on(table.resumeParseStatus),
     index("studio_interview_resume_source_pool_item_idx").on(table.resumeSourcePoolItemId),
     index("studio_interview_resume_source_type_idx").on(table.resumeSourceType),
@@ -947,6 +979,7 @@ export const studioOfferDraft = pgTable(
 
 export type ResumePoolScope = "private" | "public";
 export type ResumePoolStatus = "active" | "archived";
+export type ResumePoolSourceChannel = "mail_ingest" | "referral";
 export type ResumePoolEventType =
   | "created"
   | "parsed"
@@ -988,6 +1021,7 @@ export const resumePoolItem = pgTable(
       .array()
       .notNull()
       .default(sql`'{}'::text[]`),
+    sourceChannel: text("source_channel").$type<ResumePoolSourceChannel>(),
     sourceOrganizationId: text("source_organization_id").references(() => organization.id, {
       onDelete: "set null",
     }),
@@ -1010,8 +1044,45 @@ export const resumePoolItem = pgTable(
     ),
     index("resume_pool_item_resume_content_hash_idx").on(table.resumeContentHash),
     index("resume_pool_item_resume_parse_status_idx").on(table.resumeParseStatus),
+    check(
+      "resume_pool_item_source_channel_check",
+      sql`${table.sourceChannel} IS NULL OR ${table.sourceChannel} IN ('mail_ingest', 'referral')`,
+    ),
     index("resume_pool_item_source_pool_item_idx").on(table.sourcePoolItemId),
     index("resume_pool_item_skills_normalized_idx").using("gin", table.skillsNormalized),
+  ],
+);
+
+export const referralLink = pgTable(
+  "referral_link",
+  {
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    createdBy: text("created_by")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    disabledAt: timestamp("disabled_at", { withTimezone: true }),
+    disabledBy: text("disabled_by").references(() => user.id, { onDelete: "set null" }),
+    id: text("id").primaryKey(),
+    jobDescriptionId: text("job_description_id")
+      .notNull()
+      .references(() => jobDescription.id, { onDelete: "cascade" }),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    tokenHash: text("token_hash").notNull().unique(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+  },
+  (table) => [
+    index("referral_link_org_jd_creator_idx").on(
+      table.organizationId,
+      table.jobDescriptionId,
+      table.createdBy,
+      table.disabledAt,
+    ),
+    index("referral_link_org_idx").on(table.organizationId, table.disabledAt),
   ],
 );
 

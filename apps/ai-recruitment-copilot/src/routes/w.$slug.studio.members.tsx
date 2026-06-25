@@ -69,10 +69,9 @@ import {
 import { InviteDialog } from "@/components/features/studio/members/invite-dialog";
 import { InviteLinksDialog } from "@/components/features/studio/members/invite-links-dialog";
 import { PendingInvitationsButton } from "@/components/features/studio/members/pending-invitations-section";
-import { PermissionsExplanationDialog } from "@/components/features/studio/members/permissions-explanation-dialog";
 import {
-  getAssignableWorkspaceRoles,
   getWorkspaceRoleLabel,
+  isBuiltInWorkspaceRole,
 } from "@/components/features/studio/members/role-display";
 import type { WorkspaceRole } from "@/components/features/studio/members/role-display";
 import { WorkspaceSettingsDialog } from "@/components/features/studio/members/workspace-settings-dialog";
@@ -98,15 +97,41 @@ function coerceWorkspaceManagementSearch(
   return tab === DEFAULT_TAB ? {} : { tab };
 }
 
+function buildWorkspaceManagementSearch(
+  previous: WorkspaceManagementSearch,
+  tab: WorkspaceManagementTab,
+): WorkspaceManagementSearch {
+  if (tab === DEFAULT_TAB) {
+    const { tab: _tab, ...rest } = previous;
+    return rest;
+  }
+  return { ...previous, tab };
+}
+
+function getActiveWorkspaceOrganization<T extends { id: string }>(
+  activeOrganization: T | null | undefined,
+  workspaceId: string,
+): T | null {
+  if (activeOrganization?.id !== workspaceId) {
+    return null;
+  }
+  return activeOrganization;
+}
+
 interface MemberRow {
   id: string;
   userId: string;
   email: string;
   name: string;
   image: string | null;
-  role: WorkspaceRole;
+  role: string;
   createdAt: string | Date;
   lastActiveAt: string | null;
+}
+
+interface DynamicWorkspaceRole {
+  id: string;
+  role: string;
 }
 
 type RecruitingGroupRole = "recruitingSupervisor" | "recruitingLead" | "hr" | "viewer";
@@ -134,8 +159,75 @@ const EMPTY_RECRUITING_GROUPS: RecruitingGroupRow[] = [];
 const WORKSPACE_ROLE_BADGE_VARIANT: Record<WorkspaceRole, "default" | "secondary" | "outline"> = {
   admin: "secondary",
   member: "outline",
+  noAccess: "outline",
   owner: "default",
 };
+
+function getWorkspaceRoleBadgeVariant(role: string): "default" | "secondary" | "outline" {
+  if (!isBuiltInWorkspaceRole(role)) {
+    return "outline";
+  }
+  return WORKSPACE_ROLE_BADGE_VARIANT[role];
+}
+
+function buildAssignableWorkspaceRoles(
+  currentRole: string,
+  dynamicRoles: readonly DynamicWorkspaceRole[],
+): readonly string[] {
+  let builtInRoles: string[] = [];
+  if (currentRole === "owner") {
+    builtInRoles = ["admin", "member", "noAccess"];
+  } else if (currentRole === "admin") {
+    builtInRoles = ["member", "noAccess"];
+  }
+  return [...builtInRoles, ...dynamicRoles.map((role) => role.role)].filter(
+    (role, index, list) => list.indexOf(role) === index,
+  );
+}
+
+function canEditMemberWorkspaceRole({
+  assignableRoles,
+  canUpdate,
+  currentRole,
+  currentUserId,
+  row,
+}: {
+  assignableRoles: readonly string[];
+  canUpdate: boolean;
+  currentRole: string;
+  currentUserId: string | undefined;
+  row: MemberRow;
+}): boolean {
+  if (!(canUpdate && assignableRoles.length > 0)) {
+    return false;
+  }
+  if (currentRole === "owner") {
+    return row.role !== "owner";
+  }
+  return (
+    currentRole === "admin" &&
+    row.role !== "owner" &&
+    row.role !== "admin" &&
+    row.userId !== currentUserId
+  );
+}
+
+function useDynamicWorkspaceRoles(workspaceId: string, enabled: boolean) {
+  return useQuery({
+    enabled,
+    queryFn: async () => {
+      const { data, error } = await authClient.organization.listRoles({
+        query: { organizationId: workspaceId },
+      });
+      if (error) {
+        throw new Error(error.message ?? "加载自定义角色失败");
+      }
+      return (data ?? []) as DynamicWorkspaceRole[];
+    },
+    queryKey: ["workspace-dynamic-roles", workspaceId],
+    refetchOnWindowFocus: false,
+  });
+}
 
 const GROUP_ROLE_LABELS: Record<RecruitingGroupRole, string> = {
   hr: "招聘成员",
@@ -678,7 +770,7 @@ function MembersManagementPage() {
     refetch,
     isPending: isActiveOrganizationPending,
   } = authClient.useActiveOrganization();
-  const org = activeOrganization?.id === workspaceId ? activeOrganization : null;
+  const org = getActiveWorkspaceOrganization(activeOrganization, workspaceId);
   const isPending = isActiveOrganizationPending || !org;
   const groupsQueryKey = ["workspace-recruiting-groups", slug, workspaceId] as const;
   const [pending, setPending] = useState<string | null>(null);
@@ -739,21 +831,15 @@ function MembersManagementPage() {
   const canUpdate = useHasPermission("member", "update");
   const canDelete = useHasPermission("member", "delete");
   const canUpdateWorkspace = useHasPermission("organization", "update");
+  const { data: session } = authClient.useSession();
+  const { data: dynamicWorkspaceRoles = [] } = useDynamicWorkspaceRoles(workspaceId, canUpdate);
 
   function handleTabChange(value: string) {
     const tab = parseWorkspaceManagementTab(value);
     void navigate({
       replace: true,
       resetScroll: false,
-      search: (prev: WorkspaceManagementSearch) => {
-        const next = { ...prev };
-        if (tab === DEFAULT_TAB) {
-          delete next.tab;
-        } else {
-          next.tab = tab;
-        }
-        return next;
-      },
+      search: (prev: WorkspaceManagementSearch) => buildWorkspaceManagementSearch(prev, tab),
     });
   }
 
@@ -764,9 +850,9 @@ function MembersManagementPage() {
   // shows and which rows render as read-only. The server-side hook is the
   // real boundary; this is the matching UX.
   const currentMemberRole = workspaceMemberRole;
-  const assignableRoles = useMemo<readonly WorkspaceRole[]>(
-    () => getAssignableWorkspaceRoles(currentMemberRole),
-    [currentMemberRole],
+  const assignableRoles = useMemo<readonly string[]>(
+    () => buildAssignableWorkspaceRoles(currentMemberRole, dynamicWorkspaceRoles),
+    [currentMemberRole, dynamicWorkspaceRoles],
   );
 
   const allRows: MemberRow[] = useMemo(() => {
@@ -782,7 +868,7 @@ function MembersManagementPage() {
         image: user?.image ?? null,
         lastActiveAt: lastActiveMap[m.userId] ?? null,
         name: user?.name ?? user?.email ?? "—",
-        role: m.role as WorkspaceRole,
+        role: m.role,
         userId: m.userId,
       };
     });
@@ -986,7 +1072,7 @@ function MembersManagementPage() {
     }
   }
 
-  async function changeWorkspaceRole(row: MemberRow, role: WorkspaceRole) {
+  async function changeWorkspaceRole(row: MemberRow, role: string) {
     if (row.role === role) {
       return;
     }
@@ -1042,11 +1128,16 @@ function MembersManagementPage() {
       }),
       customColumn<MemberRow>({
         cell: (r) => {
-          const canEditWorkspaceRole =
-            currentMemberRole === "owner" && r.role !== "owner" && assignableRoles.length > 0;
+          const canEditWorkspaceRole = canEditMemberWorkspaceRole({
+            assignableRoles,
+            canUpdate,
+            currentRole: currentMemberRole,
+            currentUserId: session?.user?.id,
+            row: r,
+          });
           if (!canEditWorkspaceRole) {
             return (
-              <Badge variant={WORKSPACE_ROLE_BADGE_VARIANT[r.role]}>
+              <Badge variant={getWorkspaceRoleBadgeVariant(r.role)}>
                 {getWorkspaceRoleLabel(r.role)}
               </Badge>
             );
@@ -1054,10 +1145,10 @@ function MembersManagementPage() {
           return (
             <Select
               disabled={pending === r.id}
-              onValueChange={(value) => void changeWorkspaceRole(r, value as WorkspaceRole)}
+              onValueChange={(value) => void changeWorkspaceRole(r, value)}
               value={r.role}
             >
-              <SelectTrigger className="w-28" size="sm">
+              <SelectTrigger className="w-36" size="sm">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -1108,7 +1199,7 @@ function MembersManagementPage() {
       }),
     ],
     // oxlint-disable-next-line react-hooks/exhaustive-deps -- 列定义只依赖权限值，剧场切换时无需重建
-    [assignableRoles, canDelete, currentMemberRole, pending],
+    [assignableRoles, canDelete, canUpdate, currentMemberRole, pending, session?.user?.id],
   );
 
   return (
@@ -1181,12 +1272,11 @@ function MembersManagementPage() {
             }}
             toolbarRight={
               <div className="flex flex-wrap gap-2">
-                <PermissionsExplanationDialog />
                 <PermissionGate action="create" resource="invitation">
                   <PendingInvitationsButton organizationId={org?.id ?? null} />
                 </PermissionGate>
                 <PermissionGate action="create" resource="invitation">
-                  <InviteLinksDialog />
+                  <InviteLinksDialog assignableRoles={assignableRoles} />
                   <InviteDialog
                     assignableRoles={assignableRoles}
                     trigger={

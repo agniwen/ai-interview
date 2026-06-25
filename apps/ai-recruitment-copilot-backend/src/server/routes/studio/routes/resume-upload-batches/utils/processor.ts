@@ -12,6 +12,7 @@ import {
   generateResumeReview,
   parseResumeBytesToProfile,
 } from "@arc/ai-recruitment-copilot-backend/server/agents/resume-analysis-agent";
+import type { ResumeReviewGenerationResult } from "@arc/ai-recruitment-copilot-backend/server/agents/resume-analysis-agent";
 import { isResumeParseCacheEnabled } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-parse-cache-policy";
 import {
   claimNextPendingItem,
@@ -202,6 +203,7 @@ async function upsertParsedResumeRecord({
   jobDescriptionId,
   notes,
   organizationId,
+  resumeReview,
   resumeProfile,
   userId,
 }: {
@@ -209,6 +211,7 @@ async function upsertParsedResumeRecord({
   jobDescriptionId: string | null;
   notes: string | null;
   organizationId: string;
+  resumeReview: ResumeReviewGenerationResult["structuredReview"] | null;
   resumeProfile: ParsedResume["resumeProfile"];
   userId: string;
 }): Promise<string> {
@@ -228,6 +231,7 @@ async function upsertParsedResumeRecord({
       organizationId,
       resumeFileName: item.originalFileName,
       resumeProfile,
+      resumeReview,
       storageKey: item.storageKey,
       targetRole: null,
       userId,
@@ -257,6 +261,7 @@ async function upsertParsedResumeRecord({
         resumeParseStatus: "ready",
         resumeParsedAt: now,
         resumeProfile,
+        resumeReview,
         resumeStorageKey: item.storageKey,
         targetRole: resumeProfile?.targetRoles?.[0] ?? null,
         updatedAt: now,
@@ -303,7 +308,7 @@ async function generateReviewForParsedResume(input: {
   jobDescriptionId: string | null;
   organizationId: string;
   resumeProfile: ParsedResume["resumeProfile"];
-}): Promise<string | null> {
+}): Promise<ResumeReviewGenerationResult | null> {
   try {
     const startedAt = Date.now();
     logStep("review.generate.start", {
@@ -321,9 +326,9 @@ async function generateReviewForParsedResume(input: {
     logStep("review.generate.done", {
       durationMs: elapsed(startedAt),
       itemId: input.itemId,
-      reviewChars: review.length,
+      reviewChars: review.review.length,
     });
-    return review || null;
+    return review.review ? review : null;
   } catch (error) {
     console.error("[bulk-upload] resume review generation failed:", error);
     logStep("review.generate.error", {
@@ -422,7 +427,7 @@ async function fetchAndParse(
         candidatePhone: null,
         contentHash: item.contentHash,
         createdBy: userId,
-        jobDescriptionId: null,
+        jobDescriptionId: batchRow.jdMode === "bind" ? batchRow.jobDescriptionId : null,
         notes: null,
         organizationId,
         resumeFileName: item.originalFileName,
@@ -480,7 +485,7 @@ async function fetchAndParse(
       console.error("[bulk-upload] auto JD match failed:", error);
     }
   }
-  const notes = await generateReviewForParsedResume({
+  const reviewResult = await generateReviewForParsedResume({
     itemId: item.id,
     jobDescriptionId,
     organizationId,
@@ -490,9 +495,10 @@ async function fetchAndParse(
   const succeededRecordId = await upsertParsedResumeRecord({
     item,
     jobDescriptionId,
-    notes,
+    notes: reviewResult?.review ?? null,
     organizationId,
     resumeProfile,
+    resumeReview: reviewResult?.structuredReview ?? null,
     userId,
   });
   return {

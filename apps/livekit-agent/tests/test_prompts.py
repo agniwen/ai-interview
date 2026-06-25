@@ -71,3 +71,18 @@ def test_interview_prompt_skips_supplementary_questions_when_absent():
     assert "本轮没有从简历生成的补充题目" in out
     assert "请跳过补充题目环节" in out
     assert "从以下题目中再随机抽取三到五道" not in out
+
+
+def test_medium_questions_allow_up_to_two_followups():
+    out = build_instructions(
+        _base_ctx(
+            job_description_preset_questions=[
+                {"content": "请介绍一次线上故障排查经历。", "difficulty": "medium"}
+            ]
+        )
+    )
+
+    assert "[medium] 题: 最多可针对关键细节追问两次" in out
+    assert '不得超过 [medium] 题"最多两次追问"的上限' in out
+    assert "[medium] 题: 仅可针对关键细节追问一次" not in out
+    assert '不得超过 [medium] 题"仅一次追问"的上限' not in out

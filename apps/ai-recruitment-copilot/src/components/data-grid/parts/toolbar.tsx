@@ -24,6 +24,7 @@ export type ToolbarFilterConfig =
       options: SearchableSelectOption[];
       searchPlaceholder?: string;
       emptyMessage?: string;
+      clearable?: boolean;
     }
   | {
       type: "multi-select";
@@ -127,15 +128,15 @@ export function Toolbar(props: ToolbarProps) {
                   key={filter.key}
                   style={getFilterItemStyle(filter.minWidth)}
                 >
-                  <SearchIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+                  <SearchIcon className="pointer-events-none absolute top-1/2 left-3 z-10 size-4 -translate-y-1/2 text-muted-foreground" />
                   <Input
-                    className="pr-9 pl-9"
+                    className="[&>input]:pr-9 [&>input]:pl-9"
                     onChange={(event) => onFilterChange?.(filter.key, event.target.value)}
                     placeholder={filter.placeholder}
                     value={value}
                   />
                   {searchLoading ? (
-                    <Loader2Icon className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 animate-spin text-muted-foreground" />
+                    <Loader2Icon className="pointer-events-none absolute top-1/2 right-3 z-10 size-4 -translate-y-1/2 animate-spin text-muted-foreground" />
                   ) : null}
                 </div>
               );
@@ -144,7 +145,7 @@ export function Toolbar(props: ToolbarProps) {
               return (
                 <div className="min-w-0 sm:w-auto sm:min-w-45" key={filter.key}>
                   <SearchableSelect
-                    clearable
+                    clearable={filter.clearable ?? true}
                     emptyMessage={filter.emptyMessage ?? "没有匹配项"}
                     onChange={(next) => onFilterChange?.(filter.key, next ?? "")}
                     options={filter.options}

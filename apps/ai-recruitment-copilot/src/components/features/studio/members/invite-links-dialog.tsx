@@ -1,24 +1,48 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { BanIcon, CopyIcon, LinkIcon, PlayIcon, UsersIcon } from "@/components/icons/hugeicons";
-import { useState } from "react";
+import {
+  BanIcon,
+  CopyIcon,
+  LinkIcon,
+  PencilIcon,
+  PlayIcon,
+  UsersIcon,
+} from "@/components/icons/hugeicons";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { TimeDisplay } from "@/components/features/display/time-display";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
 import { rpcFetch } from "@/lib/client/api";
 import { rpc } from "@/lib/client/rpc";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
+import {
+  ASSIGNABLE_ROLES,
+  getWorkspaceRoleDescription,
+  getWorkspaceRoleLabel,
+} from "./role-display";
+import { NO_ACCESS_WORKSPACE_ROLE } from "@arc/shared/permissions";
 
 interface InviteLinkDto {
   id: string;
@@ -27,6 +51,7 @@ interface InviteLinkDto {
   createdBy: string | null;
   creatorName: string | null;
   disabledAt: string | null;
+  initialRole: string;
   joinedCount: number;
 }
 
@@ -38,6 +63,79 @@ interface LinkMemberDto {
 }
 
 const QUERY_KEY = (slug: string) => ["invite-links", slug] as const;
+
+function getDefaultInviteLinkRole(assignableRoles: readonly string[]): string {
+  return assignableRoles.includes(NO_ACCESS_WORKSPACE_ROLE)
+    ? NO_ACCESS_WORKSPACE_ROLE
+    : (assignableRoles[0] ?? NO_ACCESS_WORKSPACE_ROLE);
+}
+
+interface InviteLinkRoleDialogProps {
+  actionLabel: string;
+  assignableRoles: readonly string[];
+  description: string;
+  onOpenChange: (open: boolean) => void;
+  onSubmit: (initialRole: string) => void;
+  open: boolean;
+  pending: boolean;
+  title: string;
+  value: string;
+  onValueChange: (value: string) => void;
+}
+
+function InviteLinkRoleDialog({
+  actionLabel,
+  assignableRoles,
+  description,
+  onOpenChange,
+  onSubmit,
+  open,
+  pending,
+  title,
+  value,
+  onValueChange,
+}: InviteLinkRoleDialogProps) {
+  const canSubmit = assignableRoles.includes(value);
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-sm">
+        <DialogHeader>
+          <DialogTitle>{title}</DialogTitle>
+          <DialogDescription>{description}</DialogDescription>
+        </DialogHeader>
+        <Field>
+          <FieldLabel htmlFor="invite-link-initial-role">初始化角色</FieldLabel>
+          <Select
+            disabled={assignableRoles.length === 0}
+            value={value}
+            onValueChange={onValueChange}
+          >
+            <SelectTrigger className="w-full" id="invite-link-initial-role">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                {assignableRoles.map((role) => (
+                  <SelectItem key={role} value={role}>
+                    {getWorkspaceRoleLabel(role)}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            </SelectContent>
+          </Select>
+          <FieldDescription>{getWorkspaceRoleDescription(value)}</FieldDescription>
+        </Field>
+        <DialogFooter>
+          <Button disabled={pending || !canSubmit} onClick={() => onSubmit(value)}>
+            {pending ? <Spinner data-icon="inline-start" /> : null}
+            {actionLabel}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 function LinkMembers({ id, slug }: { id: string; slug: string }) {
   const { data, isPending } = useQuery({
@@ -78,6 +176,7 @@ interface LinkRowProps {
   slug: string;
   onCopy: () => void;
   onDisable: () => void;
+  onEdit: () => void;
   onEnable: () => void;
   onToggleExpand: () => void;
 }
@@ -88,6 +187,7 @@ function LinkRow({
   slug,
   onCopy,
   onDisable,
+  onEdit,
   onEnable,
   onToggleExpand,
 }: LinkRowProps) {
@@ -97,31 +197,39 @@ function LinkRow({
       : `${window.location.origin}/join/${link.code}`;
   const disabled = Boolean(link.disabledAt);
   return (
-    <Card className="gap-0 rounded-lg py-0">
-      <CardContent className="p-3">
-        <div className="flex items-center justify-between gap-2">
+    <Card className="min-w-0 gap-0 rounded-lg py-0">
+      <CardContent className="min-w-0 p-3">
+        <div className="flex min-w-0 items-center justify-between gap-3">
           <div className="min-w-0 flex-1">
             <div className="truncate font-mono text-sm">{url}</div>
             <div className="mt-1 text-xs text-muted-foreground">
               {link.creatorName ?? "已删除用户"} · <TimeDisplay value={link.createdAt} />
               {disabled ? " · 已禁用" : ""}
             </div>
+            <div className="mt-2">
+              <Badge variant="outline">初始化角色：{getWorkspaceRoleLabel(link.initialRole)}</Badge>
+            </div>
           </div>
-          <Button aria-label="复制链接" onClick={onCopy} size="sm" variant="ghost">
-            <CopyIcon />
-          </Button>
-          <Button aria-label="查看加入成员" onClick={onToggleExpand} size="sm" variant="ghost">
-            <UsersIcon /> {link.joinedCount}
-          </Button>
-          {disabled ? (
-            <Button aria-label="启用链接" onClick={onEnable} size="sm" variant="ghost">
-              <PlayIcon />
+          <div className="flex shrink-0 items-center gap-1">
+            <Button aria-label="复制链接" onClick={onCopy} size="icon-sm" variant="ghost">
+              <CopyIcon />
             </Button>
-          ) : (
-            <Button aria-label="禁用链接" onClick={onDisable} size="sm" variant="ghost">
-              <BanIcon />
+            <Button aria-label="编辑初始化角色" onClick={onEdit} size="icon-sm" variant="ghost">
+              <PencilIcon />
             </Button>
-          )}
+            <Button aria-label="查看加入成员" onClick={onToggleExpand} size="sm" variant="ghost">
+              <UsersIcon /> {link.joinedCount}
+            </Button>
+            {disabled ? (
+              <Button aria-label="启用链接" onClick={onEnable} size="icon-sm" variant="ghost">
+                <PlayIcon />
+              </Button>
+            ) : (
+              <Button aria-label="禁用链接" onClick={onDisable} size="icon-sm" variant="ghost">
+                <BanIcon />
+              </Button>
+            )}
+          </div>
         </div>
         {expanded ? <LinkMembers id={link.id} slug={slug} /> : null}
       </CardContent>
@@ -139,11 +247,31 @@ async function copyInviteUrl(code: string) {
   }
 }
 
-export function InviteLinksDialog() {
+export function InviteLinksDialog({
+  assignableRoles = ASSIGNABLE_ROLES,
+}: {
+  assignableRoles?: readonly string[];
+}) {
   const [open, setOpen] = useState(false);
   const slug = useWorkspaceSlug();
   const queryClient = useQueryClient();
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [createRole, setCreateRole] = useState(() => getDefaultInviteLinkRole(assignableRoles));
+  const [editTarget, setEditTarget] = useState<InviteLinkDto | null>(null);
+  const [editRole, setEditRole] = useState(() => getDefaultInviteLinkRole(assignableRoles));
+
+  useEffect(() => {
+    if (createOpen) {
+      setCreateRole(getDefaultInviteLinkRole(assignableRoles));
+    }
+  }, [assignableRoles, createOpen]);
+
+  useEffect(() => {
+    if (editTarget) {
+      setEditRole(editTarget.initialRole);
+    }
+  }, [editTarget]);
 
   const { data: linksData, isPending } = useQuery({
     enabled: open,
@@ -156,9 +284,12 @@ export function InviteLinksDialog() {
   });
 
   const createMutation = useMutation({
-    mutationFn: () =>
+    mutationFn: (initialRole: string) =>
       rpcFetch<InviteLinkDto>(
-        rpc.api.w[":slug"].studio.workspace["invite-links"].$post({ param: { slug } }),
+        rpc.api.w[":slug"].studio.workspace["invite-links"].$post({
+          json: { initialRole },
+          param: { slug },
+        }),
         "生成邀请链接失败",
       ),
     onError: (err) => toast.error(err instanceof Error ? err.message : "生成失败"),
@@ -170,6 +301,24 @@ export function InviteLinksDialog() {
       } catch {
         toast.success(`邀请链接已生成：${url}`);
       }
+      setCreateOpen(false);
+      queryClient.invalidateQueries({ queryKey: QUERY_KEY(slug) });
+    },
+  });
+
+  const updateRoleMutation = useMutation({
+    mutationFn: ({ id, initialRole }: { id: string; initialRole: string }) =>
+      rpcFetch<InviteLinkDto>(
+        rpc.api.w[":slug"].studio.workspace["invite-links"][":id"].$patch({
+          json: { initialRole },
+          param: { id, slug },
+        }),
+        "更新初始化角色失败",
+      ),
+    onError: (err) => toast.error(err instanceof Error ? err.message : "更新失败"),
+    onSuccess: () => {
+      toast.success("初始化角色已更新");
+      setEditTarget(null);
       queryClient.invalidateQueries({ queryKey: QUERY_KEY(slug) });
     },
   });
@@ -213,17 +362,16 @@ export function InviteLinksDialog() {
           <LinkIcon /> 邀请链接
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-2xl">
+      <DialogContent className="w-[min(calc(100vw-2rem),56rem)] overflow-hidden sm:max-w-none">
         <DialogHeader>
           <DialogTitle>共享邀请链接</DialogTitle>
           <DialogDescription>
-            生成的链接可重复使用、永不过期；用户登录后会以普通成员加入工作区，并进入默认招聘组。
+            生成的链接可重复使用、永不过期；用户登录后会按链接设置的初始化角色加入工作区。
           </DialogDescription>
         </DialogHeader>
 
         <div className="flex justify-end">
-          <Button disabled={createMutation.isPending} onClick={() => createMutation.mutate()}>
-            {createMutation.isPending ? <Spinner data-icon="inline-start" /> : null}
+          <Button disabled={assignableRoles.length === 0} onClick={() => setCreateOpen(true)}>
             生成新链接
           </Button>
         </div>
@@ -231,7 +379,7 @@ export function InviteLinksDialog() {
         {isPending ? (
           <div className="py-8 text-center text-muted-foreground">加载中...</div>
         ) : (
-          <div className="space-y-2">
+          <div className="flex min-w-0 flex-col gap-2">
             {links.length === 0 ? (
               <div className="py-8 text-center text-muted-foreground">还没有邀请链接</div>
             ) : (
@@ -242,6 +390,7 @@ export function InviteLinksDialog() {
                   link={link}
                   onCopy={() => copyInviteUrl(link.code)}
                   onDisable={() => disableMutation.mutate(link.id)}
+                  onEdit={() => setEditTarget(link)}
                   onEnable={() => enableMutation.mutate(link.id)}
                   onToggleExpand={() => setExpandedId((cur) => (cur === link.id ? null : link.id))}
                   slug={slug}
@@ -251,6 +400,38 @@ export function InviteLinksDialog() {
           </div>
         )}
       </DialogContent>
+      <InviteLinkRoleDialog
+        actionLabel="生成链接"
+        assignableRoles={assignableRoles}
+        description="选择通过这个链接加入工作区后的初始化角色。"
+        onOpenChange={setCreateOpen}
+        onSubmit={(initialRole) => createMutation.mutate(initialRole)}
+        onValueChange={setCreateRole}
+        open={createOpen}
+        pending={createMutation.isPending}
+        title="生成邀请链接"
+        value={createRole}
+      />
+      <InviteLinkRoleDialog
+        actionLabel="保存"
+        assignableRoles={assignableRoles}
+        description="已通过该链接加入的成员不会被自动改角色。"
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen) {
+            setEditTarget(null);
+          }
+        }}
+        onSubmit={(initialRole) => {
+          if (editTarget) {
+            updateRoleMutation.mutate({ id: editTarget.id, initialRole });
+          }
+        }}
+        onValueChange={setEditRole}
+        open={Boolean(editTarget)}
+        pending={updateRoleMutation.isPending}
+        title="编辑初始化角色"
+        value={editRole}
+      />
     </Dialog>
   );
 }

@@ -11,9 +11,10 @@
 
 import Markdown from "react-markdown";
 import type { StudioInterviewRoundDetail } from "@arc/shared/studio-interview-rounds";
-import type { ResumeLibraryDetail } from "@arc/shared/studio-resumes";
 import { canEditResumeRecord, canLaunchInterviewFromResume } from "@arc/shared/studio-resumes";
+import type { ResumeLibraryDetail } from "@arc/shared/studio-resumes";
 import { DIFFICULTY_LABEL } from "@arc/shared/interview-question-difficulty";
+import { cn } from "@arc/shared/utils";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { QueryClient } from "@tanstack/react-query";
 import {
@@ -28,6 +29,9 @@ import {
   fetchStudioInterviewRoundReports,
   fetchStudioResume,
   fetchStudioResumeRounds,
+  fetchStudioResumeReview,
+  fetchStudioResumeReviewRounds,
+  fetchStudioResumeReviewTimeline,
   fetchStudioResumeTimeline,
   resetStudioInterviewRound,
   resolvePublicInterviewRecordId,
@@ -50,7 +54,10 @@ import type { ReactNode } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { CandidateBasicInfoView } from "@/components/features/candidate/candidate-basic-info-view";
 import { ResumeProfileView } from "@/components/features/resume/resume-profile-view";
-import { ResumeOverviewPanel } from "@/components/features/studio/resumes/resume-overview-panel";
+import {
+  ResumeOverviewPanel,
+  ResumeReviewStructuredView,
+} from "@/components/features/studio/resumes/resume-overview-panel";
 import { toast } from "sonner";
 import { DATE_TIME_DISPLAY_OPTIONS, TimeDisplay } from "@/components/features/display/time-display";
 import {
@@ -75,6 +82,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { HumanInterviewStagePanel } from "./human-interview-stage-panel";
 import { OfferStagePanel } from "./offer-stage-panel";
 import { PipelineStageActionBar } from "./pipeline-stage-action-bar";
@@ -112,19 +120,23 @@ import {
 import { RecordingPlayer } from "./interviews/interview-detail/recording-player";
 
 export type StudioPersonDetailMode = "interview" | "resume";
+export type StudioPersonDetailLayoutMode = "modal" | "page";
 
 /**
  * 数据来源 + 是否可写。"authed" 走 `/api/w/:slug/studio/*` 既有路由族；
  * "public" 走 `/api/public/*`，所有写操作 UI 被隐藏。
+ * "review" 走 workspace 成员级详情 API，给详情链接访问者使用。
  *
  * Data source + write capability.
  * "authed" routes through the existing workspace-scoped API; "public" hits
  * the slug-less `/api/public/*` mirrors and hides all write UI.
+ * "review" uses workspace member-scoped detail APIs for reviewer links.
  */
-export type StudioPersonDetailAccessMode = "authed" | "public";
+export type StudioPersonDetailAccessMode = "authed" | "public" | "review";
 
 export type StudioPersonDetailTab =
   | "overview"
+  | "ai-analysis"
   | "rounds"
   | "human-interview"
   | "offer"
@@ -403,6 +415,7 @@ function useStudioPersonDetailPanel({
   enabled = true,
   defaultTab,
   accessMode = "authed",
+  layoutMode = "modal",
   onUpdated,
   onEdit,
   onLaunchInterview,
@@ -441,6 +454,11 @@ function useStudioPersonDetailPanel({
    * Whether to use the public data source and hide all write UI. Defaults to "authed".
    */
   accessMode?: StudioPersonDetailAccessMode;
+  /**
+   * "modal" keeps the resume overview rail on an internal scroll area; "page"
+   * lets the document own scrolling so fixed page-level footers can reserve space.
+   */
+  layoutMode?: StudioPersonDetailLayoutMode;
   /** 轮次级写操作（toggle / reset）成功后调用。/ Called after a round-level write (toggle / reset). */
   onUpdated?: () => void;
   onEdit?: (recordId: string) => void;
@@ -484,11 +502,13 @@ function useStudioPersonDetailPanel({
 }) {
   const optionalSlug = useOptionalWorkspaceSlug();
   const isPublic = accessMode === "public";
+  const isReview = accessMode === "review";
+  const canUseManagementActions = accessMode === "authed";
   // 公开模式下故意不依赖 slug；authed 模式下我们仍要求 workspace 上下文。
   // Public mode is slug-agnostic by design; authed mode still needs the workspace ctx.
   if (!isPublic && !optionalSlug) {
     throw new Error(
-      'StudioPersonDetailPanel(accessMode="authed") must run under a /w/[slug] route',
+      'StudioPersonDetailPanel(accessMode="authed"|"review") must run under a /w/[slug] route',
     );
   }
   // 仅 authed 路径下使用 slug；以变量形式保留，方便下文 string-only 接口拼接。
@@ -563,10 +583,15 @@ function useStudioPersonDetailPanel({
   // 简历库模式查询 / Resume-mode record query
   const { data: resumeRecord, isLoading: isResumeLoading } = useQuery({
     enabled: enabled && !!effectiveRecordId && mode === "resume",
-    queryFn: () =>
-      isPublic
-        ? fetchPublicResume(effectiveRecordId as string)
-        : fetchStudioResume(slug, effectiveRecordId as string),
+    queryFn: () => {
+      if (isPublic) {
+        return fetchPublicResume(effectiveRecordId as string);
+      }
+      if (isReview) {
+        return fetchStudioResumeReview(slug, effectiveRecordId as string);
+      }
+      return fetchStudioResume(slug, effectiveRecordId as string);
+    },
     queryKey: ["studio-resumes", slug, "detail", effectiveRecordId, accessMode] as const,
     staleTime: 30 * 1000,
   });
@@ -610,10 +635,15 @@ function useStudioPersonDetailPanel({
   // Resume-mode: list this candidate's AI interview rounds for the "AI 面试" tab.
   const { data: candidateRounds = [], isLoading: isRoundsLoading } = useQuery({
     enabled: enabled && !!effectiveRecordId && mode === "resume",
-    queryFn: () =>
-      isPublic
-        ? fetchPublicResumeRounds(effectiveRecordId as string)
-        : fetchStudioResumeRounds(slug, effectiveRecordId as string),
+    queryFn: () => {
+      if (isPublic) {
+        return fetchPublicResumeRounds(effectiveRecordId as string);
+      }
+      if (isReview) {
+        return fetchStudioResumeReviewRounds(slug, effectiveRecordId as string);
+      }
+      return fetchStudioResumeRounds(slug, effectiveRecordId as string);
+    },
     queryKey: ["studio-resume-rounds", slug, effectiveRecordId, accessMode] as const,
     refetchOnWindowFocus: true,
   });
@@ -621,8 +651,11 @@ function useStudioPersonDetailPanel({
   const { data: candidateTimeline, isLoading: isTimelineLoading } = useQuery({
     enabled:
       enabled && !!effectiveRecordId && mode === "resume" && !isPublic && activeTab === "overview",
-    queryFn: () => fetchStudioResumeTimeline(slug, effectiveRecordId as string),
-    queryKey: ["studio-resumes", slug, "timeline", effectiveRecordId] as const,
+    queryFn: () =>
+      isReview
+        ? fetchStudioResumeReviewTimeline(slug, effectiveRecordId as string)
+        : fetchStudioResumeTimeline(slug, effectiveRecordId as string),
+    queryKey: ["studio-resumes", slug, "timeline", effectiveRecordId, accessMode] as const,
     refetchOnWindowFocus: true,
     staleTime: 15 * 1000,
   });
@@ -751,6 +784,7 @@ function useStudioPersonDetailPanel({
       tabs.add("forms");
       return tabs;
     }
+    tabs.add("ai-analysis");
     tabs.add("rounds");
     if (shouldShowHumanInterviewTab(tabVisibilityRecord)) {
       tabs.add("human-interview");
@@ -866,18 +900,57 @@ function useStudioPersonDetailPanel({
   // button stays flex-1 and naturally expands. Suppressed during rounds-load
   // to avoid a flash-then-hide.
   const canEditResumeModeRecord =
-    mode !== "resume" || !record?.resumeParseStatus
+    canUseManagementActions &&
+    !!onEdit &&
+    (mode !== "resume" || !record?.resumeParseStatus
       ? true
-      : canEditResumeRecord(record.resumeParseStatus);
+      : canEditResumeRecord(record.resumeParseStatus));
   const canLaunchResumeModeRecord =
-    mode !== "resume" || !record?.resumeParseStatus
+    canUseManagementActions &&
+    (mode !== "resume" || !record?.resumeParseStatus
       ? true
-      : canLaunchInterviewFromResume(record.resumeParseStatus);
+      : canLaunchInterviewFromResume(record.resumeParseStatus));
   const showLaunchButton =
     mode === "resume" &&
     canLaunchResumeModeRecord &&
     !isRoundsLoading &&
     candidateRounds.length === 0;
+  const launchResumeModeDisabledReason =
+    showLaunchButton && !resumeRecord?.jobDescriptionId ? "请先绑定在招岗位后再发起 AI 面试" : null;
+  const launchResumeModeButton = showLaunchButton ? (
+    <Button
+      className={launchResumeModeDisabledReason ? "w-full" : "flex-1"}
+      disabled={Boolean(launchResumeModeDisabledReason)}
+      size="lg"
+      onClick={() => {
+        if (!record) {
+          return;
+        }
+        if (launchResumeModeDisabledReason) {
+          return;
+        }
+        if (onLaunchInterview) {
+          // 简历库详情入口：交给外层 LaunchInterviewDialog 处理；关闭本面板
+          // 让 modal 切换显得自然。
+          // Resume-library entry: hand off to the parent LaunchInterviewDialog
+          // and close this panel so the swap reads naturally.
+          onLaunchInterview({
+            candidateName: record.candidateName ?? null,
+            id: record.id,
+          });
+          onClose?.();
+          return;
+        }
+        void navigate({ params: { slug }, to: "/w/$slug/studio/interviews" });
+        onClose?.();
+      }}
+      type="button"
+    >
+      <BotIcon className="size-4" />
+      发起 AI 面试
+      {onLaunchInterview ? null : <ExternalLinkIcon className="size-3.5 opacity-70" />}
+    </Button>
+  ) : null;
   const resumeModeFooter =
     record && (canEditResumeModeRecord || showLaunchButton) ? (
       <div className="flex w-full gap-2">
@@ -897,33 +970,15 @@ function useStudioPersonDetailPanel({
             编辑
           </Button>
         ) : null}
-        {showLaunchButton ? (
-          <Button
-            className="flex-1"
-            size="lg"
-            onClick={() => {
-              if (onLaunchInterview) {
-                // 简历库详情入口：交给外层 LaunchInterviewDialog 处理；关闭本面板
-                // 让 modal 切换显得自然。
-                // Resume-library entry: hand off to the parent LaunchInterviewDialog
-                // and close this panel so the swap reads naturally.
-                onLaunchInterview({
-                  candidateName: record.candidateName ?? null,
-                  id: record.id,
-                });
-                onClose?.();
-                return;
-              }
-              void navigate({ params: { slug }, to: "/w/$slug/studio/interviews" });
-              onClose?.();
-            }}
-            type="button"
-          >
-            <BotIcon className="size-4" />
-            发起 AI 面试
-            {onLaunchInterview ? null : <ExternalLinkIcon className="size-3.5 opacity-70" />}
-          </Button>
+        {launchResumeModeButton && launchResumeModeDisabledReason ? (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="flex flex-1">{launchResumeModeButton}</span>
+            </TooltipTrigger>
+            <TooltipContent>{launchResumeModeDisabledReason}</TooltipContent>
+          </Tooltip>
         ) : null}
+        {launchResumeModeButton && !launchResumeModeDisabledReason ? launchResumeModeButton : null}
       </div>
     ) : null;
 
@@ -952,6 +1007,9 @@ function useStudioPersonDetailPanel({
     if (isPublic) {
       return `/api/public/interview-rounds/${record.roundId ?? record.id}/resume`;
     }
+    if (isReview) {
+      return `/api/w/${slug}/studio/resumes/${record.id}/review/resume`;
+    }
     const previewRecordId = mode === "interview" ? (record.roundId ?? record.id) : record.id;
     return `/api/w/${slug}/studio/${mode === "resume" ? "resumes" : "interviews"}/${previewRecordId}/resume`;
   })();
@@ -961,7 +1019,11 @@ function useStudioPersonDetailPanel({
   // Action bar shows only on the authed resume-mode view. It is candidate-wide
   // state, so it lives above all tab content rather than inside a tab panel.
   const actionBar =
-    mode === "resume" && record && !isPublic && record.pipelineStage && record.outcome ? (
+    mode === "resume" &&
+    record &&
+    canUseManagementActions &&
+    record.pipelineStage &&
+    record.outcome ? (
       <PipelineStageActionBar
         aiInterviewDone={Boolean(
           resumeRecord?.stageProgress.aiInterview &&
@@ -1030,6 +1092,11 @@ function useStudioPersonDetailPanel({
             </TabsTrigger>
           ) : null}
           {mode === "resume" ? (
+            <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="ai-analysis">
+              AI 解析
+            </TabsTrigger>
+          ) : null}
+          {mode === "resume" ? (
             <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="rounds">
               AI 面试
             </TabsTrigger>
@@ -1073,14 +1140,19 @@ function useStudioPersonDetailPanel({
   }
 
   const showTimelineRail = mode === "resume" && !isPublic && activeTab === "overview";
+  const canUseTimelineRailScroll = showTimelineRail && layoutMode === "modal";
   let bodyLayoutClassName = "flex flex-col gap-8";
   if (showTimelineRail) {
-    bodyLayoutClassName =
-      "grid gap-4 xl:h-full xl:min-h-0 xl:grid-cols-[minmax(0,1fr)_22rem] xl:overflow-hidden";
+    bodyLayoutClassName = cn(
+      "grid gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]",
+      canUseTimelineRailScroll && "xl:h-full xl:min-h-0 xl:overflow-hidden",
+      !canUseTimelineRailScroll && "xl:items-start",
+    );
   }
-  const detailScrollClassName = showTimelineRail
-    ? "min-w-0 flex flex-col gap-8 xl:h-full xl:min-h-0 xl:overflow-y-auto xl:pr-1"
-    : "min-w-0 flex flex-col gap-8";
+  const detailScrollClassName = cn(
+    "min-w-0 flex flex-col gap-8",
+    canUseTimelineRailScroll && "xl:h-full xl:min-h-0 xl:overflow-y-auto xl:pr-1",
+  );
 
   // oxlint-disable-next-line no-nested-ternary -- Splitting this tri-state body into a helper balloons JSX context; keeping inline.
   const body = isLoading ? (
@@ -1104,7 +1176,7 @@ function useStudioPersonDetailPanel({
                   {isReportsLoading ? (
                     <InterviewResultOverviewSkeleton />
                   ) : (
-                    <section className="h-full rounded-2xl  p-5">
+                    <section className="h-full rounded-2xl bg-muted/20 border-muted/60 border p-5">
                       <div className="flex flex-wrap items-center justify-between gap-3">
                         <h3 className="font-medium text-sm">面试结果</h3>
                         <Badge
@@ -1162,7 +1234,7 @@ function useStudioPersonDetailPanel({
                     </section>
                   )}
 
-                  <section className="h-full space-y-4 border-t border-border/50 pt-6 xl:border-t-0 xl:pt-0">
+                  <section className="h-full space-y-4  rounded-2xl bg-muted/20 border-muted/60 border p-5">
                     <h3 className="font-medium text-sm">候选人信息</h3>
                     <div>
                       <CandidateBasicInfoView
@@ -1279,6 +1351,21 @@ function useStudioPersonDetailPanel({
             </div>
           </TabsContent>
 
+          {mode === "resume" ? (
+            <TabsContent value="ai-analysis">
+              {resumeRecord?.resumeReview ? (
+                <ResumeReviewStructuredView review={resumeRecord.resumeReview} />
+              ) : (
+                <section className="space-y-3 rounded-2xl border border-muted/60 bg-muted/20 p-5">
+                  <h3 className="font-medium text-sm">AI 解析</h3>
+                  <div className="text-muted-foreground text-sm leading-6">
+                    <Markdown>{truncateText(resumeRecord?.notes) || "暂无 AI 解析结果"}</Markdown>
+                  </div>
+                </section>
+              )}
+            </TabsContent>
+          ) : null}
+
           {mode === "interview" ? (
             <TabsContent value="reports">
               {isReportsLoading ? (
@@ -1337,11 +1424,11 @@ function useStudioPersonDetailPanel({
 
                         return (
                           <AccordionItem
-                            className="overflow-hidden rounded-2xl bg-muted/20 px-0"
+                            className="overflow-hidden rounded-2xl border border-border/70 bg-muted/25 px-0 shadow-sm"
                             key={report.conversationId}
                             value={report.conversationId}
                           >
-                            <AccordionTrigger className="px-5 py-4 hover:no-underline">
+                            <AccordionTrigger className="rounded-none px-5 py-4 hover:no-underline data-[state=open]:border-border/60 data-[state=open]:border-b data-[state=open]:bg-background/70">
                               <div className="min-w-0 flex-1 text-left">
                                 <div className="flex flex-wrap items-center gap-2">
                                   <TimeDisplay
@@ -1365,12 +1452,12 @@ function useStudioPersonDetailPanel({
                                 </div>
                               </div>
                             </AccordionTrigger>
-                            <AccordionContent className="px-5 pb-5">
-                              <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(400px,1fr)]">
+                            <AccordionContent className="bg-muted/25 px-5 pt-4 pb-5">
+                              <div className="grid gap-4  lg:grid-cols-[minmax(0,1fr)_minmax(400px,1fr)]">
                                 <div className="space-y-4">
                                   {env.NEXT_PUBLIC_ENABLE_INTERVIEW_RECORDING ? (
                                     <RecordingPlayer
-                                      accessMode={accessMode}
+                                      accessMode={isPublic ? "public" : "authed"}
                                       conversationId={report.conversationId}
                                       durationSecs={report.recordingDurationSecs}
                                       recordId={effectiveRoundId ?? ""}
@@ -1379,7 +1466,7 @@ function useStudioPersonDetailPanel({
                                       surface="section"
                                     />
                                   ) : null}
-                                  <section className="rounded-xl bg-background/70 p-4">
+                                  <section className="rounded-xl border border-border/60 bg-background p-4 shadow-sm">
                                     <h4 className="font-medium text-sm">会话概览</h4>
                                     <div className="mt-3 grid gap-x-8 gap-y-4 text-sm md:grid-cols-2">
                                       <DetailRow
@@ -1435,7 +1522,7 @@ function useStudioPersonDetailPanel({
                                     </div>
                                   </section>
 
-                                  <section className="rounded-xl bg-background/70 p-4">
+                                  <section className="rounded-xl border border-border/60 bg-background p-4 shadow-sm">
                                     <h4 className="font-medium text-sm">最终总结</h4>
                                     <div className="mt-3 text-muted-foreground text-sm leading-6">
                                       <Markdown>
@@ -1451,7 +1538,7 @@ function useStudioPersonDetailPanel({
                                 </div>
 
                                 <div className="lg:relative">
-                                  <section className="flex h-[480px] flex-col overflow-hidden rounded-xl bg-background/70 p-4 lg:absolute lg:inset-0 lg:h-auto">
+                                  <section className="flex h-[480px] flex-col overflow-hidden rounded-xl border border-border/60 bg-background p-4 shadow-sm lg:absolute lg:inset-0 lg:h-auto">
                                     <h4 className="shrink-0 pb-2 font-medium text-sm">对话记录</h4>
                                     <ConversationTranscript
                                       activeTurnIndex={activeEvidence?.turnIndex ?? null}
@@ -1460,7 +1547,7 @@ function useStudioPersonDetailPanel({
                                   </section>
                                 </div>
 
-                                <section className="rounded-xl bg-background/70 p-4">
+                                <section className="rounded-xl border border-border/60 bg-background p-4 shadow-sm">
                                   <h4 className="font-medium text-sm">评估指标</h4>
                                   <div className="mt-4 max-h-[420px] overflow-y-auto pr-1">
                                     <EvaluationResults
@@ -1676,12 +1763,18 @@ function useStudioPersonDetailPanel({
         </AnimatedHeight>
       </div>
       {showTimelineRail ? (
-        <aside className="min-h-0 min-w-0 max-w-full overflow-hidden xl:h-full">
+        <aside
+          className={cn(
+            "min-h-0 min-w-0 max-w-full overflow-hidden",
+            canUseTimelineRailScroll ? "xl:h-full" : "xl:sticky xl:top-5",
+          )}
+        >
           <CandidateTimeline
-            className="xl:h-full"
+            className={canUseTimelineRailScroll ? "xl:h-full" : undefined}
             data={candidateTimeline}
             density="rail"
             isLoading={isTimelineLoading}
+            scrollMode={canUseTimelineRailScroll ? "internal" : "page"}
           />
         </aside>
       ) : null}
@@ -1693,8 +1786,8 @@ function useStudioPersonDetailPanel({
   );
 
   const footer = mode === "resume" && activeTab === "overview" ? resumeModeFooter : null;
-  const bodyClassName = showTimelineRail ? "xl:overflow-hidden" : undefined;
-  const modalClassName = showTimelineRail ? "xl:h-[90vh]" : undefined;
+  const bodyClassName = canUseTimelineRailScroll ? "xl:overflow-hidden" : undefined;
+  const modalClassName = canUseTimelineRailScroll ? "xl:h-[90vh]" : undefined;
   let modalSize: StudioPersonDetailSlots["modalSize"] = "full";
   if (mode === "resume") {
     modalSize = showTimelineRail ? "2xl" : "xl";

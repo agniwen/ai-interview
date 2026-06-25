@@ -102,13 +102,17 @@ export function CreateResumeRecordDialog({
       const p = pipelineRef.current;
       const file = p?.resumeFile ?? null;
       let payload = p?.resumePayload ?? null;
+      const resumeReview = p?.resumeReview ?? null;
 
       setSubmitting(true);
       try {
         const dedupPolicy = p?.dedupConfirmed ? "force" : "check";
         if (mode === "save-only") {
           const detail = await apiFetch<ResumeLibraryDetail>(`/api/w/${slug}/studio/resumes`, {
-            body: buildSaveOnlyResumeFormData(value, file, payload, { dedupPolicy }),
+            body: buildSaveOnlyResumeFormData(value, file, payload, {
+              dedupPolicy,
+              resumeReview,
+            }),
             method: "POST",
           });
           toast.success("简历记录已创建");
@@ -130,7 +134,10 @@ export function CreateResumeRecordDialog({
           const round = await apiFetch<StudioInterviewRoundDetail>(
             `/api/w/${slug}/studio/interviews`,
             {
-              body: buildSaveAndStartResumeFormData(value, file, payload, { dedupPolicy }),
+              body: buildSaveAndStartResumeFormData(value, file, payload, {
+                dedupPolicy,
+                resumeReview,
+              }),
               method: "POST",
             },
           );
@@ -184,8 +191,8 @@ export function CreateResumeRecordDialog({
     onReviewDraftChange: (review) => {
       form.setFieldValue("notes", review);
     },
-    onReviewGenerated: (review) => {
-      form.setFieldValue("notes", review);
+    onReviewGenerated: (result) => {
+      form.setFieldValue("notes", result.review);
     },
   });
   // 把最新 pipeline 写入 ref，供 form.onSubmit 闭包读取。

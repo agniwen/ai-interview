@@ -1,6 +1,7 @@
 "use client";
 
 import type { ResumeProfile } from "@arc/db-schema/interview/types";
+import type { GenerateResumeReviewResult } from "@/lib/client/resume-analysis";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { generateResumeReview } from "@/lib/client/resume-analysis";
@@ -12,7 +13,7 @@ interface RegenerateResumeReviewInput {
 
 interface UseResumeReviewRegenerationOptions {
   onDraftChange: (review: string) => void;
-  onGenerated: (review: string) => void;
+  onGenerated: (result: GenerateResumeReviewResult) => void;
 }
 
 function isAbortError(error: unknown, signal: AbortSignal) {
