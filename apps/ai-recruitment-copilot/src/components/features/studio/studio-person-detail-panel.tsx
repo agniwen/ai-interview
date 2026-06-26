@@ -10,6 +10,7 @@
 // chrome via shell — Modal, full-page layout, or any custom frame.
 
 import Markdown from "react-markdown";
+import type { CandidateFormSubmissionWithSnapshot } from "@arc/db-schema/candidate-forms";
 import type { StudioInterviewRoundDetail } from "@arc/shared/studio-interview-rounds";
 import { canEditResumeRecord, canLaunchInterviewFromResume } from "@arc/shared/studio-resumes";
 import type { ResumeLibraryDetail } from "@arc/shared/studio-resumes";
@@ -222,6 +223,23 @@ interface EvaluationSummary {
   overallAssessment: string | null;
 }
 
+type FormQuestion = CandidateFormSubmissionWithSnapshot["snapshot"]["questions"][number];
+
+interface CollectedCandidateInfoItem {
+  analysis: string | null;
+  answers: string[];
+  id: string;
+  kind: "form" | "interview";
+  meta: string | null;
+  question: string;
+  sequence: number;
+  sourceLabel: string;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
 function getEvaluationSummary(data: Record<string, unknown> | null | undefined): EvaluationSummary {
   if (!data) {
     return {
@@ -236,6 +254,165 @@ function getEvaluationSummary(data: Record<string, unknown> | null | undefined):
     overallScore: typeof data.overallScore === "number" ? data.overallScore : null,
     recommendation: typeof data.recommendation === "string" ? data.recommendation : null,
   };
+}
+
+function formatFormAnswer(question: FormQuestion, rawValue: string | string[] | undefined) {
+  if (
+    rawValue === undefined ||
+    rawValue === "" ||
+    (Array.isArray(rawValue) && rawValue.length === 0)
+  ) {
+    return null;
+  }
+
+  if (question.type === "single" || question.type === "multi") {
+    const values = Array.isArray(rawValue) ? rawValue : [rawValue];
+    const labels = values.map((v) => question.options.find((opt) => opt.value === v)?.label ?? v);
+    return labels.join("、");
+  }
+
+  return Array.isArray(rawValue) ? rawValue.join(", ") : rawValue;
+}
+
+function getCollectedCandidateInfoItems({
+  evaluation,
+  formSubmissions,
+}: {
+  evaluation: Record<string, unknown> | null | undefined;
+  formSubmissions: CandidateFormSubmissionWithSnapshot[];
+}) {
+  const items: CollectedCandidateInfoItem[] = [];
+
+  for (const submission of formSubmissions) {
+    for (const question of submission.snapshot.questions) {
+      const answer = formatFormAnswer(question, submission.answers[question.id]);
+      items.push({
+        analysis: null,
+        answers: answer ? [answer] : [],
+        id: `form-${submission.id}-${question.id}`,
+        kind: "form",
+        meta: submission.snapshot.title,
+        question: question.label,
+        sequence: items.length + 1,
+        sourceLabel: "表单",
+      });
+    }
+  }
+
+  const questions = Array.isArray(evaluation?.questions) ? evaluation.questions : [];
+
+  for (const [index, rawQuestion] of questions.entries()) {
+    if (!isRecord(rawQuestion)) {
+      continue;
+    }
+
+    const question =
+      typeof rawQuestion.question === "string" && rawQuestion.question.trim()
+        ? rawQuestion.question.trim()
+        : "未知题目";
+    const analysis =
+      typeof rawQuestion.assessment === "string" && rawQuestion.assessment.trim()
+        ? rawQuestion.assessment.trim()
+        : null;
+    const order = typeof rawQuestion.order === "number" ? rawQuestion.order : index + 1;
+    const rawEvidence = Array.isArray(rawQuestion.evidence) ? rawQuestion.evidence : [];
+    const answers = rawEvidence.flatMap((item) => {
+      if (!isRecord(item) || typeof item.quote !== "string") {
+        return [];
+      }
+      const quote = item.quote.trim();
+      return quote ? [quote] : [];
+    });
+
+    items.push({
+      analysis,
+      answers,
+      id: `interview-${order}-${question}`,
+      kind: "interview",
+      meta: null,
+      question,
+      sequence: items.length + 1,
+      sourceLabel: "面试",
+    });
+  }
+
+  return items;
+}
+
+function CollectedCandidateInfoList({ items }: { items: CollectedCandidateInfoItem[] }) {
+  if (items.length === 0) {
+    return (
+      <div className="rounded-xl border border-dashed border-border/70 bg-muted/30 px-4 py-8 text-center text-muted-foreground text-sm">
+        暂无可展示的收集信息。
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col">
+      {items.map((item) => (
+        <article
+          className="min-w-0 border-border/60 border-b py-4 last:border-b-0 text-sm"
+          key={item.id}
+        >
+          <div className="flex items-start gap-3">
+            <span className="mt-0.5 w-7 shrink-0 font-medium text-muted-foreground tabular-nums">
+              {item.sequence}.
+            </span>
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge className="h-5 px-1.5 font-normal text-[10px]" variant="outline">
+                  {item.sourceLabel}
+                </Badge>
+                {item.meta ? (
+                  <span className="text-muted-foreground text-xs leading-5">{item.meta}</span>
+                ) : null}
+              </div>
+              <div className="mt-3 space-y-1">
+                <div className="font-medium text-[11px] text-muted-foreground">问题</div>
+                <p className="font-medium text-foreground leading-normal">{item.question}</p>
+              </div>
+              {item.analysis ? (
+                <div className="mt-3 space-y-1">
+                  <div className="font-medium text-[11px] text-muted-foreground">AI 分析</div>
+                  <p className="font-medium text-foreground leading-6">{item.analysis}</p>
+                </div>
+              ) : null}
+              <div className="mt-3 space-y-1">
+                <div className="font-medium text-[11px] text-muted-foreground">
+                  {item.kind === "interview" ? "候选人回答" : "回答"}
+                </div>
+                {item.answers.length > 0 ? (
+                  <div className="flex flex-col gap-1.5">
+                    {item.answers.map((answer, index) => (
+                      <Tooltip key={`${index}-${answer}`}>
+                        <TooltipTrigger asChild>
+                          <p
+                            className={
+                              item.kind === "interview"
+                                ? "line-clamp-2 cursor-help text-muted-foreground leading-6 break-words"
+                                : "line-clamp-2 cursor-help text-foreground leading-6 break-words"
+                            }
+                          >
+                            “{answer}”
+                          </p>
+                        </TooltipTrigger>
+                        <TooltipContent className="max-w-[min(32rem,calc(100vw-2rem))] whitespace-pre-wrap break-words leading-6">
+                          {answer}
+                        </TooltipContent>
+                      </Tooltip>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-muted-foreground text-sm">暂无提取答案</p>
+                )}
+              </div>
+            </div>
+          </div>
+        </article>
+      ))}
+    </div>
+  );
 }
 
 function compactText(value: string | null | undefined, fallback: string, limit = 420) {
@@ -885,6 +1062,10 @@ function useStudioPersonDetailPanel({
   const latestEvaluationSummary = getEvaluationSummary(
     latestReport?.evaluationCriteriaResults as Record<string, unknown> | undefined,
   );
+  const collectedCandidateInfoItems = getCollectedCandidateInfoItems({
+    evaluation: latestReport?.evaluationCriteriaResults as Record<string, unknown> | undefined,
+    formSubmissions,
+  });
   const isRoundCompleted = record?.roundStatus === "completed";
   const isRoundLive =
     record?.roundStatus === "in_progress" || record?.roundStatus === "interrupted";
@@ -1339,6 +1520,25 @@ function useStudioPersonDetailPanel({
                   </div>
                 </section>
               ) : null}
+
+              <section className="xl:col-span-2 border-border/50 border-t pt-6">
+                <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <h3 className="font-medium text-sm">候选人收集信息</h3>
+                    <p className="mt-1 text-muted-foreground text-xs">
+                      按表单、面试题顺序展示候选人提供的信息。
+                    </p>
+                  </div>
+                  {collectedCandidateInfoItems.length > 0 ? (
+                    <Badge variant="outline">{collectedCandidateInfoItems.length} 条信息</Badge>
+                  ) : null}
+                </div>
+                {isFormSubmissionsLoading || isReportsLoading ? (
+                  <FormsSkeleton />
+                ) : (
+                  <CollectedCandidateInfoList items={collectedCandidateInfoItems} />
+                )}
+              </section>
 
               {mode === "interview" ? (
                 <section className="space-y-3 border-t border-border/50 pt-6">
