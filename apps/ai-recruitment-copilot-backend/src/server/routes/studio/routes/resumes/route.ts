@@ -704,7 +704,7 @@ export const resumeLibraryRouter = factory
       // resumePayload, the row stores an empty interviewQuestions array.
       let resumeProfile =
         parsedResumePayload?.resumeProfile ?? uploadResult?.cachedResumeProfile ?? null;
-      let resumeText = uploadResult?.resumeText ?? null;
+      let resumeText = parsedResumePayload?.resumeText ?? uploadResult?.resumeText ?? null;
       let parsedFileName: string | null = parsedResumePayload?.fileName ?? resume?.name ?? null;
       if (resume && !resumeProfile) {
         const parsed = await parseResumeFastToProfile(resume);

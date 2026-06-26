@@ -75,6 +75,7 @@ vi.mock(
 
 // oxlint-disable-next-line import/first -- must follow vi.mock() calls for correct hoisting
 import {
+  resolveResumeUploadStorage,
   storeInterviewResume,
   storeResumeObjectOnly,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/interview/utils";
@@ -409,6 +410,39 @@ describe("storeResumeObjectOnly", () => {
       parsedStructured: { name: "缓存候选人" },
       storageKey: "chat-attachments/fresh.jpeg",
       userId: "user-7",
+    });
+  });
+});
+
+describe("resolveResumeUploadStorage", () => {
+  it("object-only payload upload: returns resume text from the client payload", async () => {
+    const storeObjectOnly = vi.fn().mockResolvedValue({
+      contentHash: HASH,
+      storageKey: STORAGE_KEY,
+    });
+    const storeParsedResume = vi.fn();
+
+    const result = await resolveResumeUploadStorage({
+      organizationId: "org-test",
+      parsedResumePayload: {
+        fileName: "resume.pdf",
+        interviewQuestions: [],
+        resumeProfile: { name: "客户端解析候选人" } as never,
+        resumeText: "客户端预解析 OCR 原文",
+      },
+      resume: makeFile(),
+      storeObjectOnly,
+      storeParsedResume,
+      userId: "user-payload",
+    });
+
+    expect(storeObjectOnly).toHaveBeenCalledTimes(1);
+    expect(storeParsedResume).not.toHaveBeenCalled();
+    expect(result).toEqual({
+      cachedResumeProfile: null,
+      contentHash: HASH,
+      resumeText: "客户端预解析 OCR 原文",
+      storageKey: STORAGE_KEY,
     });
   });
 });

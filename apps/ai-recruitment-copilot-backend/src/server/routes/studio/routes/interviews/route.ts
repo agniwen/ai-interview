@@ -380,7 +380,7 @@ export const studioInterviewsRouter = factory
       });
       const resumeStorageKey = uploadResult?.storageKey ?? null;
       const resumeContentHash = uploadResult?.contentHash ?? null;
-      let resumeText = uploadResult?.resumeText ?? null;
+      let resumeText = parsedResumePayload?.resumeText ?? uploadResult?.resumeText ?? null;
 
       // 解析复用顺序：客户端预解析 > 注册表缓存命中 > 现场跑完整 analyzeResumeFile。
       // Reuse order: client-prebaked → registry cache → server full analysis.
@@ -394,9 +394,11 @@ export const studioInterviewsRouter = factory
             fileName: resume.name,
             interviewQuestions,
             resumeProfile: uploadResult.cachedResumeProfile,
+            resumeText: uploadResult.resumeText,
           };
         } else if (candidateQuestionGenerationEnabled) {
           analysis = await analyzeResumeFile(resume);
+          ({ resumeText } = analysis);
         } else {
           const parsed = await parseResumeFastToProfile(resume);
           resumeText = parsed.parsedText;
@@ -404,6 +406,7 @@ export const studioInterviewsRouter = factory
             fileName: resume.name,
             interviewQuestions: [],
             resumeProfile: parsed.resumeProfile,
+            resumeText,
           };
         }
       }

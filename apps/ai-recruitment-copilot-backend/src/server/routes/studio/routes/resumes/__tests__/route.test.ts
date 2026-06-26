@@ -79,6 +79,7 @@ const RESUME_PAYLOAD: ResumeAnalysisResult = {
     workExperiences: [],
     workYears: null,
   },
+  resumeText: "客户端预解析 OCR 原文",
 };
 
 describeWithDatabase("resume detail route database behavior", () => {
@@ -200,7 +201,7 @@ describeWithDatabase("resolveResumeUploadStorage", () => {
     expect(result).toEqual({
       cachedResumeProfile: null,
       contentHash: "hash-1",
-      resumeText: null,
+      resumeText: "客户端预解析 OCR 原文",
       storageKey: "resume/hash-1.pdf",
     });
   });

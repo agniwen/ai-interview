@@ -230,6 +230,7 @@ const QUESTION_INSTRUCTIONS = `你是一名技术面试出题助手。请基于�
 export interface ResumeParseResult {
   fileName: string;
   resumeProfile: ResumeProfile;
+  resumeText: string | null;
 }
 
 export interface StreamParseResumeContext {
@@ -347,7 +348,14 @@ export function streamParseResumeProfile(
       const cached = projectAttachmentToResumeProfile(existing.parsedStructured);
       if (cached) {
         emit({ message: "命中已有简历缓存，跳过解析。", type: "status" });
-        emit({ data: { fileName: file.name, resumeProfile: cached }, type: "result" });
+        emit({
+          data: {
+            fileName: file.name,
+            resumeProfile: cached,
+            resumeText: existing.parsedText ?? null,
+          },
+          type: "result",
+        });
         return;
       }
     }
@@ -364,6 +372,7 @@ export function streamParseResumeProfile(
         data: {
           fileName: file.name,
           resumeProfile: normalizeResumeProfile(toResumeProfile(structured)),
+          resumeText: existing.parsedText,
         },
         type: "result",
       });
@@ -392,6 +401,7 @@ export function streamParseResumeProfile(
     const result: ResumeParseResult = {
       fileName: file.name,
       resumeProfile: normalizeResumeProfile(toResumeProfile(fast.structured)),
+      resumeText: fast.text,
     };
 
     emit({ data: result, type: "result" });
@@ -1107,9 +1117,9 @@ export async function generateResumeReview(input: {
  * fallback path when the client hasn't pre-parsed the resume).
  */
 export async function analyzeResumeFile(file: File): Promise<ResumeAnalysisResult> {
-  const { resumeProfile } = await parseResumeFastToProfile(file);
+  const { parsedText, resumeProfile } = await parseResumeFastToProfile(file);
   const interviewQuestions = await generateInterviewQuestionsForProfile(resumeProfile);
-  return { fileName: file.name, interviewQuestions, resumeProfile };
+  return { fileName: file.name, interviewQuestions, resumeProfile, resumeText: parsedText };
 }
 
 // Re-export the subagent's schema so other modules can validate structured

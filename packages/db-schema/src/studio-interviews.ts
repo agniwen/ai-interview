@@ -464,6 +464,7 @@ export const studioInterviewResumePayloadSchema = z.object({
   fileName: z.string().trim().min(1),
   interviewQuestions: z.custom<ResumeAnalysisResult["interviewQuestions"]>(),
   resumeProfile: z.custom<ResumeAnalysisResult["resumeProfile"]>(),
+  resumeText: z.string().nullable().default(null),
 });
 
 /** @deprecated Use `PipelineStage` + `CandidateOutcome` instead. */

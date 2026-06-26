@@ -478,7 +478,9 @@ export async function resolveResumeUploadStorage({
 
   if (parsedResumePayload) {
     const stored = await storeObjectOnly(resume, userId, organizationId);
-    return stored ? { ...stored, cachedResumeProfile: null, resumeText: null } : null;
+    return stored
+      ? { ...stored, cachedResumeProfile: null, resumeText: parsedResumePayload.resumeText ?? null }
+      : null;
   }
 
   return storeParsedResume(
