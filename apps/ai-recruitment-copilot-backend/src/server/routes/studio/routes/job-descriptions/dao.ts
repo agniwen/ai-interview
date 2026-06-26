@@ -416,6 +416,29 @@ export async function listAllJobDescriptions(
   );
 }
 
+export async function fetchJobDescriptionsByCodes(
+  organizationId: string,
+  codes: readonly string[],
+): Promise<{ code: string; id: string }[]> {
+  const normalizedCodes = uniq(codes.map((code) => code.trim().toUpperCase()).filter(Boolean));
+  if (normalizedCodes.length === 0) {
+    return [];
+  }
+  const rows = await db
+    .select({
+      code: jobDescription.code,
+      id: jobDescription.id,
+    })
+    .from(jobDescription)
+    .where(
+      and(
+        eq(jobDescription.organizationId, organizationId),
+        inArray(jobDescription.code, normalizedCodes),
+      ),
+    );
+  return rows.flatMap((row) => (row.code ? [{ code: row.code, id: row.id }] : []));
+}
+
 /**
  * 校验给定 ids 全部存在于 jobDescription 表。空数组视作合法。
  * Validate that every id in `ids` exists in jobDescription. Empty input is valid.

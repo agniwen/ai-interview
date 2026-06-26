@@ -14,6 +14,7 @@ import {
   updateMailIngestMessageResult,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/mail-ingest/dao";
 import type { WorkerMailIngestAccount } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/mail-ingest/dao";
+import { fetchJobDescriptionsByCodes } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao";
 import {
   insertBatchWithItems,
   loadBatchDetail,
@@ -22,6 +23,7 @@ import { getResumeDocumentExtension } from "@arc/shared/resume-documents";
 import { sha256HexOfBytes } from "@arc/shared/file-hash";
 import {
   buildMailSearchCriteria,
+  extractJobCodesFromSubject,
   isMatchingResumeMailSubject,
   selectSupportedResumeAttachments,
   shouldProcessMailByListenStart,
@@ -35,6 +37,8 @@ interface RunResult {
   messagesSkipped: number;
   messagesFailed: number;
 }
+
+type MailJobBinding = Pick<WorkerMailIngestAccount, "jdMode" | "jobDescriptionId">;
 
 function firstAddress(mail: ParsedMail): string | null {
   return (
@@ -86,6 +90,7 @@ async function storeResumeAttachment(attachment: {
 async function createBatchForMail(
   account: WorkerMailIngestAccount,
   mail: ParsedMail,
+  binding: MailJobBinding,
 ): Promise<{
   batchId: string;
   jobs: { batchId: string; itemId: string; organizationId: string; userId: string }[];
@@ -98,8 +103,8 @@ async function createBatchForMail(
   const batchId = await insertBatchWithItems({
     dedupPolicy: account.dedupPolicy,
     files,
-    jdMode: account.jdMode,
-    jobDescriptionId: account.jobDescriptionId,
+    jdMode: binding.jdMode,
+    jobDescriptionId: binding.jobDescriptionId,
     organizationId: account.organizationId,
     resumePoolScope: account.resumePoolScope,
     sourceChannel: "mail_ingest",
@@ -118,6 +123,36 @@ async function createBatchForMail(
       organizationId: account.organizationId,
       userId: account.userId,
     })),
+  };
+}
+
+async function resolveMailJobBinding(
+  account: WorkerMailIngestAccount,
+  subject: string | null,
+): Promise<MailJobBinding> {
+  const defaultBinding = {
+    jdMode: account.jdMode,
+    jobDescriptionId: account.jobDescriptionId,
+  };
+  const codes = extractJobCodesFromSubject(subject);
+  if (codes.length === 0) {
+    return defaultBinding;
+  }
+  const jobs = await fetchJobDescriptionsByCodes(account.organizationId, codes);
+  const matchedJobIds = new Set(jobs.map((job) => job.id));
+  if (matchedJobIds.size !== 1) {
+    if (matchedJobIds.size > 1) {
+      console.warn("[mail-ingest] multiple subject job codes matched different jobs", {
+        accountId: account.id,
+        codes,
+        jobIds: [...matchedJobIds],
+      });
+    }
+    return defaultBinding;
+  }
+  return {
+    jdMode: "bind",
+    jobDescriptionId: [...matchedJobIds][0] ?? null,
   };
 }
 
@@ -154,7 +189,8 @@ async function processMailForAccount(
     return result;
   }
   try {
-    const batch = await createBatchForMail(account, mail);
+    const binding = await resolveMailJobBinding(account, subject);
+    const batch = await createBatchForMail(account, mail, binding);
     await updateMailIngestMessageResult(messageClaim.id, {
       batchId: batch.batchId,
       status: "queued",

@@ -1,49 +1,36 @@
 export const DEFAULT_JOB_CODE_PREFIX = "AUR";
 
-const JOB_CODE_PREFIX_PATTERN = /^[A-Z0-9]{1,12}$/;
+const JOB_CODE_RANDOM_SPACE = 36 ** 4;
+const JOB_CODE_CANDIDATE_COUNT = 32;
 
-function pad2(value: number): string {
-  return String(value).padStart(2, "0");
+function toBase36Suffix(value: number): string {
+  return value.toString(36).toUpperCase().padStart(4, "0");
 }
 
 export function normalizeJobCodePrefix(value: string | null | undefined): string {
   const normalized = value?.trim().toUpperCase() ?? "";
-  if (!normalized) {
-    return DEFAULT_JOB_CODE_PREFIX;
-  }
-  return normalized;
-}
-
-export function isValidJobCodePrefix(value: string): boolean {
-  return JOB_CODE_PREFIX_PATTERN.test(value);
-}
-
-export function formatJobCodeTimestamp(createdAt: Date): string {
-  return [
-    pad2(createdAt.getUTCFullYear() % 100),
-    pad2(createdAt.getUTCMonth() + 1),
-    pad2(createdAt.getUTCDate()),
-    pad2(createdAt.getUTCHours()),
-    pad2(createdAt.getUTCMinutes()),
-  ].join("");
+  return /^[A-Z0-9]{3}$/.test(normalized) ? normalized : DEFAULT_JOB_CODE_PREFIX;
 }
 
 export function generateJobDescriptionCode({
-  createdAt,
   prefix,
-  randomDigit = () => Math.floor(Math.random() * 10),
+  random = Math.random,
 }: {
   createdAt: Date;
   prefix: string | null | undefined;
-  randomDigit?: () => number;
+  random?: () => number;
 }): string {
-  const digit = Math.trunc(randomDigit());
-  const safeDigit = Number.isFinite(digit) ? Math.min(9, Math.max(0, digit)) : 0;
-  return `${normalizeJobCodePrefix(prefix)}${formatJobCodeTimestamp(createdAt)}${safeDigit}`;
+  const randomValue = random();
+  const index = Number.isFinite(randomValue)
+    ? Math.min(
+        JOB_CODE_RANDOM_SPACE - 1,
+        Math.max(0, Math.trunc(randomValue * JOB_CODE_RANDOM_SPACE)),
+      )
+    : 0;
+  return `${normalizeJobCodePrefix(prefix)}${toBase36Suffix(index)}`;
 }
 
 export function buildJobDescriptionCodeCandidates({
-  createdAt,
   prefix,
   random = Math.random,
 }: {
@@ -52,15 +39,17 @@ export function buildJobDescriptionCodeCandidates({
   random?: () => number;
 }): string[] {
   const randomValue = random();
-  const start = Number.isFinite(randomValue)
-    ? Math.min(9, Math.max(0, Math.trunc(randomValue * 10)))
+  const startIndex = Number.isFinite(randomValue)
+    ? Math.min(
+        JOB_CODE_RANDOM_SPACE - 1,
+        Math.max(0, Math.trunc(randomValue * JOB_CODE_RANDOM_SPACE)),
+      )
     : 0;
-  return Array.from({ length: 10 }, (_, index) =>
-    generateJobDescriptionCode({
-      createdAt,
-      prefix,
-      randomDigit: () => (start + index) % 10,
-    }),
+  const normalizedPrefix = normalizeJobCodePrefix(prefix);
+  return Array.from(
+    { length: JOB_CODE_CANDIDATE_COUNT },
+    (_, index) =>
+      `${normalizedPrefix}${toBase36Suffix((startIndex + index) % JOB_CODE_RANDOM_SPACE)}`,
   );
 }
 

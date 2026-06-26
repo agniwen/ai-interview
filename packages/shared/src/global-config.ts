@@ -12,7 +12,7 @@ const jobCodePrefixSchema = z.preprocess(
   },
   z
     .string()
-    .regex(/^[A-Z0-9]{1,12}$/, "岗位编码前缀只能包含 1-12 位大写字母或数字")
+    .regex(/^[A-Z0-9]{3}$/, "岗位编码前缀只能包含 3 位大写字母或数字")
     .default(DEFAULT_JOB_CODE_PREFIX),
 );
 

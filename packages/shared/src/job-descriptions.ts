@@ -7,7 +7,7 @@ export const jobDescriptionCodeSchema = z
   .string()
   .trim()
   .transform((value) => value.toUpperCase())
-  .refine((value) => value === "" || /^[A-Z0-9]{12,23}$/.test(value), "岗位编码格式无效")
+  .refine((value) => value === "" || /^[A-Z0-9]{7}$/.test(value), "岗位编码格式无效")
   .transform((value) => value || undefined)
   .optional();
 

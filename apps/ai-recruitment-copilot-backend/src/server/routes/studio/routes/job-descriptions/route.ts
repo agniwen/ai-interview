@@ -211,7 +211,7 @@ export const jobDescriptionsRouter = factory
       usedRows.map((row) => row.code),
     );
     if (!code) {
-      return c.json({ error: "当前分钟岗位编码已用尽，请稍后重试。" }, 409);
+      return c.json({ error: "岗位编码候选已用尽，请重试。" }, 409);
     }
     return c.json({ code }, 200);
   })
@@ -294,7 +294,7 @@ export const jobDescriptionsRouter = factory
         }
       }
 
-      return c.json({ error: "当前分钟岗位编码已用尽，请稍后重试。" }, 409);
+      return c.json({ error: "岗位编码候选已用尽，请重试。" }, 409);
     },
   )
   .post("/:id/referral-link", requirePermission("jd", "read"), async (c) => {
