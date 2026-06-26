@@ -53,7 +53,7 @@ async function removeCancelledQueueJobsBestEffort(
 
 export const resumeUploadBatchesRouter = factory
   .createApp()
-  .post("/uploads", requirePermission("resume", "create"), async (c) => {
+  .post("/uploads", requirePermission("resumeUploadBatch", "create"), async (c) => {
     const { activeOrg, user } = c.var;
     if (!activeOrg || !user) {
       return c.json({ message: "Unauthorized" }, 401);
@@ -100,7 +100,7 @@ export const resumeUploadBatchesRouter = factory
   })
   .post(
     "/",
-    requirePermission("resume", "create"),
+    requirePermission("resumeUploadBatch", "create"),
     zValidator("json", createBatchInputSchema, jsonValidatorError("请求参数无效。")),
     async (c) => {
       const { activeOrg, user } = c.var;
@@ -186,7 +186,7 @@ export const resumeUploadBatchesRouter = factory
       return c.json(enqueuedDetail ?? detail, 201);
     },
   )
-  .get("/", requirePermission("resume", "read"), async (c) => {
+  .get("/", requirePermission("resumeUploadBatch", "read"), async (c) => {
     const { activeOrg, user } = c.var;
     if (!activeOrg || !user) {
       return c.json({ message: "Unauthorized" }, 401);
@@ -194,7 +194,7 @@ export const resumeUploadBatchesRouter = factory
     const rows = await listBatches(activeOrg.id, user.id);
     return c.json(rows, 200);
   })
-  .get("/active", requirePermission("resume", "read"), async (c) => {
+  .get("/active", requirePermission("resumeUploadBatch", "read"), async (c) => {
     const { activeOrg, user } = c.var;
     if (!activeOrg || !user) {
       return c.json({ message: "Unauthorized" }, 401);
@@ -202,7 +202,7 @@ export const resumeUploadBatchesRouter = factory
     const details = await loadActiveBatches(activeOrg.id, user.id);
     return c.json(details, 200);
   })
-  .get("/:id", requirePermission("resume", "read"), async (c) => {
+  .get("/:id", requirePermission("resumeUploadBatch", "read"), async (c) => {
     const { activeOrg, user } = c.var;
     if (!activeOrg || !user) {
       return c.json({ message: "Unauthorized" }, 401);
@@ -213,7 +213,7 @@ export const resumeUploadBatchesRouter = factory
     }
     return c.json(detail, 200);
   })
-  .post("/:id/process-next", requirePermission("resume", "create"), async (c) => {
+  .post("/:id/process-next", requirePermission("resumeUploadBatch", "process"), async (c) => {
     const { activeOrg, user } = c.var;
     if (!activeOrg || !user) {
       return c.json({ message: "Unauthorized" }, 401);
@@ -224,7 +224,7 @@ export const resumeUploadBatchesRouter = factory
     }
     return c.json(result, 200);
   })
-  .post("/:id/resume", requirePermission("resume", "create"), async (c) => {
+  .post("/:id/resume", requirePermission("resumeUploadBatch", "process"), async (c) => {
     const { activeOrg, user } = c.var;
     if (!activeOrg || !user) {
       return c.json({ message: "Unauthorized" }, 401);
@@ -252,7 +252,7 @@ export const resumeUploadBatchesRouter = factory
     );
     return c.json(detail, 200);
   })
-  .post("/:id/cancel", requirePermission("resume", "create"), async (c) => {
+  .post("/:id/cancel", requirePermission("resumeUploadBatch", "cancel"), async (c) => {
     const { activeOrg, user } = c.var;
     if (!activeOrg || !user) {
       return c.json({ message: "Unauthorized" }, 401);
@@ -265,7 +265,7 @@ export const resumeUploadBatchesRouter = factory
     await removeCancelledQueueJobsBestEffort(detail);
     return c.json(detail, 200);
   })
-  .delete("/:id", requirePermission("resume", "delete"), async (c) => {
+  .delete("/:id", requirePermission("resumeUploadBatch", "delete"), async (c) => {
     const { activeOrg, user } = c.var;
     if (!activeOrg || !user) {
       return c.json({ message: "Unauthorized" }, 401);

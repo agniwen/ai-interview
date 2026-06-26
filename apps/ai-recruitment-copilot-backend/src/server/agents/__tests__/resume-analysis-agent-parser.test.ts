@@ -109,6 +109,7 @@ describe("resume parsing agent", () => {
         email: "internal@example.com",
         name: "内部候选人",
       },
+      resumeText: "internal raw text",
     });
   });
 });

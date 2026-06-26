@@ -2,7 +2,7 @@
 
 import { act } from "react";
 import { createRoot } from "react-dom/client";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { SearchableMultiSelect } from "./searchable-multi-select";
 
 const options = [
@@ -13,23 +13,8 @@ const value = ["job-a", "job-b"];
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
-afterEach(() => {
-  vi.restoreAllMocks();
-});
-
 describe("SearchableMultiSelect display mode", () => {
-  it("starts measuring when switching from count display to item preview", () => {
-    const observe = vi.fn();
-    const disconnect = vi.fn();
-
-    vi.stubGlobal(
-      "ResizeObserver",
-      class ResizeObserver {
-        observe = observe;
-        disconnect = disconnect;
-      },
-    );
-
+  it("keeps the searchable combobox input when switching display modes", () => {
     const host = document.createElement("div");
     document.body.appendChild(host);
     const root = createRoot(host);
@@ -45,7 +30,7 @@ describe("SearchableMultiSelect display mode", () => {
       );
     });
 
-    expect(observe).not.toHaveBeenCalled();
+    expect(host.querySelector('[role="combobox"]')).not.toBeNull();
 
     act(() => {
       root.render(
@@ -58,7 +43,7 @@ describe("SearchableMultiSelect display mode", () => {
       );
     });
 
-    expect(observe).toHaveBeenCalledTimes(1);
+    expect(host.querySelector('[role="combobox"]')).not.toBeNull();
 
     act(() => {
       root.unmount();

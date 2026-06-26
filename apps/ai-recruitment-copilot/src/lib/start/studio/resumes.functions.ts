@@ -2,7 +2,10 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import type { ResumeLibraryMetrics } from "@arc/shared/studio-resumes";
 import type { JsonValue } from "@/lib/start/server-function-types";
-import { resolveWorkspaceAccessFromRequest } from "@/lib/start/auth-session.server";
+import {
+  resolveWorkspaceAccessFromRequest,
+  workspaceAccessHasPermission,
+} from "@/lib/start/auth-session.server";
 import { workspaceDataGridInputSchema } from "@/lib/start/server-fn-validators";
 import { loadStudioResumesData } from "./resumes.server";
 
@@ -20,7 +23,7 @@ const resumeFiltersSchema = z.object({
   stage: z.string(),
 });
 
-export type StudioResumesState =
+export type StudioResumesServerState =
   | { status: "unauthenticated" }
   | { status: "not_found" }
   | {
@@ -29,12 +32,22 @@ export type StudioResumesState =
       status: "ready";
     };
 
+export type StudioResumesState = StudioResumesServerState;
+
 export const loadStudioResumesState = createServerFn({ method: "GET" })
   .validator(workspaceDataGridInputSchema(resumeFiltersSchema))
-  .handler(async ({ data }): Promise<StudioResumesState> => {
+  .handler(async ({ data }): Promise<StudioResumesServerState> => {
     const access = await resolveWorkspaceAccessFromRequest(data.slug);
     if (access.status !== "ready") {
       return access;
+    }
+    const canReadResumes = await workspaceAccessHasPermission({
+      access,
+      action: "read",
+      resource: "resumeLibrary",
+    });
+    if (!canReadResumes) {
+      return { status: "not_found" };
     }
 
     return {

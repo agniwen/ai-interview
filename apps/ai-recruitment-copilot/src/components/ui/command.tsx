@@ -11,6 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { cossFieldSurfaceClass } from "@/components/ui/coss-style";
 import { cn } from "@arc/shared/utils";
 
 function Command({ className, ...props }: React.ComponentProps<typeof CommandPrimitive>) {
@@ -63,15 +64,30 @@ function CommandDialog({
 
 function CommandInput({
   className,
+  variant = "default",
   ...props
-}: React.ComponentProps<typeof CommandPrimitive.Input>) {
+}: React.ComponentProps<typeof CommandPrimitive.Input> & {
+  variant?: "default" | "combobox";
+}) {
   return (
-    <div data-slot="command-input-wrapper" className="flex h-9 items-center gap-2 border-b px-3">
-      <SearchIcon className="size-4 shrink-0 opacity-50" />
+    <div
+      data-slot="command-input-wrapper"
+      className={cn(
+        variant === "default" && "flex h-9 items-center gap-2 border-b px-3",
+        variant === "combobox" &&
+          cn(
+            cossFieldSurfaceClass,
+            "m-1 mb-0 flex h-8 items-center gap-2 px-2.5 has-focus-within:border-ring has-focus-within:ring-[3px]",
+          ),
+      )}
+    >
+      <SearchIcon className="relative z-10 size-4 shrink-0 opacity-50" />
       <CommandPrimitive.Input
         data-slot="command-input"
         className={cn(
-          "placeholder:text-muted-foreground flex h-10 w-full rounded-md bg-transparent py-3 text-sm outline-hidden disabled:cursor-not-allowed disabled:opacity-50",
+          "relative z-10 flex w-full rounded-md bg-transparent text-sm outline-hidden placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50",
+          variant === "default" && "h-10 py-3",
+          variant === "combobox" && "h-full py-1",
           className,
         )}
         {...props}

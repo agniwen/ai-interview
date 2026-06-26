@@ -119,7 +119,7 @@ export const resumeChatRouter = factory
       // (id is the primary key). Use pre-inline messages so the ids match
       // what the client sees.
       generateMessageId: () => crypto.randomUUID(),
-      onFinish: async ({ responseMessage }) => {
+      onEnd: async ({ responseMessage }) => {
         if (!conversationOwned || !chatId) {
           return;
         }

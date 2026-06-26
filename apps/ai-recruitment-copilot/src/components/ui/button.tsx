@@ -6,7 +6,7 @@ import * as React from "react";
 import { cn } from "@arc/shared/utils";
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-[background-color,border-color,color,box-shadow,transform,opacity] duration-[160ms] ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.97] motion-reduce:transition-none motion-reduce:active:scale-100 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive",
+  "relative inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium outline-none transition-[background-color,border-color,color,box-shadow,transform,opacity] duration-[160ms] ease-[cubic-bezier(0.23,1,0.32,1)] before:pointer-events-none before:absolute before:inset-0 before:rounded-[calc(var(--radius-md)-1px)] active:scale-[0.97] motion-reduce:transition-none motion-reduce:active:scale-100 disabled:pointer-events-none disabled:opacity-50 disabled:shadow-none disabled:inset-shadow-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
   {
     defaultVariants: {
       size: "default",
@@ -24,15 +24,17 @@ const buttonVariants = cva(
         xs: "h-6 gap-1 rounded-md px-2 text-xs has-[>svg]:px-1.5 [&_svg:not([class*='size-'])]:size-3",
       },
       variant: {
-        default: "bg-primary border border-ring text-primary-foreground hover:bg-primary/90",
+        default:
+          "border border-ring bg-primary text-primary-foreground shadow-primary/24 shadow-xs inset-shadow-[0_1px_--theme(--color-white/16%)] hover:bg-primary/90 active:inset-shadow-[0_1px_--theme(--color-black/8%)]",
         destructive:
-          "bg-destructive text-white hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/60",
-        ghost: "hover:bg-accent hover:text-accent-foreground dark:hover:bg-accent/50",
+          "bg-destructive text-white shadow-destructive/24 shadow-xs inset-shadow-[0_1px_--theme(--color-white/16%)] hover:bg-destructive/90 active:inset-shadow-[0_1px_--theme(--color-black/8%)] focus-visible:ring-destructive/20 dark:bg-destructive/60 dark:focus-visible:ring-destructive/40",
+        ghost:
+          "hover:bg-accent hover:border-border/80 border border-transparent hover:text-accent-foreground dark:hover:bg-accent/50",
         link: "text-primary underline-offset-4 hover:underline",
         outline:
-          "border bg-background hover:bg-accent hover:text-accent-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50",
+          "border bg-background shadow-xs/5 before:shadow-[0_1px_--theme(--color-black/4%)] hover:bg-accent hover:text-accent-foreground active:shadow-none dark:border-input dark:bg-input/30 dark:before:shadow-[0_-1px_--theme(--color-white/6%)] dark:hover:bg-input/50",
         secondary:
-          "bg-secondary border-primary/20 border text-secondary-foreground hover:bg-secondary/80",
+          "border border-primary/20 bg-secondary text-secondary-foreground shadow-xs/5 inset-shadow-[0_1px_--theme(--color-white/10%)] hover:bg-secondary/80 active:inset-shadow-[0_1px_--theme(--color-black/4%)]",
       },
     },
   },
@@ -65,12 +67,7 @@ function Button({
       data-slot="button"
       data-variant={variant}
       data-size={resolvedSize}
-      className={cn(
-        buttonVariants({ size: resolvedSize, variant }),
-        // 当前扁平化风格暂时关闭阴影；如需恢复，取消下一行注释。
-        // variant === "outline" && "shadow-xs",
-        className,
-      )}
+      className={cn(buttonVariants({ size: resolvedSize, variant }), className)}
       {...props}
     />
   );

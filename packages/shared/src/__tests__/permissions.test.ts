@@ -3,7 +3,7 @@
 // 权限矩阵的表驱动测试。每加一个角色就追加测试块，确保矩阵不会被无意改坏。
 
 import { describe, expect, it } from "vitest";
-import { roles } from "@arc/shared/permissions";
+import { roles, STUDIO_PAGE_PERMISSION_ACTIONS } from "@arc/shared/permissions";
 
 describe("permissions matrix", () => {
   describe("owner role", () => {
@@ -16,6 +16,7 @@ describe("permissions matrix", () => {
       const resources = [
         "interview",
         "jd",
+        "resumeLibrary",
         "department",
         "interviewer",
         "candidateForm",
@@ -34,6 +35,12 @@ describe("permissions matrix", () => {
       expect(owner.statements.globalConfig).toEqual(expect.arrayContaining(["read", "update"]));
       expect(owner.statements.auditLog).toEqual(expect.arrayContaining(["read"]));
     });
+
+    it("can browse every studio page", () => {
+      expect(roles.owner.statements.page).toEqual(
+        expect.arrayContaining(["dashboard", "globalConfig", "mailIngestAccounts", "permissions"]),
+      );
+    });
   });
 
   describe("admin role", () => {
@@ -46,6 +53,7 @@ describe("permissions matrix", () => {
       const resources = [
         "interview",
         "jd",
+        "resumeLibrary",
         "department",
         "interviewer",
         "candidateForm",
@@ -65,6 +73,12 @@ describe("permissions matrix", () => {
       );
       expect(roles.admin.statements.auditLog).toEqual(expect.arrayContaining(["read"]));
     });
+
+    it("can browse every studio page", () => {
+      expect(roles.admin.statements.page).toEqual(
+        expect.arrayContaining(["dashboard", "globalConfig", "mailIngestAccounts", "permissions"]),
+      );
+    });
   });
 
   describe("member role", () => {
@@ -77,6 +91,7 @@ describe("permissions matrix", () => {
       const resources = [
         "interview",
         "jd",
+        "resumeLibrary",
         "department",
         "interviewer",
         "candidateForm",
@@ -101,6 +116,57 @@ describe("permissions matrix", () => {
       const stmts = roles.member.statements as Record<string, readonly string[] | undefined>;
       expect(stmts.member ?? []).toHaveLength(0);
     });
+
+    it("cannot browse admin-only studio pages", () => {
+      expect(roles.member.statements.page).not.toEqual(
+        expect.arrayContaining([
+          "agentDebug",
+          "dashboard",
+          "globalConfig",
+          "mailIngestAccounts",
+          "permissions",
+        ]),
+      );
+      expect(roles.member.statements.page).toEqual(
+        expect.arrayContaining(["resumes", "resumePool", "interviews", "members"]),
+      );
+    });
+  });
+
+  describe("noAccess role", () => {
+    it("exists", () => {
+      expect(roles.noAccess).toBeDefined();
+    });
+
+    it("has no studio page access", () => {
+      for (const action of STUDIO_PAGE_PERMISSION_ACTIONS) {
+        expect(roles.noAccess.statements.page?.includes(action)).toBe(false);
+      }
+    });
+
+    it("has no business or member-management permissions", () => {
+      const stmts = roles.noAccess.statements as Record<string, readonly string[] | undefined>;
+      const resources = [
+        "auditLog",
+        "candidateForm",
+        "chat",
+        "department",
+        "globalConfig",
+        "interview",
+        "interviewer",
+        "invitation",
+        "jd",
+        "member",
+        "organization",
+        "questionTemplate",
+        "resumeLibrary",
+        "resumePool",
+        "resumeUploadBatch",
+      ] as const;
+      for (const resource of resources) {
+        expect(stmts[resource] ?? []).toHaveLength(0);
+      }
+    });
   });
 });
 
@@ -115,6 +181,17 @@ describe("permission matrix cross-cut", () => {
     // jd
     ["member", "jd", "update", true],
     ["member", "jd", "delete", true],
+    // resume library / pool / upload batches split
+    ["member", "resumeLibrary", "read", true],
+    ["member", "resumeLibrary", "update", true],
+    ["member", "resumePool", "read", true],
+    ["member", "resumePool", "publish", true],
+    ["member", "resumePool", "import", true],
+    ["member", "resumeUploadBatch", "process", true],
+    ["member", "resumeUploadBatch", "cancel", true],
+    ["admin", "mailIngestAccount", "manage", true],
+    ["member", "mailIngestAccount", "manage", false],
+    ["member", "mailIngestAccount", "create", false],
     // department / interviewer
     ["member", "department", "create", true],
     ["member", "interviewer", "update", true],
@@ -144,6 +221,21 @@ describe("permission matrix cross-cut", () => {
     ["admin", "member", "delete", true],
     ["member", "member", "create", false],
     ["member", "member", "delete", false],
+    // page browsing
+    ["admin", "page", "dashboard", true],
+    ["admin", "page", "agentDebug", true],
+    ["admin", "page", "mailIngestAccounts", true],
+    ["member", "page", "dashboard", false],
+    ["member", "page", "agentDebug", false],
+    ["member", "page", "mailIngestAccounts", false],
+    ["member", "page", "permissions", false],
+    ["member", "page", "globalConfig", false],
+    ["member", "page", "resumes", true],
+    ["member", "page", "members", true],
+    ["noAccess", "page", "resumes", false],
+    ["noAccess", "page", "members", false],
+    ["noAccess", "member", "create", false],
+    ["noAccess", "invitation", "create", false],
   ];
 
   for (const [role, resource, action, expected] of cases) {

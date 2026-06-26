@@ -15,6 +15,7 @@ import { env } from "@/env/client";
 import { fetchResumeDedup } from "@/lib/client/api";
 import { readNdjsonStream } from "@/lib/client/ndjson-stream";
 import { matchJobDescriptionForResume, parseResumeFile } from "@/lib/client/resume-analysis";
+import type { GenerateResumeReviewResult } from "@/lib/client/resume-analysis";
 import { rpc } from "@/lib/client/rpc";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import type { AnalysisStreamEvent } from "@arc/shared/api-stream";
@@ -40,7 +41,7 @@ export interface ResumeAnalysisPipelineOptions {
    * the pipeline skips review generation entirely.
    */
   onReviewDraftChange?: (review: string) => void;
-  onReviewGenerated?: (review: string) => void;
+  onReviewGenerated?: (result: GenerateResumeReviewResult) => void;
 }
 
 export interface ResumeAnalysisPipelineState {
@@ -59,6 +60,7 @@ export interface ResumeAnalysisPipelineState {
   dedupMatches: DedupMatchRecord[] | null;
   dedupConfirmed: boolean;
   resumePayload: ResumeAnalysisResult | null;
+  resumeReview: GenerateResumeReviewResult["structuredReview"] | null;
   resumeFile: File | null;
   isBusy: boolean;
 }
@@ -93,6 +95,9 @@ export function useResumeAnalysisPipeline(
 
   const [resumeFile, setResumeFile] = useState<File | null>(null);
   const [resumePayload, setResumePayload] = useState<ResumeAnalysisResult | null>(null);
+  const [resumeReview, setResumeReview] = useState<
+    GenerateResumeReviewResult["structuredReview"] | null
+  >(null);
   const [isAnalyzingResume, setIsAnalyzingResume] = useState(false);
   const [isGeneratingQuestions, setIsGeneratingQuestions] = useState(false);
   const [isGeneratingReview, setIsGeneratingReview] = useState(false);
@@ -196,6 +201,7 @@ export function useResumeAnalysisPipeline(
   async function runQuestionGeneration(profileBundle: {
     fileName: string;
     resumeProfile: ResumeProfile;
+    resumeText: string | null;
   }): Promise<ResumeAnalysisResult | null> {
     const abortController = new AbortController();
     abortControllerRef.current = abortController;
@@ -204,6 +210,7 @@ export function useResumeAnalysisPipeline(
     setProgressTools([]);
     setPartialFields([]);
     setReviewPreview("");
+    setResumeReview(null);
     accumulatedTextRef.current = "";
     reviewTextRef.current = "";
 
@@ -252,6 +259,7 @@ export function useResumeAnalysisPipeline(
         fileName: profileBundle.fileName,
         interviewQuestions: questions,
         resumeProfile: profileBundle.resumeProfile,
+        resumeText: profileBundle.resumeText,
       };
       setResumePayload(updated);
       onQuestionsGenerated(questions);
@@ -280,6 +288,7 @@ export function useResumeAnalysisPipeline(
     async (file: File | null) => {
       setResumeFile(file);
       setResumePayload(null);
+      setResumeReview(null);
       setDedupMatches(null);
       setDedupConfirmed(false);
       pendingProfileRef.current = null;
@@ -307,13 +316,14 @@ export function useResumeAnalysisPipeline(
           signal: abortController.signal,
         });
 
-        const { fileName, resumeProfile } = parseResult;
+        const { fileName, resumeProfile, resumeText } = parseResult;
 
         onProfileParsed({ fileName, resumeProfile });
         setResumePayload({
           fileName,
           interviewQuestions: [],
           resumeProfile,
+          resumeText,
         });
         setIsAnalyzingResume(false);
         setProgressTools([]);
@@ -377,7 +387,7 @@ export function useResumeAnalysisPipeline(
               return;
             }
 
-            let review: string | null = null;
+            let reviewResult: GenerateResumeReviewResult | null = null;
             await readNdjsonStream<AnalysisStreamEvent>(
               reviewResponse,
               (event) => {
@@ -388,19 +398,23 @@ export function useResumeAnalysisPipeline(
                   onReviewDraftChange?.(draft);
                 }
                 if (event.type === "result") {
-                  const data = event.data as { review?: string };
-                  review = data.review ?? null;
-                  if (review) {
-                    setReviewPreview(review);
-                    onReviewDraftChange?.(review);
+                  const data = event.data as Partial<GenerateResumeReviewResult>;
+                  if (data.review && data.structuredReview) {
+                    reviewResult = {
+                      review: data.review,
+                      structuredReview: data.structuredReview,
+                    };
+                    setReviewPreview(reviewResult.review);
+                    setResumeReview(reviewResult.structuredReview);
+                    onReviewDraftChange?.(reviewResult.review);
                   }
                 }
               },
               abortController.signal,
             );
 
-            if (review) {
-              onReviewGenerated(review);
+            if (reviewResult) {
+              onReviewGenerated(reviewResult);
               toast.success("已生成简历评价");
             }
           } catch {
@@ -516,6 +530,7 @@ export function useResumeAnalysisPipeline(
     abortControllerRef.current?.abort();
     setResumeFile(null);
     setResumePayload(null);
+    setResumeReview(null);
     setIsAnalyzingResume(false);
     setIsGeneratingQuestions(false);
     setIsGeneratingReview(false);
@@ -542,6 +557,7 @@ export function useResumeAnalysisPipeline(
     return runQuestionGeneration({
       fileName: resumePayload.fileName,
       resumeProfile: resumePayload.resumeProfile,
+      resumeText: resumePayload.resumeText,
     });
     // runQuestionGeneration closes over fresh state via setResumePayload; it is
     // stable enough to omit from deps. resumePayload is the only thing we read
@@ -554,6 +570,7 @@ export function useResumeAnalysisPipeline(
     abortControllerRef.current = null;
     setResumeFile(null);
     setResumePayload(null);
+    setResumeReview(null);
     setIsAnalyzingResume(false);
     setIsGeneratingQuestions(false);
     setIsGeneratingReview(false);
@@ -599,6 +616,7 @@ export function useResumeAnalysisPipeline(
     reset,
     resumeFile,
     resumePayload,
+    resumeReview,
     reviewPreview,
   };
 }

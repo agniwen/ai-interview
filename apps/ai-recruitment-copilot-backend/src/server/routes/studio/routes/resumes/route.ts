@@ -7,12 +7,16 @@ import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import { getObjectBytes, getObjectStream } from "@arc/ai-recruitment-copilot-backend/lib/server/s3";
 import { studioInterview, studioInterviewSchedule } from "@arc/db-schema/schema";
 import { parseCsvParam } from "@arc/shared/csv";
+import { resumeReviewSchema } from "@arc/shared/resume-review";
+import type { ResumeReview } from "@arc/shared/resume-review";
 import { resolveRecruitingVisibilityScope } from "@arc/ai-recruitment-copilot-backend/server/access/recruiting-visibility";
 import type { RecruitingVisibilityScope } from "@arc/ai-recruitment-copilot-backend/server/access/recruiting-visibility";
 import {
   canDeleteResumeRecord,
   canEditResumeRecord,
   canLaunchInterviewFromResume,
+  resumeEvaluationStatusSubmitSchema,
+  resumeEvaluationUpdateSchema,
   resumeLibraryEditFormSchema,
   resumeLibraryFormSchema,
 } from "@arc/shared/studio-resumes";
@@ -25,9 +29,14 @@ import {
 } from "@arc/ai-recruitment-copilot-backend/server/agents/resume-analysis-agent";
 import { requirePermission } from "@arc/ai-recruitment-copilot-backend/server/middlewares/permission";
 import {
+  loadResumeDetailForWorkspaceMember,
   loadResumeDetail,
   queryPaginatedResumeRecords,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/dao/resumes";
+import {
+  submitResumeEvaluationOnce,
+  updateResumeEvaluationStatus,
+} from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/dao/evaluation";
 import { loadCandidateTimeline } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/dao/timeline";
 import {
   listOrgSkillSuggestions,
@@ -114,6 +123,8 @@ function parseResumeLibraryFormData(
     candidatePhone: toNullableString(formData.get("candidatePhone")) ?? "",
     jobDescriptionId: toNullableString(formData.get("jobDescriptionId")) ?? "",
     notes: toNullableString(formData.get("notes")) ?? "",
+    resumeEvaluationStatus:
+      toNullableString(formData.get("resumeEvaluationStatus")) ?? "unreviewed",
     targetRole: toNullableString(formData.get("targetRole")) ?? "",
   });
 }
@@ -126,11 +137,31 @@ export function parseResumeLibraryEditFormInput(formData: FormData) {
   return parseResumeLibraryFormData(formData, resumeLibraryEditFormSchema);
 }
 
+export function parseResumeReviewFormInput(
+  value: FormDataEntryValue | null,
+): { data: ResumeReview | null; success: true } | { error: string; success: false } {
+  if (typeof value !== "string" || value.trim().length === 0) {
+    return { data: null, success: true };
+  }
+  try {
+    const parsed = JSON.parse(value);
+    // 写入路径用严格 v2 schema 校验；旧 v1 数据如果 HR 原封不动传回，
+    // safeParse 会失败并提示"结构无效"，需 HR 重新生成评价。
+    const result = resumeReviewSchema.safeParse(parsed);
+    if (result.success) {
+      return { data: result.data, success: true };
+    }
+  } catch {
+    // Fall through to a stable validation message below.
+  }
+  return { error: "简历评价结构无效，请重新生成评价。", success: false };
+}
+
 export const resumeLibraryRouter = factory
   .createApp()
   .get(
     "/",
-    requirePermission("resume", "read"),
+    requirePermission("resumeLibrary", "read"),
     zValidator(
       "query",
       z.object({
@@ -183,7 +214,7 @@ export const resumeLibraryRouter = factory
   )
   .get(
     "/skill-suggestions",
-    requirePermission("resume", "read"),
+    requirePermission("resumeLibrary", "read"),
     zValidator(
       "query",
       z.object({
@@ -207,7 +238,7 @@ export const resumeLibraryRouter = factory
   )
   .post(
     "/dedup-check",
-    requirePermission("resume", "read"),
+    requirePermission("resumeLibrary", "read"),
     zValidator("json", dedupCheckInputSchema, jsonValidatorError("请求参数无效。")),
     async (c) => {
       const { activeOrg } = c.var;
@@ -237,7 +268,7 @@ export const resumeLibraryRouter = factory
       return c.json({ matches }, 200);
     },
   )
-  .get("/:id", requirePermission("resume", "read"), async (c) => {
+  .get("/:id", requirePermission("resumeLibrary", "read"), async (c) => {
     const { activeOrg } = c.var;
     if (!activeOrg) {
       return c.json({ message: "Unauthorized" }, 401);
@@ -254,7 +285,7 @@ export const resumeLibraryRouter = factory
     }
     return c.json(record, 200);
   })
-  .get("/:id/timeline", requirePermission("resume", "read"), async (c) => {
+  .get("/:id/timeline", requirePermission("resumeLibrary", "read"), async (c) => {
     const { activeOrg } = c.var;
     if (!activeOrg) {
       return c.json({ message: "Unauthorized" }, 401);
@@ -271,7 +302,158 @@ export const resumeLibraryRouter = factory
     }
     return c.json(timeline, 200);
   })
-  .get("/:id/rounds", requirePermission("resume", "read"), async (c) => {
+  .get("/:id/review", async (c) => {
+    const { activeOrg } = c.var;
+    if (!activeOrg) {
+      return c.json({ message: "Unauthorized" }, 401);
+    }
+    const id = c.req.param("id");
+    const record = await loadResumeDetailForWorkspaceMember(id, activeOrg.id);
+    if (!record) {
+      return c.json({ error: "记录不存在。" }, 404);
+    }
+    return c.json(record, 200);
+  })
+  .get("/:id/review/timeline", async (c) => {
+    const { activeOrg } = c.var;
+    if (!activeOrg) {
+      return c.json({ message: "Unauthorized" }, 401);
+    }
+    const id = c.req.param("id");
+    const timeline = await loadCandidateTimeline(id, activeOrg.id, { kind: "all" });
+    if (!timeline) {
+      return c.json({ error: "记录不存在。" }, 404);
+    }
+    return c.json(timeline, 200);
+  })
+  .get("/:id/review/rounds", async (c) => {
+    const { activeOrg } = c.var;
+    if (!activeOrg) {
+      return c.json({ message: "Unauthorized" }, 401);
+    }
+    const id = c.req.param("id");
+    const existing = await loadResumeDetailForWorkspaceMember(id, activeOrg.id);
+    if (!existing) {
+      return c.json({ error: "记录不存在。" }, 404);
+    }
+    const rounds = await listInterviewRoundsForCandidate(id, activeOrg.id);
+    return c.json(rounds, 200);
+  })
+  .get("/:id/review/resume", async (c) => {
+    const { activeOrg } = c.var;
+    if (!activeOrg) {
+      return c.json({ message: "Unauthorized" }, 401);
+    }
+    const id = c.req.param("id");
+    const existing = await loadResumeDetailForWorkspaceMember(id, activeOrg.id);
+    if (!existing) {
+      return c.json({ error: "记录不存在。" }, 404);
+    }
+    if (!existing.hasResumeFile) {
+      return c.json({ error: "该候选人没有可预览的简历文件。" }, 404);
+    }
+
+    const [row] = await db
+      .select({
+        resumeFileName: studioInterview.resumeFileName,
+        resumeStorageKey: studioInterview.resumeStorageKey,
+      })
+      .from(studioInterview)
+      .where(and(eq(studioInterview.id, id), eq(studioInterview.organizationId, activeOrg.id)))
+      .limit(1);
+
+    if (!row?.resumeStorageKey) {
+      return c.json({ error: "简历文件已不可用。" }, 404);
+    }
+
+    const object = await getObjectStream(row.resumeStorageKey);
+    if (!object) {
+      return c.json({ error: "简历文件已不可用。" }, 404);
+    }
+
+    const filename = row.resumeFileName || "resume.pdf";
+    return new Response(object.body, {
+      headers: {
+        "Cache-Control": "private, max-age=300",
+        "Content-Disposition": `inline; filename="${encodeURIComponent(filename)}"`,
+        "Content-Type": object.contentType ?? "application/octet-stream",
+        ...(object.contentLength !== undefined && {
+          "Content-Length": String(object.contentLength),
+        }),
+      },
+    });
+  })
+  .get("/:id/review/resume-preview.pdf", async (c) => {
+    const { activeOrg } = c.var;
+    if (!activeOrg) {
+      return c.json({ message: "Unauthorized" }, 401);
+    }
+    const id = c.req.param("id");
+    const existing = await loadResumeDetailForWorkspaceMember(id, activeOrg.id);
+    if (!existing) {
+      return c.json({ error: "记录不存在。" }, 404);
+    }
+    if (!existing.hasResumeFile) {
+      return c.json({ error: "该候选人没有可预览的简历文件。" }, 404);
+    }
+
+    const [row] = await db
+      .select({
+        resumeFileName: studioInterview.resumeFileName,
+        resumeStorageKey: studioInterview.resumeStorageKey,
+      })
+      .from(studioInterview)
+      .where(and(eq(studioInterview.id, id), eq(studioInterview.organizationId, activeOrg.id)))
+      .limit(1);
+
+    if (!row?.resumeStorageKey) {
+      return c.json({ error: "简历文件已不可用。" }, 404);
+    }
+
+    const object = await getObjectBytes(row.resumeStorageKey);
+    if (!object) {
+      return c.json({ error: "简历文件已不可用。" }, 404);
+    }
+
+    return createPptxPreviewPdfResponse({
+      bytes: object.bytes,
+      cacheKey: row.resumeStorageKey,
+      fileName: row.resumeFileName,
+      mediaType: object.contentType,
+    });
+  })
+  .post(
+    "/:id/review/evaluation",
+    zValidator("json", resumeEvaluationStatusSubmitSchema, jsonValidatorError("请求参数无效。")),
+    async (c) => {
+      const { activeOrg } = c.var;
+      if (!activeOrg) {
+        return c.json({ message: "Unauthorized" }, 401);
+      }
+      const id = c.req.param("id");
+      const existing = await loadResumeDetailForWorkspaceMember(id, activeOrg.id);
+      if (!existing) {
+        return c.json({ error: "记录不存在。" }, 404);
+      }
+      const input = c.req.valid("json");
+      const result = await submitResumeEvaluationOnce({
+        id,
+        operatorId: c.var.user?.id ?? null,
+        organizationId: activeOrg.id,
+        status: input.status,
+      });
+      if (result.status === "already_evaluated") {
+        return c.json({ error: "该简历已评估，不能重复评估。" }, 409);
+      }
+      if (result.status === "not_found") {
+        return c.json({ error: "记录不存在。" }, 404);
+      }
+      invalidateStudioInterviewCaches(activeOrg.id);
+      const detail = await loadResumeDetailForWorkspaceMember(id, activeOrg.id);
+      return c.json(detail, 200);
+    },
+  )
+  .get("/:id/rounds", requirePermission("resumeLibrary", "read"), async (c) => {
     // 拉取该候选人的所有面试轮次（按 sortOrder 升序），用于简历库详情弹窗的「AI 面试」tab。
     // List all rounds for this candidate, sorted by sortOrder asc — used by
     // the resume library detail dialog's "AI 面试" tab.
@@ -294,7 +476,7 @@ export const resumeLibraryRouter = factory
   })
   .post(
     "/:id/launch-interview",
-    requirePermission("resume", "update"),
+    requirePermission("resumeLibrary", "update"),
     zValidator("json", launchInterviewSchema, jsonValidatorError("请求参数无效。")),
     async (c) => {
       // 从简历库「发起 AI 面试」：把（可能被用户编辑过的）面试题写回现有
@@ -375,7 +557,7 @@ export const resumeLibraryRouter = factory
       return c.json(detail, 201);
     },
   )
-  .get("/:id/resume", requirePermission("resume", "read"), async (c) => {
+  .get("/:id/resume", requirePermission("resumeLibrary", "read"), async (c) => {
     const { activeOrg } = c.var;
     if (!activeOrg) {
       return c.json({ message: "Unauthorized" }, 401);
@@ -424,7 +606,7 @@ export const resumeLibraryRouter = factory
       },
     });
   })
-  .get("/:id/resume-preview.pdf", requirePermission("resume", "read"), async (c) => {
+  .get("/:id/resume-preview.pdf", requirePermission("resumeLibrary", "read"), async (c) => {
     const { activeOrg } = c.var;
     if (!activeOrg) {
       return c.json({ message: "Unauthorized" }, 401);
@@ -469,7 +651,7 @@ export const resumeLibraryRouter = factory
     });
   })
   // oxlint-disable-next-line complexity -- single create handler orchestrates upload + parse + insert.
-  .post("/", requirePermission("resume", "create"), async (c) => {
+  .post("/", requirePermission("resumeLibrary", "create"), async (c) => {
     const { activeOrg } = c.var;
     if (!activeOrg) {
       return c.json({ message: "Unauthorized" }, 401);
@@ -490,6 +672,10 @@ export const resumeLibraryRouter = factory
       const input = parseResumeLibraryCreateFormInput(formData);
       if (!input.success) {
         return c.json({ error: input.error.issues[0]?.message ?? "表单校验失败。" }, 400);
+      }
+      const resumeReviewInput = parseResumeReviewFormInput(formData.get("resumeReview"));
+      if (!resumeReviewInput.success) {
+        return c.json({ error: resumeReviewInput.error }, 400);
       }
 
       if (resume && !c.var.user) {
@@ -518,10 +704,12 @@ export const resumeLibraryRouter = factory
       // resumePayload, the row stores an empty interviewQuestions array.
       let resumeProfile =
         parsedResumePayload?.resumeProfile ?? uploadResult?.cachedResumeProfile ?? null;
+      let resumeText = parsedResumePayload?.resumeText ?? uploadResult?.resumeText ?? null;
       let parsedFileName: string | null = parsedResumePayload?.fileName ?? resume?.name ?? null;
       if (resume && !resumeProfile) {
         const parsed = await parseResumeFastToProfile(resume);
         ({ resumeProfile } = parsed);
+        resumeText = parsed.parsedText;
         parsedFileName = resume.name;
       }
       const dedupConflict = await resolveResumeCreateDedupConflict({
@@ -547,6 +735,8 @@ export const resumeLibraryRouter = factory
         organizationId: activeOrg.id,
         resumeFileName: parsedFileName,
         resumeProfile,
+        resumeReview: resumeReviewInput.data,
+        resumeText,
         storageKey: resumeStorageKey,
         targetRole: input.data.targetRole || null,
         userId: c.var.user?.id ?? null,
@@ -570,8 +760,44 @@ export const resumeLibraryRouter = factory
       return c.json({ error: result.error }, { status: result.status as ContentfulStatusCode });
     }
   })
+  .patch(
+    "/:id/evaluation",
+    requirePermission("resumeLibrary", "update"),
+    zValidator("json", resumeEvaluationUpdateSchema, jsonValidatorError("请求参数无效。")),
+    async (c) => {
+      const { activeOrg } = c.var;
+      if (!activeOrg) {
+        return c.json({ message: "Unauthorized" }, 401);
+      }
+      const id = c.req.param("id");
+      const visibilityScope = await loadVisibilityScope(
+        activeOrg.id,
+        c.var.member?.role,
+        c.var.user?.id,
+      );
+      const existing = await loadResumeDetail(id, activeOrg.id, visibilityScope);
+      if (!existing) {
+        return c.json({ error: "记录不存在。" }, 404);
+      }
+
+      const input = c.req.valid("json");
+      const result = await updateResumeEvaluationStatus({
+        id,
+        operatorId: c.var.user?.id ?? null,
+        organizationId: activeOrg.id,
+        status: input.status,
+      });
+      if (result.status === "not_found") {
+        return c.json({ error: "记录不存在。" }, 404);
+      }
+
+      invalidateStudioInterviewCaches(activeOrg.id);
+      const detail = await loadResumeDetail(id, activeOrg.id, visibilityScope);
+      return c.json(detail, 200);
+    },
+  )
   // oxlint-disable-next-line complexity -- single update handler orchestrates upload + parse + whitelist write.
-  .patch("/:id", requirePermission("resume", "update"), async (c) => {
+  .patch("/:id", requirePermission("resumeLibrary", "update"), async (c) => {
     const { activeOrg } = c.var;
     if (!activeOrg) {
       return c.json({ message: "Unauthorized" }, 401);
@@ -603,6 +829,10 @@ export const resumeLibraryRouter = factory
       if (!input.success) {
         return c.json({ error: input.error.issues[0]?.message ?? "表单校验失败。" }, 400);
       }
+      const resumeReviewInput = parseResumeReviewFormInput(formData.get("resumeReview"));
+      if (!resumeReviewInput.success) {
+        return c.json({ error: resumeReviewInput.error }, 400);
+      }
 
       if (resume && !c.var.user) {
         return c.json({ error: "Unauthorized" }, 401);
@@ -623,6 +853,7 @@ export const resumeLibraryRouter = factory
       let { resumeFileName } = existing;
       const resumeStorageKey = uploadResult?.storageKey ?? null;
       const resumeContentHash = uploadResult?.contentHash ?? null;
+      let resumeText = uploadResult?.resumeText ?? null;
 
       if (resume) {
         // 命中注册表时 storeInterviewResume 已经返回 cachedResumeProfile，不再
@@ -633,6 +864,7 @@ export const resumeLibraryRouter = factory
         if (!nextResumeProfile) {
           const parsed = await parseResumeFastToProfile(resume);
           nextResumeProfile = parsed.resumeProfile;
+          resumeText = parsed.parsedText;
         }
         resumeProfile = nextResumeProfile;
         resumeFileName = resume.name;
@@ -648,9 +880,17 @@ export const resumeLibraryRouter = factory
           resumeParsedAt: resumeProfile ? new Date() : null,
           resumeProfile,
           resumeStorageKey: resumeStorageKey ?? null,
+          resumeText,
         };
       } else if (resumeProfile) {
         resumeProfileUpdate = { resumeProfile };
+      }
+
+      let nextResumeReview = existing.resumeReview;
+      if (formData.has("resumeReview")) {
+        nextResumeReview = resumeReviewInput.data;
+      } else if (resume) {
+        nextResumeReview = null;
       }
 
       // 显式白名单写入 —— 绝不触碰 interviewQuestions / status / schedule。
@@ -661,6 +901,7 @@ export const resumeLibraryRouter = factory
         candidatePhone: input.data.candidatePhone || resumeProfile?.phone || null,
         jobDescriptionId: input.data.jobDescriptionId || null,
         notes: input.data.notes || null,
+        resumeReview: nextResumeReview,
         targetRole: input.data.targetRole || resumeProfile?.targetRoles[0] || null,
         updatedAt: new Date(),
         ...resumeProfileUpdate,
@@ -682,6 +923,18 @@ export const resumeLibraryRouter = factory
           });
         }
       });
+      const nextResumeEvaluationStatus =
+        input.data.resumeEvaluationStatus === "unreviewed"
+          ? null
+          : input.data.resumeEvaluationStatus;
+      if (nextResumeEvaluationStatus !== existing.resumeEvaluationStatus) {
+        await updateResumeEvaluationStatus({
+          id,
+          operatorId: c.var.user?.id ?? null,
+          organizationId: activeOrg.id,
+          status: nextResumeEvaluationStatus,
+        });
+      }
 
       invalidateStudioInterviewCaches(activeOrg.id);
       if (resumeProfile) {
@@ -698,7 +951,7 @@ export const resumeLibraryRouter = factory
       return c.json({ error: result.error }, { status: result.status as ContentfulStatusCode });
     }
   })
-  .delete("/:id", requirePermission("resume", "delete"), async (c) => {
+  .delete("/:id", requirePermission("resumeLibrary", "delete"), async (c) => {
     const { activeOrg } = c.var;
     if (!activeOrg) {
       return c.json({ message: "Unauthorized" }, 401);
@@ -737,7 +990,7 @@ export const resumeLibraryRouter = factory
   })
   .post(
     "/bulk-delete",
-    requirePermission("resume", "delete"),
+    requirePermission("resumeLibrary", "delete"),
     zValidator(
       "json",
       z.object({ ids: z.array(z.string()).nonempty() }),

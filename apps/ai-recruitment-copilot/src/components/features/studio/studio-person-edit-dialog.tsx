@@ -1,13 +1,14 @@
 "use client";
 
 import type { ResumeLibraryDetail } from "@arc/shared/studio-resumes";
+import type { ResumeReview } from "@arc/shared/resume-review";
 import type { StudioInterviewRoundDetail } from "@arc/shared/studio-interview-rounds";
 import type { ResumeProfile } from "@arc/db-schema/interview/types";
 import { useStore, useForm } from "@tanstack/react-form";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { LoaderCircleIcon, PencilIcon, RotateCcwIcon } from "@/components/icons/hugeicons";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { CandidateFormFields } from "@/components/features/candidate/candidate-form-fields";
 import {
@@ -117,6 +118,7 @@ function getFirstResumeEditErrorMessage(meta: Record<string, { errors?: unknown[
     "candidatePhone",
     "targetRole",
     "jobDescriptionId",
+    "resumeEvaluationStatus",
     "notes",
   ];
   for (const field of fieldOrder) {
@@ -150,6 +152,24 @@ function buildResumeProfileForReview(
     name: candidateName || profile.name,
     phone: candidatePhone || profile.phone,
     targetRoles: mergeTargetRole(profile.targetRoles, values.targetRole),
+  };
+}
+
+function createResumeEditFormValues(
+  detail: ResumeLibraryDetail | null | undefined,
+): ReturnType<typeof createResumeLibraryFormValues> {
+  if (!detail) {
+    return createResumeLibraryFormValues();
+  }
+
+  return {
+    candidateEmail: detail.candidateEmail ?? "",
+    candidateName: detail.candidateName,
+    candidatePhone: detail.candidatePhone ?? "",
+    jobDescriptionId: detail.jobDescriptionId ?? "",
+    notes: detail.notes ?? "",
+    resumeEvaluationStatus: detail.resumeEvaluationStatus ?? "unreviewed",
+    targetRole: detail.targetRole ?? "",
   };
 }
 
@@ -198,6 +218,7 @@ function ResumeEditBody({
 }: Omit<StudioPersonEditDialogProps, "mode">) {
   const slug = useWorkspaceSlug();
   const [resumeFile, setResumeFile] = useState<File | null>(null);
+  const [resumeReviewOverride, setResumeReviewOverride] = useState<ResumeReview | null>(null);
   const [hydratedFormKey, setHydratedFormKey] = useState<string | null>(null);
 
   // 拉取当前记录详情，open + recordId 同时为真才触发。
@@ -208,9 +229,10 @@ function ResumeEditBody({
     queryKey: ["studio-resumes", slug, "edit-detail", recordId] as const,
     staleTime: 0,
   });
+  const formDefaultValues = useMemo(() => createResumeEditFormValues(query.data), [query.data]);
 
   const form = useForm({
-    defaultValues: createResumeLibraryFormValues(),
+    defaultValues: formDefaultValues,
     onSubmit: async ({ value }) => {
       if (!recordId) {
         return;
@@ -228,8 +250,12 @@ function ResumeEditBody({
       formData.append("targetRole", value.targetRole);
       formData.append("jobDescriptionId", value.jobDescriptionId);
       formData.append("notes", value.notes);
+      formData.append("resumeEvaluationStatus", value.resumeEvaluationStatus);
       if (resumeFile) {
         formData.append("resume", resumeFile);
+      }
+      if (resumeReviewOverride) {
+        formData.append("resumeReview", JSON.stringify(resumeReviewOverride));
       }
 
       try {
@@ -241,6 +267,7 @@ function ResumeEditBody({
         onUpdated?.();
         onOpenChange(false);
         setResumeFile(null);
+        setResumeReviewOverride(null);
       } catch (error) {
         toast.error(error instanceof Error ? error.message : "保存失败");
       }
@@ -258,30 +285,29 @@ function ResumeEditBody({
     regenerate: regenerateReview,
   } = useResumeReviewRegeneration({
     onDraftChange: (review) => form.setFieldValue("notes", review),
-    onGenerated: (review) => form.setFieldValue("notes", review),
+    onGenerated: (result) => {
+      form.setFieldValue("notes", result.review);
+      setResumeReviewOverride(result.structuredReview);
+    },
   });
 
   // 详情加载完成后回填表单；query.data 引用变更即触发。
   // Hydrate form once the detail resolves; keyed on query.data reference change.
   useEffect(() => {
     if (!query.data) {
+      form.reset(formDefaultValues);
       setHydratedFormKey(null);
+      setResumeReviewOverride(null);
       return;
     }
     const nextHydratedFormKey = `${query.data.id}:${query.data.updatedAt}`;
-    form.reset({
-      candidateEmail: query.data.candidateEmail ?? "",
-      candidateName: query.data.candidateName,
-      candidatePhone: query.data.candidatePhone ?? "",
-      jobDescriptionId: query.data.jobDescriptionId ?? "",
-      notes: query.data.notes ?? "",
-      targetRole: query.data.targetRole ?? "",
-    });
+    form.reset(formDefaultValues);
     setHydratedFormKey(nextHydratedFormKey);
+    setResumeReviewOverride(null);
     // form 实例在渲染间稳定，此处仅依赖 query.data 的引用变化。
     // form instance is stable across renders; only depend on query.data identity.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [query.data]);
+  }, [formDefaultValues, query.data]);
 
   const isSubmitting = useStore(form.store, (s) => s.isSubmitting);
   const queryFormKey = query.data ? `${query.data.id}:${query.data.updatedAt}` : null;
@@ -308,6 +334,7 @@ function ResumeEditBody({
   function handleOpenChange(nextOpen: boolean) {
     if (!nextOpen) {
       cancelReviewGeneration();
+      setResumeReviewOverride(null);
     }
     onOpenChange(nextOpen);
   }
@@ -411,6 +438,7 @@ function ResumeEditBody({
             requireCandidateName
             resumeFile={resumeFile}
             resumeFilePlaceholder="未上传简历，点击选择文件"
+            showResumeEvaluationStatus
           />
         </form>
       )}

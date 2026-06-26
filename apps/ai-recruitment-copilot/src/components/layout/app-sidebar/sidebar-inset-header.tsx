@@ -2,7 +2,6 @@
 
 import type { ReactNode } from "react";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
-import { Separator } from "@/components/ui/separator";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { cn } from "@arc/shared/utils";
 
@@ -20,19 +19,14 @@ export function SidebarInsetHeader({ breadcrumb, actions, className }: SidebarIn
   return (
     <header
       className={cn(
-        "flex h-(--header-height) shrink-0 bg-background items-center justify-between gap-2 border-border border-b px-4 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-(--header-height)",
+        "sticky top-0 z-10 flex h-(--header-height) w-full shrink-0 items-center justify-between gap-2 bg-background/60 px-4 backdrop-blur-md transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-(--header-height)",
         // "flex h-(--header-height) shrink-0 bg-sidebar items-center justify-between gap-2 border-border border-b px-4 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-(--header-height)",
         className,
       )}
     >
       <div className="flex min-w-0 items-center gap-2">
         <SidebarTrigger className="-ml-1" />
-        {breadcrumb ? (
-          <>
-            <Separator className="mx-2 data-[orientation=vertical]:h-4" orientation="vertical" />
-            {breadcrumb}
-          </>
-        ) : null}
+        {breadcrumb ? <>{breadcrumb}</> : null}
       </div>
       <div className="flex items-center gap-1">
         {actions}

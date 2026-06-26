@@ -134,5 +134,6 @@ export interface InterviewQuestion {
 export interface ResumeAnalysisResult {
   fileName: string;
   resumeProfile: ResumeProfile;
+  resumeText: string | null;
   interviewQuestions: InterviewQuestion[];
 }

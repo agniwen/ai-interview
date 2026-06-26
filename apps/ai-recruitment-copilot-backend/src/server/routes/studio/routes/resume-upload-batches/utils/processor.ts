@@ -12,6 +12,7 @@ import {
   generateResumeReview,
   parseResumeBytesToProfile,
 } from "@arc/ai-recruitment-copilot-backend/server/agents/resume-analysis-agent";
+import type { ResumeReviewGenerationResult } from "@arc/ai-recruitment-copilot-backend/server/agents/resume-analysis-agent";
 import { isResumeParseCacheEnabled } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-parse-cache-policy";
 import {
   claimNextPendingItem,
@@ -137,9 +138,11 @@ export function getClaimMissRetryError(snapshot: ClaimMissSnapshot, itemId: stri
 //   1) 命中注册表 → 投影 parsedStructured（零额外调用）
 //   2) 未命中 / 投影失败 → 从 S3 拉 PDF 现场跑 parseResumeFastToProfile
 // Two paths to obtaining resumeProfile: cache hit (projection) or live parse fallback.
-async function resolveResumeProfile(
-  item: NonNullable<ItemRow>,
-): Promise<{ parsed: ParsedResume | null; resumeProfile: ParsedResume["resumeProfile"] }> {
+async function resolveResumeProfile(item: NonNullable<ItemRow>): Promise<{
+  parsed: ParsedResume | null;
+  resumeProfile: ParsedResume["resumeProfile"];
+  resumeText: string | null;
+}> {
   const startedAt = Date.now();
   if (isResumeParseCacheEnabled(process.env)) {
     logStep("cache.lookup.start", { itemId: item.id });
@@ -149,7 +152,7 @@ async function resolveResumeProfile(
       : null;
     if (fromCache) {
       logStep("cache.lookup.hit", { durationMs: elapsed(startedAt), itemId: item.id });
-      return { parsed: null, resumeProfile: fromCache };
+      return { parsed: null, resumeProfile: fromCache, resumeText: cached?.parsedText ?? null };
     }
     logStep("cache.lookup.miss", { durationMs: elapsed(startedAt), itemId: item.id });
   } else {
@@ -194,7 +197,7 @@ async function resolveResumeProfile(
     });
     logStep("cache.write.done", { durationMs: elapsed(cacheWriteStartedAt), itemId: item.id });
   }
-  return { parsed, resumeProfile: parsed.resumeProfile };
+  return { parsed, resumeProfile: parsed.resumeProfile, resumeText: parsed.parsedText };
 }
 
 async function upsertParsedResumeRecord({
@@ -202,14 +205,18 @@ async function upsertParsedResumeRecord({
   jobDescriptionId,
   notes,
   organizationId,
+  resumeReview,
   resumeProfile,
+  resumeText,
   userId,
 }: {
   item: NonNullable<ItemRow>;
   jobDescriptionId: string | null;
   notes: string | null;
   organizationId: string;
+  resumeReview: ResumeReviewGenerationResult["structuredReview"] | null;
   resumeProfile: ParsedResume["resumeProfile"];
+  resumeText: string | null;
   userId: string;
 }): Promise<string> {
   const startedAt = Date.now();
@@ -228,6 +235,8 @@ async function upsertParsedResumeRecord({
       organizationId,
       resumeFileName: item.originalFileName,
       resumeProfile,
+      resumeReview,
+      resumeText,
       storageKey: item.storageKey,
       targetRole: null,
       userId,
@@ -257,7 +266,9 @@ async function upsertParsedResumeRecord({
         resumeParseStatus: "ready",
         resumeParsedAt: now,
         resumeProfile,
+        resumeReview,
         resumeStorageKey: item.storageKey,
+        resumeText,
         targetRole: resumeProfile?.targetRoles?.[0] ?? null,
         updatedAt: now,
       })
@@ -303,7 +314,7 @@ async function generateReviewForParsedResume(input: {
   jobDescriptionId: string | null;
   organizationId: string;
   resumeProfile: ParsedResume["resumeProfile"];
-}): Promise<string | null> {
+}): Promise<ResumeReviewGenerationResult | null> {
   try {
     const startedAt = Date.now();
     logStep("review.generate.start", {
@@ -321,9 +332,9 @@ async function generateReviewForParsedResume(input: {
     logStep("review.generate.done", {
       durationMs: elapsed(startedAt),
       itemId: input.itemId,
-      reviewChars: review.length,
+      reviewChars: review.review.length,
     });
-    return review || null;
+    return review.review ? review : null;
   } catch (error) {
     console.error("[bulk-upload] resume review generation failed:", error);
     logStep("review.generate.error", {
@@ -386,7 +397,7 @@ async function fetchAndParse(
     throw new Error("简历文件存储路径为空，无法读取。请重试上传。");
   }
 
-  const { resumeProfile } = await resolveResumeProfile(item);
+  const { resumeProfile, resumeText } = await resolveResumeProfile(item);
   await assertBatchItemNotCancelled(batchRow.id, item.id);
 
   const dedupSnapshot = await findDuplicateSkipSnapshot({
@@ -414,6 +425,7 @@ async function fetchAndParse(
         organizationId,
         poolItemId,
         resumeProfile,
+        resumeText,
       });
     } else {
       poolItemId = await createResumePoolItem({
@@ -422,11 +434,12 @@ async function fetchAndParse(
         candidatePhone: null,
         contentHash: item.contentHash,
         createdBy: userId,
-        jobDescriptionId: null,
+        jobDescriptionId: batchRow.jdMode === "bind" ? batchRow.jobDescriptionId : null,
         notes: null,
         organizationId,
         resumeFileName: item.originalFileName,
         resumeProfile,
+        resumeText,
         scope: batchRow.resumePoolScope ?? "private",
         storageKey: item.storageKey,
         targetRole: null,
@@ -480,7 +493,7 @@ async function fetchAndParse(
       console.error("[bulk-upload] auto JD match failed:", error);
     }
   }
-  const notes = await generateReviewForParsedResume({
+  const reviewResult = await generateReviewForParsedResume({
     itemId: item.id,
     jobDescriptionId,
     organizationId,
@@ -490,9 +503,11 @@ async function fetchAndParse(
   const succeededRecordId = await upsertParsedResumeRecord({
     item,
     jobDescriptionId,
-    notes,
+    notes: reviewResult?.review ?? null,
     organizationId,
     resumeProfile,
+    resumeReview: reviewResult?.structuredReview ?? null,
+    resumeText,
     userId,
   });
   return {

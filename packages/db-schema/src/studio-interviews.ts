@@ -101,6 +101,18 @@ export const resumeParseStatusMeta: Record<
   unparsed: { label: "未解析", tone: "outline" },
 };
 
+export const resumeEvaluationStatusValues = ["pass", "fail"] as const;
+export const resumeEvaluationStatusSchema = z.enum(resumeEvaluationStatusValues);
+export type ResumeEvaluationStatus = z.infer<typeof resumeEvaluationStatusSchema>;
+
+export const resumeEvaluationStatusMeta: Record<
+  ResumeEvaluationStatus,
+  { label: string; tone: "success" | "danger" }
+> = {
+  fail: { label: "不通过", tone: "danger" },
+  pass: { label: "通过", tone: "success" },
+};
+
 // ── 真人复面阶段 / Human Interview Stage ──
 
 // 单轮状态：pending（已排期/未排期）→ completed / cancelled（终态）。
@@ -452,6 +464,7 @@ export const studioInterviewResumePayloadSchema = z.object({
   fileName: z.string().trim().min(1),
   interviewQuestions: z.custom<ResumeAnalysisResult["interviewQuestions"]>(),
   resumeProfile: z.custom<ResumeAnalysisResult["resumeProfile"]>(),
+  resumeText: z.string().nullable().default(null),
 });
 
 /** @deprecated Use `PipelineStage` + `CandidateOutcome` instead. */

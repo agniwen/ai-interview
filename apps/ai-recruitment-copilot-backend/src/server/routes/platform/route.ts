@@ -5,6 +5,7 @@ import { factory, jsonValidatorError } from "@arc/ai-recruitment-copilot-backend
 import { adminMiddleware } from "@arc/ai-recruitment-copilot-backend/server/middlewares/admin";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import { organization, member, session, user } from "@arc/db-schema/schema";
+import { resumeParseStatusValues } from "@arc/db-schema/studio-interviews";
 import {
   getResumeParseQueueOverview,
   listResumeParseQueueJobs,
@@ -27,7 +28,10 @@ import {
   mergeMailIngestLoginConfig,
   validateMailIngestAccountLogin,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/mail-ingest/validation";
-import { enrichResumeParseQueueJobs } from "./queue-details";
+import {
+  enrichResumeParseQueueJobs,
+  filterEnrichedResumeParseQueueJobRecords,
+} from "./queue-details";
 
 // --- Organizations list ---
 const orgQuerySchema = z.object({
@@ -196,6 +200,10 @@ const userQuerySchema = z.object({
   sortOrder: z.enum(["asc", "desc"]).default("desc"),
 });
 
+const updateUserRemarkSchema = z.object({
+  remark: z.string().max(80).nullable(),
+});
+
 const LAST_ACTIVE_AT_EXPR = sql<Date | string | null>`GREATEST(
   MAX(${session.updatedAt}),
   MAX(${user.lastActiveAt})
@@ -260,6 +268,7 @@ const platformUsers = factory
             image: user.image,
             lastActiveAt: LAST_ACTIVE_AT_SELECT_SQL,
             name: user.name,
+            remark: user.remark,
             role: user.role,
             updatedAt: user.updatedAt,
           })
@@ -288,6 +297,40 @@ const platformUsers = factory
           })),
           total,
           totalPages,
+        },
+        200,
+      );
+    },
+  )
+  .patch(
+    "/users/:userId/remark",
+    zValidator("json", updateUserRemarkSchema, jsonValidatorError("备注内容无效")),
+    async (c) => {
+      const userId = c.req.param("userId");
+      const input = c.req.valid("json");
+      const remark = input.remark?.trim() || null;
+
+      const [updated] = await db
+        .update(user)
+        .set({
+          remark,
+          updatedAt: new Date(),
+        })
+        .where(eq(user.id, userId))
+        .returning({
+          id: user.id,
+          remark: user.remark,
+          updatedAt: user.updatedAt,
+        });
+
+      if (!updated) {
+        return c.json({ error: "用户不存在" }, 404);
+      }
+
+      return c.json(
+        {
+          ...updated,
+          updatedAt: updated.updatedAt.toISOString(),
         },
         200,
       );
@@ -437,12 +480,85 @@ const platformMailIngestAccounts = factory
     },
   );
 
+const resumeUploadBatchItemStatusValues = [
+  "pending",
+  "processing",
+  "succeeded",
+  "failed",
+  "duplicate_skipped",
+  "cancelled",
+] as const;
+
 const queueJobsQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
+  parseStatus: z.enum(["all", ...resumeParseStatusValues]).default("all"),
   search: z.string().optional(),
   state: z.enum(RESUME_PARSE_JOB_LIST_STATES).default("all"),
+  uploadStatus: z.enum(["all", ...resumeUploadBatchItemStatusValues]).default("all"),
 });
+
+type QueueJobsQuery = z.infer<typeof queueJobsQuerySchema>;
+
+const DETAIL_FILTER_SCAN_PAGE_SIZE = 100;
+
+function hasDetailStatusFilter(query: QueueJobsQuery): boolean {
+  return query.uploadStatus !== "all" || query.parseStatus !== "all";
+}
+
+async function listResumeParseQueueJobsWithDetailFilters(query: QueueJobsQuery) {
+  const queueQuery = {
+    search: query.search,
+    state: query.state,
+  };
+  if (!hasDetailStatusFilter(query)) {
+    const result = await listResumeParseQueueJobs({
+      ...queueQuery,
+      page: query.page,
+      pageSize: query.pageSize,
+    });
+    return enrichResumeParseQueueJobs(result);
+  }
+
+  const firstPage = await listResumeParseQueueJobs({
+    ...queueQuery,
+    page: 1,
+    pageSize: DETAIL_FILTER_SCAN_PAGE_SIZE,
+  });
+  const records = [...firstPage.records];
+
+  for (let page = 2; page <= firstPage.totalPages; page += 1) {
+    const pageResult = await listResumeParseQueueJobs({
+      ...queueQuery,
+      page,
+      pageSize: DETAIL_FILTER_SCAN_PAGE_SIZE,
+    });
+    records.push(...pageResult.records);
+  }
+
+  const enriched = await enrichResumeParseQueueJobs({
+    ...firstPage,
+    page: 1,
+    pageSize: DETAIL_FILTER_SCAN_PAGE_SIZE,
+    records,
+    total: records.length,
+    totalPages: records.length > 0 ? Math.ceil(records.length / DETAIL_FILTER_SCAN_PAGE_SIZE) : 0,
+  });
+  const filteredRecords = filterEnrichedResumeParseQueueJobRecords(enriched.records, {
+    parseStatus: query.parseStatus,
+    uploadStatus: query.uploadStatus,
+  });
+  const offset = (query.page - 1) * query.pageSize;
+
+  return {
+    ...enriched,
+    page: query.page,
+    pageSize: query.pageSize,
+    records: filteredRecords.slice(offset, offset + query.pageSize),
+    total: filteredRecords.length,
+    totalPages: filteredRecords.length > 0 ? Math.ceil(filteredRecords.length / query.pageSize) : 0,
+  };
+}
 
 const platformQueues = factory
   .createApp()
@@ -459,8 +575,8 @@ const platformQueues = factory
         return c.json({ error: "队列不存在" }, 404);
       }
       const query = c.req.valid("query");
-      const result = await listResumeParseQueueJobs(query);
-      return c.json(await enrichResumeParseQueueJobs(result), 200);
+      const result = await listResumeParseQueueJobsWithDetailFilters(query);
+      return c.json(result, 200);
     },
   );
 

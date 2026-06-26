@@ -46,6 +46,10 @@ vi.mock(
 
 vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/db", () => ({ db: {} }));
 
+vi.mock("@arc/ai-recruitment-copilot-backend/server/middlewares/permission", () => ({
+  requirePermission: () => (_c: unknown, next: () => Promise<void>) => next(),
+}));
+
 vi.mock("@arc/resume-parse-queue/resume-parse", () => ({
   RESUME_PARSE_JOB_LIST_STATES: ["all", "waiting", "active", "completed", "failed"],
   RESUME_PARSE_QUEUE_NAME: "resume-parse",

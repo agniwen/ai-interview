@@ -14,6 +14,7 @@ import type { DataGridQueryState } from "@/components/data-grid/query-contract";
 import { parseDataGridSearchParams } from "@/components/data-grid/query-contract";
 import { loadStudioInterviewsState } from "@/lib/start/studio/interviews.functions";
 import type { StudioInterviewsState } from "@/lib/start/studio/interviews.functions";
+import { requireStudioPageAccess } from "@/lib/start/studio/page-access";
 import { PageHeader } from "@/components/features/studio/page-header";
 import { StudioSummaryCards } from "@/components/features/studio/studio-summary-cards";
 import {
@@ -816,6 +817,11 @@ export const Route = createFileRoute("/w/$slug/studio/interviews")({
       params: { slug: string };
     };
     const query = parseInterviewQuery(location.search);
+    await requireStudioPageAccess({
+      action: "interviews",
+      pathname: `/w/${params.slug}/studio/interviews`,
+      slug: params.slug,
+    });
     const state = (await loadStudioInterviewsState({
       data: { query, slug: params.slug },
     })) as StudioInterviewsState;

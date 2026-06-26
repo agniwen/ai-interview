@@ -77,6 +77,36 @@ const ORG_A = "bulk_proc_org_a";
 const USER_A = "bulk_proc_user_a";
 
 const NOW = new Date("2026-05-18T10:00:00.000Z");
+const REVIEW_RESULT = {
+  review: "自动生成的简历评价",
+  structuredReview: {
+    biasScan: { items: [] },
+    dimensions: {
+      educationBackground: { rationale: "学历满足", score: 80 },
+      experienceRelevance: { rationale: "岗位相关", score: 80 },
+      potential: { rationale: "有成长性", score: 75 },
+      projectMatch: { rationale: "项目对应", score: 78 },
+      skillMatch: { rationale: "技术匹配", score: 80 },
+      stability: { rationale: "在职合理", score: 78 },
+    },
+    levelRecommendation: { level: "中级", rationale: "经验匹配" },
+    nextStep: {
+      action: "interview",
+      disclaimer: "以上为初步结论",
+      interviewFocus: ["项目贡献"],
+      rationale: "建议面试核实",
+    },
+    overall: {
+      baseScore: 79,
+      conclusion: "候选人匹配度较高。",
+      scoreRationale: "基于六维度按 35/25/15/10/8/7 加权得出基础分 79（不含历史面试加权）",
+    },
+    schemaVersion: 2,
+    strengths: [{ evidence: "简历证据", impact: "匹配岗位", point: "经验匹配" }],
+    teamPositioning: { rationale: "经历集中", suggestion: "业务团队" },
+    weaknesses: [{ evidence: null, impact: "需面试确认", point: "细节不足" }],
+  },
+} as const;
 
 // ─── Mock helpers ─────────────────────────────────────────────────────────────
 
@@ -100,6 +130,10 @@ function mockParseOK(profile: {
   targetRoles: string[];
 }) {
   (parseResumeBytesToProfile as ReturnType<typeof vi.fn>).mockResolvedValue({
+    parsedPageCount: 1,
+    parsedStructured: { profile },
+    parsedText: `${profile.name} OCR 原文`,
+    parsedTextSource: "qwen-ocr",
     resumeProfile: profile,
   });
 }
@@ -223,7 +257,7 @@ afterAll(async () => {
 
 beforeEach(() => {
   vi.resetAllMocks();
-  (generateResumeReview as ReturnType<typeof vi.fn>).mockResolvedValue("自动生成的简历评价");
+  (generateResumeReview as ReturnType<typeof vi.fn>).mockResolvedValue(REVIEW_RESULT);
   (findSemanticResumeDuplicates as ReturnType<typeof vi.fn>).mockResolvedValue([]);
   (enqueueResumeSemanticIndexJobBestEffort as ReturnType<typeof vi.fn>).mockImplementation(() =>
     Promise.resolve(),
@@ -297,14 +331,18 @@ describe("processNextItem — happy path", () => {
       .from(studioInterview)
       .where(eq(studioInterview.id, recordId));
     expect(interview).toBeDefined();
-    expect(interview?.organizationId).toBe(ORG_A);
-    expect(interview?.candidateEmail).toBe("test@example.com");
-    expect(interview?.candidateName).toBe("Test User");
-    expect(interview?.candidatePhone).toBe("13800000000");
-    expect(interview?.targetRole).toBe("Engineer");
-    expect(interview?.notes).toBe("自动生成的简历评价");
-    expect(interview?.resumeParseStatus).toBe("ready");
-    expect(interview?.resumeParsedAt).toBeTruthy();
+    if (!interview) {
+      throw new Error("expected studio_interview row to exist");
+    }
+    expect(interview.organizationId).toBe(ORG_A);
+    expect(interview.candidateEmail).toBe("test@example.com");
+    expect(interview.candidateName).toBe("Test User");
+    expect(interview.candidatePhone).toBe("13800000000");
+    expect(interview.targetRole).toBe("Engineer");
+    expect(interview.notes).toBe("自动生成的简历评价");
+    expect(interview.resumeParseStatus).toBe("ready");
+    expect(interview.resumeParsedAt).toBeTruthy();
+    expect(interview.resumeText).toBe("Test User OCR 原文");
 
     // 验证 batch 计数器更新正确。
     // Verify batch counters are updated correctly.
@@ -323,6 +361,10 @@ describe("processNextItem — cancellation race", () => {
       const cancelled = await cancelBatch(batchId, ORG_A, USER_A);
       expect(cancelled).toBe(true);
       return {
+        parsedPageCount: 1,
+        parsedStructured: { name: "Cancelled User" },
+        parsedText: "Cancelled User OCR 原文",
+        parsedTextSource: "qwen-ocr",
         resumeProfile: {
           email: "cancelled@example.com",
           name: "Cancelled User",
@@ -400,6 +442,7 @@ describe("processNextItem — resume pool target", () => {
     expect(poolItems[0]?.candidateEmail).toBe("pool@example.com");
     expect(poolItems[0]?.targetRole).toBe("Product Manager");
     expect(poolItems[0]?.resumeParseStatus).toBe("ready");
+    expect(poolItems[0]?.resumeText).toBe("Pool User OCR 原文");
     expect(enqueueResumeSemanticIndexJobBestEffort).toHaveBeenCalledWith({
       organizationId: ORG_A,
       sourceId: beforeItem?.poolItemId,

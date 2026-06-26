@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { authClient } from "@/lib/client/auth-client";
+import { getBannedAuthMessage, isBannedAuthError } from "./auth-error";
 
 interface EmailPasswordSignInFormProps {
   /** 登录成功后跳转的相对路径 / Redirect target after successful sign-in. */
@@ -44,6 +45,12 @@ export function EmailPasswordSignInForm({
     });
     if (error) {
       setSubmitting(false);
+      if (isBannedAuthError(error)) {
+        toast.error(getBannedAuthMessage(error.message));
+        await authClient.signOut();
+        await navigate({ replace: true, to: "/" });
+        return;
+      }
       toast.error(error.message ?? "登录失败，请检查账号或密码");
       return;
     }

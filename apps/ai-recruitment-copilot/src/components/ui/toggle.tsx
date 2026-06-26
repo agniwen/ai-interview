@@ -5,10 +5,11 @@ import { cva } from "class-variance-authority";
 import { Toggle as TogglePrimitive } from "radix-ui";
 import * as React from "react";
 
+import { cossControlOverlayClass } from "@/components/ui/coss-style";
 import { cn } from "@arc/shared/utils";
 
 const toggleVariants = cva(
-  "inline-flex items-center justify-center gap-2 rounded-md text-sm font-medium whitespace-nowrap transition-[color,box-shadow] outline-none hover:bg-muted hover:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 data-[state=on]:bg-accent data-[state=on]:text-accent-foreground dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+  "relative inline-flex items-center justify-center gap-2 rounded-md text-sm font-medium whitespace-nowrap transition-[color,box-shadow] outline-none hover:bg-accent hover:text-accent-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 data-[state=on]:bg-accent data-[state=on]:text-accent-foreground dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
   {
     defaultVariants: {
       size: "default",
@@ -22,7 +23,7 @@ const toggleVariants = cva(
       },
       variant: {
         default: "bg-transparent",
-        outline: "border border-input bg-transparent hover:bg-accent hover:text-accent-foreground",
+        outline: "border border-input bg-background bg-clip-padding dark:bg-input/30",
       },
     },
   },
@@ -39,8 +40,11 @@ function Toggle({
       data-slot="toggle"
       className={cn(
         toggleVariants({ size, variant }),
-        // 当前扁平化风格暂时关闭阴影；如需恢复，取消下一行注释。
-        // variant === "outline" && "shadow-xs",
+        variant === "outline" &&
+          cn(
+            cossControlOverlayClass,
+            "shadow-xs/5 data-[state=on]:before:shadow-none active:shadow-none active:before:shadow-none disabled:shadow-none disabled:before:shadow-none",
+          ),
         className,
       )}
       {...props}

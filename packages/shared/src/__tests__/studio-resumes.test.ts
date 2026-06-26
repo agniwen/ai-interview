@@ -5,7 +5,10 @@ import { describe, expect, it } from "vitest";
 import {
   canDeleteResumeRecord,
   createResumeLibraryFormValues,
+  describeResumeEvaluationStatus,
   describeResumeProgress,
+  resumeEvaluationStatusSchema,
+  resumeEvaluationUpdateSchema,
   resumeLibraryEditFormSchema,
   resumeLibraryFormSchema,
 } from "../studio-resumes";
@@ -54,6 +57,35 @@ describe("canDeleteResumeRecord", () => {
     expect(canDeleteResumeRecord("processing")).toBe(false);
     expect(canDeleteResumeRecord("ready")).toBe(true);
     expect(canDeleteResumeRecord("failed")).toBe(true);
+  });
+});
+
+describe("resume evaluation status", () => {
+  it("accepts only pass/fail for direct reviewer submission", () => {
+    expect(resumeEvaluationStatusSchema.safeParse("pass").success).toBe(true);
+    expect(resumeEvaluationStatusSchema.safeParse("fail").success).toBe(true);
+    expect(resumeEvaluationStatusSchema.safeParse(null).success).toBe(false);
+  });
+
+  it("allows admins to reset the editable status back to unreviewed", () => {
+    expect(resumeEvaluationUpdateSchema.safeParse({ status: null }).success).toBe(true);
+    expect(resumeEvaluationUpdateSchema.safeParse({ status: "pass" }).success).toBe(true);
+    expect(resumeEvaluationUpdateSchema.safeParse({ status: "unknown" }).success).toBe(false);
+  });
+
+  it("describes null as 未评估 and pass/fail as terminal statuses", () => {
+    expect(describeResumeEvaluationStatus(null)).toEqual({
+      label: "未评估",
+      tone: "outline",
+    });
+    expect(describeResumeEvaluationStatus("pass")).toEqual({
+      label: "通过",
+      tone: "success",
+    });
+    expect(describeResumeEvaluationStatus("fail")).toEqual({
+      label: "不通过",
+      tone: "danger",
+    });
   });
 });
 

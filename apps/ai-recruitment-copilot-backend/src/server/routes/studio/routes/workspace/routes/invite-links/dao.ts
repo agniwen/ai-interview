@@ -2,6 +2,7 @@ import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import { customAlphabet } from "nanoid";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import { member, user, workspaceInviteLink } from "@arc/db-schema/schema";
+import { NO_ACCESS_WORKSPACE_ROLE } from "@arc/shared/permissions";
 
 // 16 字符 base62 ≈ 95 bit 熵，碰撞概率忽略不计。
 const generateCode = customAlphabet(
@@ -11,6 +12,7 @@ const generateCode = customAlphabet(
 
 export interface InviteLinkRow {
   id: string;
+  initialRole: string;
   code: string;
   organizationId: string;
   createdBy: string | null;
@@ -27,6 +29,7 @@ export interface InviteLinkListRow extends InviteLinkRow {
 export interface CreateInviteLinkInput {
   organizationId: string;
   createdBy: string;
+  initialRole?: string;
 }
 
 export async function createInviteLink(input: CreateInviteLinkInput): Promise<InviteLinkRow> {
@@ -41,6 +44,7 @@ export async function createInviteLink(input: CreateInviteLinkInput): Promise<In
           code,
           createdBy: input.createdBy,
           id,
+          initialRole: input.initialRole ?? NO_ACCESS_WORKSPACE_ROLE,
           organizationId: input.organizationId,
         })
         .returning();
@@ -54,6 +58,28 @@ export async function createInviteLink(input: CreateInviteLinkInput): Promise<In
     }
   }
   throw new Error("Failed to allocate invite link code after retry");
+}
+
+export interface UpdateInviteLinkInitialRoleInput {
+  id: string;
+  initialRole: string;
+  organizationId: string;
+}
+
+export async function updateInviteLinkInitialRole(
+  input: UpdateInviteLinkInitialRoleInput,
+): Promise<InviteLinkRow | null> {
+  const [row] = await db
+    .update(workspaceInviteLink)
+    .set({ initialRole: input.initialRole })
+    .where(
+      and(
+        eq(workspaceInviteLink.id, input.id),
+        eq(workspaceInviteLink.organizationId, input.organizationId),
+      ),
+    )
+    .returning();
+  return row ?? null;
 }
 
 export async function findActiveLinkByCode(code: string): Promise<InviteLinkRow | null> {
@@ -137,6 +163,7 @@ export async function listInviteLinks(organizationId: string): Promise<InviteLin
       disabledAt: workspaceInviteLink.disabledAt,
       disabledBy: workspaceInviteLink.disabledBy,
       id: workspaceInviteLink.id,
+      initialRole: workspaceInviteLink.initialRole,
       joinedCount: sql<number>`COUNT(${member.id})::int`.as("joined_count"),
       organizationId: workspaceInviteLink.organizationId,
     })

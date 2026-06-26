@@ -11,6 +11,7 @@ import {
   studioInterview,
 } from "@arc/db-schema/schema";
 import { jobDescriptionFormSchema, jobDescriptionUpdateSchema } from "@arc/shared/job-descriptions";
+import type { ReferralLinkCreateResult } from "@arc/shared/referrals";
 import { validateJobDescriptionInterviewerDepartments } from "@arc/shared/job-description-interviewers";
 import { factory, jsonValidatorError } from "@arc/ai-recruitment-copilot-backend/server/factory";
 import { requirePermission } from "@arc/ai-recruitment-copilot-backend/server/middlewares/permission";
@@ -28,6 +29,7 @@ import {
 } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/utils/job-description-code";
 import { recommendCandidatesForJobDescription } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/utils/recommendations";
 import { getGlobalConfig } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/global-config/dao";
+import { createJobDescriptionReferralLink } from "./dao/referral-links";
 
 const generateJobDescriptionBodySchema = z.object({
   departmentName: z.string().trim().max(120).optional(),
@@ -118,6 +120,11 @@ const recommendationBodySchema = z.object({
   excludeAlreadyLinked: z.boolean().optional().default(true),
   limit: z.number().int().min(1).max(50).optional().default(20),
 });
+
+function buildReferralUrl(requestUrl: string, token: string): string {
+  const { origin } = new URL(requestUrl);
+  return `${origin}/referrals/${encodeURIComponent(token)}`;
+}
 
 export const jobDescriptionsRouter = factory
   .createApp()
@@ -290,6 +297,26 @@ export const jobDescriptionsRouter = factory
       return c.json({ error: "当前分钟岗位编码已用尽，请稍后重试。" }, 409);
     },
   )
+  .post("/:id/referral-link", requirePermission("jd", "read"), async (c) => {
+    const { activeOrg, user } = c.var;
+    if (!activeOrg || !user) {
+      return c.json({ message: "Unauthorized" }, 401);
+    }
+    const id = c.req.param("id");
+    const record = await loadJobDescriptionById(activeOrg.id, id);
+    if (!record) {
+      return c.json({ error: "在招岗位不存在。" }, 404);
+    }
+    const { token } = await createJobDescriptionReferralLink({
+      createdBy: user.id,
+      jobDescriptionId: id,
+      organizationId: activeOrg.id,
+    });
+    return c.json(
+      { url: buildReferralUrl(c.req.url, token) } satisfies ReferralLinkCreateResult,
+      201,
+    );
+  })
   .get("/:id", requirePermission("jd", "read"), async (c) => {
     const { activeOrg } = c.var;
     if (!activeOrg) {
@@ -305,7 +332,7 @@ export const jobDescriptionsRouter = factory
   .post(
     "/:id/recommendations",
     requirePermission("jd", "read"),
-    requirePermission("resume", "read"),
+    requirePermission("resumeLibrary", "read"),
     zValidator("json", recommendationBodySchema, jsonValidatorError("请求参数无效。")),
     async (c) => {
       const { activeOrg } = c.var;

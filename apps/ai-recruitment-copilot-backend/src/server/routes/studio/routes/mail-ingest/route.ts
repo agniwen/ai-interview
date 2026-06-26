@@ -21,22 +21,20 @@ import {
   mergeMailIngestLoginConfig,
   validateMailIngestAccountLogin,
 } from "./validation";
-
-function canManageAllMailIngestAccounts(role?: string | null): boolean {
-  return role === "admin" || role === "owner";
-}
+import { requirePermission } from "@arc/ai-recruitment-copilot-backend/server/middlewares/permission";
 
 export const mailIngestRouter = factory
   .createApp()
   .get(
     "/managed",
+    requirePermission("mailIngestAccount", "manage"),
     zValidator(
       "query",
       managedMailIngestAccountListQuerySchema,
       jsonValidatorError("查询参数无效。"),
     ),
     async (c) => {
-      const { activeOrg, member, user } = c.var;
+      const { activeOrg, user } = c.var;
       if (!activeOrg || !user) {
         return c.json({ message: "Unauthorized" }, 401);
       }
@@ -45,7 +43,6 @@ export const mailIngestRouter = factory
         activeOrg.id,
         {
           search: q.search,
-          ...(canManageAllMailIngestAccounts(member?.role) ? {} : { userId: user.id }),
         },
         {
           page: q.page,
@@ -59,16 +56,14 @@ export const mailIngestRouter = factory
   )
   .post(
     "/managed",
+    requirePermission("mailIngestAccount", "manage"),
     zValidator("json", createManagedMailIngestAccountSchema, jsonValidatorError("邮箱配置无效。")),
     async (c) => {
-      const { activeOrg, member, user } = c.var;
+      const { activeOrg, user } = c.var;
       if (!activeOrg || !user) {
         return c.json({ message: "Unauthorized" }, 401);
       }
       const { userId, ...input } = c.req.valid("json");
-      if (!canManageAllMailIngestAccounts(member?.role) && userId !== user.id) {
-        return c.json({ message: "Forbidden" }, 403);
-      }
       const memberExists = await isWorkspaceMember({ organizationId: activeOrg.id, userId });
       if (!memberExists) {
         return c.json({ error: "目标成员不存在。" }, 404);
@@ -95,9 +90,10 @@ export const mailIngestRouter = factory
   )
   .patch(
     "/managed/:id",
+    requirePermission("mailIngestAccount", "manage"),
     zValidator("json", updateMailIngestAccountSchema, jsonValidatorError("邮箱配置无效。")),
     async (c) => {
-      const { activeOrg, member, user } = c.var;
+      const { activeOrg, user } = c.var;
       if (!activeOrg || !user) {
         return c.json({ message: "Unauthorized" }, 401);
       }
@@ -107,7 +103,6 @@ export const mailIngestRouter = factory
         const existing = await getMailIngestAccountLoginConfig({
           id: accountId,
           organizationId: activeOrg.id,
-          ...(canManageAllMailIngestAccounts(member?.role) ? {} : { userId: user.id }),
         });
         if (!existing) {
           return c.json({ error: "邮箱配置不存在。" }, 404);
@@ -117,7 +112,6 @@ export const mailIngestRouter = factory
           id: accountId,
           input,
           organizationId: activeOrg.id,
-          ...(canManageAllMailIngestAccounts(member?.role) ? {} : { userId: user.id }),
         });
         if (!account) {
           return c.json({ error: "邮箱配置不存在。" }, 404);
@@ -135,7 +129,7 @@ export const mailIngestRouter = factory
       }
     },
   )
-  .get("/", async (c) => {
+  .get("/", requirePermission("mailIngestAccount", "read"), async (c) => {
     const { activeOrg, user } = c.var;
     if (!activeOrg || !user) {
       return c.json({ message: "Unauthorized" }, 401);
@@ -145,6 +139,7 @@ export const mailIngestRouter = factory
   })
   .post(
     "/",
+    requirePermission("mailIngestAccount", "create"),
     zValidator("json", createMailIngestAccountSchema, jsonValidatorError("邮箱配置无效。")),
     async (c) => {
       const { activeOrg, user } = c.var;
@@ -173,6 +168,7 @@ export const mailIngestRouter = factory
   )
   .patch(
     "/:id",
+    requirePermission("mailIngestAccount", "update"),
     zValidator("json", updateMailIngestAccountSchema, jsonValidatorError("邮箱配置无效。")),
     async (c) => {
       const { activeOrg, user } = c.var;
@@ -213,7 +209,7 @@ export const mailIngestRouter = factory
       }
     },
   )
-  .delete("/:id", async (c) => {
+  .delete("/:id", requirePermission("mailIngestAccount", "delete"), async (c) => {
     const { activeOrg, user } = c.var;
     if (!activeOrg || !user) {
       return c.json({ message: "Unauthorized" }, 401);

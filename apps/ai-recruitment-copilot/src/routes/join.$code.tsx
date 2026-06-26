@@ -2,6 +2,7 @@ import { createFileRoute, redirect, useLoaderData } from "@tanstack/react-router
 import { createServerFn } from "@tanstack/react-start";
 import { getRequestHeaders } from "@tanstack/react-start/server";
 import { auth } from "@arc/ai-recruitment-copilot-backend/lib/server/auth";
+import { NO_ACCESS_WORKSPACE_ROLE } from "@arc/shared/permissions";
 import { getJoinPreview } from "@arc/ai-recruitment-copilot-backend/server/routes/join/dao";
 import { codeParamsSchema } from "@arc/ai-recruitment-copilot-backend/server/routes/join/schema";
 import { InvalidJoinLink } from "@/components/features/join/invalid-join-link";
@@ -14,6 +15,7 @@ type JoinRouteState =
   | { status: "already_member" }
   | {
       code: string;
+      initialRole: string;
       status: "ready";
       workspace: {
         id: string;
@@ -54,6 +56,7 @@ const getJoinRouteState = createServerFn({ method: "GET" })
 
     return {
       code: parsed.data.code,
+      initialRole: preview.initialRole ?? NO_ACCESS_WORKSPACE_ROLE,
       status: "ready",
       workspace: preview.workspace,
     };
@@ -66,7 +69,9 @@ function JoinRoute() {
     return <InvalidJoinLink />;
   }
 
-  return <JoinClient code={state.code} workspace={state.workspace} />;
+  return (
+    <JoinClient code={state.code} initialRole={state.initialRole} workspace={state.workspace} />
+  );
 }
 
 export const Route = createFileRoute("/join/$code")({

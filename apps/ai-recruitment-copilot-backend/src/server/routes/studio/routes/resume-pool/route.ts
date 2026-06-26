@@ -2,6 +2,7 @@ import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { zValidator } from "@hono/zod-validator";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import { getObjectBytes, getObjectStream } from "@arc/ai-recruitment-copilot-backend/lib/server/s3";
+import type { ResumeProfile } from "@arc/db-schema/interview/types";
 import { jobDescription } from "@arc/db-schema/schema";
 import { and, eq } from "drizzle-orm";
 import {
@@ -52,11 +53,25 @@ function parseCreateFormData(formData: FormData) {
   });
 }
 
+async function resolveResumePoolParsedResume(
+  resume: File,
+  uploadResult: { cachedResumeProfile: ResumeProfile | null; resumeText: string | null },
+): Promise<{ resumeProfile: ResumeProfile; resumeText: string | null }> {
+  let resumeProfile = uploadResult.cachedResumeProfile ?? null;
+  let resumeText = uploadResult.resumeText ?? null;
+  if (!resumeProfile) {
+    const parsed = await parseResumeFastToProfile(resume);
+    ({ resumeProfile } = parsed);
+    resumeText = parsed.parsedText;
+  }
+  return { resumeProfile, resumeText };
+}
+
 export const resumePoolRouter = factory
   .createApp()
   .get(
     "/",
-    requirePermission("resume", "read"),
+    requirePermission("resumePool", "read"),
     zValidator("query", resumePoolListQuerySchema, jsonValidatorError("查询参数无效。")),
     async (c) => {
       const { activeOrg, user } = c.var;
@@ -72,7 +87,7 @@ export const resumePoolRouter = factory
       return c.json(result, 200);
     },
   )
-  .get("/:id", requirePermission("resume", "read"), async (c) => {
+  .get("/:id", requirePermission("resumePool", "read"), async (c) => {
     const { activeOrg, user } = c.var;
     if (!activeOrg || !user) {
       return c.json({ message: "Unauthorized" }, 401);
@@ -87,7 +102,7 @@ export const resumePoolRouter = factory
     }
     return c.json(item, 200);
   })
-  .get("/:id/resume", requirePermission("resume", "read"), async (c) => {
+  .get("/:id/resume", requirePermission("resumePool", "read"), async (c) => {
     const { activeOrg, user } = c.var;
     if (!activeOrg || !user) {
       return c.json({ message: "Unauthorized" }, 401);
@@ -116,7 +131,7 @@ export const resumePoolRouter = factory
       },
     });
   })
-  .get("/:id/resume-preview.pdf", requirePermission("resume", "read"), async (c) => {
+  .get("/:id/resume-preview.pdf", requirePermission("resumePool", "read"), async (c) => {
     const { activeOrg, user } = c.var;
     if (!activeOrg || !user) {
       return c.json({ message: "Unauthorized" }, 401);
@@ -140,7 +155,7 @@ export const resumePoolRouter = factory
       mediaType: object.contentType,
     });
   })
-  .delete("/:id", requirePermission("resume", "delete"), async (c) => {
+  .delete("/:id", requirePermission("resumePool", "delete"), async (c) => {
     const { activeOrg, user } = c.var;
     if (!activeOrg || !user) {
       return c.json({ message: "Unauthorized" }, 401);
@@ -156,7 +171,7 @@ export const resumePoolRouter = factory
       return c.json({ error: error instanceof Error ? error.message : "删除失败。" }, 404);
     }
   })
-  .post("/", requirePermission("resume", "create"), async (c) => {
+  .post("/", requirePermission("resumePool", "create"), async (c) => {
     const { activeOrg, user } = c.var;
     if (!activeOrg || !user) {
       return c.json({ message: "Unauthorized" }, 401);
@@ -189,11 +204,10 @@ export const resumePoolRouter = factory
       if (!uploadResult?.storageKey) {
         return c.json({ error: "文件上传失败，请重试。" }, 500);
       }
-      let resumeProfile = uploadResult.cachedResumeProfile ?? null;
-      if (!resumeProfile) {
-        const parsed = await parseResumeFastToProfile(resume);
-        ({ resumeProfile } = parsed);
-      }
+      const { resumeProfile, resumeText } = await resolveResumePoolParsedResume(
+        resume,
+        uploadResult,
+      );
       const id = await createResumePoolItem({
         candidateEmail: input.data.candidateEmail ?? null,
         candidateName: input.data.candidateName ?? null,
@@ -205,6 +219,7 @@ export const resumePoolRouter = factory
         organizationId: activeOrg.id,
         resumeFileName: resume.name,
         resumeProfile,
+        resumeText,
         scope: input.data.scope,
         storageKey: uploadResult.storageKey,
         targetRole: input.data.targetRole ?? null,
@@ -225,7 +240,7 @@ export const resumePoolRouter = factory
       return c.json({ error: result.error }, { status: result.status as ContentfulStatusCode });
     }
   })
-  .post("/:id/publish", requirePermission("resume", "create"), async (c) => {
+  .post("/:id/publish", requirePermission("resumePool", "publish"), async (c) => {
     const { activeOrg, user } = c.var;
     if (!activeOrg || !user) {
       return c.json({ message: "Unauthorized" }, 401);
@@ -243,7 +258,8 @@ export const resumePoolRouter = factory
   })
   .post(
     "/:id/import",
-    requirePermission("resume", "create"),
+    requirePermission("resumePool", "import"),
+    requirePermission("resumeLibrary", "create"),
     zValidator("json", resumePoolImportInputSchema, jsonValidatorError("请求参数无效。")),
     async (c) => {
       const { activeOrg, user } = c.var;

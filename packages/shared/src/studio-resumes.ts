@@ -1,6 +1,11 @@
 import { z } from "zod";
 import type { ResumeAnalysisResult, ResumeProfile } from "@arc/db-schema/interview/types";
-import { resumeParseStatusMeta } from "@arc/db-schema/studio-interviews";
+import type { ResumeReview } from "@arc/db-schema/resume-review";
+import {
+  resumeEvaluationStatusMeta,
+  resumeEvaluationStatusSchema,
+  resumeParseStatusMeta,
+} from "@arc/db-schema/studio-interviews";
 import type {
   CandidateExpectationsMeta,
   CandidateOutcome,
@@ -9,6 +14,7 @@ import type {
   HumanInterviewRoundStatus,
   OfferDraftStatus,
   PipelineStage,
+  ResumeEvaluationStatus,
   ResumeParseStatus,
   ScheduleEntryStatus,
   StudioInterviewStatus,
@@ -99,6 +105,8 @@ export interface ResumeLibraryListRecord {
   jobDescriptionName: string | null;
   resumeFileName: string | null;
   resumeContentHash: string | null;
+  resumeEvaluationStatus: ResumeEvaluationStatus | null;
+  resumeReview: ResumeReview | null;
   resumeParsedAt: string | null;
   resumeParseError: string | null;
   resumeParseStatus: ResumeParseStatus;
@@ -334,6 +342,33 @@ export function getResumeActionLockedReason(status: ResumeParseStatus): string |
   return `${resumeParseStatusMeta[status].label}的简历暂不可操作。`;
 }
 
+export const resumeEvaluationStatusValues = ["pass", "fail"] as const;
+export const resumeEvaluationStatusInputSchema = resumeEvaluationStatusSchema;
+export const resumeEvaluationStatusFormValueSchema = z.union([
+  resumeEvaluationStatusSchema,
+  z.literal("unreviewed"),
+]);
+export const resumeEvaluationStatusSubmitSchema = z.object({
+  status: resumeEvaluationStatusSchema,
+});
+export const resumeEvaluationUpdateSchema = z.object({
+  status: resumeEvaluationStatusSchema.nullable(),
+});
+
+export { resumeEvaluationStatusSchema };
+export type { ResumeEvaluationStatus };
+export type ResumeEvaluationStatusFormValue = z.infer<typeof resumeEvaluationStatusFormValueSchema>;
+
+export function describeResumeEvaluationStatus(status: ResumeEvaluationStatus | null): {
+  label: string;
+  tone: "outline" | "success" | "danger";
+} {
+  if (!status) {
+    return { label: "未评估", tone: "outline" };
+  }
+  return resumeEvaluationStatusMeta[status];
+}
+
 export type CandidateTimelineEventKind =
   | "candidate"
   | "stage"
@@ -403,6 +438,7 @@ export const resumeLibraryFormSchema = z.object({
   candidatePhone: z.string().trim().max(40, "联系电话不能超过 40 个字符"),
   jobDescriptionId: z.string().trim().min(1, "请选择关联在招岗位").max(100, "关联在招岗位无效"),
   notes: z.string().trim().max(2000, "备注不能超过 2000 字"),
+  resumeEvaluationStatus: resumeEvaluationStatusFormValueSchema,
   targetRole: z.string().trim().max(120, "目标岗位不能超过 120 个字符"),
 });
 
@@ -423,6 +459,7 @@ export function createResumeLibraryFormValues(): ResumeLibraryFormValues {
     candidatePhone: "",
     jobDescriptionId: "",
     notes: "",
+    resumeEvaluationStatus: "unreviewed",
     targetRole: "",
   };
 }
