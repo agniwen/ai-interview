@@ -26,10 +26,8 @@ async function loadPdfPreviewDialog(): Promise<{
   } catch (error) {
     if (import.meta.env.DEV && isDynamicImportFetchError(error)) {
       const retryUrl = `/src/components/features/pdf/pdf-preview-dialog.tsx?retry=${Date.now()}`;
-      const mod = (await import(
-        /* @vite-ignore */
-        retryUrl
-      )) as PdfPreviewDialogModule;
+      // eslint-disable-next-line no-inline-comments -- Vite requires this marker inside import().
+      const mod = (await import(/* @vite-ignore */ retryUrl)) as PdfPreviewDialogModule;
       return { default: mod.PdfPreviewDialog };
     }
     throw error;

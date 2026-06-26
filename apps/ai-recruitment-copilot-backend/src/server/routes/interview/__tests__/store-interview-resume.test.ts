@@ -2,7 +2,7 @@
 //
 // storeInterviewResume 三个分支的单元测试：注册表命中 / 未命中两步成功 / 未命中 parse 失败 / 未命中 S3 失败。
 // Unit tests for the three branches of storeInterviewResume: registry hit / miss both succeed / miss parse fail / miss S3 fail.
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   buildAttachmentKeyByHash: vi.fn(),
@@ -66,10 +66,10 @@ vi.mock("@arc/shared/interview/interview-record", () => ({
   sortScheduleEntries: vi.fn(),
 }));
 vi.mock(
-  "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interview-questions/dao",
+  "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/dao/context-snapshots",
   () => ({
-    ensureApplicableBindings: vi.fn(),
-    loadInterviewPresetQuestions: vi.fn(),
+    flattenPresetQuestionsFromContextSnapshot: vi.fn(),
+    loadOrCreateActiveInterviewContextSnapshot: vi.fn(),
   }),
 );
 
@@ -92,15 +92,19 @@ function makeFile(content = "pdf-bytes") {
 describe("storeInterviewResume", () => {
   const originalDisableCache = process.env.RESUME_PARSE_DISABLE_CACHE;
 
-  beforeEach(() => {
-    for (const fn of Object.values(mocks)) {
-      fn.mockReset();
-    }
+  afterAll(() => {
     if (originalDisableCache === undefined) {
       delete process.env.RESUME_PARSE_DISABLE_CACHE;
     } else {
       process.env.RESUME_PARSE_DISABLE_CACHE = originalDisableCache;
     }
+  });
+
+  beforeEach(() => {
+    for (const fn of Object.values(mocks)) {
+      fn.mockReset();
+    }
+    delete process.env.RESUME_PARSE_DISABLE_CACHE;
     mocks.sha256HexOfBytes.mockResolvedValue(HASH);
     mocks.buildAttachmentKeyByHash.mockResolvedValue(STORAGE_KEY);
   });
@@ -376,6 +380,7 @@ describe("storeResumeObjectOnly", () => {
   });
 
   it("registry hit: uses a freshly written current-file key instead of a stale cached key", async () => {
+    process.env.RESUME_PARSE_DISABLE_CACHE = "false";
     mocks.findAttachmentByContentHash.mockResolvedValue({
       filename: "old-resume.pdf",
       mediaType: "application/pdf",

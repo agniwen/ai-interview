@@ -29,6 +29,7 @@ describe("TanStack Start shared component migration", () => {
     expect(previewButtonSource).toContain("isDynamicImportFetchError");
     expect(previewButtonSource).toContain("String(error)");
     expect(previewButtonSource).toContain("pdf-preview-dialog.tsx?retry=");
+    expect(previewButtonSource).toContain("import(/* @vite-ignore */ retryUrl)");
     expect(previewButtonSource).toContain("PdfPreviewErrorBoundary");
     expect(previewButtonSource).toContain("PdfPreviewFallbackDialog");
     expect(previewButtonSource).toContain("<iframe");

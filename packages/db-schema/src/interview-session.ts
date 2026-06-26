@@ -66,6 +66,116 @@ export interface InterviewConversationSnapshot {
   turns: PersistedInterviewTurn[];
 }
 
+export interface InterviewReportSnapshotMetadata {
+  contextSnapshot: {
+    contentHash: string;
+    createdAt: string | Date;
+    id: string;
+    reason: string;
+    scheduleEntryId: string | null;
+    schemaVersion: number;
+    status: string;
+    version: number;
+  } | null;
+  evidenceSnapshot: {
+    contentHash: string;
+    contextSnapshotId: string;
+    createdAt: string | Date;
+    generatedAt: string | null;
+    id: string;
+    scheduleEntryId: string | null;
+    schemaVersion: number;
+  } | null;
+  frozenInput: {
+    candidateEmail: string | null;
+    candidateName: string | null;
+    formCount: number;
+    formQuestionCount: number;
+    formSubmissionCount: number;
+    interviewerCount: number;
+    jobDescriptionName: string | null;
+    personalizedQuestionCount: number;
+    questionTemplateCount: number;
+    questionTemplateQuestionCount: number;
+    targetRole: string | null;
+  } | null;
+  fullTextInput: {
+    candidate: {
+      candidateEmail: string | null;
+      candidateName: string | null;
+      candidatePhone: string | null;
+      resumeProfileJson: string | null;
+      targetRole: string | null;
+    };
+    formSubmissions: {
+      answers: {
+        label: string;
+        questionId: string;
+        valueText: string;
+      }[];
+      submittedAt: string;
+      templateId: string;
+      title: string;
+      version: number;
+      versionId: string;
+    }[];
+    forms: {
+      description: string | null;
+      questions: {
+        helperText: string | null;
+        label: string;
+        optionsText: string | null;
+        questionId: string;
+        required: boolean;
+        type: string;
+      }[];
+      templateId: string;
+      title: string;
+      version: number;
+      versionId: string;
+    }[];
+    globalConfig: {
+      closingInstructions: string | null;
+      companyContext: string | null;
+      openingInstructions: string | null;
+    };
+    interviewers: {
+      name: string;
+      prompt: string | null;
+      voice: string | null;
+    }[];
+    jobDescription: {
+      id: string;
+      name: string;
+      prompt: string | null;
+    } | null;
+    personalizedQuestions: {
+      difficulty: string;
+      order: number;
+      question: string;
+    }[];
+    questionTemplates: {
+      description: string | null;
+      questions: {
+        content: string;
+        difficulty: string;
+        questionId: string;
+      }[];
+      templateId: string;
+      title: string;
+      version: number;
+      versionId: string;
+    }[];
+    transcript: InterviewTranscriptTurn[];
+  } | null;
+  session: {
+    recordingDurationSecs: number | null;
+    recordingStatus: InterviewRecordingStatus | null;
+    scheduleEntryId: string | null;
+    transcriptTurnCount: number;
+  };
+}
+
 /**
  * Studio 后台展示的面试报告：在 snapshot 之上预聚合了几个轮次计数，
  * 减少前端二次计算成本。
@@ -107,4 +217,5 @@ export interface StudioInterviewConversationReport {
   // presigned URL via /recordings/:conversationId.
   recordingStatus: InterviewRecordingStatus | null;
   recordingDurationSecs: number | null;
+  snapshotMetadata?: InterviewReportSnapshotMetadata | null;
 }

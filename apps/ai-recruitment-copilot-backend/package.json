@@ -13,6 +13,7 @@
     "./lib/server/*": "./src/lib/server/*.ts"
   },
   "scripts": {
+    "backfill:interview-snapshots": "tsx src/scripts/backfill-interview-snapshots.ts",
     "backfill:resume-profiles": "tsx src/scripts/backfill-resume-profiles.ts",
     "backfill:resume-semantic-index": "tsx src/scripts/backfill-resume-semantic-index.ts",
     "backfill:resume-text": "tsx src/scripts/backfill-resume-text.ts",

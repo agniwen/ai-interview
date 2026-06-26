@@ -30,6 +30,8 @@ export const reportsRouter = factory
     if (!candidateId) {
       return c.json({ error: "记录不存在。" }, 404);
     }
-    const reports = await queryInterviewConversationReportsByRound(roundId);
+    const reports = await queryInterviewConversationReportsByRound(roundId, {
+      includeSnapshotMetadata: true,
+    });
     return c.json(reports, 200);
   });

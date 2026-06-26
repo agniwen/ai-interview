@@ -3,13 +3,7 @@ import type { StudioCandidateRecord } from "@arc/shared/studio-candidates";
 import type { ResumeAnalysisResult, ResumeProfile } from "@arc/db-schema/interview/types";
 import { and, eq, inArray } from "drizzle-orm";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
-import {
-  interviewer,
-  jobDescription,
-  jobDescriptionInterviewer,
-  studioInterview,
-  studioInterviewSchedule,
-} from "@arc/db-schema/schema";
+import { jobDescription, studioInterview, studioInterviewSchedule } from "@arc/db-schema/schema";
 import {
   buildCandidateInterviewView,
   pickCurrentScheduleEntry,
@@ -28,9 +22,9 @@ import {
 import { generateResumeStructured } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-parse-pipeline";
 import { getResumeDocumentExtension } from "@arc/shared/resume-documents";
 import {
-  ensureApplicableBindings,
-  loadInterviewPresetQuestions,
-} from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interview-questions/dao/bindings";
+  flattenPresetQuestionsFromContextSnapshot,
+  loadOrCreateActiveInterviewContextSnapshot,
+} from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/dao/context-snapshots";
 import { sha256HexOfBytes } from "@arc/shared/file-hash";
 import {
   buildAttachmentKeyByHash,
@@ -71,60 +65,22 @@ export async function loadCandidateInterviewRecord(id: string, roundId: string) 
 
   const view = buildCandidateInterviewView(record, sortScheduleEntries(scheduleEntries), roundId);
 
-  let jobDescriptionPrompt: string | null = null;
-  let jobDescriptionName: string | null = null;
-  const interviewers: { name: string; prompt: string; voice: string }[] = [];
-
-  if (record.jobDescriptionId) {
-    const [jdRow] = await db
-      .select({
-        name: jobDescription.name,
-        prompt: jobDescription.prompt,
-      })
-      .from(jobDescription)
-      .where(
-        and(
-          eq(jobDescription.id, record.jobDescriptionId),
-          eq(jobDescription.organizationId, record.organizationId),
-        ),
-      )
-      .limit(1);
-    jobDescriptionPrompt = jdRow?.prompt ?? null;
-    jobDescriptionName = jdRow?.name ?? null;
-
-    const interviewerRows = await db
-      .select({
-        name: interviewer.name,
-        prompt: interviewer.prompt,
-        voice: interviewer.voice,
-      })
-      .from(jobDescriptionInterviewer)
-      .innerJoin(interviewer, eq(jobDescriptionInterviewer.interviewerId, interviewer.id))
-      .where(
-        and(
-          eq(jobDescriptionInterviewer.jobDescriptionId, record.jobDescriptionId),
-          eq(interviewer.organizationId, record.organizationId),
-        ),
-      );
-
-    interviewers.push(...interviewerRows);
-  }
-
-  // Aggregate preset questions from interview_question_template_binding rows
-  // (replacing the legacy `jobDescription.presetQuestions` column). Each entry
-  // is { content, difficulty } so the agent prompt can tag preset questions
-  // with [easy]/[medium]/[hard] markers and apply per-difficulty follow-up
-  // rules. ensureApplicableBindings lazily attaches templates created *after*
-  // the interview was created (e.g. a new global template).
-  await ensureApplicableBindings(id);
-  const jobDescriptionPresetQuestions = await loadInterviewPresetQuestions(id);
+  const contextSnapshot = await loadOrCreateActiveInterviewContextSnapshot({
+    createdBy: null,
+    interviewRecordId: id,
+    reason: "create",
+    scheduleEntryId: view.currentRoundId ?? roundId,
+  });
+  const { payload } = contextSnapshot;
+  const jobDescriptionPresetQuestions = flattenPresetQuestionsFromContextSnapshot(payload);
 
   return {
     ...view,
-    interviewers,
-    jobDescriptionName,
+    interviewQuestions: payload.personalizedQuestions,
+    interviewers: payload.interviewers,
+    jobDescriptionName: payload.jobDescription?.name ?? null,
     jobDescriptionPresetQuestions,
-    jobDescriptionPrompt,
+    jobDescriptionPrompt: payload.jobDescription?.prompt ?? null,
     organizationId: record.organizationId,
   };
 }

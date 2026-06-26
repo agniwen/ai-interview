@@ -15,6 +15,7 @@ import {
   retryFailedInterviewSummaryNotifications,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/agent/utils/feishu-interview-notifications";
 import { runSummaryJob } from "@arc/ai-recruitment-copilot-backend/server/routes/agent/utils/interview-summary-job";
+import { createInterviewEvidenceSnapshot } from "@arc/ai-recruitment-copilot-backend/server/routes/agent/utils/evidence-snapshot";
 
 async function resolveOrgFromInterview(interviewRecordId: string): Promise<string> {
   const [row] = await db
@@ -292,6 +293,11 @@ export const agentRouter = factory
         organizationId: orgId,
         scheduleEntryId: data.scheduleEntryId,
       });
+    });
+
+    await createInterviewEvidenceSnapshot({
+      conversationId: data.conversationId,
+      interviewRecordId: data.interviewRecordId,
     });
 
     // studio-interviews 已按 org 隔离（见 cache-tags.ts）；interview-conversations

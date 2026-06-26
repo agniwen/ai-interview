@@ -8,9 +8,6 @@ import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import {
   candidateFormSubmission,
   interviewAuditLog,
-  interviewer,
-  jobDescription,
-  jobDescriptionInterviewer,
   studioInterview,
   studioInterviewSchedule,
 } from "@arc/db-schema/schema";
@@ -46,16 +43,20 @@ import {
 } from "@arc/ai-recruitment-copilot-backend/server/agents/resume-analysis-agent";
 import { factory, jsonValidatorError } from "@arc/ai-recruitment-copilot-backend/server/factory";
 import { resolveCandidateQuestionGenerationEnabled } from "@arc/shared/interview/candidate-question-generation-config";
-import { getGlobalConfig } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/global-config/dao";
 import { loadSubmissionsByInterview } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/forms/dao/submissions";
 import {
   autoBindApplicableTemplates,
   ensureApplicableBindings,
-  loadInterviewPresetQuestions,
   loadInterviewQuestionTemplateBindings,
   refreshInterviewBindingsToLatest,
   replaceInterviewBindings,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interview-questions/dao/bindings";
+import {
+  createInterviewContextSnapshot,
+  flattenPresetQuestionsFromContextSnapshot,
+  loadOrCreateActiveInterviewContextSnapshot,
+  refreshInterviewContextSnapshot,
+} from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/dao/context-snapshots";
 import {
   cancelHumanInterviewRoundWithMeetings,
   completeHumanInterviewRound,
@@ -457,6 +458,13 @@ export const studioInterviewsRouter = factory
         await tx.insert(studioInterview).values(record);
         await tx.insert(studioInterviewSchedule).values(scheduleRows);
         await autoBindApplicableTemplates(tx, interviewRecordId, record.jobDescriptionId);
+        await createInterviewContextSnapshot(tx, {
+          createdAt: now,
+          createdBy: c.var.user?.id ?? null,
+          interviewRecordId,
+          reason: "create",
+          scheduleEntryId: scheduleRows[0]?.id ?? null,
+        });
         await syncResumeSkills(tx, {
           interviewId: interviewRecordId,
           organizationId: activeOrg.id,
@@ -847,6 +855,7 @@ export const studioInterviewsRouter = factory
       mediaType: object.contentType,
     });
   })
+  // oxlint-disable-next-line complexity -- Route handler performs auth, round resolution, snapshot loading, and preview rendering in one request.
   .get("/:id/agent-instructions", requirePermission("interview", "read"), async (c) => {
     // `:id` 为 roundId；通过 resolveCandidateIdForRound 解析候选人再生成指令。
     // `:id` is roundId; resolve candidateId before building agent instructions.
@@ -871,78 +880,42 @@ export const studioInterviewsRouter = factory
       return c.json({ error: "记录不存在。" }, 404);
     }
 
-    let jobDescriptionPrompt: string | null = null;
-    let jobDescriptionName: string | null = null;
-    let interviewers: { name: string; prompt: string }[] = [];
+    const contextSnapshot = await loadOrCreateActiveInterviewContextSnapshot({
+      createdBy: c.var.user?.id ?? null,
+      interviewRecordId: candidateId,
+      reason: "create",
+      scheduleEntryId: id,
+    });
+    const snapshotPayload = contextSnapshot.payload;
+    const jobDescriptionPresetQuestions =
+      flattenPresetQuestionsFromContextSnapshot(snapshotPayload);
 
-    if (existing.jobDescriptionId) {
-      const [jdRow] = await db
-        .select({
-          name: jobDescription.name,
-          prompt: jobDescription.prompt,
-        })
-        .from(jobDescription)
-        .where(
-          and(
-            eq(jobDescription.id, existing.jobDescriptionId),
-            eq(jobDescription.organizationId, activeOrg.id),
-          ),
-        )
-        .limit(1);
-      jobDescriptionPrompt = jdRow?.prompt ?? null;
-      jobDescriptionName = jdRow?.name ?? null;
-
-      const interviewerRows = await db
-        .select({ name: interviewer.name, prompt: interviewer.prompt })
-        .from(jobDescriptionInterviewer)
-        .innerJoin(interviewer, eq(jobDescriptionInterviewer.interviewerId, interviewer.id))
-        .where(
-          and(
-            eq(jobDescriptionInterviewer.jobDescriptionId, existing.jobDescriptionId),
-            eq(interviewer.organizationId, activeOrg.id),
-          ),
-        );
-      interviewers = interviewerRows;
-    }
-
-    // Source preset questions from binding-attached template versions, not
-    // from the legacy `jobDescription.presetQuestions` column. Lazy-bind any
-    // newly applicable templates so e.g. a global template created after this
-    // interview shows up in the rendered prompt preview.
-    // 绑定检查和预设题目均以 candidateId（interviewRecordId）为键。
-    // Bindings and preset questions are keyed by candidateId (interviewRecordId).
-    await ensureApplicableBindings(candidateId);
-    const jobDescriptionPresetQuestions = await loadInterviewPresetQuestions(candidateId);
-
-    // 注入系统设置（公司情况 / 开场白 / 结束语），保证预览与运行时一致。
-    // Inject global config so the preview matches what the agent will receive.
-    const globalCfg = await getGlobalConfig(activeOrg.id);
-    const candidateName = existing.candidateName?.trim() || "候选人";
-    const targetRole = jobDescriptionName?.trim() || "未指定岗位";
+    const candidateName = snapshotPayload.candidate.candidateName?.trim() || "候选人";
+    const targetRole = snapshotPayload.jobDescription?.name?.trim() || "未指定岗位";
     const openingPrompt = resolveOpeningPrompt(
-      globalCfg.openingInstructions,
+      snapshotPayload.globalConfig.openingInstructions ?? "",
       candidateName,
       targetRole,
     );
     const closingPrompt = resolveClosingPrompt(
-      globalCfg.closingInstructions,
+      snapshotPayload.globalConfig.closingInstructions ?? "",
       candidateName,
       targetRole,
     );
 
     const baseContext = {
-      candidateName: existing.candidateName,
-      companyContext: globalCfg.companyContext,
-      interviewQuestions: existing.interviewQuestions,
+      candidateName: snapshotPayload.candidate.candidateName,
+      companyContext: snapshotPayload.globalConfig.companyContext ?? "",
+      interviewQuestions: snapshotPayload.personalizedQuestions,
       jobDescriptionPresetQuestions,
-      jobDescriptionPrompt,
-      resumeProfile: existing.resumeProfile,
-      targetRole: jobDescriptionName,
+      jobDescriptionPrompt: snapshotPayload.jobDescription?.prompt ?? null,
+      resumeProfile: snapshotPayload.candidate.resumeProfile,
+      targetRole: snapshotPayload.jobDescription?.name ?? null,
     } as const;
 
     const variants =
-      interviewers.length > 0
-        ? interviewers.map((person) => ({
+      snapshotPayload.interviewers.length > 0
+        ? snapshotPayload.interviewers.map((person) => ({
             closingPrompt,
             instructions: buildAgentInstructions({
               ...baseContext,
@@ -1150,6 +1123,54 @@ export const studioInterviewsRouter = factory
     await ensureApplicableBindings(candidateId);
     const data = await loadInterviewQuestionTemplateBindings(candidateId);
     return c.json(data, 200);
+  })
+  .post("/:id/context-snapshot/refresh", requirePermission("interview", "update"), async (c) => {
+    // Explicit operator action: refresh this interview's frozen runtime
+    // context to current templates/config. Ordinary template edits do not
+    // affect existing snapshots.
+    const { activeOrg } = c.var;
+    if (!activeOrg) {
+      return c.json({ message: "Unauthorized" }, 401);
+    }
+    const roundId = c.req.param("id");
+    const visibilityScope = await loadVisibilityScope(
+      activeOrg.id,
+      c.var.member?.role,
+      c.var.user?.id,
+    );
+    const candidateId = await resolveCandidateIdForRound(roundId, activeOrg.id, visibilityScope);
+    if (!candidateId) {
+      return c.json({ error: "记录不存在。" }, 404);
+    }
+
+    const now = new Date();
+    const operatorId = c.var.user?.id ?? null;
+    const snapshot = await db.transaction(async (tx) => {
+      const refreshed = await refreshInterviewContextSnapshot(tx, {
+        createdAt: now,
+        createdBy: operatorId,
+        interviewRecordId: candidateId,
+        reason: "manual_refresh",
+        scheduleEntryId: roundId,
+      });
+      await tx.insert(interviewAuditLog).values({
+        action: "context_snapshot_refresh",
+        createdAt: now,
+        detail: {
+          snapshotId: refreshed.id,
+          snapshotVersion: refreshed.version,
+        },
+        id: crypto.randomUUID(),
+        interviewRecordId: candidateId,
+        operatorId,
+        organizationId: activeOrg.id,
+        scheduleEntryId: roundId,
+      });
+      return refreshed;
+    });
+
+    invalidateStudioInterviewCaches(activeOrg.id);
+    return c.json({ snapshot }, 200);
   })
   .put(
     "/:id/question-template-bindings",

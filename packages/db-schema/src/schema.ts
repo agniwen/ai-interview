@@ -22,6 +22,12 @@ import type {
   InterviewQuestionTemplateScope,
   InterviewQuestionTemplateSnapshot,
 } from "./interview-question-templates";
+import type {
+  InterviewContextSnapshotPayload,
+  InterviewContextSnapshotReason,
+  InterviewEvidenceSnapshotPayload,
+  InterviewSnapshotStatus,
+} from "./interview-snapshots";
 import type { InterviewTranscriptTurn } from "./interview-session";
 import type { InterviewQuestion, ResumeProfile } from "./interview/types";
 import type { JobDescriptionConfig } from "./job-description-config";
@@ -1927,6 +1933,74 @@ export const interviewQuestionTemplateBinding = pgTable(
     index("interview_question_template_binding_template_idx").on(table.templateId),
     index("interview_question_template_binding_version_idx").on(table.versionId),
     index("interview_question_template_binding_organization_idx").on(table.organizationId),
+  ],
+);
+
+export const interviewContextSnapshot = pgTable(
+  "interview_context_snapshot",
+  {
+    contentHash: text("content_hash").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
+    id: text("id").primaryKey(),
+    interviewRecordId: text("interview_record_id")
+      .notNull()
+      .references(() => studioInterview.id, { onDelete: "cascade" }),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    payload: jsonb("payload").$type<InterviewContextSnapshotPayload>().notNull(),
+    reason: text("reason").$type<InterviewContextSnapshotReason>().notNull(),
+    scheduleEntryId: text("schedule_entry_id").references(() => studioInterviewSchedule.id, {
+      onDelete: "set null",
+    }),
+    status: text("status").$type<InterviewSnapshotStatus>().notNull().default("active"),
+    supersededAt: timestamp("superseded_at", { withTimezone: true }),
+    version: integer("version").notNull(),
+  },
+  (table) => [
+    uniqueIndex("interview_context_snapshot_record_version_uq").on(
+      table.interviewRecordId,
+      table.version,
+    ),
+    index("interview_context_snapshot_record_status_idx").on(table.interviewRecordId, table.status),
+    index("interview_context_snapshot_round_idx").on(table.scheduleEntryId),
+    index("interview_context_snapshot_organization_idx").on(table.organizationId),
+  ],
+);
+
+export const interviewEvidenceSnapshot = pgTable(
+  "interview_evidence_snapshot",
+  {
+    contentHash: text("content_hash").notNull(),
+    contextSnapshotId: text("context_snapshot_id")
+      .notNull()
+      .references(() => interviewContextSnapshot.id, { onDelete: "restrict" }),
+    conversationId: text("conversation_id")
+      .notNull()
+      .references(() => interviewConversation.conversationId, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    id: text("id").primaryKey(),
+    interviewRecordId: text("interview_record_id")
+      .notNull()
+      .references(() => studioInterview.id, { onDelete: "cascade" }),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    payload: jsonb("payload").$type<InterviewEvidenceSnapshotPayload>().notNull(),
+    scheduleEntryId: text("schedule_entry_id").references(() => studioInterviewSchedule.id, {
+      onDelete: "set null",
+    }),
+  },
+  (table) => [
+    uniqueIndex("interview_evidence_snapshot_conversation_hash_uq").on(
+      table.conversationId,
+      table.contentHash,
+    ),
+    index("interview_evidence_snapshot_record_idx").on(table.interviewRecordId),
+    index("interview_evidence_snapshot_round_idx").on(table.scheduleEntryId),
+    index("interview_evidence_snapshot_context_idx").on(table.contextSnapshotId),
+    index("interview_evidence_snapshot_organization_idx").on(table.organizationId),
   ],
 );
 

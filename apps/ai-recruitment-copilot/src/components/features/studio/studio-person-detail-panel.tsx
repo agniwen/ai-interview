@@ -11,6 +11,7 @@
 
 import Markdown from "react-markdown";
 import type { CandidateFormSubmissionWithSnapshot } from "@arc/db-schema/candidate-forms";
+import type { StudioInterviewConversationReport } from "@arc/db-schema/interview-session";
 import type { StudioInterviewRoundDetail } from "@arc/shared/studio-interview-rounds";
 import { canEditResumeRecord, canLaunchInterviewFromResume } from "@arc/shared/studio-resumes";
 import type { ResumeLibraryDetail } from "@arc/shared/studio-resumes";
@@ -46,6 +47,7 @@ import {
   BotIcon,
   ExternalLinkIcon,
   EyeIcon,
+  InfoIcon,
   MessageSquareTextIcon,
   PencilIcon,
   RotateCcwIcon,
@@ -81,6 +83,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Modal } from "@/components/ui/modal";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -235,6 +238,9 @@ interface CollectedCandidateInfoItem {
   sequence: number;
   sourceLabel: string;
 }
+
+type ReportSnapshotMetadata = NonNullable<StudioInterviewConversationReport["snapshotMetadata"]>;
+type ReportFullTextInput = NonNullable<ReportSnapshotMetadata["fullTextInput"]>;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
@@ -543,6 +549,13 @@ interface DetailPanelUiState {
   updatingRoundId: string | null;
 }
 
+function resolveActiveEvidence(
+  selectedEvidence: SelectedEvidenceState | null,
+  conversationId: string,
+) {
+  return selectedEvidence?.conversationId === conversationId ? selectedEvidence : null;
+}
+
 type DetailPanelUiAction =
   | { id: string | null; type: "pendingResetSubmissionChanged" }
   | { id: string | null; type: "resettingRoundChanged" }
@@ -582,6 +595,438 @@ function detailPanelUiReducer(
       return state;
     }
   }
+}
+
+function ReportMetadataButton({
+  disabled,
+  label,
+  onClick,
+  visible,
+}: {
+  disabled: boolean;
+  label: string;
+  onClick: () => void;
+  visible: boolean;
+}) {
+  if (!visible) {
+    return null;
+  }
+
+  return (
+    <Button disabled={disabled} onClick={onClick} size="sm" type="button" variant="outline">
+      <InfoIcon className="size-3.5" />
+      {label}
+    </Button>
+  );
+}
+
+function InterviewReportMetadataSnapshotSection({
+  metadata,
+}: {
+  metadata: ReportSnapshotMetadata;
+}) {
+  return (
+    <section className="rounded-xl border border-border/60 bg-background p-4 shadow-sm">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h4 className="font-medium text-sm">快照</h4>
+        {metadata.contextSnapshot ? (
+          <Badge variant="outline">v{metadata.contextSnapshot.version}</Badge>
+        ) : null}
+      </div>
+      <div className="mt-4 grid gap-x-8 gap-y-4 md:grid-cols-2">
+        <DetailRow
+          label="Context Snapshot"
+          value={
+            metadata.contextSnapshot ? (
+              <span className="break-all">{metadata.contextSnapshot.id}</span>
+            ) : (
+              "暂无"
+            )
+          }
+        />
+        <DetailRow
+          label="Evidence Snapshot"
+          value={
+            metadata.evidenceSnapshot ? (
+              <span className="break-all">{metadata.evidenceSnapshot.id}</span>
+            ) : (
+              "暂无"
+            )
+          }
+        />
+        <DetailRow
+          label="Context Hash"
+          value={
+            metadata.contextSnapshot ? (
+              <span className="break-all">{metadata.contextSnapshot.contentHash}</span>
+            ) : (
+              "暂无"
+            )
+          }
+        />
+        <DetailRow
+          label="Evidence Hash"
+          value={
+            metadata.evidenceSnapshot ? (
+              <span className="break-all">{metadata.evidenceSnapshot.contentHash}</span>
+            ) : (
+              "暂无"
+            )
+          }
+        />
+        <DetailRow
+          label="Context 创建时间"
+          value={
+            metadata.contextSnapshot ? (
+              <TimeDisplay
+                options={DATE_TIME_DISPLAY_OPTIONS}
+                value={metadata.contextSnapshot.createdAt}
+              />
+            ) : (
+              "暂无"
+            )
+          }
+        />
+        <DetailRow
+          label="Evidence 生成时间"
+          value={
+            metadata.evidenceSnapshot?.generatedAt ? (
+              <TimeDisplay
+                options={DATE_TIME_DISPLAY_OPTIONS}
+                value={metadata.evidenceSnapshot.generatedAt}
+              />
+            ) : (
+              "暂无"
+            )
+          }
+        />
+        <DetailRow label="原因" value={metadata.contextSnapshot?.reason ?? "暂无"} />
+        <DetailRow label="状态" value={metadata.contextSnapshot?.status ?? "暂无"} />
+      </div>
+    </section>
+  );
+}
+
+function InterviewReportMetadataFrozenInputSection({
+  metadata,
+}: {
+  metadata: ReportSnapshotMetadata;
+}) {
+  return (
+    <section className="rounded-xl border border-border/60 bg-background p-4 shadow-sm">
+      <h4 className="font-medium text-sm">冻结输入</h4>
+      {metadata.frozenInput ? (
+        <div className="mt-4 grid gap-x-8 gap-y-4 md:grid-cols-2">
+          <DetailRow label="候选人" value={metadata.frozenInput.candidateName ?? "暂无"} />
+          <DetailRow label="邮箱" value={metadata.frozenInput.candidateEmail ?? "暂无"} />
+          <DetailRow label="目标岗位" value={metadata.frozenInput.targetRole ?? "暂无"} />
+          <DetailRow label="JD" value={metadata.frozenInput.jobDescriptionName ?? "未绑定"} />
+          <DetailRow label="面试官数" value={metadata.frozenInput.interviewerCount} />
+          <DetailRow label="表单模板数" value={metadata.frozenInput.formCount} />
+          <DetailRow label="表单问题数" value={metadata.frozenInput.formQuestionCount} />
+          <DetailRow label="表单提交数" value={metadata.frozenInput.formSubmissionCount} />
+          <DetailRow label="面试题模板数" value={metadata.frozenInput.questionTemplateCount} />
+          <DetailRow
+            label="模板题目数"
+            value={metadata.frozenInput.questionTemplateQuestionCount}
+          />
+          <DetailRow
+            label="候选人专属题数"
+            value={metadata.frozenInput.personalizedQuestionCount}
+          />
+        </div>
+      ) : (
+        <p className="mt-3 text-muted-foreground text-sm">
+          暂无冻结输入摘要，可能需要先执行快照回填。
+        </p>
+      )}
+    </section>
+  );
+}
+
+function InterviewReportMetadataSessionSection({ metadata }: { metadata: ReportSnapshotMetadata }) {
+  return (
+    <section className="rounded-xl border border-border/60 bg-background p-4 shadow-sm">
+      <h4 className="font-medium text-sm">会话</h4>
+      <div className="mt-4 grid gap-x-8 gap-y-4 md:grid-cols-2">
+        <DetailRow
+          label="轮次 ID"
+          value={
+            metadata.session.scheduleEntryId ? (
+              <span className="break-all">{metadata.session.scheduleEntryId}</span>
+            ) : (
+              "暂无"
+            )
+          }
+        />
+        <DetailRow label="对话轮次" value={metadata.session.transcriptTurnCount} />
+        <DetailRow label="录制状态" value={metadata.session.recordingStatus ?? "未录制"} />
+        <DetailRow
+          label="录制时长"
+          value={
+            metadata.session.recordingDurationSecs === null
+              ? "暂无"
+              : `${metadata.session.recordingDurationSecs} 秒`
+          }
+        />
+      </div>
+    </section>
+  );
+}
+
+function joinTextLines(lines: (string | null | undefined)[]) {
+  return lines
+    .map((line) => line?.trim())
+    .filter(Boolean)
+    .join("\n");
+}
+
+function joinTextBlocks(blocks: string[]) {
+  return blocks
+    .map((block) => block.trim())
+    .filter(Boolean)
+    .join("\n\n");
+}
+
+function formatCandidateFullTextInput(input: ReportFullTextInput) {
+  return joinTextLines([
+    `候选人：${input.candidate.candidateName ?? "暂无"}`,
+    `邮箱：${input.candidate.candidateEmail ?? "暂无"}`,
+    `电话：${input.candidate.candidatePhone ?? "暂无"}`,
+    `目标岗位：${input.candidate.targetRole ?? "暂无"}`,
+    input.candidate.resumeProfileJson
+      ? `简历画像 JSON：\n${input.candidate.resumeProfileJson}`
+      : null,
+  ]);
+}
+
+function formatJobFullTextInput(input: ReportFullTextInput) {
+  return joinTextLines([
+    input.jobDescription ? `JD：${input.jobDescription.name}` : "JD：未绑定",
+    input.jobDescription?.prompt ? `JD 原文：\n${input.jobDescription.prompt}` : "JD 原文：暂无",
+    input.globalConfig.companyContext
+      ? `公司上下文：\n${input.globalConfig.companyContext}`
+      : "公司上下文：暂无",
+    input.globalConfig.openingInstructions
+      ? `开场指令：\n${input.globalConfig.openingInstructions}`
+      : "开场指令：暂无",
+    input.globalConfig.closingInstructions
+      ? `结束指令：\n${input.globalConfig.closingInstructions}`
+      : "结束指令：暂无",
+  ]);
+}
+
+function formatInterviewersFullTextInput(input: ReportFullTextInput) {
+  return joinTextBlocks(
+    input.interviewers.map((interviewer, index) =>
+      joinTextLines([
+        `${index + 1}. ${interviewer.name}`,
+        interviewer.voice ? `声音：${interviewer.voice}` : null,
+        interviewer.prompt ? `Prompt：\n${interviewer.prompt}` : "Prompt：暂无",
+      ]),
+    ),
+  );
+}
+
+function formatFormsFullTextInput(input: ReportFullTextInput) {
+  const templates = input.forms.map((form) =>
+    joinTextLines([
+      `表单：${form.title} v${form.version}`,
+      form.description ? `描述：${form.description}` : null,
+      ...form.questions.map((question, index) =>
+        joinTextLines([
+          `${index + 1}. ${question.label}`,
+          `类型：${question.type}${question.required ? " · 必填" : ""}`,
+          question.helperText ? `提示：${question.helperText}` : null,
+          question.optionsText ? `选项：\n${question.optionsText}` : null,
+        ]),
+      ),
+    ]),
+  );
+  const submissions = input.formSubmissions.map((submission) =>
+    joinTextLines([
+      `提交：${submission.title} v${submission.version}`,
+      `提交时间：${submission.submittedAt}`,
+      ...submission.answers.map(
+        (answer, index) => `${index + 1}. ${answer.label}\n${answer.valueText || "暂无回答"}`,
+      ),
+    ]),
+  );
+
+  return joinTextBlocks([...templates, ...submissions]);
+}
+
+function formatQuestionsFullTextInput(input: ReportFullTextInput) {
+  const templates = input.questionTemplates.map((template) =>
+    joinTextLines([
+      `题库模板：${template.title} v${template.version}`,
+      template.description ? `描述：${template.description}` : null,
+      ...template.questions.map(
+        (question, index) => `${index + 1}. [${question.difficulty}] ${question.content}`,
+      ),
+    ]),
+  );
+  const personalized = input.personalizedQuestions.length
+    ? joinTextLines([
+        "候选人专属题：",
+        ...input.personalizedQuestions.map(
+          (question) => `${question.order}. [${question.difficulty}] ${question.question}`,
+        ),
+      ])
+    : "";
+
+  return joinTextBlocks([...templates, personalized]);
+}
+
+function formatTranscriptFullTextInput(input: ReportFullTextInput) {
+  return input.transcript
+    .map((turn, index) => {
+      const timeLabel = typeof turn.timeInCallSecs === "number" ? ` @ ${turn.timeInCallSecs}s` : "";
+      return `${index + 1}. ${turn.role}${timeLabel}\n${turn.message}`;
+    })
+    .join("\n\n");
+}
+
+function MetadataTextBlock({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex flex-col gap-2">
+      <span className="font-medium text-muted-foreground text-xs">{label}</span>
+      <pre className="max-h-80 overflow-auto whitespace-pre-wrap break-words rounded-lg bg-muted/50 p-3 text-foreground text-xs leading-5">
+        {value.trim() || "暂无"}
+      </pre>
+    </div>
+  );
+}
+
+function InterviewReportMetadataFullTextInputSection({
+  metadata,
+}: {
+  metadata: ReportSnapshotMetadata;
+}) {
+  const input = metadata.fullTextInput;
+  if (!input) {
+    return (
+      <section className="rounded-xl border border-border/60 bg-background p-4 shadow-sm">
+        <h4 className="font-medium text-sm">完整输入</h4>
+        <p className="mt-3 text-muted-foreground text-sm">
+          当前快照缺少完整输入文本，可能需要重新生成快照或执行回填。
+        </p>
+      </section>
+    );
+  }
+
+  return (
+    <section className="rounded-xl border border-border/60 bg-background p-4 shadow-sm">
+      <h4 className="font-medium text-sm">完整输入</h4>
+      <Accordion
+        className="mt-3 rounded-xl border border-border/60"
+        defaultValue={["job", "questions", "transcript"]}
+        type="multiple"
+      >
+        <AccordionItem value="candidate">
+          <AccordionTrigger className="px-4 py-3 hover:no-underline">
+            候选人与简历画像
+          </AccordionTrigger>
+          <AccordionContent className="px-4 pb-4">
+            <MetadataTextBlock label="候选人输入" value={formatCandidateFullTextInput(input)} />
+          </AccordionContent>
+        </AccordionItem>
+        <AccordionItem value="job">
+          <AccordionTrigger className="px-4 py-3 hover:no-underline">
+            JD 原文与全局指令
+          </AccordionTrigger>
+          <AccordionContent className="px-4 pb-4">
+            <MetadataTextBlock label="JD 原文" value={formatJobFullTextInput(input)} />
+          </AccordionContent>
+        </AccordionItem>
+        <AccordionItem value="interviewers">
+          <AccordionTrigger className="px-4 py-3 hover:no-underline">面试官</AccordionTrigger>
+          <AccordionContent className="px-4 pb-4">
+            <MetadataTextBlock
+              label="面试官 Prompt"
+              value={formatInterviewersFullTextInput(input)}
+            />
+          </AccordionContent>
+        </AccordionItem>
+        <AccordionItem value="forms">
+          <AccordionTrigger className="px-4 py-3 hover:no-underline">
+            表单与候选人回答
+          </AccordionTrigger>
+          <AccordionContent className="px-4 pb-4">
+            <MetadataTextBlock label="表单输入" value={formatFormsFullTextInput(input)} />
+          </AccordionContent>
+        </AccordionItem>
+        <AccordionItem value="questions">
+          <AccordionTrigger className="px-4 py-3 hover:no-underline">面试题</AccordionTrigger>
+          <AccordionContent className="px-4 pb-4">
+            <MetadataTextBlock label="题目输入" value={formatQuestionsFullTextInput(input)} />
+          </AccordionContent>
+        </AccordionItem>
+        <AccordionItem className="border-b-0" value="transcript">
+          <AccordionTrigger className="px-4 py-3 hover:no-underline">Transcript</AccordionTrigger>
+          <AccordionContent className="px-4 pb-4">
+            <MetadataTextBlock label="完整对话文本" value={formatTranscriptFullTextInput(input)} />
+          </AccordionContent>
+        </AccordionItem>
+      </Accordion>
+    </section>
+  );
+}
+
+function InterviewReportMetadataJsonSection({ metadata }: { metadata: ReportSnapshotMetadata }) {
+  return (
+    <Accordion
+      className="rounded-xl border border-border/60 bg-background"
+      collapsible
+      type="single"
+    >
+      <AccordionItem className="border-0" value="raw">
+        <AccordionTrigger className="px-4 py-3 hover:no-underline">结构化 JSON</AccordionTrigger>
+        <AccordionContent className="px-4 pb-4">
+          <pre className="max-h-80 overflow-auto rounded-lg bg-muted/50 p-3 text-xs leading-5">
+            {JSON.stringify(metadata, null, 2)}
+          </pre>
+        </AccordionContent>
+      </AccordionItem>
+    </Accordion>
+  );
+}
+
+function InterviewReportMetadataDialog({
+  onOpenChange,
+  report,
+}: {
+  onOpenChange: (open: boolean) => void;
+  report: StudioInterviewConversationReport | null;
+}) {
+  const metadata = report?.snapshotMetadata ?? null;
+
+  return (
+    <Modal
+      bodyClassName="space-y-5"
+      description={
+        report ? <span className="break-all text-xs">会话 {report.conversationId}</span> : undefined
+      }
+      onOpenChange={onOpenChange}
+      open={report !== null}
+      size="xl"
+      title="面试元信息"
+    >
+      {metadata ? (
+        <>
+          <InterviewReportMetadataSnapshotSection metadata={metadata} />
+          <InterviewReportMetadataFrozenInputSection metadata={metadata} />
+          <InterviewReportMetadataSessionSection metadata={metadata} />
+          <InterviewReportMetadataFullTextInputSection metadata={metadata} />
+          <InterviewReportMetadataJsonSection metadata={metadata} />
+        </>
+      ) : (
+        <div className="rounded-xl border border-dashed border-border/70 bg-muted/30 px-4 py-8 text-center text-muted-foreground text-sm">
+          暂无快照元信息，可能需要先执行数据库迁移和快照回填。
+        </div>
+      )}
+    </Modal>
+  );
 }
 
 // oxlint-disable-next-line complexity -- Panel orchestrates many conditional sections driven by record state and mode; flattening adds noise.
@@ -681,6 +1126,7 @@ function useStudioPersonDetailPanel({
   const isPublic = accessMode === "public";
   const isReview = accessMode === "review";
   const canUseManagementActions = accessMode === "authed";
+  const canViewReportMetadata = accessMode === "authed";
   // 公开模式下故意不依赖 slug；authed 模式下我们仍要求 workspace 上下文。
   // Public mode is slug-agnostic by design; authed mode still needs the workspace ctx.
   if (!isPublic && !optionalSlug) {
@@ -693,6 +1139,9 @@ function useStudioPersonDetailPanel({
   const slug = optionalSlug ?? "";
   const [uiState, dispatchUi] = useReducer(detailPanelUiReducer, initialDetailPanelUiState);
   const [activeTab, setActiveTab] = useState<StudioPersonDetailTab>(defaultTab ?? "overview");
+  const [metadataReport, setMetadataReport] = useState<StudioInterviewConversationReport | null>(
+    null,
+  );
   const [optimisticPipelineStage, setOptimisticPipelineStage] = useState<PipelineStage | null>(
     null,
   );
@@ -709,6 +1158,7 @@ function useStudioPersonDetailPanel({
 
   useEffect(() => {
     setActiveTab(defaultTab ?? "overview");
+    setMetadataReport(null);
     setOptimisticPipelineStage(null);
   }, [defaultTab, mode, recordId, roundId]);
 
@@ -1607,10 +2057,11 @@ function useStudioPersonDetailPanel({
                             report,
                             reportTranscriptStats.get(report.conversationId),
                           );
-                        const activeEvidence =
-                          selectedEvidence?.conversationId === report.conversationId
-                            ? selectedEvidence
-                            : null;
+                        const activeEvidence = resolveActiveEvidence(
+                          selectedEvidence,
+                          report.conversationId,
+                        );
+                        const snapshotMetadata = report.snapshotMetadata ?? null;
                         const handleEvidenceSelect = (evidence: EvidenceQuote) => {
                           dispatchUi({
                             evidence: {
@@ -1667,7 +2118,15 @@ function useStudioPersonDetailPanel({
                                     />
                                   ) : null}
                                   <section className="rounded-xl border border-border/60 bg-background p-4 shadow-sm">
-                                    <h4 className="font-medium text-sm">会话概览</h4>
+                                    <div className="flex flex-wrap items-center justify-between gap-3">
+                                      <h4 className="font-medium text-sm">会话概览</h4>
+                                      <ReportMetadataButton
+                                        disabled={!snapshotMetadata}
+                                        label=""
+                                        onClick={() => setMetadataReport(report)}
+                                        visible={canViewReportMetadata}
+                                      />
+                                    </div>
                                     <div className="mt-3 grid gap-x-8 gap-y-4 text-sm md:grid-cols-2">
                                       <DetailRow
                                         label="会话 ID"
@@ -2011,6 +2470,16 @@ function useStudioPersonDetailPanel({
           title,
         })}
       </Tabs>
+      {mode === "interview" && canViewReportMetadata ? (
+        <InterviewReportMetadataDialog
+          onOpenChange={(open) => {
+            if (!open) {
+              setMetadataReport(null);
+            }
+          }}
+          report={metadataReport}
+        />
+      ) : null}
       {mode === "interview" && !isPublic ? (
         <AlertDialog
           onOpenChange={(next) => {

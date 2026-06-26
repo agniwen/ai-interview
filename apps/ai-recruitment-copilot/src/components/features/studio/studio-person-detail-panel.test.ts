@@ -155,4 +155,21 @@ describe("StudioPersonDetailPanel visual density", () => {
       "rounded-xl border border-border/60 bg-background p-4 shadow-sm",
     );
   });
+
+  it("exposes internal report snapshot metadata from each report item", () => {
+    const reportsSource = sourceBetween(
+      '<TabsContent value="reports">',
+      '<TabsContent value="questions">',
+    );
+
+    expect(source).toContain("function InterviewReportMetadataDialog");
+    expect(source).toContain("function InterviewReportMetadataFullTextInputSection");
+    expect(reportsSource).toContain("canViewReportMetadata");
+    expect(reportsSource).toContain("snapshotMetadata");
+    expect(source).toContain("metadata.fullTextInput");
+    expect(source).toContain("完整输入");
+    expect(source).toContain("JD 原文");
+    expect(reportsSource).toContain("元信息");
+    expect(source).toContain("<InterviewReportMetadataDialog");
+  });
 });

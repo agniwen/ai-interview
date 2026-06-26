@@ -23,6 +23,7 @@ describe("PPTX preview conversion", () => {
         );
         await writeFile(outputPath, new Uint8Array([4, 5, 6]));
       },
+      sofficeCommand: "soffice",
       tempDirFactory: () => mkdtemp(path.join(tmpdir(), "pptx-preview-test-")),
     });
 
