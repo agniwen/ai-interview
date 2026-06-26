@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
+import { getBannedAuthMessage } from "@/components/features/auth/auth-error";
 import { authClient } from "@/lib/client/auth-client";
 
 interface LoginErrorToastProps {
@@ -9,7 +11,6 @@ interface LoginErrorToastProps {
   errorDescription?: string | undefined;
 }
 
-const DEFAULT_BANNED_MESSAGE = "你的账号已被封禁，请联系管理员。";
 const DEFAULT_GENERIC_MESSAGE = "登录过程中发生错误，请稍后再试。";
 
 /**
@@ -23,6 +24,7 @@ const DEFAULT_GENERIC_MESSAGE = "登录过程中发生错误，请稍后再试�
  * from the URL so a refresh won't re-trigger it.
  */
 export function LoginErrorToast({ errorCode, errorDescription }: LoginErrorToastProps) {
+  const navigate = useNavigate();
   // useEffect 在 React strict mode 下会触发两次；ref 守护避免重复弹 toast。
   // Strict-mode double-invocation guard so the toast doesn't fire twice.
   const firedRef = useRef(false);
@@ -34,8 +36,9 @@ export function LoginErrorToast({ errorCode, errorDescription }: LoginErrorToast
     firedRef.current = true;
 
     const isBanned = errorCode === "banned";
-    const message =
-      errorDescription?.trim() || (isBanned ? DEFAULT_BANNED_MESSAGE : DEFAULT_GENERIC_MESSAGE);
+    const message = isBanned
+      ? getBannedAuthMessage(errorDescription)
+      : errorDescription?.trim() || DEFAULT_GENERIC_MESSAGE;
 
     toast.error(message, { duration: isBanned ? 8000 : 6000 });
 
@@ -47,6 +50,9 @@ export function LoginErrorToast({ errorCode, errorDescription }: LoginErrorToast
       } catch {
         // ignore
       }
+      if (isBanned) {
+        await navigate({ replace: true, to: "/" });
+      }
     })();
 
     // 把 error / error_description 从 URL 上摘掉，避免刷新重复弹 toast。
@@ -57,7 +63,7 @@ export function LoginErrorToast({ errorCode, errorDescription }: LoginErrorToast
     const next = cleaned.toString();
     const pathname = window.location.pathname || "/login";
     window.history.replaceState(window.history.state, "", next ? `${pathname}?${next}` : pathname);
-  }, [errorCode, errorDescription]);
+  }, [errorCode, errorDescription, navigate]);
 
   return null;
 }

@@ -81,6 +81,7 @@ async function listPlatformUsers(query: DataGridQueryState<EmptyFilters>) {
         image: user.image,
         lastActiveAt: lastActiveAtSql,
         name: user.name,
+        remark: user.remark,
         role: user.role,
         updatedAt: user.updatedAt,
       })

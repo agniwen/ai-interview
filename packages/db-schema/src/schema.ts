@@ -167,6 +167,7 @@ export const user = pgTable("user", {
   lastActiveAt: timestamp("last_active_at", { withTimezone: true }),
   lastActiveOrganizationId: text("last_active_organization_id"),
   name: text("name").notNull(),
+  remark: text("remark"),
   role: text("role").default("user").notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .defaultNow()

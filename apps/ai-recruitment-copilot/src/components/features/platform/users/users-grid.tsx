@@ -43,14 +43,19 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Field, FieldLabel } from "@/components/ui/field";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { rpcFetch } from "@/lib/client/api";
 import { rpc } from "@/lib/client/rpc";
 import { formatDate, formatDateOnly } from "@arc/shared/utils/time";
+import { formatUserNameWithRemark } from "./user-display";
 
 interface UserRecord {
   id: string;
@@ -65,6 +70,7 @@ interface UserRecord {
   feishuTenantName: string | null;
   createdAt: string;
   lastActiveAt: string | null;
+  remark: string | null;
   updatedAt: string;
 }
 
@@ -276,7 +282,81 @@ export function UsersGrid() {
 
   const [forceLogoutTarget, setForceLogoutTarget] = useState<UserRecord | null>(null);
   const [forceLogoutPending, setForceLogoutPending] = useState(false);
+  const [banTarget, setBanTarget] = useState<UserRecord | null>(null);
+  const [banPending, setBanPending] = useState(false);
+  const [unbanTarget, setUnbanTarget] = useState<UserRecord | null>(null);
+  const [unbanPending, setUnbanPending] = useState(false);
+  const [remarkTarget, setRemarkTarget] = useState<UserRecord | null>(null);
+  const [remarkValue, setRemarkValue] = useState("");
+  const [remarkPending, setRemarkPending] = useState(false);
   const [workspacesTarget, setWorkspacesTarget] = useState<UserRecord | null>(null);
+
+  function openRemarkDialog(record: UserRecord) {
+    setRemarkTarget(record);
+    setRemarkValue(record.remark ?? "");
+  }
+
+  async function saveRemark() {
+    if (!remarkTarget) {
+      return;
+    }
+    setRemarkPending(true);
+    try {
+      await rpcFetch(
+        rpc.api.platform.users[":userId"].remark.$patch({
+          json: {
+            remark: remarkValue.trim() || null,
+          },
+          param: { userId: remarkTarget.id },
+        }),
+        "保存备注失败",
+      );
+      toast.success("备注已保存");
+      setRemarkTarget(null);
+      await grid.invalidate();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "保存备注失败");
+    } finally {
+      setRemarkPending(false);
+    }
+  }
+
+  async function confirmBanUser() {
+    if (!banTarget) {
+      return;
+    }
+    setBanPending(true);
+    const { error } = await authClient.admin.banUser({
+      banReason: "平台管理员封禁",
+      userId: banTarget.id,
+    });
+    setBanPending(false);
+    if (error) {
+      toast.error(error.message ?? "封禁用户失败");
+      return;
+    }
+    toast.success(`${banTarget.name || banTarget.email} 已封禁并强制退出登录`);
+    setBanTarget(null);
+    await grid.invalidate();
+  }
+
+  async function confirmUnbanUser() {
+    if (!unbanTarget) {
+      return;
+    }
+    setUnbanPending(true);
+    const { error } = await authClient.admin.unbanUser({
+      userId: unbanTarget.id,
+    });
+    setUnbanPending(false);
+    if (error) {
+      toast.error(error.message ?? "解封用户失败");
+      return;
+    }
+    toast.success(`${unbanTarget.name || unbanTarget.email} 已解封`);
+    setUnbanTarget(null);
+    await grid.invalidate();
+  }
 
   async function confirmForceLogout() {
     if (!forceLogoutTarget) {
@@ -297,7 +377,13 @@ export function UsersGrid() {
 
   const columns = [
     customColumn<UserRecord>({
-      cell: (r) => <MemberCell email={r.email} image={r.image} name={r.name} />,
+      cell: (r) => (
+        <MemberCell
+          email={r.email}
+          image={r.image}
+          name={formatUserNameWithRemark(r.name, r.remark, r.email)}
+        />
+      ),
       key: "user",
       title: "用户",
     }),
@@ -394,6 +480,23 @@ export function UsersGrid() {
           onClick: (r) => setWorkspacesTarget(r),
         },
         {
+          label: "编辑备注",
+          onClick: (r) => openRemarkDialog(r),
+        },
+        {
+          label: "封禁用户",
+          onClick: (r) => setBanTarget(r),
+          separator: "before",
+          show: (r) => !r.banned,
+          variant: "destructive",
+        },
+        {
+          label: "解封用户",
+          onClick: (r) => setUnbanTarget(r),
+          separator: "before",
+          show: (r) => r.banned,
+        },
+        {
           label: "强制下线",
           onClick: (r) => setForceLogoutTarget(r),
           variant: "destructive",
@@ -428,6 +531,98 @@ export function UsersGrid() {
         ]}
         getRowId={(r) => r.id}
       />
+
+      <Dialog
+        onOpenChange={(open) => {
+          if (!open) {
+            setRemarkTarget(null);
+          }
+        }}
+        open={remarkTarget !== null}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>编辑用户备注</DialogTitle>
+            <DialogDescription>
+              {remarkTarget ? remarkTarget.name || remarkTarget.email : "为用户添加平台内部备注。"}
+            </DialogDescription>
+          </DialogHeader>
+          <Field>
+            <FieldLabel htmlFor="platform-user-remark">备注</FieldLabel>
+            <Input
+              id="platform-user-remark"
+              maxLength={80}
+              onChange={(event) => setRemarkValue(event.target.value)}
+              placeholder="例如：供应商账号、测试账号"
+              value={remarkValue}
+            />
+          </Field>
+          <DialogFooter>
+            <Button
+              disabled={remarkPending}
+              onClick={() => setRemarkTarget(null)}
+              type="button"
+              variant="outline"
+            >
+              取消
+            </Button>
+            <Button disabled={remarkPending} onClick={() => void saveRemark()} type="button">
+              {remarkPending ? "保存中…" : "保存"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog onOpenChange={(open) => !open && setBanTarget(null)} open={banTarget !== null}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>确认封禁用户？</AlertDialogTitle>
+            <AlertDialogDescription>
+              将封禁「{banTarget?.name || banTarget?.email}」并撤销该用户所有 session。
+              之后该用户再次登录会看到封禁提示，并保持退出登录状态。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={banPending}>取消</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={banPending}
+              onClick={(e) => {
+                e.preventDefault();
+                void confirmBanUser();
+              }}
+              variant="destructive"
+            >
+              {banPending ? "处理中…" : "确认封禁"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        onOpenChange={(open) => !open && setUnbanTarget(null)}
+        open={unbanTarget !== null}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>确认解封用户？</AlertDialogTitle>
+            <AlertDialogDescription>
+              {`将解除「${unbanTarget?.name || unbanTarget?.email}」的封禁状态。解封后该用户可以重新登录。`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={unbanPending}>取消</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={unbanPending}
+              onClick={(e) => {
+                e.preventDefault();
+                void confirmUnbanUser();
+              }}
+            >
+              {unbanPending ? "处理中…" : "确认解封"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog
         onOpenChange={(open) => !open && setForceLogoutTarget(null)}
