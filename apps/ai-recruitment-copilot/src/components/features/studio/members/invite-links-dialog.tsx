@@ -39,9 +39,10 @@ import { rpc } from "@/lib/client/rpc";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import {
   ASSIGNABLE_ROLES,
+  buildWorkspaceRoleOptions,
   getWorkspaceRoleDescription,
-  getWorkspaceRoleLabel,
 } from "./role-display";
+import type { WorkspaceRoleOption } from "./role-display";
 import { NO_ACCESS_WORKSPACE_ROLE } from "@arc/shared/permissions";
 
 interface InviteLinkDto {
@@ -72,6 +73,7 @@ function getDefaultInviteLinkRole(assignableRoles: readonly string[]): string {
 
 interface InviteLinkRoleDialogProps {
   actionLabel: string;
+  assignableRoleOptions?: readonly WorkspaceRoleOption[];
   assignableRoles: readonly string[];
   description: string;
   onOpenChange: (open: boolean) => void;
@@ -85,6 +87,7 @@ interface InviteLinkRoleDialogProps {
 
 function InviteLinkRoleDialog({
   actionLabel,
+  assignableRoleOptions,
   assignableRoles,
   description,
   onOpenChange,
@@ -96,6 +99,7 @@ function InviteLinkRoleDialog({
   onValueChange,
 }: InviteLinkRoleDialogProps) {
   const canSubmit = assignableRoles.includes(value);
+  const roleOptions = assignableRoleOptions ?? buildWorkspaceRoleOptions(assignableRoles);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -116,9 +120,9 @@ function InviteLinkRoleDialog({
             </SelectTrigger>
             <SelectContent>
               <SelectGroup>
-                {assignableRoles.map((role) => (
-                  <SelectItem key={role} value={role}>
-                    {getWorkspaceRoleLabel(role)}
+                {roleOptions.map((role) => (
+                  <SelectItem key={role.value} value={role.value}>
+                    {role.label}
                   </SelectItem>
                 ))}
               </SelectGroup>
@@ -179,6 +183,7 @@ interface LinkRowProps {
   onEdit: () => void;
   onEnable: () => void;
   onToggleExpand: () => void;
+  roleLabelByValue: ReadonlyMap<string, string>;
 }
 
 function LinkRow({
@@ -190,6 +195,7 @@ function LinkRow({
   onEdit,
   onEnable,
   onToggleExpand,
+  roleLabelByValue,
 }: LinkRowProps) {
   const url =
     typeof window === "undefined"
@@ -207,7 +213,9 @@ function LinkRow({
               {disabled ? " · 已禁用" : ""}
             </div>
             <div className="mt-2">
-              <Badge variant="outline">初始化角色：{getWorkspaceRoleLabel(link.initialRole)}</Badge>
+              <Badge variant="outline">
+                初始化角色：{roleLabelByValue.get(link.initialRole) ?? link.initialRole}
+              </Badge>
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-1">
@@ -248,10 +256,14 @@ async function copyInviteUrl(code: string) {
 }
 
 export function InviteLinksDialog({
+  assignableRoleOptions,
   assignableRoles = ASSIGNABLE_ROLES,
 }: {
+  assignableRoleOptions?: readonly WorkspaceRoleOption[];
   assignableRoles?: readonly string[];
 }) {
+  const roleOptions = assignableRoleOptions ?? buildWorkspaceRoleOptions(assignableRoles);
+  const roleLabelByValue = new Map(roleOptions.map((role) => [role.value, role.label]));
   const [open, setOpen] = useState(false);
   const slug = useWorkspaceSlug();
   const queryClient = useQueryClient();
@@ -393,6 +405,7 @@ export function InviteLinksDialog({
                   onEdit={() => setEditTarget(link)}
                   onEnable={() => enableMutation.mutate(link.id)}
                   onToggleExpand={() => setExpandedId((cur) => (cur === link.id ? null : link.id))}
+                  roleLabelByValue={roleLabelByValue}
                   slug={slug}
                 />
               ))
@@ -402,6 +415,7 @@ export function InviteLinksDialog({
       </DialogContent>
       <InviteLinkRoleDialog
         actionLabel="生成链接"
+        assignableRoleOptions={assignableRoleOptions}
         assignableRoles={assignableRoles}
         description="选择通过这个链接加入工作区后的初始化角色。"
         onOpenChange={setCreateOpen}
@@ -414,6 +428,7 @@ export function InviteLinksDialog({
       />
       <InviteLinkRoleDialog
         actionLabel="保存"
+        assignableRoleOptions={assignableRoleOptions}
         assignableRoles={assignableRoles}
         description="已通过该链接加入的成员不会被自动改角色。"
         onOpenChange={(nextOpen) => {

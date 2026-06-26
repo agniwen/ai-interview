@@ -29,13 +29,15 @@ import { Spinner } from "@/components/ui/spinner";
 import { authClient } from "@/lib/client/auth-client";
 import {
   ASSIGNABLE_ROLES,
+  buildWorkspaceRoleOptions,
   getWorkspaceRoleDescription,
-  getWorkspaceRoleLabel,
 } from "./role-display";
+import type { WorkspaceRoleOption } from "./role-display";
 
 const EMAIL_MAX_LENGTH = 200;
 
 interface InviteDialogProps {
+  assignableRoleOptions?: readonly WorkspaceRoleOption[];
   assignableRoles?: readonly string[];
   /** 自定义触发节点；省略则用默认"邀请成员"按钮。 */
   trigger?: ReactNode;
@@ -46,9 +48,11 @@ function getDefaultInviteRole(assignableRoles: readonly string[]): string {
 }
 
 export function InviteDialog({
+  assignableRoleOptions,
   assignableRoles = ASSIGNABLE_ROLES,
   trigger,
 }: InviteDialogProps = {}) {
+  const roleOptions = assignableRoleOptions ?? buildWorkspaceRoleOptions(assignableRoles);
   const [open, setOpen] = useState(false);
   const [email, setEmail] = useState("");
   const [role, setRole] = useState(() => getDefaultInviteRole(assignableRoles));
@@ -127,9 +131,9 @@ export function InviteDialog({
               </SelectTrigger>
               <SelectContent>
                 <SelectGroup>
-                  {assignableRoles.map((item) => (
-                    <SelectItem key={item} value={item}>
-                      {getWorkspaceRoleLabel(item)}
+                  {roleOptions.map((item) => (
+                    <SelectItem key={item.value} value={item.value}>
+                      {item.label}
                     </SelectItem>
                   ))}
                 </SelectGroup>
