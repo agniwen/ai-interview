@@ -90,6 +90,8 @@ import { useWorkspaceMemberRole, useWorkspaceSlug } from "@/lib/client/workspace
 import { useHasPermission } from "@/hooks/use-has-permission";
 import { StudioPersonDetailDialog } from "@/components/features/studio/studio-person-detail-dialog";
 import { StudioPersonEditDialog } from "@/components/features/studio/studio-person-edit-dialog";
+import { StudioResumeFloatingChat } from "@/components/features/studio/studio-resume-floating-chat";
+import { openStudioResumeChat } from "@/components/features/studio/studio-resume-chat";
 import { CreateResumeRecordDialog } from "@/components/features/studio/resumes/upload-resume-dialog";
 import type { CreateResumeRecordResult } from "@/components/features/studio/resumes/upload-resume-dialog";
 import {
@@ -372,6 +374,7 @@ function ResumeLibraryPage({ metrics }: { metrics: ResumeLibraryMetrics }) {
   const { data: session } = authClient.useSession();
   const currentUserId = session?.user?.id ?? null;
   const canCreateInterview = useHasPermission("interview", "create");
+  const canCreateChat = useHasPermission("chat", "create");
   const canCreateResumeLibrary = useHasPermission("resumeLibrary", "create");
   const canUpdateResumeLibrary = useHasPermission("resumeLibrary", "update");
   const canDeleteResumeLibrary = useHasPermission("resumeLibrary", "delete");
@@ -769,6 +772,15 @@ function ResumeLibraryPage({ metrics }: { metrics: ResumeLibraryMetrics }) {
               }),
           },
           {
+            label: "发起 AI Chat",
+            onClick: (r) =>
+              openStudioResumeChat({
+                candidateName: r.candidateName ?? null,
+                recordId: r.id,
+              }),
+            show: () => canCreateChat,
+          },
+          {
             label: "查看简历",
             onClick: (r) => setPreviewRecord(r),
             show: (r) =>
@@ -828,6 +840,7 @@ function ResumeLibraryPage({ metrics }: { metrics: ResumeLibraryMetrics }) {
     // startAiInterview captures setLaunchingRecord which is stable; safe to omit from deps.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [
+      canCreateChat,
       canCreateInterview,
       canDeleteResumeLibrary,
       canUpdateResumeLibrary,
@@ -1388,6 +1401,7 @@ function StudioResumesRoute() {
   return (
     <HydrationBoundary state={state.dehydratedState as unknown as DehydratedState}>
       <ResumeLibraryPage metrics={state.metrics} />
+      <StudioResumeFloatingChat />
     </HydrationBoundary>
   );
 }

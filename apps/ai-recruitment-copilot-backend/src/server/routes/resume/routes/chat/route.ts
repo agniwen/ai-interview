@@ -6,11 +6,29 @@ import { bakeParsedResumesIntoMessage } from "@arc/ai-recruitment-copilot-backen
 import { inlineAttachmentsForModel } from "@arc/ai-recruitment-copilot-backend/server/routes/resume/inline-attachments";
 import { resumeChatRequestSchema } from "@arc/ai-recruitment-copilot-backend/server/routes/resume/schema";
 import { runResumeScreening } from "@arc/ai-recruitment-copilot-backend/server/routes/resume/screening";
+import { loadStudioResumeChatContext } from "@arc/ai-recruitment-copilot-backend/server/routes/resume/utils/studio-resume-chat-context";
 import {
   checkConversationOwner,
   deleteMessagesFromId,
   upsertChatMessage,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/chat/dao/chat";
+
+async function loadOptionalStudioResumeContext({
+  orgId,
+  studioResumeId,
+}: {
+  orgId: string;
+  studioResumeId?: string;
+}): Promise<{ status: "ok"; context: string | null } | { status: "not_found" }> {
+  if (!studioResumeId) {
+    return { context: null, status: "ok" };
+  }
+  const context = await loadStudioResumeChatContext({
+    organizationId: orgId,
+    resumeId: studioResumeId,
+  });
+  return context ? { context, status: "ok" } : { status: "not_found" };
+}
 
 export const resumeChatRouter = factory
   .createApp()
@@ -21,6 +39,7 @@ export const resumeChatRouter = factory
       jobDescription,
       messages: rawMessages,
       model,
+      studioResumeId,
       trigger,
       messageId,
     } = c.req.valid("json");
@@ -103,6 +122,10 @@ export const resumeChatRouter = factory
     const messagesForModel = userId
       ? await inlineAttachmentsForModel(orgId, userId, bakedMessages)
       : bakedMessages;
+    const studioResumeContext = await loadOptionalStudioResumeContext({ orgId, studioResumeId });
+    if (studioResumeContext.status === "not_found") {
+      return c.json({ error: "Resume not found" }, 404);
+    }
 
     const result = await runResumeScreening({
       enableThinking,
@@ -110,6 +133,7 @@ export const resumeChatRouter = factory
       messages: messagesForModel,
       modelId: resolvedModel,
       orgId,
+      studioResumeContext: studioResumeContext.context,
       userId: userId ?? null,
     });
 

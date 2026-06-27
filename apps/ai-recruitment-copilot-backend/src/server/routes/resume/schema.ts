@@ -13,6 +13,8 @@ export const resumeChatRequestSchema = z.object({
    * whitelist and falls back to the default for unknown values.
    */
   model: z.string().optional(),
+  /** Studio 简历库记录 id；仅作为本轮模型上下文，不写入 chat_message。 */
+  studioResumeId: z.string().min(1).optional(),
   /** Forwarded by `DefaultChatTransport` so the server can branch on intent (AI SDK v6 values). */
   trigger: z.enum(["submit-message", "regenerate-message"]).optional(),
 });

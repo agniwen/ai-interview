@@ -33,6 +33,7 @@ import { deleteConversation, fetchConversations } from "@/lib/client/api";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { cn } from "@arc/shared/utils";
 import { CHAT_EVENTS, notifyConversationsChanged } from "./lib/chat-events";
+import { isStudioResumeChatId } from "../studio/studio-resume-chat";
 
 interface ConversationListItem {
   id: string;
@@ -355,12 +356,14 @@ export function ChatSidebarSlots() {
     try {
       const rows = await fetchConversations(slug);
       setConversations(
-        rows.map((item) => ({
-          id: item.id,
-          isTitleGenerating: item.isTitleGenerating,
-          title: item.title,
-          updatedAt: item.updatedAt,
-        })),
+        rows
+          .filter((item) => !isStudioResumeChatId(item.id))
+          .map((item) => ({
+            id: item.id,
+            isTitleGenerating: item.isTitleGenerating,
+            title: item.title,
+            updatedAt: item.updatedAt,
+          })),
       );
     } catch {
       // network failure — keep the previous list; the next tick will retry

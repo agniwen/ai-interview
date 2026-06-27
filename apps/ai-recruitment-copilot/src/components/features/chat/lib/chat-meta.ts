@@ -1,6 +1,7 @@
 export interface ChatMeta {
   jobDescription: string;
   enableThinking: boolean;
+  studioResumeId?: string;
   /**
    * 用户在 composer 选中的模型 id；空串表示沿用服务端默认。
    * Model id picked in the composer; empty string defers to the server default.

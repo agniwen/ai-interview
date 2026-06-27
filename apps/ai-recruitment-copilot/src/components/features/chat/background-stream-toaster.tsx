@@ -4,7 +4,25 @@ import { useNavigate, useParams } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { isStudioResumeChatId } from "../studio/studio-resume-chat";
+import type { ChatFinishEvent } from "./lib/chat-registry";
 import { subscribeChatFinish } from "./lib/chat-registry";
+
+export function shouldShowBackgroundStreamToast(
+  event: ChatFinishEvent,
+  currentChatId: string | null,
+): boolean {
+  if (event.isAbort || event.isDisconnect || event.isError) {
+    return false;
+  }
+  if (event.message.role !== "assistant") {
+    return false;
+  }
+  if (isStudioResumeChatId(event.chatId)) {
+    return false;
+  }
+  return event.chatId !== currentChatId;
+}
 
 export function BackgroundStreamToaster() {
   const navigate = useNavigate();
@@ -15,16 +33,11 @@ export function BackgroundStreamToaster() {
 
   useEffect(
     () =>
-      subscribeChatFinish(({ chatId, slug, message, isAbort, isDisconnect, isError }) => {
-        if (isAbort || isDisconnect || isError) {
+      subscribeChatFinish((event) => {
+        if (!shouldShowBackgroundStreamToast(event, currentChatId)) {
           return;
         }
-        if (message.role !== "assistant") {
-          return;
-        }
-        if (chatId === currentChatId) {
-          return;
-        }
+        const { chatId, slug } = event;
         const toastId = toast("新回复", {
           action: (
             <Button
