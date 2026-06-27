@@ -1,5 +1,6 @@
 "use client";
 
+import { IconBrain, IconChevronDown } from "@tabler/icons-react";
 import type { ComponentProps, ReactNode } from "react";
 
 import { useControllableState } from "@radix-ui/react-use-controllable-state";
@@ -7,7 +8,7 @@ import { cjk } from "@streamdown/cjk";
 import { code } from "@streamdown/code";
 import { math } from "@streamdown/math";
 import { mermaid } from "@streamdown/mermaid";
-import { BrainIcon, ChevronDownIcon } from "@/components/icons/hugeicons";
+
 import { createContext, memo, use, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Streamdown } from "streamdown";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -173,9 +174,9 @@ export const ReasoningTrigger = memo(
       >
         {children ?? (
           <>
-            <BrainIcon className="size-4" />
+            <IconBrain className="size-4" />
             {getThinkingMessage(isStreaming, duration)}
-            <ChevronDownIcon
+            <IconChevronDown
               className={cn("size-4 transition-transform", isOpen ? "rotate-180" : "rotate-0")}
             />
           </>

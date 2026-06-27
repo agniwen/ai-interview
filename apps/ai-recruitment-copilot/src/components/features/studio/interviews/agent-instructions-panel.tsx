@@ -1,7 +1,8 @@
 "use client";
 
+import { IconEye, IconFileText, IconLoader2 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
-import { EyeIcon, FileTextIcon, Loader2Icon } from "@/components/icons/hugeicons";
+
 import { useState } from "react";
 import { MarkdownView } from "@/components/features/display/markdown-view";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
@@ -66,7 +67,7 @@ export function AgentInstructionsPanel({
   if (isLoading) {
     return (
       <div className="flex items-center justify-center gap-2 py-10 text-muted-foreground text-sm">
-        <Loader2Icon className="size-4 animate-spin" />
+        <IconLoader2 className="size-4 animate-spin" />
         正在生成提示词...
       </div>
     );
@@ -97,11 +98,11 @@ export function AgentInstructionsPanel({
           variant="outline"
         >
           <ToggleGroupItem aria-label="Markdown 预览" value="preview">
-            <EyeIcon className="size-3.5" />
+            <IconEye className="size-3.5" />
             预览
           </ToggleGroupItem>
           <ToggleGroupItem aria-label="原文" value="raw">
-            <FileTextIcon className="size-3.5" />
+            <IconFileText className="size-3.5" />
             原文
           </ToggleGroupItem>
         </ToggleGroup>

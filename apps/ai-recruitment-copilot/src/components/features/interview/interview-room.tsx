@@ -1,21 +1,22 @@
 "use client";
 
-import type { LucideIcon } from "@/components/icons/hugeicons";
+import type { TablerIcon } from "@tabler/icons-react";
+import {
+  IconAlertTriangle,
+  IconCircleCheck,
+  IconMessage2,
+  IconMicrophone,
+  IconMicrophoneOff,
+  IconRefresh,
+  IconUserCheck,
+  IconVideo,
+  IconVolume2,
+  IconWifi,
+} from "@tabler/icons-react";
 import type { CandidateInterviewView } from "@arc/shared/interview/interview-record";
 import { useAgent, useSession } from "@livekit/components-react";
 import { ConnectionState, DisconnectReason, RoomEvent, TokenSource } from "livekit-client";
-import {
-  CheckCircle2Icon,
-  MessageSquareTextIcon,
-  MicIcon,
-  MicOffIcon,
-  RefreshCwIcon,
-  TriangleAlertIcon,
-  UserCheckIcon,
-  VideoIcon,
-  Volume2Icon,
-  WifiIcon,
-} from "@/components/icons/hugeicons";
+
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { AgentSessionProvider } from "@/components/agents-ui/agent-session-provider";
@@ -138,7 +139,7 @@ function RuleItem({
   title,
   description,
 }: {
-  icon: LucideIcon;
+  icon: TablerIcon;
   title: string;
   description: string;
 }) {
@@ -221,7 +222,7 @@ function DeviceCheckItem({
   title,
 }: {
   detail: string;
-  icon: LucideIcon;
+  icon: TablerIcon;
   status: DeviceCheckStatus;
   title: string;
 }) {
@@ -318,9 +319,9 @@ function DevicePreflightCard({ recordingEnabled }: { recordingEnabled: boolean }
         </div>
         <Button disabled={checking} onClick={runChecks} size="sm" type="button" variant="outline">
           {checking ? (
-            <RefreshCwIcon className="size-4 animate-spin" />
+            <IconRefresh className="size-4 animate-spin" />
           ) : (
-            <CheckCircle2Icon className="size-4" />
+            <IconCircleCheck className="size-4" />
           )}
           检测设备
         </Button>
@@ -332,21 +333,21 @@ function DevicePreflightCard({ recordingEnabled }: { recordingEnabled: boolean }
       >
         <DeviceCheckItem
           detail="确认浏览器可采集你的声音。"
-          icon={MicIcon}
+          icon={IconMicrophone}
           status={result.microphone}
           title="麦克风"
         />
         {recordingEnabled ? (
           <DeviceCheckItem
             detail="确认摄像头可用于面试录像。"
-            icon={VideoIcon}
+            icon={IconVideo}
             status={result.camera}
             title="摄像头"
           />
         ) : null}
         <DeviceCheckItem
           detail="读取浏览器当前联网状态。"
-          icon={WifiIcon}
+          icon={IconWifi}
           status={result.network}
           title="网络"
         />
@@ -397,29 +398,29 @@ function InterviewNoticeDialog({
         <ul className="divide-y divide-border/60 border-border border-y">
           <RuleItem
             description="建议佩戴耳机并在网络稳定的地方作答。若环境嘈杂，可选择「静音开始」，以文字方式与面试官沟通。"
-            icon={Volume2Icon}
+            icon={IconVolume2}
             title="保持安静的环境"
           />
           <RuleItem
             description="等面试官提完问题再作答，答完等下一题。请围绕问题展开，结合具体项目与经历说明。"
-            icon={MessageSquareTextIcon}
+            icon={IconMessage2}
             title="一次只答一题"
           />
           <RuleItem
             description="保持严肃与尊重；连续答非所问或跳过题目会影响评分，必要时面试官会结束面试。"
-            icon={UserCheckIcon}
+            icon={IconUserCheck}
             title="认真作答"
           />
           {recordingEnabled ? (
             <RuleItem
               description="面试将通过摄像头全程录制，开始后请保持摄像头开启，期间不能关闭。"
-              icon={VideoIcon}
+              icon={IconVideo}
               title="保持摄像头录制"
             />
           ) : null}
           <RuleItem
             description="尽量不要刷新页面或关闭标签页。如遇网络中断，请在 3 分钟内回到本页面，可继续之前的对话；超过 3 分钟本轮将自动结束。"
-            icon={TriangleAlertIcon}
+            icon={IconAlertTriangle}
             title="保持稳定连接"
           />
         </ul>
@@ -436,9 +437,9 @@ function InterviewNoticeDialog({
         <DialogFooter>
           <Button disabled={startDisabled} onClick={onConfirm} type="button">
             {startOptions.muted ? (
-              <MicOffIcon className="size-4" />
+              <IconMicrophoneOff className="size-4" />
             ) : (
-              <MicIcon className="size-4" />
+              <IconMicrophone className="size-4" />
             )}
             {startLabel}
           </Button>
@@ -537,7 +538,7 @@ function WaitingView({
                 size="lg"
                 variant="outline"
               >
-                <MicOffIcon className="size-4" />
+                <IconMicrophoneOff className="size-4" />
                 {mutedLabel}
               </Button>
               <Button
@@ -546,7 +547,7 @@ function WaitingView({
                 onClick={() => openNotice()}
                 size="lg"
               >
-                <MicIcon className="size-4" />
+                <IconMicrophone className="size-4" />
                 {primaryLabel}
               </Button>
             </div>
@@ -562,7 +563,7 @@ function WaitingView({
                 onClick={() => openNotice({ muted: true })}
                 variant="outline"
               >
-                <MicOffIcon className="size-4" />
+                <IconMicrophoneOff className="size-4" />
                 {mutedLabel}
               </Button>
               <Button
@@ -570,7 +571,7 @@ function WaitingView({
                 disabled={startDisabled}
                 onClick={() => openNotice()}
               >
-                <MicIcon className="size-4" />
+                <IconMicrophone className="size-4" />
                 {primaryLabel}
               </Button>
             </div>
@@ -999,7 +1000,7 @@ export default function InterviewRoom({ interviewId, roundId }: InterviewRoomPro
       <StartAudioButton label="开始通话" />
       <Toaster
         position="top-center"
-        icons={{ warning: <TriangleAlertIcon className="size-4" /> }}
+        icons={{ warning: <IconAlertTriangle className="size-4" /> }}
       />
     </AgentSessionProvider>
   );

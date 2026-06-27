@@ -1,3 +1,4 @@
+import { IconBuilding, IconPlus } from "@tabler/icons-react";
 import { HydrationBoundary, useQueryClient } from "@tanstack/react-query";
 import type { DehydratedState } from "@tanstack/react-query";
 import {
@@ -19,7 +20,7 @@ import { ScopedJobDescriptionsModal } from "@/components/features/studio/scoped-
 import { useEntityCrud } from "@/components/features/studio/use-entity-crud";
 import type { DepartmentListRecord, DepartmentRecord } from "@arc/shared/departments";
 import type { PaginatedDepartmentResult } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/departments/dao";
-import { Building2Icon, PlusIcon } from "@/components/icons/hugeicons";
+
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -219,7 +220,7 @@ function DepartmentManagementPage() {
             <Empty className="border-border">
               <EmptyHeader>
                 <EmptyMedia variant="icon">
-                  <Building2Icon className="size-5" />
+                  <IconBuilding className="size-5" />
                 </EmptyMedia>
                 <EmptyTitle>还没有部门</EmptyTitle>
                 <EmptyDescription>
@@ -228,7 +229,7 @@ function DepartmentManagementPage() {
               </EmptyHeader>
               <EmptyContent>
                 <Button onClick={crud.openCreate}>
-                  <PlusIcon className="size-4" />
+                  <IconPlus className="size-4" />
                   新建部门
                 </Button>
               </EmptyContent>
@@ -238,7 +239,7 @@ function DepartmentManagementPage() {
           getRowId={(r) => r.id}
           toolbarRight={
             <Button className="flex-1 sm:flex-none" onClick={crud.openCreate}>
-              <PlusIcon className="size-4" />
+              <IconPlus className="size-4" />
               新建部门
             </Button>
           }

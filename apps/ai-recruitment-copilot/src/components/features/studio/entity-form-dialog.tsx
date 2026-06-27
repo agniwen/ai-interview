@@ -1,6 +1,6 @@
 "use client";
 
-import { LoaderCircleIcon } from "@/components/icons/hugeicons";
+import { IconLoader2 } from "@tabler/icons-react";
 import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { FieldGroup } from "@/components/ui/field";
@@ -60,7 +60,7 @@ export function EntityFormDialog({
             取消
           </Button>
           <Button disabled={isSubmitting || submitDisabled} form={formId} type="submit">
-            {isSubmitting ? <LoaderCircleIcon className="size-4 animate-spin" /> : null}
+            {isSubmitting ? <IconLoader2 className="size-4 animate-spin" /> : null}
             {isEdit ? submitLabel.update : submitLabel.create}
           </Button>
         </>

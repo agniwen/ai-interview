@@ -1,3 +1,11 @@
+import {
+  IconGripVertical,
+  IconPlus,
+  IconSettings,
+  IconTrash,
+  IconUserPlus,
+  IconUsers,
+} from "@tabler/icons-react";
 import type { CollisionDetection, DragEndEvent } from "@dnd-kit/core";
 import {
   closestCorners,
@@ -14,14 +22,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { createFileRoute, useNavigate, useSearch } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import {
-  GripVerticalIcon,
-  PlusIcon,
-  SettingsIcon,
-  Trash2Icon,
-  UserPlusIcon,
-  UsersIcon,
-} from "@/components/icons/hugeicons";
+
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/features/studio/page-header";
@@ -432,7 +433,7 @@ function RecruitingGroupsPanel({
               value={newGroupName}
             />
             <Button aria-label="新建组别" onClick={onCreateGroup} size="icon" variant="outline">
-              <PlusIcon className="size-4" />
+              <IconPlus className="size-4" />
             </Button>
           </div>
         ) : null}
@@ -555,7 +556,7 @@ function RecruitingGroupColumn({
                 size="icon"
                 variant="ghost"
               >
-                <Trash2Icon className="size-4" />
+                <IconTrash className="size-4" />
               </Button>
             </div>
           ) : (
@@ -638,7 +639,7 @@ function MemberPoolCard({ canUpdate, isOverlay, row }: MemberPoolCardProps) {
           {...attributes}
           {...listeners}
         >
-          <GripVerticalIcon className="size-4" />
+          <IconGripVertical className="size-4" />
         </button>
         <MemberCell
           avatarSize="sm"
@@ -734,7 +735,7 @@ function GroupMemberCard({
           {...attributes}
           {...listeners}
         >
-          <GripVerticalIcon className="size-4" />
+          <IconGripVertical className="size-4" />
         </button>
         <MemberCell
           avatarSize="sm"
@@ -751,7 +752,7 @@ function GroupMemberCard({
             size="icon"
             variant="ghost"
           >
-            <Trash2Icon className="size-4" />
+            <IconTrash className="size-4" />
           </Button>
         ) : null}
       </div>
@@ -1220,7 +1221,7 @@ function MembersManagementPage() {
                 currentName={org.name}
                 trigger={
                   <Button aria-label="工作区设置" size="icon" variant="ghost">
-                    <SettingsIcon />
+                    <IconSettings />
                   </Button>
                 }
               />
@@ -1243,7 +1244,7 @@ function MembersManagementPage() {
               <Empty className="border-border">
                 <EmptyHeader>
                   <EmptyMedia variant="icon">
-                    <UsersIcon className="size-5" />
+                    <IconUsers className="size-5" />
                   </EmptyMedia>
                   <EmptyTitle>暂无成员</EmptyTitle>
                   <EmptyDescription>
@@ -1257,7 +1258,7 @@ function MembersManagementPage() {
                       assignableRoles={assignableRoles}
                       trigger={
                         <Button>
-                          <UserPlusIcon className="size-4" />
+                          <IconUserPlus className="size-4" />
                           邀请成员
                         </Button>
                       }
@@ -1292,7 +1293,7 @@ function MembersManagementPage() {
                     assignableRoles={assignableRoles}
                     trigger={
                       <Button>
-                        <UserPlusIcon className="size-4" />
+                        <IconUserPlus className="size-4" />
                         邀请成员
                       </Button>
                     }

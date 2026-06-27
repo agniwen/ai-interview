@@ -1,3 +1,4 @@
+import { IconHistory, IconTrash, IconUsers } from "@tabler/icons-react";
 import { HydrationBoundary, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { DehydratedState } from "@tanstack/react-query";
 import {
@@ -30,7 +31,7 @@ import type {
 import { pipelineStageMeta, pipelineStageValues } from "@arc/db-schema/studio-interviews";
 import type { PipelineStage } from "@arc/db-schema/studio-interviews";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { HistoryIcon, Trash2Icon, UsersIcon } from "@/components/icons/hugeicons";
+
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
@@ -989,7 +990,7 @@ function ResumeLibraryPage({ metrics }: { metrics: ResumeLibraryMetrics }) {
                 ) : null}
                 {canReadResumeUploadBatch && hasActiveUploadBatches ? (
                   <Button onClick={() => setBatchListOpen(true)} type="button">
-                    <HistoryIcon className="size-4" />
+                    <IconHistory className="size-4" />
                   </Button>
                 ) : null}
               </ButtonGroup>
@@ -1015,7 +1016,7 @@ function ResumeLibraryPage({ metrics }: { metrics: ResumeLibraryMetrics }) {
                     }
                     variant="destructive"
                   >
-                    <Trash2Icon className="size-4" />
+                    <IconTrash className="size-4" />
                     批量删除 ({selectedIds.length})
                   </Button>
                 )
@@ -1026,7 +1027,7 @@ function ResumeLibraryPage({ metrics }: { metrics: ResumeLibraryMetrics }) {
               <Empty className="border-border">
                 <EmptyHeader>
                   <EmptyMedia variant="icon">
-                    <UsersIcon className="size-5" />
+                    <IconUsers className="size-5" />
                   </EmptyMedia>
                   <EmptyTitle>
                     暂无处于「
@@ -1041,7 +1042,7 @@ function ResumeLibraryPage({ metrics }: { metrics: ResumeLibraryMetrics }) {
               <Empty className="border-border">
                 <EmptyHeader>
                   <EmptyMedia variant="icon">
-                    <UsersIcon className="size-5" />
+                    <IconUsers className="size-5" />
                   </EmptyMedia>
                   <EmptyTitle>简历库还没有任何候选人</EmptyTitle>
                   <EmptyDescription>点击右上角「上传简历」加入第一份候选人简历。</EmptyDescription>

@@ -1,6 +1,6 @@
 "use client";
 
-import { FileTextIcon, XIcon } from "@/components/icons/hugeicons";
+import { IconFileText, IconX } from "@tabler/icons-react";
 import { useState } from "react";
 import { JobDescriptionSelectField } from "@/components/features/studio/interviews/job-description-select-field";
 import { Button } from "@/components/ui/button";
@@ -93,7 +93,7 @@ export function BulkUploadConfirmDialog({
                     key={`${f.name}-${f.size}-${idx}`}
                   >
                     <span className="flex min-w-0 items-center gap-2">
-                      <FileTextIcon className="size-4 shrink-0 text-muted-foreground" />
+                      <IconFileText className="size-4 shrink-0 text-muted-foreground" />
                       <span className="truncate">{f.name}</span>
                       <span className="shrink-0 text-xs text-muted-foreground">
                         {formatSize(f.size)}
@@ -106,7 +106,7 @@ export function BulkUploadConfirmDialog({
                         onClick={() => onRemoveFile(idx)}
                         type="button"
                       >
-                        <XIcon className="size-4" />
+                        <IconX className="size-4" />
                       </button>
                     ) : null}
                   </li>

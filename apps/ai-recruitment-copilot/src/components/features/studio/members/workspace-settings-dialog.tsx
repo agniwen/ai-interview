@@ -1,7 +1,8 @@
 "use client";
 
+import { IconSettings } from "@tabler/icons-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { SettingsIcon } from "@/components/icons/hugeicons";
+
 import { useEffect, useState } from "react";
 import type { FormEvent, ReactNode } from "react";
 import { toast } from "sonner";
@@ -88,7 +89,7 @@ export function WorkspaceSettingsDialog({ currentName, trigger }: WorkspaceSetti
       <DialogTrigger asChild>
         {trigger ?? (
           <Button variant="outline">
-            <SettingsIcon data-icon="inline-start" />
+            <IconSettings data-icon="inline-start" />
             设置
           </Button>
         )}

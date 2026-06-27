@@ -1,6 +1,6 @@
 "use client";
 
-import { Building2Icon, InboxIcon, ListChecksIcon, UsersIcon } from "@/components/icons/hugeicons";
+import { IconBuilding, IconInbox, IconListCheck, IconUsers } from "@tabler/icons-react";
 import { Link, useRouterState } from "@tanstack/react-router";
 import {
   SidebarBodyPortalContent,
@@ -19,28 +19,28 @@ import {
 
 interface NavItem {
   path: string;
-  icon: typeof Building2Icon;
+  icon: typeof IconBuilding;
   title: string;
 }
 
 const navItems: NavItem[] = [
   {
-    icon: Building2Icon,
+    icon: IconBuilding,
     path: "/platform/organizations",
     title: "所有工作区",
   },
   {
-    icon: UsersIcon,
+    icon: IconUsers,
     path: "/platform/users",
     title: "所有用户",
   },
   {
-    icon: InboxIcon,
+    icon: IconInbox,
     path: "/platform/mail-ingest-accounts",
     title: "邮箱监听",
   },
   {
-    icon: ListChecksIcon,
+    icon: IconListCheck,
     path: "/platform/queues",
     title: "队列任务",
   },

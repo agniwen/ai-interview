@@ -1,5 +1,14 @@
 "use client";
 
+import {
+  IconArrowBackUp,
+  IconExternalLink,
+  IconEye,
+  IconInfoCircle,
+  IconMessage2,
+  IconPencil,
+  IconRobot,
+} from "@tabler/icons-react";
 // 候选人详情视图的共享主体 —— 把数据获取、tab 切换、各 section 渲染抽离出来,
 // 让弹窗版本 (StudioPersonDetailDialog) 和独立页面版本同时复用。调用方通过
 // shell 自己决定 chrome:Modal、全屏页面布局,甚至嵌入式抽屉都行。
@@ -43,15 +52,7 @@ import {
 } from "@/lib/client/api";
 import { env } from "@/env/client";
 import { useOptionalWorkspaceSlug } from "@/lib/client/workspace-context";
-import {
-  BotIcon,
-  ExternalLinkIcon,
-  EyeIcon,
-  InfoIcon,
-  MessageSquareTextIcon,
-  PencilIcon,
-  RotateCcwIcon,
-} from "@/components/icons/hugeicons";
+
 import { useEffect, useMemo, useReducer, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { useNavigate } from "@tanstack/react-router";
@@ -614,7 +615,7 @@ function ReportMetadataButton({
 
   return (
     <Button disabled={disabled} onClick={onClick} size="sm" type="button" variant="outline">
-      <InfoIcon className="size-3.5" />
+      <IconInfoCircle className="size-3.5" />
       {label}
     </Button>
   );
@@ -1577,9 +1578,9 @@ function useStudioPersonDetailPanel({
       }}
       type="button"
     >
-      <BotIcon className="size-4" />
+      <IconRobot className="size-4" />
       发起 AI 面试
-      {onLaunchInterview ? null : <ExternalLinkIcon className="size-3.5 opacity-70" />}
+      {onLaunchInterview ? null : <IconExternalLink className="size-3.5 opacity-70" />}
     </Button>
   ) : null;
   const resumeModeFooter =
@@ -1597,7 +1598,7 @@ function useStudioPersonDetailPanel({
             type="button"
             variant="outline"
           >
-            <PencilIcon className="size-4" />
+            <IconPencil className="size-4" />
             编辑
           </Button>
         ) : null}
@@ -1960,7 +1961,7 @@ function useStudioPersonDetailPanel({
                               type="button"
                               variant="outline"
                             >
-                              <RotateCcwIcon className="size-3.5" />
+                              <IconArrowBackUp className="size-3.5" />
                               {resettingRoundId === record.roundId ? "重置中..." : "重置轮次"}
                             </Button>
                           ) : null}
@@ -2037,7 +2038,7 @@ function useStudioPersonDetailPanel({
 
                   {reports.length === 0 ? (
                     <div className="flex min-h-60 flex-col items-center justify-center rounded-2xl border border-dashed border-border/70 bg-muted/40 px-6 py-10 text-center">
-                      <MessageSquareTextIcon className="size-8 text-muted-foreground" />
+                      <IconMessage2 className="size-8 text-muted-foreground" />
                       <p className="mt-4 font-medium text-sm">暂无面试报告</p>
                       <p className="mt-2 max-w-xl text-muted-foreground text-sm leading-normal">
                         候选人开始并结束语音面试后，这里会展示逐场面试的总结、状态和完整对话记录。
@@ -2343,7 +2344,7 @@ function useStudioPersonDetailPanel({
                                   type="button"
                                   variant="ghost"
                                 >
-                                  <EyeIcon className="size-3.5" />
+                                  <IconEye className="size-3.5" />
                                   查看详情
                                 </Button>
                               ) : null}

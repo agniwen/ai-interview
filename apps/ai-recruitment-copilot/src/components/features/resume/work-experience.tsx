@@ -1,11 +1,12 @@
 "use client";
 
+import { IconBriefcase2, IconInfinity } from "@tabler/icons-react";
 /* oxlint-disable no-use-before-define -- registry component keeps public component exports above local helpers. */
 
 import dayjs from "dayjs";
 import type { Dayjs } from "dayjs";
 import customParseFormat from "dayjs/plugin/customParseFormat";
-import { BriefcaseBusinessIcon, InfinityIcon } from "@/components/icons/hugeicons";
+
 import type { ComponentProps } from "react";
 import { useCallback, useRef } from "react";
 import ReactMarkdown from "react-markdown";
@@ -187,7 +188,7 @@ export function ExperiencePositionItem({ position }: ExperiencePositionItemProps
                 "[&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
               )}
             >
-              {position.icon ?? <BriefcaseBusinessIcon />}
+              {position.icon ?? <IconBriefcase2 />}
             </div>
 
             <h4 className="flex-1 text-balance font-medium text-foreground">{position.title}</h4>
@@ -218,7 +219,7 @@ export function ExperiencePositionItem({ position }: ExperiencePositionItemProps
                 <span>{start}</span>
                 <span className="font-mono">—</span>
                 {isOngoing ? (
-                  <InfinityIcon aria-label="Present" className="size-4.5 translate-y-[0.5px]" />
+                  <IconInfinity aria-label="Present" className="size-4.5 translate-y-[0.5px]" />
                 ) : (
                   <span>{end}</span>
                 )}

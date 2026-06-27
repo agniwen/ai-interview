@@ -1,8 +1,9 @@
+import { IconFileText, IconSearch, IconX } from "@tabler/icons-react";
 // 用途：process step 4 简化版 UI——「候选人详情」Modal (mode="interview", size="full") 叠在
 // AI 面试列表页之上；当前选中 tab：面试报告，对齐真实 EvaluationResults 的卡片结构。
 // Purpose: simplified UI of StudioPersonDetailDialog (mode="interview", size="full")
 // laid over the AI 面试 list page. Active tab "面试报告" mirrors EvaluationResults.
-import { FileTextIcon, SearchIcon, XIcon } from "@/components/icons/hugeicons";
+
 import { Fragment } from "react";
 import { PdfFileIcon } from "@/components/features/pdf/pdf-file-icon";
 import {
@@ -165,7 +166,7 @@ function InterviewListBackground() {
       <SummaryStats />
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <div className="relative min-w-[15rem]">
-          <SearchIcon className="-translate-y-1/2 pointer-events-none absolute top-1/2 left-3 size-4 text-muted-foreground" />
+          <IconSearch className="-translate-y-1/2 pointer-events-none absolute top-1/2 left-3 size-4 text-muted-foreground" />
           <div className="flex h-9 w-full items-center rounded-md border border-input bg-transparent pr-3 pl-9 text-muted-foreground text-sm">
             搜索候选人、岗位、轮次或简历名
           </div>
@@ -316,7 +317,7 @@ function ModalTabs() {
         ))}
       </div>
       <span className="flex h-9 items-center gap-1.5 rounded-md border border-input bg-transparent px-3 font-medium text-sm">
-        <FileTextIcon className="size-4" />
+        <IconFileText className="size-4" />
         预览简历
       </span>
     </div>
@@ -423,7 +424,7 @@ function DetailDialog() {
       <div className="relative flex max-h-[88vh] flex-col overflow-hidden rounded-3xl border bg-background shadow-lg">
         {/* Close button */}
         <span className="absolute top-4 right-4 grid size-7 place-items-center rounded-xs text-foreground/70 opacity-70">
-          <XIcon className="size-4" />
+          <IconX className="size-4" />
         </span>
 
         {/* Header (stack layout) */}

@@ -1,14 +1,15 @@
 "use client";
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  BanIcon,
-  CopyIcon,
-  LinkIcon,
-  PencilIcon,
-  PlayIcon,
-  UsersIcon,
-} from "@/components/icons/hugeicons";
+  IconBan,
+  IconCopy,
+  IconLink,
+  IconPencil,
+  IconPlayerPlay,
+  IconUsers,
+} from "@tabler/icons-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { TimeDisplay } from "@/components/features/display/time-display";
@@ -220,21 +221,21 @@ function LinkRow({
           </div>
           <div className="flex shrink-0 items-center gap-1">
             <Button aria-label="复制链接" onClick={onCopy} size="icon-sm" variant="ghost">
-              <CopyIcon />
+              <IconCopy />
             </Button>
             <Button aria-label="编辑初始化角色" onClick={onEdit} size="icon-sm" variant="ghost">
-              <PencilIcon />
+              <IconPencil />
             </Button>
             <Button aria-label="查看加入成员" onClick={onToggleExpand} size="sm" variant="ghost">
-              <UsersIcon /> {link.joinedCount}
+              <IconUsers /> {link.joinedCount}
             </Button>
             {disabled ? (
               <Button aria-label="启用链接" onClick={onEnable} size="icon-sm" variant="ghost">
-                <PlayIcon />
+                <IconPlayerPlay />
               </Button>
             ) : (
               <Button aria-label="禁用链接" onClick={onDisable} size="icon-sm" variant="ghost">
-                <BanIcon />
+                <IconBan />
               </Button>
             )}
           </div>
@@ -371,7 +372,7 @@ export function InviteLinksDialog({
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button variant="outline">
-          <LinkIcon /> 邀请链接
+          <IconLink /> 邀请链接
         </Button>
       </DialogTrigger>
       <DialogContent className="w-[min(calc(100vw-2rem),56rem)] overflow-hidden sm:max-w-none">

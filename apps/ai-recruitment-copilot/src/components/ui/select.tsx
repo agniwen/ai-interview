@@ -1,11 +1,6 @@
 "use client";
 
-import {
-  CheckIcon,
-  ChevronDownIcon,
-  ChevronUpIcon,
-  SelectChevronDownIcon,
-} from "@/components/icons/hugeicons";
+import { IconCheck, IconChevronDown, IconChevronUp } from "@tabler/icons-react";
 import { Select as SelectPrimitive } from "radix-ui";
 import * as React from "react";
 
@@ -45,7 +40,7 @@ function SelectTrigger({
     >
       {children}
       <SelectPrimitive.Icon asChild>
-        <SelectChevronDownIcon className="relative z-10 size-4 opacity-50" />
+        <IconChevronDown className="relative z-10 size-4 opacity-50" />
       </SelectPrimitive.Icon>
     </SelectPrimitive.Trigger>
   );
@@ -121,7 +116,7 @@ function SelectItem({
         className="absolute right-2 flex size-3.5 items-center justify-center"
       >
         <SelectPrimitive.ItemIndicator>
-          <CheckIcon className="size-4" />
+          <IconCheck className="size-4" />
         </SelectPrimitive.ItemIndicator>
       </span>
       <SelectPrimitive.ItemText>{children}</SelectPrimitive.ItemText>
@@ -152,7 +147,7 @@ function SelectScrollUpButton({
       className={cn("flex cursor-default items-center justify-center py-1", className)}
       {...props}
     >
-      <ChevronUpIcon className="size-4" />
+      <IconChevronUp className="size-4" />
     </SelectPrimitive.ScrollUpButton>
   );
 }
@@ -167,7 +162,7 @@ function SelectScrollDownButton({
       className={cn("flex cursor-default items-center justify-center py-1", className)}
       {...props}
     >
-      <ChevronDownIcon className="size-4" />
+      <IconChevronDown className="size-4" />
     </SelectPrimitive.ScrollDownButton>
   );
 }

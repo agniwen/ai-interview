@@ -1,5 +1,6 @@
 "use client";
 
+import { IconCheck, IconChevronDown } from "@tabler/icons-react";
 /**
  * 移动端选项选择器：原生 `<Select>` 和内联列表在小屏上空间紧张，
  * 此处改为底部抽屉 + 全宽点击区，单选 / 多选共用一套交互。
@@ -10,7 +11,7 @@
  */
 
 import type { CandidateFormTemplateSnapshot } from "@arc/db-schema/candidate-forms";
-import { CheckIcon, ChevronDownIcon } from "@/components/icons/hugeicons";
+
 import { useEffect, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -91,7 +92,7 @@ export function MobileChoicePicker({
         >
           {triggerLabel}
         </span>
-        <ChevronDownIcon className="size-4 shrink-0 opacity-50" />
+        <IconChevronDown className="size-4 shrink-0 opacity-50" />
       </button>
       <DrawerContent>
         <DrawerHeader className="text-left">
@@ -136,7 +137,7 @@ export function MobileChoicePicker({
                   type="button"
                 >
                   <span className="flex-1">{option.label}</span>
-                  {checked ? <CheckIcon className="size-4 shrink-0 text-primary" /> : null}
+                  {checked ? <IconCheck className="size-4 shrink-0 text-primary" /> : null}
                 </button>
               );
             })}

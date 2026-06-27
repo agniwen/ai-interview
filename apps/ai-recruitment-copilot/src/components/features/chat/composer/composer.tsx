@@ -1,6 +1,6 @@
 "use client";
 
-import { UploadIcon } from "@/components/icons/hugeicons";
+import { IconUpload } from "@tabler/icons-react";
 import { useEffect } from "react";
 import { toast } from "sonner";
 import {
@@ -66,7 +66,7 @@ export function Composer({
           dragOverlay={
             <div className="flex h-full w-full items-center justify-center rounded-[1.15rem] border-2 border-dashed border-primary/60 bg-background px-6 py-8 text-center transition-colors">
               <div className="flex flex-col items-center gap-2">
-                <UploadIcon className="size-8 text-primary/50" />
+                <IconUpload className="size-8 text-primary/50" />
                 <p className="font-medium text-sm">拖拽简历文件到这里</p>
                 <p className="text-muted-foreground text-xs">支持 {supportedResumeDocumentLabel}</p>
               </div>

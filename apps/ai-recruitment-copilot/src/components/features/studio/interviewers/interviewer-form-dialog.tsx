@@ -1,12 +1,13 @@
 "use client";
 
+import { IconLoader2, IconSquare, IconVolume2 } from "@tabler/icons-react";
 import type { DepartmentRecord } from "@arc/shared/departments";
 import type { InterviewerFormValues, InterviewerRecord } from "@arc/shared/interviewers";
 import { interviewerFormSchema } from "@arc/shared/interviewers";
 import { rpc } from "@/lib/client/rpc";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { toast } from "sonner";
-import { LoaderCircleIcon, SquareIcon, Volume2Icon } from "@/components/icons/hugeicons";
+
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Field, FieldContent, FieldError, FieldLabel } from "@/components/ui/field";
@@ -231,11 +232,11 @@ export function InterviewerFormDialog({
             const errors = toFieldErrors(field.state.meta.errors);
             const isPreviewLoading = loadingPreviewVoice === field.state.value;
             const isPreviewPlaying = playingPreviewVoice === field.state.value;
-            let previewIcon = <Volume2Icon className="size-4" />;
+            let previewIcon = <IconVolume2 className="size-4" />;
             if (isPreviewLoading) {
-              previewIcon = <LoaderCircleIcon className="size-4 animate-spin" />;
+              previewIcon = <IconLoader2 className="size-4 animate-spin" />;
             } else if (isPreviewPlaying) {
-              previewIcon = <SquareIcon className="size-4" />;
+              previewIcon = <IconSquare className="size-4" />;
             }
             return (
               <Field

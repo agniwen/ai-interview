@@ -1,5 +1,6 @@
 "use client";
 
+import { IconArrowBackUp, IconLoader2, IconPencil } from "@tabler/icons-react";
 import type { ResumeLibraryDetail } from "@arc/shared/studio-resumes";
 import type { ResumeReview } from "@arc/shared/resume-review";
 import type { StudioInterviewRoundDetail } from "@arc/shared/studio-interview-rounds";
@@ -7,7 +8,7 @@ import type { ResumeProfile } from "@arc/db-schema/interview/types";
 import { useStore, useForm } from "@tanstack/react-form";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
-import { LoaderCircleIcon, PencilIcon, RotateCcwIcon } from "@/components/icons/hugeicons";
+
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { CandidateFormFields } from "@/components/features/candidate/candidate-form-fields";
@@ -378,7 +379,7 @@ function ResumeEditBody({
             form="resume-edit-form"
             type="submit"
           >
-            {isSubmitting ? <LoaderCircleIcon className="size-4 animate-spin" /> : null}
+            {isSubmitting ? <IconLoader2 className="size-4 animate-spin" /> : null}
             保存
           </Button>
         </>
@@ -427,9 +428,9 @@ function ResumeEditBody({
                 variant="ghost"
               >
                 {isReviewGenerating ? (
-                  <LoaderCircleIcon className="animate-spin" data-icon="inline-start" />
+                  <IconLoader2 className="animate-spin" data-icon="inline-start" />
                 ) : (
-                  <RotateCcwIcon data-icon="inline-start" />
+                  <IconArrowBackUp data-icon="inline-start" />
                 )}
                 {isReviewGenerating ? "取消生成" : "重新生成"}
               </Button>
@@ -572,15 +573,15 @@ function InterviewEditBody({
                   variant="outline"
                 >
                   {isResetting ? (
-                    <LoaderCircleIcon className="size-4 animate-spin" />
+                    <IconLoader2 className="size-4 animate-spin" />
                   ) : (
-                    <RotateCcwIcon className="size-3.5" />
+                    <IconArrowBackUp className="size-3.5" />
                   )}
                   重置面试
                 </Button>
               ) : null}
               <Button disabled={isSubmitting || isResetting} form="edit-round-form" type="submit">
-                {isSubmitting ? <LoaderCircleIcon className="size-4 animate-spin" /> : null}
+                {isSubmitting ? <IconLoader2 className="size-4 animate-spin" /> : null}
                 保存更新
               </Button>
             </div>
@@ -616,7 +617,7 @@ function InterviewEditBody({
                     type="button"
                     variant="outline"
                   >
-                    <PencilIcon className="size-3.5" />
+                    <IconPencil className="size-3.5" />
                     编辑候选人资料
                   </Button>
                 ) : null}

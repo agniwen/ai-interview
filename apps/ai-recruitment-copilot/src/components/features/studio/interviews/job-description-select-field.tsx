@@ -1,10 +1,11 @@
 "use client";
 
+import { IconLoader2 } from "@tabler/icons-react";
 import type { JobDescriptionListRecord } from "@arc/shared/job-descriptions";
 import { rpc } from "@/lib/client/rpc";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { useQuery } from "@tanstack/react-query";
-import { LoaderCircleIcon } from "@/components/icons/hugeicons";
+
 import type { ReactNode } from "react";
 import {
   Field,
@@ -76,7 +77,7 @@ export function JobDescriptionSelectField({
         </span>
         {matching ? (
           <span className="inline-flex items-center gap-1 text-muted-foreground text-xs">
-            <LoaderCircleIcon className="size-3 animate-spin" />
+            <IconLoader2 className="size-3 animate-spin" />
             正在为你匹配在招岗位…
           </span>
         ) : null}

@@ -1,5 +1,6 @@
 "use client";
 
+import { IconLoader2 } from "@tabler/icons-react";
 import type { CandidateFormQuestionInput } from "@arc/db-schema/candidate-forms";
 import type { JobDescriptionListRecord } from "@arc/shared/job-descriptions";
 import { rpcFetch } from "@/lib/client/api";
@@ -11,7 +12,7 @@ import { Modal } from "@/components/ui/modal";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Textarea } from "@/components/ui/textarea";
 import { TextareaCounter } from "@/components/ui/textarea-counter";
-import { LoaderCircleIcon } from "@/components/icons/hugeicons";
+
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -120,7 +121,7 @@ export function FormTemplateAiCreateDialog({
             onClick={() => void handleGenerate()}
             type="button"
           >
-            {generating ? <LoaderCircleIcon className="size-4 animate-spin" /> : null}
+            {generating ? <IconLoader2 className="size-4 animate-spin" /> : null}
             {generating ? "生成题目中…" : "生成题目"}
           </Button>
         </>

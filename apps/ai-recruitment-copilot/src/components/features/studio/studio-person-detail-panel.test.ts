@@ -169,7 +169,8 @@ describe("StudioPersonDetailPanel visual density", () => {
     expect(source).toContain("metadata.fullTextInput");
     expect(source).toContain("完整输入");
     expect(source).toContain("JD 原文");
-    expect(reportsSource).toContain("元信息");
+    expect(reportsSource).toContain("<ReportMetadataButton");
+    expect(source).toContain("面试元信息");
     expect(source).toContain("<InterviewReportMetadataDialog");
   });
 });

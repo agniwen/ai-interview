@@ -94,6 +94,10 @@ describe("ResumePoolPage masonry layout", () => {
       source.indexOf("function ResumePoolCard({"),
       source.indexOf("function ResumePoolLoadingState"),
     );
+    const actionsSource = source.slice(
+      source.indexOf("function ResumePoolCardActions"),
+      source.indexOf("function ResumePoolCard({"),
+    );
 
     expect(source).toContain('className="flex items-center gap-2 px-3"');
     expect(source).toContain('className="min-w-0 flex-1 justify-center"');
@@ -111,8 +115,9 @@ describe("ResumePoolPage masonry layout", () => {
     expect(cardSource).toContain(
       "const importActionState = getResumePoolImportActionState(record);",
     );
-    expect(cardSource).toContain("disabled={importActionState.disabled}");
-    expect(cardSource).toContain("{importActionState.label}");
+    expect(cardSource).toContain("importActionState={importActionState}");
+    expect(actionsSource).toContain("disabled={importActionState.disabled}");
+    expect(actionsSource).toContain("{importActionState.label}");
     expect(cardSource).not.toContain("resumeParseStatusBadge(record)");
     expect(cardSource).not.toContain('<Badge variant="secondary">未入库</Badge>');
     expect(source).not.toContain('<CardFooter className="flex-col items-stretch gap-2 px-3">');
@@ -278,23 +283,25 @@ describe("ResumePoolPage masonry layout", () => {
     expect(source).toContain("function canDeletePoolRecord");
     expect(source).toContain("record.organizationId === currentOrganizationId");
     expect(source).toContain("record.createdBy === currentUserId");
-    expect(source).toContain("const canDelete = canDeletePoolRecord(");
+    expect(source).toContain("canDeletePoolRecord(record, {");
     expect(source).toContain("canDelete={canDelete}");
   });
 
   it("keeps public delete, private publish, and private delete as icon-only card actions", () => {
-    const cardSource = source.slice(
+    const actionsSource = source.slice(
+      source.indexOf("function ResumePoolCardActions"),
       source.indexOf("function ResumePoolCard({"),
-      source.indexOf("function ResumePoolLoadingState"),
     );
 
-    expect(cardSource).toContain("canDelete ? (");
-    expect(cardSource).toContain('aria-label={scope === "private" ? "删除私有简历" : "删除简历"}');
-    expect(cardSource).toContain('aria-label="推送到简历广场"');
-    expect(cardSource).toContain('"删除私有简历"');
-    expect(cardSource).toContain('"删除简历"');
-    expect(cardSource).toContain('size="icon-sm"');
-    expect(cardSource).not.toContain('className="flex justify-end gap-1"');
+    expect(actionsSource).toContain("canDelete ? (");
+    expect(actionsSource).toContain(
+      'aria-label={scope === "private" ? "删除私有简历" : "删除简历"}',
+    );
+    expect(actionsSource).toContain('aria-label="推送到简历广场"');
+    expect(actionsSource).toContain('"删除私有简历"');
+    expect(actionsSource).toContain('"删除简历"');
+    expect(actionsSource).toContain('size="icon-sm"');
+    expect(actionsSource).not.toContain('className="flex justify-end gap-1"');
   });
 
   it("adds selectable private cards with a bulk delete action beside upload", () => {

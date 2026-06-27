@@ -1,3 +1,4 @@
+import { IconRobot, IconTrash } from "@tabler/icons-react";
 import { HydrationBoundary, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { DehydratedState } from "@tanstack/react-query";
 import {
@@ -27,7 +28,7 @@ import type {
   StudioInterviewRoundListRecord,
 } from "@arc/shared/studio-interview-rounds";
 import { pipelineStageMeta, scheduleEntryStatusMeta } from "@arc/db-schema/studio-interviews";
-import { BotIcon, Trash2Icon } from "@/components/icons/hugeicons";
+
 import { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
@@ -616,7 +617,7 @@ function InterviewManagementPage() {
               onClick={() => setBulkDeleteOpen(true)}
               variant="destructive"
             >
-              <Trash2Icon className="size-4" />
+              <IconTrash className="size-4" />
               批量删除 ({selectedIds.length})
             </Button>
           )}
@@ -624,7 +625,7 @@ function InterviewManagementPage() {
             <Empty className="border-border">
               <EmptyHeader>
                 <EmptyMedia variant="icon">
-                  <BotIcon className="size-5" />
+                  <IconRobot className="size-5" />
                 </EmptyMedia>
                 <EmptyTitle>还没有候选人面试记录</EmptyTitle>
                 <EmptyDescription>

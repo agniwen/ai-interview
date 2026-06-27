@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, ChevronsUpDown, Mic, MicOff } from "@/components/icons/hugeicons";
+import { IconCheck, IconMicrophone, IconMicrophoneOff, IconSelector } from "@tabler/icons-react";
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -99,12 +99,12 @@ export function MicSelector({
           disabled={loading || disabled}
         >
           {isMuted ? (
-            <MicOff className="h-4 w-4 flex-shrink-0" />
+            <IconMicrophoneOff className="h-4 w-4 flex-shrink-0" />
           ) : (
-            <Mic className="h-4 w-4 flex-shrink-0" />
+            <IconMicrophone className="h-4 w-4 flex-shrink-0" />
           )}
           <span className="flex-1 truncate text-left">{currentDevice.label}</span>
-          <ChevronsUpDown className="h-3 w-3 flex-shrink-0" />
+          <IconSelector className="h-3 w-3 flex-shrink-0" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="center" side="top" className="w-72">
@@ -124,7 +124,9 @@ export function MicSelector({
               className="flex items-center justify-between"
             >
               <span className="truncate">{device.label}</span>
-              {selectedDevice === device.deviceId && <Check className="h-4 w-4 flex-shrink-0" />}
+              {selectedDevice === device.deviceId && (
+                <IconCheck className="h-4 w-4 flex-shrink-0" />
+              )}
             </DropdownMenuItem>
           ))
         )}
@@ -141,7 +143,11 @@ export function MicSelector({
                 }}
                 className="h-8 gap-2"
               >
-                {isMuted ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+                {isMuted ? (
+                  <IconMicrophoneOff className="h-4 w-4" />
+                ) : (
+                  <IconMicrophone className="h-4 w-4" />
+                )}
                 <span className="text-sm">{isMuted ? "取消静音" : "静音"}</span>
               </Button>
               <div className="bg-accent ml-auto w-16 overflow-hidden rounded-md p-1.5">

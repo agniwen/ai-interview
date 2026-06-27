@@ -1,7 +1,8 @@
 "use client";
 
+import { IconChevronRight } from "@tabler/icons-react";
 import type { ButtonHTMLAttributes } from "react";
-import { ChevronRightIcon } from "@/components/icons/hugeicons";
+
 import { badgeVariants } from "@/components/ui/badge";
 import { cn } from "@arc/shared/utils";
 
@@ -64,7 +65,7 @@ export function ResumeLifecycleBadge({
         aria-hidden
         className="ml-auto flex size-4 shrink-0 items-center justify-center rounded-full border border-current/25 bg-current/10 opacity-70 transition-all duration-200 group-hover/lifecycle:scale-110 group-hover/lifecycle:bg-current/15 group-hover/lifecycle:opacity-100"
       >
-        <ChevronRightIcon className="size-3 transition-transform duration-200 group-hover/lifecycle:scale-110" />
+        <IconChevronRight className="size-3 transition-transform duration-200 group-hover/lifecycle:scale-110" />
       </span>
     </button>
   );

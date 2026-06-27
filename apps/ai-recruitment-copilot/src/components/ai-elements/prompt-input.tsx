@@ -1,5 +1,6 @@
 "use client";
 
+import { IconCornerDownLeft, IconPhoto, IconPlus, IconSquare, IconX } from "@tabler/icons-react";
 import type { ChatStatus, FileUIPart, SourceDocumentUIPart } from "ai";
 import type { AttachmentTextSource } from "@arc/db-schema/db-enums";
 import type {
@@ -18,13 +19,6 @@ import type {
   SetStateAction,
 } from "react";
 
-import {
-  CornerDownLeftIcon,
-  ImageIcon,
-  PlusIcon,
-  SquareIcon,
-  XIcon,
-} from "@/components/icons/hugeicons";
 import { nanoid } from "nanoid";
 import { createContext, use, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -375,7 +369,7 @@ export function PromptInputActionAddAttachments({
 
   return (
     <DropdownMenuItem {...props} onSelect={handleSelect}>
-      <ImageIcon className="mr-2 size-4" /> {label}
+      <IconPhoto className="mr-2 size-4" /> {label}
     </DropdownMenuItem>
   );
 }
@@ -1152,7 +1146,7 @@ export function PromptInputActionMenuTrigger({
   return (
     <DropdownMenuTrigger asChild>
       <PromptInputButton className={className} {...props}>
-        {children ?? <PlusIcon className="size-4" />}
+        {children ?? <IconPlus className="size-4" />}
       </PromptInputButton>
     </DropdownMenuTrigger>
   );
@@ -1191,14 +1185,14 @@ export function PromptInputSubmit({
 }: PromptInputSubmitProps) {
   const isGenerating = status === "submitted" || status === "streaming";
 
-  let Icon = <CornerDownLeftIcon className="size-4" />;
+  let Icon = <IconCornerDownLeft className="size-4" />;
 
   if (status === "submitted") {
     Icon = <Spinner />;
   } else if (status === "streaming") {
-    Icon = <SquareIcon className="size-4" />;
+    Icon = <IconSquare className="size-4" />;
   } else if (status === "error") {
-    Icon = <XIcon className="size-4" />;
+    Icon = <IconX className="size-4" />;
   }
 
   const handleClick = useCallback(

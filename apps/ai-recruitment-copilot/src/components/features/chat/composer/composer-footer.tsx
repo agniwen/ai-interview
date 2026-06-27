@@ -1,14 +1,15 @@
 "use client";
 
+import {
+  IconFileText,
+  IconPhoto,
+  IconSettings,
+  IconSparkles,
+  IconTrash,
+} from "@tabler/icons-react";
 import type { ChatStatus } from "ai";
 import { useAtom } from "jotai";
-import {
-  FileTextIcon,
-  ImageIcon,
-  SettingsIcon,
-  SparklesIcon,
-  Trash2Icon,
-} from "@/components/icons/hugeicons";
+
 import { useEffect, useRef, useState } from "react";
 import { ConversationDownload } from "@/components/ai-elements/conversation";
 import {
@@ -67,7 +68,7 @@ function ThinkingModeMenuItem() {
         setEnabled(!enabled);
       }}
     >
-      <SparklesIcon className="mr-2 size-4" />
+      <IconSparkles className="mr-2 size-4" />
       深度思考
       <Switch
         // Purely presentational — the parent menu item owns the click.
@@ -154,7 +155,7 @@ export function ComposerFooter({
                 attachments.openFileDialog();
               }}
             >
-              <ImageIcon className="mr-2 size-4" />
+              <IconPhoto className="mr-2 size-4" />
               上传简历文件
             </PromptInputActionMenuItem>
             <PromptInputActionMenuItem
@@ -164,7 +165,7 @@ export function ComposerFooter({
                 attachments.clear();
               }}
             >
-              <Trash2Icon className="mr-2 size-4" />
+              <IconTrash className="mr-2 size-4" />
               清空附件
             </PromptInputActionMenuItem>
           </PromptInputActionMenuContent>
@@ -172,7 +173,7 @@ export function ComposerFooter({
 
         <PromptInputActionMenu>
           <PromptInputActionMenuTrigger id="prompt-job-settings-menu-trigger" tooltip="岗位设置">
-            <SettingsIcon className="size-4" />
+            <IconSettings className="size-4" />
           </PromptInputActionMenuTrigger>
           <PromptInputActionMenuContent onCloseAutoFocus={focusTextareaOnMenuClose}>
             <PromptInputActionMenuItem
@@ -181,7 +182,7 @@ export function ComposerFooter({
                 onOpenJobDescriptionSettings();
               }}
             >
-              <FileTextIcon className="mr-2 size-4" />
+              <IconFileText className="mr-2 size-4" />
               设置在招岗位信息
             </PromptInputActionMenuItem>
             <PromptInputActionMenuItem
@@ -191,7 +192,7 @@ export function ComposerFooter({
                 onClearJobDescription();
               }}
             >
-              <Trash2Icon className="mr-2 size-4" />
+              <IconTrash className="mr-2 size-4" />
               清空在招岗位信息
             </PromptInputActionMenuItem>
             <DropdownMenuSeparator />

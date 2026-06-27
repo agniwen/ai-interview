@@ -1,7 +1,8 @@
 "use client";
 
+import { IconCheck, IconCopy, IconRefresh } from "@tabler/icons-react";
 import type { FileUIPart, SourceUrlUIPart, UIMessage } from "ai";
-import { CheckIcon, CopyIcon, RefreshCcwIcon } from "@/components/icons/hugeicons";
+
 import { useState } from "react";
 import {
   Attachment,
@@ -367,10 +368,10 @@ export function ChatMessageItem({
             onClick={() => onRegenerate(message.id)}
             tooltip="重新生成"
           >
-            <RefreshCcwIcon className="size-3" />
+            <IconRefresh className="size-3" />
           </MessageAction>
           <MessageAction label="复制内容" onClick={handleCopy} tooltip="复制">
-            {hasCopied ? <CheckIcon className="size-3" /> : <CopyIcon className="size-3" />}
+            {hasCopied ? <IconCheck className="size-3" /> : <IconCopy className="size-3" />}
           </MessageAction>
         </MessageActions>
       ) : null}

@@ -1,13 +1,13 @@
 "use client";
 
 import {
-  BanIcon,
-  Building2Icon,
-  CheckCircle2Icon,
-  ShieldCheckIcon,
-  UsersIcon,
-  XCircleIcon,
-} from "@/components/icons/hugeicons";
+  IconBan,
+  IconBuilding,
+  IconCircleCheck,
+  IconCircleX,
+  IconShieldCheck,
+  IconUsers,
+} from "@tabler/icons-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -213,7 +213,7 @@ function UserWorkspacesContent({ user }: { user: UserRecord }) {
     <>
       <DialogHeader>
         <DialogTitle className="flex items-center gap-2">
-          <Building2Icon className="size-5" />
+          <IconBuilding className="size-5" />
           用户加入的工作区
         </DialogTitle>
         <DialogDescription>
@@ -391,7 +391,7 @@ export function UsersGrid() {
       accessorKey: "role",
       cell: (r) => (
         <Badge variant={r.role === "admin" ? "default" : "outline"}>
-          {r.role === "admin" ? <ShieldCheckIcon className="mr-1 size-3" /> : null}
+          {r.role === "admin" ? <IconShieldCheck className="mr-1 size-3" /> : null}
           {r.role}
         </Badge>
       ),
@@ -402,12 +402,12 @@ export function UsersGrid() {
       cell: (r) =>
         r.emailVerified ? (
           <Badge variant="success">
-            <CheckCircle2Icon className="mr-1 size-3" />
+            <IconCircleCheck className="mr-1 size-3" />
             已验证
           </Badge>
         ) : (
           <Badge variant="outline" className="text-muted-foreground">
-            <XCircleIcon className="mr-1 size-3" />
+            <IconCircleX className="mr-1 size-3" />
             未验证
           </Badge>
         ),
@@ -440,7 +440,7 @@ export function UsersGrid() {
             <Tooltip>
               <TooltipTrigger asChild>
                 <Badge variant="danger">
-                  <BanIcon className="mr-1 size-3" />
+                  <IconBan className="mr-1 size-3" />
                   已封禁
                 </Badge>
               </TooltipTrigger>
@@ -514,7 +514,7 @@ export function UsersGrid() {
           <Empty className="border-border">
             <EmptyHeader>
               <EmptyMedia variant="icon">
-                <UsersIcon className="size-5" />
+                <IconUsers className="size-5" />
               </EmptyMedia>
               <EmptyTitle>还没有用户</EmptyTitle>
               <EmptyDescription>平台上暂无任何用户记录。</EmptyDescription>

@@ -1,5 +1,6 @@
 "use client";
 
+import { IconCheck, IconLoader2, IconTool } from "@tabler/icons-react";
 // 流式分析浮层：忙状态下绝对定位覆盖弹窗内容，dedup 命中时切换到
 // ResumeDedupOverlay。`pipeline` 入参直接传 useResumeAnalysisPipeline 返回值即可。
 //
@@ -12,7 +13,7 @@ import { ResumeDedupOverlay } from "@/components/features/resume/resume-dedup-ov
 import { TextFlip } from "@/components/features/motion/text-flip";
 import { Button } from "@/components/ui/button";
 import { cn } from "@arc/shared/utils";
-import { CheckIcon, LoaderCircleIcon, WrenchIcon } from "@/components/icons/hugeicons";
+
 import { motion, useReducedMotion } from "motion/react";
 import { useEffect, useRef } from "react";
 
@@ -86,7 +87,7 @@ export function ResumeAnalysisOverlay({ pipeline }: { pipeline: ResumeAnalysisPi
         />
       ) : (
         <>
-          <LoaderCircleIcon className="size-7 animate-spin text-muted-foreground" />
+          <IconLoader2 className="size-7 animate-spin text-muted-foreground" />
           {pipeline.progressStatus ? (
             <p className="font-medium text-foreground text-sm">{pipeline.progressStatus}</p>
           ) : (
@@ -116,7 +117,7 @@ export function ResumeAnalysisOverlay({ pipeline }: { pipeline: ResumeAnalysisPi
                         !done && !active && "border-border text-muted-foreground",
                       )}
                     >
-                      {done ? <CheckIcon className="size-3" /> : index + 1}
+                      {done ? <IconCheck className="size-3" /> : index + 1}
                     </span>
                     <span
                       className={cn(
@@ -138,9 +139,9 @@ export function ResumeAnalysisOverlay({ pipeline }: { pipeline: ResumeAnalysisPi
               {pipeline.progressTools.map((t) => (
                 <div className="flex items-center gap-1.5" key={t.name}>
                   {t.done ? (
-                    <CheckIcon className="size-3 text-green-500" />
+                    <IconCheck className="size-3 text-green-500" />
                   ) : (
-                    <WrenchIcon className="size-3 animate-pulse" />
+                    <IconTool className="size-3 animate-pulse" />
                   )}
                   <span>{t.name}</span>
                 </div>

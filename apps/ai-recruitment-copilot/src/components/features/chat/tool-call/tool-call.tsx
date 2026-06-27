@@ -1,16 +1,17 @@
 "use client";
 
+import {
+  IconClock,
+  IconFileSearch,
+  IconFileText,
+  IconList,
+  IconRuler,
+  IconTarget,
+  IconTool,
+} from "@tabler/icons-react";
 import type { DynamicToolUIPart, ToolUIPart } from "ai";
 import type { ToolRenderState } from "@arc/shared/tool-state";
-import {
-  ClockIcon,
-  FileSearchIcon,
-  FileTextIcon,
-  ListIcon,
-  RulerIcon,
-  TargetIcon,
-  WrenchIcon,
-} from "@/components/icons/hugeicons";
+
 import { extractRenderState } from "@arc/shared/tool-state";
 import { ToolLayout } from "./tool-layout";
 
@@ -45,22 +46,22 @@ const TOOL_META: Record<string, ToolMeta> = {
       const name = input.resumeName as string | undefined;
       return name ? `提取文本: ${name}` : "从 PDF 提取文本";
     },
-    icon: <FileTextIcon className="h-3.5 w-3.5" />,
+    icon: <IconFileText className="h-3.5 w-3.5" />,
     label: "提取文本",
   },
   get_resume_review_framework: {
     getSummary: () => "获取简历评审标准",
-    icon: <RulerIcon className="h-3.5 w-3.5" />,
+    icon: <IconRuler className="h-3.5 w-3.5" />,
     label: "筛选框架",
   },
   get_server_time: {
     getSummary: () => "获取服务端当前时间",
-    icon: <ClockIcon className="h-3.5 w-3.5" />,
+    icon: <IconClock className="h-3.5 w-3.5" />,
     label: "获取时间",
   },
   list_uploaded_resume_pdfs: {
     getSummary: () => "列出已上传的简历文件",
-    icon: <ListIcon className="h-3.5 w-3.5" />,
+    icon: <IconList className="h-3.5 w-3.5" />,
     label: "列出简历",
   },
   parse_resume: {
@@ -68,7 +69,7 @@ const TOOL_META: Record<string, ToolMeta> = {
       const name = input.resumeName as string | undefined;
       return name ? `解析简历: ${name}` : "解析简历文件为结构化档案";
     },
-    icon: <FileSearchIcon className="h-3.5 w-3.5" />,
+    icon: <IconFileSearch className="h-3.5 w-3.5" />,
     label: "解析简历",
   },
   suggest_job_description: {
@@ -76,7 +77,7 @@ const TOOL_META: Record<string, ToolMeta> = {
       const name = input.resumeName as string | undefined;
       return name ? `匹配在招岗位: ${name}` : "匹配在招岗位";
     },
-    icon: <TargetIcon className="h-3.5 w-3.5" />,
+    icon: <IconTarget className="h-3.5 w-3.5" />,
     label: "岗位匹配",
   },
 };
@@ -86,7 +87,7 @@ const DEFAULT_TOOL_META: ToolMeta = {
     const str = JSON.stringify(input);
     return str.length > 50 ? `${str.slice(0, 50)}…` : str;
   },
-  icon: <WrenchIcon className="h-3.5 w-3.5" />,
+  icon: <IconTool className="h-3.5 w-3.5" />,
   label: "工具调用",
 };
 

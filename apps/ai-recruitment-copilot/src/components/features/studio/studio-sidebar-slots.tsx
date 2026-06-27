@@ -1,22 +1,22 @@
 "use client";
 
 import {
-  ChartNoAxesCombinedIcon,
-  BotIcon,
-  Building2Icon,
-  ClipboardListIcon,
-  FileTextIcon,
-  LayoutGridIcon,
-  ListChecksIcon,
-  MailCheckIcon,
-  SettingsIcon,
-  ShieldCheckIcon,
-  UserIcon,
-  UserCircleIcon,
-  UserCogIcon,
-  UsersIcon,
-  WrenchIcon,
-} from "@/components/icons/hugeicons";
+  IconBuilding,
+  IconChartBar,
+  IconClipboardList,
+  IconFileText,
+  IconLayoutGrid,
+  IconListCheck,
+  IconMailCheck,
+  IconRobot,
+  IconSettings,
+  IconShieldCheck,
+  IconTool,
+  IconUser,
+  IconUserCircle,
+  IconUserCog,
+  IconUsers,
+} from "@tabler/icons-react";
 import { Link, useRouterState } from "@tanstack/react-router";
 import {
   SidebarBodyPortalContent,
@@ -39,7 +39,7 @@ import type { statement } from "@arc/shared/permissions";
 interface NavItem {
   /** Path under /w/[slug]/studio — leading slash, no slug prefix. */
   path: string;
-  icon: typeof BotIcon;
+  icon: typeof IconRobot;
   title: string;
   /** 仅当 page action 通过 useHasPermission 时显示。 */
   action: (typeof statement)["page"][number];
@@ -57,28 +57,28 @@ const navGroups: NavGroup[] = [
     items: [
       {
         action: "resumes",
-        icon: UsersIcon,
+        icon: IconUsers,
         path: "/studio/resumes",
         resource: "page",
         title: "简历库",
       },
       {
         action: "resumePool",
-        icon: LayoutGridIcon,
+        icon: IconLayoutGrid,
         path: "/studio/resume-pool",
         resource: "page",
         title: "简历广场",
       },
       {
         action: "interviews",
-        icon: BotIcon,
+        icon: IconRobot,
         path: "/studio/interviews",
         resource: "page",
         title: "AI 面试",
       },
       {
         action: "dashboard",
-        icon: ChartNoAxesCombinedIcon,
+        icon: IconChartBar,
         path: "/studio/dashboard",
         resource: "page",
         title: "数据看板",
@@ -90,21 +90,21 @@ const navGroups: NavGroup[] = [
     items: [
       {
         action: "departments",
-        icon: Building2Icon,
+        icon: IconBuilding,
         path: "/studio/departments",
         resource: "page",
         title: "部门管理",
       },
       {
         action: "interviewers",
-        icon: UserCircleIcon,
+        icon: IconUserCircle,
         path: "/studio/interviewers",
         resource: "page",
         title: "面试官管理",
       },
       {
         action: "jobDescriptions",
-        icon: FileTextIcon,
+        icon: IconFileText,
         path: "/studio/job-descriptions",
         resource: "page",
         title: "在招岗位管理",
@@ -116,14 +116,14 @@ const navGroups: NavGroup[] = [
     items: [
       {
         action: "forms",
-        icon: ClipboardListIcon,
+        icon: IconClipboardList,
         path: "/studio/forms",
         resource: "page",
         title: "面试表单",
       },
       {
         action: "interviewQuestions",
-        icon: ListChecksIcon,
+        icon: IconListCheck,
         path: "/studio/interview-questions",
         resource: "page",
         title: "面试题",
@@ -135,21 +135,21 @@ const navGroups: NavGroup[] = [
     items: [
       {
         action: "me",
-        icon: UserIcon,
+        icon: IconUser,
         path: "/studio/me",
         resource: "page",
         title: "我的信息",
       },
       {
         action: "members",
-        icon: UserCogIcon,
+        icon: IconUserCog,
         path: "/studio/members",
         resource: "page",
         title: "工作区管理",
       },
       {
         action: "mailIngestAccounts",
-        icon: MailCheckIcon,
+        icon: IconMailCheck,
         path: "/studio/mail-ingest-accounts",
         resource: "page",
         title: "邮箱监听",
@@ -157,21 +157,21 @@ const navGroups: NavGroup[] = [
       {
         action: "agentDebug",
         adminOnly: true,
-        icon: WrenchIcon,
+        icon: IconTool,
         path: "/studio/agent-debug",
         resource: "page",
         title: "Agent 调试",
       },
       {
         action: "permissions",
-        icon: ShieldCheckIcon,
+        icon: IconShieldCheck,
         path: "/studio/permissions",
         resource: "page",
         title: "权限管理",
       },
       {
         action: "globalConfig",
-        icon: SettingsIcon,
+        icon: IconSettings,
         path: "/studio/global-config",
         resource: "page",
         title: "系统设置",
@@ -226,7 +226,7 @@ export function StudioSidebarSlots() {
     <>
       <SidebarBodyPortalContent>
         {navGroups.map((group) => (
-          <SidebarGroup key={group.label}>
+          <SidebarGroup className="hidden has-[[data-sidebar=menu-item]]:flex" key={group.label}>
             <SidebarGroupLabel className="select-none">{group.label}</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>

@@ -1,11 +1,11 @@
 "use client";
 
-import { Upload01Icon } from "@hugeicons/core-free-icons";
+import { IconCircleCheck, IconFileText, IconLoader2, IconUpload } from "@tabler/icons-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { createFileRoute, useParams } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
-import { CheckCircleIcon, FileTextIcon, LoaderCircleIcon } from "@/components/icons/hugeicons";
+
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -88,7 +88,7 @@ function ReferralPage() {
           <CardContent className="flex flex-col gap-4">
             {unavailable ? (
               <Alert variant="destructive">
-                <FileTextIcon />
+                <IconFileText />
                 <AlertTitle>内推链接不可用</AlertTitle>
                 <AlertDescription>请联系分享链接的人重新发送。</AlertDescription>
               </Alert>
@@ -96,14 +96,14 @@ function ReferralPage() {
 
             {submittedFileName ? (
               <Alert>
-                <CheckCircleIcon />
+                <IconCircleCheck />
                 <AlertTitle>简历已提交</AlertTitle>
                 <AlertDescription>{submittedFileName} 已提交成功。</AlertDescription>
               </Alert>
             ) : (
               <FileUpload
                 accept={supportedResumeDocumentAccept}
-                acceptedFileTypes={[{ icon: Upload01Icon, label: supportedResumeDocumentLabel }]}
+                acceptedFileTypes={[{ icon: IconUpload, label: supportedResumeDocumentLabel }]}
                 ariaLabel="上传内推简历"
                 browseLabel="选择简历"
                 description={`支持 ${supportedResumeDocumentLabel}，单个文件不超过 20 MB。`}
@@ -137,14 +137,14 @@ function ReferralPage() {
 
             {uploadMutation.isPending ? (
               <p className="inline-flex items-center gap-2 text-muted-foreground text-sm">
-                <LoaderCircleIcon className="size-4 animate-spin" />
+                <IconLoader2 className="size-4 animate-spin" />
                 正在提交
               </p>
             ) : null}
 
             {errorMessage ? (
               <Alert variant="destructive">
-                <FileTextIcon />
+                <IconFileText />
                 <AlertTitle>提交失败</AlertTitle>
                 <AlertDescription>{errorMessage}</AlertDescription>
               </Alert>

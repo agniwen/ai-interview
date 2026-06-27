@@ -1,5 +1,6 @@
 "use client";
 
+import { IconCheck, IconChevronDown } from "@tabler/icons-react";
 /**
  * 桌面端多选下拉：用 Popover + 内嵌列表实现，触发器外观与 `<SelectTrigger>` 一致，
  * 让多选与单选在同一页面里视觉对齐。
@@ -9,7 +10,7 @@
  */
 
 import type { CandidateFormTemplateSnapshot } from "@arc/db-schema/candidate-forms";
-import { CheckIcon, ChevronDownIcon } from "@/components/icons/hugeicons";
+
 import { useMemo, useState } from "react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@arc/shared/utils";
@@ -73,7 +74,7 @@ export function DesktopMultiSelect({
           >
             {triggerLabel}
           </span>
-          <ChevronDownIcon className="size-4 shrink-0 opacity-50" />
+          <IconChevronDown className="size-4 shrink-0 opacity-50" />
         </button>
       </PopoverTrigger>
       <PopoverContent
@@ -95,7 +96,7 @@ export function DesktopMultiSelect({
                 onClick={() => toggle(option.value)}
                 type="button"
               >
-                <CheckIcon
+                <IconCheck
                   className={cn(
                     "size-4 shrink-0 text-primary",
                     checked ? "opacity-100" : "opacity-0",

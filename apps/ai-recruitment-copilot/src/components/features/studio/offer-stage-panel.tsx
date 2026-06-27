@@ -1,5 +1,15 @@
 "use client";
 
+import {
+  IconArrowUpRight,
+  IconBan,
+  IconCircleCheck,
+  IconHeartHandshake,
+  IconMail,
+  IconPencil,
+  IconPlus,
+  IconSend,
+} from "@tabler/icons-react";
 /* oxlint-disable no-use-before-define -- helper components defined below export component for top-down readability */
 // Offer 阶段的详情面板内容：
 //   - 顶部：候选人期望（薪资 / 现 base / 期望入职日）—— 可编辑，partial merge
@@ -12,16 +22,7 @@
 // the caller to launch the close flow.
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  ArrowUpRightIcon,
-  BanIcon,
-  CheckCircle2Icon,
-  MailIcon,
-  HandshakeIcon,
-  PencilIcon,
-  PlusIcon,
-  SendIcon,
-} from "@/components/icons/hugeicons";
+
 import type { Dispatch, SetStateAction } from "react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -111,7 +112,7 @@ export function OfferStagePanel({
         <Empty className="border-border">
           <EmptyHeader>
             <EmptyMedia variant="icon">
-              <HandshakeIcon className="size-5" />
+              <IconHeartHandshake className="size-5" />
             </EmptyMedia>
             <EmptyTitle>尚未发出 Offer</EmptyTitle>
             <EmptyDescription>
@@ -154,7 +155,7 @@ export function OfferStagePanel({
         </div>
         {disabled ? null : (
           <Button onClick={() => setCreateOpen(true)} size="sm">
-            <PlusIcon className="size-4" />
+            <IconPlus className="size-4" />
             新建 Offer
           </Button>
         )}
@@ -347,7 +348,7 @@ function CandidateExpectationsBlock({
           </div>
           {disabled ? null : (
             <Button onClick={() => setEditing(true)} size="sm" variant="ghost">
-              <PencilIcon className="size-3.5" />
+              <IconPencil className="size-3.5" />
               编辑
             </Button>
           )}
@@ -543,11 +544,11 @@ function OfferCardActions({
     return (
       <div className="flex flex-wrap justify-end gap-2">
         <Button onClick={onEdit} size="sm" variant="ghost">
-          <PencilIcon className="size-4" />
+          <IconPencil className="size-4" />
           编辑
         </Button>
         <Button disabled={sendPending} onClick={onSend} size="sm">
-          <SendIcon className="size-4" />
+          <IconSend className="size-4" />
           发送
         </Button>
       </div>
@@ -557,7 +558,7 @@ function OfferCardActions({
     return (
       <div className="flex flex-wrap justify-end gap-2">
         <Button onClick={onRespond} size="sm">
-          <CheckCircle2Icon className="size-4" />
+          <IconCircleCheck className="size-4" />
           记录响应
         </Button>
         <Button
@@ -566,7 +567,7 @@ function OfferCardActions({
           size="sm"
           variant="outline"
         >
-          <BanIcon className="size-4" />
+          <IconBan className="size-4" />
           撤回
         </Button>
       </div>
@@ -652,7 +653,7 @@ function SendOfferConfirmDialog({
 
         <div className="rounded-lg border bg-muted/30 p-3">
           <div className="flex items-center gap-2 text-muted-foreground text-xs">
-            <MailIcon className="size-3.5" />
+            <IconMail className="size-3.5" />
             即将发送至
           </div>
           <div className="mt-1 font-medium text-sm">
@@ -1138,7 +1139,7 @@ function AcceptedConfirmDialog({
             稍后
           </Button>
           <Button onClick={onProceed}>
-            <ArrowUpRightIcon className="size-4" />
+            <IconArrowUpRight className="size-4" />
             标记为已录用
           </Button>
         </DialogFooter>

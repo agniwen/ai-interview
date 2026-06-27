@@ -1,16 +1,16 @@
 "use client";
 
-import * as React from "react";
 import {
-  Download01Icon,
-  MinusSignCircleIcon,
-  PlusSignCircleIcon,
-  RotateClockwiseIcon,
-  Search01Icon,
-  SidebarLeftIcon,
-  Upload01Icon,
-} from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
+  IconCircleMinus,
+  IconCirclePlus,
+  IconDownload,
+  IconLayoutSidebarLeftCollapse,
+  IconRotateClockwise,
+  IconSearch,
+  IconUpload,
+} from "@tabler/icons-react";
+import * as React from "react";
+
 import { useVirtualizer } from "@tanstack/react-virtual";
 import type { PDFDocumentProxy } from "pdfjs-dist";
 import type * as ReactPdf from "react-pdf";
@@ -1435,7 +1435,7 @@ export const PDFViewer = React.forwardRef<PDFViewerHandle, PDFViewerProps>(funct
                 disabled={controlsDisabled}
                 onClick={() => setSidebarOpen((open) => !open)}
               >
-                <HugeiconsIcon icon={SidebarLeftIcon} className="size-4" />
+                <IconLayoutSidebarLeftCollapse className="size-4" />
               </Button>
             </ToolbarTooltip>
           </TooltipProvider>
@@ -1457,7 +1457,7 @@ export const PDFViewer = React.forwardRef<PDFViewerHandle, PDFViewerProps>(funct
                       disabled={controlsDisabled}
                       onClick={() => rotateActivePage(-90)}
                     >
-                      <HugeiconsIcon icon={RotateClockwiseIcon} className="size-4 -scale-x-100" />
+                      <IconRotateClockwise className="size-4 -scale-x-100" />
                     </Button>
                   </ToolbarTooltip>
                   <ToolbarTooltip label="顺时针旋转页面">
@@ -1469,7 +1469,7 @@ export const PDFViewer = React.forwardRef<PDFViewerHandle, PDFViewerProps>(funct
                       disabled={controlsDisabled}
                       onClick={() => rotateActivePage(90)}
                     >
-                      <HugeiconsIcon icon={RotateClockwiseIcon} className="size-4" />
+                      <IconRotateClockwise className="size-4" />
                     </Button>
                   </ToolbarTooltip>
                 </div>
@@ -1489,7 +1489,7 @@ export const PDFViewer = React.forwardRef<PDFViewerHandle, PDFViewerProps>(funct
                     setZoom(ZOOM_OPTIONS[Math.max(0, currentIndex - 1)] ?? zoom);
                   }}
                 >
-                  <HugeiconsIcon icon={MinusSignCircleIcon} className="size-4" />
+                  <IconCircleMinus className="size-4" />
                 </Button>
               </ToolbarTooltip>
               <Select
@@ -1522,7 +1522,7 @@ export const PDFViewer = React.forwardRef<PDFViewerHandle, PDFViewerProps>(funct
                     );
                   }}
                 >
-                  <HugeiconsIcon icon={PlusSignCircleIcon} className="size-4" />
+                  <IconCirclePlus className="size-4" />
                 </Button>
               </ToolbarTooltip>
             </div>
@@ -1541,7 +1541,7 @@ export const PDFViewer = React.forwardRef<PDFViewerHandle, PDFViewerProps>(funct
                     {isPreparingDownload ? (
                       <Spinner className="size-4" />
                     ) : (
-                      <HugeiconsIcon icon={Download01Icon} className="size-4" />
+                      <IconDownload className="size-4" />
                     )}
                   </Button>
                 </ToolbarTooltip>
@@ -1558,7 +1558,7 @@ export const PDFViewer = React.forwardRef<PDFViewerHandle, PDFViewerProps>(funct
                     aria-label="搜索文本"
                     disabled={controlsDisabled}
                   >
-                    <HugeiconsIcon icon={Search01Icon} className="size-4" />
+                    <IconSearch className="size-4" />
                   </Button>
                 </PopoverTrigger>
               </ToolbarTooltip>
@@ -1605,7 +1605,7 @@ export const PDFViewer = React.forwardRef<PDFViewerHandle, PDFViewerProps>(funct
                           }
                         }}
                       />
-                      <HugeiconsIcon icon={Upload01Icon} className="size-4" />
+                      <IconUpload className="size-4" />
                     </label>
                   </Button>
                 </ToolbarTooltip>

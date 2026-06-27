@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertCircleIcon, RefreshCcwIcon } from "@/components/icons/hugeicons";
+import { IconAlertCircle, IconRefresh } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
 import { useChatActionsContext } from "./chat-runtime-context";
 
@@ -29,7 +29,7 @@ export function ErrorBanner({
           className="flex flex-col gap-2 rounded-xl border border-destructive/25 bg-destructive/6 px-3 py-2 text-destructive text-sm sm:flex-row sm:items-center sm:gap-3 sm:px-4"
         >
           <div className="flex min-w-0 items-start gap-2">
-            <AlertCircleIcon className="mt-0.5 size-4 shrink-0" />
+            <IconAlertCircle className="mt-0.5 size-4 shrink-0" />
             <span className="leading-normal">
               请求失败，这一步没有完成。可以继续跑完剩下的步骤，或从头重新生成。
             </span>
@@ -41,7 +41,7 @@ export function ErrorBanner({
             type="button"
             variant="outline"
           >
-            <RefreshCcwIcon className="size-3.5" />
+            <IconRefresh className="size-3.5" />
             继续
           </Button>
         </div>
@@ -52,7 +52,7 @@ export function ErrorBanner({
           aria-live="polite"
           className="mb-2 flex items-center gap-2 rounded-md border border-destructive/25 bg-destructive/6 px-3 py-2 text-destructive text-sm sm:px-4"
         >
-          <AlertCircleIcon className="mt-0.5 size-4 shrink-0" />
+          <IconAlertCircle className="mt-0.5 size-4 shrink-0" />
           <p className="leading-normal">{uploadErrorMessage}</p>
         </div>
       ) : null}
@@ -62,7 +62,7 @@ export function ErrorBanner({
           aria-live="polite"
           className="mb-2 flex items-center gap-2 rounded-md border border-destructive/25 bg-destructive/6 px-3 py-2 text-destructive text-sm sm:px-4"
         >
-          <AlertCircleIcon className="mt-0.5 size-4 shrink-0" />
+          <IconAlertCircle className="mt-0.5 size-4 shrink-0" />
           <p className="leading-normal">{historyErrorMessage}</p>
         </div>
       ) : null}

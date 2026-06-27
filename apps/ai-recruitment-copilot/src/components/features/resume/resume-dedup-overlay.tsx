@@ -1,5 +1,6 @@
 "use client";
 
+import { IconAlertTriangle, IconExternalLink } from "@tabler/icons-react";
 /**
  * 简历疑似重复风险提示 overlay。
  * Resume duplicate-risk overlay shown after a resume is parsed.
@@ -12,7 +13,6 @@
  * the in-progress overlay for this component so the user can decide.
  */
 
-import { AlertTriangleIcon, ExternalLinkIcon } from "@/components/icons/hugeicons";
 import { useState } from "react";
 import type { DedupMatchRecord } from "@/lib/client/api";
 import { studioInterviewStatusMeta } from "@arc/db-schema/studio-interviews";
@@ -104,7 +104,7 @@ export function ResumeDedupMatchList({ matches }: { matches: DedupMatchRecord[] 
                   type="button"
                   variant="outline"
                 >
-                  <ExternalLinkIcon className="size-3.5" />
+                  <IconExternalLink className="size-3.5" />
                   查看
                 </Button>
               </div>
@@ -167,7 +167,7 @@ export function ResumeDedupOverlay({ matches, onContinue, onCancel }: ResumeDedu
   return (
     <div className="flex w-full max-w-2xl flex-col gap-4">
       <div className="flex items-start gap-3 rounded-xl border border-amber-200/70 bg-amber-50/70 px-4 py-3 text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-200">
-        <AlertTriangleIcon className="mt-0.5 size-5 shrink-0" />
+        <IconAlertTriangle className="mt-0.5 size-5 shrink-0" />
         <div className="space-y-1">
           <p className="font-medium text-sm">检测到 {matches.length} 条疑似重复的候选人记录</p>
           <p className="text-xs leading-normal opacity-80">

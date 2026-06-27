@@ -1,12 +1,12 @@
 "use client";
 
 import {
-  ActivityIcon,
-  Building2Icon,
-  DatabaseIcon,
-  ListChecksIcon,
-  ServerIcon,
-} from "@/components/icons/hugeicons";
+  IconActivity,
+  IconBuilding,
+  IconDatabase,
+  IconListCheck,
+  IconServer,
+} from "@tabler/icons-react";
 import type { ComponentProps } from "react";
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -349,7 +349,7 @@ function QueueOrganizationCell({ organization }: { organization: QueueJobRecord[
   }
   return (
     <div className="flex min-w-0 items-center gap-2">
-      <Building2Icon className="size-4 shrink-0 text-muted-foreground" />
+      <IconBuilding className="size-4 shrink-0 text-muted-foreground" />
       <div className="min-w-0">
         <p className="truncate font-medium text-sm">{organization.name}</p>
         <p className="truncate text-muted-foreground text-xs">{organization.slug}</p>
@@ -533,7 +533,7 @@ export function QueueOverview({ overview }: { overview: QueueOverviewRecord | nu
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-3">
           <div className="flex size-10 items-center justify-center rounded-lg border bg-background">
-            <ListChecksIcon />
+            <IconListCheck />
           </div>
           <div className="min-w-0">
             <h1 className="truncate font-semibold text-xl">{overview.displayName}</h1>
@@ -542,13 +542,13 @@ export function QueueOverview({ overview }: { overview: QueueOverviewRecord | nu
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Badge variant={overview.redis ? "success" : "danger"}>
-            <DatabaseIcon />
+            <IconDatabase />
             {overview.redis
               ? `${overview.redis.host}:${overview.redis.port}/${overview.redis.db}`
               : "Redis 未配置"}
           </Badge>
           <Badge variant={overview.workersCount > 0 ? "success" : "warning"}>
-            <ServerIcon />
+            <IconServer />
             {overview.workersCount} workers
           </Badge>
         </div>
@@ -567,7 +567,7 @@ export function QueueOverview({ overview }: { overview: QueueOverviewRecord | nu
         <div className="flex flex-wrap gap-2">
           {overview.workers.slice(0, 8).map((worker) => (
             <Badge key={worker.id ?? worker.addr} variant="secondary">
-              <ServerIcon />
+              <IconServer />
               {worker.addr ?? worker.id ?? "unknown"} · idle {worker.idle ?? "?"}s
             </Badge>
           ))}
@@ -809,7 +809,7 @@ export function QueuesGrid() {
           <Empty className="border-border">
             <EmptyHeader>
               <EmptyMedia variant="icon">
-                <ActivityIcon />
+                <IconActivity />
               </EmptyMedia>
               <EmptyTitle>没有队列任务</EmptyTitle>
               <EmptyDescription>当前筛选条件下没有任务记录。</EmptyDescription>

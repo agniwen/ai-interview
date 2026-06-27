@@ -1,12 +1,13 @@
 "use client";
 
+import { IconAlertCircle, IconFileSearch } from "@tabler/icons-react";
 import { JsonEditor } from "@visual-json/react";
 import type { JsonValue } from "@visual-json/react";
 import { createFileRoute, useParams } from "@tanstack/react-router";
 import type { CSSProperties } from "react";
 import { useState } from "react";
 import { toast } from "sonner";
-import { AlertCircleIcon, FileSearchIcon } from "@/components/icons/hugeicons";
+
 import { PageHeader } from "@/components/features/studio/page-header";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -116,7 +117,7 @@ function AgentDebugRoute() {
       <Card className="rounded-lg">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <FileSearchIcon />
+            <IconFileSearch />
             简历解析
           </CardTitle>
           <CardDescription>仅用于调试当前解析链路，不会写入简历库。</CardDescription>
@@ -150,7 +151,7 @@ function AgentDebugRoute() {
 
           {error ? (
             <Alert variant="destructive">
-              <AlertCircleIcon />
+              <IconAlertCircle />
               <AlertTitle>解析失败</AlertTitle>
               <AlertDescription>{error}</AlertDescription>
             </Alert>

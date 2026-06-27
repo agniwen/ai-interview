@@ -1,5 +1,16 @@
 "use client";
 
+import {
+  IconArrowLeft,
+  IconArrowRight,
+  IconCircleMinus,
+  IconCirclePlus,
+  IconDots,
+  IconDownload,
+  IconMoon2,
+  IconSearch,
+  IconUpload,
+} from "@tabler/icons-react";
 import * as React from "react";
 import {
   useXlsxViewer,
@@ -14,18 +25,7 @@ import {
   type XlsxTableHeaderMenuRenderProps,
   type XlsxViewerController,
 } from "@extend-ai/react-xlsx";
-import {
-  ArrowLeft01Icon,
-  ArrowRight01Icon,
-  Download01Icon,
-  MinusSignCircleIcon,
-  Moon02Icon,
-  MoreHorizontalIcon,
-  PlusSignCircleIcon,
-  Search01Icon,
-  Upload01Icon,
-} from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
+
 import { createPortal } from "react-dom";
 
 import { cn } from "@arc/shared/utils";
@@ -444,7 +444,7 @@ function WorkbookFileActionsMenu({
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button type="button" variant="ghost" size="icon-sm" aria-label="打开表格操作菜单">
-          <HugeiconsIcon icon={MoreHorizontalIcon} className="size-4" />
+          <IconDots className="size-4" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className={cn("w-52", XLSX_DROPDOWN_Z_INDEX_CLASS)}>
@@ -455,7 +455,7 @@ function WorkbookFileActionsMenu({
               onCheckedChange={(checked) => onIsDarkChange?.(checked === true)}
             >
               <span className="flex min-w-0 items-center gap-2">
-                <HugeiconsIcon icon={Moon02Icon} className="size-4" />
+                <IconMoon2 className="size-4" />
                 深色模式
               </span>
             </DropdownMenuCheckboxItem>
@@ -464,13 +464,13 @@ function WorkbookFileActionsMenu({
         ) : null}
         {showDownloadButton && onDownload ? (
           <DropdownMenuItem onClick={onDownload}>
-            <HugeiconsIcon icon={Download01Icon} className="size-4" />
+            <IconDownload className="size-4" />
             下载
           </DropdownMenuItem>
         ) : null}
         {showUploadButton ? (
           <DropdownMenuItem onClick={onUploadClick}>
-            <HugeiconsIcon icon={Upload01Icon} className="size-4" />
+            <IconUpload className="size-4" />
             上传
           </DropdownMenuItem>
         ) : null}
@@ -507,11 +507,7 @@ export function WorkbookTableHeaderMenu({
           className={cn("size-6 rounded-sm", triggerProps.className)}
           aria-label="列菜单"
         >
-          {triggerIcon ? (
-            triggerIcon
-          ) : (
-            <HugeiconsIcon icon={MoreHorizontalIcon} className="size-3.5" />
-          )}
+          {triggerIcon ? triggerIcon : <IconDots className="size-3.5" />}
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className={cn("w-40", XLSX_DROPDOWN_Z_INDEX_CLASS)}>
@@ -682,7 +678,7 @@ function WorkbookSearchPopover({
             aria-label="搜索工作簿"
             disabled={controlsDisabled}
           >
-            <HugeiconsIcon icon={Search01Icon} className="size-4" />
+            <IconSearch className="size-4" />
           </Button>
         </PopoverTrigger>
       </ToolbarTooltip>
@@ -732,7 +728,7 @@ function WorkbookSearchPopover({
                 disabled={isSearching || searchResults.length === 0}
                 onClick={() => goToRelativeResult(-1)}
               >
-                <HugeiconsIcon icon={ArrowLeft01Icon} className="size-4" />
+                <IconArrowLeft className="size-4" />
               </Button>
               <Button
                 type="button"
@@ -742,7 +738,7 @@ function WorkbookSearchPopover({
                 disabled={isSearching || searchResults.length === 0}
                 onClick={() => goToRelativeResult(1)}
               >
-                <HugeiconsIcon icon={ArrowRight01Icon} className="size-4" />
+                <IconArrowRight className="size-4" />
               </Button>
             </div>
           </div>
@@ -801,7 +797,7 @@ function WorkbookToolbar({
                 aria-label="缩小"
                 onClick={zoomOut}
               >
-                <HugeiconsIcon icon={MinusSignCircleIcon} className="size-4" />
+                <IconCircleMinus className="size-4" />
               </Button>
             </ToolbarTooltip>
             <Select
@@ -828,7 +824,7 @@ function WorkbookToolbar({
                 aria-label="放大"
                 onClick={zoomIn}
               >
-                <HugeiconsIcon icon={PlusSignCircleIcon} className="size-4" />
+                <IconCirclePlus className="size-4" />
               </Button>
             </ToolbarTooltip>
           </div>
@@ -1420,7 +1416,7 @@ function XlsxViewerContent({
               className="mt-4"
               onClick={() => fileInputRef.current?.click()}
             >
-              <HugeiconsIcon icon={Upload01Icon} className="size-4" />
+              <IconUpload className="size-4" />
               上传 Excel
             </Button>
           </div>
@@ -1457,7 +1453,7 @@ function XlsxViewerContent({
               className="mt-4"
               onClick={() => fileInputRef.current?.click()}
             >
-              <HugeiconsIcon icon={Upload01Icon} className="size-4" />
+              <IconUpload className="size-4" />
               上传 Excel
             </Button>
           </div>

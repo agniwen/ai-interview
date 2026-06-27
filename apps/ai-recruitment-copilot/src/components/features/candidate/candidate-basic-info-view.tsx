@@ -1,7 +1,8 @@
 "use client";
 
+import { IconUpload } from "@tabler/icons-react";
 import type { ReactNode } from "react";
-import { UploadIcon } from "@/components/icons/hugeicons";
+
 import { Button } from "@/components/ui/button";
 import { ResumeDocumentFileIcon } from "@/components/features/resume/resume-document-file-icon";
 import { ResumeDocumentPreviewButton } from "@/components/features/resume/resume-document-preview-button";
@@ -115,7 +116,7 @@ export function CandidateBasicInfoView({
                     type="button"
                     variant="outline"
                   >
-                    <UploadIcon className="size-3.5" />
+                    <IconUpload className="size-3.5" />
                     替换
                   </Button>
                 ) : null}

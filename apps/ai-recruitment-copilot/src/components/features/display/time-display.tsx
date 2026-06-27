@@ -1,7 +1,8 @@
 "use client";
 
+import { IconCalendar } from "@tabler/icons-react";
 import dayjs from "dayjs";
-import { CalendarIcon } from "@/components/icons/hugeicons";
+
 import { useMemo } from "react";
 import { useHydrated } from "@/hooks/use-hydrated";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -117,7 +118,7 @@ export function TimeDisplay({
   const content = (
     <span className={className}>
       <span className="inline-flex items-center gap-1 whitespace-nowrap align-baseline">
-        <CalendarIcon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
+        <IconCalendar aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
         {as === "span" ? (
           <span className="whitespace-nowrap">{text}</span>
         ) : (

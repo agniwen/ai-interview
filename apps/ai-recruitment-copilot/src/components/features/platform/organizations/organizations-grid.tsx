@@ -1,6 +1,6 @@
 "use client";
 
-import { Building2Icon, UsersIcon } from "@/components/icons/hugeicons";
+import { IconBuilding, IconUsers } from "@tabler/icons-react";
 import { useCallback, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -96,7 +96,7 @@ export function OrganizationsGrid() {
       customColumn<OrganizationRecord>({
         cell: (r) => (
           <Badge variant="outline">
-            <UsersIcon className="mr-1 size-3" />
+            <IconUsers className="mr-1 size-3" />
             {r.memberCount} 成员
           </Badge>
         ),
@@ -129,7 +129,7 @@ export function OrganizationsGrid() {
           <Empty className="border-border">
             <EmptyHeader>
               <EmptyMedia variant="icon">
-                <Building2Icon className="size-5" />
+                <IconBuilding className="size-5" />
               </EmptyMedia>
               <EmptyTitle>还没有工作区</EmptyTitle>
               <EmptyDescription>平台上暂无任何 organization 记录。</EmptyDescription>

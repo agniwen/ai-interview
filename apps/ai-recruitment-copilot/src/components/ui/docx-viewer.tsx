@@ -1,5 +1,15 @@
 "use client";
 
+import {
+  IconCircleMinus,
+  IconCirclePlus,
+  IconDots,
+  IconDownload,
+  IconLayoutSidebarLeftCollapse,
+  IconMessageCircle,
+  IconMoon2,
+  IconUpload,
+} from "@tabler/icons-react";
 import * as React from "react";
 import {
   DocxEditorViewer,
@@ -12,17 +22,7 @@ import {
   type DocxEditorController,
   type DocxPageThumbnailItem,
 } from "@extend-ai/react-docx";
-import {
-  Comment01Icon,
-  Download01Icon,
-  MinusSignCircleIcon,
-  Moon02Icon,
-  MoreHorizontalIcon,
-  PlusSignCircleIcon,
-  SidebarLeftIcon,
-  Upload01Icon,
-} from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
+
 import { useVirtualizer } from "@tanstack/react-virtual";
 
 import { cn } from "@arc/shared/utils";
@@ -323,7 +323,7 @@ function DocxFileActionsMenu({
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button type="button" variant="ghost" size="icon-sm" aria-label="打开 Word 操作菜单">
-          <HugeiconsIcon icon={MoreHorizontalIcon} className="size-4" />
+          <IconDots className="size-4" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-52">
@@ -335,7 +335,7 @@ function DocxFileActionsMenu({
               onCheckedChange={(checked) => onIsDarkChange(checked === true)}
             >
               <span className="flex min-w-0 items-center gap-2">
-                <HugeiconsIcon icon={Moon02Icon} className="size-4" />
+                <IconMoon2 className="size-4" />
                 深色模式
               </span>
             </DropdownMenuCheckboxItem>
@@ -348,7 +348,7 @@ function DocxFileActionsMenu({
           onCheckedChange={(checked) => onShowDocumentMarkupChange(checked === true)}
         >
           <span className="flex min-w-0 items-center gap-2">
-            <HugeiconsIcon icon={Comment01Icon} className="size-4" />
+            <IconMessageCircle className="size-4" />
             批注/修订
           </span>
         </DropdownMenuCheckboxItem>
@@ -358,14 +358,14 @@ function DocxFileActionsMenu({
             {isPreparingDownload ? (
               <Spinner className="size-4" />
             ) : (
-              <HugeiconsIcon icon={Download01Icon} className="size-4" />
+              <IconDownload className="size-4" />
             )}
             下载
           </DropdownMenuItem>
         ) : null}
         {showUploadButton ? (
           <DropdownMenuItem onClick={onUploadClick}>
-            <HugeiconsIcon icon={Upload01Icon} className="size-4" />
+            <IconUpload className="size-4" />
             上传
           </DropdownMenuItem>
         ) : null}
@@ -519,7 +519,7 @@ function DocxToolbar({
               disabled={controlsDisabled}
               onClick={onToggleSidebar}
             >
-              <HugeiconsIcon icon={SidebarLeftIcon} className="size-4" />
+              <IconLayoutSidebarLeftCollapse className="size-4" />
             </Button>
           </ToolbarTooltip>
           <DocxPageNumberControl
@@ -542,7 +542,7 @@ function DocxToolbar({
                   setZoomScale((currentZoomScale) => getNextZoomScale(currentZoomScale, -1))
                 }
               >
-                <HugeiconsIcon icon={MinusSignCircleIcon} className="size-4" />
+                <IconCircleMinus className="size-4" />
               </Button>
             </ToolbarTooltip>
             <Select
@@ -572,7 +572,7 @@ function DocxToolbar({
                   setZoomScale((currentZoomScale) => getNextZoomScale(currentZoomScale, 1))
                 }
               >
-                <HugeiconsIcon icon={PlusSignCircleIcon} className="size-4" />
+                <IconCirclePlus className="size-4" />
               </Button>
             </ToolbarTooltip>
           </div>
@@ -1362,7 +1362,7 @@ function DocxViewerContent({
                   className="mt-4"
                   onClick={() => fileInputRef.current?.click()}
                 >
-                  <HugeiconsIcon icon={Upload01Icon} className="size-4" />
+                  <IconUpload className="size-4" />
                   上传 Word 文档
                 </Button>
               </div>

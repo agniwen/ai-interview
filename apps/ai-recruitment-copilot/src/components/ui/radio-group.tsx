@@ -1,6 +1,6 @@
 "use client";
 
-import { CircleIcon } from "@/components/icons/hugeicons";
+import { IconCircle } from "@tabler/icons-react";
 import { RadioGroup as RadioGroupPrimitive } from "radix-ui";
 import * as React from "react";
 
@@ -38,7 +38,7 @@ function RadioGroupItem({
         data-slot="radio-group-indicator"
         className="relative z-10 flex items-center justify-center"
       >
-        <CircleIcon className="absolute top-1/2 left-1/2 size-2 -translate-x-1/2 -translate-y-1/2 fill-primary" />
+        <IconCircle className="absolute top-1/2 left-1/2 size-2 -translate-x-1/2 -translate-y-1/2 fill-primary" />
       </RadioGroupPrimitive.Indicator>
     </RadioGroupPrimitive.Item>
   );

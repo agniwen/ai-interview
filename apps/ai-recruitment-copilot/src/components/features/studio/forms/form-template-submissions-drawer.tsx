@@ -1,11 +1,12 @@
 "use client";
 
+import { IconInbox, IconLoader2 } from "@tabler/icons-react";
 import type {
   CandidateFormTemplateListRecord,
   CandidateFormTemplateSnapshot,
 } from "@arc/db-schema/candidate-forms";
 import { useInfiniteQuery } from "@tanstack/react-query";
-import { InboxIcon, Loader2Icon } from "@/components/icons/hugeicons";
+
 import { useMemo } from "react";
 import { rpc } from "@/lib/client/rpc";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
@@ -150,7 +151,7 @@ export function CandidateFormTemplateSubmissionsDrawer({
         <div className="space-y-4 p-6">
           {isLoading ? (
             <div className="flex items-center justify-center gap-2 py-10 text-muted-foreground text-sm">
-              <Loader2Icon className="size-4 animate-spin" />
+              <IconLoader2 className="size-4 animate-spin" />
               加载中...
             </div>
           ) : null}
@@ -161,7 +162,7 @@ export function CandidateFormTemplateSubmissionsDrawer({
           ) : null}
           {!isLoading && submissions.length === 0 ? (
             <div className="flex flex-col items-center gap-2 py-10 text-muted-foreground text-sm">
-              <InboxIcon className="size-6" />
+              <IconInbox className="size-6" />
               还没有候选人填写过这份面试表单
             </div>
           ) : null}
@@ -227,7 +228,7 @@ export function CandidateFormTemplateSubmissionsDrawer({
                 >
                   {isFetchingNextPage ? (
                     <>
-                      <Loader2Icon className="size-4 animate-spin" />
+                      <IconLoader2 className="size-4 animate-spin" />
                       加载中...
                     </>
                   ) : (

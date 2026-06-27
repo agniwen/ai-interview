@@ -1,5 +1,6 @@
 "use client";
 
+import { IconChevronLeft, IconChevronRight } from "@tabler/icons-react";
 import type { UIMessage } from "ai";
 import type { ComponentProps, HTMLAttributes, ReactElement } from "react";
 
@@ -7,7 +8,7 @@ import { cjk } from "@streamdown/cjk";
 import { code } from "@streamdown/code";
 import { math } from "@streamdown/math";
 import { mermaid } from "@streamdown/mermaid";
-import { ChevronLeftIcon, ChevronRightIcon } from "@/components/icons/hugeicons";
+
 import { createContext, memo, use, useCallback, useEffect, useMemo, useState } from "react";
 import { Streamdown } from "streamdown";
 import { Button } from "@/components/ui/button";
@@ -235,7 +236,7 @@ export function MessageBranchPrevious({ children, ...props }: MessageBranchPrevi
       variant="ghost"
       {...props}
     >
-      {children ?? <ChevronLeftIcon size={14} />}
+      {children ?? <IconChevronLeft size={14} />}
     </Button>
   );
 }
@@ -255,7 +256,7 @@ export function MessageBranchNext({ children, ...props }: MessageBranchNextProps
       variant="ghost"
       {...props}
     >
-      {children ?? <ChevronRightIcon size={14} />}
+      {children ?? <IconChevronRight size={14} />}
     </Button>
   );
 }

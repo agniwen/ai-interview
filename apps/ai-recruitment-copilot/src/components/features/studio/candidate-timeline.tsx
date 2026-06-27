@@ -1,22 +1,23 @@
 "use client";
 
+import {
+  IconBell,
+  IconBriefcase2,
+  IconCalendarClock,
+  IconClipboardList,
+  IconFileText,
+  IconHistory,
+  IconMail,
+  IconRobot,
+  IconUserCircle,
+} from "@tabler/icons-react";
 import type {
   CandidateTimelineEvent,
   CandidateTimelineEventKind,
   CandidateTimelineEventTone,
   CandidateTimelineResponse,
 } from "@arc/shared/studio-resumes";
-import {
-  BellIcon,
-  BotIcon,
-  BriefcaseBusinessIcon,
-  CalendarClockIcon,
-  ClipboardListIcon,
-  FileTextIcon,
-  HistoryIcon,
-  MailIcon,
-  UserRoundIcon,
-} from "@/components/icons/hugeicons";
+
 import type { ComponentProps, ComponentType, SVGProps } from "react";
 import { MarkdownView } from "@/components/features/display/markdown-view";
 import { DATE_TIME_DISPLAY_OPTIONS, TimeDisplay } from "@/components/features/display/time-display";
@@ -37,15 +38,15 @@ type BadgeVariant = ComponentProps<typeof Badge>["variant"];
 const AI_REPORT_DESCRIPTION_MAX_LENGTH = 220;
 
 const KIND_META: Record<CandidateTimelineEventKind, { icon: TimelineIcon; label: string }> = {
-  ai_interview: { icon: BotIcon, label: "AI 面试" },
-  audit: { icon: HistoryIcon, label: "审计" },
-  candidate: { icon: UserRoundIcon, label: "档案" },
-  email: { icon: MailIcon, label: "邮件" },
-  form: { icon: ClipboardListIcon, label: "表单" },
-  human_interview: { icon: CalendarClockIcon, label: "真人复面" },
-  notification: { icon: BellIcon, label: "通知" },
-  offer: { icon: BriefcaseBusinessIcon, label: "Offer" },
-  stage: { icon: FileTextIcon, label: "阶段" },
+  ai_interview: { icon: IconRobot, label: "AI 面试" },
+  audit: { icon: IconHistory, label: "审计" },
+  candidate: { icon: IconUserCircle, label: "档案" },
+  email: { icon: IconMail, label: "邮件" },
+  form: { icon: IconClipboardList, label: "表单" },
+  human_interview: { icon: IconCalendarClock, label: "真人复面" },
+  notification: { icon: IconBell, label: "通知" },
+  offer: { icon: IconBriefcase2, label: "Offer" },
+  stage: { icon: IconFileText, label: "阶段" },
 };
 
 function badgeVariantForTone(tone: CandidateTimelineEventTone): BadgeVariant {
@@ -275,7 +276,7 @@ export function CandidateTimeline({
         <Empty className="mt-5 min-h-48">
           <EmptyHeader>
             <EmptyMedia variant="icon">
-              <HistoryIcon />
+              <IconHistory />
             </EmptyMedia>
             <EmptyTitle>暂无时间线事件</EmptyTitle>
             <EmptyDescription>候选人产生面试、表单或阶段流转后会显示在这里。</EmptyDescription>

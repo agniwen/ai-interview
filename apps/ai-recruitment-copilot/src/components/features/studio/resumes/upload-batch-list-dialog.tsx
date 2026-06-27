@@ -1,6 +1,6 @@
 "use client";
 
-import { EyeIcon, LoaderCircleIcon } from "@/components/icons/hugeicons";
+import { IconEye, IconLoader2 } from "@tabler/icons-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
@@ -72,7 +72,7 @@ export function UploadBatchListDialog({
       <div className="space-y-2">
         {isLoading ? (
           <div className="flex h-24 items-center justify-center text-muted-foreground text-sm">
-            <LoaderCircleIcon className="mr-2 size-4 animate-spin" />
+            <IconLoader2 className="mr-2 size-4 animate-spin" />
             正在加载批次…
           </div>
         ) : null}
@@ -109,7 +109,7 @@ export function UploadBatchListDialog({
                 type="button"
                 variant={active ? "default" : "outline"}
               >
-                <EyeIcon className="size-4" />
+                <IconEye className="size-4" />
                 {active ? "查看进度" : "查看"}
               </Button>
             </div>

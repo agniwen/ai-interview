@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckIcon } from "@/components/icons/hugeicons";
+import { IconCheck } from "@tabler/icons-react";
 import { cn } from "@arc/shared/utils";
 import type { ImportPhase } from "./types";
 
@@ -29,7 +29,7 @@ export function PhaseTracker({ phase }: { phase: ImportPhase }) {
                 !done && !active && "border-border text-muted-foreground",
               )}
             >
-              {done ? <CheckIcon className="size-3" /> : index + 1}
+              {done ? <IconCheck className="size-3" /> : index + 1}
             </span>
             <span className={cn(active ? "font-medium text-foreground" : "text-muted-foreground")}>
               {item.label}

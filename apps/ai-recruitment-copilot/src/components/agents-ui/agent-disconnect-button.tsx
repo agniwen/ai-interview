@@ -1,10 +1,11 @@
 "use client";
 
+import { IconPhoneOff } from "@tabler/icons-react";
 import type { VariantProps } from "class-variance-authority";
 import type { ComponentProps } from "react";
 import type { buttonVariants } from "@/components/ui/button";
 import { useSessionContext } from "@livekit/components-react";
-import { PhoneOffIcon } from "@/components/icons/hugeicons";
+
 import { Button } from "@/components/ui/button";
 import { cn } from "@arc/shared/utils";
 
@@ -14,7 +15,7 @@ import { cn } from "@arc/shared/utils";
 export interface AgentDisconnectButtonProps
   extends ComponentProps<"button">, VariantProps<typeof buttonVariants> {
   /**
-   * Custom icon to display. Defaults to PhoneOffIcon.
+   * Custom icon to display. Defaults to IconPhoneOff.
    */
   icon?: React.ReactNode;
   /**
@@ -69,7 +70,7 @@ export function AgentDisconnectButton({
 
   return (
     <Button size={size} variant={variant} onClick={handleClick} type="button" {...props}>
-      {icon ?? <PhoneOffIcon />}
+      {icon ?? <IconPhoneOff />}
       {children ?? <span className={cn(size?.includes("icon") && "sr-only")}>结束面试</span>}
     </Button>
   );

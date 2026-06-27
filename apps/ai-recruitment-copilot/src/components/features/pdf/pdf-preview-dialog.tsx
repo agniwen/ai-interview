@@ -1,6 +1,6 @@
 "use client";
 
-import { DownloadIcon, XIcon } from "@/components/icons/hugeicons";
+import { IconDownload, IconX } from "@tabler/icons-react";
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
@@ -58,7 +58,7 @@ export function PdfPreviewDialog({
               download={resolvedDownloadFileName}
               href={downloadUrl ?? url}
             >
-              <DownloadIcon className="size-4" />
+              <IconDownload className="size-4" />
               下载
             </a>
           </Button>
@@ -69,7 +69,7 @@ export function PdfPreviewDialog({
             type="button"
             variant="ghost"
           >
-            <XIcon className="size-4" />
+            <IconX className="size-4" />
           </Button>
         </div>
       }

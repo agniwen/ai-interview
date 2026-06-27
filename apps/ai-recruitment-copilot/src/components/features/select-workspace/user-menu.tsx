@@ -1,6 +1,6 @@
 "use client";
 
-import { LogOutIcon } from "@/components/icons/hugeicons";
+import { IconLogout } from "@tabler/icons-react";
 import { useNavigate } from "@tanstack/react-router";
 import { useCallback, useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -54,7 +54,7 @@ export function UserMenu({ name, email, avatarUrl, initials }: UserMenuProps) {
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuItem disabled={pending} onClick={handleSignOut} variant="destructive">
-          <LogOutIcon className="mr-2 size-4" />
+          <IconLogout className="mr-2 size-4" />
           {pending ? "退出中..." : "退出登录"}
         </DropdownMenuItem>
       </DropdownMenuContent>

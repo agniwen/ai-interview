@@ -1,8 +1,9 @@
 "use client";
 
+import { IconLayoutSidebarLeftCollapse } from "@tabler/icons-react";
 import type { VariantProps } from "class-variance-authority";
 import { cva } from "class-variance-authority";
-import { PanelLeftIcon } from "@/components/icons/hugeicons";
+
 import { Slot } from "radix-ui";
 import * as React from "react";
 
@@ -267,7 +268,7 @@ function SidebarTrigger({ className, onClick, ...props }: React.ComponentProps<t
       }}
       {...props}
     >
-      <PanelLeftIcon />
+      <IconLayoutSidebarLeftCollapse />
       <span className="sr-only">Toggle Sidebar</span>
     </Button>
   );

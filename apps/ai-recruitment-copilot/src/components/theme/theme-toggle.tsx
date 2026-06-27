@@ -1,6 +1,6 @@
 "use client";
 
-import { MonitorIcon, MoonIcon, SunIcon } from "@/components/icons/hugeicons";
+import { IconDeviceDesktop, IconMoon, IconSun } from "@tabler/icons-react";
 import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
 import {
@@ -16,9 +16,9 @@ import {
 import { useHydrated } from "@/hooks/use-hydrated";
 
 const THEME_OPTIONS = [
-  { icon: SunIcon, label: "浅色", value: "light" },
-  { icon: MoonIcon, label: "深色", value: "dark" },
-  { icon: MonitorIcon, label: "跟随系统", value: "system" },
+  { icon: IconSun, label: "浅色", value: "light" },
+  { icon: IconMoon, label: "深色", value: "dark" },
+  { icon: IconDeviceDesktop, label: "跟随系统", value: "system" },
 ] as const;
 
 export function ThemeToggle({
@@ -49,8 +49,8 @@ export function ThemeToggle({
           type="button"
           variant="ghost"
         >
-          <SunIcon className="size-4 dark:hidden" />
-          <MoonIcon className="hidden size-4 dark:block" />
+          <IconSun className="size-4 dark:hidden" />
+          <IconMoon className="hidden size-4 dark:block" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-40">
@@ -78,8 +78,8 @@ export function ThemeSubMenu() {
   return (
     <DropdownMenuSub>
       <DropdownMenuSubTrigger>
-        <SunIcon className="mr-2 size-4 dark:hidden" />
-        <MoonIcon className="mr-2 hidden size-4 dark:block" />
+        <IconSun className="mr-2 size-4 dark:hidden" />
+        <IconMoon className="mr-2 hidden size-4 dark:block" />
         主题
       </DropdownMenuSubTrigger>
       <DropdownMenuSubContent className="w-40">

@@ -1,8 +1,9 @@
 "use client";
 
+import { IconMail } from "@tabler/icons-react";
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
-import { MailIcon } from "@/components/icons/hugeicons";
+
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -109,7 +110,7 @@ export function InviteDialog({
             <FieldLabel htmlFor="invite-email">成员邮箱</FieldLabel>
             <InputGroup>
               <InputGroupAddon>
-                <MailIcon />
+                <IconMail />
               </InputGroupAddon>
               <InputGroupInput
                 id="invite-email"

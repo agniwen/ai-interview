@@ -1,7 +1,8 @@
 "use client";
 
+import { IconBrain } from "@tabler/icons-react";
 import type { ToolRenderState } from "@arc/shared/tool-state";
-import { Brain } from "@/components/icons/hugeicons";
+
 import { useEffect, useRef, useState } from "react";
 import { ToolLayout } from "./tool-call/tool-layout";
 
@@ -81,7 +82,7 @@ export function ThinkingBlock({ text, isStreaming = false, partCount = 1 }: Thin
   return (
     <ToolLayout
       name={name}
-      icon={<Brain className="h-3.5 w-3.5" />}
+      icon={<IconBrain className="h-3.5 w-3.5" />}
       summary={summary}
       state={isStreaming ? STREAMING_STATE : COMPLETED_STATE}
       expandedContent={expandedContent}
