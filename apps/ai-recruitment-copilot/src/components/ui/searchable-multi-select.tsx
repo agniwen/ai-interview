@@ -1,6 +1,6 @@
 "use client";
 
-import { XIcon } from "@/components/icons/hugeicons";
+import { IconX } from "@tabler/icons-react";
 import { useId, useMemo } from "react";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -189,7 +189,7 @@ export function SearchableMultiSelect({
                 onClick={() => remove(item.value)}
                 type="button"
               >
-                <XIcon className="size-3" />
+                <IconX className="size-3" />
               </button>
             </Badge>
           ))}

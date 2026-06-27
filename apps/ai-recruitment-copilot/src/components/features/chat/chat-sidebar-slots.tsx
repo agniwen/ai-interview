@@ -1,6 +1,6 @@
 "use client";
 
-import { PlusIcon, SquareCheckBigIcon, Trash2Icon, XIcon } from "@/components/icons/hugeicons";
+import { IconPlus, IconSquareCheck, IconTrash, IconX } from "@tabler/icons-react";
 import { Link, useNavigate, useParams } from "@tanstack/react-router";
 import { useCallback, useEffect, useState } from "react";
 import {
@@ -78,7 +78,7 @@ function ChatSidebarHeader({
             size="default"
             tooltip="新建对话"
           >
-            <PlusIcon className="size-4" />
+            <IconPlus className="size-4" />
           </SidebarMenuButton>
         </SidebarMenuItem>
       </SidebarMenu>
@@ -95,7 +95,7 @@ function ChatSidebarHeader({
           size="sm"
           variant="destructive"
         >
-          <Trash2Icon className="size-4" />
+          <IconTrash className="size-4" />
           {isBulkDeleting ? "正在删除…" : `删除 (${selectedCount})`}
         </Button>
         <Tooltip>
@@ -108,7 +108,7 @@ function ChatSidebarHeader({
               size="icon"
               variant="ghost"
             >
-              <XIcon className="size-4" />
+              <IconX className="size-4" />
             </Button>
           </TooltipTrigger>
           <TooltipContent>退出批量编辑</TooltipContent>
@@ -125,7 +125,7 @@ function ChatSidebarHeader({
         size="sm"
         variant="ghost"
       >
-        <PlusIcon className="size-4" />
+        <IconPlus className="size-4" />
         <span className="font-medium text-sm">新建对话</span>
       </Button>
       <Tooltip>
@@ -137,7 +137,7 @@ function ChatSidebarHeader({
             size="icon"
             variant="ghost"
           >
-            <SquareCheckBigIcon className="size-4" />
+            <IconSquareCheck className="size-4" />
           </Button>
         </TooltipTrigger>
         <TooltipContent>批量编辑</TooltipContent>
@@ -204,7 +204,7 @@ function renderSessionItem({
         type="button"
         variant="ghost"
       >
-        <Trash2Icon className="size-3.5" />
+        <IconTrash className="size-3.5" />
       </Button>
     </>
   );

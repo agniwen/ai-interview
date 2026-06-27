@@ -138,9 +138,11 @@ export function getClaimMissRetryError(snapshot: ClaimMissSnapshot, itemId: stri
 //   1) 命中注册表 → 投影 parsedStructured（零额外调用）
 //   2) 未命中 / 投影失败 → 从 S3 拉 PDF 现场跑 parseResumeFastToProfile
 // Two paths to obtaining resumeProfile: cache hit (projection) or live parse fallback.
-async function resolveResumeProfile(
-  item: NonNullable<ItemRow>,
-): Promise<{ parsed: ParsedResume | null; resumeProfile: ParsedResume["resumeProfile"] }> {
+async function resolveResumeProfile(item: NonNullable<ItemRow>): Promise<{
+  parsed: ParsedResume | null;
+  resumeProfile: ParsedResume["resumeProfile"];
+  resumeText: string | null;
+}> {
   const startedAt = Date.now();
   if (isResumeParseCacheEnabled(process.env)) {
     logStep("cache.lookup.start", { itemId: item.id });
@@ -150,7 +152,7 @@ async function resolveResumeProfile(
       : null;
     if (fromCache) {
       logStep("cache.lookup.hit", { durationMs: elapsed(startedAt), itemId: item.id });
-      return { parsed: null, resumeProfile: fromCache };
+      return { parsed: null, resumeProfile: fromCache, resumeText: cached?.parsedText ?? null };
     }
     logStep("cache.lookup.miss", { durationMs: elapsed(startedAt), itemId: item.id });
   } else {
@@ -195,7 +197,7 @@ async function resolveResumeProfile(
     });
     logStep("cache.write.done", { durationMs: elapsed(cacheWriteStartedAt), itemId: item.id });
   }
-  return { parsed, resumeProfile: parsed.resumeProfile };
+  return { parsed, resumeProfile: parsed.resumeProfile, resumeText: parsed.parsedText };
 }
 
 async function upsertParsedResumeRecord({
@@ -205,6 +207,7 @@ async function upsertParsedResumeRecord({
   organizationId,
   resumeReview,
   resumeProfile,
+  resumeText,
   userId,
 }: {
   item: NonNullable<ItemRow>;
@@ -213,6 +216,7 @@ async function upsertParsedResumeRecord({
   organizationId: string;
   resumeReview: ResumeReviewGenerationResult["structuredReview"] | null;
   resumeProfile: ParsedResume["resumeProfile"];
+  resumeText: string | null;
   userId: string;
 }): Promise<string> {
   const startedAt = Date.now();
@@ -232,6 +236,7 @@ async function upsertParsedResumeRecord({
       resumeFileName: item.originalFileName,
       resumeProfile,
       resumeReview,
+      resumeText,
       storageKey: item.storageKey,
       targetRole: null,
       userId,
@@ -263,6 +268,7 @@ async function upsertParsedResumeRecord({
         resumeProfile,
         resumeReview,
         resumeStorageKey: item.storageKey,
+        resumeText,
         targetRole: resumeProfile?.targetRoles?.[0] ?? null,
         updatedAt: now,
       })
@@ -391,7 +397,7 @@ async function fetchAndParse(
     throw new Error("简历文件存储路径为空，无法读取。请重试上传。");
   }
 
-  const { resumeProfile } = await resolveResumeProfile(item);
+  const { resumeProfile, resumeText } = await resolveResumeProfile(item);
   await assertBatchItemNotCancelled(batchRow.id, item.id);
 
   const dedupSnapshot = await findDuplicateSkipSnapshot({
@@ -419,6 +425,7 @@ async function fetchAndParse(
         organizationId,
         poolItemId,
         resumeProfile,
+        resumeText,
       });
     } else {
       poolItemId = await createResumePoolItem({
@@ -432,6 +439,7 @@ async function fetchAndParse(
         organizationId,
         resumeFileName: item.originalFileName,
         resumeProfile,
+        resumeText,
         scope: batchRow.resumePoolScope ?? "private",
         storageKey: item.storageKey,
         targetRole: null,
@@ -499,6 +507,7 @@ async function fetchAndParse(
     organizationId,
     resumeProfile,
     resumeReview: reviewResult?.structuredReview ?? null,
+    resumeText,
     userId,
   });
   return {

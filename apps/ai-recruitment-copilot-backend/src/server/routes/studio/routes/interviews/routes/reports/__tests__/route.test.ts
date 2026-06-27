@@ -10,6 +10,10 @@ vi.mock("@arc/ai-recruitment-copilot-backend/server/middlewares/permission", () 
   requirePermission: () => (_c: unknown, next: () => Promise<void>) => next(),
 }));
 
+vi.mock("@arc/ai-recruitment-copilot-backend/server/access/recruiting-visibility", () => ({
+  resolveRecruitingVisibilityScope: vi.fn().mockResolvedValue({ kind: "none" }),
+}));
+
 vi.mock(
   "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/dao/interview-conversations",
   () => ({
@@ -53,8 +57,12 @@ describe("reportsRouter", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toEqual([{ conversationId: "c1" }]);
-    expect(mocks.resolveCandidateIdForRound).toHaveBeenCalledWith(ROUND_ID, ORG_ID);
-    expect(mocks.queryInterviewConversationReportsByRound).toHaveBeenCalledWith(ROUND_ID);
+    expect(mocks.resolveCandidateIdForRound).toHaveBeenCalledWith(ROUND_ID, ORG_ID, {
+      kind: "none",
+    });
+    expect(mocks.queryInterviewConversationReportsByRound).toHaveBeenCalledWith(ROUND_ID, {
+      includeSnapshotMetadata: true,
+    });
   });
 
   it("returns 404 when the round is outside the active organization", async () => {

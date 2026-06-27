@@ -1,5 +1,6 @@
+import { IconChevronLeft } from "@tabler/icons-react";
 import { createFileRoute, useParams, useRouter } from "@tanstack/react-router";
-import { ChevronLeftIcon } from "@/components/icons/hugeicons";
+
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { StudioPersonDetailPanel } from "@/components/features/studio/studio-person-detail-panel";
@@ -49,7 +50,7 @@ function InterviewRoundDetailPage({ slug, roundId }: { slug: string; roundId: st
                 type="button"
                 variant="ghost"
               >
-                <ChevronLeftIcon className="size-4" />
+                <IconChevronLeft className="size-4" />
                 返回
               </Button>
             </div>

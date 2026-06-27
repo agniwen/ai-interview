@@ -1,10 +1,9 @@
 "use client";
 
+import { IconFileSpreadsheet, IconPhoto, IconUpload, type TablerIcon } from "@tabler/icons-react";
 import * as React from "react";
-import { FileImageIcon, FileSpreadsheetIcon, Upload01Icon } from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
+
 import { BorderBeam } from "border-beam";
-import { UploadIcon } from "@/components/icons/hugeicons";
 
 import { cn } from "@arc/shared/utils";
 import { FileThumbnail } from "@/components/ui/file-thumbnail";
@@ -19,7 +18,7 @@ type FileUploadItem = {
 
 type AcceptedFileType = {
   label: string;
-  icon: React.ComponentProps<typeof HugeiconsIcon>["icon"];
+  icon: TablerIcon;
 };
 
 type FileUploadProps = {
@@ -47,9 +46,9 @@ type FileUploadProps = {
 };
 
 const ACCEPTED_FILE_TYPES: AcceptedFileType[] = [
-  { label: "Image", icon: FileImageIcon },
-  { label: "PDF", icon: Upload01Icon },
-  { label: "Sheet", icon: FileSpreadsheetIcon },
+  { label: "Image", icon: IconPhoto },
+  { label: "PDF", icon: IconUpload },
+  { label: "Sheet", icon: IconFileSpreadsheet },
 ];
 
 const ICON_TRANSFORMS = [
@@ -122,7 +121,7 @@ function UploadIconCluster({
               "scale-[1.08] bg-popover text-foreground shadow-md shadow-black/10 not-dark:bg-clip-border dark:shadow-black/25",
           )}
         >
-          <UploadIcon className="size-5" />
+          <IconUpload className="size-5" />
         </div>
       </div>
     );
@@ -130,23 +129,27 @@ function UploadIconCluster({
 
   return (
     <div className="relative h-14 w-36">
-      {acceptedFileTypes.map((item, index) => (
-        <div
-          className={cn(
-            "absolute top-1/2 left-1/2 grid size-12 place-items-center rounded-xl border bg-background text-muted-foreground transition-[transform,color,background-color] duration-[220ms] ease-[cubic-bezier(0.23,1,0.32,1)]",
-            "motion-reduce:transition-none",
-            index === 1 && "z-10",
-            isDragging &&
-              "bg-popover text-foreground shadow-md shadow-black/10 not-dark:bg-clip-border dark:shadow-black/25",
-          )}
-          key={item.label}
-          style={{
-            transform: isDragging ? ICON_TRANSFORMS[index]?.active : ICON_TRANSFORMS[index]?.idle,
-          }}
-        >
-          <HugeiconsIcon className="block size-5" icon={item.icon} />
-        </div>
-      ))}
+      {acceptedFileTypes.map((item, index) => {
+        const AcceptedIcon = item.icon;
+
+        return (
+          <div
+            className={cn(
+              "absolute top-1/2 left-1/2 grid size-12 place-items-center rounded-xl border bg-background text-muted-foreground transition-[transform,color,background-color] duration-[220ms] ease-[cubic-bezier(0.23,1,0.32,1)]",
+              "motion-reduce:transition-none",
+              index === 1 && "z-10",
+              isDragging &&
+                "bg-popover text-foreground shadow-md shadow-black/10 not-dark:bg-clip-border dark:shadow-black/25",
+            )}
+            key={item.label}
+            style={{
+              transform: isDragging ? ICON_TRANSFORMS[index]?.active : ICON_TRANSFORMS[index]?.idle,
+            }}
+          >
+            <AcceptedIcon className="block size-5" />
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -355,7 +358,7 @@ export function FileUpload({
         ) : null}
       </div>
       <div className="inline-flex items-center gap-2 rounded-full border bg-background px-3 py-1 text-muted-foreground text-xs">
-        {/* <HugeiconsIcon className="size-3.5" icon={Upload01Icon} /> */}
+        {/* <IconUpload className="size-3.5" /> */}
         <span>{isDragging ? draggingLabel : browseLabel}</span>
       </div>
       {fileInput}

@@ -1,7 +1,8 @@
 "use client";
 
+import { IconCheck, IconTarget, IconX } from "@tabler/icons-react";
 import type { DynamicToolUIPart, ToolUIPart } from "ai";
-import { CheckIcon, TargetIcon, XIcon } from "@/components/icons/hugeicons";
+
 import { useEffect, useMemo, useState } from "react";
 import { Shimmer } from "@/components/ai-elements/shimmer";
 import { Button } from "@/components/ui/button";
@@ -151,7 +152,7 @@ function ApprovalView({
 
       <div className="flex items-center justify-end gap-2 pt-1">
         <Button onClick={() => onIgnore(toolCallId)} size="sm" type="button" variant="outline">
-          <XIcon className="size-3.5" />
+          <IconX className="size-3.5" />
           忽略
         </Button>
         <Button
@@ -160,7 +161,7 @@ function ApprovalView({
           size="sm"
           type="button"
         >
-          <CheckIcon className="size-3.5" />
+          <IconCheck className="size-3.5" />
           确定
         </Button>
       </div>
@@ -234,7 +235,7 @@ export function ApplyJobDescriptionCard({
       return (
         <div className="my-2 rounded border border-border/70 bg-background/60 px-4 py-3">
           <div className="flex items-center gap-2">
-            <TargetIcon className="mt-0.5 size-4 shrink-0 text-primary" />
+            <IconTarget className="mt-0.5 size-4 shrink-0 text-primary" />
             <div className="min-w-0 flex-1 text-muted-foreground text-xs">
               <Shimmer duration={1.2}>正在生成岗位推荐…</Shimmer>
             </div>
@@ -257,7 +258,7 @@ export function ApplyJobDescriptionCard({
   return (
     <div className="my-2 rounded border border-border/70 bg-background/60 px-4 py-3">
       <div className="flex items-start gap-2">
-        <TargetIcon className="mt-0.5 size-4 shrink-0 text-primary" />
+        <IconTarget className="mt-0.5 size-4 shrink-0 text-primary" />
         <div className="min-w-0 flex-1 space-y-3">
           <div>
             <div className="font-medium text-sm">

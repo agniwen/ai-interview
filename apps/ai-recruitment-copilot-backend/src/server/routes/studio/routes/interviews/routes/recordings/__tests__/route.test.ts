@@ -74,7 +74,9 @@ describe("recordingsRouter", () => {
       expiresInSeconds: 600,
       url: "https://s3.example/recording.mp4",
     });
-    expect(mocks.resolveCandidateIdForRound).toHaveBeenCalledWith(ROUND_ID, ORG_ID);
+    expect(mocks.resolveCandidateIdForRound).toHaveBeenCalledWith(ROUND_ID, ORG_ID, {
+      kind: "none",
+    });
     expect(mocks.presignRecordingGetObjectUrl).toHaveBeenCalledWith("recordings/round.mp4", 600);
   });
 

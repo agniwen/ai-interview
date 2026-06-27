@@ -1,5 +1,11 @@
 "use client";
 
+import {
+  IconClipboardList,
+  IconExternalLink,
+  IconListCheck,
+  IconLoader2,
+} from "@tabler/icons-react";
 import type { CandidateFormTemplateListRecord } from "@arc/db-schema/candidate-forms";
 import type { DepartmentRecord } from "@arc/shared/departments";
 import type { InterviewerListRecord } from "@arc/shared/interviewers";
@@ -15,12 +21,7 @@ import { rpc } from "@/lib/client/rpc";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { useQuery } from "@tanstack/react-query";
 import { useForm, useStore } from "@tanstack/react-form";
-import {
-  ClipboardListIcon,
-  ExternalLinkIcon,
-  ListChecksIcon,
-  LoaderCircleIcon,
-} from "@/components/icons/hugeicons";
+
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -302,7 +303,7 @@ export function JobDescriptionFormDialog({
               form="job-description-form"
               type="submit"
             >
-              {isSubmitting ? <LoaderCircleIcon className="size-4 animate-spin" /> : null}
+              {isSubmitting ? <IconLoader2 className="size-4 animate-spin" /> : null}
               {isEdit ? "保存" : "创建"}
             </Button>
           </>
@@ -611,7 +612,7 @@ function LinkedFormsList({
         </div>
         <Button asChild size="sm" type="button" variant="outline">
           <a href={newTemplateHref} target="_blank" rel="noreferrer">
-            <ExternalLinkIcon className="size-3.5" />
+            <IconExternalLink className="size-3.5" />
             管理表单
           </a>
         </Button>
@@ -643,7 +644,7 @@ function LinkedFormsList({
                   rel="noreferrer"
                 >
                   <div className="flex min-w-0 items-start gap-3">
-                    <ClipboardListIcon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                    <IconClipboardList className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
                     <div className="min-w-0">
                       <p className="truncate font-medium text-sm">{template.title}</p>
                       {template.description ? (
@@ -690,7 +691,7 @@ function LinkedInterviewQuestionTemplatesList({
         </div>
         <Button asChild size="sm" type="button" variant="outline">
           <a href={newTemplateHref} target="_blank" rel="noreferrer">
-            <ExternalLinkIcon className="size-3.5" />
+            <IconExternalLink className="size-3.5" />
             管理模版
           </a>
         </Button>
@@ -722,7 +723,7 @@ function LinkedInterviewQuestionTemplatesList({
                   rel="noreferrer"
                 >
                   <div className="flex min-w-0 items-start gap-3">
-                    <ListChecksIcon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                    <IconListCheck className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
                     <div className="min-w-0">
                       <p className="truncate font-medium text-sm">{template.title}</p>
                       {template.description ? (

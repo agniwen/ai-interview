@@ -1,5 +1,13 @@
 "use client";
 
+import {
+  IconArrowBackUp,
+  IconArrowLeft,
+  IconArrowRight,
+  IconCircleOff,
+  IconSend,
+  IconUsers,
+} from "@tabler/icons-react";
 /* oxlint-disable no-use-before-define -- helper defined below the export */
 // 候选人详情顶部「下一步操作」action bar。
 // 按候选人当前 pipelineStage + outcome 决定显示哪些按钮。所有写动作都是
@@ -9,14 +17,6 @@
 // fires a callback supplied by the parent (resume library page); this
 // component is presentation-only and stateless.
 
-import {
-  ArrowLeftIcon,
-  ArrowRightIcon,
-  CircleSlashIcon,
-  RotateCcwIcon,
-  SendIcon,
-  UsersIcon,
-} from "@/components/icons/hugeicons";
 import type { ReactNode } from "react";
 import { candidateOutcomeMeta, pipelineStageMeta } from "@arc/db-schema/studio-interviews";
 import type { CandidateOutcome, PipelineStage } from "@arc/db-schema/studio-interviews";
@@ -269,7 +269,7 @@ function getStageActions(props: {
       left: [],
       right: [
         <Button key="reactivate" onClick={onRequestReactivate} size="sm" variant="outline">
-          <RotateCcwIcon className="size-4" />
+          <IconArrowBackUp className="size-4" />
           重新激活
         </Button>,
       ],
@@ -280,7 +280,7 @@ function getStageActions(props: {
   // Every non-closed stage can be closed.
   const closeBtn: ReactNode = (
     <Button key="close" onClick={onRequestClose} size="sm" variant="outline">
-      <CircleSlashIcon className="size-4" />
+      <IconCircleOff className="size-4" />
       标记结案
     </Button>
   );
@@ -295,7 +295,7 @@ function getStageActions(props: {
         key: "to-human",
         node: (
           <Button key="to-human" onClick={() => onAdvance("human_interview")} size="sm">
-            <UsersIcon className="size-4" />
+            <IconUsers className="size-4" />
             安排真人复面
           </Button>
         ),
@@ -305,7 +305,7 @@ function getStageActions(props: {
         key: "to-offer",
         node: (
           <Button key="to-offer" onClick={() => onAdvance("offer")} size="sm" variant="outline">
-            <SendIcon className="size-4" />
+            <IconSend className="size-4" />
             直接发 Offer
           </Button>
         ),
@@ -322,7 +322,7 @@ function getStageActions(props: {
           key: "to-human",
           node: (
             <Button key="to-human" onClick={() => onAdvance("human_interview")} size="sm">
-              <UsersIcon className="size-4" />
+              <IconUsers className="size-4" />
               安排真人复面
             </Button>
           ),
@@ -332,7 +332,7 @@ function getStageActions(props: {
           key: "to-offer",
           node: (
             <Button key="to-offer" onClick={() => onAdvance("offer")} size="sm" variant="outline">
-              <SendIcon className="size-4" />
+              <IconSend className="size-4" />
               直接发 Offer
             </Button>
           ),
@@ -350,7 +350,7 @@ function getStageActions(props: {
               size="sm"
               variant="outline"
             >
-              <UsersIcon className="size-4" />
+              <IconUsers className="size-4" />
               推进到真人复面
             </Button>
           ),
@@ -372,7 +372,7 @@ function getStageActions(props: {
             size="sm"
             variant={humanInterviewDone ? "default" : "outline"}
           >
-            <ArrowRightIcon className="size-4" />
+            <IconArrowRight className="size-4" />
             推进到 Offer
           </Button>
         ),
@@ -387,7 +387,7 @@ function getStageActions(props: {
             size="sm"
             variant="outline"
           >
-            <ArrowLeftIcon className="size-4" />
+            <IconArrowLeft className="size-4" />
             退回 AI 面试
           </Button>
         ),
@@ -408,7 +408,7 @@ function getStageActions(props: {
             size="sm"
             variant="ghost"
           >
-            <ArrowLeftIcon className="size-4" />
+            <IconArrowLeft className="size-4" />
             退回真人复面
           </Button>
         ),
@@ -424,7 +424,7 @@ function getStageActions(props: {
         key: "to-ai",
         node: (
           <Button key="to-ai" onClick={() => onAdvance("ai_interview")} size="sm">
-            <ArrowRightIcon className="size-4" />
+            <IconArrowRight className="size-4" />
             推进到 AI 面试
           </Button>
         ),

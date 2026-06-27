@@ -1,5 +1,20 @@
 "use client";
 
+import type { TablerIcon } from "@tabler/icons-react";
+import {
+  IconBriefcase2,
+  IconBuilding,
+  IconDatabase,
+  IconFileText,
+  IconGitBranch,
+  IconHistory,
+  IconLoader2,
+  IconRefresh,
+  IconSchool,
+  IconSend,
+  IconTrash,
+  IconUpload,
+} from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, useNavigate, useSearch } from "@tanstack/react-router";
 import type { ResumePoolScope, ResumeUploadBatchDedupPolicy } from "@arc/db-schema/schema";
@@ -11,21 +26,7 @@ import type {
   ResumePoolImportDuplicateResult,
   ResumePoolListRecord,
 } from "@arc/shared/resume-pool";
-import type { LucideIcon } from "@/components/icons/hugeicons";
-import {
-  BriefcaseBusinessIcon,
-  Building2Icon,
-  DatabaseIcon,
-  FileTextIcon,
-  FolderGit2Icon,
-  GraduationCapIcon,
-  HistoryIcon,
-  LoaderCircleIcon,
-  RefreshCwIcon,
-  SendIcon,
-  Trash2Icon,
-  UploadIcon,
-} from "@/components/icons/hugeicons";
+
 import type { ReactNode } from "react";
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Masonry, { ResponsiveMasonry } from "react-responsive-masonry";
@@ -619,9 +620,9 @@ function ImportResumePoolDialog({
             </Button>
             <Button disabled={isPending || bindInvalid} onClick={() => mutation.mutate("check")}>
               {isPending ? (
-                <LoaderCircleIcon className="size-4 animate-spin" />
+                <IconLoader2 className="size-4 animate-spin" />
               ) : (
-                <DatabaseIcon className="size-4" />
+                <IconDatabase className="size-4" />
               )}
               确认入库
             </Button>
@@ -772,7 +773,7 @@ function ResumePoolDetailSummaryPanel({
         </div>
         {isLoading ? (
           <span className="inline-flex shrink-0 items-center gap-2 text-muted-foreground text-xs">
-            <LoaderCircleIcon className="size-3.5 animate-spin" />
+            <IconLoader2 className="size-3.5 animate-spin" />
             正在加载完整详情
           </span>
         ) : null}
@@ -859,7 +860,7 @@ function ResumePoolStructuredInfoPanel({
       <div>
         {isLoading ? (
           <div className="inline-flex items-center gap-2 text-muted-foreground text-sm">
-            <LoaderCircleIcon className="size-4 animate-spin" />
+            <IconLoader2 className="size-4 animate-spin" />
             正在加载结构化简历
           </div>
         ) : (
@@ -875,7 +876,7 @@ function ResumePoolHighlightRow({
   label,
   value,
 }: {
-  icon: LucideIcon;
+  icon: TablerIcon;
   label: string;
   value: ReactNode;
 }) {
@@ -911,19 +912,19 @@ function ResumePoolCardHighlights({ record }: { record: ResumePoolListRecord }) 
     );
   const rows = [
     {
-      icon: GraduationCapIcon,
+      icon: IconSchool,
       label: "教育经历",
       value: educationValue,
       visible: educationItems.length > 0 || educationFallbackLines.length > 0,
     },
     {
-      icon: Building2Icon,
+      icon: IconBuilding,
       label: "最近公司",
       value: profileHighlights.latestCompany ?? "",
       visible: Boolean(profileHighlights.latestCompany),
     },
     {
-      icon: FolderGit2Icon,
+      icon: IconGitBranch,
       label: "最近项目",
       value: profileHighlights.latestProject ?? "",
       visible: Boolean(profileHighlights.latestProject),
@@ -953,7 +954,7 @@ function ResumePoolCardUploaderMeta({ record }: { record: ResumePoolListRecord }
   return (
     <div className="flex min-w-0 items-center gap-1.5 text-muted-foreground text-xs">
       <div className="flex min-w-0 items-center gap-1.5">
-        <Building2Icon className="size-3.5 shrink-0" />
+        <IconBuilding className="size-3.5 shrink-0" />
         <span className="truncate">{uploaderOrganizationLabel(record)}</span>
       </div>
       <span className="shrink-0">{actorLabel}</span>
@@ -1065,9 +1066,9 @@ function ResumePoolCardActions({
           variant="outline"
         >
           {importActionState.loading ? (
-            <LoaderCircleIcon className="size-4 animate-spin" />
+            <IconLoader2 className="size-4 animate-spin" />
           ) : (
-            <DatabaseIcon className="size-4" />
+            <IconDatabase className="size-4" />
           )}
           {importActionState.label}
         </Button>
@@ -1082,7 +1083,7 @@ function ResumePoolCardActions({
           title="推送到简历广场"
           variant="outline"
         >
-          <SendIcon className="size-4" />
+          <IconSend className="size-4" />
         </Button>
       ) : null}
       {canDelete ? (
@@ -1095,7 +1096,7 @@ function ResumePoolCardActions({
           title={scope === "private" ? "删除私有简历" : "删除简历"}
           variant="outline"
         >
-          <Trash2Icon className="size-4" />
+          <IconTrash className="size-4" />
         </Button>
       ) : null}
     </CardFooter>
@@ -1212,7 +1213,7 @@ function ResumePoolCard({
       <CardContent className="flex flex-col gap-3 px-3 text-xs">
         <div className="flex flex-col gap-1.5 text-muted-foreground">
           <div className="flex min-w-0 items-center gap-1.5">
-            <BriefcaseBusinessIcon className="size-3.5 shrink-0" />
+            <IconBriefcase2 className="size-3.5 shrink-0" />
             <span className="truncate">{record.targetRole || "未填写目标岗位"}</span>
           </div>
           <ResumePoolCardUploaderMeta record={record} />
@@ -1253,7 +1254,7 @@ function ResumePoolLoadingState() {
   return (
     <div className="flex min-h-56 items-center justify-center text-muted-foreground text-sm">
       <span className="inline-flex items-center gap-2">
-        <LoaderCircleIcon className="size-4 animate-spin" />
+        <IconLoader2 className="size-4 animate-spin" />
         正在加载简历
       </span>
     </div>
@@ -1275,7 +1276,7 @@ function ResumePoolEmptyState({
     <Empty className="border-border">
       <EmptyHeader>
         <EmptyMedia variant="icon">
-          <FileTextIcon className="size-5" />
+          <IconFileText className="size-5" />
         </EmptyMedia>
         <EmptyTitle>{emptyTitle}</EmptyTitle>
         <EmptyDescription>
@@ -1285,7 +1286,7 @@ function ResumePoolEmptyState({
       {canResetFilters || !canUpload ? null : (
         <EmptyContent>
           <Button onClick={onUpload}>
-            <UploadIcon className="size-4" />
+            <IconUpload className="size-4" />
             上传简历
           </Button>
         </EmptyContent>
@@ -1433,7 +1434,7 @@ function ResumePoolToolbarActions({
         <ButtonGroup>
           {canUpload ? (
             <Button className="sm:w-auto" onClick={onUpload}>
-              <UploadIcon className="size-4" />
+              <IconUpload className="size-4" />
               上传简历
             </Button>
           ) : null}
@@ -1444,7 +1445,7 @@ function ResumePoolToolbarActions({
               title="查看上传记录"
               type="button"
             >
-              <HistoryIcon className="size-4" />
+              <IconHistory className="size-4" />
             </Button>
           ) : null}
         </ButtonGroup>
@@ -1457,9 +1458,9 @@ function ResumePoolToolbarActions({
           variant="destructive"
         >
           {isBulkDeleting ? (
-            <LoaderCircleIcon className="size-4 animate-spin" />
+            <IconLoader2 className="size-4 animate-spin" />
           ) : (
-            <Trash2Icon className="size-4" />
+            <IconTrash className="size-4" />
           )}
           {isBulkDeleting ? "删除中…" : `删除所选 ${selectedCount} 份`}
         </Button>
@@ -1846,7 +1847,7 @@ function ResumePoolPage() {
               <div ref={loadMoreRef} className="min-h-5">
                 {hasMoreRecords && isPoolBusy ? (
                   <span className="inline-flex items-center gap-2">
-                    <LoaderCircleIcon className="size-4 animate-spin" />
+                    <IconLoader2 className="size-4 animate-spin" />
                     {loadMoreStatusText}
                   </span>
                 ) : (
@@ -1860,7 +1861,7 @@ function ResumePoolPage() {
                 type="button"
                 variant="outline"
               >
-                <RefreshCwIcon className={`size-4 ${isPoolBusy ? "animate-spin" : ""}`} />
+                <IconRefresh className={`size-4 ${isPoolBusy ? "animate-spin" : ""}`} />
                 刷新简历广场
               </Button>
             </div>
@@ -1967,7 +1968,7 @@ function ResumePoolPage() {
               }}
               variant="destructive"
             >
-              <Trash2Icon className="size-4" />
+              <IconTrash className="size-4" />
               {deleteMutation.isPending ? "删除中…" : "确认删除"}
             </AlertDialogAction>
           </AlertDialogFooter>

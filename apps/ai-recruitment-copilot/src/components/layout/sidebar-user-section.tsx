@@ -1,7 +1,8 @@
 "use client";
 
+import { IconHome, IconLogout, IconUser } from "@tabler/icons-react";
 import type { ReactNode } from "react";
-import { HouseIcon, LogOutIcon, UserIcon } from "@/components/icons/hugeicons";
+
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useCallback } from "react";
 import { FeishuSignInButton } from "@/components/features/auth/feishu-sign-in-button";
@@ -98,14 +99,14 @@ export function SidebarUserSection({
           {showHomeLink ? (
             <DropdownMenuItem asChild>
               <Link to="/">
-                <HouseIcon className="mr-2 size-4" />
+                <IconHome className="mr-2 size-4" />
                 返回首页
               </Link>
             </DropdownMenuItem>
           ) : null}
           {showHomeLink ? <DropdownMenuSeparator /> : null}
           <DropdownMenuItem onClick={handleSignOut} variant="destructive">
-            <LogOutIcon className="mr-2 size-4" />
+            <IconLogout className="mr-2 size-4" />
             退出登录
           </DropdownMenuItem>
         </DropdownMenuContent>
@@ -143,14 +144,14 @@ export function SidebarUserSection({
           {showHomeLink ? (
             <DropdownMenuItem asChild>
               <Link to="/">
-                <HouseIcon className="mr-2 size-4" />
+                <IconHome className="mr-2 size-4" />
                 返回首页
               </Link>
             </DropdownMenuItem>
           ) : null}
           {showHomeLink ? <DropdownMenuSeparator /> : null}
           <DropdownMenuItem onClick={handleSignOut} variant="destructive">
-            <LogOutIcon className="mr-2 size-4" />
+            <IconLogout className="mr-2 size-4" />
             退出登录
           </DropdownMenuItem>
         </DropdownMenuContent>
@@ -167,7 +168,7 @@ export function SidebarUserSection({
         variant="ghost"
       >
         <Link search={{ callbackURL }} to="/login">
-          <UserIcon className="size-4" />
+          <IconUser className="size-4" />
         </Link>
       </Button>
     ) : (

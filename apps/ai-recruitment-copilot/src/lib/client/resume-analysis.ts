@@ -13,6 +13,7 @@ import { rpc } from "./rpc";
 export interface ParsedResumeResult {
   fileName: string;
   resumeProfile: ResumeProfile;
+  resumeText: string | null;
 }
 
 export interface JobDescriptionMatchResult {
@@ -166,12 +167,14 @@ export async function generateResumeReview({
 export function buildResumePayload(
   fileName: string,
   resumeProfile: ResumeProfile,
+  resumeText: string | null = null,
   interviewQuestions: InterviewQuestion[] = [],
 ): ResumeAnalysisResult {
   return {
     fileName,
     interviewQuestions,
     resumeProfile,
+    resumeText,
   };
 }
 

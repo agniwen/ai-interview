@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronRight } from "@/components/icons/hugeicons";
+import { IconChevronRight } from "@tabler/icons-react";
 import { useEffect, useState } from "react";
 import { cn } from "@arc/shared/utils";
 
@@ -178,7 +178,7 @@ export function ToolCallsSummaryBar({
             <span className="hidden sm:inline">{renderSegments(desktopSegments)}</span>
           )}
         </span>
-        <ChevronRight
+        <IconChevronRight
           className={cn(
             "size-3 shrink-0 text-muted-foreground/50 transition-transform duration-200 ease-out motion-reduce:transition-none",
             isExpanded && "rotate-90",

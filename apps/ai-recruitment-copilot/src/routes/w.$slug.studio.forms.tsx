@@ -1,3 +1,4 @@
+import { IconChevronDown, IconClipboardList, IconPlus, IconSparkles } from "@tabler/icons-react";
 import { HydrationBoundary, useQueryClient } from "@tanstack/react-query";
 import type { DehydratedState } from "@tanstack/react-query";
 import {
@@ -24,12 +25,7 @@ import type {
   CandidateFormTemplateRecord,
 } from "@arc/db-schema/candidate-forms";
 import type { PaginatedCandidateFormTemplateResult } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/forms/dao/queries";
-import {
-  ChevronDownIcon,
-  ClipboardListIcon,
-  PlusIcon,
-  SparklesIcon,
-} from "@/components/icons/hugeicons";
+
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -461,7 +457,7 @@ function CandidateFormTemplateManagementPage({
             <Empty className="border-border">
               <EmptyHeader>
                 <EmptyMedia variant="icon">
-                  <ClipboardListIcon className="size-5" />
+                  <IconClipboardList className="size-5" />
                 </EmptyMedia>
                 <EmptyTitle>还没有面试表单</EmptyTitle>
                 <EmptyDescription>
@@ -476,7 +472,7 @@ function CandidateFormTemplateManagementPage({
                       crud.openCreate();
                     }}
                   >
-                    <PlusIcon className="size-4" />
+                    <IconPlus className="size-4" />
                     新建面试表单
                   </Button>
                   <Button
@@ -486,7 +482,7 @@ function CandidateFormTemplateManagementPage({
                     title="AI 创建面试表单"
                     type="button"
                   >
-                    <SparklesIcon className="size-4" />
+                    <IconSparkles className="size-4" />
                   </Button>
                 </ButtonGroup>
               </EmptyContent>
@@ -498,7 +494,7 @@ function CandidateFormTemplateManagementPage({
               <DropdownMenuTrigger asChild>
                 <Button type="button" variant="outline">
                   {archivedFilterLabel}
-                  <ChevronDownIcon className="size-4" />
+                  <IconChevronDown className="size-4" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start">
@@ -523,7 +519,7 @@ function CandidateFormTemplateManagementPage({
                   crud.openCreate();
                 }}
               >
-                <PlusIcon className="size-4" />
+                <IconPlus className="size-4" />
                 新建面试表单
               </Button>
               <Button
@@ -533,7 +529,7 @@ function CandidateFormTemplateManagementPage({
                 title="AI 创建面试表单"
                 type="button"
               >
-                <SparklesIcon className="size-4" />
+                <IconSparkles className="size-4" />
               </Button>
             </ButtonGroup>
           }

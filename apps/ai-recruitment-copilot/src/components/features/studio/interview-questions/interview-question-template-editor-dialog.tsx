@@ -1,5 +1,6 @@
 "use client";
 
+import { IconLoader2 } from "@tabler/icons-react";
 import type {
   InterviewQuestionTemplateInput,
   InterviewQuestionTemplateRecord,
@@ -8,7 +9,7 @@ import type {
 import type { JobDescriptionListRecord } from "@arc/shared/job-descriptions";
 import { rpc } from "@/lib/client/rpc";
 import { useForm, useStore } from "@tanstack/react-form";
-import { LoaderCircleIcon } from "@/components/icons/hugeicons";
+
 import { useEffect, useMemo } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -147,7 +148,7 @@ export function InterviewQuestionTemplateEditorDialog({
             取消
           </Button>
           <Button disabled={isSubmitting} form="interview-question-template-form" type="submit">
-            {isSubmitting ? <LoaderCircleIcon className="size-4 animate-spin" /> : null}
+            {isSubmitting ? <IconLoader2 className="size-4 animate-spin" /> : null}
             {isEdit ? "保存" : "创建"}
           </Button>
         </>

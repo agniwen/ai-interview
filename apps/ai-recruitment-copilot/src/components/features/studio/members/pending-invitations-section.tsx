@@ -1,5 +1,6 @@
 "use client";
 
+import { IconCopy, IconMail, IconX } from "@tabler/icons-react";
 // 「待处理邀请」侧滑面板 + 触发按钮。原先做成主页底部一张大 Card，占位太重；
 // 改成右侧 Sheet：默认收起，按钮带未处理数量徽章，点击展开后看列表 + 撤销。
 // better-auth 的 listInvitations 不带状态过滤，返回 pending/accepted/...
@@ -10,7 +11,7 @@
 // badge. listInvitations returns all statuses; we filter to pending here.
 
 import { useQuery } from "@tanstack/react-query";
-import { CopyIcon, MailIcon, XIcon } from "@/components/icons/hugeicons";
+
 import { useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -85,7 +86,7 @@ function InvitationsList({
               type="button"
               variant="outline"
             >
-              <CopyIcon className="size-4" />
+              <IconCopy className="size-4" />
               复制链接
             </Button>
             <Button
@@ -96,7 +97,7 @@ function InvitationsList({
               type="button"
               variant="outline"
             >
-              <XIcon className="size-4" />
+              <IconX className="size-4" />
               撤销
             </Button>
           </div>
@@ -155,7 +156,7 @@ export function PendingInvitationsButton({ organizationId }: { organizationId: s
     <Sheet onOpenChange={setOpen} open={open}>
       <SheetTrigger asChild>
         <Button type="button" variant="outline">
-          <MailIcon className="size-4" />
+          <IconMail className="size-4" />
           待处理邀请
           {count > 0 ? (
             <Badge className="ml-1" variant="secondary">

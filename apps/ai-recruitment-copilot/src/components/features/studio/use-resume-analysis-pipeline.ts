@@ -201,6 +201,7 @@ export function useResumeAnalysisPipeline(
   async function runQuestionGeneration(profileBundle: {
     fileName: string;
     resumeProfile: ResumeProfile;
+    resumeText: string | null;
   }): Promise<ResumeAnalysisResult | null> {
     const abortController = new AbortController();
     abortControllerRef.current = abortController;
@@ -258,6 +259,7 @@ export function useResumeAnalysisPipeline(
         fileName: profileBundle.fileName,
         interviewQuestions: questions,
         resumeProfile: profileBundle.resumeProfile,
+        resumeText: profileBundle.resumeText,
       };
       setResumePayload(updated);
       onQuestionsGenerated(questions);
@@ -314,13 +316,14 @@ export function useResumeAnalysisPipeline(
           signal: abortController.signal,
         });
 
-        const { fileName, resumeProfile } = parseResult;
+        const { fileName, resumeProfile, resumeText } = parseResult;
 
         onProfileParsed({ fileName, resumeProfile });
         setResumePayload({
           fileName,
           interviewQuestions: [],
           resumeProfile,
+          resumeText,
         });
         setIsAnalyzingResume(false);
         setProgressTools([]);
@@ -554,6 +557,7 @@ export function useResumeAnalysisPipeline(
     return runQuestionGeneration({
       fileName: resumePayload.fileName,
       resumeProfile: resumePayload.resumeProfile,
+      resumeText: resumePayload.resumeText,
     });
     // runQuestionGeneration closes over fresh state via setResumePayload; it is
     // stable enough to omit from deps. resumePayload is the only thing we read

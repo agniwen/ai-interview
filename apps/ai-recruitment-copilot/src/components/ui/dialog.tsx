@@ -1,6 +1,6 @@
 "use client";
 
-import { XIcon } from "@/components/icons/hugeicons";
+import { IconX } from "@tabler/icons-react";
 import { Dialog as DialogPrimitive } from "radix-ui";
 import * as React from "react";
 import { Drawer as DrawerPrimitive } from "vaul";
@@ -158,7 +158,7 @@ function DialogContent({
             data-slot="dialog-close"
             className="ring-offset-background focus:ring-ring data-[state=open]:bg-accent data-[state=open]:text-muted-foreground absolute top-4 right-4 rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
           >
-            <XIcon />
+            <IconX />
             <span className="sr-only">Close</span>
           </DialogPrimitive.Close>
         )}

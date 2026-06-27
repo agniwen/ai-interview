@@ -1,7 +1,8 @@
 "use client";
 
+import { IconBuilding, IconInbox } from "@tabler/icons-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Building2Icon, InboxIcon } from "@/components/icons/hugeicons";
+
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { actionsColumn, customColumn, DataGrid, useDataGridState } from "@/components/data-grid";
@@ -465,7 +466,7 @@ export function PlatformMailIngestAccountsGrid() {
       customColumn<PlatformMailIngestAccountRow>({
         cell: (row) => (
           <div className="flex min-w-0 items-center gap-2">
-            <Building2Icon className="size-4 shrink-0 text-muted-foreground" />
+            <IconBuilding className="size-4 shrink-0 text-muted-foreground" />
             <div className="min-w-0">
               <p className="truncate font-medium text-sm">{row.organization.name}</p>
               <p className="truncate text-muted-foreground text-xs">{row.organization.slug}</p>
@@ -583,7 +584,7 @@ export function PlatformMailIngestAccountsGrid() {
           <Empty className="border-border">
             <EmptyHeader>
               <EmptyMedia variant="icon">
-                <InboxIcon />
+                <IconInbox />
               </EmptyMedia>
               <EmptyTitle>{grid.search ? "没有匹配的邮箱监听配置" : "暂无邮箱监听数据"}</EmptyTitle>
               <EmptyDescription>

@@ -1,11 +1,12 @@
 "use client";
 
+import { IconListCheck } from "@tabler/icons-react";
 import type {
   InterviewQuestionTemplateDifficulty,
   InterviewQuestionTemplateRecord,
 } from "@arc/db-schema/interview-question-templates";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ListChecksIcon } from "@/components/icons/hugeicons";
+
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { rpc } from "@/lib/client/rpc";
@@ -177,7 +178,7 @@ export function InterviewQuestionBindingsSection({
               >
                 <div className="flex items-start justify-between gap-3 px-3 py-2.5">
                   <div className="flex min-w-0 items-start gap-3">
-                    <ListChecksIcon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                    <IconListCheck className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
                         <p className="truncate font-medium text-sm">{template.title}</p>

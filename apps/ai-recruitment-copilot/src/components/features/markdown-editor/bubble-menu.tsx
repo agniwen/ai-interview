@@ -1,12 +1,13 @@
+"use client";
+
+import { IconBold, IconCode, IconItalic } from "@tabler/icons-react";
 // 中文：选中文本时浮现的快捷格式工具栏，prompt 场景仅保留粗体/斜体/行内代码。
 // English: floating formatting menu on selection — kept minimal (bold / italic
 // / inline code) for the prompt-authoring use case.
-"use client";
-
 import { useEditorState } from "@tiptap/react";
 import type { Editor } from "@tiptap/react";
 import { BubbleMenu } from "@tiptap/react/menus";
-import { BoldIcon, CodeIcon, ItalicIcon } from "@/components/icons/hugeicons";
+
 import { Button } from "@/components/ui/button";
 import { cn } from "@arc/shared/utils";
 
@@ -59,21 +60,21 @@ export function MarkdownEditorBubbleMenu({ editor }: { editor: Editor | null }) 
         aria-label="粗体"
         onClick={() => editor.chain().focus().toggleBold().run()}
       >
-        <BoldIcon className="size-4" />
+        <IconBold className="size-4" />
       </BubbleBtn>
       <BubbleBtn
         active={activeState?.italic}
         aria-label="斜体"
         onClick={() => editor.chain().focus().toggleItalic().run()}
       >
-        <ItalicIcon className="size-4" />
+        <IconItalic className="size-4" />
       </BubbleBtn>
       <BubbleBtn
         active={activeState?.code}
         aria-label="行内代码"
         onClick={() => editor.chain().focus().toggleCode().run()}
       >
-        <CodeIcon className="size-4" />
+        <IconCode className="size-4" />
       </BubbleBtn>
     </BubbleMenu>
   );

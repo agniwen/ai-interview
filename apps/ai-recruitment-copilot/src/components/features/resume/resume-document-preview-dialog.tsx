@@ -1,6 +1,6 @@
 "use client";
 
-import { DownloadIcon, ImageOffIcon, LoaderCircleIcon, XIcon } from "@/components/icons/hugeicons";
+import { IconDownload, IconLoader2, IconPhotoOff, IconX } from "@tabler/icons-react";
 import { Suspense, lazy, useEffect, useState } from "react";
 import { DocxViewerPreview } from "@/components/ui/docx-viewer";
 import { Modal } from "@/components/ui/modal";
@@ -73,12 +73,12 @@ function ResumePreviewHeaderActions({
     <div className="flex items-center gap-2">
       <Button asChild size="sm" type="button" variant="outline">
         <a aria-label="下载原文件" download={downloadFileName} href={downloadUrl}>
-          <DownloadIcon className="size-4" />
+          <IconDownload className="size-4" />
           下载
         </a>
       </Button>
       <Button aria-label="关闭" onClick={onClose} size="icon" type="button" variant="ghost">
-        <XIcon className="size-4" />
+        <IconX className="size-4" />
       </Button>
     </div>
   );
@@ -137,7 +137,7 @@ export function ImageResumePreviewContent({ filename, url }: { filename?: string
     <div className="relative flex min-h-full min-w-full items-start justify-center p-6">
       {status === "loading" ? (
         <output className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-muted-foreground text-sm">
-          <LoaderCircleIcon className="size-5 animate-spin" />
+          <IconLoader2 className="size-5 animate-spin" />
           <span>图片加载中</span>
         </output>
       ) : null}
@@ -146,7 +146,7 @@ export function ImageResumePreviewContent({ filename, url }: { filename?: string
           className="absolute inset-0 flex flex-col items-center justify-center gap-2 px-6 text-center text-muted-foreground"
           role="alert"
         >
-          <ImageOffIcon className="size-8" />
+          <IconPhotoOff className="size-8" />
           <p className="font-medium text-foreground text-sm">图片加载失败</p>
           <p className="text-xs">请稍后重试，或下载原文件查看。</p>
         </div>

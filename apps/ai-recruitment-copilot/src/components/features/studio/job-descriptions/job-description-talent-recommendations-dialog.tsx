@@ -1,5 +1,13 @@
 "use client";
 
+import {
+  IconBriefcase2,
+  IconBuilding,
+  IconFileSearch,
+  IconGitBranch,
+  IconSchool,
+  IconUserCheck,
+} from "@tabler/icons-react";
 import type {
   JobDescriptionListRecord,
   JobDescriptionTalentRecommendation,
@@ -13,14 +21,7 @@ import {
   ResumeDocumentFileIcon,
   getResumeDocumentFileIconKind,
 } from "@/components/features/resume/resume-document-file-icon";
-import {
-  BriefcaseBusinessIcon,
-  Building2Icon,
-  FileSearchIcon,
-  FolderGit2Icon,
-  GraduationCapIcon,
-  UserCheckIcon,
-} from "@/components/icons/hugeicons";
+
 import { ResumeEducationDisplayLine } from "@/components/features/resume/resume-education-line";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -85,7 +86,7 @@ function CandidateHighlight({
   label,
 }: {
   children: React.ReactNode;
-  icon: typeof BriefcaseBusinessIcon;
+  icon: typeof IconBriefcase2;
   label: string;
 }) {
   return (
@@ -112,7 +113,7 @@ function CandidateEducationHighlight({
     return null;
   }
   return (
-    <CandidateHighlight icon={GraduationCapIcon} label="教育经历">
+    <CandidateHighlight icon={IconSchool} label="教育经历">
       {educationItems.length > 0 ? (
         <ul className="flex flex-col gap-1">
           {educationItems.map((item) => (
@@ -136,7 +137,7 @@ function CandidateRecommendationReasons({
   return (
     <div className="min-w-0 rounded-md border-muted/60 border bg-background px-3 py-2">
       <div className="flex items-center gap-1.5 text-muted-foreground">
-        <UserCheckIcon className="size-3.5 shrink-0" />
+        <IconUserCheck className="size-3.5 shrink-0" />
         <span className="text-xs">推荐理由</span>
       </div>
       {reasons.length > 0 ? (
@@ -194,11 +195,11 @@ function CandidateRecommendationCard({
           <CardContent className="flex flex-col gap-3 px-0 py-3 text-xs">
             <div className="flex px-4 flex-col gap-1.5 text-muted-foreground">
               <div className="flex min-w-0 items-center gap-1.5">
-                <BriefcaseBusinessIcon className="size-3.5 shrink-0" />
+                <IconBriefcase2 className="size-3.5 shrink-0" />
                 <span className="truncate">{candidate.targetRole || "未填写目标岗位"}</span>
               </div>
               <div className="flex min-w-0 items-center gap-1.5">
-                <Building2Icon className="size-3.5 shrink-0" />
+                <IconBuilding className="size-3.5 shrink-0" />
                 <span className="truncate">
                   {candidate.currentJobDescriptionName
                     ? `当前：${candidate.currentJobDescriptionName}`
@@ -210,12 +211,12 @@ function CandidateRecommendationCard({
             <div className="flex px-3 flex-col gap-1.5 border-border/70 border-t pt-3">
               <CandidateEducationHighlight candidate={candidate} />
               {candidate.profileHighlights.latestCompany ? (
-                <CandidateHighlight icon={Building2Icon} label="最近公司">
+                <CandidateHighlight icon={IconBuilding} label="最近公司">
                   {candidate.profileHighlights.latestCompany}
                 </CandidateHighlight>
               ) : null}
               {candidate.profileHighlights.latestProject ? (
-                <CandidateHighlight icon={FolderGit2Icon} label="最近项目">
+                <CandidateHighlight icon={IconGitBranch} label="最近项目">
                   {candidate.profileHighlights.latestProject}
                 </CandidateHighlight>
               ) : null}
@@ -339,7 +340,7 @@ export function JobDescriptionTalentRecommendationsDialog({
           <Empty className="border-border">
             <EmptyHeader>
               <EmptyMedia variant="icon">
-                <FileSearchIcon className="size-5" />
+                <IconFileSearch className="size-5" />
               </EmptyMedia>
               <EmptyTitle>推荐失败</EmptyTitle>
               <EmptyDescription>请稍后重试。</EmptyDescription>
@@ -351,7 +352,7 @@ export function JobDescriptionTalentRecommendationsDialog({
           <Empty className="border-border">
             <EmptyHeader>
               <EmptyMedia variant="icon">
-                <FileSearchIcon className="size-5" />
+                <IconFileSearch className="size-5" />
               </EmptyMedia>
               <EmptyTitle>语义推荐未启用</EmptyTitle>
               <EmptyDescription>需要完成 embedding 与 Qdrant 配置后才能生成推荐。</EmptyDescription>
@@ -366,7 +367,7 @@ export function JobDescriptionTalentRecommendationsDialog({
           <Empty className="border-border">
             <EmptyHeader>
               <EmptyMedia variant="icon">
-                <UserCheckIcon className="size-5" />
+                <IconUserCheck className="size-5" />
               </EmptyMedia>
               <EmptyTitle>暂无推荐人才</EmptyTitle>
               <EmptyDescription>当前没有足够匹配的已索引简历。</EmptyDescription>

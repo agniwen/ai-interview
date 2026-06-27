@@ -704,10 +704,12 @@ export const resumeLibraryRouter = factory
       // resumePayload, the row stores an empty interviewQuestions array.
       let resumeProfile =
         parsedResumePayload?.resumeProfile ?? uploadResult?.cachedResumeProfile ?? null;
+      let resumeText = parsedResumePayload?.resumeText ?? uploadResult?.resumeText ?? null;
       let parsedFileName: string | null = parsedResumePayload?.fileName ?? resume?.name ?? null;
       if (resume && !resumeProfile) {
         const parsed = await parseResumeFastToProfile(resume);
         ({ resumeProfile } = parsed);
+        resumeText = parsed.parsedText;
         parsedFileName = resume.name;
       }
       const dedupConflict = await resolveResumeCreateDedupConflict({
@@ -734,6 +736,7 @@ export const resumeLibraryRouter = factory
         resumeFileName: parsedFileName,
         resumeProfile,
         resumeReview: resumeReviewInput.data,
+        resumeText,
         storageKey: resumeStorageKey,
         targetRole: input.data.targetRole || null,
         userId: c.var.user?.id ?? null,
@@ -850,6 +853,7 @@ export const resumeLibraryRouter = factory
       let { resumeFileName } = existing;
       const resumeStorageKey = uploadResult?.storageKey ?? null;
       const resumeContentHash = uploadResult?.contentHash ?? null;
+      let resumeText = uploadResult?.resumeText ?? null;
 
       if (resume) {
         // 命中注册表时 storeInterviewResume 已经返回 cachedResumeProfile，不再
@@ -860,6 +864,7 @@ export const resumeLibraryRouter = factory
         if (!nextResumeProfile) {
           const parsed = await parseResumeFastToProfile(resume);
           nextResumeProfile = parsed.resumeProfile;
+          resumeText = parsed.parsedText;
         }
         resumeProfile = nextResumeProfile;
         resumeFileName = resume.name;
@@ -875,6 +880,7 @@ export const resumeLibraryRouter = factory
           resumeParsedAt: resumeProfile ? new Date() : null,
           resumeProfile,
           resumeStorageKey: resumeStorageKey ?? null,
+          resumeText,
         };
       } else if (resumeProfile) {
         resumeProfileUpdate = { resumeProfile };

@@ -1,5 +1,21 @@
 "use client";
 
+import {
+  IconCheck,
+  IconChevronDown,
+  IconDeviceDesktopUp,
+  IconLoader2,
+  IconLogin,
+  IconMicrophone,
+  IconMicrophoneOff,
+  IconPhoneOff,
+  IconPlayerStop,
+  IconUsers,
+  IconVideo,
+  IconVideoOff,
+  IconWand,
+  IconWaveSine,
+} from "@tabler/icons-react";
 /* oxlint-disable no-use-before-define -- exported room wrapper stays above local stage helpers. */
 
 import {
@@ -16,22 +32,7 @@ import {
   useTracks,
 } from "@livekit/components-react";
 import type { TrackReferenceOrPlaceholder } from "@livekit/components-react";
-import {
-  AudioLinesIcon,
-  CheckIcon,
-  ChevronDownIcon,
-  CircleStopIcon,
-  Loader2Icon,
-  LogInIcon,
-  MicOffIcon,
-  MicIcon,
-  MonitorUpIcon,
-  PhoneOffIcon,
-  UsersIcon,
-  VideoOffIcon,
-  VideoIcon,
-  WandSparklesIcon,
-} from "@/components/icons/hugeicons";
+
 import { ConnectionState, LocalAudioTrack, RoomEvent, Track } from "livekit-client";
 import type { Room } from "livekit-client";
 import type { MouseEvent } from "react";
@@ -394,7 +395,7 @@ export function HumanMeetingRoom(props: HumanMeetingRoomProps) {
       <main className="flex min-h-dvh items-center justify-center bg-background px-4 py-10">
         <section className="w-full max-w-lg space-y-6 text-center">
           <div className="mx-auto flex size-14 items-center justify-center rounded-full border border-border/70 bg-muted/40">
-            <VideoIcon className="size-6 text-foreground" />
+            <IconVideo className="size-6 text-foreground" />
           </div>
           <div className="space-y-2">
             <h1 className="font-semibold text-2xl tracking-normal">{getRoomTitle(props)}</h1>
@@ -417,9 +418,9 @@ export function HumanMeetingRoom(props: HumanMeetingRoomProps) {
             size="lg"
           >
             {isJoining ? (
-              <Loader2Icon className="size-4 animate-spin" />
+              <IconLoader2 className="size-4 animate-spin" />
             ) : (
-              <LogInIcon className="size-4" />
+              <IconLogin className="size-4" />
             )}
             {joinButtonText}
           </Button>
@@ -543,7 +544,7 @@ function HumanMeetingStage({
           <p className="text-white/60 text-xs">{participantName}</p>
         </div>
         <div className="inline-flex items-center gap-2 rounded-md border border-white/10 bg-white/5 px-2.5 py-1 text-white/70 text-xs">
-          <UsersIcon className="size-3.5" />
+          <IconUsers className="size-3.5" />
           {participants.length}
         </div>
       </header>
@@ -570,8 +571,8 @@ function HumanMeetingStage({
               showIcon={false}
               source={Track.Source.Microphone}
             >
-              <MicIcon className="toggle-on size-4" />
-              <MicOffIcon className="toggle-off size-4" />
+              <IconMicrophone className="toggle-on size-4" />
+              <IconMicrophoneOff className="toggle-off size-4" />
               <span className="toggle-on">麦克风</span>
               <span className="toggle-off">已静音</span>
             </TrackToggle>
@@ -582,8 +583,8 @@ function HumanMeetingStage({
               showIcon={false}
               source={Track.Source.Camera}
             >
-              <VideoIcon className="toggle-on size-4" />
-              <VideoOffIcon className="toggle-off size-4" />
+              <IconVideo className="toggle-on size-4" />
+              <IconVideoOff className="toggle-off size-4" />
               <span className="toggle-on">摄像头</span>
               <span className="toggle-off">摄像头已关</span>
             </TrackToggle>
@@ -592,7 +593,7 @@ function HumanMeetingStage({
               showIcon={false}
               source={Track.Source.ScreenShare}
             >
-              <MonitorUpIcon className="size-4" />
+              <IconDeviceDesktopUp className="size-4" />
               共享屏幕
             </TrackToggle>
           </>
@@ -605,15 +606,15 @@ function HumanMeetingStage({
             type="button"
           >
             {isEnding ? (
-              <Loader2Icon className="size-4 animate-spin" />
+              <IconLoader2 className="size-4 animate-spin" />
             ) : (
-              <CircleStopIcon className="size-4" />
+              <IconPlayerStop className="size-4" />
             )}
             {isEnding ? "结束中…" : "结束会议"}
           </button>
         ) : null}
         <DisconnectButton className={leaveButtonClass}>
-          <PhoneOffIcon className="size-4" />
+          <IconPhoneOff className="size-4" />
           离开
         </DisconnectButton>
       </footer>
@@ -628,7 +629,7 @@ function HumanMeetingStage({
           <AlertDialogFooter>
             <AlertDialogCancel disabled={isEnding}>取消</AlertDialogCancel>
             <AlertDialogAction disabled={isEnding} onClick={handleEndConfirm} variant="destructive">
-              {isEnding ? <Loader2Icon className="size-4 animate-spin" /> : null}
+              {isEnding ? <IconLoader2 className="size-4 animate-spin" /> : null}
               确认结束
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -671,9 +672,9 @@ function MicrophoneDeviceMenu() {
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <button className={deviceButtonClass} type="button">
-          <MicIcon className="size-4" />
+          <IconMicrophone className="size-4" />
           <span className="max-w-36 truncate">{selectedLabel}</span>
-          <ChevronDownIcon className="size-3.5 opacity-70" />
+          <IconChevronDown className="size-3.5 opacity-70" />
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="center" className="w-72" side="top">
@@ -689,7 +690,7 @@ function MicrophoneDeviceMenu() {
               >
                 <span className="truncate">{getDeviceLabel(device, index)}</span>
                 {device.deviceId === activeDeviceId ? (
-                  <CheckIcon className="size-4 shrink-0" />
+                  <IconCheck className="size-4 shrink-0" />
                 ) : null}
               </DropdownMenuItem>
             ))
@@ -757,11 +758,11 @@ function VoiceEffectMenu() {
     }
   }
 
-  let triggerIcon = <AudioLinesIcon className="size-4" />;
+  let triggerIcon = <IconWaveSine className="size-4" />;
   if (isApplying) {
-    triggerIcon = <Loader2Icon className="size-4 animate-spin" />;
+    triggerIcon = <IconLoader2 className="size-4 animate-spin" />;
   } else if (selectedEffect !== "none") {
-    triggerIcon = <WandSparklesIcon className="size-4" />;
+    triggerIcon = <IconWand className="size-4" />;
   }
 
   return (
@@ -770,7 +771,7 @@ function VoiceEffectMenu() {
         <button className={deviceButtonClass} disabled={isApplying} type="button">
           {triggerIcon}
           <span>{selectedLabel}</span>
-          <ChevronDownIcon className="size-3.5 opacity-70" />
+          <IconChevronDown className="size-3.5 opacity-70" />
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="center" className="w-44" side="top">
@@ -782,7 +783,7 @@ function VoiceEffectMenu() {
               onSelect={() => void handleSelect(option.id)}
             >
               <span>{option.label}</span>
-              {option.id === selectedEffect ? <CheckIcon className="size-4 shrink-0" /> : null}
+              {option.id === selectedEffect ? <IconCheck className="size-4 shrink-0" /> : null}
             </DropdownMenuItem>
           ))}
         </DropdownMenuGroup>

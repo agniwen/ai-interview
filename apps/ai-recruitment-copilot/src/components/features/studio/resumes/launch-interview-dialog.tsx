@@ -1,5 +1,6 @@
 "use client";
 
+import { IconLoader2 } from "@tabler/icons-react";
 // 「发起 AI 面试」弹窗：在简历库内直接为既有候选人触发出题 + 编辑 + 落库。
 // 开弹窗时拉简历详情拿 resumeProfile，自动跑 /api/interview/generate-questions
 // 把题目灌进 useInterviewForm；用户可在 InterviewQuestionsFields 内增删改，
@@ -13,7 +14,7 @@
 // interview detail dialog in place.
 
 import { useForm } from "@tanstack/react-form";
-import { LoaderCircleIcon } from "@/components/icons/hugeicons";
+
 import { motion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -302,7 +303,7 @@ export function LaunchInterviewDialog({
               取消
             </Button>
             <Button disabled={isBusy} onClick={() => void form.handleSubmit()} type="button">
-              {submitting ? <LoaderCircleIcon className="size-4 animate-spin" /> : null}
+              {submitting ? <IconLoader2 className="size-4 animate-spin" /> : null}
               发起
             </Button>
           </div>
@@ -359,7 +360,7 @@ export function LaunchInterviewDialog({
               initial={{ opacity: 0 }}
               transition={{ duration: 0.2 }}
             >
-              <LoaderCircleIcon className="size-7 animate-spin text-muted-foreground" />
+              <IconLoader2 className="size-7 animate-spin text-muted-foreground" />
               <p className="font-medium text-foreground text-sm">正在生成面试题…</p>
               <p className="text-muted-foreground text-xs">
                 生成完成后可在下方继续编辑，再点「发起」入库。

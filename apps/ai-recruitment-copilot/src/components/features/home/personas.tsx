@@ -1,8 +1,8 @@
-// 用途：三角色分区（HR / 业务面试官 / 候选人），Notion 风格的彩色卡片
-// Purpose: Three-persona section, Notion-style colorful cards.
 "use client";
 
-import { BriefcaseIcon, MicIcon, UsersIcon } from "@/components/icons/hugeicons";
+import { IconBriefcase, IconMicrophone, IconUsers } from "@tabler/icons-react";
+// 用途：三角色分区（HR / 业务面试官 / 候选人），Notion 风格的彩色卡片
+// Purpose: Three-persona section, Notion-style colorful cards.
 import type { ComponentType, SVGProps } from "react";
 import { FadeContent } from "@/components/react-bits/fade-content";
 import { Eyebrow, Section, SectionLead, SectionTitle } from "./section";
@@ -16,21 +16,21 @@ interface Persona {
 
 const personas: Persona[] = [
   {
-    Icon: BriefcaseIcon,
+    Icon: IconBriefcase,
     description:
       "在工作台配置岗位、面试问题与面试官设定，向候选人发送模拟面试链接，集中查看每个候选人的评估结果。",
     role: "HR / 招聘负责人",
     title: "把招聘流程沉淀为可复用的工作流",
   },
   {
-    Icon: UsersIcon,
+    Icon: IconUsers,
     description:
       "通过聊天式筛选快速浏览简历，查看 AI 给出的亮点、风险与追问过程，决定是否安排深入面试。",
     role: "业务面试官 / 用人经理",
     title: "判断更快、依据更完整",
   },
   {
-    Icon: MicIcon,
+    Icon: IconMicrophone,
     description:
       "通过链接进入实时语音模拟面试，完整经历追问与作答流程，提交后得到一致的结构化记录。",
     role: "候选人",

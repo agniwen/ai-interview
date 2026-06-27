@@ -363,7 +363,10 @@ export const auth = betterAuth({
   },
   plugins: [
     admin({
-      bannedUserMessage: "你的账号已被封禁，请联系管理员。",
+      // Better Auth currently interpolates this value into the OAuth redirect
+      // Location header without URL encoding. Keep it ASCII-safe and translate
+      // the marker on the frontend.
+      bannedUserMessage: "banned",
     }),
     genericOAuth({
       config: [

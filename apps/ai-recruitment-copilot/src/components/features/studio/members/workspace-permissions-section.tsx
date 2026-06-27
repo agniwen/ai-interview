@@ -1,10 +1,11 @@
 "use client";
 
+import { IconCopy, IconPencil, IconPlus, IconTrash } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import { toast } from "sonner";
-import { CopyIcon, PencilIcon, PlusIcon, Trash2Icon } from "@/components/icons/hugeicons";
+
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
   AlertDialog,
@@ -449,7 +450,7 @@ export function WorkspacePermissionsSection() {
               onClick={() => setRoleFormState({ mode: "create", permission: {} })}
               type="button"
             >
-              <PlusIcon data-icon="inline-start" />
+              <IconPlus data-icon="inline-start" />
               新建角色
             </Button>
           </div>
@@ -532,7 +533,7 @@ export function WorkspacePermissionsSection() {
                                   type="button"
                                   variant="ghost"
                                 >
-                                  <CopyIcon />
+                                  <IconCopy />
                                 </Button>
                                 {dynamicRole ? (
                                   <>
@@ -551,7 +552,7 @@ export function WorkspacePermissionsSection() {
                                       type="button"
                                       variant="ghost"
                                     >
-                                      <PencilIcon />
+                                      <IconPencil />
                                     </Button>
                                     <Button
                                       aria-label={`删除角色 ${row.name}`}
@@ -562,7 +563,7 @@ export function WorkspacePermissionsSection() {
                                       type="button"
                                       variant="ghost"
                                     >
-                                      {deletingRoleId === row.id ? <Spinner /> : <Trash2Icon />}
+                                      {deletingRoleId === row.id ? <Spinner /> : <IconTrash />}
                                     </Button>
                                   </>
                                 ) : null}

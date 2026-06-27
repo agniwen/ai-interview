@@ -1,4 +1,4 @@
-import type { PrepareStepFunction, StopCondition, ToolSet } from "ai";
+import type { PrepareStepFunction, StopCondition, ToolLoopAgentSettings, ToolSet } from "ai";
 import { stepCountIs, ToolLoopAgent } from "ai";
 import { getRequiredEnv } from "@arc/ai-recruitment-copilot-backend/lib/server/env";
 import { withDevTools } from "./devtools";
@@ -37,7 +37,7 @@ export function createResumeAgent<TOOLS extends ToolSet>({
 }: CreateResumeAgentOptions<TOOLS>) {
   const provider = createAlibabaProvider({ enableThinking });
 
-  return new ToolLoopAgent({
+  const settings = {
     instructions,
     maxOutputTokens,
     maxRetries,
@@ -46,5 +46,7 @@ export function createResumeAgent<TOOLS extends ToolSet>({
     stopWhen,
     temperature,
     tools,
-  });
+  } as unknown as ToolLoopAgentSettings<never, TOOLS>;
+
+  return new ToolLoopAgent<never, TOOLS>(settings);
 }

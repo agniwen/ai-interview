@@ -1,14 +1,15 @@
 "use client";
 
+import {
+  IconArrowBackUp,
+  IconCalendarEvent,
+  IconLock,
+  IconPlus,
+  IconTrash,
+} from "@tabler/icons-react";
 import type { InterviewFormApi } from "./interview-form";
 import type { ScheduleEntryStatus } from "@arc/db-schema/studio-interviews";
-import {
-  CalendarDaysIcon,
-  LockIcon,
-  PlusIcon,
-  RotateCcwIcon,
-  Trash2Icon,
-} from "@/components/icons/hugeicons";
+
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -66,7 +67,7 @@ export function InterviewScheduleFields({
                   {/* oxlint-disable-next-line jsx-a11y/no-noninteractive-tabindex */}
                   <span className="shrink-0 self-start" tabIndex={0}>
                     <Button disabled size="sm" type="button" variant="outline">
-                      <PlusIcon className="size-4" />
+                      <IconPlus className="size-4" />
                       新增轮次
                     </Button>
                   </span>
@@ -100,7 +101,7 @@ export function InterviewScheduleFields({
                         ) : null}
                         {isLocked ? (
                           <span className="flex items-center gap-1 text-muted-foreground text-xs">
-                            <LockIcon className="size-3" />
+                            <IconLock className="size-3" />
                             不可编辑
                           </span>
                         ) : null}
@@ -118,7 +119,7 @@ export function InterviewScheduleFields({
                             type="button"
                             variant="outline"
                           >
-                            <RotateCcwIcon className="size-3.5" />
+                            <IconArrowBackUp className="size-3.5" />
                             {isResetting ? "重置中..." : "重置轮次"}
                           </Button>
                         ) : null}
@@ -129,7 +130,7 @@ export function InterviewScheduleFields({
                           type="button"
                           variant="ghost"
                         >
-                          <Trash2Icon className="size-4" />
+                          <IconTrash className="size-4" />
                         </Button>
                       </div>
                     </div>
@@ -174,7 +175,7 @@ export function InterviewScheduleFields({
                               <FieldLabel htmlFor={field.name}>面试时间</FieldLabel>
                               <FieldContent className="gap-2">
                                 <div className="relative">
-                                  <CalendarDaysIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+                                  <IconCalendarEvent className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
                                   <Input
                                     aria-invalid={!!errors?.length}
                                     className="w-full pl-9"

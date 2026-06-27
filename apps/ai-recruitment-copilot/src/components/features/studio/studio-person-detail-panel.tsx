@@ -1,5 +1,14 @@
 "use client";
 
+import {
+  IconArrowBackUp,
+  IconExternalLink,
+  IconEye,
+  IconInfoCircle,
+  IconMessage2,
+  IconPencil,
+  IconRobot,
+} from "@tabler/icons-react";
 // 候选人详情视图的共享主体 —— 把数据获取、tab 切换、各 section 渲染抽离出来,
 // 让弹窗版本 (StudioPersonDetailDialog) 和独立页面版本同时复用。调用方通过
 // shell 自己决定 chrome:Modal、全屏页面布局,甚至嵌入式抽屉都行。
@@ -10,6 +19,8 @@
 // chrome via shell — Modal, full-page layout, or any custom frame.
 
 import Markdown from "react-markdown";
+import type { CandidateFormSubmissionWithSnapshot } from "@arc/db-schema/candidate-forms";
+import type { StudioInterviewConversationReport } from "@arc/db-schema/interview-session";
 import type { StudioInterviewRoundDetail } from "@arc/shared/studio-interview-rounds";
 import { canEditResumeRecord, canLaunchInterviewFromResume } from "@arc/shared/studio-resumes";
 import type { ResumeLibraryDetail } from "@arc/shared/studio-resumes";
@@ -41,14 +52,7 @@ import {
 } from "@/lib/client/api";
 import { env } from "@/env/client";
 import { useOptionalWorkspaceSlug } from "@/lib/client/workspace-context";
-import {
-  BotIcon,
-  ExternalLinkIcon,
-  EyeIcon,
-  MessageSquareTextIcon,
-  PencilIcon,
-  RotateCcwIcon,
-} from "@/components/icons/hugeicons";
+
 import { useEffect, useMemo, useReducer, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { useNavigate } from "@tanstack/react-router";
@@ -80,6 +84,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Modal } from "@/components/ui/modal";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -222,6 +227,26 @@ interface EvaluationSummary {
   overallAssessment: string | null;
 }
 
+type FormQuestion = CandidateFormSubmissionWithSnapshot["snapshot"]["questions"][number];
+
+interface CollectedCandidateInfoItem {
+  analysis: string | null;
+  answers: string[];
+  id: string;
+  kind: "form" | "interview";
+  meta: string | null;
+  question: string;
+  sequence: number;
+  sourceLabel: string;
+}
+
+type ReportSnapshotMetadata = NonNullable<StudioInterviewConversationReport["snapshotMetadata"]>;
+type ReportFullTextInput = NonNullable<ReportSnapshotMetadata["fullTextInput"]>;
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
 function getEvaluationSummary(data: Record<string, unknown> | null | undefined): EvaluationSummary {
   if (!data) {
     return {
@@ -236,6 +261,165 @@ function getEvaluationSummary(data: Record<string, unknown> | null | undefined):
     overallScore: typeof data.overallScore === "number" ? data.overallScore : null,
     recommendation: typeof data.recommendation === "string" ? data.recommendation : null,
   };
+}
+
+function formatFormAnswer(question: FormQuestion, rawValue: string | string[] | undefined) {
+  if (
+    rawValue === undefined ||
+    rawValue === "" ||
+    (Array.isArray(rawValue) && rawValue.length === 0)
+  ) {
+    return null;
+  }
+
+  if (question.type === "single" || question.type === "multi") {
+    const values = Array.isArray(rawValue) ? rawValue : [rawValue];
+    const labels = values.map((v) => question.options.find((opt) => opt.value === v)?.label ?? v);
+    return labels.join("、");
+  }
+
+  return Array.isArray(rawValue) ? rawValue.join(", ") : rawValue;
+}
+
+function getCollectedCandidateInfoItems({
+  evaluation,
+  formSubmissions,
+}: {
+  evaluation: Record<string, unknown> | null | undefined;
+  formSubmissions: CandidateFormSubmissionWithSnapshot[];
+}) {
+  const items: CollectedCandidateInfoItem[] = [];
+
+  for (const submission of formSubmissions) {
+    for (const question of submission.snapshot.questions) {
+      const answer = formatFormAnswer(question, submission.answers[question.id]);
+      items.push({
+        analysis: null,
+        answers: answer ? [answer] : [],
+        id: `form-${submission.id}-${question.id}`,
+        kind: "form",
+        meta: submission.snapshot.title,
+        question: question.label,
+        sequence: items.length + 1,
+        sourceLabel: "表单",
+      });
+    }
+  }
+
+  const questions = Array.isArray(evaluation?.questions) ? evaluation.questions : [];
+
+  for (const [index, rawQuestion] of questions.entries()) {
+    if (!isRecord(rawQuestion)) {
+      continue;
+    }
+
+    const question =
+      typeof rawQuestion.question === "string" && rawQuestion.question.trim()
+        ? rawQuestion.question.trim()
+        : "未知题目";
+    const analysis =
+      typeof rawQuestion.assessment === "string" && rawQuestion.assessment.trim()
+        ? rawQuestion.assessment.trim()
+        : null;
+    const order = typeof rawQuestion.order === "number" ? rawQuestion.order : index + 1;
+    const rawEvidence = Array.isArray(rawQuestion.evidence) ? rawQuestion.evidence : [];
+    const answers = rawEvidence.flatMap((item) => {
+      if (!isRecord(item) || typeof item.quote !== "string") {
+        return [];
+      }
+      const quote = item.quote.trim();
+      return quote ? [quote] : [];
+    });
+
+    items.push({
+      analysis,
+      answers,
+      id: `interview-${order}-${question}`,
+      kind: "interview",
+      meta: null,
+      question,
+      sequence: items.length + 1,
+      sourceLabel: "面试",
+    });
+  }
+
+  return items;
+}
+
+function CollectedCandidateInfoList({ items }: { items: CollectedCandidateInfoItem[] }) {
+  if (items.length === 0) {
+    return (
+      <div className="rounded-xl border border-dashed border-border/70 bg-muted/30 px-4 py-8 text-center text-muted-foreground text-sm">
+        暂无可展示的收集信息。
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col">
+      {items.map((item) => (
+        <article
+          className="min-w-0 border-border/60 border-b py-4 last:border-b-0 text-sm"
+          key={item.id}
+        >
+          <div className="flex items-start gap-3">
+            <span className="mt-0.5 w-7 shrink-0 font-medium text-muted-foreground tabular-nums">
+              {item.sequence}.
+            </span>
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge className="h-5 px-1.5 font-normal text-[10px]" variant="outline">
+                  {item.sourceLabel}
+                </Badge>
+                {item.meta ? (
+                  <span className="text-muted-foreground text-xs leading-5">{item.meta}</span>
+                ) : null}
+              </div>
+              <div className="mt-3 space-y-1">
+                <div className="font-medium text-[11px] text-muted-foreground">问题</div>
+                <p className="font-medium text-foreground leading-normal">{item.question}</p>
+              </div>
+              {item.analysis ? (
+                <div className="mt-3 space-y-1">
+                  <div className="font-medium text-[11px] text-muted-foreground">AI 分析</div>
+                  <p className="font-medium text-foreground leading-6">{item.analysis}</p>
+                </div>
+              ) : null}
+              <div className="mt-3 space-y-1">
+                <div className="font-medium text-[11px] text-muted-foreground">
+                  {item.kind === "interview" ? "候选人回答" : "回答"}
+                </div>
+                {item.answers.length > 0 ? (
+                  <div className="flex flex-col gap-1.5">
+                    {item.answers.map((answer, index) => (
+                      <Tooltip key={`${index}-${answer}`}>
+                        <TooltipTrigger asChild>
+                          <p
+                            className={
+                              item.kind === "interview"
+                                ? "line-clamp-2 cursor-help text-muted-foreground leading-6 break-words"
+                                : "line-clamp-2 cursor-help text-foreground leading-6 break-words"
+                            }
+                          >
+                            “{answer}”
+                          </p>
+                        </TooltipTrigger>
+                        <TooltipContent className="max-w-[min(32rem,calc(100vw-2rem))] whitespace-pre-wrap break-words leading-6">
+                          {answer}
+                        </TooltipContent>
+                      </Tooltip>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-muted-foreground text-sm">暂无提取答案</p>
+                )}
+              </div>
+            </div>
+          </div>
+        </article>
+      ))}
+    </div>
+  );
 }
 
 function compactText(value: string | null | undefined, fallback: string, limit = 420) {
@@ -366,6 +550,13 @@ interface DetailPanelUiState {
   updatingRoundId: string | null;
 }
 
+function resolveActiveEvidence(
+  selectedEvidence: SelectedEvidenceState | null,
+  conversationId: string,
+) {
+  return selectedEvidence?.conversationId === conversationId ? selectedEvidence : null;
+}
+
 type DetailPanelUiAction =
   | { id: string | null; type: "pendingResetSubmissionChanged" }
   | { id: string | null; type: "resettingRoundChanged" }
@@ -405,6 +596,438 @@ function detailPanelUiReducer(
       return state;
     }
   }
+}
+
+function ReportMetadataButton({
+  disabled,
+  label,
+  onClick,
+  visible,
+}: {
+  disabled: boolean;
+  label: string;
+  onClick: () => void;
+  visible: boolean;
+}) {
+  if (!visible) {
+    return null;
+  }
+
+  return (
+    <Button disabled={disabled} onClick={onClick} size="sm" type="button" variant="outline">
+      <IconInfoCircle className="size-3.5" />
+      {label}
+    </Button>
+  );
+}
+
+function InterviewReportMetadataSnapshotSection({
+  metadata,
+}: {
+  metadata: ReportSnapshotMetadata;
+}) {
+  return (
+    <section className="rounded-xl border border-border/60 bg-background p-4 shadow-sm">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h4 className="font-medium text-sm">快照</h4>
+        {metadata.contextSnapshot ? (
+          <Badge variant="outline">v{metadata.contextSnapshot.version}</Badge>
+        ) : null}
+      </div>
+      <div className="mt-4 grid gap-x-8 gap-y-4 md:grid-cols-2">
+        <DetailRow
+          label="Context Snapshot"
+          value={
+            metadata.contextSnapshot ? (
+              <span className="break-all">{metadata.contextSnapshot.id}</span>
+            ) : (
+              "暂无"
+            )
+          }
+        />
+        <DetailRow
+          label="Evidence Snapshot"
+          value={
+            metadata.evidenceSnapshot ? (
+              <span className="break-all">{metadata.evidenceSnapshot.id}</span>
+            ) : (
+              "暂无"
+            )
+          }
+        />
+        <DetailRow
+          label="Context Hash"
+          value={
+            metadata.contextSnapshot ? (
+              <span className="break-all">{metadata.contextSnapshot.contentHash}</span>
+            ) : (
+              "暂无"
+            )
+          }
+        />
+        <DetailRow
+          label="Evidence Hash"
+          value={
+            metadata.evidenceSnapshot ? (
+              <span className="break-all">{metadata.evidenceSnapshot.contentHash}</span>
+            ) : (
+              "暂无"
+            )
+          }
+        />
+        <DetailRow
+          label="Context 创建时间"
+          value={
+            metadata.contextSnapshot ? (
+              <TimeDisplay
+                options={DATE_TIME_DISPLAY_OPTIONS}
+                value={metadata.contextSnapshot.createdAt}
+              />
+            ) : (
+              "暂无"
+            )
+          }
+        />
+        <DetailRow
+          label="Evidence 生成时间"
+          value={
+            metadata.evidenceSnapshot?.generatedAt ? (
+              <TimeDisplay
+                options={DATE_TIME_DISPLAY_OPTIONS}
+                value={metadata.evidenceSnapshot.generatedAt}
+              />
+            ) : (
+              "暂无"
+            )
+          }
+        />
+        <DetailRow label="原因" value={metadata.contextSnapshot?.reason ?? "暂无"} />
+        <DetailRow label="状态" value={metadata.contextSnapshot?.status ?? "暂无"} />
+      </div>
+    </section>
+  );
+}
+
+function InterviewReportMetadataFrozenInputSection({
+  metadata,
+}: {
+  metadata: ReportSnapshotMetadata;
+}) {
+  return (
+    <section className="rounded-xl border border-border/60 bg-background p-4 shadow-sm">
+      <h4 className="font-medium text-sm">冻结输入</h4>
+      {metadata.frozenInput ? (
+        <div className="mt-4 grid gap-x-8 gap-y-4 md:grid-cols-2">
+          <DetailRow label="候选人" value={metadata.frozenInput.candidateName ?? "暂无"} />
+          <DetailRow label="邮箱" value={metadata.frozenInput.candidateEmail ?? "暂无"} />
+          <DetailRow label="目标岗位" value={metadata.frozenInput.targetRole ?? "暂无"} />
+          <DetailRow label="JD" value={metadata.frozenInput.jobDescriptionName ?? "未绑定"} />
+          <DetailRow label="面试官数" value={metadata.frozenInput.interviewerCount} />
+          <DetailRow label="表单模板数" value={metadata.frozenInput.formCount} />
+          <DetailRow label="表单问题数" value={metadata.frozenInput.formQuestionCount} />
+          <DetailRow label="表单提交数" value={metadata.frozenInput.formSubmissionCount} />
+          <DetailRow label="面试题模板数" value={metadata.frozenInput.questionTemplateCount} />
+          <DetailRow
+            label="模板题目数"
+            value={metadata.frozenInput.questionTemplateQuestionCount}
+          />
+          <DetailRow
+            label="候选人专属题数"
+            value={metadata.frozenInput.personalizedQuestionCount}
+          />
+        </div>
+      ) : (
+        <p className="mt-3 text-muted-foreground text-sm">
+          暂无冻结输入摘要，可能需要先执行快照回填。
+        </p>
+      )}
+    </section>
+  );
+}
+
+function InterviewReportMetadataSessionSection({ metadata }: { metadata: ReportSnapshotMetadata }) {
+  return (
+    <section className="rounded-xl border border-border/60 bg-background p-4 shadow-sm">
+      <h4 className="font-medium text-sm">会话</h4>
+      <div className="mt-4 grid gap-x-8 gap-y-4 md:grid-cols-2">
+        <DetailRow
+          label="轮次 ID"
+          value={
+            metadata.session.scheduleEntryId ? (
+              <span className="break-all">{metadata.session.scheduleEntryId}</span>
+            ) : (
+              "暂无"
+            )
+          }
+        />
+        <DetailRow label="对话轮次" value={metadata.session.transcriptTurnCount} />
+        <DetailRow label="录制状态" value={metadata.session.recordingStatus ?? "未录制"} />
+        <DetailRow
+          label="录制时长"
+          value={
+            metadata.session.recordingDurationSecs === null
+              ? "暂无"
+              : `${metadata.session.recordingDurationSecs} 秒`
+          }
+        />
+      </div>
+    </section>
+  );
+}
+
+function joinTextLines(lines: (string | null | undefined)[]) {
+  return lines
+    .map((line) => line?.trim())
+    .filter(Boolean)
+    .join("\n");
+}
+
+function joinTextBlocks(blocks: string[]) {
+  return blocks
+    .map((block) => block.trim())
+    .filter(Boolean)
+    .join("\n\n");
+}
+
+function formatCandidateFullTextInput(input: ReportFullTextInput) {
+  return joinTextLines([
+    `候选人：${input.candidate.candidateName ?? "暂无"}`,
+    `邮箱：${input.candidate.candidateEmail ?? "暂无"}`,
+    `电话：${input.candidate.candidatePhone ?? "暂无"}`,
+    `目标岗位：${input.candidate.targetRole ?? "暂无"}`,
+    input.candidate.resumeProfileJson
+      ? `简历画像 JSON：\n${input.candidate.resumeProfileJson}`
+      : null,
+  ]);
+}
+
+function formatJobFullTextInput(input: ReportFullTextInput) {
+  return joinTextLines([
+    input.jobDescription ? `JD：${input.jobDescription.name}` : "JD：未绑定",
+    input.jobDescription?.prompt ? `JD 原文：\n${input.jobDescription.prompt}` : "JD 原文：暂无",
+    input.globalConfig.companyContext
+      ? `公司上下文：\n${input.globalConfig.companyContext}`
+      : "公司上下文：暂无",
+    input.globalConfig.openingInstructions
+      ? `开场指令：\n${input.globalConfig.openingInstructions}`
+      : "开场指令：暂无",
+    input.globalConfig.closingInstructions
+      ? `结束指令：\n${input.globalConfig.closingInstructions}`
+      : "结束指令：暂无",
+  ]);
+}
+
+function formatInterviewersFullTextInput(input: ReportFullTextInput) {
+  return joinTextBlocks(
+    input.interviewers.map((interviewer, index) =>
+      joinTextLines([
+        `${index + 1}. ${interviewer.name}`,
+        interviewer.voice ? `声音：${interviewer.voice}` : null,
+        interviewer.prompt ? `Prompt：\n${interviewer.prompt}` : "Prompt：暂无",
+      ]),
+    ),
+  );
+}
+
+function formatFormsFullTextInput(input: ReportFullTextInput) {
+  const templates = input.forms.map((form) =>
+    joinTextLines([
+      `表单：${form.title} v${form.version}`,
+      form.description ? `描述：${form.description}` : null,
+      ...form.questions.map((question, index) =>
+        joinTextLines([
+          `${index + 1}. ${question.label}`,
+          `类型：${question.type}${question.required ? " · 必填" : ""}`,
+          question.helperText ? `提示：${question.helperText}` : null,
+          question.optionsText ? `选项：\n${question.optionsText}` : null,
+        ]),
+      ),
+    ]),
+  );
+  const submissions = input.formSubmissions.map((submission) =>
+    joinTextLines([
+      `提交：${submission.title} v${submission.version}`,
+      `提交时间：${submission.submittedAt}`,
+      ...submission.answers.map(
+        (answer, index) => `${index + 1}. ${answer.label}\n${answer.valueText || "暂无回答"}`,
+      ),
+    ]),
+  );
+
+  return joinTextBlocks([...templates, ...submissions]);
+}
+
+function formatQuestionsFullTextInput(input: ReportFullTextInput) {
+  const templates = input.questionTemplates.map((template) =>
+    joinTextLines([
+      `题库模板：${template.title} v${template.version}`,
+      template.description ? `描述：${template.description}` : null,
+      ...template.questions.map(
+        (question, index) => `${index + 1}. [${question.difficulty}] ${question.content}`,
+      ),
+    ]),
+  );
+  const personalized = input.personalizedQuestions.length
+    ? joinTextLines([
+        "候选人专属题：",
+        ...input.personalizedQuestions.map(
+          (question) => `${question.order}. [${question.difficulty}] ${question.question}`,
+        ),
+      ])
+    : "";
+
+  return joinTextBlocks([...templates, personalized]);
+}
+
+function formatTranscriptFullTextInput(input: ReportFullTextInput) {
+  return input.transcript
+    .map((turn, index) => {
+      const timeLabel = typeof turn.timeInCallSecs === "number" ? ` @ ${turn.timeInCallSecs}s` : "";
+      return `${index + 1}. ${turn.role}${timeLabel}\n${turn.message}`;
+    })
+    .join("\n\n");
+}
+
+function MetadataTextBlock({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex flex-col gap-2">
+      <span className="font-medium text-muted-foreground text-xs">{label}</span>
+      <pre className="max-h-80 overflow-auto whitespace-pre-wrap break-words rounded-lg bg-muted/50 p-3 text-foreground text-xs leading-5">
+        {value.trim() || "暂无"}
+      </pre>
+    </div>
+  );
+}
+
+function InterviewReportMetadataFullTextInputSection({
+  metadata,
+}: {
+  metadata: ReportSnapshotMetadata;
+}) {
+  const input = metadata.fullTextInput;
+  if (!input) {
+    return (
+      <section className="rounded-xl border border-border/60 bg-background p-4 shadow-sm">
+        <h4 className="font-medium text-sm">完整输入</h4>
+        <p className="mt-3 text-muted-foreground text-sm">
+          当前快照缺少完整输入文本，可能需要重新生成快照或执行回填。
+        </p>
+      </section>
+    );
+  }
+
+  return (
+    <section className="rounded-xl border border-border/60 bg-background p-4 shadow-sm">
+      <h4 className="font-medium text-sm">完整输入</h4>
+      <Accordion
+        className="mt-3 rounded-xl border border-border/60"
+        defaultValue={["job", "questions", "transcript"]}
+        type="multiple"
+      >
+        <AccordionItem value="candidate">
+          <AccordionTrigger className="px-4 py-3 hover:no-underline">
+            候选人与简历画像
+          </AccordionTrigger>
+          <AccordionContent className="px-4 pb-4">
+            <MetadataTextBlock label="候选人输入" value={formatCandidateFullTextInput(input)} />
+          </AccordionContent>
+        </AccordionItem>
+        <AccordionItem value="job">
+          <AccordionTrigger className="px-4 py-3 hover:no-underline">
+            JD 原文与全局指令
+          </AccordionTrigger>
+          <AccordionContent className="px-4 pb-4">
+            <MetadataTextBlock label="JD 原文" value={formatJobFullTextInput(input)} />
+          </AccordionContent>
+        </AccordionItem>
+        <AccordionItem value="interviewers">
+          <AccordionTrigger className="px-4 py-3 hover:no-underline">面试官</AccordionTrigger>
+          <AccordionContent className="px-4 pb-4">
+            <MetadataTextBlock
+              label="面试官 Prompt"
+              value={formatInterviewersFullTextInput(input)}
+            />
+          </AccordionContent>
+        </AccordionItem>
+        <AccordionItem value="forms">
+          <AccordionTrigger className="px-4 py-3 hover:no-underline">
+            表单与候选人回答
+          </AccordionTrigger>
+          <AccordionContent className="px-4 pb-4">
+            <MetadataTextBlock label="表单输入" value={formatFormsFullTextInput(input)} />
+          </AccordionContent>
+        </AccordionItem>
+        <AccordionItem value="questions">
+          <AccordionTrigger className="px-4 py-3 hover:no-underline">面试题</AccordionTrigger>
+          <AccordionContent className="px-4 pb-4">
+            <MetadataTextBlock label="题目输入" value={formatQuestionsFullTextInput(input)} />
+          </AccordionContent>
+        </AccordionItem>
+        <AccordionItem className="border-b-0" value="transcript">
+          <AccordionTrigger className="px-4 py-3 hover:no-underline">Transcript</AccordionTrigger>
+          <AccordionContent className="px-4 pb-4">
+            <MetadataTextBlock label="完整对话文本" value={formatTranscriptFullTextInput(input)} />
+          </AccordionContent>
+        </AccordionItem>
+      </Accordion>
+    </section>
+  );
+}
+
+function InterviewReportMetadataJsonSection({ metadata }: { metadata: ReportSnapshotMetadata }) {
+  return (
+    <Accordion
+      className="rounded-xl border border-border/60 bg-background"
+      collapsible
+      type="single"
+    >
+      <AccordionItem className="border-0" value="raw">
+        <AccordionTrigger className="px-4 py-3 hover:no-underline">结构化 JSON</AccordionTrigger>
+        <AccordionContent className="px-4 pb-4">
+          <pre className="max-h-80 overflow-auto rounded-lg bg-muted/50 p-3 text-xs leading-5">
+            {JSON.stringify(metadata, null, 2)}
+          </pre>
+        </AccordionContent>
+      </AccordionItem>
+    </Accordion>
+  );
+}
+
+function InterviewReportMetadataDialog({
+  onOpenChange,
+  report,
+}: {
+  onOpenChange: (open: boolean) => void;
+  report: StudioInterviewConversationReport | null;
+}) {
+  const metadata = report?.snapshotMetadata ?? null;
+
+  return (
+    <Modal
+      bodyClassName="space-y-5"
+      description={
+        report ? <span className="break-all text-xs">会话 {report.conversationId}</span> : undefined
+      }
+      onOpenChange={onOpenChange}
+      open={report !== null}
+      size="xl"
+      title="面试元信息"
+    >
+      {metadata ? (
+        <>
+          <InterviewReportMetadataSnapshotSection metadata={metadata} />
+          <InterviewReportMetadataFrozenInputSection metadata={metadata} />
+          <InterviewReportMetadataSessionSection metadata={metadata} />
+          <InterviewReportMetadataFullTextInputSection metadata={metadata} />
+          <InterviewReportMetadataJsonSection metadata={metadata} />
+        </>
+      ) : (
+        <div className="rounded-xl border border-dashed border-border/70 bg-muted/30 px-4 py-8 text-center text-muted-foreground text-sm">
+          暂无快照元信息，可能需要先执行数据库迁移和快照回填。
+        </div>
+      )}
+    </Modal>
+  );
 }
 
 // oxlint-disable-next-line complexity -- Panel orchestrates many conditional sections driven by record state and mode; flattening adds noise.
@@ -504,6 +1127,7 @@ function useStudioPersonDetailPanel({
   const isPublic = accessMode === "public";
   const isReview = accessMode === "review";
   const canUseManagementActions = accessMode === "authed";
+  const canViewReportMetadata = accessMode === "authed";
   // 公开模式下故意不依赖 slug；authed 模式下我们仍要求 workspace 上下文。
   // Public mode is slug-agnostic by design; authed mode still needs the workspace ctx.
   if (!isPublic && !optionalSlug) {
@@ -516,6 +1140,9 @@ function useStudioPersonDetailPanel({
   const slug = optionalSlug ?? "";
   const [uiState, dispatchUi] = useReducer(detailPanelUiReducer, initialDetailPanelUiState);
   const [activeTab, setActiveTab] = useState<StudioPersonDetailTab>(defaultTab ?? "overview");
+  const [metadataReport, setMetadataReport] = useState<StudioInterviewConversationReport | null>(
+    null,
+  );
   const [optimisticPipelineStage, setOptimisticPipelineStage] = useState<PipelineStage | null>(
     null,
   );
@@ -532,6 +1159,7 @@ function useStudioPersonDetailPanel({
 
   useEffect(() => {
     setActiveTab(defaultTab ?? "overview");
+    setMetadataReport(null);
     setOptimisticPipelineStage(null);
   }, [defaultTab, mode, recordId, roundId]);
 
@@ -885,6 +1513,10 @@ function useStudioPersonDetailPanel({
   const latestEvaluationSummary = getEvaluationSummary(
     latestReport?.evaluationCriteriaResults as Record<string, unknown> | undefined,
   );
+  const collectedCandidateInfoItems = getCollectedCandidateInfoItems({
+    evaluation: latestReport?.evaluationCriteriaResults as Record<string, unknown> | undefined,
+    formSubmissions,
+  });
   const isRoundCompleted = record?.roundStatus === "completed";
   const isRoundLive =
     record?.roundStatus === "in_progress" || record?.roundStatus === "interrupted";
@@ -946,9 +1578,9 @@ function useStudioPersonDetailPanel({
       }}
       type="button"
     >
-      <BotIcon className="size-4" />
+      <IconRobot className="size-4" />
       发起 AI 面试
-      {onLaunchInterview ? null : <ExternalLinkIcon className="size-3.5 opacity-70" />}
+      {onLaunchInterview ? null : <IconExternalLink className="size-3.5 opacity-70" />}
     </Button>
   ) : null;
   const resumeModeFooter =
@@ -966,7 +1598,7 @@ function useStudioPersonDetailPanel({
             type="button"
             variant="outline"
           >
-            <PencilIcon className="size-4" />
+            <IconPencil className="size-4" />
             编辑
           </Button>
         ) : null}
@@ -1329,7 +1961,7 @@ function useStudioPersonDetailPanel({
                               type="button"
                               variant="outline"
                             >
-                              <RotateCcwIcon className="size-3.5" />
+                              <IconArrowBackUp className="size-3.5" />
                               {resettingRoundId === record.roundId ? "重置中..." : "重置轮次"}
                             </Button>
                           ) : null}
@@ -1339,6 +1971,25 @@ function useStudioPersonDetailPanel({
                   </div>
                 </section>
               ) : null}
+
+              <section className="xl:col-span-2 border-border/50 border-t pt-6">
+                <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <h3 className="font-medium text-sm">候选人收集信息</h3>
+                    <p className="mt-1 text-muted-foreground text-xs">
+                      按表单、面试题顺序展示候选人提供的信息。
+                    </p>
+                  </div>
+                  {collectedCandidateInfoItems.length > 0 ? (
+                    <Badge variant="outline">{collectedCandidateInfoItems.length} 条信息</Badge>
+                  ) : null}
+                </div>
+                {isFormSubmissionsLoading || isReportsLoading ? (
+                  <FormsSkeleton />
+                ) : (
+                  <CollectedCandidateInfoList items={collectedCandidateInfoItems} />
+                )}
+              </section>
 
               {mode === "interview" ? (
                 <section className="space-y-3 border-t border-border/50 pt-6">
@@ -1387,7 +2038,7 @@ function useStudioPersonDetailPanel({
 
                   {reports.length === 0 ? (
                     <div className="flex min-h-60 flex-col items-center justify-center rounded-2xl border border-dashed border-border/70 bg-muted/40 px-6 py-10 text-center">
-                      <MessageSquareTextIcon className="size-8 text-muted-foreground" />
+                      <IconMessage2 className="size-8 text-muted-foreground" />
                       <p className="mt-4 font-medium text-sm">暂无面试报告</p>
                       <p className="mt-2 max-w-xl text-muted-foreground text-sm leading-normal">
                         候选人开始并结束语音面试后，这里会展示逐场面试的总结、状态和完整对话记录。
@@ -1407,10 +2058,11 @@ function useStudioPersonDetailPanel({
                             report,
                             reportTranscriptStats.get(report.conversationId),
                           );
-                        const activeEvidence =
-                          selectedEvidence?.conversationId === report.conversationId
-                            ? selectedEvidence
-                            : null;
+                        const activeEvidence = resolveActiveEvidence(
+                          selectedEvidence,
+                          report.conversationId,
+                        );
+                        const snapshotMetadata = report.snapshotMetadata ?? null;
                         const handleEvidenceSelect = (evidence: EvidenceQuote) => {
                           dispatchUi({
                             evidence: {
@@ -1467,7 +2119,15 @@ function useStudioPersonDetailPanel({
                                     />
                                   ) : null}
                                   <section className="rounded-xl border border-border/60 bg-background p-4 shadow-sm">
-                                    <h4 className="font-medium text-sm">会话概览</h4>
+                                    <div className="flex flex-wrap items-center justify-between gap-3">
+                                      <h4 className="font-medium text-sm">会话概览</h4>
+                                      <ReportMetadataButton
+                                        disabled={!snapshotMetadata}
+                                        label=""
+                                        onClick={() => setMetadataReport(report)}
+                                        visible={canViewReportMetadata}
+                                      />
+                                    </div>
                                     <div className="mt-3 grid gap-x-8 gap-y-4 text-sm md:grid-cols-2">
                                       <DetailRow
                                         label="会话 ID"
@@ -1684,7 +2344,7 @@ function useStudioPersonDetailPanel({
                                   type="button"
                                   variant="ghost"
                                 >
-                                  <EyeIcon className="size-3.5" />
+                                  <IconEye className="size-3.5" />
                                   查看详情
                                 </Button>
                               ) : null}
@@ -1811,6 +2471,16 @@ function useStudioPersonDetailPanel({
           title,
         })}
       </Tabs>
+      {mode === "interview" && canViewReportMetadata ? (
+        <InterviewReportMetadataDialog
+          onOpenChange={(open) => {
+            if (!open) {
+              setMetadataReport(null);
+            }
+          }}
+          report={metadataReport}
+        />
+      ) : null}
       {mode === "interview" && !isPublic ? (
         <AlertDialog
           onOpenChange={(next) => {

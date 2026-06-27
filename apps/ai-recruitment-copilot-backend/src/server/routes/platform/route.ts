@@ -200,6 +200,10 @@ const userQuerySchema = z.object({
   sortOrder: z.enum(["asc", "desc"]).default("desc"),
 });
 
+const updateUserRemarkSchema = z.object({
+  remark: z.string().max(80).nullable(),
+});
+
 const LAST_ACTIVE_AT_EXPR = sql<Date | string | null>`GREATEST(
   MAX(${session.updatedAt}),
   MAX(${user.lastActiveAt})
@@ -264,6 +268,7 @@ const platformUsers = factory
             image: user.image,
             lastActiveAt: LAST_ACTIVE_AT_SELECT_SQL,
             name: user.name,
+            remark: user.remark,
             role: user.role,
             updatedAt: user.updatedAt,
           })
@@ -292,6 +297,40 @@ const platformUsers = factory
           })),
           total,
           totalPages,
+        },
+        200,
+      );
+    },
+  )
+  .patch(
+    "/users/:userId/remark",
+    zValidator("json", updateUserRemarkSchema, jsonValidatorError("备注内容无效")),
+    async (c) => {
+      const userId = c.req.param("userId");
+      const input = c.req.valid("json");
+      const remark = input.remark?.trim() || null;
+
+      const [updated] = await db
+        .update(user)
+        .set({
+          remark,
+          updatedAt: new Date(),
+        })
+        .where(eq(user.id, userId))
+        .returning({
+          id: user.id,
+          remark: user.remark,
+          updatedAt: user.updatedAt,
+        });
+
+      if (!updated) {
+        return c.json({ error: "用户不存在" }, 404);
+      }
+
+      return c.json(
+        {
+          ...updated,
+          updatedAt: updated.updatedAt.toISOString(),
         },
         200,
       );

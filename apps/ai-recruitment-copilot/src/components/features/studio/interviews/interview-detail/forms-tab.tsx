@@ -1,5 +1,6 @@
+import { IconArrowBackUp } from "@tabler/icons-react";
 import type { CandidateFormSubmissionWithSnapshot } from "@arc/db-schema/candidate-forms";
-import { RotateCcwIcon } from "@/components/icons/hugeicons";
+
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
@@ -106,7 +107,7 @@ export function FormsTab({
                   type="button"
                   variant="outline"
                 >
-                  <RotateCcwIcon className="size-3.5" />
+                  <IconArrowBackUp className="size-3.5" />
                   {resettingId === submission.id ? "重置中..." : "重置填写"}
                 </Button>
               ) : null}

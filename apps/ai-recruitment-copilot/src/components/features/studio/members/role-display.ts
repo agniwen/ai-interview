@@ -14,6 +14,16 @@ const WORKSPACE_ROLE_DESCRIPTIONS = {
 
 export type WorkspaceRole = keyof typeof WORKSPACE_ROLE_LABELS;
 export type AnyWorkspaceRole = string;
+export interface DynamicWorkspaceRoleDisplay {
+  name: string;
+  role: string;
+}
+
+export interface WorkspaceRoleOption {
+  description: string;
+  label: string;
+  value: string;
+}
 
 export const ASSIGNABLE_ROLES = [
   "admin",
@@ -44,6 +54,21 @@ export function getWorkspaceRoleDescription(role: AnyWorkspaceRole): string {
   return isBuiltInWorkspaceRole(role)
     ? WORKSPACE_ROLE_DESCRIPTIONS[role]
     : "自定义工作区角色；具体权限由系统设置中的权限管理决定。";
+}
+
+export function buildWorkspaceRoleOptions(
+  roles: readonly string[],
+  dynamicRoles: readonly DynamicWorkspaceRoleDisplay[] = [],
+): WorkspaceRoleOption[] {
+  const dynamicRoleNameByRole = new Map(dynamicRoles.map((role) => [role.role, role.name]));
+
+  return roles.map((role) => ({
+    description: getWorkspaceRoleDescription(role),
+    label: isBuiltInWorkspaceRole(role)
+      ? getWorkspaceRoleLabel(role)
+      : (dynamicRoleNameByRole.get(role) ?? role),
+    value: role,
+  }));
 }
 
 export function canAssignWorkspaceRole(

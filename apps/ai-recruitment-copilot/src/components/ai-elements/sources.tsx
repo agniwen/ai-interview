@@ -1,8 +1,8 @@
 "use client";
 
+import { IconBook, IconChevronDown } from "@tabler/icons-react";
 import type { ComponentProps } from "react";
 
-import { BookIcon, ChevronDownIcon } from "@/components/icons/hugeicons";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { cn } from "@arc/shared/utils";
 
@@ -27,7 +27,7 @@ export function SourcesTrigger({ className, count, children, ...props }: Sources
             Used
             {count} sources
           </p>
-          <ChevronDownIcon className="h-4 w-4" />
+          <IconChevronDown className="h-4 w-4" />
         </>
       )}
     </CollapsibleTrigger>
@@ -56,7 +56,7 @@ export function Source({ href, title, children, ...props }: SourceProps) {
     <a className="flex items-center gap-2" href={href} rel="noreferrer" target="_blank" {...props}>
       {children ?? (
         <>
-          <BookIcon className="h-4 w-4" />
+          <IconBook className="h-4 w-4" />
           <span className="block font-medium">{title}</span>
         </>
       )}

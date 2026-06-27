@@ -12,6 +12,7 @@ describe("TanStack Start studio settings and detail route migration", () => {
   const routes = [
     "/w/$slug/studio/interview-questions",
     "/w/$slug/studio/global-config",
+    "/w/$slug/studio/agent-debug",
     "/w/$slug/studio/permissions",
     "/w/$slug/studio/members",
     "/w/$slug/studio/me",
@@ -31,6 +32,7 @@ describe("TanStack Start studio settings and detail route migration", () => {
     const sources = [
       readSource("routes/w.$slug.studio.interview-questions.tsx"),
       readSource("routes/w.$slug.studio.global-config.tsx"),
+      readSource("routes/w.$slug.studio.agent-debug.tsx"),
       readSource("routes/w.$slug.studio.permissions.tsx"),
       readSource("routes/w.$slug.studio.members.tsx"),
       readSource("routes/w.$slug.studio.me.tsx"),
@@ -60,6 +62,24 @@ describe("TanStack Start studio settings and detail route migration", () => {
     expect(globalConfigForm).not.toContain("<WorkspacePermissionsSection />");
   });
 
+  it("exposes agent debug as an administrator-only system configuration page", () => {
+    const sidebar = readSource("components/features/studio/studio-sidebar-slots.tsx");
+    const globalConfigForm = readSource(
+      "components/features/studio/global-config/global-config-form.tsx",
+    );
+    const agentDebugRoute = readSource("routes/w.$slug.studio.agent-debug.tsx");
+
+    expect(sidebar).toContain('path: "/studio/agent-debug"');
+    expect(sidebar).toContain('title: "Agent 调试"');
+    expect(sidebar).toContain('action: "agentDebug"');
+    expect(sidebar).toContain("adminOnly: true");
+    expect(globalConfigForm).not.toContain("简历解析测试");
+    expect(agentDebugRoute).toContain("requireStudioAdminAccess");
+    expect(agentDebugRoute).toContain('action: "agentDebug"');
+    expect(agentDebugRoute).toContain("JsonEditor");
+    expect(agentDebugRoute).toContain("/studio/agent-debug/resume-parser-test");
+  });
+
   it("keeps system settings as the last item in the system configuration group", () => {
     const sidebar = readSource("components/features/studio/studio-sidebar-slots.tsx");
     const systemGroupStart = sidebar.indexOf('label: "系统配置"');
@@ -72,6 +92,14 @@ describe("TanStack Start studio settings and detail route migration", () => {
 
     expect(permissionIndex).toBeGreaterThanOrEqual(0);
     expect(settingsIndex).toBeGreaterThan(permissionIndex);
+  });
+
+  it("hides studio sidebar groups after permissions remove all menu items", () => {
+    const sidebar = readSource("components/features/studio/studio-sidebar-slots.tsx");
+    const sidebarGroup = readSource("components/ui/sidebar.tsx");
+
+    expect(sidebar).toContain('className="hidden has-[[data-sidebar=menu-item]]:flex"');
+    expect(sidebarGroup).not.toContain("has-[[data-sidebar=menu-item]]:flex");
   });
 
   it("guards direct studio page access with page permissions", () => {
@@ -125,9 +153,9 @@ describe("TanStack Start studio settings and detail route migration", () => {
       "components/features/studio/members/workspace-permissions-section.tsx",
     );
 
-    expect(source).toContain("PencilIcon");
-    expect(source).toContain("CopyIcon");
-    expect(source).toContain("Trash2Icon");
+    expect(source).toContain("IconPencil");
+    expect(source).toContain("IconCopy");
+    expect(source).toContain("IconTrash");
     expect(source).toContain("RoleFormDialog");
     expect(source).toContain("AlertDialog");
     expect(source).toContain("nextPermission = togglePermissionAction");
@@ -140,7 +168,7 @@ describe("TanStack Start studio settings and detail route migration", () => {
     expect(source).toContain(
       "role: input.role === roleFormState.role.role ? undefined : input.role",
     );
-    expect(source).not.toContain("SaveIcon");
+    expect(source).not.toContain("IconDeviceFloppy");
     expect(source).not.toContain('title="保存权限"');
     expect(source).not.toContain("showStatusText");
     expect(source).not.toContain("内置允许");
@@ -163,8 +191,16 @@ describe("TanStack Start studio settings and detail route migration", () => {
     expect(source).toContain('columnPinning={{ right: ["actions"] }}');
     expect(source).not.toContain("<Table>");
     expect(source).not.toContain("function getInitials");
-    expect(source).not.toContain("PencilIcon");
-    expect(source).not.toContain("PlusIcon");
+    expect(source).not.toContain("IconPencil");
+    expect(source).not.toContain("IconPlus");
     expect(memberCellSource).toContain('avatarSize = "sm"');
+  });
+
+  it("resolves custom workspace role names in the mail ingest status column", () => {
+    const source = readSource("routes/w.$slug.studio.mail-ingest-accounts.tsx");
+
+    expect(source).toContain("authClient.organization.listRoles");
+    expect(source).toContain("buildWorkspaceRoleOptions");
+    expect(source).toContain("roleLabelByValue.get(row.user.role) ?? row.user.role");
   });
 });

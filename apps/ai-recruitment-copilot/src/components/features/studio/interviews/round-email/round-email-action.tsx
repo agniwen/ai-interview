@@ -1,7 +1,8 @@
 "use client";
 
+import { IconLoader2, IconMail } from "@tabler/icons-react";
 import type { RoundEmailSummary } from "@arc/db-schema/round-email-log";
-import { Loader2Icon, MailIcon } from "@/components/icons/hugeicons";
+
 import { useState } from "react";
 import { toast } from "sonner";
 import {
@@ -57,9 +58,9 @@ export function RoundEmailAction({
       variant="ghost"
     >
       {mutation.isPending ? (
-        <Loader2Icon className="size-4 animate-spin" />
+        <IconLoader2 className="size-4 animate-spin" />
       ) : (
-        <MailIcon className="size-4" />
+        <IconMail className="size-4" />
       )}
       <span className="ml-1">{hasSent ? "重发" : "发送邮件"}</span>
       {hasSent ? (
@@ -144,7 +145,7 @@ export function RoundEmailAction({
                 }
               }}
             >
-              {mutation.isPending ? <Loader2Icon className="mr-1 size-4 animate-spin" /> : null}
+              {mutation.isPending ? <IconLoader2 className="mr-1 size-4 animate-spin" /> : null}
               {hasSent ? "重发" : "发送"}
             </AlertDialogAction>
           </AlertDialogFooter>

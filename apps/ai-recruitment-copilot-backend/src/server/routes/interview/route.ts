@@ -13,7 +13,6 @@ import {
   studioInterviewSchedule,
 } from "@arc/db-schema/schema";
 import { buildCandidateFormAnswersSchema } from "@arc/db-schema/candidate-forms";
-import type { CandidateFormTemplateRecord } from "@arc/db-schema/candidate-forms";
 import { RECONNECT_GRACE_MS } from "@arc/db-schema/studio-interviews";
 import {
   streamGenerateInterviewQuestions,
@@ -30,12 +29,8 @@ import {
   loadJobDescriptionById,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao";
 import { getGlobalConfig } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/global-config/dao";
-import { loadApplicableCandidateFormTemplates } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/forms/dao/queries";
 import { loadSubmittedTemplateIds } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/forms/dao/submissions";
-import {
-  loadCandidateFormTemplateVersionById,
-  resolveOrCreateTemplateVersion,
-} from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/forms/dao/versions";
+import { loadOrCreateActiveInterviewContextSnapshot } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/dao/context-snapshots";
 import {
   cacheTags,
   lookupOrgIdByInterviewRecord,
@@ -237,8 +232,13 @@ export const interviewRouter = factory
       return c.json({ error: "当前面试轮次已结束，如需重新面试请联系管理员。" }, 403);
     }
 
-    const applicable = await loadApplicableCandidateFormTemplates(id);
-    const requiredTemplateIds = [...applicable.global, ...applicable.jobSpecific].map((t) => t.id);
+    const contextSnapshot = await loadOrCreateActiveInterviewContextSnapshot({
+      createdBy: null,
+      interviewRecordId: id,
+      reason: "create",
+      scheduleEntryId: roundId,
+    });
+    const requiredTemplateIds = contextSnapshot.payload.forms.map((form) => form.templateId);
     if (requiredTemplateIds.length > 0) {
       const submittedIds = await loadSubmittedTemplateIds(id, requiredTemplateIds);
       if (submittedIds.size < requiredTemplateIds.length) {
@@ -483,40 +483,25 @@ export const interviewRouter = factory
       return c.json({ error: "Interview not available." }, 404);
     }
 
-    const applicable = await loadApplicableCandidateFormTemplates(id);
-    const templates: CandidateFormTemplateRecord[] = [
-      ...applicable.global,
-      ...applicable.jobSpecific,
-    ];
+    const contextSnapshot = await loadOrCreateActiveInterviewContextSnapshot({
+      createdBy: null,
+      interviewRecordId: id,
+      reason: "create",
+      scheduleEntryId: roundId,
+    });
+    const required = contextSnapshot.payload.forms.map((form) => ({
+      snapshot: form.snapshot,
+      templateId: form.templateId,
+      version: form.version,
+      versionId: form.versionId,
+    }));
 
-    if (templates.length === 0) {
+    if (required.length === 0) {
       return c.json({ required: [], submitted: {} as Record<string, true> }, 200);
     }
 
-    const templateIds = templates.map((t) => t.id);
+    const templateIds = required.map((form) => form.templateId);
     const submittedIds = await loadSubmittedTemplateIds(id, templateIds);
-
-    // Resolve (or lazily create) the current version for each applicable
-    // template. Performed inside one transaction so concurrent candidates
-    // converge on the same version rows.
-    const required = await db.transaction(async (tx) => {
-      const out: {
-        templateId: string;
-        versionId: string;
-        version: number;
-        snapshot: unknown;
-      }[] = [];
-      for (const template of templates) {
-        const resolved = await resolveOrCreateTemplateVersion(tx, template.id);
-        out.push({
-          snapshot: resolved.snapshot,
-          templateId: template.id,
-          version: resolved.version,
-          versionId: resolved.id,
-        });
-      }
-      return out;
-    });
 
     const submitted: Record<string, true> = {};
     for (const templateId of submittedIds) {
@@ -549,20 +534,23 @@ export const interviewRouter = factory
 
       const { versionId, answers: rawAnswers } = c.req.valid("json");
 
-      const applicable = await loadApplicableCandidateFormTemplates(id);
-      const applicableIds = new Set(
-        [...applicable.global, ...applicable.jobSpecific].map((t) => t.id),
+      const contextSnapshot = await loadOrCreateActiveInterviewContextSnapshot({
+        createdBy: null,
+        interviewRecordId: id,
+        reason: "create",
+        scheduleEntryId: roundId,
+      });
+      const requiredForm = contextSnapshot.payload.forms.find(
+        (form) => form.templateId === templateId,
       );
-      if (!applicableIds.has(templateId)) {
+      if (!requiredForm) {
         return c.json({ error: "该面试表单不适用于当前面试。" }, 400);
       }
-
-      const version = await loadCandidateFormTemplateVersionById(templateId, versionId);
-      if (!version) {
-        return c.json({ error: "面试表单版本不存在。" }, 400);
+      if (requiredForm.versionId !== versionId) {
+        return c.json({ error: "面试表单版本已过期，请刷新页面后重试。" }, 409);
       }
 
-      const answersSchema = buildCandidateFormAnswersSchema(version.snapshot);
+      const answersSchema = buildCandidateFormAnswersSchema(requiredForm.snapshot);
       const parsed = answersSchema.safeParse(rawAnswers);
       if (!parsed.success) {
         return c.json({ error: parsed.error.issues[0]?.message ?? "面试表单填写不完整。" }, 400);
@@ -585,7 +573,7 @@ export const interviewRouter = factory
         return c.json({ error: "该面试表单已提交过。" }, 409);
       }
 
-      return c.json({ submissionId, success: true, version: version.version, versionId }, 200);
+      return c.json({ submissionId, success: true, version: requiredForm.version, versionId }, 200);
     },
   )
   .post(

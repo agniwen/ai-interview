@@ -21,4 +21,18 @@ describe("TanStack Start shared component migration", () => {
       /next\/(?:dynamic|navigation|headers|server|cache|link)/u,
     );
   });
+
+  it("keeps PDF preview lazy loading failures scoped to the preview button", () => {
+    const previewButtonSource = readSource("components/features/pdf/pdf-preview-button.tsx");
+
+    expect(previewButtonSource).toContain('import("@/components/features/pdf/pdf-preview-dialog")');
+    expect(previewButtonSource).toContain("isDynamicImportFetchError");
+    expect(previewButtonSource).toContain("String(error)");
+    expect(previewButtonSource).toContain("pdf-preview-dialog.tsx?retry=");
+    expect(previewButtonSource).toContain("import(/* @vite-ignore */ retryUrl)");
+    expect(previewButtonSource).toContain("PdfPreviewErrorBoundary");
+    expect(previewButtonSource).toContain("PdfPreviewFallbackDialog");
+    expect(previewButtonSource).toContain("<iframe");
+    expect(previewButtonSource).not.toContain('toast.error("简历预览加载失败，请刷新后重试")');
+  });
 });

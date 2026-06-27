@@ -130,6 +130,10 @@ function mockParseOK(profile: {
   targetRoles: string[];
 }) {
   (parseResumeBytesToProfile as ReturnType<typeof vi.fn>).mockResolvedValue({
+    parsedPageCount: 1,
+    parsedStructured: { profile },
+    parsedText: `${profile.name} OCR 原文`,
+    parsedTextSource: "qwen-ocr",
     resumeProfile: profile,
   });
 }
@@ -327,14 +331,18 @@ describe("processNextItem — happy path", () => {
       .from(studioInterview)
       .where(eq(studioInterview.id, recordId));
     expect(interview).toBeDefined();
-    expect(interview?.organizationId).toBe(ORG_A);
-    expect(interview?.candidateEmail).toBe("test@example.com");
-    expect(interview?.candidateName).toBe("Test User");
-    expect(interview?.candidatePhone).toBe("13800000000");
-    expect(interview?.targetRole).toBe("Engineer");
-    expect(interview?.notes).toBe("自动生成的简历评价");
-    expect(interview?.resumeParseStatus).toBe("ready");
-    expect(interview?.resumeParsedAt).toBeTruthy();
+    if (!interview) {
+      throw new Error("expected studio_interview row to exist");
+    }
+    expect(interview.organizationId).toBe(ORG_A);
+    expect(interview.candidateEmail).toBe("test@example.com");
+    expect(interview.candidateName).toBe("Test User");
+    expect(interview.candidatePhone).toBe("13800000000");
+    expect(interview.targetRole).toBe("Engineer");
+    expect(interview.notes).toBe("自动生成的简历评价");
+    expect(interview.resumeParseStatus).toBe("ready");
+    expect(interview.resumeParsedAt).toBeTruthy();
+    expect(interview.resumeText).toBe("Test User OCR 原文");
 
     // 验证 batch 计数器更新正确。
     // Verify batch counters are updated correctly.
@@ -353,6 +361,10 @@ describe("processNextItem — cancellation race", () => {
       const cancelled = await cancelBatch(batchId, ORG_A, USER_A);
       expect(cancelled).toBe(true);
       return {
+        parsedPageCount: 1,
+        parsedStructured: { name: "Cancelled User" },
+        parsedText: "Cancelled User OCR 原文",
+        parsedTextSource: "qwen-ocr",
         resumeProfile: {
           email: "cancelled@example.com",
           name: "Cancelled User",
@@ -430,6 +442,7 @@ describe("processNextItem — resume pool target", () => {
     expect(poolItems[0]?.candidateEmail).toBe("pool@example.com");
     expect(poolItems[0]?.targetRole).toBe("Product Manager");
     expect(poolItems[0]?.resumeParseStatus).toBe("ready");
+    expect(poolItems[0]?.resumeText).toBe("Pool User OCR 原文");
     expect(enqueueResumeSemanticIndexJobBestEffort).toHaveBeenCalledWith({
       organizationId: ORG_A,
       sourceId: beforeItem?.poolItemId,

@@ -230,6 +230,7 @@ const QUESTION_INSTRUCTIONS = `你是一名技术面试出题助手。请基于�
 export interface ResumeParseResult {
   fileName: string;
   resumeProfile: ResumeProfile;
+  resumeText: string | null;
 }
 
 export interface StreamParseResumeContext {
@@ -310,7 +311,7 @@ async function persistParseToRegistry(args: {
  * Stage 1: Parse a PDF resume and extract structured profile information.
  *
  * This is the NDJSON stream wrapper around the shared resume-parser subagent.
- * It drives `buildResumeParserAgent`, pipes the fullStream through as
+ * It drives `buildResumeParserAgent`, pipes the stream through as
  * AnalysisStreamEvent progress events, then validates the final JSON against
  * the subagent's superset schema and projects it down to `ResumeProfile` via
  * `toResumeProfile`.
@@ -347,7 +348,14 @@ export function streamParseResumeProfile(
       const cached = projectAttachmentToResumeProfile(existing.parsedStructured);
       if (cached) {
         emit({ message: "命中已有简历缓存，跳过解析。", type: "status" });
-        emit({ data: { fileName: file.name, resumeProfile: cached }, type: "result" });
+        emit({
+          data: {
+            fileName: file.name,
+            resumeProfile: cached,
+            resumeText: existing.parsedText ?? null,
+          },
+          type: "result",
+        });
         return;
       }
     }
@@ -364,6 +372,7 @@ export function streamParseResumeProfile(
         data: {
           fileName: file.name,
           resumeProfile: normalizeResumeProfile(toResumeProfile(structured)),
+          resumeText: existing.parsedText,
         },
         type: "result",
       });
@@ -392,6 +401,7 @@ export function streamParseResumeProfile(
     const result: ResumeParseResult = {
       fileName: file.name,
       resumeProfile: normalizeResumeProfile(toResumeProfile(fast.structured)),
+      resumeText: fast.text,
     };
 
     emit({ data: result, type: "result" });
@@ -425,7 +435,7 @@ export function streamGenerateInterviewQuestions(
 
     let stepIndex = 0;
     let fullText = "";
-    for await (const part of streamResult.fullStream) {
+    for await (const part of streamResult.stream) {
       if (part.type === "text-delta") {
         fullText += part.text;
       } else if (part.type === "start-step") {
@@ -1042,7 +1052,7 @@ export function streamGenerateResumeReview(input: {
 
     let stepIndex = 0;
     let qualitativeText = "";
-    for await (const part of qualitativeStream.fullStream) {
+    for await (const part of qualitativeStream.stream) {
       if (part.type === "text-delta") {
         qualitativeText += part.text;
       } else if (part.type === "start-step") {
@@ -1107,9 +1117,9 @@ export async function generateResumeReview(input: {
  * fallback path when the client hasn't pre-parsed the resume).
  */
 export async function analyzeResumeFile(file: File): Promise<ResumeAnalysisResult> {
-  const { resumeProfile } = await parseResumeFastToProfile(file);
+  const { parsedText, resumeProfile } = await parseResumeFastToProfile(file);
   const interviewQuestions = await generateInterviewQuestionsForProfile(resumeProfile);
-  return { fileName: file.name, interviewQuestions, resumeProfile };
+  return { fileName: file.name, interviewQuestions, resumeProfile, resumeText: parsedText };
 }
 
 // Re-export the subagent's schema so other modules can validate structured

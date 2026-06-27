@@ -1,6 +1,6 @@
 "use client";
 
-import { XIcon } from "@/components/icons/hugeicons";
+import { IconX } from "@tabler/icons-react";
 import { Dialog as DialogPrimitive } from "radix-ui";
 import * as React from "react";
 import { Drawer as DrawerPrimitive } from "vaul";
@@ -129,7 +129,7 @@ function DialogModal({
                   "[&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
                 )}
               >
-                <XIcon />
+                <IconX />
                 <span className="sr-only">关闭</span>
               </DialogPrimitive.Close>
             ) : null}

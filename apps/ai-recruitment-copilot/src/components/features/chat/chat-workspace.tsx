@@ -546,8 +546,8 @@ export default function ChatWorkspace({ initialSessionId }: { initialSessionId: 
   }, [activeConversationId, shouldNormalizeSessionPath, updateSessionInUrl]);
 
   // Persist JD / resumeImports changes (user actions, not message stream).
-  // The message stream is persisted server-side via /api/resume/chat's onFinish
-  // plus a backup client write in useChat's onFinish.
+  // The message stream is persisted server-side via /api/resume/chat's onEnd
+  // plus a backup client write in the Chat registry's onFinish.
   useEffect(() => {
     if (!isHistoryReady || !activeConversationId) {
       return;

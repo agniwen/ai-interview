@@ -1,5 +1,17 @@
 "use client";
 
+import {
+  IconChevronDown,
+  IconCircleDot,
+  IconListCheck,
+  IconLoader2,
+  IconPlus,
+  IconSettings2,
+  IconSquareCheck,
+  IconTrash,
+  IconTypeface,
+  IconX,
+} from "@tabler/icons-react";
 /* oxlint-disable eslint(no-use-before-define) jsx-a11y(prefer-tag-over-role) */
 /* eslint-disable no-use-before-define, jsx-a11y/prefer-tag-over-role */
 
@@ -15,18 +27,7 @@ import type { JobDescriptionListRecord } from "@arc/shared/job-descriptions";
 import { rpc } from "@/lib/client/rpc";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { useForm, useStore } from "@tanstack/react-form";
-import {
-  CheckSquareIcon,
-  ChevronDownIcon,
-  CircleDotIcon,
-  ListChecksIcon,
-  LoaderCircleIcon,
-  PlusIcon,
-  Settings2Icon,
-  Trash2Icon,
-  TypeIcon,
-  XIcon,
-} from "@/components/icons/hugeicons";
+
 import type { KeyboardEvent, MouseEvent } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -83,19 +84,19 @@ const QUESTION_TYPE_LABELS: Record<CandidateFormQuestionType, string> = {
 
 const QUESTION_TYPE_META: Record<
   CandidateFormQuestionType,
-  { description: string; icon: typeof CircleDotIcon }
+  { description: string; icon: typeof IconCircleDot }
 > = {
   multi: {
     description: "候选人可选择多个答案",
-    icon: CheckSquareIcon,
+    icon: IconSquareCheck,
   },
   single: {
     description: "候选人只能选择一个答案",
-    icon: CircleDotIcon,
+    icon: IconCircleDot,
   },
   text: {
     description: "候选人填写文本内容",
-    icon: TypeIcon,
+    icon: IconTypeface,
   },
 };
 
@@ -266,7 +267,7 @@ export function CandidateFormTemplateEditorDialog({
             取消
           </Button>
           <Button disabled={isSubmitting} form="form-template-form" type="submit">
-            {isSubmitting ? <LoaderCircleIcon className="size-4 animate-spin" /> : null}
+            {isSubmitting ? <IconLoader2 className="size-4 animate-spin" /> : null}
             {isEdit ? "保存" : "创建"}
           </Button>
         </>
@@ -517,7 +518,7 @@ function QuestionBuilderBody({
         <Card className="max-w-sm gap-0 rounded-lg border-dashed py-0">
           <CardContent className="px-5 py-6 text-center">
             <div className="mx-auto flex size-10 items-center justify-center rounded-md bg-muted text-muted-foreground">
-              <ListChecksIcon className="size-5" />
+              <IconListCheck className="size-5" />
             </div>
             <p className="mt-3 font-medium text-sm">题目需要在 PC 端编辑</p>
             <p className="mt-1 text-muted-foreground text-xs leading-relaxed">
@@ -530,7 +531,7 @@ function QuestionBuilderBody({
       <div className="hidden h-[58vh] min-h-[460px] max-h-[876px] flex-none grid-cols-[220px_minmax(0,1fr)_360px] overflow-hidden md:grid">
         <aside className="flex min-h-0 flex-col gap-3 border-r bg-background px-4 py-4">
           <div className="flex items-center gap-2">
-            <PlusIcon className="size-4 text-muted-foreground" />
+            <IconPlus className="size-4 text-muted-foreground" />
             <h3 className="font-medium text-sm">题目类型</h3>
           </div>
           <div className="flex flex-col gap-2">
@@ -557,7 +558,7 @@ function QuestionBuilderBody({
                   </span>
                   <span className="pointer-events-none absolute inset-0 flex items-center justify-center bg-background/60 opacity-0 backdrop-blur-[1px] transition-opacity group-focus-visible:opacity-100 group-hover:opacity-100">
                     <span className="inline-flex items-center gap-1.5 rounded-md bg-primary px-2 py-1 font-medium text-primary-foreground text-xs shadow-xs">
-                      <PlusIcon className="size-3.5" />
+                      <IconPlus className="size-3.5" />
                       点击添加
                     </span>
                   </span>
@@ -570,7 +571,7 @@ function QuestionBuilderBody({
         <section className="flex min-h-0 flex-col bg-muted/20">
           <div className="flex shrink-0 items-center justify-between border-b bg-background px-5 py-3">
             <div className="flex items-center gap-2">
-              <ListChecksIcon className="size-4 text-muted-foreground" />
+              <IconListCheck className="size-4 text-muted-foreground" />
               <h3 className="font-medium text-sm">预览画布</h3>
             </div>
             <span className="text-muted-foreground text-xs">共 {items.length} 道</span>
@@ -614,7 +615,7 @@ function QuestionBuilderBody({
 
         <aside className="flex min-h-0 flex-col border-l bg-background">
           <div className="flex shrink-0 items-center gap-2 border-b px-4 py-3">
-            <Settings2Icon className="size-4 text-muted-foreground" />
+            <IconSettings2 className="size-4 text-muted-foreground" />
             <h3 className="font-medium text-sm">题目配置</h3>
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
@@ -756,7 +757,7 @@ function QuestionCanvasCard({
           type="button"
           variant="ghost"
         >
-          <Trash2Icon className="size-4" />
+          <IconTrash className="size-4" />
         </Button>
       </div>
     </div>
@@ -821,7 +822,7 @@ function PreviewSelect({ placeholder }: { placeholder: string }) {
   return (
     <div className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-muted-foreground text-sm shadow-xs">
       <span>{placeholder}</span>
-      <ChevronDownIcon className="size-4 shrink-0 opacity-50" />
+      <IconChevronDown className="size-4 shrink-0 opacity-50" />
     </div>
   );
 }
@@ -890,7 +891,7 @@ function QuestionConfigPanel({
           type="button"
           variant="ghost"
         >
-          <Trash2Icon className="size-4" />
+          <IconTrash className="size-4" />
         </Button>
       </div>
 
@@ -1160,7 +1161,7 @@ function OptionsList({
                       type="button"
                       variant="ghost"
                     >
-                      <XIcon className="size-4" />
+                      <IconX className="size-4" />
                     </Button>
                   </div>
                 )}
@@ -1181,7 +1182,7 @@ function OptionsList({
           type="button"
           variant="outline"
         >
-          <PlusIcon className="size-4" />
+          <IconPlus className="size-4" />
           添加选项
         </Button>
         <FieldError errors={errors} />

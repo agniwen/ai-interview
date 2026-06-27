@@ -1,4 +1,4 @@
-import { ChevronRight, MoreHorizontal } from "@/components/icons/hugeicons";
+import { IconChevronRight, IconDots } from "@tabler/icons-react";
 import { Slot } from "radix-ui";
 import * as React from "react";
 
@@ -71,7 +71,7 @@ function BreadcrumbSeparator({ children, className, ...props }: React.ComponentP
       className={cn("[&>svg]:size-3.5", className)}
       {...props}
     >
-      {children ?? <ChevronRight />}
+      {children ?? <IconChevronRight />}
     </li>
   );
 }
@@ -85,7 +85,7 @@ function BreadcrumbEllipsis({ className, ...props }: React.ComponentProps<"span"
       className={cn("flex size-9 items-center justify-center", className)}
       {...props}
     >
-      <MoreHorizontal className="size-4" />
+      <IconDots className="size-4" />
       <span className="sr-only">More</span>
     </span>
   );

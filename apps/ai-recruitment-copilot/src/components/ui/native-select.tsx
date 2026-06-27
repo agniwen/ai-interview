@@ -1,4 +1,4 @@
-import { SelectChevronDownIcon } from "@/components/icons/hugeicons";
+import { IconChevronDown } from "@tabler/icons-react";
 import * as React from "react";
 
 import { cossFieldSurfaceClass } from "@/components/ui/coss-style";
@@ -24,7 +24,7 @@ function NativeSelect({
         )}
         {...props}
       />
-      <SelectChevronDownIcon
+      <IconChevronDown
         className="pointer-events-none absolute top-1/2 right-3.5 z-10 size-4 -translate-y-1/2 text-muted-foreground opacity-50 select-none"
         aria-hidden="true"
         data-slot="native-select-icon"

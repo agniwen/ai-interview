@@ -1,17 +1,18 @@
+import {
+  IconChevronDown,
+  IconMessage2,
+  IconMicrophone,
+  IconPhoneOff,
+  IconUser,
+  IconVideo,
+} from "@tabler/icons-react";
 // 用途：landing 用「语音面试 · 进行中」简化版 UI，对齐真实 AgentSessionView_01：
 // - 顶层 fade gradient + 居中 agent 可视化器 (Aura) + 右下角候选人摄像头 tile
 // - AgentStateIndicator: dot (animate-ping) + label "面试官正在讲话"
 // - AgentControlBar (livekit variant): rounded-[31px] bg-background border + tools 左侧 +
 //   AgentTrackControl (2-button group, rounded-l-full / rounded-r-full) + Disconnect rounded-full font-mono
 // Purpose: simplified mid-interview UI mirroring AgentSessionView_01 + livekit AgentControlBar.
-import {
-  ChevronDownIcon,
-  MessageSquareTextIcon,
-  MicIcon,
-  PhoneOffIcon,
-  UserIcon,
-  VideoIcon,
-} from "@/components/icons/hugeicons";
+
 import { ScreenFrame } from "./screen-frame";
 
 // ─────────────── Agent audio visualizer (bars) ───────────────
@@ -55,7 +56,7 @@ function CandidateCameraTile() {
   return (
     <div className="absolute right-6 bottom-[180px] z-30 h-[140px] w-[200px] overflow-hidden rounded-2xl border border-border bg-gradient-to-br from-slate-700 to-slate-900 shadow-xl ring-1 ring-black/10">
       <div className="-translate-x-1/2 absolute bottom-[-32px] left-1/2 grid size-[110px] place-items-center rounded-full bg-slate-600/60">
-        <UserIcon className="size-10 text-slate-400" strokeWidth={1.5} />
+        <IconUser className="size-10 text-slate-400" strokeWidth={1.5} />
       </div>
       <div className="absolute top-2 left-2 flex items-center gap-1.5 rounded-md bg-black/55 px-2 py-1 font-medium text-[10px] text-white backdrop-blur">
         <span className="size-1.5 animate-pulse rounded-full bg-rose-500/45" />你
@@ -107,7 +108,7 @@ function TrackControl({ icon, enabled = true, ariaLabel }: TrackControlProps) {
       </span>
       <span className="w-px shrink-0 bg-border" />
       <span className={`grid place-items-center rounded-r-full px-2 ${baseClass}`}>
-        <ChevronDownIcon className="size-3.5 opacity-60" />
+        <IconChevronDown className="size-3.5 opacity-60" />
       </span>
     </div>
   );
@@ -123,7 +124,7 @@ function ChatToggle() {
       aria-label="Toggle transcript"
       className="grid h-10 w-10 place-items-center rounded-full border border-border bg-accent/40 text-foreground hover:bg-accent"
     >
-      <MessageSquareTextIcon className="size-4" />
+      <IconMessage2 className="size-4" />
     </span>
   );
 }
@@ -133,7 +134,7 @@ function DisconnectButton() {
   // 真实: bg-destructive/5 text-destructive/80 hover:bg-destructive/20 rounded-full font-mono text-xs font-bold tracking-wider
   return (
     <span className="inline-flex h-10 items-center gap-1.5 rounded-full bg-destructive/5 px-4 font-bold font-mono text-destructive/80 text-xs tracking-wider">
-      <PhoneOffIcon className="size-3.5" />
+      <IconPhoneOff className="size-3.5" />
       结束面试
     </span>
   );
@@ -149,8 +150,11 @@ function ControlBar() {
       <div className="flex flex-col rounded-[31px] border border-input/50 bg-background p-3 shadow-md/30 dark:border-muted">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2">
-            <TrackControl ariaLabel="Toggle microphone" icon={<MicIcon className="size-4" />} />
-            <TrackControl ariaLabel="Toggle camera" icon={<VideoIcon className="size-4" />} />
+            <TrackControl
+              ariaLabel="Toggle microphone"
+              icon={<IconMicrophone className="size-4" />}
+            />
+            <TrackControl ariaLabel="Toggle camera" icon={<IconVideo className="size-4" />} />
             <ChatToggle />
           </div>
           <DisconnectButton />

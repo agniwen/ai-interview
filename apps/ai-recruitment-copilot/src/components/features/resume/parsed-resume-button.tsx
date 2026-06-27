@@ -1,6 +1,6 @@
 "use client";
 
-import { FileTextIcon, SparklesIcon } from "@/components/icons/hugeicons";
+import { IconFileText, IconSparkles } from "@tabler/icons-react";
 import { useState } from "react";
 import { AnimatedHeight } from "@/components/features/motion/animated-height";
 import { Button } from "@/components/ui/button";
@@ -269,7 +269,7 @@ export function ParsedResumeButton({
         type="button"
         variant="outline"
       >
-        <SparklesIcon className="size-3.5" />
+        <IconSparkles className="size-3.5" />
         结构化
       </Button>
       <Modal
@@ -312,7 +312,7 @@ export function ParsedResumeButton({
         size="lg"
         title={
           <span className="flex items-center gap-2">
-            <FileTextIcon className="size-4" />
+            <IconFileText className="size-4" />
             简历结构化解析
           </span>
         }

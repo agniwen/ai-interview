@@ -1,7 +1,8 @@
 "use client";
 
+import { IconSearch } from "@tabler/icons-react";
 import { Command as CommandPrimitive } from "cmdk";
-import { SearchIcon } from "@/components/icons/hugeicons";
+
 import * as React from "react";
 
 import {
@@ -81,7 +82,7 @@ function CommandInput({
           ),
       )}
     >
-      <SearchIcon className="relative z-10 size-4 shrink-0 opacity-50" />
+      <IconSearch className="relative z-10 size-4 shrink-0 opacity-50" />
       <CommandPrimitive.Input
         data-slot="command-input"
         className={cn(

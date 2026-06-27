@@ -1,6 +1,6 @@
 "use client";
 
-import { SaveIcon } from "@/components/icons/hugeicons";
+import { IconDeviceFloppy } from "@tabler/icons-react";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/features/studio/page-header";
@@ -164,7 +164,11 @@ export function GlobalConfigForm({ initial }: Props) {
         </CardContent>
         <CardFooter className="justify-end">
           <Button disabled={pending} onClick={onSave}>
-            {pending ? <Spinner data-icon="inline-start" /> : <SaveIcon data-icon="inline-start" />}
+            {pending ? (
+              <Spinner data-icon="inline-start" />
+            ) : (
+              <IconDeviceFloppy data-icon="inline-start" />
+            )}
             {pending ? "保存中" : "保存配置"}
           </Button>
         </CardFooter>

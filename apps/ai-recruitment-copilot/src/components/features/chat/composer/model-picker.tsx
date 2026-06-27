@@ -1,7 +1,8 @@
 "use client";
 
+import { IconCheck, IconChevronDown, IconCpu } from "@tabler/icons-react";
 import type { ChatModelOption } from "@/lib/client/api";
-import { CheckIcon, ChevronDownIcon, CpuIcon } from "@/components/icons/hugeicons";
+
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -60,7 +61,7 @@ const PROVIDER_LOGO_SLUG: Record<ChatModelOption["provider"], string | null> = {
 function ProviderIcon({ provider }: { provider: ChatModelOption["provider"] }) {
   const slug = PROVIDER_LOGO_SLUG[provider];
   if (!slug) {
-    return <CpuIcon className="size-3.5 text-muted-foreground" />;
+    return <IconCpu className="size-3.5 text-muted-foreground" />;
   }
   return (
     // oxlint-disable-next-line next/no-img-element -- External SVG; next/image adds no value here and would require whitelisting models.dev.
@@ -180,10 +181,10 @@ export function ModelPicker({ className }: ModelPickerProps) {
               {current ? (
                 <ProviderIcon provider={current.provider} />
               ) : (
-                <CpuIcon className="size-3.5" />
+                <IconCpu className="size-3.5" />
               )}
               <span className="max-w-[180px] truncate font-mono">{triggerLabel}</span>
-              <ChevronDownIcon className="size-3 opacity-60" />
+              <IconChevronDown className="size-3 opacity-60" />
             </Button>
           </PopoverTrigger>
         </TooltipTrigger>
@@ -221,7 +222,7 @@ export function ModelPicker({ className }: ModelPickerProps) {
                           默认
                         </span>
                       )}
-                      {isSelected && <CheckIcon className="size-3.5 text-primary" />}
+                      {isSelected && <IconCheck className="size-3.5 text-primary" />}
                     </CommandItem>
                   );
                 })}

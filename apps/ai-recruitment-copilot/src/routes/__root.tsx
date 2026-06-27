@@ -15,6 +15,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { OverlayScrollbarsBody } from "@/components/layout/overlay-scrollbars-body";
 import type { getQueryClient } from "@/lib/client/query-client";
+import { AppWatermark } from "@/components/features/watermark/app-watermark";
 
 function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
   return (
@@ -50,6 +51,7 @@ function RootComponent() {
         <QueryProvider queryClient={queryClient}>
           <TooltipProvider>
             <Outlet />
+            <AppWatermark />
             <Toaster />
           </TooltipProvider>
         </QueryProvider>

@@ -19,6 +19,7 @@ export interface CreateResumeRecordFromStorageInput {
   resumeFileName: string | null;
   resumeProfile: ResumeProfile | null;
   resumeReview?: ResumeReview | null;
+  resumeText?: string | null;
   storageKey: string | null;
   targetRole: string | null;
   userId: string | null;
@@ -70,6 +71,7 @@ export async function createResumeRecordFromStorage(
       resumeSourcePoolItemId: input.source?.poolItemId ?? null,
       resumeSourceType: input.source?.type ?? "direct_upload",
       resumeStorageKey: input.storageKey,
+      resumeText: input.resumeText ?? null,
       status: "draft" as const,
       targetRole: input.targetRole?.trim() || input.resumeProfile?.targetRoles?.[0] || null,
       updatedAt: now,

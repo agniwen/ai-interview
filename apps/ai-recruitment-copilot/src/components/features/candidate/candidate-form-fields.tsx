@@ -1,8 +1,9 @@
 "use client";
 
+import { IconUpload } from "@tabler/icons-react";
 import type { ReactNode } from "react";
 import type { ReactFormExtendedApi } from "@tanstack/react-form";
-import { Upload01Icon } from "@hugeicons/core-free-icons";
+
 import { JobDescriptionSelectField } from "@/components/features/studio/interviews/job-description-select-field";
 import { MarkdownEditor } from "@/components/features/markdown-editor";
 import { Field, FieldContent, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
@@ -288,7 +289,7 @@ export function CandidateFormFields({
         <FieldContent className="gap-2">
           <FileUpload
             accept={supportedResumeDocumentAccept}
-            acceptedFileTypes={[{ icon: Upload01Icon, label: supportedResumeDocumentLabel }]}
+            acceptedFileTypes={[{ icon: IconUpload, label: supportedResumeDocumentLabel }]}
             browseLabel={resumeFile ? "重新选择简历" : "选择简历"}
             className="w-full"
             description={resumeUploadCopy.description}

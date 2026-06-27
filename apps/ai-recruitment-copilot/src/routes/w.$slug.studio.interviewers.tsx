@@ -1,3 +1,4 @@
+import { IconPlus, IconUserCircle } from "@tabler/icons-react";
 import { HydrationBoundary, useQueryClient } from "@tanstack/react-query";
 import type { DehydratedState } from "@tanstack/react-query";
 import {
@@ -18,7 +19,7 @@ import { EntityDeleteDialog } from "@/components/features/studio/entity-delete-d
 import { useEntityCrud } from "@/components/features/studio/use-entity-crud";
 import type { InterviewerListRecord, InterviewerRecord } from "@arc/shared/interviewers";
 import type { PaginatedInterviewerResult } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviewers/dao";
-import { PlusIcon, UserCircleIcon } from "@/components/icons/hugeicons";
+
 import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -231,7 +232,7 @@ function InterviewerManagementPage({ departments }: { departments: DepartmentRec
               <Empty className="border-border">
                 <EmptyHeader>
                   <EmptyMedia variant="icon">
-                    <UserCircleIcon className="size-5" />
+                    <IconUserCircle className="size-5" />
                   </EmptyMedia>
                   <EmptyTitle>请先创建部门</EmptyTitle>
                   <EmptyDescription>
@@ -243,7 +244,7 @@ function InterviewerManagementPage({ departments }: { departments: DepartmentRec
               <Empty className="border-border">
                 <EmptyHeader>
                   <EmptyMedia variant="icon">
-                    <UserCircleIcon className="size-5" />
+                    <IconUserCircle className="size-5" />
                   </EmptyMedia>
                   <EmptyTitle>还没有面试官</EmptyTitle>
                   <EmptyDescription>
@@ -252,7 +253,7 @@ function InterviewerManagementPage({ departments }: { departments: DepartmentRec
                 </EmptyHeader>
                 <EmptyContent>
                   <Button onClick={crud.openCreate}>
-                    <PlusIcon className="size-4" />
+                    <IconPlus className="size-4" />
                     新建面试官
                   </Button>
                 </EmptyContent>
@@ -267,7 +268,7 @@ function InterviewerManagementPage({ departments }: { departments: DepartmentRec
               disabled={noDepartments}
               onClick={crud.openCreate}
             >
-              <PlusIcon className="size-4" />
+              <IconPlus className="size-4" />
               新建面试官
             </Button>
           }

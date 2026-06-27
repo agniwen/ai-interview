@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckIcon, LoaderCircleIcon, WrenchIcon } from "@/components/icons/hugeicons";
+import { IconCheck, IconLoader2, IconTool } from "@tabler/icons-react";
 import { AnimatePresence, motion } from "motion/react";
 import { ResumeDedupOverlay } from "@/components/features/resume/resume-dedup-overlay";
 import { Button } from "@/components/ui/button";
@@ -56,7 +56,7 @@ export function ImportProgressModal({
         />
       ) : (
         <div className="flex flex-col items-center gap-5">
-          <LoaderCircleIcon className="size-7 animate-spin text-muted-foreground" />
+          <IconLoader2 className="size-7 animate-spin text-muted-foreground" />
           <p className="text-center text-foreground text-sm">{progressStatus || "正在处理…"}</p>
 
           <PhaseTracker phase={phase} />
@@ -66,9 +66,9 @@ export function ImportProgressModal({
               {progressTools.map((tool) => (
                 <div className="flex items-center gap-1.5" key={tool.name}>
                   {tool.done ? (
-                    <CheckIcon className="size-3 text-emerald-500" />
+                    <IconCheck className="size-3 text-emerald-500" />
                   ) : (
-                    <WrenchIcon className="size-3 animate-pulse" />
+                    <IconTool className="size-3 animate-pulse" />
                   )}
                   <span>{tool.name}</span>
                 </div>

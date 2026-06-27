@@ -1,8 +1,8 @@
-// 用途：首页 Hero 区，保留原有视觉与 CTA
-// Purpose: Hero section preserving original visuals + CTAs.
 "use client";
 
-import { ArrowRightIcon, SparklesIcon } from "@/components/icons/hugeicons";
+import { IconArrowRight, IconSparkles } from "@tabler/icons-react";
+// 用途：首页 Hero 区，保留原有视觉与 CTA
+// Purpose: Hero section preserving original visuals + CTAs.
 import { motion, useReducedMotion } from "motion/react";
 import { FadeContent } from "@/components/react-bits/fade-content";
 import { SplitText } from "@/components/react-bits/split-text";
@@ -32,7 +32,7 @@ export function Hero({ isPending, onResumeFiltering, onWorkbench }: HeroProps) {
         {/* 中文官方名放在标语徽章里，承担本地化品牌识别。
             Chinese official name lives in the eyebrow badge for localized brand recall. */}
         <p className="inline-flex items-center gap-1.5 rounded-full border border-primary/15 bg-primary/8 px-3 py-1 font-medium text-[11px] text-primary sm:text-xs">
-          <SparklesIcon aria-hidden="true" className="size-3" />
+          <IconSparkles aria-hidden="true" className="size-3" />
           招聘 AI 协同工作台
         </p>
       </FadeContent>
@@ -77,7 +77,7 @@ export function Hero({ isPending, onResumeFiltering, onWorkbench }: HeroProps) {
           >
             <span>开始简历筛选</span>
             <span className="inline-flex max-w-0 overflow-hidden opacity-0 transition-all duration-300 ease-out group-hover:ml-2 group-hover:max-w-4 group-hover:opacity-100">
-              <ArrowRightIcon aria-hidden="true" className="size-4" />
+              <IconArrowRight aria-hidden="true" className="size-4" />
             </span>
           </Button>
           <Button
@@ -89,7 +89,7 @@ export function Hero({ isPending, onResumeFiltering, onWorkbench }: HeroProps) {
           >
             <span>进入工作台</span>
             <span className="inline-flex max-w-0 overflow-hidden opacity-0 transition-all duration-300 ease-out group-hover:ml-2 group-hover:max-w-4 group-hover:opacity-100">
-              <ArrowRightIcon aria-hidden="true" className="size-4" />
+              <IconArrowRight aria-hidden="true" className="size-4" />
             </span>
           </Button>
         </div>

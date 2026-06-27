@@ -1,16 +1,17 @@
+import {
+  IconDeviceDesktopOff,
+  IconDeviceDesktopUp,
+  IconLoader2,
+  IconMicrophone,
+  IconMicrophoneOff,
+  IconVideo,
+  IconVideoOff,
+} from "@tabler/icons-react";
 import type { VariantProps } from "class-variance-authority";
 import type { ComponentProps } from "react";
 import { cva } from "class-variance-authority";
 import { Track } from "livekit-client";
-import {
-  LoaderIcon,
-  MicIcon,
-  MicOffIcon,
-  MonitorOffIcon,
-  MonitorUpIcon,
-  VideoIcon,
-  VideoOffIcon,
-} from "@/components/icons/hugeicons";
+
 import { Fragment, useMemo, useState } from "react";
 import { Toggle } from "@/components/ui/toggle";
 import { cn } from "@arc/shared/utils";
@@ -47,18 +48,18 @@ export const agentTrackToggleVariants = cva(["size-9"], {
 
 function getSourceIcon(source: Track.Source, enabled: boolean, pending = false) {
   if (pending) {
-    return LoaderIcon;
+    return IconLoader2;
   }
 
   switch (source) {
     case Track.Source.Microphone: {
-      return enabled ? MicIcon : MicOffIcon;
+      return enabled ? IconMicrophone : IconMicrophoneOff;
     }
     case Track.Source.Camera: {
-      return enabled ? VideoIcon : VideoOffIcon;
+      return enabled ? IconVideo : IconVideoOff;
     }
     case Track.Source.ScreenShare: {
-      return enabled ? MonitorUpIcon : MonitorOffIcon;
+      return enabled ? IconDeviceDesktopUp : IconDeviceDesktopOff;
     }
     default: {
       return Fragment;

@@ -1,6 +1,6 @@
 "use client";
 
-import { LoaderCircleIcon } from "@/components/icons/hugeicons";
+import { IconLoader2 } from "@tabler/icons-react";
 import { useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { authClient } from "@/lib/client/auth-client";
+import { getBannedAuthMessage, isBannedAuthError } from "./auth-error";
 
 interface EmailPasswordSignInFormProps {
   /** 登录成功后跳转的相对路径 / Redirect target after successful sign-in. */
@@ -44,6 +45,12 @@ export function EmailPasswordSignInForm({
     });
     if (error) {
       setSubmitting(false);
+      if (isBannedAuthError(error)) {
+        toast.error(getBannedAuthMessage(error.message));
+        await authClient.signOut();
+        await navigate({ replace: true, to: "/" });
+        return;
+      }
       toast.error(error.message ?? "登录失败，请检查账号或密码");
       return;
     }
@@ -85,7 +92,7 @@ export function EmailPasswordSignInForm({
       <Button className="w-full gap-2" disabled={submitting} size="lg" type="submit">
         {submitting ? (
           <>
-            <LoaderCircleIcon className="size-4 animate-spin" />
+            <IconLoader2 className="size-4 animate-spin" />
             登录中…
           </>
         ) : (

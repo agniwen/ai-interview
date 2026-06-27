@@ -1,5 +1,6 @@
 "use client";
 
+import { IconLoader2 } from "@tabler/icons-react";
 // 「新建简历记录」对话框。接入 useResumeAnalysisPipeline 自动解析简历 / 匹配 JD /
 // 出题；footer 双按钮：仅保存 (POST /studio/resumes) 或保存并发起面试
 // (POST /studio/interviews，附默认 1 条 schedule 行)。
@@ -9,7 +10,7 @@
 // 1-round interview with default schedule).
 
 import { useForm, useStore } from "@tanstack/react-form";
-import { LoaderCircleIcon } from "@/components/icons/hugeicons";
+
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { ResumeAnalysisOverlay } from "@/components/features/studio/resume-analysis-overlay";
@@ -286,7 +287,7 @@ export function CreateResumeRecordDialog({
             variant="outline"
           >
             {isBusy && submitModeRef.current === "save-only" ? (
-              <LoaderCircleIcon className="size-4 animate-spin" />
+              <IconLoader2 className="size-4 animate-spin" />
             ) : null}
             保存
           </Button>
@@ -297,7 +298,7 @@ export function CreateResumeRecordDialog({
             type="button"
           >
             {isBusy && submitModeRef.current === "save-and-start" ? (
-              <LoaderCircleIcon className="size-4 animate-spin" />
+              <IconLoader2 className="size-4 animate-spin" />
             ) : null}
             保存并发起面试
           </Button>

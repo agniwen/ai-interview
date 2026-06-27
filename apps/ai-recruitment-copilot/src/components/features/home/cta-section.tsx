@@ -1,8 +1,8 @@
-// 用途：页脚上方的二次 CTA
-// Purpose: Secondary CTA above footer.
 "use client";
 
-import { ArrowRightIcon } from "@/components/icons/hugeicons";
+import { IconArrowRight } from "@tabler/icons-react";
+// 用途：页脚上方的二次 CTA
+// Purpose: Secondary CTA above footer.
 import { Button } from "@/components/ui/button";
 import { Section, SectionTitle } from "./section";
 
@@ -30,7 +30,7 @@ export function CtaSection({ isPending, onResumeFiltering, onWorkbench }: CtaSec
           >
             <span>开始简历筛选</span>
             <span className="inline-flex max-w-0 overflow-hidden opacity-0 transition-all duration-300 ease-out group-hover:ml-2 group-hover:max-w-4 group-hover:opacity-100">
-              <ArrowRightIcon aria-hidden="true" className="size-4" />
+              <IconArrowRight aria-hidden="true" className="size-4" />
             </span>
           </Button>
           <Button
@@ -42,7 +42,7 @@ export function CtaSection({ isPending, onResumeFiltering, onWorkbench }: CtaSec
           >
             <span>进入工作台</span>
             <span className="inline-flex max-w-0 overflow-hidden opacity-0 transition-all duration-300 ease-out group-hover:ml-2 group-hover:max-w-4 group-hover:opacity-100">
-              <ArrowRightIcon aria-hidden="true" className="size-4" />
+              <IconArrowRight aria-hidden="true" className="size-4" />
             </span>
           </Button>
         </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertCircleIcon } from "@/components/icons/hugeicons";
+import { IconAlertCircle } from "@tabler/icons-react";
 import {
   Attachment,
   AttachmentInfo,
@@ -40,7 +40,7 @@ export function ComposerAttachments() {
               <Spinner aria-label="上传中" className="size-3 text-muted-foreground" />
             ) : null}
             {isError ? (
-              <AlertCircleIcon aria-label="上传失败" className="size-3 text-destructive" />
+              <IconAlertCircle aria-label="上传失败" className="size-3 text-destructive" />
             ) : null}
             <AttachmentRemove />
           </Attachment>

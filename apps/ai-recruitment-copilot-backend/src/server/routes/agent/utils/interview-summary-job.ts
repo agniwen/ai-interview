@@ -1,17 +1,52 @@
 import { and, eq, inArray, lt, or, sql } from "drizzle-orm";
 import type { InterviewQuestion } from "@arc/db-schema/interview/types";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
-import { interviewConversation, studioInterview } from "@arc/db-schema/schema";
+import { interviewConversation } from "@arc/db-schema/schema";
 import { notifyInterviewSummaryReady } from "@arc/ai-recruitment-copilot-backend/server/routes/agent/utils/feishu-interview-notifications";
 import { cacheTags, safeUpdateTag } from "@arc/ai-recruitment-copilot-backend/server/cache-tags";
 import { generateInterviewReport } from "@arc/ai-recruitment-copilot-backend/server/routes/agent/utils/interview-report";
-import { loadInterviewPresetQuestionsWithScope } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interview-questions/dao/bindings";
+import { createInterviewEvidenceSnapshot } from "@arc/ai-recruitment-copilot-backend/server/routes/agent/utils/evidence-snapshot";
 
 const LOG_PREFIX = "[interview-summary]";
 
 // A row stuck in `running` past this threshold is assumed orphaned (process
 // crashed mid-LLM) and re-claimable.
 const RUNNING_STALE_MINUTES = 10;
+
+function buildEvaluationQuestionsFromContext(
+  context: Awaited<ReturnType<typeof createInterviewEvidenceSnapshot>>["payload"]["context"],
+): InterviewQuestion[] {
+  const personalizedQuestions: InterviewQuestion[] = context.personalizedQuestions.map((q) => ({
+    ...q,
+    question: `[个性化] ${q.question}`,
+  }));
+  const presetOrderBase =
+    personalizedQuestions.length > 0 ? Math.max(...personalizedQuestions.map((q) => q.order)) : 0;
+  let nextOrder = presetOrderBase + 1;
+  const presetQuestions: InterviewQuestion[] = [];
+
+  for (const template of context.questionTemplates
+    .filter((row) => !row.disabledByUser)
+    .toSorted((a, b) => a.sortOrder - b.sortOrder)) {
+    const label = template.scope === "job_description" ? "岗位题" : "全局题";
+    for (const question of [...template.snapshot.questions].toSorted(
+      (a, b) => a.sortOrder - b.sortOrder,
+    )) {
+      const content = question.content.trim();
+      if (!content) {
+        continue;
+      }
+      presetQuestions.push({
+        difficulty: question.difficulty,
+        order: nextOrder,
+        question: `[${label}] ${content}`,
+      });
+      nextOrder += 1;
+    }
+  }
+
+  return [...personalizedQuestions, ...presetQuestions];
+}
 
 export interface RunSummaryJobOptions {
   conversationId: string;
@@ -78,52 +113,8 @@ export async function runSummaryJob(options: RunSummaryJobOptions): Promise<void
       return;
     }
 
-    const [interview] = await db
-      .select({ questions: studioInterview.interviewQuestions })
-      .from(studioInterview)
-      .where(eq(studioInterview.id, interviewRecordId))
-      .limit(1);
-
-    const baseQuestions = interview?.questions ?? [];
-
-    // 把候选人个性化题 + 岗位绑定 / 全局绑定的预设题合并后再交给评估模型。
-    // 不调用 ensureApplicableBindings：面试已经结束，只评估当时实际绑定且
-    // 未被禁用的题；新增的全局模板不应回灌进历史报告。
-    // Merge candidate-personalized questions with job-bound + global preset
-    // questions before handing them to the evaluator. Intentionally skip
-    // ensureApplicableBindings — the interview is over, so we evaluate only
-    // the bindings that were live at runtime; newly created global templates
-    // must not retroactively appear in past reports.
-    const presetQuestions = await loadInterviewPresetQuestionsWithScope(interviewRecordId);
-
-    // 给每条候选人个性化题在 question 文本前加 `[个性化]` 前缀, 评估模型回写到
-    // evaluationCriteriaResults.questions[].question 时, 这段前缀就成了报告里
-    // 题目来源的标签 —— HR 端可以直接看出哪条评分对应哪类题.
-    // Prefix each personalized question with `[个性化]`. The evaluator echoes
-    // the question text back into the persisted evaluation, so the prefix
-    // doubles as a source label in the HR-facing report.
-    const personalizedQuestions: InterviewQuestion[] = baseQuestions.map((q) => ({
-      ...q,
-      question: `[个性化] ${q.question}`,
-    }));
-
-    // 预设题 order 接续在个性化题最大 order 之后, 避免和个性化题 order 冲突.
-    // baseQuestions 为空时基底为 0, 预设题从 1 开始. 不去重, 同题在两侧都会
-    // 被模型分别评 (与本次设计明确选择保持一致).
-    // Preset orders continue past the max personalized order to avoid clashes;
-    // base 0 means presets start from 1 when the candidate has no personalized
-    // questions. Intentionally no dedupe: a question appearing in both lists
-    // gets scored twice (matches the choice locked in during design).
-    const presetOrderBase =
-      personalizedQuestions.length > 0 ? Math.max(...personalizedQuestions.map((q) => q.order)) : 0;
-
-    const taggedPresetQuestions: InterviewQuestion[] = presetQuestions.map((q, index) => ({
-      difficulty: q.difficulty,
-      order: presetOrderBase + index + 1,
-      question: `[${q.scope === "job_description" ? "岗位题" : "全局题"}] ${q.content}`,
-    }));
-
-    const questions: InterviewQuestion[] = [...personalizedQuestions, ...taggedPresetQuestions];
+    const evidence = await createInterviewEvidenceSnapshot({ conversationId, interviewRecordId });
+    const questions = buildEvaluationQuestionsFromContext(evidence.payload.context);
 
     const report = await generateInterviewReport({ questions, transcript });
 

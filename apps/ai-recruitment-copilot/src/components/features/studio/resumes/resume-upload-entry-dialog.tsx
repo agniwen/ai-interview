@@ -1,7 +1,6 @@
 "use client";
 
-import { Upload01Icon } from "@hugeicons/core-free-icons";
-import { FileUpIcon } from "@/components/icons/hugeicons";
+import { IconFileUpload, IconUpload } from "@tabler/icons-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -109,7 +108,7 @@ export function ResumeUploadEntryDialog({
     >
       <FileUpload
         accept={supportedResumeDocumentAccept}
-        acceptedFileTypes={[{ icon: Upload01Icon, label: supportedResumeDocumentLabel }]}
+        acceptedFileTypes={[{ icon: IconUpload, label: supportedResumeDocumentLabel }]}
         ariaLabel="选择要上传的简历文件"
         browseLabel="选择简历文件"
         description={fileUploadDescription}
@@ -145,7 +144,7 @@ export function ResumeUploadEntryButton({
       title={disabled ? "正在上传文件" : undefined}
       type="button"
     >
-      <FileUpIcon className="size-4" />
+      <IconFileUpload className="size-4" />
       新建简历记录
     </Button>
   );

@@ -1,9 +1,16 @@
 "use client";
 
+import {
+  IconCircleX,
+  IconLoader2,
+  IconMinus,
+  IconPlayerPause,
+  IconPlus,
+} from "@tabler/icons-react";
 import type * as React from "react";
 import type { ReactNode } from "react";
 import type { ToolRenderState } from "@arc/shared/tool-state";
-import { CircleX, Loader2, Minus, OctagonPause, Plus } from "@/components/icons/hugeicons";
+
 import { useEffect, useState } from "react";
 import { cn } from "@arc/shared/utils";
 import { ApprovalButtons } from "./approval-buttons";
@@ -45,7 +52,7 @@ function StatusIndicator({ state }: { state: ToolRenderState }) {
   }
 
   if (state.running) {
-    return <Loader2 className="h-3 w-3 animate-spin text-yellow-500" />;
+    return <IconLoader2 className="h-3 w-3 animate-spin text-yellow-500" />;
   }
 
   const color = getStatusIndicatorColor(state);
@@ -107,15 +114,15 @@ function renderHeaderIcon({
   showInterruptedHeader,
 }: HeaderIconArgs) {
   const expandToggle = isExpandedPanelVisible ? (
-    <Minus className="hidden h-3.5 w-3.5 text-muted-foreground group-hover/tool:block" />
+    <IconMinus className="hidden h-3.5 w-3.5 text-muted-foreground group-hover/tool:block" />
   ) : (
-    <Plus className="hidden h-3.5 w-3.5 text-muted-foreground group-hover/tool:block" />
+    <IconPlus className="hidden h-3.5 w-3.5 text-muted-foreground group-hover/tool:block" />
   );
 
   if (showErrorHeader) {
     return (
       <>
-        <CircleX className="h-3.5 w-3.5 text-red-500 group-hover/tool:hidden" />
+        <IconCircleX className="h-3.5 w-3.5 text-red-500 group-hover/tool:hidden" />
         {expandToggle}
       </>
     );
@@ -123,7 +130,7 @@ function renderHeaderIcon({
   if (showInterruptedHeader) {
     return (
       <>
-        <OctagonPause className="h-3.5 w-3.5 text-yellow-500 group-hover/tool:hidden" />
+        <IconPlayerPause className="h-3.5 w-3.5 text-yellow-500 group-hover/tool:hidden" />
         {expandToggle}
       </>
     );
@@ -222,7 +229,7 @@ export function ToolLayout({
 
   const isRunning = state.running;
   const resolvedIcon = isRunning ? (
-    <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+    <IconLoader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
   ) : (
     (icon ?? <StatusIndicator state={state} />)
   );

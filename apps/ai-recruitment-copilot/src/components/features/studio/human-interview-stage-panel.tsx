@@ -1,5 +1,19 @@
 "use client";
 
+import {
+  IconBan,
+  IconCheck,
+  IconCircleCheck,
+  IconCopy,
+  IconLink,
+  IconLoader2,
+  IconPencil,
+  IconPlayerStop,
+  IconPlus,
+  IconUsers,
+  IconVideo,
+  IconX,
+} from "@tabler/icons-react";
 /* oxlint-disable no-use-before-define -- helper components defined below export component for top-down readability */
 // 真人复面阶段的详情面板内容：
 //   - 列出所有轮次（含 cancelled），按 sortOrder 升序
@@ -12,20 +26,7 @@
 // All data fetching and dialogs colocated here for fast iteration.
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  BanIcon,
-  CheckCircle2Icon,
-  CircleStopIcon,
-  CopyIcon,
-  CheckIcon,
-  LinkIcon,
-  Loader2Icon,
-  PencilIcon,
-  PlusIcon,
-  UsersIcon,
-  VideoIcon,
-  XIcon,
-} from "@/components/icons/hugeicons";
+
 import type { FormEvent, MouseEvent, ReactNode } from "react";
 import { useReducer, useState } from "react";
 import { toast } from "sonner";
@@ -231,7 +232,7 @@ export function HumanInterviewStagePanel({ candidateId, candidateName, disabled 
       <Empty className="border-border">
         <EmptyHeader>
           <EmptyMedia variant="icon">
-            <UsersIcon className="size-5" />
+            <IconUsers className="size-5" />
           </EmptyMedia>
           <EmptyTitle>尚未安排真人复面</EmptyTitle>
           <EmptyDescription>
@@ -287,7 +288,7 @@ export function HumanInterviewStagePanel({ candidateId, candidateName, disabled 
             size="lg"
             className="w-full"
           >
-            <PlusIcon className="size-4" />
+            <IconPlus className="size-4" />
             安排真人复面
           </Button>
         </div>
@@ -384,7 +385,7 @@ function RoundCard({
                 {humanInterviewFormatMeta[round.format].label}
               </span>
               <span className="inline-flex items-center gap-1">
-                <UsersIcon className="size-3" />
+                <IconUsers className="size-3" />
                 {round.interviewers.map((i) => i.name).join("、") || "未指派面试官"}
               </span>
             </div>
@@ -529,9 +530,9 @@ function RoundScheduledAtControl({
           type="submit"
         >
           {mutation.isPending ? (
-            <Loader2Icon className="size-3.5 animate-spin" />
+            <IconLoader2 className="size-3.5 animate-spin" />
           ) : (
-            <CheckIcon className="size-3.5" />
+            <IconCheck className="size-3.5" />
           )}
         </Button>
         <Button
@@ -544,7 +545,7 @@ function RoundScheduledAtControl({
           type="button"
           variant="outline"
         >
-          <XIcon className="size-3.5" />
+          <IconX className="size-3.5" />
         </Button>
       </form>
     );
@@ -573,7 +574,7 @@ function RoundScheduledAtControl({
           title="调整面试时间"
           variant="ghost"
         >
-          <PencilIcon className="size-3.5" />
+          <IconPencil className="size-3.5" />
         </Button>
       ) : null}
     </span>
@@ -627,31 +628,31 @@ function RoundCardActions({
     <div className="flex flex-wrap justify-end gap-2 border-border/40 border-t pt-3">
       {canCreateMeeting ? (
         <Button onClick={onCreateMeeting} size="sm" variant="outline">
-          <VideoIcon className="size-4" />
+          <IconVideo className="size-4" />
           创建会议
         </Button>
       ) : null}
       {canOpenLinks ? (
         <Button onClick={handleOpenLinks} size="sm" variant="outline">
-          <CopyIcon className="size-4" />
+          <IconCopy className="size-4" />
           复制链接
         </Button>
       ) : null}
       {canEndMeeting ? (
         <Button onClick={handleEndMeeting} size="sm" variant="outline">
-          <CircleStopIcon className="size-4" />
+          <IconPlayerStop className="size-4" />
           结束会议
         </Button>
       ) : null}
       {canCompleteRound ? (
         <Button onClick={onComplete} size="sm" variant="outline">
-          <CheckCircle2Icon className="size-4" />
+          <IconCircleCheck className="size-4" />
           标记完成
         </Button>
       ) : null}
       {canCancelRound ? (
         <Button onClick={onCancel} size="sm" variant="outline">
-          <BanIcon className="size-4" />
+          <IconBan className="size-4" />
           取消轮次
         </Button>
       ) : null}
@@ -693,7 +694,7 @@ function EndMeetingDialog({
         <AlertDialogFooter>
           <AlertDialogCancel disabled={isPending}>取消</AlertDialogCancel>
           <AlertDialogAction disabled={isPending} onClick={handleConfirm} variant="destructive">
-            {isPending ? <Loader2Icon className="size-4 animate-spin" /> : null}
+            {isPending ? <IconLoader2 className="size-4 animate-spin" /> : null}
             确认结束
           </AlertDialogAction>
         </AlertDialogFooter>
@@ -741,7 +742,7 @@ function MeetingLinksDialog({
           {isFetching ? (
             <Card className="gap-0 rounded-lg py-0">
               <CardContent className="flex items-center justify-center gap-2 p-6 text-muted-foreground text-sm">
-                <Loader2Icon className="size-4 animate-spin" />
+                <IconLoader2 className="size-4 animate-spin" />
                 生成链接中…
               </CardContent>
             </Card>
@@ -763,7 +764,7 @@ function MeetingLinksContent({ links }: { links: HumanInterviewMeetingLinkBundle
     <div className="space-y-5">
       <section className="space-y-2">
         <h4 className="flex items-center gap-2 font-medium text-sm">
-          <UsersIcon className="size-4" />
+          <IconUsers className="size-4" />
           候选人链接
         </h4>
         <div className="space-y-2">
@@ -780,7 +781,7 @@ function MeetingLinksContent({ links }: { links: HumanInterviewMeetingLinkBundle
 
       <section className="space-y-2">
         <h4 className="flex items-center gap-2 font-medium text-sm">
-          <LinkIcon className="size-4" />
+          <IconLink className="size-4" />
           面试官链接
         </h4>
         <div className="space-y-2">
@@ -833,7 +834,7 @@ function MeetingLinkRow({
           <Input className="h-8 text-xs" readOnly value={absoluteUrl} />
         </div>
         <Button className="md:self-end" onClick={handleCopy} size="sm" variant="outline">
-          <CopyIcon className="size-4" />
+          <IconCopy className="size-4" />
           复制
         </Button>
       </CardContent>

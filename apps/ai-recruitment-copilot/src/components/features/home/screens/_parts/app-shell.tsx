@@ -1,33 +1,34 @@
+import {
+  IconBuilding,
+  IconChevronRight,
+  IconClipboardList,
+  IconFileText,
+  IconLayoutSidebarLeftCollapse,
+  IconListCheck,
+  IconMoon,
+  IconPlus,
+  IconRobot,
+  IconSelector,
+  IconSettings,
+  IconTrash,
+  IconUser,
+  IconUserCircle,
+  IconUserCog,
+  IconUsers,
+  IconX,
+} from "@tabler/icons-react";
 // 用途：复刻真实 Studio 壳（shadcn Sidebar variant="inset"）。所有尺寸严格按真实组件：
 // --sidebar-width 18rem (288px) · --header-height 3rem (48px) · SidebarMenuButton h-8
 // SidebarGroup p-2 · SidebarGroupLabel h-8 px-2 text-xs/70 · TabsList h-9 p-[3px] bg-muted。
 // Purpose: 1:1 mirror of the real Studio sidebar+inset layout. Width / heights /
 // classes match the actual shadcn primitives the production app uses.
-import {
-  BotIcon,
-  Building2Icon,
-  ChevronRightIcon,
-  ChevronsUpDownIcon,
-  ClipboardListIcon,
-  FileTextIcon,
-  ListChecksIcon,
-  MoonIcon,
-  PanelLeftIcon,
-  PlusIcon,
-  SettingsIcon,
-  Trash2Icon,
-  UserCircleIcon,
-  UserCogIcon,
-  UserIcon,
-  UsersIcon,
-  XIcon,
-} from "@/components/icons/hugeicons";
+
 import type { ReactNode } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@arc/shared/utils";
 
 interface NavItem {
-  icon: typeof BotIcon;
+  icon: typeof IconRobot;
   label: string;
 }
 
@@ -41,31 +42,31 @@ interface NavGroup {
 export const STUDIO_NAV_GROUPS: NavGroup[] = [
   {
     items: [
-      { icon: UsersIcon, label: "简历库" },
-      { icon: BotIcon, label: "AI 面试" },
+      { icon: IconUsers, label: "简历库" },
+      { icon: IconRobot, label: "AI 面试" },
     ],
     label: "工作台",
   },
   {
     items: [
-      { icon: Building2Icon, label: "部门管理" },
-      { icon: UserCircleIcon, label: "面试官管理" },
-      { icon: FileTextIcon, label: "在招岗位管理" },
+      { icon: IconBuilding, label: "部门管理" },
+      { icon: IconUserCircle, label: "面试官管理" },
+      { icon: IconFileText, label: "在招岗位管理" },
     ],
     label: "招聘配置",
   },
   {
     items: [
-      { icon: ClipboardListIcon, label: "面试表单" },
-      { icon: ListChecksIcon, label: "面试题" },
+      { icon: IconClipboardList, label: "面试表单" },
+      { icon: IconListCheck, label: "面试题" },
     ],
     label: "题库",
   },
   {
     items: [
-      { icon: UserIcon, label: "我的信息" },
-      { icon: UserCogIcon, label: "工作区管理" },
-      { icon: SettingsIcon, label: "系统设置" },
+      { icon: IconUser, label: "我的信息" },
+      { icon: IconUserCog, label: "工作区管理" },
+      { icon: IconSettings, label: "系统设置" },
     ],
     label: "系统配置",
   },
@@ -171,7 +172,7 @@ export function ChatNav() {
         <div className="flex items-center justify-between px-2 pt-1 pb-2">
           <span className="font-medium text-sidebar-foreground/70 text-xs">最近会话</span>
           <span className="grid size-6 place-items-center rounded-md text-sidebar-foreground/60">
-            <PlusIcon className="size-3.5" />
+            <IconPlus className="size-3.5" />
           </span>
         </div>
         <ul className="flex w-full min-w-0 flex-col gap-0.5">
@@ -218,7 +219,7 @@ function SidebarUserSection() {
             <p className="truncate font-medium text-sm">郭靖</p>
             <p className="truncate text-muted-foreground text-xs">Workspace</p>
           </div>
-          <ChevronsUpDownIcon className="size-4 shrink-0 text-muted-foreground" />
+          <IconSelector className="size-4 shrink-0 text-muted-foreground" />
         </div>
       </div>
     </div>
@@ -244,7 +245,7 @@ function BreadcrumbBar({ crumbs }: { crumbs: BreadcrumbCrumb[] }) {
     >
       {crumbs.map((c, i) => (
         <span className="inline-flex items-center gap-2.5" key={c.label}>
-          {i > 0 ? <ChevronRightIcon className="size-3.5" /> : null}
+          {i > 0 ? <IconChevronRight className="size-3.5" /> : null}
           <span className={c.current ? "font-normal text-foreground" : ""}>{c.label}</span>
         </span>
       ))}
@@ -258,7 +259,7 @@ function WorkspaceSwitcher() {
   return (
     <span className="flex h-8 items-center gap-2 rounded-md px-2.5 font-normal text-sm">
       <span className="truncate">Workspace</span>
-      <ChevronsUpDownIcon className="size-4 opacity-60" />
+      <IconSelector className="size-4 opacity-60" />
     </span>
   );
 }
@@ -268,7 +269,7 @@ function ThemeToggleButton() {
   // Real: ghost icon-sm button with sun/moon swap
   return (
     <span className="grid size-8 place-items-center rounded-md">
-      <MoonIcon className="size-4" />
+      <IconMoon className="size-4" />
     </span>
   );
 }
@@ -278,7 +279,7 @@ function SidebarTriggerButton() {
   // Real: ghost icon button (size-7) with PanelLeft, inset header gives -ml-1
   return (
     <span className="-ml-1 grid size-7 place-items-center rounded-md text-muted-foreground">
-      <PanelLeftIcon className="size-4" />
+      <IconLayoutSidebarLeftCollapse className="size-4" />
     </span>
   );
 }
@@ -314,9 +315,9 @@ function InsetHeader({ breadcrumb, actions, className }: InsetHeaderProps) {
 
 // ─────────────────── Re-exports used by some screens ───────────────────
 export const Icons = {
-  Plus: PlusIcon,
-  Trash: Trash2Icon,
-  X: XIcon,
+  Plus: IconPlus,
+  Trash: IconTrash,
+  X: IconX,
 };
 
 // ─────────────────── App shell ───────────────────

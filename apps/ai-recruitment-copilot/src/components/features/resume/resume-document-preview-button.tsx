@@ -1,6 +1,6 @@
 "use client";
 
-import { EyeIcon } from "@/components/icons/hugeicons";
+import { IconEye } from "@tabler/icons-react";
 import type { ReactNode } from "react";
 import { Suspense, lazy, useState } from "react";
 import { PdfPreviewButton } from "@/components/features/pdf/pdf-preview-button";
@@ -98,7 +98,7 @@ export function ResumeDocumentPreviewButton({
         type="button"
         variant="outline"
       >
-        <EyeIcon className="size-3.5" />
+        <IconEye className="size-3.5" />
         {label}
       </Button>
       {open && !disabled ? (

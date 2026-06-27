@@ -1,6 +1,6 @@
 "use client";
 
-import { PlusIcon, Trash2Icon } from "@/components/icons/hugeicons";
+import { IconPlus, IconTrash } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
 import { cossControlOverlayClass } from "@/components/ui/coss-style";
 import { FieldError } from "@/components/ui/field";
@@ -108,7 +108,7 @@ function QuestionListBody({
           type="button"
           variant="outline"
         >
-          <PlusIcon className="size-4" />
+          <IconPlus className="size-4" />
           添加题目
         </Button>
       </div>
@@ -196,7 +196,7 @@ function QuestionListBody({
                         type="button"
                         variant="ghost"
                       >
-                        <Trash2Icon className="size-3.5" />
+                        <IconTrash className="size-3.5" />
                       </Button>
                     </div>
                   </div>
@@ -254,7 +254,7 @@ function QuestionListBody({
         type="button"
         variant="outline"
       >
-        <PlusIcon className="size-4" />
+        <IconPlus className="size-4" />
         添加题目
       </Button>
     </div>

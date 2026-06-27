@@ -1,8 +1,8 @@
 "use client";
 
+import { IconArrowDown, IconDownload } from "@tabler/icons-react";
 import type { ComponentProps } from "react";
 
-import { ArrowDownIcon, DownloadIcon } from "@/components/icons/hugeicons";
 import { useCallback } from "react";
 import { StickToBottom, useStickToBottomContext } from "use-stick-to-bottom";
 import { Button } from "@/components/ui/button";
@@ -85,7 +85,7 @@ export function ConversationScrollButton({ className, ...props }: ConversationSc
         variant="outline"
         {...props}
       >
-        <ArrowDownIcon className="size-4" />
+        <IconArrowDown className="size-4" />
       </Button>
     )
   );
@@ -151,7 +151,7 @@ export function ConversationDownload({
       type="button"
       variant={variant}
     >
-      {children ?? <DownloadIcon className="size-4" />}
+      {children ?? <IconDownload className="size-4" />}
     </Button>
   );
 }

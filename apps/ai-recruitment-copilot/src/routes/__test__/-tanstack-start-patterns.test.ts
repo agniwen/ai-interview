@@ -108,6 +108,17 @@ describe("TanStack Start migration patterns", () => {
     expect(viteConfig).toContain("prerender: { enabled: true");
   });
 
+  it("prebundles Better Auth React hooks with TanStack store in dev", () => {
+    const viteConfig = readSource("vite.config.ts");
+    const packageJson = readSource("package.json");
+
+    expect(viteConfig).toContain('"better-auth/react"');
+    expect(viteConfig).toContain('"better-auth/client/plugins"');
+    expect(viteConfig).toContain('"@tanstack/react-store"');
+    expect(viteConfig).not.toContain('"lucide-react"');
+    expect(packageJson).toContain('"@tanstack/react-store"');
+  });
+
   it("keeps production HTML revalidated while hashed assets stay immutable", () => {
     const viteConfig = readSource("vite.config.ts");
 

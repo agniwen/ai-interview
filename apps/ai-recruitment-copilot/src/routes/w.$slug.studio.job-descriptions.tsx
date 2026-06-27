@@ -1,3 +1,4 @@
+import { IconFileText, IconPlus, IconSparkles } from "@tabler/icons-react";
 import { HydrationBoundary, useQueryClient } from "@tanstack/react-query";
 import type { DehydratedState } from "@tanstack/react-query";
 import {
@@ -27,7 +28,7 @@ import type {
 import type { PaginatedJobDescriptionResult } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao";
 import { JobDescriptionCharts } from "@/components/features/studio/job-descriptions/job-description-charts";
 import { ScopedResumesModal } from "@/components/features/studio/scoped-resumes-modal";
-import { FileTextIcon, PlusIcon, SparklesIcon } from "@/components/icons/hugeicons";
+
 import { useCallback, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -384,7 +385,7 @@ function JobDescriptionManagementPage({
               <Empty className="border-border">
                 <EmptyHeader>
                   <EmptyMedia variant="icon">
-                    <FileTextIcon className="size-5" />
+                    <IconFileText className="size-5" />
                   </EmptyMedia>
                   <EmptyTitle>请先创建部门和面试官</EmptyTitle>
                   <EmptyDescription>
@@ -396,7 +397,7 @@ function JobDescriptionManagementPage({
               <Empty className="border-border">
                 <EmptyHeader>
                   <EmptyMedia variant="icon">
-                    <FileTextIcon className="size-5" />
+                    <IconFileText className="size-5" />
                   </EmptyMedia>
                   <EmptyTitle>还没有在招岗位</EmptyTitle>
                   <EmptyDescription>
@@ -412,7 +413,7 @@ function JobDescriptionManagementPage({
                         crud.openCreate();
                       }}
                     >
-                      <PlusIcon className="size-4" />
+                      <IconPlus className="size-4" />
                       新建在招岗位
                     </Button>
                     <Button
@@ -423,7 +424,7 @@ function JobDescriptionManagementPage({
                       title="AI 创建在招岗位"
                       type="button"
                     >
-                      <SparklesIcon className="size-4" />
+                      <IconSparkles className="size-4" />
                     </Button>
                   </ButtonGroup>
                 </EmptyContent>
@@ -442,7 +443,7 @@ function JobDescriptionManagementPage({
                   crud.openCreate();
                 }}
               >
-                <PlusIcon className="size-4" />
+                <IconPlus className="size-4" />
                 新建在招岗位
               </Button>
               <Button
@@ -453,7 +454,7 @@ function JobDescriptionManagementPage({
                 title="AI 创建在招岗位"
                 type="button"
               >
-                <SparklesIcon className="size-4" />
+                <IconSparkles className="size-4" />
               </Button>
             </ButtonGroup>
           }

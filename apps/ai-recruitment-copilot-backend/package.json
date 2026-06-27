@@ -13,8 +13,10 @@
     "./lib/server/*": "./src/lib/server/*.ts"
   },
   "scripts": {
+    "backfill:interview-snapshots": "tsx src/scripts/backfill-interview-snapshots.ts",
     "backfill:resume-profiles": "tsx src/scripts/backfill-resume-profiles.ts",
     "backfill:resume-semantic-index": "tsx src/scripts/backfill-resume-semantic-index.ts",
+    "backfill:resume-text": "tsx src/scripts/backfill-resume-text.ts",
     "dev:standalone": "tsx watch src/index.ts",
     "repair:default-recruiting-groups": "tsx src/scripts/repair-default-recruiting-groups.ts",
     "start": "tsx src/index.ts",
@@ -23,8 +25,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@ai-sdk/devtools": "^0.0.15",
-    "@ai-sdk/openai-compatible": "^2.0.47",
+    "@ai-sdk/devtools": "^1.0.0",
+    "@ai-sdk/openai-compatible": "^3.0.0",
     "@arc/adapter-feishu": "workspace:*",
     "@arc/db-schema": "workspace:*",
     "@arc/resume-parse-queue": "workspace:*",

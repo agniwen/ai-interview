@@ -1,9 +1,9 @@
 import {
-  ChevronLeftIcon,
-  ChevronRightIcon,
-  ChevronsLeftIcon,
-  ChevronsRightIcon,
-} from "@/components/icons/hugeicons";
+  IconChevronLeft,
+  IconChevronRight,
+  IconChevronsLeft,
+  IconChevronsRight,
+} from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -83,7 +83,7 @@ export function PaginationBar(props: PaginationBarProps) {
             size="icon"
             variant="outline"
           >
-            <ChevronsLeftIcon className="size-4" />
+            <IconChevronsLeft className="size-4" />
           </Button>
           <Button
             aria-label="上一页"
@@ -93,7 +93,7 @@ export function PaginationBar(props: PaginationBarProps) {
             size="icon"
             variant="outline"
           >
-            <ChevronLeftIcon className="size-4" />
+            <IconChevronLeft className="size-4" />
           </Button>
           <Button
             aria-label="下一页"
@@ -103,7 +103,7 @@ export function PaginationBar(props: PaginationBarProps) {
             size="icon"
             variant="outline"
           >
-            <ChevronRightIcon className="size-4" />
+            <IconChevronRight className="size-4" />
           </Button>
           <Button
             aria-label="最后一页"
@@ -113,7 +113,7 @@ export function PaginationBar(props: PaginationBarProps) {
             size="icon"
             variant="outline"
           >
-            <ChevronsRightIcon className="size-4" />
+            <IconChevronsRight className="size-4" />
           </Button>
         </div>
       </div>

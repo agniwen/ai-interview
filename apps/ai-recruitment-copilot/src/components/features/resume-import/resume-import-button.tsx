@@ -1,5 +1,6 @@
 "use client";
 
+import { IconCheck, IconDatabase, IconEye, IconLoader2 } from "@tabler/icons-react";
 // 一键入库：把 chat 中的简历 PDF 解析后写入简历库（resume-only，不生成面试题、
 // 不创建排期）。「发起 AI 面试」改成在打开的简历详情弹窗里走 LaunchInterview
 // Dialog —— 与简历库行菜单 / 详情入口完全同一套 UX。
@@ -15,7 +16,7 @@ import type { AnalysisStreamEvent } from "@arc/shared/api-stream";
 import type { ResumeLibraryDetail } from "@arc/shared/studio-resumes";
 import type { StudioInterviewRoundDetail } from "@arc/shared/studio-interview-rounds";
 import { useQueryClient } from "@tanstack/react-query";
-import { CheckIcon, DatabaseIcon, EyeIcon, LoaderCircleIcon } from "@/components/icons/hugeicons";
+
 import { Suspense, lazy, useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
 import { ImportProgressModal } from "@/components/features/resume-import/import-progress-modal";
@@ -88,23 +89,23 @@ function renderImportButtonContent({
   if (importedInterviewId) {
     return (
       <>
-        <CheckIcon className="size-3.5" />
+        <IconCheck className="size-3.5" />
         已入库
-        <EyeIcon className="size-3.5 opacity-70" />
+        <IconEye className="size-3.5 opacity-70" />
       </>
     );
   }
   if (isImporting) {
     return (
       <>
-        <LoaderCircleIcon className="size-3.5 animate-spin" />
+        <IconLoader2 className="size-3.5 animate-spin" />
         入库中
       </>
     );
   }
   return (
     <>
-      <DatabaseIcon className="size-3.5" />
+      <IconDatabase className="size-3.5" />
       一键入库
     </>
   );
