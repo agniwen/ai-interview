@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import { globalConfig } from "@arc/db-schema/schema";
+import { DEFAULT_JOB_CODE_PREFIX } from "@arc/shared/global-config";
 import type { GlobalConfigInput, GlobalConfigRecord } from "@arc/shared/global-config";
 
 function serialize(row: typeof globalConfig.$inferSelect): GlobalConfigRecord {
@@ -35,7 +36,7 @@ export async function getGlobalConfig(orgId: string): Promise<GlobalConfigRecord
     companyContext: "",
     companyName: "",
     id: `gc_${crypto.randomUUID()}`,
-    jobCodePrefix: "AUR",
+    jobCodePrefix: DEFAULT_JOB_CODE_PREFIX,
     openingInstructions: "",
     organizationId: orgId,
     updatedAt: new Date(),

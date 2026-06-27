@@ -345,6 +345,43 @@ async function generateReviewForParsedResume(input: {
   }
 }
 
+async function resolveJobDescriptionId(input: {
+  batchRow: BatchRow;
+  itemId: string;
+  organizationId: string;
+  resumeProfile: ParsedResume["resumeProfile"];
+}): Promise<string | null> {
+  if (input.batchRow.jdMode === "bind") {
+    return input.batchRow.jobDescriptionId;
+  }
+  if (input.batchRow.jdMode !== "auto" || !input.resumeProfile) {
+    return null;
+  }
+  try {
+    const jdStartedAt = Date.now();
+    logStep("jd.match.start", { itemId: input.itemId });
+    const jds = await listAllJobDescriptions(input.organizationId);
+    const match = await matchJobDescriptionForResume(input.resumeProfile, jds);
+    const jobDescriptionId = match?.jobDescriptionId ?? null;
+    await assertBatchItemNotCancelled(input.batchRow.id, input.itemId);
+    logStep("jd.match.done", {
+      candidateCount: jds.length,
+      durationMs: elapsed(jdStartedAt),
+      itemId: input.itemId,
+      matched: Boolean(jobDescriptionId),
+    });
+    return jobDescriptionId;
+  } catch (error) {
+    if (error instanceof BatchItemCancelledError) {
+      throw error;
+    }
+    // 自动匹配失败不算致命错误：简历仍然入库，只是不绑定岗位。
+    // Auto-match failure is non-fatal: the resume still gets imported, just without a JD.
+    console.error("[bulk-upload] auto JD match failed:", error);
+    return null;
+  }
+}
+
 async function findDuplicateSkipSnapshot(input: {
   batchRow: BatchRow;
   itemId: string;
@@ -416,12 +453,31 @@ async function fetchAndParse(
     };
   }
 
+  const jobDescriptionId = await resolveJobDescriptionId({
+    batchRow,
+    itemId: item.id,
+    organizationId,
+    resumeProfile,
+  });
+  const shouldGenerateReview = batchRow.target !== "resume_pool" || Boolean(jobDescriptionId);
+  const reviewResult = shouldGenerateReview
+    ? await generateReviewForParsedResume({
+        itemId: item.id,
+        jobDescriptionId,
+        organizationId,
+        resumeProfile,
+      })
+    : null;
+  await assertBatchItemNotCancelled(batchRow.id, item.id);
+
   if (batchRow.target === "resume_pool") {
     let { poolItemId } = item;
     await assertBatchItemNotCancelled(batchRow.id, item.id);
     if (poolItemId) {
       await markResumePoolItemParsed({
         actorId: userId,
+        jobDescriptionId,
+        notes: reviewResult?.review ?? null,
         organizationId,
         poolItemId,
         resumeProfile,
@@ -434,8 +490,8 @@ async function fetchAndParse(
         candidatePhone: null,
         contentHash: item.contentHash,
         createdBy: userId,
-        jobDescriptionId: batchRow.jdMode === "bind" ? batchRow.jobDescriptionId : null,
-        notes: null,
+        jobDescriptionId,
+        notes: reviewResult?.review ?? null,
         organizationId,
         resumeFileName: item.originalFileName,
         resumeProfile,
@@ -453,53 +509,6 @@ async function fetchAndParse(
     };
   }
 
-  // jdMode 分支：
-  //   "bind" → 直接用 batch.jobDescriptionId
-  //   "auto" → 复用已解析的 resumeProfile + 全部在招岗位，调用 matchJobDescriptionForResume
-  //            agent 选一个最匹配的；只有 0 个候选岗位或 agent 无匹配时回退到 null
-  //   "none" → 不绑定
-  // 注意：auto 路径不会重新解析 PDF，沿用上面 parseResumeFastToProfile 的结果。
-  //
-  // jdMode dispatch:
-  //   "bind" → use batch.jobDescriptionId verbatim
-  //   "auto" → reuse the already-parsed resumeProfile to run the JD-match agent
-  //            against this org's JD list; falls back to null when there are no
-  //            JDs or the agent returns no match
-  //   "none" → no JD binding
-  // The auto path does NOT re-parse the PDF — it reuses the profile parsed above.
-  let jobDescriptionId: string | null = null;
-  if (batchRow.jdMode === "bind") {
-    ({ jobDescriptionId } = batchRow);
-  } else if (batchRow.jdMode === "auto" && resumeProfile) {
-    try {
-      const jdStartedAt = Date.now();
-      logStep("jd.match.start", { itemId: item.id });
-      const jds = await listAllJobDescriptions(organizationId);
-      const match = await matchJobDescriptionForResume(resumeProfile, jds);
-      jobDescriptionId = match?.jobDescriptionId ?? null;
-      await assertBatchItemNotCancelled(batchRow.id, item.id);
-      logStep("jd.match.done", {
-        candidateCount: jds.length,
-        durationMs: elapsed(jdStartedAt),
-        itemId: item.id,
-        matched: Boolean(jobDescriptionId),
-      });
-    } catch (error) {
-      if (error instanceof BatchItemCancelledError) {
-        throw error;
-      }
-      // 自动匹配失败不算致命错误：简历仍然入库，只是不绑定岗位。
-      // Auto-match failure is non-fatal: the resume still gets imported, just without a JD.
-      console.error("[bulk-upload] auto JD match failed:", error);
-    }
-  }
-  const reviewResult = await generateReviewForParsedResume({
-    itemId: item.id,
-    jobDescriptionId,
-    organizationId,
-    resumeProfile,
-  });
-  await assertBatchItemNotCancelled(batchRow.id, item.id);
   const succeededRecordId = await upsertParsedResumeRecord({
     item,
     jobDescriptionId,

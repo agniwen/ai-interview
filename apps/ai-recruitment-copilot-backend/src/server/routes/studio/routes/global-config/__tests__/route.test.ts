@@ -63,7 +63,7 @@ describe("globalConfigRouter", () => {
     const payload = {
       closingInstructions: "感谢候选人参加",
       companyContext: "公司介绍",
-      jobCodePrefix: "hr",
+      jobCodePrefix: "hrd",
       openingInstructions: "用候选人姓名打招呼",
     };
     const res = await globalConfigRouter.fetch(makePutRequest(payload));
@@ -72,7 +72,7 @@ describe("globalConfigRouter", () => {
     expect(json.openingInstructions).toBe(payload.openingInstructions);
     expect(json.closingInstructions).toBe(payload.closingInstructions);
     expect(json.companyContext).toBe(payload.companyContext);
-    expect(json.jobCodePrefix).toBe("HR");
+    expect(json.jobCodePrefix).toBe("HRD");
   });
 
   it("PUT / rejects oversized payload", async () => {

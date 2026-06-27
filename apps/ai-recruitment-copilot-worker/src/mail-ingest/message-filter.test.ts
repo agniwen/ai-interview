@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
   buildMailSearchCriteria,
+  extractJobCodesFromSubject,
   isMatchingResumeMailSubject,
   shouldProcessMailByListenStart,
   selectSupportedResumeAttachments,
@@ -13,6 +14,21 @@ describe("mail ingest message filter", () => {
       true,
     );
     expect(isMatchingResumeMailSubject("候选人王泽投递了 Android 工程师", "boss直聘")).toBe(false);
+  });
+
+  it("extracts only seven-character job codes from accepted subjects", () => {
+    expect(extractJobCodesFromSubject("【BOSS直聘】王泽投递 AUR00AZ 前端工程师")).toEqual([
+      "AUR00AZ",
+    ]);
+    expect(extractJobCodesFromSubject("【BOSS直聘】王泽投递 aurzz99 前端工程师")).toEqual([
+      "AURZZ99",
+    ]);
+    expect(extractJobCodesFromSubject("【BOSS直聘】王泽投递 hrd00az 前端工程师")).toEqual([
+      "HRD00AZ",
+    ]);
+    expect(extractJobCodesFromSubject("【BOSS直聘】王泽投递 AUR26062215347 前端工程师")).toEqual(
+      [],
+    );
   });
 
   it("searches all mails when no listen start is configured", () => {

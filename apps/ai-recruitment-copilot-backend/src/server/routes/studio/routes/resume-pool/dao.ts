@@ -66,6 +66,8 @@ export interface CreateResumePoolItemInput {
 
 export interface MarkResumePoolItemParsedInput {
   actorId: string | null;
+  jobDescriptionId?: string | null;
+  notes?: string | null;
   organizationId: string | null;
   poolItemId: string;
   resumeProfile: ResumeProfile | null;
@@ -334,6 +336,8 @@ export async function markResumePoolItemParsed(
         candidateEmail: input.resumeProfile?.email ?? row.candidateEmail,
         candidateName: input.resumeProfile?.name || row.candidateName,
         candidatePhone: input.resumeProfile?.phone ?? row.candidatePhone,
+        jobDescriptionId: input.jobDescriptionId ?? row.jobDescriptionId,
+        notes: input.notes ?? row.notes,
         resumeParseError: null,
         resumeParseStatus: "ready",
         resumeParsedAt: now,

@@ -16,6 +16,8 @@ import { findSemanticResumeDuplicates } from "@arc/ai-recruitment-copilot-backen
 import { enqueueResumeSemanticIndexJobBestEffort } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/enqueue";
 import {
   member,
+  department,
+  jobDescription,
   organization,
   resumePoolItem,
   resumeUploadBatch,
@@ -216,6 +218,8 @@ async function cleanup() {
   await db.delete(resumePoolItem).where(eq(resumePoolItem.organizationId, ORG_A));
 
   await db.delete(resumeUploadBatch).where(eq(resumeUploadBatch.organizationId, ORG_A));
+  await db.delete(jobDescription).where(eq(jobDescription.organizationId, ORG_A));
+  await db.delete(department).where(eq(department.organizationId, ORG_A));
   await db.delete(member).where(eq(member.userId, USER_A));
   await db.delete(organization).where(eq(organization.id, ORG_A));
   await db.delete(user).where(eq(user.id, USER_A));
@@ -388,6 +392,69 @@ describe("processNextItem — cancellation race", () => {
 });
 
 describe("processNextItem — resume pool target", () => {
+  it("target=resume_pool + 绑定 JD → 按该 JD 生成推荐评价并写入备注", async () => {
+    const departmentId = `bulk_proc_dept_${crypto.randomUUID()}`;
+    const jobDescriptionId = `bulk_proc_jd_${crypto.randomUUID()}`;
+    await db.insert(department).values({
+      createdAt: NOW,
+      createdBy: USER_A,
+      id: departmentId,
+      name: "运维部",
+      organizationId: ORG_A,
+      updatedAt: NOW,
+    });
+    await db.insert(jobDescription).values({
+      createdAt: NOW,
+      createdBy: USER_A,
+      departmentId,
+      description: "负责基础设施稳定性和运维体系建设",
+      id: jobDescriptionId,
+      name: "运维总监",
+      organizationId: ORG_A,
+      prompt: "重点评估大规模运维、团队管理、稳定性治理经验",
+      updatedAt: NOW,
+    });
+    const batchId = await insertBatchWithItems({
+      dedupPolicy: "create",
+      files: makeFiles(1),
+      jdMode: "bind",
+      jobDescriptionId,
+      organizationId: ORG_A,
+      resumePoolScope: "private",
+      target: "resume_pool",
+      userId: USER_A,
+    });
+
+    const [beforeItem] = await db
+      .select()
+      .from(resumeUploadBatchItem)
+      .where(eq(resumeUploadBatchItem.batchId, batchId));
+    await expectQueuedPoolItem(beforeItem?.poolItemId);
+
+    mockS3OK();
+    mockParseOK({
+      email: "ops@example.com",
+      name: "Ops User",
+      phone: "13900000002",
+      targetRoles: ["运维总监"],
+    });
+
+    const result = await processNextItem(batchId, ORG_A, USER_A);
+
+    expect(result?.item?.status).toBe("succeeded");
+    expect(generateResumeReview).toHaveBeenCalledWith({
+      jobDescription: expect.stringContaining("岗位名称：运维总监"),
+      resumeProfile: expect.objectContaining({ name: "Ops User" }),
+    });
+
+    const [poolItem] = await db
+      .select()
+      .from(resumePoolItem)
+      .where(eq(resumePoolItem.id, beforeItem?.poolItemId ?? ""));
+    expect(poolItem?.jobDescriptionId).toBe(jobDescriptionId);
+    expect(poolItem?.notes).toBe("自动生成的简历评价");
+  });
+
   it("target=resume_pool → 创建简历池条目，不创建简历库候选人记录", async () => {
     const batchId = await insertBatchWithItems({
       dedupPolicy: "create",

@@ -24,7 +24,7 @@ import type { GlobalConfigRecord } from "@arc/shared/global-config";
 const PROMPT_MAX_LENGTH = 10_000;
 const COMPANY_CONTEXT_MAX_LENGTH = 8000;
 const COMPANY_NAME_MAX_LENGTH = 120;
-const JOB_CODE_PREFIX_MAX_LENGTH = 12;
+const JOB_CODE_PREFIX_MAX_LENGTH = 3;
 
 interface Props {
   initial: GlobalConfigRecord;
@@ -117,9 +117,7 @@ export function GlobalConfigForm({ initial }: Props) {
                   value={jobCodePrefix}
                 />
               </InputGroup>
-              <FieldDescription>
-                新建在招岗位会自动生成此前缀开头的编码；已有岗位不会被修改。
-              </FieldDescription>
+              <FieldDescription>新建岗位编码使用此前缀，后接 4 位数字或字母。</FieldDescription>
             </Field>
 
             <Field>
