@@ -265,4 +265,11 @@ describe("resume review detail route", () => {
     expect(evaluationDaoSource).toContain("fromStatus");
     expect(evaluationDaoSource).toContain("toStatus");
   });
+
+  it("generates a V2 resume review on create when the client did not provide one", () => {
+    expect(routeSource).toContain("generateResumeReviewBestEffort");
+    expect(routeSource).toContain("let resumeReview = resumeReviewInput.data");
+    expect(routeSource).toContain("generatedReview?.structuredReview ?? null");
+    expect(routeSource).toContain("resumeReview,");
+  });
 });

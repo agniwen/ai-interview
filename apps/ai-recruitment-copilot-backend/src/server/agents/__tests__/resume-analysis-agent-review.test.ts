@@ -119,15 +119,14 @@ const QUALITATIVE_OUTPUT = {
   ],
 };
 
-// Agent 2 打分输出 —— 只含六维度。
+// Agent 2 打分输出 —— 只含共享五维评估框架。
 const SCORING_OUTPUT = {
   dimensions: {
-    educationBackground: { rationale: "本科计算机相关", score: 80 },
-    experienceRelevance: { rationale: "5 年前端经验与岗位层级吻合", score: 90 },
-    potential: { rationale: "工程化方向有成长性", score: 88 },
-    projectMatch: { rationale: "项目复杂度证据有限", score: 82 },
-    skillMatch: { rationale: "TypeScript/React 与岗位高度匹配", score: 92 },
-    stability: { rationale: "在职时长合理", score: 78 },
+    impactResults: { rationale: "核心项目有明确业务结果", score: 92 },
+    roleRelevance: { rationale: "岗位关键词和职责方向匹配", score: 82 },
+    signalCredibility: { rationale: "成果上下文仍需核实", score: 78 },
+    structureReadability: { rationale: "简历层级清晰", score: 80 },
+    technicalDepth: { rationale: "TypeScript/React 与工程化经验充分", score: 90 },
   },
 };
 
@@ -138,11 +137,11 @@ const EXPECTED_REVIEW: ResumeReview = {
   levelRecommendation: QUALITATIVE_OUTPUT.levelRecommendation,
   nextStep: QUALITATIVE_OUTPUT.nextStep,
   overall: {
-    baseScore: 88,
+    baseScore: 86,
     conclusion: "候选人与前端工程师岗位匹配度较高。",
-    scoreRationale: "基于六维度按 35/25/15/10/8/7 加权得出基础分 88（不含历史面试加权）",
+    scoreRationale: "基于五维度按 30/25/20/15/10 加权得出基础分 86（不含历史面试加权）",
   },
-  schemaVersion: 2,
+  schemaVersion: 3,
   strengths: QUALITATIVE_OUTPUT.strengths,
   teamPositioning: QUALITATIVE_OUTPUT.teamPositioning,
   weaknesses: QUALITATIVE_OUTPUT.weaknesses,
@@ -167,7 +166,7 @@ describe("generateResumeReview", () => {
     mocks.createResumeAgent.mockReset();
   });
 
-  it("runs three-agent pipeline (hard filter pass + qualitative + scoring) and assembles v2 review", async () => {
+  it("runs three-agent pipeline (hard filter pass + qualitative + scoring) and assembles v3 review", async () => {
     process.env.ALIBABA_STRUCTURED_MODEL = "qwen-test";
     mockThreeAgentPipeline();
 
@@ -177,7 +176,7 @@ describe("generateResumeReview", () => {
     });
 
     expect(result.structuredReview).toEqual(EXPECTED_REVIEW);
-    expect(result.structuredReview.overall.baseScore).toBe(88);
+    expect(result.structuredReview.overall.baseScore).toBe(86);
     expect(result.review).toBe(formatResumeReviewMarkdown(EXPECTED_REVIEW));
     expect(mocks.createResumeAgent).toHaveBeenCalledTimes(3);
   });
@@ -220,7 +219,7 @@ describe("generateResumeReview", () => {
       resumeProfile: PROFILE,
     });
 
-    expect(result.structuredReview.overall.baseScore).toBe(88);
+    expect(result.structuredReview.overall.baseScore).toBe(86);
     expect(mocks.createResumeAgent).toHaveBeenCalledTimes(2);
   });
 });

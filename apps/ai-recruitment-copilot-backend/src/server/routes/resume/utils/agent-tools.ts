@@ -1,5 +1,6 @@
 import { tool } from "ai";
 import { z } from "zod";
+import { getResumeReviewFramework } from "@arc/shared/resume-review";
 import { generateResumeStructured } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-parse-pipeline";
 import { selectUploadedResumePdfs } from "@arc/shared/resume-pdf";
 import { matchJobDescriptionForResume } from "@arc/ai-recruitment-copilot-backend/server/agents/job-description-match-agent";
@@ -46,61 +47,11 @@ export const getServerTimeTool = tool({
 export const getResumeReviewFrameworkTool = tool({
   description: "返回一个带权重维度的通用简历筛选框架，可用于实习生和社招岗位。",
   // oxlint-disable-next-line require-await -- AI SDK tool signature requires async execute.
-  execute: async ({ seniority, targetRole }) => {
-    const level = seniority ?? "general";
-
-    return {
-      dimensions: [
-        {
-          checklist: [
-            "是否有量化的业务或产品结果",
-            "是否清楚说明负责范围与角色",
-            "是否使用清晰的行动-结果式表述",
-          ],
-          name: "影响力与结果",
-          weight: 30,
-        },
-        {
-          checklist: [
-            "是否写明具体技术栈细节",
-            "是否体现架构设计或权衡思路",
-            "是否体现性能、稳定性或扩展性相关工作",
-          ],
-          name: "技术深度",
-          weight: 25,
-        },
-        {
-          checklist: [
-            "是否匹配目标岗位关键词",
-            "项目经历是否与岗位职责相关",
-            "内容排序和重点是否支撑岗位匹配度",
-          ],
-          name: "岗位相关性",
-          weight: 20,
-        },
-        {
-          checklist: [
-            "项目符号和表述是否简洁",
-            "时间线与格式是否一致",
-            "层级是否清晰、便于快速扫读",
-          ],
-          name: "结构与可读性",
-          weight: 15,
-        },
-        {
-          checklist: [
-            "是否避免夸大或失真的表述",
-            "是否提供可验证的链接或作品",
-            "成果是否具备清晰上下文",
-          ],
-          name: "信号可信度",
-          weight: 10,
-        },
-      ],
-      seniority: level,
-      targetRole: targetRole ?? "软件工程岗位",
-    };
-  },
+  execute: async ({ seniority, targetRole }) =>
+    getResumeReviewFramework({
+      seniority,
+      targetRole,
+    }),
   inputSchema: z.object({
     seniority: z.enum(["general", "intern", "junior", "mid", "senior"]).optional(),
     targetRole: z.string().describe("目标岗位，例如前端开发").optional(),

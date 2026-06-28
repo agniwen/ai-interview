@@ -35,6 +35,7 @@ import {
   buildResumePayload,
   buildSaveOnlyResumeFormData,
   formValuesFromResumeProfile,
+  matchJobDescriptionForChatAttachment,
   matchJobDescriptionForResume,
   parseResumeFile,
 } from "@/lib/client/resume-analysis";
@@ -64,6 +65,7 @@ const StudioPersonEditDialog = lazy(async () => {
 
 interface ResumeImportButtonProps {
   filePart: FileUIPart & { id: string };
+  attachmentId?: string | null;
   // 已导入的简历库行 id（旧字段名沿用，避免外部消费者再改一遍）。
   // Resume row id for this part if previously imported; field name kept for
   // compatibility with the existing chat layout state.
@@ -114,6 +116,7 @@ function renderImportButtonContent({
 // oxlint-disable-next-line complexity -- single button orchestrates analyze + dedup + save + open detail + launch interview.
 export function ResumeImportButton({
   filePart,
+  attachmentId,
   importedInterviewId,
   activeJobDescriptionId,
   onImported,
@@ -210,6 +213,12 @@ export function ResumeImportButton({
 
     try {
       const file = await dataUrlToFile(filePart.url, filePart.filename);
+
+      if (attachmentId) {
+        // oxlint-disable-next-line no-use-before-define -- runSaveToLibraryFromServerCache is declared below with the other save branches.
+        await runSaveToLibraryFromServerCache(file, jobDescriptionId, abortController);
+        return;
+      }
 
       // Step 1: parse resume profile (skip if we already analyzed while picking JD)
       let parseResult: ParseResult | null = cachedParseResultRef.current;
@@ -358,6 +367,74 @@ export function ResumeImportButton({
     }
   }
 
+  async function runSaveToLibraryFromServerCache(
+    file: File,
+    jobDescriptionId: string,
+    existingController?: AbortController,
+    dedupPolicy: "check" | "force" = "check",
+  ) {
+    const abortController = existingController ?? new AbortController();
+    abortControllerRef.current = abortController;
+
+    try {
+      setPhase("saving");
+      setProgressStatus("正在写入简历库…");
+      setProgressTools([]);
+      setPartialFields([]);
+      accumulatedTextRef.current = "";
+
+      const record = await apiFetch<ResumeLibraryDetail>(`/api/w/${workspaceSlug}/studio/resumes`, {
+        body: buildSaveOnlyResumeFormData(
+          {
+            candidateEmail: "",
+            candidateName: "",
+            candidatePhone: "",
+            jobDescriptionId,
+            notes: "",
+            resumeEvaluationStatus: "unreviewed",
+            targetRole: "",
+          },
+          file,
+          null,
+          { dedupPolicy },
+        ),
+        method: "POST",
+        signal: abortController.signal,
+      });
+      invalidateLibraryCaches();
+      onImported(filePart.id, record.id);
+      toast.success("简历已加入简历库");
+      cachedParseResultRef.current = null;
+      resetProgress();
+      setDetailRecordId(record.id);
+      setDetailOpen(true);
+    } catch (error) {
+      if (abortController.signal.aborted) {
+        return;
+      }
+      const conflictMatches = extractResumeDedupConflictMatches(error);
+      if (conflictMatches) {
+        cachedParseResultRef.current = null;
+        pendingResumeFileRef.current = file;
+        pendingJobDescriptionIdRef.current = jobDescriptionId;
+        setDedupMatches(conflictMatches);
+        setPhase("idle");
+        setProgressStatus("");
+        setProgressTools([]);
+        setPartialFields([]);
+        accumulatedTextRef.current = "";
+        return;
+      }
+      toast.error(error instanceof Error ? error.message : "入库失败");
+      cachedParseResultRef.current = null;
+      resetProgress();
+    } finally {
+      if (abortControllerRef.current === abortController) {
+        abortControllerRef.current = null;
+      }
+    }
+  }
+
   function handleDedupContinue() {
     const file = pendingResumeFileRef.current;
     const parseResult = cachedParseResultRef.current;
@@ -367,6 +444,8 @@ export function ResumeImportButton({
     pendingJobDescriptionIdRef.current = null;
     if (file && parseResult) {
       void runSaveToLibrary(file, parseResult, jobDescriptionId, undefined, "force");
+    } else if (file) {
+      void runSaveToLibraryFromServerCache(file, jobDescriptionId, undefined, "force");
     }
   }
 
@@ -381,6 +460,23 @@ export function ResumeImportButton({
     setMatchReason(null);
 
     try {
+      if (attachmentId) {
+        const matchPayload = await matchJobDescriptionForChatAttachment(
+          workspaceSlug,
+          attachmentId,
+          {
+            signal: abortController.signal,
+          },
+        );
+
+        if (matchPayload?.matchedId) {
+          setSelectedJdId(matchPayload.matchedId);
+          setJdError(undefined);
+          setMatchReason(matchPayload.reason ?? null);
+        }
+        return;
+      }
+
       const file = await dataUrlToFile(filePart.url, filePart.filename);
 
       const parseResult = await parseResumeFile(file, { signal: abortController.signal });

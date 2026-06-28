@@ -68,6 +68,7 @@ import {
   resolveResumeCreateDedupConflict,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/dedup";
 import { syncResumeProfileIdentity } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/profile-sync";
+import { generateResumeReviewBestEffort } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/review-generation";
 import { createPptxPreviewPdfResponse } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/utils/pptx-preview";
 
 const dedupCheckInputSchema = z.object({
@@ -145,7 +146,7 @@ export function parseResumeReviewFormInput(
   }
   try {
     const parsed = JSON.parse(value);
-    // 写入路径用严格 v2 schema 校验；旧 v1 数据如果 HR 原封不动传回，
+    // 写入路径用严格 v3 schema 校验；旧数据如果 HR 原封不动传回，
     // safeParse 会失败并提示"结构无效"，需 HR 重新生成评价。
     const result = resumeReviewSchema.safeParse(parsed);
     if (result.success) {
@@ -724,6 +725,17 @@ export const resumeLibraryRouter = factory
         return c.json(dedupConflict, 409);
       }
 
+      let resumeReview = resumeReviewInput.data;
+      if (!resumeReview && resumeProfile) {
+        const generatedReview = await generateResumeReviewBestEffort({
+          jobDescriptionId: input.data.jobDescriptionId || null,
+          logPrefix: "[studio-resumes]",
+          organizationId: activeOrg.id,
+          resumeProfile,
+        });
+        resumeReview = generatedReview?.structuredReview ?? null;
+      }
+
       const recordId = await createResumeRecordFromStorage({
         candidateEmail: input.data.candidateEmail || null,
         candidateName: input.data.candidateName || null,
@@ -735,7 +747,7 @@ export const resumeLibraryRouter = factory
         organizationId: activeOrg.id,
         resumeFileName: parsedFileName,
         resumeProfile,
-        resumeReview: resumeReviewInput.data,
+        resumeReview,
         resumeText,
         storageKey: resumeStorageKey,
         targetRole: input.data.targetRole || null,

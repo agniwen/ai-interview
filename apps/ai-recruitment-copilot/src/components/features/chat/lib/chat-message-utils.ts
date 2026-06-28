@@ -20,6 +20,13 @@ export function isToolPart(part: MessagePart): part is ToolUIPart | DynamicToolU
   return part.type === "dynamic-tool" || part.type.startsWith("tool-");
 }
 
+export function getChatAttachmentIdFromUrl(url: string | null | undefined): string | null {
+  if (!url) {
+    return null;
+  }
+  return url.match(/\/api\/(?:w\/[^/]+\/)?chat\/attachments\/([^/?#]+)/)?.[1] ?? null;
+}
+
 export function getMessageTimeValue(message: UIMessage): Date | null {
   const { createdAt } = message as UIMessage & {
     createdAt?: Date | string | number;

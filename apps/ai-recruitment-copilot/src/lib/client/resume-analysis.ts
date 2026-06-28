@@ -110,6 +110,34 @@ export async function matchJobDescriptionForResume(
   };
 }
 
+export async function matchJobDescriptionForChatAttachment(
+  workspaceSlug: string,
+  attachmentId: string,
+  options: { signal?: AbortSignal } = {},
+): Promise<JobDescriptionMatchResult | null> {
+  const response = await fetch(
+    `/api/w/${workspaceSlug}/chat/attachments/${attachmentId}/match-job-description`,
+    {
+      method: "POST",
+      signal: options.signal,
+    },
+  );
+
+  if (!response.ok) {
+    return null;
+  }
+
+  const payload = (await response.json().catch(() => null)) as {
+    matchedId?: string | null;
+    reason?: string | null;
+  } | null;
+
+  return {
+    matchedId: payload?.matchedId ?? null,
+    reason: payload?.reason ?? null,
+  };
+}
+
 export async function generateResumeReview({
   jobDescriptionId,
   onDraftChange,

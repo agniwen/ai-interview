@@ -41,8 +41,11 @@ import type { ResumeParserStructured } from "./resume-parser-agent";
 import type { AnalysisStreamEvent } from "@arc/shared/api-stream";
 import type { ResumeReview } from "@arc/shared/resume-review";
 import {
+  RESUME_REVIEW_DIMENSIONS,
+  RESUME_REVIEW_SCHEMA_VERSION,
   computeResumeReviewBaseScore,
   formatResumeReviewMarkdown,
+  formatResumeReviewFrameworkWeights,
   resumeReviewActionSchema,
   resumeReviewBiasItemSchema,
   resumeReviewDimensionSchema,
@@ -554,10 +557,10 @@ export async function generateInterviewQuestionsForProfile(
 // Agent 0 (hard filter):  从 JD 文本提取结构化硬性门槛 → 代码规则引擎匹配简历。
 //                          命中任一非 null 门槛且不满足 → 短路淘汰，跳过 Agent 1/2。
 // Agent 1 (qualitative):  生成结论 / 亮点 / 风险 / 偏差 / 团队定位 / 职级 / 下一步建议。
-// Agent 2 (scoring):      基于简历 + JD + Agent 1 输出，给六维度打分。
-// 组装层:                  把 Agent 1 定性结果 + Agent 2 维度分 + 代码计算的 baseScore 合并成 ResumeReview (v2)。
+// Agent 2 (scoring):      基于简历 + JD + Agent 1 输出，按共享五维框架打分。
+// 组装层:                  把 Agent 1 定性结果 + Agent 2 维度分 + 代码计算的 baseScore 合并成 ResumeReview。
 //
-// baseScore 由代码按 35/25/15/10/8/7 权重加权得出，LLM 不输出总分，保证子分与总分自洽。
+// baseScore 由代码按共享框架权重加权得出，LLM 不输出总分，保证子分与总分自洽。
 // 历史面试加权（架构图 Stage 3）暂未接入，数据源到位后由调用方在 baseScore 之上叠加。
 // =====================================================================
 
@@ -687,12 +690,11 @@ function buildHardFilterRejectReview(
       })),
     },
     dimensions: {
-      educationBackground: { rationale: "硬性门槛不达标，未评分", score: 0 },
-      experienceRelevance: { rationale: "硬性门槛不达标，未评分", score: 0 },
-      potential: { rationale: "硬性门槛不达标，未评分", score: 0 },
-      projectMatch: { rationale: "硬性门槛不达标，未评分", score: 0 },
-      skillMatch: { rationale: "硬性门槛不达标，未评分", score: 0 },
-      stability: { rationale: "硬性门槛不达标，未评分", score: 0 },
+      impactResults: { rationale: "硬性门槛不达标，未评分", score: 0 },
+      roleRelevance: { rationale: "硬性门槛不达标，未评分", score: 0 },
+      signalCredibility: { rationale: "硬性门槛不达标，未评分", score: 0 },
+      structureReadability: { rationale: "硬性门槛不达标，未评分", score: 0 },
+      technicalDepth: { rationale: "硬性门槛不达标，未评分", score: 0 },
     },
     levelRecommendation: {
       level: "—",
@@ -709,7 +711,7 @@ function buildHardFilterRejectReview(
       conclusion: "候选人未通过硬性门槛过滤。",
       scoreRationale: "硬性门槛不达标，未进入语义评分阶段。",
     },
-    schemaVersion: 2,
+    schemaVersion: RESUME_REVIEW_SCHEMA_VERSION,
     strengths: [
       {
         evidence: null,
@@ -840,17 +842,22 @@ const REVIEW_QUALITATIVE_INSTRUCTIONS = `你是一名招聘评估助手。根据
 - nextStep.disclaimer 必须严格等于"以上为初步结论"。
 - 不要输出 dimensions、overall.score、baseScore、等级标签等任何数字评分字段——这是下游 Agent 的职责。`;
 
-// Agent 2 prompt —— 拿简历 + JD + Agent 1 输出，只输出六维度分。
-const REVIEW_SCORING_INSTRUCTIONS = `你是一名招聘评分助手。基于已生成的定性评价、候选人简历、在招岗位描述，对简历与岗位的语义匹配度进行六维度打分。
+const REVIEW_SCORING_DIMENSION_LIST = RESUME_REVIEW_DIMENSIONS.map(
+  (dimension, index) =>
+    `${index + 1}. ${dimension.label}（权重 ${Math.round(dimension.weight * 100)}%）：${dimension.checklist.join("；")}。输出 key: ${dimension.key}`,
+).join("\n");
+
+const REVIEW_SCORING_JSON_SHAPE = RESUME_REVIEW_DIMENSIONS.map(
+  (dimension) =>
+    `    "${dimension.key}": { "score": 0-100, "rationale": "${dimension.label}评分依据" }`,
+).join(",\n");
+
+// Agent 2 prompt —— 拿简历 + JD + Agent 1 输出，只输出共享五维框架分。
+const REVIEW_SCORING_INSTRUCTIONS = `你是一名招聘评分助手。基于已生成的定性评价、候选人简历、在招岗位描述，对简历与岗位的语义匹配度进行五维度打分。
 本阶段只输出每维度的分数与依据，不输出总分或综合结论；总分由调用方按权重计算。
 
 ## 评分维度与权重（仅供你心中校准，不必输出占比）
-1. 技能匹配度（权重 35%）：JD 所需技能 vs 候选人 skills / projectExperiences / workExperiences 的语义级匹配，不是关键词堆叠。
-2. 经验相关性（25%）：行业背景、业务领域、技术栈吻合度、工作年限与岗位层级匹配度。
-3. 项目匹配度（15%）：项目复杂度、承担角色、可量化成果与岗位职责的对应程度。
-4. 学历与背景（10%）：学历层次是否满足岗位要求、专业方向相关度。
-5. 潜力评估（8%）：成长曲线、技术广度、学习能力、跨领域迁移迹象。
-6. 稳定性评估（7%）：平均在职时长、跳槽频率、职业方向连贯性。
+${REVIEW_SCORING_DIMENSION_LIST}
 
 ## 输出要求
 - 每个维度输出 0-100 的整数 score 与一句中文 rationale。
@@ -864,12 +871,7 @@ const REVIEW_SCORING_INSTRUCTIONS = `你是一名招聘评分助手。基于已�
 ## 输出 JSON 结构（必须严格遵守）
 {
   "dimensions": {
-    "skillMatch":            { "score": 0-100, "rationale": "技能匹配度评分依据" },
-    "experienceRelevance":   { "score": 0-100, "rationale": "经验相关性评分依据" },
-    "projectMatch":          { "score": 0-100, "rationale": "项目匹配度评分依据" },
-    "educationBackground":   { "score": 0-100, "rationale": "学历与背景评分依据" },
-    "potential":             { "score": 0-100, "rationale": "潜力评估评分依据" },
-    "stability":             { "score": 0-100, "rationale": "稳定性评估评分依据" }
+${REVIEW_SCORING_JSON_SHAPE}
   }
 }
 
@@ -908,12 +910,11 @@ type ResumeQualitativeReview = z.infer<typeof resumeQualitativeSchema>;
 // Agent 2 打分输出的内部类型。
 const resumeScoringSchema = z.object({
   dimensions: z.object({
-    educationBackground: resumeReviewDimensionSchema,
-    experienceRelevance: resumeReviewDimensionSchema,
-    potential: resumeReviewDimensionSchema,
-    projectMatch: resumeReviewDimensionSchema,
-    skillMatch: resumeReviewDimensionSchema,
-    stability: resumeReviewDimensionSchema,
+    impactResults: resumeReviewDimensionSchema,
+    roleRelevance: resumeReviewDimensionSchema,
+    signalCredibility: resumeReviewDimensionSchema,
+    structureReadability: resumeReviewDimensionSchema,
+    technicalDepth: resumeReviewDimensionSchema,
   }),
 });
 type ResumeReviewScoring = z.infer<typeof resumeScoringSchema>;
@@ -989,9 +990,9 @@ function assembleResumeReview(
     overall: {
       baseScore,
       conclusion: qualitative.overall.conclusion,
-      scoreRationale: `基于六维度按 35/25/15/10/8/7 加权得出基础分 ${baseScore}（不含历史面试加权）`,
+      scoreRationale: `基于五维度按 ${formatResumeReviewFrameworkWeights()} 加权得出基础分 ${baseScore}（不含历史面试加权）`,
     },
-    schemaVersion: 2,
+    schemaVersion: RESUME_REVIEW_SCHEMA_VERSION,
     strengths: qualitative.strengths,
     teamPositioning: qualitative.teamPositioning,
     weaknesses: qualitative.weaknesses,

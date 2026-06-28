@@ -57,7 +57,7 @@ export function JdPickModal({
           action={
             isAnalyzingMatch ? (
               <Button
-                className="h-13 gap-1.5"
+                className="h-9 gap-1.5"
                 onClick={onCancelAnalyze}
                 size="sm"
                 type="button"
@@ -68,7 +68,7 @@ export function JdPickModal({
               </Button>
             ) : (
               <Button
-                className="h-13 gap-1.5"
+                className="h-9 gap-1.5"
                 onClick={onAnalyze}
                 size="sm"
                 type="button"

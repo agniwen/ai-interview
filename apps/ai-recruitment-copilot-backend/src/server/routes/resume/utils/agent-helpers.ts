@@ -23,6 +23,20 @@ export interface BakedParsedResume {
 
 export const SERVER_TIME_ZONE = "Asia/Shanghai";
 
+export function stripNonImageFileUIParts(messages: UIMessage[]): UIMessage[] {
+  return messages.map((message) => {
+    if (message.role !== "user" || !Array.isArray(message.parts)) {
+      return message;
+    }
+
+    const filtered = message.parts.filter(
+      (part) => part.type !== "file" || part.mediaType?.startsWith("image/"),
+    );
+
+    return filtered.length === message.parts.length ? message : { ...message, parts: filtered };
+  });
+}
+
 export function stripNonImageFileParts(messages: ModelMessage[]): ModelMessage[] {
   return messages.map((message) => {
     if (message.role !== "user" || typeof message.content === "string") {

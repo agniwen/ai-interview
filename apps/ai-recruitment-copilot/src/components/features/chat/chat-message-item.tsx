@@ -35,6 +35,7 @@ import { TIME_DISPLAY_OPTIONS, TimeDisplay } from "@/components/features/display
 import { ApplyJobDescriptionCard } from "@/components/features/chat/tool-call/apply-job-description-card";
 import { ToolCall } from "@/components/features/chat/tool-call/tool-call";
 import {
+  getChatAttachmentIdFromUrl,
   getMessageTimeValue,
   isFilePart,
   isSourceUrlPart,
@@ -210,8 +211,7 @@ export function ChatMessageItem({
                 });
                 const showImportButton = message.role === "user" && isResumeDocument;
                 const importedId = resumeImports[part.id] ?? null;
-                const attachmentIdMatch = part.url.match(/\/api\/chat\/attachments\/([^/?#]+)/);
-                const attachmentId = attachmentIdMatch?.[1] ?? null;
+                const attachmentId = getChatAttachmentIdFromUrl(part.url);
                 const parsed = attachmentId ? parsedByAttachmentId.get(attachmentId) : null;
 
                 if (isResumeDocument) {
@@ -253,6 +253,7 @@ export function ChatMessageItem({
                         {showImportButton ? (
                           <ResumeImportButton
                             activeJobDescriptionId={activeJobDescriptionId}
+                            attachmentId={attachmentId}
                             className="flex-1 basis-0"
                             filePart={part}
                             importedInterviewId={importedId}

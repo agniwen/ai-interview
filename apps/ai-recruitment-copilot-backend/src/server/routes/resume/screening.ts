@@ -9,6 +9,7 @@ import {
   inferRoleFromText,
   SERVER_TIME_ZONE,
   stripNonImageFileParts,
+  stripNonImageFileUIParts,
 } from "./utils/agent-helpers";
 import {
   applyJobDescriptionTool,
@@ -332,7 +333,7 @@ ${autoJdContext}
     },
   });
 
-  const messagesForModel = injectParsedResumesIntoMessages(messages);
+  const messagesForModel = stripNonImageFileUIParts(injectParsedResumesIntoMessages(messages));
 
   return agent.stream({
     messages: stripNonImageFileParts(await convertToModelMessages(messagesForModel)),
