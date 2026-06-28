@@ -1,6 +1,7 @@
 "use client";
 
 import { useNavigate, useRouterState } from "@tanstack/react-router";
+import { useGlimm } from "glimm/react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { authClient } from "@/lib/client/auth-client";
 
@@ -28,6 +29,7 @@ function resolveActiveTab(pathname: string): SidebarTabValue | null {
 export function SidebarTabs() {
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const navigate = useNavigate();
+  const { sweep } = useGlimm();
   const activeOrganization = authClient.useActiveOrganization();
   const activeTab = resolveActiveTab(pathname);
   const slug = extractWorkspaceSlug(pathname) ?? activeOrganization.data?.slug ?? null;
@@ -45,7 +47,14 @@ export function SidebarTabs() {
     const target = nextTab === "chat" ? `/w/${slug}/chat` : `/w/${slug}/studio/resumes`;
 
     if (target !== pathname) {
-      void navigate({ to: target });
+      void sweep(
+        () => {
+          navigate({ to: target });
+        },
+        {
+          direction: nextTab === "chat" ? "rtl" : "ltr",
+        },
+      ).done;
     }
   };
 

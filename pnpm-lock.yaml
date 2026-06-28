@@ -248,6 +248,9 @@ importers:
       foxact:
         specifier: ^0.3.1
         version: 0.3.4(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+      glimm:
+        specifier: ^0.1.4
+        version: 0.1.4(next@16.1.6(@babel/core@7.29.7)(@opentelemetry/api@1.9.1)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(react@19.2.3)
       gsap:
         specifier: ^3.15.0
         version: 3.15.0
@@ -5529,6 +5532,18 @@ packages:
   get-tsconfig@5.0.0-beta.5:
     resolution: {integrity: sha512-/6gFNr0N04nob252sTQxyFLi3eKFRqIg1I87YcqAMT1i6SQrSF6KujUEQrtrjMV0H/eejTCltLdDSTEMzHbnsQ==}
     engines: {node: '>=20.20.0'}
+
+  glimm@0.1.4:
+    resolution: {integrity: sha512-OIfoxkEnayr2oQNG8MzAotjq1ZhND2PwQT/M2a16Z+vxQisxHXKWX1FihgAqQaRt2oWfFFZuBktoVHkho2w2jw==}
+    engines: {node: '>=18'}
+    peerDependencies:
+      next: '>=14'
+      react: '>=18'
+    peerDependenciesMeta:
+      next:
+        optional: true
+      react:
+        optional: true
 
   glob@13.0.6:
     resolution: {integrity: sha512-Wjlyrolmm8uDpm/ogGyXZXb1Z+Ca2B8NbJwqBVg0axK9GbBeoS7yGV6vjXnYdGm6X53iehEuxxbyiKp8QmN4Vw==}
@@ -12358,6 +12373,11 @@ snapshots:
   get-tsconfig@5.0.0-beta.5:
     dependencies:
       resolve-pkg-maps: 1.0.0
+
+  glimm@0.1.4(next@16.1.6(@babel/core@7.29.7)(@opentelemetry/api@1.9.1)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(react@19.2.3):
+    optionalDependencies:
+      next: 16.1.6(@babel/core@7.29.7)(@opentelemetry/api@1.9.1)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+      react: 19.2.3
 
   glob@13.0.6:
     dependencies:

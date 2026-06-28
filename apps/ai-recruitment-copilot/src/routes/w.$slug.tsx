@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { Outlet, createFileRoute, notFound, redirect, useLoaderData } from "@tanstack/react-router";
 import { NO_ACCESS_WORKSPACE_ROLE } from "@arc/shared/permissions";
+import { GlimmProvider } from "glimm/react";
 import { BackgroundStreamToaster } from "@/components/features/chat/background-stream-toaster";
 import { AppSidebarShell } from "@/components/layout/app-sidebar/app-sidebar-shell";
 import { authClient } from "@/lib/client/auth-client";
@@ -52,9 +53,11 @@ function WorkspaceRoute() {
       slug={state.workspace.slug}
     >
       <ActiveWorkspaceSync workspaceId={state.workspace.id} />
-      <AppSidebarShell>
-        <Outlet />
-      </AppSidebarShell>
+      <GlimmProvider palette="azure">
+        <AppSidebarShell>
+          <Outlet />
+        </AppSidebarShell>
+      </GlimmProvider>
       <BackgroundStreamToaster />
     </WorkspaceSlugProvider>
   );

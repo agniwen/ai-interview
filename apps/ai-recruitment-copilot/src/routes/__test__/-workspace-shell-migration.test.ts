@@ -81,4 +81,18 @@ describe("TanStack Start workspace shell migration", () => {
     expect(skeleton).toContain("useHydrated");
     expect(skeleton).toContain("aria-hidden");
   });
+
+  it("scopes Glimm transitions to Chat and Studio sidebar tab switches", () => {
+    const packageJson = readSource("../package.json");
+    const workspaceRoute = readSource("routes/w.$slug.tsx");
+    const sidebarTabs = readSource("components/layout/app-sidebar/sidebar-tabs.tsx");
+
+    expect(packageJson).toContain('"glimm"');
+    expect(workspaceRoute).toContain('import { GlimmProvider } from "glimm/react"');
+    expect(workspaceRoute).toContain("<GlimmProvider");
+    expect(sidebarTabs).toContain('import { useGlimm } from "glimm/react"');
+    expect(sidebarTabs).toContain("const { sweep } = useGlimm();");
+    expect(sidebarTabs).toContain("sweep(() => navigate({ to: target })");
+    expect(sidebarTabs).not.toContain("InterceptLinks");
+  });
 });
