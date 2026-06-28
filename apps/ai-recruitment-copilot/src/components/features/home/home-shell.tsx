@@ -14,7 +14,6 @@ import { ProcessTabs } from "./process-tabs";
 import { ProductShot } from "./product-shot";
 import { HomeSmoothScroll } from "./smooth-scroll";
 import { Testimonials } from "./testimonials";
-import { TrustStrip } from "./trust-strip";
 import { useProtectedNavigation } from "./use-protected-navigation";
 
 export default function HomeShell() {
@@ -52,7 +51,7 @@ export default function HomeShell() {
             />
           </div>
           <ProductShot />
-          <TrustStrip />
+          {/* <TrustStrip /> */}
           <FeatureBlocks />
           <CapabilityGrid />
           <Personas />

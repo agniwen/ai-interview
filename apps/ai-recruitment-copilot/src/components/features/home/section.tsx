@@ -15,7 +15,7 @@ export function Section({ children, className, id, width = "default" }: SectionP
     <section
       className={cn(
         "mx-auto w-full px-5 py-14 sm:px-8 sm:py-16 lg:py-20",
-        width === "wide" ? "max-w-7xl" : "max-w-6xl",
+        width === "wide" ? "max-w-360" : "max-w-6xl",
         className,
       )}
       id={id}

@@ -81,7 +81,7 @@ function SidebarTabs({ active }: SidebarTabsProps) {
   return (
     // 对齐 Tabs default variant：bg-muted + h-9 + p-[3px] + rounded-lg + 子项 shadow-sm
     // Matches Tabs default variant: bg-muted h-9 p-[3px] rounded-lg; active gets shadow-sm
-    <div className="inline-flex h-9 w-full items-center justify-center rounded-lg bg-muted p-[3px] text-muted-foreground">
+    <div className="inline-flex h-9 w-full items-center justify-center rounded-lg bg-muted/60 p-[3px] text-muted-foreground">
       {(["chat", "studio"] as const).map((value) => {
         const isActive = value === active;
         return (
@@ -350,7 +350,7 @@ export function AppShell({
   return (
     // 真实外层：has-data-[variant=inset]:bg-sidebar
     // inset 自身是 bg-background，四周露出的底色与 sidebar 保持一致。
-    <div className="flex h-full w-full bg-sidebar text-foreground">
+    <div className="flex h-full w-full bg-sidebar/70 text-foreground">
       <aside
         // 真实 sidebar 外层：p-2 group-data-[collapsible=icon]:w-... 在 inset 变体下；
         // 内层是 bg-sidebar (light) / dark:bg-sidebar 的 sidebar 列。
@@ -358,7 +358,7 @@ export function AppShell({
         // Width: --sidebar-width = calc(0.25rem * 72) = 18rem = 288px
         className="flex w-[288px] shrink-0 flex-col p-2"
       >
-        <div className="flex h-full w-full flex-col bg-sidebar text-sidebar-foreground">
+        <div className="flex h-full w-full flex-col  text-sidebar-foreground">
           {/* SidebarHeader: gap-3 (AppSidebar override) flex flex-col gap-2 p-2 */}
           <div className="flex shrink-0 flex-col gap-3 p-2">
             <SidebarTabs active={tab} />

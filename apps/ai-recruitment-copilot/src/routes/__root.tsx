@@ -24,12 +24,6 @@ function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
         <HeadContent />
       </head>
       <body className="min-h-dvh antialiased">
-        <a
-          className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:rounded-md focus:bg-background focus:px-3 focus:py-2"
-          href="#main-content"
-        >
-          跳到主要内容
-        </a>
         <OverlayScrollbarsBody />
         {children}
         <Scripts />
