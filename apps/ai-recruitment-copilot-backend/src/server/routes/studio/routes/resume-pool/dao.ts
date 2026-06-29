@@ -7,6 +7,7 @@ import {
   resumePoolImport,
   resumePoolItem,
   resumeUploadBatchItem,
+  studioInterview,
   user,
 } from "@arc/db-schema/schema";
 import type { ResumePoolEventType, ResumePoolScope, ResumePoolStatus } from "@arc/db-schema/schema";
@@ -27,6 +28,7 @@ import {
 import { findSemanticResumeDuplicates } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/dedup-service";
 import { enqueueResumeSemanticIndexJobBestEffort } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/enqueue";
 import { deleteResumeSemanticIndexBestEffort } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/lifecycle";
+import { cloneResumeSemanticIndexFromPoolToInterview } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/clone";
 import { createResumeRecordFromStorage } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/create-from-storage";
 import { normalizeSkill } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/dao/skills";
 
@@ -56,6 +58,7 @@ export interface CreateResumePoolItemInput {
   notes: string | null;
   organizationId: string | null;
   resumeFileName: string | null;
+  resumeParseStatus?: ResumeParseStatus;
   resumeProfile: ResumeProfile | null;
   resumeText?: string | null;
   scope: ResumePoolScope;
@@ -70,8 +73,15 @@ export interface MarkResumePoolItemParsedInput {
   notes?: string | null;
   organizationId: string | null;
   poolItemId: string;
+  resumeParseStatus?: "processing" | "ready";
   resumeProfile: ResumeProfile | null;
   resumeText: string | null;
+}
+
+export interface MarkResumePoolItemStatusInput {
+  errorMessage?: string | null;
+  organizationId: string | null;
+  poolItemId: string;
 }
 
 export interface QueryResumePoolItemsInput {
@@ -275,6 +285,10 @@ export async function createResumePoolItem(input: CreateResumePoolItemInput): Pr
     input.resumeProfile?.name ||
     input.resumeFileName ||
     "未命名简历";
+  let resumeParseStatus: ResumeParseStatus = "unparsed";
+  if (input.resumeProfile) {
+    resumeParseStatus = input.resumeParseStatus ?? "ready";
+  }
   // oxlint-disable-next-line complexity -- central data mapper for pool rows.
   await db.transaction(async (tx) => {
     await tx.insert(resumePoolItem).values({
@@ -292,8 +306,8 @@ export async function createResumePoolItem(input: CreateResumePoolItemInput): Pr
       resumeContentHash: input.contentHash,
       resumeFileName: input.resumeFileName,
       resumeParseError: null,
-      resumeParseStatus: (input.resumeProfile ? "ready" : "unparsed") as ResumeParseStatus,
-      resumeParsedAt: input.resumeProfile ? now : null,
+      resumeParseStatus,
+      resumeParsedAt: resumeParseStatus === "ready" ? now : null,
       resumeProfile: input.resumeProfile,
       resumeStorageKey: input.storageKey,
       resumeText: input.resumeText ?? null,
@@ -329,6 +343,7 @@ export async function markResumePoolItemParsed(
     return;
   }
   const now = new Date();
+  const resumeParseStatus = input.resumeParseStatus ?? "ready";
   await db.transaction(async (tx) => {
     await tx
       .update(resumePoolItem)
@@ -339,8 +354,8 @@ export async function markResumePoolItemParsed(
         jobDescriptionId: input.jobDescriptionId ?? row.jobDescriptionId,
         notes: input.notes ?? row.notes,
         resumeParseError: null,
-        resumeParseStatus: "ready",
-        resumeParsedAt: now,
+        resumeParseStatus,
+        resumeParsedAt: resumeParseStatus === "ready" ? now : null,
         resumeProfile: input.resumeProfile,
         resumeText: input.resumeText,
         skillsNormalized: normalizeSkills(input.resumeProfile?.skills),
@@ -358,6 +373,43 @@ export async function markResumePoolItemParsed(
       type: "parsed",
     });
   });
+}
+
+export async function markResumePoolItemSemanticIndexed(
+  input: MarkResumePoolItemStatusInput,
+): Promise<void> {
+  await db
+    .update(resumePoolItem)
+    .set({
+      resumeParseError: null,
+      resumeParseStatus: "ready",
+      resumeParsedAt: new Date(),
+      updatedAt: new Date(),
+    })
+    .where(
+      and(
+        eq(resumePoolItem.id, input.poolItemId),
+        input.organizationId ? eq(resumePoolItem.organizationId, input.organizationId) : undefined,
+      ),
+    );
+}
+
+export async function markResumePoolItemParseFailed(
+  input: MarkResumePoolItemStatusInput,
+): Promise<void> {
+  await db
+    .update(resumePoolItem)
+    .set({
+      resumeParseError: input.errorMessage ?? "简历语义索引失败。",
+      resumeParseStatus: "failed",
+      updatedAt: new Date(),
+    })
+    .where(
+      and(
+        eq(resumePoolItem.id, input.poolItemId),
+        input.organizationId ? eq(resumePoolItem.organizationId, input.organizationId) : undefined,
+      ),
+    );
 }
 
 function accessibleWhere(input: { organizationId: string; poolItemId: string; userId: string }) {
@@ -637,11 +689,32 @@ export async function importPoolItemToResumeLibrary(
     });
   });
 
-  await enqueueResumeSemanticIndexJobBestEffort({
-    organizationId: input.organizationId,
-    sourceId: resumeRecordId,
-    sourceType: "studio_interview",
-  });
+  try {
+    await cloneResumeSemanticIndexFromPoolToInterview({
+      organizationId: input.organizationId,
+      poolItemId: poolItem.id,
+      resumeRecordId,
+    });
+  } catch (error) {
+    await db.transaction(async (tx) => {
+      await tx
+        .delete(resumePoolImport)
+        .where(eq(resumePoolImport.importedResumeRecordId, resumeRecordId));
+      await tx
+        .delete(studioInterview)
+        .where(
+          and(
+            eq(studioInterview.id, resumeRecordId),
+            eq(studioInterview.organizationId, input.organizationId),
+          ),
+        );
+    });
+    await deleteResumeSemanticIndexBestEffort({
+      sourceId: resumeRecordId,
+      sourceType: "studio_interview",
+    });
+    throw error;
+  }
   return { resumeRecordId, status: "imported" };
 }
 

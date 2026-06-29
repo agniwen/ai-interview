@@ -18,12 +18,14 @@ import {
 } from "@arc/ai-recruitment-copilot-backend/server/routes/interview/utils";
 import { jobDescriptionIdsExist } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao";
 import { createPptxPreviewPdfResponse } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/utils/pptx-preview";
-import { enqueueResumeSemanticIndexJobBestEffort } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/enqueue";
+import { runResumeSemanticIndexJob } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/indexer";
 import {
   createResumePoolItem,
   deleteOwnPoolItem,
   importPoolItemToResumeLibrary,
   loadResumePoolItem,
+  markResumePoolItemParseFailed,
+  markResumePoolItemSemanticIndexed,
   publishPrivatePoolItem,
   queryResumePoolItems,
 } from "./dao";
@@ -218,17 +220,31 @@ export const resumePoolRouter = factory
         notes: input.data.notes ?? null,
         organizationId: activeOrg.id,
         resumeFileName: resume.name,
+        resumeParseStatus: "processing",
         resumeProfile,
         resumeText,
         scope: input.data.scope,
         storageKey: uploadResult.storageKey,
         targetRole: input.data.targetRole ?? null,
       });
-      await enqueueResumeSemanticIndexJobBestEffort({
-        organizationId: activeOrg.id,
-        sourceId: id,
-        sourceType: "resume_pool_item",
-      });
+      try {
+        await runResumeSemanticIndexJob({
+          organizationId: activeOrg.id,
+          sourceId: id,
+          sourceType: "resume_pool_item",
+        });
+        await markResumePoolItemSemanticIndexed({
+          organizationId: activeOrg.id,
+          poolItemId: id,
+        });
+      } catch (error) {
+        await markResumePoolItemParseFailed({
+          errorMessage: error instanceof Error ? error.message : String(error),
+          organizationId: activeOrg.id,
+          poolItemId: id,
+        });
+        throw error;
+      }
       const item = await loadResumePoolItem({
         organizationId: activeOrg.id,
         poolItemId: id,

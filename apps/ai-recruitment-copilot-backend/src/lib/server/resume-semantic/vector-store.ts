@@ -21,6 +21,26 @@ export interface ResumeEmbeddingUpsertInput {
   status: ResumeVectorPayloadStatus;
 }
 
+export interface ResumeEmbeddingLoadInput {
+  embeddingVersion: string;
+  organizationId: string;
+  sourceId: string;
+  sourceType: ResumeSemanticSourceType;
+}
+
+export interface ResumeStoredEmbeddingChunk {
+  chunkType: ResumeSemanticChunkType;
+  contentHash: string | null;
+  embedding: number[];
+  embeddingModel: string;
+  embeddingVersion: string;
+  organizationId: string;
+  profileHash: string;
+  sourceId: string;
+  sourceType: ResumeSemanticSourceType;
+  status: ResumeVectorPayloadStatus;
+}
+
 export interface ResumeVectorSearchInput {
   chunkType: ResumeSemanticChunkType;
   embedding: number[];
@@ -47,4 +67,8 @@ export interface ResumeVectorStore {
   ensureCollection(): Promise<void>;
   searchSimilarResumes(input: ResumeVectorSearchInput): Promise<ResumeVectorSearchResult[]>;
   upsertResumeEmbeddings(input: ResumeEmbeddingUpsertInput): Promise<void>;
+}
+
+export interface ResumeVectorReadStore {
+  loadResumeEmbeddings(input: ResumeEmbeddingLoadInput): Promise<ResumeStoredEmbeddingChunk[]>;
 }

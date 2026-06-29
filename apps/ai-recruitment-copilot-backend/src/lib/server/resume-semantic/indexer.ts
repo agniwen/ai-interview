@@ -233,7 +233,7 @@ async function loadResumeSemanticSource(
       ),
     )
     .limit(1);
-  if (!row?.profile || row.parseStatus !== "ready") {
+  if (!row?.profile || !["processing", "ready"].includes(row.parseStatus)) {
     return null;
   }
   return {
@@ -266,7 +266,7 @@ async function readSemanticIndexState(input: {
   return row ?? null;
 }
 
-async function upsertIndexState(input: {
+export async function upsertResumeSemanticIndexState(input: {
   contentHash: string | null;
   embeddingModel: string;
   embeddingVersion: string;
@@ -313,15 +313,19 @@ async function upsertIndexState(input: {
 }
 
 function markSemanticIndexIndexed(input: MarkIndexedInput): Promise<void> {
-  return upsertIndexState({ ...input, errorMessage: null, status: "indexed" });
+  return upsertResumeSemanticIndexState({ ...input, errorMessage: null, status: "indexed" });
 }
 
 function markSemanticIndexFailed(input: MarkFailedInput): Promise<void> {
-  return upsertIndexState({ ...input, errorMessage: input.errorMessage, status: "failed" });
+  return upsertResumeSemanticIndexState({
+    ...input,
+    errorMessage: input.errorMessage,
+    status: "failed",
+  });
 }
 
 function markSemanticIndexSkipped(input: MarkSkippedInput): Promise<void> {
-  return upsertIndexState({
+  return upsertResumeSemanticIndexState({
     ...input,
     contentHash: null,
     errorMessage: input.reason,

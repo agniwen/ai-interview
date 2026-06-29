@@ -34,12 +34,14 @@ import {
 } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao";
 import {
   createResumePoolItem,
+  markResumePoolItemSemanticIndexed,
   markResumePoolItemParsed,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resume-pool/dao";
 import { createResumeRecordFromStorage } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/create-from-storage";
 import { syncResumeSkills } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/dao/skills";
 import { enqueueResumeSemanticIndexJobBestEffort } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/enqueue";
 import { findSemanticResumeDuplicates } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/dedup-service";
+import { runResumeSemanticIndexJob } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/indexer";
 
 const ERROR_MESSAGE_MAX = 500;
 
@@ -480,6 +482,7 @@ async function fetchAndParse(
         notes: reviewResult?.review ?? null,
         organizationId,
         poolItemId,
+        resumeParseStatus: "processing",
         resumeProfile,
         resumeText,
       });
@@ -494,6 +497,7 @@ async function fetchAndParse(
         notes: reviewResult?.review ?? null,
         organizationId,
         resumeFileName: item.originalFileName,
+        resumeParseStatus: "processing",
         resumeProfile,
         resumeText,
         scope: batchRow.resumePoolScope ?? "private",
@@ -501,6 +505,15 @@ async function fetchAndParse(
         targetRole: null,
       });
     }
+    await runResumeSemanticIndexJob({
+      organizationId,
+      sourceId: poolItemId,
+      sourceType: "resume_pool_item",
+    });
+    await markResumePoolItemSemanticIndexed({
+      organizationId,
+      poolItemId,
+    });
     return {
       dedupSnapshot: null,
       isDuplicateSkip: false,
@@ -693,12 +706,11 @@ async function processClaimedItem(
   }
 
   await writeOutcome(item, batchRow.id, outcome);
-  const indexedSourceId = outcome.succeededRecordId ?? outcome.succeededPoolItemId;
-  if (!(outcome.errorMessage || indexedSourceId === null)) {
+  if (!(outcome.errorMessage || outcome.succeededRecordId === null)) {
     await enqueueResumeSemanticIndexJobBestEffort({
       organizationId: batchRow.organizationId,
-      sourceId: indexedSourceId,
-      sourceType: outcome.succeededRecordId ? "studio_interview" : "resume_pool_item",
+      sourceId: outcome.succeededRecordId,
+      sourceType: "studio_interview",
     });
   }
 

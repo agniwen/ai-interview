@@ -3,11 +3,14 @@ import { QdrantClient } from "@qdrant/js-client-rest";
 import type { Schemas } from "@qdrant/js-client-rest";
 import type {
   ResumeEmbeddingDeleteInput,
+  ResumeEmbeddingLoadInput,
   ResumeEmbeddingUpsertInput,
   ResumeSemanticSourceType,
+  ResumeStoredEmbeddingChunk,
   ResumeVectorSearchInput,
   ResumeVectorSearchResult,
   ResumeVectorStore,
+  ResumeVectorReadStore,
 } from "../resume-semantic/vector-store";
 import type { ResumeSemanticChunkType } from "../resume-semantic/text-builders";
 
@@ -37,6 +40,15 @@ interface QdrantClientLike {
       with_payload: true;
     },
   ): Promise<{ points?: QdrantSearchPoint[] }>;
+  scroll(
+    collectionName: string,
+    input: {
+      filter: { must: ReturnType<typeof mustMatch>[] };
+      limit: number;
+      with_payload: true;
+      with_vector: true;
+    },
+  ): Promise<{ points?: QdrantScrollPoint[] }>;
   upsert(
     collectionName: string,
     input: { points: QdrantUpsertPoint[]; wait: true },
@@ -64,6 +76,21 @@ interface QdrantSearchPoint {
     sourceType?: unknown;
   } | null;
   score?: unknown;
+}
+
+interface QdrantScrollPoint {
+  payload?: {
+    chunkType?: unknown;
+    contentHash?: unknown;
+    embeddingModel?: unknown;
+    embeddingVersion?: unknown;
+    organizationId?: unknown;
+    profileHash?: unknown;
+    sourceId?: unknown;
+    sourceType?: unknown;
+    status?: unknown;
+  } | null;
+  vector?: unknown;
 }
 
 const FILTER_PAYLOAD_FIELDS = [
@@ -101,7 +128,19 @@ function isSourceType(value: unknown): value is ResumeSemanticSourceType {
   return value === "studio_interview" || value === "resume_pool_item";
 }
 
-export class QdrantResumeVectorStore implements ResumeVectorStore {
+function isPayloadStatus(value: unknown): value is ResumeStoredEmbeddingChunk["status"] {
+  return value === "active" || value === "archived";
+}
+
+function nullableString(value: unknown): string | null {
+  return typeof value === "string" ? value : null;
+}
+
+function parseVector(value: unknown): number[] | null {
+  return Array.isArray(value) && value.every((item) => typeof item === "number") ? value : null;
+}
+
+export class QdrantResumeVectorStore implements ResumeVectorStore, ResumeVectorReadStore {
   private readonly client: QdrantClientLike;
   private readonly collectionName: string;
   private readonly dimensions: number;
@@ -207,6 +246,56 @@ export class QdrantResumeVectorStore implements ResumeVectorStore {
           score: point.score,
           sourceId: payload.sourceId,
           sourceType: payload.sourceType,
+        },
+      ];
+    });
+  }
+
+  async loadResumeEmbeddings(
+    input: ResumeEmbeddingLoadInput,
+  ): Promise<ResumeStoredEmbeddingChunk[]> {
+    const body = await this.client.scroll(this.collectionName, {
+      filter: {
+        must: [
+          mustMatch("organizationId", input.organizationId),
+          mustMatch("sourceType", input.sourceType),
+          mustMatch("sourceId", input.sourceId),
+          mustMatch("embeddingVersion", input.embeddingVersion),
+        ],
+      },
+      limit: 10,
+      with_payload: true,
+      with_vector: true,
+    });
+    return (body.points ?? []).flatMap((point) => {
+      const { payload } = point;
+      const vector = parseVector(point.vector);
+      if (
+        !payload ||
+        !vector ||
+        !isChunkType(payload.chunkType) ||
+        !isSourceType(payload.sourceType) ||
+        !isPayloadStatus(payload.status) ||
+        typeof payload.embeddingModel !== "string" ||
+        typeof payload.embeddingVersion !== "string" ||
+        typeof payload.organizationId !== "string" ||
+        typeof payload.profileHash !== "string" ||
+        typeof payload.sourceId !== "string"
+      ) {
+        return [];
+      }
+      return [
+        {
+          chunkType: payload.chunkType,
+          contentHash: nullableString(payload.contentHash),
+          embedding: vector,
+          embeddingModel: payload.embeddingModel,
+          embeddingVersion: payload.embeddingVersion,
+          organizationId: payload.organizationId,
+          profileHash: payload.profileHash,
+          sourceId: payload.sourceId,
+          sourceType: payload.sourceType,
+          status: payload.status,
         },
       ];
     });

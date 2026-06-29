@@ -10,6 +10,7 @@ describe("QdrantResumeVectorStore", () => {
       delete: vi.fn(),
       getCollection: vi.fn().mockResolvedValue({ payload_schema: {} }),
       query: vi.fn(),
+      scroll: vi.fn(),
       upsert: vi.fn(),
     };
     const store = new QdrantResumeVectorStore({
@@ -35,6 +36,7 @@ describe("QdrantResumeVectorStore", () => {
       delete: vi.fn(),
       getCollection: vi.fn().mockResolvedValue({ payload_schema: {} }),
       query: vi.fn(),
+      scroll: vi.fn(),
       upsert: vi.fn(),
     };
     const store = new QdrantResumeVectorStore({
@@ -87,6 +89,7 @@ describe("QdrantResumeVectorStore", () => {
       delete: vi.fn(),
       getCollection: vi.fn(),
       query: vi.fn(),
+      scroll: vi.fn(),
       upsert: vi.fn(),
     };
     const store = new QdrantResumeVectorStore({
@@ -153,6 +156,7 @@ describe("QdrantResumeVectorStore", () => {
           },
         ],
       }),
+      scroll: vi.fn(),
       upsert: vi.fn(),
     };
     const store = new QdrantResumeVectorStore({
@@ -196,6 +200,7 @@ describe("QdrantResumeVectorStore", () => {
       delete: vi.fn(),
       getCollection: vi.fn(),
       query: vi.fn().mockResolvedValue({ points: [] }),
+      scroll: vi.fn(),
       upsert: vi.fn(),
     };
     const store = new QdrantResumeVectorStore({
@@ -218,5 +223,104 @@ describe("QdrantResumeVectorStore", () => {
       key: "sourceType",
       match: { any: ["studio_interview"] },
     });
+  });
+
+  it("loads stored resume embeddings with vectors by source filters", async () => {
+    const client = {
+      collectionExists: vi.fn(),
+      createCollection: vi.fn(),
+      createPayloadIndex: vi.fn(),
+      delete: vi.fn(),
+      getCollection: vi.fn(),
+      query: vi.fn(),
+      scroll: vi.fn().mockResolvedValue({
+        points: [
+          {
+            id: "point-overview",
+            payload: {
+              chunkType: "resume_overview",
+              contentHash: "hash",
+              embeddingModel: "text-embedding-v4",
+              embeddingVersion: "v1",
+              organizationId: "org-1",
+              profileHash: "profile-hash",
+              sourceId: "pool-1",
+              sourceType: "resume_pool_item",
+              status: "active",
+            },
+            vector: [0.1, 0.2],
+          },
+          {
+            id: "point-work",
+            payload: {
+              chunkType: "work_project",
+              contentHash: "hash",
+              embeddingModel: "text-embedding-v4",
+              embeddingVersion: "v1",
+              organizationId: "org-1",
+              profileHash: "profile-hash",
+              sourceId: "pool-1",
+              sourceType: "resume_pool_item",
+              status: "active",
+            },
+            vector: [0.3, 0.4],
+          },
+        ],
+      }),
+      upsert: vi.fn(),
+    };
+    const store = new QdrantResumeVectorStore({
+      client,
+      collectionName: "resume_semantic_v1",
+      dimensions: 2,
+      url: "https://qdrant.example",
+    });
+
+    const chunks = await store.loadResumeEmbeddings({
+      embeddingVersion: "v1",
+      organizationId: "org-1",
+      sourceId: "pool-1",
+      sourceType: "resume_pool_item",
+    });
+
+    expect(client.scroll).toHaveBeenCalledWith("resume_semantic_v1", {
+      filter: {
+        must: expect.arrayContaining([
+          { key: "organizationId", match: { value: "org-1" } },
+          { key: "sourceType", match: { value: "resume_pool_item" } },
+          { key: "sourceId", match: { value: "pool-1" } },
+          { key: "embeddingVersion", match: { value: "v1" } },
+        ]),
+      },
+      limit: 10,
+      with_payload: true,
+      with_vector: true,
+    });
+    expect(chunks).toEqual([
+      {
+        chunkType: "resume_overview",
+        contentHash: "hash",
+        embedding: [0.1, 0.2],
+        embeddingModel: "text-embedding-v4",
+        embeddingVersion: "v1",
+        organizationId: "org-1",
+        profileHash: "profile-hash",
+        sourceId: "pool-1",
+        sourceType: "resume_pool_item",
+        status: "active",
+      },
+      {
+        chunkType: "work_project",
+        contentHash: "hash",
+        embedding: [0.3, 0.4],
+        embeddingModel: "text-embedding-v4",
+        embeddingVersion: "v1",
+        organizationId: "org-1",
+        profileHash: "profile-hash",
+        sourceId: "pool-1",
+        sourceType: "resume_pool_item",
+        status: "active",
+      },
+    ]);
   });
 });
