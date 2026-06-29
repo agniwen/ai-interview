@@ -91,8 +91,8 @@ export function getResumeReviewDimension(
   return dim;
 }
 
-// 从宽松 review 读取基础分：v2 优先 baseScore，v1 兜底 overall.score。
-// Read base score from a loose review: v2 baseScore first, v1 overall.score fallback.
+// 从宽松 review 读取基础分：新版优先 baseScore，v1 兜底 overall.score。
+// Read base score from a loose review: current baseScore first, v1 overall.score fallback.
 export function getResumeReviewBaseScore(review: ResumeReviewLoose): number | null {
   const v2 = get(review, "overall.baseScore");
   if (typeof v2 === "number") {
@@ -105,8 +105,8 @@ export function getResumeReviewBaseScore(review: ResumeReviewLoose): number | nu
   return null;
 }
 
-// 按权重计算基础分（仅 v2 六维度齐全时有效）。
-// Compute base score by weighted sum; only meaningful for v2 six-dimension data.
+// 按产品六维权重计算基础分。
+// Compute base score by the product six-dimension weighted sum.
 export function computeResumeReviewBaseScore(
   dimensions: Record<string, ResumeReviewDimension>,
 ): number {

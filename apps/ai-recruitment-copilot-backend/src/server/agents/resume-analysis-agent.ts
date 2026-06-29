@@ -557,7 +557,7 @@ export async function generateInterviewQuestionsForProfile(
 // Agent 0 (hard filter):  从 JD 文本提取结构化硬性门槛 → 代码规则引擎匹配简历。
 //                          命中任一非 null 门槛且不满足 → 短路淘汰，跳过 Agent 1/2。
 // Agent 1 (qualitative):  生成结论 / 亮点 / 风险 / 偏差 / 团队定位 / 职级 / 下一步建议。
-// Agent 2 (scoring):      基于简历 + JD + Agent 1 输出，按共享五维框架打分。
+// Agent 2 (scoring):      基于简历 + JD + Agent 1 输出，按产品六维框架打分。
 // 组装层:                  把 Agent 1 定性结果 + Agent 2 维度分 + 代码计算的 baseScore 合并成 ResumeReview。
 //
 // baseScore 由代码按共享框架权重加权得出，LLM 不输出总分，保证子分与总分自洽。
@@ -565,6 +565,20 @@ export async function generateInterviewQuestionsForProfile(
 // =====================================================================
 
 const nonEmpty = z.string().trim().min(1);
+const RESUME_REVIEW_SERVER_TIME_ZONE = "Asia/Shanghai";
+
+function buildResumeReviewTimeContext(now = new Date()) {
+  const formattedNow = new Intl.DateTimeFormat("zh-CN", {
+    dateStyle: "full",
+    timeStyle: "long",
+    timeZone: RESUME_REVIEW_SERVER_TIME_ZONE,
+  }).format(now);
+
+  return [
+    `当前服务端时间（${RESUME_REVIEW_SERVER_TIME_ZONE}）：${formattedNow}`,
+    "时间判断规则：判断候选人的在职时长、工作年限、项目持续时间、是否仍在职、时间线是否合理时，以上述服务端时间作为“现在”；简历中的“至今”“最近”“目前”默认按该时间理解。不要使用模型训练时间或系统外部假设代替当前时间。",
+  ].join("\n");
+}
 
 // ---------------------------------------------------------------------
 // Agent 0: 硬性门槛提取 + 规则引擎
@@ -690,11 +704,12 @@ function buildHardFilterRejectReview(
       })),
     },
     dimensions: {
-      impactResults: { rationale: "硬性门槛不达标，未评分", score: 0 },
-      roleRelevance: { rationale: "硬性门槛不达标，未评分", score: 0 },
-      signalCredibility: { rationale: "硬性门槛不达标，未评分", score: 0 },
-      structureReadability: { rationale: "硬性门槛不达标，未评分", score: 0 },
-      technicalDepth: { rationale: "硬性门槛不达标，未评分", score: 0 },
+      educationBackground: { rationale: "硬性门槛不达标，未评分", score: 0 },
+      experienceRelevance: { rationale: "硬性门槛不达标，未评分", score: 0 },
+      potential: { rationale: "硬性门槛不达标，未评分", score: 0 },
+      projectMatch: { rationale: "硬性门槛不达标，未评分", score: 0 },
+      skillMatch: { rationale: "硬性门槛不达标，未评分", score: 0 },
+      stability: { rationale: "硬性门槛不达标，未评分", score: 0 },
     },
     levelRecommendation: {
       level: "—",
@@ -764,7 +779,7 @@ async function runHardFilter(
 
   const agent = createHardFilterAgent();
   const { text } = await agent.generate({
-    prompt: `在招岗位描述：\n${jobDescription.trim()}`,
+    prompt: `${buildResumeReviewTimeContext()}\n\n在招岗位描述：\n${jobDescription.trim()}`,
   });
 
   const criteria = parseJsonOutput(text, hardFilterSchema, "resume-hard-filter");
@@ -852,8 +867,8 @@ const REVIEW_SCORING_JSON_SHAPE = RESUME_REVIEW_DIMENSIONS.map(
     `    "${dimension.key}": { "score": 0-100, "rationale": "${dimension.label}评分依据" }`,
 ).join(",\n");
 
-// Agent 2 prompt —— 拿简历 + JD + Agent 1 输出，只输出共享五维框架分。
-const REVIEW_SCORING_INSTRUCTIONS = `你是一名招聘评分助手。基于已生成的定性评价、候选人简历、在招岗位描述，对简历与岗位的语义匹配度进行五维度打分。
+// Agent 2 prompt —— 拿简历 + JD + Agent 1 输出，只输出产品六维框架分。
+const REVIEW_SCORING_INSTRUCTIONS = `你是一名招聘评分助手。基于已生成的定性评价、候选人简历、在招岗位描述，对简历与岗位的语义匹配度进行六维度打分。
 本阶段只输出每维度的分数与依据，不输出总分或综合结论；总分由调用方按权重计算。
 
 ## 评分维度与权重（仅供你心中校准，不必输出占比）
@@ -910,11 +925,12 @@ type ResumeQualitativeReview = z.infer<typeof resumeQualitativeSchema>;
 // Agent 2 打分输出的内部类型。
 const resumeScoringSchema = z.object({
   dimensions: z.object({
-    impactResults: resumeReviewDimensionSchema,
-    roleRelevance: resumeReviewDimensionSchema,
-    signalCredibility: resumeReviewDimensionSchema,
-    structureReadability: resumeReviewDimensionSchema,
-    technicalDepth: resumeReviewDimensionSchema,
+    educationBackground: resumeReviewDimensionSchema,
+    experienceRelevance: resumeReviewDimensionSchema,
+    potential: resumeReviewDimensionSchema,
+    projectMatch: resumeReviewDimensionSchema,
+    skillMatch: resumeReviewDimensionSchema,
+    stability: resumeReviewDimensionSchema,
   }),
 });
 type ResumeReviewScoring = z.infer<typeof resumeScoringSchema>;
@@ -926,14 +942,14 @@ function buildResumeReviewPrompt(input: {
 }) {
   const jdBlock = input.jobDescription?.trim()
     ? `在招岗位描述：\n${input.jobDescription.trim()}`
-    : "在招岗位描述：（未指定 JD，按候选人 targetRoles 推断目标方向进行评估，岗位相关性维度按候选人简历的目标岗位计分）";
+    : "在招岗位描述：（未指定 JD，按候选人 targetRoles 推断目标方向进行评估；产品六维评分框架中的岗位匹配判断均以候选人简历的目标岗位方向为参照）";
 
   const semanticBlock =
     input.semanticRequirements && input.semanticRequirements.length > 0
       ? `\n\nJD 中的语义硬性要求（无法用规则匹配，请在偏差扫描中判断候选人是否满足，不满足时标注为 hard_gap）：\n${input.semanticRequirements.map((req, i) => `${i + 1}. ${req}`).join("\n")}`
       : "";
 
-  return `${jdBlock}${semanticBlock}\n\n候选人简历（结构化 JSON）：\n${JSON.stringify(input.resumeProfile, null, 2)}`;
+  return `${buildResumeReviewTimeContext()}\n\n${jdBlock}${semanticBlock}\n\n候选人简历（结构化 JSON）：\n${JSON.stringify(input.resumeProfile, null, 2)}`;
 }
 
 function buildResumeScoringPrompt(input: {
@@ -945,6 +961,7 @@ function buildResumeScoringPrompt(input: {
     ? `在招岗位描述：\n${input.jobDescription.trim()}`
     : "在招岗位描述：（未指定 JD，按候选人 targetRoles 推断目标方向打分）";
   return [
+    buildResumeReviewTimeContext(),
     jdBlock,
     `候选人简历（结构化 JSON）：\n${JSON.stringify(input.resumeProfile, null, 2)}`,
     `定性评价（Step 1 输出，已在内容上与岗位比对过，请保持打分方向一致）：\n${JSON.stringify(input.qualitative, null, 2)}`,
@@ -975,8 +992,8 @@ function createResumeReviewScoringAgent() {
   });
 }
 
-// 把 Agent 1 定性 + Agent 2 维度分 + 代码算的 baseScore 组装成 v2 ResumeReview。
-// Assemble v2 ResumeReview from Agent 1 qualitative + Agent 2 dimensions + code-computed baseScore.
+// 把 Agent 1 定性 + Agent 2 维度分 + 代码算的 baseScore 组装成 ResumeReview。
+// Assemble ResumeReview from Agent 1 qualitative + Agent 2 dimensions + code-computed baseScore.
 function assembleResumeReview(
   qualitative: ResumeQualitativeReview,
   scoring: ResumeReviewScoring,
@@ -990,7 +1007,7 @@ function assembleResumeReview(
     overall: {
       baseScore,
       conclusion: qualitative.overall.conclusion,
-      scoreRationale: `基于五维度按 ${formatResumeReviewFrameworkWeights()} 加权得出基础分 ${baseScore}（不含历史面试加权）`,
+      scoreRationale: `基于六维度按 ${formatResumeReviewFrameworkWeights()} 加权得出基础分 ${baseScore}（不含历史面试加权）`,
     },
     schemaVersion: RESUME_REVIEW_SCHEMA_VERSION,
     strengths: qualitative.strengths,

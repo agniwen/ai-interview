@@ -45,7 +45,7 @@ export const getServerTimeTool = tool({
 });
 
 export const getResumeReviewFrameworkTool = tool({
-  description: "返回一个带权重维度的通用简历筛选框架，可用于实习生和社招岗位。",
+  description: "返回产品六维简历评分框架，可用于实习生和社招岗位。",
   // oxlint-disable-next-line require-await -- AI SDK tool signature requires async execute.
   execute: async ({ seniority, targetRole }) =>
     getResumeReviewFramework({

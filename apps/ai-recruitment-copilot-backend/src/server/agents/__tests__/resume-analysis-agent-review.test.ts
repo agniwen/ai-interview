@@ -119,14 +119,15 @@ const QUALITATIVE_OUTPUT = {
   ],
 };
 
-// Agent 2 打分输出 —— 只含共享五维评估框架。
+// Agent 2 打分输出 —— 只含产品六维评估框架。
 const SCORING_OUTPUT = {
   dimensions: {
-    impactResults: { rationale: "核心项目有明确业务结果", score: 92 },
-    roleRelevance: { rationale: "岗位关键词和职责方向匹配", score: 82 },
-    signalCredibility: { rationale: "成果上下文仍需核实", score: 78 },
-    structureReadability: { rationale: "简历层级清晰", score: 80 },
-    technicalDepth: { rationale: "TypeScript/React 与工程化经验充分", score: 90 },
+    educationBackground: { rationale: "本科背景符合岗位预期", score: 80 },
+    experienceRelevance: { rationale: "前端业务经验与技术栈吻合", score: 90 },
+    potential: { rationale: "经历体现工程广度和学习能力", score: 88 },
+    projectMatch: { rationale: "核心项目复杂度和岗位要求对应", score: 82 },
+    skillMatch: { rationale: "TypeScript/React 与岗位核心技能高度匹配", score: 92 },
+    stability: { rationale: "职业经历较连贯，成果上下文仍需核实", score: 78 },
   },
 };
 
@@ -137,11 +138,11 @@ const EXPECTED_REVIEW: ResumeReview = {
   levelRecommendation: QUALITATIVE_OUTPUT.levelRecommendation,
   nextStep: QUALITATIVE_OUTPUT.nextStep,
   overall: {
-    baseScore: 86,
+    baseScore: 88,
     conclusion: "候选人与前端工程师岗位匹配度较高。",
-    scoreRationale: "基于五维度按 30/25/20/15/10 加权得出基础分 86（不含历史面试加权）",
+    scoreRationale: "基于六维度按 35/25/15/10/8/7 加权得出基础分 88（不含历史面试加权）",
   },
-  schemaVersion: 3,
+  schemaVersion: 4,
   strengths: QUALITATIVE_OUTPUT.strengths,
   teamPositioning: QUALITATIVE_OUTPUT.teamPositioning,
   weaknesses: QUALITATIVE_OUTPUT.weaknesses,
@@ -164,9 +165,10 @@ function mockThreeAgentPipeline() {
 describe("generateResumeReview", () => {
   beforeEach(() => {
     mocks.createResumeAgent.mockReset();
+    vi.useRealTimers();
   });
 
-  it("runs three-agent pipeline (hard filter pass + qualitative + scoring) and assembles v3 review", async () => {
+  it("runs three-agent pipeline (hard filter pass + qualitative + scoring) and assembles v4 review", async () => {
     process.env.ALIBABA_STRUCTURED_MODEL = "qwen-test";
     mockThreeAgentPipeline();
 
@@ -176,9 +178,38 @@ describe("generateResumeReview", () => {
     });
 
     expect(result.structuredReview).toEqual(EXPECTED_REVIEW);
-    expect(result.structuredReview.overall.baseScore).toBe(86);
+    expect(result.structuredReview.overall.baseScore).toBe(88);
     expect(result.review).toBe(formatResumeReviewMarkdown(EXPECTED_REVIEW));
     expect(mocks.createResumeAgent).toHaveBeenCalledTimes(3);
+  });
+
+  it("injects current server time into resume review model prompts", async () => {
+    process.env.ALIBABA_STRUCTURED_MODEL = "qwen-test";
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-01-02T03:04:05.000Z"));
+    mockThreeAgentPipeline();
+
+    await generateResumeReview({
+      jobDescription: "岗位名称：前端工程师",
+      resumeProfile: PROFILE_WITH_DEGREE,
+    });
+
+    const hardFilterAgent = mocks.createResumeAgent.mock.results[0]?.value;
+    const qualitativeAgent = mocks.createResumeAgent.mock.results[1]?.value;
+    const scoringAgent = mocks.createResumeAgent.mock.results[2]?.value;
+
+    for (const agent of [hardFilterAgent, qualitativeAgent, scoringAgent]) {
+      expect(agent.generate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          prompt: expect.stringContaining("当前服务端时间（Asia/Shanghai）"),
+        }),
+      );
+      expect(agent.generate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          prompt: expect.stringContaining("2026年1月2日"),
+        }),
+      );
+    }
   });
 
   it("skips Agent 1/2 when hard filter fails (short-circuit reject)", async () => {
@@ -219,7 +250,11 @@ describe("generateResumeReview", () => {
       resumeProfile: PROFILE,
     });
 
-    expect(result.structuredReview.overall.baseScore).toBe(86);
+    expect(result.structuredReview.overall.baseScore).toBe(88);
     expect(mocks.createResumeAgent).toHaveBeenCalledTimes(2);
+    const qualitativeAgent = mocks.createResumeAgent.mock.results[0]?.value;
+    const prompt = qualitativeAgent.generate.mock.calls[0]?.[0]?.prompt;
+    expect(prompt).toContain("产品六维评分框架");
+    expect(prompt).not.toContain("岗位相关性维度");
   });
 });

@@ -31,20 +31,21 @@ export const resumeReviewBiasItemSchema = z.object({
   impact: nonEmptyStringSchema,
 });
 
-// v3 维度 key 枚举 —— 与 chat 评审框架共用的 5 维度模型。
-// v3 dimension keys — shared with the chat review framework.
+// v4 维度 key 枚举 —— 与产品简历评价/评分框架保持一致的 6 维度模型。
+// v4 dimension keys — aligned with the product resume review/scoring framework.
 const resumeReviewDimensionKeys = [
-  "impactResults",
-  "technicalDepth",
-  "roleRelevance",
-  "structureReadability",
-  "signalCredibility",
+  "skillMatch",
+  "experienceRelevance",
+  "projectMatch",
+  "educationBackground",
+  "potential",
+  "stability",
 ] as const;
 
 export const resumeReviewDimensionKeySchema = z.enum(resumeReviewDimensionKeys);
 export type ResumeReviewDimensionKey = z.infer<typeof resumeReviewDimensionKeySchema>;
 
-export const RESUME_REVIEW_SCHEMA_VERSION = 3;
+export const RESUME_REVIEW_SCHEMA_VERSION = 4;
 
 export const RESUME_REVIEW_DIMENSION_DEFINITIONS: {
   checklist: readonly string[];
@@ -54,60 +55,75 @@ export const RESUME_REVIEW_DIMENSION_DEFINITIONS: {
 }[] = [
   {
     checklist: [
-      "是否有量化的业务或产品结果",
-      "是否清楚说明负责范围与角色",
-      "是否使用清晰的行动-结果式表述",
+      "JD 核心技能与候选人技能是否语义匹配",
+      "候选人是否在工作或项目中实际使用过这些技能",
+      "是否覆盖必备技术栈而不是仅有相邻关键词",
     ],
-    key: "impactResults",
-    label: "影响力与结果",
-    weight: 0.3,
+    key: "skillMatch",
+    label: "技能匹配度",
+    weight: 0.35,
   },
   {
     checklist: [
-      "是否写明具体技术栈细节",
-      "是否体现架构设计或权衡思路",
-      "是否体现性能、稳定性或扩展性相关工作",
+      "行业背景或业务领域是否与岗位相关",
+      "职责范围和岗位层级是否吻合",
+      "技术栈、业务场景、团队环境是否具备迁移价值",
     ],
-    key: "technicalDepth",
-    label: "技术深度",
+    key: "experienceRelevance",
+    label: "经验相关性",
     weight: 0.25,
   },
   {
     checklist: [
-      "是否匹配目标岗位关键词",
-      "项目经历是否与岗位职责相关",
-      "内容排序和重点是否支撑岗位匹配度",
+      "关键项目复杂度是否对应岗位要求",
+      "候选人在项目中的角色和职责是否清楚",
+      "项目成果是否能支撑岗位胜任判断",
     ],
-    key: "roleRelevance",
-    label: "岗位相关性",
-    weight: 0.2,
-  },
-  {
-    checklist: ["项目符号和表述是否简洁", "时间线与格式是否一致", "层级是否清晰、便于快速扫读"],
-    key: "structureReadability",
-    label: "结构与可读性",
+    key: "projectMatch",
+    label: "项目匹配度",
     weight: 0.15,
   },
   {
-    checklist: ["是否避免夸大或失真的表述", "是否提供可验证的链接或作品", "成果是否具备清晰上下文"],
-    key: "signalCredibility",
-    label: "信号可信度",
+    checklist: [
+      "学历层次是否符合岗位预期",
+      "专业方向是否与岗位相关",
+      "教育背景是否补强岗位匹配判断",
+    ],
+    key: "educationBackground",
+    label: "学历/背景",
     weight: 0.1,
+  },
+  {
+    checklist: [
+      "成长曲线是否清晰",
+      "技术或业务广度是否支持后续发展",
+      "是否体现学习能力和承担更复杂任务的潜力",
+    ],
+    key: "potential",
+    label: "潜力评估",
+    weight: 0.08,
+  },
+  {
+    checklist: ["平均在职时长是否合理", "跳槽频率是否存在风险", "职业路径是否连贯且解释充分"],
+    key: "stability",
+    label: "稳定性评估",
+    weight: 0.07,
   },
 ];
 
-// v3 严格 schema —— 新写入路径用，保证共享 5 维度齐全。
-// Strict v3 schema for new writes; guarantees all shared five dimensions are present.
+// v4 严格 schema —— 新写入路径用，保证产品 6 维度齐全。
+// Strict v4 schema for new writes; guarantees all product six dimensions are present.
 export const resumeReviewSchema = z.object({
   biasScan: z.object({
     items: z.array(resumeReviewBiasItemSchema),
   }),
   dimensions: z.object({
-    impactResults: resumeReviewDimensionSchema,
-    roleRelevance: resumeReviewDimensionSchema,
-    signalCredibility: resumeReviewDimensionSchema,
-    structureReadability: resumeReviewDimensionSchema,
-    technicalDepth: resumeReviewDimensionSchema,
+    educationBackground: resumeReviewDimensionSchema,
+    experienceRelevance: resumeReviewDimensionSchema,
+    potential: resumeReviewDimensionSchema,
+    projectMatch: resumeReviewDimensionSchema,
+    skillMatch: resumeReviewDimensionSchema,
+    stability: resumeReviewDimensionSchema,
   }),
   levelRecommendation: z.object({
     level: nonEmptyStringSchema,
@@ -133,9 +149,9 @@ export const resumeReviewSchema = z.object({
   weaknesses: z.array(resumeReviewPointSchema).min(1).max(4),
 });
 
-// 宽松 schema —— 读取路径用，兼容旧 v1/v2 数据。
+// 宽松 schema —— 读取路径用，兼容旧 v1/v2/v3 数据。
 // 旧 json 缺少新维度字段时不报错，消费方用 lodash get 取值，缺失就跳过展示。
-// Loose schema for reads; tolerates legacy v1/v2 rows so DB reads don't throw.
+// Loose schema for reads; tolerates legacy v1/v2/v3 rows so DB reads don't throw.
 // Consumers use lodash `get` to access fields; missing keys render as absent.
 export const resumeReviewLooseSchema = z.object({
   biasScan: z.object({
@@ -158,7 +174,12 @@ export const resumeReviewLooseSchema = z.object({
     score: scoreSchema.optional(),
     scoreRationale: nonEmptyStringSchema,
   }),
-  schemaVersion: z.union([z.literal(1), z.literal(2), z.literal(RESUME_REVIEW_SCHEMA_VERSION)]),
+  schemaVersion: z.union([
+    z.literal(1),
+    z.literal(2),
+    z.literal(3),
+    z.literal(RESUME_REVIEW_SCHEMA_VERSION),
+  ]),
   strengths: z.array(resumeReviewPointSchema).min(1).max(4),
   teamPositioning: z.object({
     rationale: nonEmptyStringSchema,

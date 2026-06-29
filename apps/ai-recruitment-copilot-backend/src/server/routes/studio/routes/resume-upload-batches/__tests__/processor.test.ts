@@ -84,11 +84,12 @@ const REVIEW_RESULT = {
   structuredReview: {
     biasScan: { items: [] },
     dimensions: {
-      impactResults: { rationale: "结果明确", score: 80 },
-      roleRelevance: { rationale: "岗位相关", score: 78 },
-      signalCredibility: { rationale: "信号可信", score: 75 },
-      structureReadability: { rationale: "结构清晰", score: 80 },
-      technicalDepth: { rationale: "技术匹配", score: 80 },
+      educationBackground: { rationale: "学历背景符合预期", score: 75 },
+      experienceRelevance: { rationale: "经验相关", score: 78 },
+      potential: { rationale: "潜力良好", score: 80 },
+      projectMatch: { rationale: "项目匹配", score: 80 },
+      skillMatch: { rationale: "技能匹配", score: 80 },
+      stability: { rationale: "稳定性可接受", score: 75 },
     },
     levelRecommendation: { level: "中级", rationale: "经验匹配" },
     nextStep: {
@@ -100,9 +101,9 @@ const REVIEW_RESULT = {
     overall: {
       baseScore: 79,
       conclusion: "候选人匹配度较高。",
-      scoreRationale: "基于五维度按 30/25/20/15/10 加权得出基础分 79（不含历史面试加权）",
+      scoreRationale: "基于六维度按 35/25/15/10/8/7 加权得出基础分 79（不含历史面试加权）",
     },
-    schemaVersion: 3,
+    schemaVersion: 4,
     strengths: [{ evidence: "简历证据", impact: "匹配岗位", point: "经验匹配" }],
     teamPositioning: { rationale: "经历集中", suggestion: "业务团队" },
     weaknesses: [{ evidence: null, impact: "需面试确认", point: "细节不足" }],
