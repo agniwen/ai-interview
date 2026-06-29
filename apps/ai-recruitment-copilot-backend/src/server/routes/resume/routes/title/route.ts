@@ -2,7 +2,6 @@ import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { zValidator } from "@hono/zod-validator";
 import { generateText } from "ai";
 import { getRequiredEnv } from "@arc/ai-recruitment-copilot-backend/lib/server/env";
-import { withDevTools } from "@arc/ai-recruitment-copilot-backend/server/agents/devtools";
 import { factory } from "@arc/ai-recruitment-copilot-backend/server/factory";
 import { resumeTitleRequestSchema } from "@arc/ai-recruitment-copilot-backend/server/routes/resume/schema";
 import { sanitizeTitle } from "@arc/ai-recruitment-copilot-backend/server/routes/resume/utils/title";
@@ -39,7 +38,7 @@ export const titleRouter = factory
 
     try {
       const { text: titleText } = await generateText({
-        model: withDevTools(provider(modelId)),
+        model: provider(modelId),
         prompt: `你是会话标题助手。请根据用户第一条消息的意图生成一个中文标题。
 要求:
 - 只输出标题，不要任何解释

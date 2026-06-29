@@ -1,7 +1,12 @@
-import type { PrepareStepFunction, StopCondition, ToolLoopAgentSettings, ToolSet } from "ai";
+import type {
+  PrepareStepFunction,
+  StopCondition,
+  ToolLoopAgentSettings,
+  ToolSet,
+  Output,
+} from "ai";
 import { stepCountIs, ToolLoopAgent } from "ai";
 import { getRequiredEnv } from "@arc/ai-recruitment-copilot-backend/lib/server/env";
-import { withDevTools } from "./devtools";
 import { createAlibabaProvider } from "./provider";
 
 /**
@@ -11,8 +16,9 @@ import { createAlibabaProvider } from "./provider";
  * response body is flowing, failures cannot be replayed.
  */
 const DEFAULT_STEP_MAX_RETRIES = 3;
+type AgentOutputSpec<T> = ReturnType<typeof Output.object<T>>;
 
-export interface CreateResumeAgentOptions<TOOLS extends ToolSet> {
+export interface CreateResumeAgentOptions<TOOLS extends ToolSet, OUTPUT = string> {
   instructions: string;
   tools?: TOOLS;
   modelId?: string;
@@ -22,9 +28,10 @@ export interface CreateResumeAgentOptions<TOOLS extends ToolSet> {
   maxRetries?: number;
   maxOutputTokens?: number;
   prepareStep?: PrepareStepFunction<TOOLS>;
+  output?: AgentOutputSpec<OUTPUT>;
 }
 
-export function createResumeAgent<TOOLS extends ToolSet>({
+export function createResumeAgent<TOOLS extends ToolSet, OUTPUT = string>({
   instructions,
   tools,
   modelId = getRequiredEnv("ALIBABA_MODEL"),
@@ -34,19 +41,21 @@ export function createResumeAgent<TOOLS extends ToolSet>({
   maxRetries = DEFAULT_STEP_MAX_RETRIES,
   maxOutputTokens,
   prepareStep,
-}: CreateResumeAgentOptions<TOOLS>) {
+  output,
+}: CreateResumeAgentOptions<TOOLS, OUTPUT>) {
   const provider = createAlibabaProvider({ enableThinking });
 
   const settings = {
     instructions,
     maxOutputTokens,
     maxRetries,
-    model: withDevTools(provider(modelId)),
+    model: provider(modelId),
+    output,
     prepareStep,
     stopWhen,
     temperature,
     tools,
-  } as unknown as ToolLoopAgentSettings<never, TOOLS>;
+  } as unknown as ToolLoopAgentSettings<never, TOOLS, any, AgentOutputSpec<OUTPUT>>;
 
-  return new ToolLoopAgent<never, TOOLS>(settings);
+  return new ToolLoopAgent<never, TOOLS, any, AgentOutputSpec<OUTPUT>>(settings);
 }

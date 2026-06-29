@@ -25,7 +25,6 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@ai-sdk/devtools": "^1.0.0",
     "@ai-sdk/openai-compatible": "^3.0.0",
     "@arc/adapter-feishu": "workspace:*",
     "@arc/db-schema": "workspace:*",

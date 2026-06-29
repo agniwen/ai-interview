@@ -80,7 +80,6 @@ minimumReleaseAgeExclude:
   - "@typescript/typescript-win32-arm64@7.0.1-rc"
   - "@typescript/typescript-win32-x64@7.0.1-rc"
   - typescript@7.0.1-rc
-  - "@ai-sdk/devtools@1.0.0"
   - "@ai-sdk/gateway@4.0.0"
   - "@ai-sdk/mcp@2.0.0"
   - "@ai-sdk/openai-compatible@3.0.0"

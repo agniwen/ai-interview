@@ -1,16 +1,15 @@
 // End-to-end deterministic resume parsing pipeline.
 // Runs Qwen-VL OCR on every page of the PDF, then extracts structured
-// candidate info via a single generateText / parseJsonOutput call.
+// candidate info via a schema-constrained generateText call.
 
 import { setTimeout as delay } from "node:timers/promises";
-import { generateText } from "ai";
+import { generateText, Output } from "ai";
 import { XMLParser } from "fast-xml-parser";
 import { convert as htmlToText } from "html-to-text";
 import JSZip from "jszip";
 import mammoth from "mammoth";
 import pLimit from "p-limit";
 import pRetry from "p-retry";
-import { parseJsonOutput } from "@arc/ai-recruitment-copilot-backend/server/agents/json-output";
 import { createAlibabaProvider } from "@arc/ai-recruitment-copilot-backend/server/agents/provider";
 import { structuredSchema } from "@arc/db-schema/resume-parser-schema";
 import type { ResumeParserStructured } from "@arc/db-schema/resume-parser-schema";
@@ -70,7 +69,8 @@ const STRUCTURED_INSTRUCTIONS = `你是一名简历解析助手。给你一段�
 - 只输出 JSON 本身，不要任何额外解释文字，不要使用 Markdown 代码块。
 - 无法从简历中确认的字段返回 null 或空数组，禁止编造。
 - personalStrengths 必须有简历依据。
-- skills / links / schools / targetRoles / personalStrengths 去重；skills 最多 18 项，其余最多 6 项。
+- skills 是候选人掌握技能的全集，必须汇总简历中所有有依据的技能来源：技能/专业技能栏、项目经历、工作经历、项目 techStack、职责描述、工具平台、框架语言、数据库、中间件、云服务、设计/办公/协作工具等；不要因为数量多而截断 skills。
+- links / schools / targetRoles / personalStrengths 去重且最多 6 项。
 - educationExperiences 按简历原文顺序输出所有教育经历；每段尽量提取 school / degree / major / period / graduationYear / educationLevel / summary。
 - 如果教育经历只有学校名，也要输出一条记录，其余无法确认字段为 null。
 - schools 仍输出去重学校名列表，用于摘要兼容；顶层 degree / major / graduationYear / education 表示最高学历或最主要学历。
@@ -640,7 +640,7 @@ export async function generateResumeStructured(text: string): Promise<ResumePars
     inputChars: text.length,
     model: modelId,
   });
-  const { text: rawOutput } = await generateText({
+  const { output, text: rawOutput } = await generateText({
     // 中文简历每字约 1 token，加上 projectExperiences/workExperiences 等结构开销，
     // 项目/经历较多的简历输出会很长，给到 16384 留足余量避免 summary 中途截断。
     // Chinese resumes use ~1 token per character; with verbose project / work
@@ -648,6 +648,11 @@ export async function generateResumeStructured(text: string): Promise<ResumePars
     // headroom and avoid truncating mid-string.
     maxOutputTokens: 16_384,
     model: provider(modelId),
+    output: Output.object({
+      description: "结构化候选人简历档案",
+      name: "resume_profile",
+      schema: structuredSchema,
+    }),
     prompt: `${STRUCTURED_INSTRUCTIONS}\n\n简历文本：\n${clipForStructured(text)}`,
     temperature: 0,
   });
@@ -657,7 +662,7 @@ export async function generateResumeStructured(text: string): Promise<ResumePars
     model: modelId,
     outputChars: rawOutput.length,
   });
-  return parseJsonOutput(rawOutput, structuredSchema, "resume-parse-pipeline");
+  return output;
 }
 
 /**

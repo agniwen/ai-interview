@@ -7,7 +7,6 @@
     "predev": "rm -rf node_modules/.vite .tanstack/tmp",
     "dev": "vite dev",
     "dev:fresh": "rm -rf node_modules/.vite .tanstack/tmp && vite dev --force",
-    "dev:ai": "npx @ai-sdk/devtools",
     "copy:mupdf-wasm": "tsx scripts/copy-mupdf-wasm.ts",
     "env:validate": "tsx src/env/validate.ts",
     "prebuild": "pnpm env:validate",
@@ -24,7 +23,6 @@
     "doctor": "npx react-doctor@latest"
   },
   "dependencies": {
-    "@ai-sdk/devtools": "^1.0.0",
     "@ai-sdk/openai-compatible": "^3.0.0",
     "@ai-sdk/react": "^4.0.0",
     "@arc/adapter-feishu": "workspace:*",

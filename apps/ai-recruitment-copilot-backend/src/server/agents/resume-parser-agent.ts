@@ -6,6 +6,27 @@ import type { ResumeParserStructured } from "@arc/db-schema/resume-parser-schema
 export type { ResumeParserStructured };
 export { structuredSchema };
 
+function uniqueTrimmedStrings(values: readonly string[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const value of values) {
+    const trimmed = value.trim();
+    if (!trimmed || seen.has(trimmed)) {
+      continue;
+    }
+    seen.add(trimmed);
+    out.push(trimmed);
+  }
+  return out;
+}
+
+function collectProfileSkills(structured: ResumeParserStructured): string[] {
+  return uniqueTrimmedStrings([
+    ...structured.skills,
+    ...structured.projectExperiences.flatMap((experience) => experience.techStack),
+  ]);
+}
+
 /**
  * Project the superset `ResumeParserStructured` down to the legacy
  * `ResumeProfile` shape. Fields unique to the subagent (links, timelineSummary,
@@ -23,7 +44,7 @@ export function toResumeProfile(structured: ResumeParserStructured): ResumeProfi
     phone: structured.phone,
     projectExperiences: structured.projectExperiences,
     schools: structured.schools,
-    skills: structured.skills,
+    skills: collectProfileSkills(structured),
     targetRoles: structured.targetRoles,
     workExperiences: structured.workExperiences,
     workYears: structured.workYears,

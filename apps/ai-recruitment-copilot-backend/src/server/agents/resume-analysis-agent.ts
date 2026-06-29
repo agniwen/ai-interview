@@ -3,7 +3,7 @@ import type {
   ResumeAnalysisResult,
   ResumeProfile,
 } from "@arc/db-schema/interview/types";
-import { stepCountIs } from "ai";
+import { Output, stepCountIs } from "ai";
 import { uniq } from "lodash-es";
 import { z } from "zod";
 import { generatedInterviewQuestionsSchema } from "@arc/db-schema/interview/types";
@@ -29,7 +29,6 @@ import {
   findAttachmentByContentHash,
   updateStructuredByHash,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/chat/dao/chat-attachments";
-import { parseJsonOutput } from "./json-output";
 import { createResumeAgent } from "./resume-agent";
 import {
   projectAttachmentToResumeProfile,
@@ -230,6 +229,12 @@ const QUESTION_INSTRUCTIONS = `你是一名技术面试出题助手。请基于�
 5. 题目语言以候选人的主要语言为主：根据简历、目标岗位和岗位说明中占主导的语言判断；如果无法判断，默认使用中文。
 6. 不要给答案，不要输出解释，不要重复题目。`;
 
+const INTERVIEW_QUESTIONS_OUTPUT = Output.object({
+  description: "根据候选人简历生成的结构化面试题列表",
+  name: "resume_interview_questions",
+  schema: generatedInterviewQuestionsSchema,
+});
+
 export interface ResumeParseResult {
   fileName: string;
   resumeProfile: ResumeProfile;
@@ -427,6 +432,7 @@ export function streamGenerateInterviewQuestions(
       enableThinking: false,
       instructions: QUESTION_INSTRUCTIONS,
       modelId: structuredModelId,
+      output: INTERVIEW_QUESTIONS_OUTPUT,
       stopWhen: stepCountIs(2),
       temperature: 0.3,
       tools: {},
@@ -437,21 +443,14 @@ export function streamGenerateInterviewQuestions(
     });
 
     let stepIndex = 0;
-    let fullText = "";
     for await (const part of streamResult.stream) {
-      if (part.type === "text-delta") {
-        fullText += part.text;
-      } else if (part.type === "start-step") {
+      if (part.type === "start-step") {
         stepIndex += 1;
         emit({ index: stepIndex, type: "step" });
       }
     }
 
-    const parsed = parseJsonOutput(
-      fullText,
-      generatedInterviewQuestionsSchema,
-      "question-generation",
-    );
+    const parsed = generatedInterviewQuestionsSchema.parse(await streamResult.output);
     emit({
       data: { interviewQuestions: normalizeInterviewQuestions(parsed.interviewQuestions) },
       type: "result",
@@ -528,16 +527,17 @@ export async function generateInterviewQuestionsForProfile(
       enableThinking: false,
       instructions: QUESTION_INSTRUCTIONS,
       modelId: structuredModelId,
+      output: INTERVIEW_QUESTIONS_OUTPUT,
       stopWhen: stepCountIs(2),
       temperature: 0.3,
       tools: {},
     });
 
-    const { text } = await questionAgent.generate({
+    const { output } = await questionAgent.generate({
       prompt: `候选人信息：\n${JSON.stringify(resumeProfile, null, 2)}`,
     });
 
-    const parsed = parseJsonOutput(text, generatedInterviewQuestionsSchema, "question-generation");
+    const parsed = generatedInterviewQuestionsSchema.parse(output);
     return normalizeInterviewQuestions(parsed.interviewQuestions);
   } catch (error) {
     if (error instanceof ResumeAnalysisError) {
@@ -754,6 +754,11 @@ function createHardFilterAgent() {
     enableThinking: false,
     instructions: HARD_FILTER_INSTRUCTIONS,
     modelId: structuredModelId,
+    output: Output.object({
+      description: "从 JD 提取的结构化硬性门槛",
+      name: "resume_hard_filter",
+      schema: hardFilterSchema,
+    }),
     stopWhen: stepCountIs(1),
     temperature: 0,
     tools: {},
@@ -778,11 +783,11 @@ async function runHardFilter(
   }
 
   const agent = createHardFilterAgent();
-  const { text } = await agent.generate({
+  const { output } = await agent.generate({
     prompt: `${buildResumeReviewTimeContext()}\n\n在招岗位描述：\n${jobDescription.trim()}`,
   });
+  const criteria = hardFilterSchema.parse(output);
 
-  const criteria = parseJsonOutput(text, hardFilterSchema, "resume-hard-filter");
   return {
     semanticRequirements: criteria.semanticRequirements,
     violations: checkHardFilter(resumeProfile, criteria),
@@ -974,6 +979,11 @@ function createResumeReviewQualitativeAgent() {
     enableThinking: false,
     instructions: REVIEW_QUALITATIVE_INSTRUCTIONS,
     modelId: structuredModelId,
+    output: Output.object({
+      description: "简历与岗位匹配的结构化定性评价",
+      name: "resume_qualitative_review",
+      schema: resumeQualitativeSchema,
+    }),
     stopWhen: stepCountIs(2),
     temperature: 0.4,
     tools: {},
@@ -986,6 +996,11 @@ function createResumeReviewScoringAgent() {
     enableThinking: false,
     instructions: REVIEW_SCORING_INSTRUCTIONS,
     modelId: structuredModelId,
+    output: Output.object({
+      description: "产品六维简历评分结果",
+      name: "resume_six_dimension_scoring",
+      schema: resumeScoringSchema,
+    }),
     stopWhen: stepCountIs(2),
     temperature: 0.2,
     tools: {},
@@ -1023,9 +1038,9 @@ export interface ResumeReviewGenerationResult {
 
 function parseStructuredResumeReview(
   qualitative: ResumeQualitativeReview,
-  scoringText: string,
+  scoringInput: unknown,
 ): ResumeReviewGenerationResult {
-  const scoring = parseJsonOutput(scoringText, resumeScoringSchema, "resume-review-scoring");
+  const scoring = resumeScoringSchema.parse(scoringInput);
   const structuredReview = assembleResumeReview(qualitative, scoring);
   const review = formatResumeReviewMarkdown(structuredReview).trim().slice(0, 2000);
   return { review, structuredReview };
@@ -1069,21 +1084,14 @@ export function streamGenerateResumeReview(input: {
     });
 
     let stepIndex = 0;
-    let qualitativeText = "";
     for await (const part of qualitativeStream.stream) {
-      if (part.type === "text-delta") {
-        qualitativeText += part.text;
-      } else if (part.type === "start-step") {
+      if (part.type === "start-step") {
         stepIndex += 1;
         emit({ index: stepIndex, type: "step" });
       }
     }
 
-    const qualitative = parseJsonOutput(
-      qualitativeText,
-      resumeQualitativeSchema,
-      "resume-review-qualitative",
-    );
+    const qualitative = resumeQualitativeSchema.parse(await qualitativeStream.output);
 
     emit({ message: "正在生成维度评分…", type: "status" });
 
@@ -1092,7 +1100,7 @@ export function streamGenerateResumeReview(input: {
       prompt: buildResumeScoringPrompt({ ...input, qualitative }),
     });
 
-    const result = parseStructuredResumeReview(qualitative, scoringResult.text);
+    const result = parseStructuredResumeReview(qualitative, scoringResult.output);
     emit({ text: result.review, type: "text-delta" });
     emit({ data: result, type: "result" });
   });
@@ -1115,18 +1123,14 @@ export async function generateResumeReview(input: {
       semanticRequirements: hardFilterResult?.semanticRequirements ?? null,
     }),
   });
-  const qualitative = parseJsonOutput(
-    qualitativeResult.text,
-    resumeQualitativeSchema,
-    "resume-review-qualitative",
-  );
+  const qualitative = resumeQualitativeSchema.parse(qualitativeResult.output);
 
   // --- Agent 2: 六维度打分 ---
   const scoringResult = await createResumeReviewScoringAgent().generate({
     prompt: buildResumeScoringPrompt({ ...input, qualitative }),
   });
 
-  return parseStructuredResumeReview(qualitative, scoringResult.text);
+  return parseStructuredResumeReview(qualitative, scoringResult.output);
 }
 
 /**

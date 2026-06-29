@@ -152,13 +152,13 @@ const EXPECTED_REVIEW: ResumeReview = {
 function mockThreeAgentPipeline() {
   mocks.createResumeAgent
     .mockReturnValueOnce({
-      generate: vi.fn().mockResolvedValue({ text: JSON.stringify(HARD_FILTER_PASS) }),
+      generate: vi.fn().mockResolvedValue({ output: HARD_FILTER_PASS, text: "{}" }),
     })
     .mockReturnValueOnce({
-      generate: vi.fn().mockResolvedValue({ text: JSON.stringify(QUALITATIVE_OUTPUT) }),
+      generate: vi.fn().mockResolvedValue({ output: QUALITATIVE_OUTPUT, text: "{}" }),
     })
     .mockReturnValueOnce({
-      generate: vi.fn().mockResolvedValue({ text: JSON.stringify(SCORING_OUTPUT) }),
+      generate: vi.fn().mockResolvedValue({ output: SCORING_OUTPUT, text: "{}" }),
     });
 }
 
@@ -181,6 +181,9 @@ describe("generateResumeReview", () => {
     expect(result.structuredReview.overall.baseScore).toBe(88);
     expect(result.review).toBe(formatResumeReviewMarkdown(EXPECTED_REVIEW));
     expect(mocks.createResumeAgent).toHaveBeenCalledTimes(3);
+    for (const call of mocks.createResumeAgent.mock.calls) {
+      expect(call[0]).toEqual(expect.objectContaining({ output: expect.any(Object) }));
+    }
   });
 
   it("injects current server time into resume review model prompts", async () => {
@@ -217,7 +220,7 @@ describe("generateResumeReview", () => {
 
     // Agent 0 返回硕士门槛，候选人是本科 → 违反。
     mocks.createResumeAgent.mockReturnValueOnce({
-      generate: vi.fn().mockResolvedValue({ text: JSON.stringify(HARD_FILTER_FAIL) }),
+      generate: vi.fn().mockResolvedValue({ output: HARD_FILTER_FAIL, text: "{}" }),
     });
 
     const result = await generateResumeReview({
@@ -240,10 +243,10 @@ describe("generateResumeReview", () => {
     // 无 JD → Agent 0 跳过，只 mock Agent 1 + Agent 2。
     mocks.createResumeAgent
       .mockReturnValueOnce({
-        generate: vi.fn().mockResolvedValue({ text: JSON.stringify(QUALITATIVE_OUTPUT) }),
+        generate: vi.fn().mockResolvedValue({ output: QUALITATIVE_OUTPUT, text: "{}" }),
       })
       .mockReturnValueOnce({
-        generate: vi.fn().mockResolvedValue({ text: JSON.stringify(SCORING_OUTPUT) }),
+        generate: vi.fn().mockResolvedValue({ output: SCORING_OUTPUT, text: "{}" }),
       });
 
     const result = await generateResumeReview({

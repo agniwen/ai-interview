@@ -91,6 +91,35 @@ describe("resume parsing agent", () => {
     expect(result.parsedTextSource).toBe("qwen-ocr");
   });
 
+  it("promotes project tech stacks into the top-level skill set", async () => {
+    mocks.parseResumeFast.mockResolvedValue({
+      pageCount: 1,
+      structured: {
+        ...STRUCTURED,
+        projectExperiences: [
+          {
+            name: "商家后台",
+            period: "2023-2024",
+            role: "前端负责人",
+            summary: "负责 Vue 前端工程化和 Kubernetes 部署协作",
+            techStack: ["Vue", "Kubernetes"],
+          },
+        ],
+        skills: ["TypeScript", "Vue"],
+      },
+      text: "raw text",
+      textSource: "qwen-ocr",
+    });
+
+    const result = await parseResumeBytesToProfile({
+      bytes: new Uint8Array([1, 2, 3]),
+      fileName: "resume.pdf",
+      mediaType: "application/pdf",
+    });
+
+    expect(result.resumeProfile.skills).toEqual(["TypeScript", "Vue", "Kubernetes"]);
+  });
+
   it("uses the internal resume parser for the streaming parse endpoint", async () => {
     mocks.sha256HexOfBytes.mockResolvedValue("hash-1");
     mocks.findAttachmentByContentHash.mockResolvedValue(null);

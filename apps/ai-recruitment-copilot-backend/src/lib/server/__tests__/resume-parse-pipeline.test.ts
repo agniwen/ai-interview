@@ -4,8 +4,17 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   convertLegacyOfficeToOoxml: vi.fn(),
+  generateText: vi.fn(),
+  outputObject: vi.fn(),
   qwenVlOcr: vi.fn(),
   rasterizePdfWithMeta: vi.fn(),
+}));
+
+vi.mock("ai", () => ({
+  Output: {
+    object: mocks.outputObject,
+  },
+  generateText: mocks.generateText,
 }));
 
 vi.mock("../office-conversion", () => ({
@@ -21,7 +30,60 @@ vi.mock("../qwen-ocr", () => ({
   qwenVlOcr: mocks.qwenVlOcr,
 }));
 
-const { extractResumeDocumentText, parseResumeOcrOnly } = await import("../resume-parse-pipeline");
+const { extractResumeDocumentText, generateResumeStructured, parseResumeOcrOnly } =
+  await import("../resume-parse-pipeline");
+
+const STRUCTURED_RESUME = {
+  age: null,
+  degree: "本科",
+  education: "本科",
+  educationExperiences: [
+    {
+      degree: "本科",
+      educationLevel: "本科",
+      graduationYear: null,
+      major: "计算机科学",
+      period: "2014-2018",
+      school: "浙江大学",
+      summary: null,
+    },
+  ],
+  email: "candidate@example.com",
+  gender: null,
+  graduationYear: null,
+  links: [],
+  major: "计算机科学",
+  name: "候选人",
+  personalStrengths: ["前端工程化"],
+  phone: null,
+  projectExperiences: [
+    {
+      name: "商家后台",
+      period: "2021-2023",
+      role: "前端负责人",
+      summary: "负责 React 前端架构",
+      techStack: ["React", "TypeScript"],
+    },
+  ],
+  schools: ["浙江大学"],
+  skills: ["React", "TypeScript"],
+  targetRoles: ["前端工程师"],
+  timelineSummary: {
+    currentStatus: "在职",
+    dateRanges: ["2021-2023"],
+    estimatedExperienceYears: 5,
+    riskSignals: [],
+  },
+  workExperiences: [
+    {
+      company: "示例科技",
+      period: "2019-至今",
+      role: "前端工程师",
+      summary: "负责业务平台前端开发",
+    },
+  ],
+  workYears: 5,
+};
 
 function createStoredZip(entries: Record<string, string>): Promise<Uint8Array> {
   const zip = new JSZip();
@@ -112,6 +174,9 @@ describe("parseResumeOcrOnly", () => {
 describe("extractResumeDocumentText", () => {
   beforeEach(() => {
     vi.resetAllMocks();
+    process.env.ALIBABA_API_KEY = "test-key";
+    process.env.ALIBABA_BASE_URL = "https://example.test";
+    process.env.ALIBABA_STRUCTURED_MODEL = "qwen-test";
     mocks.rasterizePdfWithMeta.mockResolvedValue({
       pageCount: 1,
       pages: [Buffer.from("pdf-page")],
@@ -386,5 +451,46 @@ describe("extractResumeDocumentText", () => {
     });
     expect(result.text).toContain("旧版 Excel 候选人");
     expect(result.textSource).toBe("xlsx-text");
+  });
+});
+
+describe("generateResumeStructured", () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+    process.env.ALIBABA_API_KEY = "test-key";
+    process.env.ALIBABA_BASE_URL = "https://example.test";
+    process.env.ALIBABA_STRUCTURED_MODEL = "qwen-test";
+    mocks.outputObject.mockReturnValue("structured-output");
+    mocks.generateText.mockResolvedValue({
+      output: STRUCTURED_RESUME,
+      text: JSON.stringify(STRUCTURED_RESUME),
+    });
+  });
+
+  it("uses AI SDK structured output instead of parsing free-form JSON text", async () => {
+    const result = await generateResumeStructured("候选人 React TypeScript 5 年经验");
+
+    expect(result).toEqual(STRUCTURED_RESUME);
+    expect(mocks.outputObject).toHaveBeenCalledWith(
+      expect.objectContaining({
+        description: expect.any(String),
+        name: "resume_profile",
+      }),
+    );
+    expect(mocks.generateText).toHaveBeenCalledWith(
+      expect.objectContaining({
+        output: "structured-output",
+      }),
+    );
+  });
+
+  it("instructs the model to collect a complete skill set without an 18-item cap", async () => {
+    await generateResumeStructured("候选人掌握多项技术栈");
+
+    const prompt = mocks.generateText.mock.calls[0]?.[0]?.prompt;
+    expect(prompt).toContain("skills 是候选人掌握技能的全集");
+    expect(prompt).toContain("项目经历");
+    expect(prompt).toContain("工作经历");
+    expect(prompt).not.toContain("skills 最多 18 项");
   });
 });

@@ -4,10 +4,6 @@ import { studioInterview, studioOrgSkill } from "@arc/db-schema/schema";
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
-// 与 resume-parse-pipeline.ts:55 的"skills 最多 18 项"约束保持一致。
-// Keep the cap aligned with the prompt-level constraint in resume-parse-pipeline.
-const MAX_SKILLS_PER_INTERVIEW = 18;
-
 /**
  * 技能归一化：trim + 连续空白折叠为单空格 + lowercase。
  * 「React」/「react」/「  React  」/「Claude  Code」 → 「react」/「claude code」。
@@ -43,9 +39,6 @@ function collectNormalizedSkills(
       continue;
     }
     seen.set(normalized, display);
-    if (seen.size >= MAX_SKILLS_PER_INTERVIEW) {
-      break;
-    }
   }
   return Array.from(seen, ([normalized, display]) => ({ display, normalized }));
 }
