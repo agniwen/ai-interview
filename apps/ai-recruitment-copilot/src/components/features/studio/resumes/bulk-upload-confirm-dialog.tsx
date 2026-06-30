@@ -45,7 +45,6 @@ export function BulkUploadConfirmDialog({
 }: Props) {
   const [jdMode, setJdMode] = useState<ResumeUploadBatchJdMode>("auto");
   const [jobDescriptionId, setJobDescriptionId] = useState("");
-  const [dedupPolicy, setDedupPolicy] = useState<ResumeUploadBatchDedupPolicy>("skip");
 
   // 必须选文件，且 bind 模式下必须选 JD 才能开始。
   // Must have files; in bind mode a JD must be selected.
@@ -56,7 +55,7 @@ export function BulkUploadConfirmDialog({
       return;
     }
     onConfirmed(files, {
-      dedupPolicy,
+      dedupPolicy: "skip",
       jdMode,
       jobDescriptionId: jdMode === "bind" ? jobDescriptionId : null,
     });
@@ -146,26 +145,12 @@ export function BulkUploadConfirmDialog({
           ) : null}
         </div>
 
-        {/* 查重策略 / Deduplication policy */}
+        {/* 查重说明 / Deduplication note */}
         <div>
-          <Label className="mb-2 block text-sm">查重策略</Label>
-          <RadioGroup
-            onValueChange={(v) => setDedupPolicy(v as ResumeUploadBatchDedupPolicy)}
-            value={dedupPolicy}
-          >
-            <div className="flex items-center gap-2">
-              <RadioGroupItem id="dedup-skip" value="skip" />
-              <Label className="font-normal" htmlFor="dedup-skip">
-                跳过疑似重复（不创建新记录）
-              </Label>
-            </div>
-            <div className="flex items-center gap-2">
-              <RadioGroupItem id="dedup-create" value="create" />
-              <Label className="font-normal" htmlFor="dedup-create">
-                照样创建（允许重复）
-              </Label>
-            </div>
-          </RadioGroup>
+          <Label className="mb-2 block text-sm">查重处理</Label>
+          <p className="rounded-md border bg-muted/30 px-3 py-2 text-muted-foreground text-sm">
+            命中疑似重复时仍会入库，并在列表中标记“疑似重复”。
+          </p>
         </div>
       </div>
     </Modal>

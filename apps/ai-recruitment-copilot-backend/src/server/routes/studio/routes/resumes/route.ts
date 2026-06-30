@@ -58,15 +58,12 @@ import {
   loadInterviewRoundDetail,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/dao/interview-rounds";
 import { findSemanticResumeDuplicates } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/dedup-service";
+import { replaceDuplicateMatchesForSource } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/duplicate-matches";
 import { enqueueResumeSemanticIndexJobBestEffort } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/enqueue";
 import { deleteResumeSemanticIndexBestEffort } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/lifecycle";
 import { autoBindApplicableTemplates } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interview-questions/dao/bindings";
 import { jobDescriptionIdsExist } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao";
 import { createResumeRecordFromStorage } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/create-from-storage";
-import {
-  parseResumeCreateDedupPolicy,
-  resolveResumeCreateDedupConflict,
-} from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/dedup";
 import { syncResumeProfileIdentity } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/profile-sync";
 import { generateResumeReviewBestEffort } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/review-generation";
 import { createPptxPreviewPdfResponse } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/utils/pptx-preview";
@@ -713,17 +710,13 @@ export const resumeLibraryRouter = factory
         resumeText = parsed.parsedText;
         parsedFileName = resume.name;
       }
-      const dedupConflict = await resolveResumeCreateDedupConflict({
-        candidateEmail: input.data.candidateEmail || null,
-        candidateName: input.data.candidateName || null,
-        candidatePhone: input.data.candidatePhone || null,
-        dedupPolicy: parseResumeCreateDedupPolicy(formData.get("dedupPolicy")),
+      const dedupMatches = await findSemanticResumeDuplicates({
+        email: input.data.candidateEmail || resumeProfile?.email || null,
+        name: input.data.candidateName || resumeProfile?.name || null,
         organizationId: activeOrg.id,
+        phone: input.data.candidatePhone || resumeProfile?.phone || null,
         resumeProfile,
       });
-      if (dedupConflict) {
-        return c.json(dedupConflict, 409);
-      }
 
       let resumeReview = resumeReviewInput.data;
       if (!resumeReview && resumeProfile) {
@@ -754,6 +747,12 @@ export const resumeLibraryRouter = factory
         userId: c.var.user?.id ?? null,
       });
 
+      await replaceDuplicateMatchesForSource({
+        matches: dedupMatches,
+        organizationId: activeOrg.id,
+        sourceId: recordId,
+        sourceType: "studio_interview",
+      });
       invalidateStudioInterviewCaches(activeOrg.id);
       await enqueueResumeSemanticIndexJobBestEffort({
         organizationId: activeOrg.id,

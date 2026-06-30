@@ -1239,6 +1239,7 @@ export type MailIngestMessageStatus = "processing" | "queued" | "skipped" | "fai
 export type ResumeSemanticSourceType = "resume_pool_item" | "studio_interview";
 export type ResumeSemanticIndexStatus = "failed" | "indexed" | "pending" | "skipped" | "stale";
 export type ResumeSemanticDuplicateLevel = "high" | "low" | "medium";
+export type ResumeDuplicateMatchStatus = "active" | "confirmed" | "dismissed";
 
 export const resumeSemanticIndex = pgTable(
   "resume_semantic_index",
@@ -1298,10 +1299,28 @@ export const resumeDuplicateMatch = pgTable(
       .$type<string[]>()
       .notNull()
       .default(sql`'[]'::jsonb`),
+    similarity: jsonb("similarity").$type<{
+      resumeOverview?: number;
+      skillRole?: number;
+      workProject?: number;
+    }>(),
     sourceId: text("source_id").notNull(),
     sourceType: text("source_type").$type<ResumeSemanticSourceType>().notNull(),
+    status: text("status").$type<ResumeDuplicateMatchStatus>().notNull().default("active"),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
   },
   (table) => [
+    uniqueIndex("resume_duplicate_match_source_target_version_uq").on(
+      table.organizationId,
+      table.sourceType,
+      table.sourceId,
+      table.matchedSourceType,
+      table.matchedSourceId,
+      table.embeddingVersion,
+    ),
     index("resume_duplicate_match_org_source_idx").on(
       table.organizationId,
       table.sourceType,
@@ -1309,6 +1328,7 @@ export const resumeDuplicateMatch = pgTable(
       table.createdAt,
     ),
     index("resume_duplicate_match_org_level_idx").on(table.organizationId, table.level),
+    index("resume_duplicate_match_org_status_idx").on(table.organizationId, table.status),
   ],
 );
 

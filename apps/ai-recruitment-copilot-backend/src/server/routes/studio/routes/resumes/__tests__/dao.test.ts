@@ -10,6 +10,7 @@ import {
   jobDescription,
   member,
   organization,
+  resumeDuplicateMatch,
   studioHumanInterviewRound,
   studioInterview,
   studioInterviewSchedule,
@@ -35,6 +36,8 @@ const JD_BACKEND = "jd_test_resume_dao_backend";
 const DEPT_ID = "dept_test_resume_dao";
 
 async function cleanup() {
+  await db.delete(resumeDuplicateMatch).where(eq(resumeDuplicateMatch.organizationId, ORG_A));
+  await db.delete(resumeDuplicateMatch).where(eq(resumeDuplicateMatch.organizationId, ORG_B));
   await db.delete(studioInterview).where(eq(studioInterview.organizationId, ORG_A));
   await db.delete(studioInterview).where(eq(studioInterview.organizationId, ORG_B));
   await db.delete(studioOrgSkill).where(eq(studioOrgSkill.organizationId, ORG_A));
@@ -220,6 +223,51 @@ describe("queryPaginatedResumeRecords", () => {
     expect(sample.status).toBeTypeOf("string");
     expect(sample.hasResumeFile).toBeTypeOf("boolean");
     expect(typeof sample.createdAt).toBe("string");
+  });
+
+  it("includes active duplicate match summary for resume library rows", async () => {
+    await db.insert(resumeDuplicateMatch).values([
+      {
+        embeddingVersion: "test-v1",
+        id: "resume_dao_duplicate_active",
+        level: "high",
+        matchedSourceId: "ri_test_a_2",
+        matchedSourceType: "studio_interview",
+        organizationId: ORG_A,
+        reasons: ["整体履历高度相似"],
+        score: 96,
+        sourceId: "ri_test_a_1",
+        sourceType: "studio_interview",
+        status: "active",
+      },
+      {
+        embeddingVersion: "test-v1",
+        id: "resume_dao_duplicate_dismissed",
+        level: "medium",
+        matchedSourceId: "ri_test_a_1",
+        matchedSourceType: "studio_interview",
+        organizationId: ORG_A,
+        reasons: ["已忽略"],
+        score: 82,
+        sourceId: "ri_test_a_2",
+        sourceType: "studio_interview",
+        status: "dismissed",
+      },
+    ]);
+
+    try {
+      const result = await queryPaginatedResumeRecords(ORG_A);
+      expect(result.records.find((row) => row.id === "ri_test_a_1")?.duplicateMatch).toEqual({
+        count: 1,
+        highestLevel: "high",
+      });
+      expect(result.records.find((row) => row.id === "ri_test_a_2")?.duplicateMatch).toBeNull();
+
+      const detail = await loadResumeDetail("ri_test_a_1", ORG_A);
+      expect(detail?.duplicateMatch).toEqual({ count: 1, highestLevel: "high" });
+    } finally {
+      await db.delete(resumeDuplicateMatch).where(eq(resumeDuplicateMatch.organizationId, ORG_A));
+    }
   });
 
   it("serializes lastInterviewAt from conversation timestamps without timezone loss", async () => {

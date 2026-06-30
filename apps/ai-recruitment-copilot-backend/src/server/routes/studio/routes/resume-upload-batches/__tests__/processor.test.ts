@@ -13,6 +13,7 @@ import {
 } from "@arc/ai-recruitment-copilot-backend/server/agents/resume-analysis-agent";
 import type * as DedupServiceModule from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/dedup-service";
 import { findSemanticResumeDuplicates } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/dedup-service";
+import { replaceDuplicateMatchesForSource } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/duplicate-matches";
 import { enqueueResumeSemanticIndexJobBestEffort } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/enqueue";
 import { runResumeSemanticIndexJob } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/indexer";
 import {
@@ -72,6 +73,10 @@ vi.mock(
 
 vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/enqueue", () => ({
   enqueueResumeSemanticIndexJobBestEffort: vi.fn(),
+}));
+
+vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/duplicate-matches", () => ({
+  replaceDuplicateMatchesForSource: vi.fn(),
 }));
 
 vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/indexer", () => ({
@@ -270,6 +275,9 @@ beforeEach(() => {
   (findSemanticResumeDuplicates as ReturnType<typeof vi.fn>).mockResolvedValue([]);
   (enqueueResumeSemanticIndexJobBestEffort as ReturnType<typeof vi.fn>).mockImplementation(() =>
     Promise.resolve(),
+  );
+  (replaceDuplicateMatchesForSource as ReturnType<typeof vi.fn>).mockImplementation(() =>
+    Promise.resolve(0),
   );
   (runResumeSemanticIndexJob as ReturnType<typeof vi.fn>).mockImplementation(() =>
     Promise.resolve(),
@@ -510,7 +518,7 @@ describe("processNextItem — resume pool target", () => {
     const poolItems = await db
       .select()
       .from(resumePoolItem)
-      .where(eq(resumePoolItem.organizationId, ORG_A));
+      .where(eq(resumePoolItem.id, beforeItem?.poolItemId ?? ""));
     expect(poolItems).toHaveLength(1);
     expect(poolItems[0]?.scope).toBe("private");
     expect(poolItems[0]?.candidateName).toBe("Pool User");
@@ -526,7 +534,7 @@ describe("processNextItem — resume pool target", () => {
     expect(enqueueResumeSemanticIndexJobBestEffort).not.toHaveBeenCalled();
   });
 
-  it("私有简历池 target=resume_pool + skip 查重命中时跳过创建", async () => {
+  it("私有简历池 target=resume_pool + skip 查重命中时仍然创建并记录疑似重复", async () => {
     const batchId = await insertBatchWithItems({
       dedupPolicy: "skip",
       files: makeFiles(1),
@@ -544,7 +552,7 @@ describe("processNextItem — resume pool target", () => {
       .where(eq(resumeUploadBatchItem.batchId, batchId));
     await expectQueuedPoolItem(beforeItem?.poolItemId);
 
-    (findSemanticResumeDuplicates as ReturnType<typeof vi.fn>).mockResolvedValue([
+    const matches = [
       {
         candidateEmail: "existing@example.com",
         candidateName: "Existing Candidate",
@@ -560,7 +568,8 @@ describe("processNextItem — resume pool target", () => {
         status: "draft",
         targetRole: null,
       },
-    ]);
+    ];
+    (findSemanticResumeDuplicates as ReturnType<typeof vi.fn>).mockResolvedValue(matches);
     mockS3OK();
     mockParseOK({
       email: "pool-dup@example.com",
@@ -571,19 +580,25 @@ describe("processNextItem — resume pool target", () => {
 
     const result = await processNextItem(batchId, ORG_A, USER_A);
 
-    expect(result?.item?.status).toBe("duplicate_skipped");
-    expect(result?.item?.poolItemId).toBeNull();
-    expect(result?.batch.skippedCount).toBe(1);
+    expect(result?.item?.status).toBe("succeeded");
+    expect(result?.item?.poolItemId).toBe(beforeItem?.poolItemId);
+    expect(result?.batch.skippedCount).toBe(0);
     expect(enqueueResumeSemanticIndexJobBestEffort).not.toHaveBeenCalled();
     expect(findSemanticResumeDuplicates).toHaveBeenCalledWith(
       expect.objectContaining({ organizationId: ORG_A }),
     );
+    expect(replaceDuplicateMatchesForSource).toHaveBeenCalledWith({
+      matches,
+      organizationId: ORG_A,
+      sourceId: beforeItem?.poolItemId,
+      sourceType: "resume_pool_item",
+    });
 
-    const skippedPoolItems = await db
+    const persistedPoolItems = await db
       .select()
       .from(resumePoolItem)
       .where(eq(resumePoolItem.id, beforeItem?.poolItemId ?? ""));
-    expect(skippedPoolItems).toHaveLength(0);
+    expect(persistedPoolItems).toHaveLength(1);
   });
 });
 
@@ -713,6 +728,58 @@ describe("processNextItem — dedup skip", () => {
 
     // 清理预插入行（afterAll 也会处理，但提前清更干净）。
     await db.delete(studioInterview).where(eq(studioInterview.id, preExistingId));
+  });
+
+  it("语义重复 + skip 策略创建简历库记录并记录疑似重复", async () => {
+    const batchId = await insertBatchWithItems({
+      dedupPolicy: "skip",
+      files: makeFiles(1),
+      jdMode: "none",
+      jobDescriptionId: null,
+      organizationId: ORG_A,
+      userId: USER_A,
+    });
+    const [beforeItem] = await db
+      .select()
+      .from(resumeUploadBatchItem)
+      .where(eq(resumeUploadBatchItem.batchId, batchId));
+    const matches = [
+      {
+        candidateEmail: "existing@example.com",
+        candidateName: "Existing Candidate",
+        candidatePhone: null,
+        conflictingSignals: [],
+        createdAt: NOW.toISOString(),
+        id: "existing_record",
+        jobDescriptionName: null,
+        level: "high",
+        score: 0.96,
+        semanticReasons: ["整体履历高度相似"],
+        similarity: { resumeOverview: 0.96 },
+        status: "draft",
+        targetRole: null,
+      },
+    ];
+    (findSemanticResumeDuplicates as ReturnType<typeof vi.fn>).mockResolvedValue(matches);
+    mockS3OK();
+    mockParseOK({
+      email: "library-dup@example.com",
+      name: "Library Dup User",
+      phone: "13900000003",
+      targetRoles: ["Engineer"],
+    });
+
+    const result = await processNextItem(batchId, ORG_A, USER_A);
+
+    expect(result?.item?.status).toBe("succeeded");
+    expect(result?.item?.resumeRecordId).toBe(beforeItem?.resumeRecordId);
+    expect(result?.batch.skippedCount).toBe(0);
+    expect(replaceDuplicateMatchesForSource).toHaveBeenCalledWith({
+      matches,
+      organizationId: ORG_A,
+      sourceId: beforeItem?.resumeRecordId,
+      sourceType: "studio_interview",
+    });
   });
 });
 

@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { ResumeAnalysisResult, ResumeProfile } from "@arc/db-schema/interview/types";
 import type { ResumeReview } from "@arc/db-schema/resume-review";
+import type { ResumeDuplicateMatchSummary } from "./resume-duplicates";
 import {
   resumeEvaluationStatusMeta,
   resumeEvaluationStatusSchema,
@@ -111,6 +112,7 @@ export interface ResumeLibraryListRecord {
   resumeParseError: string | null;
   resumeParseStatus: ResumeParseStatus;
   hasResumeFile: boolean;
+  duplicateMatch: ResumeDuplicateMatchSummary | null;
   // 是否已存在至少一个 AI 面试轮次（studioInterviewSchedule）。
   // Whether this candidate already has at least one AI interview round.
   hasInterviewRounds: boolean;

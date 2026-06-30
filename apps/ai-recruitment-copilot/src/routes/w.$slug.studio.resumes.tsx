@@ -65,6 +65,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { CreatorCell } from "@/components/data-grid/cells/creator-cell";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ButtonGroup } from "@/components/ui/button-group";
 import {
@@ -347,6 +348,23 @@ function ResumeProgressCell({
     </HoverCard>
   );
 }
+
+function duplicateMatchBadge(record: ResumeLibraryListRecord) {
+  if (!record.duplicateMatch) {
+    return null;
+  }
+  const label =
+    record.duplicateMatch.count > 1 ? `疑似重复 ${record.duplicateMatch.count} 条` : "疑似重复";
+  return (
+    <Badge
+      className="shrink-0"
+      variant={record.duplicateMatch.highestLevel === "high" ? "destructive" : "secondary"}
+    >
+      {label}
+    </Badge>
+  );
+}
+
 const VISIBLE_PIPELINE_STAGES = pipelineStageValues.filter(
   (s) => !HIDDEN_PIPELINE_STAGE_TABS.has(s),
 );
@@ -666,13 +684,16 @@ function ResumeLibraryPage({ metrics }: { metrics: ResumeLibraryMetrics }) {
             <div className="flex min-w-0 items-start gap-2">
               {documentIcon}
               <div className="min-w-0">
-                <button
-                  className="block max-w-full truncate text-left font-medium underline decoration-foreground/20 underline-offset-4 hover:decoration-foreground/60"
-                  onClick={() => setDetailRecordId(r.id)}
-                  type="button"
-                >
-                  {r.candidateName}
-                </button>
+                <div className="flex min-w-0 items-center gap-2">
+                  <button
+                    className="block min-w-0 truncate text-left font-medium underline decoration-foreground/20 underline-offset-4 hover:decoration-foreground/60"
+                    onClick={() => setDetailRecordId(r.id)}
+                    type="button"
+                  >
+                    {r.candidateName}
+                  </button>
+                  {duplicateMatchBadge(r)}
+                </div>
                 {r.candidateEmail ? (
                   <a
                     className="block max-w-full cursor-default truncate text-muted-foreground text-xs underline decoration-muted-foreground/20 underline-offset-4 hover:decoration-muted-foreground/60"

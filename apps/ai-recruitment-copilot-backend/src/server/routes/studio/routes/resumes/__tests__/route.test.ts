@@ -217,6 +217,16 @@ describe("resume semantic index cleanup", () => {
   });
 });
 
+describe("resume library create duplicate handling", () => {
+  it("persists duplicate matches after creating the resume instead of returning conflict", () => {
+    expect(routeSource).toContain("replaceDuplicateMatchesForSource");
+    expect(routeSource).toContain("const dedupMatches = await findSemanticResumeDuplicates");
+    expect(routeSource).toContain("sourceId: recordId");
+    expect(routeSource).toContain('sourceType: "studio_interview"');
+    expect(routeSource).not.toContain("return c.json(dedupConflict, 409)");
+  });
+});
+
 describe("resume OCR text persistence", () => {
   it("adds nullable resume_text columns to resume library and resume pool tables", () => {
     expect(dbSchemaSource).toContain('resumeText: text("resume_text")');

@@ -174,6 +174,19 @@ function resumeParseStatusBadge(record: ResumePoolListRecord) {
   }
 }
 
+function duplicateMatchBadge(record: ResumePoolListRecord) {
+  if (!record.duplicateMatch) {
+    return null;
+  }
+  const label =
+    record.duplicateMatch.count > 1 ? `疑似重复 ${record.duplicateMatch.count} 条` : "疑似重复";
+  return (
+    <Badge variant={record.duplicateMatch.highestLevel === "high" ? "destructive" : "secondary"}>
+      {label}
+    </Badge>
+  );
+}
+
 function getResumePoolImportActionState(record: ResumePoolListRecord) {
   if (record.importedResumeRecordId) {
     return {
@@ -502,43 +515,25 @@ function PrivateResumePoolUploadPolicyDialog({
   onConfirmed: (dedupPolicy: ResumeUploadBatchDedupPolicy) => void;
   onOpenChange: (open: boolean) => void;
 }) {
-  const [dedupPolicy, setDedupPolicy] = useState<ResumeUploadBatchDedupPolicy>("skip");
-
-  useEffect(() => {
-    if (open) {
-      setDedupPolicy("skip");
-    }
-  }, [open]);
-
   return (
     <Modal
-      description="仅私有简历上传支持查重策略；简历广场允许多份重复简历。"
+      description="命中疑似重复时仍会加入私有简历，并在列表中标记“疑似重复”。"
       footer={
         <>
           <Button onClick={() => onOpenChange(false)} variant="outline">
             取消
           </Button>
-          <Button onClick={() => onConfirmed(dedupPolicy)}>开始上传 ({fileCount})</Button>
+          <Button onClick={() => onConfirmed("skip")}>开始上传 ({fileCount})</Button>
         </>
       }
       onOpenChange={onOpenChange}
       open={open}
       size="sm"
-      title="查重策略"
+      title="查重处理"
     >
-      <RadioGroup
-        onValueChange={(value) => setDedupPolicy(value as ResumeUploadBatchDedupPolicy)}
-        value={dedupPolicy}
-      >
-        <FieldLabel className="w-full rounded-md border p-3">
-          <RadioGroupItem value="skip" />
-          <span>跳过疑似重复（不创建新记录）</span>
-        </FieldLabel>
-        <FieldLabel className="w-full rounded-md border p-3">
-          <RadioGroupItem value="create" />
-          <span>照样创建（允许重复）</span>
-        </FieldLabel>
-      </RadioGroup>
+      <p className="rounded-md border bg-muted/30 px-3 py-2 text-muted-foreground text-sm">
+        所有简历都会被保留；系统会把疑似重复关系记录到简历上。
+      </p>
     </Modal>
   );
 }
@@ -757,6 +752,7 @@ function ResumePoolDetailSummaryPanel({
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="font-medium text-sm">候选人摘要</h3>
             {resumeParseStatusBadge(detail)}
+            {duplicateMatchBadge(detail)}
             {detail.importedResumeRecordId ? (
               <Badge variant="success">已入库</Badge>
             ) : (
@@ -1201,6 +1197,7 @@ function ResumePoolCard({
           </CardTitle>
         </div>
         {record.sourceChannel === "referral" ? <Badge variant="secondary">内推</Badge> : null}
+        {duplicateMatchBadge(record)}
         {scope === "private" && canDelete ? (
           <Checkbox
             aria-label={`选择 ${title}`}
