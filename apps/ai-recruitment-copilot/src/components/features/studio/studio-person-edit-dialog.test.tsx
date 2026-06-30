@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ResumeLibraryDetail } from "@arc/shared/studio-resumes";
 import type { ResumeReview } from "@arc/shared/resume-review";
+import type { StudioInterviewRoundDetail } from "@arc/shared/studio-interview-rounds";
 import { WorkspaceSlugProvider } from "@/lib/client/workspace-context";
 import { StudioPersonEditDialog } from "./studio-person-edit-dialog";
 
@@ -13,15 +14,24 @@ import { StudioPersonEditDialog } from "./studio-person-edit-dialog";
 
 const apiMocks = vi.hoisted(() => ({
   apiFetch: vi.fn(),
+  fetchStudioInterviewRound: vi.fn(),
   fetchStudioResume: vi.fn(),
+}));
+
+const routerMocks = vi.hoisted(() => ({
+  navigate: vi.fn(),
 }));
 
 vi.mock("@/lib/client/api", () => ({
   apiFetch: apiMocks.apiFetch,
-  fetchStudioInterviewRound: vi.fn(),
+  fetchStudioInterviewRound: apiMocks.fetchStudioInterviewRound,
   fetchStudioResume: apiMocks.fetchStudioResume,
   resetStudioInterviewRound: vi.fn(),
   updateStudioInterviewRound: vi.fn(),
+}));
+
+vi.mock("@tanstack/react-router", () => ({
+  useNavigate: () => routerMocks.navigate,
 }));
 
 vi.mock("@/hooks/use-mobile", () => ({
@@ -34,6 +44,30 @@ vi.mock("@/components/features/studio/interviews/job-description-select-field", 
 
 vi.mock("@/components/ui/file-upload", () => ({
   FileUpload: () => <div data-testid="file-upload" />,
+}));
+
+vi.mock("@/components/ui/switch", () => ({
+  Switch: ({
+    checked,
+    disabled,
+    id,
+    onCheckedChange,
+  }: {
+    checked?: boolean;
+    disabled?: boolean;
+    id?: string;
+    onCheckedChange?: (checked: boolean) => void;
+  }) => (
+    <button
+      aria-checked={checked}
+      aria-label="切换"
+      disabled={disabled}
+      id={id}
+      onClick={() => onCheckedChange?.(!checked)}
+      role="switch"
+      type="button"
+    />
+  ),
 }));
 
 interface MarkdownEditorMockProps {
@@ -154,6 +188,51 @@ function makeDetail(overrides: Partial<ResumeLibraryDetail> = {}): ResumeLibrary
   };
 }
 
+function makeRoundDetail(
+  overrides: Partial<StudioInterviewRoundDetail> = {},
+): StudioInterviewRoundDetail {
+  return {
+    allowTextInput: true,
+    candidate: {
+      candidateEmail: "candidate@example.com",
+      candidateName: "候选人",
+      candidatePhone: "13800138000",
+      createdAt: "2026-06-15T00:00:00.000Z",
+      createdBy: null,
+      creatorName: null,
+      creatorOrganizationName: null,
+      id: "resume-1",
+      interviewQuestions: [],
+      jobDescriptionId: "jd-1",
+      jobDescriptionName: "前端工程师",
+      notes: "候选人备注",
+      outcome: "in_pipeline",
+      pipelineStage: "ai_interview",
+      resumeContentHash: "hash",
+      resumeFileName: "resume.pdf",
+      resumeProfile: null,
+      resumeStorageKey: "resume.pdf",
+      status: "draft",
+      targetRole: "前端工程师",
+      updatedAt: "2026-06-15T00:00:00.000Z",
+    },
+    conversationId: null,
+    createdAt: "2026-06-15T00:00:00.000Z",
+    disconnectedAt: null,
+    hasReport: false,
+    id: "round-1",
+    interviewLink: "/interview/round-1",
+    notes: "轮次备注",
+    roundLabel: "第一轮",
+    scheduledAt: null,
+    sessionStartedAt: null,
+    sortOrder: 1,
+    status: "pending",
+    updatedAt: "2026-06-15T00:00:00.000Z",
+    ...overrides,
+  };
+}
+
 function renderDialog() {
   const container = document.createElement("div");
   document.body.append(container);
@@ -175,12 +254,74 @@ function renderDialog() {
   return { queryClient, root };
 }
 
+function renderInterviewDialog({
+  onEditResumeRecord,
+  onOpenChange = vi.fn(),
+}: {
+  onEditResumeRecord?: (recordId: string) => void;
+  onOpenChange?: (open: boolean) => void;
+} = {}) {
+  const container = document.createElement("div");
+  document.body.append(container);
+  const root = createRoot(container);
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+
+  act(() => {
+    root.render(
+      <QueryClientProvider client={queryClient}>
+        <WorkspaceSlugProvider id="org-1" memberRole="admin" slug="new">
+          <StudioPersonEditDialog
+            mode="interview"
+            onEditResumeRecord={onEditResumeRecord}
+            onOpenChange={onOpenChange}
+            open
+            recordId="round-1"
+          />
+        </WorkspaceSlugProvider>
+      </QueryClientProvider>,
+    );
+  });
+
+  return { queryClient, root };
+}
+
 afterEach(() => {
   document.body.innerHTML = "";
   vi.clearAllMocks();
 });
 
 describe("StudioPersonEditDialog", () => {
+  it("opens candidate profile editing inline from interview edit mode", async () => {
+    apiMocks.fetchStudioInterviewRound.mockResolvedValue(makeRoundDetail());
+    const onEditResumeRecord = vi.fn();
+    const onOpenChange = vi.fn();
+    const { queryClient, root } = renderInterviewDialog({ onEditResumeRecord, onOpenChange });
+
+    await vi.waitFor(() => {
+      expect(document.body.textContent).toContain("编辑候选人资料");
+    });
+
+    const button = [...document.querySelectorAll("button")].find((item) =>
+      item.textContent?.includes("编辑候选人资料"),
+    );
+    expect(button).toBeDefined();
+
+    act(() => {
+      button?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    expect(onEditResumeRecord).toHaveBeenCalledWith("resume-1");
+    expect(routerMocks.navigate).not.toHaveBeenCalled();
+    expect(onOpenChange).not.toHaveBeenCalledWith(false);
+
+    act(() => {
+      root.unmount();
+    });
+    queryClient.clear();
+  });
+
   it("prefills resume review notes in resume edit mode", async () => {
     apiMocks.fetchStudioResume.mockResolvedValue(makeDetail());
     const { queryClient, root } = renderDialog();

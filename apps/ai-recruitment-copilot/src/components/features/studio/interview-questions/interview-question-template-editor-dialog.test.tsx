@@ -53,4 +53,41 @@ describe("InterviewQuestionTemplateEditorDialog", () => {
 
     expect(document.body.textContent).toContain("新建面试题");
   });
+
+  it("shows a visible validation message when all questions are removed", async () => {
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+    roots.push(root);
+
+    act(() => {
+      root.render(
+        <InterviewQuestionTemplateEditorDialog
+          jobDescriptions={[]}
+          onOpenChange={() => {}}
+          onSaved={() => {}}
+          open
+          record={null}
+          slug="default"
+        />,
+      );
+    });
+
+    const deleteButton = document.querySelector<HTMLButtonElement>('[aria-label="删除第 1 题"]');
+    expect(deleteButton).toBeTruthy();
+    act(() => {
+      deleteButton?.click();
+    });
+
+    const submitButton = document.querySelector<HTMLButtonElement>(
+      'button[form="interview-question-template-form"]',
+    );
+    expect(submitButton).toBeTruthy();
+    await act(async () => {
+      submitButton?.click();
+      await Promise.resolve();
+    });
+
+    expect(document.body.textContent).toContain("请至少保留一道题目");
+  });
 });

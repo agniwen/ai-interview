@@ -31,7 +31,7 @@ export const interviewQuestionTemplateSchema = z
     jobDescriptionIds: z.array(z.string().trim().min(1)).max(50, "最多绑定 50 个岗位"),
     questions: z
       .array(interviewQuestionTemplateQuestionInputSchema)
-      .min(1, "至少需要一道题目")
+      .min(1, "请至少保留一道题目")
       .max(100, "最多 100 道题目"),
     scope: interviewQuestionTemplateScopeSchema,
     title: z.string().trim().min(1, "请输入模板标题").max(120, "标题不能超过 120 字"),

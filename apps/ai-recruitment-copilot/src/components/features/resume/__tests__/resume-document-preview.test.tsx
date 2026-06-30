@@ -55,13 +55,14 @@ afterEach(() => {
 });
 
 describe("resume document preview", () => {
-  it("treats PPTX resumes as previewable documents", () => {
+  it("treats PPTX resumes as unsupported preview documents", () => {
     expect(
       previewButtonModule.getPreviewableResumeDocumentKind({
         fileName: "portfolio.pptx",
         mediaType: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
       }),
-    ).toBe("pptx");
+    ).toBeNull();
+    expect(previewButtonModule.UNSUPPORTED_RESUME_DOCUMENT_PREVIEW_TOOLTIP).not.toContain("PPTX");
   });
 
   it("treats image resumes as previewable documents", () => {
@@ -71,19 +72,6 @@ describe("resume document preview", () => {
         mediaType: "image/png",
       }),
     ).toBe("image");
-  });
-
-  it("derives the PPTX preview PDF URL from the original file URL", () => {
-    const helpers = previewButtonModule as typeof previewButtonModule & {
-      getPptxPreviewPdfUrl?: (url: string) => string;
-    };
-
-    expect(helpers.getPptxPreviewPdfUrl?.("/api/w/acme/studio/resumes/r1/resume")).toBe(
-      "/api/w/acme/studio/resumes/r1/resume-preview.pdf",
-    );
-    expect(
-      helpers.getPptxPreviewPdfUrl?.("/api/w/acme/chat/attachments/a1?download=0#page=2"),
-    ).toBe("/api/w/acme/chat/attachments/a1-preview.pdf?download=0#page=2");
   });
 
   it("uses the shared document icon geometry for PDF files", () => {
@@ -107,6 +95,9 @@ describe("resume document preview", () => {
     expect(fileIconModule.getResumeDocumentFileIconKind({ fileName: "resume.ppt" })).toBe("ppt");
     expect(fileIconModule.getResumeDocumentFileIconKind({ fileName: "resume.html" })).toBe("html");
     expect(previewButtonModule.getPreviewableResumeDocumentKind({ fileName: "resume.doc" })).toBe(
+      null,
+    );
+    expect(previewButtonModule.getPreviewableResumeDocumentKind({ fileName: "resume.pptx" })).toBe(
       null,
     );
     expect(previewButtonModule.getPreviewableResumeDocumentKind({ fileName: "resume.html" })).toBe(
@@ -272,38 +263,15 @@ describe("resume document preview", () => {
     });
   });
 
-  it("passes the original PPTX URL to the outer download action", async () => {
-    stubDesktopViewport();
-    const host = document.createElement("div");
-    document.body.append(host);
-    const root = createRoot(host);
-
-    act(() => {
-      root.render(
-        <previewDialogModule.ResumeDocumentPreviewDialog
-          filename="resume.pptx"
-          kind="pptx"
-          onOpenChange={() => {}}
-          open
-          url="/api/w/new/studio/resume-pool/r3/resume"
-        />,
-      );
-    });
-    await act(async () => {
-      await Promise.resolve();
-    });
-
-    expect(viewerMocks.pdf).toHaveBeenCalledWith(
-      expect.objectContaining({
-        downloadFileName: "resume.pptx",
-        downloadUrl: "/api/w/new/studio/resume-pool/r3/resume",
-        url: "/api/w/new/studio/resume-pool/r3/resume-preview.pdf",
-      }),
-      undefined,
+  it("does not route PPTX resumes into the PDF preview dialog", () => {
+    const markup = renderToStaticMarkup(
+      <previewButtonModule.ResumeDocumentPreviewButton
+        filename="resume.pptx"
+        label="预览"
+        url="/api/w/new/studio/resume-pool/r3/resume"
+      />,
     );
 
-    act(() => {
-      root.unmount();
-    });
+    expect(markup).toBe("");
   });
 });

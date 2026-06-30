@@ -127,6 +127,9 @@ export function InterviewQuestionTemplateEditorDialog({
 
   const isSubmitting = useStore(form.store, (state) => state.isSubmitting);
   const currentScope = useStore(form.store, (state) => state.values.scope);
+  const questionListErrors = useStore(form.store, (state) =>
+    toFieldErrors(state.fieldMeta.questions?.errors),
+  );
 
   useEffect(() => {
     if (open) {
@@ -305,6 +308,7 @@ export function InterviewQuestionTemplateEditorDialog({
               form={form}
               resetKey={record?.id ?? "new"}
             />
+            <FieldError errors={questionListErrors} />
           </div>
         </div>
       </form>

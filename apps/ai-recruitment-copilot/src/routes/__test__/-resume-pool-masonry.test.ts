@@ -387,6 +387,16 @@ describe("ResumePoolPage masonry layout", () => {
     expect(source).toContain("<PrivateResumePoolUploadPolicyDialog");
   });
 
+  it("does not force the import job selector upward", () => {
+    const importDialogSource = source.slice(
+      source.indexOf("function ImportResumePoolDialog"),
+      source.indexOf("function ResumePoolDetailSummaryPanel"),
+    );
+
+    expect(importDialogSource).toContain('id="resume-pool-import-jd"');
+    expect(importDialogSource).not.toContain('contentSide="top"');
+  });
+
   it("shows profile highlight labels above full content", () => {
     const highlightSource = source.slice(
       source.indexOf("function ResumePoolHighlightRow"),

@@ -1,6 +1,9 @@
+import { readFileSync } from "node:fs";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { SearchableMultiSelect } from "./searchable-multi-select";
+
+const source = readFileSync(new URL("./searchable-multi-select.tsx", import.meta.url), "utf-8");
 
 const options = [
   { label: "岗位 A", value: "job-a" },
@@ -72,5 +75,12 @@ describe("SearchableMultiSelect", () => {
     expect(html).toContain('title="岗位 B"');
     expect(html).not.toContain('title="岗位 C"');
     expect(html).toContain("+1");
+  });
+
+  it("lets long option lists flip on collision and keep wheel scrolling", () => {
+    expect(source).toContain("collisionAvoidance={{");
+    expect(source).toContain('side: "flip"');
+    expect(source).toContain('fallbackAxisSide: "none"');
+    expect(source).toContain("onWheelCapture={handleScrollableListWheel}");
   });
 });

@@ -255,6 +255,7 @@ function InterviewManagementPage() {
   const [detailRoundId, setDetailRoundId] = useState<string | null>(null);
   const [detailRecordId, setDetailRecordId] = useState<string | null>(null);
   const [editRecordId, setEditRecordId] = useState<string | null>(null);
+  const [resumeEditRecordId, setResumeEditRecordId] = useState<string | null>(null);
   const detailOpen = detailRoundId !== null || detailRecordId !== null;
   function closeDetail() {
     setDetailRoundId(null);
@@ -660,10 +661,19 @@ function InterviewManagementPage() {
       {/* 编辑 dialog：T5 修正写入路径。/ Edit dialog: T5 fixes the write path. */}
       <StudioPersonEditDialog
         mode="interview"
+        onEditResumeRecord={setResumeEditRecordId}
         onOpenChange={(open) => !open && setEditRecordId(null)}
         onUpdated={invalidateAll}
         open={editRecordId !== null}
         recordId={editRecordId}
+      />
+
+      <StudioPersonEditDialog
+        mode="resume"
+        onOpenChange={(open) => !open && setResumeEditRecordId(null)}
+        onUpdated={invalidateAll}
+        open={resumeEditRecordId !== null}
+        recordId={resumeEditRecordId}
       />
 
       <AlertDialog

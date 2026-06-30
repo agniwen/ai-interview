@@ -9,7 +9,6 @@ import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { getResumeDocumentKind } from "@arc/shared/resume-documents";
 import { cn } from "@arc/shared/utils";
-export { getPptxPreviewPdfUrl } from "./resume-document-preview-url";
 
 const ResumeDocumentPreviewDialog = lazy(async () => {
   const mod = await import("@/components/features/resume/resume-document-preview-dialog");
@@ -18,7 +17,7 @@ const ResumeDocumentPreviewDialog = lazy(async () => {
 
 export type PreviewableResumeDocumentKind = ResumeDocumentPreviewKind;
 export const UNSUPPORTED_RESUME_DOCUMENT_PREVIEW_TOOLTIP =
-  "该格式不支持预览，仅 PDF、DOCX、PPTX、XLSX、图片格式支持预览。";
+  "该格式暂不支持预览，仅 PDF、DOCX、XLSX、图片格式支持预览。";
 
 export function getPreviewableResumeDocumentKind(input: {
   fileName?: string | null;
@@ -29,7 +28,7 @@ export function getPreviewableResumeDocumentKind(input: {
     mediaType: input.mediaType ?? undefined,
   });
 
-  if (kind === "pdf" || kind === "docx" || kind === "pptx" || kind === "xlsx" || kind === "image") {
+  if (kind === "pdf" || kind === "docx" || kind === "xlsx" || kind === "image") {
     return kind;
   }
 

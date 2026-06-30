@@ -7,10 +7,9 @@ import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { XlsxViewerPreview } from "@/components/ui/xlsx-viewer";
 import { cn } from "@arc/shared/utils";
-import { getPptxPreviewPdfUrl } from "./resume-document-preview-url";
 
 export type OfficeResumePreviewKind = "docx" | "xlsx";
-export type ResumeDocumentPreviewKind = "pdf" | "pptx" | "image" | OfficeResumePreviewKind;
+export type ResumeDocumentPreviewKind = "pdf" | "image" | OfficeResumePreviewKind;
 
 const PdfPreviewDialog = lazy(async () => {
   const mod = await import("@/components/features/pdf/pdf-preview-dialog");
@@ -37,9 +36,6 @@ function getResumePreviewDownloadFileName(
   }
   if (kind === "xlsx") {
     return "resume.xlsx";
-  }
-  if (kind === "pptx") {
-    return "resume.pptx";
   }
   if (kind === "image") {
     return "resume-image";
@@ -181,7 +177,7 @@ export function ResumeDocumentPreviewDialog({
   const title = filename ?? getDefaultPreviewTitle(kind);
   const downloadFileName = getResumePreviewDownloadFileName(kind, filename);
 
-  if (kind === "pdf" || kind === "pptx") {
+  if (kind === "pdf") {
     return (
       <Suspense fallback={null}>
         <PdfPreviewDialog
@@ -190,7 +186,7 @@ export function ResumeDocumentPreviewDialog({
           filename={filename}
           onOpenChange={onOpenChange}
           open={open}
-          url={kind === "pptx" ? getPptxPreviewPdfUrl(url) : url}
+          url={url}
         />
       </Suspense>
     );

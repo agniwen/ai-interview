@@ -26,4 +26,13 @@ describe("TanStack Start studio interviews migration", () => {
     expect(source).toContain("isListRoute");
     expect(source).toContain("<Outlet />");
   });
+
+  it("opens candidate profile editing inline from the AI interview edit dialog", () => {
+    const source = readSource("routes/w.$slug.studio.interviews.tsx");
+
+    expect(source).toContain("resumeEditRecordId");
+    expect(source).toContain("onEditResumeRecord={setResumeEditRecordId}");
+    expect(source).toContain('mode="resume"');
+    expect(source).not.toContain('to: "/w/$slug/studio/resumes"');
+  });
 });
