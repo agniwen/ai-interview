@@ -691,9 +691,10 @@ export async function importPoolItemToResumeLibrary(
 
   try {
     await cloneResumeSemanticIndexFromPoolToInterview({
-      organizationId: input.organizationId,
       poolItemId: poolItem.id,
       resumeRecordId,
+      sourceOrganizationId: poolItem.organizationId ?? input.organizationId,
+      targetOrganizationId: input.organizationId,
     });
   } catch (error) {
     await db.transaction(async (tx) => {

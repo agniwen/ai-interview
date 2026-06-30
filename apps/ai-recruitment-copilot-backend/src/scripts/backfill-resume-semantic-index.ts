@@ -29,6 +29,10 @@ interface SemanticBackfillSummary {
   total: number;
 }
 
+interface ResumeSemanticBackfillCliOptions {
+  defaultTarget?: SemanticBackfillTarget;
+}
+
 const DEFAULT_SEMANTIC_BACKFILL_CONCURRENCY = 6;
 
 export function parseSemanticBackfillConcurrency(value?: string): number {
@@ -66,6 +70,16 @@ export function parseSemanticBackfillTarget(value?: string): SemanticBackfillTar
   throw new Error(
     "BACKFILL_RESUME_SEMANTIC_TARGET must be one of: all, studio, pool, public_pool, private_pool.",
   );
+}
+
+export function resolveSemanticBackfillTarget({
+  defaultTarget = "all",
+  rawTarget,
+}: {
+  defaultTarget?: SemanticBackfillTarget;
+  rawTarget?: string;
+} = {}): SemanticBackfillTarget {
+  return parseSemanticBackfillTarget(rawTarget ?? defaultTarget);
 }
 
 export function resolveSemanticBackfillPoolScope(
@@ -275,13 +289,18 @@ function loadScriptEnv(): void {
   loadEnvFile({ path: path.join(appsRoot, "ai-recruitment-copilot", ".env"), quiet: true });
 }
 
-async function backfillResumeSemanticIndex(): Promise<void> {
+export async function backfillResumeSemanticIndex({
+  defaultTarget = "all",
+}: ResumeSemanticBackfillCliOptions = {}): Promise<void> {
   loadScriptEnv();
   const [{ closeDatabase, db }, { runResumeSemanticIndexJob }] = await Promise.all([
     import("@arc/ai-recruitment-copilot-backend/lib/server/db"),
     import("@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/indexer"),
   ]);
-  const target = parseSemanticBackfillTarget(process.env.BACKFILL_RESUME_SEMANTIC_TARGET);
+  const target = resolveSemanticBackfillTarget({
+    defaultTarget,
+    rawTarget: process.env.BACKFILL_RESUME_SEMANTIC_TARGET,
+  });
   const concurrency = parseSemanticBackfillConcurrency(
     process.env.BACKFILL_RESUME_SEMANTIC_CONCURRENCY,
   );
@@ -318,14 +337,11 @@ async function backfillResumeSemanticIndex(): Promise<void> {
   }
 }
 
-function isDirectRun(): boolean {
-  const [, entry] = process.argv;
-  return Boolean(entry && import.meta.url === pathToFileURL(entry).href);
-}
-
-if (isDirectRun()) {
+export async function runResumeSemanticBackfillCli(
+  options: ResumeSemanticBackfillCliOptions = {},
+): Promise<void> {
   try {
-    await backfillResumeSemanticIndex();
+    await backfillResumeSemanticIndex(options);
   } catch (error) {
     logEvent({
       error: error instanceof Error ? error.message : String(error),
@@ -333,4 +349,13 @@ if (isDirectRun()) {
     });
     process.exitCode = 1;
   }
+}
+
+function isDirectRun(): boolean {
+  const [, entry] = process.argv;
+  return Boolean(entry && import.meta.url === pathToFileURL(entry).href);
+}
+
+if (isDirectRun()) {
+  await runResumeSemanticBackfillCli();
 }

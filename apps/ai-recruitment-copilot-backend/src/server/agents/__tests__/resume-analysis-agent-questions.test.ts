@@ -53,15 +53,34 @@ const PROFILE: ResumeProfile = {
   workYears: 5,
 };
 
+function questionDifficulty(index: number): "easy" | "hard" | "medium" {
+  if (index < 3) {
+    return "easy";
+  }
+  if (index < 7) {
+    return "medium";
+  }
+  return "hard";
+}
+
+function questionText(index: number): string {
+  if (index === 0) {
+    return "请介绍一个你负责的前端项目。";
+  }
+  if (index === 1) {
+    return "你如何设计组件状态管理？";
+  }
+  return `第 ${index + 1} 道面试题`;
+}
+
+async function* streamStartStep() {
+  yield { type: "start-step" };
+}
+
 const QUESTIONS_OUTPUT = {
   interviewQuestions: Array.from({ length: 10 }, (_, index) => ({
-    difficulty: (index < 3 ? "easy" : (index < 7 ? "medium" : "hard")) as "easy" | "medium" | "hard",
-    question:
-      index === 0
-        ? "请介绍一个你负责的前端项目。"
-        : (index === 1
-          ? "你如何设计组件状态管理？"
-          : `第 ${index + 1} 道面试题`),
+    difficulty: questionDifficulty(index),
+    question: questionText(index),
   })),
 };
 
@@ -101,9 +120,7 @@ describe("resume interview question generation", () => {
     mocks.createResumeAgent.mockReturnValueOnce({
       stream: vi.fn().mockResolvedValue({
         output: Promise.resolve(QUESTIONS_OUTPUT),
-        stream: (async function* stream() {
-          yield { type: "start-step" };
-        })(),
+        stream: streamStartStep(),
       }),
     });
 

@@ -17,6 +17,7 @@ import { createAlibabaProvider } from "./provider";
  */
 const DEFAULT_STEP_MAX_RETRIES = 3;
 type AgentOutputSpec<T> = ReturnType<typeof Output.object<T>>;
+type ResumeAgentRuntimeContext = Record<string, unknown>;
 
 export interface CreateResumeAgentOptions<TOOLS extends ToolSet, OUTPUT = string> {
   instructions: string;
@@ -55,7 +56,14 @@ export function createResumeAgent<TOOLS extends ToolSet, OUTPUT = string>({
     stopWhen,
     temperature,
     tools,
-  } as unknown as ToolLoopAgentSettings<never, TOOLS, any, AgentOutputSpec<OUTPUT>>;
+  } as unknown as ToolLoopAgentSettings<
+    never,
+    TOOLS,
+    ResumeAgentRuntimeContext,
+    AgentOutputSpec<OUTPUT>
+  >;
 
-  return new ToolLoopAgent<never, TOOLS, any, AgentOutputSpec<OUTPUT>>(settings);
+  return new ToolLoopAgent<never, TOOLS, ResumeAgentRuntimeContext, AgentOutputSpec<OUTPUT>>(
+    settings,
+  );
 }

@@ -12,6 +12,7 @@
     "fix": "ultracite fix",
     "hooks": "lefthook install",
     "backfill:interview-snapshots": "pnpm --filter @arc/ai-recruitment-copilot-backend backfill:interview-snapshots",
+    "backfill:resume-pool-semantic-index": "pnpm --filter @arc/ai-recruitment-copilot-backend backfill:resume-pool-semantic-index",
     "backfill:resume-semantic-index": "pnpm --filter @arc/ai-recruitment-copilot-backend backfill:resume-semantic-index",
     "db:generate": "pnpm --filter @arc/ai-recruitment-copilot db:generate",
     "db:migrate": "pnpm --filter @arc/ai-recruitment-copilot db:migrate",

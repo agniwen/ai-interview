@@ -538,9 +538,10 @@ describe("importPoolItemToResumeLibrary", () => {
     expect(imports).toHaveLength(1);
     expect(imports[0]?.organizationId).toBe(ORG_B);
     expect(cloneResumeSemanticIndexFromPoolToInterview).toHaveBeenCalledWith({
-      organizationId: ORG_B,
       poolItemId: publicId,
       resumeRecordId: result.resumeRecordId,
+      sourceOrganizationId: ORG_A,
+      targetOrganizationId: ORG_B,
     });
     expect(enqueueResumeSemanticIndexJobBestEffort).not.toHaveBeenCalled();
   });

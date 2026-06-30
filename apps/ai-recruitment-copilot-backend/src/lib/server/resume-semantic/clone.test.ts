@@ -108,6 +108,65 @@ describe("cloneResumeSemanticIndexFromPoolToInterview", () => {
     });
   });
 
+  it("reads public pool vectors from the source organization and writes interview vectors to the target organization", async () => {
+    const sourceOrgChunks = chunks.map((chunk) => ({ ...chunk, organizationId: "source-org" }));
+    const loadSourceIndexState = vi.fn().mockResolvedValue({
+      contentHash: "hash",
+      embeddingModel: "text-embedding-v4",
+      embeddingVersion: "v1",
+      profileHash: "profile-hash",
+      status: "indexed",
+    });
+    const markIndexed = vi.fn();
+    const upsertResumeEmbeddings = vi.fn();
+    const loadResumeEmbeddings = vi.fn().mockResolvedValue(sourceOrgChunks);
+
+    await cloneResumeSemanticIndexFromPoolToInterview(
+      {
+        poolItemId: "pool-1",
+        resumeRecordId: "record-1",
+        sourceOrganizationId: "source-org",
+        targetOrganizationId: "target-org",
+      },
+      {
+        getEmbeddingVersion: () => "v1",
+        loadSourceIndexState,
+        markIndexed,
+        vectorStore: {
+          loadResumeEmbeddings,
+          upsertResumeEmbeddings,
+        },
+      },
+    );
+
+    expect(loadSourceIndexState).toHaveBeenCalledWith({
+      embeddingVersion: "v1",
+      organizationId: "source-org",
+      sourceId: "pool-1",
+      sourceType: "resume_pool_item",
+    });
+    expect(loadResumeEmbeddings).toHaveBeenCalledWith({
+      embeddingVersion: "v1",
+      organizationId: "source-org",
+      sourceId: "pool-1",
+      sourceType: "resume_pool_item",
+    });
+    expect(upsertResumeEmbeddings).toHaveBeenCalledWith(
+      expect.objectContaining({
+        organizationId: "target-org",
+        sourceId: "record-1",
+        sourceType: "studio_interview",
+      }),
+    );
+    expect(markIndexed).toHaveBeenCalledWith(
+      expect.objectContaining({
+        organizationId: "target-org",
+        sourceId: "record-1",
+        sourceType: "studio_interview",
+      }),
+    );
+  });
+
   it("rejects incomplete pool vector sets", async () => {
     const upsertResumeEmbeddings = vi.fn();
 

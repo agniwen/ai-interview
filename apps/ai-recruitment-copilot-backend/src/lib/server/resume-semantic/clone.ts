@@ -11,9 +11,11 @@ import type {
 import type { ResumeSemanticChunkType } from "./text-builders";
 
 interface CloneResumeSemanticIndexInput {
-  organizationId: string;
+  organizationId?: string;
   poolItemId: string;
   resumeRecordId: string;
+  sourceOrganizationId?: string;
+  targetOrganizationId?: string;
 }
 
 interface SourceIndexState {
@@ -154,9 +156,14 @@ export async function cloneResumeSemanticIndexFromPoolToInterview(
   deps: CloneResumeSemanticIndexDeps = createDefaultCloneDeps(),
 ): Promise<void> {
   const embeddingVersion = deps.getEmbeddingVersion();
+  const sourceOrganizationId = input.sourceOrganizationId ?? input.organizationId;
+  const targetOrganizationId = input.targetOrganizationId ?? input.organizationId;
+  if (!sourceOrganizationId || !targetOrganizationId) {
+    throw new Error("resume semantic clone organization ids are required.");
+  }
   const sourceState = await deps.loadSourceIndexState({
     embeddingVersion,
-    organizationId: input.organizationId,
+    organizationId: sourceOrganizationId,
     sourceId: input.poolItemId,
     sourceType: "resume_pool_item",
   });
@@ -165,14 +172,14 @@ export async function cloneResumeSemanticIndexFromPoolToInterview(
   }
   const loadedChunks = await deps.vectorStore.loadResumeEmbeddings({
     embeddingVersion,
-    organizationId: input.organizationId,
+    organizationId: sourceOrganizationId,
     sourceId: input.poolItemId,
     sourceType: "resume_pool_item",
   });
   const byChunkType = validateLoadedChunks({
     chunks: loadedChunks,
     expected: sourceState,
-    organizationId: input.organizationId,
+    organizationId: sourceOrganizationId,
     sourceId: input.poolItemId,
     sourceType: "resume_pool_item",
   });
@@ -188,7 +195,7 @@ export async function cloneResumeSemanticIndexFromPoolToInterview(
     contentHash: sourceState.contentHash,
     embeddingModel: sourceState.embeddingModel,
     embeddingVersion: sourceState.embeddingVersion,
-    organizationId: input.organizationId,
+    organizationId: targetOrganizationId,
     profileHash: sourceState.profileHash,
     sourceId: input.resumeRecordId,
     sourceType: "studio_interview",
@@ -198,7 +205,7 @@ export async function cloneResumeSemanticIndexFromPoolToInterview(
     contentHash: sourceState.contentHash,
     embeddingModel: sourceState.embeddingModel,
     embeddingVersion: sourceState.embeddingVersion,
-    organizationId: input.organizationId,
+    organizationId: targetOrganizationId,
     profileHash: sourceState.profileHash,
     sourceId: input.resumeRecordId,
     sourceType: "studio_interview",

@@ -15,6 +15,7 @@
   "scripts": {
     "backfill:interview-snapshots": "tsx src/scripts/backfill-interview-snapshots.ts",
     "backfill:resume-profiles": "tsx src/scripts/backfill-resume-profiles.ts",
+    "backfill:resume-pool-semantic-index": "tsx src/scripts/backfill-resume-pool-semantic-index.ts",
     "backfill:resume-semantic-index": "tsx src/scripts/backfill-resume-semantic-index.ts",
     "backfill:resume-text": "tsx src/scripts/backfill-resume-text.ts",
     "dev:standalone": "tsx watch src/index.ts",
