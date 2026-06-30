@@ -21,6 +21,7 @@ import type {
   BulkResumeBatchItemDto,
 } from "@arc/shared/bulk-resume-upload";
 import type { ResumeParseJobData } from "@arc/resume-parse-queue/resume-parse";
+import { deleteDuplicateMatchesForSource } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/duplicate-matches";
 
 type BatchRow = typeof resumeUploadBatch.$inferSelect;
 type ItemRow = typeof resumeUploadBatchItem.$inferSelect;
@@ -640,6 +641,8 @@ export async function cancelBatch(
   userId: string,
 ): Promise<boolean> {
   let cancelled = false;
+  let cancelledPoolItemIds: string[] = [];
+  let cancelledRecordIds: string[] = [];
   await db.transaction(async (tx) => {
     const [batch] = await tx
       .select()
@@ -673,6 +676,7 @@ export async function cancelBatch(
     );
     if (recordIds.length > 0) {
       await tx.delete(studioInterview).where(inArray(studioInterview.id, recordIds));
+      cancelledRecordIds = recordIds;
     }
     const poolItemIds = cancellableItems.flatMap((item) =>
       item.poolItemId ? [item.poolItemId] : [],
@@ -682,6 +686,7 @@ export async function cancelBatch(
         .update(resumePoolItem)
         .set({ status: "archived", updatedAt: now })
         .where(inArray(resumePoolItem.id, poolItemIds));
+      cancelledPoolItemIds = poolItemIds;
     }
     await tx
       .update(resumeUploadBatchItem)
@@ -698,6 +703,20 @@ export async function cancelBatch(
       .where(eq(resumeUploadBatch.id, batchId));
     cancelled = true;
   });
+  for (const recordId of cancelledRecordIds) {
+    await deleteDuplicateMatchesForSource({
+      organizationId,
+      sourceId: recordId,
+      sourceType: "studio_interview",
+    });
+  }
+  for (const poolItemId of cancelledPoolItemIds) {
+    await deleteDuplicateMatchesForSource({
+      organizationId,
+      sourceId: poolItemId,
+      sourceType: "resume_pool_item",
+    });
+  }
   return cancelled;
 }
 

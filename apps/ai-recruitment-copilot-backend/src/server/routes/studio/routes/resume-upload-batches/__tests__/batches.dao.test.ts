@@ -10,6 +10,7 @@ import {
   jobDescription,
   member,
   organization,
+  resumeDuplicateMatch,
   resumePoolItem,
   resumeUploadBatch,
   resumeUploadBatchItem,
@@ -58,6 +59,8 @@ async function cleanup() {
   // FK-ordered cleanup: items cascade with batches, then members, orgs, users.
   await db.delete(resumeUploadBatch).where(eq(resumeUploadBatch.organizationId, ORG_A));
   await db.delete(resumeUploadBatch).where(eq(resumeUploadBatch.organizationId, ORG_B));
+  await db.delete(resumeDuplicateMatch).where(eq(resumeDuplicateMatch.organizationId, ORG_A));
+  await db.delete(resumeDuplicateMatch).where(eq(resumeDuplicateMatch.organizationId, ORG_B));
   await db.delete(studioInterview).where(eq(studioInterview.organizationId, ORG_A));
   await db.delete(studioInterview).where(eq(studioInterview.organizationId, ORG_B));
   await db.delete(resumePoolItem).where(eq(resumePoolItem.organizationId, ORG_A));
@@ -734,6 +737,104 @@ describe("cancelBatch", () => {
         .update(resumeUploadBatchItem)
         .set({ finishedAt: new Date(), status: "succeeded" })
         .where(eq(resumeUploadBatchItem.id, succeededItem?.id ?? ""));
+      const cancellableItem = items.find((item) => item.id !== succeededItem?.id);
+      const cancellablePoolItem = items.find(
+        (item) => item.id !== succeededItem?.id && item.id !== cancellableItem?.id,
+      );
+      const recordId = `bulk_cancel_duplicate_${crypto.randomUUID()}`;
+      const poolItemId = `bulk_cancel_pool_duplicate_${crypto.randomUUID()}`;
+      await db.insert(studioInterview).values({
+        candidateEmail: "bulk-cancel@example.com",
+        candidateName: "批量取消候选人",
+        createdAt: NOW,
+        createdBy: USER_A,
+        id: recordId,
+        interviewQuestions: [],
+        notes: null,
+        organizationId: ORG_A,
+        resumeFileName: "bulk-cancel.pdf",
+        status: "draft",
+        targetRole: null,
+        updatedAt: NOW,
+      });
+      await db
+        .update(resumeUploadBatchItem)
+        .set({ resumeRecordId: recordId, status: "processing" })
+        .where(eq(resumeUploadBatchItem.id, cancellableItem?.id ?? ""));
+      await db.insert(resumePoolItem).values({
+        candidateEmail: "bulk-cancel-pool@example.com",
+        candidateName: "批量取消广场候选人",
+        candidatePhone: null,
+        createdAt: NOW,
+        createdBy: USER_A,
+        id: poolItemId,
+        notes: null,
+        organizationId: ORG_A,
+        resumeFileName: "bulk-cancel-pool.pdf",
+        resumeParseStatus: "processing",
+        scope: "private",
+        status: "active",
+        targetRole: null,
+        updatedAt: NOW,
+      });
+      await db
+        .update(resumeUploadBatchItem)
+        .set({ poolItemId, status: "processing" })
+        .where(eq(resumeUploadBatchItem.id, cancellablePoolItem?.id ?? ""));
+      await db.insert(resumeDuplicateMatch).values([
+        {
+          embeddingVersion: "test-v1",
+          id: `bulk_cancel_duplicate_source_${crypto.randomUUID()}`,
+          level: "medium",
+          matchedSourceId: "existing_resume_record",
+          matchedSourceType: "studio_interview",
+          organizationId: ORG_A,
+          reasons: ["批量取消前已写入疑似重复"],
+          score: 86,
+          sourceId: recordId,
+          sourceType: "studio_interview",
+          status: "active",
+        },
+        {
+          embeddingVersion: "test-v1",
+          id: `bulk_cancel_duplicate_target_${crypto.randomUUID()}`,
+          level: "high",
+          matchedSourceId: recordId,
+          matchedSourceType: "studio_interview",
+          organizationId: ORG_A,
+          reasons: ["批量取消前被其他简历命中"],
+          score: 94,
+          sourceId: "existing_resume_record",
+          sourceType: "studio_interview",
+          status: "active",
+        },
+        {
+          embeddingVersion: "test-v1",
+          id: `bulk_cancel_pool_duplicate_source_${crypto.randomUUID()}`,
+          level: "medium",
+          matchedSourceId: "existing_resume_record",
+          matchedSourceType: "studio_interview",
+          organizationId: ORG_A,
+          reasons: ["批量取消前广场记录已写入疑似重复"],
+          score: 87,
+          sourceId: poolItemId,
+          sourceType: "resume_pool_item",
+          status: "active",
+        },
+        {
+          embeddingVersion: "test-v1",
+          id: `bulk_cancel_pool_duplicate_target_${crypto.randomUUID()}`,
+          level: "high",
+          matchedSourceId: poolItemId,
+          matchedSourceType: "resume_pool_item",
+          organizationId: ORG_A,
+          reasons: ["批量取消前广场记录被其他简历命中"],
+          score: 95,
+          sourceId: "existing_resume_record",
+          sourceType: "studio_interview",
+          status: "active",
+        },
+      ]);
 
       const result = await cancelBatch(batchId, ORG_A, USER_A);
       expect(result).toBe(true);
@@ -755,8 +856,25 @@ describe("cancelBatch", () => {
         .where(eq(resumeUploadBatch.id, batchId));
       expect(batch?.status).toBe("cancelled");
       expect(batch?.completedAt).not.toBeNull();
+      const duplicateRows = await db
+        .select({
+          matchedSourceId: resumeDuplicateMatch.matchedSourceId,
+          sourceId: resumeDuplicateMatch.sourceId,
+        })
+        .from(resumeDuplicateMatch)
+        .where(eq(resumeDuplicateMatch.organizationId, ORG_A));
+      expect(
+        duplicateRows.filter(
+          (row) =>
+            row.sourceId === recordId ||
+            row.matchedSourceId === recordId ||
+            row.sourceId === poolItemId ||
+            row.matchedSourceId === poolItemId,
+        ),
+      ).toHaveLength(0);
     } finally {
       await db.delete(resumeUploadBatch).where(eq(resumeUploadBatch.id, batchId));
+      await db.delete(resumeDuplicateMatch).where(eq(resumeDuplicateMatch.organizationId, ORG_A));
     }
   });
 

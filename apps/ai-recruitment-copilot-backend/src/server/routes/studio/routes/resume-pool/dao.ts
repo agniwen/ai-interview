@@ -28,6 +28,7 @@ import {
 } from "@arc/shared/resume-education";
 import { findSemanticResumeDuplicates } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/dedup-service";
 import {
+  deleteDuplicateMatchesForSource,
   listActiveDuplicateMatchCounts,
   replaceDuplicateMatchesForSource,
 } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/duplicate-matches";
@@ -765,6 +766,11 @@ export async function importPoolItemToResumeLibrary(
       sourceId: resumeRecordId,
       sourceType: "studio_interview",
     });
+    await deleteDuplicateMatchesForSource({
+      organizationId: input.organizationId,
+      sourceId: resumeRecordId,
+      sourceType: "studio_interview",
+    });
     throw error;
   }
   return { resumeRecordId, status: "imported" };
@@ -787,6 +793,11 @@ export async function deleteOwnPoolItem(input: DeleteOwnPoolItemInput): Promise<
     throw new Error("简历不存在或无权删除");
   }
   await deleteResumeSemanticIndexBestEffort({
+    sourceId: input.poolItemId,
+    sourceType: "resume_pool_item",
+  });
+  await deleteDuplicateMatchesForSource({
+    organizationId: input.organizationId,
     sourceId: input.poolItemId,
     sourceType: "resume_pool_item",
   });

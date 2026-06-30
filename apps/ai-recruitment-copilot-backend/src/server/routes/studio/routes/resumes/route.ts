@@ -59,6 +59,7 @@ import {
 } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/dao/interview-rounds";
 import { findSemanticResumeDuplicates } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/dedup-service";
 import {
+  deleteDuplicateMatchesForSource,
   listDuplicateMatchesForSource,
   replaceDuplicateMatchesForSource,
 } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/duplicate-matches";
@@ -1013,6 +1014,11 @@ export const resumeLibraryRouter = factory
       sourceId: id,
       sourceType: "studio_interview",
     });
+    await deleteDuplicateMatchesForSource({
+      organizationId: activeOrg.id,
+      sourceId: id,
+      sourceType: "studio_interview",
+    });
     invalidateStudioInterviewCaches(activeOrg.id);
     // 清理 chat 端的「已入库」状态：把所有 conversation 的 resumeImports
     // map 里指向该 interview 的 entry 都移除，避免 chat UI 残留假状态。
@@ -1085,6 +1091,11 @@ export const resumeLibraryRouter = factory
       // small and each UPDATE is essentially free when the LIKE misses).
       for (const deletedId of result) {
         await deleteResumeSemanticIndexBestEffort({
+          sourceId: deletedId.id,
+          sourceType: "studio_interview",
+        });
+        await deleteDuplicateMatchesForSource({
+          organizationId: activeOrg.id,
           sourceId: deletedId.id,
           sourceType: "studio_interview",
         });

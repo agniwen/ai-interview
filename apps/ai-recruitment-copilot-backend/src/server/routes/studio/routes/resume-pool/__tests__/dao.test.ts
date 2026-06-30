@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq, or } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import {
@@ -661,6 +661,34 @@ describe("deleteOwnPoolItem", () => {
     if (imported.status !== "imported") {
       throw new Error("expected import success");
     }
+    await db.insert(resumeDuplicateMatch).values([
+      {
+        embeddingVersion: "test-v1",
+        id: "resume_pool_delete_duplicate_source",
+        level: "medium",
+        matchedSourceId: imported.resumeRecordId,
+        matchedSourceType: "studio_interview",
+        organizationId: ORG_A,
+        reasons: ["简历广场记录匹配简历库记录"],
+        score: 88,
+        sourceId: privateId,
+        sourceType: "resume_pool_item",
+        status: "active",
+      },
+      {
+        embeddingVersion: "test-v1",
+        id: "resume_pool_delete_duplicate_target",
+        level: "high",
+        matchedSourceId: privateId,
+        matchedSourceType: "resume_pool_item",
+        organizationId: ORG_A,
+        reasons: ["简历库记录匹配简历广场记录"],
+        score: 93,
+        sourceId: imported.resumeRecordId,
+        sourceType: "studio_interview",
+        status: "active",
+      },
+    ]);
 
     await deleteOwnPoolItem({
       organizationId: ORG_A,
@@ -674,6 +702,19 @@ describe("deleteOwnPoolItem", () => {
       sourceId: privateId,
       sourceType: "resume_pool_item",
     });
+    const duplicateRows = await db
+      .select()
+      .from(resumeDuplicateMatch)
+      .where(
+        and(
+          eq(resumeDuplicateMatch.organizationId, ORG_A),
+          or(
+            eq(resumeDuplicateMatch.sourceId, privateId),
+            eq(resumeDuplicateMatch.matchedSourceId, privateId),
+          ),
+        ),
+      );
+    expect(duplicateRows).toHaveLength(0);
 
     const [record] = await db
       .select()

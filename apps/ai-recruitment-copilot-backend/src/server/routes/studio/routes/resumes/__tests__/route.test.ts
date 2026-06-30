@@ -217,6 +217,7 @@ describeWithDatabase("resolveResumeUploadStorage", () => {
 describe("resume semantic index cleanup", () => {
   it("cleans semantic indexes after single and bulk resume-library deletion", () => {
     expect(routeSource).toContain("deleteResumeSemanticIndexBestEffort");
+    expect(routeSource).toContain("deleteDuplicateMatchesForSource");
     expect(routeSource).toContain('sourceType: "studio_interview"');
     expect(routeSource).toContain("sourceId: id");
     expect(routeSource).toContain("for (const deletedId of result)");

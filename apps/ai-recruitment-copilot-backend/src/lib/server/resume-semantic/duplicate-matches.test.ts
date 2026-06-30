@@ -1,6 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 import type { DedupMatchRecord } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/dao/studio-interviews";
-import { listDuplicateMatchesForSource, toDuplicateMatchInsertRows } from "./duplicate-matches";
+import {
+  deleteDuplicateMatchesForSource,
+  listDuplicateMatchesForSource,
+  toDuplicateMatchInsertRows,
+} from "./duplicate-matches";
 
 const MATCH: DedupMatchRecord = {
   candidateEmail: "dup@example.com",
@@ -86,5 +90,11 @@ describe("toDuplicateMatchInsertRows", () => {
 describe("listDuplicateMatchesForSource", () => {
   it("is exported for duplicate badge detail endpoints", () => {
     expect(listDuplicateMatchesForSource).toBeTypeOf("function");
+  });
+});
+
+describe("deleteDuplicateMatchesForSource", () => {
+  it("is exported for cleaning duplicate rows when a resume is deleted", () => {
+    expect(deleteDuplicateMatchesForSource).toBeTypeOf("function");
   });
 });

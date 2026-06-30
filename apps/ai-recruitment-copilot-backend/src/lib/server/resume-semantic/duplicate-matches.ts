@@ -83,6 +83,33 @@ export async function replaceDuplicateMatchesForSource(
   return rows.length;
 }
 
+export async function deleteDuplicateMatchesForSource(input: {
+  organizationId: string;
+  sourceId: string;
+  sourceType: ResumeSemanticSourceType;
+}): Promise<number> {
+  const deleted = await db
+    .delete(resumeDuplicateMatch)
+    .where(
+      and(
+        eq(resumeDuplicateMatch.organizationId, input.organizationId),
+        or(
+          and(
+            eq(resumeDuplicateMatch.sourceType, input.sourceType),
+            eq(resumeDuplicateMatch.sourceId, input.sourceId),
+          ),
+          and(
+            eq(resumeDuplicateMatch.matchedSourceType, input.sourceType),
+            eq(resumeDuplicateMatch.matchedSourceId, input.sourceId),
+          ),
+        ),
+      ),
+    )
+    .returning({ id: resumeDuplicateMatch.id });
+
+  return deleted.length;
+}
+
 export async function listActiveDuplicateMatchCounts(input: {
   organizationId: string;
   sourceType: ResumeSemanticSourceType;
