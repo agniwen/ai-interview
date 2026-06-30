@@ -34,6 +34,7 @@ import type {
   ScheduleEntryStatus,
   StudioInterviewStatus,
 } from "@arc/db-schema/studio-interviews";
+import type { ResumeSemanticSourceType } from "@arc/db-schema/schema";
 import type {
   HumanInterviewMeetingLinkBundle,
   HumanInterviewMeetingRecord,
@@ -50,12 +51,13 @@ import { rpcFetch } from "../rpc-fetch";
  */
 export interface DedupMatchRecord {
   id: string;
+  sourceType?: ResumeSemanticSourceType;
   candidateName: string;
   candidateEmail: string | null;
   candidatePhone: string | null;
   targetRole: string | null;
   jobDescriptionName: string | null;
-  status: StudioInterviewStatus;
+  status: StudioInterviewStatus | "active" | "archived";
   createdAt: string;
   conflictingSignals?: string[];
   level?: "high" | "low" | "medium";

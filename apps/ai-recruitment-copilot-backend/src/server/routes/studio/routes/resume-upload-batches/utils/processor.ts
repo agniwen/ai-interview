@@ -387,18 +387,27 @@ async function resolveJobDescriptionId(input: {
 }
 
 async function findDuplicateMatches(input: {
+  batchRow: BatchRow;
   itemId: string;
   organizationId: string;
   resumeProfile: ParsedResume["resumeProfile"];
+  userId: string;
 }): Promise<DuplicateMatches> {
   const dedupStartedAt = Date.now();
   logStep("dedup.start", { itemId: input.itemId });
+  const shouldIncludePrivatePool =
+    input.batchRow.target === "resume_pool" && input.batchRow.resumePoolScope === "private";
   const matches = await findSemanticResumeDuplicates({
     email: input.resumeProfile?.email ?? null,
     name: input.resumeProfile?.name ?? null,
     organizationId: input.organizationId,
     phone: input.resumeProfile?.phone ?? null,
+    poolOwnerUserId: shouldIncludePrivatePool ? input.userId : undefined,
+    poolScope: shouldIncludePrivatePool ? "private" : undefined,
     resumeProfile: input.resumeProfile,
+    sourceTypes: shouldIncludePrivatePool
+      ? ["studio_interview", "resume_pool_item"]
+      : ["studio_interview"],
   });
   logStep("dedup.done", {
     durationMs: elapsed(dedupStartedAt),
@@ -433,9 +442,11 @@ async function fetchAndParse(
   await assertBatchItemNotCancelled(batchRow.id, item.id);
 
   const duplicateMatches = await findDuplicateMatches({
+    batchRow,
     itemId: item.id,
     organizationId,
     resumeProfile,
+    userId,
   });
   await assertBatchItemNotCancelled(batchRow.id, item.id);
 

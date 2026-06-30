@@ -1,6 +1,6 @@
 "use client";
 
-import { IconAlertTriangle, IconExternalLink } from "@tabler/icons-react";
+import { IconAlertTriangle, IconExternalLink, IconLoader2 } from "@tabler/icons-react";
 /**
  * 简历疑似重复风险提示 overlay。
  * Resume duplicate-risk overlay shown after a resume is parsed.
@@ -13,13 +13,21 @@ import { IconAlertTriangle, IconExternalLink } from "@tabler/icons-react";
  * the in-progress overlay for this component so the user can decide.
  */
 
+import { useQuery } from "@tanstack/react-query";
+import type { ReactNode } from "react";
 import { useState } from "react";
 import type { DedupMatchRecord } from "@/lib/client/api";
 import { studioInterviewStatusMeta } from "@arc/db-schema/studio-interviews";
+import type { StudioInterviewStatus } from "@arc/db-schema/studio-interviews";
 import { formatDate } from "@arc/shared/utils/time";
 import { StudioPersonDetailDialog } from "@/components/features/studio/studio-person-detail-dialog";
+import { ResumeProfileView } from "@/components/features/resume/resume-profile-view";
+import { formatResumeCandidateTitle } from "@/components/features/resume/resume-record-display-id";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Modal } from "@/components/ui/modal";
+import { fetchResumePoolItem } from "@/lib/client/api";
+import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 
 const LEVEL_META: Record<
   NonNullable<DedupMatchRecord["level"]>,
@@ -58,12 +66,92 @@ interface ResumeDedupOverlayProps {
   onCancel: () => void;
 }
 
+function isStudioInterviewStatus(
+  value: DedupMatchRecord["status"],
+): value is StudioInterviewStatus {
+  return Object.hasOwn(studioInterviewStatusMeta, value);
+}
+
+function sourceTypeLabel(match: DedupMatchRecord) {
+  return match.sourceType === "resume_pool_item" ? "私有简历" : "简历库";
+}
+
+function ResumePoolMatchDetailDialog({
+  onOpenChange,
+  open,
+  recordId,
+}: {
+  open: boolean;
+  recordId: string | null;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const slug = useWorkspaceSlug();
+  const detailQuery = useQuery({
+    enabled: open && Boolean(recordId),
+    queryFn: () => (recordId ? fetchResumePoolItem(slug, recordId) : null),
+    queryKey: ["resume-pool", "dedup-match-detail", slug, recordId],
+  });
+  const detail = detailQuery.data ?? null;
+  let content: ReactNode = <p className="text-muted-foreground text-sm">未找到这份私有简历。</p>;
+  if (detailQuery.isLoading) {
+    content = (
+      <div className="flex items-center gap-2 text-muted-foreground text-sm">
+        <IconLoader2 className="size-4 animate-spin" />
+        正在加载简历详情
+      </div>
+    );
+  } else if (detail) {
+    content = (
+      <div className="space-y-5">
+        <div className="grid gap-x-6 gap-y-3 rounded-md border bg-muted/20 p-4 text-sm sm:grid-cols-2">
+          <div>
+            <span className="text-muted-foreground">目标岗位</span>
+            <p className="mt-1 font-medium">{detail.targetRole ?? "—"}</p>
+          </div>
+          <div>
+            <span className="text-muted-foreground">邮箱</span>
+            <p className="mt-1 break-all font-medium">{detail.candidateEmail ?? "—"}</p>
+          </div>
+          <div>
+            <span className="text-muted-foreground">电话</span>
+            <p className="mt-1 break-all font-medium">{detail.candidatePhone ?? "—"}</p>
+          </div>
+          <div>
+            <span className="text-muted-foreground">状态</span>
+            <p className="mt-1 font-medium">{detail.status === "active" ? "有效" : "已归档"}</p>
+          </div>
+        </div>
+        <ResumeProfileView profile={detail.resumeProfile ?? null} />
+      </div>
+    );
+  }
+
+  return (
+    <Modal
+      description={detail?.resumeFileName ?? undefined}
+      onOpenChange={onOpenChange}
+      open={open}
+      size="2xl"
+      title={detail ? formatResumeCandidateTitle(detail.candidateName, detail.id) : "私有简历详情"}
+    >
+      {content}
+    </Modal>
+  );
+}
+
 export function ResumeDedupMatchList({ matches }: { matches: DedupMatchRecord[] }) {
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailRecordId, setDetailRecordId] = useState<string | null>(null);
+  const [poolDetailOpen, setPoolDetailOpen] = useState(false);
+  const [poolDetailRecordId, setPoolDetailRecordId] = useState<string | null>(null);
 
-  function openDetail(id: string) {
-    setDetailRecordId(id);
+  function openDetail(match: DedupMatchRecord) {
+    if (match.sourceType === "resume_pool_item") {
+      setPoolDetailRecordId(match.id);
+      setPoolDetailOpen(true);
+      return;
+    }
+    setDetailRecordId(match.id);
     setDetailOpen(true);
   }
 
@@ -71,7 +159,9 @@ export function ResumeDedupMatchList({ matches }: { matches: DedupMatchRecord[] 
     <>
       <div className="max-h-[50vh] space-y-3 overflow-y-auto pr-1">
         {matches.map((match) => {
-          const statusMeta = studioInterviewStatusMeta[match.status];
+          const statusMeta = isStudioInterviewStatus(match.status)
+            ? studioInterviewStatusMeta[match.status]
+            : null;
           return (
             <div
               className="rounded-xl border border-border/70 bg-background/95 p-4 shadow-sm"
@@ -80,7 +170,9 @@ export function ResumeDedupMatchList({ matches }: { matches: DedupMatchRecord[] 
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="min-w-0 space-y-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-medium text-sm">{match.candidateName}</span>
+                    <span className="font-medium text-sm">
+                      {formatResumeCandidateTitle(match.candidateName, match.id)}
+                    </span>
                     {match.level ? (
                       <span
                         className={`rounded-md border px-1.5 py-0.5 font-medium text-[11px] ${LEVEL_META[match.level].tone}`}
@@ -92,18 +184,14 @@ export function ResumeDedupMatchList({ matches }: { matches: DedupMatchRecord[] 
                     <Badge variant={statusMeta?.tone ?? "outline"}>
                       {statusMeta?.label ?? match.status}
                     </Badge>
+                    <Badge variant="outline">{sourceTypeLabel(match)}</Badge>
                   </div>
                   <p className="text-muted-foreground text-xs">
                     {match.targetRole ?? "未填目标岗位"}
                     {match.jobDescriptionName ? ` · ${match.jobDescriptionName}` : ""}
                   </p>
                 </div>
-                <Button
-                  onClick={() => openDetail(match.id)}
-                  size="sm"
-                  type="button"
-                  variant="outline"
-                >
+                <Button onClick={() => openDetail(match)} size="sm" type="button" variant="outline">
                   <IconExternalLink className="size-3.5" />
                   查看
                 </Button>
@@ -159,7 +247,59 @@ export function ResumeDedupMatchList({ matches }: { matches: DedupMatchRecord[] 
         open={detailOpen}
         recordId={detailRecordId}
       />
+      <ResumePoolMatchDetailDialog
+        onOpenChange={(open) => {
+          setPoolDetailOpen(open);
+          if (!open) {
+            setPoolDetailRecordId(null);
+          }
+        }}
+        open={poolDetailOpen}
+        recordId={poolDetailRecordId}
+      />
     </>
+  );
+}
+
+export function ResumeDuplicateMatchesDialog({
+  isError = false,
+  isLoading = false,
+  matches,
+  onOpenChange,
+  open,
+  title = "疑似重复简历",
+}: {
+  open: boolean;
+  matches: DedupMatchRecord[];
+  isLoading?: boolean;
+  isError?: boolean;
+  title?: string;
+  onOpenChange: (open: boolean) => void;
+}) {
+  let content: ReactNode = <p className="text-muted-foreground text-sm">暂无疑似重复简历。</p>;
+  if (isLoading) {
+    content = (
+      <div className="flex items-center gap-2 text-muted-foreground text-sm">
+        <IconLoader2 className="size-4 animate-spin" />
+        正在加载疑似重复简历
+      </div>
+    );
+  } else if (isError) {
+    content = <p className="text-destructive text-sm">疑似重复简历加载失败。</p>;
+  } else if (matches.length > 0) {
+    content = <ResumeDedupMatchList matches={matches} />;
+  }
+
+  return (
+    <Modal
+      description="系统会基于工作经历、项目经历、技能和岗位画像的语义相似度判断风险。"
+      onOpenChange={onOpenChange}
+      open={open}
+      size="2xl"
+      title={title}
+    >
+      {content}
+    </Modal>
   );
 }
 

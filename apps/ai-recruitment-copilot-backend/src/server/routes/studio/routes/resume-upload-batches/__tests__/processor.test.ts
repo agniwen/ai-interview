@@ -585,7 +585,12 @@ describe("processNextItem — resume pool target", () => {
     expect(result?.batch.skippedCount).toBe(0);
     expect(enqueueResumeSemanticIndexJobBestEffort).not.toHaveBeenCalled();
     expect(findSemanticResumeDuplicates).toHaveBeenCalledWith(
-      expect.objectContaining({ organizationId: ORG_A }),
+      expect.objectContaining({
+        organizationId: ORG_A,
+        poolOwnerUserId: USER_A,
+        poolScope: "private",
+        sourceTypes: ["studio_interview", "resume_pool_item"],
+      }),
     );
     expect(replaceDuplicateMatchesForSource).toHaveBeenCalledWith({
       matches,

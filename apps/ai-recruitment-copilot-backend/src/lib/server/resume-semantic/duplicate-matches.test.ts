@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { DedupMatchRecord } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/dao/studio-interviews";
-import { toDuplicateMatchInsertRows } from "./duplicate-matches";
+import { listDuplicateMatchesForSource, toDuplicateMatchInsertRows } from "./duplicate-matches";
 
 const MATCH: DedupMatchRecord = {
   candidateEmail: "dup@example.com",
@@ -55,5 +55,36 @@ describe("toDuplicateMatchInsertRows", () => {
         status: "active",
       },
     ]);
+  });
+
+  it("keeps the matched source type from pool matches", () => {
+    vi.spyOn(crypto, "randomUUID").mockReturnValue("00000000-0000-4000-8000-000000000000");
+    const poolMatch: DedupMatchRecord = {
+      ...MATCH,
+      id: "target-pool-id",
+      sourceType: "resume_pool_item",
+      status: "active",
+    };
+
+    expect(
+      toDuplicateMatchInsertRows({
+        embeddingVersion: "v1",
+        matches: [poolMatch],
+        organizationId: "org-id",
+        sourceId: "source-pool-id",
+        sourceType: "resume_pool_item",
+      })[0],
+    ).toMatchObject({
+      matchedSourceId: "target-pool-id",
+      matchedSourceType: "resume_pool_item",
+      sourceId: "source-pool-id",
+      sourceType: "resume_pool_item",
+    });
+  });
+});
+
+describe("listDuplicateMatchesForSource", () => {
+  it("is exported for duplicate badge detail endpoints", () => {
+    expect(listDuplicateMatchesForSource).toBeTypeOf("function");
   });
 });

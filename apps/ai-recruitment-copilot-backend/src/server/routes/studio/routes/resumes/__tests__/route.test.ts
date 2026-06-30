@@ -177,6 +177,13 @@ describeWithDatabase("resume detail route database behavior", () => {
   });
 });
 
+describe("resume duplicate match details route", () => {
+  it("exposes duplicate match details for badge clicks", () => {
+    expect(routeSource).toContain('"/:id/duplicate-matches"');
+    expect(routeSource).toContain("listDuplicateMatchesForSource");
+  });
+});
+
 describeWithDatabase("resolveResumeUploadStorage", () => {
   it("stores only the uploaded object when the client already sent resumePayload", async () => {
     const { resolveResumeUploadStorage } =

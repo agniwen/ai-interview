@@ -34,10 +34,16 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
+import { TimeDisplay } from "@/components/features/display/time-display";
 import {
   ResumeDocumentFileIcon,
   getResumeDocumentFileIconKind,
 } from "@/components/features/resume/resume-document-file-icon";
+import { ResumeDuplicateMatchesDialog } from "@/components/features/resume/resume-dedup-overlay";
+import {
+  formatResumeCandidateTitle,
+  formatResumeRecordDisplayId,
+} from "@/components/features/resume/resume-record-display-id";
 import { listBulkResumeBatches } from "@/lib/client/api/endpoints/bulk-resume-upload";
 import { BulkUploadConfirmDialog } from "@/components/features/studio/resumes/bulk-upload-confirm-dialog";
 import type { BulkUploadConfirmConfig } from "@/components/features/studio/resumes/bulk-upload-confirm-dialog";
@@ -80,6 +86,7 @@ import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/h
 import {
   bulkDeleteStudioResumes,
   deleteStudioResume,
+  fetchStudioResumeDuplicateMatches,
   fetchStudioResumeSkillSuggestions,
   fetchStudioResumes,
 } from "@/lib/client/api";
@@ -274,6 +281,17 @@ function describeLifecycleCell(record: ResumeLibraryListRecord) {
   };
 }
 
+function textOrDash(value: string | null | undefined) {
+  const text = value?.trim();
+  return text || "—";
+}
+
+function getResumeLibraryJobDescriptionLabel(record: ResumeLibraryListRecord) {
+  return record.jobDescriptionName
+    ? [record.jobDescriptionDepartmentName, record.jobDescriptionName].filter(Boolean).join(" / ")
+    : null;
+}
+
 function canCopyResumeDetailLink({
   currentMemberRole,
   currentUserId,
@@ -349,17 +367,28 @@ function ResumeProgressCell({
   );
 }
 
-function duplicateMatchBadge(record: ResumeLibraryListRecord) {
+function duplicateMatchBadge(record: ResumeLibraryListRecord, onClick?: () => void) {
   if (!record.duplicateMatch) {
     return null;
   }
   const label =
     record.duplicateMatch.count > 1 ? `疑似重复 ${record.duplicateMatch.count} 条` : "疑似重复";
-  return (
-    <Badge
-      className="shrink-0"
-      variant={record.duplicateMatch.highestLevel === "high" ? "destructive" : "secondary"}
-    >
+  const variant = record.duplicateMatch.highestLevel === "high" ? "destructive" : "secondary";
+  return onClick ? (
+    <Badge asChild className="shrink-0 cursor-pointer" variant={variant}>
+      <button
+        onClick={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          onClick();
+        }}
+        type="button"
+      >
+        {label}
+      </button>
+    </Badge>
+  ) : (
+    <Badge className="shrink-0" variant={variant}>
       {label}
     </Badge>
   );
@@ -566,9 +595,17 @@ function ResumeLibraryPage({ metrics }: { metrics: ResumeLibraryMetrics }) {
   } | null>(null);
   const [deleteRecord, setDeleteRecord] = useState<ResumeLibraryListRecord | null>(null);
   const [previewRecord, setPreviewRecord] = useState<ResumeLibraryListRecord | null>(null);
+  const [duplicateMatchRecord, setDuplicateMatchRecord] = useState<ResumeLibraryListRecord | null>(
+    null,
+  );
   const [viewJobDescriptionId, setViewJobDescriptionId] = useState<string | null>(null);
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+  const duplicateMatchesQuery = useQuery({
+    enabled: duplicateMatchRecord !== null,
+    queryFn: () => fetchStudioResumeDuplicateMatches(slug, duplicateMatchRecord?.id ?? ""),
+    queryKey: ["studio-resumes", slug, duplicateMatchRecord?.id, "duplicate-matches"],
+  });
 
   // 中文：从 AI 面试详情/编辑里点「编辑候选人信息」跳转过来时，URL 为
   // `/studio/resumes?recordId=xxx`；自动打开 EditResumeDialog 并清掉参数，
@@ -638,6 +675,7 @@ function ResumeLibraryPage({ metrics }: { metrics: ResumeLibraryMetrics }) {
           const documentKind = getResumeDocumentFileIconKind({ fileName: r.resumeFileName });
           const previewable = isPreviewableResumeDocumentInput({ fileName: r.resumeFileName });
           const previewTitle = r.resumeFileName ?? "查看简历";
+          const jobDescriptionLabel = getResumeLibraryJobDescriptionLabel(r);
           let documentIcon = (
             <span
               aria-disabled="true"
@@ -683,29 +721,57 @@ function ResumeLibraryPage({ metrics }: { metrics: ResumeLibraryMetrics }) {
           return (
             <div className="flex min-w-0 items-start gap-2">
               {documentIcon}
-              <div className="min-w-0">
-                <div className="flex min-w-0 items-center gap-2">
-                  <button
-                    className="block min-w-0 truncate text-left font-medium underline decoration-foreground/20 underline-offset-4 hover:decoration-foreground/60"
-                    onClick={() => setDetailRecordId(r.id)}
-                    type="button"
-                  >
-                    {r.candidateName}
-                  </button>
-                  {duplicateMatchBadge(r)}
-                </div>
-                {r.candidateEmail ? (
-                  <a
-                    className="block max-w-full cursor-default truncate text-muted-foreground text-xs underline decoration-muted-foreground/20 underline-offset-4 hover:decoration-muted-foreground/60"
-                    href={`mailto:${r.candidateEmail}`}
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    {r.candidateEmail}
-                  </a>
-                ) : (
-                  <p className="truncate text-muted-foreground text-xs">未填写邮箱</p>
-                )}
-              </div>
+              <HoverCard closeDelay={120} openDelay={180}>
+                <HoverCardTrigger asChild>
+                  <div className="min-w-0">
+                    <div className="flex min-w-0 items-center gap-2">
+                      <button
+                        className="block min-w-0 truncate text-left font-medium underline decoration-foreground/20 underline-offset-4 hover:decoration-foreground/60"
+                        onClick={() => setDetailRecordId(r.id)}
+                        type="button"
+                      >
+                        {r.candidateName}
+                      </button>
+                      {duplicateMatchBadge(r, () => setDuplicateMatchRecord(r))}
+                    </div>
+                    <p className="mt-0.5 truncate text-muted-foreground/70 text-[11px] leading-4">
+                      {formatResumeRecordDisplayId(r.id)}
+                    </p>
+                  </div>
+                </HoverCardTrigger>
+                <HoverCardContent align="start" className="w-80">
+                  <div className="flex flex-col gap-3">
+                    <div className="min-w-0">
+                      <p className="truncate font-medium text-sm">{r.candidateName}</p>
+                      <p className="mt-0.5 truncate text-muted-foreground/70 text-[11px] leading-4">
+                        {formatResumeRecordDisplayId(r.id)}
+                      </p>
+                    </div>
+                    <dl className="grid grid-cols-[4.5rem_minmax(0,1fr)] gap-x-3 gap-y-2 text-xs">
+                      <dt className="text-muted-foreground">邮箱</dt>
+                      <dd className="min-w-0 break-all">{textOrDash(r.candidateEmail)}</dd>
+                      <dt className="text-muted-foreground">电话</dt>
+                      <dd className="min-w-0 break-all">{textOrDash(r.candidatePhone)}</dd>
+                      <dt className="text-muted-foreground">目标岗位</dt>
+                      <dd className="min-w-0 break-words">{textOrDash(r.targetRole)}</dd>
+                      <dt className="text-muted-foreground">关联岗位</dt>
+                      <dd className="min-w-0 break-words">{jobDescriptionLabel ?? "—"}</dd>
+                      <dt className="text-muted-foreground">创建人</dt>
+                      <dd className="min-w-0 break-words">{textOrDash(r.creatorName)}</dd>
+                      <dt className="text-muted-foreground">创建时间</dt>
+                      <dd className="min-w-0">
+                        <TimeDisplay as="span" emptyText="—" value={r.createdAt} />
+                      </dd>
+                      <dt className="text-muted-foreground">最近面试</dt>
+                      <dd className="min-w-0">
+                        <TimeDisplay as="span" emptyText="—" value={r.lastInterviewAt} />
+                      </dd>
+                      <dt className="text-muted-foreground">当前环节</dt>
+                      <dd className="min-w-0 break-words">{describeLifecycleCell(r).fullLabel}</dd>
+                    </dl>
+                  </div>
+                </HoverCardContent>
+              </HoverCard>
             </div>
           );
         },
@@ -715,9 +781,7 @@ function ResumeLibraryPage({ metrics }: { metrics: ResumeLibraryMetrics }) {
       }),
       customColumn<ResumeLibraryListRecord>({
         cell: (r) => {
-          const label = r.jobDescriptionName
-            ? [r.jobDescriptionDepartmentName, r.jobDescriptionName].filter(Boolean).join(" / ")
-            : null;
+          const label = getResumeLibraryJobDescriptionLabel(r);
 
           return label ? (
             <button
@@ -1169,6 +1233,25 @@ function ResumeLibraryPage({ metrics }: { metrics: ResumeLibraryMetrics }) {
         }}
         open={detailRecordId !== null}
         recordId={detailRecordId}
+      />
+      <ResumeDuplicateMatchesDialog
+        isError={duplicateMatchesQuery.isError}
+        isLoading={duplicateMatchesQuery.isLoading}
+        matches={duplicateMatchesQuery.data?.matches ?? []}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDuplicateMatchRecord(null);
+          }
+        }}
+        open={duplicateMatchRecord !== null}
+        title={
+          duplicateMatchRecord
+            ? `${formatResumeCandidateTitle(
+                duplicateMatchRecord.candidateName,
+                duplicateMatchRecord.id,
+              )} 的疑似重复简历`
+            : "疑似重复简历"
+        }
       />
 
       {/* 「保存并发起面试」/「发起 AI 面试」成功后弹出的 AI 面试详情弹窗。

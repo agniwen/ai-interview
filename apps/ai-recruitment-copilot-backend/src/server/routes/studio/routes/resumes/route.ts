@@ -58,7 +58,10 @@ import {
   loadInterviewRoundDetail,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/dao/interview-rounds";
 import { findSemanticResumeDuplicates } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/dedup-service";
-import { replaceDuplicateMatchesForSource } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/duplicate-matches";
+import {
+  listDuplicateMatchesForSource,
+  replaceDuplicateMatchesForSource,
+} from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/duplicate-matches";
 import { enqueueResumeSemanticIndexJobBestEffort } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/enqueue";
 import { deleteResumeSemanticIndexBestEffort } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/lifecycle";
 import { autoBindApplicableTemplates } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interview-questions/dao/bindings";
@@ -282,6 +285,25 @@ export const resumeLibraryRouter = factory
       return c.json({ error: "记录不存在。" }, 404);
     }
     return c.json(record, 200);
+  })
+  .get("/:id/duplicate-matches", requirePermission("resumeLibrary", "read"), async (c) => {
+    const { activeOrg, user } = c.var;
+    if (!activeOrg || !user) {
+      return c.json({ message: "Unauthorized" }, 401);
+    }
+    const id = c.req.param("id");
+    const visibilityScope = await loadVisibilityScope(activeOrg.id, c.var.member?.role, user.id);
+    const record = await loadResumeDetail(id, activeOrg.id, visibilityScope);
+    if (!record) {
+      return c.json({ error: "记录不存在。" }, 404);
+    }
+    const matches = await listDuplicateMatchesForSource({
+      organizationId: activeOrg.id,
+      poolOwnerUserId: user.id,
+      sourceId: id,
+      sourceType: "studio_interview",
+    });
+    return c.json({ matches }, 200);
   })
   .get("/:id/timeline", requirePermission("resumeLibrary", "read"), async (c) => {
     const { activeOrg } = c.var;

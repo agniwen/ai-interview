@@ -1,7 +1,8 @@
 import { and, eq, inArray } from "drizzle-orm";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import type { ResumeProfile } from "@arc/db-schema/interview/types";
-import { jobDescription, studioInterview } from "@arc/db-schema/schema";
+import { jobDescription, resumePoolItem, studioInterview } from "@arc/db-schema/schema";
+import type { ResumePoolScope, ResumeSemanticSourceType } from "@arc/db-schema/schema";
 import type { DedupMatchRecord } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/dao/studio-interviews";
 import { QdrantResumeVectorStore } from "../qdrant/resume-vector-store";
 import {
@@ -23,24 +24,37 @@ interface SemanticCandidateRecord {
   id: string;
   jobDescriptionName: string | null;
   resumeProfile: ResumeProfile | null;
+  sourceType?: ResumeSemanticSourceType;
   status: DedupMatchRecord["status"];
   targetRole: string | null;
 }
 
 interface FindSemanticResumeDuplicatesInput {
+  excludeSources?: { sourceId: string; sourceType: ResumeSemanticSourceType }[];
   email?: string | null;
   name?: string | null;
   organizationId: string;
   phone?: string | null;
+  poolOwnerUserId?: string | null;
+  poolScope?: ResumePoolScope | null;
   resumeProfile?: ResumeProfile | null;
+  sourceTypes?: ResumeSemanticSourceType[];
 }
 
 interface SemanticDedupDeps {
   embed: typeof embedResumeSemanticTexts;
   embeddingConfig: ReturnType<typeof getResumeEmbeddingConfig>;
   enabled: boolean;
-  loadCandidates: (organizationId: string, ids: string[]) => Promise<SemanticCandidateRecord[]>;
+  loadCandidates: (
+    organizationId: string,
+    sources: { sourceId: string; sourceType: ResumeSemanticSourceType }[],
+    options?: { poolOwnerUserId?: string | null; poolScope?: ResumePoolScope | null },
+  ) => Promise<SemanticCandidateRecord[]>;
   vectorStore: ResumeVectorStore;
+}
+
+function sourceKey(sourceType: ResumeSemanticSourceType, sourceId: string): string {
+  return `${sourceType}:${sourceId}`;
 }
 
 function toSimilarity(scores: VectorSimilarityScores): DedupMatchRecord["similarity"] {
@@ -53,13 +67,20 @@ function toSimilarity(scores: VectorSimilarityScores): DedupMatchRecord["similar
 
 function mergeVectorScores(
   results: ResumeVectorSearchResult[],
+  allowedSourceTypes: ResumeSemanticSourceType[],
+  excludeSources: { sourceId: string; sourceType: ResumeSemanticSourceType }[] = [],
 ): Map<string, VectorSimilarityScores> {
   const map = new Map<string, VectorSimilarityScores>();
+  const allowed = new Set(allowedSourceTypes);
+  const excluded = new Set(
+    excludeSources.map((source) => sourceKey(source.sourceType, source.sourceId)),
+  );
   for (const result of results) {
-    if (result.sourceType !== "studio_interview") {
+    const key = sourceKey(result.sourceType, result.sourceId);
+    if (!(allowed.has(result.sourceType) && !excluded.has(key))) {
       continue;
     }
-    const current = map.get(result.sourceId) ?? {};
+    const current = map.get(key) ?? {};
     if (result.chunkType === "resume_overview") {
       current.resumeOverview = Math.max(current.resumeOverview ?? 0, result.score);
     } else if (result.chunkType === "work_project") {
@@ -67,7 +88,7 @@ function mergeVectorScores(
     } else if (result.chunkType === "skill_role") {
       current.skillRole = Math.max(current.skillRole ?? 0, result.score);
     }
-    map.set(result.sourceId, current);
+    map.set(key, current);
   }
   return map;
 }
@@ -86,6 +107,7 @@ export async function findSemanticResumeDuplicates(
     return [];
   }
   const queryProfile = input.resumeProfile;
+  const sourceTypes = input.sourceTypes?.length ? input.sourceTypes : ["studio_interview" as const];
 
   try {
     const chunks = buildResumeSemanticTexts(queryProfile);
@@ -101,14 +123,23 @@ export async function findSemanticResumeDuplicates(
           embedding: chunk.embedding,
           limit: chunk.chunkType === "skill_role" ? 30 : 50,
           organizationId: input.organizationId,
+          sourceTypes,
         }),
       ),
     );
     const searchResults = searchResultGroups.flat();
-    const bySource = mergeVectorScores(searchResults);
-    const candidates = await deps.loadCandidates(input.organizationId, [...bySource.keys()]);
+    const bySource = mergeVectorScores(searchResults, sourceTypes, input.excludeSources);
+    const sources = [...bySource.keys()].map((key) => {
+      const [sourceType, sourceId] = key.split(":");
+      return { sourceId, sourceType: sourceType as ResumeSemanticSourceType };
+    });
+    const candidates = await deps.loadCandidates(input.organizationId, sources, {
+      poolOwnerUserId: input.poolOwnerUserId,
+      poolScope: input.poolScope,
+    });
     const semanticMatches = candidates.flatMap((candidate): DedupMatchRecord[] => {
-      const vectorScores = bySource.get(candidate.id);
+      const candidateSourceType = candidate.sourceType ?? "studio_interview";
+      const vectorScores = bySource.get(sourceKey(candidateSourceType, candidate.id));
       if (!vectorScores) {
         return [];
       }
@@ -133,6 +164,7 @@ export async function findSemanticResumeDuplicates(
           score: rerank.score,
           semanticReasons: rerank.reasons,
           similarity: toSimilarity(vectorScores),
+          sourceType: candidateSourceType,
           status: candidate.status,
           targetRole: candidate.targetRole,
         },
@@ -181,37 +213,93 @@ export function createDefaultSemanticDedupDeps(): SemanticDedupDeps {
 
 async function loadSemanticDedupCandidates(
   organizationId: string,
-  ids: string[],
+  sources: { sourceId: string; sourceType: ResumeSemanticSourceType }[],
+  options: { poolOwnerUserId?: string | null; poolScope?: ResumePoolScope | null } = {},
 ): Promise<SemanticCandidateRecord[]> {
-  if (ids.length === 0) {
+  if (sources.length === 0) {
     return [];
   }
-  const rows = await db
-    .select({
-      candidateEmail: studioInterview.candidateEmail,
-      candidateName: studioInterview.candidateName,
-      candidatePhone: studioInterview.candidatePhone,
-      createdAt: studioInterview.createdAt,
-      id: studioInterview.id,
-      jobDescriptionName: jobDescription.name,
-      resumeProfile: studioInterview.resumeProfile,
-      status: studioInterview.status,
-      targetRole: studioInterview.targetRole,
-    })
-    .from(studioInterview)
-    .leftJoin(
-      jobDescription,
-      and(
-        eq(studioInterview.jobDescriptionId, jobDescription.id),
-        eq(jobDescription.organizationId, studioInterview.organizationId),
-      ),
-    )
-    .where(
-      and(eq(studioInterview.organizationId, organizationId), inArray(studioInterview.id, ids)),
-    );
+  const studioIds = sources
+    .filter((source) => source.sourceType === "studio_interview")
+    .map((source) => source.sourceId);
+  const poolIds = sources
+    .filter((source) => source.sourceType === "resume_pool_item")
+    .map((source) => source.sourceId);
 
-  return rows.map((row) => ({
-    ...row,
-    createdAt: row.createdAt instanceof Date ? row.createdAt.toISOString() : row.createdAt,
-  }));
+  const studioRows =
+    studioIds.length === 0
+      ? []
+      : await db
+          .select({
+            candidateEmail: studioInterview.candidateEmail,
+            candidateName: studioInterview.candidateName,
+            candidatePhone: studioInterview.candidatePhone,
+            createdAt: studioInterview.createdAt,
+            id: studioInterview.id,
+            jobDescriptionName: jobDescription.name,
+            resumeProfile: studioInterview.resumeProfile,
+            status: studioInterview.status,
+            targetRole: studioInterview.targetRole,
+          })
+          .from(studioInterview)
+          .leftJoin(
+            jobDescription,
+            and(
+              eq(studioInterview.jobDescriptionId, jobDescription.id),
+              eq(jobDescription.organizationId, studioInterview.organizationId),
+            ),
+          )
+          .where(
+            and(
+              eq(studioInterview.organizationId, organizationId),
+              inArray(studioInterview.id, studioIds),
+            ),
+          );
+
+  const poolRows =
+    poolIds.length === 0
+      ? []
+      : await db
+          .select({
+            candidateEmail: resumePoolItem.candidateEmail,
+            candidateName: resumePoolItem.candidateName,
+            candidatePhone: resumePoolItem.candidatePhone,
+            createdAt: resumePoolItem.createdAt,
+            id: resumePoolItem.id,
+            jobDescriptionName: jobDescription.name,
+            resumeProfile: resumePoolItem.resumeProfile,
+            status: resumePoolItem.status,
+            targetRole: resumePoolItem.targetRole,
+          })
+          .from(resumePoolItem)
+          .leftJoin(
+            jobDescription,
+            and(
+              eq(resumePoolItem.jobDescriptionId, jobDescription.id),
+              eq(jobDescription.organizationId, resumePoolItem.organizationId),
+            ),
+          )
+          .where(
+            and(
+              eq(resumePoolItem.organizationId, organizationId),
+              inArray(resumePoolItem.id, poolIds),
+              options.poolScope ? eq(resumePoolItem.scope, options.poolScope) : undefined,
+              options.poolOwnerUserId
+                ? eq(resumePoolItem.createdBy, options.poolOwnerUserId)
+                : undefined,
+            ),
+          );
+
+  return [
+    ...studioRows.map((row) => ({
+      ...row,
+      createdAt: row.createdAt instanceof Date ? row.createdAt.toISOString() : row.createdAt,
+      sourceType: "studio_interview" as const,
+    })),
+    ...poolRows.map((row) => ({
+      ...row,
+      createdAt: row.createdAt instanceof Date ? row.createdAt.toISOString() : row.createdAt,
+      sourceType: "resume_pool_item" as const,
+    })),
+  ];
 }

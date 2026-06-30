@@ -39,7 +39,14 @@ import {
   ResumeDocumentFileIcon,
   getResumeDocumentFileIconKind,
 } from "@/components/features/resume/resume-document-file-icon";
-import { ResumeDedupMatchList } from "@/components/features/resume/resume-dedup-overlay";
+import {
+  ResumeDedupMatchList,
+  ResumeDuplicateMatchesDialog,
+} from "@/components/features/resume/resume-dedup-overlay";
+import {
+  formatResumeCandidateTitle,
+  formatResumeRecordDisplayId,
+} from "@/components/features/resume/resume-record-display-id";
 import { ResumeEducationDisplayLine } from "@/components/features/resume/resume-education-line";
 import {
   getPreviewableResumeDocumentKind,
@@ -82,6 +89,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import {
   deleteResumePoolItem,
+  fetchResumePoolDuplicateMatches,
   fetchResumePoolItem,
   fetchResumePoolItems,
   importResumePoolItem,
@@ -134,6 +142,11 @@ function getCandidateTitle(record: ResumePoolListRecord) {
   return record.candidateName?.trim() || "未命名候选人";
 }
 
+function getCandidateTitleWithId(record: ResumePoolListRecord) {
+  const candidateTitle = getCandidateTitle(record);
+  return formatResumeCandidateTitle(candidateTitle, record.id);
+}
+
 function formatCandidateWorkYears(workYears: number | null) {
   return workYears === null ? null : `${workYears}年`;
 }
@@ -174,16 +187,28 @@ function resumeParseStatusBadge(record: ResumePoolListRecord) {
   }
 }
 
-function duplicateMatchBadge(record: ResumePoolListRecord) {
+function duplicateMatchBadge(record: ResumePoolListRecord, onClick?: () => void) {
   if (!record.duplicateMatch) {
     return null;
   }
   const label =
     record.duplicateMatch.count > 1 ? `疑似重复 ${record.duplicateMatch.count} 条` : "疑似重复";
-  return (
-    <Badge variant={record.duplicateMatch.highestLevel === "high" ? "destructive" : "secondary"}>
-      {label}
+  const variant = record.duplicateMatch.highestLevel === "high" ? "destructive" : "secondary";
+  return onClick ? (
+    <Badge asChild className="cursor-pointer" variant={variant}>
+      <button
+        onClick={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          onClick();
+        }}
+        type="button"
+      >
+        {label}
+      </button>
     </Badge>
+  ) : (
+    <Badge variant={variant}>{label}</Badge>
   );
 }
 
@@ -734,11 +759,13 @@ function ResumePoolDetailSummaryPanel({
   detail,
   isError,
   isLoading,
+  onOpenDuplicateMatches,
   resumeProfile,
 }: {
   detail: ResumePoolDetailLike;
   isError: boolean;
   isLoading: boolean;
+  onOpenDuplicateMatches?: () => void;
   resumeProfile: ResumePoolProfile;
 }) {
   const skills = resumeProfile?.skills.slice(0, 8) ?? detail.skillsNormalized.slice(0, 8);
@@ -752,7 +779,7 @@ function ResumePoolDetailSummaryPanel({
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="font-medium text-sm">候选人摘要</h3>
             {resumeParseStatusBadge(detail)}
-            {duplicateMatchBadge(detail)}
+            {duplicateMatchBadge(detail, onOpenDuplicateMatches)}
             {detail.importedResumeRecordId ? (
               <Badge variant="success">已入库</Badge>
             ) : (
@@ -971,6 +998,7 @@ function ResumePoolCardUploaderMeta({ record }: { record: ResumePoolListRecord }
 }
 
 function ResumePoolDetailDialog({
+  onOpenDuplicateMatches,
   onOpenChange,
   record,
   slug,
@@ -978,6 +1006,7 @@ function ResumePoolDetailDialog({
   record: ResumePoolListRecord | null;
   slug: string;
   onOpenChange: (open: boolean) => void;
+  onOpenDuplicateMatches?: (record: ResumePoolListRecord) => void;
 }) {
   const itemId = record?.id ?? "";
   const detailQuery = useQuery({
@@ -999,7 +1028,7 @@ function ResumePoolDetailDialog({
       onOpenChange={onOpenChange}
       open={record !== null}
       size="2xl"
-      title={record ? getCandidateTitle(record) : "候选人详情"}
+      title={record ? getCandidateTitleWithId(record) : "候选人详情"}
     >
       {detail ? (
         <div className="space-y-8">
@@ -1007,6 +1036,9 @@ function ResumePoolDetailDialog({
             detail={detail}
             isError={detailQuery.isError}
             isLoading={detailQuery.isLoading}
+            onOpenDuplicateMatches={
+              record && onOpenDuplicateMatches ? () => onOpenDuplicateMatches(record) : undefined
+            }
             resumeProfile={resumeProfile}
           />
           <ResumePoolStructuredInfoPanel
@@ -1105,6 +1137,7 @@ function ResumePoolCard({
   canPublish,
   deleting,
   onDelete,
+  onOpenDuplicateMatches,
   onOpenDetail,
   onOpenPdf,
   onImport,
@@ -1126,6 +1159,7 @@ function ResumePoolCard({
   selected: boolean;
   selectionDisabled: boolean;
   onOpenDetail: (record: ResumePoolListRecord) => void;
+  onOpenDuplicateMatches: (record: ResumePoolListRecord) => void;
   onOpenPdf: (record: ResumePoolListRecord) => void;
   onImport: (record: ResumePoolListRecord) => void;
   onPublish: (record: ResumePoolListRecord) => void;
@@ -1195,9 +1229,12 @@ function ResumePoolCard({
               {title}
             </button>
           </CardTitle>
+          <p className="mt-0.5 truncate text-muted-foreground/70 text-[11px] leading-4">
+            {formatResumeRecordDisplayId(record.id)}
+          </p>
         </div>
         {record.sourceChannel === "referral" ? <Badge variant="secondary">内推</Badge> : null}
-        {duplicateMatchBadge(record)}
+        {duplicateMatchBadge(record, () => onOpenDuplicateMatches(record))}
         {scope === "private" && canDelete ? (
           <Checkbox
             aria-label={`选择 ${title}`}
@@ -1306,6 +1343,7 @@ function ResumePoolListContent({
   isPoolBusy,
   onDelete,
   onImport,
+  onOpenDuplicateMatches,
   onOpenDetail,
   onOpenPdf,
   onPublish,
@@ -1334,6 +1372,7 @@ function ResumePoolListContent({
   emptyTitle: string;
   canResetFilters: boolean;
   onOpenDetail: (record: ResumePoolListRecord) => void;
+  onOpenDuplicateMatches: (record: ResumePoolListRecord) => void;
   onOpenPdf: (record: ResumePoolListRecord) => void;
   onImport: (record: ResumePoolListRecord) => void;
   onPublish: (record: ResumePoolListRecord) => void;
@@ -1363,6 +1402,7 @@ function ResumePoolListContent({
                   key={record.id}
                   onDelete={onDelete}
                   onImport={onImport}
+                  onOpenDuplicateMatches={onOpenDuplicateMatches}
                   onOpenDetail={onOpenDetail}
                   onOpenPdf={onOpenPdf}
                   onPublish={onPublish}
@@ -1466,6 +1506,7 @@ function ResumePoolToolbarActions({
   );
 }
 
+// oxlint-disable-next-line eslint/complexity -- page-level state coordinates filters, uploads, selection, and dialogs.
 function ResumePoolPage() {
   const slug = useWorkspaceSlug();
   const workspaceId = useWorkspaceId();
@@ -1490,6 +1531,9 @@ function ResumePoolPage() {
   const [batchListOpen, setBatchListOpen] = useState(false);
   const [detailRecord, setDetailRecord] = useState<ResumePoolListRecord | null>(null);
   const [previewRecord, setPreviewRecord] = useState<ResumePoolListRecord | null>(null);
+  const [duplicateMatchRecord, setDuplicateMatchRecord] = useState<ResumePoolListRecord | null>(
+    null,
+  );
   const [importTarget, setImportTarget] = useState<ResumePoolListRecord | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ResumePoolListRecord | null>(null);
   const [selectedPrivateResumeIds, setSelectedPrivateResumeIds] = useState<Set<string>>(
@@ -1586,6 +1630,11 @@ function ResumePoolPage() {
     queryFn: () => listBulkResumeBatches(slug),
     queryKey: ["bulk-resume-batches", slug],
     refetchInterval: 10_000,
+  });
+  const duplicateMatchesQuery = useQuery({
+    enabled: duplicateMatchRecord !== null,
+    queryFn: () => fetchResumePoolDuplicateMatches(slug, duplicateMatchRecord?.id ?? ""),
+    queryKey: ["resume-pool", slug, duplicateMatchRecord?.id, "duplicate-matches"],
   });
   const poolBatches = useMemo(
     () => (batchListQuery.data ?? []).filter((batch) => batch.target === "resume_pool"),
@@ -1827,6 +1876,7 @@ function ResumePoolPage() {
             isPoolBusy={isPoolBusy}
             onDelete={setDeleteTarget}
             onImport={setImportTarget}
+            onOpenDuplicateMatches={setDuplicateMatchRecord}
             onOpenDetail={setDetailRecord}
             onOpenPdf={setPreviewRecord}
             onPublish={publishMutation.mutate}
@@ -1938,9 +1988,26 @@ function ResumePoolPage() {
         onOpenChange={(open) => !open && setImportTarget(null)}
       />
       <ResumePoolDetailDialog
+        onOpenDuplicateMatches={setDuplicateMatchRecord}
         onOpenChange={(open) => !open && setDetailRecord(null)}
         record={detailRecord}
         slug={slug}
+      />
+      <ResumeDuplicateMatchesDialog
+        isError={duplicateMatchesQuery.isError}
+        isLoading={duplicateMatchesQuery.isLoading}
+        matches={duplicateMatchesQuery.data?.matches ?? []}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDuplicateMatchRecord(null);
+          }
+        }}
+        open={duplicateMatchRecord !== null}
+        title={
+          duplicateMatchRecord
+            ? `${getCandidateTitleWithId(duplicateMatchRecord)} 的疑似重复简历`
+            : "疑似重复简历"
+        }
       />
       <AlertDialog
         onOpenChange={(open) => !open && setDeleteTarget(null)}

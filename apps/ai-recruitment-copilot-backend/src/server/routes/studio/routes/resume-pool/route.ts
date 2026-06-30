@@ -18,7 +18,12 @@ import {
 } from "@arc/ai-recruitment-copilot-backend/server/routes/interview/utils";
 import { jobDescriptionIdsExist } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao";
 import { createPptxPreviewPdfResponse } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/utils/pptx-preview";
+import { findSemanticResumeDuplicates } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/dedup-service";
 import { runResumeSemanticIndexJob } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/indexer";
+import {
+  listDuplicateMatchesForSource,
+  replaceDuplicateMatchesForSource,
+} from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/duplicate-matches";
 import {
   createResumePoolItem,
   deleteOwnPoolItem,
@@ -104,6 +109,28 @@ export const resumePoolRouter = factory
     }
     return c.json(item, 200);
   })
+  .get("/:id/duplicate-matches", requirePermission("resumePool", "read"), async (c) => {
+    const { activeOrg, user } = c.var;
+    if (!activeOrg || !user) {
+      return c.json({ message: "Unauthorized" }, 401);
+    }
+    const poolItemId = c.req.param("id");
+    const item = await loadResumePoolItem({
+      organizationId: activeOrg.id,
+      poolItemId,
+      userId: user.id,
+    });
+    if (!item) {
+      return c.json({ error: "记录不存在。" }, 404);
+    }
+    const matches = await listDuplicateMatchesForSource({
+      organizationId: activeOrg.id,
+      poolOwnerUserId: user.id,
+      sourceId: poolItemId,
+      sourceType: "resume_pool_item",
+    });
+    return c.json({ matches }, 200);
+  })
   .get("/:id/resume", requirePermission("resumePool", "read"), async (c) => {
     const { activeOrg, user } = c.var;
     if (!activeOrg || !user) {
@@ -173,6 +200,7 @@ export const resumePoolRouter = factory
       return c.json({ error: error instanceof Error ? error.message : "删除失败。" }, 404);
     }
   })
+  // oxlint-disable-next-line eslint/complexity -- upload route orchestrates validation, parsing, dedup indexing, and persistence.
   .post("/", requirePermission("resumePool", "create"), async (c) => {
     const { activeOrg, user } = c.var;
     if (!activeOrg || !user) {
@@ -210,6 +238,19 @@ export const resumePoolRouter = factory
         resume,
         uploadResult,
       );
+      const duplicateMatches = await findSemanticResumeDuplicates({
+        email: input.data.candidateEmail ?? resumeProfile.email ?? null,
+        name: input.data.candidateName ?? resumeProfile.name ?? null,
+        organizationId: activeOrg.id,
+        phone: input.data.candidatePhone ?? resumeProfile.phone ?? null,
+        poolOwnerUserId: input.data.scope === "private" ? user.id : undefined,
+        poolScope: input.data.scope === "private" ? "private" : undefined,
+        resumeProfile,
+        sourceTypes:
+          input.data.scope === "private"
+            ? ["studio_interview", "resume_pool_item"]
+            : ["studio_interview"],
+      });
       const id = await createResumePoolItem({
         candidateEmail: input.data.candidateEmail ?? null,
         candidateName: input.data.candidateName ?? null,
@@ -236,6 +277,12 @@ export const resumePoolRouter = factory
         await markResumePoolItemSemanticIndexed({
           organizationId: activeOrg.id,
           poolItemId: id,
+        });
+        await replaceDuplicateMatchesForSource({
+          matches: duplicateMatches,
+          organizationId: activeOrg.id,
+          sourceId: id,
+          sourceType: "resume_pool_item",
         });
       } catch (error) {
         await markResumePoolItemParseFailed({

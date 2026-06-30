@@ -134,9 +134,21 @@ describe("ResumePoolPage masonry layout", () => {
     expect(dialogSource).not.toContain("match.resumeFileName");
   });
 
+  it("opens duplicate match details from resume pool badges", () => {
+    expect(source).toContain("ResumeDuplicateMatchesDialog");
+    expect(source).toContain("fetchResumePoolDuplicateMatches");
+    expect(source).toContain("onOpenDuplicateMatches={setDuplicateMatchRecord}");
+    expect(source).toContain("duplicateMatchBadge(record, () => onOpenDuplicateMatches(record))");
+  });
+
   it("prefixes parsed candidate names with the target role on resume pool cards", () => {
     expect(source).toContain("function getCandidateDisplayTitle");
     expect(source).toContain("function formatCandidateWorkYears");
+    expect(source).toContain("formatResumeRecordDisplayId(record.id)");
+    expect(source).toContain("text-muted-foreground/70 text-[11px]");
+    expect(source).not.toContain(
+      "formatResumeCandidateTitle(getCandidateTitle(record), record.id)",
+    );
     expect(source).toContain("record.workYears");
     expect(source).toContain('record.resumeParseStatus !== "ready"');
     expect(source).toMatch(/return `\$\{targetRole\}-\$\{workYears\}-\$\{candidateTitle\}`;/u);
@@ -369,9 +381,9 @@ describe("ResumePoolPage masonry layout", () => {
     expect(pageSource).toContain("setPendingPrivateUploadFiles(files)");
     expect(pageSource).toContain("setPrivateUploadPolicyOpen(true)");
     expect(pageSource).toContain('startQueuedUpload(files, "public", "create")');
-    expect(policyDialogSource).toContain('useState<ResumeUploadBatchDedupPolicy>("skip")');
-    expect(policyDialogSource).toContain("跳过疑似重复");
-    expect(policyDialogSource).toContain("照样创建");
+    expect(policyDialogSource).toContain('onConfirmed("skip")');
+    expect(policyDialogSource).toContain("所有简历都会被保留");
+    expect(policyDialogSource).toContain("疑似重复关系记录到简历上");
     expect(source).toContain("<PrivateResumePoolUploadPolicyDialog");
   });
 

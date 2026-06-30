@@ -1,7 +1,12 @@
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, or, sql } from "drizzle-orm";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import type { DedupMatchRecord } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/dao/studio-interviews";
-import { resumeDuplicateMatch } from "@arc/db-schema/schema";
+import {
+  jobDescription,
+  resumeDuplicateMatch,
+  resumePoolItem,
+  studioInterview,
+} from "@arc/db-schema/schema";
 import type { ResumeSemanticSourceType } from "@arc/db-schema/schema";
 import { getResumeSemanticIndexConfig } from "./indexer";
 
@@ -19,7 +24,7 @@ export function toDuplicateMatchInsertRows(input: Required<PersistDuplicateMatch
     id: crypto.randomUUID(),
     level: match.level ?? "medium",
     matchedSourceId: match.id,
-    matchedSourceType: "studio_interview" as const,
+    matchedSourceType: match.sourceType ?? "studio_interview",
     organizationId: input.organizationId,
     reasons: match.semanticReasons ?? [],
     score: Math.round(match.score ?? 0),
@@ -111,4 +116,143 @@ export async function listActiveDuplicateMatchCounts(input: {
     .groupBy(resumeDuplicateMatch.sourceId);
 
   return new Map(rows.map((row) => [row.sourceId, row]));
+}
+
+type DuplicateMatchRow = typeof resumeDuplicateMatch.$inferSelect;
+
+function toMatchRecord(
+  match: DuplicateMatchRow,
+  target: {
+    candidateEmail: string | null;
+    candidateName: string;
+    candidatePhone: string | null;
+    createdAt: Date;
+    id: string;
+    jobDescriptionName: string | null;
+    status: DedupMatchRecord["status"];
+    targetRole: string | null;
+  },
+): DedupMatchRecord {
+  return {
+    candidateEmail: target.candidateEmail,
+    candidateName: target.candidateName,
+    candidatePhone: target.candidatePhone,
+    conflictingSignals: match.signals,
+    createdAt: target.createdAt.toISOString(),
+    id: target.id,
+    jobDescriptionName: target.jobDescriptionName,
+    level: match.level,
+    score: match.score,
+    semanticReasons: match.reasons,
+    similarity: match.similarity ?? undefined,
+    sourceType: match.matchedSourceType,
+    status: target.status,
+    targetRole: target.targetRole,
+  };
+}
+
+export async function listDuplicateMatchesForSource(input: {
+  organizationId: string;
+  poolOwnerUserId?: string | null;
+  sourceId: string;
+  sourceType: ResumeSemanticSourceType;
+}): Promise<DedupMatchRecord[]> {
+  const matchRows = await db
+    .select()
+    .from(resumeDuplicateMatch)
+    .where(
+      and(
+        eq(resumeDuplicateMatch.organizationId, input.organizationId),
+        eq(resumeDuplicateMatch.sourceType, input.sourceType),
+        eq(resumeDuplicateMatch.sourceId, input.sourceId),
+        inArray(resumeDuplicateMatch.status, ["active", "confirmed"]),
+      ),
+    )
+    .orderBy(desc(resumeDuplicateMatch.score), desc(resumeDuplicateMatch.createdAt));
+
+  const studioIds = matchRows
+    .filter((row) => row.matchedSourceType === "studio_interview")
+    .map((row) => row.matchedSourceId);
+  const poolIds = matchRows
+    .filter((row) => row.matchedSourceType === "resume_pool_item")
+    .map((row) => row.matchedSourceId);
+
+  const [studioRows, poolRows] = await Promise.all([
+    studioIds.length === 0
+      ? Promise.resolve([])
+      : db
+          .select({
+            candidateEmail: studioInterview.candidateEmail,
+            candidateName: studioInterview.candidateName,
+            candidatePhone: studioInterview.candidatePhone,
+            createdAt: studioInterview.createdAt,
+            id: studioInterview.id,
+            jobDescriptionName: jobDescription.name,
+            status: studioInterview.status,
+            targetRole: studioInterview.targetRole,
+          })
+          .from(studioInterview)
+          .leftJoin(
+            jobDescription,
+            and(
+              eq(studioInterview.jobDescriptionId, jobDescription.id),
+              eq(jobDescription.organizationId, studioInterview.organizationId),
+            ),
+          )
+          .where(
+            and(
+              eq(studioInterview.organizationId, input.organizationId),
+              inArray(studioInterview.id, studioIds),
+            ),
+          ),
+    poolIds.length === 0
+      ? Promise.resolve([])
+      : db
+          .select({
+            candidateEmail: resumePoolItem.candidateEmail,
+            candidateName: resumePoolItem.candidateName,
+            candidatePhone: resumePoolItem.candidatePhone,
+            createdAt: resumePoolItem.createdAt,
+            id: resumePoolItem.id,
+            jobDescriptionName: jobDescription.name,
+            status: resumePoolItem.status,
+            targetRole: resumePoolItem.targetRole,
+          })
+          .from(resumePoolItem)
+          .leftJoin(
+            jobDescription,
+            and(
+              eq(resumePoolItem.jobDescriptionId, jobDescription.id),
+              eq(jobDescription.organizationId, resumePoolItem.organizationId),
+            ),
+          )
+          .where(
+            and(
+              inArray(resumePoolItem.id, poolIds),
+              eq(resumePoolItem.status, "active"),
+              or(
+                eq(resumePoolItem.scope, "public"),
+                and(
+                  eq(resumePoolItem.organizationId, input.organizationId),
+                  eq(resumePoolItem.scope, "private"),
+                  input.poolOwnerUserId
+                    ? eq(resumePoolItem.createdBy, input.poolOwnerUserId)
+                    : sql`false`,
+                ),
+              ),
+            ),
+          ),
+  ]);
+
+  const targets = new Map<string, Parameters<typeof toMatchRecord>[1]>([
+    ...studioRows.map((row) => [`studio_interview:${row.id}`, row] as const),
+    ...poolRows.map((row) => [`resume_pool_item:${row.id}`, row] as const),
+  ]);
+
+  return matchRows
+    .map((match) => {
+      const target = targets.get(`${match.matchedSourceType}:${match.matchedSourceId}`);
+      return target ? toMatchRecord(match, target) : null;
+    })
+    .filter((match): match is DedupMatchRecord => match !== null);
 }

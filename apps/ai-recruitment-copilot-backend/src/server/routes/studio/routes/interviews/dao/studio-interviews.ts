@@ -2,16 +2,18 @@ import { and, eq } from "drizzle-orm";
 import type { StudioCandidateRecord } from "@arc/shared/studio-candidates";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import { jobDescription, studioInterview, user } from "@arc/db-schema/schema";
+import type { ResumeSemanticSourceType } from "@arc/db-schema/schema";
 import type { StudioInterviewStatus } from "@arc/db-schema/studio-interviews";
 
 export interface DedupMatchRecord {
   id: string;
+  sourceType?: ResumeSemanticSourceType;
   candidateName: string;
   candidateEmail: string | null;
   candidatePhone: string | null;
   targetRole: string | null;
   jobDescriptionName: string | null;
-  status: StudioInterviewStatus;
+  status: StudioInterviewStatus | "active" | "archived";
   createdAt: string;
   conflictingSignals?: string[];
   level?: "high" | "low" | "medium";

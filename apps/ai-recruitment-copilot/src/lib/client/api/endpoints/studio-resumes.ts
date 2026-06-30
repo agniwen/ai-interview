@@ -119,6 +119,18 @@ export function fetchStudioResume(slug: string, id: string): Promise<ResumeLibra
   );
 }
 
+export function fetchStudioResumeDuplicateMatches(
+  slug: string,
+  id: string,
+): Promise<{ matches: DedupMatchRecord[] }> {
+  return rpcFetch<{ matches: DedupMatchRecord[] }>(
+    rpc.api.w[":slug"].studio.resumes[":id"]["duplicate-matches"].$get({
+      param: { id, slug },
+    }),
+    "加载疑似重复简历失败",
+  );
+}
+
 /**
  * 拉取候选人时间线，聚合阶段流转、AI/真人面试、表单、邮件、通知和 Offer 事件。
  * Fetch a candidate timeline aggregating stage, interview, form, email,
