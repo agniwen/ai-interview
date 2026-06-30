@@ -3,26 +3,17 @@ import type { ResumeProfile } from "@arc/db-schema/interview/types";
 import type { JobDescriptionListRecord } from "@arc/shared/job-descriptions";
 
 const mocks = vi.hoisted(() => ({
-  createAlibabaProvider: vi.fn(),
-  createResumeAgent: vi.fn(),
-  generateText: vi.fn(),
-  outputObject: vi.fn(),
+  generateStructuredWithMastraAgent: vi.fn(),
+  jobDescriptionMatchAgent: { id: "job-description-match-agent" },
 }));
 
-vi.mock("ai", () => ({
-  Output: {
-    object: mocks.outputObject,
-  },
-  generateText: mocks.generateText,
-}));
-
-vi.mock("../provider", () => ({
-  createAlibabaProvider: mocks.createAlibabaProvider,
-}));
-
-vi.mock("../resume-agent", () => ({
-  createResumeAgent: mocks.createResumeAgent,
-}));
+vi.mock(
+  "@arc/ai-recruitment-copilot-backend/server/agents/mastra/agents/simple-generators",
+  () => ({
+    generateStructuredWithMastraAgent: mocks.generateStructuredWithMastraAgent,
+    jobDescriptionMatchAgent: mocks.jobDescriptionMatchAgent,
+  }),
+);
 
 // oxlint-disable-next-line import/first -- must follow vi.mock() for correct hoisting
 import { matchJobDescriptionForResume } from "../job-description-match-agent";
@@ -69,49 +60,25 @@ const JOBS = [
 describe("matchJobDescriptionForResume", () => {
   beforeEach(() => {
     vi.resetAllMocks();
-    process.env.ALIBABA_API_KEY = "test-key";
-    process.env.ALIBABA_BASE_URL = "https://example.test";
-    process.env.ALIBABA_STRUCTURED_MODEL = "qwen-test";
-    mocks.createAlibabaProvider.mockReturnValue((modelId: string) => ({ modelId }));
-    mocks.outputObject.mockReturnValue("match-output");
-    mocks.generateText.mockResolvedValue({
-      output: {
-        jobDescriptionId: "jd-frontend",
-        reason: "候选人的 React/TypeScript 经验与岗位匹配",
-      },
-      text: JSON.stringify({
-        jobDescriptionId: "jd-frontend",
-        reason: "候选人的 React/TypeScript 经验与岗位匹配",
-      }),
-    });
-    mocks.createResumeAgent.mockReturnValue({
-      generate: vi.fn().mockResolvedValue({
-        text: JSON.stringify({
-          jobDescriptionId: "jd-frontend",
-          reason: "候选人的 React/TypeScript 经验与岗位匹配",
-        }),
-      }),
+    mocks.generateStructuredWithMastraAgent.mockResolvedValue({
+      jobDescriptionId: "jd-frontend",
+      reason: "候选人的 React/TypeScript 经验与岗位匹配",
     });
   });
 
-  it("uses AI SDK structured output for the selected JD", async () => {
+  it("uses Mastra structured output for the selected JD", async () => {
     const result = await matchJobDescriptionForResume(RESUME_PROFILE, JOBS);
 
     expect(result).toEqual({
       jobDescriptionId: "jd-frontend",
       reason: "候选人的 React/TypeScript 经验与岗位匹配",
     });
-    expect(mocks.outputObject).toHaveBeenCalledWith(
+    expect(mocks.generateStructuredWithMastraAgent).toHaveBeenCalledWith(
       expect.objectContaining({
-        description: expect.any(String),
-        name: "job_description_match",
+        agent: mocks.jobDescriptionMatchAgent,
+        schema: expect.any(Object),
+        temperature: 0,
       }),
     );
-    expect(mocks.generateText).toHaveBeenCalledWith(
-      expect.objectContaining({
-        output: "match-output",
-      }),
-    );
-    expect(mocks.createResumeAgent).not.toHaveBeenCalled();
   });
 });

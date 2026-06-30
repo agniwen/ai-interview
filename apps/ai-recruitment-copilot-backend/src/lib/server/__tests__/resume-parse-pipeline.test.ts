@@ -4,18 +4,19 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   convertLegacyOfficeToOoxml: vi.fn(),
-  generateText: vi.fn(),
-  outputObject: vi.fn(),
+  generateStructuredWithMastraAgent: vi.fn(),
   qwenVlOcr: vi.fn(),
   rasterizePdfWithMeta: vi.fn(),
+  resumeStructuredAgent: { id: "resume-structured-agent" },
 }));
 
-vi.mock("ai", () => ({
-  Output: {
-    object: mocks.outputObject,
-  },
-  generateText: mocks.generateText,
-}));
+vi.mock(
+  "@arc/ai-recruitment-copilot-backend/server/agents/mastra/agents/simple-generators",
+  () => ({
+    generateStructuredWithMastraAgent: mocks.generateStructuredWithMastraAgent,
+    resumeStructuredAgent: mocks.resumeStructuredAgent,
+  }),
+);
 
 vi.mock("../office-conversion", () => ({
   convertLegacyOfficeToOoxml: mocks.convertLegacyOfficeToOoxml,
@@ -457,29 +458,19 @@ describe("extractResumeDocumentText", () => {
 describe("generateResumeStructured", () => {
   beforeEach(() => {
     vi.resetAllMocks();
-    process.env.ALIBABA_API_KEY = "test-key";
-    process.env.ALIBABA_BASE_URL = "https://example.test";
-    process.env.ALIBABA_STRUCTURED_MODEL = "qwen-test";
-    mocks.outputObject.mockReturnValue("structured-output");
-    mocks.generateText.mockResolvedValue({
-      output: STRUCTURED_RESUME,
-      text: JSON.stringify(STRUCTURED_RESUME),
-    });
+    mocks.generateStructuredWithMastraAgent.mockResolvedValue(STRUCTURED_RESUME);
   });
 
-  it("uses AI SDK structured output instead of parsing free-form JSON text", async () => {
+  it("uses Mastra structured output instead of parsing free-form JSON text", async () => {
     const result = await generateResumeStructured("候选人 React TypeScript 5 年经验");
 
     expect(result).toEqual(STRUCTURED_RESUME);
-    expect(mocks.outputObject).toHaveBeenCalledWith(
+    expect(mocks.generateStructuredWithMastraAgent).toHaveBeenCalledWith(
       expect.objectContaining({
-        description: expect.any(String),
-        name: "resume_profile",
-      }),
-    );
-    expect(mocks.generateText).toHaveBeenCalledWith(
-      expect.objectContaining({
-        output: "structured-output",
+        agent: mocks.resumeStructuredAgent,
+        maxOutputTokens: 16_384,
+        schema: expect.any(Object),
+        temperature: 0,
       }),
     );
   });
@@ -487,7 +478,7 @@ describe("generateResumeStructured", () => {
   it("instructs the model to collect a complete skill set without an 18-item cap", async () => {
     await generateResumeStructured("候选人掌握多项技术栈");
 
-    const prompt = mocks.generateText.mock.calls[0]?.[0]?.prompt;
+    const prompt = mocks.generateStructuredWithMastraAgent.mock.calls[0]?.[0]?.prompt;
     expect(prompt).toContain("skills 是候选人掌握技能的全集");
     expect(prompt).toContain("项目经历");
     expect(prompt).toContain("工作经历");

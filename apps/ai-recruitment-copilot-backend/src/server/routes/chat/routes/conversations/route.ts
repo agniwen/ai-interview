@@ -1,5 +1,5 @@
-import type { UIMessage } from "ai";
 import { zValidator } from "@hono/zod-validator";
+import { legacyUiMessageToArcMessage } from "@arc/ai-recruitment-copilot-backend/server/agents/mastra/adapters/arc-message-adapter";
 import {
   checkConversationOwner,
   deleteUserConversation,
@@ -178,7 +178,7 @@ export const conversationsRouter = factory
       try {
         await upsertChatMessage({
           conversationId,
-          message: message as unknown as UIMessage,
+          message: legacyUiMessageToArcMessage(message),
           organizationId: activeOrg.id,
         });
       } catch (error) {

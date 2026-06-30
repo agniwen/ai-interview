@@ -1,20 +1,21 @@
 // End-to-end deterministic resume parsing pipeline.
 // Runs Qwen-VL OCR on every page of the PDF, then extracts structured
-// candidate info via a schema-constrained generateText call.
+// candidate info via a schema-constrained Mastra agent call.
 
 import { setTimeout as delay } from "node:timers/promises";
-import { generateText, Output } from "ai";
 import { XMLParser } from "fast-xml-parser";
 import { convert as htmlToText } from "html-to-text";
 import JSZip from "jszip";
 import mammoth from "mammoth";
 import pLimit from "p-limit";
 import pRetry from "p-retry";
-import { createAlibabaProvider } from "@arc/ai-recruitment-copilot-backend/server/agents/provider";
+import {
+  generateStructuredWithMastraAgent,
+  resumeStructuredAgent,
+} from "@arc/ai-recruitment-copilot-backend/server/agents/mastra/agents/simple-generators";
 import { structuredSchema } from "@arc/db-schema/resume-parser-schema";
 import type { ResumeParserStructured } from "@arc/db-schema/resume-parser-schema";
 import { getResumeDocumentKind } from "@arc/shared/resume-documents";
-import { getRequiredEnv } from "./env";
 import { convertLegacyOfficeToOoxml } from "./office-conversion";
 import { rasterizePdfWithMeta } from "./pdf-rasterize";
 import { isQwenOcrConfigured, qwenVlOcr } from "./qwen-ocr";
@@ -633,34 +634,25 @@ async function extractImageText(input: ResumeDocumentInput): Promise<ParsedResum
 
 export async function generateResumeStructured(text: string): Promise<ResumeParserStructured> {
   const startedAt = nowMs();
-  const provider = createAlibabaProvider({ enableThinking: false });
-  const modelId = getRequiredEnv("ALIBABA_STRUCTURED_MODEL");
   devOcrLog("structured start", {
-    baseUrl: getRequiredEnv("ALIBABA_BASE_URL"),
     inputChars: text.length,
-    model: modelId,
   });
-  const { output, text: rawOutput } = await generateText({
+  const output = await generateStructuredWithMastraAgent({
+    agent: resumeStructuredAgent,
     // 中文简历每字约 1 token，加上 projectExperiences/workExperiences 等结构开销，
     // 项目/经历较多的简历输出会很长，给到 16384 留足余量避免 summary 中途截断。
     // Chinese resumes use ~1 token per character; with verbose project / work
     // experience summaries the output can be very long, so allow 16384 to leave
     // headroom and avoid truncating mid-string.
     maxOutputTokens: 16_384,
-    model: provider(modelId),
-    output: Output.object({
-      description: "结构化候选人简历档案",
-      name: "resume_profile",
-      schema: structuredSchema,
-    }),
     prompt: `${STRUCTURED_INSTRUCTIONS}\n\n简历文本：\n${clipForStructured(text)}`,
+    schema: structuredSchema,
     temperature: 0,
   });
   devOcrLog("structured completed", {
     duration: formatDuration(startedAt),
     inputChars: text.length,
-    model: modelId,
-    outputChars: rawOutput.length,
+    outputChars: JSON.stringify(output).length,
   });
   return output;
 }

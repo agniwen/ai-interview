@@ -1,5 +1,6 @@
 import type { UIMessage } from "ai";
 import { zValidator } from "@hono/zod-validator";
+import { legacyUiMessageToArcMessage } from "@arc/ai-recruitment-copilot-backend/server/agents/mastra/adapters/arc-message-adapter";
 import { resolveChatModelId } from "@arc/ai-recruitment-copilot-backend/server/agents/chat-models.config";
 import { factory } from "@arc/ai-recruitment-copilot-backend/server/factory";
 import { bakeParsedResumesIntoMessage } from "@arc/ai-recruitment-copilot-backend/server/routes/resume/bake-parsed-resume";
@@ -100,7 +101,7 @@ export const resumeChatRouter = factory
               : latestUser;
             await upsertChatMessage({
               conversationId: chatId,
-              message: baked,
+              message: legacyUiMessageToArcMessage(baked),
               organizationId: orgId,
             });
           } catch (error) {
@@ -154,7 +155,7 @@ export const resumeChatRouter = factory
         try {
           await upsertChatMessage({
             conversationId: chatId,
-            message: responseMessage,
+            message: legacyUiMessageToArcMessage(responseMessage),
             organizationId: orgId,
           });
         } catch (error) {

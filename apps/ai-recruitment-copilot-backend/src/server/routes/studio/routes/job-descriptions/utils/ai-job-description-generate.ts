@@ -1,7 +1,8 @@
-import { generateObject } from "ai";
 import { z } from "zod";
-import { getRequiredEnv } from "@arc/ai-recruitment-copilot-backend/lib/server/env";
-import { createAlibabaProvider } from "@arc/ai-recruitment-copilot-backend/server/agents/provider";
+import {
+  generateStructuredWithMastraAgent,
+  jobDescriptionDraftAgent,
+} from "@arc/ai-recruitment-copilot-backend/server/agents/mastra/agents/simple-generators";
 
 const JOB_DESCRIPTION_PROMPT = `你是一名 HR 岗位配置助手。请根据 HR 的填写指令和上下文，生成在招岗位的描述与 AI 面试 Prompt。
 
@@ -49,24 +50,14 @@ export async function generateJobDescriptionFromPrompt(options: {
   hrPrompt: string;
   jobName: string | null;
 }): Promise<GeneratedJobDescriptionContent> {
-  const provider = createAlibabaProvider({ enableThinking: false });
-  const modelId = getRequiredEnv("ALIBABA_STRUCTURED_MODEL");
-
   const prompt = JOB_DESCRIPTION_PROMPT.replace("{hrPrompt}", options.hrPrompt.trim())
     .replace("{jobName}", options.jobName?.trim() || "（未填写，请根据指令生成）")
     .replace("{departmentName}", options.departmentName?.trim() || "（未指定）");
 
-  const { object } = await generateObject({
-    model: provider(modelId),
+  return await generateStructuredWithMastraAgent({
+    agent: jobDescriptionDraftAgent,
     prompt,
     schema: generationSchema,
     temperature: 0.3,
   });
-
-  const parsed = generationSchema.safeParse(object);
-  if (!parsed.success) {
-    throw new Error(parsed.error.issues[0]?.message ?? "AI 生成的岗位内容校验失败。");
-  }
-
-  return parsed.data;
 }

@@ -3,7 +3,6 @@ import type {
   ResumeAnalysisResult,
   ResumeProfile,
 } from "@arc/db-schema/interview/types";
-import { Output, stepCountIs } from "ai";
 import { uniq } from "lodash-es";
 import { z } from "zod";
 import { generatedInterviewQuestionsSchema } from "@arc/db-schema/interview/types";
@@ -22,14 +21,19 @@ import {
   buildAttachmentKeyByHash,
   putObjectBytes,
 } from "@arc/ai-recruitment-copilot-backend/lib/server/s3";
-import { getRequiredEnv } from "@arc/ai-recruitment-copilot-backend/lib/server/env";
+import {
+  generateStructuredWithMastraAgent,
+  interviewQuestionAgent,
+  resumeHardFilterAgent,
+  resumeReviewQualitativeAgent,
+  resumeReviewScoringAgent,
+} from "@arc/ai-recruitment-copilot-backend/server/agents/mastra/agents/simple-generators";
 import { sha256HexOfBytes } from "@arc/shared/file-hash";
 import {
   createAttachment,
   findAttachmentByContentHash,
   updateStructuredByHash,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/chat/dao/chat-attachments";
-import { createResumeAgent } from "./resume-agent";
 import {
   projectAttachmentToResumeProfile,
   structuredSchema,
@@ -37,7 +41,8 @@ import {
 } from "./resume-parser-agent";
 import type { ResumeParserStructured } from "./resume-parser-agent";
 
-import type { AnalysisStreamEvent } from "@arc/shared/api-stream";
+import { analysisStreamEventToAiRunEvents } from "@arc/shared/api-stream";
+import type { AnalysisStreamEvent, LegacyAnalysisStreamEvent } from "@arc/shared/api-stream";
 import type { ResumeReview } from "@arc/shared/resume-review";
 import {
   RESUME_REVIEW_DIMENSIONS,
@@ -59,23 +64,52 @@ const PARSE_STAGE_LABELS = {
 } as const;
 const NDJSON_HEARTBEAT_INTERVAL_MS = 10_000;
 
+function enqueueNdjsonEvent(
+  controller: ReadableStreamDefaultController<Uint8Array>,
+  encoder: TextEncoder,
+  event: AnalysisStreamEvent,
+) {
+  controller.enqueue(encoder.encode(`${JSON.stringify(event)}\n`));
+}
+
 function createNdjsonStream(
-  run: (emit: (event: AnalysisStreamEvent) => void) => Promise<void>,
+  run: (emit: (event: LegacyAnalysisStreamEvent) => void) => Promise<void>,
+  options: {
+    defaultStepId?: string;
+    title: string;
+    workflowId: string;
+  },
 ): ReadableStream<Uint8Array> {
   const encoder = new TextEncoder();
   return new ReadableStream({
     async start(controller) {
+      const runId = crypto.randomUUID();
       let closed = false;
-      const emit = (event: AnalysisStreamEvent) => {
+      const emitRaw = (event: AnalysisStreamEvent) => {
         if (closed) {
           return;
         }
-        controller.enqueue(encoder.encode(`${JSON.stringify(event)}\n`));
+        enqueueNdjsonEvent(controller, encoder, event);
+      };
+      const emit = (event: LegacyAnalysisStreamEvent) => {
+        emitRaw(event);
+        for (const aiRunEvent of analysisStreamEventToAiRunEvents(event, {
+          defaultStepId: options.defaultStepId,
+          runId,
+        })) {
+          emitRaw(aiRunEvent);
+        }
       };
       const heartbeat = setInterval(() => {
         emit({ timestamp: Date.now(), type: "heartbeat" });
       }, NDJSON_HEARTBEAT_INTERVAL_MS);
       try {
+        emitRaw({
+          runId,
+          title: options.title,
+          type: "run.started",
+          workflowId: options.workflowId,
+        });
         await run(emit);
       } catch (error) {
         emit({
@@ -229,12 +263,6 @@ const QUESTION_INSTRUCTIONS = `你是一名技术面试出题助手。请基于�
 5. 题目语言以候选人的主要语言为主：根据简历、目标岗位和岗位说明中占主导的语言判断；如果无法判断，默认使用中文。
 6. 不要给答案，不要输出解释，不要重复题目。`;
 
-const INTERVIEW_QUESTIONS_OUTPUT = Output.object({
-  description: "根据候选人简历生成的结构化面试题列表",
-  name: "resume_interview_questions",
-  schema: generatedInterviewQuestionsSchema,
-});
-
 export interface ResumeParseResult {
   fileName: string;
   resumeProfile: ResumeProfile;
@@ -334,86 +362,93 @@ export function streamParseResumeProfile(
 ): ReadableStream<Uint8Array> {
   validateResumeFile(file);
 
-  return createNdjsonStream(async (emit) => {
-    emit({ message: "正在解析简历文件…", type: "status" });
+  return createNdjsonStream(
+    async (emit) => {
+      emit({ message: "正在解析简历文件…", type: "status" });
 
-    const bytes = new Uint8Array(await file.arrayBuffer());
+      const bytes = new Uint8Array(await file.arrayBuffer());
 
-    // 命中注册表：三种情况按"能省多少跳过多少"的顺序处理。
-    //   A. 已有结构化 → OCR + 结构化两步全跳过。
-    //   B. 仅有 OCR 文本（chat 上传后未结构化）→ 只跑结构化一步，并回填同 hash 所有行。
-    //   C. 都没有 → 落到完整 parseResumeFast。
-    // Registry hit, three cases ordered by "skip as much as possible":
-    //   A. structured already cached → skip both OCR and structured stages.
-    //   B. only OCR text cached (chat upload path, no structured yet) → run
-    //      structured extraction alone, then backfill all rows sharing the hash.
-    //   C. nothing usable → fall through to the full parseResumeFast.
-    const contentHash = await sha256HexOfBytes(bytes);
-    const existing = isResumeParseCacheEnabled()
-      ? await findAttachmentByContentHash(contentHash)
-      : null;
-    if (existing?.parsedStructured) {
-      const cached = projectAttachmentToResumeProfile(existing.parsedStructured);
-      if (cached) {
-        emit({ message: "命中已有简历缓存，跳过解析。", type: "status" });
+      // 命中注册表：三种情况按"能省多少跳过多少"的顺序处理。
+      //   A. 已有结构化 → OCR + 结构化两步全跳过。
+      //   B. 仅有 OCR 文本（chat 上传后未结构化）→ 只跑结构化一步，并回填同 hash 所有行。
+      //   C. 都没有 → 落到完整 parseResumeFast。
+      // Registry hit, three cases ordered by "skip as much as possible":
+      //   A. structured already cached → skip both OCR and structured stages.
+      //   B. only OCR text cached (chat upload path, no structured yet) → run
+      //      structured extraction alone, then backfill all rows sharing the hash.
+      //   C. nothing usable → fall through to the full parseResumeFast.
+      const contentHash = await sha256HexOfBytes(bytes);
+      const existing = isResumeParseCacheEnabled()
+        ? await findAttachmentByContentHash(contentHash)
+        : null;
+      if (existing?.parsedStructured) {
+        const cached = projectAttachmentToResumeProfile(existing.parsedStructured);
+        if (cached) {
+          emit({ message: "命中已有简历缓存，跳过解析。", type: "status" });
+          emit({
+            data: {
+              fileName: file.name,
+              resumeProfile: cached,
+              resumeText: existing.parsedText ?? null,
+            },
+            type: "result",
+          });
+          return;
+        }
+      }
+      if (existing?.parsedText && existing.parsedText.trim().length > 0) {
+        emit({ message: "命中 OCR 缓存，仅跑结构化…", type: "status" });
+        emit({ index: 2, type: "step" });
+        emit({ name: PARSE_STAGE_LABELS.structured, type: "tool-start" });
+
+        const structured = await generateResumeStructured(existing.parsedText);
+        await updateStructuredByHash(contentHash, structured);
+
+        emit({ name: PARSE_STAGE_LABELS.structured, type: "tool-end" });
         emit({
           data: {
             fileName: file.name,
-            resumeProfile: cached,
-            resumeText: existing.parsedText ?? null,
+            resumeProfile: normalizeResumeProfile(toResumeProfile(structured)),
+            resumeText: existing.parsedText,
           },
           type: "result",
         });
         return;
       }
-    }
-    if (existing?.parsedText && existing.parsedText.trim().length > 0) {
-      emit({ message: "命中 OCR 缓存，仅跑结构化…", type: "status" });
+
+      emit({ index: 1, type: "step" });
+      emit({ name: PARSE_STAGE_LABELS.ocr, type: "tool-start" });
+
+      const fast = await parseResumeFast({
+        bytes,
+        fileName: file.name,
+        mediaType: file.type,
+      });
+
+      emit({ name: PARSE_STAGE_LABELS.ocr, type: "tool-end" });
+
       emit({ index: 2, type: "step" });
       emit({ name: PARSE_STAGE_LABELS.structured, type: "tool-start" });
-
-      const structured = await generateResumeStructured(existing.parsedText);
-      await updateStructuredByHash(contentHash, structured);
-
       emit({ name: PARSE_STAGE_LABELS.structured, type: "tool-end" });
-      emit({
-        data: {
-          fileName: file.name,
-          resumeProfile: normalizeResumeProfile(toResumeProfile(structured)),
-          resumeText: existing.parsedText,
-        },
-        type: "result",
-      });
-      return;
-    }
 
-    emit({ index: 1, type: "step" });
-    emit({ name: PARSE_STAGE_LABELS.ocr, type: "tool-start" });
+      if (context) {
+        await persistParseToRegistry({ bytes, contentHash, context, file, parsed: fast });
+      }
 
-    const fast = await parseResumeFast({
-      bytes,
-      fileName: file.name,
-      mediaType: file.type,
-    });
+      const result: ResumeParseResult = {
+        fileName: file.name,
+        resumeProfile: normalizeResumeProfile(toResumeProfile(fast.structured)),
+        resumeText: fast.text,
+      };
 
-    emit({ name: PARSE_STAGE_LABELS.ocr, type: "tool-end" });
-
-    emit({ index: 2, type: "step" });
-    emit({ name: PARSE_STAGE_LABELS.structured, type: "tool-start" });
-    emit({ name: PARSE_STAGE_LABELS.structured, type: "tool-end" });
-
-    if (context) {
-      await persistParseToRegistry({ bytes, contentHash, context, file, parsed: fast });
-    }
-
-    const result: ResumeParseResult = {
-      fileName: file.name,
-      resumeProfile: normalizeResumeProfile(toResumeProfile(fast.structured)),
-      resumeText: fast.text,
-    };
-
-    emit({ data: result, type: "result" });
-  });
+      emit({ data: result, type: "result" });
+    },
+    {
+      defaultStepId: "parse-resume-profile",
+      title: "解析简历",
+      workflowId: "resume-analysis-workflow",
+    },
+  );
 }
 
 /**
@@ -423,39 +458,29 @@ export function streamParseResumeProfile(
 export function streamGenerateInterviewQuestions(
   resumeProfile: ResumeProfile,
 ): ReadableStream<Uint8Array> {
-  return createNdjsonStream(async (emit) => {
-    emit({ message: "正在生成面试题…", type: "status" });
+  return createNdjsonStream(
+    async (emit) => {
+      emit({ message: "正在生成面试题…", type: "status" });
+      emit({ index: 1, type: "step" });
 
-    const structuredModelId = getRequiredEnv("ALIBABA_STRUCTURED_MODEL");
+      const parsed = await generateStructuredWithMastraAgent({
+        agent: interviewQuestionAgent,
+        prompt: `${QUESTION_INSTRUCTIONS}\n\n候选人信息：\n${JSON.stringify(resumeProfile, null, 2)}`,
+        schema: generatedInterviewQuestionsSchema,
+        temperature: 0.3,
+      });
 
-    const questionAgent = createResumeAgent({
-      enableThinking: false,
-      instructions: QUESTION_INSTRUCTIONS,
-      modelId: structuredModelId,
-      output: INTERVIEW_QUESTIONS_OUTPUT,
-      stopWhen: stepCountIs(2),
-      temperature: 0.3,
-      tools: {},
-    });
-
-    const streamResult = await questionAgent.stream({
-      prompt: `候选人信息：\n${JSON.stringify(resumeProfile, null, 2)}`,
-    });
-
-    let stepIndex = 0;
-    for await (const part of streamResult.stream) {
-      if (part.type === "start-step") {
-        stepIndex += 1;
-        emit({ index: stepIndex, type: "step" });
-      }
-    }
-
-    const parsed = generatedInterviewQuestionsSchema.parse(await streamResult.output);
-    emit({
-      data: { interviewQuestions: normalizeInterviewQuestions(parsed.interviewQuestions) },
-      type: "result",
-    });
-  });
+      emit({
+        data: { interviewQuestions: normalizeInterviewQuestions(parsed.interviewQuestions) },
+        type: "result",
+      });
+    },
+    {
+      defaultStepId: "generate-interview-questions",
+      title: "生成面试题",
+      workflowId: "resume-analysis-workflow",
+    },
+  );
 }
 
 // =====================================================================
@@ -522,22 +547,13 @@ export async function generateInterviewQuestionsForProfile(
   resumeProfile: ResumeProfile,
 ): Promise<ResumeAnalysisResult["interviewQuestions"]> {
   try {
-    const structuredModelId = getRequiredEnv("ALIBABA_STRUCTURED_MODEL");
-    const questionAgent = createResumeAgent({
-      enableThinking: false,
-      instructions: QUESTION_INSTRUCTIONS,
-      modelId: structuredModelId,
-      output: INTERVIEW_QUESTIONS_OUTPUT,
-      stopWhen: stepCountIs(2),
+    const parsed = await generateStructuredWithMastraAgent({
+      agent: interviewQuestionAgent,
+      prompt: `${QUESTION_INSTRUCTIONS}\n\n候选人信息：\n${JSON.stringify(resumeProfile, null, 2)}`,
+      schema: generatedInterviewQuestionsSchema,
       temperature: 0.3,
-      tools: {},
     });
 
-    const { output } = await questionAgent.generate({
-      prompt: `候选人信息：\n${JSON.stringify(resumeProfile, null, 2)}`,
-    });
-
-    const parsed = generatedInterviewQuestionsSchema.parse(output);
     return normalizeInterviewQuestions(parsed.interviewQuestions);
   } catch (error) {
     if (error instanceof ResumeAnalysisError) {
@@ -748,23 +764,6 @@ function buildHardFilterRejectReview(
   return { review, structuredReview };
 }
 
-function createHardFilterAgent() {
-  const structuredModelId = getRequiredEnv("ALIBABA_STRUCTURED_MODEL");
-  return createResumeAgent({
-    enableThinking: false,
-    instructions: HARD_FILTER_INSTRUCTIONS,
-    modelId: structuredModelId,
-    output: Output.object({
-      description: "从 JD 提取的结构化硬性门槛",
-      name: "resume_hard_filter",
-      schema: hardFilterSchema,
-    }),
-    stopWhen: stepCountIs(1),
-    temperature: 0,
-    tools: {},
-  });
-}
-
 export interface HardFilterResult {
   violations: HardFilterViolation[];
   semanticRequirements: string[] | null;
@@ -782,11 +781,12 @@ async function runHardFilter(
     return null;
   }
 
-  const agent = createHardFilterAgent();
-  const { output } = await agent.generate({
-    prompt: `${buildResumeReviewTimeContext()}\n\n在招岗位描述：\n${jobDescription.trim()}`,
+  const criteria = await generateStructuredWithMastraAgent({
+    agent: resumeHardFilterAgent,
+    prompt: `${HARD_FILTER_INSTRUCTIONS}\n\n${buildResumeReviewTimeContext()}\n\n在招岗位描述：\n${jobDescription.trim()}`,
+    schema: hardFilterSchema,
+    temperature: 0,
   });
-  const criteria = hardFilterSchema.parse(output);
 
   return {
     semanticRequirements: criteria.semanticRequirements,
@@ -973,40 +973,6 @@ function buildResumeScoringPrompt(input: {
   ].join("\n\n");
 }
 
-function createResumeReviewQualitativeAgent() {
-  const structuredModelId = getRequiredEnv("ALIBABA_STRUCTURED_MODEL");
-  return createResumeAgent({
-    enableThinking: false,
-    instructions: REVIEW_QUALITATIVE_INSTRUCTIONS,
-    modelId: structuredModelId,
-    output: Output.object({
-      description: "简历与岗位匹配的结构化定性评价",
-      name: "resume_qualitative_review",
-      schema: resumeQualitativeSchema,
-    }),
-    stopWhen: stepCountIs(2),
-    temperature: 0.4,
-    tools: {},
-  });
-}
-
-function createResumeReviewScoringAgent() {
-  const structuredModelId = getRequiredEnv("ALIBABA_STRUCTURED_MODEL");
-  return createResumeAgent({
-    enableThinking: false,
-    instructions: REVIEW_SCORING_INSTRUCTIONS,
-    modelId: structuredModelId,
-    output: Output.object({
-      description: "产品六维简历评分结果",
-      name: "resume_six_dimension_scoring",
-      schema: resumeScoringSchema,
-    }),
-    stopWhen: stepCountIs(2),
-    temperature: 0.2,
-    tools: {},
-  });
-}
-
 // 把 Agent 1 定性 + Agent 2 维度分 + 代码算的 baseScore 组装成 ResumeReview。
 // Assemble ResumeReview from Agent 1 qualitative + Agent 2 dimensions + code-computed baseScore.
 function assembleResumeReview(
@@ -1058,52 +1024,57 @@ export function streamGenerateResumeReview(input: {
   resumeProfile: ResumeProfile;
   jobDescription?: string | null;
 }): ReadableStream<Uint8Array> {
-  return createNdjsonStream(async (emit) => {
-    emit({ message: "正在检查硬性门槛…", type: "status" });
+  return createNdjsonStream(
+    async (emit) => {
+      emit({ message: "正在检查硬性门槛…", type: "status" });
 
-    // --- Agent 0: 硬性门槛提取 + 规则引擎 ---
-    const hardFilterResult = await runHardFilter(input.resumeProfile, input.jobDescription);
-    if (hardFilterResult && hardFilterResult.violations.length > 0) {
-      emit({ message: "硬性门槛不达标，已淘汰。", type: "status" });
-      const result = buildHardFilterRejectReview(hardFilterResult.violations);
+      // --- Agent 0: 硬性门槛提取 + 规则引擎 ---
+      const hardFilterResult = await runHardFilter(input.resumeProfile, input.jobDescription);
+      if (hardFilterResult && hardFilterResult.violations.length > 0) {
+        emit({ message: "硬性门槛不达标，已淘汰。", type: "status" });
+        const result = buildHardFilterRejectReview(hardFilterResult.violations);
+        emit({ text: result.review, type: "text-delta" });
+        emit({ data: result, type: "result" });
+        return;
+      }
+
+      emit({ message: "正在生成简历评价…", type: "status" });
+
+      // --- Agent 1: 定性评价（流式） ---
+      // 如果 Agent 0 提取了语义门槛，附在 prompt 里让 Agent 1 在偏差扫描中覆盖。
+      // Attach semantic requirements (if extracted by Agent 0) so Agent 1 covers them in biasScan.
+      emit({ index: 1, type: "step" });
+      const qualitative = await generateStructuredWithMastraAgent({
+        agent: resumeReviewQualitativeAgent,
+        prompt: `${REVIEW_QUALITATIVE_INSTRUCTIONS}\n\n${buildResumeReviewPrompt({
+          ...input,
+          semanticRequirements: hardFilterResult?.semanticRequirements ?? null,
+        })}`,
+        schema: resumeQualitativeSchema,
+        temperature: 0.4,
+      });
+
+      emit({ message: "正在生成维度评分…", type: "status" });
+      emit({ index: 2, type: "step" });
+
+      // --- Agent 2: 六维度打分（阻塞） ---
+      const scoring = await generateStructuredWithMastraAgent({
+        agent: resumeReviewScoringAgent,
+        prompt: `${REVIEW_SCORING_INSTRUCTIONS}\n\n${buildResumeScoringPrompt({ ...input, qualitative })}`,
+        schema: resumeScoringSchema,
+        temperature: 0.2,
+      });
+
+      const result = parseStructuredResumeReview(qualitative, scoring);
       emit({ text: result.review, type: "text-delta" });
       emit({ data: result, type: "result" });
-      return;
-    }
-
-    emit({ message: "正在生成简历评价…", type: "status" });
-
-    // --- Agent 1: 定性评价（流式） ---
-    // 如果 Agent 0 提取了语义门槛，附在 prompt 里让 Agent 1 在偏差扫描中覆盖。
-    // Attach semantic requirements (if extracted by Agent 0) so Agent 1 covers them in biasScan.
-    const qualitativeStream = await createResumeReviewQualitativeAgent().stream({
-      prompt: buildResumeReviewPrompt({
-        ...input,
-        semanticRequirements: hardFilterResult?.semanticRequirements ?? null,
-      }),
-    });
-
-    let stepIndex = 0;
-    for await (const part of qualitativeStream.stream) {
-      if (part.type === "start-step") {
-        stepIndex += 1;
-        emit({ index: stepIndex, type: "step" });
-      }
-    }
-
-    const qualitative = resumeQualitativeSchema.parse(await qualitativeStream.output);
-
-    emit({ message: "正在生成维度评分…", type: "status" });
-
-    // --- Agent 2: 六维度打分（阻塞） ---
-    const scoringResult = await createResumeReviewScoringAgent().generate({
-      prompt: buildResumeScoringPrompt({ ...input, qualitative }),
-    });
-
-    const result = parseStructuredResumeReview(qualitative, scoringResult.output);
-    emit({ text: result.review, type: "text-delta" });
-    emit({ data: result, type: "result" });
-  });
+    },
+    {
+      defaultStepId: "generate-resume-review",
+      title: "生成简历评价",
+      workflowId: "resume-review-workflow",
+    },
+  );
 }
 
 export async function generateResumeReview(input: {
@@ -1117,20 +1088,25 @@ export async function generateResumeReview(input: {
   }
 
   // --- Agent 1: 定性评价 ---
-  const qualitativeResult = await createResumeReviewQualitativeAgent().generate({
-    prompt: buildResumeReviewPrompt({
+  const qualitative = await generateStructuredWithMastraAgent({
+    agent: resumeReviewQualitativeAgent,
+    prompt: `${REVIEW_QUALITATIVE_INSTRUCTIONS}\n\n${buildResumeReviewPrompt({
       ...input,
       semanticRequirements: hardFilterResult?.semanticRequirements ?? null,
-    }),
+    })}`,
+    schema: resumeQualitativeSchema,
+    temperature: 0.4,
   });
-  const qualitative = resumeQualitativeSchema.parse(qualitativeResult.output);
 
   // --- Agent 2: 六维度打分 ---
-  const scoringResult = await createResumeReviewScoringAgent().generate({
-    prompt: buildResumeScoringPrompt({ ...input, qualitative }),
+  const scoring = await generateStructuredWithMastraAgent({
+    agent: resumeReviewScoringAgent,
+    prompt: `${REVIEW_SCORING_INSTRUCTIONS}\n\n${buildResumeScoringPrompt({ ...input, qualitative })}`,
+    schema: resumeScoringSchema,
+    temperature: 0.2,
   });
 
-  return parseStructuredResumeReview(qualitative, scoringResult.output);
+  return parseStructuredResumeReview(qualitative, scoring);
 }
 
 /**

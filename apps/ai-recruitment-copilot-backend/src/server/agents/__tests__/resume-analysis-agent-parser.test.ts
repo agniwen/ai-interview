@@ -64,7 +64,7 @@ async function readStreamEvents(stream: ReadableStream<Uint8Array>) {
     .trim()
     .split("\n")
     .filter(Boolean)
-    .map((line) => JSON.parse(line) as { type: string; data?: unknown; name?: string });
+    .map((line) => JSON.parse(line) as { type: string; [key: string]: unknown });
 }
 
 describe("resume parsing agent", () => {
@@ -140,5 +140,22 @@ describe("resume parsing agent", () => {
       },
       resumeText: "internal raw text",
     });
+  });
+
+  it("mirrors legacy parse progress as AiRunEvent objects", async () => {
+    mocks.sha256HexOfBytes.mockResolvedValue("hash-1");
+    mocks.findAttachmentByContentHash.mockResolvedValue(null);
+
+    const events = await readStreamEvents(
+      streamParseResumeProfile(
+        new File([new Uint8Array([1, 2, 3])], "resume.pdf", { type: "application/pdf" }),
+      ),
+    );
+
+    expect(events.some((event) => event.type === "run.started")).toBe(true);
+    expect(
+      events.some((event) => event.type === "step.started" && event.label === "OCR 识别简历"),
+    ).toBe(true);
+    expect(events.some((event) => event.type === "run.completed")).toBe(true);
   });
 });

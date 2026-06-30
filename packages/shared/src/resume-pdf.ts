@@ -1,4 +1,5 @@
-import type { UIMessage } from "ai";
+import type { ArcMessage } from "@arc/shared/ai-message";
+import { getArcFileName, getArcFileUrl, isArcFilePart } from "@arc/shared/ai-message";
 import { decodeDataUrl } from "@arc/shared/data-url";
 import { isSupportedResumeDocumentInput } from "@arc/shared/resume-documents";
 
@@ -62,7 +63,7 @@ export function clipResumeText(
   };
 }
 
-export function collectUploadedResumePdfs(messages: UIMessage[]): UploadedResumePdf[] {
+export function collectUploadedResumePdfs(messages: ArcMessage[]): UploadedResumePdf[] {
   const results: UploadedResumePdf[] = [];
   const seen = new Set<string>();
 
@@ -72,18 +73,24 @@ export function collectUploadedResumePdfs(messages: UIMessage[]): UploadedResume
     }
 
     for (const [index, part] of message.parts.entries()) {
+      if (!isArcFilePart(part)) {
+        continue;
+      }
+
+      const filename = getArcFileName(part) || toDefaultFilename(results.length);
+      const url = getArcFileUrl(part);
+
       if (
-        part.type !== "file" ||
+        !url ||
         !isSupportedResumeDocumentInput({
-          fileName: part.filename,
+          fileName: filename,
           mediaType: part.mediaType,
         })
       ) {
         continue;
       }
 
-      const filename = part.filename?.trim() || toDefaultFilename(results.length);
-      const dedupeKey = `${filename}|${part.url}`;
+      const dedupeKey = `${filename}|${url}`;
 
       if (seen.has(dedupeKey)) {
         continue;
@@ -94,7 +101,7 @@ export function collectUploadedResumePdfs(messages: UIMessage[]): UploadedResume
         filename,
         id: `${message.id}-file-${index}`,
         mediaType: part.mediaType,
-        url: part.url,
+        url,
       });
     }
   }

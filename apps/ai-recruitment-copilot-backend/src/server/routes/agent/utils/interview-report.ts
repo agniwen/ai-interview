@@ -1,9 +1,12 @@
-import { gateway, generateObject, generateText } from "ai";
 import { z } from "zod";
 import type { InterviewTranscriptTurn } from "@arc/db-schema/interview-session";
 import type { InterviewQuestion } from "@arc/db-schema/interview/types";
-import { getRequiredEnv } from "@arc/ai-recruitment-copilot-backend/lib/server/env";
-import { createAlibabaProvider } from "@arc/ai-recruitment-copilot-backend/server/agents/provider";
+import {
+  generateStructuredWithMastraAgent,
+  generateTextWithMastraAgent,
+  interviewReportEvaluationAgent,
+  interviewReportSummaryAgent,
+} from "@arc/ai-recruitment-copilot-backend/server/agents/mastra/agents/simple-generators";
 
 const SUMMARY_PROMPT = `你是一位面试报告撰写助手。请根据以下面试对话记录，使用面试对话的主要语言撰写一段篇幅相当于中文 200-300 字的面试摘要。
 摘要需包括：面试涉及的主要话题、候选人的整体表现、值得关注的亮点或不足，面试对话记录中，如果用户跳过了某个问题，则该问题视为0分。
@@ -88,21 +91,17 @@ export async function generateInterviewReport(options: {
     return { evaluation: null, summary: null };
   }
 
-  const provider = createAlibabaProvider({ enableThinking: false });
-  const summaryModelId = getRequiredEnv("ALIBABA_FAST_MODEL");
-  const evaluationModelId = getRequiredEnv("INTERVIEW_EVALUATION_MODEL");
-
   const transcriptText = formatTranscript(transcript);
   const questionsText = formatQuestions(questions);
 
   const [summaryResult, evaluationResult] = await Promise.allSettled([
-    generateText({
-      model: provider(summaryModelId),
+    generateTextWithMastraAgent({
+      agent: interviewReportSummaryAgent,
       prompt: SUMMARY_PROMPT.replace("{transcript}", transcriptText),
       temperature: 0.2,
     }),
-    generateObject({
-      model: gateway(evaluationModelId),
+    generateStructuredWithMastraAgent({
+      agent: interviewReportEvaluationAgent,
       prompt: EVALUATION_PROMPT.replace("{questions}", questionsText).replace(
         "{transcript}",
         transcriptText,
@@ -115,7 +114,7 @@ export async function generateInterviewReport(options: {
   const result: InterviewReportResult = { evaluation: null, summary: null };
 
   if (summaryResult.status === "fulfilled") {
-    result.summary = summaryResult.value.text.trim() || null;
+    result.summary = summaryResult.value.trim() || null;
   } else {
     result.summaryError =
       summaryResult.reason instanceof Error
@@ -124,7 +123,7 @@ export async function generateInterviewReport(options: {
   }
 
   if (evaluationResult.status === "fulfilled") {
-    result.evaluation = evaluationResult.value.object;
+    result.evaluation = evaluationResult.value;
   } else {
     result.evaluationError =
       evaluationResult.reason instanceof Error

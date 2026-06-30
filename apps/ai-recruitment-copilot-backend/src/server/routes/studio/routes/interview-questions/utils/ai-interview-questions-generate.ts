@@ -1,10 +1,11 @@
-import { generateObject } from "ai";
 import { z } from "zod";
 import type { InterviewQuestionTemplateQuestionInput } from "@arc/db-schema/interview-question-templates";
 import { generatedInterviewQuestionSchema } from "@arc/db-schema/interview/types";
 import type { GeneratedInterviewQuestion, InterviewQuestion } from "@arc/db-schema/interview/types";
-import { getRequiredEnv } from "@arc/ai-recruitment-copilot-backend/lib/server/env";
-import { createAlibabaProvider } from "@arc/ai-recruitment-copilot-backend/server/agents/provider";
+import {
+  generateStructuredWithMastraAgent,
+  interviewQuestionAgent,
+} from "@arc/ai-recruitment-copilot-backend/server/agents/mastra/agents/simple-generators";
 import {
   formatCandidatesLabel,
   formatCandidatesResumeContext,
@@ -74,9 +75,6 @@ async function generateInterviewQuestionsFromPrompt(options: {
   templateDescription: string | null;
   templateTitle: string;
 }): Promise<InterviewQuestion[]> {
-  const provider = createAlibabaProvider({ enableThinking: false });
-  const modelId = getRequiredEnv("ALIBABA_STRUCTURED_MODEL");
-
   const candidateContext = formatCandidatesLabel(options.candidates);
 
   const prompt = INTERVIEW_QUESTIONS_PROMPT.replace("{hrPrompt}", options.hrPrompt.trim())
@@ -86,19 +84,14 @@ async function generateInterviewQuestionsFromPrompt(options: {
     .replace("{jobContext}", formatJobContext(options.jobDescription))
     .replace("{resumeContext}", formatCandidatesResumeContext(options.candidates));
 
-  const { object } = await generateObject({
-    model: provider(modelId),
+  const object = await generateStructuredWithMastraAgent({
+    agent: interviewQuestionAgent,
     prompt,
     schema: generationSchema,
     temperature: 0.3,
   });
 
-  const parsed = generationSchema.safeParse(object);
-  if (!parsed.success) {
-    throw new Error(parsed.error.issues[0]?.message ?? "AI 生成的面试题校验失败。");
-  }
-
-  return normalizeInterviewQuestions(parsed.data.interviewQuestions);
+  return normalizeInterviewQuestions(object.interviewQuestions);
 }
 
 export async function generateInterviewQuestionTemplateFromPrompt(options: {

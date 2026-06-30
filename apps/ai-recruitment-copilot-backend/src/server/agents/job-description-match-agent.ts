@@ -1,9 +1,10 @@
 import type { JobDescriptionListRecord } from "@arc/shared/job-descriptions";
 import type { ResumeProfile } from "@arc/db-schema/interview/types";
-import { generateText, Output } from "ai";
 import { z } from "zod";
-import { getRequiredEnv } from "@arc/ai-recruitment-copilot-backend/lib/server/env";
-import { createAlibabaProvider } from "./provider";
+import {
+  generateStructuredWithMastraAgent,
+  jobDescriptionMatchAgent,
+} from "@arc/ai-recruitment-copilot-backend/server/agents/mastra/agents/simple-generators";
 
 const MATCH_INSTRUCTIONS = `你是一名招聘匹配助手。你会收到候选人的结构化简历信息与一份在招岗位候选列表，请从中挑选与候选人最匹配的一个。
 
@@ -87,23 +88,13 @@ export async function matchJobDescriptionForResume(
     return { jobDescriptionId: candidates[0].id, reason: "候选岗位只有一个，默认选择。" };
   }
 
-  const provider = createAlibabaProvider({ enableThinking: false });
-  const modelId = getRequiredEnv("ALIBABA_STRUCTURED_MODEL");
-
   const candidateBlock = candidates.map(summarizeJobDescription).join("\n\n");
   const resumeBlock = summarizeResumeProfile(resumeProfile);
 
-  const prompt = `候选人信息：\n${resumeBlock}\n\n候选在招岗位列表：\n${candidateBlock}\n\n请从上面的 id 中挑选一个最匹配的，并按规定 JSON 结构输出。`;
-
-  const { output } = await generateText({
-    instructions: MATCH_INSTRUCTIONS,
-    model: provider(modelId),
-    output: Output.object({
-      description: "候选人与在招岗位的最佳匹配结果",
-      name: "job_description_match",
-      schema: matchResultSchema,
-    }),
-    prompt,
+  const output = await generateStructuredWithMastraAgent({
+    agent: jobDescriptionMatchAgent,
+    prompt: `${MATCH_INSTRUCTIONS}\n\n候选人信息：\n${resumeBlock}\n\n候选在招岗位列表：\n${candidateBlock}\n\n请从上面的 id 中挑选一个最匹配的，并按规定 JSON 结构输出。`,
+    schema: matchResultSchema,
     temperature: 0,
   });
 

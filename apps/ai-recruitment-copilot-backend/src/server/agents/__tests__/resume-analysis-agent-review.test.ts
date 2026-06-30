@@ -6,18 +6,27 @@ import { formatResumeReviewMarkdown } from "@arc/shared/resume-review";
 const mocks = vi.hoisted(() => ({
   buildAttachmentKeyByHash: vi.fn(),
   createAttachment: vi.fn(),
-  createResumeAgent: vi.fn(),
   findAttachmentByContentHash: vi.fn(),
   generateResumeStructured: vi.fn(),
+  generateStructuredWithMastraAgent: vi.fn(),
   parseResumeFast: vi.fn(),
   putObjectBytes: vi.fn(),
+  resumeHardFilterAgent: { id: "resume-hard-filter-agent" },
+  resumeReviewQualitativeAgent: { id: "resume-review-qualitative-agent" },
+  resumeReviewScoringAgent: { id: "resume-review-scoring-agent" },
   sha256HexOfBytes: vi.fn(),
   updateStructuredByHash: vi.fn(),
 }));
 
-vi.mock("../resume-agent", () => ({
-  createResumeAgent: mocks.createResumeAgent,
-}));
+vi.mock(
+  "@arc/ai-recruitment-copilot-backend/server/agents/mastra/agents/simple-generators",
+  () => ({
+    generateStructuredWithMastraAgent: mocks.generateStructuredWithMastraAgent,
+    resumeHardFilterAgent: mocks.resumeHardFilterAgent,
+    resumeReviewQualitativeAgent: mocks.resumeReviewQualitativeAgent,
+    resumeReviewScoringAgent: mocks.resumeReviewScoringAgent,
+  }),
+);
 vi.mock("@arc/shared/file-hash", () => ({ sha256HexOfBytes: mocks.sha256HexOfBytes }));
 vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/s3", () => ({
   buildAttachmentKeyByHash: mocks.buildAttachmentKeyByHash,
@@ -150,26 +159,19 @@ const EXPECTED_REVIEW: ResumeReview = {
 
 // 三阶段 mock：Agent 0 (pass) → Agent 1 → Agent 2。
 function mockThreeAgentPipeline() {
-  mocks.createResumeAgent
-    .mockReturnValueOnce({
-      generate: vi.fn().mockResolvedValue({ output: HARD_FILTER_PASS, text: "{}" }),
-    })
-    .mockReturnValueOnce({
-      generate: vi.fn().mockResolvedValue({ output: QUALITATIVE_OUTPUT, text: "{}" }),
-    })
-    .mockReturnValueOnce({
-      generate: vi.fn().mockResolvedValue({ output: SCORING_OUTPUT, text: "{}" }),
-    });
+  mocks.generateStructuredWithMastraAgent
+    .mockResolvedValueOnce(HARD_FILTER_PASS)
+    .mockResolvedValueOnce(QUALITATIVE_OUTPUT)
+    .mockResolvedValueOnce(SCORING_OUTPUT);
 }
 
 describe("generateResumeReview", () => {
   beforeEach(() => {
-    mocks.createResumeAgent.mockReset();
+    mocks.generateStructuredWithMastraAgent.mockReset();
     vi.useRealTimers();
   });
 
   it("runs three-agent pipeline (hard filter pass + qualitative + scoring) and assembles v4 review", async () => {
-    process.env.ALIBABA_STRUCTURED_MODEL = "qwen-test";
     mockThreeAgentPipeline();
 
     const result = await generateResumeReview({
@@ -180,14 +182,28 @@ describe("generateResumeReview", () => {
     expect(result.structuredReview).toEqual(EXPECTED_REVIEW);
     expect(result.structuredReview.overall.baseScore).toBe(88);
     expect(result.review).toBe(formatResumeReviewMarkdown(EXPECTED_REVIEW));
-    expect(mocks.createResumeAgent).toHaveBeenCalledTimes(3);
-    for (const call of mocks.createResumeAgent.mock.calls) {
-      expect(call[0]).toEqual(expect.objectContaining({ output: expect.any(Object) }));
-    }
+    expect(mocks.generateStructuredWithMastraAgent).toHaveBeenCalledTimes(3);
+    expect(mocks.generateStructuredWithMastraAgent).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({ agent: mocks.resumeHardFilterAgent, schema: expect.any(Object) }),
+    );
+    expect(mocks.generateStructuredWithMastraAgent).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        agent: mocks.resumeReviewQualitativeAgent,
+        schema: expect.any(Object),
+      }),
+    );
+    expect(mocks.generateStructuredWithMastraAgent).toHaveBeenNthCalledWith(
+      3,
+      expect.objectContaining({
+        agent: mocks.resumeReviewScoringAgent,
+        schema: expect.any(Object),
+      }),
+    );
   });
 
   it("injects current server time into resume review model prompts", async () => {
-    process.env.ALIBABA_STRUCTURED_MODEL = "qwen-test";
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-01-02T03:04:05.000Z"));
     mockThreeAgentPipeline();
@@ -197,17 +213,13 @@ describe("generateResumeReview", () => {
       resumeProfile: PROFILE_WITH_DEGREE,
     });
 
-    const hardFilterAgent = mocks.createResumeAgent.mock.results[0]?.value;
-    const qualitativeAgent = mocks.createResumeAgent.mock.results[1]?.value;
-    const scoringAgent = mocks.createResumeAgent.mock.results[2]?.value;
-
-    for (const agent of [hardFilterAgent, qualitativeAgent, scoringAgent]) {
-      expect(agent.generate).toHaveBeenCalledWith(
+    for (const call of mocks.generateStructuredWithMastraAgent.mock.calls) {
+      expect(call[0]).toEqual(
         expect.objectContaining({
           prompt: expect.stringContaining("当前服务端时间（Asia/Shanghai）"),
         }),
       );
-      expect(agent.generate).toHaveBeenCalledWith(
+      expect(call[0]).toEqual(
         expect.objectContaining({
           prompt: expect.stringContaining("2026年1月2日"),
         }),
@@ -216,20 +228,14 @@ describe("generateResumeReview", () => {
   });
 
   it("skips Agent 1/2 when hard filter fails (short-circuit reject)", async () => {
-    process.env.ALIBABA_STRUCTURED_MODEL = "qwen-test";
-
-    // Agent 0 返回硕士门槛，候选人是本科 → 违反。
-    mocks.createResumeAgent.mockReturnValueOnce({
-      generate: vi.fn().mockResolvedValue({ output: HARD_FILTER_FAIL, text: "{}" }),
-    });
+    mocks.generateStructuredWithMastraAgent.mockResolvedValueOnce(HARD_FILTER_FAIL);
 
     const result = await generateResumeReview({
       jobDescription: "岗位要求硕士以上",
       resumeProfile: PROFILE_WITH_DEGREE,
     });
 
-    // 只调了 Agent 0，没调 Agent 1/2。
-    expect(mocks.createResumeAgent).toHaveBeenCalledTimes(1);
+    expect(mocks.generateStructuredWithMastraAgent).toHaveBeenCalledTimes(1);
     expect(result.structuredReview.overall.baseScore).toBe(0);
     expect(result.structuredReview.nextStep.action).toBe("reject");
     expect(result.structuredReview.biasScan.items).toHaveLength(1);
@@ -238,25 +244,17 @@ describe("generateResumeReview", () => {
   });
 
   it("skips hard filter entirely when no JD is provided", async () => {
-    process.env.ALIBABA_STRUCTURED_MODEL = "qwen-test";
-
-    // 无 JD → Agent 0 跳过，只 mock Agent 1 + Agent 2。
-    mocks.createResumeAgent
-      .mockReturnValueOnce({
-        generate: vi.fn().mockResolvedValue({ output: QUALITATIVE_OUTPUT, text: "{}" }),
-      })
-      .mockReturnValueOnce({
-        generate: vi.fn().mockResolvedValue({ output: SCORING_OUTPUT, text: "{}" }),
-      });
+    mocks.generateStructuredWithMastraAgent
+      .mockResolvedValueOnce(QUALITATIVE_OUTPUT)
+      .mockResolvedValueOnce(SCORING_OUTPUT);
 
     const result = await generateResumeReview({
       resumeProfile: PROFILE,
     });
 
     expect(result.structuredReview.overall.baseScore).toBe(88);
-    expect(mocks.createResumeAgent).toHaveBeenCalledTimes(2);
-    const qualitativeAgent = mocks.createResumeAgent.mock.results[0]?.value;
-    const prompt = qualitativeAgent.generate.mock.calls[0]?.[0]?.prompt;
+    expect(mocks.generateStructuredWithMastraAgent).toHaveBeenCalledTimes(2);
+    const prompt = mocks.generateStructuredWithMastraAgent.mock.calls[0]?.[0]?.prompt;
     expect(prompt).toContain("产品六维评分框架");
     expect(prompt).not.toContain("岗位相关性维度");
   });
