@@ -173,7 +173,7 @@ function ResumeReviewGenerationProgress({
             ))}
           </div>
         ) : null}
-        {score !== null ? <p className="text-muted-foreground text-xs">评分预览：{score}</p> : null}
+        {score === null ? null : <p className="text-muted-foreground text-xs">评分预览：{score}</p>}
       </CardContent>
     </Card>
   );

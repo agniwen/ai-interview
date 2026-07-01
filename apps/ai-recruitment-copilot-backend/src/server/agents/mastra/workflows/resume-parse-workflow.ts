@@ -86,28 +86,6 @@ function toWorkflowInput(input: { bytes: Uint8Array; fileName: string; mediaType
   };
 }
 
-function createProgressResumeParseWorkflow(
-  onProgress: NonNullable<RunResumeParseWorkflowOptions["onProgress"]>,
-) {
-  return createResumeParseWorkflow({
-    extractText: (documentInput) =>
-      extractResumeDocumentText({
-        ...documentInput,
-        onProgress,
-      }),
-    hashBytes: sha256HexOfBytes,
-    structureText: async (text) => {
-      onProgress({ type: "structure.started" });
-      const structured = await generateResumeStructured(text);
-      onProgress({
-        preview: buildResumePreview(structured),
-        type: "structure.completed",
-      });
-      return structured;
-    },
-  });
-}
-
 export function createResumeParseWorkflow(deps: ResumeParseWorkflowDeps) {
   const hashResumeStep = createStep({
     execute: async ({ inputData }) => ({
@@ -176,6 +154,28 @@ export function createResumeParseWorkflow(deps: ResumeParseWorkflowDeps) {
       .then(composeResumeParseResultStep)
       .commit()
   );
+}
+
+function createProgressResumeParseWorkflow(
+  onProgress: NonNullable<RunResumeParseWorkflowOptions["onProgress"]>,
+) {
+  return createResumeParseWorkflow({
+    extractText: (documentInput) =>
+      extractResumeDocumentText({
+        ...documentInput,
+        onProgress,
+      }),
+    hashBytes: sha256HexOfBytes,
+    structureText: async (text) => {
+      onProgress({ type: "structure.started" });
+      const structured = await generateResumeStructured(text);
+      onProgress({
+        preview: buildResumePreview(structured),
+        type: "structure.completed",
+      });
+      return structured;
+    },
+  });
 }
 
 export const resumeParseWorkflow = createResumeParseWorkflow({
